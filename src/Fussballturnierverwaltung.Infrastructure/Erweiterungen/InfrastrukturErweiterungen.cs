@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
@@ -33,6 +34,10 @@ public static class InfrastrukturErweiterungen
         services.AddScoped<IRegelwerkRepository, RegelwerkRepository>();
         services.AddScoped<IRankingRegelSetRepository, RankingRegelSetRepository>();
         services.AddScoped<IRankingRegelRepository, RankingRegelRepository>();
+
+        // Spielplan-Repositories
+        services.AddScoped<ISpielRepository, SpielRepository>();
+        services.AddScoped<ITurnierRundeRepository, TurnierRundeRepository>();
 
         return services;
     }

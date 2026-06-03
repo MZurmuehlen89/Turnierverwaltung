@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -32,12 +33,20 @@ builder.Services.AddScoped<TurnierVorlageService>();
 builder.Services.AddScoped<TurnierInstanzService>();
 builder.Services.AddScoped<RegelwerkService>();
 
+// Application Services – Spielplan
+builder.Services.AddScoped<ISpielplanGenerator, RoundRobinGenerator>();
+builder.Services.AddScoped<ISpielplanGenerator, KoRundeGenerator>();
+builder.Services.AddScoped<ISpielplanGenerator, KoRundeMitHinRueckspielGenerator>();
+builder.Services.AddScoped<SpielplanGeneratorFactory>();
+builder.Services.AddScoped<SpielplanService>();
+
 // Console Menüs
 builder.Services.AddScoped<MannschaftMenue>();
 builder.Services.AddScoped<LandVerbandMenue>();
 builder.Services.AddScoped<TurnierVorlageMenue>();
 builder.Services.AddScoped<TurnierInstanzMenue>();
 builder.Services.AddScoped<RegelwerkMenue>();
+builder.Services.AddScoped<SpielplanMenue>();
 builder.Services.AddScoped<HauptMenue>();
 builder.Services.AddScoped<Anwendung>();
 

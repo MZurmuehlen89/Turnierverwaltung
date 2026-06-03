@@ -10,4 +10,5 @@ public interface IMannschaftRepository : IRepository<Mannschaft>
     Task<Mannschaft?> FindenNachIdMitLandAsync(int id, CancellationToken ct = default);
     Task<IReadOnlyList<Mannschaft>> SuchenAsync(string suchbegriff, CancellationToken ct = default);
     Task<IReadOnlyList<Mannschaft>> AlleNachArtFindenAsync(Mannschaftsart art, CancellationToken ct = default);
+    Task<IReadOnlyList<Mannschaft>> FindenNachIdsAsync(IReadOnlyList<int> ids, CancellationToken ct = default);
 }

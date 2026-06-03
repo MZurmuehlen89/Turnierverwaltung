@@ -40,4 +40,10 @@ public class MannschaftRepository(TurnierverwaltungDbContext context)
             .Where(m => m.Mannschaftsart == art)
             .OrderBy(m => m.Name)
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Mannschaft>> FindenNachIdsAsync(IReadOnlyList<int> ids, CancellationToken ct = default)
+        => await Context.Mannschaften
+            .Include(m => m.Land)
+            .Where(m => ids.Contains(m.Id))
+            .ToListAsync(ct);
 }

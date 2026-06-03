@@ -10,7 +10,8 @@ public class HauptMenue(
     LandVerbandMenue landVerbandMenue,
     TurnierInstanzMenue turnierInstanzMenue,
     TurnierVorlageMenue turnierVorlageMenue,
-    RegelwerkMenue regelwerkMenue)
+    RegelwerkMenue regelwerkMenue,
+    SpielplanMenue spielplanMenue)
 {
     private enum Option
     {
@@ -78,6 +79,9 @@ public class HauptMenue(
             case Option.Regelwerke:
                 await regelwerkMenue.AnzeigenAsync(ct);
                 break;
+            case Option.Simulationen:
+                await spielplanMenue.AnzeigenAsync(ct);
+                break;
             default:
                 KonsolenHilfsmittel.NochNichtImplementiert();
                 break;
@@ -92,7 +96,7 @@ public class HauptMenue(
         Option.Turniervorlagen   => "4. Turniervorlagen",
         Option.Regelwerke        => "5. Regelwerke",
         Option.Auslosungen       => "6. Auslosungen",
-        Option.Simulationen      => "7. Simulationen",
+        Option.Simulationen      => "7. Spielplan / Simulationen",
         Option.ImportExport      => "8. Import / Export",
         Option.Einstellungen     => "9. Einstellungen",
         Option.Beenden           => "0. Beenden",
