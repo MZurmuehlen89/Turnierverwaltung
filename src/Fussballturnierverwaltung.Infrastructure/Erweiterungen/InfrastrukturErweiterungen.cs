@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Repositories;
 using Fussballturnierverwaltung.Infrastructure.Seed;
@@ -21,10 +22,17 @@ public static class InfrastrukturErweiterungen
 
         services.AddScoped<SeedDatenService>();
 
-        // Repositories
+        // Stammdaten-Repositories
         services.AddScoped<IMannschaftRepository, MannschaftRepository>();
         services.AddScoped<ILandRepository, LandRepository>();
         services.AddScoped<IVerbandRepository, VerbandRepository>();
+
+        // Turniere-Repositories
+        services.AddScoped<ITurnierVorlageRepository, TurnierVorlageRepository>();
+        services.AddScoped<ITurnierInstanzRepository, TurnierInstanzRepository>();
+        services.AddScoped<IRegelwerkRepository, RegelwerkRepository>();
+        services.AddScoped<IRankingRegelSetRepository, RankingRegelSetRepository>();
+        services.AddScoped<IRankingRegelRepository, RankingRegelRepository>();
 
         return services;
     }

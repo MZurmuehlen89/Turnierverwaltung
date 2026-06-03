@@ -1,10 +1,16 @@
 using Fussballturnierverwaltung.Konsole.Hilfsmittel;
 using Fussballturnierverwaltung.Konsole.Menues.Stammdaten;
+using Fussballturnierverwaltung.Konsole.Menues.Turniere;
 using Spectre.Console;
 
 namespace Fussballturnierverwaltung.Konsole.Menues;
 
-public class HauptMenue(MannschaftMenue mannschaftMenue, LandVerbandMenue landVerbandMenue)
+public class HauptMenue(
+    MannschaftMenue mannschaftMenue,
+    LandVerbandMenue landVerbandMenue,
+    TurnierInstanzMenue turnierInstanzMenue,
+    TurnierVorlageMenue turnierVorlageMenue,
+    RegelwerkMenue regelwerkMenue)
 {
     private enum Option
     {
@@ -62,6 +68,15 @@ public class HauptMenue(MannschaftMenue mannschaftMenue, LandVerbandMenue landVe
                 break;
             case Option.LaenderUndVerbaende:
                 await landVerbandMenue.AnzeigenAsync(ct);
+                break;
+            case Option.Turniere:
+                await turnierInstanzMenue.AnzeigenAsync(ct);
+                break;
+            case Option.Turniervorlagen:
+                await turnierVorlageMenue.AnzeigenAsync(ct);
+                break;
+            case Option.Regelwerke:
+                await regelwerkMenue.AnzeigenAsync(ct);
                 break;
             default:
                 KonsolenHilfsmittel.NochNichtImplementiert();

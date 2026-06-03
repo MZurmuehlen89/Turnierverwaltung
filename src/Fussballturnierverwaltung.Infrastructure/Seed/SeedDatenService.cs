@@ -52,6 +52,61 @@ public class SeedDatenService
             "{Nat} Nationalmannschaften und {Ver} Vereinsmannschaften angelegt.",
             nationalmannschaften.Count, vereinsmannschaften.Count);
 
+        // 4. RankingRegeln
+        var rankingRegeln = RegelwerkeSeedDaten.RankingRegelnErstellen();
+        _context.RankingRegeln.AddRange(rankingRegeln);
+        await _context.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("{Anzahl} RankingRegeln angelegt.", rankingRegeln.Count);
+
+        // 5. RankingRegelSets + Eintraege
+        var (sets, eintraegeDefinitionen) = RegelwerkeSeedDaten.RankingRegelSetsErstellen();
+        _context.RankingRegelSets.AddRange(sets);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var setLookup   = sets.ToDictionary(s => s.Name, s => s.Id);
+        var regelLookup = rankingRegeln.ToDictionary(r => r.Regelart, r => r.Id);
+
+        foreach (var (setName, reihenfolge, regelart) in eintraegeDefinitionen)
+        {
+            _context.RankingRegelSetEintraege.Add(new Domain.Entitaeten.Regelwerke.RankingRegelSetEintrag
+            {
+                RankingRegelSetId = setLookup[setName],
+                RankingRegelId    = regelLookup[regelart],
+                Reihenfolge       = reihenfolge
+            });
+        }
+        await _context.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("{Anzahl} RankingRegelSets mit Einträgen angelegt.", sets.Count);
+
+        // 6. Regelwerke (mit PunkteRegeln + EntscheidungsVerfahren)
+        var regelwerkeDefinitionen = RegelwerkeSeedDaten.RegelwerkeErstellen(setLookup);
+        foreach (var (regelwerk, sieg, unentschieden, niederlage, verfahren) in regelwerkeDefinitionen)
+        {
+            regelwerk.PunkteRegeln.Add(new Domain.Entitaeten.Regelwerke.PunkteRegel
+            {
+                PunkteFuerSieg          = sieg,
+                PunkteFuerUnentschieden = unentschieden,
+                PunkteFuerNiederlage    = niederlage
+            });
+            for (int i = 0; i < verfahren.Length; i++)
+            {
+                regelwerk.Entscheidungsverfahren.Add(new Domain.Entitaeten.Regelwerke.EntscheidungsVerfahren
+                {
+                    Reihenfolge  = i + 1,
+                    VerfahrenArt = verfahren[i]
+                });
+            }
+            _context.Regelwerke.Add(regelwerk);
+        }
+        await _context.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("{Anzahl} Regelwerke angelegt.", regelwerkeDefinitionen.Count);
+
+        // 7. TurnierVorlagen
+        var vorlagen = TurnierVorlagenSeedDaten.Erstellen();
+        _context.TurnierVorlagen.AddRange(vorlagen);
+        await _context.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("{Anzahl} Turniervorlagen angelegt.", vorlagen.Count);
+
         _logger.LogInformation("Seed-Daten erfolgreich abgeschlossen.");
     }
 }
