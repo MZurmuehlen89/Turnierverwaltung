@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Infrastructure.Erweiterungen;
 using Fussballturnierverwaltung.Infrastructure.Seed;
 using Fussballturnierverwaltung.Konsole;
@@ -11,6 +12,15 @@ using Microsoft.Extensions.Hosting;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddInfrastruktur(builder.Configuration);
+
+// Validierungsservices
+builder.Services.AddScoped<MannschaftValidator>();
+builder.Services.AddScoped<TurnierValidator>();
+builder.Services.AddScoped<RegelwerkValidator>();
+builder.Services.AddScoped<RankingRegelSetValidator>();
+builder.Services.AddScoped<SpielErgebnisValidator>();
+builder.Services.AddScoped<AuslosungsValidator>();
+builder.Services.AddScoped<ImportValidator>();
 
 // Application Services – Stammdaten
 builder.Services.AddScoped<MannschaftService>();

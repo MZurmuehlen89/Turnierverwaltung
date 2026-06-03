@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
+using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Microsoft.Extensions.Logging;
 
@@ -7,6 +8,7 @@ namespace Fussballturnierverwaltung.Application.Turniere;
 public class RegelwerkService(
     IRegelwerkRepository repository,
     IRankingRegelSetRepository rankingRegelSetRepository,
+    RegelwerkValidator validator,
     ILogger<RegelwerkService> logger)
 {
     public Task<IReadOnlyList<Regelwerk>> AlleAbrufenAsync(CancellationToken ct = default)
@@ -20,8 +22,7 @@ public class RegelwerkService(
 
     public async Task<Regelwerk> ErstellenAsync(RegelwerkErstellenEingabe eingabe, CancellationToken ct = default)
     {
-        if (eingabe.PunkteFuerSieg < eingabe.PunkteFuerUnentschieden)
-            throw new ArgumentException("Punkte für Sieg müssen größer als für Unentschieden sein.");
+        ValidationException.WerfenWennUngueltig(validator.Validieren(eingabe));
 
         var regelwerk = new Regelwerk
         {

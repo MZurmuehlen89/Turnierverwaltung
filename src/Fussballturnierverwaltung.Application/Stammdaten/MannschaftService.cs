@@ -1,11 +1,15 @@
 using Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
+using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace Fussballturnierverwaltung.Application.Stammdaten;
 
-public class MannschaftService(IMannschaftRepository repository, ILogger<MannschaftService> logger)
+public class MannschaftService(
+    IMannschaftRepository repository,
+    MannschaftValidator validator,
+    ILogger<MannschaftService> logger)
 {
     public Task<IReadOnlyList<Mannschaft>> AlleAbrufenAsync(CancellationToken ct = default)
         => repository.AlleFindenAsync(ct);
@@ -24,8 +28,7 @@ public class MannschaftService(IMannschaftRepository repository, ILogger<Mannsch
 
     public async Task<Mannschaft> ErstellenAsync(MannschaftErstellenEingabe eingabe, CancellationToken ct = default)
     {
-        RatingsValidieren(eingabe.OffensivRating, eingabe.MittelfeldRating, eingabe.DefensivRating,
-            eingabe.Heimstaerke, eingabe.Auswaertsstaerke);
+        ValidationException.WerfenWennUngueltig(validator.Validieren(eingabe));
 
         var mannschaft = new Mannschaft
         {
@@ -50,8 +53,7 @@ public class MannschaftService(IMannschaftRepository repository, ILogger<Mannsch
         var mannschaft = await repository.FindenNachIdAsync(id, ct)
             ?? throw new InvalidOperationException($"Mannschaft mit ID {id} nicht gefunden.");
 
-        RatingsValidieren(eingabe.OffensivRating, eingabe.MittelfeldRating, eingabe.DefensivRating,
-            eingabe.Heimstaerke, eingabe.Auswaertsstaerke);
+        ValidationException.WerfenWennUngueltig(validator.Validieren(eingabe));
 
         mannschaft.Name             = eingabe.Name.Trim();
         mannschaft.Kurzname         = eingabe.Kurzname.Trim().ToUpperInvariant();
@@ -75,12 +77,4 @@ public class MannschaftService(IMannschaftRepository repository, ILogger<Mannsch
         logger.LogInformation("Mannschaft '{Name}' (ID {Id}) gelöscht.", mannschaft.Name, mannschaft.Id);
     }
 
-    private static void RatingsValidieren(params int[] werte)
-    {
-        foreach (var w in werte)
-        {
-            if (w < 1 || w > 100)
-                throw new ArgumentException($"Rating muss zwischen 1 und 100 liegen (war: {w}).");
-        }
-    }
 }

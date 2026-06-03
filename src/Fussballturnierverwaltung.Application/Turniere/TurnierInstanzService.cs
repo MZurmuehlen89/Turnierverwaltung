@@ -1,12 +1,16 @@
 using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
+using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace Fussballturnierverwaltung.Application.Turniere;
 
-public class TurnierInstanzService(ITurnierInstanzRepository repository, ILogger<TurnierInstanzService> logger)
+public class TurnierInstanzService(
+    ITurnierInstanzRepository repository,
+    TurnierValidator validator,
+    ILogger<TurnierInstanzService> logger)
 {
     public Task<IReadOnlyList<TurnierInstanz>> AlleAbrufenAsync(CancellationToken ct = default)
         => repository.AlleFindenMitVorlageAsync(ct);
@@ -20,9 +24,7 @@ public class TurnierInstanzService(ITurnierInstanzRepository repository, ILogger
         IReadOnlyList<TurnierRundeEingabe> rundenEingaben,
         CancellationToken ct = default)
     {
-        var validierung = RundenUebergaengeValidieren(rundenEingaben);
-        if (validierung.IstUngueltig)
-            throw new InvalidOperationException($"Ungültige Rundenübergänge:{Environment.NewLine}{validierung.FehlerZusammenfassung}");
+        ValidationException.WerfenWennUngueltig(validator.RundenValidieren(rundenEingaben));
 
         var instanz = new TurnierInstanz
         {
