@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Fussballturnierverwaltung.Application/Fussballturnierverwaltung.Application.csproj" />
+    <Project Path="src/Fussballturnierverwaltung.Console/Fussballturnierverwaltung.Console.csproj" />
+    <Project Path="src/Fussballturnierverwaltung.Domain/Fussballturnierverwaltung.Domain.csproj" />
+    <Project Path="src/Fussballturnierverwaltung.Infrastructure/Fussballturnierverwaltung.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Fussballturnierverwaltung.Tests/Fussballturnierverwaltung.Tests.csproj" />
+  </Folder>
+</Solution>
