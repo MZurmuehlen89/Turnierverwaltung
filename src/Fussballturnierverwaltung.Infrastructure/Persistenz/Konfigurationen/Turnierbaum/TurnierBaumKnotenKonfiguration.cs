@@ -12,11 +12,13 @@ public class TurnierBaumKnotenKonfiguration : IEntityTypeConfiguration<TurnierBa
         builder.HasKey(k => k.Id);
         builder.Property(k => k.Runde).IsRequired();
 
-        // Primäre Elternbeziehung: Knoten gehört zu einem Baum (CASCADE)
+        // NoAction statt Cascade: TurnierBaum ↔ TurnierBaumKnoten sind bidirektional verknüpft
+        // (WurzelKnotenId in TurnierBaum). SQL Server lehnt CASCADE bei Zyklen ab.
+        // Die Anwendungsschicht ist für die korrekte Löschreihenfolge verantwortlich.
         builder.HasOne(k => k.TurnierBaum)
             .WithMany(b => b.Knoten)
             .HasForeignKey(k => k.TurnierBaumId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
 
         // Selbstreferenzen: NoAction — Löschreihenfolge liegt bei der App-Logik
         builder.HasOne(k => k.ElternKnoten)
@@ -34,10 +36,10 @@ public class TurnierBaumKnotenKonfiguration : IEntityTypeConfiguration<TurnierBa
             .HasForeignKey(k => k.RechterKindKnotenId)
             .OnDelete(DeleteBehavior.NoAction);
 
-        // Knoten kann optional ein Spiel referenzieren; Spiel-Löschung setzt SpielId auf null
+        // NoAction statt SetNull: verhindert zusätzlichen Cascade-Pfad über Spiele
         builder.HasOne(k => k.Spiel)
             .WithMany()
             .HasForeignKey(k => k.SpielId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }

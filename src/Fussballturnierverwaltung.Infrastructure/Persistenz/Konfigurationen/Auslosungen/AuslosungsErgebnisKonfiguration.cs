@@ -28,9 +28,10 @@ public class AuslosungsErgebnisKonfiguration : IEntityTypeConfiguration<Auslosun
             .HasForeignKey(e => e.AuswaertsMannschaftId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // NoAction: verhindert Cascade-Pfad TurnierInstanzen → Auslosungen → AuslosungsErgebnisse → TurnierBaumKnoten
         builder.HasOne(e => e.ZugeordneterTurnierBaumKnoten)
             .WithMany()
             .HasForeignKey(e => e.ZugeordneterTurnierBaumKnotenId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }
