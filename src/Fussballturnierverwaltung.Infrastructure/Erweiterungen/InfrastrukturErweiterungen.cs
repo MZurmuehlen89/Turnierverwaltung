@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
+using Fussballturnierverwaltung.Infrastructure.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +16,8 @@ public static class InfrastrukturErweiterungen
             options.UseSqlServer(
                 configuration.GetConnectionString("Standard"),
                 sql => sql.MigrationsAssembly(typeof(TurnierverwaltungDbContext).Assembly.FullName)));
+
+        services.AddScoped<SeedDatenService>();
 
         return services;
     }
