@@ -1,4 +1,6 @@
+using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
+using Fussballturnierverwaltung.Infrastructure.Repositories;
 using Fussballturnierverwaltung.Infrastructure.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -18,6 +20,11 @@ public static class InfrastrukturErweiterungen
                 sql => sql.MigrationsAssembly(typeof(TurnierverwaltungDbContext).Assembly.FullName)));
 
         services.AddScoped<SeedDatenService>();
+
+        // Repositories
+        services.AddScoped<IMannschaftRepository, MannschaftRepository>();
+        services.AddScoped<ILandRepository, LandRepository>();
+        services.AddScoped<IVerbandRepository, VerbandRepository>();
 
         return services;
     }

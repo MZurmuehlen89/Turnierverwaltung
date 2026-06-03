@@ -1,19 +1,38 @@
+using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Infrastructure.Erweiterungen;
 using Fussballturnierverwaltung.Infrastructure.Seed;
+using Fussballturnierverwaltung.Konsole;
+using Fussballturnierverwaltung.Konsole.Menues;
+using Fussballturnierverwaltung.Konsole.Menues.Stammdaten;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddInfrastruktur(builder.Configuration);
 
+// Application Services
+builder.Services.AddScoped<MannschaftService>();
+builder.Services.AddScoped<LandService>();
+builder.Services.AddScoped<VerbandService>();
+
+// Console Menüs
+builder.Services.AddScoped<MannschaftMenue>();
+builder.Services.AddScoped<LandVerbandMenue>();
+builder.Services.AddScoped<HauptMenue>();
+builder.Services.AddScoped<Anwendung>();
+
 var host = builder.Build();
 
-// Seed-Daten beim ersten Start anlegen
+// Seed beim ersten Start
 using (var scope = host.Services.CreateScope())
 {
     var seedService = scope.ServiceProvider.GetRequiredService<SeedDatenService>();
     await seedService.InitialisierenAsync();
 }
 
-// Platzhalter bis Schritt 6 (Konsolen-Menüs)
-Console.WriteLine("Fussballturnierverwaltung gestartet.");
+// Anwendung starten
+using (var scope = host.Services.CreateScope())
+{
+    var anwendung = scope.ServiceProvider.GetRequiredService<Anwendung>();
+    await anwendung.StartenAsync();
+}
