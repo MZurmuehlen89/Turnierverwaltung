@@ -4,6 +4,7 @@ using Fussballturnierverwaltung.Application.Spiele.Eingaben;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Konsole.Menues.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -17,6 +18,7 @@ public class SpielplanMenue(
     SpielplanService spielplanService,
     SpielErgebnisService ergebnisService,
     TabellenService tabellenService,
+    TurnierBaumMenue turnierBaumMenue,
     TurnierInstanzService instanzService,
     MannschaftService mannschaftService,
     SpielplanGeneratorFactory generatorFactory)
@@ -28,6 +30,7 @@ public class SpielplanMenue(
         ErgebnisErfassen,
         ErgebnisLoeschen,
         TabelleAnzeigen,
+        TurnierBaum,
         Zurueck
     }
 
@@ -45,12 +48,13 @@ public class SpielplanMenue(
                         Option.ErgebnisErfassen    => "Spielergebnis erfassen",
                         Option.ErgebnisLoeschen    => "Spielergebnis löschen",
                         Option.TabelleAnzeigen     => "Tabelle / Standings anzeigen",
+                        Option.TurnierBaum         => "Turnierbaum / Bracket",
                         Option.Zurueck             => "← Zurück",
                         _                          => o.ToString()
                     })
                     .AddChoices(Option.SpielplanGenerieren, Option.SpielplanAnzeigen,
                                 Option.ErgebnisErfassen, Option.ErgebnisLoeschen,
-                                Option.TabelleAnzeigen, Option.Zurueck));
+                                Option.TabelleAnzeigen, Option.TurnierBaum, Option.Zurueck));
 
             if (auswahl == Option.Zurueck) break;
 
@@ -68,6 +72,7 @@ public class SpielplanMenue(
             case Option.ErgebnisErfassen:    await ErgebnisErfassenAsync(ct);    break;
             case Option.ErgebnisLoeschen:    await ErgebnisLoeschenAsync(ct);    break;
             case Option.TabelleAnzeigen:     await TabelleAnzeigenAsync(ct);     break;
+            case Option.TurnierBaum:         await turnierBaumMenue.AnzeigenAsync(ct); break;
         }
     }
 
