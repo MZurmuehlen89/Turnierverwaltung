@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
@@ -6,6 +7,7 @@ using Fussballturnierverwaltung.Infrastructure.Erweiterungen;
 using Fussballturnierverwaltung.Infrastructure.Seed;
 using Fussballturnierverwaltung.Konsole;
 using Fussballturnierverwaltung.Konsole.Menues;
+using Fussballturnierverwaltung.Konsole.Menues.Auslosungen;
 using Fussballturnierverwaltung.Konsole.Menues.Stammdaten;
 using Fussballturnierverwaltung.Konsole.Menues.Turniere;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +35,9 @@ builder.Services.AddScoped<TurnierVorlageService>();
 builder.Services.AddScoped<TurnierInstanzService>();
 builder.Services.AddScoped<RegelwerkService>();
 
+// Application Services – Auslosungen
+builder.Services.AddScoped<AuslosungService>();
+
 // Application Services – Spielplan
 builder.Services.AddScoped<ISpielplanGenerator, RoundRobinGenerator>();
 builder.Services.AddScoped<ISpielplanGenerator, KoRundeGenerator>();
@@ -47,6 +52,7 @@ builder.Services.AddScoped<TurnierVorlageMenue>();
 builder.Services.AddScoped<TurnierInstanzMenue>();
 builder.Services.AddScoped<RegelwerkMenue>();
 builder.Services.AddScoped<SpielplanMenue>();
+builder.Services.AddScoped<AuslosungMenue>();
 builder.Services.AddScoped<HauptMenue>();
 builder.Services.AddScoped<Anwendung>();
 

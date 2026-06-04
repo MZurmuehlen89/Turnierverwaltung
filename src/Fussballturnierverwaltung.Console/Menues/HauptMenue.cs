@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Konsole.Hilfsmittel;
+using Fussballturnierverwaltung.Konsole.Menues.Auslosungen;
 using Fussballturnierverwaltung.Konsole.Menues.Stammdaten;
 using Fussballturnierverwaltung.Konsole.Menues.Turniere;
 using Spectre.Console;
@@ -11,7 +12,8 @@ public class HauptMenue(
     TurnierInstanzMenue turnierInstanzMenue,
     TurnierVorlageMenue turnierVorlageMenue,
     RegelwerkMenue regelwerkMenue,
-    SpielplanMenue spielplanMenue)
+    SpielplanMenue spielplanMenue,
+    AuslosungMenue auslosungMenue)
 {
     private enum Option
     {
@@ -78,6 +80,9 @@ public class HauptMenue(
                 break;
             case Option.Regelwerke:
                 await regelwerkMenue.AnzeigenAsync(ct);
+                break;
+            case Option.Auslosungen:
+                await auslosungMenue.AnzeigenAsync(ct);
                 break;
             case Option.Simulationen:
                 await spielplanMenue.AnzeigenAsync(ct);

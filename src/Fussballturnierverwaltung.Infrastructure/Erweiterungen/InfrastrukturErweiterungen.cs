@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
@@ -38,6 +39,9 @@ public static class InfrastrukturErweiterungen
         // Spielplan-Repositories
         services.AddScoped<ISpielRepository, SpielRepository>();
         services.AddScoped<ITurnierRundeRepository, TurnierRundeRepository>();
+
+        // Auslosungs-Repository
+        services.AddScoped<IAuslosungRepository, AuslosungRepository>();
 
         return services;
     }
