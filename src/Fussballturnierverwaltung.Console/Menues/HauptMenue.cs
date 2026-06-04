@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Konsole.Hilfsmittel;
 using Fussballturnierverwaltung.Konsole.Menues.Auslosungen;
+using Fussballturnierverwaltung.Konsole.Menues.ImportExport;
 using Fussballturnierverwaltung.Konsole.Menues.Stammdaten;
 using Fussballturnierverwaltung.Konsole.Menues.Turniere;
 using Spectre.Console;
@@ -13,7 +14,8 @@ public class HauptMenue(
     TurnierVorlageMenue turnierVorlageMenue,
     RegelwerkMenue regelwerkMenue,
     SpielplanMenue spielplanMenue,
-    AuslosungMenue auslosungMenue)
+    AuslosungMenue auslosungMenue,
+    ImportExportMenue importExportMenue)
 {
     private enum Option
     {
@@ -86,6 +88,9 @@ public class HauptMenue(
                 break;
             case Option.Simulationen:
                 await spielplanMenue.AnzeigenAsync(ct);
+                break;
+            case Option.ImportExport:
+                await importExportMenue.AnzeigenAsync(ct);
                 break;
             default:
                 KonsolenHilfsmittel.NochNichtImplementiert();
