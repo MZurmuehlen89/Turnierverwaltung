@@ -1,0 +1,182 @@
+using Fussballturnierverwaltung.Application.Spiele;
+using Fussballturnierverwaltung.Application.Spiele.Eingaben;
+using Fussballturnierverwaltung.Application.Spielplan;
+using Fussballturnierverwaltung.Application.Turnierbaum;
+using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Domain.Entitaeten.Simulation;
+using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
+using Fussballturnierverwaltung.Domain.Enums;
+using Microsoft.Extensions.Logging;
+
+namespace Fussballturnierverwaltung.Application.Simulation;
+
+public class SimulationsService(
+    ISpielRepository spielRepository,
+    ITurnierInstanzRepository instanzRepository,
+    SpielErgebnisService ergebnisService,
+    TurnierBaumService turnierBaumService,
+    ISimulationsLaufRepository laufRepository,
+    ILogger<SimulationsService> logger)
+{
+    public Task<IReadOnlyList<SimulationsLauf>> LaeufeAbrufenAsync(
+        int turnierInstanzId, CancellationToken ct = default)
+        => laufRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
+
+    // ── Ein einzelnes Spiel ───────────────────────────────────────────────
+
+    /// <summary>Simuliert ein einzelnes Spiel und speichert das Ergebnis.</summary>
+    public async Task<SimulationsErgebnis> SpielSimulierenAsync(
+        int spielId,
+        SimulationsModus modus,
+        Random? rng = null,
+        CancellationToken ct = default)
+    {
+        var spiel = await spielRepository.FindenNachIdFuerSimulationAsync(spielId, ct)
+            ?? throw new InvalidOperationException($"Spiel {spielId} nicht gefunden.");
+
+        if (spiel.Status == SpielStatus.Abgeschlossen)
+            throw new InvalidOperationException(
+                $"Spiel #{spiel.Spielnummer} ist bereits abgeschlossen.");
+
+        rng ??= new Random();
+        var verfahren = spiel.TurnierRunde?.Regelwerk?.Entscheidungsverfahren
+            .OrderBy(v => v.Reihenfolge).ToList() ?? [];
+
+        bool ausfuehrlich = modus == SimulationsModus.AusfuehrlicheSimulation;
+        var ergebnis = SimulationsEngine.Simulieren(
+            spiel.HeimMannschaft, spiel.AuswaertsMannschaft, verfahren, ausfuehrlich, rng);
+
+        await SpeichernAsync(spiel, ergebnis, ct);
+
+        logger.LogInformation(
+            "Spiel #{Nr} simuliert: {Heim} {H}:{G} {Gast} ({Art})",
+            spiel.Spielnummer, spiel.HeimMannschaft.Name,
+            ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,
+            spiel.AuswaertsMannschaft.Name, ergebnis.EntscheidungArt);
+
+        return ergebnis;
+    }
+
+    // ── Eine Runde ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Simuliert alle noch nicht abgeschlossenen Spiele einer Runde.
+    /// Gibt die Anzahl simulierter Spiele zurück.
+    /// </summary>
+    public async Task<int> RundeSimulierenAsync(
+        int turnierRundeId,
+        SimulationsModus modus,
+        int? seed = null,
+        CancellationToken ct = default)
+    {
+        var spiele = await spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
+        var offene = spiele.Where(s => s.Status != SpielStatus.Abgeschlossen).ToList();
+
+        if (!offene.Any()) return 0;
+
+        var rng = seed.HasValue ? new Random(seed.Value) : new Random();
+        int simuliert = 0;
+
+        foreach (var spiel in offene)
+        {
+            await SpielSimulierenAsync(spiel.Id, modus, rng, ct);
+            simuliert++;
+        }
+
+        logger.LogInformation("Runde {Id}: {Anz} Spiel(e) simuliert.", turnierRundeId, simuliert);
+        return simuliert;
+    }
+
+    // ── Ganzes Turnier ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Simuliert alle offenen Spiele des Turniers (Runde für Runde).
+    /// Nach jeder K.-o.-Runde werden Sieger fortgeschrieben.
+    /// Gibt einen SimulationsLauf zurück.
+    /// </summary>
+    public async Task<SimulationsLauf> TurnierSimulierenAsync(
+        int turnierInstanzId,
+        SimulationsModus modus,
+        int? seed = null,
+        CancellationToken ct = default)
+    {
+        int tatsaecklicherSeed = seed ?? new Random().Next();
+        var rng = new Random(tatsaecklicherSeed);
+
+        var lauf = new SimulationsLauf
+        {
+            TurnierInstanzId = turnierInstanzId,
+            StartZeitpunkt   = DateTime.UtcNow,
+            ZufallsSeed      = tatsaecklicherSeed,
+            Beschreibung     = $"{modus} (Seed: {tatsaecklicherSeed})"
+        };
+        await laufRepository.HinzufuegenAsync(lauf, ct);
+
+        var instanz = await instanzRepository.FindenNachIdMitRundenAsync(turnierInstanzId, ct)
+            ?? throw new InvalidOperationException($"TurnierInstanz {turnierInstanzId} nicht gefunden.");
+
+        int gesamtSimuliert = 0;
+        var runden = instanz.Runden.OrderBy(r => r.Reihenfolge).ToList();
+
+        foreach (var runde in runden)
+        {
+            var spiele = await spielRepository.AlleNachRundeAsync(runde.Id, ct);
+            var offene = spiele.Where(s => s.Status != SpielStatus.Abgeschlossen).ToList();
+
+            foreach (var spiel in offene)
+            {
+                await SpielSimulierenAsync(spiel.Id, modus, rng, ct);
+                gesamtSimuliert++;
+            }
+
+            // Nach K.-o.-Runden: Sieger in den Bracket fortschreiben
+            bool istKo = runde.Rundenart is Rundenart.KoRunde
+                                         or Rundenart.KoRundeMitHinUndRueckspiel
+                                         or Rundenart.Finale
+                                         or Rundenart.SpielUmPlatzDrei;
+            if (istKo && offene.Any())
+            {
+                try { await turnierBaumService.SiegerFortsteiernAsync(turnierInstanzId, ct); }
+                catch { /* Kein Turnierbaum vorhanden — kein Fehler */ }
+            }
+        }
+
+        lauf.EndZeitpunkt = DateTime.UtcNow;
+        await laufRepository.AktualisierenAsync(lauf, ct);
+
+        logger.LogInformation(
+            "Turnier {Id} simuliert: {Anz} Spiel(e), Seed {Seed}.",
+            turnierInstanzId, gesamtSimuliert, tatsaecklicherSeed);
+
+        return lauf;
+    }
+
+    // ── Speichern ─────────────────────────────────────────────────────────
+
+    private async Task SpeichernAsync(Spiel spiel, SimulationsErgebnis sim, CancellationToken ct)
+    {
+        var eingabe = new ErgebnisErfassenEingabe(
+            sim.HeimToreRegulaer,
+            sim.AuswaertsToreRegulaer,
+            sim.EntscheidungArt,
+            sim.HeimToreVerlaengerung,
+            sim.AuswaertsToreVerlaengerung,
+            sim.HeimElfmetertore,
+            sim.AuswaertsElfmetertore);
+
+        await ergebnisService.ErgebnisErfassenAsync(spiel.Id, eingabe, ct);
+
+        if (sim.Ereignisse.Any())
+        {
+            var dbEreignisse = sim.Ereignisse.Select(e => new SpielEreignis
+            {
+                SpielId      = spiel.Id,
+                Minute       = e.Minute,
+                EreignisArt  = e.Art,
+                MannschaftId = e.IstHeim ? spiel.HeimMannschaftId : spiel.AuswaertsMannschaftId,
+                Beschreibung = e.Beschreibung
+            });
+            await spielRepository.EreignisseHinzufuegenAsync(spiel.Id, dbEreignisse, ct);
+        }
+    }
+}

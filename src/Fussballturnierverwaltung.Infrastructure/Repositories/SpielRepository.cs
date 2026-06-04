@@ -79,4 +79,23 @@ public class SpielRepository(TurnierverwaltungDbContext context)
         spiel.Status = SpielStatus.Geplant;
         await Context.SaveChangesAsync(ct);
     }
+
+    public async Task<Spiel?> FindenNachIdFuerSimulationAsync(int id, CancellationToken ct = default)
+        => await Context.Spiele
+            .Include(s => s.HeimMannschaft)
+            .Include(s => s.AuswaertsMannschaft)
+            .Include(s => s.Ergebnis)
+            .Include(s => s.TurnierRunde)
+                .ThenInclude(r => r.Regelwerk)
+                    .ThenInclude(rw => rw.Entscheidungsverfahren.OrderBy(e => e.Reihenfolge))
+            .FirstOrDefaultAsync(s => s.Id == id, ct);
+
+    public async Task EreignisseHinzufuegenAsync(
+        int spielId, IEnumerable<SpielEreignis> ereignisse, CancellationToken ct = default)
+    {
+        foreach (var e in ereignisse)
+            e.SpielId = spielId;
+        await Context.SpielEreignisse.AddRangeAsync(ereignisse, ct);
+        await Context.SaveChangesAsync(ct);
+    }
 }
