@@ -1,4 +1,6 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Spiele;
+using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
@@ -37,6 +39,10 @@ builder.Services.AddScoped<RegelwerkService>();
 
 // Application Services – Auslosungen
 builder.Services.AddScoped<AuslosungService>();
+
+// Application Services – Ergebnisse & Tabelle
+builder.Services.AddScoped<SpielErgebnisService>();
+builder.Services.AddScoped<TabellenService>();
 
 // Application Services – Spielplan
 builder.Services.AddScoped<ISpielplanGenerator, RoundRobinGenerator>();

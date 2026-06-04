@@ -1,5 +1,8 @@
 using Fussballturnierverwaltung.Application.Spielplan;
+using Fussballturnierverwaltung.Application.Spiele;
+using Fussballturnierverwaltung.Application.Spiele.Eingaben;
 using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
@@ -12,11 +15,21 @@ namespace Fussballturnierverwaltung.Konsole.Menues.Turniere;
 
 public class SpielplanMenue(
     SpielplanService spielplanService,
+    SpielErgebnisService ergebnisService,
+    TabellenService tabellenService,
     TurnierInstanzService instanzService,
     MannschaftService mannschaftService,
     SpielplanGeneratorFactory generatorFactory)
 {
-    private enum Option { SpielplanGenerieren, SpielplanAnzeigen, Zurueck }
+    private enum Option
+    {
+        SpielplanGenerieren,
+        SpielplanAnzeigen,
+        ErgebnisErfassen,
+        ErgebnisLoeschen,
+        TabelleAnzeigen,
+        Zurueck
+    }
 
     public async Task AnzeigenAsync(CancellationToken ct = default)
     {
@@ -29,10 +42,15 @@ public class SpielplanMenue(
                     {
                         Option.SpielplanGenerieren => "Spielplan für eine Runde generieren",
                         Option.SpielplanAnzeigen   => "Spielplan einer Runde anzeigen",
+                        Option.ErgebnisErfassen    => "Spielergebnis erfassen",
+                        Option.ErgebnisLoeschen    => "Spielergebnis löschen",
+                        Option.TabelleAnzeigen     => "Tabelle / Standings anzeigen",
                         Option.Zurueck             => "← Zurück",
                         _                          => o.ToString()
                     })
-                    .AddChoices(Option.SpielplanGenerieren, Option.SpielplanAnzeigen, Option.Zurueck));
+                    .AddChoices(Option.SpielplanGenerieren, Option.SpielplanAnzeigen,
+                                Option.ErgebnisErfassen, Option.ErgebnisLoeschen,
+                                Option.TabelleAnzeigen, Option.Zurueck));
 
             if (auswahl == Option.Zurueck) break;
 
@@ -47,6 +65,9 @@ public class SpielplanMenue(
         {
             case Option.SpielplanGenerieren: await SpielplanGenerierenAsync(ct); break;
             case Option.SpielplanAnzeigen:   await SpielplanAnzeigenAsync(ct);   break;
+            case Option.ErgebnisErfassen:    await ErgebnisErfassenAsync(ct);    break;
+            case Option.ErgebnisLoeschen:    await ErgebnisLoeschenAsync(ct);    break;
+            case Option.TabelleAnzeigen:     await TabelleAnzeigenAsync(ct);     break;
         }
     }
 
@@ -170,6 +191,204 @@ public class SpielplanMenue(
                 .Title("Runde:")
                 .UseConverter(r => $"{r.Reihenfolge}. {r.Name} [{r.Rundenart}] ({r.EingangsMannschaftsanzahl} Teams)")
                 .AddChoices(instanz.Runden.OrderBy(r => r.Reihenfolge)));
+    }
+
+    // ── Ergebnis erfassen ─────────────────────────────────────────────────
+
+    private async Task ErgebnisErfassenAsync(CancellationToken ct)
+    {
+        KonsolenHilfsmittel.Kopf("Spielergebnis erfassen");
+
+        var instanz = await TurnierInstanzAuswaehlenAsync(ct);
+        if (instanz is null) return;
+
+        var runde = RundeAuswaehlen(instanz);
+        if (runde is null) return;
+
+        var spiele = await ergebnisService.AlleNachRundeAsync(runde.Id, ct);
+        var offene  = spiele.Where(s => s.Status != SpielStatus.Abgeschlossen).ToList();
+
+        if (!offene.Any())
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen("Alle Spiele dieser Runde haben bereits ein Ergebnis.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        var spiel = AnsiConsole.Prompt(
+            new SelectionPrompt<Spiel>()
+                .Title("Spiel auswählen:")
+                .UseConverter(s => $"#{s.Spielnummer}  {s.HeimMannschaft?.Name ?? "?"} – {s.AuswaertsMannschaft?.Name ?? "?"}")
+                .AddChoices(offene));
+
+        AnsiConsole.MarkupLine($"\n[bold]{Markup.Escape(spiel.HeimMannschaft?.Name ?? "Heim")}[/] " +
+                               $"vs [bold]{Markup.Escape(spiel.AuswaertsMannschaft?.Name ?? "Auswärts")}[/]\n");
+
+        int heimTore     = AnsiConsole.Prompt(new TextPrompt<int>($"Tore {Markup.Escape(spiel.HeimMannschaft?.Name ?? "Heim")}:").Validate(n => n >= 0));
+        int auswaertsTore = AnsiConsole.Prompt(new TextPrompt<int>($"Tore {Markup.Escape(spiel.AuswaertsMannschaft?.Name ?? "Auswärts")}:").Validate(n => n >= 0));
+
+        var entscheidungArt = EntscheidungArt.RegulaereSpielzeit;
+        int? heimVerl = null, auswaertsVerl = null, heimElf = null, auswaertsElf = null;
+
+        // Für K.-o.-Runden: Verlängerung / Elfmeter möglich
+        if (runde.Rundenart is Rundenart.KoRunde or Rundenart.KoRundeMitHinUndRueckspiel or
+            Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
+        {
+            if (heimTore == auswaertsTore)
+            {
+                entscheidungArt = AnsiConsole.Prompt(
+                    new SelectionPrompt<EntscheidungArt>()
+                        .Title("Wie wurde entschieden?")
+                        .AddChoices(EntscheidungArt.Verlaengerung, EntscheidungArt.Elfmeterschiessen,
+                                    EntscheidungArt.Losentscheid));
+
+                if (entscheidungArt is EntscheidungArt.Verlaengerung or EntscheidungArt.Elfmeterschiessen)
+                {
+                    heimVerl     = AnsiConsole.Prompt(new TextPrompt<int>("Tore Verlängerung Heim:").Validate(n => n >= 0));
+                    auswaertsVerl = AnsiConsole.Prompt(new TextPrompt<int>("Tore Verlängerung Auswärts:").Validate(n => n >= 0));
+                }
+
+                if (entscheidungArt == EntscheidungArt.Elfmeterschiessen)
+                {
+                    heimElf     = AnsiConsole.Prompt(new TextPrompt<int>("Elfmetertore Heim:").Validate(n => n >= 0));
+                    auswaertsElf = AnsiConsole.Prompt(new TextPrompt<int>("Elfmetertore Auswärts:").Validate(n => n >= 0));
+                }
+            }
+        }
+
+        var eingabe = new ErgebnisErfassenEingabe(
+            heimTore, auswaertsTore, entscheidungArt,
+            heimVerl, auswaertsVerl, heimElf, auswaertsElf);
+
+        await ergebnisService.ErgebnisErfassenAsync(spiel.Id, eingabe, ct);
+        KonsolenHilfsmittel.ErfolgAnzeigen($"Ergebnis gespeichert: {heimTore}:{auswaertsTore}");
+        KonsolenHilfsmittel.Pause();
+    }
+
+    private async Task ErgebnisLoeschenAsync(CancellationToken ct)
+    {
+        KonsolenHilfsmittel.Kopf("Spielergebnis löschen");
+
+        var instanz = await TurnierInstanzAuswaehlenAsync(ct);
+        if (instanz is null) return;
+
+        var runde = RundeAuswaehlen(instanz);
+        if (runde is null) return;
+
+        var spiele = await ergebnisService.AlleNachRundeAsync(runde.Id, ct);
+        var mitErgebnis = spiele.Where(s => s.Status == SpielStatus.Abgeschlossen).ToList();
+
+        if (!mitErgebnis.Any())
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen("Keine Spiele mit Ergebnis in dieser Runde.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        var spiel = AnsiConsole.Prompt(
+            new SelectionPrompt<Spiel>()
+                .Title("Ergebnis welches Spiels löschen?")
+                .UseConverter(s =>
+                {
+                    var score = s.Ergebnis is not null
+                        ? $"{s.Ergebnis.HeimToreRegulaer}:{s.Ergebnis.AuswaertsToreRegulaer}"
+                        : "?:?";
+                    return $"#{s.Spielnummer}  {s.HeimMannschaft?.Name ?? "?"} {score} {s.AuswaertsMannschaft?.Name ?? "?"}";
+                })
+                .AddChoices(mitErgebnis));
+
+        if (!KonsolenHilfsmittel.Bestaetigen($"Ergebnis von Spiel #{spiel.Spielnummer} wirklich löschen?"))
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen("Abgebrochen.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        await ergebnisService.ErgebnisLoeschenAsync(spiel.Id, ct);
+        KonsolenHilfsmittel.ErfolgAnzeigen("Ergebnis gelöscht.");
+        KonsolenHilfsmittel.Pause();
+    }
+
+    // ── Tabelle ───────────────────────────────────────────────────────────
+
+    private async Task TabelleAnzeigenAsync(CancellationToken ct)
+    {
+        KonsolenHilfsmittel.Kopf("Tabelle / Standings");
+
+        var instanz = await TurnierInstanzAuswaehlenAsync(ct);
+        if (instanz is null) return;
+
+        // Nur Liga/Gruppenphase-Runden für die Tabelle sinnvoll
+        var rundenFuerTabelle = instanz.Runden
+            .Where(r => r.Rundenart is Rundenart.Liga or Rundenart.Gruppenphase)
+            .OrderBy(r => r.Reihenfolge)
+            .ToList();
+
+        if (!rundenFuerTabelle.Any())
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen("Dieses Turnier hat keine Liga- oder Gruppenphase-Runden.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        var runde = rundenFuerTabelle.Count == 1
+            ? rundenFuerTabelle[0]
+            : AnsiConsole.Prompt(
+                new SelectionPrompt<TurnierRunde>()
+                    .Title("Runde:")
+                    .UseConverter(r => $"{r.Reihenfolge}. {r.Name}")
+                    .AddChoices(rundenFuerTabelle));
+
+        var tabelle = await AnsiConsole.Status()
+            .StartAsync("Tabelle wird berechnet...", async _ =>
+                await tabellenService.TabelleBerechnenAsync(runde.Id, ct));
+
+        if (!tabelle.Any())
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen("Noch keine Spiele für diese Runde vorhanden.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        KonsolenHilfsmittel.Kopf($"Tabelle: {Markup.Escape(runde.Name)}");
+        TabelleTabelle(tabelle);
+        KonsolenHilfsmittel.Pause();
+    }
+
+    private static void TabelleTabelle(IReadOnlyList<TabellenEintrag> tabelle)
+    {
+        var t = new Table().Border(TableBorder.Rounded)
+            .AddColumn(new TableColumn("[grey]#[/]").RightAligned())
+            .AddColumn("Mannschaft")
+            .AddColumn(new TableColumn("[grey]Sp[/]").RightAligned())
+            .AddColumn(new TableColumn("[green]S[/]").RightAligned())
+            .AddColumn(new TableColumn("[grey]U[/]").RightAligned())
+            .AddColumn(new TableColumn("[red]N[/]").RightAligned())
+            .AddColumn(new TableColumn("Tore").RightAligned())
+            .AddColumn(new TableColumn("Diff").RightAligned())
+            .AddColumn(new TableColumn("[bold]Pkt[/]").RightAligned());
+
+        foreach (var e in tabelle)
+        {
+            var diffMarkup = e.Tordifferenz > 0
+                ? $"[green]+{e.Tordifferenz}[/]"
+                : e.Tordifferenz < 0
+                    ? $"[red]{e.Tordifferenz}[/]"
+                    : "[grey]±0[/]";
+
+            t.AddRow(
+                $"[grey]{e.Rang}[/]",
+                Markup.Escape(e.Mannschaft.Name),
+                e.Spiele.ToString(),
+                $"[green]{e.Siege}[/]",
+                $"[grey]{e.Unentschieden}[/]",
+                $"[red]{e.Niederlagen}[/]",
+                $"{e.Tore}:{e.Gegentore}",
+                diffMarkup,
+                $"[bold]{e.Punkte}[/]");
+        }
+
+        AnsiConsole.Write(t);
     }
 
     private static void SpielplanTabelle(IReadOnlyList<Spiel> spiele, Rundenart rundenart)

@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
+using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Microsoft.EntityFrameworkCore;
 
@@ -41,6 +42,41 @@ public class SpielRepository(TurnierverwaltungDbContext context)
     public async Task HinzufuegenMehrfachAsync(IEnumerable<Spiel> spiele, CancellationToken ct = default)
     {
         await Context.Spiele.AddRangeAsync(spiele, ct);
+        await Context.SaveChangesAsync(ct);
+    }
+
+    public async Task<Spiel?> FindenNachIdMitErgebnisAsync(int id, CancellationToken ct = default)
+        => await Context.Spiele
+            .Include(s => s.HeimMannschaft)
+            .Include(s => s.AuswaertsMannschaft)
+            .Include(s => s.Ergebnis)
+            .FirstOrDefaultAsync(s => s.Id == id, ct);
+
+    public async Task ErgebnisSetzenAsync(int spielId, SpielErgebnis ergebnis, CancellationToken ct = default)
+    {
+        var spiel = await Context.Spiele
+            .Include(s => s.Ergebnis)
+            .FirstOrDefaultAsync(s => s.Id == spielId, ct);
+        if (spiel is null) return;
+
+        if (spiel.Ergebnis is not null)
+            Context.SpielErgebnisse.Remove(spiel.Ergebnis);
+
+        ergebnis.SpielId = spielId;
+        await Context.SpielErgebnisse.AddAsync(ergebnis, ct);
+        spiel.Status = SpielStatus.Abgeschlossen;
+        await Context.SaveChangesAsync(ct);
+    }
+
+    public async Task ErgebnisLoeschenAsync(int spielId, CancellationToken ct = default)
+    {
+        var spiel = await Context.Spiele
+            .Include(s => s.Ergebnis)
+            .FirstOrDefaultAsync(s => s.Id == spielId, ct);
+        if (spiel?.Ergebnis is null) return;
+
+        Context.SpielErgebnisse.Remove(spiel.Ergebnis);
+        spiel.Status = SpielStatus.Geplant;
         await Context.SaveChangesAsync(ct);
     }
 }
