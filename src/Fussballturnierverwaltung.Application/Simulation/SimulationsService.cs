@@ -39,8 +39,15 @@ public class SimulationsService(
                 $"Spiel #{spiel.Spielnummer} ist bereits abgeschlossen.");
 
         rng ??= new Random();
-        var verfahren = spiel.TurnierRunde?.Regelwerk?.Entscheidungsverfahren
-            .OrderBy(v => v.Reihenfolge).ToList() ?? [];
+
+        // Entscheidungsverfahren nur für KO-Runden: Liga/Gruppenphase erlaubt Unentschieden
+        bool istKoRunde = spiel.TurnierRunde?.Rundenart is
+            Rundenart.KoRunde or Rundenart.KoRundeMitHinUndRueckspiel or
+            Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+        var verfahren = istKoRunde
+            ? (spiel.TurnierRunde?.Regelwerk?.Entscheidungsverfahren
+                .OrderBy(v => v.Reihenfolge).ToList() ?? [])
+            : [];
 
         bool ausfuehrlich = modus == SimulationsModus.AusfuehrlicheSimulation;
         var ergebnis = SimulationsEngine.Simulieren(

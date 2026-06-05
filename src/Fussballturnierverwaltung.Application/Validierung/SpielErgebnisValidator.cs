@@ -13,9 +13,9 @@ public class SpielErgebnisValidator
         if (eingabe.HeimToreRegulaer < 0 || eingabe.AuswaertsToreRegulaer < 0)
             fehler.Add("Tore der regulären Spielzeit dürfen nicht negativ sein.");
 
+        // Elfmeterschiessen kann direkt nach Regulärzeit folgen → keine Verlängerungstore erforderlich
         var brauchtVerlaengerung = eingabe.EntscheidungArt is
-            EntscheidungArt.Verlaengerung or EntscheidungArt.GoldenGoal or
-            EntscheidungArt.SilverGoal or EntscheidungArt.Elfmeterschiessen;
+            EntscheidungArt.Verlaengerung or EntscheidungArt.GoldenGoal or EntscheidungArt.SilverGoal;
 
         if (brauchtVerlaengerung)
         {

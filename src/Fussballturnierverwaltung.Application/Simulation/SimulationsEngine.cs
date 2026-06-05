@@ -42,7 +42,12 @@ public static class SimulationsEngine
                     VerfahrenSimulieren(v.VerfahrenArt, heim, auswaerts, rng, ausfuehrlich);
 
                 entscheidung = art;
-                heimVerl = hv; gastVerl = gv; heimElf = he; gastElf = ge;
+                // Verlängerungstore aus einem früheren Schritt (z.B. VerlaengerungKlassisch)
+                // nicht mit null überschreiben, wenn der Folgeschritt (z.B. Elfmeter) null zurückgibt
+                if (hv.HasValue) heimVerl = hv;
+                if (gv.HasValue) gastVerl = gv;
+                if (he.HasValue) heimElf = he;
+                if (ge.HasValue) gastElf = ge;
                 ereignisse = [.. ereignisse, .. extraEreignisse];
 
                 if (result != 0) break; // Sieger gefunden
