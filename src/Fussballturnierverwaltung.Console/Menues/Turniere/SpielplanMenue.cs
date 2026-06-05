@@ -200,7 +200,7 @@ public class SpielplanMenue(
         return AnsiConsole.Prompt(
             new SelectionPrompt<TurnierRunde>()
                 .Title("Runde:")
-                .UseConverter(r => $"{r.Reihenfolge}. {r.Name} [{r.Rundenart}] ({r.EingangsMannschaftsanzahl} Teams)")
+                .UseConverter(r => $"{r.Reihenfolge}. {Markup.Escape(r.Name)} [[{r.Rundenart}]] ({r.EingangsMannschaftsanzahl} Teams)")
                 .AddChoices(instanz.Runden.OrderBy(r => r.Reihenfolge)));
     }
 

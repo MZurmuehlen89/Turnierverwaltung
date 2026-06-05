@@ -138,7 +138,7 @@ public class AuslosungMenue(
         var runde = AnsiConsole.Prompt(
             new SelectionPrompt<TurnierRunde>()
                 .Title("Für welche Runde?")
-                .UseConverter(r => $"{r.Reihenfolge}. {r.Name} [{r.Rundenart}] ({r.EingangsMannschaftsanzahl} Teams)")
+                .UseConverter(r => $"{r.Reihenfolge}. {Markup.Escape(r.Name)} [[{r.Rundenart}]] ({r.EingangsMannschaftsanzahl} Teams)")
                 .AddChoices(instanz.Runden.OrderBy(r => r.Reihenfolge)));
 
         var name = KonsolenHilfsmittel.TextEingeben("Name der Auslosung", $"Auslosung {runde.Name}");
@@ -184,7 +184,7 @@ public class AuslosungMenue(
         var ausgewaehlt = AnsiConsole.Prompt(
             new SelectionPrompt<Auslosung>()
                 .Title("Auslosung auswählen:")
-                .UseConverter(a => $"{a.Name} [{a.Status}] – {a.TurnierRunde?.Name ?? "?"}")
+                .UseConverter(a => $"{Markup.Escape(a.Name)} [[{a.Status}]] – {Markup.Escape(a.TurnierRunde?.Name ?? "?")}")
                 .EnableSearch()
                 .AddChoices(auslosungen));
 

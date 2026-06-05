@@ -388,7 +388,7 @@ public class SimulationsMenue(
         var runde = AnsiConsole.Prompt(
             new SelectionPrompt<TurnierRunde>()
                 .Title("Runde:")
-                .UseConverter(r => $"{r.Reihenfolge}. {r.Name} [{r.Rundenart}]")
+                .UseConverter(r => $"{r.Reihenfolge}. {Markup.Escape(r.Name)} [[{r.Rundenart}]]")
                 .AddChoices(instanz.Runden.OrderBy(r => r.Reihenfolge)));
 
         return (instanz, runde);
