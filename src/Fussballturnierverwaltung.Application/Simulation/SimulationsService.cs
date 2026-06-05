@@ -57,6 +57,40 @@ public class SimulationsService(
         return ergebnis;
     }
 
+    // ── Ein Spieltag ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Simuliert alle noch nicht abgeschlossenen Spiele eines Spieltags einer Runde.
+    /// Gibt die Anzahl simulierter Spiele zurück.
+    /// </summary>
+    public async Task<int> SpieltageSimulierenAsync(
+        int turnierRundeId,
+        int spieltag,
+        SimulationsModus modus,
+        int? seed = null,
+        CancellationToken ct = default)
+    {
+        var spiele = await spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
+        var offene = spiele
+            .Where(s => s.Spieltag == spieltag && s.Status != SpielStatus.Abgeschlossen)
+            .ToList();
+
+        if (!offene.Any()) return 0;
+
+        var rng = seed.HasValue ? new Random(seed.Value) : new Random();
+        int simuliert = 0;
+
+        foreach (var spiel in offene)
+        {
+            await SpielSimulierenAsync(spiel.Id, modus, rng, ct);
+            simuliert++;
+        }
+
+        logger.LogInformation("Spieltag {Tag} (Runde {Id}): {Anz} Spiel(e) simuliert.",
+            spieltag, turnierRundeId, simuliert);
+        return simuliert;
+    }
+
     // ── Eine Runde ────────────────────────────────────────────────────────
 
     /// <summary>

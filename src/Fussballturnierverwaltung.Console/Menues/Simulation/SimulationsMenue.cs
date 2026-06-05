@@ -21,6 +21,7 @@ public class SimulationsMenue(
     {
         Freundschaftsspiel,
         SpielSimulieren,
+        SpieltageSimulieren,
         RundeSimulieren,
         TurnierSimulieren,
         Protokoll,
@@ -36,17 +37,18 @@ public class SimulationsMenue(
                 new SelectionPrompt<Option>()
                     .UseConverter(o => o switch
                     {
-                        Option.Freundschaftsspiel => "⚽ Einzelspiel (Freundschaftsspiel)",
-                        Option.SpielSimulieren    => "Ein Turnierspiel simulieren",
-                        Option.RundeSimulieren    => "Ganze Runde simulieren",
-                        Option.TurnierSimulieren  => "Ganzes Turnier simulieren",
-                        Option.Protokoll          => "Simulationsprotokoll anzeigen",
-                        Option.Zurueck            => "← Zurück",
-                        _                         => o.ToString()
+                        Option.Freundschaftsspiel  => "⚽ Einzelspiel (Freundschaftsspiel)",
+                        Option.SpielSimulieren     => "Ein Turnierspiel simulieren",
+                        Option.SpieltageSimulieren => "Einen Spieltag simulieren",
+                        Option.RundeSimulieren     => "Ganze Runde simulieren",
+                        Option.TurnierSimulieren   => "Ganzes Turnier simulieren",
+                        Option.Protokoll           => "Simulationsprotokoll anzeigen",
+                        Option.Zurueck             => "← Zurück",
+                        _                          => o.ToString()
                     })
                     .AddChoices(Option.Freundschaftsspiel, Option.SpielSimulieren,
-                                Option.RundeSimulieren, Option.TurnierSimulieren,
-                                Option.Protokoll, Option.Zurueck));
+                                Option.SpieltageSimulieren, Option.RundeSimulieren,
+                                Option.TurnierSimulieren, Option.Protokoll, Option.Zurueck));
 
             if (auswahl == Option.Zurueck) break;
 
@@ -59,9 +61,10 @@ public class SimulationsMenue(
     {
         switch (auswahl)
         {
-            case Option.Freundschaftsspiel: await FreundschaftsspielAsync(ct);   break;
-            case Option.SpielSimulieren:    await SpielSimulierenAsync(ct);      break;
-            case Option.RundeSimulieren:    await RundeSimulierenAsync(ct);      break;
+            case Option.Freundschaftsspiel:  await FreundschaftsspielAsync(ct);    break;
+            case Option.SpielSimulieren:     await SpielSimulierenAsync(ct);      break;
+            case Option.SpieltageSimulieren: await SpieltageSimulierenAsync(ct);  break;
+            case Option.RundeSimulieren:     await RundeSimulierenAsync(ct);      break;
             case Option.TurnierSimulieren:  await TurnierSimulierenAsync(ct);    break;
             case Option.Protokoll:          await ProtokollAnzeigenAsync(ct);    break;
         }
@@ -166,6 +169,69 @@ public class SimulationsMenue(
         ErgebnisAnzeigen(spiel.HeimMannschaft?.Name ?? "Heim",
                          spiel.AuswaertsMannschaft?.Name ?? "Auswärts",
                          ergebnis);
+        KonsolenHilfsmittel.Pause();
+    }
+
+    // ── Spieltag ──────────────────────────────────────────────────────────
+
+    private async Task SpieltageSimulierenAsync(CancellationToken ct)
+    {
+        KonsolenHilfsmittel.Kopf("Spieltag simulieren");
+
+        var (instanz, runde) = await TurnierUndRundeAuswaehlenAsync(ct);
+        if (instanz is null || runde is null) return;
+
+        var spiele = await spielErgebnisService.AlleNachRundeAsync(runde.Id, ct);
+
+        var infos = spiele
+            .Where(s => s.Spieltag.HasValue)
+            .GroupBy(s => s.Spieltag!.Value)
+            .Select(g => (
+                Spieltag: g.Key,
+                Gesamt:   g.Count(),
+                Offen:    g.Count(s => s.Status != SpielStatus.Abgeschlossen)))
+            .OrderBy(i => i.Spieltag)
+            .ToList();
+
+        if (!infos.Any())
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen(
+                "Diese Runde hat keine Spieltage. Spieltage werden nur bei Liga-/Gruppenrunden generiert.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        var auswahl = AnsiConsole.Prompt(
+            new SelectionPrompt<(int Spieltag, int Gesamt, int Offen)?>()
+                .Title("Spieltag:")
+                .UseConverter(i => i is null
+                    ? "← Zurück"
+                    : $"Spieltag {i.Value.Spieltag}  " +
+                      $"[grey]({i.Value.Gesamt} Spiele, {i.Value.Offen} offen)[/]")
+                .AddChoices(infos.Select(i => ((int Spieltag, int Gesamt, int Offen)?)i).Append(null)));
+        if (auswahl is null) return;
+
+        if (auswahl.Value.Offen == 0)
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen(
+                $"Spieltag {auswahl.Value.Spieltag} ist bereits vollständig abgeschlossen.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        var modus = ModusAuswaehlen();
+
+        int simuliert = await AnsiConsole.Progress()
+            .StartAsync(async ctx =>
+            {
+                var task = ctx.AddTask($"Spieltag {auswahl.Value.Spieltag} wird simuliert...");
+                int n = await simulationsService.SpieltageSimulierenAsync(
+                    runde.Id, auswahl.Value.Spieltag, modus, null, ct);
+                task.Increment(100);
+                return n;
+            });
+
+        KonsolenHilfsmittel.ErfolgAnzeigen($"{simuliert} Spiel(e) simuliert.");
         KonsolenHilfsmittel.Pause();
     }
 
