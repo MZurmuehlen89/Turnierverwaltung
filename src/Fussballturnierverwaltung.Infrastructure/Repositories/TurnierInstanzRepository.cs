@@ -29,4 +29,41 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             .Where(ti => ti.Status == status)
             .OrderByDescending(ti => ti.SaisonOderJahr)
             .ToListAsync(ct);
+
+    // Löscht in der richtigen Reihenfolge:
+    //   1. TurnierBaum (zirkuläre Knoten-Refs → Knoten → Baum)
+    //   2. Spiele (non-nullable TurnierInstanzId mit NoAction; SQL Server erlaubt keinen
+    //      zweiten Cascade-Pfad neben TurnierInstanz→TurnierRunde→Spiel)
+    //   3. TurnierInstanz (cascadet TurnierRunden)
+    public async Task LoeschenMitSpielen(int id, CancellationToken ct = default)
+    {
+        var baum = await Context.TurnierBaeume
+            .Include(b => b.Knoten)
+            .FirstOrDefaultAsync(b => b.TurnierInstanzId == id, ct);
+
+        if (baum is not null)
+        {
+            baum.WurzelKnotenId = null;
+            foreach (var k in baum.Knoten)
+            {
+                k.ElternKnotenId      = null;
+                k.LinkerKindKnotenId  = null;
+                k.RechterKindKnotenId = null;
+            }
+            await Context.SaveChangesAsync(ct);
+            Context.TurnierBaumKnotenMenge.RemoveRange(baum.Knoten);
+            await Context.SaveChangesAsync(ct);
+            Context.TurnierBaeume.Remove(baum);
+            await Context.SaveChangesAsync(ct);
+        }
+
+        await Context.Spiele
+            .Where(s => s.TurnierInstanzId == id)
+            .ExecuteDeleteAsync(ct);
+
+        var instanz = await Context.TurnierInstanzen.FindAsync([id], ct);
+        if (instanz is null) return;
+        Context.TurnierInstanzen.Remove(instanz);
+        await Context.SaveChangesAsync(ct);
+    }
 }

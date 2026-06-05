@@ -68,9 +68,9 @@ public class TurnierInstanzService(
 
     public async Task LoeschenAsync(int id, CancellationToken ct = default)
     {
-        var instanz = await repository.FindenNachIdAsync(id, ct)
-            ?? throw new InvalidOperationException($"TurnierInstanz mit ID {id} nicht gefunden.");
-        await repository.LoeschenAsync(instanz, ct);
+        if (await repository.FindenNachIdAsync(id, ct) is null)
+            throw new InvalidOperationException($"TurnierInstanz mit ID {id} nicht gefunden.");
+        await repository.LoeschenMitSpielen(id, ct);
     }
 
     /// <summary>Prüft ob jede Runde so viele Eingangsteams hat wie die Vorrunde Ausgangsteams liefert.</summary>
