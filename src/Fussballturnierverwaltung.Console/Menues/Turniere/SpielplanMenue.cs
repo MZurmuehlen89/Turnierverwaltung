@@ -418,9 +418,8 @@ public class SpielplanMenue(
         var tabelle = new Table().Border(TableBorder.Rounded)
             .AddColumn(new TableColumn("[grey]Nr.[/]").RightAligned())
             .AddColumn("Heim")
-            .AddColumn(new TableColumn("vs").Centered())
-            .AddColumn("Auswärts")
-            .AddColumn(new TableColumn("Status").Centered());
+            .AddColumn(new TableColumn("Ergebnis").Centered())
+            .AddColumn("Auswärts");
 
         if (hatSpieltage) tabelle.AddColumn(new TableColumn("[grey]Spieltag[/]").RightAligned());
         if (rundenart == Rundenart.KoRundeMitHinUndRueckspiel)
@@ -432,9 +431,8 @@ public class SpielplanMenue(
             {
                 $"[grey]{s.Spielnummer}[/]",
                 Markup.Escape(s.HeimMannschaft?.Name ?? $"ID {s.HeimMannschaftId}"),
-                "[grey]–[/]",
-                Markup.Escape(s.AuswaertsMannschaft?.Name ?? $"ID {s.AuswaertsMannschaftId}"),
-                s.Status == SpielStatus.Geplant ? "[grey]Geplant[/]" : s.Status.ToString()
+                ErgebnisMarkup(s),
+                Markup.Escape(s.AuswaertsMannschaft?.Name ?? $"ID {s.AuswaertsMannschaftId}")
             };
             if (hatSpieltage) row.Add(s.Spieltag?.ToString() ?? "[grey]–[/]");
             if (rundenart == Rundenart.KoRundeMitHinUndRueckspiel)
@@ -445,5 +443,25 @@ public class SpielplanMenue(
 
         AnsiConsole.MarkupLine($"[grey]{spiele.Count} Spiel(e)[/]");
         AnsiConsole.Write(tabelle);
+    }
+
+    private static string ErgebnisMarkup(Spiel s)
+    {
+        if (s.Ergebnis is null || s.Status != SpielStatus.Abgeschlossen)
+            return "[grey]–[/]";
+
+        var e = s.Ergebnis;
+        var score = $"[bold]{e.HeimToreGesamt} : {e.AuswaertsToreGesamt}[/]";
+        var suffix = e.EntscheidungArt switch
+        {
+            EntscheidungArt.Verlaengerung      => " [grey]n.V.[/]",
+            EntscheidungArt.GoldenGoal         => " [grey]GG[/]",
+            EntscheidungArt.SilverGoal         => " [grey]SG[/]",
+            EntscheidungArt.Elfmeterschiessen  => $" [grey]i.E. ({e.HeimElfmetertore}:{e.AuswaertsElfmetertore})[/]",
+            EntscheidungArt.Losentscheid       => " [grey]Los[/]",
+            EntscheidungArt.Muenzwurf          => " [grey]Münzwurf[/]",
+            _                                  => ""
+        };
+        return score + suffix;
     }
 }
