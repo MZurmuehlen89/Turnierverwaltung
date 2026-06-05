@@ -29,6 +29,7 @@ public class AuslosungRepository(TurnierverwaltungDbContext context)
                 .ThenInclude(e => e.HeimMannschaft)
             .Include(a => a.Ergebnisse)
                 .ThenInclude(e => e.AuswaertsMannschaft)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(a => a.Id == id, ct);
 
     public async Task ErgebnisseSetzenUndAbschliessenAsync(

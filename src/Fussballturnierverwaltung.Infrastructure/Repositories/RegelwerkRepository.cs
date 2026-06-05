@@ -13,6 +13,7 @@ public class RegelwerkRepository(TurnierverwaltungDbContext context)
             .Include(r => r.PunkteRegeln)
             .Include(r => r.Entscheidungsverfahren.OrderBy(e => e.Reihenfolge))
             .Include(r => r.RankingRegelSet)
+            .AsSplitQuery()
             .OrderBy(r => r.Name)
             .ToListAsync(ct);
 
@@ -23,5 +24,6 @@ public class RegelwerkRepository(TurnierverwaltungDbContext context)
             .Include(r => r.RankingRegelSet)
                 .ThenInclude(s => s!.Eintraege.OrderBy(e => e.Reihenfolge))
                     .ThenInclude(e => e.RankingRegel)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(r => r.Id == id, ct);
 }
