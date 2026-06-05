@@ -118,12 +118,14 @@ public class MannschaftMenue(MannschaftService mannschaftService, LandService la
         var kurzname = KonsolenHilfsmittel.TextEingeben("Kürzel");
 
         var art = AnsiConsole.Prompt(
-            new SelectionPrompt<Mannschaftsart>()
+            new SelectionPrompt<Mannschaftsart?>()
                 .Title("Mannschaftsart:")
-                .UseConverter(a => a == Mannschaftsart.Nationalmannschaft ? "Nationalmannschaft" : "Verein")
-                .AddChoices(Mannschaftsart.Nationalmannschaft, Mannschaftsart.Verein));
+                .UseConverter(a => a is null ? "← Zurück" : a == Mannschaftsart.Nationalmannschaft ? "Nationalmannschaft" : "Verein")
+                .AddChoices((Mannschaftsart?)Mannschaftsart.Nationalmannschaft, Mannschaftsart.Verein, null));
+        if (art is null) return;
 
         var land = LandAuswaehlen(laender);
+        if (land is null) return;
 
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine("[grey]Ratings (1–100)[/]");
@@ -133,7 +135,7 @@ public class MannschaftMenue(MannschaftService mannschaftService, LandService la
         var heim = KonsolenHilfsmittel.RatingEingeben("Heimstärke");
         var ausw = KonsolenHilfsmittel.RatingEingeben("Auswärtsstärke");
 
-        var eingabe = new MannschaftErstellenEingabe(name, kurzname, art, land.Id, off, mid, def, heim, ausw);
+        var eingabe = new MannschaftErstellenEingabe(name, kurzname, art.Value, land.Id, off, mid, def, heim, ausw);
         var neu = await mannschaftService.ErstellenAsync(eingabe, ct);
 
         AnsiConsole.WriteLine();
@@ -151,11 +153,12 @@ public class MannschaftMenue(MannschaftService mannschaftService, LandService la
         if (mannschaften.Count == 0) { KonsolenHilfsmittel.WarnungAnzeigen("Keine Mannschaften vorhanden."); KonsolenHilfsmittel.Pause(); return; }
 
         var auswahl = AnsiConsole.Prompt(
-            new SelectionPrompt<Mannschaft>()
+            new SelectionPrompt<Mannschaft?>()
                 .Title("Welche Mannschaft bearbeiten?")
-                .UseConverter(m => $"{m.Name} ({m.Land?.FifaCode ?? "?"}) – {(m.Mannschaftsart == Mannschaftsart.Nationalmannschaft ? "NT" : "V")}")
+                .UseConverter(m => m is null ? "← Zurück" : $"{m.Name} ({m.Land?.FifaCode ?? "?"}) – {(m.Mannschaftsart == Mannschaftsart.Nationalmannschaft ? "NT" : "V")}")
                 .EnableSearch()
-                .AddChoices(mannschaften));
+                .AddChoices(mannschaften.Cast<Mannschaft?>().Append(null)));
+        if (auswahl is null) return;
 
         var laender = await landService.AlleAbrufenAsync(ct);
 
@@ -173,6 +176,7 @@ public class MannschaftMenue(MannschaftService mannschaftService, LandService la
         AnsiConsole.MarkupLine($"Aktuelles Land: [bold]{Markup.Escape(aktuellesLand.Name)}[/] – Ändern?");
         var landAendern = AnsiConsole.Confirm("Land ändern?", defaultValue: false);
         var land = landAendern ? LandAuswaehlen(laender) : aktuellesLand;
+        if (land is null) return;
 
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine("[grey]Ratings (1–100, Enter = behalten)[/]");
@@ -200,11 +204,12 @@ public class MannschaftMenue(MannschaftService mannschaftService, LandService la
         if (mannschaften.Count == 0) { KonsolenHilfsmittel.WarnungAnzeigen("Keine Mannschaften vorhanden."); KonsolenHilfsmittel.Pause(); return; }
 
         var auswahl = AnsiConsole.Prompt(
-            new SelectionPrompt<Mannschaft>()
+            new SelectionPrompt<Mannschaft?>()
                 .Title("Welche Mannschaft löschen?")
-                .UseConverter(m => $"{m.Name} ({m.Land?.FifaCode ?? "?"})")
+                .UseConverter(m => m is null ? "← Zurück" : $"{m.Name} ({m.Land?.FifaCode ?? "?"})")
                 .EnableSearch()
-                .AddChoices(mannschaften));
+                .AddChoices(mannschaften.Cast<Mannschaft?>().Append(null)));
+        if (auswahl is null) return;
 
         AnsiConsole.WriteLine();
         MannschaftDetailAnzeigen(auswahl);
@@ -224,14 +229,14 @@ public class MannschaftMenue(MannschaftService mannschaftService, LandService la
 
     // --- Hilfsmethoden ---
 
-    private static Land LandAuswaehlen(IReadOnlyList<Land> laender)
+    private static Land? LandAuswaehlen(IReadOnlyList<Land> laender)
         => AnsiConsole.Prompt(
-            new SelectionPrompt<Land>()
+            new SelectionPrompt<Land?>()
                 .Title("Land auswählen:")
-                .UseConverter(l => $"{l.Name} ({l.FifaCode})")
+                .UseConverter(l => l is null ? "← Zurück" : $"{l.Name} ({l.FifaCode})")
                 .EnableSearch()
                 .PageSize(15)
-                .AddChoices(laender));
+                .AddChoices(laender.Cast<Land?>().Append(null)));
 
     private static void MannschaftenTabelle(IReadOnlyList<Mannschaft> mannschaften)
     {

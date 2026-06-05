@@ -183,10 +183,10 @@ public class SpielplanMenue(
             return null;
         }
         return AnsiConsole.Prompt(
-            new SelectionPrompt<TurnierInstanz>()
+            new SelectionPrompt<TurnierInstanz?>()
                 .Title("Turnier:")
-                .UseConverter(ti => $"{ti.Name} ({ti.SaisonOderJahr})")
-                .EnableSearch().AddChoices(instanzen));
+                .UseConverter(ti => ti is null ? "← Zurück" : $"{ti.Name} ({ti.SaisonOderJahr})")
+                .EnableSearch().AddChoices(instanzen.Cast<TurnierInstanz?>().Append(null)));
     }
 
     private static TurnierRunde? RundeAuswaehlen(TurnierInstanz instanz)
@@ -198,10 +198,10 @@ public class SpielplanMenue(
             return null;
         }
         return AnsiConsole.Prompt(
-            new SelectionPrompt<TurnierRunde>()
+            new SelectionPrompt<TurnierRunde?>()
                 .Title("Runde:")
-                .UseConverter(r => $"{r.Reihenfolge}. {Markup.Escape(r.Name)} [[{r.Rundenart}]] ({r.EingangsMannschaftsanzahl} Teams)")
-                .AddChoices(instanz.Runden.OrderBy(r => r.Reihenfolge)));
+                .UseConverter(r => r is null ? "← Zurück" : $"{r.Reihenfolge}. {Markup.Escape(r.Name)} [[{r.Rundenart}]] ({r.EingangsMannschaftsanzahl} Teams)")
+                .AddChoices(instanz.Runden.OrderBy(r => r.Reihenfolge).Cast<TurnierRunde?>().Append(null)));
     }
 
     // ── Ergebnis erfassen ─────────────────────────────────────────────────
@@ -227,10 +227,11 @@ public class SpielplanMenue(
         }
 
         var spiel = AnsiConsole.Prompt(
-            new SelectionPrompt<Spiel>()
+            new SelectionPrompt<Spiel?>()
                 .Title("Spiel auswählen:")
-                .UseConverter(s => $"#{s.Spielnummer}  {s.HeimMannschaft?.Name ?? "?"} – {s.AuswaertsMannschaft?.Name ?? "?"}")
-                .AddChoices(offene));
+                .UseConverter(s => s is null ? "← Zurück" : $"#{s.Spielnummer}  {s.HeimMannschaft?.Name ?? "?"} – {s.AuswaertsMannschaft?.Name ?? "?"}")
+                .AddChoices(offene.Cast<Spiel?>().Append(null)));
+        if (spiel is null) return;
 
         AnsiConsole.MarkupLine($"\n[bold]{Markup.Escape(spiel.HeimMannschaft?.Name ?? "Heim")}[/] " +
                                $"vs [bold]{Markup.Escape(spiel.AuswaertsMannschaft?.Name ?? "Auswärts")}[/]\n");
@@ -297,16 +298,18 @@ public class SpielplanMenue(
         }
 
         var spiel = AnsiConsole.Prompt(
-            new SelectionPrompt<Spiel>()
+            new SelectionPrompt<Spiel?>()
                 .Title("Ergebnis welches Spiels löschen?")
                 .UseConverter(s =>
                 {
+                    if (s is null) return "← Zurück";
                     var score = s.Ergebnis is not null
                         ? $"{s.Ergebnis.HeimToreRegulaer}:{s.Ergebnis.AuswaertsToreRegulaer}"
                         : "?:?";
                     return $"#{s.Spielnummer}  {s.HeimMannschaft?.Name ?? "?"} {score} {s.AuswaertsMannschaft?.Name ?? "?"}";
                 })
-                .AddChoices(mitErgebnis));
+                .AddChoices(mitErgebnis.Cast<Spiel?>().Append(null)));
+        if (spiel is null) return;
 
         if (!KonsolenHilfsmittel.Bestaetigen($"Ergebnis von Spiel #{spiel.Spielnummer} wirklich löschen?"))
         {
@@ -342,13 +345,20 @@ public class SpielplanMenue(
             return;
         }
 
-        var runde = rundenFuerTabelle.Count == 1
-            ? rundenFuerTabelle[0]
-            : AnsiConsole.Prompt(
-                new SelectionPrompt<TurnierRunde>()
+        TurnierRunde? runde;
+        if (rundenFuerTabelle.Count == 1)
+        {
+            runde = rundenFuerTabelle[0];
+        }
+        else
+        {
+            runde = AnsiConsole.Prompt(
+                new SelectionPrompt<TurnierRunde?>()
                     .Title("Runde:")
-                    .UseConverter(r => $"{r.Reihenfolge}. {r.Name}")
-                    .AddChoices(rundenFuerTabelle));
+                    .UseConverter(r => r is null ? "← Zurück" : $"{r.Reihenfolge}. {r.Name}")
+                    .AddChoices(rundenFuerTabelle.Cast<TurnierRunde?>().Append(null)));
+            if (runde is null) return;
+        }
 
         var tabelle = await AnsiConsole.Status()
             .StartAsync("Tabelle wird berechnet...", async _ =>

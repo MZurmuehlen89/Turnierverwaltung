@@ -150,10 +150,11 @@ public class SimulationsMenue(
         }
 
         var spiel = AnsiConsole.Prompt(
-            new SelectionPrompt<Spiel>()
+            new SelectionPrompt<Spiel?>()
                 .Title("Spiel:")
-                .UseConverter(s => $"#{s.Spielnummer}  {s.HeimMannschaft?.Name ?? "?"} vs {s.AuswaertsMannschaft?.Name ?? "?"}")
-                .AddChoices(offene));
+                .UseConverter(s => s is null ? "← Zurück" : $"#{s.Spielnummer}  {s.HeimMannschaft?.Name ?? "?"} vs {s.AuswaertsMannschaft?.Name ?? "?"}")
+                .AddChoices(offene.Cast<Spiel?>().Append(null)));
+        if (spiel is null) return;
 
         var modus = ModusAuswaehlen();
 
@@ -404,11 +405,11 @@ public class SimulationsMenue(
             return null;
         }
         return AnsiConsole.Prompt(
-            new SelectionPrompt<TurnierInstanz>()
+            new SelectionPrompt<TurnierInstanz?>()
                 .Title("Turnier:")
-                .UseConverter(ti => $"{ti.Name} ({ti.SaisonOderJahr})")
+                .UseConverter(ti => ti is null ? "← Zurück" : $"{ti.Name} ({ti.SaisonOderJahr})")
                 .EnableSearch()
-                .AddChoices(instanzen));
+                .AddChoices(instanzen.Cast<TurnierInstanz?>().Append(null)));
     }
 
     private async Task<TurnierInstanz?> TurnierMitRundenAsync(CancellationToken ct)

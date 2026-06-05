@@ -182,11 +182,12 @@ public class AuslosungMenue(
         }
 
         var ausgewaehlt = AnsiConsole.Prompt(
-            new SelectionPrompt<Auslosung>()
+            new SelectionPrompt<Auslosung?>()
                 .Title("Auslosung auswählen:")
-                .UseConverter(a => $"{Markup.Escape(a.Name)} [[{a.Status}]] – {Markup.Escape(a.TurnierRunde?.Name ?? "?")}")
+                .UseConverter(a => a is null ? "← Zurück" : $"{Markup.Escape(a.Name)} [[{a.Status}]] – {Markup.Escape(a.TurnierRunde?.Name ?? "?")}")
                 .EnableSearch()
-                .AddChoices(auslosungen));
+                .AddChoices(auslosungen.Cast<Auslosung?>().Append(null)));
+        if (ausgewaehlt is null) return;
 
         await VerwaltungsmenueAnzeigenAsync(ausgewaehlt.Id, ct);
     }
@@ -301,11 +302,12 @@ public class AuslosungMenue(
         }
 
         var mann = AnsiConsole.Prompt(
-            new SelectionPrompt<Mannschaft>()
+            new SelectionPrompt<Mannschaft?>()
                 .Title("Mannschaft:")
-                .UseConverter(m => $"{m.Name} ({m.Land?.FifaCode ?? "?"})")
+                .UseConverter(m => m is null ? "← Zurück" : $"{m.Name} ({m.Land?.FifaCode ?? "?"})")
                 .EnableSearch().PageSize(15)
-                .AddChoices(verfuegbar));
+                .AddChoices(verfuegbar.Cast<Mannschaft?>().Append(null)));
+        if (mann is null) return;
 
         int? setzPosition = null;
         if (auslosung.Auslosungsart == Auslosungsart.NachSetzliste &&
@@ -332,10 +334,11 @@ public class AuslosungMenue(
         }
 
         var eintrag = AnsiConsole.Prompt(
-            new SelectionPrompt<LostopfEintrag>()
+            new SelectionPrompt<LostopfEintrag?>()
                 .Title("Mannschaft entfernen:")
-                .UseConverter(e => $"{e.Mannschaft?.Name ?? $"ID {e.MannschaftId}"} (aus: {e.Lostopf?.Name ?? "?"})")
-                .AddChoices(alleEintraege));
+                .UseConverter(e => e is null ? "← Zurück" : $"{e.Mannschaft?.Name ?? $"ID {e.MannschaftId}"} (aus: {e.Lostopf?.Name ?? "?"})")
+                .AddChoices(alleEintraege.Cast<LostopfEintrag?>().Append(null)));
+        if (eintrag is null) return;
 
         var lostopf = auslosung.Lostoepfe.First(l => l.Id == eintrag.LostopfId);
         await auslosungService.MannschaftAusLostopfEntfernenAsync(
@@ -365,27 +368,29 @@ public class AuslosungMenue(
         AnsiConsole.WriteLine();
 
         var regelart = AnsiConsole.Prompt(
-            new SelectionPrompt<AuslosungsRegelArt>()
+            new SelectionPrompt<AuslosungsRegelArt?>()
                 .Title("Regel umschalten:")
                 .UseConverter(a => a switch
                 {
+                    null                                      => "← Zurück",
                     AuslosungsRegelArt.KeinGleichesLand       => "Kein gleiches Land",
                     AuslosungsRegelArt.HeimrechtNachLos       => "Heimrecht nach Los",
                     AuslosungsRegelArt.HeimrechtNachSetzliste => "Heimrecht nach Setzliste (Topf 1 = Heim)",
                     AuslosungsRegelArt.FreilosMoeglich        => "Freilos möglich (bei ungerader Teamanzahl)",
                     _                                         => a.ToString()
                 })
-                .AddChoices(alleRegelarten));
+                .AddChoices(alleRegelarten.Select(r => (AuslosungsRegelArt?)r).Append(null)));
+        if (regelart is null) return;
 
-        var istAktiv = auslosung.Regeln.Any(r => r.Regelart == regelart && r.IstAktiv);
+        var istAktiv = auslosung.Regeln.Any(r => r.Regelart == regelart.Value && r.IstAktiv);
         if (istAktiv)
         {
-            await auslosungService.RegelDeaktivierenAsync(auslosung.Id, regelart, ct);
+            await auslosungService.RegelDeaktivierenAsync(auslosung.Id, regelart.Value, ct);
             KonsolenHilfsmittel.ErfolgAnzeigen($"Regel '{regelart}' deaktiviert.");
         }
         else
         {
-            await auslosungService.RegelHinzufuegenOderAktivierenAsync(auslosung.Id, regelart, regelart.ToString(), ct);
+            await auslosungService.RegelHinzufuegenOderAktivierenAsync(auslosung.Id, regelart.Value, regelart.ToString()!, ct);
             KonsolenHilfsmittel.ErfolgAnzeigen($"Regel '{regelart}' aktiviert.");
         }
         KonsolenHilfsmittel.Pause();
@@ -536,11 +541,11 @@ public class AuslosungMenue(
             return null;
         }
         return AnsiConsole.Prompt(
-            new SelectionPrompt<TurnierInstanz>()
+            new SelectionPrompt<TurnierInstanz?>()
                 .Title("Turnier:")
-                .UseConverter(ti => $"{ti.Name} ({ti.SaisonOderJahr})")
+                .UseConverter(ti => ti is null ? "← Zurück" : $"{ti.Name} ({ti.SaisonOderJahr})")
                 .EnableSearch()
-                .AddChoices(instanzen));
+                .AddChoices(instanzen.Cast<TurnierInstanz?>().Append(null)));
     }
 
     private async Task<TurnierInstanz?> TurnierMitRundenAuswaehlenAsync(CancellationToken ct)
@@ -553,11 +558,12 @@ public class AuslosungMenue(
             return null;
         }
         var auswahl = AnsiConsole.Prompt(
-            new SelectionPrompt<TurnierInstanz>()
+            new SelectionPrompt<TurnierInstanz?>()
                 .Title("Turnier:")
-                .UseConverter(ti => $"{ti.Name} ({ti.SaisonOderJahr})")
+                .UseConverter(ti => ti is null ? "← Zurück" : $"{ti.Name} ({ti.SaisonOderJahr})")
                 .EnableSearch()
-                .AddChoices(instanzen));
+                .AddChoices(instanzen.Cast<TurnierInstanz?>().Append(null)));
+        if (auswahl is null) return null;
 
         return await instanzService.FindenNachIdMitRundenAsync(auswahl.Id, ct);
     }
@@ -566,9 +572,9 @@ public class AuslosungMenue(
     {
         if (!auslosung.Lostoepfe.Any()) return null;
         return AnsiConsole.Prompt(
-            new SelectionPrompt<Lostopf>()
+            new SelectionPrompt<Lostopf?>()
                 .Title("In welchen Lostopf?")
-                .UseConverter(l => $"{l.Name} ({l.Eintraege.Count} Teams)")
-                .AddChoices(auslosung.Lostoepfe.OrderBy(l => l.Reihenfolge)));
+                .UseConverter(l => l is null ? "← Zurück" : $"{l.Name} ({l.Eintraege.Count} Teams)")
+                .AddChoices(auslosung.Lostoepfe.OrderBy(l => l.Reihenfolge).Cast<Lostopf?>().Append(null)));
     }
 }

@@ -80,8 +80,9 @@ public class RegelwerkMenue(RegelwerkService regelwerkService)
         var regelwerke = await regelwerkService.AlleAbrufenAsync(ct);
         if (regelwerke.Count == 0) { KonsolenHilfsmittel.WarnungAnzeigen("Keine Regelwerke vorhanden."); KonsolenHilfsmittel.Pause(); return; }
 
-        var auswahl = AnsiConsole.Prompt(new SelectionPrompt<Regelwerk>()
-            .Title("Regelwerk:").UseConverter(r => r.Name).EnableSearch().AddChoices(regelwerke));
+        var auswahl = AnsiConsole.Prompt(new SelectionPrompt<Regelwerk?>()
+            .Title("Regelwerk:").UseConverter(r => r is null ? "← Zurück" : r.Name).EnableSearch().AddChoices(regelwerke.Cast<Regelwerk?>().Append(null)));
+        if (auswahl is null) return;
 
         var details = await regelwerkService.FindenNachIdAsync(auswahl.Id, ct);
         if (details is null) return;
@@ -141,10 +142,11 @@ public class RegelwerkMenue(RegelwerkService regelwerkService)
             if (!verbleibend.Any() || !AnsiConsole.Confirm($"Verfahren hinzufügen? ({verfahrenListe.Count} bereits)", defaultValue: verfahrenListe.Count == 0))
                 break;
 
-            var verfahren = AnsiConsole.Prompt(new SelectionPrompt<VerfahrenArt>()
+            var verfahren = AnsiConsole.Prompt(new SelectionPrompt<VerfahrenArt?>()
                 .Title($"Verfahren {verfahrenListe.Count + 1}:")
-                .UseConverter(v => v.ToString()).AddChoices(verbleibend));
-            verfahrenListe.Add(verfahren);
+                .UseConverter(v => v is null ? "← Abbrechen" : v.ToString()).AddChoices(verbleibend.Select(v => (VerfahrenArt?)v).Append(null)));
+            if (verfahren is null) break;
+            verfahrenListe.Add(verfahren.Value);
             AnsiConsole.MarkupLine($"  → {string.Join(" → ", verfahrenListe)}");
         }
 
@@ -153,9 +155,9 @@ public class RegelwerkMenue(RegelwerkService regelwerkService)
         var rankingSets = await regelwerkService.AlleRankingRegelSetsAbrufenAsync(ct);
         if (rankingSets.Any() && AnsiConsole.Confirm("Ranking-Regelset verknüpfen?", defaultValue: false))
         {
-            var set = AnsiConsole.Prompt(new SelectionPrompt<RankingRegelSet>()
-                .Title("Ranking-Regelset:").UseConverter(s => s.Name).AddChoices(rankingSets));
-            rankingSetId = set.Id;
+            var set = AnsiConsole.Prompt(new SelectionPrompt<RankingRegelSet?>()
+                .Title("Ranking-Regelset:").UseConverter(s => s is null ? "← Zurück" : s.Name).AddChoices(rankingSets.Cast<RankingRegelSet?>().Append(null)));
+            rankingSetId = set?.Id;
         }
 
         var eingabe = new RegelwerkErstellenEingabe(name, beschreibung, null, null, rankingSetId,
@@ -172,8 +174,9 @@ public class RegelwerkMenue(RegelwerkService regelwerkService)
         var regelwerke = await regelwerkService.AlleAbrufenAsync(ct);
         if (regelwerke.Count == 0) { KonsolenHilfsmittel.WarnungAnzeigen("Keine Regelwerke vorhanden."); KonsolenHilfsmittel.Pause(); return; }
 
-        var auswahl = AnsiConsole.Prompt(new SelectionPrompt<Regelwerk>()
-            .Title("Regelwerk löschen:").UseConverter(r => r.Name).EnableSearch().AddChoices(regelwerke));
+        var auswahl = AnsiConsole.Prompt(new SelectionPrompt<Regelwerk?>()
+            .Title("Regelwerk löschen:").UseConverter(r => r is null ? "← Zurück" : r.Name).EnableSearch().AddChoices(regelwerke.Cast<Regelwerk?>().Append(null)));
+        if (auswahl is null) return;
 
         if (!KonsolenHilfsmittel.Bestaetigen($"[red]'{Markup.Escape(auswahl.Name)}'[/] wirklich löschen?"))
         { KonsolenHilfsmittel.WarnungAnzeigen("Abgebrochen."); KonsolenHilfsmittel.Pause(); return; }

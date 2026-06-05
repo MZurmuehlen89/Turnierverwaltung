@@ -298,10 +298,10 @@ public class TurnierBaumMenue(
             return null;
         }
         return AnsiConsole.Prompt(
-            new SelectionPrompt<TurnierInstanz>()
+            new SelectionPrompt<TurnierInstanz?>()
                 .Title("Turnier:")
-                .UseConverter(ti => $"{ti.Name} ({ti.SaisonOderJahr})")
+                .UseConverter(ti => ti is null ? "← Zurück" : $"{ti.Name} ({ti.SaisonOderJahr})")
                 .EnableSearch()
-                .AddChoices(instanzen));
+                .AddChoices(instanzen.Cast<TurnierInstanz?>().Append(null)));
     }
 }
