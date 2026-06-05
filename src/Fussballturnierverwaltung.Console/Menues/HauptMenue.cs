@@ -1,31 +1,20 @@
 using Fussballturnierverwaltung.Konsole.Hilfsmittel;
-using Fussballturnierverwaltung.Konsole.Menues.Auslosungen;
+using Fussballturnierverwaltung.Konsole.Menues.Bewegungsdaten;
 using Fussballturnierverwaltung.Konsole.Menues.ImportExport;
 using Fussballturnierverwaltung.Konsole.Menues.Stammdaten;
-using Fussballturnierverwaltung.Konsole.Menues.Turniere;
 using Spectre.Console;
 
 namespace Fussballturnierverwaltung.Konsole.Menues;
 
 public class HauptMenue(
-    MannschaftMenue mannschaftMenue,
-    LandVerbandMenue landVerbandMenue,
-    TurnierInstanzMenue turnierInstanzMenue,
-    TurnierVorlageMenue turnierVorlageMenue,
-    RegelwerkMenue regelwerkMenue,
-    SpielplanMenue spielplanMenue,
-    AuslosungMenue auslosungMenue,
+    StammdatenMenue stammdatenMenue,
+    BewegungsdatenMenue bewegungsdatenMenue,
     ImportExportMenue importExportMenue)
 {
     private enum Option
     {
-        Mannschaften,
-        LaenderUndVerbaende,
-        Turniere,
-        Turniervorlagen,
-        Regelwerke,
-        Auslosungen,
-        Simulationen,
+        Stammdaten,
+        Bewegungsdaten,
         ImportExport,
         Einstellungen,
         Beenden
@@ -45,71 +34,39 @@ public class HauptMenue(
             var auswahl = AnsiConsole.Prompt(
                 new SelectionPrompt<Option>()
                     .Title("[bold]Hauptmenü[/]")
-                    .UseConverter(AuswahlBezeichnung)
+                    .UseConverter(o => o switch
+                    {
+                        Option.Stammdaten      => "1. Stammdaten",
+                        Option.Bewegungsdaten  => "2. Bewegungsdaten",
+                        Option.ImportExport    => "3. Import / Export",
+                        Option.Einstellungen   => "4. Einstellungen",
+                        Option.Beenden         => "0. Beenden",
+                        _                      => o.ToString()
+                    })
                     .AddChoices(
-                        Option.Mannschaften,
-                        Option.LaenderUndVerbaende,
-                        Option.Turniere,
-                        Option.Turniervorlagen,
-                        Option.Regelwerke,
-                        Option.Auslosungen,
-                        Option.Simulationen,
+                        Option.Stammdaten,
+                        Option.Bewegungsdaten,
                         Option.ImportExport,
                         Option.Einstellungen,
                         Option.Beenden));
 
             if (auswahl == Option.Beenden) break;
 
-            await VerarbeitenAsync(auswahl, ct);
+            switch (auswahl)
+            {
+                case Option.Stammdaten:
+                    await stammdatenMenue.AnzeigenAsync(ct);
+                    break;
+                case Option.Bewegungsdaten:
+                    await bewegungsdatenMenue.AnzeigenAsync(ct);
+                    break;
+                case Option.ImportExport:
+                    await importExportMenue.AnzeigenAsync(ct);
+                    break;
+                default:
+                    KonsolenHilfsmittel.NochNichtImplementiert();
+                    break;
+            }
         }
     }
-
-    private async Task VerarbeitenAsync(Option auswahl, CancellationToken ct)
-    {
-        switch (auswahl)
-        {
-            case Option.Mannschaften:
-                await mannschaftMenue.AnzeigenAsync(ct);
-                break;
-            case Option.LaenderUndVerbaende:
-                await landVerbandMenue.AnzeigenAsync(ct);
-                break;
-            case Option.Turniere:
-                await turnierInstanzMenue.AnzeigenAsync(ct);
-                break;
-            case Option.Turniervorlagen:
-                await turnierVorlageMenue.AnzeigenAsync(ct);
-                break;
-            case Option.Regelwerke:
-                await regelwerkMenue.AnzeigenAsync(ct);
-                break;
-            case Option.Auslosungen:
-                await auslosungMenue.AnzeigenAsync(ct);
-                break;
-            case Option.Simulationen:
-                await spielplanMenue.AnzeigenAsync(ct);
-                break;
-            case Option.ImportExport:
-                await importExportMenue.AnzeigenAsync(ct);
-                break;
-            default:
-                KonsolenHilfsmittel.NochNichtImplementiert();
-                break;
-        }
-    }
-
-    private static string AuswahlBezeichnung(Option o) => o switch
-    {
-        Option.Mannschaften      => "1. Mannschaften",
-        Option.LaenderUndVerbaende => "2. Länder und Verbände",
-        Option.Turniere          => "3. Turniere",
-        Option.Turniervorlagen   => "4. Turniervorlagen",
-        Option.Regelwerke        => "5. Regelwerke",
-        Option.Auslosungen       => "6. Auslosungen",
-        Option.Simulationen      => "7. Spielplan / Simulationen",
-        Option.ImportExport      => "8. Import / Export",
-        Option.Einstellungen     => "9. Einstellungen",
-        Option.Beenden           => "0. Beenden",
-        _                        => o.ToString()
-    };
 }

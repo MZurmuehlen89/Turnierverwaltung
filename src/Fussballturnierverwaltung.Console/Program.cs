@@ -13,6 +13,7 @@ using Fussballturnierverwaltung.Infrastructure.Seed;
 using Fussballturnierverwaltung.Konsole;
 using Fussballturnierverwaltung.Konsole.Menues;
 using Fussballturnierverwaltung.Konsole.Menues.Auslosungen;
+using Fussballturnierverwaltung.Konsole.Menues.Bewegungsdaten;
 using Fussballturnierverwaltung.Konsole.Menues.ImportExport;
 using Fussballturnierverwaltung.Konsole.Menues.Simulation;
 using Fussballturnierverwaltung.Konsole.Menues.Stammdaten;
@@ -70,17 +71,21 @@ builder.Services.AddScoped<ISpielplanGenerator, KoRundeMitHinRueckspielGenerator
 builder.Services.AddScoped<SpielplanGeneratorFactory>();
 builder.Services.AddScoped<SpielplanService>();
 
-// Console Menüs
+// Console Menüs – Blattmenüs
 builder.Services.AddScoped<MannschaftMenue>();
 builder.Services.AddScoped<LandVerbandMenue>();
+builder.Services.AddScoped<RegelwerkMenue>();
 builder.Services.AddScoped<TurnierVorlageMenue>();
 builder.Services.AddScoped<TurnierInstanzMenue>();
-builder.Services.AddScoped<RegelwerkMenue>();
-builder.Services.AddScoped<SpielplanMenue>();
 builder.Services.AddScoped<AuslosungMenue>();
 builder.Services.AddScoped<TurnierBaumMenue>();
 builder.Services.AddScoped<SimulationsMenue>();
+builder.Services.AddScoped<SpielplanMenue>();
 builder.Services.AddScoped<ImportExportMenue>();
+
+// Console Menüs – Gruppenmenüs
+builder.Services.AddScoped<StammdatenMenue>();
+builder.Services.AddScoped<BewegungsdatenMenue>();
 builder.Services.AddScoped<HauptMenue>();
 builder.Services.AddScoped<Anwendung>();
 
