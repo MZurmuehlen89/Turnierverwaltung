@@ -1,7 +1,9 @@
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
+using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Konsole.Hilfsmittel;
@@ -12,10 +14,12 @@ namespace Fussballturnierverwaltung.Konsole.Menues.Simulation;
 public class SimulationsMenue(
     SimulationsService simulationsService,
     SpielErgebnisService spielErgebnisService,
-    TurnierInstanzService instanzService)
+    TurnierInstanzService instanzService,
+    MannschaftService mannschaftService)
 {
     private enum Option
     {
+        Freundschaftsspiel,
         SpielSimulieren,
         RundeSimulieren,
         TurnierSimulieren,
@@ -32,15 +36,17 @@ public class SimulationsMenue(
                 new SelectionPrompt<Option>()
                     .UseConverter(o => o switch
                     {
-                        Option.SpielSimulieren   => "Ein Spiel simulieren",
-                        Option.RundeSimulieren   => "Ganze Runde simulieren",
-                        Option.TurnierSimulieren => "Ganzes Turnier simulieren",
-                        Option.Protokoll         => "Simulationsprotokoll anzeigen",
-                        Option.Zurueck           => "← Zurück",
-                        _                        => o.ToString()
+                        Option.Freundschaftsspiel => "⚽ Einzelspiel (Freundschaftsspiel)",
+                        Option.SpielSimulieren    => "Ein Turnierspiel simulieren",
+                        Option.RundeSimulieren    => "Ganze Runde simulieren",
+                        Option.TurnierSimulieren  => "Ganzes Turnier simulieren",
+                        Option.Protokoll          => "Simulationsprotokoll anzeigen",
+                        Option.Zurueck            => "← Zurück",
+                        _                         => o.ToString()
                     })
-                    .AddChoices(Option.SpielSimulieren, Option.RundeSimulieren,
-                                Option.TurnierSimulieren, Option.Protokoll, Option.Zurueck));
+                    .AddChoices(Option.Freundschaftsspiel, Option.SpielSimulieren,
+                                Option.RundeSimulieren, Option.TurnierSimulieren,
+                                Option.Protokoll, Option.Zurueck));
 
             if (auswahl == Option.Zurueck) break;
 
@@ -53,11 +59,77 @@ public class SimulationsMenue(
     {
         switch (auswahl)
         {
-            case Option.SpielSimulieren:   await SpielSimulierenAsync(ct);   break;
-            case Option.RundeSimulieren:   await RundeSimulierenAsync(ct);   break;
-            case Option.TurnierSimulieren: await TurnierSimulierenAsync(ct); break;
-            case Option.Protokoll:         await ProtokollAnzeigenAsync(ct); break;
+            case Option.Freundschaftsspiel: await FreundschaftsspielAsync(ct);   break;
+            case Option.SpielSimulieren:    await SpielSimulierenAsync(ct);      break;
+            case Option.RundeSimulieren:    await RundeSimulierenAsync(ct);      break;
+            case Option.TurnierSimulieren:  await TurnierSimulierenAsync(ct);    break;
+            case Option.Protokoll:          await ProtokollAnzeigenAsync(ct);    break;
         }
+    }
+
+    // ── Freundschaftsspiel ────────────────────────────────────────────────
+
+    private async Task FreundschaftsspielAsync(CancellationToken ct)
+    {
+        KonsolenHilfsmittel.Kopf("⚽ Einzelspiel / Freundschaftsspiel");
+
+        var alleMannschaften = await mannschaftService.AlleAbrufenMitLandAsync(ct);
+        if (alleMannschaften.Count < 2)
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen("Mindestens 2 Mannschaften erforderlich.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        var heim = AnsiConsole.Prompt(
+            new SelectionPrompt<Mannschaft>()
+                .Title("Heimmannschaft:")
+                .UseConverter(m => $"{m.Name} ({m.Land?.FifaCode ?? "?"})")
+                .EnableSearch().PageSize(15)
+                .AddChoices(alleMannschaften));
+
+        var rest = alleMannschaften.Where(m => m.Id != heim.Id).ToList();
+        var auswaerts = AnsiConsole.Prompt(
+            new SelectionPrompt<Mannschaft>()
+                .Title("Auswärtsmannschaft:")
+                .UseConverter(m => $"{m.Name} ({m.Land?.FifaCode ?? "?"})")
+                .EnableSearch().PageSize(15)
+                .AddChoices(rest));
+
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine($"[bold]{Markup.Escape(heim.Name)}[/]  [grey]Rating {heim.GesamtRating:F0}[/]  " +
+                               $"vs  [bold]{Markup.Escape(auswaerts.Name)}[/]  [grey]Rating {auswaerts.GesamtRating:F0}[/]");
+        AnsiConsole.WriteLine();
+
+        var aktion = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("Aktion:")
+                .AddChoices("Simulieren", "Ergebnis manuell eingeben"));
+
+        SimulationsErgebnis ergebnis;
+
+        if (aktion == "Simulieren")
+        {
+            var modus = ModusAuswaehlen();
+            int? seed = SeedEingeben();
+            var rng = seed.HasValue ? new Random(seed.Value) : new Random();
+            ergebnis = SimulationsEngine.Simulieren(
+                heim, auswaerts, [], modus == SimulationsModus.AusfuehrlicheSimulation, rng);
+        }
+        else
+        {
+            int heimTore = AnsiConsole.Prompt(
+                new TextPrompt<int>($"Tore [bold]{Markup.Escape(heim.Name)}[/]:").Validate(n => n >= 0));
+            int auswaertsTore = AnsiConsole.Prompt(
+                new TextPrompt<int>($"Tore [bold]{Markup.Escape(auswaerts.Name)}[/]:").Validate(n => n >= 0));
+            ergebnis = new SimulationsErgebnis(
+                heimTore, auswaertsTore, null, null, null, null,
+                EntscheidungArt.RegulaereSpielzeit, []);
+        }
+
+        AnsiConsole.WriteLine();
+        ErgebnisAnzeigen(heim.Name, auswaerts.Name, ergebnis);
+        KonsolenHilfsmittel.Pause();
     }
 
     // ── Ein Spiel ─────────────────────────────────────────────────────────
