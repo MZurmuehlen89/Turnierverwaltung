@@ -182,9 +182,9 @@ public static class SimulationsEngine
         var gastMinuten = ZufallsMinuten(gastTore, vonMinute, bisMinute, rng);
 
         foreach (var min in heimMinuten)
-            ereignisse.Add(new(min, EreignisArt.Tor, true, $"Tor für {heim.Name}"));
+            ereignisse.Add(new(min, EreignisArt.Tor, true, "Tor"));
         foreach (var min in gastMinuten)
-            ereignisse.Add(new(min, EreignisArt.Tor, false, $"Tor für {auswaerts.Name}"));
+            ereignisse.Add(new(min, EreignisArt.Tor, false, "Tor"));
 
         // Gelbe Karten: ~2,5 pro Team bei 90 Min., anteilig für kürzere Zeiträume
         double basisGelbe = 2.5 * spanne / 90.0;
@@ -192,16 +192,16 @@ public static class SimulationsEngine
         int gastGelbe = ZiehePoisson(basisGelbe, rng);
 
         foreach (var min in ZufallsMinuten(heimGelbe, vonMinute, bisMinute, rng))
-            ereignisse.Add(new(min, EreignisArt.GelbeKarte, true, $"Gelbe Karte {heim.Name}"));
+            ereignisse.Add(new(min, EreignisArt.GelbeKarte, true, "Gelbe Karte"));
         foreach (var min in ZufallsMinuten(gastGelbe, vonMinute, bisMinute, rng))
-            ereignisse.Add(new(min, EreignisArt.GelbeKarte, false, $"Gelbe Karte {auswaerts.Name}"));
+            ereignisse.Add(new(min, EreignisArt.GelbeKarte, false, "Gelbe Karte"));
 
         // Rote Karten: ~0,15 pro Team bei 90 Min.
         double basisRote = 0.15 * spanne / 90.0;
         if (ZiehePoisson(basisRote, rng) > 0)
-            ereignisse.Add(new(rng.Next(vonMinute, bisMinute + 1), EreignisArt.RoteKarte, true, $"Rote Karte {heim.Name}"));
+            ereignisse.Add(new(rng.Next(vonMinute, bisMinute + 1), EreignisArt.RoteKarte, true, "Rote Karte"));
         if (ZiehePoisson(basisRote, rng) > 0)
-            ereignisse.Add(new(rng.Next(vonMinute, bisMinute + 1), EreignisArt.RoteKarte, false, $"Rote Karte {auswaerts.Name}"));
+            ereignisse.Add(new(rng.Next(vonMinute, bisMinute + 1), EreignisArt.RoteKarte, false, "Rote Karte"));
 
         ereignisse.Sort((a, b) => a.Minute.CompareTo(b.Minute));
         return ereignisse;
