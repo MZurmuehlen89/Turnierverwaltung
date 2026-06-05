@@ -42,11 +42,11 @@ public class RoundRobinGenerator : ISpielplanGenerator
             if (heim0 is not null && ausw0 is not null)
                 spiele.Add(Erstellen(kontext, heim0.Id, ausw0.Id, spielNr++, spieltag + 1));
 
-            // Restliche Paarungen: kreis[i] vs kreis[n-2-i] (ohne letzten, der schon gepaart)
+            // Restliche Paarungen: kreis[i] vs kreis[n-3-i] (letzter kreis-Eintrag ist schon gepaart)
             for (int i = 0; i < (gesamt - 2) / 2; i++)
             {
                 var heim = teams[kreis[i]];
-                var ausw = teams[kreis[gesamt - 2 - i]];
+                var ausw = teams[kreis[gesamt - 3 - i]];
 
                 if (heim is not null && ausw is not null)
                     spiele.Add(Erstellen(kontext, heim.Id, ausw.Id, spielNr++, spieltag + 1));

@@ -105,4 +105,27 @@ public class RoundRobinGeneratorTests
         var ergebnis = _generator.Generieren(kontext);
         ergebnis.Spiele.Should().HaveCount(1);
     }
+
+    [Theory]
+    [InlineData(4)]
+    [InlineData(6)]
+    [InlineData(8)]
+    [InlineData(3)]
+    [InlineData(5)]
+    public void JedesTeam_SpieltProSpieltag_HoechstensEinmal(int teamAnzahl)
+    {
+        var kontext = new SpielplanKontext(TestRunde(), Teams(teamAnzahl), 1);
+        var ergebnis = _generator.Generieren(kontext);
+
+        foreach (var spieltag in ergebnis.Spiele.Select(s => s.Spieltag).Distinct())
+        {
+            var spieleAmTag = ergebnis.Spiele.Where(s => s.Spieltag == spieltag).ToList();
+            var alleTeams   = spieleAmTag
+                .SelectMany(s => new[] { s.HeimMannschaftId, s.AuswaertsMannschaftId })
+                .ToList();
+
+            alleTeams.Should().OnlyHaveUniqueItems(
+                $"Spieltag {spieltag}: jedes Team darf nur einmal spielen (n={teamAnzahl})");
+        }
+    }
 }
