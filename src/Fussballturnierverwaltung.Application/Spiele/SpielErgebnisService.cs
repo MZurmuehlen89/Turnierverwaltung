@@ -59,6 +59,14 @@ public class SpielErgebnisService(
         logger.LogInformation("Ergebnis für Spiel {Id} gelöscht.", spielId);
     }
 
+    public async Task<int> MehrereErgebnisseLoeschenAsync(IReadOnlyList<int> spielIds, CancellationToken ct = default)
+    {
+        foreach (var id in spielIds)
+            await spielRepository.ErgebnisLoeschenAsync(id, ct);
+        logger.LogInformation("{Anzahl} Ergebnis(se) gelöscht.", spielIds.Count);
+        return spielIds.Count;
+    }
+
     private static int? SiegerAbleiten(int heimId, int auswaertsId, ErgebnisErfassenEingabe e)
     {
         return e.EntscheidungArt switch

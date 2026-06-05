@@ -329,7 +329,7 @@ public class SpielplanMenue(
 
     private async Task ErgebnisLoeschenAsync(CancellationToken ct)
     {
-        KonsolenHilfsmittel.Kopf("Spielergebnis löschen");
+        KonsolenHilfsmittel.Kopf("Spielergebnis(se) löschen");
 
         var instanz = await TurnierInstanzAuswaehlenAsync(ct);
         if (instanz is null) return;
@@ -347,29 +347,81 @@ public class SpielplanMenue(
             return;
         }
 
-        var spiel = AnsiConsole.Prompt(
-            new SelectionPrompt<Spiel?>()
-                .Title("Ergebnis welches Spiels löschen?")
-                .UseConverter(s =>
-                {
-                    if (s is null) return "← Zurück";
-                    var score = s.Ergebnis is not null
-                        ? $"{s.Ergebnis.HeimToreRegulaer}:{s.Ergebnis.AuswaertsToreRegulaer}"
-                        : "?:?";
-                    return $"#{s.Spielnummer}  {s.HeimMannschaft?.Name ?? "?"} {score} {s.AuswaertsMannschaft?.Name ?? "?"}";
-                })
-                .AddChoices(mitErgebnis.Cast<Spiel?>().Append(null)));
-        if (spiel is null) return;
+        var bereich = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("Welche Ergebnisse löschen?")
+                .AddChoices("Einzelnes Spiel", "Ganzen Spieltag", "Gesamte Runde", "← Zurück"));
 
-        if (!KonsolenHilfsmittel.Bestaetigen($"Ergebnis von Spiel #{spiel.Spielnummer} wirklich löschen?"))
+        if (bereich == "← Zurück") return;
+
+        if (bereich == "Einzelnes Spiel")
         {
-            KonsolenHilfsmittel.WarnungAnzeigen("Abgebrochen.");
-            KonsolenHilfsmittel.Pause();
-            return;
+            var spiel = AnsiConsole.Prompt(
+                new SelectionPrompt<Spiel?>()
+                    .Title("Ergebnis welches Spiels löschen?")
+                    .UseConverter(s =>
+                    {
+                        if (s is null) return "← Zurück";
+                        var score = s.Ergebnis is not null
+                            ? $"{s.Ergebnis.HeimToreRegulaer}:{s.Ergebnis.AuswaertsToreRegulaer}"
+                            : "?:?";
+                        return $"#{s.Spielnummer}  {s.HeimMannschaft?.Name ?? "?"} {score} {s.AuswaertsMannschaft?.Name ?? "?"}";
+                    })
+                    .AddChoices(mitErgebnis.Cast<Spiel?>().Append(null)));
+            if (spiel is null) return;
+
+            if (!KonsolenHilfsmittel.Bestaetigen($"Ergebnis von Spiel #{spiel.Spielnummer} wirklich löschen?"))
+            { KonsolenHilfsmittel.WarnungAnzeigen("Abgebrochen."); KonsolenHilfsmittel.Pause(); return; }
+
+            await ergebnisService.ErgebnisLoeschenAsync(spiel.Id, ct);
+            KonsolenHilfsmittel.ErfolgAnzeigen("Ergebnis gelöscht.");
+        }
+        else if (bereich == "Ganzen Spieltag")
+        {
+            var spieltage = mitErgebnis
+                .Where(s => s.Spieltag.HasValue)
+                .GroupBy(s => s.Spieltag!.Value)
+                .Select(g => (Spieltag: g.Key, Anzahl: g.Count()))
+                .OrderBy(x => x.Spieltag)
+                .ToList();
+
+            if (!spieltage.Any())
+            {
+                KonsolenHilfsmittel.WarnungAnzeigen("Diese Runde hat keine Spieltage (kein Liga-Format).");
+                KonsolenHilfsmittel.Pause();
+                return;
+            }
+
+            var tag = AnsiConsole.Prompt(
+                new SelectionPrompt<(int Spieltag, int Anzahl)?>()
+                    .Title("Spieltag:")
+                    .UseConverter(t => t is null ? "← Zurück"
+                        : $"Spieltag {t.Value.Spieltag}  [grey]({t.Value.Anzahl} Ergebnis(se))[/]")
+                    .AddChoices(spieltage.Select(t => ((int Spieltag, int Anzahl)?)t).Append(null)));
+            if (tag is null) return;
+
+            var zuLoeschen = mitErgebnis
+                .Where(s => s.Spieltag == tag.Value.Spieltag)
+                .Select(s => s.Id).ToList();
+
+            if (!KonsolenHilfsmittel.Bestaetigen(
+                    $"[red]{zuLoeschen.Count} Ergebnis(se)[/] von Spieltag {tag.Value.Spieltag} wirklich löschen?"))
+            { KonsolenHilfsmittel.WarnungAnzeigen("Abgebrochen."); KonsolenHilfsmittel.Pause(); return; }
+
+            int n = await ergebnisService.MehrereErgebnisseLoeschenAsync(zuLoeschen, ct);
+            KonsolenHilfsmittel.ErfolgAnzeigen($"{n} Ergebnis(se) gelöscht.");
+        }
+        else // Gesamte Runde
+        {
+            if (!KonsolenHilfsmittel.Bestaetigen(
+                    $"[red]Alle {mitErgebnis.Count} Ergebnisse[/] der Runde [bold]{Markup.Escape(runde.Name)}[/] wirklich löschen?"))
+            { KonsolenHilfsmittel.WarnungAnzeigen("Abgebrochen."); KonsolenHilfsmittel.Pause(); return; }
+
+            int n = await ergebnisService.MehrereErgebnisseLoeschenAsync(
+                mitErgebnis.Select(s => s.Id).ToList(), ct);
+            KonsolenHilfsmittel.ErfolgAnzeigen($"{n} Ergebnis(se) gelöscht.");
         }
 
-        await ergebnisService.ErgebnisLoeschenAsync(spiel.Id, ct);
-        KonsolenHilfsmittel.ErfolgAnzeigen("Ergebnis gelöscht.");
         KonsolenHilfsmittel.Pause();
     }
 
