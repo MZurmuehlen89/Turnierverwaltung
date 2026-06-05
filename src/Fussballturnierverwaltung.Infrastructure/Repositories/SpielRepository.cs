@@ -45,6 +45,11 @@ public class SpielRepository(TurnierverwaltungDbContext context)
         await Context.SaveChangesAsync(ct);
     }
 
+    public async Task AlleNachRundeLoeschenAsync(int turnierRundeId, CancellationToken ct = default)
+        => await Context.Spiele
+            .Where(s => s.TurnierRundeId == turnierRundeId)
+            .ExecuteDeleteAsync(ct);
+
     public async Task<Spiel?> FindenNachIdMitErgebnisAsync(int id, CancellationToken ct = default)
         => await Context.Spiele
             .Include(s => s.HeimMannschaft)

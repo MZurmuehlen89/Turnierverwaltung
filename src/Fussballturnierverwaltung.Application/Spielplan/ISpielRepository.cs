@@ -9,6 +9,7 @@ public interface ISpielRepository : IRepository<Spiel>
     Task<IReadOnlyList<Spiel>> AlleNachInstanzAsync(int turnierInstanzId, CancellationToken ct = default);
     Task<int> HoechsteSpielNummerAsync(int turnierInstanzId, CancellationToken ct = default);
     Task HinzufuegenMehrfachAsync(IEnumerable<Spiel> spiele, CancellationToken ct = default);
+    Task AlleNachRundeLoeschenAsync(int turnierRundeId, CancellationToken ct = default);
 
     Task<Spiel?> FindenNachIdMitErgebnisAsync(int id, CancellationToken ct = default);
     Task ErgebnisSetzenAsync(int spielId, SpielErgebnis ergebnis, CancellationToken ct = default);

@@ -42,13 +42,6 @@ public class SpielplanService(
                 turnierValidator.RundeUndRegelwerkKompatibel(rundeEingabe, runde.Regelwerk));
         }
 
-        // Prüfen ob schon Spiele existieren
-        var vorhandeneSpiele = await spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
-        if (vorhandeneSpiele.Any())
-            throw new InvalidOperationException(
-                $"Für Runde '{runde.Name}' existieren bereits {vorhandeneSpiele.Count} Spiele. " +
-                "Bitte zuerst den vorhandenen Spielplan löschen.");
-
         var mannschaften = await mannschaftRepository.FindenNachIdsAsync(mannschaftIds, ct);
 
         // Sicherstellen dass die ursprüngliche Reihenfolge der IDs erhalten bleibt (Auslosungsreihenfolge)
@@ -74,6 +67,14 @@ public class SpielplanService(
 
     public Task<IReadOnlyList<Spiel>> SpielplanAbrufenAsync(int turnierRundeId, CancellationToken ct = default)
         => spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
+
+    public async Task LoeschenAsync(int turnierRundeId, CancellationToken ct = default)
+    {
+        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
+            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+        await spielRepository.AlleNachRundeLoeschenAsync(turnierRundeId, ct);
+        logger.LogInformation("Spielplan für Runde '{Runde}' gelöscht.", runde.Name);
+    }
 
     public Task<IReadOnlyList<Spiel>> AlleSpieleFuerInstanzAsync(int turnierInstanzId, CancellationToken ct = default)
         => spielRepository.AlleNachInstanzAsync(turnierInstanzId, ct);

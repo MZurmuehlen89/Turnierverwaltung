@@ -29,6 +29,7 @@ public class SpielplanMenue(
     {
         SpielplanGenerieren,
         SpielplanAnzeigen,
+        SpielplanLoeschen,
         ErgebnisErfassen,
         ErgebnisLoeschen,
         TabelleAnzeigen,
@@ -48,6 +49,7 @@ public class SpielplanMenue(
                     {
                         Option.SpielplanGenerieren => "Spielplan für eine Runde generieren",
                         Option.SpielplanAnzeigen   => "Spielplan einer Runde anzeigen",
+                        Option.SpielplanLoeschen   => "Spielplan einer Runde löschen",
                         Option.ErgebnisErfassen    => "Spielergebnis erfassen",
                         Option.ErgebnisLoeschen    => "Spielergebnis löschen",
                         Option.TabelleAnzeigen     => "Tabelle / Standings anzeigen",
@@ -57,9 +59,9 @@ public class SpielplanMenue(
                         _                          => o.ToString()
                     })
                     .AddChoices(Option.SpielplanGenerieren, Option.SpielplanAnzeigen,
-                                Option.ErgebnisErfassen, Option.ErgebnisLoeschen,
-                                Option.TabelleAnzeigen, Option.TurnierBaum,
-                                Option.Simulation, Option.Zurueck));
+                                Option.SpielplanLoeschen, Option.ErgebnisErfassen,
+                                Option.ErgebnisLoeschen, Option.TabelleAnzeigen,
+                                Option.TurnierBaum, Option.Simulation, Option.Zurueck));
 
             if (auswahl == Option.Zurueck) break;
 
@@ -74,6 +76,7 @@ public class SpielplanMenue(
         {
             case Option.SpielplanGenerieren: await SpielplanGenerierenAsync(ct); break;
             case Option.SpielplanAnzeigen:   await SpielplanAnzeigenAsync(ct);   break;
+            case Option.SpielplanLoeschen:   await SpielplanLoeschenAsync(ct);   break;
             case Option.ErgebnisErfassen:    await ErgebnisErfassenAsync(ct);    break;
             case Option.ErgebnisLoeschen:    await ErgebnisLoeschenAsync(ct);    break;
             case Option.TabelleAnzeigen:     await TabelleAnzeigenAsync(ct);     break;
@@ -102,6 +105,20 @@ public class SpielplanMenue(
         AnsiConsole.MarkupLine($"\n[bold]Runde:[/] {Markup.Escape(runde.Name)} | " +
                                $"Rundenart: {runde.Rundenart} | " +
                                $"Benötigt: [yellow]{runde.EingangsMannschaftsanzahl}[/] Mannschaften\n");
+
+        // Vorhandenen Spielplan prüfen
+        var vorhandene = await spielplanService.SpielplanAbrufenAsync(runde.Id, ct);
+        if (vorhandene.Any())
+        {
+            AnsiConsole.MarkupLine($"[yellow]⚠[/]  Für diese Runde existieren bereits [bold]{vorhandene.Count}[/] Spiele.");
+            if (!KonsolenHilfsmittel.Bestaetigen("Vorhandenen Spielplan löschen und neu generieren?"))
+            {
+                KonsolenHilfsmittel.WarnungAnzeigen("Abgebrochen.");
+                KonsolenHilfsmittel.Pause();
+                return;
+            }
+            await spielplanService.LoeschenAsync(runde.Id, ct);
+        }
 
         // Mannschaften für diese Runde auswählen
         var alleMannschaften = await mannschaftService.AlleAbrufenMitLandAsync(ct);
@@ -170,6 +187,37 @@ public class SpielplanMenue(
 
         KonsolenHilfsmittel.Kopf($"Spielplan: {Markup.Escape(runde.Name)}");
         SpielplanTabelle(spiele, runde.Rundenart);
+        KonsolenHilfsmittel.Pause();
+    }
+
+    private async Task SpielplanLoeschenAsync(CancellationToken ct)
+    {
+        KonsolenHilfsmittel.Kopf("Spielplan löschen");
+
+        var instanz = await TurnierInstanzAuswaehlenAsync(ct);
+        if (instanz is null) return;
+
+        var runde = RundeAuswaehlen(instanz);
+        if (runde is null) return;
+
+        var spiele = await spielplanService.SpielplanAbrufenAsync(runde.Id, ct);
+        if (!spiele.Any())
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen("Für diese Runde ist kein Spielplan vorhanden.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"Runde [bold]{Markup.Escape(runde.Name)}[/]: [bold]{spiele.Count}[/] Spiele.");
+        if (!KonsolenHilfsmittel.Bestaetigen($"[red]Alle {spiele.Count} Spiele dieser Runde wirklich löschen?[/]"))
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen("Abgebrochen.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        await spielplanService.LoeschenAsync(runde.Id, ct);
+        KonsolenHilfsmittel.ErfolgAnzeigen($"{spiele.Count} Spiele gelöscht.");
         KonsolenHilfsmittel.Pause();
     }
 
