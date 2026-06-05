@@ -18,6 +18,15 @@ public record TurnierInstanzErstellenEingabe(
     DateOnly? Startdatum,
     DateOnly? Enddatum);
 
+public record TurnierAktualisierenEingabe(
+    string Name,
+    string SaisonOderJahr);
+
+public record TurnierRundeAktualisierenEingabe(
+    string Name,
+    int RegelwerkId,
+    bool AuswaertstorRegelAktiv);
+
 public record TurnierRundeEingabe(
     string Name,
     Rundenart Rundenart,

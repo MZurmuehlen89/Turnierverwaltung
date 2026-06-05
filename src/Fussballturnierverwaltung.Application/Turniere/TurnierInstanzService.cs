@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Application.Abstraktionen;
+using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -9,6 +10,7 @@ namespace Fussballturnierverwaltung.Application.Turniere;
 
 public class TurnierInstanzService(
     ITurnierInstanzRepository repository,
+    ITurnierRundeRepository rundeRepository,
     TurnierValidator validator,
     ILogger<TurnierInstanzService> logger)
 {
@@ -56,6 +58,27 @@ public class TurnierInstanzService(
         logger.LogInformation("TurnierInstanz '{Name}' ({Saison}) mit {Runden} Runde(n) angelegt.",
             instanz.Name, instanz.SaisonOderJahr, instanz.Runden.Count);
         return instanz;
+    }
+
+    public async Task AktualisierenAsync(int id, TurnierAktualisierenEingabe eingabe, CancellationToken ct = default)
+    {
+        var instanz = await repository.FindenNachIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"TurnierInstanz mit ID {id} nicht gefunden.");
+        instanz.Name           = eingabe.Name.Trim();
+        instanz.SaisonOderJahr = eingabe.SaisonOderJahr.Trim();
+        await repository.AktualisierenAsync(instanz, ct);
+        logger.LogInformation("TurnierInstanz '{Name}' (ID {Id}) aktualisiert.", instanz.Name, id);
+    }
+
+    public async Task RundeAktualisierenAsync(int rundeId, TurnierRundeAktualisierenEingabe eingabe, CancellationToken ct = default)
+    {
+        var runde = await rundeRepository.FindenNachIdAsync(rundeId, ct)
+            ?? throw new InvalidOperationException($"TurnierRunde mit ID {rundeId} nicht gefunden.");
+        runde.Name                   = eingabe.Name.Trim();
+        runde.RegelwerkId            = eingabe.RegelwerkId;
+        runde.AuswaertstorRegelAktiv = eingabe.AuswaertstorRegelAktiv;
+        await rundeRepository.AktualisierenAsync(runde, ct);
+        logger.LogInformation("TurnierRunde '{Name}' (ID {Id}) aktualisiert.", runde.Name, rundeId);
     }
 
     public async Task StatusAendernAsync(int id, TurnierStatus neuerStatus, CancellationToken ct = default)

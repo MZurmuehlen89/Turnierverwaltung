@@ -13,7 +13,7 @@ public class TurnierInstanzMenue(
     TurnierVorlageService vorlageService,
     RegelwerkService regelwerkService)
 {
-    private enum Option { AlleAnzeigen, Details, NeuAnlegen, StatusAendern, Loeschen, Zurueck }
+    private enum Option { AlleAnzeigen, Details, NeuAnlegen, Bearbeiten, RundeBearbeiten, StatusAendern, Loeschen, Zurueck }
 
     public async Task AnzeigenAsync(CancellationToken ct = default)
     {
@@ -24,15 +24,18 @@ public class TurnierInstanzMenue(
                 new SelectionPrompt<Option>()
                     .UseConverter(o => o switch
                     {
-                        Option.AlleAnzeigen  => "Alle anzeigen",
-                        Option.Details       => "Details und Runden",
-                        Option.NeuAnlegen    => "Neues Turnier anlegen",
-                        Option.StatusAendern => "Status ändern",
-                        Option.Loeschen      => "Turnier löschen",
-                        Option.Zurueck       => "← Zurück",
-                        _                    => o.ToString()
+                        Option.AlleAnzeigen    => "Alle anzeigen",
+                        Option.Details         => "Details und Runden",
+                        Option.NeuAnlegen      => "Neues Turnier anlegen",
+                        Option.Bearbeiten      => "Turnier bearbeiten",
+                        Option.RundeBearbeiten => "Runde bearbeiten",
+                        Option.StatusAendern   => "Status ändern",
+                        Option.Loeschen        => "Turnier löschen",
+                        Option.Zurueck         => "← Zurück",
+                        _                      => o.ToString()
                     })
                     .AddChoices(Option.AlleAnzeigen, Option.Details, Option.NeuAnlegen,
+                                Option.Bearbeiten, Option.RundeBearbeiten,
                                 Option.StatusAendern, Option.Loeschen, Option.Zurueck));
 
             if (auswahl == Option.Zurueck) break;
@@ -45,11 +48,13 @@ public class TurnierInstanzMenue(
     {
         switch (auswahl)
         {
-            case Option.AlleAnzeigen:  await AlleAnzeigenAsync(ct); break;
-            case Option.Details:       await DetailsAnzeigenAsync(ct); break;
-            case Option.NeuAnlegen:    await NeuAnlegenAsync(ct); break;
-            case Option.StatusAendern: await StatusAendernAsync(ct); break;
-            case Option.Loeschen:      await LoeschenAsync(ct); break;
+            case Option.AlleAnzeigen:    await AlleAnzeigenAsync(ct);    break;
+            case Option.Details:         await DetailsAnzeigenAsync(ct); break;
+            case Option.NeuAnlegen:      await NeuAnlegenAsync(ct);      break;
+            case Option.Bearbeiten:      await BearbeitenAsync(ct);      break;
+            case Option.RundeBearbeiten: await RundeBearbeitenAsync(ct); break;
+            case Option.StatusAendern:   await StatusAendernAsync(ct);   break;
+            case Option.Loeschen:        await LoeschenAsync(ct);        break;
         }
     }
 
@@ -204,6 +209,81 @@ public class TurnierInstanzMenue(
 
         AnsiConsole.WriteLine();
         KonsolenHilfsmittel.ErfolgAnzeigen($"Turnier '{neu.Name}' ({saison}) mit {runden.Count} Runde(n) angelegt (ID {neu.Id}).");
+        KonsolenHilfsmittel.Pause();
+    }
+
+    private async Task BearbeitenAsync(CancellationToken ct)
+    {
+        KonsolenHilfsmittel.Kopf("Turnier bearbeiten");
+
+        var instanzen = await instanzService.AlleAbrufenAsync(ct);
+        if (instanzen.Count == 0) { KonsolenHilfsmittel.WarnungAnzeigen("Keine Turniere vorhanden."); KonsolenHilfsmittel.Pause(); return; }
+
+        var auswahl = AnsiConsole.Prompt(new SelectionPrompt<TurnierInstanz?>()
+            .Title("Turnier:").UseConverter(ti => ti is null ? "← Zurück" : $"{ti.Name} ({ti.SaisonOderJahr})")
+            .EnableSearch().AddChoices(instanzen.Cast<TurnierInstanz?>().Append(null)));
+        if (auswahl is null) return;
+
+        AnsiConsole.MarkupLine($"\nAktuelle Werte für [bold]{Markup.Escape(auswahl.Name)}[/]:");
+        AnsiConsole.MarkupLine($"  Name:   {Markup.Escape(auswahl.Name)}");
+        AnsiConsole.MarkupLine($"  Saison: {Markup.Escape(auswahl.SaisonOderJahr)}");
+        AnsiConsole.MarkupLine("[grey]\nEnter = Wert behalten[/]\n");
+
+        var name   = KonsolenHilfsmittel.TextEingeben("Name",         auswahl.Name);
+        var saison = KonsolenHilfsmittel.TextEingeben("Saison / Jahr", auswahl.SaisonOderJahr);
+
+        await instanzService.AktualisierenAsync(auswahl.Id, new TurnierAktualisierenEingabe(name, saison), ct);
+        KonsolenHilfsmittel.ErfolgAnzeigen($"'{name}' ({saison}) gespeichert.");
+        KonsolenHilfsmittel.Pause();
+    }
+
+    private async Task RundeBearbeitenAsync(CancellationToken ct)
+    {
+        KonsolenHilfsmittel.Kopf("Runde bearbeiten");
+
+        var instanzen = await instanzService.AlleAbrufenAsync(ct);
+        if (instanzen.Count == 0) { KonsolenHilfsmittel.WarnungAnzeigen("Keine Turniere vorhanden."); KonsolenHilfsmittel.Pause(); return; }
+
+        var instanz = AnsiConsole.Prompt(new SelectionPrompt<TurnierInstanz?>()
+            .Title("Turnier:").UseConverter(ti => ti is null ? "← Zurück" : $"{ti.Name} ({ti.SaisonOderJahr})")
+            .EnableSearch().AddChoices(instanzen.Cast<TurnierInstanz?>().Append(null)));
+        if (instanz is null) return;
+
+        var mitRunden = await instanzService.FindenNachIdMitRundenAsync(instanz.Id, ct);
+        if (mitRunden is null || !mitRunden.Runden.Any())
+        { KonsolenHilfsmittel.WarnungAnzeigen("Dieses Turnier hat keine Runden."); KonsolenHilfsmittel.Pause(); return; }
+
+        var runde = AnsiConsole.Prompt(new SelectionPrompt<TurnierRunde?>()
+            .Title("Runde:")
+            .UseConverter(r => r is null ? "← Zurück" : $"{r.Reihenfolge}. {Markup.Escape(r.Name)} [[{r.Rundenart}]]")
+            .AddChoices(mitRunden.Runden.OrderBy(r => r.Reihenfolge).Cast<TurnierRunde?>().Append(null)));
+        if (runde is null) return;
+
+        var regelwerke = await regelwerkService.AlleAbrufenAsync(ct);
+        if (regelwerke.Count == 0) { KonsolenHilfsmittel.WarnungAnzeigen("Keine Regelwerke vorhanden."); KonsolenHilfsmittel.Pause(); return; }
+
+        AnsiConsole.MarkupLine($"\nAktuelle Werte für Runde [bold]{Markup.Escape(runde.Name)}[/]:");
+        AnsiConsole.MarkupLine($"  Name:      {Markup.Escape(runde.Name)}");
+        AnsiConsole.MarkupLine($"  Regelwerk: {Markup.Escape(runde.Regelwerk?.Name ?? "?")}");
+        AnsiConsole.MarkupLine($"  Auswärtstorregel: {(runde.AuswaertstorRegelAktiv ? "ja" : "nein")}");
+        AnsiConsole.MarkupLine("[grey]\nEnter = Wert behalten[/]\n");
+
+        var neuName = KonsolenHilfsmittel.TextEingeben("Name", runde.Name);
+
+        var neuRegelwerk = AnsiConsole.Prompt(new SelectionPrompt<Regelwerk?>()
+            .Title("Regelwerk:")
+            .UseConverter(r => r is null ? "← Unverändert lassen" : r.Name)
+            .EnableSearch()
+            .AddChoices(regelwerke.Cast<Regelwerk?>().Prepend(null)));
+        int regelwerkId = neuRegelwerk?.Id ?? runde.RegelwerkId;
+
+        bool auswärts = runde.AuswaertstorRegelAktiv;
+        if (runde.Rundenart == Rundenart.KoRundeMitHinUndRueckspiel)
+            auswärts = AnsiConsole.Confirm("Auswärtstorregel aktiv?", defaultValue: runde.AuswaertstorRegelAktiv);
+
+        await instanzService.RundeAktualisierenAsync(runde.Id,
+            new TurnierRundeAktualisierenEingabe(neuName, regelwerkId, auswärts), ct);
+        KonsolenHilfsmittel.ErfolgAnzeigen($"Runde '{neuName}' gespeichert.");
         KonsolenHilfsmittel.Pause();
     }
 
