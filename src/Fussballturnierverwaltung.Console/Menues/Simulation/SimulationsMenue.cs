@@ -305,7 +305,7 @@ public class SimulationsMenue(
         }
 
         var panel = new Panel(
-            $"[bold]{Markup.Escape(heim)}[/]   [bold yellow]{scoreHaupt}[bold]{Markup.Escape(scoreExt)}[/]   [bold]{Markup.Escape(auswaerts)}[/]")
+            $"[bold]{Markup.Escape(heim)}[/]   [bold yellow]{scoreHaupt}[/][bold]{Markup.Escape(scoreExt)}[/]   [bold]{Markup.Escape(auswaerts)}[/]")
             .Header("[blue]Simulations-Ergebnis[/]")
             .Border(BoxBorder.Rounded);
 
