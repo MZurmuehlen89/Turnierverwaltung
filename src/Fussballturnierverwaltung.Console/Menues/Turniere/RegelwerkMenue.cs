@@ -111,7 +111,7 @@ public class RegelwerkMenue(RegelwerkService regelwerkService)
         {
             AnsiConsole.MarkupLine($"[bold]Ranking-Regelset:[/] {Markup.Escape(details.RankingRegelSet.Name)}");
             foreach (var e in details.RankingRegelSet.Eintraege.OrderBy(e => e.Reihenfolge))
-                AnsiConsole.MarkupLine($"  {e.Reihenfolge}. {e.RankingRegel.Name} [{e.RankingRegel.Sortierrichtung}]");
+                AnsiConsole.MarkupLine($"  {e.Reihenfolge}. {Markup.Escape(e.RankingRegel.Name)} [grey]({e.RankingRegel.Sortierrichtung})[/]");
         }
 
         KonsolenHilfsmittel.Pause();
