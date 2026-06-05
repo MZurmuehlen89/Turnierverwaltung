@@ -314,11 +314,15 @@ public class SimulationsMenue(
         if (e.Ereignisse.Any())
         {
             AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("[grey]Ereignisse:[/]");
+
+            var ereignisTabelle = new Table()
+                .Border(TableBorder.Minimal)
+                .AddColumn(new TableColumn($"[bold]{Markup.Escape(heim)}[/]").RightAligned())
+                .AddColumn(new TableColumn("[grey]'[/]").Centered())
+                .AddColumn(new TableColumn($"[bold]{Markup.Escape(auswaerts)}[/]").LeftAligned());
 
             foreach (var ev in e.Ereignisse.OrderBy(x => x.Minute))
             {
-                string seite = ev.IstHeim ? $"[green]{Markup.Escape(heim)}[/]" : $"[red]{Markup.Escape(auswaerts)}[/]";
                 string symbol = ev.Art switch
                 {
                     EreignisArt.Tor        => "⚽",
@@ -327,8 +331,16 @@ public class SimulationsMenue(
                     EreignisArt.RoteKarte  => "🟥",
                     _                      => "•"
                 };
-                AnsiConsole.MarkupLine($"  [grey]{ev.Minute:D2}'[/] {symbol} {seite} – {Markup.Escape(ev.Beschreibung)}");
+                string eintrag = $"{symbol} {Markup.Escape(ev.Beschreibung)}";
+                string minute  = $"[grey]{ev.Minute:D2}'[/]";
+
+                if (ev.IstHeim)
+                    ereignisTabelle.AddRow(eintrag, minute, string.Empty);
+                else
+                    ereignisTabelle.AddRow(string.Empty, minute, eintrag);
             }
+
+            AnsiConsole.Write(ereignisTabelle);
         }
     }
 
