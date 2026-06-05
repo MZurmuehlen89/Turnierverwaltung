@@ -111,10 +111,8 @@ public class SimulationsMenue(
         if (aktion == "Simulieren")
         {
             var modus = ModusAuswaehlen();
-            int? seed = SeedEingeben();
-            var rng = seed.HasValue ? new Random(seed.Value) : new Random();
             ergebnis = SimulationsEngine.Simulieren(
-                heim, auswaerts, [], modus == SimulationsModus.AusfuehrlicheSimulation, rng);
+                heim, auswaerts, [], modus == SimulationsModus.AusfuehrlicheSimulation, new Random());
         }
         else
         {
@@ -158,12 +156,10 @@ public class SimulationsMenue(
                 .AddChoices(offene));
 
         var modus = ModusAuswaehlen();
-        int? seed = SeedEingeben();
 
         var ergebnis = await AnsiConsole.Status()
             .StartAsync("Simuliere...", async _ =>
-                await simulationsService.SpielSimulierenAsync(
-                    spiel.Id, modus, seed.HasValue ? new Random(seed.Value) : null, ct));
+                await simulationsService.SpielSimulierenAsync(spiel.Id, modus, null, ct));
 
         AnsiConsole.WriteLine();
         ErgebnisAnzeigen(spiel.HeimMannschaft?.Name ?? "Heim",
@@ -182,7 +178,6 @@ public class SimulationsMenue(
         if (instanz is null || runde is null) return;
 
         var modus = ModusAuswaehlen();
-        int? seed = SeedEingeben();
 
         if (!KonsolenHilfsmittel.Bestaetigen(
                 $"Alle offenen Spiele der Runde [bold]{Markup.Escape(runde.Name)}[/] simulieren?"))
@@ -196,7 +191,7 @@ public class SimulationsMenue(
             .StartAsync(async ctx =>
             {
                 var task = ctx.AddTask("Spiele werden simuliert...");
-                int n = await simulationsService.RundeSimulierenAsync(runde.Id, modus, seed, ct);
+                int n = await simulationsService.RundeSimulierenAsync(runde.Id, modus, null, ct);
                 task.Increment(100);
                 return n;
             });
@@ -215,7 +210,6 @@ public class SimulationsMenue(
         if (instanz is null) return;
 
         var modus = ModusAuswaehlen();
-        int? seed = SeedEingeben();
 
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine("[yellow]⚠[/]  Alle noch nicht abgeschlossenen Spiele aller Runden werden simuliert.");
@@ -232,7 +226,7 @@ public class SimulationsMenue(
 
         var lauf = await AnsiConsole.Status()
             .StartAsync("Turnier wird simuliert...", async _ =>
-                await simulationsService.TurnierSimulierenAsync(instanz.Id, modus, seed, ct));
+                await simulationsService.TurnierSimulierenAsync(instanz.Id, modus, null, ct));
 
         var dauer = lauf.EndZeitpunkt.HasValue
             ? (lauf.EndZeitpunkt.Value - lauf.StartZeitpunkt).TotalMilliseconds
@@ -397,11 +391,4 @@ public class SimulationsMenue(
                 })
                 .AddChoices(SimulationsModus.SchnellSimulation, SimulationsModus.AusfuehrlicheSimulation));
 
-    private static int? SeedEingeben()
-    {
-        if (!AnsiConsole.Confirm("Zufallsseed manuell festlegen?", defaultValue: false))
-            return null;
-        return AnsiConsole.Prompt(
-            new TextPrompt<int>("Seed (ganze Zahl):").DefaultValue(42));
-    }
 }
