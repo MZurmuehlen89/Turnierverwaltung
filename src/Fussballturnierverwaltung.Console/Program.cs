@@ -1,11 +1,11 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.ImportExport;
-using Fussballturnierverwaltung.Application.Spiele;
-using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Simulation;
-using Fussballturnierverwaltung.Application.Turnierbaum;
+using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Tabelle;
+using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Infrastructure.Erweiterungen;
@@ -15,11 +15,15 @@ using Fussballturnierverwaltung.Konsole.Menues;
 using Fussballturnierverwaltung.Konsole.Menues.Auslosungen;
 using Fussballturnierverwaltung.Konsole.Menues.ImportExport;
 using Fussballturnierverwaltung.Konsole.Menues.Simulation;
-using Fussballturnierverwaltung.Konsole.Menues.Turnierbaum;
 using Fussballturnierverwaltung.Konsole.Menues.Stammdaten;
+using Fussballturnierverwaltung.Konsole.Menues.Turnierbaum;
 using Fussballturnierverwaltung.Konsole.Menues.Turniere;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Spectre.Console;
+using System.Text;
+
+Console.OutputEncoding = Encoding.UTF8;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddInfrastruktur(builder.Configuration);
@@ -88,6 +92,12 @@ using (var scope = host.Services.CreateScope())
     var seedService = scope.ServiceProvider.GetRequiredService<SeedDatenService>();
     await seedService.InitialisierenAsync();
 }
+
+
+Console.OutputEncoding = Encoding.UTF8;
+Console.InputEncoding = Encoding.UTF8;
+
+AnsiConsole.Profile.Encoding = Encoding.UTF8;
 
 // Anwendung starten
 using (var scope = host.Services.CreateScope())
