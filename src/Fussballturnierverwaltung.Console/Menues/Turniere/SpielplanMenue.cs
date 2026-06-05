@@ -182,11 +182,13 @@ public class SpielplanMenue(
             KonsolenHilfsmittel.Pause();
             return null;
         }
-        return AnsiConsole.Prompt(
+        var auswahl = AnsiConsole.Prompt(
             new SelectionPrompt<TurnierInstanz?>()
                 .Title("Turnier:")
                 .UseConverter(ti => ti is null ? "← Zurück" : $"{ti.Name} ({ti.SaisonOderJahr})")
                 .EnableSearch().AddChoices(instanzen.Cast<TurnierInstanz?>().Append(null)));
+        if (auswahl is null) return null;
+        return await instanzService.FindenNachIdMitRundenAsync(auswahl.Id, ct);
     }
 
     private static TurnierRunde? RundeAuswaehlen(TurnierInstanz instanz)
