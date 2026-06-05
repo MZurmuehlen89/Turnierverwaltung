@@ -221,17 +221,73 @@ public class SimulationsMenue(
 
         var modus = ModusAuswaehlen();
 
-        int simuliert = await AnsiConsole.Progress()
-            .StartAsync(async ctx =>
-            {
-                var task = ctx.AddTask($"Spieltag {auswahl.Value.Spieltag} wird simuliert...");
-                int n = await simulationsService.SpieltageSimulierenAsync(
-                    runde.Id, auswahl.Value.Spieltag, modus, null, ct);
-                task.Increment(100);
-                return n;
-            });
+        // Offene Spiele dieses Spieltags mit Teamdaten laden
+        var offene = spiele
+            .Where(s => s.Spieltag == auswahl.Value.Spieltag && s.Status != SpielStatus.Abgeschlossen)
+            .ToList();
 
-        KonsolenHilfsmittel.ErfolgAnzeigen($"{simuliert} Spiel(e) simuliert.");
+        var ergebnisse = new List<(Spiel Spiel, SimulationsErgebnis Ergebnis)>();
+
+        await AnsiConsole.Status().StartAsync("Spieltag wird simuliert...", async _ =>
+        {
+            foreach (var spiel in offene)
+            {
+                var e = await simulationsService.SpielSimulierenAsync(spiel.Id, modus, null, ct);
+                ergebnisse.Add((spiel, e));
+            }
+        });
+
+        AnsiConsole.WriteLine();
+
+        if (modus == SimulationsModus.AusfuehrlicheSimulation)
+        {
+            foreach (var (spiel, ergebnis) in ergebnisse)
+            {
+                AnsiConsole.Write(new Rule(
+                    $"[grey]#{spiel.Spielnummer}  " +
+                    $"{Markup.Escape(spiel.HeimMannschaft?.Name ?? "?")} – " +
+                    $"{Markup.Escape(spiel.AuswaertsMannschaft?.Name ?? "?")}[/]")
+                    .LeftJustified());
+                ErgebnisAnzeigen(
+                    spiel.HeimMannschaft?.Name ?? "Heim",
+                    spiel.AuswaertsMannschaft?.Name ?? "Auswärts",
+                    ergebnis);
+                AnsiConsole.WriteLine();
+            }
+        }
+        else
+        {
+            var tabelle = new Table().Border(TableBorder.Rounded)
+                .AddColumn(new TableColumn("[grey]#[/]").RightAligned())
+                .AddColumn("Heim")
+                .AddColumn(new TableColumn("Ergebnis").Centered())
+                .AddColumn("Auswärts");
+
+            foreach (var (spiel, e) in ergebnisse)
+            {
+                int heimGes = e.HeimToreRegulaer + (e.HeimToreVerlaengerung ?? 0);
+                int gastGes = e.AuswaertsToreRegulaer + (e.AuswaertsToreVerlaengerung ?? 0);
+                var score = $"[bold]{heimGes} : {gastGes}[/]";
+                var suffix = e.EntscheidungArt switch
+                {
+                    EntscheidungArt.Verlaengerung     => " [grey]n.V.[/]",
+                    EntscheidungArt.GoldenGoal        => " [grey]GG[/]",
+                    EntscheidungArt.SilverGoal        => " [grey]SG[/]",
+                    EntscheidungArt.Elfmeterschiessen => $" [grey]i.E. ({e.HeimElfmetertore}:{e.AuswaertsElfmetertore})[/]",
+                    EntscheidungArt.Losentscheid      => " [grey]Los[/]",
+                    _                                 => ""
+                };
+                tabelle.AddRow(
+                    $"[grey]{spiel.Spielnummer}[/]",
+                    Markup.Escape(spiel.HeimMannschaft?.Name ?? "?"),
+                    score + suffix,
+                    Markup.Escape(spiel.AuswaertsMannschaft?.Name ?? "?"));
+            }
+
+            AnsiConsole.Write(tabelle);
+        }
+
+        KonsolenHilfsmittel.ErfolgAnzeigen($"{ergebnisse.Count} Spiel(e) simuliert.");
         KonsolenHilfsmittel.Pause();
     }
 
