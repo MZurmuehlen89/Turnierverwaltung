@@ -202,7 +202,7 @@ public class TurnierBaumMenue(
         AnsiConsole.WriteLine();
 
         // Legende
-        AnsiConsole.MarkupLine("[grey]Legende: [green]● Sieger[/]  [grey]○ Ausstehend  – Freilos[/]");
+        AnsiConsole.MarkupLine("[grey]Legende:[/] [green]● Sieger[/]  [grey]○ Ausstehend  – Freilos[/]");
     }
 
     private static string FormatHeim(TurnierBaumKnoten? knoten)
