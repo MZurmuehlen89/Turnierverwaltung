@@ -163,7 +163,7 @@ public class SpielplanMenue(
 
         KonsolenHilfsmittel.ErfolgAnzeigen($"{ergebnis.Spiele.Count} Spiele generiert.");
         AnsiConsole.WriteLine();
-        SpielplanTabelle(ergebnis.Spiele, runde.Rundenart);
+        SpielplanAnzeigenMitFilter(ergebnis.Spiele, runde.Rundenart);
         KonsolenHilfsmittel.Pause();
     }
 
@@ -186,7 +186,7 @@ public class SpielplanMenue(
         }
 
         KonsolenHilfsmittel.Kopf($"Spielplan: {Markup.Escape(runde.Name)}");
-        SpielplanTabelle(spiele, runde.Rundenart);
+        SpielplanAnzeigenMitFilter(spiele, runde.Rundenart);
         KonsolenHilfsmittel.Pause();
     }
 
@@ -512,6 +512,40 @@ public class SpielplanMenue(
         }
 
         AnsiConsole.Write(t);
+    }
+
+    private const int SpieltageFilterAb = 4;
+
+    private static void SpielplanAnzeigenMitFilter(IReadOnlyList<Spiel> spiele, Rundenart rundenart)
+    {
+        var spieltage = spiele
+            .Where(s => s.Spieltag.HasValue)
+            .Select(s => s.Spieltag!.Value)
+            .Distinct().OrderBy(t => t).ToList();
+
+        if (spieltage.Count >= SpieltageFilterAb)
+        {
+            var auswahl = AnsiConsole.Prompt(
+                new SelectionPrompt<int?>()
+                    .Title("Spieltag auswählen:")
+                    .UseConverter(t => t is null
+                        ? $"Alle Spieltage  [grey]({spiele.Count} Spiele)[/]"
+                        : $"Spieltag {t}  [grey]({spiele.Count(s => s.Spieltag == t)} Spiele)[/]")
+                    .AddChoices(spieltage.Cast<int?>().Append(null)));
+
+            var gefiltert = auswahl.HasValue
+                ? spiele.Where(s => s.Spieltag == auswahl.Value).ToList()
+                : spiele;
+
+            if (auswahl.HasValue)
+                AnsiConsole.MarkupLine($"[bold]Spieltag {auswahl.Value}[/]");
+
+            SpielplanTabelle(gefiltert, rundenart);
+        }
+        else
+        {
+            SpielplanTabelle(spiele, rundenart);
+        }
     }
 
     private static void SpielplanTabelle(IReadOnlyList<Spiel> spiele, Rundenart rundenart)
