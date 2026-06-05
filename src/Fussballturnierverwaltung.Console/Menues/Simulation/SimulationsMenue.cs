@@ -321,8 +321,29 @@ public class SimulationsMenue(
                 .AddColumn(new TableColumn("[grey]'[/]").Centered())
                 .AddColumn(new TableColumn($"[bold]{Markup.Escape(auswaerts)}[/]").LeftAligned());
 
+            static int Phase(int min) => min switch { <= 45 => 1, <= 90 => 2, <= 105 => 3, _ => 4 };
+            static string PhaseLabel(int p) => p switch
+            {
+                1 => "1. Halbzeit",
+                2 => "2. Halbzeit",
+                3 => "1. Hälfte Verlängerung",
+                _ => "2. Hälfte Verlängerung"
+            };
+
+            int aktuellePhase = 0;
+
             foreach (var ev in e.Ereignisse.OrderBy(x => x.Minute))
             {
+                int phase = Phase(ev.Minute);
+                if (phase != aktuellePhase)
+                {
+                    ereignisTabelle.AddRow(
+                        new Markup("[grey dim]────────────────[/]"),
+                        new Markup($"[grey]{PhaseLabel(phase)}[/]"),
+                        new Markup("[grey dim]────────────────[/]"));
+                    aktuellePhase = phase;
+                }
+
                 string symbol = ev.Art switch
                 {
                     EreignisArt.Tor        => "⚽",
@@ -339,6 +360,12 @@ public class SimulationsMenue(
                 else
                     ereignisTabelle.AddRow(string.Empty, minute, eintrag);
             }
+
+            if (e.EntscheidungArt == EntscheidungArt.Elfmeterschiessen)
+                ereignisTabelle.AddRow(
+                    new Markup("[grey dim]────────────────[/]"),
+                    new Markup("[grey]Elfmeterschießen[/]"),
+                    new Markup("[grey dim]────────────────[/]"));
 
             AnsiConsole.Write(ereignisTabelle);
         }
