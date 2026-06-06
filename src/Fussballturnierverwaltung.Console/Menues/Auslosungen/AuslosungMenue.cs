@@ -151,11 +151,13 @@ public class AuslosungMenue(
                     Auslosungsart.Zufall => "Zufällig (alle Teams in einem Topf)",
                     Auslosungsart.NachToepfen => "Nach Töpfen (Topf 1 vs Topf 2, ...)",
                     Auslosungsart.NachSetzliste => "Nach Setzliste (Gesetzte vs Ungesetzte)",
+                    Auslosungsart.TopfZuordnung => "Topf-Zuordnung (UCL-Ligaphase: je 2 Gegner pro Topf)",
                     Auslosungsart.GruppensiegerGegenGruppenzweite => "Gruppensieger gegen Gruppenzweite",
                     _ => a.ToString()
                 })
                 .AddChoices(Auslosungsart.Zufall, Auslosungsart.NachToepfen,
-                            Auslosungsart.NachSetzliste, Auslosungsart.GruppensiegerGegenGruppenzweite));
+                            Auslosungsart.NachSetzliste, Auslosungsart.TopfZuordnung,
+                            Auslosungsart.GruppensiegerGegenGruppenzweite));
 
         var eingabe = new AuslosungErstellenEingabe(
             instanz.Id, runde.Id, name, art, IstAutomatisch: true);

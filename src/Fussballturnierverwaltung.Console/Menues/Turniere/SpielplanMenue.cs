@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spiele.Eingaben;
@@ -6,6 +7,7 @@ using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Konsole.Menues.Simulation;
 using Fussballturnierverwaltung.Konsole.Menues.Turnierbaum;
+using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -23,6 +25,7 @@ public class SpielplanMenue(
     SimulationsMenue simulationsMenue,
     TurnierInstanzService instanzService,
     MannschaftService mannschaftService,
+    AuslosungService auslosungService,
     SpielplanGeneratorFactory generatorFactory)
 {
     private enum Option
@@ -102,6 +105,13 @@ public class SpielplanMenue(
             return;
         }
 
+        // TopfLiga verwendet Auslosungspaarungen statt manueller Team-Auswahl
+        if (runde.Rundenart == Rundenart.TopfLiga)
+        {
+            await TopfLigaSpielplanGenerierenAsync(runde, instanz, ct);
+            return;
+        }
+
         AnsiConsole.MarkupLine($"\n[bold]Runde:[/] {Markup.Escape(runde.Name)} | " +
                                $"Rundenart: {runde.Rundenart} | " +
                                $"Benötigt: [yellow]{runde.EingangsMannschaftsanzahl}[/] Mannschaften\n");
@@ -162,6 +172,84 @@ public class SpielplanMenue(
                 await spielplanService.GenerierenAsync(runde.Id, ausgewaehlt.Select(m => m.Id).ToList(), ct));
 
         KonsolenHilfsmittel.ErfolgAnzeigen($"{ergebnis.Spiele.Count} Spiele generiert.");
+        AnsiConsole.WriteLine();
+        SpielplanAnzeigenMitFilter(ergebnis.Spiele, runde.Rundenart);
+        KonsolenHilfsmittel.Pause();
+    }
+
+    private async Task TopfLigaSpielplanGenerierenAsync(TurnierRunde runde, TurnierInstanz instanz, CancellationToken ct)
+    {
+        KonsolenHilfsmittel.Kopf($"TopfLiga-Spielplan: {Markup.Escape(runde.Name)}");
+        AnsiConsole.MarkupLine("[grey]Der Spielplan wird aus den Paarungen einer TopfZuordnung-Auslosung generiert.[/]\n");
+
+        // Abgeschlossene TopfZuordnung-Auslosungen für diese Runde suchen
+        var alleAuslosungen = await auslosungService.AlleNachInstanzAbrufenAsync(instanz.Id, ct);
+        var topfAuslosungen = alleAuslosungen
+            .Where(a => a.TurnierRundeId == runde.Id &&
+                        a.Status         == AuslosungsStatus.Abgeschlossen &&
+                        a.Auslosungsart  == Auslosungsart.TopfZuordnung)
+            .ToList();
+
+        if (!topfAuslosungen.Any())
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen(
+                "Keine abgeschlossene TopfZuordnung-Auslosung für diese Runde vorhanden.\n" +
+                "Bitte zuerst unter 'Auslosungen' eine Auslosung vom Typ 'Topf-Zuordnung' anlegen und durchführen.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        Auslosung ausgewaehlt;
+        if (topfAuslosungen.Count == 1)
+        {
+            ausgewaehlt = await auslosungService.FindenNachIdAsync(topfAuslosungen[0].Id, ct)
+                          ?? topfAuslosungen[0];
+        }
+        else
+        {
+            var basis = AnsiConsole.Prompt(
+                new SelectionPrompt<Auslosung?>()
+                    .Title("Welche Auslosung verwenden?")
+                    .UseConverter(a => a is null ? "← Zurück"
+                        : $"{Markup.Escape(a.Name)} [{a.Ergebnisse.Count} Paarungen]")
+                    .AddChoices(topfAuslosungen.Cast<Auslosung?>().Append(null)));
+            if (basis is null) return;
+            ausgewaehlt = await auslosungService.FindenNachIdAsync(basis.Id, ct) ?? basis;
+        }
+
+        var paarungen = ausgewaehlt.Ergebnisse
+            .Where(e => !e.IstFreilos && e.HeimMannschaftId.HasValue && e.AuswaertsMannschaftId.HasValue)
+            .Select(e => (HeimId: e.HeimMannschaftId!.Value, AuswaertsId: e.AuswaertsMannschaftId!.Value))
+            .ToList<(int HeimId, int AuswaertsId)>();
+
+        AnsiConsole.MarkupLine($"Auslosung: [bold]{Markup.Escape(ausgewaehlt.Name)}[/] | [bold]{paarungen.Count}[/] Paarungen");
+
+        // Vorhandenen Spielplan prüfen
+        var vorhandene = await spielplanService.SpielplanAbrufenAsync(runde.Id, ct);
+        if (vorhandene.Any())
+        {
+            AnsiConsole.MarkupLine($"[yellow]⚠[/]  Für diese Runde existieren bereits [bold]{vorhandene.Count}[/] Spiele.");
+            if (!KonsolenHilfsmittel.Bestaetigen("Vorhandenen Spielplan löschen und neu generieren?"))
+            {
+                KonsolenHilfsmittel.WarnungAnzeigen("Abgebrochen.");
+                KonsolenHilfsmittel.Pause();
+                return;
+            }
+            await spielplanService.LoeschenAsync(runde.Id, ct);
+        }
+
+        AnsiConsole.WriteLine();
+        var ergebnis = await AnsiConsole.Status()
+            .StartAsync("Spielplan wird generiert...", async _ =>
+                await spielplanService.GenerierenAusPaarungenAsync(runde.Id, paarungen, ct));
+
+        int anzahlSpieltage = ergebnis.Spiele
+            .Where(s => s.Spieltag.HasValue)
+            .Select(s => s.Spieltag!.Value)
+            .Distinct().Count();
+
+        KonsolenHilfsmittel.ErfolgAnzeigen(
+            $"{ergebnis.Spiele.Count} Spiele generiert, verteilt auf {anzahlSpieltage} Spieltage.");
         AnsiConsole.WriteLine();
         SpielplanAnzeigenMitFilter(ergebnis.Spiele, runde.Rundenart);
         KonsolenHilfsmittel.Pause();
@@ -434,15 +522,15 @@ public class SpielplanMenue(
         var instanz = await TurnierInstanzAuswaehlenAsync(ct);
         if (instanz is null) return;
 
-        // Nur Liga/Gruppenphase-Runden für die Tabelle sinnvoll
+        // Nur Liga/Gruppenphase/TopfLiga-Runden für die Tabelle sinnvoll
         var rundenFuerTabelle = instanz.Runden
-            .Where(r => r.Rundenart is Rundenart.Liga or Rundenart.Gruppenphase)
+            .Where(r => r.Rundenart is Rundenart.Liga or Rundenart.Gruppenphase or Rundenart.TopfLiga)
             .OrderBy(r => r.Reihenfolge)
             .ToList();
 
         if (!rundenFuerTabelle.Any())
         {
-            KonsolenHilfsmittel.WarnungAnzeigen("Dieses Turnier hat keine Liga- oder Gruppenphase-Runden.");
+            KonsolenHilfsmittel.WarnungAnzeigen("Dieses Turnier hat keine Liga-, Gruppenphase- oder TopfLiga-Runden.");
             KonsolenHilfsmittel.Pause();
             return;
         }

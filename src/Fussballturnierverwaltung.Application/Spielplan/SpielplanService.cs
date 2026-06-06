@@ -65,6 +65,34 @@ public class SpielplanService(
         return ergebnis;
     }
 
+    /// <summary>
+    /// Generiert den Spielplan für eine TopfLiga-Runde direkt aus den Auslosungspaarungen.
+    /// </summary>
+    public async Task<SpielplanErgebnis> GenerierenAusPaarungenAsync(
+        int turnierRundeId,
+        IReadOnlyList<(int HeimId, int AuswaertsId)> paarungen,
+        CancellationToken ct = default)
+    {
+        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
+            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+
+        var alleIds      = paarungen.SelectMany(p => new[] { p.HeimId, p.AuswaertsId }).Distinct().ToList();
+        var mannschaften = await mannschaftRepository.FindenNachIdsAsync(alleIds, ct);
+        int maxNr        = await spielRepository.HoechsteSpielNummerAsync(runde.TurnierInstanzId, ct);
+
+        var generator = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
+        var kontext   = new SpielplanKontext(runde, mannschaften, maxNr + 1, paarungen);
+        var ergebnis  = generator.Generieren(kontext);
+
+        await SpeichernAsync(ergebnis, ct);
+
+        logger.LogInformation(
+            "TopfLiga-Spielplan für Runde '{Runde}' generiert: {Anzahl} Spiele.",
+            runde.Name, ergebnis.Spiele.Count);
+
+        return ergebnis;
+    }
+
     public Task<IReadOnlyList<Spiel>> SpielplanAbrufenAsync(int turnierRundeId, CancellationToken ct = default)
         => spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
 

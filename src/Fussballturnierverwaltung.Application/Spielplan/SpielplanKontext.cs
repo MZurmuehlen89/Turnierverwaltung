@@ -7,4 +7,5 @@ namespace Fussballturnierverwaltung.Application.Spielplan;
 public record SpielplanKontext(
     TurnierRunde Runde,
     IReadOnlyList<Mannschaft> Mannschaften,
-    int StartSpielNummer);
+    int StartSpielNummer,
+    IReadOnlyList<(int HeimId, int AuswaertsId)>? Paarungen = null);

@@ -68,6 +68,7 @@ builder.Services.AddScoped<ImportExportService>();
 builder.Services.AddScoped<ISpielplanGenerator, RoundRobinGenerator>();
 builder.Services.AddScoped<ISpielplanGenerator, KoRundeGenerator>();
 builder.Services.AddScoped<ISpielplanGenerator, KoRundeMitHinRueckspielGenerator>();
+builder.Services.AddScoped<ISpielplanGenerator, TopfLigaGenerator>();
 builder.Services.AddScoped<SpielplanGeneratorFactory>();
 builder.Services.AddScoped<SpielplanService>();
 

@@ -186,6 +186,7 @@ public class AuslosungService(
             Auslosungsart.NachToepfen or
             Auslosungsart.GruppensiegerGegenGruppenzweite => NachToepfenAusloesen(auslosung),
             Auslosungsart.NachSetzliste                  => NachSetzlisteAusloesen(auslosung),
+            Auslosungsart.TopfZuordnung                  => TopfZuordnungAusloesen(auslosung),
             _                                            => ZufaelligAusloesen(auslosung)
         };
 
@@ -290,6 +291,111 @@ public class AuslosungService(
 
         return ergebnisse;
     }
+
+    // ── TopfZuordnung (UCL-Ligaphase) ──────────────────────────────────────
+
+    private static List<AuslosungsErgebnis> TopfZuordnungAusloesen(Auslosung auslosung)
+    {
+        var keinGleichesLand = HatAktiveRegel(auslosung, AuslosungsRegelArt.KeinGleichesLand);
+        var lostoepfe        = auslosung.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
+
+        var alleErgebnisse = new List<AuslosungsErgebnis>();
+        int paarungsNr     = 1;
+
+        for (int i = 0; i < lostoepfe.Count; i++)
+        {
+            var teamsA = lostoepfe[i].Eintraege.Select(e => e.Mannschaft!).ToList();
+
+            // Innerhalb desselben Topfes
+            foreach (var (heim, auswaerts) in InnerPotPaaren(teamsA, keinGleichesLand))
+                alleErgebnisse.Add(Paarung(paarungsNr++, heim.Id, auswaerts.Id));
+
+            // Gegenüber jedem anderen Topf (j > i, um Doppelzählung zu vermeiden)
+            for (int j = i + 1; j < lostoepfe.Count; j++)
+            {
+                var teamsB = lostoepfe[j].Eintraege.Select(e => e.Mannschaft!).ToList();
+                foreach (var (heim, auswaerts) in CrossPotPaaren(teamsA, teamsB, keinGleichesLand))
+                    alleErgebnisse.Add(Paarung(paarungsNr++, heim.Id, auswaerts.Id));
+            }
+        }
+
+        return alleErgebnisse;
+    }
+
+    // Innerhalb eines Topfes: Hamiltonscher Zyklus → jedes Team exakt 1× Heim, 1× Auswärts.
+    private static List<(Mannschaft Heim, Mannschaft Auswaerts)> InnerPotPaaren(
+        List<Mannschaft> teams, bool keinGleichesLand)
+    {
+        int n = teams.Count;
+        for (int versuch = 0; versuch < 300; versuch++)
+        {
+            var shuffled = teams.OrderBy(_ => Random.Shared.Next()).ToList();
+            bool valid   = true;
+
+            for (int i = 0; i < n; i++)
+            {
+                if (keinGleichesLand && shuffled[i].LandId == shuffled[(i + 1) % n].LandId)
+                {
+                    valid = false;
+                    break;
+                }
+            }
+
+            if (!valid) continue;
+
+            var result = new List<(Mannschaft, Mannschaft)>(n);
+            for (int i = 0; i < n; i++)
+                result.Add((shuffled[i], shuffled[(i + 1) % n]));   // shuffled[i] = Heim
+            return result;
+        }
+
+        throw new InvalidOperationException(
+            "Keine gültige Innerhalb-Topf-Auslosung gefunden. " +
+            "Zu viele Mannschaften aus demselben Land im Topf?");
+    }
+
+    // Zwischen zwei Töpfen A und B: zwei unabhängige Permutationen →
+    // jedes A-Team spielt 1× Heim vs. B, 1× Auswärts vs. B (und umgekehrt).
+    private static List<(Mannschaft Heim, Mannschaft Auswaerts)> CrossPotPaaren(
+        List<Mannschaft> teamsA, List<Mannschaft> teamsB, bool keinGleichesLand)
+    {
+        int m = teamsA.Count;
+        for (int versuch = 0; versuch < 500; versuch++)
+        {
+            // perm1[i]: A-Team i spielt zu Hause gegen B-Team perm1[i]
+            var perm1    = teamsB.OrderBy(_ => Random.Shared.Next()).ToList();
+            // perm2[i]: A-Team i spielt auswärts gegen B-Team perm2[i]
+            var perm2    = teamsB.OrderBy(_ => Random.Shared.Next()).ToList();
+            bool valid   = true;
+
+            for (int i = 0; i < m; i++)
+            {
+                if (perm1[i].Id == perm2[i].Id) { valid = false; break; }
+                if (keinGleichesLand &&
+                    (teamsA[i].LandId == perm1[i].LandId || teamsA[i].LandId == perm2[i].LandId))
+                { valid = false; break; }
+            }
+
+            if (!valid) continue;
+
+            var result = new List<(Mannschaft, Mannschaft)>(m * 2);
+            for (int i = 0; i < m; i++)
+            {
+                result.Add((teamsA[i], perm1[i]));   // A-Team ist Heim
+                result.Add((perm2[i], teamsA[i]));   // B-Team ist Heim
+            }
+            return result;
+        }
+
+        throw new InvalidOperationException(
+            "Keine gültige Topf-Überkreuz-Auslosung gefunden. " +
+            "Die Einschränkungen (z. B. 'Kein gleiches Land') können nicht erfüllt werden.");
+    }
+
+    private static AuslosungsErgebnis Paarung(int nr, int heimId, int auswaertsId) =>
+        new() { PaarungsNummer = nr, HeimMannschaftId = heimId, AuswaertsMannschaftId = auswaertsId };
+
+    // ─────────────────────────────────────────────────────────────────────
 
     private static List<(Mannschaft, Mannschaft)> PaarenMitKonstraints(List<Mannschaft> teams, bool keinGleichesLand)
     {

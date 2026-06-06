@@ -44,6 +44,19 @@ public class AuslosungsValidator
             }
         }
 
+        // TopfZuordnung: gleich große Töpfe, mindestens 2 Töpfe
+        if (auslosung.Auslosungsart == Auslosungsart.TopfZuordnung)
+        {
+            if (lostoepfe.Count < 2)
+                fehler.Add("TopfZuordnung erfordert mindestens 2 Lostöpfe.");
+
+            var topfGroessen = lostoepfe.Where(t => t.Eintraege.Any()).Select(t => t.Eintraege.Count).Distinct().ToList();
+            if (topfGroessen.Count > 1)
+                fehler.Add("TopfZuordnung erfordert gleich große Lostöpfe " +
+                           $"(gefunden: {string.Join(", ", topfGroessen.Select(g => $"{g} Teams"))}).");
+
+        }
+
         // Regel-Konflikte prüfen
         var aktiveRegeln = auslosung.Regeln.Where(r => r.IstAktiv).Select(r => r.Regelart).ToList();
 
