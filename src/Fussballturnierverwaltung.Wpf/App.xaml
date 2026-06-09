@@ -1,0 +1,16 @@
+<Application x:Class="Fussballturnierverwaltung.Wpf.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:Fussballturnierverwaltung.Wpf.Converters">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/Fluent;component/Themes/Generic.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+            <conv:UmgekehrterBoolZuSichtbarkeitsConverter x:Key="InverseBoolToVisibility" />
+            <conv:NullZuGeklapptConverter x:Key="NullToCollapsed" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

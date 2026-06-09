@@ -1,0 +1,300 @@
+<UserControl x:Class="Fussballturnierverwaltung.Wpf.Views.MannschaftenView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="270" MinWidth="200" MaxWidth="420" />
+            <ColumnDefinition Width="4" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ── Linke Spalte: Suche + Filter + Liste ── -->
+        <DockPanel Grid.Column="0" Background="#F8FAFC">
+
+            <!-- Suchfeld -->
+            <Border DockPanel.Dock="Top" Background="White"
+                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,6">
+                <TextBox Text="{Binding Suchbegriff, UpdateSourceTrigger=PropertyChanged}"
+                         Padding="6,4" FontSize="13"
+                         BorderBrush="#CBD5E1" BorderThickness="1">
+                    <TextBox.Style>
+                        <Style TargetType="TextBox">
+                            <Style.Triggers>
+                                <Trigger Property="Text" Value="">
+                                    <Setter Property="Background">
+                                        <Setter.Value>
+                                            <VisualBrush Stretch="None" AlignmentX="Left">
+                                                <VisualBrush.Visual>
+                                                    <TextBlock Text="🔍  Suchen …"
+                                                               Foreground="#9CA3AF" Margin="8,4"
+                                                               FontSize="13" />
+                                                </VisualBrush.Visual>
+                                            </VisualBrush>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
+            </Border>
+
+            <!-- Filter-Panel -->
+            <Border DockPanel.Dock="Top" Background="#F1F5F9"
+                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,6">
+                <StackPanel>
+
+                    <!-- Land -->
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="56" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Land" VerticalAlignment="Center"
+                                   FontSize="11" Foreground="#6B7280" />
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding LandFilterOptionen}"
+                                  SelectedItem="{Binding FilterLandOption}"
+                                  DisplayMemberPath="Anzeige"
+                                  Padding="4,2" FontSize="12" BorderBrush="#CBD5E1" />
+                    </Grid>
+
+                    <!-- Verband -->
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="56" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Verband" VerticalAlignment="Center"
+                                   FontSize="11" Foreground="#6B7280" />
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding VerbandFilterOptionen}"
+                                  SelectedItem="{Binding FilterVerbandOption}"
+                                  DisplayMemberPath="Anzeige"
+                                  Padding="4,2" FontSize="12" BorderBrush="#CBD5E1" />
+                    </Grid>
+
+                    <!-- Art -->
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="56" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Art" VerticalAlignment="Center"
+                                   FontSize="11" Foreground="#6B7280" />
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding ArtFilterOptionen}"
+                                  SelectedItem="{Binding FilterArtOption}"
+                                  DisplayMemberPath="Anzeige"
+                                  Padding="4,2" FontSize="12" BorderBrush="#CBD5E1" />
+                    </Grid>
+
+                    <!-- Rating min -->
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="56" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="30" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Rating ≥" VerticalAlignment="Center"
+                                   FontSize="11" Foreground="#6B7280" />
+                        <Slider Grid.Column="1" Value="{Binding FilterMinRating}"
+                                Minimum="0" Maximum="99"
+                                IsSnapToTickEnabled="True" TickFrequency="1"
+                                VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding FilterMinRating}"
+                                   FontSize="11" FontWeight="SemiBold"
+                                   TextAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <!-- Reset -->
+                    <Button Content="Filter zurücksetzen"
+                            Command="{Binding FilterZuruecksetzenCommand}"
+                            HorizontalAlignment="Right"
+                            FontSize="11" Padding="6,2"
+                            Cursor="Hand" />
+                </StackPanel>
+            </Border>
+
+            <!-- Ladeindikator -->
+            <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="3"
+                         Foreground="#3B82F6"
+                         Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
+
+            <!-- Liste -->
+            <ListBox ItemsSource="{Binding MannschaftenGefiltert}"
+                     SelectedItem="{Binding Ausgewaehlte}"
+                     BorderThickness="0" Background="Transparent"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="12,8" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#DBEAFE" />
+                                <Setter Property="Foreground" Value="#1E40AF" />
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True" />
+                                    <Condition Property="IsSelected" Value="False" />
+                                </MultiTrigger.Conditions>
+                                <Setter Property="Background" Value="#EFF6FF" />
+                            </MultiTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel>
+                            <DockPanel>
+                                <TextBlock Text="{Binding Kurzname}" DockPanel.Dock="Right"
+                                           Foreground="#9CA3AF" FontSize="11"
+                                           VerticalAlignment="Center" Margin="4,0,0,0" />
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                           TextTrimming="CharacterEllipsis" />
+                            </DockPanel>
+                            <DockPanel>
+                                <TextBlock Text="{Binding GesamtRating, StringFormat='{}⭐ {0:F1}'}"
+                                           DockPanel.Dock="Right" FontSize="10"
+                                           Foreground="#9CA3AF" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Land.Name}" FontSize="11"
+                                           Foreground="#6B7280" TextTrimming="CharacterEllipsis" />
+                            </DockPanel>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+
+        <GridSplitter Grid.Column="1" Width="4"
+                      HorizontalAlignment="Stretch" Background="#E2E8F0" />
+
+        <!-- ── Rechte Spalte ── -->
+        <Grid Grid.Column="2">
+
+            <!-- Platzhalter -->
+            <StackPanel Visibility="{Binding FormularAktiv, Converter={StaticResource InverseBoolToVisibility}}"
+                        VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.4">
+                <TextBlock Text="⚽" FontSize="48" HorizontalAlignment="Center" />
+                <TextBlock Text="Mannschaft auswählen oder" FontSize="14"
+                           HorizontalAlignment="Center" Margin="0,12,0,4" />
+                <TextBlock Text="&quot;Neu&quot; in der Menüleiste klicken"
+                           FontSize="14" HorizontalAlignment="Center" />
+            </StackPanel>
+
+            <!-- Formular -->
+            <ScrollViewer Visibility="{Binding FormularAktiv, Converter={StaticResource BoolToVisibility}}"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="28,20,28,28" MaxWidth="580">
+
+                    <TextBlock Text="BASISDATEN" FontWeight="SemiBold" FontSize="11"
+                               Foreground="#9CA3AF" Margin="0,0,0,12" />
+
+                    <TextBlock Text="Name" FontSize="12" Foreground="#374151" Margin="0,0,0,3" />
+                    <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="8,5" FontSize="13" Margin="0,0,0,12"
+                             BorderBrush="#D1D5DB" BorderThickness="1" />
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Kurzname" FontSize="12" Foreground="#374151" Margin="0,0,0,3" />
+                            <TextBox Text="{Binding Kurzname, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="8,5" FontSize="13"
+                                     BorderBrush="#D1D5DB" BorderThickness="1" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Art" FontSize="12" Foreground="#374151" Margin="0,0,0,3" />
+                            <ComboBox ItemsSource="{Binding ArtOptionen}"
+                                      SelectedItem="{Binding AusgewaehlteArt}"
+                                      IsEnabled="{Binding IstNeuModus}"
+                                      Padding="8,5" FontSize="13"
+                                      BorderBrush="#D1D5DB" BorderThickness="1" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="Land" FontSize="12" Foreground="#374151" Margin="0,0,0,3" />
+                    <ComboBox ItemsSource="{Binding Laender}"
+                              SelectedItem="{Binding AusgewaehltesLand}"
+                              DisplayMemberPath="Name"
+                              Padding="8,5" FontSize="13" Margin="0,0,0,24"
+                              BorderBrush="#D1D5DB" BorderThickness="1" />
+
+                    <!-- Ratings -->
+                    <DockPanel Margin="0,0,0,12">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <TextBlock Text="Gesamt " FontSize="12" Foreground="#6B7280"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding GesamtRating}" FontSize="16"
+                                       FontWeight="Bold" Foreground="#1D4ED8"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock Text="RATINGS" FontWeight="SemiBold" FontSize="11"
+                                   Foreground="#9CA3AF" VerticalAlignment="Center" />
+                    </DockPanel>
+
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="110" /><ColumnDefinition Width="*" /><ColumnDefinition Width="36" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Offensiv" VerticalAlignment="Center" FontSize="13" />
+                        <Slider Grid.Column="1" Value="{Binding OffensivRating}" Minimum="1" Maximum="99" IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding OffensivRating}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="110" /><ColumnDefinition Width="*" /><ColumnDefinition Width="36" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Mittelfeld" VerticalAlignment="Center" FontSize="13" />
+                        <Slider Grid.Column="1" Value="{Binding MittelfeldRating}" Minimum="1" Maximum="99" IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding MittelfeldRating}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+                    <Grid Margin="0,0,0,24">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="110" /><ColumnDefinition Width="*" /><ColumnDefinition Width="36" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Defensiv" VerticalAlignment="Center" FontSize="13" />
+                        <Slider Grid.Column="1" Value="{Binding DefensivRating}" Minimum="1" Maximum="99" IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding DefensivRating}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <TextBlock Text="STÄRKEN" FontWeight="SemiBold" FontSize="11"
+                               Foreground="#9CA3AF" Margin="0,0,0,12" />
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="110" /><ColumnDefinition Width="*" /><ColumnDefinition Width="36" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Heimstärke" VerticalAlignment="Center" FontSize="13" />
+                        <Slider Grid.Column="1" Value="{Binding Heimstaerke}" Minimum="1" Maximum="99" IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding Heimstaerke}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+                    <Grid Margin="0,0,0,24">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="110" /><ColumnDefinition Width="*" /><ColumnDefinition Width="36" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Auswärtsstärke" VerticalAlignment="Center" FontSize="13" />
+                        <Slider Grid.Column="1" Value="{Binding Auswaertsstaerke}" Minimum="1" Maximum="99" IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding Auswaertsstaerke}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <!-- Fehlermeldung -->
+                    <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
+                            Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1"
+                            CornerRadius="4" Padding="10,8">
+                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
+                                   FontSize="12" TextWrapping="Wrap" />
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>
