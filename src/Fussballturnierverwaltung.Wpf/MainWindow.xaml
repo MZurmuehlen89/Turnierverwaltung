@@ -19,6 +19,18 @@
         <DataTemplate DataType="{x:Type vm:LandUndVerbandViewModel}">
             <views:LandUndVerbandView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:RegelwerkViewModel}">
+            <views:RegelwerkView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:TurnierVorlageViewModel}">
+            <views:TurnierVorlageView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:TurnierInstanzViewModel}">
+            <views:TurnierInstanzView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:AuslosungViewModel}">
+            <views:AuslosungView />
+        </DataTemplate>
 
         <Style x:Key="NavButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
