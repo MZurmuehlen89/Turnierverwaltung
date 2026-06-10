@@ -1,0 +1,458 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
+using Fussballturnierverwaltung.Domain.Enums;
+using Fussballturnierverwaltung.Wpf.Ribbon;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Windows;
+using System.Windows.Input;
+
+namespace Fussballturnierverwaltung.Wpf.ViewModels;
+
+public record KontinentOption(string Anzeige, Kontinent? Wert);
+
+public partial class LandUndVerbandViewModel : ViewModelBase, IRibbonAware
+{
+    private readonly LandService _landService;
+    private readonly VerbandService _verbandService;
+    private int _populiertGerade;
+
+    private static readonly VerbandFilterOption AllesVerband = new("— Alle —", null);
+    private static readonly KontinentOption AllesKontinent = new("— Alle —", null);
+
+    private static readonly IReadOnlyList<KontinentOption> _kontinentFormularOptionen =
+        Enum.GetValues<Kontinent>()
+            .Select(k => new KontinentOption(KontinentAnzeigeName(k), k))
+            .ToList();
+
+    // ── Aktiver Tab ───────────────────────────────────────────────────────────
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AbbrechenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
+    private int _aktiverTabIndex;
+
+    [ObservableProperty] private bool _istLadend;
+    [ObservableProperty] private string? _fehlermeldung;
+
+    // ── Verbände ─────────────────────────────────────────────────────────────
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(VerbaendeGefiltert))]
+    [NotifyPropertyChangedFor(nameof(VerbandFilterOptionen))]
+    private ObservableCollection<Verband> _verbaende = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(VerbaendeGefiltert))]
+    private string _verbandSuchbegriff = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
+    private Verband? _ausgewaehlterVerband;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AbbrechenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
+    private bool _verbandFormularAktiv;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AbbrechenCommand))]
+    private bool _verbandIsDirty;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
+    private bool _verbandIstNeuModus;
+
+    [ObservableProperty] private string _verbandName = "";
+    [ObservableProperty] private string _verbandKurzname = "";
+
+    // ── Länder ───────────────────────────────────────────────────────────────
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LaenderGefiltert))]
+    private ObservableCollection<Land> _laender = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LaenderGefiltert))]
+    private string _landSuchbegriff = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LaenderGefiltert))]
+    private VerbandFilterOption _landFilterVerbandOption = AllesVerband;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LaenderGefiltert))]
+    private KontinentOption _landFilterKontinentOption = AllesKontinent;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
+    private Land? _ausgewaehltesLand;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AbbrechenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
+    private bool _landFormularAktiv;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AbbrechenCommand))]
+    private bool _landIsDirty;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
+    private bool _landIstNeuModus;
+
+    [ObservableProperty] private string _landName = "";
+    [ObservableProperty] private string _landKurzname = "";
+    [ObservableProperty] private string _landFifaCode = "";
+    [ObservableProperty] private KontinentOption _landKontinentOption = _kontinentFormularOptionen[0];
+    [ObservableProperty] private Verband? _landVerband;
+
+    // ── Berechnete Listen ─────────────────────────────────────────────────────
+    public IEnumerable<Land> LaenderGefiltert => Laender
+        .Where(l => string.IsNullOrWhiteSpace(LandSuchbegriff)
+            || l.Name.Contains(LandSuchbegriff, StringComparison.OrdinalIgnoreCase)
+            || l.Kurzname.Contains(LandSuchbegriff, StringComparison.OrdinalIgnoreCase)
+            || l.FifaCode.Contains(LandSuchbegriff, StringComparison.OrdinalIgnoreCase))
+        .Where(l => LandFilterVerbandOption.Wert == null || l.VerbandId == LandFilterVerbandOption.Wert.Id)
+        .Where(l => LandFilterKontinentOption.Wert == null || l.Kontinent == LandFilterKontinentOption.Wert);
+
+    public IEnumerable<Verband> VerbaendeGefiltert => Verbaende
+        .Where(v => string.IsNullOrWhiteSpace(VerbandSuchbegriff)
+            || v.Name.Contains(VerbandSuchbegriff, StringComparison.OrdinalIgnoreCase)
+            || v.Kurzname.Contains(VerbandSuchbegriff, StringComparison.OrdinalIgnoreCase));
+
+    public IReadOnlyList<VerbandFilterOption> VerbandFilterOptionen =>
+        [AllesVerband, .. Verbaende.Select(v => new VerbandFilterOption(v.Name, v))];
+
+    public IReadOnlyList<KontinentOption> KontinentFilterOptionen =>
+        [AllesKontinent, .. _kontinentFormularOptionen];
+
+    public IReadOnlyList<KontinentOption> KontinentFormularOptionen => _kontinentFormularOptionen;
+
+    public static string KontinentAnzeigeName(Kontinent k) => k switch
+    {
+        Kontinent.Europa               => "Europa",
+        Kontinent.Suedamerika          => "Südamerika",
+        Kontinent.NordUndMittelamerika => "Nord- & Mittelamerika",
+        Kontinent.Afrika               => "Afrika",
+        Kontinent.Asien                => "Asien",
+        Kontinent.Ozeanien             => "Ozeanien",
+        _                              => k.ToString()
+    };
+
+    private static readonly HashSet<string> _landFormFelder =
+    [
+        nameof(LandName), nameof(LandKurzname), nameof(LandFifaCode),
+        nameof(LandKontinentOption), nameof(LandVerband)
+    ];
+
+    private static readonly HashSet<string> _verbandFormFelder =
+    [
+        nameof(VerbandName), nameof(VerbandKurzname)
+    ];
+
+    // ── IRibbonAware ──────────────────────────────────────────────────────────
+    public string RibbonTabTitel => "Länder & Verbände";
+    public ICommand NeuBefehl => NeuCommand;
+    public ICommand SpeichernBefehl => SpeichernCommand;
+    public ICommand AbbrechenBefehl => AbbrechenCommand;
+    public ICommand LoeschenBefehl => LoeschenCommand;
+
+    public LandUndVerbandViewModel(LandService landService, VerbandService verbandService)
+    {
+        _landService = landService;
+        _verbandService = verbandService;
+    }
+
+    public override async Task AktivierenAsync() => await LadenAsync();
+
+    private async Task LadenAsync()
+    {
+        IstLadend = true;
+        try
+        {
+            var laender = await _landService.AlleAbrufenMitVerbandAsync();
+            var verbaende = await _verbandService.AlleAbrufenAsync();
+
+            Laender = new ObservableCollection<Land>(laender.OrderBy(l => l.Name));
+            Verbaende = new ObservableCollection<Verband>(verbaende.OrderBy(v => v.Name));
+        }
+        finally
+        {
+            IstLadend = false;
+        }
+    }
+
+    partial void OnAusgewaehltesLandChanged(Land? value) => LandFormularAusFuellenMit(value);
+    partial void OnAusgewaehlterVerbandChanged(Verband? value) => VerbandFormularAusFuellenMit(value);
+
+    private void LandFormularAusFuellenMit(Land? land)
+    {
+        _populiertGerade++;
+        try
+        {
+            if (land is null)
+            {
+                LandFormularAktiv = false;
+                LandIstNeuModus = false;
+                LandName = LandKurzname = LandFifaCode = "";
+                LandKontinentOption = _kontinentFormularOptionen[0];
+                LandVerband = null;
+            }
+            else
+            {
+                LandFormularAktiv = true;
+                LandIstNeuModus = false;
+                LandName = land.Name;
+                LandKurzname = land.Kurzname;
+                LandFifaCode = land.FifaCode;
+                LandKontinentOption = _kontinentFormularOptionen
+                    .FirstOrDefault(k => k.Wert == land.Kontinent) ?? _kontinentFormularOptionen[0];
+                LandVerband = Verbaende.FirstOrDefault(v => v.Id == land.VerbandId);
+            }
+            LandIsDirty = false;
+            Fehlermeldung = null;
+        }
+        finally
+        {
+            _populiertGerade--;
+        }
+    }
+
+    private void VerbandFormularAusFuellenMit(Verband? verband)
+    {
+        _populiertGerade++;
+        try
+        {
+            if (verband is null)
+            {
+                VerbandFormularAktiv = false;
+                VerbandIstNeuModus = false;
+                VerbandName = VerbandKurzname = "";
+            }
+            else
+            {
+                VerbandFormularAktiv = true;
+                VerbandIstNeuModus = false;
+                VerbandName = verband.Name;
+                VerbandKurzname = verband.Kurzname;
+            }
+            VerbandIsDirty = false;
+            Fehlermeldung = null;
+        }
+        finally
+        {
+            _populiertGerade--;
+        }
+    }
+
+    // ── Ribbon-Befehle ────────────────────────────────────────────────────────
+
+    [RelayCommand]
+    private void Neu()
+    {
+        if (AktiverTabIndex == 0) NeuLand();
+        else NeuVerband();
+    }
+
+    private void NeuLand()
+    {
+        _populiertGerade++;
+        try
+        {
+            AusgewaehltesLand = null;
+            LandFormularAktiv = true;
+            LandIstNeuModus = true;
+            LandName = LandKurzname = LandFifaCode = "";
+            LandKontinentOption = _kontinentFormularOptionen[0];
+            LandVerband = Verbaende.FirstOrDefault();
+            Fehlermeldung = null;
+        }
+        finally
+        {
+            _populiertGerade--;
+        }
+        LandIsDirty = true;
+    }
+
+    private void NeuVerband()
+    {
+        _populiertGerade++;
+        try
+        {
+            AusgewaehlterVerband = null;
+            VerbandFormularAktiv = true;
+            VerbandIstNeuModus = true;
+            VerbandName = VerbandKurzname = "";
+            Fehlermeldung = null;
+        }
+        finally
+        {
+            _populiertGerade--;
+        }
+        VerbandIsDirty = true;
+    }
+
+    [RelayCommand(CanExecute = nameof(KannSpeichern))]
+    private async Task Speichern()
+    {
+        if (AktiverTabIndex == 0) await LandSpeichern();
+        else await VerbandSpeichern();
+    }
+
+    private async Task LandSpeichern()
+    {
+        Fehlermeldung = null;
+        try
+        {
+            if (LandIstNeuModus)
+            {
+                var eingabe = new LandErstellenEingabe(
+                    LandName, LandKurzname, LandFifaCode,
+                    LandKontinentOption.Wert ?? Kontinent.Europa,
+                    LandVerband?.Id ?? 0);
+                var neu = await _landService.ErstellenAsync(eingabe);
+                await LadenAsync();
+                AusgewaehltesLand = Laender.FirstOrDefault(l => l.Id == neu.Id);
+            }
+            else if (AusgewaehltesLand is not null)
+            {
+                var id = AusgewaehltesLand.Id;
+                var eingabe = new LandAktualisierenEingabe(
+                    LandName, LandKurzname, LandFifaCode,
+                    LandKontinentOption.Wert ?? Kontinent.Europa,
+                    LandVerband?.Id ?? 0);
+                await _landService.AktualisierenAsync(id, eingabe);
+                await LadenAsync();
+                AusgewaehltesLand = Laender.FirstOrDefault(l => l.Id == id);
+            }
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+    }
+
+    private async Task VerbandSpeichern()
+    {
+        Fehlermeldung = null;
+        try
+        {
+            if (VerbandIstNeuModus)
+            {
+                var eingabe = new VerbandErstellenEingabe(VerbandName, VerbandKurzname);
+                var neu = await _verbandService.ErstellenAsync(eingabe);
+                await LadenAsync();
+                AusgewaehlterVerband = Verbaende.FirstOrDefault(v => v.Id == neu.Id);
+            }
+            else if (AusgewaehlterVerband is not null)
+            {
+                var id = AusgewaehlterVerband.Id;
+                var eingabe = new VerbandAktualisierenEingabe(VerbandName, VerbandKurzname);
+                await _verbandService.AktualisierenAsync(id, eingabe);
+                await LadenAsync();
+                AusgewaehlterVerband = Verbaende.FirstOrDefault(v => v.Id == id);
+            }
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(KannAbbrechen))]
+    private void Abbrechen()
+    {
+        if (AktiverTabIndex == 0)
+            LandFormularAusFuellenMit(LandIstNeuModus ? null : AusgewaehltesLand);
+        else
+            VerbandFormularAusFuellenMit(VerbandIstNeuModus ? null : AusgewaehlterVerband);
+    }
+
+    [RelayCommand(CanExecute = nameof(KannLoeschen))]
+    private async Task Loeschen()
+    {
+        if (AktiverTabIndex == 0) await LandLoeschen();
+        else await VerbandLoeschen();
+    }
+
+    private async Task LandLoeschen()
+    {
+        if (AusgewaehltesLand is null) return;
+        var ergebnis = MessageBox.Show(
+            $"Soll '{AusgewaehltesLand.Name}' wirklich gelöscht werden?",
+            "Land löschen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (ergebnis != MessageBoxResult.Yes) return;
+        Fehlermeldung = null;
+        try
+        {
+            await _landService.LoeschenAsync(AusgewaehltesLand.Id);
+            await LadenAsync();
+            AusgewaehltesLand = null;
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+    }
+
+    private async Task VerbandLoeschen()
+    {
+        if (AusgewaehlterVerband is null) return;
+        var ergebnis = MessageBox.Show(
+            $"Soll '{AusgewaehlterVerband.Name}' wirklich gelöscht werden?",
+            "Verband löschen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (ergebnis != MessageBoxResult.Yes) return;
+        Fehlermeldung = null;
+        try
+        {
+            await _verbandService.LoeschenAsync(AusgewaehlterVerband.Id);
+            await LadenAsync();
+            AusgewaehlterVerband = null;
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private void FilterZuruecksetzen()
+    {
+        if (AktiverTabIndex == 0)
+        {
+            LandSuchbegriff = "";
+            LandFilterVerbandOption = AllesVerband;
+            LandFilterKontinentOption = AllesKontinent;
+        }
+        else
+        {
+            VerbandSuchbegriff = "";
+        }
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (_populiertGerade != 0) return;
+        if (_landFormFelder.Contains(e.PropertyName!)) LandIsDirty = true;
+        if (_verbandFormFelder.Contains(e.PropertyName!)) VerbandIsDirty = true;
+    }
+
+    private bool KannSpeichern() => AktiverTabIndex == 0
+        ? (LandFormularAktiv && LandIsDirty)
+        : (VerbandFormularAktiv && VerbandIsDirty);
+
+    private bool KannAbbrechen() => AktiverTabIndex == 0
+        ? (LandFormularAktiv && LandIsDirty)
+        : (VerbandFormularAktiv && VerbandIsDirty);
+
+    private bool KannLoeschen() => AktiverTabIndex == 0
+        ? (AusgewaehltesLand is not null && !LandIstNeuModus)
+        : (AusgewaehlterVerband is not null && !VerbandIstNeuModus);
+}

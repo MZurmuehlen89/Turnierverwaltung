@@ -16,6 +16,9 @@
         <DataTemplate DataType="{x:Type vm:MannschaftenViewModel}">
             <views:MannschaftenView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:LandUndVerbandViewModel}">
+            <views:LandUndVerbandView />
+        </DataTemplate>
 
         <Style x:Key="NavButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />

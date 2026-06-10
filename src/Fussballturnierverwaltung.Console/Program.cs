@@ -31,6 +31,8 @@ builder.Services.AddInfrastruktur(builder.Configuration);
 
 // Validierungsservices
 builder.Services.AddScoped<MannschaftValidator>();
+builder.Services.AddScoped<LandValidator>();
+builder.Services.AddScoped<VerbandValidator>();
 builder.Services.AddScoped<TurnierValidator>();
 builder.Services.AddScoped<RegelwerkValidator>();
 builder.Services.AddScoped<RankingRegelSetValidator>();

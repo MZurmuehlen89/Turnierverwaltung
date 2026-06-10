@@ -41,7 +41,7 @@ public partial class MainViewModel : ViewModelBase
             Eintraege =
             [
                 EintragErstellen("Mannschaften",      () => _navigation.NavigiereZu<MannschaftenViewModel>()),
-                EintragErstellen("Länder & Verbände", () => NavigiereZuPlatzhalter("Länder & Verbände")),
+                EintragErstellen("Länder & Verbände", () => _navigation.NavigiereZu<LandUndVerbandViewModel>()),
                 EintragErstellen("Regelwerke",        () => NavigiereZuPlatzhalter("Regelwerke")),
                 EintragErstellen("Turniervorlagen",   () => NavigiereZuPlatzhalter("Turniervorlagen")),
             ]

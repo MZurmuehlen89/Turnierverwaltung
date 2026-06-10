@@ -31,6 +31,8 @@ public partial class App
 
         // Validierung
         builder.Services.AddScoped<MannschaftValidator>();
+        builder.Services.AddScoped<LandValidator>();
+        builder.Services.AddScoped<VerbandValidator>();
         builder.Services.AddScoped<TurnierValidator>();
         builder.Services.AddScoped<RegelwerkValidator>();
         builder.Services.AddScoped<RankingRegelSetValidator>();
@@ -65,6 +67,7 @@ public partial class App
         // ViewModels (Transient = neuer Scope bei jeder Navigation)
         builder.Services.AddTransient<PlatzhalterViewModel>();
         builder.Services.AddTransient<MannschaftenViewModel>();
+        builder.Services.AddTransient<LandUndVerbandViewModel>();
 
         // Navigation & Hauptfenster
         builder.Services.AddSingleton<INavigationService, NavigationService>();
