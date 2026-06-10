@@ -70,6 +70,7 @@ public partial class App
         builder.Services.AddTransient<LandUndVerbandViewModel>();
         builder.Services.AddTransient<RegelwerkViewModel>();
         builder.Services.AddTransient<TurnierVorlageViewModel>();
+        builder.Services.AddTransient<TurnierInstanzViewModel>();
 
         // Navigation & Hauptfenster
         builder.Services.AddSingleton<INavigationService, NavigationService>();

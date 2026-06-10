@@ -20,6 +20,14 @@ public record TurnierVorlageAktualisierenEingabe(
     DateOnly? GueltigVon,
     DateOnly? GueltigBis);
 
+public record TurnierInstanzVollAktualisierenEingabe(
+    string Name,
+    string SaisonOderJahr,
+    int? TurnierVorlageId,
+    DateOnly? Startdatum,
+    DateOnly? Enddatum,
+    TurnierStatus Status);
+
 public record TurnierInstanzErstellenEingabe(
     string Name,
     string SaisonOderJahr,

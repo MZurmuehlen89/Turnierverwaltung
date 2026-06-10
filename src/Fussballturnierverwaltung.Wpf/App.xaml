@@ -13,6 +13,8 @@
             <conv:NullZuGeklapptConverter x:Key="NullToCollapsed" />
             <conv:VerfahrenArtZuTextConverter x:Key="VerfahrenArtZuText" />
             <conv:VorlagenKategorieZuTextConverter x:Key="VorlagenKategorieZuText" />
+            <conv:RundenartZuTextConverter x:Key="RundenartZuText" />
+            <conv:TurnierStatusZuTextConverter x:Key="TurnierStatusZuText" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -60,6 +60,20 @@ public class TurnierInstanzService(
         return instanz;
     }
 
+    public async Task VollAktualisierenAsync(int id, TurnierInstanzVollAktualisierenEingabe eingabe, CancellationToken ct = default)
+    {
+        var instanz = await repository.FindenNachIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"TurnierInstanz mit ID {id} nicht gefunden.");
+        instanz.Name           = eingabe.Name.Trim();
+        instanz.SaisonOderJahr = eingabe.SaisonOderJahr.Trim();
+        instanz.TurnierVorlageId = eingabe.TurnierVorlageId;
+        instanz.Startdatum     = eingabe.Startdatum;
+        instanz.Enddatum       = eingabe.Enddatum;
+        instanz.Status         = eingabe.Status;
+        await repository.AktualisierenAsync(instanz, ct);
+        logger.LogInformation("TurnierInstanz '{Name}' (ID {Id}) aktualisiert.", instanz.Name, id);
+    }
+
     public async Task AktualisierenAsync(int id, TurnierAktualisierenEingabe eingabe, CancellationToken ct = default)
     {
         var instanz = await repository.FindenNachIdAsync(id, ct)
