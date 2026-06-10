@@ -15,6 +15,9 @@
             <conv:VorlagenKategorieZuTextConverter x:Key="VorlagenKategorieZuText" />
             <conv:RundenartZuTextConverter x:Key="RundenartZuText" />
             <conv:TurnierStatusZuTextConverter x:Key="TurnierStatusZuText" />
+            <conv:SpielStatusZuTextConverter x:Key="SpielStatusZuText" />
+            <conv:SpielStatusZuFarbeConverter x:Key="SpielStatusZuFarbe" />
+            <conv:EntscheidungArtZuTextConverter x:Key="EntscheidungArtZuText" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

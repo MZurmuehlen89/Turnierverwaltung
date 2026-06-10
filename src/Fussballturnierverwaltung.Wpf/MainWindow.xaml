@@ -31,6 +31,9 @@
         <DataTemplate DataType="{x:Type vm:AuslosungViewModel}">
             <views:AuslosungView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SpielplanViewModel}">
+            <views:SpielplanView />
+        </DataTemplate>
 
         <Style x:Key="NavButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
