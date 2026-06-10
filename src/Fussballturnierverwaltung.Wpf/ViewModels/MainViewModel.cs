@@ -55,7 +55,7 @@ public partial class MainViewModel : ViewModelBase
                 EintragErstellen("Turniere",          () => _navigation.NavigiereZu<TurnierInstanzViewModel>()),
                 EintragErstellen("Auslosung",         () => _navigation.NavigiereZu<AuslosungViewModel>()),
                 EintragErstellen("Spielplan",         () => _navigation.NavigiereZu<SpielplanViewModel>()),
-                EintragErstellen("Turnierbaum",       () => NavigiereZuPlatzhalter("Turnierbaum")),
+                EintragErstellen("Turnierbaum",       () => _navigation.NavigiereZu<TurnierBaumViewModel>()),
                 EintragErstellen("Simulation",        () => NavigiereZuPlatzhalter("Simulation")),
             ]
         });

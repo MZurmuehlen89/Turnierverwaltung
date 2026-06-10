@@ -219,6 +219,14 @@ public class TurnierBaumService(
         return fortgeschrieben;
     }
 
+    /// <summary>Löscht den Turnierbaum einer Turnierinstanz (inkl. aller Knoten).</summary>
+    public async Task LoeschenAsync(int turnierInstanzId, CancellationToken ct = default)
+    {
+        var baum = await baumRepository.FindenNachInstanzAsync(turnierInstanzId, ct);
+        if (baum is not null)
+            await baumRepository.LoeschenMitKnotenAsync(baum.Id, ct);
+    }
+
     // ── Hilfsmethoden ─────────────────────────────────────────────────────
 
     /// <summary>
