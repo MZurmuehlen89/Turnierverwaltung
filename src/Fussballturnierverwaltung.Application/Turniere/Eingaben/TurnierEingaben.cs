@@ -46,3 +46,14 @@ public record RegelwerkErstellenEingabe(
     int PunkteFuerUnentschieden,
     int PunkteFuerNiederlage,
     IReadOnlyList<VerfahrenArt> EntscheidungsVerfahrenReihenfolge);
+
+public record RegelwerkAktualisierenEingabe(
+    string Name,
+    string Beschreibung,
+    DateOnly? GueltigVon,
+    DateOnly? GueltigBis,
+    int? RankingRegelSetId,
+    int PunkteFuerSieg,
+    int PunkteFuerUnentschieden,
+    int PunkteFuerNiederlage,
+    IReadOnlyList<VerfahrenArt> EntscheidungsVerfahrenReihenfolge);

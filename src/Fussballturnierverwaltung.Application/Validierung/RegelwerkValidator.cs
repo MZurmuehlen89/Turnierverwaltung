@@ -37,6 +37,16 @@ public class RegelwerkValidator
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }
 
+    public ValidationErgebnis Validieren(RegelwerkAktualisierenEingabe eingabe)
+    {
+        // Identische Regeln wie beim Erstellen
+        var erstellen = new RegelwerkErstellenEingabe(
+            eingabe.Name, eingabe.Beschreibung, eingabe.GueltigVon, eingabe.GueltigBis,
+            eingabe.RankingRegelSetId, eingabe.PunkteFuerSieg, eingabe.PunkteFuerUnentschieden,
+            eingabe.PunkteFuerNiederlage, eingabe.EntscheidungsVerfahrenReihenfolge);
+        return Validieren(erstellen);
+    }
+
     /// <summary>Validiert ein bereits persistiertes Regelwerk auf Vollständigkeit.</summary>
     public ValidationErgebnis Validieren(Regelwerk regelwerk)
     {

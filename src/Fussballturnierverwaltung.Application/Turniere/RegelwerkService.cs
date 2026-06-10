@@ -54,6 +54,41 @@ public class RegelwerkService(
         return regelwerk;
     }
 
+    public async Task AktualisierenAsync(int id, RegelwerkAktualisierenEingabe eingabe, CancellationToken ct = default)
+    {
+        var regelwerk = await repository.FindenNachIdMitAllenRegelnAsync(id, ct)
+            ?? throw new InvalidOperationException($"Regelwerk mit ID {id} nicht gefunden.");
+
+        ValidationException.WerfenWennUngueltig(validator.Validieren(eingabe));
+
+        regelwerk.Name            = eingabe.Name.Trim();
+        regelwerk.Beschreibung    = eingabe.Beschreibung.Trim();
+        regelwerk.GueltigVon      = eingabe.GueltigVon;
+        regelwerk.GueltigBis      = eingabe.GueltigBis;
+        regelwerk.RankingRegelSetId = eingabe.RankingRegelSetId;
+
+        regelwerk.PunkteRegeln.Clear();
+        regelwerk.PunkteRegeln.Add(new PunkteRegel
+        {
+            PunkteFuerSieg          = eingabe.PunkteFuerSieg,
+            PunkteFuerUnentschieden = eingabe.PunkteFuerUnentschieden,
+            PunkteFuerNiederlage    = eingabe.PunkteFuerNiederlage
+        });
+
+        regelwerk.Entscheidungsverfahren.Clear();
+        for (int i = 0; i < eingabe.EntscheidungsVerfahrenReihenfolge.Count; i++)
+        {
+            regelwerk.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
+            {
+                Reihenfolge  = i + 1,
+                VerfahrenArt = eingabe.EntscheidungsVerfahrenReihenfolge[i]
+            });
+        }
+
+        await repository.SpeichernAenderungenAsync(ct);
+        logger.LogInformation("Regelwerk '{Name}' (ID {Id}) aktualisiert.", regelwerk.Name, regelwerk.Id);
+    }
+
     public async Task LoeschenAsync(int id, CancellationToken ct = default)
     {
         var regelwerk = await repository.FindenNachIdAsync(id, ct)

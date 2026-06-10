@@ -26,4 +26,7 @@ public class RegelwerkRepository(TurnierverwaltungDbContext context)
                     .ThenInclude(e => e.RankingRegel)
             .AsSplitQuery()
             .FirstOrDefaultAsync(r => r.Id == id, ct);
+
+    public Task SpeichernAenderungenAsync(CancellationToken ct = default)
+        => Context.SaveChangesAsync(ct);
 }

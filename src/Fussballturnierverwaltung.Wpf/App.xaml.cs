@@ -68,6 +68,7 @@ public partial class App
         builder.Services.AddTransient<PlatzhalterViewModel>();
         builder.Services.AddTransient<MannschaftenViewModel>();
         builder.Services.AddTransient<LandUndVerbandViewModel>();
+        builder.Services.AddTransient<RegelwerkViewModel>();
 
         // Navigation & Hauptfenster
         builder.Services.AddSingleton<INavigationService, NavigationService>();

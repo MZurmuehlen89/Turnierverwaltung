@@ -42,7 +42,7 @@ public partial class MainViewModel : ViewModelBase
             [
                 EintragErstellen("Mannschaften",      () => _navigation.NavigiereZu<MannschaftenViewModel>()),
                 EintragErstellen("Länder & Verbände", () => _navigation.NavigiereZu<LandUndVerbandViewModel>()),
-                EintragErstellen("Regelwerke",        () => NavigiereZuPlatzhalter("Regelwerke")),
+                EintragErstellen("Regelwerke",        () => _navigation.NavigiereZu<RegelwerkViewModel>()),
                 EintragErstellen("Turniervorlagen",   () => NavigiereZuPlatzhalter("Turniervorlagen")),
             ]
         });
