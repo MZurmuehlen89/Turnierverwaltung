@@ -37,6 +37,24 @@ public class TurnierVorlageService(ITurnierVorlageRepository repository, ILogger
         return vorlage;
     }
 
+    public async Task<TurnierVorlage> AktualisierenAsync(int id, TurnierVorlageAktualisierenEingabe eingabe, CancellationToken ct = default)
+    {
+        var vorlage = await repository.FindenNachIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"Turniervorlage mit ID {id} nicht gefunden.");
+        if (eingabe.ErforderlicheMannschaftsanzahl < 2)
+            throw new ArgumentException("Eine Turniervorlage muss mindestens 2 Mannschaften erfordern.");
+        vorlage.Name                           = eingabe.Name.Trim();
+        vorlage.Beschreibung                   = eingabe.Beschreibung.Trim();
+        vorlage.ErforderlicheMannschaftsanzahl = eingabe.ErforderlicheMannschaftsanzahl;
+        vorlage.VorlagenKategorie              = eingabe.VorlagenKategorie;
+        vorlage.IstHistorisch                  = eingabe.IstHistorisch;
+        vorlage.GueltigVon                     = eingabe.GueltigVon;
+        vorlage.GueltigBis                     = eingabe.GueltigBis;
+        await repository.AktualisierenAsync(vorlage, ct);
+        logger.LogInformation("Turniervorlage '{Name}' (ID {Id}) aktualisiert.", vorlage.Name, vorlage.Id);
+        return vorlage;
+    }
+
     public async Task LoeschenAsync(int id, CancellationToken ct = default)
     {
         var vorlage = await repository.FindenNachIdAsync(id, ct)

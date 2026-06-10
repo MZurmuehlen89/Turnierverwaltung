@@ -12,6 +12,7 @@
             <conv:UmgekehrterBoolZuSichtbarkeitsConverter x:Key="InverseBoolToVisibility" />
             <conv:NullZuGeklapptConverter x:Key="NullToCollapsed" />
             <conv:VerfahrenArtZuTextConverter x:Key="VerfahrenArtZuText" />
+            <conv:VorlagenKategorieZuTextConverter x:Key="VorlagenKategorieZuText" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -69,6 +69,7 @@ public partial class App
         builder.Services.AddTransient<MannschaftenViewModel>();
         builder.Services.AddTransient<LandUndVerbandViewModel>();
         builder.Services.AddTransient<RegelwerkViewModel>();
+        builder.Services.AddTransient<TurnierVorlageViewModel>();
 
         // Navigation & Hauptfenster
         builder.Services.AddSingleton<INavigationService, NavigationService>();

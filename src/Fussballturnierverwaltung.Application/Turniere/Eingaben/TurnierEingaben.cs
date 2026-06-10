@@ -11,6 +11,15 @@ public record TurnierVorlageErstellenEingabe(
     DateOnly? GueltigVon,
     DateOnly? GueltigBis);
 
+public record TurnierVorlageAktualisierenEingabe(
+    string Name,
+    string Beschreibung,
+    int ErforderlicheMannschaftsanzahl,
+    VorlagenKategorie VorlagenKategorie,
+    bool IstHistorisch,
+    DateOnly? GueltigVon,
+    DateOnly? GueltigBis);
+
 public record TurnierInstanzErstellenEingabe(
     string Name,
     string SaisonOderJahr,
