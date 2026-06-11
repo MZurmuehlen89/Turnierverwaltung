@@ -18,6 +18,9 @@ public class SpielErgebnisService(
     public Task<Spiel?> FindenNachIdAsync(int spielId, CancellationToken ct = default)
         => spielRepository.FindenNachIdMitErgebnisAsync(spielId, ct);
 
+    public Task<Spiel?> FindenNachIdMitEreignissenAsync(int spielId, CancellationToken ct = default)
+        => spielRepository.FindenNachIdMitEreignissenAsync(spielId, ct);
+
     public async Task ErgebnisErfassenAsync(int spielId, ErgebnisErfassenEingabe eingabe, CancellationToken ct = default)
     {
         var spiel = await spielRepository.FindenNachIdMitRundeUndHinspielAsync(spielId, ct)

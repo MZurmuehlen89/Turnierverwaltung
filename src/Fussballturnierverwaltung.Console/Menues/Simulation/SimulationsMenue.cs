@@ -24,6 +24,7 @@ public class SimulationsMenue(
         SpieltageSimulieren,
         RundeSimulieren,
         TurnierSimulieren,
+        Liveticker,
         Protokoll,
         Zurueck
     }
@@ -42,13 +43,15 @@ public class SimulationsMenue(
                         Option.SpieltageSimulieren => "Einen Spieltag simulieren",
                         Option.RundeSimulieren     => "Ganze Runde simulieren",
                         Option.TurnierSimulieren   => "Ganzes Turnier simulieren",
+                        Option.Liveticker          => "📺 Liveticker (Spielverlauf anzeigen)",
                         Option.Protokoll           => "Simulationsprotokoll anzeigen",
                         Option.Zurueck             => "← Zurück",
                         _                          => o.ToString()
                     })
                     .AddChoices(Option.Freundschaftsspiel, Option.SpielSimulieren,
                                 Option.SpieltageSimulieren, Option.RundeSimulieren,
-                                Option.TurnierSimulieren, Option.Protokoll, Option.Zurueck));
+                                Option.TurnierSimulieren, Option.Liveticker,
+                                Option.Protokoll, Option.Zurueck));
 
             if (auswahl == Option.Zurueck) break;
 
@@ -66,6 +69,7 @@ public class SimulationsMenue(
             case Option.SpieltageSimulieren: await SpieltageSimulierenAsync(ct);  break;
             case Option.RundeSimulieren:     await RundeSimulierenAsync(ct);      break;
             case Option.TurnierSimulieren:  await TurnierSimulierenAsync(ct);    break;
+            case Option.Liveticker:         await LivetickerAnzeigenAsync(ct);  break;
             case Option.Protokoll:          await ProtokollAnzeigenAsync(ct);    break;
         }
     }
@@ -367,6 +371,178 @@ public class SimulationsMenue(
         AnsiConsole.MarkupLine($"[grey]{laeufe.Count} Lauf/Läufe[/]");
         AnsiConsole.Write(tabelle);
         KonsolenHilfsmittel.Pause();
+    }
+
+    // ── Liveticker ────────────────────────────────────────────────────────
+
+    private async Task LivetickerAnzeigenAsync(CancellationToken ct)
+    {
+        KonsolenHilfsmittel.Kopf("📺 Liveticker");
+
+        var (instanz, runde) = await TurnierUndRundeAuswaehlenAsync(ct);
+        if (instanz is null || runde is null) return;
+
+        var spiele = await spielErgebnisService.AlleNachRundeAsync(runde.Id, ct);
+        var abgeschlossene = spiele.Where(s => s.Status == SpielStatus.Abgeschlossen).ToList();
+
+        if (!abgeschlossene.Any())
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen("Keine abgeschlossenen Spiele in dieser Runde.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        var spiel = AnsiConsole.Prompt(
+            new SelectionPrompt<Spiel?>()
+                .Title("Spiel:")
+                .UseConverter(s =>
+                {
+                    if (s is null) return "← Zurück";
+                    var erg = s.Ergebnis is not null
+                        ? $"  [{s.Ergebnis.HeimToreRegulaer}:{s.Ergebnis.AuswaertsToreRegulaer}]"
+                        : "";
+                    return $"#{s.Spielnummer}  {s.HeimMannschaft?.Name ?? "?"} vs {s.AuswaertsMannschaft?.Name ?? "?"}{erg}";
+                })
+                .AddChoices(abgeschlossene.Cast<Spiel?>().Append(null)));
+        if (spiel is null) return;
+
+        var mitEreignissen = await spielErgebnisService.FindenNachIdMitEreignissenAsync(spiel.Id, ct);
+        if (mitEreignissen is null) return;
+
+        var heimName     = mitEreignissen.HeimMannschaft?.Name     ?? "Heim";
+        var auswaertsName = mitEreignissen.AuswaertsMannschaft?.Name ?? "Auswärts";
+        var ergebnis     = mitEreignissen.Ergebnis;
+
+        if (!mitEreignissen.Ereignisse.Any())
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen(
+                "Für dieses Spiel sind keine Ereignisse gespeichert (Schnellsimulation verwendet).");
+            if (ergebnis is not null)
+            {
+                AnsiConsole.WriteLine();
+                var panel = new Panel(
+                    $"[bold]{Markup.Escape(heimName)}[/]   " +
+                    $"[bold yellow]{ergebnis.HeimToreRegulaer} : {ergebnis.AuswaertsToreRegulaer}[/]   " +
+                    $"[bold]{Markup.Escape(auswaertsName)}[/]")
+                    .Header("[blue]Endstand[/]").Border(BoxBorder.Rounded);
+                AnsiConsole.Write(panel);
+            }
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        var modus = AnsiConsole.Prompt(
+            new SelectionPrompt<string>()
+                .Title("Anzeigemodus:")
+                .AddChoices("🎬 Live (mit Zeitverzögerung)", "📋 Protokoll (sofort)"));
+        bool istLive = modus.StartsWith("🎬");
+
+        await GespeicherteEreignisseZeigenAsync(mitEreignissen, istLive, ct);
+        KonsolenHilfsmittel.Pause();
+    }
+
+    private static async Task GespeicherteEreignisseZeigenAsync(Spiel spiel, bool mitVerzoegerung, CancellationToken ct)
+    {
+        var heimName      = spiel.HeimMannschaft?.Name     ?? "Heim";
+        var auswaertsName = spiel.AuswaertsMannschaft?.Name ?? "Auswärts";
+        var ergebnis      = spiel.Ergebnis;
+
+        // Phasengrenzen identisch zu ErgebnisAnzeigen
+        static int Phase(int min) => min switch { <= 45 => 1, <= 90 => 2, <= 105 => 3, _ => 4 };
+        static string PhaseLabel(int p) => p switch
+        {
+            1 => "1. Halbzeit",
+            2 => "2. Halbzeit",
+            3 => "1. Hälfte Verlängerung",
+            _ => "2. Hälfte Verlängerung"
+        };
+
+        AnsiConsole.WriteLine();
+        AnsiConsole.Write(new Rule(
+            $"[bold]{Markup.Escape(heimName)}[/]  [grey]vs[/]  [bold]{Markup.Escape(auswaertsName)}[/]")
+            .Centered());
+        AnsiConsole.WriteLine();
+
+        var ereignisTabelle = new Table()
+            .Border(TableBorder.Minimal)
+            .AddColumn(new TableColumn($"[bold]{Markup.Escape(heimName)}[/]").RightAligned())
+            .AddColumn(new TableColumn("[grey]'[/]").Centered())
+            .AddColumn(new TableColumn($"[bold]{Markup.Escape(auswaertsName)}[/]").LeftAligned());
+
+        int aktuellePhase = 0;
+        int heimScore = 0, auswaertsScore = 0;
+
+        foreach (var ev in spiel.Ereignisse.OrderBy(e => e.Minute))
+        {
+            if (ct.IsCancellationRequested) break;
+
+            int phase = Phase(ev.Minute);
+            if (phase != aktuellePhase)
+            {
+                ereignisTabelle.AddRow(
+                    new Markup("[grey dim]────────────────[/]"),
+                    new Markup($"[grey]{PhaseLabel(phase)}[/]"),
+                    new Markup("[grey dim]────────────────[/]"));
+                aktuellePhase = phase;
+            }
+
+            bool istHeim = ev.MannschaftId == spiel.HeimMannschaftId;
+
+            string symbol = ev.EreignisArt switch
+            {
+                EreignisArt.Tor        => "⚽",
+                EreignisArt.GoldenGoal => "⭐",
+                EreignisArt.GelbeKarte => "🟨",
+                EreignisArt.RoteKarte  => "🟥",
+                _                      => "•"
+            };
+
+            if (ev.EreignisArt is EreignisArt.Tor or EreignisArt.GoldenGoal)
+            {
+                if (istHeim) heimScore++; else auswaertsScore++;
+            }
+
+            string scoreAktuell = $"[grey]({heimScore}:{auswaertsScore})[/]";
+            string beschreibung = string.IsNullOrWhiteSpace(ev.Beschreibung)
+                ? symbol
+                : $"{symbol} {Markup.Escape(ev.Beschreibung)}";
+            string minute = $"[grey]{ev.Minute:D2}'[/]";
+
+            if (istHeim)
+                ereignisTabelle.AddRow($"{beschreibung} {scoreAktuell}", minute, string.Empty);
+            else
+                ereignisTabelle.AddRow(string.Empty, minute, $"{beschreibung} {scoreAktuell}");
+
+            if (mitVerzoegerung)
+            {
+                AnsiConsole.Clear();
+                AnsiConsole.Write(ereignisTabelle);
+                await Task.Delay(800, ct).ConfigureAwait(false);
+            }
+        }
+
+        if (!mitVerzoegerung)
+            AnsiConsole.Write(ereignisTabelle);
+
+        // Endstand
+        AnsiConsole.WriteLine();
+        if (ergebnis is not null)
+        {
+            int heimGes  = ergebnis.HeimToreRegulaer + (ergebnis.HeimToreVerlaengerung ?? 0);
+            int gastGes  = ergebnis.AuswaertsToreRegulaer + (ergebnis.AuswaertsToreVerlaengerung ?? 0);
+            var suffix   = ergebnis.EntscheidungArt switch
+            {
+                EntscheidungArt.Verlaengerung     => " [grey]n.V.[/]",
+                EntscheidungArt.GoldenGoal        => " [grey]GG[/]",
+                EntscheidungArt.Elfmeterschiessen => $" [grey]i.E. ({ergebnis.HeimElfmetertore}:{ergebnis.AuswaertsElfmetertore})[/]",
+                EntscheidungArt.Losentscheid      => " [grey]Los[/]",
+                _                                 => ""
+            };
+            var panel = new Panel(
+                $"[bold]{Markup.Escape(heimName)}[/]   [bold yellow]{heimGes} : {gastGes}[/]{suffix}   [bold]{Markup.Escape(auswaertsName)}[/]")
+                .Header("[blue]Endstand[/]").Border(BoxBorder.Rounded);
+            AnsiConsole.Write(panel);
+        }
     }
 
     // ── Darstellung ───────────────────────────────────────────────────────

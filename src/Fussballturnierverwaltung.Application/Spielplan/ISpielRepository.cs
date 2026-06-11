@@ -26,4 +26,7 @@ public interface ISpielRepository : IRepository<Spiel>
 
     /// <summary>Lädt alle Spiele einer Runde inklusive SpielEreignisse (für Fairplay-Wertung).</summary>
     Task<IReadOnlyList<Spiel>> AlleNachRundeMitEreignissenAsync(int turnierRundeId, CancellationToken ct = default);
+
+    /// <summary>Lädt ein einzelnes Spiel mit Ergebnis, Teams und allen SpielEreignissen (für Liveticker).</summary>
+    Task<Spiel?> FindenNachIdMitEreignissenAsync(int id, CancellationToken ct = default);
 }

@@ -124,4 +124,12 @@ public class SpielRepository(TurnierverwaltungDbContext context)
             .OrderBy(s => s.Spieltag)
             .ThenBy(s => s.Spielnummer)
             .ToListAsync(ct);
+
+    public async Task<Spiel?> FindenNachIdMitEreignissenAsync(int id, CancellationToken ct = default)
+        => await Context.Spiele
+            .Include(s => s.HeimMannschaft)
+            .Include(s => s.AuswaertsMannschaft)
+            .Include(s => s.Ergebnis)
+            .Include(s => s.Ereignisse.OrderBy(e => e.Minute))
+            .FirstOrDefaultAsync(s => s.Id == id, ct);
 }
