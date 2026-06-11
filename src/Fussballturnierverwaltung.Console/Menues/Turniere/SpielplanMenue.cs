@@ -112,6 +112,13 @@ public class SpielplanMenue(
             return;
         }
 
+        // Schweizer System: pro Spieltag eine neue Runde basierend auf Tabellenstand
+        if (runde.Rundenart == Rundenart.SchweizerSystem)
+        {
+            await SchweizerRundePlanenAsync(runde, ct);
+            return;
+        }
+
         AnsiConsole.MarkupLine($"\n[bold]Runde:[/] {Markup.Escape(runde.Name)} | " +
                                $"Rundenart: {runde.Rundenart} | " +
                                $"Benötigt: [yellow]{runde.EingangsMannschaftsanzahl}[/] Mannschaften\n");
@@ -513,6 +520,149 @@ public class SpielplanMenue(
         KonsolenHilfsmittel.Pause();
     }
 
+    // ── Schweizer System ─────────────────────────────────────────────────
+
+    private async Task SchweizerRundePlanenAsync(TurnierRunde runde, CancellationToken ct)
+    {
+        KonsolenHilfsmittel.Kopf($"Schweizer System: {Markup.Escape(runde.Name)}");
+
+        var vorhandene = await spielplanService.SpielplanAbrufenAsync(runde.Id, ct);
+
+        if (!vorhandene.Any())
+        {
+            await SchweizerErsteRundeAsync(runde, ct);
+            return;
+        }
+
+        var offene = vorhandene.Where(s => s.Status != SpielStatus.Abgeschlossen).ToList();
+        if (offene.Any())
+        {
+            int aktSpieltag = vorhandene.Max(s => s.Spieltag ?? 0);
+            KonsolenHilfsmittel.WarnungAnzeigen(
+                $"Spieltag {aktSpieltag} hat noch {offene.Count} offene Spiel(e). " +
+                "Bitte alle Ergebnisse erfassen, bevor die nächste Runde generiert wird.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        await SchweizerNaechsteRundeAsync(runde, ct);
+    }
+
+    private async Task SchweizerErsteRundeAsync(TurnierRunde runde, CancellationToken ct)
+    {
+        int benoetigte = runde.EingangsMannschaftsanzahl >= 2
+            ? runde.EingangsMannschaftsanzahl
+            : 0;
+
+        AnsiConsole.MarkupLine(
+            "[grey]Runde 1 — Setzliste festlegen. " +
+            "Setzung 1 spielt in Runde 1 gegen Setzung 2, Setzung 3 gegen 4 usw.[/]\n");
+
+        var alleMannschaften = await mannschaftService.AlleAbrufenMitLandAsync(ct);
+        var ausgewaehlt = new List<Mannschaft>();
+        var verbleibend = alleMannschaften.ToList();
+
+        while (verbleibend.Any())
+        {
+            int nr = ausgewaehlt.Count + 1;
+            if (benoetigte > 0 && ausgewaehlt.Count >= benoetigte) break;
+
+            bool kannAbbrechen = ausgewaehlt.Count >= 2 && benoetigte == 0;
+            var choices = verbleibend.Cast<Mannschaft?>().ToList();
+            if (kannAbbrechen) choices.Add(null);
+
+            string titel = benoetigte > 0
+                ? $"Setzung {nr} von {benoetigte}:"
+                : $"Setzung {nr}:";
+
+            var mann = AnsiConsole.Prompt(
+                new SelectionPrompt<Mannschaft?>()
+                    .Title(titel)
+                    .UseConverter(m => m is null
+                        ? "✓ Fertig — Spielplan generieren"
+                        : $"{m.Name} ({m.Land?.FifaCode ?? "?"})")
+                    .EnableSearch().PageSize(15)
+                    .AddChoices(choices));
+
+            if (mann is null) break;
+
+            ausgewaehlt.Add(mann);
+            verbleibend.Remove(mann);
+            AnsiConsole.MarkupLine($"  [green]✓[/] {Markup.Escape(mann.Name)} (Setzung {nr})");
+        }
+
+        if (ausgewaehlt.Count < 2)
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen("Mindestens 2 Mannschaften benötigt. Abgebrochen.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        AnsiConsole.WriteLine();
+        var ergebnis = await AnsiConsole.Status()
+            .StartAsync("Spieltag 1 wird generiert...", async _ =>
+                await spielplanService.SchweizerRundeGenerierenAsync(
+                    runde.Id, ausgewaehlt.Select(m => m.Id).ToList(), ct));
+
+        KonsolenHilfsmittel.ErfolgAnzeigen($"Spieltag 1: {ergebnis.Spiele.Count} Spiel(e) generiert.");
+        AnsiConsole.WriteLine();
+        SpielplanAnzeigenMitFilter(ergebnis.Spiele, runde.Rundenart);
+        KonsolenHilfsmittel.Pause();
+    }
+
+    private async Task SchweizerNaechsteRundeAsync(TurnierRunde runde, CancellationToken ct)
+    {
+        var vorhandene = await spielplanService.SpielplanAbrufenAsync(runde.Id, ct);
+        int naechsterSpieltag = vorhandene.Select(s => s.Spieltag ?? 0).DefaultIfEmpty(0).Max() + 1;
+
+        var tabelle = await tabellenService.TabelleBerechnenAsync(runde.Id, ct);
+
+        if (!tabelle.Any())
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen("Keine Tabelle berechenbar — Ergebnisse noch nicht vorhanden.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"[bold]Tabelle nach Spieltag {naechsterSpieltag - 1}:[/]\n");
+        TabelleTabelle(tabelle);
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine($"[grey]Spieltag {naechsterSpieltag} wird nach dieser Tabellenreihenfolge gepaartet.[/]");
+
+        var bereitsGespielt = vorhandene
+            .Select(s => (Math.Min(s.HeimMannschaftId, s.AuswaertsMannschaftId),
+                          Math.Max(s.HeimMannschaftId, s.AuswaertsMannschaftId)))
+            .Distinct().ToList();
+
+        int teamAnzahl = tabelle.Count;
+        bool hatFreilos = teamAnzahl % 2 == 1;
+        if (hatFreilos)
+            AnsiConsole.MarkupLine(
+                $"[yellow]⚠[/]  Ungerade Teamanzahl ({teamAnzahl}) — " +
+                $"[bold]{Markup.Escape(tabelle[^1].Mannschaft.Name)}[/] (letzter Platz) erhält ein Freilos.\n");
+
+        if (!KonsolenHilfsmittel.Bestaetigen($"Spieltag {naechsterSpieltag} generieren?"))
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen("Abgebrochen.");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        var sortierteMannschaftIds = tabelle.Select(e => e.Mannschaft.Id).ToList();
+
+        var ergebnis = await AnsiConsole.Status()
+            .StartAsync($"Spieltag {naechsterSpieltag} wird generiert...", async _ =>
+                await spielplanService.SchweizerRundeGenerierenAsync(runde.Id, sortierteMannschaftIds, ct));
+
+        KonsolenHilfsmittel.ErfolgAnzeigen(
+            $"Spieltag {naechsterSpieltag}: {ergebnis.Spiele.Count} Spiel(e) generiert.");
+        AnsiConsole.WriteLine();
+        SpielplanAnzeigenMitFilter(
+            ergebnis.Spiele.Where(s => s.Spieltag == naechsterSpieltag).ToList(),
+            runde.Rundenart);
+        KonsolenHilfsmittel.Pause();
+    }
+
     // ── Tabelle ───────────────────────────────────────────────────────────
 
     private async Task TabelleAnzeigenAsync(CancellationToken ct)
@@ -522,15 +672,16 @@ public class SpielplanMenue(
         var instanz = await TurnierInstanzAuswaehlenAsync(ct);
         if (instanz is null) return;
 
-        // Nur Liga/Gruppenphase/TopfLiga-Runden für die Tabelle sinnvoll
+        // Nur rundenmit Tabellenwertung anzeigen
         var rundenFuerTabelle = instanz.Runden
-            .Where(r => r.Rundenart is Rundenart.Liga or Rundenart.Gruppenphase or Rundenart.TopfLiga)
+            .Where(r => r.Rundenart is Rundenart.Liga or Rundenart.Gruppenphase
+                                    or Rundenart.TopfLiga or Rundenart.SchweizerSystem)
             .OrderBy(r => r.Reihenfolge)
             .ToList();
 
         if (!rundenFuerTabelle.Any())
         {
-            KonsolenHilfsmittel.WarnungAnzeigen("Dieses Turnier hat keine Liga-, Gruppenphase- oder TopfLiga-Runden.");
+            KonsolenHilfsmittel.WarnungAnzeigen("Dieses Turnier hat keine Runden mit Tabellenformat (Liga, Gruppenphase, TopfLiga, Schweizer System).");
             KonsolenHilfsmittel.Pause();
             return;
         }

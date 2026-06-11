@@ -15,8 +15,7 @@ public class SpielplanGeneratorFactory(IEnumerable<ISpielplanGenerator> generato
             return generator;
 
         throw new NotSupportedException(
-            $"Für Rundenart '{rundenart}' ist noch kein Spielplan-Generator implementiert. " +
-            $"(SchweizerSystem und Sonderrunde folgen in einer späteren Version.)");
+            $"Für Rundenart '{rundenart}' ist noch kein Spielplan-Generator implementiert.");
     }
 
     public bool IstUnterstuetzt(Rundenart rundenart) => _lookup.ContainsKey(rundenart);

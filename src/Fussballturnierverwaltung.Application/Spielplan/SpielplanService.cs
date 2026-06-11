@@ -93,6 +93,62 @@ public class SpielplanService(
         return ergebnis;
     }
 
+    /// <summary>
+    /// Generiert die nächste Schweizer Runde (Spieltag) für eine SchweizerSystem-TurnierRunde.
+    /// <paramref name="sortierteMannschaftIds"/> enthält alle teilnehmenden Teams sortiert nach
+    /// aktuellem Tabellenstand (Rang 1 zuerst). Für Runde 1 gibt die Reihenfolge das Seeding vor.
+    /// </summary>
+    public async Task<SpielplanErgebnis> SchweizerRundeGenerierenAsync(
+        int turnierRundeId,
+        IReadOnlyList<int> sortierteMannschaftIds,
+        CancellationToken ct = default)
+    {
+        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
+            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+
+        if (sortierteMannschaftIds.Count < 2)
+            throw new InvalidOperationException(
+                "Schweizer System benötigt mindestens 2 Mannschaften.");
+
+        var vorhandeneSpiele = await spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
+
+        int naechsterSpieltag = vorhandeneSpiele.Count > 0
+            ? vorhandeneSpiele.Select(s => s.Spieltag ?? 0).Max() + 1
+            : 1;
+
+        // Normalize to (min, max) for order-independent rematch detection
+        var bereitsGespielt = vorhandeneSpiele
+            .Select(s => (
+                TeamAId: Math.Min(s.HeimMannschaftId, s.AuswaertsMannschaftId),
+                TeamBId: Math.Max(s.HeimMannschaftId, s.AuswaertsMannschaftId)))
+            .Distinct()
+            .ToList<(int TeamAId, int TeamBId)>();
+
+        var mannschaften = await mannschaftRepository.FindenNachIdsAsync(sortierteMannschaftIds, ct);
+        var geordnet = sortierteMannschaftIds
+            .Select(id => mannschaften.FirstOrDefault(m => m.Id == id))
+            .Where(m => m is not null)
+            .Select(m => m!)
+            .ToList();
+
+        int maxNr     = await spielRepository.HoechsteSpielNummerAsync(runde.TurnierInstanzId, ct);
+        var generator = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
+        var kontext   = new SpielplanKontext(
+            runde, geordnet, maxNr + 1,
+            Paarungen:       null,
+            BereitsGespielt: bereitsGespielt,
+            Spieltag:        naechsterSpieltag);
+
+        var ergebnis = generator.Generieren(kontext);
+        await SpeichernAsync(ergebnis, ct);
+
+        logger.LogInformation(
+            "Schweizer Runde {Spieltag} für '{Runde}' generiert: {Anzahl} Spiele.",
+            naechsterSpieltag, runde.Name, ergebnis.Spiele.Count);
+
+        return ergebnis;
+    }
+
     public Task<IReadOnlyList<Spiel>> SpielplanAbrufenAsync(int turnierRundeId, CancellationToken ct = default)
         => spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
 
