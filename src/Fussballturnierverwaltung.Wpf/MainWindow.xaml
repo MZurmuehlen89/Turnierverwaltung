@@ -37,6 +37,9 @@
         <DataTemplate DataType="{x:Type vm:TurnierBaumViewModel}">
             <views:TurnierBaumView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SimulationsViewModel}">
+            <views:SimulationsView />
+        </DataTemplate>
 
         <Style x:Key="NavButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
