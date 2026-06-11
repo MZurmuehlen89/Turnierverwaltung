@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Konsole.Hilfsmittel;
 using Fussballturnierverwaltung.Konsole.Menues.Auslosungen;
+using Fussballturnierverwaltung.Konsole.Menues.Statistiken;
 using Fussballturnierverwaltung.Konsole.Menues.Turniere;
 using Spectre.Console;
 
@@ -8,13 +9,15 @@ namespace Fussballturnierverwaltung.Konsole.Menues.Bewegungsdaten;
 public class BewegungsdatenMenue(
     TurnierInstanzMenue turnierInstanzMenue,
     AuslosungMenue auslosungMenue,
-    SpielplanMenue spielplanMenue)
+    SpielplanMenue spielplanMenue,
+    StatistikMenue statistikMenue)
 {
     private enum Option
     {
         Turniere,
         Auslosungen,
         SpielplanSimulation,
+        Statistiken,
         Zurueck
     }
 
@@ -30,11 +33,12 @@ public class BewegungsdatenMenue(
                         Option.Turniere            => "Turniere",
                         Option.Auslosungen         => "Auslosungen",
                         Option.SpielplanSimulation => "Spielplan / Simulation",
+                        Option.Statistiken         => "Statistiken",
                         Option.Zurueck             => "← Zurück",
                         _                          => o.ToString()
                     })
                     .AddChoices(Option.Turniere, Option.Auslosungen,
-                                Option.SpielplanSimulation, Option.Zurueck));
+                                Option.SpielplanSimulation, Option.Statistiken, Option.Zurueck));
 
             if (auswahl == Option.Zurueck) break;
 
@@ -45,6 +49,7 @@ public class BewegungsdatenMenue(
                     case Option.Turniere:            await turnierInstanzMenue.AnzeigenAsync(ct); break;
                     case Option.Auslosungen:         await auslosungMenue.AnzeigenAsync(ct);      break;
                     case Option.SpielplanSimulation: await spielplanMenue.AnzeigenAsync(ct);      break;
+                    case Option.Statistiken:         await statistikMenue.AnzeigenAsync(ct);      break;
                 }
             }
             catch (Exception ex) { KonsolenHilfsmittel.FehlerAnzeigen(ex.Message); KonsolenHilfsmittel.Pause(); }

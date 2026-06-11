@@ -5,6 +5,7 @@ using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Statistiken;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
@@ -19,6 +20,7 @@ using Fussballturnierverwaltung.Konsole.Menues.Einstellungen;
 using Fussballturnierverwaltung.Konsole.Menues.ImportExport;
 using Fussballturnierverwaltung.Konsole.Menues.Simulation;
 using Fussballturnierverwaltung.Konsole.Menues.Stammdaten;
+using Fussballturnierverwaltung.Konsole.Menues.Statistiken;
 using Fussballturnierverwaltung.Konsole.Menues.Turnierbaum;
 using Fussballturnierverwaltung.Konsole.Menues.Turniere;
 using Microsoft.Extensions.DependencyInjection;
@@ -68,6 +70,9 @@ builder.Services.AddScoped<SimulationsService>();
 // Application Services – Import/Export
 builder.Services.AddScoped<ImportExportService>();
 
+// Application Services – Statistiken
+builder.Services.AddScoped<StatistikService>();
+
 // Application Services – Einstellungen (Singleton: liest/schreibt JSON-Datei, kein DB-Kontext)
 builder.Services.AddSingleton<EinstellungenService>();
 
@@ -92,6 +97,7 @@ builder.Services.AddScoped<SimulationsMenue>();
 builder.Services.AddScoped<SpielplanMenue>();
 builder.Services.AddScoped<ImportExportMenue>();
 builder.Services.AddScoped<EinstellungenMenue>();
+builder.Services.AddScoped<StatistikMenue>();
 
 // Console Menüs – Gruppenmenüs
 builder.Services.AddScoped<StammdatenMenue>();
