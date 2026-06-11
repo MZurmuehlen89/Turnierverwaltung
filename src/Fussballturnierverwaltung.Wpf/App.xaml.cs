@@ -75,6 +75,7 @@ public partial class App
         builder.Services.AddTransient<SpielplanViewModel>();
         builder.Services.AddTransient<TurnierBaumViewModel>();
         builder.Services.AddTransient<SimulationsViewModel>();
+        builder.Services.AddTransient<ImportExportViewModel>();
 
         // Navigation & Hauptfenster
         builder.Services.AddSingleton<INavigationService, NavigationService>();

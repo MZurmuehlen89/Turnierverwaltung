@@ -65,7 +65,7 @@ public partial class MainViewModel : ViewModelBase
             Titel = "Import / Export",
             Eintraege =
             [
-                EintragErstellen("Import / Export",   () => NavigiereZuPlatzhalter("Import / Export")),
+                EintragErstellen("Import / Export",   () => _navigation.NavigiereZu<ImportExportViewModel>()),
             ]
         });
     }
