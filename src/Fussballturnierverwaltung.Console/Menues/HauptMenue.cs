@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Konsole.Hilfsmittel;
 using Fussballturnierverwaltung.Konsole.Menues.Bewegungsdaten;
+using Fussballturnierverwaltung.Konsole.Menues.Einstellungen;
 using Fussballturnierverwaltung.Konsole.Menues.ImportExport;
 using Fussballturnierverwaltung.Konsole.Menues.Stammdaten;
 using Spectre.Console;
@@ -9,7 +10,8 @@ namespace Fussballturnierverwaltung.Konsole.Menues;
 public class HauptMenue(
     StammdatenMenue stammdatenMenue,
     BewegungsdatenMenue bewegungsdatenMenue,
-    ImportExportMenue importExportMenue)
+    ImportExportMenue importExportMenue,
+    EinstellungenMenue einstellungenMenue)
 {
     private enum Option
     {
@@ -63,8 +65,8 @@ public class HauptMenue(
                 case Option.ImportExport:
                     await importExportMenue.AnzeigenAsync(ct);
                     break;
-                default:
-                    KonsolenHilfsmittel.NochNichtImplementiert();
+                case Option.Einstellungen:
+                    await einstellungenMenue.AnzeigenAsync(ct);
                     break;
             }
         }
