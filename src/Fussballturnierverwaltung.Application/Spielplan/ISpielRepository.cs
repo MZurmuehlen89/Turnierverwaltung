@@ -20,4 +20,10 @@ public interface ISpielRepository : IRepository<Spiel>
 
     /// <summary>Fügt SpielEreignisse zu einem bereits gespeicherten Spiel hinzu.</summary>
     Task EreignisseHinzufuegenAsync(int spielId, IEnumerable<SpielEreignis> ereignisse, CancellationToken ct = default);
+
+    /// <summary>Lädt Spiel mit TurnierRunde (AuswaertstorRegelAktiv) und Hinspiel-Ergebnis (für Auswärtstorregel).</summary>
+    Task<Spiel?> FindenNachIdMitRundeUndHinspielAsync(int id, CancellationToken ct = default);
+
+    /// <summary>Lädt alle Spiele einer Runde inklusive SpielEreignisse (für Fairplay-Wertung).</summary>
+    Task<IReadOnlyList<Spiel>> AlleNachRundeMitEreignissenAsync(int turnierRundeId, CancellationToken ct = default);
 }

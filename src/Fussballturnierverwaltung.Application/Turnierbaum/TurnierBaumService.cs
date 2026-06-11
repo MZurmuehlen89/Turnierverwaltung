@@ -200,14 +200,14 @@ public class TurnierBaumService(
             int sieger = spiel.Ergebnis.SiegerMannschaftId.Value;
             bool istLinkes = eltern.LinkerKindKnotenId == knoten.Id;
 
-            // Nur aktualisieren wenn der Slot noch nicht gesetzt ist
-            if (istLinkes && elternSpiel.HeimMannschaftId == 0)
+            // Slot mit Sieger belegen — linkes Kind → Heim, rechtes Kind → Auswärts (AD-002 Fix Bug C)
+            if (istLinkes && elternSpiel.HeimMannschaftId != sieger)
             {
                 elternSpiel.HeimMannschaftId = sieger;
                 await spielRepository.AktualisierenAsync(elternSpiel, ct);
                 fortgeschrieben++;
             }
-            else if (!istLinkes && elternSpiel.AuswaertsMannschaftId == 0)
+            else if (!istLinkes && elternSpiel.AuswaertsMannschaftId != sieger)
             {
                 elternSpiel.AuswaertsMannschaftId = sieger;
                 await spielRepository.AktualisierenAsync(elternSpiel, ct);

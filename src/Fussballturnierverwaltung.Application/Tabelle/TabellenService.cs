@@ -22,7 +22,7 @@ public class TabellenService(
         var regelwerk = await regelwerkRepository.FindenNachIdMitAllenRegelnAsync(runde.RegelwerkId, ct)
             ?? throw new InvalidOperationException($"Regelwerk {runde.RegelwerkId} nicht gefunden.");
 
-        var alleSpiele = await spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
+        var alleSpiele = await spielRepository.AlleNachRundeMitEreignissenAsync(turnierRundeId, ct);
         if (!alleSpiele.Any()) return [];
 
         var punkteRegel = regelwerk.PunkteRegeln.FirstOrDefault()
@@ -67,7 +67,7 @@ public class TabellenService(
             Punkte        = stats[kv.Key].Punkte
         }).ToList();
 
-        SortierenUndRangZuweisen(eintraege, rankingRegeln, abgeschlossene, punkteRegel);
+        SortierenUndRangZuweisen(eintraege, stats, rankingRegeln, abgeschlossene, punkteRegel);
         return eintraege;
     }
 
@@ -77,7 +77,7 @@ public class TabellenService(
         int teamId, IReadOnlyList<Spiel> spiele, PunkteRegel punkteRegel)
     {
         int gespielt = 0, siege = 0, unentschieden = 0, niederlagen = 0;
-        int tore = 0, gegentore = 0, auswaertsTore = 0;
+        int tore = 0, gegentore = 0, auswaertsTore = 0, fairplay = 0;
 
         foreach (var s in spiele)
         {
@@ -87,8 +87,8 @@ public class TabellenService(
             if (!istHeim && s.AuswaertsMannschaftId != teamId) continue;
 
             gespielt++;
-            int eigTore   = istHeim ? s.Ergebnis.HeimToreGesamt    : s.Ergebnis.AuswaertsToreGesamt;
-            int gegTore   = istHeim ? s.Ergebnis.AuswaertsToreGesamt : s.Ergebnis.HeimToreGesamt;
+            int eigTore = istHeim ? s.Ergebnis.HeimToreGesamt     : s.Ergebnis.AuswaertsToreGesamt;
+            int gegTore = istHeim ? s.Ergebnis.AuswaertsToreGesamt : s.Ergebnis.HeimToreGesamt;
 
             tore      += eigTore;
             gegentore += gegTore;
@@ -101,19 +101,31 @@ public class TabellenService(
                 siege++;
             else
                 niederlagen++;
+
+            // Fairplay-Wertung: -(GelbeKarte * 1 + RoteKarte * 3)
+            foreach (var e in s.Ereignisse.Where(e => e.MannschaftId == teamId))
+            {
+                fairplay -= e.EreignisArt switch
+                {
+                    EreignisArt.GelbeKarte => 1,
+                    EreignisArt.RoteKarte  => 3,
+                    _                      => 0
+                };
+            }
         }
 
         int punkte = siege * punkteRegel.PunkteFuerSieg
                    + unentschieden * punkteRegel.PunkteFuerUnentschieden
                    + niederlagen * punkteRegel.PunkteFuerNiederlage;
 
-        return new RohStats(gespielt, siege, unentschieden, niederlagen, tore, gegentore, auswaertsTore, punkte);
+        return new RohStats(gespielt, siege, unentschieden, niederlagen, tore, gegentore, auswaertsTore, punkte, fairplay);
     }
 
     // ── Sortierung ────────────────────────────────────────────────────────
 
     private static void SortierenUndRangZuweisen(
         List<TabellenEintrag> eintraege,
+        Dictionary<int, RohStats> statsMap,
         List<RankingRegel> regeln,
         List<Spiel> alleAbgeschlossenen,
         PunkteRegel punkteRegel)
@@ -132,12 +144,6 @@ public class TabellenService(
         }
         else
         {
-            // Rohdaten-Dictionary zum schnellen Zugriff im Comparer
-            var statsMap = eintraege.ToDictionary(
-                e => e.Mannschaft.Id,
-                e => new RohStats(e.Spiele, e.Siege, e.Unentschieden, e.Niederlagen,
-                                  e.Tore, e.Gegentore, 0, e.Punkte));
-
             eintraege.Sort((x, y) => Vergleichen(
                 x.Mannschaft.Id, y.Mannschaft.Id,
                 statsMap, regeln, alleAbgeschlossenen, punkteRegel));
@@ -205,7 +211,7 @@ public class TabellenService(
             RankingRegelArt.WenigerGegentore                   => x.Gegentore.CompareTo(y.Gegentore),
             RankingRegelArt.Siege                              => x.Siege.CompareTo(y.Siege),
             RankingRegelArt.DirekterVergleichAuswaertstore      => x.AuswaertsTore.CompareTo(y.AuswaertsTore),
-            RankingRegelArt.FairplayWertung                    => 0, // benötigt Ereignis-Daten
+            RankingRegelArt.FairplayWertung                    => x.FairplayWertung.CompareTo(y.FairplayWertung),
             _                                                  => 0
         };
 
@@ -223,5 +229,6 @@ public class TabellenService(
         int Tore,
         int Gegentore,
         int AuswaertsTore,
-        int Punkte);
+        int Punkte,
+        int FairplayWertung = 0);
 }
