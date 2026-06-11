@@ -13,7 +13,8 @@ using Microsoft.Extensions.Logging;
 namespace Fussballturnierverwaltung.Application.ImportExport;
 
 public record ImportErgebnis(
-    int Importiert,
+    int Neu,
+    int Aktualisiert,
     int Fehler,
     IReadOnlyList<string> FehlerMeldungen);
 
@@ -55,7 +56,7 @@ public class ImportExportService(
         var landLookup = laender.ToDictionary(
             l => l.FifaCode.ToUpperInvariant(), l => l.Id);
 
-        int importiert = 0;
+        int neu = 0, aktualisiert = 0;
         var fehlerMeldungen = new List<string>();
 
         for (int i = 0; i < datensaetze.Count; i++)
@@ -78,21 +79,43 @@ public class ImportExportService(
 
             try
             {
-                var eingabe = new MannschaftErstellenEingabe(
-                    Name:             Wert(zeile, "Name"),
-                    Kurzname:         Wert(zeile, "Kurzname"),
-                    Mannschaftsart:   Enum.TryParse<Mannschaftsart>(
-                                          Wert(zeile, "Mannschaftsart", "Verein"), true, out var art)
-                                      ? art : Mannschaftsart.Verein,
-                    LandId:           landId,
-                    OffensivRating:   ParseInt(zeile, "OffensivRating",   70),
-                    MittelfeldRating: ParseInt(zeile, "MittelfeldRating", 70),
-                    DefensivRating:   ParseInt(zeile, "DefensivRating",   70),
-                    Heimstaerke:      ParseInt(zeile, "Heimstaerke",      75),
-                    Auswaertsstaerke: ParseInt(zeile, "Auswaertsstaerke", 65));
+                var name     = Wert(zeile, "Name");
+                var vorhanden = await mannschaftRepository.FindenNachNameAsync(name, ct);
 
-                await mannschaftService.ErstellenAsync(eingabe, ct);
-                importiert++;
+                if (vorhanden is not null)
+                {
+                    // Upsert: vorhandene Mannschaft aktualisieren (Mannschaftsart bleibt erhalten)
+                    var aktualisierenEingabe = new MannschaftAktualisierenEingabe(
+                        Name:             name,
+                        Kurzname:         Wert(zeile, "Kurzname"),
+                        LandId:           landId,
+                        OffensivRating:   ParseInt(zeile, "OffensivRating",   70),
+                        MittelfeldRating: ParseInt(zeile, "MittelfeldRating", 70),
+                        DefensivRating:   ParseInt(zeile, "DefensivRating",   70),
+                        Heimstaerke:      ParseInt(zeile, "Heimstaerke",      75),
+                        Auswaertsstaerke: ParseInt(zeile, "Auswaertsstaerke", 65));
+
+                    await mannschaftService.AktualisierenAsync(vorhanden.Id, aktualisierenEingabe, ct);
+                    aktualisiert++;
+                }
+                else
+                {
+                    var erstellenEingabe = new MannschaftErstellenEingabe(
+                        Name:             name,
+                        Kurzname:         Wert(zeile, "Kurzname"),
+                        Mannschaftsart:   Enum.TryParse<Mannschaftsart>(
+                                              Wert(zeile, "Mannschaftsart", "Verein"), true, out var art)
+                                          ? art : Mannschaftsart.Verein,
+                        LandId:           landId,
+                        OffensivRating:   ParseInt(zeile, "OffensivRating",   70),
+                        MittelfeldRating: ParseInt(zeile, "MittelfeldRating", 70),
+                        DefensivRating:   ParseInt(zeile, "DefensivRating",   70),
+                        Heimstaerke:      ParseInt(zeile, "Heimstaerke",      75),
+                        Auswaertsstaerke: ParseInt(zeile, "Auswaertsstaerke", 65));
+
+                    await mannschaftService.ErstellenAsync(erstellenEingabe, ct);
+                    neu++;
+                }
             }
             catch (Exception ex)
             {
@@ -101,9 +124,10 @@ public class ImportExportService(
         }
 
         logger.LogInformation(
-            "Import abgeschlossen: {Ok} importiert, {Err} Fehler.", importiert, fehlerMeldungen.Count);
+            "Import abgeschlossen: {Neu} neu, {Akt} aktualisiert, {Err} Fehler.",
+            neu, aktualisiert, fehlerMeldungen.Count);
 
-        return new ImportErgebnis(importiert, fehlerMeldungen.Count, fehlerMeldungen);
+        return new ImportErgebnis(neu, aktualisiert, fehlerMeldungen.Count, fehlerMeldungen);
     }
 
     // ── EXPORT – Mannschaften ─────────────────────────────────────────────

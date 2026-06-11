@@ -82,8 +82,13 @@ public class ImportExportMenue(
                 await importExportService.MannschaftenImportierenAsync(dateipfad, ct));
 
         AnsiConsole.WriteLine();
-        if (ergebnis.Importiert > 0)
-            KonsolenHilfsmittel.ErfolgAnzeigen($"{ergebnis.Importiert} Mannschaft(en) erfolgreich importiert.");
+        if (ergebnis.Neu > 0 || ergebnis.Aktualisiert > 0)
+        {
+            var teile = new List<string>();
+            if (ergebnis.Neu          > 0) teile.Add($"{ergebnis.Neu} neu");
+            if (ergebnis.Aktualisiert > 0) teile.Add($"{ergebnis.Aktualisiert} aktualisiert");
+            KonsolenHilfsmittel.ErfolgAnzeigen($"Mannschaft(en) importiert: {string.Join(", ", teile)}.");
+        }
 
         if (ergebnis.Fehler > 0)
         {

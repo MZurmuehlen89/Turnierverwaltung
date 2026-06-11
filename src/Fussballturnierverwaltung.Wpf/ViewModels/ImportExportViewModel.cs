@@ -108,8 +108,13 @@ public partial class ImportExportViewModel : ViewModelBase, IRibbonAware
         {
             var ergebnis = await _service.MannschaftenImportierenAsync(dlg.FileName);
 
-            if (ergebnis.Importiert > 0)
-                StatusMeldung = $"{ergebnis.Importiert} Mannschaft(en) erfolgreich importiert.";
+            if (ergebnis.Neu > 0 || ergebnis.Aktualisiert > 0)
+            {
+                var teile = new List<string>();
+                if (ergebnis.Neu          > 0) teile.Add($"{ergebnis.Neu} neu");
+                if (ergebnis.Aktualisiert > 0) teile.Add($"{ergebnis.Aktualisiert} aktualisiert");
+                StatusMeldung = $"Mannschaft(en) importiert: {string.Join(", ", teile)}.";
+            }
 
             if (ergebnis.Fehler > 0)
             {
@@ -121,7 +126,7 @@ public partial class ImportExportViewModel : ViewModelBase, IRibbonAware
                 Fehlermeldung = $"{ergebnis.Fehler} Zeile(n) mit Fehlern.";
             }
 
-            if (ergebnis.Importiert == 0 && ergebnis.Fehler == 0)
+            if (ergebnis.Neu == 0 && ergebnis.Aktualisiert == 0 && ergebnis.Fehler == 0)
                 StatusMeldung = "Keine Daten in der Datei gefunden.";
         }
         catch (Exception ex)

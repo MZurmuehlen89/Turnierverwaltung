@@ -46,4 +46,11 @@ public class MannschaftRepository(TurnierverwaltungDbContext context)
             .Include(m => m.Land)
             .Where(m => ids.Contains(m.Id))
             .ToListAsync(ct);
+
+    public async Task<Mannschaft?> FindenNachNameAsync(string name, CancellationToken ct = default)
+    {
+        var nameLower = name.Trim().ToLower();
+        return await Context.Mannschaften
+            .FirstOrDefaultAsync(m => m.Name.ToLower() == nameLower, ct);
+    }
 }
