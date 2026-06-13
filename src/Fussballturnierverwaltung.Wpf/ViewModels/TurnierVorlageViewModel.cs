@@ -15,6 +15,19 @@ namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
 public record VorlagenKategorieOption(string Anzeige, VorlagenKategorie? Wert);
 
+// ViewModel-Zeile für das Runden-DataGrid; jede Eigenschaft ist observable
+// damit Inline-Editing im DataGrid sofort den Dirty-Zustand der Vorlage setzt.
+public partial class VorlagenRundeZeile : ObservableObject
+{
+    public int? DbId { get; init; }
+
+    [ObservableProperty] private string _name = "";
+    [ObservableProperty] private Rundenart _rundenart = Rundenart.Liga;
+    [ObservableProperty] private int _eingangsMannschaftsanzahl = 8;
+    [ObservableProperty] private int _ausgangsMannschaftsanzahl = 4;
+    [ObservableProperty] private bool _auswaertstorRegelAktiv;
+}
+
 public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
 {
     private readonly TurnierVorlageService _service;
@@ -67,6 +80,15 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private string _gueltigVon = "";
     [ObservableProperty] private string _gueltigBis = "";
 
+    // ── Runden ────────────────────────────────────────────────────────────────
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RundeNachObenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RundeNachUntenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RundeEntfernenCommand))]
+    private VorlagenRundeZeile? _ausgewaehlteRunde;
+
+    [ObservableProperty] private ObservableCollection<VorlagenRundeZeile> _rundenZeilen = [];
+
     // ── Berechnete Listen ─────────────────────────────────────────────────────
     public IEnumerable<TurnierVorlage> VorlagenGefiltert => Vorlagen
         .Where(v =>
@@ -81,6 +103,8 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
         Enum.GetValues<VorlagenKategorie>()
             .Select(k => new VorlagenKategorieOption(VorlagenKategorieZuTextConverter.KategorieAnzeigeName(k), k))
             .ToList();
+
+    public IEnumerable<Rundenart> RundenartOptionen => Enum.GetValues<Rundenart>();
 
     private static readonly HashSet<string> _formFelder =
     [
@@ -130,6 +154,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
                 AnzahlMannschaften = "8";
                 AusgewaehlteKategorie = KategorieOptionen.First(o => o.Wert == VorlagenKategorie.Benutzerdefiniert);
                 IstHistorisch = false;
+                RundenZeilen = [];
             }
             else
             {
@@ -143,6 +168,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
                 IstHistorisch = vorlage.IstHistorisch;
                 GueltigVon = vorlage.GueltigVon?.Year.ToString() ?? "";
                 GueltigBis = vorlage.GueltigBis?.Year.ToString() ?? "";
+                // VorlagenRunden werden async in AusgewaehltesGeaendertAsync geladen
             }
             IsDirty = false;
             Fehlermeldung = null;
@@ -151,6 +177,110 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
         {
             _populiertGerade--;
         }
+    }
+
+    partial void OnAusgewaehltesChanged(TurnierVorlage? value)
+        => _ = AusgewaehltesGeaendertAsync(value);
+
+    private async Task AusgewaehltesGeaendertAsync(TurnierVorlage? vorlage)
+    {
+        FormularAusFuellenMit(vorlage);
+        if (vorlage is null) return;
+
+        IstLadend = true;
+        try
+        {
+            var mitRunden = await _service.FindenNachIdMitRundenAsync(vorlage.Id);
+            _populiertGerade++;
+            try
+            {
+                RundenZeilen = new ObservableCollection<VorlagenRundeZeile>(
+                    (mitRunden?.VorlagenRunden ?? []).Select(r => new VorlagenRundeZeile
+                    {
+                        DbId                      = r.Id,
+                        Name                      = r.Name,
+                        Rundenart                 = r.Rundenart,
+                        EingangsMannschaftsanzahl = r.EingangsMannschaftsanzahl,
+                        AusgangsMannschaftsanzahl = r.AusgangsMannschaftsanzahl,
+                        AuswaertstorRegelAktiv    = r.AuswaertstorRegelAktiv
+                    }));
+                AbonniereRundenAenderungen();
+                IsDirty = false;
+            }
+            finally
+            {
+                _populiertGerade--;
+            }
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstLadend = false;
+        }
+    }
+
+    // Setzt IsDirty wenn eine Zeile inline bearbeitet wird
+    private void AbonniereRundenAenderungen()
+    {
+        foreach (var zeile in RundenZeilen)
+            zeile.PropertyChanged += OnRundeZeileGeaendert;
+    }
+
+    private void OnRundeZeileGeaendert(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_populiertGerade == 0)
+            IsDirty = true;
+    }
+
+    // ── Runden-Befehle ────────────────────────────────────────────────────────
+
+    [RelayCommand]
+    private void RundeHinzufuegen()
+    {
+        var letzte = RundenZeilen.LastOrDefault();
+        var neu = new VorlagenRundeZeile
+        {
+            Name                      = $"Runde {RundenZeilen.Count + 1}",
+            Rundenart                 = Rundenart.Liga,
+            EingangsMannschaftsanzahl = letzte?.AusgangsMannschaftsanzahl ?? 8,
+            AusgangsMannschaftsanzahl = Math.Max(1, (letzte?.AusgangsMannschaftsanzahl ?? 8) / 2)
+        };
+        neu.PropertyChanged += OnRundeZeileGeaendert;
+        RundenZeilen.Add(neu);
+        AusgewaehlteRunde = neu;
+        IsDirty = true;
+    }
+
+    [RelayCommand(CanExecute = nameof(KannRundeEntfernen))]
+    private void RundeEntfernen()
+    {
+        if (AusgewaehlteRunde is null) return;
+        RundenZeilen.Remove(AusgewaehlteRunde);
+        AusgewaehlteRunde = RundenZeilen.LastOrDefault();
+        IsDirty = true;
+    }
+
+    [RelayCommand(CanExecute = nameof(KannRundeNachOben))]
+    private void RundeNachOben()
+    {
+        if (AusgewaehlteRunde is null) return;
+        var idx = RundenZeilen.IndexOf(AusgewaehlteRunde);
+        if (idx <= 0) return;
+        RundenZeilen.Move(idx, idx - 1);
+        IsDirty = true;
+    }
+
+    [RelayCommand(CanExecute = nameof(KannRundeNachUnten))]
+    private void RundeNachUnten()
+    {
+        if (AusgewaehlteRunde is null) return;
+        var idx = RundenZeilen.IndexOf(AusgewaehlteRunde);
+        if (idx < 0 || idx >= RundenZeilen.Count - 1) return;
+        RundenZeilen.Move(idx, idx + 1);
+        IsDirty = true;
     }
 
     // ── Ribbon-Befehle ────────────────────────────────────────────────────────
@@ -168,6 +298,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
             AnzahlMannschaften = "8";
             AusgewaehlteKategorie = KategorieOptionen.First(o => o.Wert == VorlagenKategorie.Benutzerdefiniert);
             IstHistorisch = false;
+            RundenZeilen = [];
             Fehlermeldung = null;
         }
         finally
@@ -187,12 +318,17 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
             var gueltigVon = ParseJahr(GueltigVon);
             var gueltigBis = ParseJahr(GueltigBis);
             var kategorie = AusgewaehlteKategorie.Wert ?? VorlagenKategorie.Benutzerdefiniert;
+            var rundenEingaben = RundenZeilen.Select(z => new VorlagenRundeEingabe(
+                z.Name, z.Rundenart,
+                z.EingangsMannschaftsanzahl, z.AusgangsMannschaftsanzahl,
+                z.AuswaertstorRegelAktiv)).ToList();
 
             if (IstNeuModus)
             {
                 var eingabe = new TurnierVorlageErstellenEingabe(
                     Name, Beschreibung, anzahl, kategorie, IstHistorisch, gueltigVon, gueltigBis);
                 var neu = await _service.ErstellenAsync(eingabe);
+                await _service.RundenSynchronisierenAsync(neu.Id, rundenEingaben);
                 await LadenAsync();
                 Ausgewaehltes = Vorlagen.FirstOrDefault(v => v.Id == neu.Id);
             }
@@ -202,9 +338,14 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
                 var eingabe = new TurnierVorlageAktualisierenEingabe(
                     Name, Beschreibung, anzahl, kategorie, IstHistorisch, gueltigVon, gueltigBis);
                 await _service.AktualisierenAsync(id, eingabe);
+                await _service.RundenSynchronisierenAsync(id, rundenEingaben);
                 await LadenAsync();
                 Ausgewaehltes = Vorlagen.FirstOrDefault(v => v.Id == id);
             }
+
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(
+                () => IsDirty = false,
+                System.Windows.Threading.DispatcherPriority.Background);
         }
         catch (Exception ex)
         {
@@ -213,7 +354,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
     }
 
     [RelayCommand(CanExecute = nameof(KannAbbrechen))]
-    private void Abbrechen() => FormularAusFuellenMit(IstNeuModus ? null : Ausgewaehltes);
+    private void Abbrechen() => _ = AusgewaehltesGeaendertAsync(IstNeuModus ? null : Ausgewaehltes);
 
     [RelayCommand(CanExecute = nameof(KannLoeschen))]
     private async Task Loeschen()
@@ -240,8 +381,6 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.PropertyName == nameof(Ausgewaehltes))
-            FormularAusFuellenMit(Ausgewaehltes);
         if (_populiertGerade == 0 && _formFelder.Contains(e.PropertyName!))
             IsDirty = true;
     }
@@ -249,6 +388,9 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
     private bool KannSpeichern() => FormularAktiv && IsDirty;
     private bool KannAbbrechen() => FormularAktiv && IsDirty;
     private bool KannLoeschen() => Ausgewaehltes is not null && !IstNeuModus;
+    private bool KannRundeEntfernen() => AusgewaehlteRunde is not null;
+    private bool KannRundeNachOben() => AusgewaehlteRunde is not null && RundenZeilen.IndexOf(AusgewaehlteRunde) > 0;
+    private bool KannRundeNachUnten() => AusgewaehlteRunde is not null && RundenZeilen.IndexOf(AusgewaehlteRunde) < RundenZeilen.Count - 1;
 
     private static int ParseAnzahl(string text)
         => int.TryParse(text.Trim(), out var n) && n >= 2 ? n : 2;

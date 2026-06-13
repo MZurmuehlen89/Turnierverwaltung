@@ -5,6 +5,7 @@
 
     <UserControl.Resources>
         <conv:VorlagenKategorieZuTextConverter x:Key="KategorieZuText" />
+        <conv:RundenartZuTextConverter x:Key="RundenartZuText" />
     </UserControl.Resources>
 
     <Grid>
@@ -84,7 +85,7 @@
                                 <TextBlock Text="{Binding VorlagenKategorie, Converter={StaticResource KategorieZuText}}"
                                            FontSize="11" Foreground="#64748B" />
                                 <TextBlock Text=" · " FontSize="11" Foreground="#64748B" />
-                                <TextBlock Text="{Binding ErforderlicheMannschaftsanzahl, StringFormat='{}{0} Mannschaften'}"
+                                <TextBlock Text="{Binding ErforderlicheMannschaftsanzahl, StringFormat='{}{0} Teams'}"
                                            FontSize="11" Foreground="#64748B" />
                                 <TextBlock FontSize="11" Foreground="#64748B"
                                            Visibility="{Binding IstHistorisch, Converter={StaticResource BoolToVisibility}}">
@@ -151,7 +152,7 @@
                     <TextBlock Text="GÜLTIGKEIT" FontSize="11" FontWeight="Bold"
                                Foreground="#94A3B8" Margin="0,0,0,8" />
 
-                    <Grid Margin="0,0,0,16">
+                    <Grid Margin="0,0,0,24">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="16" />
@@ -170,6 +171,155 @@
                                      BorderBrush="#CBD5E1" BorderThickness="1" />
                         </StackPanel>
                     </Grid>
+
+                    <!-- TURNIERRUNDEN -->
+                    <DockPanel Margin="0,0,0,8">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="＋" ToolTip="Runde hinzufügen"
+                                    Command="{Binding RundeHinzufuegenCommand}"
+                                    Width="28" Height="24" FontSize="14" Padding="0"
+                                    Margin="0,0,4,0" Cursor="Hand" />
+                            <Button Content="↑" ToolTip="Nach oben"
+                                    Command="{Binding RundeNachObenCommand}"
+                                    Width="28" Height="24" FontSize="13" Padding="0"
+                                    Margin="0,0,4,0" Cursor="Hand" />
+                            <Button Content="↓" ToolTip="Nach unten"
+                                    Command="{Binding RundeNachUntenCommand}"
+                                    Width="28" Height="24" FontSize="13" Padding="0"
+                                    Margin="0,0,4,0" Cursor="Hand" />
+                            <Button Content="－" ToolTip="Runde entfernen"
+                                    Command="{Binding RundeEntfernenCommand}"
+                                    Width="28" Height="24" FontSize="14" Padding="0"
+                                    Cursor="Hand" />
+                        </StackPanel>
+                        <TextBlock Text="TURNIERRUNDEN" FontSize="11" FontWeight="Bold"
+                                   Foreground="#94A3B8" VerticalAlignment="Center" />
+                    </DockPanel>
+
+                    <DataGrid x:Name="RundenGrid"
+                              ItemsSource="{Binding RundenZeilen}"
+                              SelectedItem="{Binding AusgewaehlteRunde}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserResizeRows="False"
+                              GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="#E2E8F0"
+                              HeadersVisibility="Column"
+                              AlternatingRowBackground="#F8FAFC"
+                              Background="White"
+                              BorderBrush="#E2E8F0" BorderThickness="1"
+                              RowHeight="28"
+                              FontSize="12"
+                              Margin="0,0,0,16">
+
+                        <DataGrid.ColumnHeaderStyle>
+                            <Style TargetType="DataGridColumnHeader">
+                                <Setter Property="Background" Value="#E2E8F0" />
+                                <Setter Property="Foreground" Value="#374151" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                                <Setter Property="FontSize" Value="11" />
+                                <Setter Property="Padding" Value="8,5" />
+                                <Setter Property="BorderBrush" Value="#CBD5E1" />
+                                <Setter Property="BorderThickness" Value="0,0,1,0" />
+                            </Style>
+                        </DataGrid.ColumnHeaderStyle>
+
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="#DBEAFE" />
+                                        <Setter Property="Foreground" Value="#1E40AF" />
+                                    </Trigger>
+                                    <MultiTrigger>
+                                        <MultiTrigger.Conditions>
+                                            <Condition Property="IsMouseOver" Value="True" />
+                                            <Condition Property="IsSelected" Value="False" />
+                                        </MultiTrigger.Conditions>
+                                        <Setter Property="Background" Value="#EFF6FF" />
+                                    </MultiTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+
+                        <DataGrid.CellStyle>
+                            <Style TargetType="DataGridCell">
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="Padding" Value="8,0" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="DataGridCell">
+                                            <Border Padding="{TemplateBinding Padding}"
+                                                    Background="{TemplateBinding Background}">
+                                                <ContentPresenter VerticalAlignment="Center" />
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </DataGrid.CellStyle>
+
+                        <DataGrid.Columns>
+
+                            <!-- Name -->
+                            <DataGridTextColumn Header="Name"
+                                                Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                                Width="*" MinWidth="100" />
+
+                            <!-- Rundenart: Anzeige per Converter, Bearbeitung per ComboBox -->
+                            <DataGridTemplateColumn Header="Rundenart" Width="160">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Rundenart, Converter={StaticResource RundenartZuText}}"
+                                                   Margin="8,0" VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <ComboBox SelectedItem="{Binding Rundenart, UpdateSourceTrigger=PropertyChanged}"
+                                                  ItemsSource="{Binding DataContext.RundenartOptionen,
+                                                                        RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                  BorderThickness="0">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Converter={StaticResource RundenartZuText}}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Eingang -->
+                            <DataGridTextColumn Header="Eingang"
+                                                Binding="{Binding EingangsMannschaftsanzahl, UpdateSourceTrigger=PropertyChanged}"
+                                                Width="64">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Right" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- Ausgang -->
+                            <DataGridTextColumn Header="Ausgang"
+                                                Binding="{Binding AusgangsMannschaftsanzahl, UpdateSourceTrigger=PropertyChanged}"
+                                                Width="64">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Right" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- Auswärtstore -->
+                            <DataGridCheckBoxColumn Header="Auswärts§"
+                                                    Binding="{Binding AuswaertstorRegelAktiv, UpdateSourceTrigger=PropertyChanged}"
+                                                    Width="80" />
+
+                        </DataGrid.Columns>
+                    </DataGrid>
 
                     <!-- Fehlermeldung -->
                     <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"

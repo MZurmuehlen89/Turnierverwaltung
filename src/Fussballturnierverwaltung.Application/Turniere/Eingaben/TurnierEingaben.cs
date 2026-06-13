@@ -2,6 +2,13 @@ using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Turniere.Eingaben;
 
+public record VorlagenRundeEingabe(
+    string Name,
+    Rundenart Rundenart,
+    int EingangsMannschaftsanzahl,
+    int AusgangsMannschaftsanzahl,
+    bool AuswaertstorRegelAktiv = false);
+
 public record TurnierVorlageErstellenEingabe(
     string Name,
     string Beschreibung,

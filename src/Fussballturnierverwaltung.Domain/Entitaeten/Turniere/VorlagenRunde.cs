@@ -1,0 +1,15 @@
+using Fussballturnierverwaltung.Domain.Enums;
+
+namespace Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+
+public class VorlagenRunde : BasisEntitaet
+{
+    public int TurnierVorlageId { get; set; }
+    public TurnierVorlage TurnierVorlage { get; set; } = null!;
+    public string Name { get; set; } = string.Empty;
+    public int Reihenfolge { get; set; }
+    public Rundenart Rundenart { get; set; }
+    public int EingangsMannschaftsanzahl { get; set; }
+    public int AusgangsMannschaftsanzahl { get; set; }
+    public bool AuswaertstorRegelAktiv { get; set; }
+}

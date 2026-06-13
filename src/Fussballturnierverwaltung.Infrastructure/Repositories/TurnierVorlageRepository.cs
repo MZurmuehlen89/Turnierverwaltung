@@ -20,4 +20,24 @@ public class TurnierVorlageRepository(TurnierverwaltungDbContext context)
             .Where(v => v.VorlagenKategorie == kategorie)
             .OrderBy(v => v.Name)
             .ToListAsync(ct);
+
+    public async Task<TurnierVorlage?> FindenNachIdMitRundenAsync(int id, CancellationToken ct = default)
+        => await Context.TurnierVorlagen
+            .Include(v => v.VorlagenRunden.OrderBy(r => r.Reihenfolge))
+            .FirstOrDefaultAsync(v => v.Id == id, ct);
+
+    public async Task RundenErsetzenAsync(int vorlageId, IReadOnlyList<VorlagenRunde> neueRunden, CancellationToken ct = default)
+    {
+        var alteRunden = await Context.VorlagenRunden
+            .Where(r => r.TurnierVorlageId == vorlageId)
+            .ToListAsync(ct);
+        Context.VorlagenRunden.RemoveRange(alteRunden);
+        await Context.SaveChangesAsync(ct);
+
+        if (neueRunden.Count > 0)
+        {
+            Context.VorlagenRunden.AddRange(neueRunden);
+            await Context.SaveChangesAsync(ct);
+        }
+    }
 }

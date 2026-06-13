@@ -16,6 +16,25 @@ public class TurnierVorlageService(ITurnierVorlageRepository repository, ILogger
     public async Task<TurnierVorlage?> FindenNachIdAsync(int id, CancellationToken ct = default)
         => await repository.FindenNachIdAsync(id, ct);
 
+    public Task<TurnierVorlage?> FindenNachIdMitRundenAsync(int id, CancellationToken ct = default)
+        => repository.FindenNachIdMitRundenAsync(id, ct);
+
+    public async Task RundenSynchronisierenAsync(int vorlageId, IReadOnlyList<VorlagenRundeEingabe> runden, CancellationToken ct = default)
+    {
+        var neueRunden = runden.Select((r, i) => new VorlagenRunde
+        {
+            TurnierVorlageId          = vorlageId,
+            Name                      = r.Name.Trim(),
+            Reihenfolge               = i + 1,
+            Rundenart                 = r.Rundenart,
+            EingangsMannschaftsanzahl = r.EingangsMannschaftsanzahl,
+            AusgangsMannschaftsanzahl = r.AusgangsMannschaftsanzahl,
+            AuswaertstorRegelAktiv    = r.AuswaertstorRegelAktiv
+        }).ToList();
+        await repository.RundenErsetzenAsync(vorlageId, neueRunden, ct);
+        logger.LogInformation("Vorlage {Id}: {Anzahl} Runde(n) synchronisiert.", vorlageId, neueRunden.Count);
+    }
+
     public async Task<TurnierVorlage> ErstellenAsync(TurnierVorlageErstellenEingabe eingabe, CancellationToken ct = default)
     {
         if (eingabe.ErforderlicheMannschaftsanzahl < 2)

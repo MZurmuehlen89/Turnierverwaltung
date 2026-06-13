@@ -29,6 +29,7 @@ public class TurnierverwaltungDbContext : DbContext
 
     // Turniere
     public DbSet<TurnierVorlage> TurnierVorlagen => Set<TurnierVorlage>();
+    public DbSet<VorlagenRunde> VorlagenRunden => Set<VorlagenRunde>();
     public DbSet<TurnierInstanz> TurnierInstanzen => Set<TurnierInstanz>();
     public DbSet<TurnierRunde> TurnierRunden => Set<TurnierRunde>();
 
