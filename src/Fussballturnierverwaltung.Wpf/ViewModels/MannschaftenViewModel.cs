@@ -290,6 +290,12 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware
                 await LadenAsync();
                 Ausgewaehlte = Mannschaften.FirstOrDefault(m => m.Id == id);
             }
+            // LadenAsync ersetzt Laender durch neue Instanzen; das Land-ComboBox-Binding
+            // schreibt AusgewaehltesLand deferred (DataBind-Priorität) auf null zurück und
+            // triggert dadurch IsDirty=true. Background-Priorität läuft nach allen Bindings.
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(
+                () => IsDirty = false,
+                System.Windows.Threading.DispatcherPriority.Background);
         }
         catch (Exception ex)
         {
