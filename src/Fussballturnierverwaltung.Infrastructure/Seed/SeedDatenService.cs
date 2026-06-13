@@ -18,12 +18,48 @@ public class SeedDatenService
 
     public async Task InitialisierenAsync(CancellationToken cancellationToken = default)
     {
-        if (await _context.Verbaende.AnyAsync(cancellationToken))
+        if (!await _context.Verbaende.AnyAsync(cancellationToken))
         {
-            _logger.LogInformation("Seed-Daten bereits vorhanden – übersprungen.");
-            return;
+            await ErstSeedAsync(cancellationToken);
+        }
+        else
+        {
+            _logger.LogInformation("Seed-Daten bereits vorhanden – Basis-Seed übersprungen.");
         }
 
+        await VorlagenRundenNachruesten(cancellationToken);
+    }
+
+    private async Task VorlagenRundenNachruesten(CancellationToken ct)
+    {
+        if (await _context.VorlagenRunden.AnyAsync(ct)) return;
+
+        var definitionen = TurnierVorlagenSeedDaten.RundenNachVorlagenName();
+        int hinzugefuegt = 0;
+
+        foreach (var (vorlagenName, runden) in definitionen)
+        {
+            var vorlage = await _context.TurnierVorlagen
+                .FirstOrDefaultAsync(v => v.Name == vorlagenName, ct);
+            if (vorlage is null) continue;
+
+            foreach (var runde in runden)
+            {
+                runde.TurnierVorlageId = vorlage.Id;
+                _context.VorlagenRunden.Add(runde);
+                hinzugefuegt++;
+            }
+        }
+
+        if (hinzugefuegt > 0)
+        {
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("{Anzahl} VorlagenRunden nachgerüstet.", hinzugefuegt);
+        }
+    }
+
+    private async Task ErstSeedAsync(CancellationToken cancellationToken)
+    {
         _logger.LogInformation("Seed-Daten werden angelegt...");
 
         // 1. Verbände
