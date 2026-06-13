@@ -4,117 +4,100 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="270" MinWidth="200" MaxWidth="420" />
+            <ColumnDefinition Width="3*" />
             <ColumnDefinition Width="4" />
-            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="2*" />
         </Grid.ColumnDefinitions>
 
-        <!-- ── Linke Spalte: Suche + Filter + Liste ── -->
+        <!-- ── Linke Spalte: Filter-Leiste + DataGrid ── -->
         <DockPanel Grid.Column="0" Background="#F8FAFC">
 
-            <!-- Suchfeld -->
-            <Border DockPanel.Dock="Top" Background="White"
-                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,6">
-                <TextBox Text="{Binding Suchbegriff, UpdateSourceTrigger=PropertyChanged}"
-                         Padding="6,4" FontSize="13"
-                         BorderBrush="#CBD5E1" BorderThickness="1">
-                    <TextBox.Style>
-                        <Style TargetType="TextBox">
-                            <Style.Triggers>
-                                <Trigger Property="Text" Value="">
-                                    <Setter Property="Background">
-                                        <Setter.Value>
-                                            <VisualBrush Stretch="None" AlignmentX="Left">
-                                                <VisualBrush.Visual>
-                                                    <TextBlock Text="🔍  Suchen …"
-                                                               Foreground="#9CA3AF" Margin="8,4"
-                                                               FontSize="13" />
-                                                </VisualBrush.Visual>
-                                            </VisualBrush>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBox.Style>
-                </TextBox>
-            </Border>
-
-            <!-- Filter-Panel -->
+            <!-- Horizontale Filter-Leiste -->
             <Border DockPanel.Dock="Top" Background="#F1F5F9"
                     BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,6">
-                <StackPanel>
+                <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+
+                    <!-- Suche -->
+                    <TextBox Text="{Binding Suchbegriff, UpdateSourceTrigger=PropertyChanged}"
+                             Width="180" Padding="6,4" FontSize="12"
+                             BorderBrush="#CBD5E1" BorderThickness="1"
+                             VerticalAlignment="Center" Margin="0,0,12,0">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox">
+                                <Style.Triggers>
+                                    <Trigger Property="Text" Value="">
+                                        <Setter Property="Background">
+                                            <Setter.Value>
+                                                <VisualBrush Stretch="None" AlignmentX="Left">
+                                                    <VisualBrush.Visual>
+                                                        <TextBlock Text="🔍  Suchen …"
+                                                                   Foreground="#9CA3AF" Margin="8,4"
+                                                                   FontSize="12" />
+                                                    </VisualBrush.Visual>
+                                                </VisualBrush>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
 
                     <!-- Land -->
-                    <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="56" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Land" VerticalAlignment="Center"
-                                   FontSize="11" Foreground="#6B7280" />
-                        <ComboBox Grid.Column="1"
-                                  ItemsSource="{Binding LandFilterOptionen}"
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                        <TextBlock Text="Land " FontSize="11" Foreground="#6B7280"
+                                   VerticalAlignment="Center" />
+                        <ComboBox ItemsSource="{Binding LandFilterOptionen}"
                                   SelectedItem="{Binding FilterLandOption}"
                                   DisplayMemberPath="Anzeige"
-                                  Padding="4,2" FontSize="12" BorderBrush="#CBD5E1" />
-                    </Grid>
+                                  Width="120" Padding="4,2" FontSize="12"
+                                  BorderBrush="#CBD5E1" />
+                    </StackPanel>
 
                     <!-- Verband -->
-                    <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="56" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Verband" VerticalAlignment="Center"
-                                   FontSize="11" Foreground="#6B7280" />
-                        <ComboBox Grid.Column="1"
-                                  ItemsSource="{Binding VerbandFilterOptionen}"
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                        <TextBlock Text="Verband " FontSize="11" Foreground="#6B7280"
+                                   VerticalAlignment="Center" />
+                        <ComboBox ItemsSource="{Binding VerbandFilterOptionen}"
                                   SelectedItem="{Binding FilterVerbandOption}"
                                   DisplayMemberPath="Anzeige"
-                                  Padding="4,2" FontSize="12" BorderBrush="#CBD5E1" />
-                    </Grid>
+                                  Width="120" Padding="4,2" FontSize="12"
+                                  BorderBrush="#CBD5E1" />
+                    </StackPanel>
 
                     <!-- Art -->
-                    <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="56" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Art" VerticalAlignment="Center"
-                                   FontSize="11" Foreground="#6B7280" />
-                        <ComboBox Grid.Column="1"
-                                  ItemsSource="{Binding ArtFilterOptionen}"
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                        <TextBlock Text="Art " FontSize="11" Foreground="#6B7280"
+                                   VerticalAlignment="Center" />
+                        <ComboBox ItemsSource="{Binding ArtFilterOptionen}"
                                   SelectedItem="{Binding FilterArtOption}"
                                   DisplayMemberPath="Anzeige"
-                                  Padding="4,2" FontSize="12" BorderBrush="#CBD5E1" />
-                    </Grid>
+                                  Width="100" Padding="4,2" FontSize="12"
+                                  BorderBrush="#CBD5E1" />
+                    </StackPanel>
 
                     <!-- Rating min -->
-                    <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="56" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="30" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Rating ≥" VerticalAlignment="Center"
-                                   FontSize="11" Foreground="#6B7280" />
-                        <Slider Grid.Column="1" Value="{Binding FilterMinRating}"
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                        <TextBlock Text="Rating ≥ " FontSize="11" Foreground="#6B7280"
+                                   VerticalAlignment="Center" />
+                        <Slider Value="{Binding FilterMinRating}"
                                 Minimum="0" Maximum="99"
                                 IsSnapToTickEnabled="True" TickFrequency="1"
-                                VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="2" Text="{Binding FilterMinRating}"
+                                Width="80" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding FilterMinRating}"
                                    FontSize="11" FontWeight="SemiBold"
-                                   TextAlignment="Right" VerticalAlignment="Center" />
-                    </Grid>
+                                   Width="24" TextAlignment="Right"
+                                   VerticalAlignment="Center" Margin="4,0,0,0" />
+                    </StackPanel>
 
                     <!-- Reset -->
-                    <Button Content="Filter zurücksetzen"
+                    <Button Content="↺ Zurücksetzen"
                             Command="{Binding FilterZuruecksetzenCommand}"
-                            HorizontalAlignment="Right"
-                            FontSize="11" Padding="6,2"
+                            FontSize="11" Padding="6,3"
+                            VerticalAlignment="Center"
                             Cursor="Hand" />
-                </StackPanel>
+
+                </WrapPanel>
             </Border>
 
             <!-- Ladeindikator -->
@@ -122,16 +105,38 @@
                          Foreground="#3B82F6"
                          Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
 
-            <!-- Liste -->
-            <ListBox ItemsSource="{Binding MannschaftenGefiltert}"
-                     SelectedItem="{Binding Ausgewaehlte}"
-                     BorderThickness="0" Background="Transparent"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem">
-                        <Setter Property="Padding" Value="12,8" />
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Setter Property="BorderThickness" Value="0" />
+            <!-- DataGrid -->
+            <DataGrid ItemsSource="{Binding MannschaftenGefiltert}"
+                      SelectedItem="{Binding Ausgewaehlte}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      SelectionMode="Single"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      CanUserResizeRows="False"
+                      GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="#E2E8F0"
+                      HeadersVisibility="Column"
+                      AlternatingRowBackground="#F0F4F8"
+                      Background="White"
+                      BorderThickness="0"
+                      RowHeight="28"
+                      FontSize="12">
+
+                <DataGrid.ColumnHeaderStyle>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#E2E8F0" />
+                        <Setter Property="Foreground" Value="#374151" />
+                        <Setter Property="FontWeight" Value="SemiBold" />
+                        <Setter Property="FontSize" Value="11" />
+                        <Setter Property="Padding" Value="8,5" />
+                        <Setter Property="BorderBrush" Value="#CBD5E1" />
+                        <Setter Property="BorderThickness" Value="0,0,1,0" />
+                    </Style>
+                </DataGrid.ColumnHeaderStyle>
+
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
                         <Style.Triggers>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter Property="Background" Value="#DBEAFE" />
@@ -146,28 +151,69 @@
                             </MultiTrigger>
                         </Style.Triggers>
                     </Style>
-                </ListBox.ItemContainerStyle>
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel>
-                            <DockPanel>
-                                <TextBlock Text="{Binding Kurzname}" DockPanel.Dock="Right"
-                                           Foreground="#9CA3AF" FontSize="11"
-                                           VerticalAlignment="Center" Margin="4,0,0,0" />
-                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
-                                           TextTrimming="CharacterEllipsis" />
-                            </DockPanel>
-                            <DockPanel>
-                                <TextBlock Text="{Binding GesamtRating, StringFormat='{}⭐ {0:F1}'}"
-                                           DockPanel.Dock="Right" FontSize="10"
-                                           Foreground="#9CA3AF" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Land.Name}" FontSize="11"
-                                           Foreground="#6B7280" TextTrimming="CharacterEllipsis" />
-                            </DockPanel>
-                        </StackPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+                </DataGrid.RowStyle>
+
+                <DataGrid.CellStyle>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="Padding" Value="8,0" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridCell">
+                                    <Border Padding="{TemplateBinding Padding}"
+                                            Background="{TemplateBinding Background}">
+                                        <ContentPresenter VerticalAlignment="Center" />
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </DataGrid.CellStyle>
+
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" MinWidth="120" />
+                    <DataGridTextColumn Header="Kurz" Binding="{Binding Kurzname}" Width="52" />
+                    <DataGridTextColumn Header="Land" Binding="{Binding Land.Name}" Width="130" />
+                    <DataGridTextColumn Header="Art" Binding="{Binding Mannschaftsart}" Width="70" />
+
+                    <DataGridTextColumn Header="OFF" Binding="{Binding OffensivRating}" Width="44">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Right" />
+                                <Setter Property="Foreground" Value="#059669" />
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTextColumn Header="MIF" Binding="{Binding MittelfeldRating}" Width="44">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Right" />
+                                <Setter Property="Foreground" Value="#D97706" />
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTextColumn Header="DEF" Binding="{Binding DefensivRating}" Width="44">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Right" />
+                                <Setter Property="Foreground" Value="#DC2626" />
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTextColumn Header="⭐ Ges." Binding="{Binding GesamtRating, StringFormat={}{0:F1}}" Width="60">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Right" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                                <Setter Property="Foreground" Value="#1D4ED8" />
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                </DataGrid.Columns>
+            </DataGrid>
         </DockPanel>
 
         <GridSplitter Grid.Column="1" Width="4"
