@@ -143,7 +143,7 @@
                             <Run Text="SPIELE · " />
                             <Run Text="{Binding AusgewaehlteRunde.Name}" />
                             <Run Text=" · " />
-                            <Run Text="{Binding Spiele.Count}" />
+                            <Run Text="{Binding Spiele.Count, Mode=OneWay}" />
                             <Run Text=" Spiel(e)" />
                         </TextBlock>
                     </Border>
