@@ -95,6 +95,27 @@ public class TurnierInstanzService(
         logger.LogInformation("TurnierRunde '{Name}' (ID {Id}) aktualisiert.", runde.Name, rundeId);
     }
 
+    public async Task RundenErsetzenAsync(int id, IReadOnlyList<TurnierRundeEingabe> eingaben, CancellationToken ct = default)
+    {
+        ValidationException.WerfenWennUngueltig(validator.RundenValidieren(eingaben));
+
+        var neueRunden = eingaben.Select((e, i) => new TurnierRunde
+        {
+            TurnierInstanzId          = id,
+            Name                      = e.Name.Trim(),
+            Reihenfolge               = i + 1,
+            Rundenart                 = e.Rundenart,
+            EingangsMannschaftsanzahl = e.EingangsMannschaftsanzahl,
+            AusgangsMannschaftsanzahl = e.AusgangsMannschaftsanzahl,
+            RegelwerkId               = e.RegelwerkId,
+            AuswaertstorRegelAktiv    = e.AuswaertstorRegelAktiv,
+            KonfigurationJson         = e.KonfigurationJson
+        }).ToList();
+
+        await repository.RundenErsetzenAsync(id, neueRunden, ct);
+        logger.LogInformation("TurnierInstanz {Id}: {Anzahl} Runde(n) ersetzt.", id, neueRunden.Count);
+    }
+
     public async Task StatusAendernAsync(int id, TurnierStatus neuerStatus, CancellationToken ct = default)
     {
         var instanz = await repository.FindenNachIdAsync(id, ct)

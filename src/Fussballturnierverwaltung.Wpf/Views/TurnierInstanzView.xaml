@@ -5,7 +5,6 @@
 
     <UserControl.Resources>
         <conv:TurnierStatusZuTextConverter x:Key="StatusZuText" />
-        <conv:RundenartZuTextConverter     x:Key="RundenartZuText" />
     </UserControl.Resources>
 
     <Grid>
@@ -118,13 +117,7 @@
                              Padding="8,6" FontSize="13" Margin="0,0,0,12"
                              BorderBrush="#CBD5E1" BorderThickness="1" />
 
-                    <TextBlock Text="Turniervorlage" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
-                    <ComboBox ItemsSource="{Binding VorlageOptionen}"
-                              SelectedItem="{Binding AusgewaehlteVorlage}"
-                              DisplayMemberPath="Anzeige"
-                              FontSize="13" Margin="0,0,0,12" />
-
-                    <Grid Margin="0,0,0,12">
+                    <Grid Margin="0,0,0,20">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="16" />
@@ -142,155 +135,18 @@
                         </StackPanel>
                     </Grid>
 
-                    <TextBlock Text="Status" FontSize="12" Foreground="#475569" Margin="0,0,0,4"
-                               Visibility="{Binding RundenAnzeigeAktiv, Converter={StaticResource BoolToVisibility}}" />
-                    <ComboBox ItemsSource="{Binding StatusOptionen}"
-                              SelectedItem="{Binding AusgewaehlterStatus}"
-                              DisplayMemberPath="Anzeige" FontSize="13" Margin="0,0,0,20"
-                              Visibility="{Binding RundenAnzeigeAktiv, Converter={StaticResource BoolToVisibility}}" />
-
-                    <!-- RUNDEN (Bearbeiten-Modus: read-only) -->
-                    <StackPanel Visibility="{Binding RundenAnzeigeAktiv, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="RUNDEN" FontSize="11" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="0,0,0,8" />
-                        <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
-                            <ItemsControl ItemsSource="{Binding AktuelleRunden}"
-                                          Background="White">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="12,8">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="24" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0"
-                                                           Text="{Binding Reihenfolge}"
-                                                           Foreground="#94A3B8" FontSize="12"
-                                                           VerticalAlignment="Center" />
-                                                <StackPanel Grid.Column="1">
-                                                    <TextBlock Text="{Binding Name}"
-                                                               FontWeight="SemiBold" FontSize="13" />
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <TextBlock Text="{Binding Rundenart, Converter={StaticResource RundenartZuText}}"
-                                                                   FontSize="11" Foreground="#64748B" />
-                                                        <TextBlock FontSize="11" Foreground="#64748B">
-                                                            <Run Text=" · " />
-                                                            <Run Text="{Binding EingangsMannschaftsanzahl}" />
-                                                            <Run Text="→" />
-                                                            <Run Text="{Binding AusgangsMannschaftsanzahl}" />
-                                                            <Run Text=" · " />
-                                                            <Run Text="{Binding Regelwerk.Name}" />
-                                                        </TextBlock>
-                                                    </StackPanel>
-                                                </StackPanel>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </Border>
-                    </StackPanel>
-
-                    <!-- RUNDEN (Neu-Modus: editierbar) -->
-                    <StackPanel Visibility="{Binding RundenbauenAktiv, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="RUNDEN" FontSize="11" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="0,0,0,8" />
-
-                        <!-- Liste der definierten Runden -->
-                        <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="4" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <ListBox Grid.Column="0"
-                                     ItemsSource="{Binding RundenListe}"
-                                     SelectedItem="{Binding MarkierteRunde}"
-                                     DisplayMemberPath="Anzeige"
-                                     MinHeight="60" MaxHeight="200"
-                                     BorderBrush="#CBD5E1" BorderThickness="1" />
-
-                            <StackPanel Grid.Column="2" VerticalAlignment="Top">
-                                <Button Content="↑" Width="28" Height="28" Margin="0,0,0,4"
-                                        Command="{Binding RundeHochCommand}"
-                                        FontSize="14" />
-                                <Button Content="↓" Width="28" Height="28" Margin="0,0,0,4"
-                                        Command="{Binding RundeRunterCommand}"
-                                        FontSize="14" />
-                                <Button Content="✕" Width="28" Height="28"
-                                        Command="{Binding RundeEntfernenCommand}"
-                                        FontSize="14" Foreground="#DC2626" />
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Neue-Runde-Formular -->
+                    <!-- Status (nur für gespeicherte Turniere) -->
+                    <StackPanel Visibility="{Binding RundenSichtbar, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="Status" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
                         <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
-                                CornerRadius="4" Padding="12" Margin="0,0,0,12">
-                            <StackPanel>
-                                <TextBlock Text="Runde hinzufügen" FontSize="12" FontWeight="Bold"
-                                           Foreground="#475569" Margin="0,0,0,10" />
-
-                                <TextBlock Text="Name" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
-                                <TextBox Text="{Binding NeueRundeName, UpdateSourceTrigger=PropertyChanged}"
-                                         Padding="6,4" FontSize="13" Margin="0,0,0,8"
-                                         BorderBrush="#CBD5E1" BorderThickness="1" />
-
-                                <TextBlock Text="Rundenart" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
-                                <ComboBox ItemsSource="{Binding RundenartOptionen}"
-                                          SelectedItem="{Binding NeueRundeRundenart}"
-                                          FontSize="13" Margin="0,0,0,8">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding Converter={StaticResource RundenartZuText}}" />
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
-
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="12" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Eingang" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
-                                        <TextBox Text="{Binding NeueRundeEingang, UpdateSourceTrigger=PropertyChanged}"
-                                                 Padding="6,4" FontSize="13" BorderBrush="#CBD5E1" BorderThickness="1" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Ausgang" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
-                                        <TextBox Text="{Binding NeueRundeAusgang, UpdateSourceTrigger=PropertyChanged}"
-                                                 Padding="6,4" FontSize="13" BorderBrush="#CBD5E1" BorderThickness="1" />
-                                    </StackPanel>
-                                </Grid>
-
-                                <TextBlock Text="Regelwerk" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
-                                <ComboBox ItemsSource="{Binding RegelwerkOptionen}"
-                                          SelectedItem="{Binding NeueRundeRegelwerk}"
-                                          DisplayMemberPath="Anzeige"
-                                          FontSize="13" Margin="0,0,0,8" />
-
-                                <CheckBox Content="Auswärtstorregel (nur K.o. Hin- &amp; Rückspiel)"
-                                          IsChecked="{Binding NeueRundeAuswaertstorRegel}"
-                                          IsEnabled="{Binding AuswaertstorAktivierbar}"
-                                          FontSize="12" Margin="0,0,0,10" />
-
-                                <Button Content="Runde hinzufügen"
-                                        Command="{Binding RundeHinzufuegenCommand}"
-                                        Padding="12,6" FontSize="13"
-                                        Background="#3B82F6" Foreground="White"
-                                        BorderThickness="0"
-                                        HorizontalAlignment="Left" />
-                            </StackPanel>
+                                CornerRadius="4" Padding="8,6">
+                            <TextBlock Text="{Binding StatusAnzeige}" FontSize="13" Foreground="#374151" />
                         </Border>
                     </StackPanel>
 
                     <!-- Fehlermeldung -->
                     <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
-                            CornerRadius="4" Padding="12,8" Margin="0,8,0,0"
+                            CornerRadius="4" Padding="12,8" Margin="0,16,0,0"
                             Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
                         <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
                                    FontSize="13" TextWrapping="Wrap" />

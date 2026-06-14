@@ -43,6 +43,9 @@
         <DataTemplate DataType="{x:Type vm:ImportExportViewModel}">
             <views:ImportExportView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:RundenEditorViewModel}">
+            <views:RundenEditorView />
+        </DataTemplate>
 
         <Style x:Key="NavButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />

@@ -28,13 +28,16 @@ public class SeedDatenService
         }
 
         await VorlagenRundenNachruesten(cancellationToken);
+        await VorlagenRundenRegelwerkeNachruesten(cancellationToken);
     }
 
     private async Task VorlagenRundenNachruesten(CancellationToken ct)
     {
         if (await _context.VorlagenRunden.AnyAsync(ct)) return;
 
-        var definitionen = TurnierVorlagenSeedDaten.RundenNachVorlagenName();
+        var regelwerkLookup = await _context.Regelwerke
+            .ToDictionaryAsync(r => r.Name, r => r.Id, ct);
+        var definitionen = TurnierVorlagenSeedDaten.RundenNachVorlagenName(regelwerkLookup);
         int hinzugefuegt = 0;
 
         foreach (var (vorlagenName, runden) in definitionen)
@@ -55,6 +58,36 @@ public class SeedDatenService
         {
             await _context.SaveChangesAsync(ct);
             _logger.LogInformation("{Anzahl} VorlagenRunden nachgerüstet.", hinzugefuegt);
+        }
+    }
+
+    private async Task VorlagenRundenRegelwerkeNachruesten(CancellationToken ct)
+    {
+        if (!await _context.VorlagenRunden.AnyAsync(r => r.RegelwerkId == null, ct)) return;
+
+        var regelwerkLookup = await _context.Regelwerke
+            .ToDictionaryAsync(r => r.Name, r => r.Id, ct);
+        var sollRunden = TurnierVorlagenSeedDaten.RundenNachVorlagenName(regelwerkLookup);
+
+        var istRunden = await _context.VorlagenRunden
+            .Where(r => r.RegelwerkId == null)
+            .Include(r => r.TurnierVorlage)
+            .ToListAsync(ct);
+
+        int aktualisiert = 0;
+        foreach (var runde in istRunden)
+        {
+            if (!sollRunden.TryGetValue(runde.TurnierVorlage.Name, out var sollListe)) continue;
+            var soll = sollListe.FirstOrDefault(s => s.Reihenfolge == runde.Reihenfolge);
+            if (soll?.RegelwerkId is null) continue;
+            runde.RegelwerkId = soll.RegelwerkId;
+            aktualisiert++;
+        }
+
+        if (aktualisiert > 0)
+        {
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("{Anzahl} VorlagenRunden mit Regelwerk nachgerüstet.", aktualisiert);
         }
     }
 
@@ -137,8 +170,10 @@ public class SeedDatenService
         await _context.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("{Anzahl} Regelwerke angelegt.", regelwerkeDefinitionen.Count);
 
-        // 7. TurnierVorlagen
-        var vorlagen = TurnierVorlagenSeedDaten.Erstellen();
+        // 7. TurnierVorlagen (mit Regelwerk-Lookup für VorlagenRunden)
+        var regelwerkLookup = regelwerkeDefinitionen.ToDictionary(
+            t => t.Regelwerk.Name, t => t.Regelwerk.Id);
+        var vorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup);
         _context.TurnierVorlagen.AddRange(vorlagen);
         await _context.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("{Anzahl} Turniervorlagen angelegt.", vorlagen.Count);

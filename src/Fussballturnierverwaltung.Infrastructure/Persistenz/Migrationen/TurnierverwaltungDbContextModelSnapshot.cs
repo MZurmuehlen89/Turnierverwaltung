@@ -832,6 +832,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int?>("RegelwerkId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Reihenfolge")
                         .HasColumnType("int");
 
@@ -842,6 +845,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("RegelwerkId");
 
                     b.HasIndex("TurnierVorlageId", "Reihenfolge")
                         .IsUnique();
@@ -1191,11 +1196,18 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", b =>
                 {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke.Regelwerk", "Regelwerk")
+                        .WithMany()
+                        .HasForeignKey("RegelwerkId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierVorlage", "TurnierVorlage")
                         .WithMany("VorlagenRunden")
                         .HasForeignKey("TurnierVorlageId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Regelwerk");
 
                     b.Navigation("TurnierVorlage");
                 });

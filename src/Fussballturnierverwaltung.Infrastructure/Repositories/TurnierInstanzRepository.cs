@@ -19,6 +19,8 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
     public async Task<TurnierInstanz?> FindenNachIdMitRundenAsync(int id, CancellationToken ct = default)
         => await Context.TurnierInstanzen
             .Include(ti => ti.TurnierVorlage)
+                .ThenInclude(v => v!.VorlagenRunden.OrderBy(r => r.Reihenfolge))
+                    .ThenInclude(r => r.Regelwerk)
             .Include(ti => ti.Runden.OrderBy(r => r.Reihenfolge))
                 .ThenInclude(r => r.Regelwerk)
             .FirstOrDefaultAsync(ti => ti.Id == id, ct);
@@ -29,6 +31,21 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             .Where(ti => ti.Status == status)
             .OrderByDescending(ti => ti.SaisonOderJahr)
             .ToListAsync(ct);
+
+    public async Task RundenErsetzenAsync(int instanzId, IReadOnlyList<TurnierRunde> neueRunden, CancellationToken ct = default)
+    {
+        var alte = await Context.TurnierRunden
+            .Where(r => r.TurnierInstanzId == instanzId)
+            .ToListAsync(ct);
+        Context.TurnierRunden.RemoveRange(alte);
+        await Context.SaveChangesAsync(ct);
+
+        if (neueRunden.Count > 0)
+        {
+            Context.TurnierRunden.AddRange(neueRunden);
+            await Context.SaveChangesAsync(ct);
+        }
+    }
 
     // Löscht in der richtigen Reihenfolge:
     //   1. TurnierBaum (zirkuläre Knoten-Refs → Knoten → Baum)

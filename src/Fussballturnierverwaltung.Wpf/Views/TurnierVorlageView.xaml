@@ -314,9 +314,28 @@
                             </DataGridTextColumn>
 
                             <!-- Auswärtstore -->
-                            <DataGridCheckBoxColumn Header="Auswärts§"
+                            <DataGridCheckBoxColumn Header="AuswTor"
                                                     Binding="{Binding AuswaertstorRegelAktiv, UpdateSourceTrigger=PropertyChanged}"
                                                     Width="80" />
+
+                            <!-- Regelwerk -->
+                            <DataGridTemplateColumn Header="Regelwerk" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Regelwerk.Anzeige}"
+                                                   VerticalAlignment="Center" Margin="4,0" FontSize="12" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <ComboBox SelectedItem="{Binding Regelwerk, UpdateSourceTrigger=PropertyChanged}"
+                                                  ItemsSource="{Binding DataContext.RegelwerkOptionen,
+                                                                        RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                  DisplayMemberPath="Anzeige"
+                                                  FontSize="12" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
 
                         </DataGrid.Columns>
                     </DataGrid>

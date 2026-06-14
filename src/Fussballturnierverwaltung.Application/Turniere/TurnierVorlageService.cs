@@ -29,7 +29,8 @@ public class TurnierVorlageService(ITurnierVorlageRepository repository, ILogger
             Rundenart                 = r.Rundenart,
             EingangsMannschaftsanzahl = r.EingangsMannschaftsanzahl,
             AusgangsMannschaftsanzahl = r.AusgangsMannschaftsanzahl,
-            AuswaertstorRegelAktiv    = r.AuswaertstorRegelAktiv
+            AuswaertstorRegelAktiv    = r.AuswaertstorRegelAktiv,
+            RegelwerkId               = r.RegelwerkId
         }).ToList();
         await repository.RundenErsetzenAsync(vorlageId, neueRunden, ct);
         logger.LogInformation("Vorlage {Id}: {Anzahl} Runde(n) synchronisiert.", vorlageId, neueRunden.Count);

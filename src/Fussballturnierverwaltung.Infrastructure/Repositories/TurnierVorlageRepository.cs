@@ -24,6 +24,7 @@ public class TurnierVorlageRepository(TurnierverwaltungDbContext context)
     public async Task<TurnierVorlage?> FindenNachIdMitRundenAsync(int id, CancellationToken ct = default)
         => await Context.TurnierVorlagen
             .Include(v => v.VorlagenRunden.OrderBy(r => r.Reihenfolge))
+                .ThenInclude(r => r.Regelwerk)
             .FirstOrDefaultAsync(v => v.Id == id, ct);
 
     public async Task RundenErsetzenAsync(int vorlageId, IReadOnlyList<VorlagenRunde> neueRunden, CancellationToken ct = default)

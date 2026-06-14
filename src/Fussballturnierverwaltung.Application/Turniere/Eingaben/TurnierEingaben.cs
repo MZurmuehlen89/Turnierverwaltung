@@ -7,7 +7,8 @@ public record VorlagenRundeEingabe(
     Rundenart Rundenart,
     int EingangsMannschaftsanzahl,
     int AusgangsMannschaftsanzahl,
-    bool AuswaertstorRegelAktiv = false);
+    bool AuswaertstorRegelAktiv = false,
+    int? RegelwerkId = null);
 
 public record TurnierVorlageErstellenEingabe(
     string Name,

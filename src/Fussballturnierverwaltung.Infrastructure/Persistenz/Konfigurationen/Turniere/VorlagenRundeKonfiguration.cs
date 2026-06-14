@@ -22,6 +22,11 @@ public class VorlagenRundeKonfiguration : IEntityTypeConfiguration<VorlagenRunde
             .HasForeignKey(r => r.TurnierVorlageId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasOne(r => r.Regelwerk)
+            .WithMany()
+            .HasForeignKey(r => r.RegelwerkId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         builder.HasIndex(r => new { r.TurnierVorlageId, r.Reihenfolge }).IsUnique();
     }
 }

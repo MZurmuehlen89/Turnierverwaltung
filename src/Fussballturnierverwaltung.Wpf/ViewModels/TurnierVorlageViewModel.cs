@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
+using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Wpf.Converters;
@@ -26,12 +27,16 @@ public partial class VorlagenRundeZeile : ObservableObject
     [ObservableProperty] private int _eingangsMannschaftsanzahl = 8;
     [ObservableProperty] private int _ausgangsMannschaftsanzahl = 4;
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
+    [ObservableProperty] private RegelwerkOption _regelwerk = new("— Wählen —", null);
 }
 
 public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
 {
     private readonly TurnierVorlageService _service;
+    private readonly RegelwerkService _regelwerkService;
     private int _populiertGerade;
+
+    private static readonly RegelwerkOption _keinRegelwerk = new("— Wählen —", null);
 
     private static readonly VorlagenKategorieOption _alleKategorien = new("— Alle —", null);
 
@@ -89,6 +94,10 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
 
     [ObservableProperty] private ObservableCollection<VorlagenRundeZeile> _rundenZeilen = [];
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RegelwerkOptionen))]
+    private ObservableCollection<Regelwerk> _regelwerke = [];
+
     // ── Berechnete Listen ─────────────────────────────────────────────────────
     public IEnumerable<TurnierVorlage> VorlagenGefiltert => Vorlagen
         .Where(v =>
@@ -106,6 +115,9 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
 
     public IEnumerable<Rundenart> RundenartOptionen => Enum.GetValues<Rundenart>();
 
+    public IReadOnlyList<RegelwerkOption> RegelwerkOptionen =>
+        [_keinRegelwerk, .. Regelwerke.Select(r => new RegelwerkOption(r.Name, r))];
+
     private static readonly HashSet<string> _formFelder =
     [
         nameof(Name), nameof(Beschreibung), nameof(AnzahlMannschaften),
@@ -120,9 +132,10 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
     public ICommand AbbrechenBefehl => AbbrechenCommand;
     public ICommand LoeschenBefehl => LoeschenCommand;
 
-    public TurnierVorlageViewModel(TurnierVorlageService service)
+    public TurnierVorlageViewModel(TurnierVorlageService service, RegelwerkService regelwerkService)
     {
         _service = service;
+        _regelwerkService = regelwerkService;
     }
 
     public override async Task AktivierenAsync() => await LadenAsync();
@@ -132,8 +145,10 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
         IstLadend = true;
         try
         {
-            var vorlagen = await _service.AlleAbrufenAsync();
-            Vorlagen = new ObservableCollection<TurnierVorlage>(vorlagen);
+            var vorlagen   = await _service.AlleAbrufenAsync();
+            var regelwerke = await _regelwerkService.AlleAbrufenAsync();
+            Vorlagen   = new ObservableCollection<TurnierVorlage>(vorlagen);
+            Regelwerke = new ObservableCollection<Regelwerk>(regelwerke);
         }
         finally
         {
@@ -202,7 +217,9 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
                         Rundenart                 = r.Rundenart,
                         EingangsMannschaftsanzahl = r.EingangsMannschaftsanzahl,
                         AusgangsMannschaftsanzahl = r.AusgangsMannschaftsanzahl,
-                        AuswaertstorRegelAktiv    = r.AuswaertstorRegelAktiv
+                        AuswaertstorRegelAktiv    = r.AuswaertstorRegelAktiv,
+                        Regelwerk                 = RegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == r.RegelwerkId)
+                                                    ?? _keinRegelwerk
                     }));
                 AbonniereRundenAenderungen();
                 IsDirty = false;
@@ -321,7 +338,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
             var rundenEingaben = RundenZeilen.Select(z => new VorlagenRundeEingabe(
                 z.Name, z.Rundenart,
                 z.EingangsMannschaftsanzahl, z.AusgangsMannschaftsanzahl,
-                z.AuswaertstorRegelAktiv)).ToList();
+                z.AuswaertstorRegelAktiv, z.Regelwerk.Wert?.Id)).ToList();
 
             if (IstNeuModus)
             {

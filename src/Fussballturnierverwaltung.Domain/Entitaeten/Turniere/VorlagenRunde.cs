@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -12,4 +13,6 @@ public class VorlagenRunde : BasisEntitaet
     public int EingangsMannschaftsanzahl { get; set; }
     public int AusgangsMannschaftsanzahl { get; set; }
     public bool AuswaertstorRegelAktiv { get; set; }
+    public int? RegelwerkId { get; set; }
+    public Regelwerk? Regelwerk { get; set; }
 }

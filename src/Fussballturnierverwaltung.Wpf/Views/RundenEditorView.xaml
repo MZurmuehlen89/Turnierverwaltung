@@ -1,0 +1,239 @@
+<UserControl x:Class="Fussballturnierverwaltung.Wpf.Views.RundenEditorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:Fussballturnierverwaltung.Wpf.Converters">
+
+    <UserControl.Resources>
+        <conv:RundenartZuTextConverter x:Key="RundenartZuText" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="260" MinWidth="180" MaxWidth="360" />
+            <ColumnDefinition Width="4" />
+            <ColumnDefinition Width="220" MinWidth="160" MaxWidth="300" />
+            <ColumnDefinition Width="4" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ── Spalte 1: Turnierliste (Geplant) ── -->
+        <DockPanel Grid.Column="0" Background="#F8FAFC">
+
+            <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="3"
+                         Foreground="#3B82F6"
+                         Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
+
+            <TextBlock DockPanel.Dock="Top"
+                       Text="TURNIERE (Geplant)" FontSize="11" FontWeight="Bold"
+                       Foreground="#64748B" Margin="12,12,8,6" />
+
+            <ListBox ItemsSource="{Binding GeplanteTurniere}"
+                     SelectedItem="{Binding AusgewaehlteInstanz}"
+                     BorderThickness="0" Background="Transparent"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="12,8" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#EFF6FF" />
+                                <Setter Property="Foreground" Value="#1D4ED8" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                            <TextBlock Text="{Binding SaisonOderJahr}" FontSize="11" Foreground="#64748B" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+
+        <!-- Trennlinie 1 -->
+        <Border Grid.Column="1" Background="#E2E8F0" />
+
+        <!-- ── Spalte 2: Vorlage laden + Rundenliste ── -->
+        <DockPanel Grid.Column="2">
+
+            <!-- Placeholder wenn kein Turnier -->
+            <TextBlock DockPanel.Dock="Top"
+                       Text="Turnier auswählen"
+                       Foreground="#94A3B8" FontSize="13" TextWrapping="Wrap"
+                       Margin="12,60,12,0" TextAlignment="Center"
+                       Visibility="{Binding KeinTurnierGewaehlt, Converter={StaticResource BoolToVisibility}}" />
+
+            <!-- Vorlage laden (nur wenn Turnier gewählt) -->
+            <Border DockPanel.Dock="Top" Background="#F8FAFC"
+                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,7"
+                    Visibility="{Binding RundenEditorAktiv, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock Text="VORLAGE LADEN" FontSize="10" FontWeight="Bold"
+                               Foreground="#94A3B8" Margin="0,0,0,4" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="4" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox Grid.Column="0"
+                                  ItemsSource="{Binding TurnierVorlagen}"
+                                  SelectedItem="{Binding AusgewaehlteVorlagenquelle}"
+                                  DisplayMemberPath="Name"
+                                  FontSize="12" />
+                        <Button Grid.Column="2"
+                                Content="Laden"
+                                Command="{Binding VorlageRundenLadenCommand}"
+                                Padding="8,4" FontSize="12" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Toolbar (nur wenn Turnier gewählt) -->
+            <Border DockPanel.Dock="Top" Background="White"
+                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,5"
+                    Visibility="{Binding RundenEditorAktiv, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="＋" Width="28" Height="26" Margin="0,0,4,0"
+                            Command="{Binding NeueRundeCommand}"
+                            ToolTip="Neue Runde" FontSize="14" />
+                    <Button Content="↑" Width="28" Height="26" Margin="0,0,4,0"
+                            Command="{Binding RundeHochCommand}"
+                            ToolTip="Runde nach oben" FontSize="14" />
+                    <Button Content="↓" Width="28" Height="26" Margin="0,0,4,0"
+                            Command="{Binding RundeRunterCommand}"
+                            ToolTip="Runde nach unten" FontSize="14" />
+                    <Button Content="✕" Width="28" Height="26"
+                            Command="{Binding RundeEntfernenCommand}"
+                            ToolTip="Runde entfernen"
+                            Foreground="#DC2626" FontSize="13" />
+                </StackPanel>
+            </Border>
+
+            <!-- Rundenliste -->
+            <ListBox ItemsSource="{Binding Runden}"
+                     SelectedItem="{Binding AusgewaehlteRunde}"
+                     BorderThickness="0" Background="Transparent"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     Visibility="{Binding RundenEditorAktiv, Converter={StaticResource BoolToVisibility}}">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="10,8" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#EFF6FF" />
+                                <Setter Property="Foreground" Value="#1D4ED8" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                            <TextBlock FontSize="11" Foreground="#64748B">
+                                <Run Text="{Binding Rundenart, Converter={StaticResource RundenartZuText}}" />
+                                <Run Text=" · " />
+                                <Run Text="{Binding EingangsMannschaften}" />
+                                <Run Text="→" />
+                                <Run Text="{Binding AusgangsMannschaften}" />
+                            </TextBlock>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+
+        <!-- Trennlinie 2 -->
+        <Border Grid.Column="3" Background="#E2E8F0" />
+
+        <!-- ── Spalte 3: Detailformular ── -->
+        <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="24,20">
+
+                <!-- Kein Turnier gewählt -->
+                <TextBlock Text="Wählen Sie links ein Turnier aus, um dessen Runden zu bearbeiten."
+                           Foreground="#94A3B8" FontSize="14" TextWrapping="Wrap"
+                           Visibility="{Binding KeinTurnierGewaehlt, Converter={StaticResource BoolToVisibility}}" />
+
+                <!-- Turnier gewählt: Runden-Placeholder oder Formular -->
+                <StackPanel Visibility="{Binding RundenEditorAktiv, Converter={StaticResource BoolToVisibility}}">
+
+                <!-- Keine Runde ausgewählt -->
+                <TextBlock Text="Wählen Sie eine Runde aus der Liste oder klicken Sie auf ＋ für eine neue Runde."
+                           Foreground="#94A3B8" FontSize="14" TextWrapping="Wrap"
+                           Visibility="{Binding FormularSichtbar, Converter={StaticResource InverseBoolToVisibility}}" />
+
+                <!-- Formular (Runde ausgewählt) -->
+                <StackPanel Visibility="{Binding FormularSichtbar, Converter={StaticResource BoolToVisibility}}">
+
+                    <TextBlock Text="RUNDENDETAILS" FontSize="11" FontWeight="Bold"
+                               Foreground="#94A3B8" Margin="0,0,0,12" />
+
+                    <TextBlock Text="Name" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="8,6" FontSize="13" Margin="0,0,0,12"
+                             BorderBrush="#CBD5E1" BorderThickness="1" />
+
+                    <TextBlock Text="Rundenart" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding RundenartOptionen}"
+                              SelectedItem="{Binding Rundenart}"
+                              FontSize="13" Margin="0,0,0,12">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Converter={StaticResource RundenartZuText}}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Eingang" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding Eingang, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="8,6" FontSize="13"
+                                     BorderBrush="#CBD5E1" BorderThickness="1" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Ausgang" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding Ausgang, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="8,6" FontSize="13"
+                                     BorderBrush="#CBD5E1" BorderThickness="1" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="Regelwerk" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding RegelwerkOptionen}"
+                              SelectedItem="{Binding Regelwerk}"
+                              DisplayMemberPath="Anzeige"
+                              FontSize="13" Margin="0,0,0,12" />
+
+                    <CheckBox Content="Auswärtstorregel (nur K.o. Hin- &amp; Rückspiel)"
+                              IsChecked="{Binding AuswaertstorRegelAktiv}"
+                              IsEnabled="{Binding AuswaertstorAktivierbar}"
+                              FontSize="12" Margin="0,0,0,16" />
+
+                    <!-- Fehlermeldung -->
+                    <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
+                            CornerRadius="4" Padding="12,8"
+                            Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
+                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
+                                   FontSize="13" TextWrapping="Wrap" />
+                    </Border>
+
+                </StackPanel>
+
+                </StackPanel><!-- end RundenEditorAktiv -->
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
