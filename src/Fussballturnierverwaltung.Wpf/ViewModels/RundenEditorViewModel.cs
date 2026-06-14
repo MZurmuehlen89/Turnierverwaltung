@@ -272,6 +272,10 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     {
         if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
         AusgewaehlteRunde.Rundenart = value;
+        // RundenEintrag.OnRundenartChanged may have auto-updated the name — sync to form field
+        _populiertGerade++;
+        try { Name = AusgewaehlteRunde.Name; }
+        finally { _populiertGerade--; }
         AktualisiereRundenFehler();
         IsDirty = true;
     }

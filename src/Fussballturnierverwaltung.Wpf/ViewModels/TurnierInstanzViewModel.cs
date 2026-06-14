@@ -20,8 +20,14 @@ public record RegelwerkOption(string Anzeige, Regelwerk? Wert);
 
 public partial class RundenEintrag : ObservableObject
 {
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private string _name = "";
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private string _name = RundenartZuTextConverter.RundenartAnzeigeName(Rundenart.Liga);
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private Rundenart _rundenart = Rundenart.Liga;
+
+    partial void OnRundenartChanged(Rundenart oldValue, Rundenart newValue)
+    {
+        if (Name == RundenartZuTextConverter.RundenartAnzeigeName(oldValue))
+            Name = RundenartZuTextConverter.RundenartAnzeigeName(newValue);
+    }
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private int _eingangsMannschaften = 4;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private int _ausgangsMannschaften = 4;
     [ObservableProperty] private int _regelwerkId;

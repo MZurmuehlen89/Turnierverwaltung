@@ -22,8 +22,14 @@ public partial class VorlagenRundeZeile : ObservableObject
 {
     public int? DbId { get; init; }
 
-    [ObservableProperty] private string _name = "";
+    [ObservableProperty] private string _name = RundenartZuTextConverter.RundenartAnzeigeName(Rundenart.Liga);
     [ObservableProperty] private Rundenart _rundenart = Rundenart.Liga;
+
+    partial void OnRundenartChanged(Rundenart oldValue, Rundenart newValue)
+    {
+        if (Name == RundenartZuTextConverter.RundenartAnzeigeName(oldValue))
+            Name = RundenartZuTextConverter.RundenartAnzeigeName(newValue);
+    }
     [ObservableProperty] private int _eingangsMannschaftsanzahl = 8;
     [ObservableProperty] private int _ausgangsMannschaftsanzahl = 4;
     [ObservableProperty] private bool _mitRueckspiel;
@@ -262,7 +268,6 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
         var letzte = RundenZeilen.LastOrDefault();
         var neu = new VorlagenRundeZeile
         {
-            Name                      = $"Runde {RundenZeilen.Count + 1}",
             Rundenart                 = Rundenart.Liga,
             EingangsMannschaftsanzahl = letzte?.AusgangsMannschaftsanzahl ?? 8,
             AusgangsMannschaftsanzahl = Math.Max(1, (letzte?.AusgangsMannschaftsanzahl ?? 8) / 2)
