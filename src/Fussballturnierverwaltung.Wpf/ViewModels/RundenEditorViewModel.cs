@@ -149,7 +149,13 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     [RelayCommand(CanExecute = nameof(KannNeueRunde))]
     private void NeueRunde()
     {
-        var eintrag = new RundenEintrag();
+        var letzte   = Runden.LastOrDefault();
+        var eingang  = letzte?.AusgangsMannschaften ?? 4;
+        var eintrag  = new RundenEintrag
+        {
+            EingangsMannschaften = eingang,
+            AusgangsMannschaften = Math.Max(1, eingang / 2)
+        };
         Runden.Add(eintrag);
         AusgewaehlteRunde = eintrag;
         AktualisiereRundenFehler();
