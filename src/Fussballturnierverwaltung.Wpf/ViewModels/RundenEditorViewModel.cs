@@ -297,7 +297,13 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     partial void OnEingangChanged(string value)
     {
         if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
-        AusgewaehlteRunde.EingangsMannschaften = ParseAnzahl(value, 4);
+        var eingang = ParseAnzahl(value, 4);
+        var ausgang = Math.Max(1, eingang / 2);
+        AusgewaehlteRunde.EingangsMannschaften = eingang;
+        AusgewaehlteRunde.AusgangsMannschaften = ausgang;
+        _populiertGerade++;
+        try { Ausgang = ausgang.ToString(); }
+        finally { _populiertGerade--; }
         AktualisiereRundenFehler();
         IsDirty = true;
     }
