@@ -42,8 +42,7 @@ public class SimulationsService(
 
         // Entscheidungsverfahren nur für KO-Runden: Liga/Gruppenphase erlaubt Unentschieden
         bool istKoRunde = spiel.TurnierRunde?.Rundenart is
-            Rundenart.KoRunde or Rundenart.KoRundeMitHinUndRueckspiel or
-            Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+            Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
         var verfahren = istKoRunde
             ? (spiel.TurnierRunde?.Regelwerk?.Entscheidungsverfahren
                 .OrderBy(v => v.Reihenfolge).ToList() ?? [])
@@ -172,7 +171,6 @@ public class SimulationsService(
 
             // Nach K.-o.-Runden: Sieger in den Bracket fortschreiben
             bool istKo = runde.Rundenart is Rundenart.KoRunde
-                                         or Rundenart.KoRundeMitHinUndRueckspiel
                                          or Rundenart.Finale
                                          or Rundenart.SpielUmPlatzDrei;
             if (istKo && offene.Any())

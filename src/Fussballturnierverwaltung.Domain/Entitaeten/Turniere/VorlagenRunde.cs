@@ -12,6 +12,7 @@ public class VorlagenRunde : BasisEntitaet
     public Rundenart Rundenart { get; set; }
     public int EingangsMannschaftsanzahl { get; set; }
     public int AusgangsMannschaftsanzahl { get; set; }
+    public bool MitRueckspiel { get; set; }
     public bool AuswaertstorRegelAktiv { get; set; }
     public int? RegelwerkId { get; set; }
     public Regelwerk? Regelwerk { get; set; }

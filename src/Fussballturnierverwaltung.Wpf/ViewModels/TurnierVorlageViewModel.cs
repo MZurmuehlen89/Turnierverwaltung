@@ -26,6 +26,7 @@ public partial class VorlagenRundeZeile : ObservableObject
     [ObservableProperty] private Rundenart _rundenart = Rundenart.Liga;
     [ObservableProperty] private int _eingangsMannschaftsanzahl = 8;
     [ObservableProperty] private int _ausgangsMannschaftsanzahl = 4;
+    [ObservableProperty] private bool _mitRueckspiel;
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
     [ObservableProperty] private RegelwerkOption _regelwerk = new("— Wählen —", null);
 }
@@ -217,6 +218,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
                         Rundenart                 = r.Rundenart,
                         EingangsMannschaftsanzahl = r.EingangsMannschaftsanzahl,
                         AusgangsMannschaftsanzahl = r.AusgangsMannschaftsanzahl,
+                        MitRueckspiel             = r.MitRueckspiel,
                         AuswaertstorRegelAktiv    = r.AuswaertstorRegelAktiv,
                         Regelwerk                 = RegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == r.RegelwerkId)
                                                     ?? _keinRegelwerk
@@ -338,7 +340,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
             var rundenEingaben = RundenZeilen.Select(z => new VorlagenRundeEingabe(
                 z.Name, z.Rundenart,
                 z.EingangsMannschaftsanzahl, z.AusgangsMannschaftsanzahl,
-                z.AuswaertstorRegelAktiv, z.Regelwerk.Wert?.Id)).ToList();
+                z.MitRueckspiel, z.AuswaertstorRegelAktiv, z.Regelwerk.Wert?.Id)).ToList();
 
             if (IstNeuModus)
             {

@@ -745,6 +745,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("KonfigurationJson")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("MitRueckspiel")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -826,6 +829,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     b.Property<int>("EingangsMannschaftsanzahl")
                         .HasColumnType("int");
+
+                    b.Property<bool>("MitRueckspiel")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()

@@ -180,7 +180,7 @@ public class SpielplanMenue(
 
         KonsolenHilfsmittel.ErfolgAnzeigen($"{ergebnis.Spiele.Count} Spiele generiert.");
         AnsiConsole.WriteLine();
-        SpielplanAnzeigenMitFilter(ergebnis.Spiele, runde.Rundenart);
+        SpielplanAnzeigenMitFilter(ergebnis.Spiele, runde.MitRueckspiel);
         KonsolenHilfsmittel.Pause();
     }
 
@@ -258,7 +258,7 @@ public class SpielplanMenue(
         KonsolenHilfsmittel.ErfolgAnzeigen(
             $"{ergebnis.Spiele.Count} Spiele generiert, verteilt auf {anzahlSpieltage} Spieltage.");
         AnsiConsole.WriteLine();
-        SpielplanAnzeigenMitFilter(ergebnis.Spiele, runde.Rundenart);
+        SpielplanAnzeigenMitFilter(ergebnis.Spiele, runde.MitRueckspiel);
         KonsolenHilfsmittel.Pause();
     }
 
@@ -281,7 +281,7 @@ public class SpielplanMenue(
         }
 
         KonsolenHilfsmittel.Kopf($"Spielplan: {Markup.Escape(runde.Name)}");
-        SpielplanAnzeigenMitFilter(spiele, runde.Rundenart);
+        SpielplanAnzeigenMitFilter(spiele, runde.MitRueckspiel);
         KonsolenHilfsmittel.Pause();
     }
 
@@ -388,8 +388,7 @@ public class SpielplanMenue(
         int? heimVerl = null, auswaertsVerl = null, heimElf = null, auswaertsElf = null;
 
         // Für K.-o.-Runden: Verlängerung / Elfmeter möglich
-        if (runde.Rundenart is Rundenart.KoRunde or Rundenart.KoRundeMitHinUndRueckspiel or
-            Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
+        if (runde.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
         {
             if (heimTore == auswaertsTore)
             {
@@ -606,7 +605,7 @@ public class SpielplanMenue(
 
         KonsolenHilfsmittel.ErfolgAnzeigen($"Spieltag 1: {ergebnis.Spiele.Count} Spiel(e) generiert.");
         AnsiConsole.WriteLine();
-        SpielplanAnzeigenMitFilter(ergebnis.Spiele, runde.Rundenart);
+        SpielplanAnzeigenMitFilter(ergebnis.Spiele, runde.MitRueckspiel);
         KonsolenHilfsmittel.Pause();
     }
 
@@ -659,7 +658,7 @@ public class SpielplanMenue(
         AnsiConsole.WriteLine();
         SpielplanAnzeigenMitFilter(
             ergebnis.Spiele.Where(s => s.Spieltag == naechsterSpieltag).ToList(),
-            runde.Rundenart);
+            runde.MitRueckspiel);
         KonsolenHilfsmittel.Pause();
     }
 
@@ -755,7 +754,7 @@ public class SpielplanMenue(
 
     private const int SpieltageFilterAb = 4;
 
-    private static void SpielplanAnzeigenMitFilter(IReadOnlyList<Spiel> spiele, Rundenart rundenart)
+    private static void SpielplanAnzeigenMitFilter(IReadOnlyList<Spiel> spiele, bool mitRueckspiel)
     {
         var spieltage = spiele
             .Where(s => s.Spieltag.HasValue)
@@ -779,15 +778,15 @@ public class SpielplanMenue(
             if (auswahl.HasValue)
                 AnsiConsole.MarkupLine($"[bold]Spieltag {auswahl.Value}[/]");
 
-            SpielplanTabelle(gefiltert, rundenart);
+            SpielplanTabelle(gefiltert, mitRueckspiel);
         }
         else
         {
-            SpielplanTabelle(spiele, rundenart);
+            SpielplanTabelle(spiele, mitRueckspiel);
         }
     }
 
-    private static void SpielplanTabelle(IReadOnlyList<Spiel> spiele, Rundenart rundenart)
+    private static void SpielplanTabelle(IReadOnlyList<Spiel> spiele, bool mitRueckspiel)
     {
         var hatSpieltage = spiele.Any(s => s.Spieltag.HasValue && s.Spieltag > 0);
         var tabelle = new Table().Border(TableBorder.Rounded)
@@ -797,7 +796,7 @@ public class SpielplanMenue(
             .AddColumn("Auswärts");
 
         if (hatSpieltage) tabelle.AddColumn(new TableColumn("[grey]Spieltag[/]").RightAligned());
-        if (rundenart == Rundenart.KoRundeMitHinUndRueckspiel)
+        if (mitRueckspiel)
             tabelle.AddColumn(new TableColumn("[grey]H/R[/]").Centered());
 
         foreach (var s in spiele)
@@ -810,7 +809,7 @@ public class SpielplanMenue(
                 Markup.Escape(s.AuswaertsMannschaft?.Name ?? $"ID {s.AuswaertsMannschaftId}")
             };
             if (hatSpieltage) row.Add(s.Spieltag?.ToString() ?? "[grey]–[/]");
-            if (rundenart == Rundenart.KoRundeMitHinUndRueckspiel)
+            if (mitRueckspiel)
                 row.Add(s.IstRueckspiel ? "[blue]R[/]" : "[green]H[/]");
 
             tabelle.AddRow([.. row]);

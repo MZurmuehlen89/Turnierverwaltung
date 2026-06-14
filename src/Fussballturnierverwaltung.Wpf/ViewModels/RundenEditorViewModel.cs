@@ -60,12 +60,13 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
 
     // ── Rechte Spalte: Detailformular ─────────────────────────────────────────
     [ObservableProperty] private string _name = "";
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
-    private Rundenart _rundenart = Rundenart.Liga;
+    [ObservableProperty] private Rundenart _rundenart = Rundenart.Liga;
     [ObservableProperty] private string _eingang = "4";
     [ObservableProperty] private string _ausgang = "4";
     [ObservableProperty] private RegelwerkOption _regelwerk = _keinRegelwerk;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
+    private bool _mitRueckspiel;
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
 
     // ── Optionen ─────────────────────────────────────────────────────────────
@@ -96,7 +97,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     public bool HatRundenFehler => RundenFehler.Count > 0;
 
     // ── Berechnete Eigenschaften ──────────────────────────────────────────────
-    public bool AuswaertstorAktivierbar => Rundenart == Rundenart.KoRundeMitHinUndRueckspiel;
+    public bool AuswaertstorAktivierbar => MitRueckspiel;
     public bool RundenEditorAktiv       => AusgewaehlteInstanz is not null;
     public bool KeinTurnierGewaehlt     => AusgewaehlteInstanz is null;
     public bool FormularSichtbar        => AusgewaehlteInstanz is not null && AusgewaehlteRunde is not null;
@@ -212,6 +213,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
                     RegelwerkName          = r.Regelwerk?.Name
                                             ?? RegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == r.RegelwerkId)?.Wert?.Name
                                             ?? "",
+                    MitRueckspiel          = r.MitRueckspiel,
                     AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv
                 })
                 .ToList();
@@ -270,8 +272,15 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     {
         if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
         AusgewaehlteRunde.Rundenart = value;
-        if (!AuswaertstorAktivierbar) AuswaertstorRegelAktiv = false;
         AktualisiereRundenFehler();
+        IsDirty = true;
+    }
+
+    partial void OnMitRueckspielChanged(bool value)
+    {
+        if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
+        AusgewaehlteRunde.MitRueckspiel = value;
+        if (!value) AuswaertstorRegelAktiv = false;
         IsDirty = true;
     }
 
@@ -334,8 +343,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
             if (r.AusgangsMannschaften > r.EingangsMannschaften)
                 fehler.Add($"{label}: Ausgang ({r.AusgangsMannschaften}) darf den Eingang ({r.EingangsMannschaften}) nicht überschreiten.");
 
-            if (r.Rundenart is Rundenart.KoRunde or Rundenart.KoRundeMitHinUndRueckspiel
-                && r.EingangsMannschaften % 2 != 0)
+            if (r.Rundenart is Rundenart.KoRunde && r.EingangsMannschaften % 2 != 0)
                 fehler.Add($"{label}: K.o.-Runden benötigen eine gerade Eingangsanzahl (aktuell: {r.EingangsMannschaften}).");
 
             if (istLetzte && r.AusgangsMannschaften != 1)
@@ -407,6 +415,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
             Ausgang                = value.AusgangsMannschaften.ToString();
             Regelwerk              = RegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == value.RegelwerkId)
                                      ?? _keinRegelwerk;
+            MitRueckspiel          = value.MitRueckspiel;
             AuswaertstorRegelAktiv = value.AuswaertstorRegelAktiv;
         }
         finally { _populiertGerade--; }
@@ -437,6 +446,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
             Eingang                = "4";
             Ausgang                = "4";
             Regelwerk              = _keinRegelwerk;
+            MitRueckspiel          = false;
             AuswaertstorRegelAktiv = false;
         }
         finally { _populiertGerade--; }
@@ -445,7 +455,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     private IReadOnlyList<TurnierRundeEingabe> RundenListeZuEingaben()
         => Runden.Select(r => new TurnierRundeEingabe(
             r.Name, r.Rundenart, r.EingangsMannschaften, r.AusgangsMannschaften,
-            r.RegelwerkId, r.AuswaertstorRegelAktiv)).ToList();
+            r.RegelwerkId, r.MitRueckspiel, r.AuswaertstorRegelAktiv)).ToList();
 
     private static RundenEintrag RundeZuEintrag(TurnierRunde r) => new()
     {
@@ -455,6 +465,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
         AusgangsMannschaften   = r.AusgangsMannschaftsanzahl,
         RegelwerkId            = r.RegelwerkId,
         RegelwerkName          = r.Regelwerk?.Name ?? "",
+        MitRueckspiel          = r.MitRueckspiel,
         AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv
     };
 

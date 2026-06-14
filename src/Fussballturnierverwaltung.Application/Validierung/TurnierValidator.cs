@@ -35,10 +35,8 @@ public class TurnierValidator
                 fehler.Add($"Runde '{r.Name}': In K.-o.-Runden müssen Ausgangsteams ({r.AusgangsMannschaftsanzahl}) " +
                            $"kleiner als Eingangsteams ({r.EingangsMannschaftsanzahl}) sein.");
 
-            // Auswärtstorregel nur bei Hin- und Rückspiel gültig
-            if (r.AuswaertstorRegelAktiv && r.Rundenart != Rundenart.KoRundeMitHinUndRueckspiel)
-                fehler.Add($"Runde '{r.Name}': Auswärtstorregel ist aktiv, obwohl keine Hin- und Rückspiele gespielt werden " +
-                           $"(Rundenart: {r.Rundenart}).");
+            if (r.AuswaertstorRegelAktiv && !r.MitRueckspiel)
+                fehler.Add($"Runde '{r.Name}': Auswärtstorregel ist aktiv, obwohl keine Hin- und Rückspiele gespielt werden.");
         }
 
         // Rundenübergänge: Ausgang[i] muss Eingang[i+1] sein
@@ -65,8 +63,7 @@ public class TurnierValidator
         var fehler = new List<string>();
 
         var brauchtEntscheidung = runde.Rundenart is
-            Rundenart.KoRunde or Rundenart.KoRundeMitHinUndRueckspiel or
-            Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+            Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
 
         if (brauchtEntscheidung && !regelwerk.Entscheidungsverfahren.Any())
             fehler.Add($"K.-o.-Runde '{runde.Name}' benötigt einen Sieger, aber Regelwerk '{regelwerk.Name}' " +

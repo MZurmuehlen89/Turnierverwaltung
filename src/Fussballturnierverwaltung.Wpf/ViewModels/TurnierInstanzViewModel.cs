@@ -26,11 +26,13 @@ public partial class RundenEintrag : ObservableObject
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private int _ausgangsMannschaften = 4;
     [ObservableProperty] private int _regelwerkId;
     [ObservableProperty] private string _regelwerkName = "";
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private bool _mitRueckspiel;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private bool _auswaertstorRegelAktiv;
 
     public string Anzeige =>
         $"{Name} · {RundenartZuTextConverter.RundenartAnzeigeName(Rundenart)} · " +
         $"{EingangsMannschaften}→{AusgangsMannschaften}" +
+        (MitRueckspiel ? " · H+R" : "") +
         (AuswaertstorRegelAktiv ? " · Auswärtstor" : "");
 }
 

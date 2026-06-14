@@ -29,7 +29,6 @@ public class TurnierBaumService(
         // Alle K.-o.-Runden in Reihenfolge
         var koRunden = instanz.Runden
             .Where(r => r.Rundenart is Rundenart.KoRunde
-                                    or Rundenart.KoRundeMitHinUndRueckspiel
                                     or Rundenart.Finale
                                     or Rundenart.SpielUmPlatzDrei)
             .OrderBy(r => r.Reihenfolge)
@@ -45,7 +44,7 @@ public class TurnierBaumService(
         {
             var spiele = await spielRepository.AlleNachRundeAsync(runde.Id, ct);
             // Bei Hin/Rückspiel: nur Hinspiele als Bracket-Knoten (ein Knoten pro Paarung)
-            var relevant = runde.Rundenart == Rundenart.KoRundeMitHinUndRueckspiel
+            var relevant = runde.MitRueckspiel
                 ? spiele.Where(s => !s.IstRueckspiel).OrderBy(s => s.Spielnummer).ToList()
                 : spiele.OrderBy(s => s.Spielnummer).ToList();
 

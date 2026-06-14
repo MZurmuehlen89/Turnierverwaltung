@@ -12,7 +12,7 @@ public class SpielplanErgebnis
     public List<Spiel> Spiele { get; init; } = [];
 
     /// <summary>
-    /// Für KoRundeMitHinUndRueckspiel: Paare von (HinspielIndex, RueckspielIndex) in Spiele.
+    /// Gesetzt bei MitRueckspiel=true: Paare von (HinspielIndex, RueckspielIndex) in Spiele.
     /// Der Service setzt nach dem ersten SaveChanges die HinspielId auf den Rückspielen.
     /// </summary>
     public List<(int HinspielIndex, int RueckspielIndex)> HinRueckspielPaare { get; init; } = [];

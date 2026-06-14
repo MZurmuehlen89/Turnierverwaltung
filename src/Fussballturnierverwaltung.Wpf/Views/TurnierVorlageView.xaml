@@ -313,6 +313,11 @@
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
 
+                            <!-- Hin+Rückspiel -->
+                            <DataGridCheckBoxColumn Header="H+R"
+                                                    Binding="{Binding MitRueckspiel, UpdateSourceTrigger=PropertyChanged}"
+                                                    Width="52" />
+
                             <!-- Auswärtstore -->
                             <DataGridCheckBoxColumn Header="AuswTor"
                                                     Binding="{Binding AuswaertstorRegelAktiv, UpdateSourceTrigger=PropertyChanged}"

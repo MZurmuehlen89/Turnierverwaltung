@@ -184,9 +184,10 @@ public class TurnierInstanzMenue(
             var regelwerk = AnsiConsole.Prompt(new SelectionPrompt<Regelwerk?>()
                 .Title("Regelwerk:").UseConverter(r => r is null ? "← Abbrechen" : r.Name).EnableSearch().AddChoices(regelwerke.Cast<Regelwerk?>().Append(null)));
             if (regelwerk is null) break;
-            var auswaerts    = rundenart == Rundenart.KoRundeMitHinUndRueckspiel && AnsiConsole.Confirm("Auswärtstorregel aktiv?", defaultValue: false);
+            var mitRueckspiel = AnsiConsole.Confirm("Mit Hin- und Rückspiel?", defaultValue: false);
+            var auswaerts     = mitRueckspiel && AnsiConsole.Confirm("Auswärtstorregel aktiv?", defaultValue: false);
 
-            var rundeEingabe = new TurnierRundeEingabe(rundeName, rundenart.Value, eingang, ausgang, regelwerk.Id, auswaerts);
+            var rundeEingabe = new TurnierRundeEingabe(rundeName, rundenart.Value, eingang, ausgang, regelwerk.Id, mitRueckspiel, auswaerts);
             var tempListe = runden.Append(rundeEingabe).ToList();
 
             var validierung = TurnierInstanzService.RundenUebergaengeValidieren(tempListe);
@@ -278,7 +279,7 @@ public class TurnierInstanzMenue(
         int regelwerkId = neuRegelwerk?.Id ?? runde.RegelwerkId;
 
         bool auswärts = runde.AuswaertstorRegelAktiv;
-        if (runde.Rundenart == Rundenart.KoRundeMitHinUndRueckspiel)
+        if (runde.MitRueckspiel)
             auswärts = AnsiConsole.Confirm("Auswärtstorregel aktiv?", defaultValue: runde.AuswaertstorRegelAktiv);
 
         await instanzService.RundeAktualisierenAsync(runde.Id,

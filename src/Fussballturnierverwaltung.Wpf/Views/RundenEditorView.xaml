@@ -217,10 +217,14 @@
                               DisplayMemberPath="Anzeige"
                               FontSize="13" Margin="0,0,0,12" />
 
-                    <CheckBox Content="Auswärtstorregel (nur K.o. Hin- &amp; Rückspiel)"
+                    <CheckBox Content="Mit Hin- und Rückspiel"
+                              IsChecked="{Binding MitRueckspiel}"
+                              FontSize="12" Margin="0,0,0,8" />
+
+                    <CheckBox Content="Auswärtstorregel aktiv"
                               IsChecked="{Binding AuswaertstorRegelAktiv}"
                               IsEnabled="{Binding AuswaertstorAktivierbar}"
-                              FontSize="12" Margin="0,0,0,16" />
+                              FontSize="12" Margin="16,0,0,16" />
 
                     <!-- Fehlermeldung -->
                     <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"

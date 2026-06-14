@@ -49,6 +49,7 @@ public class TurnierInstanzService(
                 EingangsMannschaftsanzahl  = re.EingangsMannschaftsanzahl,
                 AusgangsMannschaftsanzahl  = re.AusgangsMannschaftsanzahl,
                 RegelwerkId                = re.RegelwerkId,
+                MitRueckspiel              = re.MitRueckspiel,
                 AuswaertstorRegelAktiv     = re.AuswaertstorRegelAktiv,
                 KonfigurationJson          = re.KonfigurationJson
             });
@@ -108,6 +109,7 @@ public class TurnierInstanzService(
             EingangsMannschaftsanzahl = e.EingangsMannschaftsanzahl,
             AusgangsMannschaftsanzahl = e.AusgangsMannschaftsanzahl,
             RegelwerkId               = e.RegelwerkId,
+            MitRueckspiel             = e.MitRueckspiel,
             AuswaertstorRegelAktiv    = e.AuswaertstorRegelAktiv,
             KonfigurationJson         = e.KonfigurationJson
         }).ToList();
@@ -145,7 +147,7 @@ public class TurnierInstanzService(
                 fehler.Add($"Runde {i + 1} ('{runde.Name}') erwartet {runde.EingangsMannschaftsanzahl} " +
                            $"Mannschaften, Runde {i} ('{vorrunde.Name}') liefert aber {vorrunde.AusgangsMannschaftsanzahl}.");
 
-            if (runde.AuswaertstorRegelAktiv && runde.Rundenart != Rundenart.KoRundeMitHinUndRueckspiel)
+            if (runde.AuswaertstorRegelAktiv && !runde.MitRueckspiel)
                 fehler.Add($"Runde {i + 1} ('{runde.Name}'): Auswärtstorregel ist nur bei Hin-/Rückspiel-Runden gültig.");
         }
 

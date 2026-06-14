@@ -9,10 +9,9 @@ namespace Fussballturnierverwaltung.Tests.Spielplan;
 public class KoRundeGeneratorTests
 {
     private readonly KoRundeGenerator _generator = new();
-    private readonly KoRundeMitHinRueckspielGenerator _hrGenerator = new();
 
-    private static TurnierRunde TestRunde(Rundenart art = Rundenart.KoRunde) =>
-        new() { Id = 2, TurnierInstanzId = 1, Name = "Achtelfinale", Rundenart = art, RegelwerkId = 1 };
+    private static TurnierRunde TestRunde(Rundenart art = Rundenart.KoRunde, bool mitRueckspiel = false) =>
+        new() { Id = 2, TurnierInstanzId = 1, Name = "Achtelfinale", Rundenart = art, RegelwerkId = 1, MitRueckspiel = mitRueckspiel };
 
     private static IReadOnlyList<Mannschaft> Teams(int n) =>
         Enumerable.Range(1, n).Select(i => new Mannschaft { Id = i, Name = $"Team {i}" }).ToList();
@@ -69,9 +68,9 @@ public class KoRundeGeneratorTests
     [Fact]
     public void HinRueckspiel_GeneriertDoppelteAnzahl()
     {
-        var runde = TestRunde(Rundenart.KoRundeMitHinUndRueckspiel);
+        var runde = TestRunde(mitRueckspiel: true);
         var kontext = new SpielplanKontext(runde, Teams(8), 1);
-        var ergebnis = _hrGenerator.Generieren(kontext);
+        var ergebnis = _generator.Generieren(kontext);
 
         ergebnis.Spiele.Should().HaveCount(8); // 4 Paare × 2
         ergebnis.HatHinUndRueckspiele.Should().BeTrue();
@@ -81,12 +80,12 @@ public class KoRundeGeneratorTests
     [Fact]
     public void HinRueckspiel_HeimAuswaertsGetauscht()
     {
-        var runde = TestRunde(Rundenart.KoRundeMitHinUndRueckspiel);
+        var runde = TestRunde(mitRueckspiel: true);
         var kontext = new SpielplanKontext(runde, Teams(2), 1);
-        var ergebnis = _hrGenerator.Generieren(kontext);
+        var ergebnis = _generator.Generieren(kontext);
 
         var (hinIdx, rueckIdx) = ergebnis.HinRueckspielPaare[0];
-        var hinspiel  = ergebnis.Spiele[hinIdx];
+        var hinspiel   = ergebnis.Spiele[hinIdx];
         var rueckspiel = ergebnis.Spiele[rueckIdx];
 
         hinspiel.HeimMannschaftId.Should().Be(rueckspiel.AuswaertsMannschaftId);
@@ -98,9 +97,9 @@ public class KoRundeGeneratorTests
     [Fact]
     public void HinRueckspiel_SpieltageKorrekt()
     {
-        var runde = TestRunde(Rundenart.KoRundeMitHinUndRueckspiel);
+        var runde = TestRunde(mitRueckspiel: true);
         var kontext = new SpielplanKontext(runde, Teams(4), 1);
-        var ergebnis = _hrGenerator.Generieren(kontext);
+        var ergebnis = _generator.Generieren(kontext);
 
         ergebnis.Spiele.Where(s => !s.IstRueckspiel).Should().AllSatisfy(s => s.Spieltag.Should().Be(1));
         ergebnis.Spiele.Where(s =>  s.IstRueckspiel).Should().AllSatisfy(s => s.Spieltag.Should().Be(2));

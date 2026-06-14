@@ -29,6 +29,7 @@ public class TurnierVorlageService(ITurnierVorlageRepository repository, ILogger
             Rundenart                 = r.Rundenart,
             EingangsMannschaftsanzahl = r.EingangsMannschaftsanzahl,
             AusgangsMannschaftsanzahl = r.AusgangsMannschaftsanzahl,
+            MitRueckspiel             = r.MitRueckspiel,
             AuswaertstorRegelAktiv    = r.AuswaertstorRegelAktiv,
             RegelwerkId               = r.RegelwerkId
         }).ToList();

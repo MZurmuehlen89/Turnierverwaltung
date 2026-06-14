@@ -16,8 +16,9 @@ public class TurnierRunde : BasisEntitaet
     public int RegelwerkId { get; set; }
     public Regelwerk Regelwerk { get; set; } = null!;
 
-    // Bei KoRundeMitHinUndRueckspiel: Sieger bei Aggregat-Gleichstand via Auswärtstore
-    // prüfen, bevor das erste EntscheidungsVerfahren greift.
+    public bool MitRueckspiel { get; set; }
+
+    // Nur aktiv wenn MitRueckspiel=true: Sieger bei Aggregat-Gleichstand via Auswärtstore ermitteln.
     public bool AuswaertstorRegelAktiv { get; set; }
 
     public string? KonfigurationJson { get; set; }

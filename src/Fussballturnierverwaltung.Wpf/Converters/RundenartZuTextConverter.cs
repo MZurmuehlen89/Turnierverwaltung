@@ -18,7 +18,6 @@ public class RundenartZuTextConverter : IValueConverter
         Rundenart.Gruppenphase               => "Gruppenphase",
         Rundenart.TopfLiga                   => "Topf-Liga",
         Rundenart.KoRunde                    => "K.o.-Runde",
-        Rundenart.KoRundeMitHinUndRueckspiel => "K.o. Hin- & Rückspiel",
         Rundenart.SchweizerSystem            => "Schweizer System",
         Rundenart.Sonderrunde                => "Sonderrunde",
         Rundenart.Finale                     => "Finale",

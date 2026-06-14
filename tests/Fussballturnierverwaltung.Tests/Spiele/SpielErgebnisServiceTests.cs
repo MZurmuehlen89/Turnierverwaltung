@@ -34,8 +34,9 @@ public class SpielErgebnisServiceTests
         ctx.TurnierRunden.Add(new TurnierRunde
         {
             Id = 1, TurnierInstanzId = 1, Name = "Achtelfinale",
-            Rundenart = Rundenart.KoRundeMitHinUndRueckspiel,
+            Rundenart = Rundenart.KoRunde,
             RegelwerkId = 1, Reihenfolge = 1,
+            MitRueckspiel = true,
             AuswaertstorRegelAktiv = auswaertstorRegel
         });
         ctx.Mannschaften.AddRange(

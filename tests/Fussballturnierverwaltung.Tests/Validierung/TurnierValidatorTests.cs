@@ -11,8 +11,8 @@ public class TurnierValidatorTests
 
     private static TurnierRundeEingabe Runde(
         string name, Rundenart art, int eingang, int ausgang,
-        bool auswaerts = false) =>
-        new(name, art, eingang, ausgang, RegelwerkId: 1, AuswaertstorRegelAktiv: auswaerts);
+        bool mitRueckspiel = false, bool auswaerts = false) =>
+        new(name, art, eingang, ausgang, RegelwerkId: 1, MitRueckspiel: mitRueckspiel, AuswaertstorRegelAktiv: auswaerts);
 
     [Fact]
     public void GueltigeRundenKette_IstGueltig()
@@ -50,8 +50,8 @@ public class TurnierValidatorTests
     {
         var runden = new[]
         {
-            // KoRunde (nicht KoRundeMitHinUndRueckspiel) mit AuswaertstorRegelAktiv
-            Runde("Viertelfinale", Rundenart.KoRunde, eingang: 8, ausgang: 4, auswaerts: true),
+            // MitRueckspiel=false, aber AuswaertstorRegelAktiv=true
+            Runde("Viertelfinale", Rundenart.KoRunde, eingang: 8, ausgang: 4, mitRueckspiel: false, auswaerts: true),
         };
 
         var ergebnis = _validator.RundenValidieren(runden);
@@ -65,8 +65,8 @@ public class TurnierValidatorTests
     {
         var runden = new[]
         {
-            Runde("Achtelfinale H/R", Rundenart.KoRundeMitHinUndRueckspiel, eingang: 16, ausgang: 8, auswaerts: true),
-            Runde("Finale",           Rundenart.Finale,                      eingang: 8,  ausgang: 1),
+            Runde("Achtelfinale H/R", Rundenart.KoRunde, eingang: 16, ausgang: 8, mitRueckspiel: true, auswaerts: true),
+            Runde("Finale",           Rundenart.Finale,  eingang: 8,  ausgang: 1),
         };
 
         _validator.RundenValidieren(runden).IstGueltig.Should().BeTrue();

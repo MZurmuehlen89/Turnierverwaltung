@@ -7,6 +7,7 @@ public record VorlagenRundeEingabe(
     Rundenart Rundenart,
     int EingangsMannschaftsanzahl,
     int AusgangsMannschaftsanzahl,
+    bool MitRueckspiel = false,
     bool AuswaertstorRegelAktiv = false,
     int? RegelwerkId = null);
 
@@ -58,6 +59,7 @@ public record TurnierRundeEingabe(
     int EingangsMannschaftsanzahl,
     int AusgangsMannschaftsanzahl,
     int RegelwerkId,
+    bool MitRueckspiel = false,
     bool AuswaertstorRegelAktiv = false,
     string? KonfigurationJson = null);
 
