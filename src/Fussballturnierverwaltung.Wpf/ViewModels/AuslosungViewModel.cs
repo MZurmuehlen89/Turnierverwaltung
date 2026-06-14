@@ -61,7 +61,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     // ── Linke Spalte ──────────────────────────────────────────────────────────
     [ObservableProperty] private ObservableCollection<TurnierInstanz> _instanzen = [];
 
-    [ObservableProperty] private TurnierInstanz? _ausgewaehlteInstanz;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(NeuCommand))]
+    private TurnierInstanz? _ausgewaehlteInstanz;
 
     [ObservableProperty] private ObservableCollection<Auslosung> _auslosungen = [];
 
