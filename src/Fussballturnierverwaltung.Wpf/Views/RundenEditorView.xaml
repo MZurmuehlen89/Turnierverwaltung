@@ -232,6 +232,24 @@
 
                 </StackPanel>
 
+                <!-- Runden-Konsistenzfehler (immer sichtbar wenn Turnier aktiv) -->
+                <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
+                        CornerRadius="4" Padding="12,10" Margin="0,16,0,0"
+                        Visibility="{Binding HatRundenFehler, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="RUNDEN-KONSISTENZ" FontSize="10" FontWeight="Bold"
+                                   Foreground="#DC2626" Margin="0,0,0,6" />
+                        <ItemsControl ItemsSource="{Binding RundenFehler}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Foreground="#991B1B"
+                                               FontSize="12" TextWrapping="Wrap" Margin="0,0,0,3" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
                 </StackPanel><!-- end RundenEditorAktiv -->
             </StackPanel>
         </ScrollViewer>

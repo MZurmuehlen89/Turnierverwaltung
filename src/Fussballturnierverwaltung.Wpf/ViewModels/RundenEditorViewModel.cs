@@ -87,6 +87,14 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private bool _istLadend;
     [ObservableProperty] private string? _fehlermeldung;
 
+    // ── Validierung ───────────────────────────────────────────────────────────
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatRundenFehler))]
+    [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    private IReadOnlyList<string> _rundenFehler = [];
+
+    public bool HatRundenFehler => RundenFehler.Count > 0;
+
     // ── Berechnete Eigenschaften ──────────────────────────────────────────────
     public bool AuswaertstorAktivierbar => Rundenart == Rundenart.KoRundeMitHinUndRueckspiel;
     public bool RundenEditorAktiv       => AusgewaehlteInstanz is not null;
@@ -143,6 +151,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
         var eintrag = new RundenEintrag();
         Runden.Add(eintrag);
         AusgewaehlteRunde = eintrag;
+        AktualisiereRundenFehler();
         IsDirty = true;
     }
 
@@ -153,6 +162,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
         var idx = Runden.IndexOf(AusgewaehlteRunde);
         Runden.Remove(AusgewaehlteRunde);
         AusgewaehlteRunde = Runden.Count > 0 ? Runden[Math.Max(0, idx - 1)] : null;
+        AktualisiereRundenFehler();
         IsDirty = true;
     }
 
@@ -163,6 +173,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
         var idx = Runden.IndexOf(AusgewaehlteRunde);
         if (idx <= 0) return;
         Runden.Move(idx, idx - 1);
+        AktualisiereRundenFehler();
         IsDirty = true;
     }
 
@@ -173,6 +184,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
         var idx = Runden.IndexOf(AusgewaehlteRunde);
         if (idx < 0 || idx >= Runden.Count - 1) return;
         Runden.Move(idx, idx + 1);
+        AktualisiereRundenFehler();
         IsDirty = true;
     }
 
@@ -250,6 +262,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     {
         if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
         AusgewaehlteRunde.Name = value;
+        AktualisiereRundenFehler();
         IsDirty = true;
     }
 
@@ -258,6 +271,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
         if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
         AusgewaehlteRunde.Rundenart = value;
         if (!AuswaertstorAktivierbar) AuswaertstorRegelAktiv = false;
+        AktualisiereRundenFehler();
         IsDirty = true;
     }
 
@@ -265,6 +279,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     {
         if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
         AusgewaehlteRunde.EingangsMannschaften = ParseAnzahl(value, 4);
+        AktualisiereRundenFehler();
         IsDirty = true;
     }
 
@@ -272,6 +287,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     {
         if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
         AusgewaehlteRunde.AusgangsMannschaften = ParseAnzahl(value, 4);
+        AktualisiereRundenFehler();
         IsDirty = true;
     }
 
@@ -288,6 +304,56 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
         if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
         AusgewaehlteRunde.AuswaertstorRegelAktiv = value;
         IsDirty = true;
+    }
+
+    // ── Validierung ───────────────────────────────────────────────────────────
+
+    private void AktualisiereRundenFehler() => RundenFehler = BerechneRundenFehler();
+
+    private IReadOnlyList<string> BerechneRundenFehler()
+    {
+        if (Runden.Count == 0) return [];
+
+        var fehler = new List<string>();
+
+        for (int i = 0; i < Runden.Count; i++)
+        {
+            var r = Runden[i];
+            bool istLetzte = i == Runden.Count - 1;
+            string label = string.IsNullOrWhiteSpace(r.Name) ? $"Runde {i + 1}" : $"\"{r.Name}\"";
+
+            if (string.IsNullOrWhiteSpace(r.Name))
+                fehler.Add($"Runde {i + 1}: Name darf nicht leer sein.");
+
+            if (r.EingangsMannschaften < 2)
+                fehler.Add($"{label}: Eingang muss mindestens 2 sein.");
+
+            if (r.AusgangsMannschaften < 1)
+                fehler.Add($"{label}: Ausgang muss mindestens 1 sein.");
+
+            if (r.AusgangsMannschaften > r.EingangsMannschaften)
+                fehler.Add($"{label}: Ausgang ({r.AusgangsMannschaften}) darf den Eingang ({r.EingangsMannschaften}) nicht überschreiten.");
+
+            if (r.Rundenart is Rundenart.KoRunde or Rundenart.KoRundeMitHinUndRueckspiel
+                && r.EingangsMannschaften % 2 != 0)
+                fehler.Add($"{label}: K.o.-Runden benötigen eine gerade Eingangsanzahl (aktuell: {r.EingangsMannschaften}).");
+
+            if (istLetzte && r.AusgangsMannschaften != 1)
+                fehler.Add($"{label} (letzte Runde): Ausgang muss 1 sein — ein Turnier hat genau einen Sieger.");
+
+            if (!istLetzte)
+            {
+                var naechste = Runden[i + 1];
+                if (r.AusgangsMannschaften != naechste.EingangsMannschaften)
+                {
+                    string naechsteLabel = string.IsNullOrWhiteSpace(naechste.Name)
+                        ? $"Runde {i + 2}" : $"\"{naechste.Name}\"";
+                    fehler.Add($"Übergang {label} -> {naechsteLabel}: Ausgang ({r.AusgangsMannschaften}) != Eingang der Folgerunde ({naechste.EingangsMannschaften}).");
+                }
+            }
+        }
+
+        return fehler;
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -358,6 +424,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
             Fehlermeldung = null;
         }
         finally { _populiertGerade--; }
+        AktualisiereRundenFehler();
     }
 
     private void FormularZuruecksetzen()
@@ -391,7 +458,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
         AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv
     };
 
-    private bool KannSpeichern()          => IsDirty && AusgewaehlteInstanz is not null;
+    private bool KannSpeichern()          => IsDirty && AusgewaehlteInstanz is not null && !HatRundenFehler;
     private bool KannAbbrechen()          => IsDirty && AusgewaehlteInstanz is not null;
     private bool KannNeueRunde()          => RundenEditorAktiv;
     private bool KannEntfernen()          => AusgewaehlteRunde is not null;
