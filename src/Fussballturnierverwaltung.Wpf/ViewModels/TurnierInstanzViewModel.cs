@@ -201,7 +201,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware
             {
                 var eingabe = new TurnierInstanzErstellenEingabe(
                     Name, SaisonOderJahr, null, startdatum, enddatum);
-                var neu = await _service.ErstellenMitRundenAsync(eingabe, []);
+                var neu = await _service.ErstellenAsync(eingabe);
                 await LadenAsync();
                 Ausgewaehltes = Instanzen.FirstOrDefault(i => i.Id == neu.Id);
             }

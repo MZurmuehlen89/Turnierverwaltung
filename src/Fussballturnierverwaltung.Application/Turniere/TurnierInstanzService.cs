@@ -20,6 +20,34 @@ public class TurnierInstanzService(
     public Task<TurnierInstanz?> FindenNachIdMitRundenAsync(int id, CancellationToken ct = default)
         => repository.FindenNachIdMitRundenAsync(id, ct);
 
+    /// <summary>Legt eine TurnierInstanz ohne Runden an (Runden werden später im Runden-Editor gepflegt).</summary>
+    public async Task<TurnierInstanz> ErstellenAsync(
+        TurnierInstanzErstellenEingabe instanzEingabe,
+        CancellationToken ct = default)
+    {
+        ValidationException.WerfenWennUngueltig(validator.TurnierInstanzValidieren(new TurnierInstanz
+        {
+            Name           = instanzEingabe.Name.Trim(),
+            SaisonOderJahr = instanzEingabe.SaisonOderJahr.Trim(),
+            Startdatum     = instanzEingabe.Startdatum,
+            Enddatum       = instanzEingabe.Enddatum
+        }));
+
+        var instanz = new TurnierInstanz
+        {
+            Name             = instanzEingabe.Name.Trim(),
+            SaisonOderJahr   = instanzEingabe.SaisonOderJahr.Trim(),
+            TurnierVorlageId = instanzEingabe.TurnierVorlageId,
+            Startdatum       = instanzEingabe.Startdatum,
+            Enddatum         = instanzEingabe.Enddatum,
+            Status           = TurnierStatus.Geplant
+        };
+
+        await repository.HinzufuegenAsync(instanz, ct);
+        logger.LogInformation("TurnierInstanz '{Name}' ({Saison}) angelegt.", instanz.Name, instanz.SaisonOderJahr);
+        return instanz;
+    }
+
     /// <summary>Legt eine TurnierInstanz mit ihren Runden an. Validiert die Rundenübergänge.</summary>
     public async Task<TurnierInstanz> ErstellenMitRundenAsync(
         TurnierInstanzErstellenEingabe instanzEingabe,
