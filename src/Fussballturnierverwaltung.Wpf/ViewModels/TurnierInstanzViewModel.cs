@@ -248,6 +248,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware
                 await _service.VollAktualisierenAsync(id, eingabe);
                 await LadenAsync();
                 Ausgewaehltes = Instanzen.FirstOrDefault(i => i.Id == id);
+                IsDirty = false;
             }
         }
         catch (Exception ex)
