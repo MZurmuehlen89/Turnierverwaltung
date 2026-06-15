@@ -164,6 +164,26 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private ObservableCollection<ErgebnisAnzeige> _ergebnisseAnzeige = [];
     [ObservableProperty] private ObservableCollection<GruppenErgebnisAnzeige> _gruppenErgebnisse = [];
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TeamsStatusText))]
+    [NotifyPropertyChangedFor(nameof(TeamsVollstaendig))]
+    private int _teamsZugewiesen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TeamsStatusText))]
+    [NotifyPropertyChangedFor(nameof(TeamsVollstaendig))]
+    private int _teamsBenoetigt;
+
+    public bool TeamsVollstaendig => TeamsBenoetigt > 0 && TeamsZugewiesen == TeamsBenoetigt;
+
+    public string TeamsStatusText => TeamsBenoetigt == 0
+        ? $"{TeamsZugewiesen} Teams zugewiesen"
+        : TeamsZugewiesen == TeamsBenoetigt
+            ? $"✓  Alle {TeamsBenoetigt} Teams zugewiesen"
+            : TeamsZugewiesen > TeamsBenoetigt
+                ? $"⚠  {TeamsZugewiesen} Teams zugewiesen — {TeamsZugewiesen - TeamsBenoetigt} zu viel (Runde erwartet {TeamsBenoetigt})"
+                : $"{TeamsZugewiesen} / {TeamsBenoetigt} Teams zugewiesen — noch {TeamsBenoetigt - TeamsZugewiesen} fehlen";
+
     // ── Status ────────────────────────────────────────────────────────────────
     [ObservableProperty] private bool _istLadend;
     [ObservableProperty] private string? _fehlermeldung;
@@ -577,6 +597,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
                         e.AuswaertsMannschaft?.Name ?? e.AuswaertsPlatzhalterName ?? "?",
                         e.IstFreilos)));
             }
+
+            TeamsZugewiesen       = detail.Lostoepfe.SelectMany(l => l.Eintraege).Count();
+            TeamsBenoetigt        = detail.TurnierRunde?.EingangsMannschaftsanzahl ?? 0;
 
             IstBearbeitbar        = detail.Status is not (AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen);
             IstAbgeschlossen      = detail.Status == AuslosungsStatus.Abgeschlossen;

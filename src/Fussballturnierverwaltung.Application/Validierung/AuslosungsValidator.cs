@@ -65,6 +65,23 @@ public class AuslosungsValidator
                            $"(gefunden: {string.Join(", ", topfGroessen.Select(g => $"{g} Teams"))}).");
         }
 
+        // Gesamtanzahl gegen Rundenerwartung prüfen
+        var aktiveRegelnVorab = auslosung.Regeln.Where(r => r.IstAktiv).Select(r => r.Regelart).ToList();
+        var benoetigte = auslosung.TurnierRunde?.EingangsMannschaftsanzahl;
+        if (benoetigte is > 0)
+        {
+            bool freilosMoeglich = aktiveRegelnVorab.Contains(AuslosungsRegelArt.FreilosMoeglich);
+            int min = freilosMoeglich ? benoetigte.Value - 1 : benoetigte.Value;
+            if (alleEintraege.Count < min)
+                fehler.Add($"Die Runde erwartet {benoetigte} Teams" +
+                           (freilosMoeglich ? $" (oder mindestens {min} mit Freilos)" : "") +
+                           $", aber es sind erst {alleEintraege.Count} zugewiesen.");
+            else if (alleEintraege.Count > benoetigte.Value)
+                fehler.Add($"Die Runde erwartet {benoetigte} Teams, " +
+                           $"aber es sind {alleEintraege.Count} zugewiesen " +
+                           $"({alleEintraege.Count - benoetigte.Value} zu viel).");
+        }
+
         // Auslosungsart und Rundenart auf Kompatibilität prüfen
         var rundenart = auslosung.TurnierRunde?.Rundenart;
         if (rundenart.HasValue)
@@ -116,7 +133,7 @@ public class AuslosungsValidator
         }
 
         // Regel-Konflikte prüfen
-        var aktiveRegeln = auslosung.Regeln.Where(r => r.IstAktiv).Select(r => r.Regelart).ToList();
+        var aktiveRegeln = aktiveRegelnVorab;
 
         if (aktiveRegeln.Contains(AuslosungsRegelArt.GruppensiegerGegenGruppenzweite) &&
             aktiveRegeln.Contains(AuslosungsRegelArt.GesetzteGegenUngesetzte))
