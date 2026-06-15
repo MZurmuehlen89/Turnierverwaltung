@@ -354,9 +354,20 @@
                         <ItemsControl ItemsSource="{Binding Regeln}" Margin="8,8,0,0">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:RegelViewModel}">
-                                    <CheckBox Content="{Binding Anzeige}"
-                                              IsChecked="{Binding IstAktiv, Mode=TwoWay}"
-                                              FontSize="13" Margin="0,4" />
+                                    <Border Margin="0,3" Padding="8,7" CornerRadius="4"
+                                            BorderThickness="1" BorderBrush="#E2E8F0"
+                                            Background="White">
+                                        <StackPanel>
+                                            <CheckBox IsChecked="{Binding IstAktiv, Mode=TwoWay}"
+                                                      FontSize="13" FontWeight="SemiBold">
+                                                <TextBlock Text="{Binding Anzeige}" FontSize="13"
+                                                           FontWeight="SemiBold" Foreground="#1E293B" />
+                                            </CheckBox>
+                                            <TextBlock Text="{Binding Beschreibung}"
+                                                       FontSize="11" Foreground="#64748B"
+                                                       TextWrapping="Wrap" Margin="20,3,0,0" />
+                                        </StackPanel>
+                                    </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

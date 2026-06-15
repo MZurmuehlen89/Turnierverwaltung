@@ -51,6 +51,7 @@ public class RegelViewModel : ObservableObject
 
     public AuslosungsRegelArt Regelart { get; init; }
     public string Anzeige { get; init; } = "";
+    public string Beschreibung { get; init; } = "";
 
     public bool IstAktiv
     {
@@ -58,9 +59,9 @@ public class RegelViewModel : ObservableObject
         set { if (SetProperty(ref _istAktiv, value)) _ = _callback(value); }
     }
 
-    public RegelViewModel(AuslosungsRegelArt art, string anzeige, bool initial, Func<bool, Task> callback)
+    public RegelViewModel(AuslosungsRegelArt art, string anzeige, string beschreibung, bool initial, Func<bool, Task> callback)
     {
-        Regelart = art; Anzeige = anzeige; _istAktiv = initial; _callback = callback;
+        Regelart = art; Anzeige = anzeige; Beschreibung = beschreibung; _istAktiv = initial; _callback = callback;
     }
 }
 
@@ -531,7 +532,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
                 Enum.GetValues<AuslosungsRegelArt>().Select(art =>
                 {
                     var vorh = detail.Regeln.FirstOrDefault(r => r.Regelart == art);
-                    return new RegelViewModel(art, RegelAnzeigeName(art), vorh?.IstAktiv ?? false,
+                    return new RegelViewModel(art, RegelAnzeigeName(art), RegelBeschreibung(art), vorh?.IstAktiv ?? false,
                         async aktiv =>
                         {
                             try
@@ -684,5 +685,38 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         AuslosungsRegelArt.FreilosMoeglich                 => "Freilos möglich",
         AuslosungsRegelArt.ManuelleEinschraenkung          => "Manuelle Einschränkung",
         _                                                  => art.ToString()
+    };
+
+    private static string RegelBeschreibung(AuslosungsRegelArt art) => art switch
+    {
+        AuslosungsRegelArt.KeinGleichesLand =>
+            "Teams aus demselben Land dürfen nicht in dieselbe Gruppe oder gegeneinander gelost werden. " +
+            "Verhindert z. B. nationale Duelle in der Gruppenphase (typisch bei Nationenturnieren).",
+        AuslosungsRegelArt.KeineGleicheGruppe =>
+            "Teams, die in einer vorangegangenen Gruppenphase bereits in derselben Gruppe waren, " +
+            "dürfen nicht erneut aufeinandertreffen. Typisch für UCL/UEL K.O.-Runden.",
+        AuslosungsRegelArt.GruppensiegerGegenGruppenzweite =>
+            "Gruppensieger werden nur mit Zweitplatzierten einer anderen Gruppe gepaart — " +
+            "nie gegeneinander und nie gegen den Zweiten der eigenen Gruppe. " +
+            "Strukturregel für K.O.-Runden nach einer Gruppenphase (z. B. WM-Achtelfinale).",
+        AuslosungsRegelArt.GesetzteGegenUngesetzte =>
+            "Gesetzte Teams (Topf 1) werden ausschließlich mit ungesetzten Teams gepaart. " +
+            "Zwei gesetzte Teams treffen nie direkt aufeinander. " +
+            "Klassische Setzlisten-Regel für nationale und internationale Pokal-Auslosungen.",
+        AuslosungsRegelArt.HeimrechtNachLos =>
+            "Das Heimrecht wird separat ausgelost: Ein zufällig gezogenes Team erhält das Heimrecht " +
+            "für das Hinspiel, das andere für das Rückspiel. " +
+            "Nur relevant bei Hin- und Rückspielen.",
+        AuslosungsRegelArt.HeimrechtNachSetzliste =>
+            "Das höher gesetzte (besser platzierte) Team erhält automatisch das Heimrecht im Rückspiel. " +
+            "Bevorzugt Titelverteidiger und Top-Gesetzte — typisch für UEFA-Wettbewerbe.",
+        AuslosungsRegelArt.FreilosMoeglich =>
+            "Bei ungerader Teamanzahl erhält ein zufällig gezogenes Team ein Freilos und zieht " +
+            "kampflos in die nächste Runde ein. Ohne diese Regel schlägt die Auslosung fehl, " +
+            "wenn die Anzahl ungerade ist.",
+        AuslosungsRegelArt.ManuelleEinschraenkung =>
+            "Bestimmte Paarungen sind aus besonderen Gründen ausgeschlossen (z. B. politische " +
+            "oder logistische Einschränkungen). Die konkreten Verbote werden separat konfiguriert.",
+        _ => ""
     };
 }
