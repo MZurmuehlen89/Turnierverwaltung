@@ -34,6 +34,7 @@ public record TeilnehmerAnzeige(int? MannschaftId, string Name, string? Kuerzel,
 }
 
 public record ErgebnisAnzeige(int PaarungsNummer, string HeimName, string AuswaertsName, bool IstFreilos);
+public record GruppenErgebnisAnzeige(int GruppenNummer, string GruppenName, IReadOnlyList<string> Teams);
 
 public class LostopfViewModel : ObservableObject
 {
@@ -119,7 +120,17 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     // ── Auslosung-Detail ──────────────────────────────────────────────────────
     [ObservableProperty] private bool _detailAktiv;
     [ObservableProperty] private bool _istBearbeitbar;
-    [ObservableProperty] private bool _istAbgeschlossen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IstPaarungsergebnis))]
+    private bool _istAbgeschlossen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IstPaarungsergebnis))]
+    private bool _istGruppenergebnis;
+
+    public bool IstPaarungsergebnis => IstAbgeschlossen && !IstGruppenergebnis;
+
     [ObservableProperty] private string _auslosungKopfzeile = "";
 
     [ObservableProperty]
@@ -135,6 +146,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private ObservableCollection<LostopfViewModel> _lostoepfe = [];
     [ObservableProperty] private ObservableCollection<RegelViewModel> _regeln = [];
     [ObservableProperty] private ObservableCollection<ErgebnisAnzeige> _ergebnisseAnzeige = [];
+    [ObservableProperty] private ObservableCollection<GruppenErgebnisAnzeige> _gruppenErgebnisse = [];
     [ObservableProperty] private string _neuerLostopfName = "";
 
     // ── Status ────────────────────────────────────────────────────────────────
@@ -189,6 +201,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.SchweizerSystem) =>
             "⚠  Diese Auslosungsart setzt voraus, dass bereits eine Gruppenphase gespielt wurde. " +
             "Sie ist für K.O.-Runden gedacht, die auf eine Gruppenphase folgen.",
+        (Auslosungsart.TopfZuordnung, Rundenart.Gruppenphase) =>
+            "⚠  Für eine klassische Gruppenphase verwenden Sie 'Nach Töpfen' — " +
+            "dabei wird ein Team pro Topf in jede Gruppe gelost. " +
+            "'Topf-Zuordnung' ist für die UCL-Ligaphase (direkte Gegnerbestimmung) gedacht.",
         (Auslosungsart.TopfZuordnung, Rundenart.KoRunde) or
         (Auslosungsart.TopfZuordnung, Rundenart.Finale) or
         (Auslosungsart.TopfZuordnung, Rundenart.SpielUmPlatzDrei) =>
@@ -500,12 +516,38 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
                         });
                 }));
 
-            ErgebnisseAnzeige = new ObservableCollection<ErgebnisAnzeige>(
-                detail.Ergebnisse.Select(e => new ErgebnisAnzeige(
-                    e.PaarungsNummer,
-                    e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
-                    e.AuswaertsMannschaft?.Name ?? e.AuswaertsPlatzhalterName ?? "?",
-                    e.IstFreilos)));
+            // Detect whether results are group assignments (Gruppenphase) or match pairings
+            bool istGruppe = detail.Ergebnisse.Any() &&
+                detail.Ergebnisse.All(e => !e.IstFreilos &&
+                    e.AuswaertsMannschaftId == null &&
+                    e.AuswaertsPlatzhalterName == null);
+
+            IstGruppenergebnis = istGruppe;
+
+            if (istGruppe)
+            {
+                GruppenErgebnisse = new ObservableCollection<GruppenErgebnisAnzeige>(
+                    detail.Ergebnisse
+                        .GroupBy(e => e.PaarungsNummer)
+                        .OrderBy(g => g.Key)
+                        .Select(g => new GruppenErgebnisAnzeige(
+                            g.Key,
+                            $"Gruppe {GruppenBuchstabe(g.Key)}",
+                            g.Select(e => e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?")
+                             .OrderBy(n => n)
+                             .ToList())));
+                ErgebnisseAnzeige = [];
+            }
+            else
+            {
+                GruppenErgebnisse = [];
+                ErgebnisseAnzeige = new ObservableCollection<ErgebnisAnzeige>(
+                    detail.Ergebnisse.Select(e => new ErgebnisAnzeige(
+                        e.PaarungsNummer,
+                        e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
+                        e.AuswaertsMannschaft?.Name ?? e.AuswaertsPlatzhalterName ?? "?",
+                        e.IstFreilos)));
+            }
 
             IstBearbeitbar   = detail.Status is not (AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen);
             IstAbgeschlossen = detail.Status == AuslosungsStatus.Abgeschlossen;
@@ -576,6 +618,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     private bool KannSpeichern() => NeuFormAktiv && !string.IsNullOrWhiteSpace(NeuName) && NeuRunde is not null;
     private bool KannAbbrechen() => NeuFormAktiv;
     private bool KannLoeschen()  => AusgewaehlteAuslosung is not null && !NeuFormAktiv;
+
+    private static string GruppenBuchstabe(int nr) =>
+        nr <= 26 ? ((char)('A' + nr - 1)).ToString() : $"G{nr}";
 
     // ── Anzeigetexte ──────────────────────────────────────────────────────────
 

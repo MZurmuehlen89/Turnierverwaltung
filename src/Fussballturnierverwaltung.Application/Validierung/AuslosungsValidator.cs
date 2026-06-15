@@ -79,6 +79,40 @@ public class AuslosungsValidator
                 fehler.Add("Auslosungsart 'Topf-Zuordnung' weist Teams direkt Gruppenplätzen zu " +
                            "und ist für K.O.-Runden nicht geeignet. " +
                            "Verwenden Sie stattdessen 'Zufällig' oder 'Nach Töpfen'.");
+
+            if (auslosung.Auslosungsart == Auslosungsart.TopfZuordnung &&
+                rundenart.Value == Rundenart.Gruppenphase)
+                fehler.Add("Auslosungsart 'Topf-Zuordnung' ist für die UCL-Ligaphase gedacht, " +
+                           "nicht für eine klassische Gruppenphase. " +
+                           "Verwenden Sie 'Nach Töpfen' für eine topfbasierte Gruppenauslosung.");
+        }
+
+        // Gruppenphase: GruppenAnzahl und Teilnehmerzahl prüfen
+        if (rundenart == Rundenart.Gruppenphase)
+        {
+            var gruppenAnzahl = auslosung.TurnierRunde?.GruppenAnzahl;
+            if (!gruppenAnzahl.HasValue || gruppenAnzahl.Value < 2)
+            {
+                fehler.Add("Gruppenphase: Die Runde benötigt eine definierte Gruppenanzahl (mindestens 2).");
+            }
+            else
+            {
+                if (alleEintraege.Count % gruppenAnzahl.Value != 0)
+                    fehler.Add($"Gruppenphase: {alleEintraege.Count} Teams können nicht gleichmäßig auf " +
+                               $"{gruppenAnzahl.Value} Gruppen verteilt werden " +
+                               $"({alleEintraege.Count % gruppenAnzahl.Value} Team(s) übrig).");
+
+                if (auslosung.Auslosungsart == Auslosungsart.NachToepfen && lostoepfe.Any())
+                {
+                    var falscheToepfe = lostoepfe
+                        .Where(t => t.Eintraege.Count != gruppenAnzahl.Value)
+                        .Select(t => $"'{t.Name}' ({t.Eintraege.Count})")
+                        .ToList();
+                    if (falscheToepfe.Any())
+                        fehler.Add($"Gruppenphase mit 'Nach Töpfen': Jeder Topf muss genau {gruppenAnzahl.Value} Team(s) enthalten " +
+                                   $"(je eines pro Gruppe). Abweichung bei: {string.Join(", ", falscheToepfe)}.");
+                }
+            }
         }
 
         // Regel-Konflikte prüfen
