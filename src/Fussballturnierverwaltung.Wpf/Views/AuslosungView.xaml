@@ -93,7 +93,22 @@
                               SelectedValuePath="Wert"
                               SelectedValue="{Binding NeuAuslosungsart}"
                               DisplayMemberPath="Anzeige"
-                              FontSize="13" Margin="0,0,0,12" />
+                              FontSize="13" Margin="0,0,0,8" />
+
+                    <!-- Erklärung zur gewählten Auslosungsart -->
+                    <Border Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
+                            CornerRadius="4" Padding="10,7" Margin="0,0,0,6">
+                        <TextBlock Text="{Binding AuslosungsartHinweis}" FontSize="12"
+                                   Foreground="#1E40AF" TextWrapping="Wrap" />
+                    </Border>
+
+                    <!-- Warnung bei unpassender Auslosungsart/Rundenart-Kombination -->
+                    <Border Background="#FFFBEB" BorderBrush="#FDE68A" BorderThickness="1"
+                            CornerRadius="4" Padding="10,7" Margin="0,0,0,12"
+                            Visibility="{Binding AuslosungsartWarnung, Converter={StaticResource NullToCollapsed}}">
+                        <TextBlock Text="{Binding AuslosungsartWarnung}" FontSize="12"
+                                   Foreground="#92400E" TextWrapping="Wrap" />
+                    </Border>
 
                     <TextBlock Text="Runde" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
                     <ComboBox ItemsSource="{Binding InstanzRunden}"

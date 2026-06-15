@@ -65,6 +65,22 @@ public class AuslosungsValidator
                            $"(gefunden: {string.Join(", ", topfGroessen.Select(g => $"{g} Teams"))}).");
         }
 
+        // Auslosungsart und Rundenart auf Kompatibilität prüfen
+        var rundenart = auslosung.TurnierRunde?.Rundenart;
+        if (rundenart.HasValue)
+        {
+            if (auslosung.Auslosungsart == Auslosungsart.GruppensiegerGegenGruppenzweite &&
+                rundenart.Value is not (Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei))
+                fehler.Add("Auslosungsart 'Gruppensieger vs. Zweite' ist nur für K.O.-Runden geeignet, " +
+                           "die auf eine Gruppenphase folgen.");
+
+            if (auslosung.Auslosungsart == Auslosungsart.TopfZuordnung &&
+                rundenart.Value is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
+                fehler.Add("Auslosungsart 'Topf-Zuordnung' weist Teams direkt Gruppenplätzen zu " +
+                           "und ist für K.O.-Runden nicht geeignet. " +
+                           "Verwenden Sie stattdessen 'Zufällig' oder 'Nach Töpfen'.");
+        }
+
         // Regel-Konflikte prüfen
         var aktiveRegeln = auslosung.Regeln.Where(r => r.IstAktiv).Select(r => r.Regelart).ToList();
 

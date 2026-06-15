@@ -103,10 +103,15 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
     private string _neuName = "";
 
-    [ObservableProperty] private Auslosungsart _neuAuslosungsart = Auslosungsart.Zufall;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AuslosungsartHinweis))]
+    [NotifyPropertyChangedFor(nameof(AuslosungsartWarnung))]
+    private Auslosungsart _neuAuslosungsart = Auslosungsart.Zufall;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    [NotifyPropertyChangedFor(nameof(AuslosungsartHinweis))]
+    [NotifyPropertyChangedFor(nameof(AuslosungsartWarnung))]
     private TurnierRunde? _neuRunde;
 
     private string _autoNeuName = "";
@@ -149,6 +154,51 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         Enum.GetValues<Auslosungsart>()
             .Select(a => new AuslosungsartOption(AuslosungsartAnzeigeName(a), a))
             .ToList();
+
+    public string AuslosungsartHinweis => NeuAuslosungsart switch
+    {
+        Auslosungsart.Zufall =>
+            "Alle Teams werden zufällig gemischt und paarweise zugelost. Passt zu jeder Rundenart.",
+        Auslosungsart.NachSetzliste =>
+            "Gesetzte Teams (Topf 1) werden gleichmäßig auf Gruppen oder Paare verteilt, " +
+            "damit stärkere Teams erst in späteren Runden aufeinandertreffen. " +
+            "Typisch für Nationenturniere und nationale Pokal-Auslosungen.",
+        Auslosungsart.NachToepfen =>
+            "Teams werden manuell auf Töpfe verteilt und dann topfübergreifend zugelost — " +
+            "mindestens ein Lostopf ist erforderlich. " +
+            "Typisch für UEFA Europa League und internationale Pokal-Wettbewerbe.",
+        Auslosungsart.TopfZuordnung =>
+            "Jeder Topf belegt genau einen Setzplatz: Topf 1 → Gruppenplatz A, Topf 2 → Gruppenplatz B usw. " +
+            "Alle Töpfe müssen gleich groß sein. " +
+            "Gängig in der UEFA Champions League (Gruppen- und K.O.-Phase).",
+        Auslosungsart.GruppensiegerGegenGruppenzweite =>
+            "Gruppensieger werden den Zweitplatzierten einer anderen Gruppe zugelost, " +
+            "wobei Teams aus derselben Gruppe nicht aufeinandertreffen dürfen. " +
+            "Typisch für K.O.-Runden nach einer Gruppenphase (z. B. WM-Achtelfinale, UEFA-Playoff).",
+        Auslosungsart.Benutzerdefiniert =>
+            "Teams werden manuell den Losplätzen zugewiesen — keine automatische Verlosung. " +
+            "Für besondere Anforderungen oder wenn keine andere Methode passt.",
+        _ => ""
+    };
+
+    public string? AuslosungsartWarnung => (NeuAuslosungsart, NeuRunde?.Rundenart) switch
+    {
+        (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Liga) or
+        (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Gruppenphase) or
+        (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.TopfLiga) or
+        (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.SchweizerSystem) =>
+            "⚠  Diese Auslosungsart setzt voraus, dass bereits eine Gruppenphase gespielt wurde. " +
+            "Sie ist für K.O.-Runden gedacht, die auf eine Gruppenphase folgen.",
+        (Auslosungsart.TopfZuordnung, Rundenart.KoRunde) or
+        (Auslosungsart.TopfZuordnung, Rundenart.Finale) or
+        (Auslosungsart.TopfZuordnung, Rundenart.SpielUmPlatzDrei) =>
+            "⚠  Topf-Zuordnung weist Teams direkt Gruppenplätzen zu. " +
+            "Für K.O.-Runden ist 'Nach Töpfen' oder 'Zufällig' besser geeignet.",
+        (Auslosungsart.NachSetzliste, Rundenart.SchweizerSystem) =>
+            "⚠  Im Schweizer System wird die Paarung automatisch anhand der Tabelle berechnet. " +
+            "Eine manuelle Setzlisten-Auslosung ist hier in der Regel nicht sinnvoll.",
+        _ => null
+    };
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
     public string RibbonTabTitel => "Auslosung";
