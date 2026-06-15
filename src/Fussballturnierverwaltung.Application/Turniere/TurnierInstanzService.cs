@@ -35,12 +35,14 @@ public class TurnierInstanzService(
 
         var instanz = new TurnierInstanz
         {
-            Name             = instanzEingabe.Name.Trim(),
-            SaisonOderJahr   = instanzEingabe.SaisonOderJahr.Trim(),
-            TurnierVorlageId = instanzEingabe.TurnierVorlageId,
-            Startdatum       = instanzEingabe.Startdatum,
-            Enddatum         = instanzEingabe.Enddatum,
-            Status           = TurnierStatus.Geplant
+            Name                  = instanzEingabe.Name.Trim(),
+            SaisonOderJahr        = instanzEingabe.SaisonOderJahr.Trim(),
+            TurnierVorlageId      = instanzEingabe.TurnierVorlageId,
+            Startdatum            = instanzEingabe.Startdatum,
+            Enddatum              = instanzEingabe.Enddatum,
+            Status                = TurnierStatus.Geplant,
+            VerbandId             = instanzEingabe.VerbandId,
+            MannschaftsartFilter  = instanzEingabe.MannschaftsartFilter
         };
 
         await repository.HinzufuegenAsync(instanz, ct);
@@ -58,12 +60,14 @@ public class TurnierInstanzService(
 
         var instanz = new TurnierInstanz
         {
-            Name             = instanzEingabe.Name.Trim(),
-            SaisonOderJahr   = instanzEingabe.SaisonOderJahr.Trim(),
-            TurnierVorlageId = instanzEingabe.TurnierVorlageId,
-            Startdatum       = instanzEingabe.Startdatum,
-            Enddatum         = instanzEingabe.Enddatum,
-            Status           = TurnierStatus.Geplant
+            Name                  = instanzEingabe.Name.Trim(),
+            SaisonOderJahr        = instanzEingabe.SaisonOderJahr.Trim(),
+            TurnierVorlageId      = instanzEingabe.TurnierVorlageId,
+            Startdatum            = instanzEingabe.Startdatum,
+            Enddatum              = instanzEingabe.Enddatum,
+            Status                = TurnierStatus.Geplant,
+            VerbandId             = instanzEingabe.VerbandId,
+            MannschaftsartFilter  = instanzEingabe.MannschaftsartFilter
         };
 
         for (int i = 0; i < rundenEingaben.Count; i++)
@@ -76,6 +80,7 @@ public class TurnierInstanzService(
                 Rundenart                  = re.Rundenart,
                 EingangsMannschaftsanzahl  = re.EingangsMannschaftsanzahl,
                 AusgangsMannschaftsanzahl  = re.AusgangsMannschaftsanzahl,
+                GruppenAnzahl              = re.GruppenAnzahl,
                 RegelwerkId                = re.RegelwerkId,
                 MitRueckspiel              = re.MitRueckspiel,
                 AuswaertstorRegelAktiv     = re.AuswaertstorRegelAktiv,
@@ -93,12 +98,14 @@ public class TurnierInstanzService(
     {
         var instanz = await repository.FindenNachIdAsync(id, ct)
             ?? throw new InvalidOperationException($"TurnierInstanz mit ID {id} nicht gefunden.");
-        instanz.Name           = eingabe.Name.Trim();
-        instanz.SaisonOderJahr = eingabe.SaisonOderJahr.Trim();
-        instanz.TurnierVorlageId = eingabe.TurnierVorlageId;
-        instanz.Startdatum     = eingabe.Startdatum;
-        instanz.Enddatum       = eingabe.Enddatum;
-        instanz.Status         = eingabe.Status;
+        instanz.Name                 = eingabe.Name.Trim();
+        instanz.SaisonOderJahr       = eingabe.SaisonOderJahr.Trim();
+        instanz.TurnierVorlageId     = eingabe.TurnierVorlageId;
+        instanz.Startdatum           = eingabe.Startdatum;
+        instanz.Enddatum             = eingabe.Enddatum;
+        instanz.Status               = eingabe.Status;
+        instanz.VerbandId            = eingabe.VerbandId;
+        instanz.MannschaftsartFilter = eingabe.MannschaftsartFilter;
         await repository.AktualisierenAsync(instanz, ct);
         logger.LogInformation("TurnierInstanz '{Name}' (ID {Id}) aktualisiert.", instanz.Name, id);
     }
@@ -136,6 +143,7 @@ public class TurnierInstanzService(
             Rundenart                 = e.Rundenart,
             EingangsMannschaftsanzahl = e.EingangsMannschaftsanzahl,
             AusgangsMannschaftsanzahl = e.AusgangsMannschaftsanzahl,
+            GruppenAnzahl             = e.GruppenAnzahl,
             RegelwerkId               = e.RegelwerkId,
             MitRueckspiel             = e.MitRueckspiel,
             AuswaertstorRegelAktiv    = e.AuswaertstorRegelAktiv,

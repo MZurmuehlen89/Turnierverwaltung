@@ -16,9 +16,16 @@ public class TurnierInstanzKonfiguration : IEntityTypeConfiguration<TurnierInsta
         builder.Property(t => t.Startdatum).HasColumnType("date");
         builder.Property(t => t.Enddatum).HasColumnType("date");
 
+        builder.Property(t => t.MannschaftsartFilter).IsRequired();
+
         builder.HasOne(t => t.TurnierVorlage)
             .WithMany(v => v.TurnierInstanzen)
             .HasForeignKey(t => t.TurnierVorlageId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(t => t.Verband)
+            .WithMany()
+            .HasForeignKey(t => t.VerbandId)
             .OnDelete(DeleteBehavior.SetNull);
     }
 }

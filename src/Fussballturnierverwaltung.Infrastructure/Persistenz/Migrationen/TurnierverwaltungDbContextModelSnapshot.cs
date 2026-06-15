@@ -76,8 +76,16 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int?>("AuswaertsMannschaftId")
                         .HasColumnType("int");
 
+                    b.Property<string>("AuswaertsPlatzhalterName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<int?>("HeimMannschaftId")
                         .HasColumnType("int");
+
+                    b.Property<string>("HeimPlatzhalterName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<bool>("IstFreilos")
                         .HasColumnType("bit");
@@ -168,8 +176,12 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("LostopfId")
                         .HasColumnType("int");
 
-                    b.Property<int>("MannschaftId")
+                    b.Property<int?>("MannschaftId")
                         .HasColumnType("int");
+
+                    b.Property<string>("PlatzhalterName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int?>("SetzPosition")
                         .HasColumnType("int");
@@ -699,6 +711,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<DateOnly?>("Enddatum")
                         .HasColumnType("date");
 
+                    b.Property<int>("MannschaftsartFilter")
+                        .HasColumnType("int");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -718,9 +733,14 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int?>("TurnierVorlageId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("VerbandId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("TurnierVorlageId");
+
+                    b.HasIndex("VerbandId");
 
                     b.ToTable("TurnierInstanzen", (string)null);
                 });
@@ -740,6 +760,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasColumnType("bit");
 
                     b.Property<int>("EingangsMannschaftsanzahl")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("GruppenAnzahl")
                         .HasColumnType("int");
 
                     b.Property<string>("KonfigurationJson")
@@ -944,8 +967,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Mannschaft", "Mannschaft")
                         .WithMany()
                         .HasForeignKey("MannschaftId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Lostopf");
 
@@ -1178,7 +1200,14 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasForeignKey("TurnierVorlageId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Verband", "Verband")
+                        .WithMany()
+                        .HasForeignKey("VerbandId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("TurnierVorlage");
+
+                    b.Navigation("Verband");
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierRunde", b =>

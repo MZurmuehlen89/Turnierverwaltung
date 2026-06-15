@@ -56,13 +56,17 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     [NotifyCanExecuteChangedFor(nameof(RundeRunterCommand))]
     [NotifyCanExecuteChangedFor(nameof(RundeEntfernenCommand))]
     [NotifyPropertyChangedFor(nameof(FormularSichtbar))]
+    [NotifyPropertyChangedFor(nameof(GruppenAnzahlSichtbar))]
     private RundenEintrag? _ausgewaehlteRunde;
 
     // ── Rechte Spalte: Detailformular ─────────────────────────────────────────
     [ObservableProperty] private string _name = "";
-    [ObservableProperty] private Rundenart _rundenart = Rundenart.Liga;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GruppenAnzahlSichtbar))]
+    private Rundenart _rundenart = Rundenart.Liga;
     [ObservableProperty] private string _eingang = "4";
     [ObservableProperty] private string _ausgang = "4";
+    [ObservableProperty] private string _gruppenAnzahl = "";
     [ObservableProperty] private RegelwerkOption _regelwerk = _keinRegelwerk;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
@@ -101,6 +105,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     public bool RundenEditorAktiv       => AusgewaehlteInstanz is not null;
     public bool KeinTurnierGewaehlt     => AusgewaehlteInstanz is null;
     public bool FormularSichtbar        => AusgewaehlteInstanz is not null && AusgewaehlteRunde is not null;
+    public bool GruppenAnzahlSichtbar   => FormularSichtbar && Rundenart == Rundenart.Gruppenphase;
 
     // ── IRibbonAware ───────────────────────────────────────────────────────────
     public string RibbonTabTitel  => "Runden";
@@ -316,6 +321,14 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
         IsDirty = true;
     }
 
+    partial void OnGruppenAnzahlChanged(string value)
+    {
+        if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
+        AusgewaehlteRunde.GruppenAnzahl = string.IsNullOrWhiteSpace(value) ? null : ParseAnzahl(value, 2);
+        AktualisiereRundenFehler();
+        IsDirty = true;
+    }
+
     partial void OnRegelwerkChanged(RegelwerkOption value)
     {
         if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
@@ -361,6 +374,9 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
 
             if (r.Rundenart is Rundenart.KoRunde && r.EingangsMannschaften % 2 != 0)
                 fehler.Add($"{label}: K.o.-Runden benötigen eine gerade Eingangsanzahl (aktuell: {r.EingangsMannschaften}).");
+
+            if (r.Rundenart == Rundenart.Gruppenphase && (r.GruppenAnzahl == null || r.GruppenAnzahl < 2))
+                fehler.Add($"{label}: Gruppenphase erfordert mindestens 2 Gruppen.");
 
             if (istLetzte && r.AusgangsMannschaften != 1)
                 fehler.Add($"{label} (letzte Runde): Ausgang muss 1 sein — ein Turnier hat genau einen Sieger.");
@@ -429,6 +445,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
             Rundenart              = value.Rundenart;
             Eingang                = value.EingangsMannschaften.ToString();
             Ausgang                = value.AusgangsMannschaften.ToString();
+            GruppenAnzahl          = value.GruppenAnzahl?.ToString() ?? "";
             Regelwerk              = RegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == value.RegelwerkId)
                                      ?? _keinRegelwerk;
             MitRueckspiel          = value.MitRueckspiel;
@@ -461,6 +478,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
             Rundenart              = Rundenart.Liga;
             Eingang                = "4";
             Ausgang                = "4";
+            GruppenAnzahl          = "";
             Regelwerk              = _keinRegelwerk;
             MitRueckspiel          = false;
             AuswaertstorRegelAktiv = false;
@@ -471,7 +489,8 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     private IReadOnlyList<TurnierRundeEingabe> RundenListeZuEingaben()
         => Runden.Select(r => new TurnierRundeEingabe(
             r.Name, r.Rundenart, r.EingangsMannschaften, r.AusgangsMannschaften,
-            r.RegelwerkId, r.MitRueckspiel, r.AuswaertstorRegelAktiv)).ToList();
+            r.RegelwerkId, r.MitRueckspiel, r.AuswaertstorRegelAktiv,
+            GruppenAnzahl: r.GruppenAnzahl)).ToList();
 
     private static RundenEintrag RundeZuEintrag(TurnierRunde r) => new()
     {
@@ -479,6 +498,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
         Rundenart              = r.Rundenart,
         EingangsMannschaften   = r.EingangsMannschaftsanzahl,
         AusgangsMannschaften   = r.AusgangsMannschaftsanzahl,
+        GruppenAnzahl          = r.GruppenAnzahl,
         RegelwerkId            = r.RegelwerkId,
         RegelwerkName          = r.Regelwerk?.Name ?? "",
         MitRueckspiel          = r.MitRueckspiel,

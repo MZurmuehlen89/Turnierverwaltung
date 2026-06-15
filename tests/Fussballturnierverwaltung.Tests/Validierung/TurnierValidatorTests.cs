@@ -11,19 +11,21 @@ public class TurnierValidatorTests
 
     private static TurnierRundeEingabe Runde(
         string name, Rundenart art, int eingang, int ausgang,
-        bool mitRueckspiel = false, bool auswaerts = false) =>
-        new(name, art, eingang, ausgang, RegelwerkId: 1, MitRueckspiel: mitRueckspiel, AuswaertstorRegelAktiv: auswaerts);
+        bool mitRueckspiel = false, bool auswaerts = false, int? gruppenAnzahl = null) =>
+        new(name, art, eingang, ausgang, RegelwerkId: 1,
+            MitRueckspiel: mitRueckspiel, AuswaertstorRegelAktiv: auswaerts,
+            GruppenAnzahl: gruppenAnzahl);
 
     [Fact]
     public void GueltigeRundenKette_IstGueltig()
     {
         var runden = new[]
         {
-            Runde("Gruppenphase", Rundenart.Gruppenphase, eingang: 32, ausgang: 16),
-            Runde("Achtelfinale", Rundenart.KoRunde,      eingang: 16, ausgang: 8),
-            Runde("Viertelfinale", Rundenart.KoRunde,     eingang: 8,  ausgang: 4),
-            Runde("Halbfinale",   Rundenart.KoRunde,      eingang: 4,  ausgang: 2),
-            Runde("Finale",       Rundenart.Finale,        eingang: 2,  ausgang: 1),
+            Runde("Gruppenphase",  Rundenart.Gruppenphase, eingang: 32, ausgang: 16, gruppenAnzahl: 8),
+            Runde("Achtelfinale",  Rundenart.KoRunde,      eingang: 16, ausgang: 8),
+            Runde("Viertelfinale", Rundenart.KoRunde,      eingang: 8,  ausgang: 4),
+            Runde("Halbfinale",    Rundenart.KoRunde,      eingang: 4,  ausgang: 2),
+            Runde("Finale",        Rundenart.Finale,        eingang: 2,  ausgang: 1),
         };
 
         _validator.RundenValidieren(runden).IstGueltig.Should().BeTrue();
@@ -35,7 +37,7 @@ public class TurnierValidatorTests
         // Runde 1 liefert 15, Runde 2 erwartet 16
         var runden = new[]
         {
-            Runde("Gruppenphase", Rundenart.Gruppenphase, eingang: 32, ausgang: 15),
+            Runde("Gruppenphase", Rundenart.Gruppenphase, eingang: 32, ausgang: 15, gruppenAnzahl: 8),
             Runde("Achtelfinale", Rundenart.KoRunde,      eingang: 16, ausgang: 8),
         };
 

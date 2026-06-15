@@ -10,6 +10,7 @@ public class LostopfEintragKonfiguration : IEntityTypeConfiguration<LostopfEintr
     {
         builder.ToTable("LostopfEintraege");
         builder.HasKey(e => e.Id);
+        builder.Property(e => e.PlatzhalterName).HasMaxLength(200);
 
         builder.HasOne(e => e.Lostopf)
             .WithMany(l => l.Eintraege)

@@ -35,14 +35,18 @@ public record TurnierInstanzVollAktualisierenEingabe(
     int? TurnierVorlageId,
     DateOnly? Startdatum,
     DateOnly? Enddatum,
-    TurnierStatus Status);
+    TurnierStatus Status,
+    int? VerbandId = null,
+    MannschaftsartFilter MannschaftsartFilter = MannschaftsartFilter.Alle);
 
 public record TurnierInstanzErstellenEingabe(
     string Name,
     string SaisonOderJahr,
     int? TurnierVorlageId,
     DateOnly? Startdatum,
-    DateOnly? Enddatum);
+    DateOnly? Enddatum,
+    int? VerbandId = null,
+    MannschaftsartFilter MannschaftsartFilter = MannschaftsartFilter.Alle);
 
 public record TurnierAktualisierenEingabe(
     string Name,
@@ -61,7 +65,8 @@ public record TurnierRundeEingabe(
     int RegelwerkId,
     bool MitRueckspiel = false,
     bool AuswaertstorRegelAktiv = false,
-    string? KonfigurationJson = null);
+    string? KonfigurationJson = null,
+    int? GruppenAnzahl = null);
 
 public record RegelwerkErstellenEingabe(
     string Name,

@@ -70,11 +70,11 @@
         <!-- ── Rechte Spalte ── -->
         <Grid Grid.Column="2">
 
-            <!-- Kein Turnier gewählt -->
+            <!-- Fix #1: KeinTurnierGewaehlt bool (not NullToCollapsed on object) -->
             <TextBlock Text="Bitte zuerst ein Turnier auswählen."
                        Foreground="#94A3B8" FontSize="14"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Visibility="{Binding AusgewaehlteInstanz, Converter={StaticResource NullToCollapsed}}" />
+                       Visibility="{Binding KeinTurnierGewaehlt, Converter={StaticResource BoolToVisibility}}" />
 
             <!-- Neue Auslosung anlegen -->
             <ScrollViewer VerticalScrollBarVisibility="Auto"
@@ -101,7 +101,6 @@
                               DisplayMemberPath="Name"
                               FontSize="13" Margin="0,0,0,20" />
 
-                    <!-- Fehlermeldung im Formular -->
                     <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
                             CornerRadius="4" Padding="12,8" Margin="0,0,0,12"
                             Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
@@ -146,26 +145,38 @@
                     <!-- WORKSPACE: Verfügbare Teams + Lostoepfe (nur wenn bearbeitbar) -->
                     <StackPanel Visibility="{Binding IstBearbeitbar, Converter={StaticResource BoolToVisibility}}">
 
-                        <TextBlock Text="DRAG &amp; DROP: Teams in Töpfe ziehen"
+                        <TextBlock Text="Teams zuweisen: Doppelklick, Rechtsklick oder Drag &amp; Drop"
                                    FontSize="11" FontWeight="Bold" Foreground="#94A3B8" Margin="0,0,0,8" />
 
-                        <Grid MinHeight="220">
+                        <Grid MinHeight="260">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="200" />
+                                <ColumnDefinition Width="210" />
                                 <ColumnDefinition Width="12" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- Verfügbare Mannschaften -->
-                            <StackPanel Grid.Column="0">
-                                <Border Background="#F1F5F9" Padding="8,4" CornerRadius="4,4,0,0">
-                                    <TextBlock Text="{Binding VerfuegbareMannschaften.Count, StringFormat='Verfügbar ({0})'}"
-                                               FontSize="12" FontWeight="SemiBold" Foreground="#475569" />
+                            <!-- Fix #2+#3: Filter + Scrollbar für Verfügbare Teilnehmer -->
+                            <DockPanel Grid.Column="0">
+                                <Border DockPanel.Dock="Top" Background="#F1F5F9"
+                                        Padding="6,4" CornerRadius="4,4,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Left"
+                                                   Text="{Binding VerfuegbareTeilnehmer.Count, StringFormat='Verfügbar ({0})'}"
+                                                   FontSize="12" FontWeight="SemiBold" Foreground="#475569"
+                                                   VerticalAlignment="Center" />
+                                    </DockPanel>
                                 </Border>
+                                <!-- Fix #2: Filter-Suchfeld -->
+                                <TextBox DockPanel.Dock="Top"
+                                         Text="{Binding TeilnehmerFilter, UpdateSourceTrigger=PropertyChanged}"
+                                         Padding="6,4" FontSize="12"
+                                         BorderBrush="#CBD5E1" BorderThickness="1,0,1,1" />
+                                <!-- Fix #3: MaxHeight erzwingt Scrollbar -->
                                 <ListBox x:Name="VerfuegbarListBox"
-                                         ItemsSource="{Binding VerfuegbareMannschaften}"
+                                         ItemsSource="{Binding VerfuegbareTeilnehmerGefiltert}"
+                                         SelectedItem="{Binding AusgewaehlterVerfuegbarTeilnehmer}"
                                          AllowDrop="True"
-                                         MinHeight="180"
+                                         MaxHeight="260"
                                          BorderBrush="#CBD5E1" BorderThickness="1,0,1,1"
                                          Background="White"
                                          Drop="VerfuegbarListBox_Drop"
@@ -174,18 +185,27 @@
                                          DragLeave="ListBox_DragLeave"
                                          PreviewMouseLeftButtonDown="ListBox_PreviewMouseLeftButtonDown"
                                          MouseMove="ListBox_MouseMove"
+                                         MouseDoubleClick="VerfuegbarListBox_MouseDoubleClick"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <!-- Fix #4: Rechtsklick-Kontextmenü -->
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                                            <EventSetter Event="MouseRightButtonUp" Handler="VerfuegbarItem_MouseRightButtonUp" />
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
                                     <ListBox.ItemTemplate>
-                                        <DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:TeilnehmerAnzeige}">
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Name}" FontSize="13" />
-                                                <TextBlock Text="{Binding Land.Kurzname}" FontSize="10"
-                                                           Foreground="#94A3B8" />
+                                                <TextBlock Text="{Binding Kuerzel}" FontSize="10"
+                                                           Foreground="#94A3B8"
+                                                           Visibility="{Binding Kuerzel, Converter={StaticResource NullToCollapsed}}" />
                                             </StackPanel>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
-                            </StackPanel>
+                            </DockPanel>
 
                             <!-- Lostoepfe -->
                             <ScrollViewer Grid.Column="2"
@@ -199,17 +219,20 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:LostopfViewModel}">
-                                            <Border Width="175" Margin="0,0,8,0"
+                                            <Border Width="185" Margin="0,0,8,0"
                                                     BorderBrush="#E2E8F0" BorderThickness="1"
                                                     CornerRadius="4">
                                                 <StackPanel>
                                                     <Border Background="#F1F5F9" Padding="8,4"
                                                             CornerRadius="4,4,0,0">
-                                                        <TextBlock Text="{Binding Name}"
-                                                                   FontSize="12" FontWeight="SemiBold"
-                                                                   Foreground="#475569" />
+                                                        <DockPanel>
+                                                            <TextBlock DockPanel.Dock="Left"
+                                                                       Text="{Binding Name}"
+                                                                       FontSize="12" FontWeight="SemiBold"
+                                                                       Foreground="#475569" VerticalAlignment="Center" />
+                                                        </DockPanel>
                                                     </Border>
-                                                    <ListBox ItemsSource="{Binding Mannschaften}"
+                                                    <ListBox ItemsSource="{Binding Teilnehmer}"
                                                              AllowDrop="True"
                                                              MinHeight="140" MaxHeight="280"
                                                              BorderThickness="0"
@@ -221,18 +244,24 @@
                                                              PreviewMouseLeftButtonDown="ListBox_PreviewMouseLeftButtonDown"
                                                              MouseMove="ListBox_MouseMove"
                                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                                        <ListBox.ItemContainerStyle>
+                                                            <Style TargetType="ListBoxItem">
+                                                                <EventSetter Event="MouseRightButtonUp" Handler="TopfItem_MouseRightButtonUp" />
+                                                            </Style>
+                                                        </ListBox.ItemContainerStyle>
                                                         <ListBox.ItemTemplate>
-                                                            <DataTemplate>
+                                                            <DataTemplate DataType="{x:Type vm:TeilnehmerAnzeige}">
                                                                 <StackPanel>
                                                                     <TextBlock Text="{Binding Name}" FontSize="12" />
-                                                                    <TextBlock Text="{Binding Land.Kurzname}"
-                                                                               FontSize="10" Foreground="#94A3B8" />
+                                                                    <TextBlock Text="{Binding Kuerzel}" FontSize="10"
+                                                                               Foreground="#94A3B8"
+                                                                               Visibility="{Binding Kuerzel, Converter={StaticResource NullToCollapsed}}" />
                                                                 </StackPanel>
                                                             </DataTemplate>
                                                         </ListBox.ItemTemplate>
                                                     </ListBox>
                                                     <Border Background="#F8FAFC" Padding="8,3">
-                                                        <TextBlock Text="{Binding Mannschaften.Count, StringFormat='{}{0} Teams'}"
+                                                        <TextBlock Text="{Binding Teilnehmer.Count, StringFormat='{}{0} Teams'}"
                                                                    FontSize="11" Foreground="#94A3B8" />
                                                     </Border>
                                                 </StackPanel>
@@ -269,15 +298,15 @@
                         </ItemsControl>
                     </Expander>
 
-                    <!-- ERGEBNISSE (wenn abgeschlossen) -->
+                    <!-- Fix #6: Ergebnisse mit Platzhalter-Support -->
                     <StackPanel Margin="0,16,0,0"
                                 Visibility="{Binding IstAbgeschlossen, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="ERGEBNISSE DER AUSLOSUNG" FontSize="11" FontWeight="Bold"
                                    Foreground="#94A3B8" Margin="0,0,0,8" />
                         <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
-                            <ItemsControl ItemsSource="{Binding Ergebnisse}" Background="White">
+                            <ItemsControl ItemsSource="{Binding ErgebnisseAnzeige}" Background="White">
                                 <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
+                                    <DataTemplate DataType="{x:Type vm:ErgebnisAnzeige}">
                                         <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="12,6">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
@@ -293,15 +322,15 @@
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding IstFreilos}" Value="True">
                                                                     <Setter Property="Text"
-                                                                            Value="{Binding HeimMannschaft.Name, StringFormat='Freilos: {0}'}" />
+                                                                            Value="{Binding HeimName, StringFormat='Freilos: {0}'}" />
                                                                     <Setter Property="Foreground" Value="#94A3B8" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
                                                     </TextBlock.Style>
-                                                    <Run Text="{Binding HeimMannschaft.Name}" FontWeight="SemiBold" />
+                                                    <Run Text="{Binding HeimName}" FontWeight="SemiBold" />
                                                     <Run Text="  vs  " Foreground="#94A3B8" />
-                                                    <Run Text="{Binding AuswaertsMannschaft.Name}" />
+                                                    <Run Text="{Binding AuswaertsName}" />
                                                 </TextBlock>
                                             </Grid>
                                         </Border>

@@ -53,4 +53,22 @@ public class MannschaftRepository(TurnierverwaltungDbContext context)
         return await Context.Mannschaften
             .FirstOrDefaultAsync(m => m.Name.ToLower() == nameLower, ct);
     }
+
+    public async Task<IReadOnlyList<Mannschaft>> AlleNachTurnierfilterAsync(
+        int? verbandId, MannschaftsartFilter filter, CancellationToken ct = default)
+    {
+        var query = Context.Mannschaften.Include(m => m.Land).AsQueryable();
+
+        if (verbandId.HasValue)
+            query = query.Where(m => m.Land.VerbandId == verbandId.Value);
+
+        query = filter switch
+        {
+            MannschaftsartFilter.Verein              => query.Where(m => m.Mannschaftsart == Mannschaftsart.Verein),
+            MannschaftsartFilter.Nationalmannschaft  => query.Where(m => m.Mannschaftsart == Mannschaftsart.Nationalmannschaft),
+            _                                        => query
+        };
+
+        return await query.OrderBy(m => m.Name).ToListAsync(ct);
+    }
 }

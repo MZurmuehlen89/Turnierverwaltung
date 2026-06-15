@@ -15,14 +15,32 @@ using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
-// ── Hilfsklassen ────────────────────────────────────────────────────────────
+// ── Darstellungstypen ────────────────────────────────────────────────────────
+
+public record TeilnehmerAnzeige(int? MannschaftId, string Name, string? Kuerzel, int EintragId = 0)
+{
+    public bool IstPlatzhalter => !MannschaftId.HasValue;
+
+    public static TeilnehmerAnzeige AusMannschaft(Mannschaft m) =>
+        new(m.Id, m.Name, m.Land?.Kurzname);
+
+    public static TeilnehmerAnzeige AusPlatzhalter(string name) =>
+        new(null, name, null);
+
+    public static TeilnehmerAnzeige AusEintrag(LostopfEintrag e) =>
+        e.MannschaftId.HasValue
+            ? new(e.MannschaftId, e.Mannschaft?.Name ?? "?", e.Mannschaft?.Land?.Kurzname, e.Id)
+            : new(null, e.PlatzhalterName ?? "?", null, e.Id);
+}
+
+public record ErgebnisAnzeige(int PaarungsNummer, string HeimName, string AuswaertsName, bool IstFreilos);
 
 public class LostopfViewModel : ObservableObject
 {
     public int Id { get; init; }
     public string Name { get; init; } = "";
     public int Reihenfolge { get; init; }
-    public ObservableCollection<Mannschaft> Mannschaften { get; init; } = [];
+    public ObservableCollection<TeilnehmerAnzeige> Teilnehmer { get; init; } = [];
 }
 
 public class RegelViewModel : ObservableObject
@@ -56,13 +74,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     private readonly MannschaftService _mannschaftService;
 
     private Auslosung? _auslosungDetail;
-    private IReadOnlyList<Mannschaft> _alleMannschaften = [];
 
     // ── Linke Spalte ──────────────────────────────────────────────────────────
     [ObservableProperty] private ObservableCollection<TurnierInstanz> _instanzen = [];
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(NeuCommand))]
+    [NotifyPropertyChangedFor(nameof(KeinTurnierGewaehlt))]
     private TurnierInstanz? _ausgewaehlteInstanz;
 
     [ObservableProperty] private ObservableCollection<Auslosung> _auslosungen = [];
@@ -91,23 +109,42 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
     private TurnierRunde? _neuRunde;
 
+    private string _autoNeuName = "";
+
     // ── Auslosung-Detail ──────────────────────────────────────────────────────
     [ObservableProperty] private bool _detailAktiv;
     [ObservableProperty] private bool _istBearbeitbar;
     [ObservableProperty] private bool _istAbgeschlossen;
     [ObservableProperty] private string _auslosungKopfzeile = "";
 
-    [ObservableProperty] private ObservableCollection<Mannschaft> _verfuegbareMannschaften = [];
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(VerfuegbareTeilnehmerGefiltert))]
+    private ObservableCollection<TeilnehmerAnzeige> _verfuegbareTeilnehmer = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(VerfuegbareTeilnehmerGefiltert))]
+    private string _teilnehmerFilter = "";
+
+    [ObservableProperty] private TeilnehmerAnzeige? _ausgewaehlterVerfuegbarTeilnehmer;
+
     [ObservableProperty] private ObservableCollection<LostopfViewModel> _lostoepfe = [];
     [ObservableProperty] private ObservableCollection<RegelViewModel> _regeln = [];
-    [ObservableProperty] private ObservableCollection<AuslosungsErgebnis> _ergebnisse = [];
+    [ObservableProperty] private ObservableCollection<ErgebnisAnzeige> _ergebnisseAnzeige = [];
     [ObservableProperty] private string _neuerLostopfName = "";
 
     // ── Status ────────────────────────────────────────────────────────────────
     [ObservableProperty] private bool _istLadend;
     [ObservableProperty] private string? _fehlermeldung;
 
-    // ── Berechnete Listen ─────────────────────────────────────────────────────
+    // ── Berechnete Eigenschaften ─────────────────────────────────────────────
+    public bool KeinTurnierGewaehlt => AusgewaehlteInstanz is null;
+
+    public IEnumerable<TeilnehmerAnzeige> VerfuegbareTeilnehmerGefiltert =>
+        string.IsNullOrWhiteSpace(TeilnehmerFilter)
+            ? VerfuegbareTeilnehmer
+            : VerfuegbareTeilnehmer.Where(t =>
+                t.Name.Contains(TeilnehmerFilter, StringComparison.OrdinalIgnoreCase));
+
     public IReadOnlyList<AuslosungsartOption> AuslosungsartOptionen =>
         Enum.GetValues<Auslosungsart>()
             .Select(a => new AuslosungsartOption(AuslosungsartAnzeigeName(a), a))
@@ -125,8 +162,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         TurnierInstanzService instanzService,
         MannschaftService mannschaftService)
     {
-        _auslosungService = auslosungService;
-        _instanzService   = instanzService;
+        _auslosungService  = auslosungService;
+        _instanzService    = instanzService;
         _mannschaftService = mannschaftService;
     }
 
@@ -135,7 +172,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         IstLadend = true;
         try
         {
-            _alleMannschaften = await _mannschaftService.AlleAbrufenMitLandAsync();
             var instanzen = await _instanzService.AlleAbrufenAsync();
             Instanzen = new ObservableCollection<TurnierInstanz>(instanzen);
         }
@@ -147,12 +183,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     [RelayCommand(CanExecute = nameof(KannNeu))]
     private void Neu()
     {
-        NeuFormAktiv    = true;
-        DetailAktiv     = false;
-        NeuName         = "";
+        NeuFormAktiv     = true;
+        DetailAktiv      = false;
+        _autoNeuName     = "";
+        NeuName          = "";
         NeuAuslosungsart = Auslosungsart.Zufall;
-        NeuRunde        = InstanzRunden.FirstOrDefault();
-        Fehlermeldung   = null;
+        NeuRunde         = InstanzRunden.FirstOrDefault();
+        Fehlermeldung    = null;
     }
 
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
@@ -219,13 +256,30 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     }
 
     [RelayCommand]
+    private async Task TeilnehmerZuTopfHinzufuegen(int topfId)
+    {
+        if (_auslosungDetail is null || AusgewaehlterVerfuegbarTeilnehmer is null) return;
+        Fehlermeldung = null;
+        var t = AusgewaehlterVerfuegbarTeilnehmer;
+        try
+        {
+            if (t.MannschaftId.HasValue)
+                await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(_auslosungDetail.Id, topfId, t.MannschaftId.Value);
+            else
+                await _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(_auslosungDetail.Id, topfId, t.Name);
+            await LadeDetailAsync(_auslosungDetail.Id);
+        }
+        catch (Exception ex) { Fehlermeldung = ex.Message; }
+    }
+
+    [RelayCommand]
     private async Task AuslosungAusfuehren()
     {
         if (_auslosungDetail is null) return;
         Fehlermeldung = null;
         try
         {
-            var ergebnisse = await _auslosungService.AusfuehrenAsync(_auslosungDetail.Id);
+            await _auslosungService.AusfuehrenAsync(_auslosungDetail.Id);
             await LadeDetailAsync(_auslosungDetail.Id);
             await AktualisiereSeitenlisteAsync();
         }
@@ -246,29 +300,34 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
 
-    // ── Öffentliche Methoden für D&D (aufgerufen vom Code-Behind) ─────────────
+    // ── Öffentliche Methoden für D&D und Kontextmenü ─────────────────────────
 
-    public async Task MannschaftZuTopfVerschieben(int mannschaftId, int? vonTopfId, int nachTopfId)
+    public async Task TeilnehmerZuTopfVerschieben(TeilnehmerAnzeige teilnehmer, int? vonTopfId, int nachTopfId)
     {
         if (_auslosungDetail is null) return;
         Fehlermeldung = null;
         try
         {
             if (vonTopfId.HasValue)
-                await _auslosungService.MannschaftAusLostopfEntfernenAsync(_auslosungDetail.Id, vonTopfId.Value, mannschaftId);
-            await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(_auslosungDetail.Id, nachTopfId, mannschaftId);
+                await _auslosungService.EintragAusLostopfEntfernenAsync(_auslosungDetail.Id, vonTopfId.Value, teilnehmer.EintragId);
+
+            if (teilnehmer.MannschaftId.HasValue)
+                await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(_auslosungDetail.Id, nachTopfId, teilnehmer.MannschaftId.Value);
+            else
+                await _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(_auslosungDetail.Id, nachTopfId, teilnehmer.Name);
+
             await LadeDetailAsync(_auslosungDetail.Id);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
 
-    public async Task MannschaftZuVerfuegbarZurueck(int mannschaftId, int vonTopfId)
+    public async Task TeilnehmerZuVerfuegbarZurueck(TeilnehmerAnzeige teilnehmer, int vonTopfId)
     {
         if (_auslosungDetail is null) return;
         Fehlermeldung = null;
         try
         {
-            await _auslosungService.MannschaftAusLostopfEntfernenAsync(_auslosungDetail.Id, vonTopfId, mannschaftId);
+            await _auslosungService.EintragAusLostopfEntfernenAsync(_auslosungDetail.Id, vonTopfId, teilnehmer.EintragId);
             await LadeDetailAsync(_auslosungDetail.Id);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
@@ -289,6 +348,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     {
         Auslosungen.Clear();
         InstanzRunden.Clear();
+        VerfuegbareTeilnehmer.Clear();
+        TeilnehmerFilter = "";
         DetailAktiv  = false;
         NeuFormAktiv = false;
         if (AusgewaehlteInstanz is null) return;
@@ -322,25 +383,55 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
             if (detail is null) return;
             _auslosungDetail = detail;
 
-            var assignedIds = detail.Lostoepfe
+            // Determine round order to decide real-teams vs placeholders
+            var aktuelleRunde = InstanzRunden.FirstOrDefault(r => r.Id == detail.TurnierRundeId);
+            var vorherigeRunde = aktuelleRunde is not null
+                ? InstanzRunden.Where(r => r.Reihenfolge < aktuelleRunde.Reihenfolge)
+                               .OrderByDescending(r => r.Reihenfolge)
+                               .FirstOrDefault()
+                : null;
+
+            IReadOnlyList<TeilnehmerAnzeige> alleTeilnehmer;
+            if (vorherigeRunde is null)
+            {
+                var teams = await _mannschaftService.AlleNachTurnierfilterAsync(
+                    AusgewaehlteInstanz?.VerbandId,
+                    AusgewaehlteInstanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
+                alleTeilnehmer = teams.Select(TeilnehmerAnzeige.AusMannschaft).ToList();
+            }
+            else
+            {
+                alleTeilnehmer = PlatzhalterGenerieren(aktuelleRunde!, vorherigeRunde);
+            }
+
+            var assignedMannschaftIds = detail.Lostoepfe
                 .SelectMany(l => l.Eintraege)
-                .Select(e => e.MannschaftId)
+                .Where(e => e.MannschaftId.HasValue)
+                .Select(e => e.MannschaftId!.Value)
+                .ToHashSet();
+            var assignedPlatzhalter = detail.Lostoepfe
+                .SelectMany(l => l.Eintraege)
+                .Where(e => e.PlatzhalterName != null)
+                .Select(e => e.PlatzhalterName!)
                 .ToHashSet();
 
-            VerfuegbareMannschaften = new ObservableCollection<Mannschaft>(
-                _alleMannschaften.Where(m => !assignedIds.Contains(m.Id)).OrderBy(m => m.Name));
+            VerfuegbareTeilnehmer = new ObservableCollection<TeilnehmerAnzeige>(
+                alleTeilnehmer
+                    .Where(t => t.MannschaftId.HasValue
+                        ? !assignedMannschaftIds.Contains(t.MannschaftId.Value)
+                        : !assignedPlatzhalter.Contains(t.Name))
+                    .OrderBy(t => t.Name));
 
             Lostoepfe = new ObservableCollection<LostopfViewModel>(
                 detail.Lostoepfe.Select(l => new LostopfViewModel
                 {
-                    Id          = l.Id,
-                    Name        = l.Name,
+                    Id         = l.Id,
+                    Name       = l.Name,
                     Reihenfolge = l.Reihenfolge,
-                    Mannschaften = new ObservableCollection<Mannschaft>(
+                    Teilnehmer = new ObservableCollection<TeilnehmerAnzeige>(
                         l.Eintraege
-                            .Where(e => e.Mannschaft is not null)
-                            .OrderBy(e => e.Mannschaft!.Name)
-                            .Select(e => e.Mannschaft!))
+                            .Select(TeilnehmerAnzeige.AusEintrag)
+                            .OrderBy(t => t.Name))
                 }));
 
             Regeln = new ObservableCollection<RegelViewModel>(
@@ -359,7 +450,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
                         });
                 }));
 
-            Ergebnisse       = new ObservableCollection<AuslosungsErgebnis>(detail.Ergebnisse);
+            ErgebnisseAnzeige = new ObservableCollection<ErgebnisAnzeige>(
+                detail.Ergebnisse.Select(e => new ErgebnisAnzeige(
+                    e.PaarungsNummer,
+                    e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
+                    e.AuswaertsMannschaft?.Name ?? e.AuswaertsPlatzhalterName ?? "?",
+                    e.IstFreilos)));
+
             IstBearbeitbar   = detail.Status is not (AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen);
             IstAbgeschlossen = detail.Status == AuslosungsStatus.Abgeschlossen;
 
@@ -372,6 +469,40 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         finally { IstLadend = false; }
     }
 
+    private static IReadOnlyList<TeilnehmerAnzeige> PlatzhalterGenerieren(
+        TurnierRunde aktuelleRunde, TurnierRunde vorherigeRunde)
+    {
+        int anzahl = aktuelleRunde.EingangsMannschaftsanzahl;
+
+        if (vorherigeRunde.Rundenart == Rundenart.Gruppenphase && vorherigeRunde.GruppenAnzahl.HasValue)
+        {
+            var gruppen  = vorherigeRunde.GruppenAnzahl.Value;
+            var proGruppe = vorherigeRunde.AusgangsMannschaftsanzahl / gruppen;
+            var liste = new List<TeilnehmerAnzeige>();
+            for (int platz = 1; platz <= proGruppe; platz++)
+            {
+                for (int g = 0; g < gruppen; g++)
+                {
+                    var buchstabe = (char)('A' + g);
+                    liste.Add(TeilnehmerAnzeige.AusPlatzhalter($"{platz}. Gruppe {buchstabe}"));
+                }
+            }
+            return liste.Take(anzahl).ToList();
+        }
+
+        if (vorherigeRunde.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
+        {
+            var spiele = vorherigeRunde.EingangsMannschaftsanzahl / 2;
+            return Enumerable.Range(1, Math.Min(spiele, anzahl))
+                .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"Sieger Spiel {i} ({vorherigeRunde.Name})"))
+                .ToList();
+        }
+
+        return Enumerable.Range(1, anzahl)
+            .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"Platz {i} ({vorherigeRunde.Name})"))
+            .ToList();
+    }
+
     private async Task AktualisiereSeitenlisteAsync()
     {
         if (AusgewaehlteInstanz is null) return;
@@ -381,7 +512,17 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
             AusgewaehlteAuslosung = Auslosungen.FirstOrDefault(a => a.Id == _auslosungDetail.Id);
     }
 
-    private bool KannNeu()      => !NeuFormAktiv && AusgewaehlteInstanz is not null;
+    partial void OnNeuRundeChanged(TurnierRunde? value)
+    {
+        if (value is null) return;
+        if (string.IsNullOrWhiteSpace(NeuName) || NeuName == _autoNeuName)
+        {
+            _autoNeuName = value.Name;
+            NeuName      = value.Name;
+        }
+    }
+
+    private bool KannNeu()       => !NeuFormAktiv && AusgewaehlteInstanz is not null;
     private bool KannSpeichern() => NeuFormAktiv && !string.IsNullOrWhiteSpace(NeuName) && NeuRunde is not null;
     private bool KannAbbrechen() => NeuFormAktiv;
     private bool KannLoeschen()  => AusgewaehlteAuslosung is not null && !NeuFormAktiv;
@@ -401,23 +542,23 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
 
     private static string StatusAnzeigeName(AuslosungsStatus s) => s switch
     {
-        AuslosungsStatus.Vorbereitung => "Vorbereitung",
-        AuslosungsStatus.Laufend      => "Laufend",
+        AuslosungsStatus.Vorbereitung  => "Vorbereitung",
+        AuslosungsStatus.Laufend       => "Laufend",
         AuslosungsStatus.Abgeschlossen => "Abgeschlossen",
-        AuslosungsStatus.Abgebrochen  => "Abgebrochen",
-        _                             => s.ToString()
+        AuslosungsStatus.Abgebrochen   => "Abgebrochen",
+        _                              => s.ToString()
     };
 
     private static string RegelAnzeigeName(AuslosungsRegelArt art) => art switch
     {
-        AuslosungsRegelArt.KeinGleichesLand                  => "Kein gleiches Land",
-        AuslosungsRegelArt.KeineGleicheGruppe                => "Keine gleiche Gruppe",
-        AuslosungsRegelArt.GruppensiegerGegenGruppenzweite   => "Gruppensieger vs. Gruppenzweite",
-        AuslosungsRegelArt.GesetzteGegenUngesetzte           => "Gesetzte vs. Ungesetzte",
-        AuslosungsRegelArt.HeimrechtNachLos                  => "Heimrecht nach Los",
-        AuslosungsRegelArt.HeimrechtNachSetzliste            => "Heimrecht nach Setzliste",
-        AuslosungsRegelArt.FreilosMoeglich                   => "Freilos möglich",
-        AuslosungsRegelArt.ManuelleEinschraenkung            => "Manuelle Einschränkung",
-        _                                                    => art.ToString()
+        AuslosungsRegelArt.KeinGleichesLand                => "Kein gleiches Land",
+        AuslosungsRegelArt.KeineGleicheGruppe              => "Keine gleiche Gruppe",
+        AuslosungsRegelArt.GruppensiegerGegenGruppenzweite => "Gruppensieger vs. Gruppenzweite",
+        AuslosungsRegelArt.GesetzteGegenUngesetzte         => "Gesetzte vs. Ungesetzte",
+        AuslosungsRegelArt.HeimrechtNachLos                => "Heimrecht nach Los",
+        AuslosungsRegelArt.HeimrechtNachSetzliste          => "Heimrecht nach Setzliste",
+        AuslosungsRegelArt.FreilosMoeglich                 => "Freilos möglich",
+        AuslosungsRegelArt.ManuelleEinschraenkung          => "Manuelle Einschränkung",
+        _                                                  => art.ToString()
     };
 }

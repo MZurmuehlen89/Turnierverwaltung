@@ -37,6 +37,9 @@ public class TurnierValidator
 
             if (r.AuswaertstorRegelAktiv && !r.MitRueckspiel)
                 fehler.Add($"Runde '{r.Name}': Auswärtstorregel ist aktiv, obwohl keine Hin- und Rückspiele gespielt werden.");
+
+            if (r.Rundenart == Rundenart.Gruppenphase && (r.GruppenAnzahl == null || r.GruppenAnzahl < 2))
+                fehler.Add($"Runde '{r.Name}': Gruppenphase erfordert mindestens 2 Gruppen (GruppenAnzahl war: {r.GruppenAnzahl ?? 0}).");
         }
 
         // Rundenübergänge: Ausgang[i] muss Eingang[i+1] sein

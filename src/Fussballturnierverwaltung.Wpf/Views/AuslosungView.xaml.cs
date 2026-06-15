@@ -1,7 +1,7 @@
-using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Wpf.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -26,12 +26,12 @@ public partial class AuslosungView : UserControl
         _dragStartPoint = e.GetPosition(null);
         _pendingDrag    = null;
 
-        var mannschaft = HoleGezogenesMannschaft(e.OriginalSource);
-        if (mannschaft is null) return;
+        var teilnehmer = HoleGezogenenTeilnehmer(e.OriginalSource);
+        if (teilnehmer is null) return;
 
         var listBox = (ListBox)sender;
         var topfVm  = listBox.DataContext as LostopfViewModel;
-        _pendingDrag = new DragData(mannschaft.Id, topfVm?.Id);
+        _pendingDrag = new DragData(teilnehmer, topfVm?.Id);
     }
 
     private void ListBox_MouseMove(object sender, MouseEventArgs e)
@@ -55,10 +55,10 @@ public partial class AuslosungView : UserControl
     {
         ResetDragVisual(sender);
         if (e.Data.GetData(typeof(DragData)) is not DragData data) return;
-        if (!data.QuellTopfId.HasValue) return;  // bereits in Verfügbar, kein Effekt
+        if (!data.QuellTopfId.HasValue) return;
 
         var vm = (AuslosungViewModel)DataContext;
-        await vm.MannschaftZuVerfuegbarZurueck(data.MannschaftId, data.QuellTopfId.Value);
+        await vm.TeilnehmerZuVerfuegbarZurueck(data.Teilnehmer, data.QuellTopfId.Value);
         e.Handled = true;
     }
 
@@ -69,10 +69,10 @@ public partial class AuslosungView : UserControl
 
         var listBox = (ListBox)sender;
         if (listBox.DataContext is not LostopfViewModel ziel) return;
-        if (ziel.Id == data.QuellTopfId) return;  // gleicher Topf → kein Effekt
+        if (ziel.Id == data.QuellTopfId) return;
 
         var vm = (AuslosungViewModel)DataContext;
-        await vm.MannschaftZuTopfVerschieben(data.MannschaftId, data.QuellTopfId, ziel.Id);
+        await vm.TeilnehmerZuTopfVerschieben(data.Teilnehmer, data.QuellTopfId, ziel.Id);
         e.Handled = true;
     }
 
@@ -114,21 +114,184 @@ public partial class AuslosungView : UserControl
         }
     }
 
+    // ── Fix #4: Doppelklick auf Verfügbar-Liste ───────────────────────────────
+
+    private async void VerfuegbarListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        var vm = (AuslosungViewModel)DataContext;
+        if (vm.AusgewaehlterVerfuegbarTeilnehmer is null) return;
+
+        var lostoepfe = vm.Lostoepfe;
+        if (!lostoepfe.Any()) return;
+
+        if (lostoepfe.Count == 1)
+        {
+            await vm.TeilnehmerZuTopfHinzufuegenCommand.ExecuteAsync(lostoepfe[0].Id);
+        }
+        else
+        {
+            // Show popup to pick which pot
+            ZeigePotAuswahlPopup(vm, vm.AusgewaehlterVerfuegbarTeilnehmer, (ListBox)sender);
+        }
+    }
+
+    // ── Fix #4: Rechtsklick auf Verfügbar-Item ────────────────────────────────
+
+    private void VerfuegbarItem_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not ListBoxItem item) return;
+        if (item.DataContext is not TeilnehmerAnzeige teilnehmer) return;
+
+        var vm = (AuslosungViewModel)DataContext;
+        if (!vm.Lostoepfe.Any()) return;
+
+        var menu = new ContextMenu();
+        var header = new MenuItem { Header = $"'{teilnehmer.Name}' in Topf:", IsEnabled = false };
+        menu.Items.Add(header);
+        menu.Items.Add(new Separator());
+
+        foreach (var topf in vm.Lostoepfe)
+        {
+            var topfCopy = topf;
+            var menuItem = new MenuItem { Header = topfCopy.Name };
+            menuItem.Click += async (_, _) =>
+            {
+                vm.AusgewaehlterVerfuegbarTeilnehmer = teilnehmer;
+                await vm.TeilnehmerZuTopfHinzufuegenCommand.ExecuteAsync(topfCopy.Id);
+            };
+            menu.Items.Add(menuItem);
+        }
+
+        item.ContextMenu = menu;
+        item.ContextMenu.IsOpen = true;
+        e.Handled = true;
+    }
+
+    // ── Rechtsklick auf Item im Topf ──────────────────────────────────────────
+
+    private void TopfItem_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not ListBoxItem item) return;
+        if (item.DataContext is not TeilnehmerAnzeige teilnehmer) return;
+
+        // Find which pot this item belongs to
+        var listBox = FindParent<ListBox>(item);
+        if (listBox?.DataContext is not LostopfViewModel quellTopf) return;
+
+        var vm = (AuslosungViewModel)DataContext;
+        var menu = new ContextMenu();
+
+        var header = new MenuItem { Header = $"'{teilnehmer.Name}'", IsEnabled = false };
+        menu.Items.Add(header);
+        menu.Items.Add(new Separator());
+
+        var entfernen = new MenuItem { Header = $"← Zurück zu Verfügbar" };
+        entfernen.Click += async (_, _) =>
+            await vm.TeilnehmerZuVerfuegbarZurueck(teilnehmer, quellTopf.Id);
+        menu.Items.Add(entfernen);
+
+        var anderen = vm.Lostoepfe.Where(l => l.Id != quellTopf.Id).ToList();
+        if (anderen.Any())
+        {
+            menu.Items.Add(new Separator());
+            foreach (var ziel in anderen)
+            {
+                var zielCopy = ziel;
+                var verschieben = new MenuItem { Header = $"→ {zielCopy.Name}" };
+                verschieben.Click += async (_, _) =>
+                    await vm.TeilnehmerZuTopfVerschieben(teilnehmer, quellTopf.Id, zielCopy.Id);
+                menu.Items.Add(verschieben);
+            }
+        }
+
+        item.ContextMenu = menu;
+        item.ContextMenu.IsOpen = true;
+        e.Handled = true;
+    }
+
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
 
-    private static Mannschaft? HoleGezogenesMannschaft(object originalSource)
+    private static TeilnehmerAnzeige? HoleGezogenenTeilnehmer(object originalSource)
     {
         var element = originalSource as DependencyObject;
         while (element is not null)
         {
-            if (element is FrameworkElement fe && fe.DataContext is Mannschaft m)
-                return m;
+            if (element is FrameworkElement fe && fe.DataContext is TeilnehmerAnzeige t)
+                return t;
             element = VisualTreeHelper.GetParent(element);
         }
         return null;
     }
 
+    private static T? FindParent<T>(DependencyObject child) where T : DependencyObject
+    {
+        var parent = VisualTreeHelper.GetParent(child);
+        while (parent is not null)
+        {
+            if (parent is T result) return result;
+            parent = VisualTreeHelper.GetParent(parent);
+        }
+        return null;
+    }
+
+    private static void ZeigePotAuswahlPopup(AuslosungViewModel vm, TeilnehmerAnzeige teilnehmer, UIElement target)
+    {
+        var popup = new Popup
+        {
+            PlacementTarget = target,
+            Placement       = PlacementMode.MousePoint,
+            StaysOpen       = false,
+            AllowsTransparency = true
+        };
+
+        var panel = new StackPanel
+        {
+            Background = Brushes.White,
+            MinWidth   = 140
+        };
+        panel.Children.Add(new TextBlock
+        {
+            Text       = "In Topf verschieben:",
+            FontSize   = 11,
+            FontWeight = FontWeights.Bold,
+            Foreground = Brushes.Gray,
+            Margin     = new Thickness(8, 6, 8, 4)
+        });
+
+        foreach (var topf in vm.Lostoepfe)
+        {
+            var topfCopy = topf;
+            var btn = new Button
+            {
+                Content         = topf.Name,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Padding         = new Thickness(8, 5, 8, 5),
+                BorderThickness = new Thickness(0),
+                Background      = Brushes.Transparent,
+                FontSize        = 13,
+                Cursor          = Cursors.Hand
+            };
+            btn.Click += async (_, _) =>
+            {
+                popup.IsOpen = false;
+                vm.AusgewaehlterVerfuegbarTeilnehmer = teilnehmer;
+                await vm.TeilnehmerZuTopfHinzufuegenCommand.ExecuteAsync(topfCopy.Id);
+            };
+            panel.Children.Add(btn);
+        }
+
+        var border = new Border
+        {
+            Child           = panel,
+            BorderBrush     = Brushes.LightGray,
+            BorderThickness = new Thickness(1),
+            CornerRadius    = new CornerRadius(4)
+        };
+        popup.Child  = border;
+        popup.IsOpen = true;
+    }
+
     // ── Drag-Daten ────────────────────────────────────────────────────────────
 
-    private sealed record DragData(int MannschaftId, int? QuellTopfId);
+    private sealed record DragData(TeilnehmerAnzeige Teilnehmer, int? QuellTopfId);
 }

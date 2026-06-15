@@ -83,6 +83,28 @@ public class AuslosungService(
         await repository.AktualisierenAsync(auslosung, ct);
     }
 
+    public async Task PlatzhalterZuLostopfHinzufuegenAsync(
+        int auslosungId, int lostopfId, string platzhalterName, CancellationToken ct = default)
+    {
+        var auslosung = await LadenOderFehler(auslosungId, ct);
+        PruefeNichtAbgeschlossen(auslosung);
+
+        var lostopf = auslosung.Lostoepfe.FirstOrDefault(l => l.Id == lostopfId)
+            ?? throw new InvalidOperationException($"Lostopf {lostopfId} nicht gefunden.");
+
+        var name = platzhalterName.Trim();
+
+        if (auslosung.Lostoepfe.SelectMany(l => l.Eintraege).Any(e => e.PlatzhalterName == name))
+            throw new InvalidOperationException($"Platzhalter '{name}' ist bereits in einem Lostopf vorhanden.");
+
+        lostopf.Eintraege.Add(new LostopfEintrag
+        {
+            LostopfId       = lostopfId,
+            PlatzhalterName = name
+        });
+        await repository.AktualisierenAsync(auslosung, ct);
+    }
+
     public async Task MannschaftAusLostopfEntfernenAsync(
         int auslosungId, int lostopfId, int mannschaftId, CancellationToken ct = default)
     {
@@ -93,6 +115,40 @@ public class AuslosungService(
             ?? throw new InvalidOperationException($"Lostopf {lostopfId} nicht gefunden.");
 
         var eintrag = lostopf.Eintraege.FirstOrDefault(e => e.MannschaftId == mannschaftId);
+        if (eintrag is not null)
+        {
+            lostopf.Eintraege.Remove(eintrag);
+            await repository.AktualisierenAsync(auslosung, ct);
+        }
+    }
+
+    public async Task PlatzhalterAusLostopfEntfernenAsync(
+        int auslosungId, int lostopfId, string platzhalterName, CancellationToken ct = default)
+    {
+        var auslosung = await LadenOderFehler(auslosungId, ct);
+        PruefeNichtAbgeschlossen(auslosung);
+
+        var lostopf = auslosung.Lostoepfe.FirstOrDefault(l => l.Id == lostopfId)
+            ?? throw new InvalidOperationException($"Lostopf {lostopfId} nicht gefunden.");
+
+        var eintrag = lostopf.Eintraege.FirstOrDefault(e => e.PlatzhalterName == platzhalterName.Trim());
+        if (eintrag is not null)
+        {
+            lostopf.Eintraege.Remove(eintrag);
+            await repository.AktualisierenAsync(auslosung, ct);
+        }
+    }
+
+    public async Task EintragAusLostopfEntfernenAsync(
+        int auslosungId, int lostopfId, int eintragId, CancellationToken ct = default)
+    {
+        var auslosung = await LadenOderFehler(auslosungId, ct);
+        PruefeNichtAbgeschlossen(auslosung);
+
+        var lostopf = auslosung.Lostoepfe.FirstOrDefault(l => l.Id == lostopfId)
+            ?? throw new InvalidOperationException($"Lostopf {lostopfId} nicht gefunden.");
+
+        var eintrag = lostopf.Eintraege.FirstOrDefault(e => e.Id == eintragId);
         if (eintrag is not null)
         {
             lostopf.Eintraege.Remove(eintrag);
@@ -139,14 +195,12 @@ public class AuslosungService(
         if (auslosung.Status == AuslosungsStatus.Abgeschlossen)
             throw new InvalidOperationException("Auslosung wurde bereits durchgeführt. Bitte zuerst zurücksetzen.");
 
-        var alleMannschaften = auslosung.Lostoepfe
+        var alleEintraege = auslosung.Lostoepfe
             .SelectMany(l => l.Eintraege)
-            .Select(e => e.Mannschaft)
-            .Where(m => m is not null)
-            .ToList()!;
+            .ToList();
 
         ValidationException.WerfenWennUngueltig(
-            validator.Validieren(auslosung, alleMannschaften));
+            validator.Validieren(auslosung, alleEintraege));
 
         var ergebnisse = Ausloesen(auslosung);
         await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);
@@ -178,6 +232,29 @@ public class AuslosungService(
             throw new InvalidOperationException("Eine abgeschlossene Auslosung kann nicht geändert werden. Bitte zuerst zurücksetzen.");
     }
 
+    // ── Internal slot abstraction ──────────────────────────────────────────
+
+    private record TeilnehmerSlot(int? MannschaftId, int? LandId, string? PlatzhalterName)
+    {
+        public static TeilnehmerSlot AusEintrag(LostopfEintrag e) =>
+            e.MannschaftId.HasValue
+                ? new(e.MannschaftId, e.Mannschaft?.LandId, null)
+                : new(null, null, e.PlatzhalterName);
+    }
+
+    private static bool GleichesLand(TeilnehmerSlot a, TeilnehmerSlot b) =>
+        a.LandId.HasValue && b.LandId.HasValue && a.LandId == b.LandId;
+
+    private static AuslosungsErgebnis Paarung(int nr, TeilnehmerSlot heim, TeilnehmerSlot auswaerts) =>
+        new()
+        {
+            PaarungsNummer           = nr,
+            HeimMannschaftId         = heim.MannschaftId,
+            AuswaertsMannschaftId    = auswaerts.MannschaftId,
+            HeimPlatzhalterName      = heim.PlatzhalterName,
+            AuswaertsPlatzhalterName = auswaerts.PlatzhalterName
+        };
+
     // ── Draw algorithms ────────────────────────────────────────────────────
 
     private static List<AuslosungsErgebnis> Ausloesen(Auslosung auslosung) =>
@@ -192,65 +269,57 @@ public class AuslosungService(
 
     private static List<AuslosungsErgebnis> ZufaelligAusloesen(Auslosung auslosung)
     {
-        var alleTeams = auslosung.Lostoepfe
+        var alleSlots = auslosung.Lostoepfe
             .OrderBy(l => l.Reihenfolge)
             .SelectMany(l => l.Eintraege)
-            .Select(e => e.Mannschaft)
+            .Select(TeilnehmerSlot.AusEintrag)
             .ToList();
 
         var keinGleichesLand = HatAktiveRegel(auslosung, AuslosungsRegelArt.KeinGleichesLand);
         var heimNachLos      = HatAktiveRegel(auslosung, AuslosungsRegelArt.HeimrechtNachLos);
         var freilosMoeglich  = HatAktiveRegel(auslosung, AuslosungsRegelArt.FreilosMoeglich);
 
-        Mannschaft? freilosTeam = null;
-        var teams = alleTeams.ToList();
+        TeilnehmerSlot? freilosSlot = null;
+        var slots = alleSlots.ToList();
 
-        if (freilosMoeglich && teams.Count % 2 == 1)
+        if (freilosMoeglich && slots.Count % 2 == 1)
         {
-            int freilosIdx = Random.Shared.Next(teams.Count);
-            freilosTeam = teams[freilosIdx];
-            teams.RemoveAt(freilosIdx);
+            int freilosIdx = Random.Shared.Next(slots.Count);
+            freilosSlot = slots[freilosIdx];
+            slots.RemoveAt(freilosIdx);
         }
 
-        var paare = PaarenMitKonstraints(teams, keinGleichesLand);
-        return ErgebnisseAusListe(paare, freilosTeam, heimNachLos, heimVonPot1: true);
+        var paare = PaarenMitKonstraints(slots, keinGleichesLand);
+        return ErgebnisseAusListe(paare, freilosSlot, heimNachLos);
     }
 
     private static List<AuslosungsErgebnis> NachToepfenAusloesen(Auslosung auslosung)
     {
-        var lostoepfe        = auslosung.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
-        var keinGleichesLand = HatAktiveRegel(auslosung, AuslosungsRegelArt.KeinGleichesLand);
-        var heimNachSetzliste = HatAktiveRegel(auslosung, AuslosungsRegelArt.HeimrechtNachSetzliste);
-        var heimNachLos      = HatAktiveRegel(auslosung, AuslosungsRegelArt.HeimrechtNachLos);
+        var lostoepfe         = auslosung.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
+        var keinGleichesLand  = HatAktiveRegel(auslosung, AuslosungsRegelArt.KeinGleichesLand);
+        var heimNachLos       = HatAktiveRegel(auslosung, AuslosungsRegelArt.HeimrechtNachLos);
 
         var alleErgebnisse = new List<AuslosungsErgebnis>();
         int paarungsNr = 1;
 
         for (int i = 0; i + 1 < lostoepfe.Count; i += 2)
         {
-            var topf1 = lostoepfe[i].Eintraege.Select(e => e.Mannschaft).ToList();
-            var topf2 = lostoepfe[i + 1].Eintraege.Select(e => e.Mannschaft).ToList();
+            var topf1 = lostoepfe[i].Eintraege.Select(TeilnehmerSlot.AusEintrag).ToList();
+            var topf2 = lostoepfe[i + 1].Eintraege.Select(TeilnehmerSlot.AusEintrag).ToList();
             var paare = ZweiTopfPaaren(topf1, topf2, keinGleichesLand);
 
-            foreach (var (teamA, teamB) in paare)
+            foreach (var (slotA, slotB) in paare)
             {
-                int heimId, auswaertsId;
+                TeilnehmerSlot heim, auswaerts;
                 if (heimNachLos && Random.Shared.Next(2) == 0)
                 {
-                    heimId = teamB.Id; auswaertsId = teamA.Id;
+                    heim = slotB; auswaerts = slotA;
                 }
                 else
                 {
-                    // Default oder HeimrechtNachSetzliste: Pot 1 = Heim
-                    heimId = teamA.Id; auswaertsId = teamB.Id;
+                    heim = slotA; auswaerts = slotB;
                 }
-
-                alleErgebnisse.Add(new AuslosungsErgebnis
-                {
-                    PaarungsNummer        = paarungsNr++,
-                    HeimMannschaftId      = heimId,
-                    AuswaertsMannschaftId = auswaertsId
-                });
+                alleErgebnisse.Add(Paarung(paarungsNr++, heim, auswaerts));
             }
         }
 
@@ -267,27 +336,20 @@ public class AuslosungService(
         var gesetzte = alleEintraege
             .Where(e => e.SetzPosition.HasValue)
             .OrderBy(e => e.SetzPosition)
-            .Select(e => e.Mannschaft)
+            .Select(TeilnehmerSlot.AusEintrag)
             .ToList();
 
         var ungesetzte = alleEintraege
             .Where(e => !e.SetzPosition.HasValue)
             .OrderBy(_ => Random.Shared.Next())
-            .Select(e => e.Mannschaft)
+            .Select(TeilnehmerSlot.AusEintrag)
             .ToList();
 
         var ergebnisse = new List<AuslosungsErgebnis>();
         int paarungsNr = 1;
 
         for (int i = 0; i < Math.Min(gesetzte.Count, ungesetzte.Count); i++)
-        {
-            ergebnisse.Add(new AuslosungsErgebnis
-            {
-                PaarungsNummer        = paarungsNr++,
-                HeimMannschaftId      = gesetzte[i].Id,
-                AuswaertsMannschaftId = ungesetzte[i].Id
-            });
-        }
+            ergebnisse.Add(Paarung(paarungsNr++, gesetzte[i], ungesetzte[i]));
 
         return ergebnisse;
     }
@@ -304,37 +366,34 @@ public class AuslosungService(
 
         for (int i = 0; i < lostoepfe.Count; i++)
         {
-            var teamsA = lostoepfe[i].Eintraege.Select(e => e.Mannschaft!).ToList();
+            var teamsA = lostoepfe[i].Eintraege.Select(TeilnehmerSlot.AusEintrag).ToList();
 
-            // Innerhalb desselben Topfes
             foreach (var (heim, auswaerts) in InnerPotPaaren(teamsA, keinGleichesLand))
-                alleErgebnisse.Add(Paarung(paarungsNr++, heim.Id, auswaerts.Id));
+                alleErgebnisse.Add(Paarung(paarungsNr++, heim, auswaerts));
 
-            // Gegenüber jedem anderen Topf (j > i, um Doppelzählung zu vermeiden)
             for (int j = i + 1; j < lostoepfe.Count; j++)
             {
-                var teamsB = lostoepfe[j].Eintraege.Select(e => e.Mannschaft!).ToList();
+                var teamsB = lostoepfe[j].Eintraege.Select(TeilnehmerSlot.AusEintrag).ToList();
                 foreach (var (heim, auswaerts) in CrossPotPaaren(teamsA, teamsB, keinGleichesLand))
-                    alleErgebnisse.Add(Paarung(paarungsNr++, heim.Id, auswaerts.Id));
+                    alleErgebnisse.Add(Paarung(paarungsNr++, heim, auswaerts));
             }
         }
 
         return alleErgebnisse;
     }
 
-    // Innerhalb eines Topfes: Hamiltonscher Zyklus → jedes Team exakt 1× Heim, 1× Auswärts.
-    private static List<(Mannschaft Heim, Mannschaft Auswaerts)> InnerPotPaaren(
-        List<Mannschaft> teams, bool keinGleichesLand)
+    private static List<(TeilnehmerSlot Heim, TeilnehmerSlot Auswaerts)> InnerPotPaaren(
+        List<TeilnehmerSlot> slots, bool keinGleichesLand)
     {
-        int n = teams.Count;
+        int n = slots.Count;
         for (int versuch = 0; versuch < 300; versuch++)
         {
-            var shuffled = teams.OrderBy(_ => Random.Shared.Next()).ToList();
+            var shuffled = slots.OrderBy(_ => Random.Shared.Next()).ToList();
             bool valid   = true;
 
             for (int i = 0; i < n; i++)
             {
-                if (keinGleichesLand && shuffled[i].LandId == shuffled[(i + 1) % n].LandId)
+                if (keinGleichesLand && GleichesLand(shuffled[i], shuffled[(i + 1) % n]))
                 {
                     valid = false;
                     break;
@@ -343,9 +402,9 @@ public class AuslosungService(
 
             if (!valid) continue;
 
-            var result = new List<(Mannschaft, Mannschaft)>(n);
+            var result = new List<(TeilnehmerSlot, TeilnehmerSlot)>(n);
             for (int i = 0; i < n; i++)
-                result.Add((shuffled[i], shuffled[(i + 1) % n]));   // shuffled[i] = Heim
+                result.Add((shuffled[i], shuffled[(i + 1) % n]));
             return result;
         }
 
@@ -354,35 +413,31 @@ public class AuslosungService(
             "Zu viele Mannschaften aus demselben Land im Topf?");
     }
 
-    // Zwischen zwei Töpfen A und B: zwei unabhängige Permutationen →
-    // jedes A-Team spielt 1× Heim vs. B, 1× Auswärts vs. B (und umgekehrt).
-    private static List<(Mannschaft Heim, Mannschaft Auswaerts)> CrossPotPaaren(
-        List<Mannschaft> teamsA, List<Mannschaft> teamsB, bool keinGleichesLand)
+    private static List<(TeilnehmerSlot Heim, TeilnehmerSlot Auswaerts)> CrossPotPaaren(
+        List<TeilnehmerSlot> teamsA, List<TeilnehmerSlot> teamsB, bool keinGleichesLand)
     {
         int m = teamsA.Count;
         for (int versuch = 0; versuch < 500; versuch++)
         {
-            // perm1[i]: A-Team i spielt zu Hause gegen B-Team perm1[i]
-            var perm1    = teamsB.OrderBy(_ => Random.Shared.Next()).ToList();
-            // perm2[i]: A-Team i spielt auswärts gegen B-Team perm2[i]
-            var perm2    = teamsB.OrderBy(_ => Random.Shared.Next()).ToList();
-            bool valid   = true;
+            var perm1  = teamsB.OrderBy(_ => Random.Shared.Next()).ToList();
+            var perm2  = teamsB.OrderBy(_ => Random.Shared.Next()).ToList();
+            bool valid = true;
 
             for (int i = 0; i < m; i++)
             {
-                if (perm1[i].Id == perm2[i].Id) { valid = false; break; }
+                if (perm1[i] == perm2[i]) { valid = false; break; }
                 if (keinGleichesLand &&
-                    (teamsA[i].LandId == perm1[i].LandId || teamsA[i].LandId == perm2[i].LandId))
+                    (GleichesLand(teamsA[i], perm1[i]) || GleichesLand(teamsA[i], perm2[i])))
                 { valid = false; break; }
             }
 
             if (!valid) continue;
 
-            var result = new List<(Mannschaft, Mannschaft)>(m * 2);
+            var result = new List<(TeilnehmerSlot, TeilnehmerSlot)>(m * 2);
             for (int i = 0; i < m; i++)
             {
-                result.Add((teamsA[i], perm1[i]));   // A-Team ist Heim
-                result.Add((perm2[i], teamsA[i]));   // B-Team ist Heim
+                result.Add((teamsA[i], perm1[i]));
+                result.Add((perm2[i], teamsA[i]));
             }
             return result;
         }
@@ -392,21 +447,19 @@ public class AuslosungService(
             "Die Einschränkungen (z. B. 'Kein gleiches Land') können nicht erfüllt werden.");
     }
 
-    private static AuslosungsErgebnis Paarung(int nr, int heimId, int auswaertsId) =>
-        new() { PaarungsNummer = nr, HeimMannschaftId = heimId, AuswaertsMannschaftId = auswaertsId };
-
     // ─────────────────────────────────────────────────────────────────────
 
-    private static List<(Mannschaft, Mannschaft)> PaarenMitKonstraints(List<Mannschaft> teams, bool keinGleichesLand)
+    private static List<(TeilnehmerSlot, TeilnehmerSlot)> PaarenMitKonstraints(
+        List<TeilnehmerSlot> slots, bool keinGleichesLand)
     {
         for (int attempt = 0; attempt < 200; attempt++)
         {
-            var shuffled = teams.OrderBy(_ => Random.Shared.Next()).ToList();
+            var shuffled = slots.OrderBy(_ => Random.Shared.Next()).ToList();
             bool valid = true;
 
             for (int i = 0; i + 1 < shuffled.Count; i += 2)
             {
-                if (keinGleichesLand && shuffled[i].LandId == shuffled[i + 1].LandId)
+                if (keinGleichesLand && GleichesLand(shuffled[i], shuffled[i + 1]))
                 {
                     valid = false;
                     break;
@@ -415,7 +468,7 @@ public class AuslosungService(
 
             if (!valid) continue;
 
-            var result = new List<(Mannschaft, Mannschaft)>();
+            var result = new List<(TeilnehmerSlot, TeilnehmerSlot)>();
             for (int i = 0; i + 1 < shuffled.Count; i += 2)
                 result.Add((shuffled[i], shuffled[i + 1]));
             return result;
@@ -426,14 +479,14 @@ public class AuslosungService(
             "können mit den gewählten Mannschaften nicht erfüllt werden.");
     }
 
-    private static List<(Mannschaft, Mannschaft)> ZweiTopfPaaren(
-        List<Mannschaft> topf1, List<Mannschaft> topf2, bool keinGleichesLand)
+    private static List<(TeilnehmerSlot, TeilnehmerSlot)> ZweiTopfPaaren(
+        List<TeilnehmerSlot> topf1, List<TeilnehmerSlot> topf2, bool keinGleichesLand)
     {
         for (int attempt = 0; attempt < 200; attempt++)
         {
             var shuffled2 = topf2.OrderBy(_ => Random.Shared.Next()).ToList();
             bool valid = !keinGleichesLand ||
-                         !topf1.Where((t, i) => i < shuffled2.Count && t.LandId == shuffled2[i].LandId).Any();
+                         !topf1.Where((t, i) => i < shuffled2.Count && GleichesLand(t, shuffled2[i])).Any();
 
             if (valid)
                 return topf1.Zip(shuffled2).ToList();
@@ -445,41 +498,35 @@ public class AuslosungService(
     }
 
     private static List<AuslosungsErgebnis> ErgebnisseAusListe(
-        List<(Mannschaft TeamA, Mannschaft TeamB)> paare,
-        Mannschaft? freilosTeam,
-        bool heimNachLos,
-        bool heimVonPot1)
+        List<(TeilnehmerSlot SlotA, TeilnehmerSlot SlotB)> paare,
+        TeilnehmerSlot? freilosSlot,
+        bool heimNachLos)
     {
         var ergebnisse = new List<AuslosungsErgebnis>();
         int paarungsNr = 1;
 
-        foreach (var (teamA, teamB) in paare)
+        foreach (var (slotA, slotB) in paare)
         {
-            int heimId, auswaertsId;
+            TeilnehmerSlot heim, auswaerts;
             if (heimNachLos && Random.Shared.Next(2) == 0)
             {
-                heimId = teamB.Id; auswaertsId = teamA.Id;
+                heim = slotB; auswaerts = slotA;
             }
             else
             {
-                heimId = teamA.Id; auswaertsId = teamB.Id;
+                heim = slotA; auswaerts = slotB;
             }
-
-            ergebnisse.Add(new AuslosungsErgebnis
-            {
-                PaarungsNummer        = paarungsNr++,
-                HeimMannschaftId      = heimId,
-                AuswaertsMannschaftId = auswaertsId
-            });
+            ergebnisse.Add(Paarung(paarungsNr++, heim, auswaerts));
         }
 
-        if (freilosTeam is not null)
+        if (freilosSlot is not null)
         {
             ergebnisse.Add(new AuslosungsErgebnis
             {
-                PaarungsNummer   = paarungsNr,
-                HeimMannschaftId = freilosTeam.Id,
-                IstFreilos       = true
+                PaarungsNummer      = paarungsNr,
+                HeimMannschaftId    = freilosSlot.MannschaftId,
+                HeimPlatzhalterName = freilosSlot.PlatzhalterName,
+                IstFreilos          = true
             });
         }
 

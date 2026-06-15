@@ -12,6 +12,8 @@ public class AuslosungsErgebnisKonfiguration : IEntityTypeConfiguration<Auslosun
         builder.HasKey(e => e.Id);
         builder.Property(e => e.PaarungsNummer).IsRequired();
         builder.Property(e => e.IstFreilos).IsRequired();
+        builder.Property(e => e.HeimPlatzhalterName).HasMaxLength(200);
+        builder.Property(e => e.AuswaertsPlatzhalterName).HasMaxLength(200);
 
         builder.HasOne(e => e.Auslosung)
             .WithMany(a => a.Ergebnisse)

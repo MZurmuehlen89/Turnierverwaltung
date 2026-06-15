@@ -343,8 +343,8 @@ public class AuslosungMenue(
         if (eintrag is null) return;
 
         var lostopf = auslosung.Lostoepfe.First(l => l.Id == eintrag.LostopfId);
-        await auslosungService.MannschaftAusLostopfEntfernenAsync(
-            auslosung.Id, eintrag.LostopfId, eintrag.MannschaftId, ct);
+        await auslosungService.EintragAusLostopfEntfernenAsync(
+            auslosung.Id, eintrag.LostopfId, eintrag.Id, ct);
 
         KonsolenHilfsmittel.ErfolgAnzeigen($"Mannschaft aus '{lostopf.Name}' entfernt.");
         KonsolenHilfsmittel.Pause();

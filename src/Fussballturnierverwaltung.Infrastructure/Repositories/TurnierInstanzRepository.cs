@@ -36,15 +36,36 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
     {
         var alte = await Context.TurnierRunden
             .Where(r => r.TurnierInstanzId == instanzId)
+            .OrderBy(r => r.Reihenfolge)
             .ToListAsync(ct);
-        Context.TurnierRunden.RemoveRange(alte);
-        await Context.SaveChangesAsync(ct);
 
-        if (neueRunden.Count > 0)
+        // Update existing rounds in-place to preserve IDs referenced by Auslosungen
+        int gemeinsam = Math.Min(alte.Count, neueRunden.Count);
+        for (int i = 0; i < gemeinsam; i++)
         {
-            Context.TurnierRunden.AddRange(neueRunden);
-            await Context.SaveChangesAsync(ct);
+            var alt = alte[i];
+            var neu = neueRunden[i];
+            alt.Name                      = neu.Name;
+            alt.Reihenfolge               = neu.Reihenfolge;
+            alt.Rundenart                 = neu.Rundenart;
+            alt.EingangsMannschaftsanzahl = neu.EingangsMannschaftsanzahl;
+            alt.AusgangsMannschaftsanzahl = neu.AusgangsMannschaftsanzahl;
+            alt.GruppenAnzahl             = neu.GruppenAnzahl;
+            alt.RegelwerkId               = neu.RegelwerkId;
+            alt.MitRueckspiel             = neu.MitRueckspiel;
+            alt.AuswaertstorRegelAktiv    = neu.AuswaertstorRegelAktiv;
+            alt.KonfigurationJson         = neu.KonfigurationJson;
         }
+
+        // Add rounds if the new list is longer
+        for (int i = alte.Count; i < neueRunden.Count; i++)
+            Context.TurnierRunden.Add(neueRunden[i]);
+
+        // Delete rounds that no longer exist (FK violation here = correct — round has active Auslosung)
+        if (alte.Count > neueRunden.Count)
+            Context.TurnierRunden.RemoveRange(alte.Skip(neueRunden.Count));
+
+        await Context.SaveChangesAsync(ct);
     }
 
     // Löscht in der richtigen Reihenfolge:

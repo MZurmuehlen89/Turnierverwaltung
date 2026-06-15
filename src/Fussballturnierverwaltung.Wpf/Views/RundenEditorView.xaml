@@ -211,6 +211,14 @@
                         </StackPanel>
                     </Grid>
 
+                    <!-- Gruppenanzahl (nur bei Gruppenphase) -->
+                    <StackPanel Visibility="{Binding GruppenAnzahlSichtbar, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="Anzahl Gruppen" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding GruppenAnzahl, UpdateSourceTrigger=PropertyChanged}"
+                                 Padding="8,6" FontSize="13" Margin="0,0,0,12"
+                                 BorderBrush="#CBD5E1" BorderThickness="1" />
+                    </StackPanel>
+
                     <TextBlock Text="Regelwerk" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
                     <ComboBox ItemsSource="{Binding RegelwerkOptionen}"
                               SelectedItem="{Binding Regelwerk}"

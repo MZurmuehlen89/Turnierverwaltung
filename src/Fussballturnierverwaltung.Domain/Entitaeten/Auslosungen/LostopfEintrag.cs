@@ -6,7 +6,11 @@ public class LostopfEintrag : BasisEntitaet
 {
     public int LostopfId { get; set; }
     public Lostopf Lostopf { get; set; } = null!;
-    public int MannschaftId { get; set; }
-    public Mannschaft Mannschaft { get; set; } = null!;
+
+    // Entweder MannschaftId (echte Mannschaft) oder PlatzhalterName (Folgerunden-Slot)
+    public int? MannschaftId { get; set; }
+    public Mannschaft? Mannschaft { get; set; }
+    public string? PlatzhalterName { get; set; }
+
     public int? SetzPosition { get; set; }
 }

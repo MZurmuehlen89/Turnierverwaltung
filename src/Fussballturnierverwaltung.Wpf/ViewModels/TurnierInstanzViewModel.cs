@@ -1,8 +1,10 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Wpf.Converters;
@@ -17,6 +19,8 @@ namespace Fussballturnierverwaltung.Wpf.ViewModels;
 public record TurnierStatusOption(string Anzeige, TurnierStatus? Wert);
 public record TurnierVorlageOption(string Anzeige, TurnierVorlage? Wert);
 public record RegelwerkOption(string Anzeige, Regelwerk? Wert);
+public record VerbandOption(string Anzeige, Verband? Wert);
+public record TeamfilterOption(string Anzeige, MannschaftsartFilter Wert);
 
 public partial class RundenEintrag : ObservableObject
 {
@@ -30,6 +34,7 @@ public partial class RundenEintrag : ObservableObject
     }
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private int _eingangsMannschaften = 4;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private int _ausgangsMannschaften = 4;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private int? _gruppenAnzahl;
     [ObservableProperty] private int _regelwerkId;
     [ObservableProperty] private string _regelwerkName = "";
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private bool _mitRueckspiel;
@@ -38,6 +43,7 @@ public partial class RundenEintrag : ObservableObject
     public string Anzeige =>
         $"{Name} · {RundenartZuTextConverter.RundenartAnzeigeName(Rundenart)} · " +
         $"{EingangsMannschaften}→{AusgangsMannschaften}" +
+        (Rundenart == Rundenart.Gruppenphase && GruppenAnzahl.HasValue ? $" · {GruppenAnzahl}G" : "") +
         (MitRueckspiel ? " · H+R" : "") +
         (AuswaertstorRegelAktiv ? " · Auswärtstor" : "");
 }
@@ -45,9 +51,11 @@ public partial class RundenEintrag : ObservableObject
 public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware
 {
     private readonly TurnierInstanzService _service;
+    private readonly VerbandService _verbandService;
     private int _populiertGerade;
 
     private static readonly TurnierStatusOption _alleStatus = new("— Alle —", null);
+    private static readonly VerbandOption _keinVerband = new("— Kein Filter —", null);
 
     // ── Liste ──────────────────────────────────────────────────────────────────
     [ObservableProperty]
@@ -95,6 +103,16 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private string _startdatum = "";
     [ObservableProperty] private string _enddatum = "";
 
+    // ── Auslosungsfilter ──────────────────────────────────────────────────────
+    [ObservableProperty] private IReadOnlyList<VerbandOption> _verbandOptionen = [];
+    [ObservableProperty] private VerbandOption _verbandFilter = _keinVerband;
+    [ObservableProperty] private MannschaftsartFilter _teamFilter = MannschaftsartFilter.Alle;
+
+    public IReadOnlyList<TeamfilterOption> TeamfilterOptionen =>
+        [new("Alle Mannschaften", MannschaftsartFilter.Alle),
+         new("Nur Vereine", MannschaftsartFilter.Verein),
+         new("Nur Nationalmannschaften", MannschaftsartFilter.Nationalmannschaft)];
+
     // ── Berechnete Eigenschaften ──────────────────────────────────────────────
     public bool RundenSichtbar => FormularAktiv && !IstNeuModus;
 
@@ -114,7 +132,8 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware
             .Select(s => new TurnierStatusOption(TurnierStatusZuTextConverter.StatusAnzeigeName(s), s))];
 
     private static readonly HashSet<string> _formFelder =
-        [nameof(Name), nameof(SaisonOderJahr), nameof(Startdatum), nameof(Enddatum)];
+        [nameof(Name), nameof(SaisonOderJahr), nameof(Startdatum), nameof(Enddatum),
+         nameof(VerbandFilter), nameof(TeamFilter)];
 
     // ── IRibbonAware ───────────────────────────────────────────────────────────
     public string RibbonTabTitel => "Turniere";
@@ -123,25 +142,28 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware
     public ICommand AbbrechenBefehl => AbbrechenCommand;
     public ICommand LoeschenBefehl => LoeschenCommand;
 
-    public TurnierInstanzViewModel(TurnierInstanzService service)
+    public TurnierInstanzViewModel(TurnierInstanzService service, VerbandService verbandService)
     {
         _service = service;
+        _verbandService = verbandService;
     }
 
-    public override async Task AktivierenAsync() => await LadenAsync();
-
-    private async Task LadenAsync()
+    public override async Task AktivierenAsync()
     {
         IstLadend = true;
         try
         {
-            var instanzen = await _service.AlleAbrufenAsync();
-            Instanzen = new ObservableCollection<TurnierInstanz>(instanzen);
+            var verbände = await _verbandService.AlleAbrufenAsync();
+            VerbandOptionen = [_keinVerband, .. verbände.Select(v => new VerbandOption(v.Name, v))];
+            await LadenAsync();
         }
-        finally
-        {
-            IstLadend = false;
-        }
+        finally { IstLadend = false; }
+    }
+
+    private async Task LadenAsync()
+    {
+        var instanzen = await _service.AlleAbrufenAsync();
+        Instanzen = new ObservableCollection<TurnierInstanz>(instanzen);
     }
 
     private void FormularAusFuellenMit(TurnierInstanz? instanz)
@@ -154,6 +176,8 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware
                 FormularAktiv         = false;
                 IstNeuModus           = false;
                 Name = SaisonOderJahr = Startdatum = Enddatum = "";
+                VerbandFilter         = _keinVerband;
+                TeamFilter            = MannschaftsartFilter.Alle;
             }
             else
             {
@@ -163,6 +187,9 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware
                 SaisonOderJahr = instanz.SaisonOderJahr;
                 Startdatum     = instanz.Startdatum?.Year.ToString() ?? "";
                 Enddatum       = instanz.Enddatum?.Year.ToString() ?? "";
+                VerbandFilter  = VerbandOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.VerbandId)
+                                 ?? _keinVerband;
+                TeamFilter     = instanz.MannschaftsartFilter;
             }
             IsDirty = false;
             Fehlermeldung = null;
@@ -203,10 +230,11 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware
             var startdatum = ParseJahr(Startdatum);
             var enddatum   = ParseJahr(Enddatum);
 
+            var verbandId = VerbandFilter.Wert?.Id;
             if (IstNeuModus)
             {
                 var eingabe = new TurnierInstanzErstellenEingabe(
-                    Name, SaisonOderJahr, null, startdatum, enddatum);
+                    Name, SaisonOderJahr, null, startdatum, enddatum, verbandId, TeamFilter);
                 var neu = await _service.ErstellenAsync(eingabe);
                 await LadenAsync();
                 Ausgewaehltes = Instanzen.FirstOrDefault(i => i.Id == neu.Id);
@@ -215,7 +243,8 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware
             {
                 var id = Ausgewaehltes.Id;
                 var eingabe = new TurnierInstanzVollAktualisierenEingabe(
-                    Name, SaisonOderJahr, null, startdatum, enddatum, Ausgewaehltes.Status);
+                    Name, SaisonOderJahr, null, startdatum, enddatum, Ausgewaehltes.Status,
+                    verbandId, TeamFilter);
                 await _service.VollAktualisierenAsync(id, eingabe);
                 await LadenAsync();
                 Ausgewaehltes = Instanzen.FirstOrDefault(i => i.Id == id);

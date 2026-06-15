@@ -10,14 +10,14 @@ public class AuslosungsValidator
     /// <summary>Validiert eine Auslosung vor dem Start. Vollständige Lösbarkeitsanalyse kommt in Schritt 11.</summary>
     public ValidationErgebnis Validieren(
         Auslosung auslosung,
-        IReadOnlyList<Mannschaft> verfuegbareMannschaften)
+        IReadOnlyList<LostopfEintrag> alleEintraege)
     {
         var fehler = new List<string>();
 
-        if (!verfuegbareMannschaften.Any())
-            fehler.Add("Keine Mannschaften für die Auslosung vorhanden.");
-        else if (verfuegbareMannschaften.Count < 2)
-            fehler.Add($"Mindestens 2 Mannschaften werden benötigt (vorhanden: {verfuegbareMannschaften.Count}).");
+        if (!alleEintraege.Any())
+            fehler.Add("Keine Teilnehmer für die Auslosung vorhanden.");
+        else if (alleEintraege.Count < 2)
+            fehler.Add($"Mindestens 2 Teilnehmer werden benötigt (vorhanden: {alleEintraege.Count}).");
 
         // Lostöpfe prüfen
         var lostoepfe = auslosung.Lostoepfe.ToList();
@@ -32,16 +32,25 @@ public class AuslosungsValidator
                 fehler.Add($"Lostopf '{topf.Name}' ist leer.");
 
             // Keine Mannschaft darf in mehreren Töpfen sein
-            var alleEintraege = lostoepfe.SelectMany(t => t.Eintraege).ToList();
-            var doppelte = alleEintraege
+            var doppelteMannschaften = alleEintraege
+                .Where(e => e.MannschaftId.HasValue)
                 .GroupBy(e => e.MannschaftId)
                 .Where(g => g.Count() > 1)
                 .Select(g => g.Key);
-            foreach (var id in doppelte)
+            foreach (var id in doppelteMannschaften)
             {
-                var mann = verfuegbareMannschaften.FirstOrDefault(m => m.Id == id);
-                fehler.Add($"Mannschaft '{mann?.Name ?? id.ToString()}' ist in mehreren Lostöpfen vorhanden.");
+                var name = alleEintraege.FirstOrDefault(e => e.MannschaftId == id)?.Mannschaft?.Name ?? id.ToString();
+                fehler.Add($"Mannschaft '{name}' ist in mehreren Lostöpfen vorhanden.");
             }
+
+            // Kein Platzhalter darf doppelt vorkommen
+            var doppeltePlatzhalter = alleEintraege
+                .Where(e => e.PlatzhalterName != null)
+                .GroupBy(e => e.PlatzhalterName)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key);
+            foreach (var name in doppeltePlatzhalter)
+                fehler.Add($"Platzhalter '{name}' ist in mehreren Lostöpfen vorhanden.");
         }
 
         // TopfZuordnung: gleich große Töpfe, mindestens 2 Töpfe
@@ -54,7 +63,6 @@ public class AuslosungsValidator
             if (topfGroessen.Count > 1)
                 fehler.Add("TopfZuordnung erfordert gleich große Lostöpfe " +
                            $"(gefunden: {string.Join(", ", topfGroessen.Select(g => $"{g} Teams"))}).");
-
         }
 
         // Regel-Konflikte prüfen

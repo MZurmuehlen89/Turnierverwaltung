@@ -2,6 +2,7 @@ using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Simulation;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 
 namespace Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 
@@ -14,6 +15,10 @@ public class TurnierInstanz : BasisEntitaet
     public DateOnly? Startdatum { get; set; }
     public DateOnly? Enddatum { get; set; }
     public TurnierStatus Status { get; set; }
+
+    public int? VerbandId { get; set; }
+    public Verband? Verband { get; set; }
+    public MannschaftsartFilter MannschaftsartFilter { get; set; } = MannschaftsartFilter.Alle;
 
     public ICollection<TurnierRunde> Runden { get; set; } = new List<TurnierRunde>();
     public ICollection<Spiel> Spiele { get; set; } = new List<Spiel>();
