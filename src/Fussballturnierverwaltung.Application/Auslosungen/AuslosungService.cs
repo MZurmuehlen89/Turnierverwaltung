@@ -209,6 +209,18 @@ public class AuslosungService(
         return ergebnisse;
     }
 
+    public async Task BearbeitenAsync(int auslosungId, string name, Auslosungsart auslosungsart, CancellationToken ct = default)
+    {
+        var auslosung = await repository.FindenNachIdAsync(auslosungId, ct)
+            ?? throw new InvalidOperationException($"Auslosung {auslosungId} nicht gefunden.");
+        if (auslosung.Status == AuslosungsStatus.Abgeschlossen)
+            throw new InvalidOperationException("Eine abgeschlossene Auslosung kann nicht bearbeitet werden. Bitte zuerst zurücksetzen.");
+        auslosung.Name         = name.Trim();
+        auslosung.Auslosungsart = auslosungsart;
+        await repository.AktualisierenAsync(auslosung, ct);
+        logger.LogInformation("Auslosung {Id}: Name='{Name}', Art={Art} aktualisiert.", auslosungId, auslosung.Name, auslosungsart);
+    }
+
     public async Task ZuruecksetzenAsync(int auslosungId, CancellationToken ct = default)
     {
         await repository.ErgebnisseLoeschenUndZuruecksetzenAsync(auslosungId, ct);

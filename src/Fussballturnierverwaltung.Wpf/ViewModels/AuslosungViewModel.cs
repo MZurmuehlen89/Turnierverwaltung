@@ -122,6 +122,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private bool _istBearbeitbar;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DetailAuslosungsartHinweis))]
+    [NotifyPropertyChangedFor(nameof(DetailAuslosungsartWarnung))]
+    private Auslosungsart _detailAuslosungsart;
+
+    [ObservableProperty] private string _detailName = "";
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IstPaarungsergebnis))]
     private bool _istAbgeschlossen;
 
@@ -167,7 +174,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
             .Select(a => new AuslosungsartOption(AuslosungsartAnzeigeName(a), a))
             .ToList();
 
-    public string AuslosungsartHinweis => NeuAuslosungsart switch
+    public string AuslosungsartHinweis         => AuslosungsartHinweisText(NeuAuslosungsart);
+    public string? AuslosungsartWarnung        => AuslosungsartWarnungText(NeuAuslosungsart, NeuRunde?.Rundenart);
+    public string DetailAuslosungsartHinweis   => AuslosungsartHinweisText(DetailAuslosungsart);
+    public string? DetailAuslosungsartWarnung  => AuslosungsartWarnungText(DetailAuslosungsart, _auslosungDetail?.TurnierRunde?.Rundenart);
+
+    private static string AuslosungsartHinweisText(Auslosungsart art) => art switch
     {
         Auslosungsart.Zufall =>
             "Alle Teams werden zufällig gemischt und paarweise zugelost. Passt zu jeder Rundenart.",
@@ -193,28 +205,29 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         _ => ""
     };
 
-    public string? AuslosungsartWarnung => (NeuAuslosungsart, NeuRunde?.Rundenart) switch
-    {
-        (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Liga) or
-        (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Gruppenphase) or
-        (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.TopfLiga) or
-        (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.SchweizerSystem) =>
-            "⚠  Diese Auslosungsart setzt voraus, dass bereits eine Gruppenphase gespielt wurde. " +
-            "Sie ist für K.O.-Runden gedacht, die auf eine Gruppenphase folgen.",
-        (Auslosungsart.TopfZuordnung, Rundenart.Gruppenphase) =>
-            "⚠  Für eine klassische Gruppenphase verwenden Sie 'Nach Töpfen' — " +
-            "dabei wird ein Team pro Topf in jede Gruppe gelost. " +
-            "'Topf-Zuordnung' ist für die UCL-Ligaphase (direkte Gegnerbestimmung) gedacht.",
-        (Auslosungsart.TopfZuordnung, Rundenart.KoRunde) or
-        (Auslosungsart.TopfZuordnung, Rundenart.Finale) or
-        (Auslosungsart.TopfZuordnung, Rundenart.SpielUmPlatzDrei) =>
-            "⚠  Topf-Zuordnung weist Teams direkt Gruppenplätzen zu. " +
-            "Für K.O.-Runden ist 'Nach Töpfen' oder 'Zufällig' besser geeignet.",
-        (Auslosungsart.NachSetzliste, Rundenart.SchweizerSystem) =>
-            "⚠  Im Schweizer System wird die Paarung automatisch anhand der Tabelle berechnet. " +
-            "Eine manuelle Setzlisten-Auslosung ist hier in der Regel nicht sinnvoll.",
-        _ => null
-    };
+    private static string? AuslosungsartWarnungText(Auslosungsart art, Rundenart? rundenart) =>
+        (art, rundenart) switch
+        {
+            (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Liga) or
+            (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Gruppenphase) or
+            (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.TopfLiga) or
+            (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.SchweizerSystem) =>
+                "⚠  Diese Auslosungsart setzt voraus, dass bereits eine Gruppenphase gespielt wurde. " +
+                "Sie ist für K.O.-Runden gedacht, die auf eine Gruppenphase folgen.",
+            (Auslosungsart.TopfZuordnung, Rundenart.Gruppenphase) =>
+                "⚠  Für eine klassische Gruppenphase verwenden Sie 'Nach Töpfen' — " +
+                "dabei wird ein Team pro Topf in jede Gruppe gelost. " +
+                "'Topf-Zuordnung' ist für die UCL-Ligaphase (direkte Gegnerbestimmung) gedacht.",
+            (Auslosungsart.TopfZuordnung, Rundenart.KoRunde) or
+            (Auslosungsart.TopfZuordnung, Rundenart.Finale) or
+            (Auslosungsart.TopfZuordnung, Rundenart.SpielUmPlatzDrei) =>
+                "⚠  Topf-Zuordnung weist Teams direkt Gruppenplätzen zu. " +
+                "Für K.O.-Runden ist 'Nach Töpfen' oder 'Zufällig' besser geeignet.",
+            (Auslosungsart.NachSetzliste, Rundenart.SchweizerSystem) =>
+                "⚠  Im Schweizer System wird die Paarung automatisch anhand der Tabelle berechnet. " +
+                "Eine manuelle Setzlisten-Auslosung ist hier in der Regel nicht sinnvoll.",
+            _ => null
+        };
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
     public string RibbonTabTitel => "Auslosung";
@@ -346,6 +359,20 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         try
         {
             await _auslosungService.AusfuehrenAsync(_auslosungDetail.Id);
+            await LadeDetailAsync(_auslosungDetail.Id);
+            await AktualisiereSeitenlisteAsync();
+        }
+        catch (Exception ex) { Fehlermeldung = ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task DetailBearbeiten()
+    {
+        if (_auslosungDetail is null || string.IsNullOrWhiteSpace(DetailName)) return;
+        Fehlermeldung = null;
+        try
+        {
+            await _auslosungService.BearbeitenAsync(_auslosungDetail.Id, DetailName, DetailAuslosungsart);
             await LadeDetailAsync(_auslosungDetail.Id);
             await AktualisiereSeitenlisteAsync();
         }
@@ -549,8 +576,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
                         e.IstFreilos)));
             }
 
-            IstBearbeitbar   = detail.Status is not (AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen);
-            IstAbgeschlossen = detail.Status == AuslosungsStatus.Abgeschlossen;
+            IstBearbeitbar        = detail.Status is not (AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen);
+            IstAbgeschlossen      = detail.Status == AuslosungsStatus.Abgeschlossen;
+            DetailName            = detail.Name;
+            DetailAuslosungsart   = detail.Auslosungsart;
 
             AuslosungKopfzeile = $"{detail.Name}  ·  {detail.TurnierRunde.Name}  ·  " +
                                  $"{AuslosungsartAnzeigeName(detail.Auslosungsart)}  ·  " +
