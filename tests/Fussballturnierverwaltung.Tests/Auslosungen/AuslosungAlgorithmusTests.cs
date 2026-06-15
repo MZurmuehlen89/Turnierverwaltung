@@ -1,0 +1,957 @@
+using FluentAssertions;
+using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace Fussballturnierverwaltung.Tests.Auslosungen;
+
+/// <summary>
+/// Prüft das tatsächliche Auslosungs-Ergebnis für alle relevanten
+/// Auslosungsart × Rundenart-Kombinationen:
+/// - Gruppenphase → Gruppen-Zuordnungen (kein Auswaerts-Feld gesetzt)
+/// - Alle anderen Rundenarten → Paarungen (Heim + Auswaerts gesetzt)
+/// </summary>
+public class AuslosungAlgorithmusTests
+{
+    private readonly FakeAuslosungRepository _repo;
+    private readonly AuslosungService _service;
+
+    public AuslosungAlgorithmusTests()
+    {
+        _repo    = new FakeAuslosungRepository();
+        _service = new AuslosungService(_repo, new AuslosungsValidator(),
+                                        NullLogger<AuslosungService>.Instance);
+    }
+
+    // ── Hilfsmethoden ─────────────────────────────────────────────────────────
+
+    // Jedes Team bekommt LandId = eigene Id → keine unbeabsichtigten GleichesLand-Treffer
+    private static Mannschaft Team(int id) => new() { Id = id, Name = $"Team {id}", LandId = id };
+    private static Mannschaft TeamMitLand(int id, int landId) => new() { Id = id, Name = $"Team {id}", LandId = landId };
+
+    private static LostopfEintrag Eintrag(Mannschaft m, int? setzPos = null) =>
+        new() { Id = m.Id, MannschaftId = m.Id, Mannschaft = m, SetzPosition = setzPos };
+
+    private static LostopfEintrag PlatzhalterEintrag(int id, string name) =>
+        new() { Id = id, PlatzhalterName = name };
+
+    private static Lostopf Topf(int id, int reihenfolge, params LostopfEintrag[] eintraege) =>
+        new() { Id = id, Reihenfolge = reihenfolge, Name = $"Topf {reihenfolge}",
+                Eintraege = [.. eintraege] };
+
+    private static AuslosungsRegel Regel(AuslosungsRegelArt art) =>
+        new() { Regelart = art, Beschreibung = art.ToString(), IstAktiv = true };
+
+    private Auslosung AuslosungMit(
+        Rundenart rundenart, Auslosungsart auslosungsart, int? gruppenAnzahl = null,
+        IEnumerable<Lostopf>? lostoepfe = null, IEnumerable<AuslosungsRegel>? regeln = null)
+    {
+        var a = new Auslosung
+        {
+            Id            = 1,
+            TurnierRunde  = new TurnierRunde
+            {
+                Id = 1, Name = rundenart.ToString(), Rundenart = rundenart,
+                GruppenAnzahl = gruppenAnzahl, RegelwerkId = 1
+            },
+            Auslosungsart = auslosungsart,
+            Status        = AuslosungsStatus.Vorbereitung
+        };
+        foreach (var t in lostoepfe ?? []) a.Lostoepfe.Add(t);
+        foreach (var r in regeln ?? [])    a.Regeln.Add(r);
+        _repo.Speichern(a);
+        return a;
+    }
+
+    private Task<IReadOnlyList<AuslosungsErgebnis>> Ausfuehren() =>
+        _service.AusfuehrenAsync(_repo.Aktuelle!.Id);
+
+    // Kurzform: ist das Ergebnis eine Gruppen-Zuordnung (kein Auswaerts-Feld)?
+    private static bool IstGruppenZuordnung(AuslosungsErgebnis e) =>
+        e.AuswaertsMannschaftId == null && e.AuswaertsPlatzhalterName == null && !e.IstFreilos;
+
+    private static IEnumerable<int> AlleTeamIds(IReadOnlyList<AuslosungsErgebnis> ergebnisse) =>
+        ergebnisse.SelectMany(e =>
+            new[] { e.HeimMannschaftId, e.AuswaertsMannschaftId }
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value));
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // GRUPPENPHASE — alle Auslosungsarten
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task Gruppenphase_Zufall_ErzeugtGruppenZuordnungen_KeineEinzelspiele()
+    {
+        var teams = Enumerable.Range(1, 8).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.Gruppenphase, Auslosungsart.Zufall, gruppenAnzahl: 2, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(8, "8 Teams → 8 Gruppen-Einträge");
+        ergebnisse.Should().AllSatisfy(e => IstGruppenZuordnung(e).Should().BeTrue(),
+            "Gruppenphase erzeugt Zuordnungen, keine Paarungen");
+    }
+
+    [Fact]
+    public async Task Gruppenphase_Zufall_VerteiltTeamsAuf2Gruppen_Je4ProGruppe()
+    {
+        var teams = Enumerable.Range(1, 8).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.Gruppenphase, Auslosungsart.Zufall, gruppenAnzahl: 2, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+        var gruppen    = ergebnisse.GroupBy(e => e.PaarungsNummer).ToList();
+
+        gruppen.Should().HaveCount(2, "2 Gruppen");
+        gruppen.Should().AllSatisfy(g => g.Should().HaveCount(4), "je 4 Teams pro Gruppe");
+    }
+
+    [Fact]
+    public async Task Gruppenphase_Zufall_JedesTeam_NurEinmalZugewiesen()
+    {
+        var teams = Enumerable.Range(1, 6).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.Gruppenphase, Auslosungsart.Zufall, gruppenAnzahl: 3, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+        var zugewieseneIds = ergebnisse.Select(e => e.HeimMannschaftId!.Value).ToList();
+
+        zugewieseneIds.Should().OnlyHaveUniqueItems("kein Team darf in zwei Gruppen sein");
+        zugewieseneIds.Should().BeEquivalentTo(Enumerable.Range(1, 6));
+    }
+
+    [Fact]
+    public async Task Gruppenphase_NachToepfen_JeEinTeamProTopfProGruppe()
+    {
+        // 2 Töpfe à 4 Teams, 4 Gruppen → jede Gruppe enthält genau 1 Team aus jedem Topf
+        var topf1Teams = Enumerable.Range(1, 4).Select(Team).ToList();
+        var topf2Teams = Enumerable.Range(5, 4).Select(Team).ToList();
+        var topf1      = Topf(1, 1, topf1Teams.Select(t => Eintrag(t)).ToArray());
+        var topf2      = Topf(2, 2, topf2Teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.Gruppenphase, Auslosungsart.NachToepfen,
+                     gruppenAnzahl: 4, lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+        var gruppen    = ergebnisse.GroupBy(e => e.PaarungsNummer).ToList();
+
+        gruppen.Should().HaveCount(4);
+        gruppen.Should().AllSatisfy(g => g.Should().HaveCount(2),
+            "2 Töpfe × 1 Eintrag pro Topf = 2 Teams pro Gruppe");
+
+        var topf1Ids = topf1Teams.Select(t => t.Id).ToHashSet();
+        var topf2Ids = topf2Teams.Select(t => t.Id).ToHashSet();
+        gruppen.Should().AllSatisfy(g =>
+        {
+            var ids = g.Select(e => e.HeimMannschaftId!.Value).ToList();
+            ids.Count(id => topf1Ids.Contains(id)).Should().Be(1, "1 Team aus Topf 1 pro Gruppe");
+            ids.Count(id => topf2Ids.Contains(id)).Should().Be(1, "1 Team aus Topf 2 pro Gruppe");
+        });
+    }
+
+    [Fact]
+    public async Task Gruppenphase_NachSetzliste_GesetztesTeamJeEinmalProGruppe()
+    {
+        // 4 gesetzte + 4 ungesetzte → 4 Gruppen à 2, jede mit genau 1 Gesetztem
+        var gesetzte   = Enumerable.Range(1, 4).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
+        var ungesetzte = Enumerable.Range(5, 4).Select(i => Eintrag(Team(i))).ToArray();
+        var topf       = Topf(1, 1, [.. gesetzte, .. ungesetzte]);
+        AuslosungMit(Rundenart.Gruppenphase, Auslosungsart.NachSetzliste,
+                     gruppenAnzahl: 4, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+        var gruppen    = ergebnisse.GroupBy(e => e.PaarungsNummer).ToList();
+
+        gruppen.Should().HaveCount(4);
+        var gesetzteIds = new HashSet<int> { 1, 2, 3, 4 };
+        gruppen.Should().AllSatisfy(g =>
+            g.Count(e => gesetzteIds.Contains(e.HeimMannschaftId!.Value))
+             .Should().Be(1, "jede Gruppe enthält genau einen Gesetzten"));
+    }
+
+    [Fact]
+    public async Task Gruppenphase_Benutzerdefiniert_VerhaltWieZufall()
+    {
+        // Benutzerdefiniert fällt auf Zufall-Algorithmus zurück
+        var teams = Enumerable.Range(1, 4).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.Gruppenphase, Auslosungsart.Benutzerdefiniert,
+                     gruppenAnzahl: 2, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4);
+        ergebnisse.Should().AllSatisfy(e => IstGruppenZuordnung(e).Should().BeTrue());
+    }
+
+    [Fact]
+    public async Task Gruppenphase_KeinGleichesLand_TeamsAusGleichesLandNichtInSelberGruppe()
+    {
+        // 4 Teams: je 2 aus Land 10, je 2 aus Land 20 → Constraint: getrennte Gruppen
+        var teams = new[]
+        {
+            TeamMitLand(1, 10), TeamMitLand(2, 10),
+            TeamMitLand(3, 20), TeamMitLand(4, 20)
+        };
+        var topf = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.Gruppenphase, Auslosungsart.Zufall, gruppenAnzahl: 2, lostoepfe: [topf],
+                     regeln: [Regel(AuslosungsRegelArt.KeinGleichesLand)]);
+
+        var ergebnisse = await Ausfuehren();
+        var gruppen    = ergebnisse.GroupBy(e => e.PaarungsNummer).ToList();
+
+        gruppen.Should().HaveCount(2);
+        gruppen.Should().AllSatisfy(g =>
+        {
+            // Jede Gruppe sollte Teams aus beiden Ländern enthalten (= getrennt)
+            var landIds = g
+                .Select(e => teams.First(t => t.Id == e.HeimMannschaftId!.Value).LandId)
+                .Distinct()
+                .ToList();
+            landIds.Should().HaveCount(2, "jede Gruppe hat Teams aus verschiedenen Ländern");
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // KO-RUNDE — alle Auslosungsarten
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task KoRunde_Zufall_ErzeugtPaarungen_NichtGruppenZuordnungen()
+    {
+        var teams = Enumerable.Range(1, 8).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4, "8 Teams → 4 Paarungen");
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull("Heim-Team muss gesetzt sein");
+            e.AuswaertsMannschaftId.Should().NotBeNull("Auswärts-Team muss gesetzt sein");
+        });
+    }
+
+    [Fact]
+    public async Task KoRunde_Zufall_JedesTeam_GenauEinmal()
+    {
+        var teams = Enumerable.Range(1, 8).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        AlleTeamIds(ergebnisse).Should().OnlyHaveUniqueItems();
+        AlleTeamIds(ergebnisse).Should().BeEquivalentTo(Enumerable.Range(1, 8));
+    }
+
+    [Fact]
+    public async Task KoRunde_NachToepfen_PaartJeweilsTeamsAusVerschiedenenToepfen()
+    {
+        var topf1 = Topf(1, 1, Enumerable.Range(1, 4).Select(i => Eintrag(Team(i))).ToArray());
+        var topf2 = Topf(2, 2, Enumerable.Range(5, 4).Select(i => Eintrag(Team(i))).ToArray());
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4);
+        var topf1Ids = new HashSet<int> { 1, 2, 3, 4 };
+        var topf2Ids = new HashSet<int> { 5, 6, 7, 8 };
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            bool heimT1ausT1_aausT2 = topf1Ids.Contains(e.HeimMannschaftId!.Value)
+                                   && topf2Ids.Contains(e.AuswaertsMannschaftId!.Value);
+            bool heimT1ausT2_aausT1 = topf2Ids.Contains(e.HeimMannschaftId!.Value)
+                                   && topf1Ids.Contains(e.AuswaertsMannschaftId!.Value);
+            (heimT1ausT1_aausT2 || heimT1ausT2_aausT1)
+                .Should().BeTrue("jede Paarung verbindet je ein Team aus Topf 1 und Topf 2");
+        });
+    }
+
+    [Fact]
+    public async Task KoRunde_NachSetzliste_GesetzteVsUngesetzte()
+    {
+        var gesetzte   = Enumerable.Range(1, 4).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
+        var ungesetzte = Enumerable.Range(5, 4).Select(i => Eintrag(Team(i))).ToArray();
+        var topf       = Topf(1, 1, [.. gesetzte, .. ungesetzte]);
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.NachSetzliste, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4);
+        var gesetzteIds   = new HashSet<int> { 1, 2, 3, 4 };
+        var ungesetzteIds = new HashSet<int> { 5, 6, 7, 8 };
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            gesetzteIds.Contains(e.HeimMannschaftId!.Value).Should().BeTrue("Heim = Gesetzter");
+            ungesetzteIds.Contains(e.AuswaertsMannschaftId!.Value).Should().BeTrue("Auswaerts = Ungesetzter");
+        });
+    }
+
+    [Fact]
+    public async Task KoRunde_GruppensiegerGegenGruppenzweite_ErzeugtPaarungen()
+    {
+        var topf1 = Topf(1, 1, Enumerable.Range(1, 4).Select(i => Eintrag(Team(i))).ToArray());
+        var topf2 = Topf(2, 2, Enumerable.Range(5, 4).Select(i => Eintrag(Team(i))).ToArray());
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.GruppensiegerGegenGruppenzweite,
+                     lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4);
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+        AlleTeamIds(ergebnisse).Should().BeEquivalentTo(Enumerable.Range(1, 8));
+    }
+
+    [Fact]
+    public async Task KoRunde_Benutzerdefiniert_ErzeugtPaarungen()
+    {
+        var teams = Enumerable.Range(1, 4).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.Benutzerdefiniert, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(2);
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // FINALE & SPIEL UM PLATZ 3
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task Finale_Zufall_ZweiTeams_EinePaarung()
+    {
+        var topf = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)));
+        AuslosungMit(Rundenart.Finale, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(1);
+        ergebnisse[0].HeimMannschaftId.Should().NotBeNull();
+        ergebnisse[0].AuswaertsMannschaftId.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task SpielUmPlatzDrei_Zufall_ZweiTeams_EinePaarung()
+    {
+        var topf = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)));
+        AuslosungMit(Rundenart.SpielUmPlatzDrei, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task Finale_GruppensiegerGegenGruppenzweite_EinePaarung()
+    {
+        var topf1 = Topf(1, 1, Eintrag(Team(1)));
+        var topf2 = Topf(2, 2, Eintrag(Team(2)));
+        AuslosungMit(Rundenart.Finale, Auslosungsart.GruppensiegerGegenGruppenzweite,
+                     lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(1);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // LIGA
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task Liga_Zufall_ErzeugtPaarungen()
+    {
+        var teams = Enumerable.Range(1, 6).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.Liga, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(3, "6 Teams → 3 Paarungen");
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    [Fact]
+    public async Task Liga_TopfZuordnung_ErzeugtTopfUebergreifendePaarungen()
+    {
+        var topf1 = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)));
+        var topf2 = Topf(2, 2, Eintrag(Team(3)), Eintrag(Team(4)));
+        AuslosungMit(Rundenart.Liga, Auslosungsart.TopfZuordnung, lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().NotBeEmpty();
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    [Fact]
+    public async Task Liga_NachToepfen_ErzeugtPaarungen()
+    {
+        var topf1 = Topf(1, 1, Enumerable.Range(1, 4).Select(i => Eintrag(Team(i))).ToArray());
+        var topf2 = Topf(2, 2, Enumerable.Range(5, 4).Select(i => Eintrag(Team(i))).ToArray());
+        AuslosungMit(Rundenart.Liga, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().NotBeEmpty();
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SCHWEIZER SYSTEM & SONDERRUNDE
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task SchweizerSystem_Zufall_ErzeugtPaarungen()
+    {
+        var teams = Enumerable.Range(1, 8).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.SchweizerSystem, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4);
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    [Fact]
+    public async Task SchweizerSystem_NachSetzliste_ErzeugtPaarungen()
+    {
+        var gesetzte   = Enumerable.Range(1, 4).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
+        var ungesetzte = Enumerable.Range(5, 4).Select(i => Eintrag(Team(i))).ToArray();
+        var topf       = Topf(1, 1, [.. gesetzte, .. ungesetzte]);
+        AuslosungMit(Rundenart.SchweizerSystem, Auslosungsart.NachSetzliste, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4);
+    }
+
+    [Fact]
+    public async Task Sonderrunde_Zufall_ErzeugtPaarungen()
+    {
+        var teams = Enumerable.Range(1, 4).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.Sonderrunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(2);
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SPEZIALFÄLLE
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task KoRunde_Zufall_FreilosMoeglich_UngeradeAnzahl_ErzeugtFreilos()
+    {
+        var teams = Enumerable.Range(1, 7).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf],
+                     regeln: [Regel(AuslosungsRegelArt.FreilosMoeglich)]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4, "3 Paarungen + 1 Freilos");
+        ergebnisse.Count(e => e.IstFreilos).Should().Be(1);
+        ergebnisse.Count(e => !e.IstFreilos).Should().Be(3);
+    }
+
+    [Fact]
+    public async Task KoRunde_Zufall_GeradeAnzahl_KeinFreilos_AuchMitRegel()
+    {
+        var teams = Enumerable.Range(1, 8).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf],
+                     regeln: [Regel(AuslosungsRegelArt.FreilosMoeglich)]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4);
+        ergebnisse.Should().AllSatisfy(e => e.IstFreilos.Should().BeFalse());
+    }
+
+    [Fact]
+    public async Task KoRunde_Zufall_Platzhalter_WerdenWieTeamsGepaart()
+    {
+        var eintraege = Enumerable.Range(1, 4)
+            .Select(i => PlatzhalterEintrag(i, $"Sieger Spiel {i}"))
+            .ToArray();
+        var topf = Topf(1, 1, eintraege);
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(2);
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimPlatzhalterName.Should().NotBeNullOrEmpty();
+            e.AuswaertsPlatzhalterName.Should().NotBeNullOrEmpty();
+        });
+    }
+
+    [Fact]
+    public async Task Gruppenphase_Zufall_Platzhalter_WerdenGruppenZugewiesen()
+    {
+        var eintraege = Enumerable.Range(1, 4)
+            .Select(i => PlatzhalterEintrag(i, $"1. Gruppe {(char)('A' + i - 1)}"))
+            .ToArray();
+        var topf = Topf(1, 1, eintraege);
+        AuslosungMit(Rundenart.Gruppenphase, Auslosungsart.Zufall, gruppenAnzahl: 2, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4);
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimPlatzhalterName.Should().NotBeNullOrEmpty();
+            IstGruppenZuordnung(e).Should().BeTrue();
+        });
+        ergebnisse.GroupBy(e => e.PaarungsNummer).Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task KoRunde_KeinGleichesLand_PaartTeamsAusVerschiedenenLaendern()
+    {
+        // 4 Teams: je 2 aus Land 10 und 20 → Constraint verhindert Paare aus gleichem Land
+        var teams = new[]
+        {
+            TeamMitLand(1, 10), TeamMitLand(2, 10),
+            TeamMitLand(3, 20), TeamMitLand(4, 20)
+        };
+        var topf = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf],
+                     regeln: [Regel(AuslosungsRegelArt.KeinGleichesLand)]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(2);
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            var heimLand   = teams.First(t => t.Id == e.HeimMannschaftId!.Value).LandId;
+            var auswaertsLand = teams.First(t => t.Id == e.AuswaertsMannschaftId!.Value).LandId;
+            heimLand.Should().NotBe(auswaertsLand, "gleiche Länder dürfen nicht gepaart werden");
+        });
+    }
+
+    [Fact]
+    public async Task KoRunde_Zufall_HeimrechtNachLos_JedesPaarungHatHeimUndAuswaerts()
+    {
+        var teams = Enumerable.Range(1, 4).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf],
+                     regeln: [Regel(AuslosungsRegelArt.HeimrechtNachLos)]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(2);
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // LIGA — fehlende Auslosungsarten
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task Liga_NachSetzliste_GesetzteTeamsAlsHeim()
+    {
+        var gesetzte   = Enumerable.Range(1, 3).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
+        var ungesetzte = Enumerable.Range(4, 3).Select(i => Eintrag(Team(i))).ToArray();
+        var topf       = Topf(1, 1, [.. gesetzte, .. ungesetzte]);
+        AuslosungMit(Rundenart.Liga, Auslosungsart.NachSetzliste, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(3);
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+        AlleTeamIds(ergebnisse).Should().BeEquivalentTo(Enumerable.Range(1, 6));
+    }
+
+    [Fact]
+    public async Task Liga_Benutzerdefiniert_ErzeugtPaarungen()
+    {
+        var teams = Enumerable.Range(1, 6).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.Liga, Auslosungsart.Benutzerdefiniert, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(3);
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // TOPFLIGA — alle Auslosungsarten
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task TopfLiga_Zufall_ErzeugtPaarungen()
+    {
+        var teams = Enumerable.Range(1, 6).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.TopfLiga, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(3, "6 Teams → 3 Paarungen");
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+        AlleTeamIds(ergebnisse).Should().BeEquivalentTo(Enumerable.Range(1, 6));
+    }
+
+    [Fact]
+    public async Task TopfLiga_NachSetzliste_GesetzteVsUngesetzte()
+    {
+        var gesetzte   = Enumerable.Range(1, 3).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
+        var ungesetzte = Enumerable.Range(4, 3).Select(i => Eintrag(Team(i))).ToArray();
+        var topf       = Topf(1, 1, [.. gesetzte, .. ungesetzte]);
+        AuslosungMit(Rundenart.TopfLiga, Auslosungsart.NachSetzliste, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(3);
+        var gesetzteIds = new HashSet<int> { 1, 2, 3 };
+        ergebnisse.Should().AllSatisfy(e =>
+            gesetzteIds.Contains(e.HeimMannschaftId!.Value).Should().BeTrue("Heim = Gesetzter"));
+    }
+
+    [Fact]
+    public async Task TopfLiga_NachToepfen_PaartTeamsAusVerschiedenenToepfen()
+    {
+        var topf1 = Topf(1, 1, Enumerable.Range(1, 3).Select(i => Eintrag(Team(i))).ToArray());
+        var topf2 = Topf(2, 2, Enumerable.Range(4, 3).Select(i => Eintrag(Team(i))).ToArray());
+        AuslosungMit(Rundenart.TopfLiga, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(3);
+        var topf1Ids = new HashSet<int> { 1, 2, 3 };
+        var topf2Ids = new HashSet<int> { 4, 5, 6 };
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            bool kreuzPaarung = (topf1Ids.Contains(e.HeimMannschaftId!.Value) && topf2Ids.Contains(e.AuswaertsMannschaftId!.Value))
+                             || (topf2Ids.Contains(e.HeimMannschaftId!.Value) && topf1Ids.Contains(e.AuswaertsMannschaftId!.Value));
+            kreuzPaarung.Should().BeTrue("jede Paarung verbindet Teams aus verschiedenen Töpfen");
+        });
+    }
+
+    [Fact]
+    public async Task TopfLiga_TopfZuordnung_ErzeugtTopfUebergreifendePaarungen()
+    {
+        var topf1 = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)));
+        var topf2 = Topf(2, 2, Eintrag(Team(3)), Eintrag(Team(4)));
+        AuslosungMit(Rundenart.TopfLiga, Auslosungsart.TopfZuordnung, lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().NotBeEmpty();
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    [Fact]
+    public async Task TopfLiga_Benutzerdefiniert_ErzeugtPaarungen()
+    {
+        var teams = Enumerable.Range(1, 4).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.TopfLiga, Auslosungsart.Benutzerdefiniert, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(2);
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SCHWEIZER SYSTEM — fehlende Auslosungsarten
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task SchweizerSystem_NachToepfen_PaartTeamsAusVerschiedenenToepfen()
+    {
+        var topf1 = Topf(1, 1, Enumerable.Range(1, 4).Select(i => Eintrag(Team(i))).ToArray());
+        var topf2 = Topf(2, 2, Enumerable.Range(5, 4).Select(i => Eintrag(Team(i))).ToArray());
+        AuslosungMit(Rundenart.SchweizerSystem, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4);
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    [Fact]
+    public async Task SchweizerSystem_TopfZuordnung_ErzeugtPaarungen()
+    {
+        var topf1 = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)));
+        var topf2 = Topf(2, 2, Eintrag(Team(3)), Eintrag(Team(4)));
+        AuslosungMit(Rundenart.SchweizerSystem, Auslosungsart.TopfZuordnung, lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().NotBeEmpty();
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    [Fact]
+    public async Task SchweizerSystem_Benutzerdefiniert_ErzeugtPaarungen()
+    {
+        var teams = Enumerable.Range(1, 8).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.SchweizerSystem, Auslosungsart.Benutzerdefiniert, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4);
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SONDERRUNDE — fehlende Auslosungsarten
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task Sonderrunde_NachSetzliste_GesetzteAlsHeim()
+    {
+        var gesetzte   = new[] { Eintrag(Team(1), setzPos: 1), Eintrag(Team(2), setzPos: 2) };
+        var ungesetzte = new[] { Eintrag(Team(3)), Eintrag(Team(4)) };
+        var topf       = Topf(1, 1, [.. gesetzte, .. ungesetzte]);
+        AuslosungMit(Rundenart.Sonderrunde, Auslosungsart.NachSetzliste, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(2);
+        var gesetzteIds = new HashSet<int> { 1, 2 };
+        ergebnisse.Should().AllSatisfy(e =>
+            gesetzteIds.Contains(e.HeimMannschaftId!.Value).Should().BeTrue("Heim = Gesetzter"));
+    }
+
+    [Fact]
+    public async Task Sonderrunde_NachToepfen_ErzeugtPaarungen()
+    {
+        var topf1 = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)));
+        var topf2 = Topf(2, 2, Eintrag(Team(3)), Eintrag(Team(4)));
+        AuslosungMit(Rundenart.Sonderrunde, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(2);
+        var topf1Ids = new HashSet<int> { 1, 2 };
+        var topf2Ids = new HashSet<int> { 3, 4 };
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            bool kreuzPaarung = (topf1Ids.Contains(e.HeimMannschaftId!.Value) && topf2Ids.Contains(e.AuswaertsMannschaftId!.Value))
+                             || (topf2Ids.Contains(e.HeimMannschaftId!.Value) && topf1Ids.Contains(e.AuswaertsMannschaftId!.Value));
+            kreuzPaarung.Should().BeTrue();
+        });
+    }
+
+    [Fact]
+    public async Task Sonderrunde_TopfZuordnung_ErzeugtPaarungen()
+    {
+        var topf1 = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)));
+        var topf2 = Topf(2, 2, Eintrag(Team(3)), Eintrag(Team(4)));
+        AuslosungMit(Rundenart.Sonderrunde, Auslosungsart.TopfZuordnung, lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().NotBeEmpty();
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    [Fact]
+    public async Task Sonderrunde_Benutzerdefiniert_ErzeugtPaarungen()
+    {
+        var teams = Enumerable.Range(1, 4).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        AuslosungMit(Rundenart.Sonderrunde, Auslosungsart.Benutzerdefiniert, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(2);
+        ergebnisse.Should().AllSatisfy(e =>
+        {
+            e.HeimMannschaftId.Should().NotBeNull();
+            e.AuswaertsMannschaftId.Should().NotBeNull();
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // FINALE — fehlende Auslosungsarten
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task Finale_NachSetzliste_EinePaarungGesetzterVsUngesetzter()
+    {
+        var topf = Topf(1, 1, Eintrag(Team(1), setzPos: 1), Eintrag(Team(2)));
+        AuslosungMit(Rundenart.Finale, Auslosungsart.NachSetzliste, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(1);
+        ergebnisse[0].HeimMannschaftId.Should().Be(1, "Gesetzter steht als Heim");
+        ergebnisse[0].AuswaertsMannschaftId.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Finale_NachToepfen_EinePaarungTopfUebergreifend()
+    {
+        var topf1 = Topf(1, 1, Eintrag(Team(1)));
+        var topf2 = Topf(2, 2, Eintrag(Team(2)));
+        AuslosungMit(Rundenart.Finale, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(1);
+        ergebnisse[0].HeimMannschaftId.Should().NotBeNull();
+        ergebnisse[0].AuswaertsMannschaftId.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Finale_Benutzerdefiniert_EinePaarung()
+    {
+        var topf = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)));
+        AuslosungMit(Rundenart.Finale, Auslosungsart.Benutzerdefiniert, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(1);
+        ergebnisse[0].HeimMannschaftId.Should().NotBeNull();
+        ergebnisse[0].AuswaertsMannschaftId.Should().NotBeNull();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SPIEL UM PLATZ 3 — fehlende Auslosungsarten
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task SpielUmPlatzDrei_NachSetzliste_EinePaarung()
+    {
+        var topf = Topf(1, 1, Eintrag(Team(1), setzPos: 1), Eintrag(Team(2)));
+        AuslosungMit(Rundenart.SpielUmPlatzDrei, Auslosungsart.NachSetzliste, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(1);
+        ergebnisse[0].HeimMannschaftId.Should().NotBeNull();
+        ergebnisse[0].AuswaertsMannschaftId.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task SpielUmPlatzDrei_NachToepfen_EinePaarung()
+    {
+        var topf1 = Topf(1, 1, Eintrag(Team(1)));
+        var topf2 = Topf(2, 2, Eintrag(Team(2)));
+        AuslosungMit(Rundenart.SpielUmPlatzDrei, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(1);
+        ergebnisse[0].HeimMannschaftId.Should().NotBeNull();
+        ergebnisse[0].AuswaertsMannschaftId.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task SpielUmPlatzDrei_GruppensiegerGegenGruppenzweite_EinePaarung()
+    {
+        var topf1 = Topf(1, 1, Eintrag(Team(1)));
+        var topf2 = Topf(2, 2, Eintrag(Team(2)));
+        AuslosungMit(Rundenart.SpielUmPlatzDrei, Auslosungsart.GruppensiegerGegenGruppenzweite,
+                     lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(1);
+        ergebnisse[0].HeimMannschaftId.Should().NotBeNull();
+        ergebnisse[0].AuswaertsMannschaftId.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task SpielUmPlatzDrei_Benutzerdefiniert_EinePaarung()
+    {
+        var topf = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)));
+        AuslosungMit(Rundenart.SpielUmPlatzDrei, Auslosungsart.Benutzerdefiniert, lostoepfe: [topf]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(1);
+        ergebnisse[0].HeimMannschaftId.Should().NotBeNull();
+        ergebnisse[0].AuswaertsMannschaftId.Should().NotBeNull();
+    }
+}
