@@ -128,6 +128,14 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     private Auslosungsart _detailAuslosungsart;
 
     [ObservableProperty] private string _detailName = "";
+    [ObservableProperty] private int _detailAnzahlLostoepfe = 1;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AbbrechenCommand))]
+    private bool _istDetailDirty;
+
+    private bool _ladenAktiv;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IstPaarungsergebnis))]
@@ -155,7 +163,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private ObservableCollection<RegelViewModel> _regeln = [];
     [ObservableProperty] private ObservableCollection<ErgebnisAnzeige> _ergebnisseAnzeige = [];
     [ObservableProperty] private ObservableCollection<GruppenErgebnisAnzeige> _gruppenErgebnisse = [];
-    [ObservableProperty] private string _neuerLostopfName = "";
 
     // ── Status ────────────────────────────────────────────────────────────────
     [ObservableProperty] private bool _istLadend;
@@ -275,29 +282,50 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
     private async Task Speichern()
     {
-        if (AusgewaehlteInstanz is null || NeuRunde is null) return;
         Fehlermeldung = null;
-        try
+        if (NeuFormAktiv)
         {
-            var eingabe = new AuslosungErstellenEingabe(
-                AusgewaehlteInstanz.Id, NeuRunde.Id, NeuName.Trim(),
-                NeuAuslosungsart, false);
-            var neu = await _auslosungService.ErstellenAsync(eingabe);
-            NeuFormAktiv = false;
+            if (AusgewaehlteInstanz is null || NeuRunde is null) return;
+            try
+            {
+                var eingabe = new AuslosungErstellenEingabe(
+                    AusgewaehlteInstanz.Id, NeuRunde.Id, NeuName.Trim(),
+                    NeuAuslosungsart, false);
+                var neu = await _auslosungService.ErstellenAsync(eingabe);
+                NeuFormAktiv = false;
 
-            var auslosungen = await _auslosungService.AlleNachInstanzAbrufenAsync(AusgewaehlteInstanz.Id);
-            Auslosungen = new ObservableCollection<Auslosung>(auslosungen);
-            AusgewaehlteAuslosung = Auslosungen.FirstOrDefault(a => a.Id == neu.Id);
+                var auslosungen = await _auslosungService.AlleNachInstanzAbrufenAsync(AusgewaehlteInstanz.Id);
+                Auslosungen = new ObservableCollection<Auslosung>(auslosungen);
+                AusgewaehlteAuslosung = Auslosungen.FirstOrDefault(a => a.Id == neu.Id);
+            }
+            catch (Exception ex) { Fehlermeldung = ex.Message; }
         }
-        catch (Exception ex) { Fehlermeldung = ex.Message; }
+        else if (IstDetailDirty && _auslosungDetail is not null)
+        {
+            try
+            {
+                await _auslosungService.BearbeitenAsync(_auslosungDetail.Id, DetailName, DetailAuslosungsart);
+                await _auslosungService.LostoepfeSynchronisierenAsync(_auslosungDetail.Id, DetailAnzahlLostoepfe);
+                await LadeDetailAsync(_auslosungDetail.Id);
+                await AktualisiereSeitenlisteAsync();
+            }
+            catch (Exception ex) { Fehlermeldung = ex.Message; }
+        }
     }
 
     [RelayCommand(CanExecute = nameof(KannAbbrechen))]
-    private void Abbrechen()
+    private async Task Abbrechen()
     {
-        NeuFormAktiv = false;
-        if (AusgewaehlteAuslosung is not null)
-            DetailAktiv = true;
+        if (NeuFormAktiv)
+        {
+            NeuFormAktiv = false;
+            if (AusgewaehlteAuslosung is not null)
+                DetailAktiv = true;
+        }
+        else if (IstDetailDirty && _auslosungDetail is not null)
+        {
+            await LadeDetailAsync(_auslosungDetail.Id);
+        }
     }
 
     [RelayCommand(CanExecute = nameof(KannLoeschen))]
@@ -320,20 +348,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     }
 
     // ── Workspace-Befehle ─────────────────────────────────────────────────────
-
-    [RelayCommand]
-    private async Task LostopfHinzufuegen()
-    {
-        if (_auslosungDetail is null || string.IsNullOrWhiteSpace(NeuerLostopfName)) return;
-        Fehlermeldung = null;
-        try
-        {
-            await _auslosungService.LostopfHinzufuegenAsync(_auslosungDetail.Id, NeuerLostopfName.Trim());
-            NeuerLostopfName = "";
-            await LadeDetailAsync(_auslosungDetail.Id);
-        }
-        catch (Exception ex) { Fehlermeldung = ex.Message; }
-    }
 
     [RelayCommand]
     private async Task TeilnehmerZuTopfHinzufuegen(int topfId)
@@ -360,20 +374,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         try
         {
             await _auslosungService.AusfuehrenAsync(_auslosungDetail.Id);
-            await LadeDetailAsync(_auslosungDetail.Id);
-            await AktualisiereSeitenlisteAsync();
-        }
-        catch (Exception ex) { Fehlermeldung = ex.Message; }
-    }
-
-    [RelayCommand]
-    private async Task DetailBearbeiten()
-    {
-        if (_auslosungDetail is null || string.IsNullOrWhiteSpace(DetailName)) return;
-        Fehlermeldung = null;
-        try
-        {
-            await _auslosungService.BearbeitenAsync(_auslosungDetail.Id, DetailName, DetailAuslosungsart);
             await LadeDetailAsync(_auslosungDetail.Id);
             await AktualisiereSeitenlisteAsync();
         }
@@ -470,7 +470,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
 
     private async Task LadeDetailAsync(int auslosungId)
     {
-        IstLadend = true;
+        IstLadend    = true;
+        _ladenAktiv  = true;
         try
         {
             var detail = await _auslosungService.FindenNachIdAsync(auslosungId);
@@ -581,14 +582,20 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
             IstAbgeschlossen      = detail.Status == AuslosungsStatus.Abgeschlossen;
             DetailName            = detail.Name;
             DetailAuslosungsart   = detail.Auslosungsart;
+            DetailAnzahlLostoepfe = Math.Max(1, detail.Lostoepfe.Count);
 
             AuslosungKopfzeile = $"{detail.Name}  ·  {detail.TurnierRunde.Name}  ·  " +
                                  $"{AuslosungsartAnzeigeName(detail.Auslosungsart)}  ·  " +
                                  $"Status: {StatusAnzeigeName(detail.Status)}";
-            DetailAktiv = true;
-            Fehlermeldung = null;
+            DetailAktiv    = true;
+            IstDetailDirty = false;
+            Fehlermeldung  = null;
         }
-        finally { IstLadend = false; }
+        finally
+        {
+            _ladenAktiv = false;
+            IstLadend   = false;
+        }
     }
 
     private static IReadOnlyList<TeilnehmerAnzeige> PlatzhalterGenerieren(
@@ -645,9 +652,14 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     }
 
     private bool KannNeu()       => !NeuFormAktiv && AusgewaehlteInstanz is not null;
-    private bool KannSpeichern() => NeuFormAktiv && !string.IsNullOrWhiteSpace(NeuName) && NeuRunde is not null;
-    private bool KannAbbrechen() => NeuFormAktiv;
+    private bool KannSpeichern() => (NeuFormAktiv && !string.IsNullOrWhiteSpace(NeuName) && NeuRunde is not null)
+                                 || (IstDetailDirty && IstBearbeitbar && !string.IsNullOrWhiteSpace(DetailName));
+    private bool KannAbbrechen() => NeuFormAktiv || IstDetailDirty;
     private bool KannLoeschen()  => AusgewaehlteAuslosung is not null && !NeuFormAktiv;
+
+    partial void OnDetailNameChanged(string value)           { if (!_ladenAktiv) IstDetailDirty = true; }
+    partial void OnDetailAuslosungsartChanged(Auslosungsart value) { if (!_ladenAktiv) IstDetailDirty = true; }
+    partial void OnDetailAnzahlLostoepfeChanged(int value)   { if (!_ladenAktiv) IstDetailDirty = true; }
 
     private static string GruppenBuchstabe(int nr) =>
         nr <= 26 ? ((char)('A' + nr - 1)).ToString() : $"G{nr}";

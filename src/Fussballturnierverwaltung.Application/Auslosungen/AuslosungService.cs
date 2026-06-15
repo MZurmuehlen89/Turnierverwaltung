@@ -209,6 +209,41 @@ public class AuslosungService(
         return ergebnisse;
     }
 
+    public async Task LostoepfeSynchronisierenAsync(int auslosungId, int anzahl, CancellationToken ct = default)
+    {
+        if (anzahl < 1)
+            throw new InvalidOperationException("Mindestens 1 Lostopf ist erforderlich.");
+
+        var auslosung = await LadenOderFehler(auslosungId, ct);
+        PruefeNichtAbgeschlossen(auslosung);
+
+        var sortiert = auslosung.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
+
+        // fehlende Töpfe anlegen
+        for (int i = sortiert.Count + 1; i <= anzahl; i++)
+        {
+            auslosung.Lostoepfe.Add(new Lostopf
+            {
+                AuslosungId = auslosungId,
+                Name        = $"Topf {i}",
+                Reihenfolge = i
+            });
+        }
+
+        // überzählige leere Töpfe entfernen (von hinten)
+        foreach (var topf in sortiert.Skip(anzahl))
+        {
+            if (topf.Eintraege.Any())
+                throw new InvalidOperationException(
+                    $"Lostopf '{topf.Name}' enthält noch Teams und kann nicht entfernt werden. " +
+                    "Bitte zuerst alle Teams aus diesem Topf entfernen.");
+            auslosung.Lostoepfe.Remove(topf);
+        }
+
+        await repository.AktualisierenAsync(auslosung, ct);
+        logger.LogInformation("Auslosung {Id}: Lostöpfe auf {Anzahl} synchronisiert.", auslosungId, anzahl);
+    }
+
     public async Task BearbeitenAsync(int auslosungId, string name, Auslosungsart auslosungsart, CancellationToken ct = default)
     {
         var auslosung = await repository.FindenNachIdAsync(auslosungId, ct)
