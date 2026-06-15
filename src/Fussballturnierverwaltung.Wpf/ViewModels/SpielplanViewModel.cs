@@ -1,7 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spiele.Eingaben;
+using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -10,6 +12,7 @@ using Fussballturnierverwaltung.Wpf.Converters;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Windows;
 using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
@@ -39,6 +42,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 {
     private readonly SpielErgebnisService _spielService;
     private readonly TurnierInstanzService _instanzService;
+    private readonly SpielplanService _spielplanService;
+    private readonly AuslosungService _auslosungService;
 
     private int _populiertGerade;
     private static readonly HashSet<string> _formFelder =
@@ -116,22 +121,28 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     public ICommand AbbrechenBefehl => _abbrechenBefehl;
     public ICommand LoeschenBefehl  => _loeschenBefehl;
 
-    private readonly RelayCommand      _neuBefehl;
+    private readonly AsyncRelayCommand _neuBefehl;
     private readonly AsyncRelayCommand _speichernBefehl;
     private readonly RelayCommand      _abbrechenBefehl;
     private readonly AsyncRelayCommand _loeschenBefehl;
 
     // ── Konstruktor ───────────────────────────────────────────────────────────
 
-    public SpielplanViewModel(SpielErgebnisService spielService, TurnierInstanzService instanzService)
+    public SpielplanViewModel(
+        SpielErgebnisService spielService,
+        TurnierInstanzService instanzService,
+        SpielplanService spielplanService,
+        AuslosungService auslosungService)
     {
-        _spielService   = spielService;
-        _instanzService = instanzService;
+        _spielService     = spielService;
+        _instanzService   = instanzService;
+        _spielplanService = spielplanService;
+        _auslosungService = auslosungService;
 
-        _neuBefehl       = new RelayCommand(() => { }, () => false);
-        _speichernBefehl = new AsyncRelayCommand(SpeichernAsync,      () => FormAktiv && IsDirty);
-        _abbrechenBefehl = new RelayCommand(FormZuruecksetzen,         () => FormAktiv);
-        _loeschenBefehl  = new AsyncRelayCommand(ErgebnisLoeschenAsync, () => FormAktiv && FormHatErgebnis);
+        _neuBefehl       = new AsyncRelayCommand(SpielplanNeuGenerierenAsync, () => HatRunde);
+        _speichernBefehl = new AsyncRelayCommand(SpeichernAsync,               () => FormAktiv && IsDirty);
+        _abbrechenBefehl = new RelayCommand(FormZuruecksetzen,                  () => FormAktiv);
+        _loeschenBefehl  = new AsyncRelayCommand(ErgebnisLoeschenAsync,         () => FormAktiv && FormHatErgebnis);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -195,6 +206,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         AusgewaehlteSpiel = null;
         FormAktiv         = false;
         Fehlermeldung     = null;
+        _neuBefehl.NotifyCanExecuteChanged();
 
         if (AusgewaehlteRunde is null) return;
 
@@ -266,6 +278,102 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
     // ── Ribbon-Aktionen ───────────────────────────────────────────────────────
 
+    private async Task SpielplanNeuGenerierenAsync()
+    {
+        if (AusgewaehlteRunde is null || AusgewaehlteInstanz is null) return;
+
+        var rundeId   = AusgewaehlteRunde.Id;
+        var instanzId = AusgewaehlteInstanz.Id;
+        Fehlermeldung = null;
+
+        if (Spiele.Count > 0)
+        {
+            var antwort = MessageBox.Show(
+                $"Die Runde '{AusgewaehlteRunde.Name}' hat bereits {Spiele.Count} Spiel(e). " +
+                "Soll der Spielplan gelöscht und neu generiert werden?",
+                "Spielplan neu generieren",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (antwort != MessageBoxResult.Yes) return;
+
+            await _spielplanService.LoeschenAsync(rundeId);
+        }
+
+        try
+        {
+            var auslosung = await _auslosungService.FindenAbgeschlosseneNachRundeAsync(instanzId, rundeId);
+            if (auslosung is null)
+            {
+                Fehlermeldung = "Für diese Runde wurde noch keine Auslosung abgeschlossen. " +
+                                "Bitte zuerst die Auslosung durchführen.";
+                return;
+            }
+
+            switch (AusgewaehlteRunde.Rundenart)
+            {
+                case Rundenart.Gruppenphase:
+                {
+                    var gruppen = auslosung.Ergebnisse
+                        .Where(e => e.HeimMannschaftId.HasValue)
+                        .GroupBy(e => e.PaarungsNummer)
+                        .OrderBy(g => g.Key)
+                        .Select(g => (IReadOnlyList<int>)g
+                            .Select(e => e.HeimMannschaftId!.Value).ToList())
+                        .ToList();
+                    await _spielplanService.GenerierenAusGruppenAsync(rundeId, gruppen);
+                    break;
+                }
+
+                case Rundenart.TopfLiga:
+                {
+                    var paarungen = auslosung.Ergebnisse
+                        .Where(e => e.HeimMannschaftId.HasValue && e.AuswaertsMannschaftId.HasValue)
+                        .OrderBy(e => e.PaarungsNummer)
+                        .Select(e => (e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value))
+                        .ToList<(int, int)>();
+                    await _spielplanService.GenerierenAusPaarungenAsync(rundeId, paarungen);
+                    break;
+                }
+
+                case Rundenart.SchweizerSystem:
+                {
+                    var sortiertIds = auslosung.Ergebnisse
+                        .OrderBy(e => e.PaarungsNummer)
+                        .SelectMany(e => new[] { e.HeimMannschaftId, e.AuswaertsMannschaftId })
+                        .Where(id => id.HasValue)
+                        .Select(id => id!.Value)
+                        .Distinct()
+                        .ToList();
+                    await _spielplanService.SchweizerRundeGenerierenAsync(rundeId, sortiertIds);
+                    break;
+                }
+
+                default:
+                {
+                    // Liga, KoRunde, Finale, SpielUmPlatzDrei, Sonderrunde
+                    var mannschaftIds = auslosung.Ergebnisse
+                        .OrderBy(e => e.PaarungsNummer)
+                        .SelectMany(e => new[] { e.HeimMannschaftId, e.AuswaertsMannschaftId })
+                        .Where(id => id.HasValue)
+                        .Select(id => id!.Value)
+                        .Distinct()
+                        .ToList();
+                    await _spielplanService.GenerierenAsync(rundeId, mannschaftIds);
+                    break;
+                }
+            }
+
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var s in neueSpiele) Spiele.Add(MapSpielZeile(s));
+            AusgewaehlteSpiel = null;
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+    }
+
     private async Task SpeichernAsync()
     {
         if (AusgewaehlteSpiel is null || AusgewaehlteRunde is null) return;
@@ -328,6 +436,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
     private void AktualisiereBefehle()
     {
+        _neuBefehl.NotifyCanExecuteChanged();
         _speichernBefehl.NotifyCanExecuteChanged();
         _abbrechenBefehl.NotifyCanExecuteChanged();
         _loeschenBefehl.NotifyCanExecuteChanged();

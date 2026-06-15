@@ -256,6 +256,18 @@ public class AuslosungService(
         logger.LogInformation("Auslosung {Id}: Name='{Name}', Art={Art} aktualisiert.", auslosungId, auslosung.Name, auslosungsart);
     }
 
+    public async Task<Auslosung?> FindenAbgeschlosseneNachRundeAsync(
+        int turnierInstanzId, int turnierRundeId, CancellationToken ct = default)
+    {
+        var alle    = await repository.AlleNachInstanzAsync(turnierInstanzId, ct);
+        var treffer = alle
+            .Where(a => a.TurnierRundeId == turnierRundeId && a.Status == AuslosungsStatus.Abgeschlossen)
+            .MaxBy(a => a.Id);
+
+        if (treffer is null) return null;
+        return await repository.FindenNachIdMitDetailsAsync(treffer.Id, ct);
+    }
+
     public async Task ZuruecksetzenAsync(int auslosungId, CancellationToken ct = default)
     {
         await repository.ErgebnisseLoeschenUndZuruecksetzenAsync(auslosungId, ct);

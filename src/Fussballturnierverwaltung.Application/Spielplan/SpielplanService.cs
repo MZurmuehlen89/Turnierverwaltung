@@ -160,6 +160,49 @@ public class SpielplanService(
         logger.LogInformation("Spielplan für Runde '{Runde}' gelöscht.", runde.Name);
     }
 
+    /// <summary>
+    /// Generiert den Spielplan für eine Gruppenphase gruppenweise.
+    /// Jede Gruppe bekommt einen eigenen Round-Robin-Spielplan.
+    /// </summary>
+    public async Task GenerierenAusGruppenAsync(
+        int turnierRundeId,
+        IReadOnlyList<IReadOnlyList<int>> gruppen,
+        CancellationToken ct = default)
+    {
+        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
+            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+
+        var alleIds      = gruppen.SelectMany(g => g).Distinct().ToList();
+        var mannschaften = await mannschaftRepository.FindenNachIdsAsync(alleIds, ct);
+        int maxNr        = await spielRepository.HoechsteSpielNummerAsync(runde.TurnierInstanzId, ct);
+        int spielNr      = maxNr + 1;
+        var generator    = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
+        var alleSpiele   = new List<Spiel>();
+
+        foreach (var gruppe in gruppen)
+        {
+            var gruppenTeams = gruppe
+                .Select(id => mannschaften.FirstOrDefault(m => m.Id == id))
+                .Where(m => m is not null)
+                .Select(m => m!)
+                .ToList();
+
+            if (gruppenTeams.Count < 2) continue;
+
+            var kontext  = new SpielplanKontext(runde, gruppenTeams, spielNr);
+            var ergebnis = generator.Generieren(kontext);
+            alleSpiele.AddRange(ergebnis.Spiele);
+            spielNr += ergebnis.Spiele.Count;
+        }
+
+        if (alleSpiele.Count > 0)
+            await spielRepository.HinzufuegenMehrfachAsync(alleSpiele, ct);
+
+        logger.LogInformation(
+            "Gruppenphase-Spielplan für Runde '{Runde}' generiert: {Gruppen} Gruppen, {Spiele} Spiele.",
+            runde.Name, gruppen.Count, alleSpiele.Count);
+    }
+
     public Task<IReadOnlyList<Spiel>> AlleSpieleFuerInstanzAsync(int turnierInstanzId, CancellationToken ct = default)
         => spielRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
 
