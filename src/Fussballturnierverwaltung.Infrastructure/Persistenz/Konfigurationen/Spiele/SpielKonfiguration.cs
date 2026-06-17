@@ -28,15 +28,20 @@ public class SpielKonfiguration : IEntityTypeConfiguration<Spiel>
             .HasForeignKey(s => s.TurnierRundeId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Zwei FKs auf Mannschaft: beide Restrict, da SQL Server nur einen CASCADE-Pfad pro Tabelle erlaubt
+        builder.Property(s => s.HeimPlatzhalterName).HasMaxLength(200);
+        builder.Property(s => s.AuswaertsPlatzhalterName).HasMaxLength(200);
+
+        // Zwei FKs auf Mannschaft: beide Restrict, nullable für Platzhalter-Spiele
         builder.HasOne(s => s.HeimMannschaft)
             .WithMany()
             .HasForeignKey(s => s.HeimMannschaftId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(s => s.AuswaertsMannschaft)
             .WithMany()
             .HasForeignKey(s => s.AuswaertsMannschaftId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         // Selbstreferenz: Rückspiel zeigt auf sein Hinspiel

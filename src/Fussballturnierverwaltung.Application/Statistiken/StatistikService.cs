@@ -117,10 +117,11 @@ public class StatistikService(ISpielRepository spielRepository)
 
     private static Dictionary<int, Mannschaft> Teams(List<Spiel> spiele)
         => spiele
+            .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
             .SelectMany(s => new[]
             {
-                (Id: s.HeimMannschaftId,      Team: s.HeimMannschaft),
-                (Id: s.AuswaertsMannschaftId, Team: s.AuswaertsMannschaft)
+                (Id: s.HeimMannschaftId!.Value,      Team: s.HeimMannschaft!),
+                (Id: s.AuswaertsMannschaftId!.Value, Team: s.AuswaertsMannschaft!)
             })
             .DistinctBy(t => t.Id)
             .ToDictionary(t => t.Id, t => t.Team);

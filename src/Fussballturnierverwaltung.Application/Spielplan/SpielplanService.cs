@@ -116,11 +116,12 @@ public class SpielplanService(
             ? vorhandeneSpiele.Select(s => s.Spieltag ?? 0).Max() + 1
             : 1;
 
-        // Normalize to (min, max) for order-independent rematch detection
+        // Normalize to (min, max) for order-independent rematch detection (Platzhalter-Spiele ignorieren)
         var bereitsGespielt = vorhandeneSpiele
+            .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
             .Select(s => (
-                TeamAId: Math.Min(s.HeimMannschaftId, s.AuswaertsMannschaftId),
-                TeamBId: Math.Max(s.HeimMannschaftId, s.AuswaertsMannschaftId)))
+                TeamAId: Math.Min(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value),
+                TeamBId: Math.Max(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value)))
             .Distinct()
             .ToList<(int TeamAId, int TeamBId)>();
 

@@ -48,6 +48,10 @@ public class SimulationsService(
                 .OrderBy(v => v.Reihenfolge).ToList() ?? [])
             : [];
 
+        if (spiel.HeimMannschaft is null || spiel.AuswaertsMannschaft is null)
+            throw new InvalidOperationException(
+                $"Spiel #{spiel.Spielnummer} enthält Platzhalter und kann nicht simuliert werden.");
+
         bool ausfuehrlich = modus == SimulationsModus.AusfuehrlicheSimulation;
         var ergebnis = SimulationsEngine.Simulieren(
             spiel.HeimMannschaft, spiel.AuswaertsMannschaft, verfahren, ausfuehrlich, rng);

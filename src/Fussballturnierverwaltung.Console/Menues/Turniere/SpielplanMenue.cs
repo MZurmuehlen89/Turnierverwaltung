@@ -629,8 +629,9 @@ public class SpielplanMenue(
         AnsiConsole.MarkupLine($"[grey]Spieltag {naechsterSpieltag} wird nach dieser Tabellenreihenfolge gepaartet.[/]");
 
         var bereitsGespielt = vorhandene
-            .Select(s => (Math.Min(s.HeimMannschaftId, s.AuswaertsMannschaftId),
-                          Math.Max(s.HeimMannschaftId, s.AuswaertsMannschaftId)))
+            .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
+            .Select(s => (Math.Min(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value),
+                          Math.Max(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value)))
             .Distinct().ToList();
 
         int teamAnzahl = tabelle.Count;

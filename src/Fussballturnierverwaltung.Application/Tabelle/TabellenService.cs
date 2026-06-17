@@ -28,12 +28,13 @@ public class TabellenService(
         var punkteRegel = regelwerk.PunkteRegeln.FirstOrDefault()
             ?? new PunkteRegel { PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 };
 
-        // Alle Teams aus dem Spielplan ableiten (inkl. geplanter Spiele)
+        // Alle Teams aus dem Spielplan ableiten (Platzhalter-Spiele ohne reale Teams überspringen)
         var teamMap = alleSpiele
+            .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
             .SelectMany(s => new[]
             {
-                (s.HeimMannschaftId,     (Mannschaft)s.HeimMannschaft),
-                (s.AuswaertsMannschaftId, (Mannschaft)s.AuswaertsMannschaft)
+                (s.HeimMannschaftId!.Value,      s.HeimMannschaft!),
+                (s.AuswaertsMannschaftId!.Value, s.AuswaertsMannschaft!)
             })
             .DistinctBy(t => t.Item1)
             .ToDictionary(t => t.Item1, t => t.Item2);

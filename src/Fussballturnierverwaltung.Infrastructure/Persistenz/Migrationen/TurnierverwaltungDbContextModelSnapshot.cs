@@ -398,14 +398,22 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("AuswaertsMannschaftId")
+                    b.Property<int?>("AuswaertsMannschaftId")
                         .HasColumnType("int");
+
+                    b.Property<string>("AuswaertsPlatzhalterName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<DateOnly?>("Datum")
                         .HasColumnType("date");
 
-                    b.Property<int>("HeimMannschaftId")
+                    b.Property<int?>("HeimMannschaftId")
                         .HasColumnType("int");
+
+                    b.Property<string>("HeimPlatzhalterName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int?>("HinspielId")
                         .HasColumnType("int");
@@ -1041,14 +1049,12 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Mannschaft", "AuswaertsMannschaft")
                         .WithMany()
                         .HasForeignKey("AuswaertsMannschaftId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Mannschaft", "HeimMannschaft")
                         .WithMany()
                         .HasForeignKey("HeimMannschaftId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Spiele.Spiel", "Hinspiel")
                         .WithMany()

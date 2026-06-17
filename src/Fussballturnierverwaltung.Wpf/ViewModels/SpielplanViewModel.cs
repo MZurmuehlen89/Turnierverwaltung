@@ -239,8 +239,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _populiertGerade++;
         try
         {
-            FormHeimName      = spiel.HeimMannschaft?.Name ?? "";
-            FormAuswaertsName = spiel.AuswaertsMannschaft?.Name ?? "";
+            FormHeimName      = spiel.HeimMannschaft?.Name ?? spiel.HeimPlatzhalterName ?? "";
+            FormAuswaertsName = spiel.AuswaertsMannschaft?.Name ?? spiel.AuswaertsPlatzhalterName ?? "";
             FormSpielInfo     = spiel.Spieltag.HasValue
                 ? $"Spieltag {spiel.Spieltag} · Spiel #{spiel.Spielnummer}"
                 : $"Spiel #{spiel.Spielnummer}";
@@ -351,8 +351,22 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
                 default:
                 {
                     // Liga, KoRunde, Finale, SpielUmPlatzDrei, Sonderrunde
-                    var mannschaftIds = auslosung.Ergebnisse
+                    var alleErgebnisse = auslosung.Ergebnisse
                         .OrderBy(e => e.PaarungsNummer)
+                        .ToList();
+
+                    bool nurPlatzhalter = alleErgebnisse.Any() &&
+                        alleErgebnisse.All(e => !e.HeimMannschaftId.HasValue && !e.AuswaertsMannschaftId.HasValue);
+                    if (nurPlatzhalter)
+                    {
+                        Fehlermeldung =
+                            "Der Spielplan kann noch nicht generiert werden: " +
+                            "Die Auslosung enthält nur Platzhalter (z. B. 'Sieger Gruppe A'). " +
+                            "Bitte zuerst die Ergebnisse der Vorrunde eintragen.";
+                        return;
+                    }
+
+                    var mannschaftIds = alleErgebnisse
                         .SelectMany(e => new[] { e.HeimMannschaftId, e.AuswaertsMannschaftId })
                         .Where(id => id.HasValue)
                         .Select(id => id!.Value)
@@ -467,8 +481,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
             Id            = s.Id,
             Spielnummer   = s.Spielnummer,
             Spieltag      = s.Spieltag,
-            HeimName      = s.HeimMannschaft?.Name ?? "?",
-            AuswaertsName = s.AuswaertsMannschaft?.Name ?? "?",
+            HeimName      = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "?",
+            AuswaertsName = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "?",
             Status        = s.Status,
             HatErgebnis   = s.Ergebnis is not null,
             ErgebnisText  = text,

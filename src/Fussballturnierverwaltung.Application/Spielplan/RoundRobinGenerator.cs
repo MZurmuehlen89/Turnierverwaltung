@@ -61,7 +61,7 @@ public class RoundRobinGenerator : ISpielplanGenerator
             var hinrunde = spiele.ToList();
             foreach (var s in hinrunde)
             {
-                spiele.Add(Erstellen(kontext, s.AuswaertsMannschaftId, s.HeimMannschaftId,
+                spiele.Add(Erstellen(kontext, s.AuswaertsMannschaftId!.Value, s.HeimMannschaftId!.Value,
                     spielNr++, (s.Spieltag ?? 0) + spieltage));
             }
         }

@@ -101,8 +101,8 @@ public class SchweizerSystemGeneratorTests
 
             foreach (var s in ergebnis.Spiele)
             {
-                var key = (Math.Min(s.HeimMannschaftId, s.AuswaertsMannschaftId),
-                           Math.Max(s.HeimMannschaftId, s.AuswaertsMannschaftId));
+                var key = (Math.Min(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value),
+                           Math.Max(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value));
                 gespielt.Should().NotContain(key, $"Runde {runde}: Rematch entdeckt");
                 gespielt.Add(key);
             }

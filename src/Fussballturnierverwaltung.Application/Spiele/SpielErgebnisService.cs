@@ -26,6 +26,10 @@ public class SpielErgebnisService(
         var spiel = await spielRepository.FindenNachIdMitRundeUndHinspielAsync(spielId, ct)
             ?? throw new InvalidOperationException($"Spiel {spielId} nicht gefunden.");
 
+        if (spiel.HeimMannschaftId is null || spiel.AuswaertsMannschaftId is null)
+            throw new InvalidOperationException(
+                "Das Spiel enthält Platzhalter, die noch nicht aufgelöst wurden.");
+
         // Auswärtstorregel: bei Rückspiel mit aktivierter Regel Aggregat + Auswärtstore prüfen (AD-001)
         SpielErgebnis? hinspielErgebnis = spiel.IstRueckspiel
             && spiel.TurnierRunde.AuswaertstorRegelAktiv
@@ -34,10 +38,10 @@ public class SpielErgebnisService(
             : null;
 
         var (sieger, entscheidungArt) = BestimmeSieger(
-            spiel.HeimMannschaftId, spiel.AuswaertsMannschaftId, eingabe, hinspielErgebnis);
+            spiel.HeimMannschaftId.Value, spiel.AuswaertsMannschaftId.Value, eingabe, hinspielErgebnis);
 
         var vollEingabe = new SpielErgebnisEingabe(
-            spiel.HeimMannschaftId, spiel.AuswaertsMannschaftId,
+            spiel.HeimMannschaftId.Value, spiel.AuswaertsMannschaftId.Value,
             eingabe.HeimToreRegulaer, eingabe.AuswaertsToreRegulaer,
             eingabe.HeimToreVerlaengerung, eingabe.AuswaertsToreVerlaengerung,
             eingabe.HeimElfmetertore, eingabe.AuswaertsElfmetertore,
