@@ -132,4 +132,17 @@ public class SpielRepository(TurnierverwaltungDbContext context)
             .Include(s => s.Ergebnis)
             .Include(s => s.Ereignisse.OrderBy(e => e.Minute))
             .FirstOrDefaultAsync(s => s.Id == id, ct);
+
+    public async Task PlatzhalterAktualisierenAsync(
+        int spielId, int heimMannschaftId, int auswaertsMannschaftId, CancellationToken ct = default)
+    {
+        await Context.Spiele
+            .Where(s => s.Id == spielId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.HeimMannschaftId,         heimMannschaftId)
+                .SetProperty(x => x.AuswaertsMannschaftId,    auswaertsMannschaftId)
+                .SetProperty(x => x.HeimPlatzhalterName,      (string?)null)
+                .SetProperty(x => x.AuswaertsPlatzhalterName, (string?)null),
+            ct);
+    }
 }

@@ -29,4 +29,7 @@ public interface ISpielRepository : IRepository<Spiel>
 
     /// <summary>Lädt ein einzelnes Spiel mit Ergebnis, Teams und allen SpielEreignissen (für Liveticker).</summary>
     Task<Spiel?> FindenNachIdMitEreignissenAsync(int id, CancellationToken ct = default);
+
+    /// <summary>Setzt die realen Mannschaften auf einem Platzhalter-Spiel und löscht die Platzhalternamen.</summary>
+    Task PlatzhalterAktualisierenAsync(int spielId, int heimMannschaftId, int auswaertsMannschaftId, CancellationToken ct = default);
 }

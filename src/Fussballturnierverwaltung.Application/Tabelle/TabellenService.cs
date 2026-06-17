@@ -16,6 +16,34 @@ public class TabellenService(
     public async Task<IReadOnlyList<TabellenEintrag>> TabelleBerechnenAsync(
         int turnierRundeId, CancellationToken ct = default)
     {
+        var (punkteRegel, rankingRegeln, alleSpiele) = await LadeTabellenDatenAsync(turnierRundeId, ct);
+        if (!alleSpiele.Any()) return [];
+        return TabelleAusSpielenBerechnen(alleSpiele, punkteRegel, rankingRegeln);
+    }
+
+    /// <summary>Berechnet je eine Tabelle pro Gruppe. Gruppen werden aus den Spielpaarungen rekonstruiert.</summary>
+    public async Task<IReadOnlyList<GruppenTabelle>> GruppenTabellenBerechnenAsync(
+        int turnierRundeId, CancellationToken ct = default)
+    {
+        var (punkteRegel, rankingRegeln, alleSpiele) = await LadeTabellenDatenAsync(turnierRundeId, ct);
+        if (!alleSpiele.Any()) return [];
+
+        var gruppen = GruppenAusSpielenAbleiten(alleSpiele);
+        return gruppen.Select((gruppenTeamIds, index) =>
+        {
+            var teamIds = gruppenTeamIds.ToHashSet();
+            var gruppenSpiele = alleSpiele
+                .Where(s => s.HeimMannschaftId.HasValue && teamIds.Contains(s.HeimMannschaftId.Value))
+                .ToList();
+            return new GruppenTabelle(index + 1, TabelleAusSpielenBerechnen(gruppenSpiele, punkteRegel, rankingRegeln));
+        }).ToList();
+    }
+
+    // ── Interne Lade- und Berechnungsmethoden ────────────────────────────
+
+    private async Task<(PunkteRegel, List<RankingRegel>, IReadOnlyList<Spiel>)> LadeTabellenDatenAsync(
+        int turnierRundeId, CancellationToken ct)
+    {
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Runde {turnierRundeId} nicht gefunden.");
 
@@ -23,13 +51,22 @@ public class TabellenService(
             ?? throw new InvalidOperationException($"Regelwerk {runde.RegelwerkId} nicht gefunden.");
 
         var alleSpiele = await spielRepository.AlleNachRundeMitEreignissenAsync(turnierRundeId, ct);
-        if (!alleSpiele.Any()) return [];
 
         var punkteRegel = regelwerk.PunkteRegeln.FirstOrDefault()
             ?? new PunkteRegel { PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 };
 
-        // Alle Teams aus dem Spielplan ableiten (Platzhalter-Spiele ohne reale Teams überspringen)
-        var teamMap = alleSpiele
+        var rankingRegeln = regelwerk.RankingRegelSet?.Eintraege
+            .OrderBy(e => e.Reihenfolge)
+            .Select(e => e.RankingRegel)
+            .ToList() ?? [];
+
+        return (punkteRegel, rankingRegeln, alleSpiele);
+    }
+
+    private static IReadOnlyList<TabellenEintrag> TabelleAusSpielenBerechnen(
+        IReadOnlyList<Spiel> spiele, PunkteRegel punkteRegel, List<RankingRegel> rankingRegeln)
+    {
+        var teamMap = spiele
             .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
             .SelectMany(s => new[]
             {
@@ -39,23 +76,16 @@ public class TabellenService(
             .DistinctBy(t => t.Item1)
             .ToDictionary(t => t.Item1, t => t.Item2);
 
-        // Nur abgeschlossene Spiele für die Statistik
-        var abgeschlossene = alleSpiele
+        if (teamMap.Count == 0) return [];
+
+        var abgeschlossene = spiele
             .Where(s => s.Status == SpielStatus.Abgeschlossen && s.Ergebnis is not null)
             .ToList();
 
-        // Rohdaten pro Team berechnen
         var stats = teamMap.Keys.ToDictionary(
             id => id,
             id => BerechneSpielerStats(id, abgeschlossene, punkteRegel));
 
-        // Ranking-Regeln aus dem Regelset (geordnet)
-        var rankingRegeln = regelwerk.RankingRegelSet?.Eintraege
-            .OrderBy(e => e.Reihenfolge)
-            .Select(e => e.RankingRegel)
-            .ToList() ?? [];
-
-        // Einträge erstellen, sortieren, Rang vergeben
         var eintraege = teamMap.Select(kv => new TabellenEintrag
         {
             Mannschaft    = kv.Value,
@@ -70,6 +100,49 @@ public class TabellenService(
 
         SortierenUndRangZuweisen(eintraege, stats, rankingRegeln, abgeschlossene, punkteRegel);
         return eintraege;
+    }
+
+    /// <summary>
+    /// Rekonstruiert Gruppen aus Spielpaarungen via Union-Find.
+    /// Reihenfolge der Gruppen entspricht der Generierungsreihenfolge (kleinste Spielnummer zuerst).
+    /// </summary>
+    private static IReadOnlyList<IReadOnlyList<int>> GruppenAusSpielenAbleiten(IEnumerable<Spiel> spiele)
+    {
+        var spieleListe = spiele
+            .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
+            .ToList();
+
+        var parent = new Dictionary<int, int>();
+
+        int Find(int x)
+        {
+            if (!parent.ContainsKey(x)) parent[x] = x;
+            if (parent[x] != x) parent[x] = Find(parent[x]);
+            return parent[x];
+        }
+
+        void Union(int x, int y)
+        {
+            var rx = Find(x); var ry = Find(y);
+            if (rx != ry) parent[rx] = ry;
+        }
+
+        foreach (var s in spieleListe)
+            Union(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value);
+
+        // Gruppierungsreihenfolge anhand erster Spielnummer sicherstellen
+        var teamErsteSpielnr = new Dictionary<int, int>();
+        foreach (var s in spieleListe.OrderBy(s => s.Spielnummer))
+        {
+            teamErsteSpielnr.TryAdd(s.HeimMannschaftId!.Value, s.Spielnummer);
+            teamErsteSpielnr.TryAdd(s.AuswaertsMannschaftId!.Value, s.Spielnummer);
+        }
+
+        return parent.Keys
+            .GroupBy(id => Find(id))
+            .OrderBy(g => g.Min(id => teamErsteSpielnr.GetValueOrDefault(id, int.MaxValue)))
+            .Select(g => (IReadOnlyList<int>)g.OrderBy(id => id).ToList())
+            .ToList();
     }
 
     // ── Statistikberechnung ───────────────────────────────────────────────
