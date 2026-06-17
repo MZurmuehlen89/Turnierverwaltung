@@ -32,6 +32,7 @@ public class SpielZeile
     public string ErgebnisText { get; init; } = "-:-";
     public string ErgebnisDetail { get; init; } = "";
     public bool IstRueckspiel { get; init; }
+    public bool IstPlatzhalterSpiel { get; init; }
 }
 
 public record EntscheidungArtOption(string Anzeige, EntscheidungArt Wert);
@@ -113,6 +114,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         new("Münzwurf",              EntscheidungArt.Muenzwurf),
     ];
 
+    // ── Platzhalter ───────────────────────────────────────────────────────────
+
+    public bool HatPlatzhalterSpiele => Spiele.Any(s => s.IstPlatzhalterSpiel);
+    public ICommand PlatzhalterBefehl => _platzhalterBefehl;
+    private readonly AsyncRelayCommand _platzhalterBefehl;
+
     // ── IRibbonAware ──────────────────────────────────────────────────────────
 
     public string RibbonTabTitel => "Spielplan";
@@ -139,10 +146,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _spielplanService = spielplanService;
         _auslosungService = auslosungService;
 
-        _neuBefehl       = new AsyncRelayCommand(SpielplanNeuGenerierenAsync, () => HatRunde);
-        _speichernBefehl = new AsyncRelayCommand(SpeichernAsync,               () => FormAktiv && IsDirty);
-        _abbrechenBefehl = new RelayCommand(FormZuruecksetzen,                  () => FormAktiv);
-        _loeschenBefehl  = new AsyncRelayCommand(ErgebnisLoeschenAsync,         () => FormAktiv && FormHatErgebnis);
+        _neuBefehl          = new AsyncRelayCommand(SpielplanNeuGenerierenAsync,  () => HatRunde);
+        _speichernBefehl    = new AsyncRelayCommand(SpeichernAsync,               () => FormAktiv && IsDirty);
+        _abbrechenBefehl    = new RelayCommand(FormZuruecksetzen,                 () => FormAktiv);
+        _loeschenBefehl     = new AsyncRelayCommand(ErgebnisLoeschenAsync,        () => FormAktiv && FormHatErgebnis);
+        _platzhalterBefehl  = new AsyncRelayCommand(PlatzhalterAktualisierenAsync, () => HatRunde && HatPlatzhalterSpiele);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -213,6 +221,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         var liste = await _spielService.AlleNachRundeAsync(AusgewaehlteRunde.Id);
         foreach (var s in liste)
             Spiele.Add(MapSpielZeile(s));
+
+        OnPropertyChanged(nameof(HatPlatzhalterSpiele));
+        _platzhalterBefehl.NotifyCanExecuteChanged();
     }
 
     private async Task BeiSpielAenderungAsync()
@@ -357,22 +368,29 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
                     bool nurPlatzhalter = alleErgebnisse.Any() &&
                         alleErgebnisse.All(e => !e.HeimMannschaftId.HasValue && !e.AuswaertsMannschaftId.HasValue);
+
                     if (nurPlatzhalter)
                     {
-                        Fehlermeldung =
-                            "Der Spielplan kann noch nicht generiert werden: " +
-                            "Die Auslosung enthält nur Platzhalter (z. B. 'Sieger Gruppe A'). " +
-                            "Bitte zuerst die Ergebnisse der Vorrunde eintragen.";
-                        return;
+                        // Platzhalter-Spiele generieren (z.B. "Sieger Gruppe A" vs "Zweiter Gruppe B")
+                        var paarungen = alleErgebnisse
+                            .Where(e => !e.IstFreilos)
+                            .OrderBy(e => e.PaarungsNummer)
+                            .Select(e => (
+                                Heim: e.HeimPlatzhalterName ?? "?",
+                                Auswaerts: e.AuswaertsPlatzhalterName ?? "?"))
+                            .ToList<(string Heim, string Auswaerts)>();
+                        await _spielplanService.GenerierenAusPlatzhalterPaarungenAsync(rundeId, paarungen);
                     }
-
-                    var mannschaftIds = alleErgebnisse
-                        .SelectMany(e => new[] { e.HeimMannschaftId, e.AuswaertsMannschaftId })
-                        .Where(id => id.HasValue)
-                        .Select(id => id!.Value)
-                        .Distinct()
-                        .ToList();
-                    await _spielplanService.GenerierenAsync(rundeId, mannschaftIds);
+                    else
+                    {
+                        var mannschaftIds = alleErgebnisse
+                            .SelectMany(e => new[] { e.HeimMannschaftId, e.AuswaertsMannschaftId })
+                            .Where(id => id.HasValue)
+                            .Select(id => id!.Value)
+                            .Distinct()
+                            .ToList();
+                        await _spielplanService.GenerierenAsync(rundeId, mannschaftIds);
+                    }
                     break;
                 }
             }
@@ -380,7 +398,35 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             foreach (var s in neueSpiele) Spiele.Add(MapSpielZeile(s));
+            OnPropertyChanged(nameof(HatPlatzhalterSpiele));
+            _platzhalterBefehl.NotifyCanExecuteChanged();
             AusgewaehlteSpiel = null;
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+    }
+
+    private async Task PlatzhalterAktualisierenAsync()
+    {
+        if (AusgewaehlteRunde is null) return;
+        var rundeId   = AusgewaehlteRunde.Id;
+        Fehlermeldung = null;
+        try
+        {
+            int aufgeloest = await _spielplanService.PlatzhalterAufloesenAsync(rundeId);
+
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var s in neueSpiele) Spiele.Add(MapSpielZeile(s));
+            OnPropertyChanged(nameof(HatPlatzhalterSpiele));
+            _platzhalterBefehl.NotifyCanExecuteChanged();
+            AusgewaehlteSpiel = null;
+
+            if (aufgeloest == 0)
+                Fehlermeldung = "Keine Platzhalter konnten aufgelöst werden. " +
+                                "Bitte sicherstellen, dass die Vorrunden-Ergebnisse vollständig eingetragen sind.";
         }
         catch (Exception ex)
         {
@@ -454,6 +500,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _speichernBefehl.NotifyCanExecuteChanged();
         _abbrechenBefehl.NotifyCanExecuteChanged();
         _loeschenBefehl.NotifyCanExecuteChanged();
+        _platzhalterBefehl.NotifyCanExecuteChanged();
     }
 
     private static SpielZeile MapSpielZeile(Spiel s)
@@ -478,16 +525,17 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
         return new SpielZeile
         {
-            Id            = s.Id,
-            Spielnummer   = s.Spielnummer,
-            Spieltag      = s.Spieltag,
-            HeimName      = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "?",
-            AuswaertsName = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "?",
-            Status        = s.Status,
-            HatErgebnis   = s.Ergebnis is not null,
-            ErgebnisText  = text,
-            ErgebnisDetail = detail,
-            IstRueckspiel  = s.IstRueckspiel
+            Id                 = s.Id,
+            Spielnummer        = s.Spielnummer,
+            Spieltag           = s.Spieltag,
+            HeimName           = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "?",
+            AuswaertsName      = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "?",
+            Status             = s.Status,
+            HatErgebnis        = s.Ergebnis is not null,
+            ErgebnisText       = text,
+            ErgebnisDetail     = detail,
+            IstRueckspiel      = s.IstRueckspiel,
+            IstPlatzhalterSpiel = !s.HeimMannschaftId.HasValue || !s.AuswaertsMannschaftId.HasValue
         };
     }
 
