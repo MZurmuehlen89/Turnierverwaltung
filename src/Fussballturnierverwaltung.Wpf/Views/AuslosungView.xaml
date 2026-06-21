@@ -371,17 +371,51 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:RegelViewModel}">
                                     <Border Margin="0,3" Padding="8,7" CornerRadius="4"
-                                            BorderThickness="1" BorderBrush="#E2E8F0"
-                                            Background="White">
+                                            BorderThickness="1" BorderBrush="#E2E8F0">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="White" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IstRedundant}" Value="True">
+                                                        <Setter Property="Background" Value="#F8FAFC" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
                                         <StackPanel>
                                             <CheckBox IsChecked="{Binding IstAktiv, Mode=TwoWay}"
                                                       FontSize="13" FontWeight="SemiBold">
+                                                <CheckBox.Style>
+                                                    <Style TargetType="CheckBox">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IstRedundant}" Value="True">
+                                                                <Setter Property="IsEnabled" Value="False" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </CheckBox.Style>
                                                 <TextBlock Text="{Binding Anzeige}" FontSize="13"
-                                                           FontWeight="SemiBold" Foreground="#1E293B" />
+                                                           FontWeight="SemiBold">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="#1E293B" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IstRedundant}" Value="True">
+                                                                    <Setter Property="Foreground" Value="#94A3B8" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
                                             </CheckBox>
                                             <TextBlock Text="{Binding Beschreibung}"
                                                        FontSize="11" Foreground="#64748B"
                                                        TextWrapping="Wrap" Margin="20,3,0,0" />
+                                            <TextBlock Text="{Binding RedundanzHinweis}"
+                                                       FontSize="11" Foreground="#F59E0B"
+                                                       FontStyle="Italic"
+                                                       TextWrapping="Wrap" Margin="20,3,0,0"
+                                                       Visibility="{Binding IstRedundant, Converter={StaticResource BoolToVisibility}}" />
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>

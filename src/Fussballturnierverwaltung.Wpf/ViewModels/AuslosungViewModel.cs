@@ -121,15 +121,23 @@ public class RegelViewModel : ObservableObject
 {
     private readonly Func<bool, Task> _callback;
     private bool _istAktiv;
+    private bool _istRedundant;
 
     public AuslosungsRegelArt Regelart { get; init; }
     public string Anzeige { get; init; } = "";
     public string Beschreibung { get; init; } = "";
+    public string RedundanzHinweis { get; set; } = "";
 
     public bool IstAktiv
     {
         get => _istAktiv;
         set { if (SetProperty(ref _istAktiv, value)) _ = _callback(value); }
+    }
+
+    public bool IstRedundant
+    {
+        get => _istRedundant;
+        set => SetProperty(ref _istRedundant, value);
     }
 
     public RegelViewModel(AuslosungsRegelArt art, string anzeige, string beschreibung, bool initial, Func<bool, Task> callback)
@@ -829,6 +837,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
                             catch (Exception ex) { Fehlermeldung = ex.Message; }
                         });
                 }));
+            AktualisiereRedundanteRegeln(detail.Auslosungsart);
 
             // Detect whether results are group assignments (Gruppenphase) or match pairings
             bool istGruppe = detail.Ergebnisse.Any() &&
@@ -1015,7 +1024,28 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     private bool KannLoeschen()  => AusgewaehlteAuslosung is not null && !NeuFormAktiv;
 
     partial void OnDetailNameChanged(string value)           { if (!_ladenAktiv) IstDetailDirty = true; }
-    partial void OnDetailAuslosungsartChanged(Auslosungsart value) { if (!_ladenAktiv) IstDetailDirty = true; }
+    partial void OnDetailAuslosungsartChanged(Auslosungsart value)
+    {
+        if (!_ladenAktiv) IstDetailDirty = true;
+        AktualisiereRedundanteRegeln(value);
+    }
+
+    private void AktualisiereRedundanteRegeln(Auslosungsart art)
+    {
+        foreach (var regel in Regeln)
+        {
+            bool redundant = regel.Regelart switch
+            {
+                AuslosungsRegelArt.GruppensiegerGegenGruppenzweite =>
+                    art == Auslosungsart.GruppensiegerGegenGruppenzweite,
+                _ => false
+            };
+            regel.IstRedundant    = redundant;
+            regel.RedundanzHinweis = redundant
+                ? "Diese Regel ist bei der gewählten Auslosungsart bereits im Algorithmus enthalten und hat keine zusätzliche Wirkung."
+                : "";
+        }
+    }
     partial void OnDetailAnzahlLostoepfeChanged(int value)   { if (!_ladenAktiv) IstDetailDirty = true; }
 
     private static string GruppenBuchstabe(int nr) =>
@@ -1072,7 +1102,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         AuslosungsRegelArt.GesetzteGegenUngesetzte =>
             "Gesetzte Teams (Topf 1) werden ausschließlich mit ungesetzten Teams gepaart. " +
             "Zwei gesetzte Teams treffen nie direkt aufeinander. " +
-            "Klassische Setzlisten-Regel für nationale und internationale Pokal-Auslosungen.",
+            "Klassische Setzlisten-Regel für nationale und internationale Pokal-Auslosungen. " +
+            "Ergänzt 'NachSetzliste' als Paarungsbeschränkung — die Auslosungsart befüllt die Töpfe, diese Regel steuert die Paarungsbildung.",
         AuslosungsRegelArt.HeimrechtNachLos =>
             "Das Heimrecht wird separat ausgelost: Ein zufällig gezogenes Team erhält das Heimrecht " +
             "für das Hinspiel, das andere für das Rückspiel. " +
