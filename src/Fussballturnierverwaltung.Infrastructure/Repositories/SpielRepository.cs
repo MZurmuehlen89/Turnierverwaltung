@@ -42,9 +42,9 @@ public class SpielRepository(TurnierverwaltungDbContext context)
     public async Task<int> NaechsteSpielNummerAsync(int turnierInstanzId, int turnierRundeId, int reihenfolge, CancellationToken ct = default)
     {
         var vorgaenger = await Context.Spiele
-            .Where(s => s.TurnierInstanzId == turnierInstanzId)
-            .Join(Context.TurnierRunden, s => s.TurnierRundeId, r => r.Id, (s, r) => r.Reihenfolge)
-            .CountAsync(r => r < reihenfolge, ct);
+            .Where(s => s.TurnierInstanzId == turnierInstanzId
+                     && s.TurnierRunde.Reihenfolge < reihenfolge)
+            .CountAsync(ct);
 
         var dieseRunde = await Context.Spiele
             .CountAsync(s => s.TurnierRundeId == turnierRundeId, ct);

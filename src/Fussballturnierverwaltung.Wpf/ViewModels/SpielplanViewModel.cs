@@ -307,12 +307,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
             if (antwort != MessageBoxResult.Yes) return;
-
-            await _spielplanService.LoeschenAsync(rundeId);
         }
 
         try
         {
+            if (Spiele.Count > 0)
+                await _spielplanService.LoeschenAsync(rundeId);
             var auslosung = await _auslosungService.FindenAbgeschlosseneNachRundeAsync(instanzId, rundeId);
             if (auslosung is null)
             {
