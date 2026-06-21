@@ -716,6 +716,38 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
 
+    [RelayCommand]
+    private async Task TopfLeeren(LostopfViewModel topf)
+    {
+        if (_auslosungDetail is null) return;
+        Fehlermeldung = null;
+        try
+        {
+            await _auslosungService.LostopfLeerenAsync(_auslosungDetail.Id, topf.Id);
+            await LadeDetailAsync(_auslosungDetail.Id);
+        }
+        catch (Exception ex) { Fehlermeldung = ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task AlleToepfeZuruecksetzen()
+    {
+        if (_auslosungDetail is null) return;
+        var result = System.Windows.MessageBox.Show(
+            "Alle Töpfe leeren und alle Teams zurück in die Verfügbar-Liste?",
+            "Töpfe zurücksetzen",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+        if (result != System.Windows.MessageBoxResult.Yes) return;
+        Fehlermeldung = null;
+        try
+        {
+            await _auslosungService.AlleToepfeZuruecksetzenAsync(_auslosungDetail.Id);
+            await LadeDetailAsync(_auslosungDetail.Id);
+        }
+        catch (Exception ex) { Fehlermeldung = ex.Message; }
+    }
+
     // ── Interne Hilfsmethoden ─────────────────────────────────────────────────
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)

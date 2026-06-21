@@ -156,6 +156,28 @@ public class AuslosungService(
         }
     }
 
+    public async Task LostopfLeerenAsync(int auslosungId, int lostopfId, CancellationToken ct = default)
+    {
+        var auslosung = await LadenOderFehler(auslosungId, ct);
+        PruefeNichtAbgeschlossen(auslosung);
+
+        var lostopf = auslosung.Lostoepfe.FirstOrDefault(l => l.Id == lostopfId)
+            ?? throw new InvalidOperationException($"Lostopf {lostopfId} nicht gefunden.");
+
+        lostopf.Eintraege.Clear();
+        await repository.AktualisierenAsync(auslosung, ct);
+    }
+
+    public async Task AlleToepfeZuruecksetzenAsync(int auslosungId, CancellationToken ct = default)
+    {
+        var auslosung = await LadenOderFehler(auslosungId, ct);
+        PruefeNichtAbgeschlossen(auslosung);
+
+        foreach (var lostopf in auslosung.Lostoepfe)
+            lostopf.Eintraege.Clear();
+        await repository.AktualisierenAsync(auslosung, ct);
+    }
+
     public async Task RegelHinzufuegenOderAktivierenAsync(
         int auslosungId, AuslosungsRegelArt regelart, string beschreibung, CancellationToken ct = default)
     {
