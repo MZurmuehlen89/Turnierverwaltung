@@ -98,12 +98,6 @@
                                   DisplayMemberPath="Anzeige"
                                   Width="190" FontSize="13" />
 
-                        <TextBlock Text="Seed:" FontSize="12" Foreground="#475569"
-                                   VerticalAlignment="Center" Margin="16,0,6,0" />
-                        <TextBox Text="{Binding SeedEingabe, UpdateSourceTrigger=PropertyChanged}"
-                                 Width="80" Padding="6,4" FontSize="13"
-                                 BorderBrush="#CBD5E1" BorderThickness="1" />
-
                         <Button Content="Runde simulieren"
                                 Command="{Binding RundeSimulierenBefehl}"
                                 Margin="16,0,0,0" Padding="10,5" FontSize="13"

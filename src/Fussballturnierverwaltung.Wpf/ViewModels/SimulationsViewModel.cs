@@ -40,7 +40,6 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     // ── Simulationsoptionen ───────────────────────────────────────────────────
 
     [ObservableProperty] private SimulationsModusOption _ausgewaehlterModus = null!;
-    [ObservableProperty] private string _seedEingabe = "";
 
     public List<SimulationsModusOption> ModusOptionen { get; } =
     [
@@ -177,9 +176,8 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         IstLadend     = true;
         try
         {
-            var seed = ParseSeed();
             var lauf = await _simulationsService.TurnierSimulierenAsync(
-                turnierInstanzId, AusgewaehlterModus.Wert, seed);
+                turnierInstanzId, AusgewaehlterModus.Wert, null);
 
             StatusMeldung = $"Turnier simuliert — Seed: {lauf.ZufallsSeed}.";
             await LadeSpiellisteAsync();
@@ -206,9 +204,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         IstLadend     = true;
         try
         {
-            var seed = ParseSeed();
-            var rng  = seed.HasValue ? new Random(seed.Value) : null;
-            await _simulationsService.SpielSimulierenAsync(spielId, AusgewaehlterModus.Wert, rng);
+            await _simulationsService.SpielSimulierenAsync(spielId, AusgewaehlterModus.Wert, null);
 
             StatusMeldung = "Spiel simuliert.";
 
@@ -241,9 +237,8 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         IstLadend     = true;
         try
         {
-            var seed   = ParseSeed();
             int anzahl = await _simulationsService.RundeSimulierenAsync(
-                rundeId, AusgewaehlterModus.Wert, seed);
+                rundeId, AusgewaehlterModus.Wert, null);
 
             StatusMeldung = anzahl == 0
                 ? "Keine offenen Spiele in dieser Runde."
@@ -263,11 +258,6 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
 
-    private int? ParseSeed()
-    {
-        if (string.IsNullOrWhiteSpace(SeedEingabe)) return null;
-        return int.TryParse(SeedEingabe, out var v) ? v : null;
-    }
 
     private void AktualisiereBefehle()
     {
