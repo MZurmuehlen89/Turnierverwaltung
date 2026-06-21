@@ -4,6 +4,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
+using System.Text.RegularExpressions;
 
 namespace Fussballturnierverwaltung.Application.Turnierbaum;
 
@@ -108,23 +109,31 @@ public class TurnierBaumService(
         // Eltern-Kind-Verknüpfungen setzen
         for (int i = 0; i + 1 < knotenProRunde.Count; i++)
         {
-            var kindEbene   = knotenProRunde[i];
-            var elternEbene = knotenProRunde[i + 1];
+            var kindEbene    = knotenProRunde[i];
+            var kindSpiele   = spieleProRunde[i];
+            var elternEbene  = knotenProRunde[i + 1];
+            var elternSpiele = spieleProRunde[i + 1];
 
-            for (int j = 0; j < elternEbene.Count; j++)
+            bool verknuepft = VerkuepfenPerPlatzhalter(kindEbene, kindSpiele, elternEbene, elternSpiele);
+
+            if (!verknuepft)
             {
-                int linkerIdx  = j * 2;
-                int rechterIdx = j * 2 + 1;
+                // Fallback: sequentielle Zuordnung
+                for (int j = 0; j < elternEbene.Count; j++)
+                {
+                    int linkerIdx  = j * 2;
+                    int rechterIdx = j * 2 + 1;
 
-                if (linkerIdx < kindEbene.Count)
-                {
-                    elternEbene[j].LinkerKindKnotenId = kindEbene[linkerIdx].Id;
-                    kindEbene[linkerIdx].ElternKnotenId = elternEbene[j].Id;
-                }
-                if (rechterIdx < kindEbene.Count)
-                {
-                    elternEbene[j].RechterKindKnotenId = kindEbene[rechterIdx].Id;
-                    kindEbene[rechterIdx].ElternKnotenId = elternEbene[j].Id;
+                    if (linkerIdx < kindEbene.Count)
+                    {
+                        elternEbene[j].LinkerKindKnotenId = kindEbene[linkerIdx].Id;
+                        kindEbene[linkerIdx].ElternKnotenId = elternEbene[j].Id;
+                    }
+                    if (rechterIdx < kindEbene.Count)
+                    {
+                        elternEbene[j].RechterKindKnotenId = kindEbene[rechterIdx].Id;
+                        kindEbene[rechterIdx].ElternKnotenId = elternEbene[j].Id;
+                    }
                 }
             }
         }
@@ -227,6 +236,65 @@ public class TurnierBaumService(
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────
+
+    // Versucht, Eltern-Kind-Verbindungen aus Platzhalternamen wie "Sieger VF1" zu lesen.
+    // Gibt true zurück wenn mindestens eine Verbindung gesetzt wurde, sonst false (→ sequentiell).
+    private static bool VerkuepfenPerPlatzhalter(
+        List<TurnierBaumKnoten> kindEbene,  List<Spiel> kindSpiele,
+        List<TurnierBaumKnoten> elternEbene, List<Spiel> elternSpiele)
+    {
+        bool hatPlatzhalter = elternSpiele.Any(
+            s => s.HeimPlatzhalterName != null || s.AuswaertsPlatzhalterName != null);
+        if (!hatPlatzhalter) return false;
+
+        string kuerzel = RundenkuerzelFuerAnzahl(kindEbene.Count);
+
+        // Position (1-basiert, sortiert nach Spielnummer) → Knoten-Map
+        // "Sieger VF1" = 1. Spiel der VF-Runde nach Spielnummer, nicht Spielnummer == 1
+        var spielNrZuKnoten = new Dictionary<int, TurnierBaumKnoten>();
+        for (int ki = 0; ki < kindSpiele.Count && ki < kindEbene.Count; ki++)
+            spielNrZuKnoten[ki + 1] = kindEbene[ki];
+
+        bool anyLinked = false;
+        for (int j = 0; j < elternEbene.Count && j < elternSpiele.Count; j++)
+        {
+            var es = elternSpiele[j];
+
+            var heimNr      = ExtrahiereKoSiegerNr(es.HeimPlatzhalterName,      kuerzel);
+            var auswaertsNr = ExtrahiereKoSiegerNr(es.AuswaertsPlatzhalterName, kuerzel);
+
+            if (heimNr.HasValue && spielNrZuKnoten.TryGetValue(heimNr.Value, out var links))
+            {
+                elternEbene[j].LinkerKindKnotenId = links.Id;
+                links.ElternKnotenId              = elternEbene[j].Id;
+                anyLinked = true;
+            }
+            if (auswaertsNr.HasValue && spielNrZuKnoten.TryGetValue(auswaertsNr.Value, out var rechts))
+            {
+                elternEbene[j].RechterKindKnotenId = rechts.Id;
+                rechts.ElternKnotenId              = elternEbene[j].Id;
+                anyLinked = true;
+            }
+        }
+        return anyLinked;
+    }
+
+    private static int? ExtrahiereKoSiegerNr(string? name, string kuerzel)
+    {
+        if (name is null) return null;
+        var m = Regex.Match(name, @"^Sieger (\w+?)(\d+)$", RegexOptions.IgnoreCase);
+        if (!m.Success || !string.Equals(m.Groups[1].Value, kuerzel, StringComparison.OrdinalIgnoreCase))
+            return null;
+        return int.TryParse(m.Groups[2].Value, out int nr) ? nr : null;
+    }
+
+    private static string RundenkuerzelFuerAnzahl(int anzahl) => anzahl switch
+    {
+        2  => "HF",
+        4  => "VF",
+        8  => "AF",
+        _  => $"R{anzahl}"
+    };
 
     /// <summary>
     /// Stellt die Bracket-Reihenfolge der Knoten wieder her (linke Kinder vor rechten,

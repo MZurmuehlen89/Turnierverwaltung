@@ -58,12 +58,10 @@
             <TextBlock Text="Bitte ein Turnier auswählen."
                        Foreground="#94A3B8" FontSize="14"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Visibility="{Binding AusgewaehlteInstanz,
-                                    Converter={StaticResource NullToCollapsed},
-                                    ConverterParameter=invert}" />
+                       Visibility="{Binding KeinTurnierGewaehlt, Converter={StaticResource BoolToVisibility}}" />
 
             <!-- Turnier gewählt -->
-            <DockPanel Visibility="{Binding AusgewaehlteInstanz, Converter={StaticResource NullToCollapsed}}">
+            <DockPanel Visibility="{Binding KeinTurnierGewaehlt, Converter={StaticResource InverseBoolToVisibility}}">
 
                 <!-- Lade-Spinner -->
                 <TextBlock DockPanel.Dock="Top" Text="Lade…" Margin="16,12"
@@ -165,7 +163,7 @@
                                 </ItemsControl.ItemContainerStyle>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:BracketKnotenAnzeige}">
-                                        <Border Width="185" Height="74"
+                                        <Border Width="185" Height="90"
                                                 BorderThickness="1" CornerRadius="4"
                                                 Background="White">
                                             <Border.Style>
@@ -184,14 +182,31 @@
                                             </Border.Style>
 
                                             <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="*" />
+                                            </Grid.RowDefinitions>
+
+                                            <!-- Label-Streifen (nur bei festem Bracket sichtbar) -->
+                                            <Border Grid.Row="0" Background="#F8FAFC"
+                                                    BorderBrush="#F1F5F9" BorderThickness="0,0,0,1"
+                                                    CornerRadius="4,4,0,0"
+                                                    Visibility="{Binding HatLabel, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="{Binding Label}"
+                                                           FontSize="9" FontWeight="Bold"
+                                                           Foreground="#94A3B8"
+                                                           Padding="6,0"
+                                                           VerticalAlignment="Center" />
+                                            </Border>
+
                                             <!-- Freilos -->
-                                            <TextBlock Text="–" FontSize="22" Foreground="#CBD5E1"
+                                            <TextBlock Grid.Row="1" Text="–" FontSize="22" Foreground="#CBD5E1"
                                                        HorizontalAlignment="Center"
                                                        VerticalAlignment="Center"
                                                        Visibility="{Binding IstFreilos, Converter={StaticResource BoolToVisibility}}" />
 
                                             <!-- Reguläres Spiel -->
-                                            <Grid Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}">
+                                            <Grid Grid.Row="1" Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}">
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="*" />
                                                     <RowDefinition Height="1" />
