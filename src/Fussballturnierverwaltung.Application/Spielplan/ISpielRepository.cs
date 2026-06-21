@@ -8,6 +8,13 @@ public interface ISpielRepository : IRepository<Spiel>
     Task<IReadOnlyList<Spiel>> AlleNachRundeAsync(int turnierRundeId, CancellationToken ct = default);
     Task<IReadOnlyList<Spiel>> AlleNachInstanzAsync(int turnierInstanzId, CancellationToken ct = default);
     Task<int> HoechsteSpielNummerAsync(int turnierInstanzId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Berechnet die nächste freie Spielnummer für eine Runde:
+    /// Anzahl der Spiele in allen Runden mit Reihenfolge &lt; <paramref name="reihenfolge"/>
+    /// plus bereits vorhandene Spiele in dieser Runde, plus 1.
+    /// </summary>
+    Task<int> NaechsteSpielNummerAsync(int turnierInstanzId, int turnierRundeId, int reihenfolge, CancellationToken ct = default);
     Task HinzufuegenMehrfachAsync(IEnumerable<Spiel> spiele, CancellationToken ct = default);
     Task AlleNachRundeLoeschenAsync(int turnierRundeId, CancellationToken ct = default);
 

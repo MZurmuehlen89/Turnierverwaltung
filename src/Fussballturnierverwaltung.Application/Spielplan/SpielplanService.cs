@@ -58,9 +58,9 @@ public class SpielplanService(
             .Select(m => m!)
             .ToList();
 
-        int maxNr = await spielRepository.HoechsteSpielNummerAsync(runde.TurnierInstanzId, ct);
+        int startNr   = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
         var generator = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
-        var kontext   = new SpielplanKontext(runde, geordnet, maxNr + 1);
+        var kontext   = new SpielplanKontext(runde, geordnet, startNr);
         var ergebnis  = generator.Generieren(kontext);
 
         await SpeichernAsync(ergebnis, ct);
@@ -85,10 +85,10 @@ public class SpielplanService(
 
         var alleIds      = paarungen.SelectMany(p => new[] { p.HeimId, p.AuswaertsId }).Distinct().ToList();
         var mannschaften = await mannschaftRepository.FindenNachIdsAsync(alleIds, ct);
-        int maxNr        = await spielRepository.HoechsteSpielNummerAsync(runde.TurnierInstanzId, ct);
+        int startNr      = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
 
         var generator = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
-        var kontext   = new SpielplanKontext(runde, mannschaften, maxNr + 1, paarungen);
+        var kontext   = new SpielplanKontext(runde, mannschaften, startNr, paarungen);
         var ergebnis  = generator.Generieren(kontext);
 
         await SpeichernAsync(ergebnis, ct);
@@ -139,10 +139,10 @@ public class SpielplanService(
             .Select(m => m!)
             .ToList();
 
-        int maxNr     = await spielRepository.HoechsteSpielNummerAsync(runde.TurnierInstanzId, ct);
+        int startNr   = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
         var generator = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
         var kontext   = new SpielplanKontext(
-            runde, geordnet, maxNr + 1,
+            runde, geordnet, startNr,
             Paarungen:       null,
             BereitsGespielt: bereitsGespielt,
             Spieltag:        naechsterSpieltag);
@@ -183,8 +183,7 @@ public class SpielplanService(
 
         var alleIds      = gruppen.SelectMany(g => g).Distinct().ToList();
         var mannschaften = await mannschaftRepository.FindenNachIdsAsync(alleIds, ct);
-        int maxNr        = await spielRepository.HoechsteSpielNummerAsync(runde.TurnierInstanzId, ct);
-        int spielNr      = maxNr + 1;
+        int spielNr      = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
         var generator    = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
         var alleSpiele   = new List<Spiel>();
 
@@ -227,8 +226,7 @@ public class SpielplanService(
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
 
-        int maxNr   = await spielRepository.HoechsteSpielNummerAsync(runde.TurnierInstanzId, ct);
-        int spielNr = maxNr + 1;
+        int spielNr = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
 
         var spiele = paarungen.Select((p, i) => new Spiel
         {

@@ -161,8 +161,8 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
         var liste = await _spielService.AlleNachRundeAsync(AusgewaehlteRunde.Id);
         Spiele.Clear();
-        foreach (var s in liste)
-            Spiele.Add(MapSpielZeile(s));
+        foreach (var (s, i) in liste.Select((x, i) => (x, i)))
+            Spiele.Add(MapSpielZeile(s, i));
     }
 
     // ── Ribbon: Turnier simulieren ────────────────────────────────────────────
@@ -212,7 +212,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             {
                 var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId.Value);
                 Spiele.Clear();
-                foreach (var s in neueSpiele) Spiele.Add(MapSpielZeile(s));
+                foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, i));
                 AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
             }
         }
@@ -266,7 +266,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         RundeSimulierenBefehl.NotifyCanExecuteChanged();
     }
 
-    private static SpielZeile MapSpielZeile(Spiel s)
+    private SpielZeile MapSpielZeile(Spiel s, int positionInRunde = 0)
     {
         string text   = "-:-";
         string detail = "";
@@ -290,6 +290,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             Id             = s.Id,
             Spielnummer    = s.Spielnummer,
             Spieltag       = s.Spieltag,
+            KoLabel        = SpielplanViewModel.KoPositionsLabel(s, AusgewaehlteRunde, positionInRunde),
             HeimName       = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "?",
             AuswaertsName  = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "?",
             Status         = s.Status,

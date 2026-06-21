@@ -24,7 +24,8 @@ public class SpielZeile
     public int Id { get; init; }
     public int Spielnummer { get; init; }
     public int? Spieltag { get; init; }
-    public string SpieltagAnzeige => Spieltag.HasValue ? $"ST {Spieltag}" : "-";
+    public string? KoLabel { get; init; }
+    public string SpieltagAnzeige => KoLabel ?? (Spieltag.HasValue ? $"ST {Spieltag}" : "-");
     public string HeimName { get; init; } = "";
     public string AuswaertsName { get; init; } = "";
     public SpielStatus Status { get; init; }
@@ -219,8 +220,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         if (AusgewaehlteRunde is null) return;
 
         var liste = await _spielService.AlleNachRundeAsync(AusgewaehlteRunde.Id);
-        foreach (var s in liste)
-            Spiele.Add(MapSpielZeile(s));
+        foreach (var (s, i) in liste.Select((x, i) => (x, i)))
+            Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i));
 
         OnPropertyChanged(nameof(HatPlatzhalterSpiele));
         _platzhalterBefehl.NotifyCanExecuteChanged();
@@ -397,7 +398,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var s in neueSpiele) Spiele.Add(MapSpielZeile(s));
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i));
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
             _platzhalterBefehl.NotifyCanExecuteChanged();
             AusgewaehlteSpiel = null;
@@ -419,7 +420,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var s in neueSpiele) Spiele.Add(MapSpielZeile(s));
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i));
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
             _platzhalterBefehl.NotifyCanExecuteChanged();
             AusgewaehlteSpiel = null;
@@ -447,7 +448,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
             // Spielliste neu laden (ohne AusgewaehlteSpiel zu nullen via BeiRundeAenderung)
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var s in neueSpiele) Spiele.Add(MapSpielZeile(s));
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i));
 
             // Gleiche Partie erneut selektieren
             AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
@@ -473,7 +474,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var s in neueSpiele) Spiele.Add(MapSpielZeile(s));
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i));
 
             AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
         }
@@ -503,7 +504,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _platzhalterBefehl.NotifyCanExecuteChanged();
     }
 
-    private static SpielZeile MapSpielZeile(Spiel s)
+    private static SpielZeile MapSpielZeile(Spiel s, TurnierRunde? runde, int positionInRunde)
     {
         string text   = "-:-";
         string detail = "";
@@ -525,19 +526,55 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
         return new SpielZeile
         {
-            Id                 = s.Id,
-            Spielnummer        = s.Spielnummer,
-            Spieltag           = s.Spieltag,
-            HeimName           = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "?",
-            AuswaertsName      = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "?",
-            Status             = s.Status,
-            HatErgebnis        = s.Ergebnis is not null,
-            ErgebnisText       = text,
-            ErgebnisDetail     = detail,
-            IstRueckspiel      = s.IstRueckspiel,
+            Id                  = s.Id,
+            Spielnummer         = s.Spielnummer,
+            Spieltag            = s.Spieltag,
+            KoLabel             = KoPositionsLabel(s, runde, positionInRunde),
+            HeimName            = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "?",
+            AuswaertsName       = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "?",
+            Status              = s.Status,
+            HatErgebnis         = s.Ergebnis is not null,
+            ErgebnisText        = text,
+            ErgebnisDetail      = detail,
+            IstRueckspiel       = s.IstRueckspiel,
             IstPlatzhalterSpiel = !s.HeimMannschaftId.HasValue || !s.AuswaertsMannschaftId.HasValue
         };
     }
+
+    internal static string? KoPositionsLabel(Spiel s, TurnierRunde? runde, int positionInRunde)
+    {
+        if (runde is null) return null;
+        bool mitRueck = runde.MitRueckspiel;
+        return runde.Rundenart switch
+        {
+            Rundenart.Finale           => FormatKoLabel("Finale",   positionInRunde, mitRueck, s.IstRueckspiel),
+            Rundenart.SpielUmPlatzDrei => FormatKoLabel("3. Platz", positionInRunde, mitRueck, s.IstRueckspiel),
+            Rundenart.KoRunde          => KoKuerzel(runde.EingangsMannschaftsanzahl) is { } k
+                                          ? FormatKoLabel(k, positionInRunde, mitRueck, s.IstRueckspiel) : null,
+            _                          => null
+        };
+    }
+
+    private static string FormatKoLabel(string kuerzel, int positionInRunde, bool mitRueckspiel, bool istRueckspiel)
+    {
+        if (mitRueckspiel)
+        {
+            int paarNr = (positionInRunde / 2) + 1;
+            return $"{kuerzel} {paarNr} {(istRueckspiel ? "R" : "H")}";
+        }
+        return $"{kuerzel} {positionInRunde + 1}";
+    }
+
+    private static string? KoKuerzel(int eingangTeams) => eingangTeams switch
+    {
+        4   => "HF",
+        8   => "VF",
+        16  => "AF",
+        32  => "R16",
+        64  => "R32",
+        128 => "R64",
+        _   => eingangTeams > 2 ? $"R{eingangTeams / 2}" : null
+    };
 
     private static int  ParseInt(string s) =>
         int.TryParse(s, out var v) ? v : 0;
