@@ -823,7 +823,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
                 }));
 
             Regeln = new ObservableCollection<RegelViewModel>(
-                Enum.GetValues<AuslosungsRegelArt>().Select(art =>
+                Enum.GetValues<AuslosungsRegelArt>()
+                .Where(art => art != AuslosungsRegelArt.ManuelleEinschraenkung)
+                .Select(art =>
                 {
                     var vorh = detail.Regeln.FirstOrDefault(r => r.Regelart == art);
                     return new RegelViewModel(art, RegelAnzeigeName(art), RegelBeschreibung(art), vorh?.IstAktiv ?? false,
