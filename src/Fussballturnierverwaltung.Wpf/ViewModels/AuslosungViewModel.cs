@@ -118,6 +118,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
 
     private string _autoNeuName = "";
 
+    [ObservableProperty] private int _neuAnzahlLostoepfe = 1;
+
     // ── Auslosung-Detail ──────────────────────────────────────────────────────
     [ObservableProperty] private bool _detailAktiv;
     [ObservableProperty] private bool _istBearbeitbar;
@@ -290,13 +292,14 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     [RelayCommand(CanExecute = nameof(KannNeu))]
     private void Neu()
     {
-        NeuFormAktiv     = true;
-        DetailAktiv      = false;
-        _autoNeuName     = "";
-        NeuName          = "";
-        NeuAuslosungsart = Auslosungsart.Zufall;
-        NeuRunde         = InstanzRunden.FirstOrDefault();
-        Fehlermeldung    = null;
+        NeuFormAktiv        = true;
+        DetailAktiv         = false;
+        _autoNeuName        = "";
+        NeuName             = "";
+        NeuAuslosungsart    = Auslosungsart.Zufall;
+        NeuRunde            = InstanzRunden.FirstOrDefault();
+        NeuAnzahlLostoepfe  = 1;
+        Fehlermeldung       = null;
     }
 
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
@@ -312,6 +315,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
                     AusgewaehlteInstanz.Id, NeuRunde.Id, NeuName.Trim(),
                     NeuAuslosungsart, false);
                 var neu = await _auslosungService.ErstellenAsync(eingabe);
+
+                await _auslosungService.LostoepfeSynchronisierenAsync(neu.Id, Math.Max(1, NeuAnzahlLostoepfe));
+
+                if (NeuAnzahlLostoepfe == 1)
+                    await AlleTeamsZuErstemTopfHinzufuegenAsync(neu.Id, NeuRunde);
+
                 NeuFormAktiv = false;
 
                 var auslosungen = await _auslosungService.AlleNachInstanzAbrufenAsync(AusgewaehlteInstanz.Id);
@@ -653,6 +662,35 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         return Enumerable.Range(1, anzahl)
             .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"Platz {i} ({vorherigeRunde.Name})"))
             .ToList();
+    }
+
+    private async Task AlleTeamsZuErstemTopfHinzufuegenAsync(int auslosungId, TurnierRunde runde)
+    {
+        var detail = await _auslosungService.FindenNachIdAsync(auslosungId);
+        var ersterTopf = detail?.Lostoepfe.FirstOrDefault();
+        if (ersterTopf is null) return;
+
+        var aktuelleRunde  = InstanzRunden.FirstOrDefault(r => r.Id == runde.Id);
+        var vorherigeRunde = aktuelleRunde is not null
+            ? InstanzRunden.Where(r => r.Reihenfolge < aktuelleRunde.Reihenfolge)
+                           .OrderByDescending(r => r.Reihenfolge)
+                           .FirstOrDefault()
+            : null;
+
+        if (vorherigeRunde is null)
+        {
+            var teams = await _mannschaftService.AlleNachTurnierfilterAsync(
+                AusgewaehlteInstanz?.VerbandId,
+                AusgewaehlteInstanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
+            foreach (var team in teams)
+                await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(auslosungId, ersterTopf.Id, team.Id);
+        }
+        else if (aktuelleRunde is not null)
+        {
+            var platzhalter = PlatzhalterGenerieren(aktuelleRunde, vorherigeRunde);
+            foreach (var p in platzhalter)
+                await _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(auslosungId, ersterTopf.Id, p.Name);
+        }
     }
 
     private async Task AktualisiereSeitenlisteAsync()
