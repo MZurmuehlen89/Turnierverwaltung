@@ -7,5 +7,6 @@ public enum Auslosungsart
     NachToepfen,
     TopfZuordnung,
     GruppensiegerGegenGruppenzweite,
-    Benutzerdefiniert
+    Benutzerdefiniert,
+    Manuell
 }
