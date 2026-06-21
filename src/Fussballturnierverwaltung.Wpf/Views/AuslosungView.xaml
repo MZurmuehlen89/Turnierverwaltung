@@ -145,7 +145,7 @@
                                     Command="{Binding AuslosungAusfuehrenCommand}"
                                     Padding="12,6" FontSize="13"
                                     Background="#16A34A" Foreground="White" BorderThickness="0"
-                                    Visibility="{Binding IstBearbeitbar, Converter={StaticResource BoolToVisibility}}" />
+                                    Visibility="{Binding IstBearbeitbarNichtManuell, Converter={StaticResource BoolToVisibility}}" />
                             <Button Content="↩  Zurücksetzen"
                                     Command="{Binding AuslosungZuruecksetzenCommand}"
                                     Padding="12,6" FontSize="13" Margin="8,0,0,0"
@@ -345,6 +345,7 @@
                                                              DragLeave="ListBox_DragLeave"
                                                              PreviewMouseLeftButtonDown="ListBox_PreviewMouseLeftButtonDown"
                                                              MouseMove="ListBox_MouseMove"
+                                                             MouseDoubleClick="TopfListBox_MouseDoubleClick"
                                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                                         <ListBox.ItemContainerStyle>
                                                             <Style TargetType="ListBoxItem">
@@ -437,6 +438,158 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                    </StackPanel>
+
+                    <!-- MANUELLE AUSLOSUNG (nur bei Auslosungsart = Manuell + bearbeitbar) -->
+                    <StackPanel Margin="0,16,0,0"
+                                Visibility="{Binding IstManuellerModus, Converter={StaticResource BoolToVisibility}}">
+
+                        <TextBlock Text="MANUELLE AUSLOSUNG" FontSize="11" FontWeight="Bold"
+                                   Foreground="#94A3B8" Margin="0,0,0,4" />
+                        <TextBlock FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,0,0,10">
+                            Doppelklick oder Ziehen aus einem Lostopf → Slot. Rechtsklick auf Slot → entfernen.
+                        </TextBlock>
+
+                        <!-- Fehleranzeige -->
+                        <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
+                                CornerRadius="3" Padding="8,5" Margin="0,0,0,8"
+                                Visibility="{Binding ManuellesFehler, Converter={StaticResource NullToCollapsed}}">
+                            <TextBlock Text="{Binding ManuellesFehler}" Foreground="#DC2626"
+                                       FontSize="12" TextWrapping="Wrap" />
+                        </Border>
+
+                        <!-- KO-Modus: Paarungen -->
+                        <ItemsControl ItemsSource="{Binding ManuelleKoPaarungen}"
+                                      Visibility="{Binding IstManuellKoModus, Converter={StaticResource BoolToVisibility}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:ManuelleKoPaarungAnzeige}">
+                                    <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4"
+                                            Background="White" Margin="0,0,0,4">
+                                        <Grid Margin="10,7">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="28" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding PaarungsNr}"
+                                                       Foreground="#94A3B8" FontSize="12"
+                                                       VerticalAlignment="Center" />
+                                            <!-- Heim-Slot -->
+                                            <Border Grid.Column="1"
+                                                    Tag="{Binding HeimSlot}"
+                                                    BorderThickness="1" CornerRadius="3" Padding="8,5"
+                                                    AllowDrop="True"
+                                                    Drop="ManuellerSlot_Drop"
+                                                    DragOver="ManuellerSlot_DragOver"
+                                                    DragEnter="ManuellerSlot_DragEnter"
+                                                    DragLeave="ManuellerSlot_DragLeave"
+                                                    MouseRightButtonUp="ManuellerSlot_MouseRightButtonUp">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="BorderBrush" Value="#CBD5E1" />
+                                                        <Setter Property="Background" Value="#F8FAFC" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HeimSlot.IstLeer}" Value="False">
+                                                                <Setter Property="BorderBrush" Value="#86EFAC" />
+                                                                <Setter Property="Background" Value="#F0FDF4" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding HeimSlot.AnzeigeName}" FontSize="12"
+                                                           Foreground="#475569" VerticalAlignment="Center" />
+                                            </Border>
+                                            <TextBlock Grid.Column="2" Text=" vs " FontSize="12"
+                                                       Foreground="#94A3B8" VerticalAlignment="Center" Margin="6,0" />
+                                            <!-- Auswärts-Slot -->
+                                            <Border Grid.Column="3"
+                                                    Tag="{Binding AuswaertsSlot}"
+                                                    BorderThickness="1" CornerRadius="3" Padding="8,5"
+                                                    AllowDrop="True"
+                                                    Drop="ManuellerSlot_Drop"
+                                                    DragOver="ManuellerSlot_DragOver"
+                                                    DragEnter="ManuellerSlot_DragEnter"
+                                                    DragLeave="ManuellerSlot_DragLeave"
+                                                    MouseRightButtonUp="ManuellerSlot_MouseRightButtonUp">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="BorderBrush" Value="#CBD5E1" />
+                                                        <Setter Property="Background" Value="#F8FAFC" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding AuswaertsSlot.IstLeer}" Value="False">
+                                                                <Setter Property="BorderBrush" Value="#86EFAC" />
+                                                                <Setter Property="Background" Value="#F0FDF4" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding AuswaertsSlot.AnzeigeName}" FontSize="12"
+                                                           Foreground="#475569" VerticalAlignment="Center" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Gruppenphase-Modus: Gruppen -->
+                        <ItemsControl ItemsSource="{Binding ManuelleGruppen}"
+                                      Visibility="{Binding IstManuellGruppenModus, Converter={StaticResource BoolToVisibility}}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:ManuelleGruppe}">
+                                    <Border Width="160" Margin="0,0,8,8"
+                                            BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
+                                        <StackPanel>
+                                            <Border Background="#EFF6FF" Padding="10,5" CornerRadius="4,4,0,0">
+                                                <TextBlock Text="{Binding GruppenName}"
+                                                           FontSize="13" FontWeight="SemiBold"
+                                                           Foreground="#1E40AF" />
+                                            </Border>
+                                            <ItemsControl ItemsSource="{Binding Slots}" Background="White">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type vm:ManuellerGruppenSlot}">
+                                                        <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1"
+                                                                Padding="10,5" MinHeight="30"
+                                                                Tag="{Binding}"
+                                                                AllowDrop="True"
+                                                                Drop="ManuellerSlot_Drop"
+                                                                DragOver="ManuellerSlot_DragOver"
+                                                                DragEnter="ManuellerSlot_DragEnter"
+                                                                DragLeave="ManuellerSlot_DragLeave"
+                                                                MouseRightButtonUp="ManuellerSlot_MouseRightButtonUp">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IstLeer}" Value="False">
+                                                                            <Setter Property="Background" Value="#F0FDF4" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <TextBlock Text="{Binding AnzeigeName}" FontSize="12"
+                                                                       Foreground="#475569" VerticalAlignment="Center" />
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Abschließen -->
+                        <Button Content="Auslosung abschließen"
+                                Command="{Binding ManuelleAuslosungAbschliessenCommand}"
+                                Padding="14,7" FontSize="13" Margin="0,8,0,0"
+                                HorizontalAlignment="Left"
+                                Background="#16A34A" Foreground="White" BorderThickness="0" />
                     </StackPanel>
 
                     <!-- KO/Liga-Paarungs-Ergebnis -->

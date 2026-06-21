@@ -192,6 +192,9 @@ public class AuslosungService(
     {
         var auslosung = await LadenOderFehler(auslosungId, ct);
 
+        if (auslosung.Auslosungsart == Auslosungsart.Manuell)
+            throw new InvalidOperationException("Für manuelle Auslosungen bitte den Befehl 'ManuelleErgebnisseAbschliessenAsync' verwenden.");
+
         if (auslosung.Status == AuslosungsStatus.Abgeschlossen)
             throw new InvalidOperationException("Auslosung wurde bereits durchgeführt. Bitte zuerst zurücksetzen.");
 
@@ -763,6 +766,44 @@ public class AuslosungService(
         return ergebnisse;
     }
 
+    // ── Manuelle Auslosung ─────────────────────────────────────────────────────
+
+    public async Task ManuelleErgebnisseAbschliessenAsync(
+        int auslosungId,
+        IReadOnlyList<ManuellePaarungEingabe> paarungen,
+        CancellationToken ct = default)
+    {
+        var auslosung = await LadenOderFehler(auslosungId, ct);
+
+        if (auslosung.Auslosungsart != Auslosungsart.Manuell)
+            throw new InvalidOperationException("Diese Methode ist nur für manuelle Auslosungen.");
+        if (auslosung.Status == AuslosungsStatus.Abgeschlossen)
+            throw new InvalidOperationException("Auslosung wurde bereits abgeschlossen. Bitte zuerst zurücksetzen.");
+        if (!paarungen.Any())
+            throw new InvalidOperationException("Keine Paarungen angegeben.");
+
+        var ergebnisse = paarungen.Select((p, i) => new AuslosungsErgebnis
+        {
+            PaarungsNummer           = p.PaarungsNummer ?? i + 1,
+            HeimMannschaftId         = p.HeimMannschaftId,
+            HeimPlatzhalterName      = p.HeimPlatzhalterName,
+            AuswaertsMannschaftId    = p.AuswaertsMannschaftId,
+            AuswaertsPlatzhalterName = p.AuswaertsPlatzhalterName,
+            IstFreilos               = p.AuswaertsMannschaftId is null && p.AuswaertsPlatzhalterName is null
+        }).ToList();
+
+        await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);
+        logger.LogInformation("Manuelle Auslosung '{Name}' abgeschlossen: {Anzahl} Paarungen.",
+            auslosung.Name, ergebnisse.Count);
+    }
+
     private static bool HatAktiveRegel(Auslosung auslosung, AuslosungsRegelArt art)
         => auslosung.Regeln.Any(r => r.IstAktiv && r.Regelart == art);
 }
+
+public record ManuellePaarungEingabe(
+    int? HeimMannschaftId,
+    string? HeimPlatzhalterName,
+    int? AuswaertsMannschaftId,
+    string? AuswaertsPlatzhalterName,
+    int? PaarungsNummer = null);

@@ -209,6 +209,111 @@ public partial class AuslosungView : UserControl
         e.Handled = true;
     }
 
+    // ── Manuelle Auslosung: Doppelklick aus Lostopf ──────────────────────────
+
+    private void TopfListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        var vm = (AuslosungViewModel)DataContext;
+        if (!vm.IstManuellerModus) return;
+
+        var listBox   = (ListBox)sender;
+        var teilnehmer = HoleGezogenenTeilnehmer(e.OriginalSource);
+        if (teilnehmer is null) return;
+
+        var topfVm = listBox.DataContext as LostopfViewModel;
+        if (topfVm is null) return;
+
+        string? fehler;
+        if (vm.IstManuellKoModus)
+        {
+            var slot = vm.NaechsterFreierKoSlot();
+            if (slot is null) return;
+            fehler = vm.TeamInKoSlotPlatzieren(teilnehmer, topfVm.Id, slot);
+        }
+        else
+        {
+            var slot = vm.NaechsterFreierGruppenSlot();
+            if (slot is null) return;
+            fehler = vm.TeamInGruppenSlotPlatzieren(teilnehmer, topfVm.Id, slot);
+        }
+
+        e.Handled = true;
+    }
+
+    // ── Manuelle Auslosung: Slot-Drop ─────────────────────────────────────────
+
+    private void ManuellerSlot_Drop(object sender, DragEventArgs e)
+    {
+        ResetSlotDragVisual(sender);
+        if (e.Data.GetData(typeof(DragData)) is not DragData data) return;
+        if (!data.QuellTopfId.HasValue) return;
+
+        var vm = (AuslosungViewModel)DataContext;
+        if (sender is FrameworkElement fe)
+        {
+            if (fe.Tag is ManuellerKoSlot koSlot)
+                vm.TeamInKoSlotPlatzieren(data.Teilnehmer, data.QuellTopfId.Value, koSlot);
+            else if (fe.Tag is ManuellerGruppenSlot gruppenSlot)
+                vm.TeamInGruppenSlotPlatzieren(data.Teilnehmer, data.QuellTopfId.Value, gruppenSlot);
+        }
+        e.Handled = true;
+    }
+
+    private void ManuellerSlot_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(typeof(DragData))
+            ? DragDropEffects.Move
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void ManuellerSlot_DragEnter(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(typeof(DragData))) return;
+        if (sender is Border border)
+        {
+            border.BorderBrush     = Brushes.CornflowerBlue;
+            border.BorderThickness = new Thickness(2);
+        }
+    }
+
+    private void ManuellerSlot_DragLeave(object sender, DragEventArgs e)
+        => ResetSlotDragVisual(sender);
+
+    private void ManuellerSlot_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement fe) return;
+        var vm = (AuslosungViewModel)DataContext;
+
+        var menu = new ContextMenu();
+        if (fe.Tag is ManuellerKoSlot koSlot && !koSlot.IstLeer)
+        {
+            var item = new MenuItem { Header = $"'{koSlot.Team!.Name}' entfernen" };
+            item.Click += (_, _) => vm.TeamAusKoSlotEntfernen(koSlot);
+            menu.Items.Add(item);
+            fe.ContextMenu = menu;
+            fe.ContextMenu.IsOpen = true;
+        }
+        else if (fe.Tag is ManuellerGruppenSlot gruppenSlot && !gruppenSlot.IstLeer)
+        {
+            var item = new MenuItem { Header = $"'{gruppenSlot.Team!.Name}' entfernen" };
+            item.Click += (_, _) => vm.TeamAusGruppenSlotEntfernen(gruppenSlot);
+            menu.Items.Add(item);
+            fe.ContextMenu = menu;
+            fe.ContextMenu.IsOpen = true;
+        }
+        e.Handled = true;
+    }
+
+    private static void ResetSlotDragVisual(object sender)
+    {
+        if (sender is Border border)
+        {
+            border.ClearValue(Border.BorderBrushProperty);
+            border.ClearValue(Border.BorderThicknessProperty);
+        }
+    }
+
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
 
     private static TeilnehmerAnzeige? HoleGezogenenTeilnehmer(object originalSource)

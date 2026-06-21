@@ -17,24 +17,97 @@ namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
 // ── Darstellungstypen ────────────────────────────────────────────────────────
 
-public record TeilnehmerAnzeige(int? MannschaftId, string Name, string? Kuerzel, int EintragId = 0)
+public record TeilnehmerAnzeige(int? MannschaftId, string Name, string? Kuerzel, int EintragId = 0, int? LandId = null)
 {
     public bool IstPlatzhalter => !MannschaftId.HasValue;
 
     public static TeilnehmerAnzeige AusMannschaft(Mannschaft m) =>
-        new(m.Id, m.Name, m.Land?.Kurzname);
+        new(m.Id, m.Name, m.Land?.Kurzname, LandId: m.LandId);
 
     public static TeilnehmerAnzeige AusPlatzhalter(string name) =>
         new(null, name, null);
 
     public static TeilnehmerAnzeige AusEintrag(LostopfEintrag e) =>
         e.MannschaftId.HasValue
-            ? new(e.MannschaftId, e.Mannschaft?.Name ?? "?", e.Mannschaft?.Land?.Kurzname, e.Id)
+            ? new(e.MannschaftId, e.Mannschaft?.Name ?? "?", e.Mannschaft?.Land?.Kurzname, e.Id, e.Mannschaft?.LandId)
             : new(null, e.PlatzhalterName ?? "?", null, e.Id);
 }
 
 public record ErgebnisAnzeige(int PaarungsNummer, string HeimName, string AuswaertsName, bool IstFreilos);
 public record GruppenErgebnisAnzeige(int GruppenNummer, string GruppenName, IReadOnlyList<string> Teams);
+
+public class ManuellerKoSlot : ObservableObject
+{
+    private TeilnehmerAnzeige? _team;
+    public int PaarungsNr { get; init; }
+    public bool IstHeim { get; init; }
+    public int? QuellTopfId { get; private set; }
+
+    public TeilnehmerAnzeige? Team
+    {
+        get => _team;
+        private set
+        {
+            if (SetProperty(ref _team, value))
+            {
+                OnPropertyChanged(nameof(IstLeer));
+                OnPropertyChanged(nameof(AnzeigeName));
+            }
+        }
+    }
+    public bool IstLeer => Team is null;
+    public string AnzeigeName => Team?.Name ?? "…";
+
+    public void Besetzen(TeilnehmerAnzeige team, int topfId) { Team = team; QuellTopfId = topfId; }
+    public (TeilnehmerAnzeige Team, int TopfId)? Leeren()
+    {
+        if (Team is null) return null;
+        var ergebnis = (Team, QuellTopfId!.Value);
+        Team = null; QuellTopfId = null;
+        return ergebnis;
+    }
+}
+
+public record ManuelleKoPaarungAnzeige(int PaarungsNr, ManuellerKoSlot HeimSlot, ManuellerKoSlot AuswaertsSlot);
+
+public class ManuellerGruppenSlot : ObservableObject
+{
+    private TeilnehmerAnzeige? _team;
+    public int GruppenNr { get; init; }
+    public int SlotNr { get; init; }
+    public int? QuellTopfId { get; private set; }
+
+    public TeilnehmerAnzeige? Team
+    {
+        get => _team;
+        private set
+        {
+            if (SetProperty(ref _team, value))
+            {
+                OnPropertyChanged(nameof(IstLeer));
+                OnPropertyChanged(nameof(AnzeigeName));
+            }
+        }
+    }
+    public bool IstLeer => Team is null;
+    public string AnzeigeName => Team?.Name ?? "…";
+
+    public void Besetzen(TeilnehmerAnzeige team, int topfId) { Team = team; QuellTopfId = topfId; }
+    public (TeilnehmerAnzeige Team, int TopfId)? Leeren()
+    {
+        if (Team is null) return null;
+        var ergebnis = (Team, QuellTopfId!.Value);
+        Team = null; QuellTopfId = null;
+        return ergebnis;
+    }
+}
+
+public class ManuelleGruppe : ObservableObject
+{
+    public int GruppenNr { get; init; }
+    public string GruppenName { get; init; } = "";
+    public ObservableCollection<ManuellerGruppenSlot> Slots { get; init; } = [];
+}
 
 public class LostopfViewModel : ObservableObject
 {
@@ -122,11 +195,21 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
 
     // ── Auslosung-Detail ──────────────────────────────────────────────────────
     [ObservableProperty] private bool _detailAktiv;
-    [ObservableProperty] private bool _istBearbeitbar;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IstManuellerModus))]
+    [NotifyPropertyChangedFor(nameof(IstBearbeitbarNichtManuell))]
+    [NotifyPropertyChangedFor(nameof(IstManuellKoModus))]
+    [NotifyPropertyChangedFor(nameof(IstManuellGruppenModus))]
+    private bool _istBearbeitbar;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DetailAuslosungsartHinweis))]
     [NotifyPropertyChangedFor(nameof(DetailAuslosungsartWarnung))]
+    [NotifyPropertyChangedFor(nameof(IstManuellerModus))]
+    [NotifyPropertyChangedFor(nameof(IstBearbeitbarNichtManuell))]
+    [NotifyPropertyChangedFor(nameof(IstManuellKoModus))]
+    [NotifyPropertyChangedFor(nameof(IstManuellGruppenModus))]
     private Auslosungsart _detailAuslosungsart;
 
     [ObservableProperty] private string _detailName = "";
@@ -166,6 +249,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private ObservableCollection<ErgebnisAnzeige> _ergebnisseAnzeige = [];
     [ObservableProperty] private ObservableCollection<GruppenErgebnisAnzeige> _gruppenErgebnisse = [];
 
+    // ── Manuelle Auslosung ────────────────────────────────────────────────────
+    [ObservableProperty] private ObservableCollection<ManuelleKoPaarungAnzeige> _manuelleKoPaarungen = [];
+    [ObservableProperty] private ObservableCollection<ManuelleGruppe> _manuelleGruppen = [];
+    [ObservableProperty] private string? _manuellesFehler;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TeamsStatusText))]
     [NotifyPropertyChangedFor(nameof(TeamsVollstaendig))]
@@ -185,6 +273,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
             : TeamsZugewiesen > TeamsBenoetigt
                 ? $"⚠  {TeamsZugewiesen} Teams zugewiesen — {TeamsZugewiesen - TeamsBenoetigt} zu viel (Runde erwartet {TeamsBenoetigt})"
                 : $"{TeamsZugewiesen} / {TeamsBenoetigt} Teams zugewiesen — noch {TeamsBenoetigt - TeamsZugewiesen} fehlen";
+
+    // ── Manueller Modus ───────────────────────────────────────────────────────
+    public bool IstManuellerModus          => IstBearbeitbar && DetailAuslosungsart == Auslosungsart.Manuell;
+    public bool IstBearbeitbarNichtManuell => IstBearbeitbar && !IstManuellerModus;
+    public bool IstManuellKoModus          => IstManuellerModus && _auslosungDetail?.TurnierRunde?.Rundenart != Rundenart.Gruppenphase;
+    public bool IstManuellGruppenModus     => IstManuellerModus && _auslosungDetail?.TurnierRunde?.Rundenart == Rundenart.Gruppenphase;
 
     // ── Status ────────────────────────────────────────────────────────────────
     [ObservableProperty] private bool _istLadend;
@@ -232,6 +326,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         Auslosungsart.Benutzerdefiniert =>
             "Teams werden manuell den Losplätzen zugewiesen — keine automatische Verlosung. " +
             "Für besondere Anforderungen oder wenn keine andere Methode passt.",
+        Auslosungsart.Manuell =>
+            "Vollständig manuelle Auslosung ohne Automation: Sie bestimmen jede Paarung (KO-Runde) " +
+            "oder Gruppenzuordnung (Gruppenphase) selbst. " +
+            "Die konfigurierten Auslosungsregeln (z. B. 'Kein gleiches Land') werden bei jeder Eingabe geprüft, " +
+            "damit keine ungültige Paarung entstehen kann.",
         _ => ""
     };
 
@@ -409,6 +508,140 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
 
+    // ── Öffentliche Methoden: Manuelle Slot-Zuweisung ────────────────────────
+
+    public string? TeamInKoSlotPlatzieren(TeilnehmerAnzeige team, int quellTopfId, ManuellerKoSlot slot)
+    {
+        ManuellesFehler = null;
+        if (HatKeinGleichesLandVerletzung(team, slot.PaarungsNr, istHeim: slot.IstHeim, out var fehler))
+        {
+            ManuellesFehler = fehler;
+            return fehler;
+        }
+        slot.Besetzen(team, quellTopfId);
+        return null;
+    }
+
+    public void TeamAusKoSlotEntfernen(ManuellerKoSlot slot)
+    {
+        slot.Leeren();
+        ManuellesFehler = null;
+    }
+
+    public string? TeamInGruppenSlotPlatzieren(TeilnehmerAnzeige team, int quellTopfId, ManuellerGruppenSlot slot)
+    {
+        ManuellesFehler = null;
+        if (HatKeinGleichesLandVerletzungGruppe(team, slot.GruppenNr, out var fehler))
+        {
+            ManuellesFehler = fehler;
+            return fehler;
+        }
+        slot.Besetzen(team, quellTopfId);
+        return null;
+    }
+
+    public void TeamAusGruppenSlotEntfernen(ManuellerGruppenSlot slot)
+    {
+        slot.Leeren();
+        ManuellesFehler = null;
+    }
+
+    public ManuellerKoSlot? NaechsterFreierKoSlot() =>
+        ManuelleKoPaarungen.SelectMany(p => new[] { p.HeimSlot, p.AuswaertsSlot }).FirstOrDefault(s => s.IstLeer);
+
+    public ManuellerGruppenSlot? NaechsterFreierGruppenSlot() =>
+        ManuelleGruppen.SelectMany(g => g.Slots).FirstOrDefault(s => s.IstLeer);
+
+    [RelayCommand]
+    private async Task ManuelleAuslosungAbschliessen()
+    {
+        if (_auslosungDetail is null) return;
+        ManuellesFehler = null;
+        Fehlermeldung = null;
+        try
+        {
+            List<ManuellePaarungEingabe> paarungen;
+            if (IstManuellGruppenModus)
+            {
+                var alleSlots = ManuelleGruppen
+                    .SelectMany(g => g.Slots.Select(s => (g.GruppenNr, s)))
+                    .Where(x => !x.s.IstLeer)
+                    .ToList();
+                if (!alleSlots.Any())
+                {
+                    ManuellesFehler = "Bitte mindestens eine Zuweisung vornehmen.";
+                    return;
+                }
+                paarungen = alleSlots.Select(x => new ManuellePaarungEingabe(
+                    HeimMannschaftId:         x.s.Team!.MannschaftId,
+                    HeimPlatzhalterName:      x.s.Team!.MannschaftId is null ? x.s.Team!.Name : null,
+                    AuswaertsMannschaftId:    null,
+                    AuswaertsPlatzhalterName: null,
+                    PaarungsNummer:           x.GruppenNr
+                )).ToList();
+            }
+            else
+            {
+                var allePaarungen = ManuelleKoPaarungen
+                    .Where(p => !p.HeimSlot.IstLeer)
+                    .ToList();
+                if (!allePaarungen.Any())
+                {
+                    ManuellesFehler = "Bitte mindestens eine Paarung befüllen.";
+                    return;
+                }
+                paarungen = allePaarungen.Select(p => new ManuellePaarungEingabe(
+                    HeimMannschaftId:         p.HeimSlot.Team!.MannschaftId,
+                    HeimPlatzhalterName:      p.HeimSlot.Team!.MannschaftId is null ? p.HeimSlot.Team!.Name : null,
+                    AuswaertsMannschaftId:    p.AuswaertsSlot.Team?.MannschaftId,
+                    AuswaertsPlatzhalterName: p.AuswaertsSlot.Team?.MannschaftId is null ? p.AuswaertsSlot.Team?.Name : null,
+                    PaarungsNummer:           p.PaarungsNr
+                )).ToList();
+            }
+            await _auslosungService.ManuelleErgebnisseAbschliessenAsync(_auslosungDetail.Id, paarungen);
+            await LadeDetailAsync(_auslosungDetail.Id);
+            await AktualisiereSeitenlisteAsync();
+        }
+        catch (Exception ex) { Fehlermeldung = ex.Message; }
+    }
+
+    private bool HatKeinGleichesLandVerletzung(TeilnehmerAnzeige neuTeam, int paarungsNr, bool istHeim, out string? fehler)
+    {
+        fehler = null;
+        if (_auslosungDetail?.Regeln.Any(r => r.IstAktiv && r.Regelart == AuslosungsRegelArt.KeinGleichesLand) != true)
+            return false;
+        if (!neuTeam.LandId.HasValue) return false;
+        var paarung = ManuelleKoPaarungen.FirstOrDefault(p => p.PaarungsNr == paarungsNr);
+        if (paarung is null) return false;
+        var gegnerSlot = istHeim ? paarung.AuswaertsSlot : paarung.HeimSlot;
+        if (gegnerSlot.IstLeer || !gegnerSlot.Team!.LandId.HasValue) return false;
+        if (gegnerSlot.Team!.LandId == neuTeam.LandId)
+        {
+            fehler = $"Regel 'Kein gleiches Land': '{neuTeam.Name}' und '{gegnerSlot.Team!.Name}' " +
+                     "sind aus demselben Land und dürfen nicht gepaart werden.";
+            return true;
+        }
+        return false;
+    }
+
+    private bool HatKeinGleichesLandVerletzungGruppe(TeilnehmerAnzeige neuTeam, int gruppenNr, out string? fehler)
+    {
+        fehler = null;
+        if (_auslosungDetail?.Regeln.Any(r => r.IstAktiv && r.Regelart == AuslosungsRegelArt.KeinGleichesLand) != true)
+            return false;
+        if (!neuTeam.LandId.HasValue) return false;
+        var gruppe = ManuelleGruppen.FirstOrDefault(g => g.GruppenNr == gruppenNr);
+        if (gruppe is null) return false;
+        var konflikt = gruppe.Slots.FirstOrDefault(s => !s.IstLeer && s.Team!.LandId == neuTeam.LandId);
+        if (konflikt is not null)
+        {
+            fehler = $"Regel 'Kein gleiches Land': '{neuTeam.Name}' und '{konflikt.Team!.Name}' " +
+                     "sind aus demselben Land und dürfen nicht in dieselbe Gruppe.";
+            return true;
+        }
+        return false;
+    }
+
     [RelayCommand]
     private async Task AuslosungZuruecksetzen()
     {
@@ -506,6 +739,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
             var detail = await _auslosungService.FindenNachIdAsync(auslosungId);
             if (detail is null) return;
             _auslosungDetail = detail;
+
+            ManuelleKoPaarungen = [];
+            ManuelleGruppen     = [];
+            ManuellesFehler     = null;
 
             // Determine round order to decide real-teams vs placeholders
             var aktuelleRunde = InstanzRunden.FirstOrDefault(r => r.Id == detail.TurnierRundeId);
@@ -609,6 +846,43 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
 
             TeamsZugewiesen       = detail.Lostoepfe.SelectMany(l => l.Eintraege).Count();
             TeamsBenoetigt        = detail.TurnierRunde?.EingangsMannschaftsanzahl ?? 0;
+
+            // Slot-Initialisierung für manuelle Auslosung (nur wenn noch nicht abgeschlossen)
+            if (detail.Auslosungsart == Auslosungsart.Manuell &&
+                detail.Status is not (AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen))
+            {
+                int teamAnzahl = detail.TurnierRunde?.EingangsMannschaftsanzahl ?? 0;
+                if (detail.TurnierRunde?.Rundenart == Rundenart.Gruppenphase)
+                {
+                    int gruppenAnzahl = detail.TurnierRunde.GruppenAnzahl ?? 1;
+                    int slotsProGruppe = teamAnzahl > 0 && gruppenAnzahl > 0 ? teamAnzahl / gruppenAnzahl : 4;
+                    ManuelleGruppen = new ObservableCollection<ManuelleGruppe>(
+                        Enumerable.Range(1, gruppenAnzahl).Select(gNr => new ManuelleGruppe
+                        {
+                            GruppenNr   = gNr,
+                            GruppenName = $"Gruppe {GruppenBuchstabe(gNr)}",
+                            Slots       = new ObservableCollection<ManuellerGruppenSlot>(
+                                Enumerable.Range(1, slotsProGruppe).Select(sNr => new ManuellerGruppenSlot
+                                {
+                                    GruppenNr = gNr,
+                                    SlotNr    = sNr
+                                }))
+                        }));
+                    ManuelleKoPaarungen = [];
+                }
+                else
+                {
+                    int paarAnzahl = teamAnzahl > 0 ? (int)Math.Ceiling(teamAnzahl / 2.0) : 1;
+                    ManuelleKoPaarungen = new ObservableCollection<ManuelleKoPaarungAnzeige>(
+                        Enumerable.Range(1, paarAnzahl).Select(nr => new ManuelleKoPaarungAnzeige(
+                            nr,
+                            new ManuellerKoSlot { PaarungsNr = nr, IstHeim = true },
+                            new ManuellerKoSlot { PaarungsNr = nr, IstHeim = false })));
+                    ManuelleGruppen = [];
+                }
+                OnPropertyChanged(nameof(IstManuellKoModus));
+                OnPropertyChanged(nameof(IstManuellGruppenModus));
+            }
 
             IstBearbeitbar        = detail.Status is not (AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen);
             IstAbgeschlossen      = detail.Status == AuslosungsStatus.Abgeschlossen;
@@ -735,6 +1009,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
         Auslosungsart.TopfZuordnung                   => "Topf-Zuordnung (UCL)",
         Auslosungsart.GruppensiegerGegenGruppenzweite => "Gruppensieger vs. Zweite",
         Auslosungsart.Benutzerdefiniert               => "Benutzerdefiniert",
+        Auslosungsart.Manuell                         => "Manuell",
         _                                             => a.ToString()
     };
 
