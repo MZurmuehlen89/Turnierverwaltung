@@ -410,15 +410,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
             if (AusgewaehlteInstanz is null || NeuRunde is null) return;
             try
             {
+                var name    = string.IsNullOrWhiteSpace(NeuName) ? NeuRunde.Name : NeuName.Trim();
                 var eingabe = new AuslosungErstellenEingabe(
-                    AusgewaehlteInstanz.Id, NeuRunde.Id, NeuName.Trim(),
+                    AusgewaehlteInstanz.Id, NeuRunde.Id, name,
                     NeuAuslosungsart, false);
                 var neu = await _auslosungService.ErstellenAsync(eingabe);
 
                 await _auslosungService.LostoepfeSynchronisierenAsync(neu.Id, Math.Max(1, NeuAnzahlLostoepfe));
-
-                if (NeuAnzahlLostoepfe == 1)
-                    await AlleTeamsZuErstemTopfHinzufuegenAsync(neu.Id, NeuRunde);
 
                 NeuFormAktiv = false;
 
@@ -1011,8 +1009,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     }
 
     private bool KannNeu()       => !NeuFormAktiv && AusgewaehlteInstanz is not null;
-    private bool KannSpeichern() => (NeuFormAktiv && !string.IsNullOrWhiteSpace(NeuName) && NeuRunde is not null)
-                                 || (IstDetailDirty && IstBearbeitbar && !string.IsNullOrWhiteSpace(DetailName));
+    private bool KannSpeichern() => (NeuFormAktiv && NeuRunde is not null)
+                                 || (IstDetailDirty && IstBearbeitbar);
     private bool KannAbbrechen() => NeuFormAktiv || IstDetailDirty;
     private bool KannLoeschen()  => AusgewaehlteAuslosung is not null && !NeuFormAktiv;
 
