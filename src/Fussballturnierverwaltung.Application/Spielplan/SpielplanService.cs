@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Tabelle;
+using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
@@ -14,6 +15,7 @@ public class SpielplanService(
     ITurnierRundeRepository rundeRepository,
     ISpielRepository spielRepository,
     IMannschaftRepository mannschaftRepository,
+    ITurnierBaumRepository turnierBaumRepository,
     SpielplanGeneratorFactory generatorFactory,
     TurnierValidator turnierValidator,
     TabellenService tabellenService,
@@ -162,6 +164,7 @@ public class SpielplanService(
     {
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+        await turnierBaumRepository.SpielIdsNullSetzenAsync(turnierRundeId, ct);
         await spielRepository.AlleNachRundeLoeschenAsync(turnierRundeId, ct);
         logger.LogInformation("Spielplan für Runde '{Runde}' gelöscht.", runde.Name);
     }

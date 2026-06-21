@@ -16,4 +16,7 @@ public interface ITurnierBaumRepository : IRepository<TurnierBaum>
 
     /// <summary>Löscht den Baum vollständig inkl. aller Knoten (zirkuläre Referenzen werden vorher aufgelöst).</summary>
     Task LoeschenMitKnotenAsync(int turnierBaumId, CancellationToken ct = default);
+
+    /// <summary>Setzt SpielId aller Baumknoten für eine Runde auf null (vor dem Löschen der Spiele).</summary>
+    Task SpielIdsNullSetzenAsync(int turnierRundeId, CancellationToken ct = default);
 }

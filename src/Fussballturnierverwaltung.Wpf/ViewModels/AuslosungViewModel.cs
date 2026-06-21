@@ -518,13 +518,15 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
             ManuellesFehler = fehler;
             return fehler;
         }
+        EntferneAusTopf(team, quellTopfId);
         slot.Besetzen(team, quellTopfId);
         return null;
     }
 
     public void TeamAusKoSlotEntfernen(ManuellerKoSlot slot)
     {
-        slot.Leeren();
+        var ergebnis = slot.Leeren();
+        if (ergebnis is not null) GibeAnTopfZurueck(ergebnis.Value.Team, ergebnis.Value.TopfId);
         ManuellesFehler = null;
     }
 
@@ -536,14 +538,33 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
             ManuellesFehler = fehler;
             return fehler;
         }
+        EntferneAusTopf(team, quellTopfId);
         slot.Besetzen(team, quellTopfId);
         return null;
     }
 
     public void TeamAusGruppenSlotEntfernen(ManuellerGruppenSlot slot)
     {
-        slot.Leeren();
+        var ergebnis = slot.Leeren();
+        if (ergebnis is not null) GibeAnTopfZurueck(ergebnis.Value.Team, ergebnis.Value.TopfId);
         ManuellesFehler = null;
+    }
+
+    private void EntferneAusTopf(TeilnehmerAnzeige team, int topfId)
+    {
+        var topf    = Lostoepfe.FirstOrDefault(t => t.Id == topfId);
+        var eintrag = topf?.Teilnehmer.FirstOrDefault(t =>
+            (t.EintragId > 0 && t.EintragId == team.EintragId) || t.Name == team.Name);
+        if (eintrag is not null) topf!.Teilnehmer.Remove(eintrag);
+    }
+
+    private void GibeAnTopfZurueck(TeilnehmerAnzeige team, int topfId)
+    {
+        var topf = Lostoepfe.FirstOrDefault(t => t.Id == topfId);
+        if (topf is null) return;
+        bool bereitsVorhanden = topf.Teilnehmer.Any(t =>
+            (t.EintragId > 0 && t.EintragId == team.EintragId) || t.Name == team.Name);
+        if (!bereitsVorhanden) topf.Teilnehmer.Add(team);
     }
 
     public ManuellerKoSlot? NaechsterFreierKoSlot() =>
@@ -956,7 +977,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
             var teams = await _mannschaftService.AlleNachTurnierfilterAsync(
                 AusgewaehlteInstanz?.VerbandId,
                 AusgewaehlteInstanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
-            foreach (var team in teams)
+            var zuFuellende = runde.EingangsMannschaftsanzahl > 0
+                ? teams.Take(runde.EingangsMannschaftsanzahl)
+                : (IEnumerable<Mannschaft>)teams;
+            foreach (var team in zuFuellende)
                 await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(auslosungId, ersterTopf.Id, team.Id);
         }
         else if (aktuelleRunde is not null)

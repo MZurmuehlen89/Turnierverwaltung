@@ -41,6 +41,13 @@ public class TurnierBaumRepository(TurnierverwaltungDbContext context)
         await Context.SaveChangesAsync(ct);
     }
 
+    public async Task SpielIdsNullSetzenAsync(int turnierRundeId, CancellationToken ct = default)
+    {
+        await Context.TurnierBaumKnotenMenge
+            .Where(k => k.SpielId != null && k.Spiel!.TurnierRundeId == turnierRundeId)
+            .ExecuteUpdateAsync(s => s.SetProperty(k => k.SpielId, (int?)null), ct);
+    }
+
     public async Task LoeschenMitKnotenAsync(int turnierBaumId, CancellationToken ct = default)
     {
         var baum = await Context.TurnierBaeume

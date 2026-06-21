@@ -323,8 +323,8 @@ public class AuslosungService(
     {
         var rundenart = auslosung.TurnierRunde?.Rundenart;
 
-        // Gruppenphase: output is team-to-group assignments, not match pairings
-        if (rundenart == Rundenart.Gruppenphase)
+        // Gruppenphase und Liga: Zuweisung zu Gruppen (Liga = eine Gruppe)
+        if (rundenart == Rundenart.Gruppenphase || rundenart == Rundenart.Liga)
         {
             return auslosung.Auslosungsart switch
             {
@@ -347,10 +347,13 @@ public class AuslosungService(
 
     // ── Gruppenphase algorithms (output: team → group assignments) ─────────
 
-    private static int GruppenAnzahlOderFehler(Auslosung auslosung) =>
-        auslosung.TurnierRunde?.GruppenAnzahl
-        ?? throw new InvalidOperationException(
-            "Gruppenphase-Auslosung: Die Runde hat keine Gruppenanzahl definiert.");
+    private static int GruppenAnzahlOderFehler(Auslosung auslosung)
+    {
+        if (auslosung.TurnierRunde?.Rundenart == Rundenart.Liga) return 1;
+        return auslosung.TurnierRunde?.GruppenAnzahl
+            ?? throw new InvalidOperationException(
+                "Gruppenphase-Auslosung: Die Runde hat keine Gruppenanzahl definiert.");
+    }
 
     private static List<AuslosungsErgebnis> GruppenphaseZufaelligAusloesen(Auslosung auslosung)
     {
