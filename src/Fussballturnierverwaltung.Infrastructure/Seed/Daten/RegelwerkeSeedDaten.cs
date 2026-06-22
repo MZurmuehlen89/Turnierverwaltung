@@ -122,5 +122,16 @@ public static class RegelwerkeSeedDaten
             Sieg: 2, Unentschieden: 1, Niederlage: 0,
             Verfahren: [VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid]
         ),
+        (
+            new Regelwerk
+            {
+                Name = "UEFA Clubwettbewerb Standard",
+                Beschreibung = "UEFA-Regelwerk für Clubwettbewerbe: 3 Punkte, UEFA-Gruppenranking (direkter Vergleich zuerst), Verlängerung + Elfmeter.",
+                GueltigVon = new DateOnly(2021, 1, 1),
+                RankingRegelSetId = rankingRegelSetLookup.GetValueOrDefault("UEFA Standard")
+            },
+            Sieg: 3, Unentschieden: 1, Niederlage: 0,
+            Verfahren: [VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Elfmeterschiessen]
+        ),
     ];
 }

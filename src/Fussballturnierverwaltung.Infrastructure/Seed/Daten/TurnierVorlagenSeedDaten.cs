@@ -10,9 +10,13 @@ public static class TurnierVorlagenSeedDaten
         FifaWm32Teams(regelwerkLookup),
         FifaWm24Teams(regelwerkLookup),
         FifaWm16Teams(regelwerkLookup),
+        FifaKlubWm32Teams(regelwerkLookup),
         UefaEm24Teams(regelwerkLookup),
         UefaEm16Teams(regelwerkLookup),
         UefaEm8Teams(regelwerkLookup),
+        UefaChampionsLeague32TeamsKlassisch(regelwerkLookup),
+        UefaChampionsLeague32TeamsModern(regelwerkLookup),
+        DfbPokal64Teams(regelwerkLookup),
         MiniTurnier8Teams(regelwerkLookup),
         MiniTurnier4Teams(regelwerkLookup),
         FreiesTurnier(),
@@ -151,6 +155,94 @@ public static class TurnierVorlagenSeedDaten
         return v;
     }
 
+    // ── UEFA Clubwettbewerbe ───────────────────────────────────────────────────
+
+    private static TurnierVorlage UefaChampionsLeague32TeamsKlassisch(IReadOnlyDictionary<string, int>? rw)
+    {
+        var v = new TurnierVorlage
+        {
+            Name = "UEFA Champions League (32 Teams, mit Auswärtstorregel, 2003–2021)",
+            Beschreibung = "Gruppenphase (8×4) → KO-Runden (Hin-/Rückspiel, Auswärtstorregel aktiv) → Finale (Einzelspiel)",
+            ErforderlicheMannschaftsanzahl = 32,
+            VorlagenKategorie = VorlagenKategorie.Vereinspokal,
+            IstHistorisch = true,
+            GueltigVon = new DateOnly(2003, 1, 1),
+            GueltigBis = new DateOnly(2021, 12, 31),
+        };
+        int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
+        v.VorlagenRunden.Add(Runde(1, "Gruppenphase",  Rundenart.Gruppenphase, 32, 16, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(2, "Achtelfinale",  Rundenart.KoRunde,      16,  8, auswaerts: true,  mitRueckspiel: true, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(3, "Viertelfinale", Rundenart.KoRunde,       8,  4, auswaerts: true,  mitRueckspiel: true, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(4, "Halbfinale",    Rundenart.KoRunde,       4,  2, auswaerts: true,  mitRueckspiel: true, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(5, "Finale",        Rundenart.Finale,        2,  1, regelwerkId: rId));
+        return v;
+    }
+
+    private static TurnierVorlage UefaChampionsLeague32TeamsModern(IReadOnlyDictionary<string, int>? rw)
+    {
+        var v = new TurnierVorlage
+        {
+            Name = "UEFA Champions League (32 Teams, ohne Auswärtstorregel, 2021–2024)",
+            Beschreibung = "Gruppenphase (8×4) → KO-Runden (Hin-/Rückspiel, keine Auswärtstorregel) → Finale (Einzelspiel)",
+            ErforderlicheMannschaftsanzahl = 32,
+            VorlagenKategorie = VorlagenKategorie.Vereinspokal,
+            IstHistorisch = true,
+            GueltigVon = new DateOnly(2021, 1, 1),
+            GueltigBis = new DateOnly(2024, 12, 31),
+        };
+        int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
+        v.VorlagenRunden.Add(Runde(1, "Gruppenphase",  Rundenart.Gruppenphase, 32, 16, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(2, "Achtelfinale",  Rundenart.KoRunde,      16,  8, mitRueckspiel: true, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(3, "Viertelfinale", Rundenart.KoRunde,       8,  4, mitRueckspiel: true, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(4, "Halbfinale",    Rundenart.KoRunde,       4,  2, mitRueckspiel: true, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(5, "Finale",        Rundenart.Finale,        2,  1, regelwerkId: rId));
+        return v;
+    }
+
+    // ── FIFA Klubwettbewerbe ───────────────────────────────────────────────────
+
+    private static TurnierVorlage FifaKlubWm32Teams(IReadOnlyDictionary<string, int>? rw)
+    {
+        var v = new TurnierVorlage
+        {
+            Name = "FIFA Klub-WM (32 Teams, ab 2025)",
+            Beschreibung = "Gruppenphase (8×4) → Achtelfinale → Viertelfinale → Halbfinale → Finale; alle KO-Spiele als Einzelspiel",
+            ErforderlicheMannschaftsanzahl = 32,
+            VorlagenKategorie = VorlagenKategorie.Weltmeisterschaft,
+            IstHistorisch = false,
+            GueltigVon = new DateOnly(2025, 1, 1),
+        };
+        int? rId = RwId(rw, "FIFA Standard Modern (3-Punkte)");
+        v.VorlagenRunden.Add(Runde(1, "Gruppenphase",     Rundenart.Gruppenphase,    32, 16, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(2, "Achtelfinale",     Rundenart.KoRunde,         16,  8, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(3, "Viertelfinale",    Rundenart.KoRunde,          8,  4, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(4, "Halbfinale",       Rundenart.KoRunde,          4,  2, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(5, "Finale",           Rundenart.Finale,           2,  1, regelwerkId: rId));
+        return v;
+    }
+
+    // ── Nationale Vereinspokale ────────────────────────────────────────────────
+
+    private static TurnierVorlage DfbPokal64Teams(IReadOnlyDictionary<string, int>? rw)
+    {
+        var v = new TurnierVorlage
+        {
+            Name = "DFB-Pokal (64 Teams)",
+            Beschreibung = "Reines K.-o.-Format ab 64 Teams; alle Runden als Einzelspiel (kein Rückspiel)",
+            ErforderlicheMannschaftsanzahl = 64,
+            VorlagenKategorie = VorlagenKategorie.Vereinspokal,
+            IstHistorisch = false,
+        };
+        int? rId = RwId(rw, "FIFA Standard Modern (3-Punkte)");
+        v.VorlagenRunden.Add(Runde(1, "1. Runde",          Rundenart.KoRunde,          64, 32, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(2, "2. Runde",          Rundenart.KoRunde,          32, 16, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(3, "Achtelfinale",      Rundenart.KoRunde,          16,  8, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(4, "Viertelfinale",     Rundenart.KoRunde,           8,  4, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(5, "Halbfinale",        Rundenart.KoRunde,           4,  2, regelwerkId: rId));
+        v.VorlagenRunden.Add(Runde(6, "Finale",            Rundenart.Finale,            2,  1, regelwerkId: rId));
+        return v;
+    }
+
     // ── Kleine Turniere ────────────────────────────────────────────────────────
 
     private static TurnierVorlage MiniTurnier8Teams(IReadOnlyDictionary<string, int>? rw)
@@ -203,7 +295,7 @@ public static class TurnierVorlagenSeedDaten
     private static VorlagenRunde Runde(
         int reihenfolge, string name, Rundenart art,
         int eingang, int ausgang, bool auswaerts = false,
-        int? regelwerkId = null) => new()
+        bool mitRueckspiel = false, int? regelwerkId = null) => new()
     {
         Reihenfolge               = reihenfolge,
         Name                      = name,
@@ -211,6 +303,7 @@ public static class TurnierVorlagenSeedDaten
         EingangsMannschaftsanzahl = eingang,
         AusgangsMannschaftsanzahl = ausgang,
         AuswaertstorRegelAktiv    = auswaerts,
+        MitRueckspiel             = mitRueckspiel,
         RegelwerkId               = regelwerkId,
     };
 }

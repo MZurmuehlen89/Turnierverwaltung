@@ -27,8 +27,77 @@ public class SeedDatenService
             _logger.LogInformation("Seed-Daten bereits vorhanden – Basis-Seed übersprungen.");
         }
 
+        await RegelwerkeNachruesten(cancellationToken);
         await VorlagenRundenNachruesten(cancellationToken);
         await VorlagenRundenRegelwerkeNachruesten(cancellationToken);
+        await TurnierVorlagenNachruesten(cancellationToken);
+    }
+
+    private async Task RegelwerkeNachruesten(CancellationToken ct)
+    {
+        var vorhandeneNamen = await _context.Regelwerke
+            .Select(r => r.Name)
+            .ToHashSetAsync(ct);
+
+        var setLookup = await _context.RankingRegelSets
+            .ToDictionaryAsync(s => s.Name, s => s.Id, ct);
+
+        var alleDefinitionen = RegelwerkeSeedDaten.RegelwerkeErstellen(setLookup);
+        int hinzugefuegt = 0;
+
+        foreach (var (regelwerk, sieg, unentschieden, niederlage, verfahren) in alleDefinitionen)
+        {
+            if (vorhandeneNamen.Contains(regelwerk.Name)) continue;
+
+            regelwerk.PunkteRegeln.Add(new Domain.Entitaeten.Regelwerke.PunkteRegel
+            {
+                PunkteFuerSieg          = sieg,
+                PunkteFuerUnentschieden = unentschieden,
+                PunkteFuerNiederlage    = niederlage
+            });
+            for (int i = 0; i < verfahren.Length; i++)
+            {
+                regelwerk.Entscheidungsverfahren.Add(new Domain.Entitaeten.Regelwerke.EntscheidungsVerfahren
+                {
+                    Reihenfolge  = i + 1,
+                    VerfahrenArt = verfahren[i]
+                });
+            }
+            _context.Regelwerke.Add(regelwerk);
+            hinzugefuegt++;
+        }
+
+        if (hinzugefuegt > 0)
+        {
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("{Anzahl} Regelwerke nachgerüstet.", hinzugefuegt);
+        }
+    }
+
+    private async Task TurnierVorlagenNachruesten(CancellationToken ct)
+    {
+        var vorhandeneNamen = await _context.TurnierVorlagen
+            .Select(v => v.Name)
+            .ToHashSetAsync(ct);
+
+        var regelwerkLookup = await _context.Regelwerke
+            .ToDictionaryAsync(r => r.Name, r => r.Id, ct);
+
+        var alleVorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup);
+        int hinzugefuegt = 0;
+
+        foreach (var vorlage in alleVorlagen)
+        {
+            if (vorhandeneNamen.Contains(vorlage.Name)) continue;
+            _context.TurnierVorlagen.Add(vorlage);
+            hinzugefuegt++;
+        }
+
+        if (hinzugefuegt > 0)
+        {
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("{Anzahl} neue Turniervorlagen nachgerüstet.", hinzugefuegt);
+        }
     }
 
     private async Task VorlagenRundenNachruesten(CancellationToken ct)
