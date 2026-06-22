@@ -59,10 +59,11 @@ public partial class MainViewModel : ViewModelBase
             Titel = "Bewegungsdaten",
             Eintraege =
             [
-                EintragErstellen("Turniere",          () => _navigation.NavigiereZu<TurnierInstanzViewModel>()),
-                EintragErstellen("Runden",            () => _navigation.NavigiereZu<RundenEditorViewModel>()),
-                EintragErstellen("Auslosung",         () => _navigation.NavigiereZu<AuslosungViewModel>()),
-                EintragErstellen("Turnier",            () => _navigation.NavigiereZu<TurnierBereichViewModel>()),
+                EintragErstellen("Turniere",           () => _navigation.NavigiereZu<TurnierInstanzViewModel>()),
+                EintragErstellen("Runden",             () => _navigation.NavigiereZu<RundenEditorViewModel>()),
+                EintragErstellen("Auslosung",          () => _navigation.NavigiereZu<AuslosungViewModel>()),
+                EintragErstellen("Spielplan & Baum",   () => _navigation.NavigiereZu<TurnierBereichViewModel>()),
+                EintragErstellen("Simulation",         () => _navigation.NavigiereZu<SimulationsViewModel>()),
             ]
         });
 

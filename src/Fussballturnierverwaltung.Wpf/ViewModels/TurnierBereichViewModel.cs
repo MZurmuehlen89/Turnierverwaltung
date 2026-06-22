@@ -8,7 +8,6 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware
 {
     public SpielplanViewModel   SpielplanVm   { get; }
     public TurnierBaumViewModel TurnierBaumVm { get; }
-    public SimulationsViewModel SimulationsVm { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RibbonTabTitel))]
@@ -20,33 +19,28 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware
 
     public TurnierBereichViewModel(
         SpielplanViewModel   spielplanVm,
-        TurnierBaumViewModel turnierBaumVm,
-        SimulationsViewModel simulationsVm)
+        TurnierBaumViewModel turnierBaumVm)
     {
         SpielplanVm   = spielplanVm;
         TurnierBaumVm = turnierBaumVm;
-        SimulationsVm = simulationsVm;
     }
 
     public override async Task AktivierenAsync()
     {
-        await Task.WhenAll(
-            SpielplanVm.AktivierenAsync(),
-            TurnierBaumVm.AktivierenAsync(),
-            SimulationsVm.AktivierenAsync());
+        await SpielplanVm.AktivierenAsync();
+        await TurnierBaumVm.AktivierenAsync();
     }
 
     private IRibbonAware? AktivesRibbonVm() => AktiverTabIndex switch
     {
         1 => TurnierBaumVm,
-        2 => SimulationsVm,
         _ => SpielplanVm,
     };
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
-    public string  RibbonTabTitel   => AktivesRibbonVm()?.RibbonTabTitel ?? "Turnier";
-    public ICommand? NeuBefehl      => AktivesRibbonVm()?.NeuBefehl;
-    public ICommand? SpeichernBefehl  => AktivesRibbonVm()?.SpeichernBefehl;
-    public ICommand? AbbrechenBefehl  => AktivesRibbonVm()?.AbbrechenBefehl;
-    public ICommand? LoeschenBefehl   => AktivesRibbonVm()?.LoeschenBefehl;
+    public string  RibbonTabTitel    => AktivesRibbonVm()?.RibbonTabTitel ?? "Turnier";
+    public ICommand? NeuBefehl       => AktivesRibbonVm()?.NeuBefehl;
+    public ICommand? SpeichernBefehl => AktivesRibbonVm()?.SpeichernBefehl;
+    public ICommand? AbbrechenBefehl => AktivesRibbonVm()?.AbbrechenBefehl;
+    public ICommand? LoeschenBefehl  => AktivesRibbonVm()?.LoeschenBefehl;
 }

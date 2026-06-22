@@ -14,9 +14,5 @@
             <views:TurnierBaumView DataContext="{Binding TurnierBaumVm}" />
         </TabItem>
 
-        <TabItem Header="Simulation">
-            <views:SimulationsView DataContext="{Binding SimulationsVm}" />
-        </TabItem>
-
     </TabControl>
 </UserControl>
