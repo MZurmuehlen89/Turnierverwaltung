@@ -332,7 +332,36 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
                         .Select(g => (IReadOnlyList<int>)g
                             .Select(e => e.HeimMannschaftId!.Value).ToList())
                         .ToList();
-                    await _spielplanService.GenerierenAusGruppenAsync(rundeId, gruppen);
+
+                    if (gruppen.Any())
+                    {
+                        await _spielplanService.GenerierenAusGruppenAsync(rundeId, gruppen);
+                    }
+                    else
+                    {
+                        // Platzhalter-Gruppenphase: aus Platzhalternamen Round-Robin-Paare erzeugen
+                        var paarungen = new List<(string Heim, string Auswaerts)>();
+                        foreach (var gruppe in auslosung.Ergebnisse
+                            .GroupBy(e => e.PaarungsNummer)
+                            .OrderBy(g => g.Key))
+                        {
+                            var namen = gruppe
+                                .Select(e => e.HeimPlatzhalterName ?? "?")
+                                .ToList();
+                            for (int i = 0; i < namen.Count - 1; i++)
+                            for (int j = i + 1; j < namen.Count; j++)
+                                paarungen.Add((namen[i], namen[j]));
+                        }
+
+                        if (!paarungen.Any())
+                        {
+                            Fehlermeldung = auslosung.Ergebnisse.Any()
+                                ? "Keine gültigen Gruppen-Zuordnungen in der Auslosung gefunden."
+                                : "Die Auslosung hat keine Ergebnisse. Bitte die Auslosung zuerst durchführen.";
+                            return;
+                        }
+                        await _spielplanService.GenerierenAusPlatzhalterPaarungenAsync(rundeId, paarungen);
+                    }
                     break;
                 }
 
