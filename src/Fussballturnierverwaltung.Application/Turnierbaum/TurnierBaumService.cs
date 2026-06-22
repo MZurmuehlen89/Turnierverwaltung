@@ -282,7 +282,7 @@ public class TurnierBaumService(
     private static int? ExtrahiereKoSiegerNr(string? name, string kuerzel)
     {
         if (name is null) return null;
-        var m = Regex.Match(name, @"^Sieger (\w+?)(\d+)$", RegexOptions.IgnoreCase);
+        var m = Regex.Match(name, @"^Sieger ([A-Za-z0-9.]+) (\d+)$", RegexOptions.IgnoreCase);
         if (!m.Success || !string.Equals(m.Groups[1].Value, kuerzel, StringComparison.OrdinalIgnoreCase))
             return null;
         return int.TryParse(m.Groups[2].Value, out int nr) ? nr : null;

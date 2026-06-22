@@ -989,9 +989,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
 
         if (vorherigeRunde.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
         {
-            var spiele = vorherigeRunde.EingangsMannschaftsanzahl / 2;
+            var spiele  = vorherigeRunde.EingangsMannschaftsanzahl / 2;
+            var kuerzel = KoPlatzhalterKuerzel(vorherigeRunde);
+            string prefix = aktuelleRunde.Rundenart == Rundenart.SpielUmPlatzDrei ? "Verlierer" : "Sieger";
             return Enumerable.Range(1, Math.Min(spiele, anzahl))
-                .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"Sieger Spiel {i} ({vorherigeRunde.Name})"))
+                .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"{prefix} {kuerzel} {i}"))
                 .ToList();
         }
 
@@ -999,6 +1001,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
             .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"Platz {i} ({vorherigeRunde.Name})"))
             .ToList();
     }
+
+    private static string KoPlatzhalterKuerzel(TurnierRunde runde) => runde.Rundenart switch
+    {
+        Rundenart.Finale           => "Finale",
+        Rundenart.SpielUmPlatzDrei => "3.Platz",
+        _                          => SpielplanViewModel.KoKuerzel(runde.EingangsMannschaftsanzahl) ?? runde.Name
+    };
 
     private async Task AlleTeamsZuErstemTopfHinzufuegenAsync(int auslosungId, TurnierRunde runde)
     {

@@ -4,6 +4,7 @@ using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spiele.Eingaben;
 using Fussballturnierverwaltung.Application.Spielplan;
+using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -46,6 +47,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     private readonly TurnierInstanzService _instanzService;
     private readonly SpielplanService _spielplanService;
     private readonly AuslosungService _auslosungService;
+    private readonly TurnierBaumService _baumService;
 
     private int _populiertGerade;
     private static readonly HashSet<string> _formFelder =
@@ -140,12 +142,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         SpielErgebnisService spielService,
         TurnierInstanzService instanzService,
         SpielplanService spielplanService,
-        AuslosungService auslosungService)
+        AuslosungService auslosungService,
+        TurnierBaumService baumService)
     {
         _spielService     = spielService;
         _instanzService   = instanzService;
         _spielplanService = spielplanService;
         _auslosungService = auslosungService;
+        _baumService      = baumService;
 
         _neuBefehl          = new AsyncRelayCommand(SpielplanNeuGenerierenAsync,  () => HatRunde);
         _speichernBefehl    = new AsyncRelayCommand(SpeichernAsync,               () => FormAktiv && IsDirty);
@@ -426,6 +430,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
             _platzhalterBefehl.NotifyCanExecuteChanged();
             AusgewaehlteSpiel = null;
+            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
         }
         catch (Exception ex)
         {
@@ -452,6 +457,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
             if (aufgeloest == 0)
                 Fehlermeldung = "Keine Platzhalter konnten aufgelöst werden. " +
                                 "Bitte sicherstellen, dass die Vorrunden-Ergebnisse vollständig eingetragen sind.";
+            else
+                await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
         }
         catch (Exception ex)
         {
@@ -506,6 +513,17 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         {
             Fehlermeldung = ex.Message;
         }
+    }
+
+    private async Task TurnierBaumAktualisierenAsync(int turnierInstanzId)
+    {
+        try
+        {
+            var baum = await _baumService.AbrufenAsync(turnierInstanzId);
+            if (baum is not null)
+                await _baumService.GenerierenAsync(turnierInstanzId);
+        }
+        catch { /* TurnierBaum-Rebuild ist optional — nie Fehler an den Benutzer weitergeben */ }
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
@@ -589,7 +607,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         return $"{kuerzel} {positionInRunde + 1}";
     }
 
-    private static string? KoKuerzel(int eingangTeams) => eingangTeams switch
+    internal static string? KoKuerzel(int eingangTeams) => eingangTeams switch
     {
         4   => "HF",
         8   => "VF",
