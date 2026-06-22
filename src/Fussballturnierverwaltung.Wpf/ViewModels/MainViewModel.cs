@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
@@ -33,7 +34,13 @@ public partial class MainViewModel : ViewModelBase
     {
         _navigation = navigation;
         _navigation.AktuellesViewModelGeaendert += (_, _) =>
+        {
+            if (AktuellesViewModel is not null)
+                AktuellesViewModel.PropertyChanged -= OnAktuellesViewModelPropertyChanged;
             AktuellesViewModel = _navigation.AktuellesViewModel;
+            if (AktuellesViewModel is not null)
+                AktuellesViewModel.PropertyChanged += OnAktuellesViewModelPropertyChanged;
+        };
 
         NavigationsGruppen.Add(new NavigationsGruppe
         {
@@ -55,9 +62,7 @@ public partial class MainViewModel : ViewModelBase
                 EintragErstellen("Turniere",          () => _navigation.NavigiereZu<TurnierInstanzViewModel>()),
                 EintragErstellen("Runden",            () => _navigation.NavigiereZu<RundenEditorViewModel>()),
                 EintragErstellen("Auslosung",         () => _navigation.NavigiereZu<AuslosungViewModel>()),
-                EintragErstellen("Spielplan",         () => _navigation.NavigiereZu<SpielplanViewModel>()),
-                EintragErstellen("Turnierbaum",       () => _navigation.NavigiereZu<TurnierBaumViewModel>()),
-                EintragErstellen("Simulation",        () => _navigation.NavigiereZu<SimulationsViewModel>()),
+                EintragErstellen("Turnier",            () => _navigation.NavigiereZu<TurnierBereichViewModel>()),
             ]
         });
 
@@ -69,6 +74,23 @@ public partial class MainViewModel : ViewModelBase
                 EintragErstellen("Import / Export",   () => _navigation.NavigiereZu<ImportExportViewModel>()),
             ]
         });
+    }
+
+    private void OnAktuellesViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(IRibbonAware.RibbonTabTitel) or
+                               nameof(IRibbonAware.NeuBefehl) or
+                               nameof(IRibbonAware.SpeichernBefehl) or
+                               nameof(IRibbonAware.AbbrechenBefehl) or
+                               nameof(IRibbonAware.LoeschenBefehl))
+        {
+            OnPropertyChanged(nameof(HatRibbonBereich));
+            OnPropertyChanged(nameof(RibbonTabTitel));
+            OnPropertyChanged(nameof(RibbonNeuBefehl));
+            OnPropertyChanged(nameof(RibbonSpeichernBefehl));
+            OnPropertyChanged(nameof(RibbonAbbrechenBefehl));
+            OnPropertyChanged(nameof(RibbonLoeschenBefehl));
+        }
     }
 
     private NavigationsEintrag EintragErstellen(string titel, Action aktion)

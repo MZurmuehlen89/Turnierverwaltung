@@ -1,0 +1,22 @@
+<UserControl x:Class="Fussballturnierverwaltung.Wpf.Views.TurnierBereichView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:Fussballturnierverwaltung.Wpf.Views">
+
+    <TabControl SelectedIndex="{Binding AktiverTabIndex}"
+                Background="White">
+
+        <TabItem Header="Spielplan">
+            <views:SpielplanView DataContext="{Binding SpielplanVm}" />
+        </TabItem>
+
+        <TabItem Header="Turnierbaum">
+            <views:TurnierBaumView DataContext="{Binding TurnierBaumVm}" />
+        </TabItem>
+
+        <TabItem Header="Simulation">
+            <views:SimulationsView DataContext="{Binding SimulationsVm}" />
+        </TabItem>
+
+    </TabControl>
+</UserControl>
