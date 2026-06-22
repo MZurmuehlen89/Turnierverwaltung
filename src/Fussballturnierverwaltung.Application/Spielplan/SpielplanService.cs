@@ -211,6 +211,84 @@ public class SpielplanService(
             runde.Name, gruppen.Count, alleSpiele.Count);
     }
 
+    public async Task GenerierenAusGruppenMitPlatzhalternAsync(
+        int turnierRundeId,
+        IReadOnlyList<IReadOnlyList<string>> gruppen,
+        CancellationToken ct = default)
+    {
+        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
+            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+
+        int spielNr    = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
+        var alleSpiele = new List<Spiel>();
+
+        foreach (var gruppe in gruppen)
+        {
+            var namen = gruppe.ToList();
+            if (namen.Count < 2) continue;
+
+            var gruppenSpiele = new List<Spiel>();
+            bool hatDummy = namen.Count % 2 == 1;
+            if (hatDummy) namen.Add(null!);
+
+            int gesamt    = namen.Count;
+            int spieltage = gesamt - 1;
+            var kreis     = Enumerable.Range(1, gesamt - 1).ToArray();
+
+            for (int spieltag = 0; spieltag < spieltage; spieltag++)
+            {
+                string? heim0 = spieltag % 2 == 0 ? namen[0]          : namen[kreis[^1]];
+                string? ausw0 = spieltag % 2 == 0 ? namen[kreis[^1]]  : namen[0];
+
+                if (heim0 is not null && ausw0 is not null)
+                    gruppenSpiele.Add(PlatzhalterSpiel(runde, heim0, ausw0, spielNr++, spieltag + 1));
+
+                for (int i = 0; i < (gesamt - 2) / 2; i++)
+                {
+                    string? heim = namen[kreis[i]];
+                    string? ausw = namen[kreis[gesamt - 3 - i]];
+                    if (heim is not null && ausw is not null)
+                        gruppenSpiele.Add(PlatzhalterSpiel(runde, heim, ausw, spielNr++, spieltag + 1));
+                }
+
+                var letzter = kreis[^1];
+                for (int k = gesamt - 2; k > 0; k--) kreis[k] = kreis[k - 1];
+                kreis[0] = letzter;
+            }
+
+            if (runde.MitRueckspiel)
+            {
+                foreach (var s in gruppenSpiele.ToList())
+                    gruppenSpiele.Add(PlatzhalterSpiel(runde,
+                        s.AuswaertsPlatzhalterName!, s.HeimPlatzhalterName!,
+                        spielNr++, (s.Spieltag ?? 0) + spieltage, istRueckspiel: true));
+            }
+
+            alleSpiele.AddRange(gruppenSpiele);
+        }
+
+        if (alleSpiele.Count > 0)
+            await spielRepository.HinzufuegenMehrfachAsync(alleSpiele, ct);
+
+        logger.LogInformation(
+            "Platzhalter-Gruppenphase für Runde '{Runde}' generiert: {Gruppen} Gruppen, {Spiele} Spiele.",
+            runde.Name, gruppen.Count, alleSpiele.Count);
+    }
+
+    private static Spiel PlatzhalterSpiel(TurnierRunde runde, string heim, string auswaerts, int spielNr, int spieltag, bool istRueckspiel = false) =>
+        new()
+        {
+            TurnierInstanzId         = runde.TurnierInstanzId,
+            TurnierRundeId           = runde.Id,
+            Spielnummer              = spielNr,
+            Spieltag                 = spieltag,
+            HeimPlatzhalterName      = heim,
+            AuswaertsPlatzhalterName = auswaerts,
+            Status                   = SpielStatus.Geplant,
+            SimulationsModus         = SimulationsModus.ManuellesErgebnis,
+            IstRueckspiel            = istRueckspiel,
+        };
+
     public Task<IReadOnlyList<Spiel>> AlleSpieleFuerInstanzAsync(int turnierInstanzId, CancellationToken ct = default)
         => spielRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
 
