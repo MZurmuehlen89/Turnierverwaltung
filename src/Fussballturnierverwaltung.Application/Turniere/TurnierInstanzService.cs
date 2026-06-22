@@ -67,7 +67,8 @@ public class TurnierInstanzService(
             Enddatum              = instanzEingabe.Enddatum,
             Status                = TurnierStatus.Geplant,
             VerbandId             = instanzEingabe.VerbandId,
-            MannschaftsartFilter  = instanzEingabe.MannschaftsartFilter
+            MannschaftsartFilter  = instanzEingabe.MannschaftsartFilter,
+            StandardRegelwerkId   = instanzEingabe.StandardRegelwerkId
         };
 
         for (int i = 0; i < rundenEingaben.Count; i++)
@@ -106,6 +107,7 @@ public class TurnierInstanzService(
         instanz.Status               = eingabe.Status;
         instanz.VerbandId            = eingabe.VerbandId;
         instanz.MannschaftsartFilter = eingabe.MannschaftsartFilter;
+        instanz.StandardRegelwerkId  = eingabe.StandardRegelwerkId;
         await repository.AktualisierenAsync(instanz, ct);
         logger.LogInformation("TurnierInstanz '{Name}' (ID {Id}) aktualisiert.", instanz.Name, id);
     }

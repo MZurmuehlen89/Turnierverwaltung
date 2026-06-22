@@ -162,6 +162,18 @@
                               DisplayMemberPath="Anzeige"
                               FontSize="13" Margin="0,0,0,20" />
 
+                    <!-- REGELWERK-STANDARD -->
+                    <TextBlock Text="REGELWERK-STANDARD" FontSize="11" FontWeight="Bold"
+                               Foreground="#94A3B8" Margin="0,0,0,8" />
+
+                    <TextBlock FontSize="12" Foreground="#475569" Margin="0,0,0,6" TextWrapping="Wrap">
+                        Wird automatisch für neue Runden im Runden-Editor vorbelegt.
+                    </TextBlock>
+                    <ComboBox ItemsSource="{Binding StandardRegelwerkOptionen}"
+                              SelectedItem="{Binding StandardRegelwerk}"
+                              DisplayMemberPath="Anzeige"
+                              FontSize="13" Margin="0,0,0,20" />
+
                     <!-- Fehlermeldung -->
                     <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
                             CornerRadius="4" Padding="12,8" Margin="0,16,0,0"

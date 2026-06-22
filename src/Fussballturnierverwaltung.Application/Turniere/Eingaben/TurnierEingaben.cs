@@ -37,7 +37,8 @@ public record TurnierInstanzVollAktualisierenEingabe(
     DateOnly? Enddatum,
     TurnierStatus Status,
     int? VerbandId = null,
-    MannschaftsartFilter MannschaftsartFilter = MannschaftsartFilter.Alle);
+    MannschaftsartFilter MannschaftsartFilter = MannschaftsartFilter.Alle,
+    int? StandardRegelwerkId = null);
 
 public record TurnierInstanzErstellenEingabe(
     string Name,
@@ -46,7 +47,8 @@ public record TurnierInstanzErstellenEingabe(
     DateOnly? Startdatum,
     DateOnly? Enddatum,
     int? VerbandId = null,
-    MannschaftsartFilter MannschaftsartFilter = MannschaftsartFilter.Alle);
+    MannschaftsartFilter MannschaftsartFilter = MannschaftsartFilter.Alle,
+    int? StandardRegelwerkId = null);
 
 public record TurnierAktualisierenEingabe(
     string Name,

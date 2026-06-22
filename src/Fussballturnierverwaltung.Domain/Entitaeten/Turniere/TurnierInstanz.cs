@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Domain.Enums;
+using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Simulation;
@@ -15,6 +16,9 @@ public class TurnierInstanz : BasisEntitaet
     public DateOnly? Startdatum { get; set; }
     public DateOnly? Enddatum { get; set; }
     public TurnierStatus Status { get; set; }
+
+    public int? StandardRegelwerkId { get; set; }
+    public Regelwerk? StandardRegelwerk { get; set; }
 
     public int? VerbandId { get; set; }
     public Verband? Verband { get; set; }

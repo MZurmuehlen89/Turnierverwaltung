@@ -27,5 +27,10 @@ public class TurnierInstanzKonfiguration : IEntityTypeConfiguration<TurnierInsta
             .WithMany()
             .HasForeignKey(t => t.VerbandId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(t => t.StandardRegelwerk)
+            .WithMany()
+            .HasForeignKey(t => t.StandardRegelwerkId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

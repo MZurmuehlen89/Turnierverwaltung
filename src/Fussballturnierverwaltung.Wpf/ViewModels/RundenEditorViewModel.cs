@@ -25,8 +25,10 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     private DateOnly? _instanzEnd;
     private TurnierStatus _instanzStatus = TurnierStatus.Geplant;
     private int? _vorlageId;
+    private int? _instanzVerbandId;
+    private MannschaftsartFilter _instanzTeamFilter = MannschaftsartFilter.Alle;
 
-    private static readonly RegelwerkOption _keinRegelwerk = new("— Wählen —", null);
+    private static readonly RegelwerkOption _turnierStandard = new("Turnierstandard", null);
 
     // ── Linke Spalte: Turnierliste (Geplant) ──────────────────────────────────
     [ObservableProperty]
@@ -63,23 +65,30 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private string _name = "";
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(GruppenAnzahlSichtbar))]
+    [NotifyPropertyChangedFor(nameof(IstKoRundenart))]
+    [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
+    [NotifyPropertyChangedFor(nameof(MitRueckspielVerfuegbar))]
     private Rundenart _rundenart = Rundenart.Liga;
     [ObservableProperty] private string _eingang = "4";
     [ObservableProperty] private string _ausgang = "4";
     [ObservableProperty] private string _gruppenAnzahl = "";
-    [ObservableProperty] private RegelwerkOption _regelwerk = _keinRegelwerk;
+    [ObservableProperty] private RegelwerkOption _regelwerk = _turnierStandard;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
     private bool _mitRueckspiel;
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
 
-    // ── Optionen ─────────────────────────────────────────────────────────────
+    // ── Regelwerke ────────────────────────────────────────────────────────────
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RegelwerkOptionen))]
     private IReadOnlyList<Regelwerk> _regelwerke = [];
 
+    // StandardRegelwerk der Instanz — nicht im View, nur für Auto-Fill neuer Runden und Speichern
+    private int? _instanzStandardRegelwerkId;
+    private Regelwerk? _instanzStandardRegelwerk;
+
     public IReadOnlyList<RegelwerkOption> RegelwerkOptionen =>
-        [_keinRegelwerk, .. Regelwerke.Select(r => new RegelwerkOption(r.Name, r))];
+        [_turnierStandard, .. Regelwerke.Select(r => new RegelwerkOption(r.Name, r))];
 
     public IReadOnlyList<Rundenart> RundenartOptionen => Enum.GetValues<Rundenart>().ToList();
 
@@ -101,7 +110,13 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     public bool HatRundenFehler => RundenFehler.Count > 0;
 
     // ── Berechnete Eigenschaften ──────────────────────────────────────────────
-    public bool AuswaertstorAktivierbar => MitRueckspiel;
+    public bool IstKoRundenart =>
+        Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+
+    public bool MitRueckspielVerfuegbar =>
+        Rundenart is Rundenart.KoRunde or Rundenart.Liga or Rundenart.Sonderrunde;
+
+    public bool AuswaertstorAktivierbar => MitRueckspiel && IstKoRundenart;
     public bool RundenEditorAktiv       => AusgewaehlteInstanz is not null;
     public bool KeinTurnierGewaehlt     => AusgewaehlteInstanz is null;
     public bool FormularSichtbar        => AusgewaehlteInstanz is not null && AusgewaehlteRunde is not null;
@@ -154,12 +169,14 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     [RelayCommand(CanExecute = nameof(KannNeueRunde))]
     private void NeueRunde()
     {
-        var letzte   = Runden.LastOrDefault();
-        var eingang  = letzte?.AusgangsMannschaften ?? 4;
-        var eintrag  = new RundenEintrag
+        var letzte  = Runden.LastOrDefault();
+        var eingang = letzte?.AusgangsMannschaften ?? 4;
+        var eintrag = new RundenEintrag
         {
             EingangsMannschaften = eingang,
-            AusgangsMannschaften = Math.Max(1, eingang / 2)
+            AusgangsMannschaften = Math.Max(1, eingang / 2),
+            RegelwerkId          = 0,  // 0 = Turnierstandard (wird beim Speichern aufgelöst)
+            RegelwerkName        = ""
         };
         Runden.Add(eintrag);
         AusgewaehlteRunde = eintrag;
@@ -252,7 +269,9 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
         try
         {
             var vollEingabe = new TurnierInstanzVollAktualisierenEingabe(
-                _instanzName, _instanzSaison, _vorlageId, _instanzStart, _instanzEnd, _instanzStatus);
+                _instanzName, _instanzSaison, _vorlageId, _instanzStart, _instanzEnd, _instanzStatus,
+                _instanzVerbandId, _instanzTeamFilter,
+                StandardRegelwerkId: _instanzStandardRegelwerkId);
             await _service.VollAktualisierenAsync(AusgewaehlteInstanz.Id, vollEingabe);
             await _service.RundenErsetzenAsync(AusgewaehlteInstanz.Id, RundenListeZuEingaben());
             IsDirty = false;
@@ -295,7 +314,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     {
         if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
         AusgewaehlteRunde.MitRueckspiel = value;
-        if (!value) AuswaertstorRegelAktiv = false;
+        if (!value || !IstKoRundenart) AuswaertstorRegelAktiv = false;
         IsDirty = true;
     }
 
@@ -332,8 +351,9 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     partial void OnRegelwerkChanged(RegelwerkOption value)
     {
         if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
-        AusgewaehlteRunde.RegelwerkId   = value.Wert?.Id ?? 0;
+        AusgewaehlteRunde.RegelwerkId   = value.Wert?.Id ?? 0;  // 0 = Turnierstandard
         AusgewaehlteRunde.RegelwerkName = value.Wert?.Name ?? "";
+        AktualisiereRundenFehler();
         IsDirty = true;
     }
 
@@ -362,6 +382,9 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
 
             if (string.IsNullOrWhiteSpace(r.Name))
                 fehler.Add($"Runde {i + 1}: Name darf nicht leer sein.");
+
+            if (r.RegelwerkId == 0 && _instanzStandardRegelwerkId is null)
+                fehler.Add($"{label}: Kein Regelwerk gewählt. Wählen Sie ein konkretes Regelwerk oder setzen Sie ein Standard-Regelwerk im Turnier.");
 
             if (r.EingangsMannschaften < 2)
                 fehler.Add($"{label}: Eingang muss mindestens 2 sein.");
@@ -414,12 +437,16 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
             var detail = await _service.FindenNachIdMitRundenAsync(instanz.Id);
             if (detail is not null)
             {
-                _instanzName   = detail.Name;
-                _instanzSaison = detail.SaisonOderJahr;
-                _instanzStart  = detail.Startdatum;
-                _instanzEnd    = detail.Enddatum;
-                _instanzStatus = detail.Status;
-                _vorlageId     = detail.TurnierVorlageId;
+                _instanzName       = detail.Name;
+                _instanzSaison     = detail.SaisonOderJahr;
+                _instanzStart      = detail.Startdatum;
+                _instanzEnd        = detail.Enddatum;
+                _instanzStatus     = detail.Status;
+                _vorlageId         = detail.TurnierVorlageId;
+                _instanzVerbandId          = detail.VerbandId;
+                _instanzTeamFilter         = detail.MannschaftsartFilter;
+                _instanzStandardRegelwerkId = detail.StandardRegelwerkId;
+                _instanzStandardRegelwerk   = detail.StandardRegelwerk;
             }
             RundenZuruecksetzen(
                 (detail?.Runden ?? []).OrderBy(r => r.Reihenfolge).Select(RundeZuEintrag));
@@ -447,7 +474,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
             Ausgang                = value.AusgangsMannschaften.ToString();
             GruppenAnzahl          = value.GruppenAnzahl?.ToString() ?? "";
             Regelwerk              = RegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == value.RegelwerkId)
-                                     ?? _keinRegelwerk;
+                                     ?? _turnierStandard;
             MitRueckspiel          = value.MitRueckspiel;
             AuswaertstorRegelAktiv = value.AuswaertstorRegelAktiv;
         }
@@ -479,7 +506,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
             Eingang                = "4";
             Ausgang                = "4";
             GruppenAnzahl          = "";
-            Regelwerk              = _keinRegelwerk;
+            Regelwerk              = _turnierStandard;
             MitRueckspiel          = false;
             AuswaertstorRegelAktiv = false;
         }
@@ -487,10 +514,15 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
     }
 
     private IReadOnlyList<TurnierRundeEingabe> RundenListeZuEingaben()
-        => Runden.Select(r => new TurnierRundeEingabe(
-            r.Name, r.Rundenart, r.EingangsMannschaften, r.AusgangsMannschaften,
-            r.RegelwerkId, r.MitRueckspiel, r.AuswaertstorRegelAktiv,
-            GruppenAnzahl: r.GruppenAnzahl)).ToList();
+        => Runden.Select(r =>
+        {
+            var regelwerkId = r.RegelwerkId != 0 ? r.RegelwerkId
+                              : (_instanzStandardRegelwerkId ?? 0);
+            return new TurnierRundeEingabe(
+                r.Name, r.Rundenart, r.EingangsMannschaften, r.AusgangsMannschaften,
+                regelwerkId, r.MitRueckspiel, r.AuswaertstorRegelAktiv,
+                GruppenAnzahl: r.GruppenAnzahl);
+        }).ToList();
 
     private static RundenEintrag RundeZuEintrag(TurnierRunde r) => new()
     {

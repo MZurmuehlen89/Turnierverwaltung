@@ -732,6 +732,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<int?>("StandardRegelwerkId")
+                        .HasColumnType("int");
+
                     b.Property<DateOnly?>("Startdatum")
                         .HasColumnType("date");
 
@@ -745,6 +748,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("StandardRegelwerkId");
 
                     b.HasIndex("TurnierVorlageId");
 
@@ -1201,6 +1206,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", b =>
                 {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke.Regelwerk", "StandardRegelwerk")
+                        .WithMany()
+                        .HasForeignKey("StandardRegelwerkId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierVorlage", "TurnierVorlage")
                         .WithMany("TurnierInstanzen")
                         .HasForeignKey("TurnierVorlageId")
@@ -1210,6 +1220,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .WithMany()
                         .HasForeignKey("VerbandId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("StandardRegelwerk");
 
                     b.Navigation("TurnierVorlage");
 

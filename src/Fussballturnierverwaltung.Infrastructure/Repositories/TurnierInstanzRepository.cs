@@ -23,6 +23,7 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
                     .ThenInclude(r => r.Regelwerk)
             .Include(ti => ti.Runden.OrderBy(r => r.Reihenfolge))
                 .ThenInclude(r => r.Regelwerk)
+            .Include(ti => ti.StandardRegelwerk)
             .FirstOrDefaultAsync(ti => ti.Id == id, ct);
 
     public async Task<IReadOnlyList<TurnierInstanz>> AlleNachStatusFindenAsync(TurnierStatus status, CancellationToken ct = default)
