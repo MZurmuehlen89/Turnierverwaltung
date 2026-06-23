@@ -15,7 +15,10 @@ using Fussballturnierverwaltung.Wpf.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Serilog;
+using Serilog.Events;
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 
@@ -80,7 +83,18 @@ public partial class App
     {
         base.OnStartup(e);
 
+        var logPfad = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Turnierverwaltung", "logs", "turnierverwaltung-.log");
+
         var builder = Host.CreateApplicationBuilder();
+        builder.Services.AddSerilog((_, lc) => lc
+            .ReadFrom.Configuration(builder.Configuration)
+            .WriteTo.File(
+                path: logPfad,
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 7,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}"));
         builder.Services.AddInfrastruktur(builder.Configuration);
 
         // Validierung

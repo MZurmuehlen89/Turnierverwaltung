@@ -1,5 +1,7 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Einstellungen;
+using Serilog;
+using Serilog.Events;
 using Fussballturnierverwaltung.Application.ImportExport;
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
@@ -30,7 +32,18 @@ using System.Text;
 
 Console.OutputEncoding = Encoding.UTF8;
 
+var logPfad = Path.Combine(
+    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+    "Turnierverwaltung", "logs", "turnierverwaltung-.log");
+
 var builder = Host.CreateApplicationBuilder(args);
+builder.Services.AddSerilog((_, lc) => lc
+    .ReadFrom.Configuration(builder.Configuration)
+    .WriteTo.File(
+        path: logPfad,
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 7,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}"));
 builder.Services.AddInfrastruktur(builder.Configuration);
 
 // Validierungsservices
