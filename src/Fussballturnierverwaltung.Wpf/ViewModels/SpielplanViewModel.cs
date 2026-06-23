@@ -4,6 +4,7 @@ using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spiele.Eingaben;
 using Fussballturnierverwaltung.Application.Spielplan;
+using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
@@ -35,6 +36,8 @@ public class SpielZeile
     public string ErgebnisDetail { get; init; } = "";
     public bool IstRueckspiel { get; init; }
     public bool IstPlatzhalterSpiel { get; init; }
+    public int? GruppeNummer { get; init; }
+    public string GruppeAnzeige => GruppeNummer.HasValue ? $"Gr.{GruppeNummer}" : "";
 }
 
 public record EntscheidungArtOption(string Anzeige, EntscheidungArt Wert);
@@ -49,8 +52,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     private readonly AuslosungService _auslosungService;
     private readonly TurnierBaumService _baumService;
     private readonly RegelwerkService _regelwerkService;
+    private readonly TabellenService _tabellenService;
 
     private int _populiertGerade;
+    private Dictionary<int, int> _teamGruppeMap = [];
     private static readonly HashSet<string> _formFelder =
     [
         nameof(HeimToreRegulaer),       nameof(AuswaertsToreRegulaer),
@@ -66,9 +71,78 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private ObservableCollection<TurnierRunde> _runden = [];
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatRunde))]
+    [NotifyPropertyChangedFor(nameof(IstGruppenphase))]
+    [NotifyPropertyChangedFor(nameof(ZeigeAnsichtUmschalter))]
+    [NotifyPropertyChangedFor(nameof(IstGruppenAnsicht))]
+    [NotifyPropertyChangedFor(nameof(IstSpielplanAnsicht))]
+    [NotifyPropertyChangedFor(nameof(IstGruppenFokusAnsicht))]
+    [NotifyPropertyChangedFor(nameof(IstGruppenUebersichtAnsicht))]
     private TurnierRunde? _ausgewaehlteRunde;
 
     public bool HatRunde => AusgewaehlteRunde is not null;
+
+    // ── Gruppen-Ansicht ───────────────────────────────────────────────────────
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IstGruppenAnsicht))]
+    [NotifyPropertyChangedFor(nameof(IstSpielplanAnsicht))]
+    [NotifyPropertyChangedFor(nameof(IstGruppenFokusAnsicht))]
+    [NotifyPropertyChangedFor(nameof(IstGruppenUebersichtAnsicht))]
+    private bool _gruppenAnsichtAktiv;
+
+    public bool IstGruppenphase => AusgewaehlteRunde?.Rundenart == Rundenart.Gruppenphase;
+    public bool ZeigeAnsichtUmschalter => IstGruppenphase;
+    public bool IstGruppenAnsicht => GruppenAnsichtAktiv && IstGruppenphase;
+    public bool IstSpielplanAnsicht => !IstGruppenAnsicht;
+
+    public ObservableCollection<GruppenTabelle> GruppenTabellen { get; } = [];
+    public bool HatGruppenTabellen => GruppenTabellen.Count > 0;
+
+    private readonly RelayCommand _zuSpielplanWechselnBefehl;
+    private readonly RelayCommand _zuGruppenWechselnBefehl;
+    public ICommand ZuSpielplanWechselnBefehl => _zuSpielplanWechselnBefehl;
+    public ICommand ZuGruppenWechselnBefehl   => _zuGruppenWechselnBefehl;
+
+    // ── Gruppen-Fokus ─────────────────────────────────────────────────────────
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IstGruppenFokusAnsicht))]
+    [NotifyPropertyChangedFor(nameof(IstGruppenUebersichtAnsicht))]
+    [NotifyPropertyChangedFor(nameof(FokusSpiele))]
+    private GruppenTabelle? _ausgewaehlteGruppe;
+
+    public bool IstGruppenFokusAnsicht     => IstGruppenAnsicht && AusgewaehlteGruppe is not null;
+    public bool IstGruppenUebersichtAnsicht => IstGruppenAnsicht && AusgewaehlteGruppe is null;
+
+    public ObservableCollection<int> FokusSpieltage { get; } = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FokusSpiele))]
+    private bool _fokusAlleAktiv = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FokusSpiele))]
+    [NotifyPropertyChangedFor(nameof(FokusSpieltagnummer))]
+    private int _fokusAktiverSpieltag;
+
+    public string FokusSpieltagnummer  => $"Spieltag {FokusAktiverSpieltag}";
+    public bool   HatMehrereSpieltage  => FokusSpieltage.Count > 1;
+    public bool   KannFokusZurueck     => !FokusAlleAktiv && FokusSpieltage.Count > 0 && FokusAktiverSpieltag > FokusSpieltage[0];
+    public bool   KannFokusVor         => !FokusAlleAktiv && FokusSpieltage.Count > 0 && FokusAktiverSpieltag < FokusSpieltage[^1];
+
+    public IReadOnlyList<SpielZeile> FokusSpiele => BerechneFokusSpiele();
+
+    private readonly RelayCommand<GruppenTabelle> _gruppeFokussierenBefehl;
+    private readonly RelayCommand                 _zurueckZurUebersichtBefehl;
+    private readonly RelayCommand                 _fokusVorigerSpieltag;
+    private readonly RelayCommand                 _fokusNaechsterSpieltag;
+    private readonly RelayCommand                 _fokusAlleSpieltageBefehl;
+
+    public ICommand GruppeFokussierenBefehl    => _gruppeFokussierenBefehl;
+    public ICommand ZurueckZurUebersichtBefehl => _zurueckZurUebersichtBefehl;
+    public ICommand FokusVorigerSpieltag       => _fokusVorigerSpieltag;
+    public ICommand FokusNaechsterSpieltag     => _fokusNaechsterSpieltag;
+    public ICommand FokusAlleSpieltageBefehl   => _fokusAlleSpieltageBefehl;
 
     // ── Ranking-Kriterien ─────────────────────────────────────────────────────
 
@@ -153,7 +227,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         SpielplanService spielplanService,
         AuslosungService auslosungService,
         TurnierBaumService baumService,
-        RegelwerkService regelwerkService)
+        RegelwerkService regelwerkService,
+        TabellenService tabellenService)
     {
         _spielService      = spielService;
         _instanzService    = instanzService;
@@ -161,12 +236,21 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _auslosungService  = auslosungService;
         _baumService       = baumService;
         _regelwerkService  = regelwerkService;
+        _tabellenService   = tabellenService;
 
-        _neuBefehl          = new AsyncRelayCommand(SpielplanNeuGenerierenAsync,  () => HatRunde);
-        _speichernBefehl    = new AsyncRelayCommand(SpeichernAsync,               () => FormAktiv && IsDirty);
-        _abbrechenBefehl    = new RelayCommand(FormZuruecksetzen,                 () => FormAktiv);
-        _loeschenBefehl     = new AsyncRelayCommand(ErgebnisLoeschenAsync,        () => FormAktiv && FormHatErgebnis);
-        _platzhalterBefehl  = new AsyncRelayCommand(PlatzhalterAktualisierenAsync, () => HatRunde && HatPlatzhalterSpiele);
+        _neuBefehl                 = new AsyncRelayCommand(SpielplanNeuGenerierenAsync,   () => HatRunde);
+        _speichernBefehl           = new AsyncRelayCommand(SpeichernAsync,                () => FormAktiv && IsDirty);
+        _abbrechenBefehl           = new RelayCommand(FormZuruecksetzen,                  () => FormAktiv);
+        _loeschenBefehl            = new AsyncRelayCommand(ErgebnisLoeschenAsync,         () => FormAktiv && FormHatErgebnis);
+        _platzhalterBefehl         = new AsyncRelayCommand(PlatzhalterAktualisierenAsync, () => HatRunde && HatPlatzhalterSpiele);
+        _zuSpielplanWechselnBefehl = new RelayCommand(() => GruppenAnsichtAktiv = false,  () => IstGruppenphase);
+        _zuGruppenWechselnBefehl   = new RelayCommand(() => GruppenAnsichtAktiv = true,   () => IstGruppenphase && HatGruppenTabellen);
+
+        _gruppeFokussierenBefehl    = new RelayCommand<GruppenTabelle>(g => AusgewaehlteGruppe = g);
+        _zurueckZurUebersichtBefehl = new RelayCommand(() => AusgewaehlteGruppe = null);
+        _fokusVorigerSpieltag       = new RelayCommand(FokusEinSpieltag_Vorig, () => KannFokusZurueck);
+        _fokusNaechsterSpieltag     = new RelayCommand(FokusEinSpieltag_Vor,   () => KannFokusVor);
+        _fokusAlleSpieltageBefehl   = new RelayCommand(() => FokusAlleAktiv = true, () => !FokusAlleAktiv);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -195,6 +279,15 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
                 break;
             case nameof(AusgewaehlteSpiel):
                 _ = BeiSpielAenderungAsync();
+                break;
+            case nameof(AusgewaehlteGruppe):
+                BeiGruppeFokusAenderung();
+                break;
+            case nameof(FokusAlleAktiv):
+            case nameof(FokusAktiverSpieltag):
+                _fokusVorigerSpieltag.NotifyCanExecuteChanged();
+                _fokusNaechsterSpieltag.NotifyCanExecuteChanged();
+                _fokusAlleSpieltageBefehl.NotifyCanExecuteChanged();
                 break;
         }
 
@@ -232,14 +325,24 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         Fehlermeldung       = null;
         RankingKriterien.Clear();
         OnPropertyChanged(nameof(HatRankingKriterien));
-        RankingRegelSetName = "";
+        RankingRegelSetName  = "";
+        GruppenAnsichtAktiv  = false;
+        AusgewaehlteGruppe   = null;
+        GruppenTabellen.Clear();
+        _teamGruppeMap = [];
+        OnPropertyChanged(nameof(HatGruppenTabellen));
         _neuBefehl.NotifyCanExecuteChanged();
+        _zuSpielplanWechselnBefehl.NotifyCanExecuteChanged();
+        _zuGruppenWechselnBefehl.NotifyCanExecuteChanged();
 
         if (AusgewaehlteRunde is null) return;
 
+        if (AusgewaehlteRunde.Rundenart == Rundenart.Gruppenphase)
+            await GruppenTabellenLadenAsync(AusgewaehlteRunde.Id);
+
         var liste = await _spielService.AlleNachRundeAsync(AusgewaehlteRunde.Id);
         foreach (var (s, i) in liste.Select((x, i) => (x, i)))
-            Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i));
+            Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
 
         OnPropertyChanged(nameof(HatPlatzhalterSpiele));
         _platzhalterBefehl.NotifyCanExecuteChanged();
@@ -253,6 +356,25 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
                 RankingKriterien.Add($"{pos++}. {RegelartZuText(eintrag.RankingRegel.Regelart)}");
             OnPropertyChanged(nameof(HatRankingKriterien));
         }
+    }
+
+    private async Task GruppenTabellenLadenAsync(int rundeId)
+    {
+        GruppenTabellen.Clear();
+        _teamGruppeMap = [];
+        try
+        {
+            var tabellen = await _tabellenService.GruppenTabellenBerechnenAsync(rundeId);
+            foreach (var gt in tabellen)
+            {
+                GruppenTabellen.Add(gt);
+                foreach (var te in gt.Tabelle)
+                    _teamGruppeMap[te.Mannschaft.Id] = gt.GruppenNummer;
+            }
+        }
+        catch { /* Gruppenstand konnte nicht berechnet werden — kein Fehler */ }
+        OnPropertyChanged(nameof(HatGruppenTabellen));
+        _zuGruppenWechselnBefehl.NotifyCanExecuteChanged();
     }
 
     private async Task BeiSpielAenderungAsync()
@@ -448,10 +570,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
                 }
             }
 
+            if (AusgewaehlteRunde?.Rundenart == Rundenart.Gruppenphase)
+                await GruppenTabellenLadenAsync(rundeId);
+
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i));
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
+            OnPropertyChanged(nameof(FokusSpiele));
             _platzhalterBefehl.NotifyCanExecuteChanged();
             AusgewaehlteSpiel = null;
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
@@ -471,10 +597,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         {
             int aufgeloest = await _spielplanService.PlatzhalterAufloesenAsync(rundeId);
 
+            if (AusgewaehlteRunde?.Rundenart == Rundenart.Gruppenphase)
+                await GruppenTabellenLadenAsync(rundeId);
+
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i));
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
+            OnPropertyChanged(nameof(FokusSpiele));
             _platzhalterBefehl.NotifyCanExecuteChanged();
             AusgewaehlteSpiel = null;
 
@@ -500,12 +630,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         {
             await _spielService.ErgebnisErfassenAsync(spielId, BaueEingabe());
 
-            // Spielliste neu laden (ohne AusgewaehlteSpiel zu nullen via BeiRundeAenderung)
+            if (AusgewaehlteRunde.Rundenart == Rundenart.Gruppenphase)
+                await GruppenTabellenLadenAsync(rundeId);
+
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i));
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            OnPropertyChanged(nameof(FokusSpiele));
 
-            // Gleiche Partie erneut selektieren
             AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
         }
         catch (Exception ex)
@@ -527,9 +659,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         {
             await _spielService.ErgebnisLoeschenAsync(spielId);
 
+            if (AusgewaehlteRunde.Rundenart == Rundenart.Gruppenphase)
+                await GruppenTabellenLadenAsync(rundeId);
+
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i));
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            OnPropertyChanged(nameof(FokusSpiele));
 
             AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
         }
@@ -568,9 +704,16 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _abbrechenBefehl.NotifyCanExecuteChanged();
         _loeschenBefehl.NotifyCanExecuteChanged();
         _platzhalterBefehl.NotifyCanExecuteChanged();
+        _zuSpielplanWechselnBefehl.NotifyCanExecuteChanged();
+        _zuGruppenWechselnBefehl.NotifyCanExecuteChanged();
+        _fokusVorigerSpieltag.NotifyCanExecuteChanged();
+        _fokusNaechsterSpieltag.NotifyCanExecuteChanged();
+        _fokusAlleSpieltageBefehl.NotifyCanExecuteChanged();
     }
 
-    private static SpielZeile MapSpielZeile(Spiel s, TurnierRunde? runde, int positionInRunde)
+    private static SpielZeile MapSpielZeile(
+        Spiel s, TurnierRunde? runde, int positionInRunde,
+        IReadOnlyDictionary<int, int>? teamGruppeMap = null)
     {
         string text   = "-:-";
         string detail = "";
@@ -590,6 +733,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
             };
         }
 
+        int? gruppeNummer = null;
+        if (teamGruppeMap is not null && s.HeimMannschaftId.HasValue
+            && teamGruppeMap.TryGetValue(s.HeimMannschaftId.Value, out var gr))
+            gruppeNummer = gr;
+
         return new SpielZeile
         {
             Id                  = s.Id,
@@ -603,7 +751,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
             ErgebnisText        = text,
             ErgebnisDetail      = detail,
             IstRueckspiel       = s.IstRueckspiel,
-            IstPlatzhalterSpiel = !s.HeimMannschaftId.HasValue || !s.AuswaertsMannschaftId.HasValue
+            IstPlatzhalterSpiel = !s.HeimMannschaftId.HasValue || !s.AuswaertsMannschaftId.HasValue,
+            GruppeNummer        = gruppeNummer
         };
     }
 
@@ -647,6 +796,54 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
     private static int? ParseIntNullable(string s) =>
         string.IsNullOrWhiteSpace(s) ? null : int.TryParse(s, out var v) ? v : null;
+
+    private void FokusEinSpieltag_Vorig()
+    {
+        int idx = FokusSpieltage.IndexOf(FokusAktiverSpieltag);
+        if (idx > 0) FokusAktiverSpieltag = FokusSpieltage[idx - 1];
+    }
+
+    private void FokusEinSpieltag_Vor()
+    {
+        int idx = FokusSpieltage.IndexOf(FokusAktiverSpieltag);
+        if (idx >= 0 && idx + 1 < FokusSpieltage.Count)
+            FokusAktiverSpieltag = FokusSpieltage[idx + 1];
+    }
+
+    private void BeiGruppeFokusAenderung()
+    {
+        FokusSpieltage.Clear();
+        FokusAlleAktiv = true;
+        FokusAktiverSpieltag = 0;
+
+        if (AusgewaehlteGruppe is not null)
+        {
+            foreach (var st in Spiele
+                .Where(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer && s.Spieltag.HasValue)
+                .Select(s => s.Spieltag!.Value)
+                .Distinct()
+                .OrderBy(t => t))
+            {
+                FokusSpieltage.Add(st);
+            }
+            if (FokusSpieltage.Count > 0)
+                FokusAktiverSpieltag = FokusSpieltage[0];
+        }
+
+        OnPropertyChanged(nameof(HatMehrereSpieltage));
+        _fokusVorigerSpieltag.NotifyCanExecuteChanged();
+        _fokusNaechsterSpieltag.NotifyCanExecuteChanged();
+        _fokusAlleSpieltageBefehl.NotifyCanExecuteChanged();
+    }
+
+    private IReadOnlyList<SpielZeile> BerechneFokusSpiele()
+    {
+        if (AusgewaehlteGruppe is null) return [];
+        var spiele = Spiele.Where(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer);
+        if (!FokusAlleAktiv)
+            spiele = spiele.Where(s => s.Spieltag == FokusAktiverSpieltag);
+        return spiele.ToList();
+    }
 
     private static string RegelartZuText(RankingRegelArt regelart) => regelart switch
     {
