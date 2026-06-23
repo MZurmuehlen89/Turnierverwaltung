@@ -3,8 +3,10 @@ using Fussballturnierverwaltung.Application.Spiele.Eingaben;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Simulation;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
@@ -21,6 +23,23 @@ public class SimulationsService(
     public Task<IReadOnlyList<SimulationsLauf>> LaeufeAbrufenAsync(
         int turnierInstanzId, CancellationToken ct = default)
         => laufRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
+
+    // ── Freie Einzelspiel-Simulation (kein DB-Bezug) ─────────────────────
+
+    public SimulationsErgebnis EinzelspielSimulieren(
+        Mannschaft heim,
+        Mannschaft auswaerts,
+        IReadOnlyList<EntscheidungsVerfahren> verfahren,
+        SimulationsModus modus,
+        Random? rng = null)
+    {
+        rng ??= new Random();
+        bool ausfuehrlich = modus == SimulationsModus.AusfuehrlicheSimulation;
+        var ergebnis = SimulationsEngine.Simulieren(heim, auswaerts, verfahren, ausfuehrlich, rng);
+        logger.LogInformation("Einzelspiel: {Heim} {H}:{G} {Gast}",
+            heim.Name, ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer, auswaerts.Name);
+        return ergebnis;
+    }
 
     // ── Ein einzelnes Spiel ───────────────────────────────────────────────
 
