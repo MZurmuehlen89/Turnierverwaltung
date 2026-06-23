@@ -14,13 +14,67 @@ using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 using System.Windows;
+using System.Windows.Threading;
 
 namespace Fussballturnierverwaltung.Wpf;
 
 public partial class App
 {
     private IHost _host = null!;
+    private ILogger<App>? _logger;
+
+    public App()
+    {
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+    }
+
+    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        _logger?.LogCritical(e.Exception, "Unbehandelter Fehler auf dem UI-Thread");
+        e.Handled = true;
+        ZeigeFehlerdialog(e.Exception, kannFortfahren: true);
+    }
+
+    private void OnDomainUnhandledException(object? sender, UnhandledExceptionEventArgs e)
+    {
+        var ex = e.ExceptionObject as Exception;
+        _logger?.LogCritical(ex, "Schwerwiegender Fehler im AppDomain (IsTerminating={IsTerminating})", e.IsTerminating);
+        ZeigeFehlerdialog(ex, kannFortfahren: !e.IsTerminating);
+    }
+
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        _logger?.LogError(e.Exception, "Unbeobachtete Task-Exception");
+        e.SetObserved();
+    }
+
+    private void ZeigeFehlerdialog(Exception? ex, bool kannFortfahren)
+    {
+        var meldung = ex?.Message ?? "Unbekannter Fehler";
+        var text = kannFortfahren
+            ? $"Es ist ein unerwarteter Fehler aufgetreten:\n\n{meldung}\n\nMöchten Sie die Anwendung neu starten?"
+            : $"Ein schwerwiegender Fehler ist aufgetreten:\n\n{meldung}\n\nDie Anwendung muss beendet werden. Möchten Sie danach neu starten?";
+
+        var ergebnis = MessageBox.Show(text, "Unerwarteter Fehler", MessageBoxButton.YesNo, MessageBoxImage.Error);
+
+        if (ergebnis == MessageBoxResult.Yes)
+            NeustartAnfordern();
+        else if (!kannFortfahren)
+            Shutdown(1);
+    }
+
+    private static void NeustartAnfordern()
+    {
+        var pfad = Environment.ProcessPath;
+        if (!string.IsNullOrEmpty(pfad))
+            Process.Start(pfad);
+        Current.Shutdown(0);
+    }
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -84,6 +138,7 @@ public partial class App
         builder.Services.AddSingleton<MainWindow>();
 
         _host = builder.Build();
+        _logger = _host.Services.GetRequiredService<ILogger<App>>();
 
         using (var scope = _host.Services.CreateScope())
         {
