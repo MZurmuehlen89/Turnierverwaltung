@@ -1,6 +1,6 @@
 # Fussballturnierverwaltung
 
-Private Konsolenanwendung zur Verwaltung, Auslosung, Simulation und Auswertung von Fußballturnieren.
+Private Anwendung zur Verwaltung, Auslosung, Simulation und Auswertung von Fußballturnieren. Verfügbar als Konsolenanwendung (Spectre.Console) und als WPF-Desktop-GUI (Fluent.Ribbon).
 
 ## Ziel
 
@@ -10,10 +10,11 @@ Version 1 ermöglicht:
 - Wahrscheinlichkeitsbasierte Spielsimulation mit reproduzierbarem Seed
 - Flexible Auslosungs-Engine mit Lostöpfen, Setzlisten und Regelprüfung
 - Konfigurierbare Regelwerke (Punkte, Ranking, Entscheidungsverfahren)
-- Turnierbaum-Darstellung in der Konsole
+- Turnierbaum-Darstellung
 - Import und Export (CSV, JSON)
+- WPF-Desktop-Oberfläche mit Fluent.Ribbon-Navigation
 
-Die Fachlogik ist vollständig von der Konsolen-UI getrennt, sodass in Version 2 eine Desktop-Oberfläche ergänzt werden kann.
+Die Fachlogik ist vollständig von der UI getrennt: beide Oberflächen (Console, WPF) teilen sich dieselbe Application- und Infrastructure-Schicht.
 
 ## Technologie
 
@@ -23,6 +24,7 @@ Die Fachlogik ist vollständig von der Konsolen-UI getrennt, sodass in Version 2
 | Datenbank | SQL Server Developer Edition |
 | ORM | Entity Framework Core 10 (Code First) |
 | Konsolenoberfläche | Spectre.Console |
+| Desktop-Oberfläche | WPF + Fluent.Ribbon + CommunityToolkit.Mvvm |
 | Tests | xUnit + FluentAssertions |
 | Logging | Microsoft.Extensions.Logging |
 | Architektur | Clean Architecture |
@@ -33,10 +35,11 @@ Die Fachlogik ist vollständig von der Konsolen-UI getrennt, sodass in Version 2
 Fussballturnierverwaltung.sln
 
 src/
-  Fussballturnierverwaltung.Domain          # Entitäten, Value Objects, Interfaces
-  Fussballturnierverwaltung.Application     # Services, Use Cases, Logik
-  Fussballturnierverwaltung.Infrastructure  # EF Core, Repositories, Migrationen
-  Fussballturnierverwaltung.Console         # Spectre.Console UI, Startup
+  Fussballturnierverwaltung.Domain          # Entitäten, Value Objects, Enums
+  Fussballturnierverwaltung.Application     # Services, Use Cases, Logik, Generatoren
+  Fussballturnierverwaltung.Infrastructure  # EF Core, Repositories, Migrationen, Seed
+  Fussballturnierverwaltung.Console         # Spectre.Console UI, Startup (Konsole)
+  Fussballturnierverwaltung.Wpf             # WPF GUI, MVVM ViewModels, Startup (Desktop)
 
 tests/
   Fussballturnierverwaltung.Tests           # xUnit Unit- und Integrationstests
@@ -47,10 +50,11 @@ tests/
 ```
 Domain  <──  Application  <──  Infrastructure
                     ▲                 ▲
-                    └──── Console ────┘
+                    ├──── Console ────┤
+                    └──── Wpf ────────┘
 ```
 
-Domain hat keine externen Abhängigkeiten. Console ist der Kompositionswurzel.
+Domain hat keine externen Abhängigkeiten. Console und Wpf sind unabhängige Kompositionswurzeln.
 
 ## Erste Schritte
 
@@ -58,8 +62,11 @@ Domain hat keine externen Abhängigkeiten. Console ist der Kompositionswurzel.
 # Datenbank erstellen (SQL Server muss laufen)
 dotnet ef database update --project src/Fussballturnierverwaltung.Infrastructure --startup-project src/Fussballturnierverwaltung.Console
 
-# Anwendung starten
+# Konsolenanwendung starten
 dotnet run --project src/Fussballturnierverwaltung.Console
+
+# WPF-Anwendung starten
+dotnet run --project src/Fussballturnierverwaltung.Wpf
 
 # Tests ausführen
 dotnet test
@@ -75,11 +82,12 @@ Implementiert in Version 1:
 - Spielsimulation (Schnell, Ausführlich, Manuell) mit Liveticker
 - Turnierbaum-Darstellung
 - Import/Export (CSV, JSON)
+- WPF-Desktop-Oberfläche mit Fluent.Ribbon, MVVM, Scope-basierter Navigation
 
 Nicht in Version 1 (Backlog für Version 2):
-- Desktop-Oberfläche, Spieler/Kader, Form/Moral/Verletzungen, Turnierdruck
+- Spieler/Kader, Form/Moral/Verletzungen, Turnierdruck, Massensimulationen
 
 ## Namenskonventionen
 
 Deutsche Namen für alle Domänenklassen, Properties, Methoden und Enums.
-Englische Begriffe nur wenn im deutschen IT- oder Fußballkontext etabliert (Rating, Repository, Service, DbContext, Seed, Import, Export).
+Englische Begriffe nur wenn im deutschen IT- oder Fußballkontext etabliert (Rating, Repository, Service, DbContext, Seed, Import, Export, ViewModel, View).
