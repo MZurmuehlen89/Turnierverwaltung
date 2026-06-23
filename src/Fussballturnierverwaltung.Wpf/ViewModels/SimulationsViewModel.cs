@@ -163,6 +163,10 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
         switch (e.PropertyName)
         {
+            case nameof(ModusIndex):
+                StatusMeldung = null;
+                Fehlermeldung = null;
+                break;
             case nameof(AusgewaehlteInstanz):
                 _ = BeiInstanzAenderungAsync();
                 break;
