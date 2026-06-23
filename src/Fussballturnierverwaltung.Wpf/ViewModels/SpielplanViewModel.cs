@@ -48,6 +48,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     private readonly SpielplanService _spielplanService;
     private readonly AuslosungService _auslosungService;
     private readonly TurnierBaumService _baumService;
+    private readonly RegelwerkService _regelwerkService;
 
     private int _populiertGerade;
     private static readonly HashSet<string> _formFelder =
@@ -68,6 +69,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     private TurnierRunde? _ausgewaehlteRunde;
 
     public bool HatRunde => AusgewaehlteRunde is not null;
+
+    // ── Ranking-Kriterien ─────────────────────────────────────────────────────
+
+    [ObservableProperty] private string _rankingRegelSetName = "";
+
+    public ObservableCollection<string> RankingKriterien { get; } = [];
+
+    public bool HatRankingKriterien => RankingKriterien.Count > 0;
 
     // ── Spielliste ────────────────────────────────────────────────────────────
 
@@ -143,13 +152,15 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         TurnierInstanzService instanzService,
         SpielplanService spielplanService,
         AuslosungService auslosungService,
-        TurnierBaumService baumService)
+        TurnierBaumService baumService,
+        RegelwerkService regelwerkService)
     {
-        _spielService     = spielService;
-        _instanzService   = instanzService;
-        _spielplanService = spielplanService;
-        _auslosungService = auslosungService;
-        _baumService      = baumService;
+        _spielService      = spielService;
+        _instanzService    = instanzService;
+        _spielplanService  = spielplanService;
+        _auslosungService  = auslosungService;
+        _baumService       = baumService;
+        _regelwerkService  = regelwerkService;
 
         _neuBefehl          = new AsyncRelayCommand(SpielplanNeuGenerierenAsync,  () => HatRunde);
         _speichernBefehl    = new AsyncRelayCommand(SpeichernAsync,               () => FormAktiv && IsDirty);
@@ -216,9 +227,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     private async Task BeiRundeAenderungAsync()
     {
         Spiele.Clear();
-        AusgewaehlteSpiel = null;
-        FormAktiv         = false;
-        Fehlermeldung     = null;
+        AusgewaehlteSpiel   = null;
+        FormAktiv           = false;
+        Fehlermeldung       = null;
+        RankingKriterien.Clear();
+        OnPropertyChanged(nameof(HatRankingKriterien));
+        RankingRegelSetName = "";
         _neuBefehl.NotifyCanExecuteChanged();
 
         if (AusgewaehlteRunde is null) return;
@@ -229,6 +243,16 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
         OnPropertyChanged(nameof(HatPlatzhalterSpiele));
         _platzhalterBefehl.NotifyCanExecuteChanged();
+
+        var regelwerk = await _regelwerkService.FindenNachIdAsync(AusgewaehlteRunde.RegelwerkId);
+        if (regelwerk?.RankingRegelSet?.Eintraege is { Count: > 0 } eintraege)
+        {
+            RankingRegelSetName = regelwerk.RankingRegelSet.Name;
+            int pos = 1;
+            foreach (var eintrag in eintraege.OrderBy(e => e.Reihenfolge))
+                RankingKriterien.Add($"{pos++}. {RegelartZuText(eintrag.RankingRegel.Regelart)}");
+            OnPropertyChanged(nameof(HatRankingKriterien));
+        }
     }
 
     private async Task BeiSpielAenderungAsync()
@@ -623,4 +647,20 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
     private static int? ParseIntNullable(string s) =>
         string.IsNullOrWhiteSpace(s) ? null : int.TryParse(s, out var v) ? v : null;
+
+    private static string RegelartZuText(RankingRegelArt regelart) => regelart switch
+    {
+        RankingRegelArt.Punkte                         => "Punkte",
+        RankingRegelArt.Tordifferenz                   => "Tordifferenz",
+        RankingRegelArt.ErzielteTore                   => "Erzielte Tore",
+        RankingRegelArt.WenigerGegentore               => "Weniger Gegentore",
+        RankingRegelArt.Siege                          => "Siege",
+        RankingRegelArt.DirekterVergleichPunkte        => "DV Punkte",
+        RankingRegelArt.DirekterVergleichTordifferenz  => "DV Tordiff.",
+        RankingRegelArt.DirekterVergleichErzielteTore  => "DV Tore",
+        RankingRegelArt.DirekterVergleichAuswaertstore => "DV Auswärtstore",
+        RankingRegelArt.FairplayWertung                => "Fairplay",
+        RankingRegelArt.Losentscheid                   => "Los",
+        _                                              => regelart.ToString()
+    };
 }

@@ -30,6 +30,30 @@
             <TextBlock DockPanel.Dock="Top" Text="RUNDEN"
                        FontSize="11" FontWeight="Bold" Foreground="#94A3B8"
                        Margin="12,10,8,4" />
+
+            <!-- Ranking-Kriterien (unter der Rundenliste) -->
+            <Border DockPanel.Dock="Bottom"
+                    Background="#F1F5F9" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
+                    Padding="12,8"
+                    Visibility="{Binding HatRankingKriterien, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock Text="RANKING-KRITERIEN" FontSize="10" FontWeight="Bold"
+                               Foreground="#94A3B8" Margin="0,0,0,3" />
+                    <TextBlock Text="{Binding RankingRegelSetName}"
+                               FontSize="11" FontWeight="SemiBold" Foreground="#475569"
+                               Margin="0,0,0,4"
+                               Visibility="{Binding RankingRegelSetName, Converter={StaticResource NullToCollapsed}}" />
+                    <ItemsControl ItemsSource="{Binding RankingKriterien}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" FontSize="11" Foreground="#64748B"
+                                           Margin="0,1" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
             <ListBox ItemsSource="{Binding Runden}"
                      SelectedItem="{Binding AusgewaehlteRunde}"
                      BorderThickness="0" Background="Transparent"
