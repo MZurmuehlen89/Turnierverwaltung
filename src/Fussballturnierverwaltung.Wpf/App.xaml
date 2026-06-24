@@ -18,6 +18,7 @@
             <conv:SpielStatusZuTextConverter x:Key="SpielStatusZuText" />
             <conv:SpielStatusZuFarbeConverter x:Key="SpielStatusZuFarbe" />
             <conv:EntscheidungArtZuTextConverter x:Key="EntscheidungArtZuText" />
+            <conv:QualifikationsstatusZuFarbeConverter x:Key="QualifikationsstatusZuFarbe" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

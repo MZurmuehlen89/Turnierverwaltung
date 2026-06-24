@@ -21,22 +21,33 @@ public class TabellenService(
         return TabelleAusSpielenBerechnen(alleSpiele, punkteRegel, rankingRegeln);
     }
 
-    /// <summary>Berechnet je eine Tabelle pro Gruppe. Gruppen werden aus den Spielpaarungen rekonstruiert.</summary>
+    /// <summary>Berechnet je eine Tabelle pro Gruppe inkl. Qualifikationsstatus. Gruppen werden aus den Spielpaarungen rekonstruiert.</summary>
     public async Task<IReadOnlyList<GruppenTabelle>> GruppenTabellenBerechnenAsync(
         int turnierRundeId, CancellationToken ct = default)
     {
         var (punkteRegel, rankingRegeln, alleSpiele) = await LadeTabellenDatenAsync(turnierRundeId, ct);
         if (!alleSpiele.Any()) return [];
 
+        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct);
+        int qualPlaetze = runde is { GruppenAnzahl: > 0 }
+            ? Math.Max(1, runde.AusgangsMannschaftsanzahl / runde.GruppenAnzahl.Value)
+            : 2;
+
         var gruppen = GruppenAusSpielenAbleiten(alleSpiele);
-        return gruppen.Select((gruppenTeamIds, index) =>
+        var result = gruppen.Select((gruppenTeamIds, index) =>
         {
             var teamIds = gruppenTeamIds.ToHashSet();
-            var gruppenSpiele = alleSpiele
+            var gruppenSpiele = (IReadOnlyList<Spiel>)alleSpiele
                 .Where(s => s.HeimMannschaftId.HasValue && teamIds.Contains(s.HeimMannschaftId.Value))
                 .ToList();
-            return new GruppenTabelle(index + 1, TabelleAusSpielenBerechnen(gruppenSpiele, punkteRegel, rankingRegeln));
+            return (Gruppe: new GruppenTabelle(index + 1, TabelleAusSpielenBerechnen(gruppenSpiele, punkteRegel, rankingRegeln)),
+                    Spiele: gruppenSpiele);
         }).ToList();
+
+        foreach (var (gruppe, spiele) in result)
+            QualifikationsstatusSetzen(gruppe, spiele, qualPlaetze, punkteRegel, rankingRegeln);
+
+        return result.Select(r => r.Gruppe).ToList();
     }
 
     // ── Interne Lade- und Berechnungsmethoden ────────────────────────────
@@ -305,4 +316,78 @@ public class TabellenService(
         int AuswaertsTore,
         int Punkte,
         int FairplayWertung = 0);
+
+    // ── Qualifikationsstatus ──────────────────────────────────────────────
+
+    private static void QualifikationsstatusSetzen(
+        GruppenTabelle gruppe,
+        IReadOnlyList<Spiel> gruppenSpiele,
+        int qualifiziertePlaetze,
+        PunkteRegel punkteRegel,
+        List<RankingRegel> rankingRegeln)
+    {
+        var abgeschlossen = gruppenSpiele
+            .Where(s => s.Status == SpielStatus.Abgeschlossen && s.Ergebnis is not null)
+            .ToList();
+        var offen = gruppenSpiele
+            .Where(s => s.Status != SpielStatus.Abgeschlossen
+                     && s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
+            .ToList();
+
+        if (!offen.Any())
+        {
+            foreach (var e in gruppe.Tabelle)
+                e.Qualifikationsstatus = e.Rang <= qualifiziertePlaetze
+                    ? Qualifikationsstatus.SicherQualifiziert
+                    : Qualifikationsstatus.SicherAusgeschieden;
+            return;
+        }
+
+        foreach (var eintrag in gruppe.Tabelle)
+        {
+            int teamId = eintrag.Mannschaft.Id;
+
+            var bestCase = SimuliereErgebnisse(offen, teamId, teamGewinntAlles: true);
+            var bestTabelle = TabelleAusSpielenBerechnen([..abgeschlossen, ..bestCase], punkteRegel, rankingRegeln);
+            int bestRang = bestTabelle.FirstOrDefault(e => e.Mannschaft.Id == teamId)?.Rang ?? int.MaxValue;
+
+            var worstCase = SimuliereErgebnisse(offen, teamId, teamGewinntAlles: false);
+            var worstTabelle = TabelleAusSpielenBerechnen([..abgeschlossen, ..worstCase], punkteRegel, rankingRegeln);
+            int worstRang = worstTabelle.FirstOrDefault(e => e.Mannschaft.Id == teamId)?.Rang ?? int.MaxValue;
+
+            eintrag.Qualifikationsstatus = bestRang > qualifiziertePlaetze
+                ? Qualifikationsstatus.SicherAusgeschieden
+                : worstRang <= qualifiziertePlaetze
+                    ? Qualifikationsstatus.SicherQualifiziert
+                    : Qualifikationsstatus.Offen;
+        }
+    }
+
+    private static List<Spiel> SimuliereErgebnisse(
+        List<Spiel> offeneSpiele, int teamId, bool teamGewinntAlles)
+    {
+        return offeneSpiele.Select(s =>
+        {
+            bool heimSiegt = s.HeimMannschaftId == teamId ? teamGewinntAlles
+                           : s.AuswaertsMannschaftId == teamId ? !teamGewinntAlles
+                           : true;
+            return SpielMitSimuliertemErgebnis(s, heimSiegt);
+        }).ToList();
+    }
+
+    private static Spiel SpielMitSimuliertemErgebnis(Spiel original, bool heimSiegt) => new()
+    {
+        Spielnummer           = original.Spielnummer,
+        HeimMannschaftId      = original.HeimMannschaftId,
+        HeimMannschaft        = original.HeimMannschaft,
+        AuswaertsMannschaftId = original.AuswaertsMannschaftId,
+        AuswaertsMannschaft   = original.AuswaertsMannschaft,
+        Status                = SpielStatus.Abgeschlossen,
+        Ergebnis = new SpielErgebnis
+        {
+            HeimToreRegulaer      = heimSiegt ? 1 : 0,
+            AuswaertsToreRegulaer = heimSiegt ? 0 : 1,
+            EntscheidungArt       = EntscheidungArt.RegulaereSpielzeit
+        }
+    };
 }

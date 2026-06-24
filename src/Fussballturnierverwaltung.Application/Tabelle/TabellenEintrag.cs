@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
+using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Tabelle;
 
@@ -14,4 +15,5 @@ public sealed class TabellenEintrag
     public required int Punkte { get; init; }
     public int Tordifferenz => Tore - Gegentore;
     public int Rang { get; set; }
+    public Qualifikationsstatus Qualifikationsstatus { get; set; } = Qualifikationsstatus.Offen;
 }
