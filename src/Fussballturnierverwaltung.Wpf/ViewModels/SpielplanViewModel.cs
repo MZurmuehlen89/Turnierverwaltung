@@ -128,7 +128,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     public string FokusSpieltagnummer  => $"Spieltag {FokusAktiverSpieltag}";
     public bool   HatMehrereSpieltage  => FokusSpieltage.Count > 1;
     public bool   KannFokusZurueck     => !FokusAlleAktiv && FokusSpieltage.Count > 0 && FokusAktiverSpieltag > FokusSpieltage[0];
-    public bool   KannFokusVor         => !FokusAlleAktiv && FokusSpieltage.Count > 0 && FokusAktiverSpieltag < FokusSpieltage[^1];
+    public bool   KannFokusVor         => FokusSpieltage.Count > 1 && (FokusAlleAktiv || FokusAktiverSpieltag < FokusSpieltage[^1]);
 
     public IReadOnlyList<SpielZeile> FokusSpiele => BerechneFokusSpiele();
 
@@ -799,12 +799,18 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
     private void FokusEinSpieltag_Vorig()
     {
+        if (FokusAlleAktiv) return;
         int idx = FokusSpieltage.IndexOf(FokusAktiverSpieltag);
         if (idx > 0) FokusAktiverSpieltag = FokusSpieltage[idx - 1];
     }
 
     private void FokusEinSpieltag_Vor()
     {
+        if (FokusAlleAktiv)
+        {
+            FokusAlleAktiv = false; // FokusAktiverSpieltag ist bereits FokusSpieltage[0]
+            return;
+        }
         int idx = FokusSpieltage.IndexOf(FokusAktiverSpieltag);
         if (idx >= 0 && idx + 1 < FokusSpieltage.Count)
             FokusAktiverSpieltag = FokusSpieltage[idx + 1];
