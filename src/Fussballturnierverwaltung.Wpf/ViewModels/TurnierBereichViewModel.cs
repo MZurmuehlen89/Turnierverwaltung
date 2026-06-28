@@ -1,46 +1,66 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Wpf.Ribbon;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
 public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware
 {
+    private readonly TurnierInstanzService _instanzService;
+
     public SpielplanViewModel   SpielplanVm   { get; }
     public TurnierBaumViewModel TurnierBaumVm { get; }
 
+    [ObservableProperty] private ObservableCollection<TurnierInstanz> _instanzen = [];
+
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RibbonTabTitel))]
-    [NotifyPropertyChangedFor(nameof(NeuBefehl))]
-    [NotifyPropertyChangedFor(nameof(SpeichernBefehl))]
-    [NotifyPropertyChangedFor(nameof(AbbrechenBefehl))]
-    [NotifyPropertyChangedFor(nameof(LoeschenBefehl))]
-    private int _aktiverTabIndex;
+    [NotifyPropertyChangedFor(nameof(HatInstanz))]
+    private TurnierInstanz? _ausgewaehlteInstanz;
+
+    public bool HatInstanz => AusgewaehlteInstanz is not null;
 
     public TurnierBereichViewModel(
+        TurnierInstanzService instanzService,
         SpielplanViewModel   spielplanVm,
         TurnierBaumViewModel turnierBaumVm)
     {
-        SpielplanVm   = spielplanVm;
-        TurnierBaumVm = turnierBaumVm;
+        _instanzService = instanzService;
+        SpielplanVm     = spielplanVm;
+        TurnierBaumVm   = turnierBaumVm;
     }
 
     public override async Task AktivierenAsync()
     {
-        await SpielplanVm.AktivierenAsync();
-        await TurnierBaumVm.AktivierenAsync();
+        var liste = await _instanzService.AlleAbrufenAsync();
+        Instanzen.Clear();
+        foreach (var i in liste) Instanzen.Add(i);
+
+        if (AusgewaehlteInstanz is not null && !Instanzen.Contains(AusgewaehlteInstanz))
+            AusgewaehlteInstanz = null;
     }
 
-    private IRibbonAware? AktivesRibbonVm() => AktiverTabIndex switch
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
-        1 => TurnierBaumVm,
-        _ => SpielplanVm,
-    };
+        base.OnPropertyChanged(e);
+        if (e.PropertyName == nameof(AusgewaehlteInstanz))
+            _ = BeiInstanzAenderungAsync();
+    }
 
-    // ── IRibbonAware ──────────────────────────────────────────────────────────
-    public string  RibbonTabTitel    => AktivesRibbonVm()?.RibbonTabTitel ?? "Turnier";
-    public ICommand? NeuBefehl       => AktivesRibbonVm()?.NeuBefehl;
-    public ICommand? SpeichernBefehl => AktivesRibbonVm()?.SpeichernBefehl;
-    public ICommand? AbbrechenBefehl => AktivesRibbonVm()?.AbbrechenBefehl;
-    public ICommand? LoeschenBefehl  => AktivesRibbonVm()?.LoeschenBefehl;
+    private async Task BeiInstanzAenderungAsync()
+    {
+        var instanz = AusgewaehlteInstanz;
+        await SpielplanVm.LadeInstanzAsync(instanz);
+        await TurnierBaumVm.LadeInstanzAsync(instanz);
+    }
+
+    // ── IRibbonAware — immer an SpielplanVm delegiert ────────────────────────
+    public string   RibbonTabTitel  => SpielplanVm.RibbonTabTitel;
+    public ICommand? NeuBefehl      => SpielplanVm.NeuBefehl;
+    public ICommand? SpeichernBefehl => SpielplanVm.SpeichernBefehl;
+    public ICommand? AbbrechenBefehl => SpielplanVm.AbbrechenBefehl;
+    public ICommand? LoeschenBefehl  => SpielplanVm.LoeschenBefehl;
 }

@@ -71,7 +71,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
     // ── linke Spalte ──────────────────────────────────────────────────────────
 
-    [ObservableProperty] private ObservableCollection<TurnierInstanz> _instanzen = [];
     [ObservableProperty] private TurnierInstanz? _ausgewaehlteInstanz;
     [ObservableProperty] private ObservableCollection<TurnierRunde> _runden = [];
     [ObservableProperty]
@@ -267,12 +266,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
     // ── Initialisierung ───────────────────────────────────────────────────────
 
-    public override async Task AktivierenAsync()
+    public override Task AktivierenAsync() => Task.CompletedTask;
+
+    public async Task LadeInstanzAsync(TurnierInstanz? instanz)
     {
-        var liste = await _instanzService.AlleAbrufenAsync();
-        Instanzen.Clear();
-        foreach (var i in liste)
-            Instanzen.Add(i);
+        AusgewaehlteInstanz = instanz;
+        await BeiInstanzAenderungAsync();
     }
 
     // ── Property-Reaktionen ───────────────────────────────────────────────────
@@ -284,7 +283,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         switch (e.PropertyName)
         {
             case nameof(AusgewaehlteInstanz):
-                _ = BeiInstanzAenderungAsync();
+                // Kein fire-and-forget hier — Laden erfolgt sequenziell via LadeInstanzAsync()
                 break;
             case nameof(AusgewaehlteRunde):
                 _ = BeiRundeAenderungAsync();

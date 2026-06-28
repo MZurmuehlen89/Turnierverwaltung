@@ -12,21 +12,8 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- ── Linke Spalte: Turnier + Runden ── -->
+        <!-- ── Linke Spalte: Runden ── -->
         <DockPanel Grid.Column="0" Background="#F8FAFC">
-
-            <!-- Turnier -->
-            <Border DockPanel.Dock="Top" Background="White"
-                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8">
-                <StackPanel>
-                    <TextBlock Text="Turnier" FontSize="11" Foreground="#94A3B8"
-                               FontWeight="Bold" Margin="0,0,0,4" />
-                    <ComboBox ItemsSource="{Binding Instanzen}"
-                              SelectedItem="{Binding AusgewaehlteInstanz}"
-                              DisplayMemberPath="Name"
-                              FontSize="13" />
-                </StackPanel>
-            </Border>
 
             <!-- Runden -->
             <TextBlock DockPanel.Dock="Top" Text="RUNDEN"

@@ -3,56 +3,26 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:Fussballturnierverwaltung.Wpf.ViewModels">
 
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="220" MinWidth="160" MaxWidth="300" />
-            <ColumnDefinition Width="4" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
+    <DockPanel>
 
-        <!-- ── Linke Spalte: Turnier-Auswahl ── -->
-        <DockPanel Grid.Column="0" Background="#F8FAFC">
+        <!-- ── Inline-Toolbar: Baum-Aktionen ── -->
+        <Border DockPanel.Dock="Top" Background="White"
+                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,6">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Generieren"
+                        Command="{Binding NeuBefehl}"
+                        Padding="12,5" FontSize="12" Margin="0,0,6,0" />
+                <Button Content="Sieger fortschreiben"
+                        Command="{Binding SpeichernBefehl}"
+                        Padding="12,5" FontSize="12" Margin="0,0,6,0" />
+                <Button Content="Baum löschen"
+                        Command="{Binding LoeschenBefehl}"
+                        Padding="12,5" FontSize="12" />
+            </StackPanel>
+        </Border>
 
-            <Border DockPanel.Dock="Top" Background="White"
-                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8">
-                <StackPanel>
-                    <TextBlock Text="Turnier" FontSize="11" Foreground="#94A3B8"
-                               FontWeight="Bold" Margin="0,0,0,4" />
-                    <ComboBox ItemsSource="{Binding Instanzen}"
-                              SelectedItem="{Binding AusgewaehlteInstanz}"
-                              DisplayMemberPath="Name"
-                              FontSize="13" />
-                </StackPanel>
-            </Border>
-
-            <!-- Info-Box: Ribbon-Hinweise -->
-            <Border DockPanel.Dock="Top" Margin="8,12,8,4"
-                    Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
-                    CornerRadius="4" Padding="10,8">
-                <StackPanel>
-                    <TextBlock Text="Ribbon-Aktionen:" FontSize="11" FontWeight="Bold"
-                               Foreground="#1D4ED8" Margin="0,0,0,4" />
-                    <TextBlock FontSize="11" Foreground="#1E40AF" TextWrapping="Wrap">
-                        <Run FontWeight="SemiBold">Neu</Run>
-                        <Run>→ Turnierbaum generieren</Run>
-                    </TextBlock>
-                    <TextBlock FontSize="11" Foreground="#1E40AF" TextWrapping="Wrap" Margin="0,2,0,0">
-                        <Run FontWeight="SemiBold">Speichern</Run>
-                        <Run>→ Sieger fortschreiben</Run>
-                    </TextBlock>
-                    <TextBlock FontSize="11" Foreground="#1E40AF" TextWrapping="Wrap" Margin="0,2,0,0">
-                        <Run FontWeight="SemiBold">Löschen</Run>
-                        <Run>→ Baum entfernen</Run>
-                    </TextBlock>
-                </StackPanel>
-            </Border>
-
-        </DockPanel>
-
-        <Border Grid.Column="1" Background="#E2E8F0" />
-
-        <!-- ── Rechter Bereich: Bracket-Canvas ── -->
-        <Grid Grid.Column="2">
+        <!-- ── Hauptbereich ── -->
+        <Grid>
 
             <!-- Kein Turnier gewählt -->
             <TextBlock Text="Bitte ein Turnier auswählen."
@@ -329,5 +299,5 @@
             </DockPanel>
         </Grid>
 
-    </Grid>
+    </DockPanel>
 </UserControl>

@@ -1,7 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Turnierbaum;
-using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -51,8 +50,7 @@ public class BracketLinie
 
 public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 {
-    private readonly TurnierBaumService    _baumService;
-    private readonly TurnierInstanzService _instanzService;
+    private readonly TurnierBaumService _baumService;
 
     private const double NODE_W  = 185.0;
     private const double NODE_H  = 90.0;
@@ -60,8 +58,6 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     private const double GAP_V   = 14.0;
     private const double ROUND_W = NODE_W + GAP_H;   // 225
     private const double UNIT    = NODE_H + GAP_V;   // 88
-
-    [ObservableProperty] private ObservableCollection<TurnierInstanz> _instanzen = [];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(KeinTurnierGewaehlt))]
@@ -96,10 +92,9 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     private readonly RelayCommand      _abbrechenBefehl;
     private readonly AsyncRelayCommand _loeschenBefehl;
 
-    public TurnierBaumViewModel(TurnierBaumService baumService, TurnierInstanzService instanzService)
+    public TurnierBaumViewModel(TurnierBaumService baumService)
     {
-        _baumService    = baumService;
-        _instanzService = instanzService;
+        _baumService = baumService;
 
         _neuBefehl       = new AsyncRelayCommand(GenerierenAsync,       () => AusgewaehlteInstanz != null);
         _speichernBefehl = new AsyncRelayCommand(SiegerFortsteiernAsync, () => AusgewaehlteInstanz != null && HatBaum);
@@ -107,19 +102,18 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         _loeschenBefehl  = new AsyncRelayCommand(BaumLoeschenAsync,      () => AusgewaehlteInstanz != null && HatBaum);
     }
 
-    public override async Task AktivierenAsync()
+    public override Task AktivierenAsync() => Task.CompletedTask;
+
+    public async Task LadeInstanzAsync(TurnierInstanz? instanz)
     {
-        var liste = await _instanzService.AlleAbrufenAsync();
-        Instanzen.Clear();
-        foreach (var i in liste)
-            Instanzen.Add(i);
+        AusgewaehlteInstanz = instanz;
+        await LadeBracketAsync();
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.PropertyName == nameof(AusgewaehlteInstanz))
-            _ = LadeBracketAsync();
+        // Kein fire-and-forget für AusgewaehlteInstanz — Laden erfolgt sequenziell via LadeInstanzAsync()
     }
 
     private async Task LadeBracketAsync()
