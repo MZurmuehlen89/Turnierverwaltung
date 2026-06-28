@@ -18,6 +18,7 @@ public class BracketKnotenAnzeige
 {
     public double X { get; init; }
     public double Y { get; init; }
+    public int?   TurnierRundeId { get; init; }
     public bool IstFreilos { get; init; }
     public string Label { get; init; } = "";
     public bool HatLabel => !string.IsNullOrEmpty(Label);
@@ -86,20 +87,26 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     public ICommand SpeichernBefehl => _speichernBefehl;
     public ICommand AbbrechenBefehl => _abbrechenBefehl;
     public ICommand LoeschenBefehl  => _loeschenBefehl;
+    public ICommand KnotenAngeklicktBefehl => _knotenAngeklicktBefehl;
 
-    private readonly AsyncRelayCommand _neuBefehl;
-    private readonly AsyncRelayCommand _speichernBefehl;
-    private readonly RelayCommand      _abbrechenBefehl;
-    private readonly AsyncRelayCommand _loeschenBefehl;
+    public event EventHandler<int>? RundeAngeklickt;
+
+    private readonly AsyncRelayCommand                    _neuBefehl;
+    private readonly AsyncRelayCommand                    _speichernBefehl;
+    private readonly RelayCommand                         _abbrechenBefehl;
+    private readonly AsyncRelayCommand                    _loeschenBefehl;
+    private readonly RelayCommand<BracketKnotenAnzeige>  _knotenAngeklicktBefehl;
 
     public TurnierBaumViewModel(TurnierBaumService baumService)
     {
         _baumService = baumService;
 
-        _neuBefehl       = new AsyncRelayCommand(GenerierenAsync,       () => AusgewaehlteInstanz != null);
-        _speichernBefehl = new AsyncRelayCommand(SiegerFortsteiernAsync, () => AusgewaehlteInstanz != null && HatBaum);
-        _abbrechenBefehl = new RelayCommand(() => { }, () => false);
-        _loeschenBefehl  = new AsyncRelayCommand(BaumLoeschenAsync,      () => AusgewaehlteInstanz != null && HatBaum);
+        _neuBefehl               = new AsyncRelayCommand(GenerierenAsync,       () => AusgewaehlteInstanz != null);
+        _speichernBefehl         = new AsyncRelayCommand(SiegerFortsteiernAsync, () => AusgewaehlteInstanz != null && HatBaum);
+        _abbrechenBefehl         = new RelayCommand(() => { }, () => false);
+        _loeschenBefehl          = new AsyncRelayCommand(BaumLoeschenAsync,      () => AusgewaehlteInstanz != null && HatBaum);
+        _knotenAngeklicktBefehl  = new RelayCommand<BracketKnotenAnzeige>(
+            k => { if (k?.TurnierRundeId is { } rundeId) RundeAngeklickt?.Invoke(this, rundeId); });
     }
 
     public override Task AktivierenAsync() => Task.CompletedTask;
@@ -194,6 +201,10 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             string kuerzel = RundenKuerzel(runde.Knoten.Count);
             double x = (runde.RundeNummer - 1) * ROUND_W;
 
+            int? turnierRundeId = runde.Knoten
+                .Select(k => k.Spiel?.TurnierRundeId)
+                .FirstOrDefault(id => id.HasValue);
+
             var geordnet = runde.Knoten
                 .OrderBy(k => k.Spiel?.Spielnummer ?? int.MaxValue)
                 .ToList();
@@ -205,7 +216,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
                 string label = istFest
                     ? (runde.Knoten.Count == 1 ? "F" : $"{kuerzel}{pos + 1}")
                     : "";
-                Knoten.Add(BaueKnotenAnzeige(k, x, centerY - NODE_H / 2, label));
+                Knoten.Add(BaueKnotenAnzeige(k, x, centerY - NODE_H / 2, label, turnierRundeId));
             }
         }
 
@@ -382,10 +393,10 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         return int.TryParse(m.Groups[2].Value, out int nr) ? nr : null;
     }
 
-    private static BracketKnotenAnzeige BaueKnotenAnzeige(TurnierBaumKnoten k, double x, double y, string label)
+    private static BracketKnotenAnzeige BaueKnotenAnzeige(TurnierBaumKnoten k, double x, double y, string label, int? turnierRundeId = null)
     {
         if (k.Spiel is null)
-            return new BracketKnotenAnzeige { X = x, Y = y, IstFreilos = true, Label = label, HeimName = "–", AuswaertsName = "–" };
+            return new BracketKnotenAnzeige { X = x, Y = y, TurnierRundeId = turnierRundeId, IstFreilos = true, Label = label, HeimName = "–", AuswaertsName = "–" };
 
         var s     = k.Spiel;
         var e     = s.Ergebnis;
@@ -405,6 +416,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         {
             X                  = x,
             Y                  = y,
+            TurnierRundeId     = turnierRundeId ?? s.TurnierRundeId,
             IstFreilos         = false,
             Label              = label,
             HeimName           = s.HeimMannschaft?.Name      ?? s.HeimPlatzhalterName      ?? "—",

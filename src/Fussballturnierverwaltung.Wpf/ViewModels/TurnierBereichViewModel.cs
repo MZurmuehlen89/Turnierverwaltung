@@ -31,6 +31,13 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware
         _instanzService = instanzService;
         SpielplanVm     = spielplanVm;
         TurnierBaumVm   = turnierBaumVm;
+
+        TurnierBaumVm.RundeAngeklickt += (_, rundeId) =>
+        {
+            var runde = SpielplanVm.Runden.FirstOrDefault(r => r.Id == rundeId);
+            if (runde is not null)
+                SpielplanVm.AusgewaehlteRunde = runde;
+        };
     }
 
     public override async Task AktivierenAsync()

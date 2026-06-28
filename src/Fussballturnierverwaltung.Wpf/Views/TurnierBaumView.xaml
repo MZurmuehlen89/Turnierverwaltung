@@ -133,6 +133,14 @@
                                 </ItemsControl.ItemContainerStyle>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:BracketKnotenAnzeige}">
+                                        <Button Command="{Binding DataContext.KnotenAngeklicktBefehl, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Padding="0" Cursor="Hand">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <ContentPresenter />
+                                                </ControlTemplate>
+                                            </Button.Template>
                                         <Border Width="185" Height="90"
                                                 BorderThickness="1" CornerRadius="4"
                                                 Background="White">
@@ -288,6 +296,7 @@
                                             </Grid>
                                             </Grid>
                                         </Border>
+                                        </Button>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
