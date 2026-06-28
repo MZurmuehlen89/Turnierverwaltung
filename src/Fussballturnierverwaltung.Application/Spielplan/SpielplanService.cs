@@ -183,13 +183,15 @@ public class SpielplanService(
 
         var alleIds      = gruppen.SelectMany(g => g).Distinct().ToList();
         var mannschaften = await mannschaftRepository.FindenNachIdsAsync(alleIds, ct);
-        int spielNr      = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
+        int startNr      = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
         var generator    = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
-        var alleSpiele   = new List<Spiel>();
 
-        foreach (var gruppe in gruppen)
+        var gruppenMitSpielen = new List<(int GruppenIndex, Spiel Spiel)>();
+        int tempNr = 1;
+
+        for (int gi = 0; gi < gruppen.Count; gi++)
         {
-            var gruppenTeams = gruppe
+            var gruppenTeams = gruppen[gi]
                 .Select(id => mannschaften.FirstOrDefault(m => m.Id == id))
                 .Where(m => m is not null)
                 .Select(m => m!)
@@ -197,11 +199,18 @@ public class SpielplanService(
 
             if (gruppenTeams.Count < 2) continue;
 
-            var kontext  = new SpielplanKontext(runde, gruppenTeams, spielNr);
+            var kontext  = new SpielplanKontext(runde, gruppenTeams, tempNr);
             var ergebnis = generator.Generieren(kontext);
-            alleSpiele.AddRange(ergebnis.Spiele);
-            spielNr += ergebnis.Spiele.Count;
+            foreach (var spiel in ergebnis.Spiele)
+                gruppenMitSpielen.Add((gi, spiel));
+            tempNr += ergebnis.Spiele.Count;
         }
+
+        var alleSpiele = gruppenMitSpielen
+            .OrderBy(x => x.Spiel.Spieltag ?? 0)
+            .ThenBy(x => x.GruppenIndex)
+            .Select((x, i) => { x.Spiel.Spielnummer = startNr + i; return x.Spiel; })
+            .ToList();
 
         if (alleSpiele.Count > 0)
             await spielRepository.HinzufuegenMehrfachAsync(alleSpiele, ct);
@@ -219,12 +228,13 @@ public class SpielplanService(
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
 
-        int spielNr    = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
-        var alleSpiele = new List<Spiel>();
+        int startNr = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
+        int tempNr  = 1;
+        var gruppenMitSpielen = new List<(int GruppenIndex, Spiel Spiel)>();
 
-        foreach (var gruppe in gruppen)
+        for (int gi = 0; gi < gruppen.Count; gi++)
         {
-            var namen = gruppe.ToList();
+            var namen = gruppen[gi].ToList();
             if (namen.Count < 2) continue;
 
             var gruppenSpiele = new List<Spiel>();
@@ -241,14 +251,14 @@ public class SpielplanService(
                 string? ausw0 = spieltag % 2 == 0 ? namen[kreis[^1]]  : namen[0];
 
                 if (heim0 is not null && ausw0 is not null)
-                    gruppenSpiele.Add(PlatzhalterSpiel(runde, heim0, ausw0, spielNr++, spieltag + 1));
+                    gruppenSpiele.Add(PlatzhalterSpiel(runde, heim0, ausw0, tempNr++, spieltag + 1));
 
                 for (int i = 0; i < (gesamt - 2) / 2; i++)
                 {
                     string? heim = namen[kreis[i]];
                     string? ausw = namen[kreis[gesamt - 3 - i]];
                     if (heim is not null && ausw is not null)
-                        gruppenSpiele.Add(PlatzhalterSpiel(runde, heim, ausw, spielNr++, spieltag + 1));
+                        gruppenSpiele.Add(PlatzhalterSpiel(runde, heim, ausw, tempNr++, spieltag + 1));
                 }
 
                 var letzter = kreis[^1];
@@ -261,11 +271,18 @@ public class SpielplanService(
                 foreach (var s in gruppenSpiele.ToList())
                     gruppenSpiele.Add(PlatzhalterSpiel(runde,
                         s.AuswaertsPlatzhalterName!, s.HeimPlatzhalterName!,
-                        spielNr++, (s.Spieltag ?? 0) + spieltage, istRueckspiel: true));
+                        tempNr++, (s.Spieltag ?? 0) + spieltage, istRueckspiel: true));
             }
 
-            alleSpiele.AddRange(gruppenSpiele);
+            foreach (var spiel in gruppenSpiele)
+                gruppenMitSpielen.Add((gi, spiel));
         }
+
+        var alleSpiele = gruppenMitSpielen
+            .OrderBy(x => x.Spiel.Spieltag ?? 0)
+            .ThenBy(x => x.GruppenIndex)
+            .Select((x, i) => { x.Spiel.Spielnummer = startNr + i; return x.Spiel; })
+            .ToList();
 
         if (alleSpiele.Count > 0)
             await spielRepository.HinzufuegenMehrfachAsync(alleSpiele, ct);
