@@ -40,8 +40,6 @@ public class SpielZeile
     public string GruppeAnzeige => GruppeNummer.HasValue ? $"Gr.{GruppeNummer}" : "";
 }
 
-public record EntscheidungArtOption(string Anzeige, EntscheidungArt Wert);
-
 // ── ViewModel ─────────────────────────────────────────────────────────────────
 
 public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
@@ -56,12 +54,19 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
     private int _populiertGerade;
     private Dictionary<int, int> _teamGruppeMap = [];
+    private List<VerfahrenArt> _erlaubteVerfahren = [];
+
     private static readonly HashSet<string> _formFelder =
     [
         nameof(HeimToreRegulaer),       nameof(AuswaertsToreRegulaer),
-        nameof(AusgewaehlteEntscheidungArt),
         nameof(HeimToreVerlaengerung),  nameof(AuswaertsToreVerlaengerung),
         nameof(HeimElfmetertore),       nameof(AuswaertsElfmetertore)
+    ];
+
+    private static readonly HashSet<string> _scoreFelder =
+    [
+        nameof(HeimToreRegulaer),       nameof(AuswaertsToreRegulaer),
+        nameof(HeimToreVerlaengerung),  nameof(AuswaertsToreVerlaengerung),
     ];
 
     // ── linke Spalte ──────────────────────────────────────────────────────────
@@ -72,6 +77,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatRunde))]
     [NotifyPropertyChangedFor(nameof(IstGruppenphase))]
+    [NotifyPropertyChangedFor(nameof(IstKoRunde))]
     [NotifyPropertyChangedFor(nameof(ZeigeAnsichtUmschalter))]
     [NotifyPropertyChangedFor(nameof(IstGruppenAnsicht))]
     [NotifyPropertyChangedFor(nameof(IstSpielplanAnsicht))]
@@ -172,8 +178,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private string _auswaertsToreRegulaer = "0";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(VerlaengerungAktiv))]
-    [NotifyPropertyChangedFor(nameof(ElfmeterAktiv))]
     private EntscheidungArt _ausgewaehlteEntscheidungArt = EntscheidungArt.RegulaereSpielzeit;
 
     [ObservableProperty] private string _heimToreVerlaengerung = "";
@@ -181,24 +185,32 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private string _heimElfmetertore = "";
     [ObservableProperty] private string _auswaertsElfmetertore = "";
 
-    public bool VerlaengerungAktiv => AusgewaehlteEntscheidungArt is
-        EntscheidungArt.Verlaengerung or EntscheidungArt.GoldenGoal or
-        EntscheidungArt.SilverGoal    or EntscheidungArt.Elfmeterschiessen;
+    private bool IstKoRunde => AusgewaehlteRunde?.Rundenart is
+        Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
 
-    public bool ElfmeterAktiv =>
-        AusgewaehlteEntscheidungArt == EntscheidungArt.Elfmeterschiessen;
+    private bool HatVerlaengerungsVerfahren =>
+        _erlaubteVerfahren.Any(v => v is VerfahrenArt.VerlaengerungKlassisch or VerfahrenArt.GoldenGoal or VerfahrenArt.SilverGoal);
 
-    public List<EntscheidungArtOption> EntscheidungArtOptionen { get; } =
-    [
-        new("Reguläre Spielzeit",   EntscheidungArt.RegulaereSpielzeit),
-        new("Verlängerung",          EntscheidungArt.Verlaengerung),
-        new("Golden Goal",           EntscheidungArt.GoldenGoal),
-        new("Silver Goal",           EntscheidungArt.SilverGoal),
-        new("Elfmeterschießen",      EntscheidungArt.Elfmeterschiessen),
-        new("Auswärtstorregel",      EntscheidungArt.Auswaertstorregel),
-        new("Losentscheid",          EntscheidungArt.Losentscheid),
-        new("Münzwurf",              EntscheidungArt.Muenzwurf),
-    ];
+    private bool HatElfmeterVerfahren =>
+        _erlaubteVerfahren.Any(v => v == VerfahrenArt.Elfmeterschiessen);
+
+    public bool VerlaengerungAktiv =>
+        IstKoRunde &&
+        HatVerlaengerungsVerfahren &&
+        ParseInt(HeimToreRegulaer) == ParseInt(AuswaertsToreRegulaer);
+
+    public bool ElfmeterAktiv
+    {
+        get
+        {
+            if (!IstKoRunde || !HatElfmeterVerfahren) return false;
+            if (ParseInt(HeimToreRegulaer) != ParseInt(AuswaertsToreRegulaer)) return false;
+            if (!HatVerlaengerungsVerfahren) return true;
+            int? heimV = ParseIntNullable(HeimToreVerlaengerung);
+            int? ausV  = ParseIntNullable(AuswaertsToreVerlaengerung);
+            return heimV.HasValue && ausV.HasValue && heimV == ausV;
+        }
+    }
 
     // ── Platzhalter ───────────────────────────────────────────────────────────
 
@@ -291,10 +303,16 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
                 break;
         }
 
-        if (_populiertGerade == 0 && e.PropertyName is not null && _formFelder.Contains(e.PropertyName))
+        if (_populiertGerade == 0 && e.PropertyName is not null)
         {
-            IsDirty = true;
-            _speichernBefehl.NotifyCanExecuteChanged();
+            if (_scoreFelder.Contains(e.PropertyName))
+                EntscheidungNeuBerechnen();
+
+            if (_formFelder.Contains(e.PropertyName))
+            {
+                IsDirty = true;
+                _speichernBefehl.NotifyCanExecuteChanged();
+            }
         }
     }
 
@@ -326,6 +344,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         RankingKriterien.Clear();
         OnPropertyChanged(nameof(HatRankingKriterien));
         RankingRegelSetName  = "";
+        _erlaubteVerfahren   = [];
         GruppenAnsichtAktiv  = false;
         AusgewaehlteGruppe   = null;
         GruppenTabellen.Clear();
@@ -348,6 +367,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _platzhalterBefehl.NotifyCanExecuteChanged();
 
         var regelwerk = await _regelwerkService.FindenNachIdAsync(AusgewaehlteRunde.RegelwerkId);
+
+        _erlaubteVerfahren = regelwerk?.Entscheidungsverfahren
+            .OrderBy(v => v.Reihenfolge)
+            .Select(v => v.VerfahrenArt)
+            .ToList() ?? [];
+
         if (regelwerk?.RankingRegelSet?.Eintraege is { Count: > 0 } eintraege)
         {
             RankingRegelSetName = regelwerk.RankingRegelSet.Name;
@@ -434,6 +459,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
             _populiertGerade--;
         }
 
+        OnPropertyChanged(nameof(VerlaengerungAktiv));
+        OnPropertyChanged(nameof(ElfmeterAktiv));
         IsDirty = false;
         AktualisiereBefehle();
     }
@@ -796,6 +823,57 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
     private static int? ParseIntNullable(string s) =>
         string.IsNullOrWhiteSpace(s) ? null : int.TryParse(s, out var v) ? v : null;
+
+    private void EntscheidungNeuBerechnen()
+    {
+        AusgewaehlteEntscheidungArt = BerechneEntscheidungArt();
+        OnPropertyChanged(nameof(VerlaengerungAktiv));
+        OnPropertyChanged(nameof(ElfmeterAktiv));
+    }
+
+    private EntscheidungArt BerechneEntscheidungArt()
+    {
+        bool reg90Draw = ParseInt(HeimToreRegulaer) == ParseInt(AuswaertsToreRegulaer);
+        if (!reg90Draw) return EntscheidungArt.RegulaereSpielzeit;
+
+        bool hatVerl = HatVerlaengerungsVerfahren;
+        bool hatElf  = HatElfmeterVerfahren;
+
+        if (hatVerl)
+        {
+            int? heimV = ParseIntNullable(HeimToreVerlaengerung);
+            int? ausV  = ParseIntNullable(AuswaertsToreVerlaengerung);
+
+            if (heimV.HasValue && ausV.HasValue)
+            {
+                if (heimV != ausV)
+                {
+                    var vart = _erlaubteVerfahren.First(v =>
+                        v is VerfahrenArt.VerlaengerungKlassisch or VerfahrenArt.GoldenGoal or VerfahrenArt.SilverGoal);
+                    return vart switch
+                    {
+                        VerfahrenArt.GoldenGoal => EntscheidungArt.GoldenGoal,
+                        VerfahrenArt.SilverGoal => EntscheidungArt.SilverGoal,
+                        _                       => EntscheidungArt.Verlaengerung,
+                    };
+                }
+                if (hatElf) return EntscheidungArt.Elfmeterschiessen;
+            }
+
+            var vartPending = _erlaubteVerfahren.First(v =>
+                v is VerfahrenArt.VerlaengerungKlassisch or VerfahrenArt.GoldenGoal or VerfahrenArt.SilverGoal);
+            return vartPending switch
+            {
+                VerfahrenArt.GoldenGoal => EntscheidungArt.GoldenGoal,
+                VerfahrenArt.SilverGoal => EntscheidungArt.SilverGoal,
+                _                       => EntscheidungArt.Verlaengerung,
+            };
+        }
+
+        if (hatElf) return EntscheidungArt.Elfmeterschiessen;
+
+        return EntscheidungArt.RegulaereSpielzeit;
+    }
 
     private void FokusEinSpieltag_Vorig()
     {

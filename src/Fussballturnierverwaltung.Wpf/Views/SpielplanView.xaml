@@ -146,14 +146,6 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- Entscheidungsart -->
-                    <TextBlock Text="Entscheidung" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
-                    <ComboBox ItemsSource="{Binding EntscheidungArtOptionen}"
-                              SelectedValuePath="Wert"
-                              SelectedValue="{Binding AusgewaehlteEntscheidungArt}"
-                              DisplayMemberPath="Anzeige"
-                              FontSize="13" Margin="0,0,0,12" />
-
                     <!-- Verlängerung -->
                     <StackPanel Visibility="{Binding VerlaengerungAktiv, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="VERLÄNGERUNG" FontSize="11" FontWeight="Bold"
