@@ -9,7 +9,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
-using Fussballturnierverwaltung.Wpf.Ribbon;
+using Fussballturnierverwaltung.Wpf.Navigation;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -19,13 +19,15 @@ namespace Fussballturnierverwaltung.Wpf.ViewModels;
 public record SimulationsModusOption(string Anzeige, SimulationsModus Wert);
 public record EinzelspielEreignisZeile(string Minute, string Seite, string Art);
 
-public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
+public partial class SimulationsViewModel : ViewModelBase
 {
     private readonly SimulationsService    _simulationsService;
     private readonly SpielErgebnisService  _spielService;
     private readonly TurnierInstanzService _instanzService;
     private readonly MannschaftService     _mannschaftService;
     private readonly RegelwerkService      _regelwerkService;
+
+    private int _ladeUnterdrückt;
 
     // ── Editor-Modus ──────────────────────────────────────────────────────────
 
@@ -37,7 +39,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     public bool IstTurnierModus     => ModusIndex == 0;
     public bool IstEinzelspielModus => ModusIndex == 1;
 
-    // ── Linke Spalte: Turnier ────────────────────────────────────────────────
+    // ── Linke Spalte: Turnierspiel-Modus ─────────────────────────────────────
 
     [ObservableProperty] private ObservableCollection<TurnierInstanz> _instanzen = [];
     [ObservableProperty] private TurnierInstanz? _ausgewaehlteInstanz;
@@ -48,36 +50,35 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
     public bool HatRunde => AusgewaehlteRunde is not null;
 
-    // ── Spielliste ────────────────────────────────────────────────────────────
-
     [ObservableProperty] private ObservableCollection<SpielZeile> _spiele = [];
-    [ObservableProperty] private SpielZeile? _ausgewaehlteSpiel;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(KannTurnierSpielSimulieren))]
+    private SpielZeile? _ausgewaehlteSpiel;
 
-    // ── Einzelspiel: Stammdaten ───────────────────────────────────────────────
+    public bool KannTurnierSpielSimulieren =>
+        AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && !IstLadend;
+
+    // ── Linke Spalte: Einzelspiel-Modus ──────────────────────────────────────
 
     [ObservableProperty] private ObservableCollection<Mannschaft> _alleMannschaften = [];
     [ObservableProperty] private ObservableCollection<Regelwerk>  _alleRegelwerke   = [];
 
-    // ── Einzelspiel: Auswahl ─────────────────────────────────────────────────
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EinzelspielKannSimuliert))]
+    private Mannschaft? _einzelspielHeim;
 
-    [ObservableProperty] private Mannschaft? _einzelspielHeim;
-    [ObservableProperty] private Mannschaft? _einzelspielAuswaerts;
-    [ObservableProperty] private Regelwerk?  _einzelspielRegelwerk;
-    [ObservableProperty] private bool        _einzelspielMitRueckspiel;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EinzelspielKannSimuliert))]
+    private Mannschaft? _einzelspielAuswaerts;
+
+    [ObservableProperty] private Regelwerk? _einzelspielRegelwerk;
+    [ObservableProperty] private bool       _einzelspielMitRueckspiel;
 
     public bool EinzelspielKannSimuliert =>
-        EinzelspielHeim     is not null &&
+        EinzelspielHeim is not null &&
         EinzelspielAuswaerts is not null &&
-        EinzelspielHeim     != EinzelspielAuswaerts &&
+        EinzelspielHeim != EinzelspielAuswaerts &&
         !IstLadend;
-
-    // ── Einzelspiel: Ergebnis ────────────────────────────────────────────────
-
-    public ObservableCollection<string>                   EinzelspielErgebnisZeilen { get; } = [];
-    public ObservableCollection<EinzelspielEreignisZeile> EinzelspielEreignisse     { get; } = [];
-
-    public bool HatEinzelspielErgebnis   => EinzelspielErgebnisZeilen.Count > 0;
-    public bool HatEinzelspielEreignisse => EinzelspielEreignisse.Count > 0;
 
     // ── Simulationsoptionen ───────────────────────────────────────────────────
 
@@ -89,27 +90,34 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         new("Ausführliche Simulation", SimulationsModus.AusfuehrlicheSimulation),
     ];
 
+    // ── Protokoll (beide Modi) ────────────────────────────────────────────────
+
+    [ObservableProperty] private string? _protokollSpielInfo;
+
+    public ObservableCollection<string>                   ProtokollZeilen    { get; } = [];
+    public ObservableCollection<EinzelspielEreignisZeile> ProtokollEreignisse { get; } = [];
+
+    public bool HatProtokoll          => ProtokollZeilen.Count > 0;
+    public bool HatProtokollEreignisse => ProtokollEreignisse.Count > 0;
+
     // ── Status ────────────────────────────────────────────────────────────────
 
-    [ObservableProperty] private bool    _istLadend;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(KannTurnierSpielSimulieren))]
+    [NotifyPropertyChangedFor(nameof(EinzelspielKannSimuliert))]
+    private bool    _istLadend;
+
     [ObservableProperty] private string? _fehlermeldung;
     [ObservableProperty] private string? _statusMeldung;
 
+    // ── Vorauswahl (gesetzt vom SpielplanViewModel vor AktivierenAsync) ───────
+
+    public VorausgewaehlteSimulation? Vorauswahl { get; set; }
+
     // ── Befehle ───────────────────────────────────────────────────────────────
 
-    public AsyncRelayCommand RundeSimulierenBefehl  { get; }
-    public AsyncRelayCommand EinzelspielFreiBefehl  { get; }
-
-    public string   RibbonTabTitel  => "Simulation";
-    public ICommand NeuBefehl       => _neuBefehl;
-    public ICommand SpeichernBefehl => _speichernBefehl;
-    public ICommand AbbrechenBefehl => _abbrechenBefehl;
-    public ICommand LoeschenBefehl  => _loeschenBefehl;
-
-    private readonly AsyncRelayCommand _neuBefehl;
-    private readonly AsyncRelayCommand _speichernBefehl;
-    private readonly RelayCommand      _abbrechenBefehl;
-    private readonly RelayCommand      _loeschenBefehl;
+    public ICommand TurnierSpielSimulierenBefehl { get; }
+    public ICommand EinzelspielFreiBefehl        { get; }
 
     // ── Konstruktor ───────────────────────────────────────────────────────────
 
@@ -128,13 +136,8 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
         AusgewaehlterModus = ModusOptionen[0];
 
-        _neuBefehl       = new AsyncRelayCommand(TurnierSimulierenAsync,    () => AusgewaehlteInstanz != null && !IstLadend);
-        _speichernBefehl = new AsyncRelayCommand(EinzelspielSimulierenAsync, () => AusgewaehlteSpiel  != null && !IstLadend);
-        _abbrechenBefehl = new RelayCommand(() => { }, () => false);
-        _loeschenBefehl  = new RelayCommand(() => { }, () => false);
-
-        RundeSimulierenBefehl = new AsyncRelayCommand(RundeSimulierenAsync,           () => AusgewaehlteRunde != null && !IstLadend);
-        EinzelspielFreiBefehl = new AsyncRelayCommand(EinzelspielFreiSimulierenAsync, () => EinzelspielKannSimuliert);
+        TurnierSpielSimulierenBefehl = new AsyncRelayCommand(TurnierSpielSimulierenAsync, () => KannTurnierSpielSimulieren);
+        EinzelspielFreiBefehl        = new AsyncRelayCommand(EinzelspielFreiSimulierenAsync, () => EinzelspielKannSimuliert);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -153,6 +156,12 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
         AlleRegelwerke.Clear();
         foreach (var r in regelwerkListe) AlleRegelwerke.Add(r);
+
+        if (Vorauswahl is { } v)
+        {
+            Vorauswahl = null;
+            await VorauswahlLadenUndSimulierenAsync(v);
+        }
     }
 
     // ── Property-Reaktionen ───────────────────────────────────────────────────
@@ -160,6 +169,8 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
+
+        if (_ladeUnterdrückt > 0) return;
 
         switch (e.PropertyName)
         {
@@ -175,8 +186,6 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
                 break;
             case nameof(AusgewaehlteSpiel):
             case nameof(IstLadend):
-            case nameof(EinzelspielHeim):
-            case nameof(EinzelspielAuswaerts):
                 AktualisiereBefehle();
                 break;
         }
@@ -225,36 +234,9 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             Spiele.Add(MapSpielZeile(s, i));
     }
 
-    // ── Ribbon: Turnier simulieren ────────────────────────────────────────────
+    // ── Turnierspiel simulieren ───────────────────────────────────────────────
 
-    private async Task TurnierSimulierenAsync()
-    {
-        if (AusgewaehlteInstanz is null) return;
-        int turnierInstanzId = AusgewaehlteInstanz.Id;
-        Fehlermeldung = null;
-        StatusMeldung = null;
-        IstLadend     = true;
-        try
-        {
-            var lauf = await _simulationsService.TurnierSimulierenAsync(
-                turnierInstanzId, AusgewaehlterModus.Wert, null);
-
-            StatusMeldung = $"Turnier simuliert — Seed: {lauf.ZufallsSeed}.";
-            await LadeSpiellisteAsync();
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-        }
-        finally
-        {
-            IstLadend = false;
-        }
-    }
-
-    // ── Ribbon: Einzelspiel simulieren (Turnier-Kontext) ─────────────────────
-
-    private async Task EinzelspielSimulierenAsync()
+    private async Task TurnierSpielSimulierenAsync()
     {
         if (AusgewaehlteSpiel is null) return;
         int spielId  = AusgewaehlteSpiel.Id;
@@ -262,11 +244,10 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         Fehlermeldung = null;
         StatusMeldung = null;
         IstLadend     = true;
+        LeerProtokolll();
         try
         {
-            await _simulationsService.SpielSimulierenAsync(spielId, AusgewaehlterModus.Wert, null);
-
-            StatusMeldung = "Spiel simuliert.";
+            await _simulationsService.SpielSimulierenAsync(spielId, AusgewaehlterModus.Wert);
 
             if (rundeId.HasValue)
             {
@@ -275,6 +256,9 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
                 foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, i));
                 AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
             }
+
+            await LadeProtokollAsync(spielId);
+            StatusMeldung = "Spiel simuliert.";
         }
         catch (Exception ex)
         {
@@ -283,36 +267,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         finally
         {
             IstLadend = false;
-        }
-    }
-
-    // ── Panel: Runde simulieren ───────────────────────────────────────────────
-
-    private async Task RundeSimulierenAsync()
-    {
-        if (AusgewaehlteRunde is null) return;
-        int rundeId   = AusgewaehlteRunde.Id;
-        Fehlermeldung = null;
-        StatusMeldung = null;
-        IstLadend     = true;
-        try
-        {
-            int anzahl = await _simulationsService.RundeSimulierenAsync(
-                rundeId, AusgewaehlterModus.Wert, null);
-
-            StatusMeldung = anzahl == 0
-                ? "Keine offenen Spiele in dieser Runde."
-                : $"{anzahl} Spiel(e) simuliert.";
-
-            await LadeSpiellisteAsync();
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-        }
-        finally
-        {
-            IstLadend = false;
+            AktualisiereBefehle();
         }
     }
 
@@ -331,10 +286,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         Fehlermeldung = null;
         StatusMeldung = null;
         IstLadend     = true;
-        EinzelspielErgebnisZeilen.Clear();
-        EinzelspielEreignisse.Clear();
-        OnPropertyChanged(nameof(HatEinzelspielErgebnis));
-        OnPropertyChanged(nameof(HatEinzelspielEreignisse));
+        LeerProtokolll();
 
         await Task.Yield();
 
@@ -355,28 +307,30 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
                               : heimGesamt < auswaertsGesamt ? auswaerts.Name
                               : "Unentschieden";
 
-                EinzelspielErgebnisZeilen.Add($"Hinspiel:   {FormatErgebnisZeile(erg1, heim.Name, auswaerts.Name)}");
-                EinzelspielErgebnisZeilen.Add($"Rückspiel:  {FormatErgebnisZeile(erg2, auswaerts.Name, heim.Name)}");
-                EinzelspielErgebnisZeilen.Add($"Gesamt:     {heim.Name}  {heimGesamt}:{auswaertsGesamt}  {auswaerts.Name}");
-                EinzelspielErgebnisZeilen.Add($"Weiter:     {weiter}");
+                ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name} (Hin & Rück)";
+                ProtokollZeilen.Add($"Hinspiel:   {FormatErgebnisZeile(erg1, heim.Name, auswaerts.Name)}");
+                ProtokollZeilen.Add($"Rückspiel:  {FormatErgebnisZeile(erg2, auswaerts.Name, heim.Name)}");
+                ProtokollZeilen.Add($"Gesamt:     {heim.Name}  {heimGesamt}:{auswaertsGesamt}  {auswaerts.Name}");
+                ProtokollZeilen.Add($"Weiter:     {weiter}");
 
                 if (modus == SimulationsModus.AusfuehrlicheSimulation)
                 {
                     foreach (var e in erg1.Ereignisse)
-                        EinzelspielEreignisse.Add(MapEreignis(e, heim.Name, auswaerts.Name, "Hin"));
+                        ProtokollEreignisse.Add(MapEreignis(e, heim.Name, auswaerts.Name, "Hin"));
                     foreach (var e in erg2.Ereignisse)
-                        EinzelspielEreignisse.Add(MapEreignis(e, auswaerts.Name, heim.Name, "Rück"));
+                        ProtokollEreignisse.Add(MapEreignis(e, auswaerts.Name, heim.Name, "Rück"));
                 }
             }
             else
             {
                 var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, modus);
-                EinzelspielErgebnisZeilen.Add(FormatErgebnisZeile(erg, heim.Name, auswaerts.Name));
+                ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
+                ProtokollZeilen.Add(FormatErgebnisZeile(erg, heim.Name, auswaerts.Name));
 
                 if (modus == SimulationsModus.AusfuehrlicheSimulation)
                 {
                     foreach (var e in erg.Ereignisse)
-                        EinzelspielEreignisse.Add(MapEreignis(e, heim.Name, auswaerts.Name, null));
+                        ProtokollEreignisse.Add(MapEreignis(e, heim.Name, auswaerts.Name, null));
                 }
             }
 
@@ -389,19 +343,118 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         finally
         {
             IstLadend = false;
-            OnPropertyChanged(nameof(HatEinzelspielErgebnis));
-            OnPropertyChanged(nameof(HatEinzelspielEreignisse));
+            AktualisiereBefehle();
+            OnPropertyChanged(nameof(HatProtokoll));
+            OnPropertyChanged(nameof(HatProtokollEreignisse));
         }
+    }
+
+    // ── Vorauswahl: auto-laden und simulieren ─────────────────────────────────
+
+    private async Task VorauswahlLadenUndSimulierenAsync(VorausgewaehlteSimulation v)
+    {
+        var instanz = Instanzen.FirstOrDefault(i => i.Id == v.InstanzId);
+        if (instanz is null) return;
+
+        // Instanz setzen ohne reaktives Nachladen (das machen wir manuell)
+        _ladeUnterdrückt++;
+        AusgewaehlteInstanz = instanz;
+        _ladeUnterdrückt--;
+
+        var instanzMitRunden = await _instanzService.FindenNachIdMitRundenAsync(v.InstanzId);
+        if (instanzMitRunden is null) return;
+
+        Runden.Clear();
+        foreach (var r in instanzMitRunden.Runden.OrderBy(r => r.Reihenfolge))
+            Runden.Add(r);
+
+        var runde = Runden.FirstOrDefault(r => r.Id == v.RundeId);
+        if (runde is null) return;
+
+        _ladeUnterdrückt++;
+        AusgewaehlteRunde = runde;
+        _ladeUnterdrückt--;
+
+        var liste = await _spielService.AlleNachRundeAsync(v.RundeId);
+        Spiele.Clear();
+        foreach (var (s, i) in liste.Select((x, i) => (x, i)))
+            Spiele.Add(MapSpielZeile(s, i));
+
+        var spiel = Spiele.FirstOrDefault(s => s.Id == v.SpielId);
+        if (spiel is null) return;
+
+        AusgewaehlteSpiel  = spiel;
+        AusgewaehlterModus = ModusOptionen.First(m => m.Wert == SimulationsModus.AusfuehrlicheSimulation);
+
+        // In Turnierspiel-Modus wechseln
+        _ladeUnterdrückt++;
+        ModusIndex = 0;
+        _ladeUnterdrückt--;
+
+        await TurnierSpielSimulierenAsync();
+    }
+
+    // ── Protokoll ─────────────────────────────────────────────────────────────
+
+    private async Task LadeProtokollAsync(int spielId)
+    {
+        var spiel = await _spielService.FindenNachIdMitEreignissenAsync(spielId);
+        if (spiel is null) return;
+
+        string heim      = spiel.HeimMannschaft?.Name ?? spiel.HeimPlatzhalterName ?? "?";
+        string auswaerts = spiel.AuswaertsMannschaft?.Name ?? spiel.AuswaertsPlatzhalterName ?? "?";
+
+        ProtokollSpielInfo = $"{heim} vs. {auswaerts}";
+
+        if (spiel.Ergebnis is { } e)
+        {
+            string ergebnis = $"{heim}  {e.HeimToreGesamt}:{e.AuswaertsToreGesamt}  {auswaerts}";
+            string detail   = e.EntscheidungArt switch
+            {
+                EntscheidungArt.Verlaengerung     => " (n.V.)",
+                EntscheidungArt.GoldenGoal        => " (G.G.)",
+                EntscheidungArt.SilverGoal        => " (S.G.)",
+                EntscheidungArt.Elfmeterschiessen => $" (i.E. {e.HeimElfmetertore}:{e.AuswaertsElfmetertore})",
+                EntscheidungArt.Auswaertstorregel => " (A.T.)",
+                _                                 => ""
+            };
+            ProtokollZeilen.Add(ergebnis + detail);
+        }
+
+        foreach (var ereignis in spiel.Ereignisse.OrderBy(ev => ev.Minute))
+        {
+            string seite = ereignis.MannschaftId == spiel.HeimMannschaftId ? heim : auswaerts;
+            string art   = ereignis.EreignisArt switch
+            {
+                EreignisArt.Tor        => "Tor",
+                EreignisArt.GelbeKarte => "Gelbe Karte",
+                EreignisArt.RoteKarte  => "Rote Karte",
+                EreignisArt.GoldenGoal => "Golden Goal",
+                EreignisArt.SilverGoal => "Silver Goal",
+                _                      => ereignis.EreignisArt.ToString()
+            };
+            ProtokollEreignisse.Add(new EinzelspielEreignisZeile($"{ereignis.Minute}'", seite, art));
+        }
+
+        OnPropertyChanged(nameof(HatProtokoll));
+        OnPropertyChanged(nameof(HatProtokollEreignisse));
+    }
+
+    private void LeerProtokolll()
+    {
+        ProtokollSpielInfo = null;
+        ProtokollZeilen.Clear();
+        ProtokollEreignisse.Clear();
+        OnPropertyChanged(nameof(HatProtokoll));
+        OnPropertyChanged(nameof(HatProtokollEreignisse));
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
 
     private void AktualisiereBefehle()
     {
-        _neuBefehl.NotifyCanExecuteChanged();
-        _speichernBefehl.NotifyCanExecuteChanged();
-        RundeSimulierenBefehl.NotifyCanExecuteChanged();
-        EinzelspielFreiBefehl.NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)TurnierSpielSimulierenBefehl).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)EinzelspielFreiBefehl).NotifyCanExecuteChanged();
     }
 
     private static string FormatErgebnisZeile(SimulationsErgebnis e, string heimName, string auswaertsName)
@@ -472,7 +525,8 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             HatErgebnis    = s.Ergebnis is not null,
             ErgebnisText   = text,
             ErgebnisDetail = detail,
-            IstRueckspiel  = s.IstRueckspiel
+            IstRueckspiel  = s.IstRueckspiel,
+            IstPlatzhalterSpiel = !s.HeimMannschaftId.HasValue || !s.AuswaertsMannschaftId.HasValue
         };
     }
 }

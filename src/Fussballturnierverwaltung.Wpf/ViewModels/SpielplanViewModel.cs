@@ -12,6 +12,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Wpf.Converters;
+using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -45,14 +46,15 @@ public class SpielZeile
 
 public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 {
-    private readonly SpielErgebnisService _spielService;
+    private readonly SpielErgebnisService  _spielService;
     private readonly TurnierInstanzService _instanzService;
-    private readonly SpielplanService _spielplanService;
-    private readonly AuslosungService _auslosungService;
-    private readonly TurnierBaumService _baumService;
-    private readonly RegelwerkService _regelwerkService;
-    private readonly TabellenService _tabellenService;
-    private readonly SimulationsService _simulationsService;
+    private readonly SpielplanService      _spielplanService;
+    private readonly AuslosungService      _auslosungService;
+    private readonly TurnierBaumService    _baumService;
+    private readonly RegelwerkService      _regelwerkService;
+    private readonly TabellenService       _tabellenService;
+    private readonly SimulationsService    _simulationsService;
+    private readonly INavigationService    _navigationService;
 
     private int _populiertGerade;
     private Dictionary<int, int> _teamGruppeMap = [];
@@ -235,11 +237,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     private readonly AsyncRelayCommand _rundeSimulierenBefehl;
     private readonly AsyncRelayCommand _gruppeSimulierenBefehl;
     private readonly AsyncRelayCommand _spieltagSimulierenBefehl;
+    private readonly AsyncRelayCommand _ausfuehrlichSimulierenBefehl;
 
-    public ICommand SpielSimulierenBefehl    => _spielSimulierenBefehl;
-    public ICommand RundeSimulierenBefehl    => _rundeSimulierenBefehl;
-    public ICommand GruppeSimulierenBefehl   => _gruppeSimulierenBefehl;
-    public ICommand SpieltagSimulierenBefehl => _spieltagSimulierenBefehl;
+    public ICommand SpielSimulierenBefehl         => _spielSimulierenBefehl;
+    public ICommand RundeSimulierenBefehl         => _rundeSimulierenBefehl;
+    public ICommand GruppeSimulierenBefehl        => _gruppeSimulierenBefehl;
+    public ICommand SpieltagSimulierenBefehl      => _spieltagSimulierenBefehl;
+    public ICommand AusfuehrlichSimulierenBefehl  => _ausfuehrlichSimulierenBefehl;
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
 
@@ -264,7 +268,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         TurnierBaumService baumService,
         RegelwerkService regelwerkService,
         TabellenService tabellenService,
-        SimulationsService simulationsService)
+        SimulationsService simulationsService,
+        INavigationService navigationService)
     {
         _spielService       = spielService;
         _instanzService     = instanzService;
@@ -274,6 +279,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _regelwerkService   = regelwerkService;
         _tabellenService    = tabellenService;
         _simulationsService = simulationsService;
+        _navigationService  = navigationService;
 
         AusgewaehlterSimulationsModus = SimulationsModusOptionen[0];
 
@@ -291,10 +297,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _fokusNaechsterSpieltag     = new RelayCommand(FokusEinSpieltag_Vor,   () => KannFokusVor);
         _fokusAlleSpieltageBefehl   = new RelayCommand(() => FokusAlleAktiv = true, () => !FokusAlleAktiv);
 
-        _spielSimulierenBefehl    = new AsyncRelayCommand(SpielSimulierenAsync,    CanSpielSimulieren);
-        _rundeSimulierenBefehl    = new AsyncRelayCommand(RundeSimulierenAsync,    CanRundeSimulieren);
-        _gruppeSimulierenBefehl   = new AsyncRelayCommand(GruppeSimulierenAsync,   CanGruppeSimulieren);
-        _spieltagSimulierenBefehl = new AsyncRelayCommand(SpieltagSimulierenAsync, CanSpieltagSimulieren);
+        _spielSimulierenBefehl        = new AsyncRelayCommand(SpielSimulierenAsync,         CanSpielSimulieren);
+        _rundeSimulierenBefehl        = new AsyncRelayCommand(RundeSimulierenAsync,         CanRundeSimulieren);
+        _gruppeSimulierenBefehl       = new AsyncRelayCommand(GruppeSimulierenAsync,        CanGruppeSimulieren);
+        _spieltagSimulierenBefehl     = new AsyncRelayCommand(SpieltagSimulierenAsync,      CanSpieltagSimulieren);
+        _ausfuehrlichSimulierenBefehl = new AsyncRelayCommand(AusfuehrlichSimulierenAsync,  CanAusfuehrlichSimulieren);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -773,6 +780,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _rundeSimulierenBefehl.NotifyCanExecuteChanged();
         _gruppeSimulierenBefehl.NotifyCanExecuteChanged();
         _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
+        _ausfuehrlichSimulierenBefehl.NotifyCanExecuteChanged();
     }
 
     private static SpielZeile MapSpielZeile(
@@ -964,6 +972,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     private bool CanSpielSimulieren()    =>
         HatRunde && AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && !IstSimulierend;
 
+    private bool CanAusfuehrlichSimulieren() =>
+        HatRunde && AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && AusgewaehlteInstanz is not null && !IstSimulierend;
+
     private bool CanRundeSimulieren()    => HatRunde && !IstSimulierend;
 
     private bool CanGruppeSimulieren()   => IstGruppenFokusAnsicht && AusgewaehlteGruppe is not null && !IstSimulierend;
@@ -1006,6 +1017,20 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
             IstSimulierend = false;
             AktualisiereBefehle();
         }
+    }
+
+    private Task AusfuehrlichSimulierenAsync()
+    {
+        if (AusgewaehlteSpiel is null || AusgewaehlteRunde is null || AusgewaehlteInstanz is null)
+            return Task.CompletedTask;
+
+        var vorauswahl = new VorausgewaehlteSimulation(
+            AusgewaehlteInstanz.Id,
+            AusgewaehlteRunde.Id,
+            AusgewaehlteSpiel.Id);
+
+        _navigationService.NavigiereZu<SimulationsViewModel>(vm => vm.Vorauswahl = vorauswahl);
+        return Task.CompletedTask;
     }
 
     private async Task RundeSimulierenAsync()

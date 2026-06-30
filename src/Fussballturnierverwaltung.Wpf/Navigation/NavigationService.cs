@@ -16,11 +16,12 @@ public class NavigationService : INavigationService
         _scopeFactory = scopeFactory;
     }
 
-    public void NavigiereZu<TViewModel>() where TViewModel : ViewModelBase
+    public void NavigiereZu<TViewModel>(Action<TViewModel>? konfigurator = null) where TViewModel : ViewModelBase
     {
         _aktiverScope?.Dispose();
         _aktiverScope = _scopeFactory.CreateScope();
         var vm = _aktiverScope.ServiceProvider.GetRequiredService<TViewModel>();
+        konfigurator?.Invoke(vm);
         AktuellesViewModel = vm;
         AktuellesViewModelGeaendert?.Invoke(this, EventArgs.Empty);
         _ = vm.AktivierenAsync();

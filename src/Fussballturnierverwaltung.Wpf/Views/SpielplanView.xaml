@@ -183,7 +183,7 @@
 
                     <!-- Spiel simulieren -->
                     <Button Command="{Binding SpielSimulierenBefehl}"
-                            Margin="0,0,0,12" Padding="0,8" FontSize="12" Cursor="Hand"
+                            Margin="0,0,0,6" Padding="0,8" FontSize="12" Cursor="Hand"
                             HorizontalAlignment="Stretch"
                             Background="#8B5CF6" Foreground="White" BorderThickness="0">
                         <Button.Style>
@@ -199,6 +199,27 @@
                             </Style>
                         </Button.Style>
                         Spiel simulieren
+                    </Button>
+
+                    <!-- Ausführliche Simulation (→ Simulations-Bereich) -->
+                    <Button Command="{Binding AusfuehrlichSimulierenBefehl}"
+                            Margin="0,0,0,12" Padding="0,7" FontSize="11" Cursor="Hand"
+                            HorizontalAlignment="Stretch"
+                            BorderBrush="#8B5CF6" BorderThickness="1">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="White" />
+                                <Setter Property="Foreground" Value="#8B5CF6" />
+                                <Setter Property="BorderBrush" Value="#8B5CF6" />
+                                <Setter Property="BorderThickness" Value="1" />
+                                <Style.Triggers>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter Property="Opacity" Value="0.4" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        Ausführliche Simulation →
                     </Button>
 
                     <!-- Hinweis: Vorhandenes Ergebnis wird überschrieben -->

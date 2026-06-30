@@ -6,5 +6,5 @@ public interface INavigationService
 {
     ViewModelBase? AktuellesViewModel { get; }
     event EventHandler? AktuellesViewModelGeaendert;
-    void NavigiereZu<TViewModel>() where TViewModel : ViewModelBase;
+    void NavigiereZu<TViewModel>(Action<TViewModel>? konfigurator = null) where TViewModel : ViewModelBase;
 }

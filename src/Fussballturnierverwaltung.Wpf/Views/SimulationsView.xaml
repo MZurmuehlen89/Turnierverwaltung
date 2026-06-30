@@ -5,7 +5,7 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="220" MinWidth="160" MaxWidth="300" />
+            <ColumnDefinition Width="260" MinWidth="200" MaxWidth="340" />
             <ColumnDefinition Width="4" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
@@ -13,398 +13,267 @@
         <!-- ── Linke Spalte ── -->
         <DockPanel Grid.Column="0" Background="#F8FAFC">
 
-            <!-- Modus-Auswahl (immer sichtbar) -->
+            <!-- Modus-Auswahl + Simulations-Modus -->
             <Border DockPanel.Dock="Top" Background="White"
-                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,6">
-                <ComboBox SelectedIndex="{Binding ModusIndex}" FontSize="12">
-                    <ComboBoxItem Content="Turnier-Modus" />
-                    <ComboBoxItem Content="Einzelspiel-Modus" />
-                </ComboBox>
+                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="10,8">
+                <StackPanel>
+                    <ComboBox SelectedIndex="{Binding ModusIndex}" FontSize="12" Margin="0,0,0,6">
+                        <ComboBoxItem Content="Turnierspiel" />
+                        <ComboBoxItem Content="Freies Einzelspiel" />
+                    </ComboBox>
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Left" Text="Modus:" FontSize="11"
+                                   Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <ComboBox ItemsSource="{Binding ModusOptionen}"
+                                  SelectedItem="{Binding AusgewaehlterModus}"
+                                  DisplayMemberPath="Anzeige"
+                                  FontSize="11" />
+                    </DockPanel>
+                </StackPanel>
             </Border>
 
-            <!-- ── Turnier-Modus: Turnier + Runden ── -->
+            <!-- ── Turnierspiel-Modus ── -->
             <DockPanel Visibility="{Binding IstTurnierModus, Converter={StaticResource BoolToVisibility}}">
 
-                <Border DockPanel.Dock="Top" Background="White"
-                        BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8">
-                    <StackPanel>
-                        <TextBlock Text="Turnier" FontSize="11" Foreground="#94A3B8"
-                                   FontWeight="Bold" Margin="0,0,0,4" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10,8">
+
+                        <TextBlock Text="TURNIER" FontSize="10" FontWeight="Bold"
+                                   Foreground="#94A3B8" Margin="0,4,0,4" />
                         <ComboBox ItemsSource="{Binding Instanzen}"
                                   SelectedItem="{Binding AusgewaehlteInstanz}"
                                   DisplayMemberPath="Name"
                                   FontSize="13" />
+
+                        <TextBlock Text="RUNDE" FontSize="10" FontWeight="Bold"
+                                   Foreground="#94A3B8" Margin="0,12,0,4" />
+                        <ComboBox ItemsSource="{Binding Runden}"
+                                  SelectedItem="{Binding AusgewaehlteRunde}"
+                                  DisplayMemberPath="Name"
+                                  FontSize="13" />
+
+                        <StackPanel Visibility="{Binding HatRunde, Converter={StaticResource BoolToVisibility}}">
+
+                            <TextBlock Text="SPIEL" FontSize="10" FontWeight="Bold"
+                                       Foreground="#94A3B8" Margin="0,12,0,4" />
+                            <ComboBox ItemsSource="{Binding Spiele}"
+                                      SelectedItem="{Binding AusgewaehlteSpiel}"
+                                      FontSize="12">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:SpielZeile}">
+                                        <TextBlock FontSize="12" TextTrimming="CharacterEllipsis">
+                                            <Run Text="{Binding HeimName}" />
+                                            <Run Text=" – " Foreground="#94A3B8" />
+                                            <Run Text="{Binding AuswaertsName}" />
+                                            <Run Text=" " />
+                                            <Run Text="{Binding ErgebnisText}" Foreground="#64748B" FontFamily="Consolas" />
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+
+                            <Button Content="Simulieren"
+                                    Command="{Binding TurnierSpielSimulierenBefehl}"
+                                    Margin="0,14,0,0" Padding="0,10" FontSize="13"
+                                    HorizontalAlignment="Stretch"
+                                    Background="#8B5CF6" Foreground="White" BorderThickness="0"
+                                    Cursor="Hand">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="#8B5CF6" />
+                                        <Setter Property="Foreground" Value="White" />
+                                        <Setter Property="BorderThickness" Value="0" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="Opacity" Value="0.5" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+
+                        </StackPanel>
+
+                        <TextBlock Text="Simuliert…" FontSize="12" Foreground="#94A3B8"
+                                   Margin="0,10,0,0"
+                                   Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
+
                     </StackPanel>
-                </Border>
-
-                <Border DockPanel.Dock="Top" Margin="8,12,8,4"
-                        Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
-                        CornerRadius="4" Padding="10,8">
-                    <StackPanel>
-                        <TextBlock Text="Ribbon-Aktionen:" FontSize="11" FontWeight="Bold"
-                                   Foreground="#1D4ED8" Margin="0,0,0,4" />
-                        <TextBlock FontSize="11" Foreground="#1E40AF" TextWrapping="Wrap">
-                            <Run FontWeight="SemiBold">Neu</Run>
-                            <Run>&#x2192; Ganzes Turnier simulieren</Run>
-                        </TextBlock>
-                        <TextBlock FontSize="11" Foreground="#1E40AF" TextWrapping="Wrap" Margin="0,2,0,0">
-                            <Run FontWeight="SemiBold">Speichern</Run>
-                            <Run>&#x2192; Einzelspiel simulieren</Run>
-                        </TextBlock>
-                    </StackPanel>
-                </Border>
-
-                <TextBlock DockPanel.Dock="Top" Text="RUNDEN"
-                           FontSize="11" FontWeight="Bold" Foreground="#94A3B8"
-                           Margin="12,10,8,4" />
-
-                <ListBox ItemsSource="{Binding Runden}"
-                         SelectedItem="{Binding AusgewaehlteRunde}"
-                         BorderThickness="0" Background="Transparent"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                    <ListBox.ItemContainerStyle>
-                        <Style TargetType="ListBoxItem">
-                            <Setter Property="Padding" Value="12,6" />
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            <Style.Triggers>
-                                <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="#EFF6FF" />
-                                    <Setter Property="Foreground" Value="#1D4ED8" />
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ListBox.ItemContainerStyle>
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding Name}" FontSize="13" />
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                </ScrollViewer>
 
             </DockPanel>
 
-            <!-- ── Einzelspiel-Modus: Team- und Regelwerk-Auswahl ── -->
-            <ScrollViewer Visibility="{Binding IstEinzelspielModus, Converter={StaticResource BoolToVisibility}}"
-                          VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="8,4">
+            <!-- ── Einzelspiel-Modus ── -->
+            <DockPanel Visibility="{Binding IstEinzelspielModus, Converter={StaticResource BoolToVisibility}}">
 
-                    <TextBlock Text="HEIMTEAM" FontSize="11" FontWeight="Bold"
-                               Foreground="#94A3B8" Margin="4,10,4,4" />
-                    <ComboBox ItemsSource="{Binding AlleMannschaften}"
-                              SelectedItem="{Binding EinzelspielHeim}"
-                              DisplayMemberPath="Name"
-                              FontSize="13" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10,8">
 
-                    <TextBlock Text="AUSWÄRTSTEAM" FontSize="11" FontWeight="Bold"
-                               Foreground="#94A3B8" Margin="4,12,4,4" />
-                    <ComboBox ItemsSource="{Binding AlleMannschaften}"
-                              SelectedItem="{Binding EinzelspielAuswaerts}"
-                              DisplayMemberPath="Name"
-                              FontSize="13" />
+                        <TextBlock Text="HEIMTEAM" FontSize="10" FontWeight="Bold"
+                                   Foreground="#94A3B8" Margin="0,4,0,4" />
+                        <ComboBox ItemsSource="{Binding AlleMannschaften}"
+                                  SelectedItem="{Binding EinzelspielHeim}"
+                                  DisplayMemberPath="Name"
+                                  FontSize="13" />
 
-                    <TextBlock Text="REGELWERK (OPTIONAL)" FontSize="11" FontWeight="Bold"
-                               Foreground="#94A3B8" Margin="4,12,4,4" />
-                    <ComboBox ItemsSource="{Binding AlleRegelwerke}"
-                              SelectedItem="{Binding EinzelspielRegelwerk}"
-                              DisplayMemberPath="Name"
-                              FontSize="13" />
-                    <TextBlock Text="Leer = kein Tiebreaker" FontSize="10"
-                               Foreground="#94A3B8" Margin="4,2,4,0" />
+                        <TextBlock Text="AUSWÄRTSTEAM" FontSize="10" FontWeight="Bold"
+                                   Foreground="#94A3B8" Margin="0,12,0,4" />
+                        <ComboBox ItemsSource="{Binding AlleMannschaften}"
+                                  SelectedItem="{Binding EinzelspielAuswaerts}"
+                                  DisplayMemberPath="Name"
+                                  FontSize="13" />
 
-                    <CheckBox Content="Mit Rückspiel"
-                              IsChecked="{Binding EinzelspielMitRueckspiel}"
-                              Margin="4,14,4,4"
-                              FontSize="13" />
+                        <TextBlock Text="REGELWERK (OPTIONAL)" FontSize="10" FontWeight="Bold"
+                                   Foreground="#94A3B8" Margin="0,12,0,4" />
+                        <ComboBox ItemsSource="{Binding AlleRegelwerke}"
+                                  SelectedItem="{Binding EinzelspielRegelwerk}"
+                                  DisplayMemberPath="Name"
+                                  FontSize="13" />
+                        <TextBlock Text="Leer = kein Tiebreaker" FontSize="10"
+                                   Foreground="#94A3B8" Margin="0,2,0,0" />
 
-                </StackPanel>
-            </ScrollViewer>
+                        <CheckBox Content="Mit Rückspiel"
+                                  IsChecked="{Binding EinzelspielMitRueckspiel}"
+                                  Margin="0,14,0,0" FontSize="13" />
+
+                        <Button Content="Simulieren"
+                                Command="{Binding EinzelspielFreiBefehl}"
+                                Margin="0,14,0,0" Padding="0,10" FontSize="13"
+                                HorizontalAlignment="Stretch"
+                                Background="#8B5CF6" Foreground="White" BorderThickness="0"
+                                Cursor="Hand">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Background" Value="#8B5CF6" />
+                                    <Setter Property="Foreground" Value="White" />
+                                    <Setter Property="BorderThickness" Value="0" />
+                                    <Style.Triggers>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Opacity" Value="0.5" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+
+                        <TextBlock Text="Simuliert…" FontSize="12" Foreground="#94A3B8"
+                                   Margin="0,10,0,0"
+                                   Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
+
+                    </StackPanel>
+                </ScrollViewer>
+
+            </DockPanel>
 
         </DockPanel>
 
         <Border Grid.Column="1" Background="#E2E8F0" />
 
-        <!-- ── Rechter Bereich ── -->
-        <Grid Grid.Column="2">
+        <!-- ── Rechter Bereich: Protokoll ── -->
+        <DockPanel Grid.Column="2">
 
-            <!-- ══ Turnier-Modus ══ -->
-            <Grid Visibility="{Binding IstTurnierModus, Converter={StaticResource BoolToVisibility}}">
+            <!-- Header -->
+            <Border DockPanel.Dock="Top" Background="White"
+                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="16,10">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="SPIELPROTOKOLL" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" />
+                    <TextBlock Foreground="#94A3B8" FontSize="11" FontWeight="Bold" Text=" · "
+                               Visibility="{Binding ProtokollSpielInfo, Converter={StaticResource NullToCollapsed}}" />
+                    <TextBlock Text="{Binding ProtokollSpielInfo}" FontSize="11" FontWeight="Bold"
+                               Foreground="#475569"
+                               Visibility="{Binding ProtokollSpielInfo, Converter={StaticResource NullToCollapsed}}" />
+                </StackPanel>
+            </Border>
 
-                <TextBlock Text="Bitte ein Turnier und eine Runde auswählen."
-                           Foreground="#94A3B8" FontSize="14"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Visibility="{Binding HatRunde, Converter={StaticResource InverseBoolToVisibility}}" />
+            <!-- Fehlermeldung -->
+            <Border DockPanel.Dock="Top" Margin="16,10,16,0"
+                    Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
+                    CornerRadius="4" Padding="12,8"
+                    Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
+                <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
+                           FontSize="12" TextWrapping="Wrap" />
+            </Border>
 
-                <DockPanel Visibility="{Binding HatRunde, Converter={StaticResource BoolToVisibility}}">
+            <!-- Status -->
+            <Border DockPanel.Dock="Top" Margin="16,8,16,0"
+                    Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
+                    CornerRadius="4" Padding="12,8"
+                    Visibility="{Binding StatusMeldung, Converter={StaticResource NullToCollapsed}}">
+                <TextBlock Text="{Binding StatusMeldung}" Foreground="#166534"
+                           FontSize="12" />
+            </Border>
 
-                    <Border DockPanel.Dock="Top" Background="White"
-                            BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8">
-                        <StackPanel Orientation="Horizontal">
+            <!-- Ergebnis-Karte -->
+            <Border DockPanel.Dock="Top"
+                    Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
+                    CornerRadius="6" Padding="16,12" Margin="16,12,16,0"
+                    Visibility="{Binding HatProtokoll, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock Text="ERGEBNIS" FontSize="10" FontWeight="Bold"
+                               Foreground="#16A34A" Margin="0,0,0,8" />
+                    <ItemsControl ItemsSource="{Binding ProtokollZeilen}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="#1E293B" FontFamily="Consolas" Margin="0,2" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
 
-                            <TextBlock Text="Modus:" FontSize="12" Foreground="#475569"
-                                       VerticalAlignment="Center" Margin="0,0,6,0" />
-                            <ComboBox ItemsSource="{Binding ModusOptionen}"
-                                      SelectedItem="{Binding AusgewaehlterModus}"
-                                      DisplayMemberPath="Anzeige"
-                                      Width="190" FontSize="13" />
+            <!-- Spielverlauf (Ausführliche Simulation) -->
+            <Border DockPanel.Dock="Top"
+                    Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                    CornerRadius="4" Margin="16,8,16,0"
+                    Visibility="{Binding HatProtokollEreignisse, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock Text="SPIELVERLAUF" FontSize="10" FontWeight="Bold"
+                               Foreground="#94A3B8" Margin="12,8,12,4" />
+                    <ListView ItemsSource="{Binding ProtokollEreignisse}"
+                              BorderThickness="0" MaxHeight="400"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Min." Width="70">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
+                                            <TextBlock Text="{Binding Minute}"
+                                                       FontSize="11" Foreground="#64748B"
+                                                       FontFamily="Consolas" />
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="Team" Width="200">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
+                                            <TextBlock Text="{Binding Seite}"
+                                                       FontSize="11"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="Ereignis" Width="120">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
+                                            <TextBlock Text="{Binding Art}" FontSize="11" />
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </StackPanel>
+            </Border>
 
-                            <Button Content="Runde simulieren"
-                                    Command="{Binding RundeSimulierenBefehl}"
-                                    Margin="16,0,0,0" Padding="10,5" FontSize="13"
-                                    Background="#3B82F6" Foreground="White"
-                                    BorderThickness="0" Cursor="Hand" />
+            <!-- Leer-Zustand -->
+            <TextBlock Text="Spiel auswählen und auf Simulieren klicken&#x0a;— oder über Spielplan → Ausführliche Simulation starten."
+                       Foreground="#94A3B8" FontSize="13" TextWrapping="Wrap"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       MaxWidth="340" TextAlignment="Center"
+                       Visibility="{Binding HatProtokoll, Converter={StaticResource InverseBoolToVisibility}}" />
 
-                            <TextBlock Text="Simuliert…" FontSize="12" Foreground="#94A3B8"
-                                       VerticalAlignment="Center" Margin="16,0,0,0"
-                                       Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
-
-                        </StackPanel>
-                    </Border>
-
-                    <Border DockPanel.Dock="Top" Margin="16,10,16,0"
-                            Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
-                            CornerRadius="4" Padding="12,8"
-                            Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
-                                   FontSize="12" TextWrapping="Wrap" />
-                    </Border>
-
-                    <Border DockPanel.Dock="Top" Margin="16,10,16,0"
-                            Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
-                            CornerRadius="4" Padding="12,8"
-                            Visibility="{Binding StatusMeldung, Converter={StaticResource NullToCollapsed}}">
-                        <TextBlock Text="{Binding StatusMeldung}" Foreground="#166534"
-                                   FontSize="12" TextWrapping="Wrap" />
-                    </Border>
-
-                    <DockPanel>
-                        <Border DockPanel.Dock="Top" Background="White"
-                                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8">
-                            <TextBlock FontSize="11" FontWeight="Bold" Foreground="#94A3B8">
-                                <Run Text="SPIELE · " />
-                                <Run Text="{Binding AusgewaehlteRunde.Name}" />
-                                <Run Text=" · " />
-                                <Run Text="{Binding Spiele.Count, Mode=OneWay}" />
-                                <Run Text=" Spiel(e)" />
-                            </TextBlock>
-                        </Border>
-
-                        <ListView ItemsSource="{Binding Spiele}"
-                                  SelectedItem="{Binding AusgewaehlteSpiel}"
-                                  BorderThickness="0"
-                                  ScrollViewer.HorizontalScrollBarVisibility="Auto">
-                            <ListView.View>
-                                <GridView>
-                                    <GridViewColumn Header="ST" Width="44">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                                <TextBlock Text="{Binding SpieltagAnzeige}"
-                                                           FontSize="12" Foreground="#64748B"
-                                                           HorizontalAlignment="Center" />
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-
-                                    <GridViewColumn Header="Nr" Width="36">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                                <TextBlock Text="{Binding Spielnummer}"
-                                                           FontSize="12" Foreground="#94A3B8"
-                                                           HorizontalAlignment="Center" />
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-
-                                    <GridViewColumn Header="Heim" Width="160">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                                <TextBlock Text="{Binding HeimName}"
-                                                           FontSize="13" FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-
-                                    <GridViewColumn Header="Ergebnis" Width="120">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                                    <TextBlock Text="{Binding ErgebnisText}"
-                                                               FontSize="14" FontWeight="Bold"
-                                                               FontFamily="Consolas">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="#94A3B8" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding HatErgebnis}" Value="True">
-                                                                        <Setter Property="Foreground" Value="#1E293B" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                    <TextBlock Text="{Binding ErgebnisDetail}"
-                                                               FontSize="10" Foreground="#94A3B8"
-                                                               Margin="4,3,0,0" VerticalAlignment="Center" />
-                                                </StackPanel>
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-
-                                    <GridViewColumn Header="Auswärts" Width="160">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                                <TextBlock Text="{Binding AuswaertsName}"
-                                                           FontSize="13"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-
-                                    <GridViewColumn Header="Status" Width="90">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                                <Border CornerRadius="10" Padding="6,2"
-                                                        Background="{Binding Status,
-                                                            Converter={StaticResource SpielStatusZuFarbe}}"
-                                                        HorizontalAlignment="Left">
-                                                    <TextBlock Text="{Binding Status,
-                                                                   Converter={StaticResource SpielStatusZuText}}"
-                                                               FontSize="11" Foreground="White" />
-                                                </Border>
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-                                </GridView>
-                            </ListView.View>
-
-                            <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem">
-                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                    <Setter Property="Padding" Value="0,4" />
-                                    <Style.Triggers>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter Property="Background" Value="#EFF6FF" />
-                                            <Setter Property="Foreground" Value="#1E40AF" />
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </ListView.ItemContainerStyle>
-                        </ListView>
-                    </DockPanel>
-
-                </DockPanel>
-            </Grid>
-
-            <!-- ══ Einzelspiel-Modus ══ -->
-            <DockPanel Visibility="{Binding IstEinzelspielModus, Converter={StaticResource BoolToVisibility}}">
-
-                <!-- Toolbar -->
-                <Border DockPanel.Dock="Top" Background="White"
-                        BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8">
-                    <StackPanel Orientation="Horizontal">
-
-                        <TextBlock Text="Modus:" FontSize="12" Foreground="#475569"
-                                   VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <ComboBox ItemsSource="{Binding ModusOptionen}"
-                                  SelectedItem="{Binding AusgewaehlterModus}"
-                                  DisplayMemberPath="Anzeige"
-                                  Width="190" FontSize="13" />
-
-                        <Button Content="Simulieren"
-                                Command="{Binding EinzelspielFreiBefehl}"
-                                Margin="16,0,0,0" Padding="12,5" FontSize="13"
-                                Background="#3B82F6" Foreground="White"
-                                BorderThickness="0" Cursor="Hand" />
-
-                        <TextBlock Text="Simuliert…" FontSize="12" Foreground="#94A3B8"
-                                   VerticalAlignment="Center" Margin="16,0,0,0"
-                                   Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
-
-                    </StackPanel>
-                </Border>
-
-                <!-- Fehlermeldung -->
-                <Border DockPanel.Dock="Top" Margin="16,10,16,0"
-                        Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
-                        CornerRadius="4" Padding="12,8"
-                        Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                    <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
-                               FontSize="12" TextWrapping="Wrap" />
-                </Border>
-
-                <!-- Ergebnis-Karte -->
-                <Border DockPanel.Dock="Top"
-                        Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
-                        CornerRadius="6" Padding="16,12" Margin="16,12,16,0"
-                        Visibility="{Binding HatEinzelspielErgebnis, Converter={StaticResource BoolToVisibility}}">
-                    <StackPanel>
-                        <TextBlock Text="ERGEBNIS" FontSize="10" FontWeight="Bold"
-                                   Foreground="#16A34A" Margin="0,0,0,8" />
-                        <ItemsControl ItemsSource="{Binding EinzelspielErgebnisZeilen}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding}" FontSize="14" FontWeight="SemiBold"
-                                               Foreground="#1E293B" FontFamily="Consolas" Margin="0,2" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
-
-                <!-- Spielverlauf (nur Ausführliche Simulation) -->
-                <Border DockPanel.Dock="Top"
-                        Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                        CornerRadius="4" Margin="16,8,16,0"
-                        Visibility="{Binding HatEinzelspielEreignisse, Converter={StaticResource BoolToVisibility}}">
-                    <StackPanel>
-                        <TextBlock Text="SPIELVERLAUF" FontSize="10" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="12,8,12,4" />
-                        <ListView ItemsSource="{Binding EinzelspielEreignisse}"
-                                  BorderThickness="0" MaxHeight="320"
-                                  ScrollViewer.HorizontalScrollBarVisibility="Auto">
-                            <ListView.View>
-                                <GridView>
-                                    <GridViewColumn Header="Min." Width="70">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
-                                                <TextBlock Text="{Binding Minute}"
-                                                           FontSize="11" Foreground="#64748B"
-                                                           FontFamily="Consolas" />
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-                                    <GridViewColumn Header="Team" Width="180">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
-                                                <TextBlock Text="{Binding Seite}"
-                                                           FontSize="11"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-                                    <GridViewColumn Header="Ereignis" Width="110">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
-                                                <TextBlock Text="{Binding Art}" FontSize="11" />
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-                                </GridView>
-                            </ListView.View>
-                        </ListView>
-                    </StackPanel>
-                </Border>
-
-                <!-- Leer-Zustand -->
-                <TextBlock Text="Zwei verschiedene Teams auswählen und auf Simulieren klicken."
-                           Foreground="#94A3B8" FontSize="13" TextWrapping="Wrap"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           MaxWidth="320" TextAlignment="Center"
-                           Visibility="{Binding HatEinzelspielErgebnis, Converter={StaticResource InverseBoolToVisibility}}" />
-
-            </DockPanel>
-
-        </Grid>
+        </DockPanel>
 
     </Grid>
 </UserControl>
