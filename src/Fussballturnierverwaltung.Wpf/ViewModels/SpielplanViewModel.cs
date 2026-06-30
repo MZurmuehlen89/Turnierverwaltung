@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spiele.Eingaben;
 using Fussballturnierverwaltung.Application.Spielplan;
@@ -51,6 +52,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     private readonly TurnierBaumService _baumService;
     private readonly RegelwerkService _regelwerkService;
     private readonly TabellenService _tabellenService;
+    private readonly SimulationsService _simulationsService;
 
     private int _populiertGerade;
     private Dictionary<int, int> _teamGruppeMap = [];
@@ -217,6 +219,28 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     public ICommand PlatzhalterBefehl => _platzhalterBefehl;
     private readonly AsyncRelayCommand _platzhalterBefehl;
 
+    // ── Simulation ────────────────────────────────────────────────────────────
+
+    [ObservableProperty] private bool    _istSimulierend;
+    [ObservableProperty] private string? _simulationsStatus;
+    [ObservableProperty] private SimulationsModusOption _ausgewaehlterSimulationsModus = null!;
+
+    public List<SimulationsModusOption> SimulationsModusOptionen { get; } =
+    [
+        new("Schnellsimulation",       SimulationsModus.SchnellSimulation),
+        new("Ausführliche Simulation", SimulationsModus.AusfuehrlicheSimulation),
+    ];
+
+    private readonly AsyncRelayCommand _spielSimulierenBefehl;
+    private readonly AsyncRelayCommand _rundeSimulierenBefehl;
+    private readonly AsyncRelayCommand _gruppeSimulierenBefehl;
+    private readonly AsyncRelayCommand _spieltagSimulierenBefehl;
+
+    public ICommand SpielSimulierenBefehl    => _spielSimulierenBefehl;
+    public ICommand RundeSimulierenBefehl    => _rundeSimulierenBefehl;
+    public ICommand GruppeSimulierenBefehl   => _gruppeSimulierenBefehl;
+    public ICommand SpieltagSimulierenBefehl => _spieltagSimulierenBefehl;
+
     // ── IRibbonAware ──────────────────────────────────────────────────────────
 
     public string RibbonTabTitel => "Spielplan";
@@ -239,15 +263,19 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         AuslosungService auslosungService,
         TurnierBaumService baumService,
         RegelwerkService regelwerkService,
-        TabellenService tabellenService)
+        TabellenService tabellenService,
+        SimulationsService simulationsService)
     {
-        _spielService      = spielService;
-        _instanzService    = instanzService;
-        _spielplanService  = spielplanService;
-        _auslosungService  = auslosungService;
-        _baumService       = baumService;
-        _regelwerkService  = regelwerkService;
-        _tabellenService   = tabellenService;
+        _spielService       = spielService;
+        _instanzService     = instanzService;
+        _spielplanService   = spielplanService;
+        _auslosungService   = auslosungService;
+        _baumService        = baumService;
+        _regelwerkService   = regelwerkService;
+        _tabellenService    = tabellenService;
+        _simulationsService = simulationsService;
+
+        AusgewaehlterSimulationsModus = SimulationsModusOptionen[0];
 
         _neuBefehl                 = new AsyncRelayCommand(SpielplanNeuGenerierenAsync,   () => HatRunde);
         _speichernBefehl           = new AsyncRelayCommand(SpeichernAsync,                () => FormAktiv && IsDirty);
@@ -262,6 +290,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _fokusVorigerSpieltag       = new RelayCommand(FokusEinSpieltag_Vorig, () => KannFokusZurueck);
         _fokusNaechsterSpieltag     = new RelayCommand(FokusEinSpieltag_Vor,   () => KannFokusVor);
         _fokusAlleSpieltageBefehl   = new RelayCommand(() => FokusAlleAktiv = true, () => !FokusAlleAktiv);
+
+        _spielSimulierenBefehl    = new AsyncRelayCommand(SpielSimulierenAsync,    CanSpielSimulieren);
+        _rundeSimulierenBefehl    = new AsyncRelayCommand(RundeSimulierenAsync,    CanRundeSimulieren);
+        _gruppeSimulierenBefehl   = new AsyncRelayCommand(GruppeSimulierenAsync,   CanGruppeSimulieren);
+        _spieltagSimulierenBefehl = new AsyncRelayCommand(SpieltagSimulierenAsync, CanSpieltagSimulieren);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -299,6 +332,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
                 _fokusVorigerSpieltag.NotifyCanExecuteChanged();
                 _fokusNaechsterSpieltag.NotifyCanExecuteChanged();
                 _fokusAlleSpieltageBefehl.NotifyCanExecuteChanged();
+                _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
                 break;
         }
 
@@ -735,6 +769,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _fokusVorigerSpieltag.NotifyCanExecuteChanged();
         _fokusNaechsterSpieltag.NotifyCanExecuteChanged();
         _fokusAlleSpieltageBefehl.NotifyCanExecuteChanged();
+        _spielSimulierenBefehl.NotifyCanExecuteChanged();
+        _rundeSimulierenBefehl.NotifyCanExecuteChanged();
+        _gruppeSimulierenBefehl.NotifyCanExecuteChanged();
+        _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
     }
 
     private static SpielZeile MapSpielZeile(
@@ -896,8 +934,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     private void BeiGruppeFokusAenderung()
     {
         FokusSpieltage.Clear();
-        FokusAlleAktiv = true;
+        FokusAlleAktiv       = true;
         FokusAktiverSpieltag = 0;
+        _gruppeSimulierenBefehl.NotifyCanExecuteChanged();
+        _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
 
         if (AusgewaehlteGruppe is not null)
         {
@@ -917,6 +957,168 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _fokusVorigerSpieltag.NotifyCanExecuteChanged();
         _fokusNaechsterSpieltag.NotifyCanExecuteChanged();
         _fokusAlleSpieltageBefehl.NotifyCanExecuteChanged();
+    }
+
+    // ── Simulation: CanExecute ─────────────────────────────────────────────────
+
+    private bool CanSpielSimulieren()    =>
+        HatRunde && AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && !IstSimulierend;
+
+    private bool CanRundeSimulieren()    => HatRunde && !IstSimulierend;
+
+    private bool CanGruppeSimulieren()   => IstGruppenFokusAnsicht && AusgewaehlteGruppe is not null && !IstSimulierend;
+
+    private bool CanSpieltagSimulieren() =>
+        IstGruppenFokusAnsicht && AusgewaehlteGruppe is not null && !FokusAlleAktiv && !IstSimulierend;
+
+    // ── Simulation: Aktionen ───────────────────────────────────────────────────
+
+    private async Task SpielSimulierenAsync()
+    {
+        if (AusgewaehlteSpiel is null || AusgewaehlteRunde is null) return;
+        int spielId = AusgewaehlteSpiel.Id;
+        int rundeId = AusgewaehlteRunde.Id;
+        SimulationsStatus = null;
+        Fehlermeldung     = null;
+        IstSimulierend    = true;
+        try
+        {
+            await _simulationsService.SpielSimulierenAsync(spielId, AusgewaehlterSimulationsModus.Wert);
+
+            if (AusgewaehlteRunde.Rundenart == Rundenart.Gruppenphase)
+                await GruppenTabellenLadenAsync(rundeId);
+
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            OnPropertyChanged(nameof(FokusSpiele));
+            AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
+            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
+            SimulationsStatus = "Spiel simuliert.";
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstSimulierend = false;
+            AktualisiereBefehle();
+        }
+    }
+
+    private async Task RundeSimulierenAsync()
+    {
+        if (AusgewaehlteRunde is null) return;
+        int rundeId = AusgewaehlteRunde.Id;
+        SimulationsStatus = null;
+        Fehlermeldung     = null;
+        IstSimulierend    = true;
+        try
+        {
+            int anzahl = await _simulationsService.RundeSimulierenAsync(
+                rundeId, AusgewaehlterSimulationsModus.Wert);
+
+            if (AusgewaehlteRunde?.Rundenart == Rundenart.Gruppenphase)
+                await GruppenTabellenLadenAsync(rundeId);
+
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            OnPropertyChanged(nameof(FokusSpiele));
+            AusgewaehlteSpiel = null;
+            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
+
+            SimulationsStatus = anzahl == 0
+                ? "Keine offenen Spiele in dieser Runde."
+                : $"{anzahl} Spiel(e) simuliert.";
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstSimulierend = false;
+            AktualisiereBefehle();
+        }
+    }
+
+    private async Task GruppeSimulierenAsync()
+    {
+        if (AusgewaehlteGruppe is null || AusgewaehlteRunde is null) return;
+        int rundeId = AusgewaehlteRunde.Id;
+        var teamIds = AusgewaehlteGruppe.Tabelle.Select(t => t.Mannschaft.Id).ToList();
+        SimulationsStatus = null;
+        Fehlermeldung     = null;
+        IstSimulierend    = true;
+        try
+        {
+            int anzahl = await _simulationsService.GruppeSimulierenAsync(
+                rundeId, teamIds, AusgewaehlterSimulationsModus.Wert);
+
+            await GruppenTabellenLadenAsync(rundeId);
+
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            OnPropertyChanged(nameof(FokusSpiele));
+            AusgewaehlteSpiel = null;
+
+            SimulationsStatus = anzahl == 0
+                ? "Keine offenen Spiele in dieser Gruppe."
+                : $"{anzahl} Spiel(e) simuliert.";
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstSimulierend = false;
+            AktualisiereBefehle();
+        }
+    }
+
+    private async Task SpieltagSimulierenAsync()
+    {
+        if (AusgewaehlteGruppe is null || AusgewaehlteRunde is null || FokusAlleAktiv) return;
+        int rundeId  = AusgewaehlteRunde.Id;
+        int spieltag = FokusAktiverSpieltag;
+        var teamIds  = AusgewaehlteGruppe.Tabelle.Select(t => t.Mannschaft.Id).ToList();
+        SimulationsStatus = null;
+        Fehlermeldung     = null;
+        IstSimulierend    = true;
+        try
+        {
+            int anzahl = await _simulationsService.SpieltagInGruppeSimulierenAsync(
+                rundeId, spieltag, teamIds, AusgewaehlterSimulationsModus.Wert);
+
+            await GruppenTabellenLadenAsync(rundeId);
+
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            OnPropertyChanged(nameof(FokusSpiele));
+            AusgewaehlteSpiel = null;
+
+            SimulationsStatus = anzahl == 0
+                ? $"Keine offenen Spiele in Spieltag {spieltag} dieser Gruppe."
+                : $"{anzahl} Spiel(e) in Spieltag {spieltag} simuliert.";
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstSimulierend = false;
+            AktualisiereBefehle();
+        }
     }
 
     private IReadOnlyList<SpielZeile> BerechneFokusSpiele()

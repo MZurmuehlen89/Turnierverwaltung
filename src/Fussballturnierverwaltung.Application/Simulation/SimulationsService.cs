@@ -120,6 +120,78 @@ public class SimulationsService(
         return simuliert;
     }
 
+    // ── Eine Gruppe ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Simuliert alle noch nicht abgeschlossenen Spiele einer Gruppe innerhalb einer Runde.
+    /// <paramref name="gruppenTeamIds"/> enthält die MannschaftIds der Gruppe (bestimmt via HeimMannschaftId).
+    /// </summary>
+    public async Task<int> GruppeSimulierenAsync(
+        int turnierRundeId,
+        IReadOnlyCollection<int> gruppenTeamIds,
+        SimulationsModus modus,
+        int? seed = null,
+        CancellationToken ct = default)
+    {
+        var spiele = await spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
+        var offene = spiele
+            .Where(s => s.Status != SpielStatus.Abgeschlossen
+                     && s.HeimMannschaftId.HasValue
+                     && gruppenTeamIds.Contains(s.HeimMannschaftId.Value))
+            .ToList();
+
+        if (!offene.Any()) return 0;
+
+        var rng = seed.HasValue ? new Random(seed.Value) : new Random();
+        int simuliert = 0;
+
+        foreach (var spiel in offene)
+        {
+            await SpielSimulierenAsync(spiel.Id, modus, rng, ct);
+            simuliert++;
+        }
+
+        logger.LogInformation("Gruppe (Runde {Id}): {Anz} Spiel(e) simuliert.", turnierRundeId, simuliert);
+        return simuliert;
+    }
+
+    // ── Spieltag innerhalb einer Gruppe ───────────────────────────────────
+
+    /// <summary>
+    /// Simuliert alle noch nicht abgeschlossenen Spiele eines Spieltags innerhalb einer Gruppe.
+    /// </summary>
+    public async Task<int> SpieltagInGruppeSimulierenAsync(
+        int turnierRundeId,
+        int spieltag,
+        IReadOnlyCollection<int> gruppenTeamIds,
+        SimulationsModus modus,
+        int? seed = null,
+        CancellationToken ct = default)
+    {
+        var spiele = await spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
+        var offene = spiele
+            .Where(s => s.Spieltag == spieltag
+                     && s.Status != SpielStatus.Abgeschlossen
+                     && s.HeimMannschaftId.HasValue
+                     && gruppenTeamIds.Contains(s.HeimMannschaftId.Value))
+            .ToList();
+
+        if (!offene.Any()) return 0;
+
+        var rng = seed.HasValue ? new Random(seed.Value) : new Random();
+        int simuliert = 0;
+
+        foreach (var spiel in offene)
+        {
+            await SpielSimulierenAsync(spiel.Id, modus, rng, ct);
+            simuliert++;
+        }
+
+        logger.LogInformation("Spieltag {Tag} (Gruppe, Runde {Id}): {Anz} Spiel(e) simuliert.",
+            spieltag, turnierRundeId, simuliert);
+        return simuliert;
+    }
+
     // ── Eine Runde ────────────────────────────────────────────────────────
 
     /// <summary>

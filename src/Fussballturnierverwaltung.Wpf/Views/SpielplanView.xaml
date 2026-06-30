@@ -181,6 +181,26 @@
                         </Grid>
                     </StackPanel>
 
+                    <!-- Spiel simulieren -->
+                    <Button Command="{Binding SpielSimulierenBefehl}"
+                            Margin="0,0,0,12" Padding="0,8" FontSize="12" Cursor="Hand"
+                            HorizontalAlignment="Stretch"
+                            Background="#8B5CF6" Foreground="White" BorderThickness="0">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="#8B5CF6" />
+                                <Setter Property="Foreground" Value="White" />
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Style.Triggers>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter Property="Opacity" Value="0.5" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        Spiel simulieren
+                    </Button>
+
                     <!-- Hinweis: Vorhandenes Ergebnis wird überschrieben -->
                     <Border Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
                             CornerRadius="4" Padding="10,7" Margin="0,0,0,12"
@@ -207,9 +227,39 @@
                     <Border DockPanel.Dock="Top" Background="White"
                             BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8">
                         <DockPanel>
+                            <!-- Simulations-Aktionen (rechts, vor Ansicht-Toggle) -->
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                                        Visibility="{Binding HatRunde, Converter={StaticResource BoolToVisibility}}"
+                                        Margin="0,0,8,0">
+                                <ComboBox ItemsSource="{Binding SimulationsModusOptionen}"
+                                          SelectedItem="{Binding AusgewaehlterSimulationsModus}"
+                                          DisplayMemberPath="Anzeige"
+                                          FontSize="11" Width="160" VerticalAlignment="Center"
+                                          Margin="0,0,6,0" />
+                                <Button Command="{Binding RundeSimulierenBefehl}"
+                                        Padding="10,4" FontSize="11" Cursor="Hand"
+                                        Background="#8B5CF6" Foreground="White"
+                                        BorderThickness="0" VerticalAlignment="Center">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Background" Value="#8B5CF6" />
+                                            <Setter Property="Foreground" Value="White" />
+                                            <Setter Property="BorderThickness" Value="0" />
+                                            <Style.Triggers>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter Property="Opacity" Value="0.5" />
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    Runde simulieren
+                                </Button>
+                            </StackPanel>
+
                             <!-- Ansicht-Toggle (nur bei Gruppenphase) -->
                             <Border DockPanel.Dock="Right"
                                     CornerRadius="6" Background="#F1F5F9" Padding="2"
+                                    Margin="0,0,8,0"
                                     Visibility="{Binding ZeigeAnsichtUmschalter, Converter={StaticResource BoolToVisibility}}">
                                 <StackPanel Orientation="Horizontal">
                                     <Button Command="{Binding ZuSpielplanWechselnBefehl}"
@@ -271,6 +321,15 @@
                             Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
                         <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
                                    FontSize="12" TextWrapping="Wrap" />
+                    </Border>
+
+                    <!-- Simulations-Status -->
+                    <Border DockPanel.Dock="Top"
+                            Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
+                            CornerRadius="4" Padding="12,6" Margin="12,6,12,0"
+                            Visibility="{Binding SimulationsStatus, Converter={StaticResource NullToCollapsed}}">
+                        <TextBlock Text="{Binding SimulationsStatus}" Foreground="#166534"
+                                   FontSize="12" />
                     </Border>
 
                     <!-- Platzhalter-Banner -->
@@ -620,7 +679,7 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <!-- Zurück-Button + Gruppenname -->
+                                    <!-- Zurück-Button + Gruppenname + Simulations-Buttons -->
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Button Command="{Binding ZurueckZurUebersichtBefehl}"
                                                 Padding="8,4" FontSize="11" Cursor="Hand"
@@ -629,10 +688,51 @@
                                             ← Gruppenübersicht
                                         </Button>
                                         <TextBlock FontSize="14" FontWeight="Bold" Foreground="#1E293B"
-                                                   VerticalAlignment="Center">
+                                                   VerticalAlignment="Center" Margin="0,0,16,0">
                                             <Run Text="Gruppe " />
                                             <Run Text="{Binding AusgewaehlteGruppe.GruppenNummer}" />
                                         </TextBlock>
+                                        <!-- Spieltag simulieren (nur bei spezifischem Spieltag) -->
+                                        <Button Command="{Binding SpieltagSimulierenBefehl}"
+                                                Padding="8,4" FontSize="11" Cursor="Hand"
+                                                BorderThickness="0" Margin="0,0,6,0"
+                                                Visibility="{Binding FokusAlleAktiv, Converter={StaticResource InverseBoolToVisibility}}">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Background" Value="#8B5CF6" />
+                                                    <Setter Property="Foreground" Value="White" />
+                                                    <Setter Property="BorderThickness" Value="0" />
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter Property="Opacity" Value="0.5" />
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <TextBlock>
+                                                <Run Text="Spieltag " />
+                                                <Run Text="{Binding FokusAktiverSpieltag}" />
+                                                <Run Text=" simulieren" />
+                                            </TextBlock>
+                                        </Button>
+                                        <!-- Gruppe simulieren -->
+                                        <Button Command="{Binding GruppeSimulierenBefehl}"
+                                                Padding="8,4" FontSize="11" Cursor="Hand"
+                                                BorderThickness="0">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Background" Value="#8B5CF6" />
+                                                    <Setter Property="Foreground" Value="White" />
+                                                    <Setter Property="BorderThickness" Value="0" />
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter Property="Opacity" Value="0.5" />
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            Gruppe simulieren
+                                        </Button>
                                     </StackPanel>
                                 </DockPanel>
                             </Border>
