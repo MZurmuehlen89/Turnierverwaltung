@@ -614,7 +614,7 @@ public class SpielplanMenue(
         var vorhandene = await spielplanService.SpielplanAbrufenAsync(runde.Id, ct);
         int naechsterSpieltag = vorhandene.Select(s => s.Spieltag ?? 0).DefaultIfEmpty(0).Max() + 1;
 
-        var tabelle = await tabellenService.TabelleBerechnenAsync(runde.Id, ct);
+        var tabelle = await tabellenService.TabelleBerechnenAsync(runde.Id, ct: ct);
 
         if (!tabelle.Any())
         {
@@ -703,7 +703,7 @@ public class SpielplanMenue(
 
         var tabelle = await AnsiConsole.Status()
             .StartAsync("Tabelle wird berechnet...", async _ =>
-                await tabellenService.TabelleBerechnenAsync(runde.Id, ct));
+                await tabellenService.TabelleBerechnenAsync(runde.Id, ct: ct));
 
         if (!tabelle.Any())
         {

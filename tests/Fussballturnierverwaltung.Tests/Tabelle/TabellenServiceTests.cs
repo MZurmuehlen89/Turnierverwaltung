@@ -58,13 +58,15 @@ public class TabellenServiceTests
         TurnierverwaltungDbContext ctx, int id, int rundeId,
         int heimId, int auswaertsId,
         int? heimTore, int? auswaertsTore,
-        int? siegerMannschaftId = null)
+        int? siegerMannschaftId = null,
+        bool istRueckspiel = false)
     {
         var spiel = new Spiel
         {
             Id = id, TurnierInstanzId = 1, TurnierRundeId = rundeId,
             Spielnummer = id, HeimMannschaftId = heimId, AuswaertsMannschaftId = auswaertsId,
-            Status = heimTore.HasValue ? SpielStatus.Abgeschlossen : SpielStatus.Geplant
+            Status = heimTore.HasValue ? SpielStatus.Abgeschlossen : SpielStatus.Geplant,
+            IstRueckspiel = istRueckspiel
         };
         ctx.Spiele.Add(spiel);
 
@@ -244,5 +246,92 @@ public class TabellenServiceTests
         tabelle[0].Mannschaft.Id.Should().Be(1,
             "Team A ohne Karten soll dank FairplayWertung besser stehen als Team B mit Gelber Karte");
         tabelle[1].Mannschaft.Id.Should().Be(2);
+    }
+
+    // ── Hinrunde / Rückrunde / Heim- / Auswärtstabelle (Issue #68) ─────────
+
+    private static async Task<(TabellenService Service, int RundeId)> HinUndRueckspielSetupAsync()
+    {
+        var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int rundeId);
+        // Hinspiel: Team A (Heim) schlägt Team B 2:0
+        SpielHinzufuegen(ctx, 1, rundeId, heimId: 1, auswaertsId: 2,
+            heimTore: 2, auswaertsTore: 0, siegerMannschaftId: 1, istRueckspiel: false);
+        // Rückspiel: Team B (Heim) spielt 1:1 gegen Team A
+        SpielHinzufuegen(ctx, 2, rundeId, heimId: 2, auswaertsId: 1,
+            heimTore: 1, auswaertsTore: 1, siegerMannschaftId: null, istRueckspiel: true);
+        return (ServiceFuer(ctx), rundeId);
+    }
+
+    [Fact]
+    public async Task Gesamt_BeruecksichtigtHinUndRueckspiel()
+    {
+        var (service, rundeId) = await HinUndRueckspielSetupAsync();
+
+        var tabelle = await service.TabelleBerechnenAsync(rundeId, TabellenAnsicht.Gesamt);
+
+        var teamA = tabelle.First(e => e.Mannschaft.Id == 1);
+        teamA.Spiele.Should().Be(2);
+        teamA.Punkte.Should().Be(4, "1 Sieg (3) + 1 Unentschieden (1)");
+    }
+
+    [Fact]
+    public async Task Hinrunde_EnthaeltNurHinspiele()
+    {
+        var (service, rundeId) = await HinUndRueckspielSetupAsync();
+
+        var tabelle = await service.TabelleBerechnenAsync(rundeId, TabellenAnsicht.Hinrunde);
+
+        var teamA = tabelle.First(e => e.Mannschaft.Id == 1);
+        var teamB = tabelle.First(e => e.Mannschaft.Id == 2);
+        teamA.Spiele.Should().Be(1);
+        teamA.Punkte.Should().Be(3, "nur der Hinspiel-Sieg zählt");
+        teamB.Punkte.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Rueckrunde_EnthaeltNurRueckspiele()
+    {
+        var (service, rundeId) = await HinUndRueckspielSetupAsync();
+
+        var tabelle = await service.TabelleBerechnenAsync(rundeId, TabellenAnsicht.Rueckrunde);
+
+        tabelle.Should().AllSatisfy(e =>
+        {
+            e.Spiele.Should().Be(1);
+            e.Punkte.Should().Be(1, "nur das Rückspiel-Unentschieden zählt");
+        });
+    }
+
+    [Fact]
+    public async Task Heimtabelle_ZaehltProTeamNurHeimspiele()
+    {
+        var (service, rundeId) = await HinUndRueckspielSetupAsync();
+
+        var tabelle = await service.TabelleBerechnenAsync(rundeId, TabellenAnsicht.Heimtabelle);
+
+        // Team A war nur im Hinspiel (Sieg) Heim, Team B nur im Rückspiel (Unentschieden) Heim
+        var teamA = tabelle.First(e => e.Mannschaft.Id == 1);
+        var teamB = tabelle.First(e => e.Mannschaft.Id == 2);
+        teamA.Spiele.Should().Be(1);
+        teamA.Punkte.Should().Be(3, "Team A gewinnt sein einziges Heimspiel");
+        teamB.Spiele.Should().Be(1);
+        teamB.Punkte.Should().Be(1, "Team B spielt sein einziges Heimspiel unentschieden");
+    }
+
+    [Fact]
+    public async Task Auswaertstabelle_ZaehltProTeamNurAuswaertsspiele()
+    {
+        var (service, rundeId) = await HinUndRueckspielSetupAsync();
+
+        var tabelle = await service.TabelleBerechnenAsync(rundeId, TabellenAnsicht.Auswaertstabelle);
+
+        // Team A war nur im Rückspiel (Unentschieden) auswärts, Team B nur im Hinspiel (Niederlage) auswärts
+        var teamA = tabelle.First(e => e.Mannschaft.Id == 1);
+        var teamB = tabelle.First(e => e.Mannschaft.Id == 2);
+        teamA.Spiele.Should().Be(1);
+        teamA.Punkte.Should().Be(1, "Team A spielt sein einziges Auswärtsspiel unentschieden");
+        teamB.Spiele.Should().Be(1);
+        teamB.Punkte.Should().Be(0, "Team B verliert sein einziges Auswärtsspiel");
     }
 }

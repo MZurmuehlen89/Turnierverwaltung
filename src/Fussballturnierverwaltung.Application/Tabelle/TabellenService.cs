@@ -14,11 +14,26 @@ public class TabellenService(
 {
     /// <summary>Berechnet die aktuelle Tabelle einer Liga- oder Gruppenphase-Runde.</summary>
     public async Task<IReadOnlyList<TabellenEintrag>> TabelleBerechnenAsync(
-        int turnierRundeId, CancellationToken ct = default)
+        int turnierRundeId, TabellenAnsicht ansicht = TabellenAnsicht.Gesamt, CancellationToken ct = default)
     {
         var (punkteRegel, rankingRegeln, alleSpiele) = await LadeTabellenDatenAsync(turnierRundeId, ct);
         if (!alleSpiele.Any()) return [];
-        return TabelleAusSpielenBerechnen(alleSpiele, punkteRegel, rankingRegeln);
+
+        var spiele = ansicht switch
+        {
+            TabellenAnsicht.Hinrunde   => alleSpiele.Where(s => !s.IstRueckspiel).ToList(),
+            TabellenAnsicht.Rueckrunde => alleSpiele.Where(s => s.IstRueckspiel).ToList(),
+            _                          => alleSpiele
+        };
+
+        bool? nurHeimspiele = ansicht switch
+        {
+            TabellenAnsicht.Heimtabelle      => true,
+            TabellenAnsicht.Auswaertstabelle => false,
+            _                                => null
+        };
+
+        return TabelleAusSpielenBerechnen(spiele, punkteRegel, rankingRegeln, nurHeimspiele);
     }
 
     /// <summary>Berechnet je eine Tabelle pro Gruppe inkl. Qualifikationsstatus. Gruppen werden aus den Spielpaarungen rekonstruiert.</summary>
@@ -75,7 +90,8 @@ public class TabellenService(
     }
 
     private static IReadOnlyList<TabellenEintrag> TabelleAusSpielenBerechnen(
-        IReadOnlyList<Spiel> spiele, PunkteRegel punkteRegel, List<RankingRegel> rankingRegeln)
+        IReadOnlyList<Spiel> spiele, PunkteRegel punkteRegel, List<RankingRegel> rankingRegeln,
+        bool? nurHeimspiele = null)
     {
         var teamMap = spiele
             .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
@@ -95,7 +111,7 @@ public class TabellenService(
 
         var stats = teamMap.Keys.ToDictionary(
             id => id,
-            id => BerechneSpielerStats(id, abgeschlossene, punkteRegel));
+            id => BerechneSpielerStats(id, abgeschlossene, punkteRegel, nurHeimspiele));
 
         var eintraege = teamMap.Select(kv => new TabellenEintrag
         {
@@ -159,7 +175,7 @@ public class TabellenService(
     // ── Statistikberechnung ───────────────────────────────────────────────
 
     private static RohStats BerechneSpielerStats(
-        int teamId, IReadOnlyList<Spiel> spiele, PunkteRegel punkteRegel)
+        int teamId, IReadOnlyList<Spiel> spiele, PunkteRegel punkteRegel, bool? nurHeimspiele = null)
     {
         int gespielt = 0, siege = 0, unentschieden = 0, niederlagen = 0;
         int tore = 0, gegentore = 0, auswaertsTore = 0, fairplay = 0;
@@ -170,6 +186,7 @@ public class TabellenService(
             bool istHeim = s.HeimMannschaftId == teamId;
 
             if (!istHeim && s.AuswaertsMannschaftId != teamId) continue;
+            if (nurHeimspiele is { } nur && istHeim != nur) continue;
 
             gespielt++;
             int eigTore = istHeim ? s.Ergebnis.HeimToreGesamt     : s.Ergebnis.AuswaertsToreGesamt;
@@ -251,7 +268,9 @@ public class TabellenService(
 
             if (IstDirekterVergleich(regel.Regelart))
             {
-                // Nur direkte Duelle zwischen x und y
+                // Nur direkte Duelle zwischen x und y. Bei Heim-/Auswaertstabelle wird hier bewusst
+                // nicht nach Seite gefiltert (beide Duelle zaehlen) - der direkte Vergleich bleibt
+                // fuer diese informativen Zusatzansichten unveraendert.
                 var dvSpiele = alleSpiele
                     .Where(s => (s.HeimMannschaftId == xId && s.AuswaertsMannschaftId == yId) ||
                                 (s.HeimMannschaftId == yId && s.AuswaertsMannschaftId == xId))
