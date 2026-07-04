@@ -285,7 +285,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
         _neuBefehl                 = new AsyncRelayCommand(SpielplanNeuGenerierenAsync,   () => HatRunde);
         _speichernBefehl           = new AsyncRelayCommand(SpeichernAsync,                () => FormAktiv && IsDirty);
-        _abbrechenBefehl           = new RelayCommand(FormZuruecksetzen,                  () => FormAktiv);
+        _abbrechenBefehl           = new RelayCommand(FormZuruecksetzen,                  () => FormAktiv && IsDirty);
         _loeschenBefehl            = new AsyncRelayCommand(ErgebnisLoeschenAsync,         () => FormAktiv && FormHatErgebnis);
         _platzhalterBefehl         = new AsyncRelayCommand(PlatzhalterAktualisierenAsync, () => HatRunde && HatPlatzhalterSpiele);
         _zuSpielplanWechselnBefehl = new RelayCommand(() => GruppenAnsichtAktiv = false,  () => IstGruppenphase);
@@ -352,6 +352,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
             {
                 IsDirty = true;
                 _speichernBefehl.NotifyCanExecuteChanged();
+                _abbrechenBefehl.NotifyCanExecuteChanged();
             }
         }
     }
