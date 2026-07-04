@@ -48,12 +48,13 @@ public class SimulationsService(
         int spielId,
         SimulationsModus modus,
         Random? rng = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool ueberschreiben = false)
     {
         var spiel = await spielRepository.FindenNachIdFuerSimulationAsync(spielId, ct)
             ?? throw new InvalidOperationException($"Spiel {spielId} nicht gefunden.");
 
-        if (spiel.Status == SpielStatus.Abgeschlossen)
+        if (spiel.Status == SpielStatus.Abgeschlossen && !ueberschreiben)
             throw new InvalidOperationException(
                 $"Spiel #{spiel.Spielnummer} ist bereits abgeschlossen.");
 

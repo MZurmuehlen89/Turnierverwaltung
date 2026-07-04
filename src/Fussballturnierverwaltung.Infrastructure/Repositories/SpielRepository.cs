@@ -74,11 +74,15 @@ public class SpielRepository(TurnierverwaltungDbContext context)
     {
         var spiel = await Context.Spiele
             .Include(s => s.Ergebnis)
+            .Include(s => s.Ereignisse)
             .FirstOrDefaultAsync(s => s.Id == spielId, ct);
         if (spiel is null) return;
 
         if (spiel.Ergebnis is not null)
             Context.SpielErgebnisse.Remove(spiel.Ergebnis);
+
+        if (spiel.Ereignisse.Count > 0)
+            Context.SpielEreignisse.RemoveRange(spiel.Ereignisse);
 
         ergebnis.SpielId = spielId;
         await Context.SpielErgebnisse.AddAsync(ergebnis, ct);
@@ -90,10 +94,13 @@ public class SpielRepository(TurnierverwaltungDbContext context)
     {
         var spiel = await Context.Spiele
             .Include(s => s.Ergebnis)
+            .Include(s => s.Ereignisse)
             .FirstOrDefaultAsync(s => s.Id == spielId, ct);
         if (spiel?.Ergebnis is null) return;
 
         Context.SpielErgebnisse.Remove(spiel.Ergebnis);
+        if (spiel.Ereignisse.Count > 0)
+            Context.SpielEreignisse.RemoveRange(spiel.Ereignisse);
         spiel.Status = SpielStatus.Geplant;
         await Context.SaveChangesAsync(ct);
     }

@@ -53,10 +53,13 @@ public partial class SimulationsViewModel : ViewModelBase
     [ObservableProperty] private ObservableCollection<SpielZeile> _spiele = [];
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(KannTurnierSpielSimulieren))]
+    [NotifyPropertyChangedFor(nameof(AusgewaehltesSpielAbgeschlossen))]
     private SpielZeile? _ausgewaehlteSpiel;
 
     public bool KannTurnierSpielSimulieren =>
         AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && !IstLadend;
+
+    public bool AusgewaehltesSpielAbgeschlossen => AusgewaehlteSpiel?.HatErgebnis == true;
 
     // ── Linke Spalte: Einzelspiel-Modus ──────────────────────────────────────
 
@@ -118,6 +121,8 @@ public partial class SimulationsViewModel : ViewModelBase
 
     public ICommand TurnierSpielSimulierenBefehl { get; }
     public ICommand EinzelspielFreiBefehl        { get; }
+    public ICommand ErgebnisUeberschreibenBefehl { get; }
+    public ICommand ErgebnisZuruecksetzenBefehl  { get; }
 
     // ── Konstruktor ───────────────────────────────────────────────────────────
 
@@ -138,6 +143,8 @@ public partial class SimulationsViewModel : ViewModelBase
 
         TurnierSpielSimulierenBefehl = new AsyncRelayCommand(TurnierSpielSimulierenAsync, () => KannTurnierSpielSimulieren);
         EinzelspielFreiBefehl        = new AsyncRelayCommand(EinzelspielFreiSimulierenAsync, () => EinzelspielKannSimuliert);
+        ErgebnisUeberschreibenBefehl = new AsyncRelayCommand(ErgebnisUeberschreibenAsync, () => KannTurnierSpielSimulieren);
+        ErgebnisZuruecksetzenBefehl  = new AsyncRelayCommand(ErgebnisZuruecksetzenAsync,  () => KannTurnierSpielSimulieren);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -261,6 +268,75 @@ public partial class SimulationsViewModel : ViewModelBase
 
             await LadeProtokollAsync(spielId);
             StatusMeldung = "Spiel simuliert.";
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstLadend = false;
+            AktualisiereBefehle();
+        }
+    }
+
+    private async Task ErgebnisUeberschreibenAsync()
+    {
+        if (AusgewaehlteSpiel is null) return;
+        int spielId  = AusgewaehlteSpiel.Id;
+        int? rundeId = AusgewaehlteRunde?.Id;
+        Fehlermeldung = null;
+        StatusMeldung = null;
+        IstLadend     = true;
+        LeerProtokolll();
+        try
+        {
+            await _simulationsService.SpielSimulierenAsync(spielId, AusgewaehlterModus.Wert, ueberschreiben: true);
+
+            if (rundeId.HasValue)
+            {
+                var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId.Value);
+                Spiele.Clear();
+                foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, i));
+                AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
+            }
+
+            await LadeProtokollAsync(spielId);
+            StatusMeldung = "Ergebnis überschrieben.";
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstLadend = false;
+            AktualisiereBefehle();
+        }
+    }
+
+    private async Task ErgebnisZuruecksetzenAsync()
+    {
+        if (AusgewaehlteSpiel is null) return;
+        int spielId  = AusgewaehlteSpiel.Id;
+        int? rundeId = AusgewaehlteRunde?.Id;
+        Fehlermeldung = null;
+        StatusMeldung = null;
+        IstLadend     = true;
+        try
+        {
+            await _spielService.ErgebnisLoeschenAsync(spielId);
+
+            if (rundeId.HasValue)
+            {
+                var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId.Value);
+                Spiele.Clear();
+                foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, i));
+                AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
+            }
+
+            LeerProtokolll();
+            StatusMeldung = "Ergebnis zurückgesetzt.";
         }
         catch (Exception ex)
         {
@@ -457,6 +533,8 @@ public partial class SimulationsViewModel : ViewModelBase
     {
         ((AsyncRelayCommand)TurnierSpielSimulierenBefehl).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)EinzelspielFreiBefehl).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)ErgebnisUeberschreibenBefehl).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)ErgebnisZuruecksetzenBefehl).NotifyCanExecuteChanged();
     }
 
     private static string FormatErgebnisZeile(SimulationsErgebnis e, string heimName, string auswaertsName)

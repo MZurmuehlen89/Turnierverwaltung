@@ -76,6 +76,7 @@
                                     Command="{Binding TurnierSpielSimulierenBefehl}"
                                     Margin="0,14,0,0" Padding="0,10" FontSize="13"
                                     HorizontalAlignment="Stretch"
+                                    Visibility="{Binding AusgewaehltesSpielAbgeschlossen, Converter={StaticResource InverseBoolToVisibility}}"
                                     Background="#8B5CF6" Foreground="White" BorderThickness="0"
                                     Cursor="Hand">
                                 <Button.Style>
@@ -91,6 +92,50 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
+
+                            <StackPanel Visibility="{Binding AusgewaehltesSpielAbgeschlossen, Converter={StaticResource BoolToVisibility}}">
+
+                                <Button Content="Ergebnis überschreiben"
+                                        Command="{Binding ErgebnisUeberschreibenBefehl}"
+                                        Margin="0,14,0,0" Padding="0,10" FontSize="13"
+                                        HorizontalAlignment="Stretch"
+                                        Background="#8B5CF6" Foreground="White" BorderThickness="0"
+                                        Cursor="Hand">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Background" Value="#8B5CF6" />
+                                            <Setter Property="Foreground" Value="White" />
+                                            <Setter Property="BorderThickness" Value="0" />
+                                            <Style.Triggers>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter Property="Opacity" Value="0.5" />
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <Button Content="Zurücksetzen"
+                                        Command="{Binding ErgebnisZuruecksetzenBefehl}"
+                                        Margin="0,8,0,0" Padding="0,10" FontSize="13"
+                                        HorizontalAlignment="Stretch"
+                                        Background="#EF4444" Foreground="White" BorderThickness="0"
+                                        Cursor="Hand">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Background" Value="#EF4444" />
+                                            <Setter Property="Foreground" Value="White" />
+                                            <Setter Property="BorderThickness" Value="0" />
+                                            <Style.Triggers>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter Property="Opacity" Value="0.5" />
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                            </StackPanel>
 
                         </StackPanel>
 
