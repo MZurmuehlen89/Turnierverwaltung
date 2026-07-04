@@ -963,7 +963,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     private EntscheidungArt BerechneEntscheidungArt()
     {
         bool reg90Draw = ParseInt(HeimToreRegulaer) == ParseInt(AuswaertsToreRegulaer);
-        if (!reg90Draw) return EntscheidungArt.RegulaereSpielzeit;
+
+        // Verlängerung/Elfmeterschießen sind nur in K.-o.-Runden relevant — in Liga/Gruppenphase
+        // ist ein Unentschieden immer ein gültiges Endergebnis, unabhängig vom Regelwerk.
+        if (!reg90Draw || !IstKoRunde) return EntscheidungArt.RegulaereSpielzeit;
 
         bool hatVerl = HatVerlaengerungsVerfahren;
         bool hatElf  = HatElfmeterVerfahren;
