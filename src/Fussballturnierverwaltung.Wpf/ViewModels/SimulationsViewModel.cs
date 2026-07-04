@@ -186,6 +186,8 @@ public partial class SimulationsViewModel : ViewModelBase
                 break;
             case nameof(AusgewaehlteSpiel):
             case nameof(IstLadend):
+            case nameof(EinzelspielHeim):
+            case nameof(EinzelspielAuswaerts):
                 AktualisiereBefehle();
                 break;
         }
