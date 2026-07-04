@@ -275,39 +275,56 @@
                 <StackPanel>
                     <TextBlock Text="SPIELVERLAUF" FontSize="10" FontWeight="Bold"
                                Foreground="#94A3B8" Margin="12,8,12,4" />
-                    <ListView ItemsSource="{Binding ProtokollEreignisse}"
-                              BorderThickness="0" MaxHeight="400"
-                              ScrollViewer.HorizontalScrollBarVisibility="Auto">
-                        <ListView.View>
-                            <GridView>
-                                <GridViewColumn Header="Min." Width="70">
-                                    <GridViewColumn.CellTemplate>
-                                        <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
-                                            <TextBlock Text="{Binding Minute}"
-                                                       FontSize="11" Foreground="#64748B"
-                                                       FontFamily="Consolas" />
-                                        </DataTemplate>
-                                    </GridViewColumn.CellTemplate>
-                                </GridViewColumn>
-                                <GridViewColumn Header="Team" Width="200">
-                                    <GridViewColumn.CellTemplate>
-                                        <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
-                                            <TextBlock Text="{Binding Seite}"
-                                                       FontSize="11"
-                                                       TextTrimming="CharacterEllipsis" />
-                                        </DataTemplate>
-                                    </GridViewColumn.CellTemplate>
-                                </GridViewColumn>
-                                <GridViewColumn Header="Ereignis" Width="120">
-                                    <GridViewColumn.CellTemplate>
-                                        <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
-                                            <TextBlock Text="{Binding Art}" FontSize="11" />
-                                        </DataTemplate>
-                                    </GridViewColumn.CellTemplate>
-                                </GridViewColumn>
-                            </GridView>
-                        </ListView.View>
-                    </ListView>
+
+                    <Grid Margin="12,0,12,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="50" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="HEIM" FontSize="9" FontWeight="Bold"
+                                   Foreground="#CBD5E1" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="2" Text="AUSWÄRTS" FontSize="9" FontWeight="Bold"
+                                   Foreground="#CBD5E1" HorizontalAlignment="Left" />
+                    </Grid>
+                    <Separator />
+
+                    <ScrollViewer MaxHeight="400" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding ProtokollEreignisse}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
+                                    <Grid Margin="12,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="50" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                                    HorizontalAlignment="Right"
+                                                    Visibility="{Binding IstHeimSeite, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="{Binding Art}" FontSize="11"
+                                                       Foreground="#1E293B" TextAlignment="Right" />
+                                            <TextBlock Text=" ◄" FontSize="11" FontWeight="Bold"
+                                                       Foreground="#8B5CF6" Margin="4,0,0,0" />
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="1" Text="{Binding Minute}" FontSize="11"
+                                                   Foreground="#64748B" FontFamily="Consolas"
+                                                   HorizontalAlignment="Center" />
+
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                    HorizontalAlignment="Left"
+                                                    Visibility="{Binding IstHeimSeite, Converter={StaticResource InverseBoolToVisibility}}">
+                                            <TextBlock Text="► " FontSize="11" FontWeight="Bold"
+                                                       Foreground="#8B5CF6" />
+                                            <TextBlock Text="{Binding Art}" FontSize="11" Foreground="#1E293B" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
                 </StackPanel>
             </Border>
 

@@ -17,7 +17,7 @@ using System.Windows.Input;
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
 public record SimulationsModusOption(string Anzeige, SimulationsModus Wert);
-public record EinzelspielEreignisZeile(string Minute, string Seite, string Art);
+public record EinzelspielEreignisZeile(string Minute, string Seite, string Art, bool IstHeimSeite);
 
 public partial class SimulationsViewModel : ViewModelBase
 {
@@ -396,7 +396,7 @@ public partial class SimulationsViewModel : ViewModelBase
                     foreach (var e in erg1.Ereignisse)
                         ProtokollEreignisse.Add(MapEreignis(e, heim.Name, auswaerts.Name, "Hin"));
                     foreach (var e in erg2.Ereignisse)
-                        ProtokollEreignisse.Add(MapEreignis(e, auswaerts.Name, heim.Name, "Rück"));
+                        ProtokollEreignisse.Add(MapEreignis(e, heim.Name, auswaerts.Name, "Rück", istRueckspielLeg: true));
                 }
             }
             else
@@ -501,7 +501,8 @@ public partial class SimulationsViewModel : ViewModelBase
 
         foreach (var ereignis in spiel.Ereignisse.OrderBy(ev => ev.Minute))
         {
-            string seite = ereignis.MannschaftId == spiel.HeimMannschaftId ? heim : auswaerts;
+            bool istHeimSeite = ereignis.MannschaftId == spiel.HeimMannschaftId;
+            string seite = istHeimSeite ? heim : auswaerts;
             string art   = ereignis.EreignisArt switch
             {
                 EreignisArt.Tor        => "Tor",
@@ -511,7 +512,7 @@ public partial class SimulationsViewModel : ViewModelBase
                 EreignisArt.SilverGoal => "Silver Goal",
                 _                      => ereignis.EreignisArt.ToString()
             };
-            ProtokollEreignisse.Add(new EinzelspielEreignisZeile($"{ereignis.Minute}'", seite, art));
+            ProtokollEreignisse.Add(new EinzelspielEreignisZeile($"{ereignis.Minute}'", seite, art, istHeimSeite));
         }
 
         OnPropertyChanged(nameof(HatProtokoll));
@@ -558,11 +559,12 @@ public partial class SimulationsViewModel : ViewModelBase
     }
 
     private static EinzelspielEreignisZeile MapEreignis(
-        SimuliertesEreignis e, string heimName, string auswaertsName, string? spiel)
+        SimuliertesEreignis e, string heimName, string auswaertsName, string? spiel, bool istRueckspielLeg = false)
     {
-        string minute = spiel is null ? $"{e.Minute}'" : $"{spiel} {e.Minute}'";
-        string seite  = e.IstHeim ? heimName : auswaertsName;
-        string art    = e.Art switch
+        string minute      = spiel is null ? $"{e.Minute}'" : $"{spiel} {e.Minute}'";
+        bool istHeimSeite  = istRueckspielLeg ? !e.IstHeim : e.IstHeim;
+        string seite       = istHeimSeite ? heimName : auswaertsName;
+        string art         = e.Art switch
         {
             EreignisArt.Tor        => "Tor",
             EreignisArt.GelbeKarte => "Gelbe Karte",
@@ -571,7 +573,7 @@ public partial class SimulationsViewModel : ViewModelBase
             EreignisArt.SilverGoal => "Silver Goal",
             _                      => e.Art.ToString()
         };
-        return new EinzelspielEreignisZeile(minute, seite, art);
+        return new EinzelspielEreignisZeile(minute, seite, art, istHeimSeite);
     }
 
     private SpielZeile MapSpielZeile(Spiel s, int positionInRunde = 0)
