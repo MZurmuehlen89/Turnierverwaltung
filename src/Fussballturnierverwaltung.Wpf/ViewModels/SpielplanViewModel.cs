@@ -60,6 +60,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     private Dictionary<int, int> _teamGruppeMap = [];
     private List<VerfahrenArt> _erlaubteVerfahren = [];
 
+    // Spiel/Runde, dessen Ergebnis aktuell im Formular steht (für Dirty-Check beim Spielwechsel)
+    private int? _formularSpielId;
+    private int? _formularRundeId;
+    private int  _spielWechselUnterdrueckt;
+
     private static readonly HashSet<string> _formFelder =
     [
         nameof(HeimToreRegulaer),       nameof(AuswaertsToreRegulaer),
@@ -329,7 +334,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
                 _ = BeiRundeAenderungAsync();
                 break;
             case nameof(AusgewaehlteSpiel):
-                _ = BeiSpielAenderungAsync();
+                _ = SpielWechselAsync();
                 break;
             case nameof(AusgewaehlteGruppe):
                 BeiGruppeFokusAenderung();
@@ -443,6 +448,62 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _zuGruppenWechselnBefehl.NotifyCanExecuteChanged();
     }
 
+    private async Task SpielWechselAsync()
+    {
+        // Programmatische Korrektur der Auswahl (siehe unten) — die aufrufende Stelle
+        // steuert selbst, ob/wie das Formular neu geladen wird.
+        if (_spielWechselUnterdrueckt > 0) return;
+
+        var neuesSpielId = AusgewaehlteSpiel?.Id;
+
+        if (IsDirty &&
+            _formularSpielId is { } vorherigeSpielId &&
+            _formularRundeId == AusgewaehlteRunde?.Id &&
+            vorherigeSpielId != neuesSpielId)
+        {
+            var vorherigeRundeId = _formularRundeId!.Value;
+
+            var ergebnis = MessageBox.Show(
+                "Das aktuelle Spielergebnis wurde geändert, aber nicht gespeichert.\nÄnderungen speichern?",
+                "Ungespeicherte Änderungen",
+                MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
+
+            // Auswahl erst nach Abschluss des aktuellen SelectionChanged-Zyklus setzen,
+            // sonst übernimmt die WPF-ListView die Änderung nicht ins sichtbare Highlight.
+            await Task.Yield();
+
+            _spielWechselUnterdrueckt++;
+            try
+            {
+                if (ergebnis == MessageBoxResult.Cancel)
+                {
+                    // Auswahl zurücksetzen, Formular NICHT neu laden — die ungespeicherte
+                    // Eingabe des Nutzers bleibt unverändert stehen.
+                    AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == vorherigeSpielId);
+                    return;
+                }
+
+                if (ergebnis == MessageBoxResult.Yes)
+                    await ErgebnisSpeichernAsync(vorherigeSpielId, vorherigeRundeId);
+
+                // ErgebnisSpeichernAsync baut die Spiele-Liste neu auf (neue Objektinstanzen)
+                // und setzt die WPF-Selektion dabei kurzzeitig auf null zurück — Zielspiel erneut
+                // anhand der Id auswählen, damit der Fokus tatsächlich wechselt.
+                AusgewaehlteSpiel = neuesSpielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == neuesSpielId) : null;
+            }
+            finally
+            {
+                _spielWechselUnterdrueckt--;
+            }
+
+            // Formular explizit einmalig auf den (nicht) ausgewählten Zielstand laden.
+            await BeiSpielAenderungAsync();
+            return;
+        }
+
+        await BeiSpielAenderungAsync();
+    }
+
     private async Task BeiSpielAenderungAsync()
     {
         FormAktiv     = false;
@@ -464,6 +525,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
     private void FormularAusFuellenMit(Spiel spiel)
     {
+        _formularSpielId = spiel.Id;
+        _formularRundeId = AusgewaehlteRunde?.Id;
+
         _populiertGerade++;
         try
         {
@@ -691,8 +755,15 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     private async Task SpeichernAsync()
     {
         if (AusgewaehlteSpiel is null || AusgewaehlteRunde is null) return;
-        var spielId   = AusgewaehlteSpiel.Id;
-        var rundeId   = AusgewaehlteRunde.Id;
+        var spielId = AusgewaehlteSpiel.Id;
+
+        if (await ErgebnisSpeichernAsync(spielId, AusgewaehlteRunde.Id))
+            AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
+    }
+
+    private async Task<bool> ErgebnisSpeichernAsync(int spielId, int rundeId)
+    {
+        if (AusgewaehlteRunde is null || AusgewaehlteRunde.Id != rundeId) return false;
         Fehlermeldung = null;
         try
         {
@@ -706,11 +777,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(FokusSpiele));
 
-            AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
+            return true;
         }
         catch (Exception ex)
         {
             Fehlermeldung = ex.Message;
+            return false;
         }
     }
 
