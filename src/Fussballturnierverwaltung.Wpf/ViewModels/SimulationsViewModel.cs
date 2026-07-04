@@ -17,7 +17,14 @@ using System.Windows.Input;
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
 public record SimulationsModusOption(string Anzeige, SimulationsModus Wert);
-public record EinzelspielEreignisZeile(string Minute, string Seite, string Art, bool IstHeimSeite);
+
+public record EinzelspielEreignisZeile(
+    string Minute, string Seite, string Art, bool IstHeimSeite,
+    bool IstTrenner = false, string? TrennerText = null)
+{
+    public static EinzelspielEreignisZeile Trenner(string text) =>
+        new("", "", "", false, IstTrenner: true, TrennerText: text);
+}
 
 public partial class SimulationsViewModel : ViewModelBase
 {
@@ -393,10 +400,23 @@ public partial class SimulationsViewModel : ViewModelBase
 
                 if (modus == SimulationsModus.AusfuehrlicheSimulation)
                 {
-                    foreach (var e in erg1.Ereignisse)
-                        ProtokollEreignisse.Add(MapEreignis(e, heim.Name, auswaerts.Name, "Hin"));
-                    foreach (var e in erg2.Ereignisse)
-                        ProtokollEreignisse.Add(MapEreignis(e, heim.Name, auswaerts.Name, "Rück", istRueckspielLeg: true));
+                    ZeitleisteHinzufuegen(
+                        erg1.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
+                        heim.Name, auswaerts.Name, erg1.EntscheidungArt,
+                        erg1.HeimToreRegulaer, erg1.AuswaertsToreRegulaer,
+                        erg1.HeimToreVerlaengerung, erg1.AuswaertsToreVerlaengerung,
+                        erg1.HeimElfmetertore, erg1.AuswaertsElfmetertore,
+                        minutenPraefix: "Hin");
+
+                    // erg2 wurde mit vertauschten Rollen simuliert (Auswärts spielt zu Hause) —
+                    // Seiten und Tore auf die feste Team-Identität (heim/auswaerts) zurückspiegeln.
+                    ZeitleisteHinzufuegen(
+                        erg2.Ereignisse.Select(ev => (ev.Minute, ev.Art, !ev.IstHeim)),
+                        heim.Name, auswaerts.Name, erg2.EntscheidungArt,
+                        erg2.AuswaertsToreRegulaer, erg2.HeimToreRegulaer,
+                        erg2.AuswaertsToreVerlaengerung, erg2.HeimToreVerlaengerung,
+                        erg2.AuswaertsElfmetertore, erg2.HeimElfmetertore,
+                        minutenPraefix: "Rück");
                 }
             }
             else
@@ -407,8 +427,12 @@ public partial class SimulationsViewModel : ViewModelBase
 
                 if (modus == SimulationsModus.AusfuehrlicheSimulation)
                 {
-                    foreach (var e in erg.Ereignisse)
-                        ProtokollEreignisse.Add(MapEreignis(e, heim.Name, auswaerts.Name, null));
+                    ZeitleisteHinzufuegen(
+                        erg.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
+                        heim.Name, auswaerts.Name, erg.EntscheidungArt,
+                        erg.HeimToreRegulaer, erg.AuswaertsToreRegulaer,
+                        erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
+                        erg.HeimElfmetertore, erg.AuswaertsElfmetertore);
                 }
             }
 
@@ -497,22 +521,13 @@ public partial class SimulationsViewModel : ViewModelBase
                 _                                 => ""
             };
             ProtokollZeilen.Add(ergebnis + detail);
-        }
 
-        foreach (var ereignis in spiel.Ereignisse.OrderBy(ev => ev.Minute))
-        {
-            bool istHeimSeite = ereignis.MannschaftId == spiel.HeimMannschaftId;
-            string seite = istHeimSeite ? heim : auswaerts;
-            string art   = ereignis.EreignisArt switch
-            {
-                EreignisArt.Tor        => "Tor",
-                EreignisArt.GelbeKarte => "Gelbe Karte",
-                EreignisArt.RoteKarte  => "Rote Karte",
-                EreignisArt.GoldenGoal => "Golden Goal",
-                EreignisArt.SilverGoal => "Silver Goal",
-                _                      => ereignis.EreignisArt.ToString()
-            };
-            ProtokollEreignisse.Add(new EinzelspielEreignisZeile($"{ereignis.Minute}'", seite, art, istHeimSeite));
+            ZeitleisteHinzufuegen(
+                spiel.Ereignisse.Select(ev => (ev.Minute, ev.EreignisArt, ev.MannschaftId == spiel.HeimMannschaftId)),
+                heim, auswaerts, e.EntscheidungArt,
+                e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
+                e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
+                e.HeimElfmetertore, e.AuswaertsElfmetertore);
         }
 
         OnPropertyChanged(nameof(HatProtokoll));
@@ -558,22 +573,79 @@ public partial class SimulationsViewModel : ViewModelBase
         return $"{heimName}  {heim}:{gast}  {auswaertsName}{detail}";
     }
 
-    private static EinzelspielEreignisZeile MapEreignis(
-        SimuliertesEreignis e, string heimName, string auswaertsName, string? spiel, bool istRueckspielLeg = false)
+    // Baut die Ereigniszeitleiste inkl. Abschnittstrenner (Halbzeit, 90 Minuten,
+    // Halbzeit/Ende Verlängerung, Elfmeterschießen) für ProtokollEreignisse auf.
+    private void ZeitleisteHinzufuegen(
+        IEnumerable<(int Minute, EreignisArt Art, bool IstHeimSeite)> ereignisse,
+        string heimName, string auswaertsName,
+        EntscheidungArt entscheidungArt,
+        int heimToreRegulaer, int auswaertsToreRegulaer,
+        int? heimToreVerlaengerung, int? auswaertsToreVerlaengerung,
+        int? heimElfmetertore, int? auswaertsElfmetertore,
+        string? minutenPraefix = null)
     {
-        string minute      = spiel is null ? $"{e.Minute}'" : $"{spiel} {e.Minute}'";
-        bool istHeimSeite  = istRueckspielLeg ? !e.IstHeim : e.IstHeim;
-        string seite       = istHeimSeite ? heimName : auswaertsName;
-        string art         = e.Art switch
+        bool istKlassischeVerlaengerung = entscheidungArt == EntscheidungArt.Verlaengerung;
+        bool hatVerlaengerung = istKlassischeVerlaengerung || entscheidungArt is EntscheidungArt.GoldenGoal or EntscheidungArt.SilverGoal;
+        bool hatElfmeter      = entscheidungArt == EntscheidungArt.Elfmeterschiessen;
+
+        bool halbzeitEingefuegt = false, neunzigEingefuegt = false, vzHalbzeitEingefuegt = false;
+        int heimStand = 0, auswaertsStand = 0;
+
+        void SchwellenPruefen(int minute)
+        {
+            if (!halbzeitEingefuegt && minute > 45)
+            {
+                ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner($"HALBZEIT ({heimStand}:{auswaertsStand})"));
+                halbzeitEingefuegt = true;
+            }
+            if (!neunzigEingefuegt && (hatVerlaengerung || hatElfmeter) && minute > 90)
+            {
+                ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner($"90 MINUTEN ({heimToreRegulaer}:{auswaertsToreRegulaer})"));
+                neunzigEingefuegt = true;
+            }
+            if (!vzHalbzeitEingefuegt && istKlassischeVerlaengerung && minute > 105)
+            {
+                ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner("HALBZEIT VERLÄNGERUNG"));
+                vzHalbzeitEingefuegt = true;
+            }
+        }
+
+        static string ArtText(EreignisArt art) => art switch
         {
             EreignisArt.Tor        => "Tor",
             EreignisArt.GelbeKarte => "Gelbe Karte",
             EreignisArt.RoteKarte  => "Rote Karte",
             EreignisArt.GoldenGoal => "Golden Goal",
             EreignisArt.SilverGoal => "Silver Goal",
-            _                      => e.Art.ToString()
+            _                      => art.ToString()
         };
-        return new EinzelspielEreignisZeile(minute, seite, art, istHeimSeite);
+
+        foreach (var (minute, art, istHeimSeite) in ereignisse.OrderBy(ev => ev.Minute))
+        {
+            SchwellenPruefen(minute);
+
+            if (art is EreignisArt.Tor or EreignisArt.GoldenGoal or EreignisArt.SilverGoal)
+            {
+                if (istHeimSeite) heimStand++; else auswaertsStand++;
+            }
+
+            string minuteText = minutenPraefix is null ? $"{minute}'" : $"{minutenPraefix} {minute}'";
+            ProtokollEreignisse.Add(new EinzelspielEreignisZeile(
+                minuteText, istHeimSeite ? heimName : auswaertsName, ArtText(art), istHeimSeite));
+        }
+
+        // Noch nicht erreichte Schwellen (z. B. Halbzeit ohne Tor, Spielende ohne Ereignis danach) nachtragen
+        SchwellenPruefen(int.MaxValue);
+
+        if (hatVerlaengerung)
+        {
+            int heimGesamt      = heimToreRegulaer      + (heimToreVerlaengerung ?? 0);
+            int auswaertsGesamt = auswaertsToreRegulaer + (auswaertsToreVerlaengerung ?? 0);
+            ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner($"ENDE VERLÄNGERUNG ({heimGesamt}:{auswaertsGesamt})"));
+        }
+
+        if (hatElfmeter)
+            ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner($"ELFMETERSCHIESSEN ({heimElfmetertore}:{auswaertsElfmetertore})"));
     }
 
     private SpielZeile MapSpielZeile(Spiel s, int positionInRunde = 0)
