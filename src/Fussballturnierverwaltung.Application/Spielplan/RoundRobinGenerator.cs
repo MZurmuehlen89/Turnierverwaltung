@@ -56,17 +56,23 @@ public class RoundRobinGenerator : ISpielplanGenerator
         }
 
         // Rückrunde: Heim/Auswärts tauschen, Spieltag-Offset += spieltage
+        var paare = new List<(int HinspielIndex, int RueckspielIndex)>();
         if (mitRueckspiel)
         {
             var hinrunde = spiele.ToList();
-            foreach (var s in hinrunde)
+            for (int hinIdx = 0; hinIdx < hinrunde.Count; hinIdx++)
             {
-                spiele.Add(Erstellen(kontext, s.AuswaertsMannschaftId!.Value, s.HeimMannschaftId!.Value,
-                    spielNr++, (s.Spieltag ?? 0) + spieltage));
+                var s = hinrunde[hinIdx];
+                int rueckIdx = spiele.Count;
+                var rueckspiel = Erstellen(kontext, s.AuswaertsMannschaftId!.Value, s.HeimMannschaftId!.Value,
+                    spielNr++, (s.Spieltag ?? 0) + spieltage);
+                rueckspiel.IstRueckspiel = true;
+                spiele.Add(rueckspiel);
+                paare.Add((hinIdx, rueckIdx));
             }
         }
 
-        return new SpielplanErgebnis { Runde = kontext.Runde, Spiele = spiele };
+        return new SpielplanErgebnis { Runde = kontext.Runde, Spiele = spiele, HinRueckspielPaare = paare };
     }
 
     private static Spiel Erstellen(SpielplanKontext k, int heimId, int auswId, int spielNr, int spieltag) =>

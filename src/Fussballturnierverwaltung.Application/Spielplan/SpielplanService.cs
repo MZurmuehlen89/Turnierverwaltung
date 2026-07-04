@@ -187,6 +187,7 @@ public class SpielplanService(
         var generator    = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
 
         var gruppenMitSpielen = new List<(int GruppenIndex, Spiel Spiel)>();
+        var hinRueckspielPaare = new List<(Spiel Hinspiel, Spiel Rueckspiel)>();
         int tempNr = 1;
 
         for (int gi = 0; gi < gruppen.Count; gi++)
@@ -203,6 +204,8 @@ public class SpielplanService(
             var ergebnis = generator.Generieren(kontext);
             foreach (var spiel in ergebnis.Spiele)
                 gruppenMitSpielen.Add((gi, spiel));
+            foreach (var (hinIdx, rueckIdx) in ergebnis.HinRueckspielPaare)
+                hinRueckspielPaare.Add((ergebnis.Spiele[hinIdx], ergebnis.Spiele[rueckIdx]));
             tempNr += ergebnis.Spiele.Count;
         }
 
@@ -213,7 +216,25 @@ public class SpielplanService(
             .ToList();
 
         if (alleSpiele.Count > 0)
-            await spielRepository.HinzufuegenMehrfachAsync(alleSpiele, ct);
+        {
+            if (hinRueckspielPaare.Count == 0)
+            {
+                await spielRepository.HinzufuegenMehrfachAsync(alleSpiele, ct);
+            }
+            else
+            {
+                // Zwei-Phasen-Speicherung: Hinspiele zuerst (EF Core vergibt IDs), dann
+                // HinspielId auf die Rückspiele setzen, bevor diese gespeichert werden.
+                var hinspiele = hinRueckspielPaare.Select(p => p.Hinspiel).ToList();
+                await spielRepository.HinzufuegenMehrfachAsync(hinspiele, ct);
+
+                foreach (var (hin, rueck) in hinRueckspielPaare)
+                    rueck.HinspielId = hin.Id;
+
+                var rueckspiele = hinRueckspielPaare.Select(p => p.Rueckspiel).ToList();
+                await spielRepository.HinzufuegenMehrfachAsync(rueckspiele, ct);
+            }
+        }
 
         logger.LogInformation(
             "Gruppenphase-Spielplan für Runde '{Runde}' generiert: {Gruppen} Gruppen, {Spiele} Spiele.",

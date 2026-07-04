@@ -13,6 +13,9 @@ public class RoundRobinGeneratorTests
     private static TurnierRunde TestRunde(int turnierInstanzId = 1) =>
         new() { Id = 1, TurnierInstanzId = turnierInstanzId, Name = "Liga", Rundenart = Rundenart.Liga, RegelwerkId = 1 };
 
+    private static TurnierRunde TestRundeMitRueckspiel(int turnierInstanzId = 1) =>
+        new() { Id = 1, TurnierInstanzId = turnierInstanzId, Name = "Liga", Rundenart = Rundenart.Liga, RegelwerkId = 1, MitRueckspiel = true };
+
     private static IReadOnlyList<Mannschaft> Teams(int anzahl) =>
         Enumerable.Range(1, anzahl)
             .Select(i => new Mannschaft { Id = i, Name = $"Team {i}" })
@@ -127,5 +130,55 @@ public class RoundRobinGeneratorTests
             alleTeams.Should().OnlyHaveUniqueItems(
                 $"Spieltag {spieltag}: jedes Team darf nur einmal spielen (n={teamAnzahl})");
         }
+    }
+
+    // ── MitRueckspiel (Regressionstest fuer Issue #96) ─────────────────────
+
+    [Fact]
+    public void MitRueckspiel_ErzeugtDoppelteAnzahlSpiele()
+    {
+        var kontext = new SpielplanKontext(TestRundeMitRueckspiel(), Teams(4), 1);
+        var ergebnis = _generator.Generieren(kontext);
+
+        ergebnis.Spiele.Should().HaveCount(12, "4 Teams → 6 Hinspiele + 6 Rückspiele");
+    }
+
+    [Fact]
+    public void MitRueckspiel_SetztHinRueckspielPaareUndIstRueckspielKorrekt()
+    {
+        var kontext = new SpielplanKontext(TestRundeMitRueckspiel(), Teams(4), 1);
+        var ergebnis = _generator.Generieren(kontext);
+
+        ergebnis.HatHinUndRueckspiele.Should().BeTrue();
+        ergebnis.HinRueckspielPaare.Should().HaveCount(6);
+
+        foreach (var (hinIdx, rueckIdx) in ergebnis.HinRueckspielPaare)
+        {
+            var hin   = ergebnis.Spiele[hinIdx];
+            var rueck = ergebnis.Spiele[rueckIdx];
+
+            hin.IstRueckspiel.Should().BeFalse();
+            rueck.IstRueckspiel.Should().BeTrue();
+            rueck.HeimMannschaftId.Should().Be(hin.AuswaertsMannschaftId,
+                "im Rückspiel wird Heim/Auswärts gegenüber dem Hinspiel getauscht");
+            rueck.AuswaertsMannschaftId.Should().Be(hin.HeimMannschaftId);
+        }
+    }
+
+    [Fact]
+    public void MitRueckspiel_RueckspieleHabenSpaetereSpieltage()
+    {
+        int n = 4;
+        int spieltageHinrunde = n - 1;
+        var kontext = new SpielplanKontext(TestRundeMitRueckspiel(), Teams(n), 1);
+        var ergebnis = _generator.Generieren(kontext);
+
+        var rueckspiele = ergebnis.HinRueckspielPaare
+            .Select(p => ergebnis.Spiele[p.RueckspielIndex])
+            .ToList();
+
+        rueckspiele.Should().AllSatisfy(r =>
+            r.Spieltag.Should().BeGreaterThan(spieltageHinrunde,
+                "Rückrunden-Spieltage müssen um die Anzahl der Hinrunden-Spieltage versetzt sein"));
     }
 }
