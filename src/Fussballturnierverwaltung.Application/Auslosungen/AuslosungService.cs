@@ -402,6 +402,17 @@ public class AuslosungService(
             .Select(_ => new List<TeilnehmerSlot>())
             .ToList();
 
+        if (gruppenAnzahl == 1)
+        {
+            // Liga: nur eine Gruppe — alle Teams aller Töpfe landen darin, keine Verteilung nötig.
+            // Die generische Verteilung unten setzt genau ein Team pro Topf und Gruppe voraus
+            // und würde hier alle bis auf ein Team je Topf verwerfen.
+            foreach (var topf in lostoepfe)
+                gruppen[0].AddRange(topf.Eintraege.Select(TeilnehmerSlot.AusEintrag));
+
+            return GruppenZuErgebnisse(gruppen);
+        }
+
         foreach (var topf in lostoepfe)
         {
             var slots     = topf.Eintraege.Select(TeilnehmerSlot.AusEintrag).ToList();
@@ -423,6 +434,15 @@ public class AuslosungService(
             .OrderBy(l => l.Reihenfolge)
             .SelectMany(l => l.Eintraege)
             .ToList();
+
+        if (gruppenAnzahl == 1)
+        {
+            // Liga: nur eine Gruppe — die Setzliste hat keinen Verteilungseffekt,
+            // alle Teams (gesetzt wie ungesetzt) landen in der einen Gruppe. Die
+            // Take(gruppenAnzahl) unten würde sonst alle bis auf ein gesetztes Team verwerfen.
+            var alle = alleEintraege.Select(TeilnehmerSlot.AusEintrag).ToList();
+            return GruppenZuErgebnisse([alle]);
+        }
 
         var gesetzte = alleEintraege
             .Where(e => e.SetzPosition.HasValue)

@@ -375,8 +375,12 @@ public class AuslosungAlgorithmusTests
     // LIGA
     // ══════════════════════════════════════════════════════════════════════════
 
+    // Liga wird wie eine Gruppenphase mit genau einer Gruppe ausgelost (Bug #18, Commit a88fe19):
+    // die Auslosung liefert Gruppen-Zuordnungen, keine Heim/Auswaerts-Paarungen. Die eigentlichen
+    // Spielpaarungen entstehen erst bei der Spielplan-Generierung (RoundRobinGenerator).
+
     [Fact]
-    public async Task Liga_Zufall_ErzeugtPaarungen()
+    public async Task Liga_Zufall_ErzeugtGruppenZuordnung_AlleTeamsInEinerGruppe()
     {
         var teams = Enumerable.Range(1, 6).Select(Team).ToList();
         var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
@@ -384,16 +388,14 @@ public class AuslosungAlgorithmusTests
 
         var ergebnisse = await Ausfuehren();
 
-        ergebnisse.Should().HaveCount(3, "6 Teams → 3 Paarungen");
-        ergebnisse.Should().AllSatisfy(e =>
-        {
-            e.HeimMannschaftId.Should().NotBeNull();
-            e.AuswaertsMannschaftId.Should().NotBeNull();
-        });
+        ergebnisse.Should().HaveCount(6, "6 Teams → 6 Gruppen-Einträge in der einen Liga-Gruppe");
+        ergebnisse.Should().AllSatisfy(e => IstGruppenZuordnung(e).Should().BeTrue());
+        ergebnisse.GroupBy(e => e.PaarungsNummer).Should().HaveCount(1);
+        AlleTeamIds(ergebnisse).Should().BeEquivalentTo(Enumerable.Range(1, 6));
     }
 
     [Fact]
-    public async Task Liga_TopfZuordnung_ErzeugtTopfUebergreifendePaarungen()
+    public async Task Liga_TopfZuordnung_ErzeugtGruppenZuordnung_AlleTeamsInEinerGruppe()
     {
         var topf1 = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)));
         var topf2 = Topf(2, 2, Eintrag(Team(3)), Eintrag(Team(4)));
@@ -401,29 +403,27 @@ public class AuslosungAlgorithmusTests
 
         var ergebnisse = await Ausfuehren();
 
-        ergebnisse.Should().NotBeEmpty();
-        ergebnisse.Should().AllSatisfy(e =>
-        {
-            e.HeimMannschaftId.Should().NotBeNull();
-            e.AuswaertsMannschaftId.Should().NotBeNull();
-        });
+        ergebnisse.Should().HaveCount(4);
+        ergebnisse.Should().AllSatisfy(e => IstGruppenZuordnung(e).Should().BeTrue());
+        ergebnisse.GroupBy(e => e.PaarungsNummer).Should().HaveCount(1);
+        AlleTeamIds(ergebnisse).Should().BeEquivalentTo(Enumerable.Range(1, 4));
     }
 
     [Fact]
-    public async Task Liga_NachToepfen_ErzeugtPaarungen()
+    public async Task Liga_NachToepfen_UebernimmtAlleTeamsAusAllenToepfen()
     {
+        // Regressionstest: GruppenphaseNachToepfenAusloesen nahm bei gruppenAnzahl=1 (Liga)
+        // bisher nur ein Team pro Topf und verwarf den Rest stillschweigend.
         var topf1 = Topf(1, 1, Enumerable.Range(1, 4).Select(i => Eintrag(Team(i))).ToArray());
         var topf2 = Topf(2, 2, Enumerable.Range(5, 4).Select(i => Eintrag(Team(i))).ToArray());
         AuslosungMit(Rundenart.Liga, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2]);
 
         var ergebnisse = await Ausfuehren();
 
-        ergebnisse.Should().NotBeEmpty();
-        ergebnisse.Should().AllSatisfy(e =>
-        {
-            e.HeimMannschaftId.Should().NotBeNull();
-            e.AuswaertsMannschaftId.Should().NotBeNull();
-        });
+        ergebnisse.Should().HaveCount(8, "alle Teams aus beiden Töpfen müssen in der einen Liga-Gruppe landen");
+        ergebnisse.Should().AllSatisfy(e => IstGruppenZuordnung(e).Should().BeTrue());
+        ergebnisse.GroupBy(e => e.PaarungsNummer).Should().HaveCount(1);
+        AlleTeamIds(ergebnisse).Should().BeEquivalentTo(Enumerable.Range(1, 8));
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -596,8 +596,10 @@ public class AuslosungAlgorithmusTests
     // ══════════════════════════════════════════════════════════════════════════
 
     [Fact]
-    public async Task Liga_NachSetzliste_GesetzteTeamsAlsHeim()
+    public async Task Liga_NachSetzliste_UebernimmtGesetzteUndUngesetzteTeams()
     {
+        // Regressionstest: GruppenphaseNachSetzlisteAusloesen nahm bei gruppenAnzahl=1 (Liga)
+        // bisher per Take(gruppenAnzahl) nur ein gesetztes Team und verwarf die übrigen.
         var gesetzte   = Enumerable.Range(1, 3).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
         var ungesetzte = Enumerable.Range(4, 3).Select(i => Eintrag(Team(i))).ToArray();
         var topf       = Topf(1, 1, [.. gesetzte, .. ungesetzte]);
@@ -605,17 +607,14 @@ public class AuslosungAlgorithmusTests
 
         var ergebnisse = await Ausfuehren();
 
-        ergebnisse.Should().HaveCount(3);
-        ergebnisse.Should().AllSatisfy(e =>
-        {
-            e.HeimMannschaftId.Should().NotBeNull();
-            e.AuswaertsMannschaftId.Should().NotBeNull();
-        });
+        ergebnisse.Should().HaveCount(6, "alle gesetzten und ungesetzten Teams müssen in der einen Liga-Gruppe landen");
+        ergebnisse.Should().AllSatisfy(e => IstGruppenZuordnung(e).Should().BeTrue());
+        ergebnisse.GroupBy(e => e.PaarungsNummer).Should().HaveCount(1);
         AlleTeamIds(ergebnisse).Should().BeEquivalentTo(Enumerable.Range(1, 6));
     }
 
     [Fact]
-    public async Task Liga_Benutzerdefiniert_ErzeugtPaarungen()
+    public async Task Liga_Benutzerdefiniert_ErzeugtGruppenZuordnung_AlleTeamsInEinerGruppe()
     {
         var teams = Enumerable.Range(1, 6).Select(Team).ToList();
         var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
@@ -623,12 +622,10 @@ public class AuslosungAlgorithmusTests
 
         var ergebnisse = await Ausfuehren();
 
-        ergebnisse.Should().HaveCount(3);
-        ergebnisse.Should().AllSatisfy(e =>
-        {
-            e.HeimMannschaftId.Should().NotBeNull();
-            e.AuswaertsMannschaftId.Should().NotBeNull();
-        });
+        ergebnisse.Should().HaveCount(6);
+        ergebnisse.Should().AllSatisfy(e => IstGruppenZuordnung(e).Should().BeTrue());
+        ergebnisse.GroupBy(e => e.PaarungsNummer).Should().HaveCount(1);
+        AlleTeamIds(ergebnisse).Should().BeEquivalentTo(Enumerable.Range(1, 6));
     }
 
     // ══════════════════════════════════════════════════════════════════════════
