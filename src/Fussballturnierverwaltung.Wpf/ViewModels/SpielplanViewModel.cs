@@ -773,8 +773,19 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
                 await GruppenTabellenLadenAsync(rundeId);
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
-            Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+
+            // Clear()/Add() setzt die WPF-Listenauswahl kurzzeitig auf null zurück — das darf
+            // hier keinen (fälschlichen) Dirty-Check-Dialog auslösen (siehe SpielWechselAsync).
+            _spielWechselUnterdrueckt++;
+            try
+            {
+                Spiele.Clear();
+                foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            }
+            finally
+            {
+                _spielWechselUnterdrueckt--;
+            }
             OnPropertyChanged(nameof(FokusSpiele));
 
             return true;
