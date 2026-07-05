@@ -613,8 +613,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 HeimToreRegulaer           = e.HeimToreRegulaer.ToString();
                 AuswaertsToreRegulaer      = e.AuswaertsToreRegulaer.ToString();
                 AusgewaehlteEntscheidungArt = e.EntscheidungArt;
-                HeimToreVerlaengerung      = e.HeimToreVerlaengerung?.ToString() ?? "";
-                AuswaertsToreVerlaengerung = e.AuswaertsToreVerlaengerung?.ToString() ?? "";
+                // Feld zeigt den kumulierten Stand NACH der Verlaengerung (nicht das Verlaengerungs-
+                // Delta) — entspricht der ueblichen Ergebnisdarstellung ("2:2 nach Verlaengerung").
+                HeimToreVerlaengerung      = e.HeimToreVerlaengerung.HasValue
+                    ? (e.HeimToreRegulaer + e.HeimToreVerlaengerung.Value).ToString()
+                    : "";
+                AuswaertsToreVerlaengerung = e.AuswaertsToreVerlaengerung.HasValue
+                    ? (e.AuswaertsToreRegulaer + e.AuswaertsToreVerlaengerung.Value).ToString()
+                    : "";
                 HeimElfmetertore           = e.HeimElfmetertore?.ToString() ?? "";
                 AuswaertsElfmetertore      = e.AuswaertsElfmetertore?.ToString() ?? "";
             }
@@ -905,14 +911,25 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
 
-    private ErgebnisErfassenEingabe BaueEingabe() => new(
-        ParseInt(HeimToreRegulaer),
-        ParseInt(AuswaertsToreRegulaer),
-        AusgewaehlteEntscheidungArt,
-        ParseIntNullable(HeimToreVerlaengerung),
-        ParseIntNullable(AuswaertsToreVerlaengerung),
-        ParseIntNullable(HeimElfmetertore),
-        ParseIntNullable(AuswaertsElfmetertore));
+    private ErgebnisErfassenEingabe BaueEingabe()
+    {
+        int heimRegulaer      = ParseInt(HeimToreRegulaer);
+        int auswaertsRegulaer = ParseInt(AuswaertsToreRegulaer);
+
+        // Das Formular zeigt/erwartet den kumulierten Stand nach der Verlaengerung —
+        // fuer die Speicherung auf das intern verwendete Verlaengerungs-Delta zurueckrechnen.
+        int? heimVerlaengerungDelta      = ParseIntNullable(HeimToreVerlaengerung)      is { } hv ? hv - heimRegulaer      : null;
+        int? auswaertsVerlaengerungDelta = ParseIntNullable(AuswaertsToreVerlaengerung) is { } av ? av - auswaertsRegulaer : null;
+
+        return new(
+            heimRegulaer,
+            auswaertsRegulaer,
+            AusgewaehlteEntscheidungArt,
+            heimVerlaengerungDelta,
+            auswaertsVerlaengerungDelta,
+            ParseIntNullable(HeimElfmetertore),
+            ParseIntNullable(AuswaertsElfmetertore));
+    }
 
     private void AktualisiereBefehle()
     {
