@@ -3,6 +3,28 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:Fussballturnierverwaltung.Wpf.ViewModels">
 
+    <UserControl.Resources>
+        <Style x:Key="TeamSucheTextBox" TargetType="TextBox">
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Style.Triggers>
+                <Trigger Property="Text" Value="">
+                    <Setter Property="Background">
+                        <Setter.Value>
+                            <VisualBrush Stretch="None" AlignmentX="Left">
+                                <VisualBrush.Visual>
+                                    <TextBlock Text="🔍  Suche…" Foreground="#9CA3AF" Margin="6,4" FontSize="12" />
+                                </VisualBrush.Visual>
+                            </VisualBrush>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="260" MinWidth="200" MaxWidth="340" />
@@ -156,14 +178,40 @@
 
                         <TextBlock Text="HEIMTEAM" FontSize="10" FontWeight="Bold"
                                    Foreground="#94A3B8" Margin="0,4,0,4" />
-                        <ComboBox ItemsSource="{Binding AlleMannschaften}"
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Text="{Binding HeimSuchbegriff, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource TeamSucheTextBox}" />
+                            <ComboBox Grid.Column="2" ItemsSource="{Binding VerbandFilterOptionen}"
+                                      SelectedItem="{Binding HeimVerbandFilter}"
+                                      DisplayMemberPath="Anzeige"
+                                      Padding="4,2" FontSize="12" />
+                        </Grid>
+                        <ComboBox ItemsSource="{Binding HeimMannschaftenGefiltert}"
                                   SelectedItem="{Binding EinzelspielHeim}"
                                   DisplayMemberPath="Name"
                                   FontSize="13" />
 
                         <TextBlock Text="AUSWÄRTSTEAM" FontSize="10" FontWeight="Bold"
                                    Foreground="#94A3B8" Margin="0,12,0,4" />
-                        <ComboBox ItemsSource="{Binding AlleMannschaften}"
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Text="{Binding AuswaertsSuchbegriff, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource TeamSucheTextBox}" />
+                            <ComboBox Grid.Column="2" ItemsSource="{Binding VerbandFilterOptionen}"
+                                      SelectedItem="{Binding AuswaertsVerbandFilter}"
+                                      DisplayMemberPath="Anzeige"
+                                      Padding="4,2" FontSize="12" />
+                        </Grid>
+                        <ComboBox ItemsSource="{Binding AuswaertsMannschaftenGefiltert}"
                                   SelectedItem="{Binding EinzelspielAuswaerts}"
                                   DisplayMemberPath="Name"
                                   FontSize="13" />

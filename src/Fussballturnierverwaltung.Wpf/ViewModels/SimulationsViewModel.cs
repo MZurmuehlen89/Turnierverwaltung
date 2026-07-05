@@ -33,6 +33,7 @@ public partial class SimulationsViewModel : ViewModelBase
     private readonly TurnierInstanzService _instanzService;
     private readonly MannschaftService     _mannschaftService;
     private readonly RegelwerkService      _regelwerkService;
+    private readonly VerbandService        _verbandService;
 
     private int _ladeUnterdrückt;
 
@@ -72,6 +73,12 @@ public partial class SimulationsViewModel : ViewModelBase
 
     [ObservableProperty] private ObservableCollection<Mannschaft> _alleMannschaften = [];
     [ObservableProperty] private ObservableCollection<Regelwerk>  _alleRegelwerke   = [];
+    [ObservableProperty] private ObservableCollection<Verband>    _alleVerbaende    = [];
+
+    private static readonly VerbandFilterOption AllesVerband = new("— Alle —", null);
+
+    public IReadOnlyList<VerbandFilterOption> VerbandFilterOptionen =>
+        [AllesVerband, ..AlleVerbaende.Select(v => new VerbandFilterOption(v.Name, v))];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EinzelspielKannSimuliert))]
@@ -83,6 +90,35 @@ public partial class SimulationsViewModel : ViewModelBase
 
     [ObservableProperty] private Regelwerk? _einzelspielRegelwerk;
     [ObservableProperty] private bool       _einzelspielMitRueckspiel;
+
+    // Verband-Filter + Suche je Seite — Heim und Auswaerts unabhaengig voneinander filterbar.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HeimMannschaftenGefiltert))]
+    private VerbandFilterOption _heimVerbandFilter = AllesVerband;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HeimMannschaftenGefiltert))]
+    private string _heimSuchbegriff = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AuswaertsMannschaftenGefiltert))]
+    private VerbandFilterOption _auswaertsVerbandFilter = AllesVerband;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AuswaertsMannschaftenGefiltert))]
+    private string _auswaertsSuchbegriff = "";
+
+    public IEnumerable<Mannschaft> HeimMannschaftenGefiltert => AlleMannschaften
+        .Where(m => HeimVerbandFilter.Wert is null || m.Land?.VerbandId == HeimVerbandFilter.Wert.Id)
+        .Where(m => string.IsNullOrWhiteSpace(HeimSuchbegriff)
+            || m.Name.Contains(HeimSuchbegriff, StringComparison.OrdinalIgnoreCase)
+            || m.Kurzname.Contains(HeimSuchbegriff, StringComparison.OrdinalIgnoreCase));
+
+    public IEnumerable<Mannschaft> AuswaertsMannschaftenGefiltert => AlleMannschaften
+        .Where(m => AuswaertsVerbandFilter.Wert is null || m.Land?.VerbandId == AuswaertsVerbandFilter.Wert.Id)
+        .Where(m => string.IsNullOrWhiteSpace(AuswaertsSuchbegriff)
+            || m.Name.Contains(AuswaertsSuchbegriff, StringComparison.OrdinalIgnoreCase)
+            || m.Kurzname.Contains(AuswaertsSuchbegriff, StringComparison.OrdinalIgnoreCase));
 
     public bool EinzelspielKannSimuliert =>
         EinzelspielHeim is not null &&
@@ -138,13 +174,15 @@ public partial class SimulationsViewModel : ViewModelBase
         SpielErgebnisService  spielService,
         TurnierInstanzService instanzService,
         MannschaftService     mannschaftService,
-        RegelwerkService      regelwerkService)
+        RegelwerkService      regelwerkService,
+        VerbandService        verbandService)
     {
         _simulationsService  = simulationsService;
         _spielService        = spielService;
         _instanzService      = instanzService;
         _mannschaftService   = mannschaftService;
         _regelwerkService    = regelwerkService;
+        _verbandService      = verbandService;
 
         AusgewaehlterModus = ModusOptionen[0];
 
@@ -159,17 +197,24 @@ public partial class SimulationsViewModel : ViewModelBase
     public override async Task AktivierenAsync()
     {
         var instanzListe     = await _instanzService.AlleAbrufenAsync();
-        var mannschaftsListe = await _mannschaftService.AlleAbrufenAsync();
+        var mannschaftsListe = await _mannschaftService.AlleAbrufenMitLandAsync();
         var regelwerkListe   = await _regelwerkService.AlleAbrufenAsync();
+        var verbandListe     = await _verbandService.AlleAbrufenAsync();
 
         Instanzen.Clear();
         foreach (var i in instanzListe) Instanzen.Add(i);
 
         AlleMannschaften.Clear();
         foreach (var m in mannschaftsListe.OrderBy(m => m.Name)) AlleMannschaften.Add(m);
+        OnPropertyChanged(nameof(HeimMannschaftenGefiltert));
+        OnPropertyChanged(nameof(AuswaertsMannschaftenGefiltert));
 
         AlleRegelwerke.Clear();
         foreach (var r in regelwerkListe) AlleRegelwerke.Add(r);
+
+        AlleVerbaende.Clear();
+        foreach (var verband in verbandListe.OrderBy(x => x.Name)) AlleVerbaende.Add(verband);
+        OnPropertyChanged(nameof(VerbandFilterOptionen));
 
         if (Vorauswahl is { } v)
         {
