@@ -24,6 +24,10 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
 
     public bool HatInstanz => AusgewaehlteInstanz is not null;
 
+    // Ein Turnierbaum ergibt nur bei mehreren aufeinanderfolgenden Runden Sinn — bei genau einer
+    // Runde (oder keiner) entfaellt die Split-Ansicht komplett zugunsten des vollen Spielplans.
+    public bool ZeigeSplitAnsicht => SpielplanVm.Runden.Count > 1;
+
     [ObservableProperty] private string? _fortschrittAnzeige;
 
     public TurnierBereichViewModel(
@@ -66,6 +70,7 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
     {
         var instanz = AusgewaehlteInstanz;
         await SpielplanVm.LadeInstanzAsync(instanz);
+        OnPropertyChanged(nameof(ZeigeSplitAnsicht));
         await TurnierBaumVm.LadeInstanzAsync(instanz);
         await FortschrittAktualisierenAsync();
     }
