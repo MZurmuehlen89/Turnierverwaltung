@@ -156,13 +156,17 @@ public class SpielRepository(TurnierverwaltungDbContext context)
     public async Task PlatzhalterAktualisierenAsync(
         int spielId, int heimMannschaftId, int auswaertsMannschaftId, CancellationToken ct = default)
     {
-        await Context.Spiele
-            .Where(s => s.Id == spielId)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(x => x.HeimMannschaftId,         heimMannschaftId)
-                .SetProperty(x => x.AuswaertsMannschaftId,    auswaertsMannschaftId)
-                .SetProperty(x => x.HeimPlatzhalterName,      (string?)null)
-                .SetProperty(x => x.AuswaertsPlatzhalterName, (string?)null),
-            ct);
+        // Kein ExecuteUpdateAsync: das umgeht den Change-Tracker, wodurch bereits im selben
+        // (scope-langlebigen) DbContext geladene Spiel-Instanzen veraltet bleiben und bei
+        // erneutem Laden per Identity-Resolution zurueckgegeben werden (sichtbar erst nach
+        // Neustart der App).
+        var spiel = await Context.Spiele.FirstOrDefaultAsync(s => s.Id == spielId, ct);
+        if (spiel is null) return;
+
+        spiel.HeimMannschaftId         = heimMannschaftId;
+        spiel.AuswaertsMannschaftId    = auswaertsMannschaftId;
+        spiel.HeimPlatzhalterName      = null;
+        spiel.AuswaertsPlatzhalterName = null;
+        await Context.SaveChangesAsync(ct);
     }
 }

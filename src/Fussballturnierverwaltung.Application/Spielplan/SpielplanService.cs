@@ -390,7 +390,7 @@ public class SpielplanService(
         {
             if (string.IsNullOrWhiteSpace(name)) return null;
             if (cache.TryGetValue(name, out var cached)) return cached;
-            var result = await PlatzhalterNameAufloessenAsync(name, alleRunden, ct);
+            var result = await PlatzhalterNameAufloessenAsync(name, runde, alleRunden, ct);
             cache[name] = result;
             return result;
         }
@@ -422,33 +422,33 @@ public class SpielplanService(
     private static readonly Regex _koVerliererRx    = new(@"^Verlierer ([A-Za-z0-9.]+) (\d+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private async Task<int?> PlatzhalterNameAufloessenAsync(
-        string name, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
+        string name, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
     {
         // Pattern 1: "Sieger Gruppe A" → Rang 1 der Gruppe A
         var m = _gruppenSiegerRx.Match(name);
         if (m.Success)
-            return await GruppenrangAufloessenAsync(m.Groups[1].Value, 1, alleRunden, ct);
+            return await GruppenrangAufloessenAsync(m.Groups[1].Value, 1, runde, alleRunden, ct);
 
         // Pattern 2: "2. Gruppe A" → Rang 2 der Gruppe A
         m = _gruppenRangRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[1].Value, out int rang))
-            return await GruppenrangAufloessenAsync(m.Groups[2].Value, rang, alleRunden, ct);
+            return await GruppenrangAufloessenAsync(m.Groups[2].Value, rang, runde, alleRunden, ct);
 
         // Pattern 3: "Sieger VF 1" → Sieger des 1. Spiels im Viertelfinale
         m = _koSiegerRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[2].Value, out int spielNr))
-            return await KoSiegerAufloessenAsync(m.Groups[1].Value, spielNr, alleRunden, ct);
+            return await KoSiegerAufloessenAsync(m.Groups[1].Value, spielNr, runde, alleRunden, ct);
 
         // Pattern 4: "Verlierer HF 1" → Verlierer des 1. Spiels im Halbfinale
         m = _koVerliererRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[2].Value, out spielNr))
-            return await KoVerliererAufloessenAsync(m.Groups[1].Value, spielNr, alleRunden, ct);
+            return await KoVerliererAufloessenAsync(m.Groups[1].Value, spielNr, runde, alleRunden, ct);
 
         return null;
     }
 
     private async Task<int?> GruppenrangAufloessenAsync(
-        string gruppenKennung, int rang, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
+        string gruppenKennung, int rang, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
     {
         // Gruppenkennung → Gruppenindex (A=1, B=2, ... oder direkte Zahl)
         int gruppenNummer = gruppenKennung.Length == 1 && char.IsLetter(gruppenKennung[0])
@@ -457,7 +457,12 @@ public class SpielplanService(
 
         if (gruppenNummer <= 0) return null;
 
-        var gruppenphaseRunde = alleRunden.FirstOrDefault(r => r.Rundenart == Rundenart.Gruppenphase);
+        // Bei mehreren Gruppenphase-Runden im selben Turnier (z.B. "Gruppenphase 1" + "Gruppenphase 2")
+        // muss die naechstgelegene VORHERGEHENDE Gruppenphase verwendet werden, nicht immer die erste.
+        var gruppenphaseRunde = alleRunden
+            .Where(r => r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge < runde.Reihenfolge)
+            .OrderByDescending(r => r.Reihenfolge)
+            .FirstOrDefault();
         if (gruppenphaseRunde is null) return null;
 
         var gruppenTabellen = await tabellenService.GruppenTabellenBerechnenAsync(gruppenphaseRunde.Id, ct);
@@ -481,14 +486,19 @@ public class SpielplanService(
     };
 
     private async Task<int?> KoSiegerAufloessenAsync(
-        string kuerzel, int spielNummer, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
+        string kuerzel, int spielNummer, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
     {
         int? eingangTeams = KuerzelZuEingangsteams(kuerzel);
         if (eingangTeams is null) return null;
 
-        var koRunde = alleRunden.FirstOrDefault(r =>
-            r.Rundenart is Rundenart.KoRunde or Rundenart.Finale &&
-            r.EingangsMannschaftsanzahl == eingangTeams.Value);
+        // Bei mehreren KO-Zweigen mit gleicher Eingangs-Mannschaftsanzahl im selben Turnier
+        // muss die naechstgelegene VORHERGEHENDE Runde verwendet werden, nicht immer die erste.
+        var koRunde = alleRunden
+            .Where(r => r.Rundenart is Rundenart.KoRunde or Rundenart.Finale &&
+                        r.EingangsMannschaftsanzahl == eingangTeams.Value &&
+                        r.Reihenfolge < runde.Reihenfolge)
+            .OrderByDescending(r => r.Reihenfolge)
+            .FirstOrDefault();
         if (koRunde is null) return null;
 
         var koSpiele = (await spielRepository.AlleNachRundeAsync(koRunde.Id, ct))
@@ -501,14 +511,19 @@ public class SpielplanService(
     }
 
     private async Task<int?> KoVerliererAufloessenAsync(
-        string kuerzel, int spielNummer, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
+        string kuerzel, int spielNummer, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
     {
         int? eingangTeams = KuerzelZuEingangsteams(kuerzel);
         if (eingangTeams is null) return null;
 
-        var koRunde = alleRunden.FirstOrDefault(r =>
-            r.Rundenart is Rundenart.KoRunde &&
-            r.EingangsMannschaftsanzahl == eingangTeams.Value);
+        // Bei mehreren KO-Zweigen mit gleicher Eingangs-Mannschaftsanzahl im selben Turnier
+        // muss die naechstgelegene VORHERGEHENDE Runde verwendet werden, nicht immer die erste.
+        var koRunde = alleRunden
+            .Where(r => r.Rundenart is Rundenart.KoRunde &&
+                        r.EingangsMannschaftsanzahl == eingangTeams.Value &&
+                        r.Reihenfolge < runde.Reihenfolge)
+            .OrderByDescending(r => r.Reihenfolge)
+            .FirstOrDefault();
         if (koRunde is null) return null;
 
         var koSpiele = (await spielRepository.AlleNachRundeAsync(koRunde.Id, ct))
