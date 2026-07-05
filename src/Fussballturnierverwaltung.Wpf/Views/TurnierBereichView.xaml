@@ -15,6 +15,10 @@
                           SelectedItem="{Binding AusgewaehlteInstanz}"
                           DisplayMemberPath="Name"
                           Width="220" FontSize="13" />
+                <TextBlock Text="{Binding FortschrittAnzeige}"
+                           Visibility="{Binding FortschrittAnzeige, Converter={StaticResource NullToCollapsed}}"
+                           FontSize="12" Foreground="#475569"
+                           VerticalAlignment="Center" Margin="16,0,0,0" />
             </StackPanel>
         </Border>
 

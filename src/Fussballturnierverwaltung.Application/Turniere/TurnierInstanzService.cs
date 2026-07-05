@@ -11,6 +11,7 @@ namespace Fussballturnierverwaltung.Application.Turniere;
 public class TurnierInstanzService(
     ITurnierInstanzRepository repository,
     ITurnierRundeRepository rundeRepository,
+    ISpielRepository spielRepository,
     TurnierValidator validator,
     ILogger<TurnierInstanzService> logger)
 {
@@ -19,6 +20,27 @@ public class TurnierInstanzService(
 
     public Task<TurnierInstanz?> FindenNachIdMitRundenAsync(int id, CancellationToken ct = default)
         => repository.FindenNachIdMitRundenAsync(id, ct);
+
+    // Eine Runde gilt als abgeschlossen, wenn ihr Spielplan generiert ist und alle Spiele
+    // den Status Abgeschlossen haben.
+    public async Task<TurnierFortschritt> FortschrittAbrufenAsync(int turnierInstanzId, CancellationToken ct = default)
+    {
+        var runden = await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
+        var spiele = await spielRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
+        var spieleNachRunde = spiele.ToLookup(s => s.TurnierRundeId);
+
+        int rundenAbgeschlossen = runden.Count(r =>
+        {
+            var rundenSpiele = spieleNachRunde[r.Id];
+            return rundenSpiele.Any() && rundenSpiele.All(s => s.Status == SpielStatus.Abgeschlossen);
+        });
+
+        return new TurnierFortschritt(
+            RundenAbgeschlossen: rundenAbgeschlossen,
+            RundenGesamt: runden.Count,
+            SpieleGespielt: spiele.Count(s => s.Status == SpielStatus.Abgeschlossen),
+            SpieleGesamt: spiele.Count);
+    }
 
     /// <summary>Legt eine TurnierInstanz ohne Runden an (Runden werden später im Runden-Editor gepflegt).</summary>
     public async Task<TurnierInstanz> ErstellenAsync(

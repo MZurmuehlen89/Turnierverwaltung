@@ -24,6 +24,8 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
 
     public bool HatInstanz => AusgewaehlteInstanz is not null;
 
+    [ObservableProperty] private string? _fortschrittAnzeige;
+
     public TurnierBereichViewModel(
         TurnierInstanzService instanzService,
         SpielplanViewModel   spielplanVm,
@@ -39,6 +41,8 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
             if (runde is not null)
                 SpielplanVm.AusgewaehlteRunde = runde;
         };
+
+        SpielplanVm.SpielstandGeaendertAsync = FortschrittAktualisierenAsync;
     }
 
     public override async Task AktivierenAsync()
@@ -63,6 +67,22 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
         var instanz = AusgewaehlteInstanz;
         await SpielplanVm.LadeInstanzAsync(instanz);
         await TurnierBaumVm.LadeInstanzAsync(instanz);
+        await FortschrittAktualisierenAsync();
+    }
+
+    private async Task FortschrittAktualisierenAsync()
+    {
+        if (AusgewaehlteInstanz is not { } instanz)
+        {
+            FortschrittAnzeige = null;
+            return;
+        }
+
+        var fortschritt = await _instanzService.FortschrittAbrufenAsync(instanz.Id);
+        FortschrittAnzeige = fortschritt.RundenGesamt == 0
+            ? null
+            : $"Runde {Math.Min(fortschritt.RundenAbgeschlossen + 1, fortschritt.RundenGesamt)} von {fortschritt.RundenGesamt} · " +
+              $"{fortschritt.SpieleGespielt} / {fortschritt.SpieleGesamt} Spiele gespielt";
     }
 
     // ── IRibbonAware — immer an SpielplanVm delegiert ────────────────────────

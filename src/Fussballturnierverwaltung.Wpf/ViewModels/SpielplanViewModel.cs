@@ -491,7 +491,15 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             await GruppenTabellenLadenAsync(rundeId);
         else if (AusgewaehlteRunde?.Rundenart == Rundenart.Liga)
             await LigaTabelleLadenAsync(rundeId);
+
+        if (SpielstandGeaendertAsync is not null)
+            await SpielstandGeaendertAsync();
     }
+
+    // Bewusst kein event (fire-and-forget wuerde parallel zum naechsten DbContext-Zugriff
+    // im Aufrufer laufen und "A second operation was started on this context..." ausloesen) —
+    // stattdessen ein awaitbares Delegate fuer die Turnier-Fortschrittsanzeige.
+    public Func<Task>? SpielstandGeaendertAsync { get; set; }
 
     private void LigaAnsichtWaehlen(TabellenAnsicht ansicht)
     {
