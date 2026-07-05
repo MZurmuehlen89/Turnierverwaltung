@@ -7,6 +7,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
+using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -150,7 +151,7 @@ public record AuslosungsartOption(string Anzeige, Auslosungsart Wert);
 
 // ── Haupt-ViewModel ─────────────────────────────────────────────────────────
 
-public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
+public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly AuslosungService _auslosungService;
     private readonly TurnierInstanzService _instanzService;
@@ -1064,6 +1065,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware
     private bool KannSpeichern() => (NeuFormAktiv && NeuRunde is not null)
                                  || (IstDetailDirty && IstBearbeitbar);
     private bool KannAbbrechen() => NeuFormAktiv || IstDetailDirty;
+
+    public bool HatUngespeicherteAenderungen => NeuFormAktiv || IstDetailDirty;
     private bool KannLoeschen()  => AusgewaehlteAuslosung is not null && !NeuFormAktiv;
 
     partial void OnDetailNameChanged(string value)           { if (!_ladenAktiv) IstDetailDirty = true; }

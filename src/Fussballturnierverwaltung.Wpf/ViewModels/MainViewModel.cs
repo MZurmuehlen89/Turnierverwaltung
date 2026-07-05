@@ -47,10 +47,10 @@ public partial class MainViewModel : ViewModelBase
             Titel = "Stammdaten",
             Eintraege =
             [
-                EintragErstellen("Mannschaften",      () => _navigation.NavigiereZu<MannschaftenViewModel>()),
-                EintragErstellen("Länder & Verbände", () => _navigation.NavigiereZu<LandUndVerbandViewModel>()),
-                EintragErstellen("Regelwerke",        () => _navigation.NavigiereZu<RegelwerkViewModel>()),
-                EintragErstellen("Turniervorlagen",   () => _navigation.NavigiereZu<TurnierVorlageViewModel>()),
+                EintragErstellen("Mannschaften",      () => _navigation.NavigiereZuAsync<MannschaftenViewModel>()),
+                EintragErstellen("Länder & Verbände", () => _navigation.NavigiereZuAsync<LandUndVerbandViewModel>()),
+                EintragErstellen("Regelwerke",        () => _navigation.NavigiereZuAsync<RegelwerkViewModel>()),
+                EintragErstellen("Turniervorlagen",   () => _navigation.NavigiereZuAsync<TurnierVorlageViewModel>()),
             ]
         });
 
@@ -59,11 +59,11 @@ public partial class MainViewModel : ViewModelBase
             Titel = "Bewegungsdaten",
             Eintraege =
             [
-                EintragErstellen("Turniere",           () => _navigation.NavigiereZu<TurnierInstanzViewModel>()),
-                EintragErstellen("Runden",             () => _navigation.NavigiereZu<RundenEditorViewModel>()),
-                EintragErstellen("Auslosung",          () => _navigation.NavigiereZu<AuslosungViewModel>()),
-                EintragErstellen("Spielplan & Baum",   () => _navigation.NavigiereZu<TurnierBereichViewModel>()),
-                EintragErstellen("Simulation",         () => _navigation.NavigiereZu<SimulationsViewModel>()),
+                EintragErstellen("Turniere",           () => _navigation.NavigiereZuAsync<TurnierInstanzViewModel>()),
+                EintragErstellen("Runden",             () => _navigation.NavigiereZuAsync<RundenEditorViewModel>()),
+                EintragErstellen("Auslosung",          () => _navigation.NavigiereZuAsync<AuslosungViewModel>()),
+                EintragErstellen("Spielplan & Baum",   () => _navigation.NavigiereZuAsync<TurnierBereichViewModel>()),
+                EintragErstellen("Simulation",         () => _navigation.NavigiereZuAsync<SimulationsViewModel>()),
             ]
         });
 
@@ -72,7 +72,7 @@ public partial class MainViewModel : ViewModelBase
             Titel = "Import / Export",
             Eintraege =
             [
-                EintragErstellen("Import / Export",   () => _navigation.NavigiereZu<ImportExportViewModel>()),
+                EintragErstellen("Import / Export",   () => _navigation.NavigiereZuAsync<ImportExportViewModel>()),
             ]
         });
     }
@@ -94,12 +94,12 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    private NavigationsEintrag EintragErstellen(string titel, Action aktion)
-        => new() { Titel = titel, Befehl = new RelayCommand(aktion) };
+    private NavigationsEintrag EintragErstellen(string titel, Func<Task> aktion)
+        => new() { Titel = titel, Befehl = new AsyncRelayCommand(aktion) };
 
-    private void NavigiereZuPlatzhalter(string titel)
+    private async Task NavigiereZuPlatzhalterAsync(string titel)
     {
-        _navigation.NavigiereZu<PlatzhalterViewModel>();
+        await _navigation.NavigiereZuAsync<PlatzhalterViewModel>();
         if (_navigation.AktuellesViewModel is PlatzhalterViewModel ph)
             ph.SeitenTitel = titel;
     }

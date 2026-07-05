@@ -4,6 +4,7 @@ using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
+using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -18,7 +19,7 @@ public record LandFilterOption(string Anzeige, Land? Wert);
 public record VerbandFilterOption(string Anzeige, Verband? Wert);
 public record ArtFilterOption(string Anzeige, Mannschaftsart? Wert);
 
-public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware
+public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly MannschaftService _mannschaftService;
     private readonly LandService _landService;
@@ -350,5 +351,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware
 
     private bool KannSpeichern() => FormularAktiv && IsDirty;
     private bool KannAbbrechen() => FormularAktiv && IsDirty;
+
+    public bool HatUngespeicherteAenderungen => FormularAktiv && IsDirty;
     private bool KannLoeschen() => Ausgewaehlte is not null && !IstNeuModus;
 }

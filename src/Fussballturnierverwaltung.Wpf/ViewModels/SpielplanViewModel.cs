@@ -44,7 +44,7 @@ public class SpielZeile
 
 // ── ViewModel ─────────────────────────────────────────────────────────────────
 
-public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
+public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly SpielErgebnisService  _spielService;
     private readonly TurnierInstanzService _instanzService;
@@ -192,6 +192,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private bool _formAktiv;
     [ObservableProperty] private bool _isDirty;
     [ObservableProperty] private string? _fehlermeldung;
+
+    public bool HatUngespeicherteAenderungen => FormAktiv && IsDirty;
 
     [ObservableProperty] private string _formHeimName = "";
     [ObservableProperty] private string _formAuswaertsName = "";
@@ -1152,18 +1154,17 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         }
     }
 
-    private Task AusfuehrlichSimulierenAsync()
+    private async Task AusfuehrlichSimulierenAsync()
     {
         if (AusgewaehlteSpiel is null || AusgewaehlteRunde is null || AusgewaehlteInstanz is null)
-            return Task.CompletedTask;
+            return;
 
         var vorauswahl = new VorausgewaehlteSimulation(
             AusgewaehlteInstanz.Id,
             AusgewaehlteRunde.Id,
             AusgewaehlteSpiel.Id);
 
-        _navigationService.NavigiereZu<SimulationsViewModel>(vm => vm.Vorauswahl = vorauswahl);
-        return Task.CompletedTask;
+        await _navigationService.NavigiereZuAsync<SimulationsViewModel>(vm => vm.Vorauswahl = vorauswahl);
     }
 
     private async Task RundeSimulierenAsync()

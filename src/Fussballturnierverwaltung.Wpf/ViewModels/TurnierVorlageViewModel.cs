@@ -6,6 +6,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Wpf.Converters;
+using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -37,7 +38,7 @@ public partial class VorlagenRundeZeile : ObservableObject
     [ObservableProperty] private RegelwerkOption _regelwerk = new("— Wählen —", null);
 }
 
-public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
+public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly TurnierVorlageService _service;
     private readonly RegelwerkService _regelwerkService;
@@ -411,6 +412,8 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
 
     private bool KannSpeichern() => FormularAktiv && IsDirty;
     private bool KannAbbrechen() => FormularAktiv && IsDirty;
+
+    public bool HatUngespeicherteAenderungen => FormularAktiv && IsDirty;
     private bool KannLoeschen() => Ausgewaehltes is not null && !IstNeuModus;
     private bool KannRundeEntfernen() => AusgewaehlteRunde is not null;
     private bool KannRundeNachOben() => AusgewaehlteRunde is not null && RundenZeilen.IndexOf(AusgewaehlteRunde) > 0;

@@ -8,6 +8,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Wpf.Converters;
+using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -48,7 +49,7 @@ public partial class RundenEintrag : ObservableObject
         (AuswaertstorRegelAktiv ? " · Auswärtstor" : "");
 }
 
-public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware
+public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly TurnierInstanzService _service;
     private readonly VerbandService _verbandService;
@@ -344,6 +345,8 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware
 
     private bool KannSpeichern() => FormularAktiv && IsDirty;
     private bool KannAbbrechen() => FormularAktiv && IsDirty;
+
+    public bool HatUngespeicherteAenderungen => FormularAktiv && IsDirty;
     private bool KannLoeschen()  => Ausgewaehltes is not null && !IstNeuModus;
 
     private static DateOnly? ParseJahr(string text)

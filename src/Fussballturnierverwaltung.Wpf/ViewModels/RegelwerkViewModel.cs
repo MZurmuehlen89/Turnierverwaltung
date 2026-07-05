@@ -5,6 +5,7 @@ using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Wpf.Converters;
+using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -15,7 +16,7 @@ namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
 public record RankingSetOption(string Anzeige, RankingRegelSet? Wert);
 
-public partial class RegelwerkViewModel : ViewModelBase, IRibbonAware
+public partial class RegelwerkViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly RegelwerkService _service;
     private int _populiertGerade;
@@ -329,6 +330,8 @@ public partial class RegelwerkViewModel : ViewModelBase, IRibbonAware
 
     private bool KannSpeichern() => FormularAktiv && IsDirty;
     private bool KannAbbrechen() => FormularAktiv && IsDirty;
+
+    public bool HatUngespeicherteAenderungen => FormularAktiv && IsDirty;
     private bool KannLoeschen() => Ausgewaehltes is not null && !IstNeuModus;
     private bool KannVerfahrenHinzufuegen() => NeuesVerfahren.HasValue;
     private bool KannVerfahrenEntfernen() => MarkiertesVerfahren.HasValue;

@@ -5,13 +5,14 @@ using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
+using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
-public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
+public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly TurnierInstanzService _service;
     private readonly RegelwerkService _regelwerkService;
@@ -539,6 +540,8 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware
 
     private bool KannSpeichern()          => IsDirty && AusgewaehlteInstanz is not null && !HatRundenFehler;
     private bool KannAbbrechen()          => IsDirty && AusgewaehlteInstanz is not null;
+
+    public bool HatUngespeicherteAenderungen => IsDirty && AusgewaehlteInstanz is not null;
     private bool KannNeueRunde()          => RundenEditorAktiv;
     private bool KannEntfernen()          => AusgewaehlteRunde is not null;
     private bool KannHoch()               => AusgewaehlteRunde is not null && Runden.IndexOf(AusgewaehlteRunde) > 0;

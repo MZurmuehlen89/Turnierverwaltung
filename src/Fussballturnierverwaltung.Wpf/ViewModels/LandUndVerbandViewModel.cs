@@ -4,6 +4,7 @@ using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
+using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -14,7 +15,7 @@ namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
 public record KontinentOption(string Anzeige, Kontinent? Wert);
 
-public partial class LandUndVerbandViewModel : ViewModelBase, IRibbonAware
+public partial class LandUndVerbandViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly LandService _landService;
     private readonly VerbandService _verbandService;
@@ -455,4 +456,8 @@ public partial class LandUndVerbandViewModel : ViewModelBase, IRibbonAware
     private bool KannLoeschen() => AktiverTabIndex == 0
         ? (AusgewaehltesLand is not null && !LandIstNeuModus)
         : (AusgewaehlterVerband is not null && !VerbandIstNeuModus);
+
+    // Unabhaengig vom aktiven Tab: auch das inaktive Formular wuerde bei Navigation verloren gehen.
+    public bool HatUngespeicherteAenderungen =>
+        (LandFormularAktiv && LandIsDirty) || (VerbandFormularAktiv && VerbandIsDirty);
 }

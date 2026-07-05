@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -8,7 +9,7 @@ using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
-public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware
+public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly TurnierInstanzService _instanzService;
 
@@ -70,4 +71,6 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware
     public ICommand? SpeichernBefehl => SpielplanVm.SpeichernBefehl;
     public ICommand? AbbrechenBefehl => SpielplanVm.AbbrechenBefehl;
     public ICommand? LoeschenBefehl  => SpielplanVm.LoeschenBefehl;
+
+    public bool HatUngespeicherteAenderungen => SpielplanVm.HatUngespeicherteAenderungen;
 }
