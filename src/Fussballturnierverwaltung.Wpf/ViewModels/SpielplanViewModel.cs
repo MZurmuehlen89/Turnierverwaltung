@@ -86,8 +86,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
     [NotifyPropertyChangedFor(nameof(HatRunde))]
     [NotifyPropertyChangedFor(nameof(IstGruppenphase))]
     [NotifyPropertyChangedFor(nameof(IstKoRunde))]
+    [NotifyPropertyChangedFor(nameof(IstLigaRunde))]
     [NotifyPropertyChangedFor(nameof(ZeigeAnsichtUmschalter))]
+    [NotifyPropertyChangedFor(nameof(AnsichtUmschalterZweiterTabText))]
+    [NotifyPropertyChangedFor(nameof(ZeigtHinRueckrundenTabs))]
     [NotifyPropertyChangedFor(nameof(IstGruppenAnsicht))]
+    [NotifyPropertyChangedFor(nameof(IstLigaAnsicht))]
     [NotifyPropertyChangedFor(nameof(IstSpielplanAnsicht))]
     [NotifyPropertyChangedFor(nameof(IstGruppenFokusAnsicht))]
     [NotifyPropertyChangedFor(nameof(IstGruppenUebersichtAnsicht))]
@@ -99,23 +103,35 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IstGruppenAnsicht))]
+    [NotifyPropertyChangedFor(nameof(IstLigaAnsicht))]
     [NotifyPropertyChangedFor(nameof(IstSpielplanAnsicht))]
     [NotifyPropertyChangedFor(nameof(IstGruppenFokusAnsicht))]
     [NotifyPropertyChangedFor(nameof(IstGruppenUebersichtAnsicht))]
     private bool _gruppenAnsichtAktiv;
 
     public bool IstGruppenphase => AusgewaehlteRunde?.Rundenart == Rundenart.Gruppenphase;
-    public bool ZeigeAnsichtUmschalter => IstGruppenphase;
+    public bool IstLigaRunde    => AusgewaehlteRunde?.Rundenart == Rundenart.Liga;
+    public bool ZeigeAnsichtUmschalter => IstGruppenphase || IstLigaRunde;
+    public string AnsichtUmschalterZweiterTabText => IstLigaRunde ? "Tabelle" : "Gruppen";
     public bool IstGruppenAnsicht => GruppenAnsichtAktiv && IstGruppenphase;
-    public bool IstSpielplanAnsicht => !IstGruppenAnsicht;
+    public bool IstLigaAnsicht    => GruppenAnsichtAktiv && IstLigaRunde;
+    public bool IstSpielplanAnsicht => !IstGruppenAnsicht && !IstLigaAnsicht;
 
     public ObservableCollection<GruppenTabelle> GruppenTabellen { get; } = [];
     public bool HatGruppenTabellen => GruppenTabellen.Count > 0;
 
+    public ObservableCollection<TabellenEintrag> LigaTabelle { get; } = [];
+    public bool HatLigaTabelle => LigaTabelle.Count > 0;
+    public bool ZeigtHinRueckrundenTabs => AusgewaehlteRunde?.MitRueckspiel == true;
+
+    [ObservableProperty] private TabellenAnsicht _ausgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
+
     private readonly RelayCommand _zuSpielplanWechselnBefehl;
     private readonly RelayCommand _zuGruppenWechselnBefehl;
-    public ICommand ZuSpielplanWechselnBefehl => _zuSpielplanWechselnBefehl;
-    public ICommand ZuGruppenWechselnBefehl   => _zuGruppenWechselnBefehl;
+    private readonly RelayCommand<TabellenAnsicht?> _ligaAnsichtWaehlenBefehl;
+    public ICommand ZuSpielplanWechselnBefehl  => _zuSpielplanWechselnBefehl;
+    public ICommand ZuGruppenWechselnBefehl    => _zuGruppenWechselnBefehl;
+    public ICommand LigaAnsichtWaehlenBefehl   => _ligaAnsichtWaehlenBefehl;
 
     // ── Gruppen-Fokus ─────────────────────────────────────────────────────────
 
@@ -293,8 +309,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         _abbrechenBefehl           = new RelayCommand(FormZuruecksetzen,                  () => FormAktiv && IsDirty);
         _loeschenBefehl            = new AsyncRelayCommand(ErgebnisLoeschenAsync,         () => FormAktiv && FormHatErgebnis);
         _platzhalterBefehl         = new AsyncRelayCommand(PlatzhalterAktualisierenAsync, () => HatRunde && HatPlatzhalterSpiele);
-        _zuSpielplanWechselnBefehl = new RelayCommand(() => GruppenAnsichtAktiv = false,  () => IstGruppenphase);
-        _zuGruppenWechselnBefehl   = new RelayCommand(() => GruppenAnsichtAktiv = true,   () => IstGruppenphase && HatGruppenTabellen);
+        _zuSpielplanWechselnBefehl = new RelayCommand(() => GruppenAnsichtAktiv = false,  () => IstGruppenphase || IstLigaRunde);
+        _zuGruppenWechselnBefehl   = new RelayCommand(() => GruppenAnsichtAktiv = true,
+            () => (IstGruppenphase && HatGruppenTabellen) || (IstLigaRunde && HatLigaTabelle));
+        _ligaAnsichtWaehlenBefehl  = new RelayCommand<TabellenAnsicht?>(a => LigaAnsichtWaehlen(a ?? TabellenAnsicht.Gesamt));
 
         _gruppeFokussierenBefehl    = new RelayCommand<GruppenTabelle>(g => AusgewaehlteGruppe = g);
         _zurueckZurUebersichtBefehl = new RelayCommand(() => AusgewaehlteGruppe = null);
@@ -394,16 +412,18 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         GruppenAnsichtAktiv  = false;
         AusgewaehlteGruppe   = null;
         GruppenTabellen.Clear();
+        LigaTabelle.Clear();
+        AusgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
         _teamGruppeMap = [];
         OnPropertyChanged(nameof(HatGruppenTabellen));
+        OnPropertyChanged(nameof(HatLigaTabelle));
         _neuBefehl.NotifyCanExecuteChanged();
         _zuSpielplanWechselnBefehl.NotifyCanExecuteChanged();
         _zuGruppenWechselnBefehl.NotifyCanExecuteChanged();
 
         if (AusgewaehlteRunde is null) return;
 
-        if (AusgewaehlteRunde.Rundenart == Rundenart.Gruppenphase)
-            await GruppenTabellenLadenAsync(AusgewaehlteRunde.Id);
+        await TabellenNeuLadenAsync(AusgewaehlteRunde.Id);
 
         var liste = await _spielService.AlleNachRundeAsync(AusgewaehlteRunde.Id);
         foreach (var (s, i) in liste.Select((x, i) => (x, i)))
@@ -446,6 +466,37 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         catch { /* Gruppenstand konnte nicht berechnet werden — kein Fehler */ }
         OnPropertyChanged(nameof(HatGruppenTabellen));
         _zuGruppenWechselnBefehl.NotifyCanExecuteChanged();
+    }
+
+    private async Task LigaTabelleLadenAsync(int rundeId)
+    {
+        LigaTabelle.Clear();
+        try
+        {
+            var tabelle = await _tabellenService.TabelleBerechnenAsync(rundeId, AusgewaehlteLigaAnsicht);
+            foreach (var eintrag in tabelle)
+                LigaTabelle.Add(eintrag);
+        }
+        catch { /* Tabelle konnte nicht berechnet werden — kein Fehler */ }
+        OnPropertyChanged(nameof(HatLigaTabelle));
+        _zuGruppenWechselnBefehl.NotifyCanExecuteChanged();
+    }
+
+    // Laedt Gruppen- bzw. Liga-Tabelle passend zur aktuellen Rundenart nach.
+    private async Task TabellenNeuLadenAsync(int rundeId)
+    {
+        if (AusgewaehlteRunde?.Rundenart == Rundenart.Gruppenphase)
+            await GruppenTabellenLadenAsync(rundeId);
+        else if (AusgewaehlteRunde?.Rundenart == Rundenart.Liga)
+            await LigaTabelleLadenAsync(rundeId);
+    }
+
+    private void LigaAnsichtWaehlen(TabellenAnsicht ansicht)
+    {
+        if (AusgewaehlteLigaAnsicht == ansicht) return;
+        AusgewaehlteLigaAnsicht = ansicht;
+        if (AusgewaehlteRunde is { } runde)
+            _ = LigaTabelleLadenAsync(runde.Id);
     }
 
     private async Task SpielWechselAsync()
@@ -702,8 +753,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
                 }
             }
 
-            if (AusgewaehlteRunde?.Rundenart == Rundenart.Gruppenphase)
-                await GruppenTabellenLadenAsync(rundeId);
+            await TabellenNeuLadenAsync(rundeId);
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
@@ -729,8 +779,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         {
             int aufgeloest = await _spielplanService.PlatzhalterAufloesenAsync(rundeId);
 
-            if (AusgewaehlteRunde?.Rundenart == Rundenart.Gruppenphase)
-                await GruppenTabellenLadenAsync(rundeId);
+            await TabellenNeuLadenAsync(rundeId);
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
@@ -769,8 +818,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         {
             await _spielService.ErgebnisErfassenAsync(spielId, BaueEingabe());
 
-            if (AusgewaehlteRunde.Rundenart == Rundenart.Gruppenphase)
-                await GruppenTabellenLadenAsync(rundeId);
+            await TabellenNeuLadenAsync(rundeId);
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
 
@@ -810,8 +858,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         {
             await _spielService.ErgebnisLoeschenAsync(spielId);
 
-            if (AusgewaehlteRunde.Rundenart == Rundenart.Gruppenphase)
-                await GruppenTabellenLadenAsync(rundeId);
+            await TabellenNeuLadenAsync(rundeId);
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
@@ -1083,8 +1130,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
         {
             await _simulationsService.SpielSimulierenAsync(spielId, AusgewaehlterSimulationsModus.Wert);
 
-            if (AusgewaehlteRunde.Rundenart == Rundenart.Gruppenphase)
-                await GruppenTabellenLadenAsync(rundeId);
+            await TabellenNeuLadenAsync(rundeId);
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
@@ -1132,8 +1178,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware
             int anzahl = await _simulationsService.RundeSimulierenAsync(
                 rundeId, AusgewaehlterSimulationsModus.Wert);
 
-            if (AusgewaehlteRunde?.Rundenart == Rundenart.Gruppenphase)
-                await GruppenTabellenLadenAsync(rundeId);
+            await TabellenNeuLadenAsync(rundeId);
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();

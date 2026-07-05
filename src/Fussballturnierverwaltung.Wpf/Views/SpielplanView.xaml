@@ -303,8 +303,8 @@
                                         </Button.Style>
                                     </Button>
                                     <Button Command="{Binding ZuGruppenWechselnBefehl}"
+                                            Content="{Binding AnsichtUmschalterZweiterTabText}"
                                             Padding="10,3" Cursor="Hand" FontSize="11">
-                                        <Button.Content>Gruppen</Button.Content>
                                         <Button.Style>
                                             <Style TargetType="Button">
                                                 <Setter Property="Background" Value="Transparent" />
@@ -313,6 +313,11 @@
                                                 <Setter Property="BorderThickness" Value="0" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IstGruppenAnsicht}" Value="True">
+                                                        <Setter Property="Background" Value="White" />
+                                                        <Setter Property="Foreground" Value="#1E40AF" />
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IstLigaAnsicht}" Value="True">
                                                         <Setter Property="Background" Value="White" />
                                                         <Setter Property="Foreground" Value="#1E40AF" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
@@ -949,6 +954,235 @@
                                     </Style>
                                 </ListView.ItemContainerStyle>
                             </ListView>
+
+                        </DockPanel>
+
+                        <!-- ── Liga-Tabellenansicht ── -->
+                        <DockPanel Visibility="{Binding IstLigaAnsicht, Converter={StaticResource BoolToVisibility}}">
+
+                            <!-- Ansicht-Tabs: Gesamt | Hinrunde | Rückrunde | Heim | Auswärts -->
+                            <Border DockPanel.Dock="Top" Background="White"
+                                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border CornerRadius="6" Background="#F1F5F9" Padding="2">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="Gesamt"
+                                                    Command="{Binding LigaAnsichtWaehlenBefehl}"
+                                                    CommandParameter="{x:Static tabelle:TabellenAnsicht.Gesamt}"
+                                                    Padding="10,3" Cursor="Hand" FontSize="11">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Setter Property="Foreground" Value="#64748B" />
+                                                        <Setter Property="FontWeight" Value="Normal" />
+                                                        <Setter Property="BorderThickness" Value="0" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Gesamt}">
+                                                                <Setter Property="Background" Value="White" />
+                                                                <Setter Property="Foreground" Value="#1E40AF" />
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                            <Button Content="Hinrunde"
+                                                    Command="{Binding LigaAnsichtWaehlenBefehl}"
+                                                    CommandParameter="{x:Static tabelle:TabellenAnsicht.Hinrunde}"
+                                                    Padding="10,3" Cursor="Hand" FontSize="11"
+                                                    Visibility="{Binding ZeigtHinRueckrundenTabs, Converter={StaticResource BoolToVisibility}}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Setter Property="Foreground" Value="#64748B" />
+                                                        <Setter Property="FontWeight" Value="Normal" />
+                                                        <Setter Property="BorderThickness" Value="0" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Hinrunde}">
+                                                                <Setter Property="Background" Value="White" />
+                                                                <Setter Property="Foreground" Value="#1E40AF" />
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                            <Button Content="Rückrunde"
+                                                    Command="{Binding LigaAnsichtWaehlenBefehl}"
+                                                    CommandParameter="{x:Static tabelle:TabellenAnsicht.Rueckrunde}"
+                                                    Padding="10,3" Cursor="Hand" FontSize="11"
+                                                    Visibility="{Binding ZeigtHinRueckrundenTabs, Converter={StaticResource BoolToVisibility}}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Setter Property="Foreground" Value="#64748B" />
+                                                        <Setter Property="FontWeight" Value="Normal" />
+                                                        <Setter Property="BorderThickness" Value="0" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Rueckrunde}">
+                                                                <Setter Property="Background" Value="White" />
+                                                                <Setter Property="Foreground" Value="#1E40AF" />
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                            <Button Content="Heim"
+                                                    Command="{Binding LigaAnsichtWaehlenBefehl}"
+                                                    CommandParameter="{x:Static tabelle:TabellenAnsicht.Heimtabelle}"
+                                                    Padding="10,3" Cursor="Hand" FontSize="11">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Setter Property="Foreground" Value="#64748B" />
+                                                        <Setter Property="FontWeight" Value="Normal" />
+                                                        <Setter Property="BorderThickness" Value="0" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Heimtabelle}">
+                                                                <Setter Property="Background" Value="White" />
+                                                                <Setter Property="Foreground" Value="#1E40AF" />
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                            <Button Content="Auswärts"
+                                                    Command="{Binding LigaAnsichtWaehlenBefehl}"
+                                                    CommandParameter="{x:Static tabelle:TabellenAnsicht.Auswaertstabelle}"
+                                                    Padding="10,3" Cursor="Hand" FontSize="11">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Setter Property="Foreground" Value="#64748B" />
+                                                        <Setter Property="FontWeight" Value="Normal" />
+                                                        <Setter Property="BorderThickness" Value="0" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Auswaertstabelle}">
+                                                                <Setter Property="Background" Value="White" />
+                                                                <Setter Property="Foreground" Value="#1E40AF" />
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
+                            <Grid>
+                                <TextBlock Text="Noch kein Spielplan generiert. Die Tabelle wird nach der Spielplan-Generierung angezeigt."
+                                           Foreground="#94A3B8" FontSize="13"
+                                           HorizontalAlignment="Center" Margin="32,48"
+                                           TextWrapping="Wrap" TextAlignment="Center"
+                                           Visibility="{Binding HatLigaTabelle, Converter={StaticResource InverseBoolToVisibility}}" />
+
+                                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                                        CornerRadius="8" Margin="12" MaxWidth="520" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                        Visibility="{Binding HatLigaTabelle, Converter={StaticResource BoolToVisibility}}">
+                                    <StackPanel>
+
+                                        <!-- Tabellen-Kopfzeile -->
+                                        <Grid Background="#F8FAFC">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="26" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="24" />
+                                                <ColumnDefinition Width="20" />
+                                                <ColumnDefinition Width="20" />
+                                                <ColumnDefinition Width="20" />
+                                                <ColumnDefinition Width="46" />
+                                                <ColumnDefinition Width="32" />
+                                                <ColumnDefinition Width="28" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="#"
+                                                       FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                       HorizontalAlignment="Center" Padding="6,5,0,5" />
+                                            <TextBlock Grid.Column="1" Text="Team"
+                                                       FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                       Padding="4,5" />
+                                            <TextBlock Grid.Column="2" Text="Sp"
+                                                       FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                       HorizontalAlignment="Center" Padding="0,5" />
+                                            <TextBlock Grid.Column="3" Text="S"
+                                                       FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                       HorizontalAlignment="Center" Padding="0,5" />
+                                            <TextBlock Grid.Column="4" Text="U"
+                                                       FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                       HorizontalAlignment="Center" Padding="0,5" />
+                                            <TextBlock Grid.Column="5" Text="N"
+                                                       FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                       HorizontalAlignment="Center" Padding="0,5" />
+                                            <TextBlock Grid.Column="6" Text="Tore"
+                                                       FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                       HorizontalAlignment="Center" Padding="0,5" />
+                                            <TextBlock Grid.Column="7" Text="Diff"
+                                                       FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                       HorizontalAlignment="Center" Padding="0,5" />
+                                            <TextBlock Grid.Column="8" Text="Pkt"
+                                                       FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                       HorizontalAlignment="Center" Padding="0,5,6,5" />
+                                        </Grid>
+
+                                        <Rectangle Height="1" Fill="#E2E8F0" />
+
+                                        <!-- Tabellen-Einträge -->
+                                        <ItemsControl ItemsSource="{Binding LigaTabelle}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type tabelle:TabellenEintrag}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="26" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="24" />
+                                                            <ColumnDefinition Width="20" />
+                                                            <ColumnDefinition Width="20" />
+                                                            <ColumnDefinition Width="20" />
+                                                            <ColumnDefinition Width="46" />
+                                                            <ColumnDefinition Width="32" />
+                                                            <ColumnDefinition Width="28" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <TextBlock Grid.Column="0" Text="{Binding Rang}"
+                                                                   FontSize="12" FontWeight="SemiBold" Foreground="#64748B"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" Padding="4,6,0,6" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Mannschaft.Name}"
+                                                                   FontSize="12" TextTrimming="CharacterEllipsis"
+                                                                   VerticalAlignment="Center" Padding="4,6" />
+                                                        <TextBlock Grid.Column="2" Text="{Binding Spiele}"
+                                                                   FontSize="12" Foreground="#475569"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
+                                                        <TextBlock Grid.Column="3" Text="{Binding Siege}"
+                                                                   FontSize="12" Foreground="#475569"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
+                                                        <TextBlock Grid.Column="4" Text="{Binding Unentschieden}"
+                                                                   FontSize="12" Foreground="#475569"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
+                                                        <TextBlock Grid.Column="5" Text="{Binding Niederlagen}"
+                                                                   FontSize="12" Foreground="#475569"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
+                                                        <TextBlock Grid.Column="6"
+                                                                   FontSize="12" Foreground="#475569"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6">
+                                                            <Run Text="{Binding Tore}" /><Run Text=":" /><Run Text="{Binding Gegentore}" />
+                                                        </TextBlock>
+                                                        <TextBlock Grid.Column="7" Text="{Binding Tordifferenz}"
+                                                                   FontSize="12" Foreground="#475569"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
+                                                        <TextBlock Grid.Column="8" Text="{Binding Punkte}"
+                                                                   FontSize="12" FontWeight="Bold" Foreground="#1E293B"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6,6,6" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
 
                         </DockPanel>
 
