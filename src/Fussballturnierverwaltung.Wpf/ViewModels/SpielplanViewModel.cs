@@ -223,14 +223,18 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public bool VerlaengerungAktiv =>
         IstKoRunde &&
         HatVerlaengerungsVerfahren &&
-        ParseInt(HeimToreRegulaer) == ParseInt(AuswaertsToreRegulaer);
+        ParseIntNullable(HeimToreRegulaer) is { } heimRegVA &&
+        ParseIntNullable(AuswaertsToreRegulaer) is { } ausRegVA &&
+        heimRegVA == ausRegVA;
 
     public bool ElfmeterAktiv
     {
         get
         {
             if (!IstKoRunde || !HatElfmeterVerfahren) return false;
-            if (ParseInt(HeimToreRegulaer) != ParseInt(AuswaertsToreRegulaer)) return false;
+            if (ParseIntNullable(HeimToreRegulaer) is not { } heimRegEA ||
+                ParseIntNullable(AuswaertsToreRegulaer) is not { } ausRegEA ||
+                heimRegEA != ausRegEA) return false;
             if (!HatVerlaengerungsVerfahren) return true;
             int? heimV = ParseIntNullable(HeimToreVerlaengerung);
             int? ausV  = ParseIntNullable(AuswaertsToreVerlaengerung);
@@ -611,8 +615,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             }
             else
             {
-                HeimToreRegulaer           = "0";
-                AuswaertsToreRegulaer      = "0";
+                HeimToreRegulaer           = "";
+                AuswaertsToreRegulaer      = "";
                 AusgewaehlteEntscheidungArt = EntscheidungArt.RegulaereSpielzeit;
                 HeimToreVerlaengerung      = "";
                 AuswaertsToreVerlaengerung = "";
@@ -1019,7 +1023,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private EntscheidungArt BerechneEntscheidungArt()
     {
-        bool reg90Draw = ParseInt(HeimToreRegulaer) == ParseInt(AuswaertsToreRegulaer);
+        bool reg90Draw = ParseIntNullable(HeimToreRegulaer) is { } heimReg &&
+                         ParseIntNullable(AuswaertsToreRegulaer) is { } ausReg &&
+                         heimReg == ausReg;
 
         // Verlängerung/Elfmeterschießen sind nur in K.-o.-Runden relevant — in Liga/Gruppenphase
         // ist ein Unentschieden immer ein gültiges Endergebnis, unabhängig vom Regelwerk.
