@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -402,15 +403,13 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         var e     = s.Ergebnis;
         bool hatE = e is not null;
 
-        string detail = hatE ? e!.EntscheidungArt switch
-        {
-            EntscheidungArt.Verlaengerung     => "n.V.",
-            EntscheidungArt.GoldenGoal        => "G.G.",
-            EntscheidungArt.SilverGoal        => "S.G.",
-            EntscheidungArt.Elfmeterschiessen => $"i.E. ({e.HeimElfmetertore}:{e.AuswaertsElfmetertore})",
-            EntscheidungArt.Auswaertstorregel => "A.T.",
-            _                                 => ""
-        } : "";
+        string detail = hatE
+            ? SpielErgebnisFormatierer.DetailText(
+                e!.EntscheidungArt,
+                e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
+                e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
+                e.HeimElfmetertore, e.AuswaertsElfmetertore)
+            : "";
 
         return new BracketKnotenAnzeige
         {

@@ -511,15 +511,12 @@ public partial class SimulationsViewModel : ViewModelBase
         if (spiel.Ergebnis is { } e)
         {
             string ergebnis = $"{heim}  {e.HeimToreGesamt}:{e.AuswaertsToreGesamt}  {auswaerts}";
-            string detail   = e.EntscheidungArt switch
-            {
-                EntscheidungArt.Verlaengerung     => " (n.V.)",
-                EntscheidungArt.GoldenGoal        => " (G.G.)",
-                EntscheidungArt.SilverGoal        => " (S.G.)",
-                EntscheidungArt.Elfmeterschiessen => $" (i.E. {e.HeimElfmetertore}:{e.AuswaertsElfmetertore})",
-                EntscheidungArt.Auswaertstorregel => " (A.T.)",
-                _                                 => ""
-            };
+            string detailText = SpielErgebnisFormatierer.DetailText(
+                e.EntscheidungArt,
+                e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
+                e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
+                e.HeimElfmetertore, e.AuswaertsElfmetertore);
+            string detail = detailText.Length > 0 ? $" ({detailText})" : "";
             ProtokollZeilen.Add(ergebnis + detail);
 
             ZeitleisteHinzufuegen(
@@ -584,8 +581,10 @@ public partial class SimulationsViewModel : ViewModelBase
         int? heimElfmetertore, int? auswaertsElfmetertore,
         string? minutenPraefix = null)
     {
-        bool istKlassischeVerlaengerung = entscheidungArt == EntscheidungArt.Verlaengerung;
-        bool hatVerlaengerung = istKlassischeVerlaengerung || entscheidungArt is EntscheidungArt.GoldenGoal or EntscheidungArt.SilverGoal;
+        // Verlaengerung fand statt, sobald die Verlaengerungs-Torfelder gesetzt sind — unabhaengig
+        // von der finalen EntscheidungArt (auch bei Elfmeterschiessen ging dem immer eine
+        // vollstaendige Verlaengerung voraus, siehe BerechneEntscheidungArt in SpielplanViewModel).
+        bool hatVerlaengerung = heimToreVerlaengerung.HasValue && auswaertsToreVerlaengerung.HasValue;
         bool hatElfmeter      = entscheidungArt == EntscheidungArt.Elfmeterschiessen;
 
         bool halbzeitEingefuegt = false, neunzigEingefuegt = false, vzHalbzeitEingefuegt = false;
@@ -603,7 +602,7 @@ public partial class SimulationsViewModel : ViewModelBase
                 ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner($"90 MINUTEN ({heimToreRegulaer}:{auswaertsToreRegulaer})"));
                 neunzigEingefuegt = true;
             }
-            if (!vzHalbzeitEingefuegt && istKlassischeVerlaengerung && minute > 105)
+            if (!vzHalbzeitEingefuegt && hatVerlaengerung && minute > 105)
             {
                 ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner("HALBZEIT VERLÄNGERUNG"));
                 vzHalbzeitEingefuegt = true;
@@ -656,15 +655,11 @@ public partial class SimulationsViewModel : ViewModelBase
         if (s.Ergebnis is { } e)
         {
             text = $"{e.HeimToreGesamt}:{e.AuswaertsToreGesamt}";
-            detail = e.EntscheidungArt switch
-            {
-                EntscheidungArt.Verlaengerung     => "n.V.",
-                EntscheidungArt.GoldenGoal        => "G.G.",
-                EntscheidungArt.SilverGoal        => "S.G.",
-                EntscheidungArt.Elfmeterschiessen => $"i.E. ({e.HeimElfmetertore}:{e.AuswaertsElfmetertore})",
-                EntscheidungArt.Auswaertstorregel => "A.T.",
-                _                                 => ""
-            };
+            detail = SpielErgebnisFormatierer.DetailText(
+                e.EntscheidungArt,
+                e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
+                e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
+                e.HeimElfmetertore, e.AuswaertsElfmetertore);
         }
 
         return new SpielZeile

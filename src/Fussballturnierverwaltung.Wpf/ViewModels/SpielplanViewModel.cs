@@ -423,7 +423,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _teamGruppeMap = [];
         OnPropertyChanged(nameof(HatGruppenTabellen));
         OnPropertyChanged(nameof(HatLigaTabelle));
-        _neuBefehl.NotifyCanExecuteChanged();
+        AktualisiereBefehle();
         _zuSpielplanWechselnBefehl.NotifyCanExecuteChanged();
         _zuGruppenWechselnBefehl.NotifyCanExecuteChanged();
 
@@ -453,6 +453,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 RankingKriterien.Add($"{pos++}. {RegelartZuText(eintrag.RankingRegel.Regelart)}");
             OnPropertyChanged(nameof(HatRankingKriterien));
         }
+
+        // Simulations-/Formularbefehle (u.a. "Runde simulieren") haengen von der jetzt geladenen
+        // Runde ab und muessen nach dem Rundenwechsel neu ausgewertet werden, nicht erst beim
+        // naechsten Spielfokus.
+        AktualisiereBefehle();
     }
 
     private async Task GruppenTabellenLadenAsync(int rundeId)
@@ -938,16 +943,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (s.Ergebnis is { } e)
         {
             text = $"{e.HeimToreGesamt}:{e.AuswaertsToreGesamt}";
-            detail = e.EntscheidungArt switch
-            {
-                EntscheidungArt.Verlaengerung     => "n.V.",
-                EntscheidungArt.GoldenGoal        => "G.G.",
-                EntscheidungArt.SilverGoal        => "S.G.",
-                EntscheidungArt.Elfmeterschiessen =>
-                    $"i.E. ({e.HeimElfmetertore}:{e.AuswaertsElfmetertore})",
-                EntscheidungArt.Auswaertstorregel => "A.T.",
-                _                                 => ""
-            };
+            detail = SpielErgebnisFormatierer.DetailText(
+                e.EntscheidungArt,
+                e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
+                e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
+                e.HeimElfmetertore, e.AuswaertsElfmetertore);
         }
 
         int? gruppeNummer = null;
