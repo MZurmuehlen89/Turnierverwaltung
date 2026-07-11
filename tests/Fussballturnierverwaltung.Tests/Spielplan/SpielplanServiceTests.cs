@@ -2,6 +2,7 @@ using FluentAssertions;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
@@ -29,7 +30,7 @@ public class SpielplanServiceTests
         var spielRepo = new SpielRepository(ctx);
         var mannschaftRepo = new MannschaftRepository(ctx);
         var baumRepo = new TurnierBaumRepository(ctx);
-        var factory = new SpielplanGeneratorFactory([new KoRundeGenerator()]);
+        var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator()]);
         return new SpielplanService(
             rundeRepo, spielRepo, mannschaftRepo, baumRepo,
             factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
@@ -249,5 +250,114 @@ public class SpielplanServiceTests
         finaleSpiele[0].Id.Should().Be(finaleSpielId);
         var teilnehmer = new[] { finaleSpiele[0].HeimMannschaftId, finaleSpiele[0].AuswaertsMannschaftId };
         teilnehmer.Should().BeEquivalentTo(new int?[] { 1, 3 }, "die ursprüngliche, bereits gespielte Paarung bleibt erhalten");
+    }
+
+    // ── Tests: automatische Generierung aus abgeschlossener Auslosung (Issue #19) ─
+
+    private static void LigaGrundSetupAnlegen(TurnierverwaltungDbContext ctx, out int rundeId)
+    {
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        var runde = new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Liga", Reihenfolge = 1,
+            Rundenart = Rundenart.Liga, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 4,
+            RegelwerkId = 1
+        };
+        ctx.TurnierRunden.Add(runde);
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team A", Kurzname = "TA", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team B", Kurzname = "TB", LandId = 1 },
+            new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 },
+            new Mannschaft { Id = 4, Name = "Team D", Kurzname = "TD", LandId = 1 });
+        ctx.SaveChanges();
+        rundeId = runde.Id;
+    }
+
+    [Fact]
+    public async Task GenerierenAusAuslosungAsync_LigaRunde_GeneriertSpielplanAusMannschaftIds()
+    {
+        await using var ctx = NeuerContext();
+        LigaGrundSetupAnlegen(ctx, out int rundeId);
+        var ergebnisse = new List<AuslosungsErgebnis>
+        {
+            new() { PaarungsNummer = 1, HeimMannschaftId = 1 },
+            new() { PaarungsNummer = 2, HeimMannschaftId = 2 },
+            new() { PaarungsNummer = 3, HeimMannschaftId = 3 },
+            new() { PaarungsNummer = 4, HeimMannschaftId = 4 },
+        };
+        var service = ServiceFuer(ctx);
+
+        await service.GenerierenAusAuslosungAsync(rundeId, ergebnisse);
+
+        var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId).ToList();
+        spiele.Should().NotBeEmpty("bei 4 Teams muss ein Round-Robin-Spielplan entstehen");
+        var beteiligteTeams = spiele
+            .SelectMany(s => new[] { s.HeimMannschaftId, s.AuswaertsMannschaftId })
+            .Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+        beteiligteTeams.Should().BeEquivalentTo(new[] { 1, 2, 3, 4 });
+    }
+
+    [Fact]
+    public async Task GenerierenAusAuslosungAsync_GruppenphaseRunde_GeneriertProGruppe()
+    {
+        await using var ctx = NeuerContext();
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        var runde = new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Reihenfolge = 1,
+            Rundenart = Rundenart.Gruppenphase, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 4,
+            RegelwerkId = 1, GruppenAnzahl = 2
+        };
+        ctx.TurnierRunden.Add(runde);
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team A", Kurzname = "TA", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team B", Kurzname = "TB", LandId = 1 },
+            new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 },
+            new Mannschaft { Id = 4, Name = "Team D", Kurzname = "TD", LandId = 1 });
+        ctx.SaveChanges();
+        // Gruppe 1: Team A + Team B, Gruppe 2: Team C + Team D
+        var ergebnisse = new List<AuslosungsErgebnis>
+        {
+            new() { PaarungsNummer = 1, HeimMannschaftId = 1 },
+            new() { PaarungsNummer = 1, HeimMannschaftId = 2 },
+            new() { PaarungsNummer = 2, HeimMannschaftId = 3 },
+            new() { PaarungsNummer = 2, HeimMannschaftId = 4 },
+        };
+        var service = ServiceFuer(ctx);
+
+        await service.GenerierenAusAuslosungAsync(runde.Id, ergebnisse);
+
+        var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == runde.Id).ToList();
+        spiele.Should().NotBeEmpty();
+        spiele.Should().OnlyContain(s =>
+            (s.HeimMannschaftId == 1 && s.AuswaertsMannschaftId == 2) ||
+            (s.HeimMannschaftId == 2 && s.AuswaertsMannschaftId == 1) ||
+            (s.HeimMannschaftId == 3 && s.AuswaertsMannschaftId == 4) ||
+            (s.HeimMannschaftId == 4 && s.AuswaertsMannschaftId == 3),
+            "Gruppen dürfen sich in den generierten Paarungen nicht mischen");
+    }
+
+    [Fact]
+    public async Task GenerierenAusAuslosungAsync_KoRundeMitPlatzhaltern_GeneriertPlatzhalterSpiele()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out _);
+        var ergebnisse = new List<AuslosungsErgebnis>
+        {
+            new() { PaarungsNummer = 1, HeimPlatzhalterName = "Sieger Gruppe A", AuswaertsPlatzhalterName = "2. Gruppe B" },
+            new() { PaarungsNummer = 2, HeimPlatzhalterName = "Sieger Gruppe B", AuswaertsPlatzhalterName = "2. Gruppe A" },
+        };
+        var service = ServiceFuer(ctx);
+
+        await service.GenerierenAusAuslosungAsync(hfRundeId, ergebnisse);
+
+        var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == hfRundeId).ToList();
+        spiele.Should().HaveCount(2);
+        spiele.Should().OnlyContain(s => s.HeimMannschaftId == null && s.AuswaertsMannschaftId == null);
+        spiele.Select(s => s.HeimPlatzhalterName).Should().Contain(["Sieger Gruppe A", "Sieger Gruppe B"]);
     }
 }

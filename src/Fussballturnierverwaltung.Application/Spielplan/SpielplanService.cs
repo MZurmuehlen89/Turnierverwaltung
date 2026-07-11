@@ -3,6 +3,7 @@ using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -70,6 +71,109 @@ public class SpielplanService(
             runde.Name, ergebnis.Spiele.Count);
 
         return ergebnis;
+    }
+
+    /// <summary>
+    /// Generiert den Spielplan einer Runde direkt aus den Ergebnissen einer abgeschlossenen Auslosung -
+    /// wählt je nach Rundenart automatisch die passende Generierungsmethode (Gruppenphase, TopfLiga,
+    /// SchweizerSystem, oder direkte/Platzhalter-Paarungen für Liga/KO-Runden). Gemeinsam genutzt vom
+    /// manuellen "Neu generieren"-Befehl (SpielplanViewModel) und der automatischen Generierung direkt
+    /// nach Auslosungs-Abschluss (Issue #19, AuslosungViewModel).
+    /// </summary>
+    public async Task GenerierenAusAuslosungAsync(
+        int turnierRundeId, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct = default)
+    {
+        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
+            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+
+        switch (runde.Rundenart)
+        {
+            case Rundenart.Gruppenphase:
+            {
+                var gruppen = ergebnisse
+                    .Where(e => e.HeimMannschaftId.HasValue)
+                    .GroupBy(e => e.PaarungsNummer)
+                    .OrderBy(g => g.Key)
+                    .Select(g => (IReadOnlyList<int>)g.Select(e => e.HeimMannschaftId!.Value).ToList())
+                    .ToList();
+
+                if (gruppen.Any())
+                {
+                    await GenerierenAusGruppenAsync(turnierRundeId, gruppen, ct);
+                }
+                else
+                {
+                    // Platzhalter-Gruppenphase: Berger-Round-Robin mit Platzhalternamen
+                    var gruppenNamen = ergebnisse
+                        .GroupBy(e => e.PaarungsNummer)
+                        .OrderBy(g => g.Key)
+                        .Select(g => (IReadOnlyList<string>)g.Select(e => e.HeimPlatzhalterName ?? "?").ToList())
+                        .ToList();
+
+                    if (!gruppenNamen.Any() || gruppenNamen.All(g => g.Count < 2))
+                        throw new InvalidOperationException(ergebnisse.Any()
+                            ? "Keine gültigen Gruppen-Zuordnungen in der Auslosung gefunden."
+                            : "Die Auslosung hat keine Ergebnisse. Bitte die Auslosung zuerst durchführen.");
+
+                    await GenerierenAusGruppenMitPlatzhalternAsync(turnierRundeId, gruppenNamen, ct);
+                }
+                break;
+            }
+
+            case Rundenart.TopfLiga:
+            {
+                var paarungen = ergebnisse
+                    .Where(e => e.HeimMannschaftId.HasValue && e.AuswaertsMannschaftId.HasValue)
+                    .OrderBy(e => e.PaarungsNummer)
+                    .Select(e => (e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value))
+                    .ToList<(int, int)>();
+                await GenerierenAusPaarungenAsync(turnierRundeId, paarungen, ct);
+                break;
+            }
+
+            case Rundenart.SchweizerSystem:
+            {
+                var sortiertIds = ergebnisse
+                    .OrderBy(e => e.PaarungsNummer)
+                    .SelectMany(e => new[] { e.HeimMannschaftId, e.AuswaertsMannschaftId })
+                    .Where(id => id.HasValue)
+                    .Select(id => id!.Value)
+                    .Distinct()
+                    .ToList();
+                await SchweizerRundeGenerierenAsync(turnierRundeId, sortiertIds, ct);
+                break;
+            }
+
+            default:
+            {
+                // Liga, KoRunde, Finale, SpielUmPlatzDrei, Sonderrunde
+                var alleErgebnisse = ergebnisse.OrderBy(e => e.PaarungsNummer).ToList();
+
+                bool nurPlatzhalter = alleErgebnisse.Any() &&
+                    alleErgebnisse.All(e => !e.HeimMannschaftId.HasValue && !e.AuswaertsMannschaftId.HasValue);
+
+                if (nurPlatzhalter)
+                {
+                    var paarungen = alleErgebnisse
+                        .Where(e => !e.IstFreilos)
+                        .OrderBy(e => e.PaarungsNummer)
+                        .Select(e => (Heim: e.HeimPlatzhalterName ?? "?", Auswaerts: e.AuswaertsPlatzhalterName ?? "?"))
+                        .ToList<(string Heim, string Auswaerts)>();
+                    await GenerierenAusPlatzhalterPaarungenAsync(turnierRundeId, paarungen, ct);
+                }
+                else
+                {
+                    var mannschaftIds = alleErgebnisse
+                        .SelectMany(e => new[] { e.HeimMannschaftId, e.AuswaertsMannschaftId })
+                        .Where(id => id.HasValue)
+                        .Select(id => id!.Value)
+                        .Distinct()
+                        .ToList();
+                    await GenerierenAsync(turnierRundeId, mannschaftIds, ct);
+                }
+                break;
+            }
+        }
     }
 
     /// <summary>

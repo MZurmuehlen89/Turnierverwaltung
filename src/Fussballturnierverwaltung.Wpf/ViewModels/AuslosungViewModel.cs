@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
@@ -156,6 +157,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly AuslosungService _auslosungService;
     private readonly TurnierInstanzService _instanzService;
     private readonly MannschaftService _mannschaftService;
+    private readonly SpielplanService _spielplanService;
 
     private Auslosung? _auslosungDetail;
 
@@ -377,11 +379,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public AuslosungViewModel(
         AuslosungService auslosungService,
         TurnierInstanzService instanzService,
-        MannschaftService mannschaftService)
+        MannschaftService mannschaftService,
+        SpielplanService spielplanService)
     {
         _auslosungService  = auslosungService;
         _instanzService    = instanzService;
         _mannschaftService = mannschaftService;
+        _spielplanService  = spielplanService;
     }
 
     public override async Task AktivierenAsync()
@@ -510,9 +514,20 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             await _auslosungService.AusfuehrenAsync(_auslosungDetail.Id);
             await LadeDetailAsync(_auslosungDetail.Id);
+            await SpielplanAutomatischGenerierenAsync();
             await AktualisiereSeitenlisteAsync();
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
+    }
+
+    /// <summary>Generiert den Spielplan automatisch, sobald die Auslosung abgeschlossen ist - der manuelle
+    /// "Neu generieren"-Klick im Spielplan entfällt dadurch (Issue #19). Erwartet, dass _auslosungDetail
+    /// bereits per LadeDetailAsync neu geladen wurde (inkl. Ergebnisse).</summary>
+    private async Task SpielplanAutomatischGenerierenAsync()
+    {
+        if (_auslosungDetail is null || _auslosungDetail.Status != AuslosungsStatus.Abgeschlossen) return;
+        await _spielplanService.GenerierenAusAuslosungAsync(
+            _auslosungDetail.TurnierRundeId, [.. _auslosungDetail.Ergebnisse]);
     }
 
     // ── Öffentliche Methoden: Manuelle Slot-Zuweisung ────────────────────────
@@ -628,6 +643,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             }
             await _auslosungService.ManuelleErgebnisseAbschliessenAsync(_auslosungDetail.Id, paarungen);
             await LadeDetailAsync(_auslosungDetail.Id);
+            await SpielplanAutomatischGenerierenAsync();
             await AktualisiereSeitenlisteAsync();
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
