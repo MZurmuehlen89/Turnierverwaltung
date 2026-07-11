@@ -517,8 +517,27 @@
                         </ListView>
 
                         <!-- ── Gruppen-Übersicht ── -->
-                        <ScrollViewer Visibility="{Binding IstGruppenUebersichtAnsicht, Converter={StaticResource BoolToVisibility}}"
-                                      VerticalScrollBarVisibility="Auto"
+                        <DockPanel Visibility="{Binding IstGruppenUebersichtAnsicht, Converter={StaticResource BoolToVisibility}}">
+
+                            <!-- Spieltag-Snapshot-Auswahl (Issue #112) -->
+                            <Border DockPanel.Dock="Top" Background="White"
+                                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Spieltag:" FontSize="11" Foreground="#64748B"
+                                               VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <ComboBox ItemsSource="{Binding GruppenSpieltagOptionen}"
+                                              SelectedItem="{Binding GruppenBisSpieltagAuswahl}"
+                                              FontSize="11" Padding="8,3" MinWidth="90">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Converter={StaticResource SpieltagOptionZuText}}" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+                            </Border>
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled">
                             <Grid>
                                 <!-- Kein Spielplan vorhanden -->
@@ -683,6 +702,7 @@
                                 </ItemsControl>
                             </Grid>
                         </ScrollViewer>
+                        </DockPanel>
 
                         <!-- ── Gruppen-Fokus-Ansicht ── -->
                         <DockPanel Visibility="{Binding IstGruppenFokusAnsicht, Converter={StaticResource BoolToVisibility}}">
@@ -726,6 +746,23 @@
                                                     BorderThickness="0" Background="Transparent" Foreground="#64748B" />
                                         </StackPanel>
                                     </Border>
+
+                                    <!-- Tabellenstand-Snapshot nach Spieltag (Issue #112) - bewusst getrennt von der
+                                         Spieltag-Navigation links davon, die die Simulation steuert. -->
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                                                VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <TextBlock Text="Tabellenstand:" FontSize="11" Foreground="#64748B"
+                                                   VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <ComboBox ItemsSource="{Binding GruppenSpieltagOptionen}"
+                                                  SelectedItem="{Binding GruppenBisSpieltagAuswahl}"
+                                                  FontSize="11" Padding="8,3" MinWidth="90">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Converter={StaticResource SpieltagOptionZuText}}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
 
                                     <!-- Zurück-Button + Gruppenname + Simulations-Buttons -->
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">

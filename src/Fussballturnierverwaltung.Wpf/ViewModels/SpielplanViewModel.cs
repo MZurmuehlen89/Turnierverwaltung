@@ -149,6 +149,24 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         set => LigaBisSpieltag = value == 0 ? null : value;
     }
 
+    // Historischer Tabellenstand nach Spieltag für die Gruppenphase (Issue #112, Phase 2 von #47).
+    // In Gruppen-Übersicht UND Gruppen-Fokus-Ansicht wählbar (geteilter Zustand). Bewusst als eigener
+    // Selektor von der Spieltag-Navigation in der Fokus-Ansicht getrennt, die die Simulation steuert.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GruppenBisSpieltagAuswahl))]
+    private int? _gruppenBisSpieltag;
+
+    /// <summary>Auswahloptionen für den Spieltag-Filter der Gruppentabellen (dieselbe Spieltag-Liste wie in der
+    /// Liga-Ansicht, da beide aus derselben <see cref="Spiele"/>-Collection der Runde abgeleitet werden).</summary>
+    public IReadOnlyList<int> GruppenSpieltagOptionen => LigaSpieltagOptionen;
+
+    /// <summary>UI-Wrapper um <see cref="GruppenBisSpieltag"/>, siehe <see cref="LigaBisSpieltagAuswahl"/>.</summary>
+    public int GruppenBisSpieltagAuswahl
+    {
+        get => GruppenBisSpieltag ?? 0;
+        set => GruppenBisSpieltag = value == 0 ? null : value;
+    }
+
     private readonly RelayCommand _zuSpielplanWechselnBefehl;
     private readonly RelayCommand _zuGruppenWechselnBefehl;
     private readonly RelayCommand<TabellenAnsicht?> _ligaAnsichtWaehlenBefehl;
@@ -443,10 +461,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         GruppenTabellen.Clear();
         LigaTabelle.Clear();
         AusgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
-        // Backing-Feld direkt setzen (nicht ueber die Property) - TabellenNeuLadenAsync unten laedt
-        // die Tabelle ohnehin gleich neu; ueber die Property wuerde OnLigaBisSpieltagChanged einen
-        // zusaetzlichen, mit diesem Reload konkurrierenden DbContext-Zugriff ausloesen.
+        // Backing-Felder direkt setzen (nicht ueber die Properties) - TabellenNeuLadenAsync unten laedt
+        // die Tabellen ohnehin gleich neu; ueber die Properties wuerden OnLigaBisSpieltagChanged/
+        // OnGruppenBisSpieltagChanged einen zusaetzlichen, mit diesem Reload konkurrierenden
+        // DbContext-Zugriff ausloesen.
         _ligaBisSpieltag = null;
+        _gruppenBisSpieltag = null;
         _teamGruppeMap = [];
         OnPropertyChanged(nameof(HatGruppenTabellen));
         OnPropertyChanged(nameof(HatLigaTabelle));
@@ -467,6 +487,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         OnPropertyChanged(nameof(LigaSpieltagOptionen));
         OnPropertyChanged(nameof(LigaBisSpieltag));
         OnPropertyChanged(nameof(LigaBisSpieltagAuswahl));
+        OnPropertyChanged(nameof(GruppenSpieltagOptionen));
+        OnPropertyChanged(nameof(GruppenBisSpieltag));
+        OnPropertyChanged(nameof(GruppenBisSpieltagAuswahl));
         _platzhalterBefehl.NotifyCanExecuteChanged();
 
         var regelwerk = await _regelwerkService.FindenNachIdAsync(AusgewaehlteRunde.RegelwerkId);
@@ -497,7 +520,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _teamGruppeMap = [];
         try
         {
-            var tabellen = await _tabellenService.GruppenTabellenBerechnenAsync(rundeId);
+            var tabellen = await _tabellenService.GruppenTabellenBerechnenAsync(rundeId, GruppenBisSpieltag);
             foreach (var gt in tabellen)
             {
                 GruppenTabellen.Add(gt);
@@ -508,6 +531,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         catch { /* Gruppenstand konnte nicht berechnet werden — kein Fehler */ }
         OnPropertyChanged(nameof(HatGruppenTabellen));
         _zuGruppenWechselnBefehl.NotifyCanExecuteChanged();
+
+        // Bei aktiver Gruppen-Fokus-Ansicht (z.B. Spieltag-Snapshot dort umgeschaltet, Issue #112) zeigt
+        // AusgewaehlteGruppe sonst weiter auf die alte, gerade aus GruppenTabellen entfernte Instanz.
+        if (AusgewaehlteGruppe is { } aktuelleGruppe)
+            AusgewaehlteGruppe = GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == aktuelleGruppe.GruppenNummer);
     }
 
     private async Task LigaTabelleLadenAsync(int rundeId)
@@ -553,6 +581,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         if (AusgewaehlteRunde is { } runde)
             _ = LigaTabelleLadenAsync(runde.Id);
+    }
+
+    partial void OnGruppenBisSpieltagChanged(int? value)
+    {
+        if (AusgewaehlteRunde is { } runde)
+            _ = GruppenTabellenLadenAsync(runde.Id);
     }
 
     private async Task SpielWechselAsync()
@@ -824,6 +858,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             OnPropertyChanged(nameof(FokusSpiele));
             OnPropertyChanged(nameof(LigaVerfuegbareSpieltage));
             OnPropertyChanged(nameof(LigaSpieltagOptionen));
+            OnPropertyChanged(nameof(GruppenSpieltagOptionen));
             _platzhalterBefehl.NotifyCanExecuteChanged();
             AusgewaehlteSpiel = null;
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
@@ -852,6 +887,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             OnPropertyChanged(nameof(FokusSpiele));
             OnPropertyChanged(nameof(LigaVerfuegbareSpieltage));
             OnPropertyChanged(nameof(LigaSpieltagOptionen));
+            OnPropertyChanged(nameof(GruppenSpieltagOptionen));
             _platzhalterBefehl.NotifyCanExecuteChanged();
             AusgewaehlteSpiel = null;
 
