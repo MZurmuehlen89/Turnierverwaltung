@@ -920,6 +920,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             await _spielService.ErgebnisErfassenAsync(spielId, BaueEingabe());
 
+            // Falls dieses Ergebnis eine Finale-Runde entscheidungsreif macht, wird sie automatisch ohne
+            // Auslosung generiert (Issue #113) — der reguläre "Platzhalter aktualisieren"-Button ist dafür
+            // nicht erreichbar, da die Finale-Runde vorher noch keine Spiele hat.
+            await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
+
             await TabellenNeuLadenAsync(rundeId);
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
@@ -959,6 +964,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         try
         {
             await _spielService.ErgebnisLoeschenAsync(spielId);
+
+            // Siehe ErgebnisSpeichernAsync — ein zuvor automatisch generiertes, noch nicht gespieltes
+            // Finale muss wieder entfernt werden, wenn das Halbfinale dadurch nicht mehr entschieden ist.
+            await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
 
             await TabellenNeuLadenAsync(rundeId);
 
@@ -1240,6 +1249,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             await _simulationsService.SpielSimulierenAsync(spielId, AusgewaehlterSimulationsModus.Wert);
 
+            // Siehe ErgebnisSpeichernAsync — auch nach Simulation kann eine Finale-Runde entscheidungsreif werden.
+            await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
+
             await TabellenNeuLadenAsync(rundeId);
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
@@ -1286,6 +1298,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             int anzahl = await _simulationsService.RundeSimulierenAsync(
                 rundeId, AusgewaehlterSimulationsModus.Wert);
+
+            // Siehe ErgebnisSpeichernAsync — auch nach Simulation kann eine Finale-Runde entscheidungsreif werden.
+            await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
 
             await TabellenNeuLadenAsync(rundeId);
 

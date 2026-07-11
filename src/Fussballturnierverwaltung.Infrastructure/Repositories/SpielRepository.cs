@@ -59,9 +59,17 @@ public class SpielRepository(TurnierverwaltungDbContext context)
     }
 
     public async Task AlleNachRundeLoeschenAsync(int turnierRundeId, CancellationToken ct = default)
-        => await Context.Spiele
+    {
+        // Bewusst kein ExecuteDeleteAsync (umgeht den Change-Tracker) - falls betroffene Spiele im selben
+        // Scope bereits geladen/getrackt sind, würden sie sonst als "noch vorhanden" im Speicher bleiben
+        // (Stale-Bug, siehe #103).
+        var spiele = await Context.Spiele
             .Where(s => s.TurnierRundeId == turnierRundeId)
-            .ExecuteDeleteAsync(ct);
+            .ToListAsync(ct);
+
+        Context.Spiele.RemoveRange(spiele);
+        await Context.SaveChangesAsync(ct);
+    }
 
     public async Task<Spiel?> FindenNachIdMitErgebnisAsync(int id, CancellationToken ct = default)
         => await Context.Spiele

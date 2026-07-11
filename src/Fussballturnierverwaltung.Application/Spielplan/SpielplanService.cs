@@ -374,14 +374,14 @@ public class SpielplanService(
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
 
+        // Alle Runden derselben TurnierInstanz laden (für Suche nach Vorrunden)
+        var alleRunden = await rundeRepository.AlleNachInstanzAsync(runde.TurnierInstanzId, ct);
+
         var platzhalterSpiele = (await spielRepository.AlleNachRundeAsync(turnierRundeId, ct))
             .Where(s => s.HeimMannschaftId is null || s.AuswaertsMannschaftId is null)
             .ToList();
 
         if (platzhalterSpiele.Count == 0) return 0;
-
-        // Alle Runden derselben TurnierInstanz laden (für Suche nach Vorrunden)
-        var alleRunden = await rundeRepository.AlleNachInstanzAsync(runde.TurnierInstanzId, ct);
 
         // Platzhalter-Cache aufbauen (jeder eindeutige Name nur einmal auflösen)
         var cache = new Dictionary<string, int?>(StringComparer.OrdinalIgnoreCase);
@@ -412,6 +412,94 @@ public class SpielplanService(
             runde.Name, aufgeloest, platzhalterSpiele.Count);
 
         return aufgeloest;
+    }
+
+    // ── Automatische Finale-Generierung ohne Auslosung (Issue #113) ────────
+
+    /// <summary>
+    /// Hält Rundenart.Finale-Runden mit zwei Eingangsmannschaften synchron mit dem Ergebnis der vorhergehenden
+    /// Runde (Halbfinale) — ohne dass für das Finale eine eigene Auslosung durchlaufen werden muss (bei nur
+    /// zwei möglichen Teilnehmern gibt es ohnehin keinen Freiheitsgrad). Generiert das Finalspiel sobald das
+    /// Halbfinale vollständig entschieden ist, und entfernt/ersetzt ein noch nicht gespieltes Finalspiel wieder,
+    /// falls sich der Halbfinale-Stand nachträglich ändert (Ergebnis zurückgesetzt oder neu simuliert). Ein
+    /// bereits gespieltes Finale (mit Ergebnis) wird nie automatisch verändert.
+    /// Beschränkt auf einbeinige Vorrunden (kein MitRueckspiel) — die Ermittlung des Aggregat-Siegers über
+    /// zwei Spielbeine ist bewusst nicht Teil dieser Phase.
+    /// Aufrufpunkt: direkt nach dem Speichern/Zurücksetzen/Simulieren eines Ergebnisses (siehe SpielplanViewModel),
+    /// da die Finale-Runde vor der automatischen Generierung noch keine Spiele hat und der reguläre
+    /// "Platzhalter aktualisieren"-Button dafür nicht sichtbar/erreichbar ist.
+    /// </summary>
+    public async Task FinaleAutomatischGenerierenWennBereitAsync(int turnierInstanzId, CancellationToken ct = default)
+    {
+        var alleRunden = await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
+        var offeneFinalRunden = alleRunden
+            .Where(r => r.Rundenart == Rundenart.Finale && r.EingangsMannschaftsanzahl == 2)
+            .ToList();
+
+        foreach (var finale in offeneFinalRunden)
+        {
+            var finaleSpiele = await spielRepository.AlleNachRundeAsync(finale.Id, ct);
+
+            // Bereits gespielt oder unerwartete Struktur (z.B. mehr als ein Spiel) - nie automatisch anfassen.
+            if (finaleSpiele.Count > 1 || finaleSpiele.Any(s => s.Ergebnis is not null))
+                continue;
+
+            var vorRunde = alleRunden
+                .Where(r => r.Reihenfolge < finale.Reihenfolge
+                         && r.Rundenart == Rundenart.KoRunde
+                         && r.AusgangsMannschaftsanzahl == 2
+                         && !r.MitRueckspiel)
+                .OrderByDescending(r => r.Reihenfolge)
+                .FirstOrDefault();
+
+            var sollTeilnehmer = vorRunde is null ? null : await ErmittelteSiegerAsync(vorRunde, ct);
+
+            if (finaleSpiele.Count == 0)
+            {
+                if (sollTeilnehmer is null) continue; // Halbfinale noch nicht (vollständig) entschieden
+                await GenerierenAsync(finale.Id, sollTeilnehmer, ct);
+                logger.LogInformation(
+                    "Finale-Runde '{Runde}' automatisch ohne Auslosung generiert (Finalisten aus '{VorRunde}').",
+                    finale.Name, vorRunde!.Name);
+                continue;
+            }
+
+            // Genau ein noch nicht gespieltes Finalspiel vorhanden - prüfen ob es noch zum Halbfinale-Stand passt.
+            var aktuellesSpiel = finaleSpiele[0];
+            var aktuelleTeilnehmer = new[] { aktuellesSpiel.HeimMannschaftId, aktuellesSpiel.AuswaertsMannschaftId }
+                .Where(id => id.HasValue).Select(id => id!.Value).ToHashSet();
+            bool stimmtUeberein = sollTeilnehmer is not null
+                && aktuelleTeilnehmer.SetEquals(sollTeilnehmer);
+            if (stimmtUeberein) continue; // bereits korrekt
+
+            await LoeschenAsync(finale.Id, ct);
+            logger.LogInformation(
+                "Automatisch generiertes, noch nicht gespieltes Finalspiel in Runde '{Runde}' entfernt " +
+                "(Halbfinale-Stand hat sich geändert).", finale.Name);
+
+            if (sollTeilnehmer is not null)
+            {
+                await GenerierenAsync(finale.Id, sollTeilnehmer, ct);
+                logger.LogInformation(
+                    "Finale-Runde '{Runde}' automatisch neu generiert (Finalisten aus '{VorRunde}').",
+                    finale.Name, vorRunde!.Name);
+            }
+        }
+    }
+
+    /// <summary>Ermittelt die beiden Sieger einer einbeinigen Vorrunde, sofern diese vollständig entschieden ist.</summary>
+    private async Task<List<int>?> ErmittelteSiegerAsync(TurnierRunde vorRunde, CancellationToken ct)
+    {
+        var vorRundenSpiele = await spielRepository.AlleNachRundeAsync(vorRunde.Id, ct);
+        if (vorRundenSpiele.Count == 0 || vorRundenSpiele.Any(s => s.Ergebnis?.SiegerMannschaftId is null))
+            return null; // Halbfinale noch nicht (vollständig) entschieden
+
+        var sieger = vorRundenSpiele
+            .OrderBy(s => s.Spielnummer)
+            .Select(s => s.Ergebnis!.SiegerMannschaftId!.Value)
+            .Distinct()
+            .ToList();
+        return sieger.Count == 2 ? sieger : null; // unerwarteter Zustand (z.B. Unentschieden ohne Sieger)
     }
 
     // ── Platzhalter-Auflösungslogik ───────────────────────────────────────

@@ -43,9 +43,17 @@ public class TurnierBaumRepository(TurnierverwaltungDbContext context)
 
     public async Task SpielIdsNullSetzenAsync(int turnierRundeId, CancellationToken ct = default)
     {
-        await Context.TurnierBaumKnotenMenge
+        // Bewusst kein ExecuteUpdateAsync (umgeht den Change-Tracker) - falls ein betroffener
+        // TurnierBaumKnoten im selben Scope bereits geladen/getrackt ist (z.B. TurnierBaumAktualisierenAsync
+        // im selben Request), würde die In-Memory-Instanz sonst nicht aktualisiert (Stale-Bug, siehe #103).
+        var knoten = await Context.TurnierBaumKnotenMenge
             .Where(k => k.SpielId != null && k.Spiel!.TurnierRundeId == turnierRundeId)
-            .ExecuteUpdateAsync(s => s.SetProperty(k => k.SpielId, (int?)null), ct);
+            .ToListAsync(ct);
+
+        foreach (var k in knoten)
+            k.SpielId = null;
+
+        await Context.SaveChangesAsync(ct);
     }
 
     public async Task LoeschenMitKnotenAsync(int turnierBaumId, CancellationToken ct = default)
