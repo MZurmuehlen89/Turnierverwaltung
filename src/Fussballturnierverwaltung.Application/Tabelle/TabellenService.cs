@@ -12,18 +12,21 @@ public class TabellenService(
     ISpielRepository spielRepository,
     IRegelwerkRepository regelwerkRepository)
 {
-    /// <summary>Berechnet die aktuelle Tabelle einer Liga- oder Gruppenphase-Runde.</summary>
+    /// <summary>Berechnet die Tabelle einer Liga- oder Gruppenphase-Runde. Mit <paramref name="bisSpieltag"/> wird der
+    /// historische Stand nach diesem Spieltag berechnet statt des aktuellen Stands.</summary>
     public async Task<IReadOnlyList<TabellenEintrag>> TabelleBerechnenAsync(
-        int turnierRundeId, TabellenAnsicht ansicht = TabellenAnsicht.Gesamt, CancellationToken ct = default)
+        int turnierRundeId, TabellenAnsicht ansicht = TabellenAnsicht.Gesamt, int? bisSpieltag = null, CancellationToken ct = default)
     {
         var (punkteRegel, rankingRegeln, alleSpiele) = await LadeTabellenDatenAsync(turnierRundeId, ct);
         if (!alleSpiele.Any()) return [];
 
-        var spiele = ansicht switch
+        var spiele = SpieleBisSpieltagFiltern(alleSpiele, bisSpieltag);
+
+        spiele = ansicht switch
         {
-            TabellenAnsicht.Hinrunde   => alleSpiele.Where(s => !s.IstRueckspiel).ToList(),
-            TabellenAnsicht.Rueckrunde => alleSpiele.Where(s => s.IstRueckspiel).ToList(),
-            _                          => alleSpiele
+            TabellenAnsicht.Hinrunde   => spiele.Where(s => !s.IstRueckspiel).ToList(),
+            TabellenAnsicht.Rueckrunde => spiele.Where(s => s.IstRueckspiel).ToList(),
+            _                          => spiele
         };
 
         bool? nurHeimspiele = ansicht switch
@@ -36,9 +39,11 @@ public class TabellenService(
         return TabelleAusSpielenBerechnen(spiele, punkteRegel, rankingRegeln, nurHeimspiele);
     }
 
-    /// <summary>Berechnet je eine Tabelle pro Gruppe inkl. Qualifikationsstatus. Gruppen werden aus den Spielpaarungen rekonstruiert.</summary>
+    /// <summary>Berechnet je eine Tabelle pro Gruppe inkl. Qualifikationsstatus. Gruppen werden aus den Spielpaarungen
+    /// rekonstruiert. Mit <paramref name="bisSpieltag"/> wird der historische Tabellenstand nach diesem Spieltag berechnet;
+    /// die Qualifikationsstatus-Berechnung bezieht sich dabei weiterhin auf den vollständigen (aktuellen) Datenstand.</summary>
     public async Task<IReadOnlyList<GruppenTabelle>> GruppenTabellenBerechnenAsync(
-        int turnierRundeId, CancellationToken ct = default)
+        int turnierRundeId, int? bisSpieltag = null, CancellationToken ct = default)
     {
         var (punkteRegel, rankingRegeln, alleSpiele) = await LadeTabellenDatenAsync(turnierRundeId, ct);
         if (!alleSpiele.Any()) return [];
@@ -55,7 +60,8 @@ public class TabellenService(
             var gruppenSpiele = (IReadOnlyList<Spiel>)alleSpiele
                 .Where(s => s.HeimMannschaftId.HasValue && teamIds.Contains(s.HeimMannschaftId.Value))
                 .ToList();
-            return (Gruppe: new GruppenTabelle(index + 1, TabelleAusSpielenBerechnen(gruppenSpiele, punkteRegel, rankingRegeln)),
+            var gruppenSpieleGefiltert = SpieleBisSpieltagFiltern(gruppenSpiele, bisSpieltag);
+            return (Gruppe: new GruppenTabelle(index + 1, TabelleAusSpielenBerechnen(gruppenSpieleGefiltert, punkteRegel, rankingRegeln)),
                     Spiele: gruppenSpiele);
         }).ToList();
 
@@ -64,6 +70,9 @@ public class TabellenService(
 
         return result.Select(r => r.Gruppe).ToList();
     }
+
+    private static IReadOnlyList<Spiel> SpieleBisSpieltagFiltern(IReadOnlyList<Spiel> spiele, int? bisSpieltag) =>
+        bisSpieltag is null ? spiele : spiele.Where(s => s.Spieltag is { } sp && sp <= bisSpieltag).ToList();
 
     // ── Interne Lade- und Berechnungsmethoden ────────────────────────────
 

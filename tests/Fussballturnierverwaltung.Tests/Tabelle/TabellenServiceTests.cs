@@ -59,14 +59,16 @@ public class TabellenServiceTests
         int heimId, int auswaertsId,
         int? heimTore, int? auswaertsTore,
         int? siegerMannschaftId = null,
-        bool istRueckspiel = false)
+        bool istRueckspiel = false,
+        int? spieltag = null)
     {
         var spiel = new Spiel
         {
             Id = id, TurnierInstanzId = 1, TurnierRundeId = rundeId,
             Spielnummer = id, HeimMannschaftId = heimId, AuswaertsMannschaftId = auswaertsId,
             Status = heimTore.HasValue ? SpielStatus.Abgeschlossen : SpielStatus.Geplant,
-            IstRueckspiel = istRueckspiel
+            IstRueckspiel = istRueckspiel,
+            Spieltag = spieltag
         };
         ctx.Spiele.Add(spiel);
 
@@ -333,5 +335,75 @@ public class TabellenServiceTests
         teamA.Punkte.Should().Be(1, "Team A spielt sein einziges Auswärtsspiel unentschieden");
         teamB.Spiele.Should().Be(1);
         teamB.Punkte.Should().Be(0, "Team B verliert sein einziges Auswärtsspiel");
+    }
+
+    // ── Historischer Tabellenstand nach Spieltag (Issue #109, Phase 1 von #47) ─────
+
+    [Fact]
+    public async Task TabelleBerechnenAsync_BisSpieltag_BeruecksichtigtNurFrueherenSpieltag()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int rundeId);
+        // Spieltag 1: Team A gewinnt 2:0
+        SpielHinzufuegen(ctx, 1, rundeId, heimId: 1, auswaertsId: 2,
+            heimTore: 2, auswaertsTore: 0, siegerMannschaftId: 1, spieltag: 1);
+        // Spieltag 2: Team B gewinnt 3:0 (Rückspiel-Team-Konstellation ignoriert hier bewusst)
+        SpielHinzufuegen(ctx, 2, rundeId, heimId: 2, auswaertsId: 1,
+            heimTore: 3, auswaertsTore: 0, siegerMannschaftId: 2, spieltag: 2);
+        var service = ServiceFuer(ctx);
+
+        var stand = await service.TabelleBerechnenAsync(rundeId, bisSpieltag: 1);
+
+        var teamA = stand.First(e => e.Mannschaft.Id == 1);
+        teamA.Spiele.Should().Be(1, "nur Spieltag 1 zählt für den Snapshot");
+        teamA.Punkte.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task TabelleBerechnenAsync_OhneBisSpieltag_EntsprichtAktuellemStand()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int rundeId);
+        SpielHinzufuegen(ctx, 1, rundeId, heimId: 1, auswaertsId: 2,
+            heimTore: 2, auswaertsTore: 0, siegerMannschaftId: 1, spieltag: 1);
+        SpielHinzufuegen(ctx, 2, rundeId, heimId: 2, auswaertsId: 1,
+            heimTore: 3, auswaertsTore: 0, siegerMannschaftId: 2, spieltag: 2);
+        var service = ServiceFuer(ctx);
+
+        var stand = await service.TabelleBerechnenAsync(rundeId);
+
+        var teamA = stand.First(e => e.Mannschaft.Id == 1);
+        teamA.Spiele.Should().Be(2, "ohne bisSpieltag zaehlen alle Spieltage");
+    }
+
+    [Fact]
+    public async Task GruppenTabellenBerechnenAsync_BisSpieltag_FiltertNurDieGruppentabelle()
+    {
+        await using var ctx = NeuerContext();
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Rundenart = Rundenart.Gruppenphase,
+            RegelwerkId = 1, Reihenfolge = 1, GruppenAnzahl = 1, AusgangsMannschaftsanzahl = 2
+        });
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team A", Kurzname = "TA", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team B", Kurzname = "TB", LandId = 1 });
+        ctx.SaveChanges();
+
+        SpielHinzufuegen(ctx, 1, rundeId: 1, heimId: 1, auswaertsId: 2,
+            heimTore: 2, auswaertsTore: 0, siegerMannschaftId: 1, spieltag: 1);
+        SpielHinzufuegen(ctx, 2, rundeId: 1, heimId: 2, auswaertsId: 1,
+            heimTore: 3, auswaertsTore: 0, siegerMannschaftId: 2, spieltag: 2);
+        var service = ServiceFuer(ctx);
+
+        var gruppen = await service.GruppenTabellenBerechnenAsync(1, bisSpieltag: 1);
+
+        gruppen.Should().HaveCount(1);
+        var teamA = gruppen[0].Tabelle.First(e => e.Mannschaft.Id == 1);
+        teamA.Spiele.Should().Be(1, "nur Spieltag 1 fliesst in den Snapshot ein");
+        teamA.Punkte.Should().Be(3);
     }
 }

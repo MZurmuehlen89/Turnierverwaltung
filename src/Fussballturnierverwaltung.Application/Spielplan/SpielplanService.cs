@@ -465,7 +465,7 @@ public class SpielplanService(
             .FirstOrDefault();
         if (gruppenphaseRunde is null) return null;
 
-        var gruppenTabellen = await tabellenService.GruppenTabellenBerechnenAsync(gruppenphaseRunde.Id, ct);
+        var gruppenTabellen = await tabellenService.GruppenTabellenBerechnenAsync(gruppenphaseRunde.Id, ct: ct);
         var gruppe = gruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppenNummer);
         if (gruppe is null) return null;
 
