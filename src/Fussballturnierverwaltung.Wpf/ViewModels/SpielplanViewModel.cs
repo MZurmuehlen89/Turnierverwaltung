@@ -126,6 +126,29 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     [ObservableProperty] private TabellenAnsicht _ausgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
 
+    // Historischer Tabellenstand nach Spieltag (Issue #111, Phase 2 von #47). Null = aktueller Stand.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LigaBisSpieltagAuswahl))]
+    private int? _ligaBisSpieltag;
+
+    /// <summary>Spieltage, für die in der Liga-Runde bereits Spiele existieren (aufsteigend, ohne Duplikate).</summary>
+    public IReadOnlyList<int> LigaVerfuegbareSpieltage =>
+        Spiele.Where(s => s.Spieltag.HasValue).Select(s => s.Spieltag!.Value).Distinct().OrderBy(sp => sp).ToList();
+
+    /// <summary>Auswahloptionen für den Spieltag-Filter der Liga-Tabelle: 0 = "Aktuell" (Sentinel statt null, siehe
+    /// LigaBisSpieltagAuswahl) + alle vorhandenen Spieltage. Echte Spieltage sind stets &gt;= 1.</summary>
+    public IReadOnlyList<int> LigaSpieltagOptionen =>
+        new[] { 0 }.Concat(LigaVerfuegbareSpieltage).ToList();
+
+    /// <summary>UI-Wrapper um <see cref="LigaBisSpieltag"/> für das ComboBox-Binding: WPF behandelt einen echten
+    /// null-Eintrag in ItemsSource bei SelectedItem-Bindings als "keine Auswahl" statt als auswählbares Element,
+    /// daher hier 0 als Sentinel für "Aktuell" statt null.</summary>
+    public int LigaBisSpieltagAuswahl
+    {
+        get => LigaBisSpieltag ?? 0;
+        set => LigaBisSpieltag = value == 0 ? null : value;
+    }
+
     private readonly RelayCommand _zuSpielplanWechselnBefehl;
     private readonly RelayCommand _zuGruppenWechselnBefehl;
     private readonly RelayCommand<TabellenAnsicht?> _ligaAnsichtWaehlenBefehl;
@@ -420,6 +443,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         GruppenTabellen.Clear();
         LigaTabelle.Clear();
         AusgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
+        // Backing-Feld direkt setzen (nicht ueber die Property) - TabellenNeuLadenAsync unten laedt
+        // die Tabelle ohnehin gleich neu; ueber die Property wuerde OnLigaBisSpieltagChanged einen
+        // zusaetzlichen, mit diesem Reload konkurrierenden DbContext-Zugriff ausloesen.
+        _ligaBisSpieltag = null;
         _teamGruppeMap = [];
         OnPropertyChanged(nameof(HatGruppenTabellen));
         OnPropertyChanged(nameof(HatLigaTabelle));
@@ -436,6 +463,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
 
         OnPropertyChanged(nameof(HatPlatzhalterSpiele));
+        OnPropertyChanged(nameof(LigaVerfuegbareSpieltage));
+        OnPropertyChanged(nameof(LigaSpieltagOptionen));
+        OnPropertyChanged(nameof(LigaBisSpieltag));
+        OnPropertyChanged(nameof(LigaBisSpieltagAuswahl));
         _platzhalterBefehl.NotifyCanExecuteChanged();
 
         var regelwerk = await _regelwerkService.FindenNachIdAsync(AusgewaehlteRunde.RegelwerkId);
@@ -484,7 +515,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         LigaTabelle.Clear();
         try
         {
-            var tabelle = await _tabellenService.TabelleBerechnenAsync(rundeId, AusgewaehlteLigaAnsicht);
+            var tabelle = await _tabellenService.TabelleBerechnenAsync(rundeId, AusgewaehlteLigaAnsicht, LigaBisSpieltag);
             foreach (var eintrag in tabelle)
                 LigaTabelle.Add(eintrag);
         }
@@ -514,6 +545,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         if (AusgewaehlteLigaAnsicht == ansicht) return;
         AusgewaehlteLigaAnsicht = ansicht;
+        if (AusgewaehlteRunde is { } runde)
+            _ = LigaTabelleLadenAsync(runde.Id);
+    }
+
+    partial void OnLigaBisSpieltagChanged(int? value)
+    {
         if (AusgewaehlteRunde is { } runde)
             _ = LigaTabelleLadenAsync(runde.Id);
     }
@@ -785,6 +822,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
             OnPropertyChanged(nameof(FokusSpiele));
+            OnPropertyChanged(nameof(LigaVerfuegbareSpieltage));
+            OnPropertyChanged(nameof(LigaSpieltagOptionen));
             _platzhalterBefehl.NotifyCanExecuteChanged();
             AusgewaehlteSpiel = null;
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
@@ -811,6 +850,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
             OnPropertyChanged(nameof(FokusSpiele));
+            OnPropertyChanged(nameof(LigaVerfuegbareSpieltage));
+            OnPropertyChanged(nameof(LigaSpieltagOptionen));
             _platzhalterBefehl.NotifyCanExecuteChanged();
             AusgewaehlteSpiel = null;
 

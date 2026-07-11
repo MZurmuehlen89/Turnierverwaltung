@@ -19,6 +19,7 @@
             <conv:SpielStatusZuFarbeConverter x:Key="SpielStatusZuFarbe" />
             <conv:EntscheidungArtZuTextConverter x:Key="EntscheidungArtZuText" />
             <conv:QualifikationsstatusZuFarbeConverter x:Key="QualifikationsstatusZuFarbe" />
+            <conv:SpieltagOptionZuTextConverter x:Key="SpieltagOptionZuText" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
