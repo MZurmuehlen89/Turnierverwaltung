@@ -269,8 +269,13 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- Fix #2+#3: Filter + Scrollbar für Verfügbare Teilnehmer -->
-                            <DockPanel Grid.Column="0">
+                            <!-- Fix #2+#3: Filter + Scrollbar für Verfügbare Teilnehmer.
+                                 VerticalAlignment="Top" verhindert, dass diese Spalte auf die Höhe der
+                                 (unbegrenzt wachsenden) Lostöpfe-Spalte gestreckt wird — sonst würde die
+                                 durch MaxHeight begrenzte ListBox innerhalb der gestreckten Spalte vertikal
+                                 zentriert (WPF-Standardverhalten von Stretch bei Max-beschränkten Kindern),
+                                 was einen sichtbaren Leerraum zwischen Suchfeld und Liste erzeugt. -->
+                            <DockPanel Grid.Column="0" VerticalAlignment="Top">
                                 <Border DockPanel.Dock="Top" Background="#F1F5F9"
                                         Padding="6,4" CornerRadius="4,4,0,0">
                                     <DockPanel>
