@@ -1162,8 +1162,22 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
                 Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(FokusSpiele));
-            AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
+
+            // Property-Change-Trigger (SpielWechselAsync, fire-and-forget) hier unterdrücken,
+            // sonst laeuft dessen DB-Zugriff parallel zu TurnierBaumAktualisierenAsync auf
+            // demselben DbContext (siehe [[feedback-dbcontext-concurrency]]) — Formular explizit
+            // erst danach sequenziell neu laden.
+            _spielWechselUnterdrueckt++;
+            try
+            {
+                AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
+            }
+            finally
+            {
+                _spielWechselUnterdrueckt--;
+            }
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
+            await BeiSpielAenderungAsync();
             SimulationsStatus = "Spiel simuliert.";
         }
         catch (Exception ex)

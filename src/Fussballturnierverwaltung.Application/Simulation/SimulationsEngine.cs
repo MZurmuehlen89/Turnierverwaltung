@@ -125,6 +125,33 @@ public static class SimulationsEngine
                 return (hv - gv, EntscheidungArt.GoldenGoal, hv, gv, null, null, extras);
             }
 
+            case VerfahrenArt.SilverGoal:
+            {
+                // Silbernes Tor: Führt ein Team nach der ersten Verlängerungshälfte (15 Min.), endet
+                // das Spiel sofort; bei Gleichstand wird die zweite Hälfte (weitere 15 Min.) gespielt.
+                double hL15 = BerechneErwartetesTore(heim, auswaerts, istHeim: true)  * (15.0 / 90.0);
+                double gL15 = BerechneErwartetesTore(auswaerts, heim, istHeim: false) * (15.0 / 90.0);
+
+                int hv1 = ZiehePoisson(hL15, rng);
+                int gv1 = ZiehePoisson(gL15, rng);
+                var extras = ausfuehrlich
+                    ? EreignisseGenerieren(heim, auswaerts, hv1, gv1, rng, 91, 105)
+                    : (IReadOnlyList<SimuliertesEreignis>)[];
+
+                int hv = hv1, gv = gv1;
+                if (hv1 == gv1)
+                {
+                    int hv2 = ZiehePoisson(hL15, rng);
+                    int gv2 = ZiehePoisson(gL15, rng);
+                    if (ausfuehrlich)
+                        extras = [.. extras, .. EreignisseGenerieren(heim, auswaerts, hv2, gv2, rng, 106, 120)];
+                    hv += hv2;
+                    gv += gv2;
+                }
+
+                return (hv - gv, EntscheidungArt.SilverGoal, hv, gv, null, null, extras);
+            }
+
             case VerfahrenArt.Elfmeterschiessen:
             {
                 var (he, ge) = ElfmeterschiessenSimulieren(heim, auswaerts, rng);

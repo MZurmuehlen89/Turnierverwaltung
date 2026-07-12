@@ -90,6 +90,37 @@ public class SimulationsEngineTests
     }
 
     [Fact]
+    public void MitSilverGoalVerfahren_LiefertVerlaengerungstoreBeiEntscheidung()
+    {
+        // Regression #115: VerfahrenArt.SilverGoal fehlte im Engine-Switch und fiel in den
+        // default-Zweig, wodurch HeimToreVerlaengerung/AuswaertsToreVerlaengerung trotz
+        // konfigurierter Verlängerung immer null blieben.
+        var verfahren = new[]
+        {
+            Verfahren(VerfahrenArt.SilverGoal, rang: 1),
+            Verfahren(VerfahrenArt.Elfmeterschiessen, rang: 2)
+        };
+
+        for (int seed = 0; seed < 200; seed++)
+        {
+            var erg = SimulationsEngine.Simulieren(Team(1), Team(2), verfahren, false, new Random(seed));
+            if (erg.HeimToreRegulaer != erg.AuswaertsToreRegulaer) continue;
+
+            erg.EntscheidungArt.Should().BeOneOf(EntscheidungArt.SilverGoal, EntscheidungArt.Elfmeterschiessen);
+            erg.HeimToreVerlaengerung.Should().NotBeNull();
+            erg.AuswaertsToreVerlaengerung.Should().NotBeNull();
+
+            if (erg.EntscheidungArt == EntscheidungArt.Elfmeterschiessen)
+            {
+                erg.HeimToreVerlaengerung.Should().Be(erg.AuswaertsToreVerlaengerung,
+                    "Elfmeterschießen wird nur erreicht, wenn die Verlängerung unentschieden endet");
+                erg.HeimElfmetertore.Should().NotBeNull();
+                erg.AuswaertsElfmetertore.Should().NotBeNull();
+            }
+        }
+    }
+
+    [Fact]
     public void StarkesTeamGewinntHaeufiger()
     {
         var stark  = Team(1, off: 95, mid: 90, def: 90, heim: 95, ausw: 90);
