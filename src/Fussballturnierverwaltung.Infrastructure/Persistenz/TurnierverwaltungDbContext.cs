@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
+using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Simulation;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
@@ -51,6 +52,10 @@ public class TurnierverwaltungDbContext : DbContext
 
     // Simulation
     public DbSet<SimulationsLauf> SimulationsLaeufe => Set<SimulationsLauf>();
+
+    // Ranglisten
+    public DbSet<Rangliste> Ranglisten => Set<Rangliste>();
+    public DbSet<RanglistenEintrag> RanglistenEintraege => Set<RanglistenEintrag>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Spielplan;
@@ -50,6 +51,9 @@ public static class InfrastrukturErweiterungen
 
         // Simulations-Repository
         services.AddScoped<ISimulationsLaufRepository, SimulationsLaufRepository>();
+
+        // Ranglisten-Repository
+        services.AddScoped<IRanglisteRepository, RanglisteRepository>();
 
         return services;
     }

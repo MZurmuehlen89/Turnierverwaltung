@@ -195,6 +195,62 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.ToTable("LostopfEintraege", (string)null);
                 });
 
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.Rangliste", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("Datum")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Quelle")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Ranglisten", (string)null);
+                });
+
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenEintrag", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("MannschaftId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Punkte")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Rang")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RanglisteId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MannschaftId");
+
+                    b.HasIndex("RanglisteId", "MannschaftId")
+                        .IsUnique();
+
+                    b.ToTable("RanglistenEintraege", (string)null);
+                });
+
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke.EntscheidungsVerfahren", b =>
                 {
                     b.Property<int>("Id")
@@ -987,6 +1043,25 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("Mannschaft");
                 });
 
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenEintrag", b =>
+                {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Mannschaft", "Mannschaft")
+                        .WithMany()
+                        .HasForeignKey("MannschaftId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.Rangliste", "Rangliste")
+                        .WithMany("Eintraege")
+                        .HasForeignKey("RanglisteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Mannschaft");
+
+                    b.Navigation("Rangliste");
+                });
+
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke.EntscheidungsVerfahren", b =>
                 {
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke.Regelwerk", "Regelwerk")
@@ -1275,6 +1350,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen.Lostopf", b =>
+                {
+                    b.Navigation("Eintraege");
+                });
+
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.Rangliste", b =>
                 {
                     b.Navigation("Eintraege");
                 });

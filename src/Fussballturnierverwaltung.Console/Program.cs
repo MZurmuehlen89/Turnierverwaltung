@@ -3,6 +3,7 @@ using Fussballturnierverwaltung.Application.Einstellungen;
 using Serilog;
 using Serilog.Events;
 using Fussballturnierverwaltung.Application.ImportExport;
+using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spielplan;
@@ -56,6 +57,7 @@ builder.Services.AddScoped<RankingRegelSetValidator>();
 builder.Services.AddScoped<SpielErgebnisValidator>();
 builder.Services.AddScoped<AuslosungsValidator>();
 builder.Services.AddScoped<ImportValidator>();
+builder.Services.AddScoped<RanglisteValidator>();
 
 // Application Services – Stammdaten
 builder.Services.AddScoped<MannschaftService>();
@@ -66,6 +68,7 @@ builder.Services.AddScoped<VerbandService>();
 builder.Services.AddScoped<TurnierVorlageService>();
 builder.Services.AddScoped<TurnierInstanzService>();
 builder.Services.AddScoped<RegelwerkService>();
+builder.Services.AddScoped<RanglisteService>();
 
 // Application Services – Auslosungen
 builder.Services.AddScoped<AuslosungService>();
@@ -101,6 +104,7 @@ builder.Services.AddScoped<SpielplanService>();
 builder.Services.AddScoped<MannschaftMenue>();
 builder.Services.AddScoped<LandVerbandMenue>();
 builder.Services.AddScoped<RegelwerkMenue>();
+builder.Services.AddScoped<RanglisteMenue>();
 builder.Services.AddScoped<TurnierVorlageMenue>();
 builder.Services.AddScoped<TurnierInstanzMenue>();
 builder.Services.AddScoped<AuslosungMenue>();

@@ -8,7 +8,8 @@ public class StammdatenMenue(
     MannschaftMenue mannschaftMenue,
     LandVerbandMenue landVerbandMenue,
     RegelwerkMenue regelwerkMenue,
-    TurnierVorlageMenue turnierVorlageMenue)
+    TurnierVorlageMenue turnierVorlageMenue,
+    RanglisteMenue ranglisteMenue)
 {
     private enum Option
     {
@@ -16,6 +17,7 @@ public class StammdatenMenue(
         LaenderUndVerbaende,
         Regelwerke,
         Turniervorlagen,
+        Ranglisten,
         Zurueck
     }
 
@@ -32,11 +34,12 @@ public class StammdatenMenue(
                         Option.LaenderUndVerbaende => "Länder und Verbände",
                         Option.Regelwerke          => "Regelwerke",
                         Option.Turniervorlagen     => "Turniervorlagen",
+                        Option.Ranglisten          => "Ranglisten",
                         Option.Zurueck             => "← Zurück",
                         _                          => o.ToString()
                     })
                     .AddChoices(Option.Mannschaften, Option.LaenderUndVerbaende,
-                                Option.Regelwerke, Option.Turniervorlagen, Option.Zurueck));
+                                Option.Regelwerke, Option.Turniervorlagen, Option.Ranglisten, Option.Zurueck));
 
             if (auswahl == Option.Zurueck) break;
 
@@ -48,6 +51,7 @@ public class StammdatenMenue(
                     case Option.LaenderUndVerbaende: await landVerbandMenue.AnzeigenAsync(ct);     break;
                     case Option.Regelwerke:          await regelwerkMenue.AnzeigenAsync(ct);       break;
                     case Option.Turniervorlagen:     await turnierVorlageMenue.AnzeigenAsync(ct);  break;
+                    case Option.Ranglisten:          await ranglisteMenue.AnzeigenAsync(ct);       break;
                 }
             }
             catch (Exception ex) { KonsolenHilfsmittel.FehlerAnzeigen(ex.Message); KonsolenHilfsmittel.Pause(); }

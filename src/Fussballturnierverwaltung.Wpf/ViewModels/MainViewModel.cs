@@ -51,6 +51,7 @@ public partial class MainViewModel : ViewModelBase
                 EintragErstellen("Länder & Verbände", () => _navigation.NavigiereZuAsync<LandUndVerbandViewModel>()),
                 EintragErstellen("Regelwerke",        () => _navigation.NavigiereZuAsync<RegelwerkViewModel>()),
                 EintragErstellen("Turniervorlagen",   () => _navigation.NavigiereZuAsync<TurnierVorlageViewModel>()),
+                EintragErstellen("Ranglisten",        () => _navigation.NavigiereZuAsync<RanglisteViewModel>()),
             ]
         });
 
