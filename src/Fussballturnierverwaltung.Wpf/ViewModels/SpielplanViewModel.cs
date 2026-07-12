@@ -322,6 +322,25 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public ICommand GruppeZuruecksetzenBefehl   => _gruppeZuruecksetzenBefehl;
     public ICommand SpieltagZuruecksetzenBefehl => _spieltagZuruecksetzenBefehl;
 
+    // ── Manuelle Multi-Selektion zum Zurücksetzen (Issue #124) ───────────────────
+    // Wird von der View per Code-Behind (ListView.SelectionChanged, da ListView.SelectedItems
+    // nicht direkt bindbar ist) aktuell gehalten — siehe AktualisiereMehrfachAuswahl.
+
+    private readonly AsyncRelayCommand _mehrfachZuruecksetzenBefehl;
+    public ICommand MehrfachZuruecksetzenBefehl => _mehrfachZuruecksetzenBefehl;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AnzahlMehrfachZuruecksetzbar))]
+    private IReadOnlyList<SpielZeile> _mehrfachAusgewaehlteSpiele = [];
+
+    public int AnzahlMehrfachZuruecksetzbar => MehrfachAusgewaehlteSpiele.Count(s => s.HatErgebnis);
+
+    public void AktualisiereMehrfachAuswahl(IEnumerable<SpielZeile> ausgewaehlt)
+    {
+        MehrfachAusgewaehlteSpiele = ausgewaehlt.ToList();
+        _mehrfachZuruecksetzenBefehl.NotifyCanExecuteChanged();
+    }
+
     // ── IRibbonAware ──────────────────────────────────────────────────────────
 
     public string RibbonTabTitel => "Spielplan";
@@ -385,6 +404,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _rundeZuruecksetzenBefehl    = new AsyncRelayCommand(RundeZuruecksetzenAsync,    CanRundeZuruecksetzen);
         _gruppeZuruecksetzenBefehl   = new AsyncRelayCommand(GruppeZuruecksetzenAsync,   CanGruppeZuruecksetzen);
         _spieltagZuruecksetzenBefehl = new AsyncRelayCommand(SpieltagZuruecksetzenAsync, CanSpieltagZuruecksetzen);
+        _mehrfachZuruecksetzenBefehl = new AsyncRelayCommand(MehrfachZuruecksetzenAsync, CanMehrfachZuruecksetzen);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -959,6 +979,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _rundeZuruecksetzenBefehl.NotifyCanExecuteChanged();
         _gruppeZuruecksetzenBefehl.NotifyCanExecuteChanged();
         _spieltagZuruecksetzenBefehl.NotifyCanExecuteChanged();
+        _mehrfachZuruecksetzenBefehl.NotifyCanExecuteChanged();
     }
 
     private static SpielZeile MapSpielZeile(
@@ -1176,6 +1197,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IstGruppenFokusAnsicht && AusgewaehlteGruppe is not null && !FokusAlleAktiv && !IstSimulierend
         && Spiele.Any(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer
                          && s.Spieltag == FokusAktiverSpieltag && s.HatErgebnis);
+
+    private bool CanMehrfachZuruecksetzen() =>
+        !IstSimulierend && AnzahlMehrfachZuruecksetzbar > 0;
 
     // ── Simulation: Aktionen ───────────────────────────────────────────────────
 
@@ -1454,6 +1478,46 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstSimulierend = false;
+            AktualisiereBefehle();
+        }
+    }
+
+    private async Task MehrfachZuruecksetzenAsync()
+    {
+        if (AusgewaehlteRunde is null) return;
+        var spielIds = MehrfachAusgewaehlteSpiele.Where(s => s.HatErgebnis).Select(s => s.Id).ToList();
+        if (spielIds.Count == 0) return;
+
+        var antwort = MessageBox.Show(
+            $"{spielIds.Count} Spielergebnis(se) zurücksetzen?",
+            "Ergebnisse zurücksetzen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (antwort != MessageBoxResult.Yes) return;
+
+        int rundeId = AusgewaehlteRunde.Id;
+        Fehlermeldung  = null;
+        IstSimulierend = true;
+        try
+        {
+            await _spielService.MehrereErgebnisseLoeschenAsync(spielIds);
+
+            await TabellenNeuLadenAsync(rundeId);
+
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            OnPropertyChanged(nameof(FokusSpiele));
+            AusgewaehlteSpiel = null;
+            MehrfachAusgewaehlteSpiele = [];
+            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
         catch (Exception ex)
         {
