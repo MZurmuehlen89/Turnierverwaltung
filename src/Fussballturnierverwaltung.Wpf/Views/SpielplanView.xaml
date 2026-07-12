@@ -222,12 +222,12 @@
                         Ausführliche Simulation →
                     </Button>
 
-                    <!-- Hinweis: Vorhandenes Ergebnis wird überschrieben -->
-                    <Border Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
+                    <!-- Hinweis: Simulieren erst nach Zurücksetzen des bestehenden Ergebnisses möglich -->
+                    <Border Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
                             CornerRadius="4" Padding="10,7" Margin="0,0,0,12"
                             Visibility="{Binding FormHatErgebnis, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="Bestehendes Ergebnis wird beim Speichern überschrieben."
-                                   Foreground="#166534" FontSize="12" TextWrapping="Wrap" />
+                        <TextBlock Text="Dieses Spiel hat bereits ein Ergebnis. Zum Neu-Simulieren zuerst über 'Löschen' zurücksetzen."
+                                   Foreground="#1D4ED8" FontSize="12" TextWrapping="Wrap" />
                     </Border>
 
                 </StackPanel>

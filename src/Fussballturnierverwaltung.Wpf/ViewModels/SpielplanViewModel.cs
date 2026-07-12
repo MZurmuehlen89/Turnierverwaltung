@@ -1125,12 +1125,15 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     // ── Simulation: CanExecute ─────────────────────────────────────────────────
 
     private bool CanSpielSimulieren()    =>
-        HatRunde && AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && !IstSimulierend;
+        HatRunde && AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && !IstSimulierend && !FormHatErgebnis;
 
     private bool CanAusfuehrlichSimulieren() =>
-        HatRunde && AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && AusgewaehlteInstanz is not null && !IstSimulierend;
+        HatRunde && AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && AusgewaehlteInstanz is not null
+        && !IstSimulierend && !FormHatErgebnis;
 
-    private bool CanRundeSimulieren()    => HatRunde && !IstSimulierend;
+    private bool CanRundeSimulieren() =>
+        HatRunde && !IstSimulierend
+        && Spiele.Any(s => s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
 
     private bool CanGruppeSimulieren()   => IstGruppenFokusAnsicht && AusgewaehlteGruppe is not null && !IstSimulierend;
 
