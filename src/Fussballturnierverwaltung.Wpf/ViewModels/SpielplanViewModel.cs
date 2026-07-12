@@ -312,6 +312,16 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public ICommand SpieltagSimulierenBefehl      => _spieltagSimulierenBefehl;
     public ICommand AusfuehrlichSimulierenBefehl  => _ausfuehrlichSimulierenBefehl;
 
+    // ── Ergebnis-Reset auf Ebene Runde/Gruppe/Spieltag (Issue #123) ─────────────
+
+    private readonly AsyncRelayCommand _rundeZuruecksetzenBefehl;
+    private readonly AsyncRelayCommand _gruppeZuruecksetzenBefehl;
+    private readonly AsyncRelayCommand _spieltagZuruecksetzenBefehl;
+
+    public ICommand RundeZuruecksetzenBefehl    => _rundeZuruecksetzenBefehl;
+    public ICommand GruppeZuruecksetzenBefehl   => _gruppeZuruecksetzenBefehl;
+    public ICommand SpieltagZuruecksetzenBefehl => _spieltagZuruecksetzenBefehl;
+
     // ── IRibbonAware ──────────────────────────────────────────────────────────
 
     public string RibbonTabTitel => "Spielplan";
@@ -371,6 +381,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _gruppeSimulierenBefehl       = new AsyncRelayCommand(GruppeSimulierenAsync,        CanGruppeSimulieren);
         _spieltagSimulierenBefehl     = new AsyncRelayCommand(SpieltagSimulierenAsync,      CanSpieltagSimulieren);
         _ausfuehrlichSimulierenBefehl = new AsyncRelayCommand(AusfuehrlichSimulierenAsync,  CanAusfuehrlichSimulieren);
+
+        _rundeZuruecksetzenBefehl    = new AsyncRelayCommand(RundeZuruecksetzenAsync,    CanRundeZuruecksetzen);
+        _gruppeZuruecksetzenBefehl   = new AsyncRelayCommand(GruppeZuruecksetzenAsync,   CanGruppeZuruecksetzen);
+        _spieltagZuruecksetzenBefehl = new AsyncRelayCommand(SpieltagZuruecksetzenAsync, CanSpieltagZuruecksetzen);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -942,6 +956,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _gruppeSimulierenBefehl.NotifyCanExecuteChanged();
         _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
         _ausfuehrlichSimulierenBefehl.NotifyCanExecuteChanged();
+        _rundeZuruecksetzenBefehl.NotifyCanExecuteChanged();
+        _gruppeZuruecksetzenBefehl.NotifyCanExecuteChanged();
+        _spieltagZuruecksetzenBefehl.NotifyCanExecuteChanged();
     }
 
     private static SpielZeile MapSpielZeile(
@@ -1146,6 +1163,20 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private bool CanSpieltagSimulieren() =>
         IstGruppenFokusAnsicht && AusgewaehlteGruppe is not null && !FokusAlleAktiv && !IstSimulierend;
 
+    // ── Ergebnis-Reset: CanExecute ───────────────────────────────────────────────
+
+    private bool CanRundeZuruecksetzen() =>
+        HatRunde && !IstSimulierend && Spiele.Any(s => s.HatErgebnis);
+
+    private bool CanGruppeZuruecksetzen() =>
+        IstGruppenFokusAnsicht && AusgewaehlteGruppe is not null && !IstSimulierend
+        && Spiele.Any(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer && s.HatErgebnis);
+
+    private bool CanSpieltagZuruecksetzen() =>
+        IstGruppenFokusAnsicht && AusgewaehlteGruppe is not null && !FokusAlleAktiv && !IstSimulierend
+        && Spiele.Any(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer
+                         && s.Spieltag == FokusAktiverSpieltag && s.HatErgebnis);
+
     // ── Simulation: Aktionen ───────────────────────────────────────────────────
 
     private async Task SpielSimulierenAsync()
@@ -1289,6 +1320,131 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             await _simulationsService.SpieltagInGruppeSimulierenAsync(
                 rundeId, spieltag, teamIds, AusgewaehlterSimulationsModus.Wert);
+
+            await GruppenTabellenLadenAsync(rundeId);
+
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            OnPropertyChanged(nameof(FokusSpiele));
+            AusgewaehlteSpiel = null;
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstSimulierend = false;
+            AktualisiereBefehle();
+        }
+    }
+
+    // ── Ergebnis-Reset: Aktionen (Issue #123) ────────────────────────────────────
+    // Kaskaden-Prüfung (Folgerunden-Platzhalter/Finale neu bewerten) folgt in Issue #125 —
+    // bewusst noch nicht hier ergänzt, um die Fix-Stelle nicht doppelt/uneinheitlich anzulegen.
+
+    private async Task RundeZuruecksetzenAsync()
+    {
+        if (AusgewaehlteRunde is null) return;
+        var spielIds = Spiele.Where(s => s.HatErgebnis).Select(s => s.Id).ToList();
+        if (spielIds.Count == 0) return;
+
+        var antwort = MessageBox.Show(
+            $"Alle {spielIds.Count} Ergebnis(se) der Runde '{AusgewaehlteRunde.Name}' zurücksetzen?",
+            "Ergebnisse zurücksetzen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (antwort != MessageBoxResult.Yes) return;
+
+        int rundeId = AusgewaehlteRunde.Id;
+        Fehlermeldung  = null;
+        IstSimulierend = true;
+        try
+        {
+            await _spielService.MehrereErgebnisseLoeschenAsync(spielIds);
+
+            await TabellenNeuLadenAsync(rundeId);
+
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            OnPropertyChanged(nameof(FokusSpiele));
+            AusgewaehlteSpiel = null;
+            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstSimulierend = false;
+            AktualisiereBefehle();
+        }
+    }
+
+    private async Task GruppeZuruecksetzenAsync()
+    {
+        if (AusgewaehlteGruppe is null || AusgewaehlteRunde is null) return;
+        var spielIds = Spiele
+            .Where(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer && s.HatErgebnis)
+            .Select(s => s.Id).ToList();
+        if (spielIds.Count == 0) return;
+
+        var antwort = MessageBox.Show(
+            $"Alle {spielIds.Count} Ergebnis(se) der Gruppe {AusgewaehlteGruppe.GruppenNummer} zurücksetzen?",
+            "Ergebnisse zurücksetzen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (antwort != MessageBoxResult.Yes) return;
+
+        int rundeId = AusgewaehlteRunde.Id;
+        Fehlermeldung  = null;
+        IstSimulierend = true;
+        try
+        {
+            await _spielService.MehrereErgebnisseLoeschenAsync(spielIds);
+
+            await GruppenTabellenLadenAsync(rundeId);
+
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            OnPropertyChanged(nameof(FokusSpiele));
+            AusgewaehlteSpiel = null;
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstSimulierend = false;
+            AktualisiereBefehle();
+        }
+    }
+
+    private async Task SpieltagZuruecksetzenAsync()
+    {
+        if (AusgewaehlteGruppe is null || AusgewaehlteRunde is null || FokusAlleAktiv) return;
+        int spieltag = FokusAktiverSpieltag;
+        var spielIds = Spiele
+            .Where(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer
+                     && s.Spieltag == spieltag && s.HatErgebnis)
+            .Select(s => s.Id).ToList();
+        if (spielIds.Count == 0) return;
+
+        var antwort = MessageBox.Show(
+            $"Alle {spielIds.Count} Ergebnis(se) von Spieltag {spieltag} (Gruppe {AusgewaehlteGruppe.GruppenNummer}) zurücksetzen?",
+            "Ergebnisse zurücksetzen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (antwort != MessageBoxResult.Yes) return;
+
+        int rundeId = AusgewaehlteRunde.Id;
+        Fehlermeldung  = null;
+        IstSimulierend = true;
+        try
+        {
+            await _spielService.MehrereErgebnisseLoeschenAsync(spielIds);
 
             await GruppenTabellenLadenAsync(rundeId);
 
