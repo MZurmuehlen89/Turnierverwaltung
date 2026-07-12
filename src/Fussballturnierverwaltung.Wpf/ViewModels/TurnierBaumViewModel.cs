@@ -74,7 +74,6 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 
     [ObservableProperty] private bool    _istLadend;
     [ObservableProperty] private string? _fehlermeldung;
-    [ObservableProperty] private string? _statusMeldung;
 
     [ObservableProperty] private double _canvasBreite;
     [ObservableProperty] private double _canvasHoehe;
@@ -127,7 +126,6 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     private async Task LadeBracketAsync()
     {
         Fehlermeldung = null;
-        StatusMeldung = null;
         HatBaumIntern = false;
         Knoten.Clear();
         VerbindungsLinien.Clear();
@@ -140,11 +138,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         try
         {
             var runden = await _baumService.BracketLadenAsync(AusgewaehlteInstanz.Id);
-            if (runden.Count == 0)
-            {
-                StatusMeldung = "Noch kein Turnierbaum vorhanden. Klicke 'Neu' zum Generieren.";
-                return;
-            }
+            if (runden.Count == 0) return;
 
             HatBaumIntern = true;
             BerechneBracket(runden);
@@ -433,7 +427,6 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     {
         if (AusgewaehlteInstanz is null) return;
         Fehlermeldung = null;
-        StatusMeldung = null;
         IstLadend = true;
         try
         {
@@ -453,10 +446,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         Fehlermeldung = null;
         try
         {
-            int anzahl = await _baumService.SiegerFortsteiernAsync(AusgewaehlteInstanz.Id);
-            StatusMeldung = anzahl == 0
-                ? "Keine neuen Sieger zum Fortschreiben gefunden."
-                : $"{anzahl} Spiel(e) mit Sieger aktualisiert.";
+            await _baumService.SiegerFortsteiernAsync(AusgewaehlteInstanz.Id);
             await LadeBracketAsync();
         }
         catch (Exception ex)
@@ -476,7 +466,6 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             Knoten.Clear();
             VerbindungsLinien.Clear();
             RundenKoepfe.Clear();
-            StatusMeldung = "Turnierbaum wurde gelöscht.";
             AktualisiereBefehle();
         }
         catch (Exception ex)

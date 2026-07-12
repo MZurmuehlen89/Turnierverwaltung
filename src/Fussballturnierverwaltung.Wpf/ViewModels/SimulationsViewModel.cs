@@ -154,7 +154,6 @@ public partial class SimulationsViewModel : ViewModelBase
     private bool    _istLadend;
 
     [ObservableProperty] private string? _fehlermeldung;
-    [ObservableProperty] private string? _statusMeldung;
 
     // ── Vorauswahl (gesetzt vom SpielplanViewModel vor AktivierenAsync) ───────
 
@@ -234,7 +233,6 @@ public partial class SimulationsViewModel : ViewModelBase
         switch (e.PropertyName)
         {
             case nameof(ModusIndex):
-                StatusMeldung = null;
                 Fehlermeldung = null;
                 break;
             case nameof(AusgewaehlteInstanz):
@@ -261,7 +259,6 @@ public partial class SimulationsViewModel : ViewModelBase
         AusgewaehlteRunde = null;
         AusgewaehlteSpiel = null;
         Fehlermeldung     = null;
-        StatusMeldung     = null;
         AktualisiereBefehle();
 
         if (AusgewaehlteInstanz is null) return;
@@ -278,7 +275,6 @@ public partial class SimulationsViewModel : ViewModelBase
         Spiele.Clear();
         AusgewaehlteSpiel = null;
         Fehlermeldung     = null;
-        StatusMeldung     = null;
         AktualisiereBefehle();
 
         if (AusgewaehlteRunde is null) return;
@@ -303,7 +299,6 @@ public partial class SimulationsViewModel : ViewModelBase
         int spielId  = AusgewaehlteSpiel.Id;
         int? rundeId = AusgewaehlteRunde?.Id;
         Fehlermeldung = null;
-        StatusMeldung = null;
         IstLadend     = true;
         LeerProtokolll();
         try
@@ -319,7 +314,6 @@ public partial class SimulationsViewModel : ViewModelBase
             }
 
             await LadeProtokollAsync(spielId);
-            StatusMeldung = "Spiel simuliert.";
         }
         catch (Exception ex)
         {
@@ -338,7 +332,6 @@ public partial class SimulationsViewModel : ViewModelBase
         int spielId  = AusgewaehlteSpiel.Id;
         int? rundeId = AusgewaehlteRunde?.Id;
         Fehlermeldung = null;
-        StatusMeldung = null;
         IstLadend     = true;
         LeerProtokolll();
         try
@@ -354,7 +347,6 @@ public partial class SimulationsViewModel : ViewModelBase
             }
 
             await LadeProtokollAsync(spielId);
-            StatusMeldung = "Ergebnis überschrieben.";
         }
         catch (Exception ex)
         {
@@ -373,7 +365,6 @@ public partial class SimulationsViewModel : ViewModelBase
         int spielId  = AusgewaehlteSpiel.Id;
         int? rundeId = AusgewaehlteRunde?.Id;
         Fehlermeldung = null;
-        StatusMeldung = null;
         IstLadend     = true;
         try
         {
@@ -388,7 +379,6 @@ public partial class SimulationsViewModel : ViewModelBase
             }
 
             LeerProtokolll();
-            StatusMeldung = "Ergebnis zurückgesetzt.";
         }
         catch (Exception ex)
         {
@@ -414,7 +404,6 @@ public partial class SimulationsViewModel : ViewModelBase
         var modus = AusgewaehlterModus.Wert;
 
         Fehlermeldung = null;
-        StatusMeldung = null;
         IstLadend     = true;
         LeerProtokolll();
 
@@ -480,8 +469,6 @@ public partial class SimulationsViewModel : ViewModelBase
                         erg.HeimElfmetertore, erg.AuswaertsElfmetertore);
                 }
             }
-
-            StatusMeldung = "Einzelspiel simuliert.";
         }
         catch (Exception ex)
         {

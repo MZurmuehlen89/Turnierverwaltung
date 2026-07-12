@@ -287,15 +287,6 @@
                            FontSize="12" TextWrapping="Wrap" />
             </Border>
 
-            <!-- Status -->
-            <Border DockPanel.Dock="Top" Margin="16,8,16,0"
-                    Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
-                    CornerRadius="4" Padding="12,8"
-                    Visibility="{Binding StatusMeldung, Converter={StaticResource NullToCollapsed}}">
-                <TextBlock Text="{Binding StatusMeldung}" Foreground="#166534"
-                           FontSize="12" />
-            </Border>
-
             <!-- Ergebnis-Karte -->
             <Border DockPanel.Dock="Top"
                     Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"

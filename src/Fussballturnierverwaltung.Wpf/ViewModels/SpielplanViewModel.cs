@@ -292,7 +292,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     // ── Simulation ────────────────────────────────────────────────────────────
 
     [ObservableProperty] private bool    _istSimulierend;
-    [ObservableProperty] private string? _simulationsStatus;
     [ObservableProperty] private SimulationsModusOption _ausgewaehlterSimulationsModus = null!;
 
     public List<SimulationsModusOption> SimulationsModusOptionen { get; } =
@@ -1145,9 +1144,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (AusgewaehlteSpiel is null || AusgewaehlteRunde is null) return;
         int spielId = AusgewaehlteSpiel.Id;
         int rundeId = AusgewaehlteRunde.Id;
-        SimulationsStatus = null;
-        Fehlermeldung     = null;
-        IstSimulierend    = true;
+        Fehlermeldung  = null;
+        IstSimulierend = true;
         try
         {
             await _simulationsService.SpielSimulierenAsync(spielId, AusgewaehlterSimulationsModus.Wert);
@@ -1178,7 +1176,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             }
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
             await BeiSpielAenderungAsync();
-            SimulationsStatus = "Spiel simuliert.";
         }
         catch (Exception ex)
         {
@@ -1208,12 +1205,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         if (AusgewaehlteRunde is null) return;
         int rundeId = AusgewaehlteRunde.Id;
-        SimulationsStatus = null;
-        Fehlermeldung     = null;
-        IstSimulierend    = true;
+        Fehlermeldung  = null;
+        IstSimulierend = true;
         try
         {
-            int anzahl = await _simulationsService.RundeSimulierenAsync(
+            await _simulationsService.RundeSimulierenAsync(
                 rundeId, AusgewaehlterSimulationsModus.Wert);
 
             // Siehe ErgebnisSpeichernAsync — auch nach Simulation kann eine Finale-Runde entscheidungsreif werden.
@@ -1228,10 +1224,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
-
-            SimulationsStatus = anzahl == 0
-                ? "Keine offenen Spiele in dieser Runde."
-                : $"{anzahl} Spiel(e) simuliert.";
         }
         catch (Exception ex)
         {
@@ -1249,12 +1241,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (AusgewaehlteGruppe is null || AusgewaehlteRunde is null) return;
         int rundeId = AusgewaehlteRunde.Id;
         var teamIds = AusgewaehlteGruppe.Tabelle.Select(t => t.Mannschaft.Id).ToList();
-        SimulationsStatus = null;
-        Fehlermeldung     = null;
-        IstSimulierend    = true;
+        Fehlermeldung  = null;
+        IstSimulierend = true;
         try
         {
-            int anzahl = await _simulationsService.GruppeSimulierenAsync(
+            await _simulationsService.GruppeSimulierenAsync(
                 rundeId, teamIds, AusgewaehlterSimulationsModus.Wert);
 
             await GruppenTabellenLadenAsync(rundeId);
@@ -1265,10 +1256,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
-
-            SimulationsStatus = anzahl == 0
-                ? "Keine offenen Spiele in dieser Gruppe."
-                : $"{anzahl} Spiel(e) simuliert.";
         }
         catch (Exception ex)
         {
@@ -1287,12 +1274,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         int rundeId  = AusgewaehlteRunde.Id;
         int spieltag = FokusAktiverSpieltag;
         var teamIds  = AusgewaehlteGruppe.Tabelle.Select(t => t.Mannschaft.Id).ToList();
-        SimulationsStatus = null;
-        Fehlermeldung     = null;
-        IstSimulierend    = true;
+        Fehlermeldung  = null;
+        IstSimulierend = true;
         try
         {
-            int anzahl = await _simulationsService.SpieltagInGruppeSimulierenAsync(
+            await _simulationsService.SpieltagInGruppeSimulierenAsync(
                 rundeId, spieltag, teamIds, AusgewaehlterSimulationsModus.Wert);
 
             await GruppenTabellenLadenAsync(rundeId);
@@ -1303,10 +1289,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
-
-            SimulationsStatus = anzahl == 0
-                ? $"Keine offenen Spiele in Spieltag {spieltag} dieser Gruppe."
-                : $"{anzahl} Spiel(e) in Spieltag {spieltag} simuliert.";
         }
         catch (Exception ex)
         {

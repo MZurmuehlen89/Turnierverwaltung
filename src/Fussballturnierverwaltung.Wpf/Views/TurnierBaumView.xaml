@@ -47,15 +47,6 @@
                                FontSize="12" TextWrapping="Wrap" />
                 </Border>
 
-                <!-- Statusmeldung / Kein Baum -->
-                <Border DockPanel.Dock="Top" Margin="16,12,16,0"
-                        Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
-                        CornerRadius="4" Padding="12,8"
-                        Visibility="{Binding StatusMeldung, Converter={StaticResource NullToCollapsed}}">
-                    <TextBlock Text="{Binding StatusMeldung}" Foreground="#166534"
-                               FontSize="12" TextWrapping="Wrap" />
-                </Border>
-
                 <!-- Bracket-Bereich -->
                 <ScrollViewer HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto"

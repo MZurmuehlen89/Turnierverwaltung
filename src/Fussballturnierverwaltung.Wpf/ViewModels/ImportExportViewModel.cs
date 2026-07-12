@@ -126,8 +126,6 @@ public partial class ImportExportViewModel : ViewModelBase, IRibbonAware
                 Fehlermeldung = $"{ergebnis.Fehler} Zeile(n) mit Fehlern.";
             }
 
-            if (ergebnis.Neu == 0 && ergebnis.Aktualisiert == 0 && ergebnis.Fehler == 0)
-                StatusMeldung = "Keine Daten in der Datei gefunden.";
         }
         catch (Exception ex)
         {

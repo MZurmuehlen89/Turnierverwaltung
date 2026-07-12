@@ -371,15 +371,6 @@
                                    FontSize="12" TextWrapping="Wrap" />
                     </Border>
 
-                    <!-- Simulations-Status -->
-                    <Border DockPanel.Dock="Top"
-                            Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
-                            CornerRadius="4" Padding="12,6" Margin="12,6,12,0"
-                            Visibility="{Binding SimulationsStatus, Converter={StaticResource NullToCollapsed}}">
-                        <TextBlock Text="{Binding SimulationsStatus}" Foreground="#166534"
-                                   FontSize="12" />
-                    </Border>
-
                     <!-- Platzhalter-Banner -->
                     <Border DockPanel.Dock="Top"
                             Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="0,0,0,1"
