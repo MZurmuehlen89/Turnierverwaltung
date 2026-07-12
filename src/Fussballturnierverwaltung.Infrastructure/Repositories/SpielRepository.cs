@@ -177,4 +177,11 @@ public class SpielRepository(TurnierverwaltungDbContext context)
         spiel.AuswaertsPlatzhalterName = null;
         await Context.SaveChangesAsync(ct);
     }
+
+    public async Task<IReadOnlyList<int>> TurnierInstanzIdsAsync(IReadOnlyList<int> spielIds, CancellationToken ct = default)
+        => await Context.Spiele
+            .Where(s => spielIds.Contains(s.Id))
+            .Select(s => s.TurnierRunde.TurnierInstanzId)
+            .Distinct()
+            .ToListAsync(ct);
 }

@@ -1,6 +1,8 @@
 using FluentAssertions;
+using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spiele.Eingaben;
+using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
@@ -23,9 +25,23 @@ public class SpielErgebnisServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 
+    private static SpielplanService SpielplanServiceFuer(TurnierverwaltungDbContext ctx)
+    {
+        var rundeRepo = new TurnierRundeRepository(ctx);
+        var spielRepo = new SpielRepository(ctx);
+        var mannschaftRepo = new MannschaftRepository(ctx);
+        var baumRepo = new TurnierBaumRepository(ctx);
+        var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator()]);
+        return new SpielplanService(
+            rundeRepo, spielRepo, mannschaftRepo, baumRepo,
+            factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
+            NullLogger<SpielplanService>.Instance);
+    }
+
     private static SpielErgebnisService ServiceFuer(TurnierverwaltungDbContext ctx) =>
         new(new SpielRepository(ctx),
             new SpielErgebnisValidator(),
+            SpielplanServiceFuer(ctx),
             NullLogger<SpielErgebnisService>.Instance);
 
     private static void GrundSetupAnlegen(TurnierverwaltungDbContext ctx, bool auswaertstorRegel)
@@ -197,5 +213,83 @@ public class SpielErgebnisServiceTests
         var erg = await ErgebnisFuer(ctx, 1);
         erg!.SiegerMannschaftId.Should().BeNull("ein Unentschieden ergibt keinen Sieger");
         erg.EntscheidungArt.Should().Be(EntscheidungArt.RegulaereSpielzeit);
+    }
+
+    // ── Tests: Kaskaden-Check nach Batch-Reset (Issue #125) ─────────────────
+
+    private static void KaskadeSetupAnlegen(TurnierverwaltungDbContext ctx, out int hfRundeId, out int finaleRundeId)
+    {
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
+            { Id = 1, RegelwerkId = 1, Reihenfolge = 1, VerfahrenArt = VerfahrenArt.Elfmeterschiessen });
+
+        var hf = new TurnierRunde
+        {
+            Id = 10, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 1,
+            Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2,
+            RegelwerkId = 1
+        };
+        var finale = new TurnierRunde
+        {
+            Id = 11, TurnierInstanzId = 1, Name = "Finale", Reihenfolge = 2,
+            Rundenart = Rundenart.Finale, EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1,
+            RegelwerkId = 1
+        };
+        ctx.TurnierRunden.AddRange(hf, finale);
+
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 10, Name = "Team A", Kurzname = "TA", LandId = 1 },
+            new Mannschaft { Id = 11, Name = "Team B", Kurzname = "TB", LandId = 1 },
+            new Mannschaft { Id = 12, Name = "Team C", Kurzname = "TC", LandId = 1 },
+            new Mannschaft { Id = 13, Name = "Team D", Kurzname = "TD", LandId = 1 });
+
+        ctx.Spiele.AddRange(
+            new Spiel
+            {
+                Id = 20, TurnierInstanzId = 1, TurnierRundeId = hf.Id, Spielnummer = 1,
+                HeimMannschaftId = 10, AuswaertsMannschaftId = 11, Status = SpielStatus.Abgeschlossen
+            },
+            new Spiel
+            {
+                Id = 21, TurnierInstanzId = 1, TurnierRundeId = hf.Id, Spielnummer = 2,
+                HeimMannschaftId = 12, AuswaertsMannschaftId = 13, Status = SpielStatus.Abgeschlossen
+            });
+        ctx.SpielErgebnisse.AddRange(
+            new SpielErgebnis
+            {
+                Id = 20, SpielId = 20, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0,
+                EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = 10
+            },
+            new SpielErgebnis
+            {
+                Id = 21, SpielId = 21, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0,
+                EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = 12
+            });
+
+        ctx.SaveChanges();
+        hfRundeId = hf.Id;
+        finaleRundeId = finale.Id;
+    }
+
+    [Fact]
+    public async Task MehrereErgebnisseLoeschenAsync_LoestKaskadeAus_EntferntAutomatischGeneriertesFinale()
+    {
+        await using var ctx = NeuerContext();
+        KaskadeSetupAnlegen(ctx, out _, out int finaleRundeId);
+
+        // Vorbedingung: Finale wurde automatisch generiert, weil das Halbfinale entschieden ist
+        await SpielplanServiceFuer(ctx).FinaleAutomatischGenerierenWennBereitAsync(1);
+        ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).Should().HaveCount(1,
+            "Vorbedingung: Finale wurde automatisch generiert");
+
+        // Batch-Reset eines Halbfinalspiels — vor Issue #125 löste MehrereErgebnisseLoeschenAsync
+        // (anders als das Einzelspiel-Löschen) keinen Kaskaden-Check aus.
+        await ServiceFuer(ctx).MehrereErgebnisseLoeschenAsync([20]);
+
+        ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).Should().BeEmpty(
+            "Issue #125: MehrereErgebnisseLoeschenAsync muss denselben Kaskaden-Check auslösen wie das " +
+            "Einzelspiel-Löschen — das noch nicht gespielte Finale muss entfernt werden");
     }
 }

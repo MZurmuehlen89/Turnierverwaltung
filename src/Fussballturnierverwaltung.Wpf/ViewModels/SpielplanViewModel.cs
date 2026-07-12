@@ -905,11 +905,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Fehlermeldung = null;
         try
         {
+            // Kaskaden-Check (automatisch generiertes Finale ggf. entfernen/neu generieren) läuft
+            // seit Issue #125 zentral in SpielErgebnisService.ErgebnisLoeschenAsync.
             await _spielService.ErgebnisLoeschenAsync(spielId);
-
-            // Siehe ErgebnisSpeichernAsync — ein zuvor automatisch generiertes, noch nicht gespieltes
-            // Finale muss wieder entfernt werden, wenn das Halbfinale dadurch nicht mehr entschieden ist.
-            await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
 
             await TabellenNeuLadenAsync(rundeId);
 
@@ -1366,8 +1364,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     }
 
     // ── Ergebnis-Reset: Aktionen (Issue #123) ────────────────────────────────────
-    // Kaskaden-Prüfung (Folgerunden-Platzhalter/Finale neu bewerten) folgt in Issue #125 —
-    // bewusst noch nicht hier ergänzt, um die Fix-Stelle nicht doppelt/uneinheitlich anzulegen.
+    // Kaskaden-Check (automatisch generiertes Finale ggf. entfernen/neu generieren) läuft seit
+    // Issue #125 zentral in SpielErgebnisService.MehrereErgebnisseLoeschenAsync.
 
     private async Task RundeZuruecksetzenAsync()
     {

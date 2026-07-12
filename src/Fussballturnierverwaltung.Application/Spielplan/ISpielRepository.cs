@@ -39,4 +39,7 @@ public interface ISpielRepository : IRepository<Spiel>
 
     /// <summary>Setzt die realen Mannschaften auf einem Platzhalter-Spiel und löscht die Platzhalternamen.</summary>
     Task PlatzhalterAktualisierenAsync(int spielId, int heimMannschaftId, int auswaertsMannschaftId, CancellationToken ct = default);
+
+    /// <summary>Ermittelt die (distinkten) TurnierInstanz-IDs der angegebenen Spiele.</summary>
+    Task<IReadOnlyList<int>> TurnierInstanzIdsAsync(IReadOnlyList<int> spielIds, CancellationToken ct = default);
 }

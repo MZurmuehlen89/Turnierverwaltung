@@ -10,6 +10,7 @@ namespace Fussballturnierverwaltung.Application.Spiele;
 public class SpielErgebnisService(
     ISpielRepository spielRepository,
     SpielErgebnisValidator validator,
+    SpielplanService spielplanService,
     ILogger<SpielErgebnisService> logger)
 {
     public Task<IReadOnlyList<Spiel>> AlleNachRundeAsync(int turnierRundeId, CancellationToken ct = default)
@@ -72,6 +73,7 @@ public class SpielErgebnisService(
     {
         await spielRepository.ErgebnisLoeschenAsync(spielId, ct);
         logger.LogInformation("Ergebnis für Spiel {Id} gelöscht.", spielId);
+        await KaskadeAusloesenAsync([spielId], ct);
     }
 
     public async Task<int> MehrereErgebnisseLoeschenAsync(IReadOnlyList<int> spielIds, CancellationToken ct = default)
@@ -79,7 +81,22 @@ public class SpielErgebnisService(
         foreach (var id in spielIds)
             await spielRepository.ErgebnisLoeschenAsync(id, ct);
         logger.LogInformation("{Anzahl} Ergebnis(se) gelöscht.", spielIds.Count);
+        await KaskadeAusloesenAsync(spielIds, ct);
         return spielIds.Count;
+    }
+
+    /// <summary>
+    /// Prüft nach jedem Ergebnis-Reset (einzeln oder Batch, gleich über welchen Aufrufer — WPF oder
+    /// Konsole), ob automatisch generierte Folgerunden-Inhalte (aktuell: ohne Auslosung generierte
+    /// Finale-Runden, siehe SpielplanService.FinaleAutomatischGenerierenWennBereitAsync) zurückgenommen
+    /// oder neu generiert werden müssen. Zentral hier statt an jeder Aufrufstelle (Issue #125) — betrifft
+    /// dadurch automatisch auch die Konsole, die dieselben Methoden nutzt.
+    /// </summary>
+    private async Task KaskadeAusloesenAsync(IReadOnlyList<int> spielIds, CancellationToken ct)
+    {
+        var instanzIds = await spielRepository.TurnierInstanzIdsAsync(spielIds, ct);
+        foreach (var instanzId in instanzIds)
+            await spielplanService.FinaleAutomatischGenerierenWennBereitAsync(instanzId, ct);
     }
 
     // Bestimmt Sieger und EndgültigeEntscheidungsArt.
