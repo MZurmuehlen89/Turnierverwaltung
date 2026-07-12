@@ -860,6 +860,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task ErgebnisLoeschenAsync()
     {
         if (AusgewaehlteSpiel is null || !FormHatErgebnis || AusgewaehlteRunde is null) return;
+
+        var ergebnis = MessageBox.Show(
+            $"Ergebnis von Spiel #{AusgewaehlteSpiel.Spielnummer} wirklich löschen?",
+            "Ergebnis löschen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (ergebnis != MessageBoxResult.Yes) return;
+
         var spielId   = AusgewaehlteSpiel.Id;
         var rundeId   = AusgewaehlteRunde.Id;
         Fehlermeldung = null;
