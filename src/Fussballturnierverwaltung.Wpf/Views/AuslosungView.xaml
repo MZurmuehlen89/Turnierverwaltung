@@ -206,6 +206,31 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Automatische Lostopf-Zuordnung via Rangliste (Issue #119) -->
+                        <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
+                                CornerRadius="4" Padding="12,10" Margin="0,0,0,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="220" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Rangliste:" FontSize="12"
+                                           Foreground="#475569" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <ComboBox Grid.Column="1"
+                                          ItemsSource="{Binding RanglisteOptionen}"
+                                          SelectedItem="{Binding AusgewaehlteRanglisteOption}"
+                                          DisplayMemberPath="Anzeige"
+                                          FontSize="12" />
+                                <Button Grid.Column="3"
+                                        Content="Lostöpfe automatisch befüllen"
+                                        Command="{Binding LostoepfeAutomatischBefuellenCommand}"
+                                        Padding="10,5" FontSize="12" Cursor="Hand"
+                                        ToolTip="Verteilt die noch nicht zugeordneten Mannschaften anhand der gewählten Rangliste auf die Lostöpfe (Vorschlag, manuell nachkorrigierbar)." />
+                            </Grid>
+                        </Border>
+
                         <!-- Fortschrittsanzeige: zugewiesene vs. benötigte Teams -->
                         <Border Margin="0,0,0,10" Padding="10,6" CornerRadius="4" BorderThickness="1">
                             <Border.Style>

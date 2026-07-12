@@ -1,10 +1,12 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
+using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -149,6 +151,7 @@ public class RegelViewModel : ObservableObject
 }
 
 public record AuslosungsartOption(string Anzeige, Auslosungsart Wert);
+public record RanglisteOption(string Anzeige, Rangliste? Wert);
 
 // ── Haupt-ViewModel ─────────────────────────────────────────────────────────
 
@@ -158,6 +161,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly TurnierInstanzService _instanzService;
     private readonly MannschaftService _mannschaftService;
     private readonly SpielplanService _spielplanService;
+    private readonly RanglisteService _ranglisteService;
 
     private Auslosung? _auslosungDetail;
 
@@ -256,6 +260,19 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty] private TeilnehmerAnzeige? _ausgewaehlterVerfuegbarTeilnehmer;
 
     [ObservableProperty] private ObservableCollection<LostopfViewModel> _lostoepfe = [];
+
+    // ── Automatische Lostopf-Zuordnung via Rangliste (Issue #119) ────────────────
+    private static readonly RanglisteOption _keineRangliste = new("— Keine —", null);
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RanglisteOptionen))]
+    private ObservableCollection<Rangliste> _alleRanglisten = [];
+
+    [ObservableProperty] private RanglisteOption _ausgewaehlteRanglisteOption = _keineRangliste;
+
+    public IReadOnlyList<RanglisteOption> RanglisteOptionen =>
+        [_keineRangliste, .. AlleRanglisten.Select(r => new RanglisteOption(r.Name, r))];
+
     [ObservableProperty] private ObservableCollection<RegelViewModel> _regeln = [];
     [ObservableProperty] private ObservableCollection<ErgebnisAnzeige> _ergebnisseAnzeige = [];
     [ObservableProperty] private ObservableCollection<GruppenErgebnisAnzeige> _gruppenErgebnisse = [];
@@ -380,12 +397,14 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         AuslosungService auslosungService,
         TurnierInstanzService instanzService,
         MannschaftService mannschaftService,
-        SpielplanService spielplanService)
+        SpielplanService spielplanService,
+        RanglisteService ranglisteService)
     {
         _auslosungService  = auslosungService;
         _instanzService    = instanzService;
         _mannschaftService = mannschaftService;
         _spielplanService  = spielplanService;
+        _ranglisteService  = ranglisteService;
     }
 
     public override async Task AktivierenAsync()
@@ -393,8 +412,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IstLadend = true;
         try
         {
-            var instanzen = await _instanzService.AlleAbrufenAsync();
-            Instanzen = new ObservableCollection<TurnierInstanz>(instanzen);
+            var instanzen  = await _instanzService.AlleAbrufenAsync();
+            var ranglisten = await _ranglisteService.AlleAbrufenAsync();
+            Instanzen     = new ObservableCollection<TurnierInstanz>(instanzen);
+            AlleRanglisten = new ObservableCollection<Rangliste>(ranglisten);
         }
         finally { IstLadend = false; }
     }
@@ -500,6 +521,73 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(_auslosungDetail.Id, topfId, t.MannschaftId.Value);
             else
                 await _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(_auslosungDetail.Id, topfId, t.Name);
+            await LadeDetailAsync(_auslosungDetail.Id);
+        }
+        catch (Exception ex) { Fehlermeldung = ex.Message; }
+    }
+
+    /// <summary>
+    /// Verteilt die aktuell noch unzugeordneten Mannschaften (VerfuegbareTeilnehmer, Platzhalter
+    /// ausgenommen) anhand der ausgewählten Rangliste auf die Lostöpfe: die bestplatzierten Teams
+    /// zuerst in Topf 1, die nächsten in Topf 2 usw. Bereits manuell zugeordnete Teams bleiben
+    /// unangetastet — der Button ergänzt nur, was noch in "Verfügbar" steht. Teams ohne
+    /// Ranglisten-Eintrag werden ans Ende einsortiert (landen tendenziell im letzten Topf).
+    /// </summary>
+    [RelayCommand]
+    private async Task LostoepfeAutomatischBefuellen()
+    {
+        if (_auslosungDetail is null) return;
+        Fehlermeldung = null;
+
+        var ausgewaehlteRangliste = AusgewaehlteRanglisteOption.Wert;
+        if (ausgewaehlteRangliste is null)
+        {
+            Fehlermeldung = "Bitte zuerst eine Rangliste auswählen.";
+            return;
+        }
+        if (Lostoepfe.Count == 0)
+        {
+            Fehlermeldung = "Diese Auslosung hat keine Lostöpfe.";
+            return;
+        }
+
+        try
+        {
+            var rangliste = await _ranglisteService.FindenNachIdAsync(ausgewaehlteRangliste.Id);
+            if (rangliste is null) return;
+
+            var rangProMannschaft = rangliste.Eintraege.ToDictionary(e => e.MannschaftId, e => e.Rang);
+
+            var teamsZuVerteilen = VerfuegbareTeilnehmer
+                .Where(t => t.MannschaftId.HasValue)
+                .OrderBy(t => rangProMannschaft.TryGetValue(t.MannschaftId!.Value, out var rang) ? rang : int.MaxValue)
+                .ThenBy(t => t.Name)
+                .ToList();
+
+            // Runde nicht mit mehr Teams befüllen als sie tatsächlich benötigt (TeamsBenoetigt=0
+            // bedeutet: keine bekannte Obergrenze, dann alle verfügbaren Teams verteilen).
+            if (TeamsBenoetigt > 0)
+            {
+                int verbleibend = Math.Max(0, TeamsBenoetigt - TeamsZugewiesen);
+                teamsZuVerteilen = teamsZuVerteilen.Take(verbleibend).ToList();
+            }
+
+            if (teamsZuVerteilen.Count == 0)
+            {
+                Fehlermeldung = "Keine verfügbaren Mannschaften zum Zuordnen.";
+                return;
+            }
+
+            var toepfe = Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
+            int potGroesse = (int)Math.Ceiling(teamsZuVerteilen.Count / (double)toepfe.Count);
+
+            for (int i = 0; i < teamsZuVerteilen.Count; i++)
+            {
+                var topf = toepfe[Math.Min(i / potGroesse, toepfe.Count - 1)];
+                await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(
+                    _auslosungDetail.Id, topf.Id, teamsZuVerteilen[i].MannschaftId!.Value);
+            }
+
             await LadeDetailAsync(_auslosungDetail.Id);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
@@ -865,10 +953,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     Id         = l.Id,
                     Name       = l.Name,
                     Reihenfolge = l.Reihenfolge,
+                    // Zuordnungsreihenfolge (nach Eintrags-Id, nicht alphabetisch) — damit die
+                    // automatische Zuordnung nach Rangliste (Issue #119) im Topf erkennbar bleibt.
                     Teilnehmer = new ObservableCollection<TeilnehmerAnzeige>(
                         l.Eintraege
-                            .Select(TeilnehmerAnzeige.AusEintrag)
-                            .OrderBy(t => t.Name))
+                            .OrderBy(e => e.Id)
+                            .Select(TeilnehmerAnzeige.AusEintrag))
                 }));
 
             Regeln = new ObservableCollection<RegelViewModel>(
