@@ -40,6 +40,8 @@ public class SpielZeile
     public bool IstPlatzhalterSpiel { get; init; }
     public int? GruppeNummer { get; init; }
     public string GruppeAnzeige => GruppeNummer.HasValue ? $"Gr.{GruppeNummer}" : "";
+    public decimal? HeimRating { get; init; }
+    public decimal? AuswaertsRating { get; init; }
 }
 
 // ── ViewModel ─────────────────────────────────────────────────────────────────

@@ -42,6 +42,8 @@ public partial class SimulationsViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IstTurnierModus))]
     [NotifyPropertyChangedFor(nameof(IstEinzelspielModus))]
+    [NotifyPropertyChangedFor(nameof(ZeigeVorschauKarte))]
+    [NotifyPropertyChangedFor(nameof(ZeigeLeerZustand))]
     private int _modusIndex = 0;
 
     public bool IstTurnierModus     => ModusIndex == 0;
@@ -62,12 +64,19 @@ public partial class SimulationsViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(KannTurnierSpielSimulieren))]
     [NotifyPropertyChangedFor(nameof(AusgewaehltesSpielAbgeschlossen))]
+    [NotifyPropertyChangedFor(nameof(ZeigeVorschauKarte))]
+    [NotifyPropertyChangedFor(nameof(ZeigeLeerZustand))]
     private SpielZeile? _ausgewaehlteSpiel;
 
     public bool KannTurnierSpielSimulieren =>
         AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && !IstLadend;
 
     public bool AusgewaehltesSpielAbgeschlossen => AusgewaehlteSpiel?.HatErgebnis == true;
+
+    public bool ZeigeVorschauKarte =>
+        IstTurnierModus && AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && !AusgewaehltesSpielAbgeschlossen;
+
+    public bool ZeigeLeerZustand => !HatProtokoll && !ZeigeVorschauKarte;
 
     // ── Linke Spalte: Einzelspiel-Modus ──────────────────────────────────────
 
@@ -242,6 +251,9 @@ public partial class SimulationsViewModel : ViewModelBase
                 _ = BeiRundeAenderungAsync();
                 break;
             case nameof(AusgewaehlteSpiel):
+                _ = BeiSpielAuswahlAsync();
+                AktualisiereBefehle();
+                break;
             case nameof(IstLadend):
             case nameof(EinzelspielHeim):
             case nameof(EinzelspielAuswaerts):
@@ -281,6 +293,21 @@ public partial class SimulationsViewModel : ViewModelBase
         await LadeSpiellisteAsync();
     }
 
+    // Wird beim manuellen Auswaehlen eines Spiels (Breadcrumb-Dropdown) ausgeloest — laedt das
+    // bestehende Protokoll bei bereits abgeschlossenen Spielen, sonst wird die Vorschau-Karte
+    // gezeigt (ZeigeVorschauKarte). Bei programmatischen Neuzuweisungen (Simulieren/Ueberschreiben/
+    // Zuruecksetzen/Vorauswahl) wird das per _ladeUnterdrückt unterdrueckt, da diese Pfade das
+    // Protokoll bereits selbst sequenziell laden — siehe [[feedback-dbcontext-concurrency]].
+    private async Task BeiSpielAuswahlAsync()
+    {
+        if (AusgewaehlteSpiel is null) { LeerProtokolll(); return; }
+
+        if (AusgewaehlteSpiel.HatErgebnis)
+            await LadeProtokollAsync(AusgewaehlteSpiel.Id);
+        else
+            LeerProtokolll();
+    }
+
     private async Task LadeSpiellisteAsync()
     {
         if (AusgewaehlteRunde is null) return;
@@ -310,7 +337,9 @@ public partial class SimulationsViewModel : ViewModelBase
                 var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId.Value);
                 Spiele.Clear();
                 foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, i));
+                _ladeUnterdrückt++;
                 AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
+                _ladeUnterdrückt--;
             }
 
             await LadeProtokollAsync(spielId);
@@ -343,7 +372,9 @@ public partial class SimulationsViewModel : ViewModelBase
                 var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId.Value);
                 Spiele.Clear();
                 foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, i));
+                _ladeUnterdrückt++;
                 AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
+                _ladeUnterdrückt--;
             }
 
             await LadeProtokollAsync(spielId);
@@ -375,7 +406,9 @@ public partial class SimulationsViewModel : ViewModelBase
                 var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId.Value);
                 Spiele.Clear();
                 foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, i));
+                _ladeUnterdrückt++;
                 AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
+                _ladeUnterdrückt--;
             }
 
             LeerProtokolll();
@@ -480,6 +513,7 @@ public partial class SimulationsViewModel : ViewModelBase
             AktualisiereBefehle();
             OnPropertyChanged(nameof(HatProtokoll));
             OnPropertyChanged(nameof(HatProtokollEreignisse));
+            OnPropertyChanged(nameof(ZeigeLeerZustand));
         }
     }
 
@@ -517,7 +551,9 @@ public partial class SimulationsViewModel : ViewModelBase
         var spiel = Spiele.FirstOrDefault(s => s.Id == v.SpielId);
         if (spiel is null) return;
 
+        _ladeUnterdrückt++;
         AusgewaehlteSpiel  = spiel;
+        _ladeUnterdrückt--;
         AusgewaehlterModus = ModusOptionen.First(m => m.Wert == SimulationsModus.AusfuehrlicheSimulation);
 
         // In Turnierspiel-Modus wechseln
@@ -561,6 +597,7 @@ public partial class SimulationsViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(HatProtokoll));
         OnPropertyChanged(nameof(HatProtokollEreignisse));
+        OnPropertyChanged(nameof(ZeigeLeerZustand));
     }
 
     private void LeerProtokolll()
@@ -570,6 +607,7 @@ public partial class SimulationsViewModel : ViewModelBase
         ProtokollEreignisse.Clear();
         OnPropertyChanged(nameof(HatProtokoll));
         OnPropertyChanged(nameof(HatProtokollEreignisse));
+        OnPropertyChanged(nameof(ZeigeLeerZustand));
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
@@ -707,7 +745,9 @@ public partial class SimulationsViewModel : ViewModelBase
             ErgebnisText   = text,
             ErgebnisDetail = detail,
             IstRueckspiel  = s.IstRueckspiel,
-            IstPlatzhalterSpiel = !s.HeimMannschaftId.HasValue || !s.AuswaertsMannschaftId.HasValue
+            IstPlatzhalterSpiel = !s.HeimMannschaftId.HasValue || !s.AuswaertsMannschaftId.HasValue,
+            HeimRating      = s.HeimMannschaft?.GesamtRating,
+            AuswaertsRating = s.AuswaertsMannschaft?.GesamtRating
         };
     }
 }
