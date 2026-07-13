@@ -651,6 +651,12 @@ public partial class SimulationsViewModel : ViewModelBase
         int? heimElfmetertore, int? auswaertsElfmetertore,
         string? minutenPraefix = null)
     {
+        // Schnellsimulation persistiert keine Einzelereignisse (siehe SimulationsService.SpeichernAsync,
+        // sim.Ereignisse.Any()-Gate) — ohne diesen fruehen Ausstieg wuerde SchwellenPruefen(int.MaxValue)
+        // unten trotzdem einen "HALBZEIT"-Trenner einfuegen und eine leere Zeitleiste vortaeuschen.
+        var ereignisListe = ereignisse.ToList();
+        if (ereignisListe.Count == 0) return;
+
         // Verlaengerung fand statt, sobald die Verlaengerungs-Torfelder gesetzt sind — unabhaengig
         // von der finalen EntscheidungArt (auch bei Elfmeterschiessen ging dem immer eine
         // vollstaendige Verlaengerung voraus, siehe BerechneEntscheidungArt in SpielplanViewModel).
@@ -689,7 +695,7 @@ public partial class SimulationsViewModel : ViewModelBase
             _                      => art.ToString()
         };
 
-        foreach (var (minute, art, istHeimSeite) in ereignisse.OrderBy(ev => ev.Minute))
+        foreach (var (minute, art, istHeimSeite) in ereignisListe.OrderBy(ev => ev.Minute))
         {
             SchwellenPruefen(minute);
 
