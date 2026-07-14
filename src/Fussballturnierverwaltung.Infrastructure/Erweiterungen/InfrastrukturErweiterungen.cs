@@ -42,6 +42,7 @@ public static class InfrastrukturErweiterungen
         // Spielplan-Repositories
         services.AddScoped<ISpielRepository, SpielRepository>();
         services.AddScoped<ITurnierRundeRepository, TurnierRundeRepository>();
+        services.AddScoped<IQualifikationsRegelRepository, QualifikationsRegelRepository>();
 
         // Auslosungs-Repository
         services.AddScoped<IAuslosungRepository, AuslosungRepository>();
