@@ -67,7 +67,7 @@ Both `Console` and `Wpf` are independent startup projects that reference `Infras
 2. **Application**: repository interface + service class; validator if user input is involved
 3. **Infrastructure**: EF Core configuration in `Persistenz/Konfigurationen/`, repository implementation, migration
 4. **Console**: menu class registered in `Program.cs`, wired into `StammdatenMenue`, `BewegungsdatenMenue`, or `HauptMenue`
-5. **WPF** (if applicable): ViewModel + View pair, registered in `App.xaml.cs`, wired into `MainViewModel.NavigationsGruppen`
+5. **WPF** (if applicable): ViewModel + View pair, registered in `App.xaml.cs`, wired into `MainViewModel.NavigationsGruppen`, **and** given a `DataTemplate` in `MainWindow.xaml` (`Window.Resources`) mapping the ViewModel type to the View — omitting this compiles fine and navigates without error, but the view silently renders as the ViewModel's `ToString()` instead of the actual UI
 
 **Repository pattern**: All repository interfaces extend `IRepository<T>` (`Application/Abstraktionen/IRepository.cs`). Concrete implementations extend `GenericRepository<T>`. Domain-specific query methods are added to the interface and implemented in Infrastructure.
 
