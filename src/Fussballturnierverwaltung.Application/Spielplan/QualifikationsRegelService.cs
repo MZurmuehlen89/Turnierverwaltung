@@ -18,6 +18,9 @@ public class QualifikationsRegelService(
     public Task<IReadOnlyList<QualifikationsRegel>> AlleNachZielRundeIdAsync(int zielRundeId, CancellationToken ct = default)
         => repository.AlleNachZielRundeIdAsync(zielRundeId, ct);
 
+    public Task<IReadOnlyList<QualifikationsRegel>> AlleNachTurnierInstanzIdAsync(int turnierInstanzId, CancellationToken ct = default)
+        => repository.AlleNachTurnierInstanzIdAsync(turnierInstanzId, ct);
+
     public async Task<QualifikationsRegel> ErstellenAsync(QualifikationsRegelEingabe eingabe, CancellationToken ct = default)
     {
         var quellRunde = await QuellRundeLadenAsync(eingabe.QuellRundeId, ct);
