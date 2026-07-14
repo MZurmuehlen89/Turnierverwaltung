@@ -120,6 +120,8 @@ public partial class App
         builder.Services.AddScoped<TurnierInstanzService>();
         builder.Services.AddScoped<RegelwerkService>();
         builder.Services.AddScoped<RanglisteService>();
+        builder.Services.AddScoped<QualifikationsRegelValidator>();
+        builder.Services.AddScoped<QualifikationsRegelService>();
 
         // Application Services – Auslosung & Spielplan
         builder.Services.AddScoped<AuslosungService>();
@@ -149,6 +151,7 @@ public partial class App
         builder.Services.AddTransient<TurnierBereichViewModel>();
         builder.Services.AddTransient<ImportExportViewModel>();
         builder.Services.AddTransient<RundenEditorViewModel>();
+        builder.Services.AddTransient<AufstiegsregelViewModel>();
 
         // Navigation & Hauptfenster
         builder.Services.AddSingleton<INavigationService, NavigationService>();
