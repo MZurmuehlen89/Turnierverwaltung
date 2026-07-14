@@ -183,6 +183,12 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int?>("Platzierung")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("QualifikationsRegelId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("SetzPosition")
                         .HasColumnType("int");
 
@@ -191,6 +197,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.HasIndex("LostopfId");
 
                     b.HasIndex("MannschaftId");
+
+                    b.HasIndex("QualifikationsRegelId");
 
                     b.ToTable("LostopfEintraege", (string)null);
                 });
@@ -1070,9 +1078,16 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasForeignKey("MannschaftId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.QualifikationsRegel", "QualifikationsRegel")
+                        .WithMany()
+                        .HasForeignKey("QualifikationsRegelId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Lostopf");
 
                     b.Navigation("Mannschaft");
+
+                    b.Navigation("QualifikationsRegel");
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenEintrag", b =>

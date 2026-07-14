@@ -111,4 +111,58 @@ public class QualifikationsRegelRepositoryTests
 
         (await repo.FindenNachIdAsync(regel.Id)).Should().BeNull();
     }
+
+    [Fact]
+    public async Task AlleNachZielRundeIdAsync_LiefertNurRegelnDieserZielrundeMitQuellrundeGeladen()
+    {
+        using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out var ligaRundeId, out var koRundeId);
+        var repo = new QualifikationsRegelRepository(ctx);
+
+        await repo.HinzufuegenAsync(new QualifikationsRegel
+            { QuellRundeId = ligaRundeId, ZielRundeId = koRundeId, PlatzierungVon = 1, PlatzierungBis = 8 });
+        // Regel mit anderer Zielrunde darf nicht mitgeliefert werden.
+        await repo.HinzufuegenAsync(new QualifikationsRegel
+            { QuellRundeId = koRundeId, ZielRundeId = ligaRundeId, PlatzierungVon = 1, PlatzierungBis = 1 });
+
+        var regeln = await repo.AlleNachZielRundeIdAsync(koRundeId);
+
+        regeln.Should().HaveCount(1);
+        regeln[0].QuellRunde.Should().NotBeNull();
+        regeln[0].QuellRunde.Id.Should().Be(ligaRundeId);
+    }
+
+    [Fact]
+    public async Task AlleNachTurnierInstanzIdAsync_LiefertAlleRegelnDesTurniers()
+    {
+        using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out var ligaRundeId, out var koRundeId);
+        var repo = new QualifikationsRegelRepository(ctx);
+
+        await repo.HinzufuegenAsync(new QualifikationsRegel
+            { QuellRundeId = ligaRundeId, ZielRundeId = koRundeId, PlatzierungVon = 1, PlatzierungBis = 8 });
+        await repo.HinzufuegenAsync(new QualifikationsRegel
+            { QuellRundeId = ligaRundeId, ZielRundeId = koRundeId, PlatzierungVon = 9, PlatzierungBis = 24 });
+
+        var regeln = await repo.AlleNachTurnierInstanzIdAsync(1);
+
+        regeln.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task FindenNachIdMitRundenAsync_LaedtQuellUndZielrunde()
+    {
+        using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out var ligaRundeId, out var koRundeId);
+        var repo = new QualifikationsRegelRepository(ctx);
+        var regel = new QualifikationsRegel
+            { QuellRundeId = ligaRundeId, ZielRundeId = koRundeId, PlatzierungVon = 1, PlatzierungBis = 8 };
+        await repo.HinzufuegenAsync(regel);
+
+        var geladen = await repo.FindenNachIdMitRundenAsync(regel.Id);
+
+        geladen.Should().NotBeNull();
+        geladen!.QuellRunde.Should().NotBeNull();
+        geladen.ZielRunde.Should().NotBeNull();
+    }
 }

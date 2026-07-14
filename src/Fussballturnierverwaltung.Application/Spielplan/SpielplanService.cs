@@ -17,6 +17,7 @@ public class SpielplanService(
     ISpielRepository spielRepository,
     IMannschaftRepository mannschaftRepository,
     ITurnierBaumRepository turnierBaumRepository,
+    IQualifikationsRegelRepository qualifikationsRegelRepository,
     SpielplanGeneratorFactory generatorFactory,
     TurnierValidator turnierValidator,
     TabellenService tabellenService,
@@ -521,89 +522,122 @@ public class SpielplanService(
     // ── Automatische Finale-Generierung ohne Auslosung (Issue #113) ────────
 
     /// <summary>
-    /// Hält Rundenart.Finale-Runden mit zwei Eingangsmannschaften synchron mit dem Ergebnis der vorhergehenden
-    /// Runde (Halbfinale) — ohne dass für das Finale eine eigene Auslosung durchlaufen werden muss (bei nur
-    /// zwei möglichen Teilnehmern gibt es ohnehin keinen Freiheitsgrad). Generiert das Finalspiel sobald das
-    /// Halbfinale vollständig entschieden ist, und entfernt/ersetzt ein noch nicht gespieltes Finalspiel wieder,
-    /// falls sich der Halbfinale-Stand nachträglich ändert (Ergebnis zurückgesetzt oder neu simuliert). Ein
-    /// bereits gespieltes Finale (mit Ergebnis) wird nie automatisch verändert.
-    /// Beschränkt auf einbeinige Vorrunden (kein MitRueckspiel) — die Ermittlung des Aggregat-Siegers über
-    /// zwei Spielbeine ist bewusst nicht Teil dieser Phase.
+    /// Hält Zielrunden mit genau zwei Eingangsmannschaften synchron mit dem Stand ihrer(n) Quellrunde(n) — ohne
+    /// dass für die Zielrunde eine eigene Auslosung durchlaufen werden muss (bei nur zwei möglichen Teilnehmern
+    /// gibt es ohnehin keinen Freiheitsgrad, wer gegen wen antritt). Generiert das Spiel sobald die Quellrunde(n)
+    /// vollständig entschieden sind, und entfernt/ersetzt ein noch nicht gespieltes Spiel wieder, falls sich der
+    /// Quellrunden-Stand nachträglich ändert (Ergebnis zurückgesetzt oder neu simuliert). Eine bereits gespielte
+    /// Zielrunde (mit Ergebnis) wird nie automatisch verändert.
+    /// Zwei Wege werden unterstützt: (1) explizite <see cref="QualifikationsRegel"/>n, die zusammen genau zwei
+    /// Qualifikanten für die Zielrunde liefern (Issue #29/#130); (2) als Fallback für Turniere ohne solche Regeln
+    /// die ursprüngliche Heuristik aus Issue #113 (nächstgelegene einbeinige K.-o.-Vorrunde mit zwei Ausgangsteams).
+    /// Aggregat-Sieger-Ermittlung über zwei Spielbeine ist bewusst nicht Teil dieser Phase (weder für die
+    /// Quellrunde noch für die Zielrunde).
     /// Aufrufpunkt: direkt nach dem Speichern/Zurücksetzen/Simulieren eines Ergebnisses (siehe SpielplanViewModel),
-    /// da die Finale-Runde vor der automatischen Generierung noch keine Spiele hat und der reguläre
+    /// da die Zielrunde vor der automatischen Generierung noch keine Spiele hat und der reguläre
     /// "Platzhalter aktualisieren"-Button dafür nicht sichtbar/erreichbar ist.
     /// </summary>
     public async Task FinaleAutomatischGenerierenWennBereitAsync(int turnierInstanzId, CancellationToken ct = default)
     {
         var alleRunden = await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
-        var offeneFinalRunden = alleRunden
-            .Where(r => r.Rundenart == Rundenart.Finale && r.EingangsMannschaftsanzahl == 2)
+        var alleRegeln = await qualifikationsRegelRepository.AlleNachTurnierInstanzIdAsync(turnierInstanzId, ct);
+
+        var zielRunden = alleRunden
+            .Where(r => r.EingangsMannschaftsanzahl == 2)
             .ToList();
 
-        foreach (var finale in offeneFinalRunden)
+        foreach (var ziel in zielRunden)
         {
-            var finaleSpiele = await spielRepository.AlleNachRundeAsync(finale.Id, ct);
+            var zielSpiele = await spielRepository.AlleNachRundeAsync(ziel.Id, ct);
 
             // Bereits gespielt oder unerwartete Struktur (z.B. mehr als ein Spiel) - nie automatisch anfassen.
-            if (finaleSpiele.Count > 1 || finaleSpiele.Any(s => s.Ergebnis is not null))
+            if (zielSpiele.Count > 1 || zielSpiele.Any(s => s.Ergebnis is not null))
                 continue;
 
-            var vorRunde = alleRunden
-                .Where(r => r.Reihenfolge < finale.Reihenfolge
-                         && r.Rundenart == Rundenart.KoRunde
-                         && r.AusgangsMannschaftsanzahl == 2
-                         && !r.MitRueckspiel)
-                .OrderByDescending(r => r.Reihenfolge)
-                .FirstOrDefault();
+            var regelnFuerZiel = alleRegeln.Where(r => r.ZielRundeId == ziel.Id).ToList();
+            var (sollTeilnehmer, quelleBeschreibung) = regelnFuerZiel.Count > 0
+                ? await QualifikantenAusRegelnAsync(regelnFuerZiel, ct)
+                : await QualifikantenAusFinaleHeuristikAsync(ziel, alleRunden, ct);
 
-            var sollTeilnehmer = vorRunde is null ? null : await ErmittelteSiegerAsync(vorRunde, ct);
-
-            if (finaleSpiele.Count == 0)
+            if (zielSpiele.Count == 0)
             {
-                if (sollTeilnehmer is null) continue; // Halbfinale noch nicht (vollständig) entschieden
-                await GenerierenAsync(finale.Id, sollTeilnehmer, ct);
+                if (sollTeilnehmer is null) continue; // Quellrunde(n) noch nicht (vollständig) entschieden
+                await GenerierenAsync(ziel.Id, sollTeilnehmer, ct);
                 logger.LogInformation(
-                    "Finale-Runde '{Runde}' automatisch ohne Auslosung generiert (Finalisten aus '{VorRunde}').",
-                    finale.Name, vorRunde!.Name);
+                    "Runde '{Runde}' automatisch ohne Auslosung generiert (Teilnehmer aus {Quelle}).",
+                    ziel.Name, quelleBeschreibung);
                 continue;
             }
 
-            // Genau ein noch nicht gespieltes Finalspiel vorhanden - prüfen ob es noch zum Halbfinale-Stand passt.
-            var aktuellesSpiel = finaleSpiele[0];
+            // Genau ein noch nicht gespieltes Spiel vorhanden - prüfen ob es noch zum Quellrunden-Stand passt.
+            var aktuellesSpiel = zielSpiele[0];
             var aktuelleTeilnehmer = new[] { aktuellesSpiel.HeimMannschaftId, aktuellesSpiel.AuswaertsMannschaftId }
                 .Where(id => id.HasValue).Select(id => id!.Value).ToHashSet();
             bool stimmtUeberein = sollTeilnehmer is not null
                 && aktuelleTeilnehmer.SetEquals(sollTeilnehmer);
             if (stimmtUeberein) continue; // bereits korrekt
 
-            await LoeschenAsync(finale.Id, ct);
+            await LoeschenAsync(ziel.Id, ct);
             logger.LogInformation(
-                "Automatisch generiertes, noch nicht gespieltes Finalspiel in Runde '{Runde}' entfernt " +
-                "(Halbfinale-Stand hat sich geändert).", finale.Name);
+                "Automatisch generiertes, noch nicht gespieltes Spiel in Runde '{Runde}' entfernt " +
+                "(Quellrunden-Stand hat sich geändert).", ziel.Name);
 
             if (sollTeilnehmer is not null)
             {
-                await GenerierenAsync(finale.Id, sollTeilnehmer, ct);
+                await GenerierenAsync(ziel.Id, sollTeilnehmer, ct);
                 logger.LogInformation(
-                    "Finale-Runde '{Runde}' automatisch neu generiert (Finalisten aus '{VorRunde}').",
-                    finale.Name, vorRunde!.Name);
+                    "Runde '{Runde}' automatisch neu generiert (Teilnehmer aus {Quelle}).",
+                    ziel.Name, quelleBeschreibung);
             }
         }
     }
 
-    /// <summary>Ermittelt die beiden Sieger einer einbeinigen Vorrunde, sofern diese vollständig entschieden ist.</summary>
-    private async Task<List<int>?> ErmittelteSiegerAsync(TurnierRunde vorRunde, CancellationToken ct)
+    /// <summary>Ermittelt die beiden Qualifikanten für eine Zielrunde aus expliziten <see cref="QualifikationsRegel"/>n.
+    /// Liefert <c>null</c>, solange nicht alle beteiligten Quellrunden vollständig entschieden sind.</summary>
+    private async Task<(List<int>? Teilnehmer, string Beschreibung)> QualifikantenAusRegelnAsync(
+        IReadOnlyList<QualifikationsRegel> regeln, CancellationToken ct)
     {
+        var teilnehmer = new List<int>();
+        foreach (var regel in regeln)
+        {
+            for (int platz = regel.PlatzierungVon; platz <= regel.PlatzierungBis; platz++)
+            {
+                var teamId = await RangAufloesenAsync(regel.QuellRunde, regel.GruppeIndex, platz, ct);
+                if (teamId is null) return (null, "");
+                teilnehmer.Add(teamId.Value);
+            }
+        }
+
+        var beschreibung = string.Join(", ", regeln.Select(r => $"'{r.QuellRunde.Name}'").Distinct());
+        return teilnehmer.Count == 2 ? (teilnehmer, beschreibung) : (null, beschreibung);
+    }
+
+    /// <summary>Fallback für Turniere ohne explizite <see cref="QualifikationsRegel"/>n: sucht die nächstgelegene
+    /// einbeinige K.-o.-Vorrunde mit zwei Ausgangsteams und ermittelt deren beide Sieger (Issue #113).</summary>
+    private async Task<(List<int>? Teilnehmer, string Beschreibung)> QualifikantenAusFinaleHeuristikAsync(
+        TurnierRunde ziel, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
+    {
+        var vorRunde = alleRunden
+            .Where(r => r.Reihenfolge < ziel.Reihenfolge
+                     && r.Rundenart == Rundenart.KoRunde
+                     && r.AusgangsMannschaftsanzahl == 2
+                     && !r.MitRueckspiel)
+            .OrderByDescending(r => r.Reihenfolge)
+            .FirstOrDefault();
+
+        if (vorRunde is null) return (null, "");
+
         var vorRundenSpiele = await spielRepository.AlleNachRundeAsync(vorRunde.Id, ct);
         if (vorRundenSpiele.Count == 0 || vorRundenSpiele.Any(s => s.Ergebnis?.SiegerMannschaftId is null))
-            return null; // Halbfinale noch nicht (vollständig) entschieden
+            return (null, $"'{vorRunde.Name}'"); // noch nicht (vollständig) entschieden
 
         var sieger = vorRundenSpiele
             .OrderBy(s => s.Spielnummer)
             .Select(s => s.Ergebnis!.SiegerMannschaftId!.Value)
             .Distinct()
             .ToList();
-        return sieger.Count == 2 ? sieger : null; // unerwarteter Zustand (z.B. Unentschieden ohne Sieger)
+
+        return sieger.Count == 2 ? (sieger, $"'{vorRunde.Name}'") : (null, $"'{vorRunde.Name}'");
     }
 
     // ── Platzhalter-Auflösungslogik ───────────────────────────────────────
@@ -657,13 +691,7 @@ public class SpielplanService(
             .FirstOrDefault();
         if (gruppenphaseRunde is null) return null;
 
-        var gruppenTabellen = await tabellenService.GruppenTabellenBerechnenAsync(gruppenphaseRunde.Id, ct: ct);
-        var gruppe = gruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppenNummer);
-        if (gruppe is null) return null;
-
-        return gruppe.Tabelle.Count >= rang
-            ? gruppe.Tabelle[rang - 1].Mannschaft.Id
-            : null;
+        return await RangAufloesenAsync(gruppenphaseRunde, gruppenNummer, rang, ct);
     }
 
     private static int? KuerzelZuEingangsteams(string kuerzel) => kuerzel.ToUpperInvariant() switch
@@ -693,13 +721,7 @@ public class SpielplanService(
             .FirstOrDefault();
         if (koRunde is null) return null;
 
-        var koSpiele = (await spielRepository.AlleNachRundeAsync(koRunde.Id, ct))
-            .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
-            .OrderBy(s => s.Spielnummer)
-            .ToList();
-
-        if (koSpiele.Count < spielNummer) return null;
-        return koSpiele[spielNummer - 1].Ergebnis?.SiegerMannschaftId;
+        return await RangAufloesenAsync(koRunde, spielNummer, 1, ct);
     }
 
     private async Task<int?> KoVerliererAufloessenAsync(
@@ -718,19 +740,87 @@ public class SpielplanService(
             .FirstOrDefault();
         if (koRunde is null) return null;
 
-        var koSpiele = (await spielRepository.AlleNachRundeAsync(koRunde.Id, ct))
-            .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
-            .OrderBy(s => s.Spielnummer)
-            .ToList();
+        return await RangAufloesenAsync(koRunde, spielNummer, 2, ct);
+    }
 
-        if (koSpiele.Count < spielNummer) return null;
-        var spiel  = koSpiele[spielNummer - 1];
-        var sieger = spiel.Ergebnis?.SiegerMannschaftId;
-        if (sieger is null) return null;
+    // ── Regelbasierte Auflösung (Issue #130) ──────────────────────────────
 
-        return sieger == spiel.HeimMannschaftId
-            ? spiel.AuswaertsMannschaftId
-            : spiel.HeimMannschaftId;
+    /// <summary>Löst eine Platzierung einer <see cref="QualifikationsRegel"/> zum tatsächlichen Mannschaft-Id auf.
+    /// Liefert <c>null</c>, solange die Quellrunde noch nicht (für diese Platzierung) entschieden ist.</summary>
+    public Task<int?> QualifikationsRegelPlatzAufloesenAsync(QualifikationsRegel regel, int platzierung, CancellationToken ct = default)
+    {
+        if (platzierung < regel.PlatzierungVon || platzierung > regel.PlatzierungBis)
+            throw new ArgumentOutOfRangeException(nameof(platzierung),
+                $"Platzierung {platzierung} liegt außerhalb des Regel-Bereichs {regel.PlatzierungVon}-{regel.PlatzierungBis}.");
+
+        return RangAufloesenAsync(regel.QuellRunde, regel.GruppeIndex, platzierung, ct);
+    }
+
+    /// <summary>Löst alle Platzierungen einer <see cref="QualifikationsRegel"/> auf (Platzierung → Mannschaft-Id oder
+    /// <c>null</c>, solange die Quellrunde für diese Platzierung noch nicht entschieden ist).</summary>
+    public async Task<IReadOnlyDictionary<int, int?>> QualifikationsRegelQualifikantenAsync(
+        QualifikationsRegel regel, CancellationToken ct = default)
+    {
+        var ergebnis = new Dictionary<int, int?>();
+        for (int platz = regel.PlatzierungVon; platz <= regel.PlatzierungBis; platz++)
+            ergebnis[platz] = await RangAufloesenAsync(regel.QuellRunde, regel.GruppeIndex, platz, ct);
+        return ergebnis;
+    }
+
+    /// <summary>
+    /// Kern-Auflösung "Platzierung X einer Quellrunde → Mannschaft-Id", regelbasiert und unabhängig davon, ob die
+    /// Koordinaten (Quellrunde/Gruppenindex/Platzierung) aus einer <see cref="QualifikationsRegel"/> oder — für
+    /// bestehende, per Freitext angelegte Turniere — aus dem Regex-Parser stammen. Die Bedeutung von
+    /// <paramref name="gruppeIndex"/> hängt von der Rundenart der Quellrunde ab:
+    /// Gruppenphase → Gruppennummer (Platzierung = Tabellenrang in dieser Gruppe),
+    /// Liga → nicht verwendet (Platzierung = Tabellenrang der Gesamttabelle),
+    /// K.-o.-Runde/Finale → Spielnummer innerhalb der Runde (Platzierung 1 = Sieger, 2 = Verlierer).
+    /// </summary>
+    private async Task<int?> RangAufloesenAsync(
+        TurnierRunde quellRunde, int? gruppeIndex, int platzierung, CancellationToken ct)
+    {
+        switch (quellRunde.Rundenart)
+        {
+            case Rundenart.Gruppenphase:
+            {
+                if (gruppeIndex is null) return null;
+                var gruppenTabellen = await tabellenService.GruppenTabellenBerechnenAsync(quellRunde.Id, ct: ct);
+                var gruppe = gruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppeIndex.Value);
+                return gruppe?.Tabelle.FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id;
+            }
+
+            case Rundenart.Liga:
+            {
+                var tabelle = await tabellenService.TabelleBerechnenAsync(quellRunde.Id, ct: ct);
+                return tabelle.FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id;
+            }
+
+            case Rundenart.KoRunde:
+            case Rundenart.Finale:
+            case Rundenart.SpielUmPlatzDrei:
+            {
+                if (gruppeIndex is not { } spielNummer) return null;
+                var spiele = (await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct))
+                    .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
+                    .OrderBy(s => s.Spielnummer)
+                    .ToList();
+                if (spiele.Count < spielNummer) return null;
+
+                var spiel  = spiele[spielNummer - 1];
+                var sieger = spiel.Ergebnis?.SiegerMannschaftId;
+                if (sieger is null) return null;
+
+                return platzierung switch
+                {
+                    1 => sieger,
+                    2 => sieger == spiel.HeimMannschaftId ? spiel.AuswaertsMannschaftId : spiel.HeimMannschaftId,
+                    _ => null
+                };
+            }
+
+            default:
+                return null;
+        }
     }
 
     private async Task SpeichernAsync(SpielplanErgebnis ergebnis, CancellationToken ct)

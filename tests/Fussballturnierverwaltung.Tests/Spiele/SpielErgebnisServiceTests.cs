@@ -31,9 +31,10 @@ public class SpielErgebnisServiceTests
         var spielRepo = new SpielRepository(ctx);
         var mannschaftRepo = new MannschaftRepository(ctx);
         var baumRepo = new TurnierBaumRepository(ctx);
+        var qualifikationsRegelRepo = new QualifikationsRegelRepository(ctx);
         var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator()]);
         return new SpielplanService(
-            rundeRepo, spielRepo, mannschaftRepo, baumRepo,
+            rundeRepo, spielRepo, mannschaftRepo, baumRepo, qualifikationsRegelRepo,
             factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
             NullLogger<SpielplanService>.Instance);
     }
