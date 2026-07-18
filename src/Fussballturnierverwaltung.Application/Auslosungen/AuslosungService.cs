@@ -424,25 +424,23 @@ public class AuslosungService(
         return GruppenZuErgebnisse(gruppen);
     }
 
-    // Seeded teams (SetzPosition set) go one per group; rest distributed randomly
+    // Seeded teams (SetzPosition set) go one per group; rest distributed topf-wise
     private static List<AuslosungsErgebnis> GruppenphaseNachSetzlisteAusloesen(Auslosung auslosung)
     {
         var gruppenAnzahl    = GruppenAnzahlOderFehler(auslosung);
         var keinGleichesLand = HatAktiveRegel(auslosung, AuslosungsRegelArt.KeinGleichesLand);
-
-        var alleEintraege = auslosung.Lostoepfe
-            .OrderBy(l => l.Reihenfolge)
-            .SelectMany(l => l.Eintraege)
-            .ToList();
+        var lostoepfe        = auslosung.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
 
         if (gruppenAnzahl == 1)
         {
             // Liga: nur eine Gruppe — die Setzliste hat keinen Verteilungseffekt,
             // alle Teams (gesetzt wie ungesetzt) landen in der einen Gruppe. Die
             // Take(gruppenAnzahl) unten würde sonst alle bis auf ein gesetztes Team verwerfen.
-            var alle = alleEintraege.Select(TeilnehmerSlot.AusEintrag).ToList();
+            var alle = lostoepfe.SelectMany(l => l.Eintraege).Select(TeilnehmerSlot.AusEintrag).ToList();
             return GruppenZuErgebnisse([alle]);
         }
+
+        var alleEintraege = lostoepfe.SelectMany(l => l.Eintraege).ToList();
 
         var gesetzte = alleEintraege
             .Where(e => e.SetzPosition.HasValue)
@@ -451,18 +449,29 @@ public class AuslosungService(
             .Take(gruppenAnzahl)
             .ToList();
 
-        var ungesetzte = alleEintraege
-            .Where(e => !e.SetzPosition.HasValue)
-            .Select(TeilnehmerSlot.AusEintrag)
-            .ToList();
-
         var gruppen = Enumerable.Range(0, gruppenAnzahl)
             .Select(i => i < gesetzte.Count
                 ? new List<TeilnehmerSlot> { gesetzte[i] }
                 : new List<TeilnehmerSlot>())
             .ToList();
 
-        return GruppenZuErgebnisse(GruppenBefuellen(ungesetzte, gruppenAnzahl, keinGleichesLand, gruppen));
+        // Ungesetzte Teams werden topfweise verteilt (ein Topf wird komplett auf die
+        // Gruppen aufgeteilt, bevor der nächste Topf drankommt) — analog zu
+        // GruppenphaseNachToepfenAusloesen, statt alle ungesetzten Töpfe topf-unabhängig
+        // zusammenzuwerfen (siehe Issue #5-Diskussion).
+        foreach (var topf in lostoepfe)
+        {
+            var ungesetzteImTopf = topf.Eintraege
+                .Where(e => !e.SetzPosition.HasValue)
+                .Select(TeilnehmerSlot.AusEintrag)
+                .ToList();
+
+            if (ungesetzteImTopf.Count == 0) continue;
+
+            gruppen = GruppenBefuellen(ungesetzteImTopf, gruppenAnzahl, keinGleichesLand, gruppen);
+        }
+
+        return GruppenZuErgebnisse(gruppen);
     }
 
     // Assigns slots to groups round-robin, respecting KeinGleichesLand if active

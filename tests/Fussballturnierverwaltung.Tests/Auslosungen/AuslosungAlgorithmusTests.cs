@@ -175,6 +175,36 @@ public class AuslosungAlgorithmusTests
     }
 
     [Fact]
+    public async Task Gruppenphase_NachSetzliste_UngesetzteToepfeJeEinmalProGruppe()
+    {
+        // Regressionstest (Issue #5-Diskussion): ungesetzte Töpfe wurden bisher topf-unabhängig
+        // zusammengeworfen (GruppenBefuellen über alle ungesetzten Töpfe hinweg), wodurch eine
+        // Gruppe z.B. 2 Teams aus Topf 2 bekommen konnte, während eine andere Gruppe noch leer
+        // ausging. Jeder ungesetzte Topf muss weiterhin exakt 1 Team pro Gruppe beisteuern.
+        var gesetzte = Enumerable.Range(1, 4).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
+        var topf1    = Topf(1, 1, gesetzte);
+        var topf2    = Topf(2, 2, Enumerable.Range(5, 4).Select(i => Eintrag(Team(i))).ToArray());
+        var topf3    = Topf(3, 3, Enumerable.Range(9, 4).Select(i => Eintrag(Team(i))).ToArray());
+        AuslosungMit(Rundenart.Gruppenphase, Auslosungsart.NachSetzliste,
+                     gruppenAnzahl: 4, lostoepfe: [topf1, topf2, topf3]);
+
+        var ergebnisse = await Ausfuehren();
+        var gruppen    = ergebnisse.GroupBy(e => e.PaarungsNummer).ToList();
+
+        gruppen.Should().HaveCount(4);
+        var topf2Ids = new HashSet<int> { 5, 6, 7, 8 };
+        var topf3Ids = new HashSet<int> { 9, 10, 11, 12 };
+        gruppen.Should().AllSatisfy(g =>
+        {
+            g.Should().HaveCount(3, "1 Gesetzter + je 1 Team aus Topf 2 und Topf 3");
+            g.Count(e => topf2Ids.Contains(e.HeimMannschaftId!.Value)).Should().Be(1,
+                "jede Gruppe enthält genau ein Team aus Topf 2");
+            g.Count(e => topf3Ids.Contains(e.HeimMannschaftId!.Value)).Should().Be(1,
+                "jede Gruppe enthält genau ein Team aus Topf 3");
+        });
+    }
+
+    [Fact]
     public async Task Gruppenphase_Benutzerdefiniert_VerhaltWieZufall()
     {
         // Benutzerdefiniert fällt auf Zufall-Algorithmus zurück

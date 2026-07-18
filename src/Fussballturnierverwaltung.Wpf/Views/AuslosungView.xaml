@@ -136,6 +136,17 @@
                     <!-- Kopfzeile: Info + Aktions-Buttons -->
                     <DockPanel Margin="0,0,0,12">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <StackPanel Orientation="Vertical" Margin="0,0,10,0"
+                                        Visibility="{Binding IstBearbeitbarNichtManuell, Converter={StaticResource BoolToVisibility}}">
+                                <CheckBox Content="🎬 TV-Modus"
+                                          IsChecked="{Binding TvModusAktiv}"
+                                          FontSize="12" Foreground="#475569"
+                                          ToolTip="Mannschaften werden nach der Auslosung einzeln gezogen (Mannschaft → Gruppe/Paarung → Position) statt das Ergebnis sofort komplett anzuzeigen." />
+                                <CheckBox Content="🕹 manuell (Klick je Schritt)"
+                                          IsChecked="{Binding TvModusManuell}"
+                                          FontSize="11" Foreground="#64748B" Margin="18,2,0,0"
+                                          Visibility="{Binding TvModusAktiv, Converter={StaticResource BoolToVisibility}}" />
+                            </StackPanel>
                             <Button Content="▶  Auslosung durchführen"
                                     Command="{Binding AuslosungAusfuehrenCommand}"
                                     Padding="12,6" FontSize="13"
@@ -143,6 +154,7 @@
                                     Visibility="{Binding IstBearbeitbarNichtManuell, Converter={StaticResource BoolToVisibility}}" />
                             <Button Content="↩  Zurücksetzen"
                                     Command="{Binding AuslosungZuruecksetzenCommand}"
+                                    IsEnabled="{Binding AnimationLaeuftNicht}"
                                     Padding="12,6" FontSize="13" Margin="8,0,0,0"
                                     Background="#DC2626" Foreground="White" BorderThickness="0"
                                     Visibility="{Binding IstAbgeschlossen, Converter={StaticResource BoolToVisibility}}" />
@@ -151,6 +163,199 @@
                                    FontSize="13" Foreground="#475569"
                                    VerticalAlignment="Center" TextWrapping="Wrap" />
                     </DockPanel>
+
+                    <!-- TV-Modus: Live-Ziehungsbanner -->
+                    <Border Background="#0F172A" CornerRadius="6" Padding="16,14" Margin="0,0,0,16"
+                            Visibility="{Binding AnimationLaeuft, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,10">
+                                <TextBlock Text="🎬 LIVE-ZIEHUNG" FontSize="11" FontWeight="Bold"
+                                           Foreground="#FBBF24" HorizontalAlignment="Left" />
+                                <TextBlock Text="{Binding AnimationFortschrittText}" FontSize="11"
+                                           Foreground="#94A3B8" HorizontalAlignment="Right" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,4">
+                                <Border Background="#1E293B" CornerRadius="4" Padding="14,8" Margin="0,0,8,0" MinWidth="150">
+                                    <StackPanel>
+                                        <TextBlock Text="MANNSCHAFT" FontSize="9" Foreground="#64748B" HorizontalAlignment="Center" />
+                                        <TextBlock Text="{Binding AnimationBannerMannschaft}" FontSize="15" FontWeight="Bold"
+                                                   Foreground="White" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+                                        <TextBlock Text="{Binding AnimationBannerTopf}" FontSize="10"
+                                                   Foreground="#94A3B8" HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel Orientation="Horizontal"
+                                            Visibility="{Binding AnimationBannerZiel, Converter={StaticResource NullToCollapsed}}">
+                                    <TextBlock Text="→" FontSize="20" Foreground="#475569" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <Border Background="#1E293B" CornerRadius="4" Padding="14,8" Margin="0,0,8,0" MinWidth="110">
+                                        <StackPanel>
+                                            <TextBlock Text="ZIEL" FontSize="9" Foreground="#64748B" HorizontalAlignment="Center" />
+                                            <TextBlock Text="{Binding AnimationBannerZiel}" FontSize="15" FontWeight="Bold"
+                                                       Foreground="#4ADE80" HorizontalAlignment="Center" />
+                                            <TextBlock Text="{Binding AnimationBannerSlot}" FontSize="10"
+                                                       Foreground="#94A3B8" HorizontalAlignment="Center"
+                                                       Visibility="{Binding AnimationBannerSlot, Converter={StaticResource NullToCollapsed}}" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal"
+                                            Visibility="{Binding AnimationBannerPosition, Converter={StaticResource NullToCollapsed}}">
+                                    <TextBlock Text="→" FontSize="20" Foreground="#475569" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <Border Background="#1E293B" CornerRadius="4" Padding="14,8" MinWidth="90">
+                                        <StackPanel>
+                                            <TextBlock Text="POSITION" FontSize="9" Foreground="#64748B" HorizontalAlignment="Center" />
+                                            <TextBlock Text="{Binding AnimationBannerPosition}" FontSize="15" FontWeight="Bold"
+                                                       Foreground="#60A5FA" HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+                                <Button Content="▶  Weiter" Command="{Binding AnimationWeiterCommand}"
+                                        Visibility="{Binding AnimationWartetAufWeiter, Converter={StaticResource BoolToVisibility}}"
+                                        Padding="14,6" FontSize="12" Background="#16A34A" Foreground="White"
+                                        BorderThickness="0" Margin="0,0,8,0" />
+                                <Button Content="⏭  Rest sofort anzeigen" Command="{Binding AnimationUeberspringenCommand}"
+                                        Padding="14,6" FontSize="12" Background="#334155" Foreground="White" BorderThickness="0" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- TV-Modus: Lostöpfe (fixe Plätze, leeren sich) oben, Gruppen/Paarungen darunter -->
+                    <StackPanel Margin="0,0,0,16"
+                                Visibility="{Binding AnimationLaeuft, Converter={StaticResource BoolToVisibility}}">
+
+                        <!-- Lostöpfe: feste Anzahl Plätze pro Topf, damit sich das Layout nicht
+                             verschiebt, sobald ein Topf leerer wird — gezogene Plätze werden nur
+                             ausgegraut/zu "…", statt entfernt zu werden. -->
+                        <TextBlock Text="LOSTÖPFE" FontSize="11" FontWeight="Bold"
+                                   Foreground="#94A3B8" Margin="0,0,0,8" />
+                        <ItemsControl ItemsSource="{Binding AnimationToepfe}" Margin="0,0,0,16">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:AnimationsTopf}">
+                                    <Border Width="150" Margin="0,0,8,8"
+                                            BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
+                                        <StackPanel>
+                                            <Border Background="#F1F5F9" Padding="8,4" CornerRadius="4,4,0,0">
+                                                <TextBlock Text="{Binding Name}" FontSize="12"
+                                                           FontWeight="SemiBold" Foreground="#475569" />
+                                            </Border>
+                                            <ItemsControl ItemsSource="{Binding Slots}" Background="White">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type vm:AnimationsTopfSlot}">
+                                                        <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="8,4">
+                                                            <TextBlock Text="{Binding Anzeige}" FontSize="12" />
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                                <ItemsControl.ItemContainerStyle>
+                                                    <Style TargetType="ContentPresenter">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Gezogen}" Value="True">
+                                                                <Setter Property="TextBlock.Foreground" Value="#CBD5E1" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ItemsControl.ItemContainerStyle>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Gruppen: alle Plätze von Anfang an sichtbar, füllen sich Slot für Slot -->
+                        <StackPanel Visibility="{Binding AnimationIstGruppenmodus, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="GRUPPEN" FontSize="11" FontWeight="Bold"
+                                       Foreground="#94A3B8" Margin="0,0,0,8" />
+                            <ItemsControl ItemsSource="{Binding AnimationGruppen}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:AnimationsGruppe}">
+                                        <Border Width="160" Margin="0,0,8,8"
+                                                BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
+                                            <StackPanel>
+                                                <Border Background="#EFF6FF" Padding="10,5" CornerRadius="4,4,0,0">
+                                                    <TextBlock Text="{Binding GruppenName}" FontSize="13"
+                                                               FontWeight="SemiBold" Foreground="#1E40AF" />
+                                                </Border>
+                                                <ItemsControl ItemsSource="{Binding Slots}" Background="White">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate DataType="{x:Type vm:AnimationsGruppenSlot}">
+                                                            <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="10,5">
+                                                                <TextBlock FontSize="13">
+                                                                    <Run Text="{Binding Position}" Foreground="#CBD5E1" />
+                                                                    <Run Text=". " Foreground="#CBD5E1" />
+                                                                    <Run Text="{Binding Anzeige}" />
+                                                                </TextBlock>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                    <ItemsControl.ItemContainerStyle>
+                                                        <Style TargetType="ContentPresenter">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Befuellt}" Value="False">
+                                                                    <Setter Property="TextBlock.Foreground" Value="#CBD5E1" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </ItemsControl.ItemContainerStyle>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- Paarungen: alle Paarungen von Anfang an sichtbar, Heim/Auswärts füllen sich -->
+                        <StackPanel Visibility="{Binding AnimationIstPaarungsmodus, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="PAARUNGEN" FontSize="11" FontWeight="Bold"
+                                       Foreground="#94A3B8" Margin="0,0,0,8" />
+                            <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
+                                <ItemsControl ItemsSource="{Binding AnimationPaarungen}" Background="White">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:AnimationsPaarung}">
+                                            <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="12,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="28" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding PaarungsNr}"
+                                                               Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="1" FontSize="13">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IstFreilos}" Value="True">
+                                                                        <Setter Property="Text" Value="{Binding Heim, StringFormat='Freilos: {0}'}" />
+                                                                        <Setter Property="Foreground" Value="#94A3B8" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                        <Run Text="{Binding Heim}" FontWeight="SemiBold" />
+                                                        <Run Text="  vs  " Foreground="#94A3B8" />
+                                                        <Run Text="{Binding Auswaerts}" />
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
 
                     <!-- Fehlermeldung -->
                     <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
@@ -472,9 +677,9 @@
                         </ItemsControl>
                     </Expander>
 
-                    <!-- Gruppenphase-Ergebnis: Teams nach Gruppen -->
+                    <!-- Gruppenphase-Ergebnis: Teams nach Gruppen (ausgeblendet während TV-Modus-Animation) -->
                     <StackPanel Margin="0,16,0,0"
-                                Visibility="{Binding IstGruppenergebnis, Converter={StaticResource BoolToVisibility}}">
+                                Visibility="{Binding ZeigeGruppenErgebnis, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="GRUPPEN DER AUSLOSUNG" FontSize="11" FontWeight="Bold"
                                    Foreground="#94A3B8" Margin="0,0,0,8" />
                         <ItemsControl ItemsSource="{Binding GruppenErgebnisse}">
@@ -662,9 +867,9 @@
                                 Background="#16A34A" Foreground="White" BorderThickness="0" />
                     </StackPanel>
 
-                    <!-- KO/Liga-Paarungs-Ergebnis -->
+                    <!-- KO/Liga-Paarungs-Ergebnis (ausgeblendet während TV-Modus-Animation) -->
                     <StackPanel Margin="0,16,0,0"
-                                Visibility="{Binding IstPaarungsergebnis, Converter={StaticResource BoolToVisibility}}">
+                                Visibility="{Binding ZeigePaarungsergebnis, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="ERGEBNISSE DER AUSLOSUNG" FontSize="11" FontWeight="Bold"
                                    Foreground="#94A3B8" Margin="0,0,0,8" />
                         <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
