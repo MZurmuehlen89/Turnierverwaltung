@@ -250,6 +250,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AuslosungsartHinweis))]
     [NotifyPropertyChangedFor(nameof(AuslosungsartWarnung))]
+    [NotifyPropertyChangedFor(nameof(NeuAnzahlLostoepfeBearbeitbar))]
     private Auslosungsart _neuAuslosungsart = Auslosungsart.Zufall;
 
     [ObservableProperty]
@@ -279,6 +280,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(IstBearbeitbarNichtManuell))]
     [NotifyPropertyChangedFor(nameof(IstManuellKoModus))]
     [NotifyPropertyChangedFor(nameof(IstManuellGruppenModus))]
+    [NotifyPropertyChangedFor(nameof(DetailAnzahlLostoepfeBearbeitbar))]
     private Auslosungsart _detailAuslosungsart;
 
     [ObservableProperty] private string _detailName = "";
@@ -451,10 +453,18 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public string DetailAuslosungsartHinweis   => AuslosungsartHinweisText(DetailAuslosungsart);
     public string? DetailAuslosungsartWarnung  => AuslosungsartWarnungText(DetailAuslosungsart, _auslosungDetail?.TurnierRunde?.Rundenart);
 
+    /// <summary>Zufall/Benutzerdefiniert kennen keine Topf-Struktur und sind auf genau 1 Lostopf begrenzt (Issue #134).</summary>
+    private static bool ErlaubtMehrereToepfe(Auslosungsart art) =>
+        art is not (Auslosungsart.Zufall or Auslosungsart.Benutzerdefiniert);
+
+    public bool NeuAnzahlLostoepfeBearbeitbar    => ErlaubtMehrereToepfe(NeuAuslosungsart);
+    public bool DetailAnzahlLostoepfeBearbeitbar => ErlaubtMehrereToepfe(DetailAuslosungsart);
+
     private static string AuslosungsartHinweisText(Auslosungsart art) => art switch
     {
         Auslosungsart.Zufall =>
-            "Alle Teams werden zufällig gemischt und paarweise zugelost. Passt zu jeder Rundenart.",
+            "Alle Teams werden zufällig gemischt und paarweise zugelost. Passt zu jeder Rundenart. " +
+            "Kennt keine Topf-Struktur — auf 1 Lostopf begrenzt.",
         Auslosungsart.NachSetzliste =>
             "Gesetzte Teams (Topf 1) werden gleichmäßig auf Gruppen oder Paare verteilt, " +
             "damit stärkere Teams erst in späteren Runden aufeinandertreffen. " +
@@ -473,7 +483,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             "Typisch für K.O.-Runden nach einer Gruppenphase (z. B. WM-Achtelfinale, UEFA-Playoff).",
         Auslosungsart.Benutzerdefiniert =>
             "Teams werden manuell den Losplätzen zugewiesen — keine automatische Verlosung. " +
-            "Für besondere Anforderungen oder wenn keine andere Methode passt.",
+            "Für besondere Anforderungen oder wenn keine andere Methode passt. " +
+            "Kennt keine Topf-Struktur — auf 1 Lostopf begrenzt.",
         Auslosungsart.Manuell =>
             "Vollständig manuelle Auslosung ohne Automation: Sie bestimmen jede Paarung (KO-Runde) " +
             "oder Gruppenzuordnung (Gruppenphase) selbst. " +
@@ -1085,6 +1096,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     ManuellesFehler = "Bitte mindestens eine Zuweisung vornehmen.";
                     return;
                 }
+                var leereSlots = ManuelleGruppen.Sum(g => g.Slots.Count(s => s.IstLeer));
+                if (leereSlots > 0)
+                {
+                    ManuellesFehler = $"Es sind noch {leereSlots} Gruppenplatz/-plätze unbesetzt. " +
+                                      "Bitte alle Plätze befüllen, bevor die Auslosung abgeschlossen wird.";
+                    return;
+                }
                 paarungen = alleSlots.Select(x => new ManuellePaarungEingabe(
                     HeimMannschaftId:         x.s.Team!.MannschaftId,
                     HeimPlatzhalterName:      x.s.Team!.MannschaftId is null ? x.s.Team!.Name : null,
@@ -1398,48 +1416,18 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             TeamsZugewiesen       = detail.Lostoepfe.SelectMany(l => l.Eintraege).Count();
             TeamsBenoetigt        = detail.TurnierRunde?.EingangsMannschaftsanzahl ?? 0;
 
-            // Slot-Initialisierung für manuelle Auslosung (nur wenn noch nicht abgeschlossen)
-            if (detail.Auslosungsart == Auslosungsart.Manuell &&
-                detail.Status is not (AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen))
-            {
-                int teamAnzahl = detail.TurnierRunde?.EingangsMannschaftsanzahl ?? 0;
-                if (detail.TurnierRunde?.Rundenart == Rundenart.Gruppenphase)
-                {
-                    int gruppenAnzahl = detail.TurnierRunde.GruppenAnzahl ?? 1;
-                    int slotsProGruppe = teamAnzahl > 0 && gruppenAnzahl > 0 ? teamAnzahl / gruppenAnzahl : 4;
-                    ManuelleGruppen = new ObservableCollection<ManuelleGruppe>(
-                        Enumerable.Range(1, gruppenAnzahl).Select(gNr => new ManuelleGruppe
-                        {
-                            GruppenNr   = gNr,
-                            GruppenName = $"Gruppe {GruppenBuchstabe(gNr)}",
-                            Slots       = new ObservableCollection<ManuellerGruppenSlot>(
-                                Enumerable.Range(1, slotsProGruppe).Select(sNr => new ManuellerGruppenSlot
-                                {
-                                    GruppenNr = gNr,
-                                    SlotNr    = sNr
-                                }))
-                        }));
-                    ManuelleKoPaarungen = [];
-                }
-                else
-                {
-                    int paarAnzahl = teamAnzahl > 0 ? (int)Math.Ceiling(teamAnzahl / 2.0) : 1;
-                    ManuelleKoPaarungen = new ObservableCollection<ManuelleKoPaarungAnzeige>(
-                        Enumerable.Range(1, paarAnzahl).Select(nr => new ManuelleKoPaarungAnzeige(
-                            nr,
-                            new ManuellerKoSlot { PaarungsNr = nr, IstHeim = true },
-                            new ManuellerKoSlot { PaarungsNr = nr, IstHeim = false })));
-                    ManuelleGruppen = [];
-                }
-                OnPropertyChanged(nameof(IstManuellKoModus));
-                OnPropertyChanged(nameof(IstManuellGruppenModus));
-            }
-
+            // IstBearbeitbar muss vor ManuelleSlotsAufbauen gesetzt werden, da IstManuellerModus davon abhängt.
             IstBearbeitbar        = detail.Status is not (AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen);
             IstAbgeschlossen      = detail.Status == AuslosungsStatus.Abgeschlossen;
             DetailName            = detail.Name;
             DetailAuslosungsart   = detail.Auslosungsart;
             DetailAnzahlLostoepfe = Math.Max(1, detail.Lostoepfe.Count);
+
+            // Explizit statt nur über den OnDetailAuslosungsartChanged-Seiteneffekt aufrufen: Der
+            // [ObservableProperty]-Setter feuert nur bei einer tatsächlichen Werteänderung — bleibt
+            // die Auslosungsart über ein Neuladen hinweg unverändert (z. B. nach 'Zurücksetzen' einer
+            // Manuell-Auslosung), würde der Slot-Aufbau sonst übersprungen und die Anzeige leer bleiben.
+            ManuelleSlotsAufbauen();
 
             AuslosungKopfzeile = $"{detail.Name}  ·  {detail.TurnierRunde.Name}  ·  " +
                                  $"{AuslosungsartAnzeigeName(detail.Auslosungsart)}  ·  " +
@@ -1549,6 +1537,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
     }
 
+    partial void OnNeuAuslosungsartChanged(Auslosungsart value)
+    {
+        if (!NeuAnzahlLostoepfeBearbeitbar)
+            NeuAnzahlLostoepfe = 1;
+    }
+
     private bool KannNeu()       => !NeuFormAktiv && AusgewaehlteInstanz is not null;
     private bool KannSpeichern() => (NeuFormAktiv && NeuRunde is not null)
                                  || (IstDetailDirty && IstBearbeitbar);
@@ -1562,6 +1556,61 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         if (!_ladenAktiv) IstDetailDirty = true;
         AktualisiereRedundanteRegeln(value);
+        ManuelleSlotsAufbauen();
+
+        // Zufall/Benutzerdefiniert erlauben nur 1 Lostopf (Issue #134). Die eigentliche Reduktion der
+        // gespeicherten Lostöpfe passiert erst beim Speichern via LostoepfeSynchronisierenAsync — das
+        // wirft dort bewusst einen Fehler, wenn überzählige Töpfe noch Teams enthalten, statt Teams
+        // automatisch zusammenzuführen.
+        if (!DetailAnzahlLostoepfeBearbeitbar)
+            DetailAnzahlLostoepfe = 1;
+    }
+
+    /// <summary>Baut ManuelleGruppen/ManuelleKoPaarungen (die Slot-Anzeige für Auslosungsart 'Manuell')
+    /// aus der zugehörigen TurnierRunde neu auf. Muss sowohl beim Laden einer Auslosung laufen als auch,
+    /// wenn der Nutzer die Auslosungsart interaktiv auf 'Manuell' umschaltet (sonst bleibt der Bereich
+    /// sichtbar, aber leer, bis einmal gespeichert und neu geladen wurde).</summary>
+    private void ManuelleSlotsAufbauen()
+    {
+        if (DetailAuslosungsart != Auslosungsart.Manuell || _auslosungDetail is null ||
+            _auslosungDetail.Status is AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen)
+        {
+            ManuelleKoPaarungen = [];
+            ManuelleGruppen     = [];
+            return;
+        }
+
+        int teamAnzahl = _auslosungDetail.TurnierRunde?.EingangsMannschaftsanzahl ?? 0;
+        if (_auslosungDetail.TurnierRunde?.Rundenart == Rundenart.Gruppenphase)
+        {
+            int gruppenAnzahl = _auslosungDetail.TurnierRunde.GruppenAnzahl ?? 1;
+            int slotsProGruppe = teamAnzahl > 0 && gruppenAnzahl > 0 ? teamAnzahl / gruppenAnzahl : 4;
+            ManuelleGruppen = new ObservableCollection<ManuelleGruppe>(
+                Enumerable.Range(1, gruppenAnzahl).Select(gNr => new ManuelleGruppe
+                {
+                    GruppenNr   = gNr,
+                    GruppenName = $"Gruppe {GruppenBuchstabe(gNr)}",
+                    Slots       = new ObservableCollection<ManuellerGruppenSlot>(
+                        Enumerable.Range(1, slotsProGruppe).Select(sNr => new ManuellerGruppenSlot
+                        {
+                            GruppenNr = gNr,
+                            SlotNr    = sNr
+                        }))
+                }));
+            ManuelleKoPaarungen = [];
+        }
+        else
+        {
+            int paarAnzahl = teamAnzahl > 0 ? (int)Math.Ceiling(teamAnzahl / 2.0) : 1;
+            ManuelleKoPaarungen = new ObservableCollection<ManuelleKoPaarungAnzeige>(
+                Enumerable.Range(1, paarAnzahl).Select(nr => new ManuelleKoPaarungAnzeige(
+                    nr,
+                    new ManuellerKoSlot { PaarungsNr = nr, IstHeim = true },
+                    new ManuellerKoSlot { PaarungsNr = nr, IstHeim = false })));
+            ManuelleGruppen = [];
+        }
+        OnPropertyChanged(nameof(IstManuellKoModus));
+        OnPropertyChanged(nameof(IstManuellGruppenModus));
     }
 
     private void AktualisiereRedundanteRegeln(Auslosungsart art)

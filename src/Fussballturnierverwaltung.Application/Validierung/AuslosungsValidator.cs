@@ -65,6 +65,12 @@ public class AuslosungsValidator
                            $"(gefunden: {string.Join(", ", topfGroessen.Select(g => $"{g} Teams"))}).");
         }
 
+        // Zufall/Benutzerdefiniert: höchstens 1 Lostopf (keine Topf-Struktur, eine Urne)
+        if (auslosung.Auslosungsart is Auslosungsart.Zufall or Auslosungsart.Benutzerdefiniert &&
+            lostoepfe.Count > 1)
+            fehler.Add($"Auslosungsart '{(auslosung.Auslosungsart == Auslosungsart.Zufall ? "Zufällig" : "Benutzerdefiniert")}' " +
+                       "erfordert genau 1 Lostopf (keine Topf-Struktur). Bitte zusammenführen oder Auslosungsart wechseln.");
+
         // Gesamtanzahl gegen Rundenerwartung prüfen
         var aktiveRegelnVorab = auslosung.Regeln.Where(r => r.IstAktiv).Select(r => r.Regelart).ToList();
         var benoetigte = auslosung.TurnierRunde?.EingangsMannschaftsanzahl;
@@ -102,6 +108,24 @@ public class AuslosungsValidator
                 fehler.Add("Auslosungsart 'Topf-Zuordnung' ist für die UCL-Ligaphase gedacht, " +
                            "nicht für eine klassische Gruppenphase. " +
                            "Verwenden Sie 'Nach Töpfen' für eine topfbasierte Gruppenauslosung.");
+        }
+
+        // Paarungsmodus (nicht Gruppenphase): 'Nach Töpfen' und 'Gruppensieger vs. Zweite' losen die
+        // Lostöpfe im Duell Topf 1↔2, Topf 3↔4 usw. gegeneinander aus. Weniger als 2 Töpfe liefert
+        // keine einzige Paarung, eine ungerade Anzahl lässt den letzten Topf stillschweigend unverlost.
+        bool istPaarungsmodusMitTopfPaaren =
+            auslosung.Auslosungsart == Auslosungsart.GruppensiegerGegenGruppenzweite ||
+            (auslosung.Auslosungsart == Auslosungsart.NachToepfen && rundenart != Rundenart.Gruppenphase);
+        if (istPaarungsmodusMitTopfPaaren)
+        {
+            var artName = auslosung.Auslosungsart == Auslosungsart.NachToepfen
+                ? "Nach Töpfen" : "Gruppensieger vs. Zweite";
+            if (lostoepfe.Count < 2)
+                fehler.Add($"Auslosungsart '{artName}' erfordert mindestens 2 Lostöpfe " +
+                           "(je zwei Töpfe werden gegeneinander gelost).");
+            else if (lostoepfe.Count % 2 != 0)
+                fehler.Add($"Auslosungsart '{artName}' erfordert eine gerade Anzahl Lostöpfe " +
+                           $"(gefunden: {lostoepfe.Count}) — sonst bleibt der letzte Topf unverlost.");
         }
 
         // Gruppenphase: GruppenAnzahl und Teilnehmerzahl prüfen

@@ -439,6 +439,83 @@ public class AuslosungsValidatorTests
         ergebnis.Fehler.Should().ContainMatch("*2 Lostöpfe*");
     }
 
+    [Fact]
+    public void Zufall_MehrereToepfe_WirdAbgelehnt()
+    {
+        var topf1 = Topf(1, 1, Eintrag(1), Eintrag(2));
+        var topf2 = Topf(2, 2, Eintrag(3), Eintrag(4));
+        var a     = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf1, topf2]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*1 Lostopf*");
+    }
+
+    [Fact]
+    public void Benutzerdefiniert_MehrereToepfe_WirdAbgelehnt()
+    {
+        var topf1 = Topf(1, 1, Eintrag(1), Eintrag(2));
+        var topf2 = Topf(2, 2, Eintrag(3), Eintrag(4));
+        var a     = Auslosung(Rundenart.KoRunde, Auslosungsart.Benutzerdefiniert, lostoepfe: [topf1, topf2]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*1 Lostopf*");
+    }
+
+    [Fact]
+    public void NachToepfen_PaarungsModus_EinTopf_WirdAbgelehnt()
+    {
+        // KoRunde = Paarungsmodus: NachToepfen paart Topf 1↔2 usw. — 1 Topf liefert keine Paarung.
+        var topf = Topf(1, 1, Eintrag(1), Eintrag(2));
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.NachToepfen, lostoepfe: [topf]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*mindestens 2 Lostöpfe*");
+    }
+
+    [Fact]
+    public void NachToepfen_PaarungsModus_UngeradeAnzahlToepfe_WirdAbgelehnt()
+    {
+        // 3 Töpfe: Topf 1↔2 werden gepaart, Topf 3 bliebe stillschweigend unverlost.
+        var topf1 = Topf(1, 1, Eintrag(1), Eintrag(2));
+        var topf2 = Topf(2, 2, Eintrag(3), Eintrag(4));
+        var topf3 = Topf(3, 3, Eintrag(5), Eintrag(6));
+        var a     = Auslosung(Rundenart.KoRunde, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2, topf3]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*gerade Anzahl Lostöpfe*");
+    }
+
+    [Fact]
+    public void NachToepfen_Gruppenphase_EinTopf_IstGueltig()
+    {
+        // Gruppenphase-Modus verteilt Topf-für-Topf je 1 Team pro Gruppe — kein Paarungsmodus,
+        // 1 Topf ist hier gültig (gleichbedeutend mit Zufall, aber explizit).
+        var topf = Topf(1, 1, Enumerable.Range(1, 4).Select(Eintrag).ToArray());
+        var a    = Auslosung(Rundenart.Gruppenphase, Auslosungsart.NachToepfen, gruppenAnzahl: 4, lostoepfe: [topf]);
+
+        _validator.Validieren(a, AlleEintraege(a)).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void GruppensiegerGegenGruppenzweite_EinTopf_WirdAbgelehnt()
+    {
+        var topf = Topf(1, 1, Eintrag(1), Eintrag(2));
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.GruppensiegerGegenGruppenzweite, lostoepfe: [topf]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*mindestens 2 Lostöpfe*");
+    }
+
     // ══════════════════════════════════════════════════════════════════════════
     // REGELKONFLIKTE
     // ══════════════════════════════════════════════════════════════════════════

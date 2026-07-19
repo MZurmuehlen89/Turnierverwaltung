@@ -981,4 +981,50 @@ public class AuslosungAlgorithmusTests
         ergebnisse[0].HeimMannschaftId.Should().NotBeNull();
         ergebnisse[0].AuswaertsMannschaftId.Should().NotBeNull();
     }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // MANUELLE AUSLOSUNG — ManuelleErgebnisseAbschliessenAsync
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task ManuelleAuslosung_Gruppenphase_ErzeugtGruppenZuordnungen_KeinFreilos()
+    {
+        // Gruppenphase-Einträge haben nie ein Auswärtsteam — das ist die Norm, kein Freilos
+        // (Regressionstest für den Bug, der jede Gruppen-Zeile fälschlich als Freilos markierte
+        // und dadurch die Paarungs- statt der Gruppen-Ansicht auslöste, siehe #134-Diskussion).
+        AuslosungMit(Rundenart.Gruppenphase, Auslosungsart.Manuell, gruppenAnzahl: 2);
+
+        var paarungen = new List<ManuellePaarungEingabe>
+        {
+            new(Team(1).Id, null, null, null, PaarungsNummer: 1),
+            new(Team(2).Id, null, null, null, PaarungsNummer: 1),
+            new(Team(3).Id, null, null, null, PaarungsNummer: 2),
+            new(Team(4).Id, null, null, null, PaarungsNummer: 2),
+        };
+
+        await _service.ManuelleErgebnisseAbschliessenAsync(_repo.Aktuelle!.Id, paarungen);
+
+        _repo.GespeicherteErgebnisse.Should().NotBeNull();
+        _repo.GespeicherteErgebnisse!.Should().AllSatisfy(e =>
+        {
+            e.IstFreilos.Should().BeFalse();
+            e.AuswaertsMannschaftId.Should().BeNull();
+        });
+    }
+
+    [Fact]
+    public async Task ManuelleAuslosung_KoRunde_OhneGegner_IstWeiterhinFreilos()
+    {
+        // Paarungsmodus: ein Slot ohne Auswärtsteam ist weiterhin ein echtes Freilos.
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.Manuell);
+
+        var paarungen = new List<ManuellePaarungEingabe>
+        {
+            new(Team(1).Id, null, null, null, PaarungsNummer: 1),
+        };
+
+        await _service.ManuelleErgebnisseAbschliessenAsync(_repo.Aktuelle!.Id, paarungen);
+
+        _repo.GespeicherteErgebnisse.Should().ContainSingle(e => e.IstFreilos);
+    }
 }

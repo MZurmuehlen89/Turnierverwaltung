@@ -836,6 +836,11 @@ public class AuslosungService(
         if (!paarungen.Any())
             throw new InvalidOperationException("Keine Paarungen angegeben.");
 
+        // Gruppenphase-Einträge haben nie ein Auswärtsteam (1 Team pro Zeile ist hier die Norm,
+        // siehe GruppenZuErgebnisse) — das ist kein Freilos. Freilos gilt nur im Paarungsmodus
+        // (KO/Liga/etc.), wenn bei ungerader Teamanzahl bewusst ein Slot ohne Gegner bleibt.
+        bool istGruppenmodus = auslosung.TurnierRunde?.Rundenart == Rundenart.Gruppenphase;
+
         var ergebnisse = paarungen.Select((p, i) => new AuslosungsErgebnis
         {
             PaarungsNummer           = p.PaarungsNummer ?? i + 1,
@@ -843,7 +848,8 @@ public class AuslosungService(
             HeimPlatzhalterName      = p.HeimPlatzhalterName,
             AuswaertsMannschaftId    = p.AuswaertsMannschaftId,
             AuswaertsPlatzhalterName = p.AuswaertsPlatzhalterName,
-            IstFreilos               = p.AuswaertsMannschaftId is null && p.AuswaertsPlatzhalterName is null
+            IstFreilos               = !istGruppenmodus &&
+                                        p.AuswaertsMannschaftId is null && p.AuswaertsPlatzhalterName is null
         }).ToList();
 
         await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);
