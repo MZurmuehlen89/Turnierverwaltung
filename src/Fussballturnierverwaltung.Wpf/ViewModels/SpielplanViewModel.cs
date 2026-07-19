@@ -509,7 +509,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _zuSpielplanWechselnBefehl.NotifyCanExecuteChanged();
         _zuGruppenWechselnBefehl.NotifyCanExecuteChanged();
 
-        if (AusgewaehlteRunde is null) return;
+        if (AusgewaehlteRunde is null)
+        {
+            if (RundeGeaendertAsync is not null) await RundeGeaendertAsync(null);
+            return;
+        }
 
         await TabellenNeuLadenAsync(AusgewaehlteRunde.Id);
 
@@ -587,7 +591,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _zuGruppenWechselnBefehl.NotifyCanExecuteChanged();
     }
 
-    // Laedt Gruppen- bzw. Liga-Tabelle passend zur aktuellen Rundenart nach.
+    // Laedt Gruppen- bzw. Liga-Tabelle passend zur aktuellen Rundenart nach. Zentrale Stelle fuer
+    // alle Aufrufer (Rundenwechsel, Spielplan-Neugenerierung, Ergebnis-Speichern/-Zuruecksetzen, ...) —
+    // RundeGeaendertAsync hier statt an jeder einzelnen Aufrufstelle ausgeloest, sonst bleibt die
+    // Turnierbaum-Canvas-Anzeige (Issue #137) bei allen anderen Aufrufstellen als dem reinen
+    // Rundenwechsel stehen.
     private async Task TabellenNeuLadenAsync(int rundeId)
     {
         if (AusgewaehlteRunde?.Rundenart == Rundenart.Gruppenphase)
@@ -597,12 +605,20 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         if (SpielstandGeaendertAsync is not null)
             await SpielstandGeaendertAsync();
+
+        if (RundeGeaendertAsync is not null)
+            await RundeGeaendertAsync(AusgewaehlteRunde);
     }
 
     // Bewusst kein event (fire-and-forget wuerde parallel zum naechsten DbContext-Zugriff
     // im Aufrufer laufen und "A second operation was started on this context..." ausloesen) —
     // stattdessen ein awaitbares Delegate fuer die Turnier-Fortschrittsanzeige.
     public Func<Task>? SpielstandGeaendertAsync { get; set; }
+
+    // Analog zu SpielstandGeaendertAsync: awaitbares Delegate statt Event, damit der Aufrufer
+    // (TurnierBereichViewModel → TurnierBaumViewModel) sequenziell nach dem Laden der Runde
+    // reagieren kann, ohne parallel auf demselben (geteilten) DbContext zu arbeiten (Issue #137).
+    public Func<TurnierRunde?, Task>? RundeGeaendertAsync { get; set; }
 
     private void LigaAnsichtWaehlen(TabellenAnsicht ansicht)
     {

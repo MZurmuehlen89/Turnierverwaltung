@@ -47,6 +47,7 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
         };
 
         SpielplanVm.SpielstandGeaendertAsync = FortschrittAktualisierenAsync;
+        SpielplanVm.RundeGeaendertAsync      = TurnierBaumVm.AktualisiereFokusRundeAsync;
     }
 
     public override async Task AktivierenAsync()

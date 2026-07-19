@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Spiele;
+using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -53,6 +54,7 @@ public class BracketLinie
 public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 {
     private readonly TurnierBaumService _baumService;
+    private readonly TabellenService    _tabellenService;
 
     private const double NODE_W  = 185.0;
     private const double NODE_H  = 90.0;
@@ -69,6 +71,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatBaum))]
+    [NotifyPropertyChangedFor(nameof(ZeigtBracketInhalt))]
     private bool _hatBaumIntern;
     public bool HatBaum => HatBaumIntern;
 
@@ -81,6 +84,34 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private ObservableCollection<BracketRundenkopf>   _rundenKoepfe      = [];
     [ObservableProperty] private ObservableCollection<BracketKnotenAnzeige> _knoten            = [];
     [ObservableProperty] private ObservableCollection<BracketLinie>         _verbindungsLinien = [];
+
+    // ── Gruppenphase-/Liga-Darstellung (Issue #137, Phase A von #33) ──────────
+    // Zeigt, je nach Rundenart der aktuell im Spielplan fokussierten Runde, statt des
+    // K.-o.-Brackets Gruppen-Boxen oder eine Gesamttabelle. Unabhängig vom Bracket-Ladepfad
+    // (TabellenService statt TurnierBaumService), da Gruppenphase/Liga keinen persistenten
+    // Baum benötigen — die Tabelle wird direkt aus den Spielen berechnet.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ZeigtBracket))]
+    [NotifyPropertyChangedFor(nameof(ZeigtBracketInhalt))]
+    private bool _zeigtGruppenphase;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ZeigtBracket))]
+    [NotifyPropertyChangedFor(nameof(ZeigtBracketInhalt))]
+    private bool _zeigtLigaTabelle;
+
+    public bool ZeigtBracket => !ZeigtGruppenphase && !ZeigtLigaTabelle;
+    public bool ZeigtBracketInhalt => ZeigtBracket && HatBaum;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatGruppenTabellenAnzeige))]
+    private ObservableCollection<GruppenTabelle> _gruppenTabellenAnzeige = [];
+    public bool HatGruppenTabellenAnzeige => GruppenTabellenAnzeige.Count > 0;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatLigaTabelleAnzeige))]
+    private ObservableCollection<TabellenEintrag> _ligaTabelleAnzeige = [];
+    public bool HatLigaTabelleAnzeige => LigaTabelleAnzeige.Count > 0;
 
     public string  RibbonTabTitel  => "Turnierbaum";
     public ICommand NeuBefehl       => _neuBefehl;
@@ -97,9 +128,10 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     private readonly AsyncRelayCommand                    _loeschenBefehl;
     private readonly RelayCommand<BracketKnotenAnzeige>  _knotenAngeklicktBefehl;
 
-    public TurnierBaumViewModel(TurnierBaumService baumService)
+    public TurnierBaumViewModel(TurnierBaumService baumService, TabellenService tabellenService)
     {
-        _baumService = baumService;
+        _baumService     = baumService;
+        _tabellenService = tabellenService;
 
         _neuBefehl               = new AsyncRelayCommand(GenerierenAsync,       () => AusgewaehlteInstanz != null);
         _speichernBefehl         = new AsyncRelayCommand(SiegerFortsteiernAsync, () => AusgewaehlteInstanz != null && HatBaum);
@@ -115,6 +147,47 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     {
         AusgewaehlteInstanz = instanz;
         await LadeBracketAsync();
+    }
+
+    /// <summary>Wird von TurnierBereichViewModel sequenziell nach jedem Rundenwechsel im Spielplan
+    /// aufgerufen (nicht als eigenständiges Fire-and-Forget-Event, siehe [[feedback-dbcontext-concurrency]]).
+    /// Bei Gruppenphase/Liga/TopfLiga/SchweizerSystem wird statt des K.-o.-Brackets die passende
+    /// Tabelle angezeigt; bei K.-o.-Runden (oder keiner Runde) bleibt das Bracket unverändert sichtbar.</summary>
+    public async Task AktualisiereFokusRundeAsync(TurnierRunde? runde)
+    {
+        var rundenart = runde?.Rundenart;
+        bool istGruppenphase = rundenart == Rundenart.Gruppenphase;
+        bool istLigaArtig    = rundenart is Rundenart.Liga or Rundenart.TopfLiga or Rundenart.SchweizerSystem;
+
+        if (!istGruppenphase && !istLigaArtig)
+        {
+            ZeigtGruppenphase = false;
+            ZeigtLigaTabelle  = false;
+            return;
+        }
+
+        Fehlermeldung = null;
+        try
+        {
+            if (istGruppenphase)
+            {
+                var tabellen = await _tabellenService.GruppenTabellenBerechnenAsync(runde!.Id);
+                GruppenTabellenAnzeige = new ObservableCollection<GruppenTabelle>(tabellen);
+                ZeigtGruppenphase = true;
+                ZeigtLigaTabelle  = false;
+            }
+            else
+            {
+                var tabelle = await _tabellenService.TabelleBerechnenAsync(runde!.Id);
+                LigaTabelleAnzeige = new ObservableCollection<TabellenEintrag>(tabelle);
+                ZeigtLigaTabelle  = true;
+                ZeigtGruppenphase = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
