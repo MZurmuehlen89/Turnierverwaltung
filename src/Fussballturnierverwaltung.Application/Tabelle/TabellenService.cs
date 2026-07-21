@@ -74,6 +74,24 @@ public class TabellenService(
     private static IReadOnlyList<Spiel> SpieleBisSpieltagFiltern(IReadOnlyList<Spiel> spiele, int? bisSpieltag) =>
         bisSpieltag is null ? spiele : spiele.Where(s => s.Spieltag is { } sp && sp <= bisSpieltag).ToList();
 
+    /// <summary>Liefert die Spieltage, für die ein historischer Tabellenstand sinnvoll ist: 1 bis zum
+    /// letzten Spieltag mit mindestens einem eingetragenen Ergebnis (auch bei nur teilweise
+    /// simuliertem Spieltag). Leer, wenn noch kein Ergebnis vorliegt — verhindert, dass der
+    /// Tabellenstand-Snapshot auf komplett unsimulierte, zukünftige Spieltage zeigen kann.</summary>
+    public async Task<IReadOnlyList<int>> VerfuegbareSpieltageAsync(int turnierRundeId, CancellationToken ct = default)
+    {
+        var spiele = await spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
+        int letzterMitErgebnis = spiele
+            .Where(s => s.Status == SpielStatus.Abgeschlossen && s.Spieltag.HasValue)
+            .Select(s => s.Spieltag!.Value)
+            .DefaultIfEmpty()
+            .Max();
+
+        return letzterMitErgebnis > 0
+            ? Enumerable.Range(1, letzterMitErgebnis).ToList()
+            : [];
+    }
+
     // ── Interne Lade- und Berechnungsmethoden ────────────────────────────
 
     private async Task<(PunkteRegel, List<RankingRegel>, IReadOnlyList<Spiel>)> LadeTabellenDatenAsync(

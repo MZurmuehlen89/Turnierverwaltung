@@ -46,6 +46,41 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
                 SpielplanVm.AusgewaehlteRunde = runde;
         };
 
+        // Issue #138/#141, Richtung "Canvas → Spielplan": Klick auf eine Gruppen-Karte im rechten
+        // Panel filtert die Spielliste links direkt auf diese Gruppe (es gibt seit #141 nur noch eine
+        // Listenansicht, kein separater Gruppenansicht-Umschalter mehr). Löst über den
+        // AusgewaehlteGruppe-PropertyChanged-Handler unten automatisch auch den rechten
+        // Eigenfokus aus (Bug 1 aus dem manuellen Testdurchlauf).
+        TurnierBaumVm.GruppeAngeklickt += (_, gruppenNummer) =>
+        {
+            var gruppe = SpielplanVm.GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppenNummer);
+            if (gruppe is not null)
+                SpielplanVm.AusgewaehlteGruppe = gruppe;
+        };
+
+        // Issue #138, überarbeitetes Kopplungsmodell (nach manuellem Testdurchlauf, Bug 1/3/4):
+        // der rechte Gruppen-Fokus folgt primär SpielplanVm.AusgewaehlteGruppe (bewusster,
+        // klebriger Filter) — nur wenn dort kein Filter aktiv ist, folgt er sekundär-automatisch
+        // der volatilen AusgewaehlteSpiel-Selektion. Verhindert, dass ein reiner Listen-Rebuild
+        // (z.B. Spieltag-Wechsel, der AusgewaehlteSpiel auf null zurückfallen lässt, siehe Bug 4)
+        // einen aktiven Gruppenfilter rechts zerstört. Rein synchron/clientseitig (keine DB-Arbeit
+        // in FokussiereGruppe), daher als direkter Property-Changed-Handler statt sequenzielles
+        // Delegate sicher (siehe [[feedback-dbcontext-concurrency]]).
+        SpielplanVm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SpielplanViewModel.AusgewaehlteGruppe) ||
+                e.PropertyName == nameof(SpielplanViewModel.AusgewaehlteSpiel))
+            {
+                AktualisiereGruppenFokus();
+            }
+        };
+
+        // Issue #141: Spieltag-Navigation in der Spielliste (links) setzt den Tabellen-Snapshot
+        // rechts zurück auf "Aktuell" — verhindert, dass eine veraltete historische Tabelle
+        // unbemerkt stehen bleibt, während in der Liste weitergeblättert wird. Synchron, kein
+        // DB-Zugriff auf der Empfängerseite.
+        SpielplanVm.SpieltagNavigiert = TurnierBaumVm.ZeigeAktuellenStand;
+
         SpielplanVm.SpielstandGeaendertAsync = FortschrittAktualisierenAsync;
         SpielplanVm.RundeGeaendertAsync      = TurnierBaumVm.AktualisiereFokusRundeAsync;
     }
@@ -74,6 +109,15 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
         OnPropertyChanged(nameof(ZeigeSplitAnsicht));
         await TurnierBaumVm.LadeInstanzAsync(instanz);
         await FortschrittAktualisierenAsync();
+    }
+
+    /// <summary>Berechnet den rechten Gruppen-Fokus neu (Issue #138, überarbeitetes
+    /// Kopplungsmodell): SpielplanVm.AusgewaehlteGruppe hat Vorrang; ohne aktiven Gruppenfilter
+    /// folgt der Fokus automatisch der aktuellen SpielplanVm.AusgewaehlteSpiel-Selektion.</summary>
+    private void AktualisiereGruppenFokus()
+    {
+        int? ziel = SpielplanVm.AusgewaehlteGruppe?.GruppenNummer ?? SpielplanVm.AusgewaehlteSpiel?.GruppeNummer;
+        TurnierBaumVm.FokussiereGruppe(ziel);
     }
 
     private async Task FortschrittAktualisierenAsync()

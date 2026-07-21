@@ -406,4 +406,39 @@ public class TabellenServiceTests
         teamA.Spiele.Should().Be(1, "nur Spieltag 1 fliesst in den Snapshot ein");
         teamA.Punkte.Should().Be(3);
     }
+
+    // ── VerfuegbareSpieltageAsync (Issue #141) ──────────────────────────────
+
+    [Fact]
+    public async Task VerfuegbareSpieltageAsync_OhneErgebnisse_GibtLeereListe()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int rundeId);
+        SpielHinzufuegen(ctx, 1, rundeId, heimId: 1, auswaertsId: 2,
+            heimTore: null, auswaertsTore: null, spieltag: 1);
+        var service = ServiceFuer(ctx);
+
+        var spieltage = await service.VerfuegbareSpieltageAsync(rundeId);
+
+        spieltage.Should().BeEmpty("noch kein Ergebnis eingetragen");
+    }
+
+    [Fact]
+    public async Task VerfuegbareSpieltageAsync_BegrenztAufLetztenSpieltagMitErgebnis()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int rundeId);
+        // Spieltag 1+2 mit Ergebnis, Spieltag 3 noch offen (nur teilweise simulierter Spielplan)
+        SpielHinzufuegen(ctx, 1, rundeId, heimId: 1, auswaertsId: 2,
+            heimTore: 2, auswaertsTore: 0, siegerMannschaftId: 1, spieltag: 1);
+        SpielHinzufuegen(ctx, 2, rundeId, heimId: 2, auswaertsId: 1,
+            heimTore: 1, auswaertsTore: 1, spieltag: 2);
+        SpielHinzufuegen(ctx, 3, rundeId, heimId: 1, auswaertsId: 2,
+            heimTore: null, auswaertsTore: null, spieltag: 3);
+        var service = ServiceFuer(ctx);
+
+        var spieltage = await service.VerfuegbareSpieltageAsync(rundeId);
+
+        spieltage.Should().Equal([1, 2], "Spieltag 3 hat noch kein Ergebnis und darf nicht waehlbar sein");
+    }
 }

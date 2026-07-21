@@ -300,9 +300,28 @@
                 </ScrollViewer>
 
                 <!-- ── Gruppenphase-Ansicht (Issue #137, Phase A von #33) ── -->
-                <ScrollViewer VerticalScrollBarVisibility="Auto"
-                              Padding="16"
-                              Visibility="{Binding ZeigtGruppenphase, Converter={StaticResource BoolToVisibility}}">
+                <DockPanel Visibility="{Binding ZeigtGruppenphase, Converter={StaticResource BoolToVisibility}}">
+
+                    <!-- Tabellenstand-Snapshot nach Spieltag (Issue #141) -->
+                    <Border DockPanel.Dock="Top" Background="White"
+                            BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="16,8"
+                            Visibility="{Binding HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Tabellenstand:" FontSize="11" Foreground="#64748B"
+                                       VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <ComboBox ItemsSource="{Binding TabellenSpieltagOptionen}"
+                                      SelectedItem="{Binding TabellenBisSpieltagAuswahl}"
+                                      FontSize="11" Padding="8,3" MinWidth="90">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Converter={StaticResource SpieltagOptionZuText}}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+                    </Border>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
                     <Grid>
                         <TextBlock Text="Noch keine Gruppenzuordnung — Gruppen erscheinen nach der Auslosung/Spielplan-Generierung."
                                    Foreground="#94A3B8" FontSize="13"
@@ -310,7 +329,7 @@
                                    TextWrapping="Wrap" TextAlignment="Center"
                                    Visibility="{Binding HatGruppenTabellenAnzeige, Converter={StaticResource InverseBoolToVisibility}}" />
 
-                        <ItemsControl ItemsSource="{Binding GruppenTabellenAnzeige}"
+                        <ItemsControl ItemsSource="{Binding AnzeigeGruppenTabellen}"
                                       Visibility="{Binding HatGruppenTabellenAnzeige, Converter={StaticResource BoolToVisibility}}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -319,7 +338,17 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type tabelle:GruppenTabelle}">
-                                    <Border Width="290" Margin="0,0,12,12"
+                                    <Button Command="{Binding DataContext.GruppeAngeklicktBefehl, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Cursor="Hand" BorderThickness="0" Padding="0" Background="Transparent"
+                                            ToolTip="Klicken, um den Spielplan links auf diese Gruppe zu filtern."
+                                            Margin="0,0,12,12">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <ContentPresenter />
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    <Border Width="290"
                                             Background="White"
                                             BorderBrush="#E2E8F0" BorderThickness="1"
                                             CornerRadius="8">
@@ -424,16 +453,147 @@
 
                                         </StackPanel>
                                     </Border>
+                                    </Button>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </Grid>
-                </ScrollViewer>
+                    </ScrollViewer>
+                </DockPanel>
 
                 <!-- ── Liga-/TopfLiga-/SchweizerSystem-Gesamttabelle (Issue #137, Phase A von #33) ── -->
-                <ScrollViewer VerticalScrollBarVisibility="Auto"
-                              Padding="16"
-                              Visibility="{Binding ZeigtLigaTabelle, Converter={StaticResource BoolToVisibility}}">
+                <DockPanel Visibility="{Binding ZeigtLigaTabelle, Converter={StaticResource BoolToVisibility}}">
+
+                    <!-- Ansicht-Tabs (Gesamt/Hinrunde/Rückrunde/Heim/Auswärts, Issue #95) + Tabellenstand-Snapshot (Issue #141) -->
+                    <Border DockPanel.Dock="Top" Background="White"
+                            BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="16,8">
+                        <StackPanel Orientation="Horizontal">
+                            <Border CornerRadius="6" Background="#F1F5F9" Padding="2">
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Gesamt"
+                                            Command="{Binding LigaAnsichtWaehlenBefehl}"
+                                            CommandParameter="{x:Static tabelle:TabellenAnsicht.Gesamt}"
+                                            Padding="10,3" Cursor="Hand" FontSize="11">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Setter Property="Foreground" Value="#64748B" />
+                                                <Setter Property="FontWeight" Value="Normal" />
+                                                <Setter Property="BorderThickness" Value="0" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Gesamt}">
+                                                        <Setter Property="Background" Value="White" />
+                                                        <Setter Property="Foreground" Value="#1E40AF" />
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Content="Hinrunde"
+                                            Command="{Binding LigaAnsichtWaehlenBefehl}"
+                                            CommandParameter="{x:Static tabelle:TabellenAnsicht.Hinrunde}"
+                                            Padding="10,3" Cursor="Hand" FontSize="11"
+                                            Visibility="{Binding ZeigtHinRueckrundenTabs, Converter={StaticResource BoolToVisibility}}">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Setter Property="Foreground" Value="#64748B" />
+                                                <Setter Property="FontWeight" Value="Normal" />
+                                                <Setter Property="BorderThickness" Value="0" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Hinrunde}">
+                                                        <Setter Property="Background" Value="White" />
+                                                        <Setter Property="Foreground" Value="#1E40AF" />
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Content="Rückrunde"
+                                            Command="{Binding LigaAnsichtWaehlenBefehl}"
+                                            CommandParameter="{x:Static tabelle:TabellenAnsicht.Rueckrunde}"
+                                            Padding="10,3" Cursor="Hand" FontSize="11"
+                                            Visibility="{Binding ZeigtHinRueckrundenTabs, Converter={StaticResource BoolToVisibility}}">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Setter Property="Foreground" Value="#64748B" />
+                                                <Setter Property="FontWeight" Value="Normal" />
+                                                <Setter Property="BorderThickness" Value="0" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Rueckrunde}">
+                                                        <Setter Property="Background" Value="White" />
+                                                        <Setter Property="Foreground" Value="#1E40AF" />
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Content="Heim"
+                                            Command="{Binding LigaAnsichtWaehlenBefehl}"
+                                            CommandParameter="{x:Static tabelle:TabellenAnsicht.Heimtabelle}"
+                                            Padding="10,3" Cursor="Hand" FontSize="11">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Setter Property="Foreground" Value="#64748B" />
+                                                <Setter Property="FontWeight" Value="Normal" />
+                                                <Setter Property="BorderThickness" Value="0" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Heimtabelle}">
+                                                        <Setter Property="Background" Value="White" />
+                                                        <Setter Property="Foreground" Value="#1E40AF" />
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Content="Auswärts"
+                                            Command="{Binding LigaAnsichtWaehlenBefehl}"
+                                            CommandParameter="{x:Static tabelle:TabellenAnsicht.Auswaertstabelle}"
+                                            Padding="10,3" Cursor="Hand" FontSize="11">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Setter Property="Foreground" Value="#64748B" />
+                                                <Setter Property="FontWeight" Value="Normal" />
+                                                <Setter Property="BorderThickness" Value="0" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Auswaertstabelle}">
+                                                        <Setter Property="Background" Value="White" />
+                                                        <Setter Property="Foreground" Value="#1E40AF" />
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Tabellenstand-Snapshot nach Spieltag (Issue #141) -->
+                            <StackPanel Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center"
+                                        Visibility="{Binding HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Tabellenstand:" FontSize="11" Foreground="#64748B"
+                                           VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <ComboBox ItemsSource="{Binding TabellenSpieltagOptionen}"
+                                          SelectedItem="{Binding TabellenBisSpieltagAuswahl}"
+                                          FontSize="11" Padding="8,3" MinWidth="90">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource SpieltagOptionZuText}}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
                     <Grid>
                         <TextBlock Text="Noch kein Spielplan generiert. Die Tabelle erscheint, sobald Spiele vorhanden sind."
                                    Foreground="#94A3B8" FontSize="13"
@@ -545,7 +705,8 @@
                             </StackPanel>
                         </Border>
                     </Grid>
-                </ScrollViewer>
+                    </ScrollViewer>
+                </DockPanel>
 
             </DockPanel>
         </Grid>

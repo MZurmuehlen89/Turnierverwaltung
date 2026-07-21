@@ -105,6 +105,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatGruppenTabellenAnzeige))]
+    [NotifyPropertyChangedFor(nameof(AnzeigeGruppenTabellen))]
     private ObservableCollection<GruppenTabelle> _gruppenTabellenAnzeige = [];
     public bool HatGruppenTabellenAnzeige => GruppenTabellenAnzeige.Count > 0;
 
@@ -113,20 +114,119 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     private ObservableCollection<TabellenEintrag> _ligaTabelleAnzeige = [];
     public bool HatLigaTabelleAnzeige => LigaTabelleAnzeige.Count > 0;
 
+    // ── Bidirektionale Fokus-Reaktivität (Issue #138, Phase B von #33) ────────
+    // Kopplungsmodell (nach manuellem Testdurchlauf überarbeitet): primär an
+    // SpielplanVm.AusgewaehlteGruppe (bewusster, klebriger Filter) gekoppelt; nur wenn dort kein
+    // Filter aktiv ist, folgt der Fokus automatisch der volatilen SpielplanVm.AusgewaehlteSpiel-
+    // Selektion (sekundäre Automatik). Siehe TurnierBereichViewModel.AktualisiereGruppenFokus.
+    // Rein clientseitige Filterung der bereits geladenen GruppenTabellenAnzeige, kein erneuter
+    // TabellenService-Aufruf nötig — daher synchron statt async.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AnzeigeGruppenTabellen))]
+    private int? _fokussierteGruppenNummer;
+
+    public IReadOnlyList<GruppenTabelle> AnzeigeGruppenTabellen =>
+        FokussierteGruppenNummer is { } nr
+            ? GruppenTabellenAnzeige.Where(g => g.GruppenNummer == nr).ToList()
+            : GruppenTabellenAnzeige;
+
+    /// <summary>Wird von TurnierBereichViewModel synchron bei jeder Änderung von
+    /// SpielplanVm.AusgewaehlteGruppe/AusgewaehlteSpiel aufgerufen (kein DB-Zugriff, daher
+    /// unproblematisch als direkter Property-Changed-Handler statt sequenzielles Delegate).</summary>
+    public void FokussiereGruppe(int? gruppenNummer) => FokussierteGruppenNummer = gruppenNummer;
+
+    // ── Tabellenstand-Snapshot "Bis Spieltag" (Issue #141) ────────────────────
+    // Eigenständig aus TabellenService geladen (kein Cross-VM-Zugriff auf SpielplanVm nötig,
+    // da TabelleBerechnenAsync/GruppenTabellenBerechnenAsync bereits einen bisSpieltag-Parameter
+    // unterstützen). Die Auswahl ist auf Spieltage mit mindestens einem Ergebnis begrenzt.
+    private TurnierRunde? _fokusRunde;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TabellenSpieltagOptionen))]
+    [NotifyPropertyChangedFor(nameof(HatVerfuegbareSpieltage))]
+    private ObservableCollection<int> _verfuegbareSpieltage = [];
+
+    public IReadOnlyList<int> TabellenSpieltagOptionen =>
+        new[] { 0 }.Concat(VerfuegbareSpieltage).ToList();
+
+    /// <summary>Steuert die Sichtbarkeit des Tabellenstand-Snapshot-Dropdowns — ausgeblendet, solange
+    /// noch kein Spieltag mindestens ein Ergebnis hat (Dropdown hätte sonst nur "Aktuell" zur Wahl).</summary>
+    public bool HatVerfuegbareSpieltage => VerfuegbareSpieltage.Count > 0;
+
+    [ObservableProperty] private int? _tabellenBisSpieltag;
+
+    /// <summary>UI-Wrapper um <see cref="TabellenBisSpieltag"/> für das ComboBox-Binding: 0 = "Aktuell"
+    /// (Sentinel statt null, siehe LigaBisSpieltagAuswahl in SpielplanViewModel für dasselbe Muster).</summary>
+    public int TabellenBisSpieltagAuswahl
+    {
+        get => TabellenBisSpieltag ?? 0;
+        set => TabellenBisSpieltag = value == 0 ? null : value;
+    }
+
+    partial void OnTabellenBisSpieltagChanged(int? value)
+    {
+        OnPropertyChanged(nameof(TabellenBisSpieltagAuswahl));
+        if (_fokusRunde is not null) _ = TabelleNeuLadenAsync();
+    }
+
+    /// <summary>Wird von TurnierBereichViewModel aufgerufen, sobald die Spieltag-Navigation im
+    /// Spielplan links benutzt wird — verhindert, dass eine veraltete historische Tabelle unbemerkt
+    /// stehen bleibt, während in der Liste weitergeblättert wird. Kein DB-Zugriff, wenn der Snapshot
+    /// bereits auf "Aktuell" steht (CommunityToolkit-Setter überspringt No-Op-Änderungen).</summary>
+    public void ZeigeAktuellenStand() => TabellenBisSpieltag = null;
+
+    // Liga-Ansicht-Tabs (Gesamt/Hinrunde/Rückrunde/Heim/Auswärts, Issue #95) — beim Umzug der
+    // Liga-Tabelle ins rechte Panel (#141) hierher mitgenommen, damit die Funktionalität erhalten bleibt.
+    [ObservableProperty] private TabellenAnsicht _ausgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
+    public bool ZeigtHinRueckrundenTabs => _fokusRunde?.MitRueckspiel == true;
+    public ICommand LigaAnsichtWaehlenBefehl => _ligaAnsichtWaehlenBefehl;
+    private readonly RelayCommand<TabellenAnsicht?> _ligaAnsichtWaehlenBefehl;
+
+    partial void OnAusgewaehlteLigaAnsichtChanged(TabellenAnsicht value)
+    {
+        if (_fokusRunde is not null) _ = TabelleNeuLadenAsync();
+    }
+
+    private async Task TabelleNeuLadenAsync()
+    {
+        if (_fokusRunde is null) return;
+        Fehlermeldung = null;
+        try
+        {
+            if (ZeigtGruppenphase)
+            {
+                var tabellen = await _tabellenService.GruppenTabellenBerechnenAsync(_fokusRunde.Id, TabellenBisSpieltag);
+                GruppenTabellenAnzeige = new ObservableCollection<GruppenTabelle>(tabellen);
+            }
+            else if (ZeigtLigaTabelle)
+            {
+                var tabelle = await _tabellenService.TabelleBerechnenAsync(_fokusRunde.Id, AusgewaehlteLigaAnsicht, TabellenBisSpieltag);
+                LigaTabelleAnzeige = new ObservableCollection<TabellenEintrag>(tabelle);
+            }
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+    }
+
     public string  RibbonTabTitel  => "Turnierbaum";
     public ICommand NeuBefehl       => _neuBefehl;
     public ICommand SpeichernBefehl => _speichernBefehl;
     public ICommand AbbrechenBefehl => _abbrechenBefehl;
     public ICommand LoeschenBefehl  => _loeschenBefehl;
     public ICommand KnotenAngeklicktBefehl => _knotenAngeklicktBefehl;
+    public ICommand GruppeAngeklicktBefehl => _gruppeAngeklicktBefehl;
 
     public event EventHandler<int>? RundeAngeklickt;
+    public event EventHandler<int>? GruppeAngeklickt;
 
     private readonly AsyncRelayCommand                    _neuBefehl;
     private readonly AsyncRelayCommand                    _speichernBefehl;
     private readonly RelayCommand                         _abbrechenBefehl;
     private readonly AsyncRelayCommand                    _loeschenBefehl;
     private readonly RelayCommand<BracketKnotenAnzeige>  _knotenAngeklicktBefehl;
+    private readonly RelayCommand<GruppenTabelle>        _gruppeAngeklicktBefehl;
 
     public TurnierBaumViewModel(TurnierBaumService baumService, TabellenService tabellenService)
     {
@@ -139,6 +239,9 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         _loeschenBefehl          = new AsyncRelayCommand(BaumLoeschenAsync,      () => AusgewaehlteInstanz != null && HatBaum);
         _knotenAngeklicktBefehl  = new RelayCommand<BracketKnotenAnzeige>(
             k => { if (k?.TurnierRundeId is { } rundeId) RundeAngeklickt?.Invoke(this, rundeId); });
+        _gruppeAngeklicktBefehl  = new RelayCommand<GruppenTabelle>(
+            g => { if (g is not null) GruppeAngeklickt?.Invoke(this, g.GruppenNummer); });
+        _ligaAnsichtWaehlenBefehl = new RelayCommand<TabellenAnsicht?>(a => AusgewaehlteLigaAnsicht = a ?? TabellenAnsicht.Gesamt);
     }
 
     public override Task AktivierenAsync() => Task.CompletedTask;
@@ -155,34 +258,34 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     /// Tabelle angezeigt; bei K.-o.-Runden (oder keiner Runde) bleibt das Bracket unverändert sichtbar.</summary>
     public async Task AktualisiereFokusRundeAsync(TurnierRunde? runde)
     {
+        FokussierteGruppenNummer = null;
+
+        // _fokusRunde erst auf null setzen, dann Snapshot/Ansicht zurücksetzen — die Changed-Handler
+        // lösen sonst (wegen _fokusRunde != null) einen überflüssigen Reload für die alte Runde aus,
+        // kurz bevor unten ohnehin frisch für die neue Runde geladen wird.
+        _fokusRunde = null;
+        TabellenBisSpieltag    = null;
+        AusgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
+        VerfuegbareSpieltage   = [];
+        _fokusRunde = runde;
+        OnPropertyChanged(nameof(ZeigtHinRueckrundenTabs));
+
         var rundenart = runde?.Rundenart;
         bool istGruppenphase = rundenart == Rundenart.Gruppenphase;
         bool istLigaArtig    = rundenart is Rundenart.Liga or Rundenart.TopfLiga or Rundenart.SchweizerSystem;
 
-        if (!istGruppenphase && !istLigaArtig)
-        {
-            ZeigtGruppenphase = false;
-            ZeigtLigaTabelle  = false;
-            return;
-        }
+        ZeigtGruppenphase = istGruppenphase;
+        ZeigtLigaTabelle  = istLigaArtig;
+
+        if (!istGruppenphase && !istLigaArtig) return;
 
         Fehlermeldung = null;
         try
         {
-            if (istGruppenphase)
-            {
-                var tabellen = await _tabellenService.GruppenTabellenBerechnenAsync(runde!.Id);
-                GruppenTabellenAnzeige = new ObservableCollection<GruppenTabelle>(tabellen);
-                ZeigtGruppenphase = true;
-                ZeigtLigaTabelle  = false;
-            }
-            else
-            {
-                var tabelle = await _tabellenService.TabelleBerechnenAsync(runde!.Id);
-                LigaTabelleAnzeige = new ObservableCollection<TabellenEintrag>(tabelle);
-                ZeigtLigaTabelle  = true;
-                ZeigtGruppenphase = false;
-            }
+            var verfuegbareSpieltage = await _tabellenService.VerfuegbareSpieltageAsync(runde!.Id);
+            VerfuegbareSpieltage = new ObservableCollection<int>(verfuegbareSpieltage);
+
+            await TabelleNeuLadenAsync();
         }
         catch (Exception ex)
         {
