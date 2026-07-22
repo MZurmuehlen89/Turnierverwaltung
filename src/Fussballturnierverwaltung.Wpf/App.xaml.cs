@@ -109,6 +109,7 @@ public partial class App
         builder.Services.AddScoped<AuslosungsValidator>();
         builder.Services.AddScoped<ImportValidator>();
         builder.Services.AddScoped<RanglisteValidator>();
+        builder.Services.AddScoped<VerbandsQuoteValidator>();
 
         // Application Services – Stammdaten
         builder.Services.AddScoped<MannschaftService>();
@@ -122,6 +123,7 @@ public partial class App
         builder.Services.AddScoped<RanglisteService>();
         builder.Services.AddScoped<QualifikationsRegelValidator>();
         builder.Services.AddScoped<QualifikationsRegelService>();
+        builder.Services.AddScoped<VerbandsQuoteService>();
 
         // Application Services – Auslosung & Spielplan
         builder.Services.AddScoped<AuslosungService>();
@@ -152,6 +154,7 @@ public partial class App
         builder.Services.AddTransient<ImportExportViewModel>();
         builder.Services.AddTransient<RundenEditorViewModel>();
         builder.Services.AddTransient<AufstiegsregelViewModel>();
+        builder.Services.AddTransient<VerbandsQuoteViewModel>();
 
         // Navigation & Hauptfenster
         builder.Services.AddSingleton<INavigationService, NavigationService>();

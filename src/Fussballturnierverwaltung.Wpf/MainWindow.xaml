@@ -55,6 +55,9 @@
         <DataTemplate DataType="{x:Type vm:AufstiegsregelViewModel}">
             <views:AufstiegsregelView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:VerbandsQuoteViewModel}">
+            <views:VerbandsQuoteView />
+        </DataTemplate>
 
         <Style x:Key="NavButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
