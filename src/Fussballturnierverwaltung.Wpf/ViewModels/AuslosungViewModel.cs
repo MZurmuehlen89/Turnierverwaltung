@@ -204,6 +204,18 @@ public class RegelViewModel : ObservableObject
     }
 }
 
+public class VerbandsQuoteAnzeigeViewModel
+{
+    public string VerbandName { get; init; } = "";
+    public int Aktuell { get; init; }
+    public int Max { get; init; }
+    public int? Min { get; init; }
+
+    public bool UeberMax => Aktuell > Max;
+    public bool UnterMin => Min.HasValue && Aktuell < Min.Value;
+    public string AnzeigeText => Min.HasValue ? $"{Aktuell} / {Max} (min. {Min})" : $"{Aktuell} / {Max}";
+}
+
 public record AuslosungsartOption(string Anzeige, Auslosungsart Wert);
 public record RanglisteOption(string Anzeige, Rangliste? Wert);
 
@@ -216,6 +228,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly MannschaftService _mannschaftService;
     private readonly SpielplanService _spielplanService;
     private readonly RanglisteService _ranglisteService;
+    private readonly VerbandsQuoteService _verbandsQuoteService;
 
     private Auslosung? _auslosungDetail;
 
@@ -341,6 +354,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         [_keineRangliste, .. AlleRanglisten.Select(r => new RanglisteOption(r.Name, r))];
 
     [ObservableProperty] private ObservableCollection<RegelViewModel> _regeln = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ZeigeVerbandsQuoten))]
+    private ObservableCollection<VerbandsQuoteAnzeigeViewModel> _verbandsQuotenAnzeige = [];
+
+    public bool ZeigeVerbandsQuoten => VerbandsQuotenAnzeige.Count > 0;
     [ObservableProperty] private ObservableCollection<ErgebnisAnzeige> _ergebnisseAnzeige = [];
     [ObservableProperty] private ObservableCollection<GruppenErgebnisAnzeige> _gruppenErgebnisse = [];
 
@@ -529,13 +548,15 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         TurnierInstanzService instanzService,
         MannschaftService mannschaftService,
         SpielplanService spielplanService,
-        RanglisteService ranglisteService)
+        RanglisteService ranglisteService,
+        VerbandsQuoteService verbandsQuoteService)
     {
-        _auslosungService  = auslosungService;
-        _instanzService    = instanzService;
-        _mannschaftService = mannschaftService;
-        _spielplanService  = spielplanService;
-        _ranglisteService  = ranglisteService;
+        _auslosungService     = auslosungService;
+        _instanzService       = instanzService;
+        _mannschaftService    = mannschaftService;
+        _spielplanService     = spielplanService;
+        _ranglisteService     = ranglisteService;
+        _verbandsQuoteService = verbandsQuoteService;
     }
 
     public override async Task AktivierenAsync()
@@ -1361,6 +1382,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                             .Select(TeilnehmerAnzeige.AusEintrag))
                 }));
 
+            await AktualisiereVerbandsQuotenAnzeigeAsync(detail);
+
             Regeln = new ObservableCollection<RegelViewModel>(
                 Enum.GetValues<AuslosungsRegelArt>()
                 .Where(art => art != AuslosungsRegelArt.ManuelleEinschraenkung)
@@ -1629,6 +1652,29 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 : "";
         }
     }
+    private async Task AktualisiereVerbandsQuotenAnzeigeAsync(Auslosung detail)
+    {
+        if (AusgewaehlteInstanz is null) { VerbandsQuotenAnzeige = []; return; }
+
+        var quoten = await _verbandsQuoteService.AlleNachTurnierInstanzIdAsync(AusgewaehlteInstanz.Id);
+        if (quoten.Count == 0) { VerbandsQuotenAnzeige = []; return; }
+
+        var anzahlProVerband = detail.Lostoepfe
+            .SelectMany(l => l.Eintraege)
+            .Where(e => e.Mannschaft?.Land is not null)
+            .GroupBy(e => e.Mannschaft!.Land!.VerbandId)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        VerbandsQuotenAnzeige = new ObservableCollection<VerbandsQuoteAnzeigeViewModel>(
+            quoten.Select(q => new VerbandsQuoteAnzeigeViewModel
+            {
+                VerbandName = q.Verband?.Name ?? $"Verband {q.VerbandId}",
+                Aktuell     = anzahlProVerband.GetValueOrDefault(q.VerbandId),
+                Max         = q.MaxAnzahl,
+                Min         = q.MinAnzahl
+            }));
+    }
+
     partial void OnDetailAnzahlLostoepfeChanged(int value)   { if (!_ladenAktiv) IstDetailDirty = true; }
 
     private static string GruppenBuchstabe(int nr) =>
