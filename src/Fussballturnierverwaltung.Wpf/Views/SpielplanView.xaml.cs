@@ -2,6 +2,7 @@ using Fussballturnierverwaltung.Wpf.ViewModels;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.Wpf.Views;
 
@@ -28,5 +29,16 @@ public partial class SpielplanView : UserControl
         if (sender is not Button { ContextMenu: { } menu } button) return;
         menu.PlacementTarget = button;
         menu.IsOpen = true;
+    }
+
+    // Escape hebt die Einzelspiel-Selektion auf (Issue #145) — löst über SelectionChanged
+    // automatisch AktualisiereMehrfachAuswahl aus und setzt AusgewaehlteSpiel (TwoWay-Binding)
+    // auf null, wodurch der rechte Gruppen-Fokus (sekundäre Automatik aus #138) verschwindet,
+    // ohne den unabhängigen, bewussten Gruppenfilter (AusgewaehlteGruppe) anzufassen.
+    private void SpielListView_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape || sender is not ListView listView) return;
+        listView.UnselectAll();
+        e.Handled = true;
     }
 }
