@@ -125,10 +125,18 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FokusSpiele))]
     [NotifyPropertyChangedFor(nameof(FokusSpieltagnummer))]
+    [NotifyPropertyChangedFor(nameof(SpieltagSimulierenMenuText))]
+    [NotifyPropertyChangedFor(nameof(SpieltagZuruecksetzenMenuText))]
     private int _fokusAktiverSpieltag;
 
     public string FokusSpieltagnummer  => $"Spieltag {FokusAktiverSpieltag}";
     public bool   HatMehrereSpieltage  => FokusSpieltage.Count > 1;
+
+    // Vorformatierte Menü-Texte fürs "Aktionen ▾"-Dropdown (Issue #144) — MenuItem.Header ist vom
+    // Typ object, Binding.StringFormat wird dort nicht zuverlässig angewendet (zeigte nur die
+    // rohe Zahl statt des formatierten Texts), daher hier als fertige Strings bereitgestellt.
+    public string SpieltagSimulierenMenuText    => $"{FokusSpieltagnummer} simulieren";
+    public string SpieltagZuruecksetzenMenuText => $"{FokusSpieltagnummer} zurücksetzen";
     public bool   KannFokusZurueck     => !FokusAlleAktiv && FokusSpieltage.Count > 0 && FokusAktiverSpieltag > FokusSpieltage[0];
     public bool   KannFokusVor         => FokusSpieltage.Count > 1 && (FokusAlleAktiv || FokusAktiverSpieltag < FokusSpieltage[^1]);
 
@@ -260,9 +268,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnzahlMehrfachZuruecksetzbar))]
+    [NotifyPropertyChangedFor(nameof(MehrfachZuruecksetzenMenuText))]
     private IReadOnlyList<SpielZeile> _mehrfachAusgewaehlteSpiele = [];
 
-    public int AnzahlMehrfachZuruecksetzbar => MehrfachAusgewaehlteSpiele.Count(s => s.HatErgebnis);
+    public int    AnzahlMehrfachZuruecksetzbar => MehrfachAusgewaehlteSpiele.Count(s => s.HatErgebnis);
+    public string MehrfachZuruecksetzenMenuText => $"Auswahl ({AnzahlMehrfachZuruecksetzbar}) zurücksetzen";
 
     public void AktualisiereMehrfachAuswahl(IEnumerable<SpielZeile> ausgewaehlt)
     {
@@ -1077,10 +1087,16 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         HatRunde && !IstSimulierend
         && Spiele.Any(s => s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
 
-    private bool CanGruppeSimulieren()   => AusgewaehlteGruppe is not null && !IstSimulierend;
+    private bool CanGruppeSimulieren() =>
+        AusgewaehlteGruppe is not null && !IstSimulierend
+        && Spiele.Any(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer
+                         && s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
 
     private bool CanSpieltagSimulieren() =>
-        AusgewaehlteGruppe is not null && !FokusAlleAktiv && !IstSimulierend;
+        AusgewaehlteGruppe is not null && !FokusAlleAktiv && !IstSimulierend
+        && Spiele.Any(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer
+                         && s.Spieltag == FokusAktiverSpieltag
+                         && s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
 
     // ── Ergebnis-Reset: CanExecute ───────────────────────────────────────────────
 
