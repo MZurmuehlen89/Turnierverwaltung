@@ -945,6 +945,35 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.ToTable("TurnierVorlagen", (string)null);
                 });
 
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VerbandsQuote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("MaxAnzahl")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MinAnzahl")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TurnierInstanzId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VerbandId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TurnierInstanzId");
+
+                    b.HasIndex("VerbandId");
+
+                    b.ToTable("VerbandsQuoten", (string)null);
+                });
+
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", b =>
                 {
                     b.Property<int>("Id")
@@ -1388,6 +1417,25 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("TurnierInstanz");
                 });
 
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VerbandsQuote", b =>
+                {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", "TurnierInstanz")
+                        .WithMany("VerbandsQuoten")
+                        .HasForeignKey("TurnierInstanzId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Verband", "Verband")
+                        .WithMany()
+                        .HasForeignKey("VerbandId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("TurnierInstanz");
+
+                    b.Navigation("Verband");
+                });
+
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", b =>
                 {
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke.Regelwerk", "Regelwerk")
@@ -1468,6 +1516,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("SimulationsLaeufe");
 
                     b.Navigation("Spiele");
+
+                    b.Navigation("VerbandsQuoten");
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierRunde", b =>

@@ -553,4 +553,58 @@ public class AuslosungsValidatorTests
         ergebnis.IstUngueltig.Should().BeTrue();
         ergebnis.Fehler.Should().ContainMatch("*schließen sich gegenseitig aus*");
     }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // VERBAND-QUOTEN (Issue #146/#27)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    private static LostopfEintrag EintragMitVerband(int id, int verbandId) =>
+        new() { Id = id, MannschaftId = id, Mannschaft = new Mannschaft { Id = id, Name = $"Team {id}", Land = new Land { VerbandId = verbandId } } };
+
+    private static VerbandsQuote Quote(int verbandId, int maxAnzahl, int? minAnzahl = null) =>
+        new() { VerbandId = verbandId, MaxAnzahl = maxAnzahl, MinAnzahl = minAnzahl };
+
+    [Fact]
+    public void VerbandQuote_InnerhalbMaxUndMin_IstGueltig()
+    {
+        var topf = Topf(1, 1, [EintragMitVerband(1, verbandId: 10), EintragMitVerband(2, verbandId: 10), EintragMitVerband(3, verbandId: 20)]);
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a), [Quote(10, maxAnzahl: 2, minAnzahl: 1)]);
+
+        ergebnis.IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void VerbandQuote_MaxUeberschritten_WirdAbgelehnt()
+    {
+        var topf = Topf(1, 1, [EintragMitVerband(1, verbandId: 10), EintragMitVerband(2, verbandId: 10), EintragMitVerband(3, verbandId: 10)]);
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a), [Quote(10, maxAnzahl: 2)]);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*maximal 2*");
+    }
+
+    [Fact]
+    public void VerbandQuote_MinUnterschritten_WirdAbgelehnt()
+    {
+        var topf = Topf(1, 1, [EintragMitVerband(1, verbandId: 10), EintragMitVerband(2, verbandId: 20)]);
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a), [Quote(10, maxAnzahl: 5, minAnzahl: 2)]);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*mindestens 2*");
+    }
+
+    [Fact]
+    public void VerbandQuote_OhneKonfigurierteQuoten_WirdNichtGeprueft()
+    {
+        var topf = Topf(1, 1, [EintragMitVerband(1, verbandId: 10), EintragMitVerband(2, verbandId: 10), EintragMitVerband(3, verbandId: 10)]);
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        _validator.Validieren(a, AlleEintraege(a)).IstGueltig.Should().BeTrue();
+    }
 }

@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
@@ -16,6 +17,7 @@ public record AuslosungErstellenEingabe(
 
 public class AuslosungService(
     IAuslosungRepository repository,
+    IVerbandsQuoteRepository verbandsQuoteRepository,
     AuslosungsValidator validator,
     ILogger<AuslosungService> logger)
 {
@@ -223,9 +225,10 @@ public class AuslosungService(
         var alleEintraege = auslosung.Lostoepfe
             .SelectMany(l => l.Eintraege)
             .ToList();
+        var verbandsQuoten = await verbandsQuoteRepository.AlleNachTurnierInstanzIdAsync(auslosung.TurnierInstanzId, ct);
 
         ValidationException.WerfenWennUngueltig(
-            validator.Validieren(auslosung, alleEintraege));
+            validator.Validieren(auslosung, alleEintraege, verbandsQuoten));
 
         var ergebnisse = Ausloesen(auslosung);
         await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);

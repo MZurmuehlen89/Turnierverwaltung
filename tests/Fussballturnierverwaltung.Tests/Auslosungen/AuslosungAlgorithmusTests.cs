@@ -23,7 +23,7 @@ public class AuslosungAlgorithmusTests
     public AuslosungAlgorithmusTests()
     {
         _repo    = new FakeAuslosungRepository();
-        _service = new AuslosungService(_repo, new AuslosungsValidator(),
+        _service = new AuslosungService(_repo, new FakeVerbandsQuoteRepository(), new AuslosungsValidator(),
                                         NullLogger<AuslosungService>.Instance);
     }
 

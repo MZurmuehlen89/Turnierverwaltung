@@ -43,6 +43,7 @@ public static class InfrastrukturErweiterungen
         services.AddScoped<ISpielRepository, SpielRepository>();
         services.AddScoped<ITurnierRundeRepository, TurnierRundeRepository>();
         services.AddScoped<IQualifikationsRegelRepository, QualifikationsRegelRepository>();
+        services.AddScoped<IVerbandsQuoteRepository, VerbandsQuoteRepository>();
 
         // Auslosungs-Repository
         services.AddScoped<IAuslosungRepository, AuslosungRepository>();

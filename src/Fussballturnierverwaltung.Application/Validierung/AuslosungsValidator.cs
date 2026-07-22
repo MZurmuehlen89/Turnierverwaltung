@@ -1,6 +1,7 @@
 using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Validierung;
@@ -10,7 +11,8 @@ public class AuslosungsValidator
     /// <summary>Validiert eine Auslosung vor dem Start. Vollständige Lösbarkeitsanalyse kommt in Schritt 11.</summary>
     public ValidationErgebnis Validieren(
         Auslosung auslosung,
-        IReadOnlyList<LostopfEintrag> alleEintraege)
+        IReadOnlyList<LostopfEintrag> alleEintraege,
+        IReadOnlyList<VerbandsQuote>? verbandsQuoten = null)
     {
         var fehler = new List<string>();
 
@@ -18,6 +20,30 @@ public class AuslosungsValidator
             fehler.Add("Keine Teilnehmer für die Auslosung vorhanden.");
         else if (alleEintraege.Count < 2)
             fehler.Add($"Mindestens 2 Teilnehmer werden benötigt (vorhanden: {alleEintraege.Count}).");
+
+        // Verband-Quoten (Issue #146/#27): unabhängig von Auslosungsart/Lostopf-Struktur — prüft nur
+        // die Gesamtzusammensetzung der zugewiesenen Teams gegen konfigurierte Min-/Max-Quoten je Verband.
+        if (verbandsQuoten is { Count: > 0 })
+        {
+            var anzahlProVerband = alleEintraege
+                .Where(e => e.Mannschaft?.Land is not null)
+                .GroupBy(e => e.Mannschaft!.Land!.VerbandId)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            foreach (var quote in verbandsQuoten)
+            {
+                var anzahl = anzahlProVerband.GetValueOrDefault(quote.VerbandId);
+                var verbandName = quote.Verband?.Name ?? $"Verband {quote.VerbandId}";
+
+                if (anzahl > quote.MaxAnzahl)
+                    fehler.Add($"Verband-Quote '{verbandName}': maximal {quote.MaxAnzahl} Team(s) erlaubt, " +
+                               $"aber {anzahl} zugewiesen.");
+
+                if (quote.MinAnzahl is { } min && anzahl < min)
+                    fehler.Add($"Verband-Quote '{verbandName}': mindestens {min} Team(s) erforderlich, " +
+                               $"aber nur {anzahl} zugewiesen.");
+            }
+        }
 
         // Lostöpfe prüfen
         var lostoepfe = auslosung.Lostoepfe.ToList();
