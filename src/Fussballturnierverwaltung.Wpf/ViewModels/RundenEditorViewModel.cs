@@ -17,6 +17,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     private readonly TurnierInstanzService _service;
     private readonly RegelwerkService _regelwerkService;
     private readonly TurnierVorlageService _vorlageService;
+    private readonly AusgewaehlteTurnierInstanzService _turnierAuswahlService;
     private int _populiertGerade;
 
     // Preserved turnier metadata for VollAktualisierenAsync on save
@@ -133,11 +134,13 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     public RundenEditorViewModel(
         TurnierInstanzService service,
         RegelwerkService regelwerkService,
-        TurnierVorlageService vorlageService)
+        TurnierVorlageService vorlageService,
+        AusgewaehlteTurnierInstanzService turnierAuswahlService)
     {
         _service = service;
         _regelwerkService = regelwerkService;
         _vorlageService = vorlageService;
+        _turnierAuswahlService = turnierAuswahlService;
     }
 
     public override async Task AktivierenAsync() => await LadenAsync();
@@ -158,6 +161,9 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                     .ThenBy(i => i.Name));
             Regelwerke       = regelwerke.ToList();
             TurnierVorlagen  = new ObservableCollection<TurnierVorlage>(vorlagen.OrderBy(v => v.Name));
+
+            AusgewaehlteInstanz = GeplanteTurniere.FirstOrDefault(
+                i => i.Id == _turnierAuswahlService.TurnierInstanzId);
         }
         finally
         {
@@ -423,7 +429,10 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     partial void OnAusgewaehlteInstanzChanged(TurnierInstanz? value)
-        => _ = LadeRundenFuerInstanzAsync(value);
+    {
+        _turnierAuswahlService.TurnierInstanzId = value?.Id;
+        _ = LadeRundenFuerInstanzAsync(value);
+    }
 
     private async Task LadeRundenFuerInstanzAsync(TurnierInstanz? instanz)
     {

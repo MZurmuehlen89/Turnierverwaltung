@@ -229,6 +229,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly SpielplanService _spielplanService;
     private readonly RanglisteService _ranglisteService;
     private readonly VerbandsQuoteService _verbandsQuoteService;
+    private readonly AusgewaehlteTurnierInstanzService _turnierAuswahlService;
 
     private Auslosung? _auslosungDetail;
 
@@ -549,7 +550,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         MannschaftService mannschaftService,
         SpielplanService spielplanService,
         RanglisteService ranglisteService,
-        VerbandsQuoteService verbandsQuoteService)
+        VerbandsQuoteService verbandsQuoteService,
+        AusgewaehlteTurnierInstanzService turnierAuswahlService)
     {
         _auslosungService     = auslosungService;
         _instanzService       = instanzService;
@@ -557,6 +559,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _spielplanService     = spielplanService;
         _ranglisteService     = ranglisteService;
         _verbandsQuoteService = verbandsQuoteService;
+        _turnierAuswahlService = turnierAuswahlService;
     }
 
     public override async Task AktivierenAsync()
@@ -568,6 +571,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var ranglisten = await _ranglisteService.AlleAbrufenAsync();
             Instanzen     = new ObservableCollection<TurnierInstanz>(instanzen);
             AlleRanglisten = new ObservableCollection<Rangliste>(ranglisten);
+
+            AusgewaehlteInstanz = Instanzen.FirstOrDefault(
+                i => i.Id == _turnierAuswahlService.TurnierInstanzId);
         }
         finally { IstLadend = false; }
     }
@@ -1280,7 +1286,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         base.OnPropertyChanged(e);
         if (e.PropertyName == nameof(AusgewaehlteInstanz))
+        {
+            _turnierAuswahlService.TurnierInstanzId = AusgewaehlteInstanz?.Id;
             _ = BeiInstanzAenderungAsync();
+        }
         if (e.PropertyName == nameof(AusgewaehlteAuslosung))
             _ = BeiAuslosungAenderungAsync();
     }

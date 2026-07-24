@@ -12,6 +12,7 @@ namespace Fussballturnierverwaltung.Wpf.ViewModels;
 public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly TurnierInstanzService _instanzService;
+    private readonly AusgewaehlteTurnierInstanzService _turnierAuswahlService;
 
     public SpielplanViewModel   SpielplanVm   { get; }
     public TurnierBaumViewModel TurnierBaumVm { get; }
@@ -33,11 +34,13 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
     public TurnierBereichViewModel(
         TurnierInstanzService instanzService,
         SpielplanViewModel   spielplanVm,
-        TurnierBaumViewModel turnierBaumVm)
+        TurnierBaumViewModel turnierBaumVm,
+        AusgewaehlteTurnierInstanzService turnierAuswahlService)
     {
         _instanzService = instanzService;
         SpielplanVm     = spielplanVm;
         TurnierBaumVm   = turnierBaumVm;
+        _turnierAuswahlService = turnierAuswahlService;
 
         TurnierBaumVm.RundeAngeklickt += (_, rundeId) =>
         {
@@ -93,13 +96,19 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
 
         if (AusgewaehlteInstanz is not null && !Instanzen.Contains(AusgewaehlteInstanz))
             AusgewaehlteInstanz = null;
+        else if (AusgewaehlteInstanz is null)
+            AusgewaehlteInstanz = Instanzen.FirstOrDefault(
+                i => i.Id == _turnierAuswahlService.TurnierInstanzId);
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
         if (e.PropertyName == nameof(AusgewaehlteInstanz))
+        {
+            _turnierAuswahlService.TurnierInstanzId = AusgewaehlteInstanz?.Id;
             _ = BeiInstanzAenderungAsync();
+        }
     }
 
     private async Task BeiInstanzAenderungAsync()

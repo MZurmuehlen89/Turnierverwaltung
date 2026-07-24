@@ -34,6 +34,7 @@ public partial class SimulationsViewModel : ViewModelBase
     private readonly MannschaftService     _mannschaftService;
     private readonly RegelwerkService      _regelwerkService;
     private readonly VerbandService        _verbandService;
+    private readonly AusgewaehlteTurnierInstanzService _turnierAuswahlService;
 
     private int _ladeUnterdrückt;
 
@@ -183,7 +184,8 @@ public partial class SimulationsViewModel : ViewModelBase
         TurnierInstanzService instanzService,
         MannschaftService     mannschaftService,
         RegelwerkService      regelwerkService,
-        VerbandService        verbandService)
+        VerbandService        verbandService,
+        AusgewaehlteTurnierInstanzService turnierAuswahlService)
     {
         _simulationsService  = simulationsService;
         _spielService        = spielService;
@@ -191,6 +193,7 @@ public partial class SimulationsViewModel : ViewModelBase
         _mannschaftService   = mannschaftService;
         _regelwerkService    = regelwerkService;
         _verbandService      = verbandService;
+        _turnierAuswahlService = turnierAuswahlService;
 
         AusgewaehlterModus = ModusOptionen[0];
 
@@ -229,6 +232,11 @@ public partial class SimulationsViewModel : ViewModelBase
             Vorauswahl = null;
             await VorauswahlLadenUndSimulierenAsync(v);
         }
+        else
+        {
+            AusgewaehlteInstanz = Instanzen.FirstOrDefault(
+                i => i.Id == _turnierAuswahlService.TurnierInstanzId);
+        }
     }
 
     // ── Property-Reaktionen ───────────────────────────────────────────────────
@@ -245,6 +253,7 @@ public partial class SimulationsViewModel : ViewModelBase
                 Fehlermeldung = null;
                 break;
             case nameof(AusgewaehlteInstanz):
+                _turnierAuswahlService.TurnierInstanzId = AusgewaehlteInstanz?.Id;
                 _ = BeiInstanzAenderungAsync();
                 break;
             case nameof(AusgewaehlteRunde):
@@ -528,6 +537,7 @@ public partial class SimulationsViewModel : ViewModelBase
         _ladeUnterdrückt++;
         AusgewaehlteInstanz = instanz;
         _ladeUnterdrückt--;
+        _turnierAuswahlService.TurnierInstanzId = instanz.Id;
 
         var instanzMitRunden = await _instanzService.FindenNachIdMitRundenAsync(v.InstanzId);
         if (instanzMitRunden is null) return;

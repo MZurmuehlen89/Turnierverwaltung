@@ -157,6 +157,7 @@ public partial class App
         builder.Services.AddTransient<VerbandsQuoteViewModel>();
 
         // Navigation & Hauptfenster
+        builder.Services.AddSingleton<AusgewaehlteTurnierInstanzService>();
         builder.Services.AddSingleton<INavigationService, NavigationService>();
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainWindow>();

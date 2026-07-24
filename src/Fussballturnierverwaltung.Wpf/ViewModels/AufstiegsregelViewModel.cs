@@ -18,6 +18,7 @@ public partial class AufstiegsregelViewModel : ViewModelBase, IRibbonAware, IHat
 {
     private readonly TurnierInstanzService _instanzService;
     private readonly QualifikationsRegelService _regelService;
+    private readonly AusgewaehlteTurnierInstanzService _turnierAuswahlService;
     private int _populiertGerade;
 
     // ── Turnier-Auswahl (bestimmt den Kontext für Runden/Regeln) ──────────────
@@ -103,10 +104,14 @@ public partial class AufstiegsregelViewModel : ViewModelBase, IRibbonAware, IHat
     public ICommand AbbrechenBefehl => AbbrechenCommand;
     public ICommand LoeschenBefehl => LoeschenCommand;
 
-    public AufstiegsregelViewModel(TurnierInstanzService instanzService, QualifikationsRegelService regelService)
+    public AufstiegsregelViewModel(
+        TurnierInstanzService instanzService,
+        QualifikationsRegelService regelService,
+        AusgewaehlteTurnierInstanzService turnierAuswahlService)
     {
         _instanzService = instanzService;
         _regelService = regelService;
+        _turnierAuswahlService = turnierAuswahlService;
     }
 
     public override async Task AktivierenAsync() => await LadenAsync();
@@ -119,6 +124,9 @@ public partial class AufstiegsregelViewModel : ViewModelBase, IRibbonAware, IHat
             var instanzen = await _instanzService.AlleAbrufenAsync();
             Turniere = new ObservableCollection<TurnierInstanz>(
                 instanzen.OrderByDescending(i => i.SaisonOderJahr).ThenBy(i => i.Name));
+
+            AusgewaehltesTurnier = Turniere.FirstOrDefault(
+                i => i.Id == _turnierAuswahlService.TurnierInstanzId);
         }
         finally
         {
@@ -127,7 +135,10 @@ public partial class AufstiegsregelViewModel : ViewModelBase, IRibbonAware, IHat
     }
 
     partial void OnAusgewaehltesTurnierChanged(TurnierInstanz? value)
-        => _ = KontextFuerTurnierLadenAsync(value);
+    {
+        _turnierAuswahlService.TurnierInstanzId = value?.Id;
+        _ = KontextFuerTurnierLadenAsync(value);
+    }
 
     private async Task KontextFuerTurnierLadenAsync(TurnierInstanz? turnier)
     {

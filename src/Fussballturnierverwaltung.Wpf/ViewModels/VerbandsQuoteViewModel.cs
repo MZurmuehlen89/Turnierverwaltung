@@ -19,6 +19,7 @@ public partial class VerbandsQuoteViewModel : ViewModelBase, IRibbonAware, IHatU
     private readonly TurnierInstanzService _instanzService;
     private readonly VerbandService _verbandService;
     private readonly VerbandsQuoteService _quoteService;
+    private readonly AusgewaehlteTurnierInstanzService _turnierAuswahlService;
     private int _populiertGerade;
 
     // ── Turnier-Auswahl (bestimmt den Kontext für die Quoten-Liste) ───────────
@@ -95,11 +96,13 @@ public partial class VerbandsQuoteViewModel : ViewModelBase, IRibbonAware, IHatU
     public VerbandsQuoteViewModel(
         TurnierInstanzService instanzService,
         VerbandService verbandService,
-        VerbandsQuoteService quoteService)
+        VerbandsQuoteService quoteService,
+        AusgewaehlteTurnierInstanzService turnierAuswahlService)
     {
         _instanzService = instanzService;
         _verbandService = verbandService;
         _quoteService   = quoteService;
+        _turnierAuswahlService = turnierAuswahlService;
     }
 
     public override async Task AktivierenAsync() => await LadenAsync();
@@ -115,6 +118,9 @@ public partial class VerbandsQuoteViewModel : ViewModelBase, IRibbonAware, IHatU
 
             var verbaende = await _verbandService.AlleAbrufenAsync();
             Verbaende = new ObservableCollection<Verband>(verbaende.OrderBy(v => v.Name));
+
+            AusgewaehltesTurnier = Turniere.FirstOrDefault(
+                i => i.Id == _turnierAuswahlService.TurnierInstanzId);
         }
         finally
         {
@@ -123,7 +129,10 @@ public partial class VerbandsQuoteViewModel : ViewModelBase, IRibbonAware, IHatU
     }
 
     partial void OnAusgewaehltesTurnierChanged(TurnierInstanz? value)
-        => _ = QuotenFuerTurnierLadenAsync(value);
+    {
+        _turnierAuswahlService.TurnierInstanzId = value?.Id;
+        _ = QuotenFuerTurnierLadenAsync(value);
+    }
 
     private async Task QuotenFuerTurnierLadenAsync(TurnierInstanz? turnier)
     {
