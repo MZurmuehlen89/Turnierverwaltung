@@ -470,6 +470,62 @@
                             </TextBlock>
                         </Border>
 
+                        <!-- VERBAND-QUOTEN: nicht einklappbar (Issue #156) und direkt neben der
+                             Fortschrittsanzeige platziert (Issue #156-Folgefeedback), da beide
+                             Hinweise zusammen relevant sind, um die Auslosung tatsächlich
+                             auslösen zu können. -->
+                        <StackPanel Margin="0,0,0,10"
+                                    Visibility="{Binding ZeigeVerbandsQuoten, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="VERBAND-QUOTEN" FontSize="12" FontWeight="Bold"
+                                       Foreground="#94A3B8" Margin="0,0,0,4" />
+                            <ItemsControl ItemsSource="{Binding VerbandsQuotenAnzeige}" Margin="8,4,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:VerbandsQuoteAnzeigeViewModel}">
+                                        <Border Margin="0,3" Padding="8,7" CornerRadius="4"
+                                                BorderThickness="1" BorderBrush="#E2E8F0">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="White" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding UeberMax}" Value="True">
+                                                            <Setter Property="Background" Value="#FEF2F2" />
+                                                            <Setter Property="BorderBrush" Value="#FCA5A5" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding UnterMin}" Value="True">
+                                                            <Setter Property="Background" Value="#FFFBEB" />
+                                                            <Setter Property="BorderBrush" Value="#FDE68A" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding AnzeigeText}"
+                                                           FontSize="13" Margin="8,0,0,0">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="#64748B" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding UeberMax}" Value="True">
+                                                                    <Setter Property="Foreground" Value="#DC2626" />
+                                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding UnterMin}" Value="True">
+                                                                    <Setter Property="Foreground" Value="#D97706" />
+                                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding VerbandName}" FontSize="13"
+                                                           FontWeight="SemiBold" Foreground="#1E293B" />
+                                            </DockPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
                         <TextBlock Text="Teams zuweisen: Doppelklick, Rechtsklick oder Drag &amp; Drop"
                                    FontSize="11" FontWeight="Bold" Foreground="#94A3B8" Margin="0,0,0,8" />
 
@@ -677,58 +733,6 @@
                                                        TextWrapping="Wrap" Margin="20,3,0,0"
                                                        Visibility="{Binding IstRedundant, Converter={StaticResource BoolToVisibility}}" />
                                         </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Expander>
-
-                    <!-- VERBAND-QUOTEN -->
-                    <Expander Header="VERBAND-QUOTEN" FontSize="12" FontWeight="Bold"
-                              Foreground="#94A3B8" Margin="0,16,0,0"
-                              Visibility="{Binding ZeigeVerbandsQuoten, Converter={StaticResource BoolToVisibility}}">
-                        <ItemsControl ItemsSource="{Binding VerbandsQuotenAnzeige}" Margin="8,8,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type vm:VerbandsQuoteAnzeigeViewModel}">
-                                    <Border Margin="0,3" Padding="8,7" CornerRadius="4"
-                                            BorderThickness="1" BorderBrush="#E2E8F0">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="Background" Value="White" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding UeberMax}" Value="True">
-                                                        <Setter Property="Background" Value="#FEF2F2" />
-                                                        <Setter Property="BorderBrush" Value="#FCA5A5" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding UnterMin}" Value="True">
-                                                        <Setter Property="Background" Value="#FFFBEB" />
-                                                        <Setter Property="BorderBrush" Value="#FDE68A" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <DockPanel>
-                                            <TextBlock DockPanel.Dock="Right" Text="{Binding AnzeigeText}"
-                                                       FontSize="13" Margin="8,0,0,0">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Foreground" Value="#64748B" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding UeberMax}" Value="True">
-                                                                <Setter Property="Foreground" Value="#DC2626" />
-                                                                <Setter Property="FontWeight" Value="Bold" />
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding UnterMin}" Value="True">
-                                                                <Setter Property="Foreground" Value="#D97706" />
-                                                                <Setter Property="FontWeight" Value="Bold" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
-                                            <TextBlock Text="{Binding VerbandName}" FontSize="13"
-                                                       FontWeight="SemiBold" Foreground="#1E293B" />
-                                        </DockPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
