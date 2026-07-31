@@ -191,10 +191,8 @@
                         Visibility="{Binding IstTurnierModus, Converter={StaticResource BoolToVisibility}}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="🏆" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <ComboBox ItemsSource="{Binding Instanzen}"
-                                  SelectedItem="{Binding AusgewaehlteInstanz}"
-                                  DisplayMemberPath="Name"
-                                  Style="{StaticResource BreadcrumbCombo}" />
+                        <TextBlock Text="{Binding AusgewaehlteInstanz.Name}" FontSize="13"
+                                   FontWeight="SemiBold" VerticalAlignment="Center" />
 
                         <TextBlock Style="{StaticResource BreadcrumbTrenner}"
                                    Visibility="{Binding AusgewaehlteInstanz, Converter={StaticResource NullToCollapsed}}" />

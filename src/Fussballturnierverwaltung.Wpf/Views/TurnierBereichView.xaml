@@ -5,21 +5,13 @@
 
     <DockPanel>
 
-        <!-- ── Gemeinsamer Header: Turnier-Auswahl ── -->
+        <!-- ── Fortschrittsanzeige (Turnier-Auswahl selbst kommt jetzt aus der äußeren
+             Kopfzeile des Turnier-Bereichs, siehe TurnierEditorView) ── -->
         <Border DockPanel.Dock="Top" Background="White"
-                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="Turnier" FontSize="11" FontWeight="Bold"
-                           Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,10,0" />
-                <ComboBox ItemsSource="{Binding Instanzen}"
-                          SelectedItem="{Binding AusgewaehlteInstanz}"
-                          DisplayMemberPath="Name"
-                          Width="220" FontSize="13" />
-                <TextBlock Text="{Binding FortschrittAnzeige}"
-                           Visibility="{Binding FortschrittAnzeige, Converter={StaticResource NullToCollapsed}}"
-                           FontSize="12" Foreground="#475569"
-                           VerticalAlignment="Center" Margin="16,0,0,0" />
-            </StackPanel>
+                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8"
+                Visibility="{Binding FortschrittAnzeige, Converter={StaticResource NullToCollapsed}}">
+            <TextBlock Text="{Binding FortschrittAnzeige}"
+                       FontSize="12" Foreground="#475569" VerticalAlignment="Center" />
         </Border>
 
         <!-- ── Split-Ansicht: Spielplan links | Turnierbaum rechts (entfaellt bei nur einer Runde) ── -->

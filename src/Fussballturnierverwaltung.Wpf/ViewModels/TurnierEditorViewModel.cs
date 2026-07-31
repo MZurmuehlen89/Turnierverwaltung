@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
@@ -30,9 +31,19 @@ public partial class TurnierEditorViewModel : ViewModelBase, IRibbonAware, IHatU
 
     [ObservableProperty] private ObservableCollection<TurnierInstanz> _instanzen = [];
 
-    [ObservableProperty] private TurnierInstanz? _ausgewaehlteInstanz;
+    [ObservableProperty] private ObservableCollection<TurnierInstanz> _instanzenGefiltert = [];
+
+    [ObservableProperty] private string? _instanzSuchbegriff;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RundenTabAktiv))]
+    private TurnierInstanz? _ausgewaehlteInstanz;
 
     [ObservableProperty] private int _aktiverTabIndex;
+
+    /// <summary>Runden dürfen nur für noch nicht gestartete Turniere bearbeitet werden — der
+    /// Runden-Tab wird deaktiviert, sobald ein Turnier mit anderem Status gewählt ist.</summary>
+    public bool RundenTabAktiv => AusgewaehlteInstanz is null || AusgewaehlteInstanz.Status == TurnierStatus.Geplant;
 
     public TurnierEditorViewModel(
         TurnierInstanzService instanzService,
@@ -66,12 +77,15 @@ public partial class TurnierEditorViewModel : ViewModelBase, IRibbonAware, IHatU
         var liste = await _instanzService.AlleAbrufenAsync();
         Instanzen.Clear();
         foreach (var i in liste) Instanzen.Add(i);
+        AktualisiereInstanzenGefiltert();
 
         if (AusgewaehlteInstanz is not null && !Instanzen.Contains(AusgewaehlteInstanz))
             AusgewaehlteInstanz = null;
         else if (AusgewaehlteInstanz is null)
             AusgewaehlteInstanz = Instanzen.FirstOrDefault(
                 i => i.Id == _turnierAuswahlService.TurnierInstanzId);
+
+        KorrigiereAktivenTabFallsUngueltig();
 
         _initialisierungAktiv = false;
 
@@ -82,14 +96,40 @@ public partial class TurnierEditorViewModel : ViewModelBase, IRibbonAware, IHatU
     partial void OnAusgewaehlteInstanzChanged(TurnierInstanz? value)
     {
         _turnierAuswahlService.TurnierInstanzId = value?.Id;
-        if (!_initialisierungAktiv)
+        if (_initialisierungAktiv) return;
+
+        if (!KorrigiereAktivenTabFallsUngueltig())
             _ = AktivesTabAktivierenAsync();
     }
 
     partial void OnAktiverTabIndexChanged(int value)
     {
+        if (_initialisierungAktiv) return;
         AktiviereAktivenTab(vorherigesTab: _vorherigesTab);
         _ = AktivesTabAktivierenAsync();
+    }
+
+    /// <summary>Springt vom Runden-Tab weg, falls das gewählte Turnier dort nicht mehr
+    /// bearbeitbar ist (Statuswechsel). Gibt zurück, ob ein Tab-Wechsel ausgelöst wurde.</summary>
+    private bool KorrigiereAktivenTabFallsUngueltig()
+    {
+        if (AktiverTabIndex != 0 || RundenTabAktiv) return false;
+        AktiverTabIndex = 1;
+        return true;
+    }
+
+    partial void OnInstanzSuchbegriffChanged(string? value) => AktualisiereInstanzenGefiltert();
+
+    private void AktualisiereInstanzenGefiltert()
+    {
+        var begriff = InstanzSuchbegriff;
+        var treffer = string.IsNullOrWhiteSpace(begriff)
+            ? Instanzen
+            : Instanzen.Where(i =>
+                (i.Name?.Contains(begriff, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (i.SaisonOderJahr?.Contains(begriff, StringComparison.OrdinalIgnoreCase) ?? false));
+
+        InstanzenGefiltert = new ObservableCollection<TurnierInstanz>(treffer);
     }
 
     private ViewModelBase? _vorherigesTab;

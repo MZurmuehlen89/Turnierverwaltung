@@ -23,25 +23,6 @@
         <!-- ── Linke Spalte: Turnier-Auswahl + Regel-Liste ── -->
         <DockPanel Grid.Column="0" Background="#F8FAFC">
 
-            <Border DockPanel.Dock="Top" Background="White"
-                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,6">
-                <StackPanel>
-                    <TextBlock Text="Turnier" FontSize="11" Foreground="#9CA3AF" Margin="2,0,0,3" />
-                    <ComboBox ItemsSource="{Binding Turniere}"
-                              SelectedItem="{Binding AusgewaehltesTurnier}"
-                              Padding="6,4" FontSize="13">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock>
-                                    <Run Text="{Binding Name, Mode=OneWay}" />
-                                    <Run Text=" (" /><Run Text="{Binding SaisonOderJahr, Mode=OneWay}" /><Run Text=")" />
-                                </TextBlock>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                </StackPanel>
-            </Border>
-
             <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="3"
                          Foreground="#3B82F6"
                          Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />

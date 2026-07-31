@@ -9,56 +9,13 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="260" MinWidth="180" MaxWidth="360" />
-            <ColumnDefinition Width="4" />
             <ColumnDefinition Width="220" MinWidth="160" MaxWidth="300" />
             <ColumnDefinition Width="4" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- ── Spalte 1: Turnierliste (Geplant) ── -->
-        <DockPanel Grid.Column="0" Background="#F8FAFC">
-
-            <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="3"
-                         Foreground="#3B82F6"
-                         Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
-
-            <TextBlock DockPanel.Dock="Top"
-                       Text="TURNIERE (Geplant)" FontSize="11" FontWeight="Bold"
-                       Foreground="#64748B" Margin="12,12,8,6" />
-
-            <ListBox ItemsSource="{Binding GeplanteTurniere}"
-                     SelectedItem="{Binding AusgewaehlteInstanz}"
-                     BorderThickness="0" Background="Transparent"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem">
-                        <Setter Property="Padding" Value="12,8" />
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Style.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="#EFF6FF" />
-                                <Setter Property="Foreground" Value="#1D4ED8" />
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </ListBox.ItemContainerStyle>
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel>
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
-                            <TextBlock Text="{Binding SaisonOderJahr}" FontSize="11" Foreground="#64748B" />
-                        </StackPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-        </DockPanel>
-
-        <!-- Trennlinie 1 -->
-        <Border Grid.Column="1" Background="#E2E8F0" />
-
-        <!-- ── Spalte 2: Vorlage laden + Rundenliste ── -->
-        <DockPanel Grid.Column="2">
+        <!-- ── Spalte 1: Vorlage laden + Rundenliste ── -->
+        <DockPanel Grid.Column="0">
 
             <!-- Placeholder wenn kein Turnier -->
             <TextBlock DockPanel.Dock="Top"
@@ -149,15 +106,15 @@
             </ListBox>
         </DockPanel>
 
-        <!-- Trennlinie 2 -->
-        <Border Grid.Column="3" Background="#E2E8F0" />
+        <!-- Trennlinie -->
+        <Border Grid.Column="1" Background="#E2E8F0" />
 
-        <!-- ── Spalte 3: Detailformular ── -->
-        <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto">
+        <!-- ── Spalte 2: Detailformular ── -->
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="24,20">
 
                 <!-- Kein Turnier gewählt -->
-                <TextBlock Text="Wählen Sie links ein Turnier aus, um dessen Runden zu bearbeiten."
+                <TextBlock Text="Wählen Sie oben ein Turnier aus, um dessen Runden zu bearbeiten."
                            Foreground="#94A3B8" FontSize="14" TextWrapping="Wrap"
                            Visibility="{Binding KeinTurnierGewaehlt, Converter={StaticResource BoolToVisibility}}" />
 
