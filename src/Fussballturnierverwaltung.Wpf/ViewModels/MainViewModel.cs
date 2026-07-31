@@ -63,12 +63,7 @@ public partial class MainViewModel : ViewModelBase
             Eintraege =
             [
                 EintragErstellen("Turniere",           () => _navigation.NavigiereZuAsync<TurnierInstanzViewModel>()),
-                EintragErstellen("Runden",             () => _navigation.NavigiereZuAsync<RundenEditorViewModel>()),
-                EintragErstellen("Aufstiegsregeln",    () => _navigation.NavigiereZuAsync<AufstiegsregelViewModel>()),
-                EintragErstellen("Verband-Quoten",     () => _navigation.NavigiereZuAsync<VerbandsQuoteViewModel>()),
-                EintragErstellen("Auslosung",          () => _navigation.NavigiereZuAsync<AuslosungViewModel>()),
-                EintragErstellen("Spielplan & Baum",   () => _navigation.NavigiereZuAsync<TurnierBereichViewModel>()),
-                EintragErstellen("Simulation",         () => _navigation.NavigiereZuAsync<SimulationsViewModel>()),
+                EintragErstellen("Turnier-Bereich",    () => _navigation.NavigiereZuAsync<TurnierEditorViewModel>()),
             ]
         });
 

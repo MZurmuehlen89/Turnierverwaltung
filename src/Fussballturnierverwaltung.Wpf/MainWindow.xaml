@@ -58,6 +58,9 @@
         <DataTemplate DataType="{x:Type vm:VerbandsQuoteViewModel}">
             <views:VerbandsQuoteView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:TurnierEditorViewModel}">
+            <views:TurnierEditorView />
+        </DataTemplate>
 
         <Style x:Key="NavButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
