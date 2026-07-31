@@ -544,6 +544,23 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public ICommand AbbrechenBefehl => AbbrechenCommand;
     public ICommand LoeschenBefehl => LoeschenCommand;
 
+    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
+    [
+        new RibbonGruppe
+        {
+            Header = "Auslosung",
+            Aktionen =
+            [
+                new RibbonAktion
+                {
+                    Header = "Alle Töpfe leeren",
+                    Befehl = AlleToepfeZuruecksetzenCommand,
+                    IconGlyph = "",
+                },
+            ],
+        },
+    ];
+
     public AuslosungViewModel(
         AuslosungService auslosungService,
         TurnierInstanzService instanzService,

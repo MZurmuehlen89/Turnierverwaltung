@@ -19,6 +19,7 @@ public partial class MainViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(RibbonSpeichernBefehl))]
     [NotifyPropertyChangedFor(nameof(RibbonAbbrechenBefehl))]
     [NotifyPropertyChangedFor(nameof(RibbonLoeschenBefehl))]
+    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
     private ViewModelBase? _aktuellesViewModel;
 
     public bool HatRibbonBereich => AktuellesViewModel is IRibbonAware;
@@ -27,6 +28,7 @@ public partial class MainViewModel : ViewModelBase
     public ICommand? RibbonSpeichernBefehl => (AktuellesViewModel as IRibbonAware)?.SpeichernBefehl;
     public ICommand? RibbonAbbrechenBefehl => (AktuellesViewModel as IRibbonAware)?.AbbrechenBefehl;
     public ICommand? RibbonLoeschenBefehl => (AktuellesViewModel as IRibbonAware)?.LoeschenBefehl;
+    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen => (AktuellesViewModel as IRibbonAware)?.RibbonZusatzGruppen ?? [];
 
     public ObservableCollection<NavigationsGruppe> NavigationsGruppen { get; } = [];
 
@@ -86,7 +88,8 @@ public partial class MainViewModel : ViewModelBase
                                nameof(IRibbonAware.NeuBefehl) or
                                nameof(IRibbonAware.SpeichernBefehl) or
                                nameof(IRibbonAware.AbbrechenBefehl) or
-                               nameof(IRibbonAware.LoeschenBefehl))
+                               nameof(IRibbonAware.LoeschenBefehl) or
+                               nameof(IRibbonAware.RibbonZusatzGruppen))
         {
             OnPropertyChanged(nameof(HatRibbonBereich));
             OnPropertyChanged(nameof(RibbonTabTitel));
@@ -94,6 +97,7 @@ public partial class MainViewModel : ViewModelBase
             OnPropertyChanged(nameof(RibbonSpeichernBefehl));
             OnPropertyChanged(nameof(RibbonAbbrechenBefehl));
             OnPropertyChanged(nameof(RibbonLoeschenBefehl));
+            OnPropertyChanged(nameof(RibbonZusatzGruppen));
         }
     }
 
