@@ -129,7 +129,30 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     public ICommand NeuBefehl      => NeueRundeCommand;
     public ICommand SpeichernBefehl => SpeichernCommand;
     public ICommand AbbrechenBefehl => AbbrechenCommand;
-    public ICommand? LoeschenBefehl => null;
+    public ICommand LoeschenBefehl => RundeEntfernenCommand;
+
+    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
+    [
+        new RibbonGruppe
+        {
+            Header = "Runden",
+            Aktionen =
+            [
+                new RibbonAktion
+                {
+                    Header = "Runde nach oben",
+                    Befehl = RundeHochCommand,
+                    IconGlyph = "",
+                },
+                new RibbonAktion
+                {
+                    Header = "Runde nach unten",
+                    Befehl = RundeRunterCommand,
+                    IconGlyph = "",
+                },
+            ],
+        },
+    ];
 
     public RundenEditorViewModel(
         TurnierInstanzService service,

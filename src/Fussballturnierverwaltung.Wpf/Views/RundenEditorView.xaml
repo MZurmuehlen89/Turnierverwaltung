@@ -50,27 +50,6 @@
                 </StackPanel>
             </Border>
 
-            <!-- Toolbar (nur wenn Turnier gewählt) -->
-            <Border DockPanel.Dock="Top" Background="White"
-                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,5"
-                    Visibility="{Binding RundenEditorAktiv, Converter={StaticResource BoolToVisibility}}">
-                <StackPanel Orientation="Horizontal">
-                    <Button Content="＋" Width="28" Height="26" Margin="0,0,4,0"
-                            Command="{Binding NeueRundeCommand}"
-                            ToolTip="Neue Runde" FontSize="14" />
-                    <Button Content="↑" Width="28" Height="26" Margin="0,0,4,0"
-                            Command="{Binding RundeHochCommand}"
-                            ToolTip="Runde nach oben" FontSize="14" />
-                    <Button Content="↓" Width="28" Height="26" Margin="0,0,4,0"
-                            Command="{Binding RundeRunterCommand}"
-                            ToolTip="Runde nach unten" FontSize="14" />
-                    <Button Content="✕" Width="28" Height="26"
-                            Command="{Binding RundeEntfernenCommand}"
-                            ToolTip="Runde entfernen"
-                            Foreground="#DC2626" FontSize="13" />
-                </StackPanel>
-            </Border>
-
             <!-- Rundenliste -->
             <ListBox ItemsSource="{Binding Runden}"
                      SelectedItem="{Binding AusgewaehlteRunde}"
