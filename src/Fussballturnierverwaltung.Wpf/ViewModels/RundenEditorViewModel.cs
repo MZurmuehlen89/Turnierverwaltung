@@ -116,7 +116,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
 
     public bool MitRueckspielVerfuegbar =>
-        Rundenart is Rundenart.KoRunde or Rundenart.Liga or Rundenart.Sonderrunde;
+        Rundenart is Rundenart.KoRunde or Rundenart.Liga or Rundenart.Sonderrunde or Rundenart.Gruppenphase;
 
     public bool AuswaertstorAktivierbar => MitRueckspiel && IstKoRundenart;
     public bool RundenEditorAktiv       => AusgewaehlteInstanz is not null;
