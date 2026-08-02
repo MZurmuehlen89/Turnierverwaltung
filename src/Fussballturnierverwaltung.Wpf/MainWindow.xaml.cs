@@ -46,39 +46,91 @@ public partial class MainWindow : Window
         {
             var groupBox = new RibbonGroupBox { Header = gruppe.Header };
             foreach (var aktion in gruppe.Aktionen)
-                groupBox.Items.Add(RibbonButtonErstellen(aktion));
+                groupBox.Items.Add(RibbonElementErstellen(aktion));
 
             SeitenTab.Groups.Add(groupBox);
             _kontextGruppenBoxen.Add(groupBox);
         }
     }
 
-    private static Fluent.Button RibbonButtonErstellen(RibbonAktion aktion)
+    /// <summary>Wählt je nach Kombination der <see cref="RibbonAktion"/>-Eigenschaften den passenden
+    /// Fluent-Control-Typ: reiner Klick-Befehl → Button; Befehl + eigenständig ausführbare
+    /// Unteraktionen (z.B. "mit TV-Modus ausführen") → SplitButton (Klick = Befehl, Pfeil = Dropdown
+    /// mit direkt anwählbaren Menüpunkten, kein Umschalt-/Checkbox-Zustand); dynamische Item-Quelle
+    /// ohne Befehl (z.B. Auslosungs-Regeln) → DropDownButton.</summary>
+    private static UIElement RibbonElementErstellen(RibbonAktion aktion)
     {
+        if (aktion.Unteraktionen is { Count: > 0 })
+        {
+            var splitButton = new Fluent.SplitButton
+            {
+                Header = aktion.Header,
+                Command = aktion.Befehl,
+                SizeDefinition = new RibbonControlSizeDefinition("Large"),
+            };
+            IconSetzen(splitButton, aktion.IconGlyph);
+            foreach (var unteraktion in aktion.Unteraktionen)
+                splitButton.Items.Add(MenuItemErstellen(unteraktion));
+            return splitButton;
+        }
+
+        if (aktion.ItemsQuelleBinding is not null)
+        {
+            var dropDownButton = new Fluent.DropDownButton
+            {
+                Header = aktion.Header,
+                SizeDefinition = new RibbonControlSizeDefinition("Large"),
+                MaxDropDownHeight = double.PositiveInfinity,
+            };
+            IconSetzen(dropDownButton, aktion.IconGlyph);
+            dropDownButton.SetBinding(ItemsControl.ItemsSourceProperty, aktion.ItemsQuelleBinding);
+            return dropDownButton;
+        }
+
         var button = new Fluent.Button
         {
             Header = aktion.Header,
             Command = aktion.Befehl,
             SizeDefinition = new RibbonControlSizeDefinition("Large"),
         };
+        IconSetzen(button, aktion.IconGlyph);
+        return button;
+    }
 
+    private static Fluent.MenuItem MenuItemErstellen(RibbonAktion aktion)
+    {
+        var menuItem = new Fluent.MenuItem { Header = aktion.Header, Command = aktion.Befehl };
         if (aktion.IconGlyph is not null)
         {
-            button.LargeIcon = new TextBlock
-            {
-                Text = aktion.IconGlyph,
-                FontFamily = new FontFamily("Segoe MDL2 Assets"),
-                FontSize = 32,
-            };
-            button.Icon = new TextBlock
+            menuItem.Icon = new TextBlock
             {
                 Text = aktion.IconGlyph,
                 FontFamily = new FontFamily("Segoe MDL2 Assets"),
                 FontSize = 16,
             };
         }
+        return menuItem;
+    }
 
-        return button;
+    private static void IconSetzen(IRibbonControl control, string? iconGlyph)
+    {
+        if (iconGlyph is null) return;
+
+        control.Icon = new TextBlock
+        {
+            Text = iconGlyph,
+            FontFamily = new FontFamily("Segoe MDL2 Assets"),
+            FontSize = 16,
+        };
+        if (control is ILargeIconProvider largeIconProvider)
+        {
+            largeIconProvider.LargeIcon = new TextBlock
+            {
+                Text = iconGlyph,
+                FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                FontSize = 32,
+            };
+        }
     }
 
     private void BeendenButton_Click(object sender, RoutedEventArgs e)

@@ -15,6 +15,7 @@ using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
@@ -278,13 +279,23 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty] private int _neuAnzahlLostoepfe = 1;
 
     // ── Auslosung-Detail ──────────────────────────────────────────────────────
-    [ObservableProperty] private bool _detailAktiv;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AuslosungAusfuehrenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusAusfuehrenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusManuellAusfuehrenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AuslosungZuruecksetzenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(LostoepfeAutomatischBefuellenCommand))]
+    private bool _detailAktiv;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IstManuellerModus))]
     [NotifyPropertyChangedFor(nameof(IstBearbeitbarNichtManuell))]
     [NotifyPropertyChangedFor(nameof(IstManuellKoModus))]
     [NotifyPropertyChangedFor(nameof(IstManuellGruppenModus))]
+    [NotifyCanExecuteChangedFor(nameof(AuslosungAusfuehrenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusAusfuehrenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusManuellAusfuehrenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(LostoepfeAutomatischBefuellenCommand))]
     private bool _istBearbeitbar;
 
     [ObservableProperty]
@@ -295,6 +306,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(IstManuellKoModus))]
     [NotifyPropertyChangedFor(nameof(IstManuellGruppenModus))]
     [NotifyPropertyChangedFor(nameof(DetailAnzahlLostoepfeBearbeitbar))]
+    [NotifyCanExecuteChangedFor(nameof(AuslosungAusfuehrenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusAusfuehrenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusManuellAusfuehrenCommand))]
     private Auslosungsart _detailAuslosungsart;
 
     [ObservableProperty] private string _detailName = "";
@@ -311,6 +325,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(IstPaarungsergebnis))]
     [NotifyPropertyChangedFor(nameof(ZeigeGruppenErgebnis))]
     [NotifyPropertyChangedFor(nameof(ZeigePaarungsergebnis))]
+    [NotifyCanExecuteChangedFor(nameof(AuslosungZuruecksetzenCommand))]
     private bool _istAbgeschlossen;
 
     [ObservableProperty]
@@ -372,9 +387,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(AnimationLaeuftNicht))]
     [NotifyPropertyChangedFor(nameof(ZeigeGruppenErgebnis))]
     [NotifyPropertyChangedFor(nameof(ZeigePaarungsergebnis))]
+    [NotifyCanExecuteChangedFor(nameof(AuslosungZuruecksetzenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AnimationUeberspringenCommand))]
     private bool _animationLaeuft;
 
-    [ObservableProperty] private bool _animationWartetAufWeiter;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AnimationWeiterCommand))]
+    private bool _animationWartetAufWeiter;
     [ObservableProperty] private string? _animationBannerMannschaft;
     [ObservableProperty] private string? _animationBannerTopf;
     [ObservableProperty] private string? _animationBannerZiel;
@@ -553,9 +572,60 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             [
                 new RibbonAktion
                 {
+                    Header = "Lostöpfe automatisch befüllen",
+                    Befehl = LostoepfeAutomatischBefuellenCommand,
+                    IconGlyph = "",
+                },
+                new RibbonAktion
+                {
                     Header = "Alle Töpfe leeren",
                     Befehl = AlleToepfeZuruecksetzenCommand,
                     IconGlyph = "",
+                },
+                new RibbonAktion
+                {
+                    Header = "Auslosungs-Regeln",
+                    ItemsQuelleBinding = new Binding(nameof(Regeln)) { Source = this },
+                    IconGlyph = "",
+                },
+                new RibbonAktion
+                {
+                    Header = "Auslosung durchführen",
+                    Befehl = AuslosungAusfuehrenCommand,
+                    Unteraktionen =
+                    [
+                        new RibbonAktion
+                        {
+                            Header = "Mit TV-Modus ausführen",
+                            Befehl = AuslosungMitTvModusAusfuehrenCommand,
+                            IconGlyph = "",
+                        },
+                        new RibbonAktion
+                        {
+                            Header = "Mit TV-Modus manuell ausführen",
+                            Befehl = AuslosungMitTvModusManuellAusfuehrenCommand,
+                            IconGlyph = "",
+                        },
+                    ],
+                    IconGlyph = "",
+                },
+                new RibbonAktion
+                {
+                    Header = "Weiter",
+                    Befehl = AnimationWeiterCommand,
+                    IconGlyph = "",
+                },
+                new RibbonAktion
+                {
+                    Header = "Rest sofort anzeigen",
+                    Befehl = AnimationUeberspringenCommand,
+                    IconGlyph = "",
+                },
+                new RibbonAktion
+                {
+                    Header = "Zurücksetzen",
+                    Befehl = AuslosungZuruecksetzenCommand,
+                    IconGlyph = "",
                 },
             ],
         },
@@ -708,7 +778,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// unangetastet — der Button ergänzt nur, was noch in "Verfügbar" steht. Teams ohne
     /// Ranglisten-Eintrag werden ans Ende einsortiert (landen tendenziell im letzten Topf).
     /// </summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(KannLostoepfeAutomatischBefuellen))]
     private async Task LostoepfeAutomatischBefuellen()
     {
         if (_auslosungDetail is null) return;
@@ -768,8 +838,37 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
 
-    [RelayCommand]
+    /// <summary>Klick auf den SplitButton-Hauptteil im Ribbon: sofortige Ergebnisanzeige ohne TV-Modus,
+    /// unabhängig davon, was zuvor über die Unteraktionen ausgeführt wurde.</summary>
+    [RelayCommand(CanExecute = nameof(KannAuslosungAusfuehren))]
     private async Task AuslosungAusfuehren()
+    {
+        TvModusAktiv    = false;
+        TvModusManuell  = false;
+        await AuslosungDurchfuehrenAsync();
+    }
+
+    /// <summary>Ribbon-Unteraktion (Dropdown-Menüpunkt): führt wie der Hauptbutton sofort aus, aber
+    /// mit TV-Modus-Ziehungsanimation (automatischer Schrittablauf).</summary>
+    [RelayCommand(CanExecute = nameof(KannAuslosungAusfuehren))]
+    private async Task AuslosungMitTvModusAusfuehren()
+    {
+        TvModusAktiv    = true;
+        TvModusManuell  = false;
+        await AuslosungDurchfuehrenAsync();
+    }
+
+    /// <summary>Ribbon-Unteraktion (Dropdown-Menüpunkt): führt wie der Hauptbutton sofort aus, aber
+    /// mit TV-Modus-Ziehungsanimation im manuellen Schrittmodus (Klick je Schritt).</summary>
+    [RelayCommand(CanExecute = nameof(KannAuslosungAusfuehren))]
+    private async Task AuslosungMitTvModusManuellAusfuehren()
+    {
+        TvModusAktiv    = true;
+        TvModusManuell  = true;
+        await AuslosungDurchfuehrenAsync();
+    }
+
+    private async Task AuslosungDurchfuehrenAsync()
     {
         if (_auslosungDetail is null) return;
         Fehlermeldung = null;
@@ -792,10 +891,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(AnimationWartetAufWeiter))]
     private void AnimationWeiter() => _weiterSignal.TrySetResult();
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(AnimationLaeuft))]
     private void AnimationUeberspringen()
     {
         _animationUeberspringen = true;
@@ -1218,7 +1317,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         return false;
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(KannAuslosungZuruecksetzen))]
     private async Task AuslosungZuruecksetzen()
     {
         if (_auslosungDetail is null) return;
@@ -1599,6 +1698,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public bool HatUngespeicherteAenderungen => NeuFormAktiv || IstDetailDirty;
     private bool KannLoeschen()  => AusgewaehlteAuslosung is not null && !NeuFormAktiv;
+
+    private bool KannAuslosungAusfuehren()             => DetailAktiv && IstBearbeitbarNichtManuell;
+    private bool KannAuslosungZuruecksetzen()           => DetailAktiv && IstAbgeschlossen && AnimationLaeuftNicht;
+    private bool KannLostoepfeAutomatischBefuellen()    => DetailAktiv && IstBearbeitbar;
 
     partial void OnDetailNameChanged(string value)           { if (!_ladenAktiv) IstDetailDirty = true; }
     partial void OnDetailAuslosungsartChanged(Auslosungsart value)

@@ -125,32 +125,13 @@
                           Visibility="{Binding DetailAktiv, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Margin="16,14">
 
-                    <!-- Kopfzeile: Info + Aktions-Buttons -->
+                    <!-- Kopfzeile: Info.
+                         "Auslosung durchführen" liegt seit #162 im Ribbon (Tab "Auslosung", Gruppe
+                         "Auslosung") als SplitButton — Klick führt sofort aus, der Dropdown-Pfeil
+                         öffnet TV-Modus/TV-Modus manuell (waren vorher hier rechts leicht zu übersehen).
+                         "Zurücksetzen" liegt dort ebenfalls, analog Speichern/Abbrechen immer sichtbar,
+                         aber nur aktiv wenn gebraucht (CanExecute), statt hier ein-/auszublenden. -->
                     <DockPanel Margin="0,0,0,12">
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                            <StackPanel Orientation="Vertical" Margin="0,0,10,0"
-                                        Visibility="{Binding IstBearbeitbarNichtManuell, Converter={StaticResource BoolToVisibility}}">
-                                <CheckBox Content="🎬 TV-Modus"
-                                          IsChecked="{Binding TvModusAktiv}"
-                                          FontSize="12" Foreground="#475569"
-                                          ToolTip="Mannschaften werden nach der Auslosung einzeln gezogen (Mannschaft → Gruppe/Paarung → Position) statt das Ergebnis sofort komplett anzuzeigen." />
-                                <CheckBox Content="🕹 manuell (Klick je Schritt)"
-                                          IsChecked="{Binding TvModusManuell}"
-                                          FontSize="11" Foreground="#64748B" Margin="18,2,0,0"
-                                          Visibility="{Binding TvModusAktiv, Converter={StaticResource BoolToVisibility}}" />
-                            </StackPanel>
-                            <Button Content="▶  Auslosung durchführen"
-                                    Command="{Binding AuslosungAusfuehrenCommand}"
-                                    Padding="12,6" FontSize="13"
-                                    Background="#16A34A" Foreground="White" BorderThickness="0"
-                                    Visibility="{Binding IstBearbeitbarNichtManuell, Converter={StaticResource BoolToVisibility}}" />
-                            <Button Content="↩  Zurücksetzen"
-                                    Command="{Binding AuslosungZuruecksetzenCommand}"
-                                    IsEnabled="{Binding AnimationLaeuftNicht}"
-                                    Padding="12,6" FontSize="13" Margin="8,0,0,0"
-                                    Background="#DC2626" Foreground="White" BorderThickness="0"
-                                    Visibility="{Binding IstAbgeschlossen, Converter={StaticResource BoolToVisibility}}" />
-                        </StackPanel>
                         <TextBlock Text="{Binding AuslosungKopfzeile}"
                                    FontSize="13" Foreground="#475569"
                                    VerticalAlignment="Center" TextWrapping="Wrap" />
@@ -202,106 +183,67 @@
                                     </Border>
                                 </StackPanel>
                             </StackPanel>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
-                                <Button Content="▶  Weiter" Command="{Binding AnimationWeiterCommand}"
-                                        Visibility="{Binding AnimationWartetAufWeiter, Converter={StaticResource BoolToVisibility}}"
-                                        Padding="14,6" FontSize="12" Background="#16A34A" Foreground="White"
-                                        BorderThickness="0" Margin="0,0,8,0" />
-                                <Button Content="⏭  Rest sofort anzeigen" Command="{Binding AnimationUeberspringenCommand}"
-                                        Padding="14,6" FontSize="12" Background="#334155" Foreground="White" BorderThickness="0" />
-                            </StackPanel>
+                            <!-- "Weiter"/"Rest sofort anzeigen" liegen seit #162 im Ribbon (Tab
+                                 "Auslosung", Gruppe "Auslosung") statt hier inline. -->
                         </StackPanel>
                     </Border>
 
-                    <!-- TV-Modus: Lostöpfe (fixe Plätze, leeren sich) oben, Gruppen/Paarungen darunter -->
-                    <StackPanel Margin="0,0,0,16"
-                                Visibility="{Binding AnimationLaeuft, Converter={StaticResource BoolToVisibility}}">
+                    <!-- TV-Modus: Lostöpfe (links) und Gruppen/Paarungen (rechts) nebeneinander statt
+                         untereinander (Issue #162-Folgefeedback) — ein großer Lostopf (16+ Teams) soll
+                         die Gruppenübersicht nicht mehr nach unten verdrängen. Zusätzlich bekommt jede
+                         Topf-/Gruppen-Box ein eigenes Höhenlimit mit internem Scroll (analog dem
+                         bestehenden Muster bei "Verfügbare Teilnehmer" weiter unten), statt unbegrenzt
+                         zu wachsen. -->
+                    <Grid Margin="0,0,0,16"
+                          Visibility="{Binding AnimationLaeuft, Converter={StaticResource BoolToVisibility}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
 
                         <!-- Lostöpfe: feste Anzahl Plätze pro Topf, damit sich das Layout nicht
                              verschiebt, sobald ein Topf leerer wird — gezogene Plätze werden nur
                              ausgegraut/zu "…", statt entfernt zu werden. -->
-                        <TextBlock Text="LOSTÖPFE" FontSize="11" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="0,0,0,8" />
-                        <ItemsControl ItemsSource="{Binding AnimationToepfe}" Margin="0,0,0,16">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type vm:AnimationsTopf}">
-                                    <Border Width="150" Margin="0,0,8,8"
-                                            BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
-                                        <StackPanel>
-                                            <Border Background="#F1F5F9" Padding="8,4" CornerRadius="4,4,0,0">
-                                                <TextBlock Text="{Binding Name}" FontSize="12"
-                                                           FontWeight="SemiBold" Foreground="#475569" />
-                                            </Border>
-                                            <ItemsControl ItemsSource="{Binding Slots}" Background="White">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate DataType="{x:Type vm:AnimationsTopfSlot}">
-                                                        <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="8,4">
-                                                            <TextBlock Text="{Binding Anzeige}" FontSize="12" />
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                                <ItemsControl.ItemContainerStyle>
-                                                    <Style TargetType="ContentPresenter">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Gezogen}" Value="True">
-                                                                <Setter Property="TextBlock.Foreground" Value="#CBD5E1" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </ItemsControl.ItemContainerStyle>
-                                            </ItemsControl>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-
-                        <!-- Gruppen: alle Plätze von Anfang an sichtbar, füllen sich Slot für Slot -->
-                        <StackPanel Visibility="{Binding AnimationIstGruppenmodus, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="GRUPPEN" FontSize="11" FontWeight="Bold"
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="LOSTÖPFE" FontSize="11" FontWeight="Bold"
                                        Foreground="#94A3B8" Margin="0,0,0,8" />
-                            <ItemsControl ItemsSource="{Binding AnimationGruppen}">
+                            <ItemsControl ItemsSource="{Binding AnimationToepfe}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <WrapPanel Orientation="Horizontal" />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:AnimationsGruppe}">
-                                        <Border Width="160" Margin="0,0,8,8"
+                                    <DataTemplate DataType="{x:Type vm:AnimationsTopf}">
+                                        <Border Width="150" Margin="0,0,8,8"
                                                 BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
                                             <StackPanel>
-                                                <Border Background="#EFF6FF" Padding="10,5" CornerRadius="4,4,0,0">
-                                                    <TextBlock Text="{Binding GruppenName}" FontSize="13"
-                                                               FontWeight="SemiBold" Foreground="#1E40AF" />
+                                                <Border Background="#F1F5F9" Padding="8,4" CornerRadius="4,4,0,0">
+                                                    <TextBlock Text="{Binding Name}" FontSize="12"
+                                                               FontWeight="SemiBold" Foreground="#475569" />
                                                 </Border>
-                                                <ItemsControl ItemsSource="{Binding Slots}" Background="White">
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate DataType="{x:Type vm:AnimationsGruppenSlot}">
-                                                            <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="10,5">
-                                                                <TextBlock FontSize="13">
-                                                                    <Run Text="{Binding Position}" Foreground="#CBD5E1" />
-                                                                    <Run Text=". " Foreground="#CBD5E1" />
-                                                                    <Run Text="{Binding Anzeige}" />
-                                                                </TextBlock>
-                                                            </Border>
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                    <ItemsControl.ItemContainerStyle>
-                                                        <Style TargetType="ContentPresenter">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Befuellt}" Value="False">
-                                                                    <Setter Property="TextBlock.Foreground" Value="#CBD5E1" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </ItemsControl.ItemContainerStyle>
-                                                </ItemsControl>
+                                                <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto"
+                                                              HorizontalScrollBarVisibility="Disabled">
+                                                    <ItemsControl ItemsSource="{Binding Slots}" Background="White">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate DataType="{x:Type vm:AnimationsTopfSlot}">
+                                                                <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="8,4">
+                                                                    <TextBlock Text="{Binding Anzeige}" FontSize="12" />
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                        <ItemsControl.ItemContainerStyle>
+                                                            <Style TargetType="ContentPresenter">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Gezogen}" Value="True">
+                                                                        <Setter Property="TextBlock.Foreground" Value="#CBD5E1" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ItemsControl.ItemContainerStyle>
+                                                    </ItemsControl>
+                                                </ScrollViewer>
                                             </StackPanel>
                                         </Border>
                                     </DataTemplate>
@@ -309,45 +251,103 @@
                             </ItemsControl>
                         </StackPanel>
 
-                        <!-- Paarungen: alle Paarungen von Anfang an sichtbar, Heim/Auswärts füllen sich -->
-                        <StackPanel Visibility="{Binding AnimationIstPaarungsmodus, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="PAARUNGEN" FontSize="11" FontWeight="Bold"
-                                       Foreground="#94A3B8" Margin="0,0,0,8" />
-                            <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
-                                <ItemsControl ItemsSource="{Binding AnimationPaarungen}" Background="White">
+                        <!-- Gruppen / Paarungen -->
+                        <StackPanel Grid.Column="2">
+
+                            <!-- Gruppen: alle Plätze von Anfang an sichtbar, füllen sich Slot für Slot -->
+                            <StackPanel Visibility="{Binding AnimationIstGruppenmodus, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="GRUPPEN" FontSize="11" FontWeight="Bold"
+                                           Foreground="#94A3B8" Margin="0,0,0,8" />
+                                <ItemsControl ItemsSource="{Binding AnimationGruppen}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
-                                        <DataTemplate DataType="{x:Type vm:AnimationsPaarung}">
-                                            <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="12,6">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="28" />
-                                                        <ColumnDefinition Width="*" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0" Text="{Binding PaarungsNr}"
-                                                               Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
-                                                    <TextBlock Grid.Column="1" FontSize="13">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding IstFreilos}" Value="True">
-                                                                        <Setter Property="Text" Value="{Binding Heim, StringFormat='Freilos: {0}'}" />
-                                                                        <Setter Property="Foreground" Value="#94A3B8" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                        <Run Text="{Binding Heim}" FontWeight="SemiBold" />
-                                                        <Run Text="  vs  " Foreground="#94A3B8" />
-                                                        <Run Text="{Binding Auswaerts}" />
-                                                    </TextBlock>
-                                                </Grid>
+                                        <DataTemplate DataType="{x:Type vm:AnimationsGruppe}">
+                                            <Border Width="160" Margin="0,0,8,8"
+                                                    BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
+                                                <StackPanel>
+                                                    <Border Background="#EFF6FF" Padding="10,5" CornerRadius="4,4,0,0">
+                                                        <TextBlock Text="{Binding GruppenName}" FontSize="13"
+                                                                   FontWeight="SemiBold" Foreground="#1E40AF" />
+                                                    </Border>
+                                                    <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto"
+                                                                  HorizontalScrollBarVisibility="Disabled">
+                                                        <ItemsControl ItemsSource="{Binding Slots}" Background="White">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate DataType="{x:Type vm:AnimationsGruppenSlot}">
+                                                                    <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="10,5">
+                                                                        <TextBlock FontSize="13">
+                                                                            <Run Text="{Binding Position}" Foreground="#CBD5E1" />
+                                                                            <Run Text=". " Foreground="#CBD5E1" />
+                                                                            <Run Text="{Binding Anzeige}" />
+                                                                        </TextBlock>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                            <ItemsControl.ItemContainerStyle>
+                                                                <Style TargetType="ContentPresenter">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Befuellt}" Value="False">
+                                                                            <Setter Property="TextBlock.Foreground" Value="#CBD5E1" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </ItemsControl.ItemContainerStyle>
+                                                        </ItemsControl>
+                                                    </ScrollViewer>
+                                                </StackPanel>
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                            </Border>
+                            </StackPanel>
+
+                            <!-- Paarungen: alle Paarungen von Anfang an sichtbar, Heim/Auswärts füllen sich -->
+                            <StackPanel Visibility="{Binding AnimationIstPaarungsmodus, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="PAARUNGEN" FontSize="11" FontWeight="Bold"
+                                           Foreground="#94A3B8" Margin="0,0,0,8" />
+                                <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
+                                    <ScrollViewer MaxHeight="340" VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsControl ItemsSource="{Binding AnimationPaarungen}" Background="White">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type vm:AnimationsPaarung}">
+                                                    <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="12,6">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="28" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding PaarungsNr}"
+                                                                       Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
+                                                            <TextBlock Grid.Column="1" FontSize="13">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IstFreilos}" Value="True">
+                                                                                <Setter Property="Text" Value="{Binding Heim, StringFormat='Freilos: {0}'}" />
+                                                                                <Setter Property="Foreground" Value="#94A3B8" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                                <Run Text="{Binding Heim}" FontWeight="SemiBold" />
+                                                                <Run Text="  vs  " Foreground="#94A3B8" />
+                                                                <Run Text="{Binding Auswaerts}" />
+                                                            </TextBlock>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Border>
+                            </StackPanel>
                         </StackPanel>
-                    </StackPanel>
+                    </Grid>
 
                     <!-- Fehlermeldung -->
                     <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
@@ -360,17 +360,22 @@
                     <!-- WORKSPACE: Verfügbare Teams + Lostoepfe (nur wenn bearbeitbar) -->
                     <StackPanel Visibility="{Binding IstBearbeitbar, Converter={StaticResource BoolToVisibility}}">
 
-                        <!-- Einstellungen: Name + Auslosungsart + Lostöpfe editierbar -->
+                        <!-- Einstellungen: Auslosungsart + Lostöpfe + Rangliste-Automatik (seit #162
+                             zusammengeführt; "Lostöpfe automatisch befüllen" liegt seit #162 im Ribbon). -->
                         <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
                                 CornerRadius="4" Padding="12,10" Margin="0,0,0,12">
                             <StackPanel>
+                                <!-- Auslosungsart + Lostöpfe + Rangliste in einer Zeile (Issue #162-Folgefeedback) -->
                                 <Grid Margin="0,0,0,6">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="200" />
+                                        <ColumnDefinition Width="170" />
                                         <ColumnDefinition Width="16" />
                                         <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="60" />
+                                        <ColumnDefinition Width="50" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="170" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="Auslosungsart:" FontSize="12"
                                                Foreground="#475569" VerticalAlignment="Center" Margin="0,0,6,0" />
@@ -387,6 +392,14 @@
                                              IsEnabled="{Binding DetailAnzahlLostoepfeBearbeitbar}"
                                              FontSize="12" Padding="6,4" BorderBrush="#CBD5E1"
                                              TextAlignment="Center" />
+                                    <TextBlock Grid.Column="6" Text="Rangliste:" FontSize="12"
+                                               Foreground="#475569" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <ComboBox Grid.Column="7"
+                                              ItemsSource="{Binding RanglisteOptionen}"
+                                              SelectedItem="{Binding AusgewaehlteRanglisteOption}"
+                                              DisplayMemberPath="Anzeige"
+                                              FontSize="12"
+                                              ToolTip="Wird von 'Lostöpfe automatisch befüllen' im Ribbon (Tab Auslosung, Gruppe Auslosung) verwendet." />
                                 </Grid>
                                 <!-- Hinweis zur gewählten Auslosungsart -->
                                 <Border Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
@@ -402,31 +415,6 @@
                                                FontSize="11" Foreground="#92400E" TextWrapping="Wrap" />
                                 </Border>
                             </StackPanel>
-                        </Border>
-
-                        <!-- Automatische Lostopf-Zuordnung via Rangliste (Issue #119) -->
-                        <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
-                                CornerRadius="4" Padding="12,10" Margin="0,0,0,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="220" />
-                                    <ColumnDefinition Width="12" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Rangliste:" FontSize="12"
-                                           Foreground="#475569" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <ComboBox Grid.Column="1"
-                                          ItemsSource="{Binding RanglisteOptionen}"
-                                          SelectedItem="{Binding AusgewaehlteRanglisteOption}"
-                                          DisplayMemberPath="Anzeige"
-                                          FontSize="12" />
-                                <Button Grid.Column="3"
-                                        Content="Lostöpfe automatisch befüllen"
-                                        Command="{Binding LostoepfeAutomatischBefuellenCommand}"
-                                        Padding="10,5" FontSize="12" Cursor="Hand"
-                                        ToolTip="Verteilt die noch nicht zugeordneten Mannschaften anhand der gewählten Rangliste auf die Lostöpfe (Vorschlag, manuell nachkorrigierbar)." />
-                            </Grid>
                         </Border>
 
                         <!-- Fortschrittsanzeige: zugewiesene vs. benötigte Teams -->
@@ -465,49 +453,63 @@
                                     Visibility="{Binding ZeigeVerbandsQuoten, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="VERBAND-QUOTEN" FontSize="12" FontWeight="Bold"
                                        Foreground="#94A3B8" Margin="0,0,0,4" />
-                            <ItemsControl ItemsSource="{Binding VerbandsQuotenAnzeige}" Margin="8,4,0,0">
+                            <!-- Nebeneinander statt untereinander (Issue #162-Folgefeedback), umbricht bei
+                                 Bedarf mehrzeilig. SharedSizeGroup sorgt dafür, dass jede Kachel exakt so
+                                 breit wird wie die längste Verbandbezeichnung, unabhängig vom Umbruch. -->
+                            <ItemsControl ItemsSource="{Binding VerbandsQuotenAnzeige}" Margin="8,4,0,0"
+                                          Grid.IsSharedSizeScope="True">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:VerbandsQuoteAnzeigeViewModel}">
-                                        <Border Margin="0,3" Padding="8,7" CornerRadius="4"
-                                                BorderThickness="1" BorderBrush="#E2E8F0">
-                                            <Border.Style>
-                                                <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="White" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding UeberMax}" Value="True">
-                                                            <Setter Property="Background" Value="#FEF2F2" />
-                                                            <Setter Property="BorderBrush" Value="#FCA5A5" />
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding UnterMin}" Value="True">
-                                                            <Setter Property="Background" Value="#FFFBEB" />
-                                                            <Setter Property="BorderBrush" Value="#FDE68A" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
-                                            <DockPanel>
-                                                <TextBlock DockPanel.Dock="Right" Text="{Binding AnzeigeText}"
-                                                           FontSize="13" Margin="8,0,0,0">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="#64748B" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding UeberMax}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#DC2626" />
-                                                                    <Setter Property="FontWeight" Value="Bold" />
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding UnterMin}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#D97706" />
-                                                                    <Setter Property="FontWeight" Value="Bold" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                                <TextBlock Text="{Binding VerbandName}" FontSize="13"
-                                                           FontWeight="SemiBold" Foreground="#1E293B" />
-                                            </DockPanel>
-                                        </Border>
+                                        <Grid Margin="0,3,6,3">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="VerbandsQuoteBreite" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Padding="8,7" CornerRadius="4"
+                                                    BorderThickness="1" BorderBrush="#E2E8F0">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="White" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding UeberMax}" Value="True">
+                                                                <Setter Property="Background" Value="#FEF2F2" />
+                                                                <Setter Property="BorderBrush" Value="#FCA5A5" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding UnterMin}" Value="True">
+                                                                <Setter Property="Background" Value="#FFFBEB" />
+                                                                <Setter Property="BorderBrush" Value="#FDE68A" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding AnzeigeText}"
+                                                               FontSize="13" Margin="8,0,0,0">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="#64748B" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding UeberMax}" Value="True">
+                                                                        <Setter Property="Foreground" Value="#DC2626" />
+                                                                        <Setter Property="FontWeight" Value="Bold" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding UnterMin}" Value="True">
+                                                                        <Setter Property="Foreground" Value="#D97706" />
+                                                                        <Setter Property="FontWeight" Value="Bold" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <TextBlock Text="{Binding VerbandName}" FontSize="13"
+                                                               FontWeight="SemiBold" Foreground="#1E293B" />
+                                                </DockPanel>
+                                            </Border>
+                                        </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -583,9 +585,11 @@
                             <!-- Lostoepfe -->
                             <DockPanel Grid.Column="2">
                             <!-- "Alle Töpfe leeren" liegt seit #158 im Ribbon (Tab "Auslosung",
-                                 Gruppe "Auslosung"), nicht mehr als Inline-Button hier. -->
-                            <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                          VerticalScrollBarVisibility="Disabled">
+                                 Gruppe "Auslosung"), nicht mehr als Inline-Button hier.
+                                 Kein horizontaler ScrollViewer mehr (Issue #162-Folgefeedback): der gab
+                                 dem WrapPanel unbegrenzte Breite, wodurch es nie umgebrochen hat,
+                                 sondern nur ein Scrollbalken erschien. Bricht jetzt wie die
+                                 Gruppenübersicht anhand der verfügbaren Spaltenbreite mehrzeilig um. -->
                                 <ItemsControl ItemsSource="{Binding Lostoepfe}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -655,70 +659,13 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                            </ScrollViewer>
                             </DockPanel>
                         </Grid>
 
                     </StackPanel>
 
-                    <!-- REGELN -->
-                    <Expander Header="AUSLOSUNGS-REGELN" FontSize="12" FontWeight="Bold"
-                              Foreground="#94A3B8" Margin="0,16,0,0">
-                        <ItemsControl ItemsSource="{Binding Regeln}" Margin="8,8,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type vm:RegelViewModel}">
-                                    <Border Margin="0,3" Padding="8,7" CornerRadius="4"
-                                            BorderThickness="1" BorderBrush="#E2E8F0">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="Background" Value="White" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IstRedundant}" Value="True">
-                                                        <Setter Property="Background" Value="#F8FAFC" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <StackPanel>
-                                            <CheckBox IsChecked="{Binding IstAktiv, Mode=TwoWay}"
-                                                      FontSize="13" FontWeight="SemiBold">
-                                                <CheckBox.Style>
-                                                    <Style TargetType="CheckBox">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IstRedundant}" Value="True">
-                                                                <Setter Property="IsEnabled" Value="False" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </CheckBox.Style>
-                                                <TextBlock Text="{Binding Anzeige}" FontSize="13"
-                                                           FontWeight="SemiBold">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="#1E293B" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IstRedundant}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#94A3B8" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                            </CheckBox>
-                                            <TextBlock Text="{Binding Beschreibung}"
-                                                       FontSize="11" Foreground="#64748B"
-                                                       TextWrapping="Wrap" Margin="20,3,0,0" />
-                                            <TextBlock Text="{Binding RedundanzHinweis}"
-                                                       FontSize="11" Foreground="#F59E0B"
-                                                       FontStyle="Italic"
-                                                       TextWrapping="Wrap" Margin="20,3,0,0"
-                                                       Visibility="{Binding IstRedundant, Converter={StaticResource BoolToVisibility}}" />
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Expander>
+                    <!-- REGELN: liegen seit #162 im Ribbon (Tab "Auslosung", Gruppe "Auslosung",
+                         DropDownButton "Auslosungs-Regeln") statt hier ganz unten als Expander. -->
 
                     <!-- Gruppenphase-Ergebnis: Teams nach Gruppen (ausgeblendet während TV-Modus-Animation) -->
                     <StackPanel Margin="0,16,0,0"
