@@ -1,0 +1,307 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Simulation;
+using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
+using Fussballturnierverwaltung.Domain.Enums;
+using Fussballturnierverwaltung.Wpf.Ribbon;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Windows.Input;
+
+namespace Fussballturnierverwaltung.Wpf.ViewModels;
+
+/// <summary>
+/// Issue #174: freie Einzelspiel-Simulation als eigenständiger Menüpunkt, aus SimulationsViewModel
+/// extrahiert — braucht anders als die Turnierspiel-Simulation keinen Turnier/Runde/Spiel-Kontext,
+/// nur zwei Mannschaften. Teilt sich die Protokoll-Formatierung mit SimulationsViewModel über
+/// SimulationsProtokollHelfer statt sie zu duplizieren.
+/// </summary>
+public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAware
+{
+    private readonly SimulationsService _simulationsService;
+    private readonly MannschaftService  _mannschaftService;
+    private readonly RegelwerkService   _regelwerkService;
+    private readonly VerbandService     _verbandService;
+
+    [ObservableProperty] private ObservableCollection<Mannschaft> _alleMannschaften = [];
+    [ObservableProperty] private ObservableCollection<Regelwerk>  _alleRegelwerke   = [];
+    [ObservableProperty] private ObservableCollection<Verband>    _alleVerbaende    = [];
+
+    private static readonly VerbandFilterOption AllesVerband = new("— Alle —", null);
+
+    public IReadOnlyList<VerbandFilterOption> VerbandFilterOptionen =>
+        [AllesVerband, ..AlleVerbaende.Select(v => new VerbandFilterOption(v.Name, v))];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EinzelspielKannSimuliert))]
+    private Mannschaft? _einzelspielHeim;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EinzelspielKannSimuliert))]
+    private Mannschaft? _einzelspielAuswaerts;
+
+    [ObservableProperty] private Regelwerk? _einzelspielRegelwerk;
+    [ObservableProperty] private bool       _einzelspielMitRueckspiel;
+
+    // Verband-Filter + Suche je Seite — Heim und Auswaerts unabhaengig voneinander filterbar.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HeimMannschaftenGefiltert))]
+    private VerbandFilterOption _heimVerbandFilter = AllesVerband;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HeimMannschaftenGefiltert))]
+    private string _heimSuchbegriff = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AuswaertsMannschaftenGefiltert))]
+    private VerbandFilterOption _auswaertsVerbandFilter = AllesVerband;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AuswaertsMannschaftenGefiltert))]
+    private string _auswaertsSuchbegriff = "";
+
+    public IEnumerable<Mannschaft> HeimMannschaftenGefiltert => AlleMannschaften
+        .Where(m => HeimVerbandFilter.Wert is null || m.Land?.VerbandId == HeimVerbandFilter.Wert.Id)
+        .Where(m => string.IsNullOrWhiteSpace(HeimSuchbegriff)
+            || m.Name.Contains(HeimSuchbegriff, StringComparison.OrdinalIgnoreCase)
+            || m.Kurzname.Contains(HeimSuchbegriff, StringComparison.OrdinalIgnoreCase));
+
+    public IEnumerable<Mannschaft> AuswaertsMannschaftenGefiltert => AlleMannschaften
+        .Where(m => AuswaertsVerbandFilter.Wert is null || m.Land?.VerbandId == AuswaertsVerbandFilter.Wert.Id)
+        .Where(m => string.IsNullOrWhiteSpace(AuswaertsSuchbegriff)
+            || m.Name.Contains(AuswaertsSuchbegriff, StringComparison.OrdinalIgnoreCase)
+            || m.Kurzname.Contains(AuswaertsSuchbegriff, StringComparison.OrdinalIgnoreCase));
+
+    public bool EinzelspielKannSimuliert =>
+        EinzelspielHeim is not null &&
+        EinzelspielAuswaerts is not null &&
+        EinzelspielHeim != EinzelspielAuswaerts &&
+        !IstLadend;
+
+    // ── Protokoll ─────────────────────────────────────────────────────────────
+
+    [ObservableProperty] private string? _protokollSpielInfo;
+
+    public ObservableCollection<string>                   ProtokollZeilen    { get; } = [];
+    public ObservableCollection<EinzelspielEreignisZeile> ProtokollEreignisse { get; } = [];
+
+    public bool HatProtokoll           => ProtokollZeilen.Count > 0;
+    public bool HatProtokollEreignisse => ProtokollEreignisse.Count > 0;
+    public bool ZeigeLeerZustand       => !HatProtokoll;
+
+    // ── Status ────────────────────────────────────────────────────────────────
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EinzelspielKannSimuliert))]
+    private bool    _istLadend;
+
+    [ObservableProperty] private string? _fehlermeldung;
+
+    // ── Befehle ───────────────────────────────────────────────────────────────
+
+    public ICommand EinzelspielFreiBefehl             { get; }
+    public ICommand EinzelspielFreiAusfuehrlichBefehl { get; }
+
+    // ── IRibbonAware (Issue #174) ─────────────────────────────────────────────
+    // Weder Neu/Speichern/Abbrechen/Löschen haben hier eine Entsprechung — Simulieren schreibt
+    // nichts in eine DB, es gibt keinen Datensatz zum Anlegen/Speichern/Löschen. HatStandardAktionen
+    // UND HatLoeschenAktion daher beide bewusst false (Löschen-Default ist true, siehe
+    // [[feedback-composite-vm-aktivierenasync]] — ohne explizites Überschreiben käme der #173-Bug
+    // hier zurück, ein command-loser "Löschen"-Button).
+    public string   RibbonTabTitel  => "Einzelspiel-Simulation";
+    public ICommand? NeuBefehl       => null;
+    public ICommand? SpeichernBefehl => null;
+    public ICommand? AbbrechenBefehl => null;
+    public ICommand? LoeschenBefehl  => null;
+    public bool HatStandardAktionen => false;
+    public bool HatLoeschenAktion   => false;
+
+    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
+    [
+        new RibbonGruppe
+        {
+            Header = "Simulation",
+            Aktionen =
+            [
+                new RibbonAktion
+                {
+                    Header = "Einzelspiel simulieren",
+                    Befehl = EinzelspielFreiBefehl,
+                    IconGlyph = "",
+                    Unteraktionen =
+                    [
+                        new RibbonAktion { Header = "Ausführliche Simulation", Befehl = EinzelspielFreiAusfuehrlichBefehl, IconVektorDatei = "magnifying_glass.xaml" },
+                    ],
+                },
+            ],
+        },
+    ];
+
+    // ── Konstruktor ───────────────────────────────────────────────────────────
+
+    public EinzelspielSimulationsViewModel(
+        SimulationsService simulationsService,
+        MannschaftService  mannschaftService,
+        RegelwerkService   regelwerkService,
+        VerbandService     verbandService)
+    {
+        _simulationsService = simulationsService;
+        _mannschaftService  = mannschaftService;
+        _regelwerkService    = regelwerkService;
+        _verbandService      = verbandService;
+
+        EinzelspielFreiBefehl             = new AsyncRelayCommand(() => EinzelspielFreiSimulierenAsync(SimulationsModus.SchnellSimulation), () => EinzelspielKannSimuliert);
+        EinzelspielFreiAusfuehrlichBefehl = new AsyncRelayCommand(() => EinzelspielFreiSimulierenAsync(SimulationsModus.AusfuehrlicheSimulation), () => EinzelspielKannSimuliert);
+    }
+
+    // ── Initialisierung ───────────────────────────────────────────────────────
+
+    public override async Task AktivierenAsync()
+    {
+        var mannschaftsListe = await _mannschaftService.AlleAbrufenMitLandAsync();
+        var regelwerkListe   = await _regelwerkService.AlleAbrufenAsync();
+        var verbandListe     = await _verbandService.AlleAbrufenAsync();
+
+        AlleMannschaften.Clear();
+        foreach (var m in mannschaftsListe.OrderBy(m => m.Name)) AlleMannschaften.Add(m);
+        OnPropertyChanged(nameof(HeimMannschaftenGefiltert));
+        OnPropertyChanged(nameof(AuswaertsMannschaftenGefiltert));
+
+        AlleRegelwerke.Clear();
+        foreach (var r in regelwerkListe) AlleRegelwerke.Add(r);
+
+        AlleVerbaende.Clear();
+        foreach (var verband in verbandListe.OrderBy(x => x.Name)) AlleVerbaende.Add(verband);
+        OnPropertyChanged(nameof(VerbandFilterOptionen));
+    }
+
+    // ── Property-Reaktionen ───────────────────────────────────────────────────
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+
+        switch (e.PropertyName)
+        {
+            case nameof(IstLadend):
+            case nameof(EinzelspielHeim):
+            case nameof(EinzelspielAuswaerts):
+                AktualisiereBefehle();
+                break;
+        }
+    }
+
+    // ── Freie Simulation ──────────────────────────────────────────────────────
+
+    private async Task EinzelspielFreiSimulierenAsync(SimulationsModus modus)
+    {
+        if (EinzelspielHeim is null || EinzelspielAuswaerts is null) return;
+
+        var heim      = EinzelspielHeim;
+        var auswaerts = EinzelspielAuswaerts;
+        var verfahren = EinzelspielRegelwerk?.Entscheidungsverfahren.ToList()
+                        ?? (IReadOnlyList<EntscheidungsVerfahren>)[];
+
+        Fehlermeldung = null;
+        IstLadend     = true;
+        LeerProtokolll();
+
+        await Task.Yield();
+
+        try
+        {
+            if (EinzelspielMitRueckspiel)
+            {
+                var rng  = new Random();
+                var erg1 = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, modus, rng);
+                var erg2 = _simulationsService.EinzelspielSimulieren(auswaerts, heim, verfahren, modus, rng);
+
+                int heimGesamt      = (erg1.HeimToreRegulaer     + (erg1.HeimToreVerlaengerung ?? 0))
+                                    + (erg2.AuswaertsToreRegulaer + (erg2.AuswaertsToreVerlaengerung ?? 0));
+                int auswaertsGesamt = (erg1.AuswaertsToreRegulaer + (erg1.AuswaertsToreVerlaengerung ?? 0))
+                                    + (erg2.HeimToreRegulaer      + (erg2.HeimToreVerlaengerung ?? 0));
+
+                string weiter = heimGesamt > auswaertsGesamt ? heim.Name
+                              : heimGesamt < auswaertsGesamt ? auswaerts.Name
+                              : "Unentschieden";
+
+                ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name} (Hin & Rück)";
+                ProtokollZeilen.Add($"Hinspiel:   {SimulationsProtokollHelfer.FormatErgebnisZeile(erg1, heim.Name, auswaerts.Name)}");
+                ProtokollZeilen.Add($"Rückspiel:  {SimulationsProtokollHelfer.FormatErgebnisZeile(erg2, auswaerts.Name, heim.Name)}");
+                ProtokollZeilen.Add($"Gesamt:     {heim.Name}  {heimGesamt}:{auswaertsGesamt}  {auswaerts.Name}");
+                ProtokollZeilen.Add($"Weiter:     {weiter}");
+
+                if (modus == SimulationsModus.AusfuehrlicheSimulation)
+                {
+                    SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
+                        ProtokollEreignisse,
+                        erg1.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
+                        heim.Name, auswaerts.Name, erg1.EntscheidungArt,
+                        erg1.HeimToreRegulaer, erg1.AuswaertsToreRegulaer,
+                        erg1.HeimToreVerlaengerung, erg1.AuswaertsToreVerlaengerung,
+                        erg1.HeimElfmetertore, erg1.AuswaertsElfmetertore,
+                        minutenPraefix: "Hin");
+
+                    // erg2 wurde mit vertauschten Rollen simuliert (Auswärts spielt zu Hause) —
+                    // Seiten und Tore auf die feste Team-Identität (heim/auswaerts) zurückspiegeln.
+                    SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
+                        ProtokollEreignisse,
+                        erg2.Ereignisse.Select(ev => (ev.Minute, ev.Art, !ev.IstHeim)),
+                        heim.Name, auswaerts.Name, erg2.EntscheidungArt,
+                        erg2.AuswaertsToreRegulaer, erg2.HeimToreRegulaer,
+                        erg2.AuswaertsToreVerlaengerung, erg2.HeimToreVerlaengerung,
+                        erg2.AuswaertsElfmetertore, erg2.HeimElfmetertore,
+                        minutenPraefix: "Rück");
+                }
+            }
+            else
+            {
+                var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, modus);
+                ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
+                ProtokollZeilen.Add(SimulationsProtokollHelfer.FormatErgebnisZeile(erg, heim.Name, auswaerts.Name));
+
+                if (modus == SimulationsModus.AusfuehrlicheSimulation)
+                {
+                    SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
+                        ProtokollEreignisse,
+                        erg.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
+                        heim.Name, auswaerts.Name, erg.EntscheidungArt,
+                        erg.HeimToreRegulaer, erg.AuswaertsToreRegulaer,
+                        erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
+                        erg.HeimElfmetertore, erg.AuswaertsElfmetertore);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstLadend = false;
+            AktualisiereBefehle();
+            OnPropertyChanged(nameof(HatProtokoll));
+            OnPropertyChanged(nameof(HatProtokollEreignisse));
+            OnPropertyChanged(nameof(ZeigeLeerZustand));
+        }
+    }
+
+    private void LeerProtokolll()
+    {
+        ProtokollSpielInfo = null;
+        ProtokollZeilen.Clear();
+        ProtokollEreignisse.Clear();
+        OnPropertyChanged(nameof(HatProtokoll));
+        OnPropertyChanged(nameof(HatProtokollEreignisse));
+        OnPropertyChanged(nameof(ZeigeLeerZustand));
+    }
+
+    private void AktualisiereBefehle()
+    {
+        ((AsyncRelayCommand)EinzelspielFreiBefehl).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)EinzelspielFreiAusfuehrlichBefehl).NotifyCanExecuteChanged();
+    }
+}

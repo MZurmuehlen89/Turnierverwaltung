@@ -70,8 +70,9 @@ public partial class MainViewModel : ViewModelBase
             Titel = "Bewegungsdaten",
             Eintraege =
             [
-                EintragErstellen("Turniere",           () => _navigation.NavigiereZuAsync<TurnierInstanzViewModel>()),
-                EintragErstellen("Turnier-Bereich",    () => _navigation.NavigiereZuAsync<TurnierEditorViewModel>()),
+                EintragErstellen("Turniere",              () => _navigation.NavigiereZuAsync<TurnierInstanzViewModel>()),
+                EintragErstellen("Turnier-Bereich",       () => _navigation.NavigiereZuAsync<TurnierEditorViewModel>()),
+                EintragErstellen("Einzelspiel-Simulation", () => _navigation.NavigiereZuAsync<EinzelspielSimulationsViewModel>()),
             ]
         });
 

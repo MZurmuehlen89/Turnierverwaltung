@@ -4,26 +4,6 @@
              xmlns:vm="clr-namespace:Fussballturnierverwaltung.Wpf.ViewModels">
 
     <UserControl.Resources>
-        <Style x:Key="TeamSucheTextBox" TargetType="TextBox">
-            <Setter Property="Padding" Value="6,4" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="BorderBrush" Value="#CBD5E1" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Style.Triggers>
-                <Trigger Property="Text" Value="">
-                    <Setter Property="Background">
-                        <Setter.Value>
-                            <VisualBrush Stretch="None" AlignmentX="Left">
-                                <VisualBrush.Visual>
-                                    <TextBlock Text="🔍  Suche…" Foreground="#9CA3AF" Margin="6,4" FontSize="12" />
-                                </VisualBrush.Visual>
-                            </VisualBrush>
-                        </Setter.Value>
-                    </Setter>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
         <!-- Flache ComboBox fuer die Breadcrumb-Leiste (Turnier/Runde/Spiel) -->
         <Style x:Key="BreadcrumbCombo" TargetType="ComboBox">
             <Setter Property="BorderThickness" Value="0" />
@@ -45,311 +25,200 @@
 
     <DockPanel>
 
-        <!-- Kopf-Leiste: Modus-Auswahl (beide Modi) + Breadcrumb (nur Turnier-Modus) in einer Zeile
-             statt vormals zwei gestapelten Leisten (Issue #164) -->
+        <!-- Kopf-Leiste: Breadcrumb (Turnier › Runde › Spiel) — Issue #174: Einzelspiel-Simulation
+             ist jetzt ein eigenständiger Menüpunkt, kein Modus-Umschalter mehr nötig -->
         <Border DockPanel.Dock="Top" Background="White"
-                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="10,8">
+                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="16,8">
             <StackPanel Orientation="Horizontal">
-                <ComboBox SelectedIndex="{Binding ModusIndex}" FontSize="12" Width="150">
-                    <ComboBoxItem Content="Turnierspiel" />
-                    <ComboBoxItem Content="Freies Einzelspiel" />
+                <TextBlock Text="🏆" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <TextBlock Text="{Binding AusgewaehlteInstanz.Name}" FontSize="13"
+                           FontWeight="SemiBold" VerticalAlignment="Center" />
+
+                <TextBlock Style="{StaticResource BreadcrumbTrenner}"
+                           Visibility="{Binding AusgewaehlteInstanz, Converter={StaticResource NullToCollapsed}}" />
+                <ComboBox ItemsSource="{Binding Runden}"
+                          SelectedItem="{Binding AusgewaehlteRunde}"
+                          DisplayMemberPath="Name"
+                          Style="{StaticResource BreadcrumbCombo}"
+                          Visibility="{Binding AusgewaehlteInstanz, Converter={StaticResource NullToCollapsed}}" />
+
+                <TextBlock Style="{StaticResource BreadcrumbTrenner}"
+                           Visibility="{Binding HatRunde, Converter={StaticResource BoolToVisibility}}" />
+                <ComboBox ItemsSource="{Binding Spiele}"
+                          SelectedItem="{Binding AusgewaehlteSpiel}"
+                          Style="{StaticResource BreadcrumbCombo}"
+                          MinWidth="220"
+                          Visibility="{Binding HatRunde, Converter={StaticResource BoolToVisibility}}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:SpielZeile}">
+                            <TextBlock FontSize="12" TextTrimming="CharacterEllipsis">
+                                <Run Text="{Binding HeimName}" />
+                                <Run Text=" – " Foreground="#94A3B8" />
+                                <Run Text="{Binding AuswaertsName}" />
+                                <Run Text=" " />
+                                <Run Text="{Binding ErgebnisText}" Foreground="#64748B" FontFamily="Consolas" />
+                            </TextBlock>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
                 </ComboBox>
+
                 <TextBlock Text="Simuliert…" FontSize="12" Foreground="#94A3B8"
                            VerticalAlignment="Center" Margin="16,0,0,0"
                            Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
-
-                <!-- Turnier-Modus: Breadcrumb (Turnier › Runde › Spiel) als Fortsetzung derselben Zeile -->
-                <StackPanel Orientation="Horizontal"
-                            Visibility="{Binding IstTurnierModus, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Style="{StaticResource BreadcrumbTrenner}" Margin="16,0,4,0" />
-                    <TextBlock Text="🏆" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0" />
-                    <TextBlock Text="{Binding AusgewaehlteInstanz.Name}" FontSize="13"
-                               FontWeight="SemiBold" VerticalAlignment="Center" />
-
-                    <TextBlock Style="{StaticResource BreadcrumbTrenner}"
-                               Visibility="{Binding AusgewaehlteInstanz, Converter={StaticResource NullToCollapsed}}" />
-                    <ComboBox ItemsSource="{Binding Runden}"
-                              SelectedItem="{Binding AusgewaehlteRunde}"
-                              DisplayMemberPath="Name"
-                              Style="{StaticResource BreadcrumbCombo}"
-                              Visibility="{Binding AusgewaehlteInstanz, Converter={StaticResource NullToCollapsed}}" />
-
-                    <TextBlock Style="{StaticResource BreadcrumbTrenner}"
-                               Visibility="{Binding HatRunde, Converter={StaticResource BoolToVisibility}}" />
-                    <ComboBox ItemsSource="{Binding Spiele}"
-                              SelectedItem="{Binding AusgewaehlteSpiel}"
-                              Style="{StaticResource BreadcrumbCombo}"
-                              MinWidth="220"
-                              Visibility="{Binding HatRunde, Converter={StaticResource BoolToVisibility}}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                <TextBlock FontSize="12" TextTrimming="CharacterEllipsis">
-                                    <Run Text="{Binding HeimName}" />
-                                    <Run Text=" – " Foreground="#94A3B8" />
-                                    <Run Text="{Binding AuswaertsName}" />
-                                    <Run Text=" " />
-                                    <Run Text="{Binding ErgebnisText}" Foreground="#64748B" FontFamily="Consolas" />
-                                </TextBlock>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                </StackPanel>
             </StackPanel>
         </Border>
 
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="260" MinWidth="200" MaxWidth="340" />
-                <ColumnDefinition Width="4" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+        <DockPanel>
 
-            <!-- ── Linke Spalte: nur Einzelspiel-Modus (Turnier-Modus nutzt die volle Breite) ── -->
-            <DockPanel Grid.Column="0" Background="#F8FAFC"
-                       Visibility="{Binding IstEinzelspielModus, Converter={StaticResource BoolToVisibility}}">
+            <!-- Team-Vorschau-Karte vor der Simulation -->
+            <Border DockPanel.Dock="Top" Margin="16,16,16,0"
+                    Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                    CornerRadius="8" Padding="24,20"
+                    Visibility="{Binding ZeigeVorschauKarte, Converter={StaticResource BoolToVisibility}}">
+                <Grid HorizontalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="10,8">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding AusgewaehlteSpiel.HeimName}"
+                               FontSize="20" FontWeight="Bold" Foreground="#1E293B"
+                               HorizontalAlignment="Center" Margin="24,0" />
+                    <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding AusgewaehlteSpiel.AuswaertsName}"
+                               FontSize="20" FontWeight="Bold" Foreground="#1E293B"
+                               HorizontalAlignment="Center" Margin="24,0" />
 
-                        <TextBlock Text="HEIMTEAM" FontSize="10" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="0,4,0,4" />
-                        <Grid Margin="0,0,0,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" Text="{Binding HeimSuchbegriff, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource TeamSucheTextBox}" />
-                            <ComboBox Grid.Column="2" ItemsSource="{Binding VerbandFilterOptionen}"
-                                      SelectedItem="{Binding HeimVerbandFilter}"
-                                      DisplayMemberPath="Anzeige"
-                                      Padding="4,2" FontSize="12" />
-                        </Grid>
-                        <ComboBox ItemsSource="{Binding HeimMannschaftenGefiltert}"
-                                  SelectedItem="{Binding EinzelspielHeim}"
-                                  DisplayMemberPath="Name"
-                                  FontSize="13" />
+                    <TextBlock Grid.Row="1" Grid.Column="0"
+                               Text="{Binding AusgewaehlteSpiel.HeimRating, StringFormat={}⭐ {0:F1}}"
+                               FontSize="13" Foreground="#64748B"
+                               HorizontalAlignment="Center" Margin="0,4,0,0" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="vs" FontSize="14" FontWeight="Bold"
+                               Foreground="#94A3B8" VerticalAlignment="Center" Margin="16,4,16,0" />
+                    <TextBlock Grid.Row="1" Grid.Column="2"
+                               Text="{Binding AusgewaehlteSpiel.AuswaertsRating, StringFormat={}⭐ {0:F1}}"
+                               FontSize="13" Foreground="#64748B"
+                               HorizontalAlignment="Center" Margin="0,4,0,0" />
+                </Grid>
+            </Border>
 
-                        <TextBlock Text="AUSWÄRTSTEAM" FontSize="10" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="0,12,0,4" />
-                        <Grid Margin="0,0,0,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" Text="{Binding AuswaertsSuchbegriff, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource TeamSucheTextBox}" />
-                            <ComboBox Grid.Column="2" ItemsSource="{Binding VerbandFilterOptionen}"
-                                      SelectedItem="{Binding AuswaertsVerbandFilter}"
-                                      DisplayMemberPath="Anzeige"
-                                      Padding="4,2" FontSize="12" />
-                        </Grid>
-                        <ComboBox ItemsSource="{Binding AuswaertsMannschaftenGefiltert}"
-                                  SelectedItem="{Binding EinzelspielAuswaerts}"
-                                  DisplayMemberPath="Name"
-                                  FontSize="13" />
+            <!-- Fehlermeldung -->
+            <Border DockPanel.Dock="Top" Margin="16,10,16,0"
+                    Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
+                    CornerRadius="4" Padding="12,8"
+                    Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
+                <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
+                           FontSize="12" TextWrapping="Wrap" />
+            </Border>
 
-                        <TextBlock Text="REGELWERK (OPTIONAL)" FontSize="10" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="0,12,0,4" />
-                        <ComboBox ItemsSource="{Binding AlleRegelwerke}"
-                                  SelectedItem="{Binding EinzelspielRegelwerk}"
-                                  DisplayMemberPath="Name"
-                                  FontSize="13" />
-                        <TextBlock Text="Leer = kein Tiebreaker" FontSize="10"
-                                   Foreground="#94A3B8" Margin="0,2,0,0" />
+            <!-- Ergebnis-Karte -->
+            <Border DockPanel.Dock="Top"
+                    Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
+                    CornerRadius="6" Padding="16,12" Margin="16,12,16,0"
+                    Visibility="{Binding HatProtokoll, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock Text="ERGEBNIS" FontSize="10" FontWeight="Bold"
+                               Foreground="#16A34A" Margin="0,0,0,8" HorizontalAlignment="Center" />
+                    <ItemsControl ItemsSource="{Binding ProtokollZeilen}"
+                                  HorizontalAlignment="Center" HorizontalContentAlignment="Center">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="#1E293B" FontFamily="Consolas" Margin="0,2"
+                                           HorizontalAlignment="Center" TextAlignment="Center" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
 
-                        <CheckBox Content="Mit Rückspiel"
-                                  IsChecked="{Binding EinzelspielMitRueckspiel}"
-                                  Margin="0,14,0,0" FontSize="13" />
+            <!-- Spielverlauf (Ausführliche Simulation) -->
+            <Border DockPanel.Dock="Top"
+                    Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                    CornerRadius="4" Margin="16,8,16,0"
+                    Visibility="{Binding HatProtokollEreignisse, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock Text="SPIELVERLAUF" FontSize="10" FontWeight="Bold"
+                               Foreground="#94A3B8" Margin="12,8,12,4" />
 
-                    </StackPanel>
-                </ScrollViewer>
-
-            </DockPanel>
-
-            <Border Grid.Column="1" Background="#E2E8F0"
-                    Visibility="{Binding IstEinzelspielModus, Converter={StaticResource BoolToVisibility}}" />
-
-            <!-- ── Fokus-Bereich: Einzelspiel-Modus = rechte Spalte, Turnier-Modus = volle Breite ── -->
-            <DockPanel Grid.Column="2">
-                <DockPanel.Style>
-                    <Style TargetType="DockPanel">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IstTurnierModus}" Value="True">
-                                <Setter Property="Grid.Column" Value="0" />
-                                <Setter Property="Grid.ColumnSpan" Value="3" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </DockPanel.Style>
-
-                <!-- Turnier-Modus: Team-Vorschau-Karte vor der Simulation -->
-                <Border DockPanel.Dock="Top" Margin="16,16,16,0"
-                        Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                        CornerRadius="8" Padding="24,20"
-                        Visibility="{Binding ZeigeVorschauKarte, Converter={StaticResource BoolToVisibility}}">
-                    <Grid HorizontalAlignment="Center">
+                    <Grid Margin="12,0,12,4">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="50" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding AusgewaehlteSpiel.HeimName}"
-                                   FontSize="20" FontWeight="Bold" Foreground="#1E293B"
-                                   HorizontalAlignment="Center" Margin="24,0" />
-                        <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding AusgewaehlteSpiel.AuswaertsName}"
-                                   FontSize="20" FontWeight="Bold" Foreground="#1E293B"
-                                   HorizontalAlignment="Center" Margin="24,0" />
-
-                        <TextBlock Grid.Row="1" Grid.Column="0"
-                                   Text="{Binding AusgewaehlteSpiel.HeimRating, StringFormat={}⭐ {0:F1}}"
-                                   FontSize="13" Foreground="#64748B"
-                                   HorizontalAlignment="Center" Margin="0,4,0,0" />
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="vs" FontSize="14" FontWeight="Bold"
-                                   Foreground="#94A3B8" VerticalAlignment="Center" Margin="16,4,16,0" />
-                        <TextBlock Grid.Row="1" Grid.Column="2"
-                                   Text="{Binding AusgewaehlteSpiel.AuswaertsRating, StringFormat={}⭐ {0:F1}}"
-                                   FontSize="13" Foreground="#64748B"
-                                   HorizontalAlignment="Center" Margin="0,4,0,0" />
+                        <TextBlock Grid.Column="0" Text="HEIM" FontSize="9" FontWeight="Bold"
+                                   Foreground="#CBD5E1" HorizontalAlignment="Right" />
+                        <TextBlock Grid.Column="2" Text="AUSWÄRTS" FontSize="9" FontWeight="Bold"
+                                   Foreground="#CBD5E1" HorizontalAlignment="Left" />
                     </Grid>
-                </Border>
+                    <Separator />
 
-                <!-- Header (nur Einzelspiel-Modus — im Turnier-Modus uebernimmt die Breadcrumb-Leiste den Kontext) -->
-                <Border DockPanel.Dock="Top" Background="White"
-                        BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="16,10"
-                        Visibility="{Binding IstEinzelspielModus, Converter={StaticResource BoolToVisibility}}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="SPIELPROTOKOLL" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" />
-                        <TextBlock Foreground="#94A3B8" FontSize="11" FontWeight="Bold" Text=" · "
-                                   Visibility="{Binding ProtokollSpielInfo, Converter={StaticResource NullToCollapsed}}" />
-                        <TextBlock Text="{Binding ProtokollSpielInfo}" FontSize="11" FontWeight="Bold"
-                                   Foreground="#475569"
-                                   Visibility="{Binding ProtokollSpielInfo, Converter={StaticResource NullToCollapsed}}" />
-                    </StackPanel>
-                </Border>
-
-                <!-- Fehlermeldung -->
-                <Border DockPanel.Dock="Top" Margin="16,10,16,0"
-                        Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
-                        CornerRadius="4" Padding="12,8"
-                        Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                    <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
-                               FontSize="12" TextWrapping="Wrap" />
-                </Border>
-
-                <!-- Ergebnis-Karte -->
-                <Border DockPanel.Dock="Top"
-                        Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
-                        CornerRadius="6" Padding="16,12" Margin="16,12,16,0"
-                        Visibility="{Binding HatProtokoll, Converter={StaticResource BoolToVisibility}}">
-                    <StackPanel>
-                        <TextBlock Text="ERGEBNIS" FontSize="10" FontWeight="Bold"
-                                   Foreground="#16A34A" Margin="0,0,0,8" HorizontalAlignment="Center" />
-                        <ItemsControl ItemsSource="{Binding ProtokollZeilen}"
-                                      HorizontalAlignment="Center" HorizontalContentAlignment="Center">
+                    <ScrollViewer MaxHeight="400" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding ProtokollEreignisse}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding}" FontSize="14" FontWeight="SemiBold"
-                                               Foreground="#1E293B" FontFamily="Consolas" Margin="0,2"
-                                               HorizontalAlignment="Center" TextAlignment="Center" />
+                                <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
+                                    <Grid>
+                                        <!-- Ereignis-Zeile -->
+                                        <Grid Margin="12,4"
+                                              Visibility="{Binding IstTrenner, Converter={StaticResource InverseBoolToVisibility}}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="50" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                                        HorizontalAlignment="Right"
+                                                        Visibility="{Binding IstHeimSeite, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="{Binding Art}" FontSize="11"
+                                                           Foreground="#1E293B" TextAlignment="Right" />
+                                                <TextBlock Text=" ◄" FontSize="11" FontWeight="Bold"
+                                                           Foreground="#8B5CF6" Margin="4,0,0,0" />
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="1" Text="{Binding Minute}" FontSize="11"
+                                                       Foreground="#64748B" FontFamily="Consolas"
+                                                       HorizontalAlignment="Center" />
+
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                        HorizontalAlignment="Left"
+                                                        Visibility="{Binding IstHeimSeite, Converter={StaticResource InverseBoolToVisibility}}">
+                                                <TextBlock Text="► " FontSize="11" FontWeight="Bold"
+                                                           Foreground="#8B5CF6" />
+                                                <TextBlock Text="{Binding Art}" FontSize="11" Foreground="#1E293B" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Abschnittstrenner -->
+                                        <Grid Margin="12,10"
+                                              Visibility="{Binding IstTrenner, Converter={StaticResource BoolToVisibility}}">
+                                            <Separator VerticalAlignment="Center" />
+                                            <Border Background="White" HorizontalAlignment="Center" Padding="8,0">
+                                                <TextBlock Text="{Binding TrennerText}" FontSize="9" FontWeight="Bold"
+                                                           Foreground="#94A3B8" />
+                                            </Border>
+                                        </Grid>
+                                    </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                    </StackPanel>
-                </Border>
+                    </ScrollViewer>
+                </StackPanel>
+            </Border>
 
-                <!-- Spielverlauf (Ausführliche Simulation) -->
-                <Border DockPanel.Dock="Top"
-                        Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                        CornerRadius="4" Margin="16,8,16,0"
-                        Visibility="{Binding HatProtokollEreignisse, Converter={StaticResource BoolToVisibility}}">
-                    <StackPanel>
-                        <TextBlock Text="SPIELVERLAUF" FontSize="10" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="12,8,12,4" />
+            <!-- Leer-Zustand -->
+            <TextBlock Text="Spiel auswählen und auf Simulieren klicken&#x0a;— oder über Spielplan → Ausführliche Simulation starten."
+                       Foreground="#94A3B8" FontSize="13" TextWrapping="Wrap"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       MaxWidth="340" TextAlignment="Center"
+                       Visibility="{Binding ZeigeLeerZustand, Converter={StaticResource BoolToVisibility}}" />
 
-                        <Grid Margin="12,0,12,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="50" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="HEIM" FontSize="9" FontWeight="Bold"
-                                       Foreground="#CBD5E1" HorizontalAlignment="Right" />
-                            <TextBlock Grid.Column="2" Text="AUSWÄRTS" FontSize="9" FontWeight="Bold"
-                                       Foreground="#CBD5E1" HorizontalAlignment="Left" />
-                        </Grid>
-                        <Separator />
-
-                        <ScrollViewer MaxHeight="400" VerticalScrollBarVisibility="Auto">
-                            <ItemsControl ItemsSource="{Binding ProtokollEreignisse}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
-                                        <Grid>
-                                            <!-- Ereignis-Zeile -->
-                                            <Grid Margin="12,4"
-                                                  Visibility="{Binding IstTrenner, Converter={StaticResource InverseBoolToVisibility}}">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="50" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-
-                                                <StackPanel Grid.Column="0" Orientation="Horizontal"
-                                                            HorizontalAlignment="Right"
-                                                            Visibility="{Binding IstHeimSeite, Converter={StaticResource BoolToVisibility}}">
-                                                    <TextBlock Text="{Binding Art}" FontSize="11"
-                                                               Foreground="#1E293B" TextAlignment="Right" />
-                                                    <TextBlock Text=" ◄" FontSize="11" FontWeight="Bold"
-                                                               Foreground="#8B5CF6" Margin="4,0,0,0" />
-                                                </StackPanel>
-
-                                                <TextBlock Grid.Column="1" Text="{Binding Minute}" FontSize="11"
-                                                           Foreground="#64748B" FontFamily="Consolas"
-                                                           HorizontalAlignment="Center" />
-
-                                                <StackPanel Grid.Column="2" Orientation="Horizontal"
-                                                            HorizontalAlignment="Left"
-                                                            Visibility="{Binding IstHeimSeite, Converter={StaticResource InverseBoolToVisibility}}">
-                                                    <TextBlock Text="► " FontSize="11" FontWeight="Bold"
-                                                               Foreground="#8B5CF6" />
-                                                    <TextBlock Text="{Binding Art}" FontSize="11" Foreground="#1E293B" />
-                                                </StackPanel>
-                                            </Grid>
-
-                                            <!-- Abschnittstrenner -->
-                                            <Grid Margin="12,10"
-                                                  Visibility="{Binding IstTrenner, Converter={StaticResource BoolToVisibility}}">
-                                                <Separator VerticalAlignment="Center" />
-                                                <Border Background="White" HorizontalAlignment="Center" Padding="8,0">
-                                                    <TextBlock Text="{Binding TrennerText}" FontSize="9" FontWeight="Bold"
-                                                               Foreground="#94A3B8" />
-                                                </Border>
-                                            </Grid>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </StackPanel>
-                </Border>
-
-                <!-- Leer-Zustand -->
-                <TextBlock Text="Spiel auswählen und auf Simulieren klicken&#x0a;— oder über Spielplan → Ausführliche Simulation starten."
-                           Foreground="#94A3B8" FontSize="13" TextWrapping="Wrap"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           MaxWidth="340" TextAlignment="Center"
-                           Visibility="{Binding ZeigeLeerZustand, Converter={StaticResource BoolToVisibility}}" />
-
-            </DockPanel>
-
-        </Grid>
+        </DockPanel>
     </DockPanel>
 </UserControl>

@@ -46,6 +46,9 @@
         <DataTemplate DataType="{x:Type vm:SimulationsViewModel}">
             <views:SimulationsView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:EinzelspielSimulationsViewModel}">
+            <views:EinzelspielSimulationsView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:ImportExportViewModel}">
             <views:ImportExportView />
         </DataTemplate>
