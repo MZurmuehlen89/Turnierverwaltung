@@ -177,6 +177,7 @@ public partial class TurnierEditorViewModel : ViewModelBase, IRibbonAware, IHatU
         OnPropertyChanged(nameof(AbbrechenBefehl));
         OnPropertyChanged(nameof(LoeschenBefehl));
         OnPropertyChanged(nameof(RibbonZusatzGruppen));
+        OnPropertyChanged(nameof(HatStandardAktionen));
         OnPropertyChanged(nameof(HatUngespeicherteAenderungen));
     }
 
@@ -189,6 +190,7 @@ public partial class TurnierEditorViewModel : ViewModelBase, IRibbonAware, IHatU
     public ICommand? LoeschenBefehl  => (_tabs[AktiverTabIndex] as IRibbonAware)?.LoeschenBefehl;
     public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen
         => (_tabs[AktiverTabIndex] as IRibbonAware)?.RibbonZusatzGruppen ?? [];
+    public bool HatStandardAktionen => _tabs[AktiverTabIndex] is IRibbonAware;
 
     public bool HatUngespeicherteAenderungen
         => (_tabs[AktiverTabIndex] as IHatUngespeicherteAenderungen)?.HatUngespeicherteAenderungen ?? false;

@@ -20,15 +20,21 @@ public partial class MainViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(RibbonAbbrechenBefehl))]
     [NotifyPropertyChangedFor(nameof(RibbonLoeschenBefehl))]
     [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
+    [NotifyPropertyChangedFor(nameof(HatStandardAktionen))]
     private ViewModelBase? _aktuellesViewModel;
 
-    public bool HatRibbonBereich => AktuellesViewModel is IRibbonAware;
+    // Issue #173: Ribbon-Seitentab bleibt nur sichtbar, wenn es tatsächlich etwas anzuzeigen gibt —
+    // sonst (z.B. Simulation-Tab in TurnierEditorViewModel, weder Standardaktionen noch
+    // Zusatzgruppen) ein leerer Tab-Reiter ohne jeden Button, verwirrender als gar kein Seitentab.
+    public bool HatRibbonBereich => AktuellesViewModel is IRibbonAware ribbonAware
+        && (ribbonAware.HatStandardAktionen || ribbonAware.RibbonZusatzGruppen.Count > 0);
     public string RibbonTabTitel => (AktuellesViewModel as IRibbonAware)?.RibbonTabTitel ?? string.Empty;
     public ICommand? RibbonNeuBefehl => (AktuellesViewModel as IRibbonAware)?.NeuBefehl;
     public ICommand? RibbonSpeichernBefehl => (AktuellesViewModel as IRibbonAware)?.SpeichernBefehl;
     public ICommand? RibbonAbbrechenBefehl => (AktuellesViewModel as IRibbonAware)?.AbbrechenBefehl;
     public ICommand? RibbonLoeschenBefehl => (AktuellesViewModel as IRibbonAware)?.LoeschenBefehl;
     public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen => (AktuellesViewModel as IRibbonAware)?.RibbonZusatzGruppen ?? [];
+    public bool HatStandardAktionen => (AktuellesViewModel as IRibbonAware)?.HatStandardAktionen ?? false;
 
     public ObservableCollection<NavigationsGruppe> NavigationsGruppen { get; } = [];
 
@@ -84,7 +90,8 @@ public partial class MainViewModel : ViewModelBase
                                nameof(IRibbonAware.SpeichernBefehl) or
                                nameof(IRibbonAware.AbbrechenBefehl) or
                                nameof(IRibbonAware.LoeschenBefehl) or
-                               nameof(IRibbonAware.RibbonZusatzGruppen))
+                               nameof(IRibbonAware.RibbonZusatzGruppen) or
+                               nameof(IRibbonAware.HatStandardAktionen))
         {
             OnPropertyChanged(nameof(HatRibbonBereich));
             OnPropertyChanged(nameof(RibbonTabTitel));
@@ -93,6 +100,7 @@ public partial class MainViewModel : ViewModelBase
             OnPropertyChanged(nameof(RibbonAbbrechenBefehl));
             OnPropertyChanged(nameof(RibbonLoeschenBefehl));
             OnPropertyChanged(nameof(RibbonZusatzGruppen));
+            OnPropertyChanged(nameof(HatStandardAktionen));
         }
     }
 

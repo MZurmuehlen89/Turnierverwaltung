@@ -171,7 +171,8 @@
                                   Header="{Binding RibbonTabTitel}"
                                   Visibility="{Binding HatRibbonBereich, Converter={StaticResource BoolToVisibility}}">
 
-                <fluent:RibbonGroupBox Header="Datensatz">
+                <fluent:RibbonGroupBox Header="Datensatz"
+                                       Visibility="{Binding HatStandardAktionen, Converter={StaticResource BoolToVisibility}}">
                     <fluent:Button Header="Neu"
                                    Command="{Binding RibbonNeuBefehl}"
                                    SizeDefinition="Large">
@@ -204,7 +205,8 @@
                     </fluent:Button>
                 </fluent:RibbonGroupBox>
 
-                <fluent:RibbonGroupBox Header="Bearbeiten">
+                <fluent:RibbonGroupBox Header="Bearbeiten"
+                                       Visibility="{Binding HatStandardAktionen, Converter={StaticResource BoolToVisibility}}">
                     <fluent:Button Header="Löschen"
                                    Command="{Binding RibbonLoeschenBefehl}"
                                    SizeDefinition="Large">
