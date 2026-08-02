@@ -178,6 +178,7 @@ public partial class TurnierEditorViewModel : ViewModelBase, IRibbonAware, IHatU
         OnPropertyChanged(nameof(LoeschenBefehl));
         OnPropertyChanged(nameof(RibbonZusatzGruppen));
         OnPropertyChanged(nameof(HatStandardAktionen));
+        OnPropertyChanged(nameof(HatLoeschenAktion));
         OnPropertyChanged(nameof(HatUngespeicherteAenderungen));
     }
 
@@ -190,7 +191,12 @@ public partial class TurnierEditorViewModel : ViewModelBase, IRibbonAware, IHatU
     public ICommand? LoeschenBefehl  => (_tabs[AktiverTabIndex] as IRibbonAware)?.LoeschenBefehl;
     public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen
         => (_tabs[AktiverTabIndex] as IRibbonAware)?.RibbonZusatzGruppen ?? [];
-    public bool HatStandardAktionen => _tabs[AktiverTabIndex] is IRibbonAware;
+    // Nachbesserung zu #173/#164: reiner Typ-Check (_tabs[...] is IRibbonAware) ignorierte den
+    // tatsächlichen Wert der Kind-Eigenschaft — sobald ein Kind IRibbonAware implementiert, aber
+    // bewusst HatStandardAktionen=false liefert (z.B. SimulationsViewModel), muss das hier
+    // durchgereicht werden statt pauschal true zu liefern.
+    public bool HatStandardAktionen => (_tabs[AktiverTabIndex] as IRibbonAware)?.HatStandardAktionen ?? false;
+    public bool HatLoeschenAktion   => (_tabs[AktiverTabIndex] as IRibbonAware)?.HatLoeschenAktion ?? false;
 
     public bool HatUngespeicherteAenderungen
         => (_tabs[AktiverTabIndex] as IHatUngespeicherteAenderungen)?.HatUngespeicherteAenderungen ?? false;

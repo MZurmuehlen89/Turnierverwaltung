@@ -206,7 +206,7 @@
                 </fluent:RibbonGroupBox>
 
                 <fluent:RibbonGroupBox Header="Bearbeiten"
-                                       Visibility="{Binding HatStandardAktionen, Converter={StaticResource BoolToVisibility}}">
+                                       Visibility="{Binding HatLoeschenAktion, Converter={StaticResource BoolToVisibility}}">
                     <fluent:Button Header="Löschen"
                                    Command="{Binding RibbonLoeschenBefehl}"
                                    SizeDefinition="Large">

@@ -18,13 +18,21 @@ public interface IRibbonAware
     IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen => [];
 
     /// <summary>
-    /// Steuert die Sichtbarkeit der Standardgruppen "Datensatz"/"Bearbeiten" (Neu/Speichern/
-    /// Abbrechen/Löschen). Standardimplementierung liefert true, damit bestehende
-    /// Implementierungen unverändert bleiben — nur Composite-ViewModels mit eingebetteten
-    /// Kind-Tabs ohne eigenes IRibbonAware (z.B. TurnierEditorViewModel, wenn der aktive Tab
-    /// kein IRibbonAware implementiert) überschreiben dies auf false, damit keine command-losen
-    /// Buttons angezeigt werden (Issue #173 — WPF zeigt Buttons ohne Command dauerhaft aktiv
-    /// statt gegraut an).
+    /// Steuert die Sichtbarkeit der "Datensatz"-Gruppe (Neu/Speichern/Abbrechen). Standard-
+    /// implementierung liefert true, damit bestehende Implementierungen unverändert bleiben —
+    /// nur ViewModels ohne echte Neu/Speichern/Abbrechen-Semantik (z.B. SimulationsViewModel,
+    /// Composite-ViewModels ohne aktives IRibbonAware-Kind) überschreiben dies auf false, damit
+    /// keine command-losen Buttons angezeigt werden (Issue #173 — WPF zeigt Buttons ohne Command
+    /// dauerhaft aktiv statt gegraut an).
     /// </summary>
     bool HatStandardAktionen => true;
+
+    /// <summary>
+    /// Steuert unabhängig von <see cref="HatStandardAktionen"/> die Sichtbarkeit der
+    /// "Bearbeiten"-Gruppe (Löschen) — z.B. SimulationsViewModel hat keine Datensatz-Aktionen,
+    /// aber sehr wohl eine sinnvolle Löschen-Aktion (Ergebnis zurücksetzen, Issue #164).
+    /// Standardimplementierung liefert true, damit bestehende Implementierungen unverändert
+    /// bleiben.
+    /// </summary>
+    bool HatLoeschenAktion => true;
 }

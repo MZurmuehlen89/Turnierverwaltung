@@ -10,8 +10,10 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Wpf.Navigation;
+using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Windows;
 using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
@@ -26,7 +28,7 @@ public record EinzelspielEreignisZeile(
         new("", "", "", false, IstTrenner: true, TrennerText: text);
 }
 
-public partial class SimulationsViewModel : ViewModelBase
+public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 {
     private readonly SimulationsService    _simulationsService;
     private readonly SpielErgebnisService  _spielService;
@@ -45,6 +47,9 @@ public partial class SimulationsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(IstEinzelspielModus))]
     [NotifyPropertyChangedFor(nameof(ZeigeVorschauKarte))]
     [NotifyPropertyChangedFor(nameof(ZeigeLeerZustand))]
+    [NotifyPropertyChangedFor(nameof(KannTurnierSpielSimulieren))]
+    [NotifyPropertyChangedFor(nameof(KannTurnierErgebnisZuruecksetzen))]
+    [NotifyPropertyChangedFor(nameof(EinzelspielKannSimuliert))]
     private int _modusIndex = 0;
 
     public bool IstTurnierModus     => ModusIndex == 0;
@@ -64,13 +69,22 @@ public partial class SimulationsViewModel : ViewModelBase
     [ObservableProperty] private ObservableCollection<SpielZeile> _spiele = [];
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(KannTurnierSpielSimulieren))]
+    [NotifyPropertyChangedFor(nameof(KannTurnierErgebnisZuruecksetzen))]
     [NotifyPropertyChangedFor(nameof(AusgewaehltesSpielAbgeschlossen))]
     [NotifyPropertyChangedFor(nameof(ZeigeVorschauKarte))]
     [NotifyPropertyChangedFor(nameof(ZeigeLeerZustand))]
     private SpielZeile? _ausgewaehlteSpiel;
 
+    // Issue #164: "Simulieren" ist jetzt immer verfügbar (auch mit vorhandenem Ergebnis) — fragt bei
+    // Bedarf per Dialog nach Überschreiben, statt eine exklusiv geschaltete zweite Aktion zu
+    // brauchen (siehe TurnierSpielSimulierenAsync). IstTurnierModus explizit geprüft, vormals nur
+    // implizit durch Verschachtelung in der Turnier-Modus-Breadcrumb-Leiste sichergestellt.
     public bool KannTurnierSpielSimulieren =>
-        AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && !IstLadend;
+        IstTurnierModus && AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && !IstLadend;
+
+    public bool KannTurnierErgebnisZuruecksetzen =>
+        IstTurnierModus && AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && !IstLadend
+        && AusgewaehltesSpielAbgeschlossen;
 
     public bool AusgewaehltesSpielAbgeschlossen => AusgewaehlteSpiel?.HatErgebnis == true;
 
@@ -131,20 +145,11 @@ public partial class SimulationsViewModel : ViewModelBase
             || m.Kurzname.Contains(AuswaertsSuchbegriff, StringComparison.OrdinalIgnoreCase));
 
     public bool EinzelspielKannSimuliert =>
+        IstEinzelspielModus &&
         EinzelspielHeim is not null &&
         EinzelspielAuswaerts is not null &&
         EinzelspielHeim != EinzelspielAuswaerts &&
         !IstLadend;
-
-    // ── Simulationsoptionen ───────────────────────────────────────────────────
-
-    [ObservableProperty] private SimulationsModusOption _ausgewaehlterModus = null!;
-
-    public List<SimulationsModusOption> ModusOptionen { get; } =
-    [
-        new("Schnellsimulation",       SimulationsModus.SchnellSimulation),
-        new("Ausführliche Simulation", SimulationsModus.AusfuehrlicheSimulation),
-    ];
 
     // ── Protokoll (beide Modi) ────────────────────────────────────────────────
 
@@ -160,6 +165,7 @@ public partial class SimulationsViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(KannTurnierSpielSimulieren))]
+    [NotifyPropertyChangedFor(nameof(KannTurnierErgebnisZuruecksetzen))]
     [NotifyPropertyChangedFor(nameof(EinzelspielKannSimuliert))]
     private bool    _istLadend;
 
@@ -171,10 +177,58 @@ public partial class SimulationsViewModel : ViewModelBase
 
     // ── Befehle ───────────────────────────────────────────────────────────────
 
-    public ICommand TurnierSpielSimulierenBefehl { get; }
-    public ICommand EinzelspielFreiBefehl        { get; }
-    public ICommand ErgebnisUeberschreibenBefehl { get; }
-    public ICommand ErgebnisZuruecksetzenBefehl  { get; }
+    public ICommand TurnierSpielSimulierenBefehl             { get; }
+    public ICommand TurnierSpielAusfuehrlichSimulierenBefehl { get; }
+    public ICommand EinzelspielFreiBefehl                    { get; }
+    public ICommand EinzelspielFreiAusfuehrlichBefehl        { get; }
+    public ICommand ErgebnisZuruecksetzenBefehl              { get; }
+
+    // ── IRibbonAware (Issue #164) ────────────────────────────────────────────
+    // Weder Neu/Speichern/Abbrechen haben hier eine Entsprechung (Simulieren schreibt sofort in
+    // die DB, kein separater Save-Schritt) — HatStandardAktionen bewusst false (Issue #173). Löschen
+    // entspricht aber sinnvoll "Ergebnis zurücksetzen" — HatLoeschenAktion bewusst true, LoeschenBefehl
+    // auf ErgebnisZuruecksetzenBefehl verdrahtet, kein eigener Ribbon-Zusatz-Button dafür mehr nötig.
+    // "Ergebnis überschreiben" als eigener Button entfällt ebenfalls — TurnierSpielSimulierenAsync
+    // fragt bei vorhandenem Ergebnis per Dialog nach. Beide "…simulieren"-Aktionen als SplitButton
+    // mit "Ausführliche Simulation" im Dropdown (analog "Spiel simulieren" in #163).
+    public string   RibbonTabTitel  => "Simulation";
+    public ICommand? NeuBefehl       => null;
+    public ICommand? SpeichernBefehl => null;
+    public ICommand? AbbrechenBefehl => null;
+    public ICommand? LoeschenBefehl  => ErgebnisZuruecksetzenBefehl;
+    public bool HatStandardAktionen => false;
+    public bool HatLoeschenAktion   => true;
+
+    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
+    [
+        new RibbonGruppe
+        {
+            Header = "Simulation",
+            Aktionen =
+            [
+                new RibbonAktion
+                {
+                    Header = "Turnierspiel simulieren",
+                    Befehl = TurnierSpielSimulierenBefehl,
+                    IconGlyph = "",
+                    Unteraktionen =
+                    [
+                        new RibbonAktion { Header = "Ausführliche Simulation", Befehl = TurnierSpielAusfuehrlichSimulierenBefehl, IconVektorDatei = "magnifying_glass.xaml" },
+                    ],
+                },
+                new RibbonAktion
+                {
+                    Header = "Einzelspiel simulieren",
+                    Befehl = EinzelspielFreiBefehl,
+                    IconGlyph = "",
+                    Unteraktionen =
+                    [
+                        new RibbonAktion { Header = "Ausführliche Simulation", Befehl = EinzelspielFreiAusfuehrlichBefehl, IconVektorDatei = "magnifying_glass.xaml" },
+                    ],
+                },
+            ],
+        },
+    ];
 
     // ── Konstruktor ───────────────────────────────────────────────────────────
 
@@ -195,12 +249,11 @@ public partial class SimulationsViewModel : ViewModelBase
         _verbandService      = verbandService;
         _turnierAuswahlService = turnierAuswahlService;
 
-        AusgewaehlterModus = ModusOptionen[0];
-
-        TurnierSpielSimulierenBefehl = new AsyncRelayCommand(TurnierSpielSimulierenAsync, () => KannTurnierSpielSimulieren);
-        EinzelspielFreiBefehl        = new AsyncRelayCommand(EinzelspielFreiSimulierenAsync, () => EinzelspielKannSimuliert);
-        ErgebnisUeberschreibenBefehl = new AsyncRelayCommand(ErgebnisUeberschreibenAsync, () => KannTurnierSpielSimulieren);
-        ErgebnisZuruecksetzenBefehl  = new AsyncRelayCommand(ErgebnisZuruecksetzenAsync,  () => KannTurnierSpielSimulieren);
+        TurnierSpielSimulierenBefehl             = new AsyncRelayCommand(() => TurnierSpielSimulierenAsync(SimulationsModus.SchnellSimulation), () => KannTurnierSpielSimulieren);
+        TurnierSpielAusfuehrlichSimulierenBefehl = new AsyncRelayCommand(() => TurnierSpielSimulierenAsync(SimulationsModus.AusfuehrlicheSimulation), () => KannTurnierSpielSimulieren);
+        EinzelspielFreiBefehl                    = new AsyncRelayCommand(() => EinzelspielFreiSimulierenAsync(SimulationsModus.SchnellSimulation), () => EinzelspielKannSimuliert);
+        EinzelspielFreiAusfuehrlichBefehl        = new AsyncRelayCommand(() => EinzelspielFreiSimulierenAsync(SimulationsModus.AusfuehrlicheSimulation), () => EinzelspielKannSimuliert);
+        ErgebnisZuruecksetzenBefehl              = new AsyncRelayCommand(ErgebnisZuruecksetzenAsync, () => KannTurnierErgebnisZuruecksetzen);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -251,6 +304,7 @@ public partial class SimulationsViewModel : ViewModelBase
         {
             case nameof(ModusIndex):
                 Fehlermeldung = null;
+                AktualisiereBefehle();
                 break;
             case nameof(AusgewaehlteInstanz):
                 _turnierAuswahlService.TurnierInstanzId = AusgewaehlteInstanz?.Id;
@@ -329,9 +383,24 @@ public partial class SimulationsViewModel : ViewModelBase
 
     // ── Turnierspiel simulieren ───────────────────────────────────────────────
 
-    private async Task TurnierSpielSimulierenAsync()
+    // Issue #164: "Ergebnis überschreiben" als eigener Button entfällt — bei bereits vorhandenem
+    // Ergebnis fragt "Simulieren" jetzt per Dialog nach, statt eine zweite, exklusiv geschaltete
+    // Aktion zu brauchen (KannTurnierSpielSimulieren prüft daher auch nicht mehr
+    // AusgewaehltesSpielAbgeschlossen).
+    private async Task TurnierSpielSimulierenAsync(SimulationsModus modus)
     {
         if (AusgewaehlteSpiel is null) return;
+
+        bool ueberschreiben = AusgewaehltesSpielAbgeschlossen;
+        if (ueberschreiben)
+        {
+            var antwort = MessageBox.Show(
+                "Für dieses Spiel liegt bereits ein Ergebnis vor. Neu simulieren und überschreiben?",
+                "Ergebnis überschreiben",
+                MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (antwort != MessageBoxResult.Yes) return;
+        }
+
         int spielId  = AusgewaehlteSpiel.Id;
         int? rundeId = AusgewaehlteRunde?.Id;
         Fehlermeldung = null;
@@ -339,42 +408,7 @@ public partial class SimulationsViewModel : ViewModelBase
         LeerProtokolll();
         try
         {
-            await _simulationsService.SpielSimulierenAsync(spielId, AusgewaehlterModus.Wert);
-
-            if (rundeId.HasValue)
-            {
-                var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId.Value);
-                Spiele.Clear();
-                foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, i));
-                _ladeUnterdrückt++;
-                AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
-                _ladeUnterdrückt--;
-            }
-
-            await LadeProtokollAsync(spielId);
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-        }
-        finally
-        {
-            IstLadend = false;
-            AktualisiereBefehle();
-        }
-    }
-
-    private async Task ErgebnisUeberschreibenAsync()
-    {
-        if (AusgewaehlteSpiel is null) return;
-        int spielId  = AusgewaehlteSpiel.Id;
-        int? rundeId = AusgewaehlteRunde?.Id;
-        Fehlermeldung = null;
-        IstLadend     = true;
-        LeerProtokolll();
-        try
-        {
-            await _simulationsService.SpielSimulierenAsync(spielId, AusgewaehlterModus.Wert, ueberschreiben: true);
+            await _simulationsService.SpielSimulierenAsync(spielId, modus, ueberschreiben: ueberschreiben);
 
             if (rundeId.HasValue)
             {
@@ -435,7 +469,7 @@ public partial class SimulationsViewModel : ViewModelBase
 
     // ── Einzelspiel-Modus: Freie Simulation ──────────────────────────────────
 
-    private async Task EinzelspielFreiSimulierenAsync()
+    private async Task EinzelspielFreiSimulierenAsync(SimulationsModus modus)
     {
         if (EinzelspielHeim is null || EinzelspielAuswaerts is null) return;
 
@@ -443,7 +477,6 @@ public partial class SimulationsViewModel : ViewModelBase
         var auswaerts = EinzelspielAuswaerts;
         var verfahren = EinzelspielRegelwerk?.Entscheidungsverfahren.ToList()
                         ?? (IReadOnlyList<EntscheidungsVerfahren>)[];
-        var modus = AusgewaehlterModus.Wert;
 
         Fehlermeldung = null;
         IstLadend     = true;
@@ -564,14 +597,13 @@ public partial class SimulationsViewModel : ViewModelBase
         _ladeUnterdrückt++;
         AusgewaehlteSpiel  = spiel;
         _ladeUnterdrückt--;
-        AusgewaehlterModus = ModusOptionen.First(m => m.Wert == SimulationsModus.AusfuehrlicheSimulation);
 
         // In Turnierspiel-Modus wechseln
         _ladeUnterdrückt++;
         ModusIndex = 0;
         _ladeUnterdrückt--;
 
-        await TurnierSpielSimulierenAsync();
+        await TurnierSpielSimulierenAsync(SimulationsModus.AusfuehrlicheSimulation);
     }
 
     // ── Protokoll ─────────────────────────────────────────────────────────────
@@ -625,8 +657,9 @@ public partial class SimulationsViewModel : ViewModelBase
     private void AktualisiereBefehle()
     {
         ((AsyncRelayCommand)TurnierSpielSimulierenBefehl).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)TurnierSpielAusfuehrlichSimulierenBefehl).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)EinzelspielFreiBefehl).NotifyCanExecuteChanged();
-        ((AsyncRelayCommand)ErgebnisUeberschreibenBefehl).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)EinzelspielFreiAusfuehrlichBefehl).NotifyCanExecuteChanged();
         ((AsyncRelayCommand)ErgebnisZuruecksetzenBefehl).NotifyCanExecuteChanged();
     }
 
