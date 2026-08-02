@@ -127,6 +127,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(FokusSpieltagnummer))]
     [NotifyPropertyChangedFor(nameof(SpieltagSimulierenMenuText))]
     [NotifyPropertyChangedFor(nameof(SpieltagZuruecksetzenMenuText))]
+    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
     private int _fokusAktiverSpieltag;
 
     public string FokusSpieltagnummer  => $"Spieltag {FokusAktiverSpieltag}";
@@ -269,6 +270,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnzahlMehrfachZuruecksetzbar))]
     [NotifyPropertyChangedFor(nameof(MehrfachZuruecksetzenMenuText))]
+    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
     private IReadOnlyList<SpielZeile> _mehrfachAusgewaehlteSpiele = [];
 
     public int    AnzahlMehrfachZuruecksetzbar => MehrfachAusgewaehlteSpiele.Count(s => s.HatErgebnis);
@@ -287,6 +289,64 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public ICommand SpeichernBefehl => _speichernBefehl;
     public ICommand AbbrechenBefehl => _abbrechenBefehl;
     public ICommand LoeschenBefehl  => _loeschenBefehl;
+
+    // Issue #163: die vormaligen "Aktionen ▾"-ContextMenu-Buttons (Runde-, Gruppe- und
+    // Spieltag-Ebene) sowie die Spiel-Simulieren-Buttons aus dem Ergebnis-Formular als eigene
+    // Ribbon-Dropdowns/-Buttons — auf Nutzerwunsch als eigenständige Buttons statt weiter
+    // zusammengefasst (Gruppe/Spieltag ursprünglich ein gemeinsames Dropdown). Sichtbarkeit/
+    // Einschränkung läuft weiterhin rein über die bestehenden CanExecute-Prädikate (z.B.
+    // AusgewaehlteGruppe/FokusAlleAktiv) statt über Ein-/Ausblenden der Menüpunkte selbst.
+    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
+    [
+        new RibbonGruppe
+        {
+            Header = "Spielplan",
+            Aktionen =
+            [
+                new RibbonAktion
+                {
+                    Header = "Runde",
+                    IconGlyph = "",
+                    Unteraktionen =
+                    [
+                        new RibbonAktion { Header = "Runde simulieren", Befehl = RundeSimulierenBefehl, IconGlyph = "" },
+                        new RibbonAktion { Header = "Runde zurücksetzen", Befehl = RundeZuruecksetzenBefehl, IconGlyph = "" },
+                        new RibbonAktion { Header = MehrfachZuruecksetzenMenuText, Befehl = MehrfachZuruecksetzenBefehl, IconGlyph = "" },
+                    ],
+                },
+                new RibbonAktion
+                {
+                    Header = "Gruppe",
+                    IconGlyph = "",
+                    Unteraktionen =
+                    [
+                        new RibbonAktion { Header = "Gruppe simulieren", Befehl = GruppeSimulierenBefehl, IconGlyph = "" },
+                        new RibbonAktion { Header = "Gruppe zurücksetzen", Befehl = GruppeZuruecksetzenBefehl, IconGlyph = "" },
+                    ],
+                },
+                new RibbonAktion
+                {
+                    Header = "Spieltag",
+                    IconGlyph = "",
+                    Unteraktionen =
+                    [
+                        new RibbonAktion { Header = SpieltagSimulierenMenuText, Befehl = SpieltagSimulierenBefehl, IconGlyph = "" },
+                        new RibbonAktion { Header = SpieltagZuruecksetzenMenuText, Befehl = SpieltagZuruecksetzenBefehl, IconGlyph = "" },
+                    ],
+                },
+                new RibbonAktion
+                {
+                    Header = "Spiel simulieren",
+                    Befehl = SpielSimulierenBefehl,
+                    IconGlyph = "",
+                    Unteraktionen =
+                    [
+                        new RibbonAktion { Header = "Ausführliche Simulation", Befehl = AusfuehrlichSimulierenBefehl, IconGlyph = "" },
+                    ],
+                },
+            ],
+        },
+    ];
 
     private readonly AsyncRelayCommand _neuBefehl;
     private readonly AsyncRelayCommand _speichernBefehl;

@@ -56,10 +56,24 @@ public partial class MainWindow : Window
     /// <summary>Wählt je nach Kombination der <see cref="RibbonAktion"/>-Eigenschaften den passenden
     /// Fluent-Control-Typ: reiner Klick-Befehl → Button; Befehl + eigenständig ausführbare
     /// Unteraktionen (z.B. "mit TV-Modus ausführen") → SplitButton (Klick = Befehl, Pfeil = Dropdown
-    /// mit direkt anwählbaren Menüpunkten, kein Umschalt-/Checkbox-Zustand); dynamische Item-Quelle
-    /// ohne Befehl (z.B. Auslosungs-Regeln) → DropDownButton.</summary>
+    /// mit direkt anwählbaren Menüpunkten, kein Umschalt-/Checkbox-Zustand); Unteraktionen ohne
+    /// eigenen Befehl (reines Aktionsmenü, z.B. "Runde"-Aktionen) → DropDownButton mit denselben
+    /// Menüpunkten; dynamische Item-Quelle ohne Befehl (z.B. Auslosungs-Regeln) → DropDownButton.</summary>
     private static UIElement RibbonElementErstellen(RibbonAktion aktion)
     {
+        if (aktion.Unteraktionen is { Count: > 0 } && aktion.Befehl is null)
+        {
+            var dropDownButton = new Fluent.DropDownButton
+            {
+                Header = aktion.Header,
+                SizeDefinition = new RibbonControlSizeDefinition("Large"),
+            };
+            IconSetzen(dropDownButton, aktion.IconGlyph);
+            foreach (var unteraktion in aktion.Unteraktionen)
+                dropDownButton.Items.Add(MenuItemErstellen(unteraktion));
+            return dropDownButton;
+        }
+
         if (aktion.Unteraktionen is { Count: > 0 })
         {
             var splitButton = new Fluent.SplitButton

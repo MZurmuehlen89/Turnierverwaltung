@@ -7,23 +7,6 @@
 
     <DockPanel>
 
-        <!-- ── Inline-Toolbar: Baum-Aktionen (nur bei K.-o.-Bracket-Ansicht relevant) ── -->
-        <Border DockPanel.Dock="Top" Background="White"
-                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,6"
-                Visibility="{Binding ZeigtBracket, Converter={StaticResource BoolToVisibility}}">
-            <StackPanel Orientation="Horizontal">
-                <Button Content="Generieren"
-                        Command="{Binding NeuBefehl}"
-                        Padding="12,5" FontSize="12" Margin="0,0,6,0" />
-                <Button Content="Sieger fortschreiben"
-                        Command="{Binding SpeichernBefehl}"
-                        Padding="12,5" FontSize="12" Margin="0,0,6,0" />
-                <Button Content="Baum löschen"
-                        Command="{Binding LoeschenBefehl}"
-                        Padding="12,5" FontSize="12" />
-            </StackPanel>
-        </Border>
-
         <!-- ── Hauptbereich ── -->
         <Grid>
 

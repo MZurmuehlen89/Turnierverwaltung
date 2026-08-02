@@ -218,6 +218,24 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     public ICommand KnotenAngeklicktBefehl => _knotenAngeklicktBefehl;
     public ICommand GruppeAngeklicktBefehl => _gruppeAngeklicktBefehl;
 
+    // Issue #163: vormalige Inline-Toolbar (Generieren/Sieger fortschreiben/Baum löschen) als
+    // eigene Ribbon-Gruppe — die 4 Standard-CRUD-Slots (NeuBefehl usw. oben) bleiben weiterhin
+    // exklusiv an SpielplanViewModel verdrahtet (TurnierBereichViewModel.IRibbonAware), daher
+    // hier bewusst eigenständige Buttons statt eine Wiederverwendung dieser Slots.
+    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
+    [
+        new RibbonGruppe
+        {
+            Header = "Turnierbaum",
+            Aktionen =
+            [
+                new RibbonAktion { Header = "Baum generieren", Befehl = _neuBefehl, IconGlyph = "" },
+                new RibbonAktion { Header = "Sieger fortschreiben", Befehl = _speichernBefehl, IconGlyph = "" },
+                new RibbonAktion { Header = "Baum löschen", Befehl = _loeschenBefehl, IconGlyph = "" },
+            ],
+        },
+    ];
+
     public event EventHandler<int>? RundeAngeklickt;
     public event EventHandler<int>? GruppeAngeklickt;
 
@@ -233,10 +251,14 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         _baumService     = baumService;
         _tabellenService = tabellenService;
 
-        _neuBefehl               = new AsyncRelayCommand(GenerierenAsync,       () => AusgewaehlteInstanz != null);
-        _speichernBefehl         = new AsyncRelayCommand(SiegerFortsteiernAsync, () => AusgewaehlteInstanz != null && HatBaum);
+        // ZeigtBracket-Gating (Issue #163): die 3 Baum-Aktionen ergeben nur im K.-o.-Bracket Sinn
+        // (Liga/Gruppenphase zeigen stattdessen eine Tabelle) — vormals über die Sichtbarkeit der
+        // Inline-Toolbar in TurnierBaumView.xaml geregelt, jetzt im Ribbon per CanExecute-Graying
+        // statt Ein-/Ausblenden der Buttons selbst (siehe AktualisiereFokusRundeAsync).
+        _neuBefehl               = new AsyncRelayCommand(GenerierenAsync,       () => AusgewaehlteInstanz != null && ZeigtBracket);
+        _speichernBefehl         = new AsyncRelayCommand(SiegerFortsteiernAsync, () => AusgewaehlteInstanz != null && HatBaum && ZeigtBracket);
         _abbrechenBefehl         = new RelayCommand(() => { }, () => false);
-        _loeschenBefehl          = new AsyncRelayCommand(BaumLoeschenAsync,      () => AusgewaehlteInstanz != null && HatBaum);
+        _loeschenBefehl          = new AsyncRelayCommand(BaumLoeschenAsync,      () => AusgewaehlteInstanz != null && HatBaum && ZeigtBracket);
         _knotenAngeklicktBefehl  = new RelayCommand<BracketKnotenAnzeige>(
             k => { if (k?.TurnierRundeId is { } rundeId) RundeAngeklickt?.Invoke(this, rundeId); });
         _gruppeAngeklicktBefehl  = new RelayCommand<GruppenTabelle>(
@@ -276,6 +298,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 
         ZeigtGruppenphase = istGruppenphase;
         ZeigtLigaTabelle  = istLigaArtig;
+        AktualisiereBefehle();
 
         if (!istGruppenphase && !istLigaArtig) return;
 

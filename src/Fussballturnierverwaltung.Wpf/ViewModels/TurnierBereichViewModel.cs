@@ -76,6 +76,9 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
             {
                 AktualisiereGruppenFokus();
             }
+
+            if (e.PropertyName == nameof(SpielplanViewModel.RibbonZusatzGruppen))
+                OnPropertyChanged(nameof(RibbonZusatzGruppen));
         };
 
         // Issue #141: Spieltag-Navigation in der Spielliste (links) setzt den Tabellen-Snapshot
@@ -150,6 +153,13 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
     public ICommand? SpeichernBefehl => SpielplanVm.SpeichernBefehl;
     public ICommand? AbbrechenBefehl => SpielplanVm.AbbrechenBefehl;
     public ICommand? LoeschenBefehl  => SpielplanVm.LoeschenBefehl;
+
+    // Issue #163: kombiniert die Ribbon-Zusatzgruppen aus Spielplan (Runde/Gruppe-Aktionen) und
+    // Turnierbaum (Baum-Aktionen) — beide Kind-VMs sind gleichzeitig sichtbar (Split-Ansicht,
+    // kein Tab-Umschalter), daher hier zusammengeführt statt wie bei den 4 CRUD-Slots exklusiv
+    // an ein Kind delegiert.
+    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
+        [.. SpielplanVm.RibbonZusatzGruppen, .. TurnierBaumVm.RibbonZusatzGruppen];
 
     public bool HatUngespeicherteAenderungen => SpielplanVm.HatUngespeicherteAenderungen;
 }

@@ -1,6 +1,5 @@
 using Fussballturnierverwaltung.Wpf.ViewModels;
 using System.Linq;
-using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
@@ -20,15 +19,6 @@ public partial class SpielplanView : UserControl
     {
         if (sender is ListView { DataContext: SpielplanViewModel vm } listView)
             vm.AktualisiereMehrfachAuswahl(listView.SelectedItems.Cast<SpielZeile>());
-    }
-
-    // Öffnet das an den Button gehängte ContextMenu als Dropdown bei Linksklick (Issue #144) —
-    // ContextMenu setzt PlacementTarget sonst nur bei Rechtsklick automatisch.
-    private void AktionenDropdown_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { ContextMenu: { } menu } button) return;
-        menu.PlacementTarget = button;
-        menu.IsOpen = true;
     }
 
     // Escape hebt die Einzelspiel-Selektion auf (Issue #145) — löst über SelectionChanged

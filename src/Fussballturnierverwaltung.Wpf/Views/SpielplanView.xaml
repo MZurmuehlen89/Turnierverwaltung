@@ -181,47 +181,6 @@
                         </Grid>
                     </StackPanel>
 
-                    <!-- Spiel simulieren -->
-                    <Button Command="{Binding SpielSimulierenBefehl}"
-                            Margin="0,0,0,6" Padding="0,8" FontSize="12" Cursor="Hand"
-                            HorizontalAlignment="Stretch"
-                            Background="#8B5CF6" Foreground="White" BorderThickness="0">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Background" Value="#8B5CF6" />
-                                <Setter Property="Foreground" Value="White" />
-                                <Setter Property="BorderThickness" Value="0" />
-                                <Style.Triggers>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Opacity" Value="0.5" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                        Spiel simulieren
-                    </Button>
-
-                    <!-- Ausführliche Simulation (→ Simulations-Bereich) -->
-                    <Button Command="{Binding AusfuehrlichSimulierenBefehl}"
-                            Margin="0,0,0,12" Padding="0,7" FontSize="11" Cursor="Hand"
-                            HorizontalAlignment="Stretch"
-                            BorderBrush="#8B5CF6" BorderThickness="1">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Background" Value="White" />
-                                <Setter Property="Foreground" Value="#8B5CF6" />
-                                <Setter Property="BorderBrush" Value="#8B5CF6" />
-                                <Setter Property="BorderThickness" Value="1" />
-                                <Style.Triggers>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Opacity" Value="0.4" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                        Ausführliche Simulation →
-                    </Button>
-
                     <!-- Hinweis: Simulieren erst nach Zurücksetzen des bestehenden Ergebnisses möglich -->
                     <Border Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
                             CornerRadius="4" Padding="10,7" Margin="0,0,0,12"
@@ -257,48 +216,7 @@
                                           DisplayMemberPath="Anzeige"
                                           FontSize="11" Width="160" VerticalAlignment="Center"
                                           Margin="0,0,6,0" />
-                                <!-- Runden-Aktionen (Issue #144: Simulieren/Zuruecksetzen/Mehrfach-Zuruecksetzen
-                                     zu einem Dropdown-Menue zusammengefasst statt 3 Einzel-Buttons) -->
-                                <Button Content="Aktionen ▾" Click="AktionenDropdown_Click"
-                                        Padding="10,4" FontSize="11" Cursor="Hand"
-                                        Background="#8B5CF6" Foreground="White"
-                                        BorderThickness="0" VerticalAlignment="Center">
-                                    <Button.ContextMenu>
-                                        <ContextMenu Placement="Bottom">
-                                            <MenuItem Header="Runde simulieren"
-                                                      Command="{Binding PlacementTarget.DataContext.RundeSimulierenBefehl, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                            <MenuItem Header="Runde zurücksetzen"
-                                                      Command="{Binding PlacementTarget.DataContext.RundeZuruecksetzenBefehl, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                            <Separator />
-                                            <MenuItem Header="{Binding PlacementTarget.DataContext.MehrfachZuruecksetzenMenuText, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                      Command="{Binding PlacementTarget.DataContext.MehrfachZuruecksetzenBefehl, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                      ToolTip="Ausgewählte Ergebnisse zurücksetzen (Strg+Klick/Umschalt+Klick zum Mehrfachauswählen)" />
-                                        </ContextMenu>
-                                    </Button.ContextMenu>
-                                </Button>
                             </StackPanel>
-
-                            <!-- Spielplan (neu) generieren -->
-                            <Button DockPanel.Dock="Right"
-                                    Content="Spielplan generieren"
-                                    Command="{Binding NeuBefehl}"
-                                    Padding="10,4" FontSize="11" Cursor="Hand"
-                                    Margin="0,0,8,0" VerticalAlignment="Center"
-                                    BorderBrush="#3B82F6" BorderThickness="1">
-                                <Button.Style>
-                                    <Style TargetType="Button">
-                                        <Setter Property="Background" Value="White" />
-                                        <Setter Property="Foreground" Value="#3B82F6" />
-                                        <Setter Property="BorderBrush" Value="#3B82F6" />
-                                        <Setter Property="BorderThickness" Value="1" />
-                                        <Style.Triggers>
-                                            <Trigger Property="IsEnabled" Value="False">
-                                                <Setter Property="Opacity" Value="0.4" />
-                                            </Trigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
 
                             <TextBlock VerticalAlignment="Center"
                                        FontSize="11" FontWeight="Bold" Foreground="#94A3B8">
@@ -527,29 +445,6 @@
                                             <Run Text="Gruppe " />
                                             <Run Text="{Binding AusgewaehlteGruppe.GruppenNummer}" />
                                         </TextBlock>
-                                        <!-- Gruppen-/Spieltag-Aktionen (Issue #144: Simulieren/Zuruecksetzen auf
-                                             beiden Ebenen zu einem Dropdown-Menue zusammengefasst statt bis zu
-                                             4 Einzel-Buttons) -->
-                                        <Button Content="Aktionen ▾" Click="AktionenDropdown_Click"
-                                                Padding="10,4" FontSize="11" Cursor="Hand"
-                                                Background="#8B5CF6" Foreground="White"
-                                                BorderThickness="0">
-                                            <Button.ContextMenu>
-                                                <ContextMenu Placement="Bottom">
-                                                    <MenuItem Header="{Binding PlacementTarget.DataContext.SpieltagSimulierenMenuText, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                              Command="{Binding PlacementTarget.DataContext.SpieltagSimulierenBefehl, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                              Visibility="{Binding PlacementTarget.DataContext.FokusAlleAktiv, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource InverseBoolToVisibility}}" />
-                                                    <MenuItem Header="{Binding PlacementTarget.DataContext.SpieltagZuruecksetzenMenuText, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                              Command="{Binding PlacementTarget.DataContext.SpieltagZuruecksetzenBefehl, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                              Visibility="{Binding PlacementTarget.DataContext.FokusAlleAktiv, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource InverseBoolToVisibility}}" />
-                                                    <Separator Visibility="{Binding PlacementTarget.DataContext.FokusAlleAktiv, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource InverseBoolToVisibility}}" />
-                                                    <MenuItem Header="Gruppe simulieren"
-                                                              Command="{Binding PlacementTarget.DataContext.GruppeSimulierenBefehl, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                                    <MenuItem Header="Gruppe zurücksetzen"
-                                                              Command="{Binding PlacementTarget.DataContext.GruppeZuruecksetzenBefehl, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                                </ContextMenu>
-                                            </Button.ContextMenu>
-                                        </Button>
                                     </StackPanel>
                                 </DockPanel>
                             </Border>
