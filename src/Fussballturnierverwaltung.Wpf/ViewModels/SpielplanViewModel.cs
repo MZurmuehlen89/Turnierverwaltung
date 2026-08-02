@@ -56,7 +56,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly RegelwerkService      _regelwerkService;
     private readonly TabellenService       _tabellenService;
     private readonly SimulationsService    _simulationsService;
-    private readonly INavigationService    _navigationService;
 
     private int _populiertGerade;
     private Dictionary<int, int> _teamGruppeMap = [];
@@ -341,7 +340,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     IconGlyph = "",
                     Unteraktionen =
                     [
-                        new RibbonAktion { Header = "Ausführliche Simulation", Befehl = AusfuehrlichSimulierenBefehl, IconGlyph = "" },
+                        new RibbonAktion { Header = "Ausführliche Simulation", Befehl = AusfuehrlichSimulierenBefehl, IconVektorDatei = "magnifying_glass.xaml" },
                     ],
                 },
             ],
@@ -363,8 +362,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         TurnierBaumService baumService,
         RegelwerkService regelwerkService,
         TabellenService tabellenService,
-        SimulationsService simulationsService,
-        INavigationService navigationService)
+        SimulationsService simulationsService)
     {
         _spielService       = spielService;
         _instanzService     = instanzService;
@@ -374,7 +372,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _regelwerkService   = regelwerkService;
         _tabellenService    = tabellenService;
         _simulationsService = simulationsService;
-        _navigationService  = navigationService;
 
         AusgewaehlterSimulationsModus = SimulationsModusOptionen[0];
 
@@ -403,7 +400,51 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     // ── Initialisierung ───────────────────────────────────────────────────────
 
-    public override Task AktivierenAsync() => Task.CompletedTask;
+    // Issue-Nachbesserung zu #163: vormals ein No-Op — Ergebnisse aus einer Simulation im
+    // Simulation-Tab (oder grundsätzlich jede Änderung, die während der Spielplan-Tab inaktiv war)
+    // wurden beim Zurückwechseln nicht sichtbar. Bricht bei ungespeicherten Formular-Änderungen
+    // bewusst ab, um die laufende Eingabe des Nutzers nicht zu verwerfen — FormAktiv ist bereits
+    // dann wahr, wenn nur ein Spiel ausgewählt ist (ohne Bearbeitung), daher zusätzlich IsDirty
+    // prüfen statt FormAktiv allein (sonst würde exakt der Rückkehr-von-Simulation-Fall blockiert).
+    public override async Task AktivierenAsync()
+    {
+        if (AusgewaehlteRunde is null || (FormAktiv && IsDirty)) return;
+        await SpiellisteAktualisierenAsync();
+    }
+
+    private async Task SpiellisteAktualisierenAsync()
+    {
+        if (AusgewaehlteRunde is null) return;
+        int rundeId = AusgewaehlteRunde.Id;
+        int? spielId = AusgewaehlteSpiel?.Id;
+
+        await TabellenNeuLadenAsync(rundeId);
+
+        var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+        Spiele.Clear();
+        foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
+            Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+        OnPropertyChanged(nameof(FokusSpiele));
+        OnPropertyChanged(nameof(HatPlatzhalterSpiele));
+        _platzhalterBefehl.NotifyCanExecuteChanged();
+
+        // Auswahl anhand der Id wiederherstellen, SpielWechselAsync dabei unterdrücken (Spiele
+        // wurde neu aufgebaut, die Auswahl "wechselt" technisch die Objektinstanz, fachlich aber
+        // nicht) — Formular wird unten explizit einmalig neu geladen, analog SpielSimulierenAsync.
+        _spielWechselUnterdrueckt++;
+        try
+        {
+            AusgewaehlteSpiel = spielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == spielId) : null;
+        }
+        finally
+        {
+            _spielWechselUnterdrueckt--;
+        }
+
+        await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
+        await BeiSpielAenderungAsync();
+        AktualisiereBefehle();
+    }
 
     public async Task LadeInstanzAsync(TurnierInstanz? instanz)
     {
@@ -1226,17 +1267,26 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
     }
 
-    private async Task AusfuehrlichSimulierenAsync()
+    // Issue-Nachbesserung zu #163: vormals eine eigenständige Navigation zur Simulations-Vollansicht
+    // (NavigationService.NavigiereZuAsync<SimulationsViewModel>) — das erzeugte eine zweite, vom
+    // Turnier-Bereich losgelöste Ansicht ohne den gemeinsamen Turnier-Header und machte die Rückkehr
+    // zum Spielplan unnötig umständlich. Stattdessen wird das Event nach oben durchgereicht
+    // (TurnierBereichViewModel → TurnierEditorViewModel), das den Simulation-Tab im selben,
+    // bereits offenen Turnier-Bereich fokussiert und dort die Vorauswahl setzt.
+    public event EventHandler<VorausgewaehlteSimulation>? AusfuehrlicheSimulationAngefordert;
+
+    private Task AusfuehrlichSimulierenAsync()
     {
         if (AusgewaehlteSpiel is null || AusgewaehlteRunde is null || AusgewaehlteInstanz is null)
-            return;
+            return Task.CompletedTask;
 
         var vorauswahl = new VorausgewaehlteSimulation(
             AusgewaehlteInstanz.Id,
             AusgewaehlteRunde.Id,
             AusgewaehlteSpiel.Id);
 
-        await _navigationService.NavigiereZuAsync<SimulationsViewModel>(vm => vm.Vorauswahl = vorauswahl);
+        AusfuehrlicheSimulationAngefordert?.Invoke(this, vorauswahl);
+        return Task.CompletedTask;
     }
 
     private async Task RundeSimulierenAsync()

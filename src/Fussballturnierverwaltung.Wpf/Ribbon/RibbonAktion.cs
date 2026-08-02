@@ -13,6 +13,12 @@ public sealed class RibbonAktion
 
     public string? IconGlyph { get; init; }
 
+    /// <summary>Dateiname einer Vektor-Icon-Ressource unter Resources/Icons/ (IconExperience-Icon-Pack,
+    /// z.B. "trophy.xaml") — hat Vorrang vor <see cref="IconGlyph"/>, falls beide gesetzt sind. Jede
+    /// Datei ist ein eigenständiges Viewbox/Canvas/Path-Fragment ohne x:Class, wird als loses XAML
+    /// (Build Action "Page") kompiliert und zur Laufzeit per Application.LoadComponent geladen.</summary>
+    public string? IconVektorDatei { get; init; }
+
     /// <summary>Feste, eigenständig ausführbare Unteraktionen im Dropdown (z.B. "mit TV-Modus
     /// ausführen"), jede mit eigenem Befehl — kein Umschalt-/Checkbox-Zustand. Ist zusätzlich
     /// <see cref="Befehl"/> gesetzt, wird ein SplitButton erzeugt (Klick = Befehl, Pfeil = Dropdown),

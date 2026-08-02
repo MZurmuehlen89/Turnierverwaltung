@@ -68,7 +68,7 @@ public partial class MainWindow : Window
                 Header = aktion.Header,
                 SizeDefinition = new RibbonControlSizeDefinition("Large"),
             };
-            IconSetzen(dropDownButton, aktion.IconGlyph);
+            IconSetzen(dropDownButton, aktion);
             foreach (var unteraktion in aktion.Unteraktionen)
                 dropDownButton.Items.Add(MenuItemErstellen(unteraktion));
             return dropDownButton;
@@ -82,7 +82,7 @@ public partial class MainWindow : Window
                 Command = aktion.Befehl,
                 SizeDefinition = new RibbonControlSizeDefinition("Large"),
             };
-            IconSetzen(splitButton, aktion.IconGlyph);
+            IconSetzen(splitButton, aktion);
             foreach (var unteraktion in aktion.Unteraktionen)
                 splitButton.Items.Add(MenuItemErstellen(unteraktion));
             return splitButton;
@@ -96,7 +96,7 @@ public partial class MainWindow : Window
                 SizeDefinition = new RibbonControlSizeDefinition("Large"),
                 MaxDropDownHeight = double.PositiveInfinity,
             };
-            IconSetzen(dropDownButton, aktion.IconGlyph);
+            IconSetzen(dropDownButton, aktion);
             dropDownButton.SetBinding(ItemsControl.ItemsSourceProperty, aktion.ItemsQuelleBinding);
             return dropDownButton;
         }
@@ -107,44 +107,53 @@ public partial class MainWindow : Window
             Command = aktion.Befehl,
             SizeDefinition = new RibbonControlSizeDefinition("Large"),
         };
-        IconSetzen(button, aktion.IconGlyph);
+        IconSetzen(button, aktion);
         return button;
     }
 
     private static Fluent.MenuItem MenuItemErstellen(RibbonAktion aktion)
     {
         var menuItem = new Fluent.MenuItem { Header = aktion.Header, Command = aktion.Befehl };
-        if (aktion.IconGlyph is not null)
-        {
-            menuItem.Icon = new TextBlock
-            {
-                Text = aktion.IconGlyph,
-                FontFamily = new FontFamily("Segoe MDL2 Assets"),
-                FontSize = 16,
-            };
-        }
+        var icon = IconElementErstellen(aktion, 16);
+        if (icon is not null) menuItem.Icon = icon;
         return menuItem;
     }
 
-    private static void IconSetzen(IRibbonControl control, string? iconGlyph)
+    private static void IconSetzen(IRibbonControl control, RibbonAktion aktion)
     {
-        if (iconGlyph is null) return;
+        var icon = IconElementErstellen(aktion, 16);
+        if (icon is null) return;
 
-        control.Icon = new TextBlock
-        {
-            Text = iconGlyph,
-            FontFamily = new FontFamily("Segoe MDL2 Assets"),
-            FontSize = 16,
-        };
+        control.Icon = icon;
         if (control is ILargeIconProvider largeIconProvider)
+            largeIconProvider.LargeIcon = IconElementErstellen(aktion, 32);
+    }
+
+    /// <summary>Vektor-Icon (IconExperience-Icon-Pack, Resources/Icons/*.xaml) hat Vorrang vor dem
+    /// Segoe-MDL2-Glyph, falls beide gesetzt sind. Jeder Aufruf lädt eine frische Instanz — WPF-Elemente
+    /// können nicht mehrfach im visuellen Baum verwendet werden (z.B. Icon UND LargeIcon).</summary>
+    private static UIElement? IconElementErstellen(RibbonAktion aktion, double groesse)
+    {
+        if (aktion.IconVektorDatei is not null)
         {
-            largeIconProvider.LargeIcon = new TextBlock
+            var uri = new Uri($"/Fussballturnierverwaltung.Wpf;component/Resources/Icons/{aktion.IconVektorDatei}", UriKind.Relative);
+            var element = (FrameworkElement)System.Windows.Application.LoadComponent(uri);
+            element.Width = groesse;
+            element.Height = groesse;
+            return element;
+        }
+
+        if (aktion.IconGlyph is not null)
+        {
+            return new TextBlock
             {
-                Text = iconGlyph,
+                Text = aktion.IconGlyph,
                 FontFamily = new FontFamily("Segoe MDL2 Assets"),
-                FontSize = 32,
+                FontSize = groesse,
             };
         }
+
+        return null;
     }
 
     private void BeendenButton_Click(object sender, RoutedEventArgs e)

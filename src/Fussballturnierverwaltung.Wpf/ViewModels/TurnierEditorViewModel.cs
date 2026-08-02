@@ -66,6 +66,15 @@ public partial class TurnierEditorViewModel : ViewModelBase, IRibbonAware, IHatU
         SimulationVm       = simulationVm;
 
         _tabs = [RundenVm, AufstiegsregelnVm, VerbandsQuotenVm, AuslosungVm, SpielplanUndBaumVm, SimulationVm];
+
+        // Nachbesserung zu #163: "Ausführliche Simulation" im Spielplan-Tab wechselt jetzt nur noch
+        // auf den Simulation-Tab desselben, bereits offenen Turnier-Bereichs statt eine eigene
+        // Navigation zur Simulations-Vollansicht auszulösen (siehe SpielplanViewModel).
+        SpielplanUndBaumVm.AusfuehrlicheSimulationAngefordert += (_, vorauswahl) =>
+        {
+            SimulationVm.Vorauswahl = vorauswahl;
+            AktiverTabIndex = Array.IndexOf(_tabs, SimulationVm);
+        };
     }
 
     private bool _initialisierungAktiv;

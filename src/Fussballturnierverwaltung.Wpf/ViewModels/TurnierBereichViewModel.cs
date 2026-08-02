@@ -25,6 +25,8 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
 
     public bool HatInstanz => AusgewaehlteInstanz is not null;
 
+    public event EventHandler<VorausgewaehlteSimulation>? AusfuehrlicheSimulationAngefordert;
+
     // Ein Turnierbaum ergibt nur bei mehreren aufeinanderfolgenden Runden Sinn — bei genau einer
     // Runde (oder keiner) entfaellt die Split-Ansicht komplett zugunsten des vollen Spielplans.
     public bool ZeigeSplitAnsicht => SpielplanVm.Runden.Count > 1;
@@ -48,6 +50,12 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
             if (runde is not null)
                 SpielplanVm.AusgewaehlteRunde = runde;
         };
+
+        // TurnierBereichViewModel kennt selbst keine Tabs (Split-Ansicht, kein Tab-Umschalter) —
+        // das Event wird daher nur durchgereicht, TurnierEditorViewModel fängt es ab und
+        // wechselt dort auf den Simulation-Tab (siehe Nachbesserung zu #163).
+        SpielplanVm.AusfuehrlicheSimulationAngefordert += (sender, vorauswahl) =>
+            AusfuehrlicheSimulationAngefordert?.Invoke(sender, vorauswahl);
 
         // Issue #138/#141, Richtung "Canvas → Spielplan": Klick auf eine Gruppen-Karte im rechten
         // Panel filtert die Spielliste links direkt auf diese Gruppe (es gibt seit #141 nur noch eine
@@ -98,10 +106,25 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
         foreach (var i in liste) Instanzen.Add(i);
 
         if (AusgewaehlteInstanz is not null && !Instanzen.Contains(AusgewaehlteInstanz))
+        {
             AusgewaehlteInstanz = null;
+        }
         else if (AusgewaehlteInstanz is null)
+        {
             AusgewaehlteInstanz = Instanzen.FirstOrDefault(
                 i => i.Id == _turnierAuswahlService.TurnierInstanzId);
+        }
+        else
+        {
+            // Issue-Nachbesserung zu #163: Instanz unverändert, hier also nur eine reine
+            // Reaktivierung (z.B. Rückkehr vom Simulation-Tab) — OnPropertyChanged(AusgewaehlteInstanz)
+            // feuert in diesem Fall NICHT, SpielplanVm.AktivierenAsync() muss daher explizit
+            // aufgerufen werden (der Tab-Wechsel-Mechanismus in TurnierEditorViewModel ruft nur
+            // AktivierenAsync() auf diesem Composite auf, nicht direkt auf SpielplanVm). In den
+            // beiden Zweigen oben übernimmt das bereits BeiInstanzAenderungAsync (fire-and-forget) —
+            // hier zusätzlich awaiten würde sich mit dessen DB-Zugriff überschneiden.
+            await SpielplanVm.AktivierenAsync();
+        }
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
