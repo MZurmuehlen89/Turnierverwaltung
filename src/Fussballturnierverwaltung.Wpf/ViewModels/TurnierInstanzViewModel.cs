@@ -149,7 +149,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
          nameof(VerbandFilter), nameof(TeamFilter), nameof(StandardRegelwerk)];
 
     // ── IRibbonAware ───────────────────────────────────────────────────────────
-    public string RibbonTabTitel => "Turniere";
+    public string RibbonTabTitel => "Turnierkopf";
     public ICommand NeuBefehl => NeuCommand;
     public ICommand SpeichernBefehl => SpeichernCommand;
     public ICommand AbbrechenBefehl => AbbrechenCommand;

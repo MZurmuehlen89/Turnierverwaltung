@@ -25,7 +25,7 @@ public partial class MainViewModel : ViewModelBase
     private ViewModelBase? _aktuellesViewModel;
 
     // Issue #173: Ribbon-Seitentab bleibt nur sichtbar, wenn es tatsächlich etwas anzuzeigen gibt —
-    // sonst (z.B. Simulation-Tab in TurnierEditorViewModel, weder Standardaktionen noch
+    // sonst (z.B. Simulation-Tab in TurnierDurchfuehrungViewModel, weder Standardaktionen noch
     // Zusatzgruppen) ein leerer Tab-Reiter ohne jeden Button, verwirrender als gar kein Seitentab.
     public bool HatRibbonBereich => AktuellesViewModel is IRibbonAware ribbonAware
         && (ribbonAware.HatStandardAktionen || ribbonAware.HatLoeschenAktion || ribbonAware.RibbonZusatzGruppen.Count > 0);
@@ -67,11 +67,12 @@ public partial class MainViewModel : ViewModelBase
 
         NavigationsGruppen.Add(new NavigationsGruppe
         {
-            Titel = "Bewegungsdaten",
+            Titel = "Turniere",
             Eintraege =
             [
-                EintragErstellen("Turniere",              () => _navigation.NavigiereZuAsync<TurnierInstanzViewModel>()),
-                EintragErstellen("Turnier-Bereich",       () => _navigation.NavigiereZuAsync<TurnierEditorViewModel>()),
+                EintragErstellen("Turnierkopf",            () => _navigation.NavigiereZuAsync<TurnierInstanzViewModel>()),
+                EintragErstellen("Turnierdefinition",      () => _navigation.NavigiereZuAsync<TurnierDefinitionViewModel>()),
+                EintragErstellen("Turnierdurchführung",    () => _navigation.NavigiereZuAsync<TurnierDurchfuehrungViewModel>()),
                 EintragErstellen("Einzelspiel-Simulation", () => _navigation.NavigiereZuAsync<EinzelspielSimulationsViewModel>()),
             ]
         });

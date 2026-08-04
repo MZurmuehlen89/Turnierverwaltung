@@ -1,4 +1,4 @@
-using Fussballturnierverwaltung.Wpf.ViewModels;
+using Fussballturnierverwaltung.Wpf.Navigation;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -24,7 +24,7 @@ public partial class TurnierAuswahlView : UserControl
             return;
         }
 
-        if (DataContext is TurnierEditorViewModel vm)
+        if (DataContext is ITurnierAuswahlHost vm)
         {
             vm.InstanzSuchbegriff = InstanzCombo.Text;
             InstanzCombo.IsDropDownOpen = true;
@@ -34,13 +34,13 @@ public partial class TurnierAuswahlView : UserControl
     private void InstanzCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         _selektionAktiv = true;
-        if (DataContext is TurnierEditorViewModel vm)
+        if (DataContext is ITurnierAuswahlHost vm)
             vm.InstanzSuchbegriff = null;
     }
 
     private void AuswahlDialogButton_Click(object sender, RoutedEventArgs e)
     {
-        if (DataContext is not TurnierEditorViewModel vm) return;
+        if (DataContext is not ITurnierAuswahlHost vm) return;
 
         var dialog = new TurnierAuswahlDialog(vm.Instanzen) { Owner = Window.GetWindow(this) };
         if (dialog.ShowDialog() == true && dialog.Ausgewaehlt is not null)

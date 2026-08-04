@@ -61,8 +61,11 @@
         <DataTemplate DataType="{x:Type vm:VerbandsQuoteViewModel}">
             <views:VerbandsQuoteView />
         </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:TurnierEditorViewModel}">
-            <views:TurnierEditorView />
+        <DataTemplate DataType="{x:Type vm:TurnierDefinitionViewModel}">
+            <views:TurnierDefinitionView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:TurnierDurchfuehrungViewModel}">
+            <views:TurnierDurchfuehrungView />
         </DataTemplate>
 
         <!-- Für den Ribbon-DropDownButton "Auslosungs-Regeln" (Issue #162) — implizit, kein x:Key

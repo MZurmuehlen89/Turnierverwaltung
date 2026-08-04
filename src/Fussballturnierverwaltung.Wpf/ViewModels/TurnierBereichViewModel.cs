@@ -52,7 +52,7 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
         };
 
         // TurnierBereichViewModel kennt selbst keine Tabs (Split-Ansicht, kein Tab-Umschalter) —
-        // das Event wird daher nur durchgereicht, TurnierEditorViewModel fängt es ab und
+        // das Event wird daher nur durchgereicht, TurnierDurchfuehrungViewModel fängt es ab und
         // wechselt dort auf den Simulation-Tab (siehe Nachbesserung zu #163).
         SpielplanVm.AusfuehrlicheSimulationAngefordert += (sender, vorauswahl) =>
             AusfuehrlicheSimulationAngefordert?.Invoke(sender, vorauswahl);
@@ -119,7 +119,7 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
             // Issue-Nachbesserung zu #163: Instanz unverändert, hier also nur eine reine
             // Reaktivierung (z.B. Rückkehr vom Simulation-Tab) — OnPropertyChanged(AusgewaehlteInstanz)
             // feuert in diesem Fall NICHT, SpielplanVm.AktivierenAsync() muss daher explizit
-            // aufgerufen werden (der Tab-Wechsel-Mechanismus in TurnierEditorViewModel ruft nur
+            // aufgerufen werden (der Tab-Wechsel-Mechanismus in TurnierDurchfuehrungViewModel ruft nur
             // AktivierenAsync() auf diesem Composite auf, nicht direkt auf SpielplanVm). In den
             // beiden Zweigen oben übernimmt das bereits BeiInstanzAenderungAsync (fire-and-forget) —
             // hier zusätzlich awaiten würde sich mit dessen DB-Zugriff überschneiden.

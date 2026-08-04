@@ -1,4 +1,4 @@
-<UserControl x:Class="Fussballturnierverwaltung.Wpf.Views.TurnierEditorView"
+<UserControl x:Class="Fussballturnierverwaltung.Wpf.Views.TurnierDurchfuehrungView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="clr-namespace:Fussballturnierverwaltung.Wpf.Views">
@@ -11,24 +11,14 @@
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="Turnier" FontSize="11" FontWeight="Bold"
                            Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,10,0" />
-                <views:TurnierAuswahlView />
+                <views:TurnierAuswahlView DataContext="{Binding TabKoordinator}" />
             </StackPanel>
         </Border>
 
-        <!-- ── Sub-Navigation: 6 Editoren in fachlicher Reihenfolge ── -->
-        <TabControl SelectedIndex="{Binding AktiverTabIndex, Mode=TwoWay}"
+        <!-- ── Sub-Navigation: Auslosung, Spielplan & Baum, Simulation ── -->
+        <TabControl SelectedIndex="{Binding TabKoordinator.AktiverTabIndex, Mode=TwoWay}"
                     BorderThickness="0">
 
-            <TabItem Header="Runden" IsEnabled="{Binding RundenTabAktiv}"
-                     ToolTip="Nur für Turniere mit Status &quot;Geplant&quot; bearbeitbar">
-                <ContentControl Content="{Binding RundenVm}" />
-            </TabItem>
-            <TabItem Header="Aufstiegsregeln">
-                <ContentControl Content="{Binding AufstiegsregelnVm}" />
-            </TabItem>
-            <TabItem Header="Verband-Quoten">
-                <ContentControl Content="{Binding VerbandsQuotenVm}" />
-            </TabItem>
             <TabItem Header="Auslosung">
                 <ContentControl Content="{Binding AuslosungVm}" />
             </TabItem>

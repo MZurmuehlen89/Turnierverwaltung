@@ -156,7 +156,8 @@ public partial class App
         builder.Services.AddTransient<RundenEditorViewModel>();
         builder.Services.AddTransient<AufstiegsregelViewModel>();
         builder.Services.AddTransient<VerbandsQuoteViewModel>();
-        builder.Services.AddTransient<TurnierEditorViewModel>();
+        builder.Services.AddTransient<TurnierDefinitionViewModel>();
+        builder.Services.AddTransient<TurnierDurchfuehrungViewModel>();
 
         // Navigation & Hauptfenster
         builder.Services.AddSingleton<AusgewaehlteTurnierInstanzService>();

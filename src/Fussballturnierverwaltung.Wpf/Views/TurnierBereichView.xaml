@@ -6,7 +6,7 @@
     <DockPanel>
 
         <!-- ── Fortschrittsanzeige (Turnier-Auswahl selbst kommt jetzt aus der äußeren
-             Kopfzeile des Turnier-Bereichs, siehe TurnierEditorView) ── -->
+             Kopfzeile der Turnierdurchführung-Seite, siehe TurnierDurchfuehrungView) ── -->
         <Border DockPanel.Dock="Top" Background="White"
                 BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8"
                 Visibility="{Binding FortschrittAnzeige, Converter={StaticResource NullToCollapsed}}">

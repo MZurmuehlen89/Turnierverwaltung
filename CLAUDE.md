@@ -92,8 +92,8 @@ Both `Console` and `Wpf` are independent startup projects that reference `Infras
 **`TurnierBereichViewModel`** composes `SpielplanViewModel` and `TurnierBaumViewModel` as tabs. It delegates `IRibbonAware` to whichever tab is currently active (`AktiverTabIndex`).
 
 **Navigation groups** in `MainViewModel`:
-- *Stammdaten*: Mannschaften, Länder & Verbände, Regelwerke, Turniervorlagen
-- *Bewegungsdaten*: Turniere, Runden, Auslosung, Spielplan & Baum, Simulation
+- *Stammdaten*: Mannschaften, Länder & Verbände, Regelwerke, Turniervorlagen, Ranglisten
+- *Turniere*: Turnierkopf, Turnierdefinition (Runden, Aufstiegsregeln, Verband-Quoten), Turnierdurchführung (Auslosung, Spielplan & Baum, Simulation), Einzelspiel-Simulation
 - *Import / Export*: Import / Export
 
 ## Naming Conventions

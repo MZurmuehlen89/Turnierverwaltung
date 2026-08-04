@@ -2,9 +2,9 @@ using System.Windows.Controls;
 
 namespace Fussballturnierverwaltung.Wpf.Views;
 
-public partial class TurnierEditorView : UserControl
+public partial class TurnierDurchfuehrungView : UserControl
 {
-    public TurnierEditorView()
+    public TurnierDurchfuehrungView()
     {
         InitializeComponent();
     }

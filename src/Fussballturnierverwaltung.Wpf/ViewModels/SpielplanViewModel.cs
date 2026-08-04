@@ -1271,7 +1271,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     // (NavigationService.NavigiereZuAsync<SimulationsViewModel>) — das erzeugte eine zweite, vom
     // Turnier-Bereich losgelöste Ansicht ohne den gemeinsamen Turnier-Header und machte die Rückkehr
     // zum Spielplan unnötig umständlich. Stattdessen wird das Event nach oben durchgereicht
-    // (TurnierBereichViewModel → TurnierEditorViewModel), das den Simulation-Tab im selben,
+    // (TurnierBereichViewModel → TurnierDurchfuehrungViewModel), das den Simulation-Tab im selben,
     // bereits offenen Turnier-Bereich fokussiert und dort die Vorauswahl setzt.
     public event EventHandler<VorausgewaehlteSimulation>? AusfuehrlicheSimulationAngefordert;
 
