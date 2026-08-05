@@ -207,17 +207,6 @@
                     <Border DockPanel.Dock="Top" Background="White"
                             BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8">
                         <DockPanel>
-                            <!-- Simulations-Aktionen (rechts, vor Ansicht-Toggle) -->
-                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
-                                        Visibility="{Binding HatRunde, Converter={StaticResource BoolToVisibility}}"
-                                        Margin="0,0,8,0">
-                                <ComboBox ItemsSource="{Binding SimulationsModusOptionen}"
-                                          SelectedItem="{Binding AusgewaehlterSimulationsModus}"
-                                          DisplayMemberPath="Anzeige"
-                                          FontSize="11" Width="160" VerticalAlignment="Center"
-                                          Margin="0,0,6,0" />
-                            </StackPanel>
-
                             <TextBlock VerticalAlignment="Center"
                                        FontSize="11" FontWeight="Bold" Foreground="#94A3B8">
                                 <Run Text="SPIELE · " />

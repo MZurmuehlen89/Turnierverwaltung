@@ -229,23 +229,16 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly AsyncRelayCommand _platzhalterBefehl;
 
     // ── Simulation ────────────────────────────────────────────────────────────
+    // Issue #171: Schnell-/Ausführlich-Wahl entfällt hier komplett — SimulationsService berechnet
+    // und speichert Ereignisse seit der Bugfix-Nachbesserung immer, unabhängig vom Modus.
 
-    [ObservableProperty] private bool    _istSimulierend;
-    [ObservableProperty] private SimulationsModusOption _ausgewaehlterSimulationsModus = null!;
+    [ObservableProperty] private bool _istSimulierend;
 
-    public List<SimulationsModusOption> SimulationsModusOptionen { get; } =
-    [
-        new("Schnellsimulation",       SimulationsModus.SchnellSimulation),
-        new("Ausführliche Simulation", SimulationsModus.AusfuehrlicheSimulation),
-    ];
-
-    private readonly AsyncRelayCommand _spielSimulierenBefehl;
     private readonly AsyncRelayCommand _rundeSimulierenBefehl;
     private readonly AsyncRelayCommand _gruppeSimulierenBefehl;
     private readonly AsyncRelayCommand _spieltagSimulierenBefehl;
     private readonly AsyncRelayCommand _ausfuehrlichSimulierenBefehl;
 
-    public ICommand SpielSimulierenBefehl         => _spielSimulierenBefehl;
     public ICommand RundeSimulierenBefehl         => _rundeSimulierenBefehl;
     public ICommand GruppeSimulierenBefehl        => _gruppeSimulierenBefehl;
     public ICommand SpieltagSimulierenBefehl      => _spieltagSimulierenBefehl;
@@ -306,44 +299,40 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             [
                 new RibbonAktion
                 {
-                    Header = "Runde",
+                    Header = "Runde simulieren",
+                    Befehl = RundeSimulierenBefehl,
                     IconGlyph = "",
                     Unteraktionen =
                     [
-                        new RibbonAktion { Header = "Runde simulieren", Befehl = RundeSimulierenBefehl, IconGlyph = "" },
                         new RibbonAktion { Header = "Runde zurücksetzen", Befehl = RundeZuruecksetzenBefehl, IconGlyph = "" },
                         new RibbonAktion { Header = MehrfachZuruecksetzenMenuText, Befehl = MehrfachZuruecksetzenBefehl, IconGlyph = "" },
                     ],
                 },
                 new RibbonAktion
                 {
-                    Header = "Gruppe",
+                    Header = "Gruppe simulieren",
+                    Befehl = GruppeSimulierenBefehl,
                     IconGlyph = "",
                     Unteraktionen =
                     [
-                        new RibbonAktion { Header = "Gruppe simulieren", Befehl = GruppeSimulierenBefehl, IconGlyph = "" },
                         new RibbonAktion { Header = "Gruppe zurücksetzen", Befehl = GruppeZuruecksetzenBefehl, IconGlyph = "" },
                     ],
                 },
                 new RibbonAktion
                 {
-                    Header = "Spieltag",
+                    Header = SpieltagSimulierenMenuText,
+                    Befehl = SpieltagSimulierenBefehl,
                     IconGlyph = "",
                     Unteraktionen =
                     [
-                        new RibbonAktion { Header = SpieltagSimulierenMenuText, Befehl = SpieltagSimulierenBefehl, IconGlyph = "" },
                         new RibbonAktion { Header = SpieltagZuruecksetzenMenuText, Befehl = SpieltagZuruecksetzenBefehl, IconGlyph = "" },
                     ],
                 },
                 new RibbonAktion
                 {
                     Header = "Spiel simulieren",
-                    Befehl = SpielSimulierenBefehl,
+                    Befehl = AusfuehrlichSimulierenBefehl,
                     IconGlyph = "",
-                    Unteraktionen =
-                    [
-                        new RibbonAktion { Header = "Ausführliche Simulation", Befehl = AusfuehrlichSimulierenBefehl, IconVektorDatei = "magnifying_glass.xaml" },
-                    ],
                 },
             ],
         },
@@ -375,8 +364,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _tabellenService    = tabellenService;
         _simulationsService = simulationsService;
 
-        AusgewaehlterSimulationsModus = SimulationsModusOptionen[0];
-
         _neuBefehl                 = new AsyncRelayCommand(SpielplanNeuGenerierenAsync,   () => HatRunde);
         _speichernBefehl           = new AsyncRelayCommand(SpeichernAsync,                () => FormAktiv && IsDirty);
         _abbrechenBefehl           = new RelayCommand(FormZuruecksetzen,                  () => FormAktiv && IsDirty);
@@ -388,7 +375,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _fokusNaechsterSpieltag     = new RelayCommand(FokusEinSpieltag_Vor,   () => KannFokusVor);
         _fokusAlleSpieltageBefehl   = new RelayCommand(() => FokusAlleAktiv = true, () => !FokusAlleAktiv);
 
-        _spielSimulierenBefehl        = new AsyncRelayCommand(SpielSimulierenAsync,         CanSpielSimulieren);
         _rundeSimulierenBefehl        = new AsyncRelayCommand(RundeSimulierenAsync,         CanRundeSimulieren);
         _gruppeSimulierenBefehl       = new AsyncRelayCommand(GruppeSimulierenAsync,        CanGruppeSimulieren);
         _spieltagSimulierenBefehl     = new AsyncRelayCommand(SpieltagSimulierenAsync,      CanSpieltagSimulieren);
@@ -986,7 +972,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _fokusVorigerSpieltag.NotifyCanExecuteChanged();
         _fokusNaechsterSpieltag.NotifyCanExecuteChanged();
         _fokusAlleSpieltageBefehl.NotifyCanExecuteChanged();
-        _spielSimulierenBefehl.NotifyCanExecuteChanged();
         _rundeSimulierenBefehl.NotifyCanExecuteChanged();
         _gruppeSimulierenBefehl.NotifyCanExecuteChanged();
         _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
@@ -1215,9 +1200,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     // ── Simulation: CanExecute ─────────────────────────────────────────────────
 
-    private bool CanSpielSimulieren()    =>
-        HatRunde && AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && !IstSimulierend && !FormHatErgebnis;
-
     private bool CanAusfuehrlichSimulieren() =>
         HatRunde && AusgewaehlteSpiel is { IstPlatzhalterSpiel: false } && AusgewaehlteInstanz is not null
         && !IstSimulierend && !FormHatErgebnis;
@@ -1256,61 +1238,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     // ── Simulation: Aktionen ───────────────────────────────────────────────────
 
-    private async Task SpielSimulierenAsync()
-    {
-        if (AusgewaehlteSpiel is null || AusgewaehlteRunde is null) return;
-        int spielId = AusgewaehlteSpiel.Id;
-        int rundeId = AusgewaehlteRunde.Id;
-        Fehlermeldung  = null;
-        IstSimulierend = true;
-        try
-        {
-            await _simulationsService.SpielSimulierenAsync(spielId, AusgewaehlterSimulationsModus.Wert);
-
-            // Siehe ErgebnisSpeichernAsync — auch nach Simulation kann eine Finale-Runde entscheidungsreif werden.
-            await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
-
-            await TabellenNeuLadenAsync(rundeId);
-
-            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
-            Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
-            OnPropertyChanged(nameof(FokusSpiele));
-
-            // Property-Change-Trigger (SpielWechselAsync, fire-and-forget) hier unterdrücken,
-            // sonst laeuft dessen DB-Zugriff parallel zu TurnierBaumAktualisierenAsync auf
-            // demselben DbContext (siehe [[feedback-dbcontext-concurrency]]) — Formular explizit
-            // erst danach sequenziell neu laden.
-            _spielWechselUnterdrueckt++;
-            try
-            {
-                AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
-            }
-            finally
-            {
-                _spielWechselUnterdrueckt--;
-            }
-            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
-            await BeiSpielAenderungAsync();
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-        }
-        finally
-        {
-            IstSimulierend = false;
-            AktualisiereBefehle();
-        }
-    }
-
     // Issue-Nachbesserung zu #163: vormals eine eigenständige Navigation zur Simulations-Vollansicht
     // (NavigationService.NavigiereZuAsync<SimulationsViewModel>) — das erzeugte eine zweite, vom
     // Turnier-Bereich losgelöste Ansicht ohne den gemeinsamen Turnier-Header und machte die Rückkehr
     // zum Spielplan unnötig umständlich. Stattdessen wird das Event nach oben durchgereicht
     // (TurnierBereichViewModel → TurnierDurchfuehrungViewModel), das den Simulation-Tab im selben,
-    // bereits offenen Turnier-Bereich fokussiert und dort die Vorauswahl setzt.
+    // bereits offenen Turnier-Bereich fokussiert und dort die Vorauswahl setzt. Seit Issue #171
+    // die einzige "Spiel simulieren"-Aktion (kein separates Inline-Simulieren mehr) — das inline
+    // schnelle Simulieren in der Spielplan-Liste entfällt zugunsten der Live-Ansicht im Detail-Tab.
     public event EventHandler<VorausgewaehlteSimulation>? AusfuehrlicheSimulationAngefordert;
 
     private Task AusfuehrlichSimulierenAsync()
@@ -1336,7 +1271,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         try
         {
             await _simulationsService.RundeSimulierenAsync(
-                rundeId, AusgewaehlterSimulationsModus.Wert);
+                rundeId, SimulationsModus.AusfuehrlicheSimulation);
 
             // Siehe ErgebnisSpeichernAsync — auch nach Simulation kann eine Finale-Runde entscheidungsreif werden.
             await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
@@ -1373,9 +1308,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         try
         {
             await _simulationsService.GruppeSimulierenAsync(
-                rundeId, teamIds, AusgewaehlterSimulationsModus.Wert);
+                rundeId, teamIds, SimulationsModus.AusfuehrlicheSimulation);
 
-            await GruppenTabellenLadenAsync(rundeId);
+            await TabellenNeuLadenAsync(rundeId);
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
@@ -1407,9 +1342,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         try
         {
             await _simulationsService.SpieltagInGruppeSimulierenAsync(
-                rundeId, spieltag, teamIds, AusgewaehlterSimulationsModus.Wert);
+                rundeId, spieltag, teamIds, SimulationsModus.AusfuehrlicheSimulation);
 
-            await GruppenTabellenLadenAsync(rundeId);
+            await TabellenNeuLadenAsync(rundeId);
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
@@ -1493,7 +1428,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             await _spielService.MehrereErgebnisseLoeschenAsync(spielIds);
 
-            await GruppenTabellenLadenAsync(rundeId);
+            await TabellenNeuLadenAsync(rundeId);
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
@@ -1536,7 +1471,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             await _spielService.MehrereErgebnisseLoeschenAsync(spielIds);
 
-            await GruppenTabellenLadenAsync(rundeId);
+            await TabellenNeuLadenAsync(rundeId);
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();

@@ -72,9 +72,11 @@ public class SimulationsService(
             throw new InvalidOperationException(
                 $"Spiel #{spiel.Spielnummer} enthält Platzhalter und kann nicht simuliert werden.");
 
-        bool ausfuehrlich = modus == SimulationsModus.AusfuehrlicheSimulation;
+        // Issue #171: Ereignisse werden unabhängig vom gewählten Modus immer berechnet und
+        // gespeichert (In-Memory-Berechnung ist vernachlässigbar teuer) — sonst bleibt der
+        // Spielverlauf leer, wenn ein schnellsimuliertes Spiel später im Detail betrachtet wird.
         var ergebnis = SimulationsEngine.Simulieren(
-            spiel.HeimMannschaft, spiel.AuswaertsMannschaft, verfahren, ausfuehrlich, rng);
+            spiel.HeimMannschaft, spiel.AuswaertsMannschaft, verfahren, ausfuehrlich: true, rng);
 
         await SpeichernAsync(spiel, ergebnis, ct);
 

@@ -280,7 +280,13 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     /// Tabelle angezeigt; bei K.-o.-Runden (oder keiner Runde) bleibt das Bracket unverändert sichtbar.</summary>
     public async Task AktualisiereFokusRundeAsync(TurnierRunde? runde)
     {
-        FokussierteGruppenNummer = null;
+        // Issue #171-Nachbesserung: TabellenNeuLadenAsync (SpielplanViewModel) loest dieses Delegate
+        // mittlerweile bei JEDER Ergebnis-/Simulations-Aenderung aus, nicht nur bei echten Runden-
+        // wechseln (Issue #137) — ohne diese Unterscheidung sprang ein aktiver Gruppenfokus bei jeder
+        // Gruppe/Spieltag-Aktion kurz auf die Gesamtuebersicht zurueck und wieder zurueck (Flackern).
+        bool istEchterRundenwechsel = runde?.Id != _fokusRunde?.Id;
+        if (istEchterRundenwechsel)
+            FokussierteGruppenNummer = null;
 
         // _fokusRunde erst auf null setzen, dann Snapshot/Ansicht zurücksetzen — die Changed-Handler
         // lösen sonst (wegen _fokusRunde != null) einen überflüssigen Reload für die alte Runde aus,
