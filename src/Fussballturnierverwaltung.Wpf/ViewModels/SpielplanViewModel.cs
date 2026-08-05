@@ -135,8 +135,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     // Vorformatierte Menü-Texte fürs "Aktionen ▾"-Dropdown (Issue #144) — MenuItem.Header ist vom
     // Typ object, Binding.StringFormat wird dort nicht zuverlässig angewendet (zeigte nur die
     // rohe Zahl statt des formatierten Texts), daher hier als fertige Strings bereitgestellt.
-    public string SpieltagSimulierenMenuText    => $"{FokusSpieltagnummer} simulieren";
-    public string SpieltagZuruecksetzenMenuText => $"{FokusSpieltagnummer} zurücksetzen";
+    // Ohne aktiven expliziten Gruppenfilter (Issue #170, Fallback auf die Spiel-Selektion) bleibt
+    // FokusAktiverSpieltag auf 0 — dann bewusst generischer Text statt "Spieltag 0".
+    public string SpieltagSimulierenMenuText    => FokusAktiverSpieltag > 0 ? $"{FokusSpieltagnummer} simulieren" : "Spieltag simulieren";
+    public string SpieltagZuruecksetzenMenuText => FokusAktiverSpieltag > 0 ? $"{FokusSpieltagnummer} zurücksetzen" : "Spieltag zurücksetzen";
     public bool   KannFokusZurueck     => !FokusAlleAktiv && FokusSpieltage.Count > 0 && FokusAktiverSpieltag > FokusSpieltage[0];
     public bool   KannFokusVor         => FokusSpieltage.Count > 1 && (FokusAlleAktiv || FokusAktiverSpieltag < FokusSpieltage[^1]);
 
@@ -698,6 +700,26 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         AktualisiereBefehle();
     }
 
+    /// <summary>Stellt nach einem Gruppen-/Spieltag-Simulieren/Zurücksetzen die vorherige
+    /// Spiel-Selektion wieder her (Issue #170-Nachbesserung: die implizite Fokus-Ableitung über
+    /// AusgewaehlteSpiel ginge sonst nach jeder Aktion verloren, da die Liste neu aufgebaut wird
+    /// und die alte Objektinstanz nicht mehr existiert). SpielWechselAsync wird währenddessen
+    /// unterdrückt (reine Objektinstanz-Änderung, kein fachlicher Wechsel), das Formular danach
+    /// explizit einmalig neu geladen — analog SpielSimulierenAsync.</summary>
+    private async Task SpielAuswahlWiederherstellenAsync(int? spielId)
+    {
+        _spielWechselUnterdrueckt++;
+        try
+        {
+            AusgewaehlteSpiel = spielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == spielId) : null;
+        }
+        finally
+        {
+            _spielWechselUnterdrueckt--;
+        }
+        await BeiSpielAenderungAsync();
+    }
+
     // ── Formular befüllen ─────────────────────────────────────────────────────
 
     private void FormularAusFuellenMit(Spiel spiel)
@@ -1175,6 +1197,22 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _fokusAlleSpieltageBefehl.NotifyCanExecuteChanged();
     }
 
+    // ── Effektiver Gruppen-/Spieltag-Fokus (Issue #170) ──────────────────────────
+    // Gruppe/Spieltag-Aktionen sollen auch greifen, wenn kein expliziter Gruppenfilter aktiv
+    // ist, sondern nur ein einzelnes Spiel in der Liste selektiert wurde — analog dem
+    // bestehenden Fallback in TurnierBereichViewModel.AktualisiereGruppenFokus. Expliziter
+    // Filter (AusgewaehlteGruppe) hat weiterhin Vorrang.
+
+    private GruppenTabelle? EffektiveGruppe =>
+        AusgewaehlteGruppe ?? (AusgewaehlteSpiel?.GruppeNummer is { } gn
+            ? GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gn)
+            : null);
+
+    private int? EffektiverSpieltag =>
+        AusgewaehlteGruppe is not null
+            ? (FokusAlleAktiv ? null : FokusAktiverSpieltag)
+            : AusgewaehlteSpiel?.Spieltag;
+
     // ── Simulation: CanExecute ─────────────────────────────────────────────────
 
     private bool CanSpielSimulieren()    =>
@@ -1189,14 +1227,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         && Spiele.Any(s => s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
 
     private bool CanGruppeSimulieren() =>
-        AusgewaehlteGruppe is not null && !IstSimulierend
-        && Spiele.Any(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer
+        EffektiveGruppe is { } gruppe && !IstSimulierend
+        && Spiele.Any(s => s.GruppeNummer == gruppe.GruppenNummer
                          && s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
 
     private bool CanSpieltagSimulieren() =>
-        AusgewaehlteGruppe is not null && !FokusAlleAktiv && !IstSimulierend
-        && Spiele.Any(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer
-                         && s.Spieltag == FokusAktiverSpieltag
+        EffektiveGruppe is { } gruppe && EffektiverSpieltag is { } spieltag && !IstSimulierend
+        && Spiele.Any(s => s.GruppeNummer == gruppe.GruppenNummer
+                         && s.Spieltag == spieltag
                          && s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
 
     // ── Ergebnis-Reset: CanExecute ───────────────────────────────────────────────
@@ -1205,13 +1243,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         HatRunde && !IstSimulierend && Spiele.Any(s => s.HatErgebnis);
 
     private bool CanGruppeZuruecksetzen() =>
-        AusgewaehlteGruppe is not null && !IstSimulierend
-        && Spiele.Any(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer && s.HatErgebnis);
+        EffektiveGruppe is { } gruppe && !IstSimulierend
+        && Spiele.Any(s => s.GruppeNummer == gruppe.GruppenNummer && s.HatErgebnis);
 
     private bool CanSpieltagZuruecksetzen() =>
-        AusgewaehlteGruppe is not null && !FokusAlleAktiv && !IstSimulierend
-        && Spiele.Any(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer
-                         && s.Spieltag == FokusAktiverSpieltag && s.HatErgebnis);
+        EffektiveGruppe is { } gruppe && EffektiverSpieltag is { } spieltag && !IstSimulierend
+        && Spiele.Any(s => s.GruppeNummer == gruppe.GruppenNummer
+                         && s.Spieltag == spieltag && s.HatErgebnis);
 
     private bool CanMehrfachZuruecksetzen() =>
         !IstSimulierend && AnzahlMehrfachZuruecksetzbar > 0;
@@ -1326,9 +1364,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task GruppeSimulierenAsync()
     {
-        if (AusgewaehlteGruppe is null || AusgewaehlteRunde is null) return;
-        int rundeId = AusgewaehlteRunde.Id;
-        var teamIds = AusgewaehlteGruppe.Tabelle.Select(t => t.Mannschaft.Id).ToList();
+        if (EffektiveGruppe is not { } gruppe || AusgewaehlteRunde is null) return;
+        int rundeId  = AusgewaehlteRunde.Id;
+        int? spielId = AusgewaehlteSpiel?.Id;
+        var teamIds = gruppe.Tabelle.Select(t => t.Mannschaft.Id).ToList();
         Fehlermeldung  = null;
         IstSimulierend = true;
         try
@@ -1343,7 +1382,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
                 Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(FokusSpiele));
-            AusgewaehlteSpiel = null;
+            await SpielAuswahlWiederherstellenAsync(spielId);
         }
         catch (Exception ex)
         {
@@ -1358,10 +1397,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task SpieltagSimulierenAsync()
     {
-        if (AusgewaehlteGruppe is null || AusgewaehlteRunde is null || FokusAlleAktiv) return;
+        if (EffektiveGruppe is not { } gruppe || AusgewaehlteRunde is null
+            || EffektiverSpieltag is not { } spieltag) return;
         int rundeId  = AusgewaehlteRunde.Id;
-        int spieltag = FokusAktiverSpieltag;
-        var teamIds  = AusgewaehlteGruppe.Tabelle.Select(t => t.Mannschaft.Id).ToList();
+        int? spielId = AusgewaehlteSpiel?.Id;
+        var teamIds  = gruppe.Tabelle.Select(t => t.Mannschaft.Id).ToList();
         Fehlermeldung  = null;
         IstSimulierend = true;
         try
@@ -1376,7 +1416,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
                 Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(FokusSpiele));
-            AusgewaehlteSpiel = null;
+            await SpielAuswahlWiederherstellenAsync(spielId);
         }
         catch (Exception ex)
         {
@@ -1434,18 +1474,19 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task GruppeZuruecksetzenAsync()
     {
-        if (AusgewaehlteGruppe is null || AusgewaehlteRunde is null) return;
+        if (EffektiveGruppe is not { } gruppe || AusgewaehlteRunde is null) return;
         var spielIds = Spiele
-            .Where(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer && s.HatErgebnis)
+            .Where(s => s.GruppeNummer == gruppe.GruppenNummer && s.HatErgebnis)
             .Select(s => s.Id).ToList();
         if (spielIds.Count == 0) return;
 
         var antwort = MessageBox.Show(
-            $"Alle {spielIds.Count} Ergebnis(se) der Gruppe {AusgewaehlteGruppe.GruppenNummer} zurücksetzen?",
+            $"Alle {spielIds.Count} Ergebnis(se) der Gruppe {gruppe.GruppenNummer} zurücksetzen?",
             "Ergebnisse zurücksetzen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (antwort != MessageBoxResult.Yes) return;
 
-        int rundeId = AusgewaehlteRunde.Id;
+        int rundeId  = AusgewaehlteRunde.Id;
+        int? spielId = AusgewaehlteSpiel?.Id;
         Fehlermeldung  = null;
         IstSimulierend = true;
         try
@@ -1459,7 +1500,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
                 Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(FokusSpiele));
-            AusgewaehlteSpiel = null;
+            await SpielAuswahlWiederherstellenAsync(spielId);
         }
         catch (Exception ex)
         {
@@ -1474,20 +1515,21 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task SpieltagZuruecksetzenAsync()
     {
-        if (AusgewaehlteGruppe is null || AusgewaehlteRunde is null || FokusAlleAktiv) return;
-        int spieltag = FokusAktiverSpieltag;
+        if (EffektiveGruppe is not { } gruppe || AusgewaehlteRunde is null
+            || EffektiverSpieltag is not { } spieltag) return;
         var spielIds = Spiele
-            .Where(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer
+            .Where(s => s.GruppeNummer == gruppe.GruppenNummer
                      && s.Spieltag == spieltag && s.HatErgebnis)
             .Select(s => s.Id).ToList();
         if (spielIds.Count == 0) return;
 
         var antwort = MessageBox.Show(
-            $"Alle {spielIds.Count} Ergebnis(se) von Spieltag {spieltag} (Gruppe {AusgewaehlteGruppe.GruppenNummer}) zurücksetzen?",
+            $"Alle {spielIds.Count} Ergebnis(se) von Spieltag {spieltag} (Gruppe {gruppe.GruppenNummer}) zurücksetzen?",
             "Ergebnisse zurücksetzen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (antwort != MessageBoxResult.Yes) return;
 
-        int rundeId = AusgewaehlteRunde.Id;
+        int rundeId  = AusgewaehlteRunde.Id;
+        int? spielId = AusgewaehlteSpiel?.Id;
         Fehlermeldung  = null;
         IstSimulierend = true;
         try
@@ -1501,7 +1543,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
                 Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(FokusSpiele));
-            AusgewaehlteSpiel = null;
+            await SpielAuswahlWiederherstellenAsync(spielId);
         }
         catch (Exception ex)
         {
