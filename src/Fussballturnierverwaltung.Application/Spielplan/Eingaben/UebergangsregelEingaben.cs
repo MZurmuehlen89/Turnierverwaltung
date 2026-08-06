@@ -1,6 +1,6 @@
 namespace Fussballturnierverwaltung.Application.Spielplan.Eingaben;
 
-public record QualifikationsRegelEingabe(
+public record UebergangsregelEingabe(
     int QuellRundeId,
     int ZielRundeId,
     int? GruppeIndex,

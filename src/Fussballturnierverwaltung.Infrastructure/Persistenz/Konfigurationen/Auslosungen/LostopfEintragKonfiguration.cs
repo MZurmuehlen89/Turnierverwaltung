@@ -22,9 +22,9 @@ public class LostopfEintragKonfiguration : IEntityTypeConfiguration<LostopfEintr
             .HasForeignKey(e => e.MannschaftId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(e => e.QualifikationsRegel)
+        builder.HasOne(e => e.Uebergangsregel)
             .WithMany()
-            .HasForeignKey(e => e.QualifikationsRegelId)
+            .HasForeignKey(e => e.UebergangsregelId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

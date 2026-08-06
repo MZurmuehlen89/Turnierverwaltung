@@ -14,10 +14,10 @@ using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
-public partial class AufstiegsregelViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
+public partial class UebergangsregelViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly TurnierInstanzService _instanzService;
-    private readonly QualifikationsRegelService _regelService;
+    private readonly UebergangsregelService _regelService;
     private readonly AusgewaehlteTurnierInstanzService _turnierAuswahlService;
     private int _populiertGerade;
 
@@ -34,11 +34,11 @@ public partial class AufstiegsregelViewModel : ViewModelBase, IRibbonAware, IHat
 
     // ── Liste der Regeln des gewählten Turniers ───────────────────────────────
     [ObservableProperty]
-    private ObservableCollection<QualifikationsRegel> _regeln = [];
+    private ObservableCollection<Uebergangsregel> _regeln = [];
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
-    private QualifikationsRegel? _ausgewaehltes;
+    private Uebergangsregel? _ausgewaehltes;
 
     // ── Runden des gewählten Turniers (Quelle für Quell-/Zielrunden-Auswahl) ──
     [ObservableProperty]
@@ -98,15 +98,15 @@ public partial class AufstiegsregelViewModel : ViewModelBase, IRibbonAware, IHat
         [nameof(QuellRunde), nameof(ZielRunde), nameof(GruppeIndex), nameof(PlatzierungVon), nameof(PlatzierungBis)];
 
     // ── IRibbonAware ───────────────────────────────────────────────────────────
-    public string RibbonTabTitel => "Aufstiegsregeln";
+    public string RibbonTabTitel => "Übergangsregeln";
     public ICommand NeuBefehl => NeuCommand;
     public ICommand SpeichernBefehl => SpeichernCommand;
     public ICommand AbbrechenBefehl => AbbrechenCommand;
     public ICommand LoeschenBefehl => LoeschenCommand;
 
-    public AufstiegsregelViewModel(
+    public UebergangsregelViewModel(
         TurnierInstanzService instanzService,
-        QualifikationsRegelService regelService,
+        UebergangsregelService regelService,
         AusgewaehlteTurnierInstanzService turnierAuswahlService)
     {
         _instanzService = instanzService;
@@ -158,7 +158,7 @@ public partial class AufstiegsregelViewModel : ViewModelBase, IRibbonAware, IHat
 
             Runden = new ObservableCollection<TurnierRunde>(
                 (detail?.Runden ?? []).OrderBy(r => r.Reihenfolge));
-            Regeln = new ObservableCollection<QualifikationsRegel>(
+            Regeln = new ObservableCollection<Uebergangsregel>(
                 regeln.OrderBy(r => r.QuellRunde.Reihenfolge).ThenBy(r => r.GruppeIndex).ThenBy(r => r.PlatzierungVon));
             Ausgewaehltes = null;
             FormularAusFuellenMit(null);
@@ -173,7 +173,7 @@ public partial class AufstiegsregelViewModel : ViewModelBase, IRibbonAware, IHat
         }
     }
 
-    private void FormularAusFuellenMit(QualifikationsRegel? regel)
+    private void FormularAusFuellenMit(Uebergangsregel? regel)
     {
         _populiertGerade++;
         try
@@ -246,7 +246,7 @@ public partial class AufstiegsregelViewModel : ViewModelBase, IRibbonAware, IHat
 
         try
         {
-            var eingabe = new QualifikationsRegelEingabe(
+            var eingabe = new UebergangsregelEingabe(
                 QuellRunde.Id, ZielRunde.Id,
                 GruppeIndexSichtbar ? ParseNullableInt(GruppeIndex) : null,
                 ParseInt(PlatzierungVon), ParseInt(PlatzierungBis));
@@ -268,7 +268,7 @@ public partial class AufstiegsregelViewModel : ViewModelBase, IRibbonAware, IHat
             }
 
             var regeln = await _regelService.AlleNachTurnierInstanzIdAsync(AusgewaehltesTurnier.Id);
-            Regeln = new ObservableCollection<QualifikationsRegel>(
+            Regeln = new ObservableCollection<Uebergangsregel>(
                 regeln.OrderBy(r => r.QuellRunde.Reihenfolge).ThenBy(r => r.GruppeIndex).ThenBy(r => r.PlatzierungVon));
 
             var gespeichert = Regeln.FirstOrDefault(r => r.Id == gespeicherteId);
@@ -292,8 +292,8 @@ public partial class AufstiegsregelViewModel : ViewModelBase, IRibbonAware, IHat
     {
         if (Ausgewaehltes is null || AusgewaehltesTurnier is null) return;
         var ergebnis = MessageBox.Show(
-            $"Soll die Aufstiegsregel '{Ausgewaehltes.QuellRunde.Name}' → '{Ausgewaehltes.ZielRunde.Name}' wirklich gelöscht werden?",
-            "Aufstiegsregel löschen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            $"Soll die Übergangsregel '{Ausgewaehltes.QuellRunde.Name}' → '{Ausgewaehltes.ZielRunde.Name}' wirklich gelöscht werden?",
+            "Übergangsregel löschen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (ergebnis != MessageBoxResult.Yes) return;
 
         Fehlermeldung = null;
@@ -301,7 +301,7 @@ public partial class AufstiegsregelViewModel : ViewModelBase, IRibbonAware, IHat
         {
             await _regelService.LoeschenAsync(Ausgewaehltes.Id);
             var regeln = await _regelService.AlleNachTurnierInstanzIdAsync(AusgewaehltesTurnier.Id);
-            Regeln = new ObservableCollection<QualifikationsRegel>(
+            Regeln = new ObservableCollection<Uebergangsregel>(
                 regeln.OrderBy(r => r.QuellRunde.Reihenfolge).ThenBy(r => r.GruppeIndex).ThenBy(r => r.PlatzierungVon));
             Ausgewaehltes = null;
         }

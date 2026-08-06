@@ -8,9 +8,9 @@ using Spectre.Console;
 
 namespace Fussballturnierverwaltung.Konsole.Menues.Turniere;
 
-public class AufstiegsregelMenue(
+public class UebergangsregelMenue(
     TurnierInstanzService instanzService,
-    QualifikationsRegelService regelService)
+    UebergangsregelService regelService)
 {
     private enum Option { AlleAnzeigen, NeuAnlegen, Bearbeiten, Loeschen, Zurueck }
 
@@ -18,7 +18,7 @@ public class AufstiegsregelMenue(
     {
         while (!ct.IsCancellationRequested)
         {
-            KonsolenHilfsmittel.Kopf("🔀 Aufstiegsregeln");
+            KonsolenHilfsmittel.Kopf("🔀 Übergangsregeln");
 
             var auswahl = AnsiConsole.Prompt(
                 new SelectionPrompt<Option>()
@@ -56,12 +56,12 @@ public class AufstiegsregelMenue(
         var instanz = await TurnierAuswaehlenAsync("Turnier:", ct);
         if (instanz is null) return;
 
-        KonsolenHilfsmittel.Kopf($"Aufstiegsregeln – {instanz.Name}");
+        KonsolenHilfsmittel.Kopf($"Übergangsregeln – {instanz.Name}");
         var regeln = await regelService.AlleNachTurnierInstanzIdAsync(instanz.Id, ct);
 
         if (regeln.Count == 0)
         {
-            KonsolenHilfsmittel.WarnungAnzeigen("Keine Aufstiegsregeln definiert.");
+            KonsolenHilfsmittel.WarnungAnzeigen("Keine Übergangsregeln definiert.");
             KonsolenHilfsmittel.Pause();
             return;
         }
@@ -95,13 +95,13 @@ public class AufstiegsregelMenue(
         var zielRunde = RundeAuswaehlen("Zielrunde:", instanz.Runden.Where(r => r.Id != quellRunde.Id));
         if (zielRunde is null) return;
 
-        var werte = AufstiegsregelWerteAbfragen(quellRunde);
+        var werte = UebergangsregelWerteAbfragen(quellRunde);
 
-        var regel = await regelService.ErstellenAsync(new QualifikationsRegelEingabe(
+        var regel = await regelService.ErstellenAsync(new UebergangsregelEingabe(
             quellRunde.Id, zielRunde.Id, werte.GruppeIndex, werte.PlatzierungVon, werte.PlatzierungBis), ct);
 
         KonsolenHilfsmittel.ErfolgAnzeigen(
-            $"Aufstiegsregel angelegt (ID {regel.Id}): '{quellRunde.Name}' → '{zielRunde.Name}'.");
+            $"Übergangsregel angelegt (ID {regel.Id}): '{quellRunde.Name}' → '{zielRunde.Name}'.");
         KonsolenHilfsmittel.Pause();
     }
 
@@ -121,12 +121,12 @@ public class AufstiegsregelMenue(
             $"Zielrunde (aktuell: {bisherigeZielRunde.Name}):", instanz.Runden.Where(r => r.Id != quellRunde.Id))
             ?? bisherigeZielRunde;
 
-        var werte = AufstiegsregelWerteAbfragen(quellRunde, regel);
+        var werte = UebergangsregelWerteAbfragen(quellRunde, regel);
 
-        await regelService.AktualisierenAsync(regel.Id, new QualifikationsRegelEingabe(
+        await regelService.AktualisierenAsync(regel.Id, new UebergangsregelEingabe(
             quellRunde.Id, zielRunde.Id, werte.GruppeIndex, werte.PlatzierungVon, werte.PlatzierungBis), ct);
 
-        KonsolenHilfsmittel.ErfolgAnzeigen($"Aufstiegsregel {regel.Id} gespeichert.");
+        KonsolenHilfsmittel.ErfolgAnzeigen($"Übergangsregel {regel.Id} gespeichert.");
         KonsolenHilfsmittel.Pause();
     }
 
@@ -174,24 +174,24 @@ public class AufstiegsregelMenue(
             .AddChoices(liste.Cast<TurnierRunde?>().Append(null)));
     }
 
-    private async Task<QualifikationsRegel?> RegelAuswaehlenAsync(int turnierInstanzId, CancellationToken ct)
+    private async Task<Uebergangsregel?> RegelAuswaehlenAsync(int turnierInstanzId, CancellationToken ct)
     {
         var regeln = await regelService.AlleNachTurnierInstanzIdAsync(turnierInstanzId, ct);
         if (regeln.Count == 0)
-        { KonsolenHilfsmittel.WarnungAnzeigen("Keine Aufstiegsregeln vorhanden."); KonsolenHilfsmittel.Pause(); return null; }
+        { KonsolenHilfsmittel.WarnungAnzeigen("Keine Übergangsregeln vorhanden."); KonsolenHilfsmittel.Pause(); return null; }
 
-        return AnsiConsole.Prompt(new SelectionPrompt<QualifikationsRegel?>()
+        return AnsiConsole.Prompt(new SelectionPrompt<Uebergangsregel?>()
             .Title("Regel:")
             .UseConverter(r => r is null ? "← Zurück" :
                 $"[{r.Id}] {Markup.Escape(r.QuellRunde.Name)} (Platz {r.PlatzierungVon}-{r.PlatzierungBis}) → {Markup.Escape(r.ZielRunde.Name)}")
-            .AddChoices(regeln.Cast<QualifikationsRegel?>().Append(null)));
+            .AddChoices(regeln.Cast<Uebergangsregel?>().Append(null)));
     }
 
-    private sealed record AufstiegsregelWerte(int? GruppeIndex, int PlatzierungVon, int PlatzierungBis);
+    private sealed record UebergangsregelWerte(int? GruppeIndex, int PlatzierungVon, int PlatzierungBis);
 
     /// <summary>Fragt Gruppenindex/Spielnummer und Platzierungsbereich ab. Die Bedeutung von "Gruppenindex" hängt
-    /// von der Rundenart der Quellrunde ab (siehe QualifikationsRegelValidator).</summary>
-    private static AufstiegsregelWerte AufstiegsregelWerteAbfragen(TurnierRunde quellRunde, QualifikationsRegel? bestehend = null)
+    /// von der Rundenart der Quellrunde ab (siehe UebergangsregelValidator).</summary>
+    private static UebergangsregelWerte UebergangsregelWerteAbfragen(TurnierRunde quellRunde, Uebergangsregel? bestehend = null)
     {
         int? gruppeIndex = null;
         string? gruppeIndexLabel = quellRunde.Rundenart switch
@@ -212,6 +212,6 @@ public class AufstiegsregelMenue(
         var von = AnsiConsole.Prompt(new TextPrompt<int>($"Platzierung von{platzHinweis}:").DefaultValue(bestehend?.PlatzierungVon ?? 1));
         var bis = AnsiConsole.Prompt(new TextPrompt<int>($"Platzierung bis{platzHinweis}:").DefaultValue(bestehend?.PlatzierungBis ?? von));
 
-        return new AufstiegsregelWerte(gruppeIndex, von, bis);
+        return new UebergangsregelWerte(gruppeIndex, von, bis);
     }
 }

@@ -4,18 +4,18 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Konfigurationen.Turniere;
 
-public class QualifikationsRegelKonfiguration : IEntityTypeConfiguration<QualifikationsRegel>
+public class UebergangsregelKonfiguration : IEntityTypeConfiguration<Uebergangsregel>
 {
-    public void Configure(EntityTypeBuilder<QualifikationsRegel> builder)
+    public void Configure(EntityTypeBuilder<Uebergangsregel> builder)
     {
-        builder.ToTable("QualifikationsRegeln");
+        builder.ToTable("Uebergangsregeln");
         builder.HasKey(r => r.Id);
         builder.Property(r => r.GruppeIndex);
         builder.Property(r => r.PlatzierungVon).IsRequired();
         builder.Property(r => r.PlatzierungBis).IsRequired();
 
         builder.HasOne(r => r.QuellRunde)
-            .WithMany(t => t.AufstiegsRegeln)
+            .WithMany(t => t.Uebergangsregeln)
             .HasForeignKey(r => r.QuellRundeId)
             .OnDelete(DeleteBehavior.Cascade);
 

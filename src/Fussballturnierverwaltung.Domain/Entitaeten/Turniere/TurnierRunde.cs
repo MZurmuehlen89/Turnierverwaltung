@@ -26,6 +26,6 @@ public class TurnierRunde : BasisEntitaet
 
     public ICollection<Spiel> Spiele { get; set; } = new List<Spiel>();
 
-    // Aufstiegsregeln, die aus dieser Runde in eine (ggf. andere) Zielrunde führen.
-    public ICollection<QualifikationsRegel> AufstiegsRegeln { get; set; } = new List<QualifikationsRegel>();
+    // Übergangsregeln, die aus dieser Runde in eine (ggf. andere) Zielrunde führen.
+    public ICollection<Uebergangsregel> Uebergangsregeln { get; set; } = new List<Uebergangsregel>();
 }

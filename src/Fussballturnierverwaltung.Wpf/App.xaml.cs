@@ -121,8 +121,8 @@ public partial class App
         builder.Services.AddScoped<TurnierInstanzService>();
         builder.Services.AddScoped<RegelwerkService>();
         builder.Services.AddScoped<RanglisteService>();
-        builder.Services.AddScoped<QualifikationsRegelValidator>();
-        builder.Services.AddScoped<QualifikationsRegelService>();
+        builder.Services.AddScoped<UebergangsregelValidator>();
+        builder.Services.AddScoped<UebergangsregelService>();
         builder.Services.AddScoped<VerbandsQuoteService>();
 
         // Application Services – Auslosung & Spielplan
@@ -154,7 +154,7 @@ public partial class App
         builder.Services.AddTransient<TurnierBereichViewModel>();
         builder.Services.AddTransient<ImportExportViewModel>();
         builder.Services.AddTransient<RundenEditorViewModel>();
-        builder.Services.AddTransient<AufstiegsregelViewModel>();
+        builder.Services.AddTransient<UebergangsregelViewModel>();
         builder.Services.AddTransient<VerbandsQuoteViewModel>();
         builder.Services.AddTransient<TurnierDefinitionViewModel>();
         builder.Services.AddTransient<TurnierDurchfuehrungViewModel>();

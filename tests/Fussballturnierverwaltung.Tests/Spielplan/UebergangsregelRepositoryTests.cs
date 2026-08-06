@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fussballturnierverwaltung.Tests.Spielplan;
 
-public class QualifikationsRegelRepositoryTests
+public class UebergangsregelRepositoryTests
 {
     private static TurnierverwaltungDbContext NeuerContext() =>
         new(new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
@@ -42,9 +42,9 @@ public class QualifikationsRegelRepositoryTests
     {
         using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out var ligaRundeId, out var koRundeId);
-        var repo = new QualifikationsRegelRepository(ctx);
+        var repo = new UebergangsregelRepository(ctx);
 
-        var regel = new QualifikationsRegel
+        var regel = new Uebergangsregel
         {
             QuellRundeId = ligaRundeId, ZielRundeId = koRundeId,
             PlatzierungVon = 1, PlatzierungBis = 8
@@ -63,14 +63,14 @@ public class QualifikationsRegelRepositoryTests
     {
         using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out var ligaRundeId, out var koRundeId);
-        var repo = new QualifikationsRegelRepository(ctx);
+        var repo = new UebergangsregelRepository(ctx);
 
-        await repo.HinzufuegenAsync(new QualifikationsRegel
+        await repo.HinzufuegenAsync(new Uebergangsregel
             { QuellRundeId = ligaRundeId, ZielRundeId = koRundeId, PlatzierungVon = 9, PlatzierungBis = 24 });
-        await repo.HinzufuegenAsync(new QualifikationsRegel
+        await repo.HinzufuegenAsync(new Uebergangsregel
             { QuellRundeId = ligaRundeId, ZielRundeId = koRundeId, PlatzierungVon = 1, PlatzierungBis = 8 });
         // Regel einer anderen Quellrunde darf nicht mitgeliefert werden.
-        await repo.HinzufuegenAsync(new QualifikationsRegel
+        await repo.HinzufuegenAsync(new Uebergangsregel
             { QuellRundeId = koRundeId, ZielRundeId = ligaRundeId, PlatzierungVon = 1, PlatzierungBis = 1 });
 
         var regeln = await repo.AlleNachQuellRundeIdAsync(ligaRundeId);
@@ -85,8 +85,8 @@ public class QualifikationsRegelRepositoryTests
     {
         using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out var ligaRundeId, out var koRundeId);
-        var repo = new QualifikationsRegelRepository(ctx);
-        var regel = new QualifikationsRegel
+        var repo = new UebergangsregelRepository(ctx);
+        var regel = new Uebergangsregel
             { QuellRundeId = ligaRundeId, ZielRundeId = koRundeId, PlatzierungVon = 1, PlatzierungBis = 8 };
         await repo.HinzufuegenAsync(regel);
 
@@ -102,8 +102,8 @@ public class QualifikationsRegelRepositoryTests
     {
         using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out var ligaRundeId, out var koRundeId);
-        var repo = new QualifikationsRegelRepository(ctx);
-        var regel = new QualifikationsRegel
+        var repo = new UebergangsregelRepository(ctx);
+        var regel = new Uebergangsregel
             { QuellRundeId = ligaRundeId, ZielRundeId = koRundeId, PlatzierungVon = 1, PlatzierungBis = 8 };
         await repo.HinzufuegenAsync(regel);
 
@@ -117,12 +117,12 @@ public class QualifikationsRegelRepositoryTests
     {
         using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out var ligaRundeId, out var koRundeId);
-        var repo = new QualifikationsRegelRepository(ctx);
+        var repo = new UebergangsregelRepository(ctx);
 
-        await repo.HinzufuegenAsync(new QualifikationsRegel
+        await repo.HinzufuegenAsync(new Uebergangsregel
             { QuellRundeId = ligaRundeId, ZielRundeId = koRundeId, PlatzierungVon = 1, PlatzierungBis = 8 });
         // Regel mit anderer Zielrunde darf nicht mitgeliefert werden.
-        await repo.HinzufuegenAsync(new QualifikationsRegel
+        await repo.HinzufuegenAsync(new Uebergangsregel
             { QuellRundeId = koRundeId, ZielRundeId = ligaRundeId, PlatzierungVon = 1, PlatzierungBis = 1 });
 
         var regeln = await repo.AlleNachZielRundeIdAsync(koRundeId);
@@ -137,11 +137,11 @@ public class QualifikationsRegelRepositoryTests
     {
         using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out var ligaRundeId, out var koRundeId);
-        var repo = new QualifikationsRegelRepository(ctx);
+        var repo = new UebergangsregelRepository(ctx);
 
-        await repo.HinzufuegenAsync(new QualifikationsRegel
+        await repo.HinzufuegenAsync(new Uebergangsregel
             { QuellRundeId = ligaRundeId, ZielRundeId = koRundeId, PlatzierungVon = 1, PlatzierungBis = 8 });
-        await repo.HinzufuegenAsync(new QualifikationsRegel
+        await repo.HinzufuegenAsync(new Uebergangsregel
             { QuellRundeId = ligaRundeId, ZielRundeId = koRundeId, PlatzierungVon = 9, PlatzierungBis = 24 });
 
         var regeln = await repo.AlleNachTurnierInstanzIdAsync(1);
@@ -154,8 +154,8 @@ public class QualifikationsRegelRepositoryTests
     {
         using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out var ligaRundeId, out var koRundeId);
-        var repo = new QualifikationsRegelRepository(ctx);
-        var regel = new QualifikationsRegel
+        var repo = new UebergangsregelRepository(ctx);
+        var regel = new Uebergangsregel
             { QuellRundeId = ligaRundeId, ZielRundeId = koRundeId, PlatzierungVon = 1, PlatzierungBis = 8 };
         await repo.HinzufuegenAsync(regel);
 

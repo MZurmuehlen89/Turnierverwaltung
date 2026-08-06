@@ -55,8 +55,8 @@
         <DataTemplate DataType="{x:Type vm:RundenEditorViewModel}">
             <views:RundenEditorView />
         </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:AufstiegsregelViewModel}">
-            <views:AufstiegsregelView />
+        <DataTemplate DataType="{x:Type vm:UebergangsregelViewModel}">
+            <views:UebergangsregelView />
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:VerbandsQuoteViewModel}">
             <views:VerbandsQuoteView />

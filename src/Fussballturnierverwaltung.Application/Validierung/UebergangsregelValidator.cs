@@ -5,14 +5,19 @@ using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Validierung;
 
-public class QualifikationsRegelValidator
+public class UebergangsregelValidator
 {
     /// <summary>
-    /// Validiert eine Aufstiegsregel gegen die geladene Quellrunde. Die Bedeutung von <see cref="QualifikationsRegel.GruppeIndex"/>
+    /// Validiert eine Übergangsregel gegen die geladene Quell- und Zielrunde. Die Bedeutung von <see cref="Uebergangsregel.GruppeIndex"/>
     /// hängt von der Rundenart der Quellrunde ab: Gruppenphase → Gruppennummer, K.-o.-Runde/Finale → Spielnummer innerhalb
     /// der Runde (Platzierung 1 = Sieger, 2 = Verlierer), Liga → nicht verwendet (Platzierung = Tabellenrang).
     /// </summary>
-    public ValidationErgebnis Validieren(QualifikationsRegelEingabe eingabe, TurnierRunde quellRunde)
+    public ValidationErgebnis Validieren(
+        UebergangsregelEingabe eingabe,
+        TurnierRunde quellRunde,
+        TurnierRunde zielRunde,
+        IReadOnlyList<Uebergangsregel> alleRegeln,
+        int? bearbeiteteRegelId = null)
     {
         var fehler = new List<string>();
 
@@ -24,6 +29,9 @@ public class QualifikationsRegelValidator
 
         if (eingabe.PlatzierungBis < eingabe.PlatzierungVon)
             fehler.Add("PlatzierungBis darf nicht kleiner als PlatzierungVon sein.");
+
+        if (WuerdeZyklusSchliessen(eingabe, alleRegeln, bearbeiteteRegelId))
+            fehler.Add($"Übergangsregel '{quellRunde.Name}' → '{zielRunde.Name}' würde einen zyklischen Übergang erzeugen.");
 
         switch (quellRunde.Rundenart)
         {
@@ -59,10 +67,38 @@ public class QualifikationsRegelValidator
                 break;
 
             default:
-                fehler.Add($"Rundenart '{quellRunde.Rundenart}' wird als Quellrunde für Aufstiegsregeln nicht unterstützt.");
+                fehler.Add($"Rundenart '{quellRunde.Rundenart}' wird als Quellrunde für Übergangsregeln nicht unterstützt.");
                 break;
         }
 
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+    }
+
+    /// <summary>Prüft per DFS ausgehend von der vorgeschlagenen Zielrunde, ob die Quellrunde über bestehende
+    /// Regeln (QuellRundeId → ZielRundeId) wieder erreichbar ist — dann würde die neue Kante einen Zyklus schließen.</summary>
+    private static bool WuerdeZyklusSchliessen(
+        UebergangsregelEingabe eingabe, IReadOnlyList<Uebergangsregel> alleRegeln, int? bearbeiteteRegelId)
+    {
+        var kanten = alleRegeln
+            .Where(r => r.Id != bearbeiteteRegelId)
+            .ToLookup(r => r.QuellRundeId, r => r.ZielRundeId);
+
+        var besucht = new HashSet<int>();
+        var stapel = new Stack<int>();
+        stapel.Push(eingabe.ZielRundeId);
+
+        while (stapel.Count > 0)
+        {
+            var aktuell = stapel.Pop();
+            if (aktuell == eingabe.QuellRundeId)
+                return true;
+            if (!besucht.Add(aktuell))
+                continue;
+
+            foreach (var naechste in kanten[aktuell])
+                stapel.Push(naechste);
+        }
+
+        return false;
     }
 }

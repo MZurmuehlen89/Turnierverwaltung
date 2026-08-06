@@ -7,14 +7,14 @@ using System.Windows.Input;
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
 /// <summary>
-/// "Turnierdefinition"-Seite (Issue #172) — Runden, Aufstiegsregeln, Verband-Quoten als Tabs
+/// "Turnierdefinition"-Seite (Issue #172) — Runden, Übergangsregeln, Verband-Quoten als Tabs
 /// unter einem gemeinsamen Turnier-Header. Generische Tab-Container-Mechanik ausgelagert in
 /// TurnierTabKoordinator; hier verbleibt nur die Definitionsspezifische Runden-Tab-Gating-Logik.
 /// </summary>
 public class TurnierDefinitionViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     public RundenEditorViewModel   RundenVm          { get; }
-    public AufstiegsregelViewModel AufstiegsregelnVm { get; }
+    public UebergangsregelViewModel UebergangsregelnVm { get; }
     public VerbandsQuoteViewModel  VerbandsQuotenVm  { get; }
 
     public TurnierTabKoordinator TabKoordinator { get; }
@@ -28,15 +28,15 @@ public class TurnierDefinitionViewModel : ViewModelBase, IRibbonAware, IHatUnges
         TurnierInstanzService instanzService,
         AusgewaehlteTurnierInstanzService turnierAuswahlService,
         RundenEditorViewModel rundenVm,
-        AufstiegsregelViewModel aufstiegsregelnVm,
+        UebergangsregelViewModel uebergangsregelnVm,
         VerbandsQuoteViewModel verbandsQuotenVm)
     {
         RundenVm          = rundenVm;
-        AufstiegsregelnVm = aufstiegsregelnVm;
+        UebergangsregelnVm = uebergangsregelnVm;
         VerbandsQuotenVm  = verbandsQuotenVm;
 
         TabKoordinator = new TurnierTabKoordinator(
-            instanzService, turnierAuswahlService, [RundenVm, AufstiegsregelnVm, VerbandsQuotenVm])
+            instanzService, turnierAuswahlService, [RundenVm, UebergangsregelnVm, VerbandsQuotenVm])
         {
             NachAuswahlKorrigieren = KorrigiereAktivenTabFallsUngueltig
         };

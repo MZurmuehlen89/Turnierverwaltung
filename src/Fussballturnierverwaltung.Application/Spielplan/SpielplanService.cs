@@ -17,7 +17,7 @@ public class SpielplanService(
     ISpielRepository spielRepository,
     IMannschaftRepository mannschaftRepository,
     ITurnierBaumRepository turnierBaumRepository,
-    IQualifikationsRegelRepository qualifikationsRegelRepository,
+    IUebergangsregelRepository uebergangsregelRepository,
     SpielplanGeneratorFactory generatorFactory,
     TurnierValidator turnierValidator,
     TabellenService tabellenService,
@@ -528,7 +528,7 @@ public class SpielplanService(
     /// vollständig entschieden sind, und entfernt/ersetzt ein noch nicht gespieltes Spiel wieder, falls sich der
     /// Quellrunden-Stand nachträglich ändert (Ergebnis zurückgesetzt oder neu simuliert). Eine bereits gespielte
     /// Zielrunde (mit Ergebnis) wird nie automatisch verändert.
-    /// Zwei Wege werden unterstützt: (1) explizite <see cref="QualifikationsRegel"/>n, die zusammen genau zwei
+    /// Zwei Wege werden unterstützt: (1) explizite <see cref="Uebergangsregel"/>n, die zusammen genau zwei
     /// Qualifikanten für die Zielrunde liefern (Issue #29/#130); (2) als Fallback für Turniere ohne solche Regeln
     /// die ursprüngliche Heuristik aus Issue #113 (nächstgelegene einbeinige K.-o.-Vorrunde mit zwei Ausgangsteams).
     /// Aggregat-Sieger-Ermittlung über zwei Spielbeine ist bewusst nicht Teil dieser Phase (weder für die
@@ -540,7 +540,7 @@ public class SpielplanService(
     public async Task FinaleAutomatischGenerierenWennBereitAsync(int turnierInstanzId, CancellationToken ct = default)
     {
         var alleRunden = await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
-        var alleRegeln = await qualifikationsRegelRepository.AlleNachTurnierInstanzIdAsync(turnierInstanzId, ct);
+        var alleRegeln = await uebergangsregelRepository.AlleNachTurnierInstanzIdAsync(turnierInstanzId, ct);
 
         var zielRunden = alleRunden
             .Where(r => r.EingangsMannschaftsanzahl == 2)
@@ -592,10 +592,10 @@ public class SpielplanService(
         }
     }
 
-    /// <summary>Ermittelt die beiden Qualifikanten für eine Zielrunde aus expliziten <see cref="QualifikationsRegel"/>n.
+    /// <summary>Ermittelt die beiden Qualifikanten für eine Zielrunde aus expliziten <see cref="Uebergangsregel"/>n.
     /// Liefert <c>null</c>, solange nicht alle beteiligten Quellrunden vollständig entschieden sind.</summary>
     private async Task<(List<int>? Teilnehmer, string Beschreibung)> QualifikantenAusRegelnAsync(
-        IReadOnlyList<QualifikationsRegel> regeln, CancellationToken ct)
+        IReadOnlyList<Uebergangsregel> regeln, CancellationToken ct)
     {
         var teilnehmer = new List<int>();
         foreach (var regel in regeln)
@@ -612,7 +612,7 @@ public class SpielplanService(
         return teilnehmer.Count == 2 ? (teilnehmer, beschreibung) : (null, beschreibung);
     }
 
-    /// <summary>Fallback für Turniere ohne explizite <see cref="QualifikationsRegel"/>n: sucht die nächstgelegene
+    /// <summary>Fallback für Turniere ohne explizite <see cref="Uebergangsregel"/>n: sucht die nächstgelegene
     /// einbeinige K.-o.-Vorrunde mit zwei Ausgangsteams und ermittelt deren beide Sieger (Issue #113).</summary>
     private async Task<(List<int>? Teilnehmer, string Beschreibung)> QualifikantenAusFinaleHeuristikAsync(
         TurnierRunde ziel, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
@@ -745,9 +745,9 @@ public class SpielplanService(
 
     // ── Regelbasierte Auflösung (Issue #130) ──────────────────────────────
 
-    /// <summary>Löst eine Platzierung einer <see cref="QualifikationsRegel"/> zum tatsächlichen Mannschaft-Id auf.
+    /// <summary>Löst eine Platzierung einer <see cref="Uebergangsregel"/> zum tatsächlichen Mannschaft-Id auf.
     /// Liefert <c>null</c>, solange die Quellrunde noch nicht (für diese Platzierung) entschieden ist.</summary>
-    public Task<int?> QualifikationsRegelPlatzAufloesenAsync(QualifikationsRegel regel, int platzierung, CancellationToken ct = default)
+    public Task<int?> UebergangsregelPlatzAufloesenAsync(Uebergangsregel regel, int platzierung, CancellationToken ct = default)
     {
         if (platzierung < regel.PlatzierungVon || platzierung > regel.PlatzierungBis)
             throw new ArgumentOutOfRangeException(nameof(platzierung),
@@ -756,10 +756,10 @@ public class SpielplanService(
         return RangAufloesenAsync(regel.QuellRunde, regel.GruppeIndex, platzierung, ct);
     }
 
-    /// <summary>Löst alle Platzierungen einer <see cref="QualifikationsRegel"/> auf (Platzierung → Mannschaft-Id oder
+    /// <summary>Löst alle Platzierungen einer <see cref="Uebergangsregel"/> auf (Platzierung → Mannschaft-Id oder
     /// <c>null</c>, solange die Quellrunde für diese Platzierung noch nicht entschieden ist).</summary>
-    public async Task<IReadOnlyDictionary<int, int?>> QualifikationsRegelQualifikantenAsync(
-        QualifikationsRegel regel, CancellationToken ct = default)
+    public async Task<IReadOnlyDictionary<int, int?>> UebergangsregelQualifikantenAsync(
+        Uebergangsregel regel, CancellationToken ct = default)
     {
         var ergebnis = new Dictionary<int, int?>();
         for (int platz = regel.PlatzierungVon; platz <= regel.PlatzierungBis; platz++)
@@ -769,7 +769,7 @@ public class SpielplanService(
 
     /// <summary>
     /// Kern-Auflösung "Platzierung X einer Quellrunde → Mannschaft-Id", regelbasiert und unabhängig davon, ob die
-    /// Koordinaten (Quellrunde/Gruppenindex/Platzierung) aus einer <see cref="QualifikationsRegel"/> oder — für
+    /// Koordinaten (Quellrunde/Gruppenindex/Platzierung) aus einer <see cref="Uebergangsregel"/> oder — für
     /// bestehende, per Freitext angelegte Turniere — aus dem Regex-Parser stammen. Die Bedeutung von
     /// <paramref name="gruppeIndex"/> hängt von der Rundenart der Quellrunde ab:
     /// Gruppenphase → Gruppennummer (Platzierung = Tabellenrang in dieser Gruppe),

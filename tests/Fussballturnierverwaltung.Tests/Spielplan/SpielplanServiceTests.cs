@@ -30,10 +30,10 @@ public class SpielplanServiceTests
         var spielRepo = new SpielRepository(ctx);
         var mannschaftRepo = new MannschaftRepository(ctx);
         var baumRepo = new TurnierBaumRepository(ctx);
-        var qualifikationsRegelRepo = new QualifikationsRegelRepository(ctx);
+        var uebergangsregelRepo = new UebergangsregelRepository(ctx);
         var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator()]);
         return new SpielplanService(
-            rundeRepo, spielRepo, mannschaftRepo, baumRepo, qualifikationsRegelRepo,
+            rundeRepo, spielRepo, mannschaftRepo, baumRepo, uebergangsregelRepo,
             factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
             NullLogger<SpielplanService>.Instance);
     }
@@ -460,29 +460,29 @@ public class SpielplanServiceTests
         spiel.AuswaertsMannschaftId.Should().Be(4); // Verlierer HF 2 = Team D
     }
 
-    // ── Tests: regelbasierte Auflösung über QualifikationsRegel (Issue #130) ─
+    // ── Tests: regelbasierte Auflösung über Uebergangsregel (Issue #130) ─
 
     [Fact]
-    public async Task QualifikationsRegelQualifikantenAsync_GruppenphaseQuelle_LoestTabellenraengeAuf()
+    public async Task UebergangsregelQualifikantenAsync_GruppenphaseQuelle_LoestTabellenraengeAuf()
     {
         await using var ctx = NeuerContext();
         GruppenphaseUndKoSetupAnlegen(ctx, out int gruppenphaseRundeId, out int koRundeId);
         var gruppenphase = ctx.TurnierRunden.First(r => r.Id == gruppenphaseRundeId);
-        var regel = new QualifikationsRegel
+        var regel = new Uebergangsregel
         {
             QuellRundeId = gruppenphaseRundeId, QuellRunde = gruppenphase, ZielRundeId = koRundeId,
             GruppeIndex = 1, PlatzierungVon = 1, PlatzierungBis = 2
         };
         var service = ServiceFuer(ctx);
 
-        var qualifikanten = await service.QualifikationsRegelQualifikantenAsync(regel);
+        var qualifikanten = await service.UebergangsregelQualifikantenAsync(regel);
 
         qualifikanten[1].Should().Be(1); // Platz 1 Gruppe A = Team A
         qualifikanten[2].Should().Be(2); // Platz 2 Gruppe A = Team B
     }
 
     [Fact]
-    public async Task QualifikationsRegelPlatzAufloesenAsync_LigaQuelle_LoestTabellenrangAuf()
+    public async Task UebergangsregelPlatzAufloesenAsync_LigaQuelle_LoestTabellenrangAuf()
     {
         await using var ctx = NeuerContext();
         LigaGrundSetupAnlegen(ctx, out int ligaRundeId);
@@ -503,64 +503,64 @@ public class SpielplanServiceTests
         ctx.SaveChanges();
 
         var ligaRunde = ctx.TurnierRunden.First(r => r.Id == ligaRundeId);
-        var regel = new QualifikationsRegel
+        var regel = new Uebergangsregel
         {
             QuellRundeId = ligaRundeId, QuellRunde = ligaRunde, ZielRundeId = 999,
             GruppeIndex = null, PlatzierungVon = 1, PlatzierungBis = 1
         };
         var service = ServiceFuer(ctx);
 
-        var platz1 = await service.QualifikationsRegelPlatzAufloesenAsync(regel, 1);
+        var platz1 = await service.UebergangsregelPlatzAufloesenAsync(regel, 1);
 
         platz1.Should().Be(1); // Team A: 3 Punkte, Tordifferenz +3 → Rang 1
     }
 
     [Fact]
-    public async Task QualifikationsRegelPlatzAufloesenAsync_KoRundeQuelle_LoestSiegerUndVerliererAuf()
+    public async Task UebergangsregelPlatzAufloesenAsync_KoRundeQuelle_LoestSiegerUndVerliererAuf()
     {
         await using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
         HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
         var hfRunde = ctx.TurnierRunden.First(r => r.Id == hfRundeId);
-        var regelSieger = new QualifikationsRegel
+        var regelSieger = new Uebergangsregel
         {
             QuellRundeId = hfRundeId, QuellRunde = hfRunde, ZielRundeId = finaleRundeId,
             GruppeIndex = 1, PlatzierungVon = 1, PlatzierungBis = 1
         };
-        var regelVerlierer = new QualifikationsRegel
+        var regelVerlierer = new Uebergangsregel
         {
             QuellRundeId = hfRundeId, QuellRunde = hfRunde, ZielRundeId = finaleRundeId,
             GruppeIndex = 1, PlatzierungVon = 2, PlatzierungBis = 2
         };
         var service = ServiceFuer(ctx);
 
-        var sieger = await service.QualifikationsRegelPlatzAufloesenAsync(regelSieger, 1);
-        var verlierer = await service.QualifikationsRegelPlatzAufloesenAsync(regelVerlierer, 2);
+        var sieger = await service.UebergangsregelPlatzAufloesenAsync(regelSieger, 1);
+        var verlierer = await service.UebergangsregelPlatzAufloesenAsync(regelVerlierer, 2);
 
         sieger.Should().Be(1);
         verlierer.Should().Be(2);
     }
 
     [Fact]
-    public async Task QualifikationsRegelPlatzAufloesenAsync_NochNichtEntschieden_LiefertNull()
+    public async Task UebergangsregelPlatzAufloesenAsync_NochNichtEntschieden_LiefertNull()
     {
         await using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
         HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: null);
         var hfRunde = ctx.TurnierRunden.First(r => r.Id == hfRundeId);
-        var regel = new QualifikationsRegel
+        var regel = new Uebergangsregel
         {
             QuellRundeId = hfRundeId, QuellRunde = hfRunde, ZielRundeId = finaleRundeId,
             GruppeIndex = 1, PlatzierungVon = 1, PlatzierungBis = 1
         };
         var service = ServiceFuer(ctx);
 
-        var sieger = await service.QualifikationsRegelPlatzAufloesenAsync(regel, 1);
+        var sieger = await service.UebergangsregelPlatzAufloesenAsync(regel, 1);
 
         sieger.Should().BeNull();
     }
 
-    // ── Tests: generalisierter Sync-Hook mit expliziten QualifikationsRegeln (Issue #130) ─
+    // ── Tests: generalisierter Sync-Hook mit expliziten Uebergangsregeln (Issue #130) ─
 
     private static void ZweiKoZweigeSetupAnlegen(
         TurnierverwaltungDbContext ctx, out int zweig1Id, out int zweig2Id, out int zielRundeId)
@@ -596,9 +596,9 @@ public class SpielplanServiceTests
             new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 },
             new Mannschaft { Id = 4, Name = "Team D", Kurzname = "TD", LandId = 1 });
 
-        ctx.QualifikationsRegeln.AddRange(
-            new QualifikationsRegel { QuellRundeId = zweig1.Id, ZielRundeId = ziel.Id, GruppeIndex = 1, PlatzierungVon = 1, PlatzierungBis = 1 },
-            new QualifikationsRegel { QuellRundeId = zweig2.Id, ZielRundeId = ziel.Id, GruppeIndex = 1, PlatzierungVon = 1, PlatzierungBis = 1 });
+        ctx.Uebergangsregeln.AddRange(
+            new Uebergangsregel { QuellRundeId = zweig1.Id, ZielRundeId = ziel.Id, GruppeIndex = 1, PlatzierungVon = 1, PlatzierungBis = 1 },
+            new Uebergangsregel { QuellRundeId = zweig2.Id, ZielRundeId = ziel.Id, GruppeIndex = 1, PlatzierungVon = 1, PlatzierungBis = 1 });
 
         ctx.SaveChanges();
         zweig1Id = zweig1.Id;

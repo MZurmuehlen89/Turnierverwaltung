@@ -1,6 +1,6 @@
 namespace Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 
-public class QualifikationsRegel : BasisEntitaet
+public class Uebergangsregel : BasisEntitaet
 {
     public int QuellRundeId { get; set; }
     public TurnierRunde QuellRunde { get; set; } = null!;

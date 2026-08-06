@@ -186,10 +186,10 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int?>("Platzierung")
                         .HasColumnType("int");
 
-                    b.Property<int?>("QualifikationsRegelId")
+                    b.Property<int?>("SetzPosition")
                         .HasColumnType("int");
 
-                    b.Property<int?>("SetzPosition")
+                    b.Property<int?>("UebergangsregelId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -198,7 +198,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     b.HasIndex("MannschaftId");
 
-                    b.HasIndex("QualifikationsRegelId");
+                    b.HasIndex("UebergangsregelId");
 
                     b.ToTable("LostopfEintraege", (string)null);
                 });
@@ -772,38 +772,6 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.ToTable("TurnierBaumKnoten", (string)null);
                 });
 
-            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.QualifikationsRegel", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("GruppeIndex")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PlatzierungBis")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PlatzierungVon")
-                        .HasColumnType("int");
-
-                    b.Property<int>("QuellRundeId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ZielRundeId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("QuellRundeId");
-
-                    b.HasIndex("ZielRundeId");
-
-                    b.ToTable("QualifikationsRegeln", (string)null);
-                });
-
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", b =>
                 {
                     b.Property<int>("Id")
@@ -943,6 +911,38 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.HasKey("Id");
 
                     b.ToTable("TurnierVorlagen", (string)null);
+                });
+
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.Uebergangsregel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("GruppeIndex")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PlatzierungBis")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PlatzierungVon")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuellRundeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ZielRundeId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("QuellRundeId");
+
+                    b.HasIndex("ZielRundeId");
+
+                    b.ToTable("Uebergangsregeln", (string)null);
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VerbandsQuote", b =>
@@ -1107,16 +1107,16 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasForeignKey("MannschaftId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.QualifikationsRegel", "QualifikationsRegel")
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.Uebergangsregel", "Uebergangsregel")
                         .WithMany()
-                        .HasForeignKey("QualifikationsRegelId")
+                        .HasForeignKey("UebergangsregelId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Lostopf");
 
                     b.Navigation("Mannschaft");
 
-                    b.Navigation("QualifikationsRegel");
+                    b.Navigation("Uebergangsregel");
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenEintrag", b =>
@@ -1355,25 +1355,6 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("TurnierBaum");
                 });
 
-            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.QualifikationsRegel", b =>
-                {
-                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierRunde", "QuellRunde")
-                        .WithMany("AufstiegsRegeln")
-                        .HasForeignKey("QuellRundeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierRunde", "ZielRunde")
-                        .WithMany()
-                        .HasForeignKey("ZielRundeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("QuellRunde");
-
-                    b.Navigation("ZielRunde");
-                });
-
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", b =>
                 {
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke.Regelwerk", "StandardRegelwerk")
@@ -1415,6 +1396,25 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("Regelwerk");
 
                     b.Navigation("TurnierInstanz");
+                });
+
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.Uebergangsregel", b =>
+                {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierRunde", "QuellRunde")
+                        .WithMany("Uebergangsregeln")
+                        .HasForeignKey("QuellRundeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierRunde", "ZielRunde")
+                        .WithMany()
+                        .HasForeignKey("ZielRundeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("QuellRunde");
+
+                    b.Navigation("ZielRunde");
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VerbandsQuote", b =>
@@ -1522,9 +1522,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierRunde", b =>
                 {
-                    b.Navigation("AufstiegsRegeln");
-
                     b.Navigation("Spiele");
+
+                    b.Navigation("Uebergangsregeln");
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierVorlage", b =>

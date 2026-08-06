@@ -77,7 +77,7 @@ public partial class VerbandsQuoteViewModel : ViewModelBase, IRibbonAware, IHatU
 
     // Verbände, die in diesem Turnier noch keine Quote haben — der aktuell im Formular
     // ausgewählte Verband bleibt in der Liste, damit die ComboBox-Auswahl beim Bearbeiten
-    // nicht verloren geht (analog ZielRundenOptionen in AufstiegsregelViewModel).
+    // nicht verloren geht (analog ZielRundenOptionen in UebergangsregelViewModel).
     public IEnumerable<Verband> VerbandOptionen =>
         Verbaende.Where(v => v.Id == AusgewaehlterVerband?.Id ||
                              Quoten.Where(q => Ausgewaehltes is null || q.Id != Ausgewaehltes.Id)
@@ -252,7 +252,7 @@ public partial class VerbandsQuoteViewModel : ViewModelBase, IRibbonAware, IHatU
             Quoten = new ObservableCollection<VerbandsQuote>(quoten.OrderBy(q => q.Verband.Name));
 
             var gespeichert = Quoten.FirstOrDefault(q => q.Id == gespeicherteId);
-            // Explizit statt nur über die Ausgewaehltes-Zuweisung, siehe AufstiegsregelViewModel.
+            // Explizit statt nur über die Ausgewaehltes-Zuweisung, siehe UebergangsregelViewModel.
             Ausgewaehltes = gespeichert;
             FormularAusFuellenMit(gespeichert);
         }

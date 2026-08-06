@@ -15,29 +15,29 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fussballturnierverwaltung.Tests.Spielplan;
 
-public class QualifikationsRegelServiceTests
+public class UebergangsregelServiceTests
 {
     private static TurnierverwaltungDbContext NeuerContext() =>
         new(new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 
-    private static QualifikationsRegelService ServiceFuer(TurnierverwaltungDbContext ctx)
+    private static UebergangsregelService ServiceFuer(TurnierverwaltungDbContext ctx)
     {
         var rundeRepo = new TurnierRundeRepository(ctx);
         var spielRepo = new SpielRepository(ctx);
         var mannschaftRepo = new MannschaftRepository(ctx);
         var baumRepo = new TurnierBaumRepository(ctx);
-        var qualifikationsRegelRepo = new QualifikationsRegelRepository(ctx);
+        var uebergangsregelRepo = new UebergangsregelRepository(ctx);
         var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator()]);
         var spielplanService = new SpielplanService(
-            rundeRepo, spielRepo, mannschaftRepo, baumRepo, qualifikationsRegelRepo,
+            rundeRepo, spielRepo, mannschaftRepo, baumRepo, uebergangsregelRepo,
             factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
             NullLogger<SpielplanService>.Instance);
 
-        return new QualifikationsRegelService(
-            qualifikationsRegelRepo, rundeRepo, new QualifikationsRegelValidator(),
-            spielplanService, NullLogger<QualifikationsRegelService>.Instance);
+        return new UebergangsregelService(
+            uebergangsregelRepo, rundeRepo, new UebergangsregelValidator(),
+            spielplanService, NullLogger<UebergangsregelService>.Instance);
     }
 
     private static void GrundSetupAnlegen(TurnierverwaltungDbContext ctx, out int gruppenphaseRundeId, out int koRundeId)
@@ -68,7 +68,7 @@ public class QualifikationsRegelServiceTests
         GrundSetupAnlegen(ctx, out int gruppenphaseRundeId, out int koRundeId);
         var service = ServiceFuer(ctx);
 
-        var regel = await service.ErstellenAsync(new QualifikationsRegelEingabe(
+        var regel = await service.ErstellenAsync(new UebergangsregelEingabe(
             gruppenphaseRundeId, koRundeId, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 2));
 
         regel.Id.Should().BeGreaterThan(0);
@@ -82,7 +82,7 @@ public class QualifikationsRegelServiceTests
         GrundSetupAnlegen(ctx, out int gruppenphaseRundeId, out int koRundeId);
         var service = ServiceFuer(ctx);
 
-        var eingabe = new QualifikationsRegelEingabe(
+        var eingabe = new UebergangsregelEingabe(
             gruppenphaseRundeId, koRundeId, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 1);
 
         await Assert.ThrowsAsync<ValidationException>(() => service.ErstellenAsync(eingabe));
@@ -94,10 +94,10 @@ public class QualifikationsRegelServiceTests
         await using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out int gruppenphaseRundeId, out int koRundeId);
         var service = ServiceFuer(ctx);
-        var regel = await service.ErstellenAsync(new QualifikationsRegelEingabe(
+        var regel = await service.ErstellenAsync(new UebergangsregelEingabe(
             gruppenphaseRundeId, koRundeId, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1));
 
-        await service.AktualisierenAsync(regel.Id, new QualifikationsRegelEingabe(
+        await service.AktualisierenAsync(regel.Id, new UebergangsregelEingabe(
             gruppenphaseRundeId, koRundeId, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 2));
 
         var regeln = await service.AlleNachQuellRundeIdAsync(gruppenphaseRundeId);
@@ -110,7 +110,7 @@ public class QualifikationsRegelServiceTests
         await using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out int gruppenphaseRundeId, out int koRundeId);
         var service = ServiceFuer(ctx);
-        var regel = await service.ErstellenAsync(new QualifikationsRegelEingabe(
+        var regel = await service.ErstellenAsync(new UebergangsregelEingabe(
             gruppenphaseRundeId, koRundeId, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1));
 
         await service.LoeschenAsync(regel.Id);
@@ -135,12 +135,28 @@ public class QualifikationsRegelServiceTests
             { Id = 1, SpielId = 1, HeimToreRegulaer = 2, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
         ctx.SaveChanges();
         var service = ServiceFuer(ctx);
-        var regel = await service.ErstellenAsync(new QualifikationsRegelEingabe(
+        var regel = await service.ErstellenAsync(new UebergangsregelEingabe(
             gruppenphaseRundeId, koRundeId, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 2));
 
         var qualifikanten = await service.QualifikantenErmittelnAsync(regel.Id);
 
         qualifikanten[1].Should().Be(1);
         qualifikanten[2].Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ErstellenAsync_WuerdeZyklusSchliessen_WirftValidationException()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int gruppenphaseRundeId, out int koRundeId);
+        var service = ServiceFuer(ctx);
+        await service.ErstellenAsync(new UebergangsregelEingabe(
+            gruppenphaseRundeId, koRundeId, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 2));
+
+        // Zweite Regel in Gegenrichtung (koRunde -> gruppenphaseRundeId) würde einen Zyklus schließen.
+        var zyklischeEingabe = new UebergangsregelEingabe(
+            koRundeId, gruppenphaseRundeId, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1);
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.ErstellenAsync(zyklischeEingabe));
     }
 }

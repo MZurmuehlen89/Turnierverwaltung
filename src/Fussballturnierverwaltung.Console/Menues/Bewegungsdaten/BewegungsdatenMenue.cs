@@ -8,7 +8,7 @@ namespace Fussballturnierverwaltung.Konsole.Menues.Bewegungsdaten;
 
 public class BewegungsdatenMenue(
     TurnierInstanzMenue turnierInstanzMenue,
-    AufstiegsregelMenue aufstiegsregelMenue,
+    UebergangsregelMenue uebergangsregelMenue,
     VerbandsQuoteMenue verbandsQuoteMenue,
     AuslosungMenue auslosungMenue,
     SpielplanMenue spielplanMenue,
@@ -17,7 +17,7 @@ public class BewegungsdatenMenue(
     private enum Option
     {
         Turniere,
-        Aufstiegsregeln,
+        Uebergangsregeln,
         VerbandsQuoten,
         Auslosungen,
         SpielplanSimulation,
@@ -35,7 +35,7 @@ public class BewegungsdatenMenue(
                     .UseConverter(o => o switch
                     {
                         Option.Turniere            => "Turniere",
-                        Option.Aufstiegsregeln     => "Aufstiegsregeln",
+                        Option.Uebergangsregeln    => "Übergangsregeln",
                         Option.VerbandsQuoten      => "Verband-Quoten",
                         Option.Auslosungen         => "Auslosungen",
                         Option.SpielplanSimulation => "Spielplan / Simulation",
@@ -43,7 +43,7 @@ public class BewegungsdatenMenue(
                         Option.Zurueck             => "← Zurück",
                         _                          => o.ToString()
                     })
-                    .AddChoices(Option.Turniere, Option.Aufstiegsregeln, Option.VerbandsQuoten, Option.Auslosungen,
+                    .AddChoices(Option.Turniere, Option.Uebergangsregeln, Option.VerbandsQuoten, Option.Auslosungen,
                                 Option.SpielplanSimulation, Option.Statistiken, Option.Zurueck));
 
             if (auswahl == Option.Zurueck) break;
@@ -52,12 +52,12 @@ public class BewegungsdatenMenue(
             {
                 switch (auswahl)
                 {
-                    case Option.Turniere:            await turnierInstanzMenue.AnzeigenAsync(ct);   break;
-                    case Option.Aufstiegsregeln:     await aufstiegsregelMenue.AnzeigenAsync(ct);    break;
-                    case Option.VerbandsQuoten:      await verbandsQuoteMenue.AnzeigenAsync(ct);     break;
-                    case Option.Auslosungen:         await auslosungMenue.AnzeigenAsync(ct);         break;
-                    case Option.SpielplanSimulation: await spielplanMenue.AnzeigenAsync(ct);         break;
-                    case Option.Statistiken:         await statistikMenue.AnzeigenAsync(ct);         break;
+                    case Option.Turniere:            await turnierInstanzMenue.AnzeigenAsync(ct);     break;
+                    case Option.Uebergangsregeln:     await uebergangsregelMenue.AnzeigenAsync(ct);    break;
+                    case Option.VerbandsQuoten:      await verbandsQuoteMenue.AnzeigenAsync(ct);       break;
+                    case Option.Auslosungen:         await auslosungMenue.AnzeigenAsync(ct);           break;
+                    case Option.SpielplanSimulation: await spielplanMenue.AnzeigenAsync(ct);           break;
+                    case Option.Statistiken:         await statistikMenue.AnzeigenAsync(ct);           break;
                 }
             }
             catch (Exception ex) { KonsolenHilfsmittel.FehlerAnzeigen(ex.Message); KonsolenHilfsmittel.Pause(); }

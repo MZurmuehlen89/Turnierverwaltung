@@ -1,4 +1,4 @@
-<UserControl x:Class="Fussballturnierverwaltung.Wpf.Views.AufstiegsregelView"
+<UserControl x:Class="Fussballturnierverwaltung.Wpf.Views.UebergangsregelView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
@@ -97,7 +97,7 @@
                           HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="28,20,28,28" MaxWidth="600">
 
-                    <TextBlock Text="AUFSTIEGSREGEL" FontWeight="SemiBold" FontSize="11"
+                    <TextBlock Text="ÜBERGANGSREGEL" FontWeight="SemiBold" FontSize="11"
                                Foreground="#9CA3AF" Margin="0,0,0,12" />
 
                     <TextBlock Text="Quellrunde" FontSize="12" Foreground="#374151" Margin="0,0,0,3" />

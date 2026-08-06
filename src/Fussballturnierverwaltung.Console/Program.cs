@@ -58,7 +58,7 @@ builder.Services.AddScoped<SpielErgebnisValidator>();
 builder.Services.AddScoped<AuslosungsValidator>();
 builder.Services.AddScoped<ImportValidator>();
 builder.Services.AddScoped<RanglisteValidator>();
-builder.Services.AddScoped<QualifikationsRegelValidator>();
+builder.Services.AddScoped<UebergangsregelValidator>();
 builder.Services.AddScoped<VerbandsQuoteValidator>();
 
 // Application Services – Stammdaten
@@ -101,7 +101,7 @@ builder.Services.AddScoped<ISpielplanGenerator, TopfLigaGenerator>();
 builder.Services.AddScoped<ISpielplanGenerator, SchweizerSystemGenerator>();
 builder.Services.AddScoped<SpielplanGeneratorFactory>();
 builder.Services.AddScoped<SpielplanService>();
-builder.Services.AddScoped<QualifikationsRegelService>();
+builder.Services.AddScoped<UebergangsregelService>();
 builder.Services.AddScoped<VerbandsQuoteService>();
 
 // Console Menüs – Blattmenüs
@@ -111,7 +111,7 @@ builder.Services.AddScoped<RegelwerkMenue>();
 builder.Services.AddScoped<RanglisteMenue>();
 builder.Services.AddScoped<TurnierVorlageMenue>();
 builder.Services.AddScoped<TurnierInstanzMenue>();
-builder.Services.AddScoped<AufstiegsregelMenue>();
+builder.Services.AddScoped<UebergangsregelMenue>();
 builder.Services.AddScoped<VerbandsQuoteMenue>();
 builder.Services.AddScoped<AuslosungMenue>();
 builder.Services.AddScoped<TurnierBaumMenue>();
