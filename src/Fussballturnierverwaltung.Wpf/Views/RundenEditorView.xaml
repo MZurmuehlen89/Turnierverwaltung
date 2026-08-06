@@ -171,6 +171,183 @@
                               IsEnabled="{Binding AuswaertstorAktivierbar}"
                               FontSize="12" Margin="16,0,0,16" />
 
+                    <!-- Eingehende Übergangsregeln: nur bei bereits gespeicherter Runde (Issue #169) -->
+                    <TextBlock Text="Bitte zuerst speichern, um Übergangsregeln aus Vorrunden festzulegen."
+                               Foreground="#94A3B8" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,16"
+                               Visibility="{Binding RundeIstGespeichert, Converter={StaticResource InverseBoolToVisibility}}" />
+
+                    <StackPanel Visibility="{Binding EingehendeUebergangsregelnSichtbar, Converter={StaticResource BoolToVisibility}}"
+                                Margin="0,0,0,16">
+                        <DockPanel Margin="0,0,0,8">
+                            <Button DockPanel.Dock="Right" Content="+ Weitere Quellrunde"
+                                    Command="{Binding NeuerUebergangsregelBlockCommand}"
+                                    Padding="8,4" FontSize="12" Cursor="Hand" />
+                            <TextBlock Text="EINGEHENDE ÜBERGANGSREGELN" FontSize="11" FontWeight="Bold"
+                                       Foreground="#94A3B8" VerticalAlignment="Center" />
+                        </DockPanel>
+
+                        <ItemsControl ItemsSource="{Binding UebergangsregelBloecke}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
+                                            CornerRadius="4" Padding="12,10" Margin="0,0,0,10">
+                                        <StackPanel>
+
+                                            <!-- Kopfzeile: Quellrunden-Auswahl + Löschen -->
+                                            <Grid Margin="0,0,0,8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="Aus Runde:" FontSize="12" Foreground="#475569"
+                                                               VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                    <ComboBox Width="220" FontSize="12"
+                                                              ItemsSource="{Binding DataContext.FrueherRundenOptionen,
+                                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                              SelectedItem="{Binding QuellRunde}"
+                                                              DisplayMemberPath="Name"
+                                                              IsEnabled="{Binding IstNeu}" />
+                                                </StackPanel>
+                                                <Button Grid.Column="1" Content="✕" ToolTip="Block entfernen"
+                                                        Command="{Binding LoeschenCommand}"
+                                                        Width="24" Height="24" Padding="0" FontSize="11" Cursor="Hand" />
+                                            </Grid>
+
+                                            <!-- Gruppenphase: Standardbereich + Tabelle je Gruppe -->
+                                            <StackPanel Visibility="{Binding IstGruppenphase, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="50" />
+                                                        <ColumnDefinition Width="8" />
+                                                        <ColumnDefinition Width="50" />
+                                                        <ColumnDefinition Width="8" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="Standard Platz" FontSize="11" Foreground="#64748B"
+                                                               VerticalAlignment="Center" />
+                                                    <TextBox Grid.Column="1" Text="{Binding StandardPlatzierungVon, UpdateSourceTrigger=PropertyChanged}"
+                                                             Padding="4,3" FontSize="12" Margin="6,0,0,0" />
+                                                    <TextBox Grid.Column="3" Text="{Binding StandardPlatzierungBis, UpdateSourceTrigger=PropertyChanged}"
+                                                             Padding="4,3" FontSize="12" />
+                                                    <Button Grid.Column="5" Content="Für alle Gruppen anwenden"
+                                                            Command="{Binding StandardAnwendenCommand}"
+                                                            Padding="8,4" FontSize="11" Margin="8,0,0,0" Cursor="Hand" />
+                                                </Grid>
+
+                                                <ItemsControl ItemsSource="{Binding Zeilen}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Margin="0,0,0,4">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="70" />
+                                                                    <ColumnDefinition Width="50" />
+                                                                    <ColumnDefinition Width="8" />
+                                                                    <ColumnDefinition Width="50" />
+                                                                    <ColumnDefinition Width="8" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Text="{Binding GruppenLabel}" FontSize="12"
+                                                                           VerticalAlignment="Center" />
+                                                                <TextBox Grid.Column="1" Text="{Binding PlatzierungVon, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Padding="4,3" FontSize="12" />
+                                                                <TextBox Grid.Column="3" Text="{Binding PlatzierungBis, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Padding="4,3" FontSize="12" />
+                                                                <Button Grid.Column="5" Content="Standard übernehmen" FontSize="10"
+                                                                        Visibility="{Binding IstAbweichend, Converter={StaticResource BoolToVisibility}}"
+                                                                        Command="{Binding DataContext.ZeileZuruecksetzenCommand,
+                                                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Padding="6,3" Cursor="Hand" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+
+                                            <!-- Liga: einzelnes kompaktes Platzierungsbereich-Feld -->
+                                            <Grid Visibility="{Binding IstLiga, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="50" />
+                                                    <ColumnDefinition Width="8" />
+                                                    <ColumnDefinition Width="50" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Platzierung" FontSize="11" Foreground="#64748B"
+                                                           VerticalAlignment="Center" />
+                                                <ItemsControl Grid.Column="1" Grid.ColumnSpan="3" ItemsSource="{Binding Zeilen}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="50" />
+                                                                    <ColumnDefinition Width="8" />
+                                                                    <ColumnDefinition Width="50" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBox Text="{Binding PlatzierungVon, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Padding="4,3" FontSize="12" Margin="6,0,0,0" />
+                                                                <TextBox Grid.Column="2" Text="{Binding PlatzierungBis, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Padding="4,3" FontSize="12" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Grid>
+
+                                            <!-- K.o./Finale/Spiel um Platz 3: Sonderfall, zurückhaltend -->
+                                            <Expander Header="Erweitert (K.o.-Sonderfall)" FontSize="11"
+                                                      Visibility="{Binding IstKoSonderfall, Converter={StaticResource BoolToVisibility}}">
+                                                <ItemsControl ItemsSource="{Binding Zeilen}" Margin="0,6,0,0">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Margin="0,0,0,4">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="40" />
+                                                                    <ColumnDefinition Width="12" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="50" />
+                                                                    <ColumnDefinition Width="8" />
+                                                                    <ColumnDefinition Width="50" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Text="Spielnummer" FontSize="11" Foreground="#64748B"
+                                                                           VerticalAlignment="Center" />
+                                                                <TextBox Grid.Column="1" Text="{Binding GruppeIndex, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Padding="4,3" FontSize="12" Margin="6,0,0,0" />
+                                                                <TextBlock Grid.Column="3" Text="Platz (1=Sieger, 2=Verlierer)"
+                                                                           FontSize="11" Foreground="#64748B" VerticalAlignment="Center" />
+                                                                <TextBox Grid.Column="4" Text="{Binding PlatzierungVon, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Padding="4,3" FontSize="12" Margin="6,0,0,0" />
+                                                                <TextBox Grid.Column="6" Text="{Binding PlatzierungBis, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Padding="4,3" FontSize="12" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Expander>
+
+                                            <!-- Block-Aktionen -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                <Button Content="Speichern" Command="{Binding SpeichernCommand}"
+                                                        Padding="10,4" FontSize="12" Margin="0,0,8,0" Cursor="Hand" />
+                                            </StackPanel>
+
+                                            <!-- Block-Fehlermeldung -->
+                                            <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
+                                                    CornerRadius="4" Padding="10,6" Margin="0,8,0,0"
+                                                    Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
+                                                <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
+                                                           FontSize="12" TextWrapping="Wrap" />
+                                            </Border>
+
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
                     <!-- Fehlermeldung -->
                     <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
                             CornerRadius="4" Padding="12,8"

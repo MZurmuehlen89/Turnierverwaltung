@@ -15,16 +15,13 @@
             </StackPanel>
         </Border>
 
-        <!-- ── Sub-Navigation: Runden, Übergangsregeln, Verband-Quoten ── -->
+        <!-- ── Sub-Navigation: Runden, Verband-Quoten ── -->
         <TabControl SelectedIndex="{Binding TabKoordinator.AktiverTabIndex, Mode=TwoWay}"
                     BorderThickness="0">
 
             <TabItem Header="Runden" IsEnabled="{Binding RundenTabAktiv}"
                      ToolTip="Nur für Turniere mit Status &quot;Geplant&quot; bearbeitbar">
                 <ContentControl Content="{Binding RundenVm}" />
-            </TabItem>
-            <TabItem Header="Übergangsregeln">
-                <ContentControl Content="{Binding UebergangsregelnVm}" />
             </TabItem>
             <TabItem Header="Verband-Quoten">
                 <ContentControl Content="{Binding VerbandsQuotenVm}" />

@@ -25,6 +25,10 @@ public record TeamfilterOption(string Anzeige, MannschaftsartFilter Wert);
 
 public partial class RundenEintrag : ObservableObject
 {
+    // 0 = noch nicht gespeichert (neue Runde). Nur beim Laden aus der DB gesetzt (siehe RundeZuEintrag),
+    // steuert u.a. ob im Runden-Editor Übergangsregeln für diese Runde bearbeitet werden können (Issue #169).
+    public int Id { get; set; }
+
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private string _name = RundenartZuTextConverter.RundenartAnzeigeName(Rundenart.Liga);
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private Rundenart _rundenart = Rundenart.Liga;
 

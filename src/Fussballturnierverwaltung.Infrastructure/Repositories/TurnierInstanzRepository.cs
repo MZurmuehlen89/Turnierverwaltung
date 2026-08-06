@@ -33,7 +33,7 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             .OrderByDescending(ti => ti.SaisonOderJahr)
             .ToListAsync(ct);
 
-    public async Task RundenErsetzenAsync(int instanzId, IReadOnlyList<TurnierRunde> neueRunden, CancellationToken ct = default)
+    public async Task<IReadOnlyList<TurnierRunde>> RundenErsetzenAsync(int instanzId, IReadOnlyList<TurnierRunde> neueRunden, CancellationToken ct = default)
     {
         var alte = await Context.TurnierRunden
             .Where(r => r.TurnierInstanzId == instanzId)
@@ -67,6 +67,13 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             Context.TurnierRunden.RemoveRange(alte.Skip(neueRunden.Count));
 
         await Context.SaveChangesAsync(ct);
+
+        // Positionsgleich zu neueRunden zurückgeben, jetzt mit echten Ids (bestehende Runden über
+        // alte[i], neu hinzugefügte Runden über neueRunden[i] — EF befüllt deren Id nach SaveChanges).
+        var ergebnis = new List<TurnierRunde>(neueRunden.Count);
+        for (int i = 0; i < neueRunden.Count; i++)
+            ergebnis.Add(i < alte.Count ? alte[i] : neueRunden[i]);
+        return ergebnis;
     }
 
     // Löscht in der richtigen Reihenfolge:

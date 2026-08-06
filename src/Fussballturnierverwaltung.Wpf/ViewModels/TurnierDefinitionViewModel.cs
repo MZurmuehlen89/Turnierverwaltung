@@ -7,14 +7,15 @@ using System.Windows.Input;
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
 /// <summary>
-/// "Turnierdefinition"-Seite (Issue #172) — Runden, Übergangsregeln, Verband-Quoten als Tabs
-/// unter einem gemeinsamen Turnier-Header. Generische Tab-Container-Mechanik ausgelagert in
+/// "Turnierdefinition"-Seite (Issue #172) — Runden, Verband-Quoten als Tabs unter einem
+/// gemeinsamen Turnier-Header. Generische Tab-Container-Mechanik ausgelagert in
 /// TurnierTabKoordinator; hier verbleibt nur die Definitionsspezifische Runden-Tab-Gating-Logik.
+/// Übergangsregeln werden nicht mehr als eigener Tab geführt — Anzeige und Bearbeitung laufen
+/// vollständig über den "Eingehende Übergangsregeln"-Abschnitt im Runden-Editor (Issue #169).
 /// </summary>
 public class TurnierDefinitionViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     public RundenEditorViewModel   RundenVm          { get; }
-    public UebergangsregelViewModel UebergangsregelnVm { get; }
     public VerbandsQuoteViewModel  VerbandsQuotenVm  { get; }
 
     public TurnierTabKoordinator TabKoordinator { get; }
@@ -28,15 +29,13 @@ public class TurnierDefinitionViewModel : ViewModelBase, IRibbonAware, IHatUnges
         TurnierInstanzService instanzService,
         AusgewaehlteTurnierInstanzService turnierAuswahlService,
         RundenEditorViewModel rundenVm,
-        UebergangsregelViewModel uebergangsregelnVm,
         VerbandsQuoteViewModel verbandsQuotenVm)
     {
         RundenVm          = rundenVm;
-        UebergangsregelnVm = uebergangsregelnVm;
         VerbandsQuotenVm  = verbandsQuotenVm;
 
         TabKoordinator = new TurnierTabKoordinator(
-            instanzService, turnierAuswahlService, [RundenVm, UebergangsregelnVm, VerbandsQuotenVm])
+            instanzService, turnierAuswahlService, [RundenVm, VerbandsQuotenVm])
         {
             NachAuswahlKorrigieren = KorrigiereAktivenTabFallsUngueltig
         };
@@ -55,7 +54,7 @@ public class TurnierDefinitionViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private bool KorrigiereAktivenTabFallsUngueltig()
     {
         if (TabKoordinator.AktiverTabIndex != 0 || RundenTabAktiv) return false;
-        TabKoordinator.AktiverTabIndex = 1;
+        TabKoordinator.AktiverTabIndex = 1; // Verband-Quoten (Index 1, seit Wegfall des Übergangsregeln-Tabs)
         return true;
     }
 
