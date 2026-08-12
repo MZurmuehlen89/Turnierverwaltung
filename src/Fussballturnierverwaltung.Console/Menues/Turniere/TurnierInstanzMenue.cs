@@ -186,8 +186,11 @@ public class TurnierInstanzMenue(
             if (regelwerk is null) break;
             var mitRueckspiel = AnsiConsole.Confirm("Mit Hin- und Rückspiel?", defaultValue: false);
             var auswaerts     = mitRueckspiel && AnsiConsole.Confirm("Auswärtstorregel aktiv?", defaultValue: false);
+            var eingangUeberUebergangsregeln = AnsiConsole.Confirm(
+                "Eingang wird über Übergangsregeln definiert (statt aus der unmittelbar vorangehenden Runde)?", defaultValue: false);
 
-            var rundeEingabe = new TurnierRundeEingabe(rundeName, rundenart.Value, eingang, ausgang, regelwerk.Id, mitRueckspiel, auswaerts);
+            var rundeEingabe = new TurnierRundeEingabe(rundeName, rundenart.Value, eingang, ausgang, regelwerk.Id, mitRueckspiel, auswaerts,
+                EingangUeberUebergangsregeln: eingangUeberUebergangsregeln);
             var tempListe = runden.Append(rundeEingabe).ToList();
 
             var validierung = TurnierInstanzService.RundenUebergaengeValidieren(tempListe);

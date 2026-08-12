@@ -107,7 +107,8 @@ public class TurnierInstanzService(
                 RegelwerkId                = re.RegelwerkId,
                 MitRueckspiel              = re.MitRueckspiel,
                 AuswaertstorRegelAktiv     = re.AuswaertstorRegelAktiv,
-                KonfigurationJson          = re.KonfigurationJson
+                KonfigurationJson          = re.KonfigurationJson,
+                EingangUeberUebergangsregeln = re.EingangUeberUebergangsregeln
             });
         }
 
@@ -171,7 +172,8 @@ public class TurnierInstanzService(
             RegelwerkId               = e.RegelwerkId,
             MitRueckspiel             = e.MitRueckspiel,
             AuswaertstorRegelAktiv    = e.AuswaertstorRegelAktiv,
-            KonfigurationJson         = e.KonfigurationJson
+            KonfigurationJson         = e.KonfigurationJson,
+            EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln
         }).ToList();
 
         var ergebnis = await repository.RundenErsetzenAsync(id, neueRunden, ct);
@@ -201,15 +203,24 @@ public class TurnierInstanzService(
 
         for (int i = 1; i < runden.Count; i++)
         {
-            var vorrunde = runden[i - 1];
-            var runde    = runden[i];
-
-            if (runde.EingangsMannschaftsanzahl != vorrunde.AusgangsMannschaftsanzahl)
-                fehler.Add($"Runde {i + 1} ('{runde.Name}') erwartet {runde.EingangsMannschaftsanzahl} " +
-                           $"Mannschaften, Runde {i} ('{vorrunde.Name}') liefert aber {vorrunde.AusgangsMannschaftsanzahl}.");
+            var runde = runden[i];
 
             if (runde.AuswaertstorRegelAktiv && !runde.MitRueckspiel)
                 fehler.Add($"Runde {i + 1} ('{runde.Name}'): Auswärtstorregel ist nur bei Hin-/Rückspiel-Runden gültig.");
+
+            if (runde.EingangUeberUebergangsregeln)
+                continue; // Eingang wird über Uebergangsregeln definiert (separat geprüft, siehe UebergangsregelValidator)
+
+            // K.o.-Geschwisterpaar (Finale + Spiel um Platz 3) speist sich beide aus derselben Vorrunde,
+            // siehe TurnierValidator.IstKoGeschwisterPaar (Issue #178).
+            int vorrundeIndex = i >= 2 && IstKoGeschwisterPaar(runde.Rundenart, runden[i - 1].Rundenart)
+                ? i - 2
+                : i - 1;
+            var vorrunde = runden[vorrundeIndex];
+
+            if (runde.EingangsMannschaftsanzahl != vorrunde.AusgangsMannschaftsanzahl)
+                fehler.Add($"Runde {i + 1} ('{runde.Name}') erwartet {runde.EingangsMannschaftsanzahl} " +
+                           $"Mannschaften, Runde {vorrundeIndex + 1} ('{vorrunde.Name}') liefert aber {vorrunde.AusgangsMannschaftsanzahl}.");
         }
 
         foreach (var runde in runden)
@@ -221,4 +232,12 @@ public class TurnierInstanzService(
 
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }
+
+    /// <summary>Finale und Spiel um Platz 3 speisen sich strukturell immer aus derselben Vorrunde
+    /// (Sieger- bzw. Verliereranzahl einer K.-o.-Runde sind immer gleich groß) — unabhängig davon,
+    /// in welcher Reihenfolge sie in der Rundenliste stehen. Dupliziert TurnierValidator.IstKoGeschwisterPaar,
+    /// da diese Methode statisch ist und ohne DI-Instanz aus dem interaktiven Console-Rundenbau aufgerufen wird.</summary>
+    private static bool IstKoGeschwisterPaar(Rundenart a, Rundenart b) =>
+        (a == Rundenart.Finale && b == Rundenart.SpielUmPlatzDrei) ||
+        (a == Rundenart.SpielUmPlatzDrei && b == Rundenart.Finale);
 }

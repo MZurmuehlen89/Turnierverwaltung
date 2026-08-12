@@ -11,10 +11,12 @@ public class TurnierValidatorTests
 
     private static TurnierRundeEingabe Runde(
         string name, Rundenart art, int eingang, int ausgang,
-        bool mitRueckspiel = false, bool auswaerts = false, int? gruppenAnzahl = null) =>
+        bool mitRueckspiel = false, bool auswaerts = false, int? gruppenAnzahl = null,
+        bool eingangUeberUebergangsregeln = false) =>
         new(name, art, eingang, ausgang, RegelwerkId: 1,
             MitRueckspiel: mitRueckspiel, AuswaertstorRegelAktiv: auswaerts,
-            GruppenAnzahl: gruppenAnzahl);
+            GruppenAnzahl: gruppenAnzahl,
+            EingangUeberUebergangsregeln: eingangUeberUebergangsregeln);
 
     [Fact]
     public void GueltigeRundenKette_IstGueltig()
@@ -108,5 +110,47 @@ public class TurnierValidatorTests
         var ergebnis = _validator.RundenValidieren(runden);
 
         ergebnis.IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void KoGeschwisterpaar_SpielUmPlatzDreiVorFinale_IstGueltig()
+    {
+        // FIFA-WM-Struktur: Halbfinale speist SOWOHL Spiel um Platz 3 (Verlierer) ALS AUCH Finale (Sieger).
+        var runden = new[]
+        {
+            Runde("Halbfinale",       Rundenart.KoRunde,          eingang: 4, ausgang: 2),
+            Runde("Spiel um Platz 3", Rundenart.SpielUmPlatzDrei, eingang: 2, ausgang: 1),
+            Runde("Finale",           Rundenart.Finale,           eingang: 2, ausgang: 1),
+        };
+
+        _validator.RundenValidieren(runden).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void KoGeschwisterpaar_FinaleVorSpielUmPlatzDrei_IstGueltig()
+    {
+        // Umgekehrte Reihenfolge der Geschwisterrunden muss ebenfalls erkannt werden.
+        var runden = new[]
+        {
+            Runde("Halbfinale",       Rundenart.KoRunde,          eingang: 4, ausgang: 2),
+            Runde("Finale",           Rundenart.Finale,           eingang: 2, ausgang: 1),
+            Runde("Spiel um Platz 3", Rundenart.SpielUmPlatzDrei, eingang: 2, ausgang: 1),
+        };
+
+        _validator.RundenValidieren(runden).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void EingangUeberUebergangsregeln_WirdNichtGegenVorrundeGeprueft()
+    {
+        // Eingang (3) passt nicht zum Ausgang der Vorrunde (16) — aber die Runde wird über
+        // Übergangsregeln gespeist, daher darf die Kettenprüfung hier nicht greifen.
+        var runden = new[]
+        {
+            Runde("Liga",   Rundenart.Liga, eingang: 16, ausgang: 16),
+            Runde("Finale", Rundenart.Finale, eingang: 3, ausgang: 1, eingangUeberUebergangsregeln: true),
+        };
+
+        _validator.RundenValidieren(runden).IstGueltig.Should().BeTrue();
     }
 }

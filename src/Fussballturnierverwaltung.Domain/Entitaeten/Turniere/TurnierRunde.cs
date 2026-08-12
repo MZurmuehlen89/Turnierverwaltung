@@ -24,6 +24,10 @@ public class TurnierRunde : BasisEntitaet
 
     public string? KonfigurationJson { get; set; }
 
+    // Wenn true, wird der Eingang dieser Runde nicht gegen die unmittelbar vorangehende Runde in der Liste
+    // geprüft, sondern über eine oder mehrere Uebergangsregeln gespeist (Issue #178).
+    public bool EingangUeberUebergangsregeln { get; set; }
+
     public ICollection<Spiel> Spiele { get; set; } = new List<Spiel>();
 
     // Übergangsregeln, die aus dieser Runde in eine (ggf. andere) Zielrunde führen.

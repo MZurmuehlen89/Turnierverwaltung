@@ -44,13 +44,15 @@ public partial class RundenEintrag : ObservableObject
     [ObservableProperty] private string _regelwerkName = "";
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private bool _mitRueckspiel;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private bool _auswaertstorRegelAktiv;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private bool _eingangUeberUebergangsregeln;
 
     public string Anzeige =>
         $"{Name} · {RundenartZuTextConverter.RundenartAnzeigeName(Rundenart)} · " +
         $"{EingangsMannschaften}→{AusgangsMannschaften}" +
         (Rundenart == Rundenart.Gruppenphase && GruppenAnzahl.HasValue ? $" · {GruppenAnzahl}G" : "") +
         (MitRueckspiel ? " · H+R" : "") +
-        (AuswaertstorRegelAktiv ? " · Auswärtstor" : "");
+        (AuswaertstorRegelAktiv ? " · Auswärtstor" : "") +
+        (EingangUeberUebergangsregeln ? " · Eingang über Übergangsregeln" : "");
 }
 
 public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen

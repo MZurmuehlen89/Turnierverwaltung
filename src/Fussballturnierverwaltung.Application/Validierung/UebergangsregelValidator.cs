@@ -33,6 +33,15 @@ public class UebergangsregelValidator
         if (WuerdeZyklusSchliessen(eingabe, alleRegeln, bearbeiteteRegelId))
             fehler.Add($"Übergangsregel '{quellRunde.Name}' → '{zielRunde.Name}' würde einen zyklischen Übergang erzeugen.");
 
+        var summe = alleRegeln
+            .Where(r => r.ZielRundeId == eingabe.ZielRundeId && r.Id != bearbeiteteRegelId)
+            .Sum(r => r.PlatzierungBis - r.PlatzierungVon + 1)
+            + (eingabe.PlatzierungBis - eingabe.PlatzierungVon + 1);
+
+        if (summe > zielRunde.EingangsMannschaftsanzahl)
+            fehler.Add($"Übergangsregeln für '{zielRunde.Name}' liefern zusammen {summe} Mannschaften, " +
+                       $"erwartet werden aber nur {zielRunde.EingangsMannschaftsanzahl}.");
+
         switch (quellRunde.Rundenart)
         {
             case Rundenart.Gruppenphase:

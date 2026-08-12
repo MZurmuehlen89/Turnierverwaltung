@@ -45,11 +45,21 @@ public class TurnierValidator
         // Rundenübergänge: Ausgang[i] muss Eingang[i+1] sein
         for (int i = 1; i < runden.Count; i++)
         {
-            var vorrunde = runden[i - 1];
-            var runde    = runden[i];
+            var runde = runden[i];
+            if (runde.EingangUeberUebergangsregeln)
+                continue; // Eingang wird über Uebergangsregeln definiert (separat geprüft, siehe UebergangsregelValidator)
+
+            // K.o.-Geschwisterpaar (Finale + Spiel um Platz 3) speist sich beide aus derselben Vorrunde —
+            // die zweite der beiden Runden wird nicht gegen die erste, sondern gegen deren gemeinsame
+            // Vorrunde geprüft (Issue #178).
+            int vorrundeIndex = i >= 2 && IstKoGeschwisterPaar(runde.Rundenart, runden[i - 1].Rundenart)
+                ? i - 2
+                : i - 1;
+            var vorrunde = runden[vorrundeIndex];
+
             if (runde.EingangsMannschaftsanzahl != vorrunde.AusgangsMannschaftsanzahl)
                 fehler.Add($"Runde {i + 1} ('{runde.Name}') erwartet {runde.EingangsMannschaftsanzahl} Mannschaften, " +
-                           $"Runde {i} ('{vorrunde.Name}') liefert aber {vorrunde.AusgangsMannschaftsanzahl}.");
+                           $"Runde {vorrundeIndex + 1} ('{vorrunde.Name}') liefert aber {vorrunde.AusgangsMannschaftsanzahl}.");
         }
 
         // Finale muss genau 1 Sieger liefern
@@ -59,6 +69,13 @@ public class TurnierValidator
 
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }
+
+    /// <summary>Finale und Spiel um Platz 3 speisen sich strukturell immer aus derselben Vorrunde
+    /// (Sieger- bzw. Verliereranzahl einer K.-o.-Runde sind immer gleich groß) — unabhängig davon,
+    /// in welcher Reihenfolge sie in der Rundenliste stehen.</summary>
+    private static bool IstKoGeschwisterPaar(Rundenart a, Rundenart b) =>
+        (a == Rundenart.Finale && b == Rundenart.SpielUmPlatzDrei) ||
+        (a == Rundenart.SpielUmPlatzDrei && b == Rundenart.Finale);
 
     /// <summary>Prüft ob eine Rundenart mit dem verknüpften Regelwerk kompatibel ist.</summary>
     public ValidationErgebnis RundeUndRegelwerkKompatibel(TurnierRundeEingabe runde, Regelwerk regelwerk)

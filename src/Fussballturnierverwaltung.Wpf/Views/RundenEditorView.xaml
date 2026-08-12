@@ -171,6 +171,14 @@
                               IsEnabled="{Binding AuswaertstorAktivierbar}"
                               FontSize="12" Margin="16,0,0,16" />
 
+                    <!-- Escape-Hatch für nicht-lineare Rundenketten (Issue #178) -->
+                    <CheckBox Content="Eingang wird über Übergangsregeln definiert"
+                              IsChecked="{Binding EingangUeberUebergangsregeln}"
+                              FontSize="12" Margin="0,0,0,4" />
+                    <TextBlock Text="Diese Runde wird nicht gegen die unmittelbar vorangehende Runde in der Liste geprüft, sondern erhält ihren Eingang aus den unten konfigurierten Übergangsregeln."
+                               Foreground="#94A3B8" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,16"
+                               Visibility="{Binding EingangUeberUebergangsregeln, Converter={StaticResource BoolToVisibility}}" />
+
                     <!-- Eingehende Übergangsregeln: nur bei bereits gespeicherter Runde (Issue #169) -->
                     <TextBlock Text="Bitte zuerst speichern, um Übergangsregeln aus Vorrunden festzulegen."
                                Foreground="#94A3B8" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,16"

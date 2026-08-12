@@ -56,6 +56,7 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             alt.MitRueckspiel             = neu.MitRueckspiel;
             alt.AuswaertstorRegelAktiv    = neu.AuswaertstorRegelAktiv;
             alt.KonfigurationJson         = neu.KonfigurationJson;
+            alt.EingangUeberUebergangsregeln = neu.EingangUeberUebergangsregeln;
         }
 
         // Add rounds if the new list is longer

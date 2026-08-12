@@ -271,6 +271,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
     private bool _mitRueckspiel;
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
+    [ObservableProperty] private bool _eingangUeberUebergangsregeln;
 
     // ── Regelwerke ────────────────────────────────────────────────────────────
     [ObservableProperty]
@@ -627,6 +628,14 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         IsDirty = true;
     }
 
+    partial void OnEingangUeberUebergangsregelnChanged(bool value)
+    {
+        if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
+        AusgewaehlteRunde.EingangUeberUebergangsregeln = value;
+        AktualisiereRundenFehler();
+        IsDirty = true;
+    }
+
     // ── Validierung ───────────────────────────────────────────────────────────
 
     private void AktualisiereRundenFehler() => RundenFehler = BerechneRundenFehler();
@@ -670,10 +679,26 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
             if (!istLetzte)
             {
                 var naechste = Runden[i + 1];
-                if (r.AusgangsMannschaften != naechste.EingangsMannschaften)
+                string naechsteLabel = string.IsNullOrWhiteSpace(naechste.Name)
+                    ? $"Runde {i + 2}" : $"\"{naechste.Name}\"";
+
+                if (naechste.EingangUeberUebergangsregeln)
                 {
-                    string naechsteLabel = string.IsNullOrWhiteSpace(naechste.Name)
-                        ? $"Runde {i + 2}" : $"\"{naechste.Name}\"";
+                    // Eingang wird über Übergangsregeln definiert, keine Kettenprüfung.
+                }
+                else if (i >= 1 && IstKoGeschwisterPaar(r.Rundenart, naechste.Rundenart))
+                {
+                    // Finale + Spiel um Platz 3 speisen sich beide aus derselben Vorrunde (Issue #178).
+                    var vorherige = Runden[i - 1];
+                    if (vorherige.AusgangsMannschaften != naechste.EingangsMannschaften)
+                    {
+                        string vorherigeLabel = string.IsNullOrWhiteSpace(vorherige.Name)
+                            ? $"Runde {i}" : $"\"{vorherige.Name}\"";
+                        fehler.Add($"Übergang {vorherigeLabel} -> {naechsteLabel}: Ausgang ({vorherige.AusgangsMannschaften}) != Eingang der Folgerunde ({naechste.EingangsMannschaften}).");
+                    }
+                }
+                else if (r.AusgangsMannschaften != naechste.EingangsMannschaften)
+                {
                     fehler.Add($"Übergang {label} -> {naechsteLabel}: Ausgang ({r.AusgangsMannschaften}) != Eingang der Folgerunde ({naechste.EingangsMannschaften}).");
                 }
             }
@@ -681,6 +706,14 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
 
         return fehler;
     }
+
+    /// <summary>Finale und Spiel um Platz 3 speisen sich strukturell immer aus derselben Vorrunde
+    /// (Sieger- bzw. Verliereranzahl einer K.-o.-Runde sind immer gleich groß) — unabhängig davon,
+    /// in welcher Reihenfolge sie in der Rundenliste stehen. Dupliziert TurnierValidator.IstKoGeschwisterPaar
+    /// bewusst (WPF-seitiges Client-Duplikat, siehe #178-Plan — kein Refactor zur Konsolidierung).</summary>
+    private static bool IstKoGeschwisterPaar(Rundenart a, Rundenart b) =>
+        (a == Rundenart.Finale && b == Rundenart.SpielUmPlatzDrei) ||
+        (a == Rundenart.SpielUmPlatzDrei && b == Rundenart.Finale);
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -743,6 +776,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                                      ?? _turnierStandard;
             MitRueckspiel          = value.MitRueckspiel;
             AuswaertstorRegelAktiv = value.AuswaertstorRegelAktiv;
+            EingangUeberUebergangsregeln = value.EingangUeberUebergangsregeln;
         }
         finally { _populiertGerade--; }
 
@@ -814,6 +848,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
             Regelwerk              = _turnierStandard;
             MitRueckspiel          = false;
             AuswaertstorRegelAktiv = false;
+            EingangUeberUebergangsregeln = false;
         }
         finally { _populiertGerade--; }
     }
@@ -826,7 +861,8 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
             return new TurnierRundeEingabe(
                 r.Name, r.Rundenart, r.EingangsMannschaften, r.AusgangsMannschaften,
                 regelwerkId, r.MitRueckspiel, r.AuswaertstorRegelAktiv,
-                GruppenAnzahl: r.GruppenAnzahl);
+                GruppenAnzahl: r.GruppenAnzahl,
+                EingangUeberUebergangsregeln: r.EingangUeberUebergangsregeln);
         }).ToList();
 
     private static RundenEintrag RundeZuEintrag(TurnierRunde r) => new()
@@ -840,7 +876,8 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         RegelwerkId            = r.RegelwerkId,
         RegelwerkName          = r.Regelwerk?.Name ?? "",
         MitRueckspiel          = r.MitRueckspiel,
-        AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv
+        AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv,
+        EingangUeberUebergangsregeln = r.EingangUeberUebergangsregeln
     };
 
     private bool KannSpeichern()          => IsDirty && AusgewaehlteInstanz is not null && !HatRundenFehler;

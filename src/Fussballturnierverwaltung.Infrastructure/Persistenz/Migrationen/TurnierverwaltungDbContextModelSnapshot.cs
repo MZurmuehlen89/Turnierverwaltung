@@ -836,6 +836,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<bool>("AuswaertstorRegelAktiv")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("EingangUeberUebergangsregeln")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<int>("EingangsMannschaftsanzahl")
                         .HasColumnType("int");
 

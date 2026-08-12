@@ -28,7 +28,8 @@ public class UebergangsregelValidatorTests
         Id = 1, Name = "Sechzehntelfinale", Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = eingangsMannschaftsanzahl
     };
 
-    private static TurnierRunde Ziel(int id = 2) => new() { Id = id, Name = $"Zielrunde {id}", Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 2 };
+    private static TurnierRunde Ziel(int id = 2, int eingangsMannschaftsanzahl = 2) =>
+        new() { Id = id, Name = $"Zielrunde {id}", Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = eingangsMannschaftsanzahl };
 
     [Fact]
     public void GueltigeGruppenphaseRegel_IstGueltig()
@@ -41,7 +42,7 @@ public class UebergangsregelValidatorTests
     public void GueltigeLigaRegel_IstGueltig()
     {
         var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 8);
-        _validator.Validieren(eingabe, Liga(eingangsMannschaftsanzahl: 36), Ziel(), _keineRegeln).IstGueltig.Should().BeTrue();
+        _validator.Validieren(eingabe, Liga(eingangsMannschaftsanzahl: 36), Ziel(eingangsMannschaftsanzahl: 8), _keineRegeln).IstGueltig.Should().BeTrue();
     }
 
     [Fact]
@@ -150,6 +151,45 @@ public class UebergangsregelValidatorTests
         var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 2);
 
         var ergebnis = _validator.Validieren(eingabe, KoRunde(), Ziel(), [bestehende], bearbeiteteRegelId: 100);
+
+        ergebnis.IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void SummeDerPlatzierungenUebersteigtEingangsMannschaftsanzahl_IstUngueltig()
+    {
+        // Zielrunde erwartet 3 Mannschaften. Bestehende Regel liefert bereits 2 (Platz 1-2), die neue
+        // Regel würde weitere 2 (Platz 1-2) aus einer anderen Quellrunde hinzufügen -> Summe 4 > 3.
+        var bestehende = new Uebergangsregel { Id = 100, QuellRundeId = 1, ZielRundeId = 2, PlatzierungVon = 1, PlatzierungBis = 2 };
+        var eingabe = new UebergangsregelEingabe(QuellRundeId: 3, ZielRundeId: 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 2);
+
+        var ergebnis = _validator.Validieren(eingabe, Liga(eingangsMannschaftsanzahl: 36), Ziel(eingangsMannschaftsanzahl: 3), [bestehende]);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*4*3*");
+    }
+
+    [Fact]
+    public void SummeDerPlatzierungenPasstExaktZusammenfuehrungAusZweiQuellrunden_IstGueltig()
+    {
+        // Zielrunde erwartet 4 Mannschaften, gespeist aus zwei unterschiedlichen Quellrunden (je 2 Plätze) —
+        // der Zusammenführungs-Fall (z.B. Champions-League-Achtelfinale aus Ligaphase + Playoffs).
+        var bestehende = new Uebergangsregel { Id = 100, QuellRundeId = 1, ZielRundeId = 2, PlatzierungVon = 1, PlatzierungBis = 2 };
+        var eingabe = new UebergangsregelEingabe(QuellRundeId: 3, ZielRundeId: 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 2);
+
+        var ergebnis = _validator.Validieren(eingabe, Liga(eingangsMannschaftsanzahl: 36), Ziel(eingangsMannschaftsanzahl: 4), [bestehende]);
+
+        ergebnis.IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void SummeBerechnungIgnoriertBearbeiteteRegelSelbst()
+    {
+        // Beim Bearbeiten der bestehenden Regel darf ihr eigener alter Wert nicht doppelt gezählt werden.
+        var bestehende = new Uebergangsregel { Id = 100, QuellRundeId = 1, ZielRundeId = 2, PlatzierungVon = 1, PlatzierungBis = 2 };
+        var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 2);
+
+        var ergebnis = _validator.Validieren(eingabe, Liga(eingangsMannschaftsanzahl: 36), Ziel(eingangsMannschaftsanzahl: 2), [bestehende], bearbeiteteRegelId: 100);
 
         ergebnis.IstGueltig.Should().BeTrue();
     }
