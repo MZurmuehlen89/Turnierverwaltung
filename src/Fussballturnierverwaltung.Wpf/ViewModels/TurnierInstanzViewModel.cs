@@ -40,6 +40,13 @@ public partial class RundenEintrag : ObservableObject
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private int _eingangsMannschaften = 4;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private int _ausgangsMannschaften = 4;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private int? _gruppenAnzahl;
+
+    // Snapshot der beim Laden aus der DB gültigen Werte — Vergleichsbasis, um zu erkennen ob eine bereits
+    // gespeicherte Runde ihre Form seither geändert hat (Issue #181: Warnung wenn diese Runde bereits als
+    // Quellrunde für Übergangsregeln dient).
+    public int UrspruenglichEingangsMannschaften { get; set; }
+    public int UrspruenglichAusgangsMannschaften { get; set; }
+    public int? UrspruenglichGruppenAnzahl { get; set; }
     [ObservableProperty] private int _regelwerkId;
     [ObservableProperty] private string _regelwerkName = "";
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private bool _mitRueckspiel;

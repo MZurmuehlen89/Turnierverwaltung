@@ -64,6 +64,65 @@ public class UebergangsregelService(
         logger.LogInformation("Übergangsregel {Id} aktualisiert.", id);
     }
 
+    /// <summary>Speichert einen gesamten Übergangsregel-Block (alle Zeilen einer Quellrunde → Zielrunde) in einem
+    /// Zug: validiert zuerst den vollständigen beabsichtigten Endzustand, erst danach werden Schreibzugriffe
+    /// ausgeführt — kein Halbzustand mehr bei einem Validierungsfehler in der Mitte eines Blocks (Issue #180).</summary>
+    public async Task<IReadOnlyList<Uebergangsregel>> BlockSpeichernAsync(
+        int quellRundeId, int zielRundeId,
+        IReadOnlyList<UebergangsregelZeileEingabe> zeilen,
+        IReadOnlyList<int> zuLoeschendeIds,
+        CancellationToken ct = default)
+    {
+        var quellRunde = await QuellRundeLadenAsync(quellRundeId, ct);
+        var zielRunde  = await ZielRundeLadenAsync(zielRundeId, ct);
+        var alleRegeln = await repository.AlleFindenAsync(ct);
+
+        var eingaben = zeilen
+            .Select(z => new UebergangsregelEingabe(quellRundeId, zielRundeId, z.GruppeIndex, z.PlatzierungVon, z.PlatzierungBis))
+            .ToList();
+        ValidationException.WerfenWennUngueltig(validator.Validieren(eingaben, quellRunde, zielRunde, alleRegeln));
+
+        foreach (var id in zuLoeschendeIds)
+        {
+            var regel = await repository.FindenNachIdAsync(id, ct);
+            if (regel is not null)
+                await repository.LoeschenAsync(regel, ct);
+        }
+
+        var ergebnis = new List<Uebergangsregel>();
+        foreach (var (zeile, eingabe) in zeilen.Zip(eingaben))
+        {
+            if (zeile.Id is null)
+            {
+                var regel = new Uebergangsregel
+                {
+                    QuellRundeId   = quellRundeId,
+                    ZielRundeId    = zielRundeId,
+                    GruppeIndex    = eingabe.GruppeIndex,
+                    PlatzierungVon = eingabe.PlatzierungVon,
+                    PlatzierungBis = eingabe.PlatzierungBis
+                };
+                await repository.HinzufuegenAsync(regel, ct);
+                ergebnis.Add(regel);
+            }
+            else
+            {
+                var regel = await repository.FindenNachIdAsync(zeile.Id.Value, ct)
+                    ?? throw new InvalidOperationException($"Übergangsregel mit ID {zeile.Id} nicht gefunden.");
+                regel.GruppeIndex    = eingabe.GruppeIndex;
+                regel.PlatzierungVon = eingabe.PlatzierungVon;
+                regel.PlatzierungBis = eingabe.PlatzierungBis;
+                await repository.AktualisierenAsync(regel, ct);
+                ergebnis.Add(regel);
+            }
+        }
+
+        logger.LogInformation(
+            "Übergangsregel-Block '{QuellRunde}' → '{ZielRunde}' gespeichert ({Anzahl} Zeilen, {Geloescht} gelöscht).",
+            quellRunde.Name, zielRunde.Name, zeilen.Count, zuLoeschendeIds.Count);
+        return ergebnis;
+    }
+
     public async Task LoeschenAsync(int id, CancellationToken ct = default)
     {
         var regel = await repository.FindenNachIdAsync(id, ct)

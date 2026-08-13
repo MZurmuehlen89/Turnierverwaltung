@@ -193,4 +193,73 @@ public class UebergangsregelValidatorTests
 
         ergebnis.IstGueltig.Should().BeTrue();
     }
+
+    // ── Batch-Validierung (Issue #180) ─────────────────────────────────────────
+
+    [Fact]
+    public void Block_SummeUeberAlleZeilenUebersteigtKapazitaet_IstUngueltig()
+    {
+        // Zielrunde erwartet 8 Mannschaften. Eine einzelne Zeile (Platz 1-2) allein wäre unauffällig,
+        // aber die vollständige Batch-Summe aus 4 Zeilen (je 2) ergibt 8 -> passt exakt, daher hier bewusst
+        // eine fünfte Zeile ergänzt, die die Summe auf 10 treibt -> muss über den gesamten Block erkannt werden.
+        var eingaben = new[]
+        {
+            new UebergangsregelEingabe(1, 2, 1, 1, 2),
+            new UebergangsregelEingabe(1, 2, 2, 1, 2),
+            new UebergangsregelEingabe(1, 2, 3, 1, 2),
+            new UebergangsregelEingabe(1, 2, 4, 1, 2),
+            new UebergangsregelEingabe(1, 2, 5, 1, 2),
+        };
+
+        var ergebnis = _validator.Validieren(eingaben, Gruppenphase(gruppenAnzahl: 5, eingangsMannschaftsanzahl: 20), Ziel(eingangsMannschaftsanzahl: 8), _keineRegeln);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*10*8*");
+    }
+
+    [Fact]
+    public void Block_SummeUeberAlleZeilenPasstExakt_IstGueltig()
+    {
+        var eingaben = new[]
+        {
+            new UebergangsregelEingabe(1, 2, 1, 1, 2),
+            new UebergangsregelEingabe(1, 2, 2, 1, 2),
+            new UebergangsregelEingabe(1, 2, 3, 1, 2),
+            new UebergangsregelEingabe(1, 2, 4, 1, 2),
+        };
+
+        var ergebnis = _validator.Validieren(eingaben, Gruppenphase(gruppenAnzahl: 4, eingangsMannschaftsanzahl: 16), Ziel(eingangsMannschaftsanzahl: 8), _keineRegeln);
+
+        ergebnis.IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Block_DoppelterGruppenIndex_IstUngueltig()
+    {
+        var eingaben = new[]
+        {
+            new UebergangsregelEingabe(1, 2, 1, 1, 1),
+            new UebergangsregelEingabe(1, 2, 1, 1, 1),
+        };
+
+        var ergebnis = _validator.Validieren(eingaben, KoRunde(eingangsMannschaftsanzahl: 4), Ziel(eingangsMannschaftsanzahl: 2), _keineRegeln);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*mehrfach*");
+    }
+
+    [Fact]
+    public void Block_BeruecksichtigtRegelnAndererBloeckeDerselbenZielrunde_SchliesstEigenenBlockAusZuKapazitaet()
+    {
+        // Ein anderer Block (Quellrunde 3) liefert bereits 2 Plätze an dieselbe Zielrunde. Der hier validierte
+        // Block (Quellrunde 1, wird komplett ersetzt) darf trotzdem exakt die restlichen 2 Plätze beanspruchen —
+        // seine eigenen (alten) Zeilen dürfen dabei nicht mitgezählt werden.
+        var andererBlock = new Uebergangsregel { Id = 100, QuellRundeId = 3, ZielRundeId = 2, PlatzierungVon = 1, PlatzierungBis = 2 };
+        var eigeneAlteZeile = new Uebergangsregel { Id = 101, QuellRundeId = 1, ZielRundeId = 2, PlatzierungVon = 1, PlatzierungBis = 1 };
+        var eingaben = new[] { new UebergangsregelEingabe(1, 2, null, 1, 2) };
+
+        var ergebnis = _validator.Validieren(eingaben, Liga(eingangsMannschaftsanzahl: 36), Ziel(eingangsMannschaftsanzahl: 4), [andererBlock, eigeneAlteZeile]);
+
+        ergebnis.IstGueltig.Should().BeTrue();
+    }
 }

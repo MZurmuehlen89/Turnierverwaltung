@@ -19,18 +19,10 @@ public class UebergangsregelValidator
         IReadOnlyList<Uebergangsregel> alleRegeln,
         int? bearbeiteteRegelId = null)
     {
-        var fehler = new List<string>();
+        var kanten = alleRegeln.Where(r => r.Id != bearbeiteteRegelId).ToList();
+        var fehler = new List<string>(FeldFehlerErmitteln(eingabe, quellRunde, zielRunde));
 
-        if (eingabe.QuellRundeId == eingabe.ZielRundeId)
-            fehler.Add("Quell- und Zielrunde dürfen nicht identisch sein.");
-
-        if (eingabe.PlatzierungVon < 1)
-            fehler.Add("PlatzierungVon muss mindestens 1 sein.");
-
-        if (eingabe.PlatzierungBis < eingabe.PlatzierungVon)
-            fehler.Add("PlatzierungBis darf nicht kleiner als PlatzierungVon sein.");
-
-        if (WuerdeZyklusSchliessen(eingabe, alleRegeln, bearbeiteteRegelId))
+        if (WuerdeZyklusSchliessen(eingabe.QuellRundeId, eingabe.ZielRundeId, kanten))
             fehler.Add($"Übergangsregel '{quellRunde.Name}' → '{zielRunde.Name}' würde einen zyklischen Übergang erzeugen.");
 
         var summe = alleRegeln
@@ -41,6 +33,68 @@ public class UebergangsregelValidator
         if (summe > zielRunde.EingangsMannschaftsanzahl)
             fehler.Add($"Übergangsregeln für '{zielRunde.Name}' liefern zusammen {summe} Mannschaften, " +
                        $"erwartet werden aber nur {zielRunde.EingangsMannschaftsanzahl}.");
+
+        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+    }
+
+    /// <summary>
+    /// Validiert einen gesamten Übergangsregel-Block (alle Zeilen einer Quellrunde → Zielrunde) auf einmal, gegen
+    /// den vollständigen beabsichtigten Endzustand — nicht zeilenweise gegen einen Teilstand (Issue #180). Ersetzt
+    /// dabei die bereits gespeicherten Regeln dieses Blocks vollständig, d.h. <paramref name="alleRegeln"/> wird bei
+    /// Kapazitäts- und Zyklusprüfung um alle Zeilen mit <c>QuellRundeId == quellRunde.Id</c> bereinigt.
+    /// </summary>
+    public ValidationErgebnis Validieren(
+        IReadOnlyList<UebergangsregelEingabe> eingaben,
+        TurnierRunde quellRunde,
+        TurnierRunde zielRunde,
+        IReadOnlyList<Uebergangsregel> alleRegeln)
+    {
+        var fehler = new List<string>();
+
+        if (eingaben.Count == 0)
+            fehler.Add("Ein Übergangsregel-Block muss mindestens eine Zeile enthalten.");
+
+        foreach (var eingabe in eingaben)
+            fehler.AddRange(FeldFehlerErmitteln(eingabe, quellRunde, zielRunde));
+
+        var duplikate = eingaben
+            .Where(e => e.GruppeIndex is not null)
+            .GroupBy(e => e.GruppeIndex)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key);
+        foreach (var dup in duplikate)
+            fehler.Add($"Gruppenindex/Spielnummer {dup} ist mehrfach in diesem Übergangsregel-Block vorhanden.");
+
+        var kanten = alleRegeln.Where(r => !(r.QuellRundeId == quellRunde.Id && r.ZielRundeId == zielRunde.Id)).ToList();
+        if (WuerdeZyklusSchliessen(quellRunde.Id, zielRunde.Id, kanten))
+            fehler.Add($"Übergangsregel '{quellRunde.Name}' → '{zielRunde.Name}' würde einen zyklischen Übergang erzeugen.");
+
+        var summeAndererBloecke = alleRegeln
+            .Where(r => r.ZielRundeId == zielRunde.Id && r.QuellRundeId != quellRunde.Id)
+            .Sum(r => r.PlatzierungBis - r.PlatzierungVon + 1);
+        var summe = summeAndererBloecke + eingaben.Sum(e => e.PlatzierungBis - e.PlatzierungVon + 1);
+
+        if (summe > zielRunde.EingangsMannschaftsanzahl)
+            fehler.Add($"Übergangsregeln für '{zielRunde.Name}' liefern zusammen {summe} Mannschaften, " +
+                       $"erwartet werden aber nur {zielRunde.EingangsMannschaftsanzahl}.");
+
+        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+    }
+
+    /// <summary>Rundenart-spezifische Feldprüfungen einer einzelnen Eingabe (Gruppenindex/Spielnummer-Bereich,
+    /// Platzierungsbereich innerhalb der Quellrunde). Wird sowohl von der Einzel- als auch der Block-Validierung genutzt.</summary>
+    private static IEnumerable<string> FeldFehlerErmitteln(UebergangsregelEingabe eingabe, TurnierRunde quellRunde, TurnierRunde zielRunde)
+    {
+        var fehler = new List<string>();
+
+        if (eingabe.QuellRundeId == eingabe.ZielRundeId)
+            fehler.Add("Quell- und Zielrunde dürfen nicht identisch sein.");
+
+        if (eingabe.PlatzierungVon < 1)
+            fehler.Add("PlatzierungVon muss mindestens 1 sein.");
+
+        if (eingabe.PlatzierungBis < eingabe.PlatzierungVon)
+            fehler.Add("PlatzierungBis darf nicht kleiner als PlatzierungVon sein.");
 
         switch (quellRunde.Rundenart)
         {
@@ -80,26 +134,23 @@ public class UebergangsregelValidator
                 break;
         }
 
-        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+        return fehler;
     }
 
     /// <summary>Prüft per DFS ausgehend von der vorgeschlagenen Zielrunde, ob die Quellrunde über bestehende
     /// Regeln (QuellRundeId → ZielRundeId) wieder erreichbar ist — dann würde die neue Kante einen Zyklus schließen.</summary>
-    private static bool WuerdeZyklusSchliessen(
-        UebergangsregelEingabe eingabe, IReadOnlyList<Uebergangsregel> alleRegeln, int? bearbeiteteRegelId)
+    private static bool WuerdeZyklusSchliessen(int quellRundeId, int zielRundeId, IReadOnlyList<Uebergangsregel> kantenQuelle)
     {
-        var kanten = alleRegeln
-            .Where(r => r.Id != bearbeiteteRegelId)
-            .ToLookup(r => r.QuellRundeId, r => r.ZielRundeId);
+        var kanten = kantenQuelle.ToLookup(r => r.QuellRundeId, r => r.ZielRundeId);
 
         var besucht = new HashSet<int>();
         var stapel = new Stack<int>();
-        stapel.Push(eingabe.ZielRundeId);
+        stapel.Push(zielRundeId);
 
         while (stapel.Count > 0)
         {
             var aktuell = stapel.Pop();
-            if (aktuell == eingabe.QuellRundeId)
+            if (aktuell == quellRundeId)
                 return true;
             if (!besucht.Add(aktuell))
                 continue;

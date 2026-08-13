@@ -159,4 +159,56 @@ public class UebergangsregelServiceTests
 
         await Assert.ThrowsAsync<ValidationException>(() => service.ErstellenAsync(zyklischeEingabe));
     }
+
+    // ── BlockSpeichernAsync (Issue #180) ────────────────────────────────────────
+
+    [Fact]
+    public async Task BlockSpeichernAsync_UngueltigerBatch_PersistiertKeineZeile()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int gruppenphaseRundeId, out int koRundeId);
+        var service = ServiceFuer(ctx);
+
+        // koRunde (Zielrunde) erwartet 4 Mannschaften. Jede Zeile für sich (Platz 1-3, Gruppengröße 4) wäre
+        // gültig, aber zusammen ergeben sie 6 > 4 — erst über den gesamten Batch erkennbar.
+        var zeilen = new[]
+        {
+            new UebergangsregelZeileEingabe(null, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 3),
+            new UebergangsregelZeileEingabe(null, GruppeIndex: 2, PlatzierungVon: 1, PlatzierungBis: 3),
+        };
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => service.BlockSpeichernAsync(gruppenphaseRundeId, koRundeId, zeilen, zuLoeschendeIds: []));
+
+        // Beweis für die Atomarität des Fixes: keine der beiden Zeilen wurde vor dem Validierungsfehler geschrieben.
+        (await service.AlleNachQuellRundeIdAsync(gruppenphaseRundeId)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task BlockSpeichernAsync_GueltigerBatch_ErstelltAktualisiertUndLoeschtInEinemAufruf()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int gruppenphaseRundeId, out int koRundeId);
+        var service = ServiceFuer(ctx);
+
+        var bleibt = await service.ErstellenAsync(new UebergangsregelEingabe(
+            gruppenphaseRundeId, koRundeId, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1));
+        var wirdGeloescht = await service.ErstellenAsync(new UebergangsregelEingabe(
+            gruppenphaseRundeId, koRundeId, GruppeIndex: 2, PlatzierungVon: 1, PlatzierungBis: 1));
+
+        var zeilen = new[]
+        {
+            new UebergangsregelZeileEingabe(bleibt.Id, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 2),
+            new UebergangsregelZeileEingabe(null, GruppeIndex: 2, PlatzierungVon: 1, PlatzierungBis: 2),
+        };
+
+        var ergebnis = await service.BlockSpeichernAsync(
+            gruppenphaseRundeId, koRundeId, zeilen, zuLoeschendeIds: [wirdGeloescht.Id]);
+
+        ergebnis.Should().HaveCount(2);
+        var gespeichert = await service.AlleNachQuellRundeIdAsync(gruppenphaseRundeId);
+        gespeichert.Should().HaveCount(2);
+        gespeichert.Should().Contain(r => r.Id == bleibt.Id && r.PlatzierungBis == 2);
+        gespeichert.Should().NotContain(r => r.Id == wirdGeloescht.Id);
+    }
 }

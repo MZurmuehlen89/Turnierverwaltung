@@ -10,6 +10,7 @@ using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
+using System.Windows;
 using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
@@ -50,6 +51,11 @@ public partial class UebergangsregelBlock : ObservableObject
 {
     private readonly UebergangsregelService _service;
     private readonly int _zielRundeId;
+
+    // Baseline der beim Laden vorgefundenen Zeilen-Ids — Vergleichsbasis, um beim Speichern zu erkennen,
+    // welche zuvor gespeicherten Zeilen inzwischen aus der Zeilen-Collection entfernt wurden (z.B. über
+    // "Aktualisieren", Issue #183) und dementsprechend gelöscht werden müssen (Issue #180).
+    private readonly HashSet<int> _urspruenglicheZeilenIds = [];
 
     public event Action? Geloescht;
 
@@ -93,6 +99,7 @@ public partial class UebergangsregelBlock : ObservableObject
             var zeile = new UebergangsregelZeile { GruppeIndex = regel.GruppeIndex, Id = regel.Id };
             zeile.WerteSetzenOhneAbweichung(regel.PlatzierungVon, regel.PlatzierungBis);
             block.Zeilen.Add(zeile);
+            block._urspruenglicheZeilenIds.Add(regel.Id);
         }
         block.QuellRunde = quellRunde;
         foreach (var z in block.Zeilen)
@@ -119,6 +126,17 @@ public partial class UebergangsregelBlock : ObservableObject
                 Zeilen.Add(zeile);
             }
         }
+        else if (value.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
+        {
+            // Eine Zeile je Spiel der Quellrunde (bisher wurde hier immer nur 1 Zeile erzeugt, Issue #183).
+            int anzahlSpiele = Math.Max(1, value.EingangsMannschaften / 2);
+            for (int i = 1; i <= anzahlSpiele; i++)
+            {
+                var zeile = new UebergangsregelZeile { GruppeIndex = i };
+                zeile.WerteSetzenOhneAbweichung(StandardPlatzierungVon, StandardPlatzierungBis);
+                Zeilen.Add(zeile);
+            }
+        }
         else
         {
             var zeile = new UebergangsregelZeile { GruppeIndex = value.Rundenart == Rundenart.Liga ? null : 1 };
@@ -131,6 +149,48 @@ public partial class UebergangsregelBlock : ObservableObject
         IsDirty = true;
         OnPropertyChanged(nameof(IstNeu));
     }
+
+    /// <summary>Die Gruppenindizes/Spielnummern, die die aktuelle Quellrunde in ihrer jetzigen Form erwarten
+    /// lässt — Vergleichsbasis für <see cref="PasstZurQuellrunde"/> und <see cref="Aktualisieren"/> (Issue #183).</summary>
+    private IEnumerable<int?> ErwarteteGruppenIndizes()
+    {
+        if (QuellRunde is null) return [];
+        if (QuellRunde.Rundenart == Rundenart.Gruppenphase && QuellRunde.GruppenAnzahl is > 0)
+            return Enumerable.Range(1, QuellRunde.GruppenAnzahl.Value).Cast<int?>();
+        if (QuellRunde.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
+            return Enumerable.Range(1, Math.Max(1, QuellRunde.EingangsMannschaften / 2)).Cast<int?>();
+        return [null];
+    }
+
+    /// <summary>False, wenn die Quellrunde inzwischen mehr oder weniger Gruppen/Spiele hat, als dieser Block
+    /// Zeilen besitzt (z.B. weil die Quellrunde nach dem Anlegen dieser Übergangsregeln geändert wurde).</summary>
+    public bool PasstZurQuellrunde =>
+        QuellRunde is null || ErwarteteGruppenIndizes().ToHashSet().SetEquals(Zeilen.Select(z => z.GruppeIndex));
+
+    /// <summary>Gleicht die Zeilen automatisch an die aktuelle Form der Quellrunde an: fehlende Gruppen/Spiele
+    /// werden ergänzt, überzählige entfernt. Löscht dabei noch nichts in der DB — das übernimmt der Diff beim
+    /// nächsten Klick auf "Speichern" (Issue #183).</summary>
+    [RelayCommand(CanExecute = nameof(KannAktualisieren))]
+    private void Aktualisieren()
+    {
+        if (QuellRunde is null) return;
+        var erwartet = ErwarteteGruppenIndizes().ToList();
+
+        foreach (var idx in erwartet.Where(i => Zeilen.All(z => z.GruppeIndex != i)))
+        {
+            var zeile = new UebergangsregelZeile { GruppeIndex = idx };
+            zeile.WerteSetzenOhneAbweichung(StandardPlatzierungVon, StandardPlatzierungBis);
+            zeile.PropertyChanged += (_, __) => IsDirty = true;
+            Zeilen.Add(zeile);
+        }
+        foreach (var zeile in Zeilen.Where(z => !erwartet.Contains(z.GruppeIndex)).ToList())
+            Zeilen.Remove(zeile);
+
+        IsDirty = true;
+        OnPropertyChanged(nameof(PasstZurQuellrunde));
+        AktualisierenCommand.NotifyCanExecuteChanged();
+    }
+    private bool KannAktualisieren() => QuellRunde is not null && !PasstZurQuellrunde;
 
     [RelayCommand]
     private void StandardAnwenden()
@@ -154,20 +214,22 @@ public partial class UebergangsregelBlock : ObservableObject
         Fehlermeldung = null;
         try
         {
-            foreach (var z in Zeilen)
-            {
-                var eingabe = new UebergangsregelEingabe(
-                    QuellRunde.Id, _zielRundeId, z.GruppeIndex, z.PlatzierungVon, z.PlatzierungBis);
-                if (z.Id is null)
-                {
-                    var neu = await _service.ErstellenAsync(eingabe);
-                    z.Id = neu.Id;
-                }
-                else
-                {
-                    await _service.AktualisierenAsync(z.Id.Value, eingabe);
-                }
-            }
+            var zeilenEingaben = Zeilen
+                .Select(z => new UebergangsregelZeileEingabe(z.Id, z.GruppeIndex, z.PlatzierungVon, z.PlatzierungBis))
+                .ToList();
+            var zuLoeschendeIds = _urspruenglicheZeilenIds
+                .Except(Zeilen.Where(z => z.Id.HasValue).Select(z => z.Id!.Value))
+                .ToList();
+
+            var ergebnis = await _service.BlockSpeichernAsync(QuellRunde.Id, _zielRundeId, zeilenEingaben, zuLoeschendeIds);
+
+            for (int i = 0; i < Zeilen.Count && i < ergebnis.Count; i++)
+                Zeilen[i].Id = ergebnis[i].Id;
+
+            _urspruenglicheZeilenIds.Clear();
+            foreach (var id in Zeilen.Where(z => z.Id.HasValue).Select(z => z.Id!.Value))
+                _urspruenglicheZeilenIds.Add(id);
+
             IsDirty = false;
             OnPropertyChanged(nameof(IstNeu));
         }
@@ -524,6 +586,8 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     private async Task Speichern()
     {
         if (AusgewaehlteInstanz is null) return;
+        if (!await BestaetigeAenderungenAnQuellrundenAsync()) return;
+
         Fehlermeldung = null;
         try
         {
@@ -543,6 +607,15 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
             OnPropertyChanged(nameof(FrueherRundenOptionen));
             NeuerUebergangsregelBlockCommand.NotifyCanExecuteChanged();
 
+            // Neue Vergleichsbasis für die #181-Änderungserkennung — ein zweites Speichern in derselben
+            // Sitzung soll nicht erneut warnen, wenn seither nichts weiter geändert wurde.
+            foreach (var r in Runden)
+            {
+                r.UrspruenglichEingangsMannschaften = r.EingangsMannschaften;
+                r.UrspruenglichAusgangsMannschaften = r.AusgangsMannschaften;
+                r.UrspruenglichGruppenAnzahl        = r.GruppenAnzahl;
+            }
+
             IsDirty = false;
         }
         catch (Exception ex)
@@ -556,6 +629,35 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     {
         await LadeRundenFuerInstanzAsync(AusgewaehlteInstanz);
     }
+
+    /// <summary>Warnt, falls eine bereits gespeicherte Runde, die als Quellrunde für bestehende Übergangsregeln
+    /// dient, ihre Eingangs-/Ausgangs-/Gruppenzahl seit dem Laden geändert hat (Issue #181). Läuft nur beim
+    /// Speichern (nicht pro Tastendruck), da genau dort eine Änderung tatsächlich wirksam wird.</summary>
+    private async Task<bool> BestaetigeAenderungenAnQuellrundenAsync()
+    {
+        var geaenderte = Runden.Where(r => r.Id > 0 && HatSichGeaendert(r)).ToList();
+        if (geaenderte.Count == 0) return true;
+
+        var alleRegeln = await _uebergangsregelService.AlleNachTurnierInstanzIdAsync(AusgewaehlteInstanz!.Id);
+        var betroffene = geaenderte
+            .Select(r => (Runde: r, Ziele: alleRegeln.Where(u => u.QuellRundeId == r.Id)
+                                                       .Select(u => u.ZielRunde.Name).Distinct().ToList()))
+            .Where(x => x.Ziele.Count > 0)
+            .ToList();
+        if (betroffene.Count == 0) return true;
+
+        var text = string.Join("\n", betroffene.Select(b => $"'{b.Runde.Name}' → verwendet in: {string.Join(", ", b.Ziele)}"));
+        var ergebnis = MessageBox.Show(
+            $"Folgende geänderte Runden werden bereits als Quelle für Übergangsregeln verwendet:\n\n{text}\n\n" +
+            "Die Änderungen können diese Regeln ungültig machen (siehe Hinweis \"Aktualisieren\" im Übergangsregeln-Bereich der Zielrunde). Trotzdem speichern?",
+            "Übergangsregeln betroffen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        return ergebnis == MessageBoxResult.Yes;
+    }
+
+    private static bool HatSichGeaendert(RundenEintrag r) =>
+        r.EingangsMannschaften != r.UrspruenglichEingangsMannschaften ||
+        r.AusgangsMannschaften != r.UrspruenglichAusgangsMannschaften ||
+        r.GruppenAnzahl != r.UrspruenglichGruppenAnzahl;
 
     // ── Reaktive Formular → Eintrag Synchronisation ───────────────────────────
 
@@ -894,6 +996,9 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         EingangsMannschaften   = r.EingangsMannschaftsanzahl,
         AusgangsMannschaften   = r.AusgangsMannschaftsanzahl,
         GruppenAnzahl          = r.GruppenAnzahl,
+        UrspruenglichEingangsMannschaften = r.EingangsMannschaftsanzahl,
+        UrspruenglichAusgangsMannschaften = r.AusgangsMannschaftsanzahl,
+        UrspruenglichGruppenAnzahl        = r.GruppenAnzahl,
         RegelwerkId            = r.RegelwerkId,
         RegelwerkName          = r.Regelwerk?.Name ?? "",
         MitRueckspiel          = r.MitRueckspiel,
