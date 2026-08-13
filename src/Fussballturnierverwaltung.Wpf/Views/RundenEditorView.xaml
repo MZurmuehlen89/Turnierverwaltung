@@ -142,10 +142,14 @@
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="Ausgang" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
                             <TextBox Text="{Binding Ausgang, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEnabled="{Binding AusgangEditierbar}"
                                      Padding="8,6" FontSize="13"
                                      BorderBrush="#CBD5E1" BorderThickness="1" />
                         </StackPanel>
                     </Grid>
+                    <TextBlock Text="Bei K.-o.-Rundenarten wird der Ausgang automatisch aus dem Eingang berechnet (Eingang / 2)."
+                               Foreground="#94A3B8" FontSize="11" TextWrapping="Wrap" Margin="0,-8,0,12"
+                               Visibility="{Binding IstKoRundenart, Converter={StaticResource BoolToVisibility}}" />
 
                     <!-- Gruppenanzahl (nur bei Gruppenphase) -->
                     <StackPanel Visibility="{Binding GruppenAnzahlSichtbar, Converter={StaticResource BoolToVisibility}}">

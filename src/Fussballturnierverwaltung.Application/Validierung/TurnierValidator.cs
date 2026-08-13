@@ -35,6 +35,17 @@ public class TurnierValidator
                 fehler.Add($"Runde '{r.Name}': In K.-o.-Runden müssen Ausgangsteams ({r.AusgangsMannschaftsanzahl}) " +
                            $"kleiner als Eingangsteams ({r.EingangsMannschaftsanzahl}) sein.");
 
+            // KoRundeGenerator verlangt zwingend eine gerade Eingangszahl und bildet strikt n/2-Paarungen —
+            // jedes Spiel liefert genau einen Sieger (Issue #182).
+            if (IstKoRundenart(r.Rundenart))
+            {
+                if (r.EingangsMannschaftsanzahl % 2 != 0)
+                    fehler.Add($"Runde '{r.Name}': K.-o.-Rundenarten benötigen eine gerade Eingangsmannschaftsanzahl (war: {r.EingangsMannschaftsanzahl}).");
+                else if (r.AusgangsMannschaftsanzahl != r.EingangsMannschaftsanzahl / 2)
+                    fehler.Add($"Runde '{r.Name}': AusgangsMannschaftsanzahl muss bei K.-o.-Rundenarten genau der Hälfte der Eingangsmannschaftsanzahl entsprechen " +
+                               $"({r.EingangsMannschaftsanzahl} / 2 = {r.EingangsMannschaftsanzahl / 2}, war: {r.AusgangsMannschaftsanzahl}).");
+            }
+
             if (r.AuswaertstorRegelAktiv && !r.MitRueckspiel)
                 fehler.Add($"Runde '{r.Name}': Auswärtstorregel ist aktiv, obwohl keine Hin- und Rückspiele gespielt werden.");
 
@@ -76,6 +87,10 @@ public class TurnierValidator
     private static bool IstKoGeschwisterPaar(Rundenart a, Rundenart b) =>
         (a == Rundenart.Finale && b == Rundenart.SpielUmPlatzDrei) ||
         (a == Rundenart.SpielUmPlatzDrei && b == Rundenart.Finale);
+
+    /// <summary>Rundenarten, die von KoRundeGenerator bedient werden — strikte n/2-Paarung, ein Sieger pro Spiel.</summary>
+    private static bool IstKoRundenart(Rundenart rundenart) =>
+        rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
 
     /// <summary>Prüft ob eine Rundenart mit dem verknüpften Regelwerk kompatibel ist.</summary>
     public ValidationErgebnis RundeUndRegelwerkKompatibel(TurnierRundeEingabe runde, Regelwerk regelwerk)

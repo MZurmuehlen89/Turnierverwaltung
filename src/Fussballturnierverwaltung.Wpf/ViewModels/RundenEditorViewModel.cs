@@ -260,6 +260,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(GruppenAnzahlSichtbar))]
     [NotifyPropertyChangedFor(nameof(IstKoRundenart))]
+    [NotifyPropertyChangedFor(nameof(AusgangEditierbar))]
     [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
     [NotifyPropertyChangedFor(nameof(MitRueckspielVerfuegbar))]
     private Rundenart _rundenart = Rundenart.Liga;
@@ -307,6 +308,10 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     // ── Berechnete Eigenschaften ──────────────────────────────────────────────
     public bool IstKoRundenart =>
         Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+
+    // KoRundeGenerator bildet strikt n/2-Paarungen — Ausgang ist bei K.-o.-Rundenarten kein freier Wert,
+    // sondern immer aus Eingang abgeleitet (Issue #182).
+    public bool AusgangEditierbar => !IstKoRundenart;
 
     public bool MitRueckspielVerfuegbar =>
         Rundenart is Rundenart.KoRunde or Rundenart.Liga or Rundenart.Sonderrunde or Rundenart.Gruppenphase;
@@ -566,9 +571,21 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     {
         if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
         AusgewaehlteRunde.Rundenart = value;
-        // RundenEintrag.OnRundenartChanged may have auto-updated the name — sync to form field
         _populiertGerade++;
-        try { Name = AusgewaehlteRunde.Name; }
+        try
+        {
+            // RundenEintrag.OnRundenartChanged may have auto-updated the name — sync to form field
+            Name = AusgewaehlteRunde.Name;
+
+            // Wechsel zu einer K.-o.-Rundenart: Ausgang ist kein freier Wert mehr, sondern immer
+            // Eingang/2 (Issue #182) — sofort neu berechnen statt auf die nächste Eingang-Änderung zu warten.
+            if (IstKoRundenart)
+            {
+                var ausgang = Math.Max(1, ParseAnzahl(Eingang, 4) / 2);
+                AusgewaehlteRunde.AusgangsMannschaften = ausgang;
+                Ausgang = ausgang.ToString();
+            }
+        }
         finally { _populiertGerade--; }
         AktualisiereRundenFehler();
         IsDirty = true;
@@ -598,7 +615,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
 
     partial void OnAusgangChanged(string value)
     {
-        if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
+        if (_populiertGerade > 0 || AusgewaehlteRunde is null || !AusgangEditierbar) return;
         AusgewaehlteRunde.AusgangsMannschaften = ParseAnzahl(value, 4);
         AktualisiereRundenFehler();
         IsDirty = true;
@@ -667,8 +684,12 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
             if (r.AusgangsMannschaften > r.EingangsMannschaften)
                 fehler.Add($"{label}: Ausgang ({r.AusgangsMannschaften}) darf den Eingang ({r.EingangsMannschaften}) nicht überschreiten.");
 
-            if (r.Rundenart is Rundenart.KoRunde && r.EingangsMannschaften % 2 != 0)
+            bool istKoRundenart = r.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+
+            if (istKoRundenart && r.EingangsMannschaften % 2 != 0)
                 fehler.Add($"{label}: K.o.-Runden benötigen eine gerade Eingangsanzahl (aktuell: {r.EingangsMannschaften}).");
+            else if (istKoRundenart && r.AusgangsMannschaften != r.EingangsMannschaften / 2)
+                fehler.Add($"{label}: Ausgang muss bei K.o.-Runden genau der Hälfte des Eingangs entsprechen ({r.EingangsMannschaften} / 2 = {r.EingangsMannschaften / 2}, aktuell: {r.AusgangsMannschaften}).");
 
             if (r.Rundenart == Rundenart.Gruppenphase && (r.GruppenAnzahl == null || r.GruppenAnzahl < 2))
                 fehler.Add($"{label}: Gruppenphase erfordert mindestens 2 Gruppen.");

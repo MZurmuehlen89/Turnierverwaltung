@@ -69,8 +69,8 @@ public class TurnierValidatorTests
     {
         var runden = new[]
         {
-            Runde("Achtelfinale H/R", Rundenart.KoRunde, eingang: 16, ausgang: 8, mitRueckspiel: true, auswaerts: true),
-            Runde("Finale",           Rundenart.Finale,  eingang: 8,  ausgang: 1),
+            Runde("Halbfinale H/R", Rundenart.KoRunde, eingang: 4, ausgang: 2, mitRueckspiel: true, auswaerts: true),
+            Runde("Finale",         Rundenart.Finale,  eingang: 2, ausgang: 1),
         };
 
         _validator.RundenValidieren(runden).IstGueltig.Should().BeTrue();
@@ -143,13 +143,54 @@ public class TurnierValidatorTests
     [Fact]
     public void EingangUeberUebergangsregeln_WirdNichtGegenVorrundeGeprueft()
     {
-        // Eingang (3) passt nicht zum Ausgang der Vorrunde (16) — aber die Runde wird über
+        // Eingang (2) passt nicht zum Ausgang der Vorrunde (16) — aber die Runde wird über
         // Übergangsregeln gespeist, daher darf die Kettenprüfung hier nicht greifen.
         var runden = new[]
         {
             Runde("Liga",   Rundenart.Liga, eingang: 16, ausgang: 16),
-            Runde("Finale", Rundenart.Finale, eingang: 3, ausgang: 1, eingangUeberUebergangsregeln: true),
+            Runde("Finale", Rundenart.Finale, eingang: 2, ausgang: 1, eingangUeberUebergangsregeln: true),
         };
+
+        _validator.RundenValidieren(runden).IstGueltig.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(Rundenart.KoRunde)]
+    [InlineData(Rundenart.Finale)]
+    [InlineData(Rundenart.SpielUmPlatzDrei)]
+    public void KoRundenart_UngeradeEingangsanzahl_IstUngueltig(Rundenart art)
+    {
+        var runden = new[] { Runde("Runde", art, eingang: 5, ausgang: 2) };
+
+        var ergebnis = _validator.RundenValidieren(runden);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*gerade Eingangsmannschaftsanzahl*");
+    }
+
+    [Theory]
+    [InlineData(Rundenart.KoRunde)]
+    [InlineData(Rundenart.Finale)]
+    [InlineData(Rundenart.SpielUmPlatzDrei)]
+    public void KoRundenart_AusgangUngleichHalberEingang_IstUngueltig(Rundenart art)
+    {
+        // Eingang gerade, Ausgang aber nicht exakt die Hälfte
+        var runden = new[] { Runde("Runde", art, eingang: 8, ausgang: 3) };
+
+        var ergebnis = _validator.RundenValidieren(runden);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*genau der Hälfte*");
+    }
+
+    [Theory]
+    [InlineData(Rundenart.KoRunde)]
+    [InlineData(Rundenart.Finale)]
+    [InlineData(Rundenart.SpielUmPlatzDrei)]
+    public void KoRundenart_AusgangGleichHalberEingang_IstGueltig(Rundenart art)
+    {
+        // eingang: 2 / ausgang: 1 passt gleichzeitig zur "Finale liefert genau 1 Sieger"-Regel
+        var runden = new[] { Runde("Runde", art, eingang: 2, ausgang: 1) };
 
         _validator.RundenValidieren(runden).IstGueltig.Should().BeTrue();
     }

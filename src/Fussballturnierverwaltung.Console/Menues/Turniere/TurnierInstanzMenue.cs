@@ -179,8 +179,22 @@ public class TurnierInstanzMenue(
                 .UseConverter(r => r is null ? "← Abbrechen" : r.ToString())
                 .AddChoices(Enum.GetValues<Rundenart>().Select(r => (Rundenart?)r).Append(null)));
             if (rundenart is null) break;
-            var eingang   = AnsiConsole.Prompt(new TextPrompt<int>("Eingehende Mannschaften:").Validate(n => n >= 2));
-            var ausgang   = AnsiConsole.Prompt(new TextPrompt<int>("Weiterkommende Mannschaften:").Validate(n => n >= 1 && n < eingang));
+
+            // KoRundeGenerator verlangt zwingend eine gerade Eingangszahl und bildet strikt n/2-Paarungen —
+            // Ausgang ist bei K.-o.-Rundenarten kein freier Wert, sondern immer Eingang/2 (Issue #182).
+            var istKoRundenart = rundenart.Value is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+            var eingang = AnsiConsole.Prompt(new TextPrompt<int>("Eingehende Mannschaften:")
+                .Validate(n => n >= 2 && (!istKoRundenart || n % 2 == 0)));
+            int ausgang;
+            if (istKoRundenart)
+            {
+                ausgang = eingang / 2;
+                AnsiConsole.MarkupLine($"[grey]Weiterkommende Mannschaften automatisch berechnet: {ausgang}[/]");
+            }
+            else
+            {
+                ausgang = AnsiConsole.Prompt(new TextPrompt<int>("Weiterkommende Mannschaften:").Validate(n => n >= 1 && n < eingang));
+            }
             var regelwerk = AnsiConsole.Prompt(new SelectionPrompt<Regelwerk?>()
                 .Title("Regelwerk:").UseConverter(r => r is null ? "← Abbrechen" : r.Name).EnableSearch().AddChoices(regelwerke.Cast<Regelwerk?>().Append(null)));
             if (regelwerk is null) break;
