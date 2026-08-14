@@ -56,4 +56,18 @@ public class VerbandsQuoteService(
         await repository.LoeschenAsync(quote, ct);
         logger.LogInformation("Verband-Quote {Id} gelöscht.", id);
     }
+
+    public async Task<IReadOnlyList<VerbandsQuote>> QuotenErsetzenAsync(
+        int turnierInstanzId, IReadOnlyList<VerbandsQuoteZeileEingabe> zeilen, CancellationToken ct = default)
+    {
+        ValidationException.WerfenWennUngueltig(validator.Validieren(zeilen));
+        var neueQuoten = zeilen.Select(z => new VerbandsQuote
+        {
+            TurnierInstanzId = turnierInstanzId, VerbandId = z.VerbandId,
+            MaxAnzahl = z.MaxAnzahl, MinAnzahl = z.MinAnzahl
+        }).ToList();
+        var gespeichert = await repository.QuotenErsetzenAsync(turnierInstanzId, neueQuoten, ct);
+        logger.LogInformation("Verband-Quoten für TurnierInstanz {Id} ersetzt ({Anzahl} Einträge).", turnierInstanzId, zeilen.Count);
+        return gespeichert;
+    }
 }

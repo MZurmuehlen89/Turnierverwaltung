@@ -5,3 +5,5 @@ public record VerbandsQuoteEingabe(
     int VerbandId,
     int MaxAnzahl,
     int? MinAnzahl);
+
+public record VerbandsQuoteZeileEingabe(int VerbandId, int MaxAnzahl, int? MinAnzahl);

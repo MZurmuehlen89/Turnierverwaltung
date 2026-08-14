@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
+using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -62,11 +63,20 @@ public partial class RundenEintrag : ObservableObject
         (EingangUeberUebergangsregeln ? " · Eingang über Übergangsregeln" : "");
 }
 
+public partial class VerbandsQuoteZeile : ObservableObject
+{
+    [ObservableProperty] private Verband? _verband;
+    [ObservableProperty] private int _maxAnzahl = 1;
+    [ObservableProperty] private int? _minAnzahl;
+}
+
 public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly TurnierInstanzService _service;
     private readonly VerbandService _verbandService;
     private readonly RegelwerkService _regelwerkService;
+    private readonly VerbandsQuoteService _verbandsQuoteService;
+    private readonly VerbandsQuoteValidator _verbandsQuoteValidator;
     private int _populiertGerade;
 
     private static readonly TurnierStatusOption _alleStatus   = new("— Alle —", null);
@@ -139,6 +149,10 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
     public IReadOnlyList<RegelwerkOption> StandardRegelwerkOptionen =>
         [_keinRegelwerk, .. Regelwerke.Select(r => new RegelwerkOption(r.Name, r))];
 
+    // ── Verband-Quoten (Issue #161) ───────────────────────────────────────────
+    [ObservableProperty] private ObservableCollection<VerbandsQuoteZeile> _quotenZeilen = [];
+    [ObservableProperty] private IReadOnlyList<Verband> _alleVerbaende = [];
+
     // ── Berechnete Eigenschaften ──────────────────────────────────────────────
     public bool RundenSichtbar => FormularAktiv && !IstNeuModus;
 
@@ -168,11 +182,15 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
     public ICommand AbbrechenBefehl => AbbrechenCommand;
     public ICommand LoeschenBefehl => LoeschenCommand;
 
-    public TurnierInstanzViewModel(TurnierInstanzService service, VerbandService verbandService, RegelwerkService regelwerkService)
+    public TurnierInstanzViewModel(
+        TurnierInstanzService service, VerbandService verbandService, RegelwerkService regelwerkService,
+        VerbandsQuoteService verbandsQuoteService, VerbandsQuoteValidator verbandsQuoteValidator)
     {
         _service = service;
         _verbandService = verbandService;
         _regelwerkService = regelwerkService;
+        _verbandsQuoteService = verbandsQuoteService;
+        _verbandsQuoteValidator = verbandsQuoteValidator;
     }
 
     public override async Task AktivierenAsync()
@@ -182,6 +200,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
         {
             var verbände   = await _verbandService.AlleAbrufenAsync();
             VerbandOptionen = [_keinVerband, .. verbände.Select(v => new VerbandOption(v.Name, v))];
+            AlleVerbaende  = verbände;
             Regelwerke = await _regelwerkService.AlleAbrufenAsync();
             await LadenAsync();
         }
@@ -244,6 +263,8 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
             FormularAktiv         = true;
             IstNeuModus           = true;
             Name = SaisonOderJahr = Startdatum = Enddatum = "";
+            QuotenZeilen = [];
+            QuotenZeilenAbonnieren();
             Fehlermeldung = null;
         }
         finally
@@ -276,10 +297,18 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
             else if (Ausgewaehltes is not null)
             {
                 var id = Ausgewaehltes.Id;
+
+                var quotenZeilen = QuotenZeilen
+                    .Where(z => z.Verband is not null)
+                    .Select(z => new VerbandsQuoteZeileEingabe(z.Verband!.Id, z.MaxAnzahl, z.MinAnzahl))
+                    .ToList();
+                ValidationException.WerfenWennUngueltig(_verbandsQuoteValidator.Validieren(quotenZeilen));
+
                 var eingabe = new TurnierInstanzVollAktualisierenEingabe(
                     Name, SaisonOderJahr, null, startdatum, enddatum, Ausgewaehltes.Status,
                     verbandId, TeamFilter, standardRwId);
                 await _service.VollAktualisierenAsync(id, eingabe);
+                await _verbandsQuoteService.QuotenErsetzenAsync(id, quotenZeilen);
                 await LadenAsync();
                 Ausgewaehltes = Instanzen.FirstOrDefault(i => i.Id == id);
                 IsDirty = false;
@@ -338,6 +367,9 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
         if (Ausgewaehltes is null)
         {
             FormularAusFuellenMit(null);
+            _populiertGerade++;
+            try { QuotenZeilen = []; QuotenZeilenAbonnieren(); }
+            finally { _populiertGerade--; }
             return;
         }
         IstLadend = true;
@@ -345,6 +377,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
         {
             var detail = await _service.FindenNachIdMitRundenAsync(Ausgewaehltes.Id);
             FormularAusFuellenMit(detail);
+            await QuotenLadenAsync(Ausgewaehltes.Id);
         }
         catch (Exception ex)
         {
@@ -354,6 +387,44 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
         {
             IstLadend = false;
         }
+    }
+
+    private async Task QuotenLadenAsync(int turnierInstanzId)
+    {
+        _populiertGerade++;
+        try
+        {
+            var quoten = await _verbandsQuoteService.AlleNachTurnierInstanzIdAsync(turnierInstanzId);
+            QuotenZeilen = new ObservableCollection<VerbandsQuoteZeile>(
+                quoten.Select(q => new VerbandsQuoteZeile
+                {
+                    Verband   = q.Verband,
+                    MaxAnzahl = q.MaxAnzahl,
+                    MinAnzahl = q.MinAnzahl
+                }));
+            QuotenZeilenAbonnieren();
+        }
+        finally
+        {
+            _populiertGerade--;
+        }
+    }
+
+    private void QuotenZeilenAbonnieren()
+    {
+        QuotenZeilen.CollectionChanged += (_, e) =>
+        {
+            if (e.NewItems is not null)
+                foreach (VerbandsQuoteZeile z in e.NewItems)
+                    z.PropertyChanged += OnQuotenZeileGeaendert;
+            if (_populiertGerade == 0) IsDirty = true;
+        };
+        foreach (var z in QuotenZeilen) z.PropertyChanged += OnQuotenZeileGeaendert;
+    }
+
+    private void OnQuotenZeileGeaendert(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_populiertGerade == 0) IsDirty = true;
     }
 
     private bool KannSpeichern() => FormularAktiv && IsDirty;

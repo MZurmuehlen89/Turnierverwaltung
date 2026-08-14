@@ -1,10 +1,12 @@
 <UserControl x:Class="Fussballturnierverwaltung.Wpf.Views.TurnierInstanzView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:conv="clr-namespace:Fussballturnierverwaltung.Wpf.Converters">
+             xmlns:conv="clr-namespace:Fussballturnierverwaltung.Wpf.Converters"
+             xmlns:helpers="clr-namespace:Fussballturnierverwaltung.Wpf.Helpers">
 
     <UserControl.Resources>
         <conv:TurnierStatusZuTextConverter x:Key="StatusZuText" />
+        <helpers:BindingProxy x:Key="Proxy" Data="{Binding}" />
     </UserControl.Resources>
 
     <Grid>
@@ -173,6 +175,31 @@
                               SelectedItem="{Binding StandardRegelwerk}"
                               DisplayMemberPath="Anzeige"
                               FontSize="13" Margin="0,0,0,20" />
+
+                    <!-- VERBAND-QUOTEN (nur für bereits gespeicherte Turniere, Issue #161) -->
+                    <StackPanel Visibility="{Binding RundenSichtbar, Converter={StaticResource BoolToVisibility}}"
+                                Margin="0,0,0,20">
+                        <TextBlock Text="VERBAND-QUOTEN" FontSize="11" FontWeight="Bold"
+                                   Foreground="#94A3B8" Margin="0,0,0,8" />
+                        <DataGrid ItemsSource="{Binding QuotenZeilen}"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="True" CanUserDeleteRows="True"
+                                  CanUserSortColumns="False" CanUserReorderColumns="False"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                  BorderBrush="#CBD5E1" BorderThickness="1"
+                                  RowHeaderWidth="24" MaxHeight="240" FontSize="13">
+                            <DataGrid.Columns>
+                                <DataGridComboBoxColumn Header="Verband" Width="*"
+                                                         ItemsSource="{Binding Data.AlleVerbaende, Source={StaticResource Proxy}}"
+                                                         DisplayMemberPath="Name"
+                                                         SelectedItemBinding="{Binding Verband}" />
+                                <DataGridTextColumn Header="Max" Width="70"
+                                                     Binding="{Binding MaxAnzahl, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridTextColumn Header="Min" Width="70"
+                                                     Binding="{Binding MinAnzahl, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
 
                     <!-- Fehlermeldung -->
                     <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"

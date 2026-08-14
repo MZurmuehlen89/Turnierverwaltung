@@ -15,19 +15,16 @@
             </StackPanel>
         </Border>
 
-        <!-- ── Sub-Navigation: Runden, Verband-Quoten ── -->
-        <TabControl SelectedIndex="{Binding TabKoordinator.AktiverTabIndex, Mode=TwoWay}"
-                    BorderThickness="0">
+        <!-- ── Hinweis-Banner, wenn Runden für das gewählte Turnier gesperrt sind ── -->
+        <Border DockPanel.Dock="Top" Background="#FEF3C7" BorderBrush="#FDE68A" BorderThickness="0,0,0,1"
+                Padding="12,6"
+                Visibility="{Binding RundenTabAktiv, Converter={StaticResource InverseBoolToVisibility}}">
+            <TextBlock Text="Nur für Turniere mit Status &quot;Geplant&quot; bearbeitbar"
+                       FontSize="12" Foreground="#92400E" />
+        </Border>
 
-            <TabItem Header="Runden" IsEnabled="{Binding RundenTabAktiv}"
-                     ToolTip="Nur für Turniere mit Status &quot;Geplant&quot; bearbeitbar">
-                <ContentControl Content="{Binding RundenVm}" />
-            </TabItem>
-            <TabItem Header="Verband-Quoten">
-                <ContentControl Content="{Binding VerbandsQuotenVm}" />
-            </TabItem>
-
-        </TabControl>
+        <!-- ── Runden-Editor (einziger verbliebener Inhalt, ohne Tab-Hülle — Issue #161) ── -->
+        <ContentControl Content="{Binding RundenVm}" IsEnabled="{Binding RundenTabAktiv}" />
 
     </DockPanel>
 

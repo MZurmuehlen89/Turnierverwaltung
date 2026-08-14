@@ -27,4 +27,11 @@ public class FakeVerbandsQuoteRepository : IVerbandsQuoteRepository
 
     public Task<IReadOnlyList<VerbandsQuote>> AlleNachTurnierInstanzIdAsync(int turnierInstanzId, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<VerbandsQuote>>([.. _quoten.Where(q => q.TurnierInstanzId == turnierInstanzId)]);
+
+    public Task<IReadOnlyList<VerbandsQuote>> QuotenErsetzenAsync(int turnierInstanzId, IReadOnlyList<VerbandsQuote> neueQuoten, CancellationToken ct = default)
+    {
+        _quoten.RemoveAll(q => q.TurnierInstanzId == turnierInstanzId);
+        _quoten.AddRange(neueQuoten);
+        return Task.FromResult(neueQuoten);
+    }
 }

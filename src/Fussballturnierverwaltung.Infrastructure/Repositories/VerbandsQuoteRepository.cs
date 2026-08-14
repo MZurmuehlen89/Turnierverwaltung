@@ -14,4 +14,13 @@ public class VerbandsQuoteRepository(TurnierverwaltungDbContext context)
             .Where(q => q.TurnierInstanzId == turnierInstanzId)
             .OrderBy(q => q.Verband.Name)
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<VerbandsQuote>> QuotenErsetzenAsync(int turnierInstanzId, IReadOnlyList<VerbandsQuote> neueQuoten, CancellationToken ct = default)
+    {
+        var alte = await Context.VerbandsQuoten.Where(q => q.TurnierInstanzId == turnierInstanzId).ToListAsync(ct);
+        Context.VerbandsQuoten.RemoveRange(alte);
+        Context.VerbandsQuoten.AddRange(neueQuoten);
+        await Context.SaveChangesAsync(ct);
+        return neueQuoten;
+    }
 }

@@ -55,9 +55,6 @@
         <DataTemplate DataType="{x:Type vm:RundenEditorViewModel}">
             <views:RundenEditorView />
         </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:VerbandsQuoteViewModel}">
-            <views:VerbandsQuoteView />
-        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:TurnierDefinitionViewModel}">
             <views:TurnierDefinitionView />
         </DataTemplate>

@@ -7,38 +7,32 @@ using System.Windows.Input;
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
 /// <summary>
-/// "Turnierdefinition"-Seite (Issue #172) — Runden, Verband-Quoten als Tabs unter einem
-/// gemeinsamen Turnier-Header. Generische Tab-Container-Mechanik ausgelagert in
-/// TurnierTabKoordinator; hier verbleibt nur die Definitionsspezifische Runden-Tab-Gating-Logik.
-/// Übergangsregeln werden nicht mehr als eigener Tab geführt — Anzeige und Bearbeitung laufen
-/// vollständig über den "Eingehende Übergangsregeln"-Abschnitt im Runden-Editor (Issue #169).
+/// "Turnierdefinition"-Seite — Runden-Editor unter einem gemeinsamen Turnier-Header. Generische
+/// Turnier-Liste/-Auswahl/-Filterung weiterhin über TurnierTabKoordinator (geteilt mit
+/// TurnierDurchfuehrungViewModel), hier aber mit nur einem einzigen Kind — die frühere
+/// Tab-Hülle mit mehreren Tabs entfiel, seit Verband-Quoten in den Turnierkopf gewandert sind
+/// (Issue #161). Übergangsregeln werden nicht als eigener Tab geführt — Anzeige und Bearbeitung
+/// laufen vollständig über den "Eingehende Übergangsregeln"-Abschnitt im Runden-Editor (#169).
 /// </summary>
 public class TurnierDefinitionViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
-    public RundenEditorViewModel   RundenVm          { get; }
-    public VerbandsQuoteViewModel  VerbandsQuotenVm  { get; }
+    public RundenEditorViewModel RundenVm { get; }
 
     public TurnierTabKoordinator TabKoordinator { get; }
 
     /// <summary>Runden dürfen nur für noch nicht gestartete Turniere bearbeitet werden — der
-    /// Runden-Tab wird deaktiviert, sobald ein Turnier mit anderem Status gewählt ist.</summary>
+    /// Runden-Inhalt wird ausgegraut, sobald ein Turnier mit anderem Status gewählt ist.</summary>
     public bool RundenTabAktiv => TabKoordinator.AusgewaehlteInstanz is null
         || TabKoordinator.AusgewaehlteInstanz.Status == TurnierStatus.Geplant;
 
     public TurnierDefinitionViewModel(
         TurnierInstanzService instanzService,
         AusgewaehlteTurnierInstanzService turnierAuswahlService,
-        RundenEditorViewModel rundenVm,
-        VerbandsQuoteViewModel verbandsQuotenVm)
+        RundenEditorViewModel rundenVm)
     {
-        RundenVm          = rundenVm;
-        VerbandsQuotenVm  = verbandsQuotenVm;
+        RundenVm = rundenVm;
 
-        TabKoordinator = new TurnierTabKoordinator(
-            instanzService, turnierAuswahlService, [RundenVm, VerbandsQuotenVm])
-        {
-            NachAuswahlKorrigieren = KorrigiereAktivenTabFallsUngueltig
-        };
+        TabKoordinator = new TurnierTabKoordinator(instanzService, turnierAuswahlService, [RundenVm]);
 
         TabKoordinator.PropertyChanged += (_, e) =>
         {
@@ -47,15 +41,6 @@ public class TurnierDefinitionViewModel : ViewModelBase, IRibbonAware, IHatUnges
         };
 
         TabKoordinator.AktivesTabZustandGeaendert += (_, _) => RibbonEigenschaftenGeaendertMelden();
-    }
-
-    /// <summary>Springt vom Runden-Tab weg, falls das gewählte Turnier dort nicht mehr
-    /// bearbeitbar ist (Statuswechsel). Gibt zurück, ob ein Tab-Wechsel ausgelöst wurde.</summary>
-    private bool KorrigiereAktivenTabFallsUngueltig()
-    {
-        if (TabKoordinator.AktiverTabIndex != 0 || RundenTabAktiv) return false;
-        TabKoordinator.AktiverTabIndex = 1; // Verband-Quoten (Index 1, seit Wegfall des Übergangsregeln-Tabs)
-        return true;
     }
 
     public override Task AktivierenAsync() => TabKoordinator.AktivierenAsync();
