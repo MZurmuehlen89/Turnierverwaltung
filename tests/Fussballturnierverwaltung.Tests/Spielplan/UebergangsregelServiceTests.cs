@@ -211,4 +211,47 @@ public class UebergangsregelServiceTests
         gespeichert.Should().Contain(r => r.Id == bleibt.Id && r.PlatzierungBis == 2);
         gespeichert.Should().NotContain(r => r.Id == wirdGeloescht.Id);
     }
+
+    private static Uebergangsregel Regel(int? gruppeIndex, int von, int bis) =>
+        new() { QuellRundeId = 1, ZielRundeId = 2, GruppeIndex = gruppeIndex, PlatzierungVon = von, PlatzierungBis = bis };
+
+    [Fact]
+    public void AusgangAbleiten_EineRegel_SummiertPlatzierungsbereich()
+    {
+        var regeln = new[] { Regel(gruppeIndex: 1, von: 1, bis: 2) };
+
+        UebergangsregelService.AusgangAbleiten(regeln).Should().Be(2);
+    }
+
+    [Fact]
+    public void AusgangAbleiten_MehrereRegelnAusUnterschiedlichenGruppen_SummiertFlach()
+    {
+        var regeln = new[]
+        {
+            Regel(gruppeIndex: 1, von: 1, bis: 2),
+            Regel(gruppeIndex: 2, von: 1, bis: 2),
+            Regel(gruppeIndex: 3, von: 1, bis: 2),
+            Regel(gruppeIndex: 4, von: 1, bis: 2),
+        };
+
+        UebergangsregelService.AusgangAbleiten(regeln).Should().Be(8);
+    }
+
+    [Fact]
+    public void AusgangAbleiten_LeereListe_GibtNull0()
+    {
+        UebergangsregelService.AusgangAbleiten([]).Should().Be(0);
+    }
+
+    [Fact]
+    public void AusgangAbleiten_UnterschiedlicheBereichsgroessen_SummiertKorrekt()
+    {
+        var regeln = new[]
+        {
+            Regel(gruppeIndex: 1, von: 1, bis: 2),
+            Regel(gruppeIndex: 2, von: 1, bis: 1),
+        };
+
+        UebergangsregelService.AusgangAbleiten(regeln).Should().Be(3);
+    }
 }

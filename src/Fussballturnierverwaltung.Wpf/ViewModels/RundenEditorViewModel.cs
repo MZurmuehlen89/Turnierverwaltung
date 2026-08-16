@@ -50,7 +50,10 @@ public partial class UebergangsregelZeile : ObservableObject
 public partial class UebergangsregelBlock : ObservableObject
 {
     private readonly UebergangsregelService _service;
-    private readonly int _zielRundeId;
+    private readonly RundenEintrag _zielRunde;
+    // Issue #153: löst bei Bedarf das Speichern der gesamten Rundenliste aus, bevor Quell- und/oder Zielrunde
+    // beim Blockspeichern noch keine echte Id haben (mehrere neue Runden + deren Übergangsregeln in einem Zug).
+    private readonly Func<Task<bool>> _sicherstellenRundenGespeichertAsync;
 
     // Baseline der beim Laden vorgefundenen Zeilen-Ids — Vergleichsbasis, um beim Speichern zu erkennen,
     // welche zuvor gespeicherten Zeilen inzwischen aus der Zeilen-Collection entfernt wurden (z.B. über
@@ -58,6 +61,7 @@ public partial class UebergangsregelBlock : ObservableObject
     private readonly HashSet<int> _urspruenglicheZeilenIds = [];
 
     public event Action? Geloescht;
+    public event Action? QuellRundeAusgangGeaendert; // Issue #153
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IstGruppenphase))]
@@ -81,19 +85,22 @@ public partial class UebergangsregelBlock : ObservableObject
     public bool IstLiga => QuellRunde?.Rundenart == Rundenart.Liga;
     public bool IstKoSonderfall => QuellRunde is not null && !IstGruppenphase && !IstLiga;
 
-    public UebergangsregelBlock(UebergangsregelService service, int zielRundeId)
+    public UebergangsregelBlock(
+        UebergangsregelService service, RundenEintrag zielRunde, Func<Task<bool>> sicherstellenRundenGespeichertAsync)
     {
         _service = service;
-        _zielRundeId = zielRundeId;
+        _zielRunde = zielRunde;
+        _sicherstellenRundenGespeichertAsync = sicherstellenRundenGespeichertAsync;
     }
 
     /// <summary>Baut einen Block aus bereits gespeicherten Regeln auf (Zeilen zuerst befüllen, dann QuellRunde
     /// setzen — verhindert, dass <see cref="OnQuellRundeChanged"/> die Zeilen fälschlich mit Default-Werten
     /// überschreibt, da dessen Auto-Befüllung nur bei leerer Zeilenliste greift).</summary>
     public static UebergangsregelBlock AusBestehendenRegelnErstellen(
-        UebergangsregelService service, int zielRundeId, RundenEintrag quellRunde, IReadOnlyList<Uebergangsregel> regeln)
+        UebergangsregelService service, RundenEintrag zielRunde, RundenEintrag quellRunde,
+        IReadOnlyList<Uebergangsregel> regeln, Func<Task<bool>> sicherstellenRundenGespeichertAsync)
     {
-        var block = new UebergangsregelBlock(service, zielRundeId);
+        var block = new UebergangsregelBlock(service, zielRunde, sicherstellenRundenGespeichertAsync);
         foreach (var regel in regeln.OrderBy(r => r.GruppeIndex ?? 0))
         {
             var zeile = new UebergangsregelZeile { GruppeIndex = regel.GruppeIndex, Id = regel.Id };
@@ -214,6 +221,16 @@ public partial class UebergangsregelBlock : ObservableObject
         Fehlermeldung = null;
         try
         {
+            if (QuellRunde.Id <= 0 || _zielRunde.Id <= 0)
+            {
+                var gespeichert = await _sicherstellenRundenGespeichertAsync();
+                if (!gespeichert)
+                {
+                    Fehlermeldung = "Die Rundenliste konnte nicht automatisch gespeichert werden — siehe Meldung oben.";
+                    return;
+                }
+            }
+
             var zeilenEingaben = Zeilen
                 .Select(z => new UebergangsregelZeileEingabe(z.Id, z.GruppeIndex, z.PlatzierungVon, z.PlatzierungBis))
                 .ToList();
@@ -221,7 +238,7 @@ public partial class UebergangsregelBlock : ObservableObject
                 .Except(Zeilen.Where(z => z.Id.HasValue).Select(z => z.Id!.Value))
                 .ToList();
 
-            var ergebnis = await _service.BlockSpeichernAsync(QuellRunde.Id, _zielRundeId, zeilenEingaben, zuLoeschendeIds);
+            var ergebnis = await _service.BlockSpeichernAsync(QuellRunde.Id, _zielRunde.Id, zeilenEingaben, zuLoeschendeIds);
 
             for (int i = 0; i < Zeilen.Count && i < ergebnis.Count; i++)
                 Zeilen[i].Id = ergebnis[i].Id;
@@ -229,6 +246,16 @@ public partial class UebergangsregelBlock : ObservableObject
             _urspruenglicheZeilenIds.Clear();
             foreach (var id in Zeilen.Where(z => z.Id.HasValue).Select(z => z.Id!.Value))
                 _urspruenglicheZeilenIds.Add(id);
+
+            // Issue #153: Ausgang der Quellrunde direkt im geteilten RundenEintrag-Objekt aktualisieren
+            // (Objektidentität, gleiches Muster wie die Id-Rückschreibung in RundenEditorViewModel.Speichern) —
+            // ohne DB-Roundtrip zeigt die Rundenliste sofort den korrekten Wert.
+            var neuerAusgang = Zeilen.Sum(z => z.PlatzierungBis - z.PlatzierungVon + 1);
+            if (QuellRunde.AusgangsMannschaften != neuerAusgang)
+            {
+                QuellRunde.AusgangsMannschaften = neuerAusgang;
+                QuellRundeAusgangGeaendert?.Invoke();
+            }
 
             IsDirty = false;
             OnPropertyChanged(nameof(IstNeu));
@@ -308,7 +335,6 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     [NotifyCanExecuteChangedFor(nameof(NeuerUebergangsregelBlockCommand))]
     [NotifyPropertyChangedFor(nameof(FormularSichtbar))]
     [NotifyPropertyChangedFor(nameof(GruppenAnzahlSichtbar))]
-    [NotifyPropertyChangedFor(nameof(RundeIstGespeichert))]
     [NotifyPropertyChangedFor(nameof(EingehendeUebergangsregelnSichtbar))]
     [NotifyPropertyChangedFor(nameof(FrueherRundenOptionen))]
     private RundenEintrag? _ausgewaehlteRunde;
@@ -335,6 +361,10 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     private bool _mitRueckspiel;
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
     [ObservableProperty] private bool _eingangUeberUebergangsregeln;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AusgangEditierbar))]
+    [NotifyPropertyChangedFor(nameof(ZeigeUebergangsregelnAusgangHinweis))]
+    private bool _hatAusgehendeUebergangsregeln;
 
     // ── Regelwerke ────────────────────────────────────────────────────────────
     [ObservableProperty]
@@ -372,8 +402,11 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
 
     // KoRundeGenerator bildet strikt n/2-Paarungen — Ausgang ist bei K.-o.-Rundenarten kein freier Wert,
-    // sondern immer aus Eingang abgeleitet (Issue #182).
-    public bool AusgangEditierbar => !IstKoRundenart;
+    // sondern immer aus Eingang abgeleitet (Issue #182). Ausgang wird zusätzlich automatisch berechnet, sobald
+    // die Runde bereits mindestens eine ausgehende Übergangsregel hat (Issue #153) — K.o.-Rundenarten haben
+    // dabei weiterhin Vorrang.
+    public bool AusgangEditierbar => !IstKoRundenart && !HatAusgehendeUebergangsregeln;
+    public bool ZeigeUebergangsregelnAusgangHinweis => HatAusgehendeUebergangsregeln && !IstKoRundenart;
 
     public bool MitRueckspielVerfuegbar =>
         Rundenart is Rundenart.KoRunde or Rundenart.Liga or Rundenart.Sonderrunde or Rundenart.Gruppenphase;
@@ -384,17 +417,18 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     public bool FormularSichtbar        => AusgewaehlteInstanz is not null && AusgewaehlteRunde is not null;
     public bool GruppenAnzahlSichtbar   => FormularSichtbar && Rundenart == Rundenart.Gruppenphase;
 
-    // Nur eine bereits gespeicherte Runde hat eine echte Id — vorher ergibt eine Übergangsregel mit dieser
-    // Zielrunde noch keinen Sinn (siehe Plan zu Issue #169: bewusst kein Eingriff in den Runden-Speicherfluss).
-    public bool RundeIstGespeichert     => AusgewaehlteRunde is not null && AusgewaehlteRunde.Id > 0;
-    public bool EingehendeUebergangsregelnSichtbar => FormularSichtbar && RundeIstGespeichert;
+    // Seit Issue #153 unabhängig davon nutzbar, ob die Zielrunde bereits eine echte Id hat — das eigentliche
+    // Schreiben in die DB verzögert UebergangsregelBlock.Speichern() selbst bis Quell- UND Zielrunde persistiert
+    // sind (siehe SicherstellenRundenGespeichertAsync).
+    public bool EingehendeUebergangsregelnSichtbar => FormularSichtbar;
 
-    // Nur bereits gespeicherte, in der Liste vor der Zielrunde liegende Runden sind als Quellrunde wählbar —
-    // verhindert Zyklen strukturell und vermeidet ungeklärte Ids neu eingefügter, noch ungespeicherter Runden.
+    // Seit Issue #153 dürfen auch noch nicht persistierte, in derselben Sitzung neu angelegte Runden als
+    // Quellrunde gewählt werden (Chicken-and-egg-Fix für mehrere neue Runden + deren Übergangsregeln in einem
+    // Zug). Die Listenposition allein (nicht mehr die Id) verhindert Zyklen/Vorwärtsreferenzen strukturell.
     public IEnumerable<RundenEintrag> FrueherRundenOptionen =>
         AusgewaehlteRunde is null
             ? []
-            : Runden.Where(r => r.Id > 0 && Runden.IndexOf(r) < Runden.IndexOf(AusgewaehlteRunde));
+            : Runden.Where(r => Runden.IndexOf(r) < Runden.IndexOf(AusgewaehlteRunde));
 
     // ── IRibbonAware ───────────────────────────────────────────────────────────
     public string RibbonTabTitel  => "Runden";
@@ -602,8 +636,6 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
             // für eine gerade erst gespeicherte Runde bis zum nächsten kompletten Neuladen deaktiviert.
             for (int i = 0; i < Runden.Count && i < persistiert.Count; i++)
                 Runden[i].Id = persistiert[i].Id;
-            OnPropertyChanged(nameof(RundeIstGespeichert));
-            OnPropertyChanged(nameof(EingehendeUebergangsregelnSichtbar));
             OnPropertyChanged(nameof(FrueherRundenOptionen));
             NeuerUebergangsregelBlockCommand.NotifyCanExecuteChanged();
 
@@ -838,6 +870,9 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         (a == Rundenart.Finale && b == Rundenart.SpielUmPlatzDrei) ||
         (a == Rundenart.SpielUmPlatzDrei && b == Rundenart.Finale);
 
+    private static bool IstKoRundenartVon(Rundenart art) =>
+        art is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     partial void OnAusgewaehlteInstanzChanged(TurnierInstanz? value)
@@ -904,7 +939,55 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         finally { _populiertGerade--; }
 
         UebergangsregelBloecke = [];
-        _ = LadeUebergangsregelnAsync(value);
+        _ = LadeUebergangsregelnUndAusgangAsync(value);
+    }
+
+    /// <summary>Sequenziert die beiden Übergangsregeln-Ladevorgänge — beide nutzen denselben scope-langlebigen
+    /// DbContext, parallel als Fire-and-Forget gestartet führte zu "A second operation was started on this
+    /// context before a previous operation completed" (EF Core erlaubt keine parallelen Operationen auf einer
+    /// DbContext-Instanz, vgl. Issue #45).</summary>
+    private async Task LadeUebergangsregelnUndAusgangAsync(RundenEintrag runde)
+    {
+        await LadeUebergangsregelnAsync(runde);
+        await LadeAusgehendeUebergangsregelnAsync(runde);
+    }
+
+    /// <summary>Issue #153: prüft, ob die ausgewählte Runde bereits ausgehende Übergangsregeln hat (dann wird
+    /// Ausgang schreibgeschützt/berechnet statt frei editierbar) und korrigiert einen von der Regel-Summe
+    /// abweichenden gespeicherten Wert (z.B. Altdaten) nach Hinweis-Dialog.</summary>
+    private async Task LadeAusgehendeUebergangsregelnAsync(RundenEintrag runde)
+    {
+        // K.o.-Rundenarten leiten Ausgang immer aus Eingang/2 ab (Issue #182) und haben Vorrang vor
+        // ausgehenden Übergangsregeln — anders als bei Liga/Gruppenphase kann eine K.o.-Quellrunde in zwei
+        // unabhängige Zielrunden verzweigen (Sieger → Finale, Verlierer → Spiel um Platz 3), deren Regel-Summe
+        // deshalb nicht dem tatsächlichen Ausgang (nur die Siegeranzahl) entspricht.
+        if (runde.Id <= 0 || IstKoRundenartVon(runde.Rundenart)) { HatAusgehendeUebergangsregeln = false; return; }
+        try
+        {
+            var ausgehende = await _uebergangsregelService.AlleNachQuellRundeIdAsync(runde.Id);
+            if (AusgewaehlteRunde != runde) return; // Runde inzwischen gewechselt (Muster wie LadeUebergangsregelnAsync)
+            HatAusgehendeUebergangsregeln = ausgehende.Count > 0;
+            if (!HatAusgehendeUebergangsregeln) return;
+
+            var summe = UebergangsregelService.AusgangAbleiten(ausgehende);
+            if (runde.AusgangsMannschaften == summe) return;
+
+            MessageBox.Show(
+                $"Der gespeicherte Ausgang von '{runde.Name}' ({runde.AusgangsMannschaften}) weicht von der " +
+                $"Summe seiner ausgehenden Übergangsregeln ({summe}) ab und wird korrigiert.",
+                "Ausgang korrigiert", MessageBoxButton.OK, MessageBoxImage.Information);
+
+            runde.AusgangsMannschaften = summe;
+            _populiertGerade++;
+            try { Ausgang = summe.ToString(); }
+            finally { _populiertGerade--; }
+            IsDirty = true;
+            AktualisiereRundenFehler();
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
     }
 
     private async Task LadeUebergangsregelnAsync(RundenEintrag runde)
@@ -919,8 +1002,8 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                 var quellRunde = Runden.FirstOrDefault(r => r.Id == gruppe.Key);
                 if (quellRunde is null) continue;
                 var block = UebergangsregelBlock.AusBestehendenRegelnErstellen(
-                    _uebergangsregelService, runde.Id, quellRunde, gruppe.ToList());
-                block.Geloescht += () => UebergangsregelBloecke.Remove(block);
+                    _uebergangsregelService, runde, quellRunde, gruppe.ToList(), SicherstellenRundenGespeichertAsync);
+                VerdrahteBlockEvents(block);
                 bloecke.Add(block);
             }
             // Falls die Runde inzwischen gewechselt wurde, während der Ladevorgang lief, nicht mehr anwenden.
@@ -937,11 +1020,48 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     private void NeuerUebergangsregelBlock()
     {
         if (AusgewaehlteRunde is null) return;
-        var block = new UebergangsregelBlock(_uebergangsregelService, AusgewaehlteRunde.Id);
-        block.Geloescht += () => UebergangsregelBloecke.Remove(block);
+        var block = new UebergangsregelBlock(_uebergangsregelService, AusgewaehlteRunde, SicherstellenRundenGespeichertAsync);
+        VerdrahteBlockEvents(block);
         UebergangsregelBloecke.Add(block);
     }
-    private bool KannNeuerUebergangsregelBlock() => RundeIstGespeichert;
+    private bool KannNeuerUebergangsregelBlock() => AusgewaehlteRunde is not null;
+
+    private void VerdrahteBlockEvents(UebergangsregelBlock block)
+    {
+        block.Geloescht += () => UebergangsregelBloecke.Remove(block);
+        // Unter der Positions-Ordnung von FrueherRundenOptionen kann QuellRunde nie mit AusgewaehlteRunde
+        // identisch sein (Quellrunde steht immer vor der aktuell bearbeiteten Zielrunde in der Liste) — der
+        // Zweig unten ist aktuell inert, aber billige Absicherung, falls sich das künftig ändert (Issue #153).
+        block.QuellRundeAusgangGeaendert += () =>
+        {
+            IsDirty = true;
+            AktualisiereRundenFehler();
+            if (ReferenceEquals(AusgewaehlteRunde, block.QuellRunde) && block.QuellRunde is not null)
+            {
+                HatAusgehendeUebergangsregeln = true;
+                _populiertGerade++;
+                try { Ausgang = block.QuellRunde.AusgangsMannschaften.ToString(); }
+                finally { _populiertGerade--; }
+            }
+        };
+    }
+
+    /// <summary>Issue #153: löst den normalen Rundenlisten-Speichern-Fluss aus, wenn ein Übergangsregel-Block
+    /// gespeichert werden soll, obwohl Quell- und/oder Zielrunde noch keine echte Id haben (mehrere neue
+    /// Runden + deren Übergangsregeln in einer Sitzung anlegen). Gibt zurück, ob anschließend alle Runden
+    /// persistiert sind.</summary>
+    private async Task<bool> SicherstellenRundenGespeichertAsync()
+    {
+        if (Runden.All(r => r.Id > 0)) return true;
+        if (AusgewaehlteInstanz is null) return false;
+        if (HatRundenFehler)
+        {
+            Fehlermeldung = "Die Rundenliste enthält Fehler (siehe unten) und kann nicht automatisch gespeichert werden, um Übergangsregeln anzulegen.";
+            return false;
+        }
+        await Speichern();
+        return Runden.All(r => r.Id > 0);
+    }
 
     private void RundenZuruecksetzen(IEnumerable<RundenEintrag> runden)
     {
@@ -974,6 +1094,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
             EingangUeberUebergangsregeln = false;
         }
         finally { _populiertGerade--; }
+        HatAusgehendeUebergangsregeln = false;
     }
 
     private IReadOnlyList<TurnierRundeEingabe> RundenListeZuEingaben()

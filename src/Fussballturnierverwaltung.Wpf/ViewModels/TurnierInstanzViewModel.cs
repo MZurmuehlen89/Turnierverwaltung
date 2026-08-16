@@ -61,6 +61,10 @@ public partial class RundenEintrag : ObservableObject
         (MitRueckspiel ? " · H+R" : "") +
         (AuswaertstorRegelAktiv ? " · Auswärtstor" : "") +
         (EingangUeberUebergangsregeln ? " · Eingang über Übergangsregeln" : "");
+
+    // Issue #153: Auswahl einer noch nicht gespeicherten Runde als Quellrunde löst beim Speichern des
+    // Übergangsregel-Blocks automatisch einen Speichervorgang der gesamten Rundenliste aus — sichtbar machen.
+    public string NameFuerQuellrundenAuswahl => Id > 0 ? Name : $"{Name} (noch nicht gespeichert)";
 }
 
 public partial class VerbandsQuoteZeile : ObservableObject

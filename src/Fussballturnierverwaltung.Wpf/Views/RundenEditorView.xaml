@@ -150,6 +150,9 @@
                     <TextBlock Text="Bei K.-o.-Rundenarten wird der Ausgang automatisch aus dem Eingang berechnet (Eingang / 2)."
                                Foreground="#94A3B8" FontSize="11" TextWrapping="Wrap" Margin="0,-8,0,12"
                                Visibility="{Binding IstKoRundenart, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock Text="Diese Runde hat bereits ausgehende Übergangsregeln — der Ausgang wird automatisch aus deren Platzierungsbereichen berechnet."
+                               Foreground="#94A3B8" FontSize="11" TextWrapping="Wrap" Margin="0,-8,0,12"
+                               Visibility="{Binding ZeigeUebergangsregelnAusgangHinweis, Converter={StaticResource BoolToVisibility}}" />
 
                     <!-- Gruppenanzahl (nur bei Gruppenphase) -->
                     <StackPanel Visibility="{Binding GruppenAnzahlSichtbar, Converter={StaticResource BoolToVisibility}}">
@@ -183,11 +186,7 @@
                                Foreground="#94A3B8" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,16"
                                Visibility="{Binding EingangUeberUebergangsregeln, Converter={StaticResource BoolToVisibility}}" />
 
-                    <!-- Eingehende Übergangsregeln: nur bei bereits gespeicherter Runde (Issue #169) -->
-                    <TextBlock Text="Bitte zuerst speichern, um Übergangsregeln aus Vorrunden festzulegen."
-                               Foreground="#94A3B8" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,16"
-                               Visibility="{Binding RundeIstGespeichert, Converter={StaticResource InverseBoolToVisibility}}" />
-
+                    <!-- Eingehende Übergangsregeln (Issue #169) -->
                     <StackPanel Visibility="{Binding EingehendeUebergangsregelnSichtbar, Converter={StaticResource BoolToVisibility}}"
                                 Margin="0,0,0,16">
                         <DockPanel Margin="0,0,0,8">
@@ -218,7 +217,7 @@
                                                               ItemsSource="{Binding DataContext.FrueherRundenOptionen,
                                                                                     RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                               SelectedItem="{Binding QuellRunde}"
-                                                              DisplayMemberPath="Name"
+                                                              DisplayMemberPath="NameFuerQuellrundenAuswahl"
                                                               IsEnabled="{Binding IstNeu}" />
                                                 </StackPanel>
                                                 <Button Grid.Column="1" Content="✕" ToolTip="Block entfernen"

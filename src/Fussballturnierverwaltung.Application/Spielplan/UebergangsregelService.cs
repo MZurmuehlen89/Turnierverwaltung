@@ -21,6 +21,13 @@ public class UebergangsregelService(
     public Task<IReadOnlyList<Uebergangsregel>> AlleNachTurnierInstanzIdAsync(int turnierInstanzId, CancellationToken ct = default)
         => repository.AlleNachTurnierInstanzIdAsync(turnierInstanzId, ct);
 
+    /// <summary>Issue #153: Ausgangsmannschaftsanzahl aus den ausgehenden Übergangsregeln einer Runde — flache
+    /// Summe der Platzierungsbereiche, keine Gruppen-Multiplikation nötig (der Runden-Editor expandiert eine
+    /// Gruppenphase-Quellrunde immer in eine Zeile je Gruppe, siehe UebergangsregelBlock.OnQuellRundeChanged;
+    /// GruppeIndex=null ist für Gruppenphase-Quellrunden ohnehin ungültig, siehe UebergangsregelValidator).</summary>
+    public static int AusgangAbleiten(IReadOnlyList<Uebergangsregel> ausgehendeRegeln)
+        => ausgehendeRegeln.Sum(r => r.PlatzierungBis - r.PlatzierungVon + 1);
+
     public async Task<Uebergangsregel> ErstellenAsync(UebergangsregelEingabe eingabe, CancellationToken ct = default)
     {
         var quellRunde = await QuellRundeLadenAsync(eingabe.QuellRundeId, ct);
