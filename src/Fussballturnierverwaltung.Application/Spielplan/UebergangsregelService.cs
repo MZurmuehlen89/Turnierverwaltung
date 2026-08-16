@@ -28,6 +28,11 @@ public class UebergangsregelService(
     public static int AusgangAbleiten(IReadOnlyList<Uebergangsregel> ausgehendeRegeln)
         => ausgehendeRegeln.Sum(r => r.PlatzierungBis - r.PlatzierungVon + 1);
 
+    /// <summary>Spiegel von <see cref="AusgangAbleiten"/> für die Eingangsseite (Issue #186-Folgefund):
+    /// identische Rechenformel, hier aus Sicht der Zielrunde über alle ihre eingehenden Übergangsregeln
+    /// (ggf. aus mehreren Quellrunden) hinweg.</summary>
+    public static int EingangAbleiten(IReadOnlyList<Uebergangsregel> eingehendeRegeln) => AusgangAbleiten(eingehendeRegeln);
+
     public async Task<Uebergangsregel> ErstellenAsync(UebergangsregelEingabe eingabe, CancellationToken ct = default)
     {
         var quellRunde = await QuellRundeLadenAsync(eingabe.QuellRundeId, ct);

@@ -65,7 +65,24 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
 
         // Delete rounds that no longer exist (FK violation here = correct — round has active Auslosung)
         if (alte.Count > neueRunden.Count)
-            Context.TurnierRunden.RemoveRange(alte.Skip(neueRunden.Count));
+        {
+            var entfernte = alte.Skip(neueRunden.Count).ToList();
+            var entfernteIds = entfernte.Select(r => r.Id).ToHashSet();
+
+            // Uebergangsregeln, die eine entfernte Runde als Zielrunde referenzieren, muessen explizit
+            // mitgeloescht werden: die Quellrunden-Beziehung cascadet bereits ueber die DB-Konfiguration
+            // (OnDelete Cascade), die Zielrunden-Beziehung ist bewusst Restrict und wird von EF nicht
+            // automatisch mitgezogen. Ohne diesen Cleanup wirft SaveChangesAsync eine "association ...
+            // severed but the relationship is required"-Exception fuer jede in diesem DbContext bereits
+            // getrackte Uebergangsregel, die noch auf die entfernte Zielrunde zeigt — z.B. weil der
+            // "Ausgehende Übergangsregeln"-Bereich (Issue #186) sie beim Betrachten der Quellrunde geladen hat.
+            var betroffeneZielregeln = await Context.Uebergangsregeln
+                .Where(u => entfernteIds.Contains(u.ZielRundeId))
+                .ToListAsync(ct);
+            Context.Uebergangsregeln.RemoveRange(betroffeneZielregeln);
+
+            Context.TurnierRunden.RemoveRange(entfernte);
+        }
 
         await Context.SaveChangesAsync(ct);
 
