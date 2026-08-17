@@ -10,8 +10,7 @@ public class VerbandsQuoteKonfiguration : IEntityTypeConfiguration<VerbandsQuote
     {
         builder.ToTable("VerbandsQuoten");
         builder.HasKey(q => q.Id);
-        builder.Property(q => q.MaxAnzahl).IsRequired();
-        builder.Property(q => q.MinAnzahl);
+        builder.Property(q => q.Anzahl).IsRequired();
 
         builder.HasOne(q => q.TurnierInstanz)
             .WithMany(t => t.VerbandsQuoten)

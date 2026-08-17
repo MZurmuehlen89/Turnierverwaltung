@@ -209,12 +209,11 @@ public class VerbandsQuoteAnzeigeViewModel
 {
     public string VerbandName { get; init; } = "";
     public int Aktuell { get; init; }
-    public int Max { get; init; }
-    public int? Min { get; init; }
+    public int Anzahl { get; init; }
 
-    public bool UeberMax => Aktuell > Max;
-    public bool UnterMin => Min.HasValue && Aktuell < Min.Value;
-    public string AnzeigeText => Min.HasValue ? $"{Aktuell} / {Max} (min. {Min})" : $"{Aktuell} / {Max}";
+    public bool UeberAnzahl => Aktuell > Anzahl;
+    public bool UnterAnzahl => Aktuell < Anzahl;
+    public string AnzeigeText => $"{Aktuell} / {Anzahl}";
 }
 
 public record AuslosungsartOption(string Anzeige, Auslosungsart Wert);
@@ -1799,8 +1798,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             {
                 VerbandName = q.Verband?.Name ?? $"Verband {q.VerbandId}",
                 Aktuell     = anzahlProVerband.GetValueOrDefault(q.VerbandId),
-                Max         = q.MaxAnzahl,
-                Min         = q.MinAnzahl
+                Anzahl      = q.Anzahl
             }));
     }
 

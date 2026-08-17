@@ -70,8 +70,7 @@ public partial class RundenEintrag : ObservableObject
 public partial class VerbandsQuoteZeile : ObservableObject
 {
     [ObservableProperty] private Verband? _verband;
-    [ObservableProperty] private int _maxAnzahl = 1;
-    [ObservableProperty] private int? _minAnzahl;
+    [ObservableProperty] private int _anzahl = 1;
 }
 
 public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
@@ -103,6 +102,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
     [NotifyPropertyChangedFor(nameof(RundenSichtbar))]
+    [NotifyPropertyChangedFor(nameof(VerbandsQuotenSichtbar))]
     [NotifyPropertyChangedFor(nameof(StatusAnzeige))]
     private TurnierInstanz? _ausgewaehltes;
 
@@ -112,6 +112,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
     [NotifyCanExecuteChangedFor(nameof(AbbrechenCommand))]
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
     [NotifyPropertyChangedFor(nameof(RundenSichtbar))]
+    [NotifyPropertyChangedFor(nameof(VerbandsQuotenSichtbar))]
     private bool _formularAktiv;
 
     [ObservableProperty]
@@ -135,7 +136,9 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
 
     // ── Auslosungsfilter ──────────────────────────────────────────────────────
     [ObservableProperty] private IReadOnlyList<VerbandOption> _verbandOptionen = [];
-    [ObservableProperty] private VerbandOption _verbandFilter = _keinVerband;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(VerbandsQuotenSichtbar))]
+    private VerbandOption _verbandFilter = _keinVerband;
     [ObservableProperty] private MannschaftsartFilter _teamFilter = MannschaftsartFilter.Alle;
 
     public IReadOnlyList<TeamfilterOption> TeamfilterOptionen =>
@@ -153,9 +156,24 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
     public IReadOnlyList<RegelwerkOption> StandardRegelwerkOptionen =>
         [_keinRegelwerk, .. Regelwerke.Select(r => new RegelwerkOption(r.Name, r))];
 
-    // ── Verband-Quoten (Issue #161) ───────────────────────────────────────────
+    // ── Verband-Quoten (Issue #161, #154) ─────────────────────────────────────
     [ObservableProperty] private ObservableCollection<VerbandsQuoteZeile> _quotenZeilen = [];
     [ObservableProperty] private IReadOnlyList<Verband> _alleVerbaende = [];
+
+    // Eingangskapazität der ersten Runde (nach Reihenfolge) — begrenzt die Summe der Verband-Quoten (Issue #154).
+    // null, solange die Instanz noch keine Runden hat.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(KapazitaetsHinweisSichtbar))]
+    private int? _ersteRundeEingang;
+
+    public bool KapazitaetsHinweisSichtbar => ErsteRundeEingang.HasValue;
+
+    // "Verband" ist in diesem Datenmodell ausschließlich die Kontinentalebene (UEFA, CONMEBOL, ...) — ist der
+    // Verbandsfilter gesetzt, gehören zwangsläufig alle zugelassenen Teams zu genau diesem einen Verband, eine
+    // Verband-Quote (die nur auf Kontinentalverband-Ebene arbeitet) kann dann nie etwas Sinnvolles ausdrücken,
+    // unabhängig von der Mannschaftsart (Issue #154). Quoten auf Landesebene für Vereinswettbewerbe wären ein
+    // eigenständiges, neues Feature — siehe Folge-Issue.
+    public bool VerbandsQuotenSichtbar => RundenSichtbar && VerbandFilter.Wert is null;
 
     // ── Berechnete Eigenschaften ──────────────────────────────────────────────
     public bool RundenSichtbar => FormularAktiv && !IstNeuModus;
@@ -269,6 +287,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
             Name = SaisonOderJahr = Startdatum = Enddatum = "";
             QuotenZeilen = [];
             QuotenZeilenAbonnieren();
+            ErsteRundeEingang = null;
             Fehlermeldung = null;
         }
         finally
@@ -304,15 +323,15 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
 
                 var quotenZeilen = QuotenZeilen
                     .Where(z => z.Verband is not null)
-                    .Select(z => new VerbandsQuoteZeileEingabe(z.Verband!.Id, z.MaxAnzahl, z.MinAnzahl))
+                    .Select(z => new VerbandsQuoteZeileEingabe(z.Verband!.Id, z.Anzahl))
                     .ToList();
-                ValidationException.WerfenWennUngueltig(_verbandsQuoteValidator.Validieren(quotenZeilen));
+                ValidationException.WerfenWennUngueltig(_verbandsQuoteValidator.Validieren(quotenZeilen, ErsteRundeEingang));
 
                 var eingabe = new TurnierInstanzVollAktualisierenEingabe(
                     Name, SaisonOderJahr, null, startdatum, enddatum, Ausgewaehltes.Status,
                     verbandId, TeamFilter, standardRwId);
                 await _service.VollAktualisierenAsync(id, eingabe);
-                await _verbandsQuoteService.QuotenErsetzenAsync(id, quotenZeilen);
+                await _verbandsQuoteService.QuotenErsetzenAsync(id, quotenZeilen, ErsteRundeEingang);
                 await LadenAsync();
                 Ausgewaehltes = Instanzen.FirstOrDefault(i => i.Id == id);
                 IsDirty = false;
@@ -372,7 +391,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
         {
             FormularAusFuellenMit(null);
             _populiertGerade++;
-            try { QuotenZeilen = []; QuotenZeilenAbonnieren(); }
+            try { QuotenZeilen = []; QuotenZeilenAbonnieren(); ErsteRundeEingang = null; }
             finally { _populiertGerade--; }
             return;
         }
@@ -381,6 +400,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
         {
             var detail = await _service.FindenNachIdMitRundenAsync(Ausgewaehltes.Id);
             FormularAusFuellenMit(detail);
+            ErsteRundeEingang = detail?.Runden.OrderBy(r => r.Reihenfolge).FirstOrDefault()?.EingangsMannschaftsanzahl;
             await QuotenLadenAsync(Ausgewaehltes.Id);
         }
         catch (Exception ex)
@@ -402,9 +422,8 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
             QuotenZeilen = new ObservableCollection<VerbandsQuoteZeile>(
                 quoten.Select(q => new VerbandsQuoteZeile
                 {
-                    Verband   = q.Verband,
-                    MaxAnzahl = q.MaxAnzahl,
-                    MinAnzahl = q.MinAnzahl
+                    Verband = q.Verband,
+                    Anzahl  = q.Anzahl
                 }));
             QuotenZeilenAbonnieren();
         }

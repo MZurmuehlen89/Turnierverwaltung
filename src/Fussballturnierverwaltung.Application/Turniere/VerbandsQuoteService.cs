@@ -22,14 +22,13 @@ public class VerbandsQuoteService(
         {
             TurnierInstanzId = eingabe.TurnierInstanzId,
             VerbandId        = eingabe.VerbandId,
-            MaxAnzahl         = eingabe.MaxAnzahl,
-            MinAnzahl         = eingabe.MinAnzahl
+            Anzahl           = eingabe.Anzahl
         };
 
         await repository.HinzufuegenAsync(quote, ct);
         logger.LogInformation(
-            "Verband-Quote angelegt: TurnierInstanz {TurnierInstanzId}, Verband {VerbandId}, Max {Max}, Min {Min}.",
-            eingabe.TurnierInstanzId, eingabe.VerbandId, eingabe.MaxAnzahl, eingabe.MinAnzahl);
+            "Verband-Quote angelegt: TurnierInstanz {TurnierInstanzId}, Verband {VerbandId}, Anzahl {Anzahl}.",
+            eingabe.TurnierInstanzId, eingabe.VerbandId, eingabe.Anzahl);
         return quote;
     }
 
@@ -42,8 +41,7 @@ public class VerbandsQuoteService(
         ValidationException.WerfenWennUngueltig(validator.Validieren(eingabe, bestehende, id));
 
         quote.VerbandId = eingabe.VerbandId;
-        quote.MaxAnzahl  = eingabe.MaxAnzahl;
-        quote.MinAnzahl  = eingabe.MinAnzahl;
+        quote.Anzahl    = eingabe.Anzahl;
 
         await repository.AktualisierenAsync(quote, ct);
         logger.LogInformation("Verband-Quote {Id} aktualisiert.", id);
@@ -58,13 +56,13 @@ public class VerbandsQuoteService(
     }
 
     public async Task<IReadOnlyList<VerbandsQuote>> QuotenErsetzenAsync(
-        int turnierInstanzId, IReadOnlyList<VerbandsQuoteZeileEingabe> zeilen, CancellationToken ct = default)
+        int turnierInstanzId, IReadOnlyList<VerbandsQuoteZeileEingabe> zeilen, int? eingangsKapazitaet = null, CancellationToken ct = default)
     {
-        ValidationException.WerfenWennUngueltig(validator.Validieren(zeilen));
+        ValidationException.WerfenWennUngueltig(validator.Validieren(zeilen, eingangsKapazitaet));
         var neueQuoten = zeilen.Select(z => new VerbandsQuote
         {
             TurnierInstanzId = turnierInstanzId, VerbandId = z.VerbandId,
-            MaxAnzahl = z.MaxAnzahl, MinAnzahl = z.MinAnzahl
+            Anzahl = z.Anzahl
         }).ToList();
         var gespeichert = await repository.QuotenErsetzenAsync(turnierInstanzId, neueQuoten, ct);
         logger.LogInformation("Verband-Quoten für TurnierInstanz {Id} ersetzt ({Anzahl} Einträge).", turnierInstanzId, zeilen.Count);

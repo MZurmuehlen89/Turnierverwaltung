@@ -40,7 +40,7 @@ public class VerbandsQuoteServiceTests
         GrundSetupAnlegen(ctx, out int turnierInstanzId, out int verbandId, out _);
         var service = ServiceFuer(ctx);
 
-        var quote = await service.ErstellenAsync(new VerbandsQuoteEingabe(turnierInstanzId, verbandId, MaxAnzahl: 8, MinAnzahl: 2));
+        var quote = await service.ErstellenAsync(new VerbandsQuoteEingabe(turnierInstanzId, verbandId, Anzahl: 8));
 
         quote.Id.Should().BeGreaterThan(0);
         (await service.AlleNachTurnierInstanzIdAsync(turnierInstanzId)).Should().HaveCount(1);
@@ -52,26 +52,25 @@ public class VerbandsQuoteServiceTests
         await using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out int turnierInstanzId, out int verbandId, out _);
         var service = ServiceFuer(ctx);
-        await service.ErstellenAsync(new VerbandsQuoteEingabe(turnierInstanzId, verbandId, MaxAnzahl: 8, MinAnzahl: null));
+        await service.ErstellenAsync(new VerbandsQuoteEingabe(turnierInstanzId, verbandId, Anzahl: 8));
 
-        var eingabe = new VerbandsQuoteEingabe(turnierInstanzId, verbandId, MaxAnzahl: 4, MinAnzahl: null);
+        var eingabe = new VerbandsQuoteEingabe(turnierInstanzId, verbandId, Anzahl: 4);
 
         await Assert.ThrowsAsync<ValidationException>(() => service.ErstellenAsync(eingabe));
     }
 
     [Fact]
-    public async Task AktualisierenAsync_AendertMaxAnzahl()
+    public async Task AktualisierenAsync_AendertAnzahl()
     {
         await using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out int turnierInstanzId, out int verbandId, out _);
         var service = ServiceFuer(ctx);
-        var quote = await service.ErstellenAsync(new VerbandsQuoteEingabe(turnierInstanzId, verbandId, MaxAnzahl: 8, MinAnzahl: null));
+        var quote = await service.ErstellenAsync(new VerbandsQuoteEingabe(turnierInstanzId, verbandId, Anzahl: 8));
 
-        await service.AktualisierenAsync(quote.Id, new VerbandsQuoteEingabe(turnierInstanzId, verbandId, MaxAnzahl: 6, MinAnzahl: 1));
+        await service.AktualisierenAsync(quote.Id, new VerbandsQuoteEingabe(turnierInstanzId, verbandId, Anzahl: 6));
 
         var quoten = await service.AlleNachTurnierInstanzIdAsync(turnierInstanzId);
-        quoten.Single().MaxAnzahl.Should().Be(6);
-        quoten.Single().MinAnzahl.Should().Be(1);
+        quoten.Single().Anzahl.Should().Be(6);
     }
 
     [Fact]
@@ -80,11 +79,11 @@ public class VerbandsQuoteServiceTests
         await using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out int turnierInstanzId, out int verbandId, out _);
         var service = ServiceFuer(ctx);
-        var quote = await service.ErstellenAsync(new VerbandsQuoteEingabe(turnierInstanzId, verbandId, MaxAnzahl: 8, MinAnzahl: null));
+        var quote = await service.ErstellenAsync(new VerbandsQuoteEingabe(turnierInstanzId, verbandId, Anzahl: 8));
 
-        await service.AktualisierenAsync(quote.Id, new VerbandsQuoteEingabe(turnierInstanzId, verbandId, MaxAnzahl: 9, MinAnzahl: null));
+        await service.AktualisierenAsync(quote.Id, new VerbandsQuoteEingabe(turnierInstanzId, verbandId, Anzahl: 9));
 
-        (await service.AlleNachTurnierInstanzIdAsync(turnierInstanzId)).Single().MaxAnzahl.Should().Be(9);
+        (await service.AlleNachTurnierInstanzIdAsync(turnierInstanzId)).Single().Anzahl.Should().Be(9);
     }
 
     [Fact]
@@ -93,7 +92,7 @@ public class VerbandsQuoteServiceTests
         await using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, out int turnierInstanzId, out int verbandId, out _);
         var service = ServiceFuer(ctx);
-        var quote = await service.ErstellenAsync(new VerbandsQuoteEingabe(turnierInstanzId, verbandId, MaxAnzahl: 8, MinAnzahl: null));
+        var quote = await service.ErstellenAsync(new VerbandsQuoteEingabe(turnierInstanzId, verbandId, Anzahl: 8));
 
         await service.LoeschenAsync(quote.Id);
 
@@ -107,13 +106,13 @@ public class VerbandsQuoteServiceTests
         GrundSetupAnlegen(ctx, out int turnierInstanzId, out int verbandId, out int zweiterVerbandId);
         var service = ServiceFuer(ctx);
 
-        await service.ErstellenAsync(new VerbandsQuoteEingabe(turnierInstanzId, verbandId, MaxAnzahl: 8, MinAnzahl: null));
-        await service.ErstellenAsync(new VerbandsQuoteEingabe(turnierInstanzId, zweiterVerbandId, MaxAnzahl: 6, MinAnzahl: null));
+        await service.ErstellenAsync(new VerbandsQuoteEingabe(turnierInstanzId, verbandId, Anzahl: 8));
+        await service.ErstellenAsync(new VerbandsQuoteEingabe(turnierInstanzId, zweiterVerbandId, Anzahl: 6));
 
         (await service.AlleNachTurnierInstanzIdAsync(turnierInstanzId)).Should().HaveCount(2);
     }
 
-    // ── QuotenErsetzenAsync (WPF-Turnierkopf-Grid, Issue #161) ────────────────────────────────
+    // ── QuotenErsetzenAsync (WPF-Turnierkopf-Grid, Issue #161/#154) ───────────────────────────
 
     [Fact]
     public async Task QuotenErsetzenAsync_LegtMehrereQuotenInEinemAufrufAn()
@@ -124,8 +123,8 @@ public class VerbandsQuoteServiceTests
 
         var zeilen = new[]
         {
-            new VerbandsQuoteZeileEingabe(verbandId, MaxAnzahl: 8, MinAnzahl: 2),
-            new VerbandsQuoteZeileEingabe(zweiterVerbandId, MaxAnzahl: 4, MinAnzahl: null)
+            new VerbandsQuoteZeileEingabe(verbandId, Anzahl: 8),
+            new VerbandsQuoteZeileEingabe(zweiterVerbandId, Anzahl: 4)
         };
 
         await service.QuotenErsetzenAsync(turnierInstanzId, zeilen);
@@ -140,10 +139,10 @@ public class VerbandsQuoteServiceTests
         GrundSetupAnlegen(ctx, out int turnierInstanzId, out int verbandId, out int zweiterVerbandId);
         var service = ServiceFuer(ctx);
         await service.QuotenErsetzenAsync(turnierInstanzId,
-            [new VerbandsQuoteZeileEingabe(verbandId, MaxAnzahl: 8, MinAnzahl: null)]);
+            [new VerbandsQuoteZeileEingabe(verbandId, Anzahl: 8)]);
 
         await service.QuotenErsetzenAsync(turnierInstanzId,
-            [new VerbandsQuoteZeileEingabe(zweiterVerbandId, MaxAnzahl: 5, MinAnzahl: null)]);
+            [new VerbandsQuoteZeileEingabe(zweiterVerbandId, Anzahl: 5)]);
 
         var quoten = await service.AlleNachTurnierInstanzIdAsync(turnierInstanzId);
         quoten.Should().ContainSingle(q => q.VerbandId == zweiterVerbandId);
@@ -157,12 +156,29 @@ public class VerbandsQuoteServiceTests
         GrundSetupAnlegen(ctx, out int turnierInstanzId, out int verbandId, out _);
         var service = ServiceFuer(ctx);
         await service.QuotenErsetzenAsync(turnierInstanzId,
-            [new VerbandsQuoteZeileEingabe(verbandId, MaxAnzahl: 8, MinAnzahl: null)]);
+            [new VerbandsQuoteZeileEingabe(verbandId, Anzahl: 8)]);
 
-        var ungueltigeZeilen = new[] { new VerbandsQuoteZeileEingabe(verbandId, MaxAnzahl: 0, MinAnzahl: null) };
+        var ungueltigeZeilen = new[] { new VerbandsQuoteZeileEingabe(verbandId, Anzahl: 0) };
 
         await Assert.ThrowsAsync<ValidationException>(() => service.QuotenErsetzenAsync(turnierInstanzId, ungueltigeZeilen));
         var quoten = await service.AlleNachTurnierInstanzIdAsync(turnierInstanzId);
-        quoten.Should().ContainSingle(q => q.VerbandId == verbandId && q.MaxAnzahl == 8);
+        quoten.Should().ContainSingle(q => q.VerbandId == verbandId && q.Anzahl == 8);
+    }
+
+    [Fact]
+    public async Task QuotenErsetzenAsync_SummeUeberKapazitaet_WirftValidationException()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int turnierInstanzId, out int verbandId, out int zweiterVerbandId);
+        var service = ServiceFuer(ctx);
+
+        var zeilen = new[]
+        {
+            new VerbandsQuoteZeileEingabe(verbandId, Anzahl: 8),
+            new VerbandsQuoteZeileEingabe(zweiterVerbandId, Anzahl: 10)
+        };
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => service.QuotenErsetzenAsync(turnierInstanzId, zeilen, eingangsKapazitaet: 16));
     }
 }

@@ -958,10 +958,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("MaxAnzahl")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("MinAnzahl")
+                    b.Property<int>("Anzahl")
                         .HasColumnType("int");
 
                     b.Property<int>("TurnierInstanzId")

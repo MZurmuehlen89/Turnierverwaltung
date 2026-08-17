@@ -15,14 +15,8 @@ public class VerbandsQuoteValidator
     {
         var fehler = new List<string>();
 
-        if (eingabe.MaxAnzahl < 1)
-            fehler.Add("Die maximale Anzahl muss mindestens 1 sein.");
-
-        if (eingabe.MinAnzahl is < 0)
-            fehler.Add("Die minimale Anzahl darf nicht negativ sein.");
-
-        if (eingabe.MinAnzahl is { } min && min > eingabe.MaxAnzahl)
-            fehler.Add("Die minimale Anzahl darf die maximale Anzahl nicht überschreiten.");
+        if (eingabe.Anzahl < 1)
+            fehler.Add("Die Anzahl muss mindestens 1 sein.");
 
         bool duplikat = bestehende.Any(q => q.VerbandId == eingabe.VerbandId && q.Id != bearbeiteteId);
         if (duplikat)
@@ -32,18 +26,26 @@ public class VerbandsQuoteValidator
     }
 
     /// <summary>Validiert eine komplette Liste von Verband-Quoten-Zeilen auf einmal (WPF-Turnierkopf-Grid) —
-    /// prüft den vollständigen beabsichtigten Endzustand vor jedem Schreibzugriff, statt zeilenweise.</summary>
-    public ValidationErgebnis Validieren(IReadOnlyList<VerbandsQuoteZeileEingabe> zeilen)
+    /// prüft den vollständigen beabsichtigten Endzustand vor jedem Schreibzugriff, statt zeilenweise.
+    /// <paramref name="eingangsKapazitaet"/> begrenzt optional die Summe aller Zeilen (Issue #154, Eingangskapazität
+    /// der ersten Turnierrunde) — bei null (z.B. Turnier ohne Runden) entfällt dieser Check.</summary>
+    public ValidationErgebnis Validieren(IReadOnlyList<VerbandsQuoteZeileEingabe> zeilen, int? eingangsKapazitaet = null)
     {
         var fehler = new List<string>();
         foreach (var z in zeilen)
         {
-            if (z.MaxAnzahl < 1) fehler.Add("Die maximale Anzahl muss mindestens 1 sein.");
-            if (z.MinAnzahl is < 0) fehler.Add("Die minimale Anzahl darf nicht negativ sein.");
-            if (z.MinAnzahl is { } min && min > z.MaxAnzahl) fehler.Add("Die minimale Anzahl darf die maximale Anzahl nicht überschreiten.");
+            if (z.Anzahl < 1) fehler.Add("Die Anzahl muss mindestens 1 sein.");
         }
         foreach (var dup in zeilen.GroupBy(z => z.VerbandId).Where(g => g.Count() > 1).Select(g => g.Key))
             fehler.Add($"Mehrere Quoten für denselben Verband in diesem Turnier (Verband-Id {dup}).");
+
+        if (eingangsKapazitaet is { } kapazitaet)
+        {
+            var summe = zeilen.Sum(z => z.Anzahl);
+            if (summe > kapazitaet)
+                fehler.Add($"Die Summe der Verband-Quoten ({summe}) übersteigt die Eingangskapazität der ersten Runde ({kapazitaet}).");
+        }
+
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }
 }

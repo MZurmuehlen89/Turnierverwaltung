@@ -70,13 +70,11 @@ public class VerbandsQuoteMenue(
         var tabelle = new Table().Border(TableBorder.Rounded)
             .AddColumn(new TableColumn("[grey]ID[/]").RightAligned())
             .AddColumn("Verband")
-            .AddColumn(new TableColumn("Max").Centered())
-            .AddColumn(new TableColumn("Min").Centered());
+            .AddColumn(new TableColumn("Anzahl").Centered());
 
         foreach (var q in quoten.OrderBy(q => q.Verband.Name))
             tabelle.AddRow(
-                $"[grey]{q.Id}[/]", Markup.Escape(q.Verband.Name),
-                q.MaxAnzahl.ToString(), q.MinAnzahl?.ToString() ?? "[grey]–[/]");
+                $"[grey]{q.Id}[/]", Markup.Escape(q.Verband.Name), q.Anzahl.ToString());
 
         AnsiConsole.Write(tabelle);
         KonsolenHilfsmittel.Pause();
@@ -91,13 +89,13 @@ public class VerbandsQuoteMenue(
         var verband = VerbandAuswaehlen("Verband:", verbaende);
         if (verband is null) return;
 
-        var werte = QuoteWerteAbfragen();
+        var anzahl = AnzahlAbfragen();
 
         var quote = await quoteService.ErstellenAsync(new VerbandsQuoteEingabe(
-            instanz.Id, verband.Id, werte.MaxAnzahl, werte.MinAnzahl), ct);
+            instanz.Id, verband.Id, anzahl), ct);
 
         KonsolenHilfsmittel.ErfolgAnzeigen(
-            $"Verband-Quote angelegt (ID {quote.Id}): '{verband.Name}' – Max {werte.MaxAnzahl}.");
+            $"Verband-Quote angelegt (ID {quote.Id}): '{verband.Name}' – Anzahl {anzahl}.");
         KonsolenHilfsmittel.Pause();
     }
 
@@ -113,10 +111,10 @@ public class VerbandsQuoteMenue(
         AnsiConsole.MarkupLine($"\n[grey]Aktueller Verband: {Markup.Escape(quote.Verband.Name)}[/]");
         var verband = VerbandAuswaehlen("Verband (leer = unverändert):", verbaende) ?? quote.Verband;
 
-        var werte = QuoteWerteAbfragen(quote);
+        var anzahl = AnzahlAbfragen(quote);
 
         await quoteService.AktualisierenAsync(quote.Id, new VerbandsQuoteEingabe(
-            instanz.Id, verband.Id, werte.MaxAnzahl, werte.MinAnzahl), ct);
+            instanz.Id, verband.Id, anzahl), ct);
 
         KonsolenHilfsmittel.ErfolgAnzeigen($"Verband-Quote {quote.Id} gespeichert.");
         KonsolenHilfsmittel.Pause();
@@ -172,24 +170,10 @@ public class VerbandsQuoteMenue(
         return AnsiConsole.Prompt(new SelectionPrompt<VerbandsQuote?>()
             .Title("Quote:")
             .UseConverter(q => q is null ? "← Zurück" :
-                $"[{q.Id}] {Markup.Escape(q.Verband.Name)} (Max {q.MaxAnzahl}{(q.MinAnzahl is { } min ? $", Min {min}" : "")})")
+                $"[{q.Id}] {Markup.Escape(q.Verband.Name)} (Anzahl {q.Anzahl})")
             .AddChoices(quoten.Cast<VerbandsQuote?>().Append(null)));
     }
 
-    private sealed record QuoteWerte(int MaxAnzahl, int? MinAnzahl);
-
-    private static QuoteWerte QuoteWerteAbfragen(VerbandsQuote? bestehend = null)
-    {
-        var max = AnsiConsole.Prompt(
-            new TextPrompt<int>("Max-Anzahl:").DefaultValue(bestehend?.MaxAnzahl ?? 1));
-
-        int? min = null;
-        bool mitMindestquote = AnsiConsole.Confirm(
-            "Mindestquote festlegen?", bestehend?.MinAnzahl is not null);
-        if (mitMindestquote)
-            min = AnsiConsole.Prompt(
-                new TextPrompt<int>("Min-Anzahl:").DefaultValue(bestehend?.MinAnzahl ?? 0));
-
-        return new QuoteWerte(max, min);
-    }
+    private static int AnzahlAbfragen(VerbandsQuote? bestehend = null) =>
+        AnsiConsole.Prompt(new TextPrompt<int>("Anzahl:").DefaultValue(bestehend?.Anzahl ?? 1));
 }

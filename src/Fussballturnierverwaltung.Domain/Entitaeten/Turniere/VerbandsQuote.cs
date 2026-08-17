@@ -10,8 +10,5 @@ public class VerbandsQuote : BasisEntitaet
     public int VerbandId { get; set; }
     public Verband Verband { get; set; } = null!;
 
-    public int MaxAnzahl { get; set; }
-
-    // null = keine Mindestquote
-    public int? MinAnzahl { get; set; }
+    public int Anzahl { get; set; }
 }

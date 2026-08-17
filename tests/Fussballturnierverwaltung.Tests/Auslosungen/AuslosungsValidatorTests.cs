@@ -561,42 +561,42 @@ public class AuslosungsValidatorTests
     private static LostopfEintrag EintragMitVerband(int id, int verbandId) =>
         new() { Id = id, MannschaftId = id, Mannschaft = new Mannschaft { Id = id, Name = $"Team {id}", Land = new Land { VerbandId = verbandId } } };
 
-    private static VerbandsQuote Quote(int verbandId, int maxAnzahl, int? minAnzahl = null) =>
-        new() { VerbandId = verbandId, MaxAnzahl = maxAnzahl, MinAnzahl = minAnzahl };
+    private static VerbandsQuote Quote(int verbandId, int anzahl) =>
+        new() { VerbandId = verbandId, Anzahl = anzahl };
 
     [Fact]
-    public void VerbandQuote_InnerhalbMaxUndMin_IstGueltig()
+    public void VerbandQuote_GenauErfuellt_IstGueltig()
     {
         var topf = Topf(1, 1, [EintragMitVerband(1, verbandId: 10), EintragMitVerband(2, verbandId: 10), EintragMitVerband(3, verbandId: 20)]);
         var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
 
-        var ergebnis = _validator.Validieren(a, AlleEintraege(a), [Quote(10, maxAnzahl: 2, minAnzahl: 1)]);
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a), [Quote(10, anzahl: 2)]);
 
         ergebnis.IstGueltig.Should().BeTrue();
     }
 
     [Fact]
-    public void VerbandQuote_MaxUeberschritten_WirdAbgelehnt()
+    public void VerbandQuote_Ueberschritten_WirdAbgelehnt()
     {
         var topf = Topf(1, 1, [EintragMitVerband(1, verbandId: 10), EintragMitVerband(2, verbandId: 10), EintragMitVerband(3, verbandId: 10)]);
         var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
 
-        var ergebnis = _validator.Validieren(a, AlleEintraege(a), [Quote(10, maxAnzahl: 2)]);
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a), [Quote(10, anzahl: 2)]);
 
         ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().ContainMatch("*maximal 2*");
+        ergebnis.Fehler.Should().ContainMatch("*genau 2*");
     }
 
     [Fact]
-    public void VerbandQuote_MinUnterschritten_WirdAbgelehnt()
+    public void VerbandQuote_Unterschritten_WirdAbgelehnt()
     {
         var topf = Topf(1, 1, [EintragMitVerband(1, verbandId: 10), EintragMitVerband(2, verbandId: 20)]);
         var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
 
-        var ergebnis = _validator.Validieren(a, AlleEintraege(a), [Quote(10, maxAnzahl: 5, minAnzahl: 2)]);
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a), [Quote(10, anzahl: 2)]);
 
         ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().ContainMatch("*mindestens 2*");
+        ergebnis.Fehler.Should().ContainMatch("*genau 2*");
     }
 
     [Fact]

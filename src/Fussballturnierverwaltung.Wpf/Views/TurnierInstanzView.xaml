@@ -176,11 +176,17 @@
                               DisplayMemberPath="Anzeige"
                               FontSize="13" Margin="0,0,0,20" />
 
-                    <!-- VERBAND-QUOTEN (nur für bereits gespeicherte Turniere, Issue #161) -->
-                    <StackPanel Visibility="{Binding RundenSichtbar, Converter={StaticResource BoolToVisibility}}"
+                    <!-- VERBAND-QUOTEN (nur für bereits gespeicherte Turniere ohne Verbandsfilter, Issue #161/#154) -->
+                    <StackPanel Visibility="{Binding VerbandsQuotenSichtbar, Converter={StaticResource BoolToVisibility}}"
                                 Margin="0,0,0,20">
-                        <TextBlock Text="VERBAND-QUOTEN" FontSize="11" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="0,0,0,8" />
+                        <DockPanel Margin="0,0,0,8">
+                            <TextBlock Text="VERBAND-QUOTEN" FontSize="11" FontWeight="Bold"
+                                       Foreground="#94A3B8" />
+                            <TextBlock DockPanel.Dock="Right" FontSize="11" Foreground="#94A3B8"
+                                       Visibility="{Binding KapazitaetsHinweisSichtbar, Converter={StaticResource BoolToVisibility}}">
+                                <Run Text="max. Summe " /><Run Text="{Binding ErsteRundeEingang, Mode=OneWay}" /><Run Text=" (Eingang 1. Runde)" />
+                            </TextBlock>
+                        </DockPanel>
                         <DataGrid ItemsSource="{Binding QuotenZeilen}"
                                   AutoGenerateColumns="False"
                                   CanUserAddRows="True" CanUserDeleteRows="True"
@@ -193,10 +199,8 @@
                                                          ItemsSource="{Binding Data.AlleVerbaende, Source={StaticResource Proxy}}"
                                                          DisplayMemberPath="Name"
                                                          SelectedItemBinding="{Binding Verband}" />
-                                <DataGridTextColumn Header="Max" Width="70"
-                                                     Binding="{Binding MaxAnzahl, UpdateSourceTrigger=PropertyChanged}" />
-                                <DataGridTextColumn Header="Min" Width="70"
-                                                     Binding="{Binding MinAnzahl, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}" />
+                                <DataGridTextColumn Header="Anzahl" Width="70"
+                                                     Binding="{Binding Anzahl, UpdateSourceTrigger=PropertyChanged}" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </StackPanel>

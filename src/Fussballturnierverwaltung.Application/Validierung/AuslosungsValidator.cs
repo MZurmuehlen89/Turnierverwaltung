@@ -21,8 +21,8 @@ public class AuslosungsValidator
         else if (alleEintraege.Count < 2)
             fehler.Add($"Mindestens 2 Teilnehmer werden benötigt (vorhanden: {alleEintraege.Count}).");
 
-        // Verband-Quoten (Issue #146/#27): unabhängig von Auslosungsart/Lostopf-Struktur — prüft nur
-        // die Gesamtzusammensetzung der zugewiesenen Teams gegen konfigurierte Min-/Max-Quoten je Verband.
+        // Verband-Quoten (Issue #146/#27, feste Anzahl seit #154): unabhängig von Auslosungsart/Lostopf-Struktur —
+        // prüft nur die Gesamtzusammensetzung der zugewiesenen Teams gegen die konfigurierte Anzahl je Verband.
         if (verbandsQuoten is { Count: > 0 })
         {
             var anzahlProVerband = alleEintraege
@@ -35,13 +35,9 @@ public class AuslosungsValidator
                 var anzahl = anzahlProVerband.GetValueOrDefault(quote.VerbandId);
                 var verbandName = quote.Verband?.Name ?? $"Verband {quote.VerbandId}";
 
-                if (anzahl > quote.MaxAnzahl)
-                    fehler.Add($"Verband-Quote '{verbandName}': maximal {quote.MaxAnzahl} Team(s) erlaubt, " +
+                if (anzahl != quote.Anzahl)
+                    fehler.Add($"Verband-Quote '{verbandName}': genau {quote.Anzahl} Team(s) erforderlich, " +
                                $"aber {anzahl} zugewiesen.");
-
-                if (quote.MinAnzahl is { } min && anzahl < min)
-                    fehler.Add($"Verband-Quote '{verbandName}': mindestens {min} Team(s) erforderlich, " +
-                               $"aber nur {anzahl} zugewiesen.");
             }
         }
 
