@@ -1,0 +1,43 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Zentrale Farbpalette (Issue #190) — bisher pro View hartcodierte Hex-Werte, jetzt an einer Stelle
+         gepflegt. Namen folgen der Funktion (Text/Border/Surface/Accent/Error/Success/Warning), nicht der
+         Tailwind-Stufe, damit die Bedeutung auch ohne Kenntnis der Ursprungspalette klar bleibt. -->
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="TextStrongBrush" Color="#1E293B" />
+    <SolidColorBrush x:Key="TextBrush" Color="#475569" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="#64748B" />
+    <SolidColorBrush x:Key="TextSubtleBrush" Color="#94A3B8" />
+
+    <!-- Rahmen -->
+    <SolidColorBrush x:Key="BorderBrush" Color="#E2E8F0" />
+    <SolidColorBrush x:Key="BorderStrongBrush" Color="#CBD5E1" />
+
+    <!-- Flächen -->
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#F8FAFC" />
+    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#F1F5F9" />
+
+    <!-- Akzent (Blau) -->
+    <SolidColorBrush x:Key="AccentBrush" Color="#3B82F6" />
+    <SolidColorBrush x:Key="AccentStrongBrush" Color="#1D4ED8" />
+    <SolidColorBrush x:Key="AccentDarkBrush" Color="#1E40AF" />
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#EFF6FF" />
+    <SolidColorBrush x:Key="AccentSoftBorderBrush" Color="#BFDBFE" />
+
+    <!-- Fehler (Rot) -->
+    <SolidColorBrush x:Key="ErrorBrush" Color="#DC2626" />
+    <SolidColorBrush x:Key="ErrorSoftBrush" Color="#FEF2F2" />
+    <SolidColorBrush x:Key="ErrorSoftBorderBrush" Color="#FECACA" />
+
+    <!-- Erfolg (Grün) -->
+    <SolidColorBrush x:Key="SuccessBrush" Color="#166534" />
+    <SolidColorBrush x:Key="SuccessSoftBrush" Color="#F0FDF4" />
+
+    <!-- Warnung (Amber) -->
+    <SolidColorBrush x:Key="WarningBrush" Color="#F59E0B" />
+    <SolidColorBrush x:Key="WarningSoftBrush" Color="#FFFBEB" />
+    <SolidColorBrush x:Key="WarningSoftBorderBrush" Color="#FDE68A" />
+
+</ResourceDictionary>

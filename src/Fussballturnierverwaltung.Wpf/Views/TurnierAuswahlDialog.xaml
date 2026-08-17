@@ -10,7 +10,7 @@
 
         <!-- Suchfeld -->
         <Border DockPanel.Dock="Top" Background="White"
-                BorderBrush="#E2E8F0" BorderThickness="1" Padding="6,4" Margin="0,0,0,8">
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="6,4" Margin="0,0,0,8">
             <TextBox x:Name="SuchBox"
                      TextChanged="SuchBox_TextChanged"
                      Padding="6,4" FontSize="13"
@@ -52,23 +52,23 @@
                   CanUserResizeRows="False"
                   IsReadOnly="True"
                   GridLinesVisibility="Horizontal"
-                  HorizontalGridLinesBrush="#E2E8F0"
+                  HorizontalGridLinesBrush="{StaticResource BorderBrush}"
                   HeadersVisibility="Column"
-                  AlternatingRowBackground="#F8FAFC"
+                  AlternatingRowBackground="{StaticResource SurfaceBrush}"
                   Background="White"
-                  BorderBrush="#E2E8F0" BorderThickness="1"
+                  BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                   RowHeight="30"
                   FontSize="13"
                   MouseDoubleClick="AuswahlGrid_MouseDoubleClick">
 
             <DataGrid.ColumnHeaderStyle>
                 <Style TargetType="DataGridColumnHeader">
-                    <Setter Property="Background" Value="#E2E8F0" />
+                    <Setter Property="Background" Value="{StaticResource BorderBrush}" />
                     <Setter Property="Foreground" Value="#374151" />
                     <Setter Property="FontWeight" Value="SemiBold" />
                     <Setter Property="FontSize" Value="11" />
                     <Setter Property="Padding" Value="8,5" />
-                    <Setter Property="BorderBrush" Value="#CBD5E1" />
+                    <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
                     <Setter Property="BorderThickness" Value="0,0,1,0" />
                 </Style>
             </DataGrid.ColumnHeaderStyle>
@@ -78,14 +78,14 @@
                     <Style.Triggers>
                         <Trigger Property="IsSelected" Value="True">
                             <Setter Property="Background" Value="#DBEAFE" />
-                            <Setter Property="Foreground" Value="#1E40AF" />
+                            <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
                         </Trigger>
                         <MultiTrigger>
                             <MultiTrigger.Conditions>
                                 <Condition Property="IsMouseOver" Value="True" />
                                 <Condition Property="IsSelected" Value="False" />
                             </MultiTrigger.Conditions>
-                            <Setter Property="Background" Value="#EFF6FF" />
+                            <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
                         </MultiTrigger>
                     </Style.Triggers>
                 </Style>

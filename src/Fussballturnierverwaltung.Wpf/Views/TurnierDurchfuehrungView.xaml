@@ -7,10 +7,10 @@
 
         <!-- ── Gemeinsamer Header: Turnier-Auswahl ── -->
         <Border DockPanel.Dock="Top" Background="White"
-                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8">
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="12,8">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="Turnier" FontSize="11" FontWeight="Bold"
-                           Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,10,0" />
+                           Foreground="{StaticResource TextSubtleBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
                 <views:TurnierAuswahlView DataContext="{Binding TabKoordinator}" />
             </StackPanel>
         </Border>

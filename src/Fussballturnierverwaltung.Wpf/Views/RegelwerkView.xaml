@@ -15,14 +15,14 @@
         </Grid.ColumnDefinitions>
 
         <!-- ── Linke Spalte: Suche + Liste ── -->
-        <DockPanel Grid.Column="0" Background="#F8FAFC">
+        <DockPanel Grid.Column="0" Background="{StaticResource SurfaceBrush}">
 
             <!-- Suchfeld -->
             <Border DockPanel.Dock="Top" Background="White"
-                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,6">
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8,6">
                 <TextBox Text="{Binding Suchbegriff, UpdateSourceTrigger=PropertyChanged}"
                          Padding="6,4" FontSize="13"
-                         BorderBrush="#CBD5E1" BorderThickness="1">
+                         BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1">
                     <TextBox.Style>
                         <Style TargetType="TextBox">
                             <Style.Triggers>
@@ -47,7 +47,7 @@
 
             <!-- Ladeindikator -->
             <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="3"
-                         Foreground="#3B82F6"
+                         Foreground="{StaticResource AccentBrush}"
                          Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
 
             <!-- Liste -->
@@ -63,14 +63,14 @@
                         <Style.Triggers>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter Property="Background" Value="#DBEAFE" />
-                                <Setter Property="Foreground" Value="#1E40AF" />
+                                <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
                             </Trigger>
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsMouseOver" Value="True" />
                                     <Condition Property="IsSelected" Value="False" />
                                 </MultiTrigger.Conditions>
-                                <Setter Property="Background" Value="#EFF6FF" />
+                                <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
                             </MultiTrigger>
                         </Style.Triggers>
                     </Style>
@@ -98,7 +98,7 @@
         </DockPanel>
 
         <GridSplitter Grid.Column="1" Width="4"
-                      HorizontalAlignment="Stretch" Background="#E2E8F0" />
+                      HorizontalAlignment="Stretch" Background="{StaticResource BorderBrush}" />
 
         <!-- ── Rechte Spalte ── -->
         <Grid Grid.Column="2">
@@ -196,12 +196,12 @@
                     <TextBlock Text="ENTSCHEIDUNGSVERFAHREN (K.O.)" FontWeight="SemiBold" FontSize="11"
                                Foreground="#9CA3AF" Margin="0,0,0,8" />
 
-                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
-                            CornerRadius="4" Padding="8" Margin="0,0,0,24">
+                    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius4}" Padding="8" Margin="0,0,0,24">
                         <StackPanel>
                             <ListBox ItemsSource="{Binding AusgewaehlteVerfahren}"
                                      SelectedItem="{Binding MarkiertesVerfahren}"
-                                     Height="120" BorderThickness="1" BorderBrush="#E2E8F0"
+                                     Height="120" BorderThickness="1" BorderBrush="{StaticResource BorderBrush}"
                                      Background="White" Margin="0,0,0,6"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                 <ListBox.ItemContainerStyle>
@@ -210,7 +210,7 @@
                                         <Style.Triggers>
                                             <Trigger Property="IsSelected" Value="True">
                                                 <Setter Property="Background" Value="#DBEAFE" />
-                                                <Setter Property="Foreground" Value="#1E40AF" />
+                                                <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
                                             </Trigger>
                                         </Style.Triggers>
                                     </Style>
@@ -232,7 +232,7 @@
                                 </Grid.ColumnDefinitions>
                                 <ComboBox ItemsSource="{Binding VerfuegbareVerfahren}"
                                           SelectedItem="{Binding NeuesVerfahren}"
-                                          Padding="6,4" FontSize="12" BorderBrush="#CBD5E1">
+                                          Padding="6,4" FontSize="12" BorderBrush="{StaticResource BorderStrongBrush}">
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding Converter={StaticResource VerfahrenArtZuText}}" />
@@ -258,7 +258,7 @@
                                 <Button Content="Entfernen"
                                         Command="{Binding VerfahrenEntfernenCommand}"
                                         Padding="8,3" FontSize="12" Cursor="Hand"
-                                        Foreground="#DC2626" />
+                                        Foreground="{StaticResource ErrorBrush}" />
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -275,9 +275,9 @@
 
                     <!-- Fehlermeldung -->
                     <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
-                            Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1"
-                            CornerRadius="4" Padding="10,8">
-                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
+                            Background="{StaticResource ErrorSoftBrush}" BorderBrush="#FCA5A5" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius4}" Padding="10,8">
+                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="{StaticResource ErrorBrush}"
                                    FontSize="12" TextWrapping="Wrap" />
                     </Border>
 

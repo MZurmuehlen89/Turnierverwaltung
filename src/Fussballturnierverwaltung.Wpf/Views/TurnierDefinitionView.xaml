@@ -7,16 +7,16 @@
 
         <!-- ── Gemeinsamer Header: Turnier-Auswahl ── -->
         <Border DockPanel.Dock="Top" Background="White"
-                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8">
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="12,8">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="Turnier" FontSize="11" FontWeight="Bold"
-                           Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,10,0" />
+                           Foreground="{StaticResource TextSubtleBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
                 <views:TurnierAuswahlView DataContext="{Binding TabKoordinator}" />
             </StackPanel>
         </Border>
 
         <!-- ── Hinweis-Banner, wenn Runden für das gewählte Turnier gesperrt sind ── -->
-        <Border DockPanel.Dock="Top" Background="#FEF3C7" BorderBrush="#FDE68A" BorderThickness="0,0,0,1"
+        <Border DockPanel.Dock="Top" Background="#FEF3C7" BorderBrush="{StaticResource WarningSoftBorderBrush}" BorderThickness="0,0,0,1"
                 Padding="12,6"
                 Visibility="{Binding RundenTabAktiv, Converter={StaticResource InverseBoolToVisibility}}">
             <TextBlock Text="Nur für Turniere mit Status &quot;Geplant&quot; bearbeitbar"

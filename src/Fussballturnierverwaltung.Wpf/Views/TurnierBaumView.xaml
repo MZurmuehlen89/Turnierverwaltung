@@ -12,7 +12,7 @@
 
             <!-- Kein Turnier gewählt -->
             <TextBlock Text="Bitte ein Turnier auswählen."
-                       Foreground="#94A3B8" FontSize="14"
+                       Foreground="{StaticResource TextSubtleBrush}" FontSize="14"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
                        Visibility="{Binding KeinTurnierGewaehlt, Converter={StaticResource BoolToVisibility}}" />
 
@@ -21,15 +21,15 @@
 
                 <!-- Lade-Spinner -->
                 <TextBlock DockPanel.Dock="Top" Text="Lade…" Margin="16,12"
-                           Foreground="#94A3B8" FontSize="13"
+                           Foreground="{StaticResource TextSubtleBrush}" FontSize="13"
                            Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
 
                 <!-- Fehlermeldung -->
                 <Border DockPanel.Dock="Top" Margin="16,12,16,0"
-                        Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
-                        CornerRadius="4" Padding="12,8"
+                        Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius4}" Padding="12,8"
                         Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                    <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
+                    <TextBlock Text="{Binding Fehlermeldung}" Foreground="{StaticResource ErrorBrush}"
                                FontSize="12" TextWrapping="Wrap" />
                 </Border>
 
@@ -62,14 +62,14 @@
                                                    Width="{Binding Breite}"
                                                    TextAlignment="Center"
                                                    FontSize="12" FontWeight="Bold"
-                                                   Foreground="#475569" />
+                                                   Foreground="{StaticResource TextBrush}" />
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </Grid>
 
                         <!-- Trennlinie unter Köpfen -->
-                        <Border Height="1" Background="#E2E8F0"
+                        <Border Height="1" Background="{StaticResource BorderBrush}"
                                 Width="{Binding CanvasBreite}"
                                 HorizontalAlignment="Left" Margin="0,0,0,8" />
 
@@ -90,7 +90,7 @@
                                     <DataTemplate DataType="{x:Type vm:BracketLinie}">
                                         <Line X1="{Binding X1}" Y1="{Binding Y1}"
                                               X2="{Binding X2}" Y2="{Binding Y2}"
-                                              Stroke="#CBD5E1" StrokeThickness="1.5" />
+                                              Stroke="{StaticResource BorderStrongBrush}" StrokeThickness="1.5" />
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -119,18 +119,18 @@
                                                 </ControlTemplate>
                                             </Button.Template>
                                         <Border Width="185" Height="90"
-                                                BorderThickness="1" CornerRadius="4"
+                                                BorderThickness="1" CornerRadius="{StaticResource Radius4}"
                                                 Background="White">
                                             <Border.Style>
                                                 <Style TargetType="Border">
-                                                    <Setter Property="BorderBrush" Value="#E2E8F0" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IstFreilos}" Value="True">
-                                                            <Setter Property="Background" Value="#F8FAFC" />
-                                                            <Setter Property="BorderBrush" Value="#E2E8F0" />
+                                                            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+                                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding HatErgebnis}" Value="True">
-                                                            <Setter Property="BorderBrush" Value="#BFDBFE" />
+                                                            <Setter Property="BorderBrush" Value="{StaticResource AccentSoftBorderBrush}" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -143,19 +143,19 @@
                                             </Grid.RowDefinitions>
 
                                             <!-- Label-Streifen (nur bei festem Bracket sichtbar) -->
-                                            <Border Grid.Row="0" Background="#F8FAFC"
-                                                    BorderBrush="#F1F5F9" BorderThickness="0,0,0,1"
+                                            <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}"
+                                                    BorderBrush="{StaticResource SurfaceAltBrush}" BorderThickness="0,0,0,1"
                                                     CornerRadius="4,4,0,0"
                                                     Visibility="{Binding HatLabel, Converter={StaticResource BoolToVisibility}}">
                                                 <TextBlock Text="{Binding Label}"
                                                            FontSize="9" FontWeight="Bold"
-                                                           Foreground="#94A3B8"
+                                                           Foreground="{StaticResource TextSubtleBrush}"
                                                            Padding="6,0"
                                                            VerticalAlignment="Center" />
                                             </Border>
 
                                             <!-- Freilos -->
-                                            <TextBlock Grid.Row="1" Text="–" FontSize="22" Foreground="#CBD5E1"
+                                            <TextBlock Grid.Row="1" Text="–" FontSize="22" Foreground="{StaticResource BorderStrongBrush}"
                                                        HorizontalAlignment="Center"
                                                        VerticalAlignment="Center"
                                                        Visibility="{Binding IstFreilos, Converter={StaticResource BoolToVisibility}}" />
@@ -181,15 +181,15 @@
                                                                VerticalAlignment="Center">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="#475569" />
+                                                                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
                                                                 <Setter Property="FontWeight" Value="Normal" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
-                                                                        <Setter Property="Foreground" Value="#166534" />
+                                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
                                                                         <Setter Property="FontWeight" Value="Bold" />
                                                                     </DataTrigger>
                                                                     <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
-                                                                        <Setter Property="Foreground" Value="#94A3B8" />
+                                                                        <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
@@ -202,13 +202,13 @@
                                                                VerticalAlignment="Center">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="#1E293B" />
+                                                                <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
-                                                                        <Setter Property="Foreground" Value="#166534" />
+                                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
                                                                     </DataTrigger>
                                                                     <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
-                                                                        <Setter Property="Foreground" Value="#94A3B8" />
+                                                                        <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
@@ -217,7 +217,7 @@
                                                 </Grid>
 
                                                 <!-- Trennlinie -->
-                                                <Border Grid.Row="1" Background="#F1F5F9" />
+                                                <Border Grid.Row="1" Background="{StaticResource SurfaceAltBrush}" />
 
                                                 <!-- Auswärtsmannschaft -->
                                                 <Grid Grid.Row="2" Margin="8,2,8,4">
@@ -232,15 +232,15 @@
                                                                VerticalAlignment="Center">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="#475569" />
+                                                                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
                                                                 <Setter Property="FontWeight" Value="Normal" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
-                                                                        <Setter Property="Foreground" Value="#166534" />
+                                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
                                                                         <Setter Property="FontWeight" Value="Bold" />
                                                                     </DataTrigger>
                                                                     <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
-                                                                        <Setter Property="Foreground" Value="#94A3B8" />
+                                                                        <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
@@ -252,20 +252,20 @@
                                                                    FontSize="13" FontWeight="Bold">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">
-                                                                    <Setter Property="Foreground" Value="#1E293B" />
+                                                                    <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
-                                                                            <Setter Property="Foreground" Value="#166534" />
+                                                                            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
                                                                         </DataTrigger>
                                                                         <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
-                                                                            <Setter Property="Foreground" Value="#94A3B8" />
+                                                                            <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
                                                             </TextBlock.Style>
                                                         </TextBlock>
                                                         <TextBlock Text="{Binding ErgebnisDetail}"
-                                                                   FontSize="9" Foreground="#94A3B8"
+                                                                   FontSize="9" Foreground="{StaticResource TextSubtleBrush}"
                                                                    Margin="3,2,0,0"
                                                                    VerticalAlignment="Center" />
                                                     </StackPanel>
@@ -287,10 +287,10 @@
 
                     <!-- Tabellenstand-Snapshot nach Spieltag (Issue #141) -->
                     <Border DockPanel.Dock="Top" Background="White"
-                            BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="16,8"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="16,8"
                             Visibility="{Binding HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Tabellenstand:" FontSize="11" Foreground="#64748B"
+                            <TextBlock Text="Tabellenstand:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
                                        VerticalAlignment="Center" Margin="0,0,6,0" />
                             <ComboBox ItemsSource="{Binding TabellenSpieltagOptionen}"
                                       SelectedItem="{Binding TabellenBisSpieltagAuswahl}"
@@ -307,7 +307,7 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
                     <Grid>
                         <TextBlock Text="Noch keine Gruppenzuordnung — Gruppen erscheinen nach der Auslosung/Spielplan-Generierung."
-                                   Foreground="#94A3B8" FontSize="13"
+                                   Foreground="{StaticResource TextSubtleBrush}" FontSize="13"
                                    HorizontalAlignment="Center" Margin="16,48"
                                    TextWrapping="Wrap" TextAlignment="Center"
                                    Visibility="{Binding HatGruppenTabellenAnzeige, Converter={StaticResource InverseBoolToVisibility}}" />
@@ -333,12 +333,12 @@
                                         </Button.Template>
                                     <Border Width="290"
                                             Background="White"
-                                            BorderBrush="#E2E8F0" BorderThickness="1"
-                                            CornerRadius="8">
+                                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                            CornerRadius="{StaticResource Radius8}">
                                         <StackPanel>
 
                                             <!-- Card-Header -->
-                                            <Border Background="#1E40AF"
+                                            <Border Background="{StaticResource AccentDarkBrush}"
                                                     CornerRadius="8,8,0,0" Padding="12,8">
                                                 <TextBlock Foreground="White" FontWeight="Bold" FontSize="13">
                                                     <Run Text="Gruppe " />
@@ -347,7 +347,7 @@
                                             </Border>
 
                                             <!-- Tabellen-Kopfzeile -->
-                                            <Grid Background="#F8FAFC">
+                                            <Grid Background="{StaticResource SurfaceBrush}">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="26" />
                                                     <ColumnDefinition Width="*" />
@@ -357,26 +357,26 @@
                                                     <ColumnDefinition Width="28" />
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0" Text="#"
-                                                           FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                            HorizontalAlignment="Center" Padding="6,5,0,5" />
                                                 <TextBlock Grid.Column="1" Text="Team"
-                                                           FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                            Padding="4,5" />
                                                 <TextBlock Grid.Column="2" Text="Sp"
-                                                           FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                            HorizontalAlignment="Center" Padding="0,5" />
                                                 <TextBlock Grid.Column="3" Text="Tore"
-                                                           FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                            HorizontalAlignment="Center" Padding="0,5" />
                                                 <TextBlock Grid.Column="4" Text="Diff"
-                                                           FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                            HorizontalAlignment="Center" Padding="0,5" />
                                                 <TextBlock Grid.Column="5" Text="Pkt"
-                                                           FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                            HorizontalAlignment="Center" Padding="0,5,6,5" />
                                             </Grid>
 
-                                            <Rectangle Height="1" Fill="#E2E8F0" />
+                                            <Rectangle Height="1" Fill="{StaticResource BorderBrush}" />
 
                                             <!-- Tabellen-Einträge -->
                                             <ItemsControl ItemsSource="{Binding Tabelle}">
@@ -396,10 +396,10 @@
                                                                     <Setter Property="Background" Value="Transparent" />
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding Qualifikationsstatus}" Value="{x:Static enums:Qualifikationsstatus.SicherQualifiziert}">
-                                                                            <Setter Property="Background" Value="#F0FDF4" />
+                                                                            <Setter Property="Background" Value="{StaticResource SuccessSoftBrush}" />
                                                                         </DataTrigger>
                                                                         <DataTrigger Binding="{Binding Qualifikationsstatus}" Value="{x:Static enums:Qualifikationsstatus.SicherAusgeschieden}">
-                                                                            <Setter Property="Background" Value="#FEF2F2" />
+                                                                            <Setter Property="Background" Value="{StaticResource ErrorSoftBrush}" />
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
@@ -410,24 +410,24 @@
                                                                 <Ellipse Width="6" Height="6" Margin="0,0,3,0"
                                                                          Fill="{Binding Qualifikationsstatus, Converter={StaticResource QualifikationsstatusZuFarbe}}" />
                                                                 <TextBlock Text="{Binding Rang}"
-                                                                           FontSize="12" FontWeight="SemiBold" Foreground="#64748B" />
+                                                                           FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextMutedBrush}" />
                                                             </StackPanel>
                                                             <TextBlock Grid.Column="1" Text="{Binding Mannschaft.Name}"
                                                                        FontSize="12" TextTrimming="CharacterEllipsis"
                                                                        VerticalAlignment="Center" Padding="4,6" />
                                                             <TextBlock Grid.Column="2" Text="{Binding Spiele}"
-                                                                       FontSize="12" Foreground="#475569"
+                                                                       FontSize="12" Foreground="{StaticResource TextBrush}"
                                                                        HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
                                                             <TextBlock Grid.Column="3"
-                                                                       FontSize="12" Foreground="#475569"
+                                                                       FontSize="12" Foreground="{StaticResource TextBrush}"
                                                                        HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6">
                                                                 <Run Text="{Binding Tore}" /><Run Text=":" /><Run Text="{Binding Gegentore}" />
                                                             </TextBlock>
                                                             <TextBlock Grid.Column="4" Text="{Binding Tordifferenz}"
-                                                                       FontSize="12" Foreground="#475569"
+                                                                       FontSize="12" Foreground="{StaticResource TextBrush}"
                                                                        HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
                                                             <TextBlock Grid.Column="5" Text="{Binding Punkte}"
-                                                                       FontSize="12" FontWeight="Bold" Foreground="#1E293B"
+                                                                       FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextStrongBrush}"
                                                                        HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6,6,6" />
                                                         </Grid>
                                                     </DataTemplate>
@@ -449,9 +449,9 @@
 
                     <!-- Ansicht-Tabs (Gesamt/Hinrunde/Rückrunde/Heim/Auswärts, Issue #95) + Tabellenstand-Snapshot (Issue #141) -->
                     <Border DockPanel.Dock="Top" Background="White"
-                            BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="16,8">
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="16,8">
                         <StackPanel Orientation="Horizontal">
-                            <Border CornerRadius="6" Background="#F1F5F9" Padding="2">
+                            <Border CornerRadius="{StaticResource Radius6}" Background="{StaticResource SurfaceAltBrush}" Padding="2">
                                 <StackPanel Orientation="Horizontal">
                                     <Button Content="Gesamt"
                                             Command="{Binding LigaAnsichtWaehlenBefehl}"
@@ -460,13 +460,13 @@
                                         <Button.Style>
                                             <Style TargetType="Button">
                                                 <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="#64748B" />
+                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
                                                 <Setter Property="FontWeight" Value="Normal" />
                                                 <Setter Property="BorderThickness" Value="0" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Gesamt}">
                                                         <Setter Property="Background" Value="White" />
-                                                        <Setter Property="Foreground" Value="#1E40AF" />
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -481,13 +481,13 @@
                                         <Button.Style>
                                             <Style TargetType="Button">
                                                 <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="#64748B" />
+                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
                                                 <Setter Property="FontWeight" Value="Normal" />
                                                 <Setter Property="BorderThickness" Value="0" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Hinrunde}">
                                                         <Setter Property="Background" Value="White" />
-                                                        <Setter Property="Foreground" Value="#1E40AF" />
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -502,13 +502,13 @@
                                         <Button.Style>
                                             <Style TargetType="Button">
                                                 <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="#64748B" />
+                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
                                                 <Setter Property="FontWeight" Value="Normal" />
                                                 <Setter Property="BorderThickness" Value="0" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Rueckrunde}">
                                                         <Setter Property="Background" Value="White" />
-                                                        <Setter Property="Foreground" Value="#1E40AF" />
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -522,13 +522,13 @@
                                         <Button.Style>
                                             <Style TargetType="Button">
                                                 <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="#64748B" />
+                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
                                                 <Setter Property="FontWeight" Value="Normal" />
                                                 <Setter Property="BorderThickness" Value="0" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Heimtabelle}">
                                                         <Setter Property="Background" Value="White" />
-                                                        <Setter Property="Foreground" Value="#1E40AF" />
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -542,13 +542,13 @@
                                         <Button.Style>
                                             <Style TargetType="Button">
                                                 <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="#64748B" />
+                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
                                                 <Setter Property="FontWeight" Value="Normal" />
                                                 <Setter Property="BorderThickness" Value="0" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Auswaertstabelle}">
                                                         <Setter Property="Background" Value="White" />
-                                                        <Setter Property="Foreground" Value="#1E40AF" />
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -561,7 +561,7 @@
                             <!-- Tabellenstand-Snapshot nach Spieltag (Issue #141) -->
                             <StackPanel Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center"
                                         Visibility="{Binding HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="Tabellenstand:" FontSize="11" Foreground="#64748B"
+                                <TextBlock Text="Tabellenstand:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
                                            VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <ComboBox ItemsSource="{Binding TabellenSpieltagOptionen}"
                                           SelectedItem="{Binding TabellenBisSpieltagAuswahl}"
@@ -579,19 +579,19 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
                     <Grid>
                         <TextBlock Text="Noch kein Spielplan generiert. Die Tabelle erscheint, sobald Spiele vorhanden sind."
-                                   Foreground="#94A3B8" FontSize="13"
+                                   Foreground="{StaticResource TextSubtleBrush}" FontSize="13"
                                    HorizontalAlignment="Center" Margin="16,48"
                                    TextWrapping="Wrap" TextAlignment="Center"
                                    Visibility="{Binding HatLigaTabelleAnzeige, Converter={StaticResource InverseBoolToVisibility}}" />
 
                         <Border Background="White"
-                                BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="{StaticResource Radius8}"
                                 VerticalAlignment="Top"
                                 Visibility="{Binding HatLigaTabelleAnzeige, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel>
 
                                 <!-- Tabellen-Kopfzeile -->
-                                <Grid Background="#F8FAFC">
+                                <Grid Background="{StaticResource SurfaceBrush}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="26" />
                                         <ColumnDefinition Width="*" />
@@ -604,35 +604,35 @@
                                         <ColumnDefinition Width="28" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="#"
-                                               FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                HorizontalAlignment="Center" Padding="6,5,0,5" />
                                     <TextBlock Grid.Column="1" Text="Team"
-                                               FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                Padding="4,5" />
                                     <TextBlock Grid.Column="2" Text="Sp"
-                                               FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                HorizontalAlignment="Center" Padding="0,5" />
                                     <TextBlock Grid.Column="3" Text="S"
-                                               FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                HorizontalAlignment="Center" Padding="0,5" />
                                     <TextBlock Grid.Column="4" Text="U"
-                                               FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                HorizontalAlignment="Center" Padding="0,5" />
                                     <TextBlock Grid.Column="5" Text="N"
-                                               FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                HorizontalAlignment="Center" Padding="0,5" />
                                     <TextBlock Grid.Column="6" Text="Tore"
-                                               FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                HorizontalAlignment="Center" Padding="0,5" />
                                     <TextBlock Grid.Column="7" Text="Diff"
-                                               FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                HorizontalAlignment="Center" Padding="0,5" />
                                     <TextBlock Grid.Column="8" Text="Pkt"
-                                               FontSize="10" FontWeight="Bold" Foreground="#94A3B8"
+                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                                HorizontalAlignment="Center" Padding="0,5,6,5" />
                                 </Grid>
 
-                                <Rectangle Height="1" Fill="#E2E8F0" />
+                                <Rectangle Height="1" Fill="{StaticResource BorderBrush}" />
 
                                 <!-- Tabellen-Einträge -->
                                 <ItemsControl ItemsSource="{Binding LigaTabelleAnzeige}">
@@ -652,33 +652,33 @@
                                                 </Grid.ColumnDefinitions>
 
                                                 <TextBlock Grid.Column="0" Text="{Binding Rang}"
-                                                           FontSize="12" FontWeight="SemiBold" Foreground="#64748B"
+                                                           FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextMutedBrush}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="4,6,0,6" />
                                                 <TextBlock Grid.Column="1" Text="{Binding Mannschaft.Name}"
                                                            FontSize="12" TextTrimming="CharacterEllipsis"
                                                            VerticalAlignment="Center" Padding="4,6" />
                                                 <TextBlock Grid.Column="2" Text="{Binding Spiele}"
-                                                           FontSize="12" Foreground="#475569"
+                                                           FontSize="12" Foreground="{StaticResource TextBrush}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
                                                 <TextBlock Grid.Column="3" Text="{Binding Siege}"
-                                                           FontSize="12" Foreground="#475569"
+                                                           FontSize="12" Foreground="{StaticResource TextBrush}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
                                                 <TextBlock Grid.Column="4" Text="{Binding Unentschieden}"
-                                                           FontSize="12" Foreground="#475569"
+                                                           FontSize="12" Foreground="{StaticResource TextBrush}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
                                                 <TextBlock Grid.Column="5" Text="{Binding Niederlagen}"
-                                                           FontSize="12" Foreground="#475569"
+                                                           FontSize="12" Foreground="{StaticResource TextBrush}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
                                                 <TextBlock Grid.Column="6"
-                                                           FontSize="12" Foreground="#475569"
+                                                           FontSize="12" Foreground="{StaticResource TextBrush}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6">
                                                     <Run Text="{Binding Tore}" /><Run Text=":" /><Run Text="{Binding Gegentore}" />
                                                 </TextBlock>
                                                 <TextBlock Grid.Column="7" Text="{Binding Tordifferenz}"
-                                                           FontSize="12" Foreground="#475569"
+                                                           FontSize="12" Foreground="{StaticResource TextBrush}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
                                                 <TextBlock Grid.Column="8" Text="{Binding Punkte}"
-                                                           FontSize="12" FontWeight="Bold" Foreground="#1E293B"
+                                                           FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextStrongBrush}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6,6,6" />
                                             </Grid>
                                         </DataTemplate>

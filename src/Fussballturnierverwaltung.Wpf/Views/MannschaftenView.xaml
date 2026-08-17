@@ -10,17 +10,17 @@
         </Grid.ColumnDefinitions>
 
         <!-- ── Linke Spalte: Filter-Leiste + DataGrid ── -->
-        <DockPanel Grid.Column="0" Background="#F8FAFC">
+        <DockPanel Grid.Column="0" Background="{StaticResource SurfaceBrush}">
 
             <!-- Horizontale Filter-Leiste -->
-            <Border DockPanel.Dock="Top" Background="#F1F5F9"
-                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,6">
+            <Border DockPanel.Dock="Top" Background="{StaticResource SurfaceAltBrush}"
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8,6">
                 <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
 
                     <!-- Suche -->
                     <TextBox Text="{Binding Suchbegriff, UpdateSourceTrigger=PropertyChanged}"
                              Width="180" Padding="6,4" FontSize="12"
-                             BorderBrush="#CBD5E1" BorderThickness="1"
+                             BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1"
                              VerticalAlignment="Center" Margin="0,0,12,0">
                         <TextBox.Style>
                             <Style TargetType="TextBox">
@@ -51,7 +51,7 @@
                                   SelectedItem="{Binding FilterLandOption}"
                                   DisplayMemberPath="Anzeige"
                                   Width="120" Padding="4,2" FontSize="12"
-                                  BorderBrush="#CBD5E1" />
+                                  BorderBrush="{StaticResource BorderStrongBrush}" />
                     </StackPanel>
 
                     <!-- Verband -->
@@ -62,7 +62,7 @@
                                   SelectedItem="{Binding FilterVerbandOption}"
                                   DisplayMemberPath="Anzeige"
                                   Width="120" Padding="4,2" FontSize="12"
-                                  BorderBrush="#CBD5E1" />
+                                  BorderBrush="{StaticResource BorderStrongBrush}" />
                     </StackPanel>
 
                     <!-- Art -->
@@ -73,7 +73,7 @@
                                   SelectedItem="{Binding FilterArtOption}"
                                   DisplayMemberPath="Anzeige"
                                   Width="100" Padding="4,2" FontSize="12"
-                                  BorderBrush="#CBD5E1" />
+                                  BorderBrush="{StaticResource BorderStrongBrush}" />
                     </StackPanel>
 
                     <!-- Rating min -->
@@ -102,7 +102,7 @@
 
             <!-- Ladeindikator -->
             <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="3"
-                         Foreground="#3B82F6"
+                         Foreground="{StaticResource AccentBrush}"
                          Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
 
             <!-- DataGrid -->
@@ -115,7 +115,7 @@
                       CanUserDeleteRows="False"
                       CanUserResizeRows="False"
                       GridLinesVisibility="Horizontal"
-                      HorizontalGridLinesBrush="#E2E8F0"
+                      HorizontalGridLinesBrush="{StaticResource BorderBrush}"
                       HeadersVisibility="Column"
                       AlternatingRowBackground="#F0F4F8"
                       Background="White"
@@ -125,12 +125,12 @@
 
                 <DataGrid.ColumnHeaderStyle>
                     <Style TargetType="DataGridColumnHeader">
-                        <Setter Property="Background" Value="#E2E8F0" />
+                        <Setter Property="Background" Value="{StaticResource BorderBrush}" />
                         <Setter Property="Foreground" Value="#374151" />
                         <Setter Property="FontWeight" Value="SemiBold" />
                         <Setter Property="FontSize" Value="11" />
                         <Setter Property="Padding" Value="8,5" />
-                        <Setter Property="BorderBrush" Value="#CBD5E1" />
+                        <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
                         <Setter Property="BorderThickness" Value="0,0,1,0" />
                     </Style>
                 </DataGrid.ColumnHeaderStyle>
@@ -140,14 +140,14 @@
                         <Style.Triggers>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter Property="Background" Value="#DBEAFE" />
-                                <Setter Property="Foreground" Value="#1E40AF" />
+                                <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
                             </Trigger>
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsMouseOver" Value="True" />
                                     <Condition Property="IsSelected" Value="False" />
                                 </MultiTrigger.Conditions>
-                                <Setter Property="Background" Value="#EFF6FF" />
+                                <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
                             </MultiTrigger>
                         </Style.Triggers>
                     </Style>
@@ -198,7 +198,7 @@
                         <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock">
                                 <Setter Property="HorizontalAlignment" Value="Right" />
-                                <Setter Property="Foreground" Value="#DC2626" />
+                                <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
                             </Style>
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
@@ -208,7 +208,7 @@
                             <Style TargetType="TextBlock">
                                 <Setter Property="HorizontalAlignment" Value="Right" />
                                 <Setter Property="FontWeight" Value="SemiBold" />
-                                <Setter Property="Foreground" Value="#1D4ED8" />
+                                <Setter Property="Foreground" Value="{StaticResource AccentStrongBrush}" />
                             </Style>
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
@@ -217,7 +217,7 @@
         </DockPanel>
 
         <GridSplitter Grid.Column="1" Width="4"
-                      HorizontalAlignment="Stretch" Background="#E2E8F0" />
+                      HorizontalAlignment="Stretch" Background="{StaticResource BorderBrush}" />
 
         <!-- ── Rechte Spalte ── -->
         <Grid Grid.Column="2">
@@ -281,7 +281,7 @@
                             <TextBlock Text="Gesamt " FontSize="12" Foreground="#6B7280"
                                        VerticalAlignment="Center" />
                             <TextBlock Text="{Binding GesamtRating}" FontSize="16"
-                                       FontWeight="Bold" Foreground="#1D4ED8"
+                                       FontWeight="Bold" Foreground="{StaticResource AccentStrongBrush}"
                                        VerticalAlignment="Center" />
                         </StackPanel>
                         <TextBlock Text="RATINGS" FontWeight="SemiBold" FontSize="11"
@@ -334,9 +334,9 @@
 
                     <!-- Fehlermeldung -->
                     <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
-                            Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1"
-                            CornerRadius="4" Padding="10,8">
-                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
+                            Background="{StaticResource ErrorSoftBrush}" BorderBrush="#FCA5A5" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius4}" Padding="10,8">
+                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="{StaticResource ErrorBrush}"
                                    FontSize="12" TextWrapping="Wrap" />
                     </Border>
                 </StackPanel>

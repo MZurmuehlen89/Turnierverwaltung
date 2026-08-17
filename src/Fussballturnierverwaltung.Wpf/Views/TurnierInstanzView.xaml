@@ -17,13 +17,13 @@
         </Grid.ColumnDefinitions>
 
         <!-- ── Linke Spalte: Filter + Liste ── -->
-        <DockPanel Grid.Column="0" Background="#F8FAFC">
+        <DockPanel Grid.Column="0" Background="{StaticResource SurfaceBrush}">
 
             <!-- Suchfeld -->
             <Border DockPanel.Dock="Top" Background="White"
-                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,6">
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8,6">
                 <TextBox Text="{Binding Suchbegriff, UpdateSourceTrigger=PropertyChanged}"
-                         Padding="6,4" FontSize="13" BorderBrush="#CBD5E1" BorderThickness="1">
+                         Padding="6,4" FontSize="13" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1">
                     <TextBox.Style>
                         <Style TargetType="TextBox">
                             <Style.Triggers>
@@ -47,7 +47,7 @@
 
             <!-- Status-Filter -->
             <Border DockPanel.Dock="Top" Background="White"
-                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="8,6">
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8,6">
                 <ComboBox ItemsSource="{Binding StatusFilterOptionen}"
                           SelectedItem="{Binding StatusFilter}"
                           DisplayMemberPath="Anzeige" FontSize="13" />
@@ -55,7 +55,7 @@
 
             <!-- Ladeindikator -->
             <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="3"
-                         Foreground="#3B82F6"
+                         Foreground="{StaticResource AccentBrush}"
                          Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
 
             <!-- Liste -->
@@ -69,8 +69,8 @@
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         <Style.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="#EFF6FF" />
-                                <Setter Property="Foreground" Value="#1D4ED8" />
+                                <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource AccentStrongBrush}" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>
@@ -80,10 +80,10 @@
                         <StackPanel>
                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding SaisonOderJahr}" FontSize="11" Foreground="#64748B" />
-                                <TextBlock Text=" · " FontSize="11" Foreground="#64748B" />
+                                <TextBlock Text="{Binding SaisonOderJahr}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text=" · " FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
                                 <TextBlock Text="{Binding Status, Converter={StaticResource StatusZuText}}"
-                                           FontSize="11" Foreground="#64748B" />
+                                           FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
                             </StackPanel>
                         </StackPanel>
                     </DataTemplate>
@@ -92,7 +92,7 @@
         </DockPanel>
 
         <!-- Trennlinie -->
-        <Border Grid.Column="1" Background="#E2E8F0" />
+        <Border Grid.Column="1" Background="{StaticResource BorderBrush}" />
 
         <!-- ── Rechte Spalte: Formular ── -->
         <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
@@ -100,24 +100,24 @@
 
                 <!-- Platzhalter -->
                 <TextBlock Text="Wählen Sie ein Turnier aus oder legen Sie ein neues an."
-                           Foreground="#94A3B8" FontSize="14" TextWrapping="Wrap"
+                           Foreground="{StaticResource TextSubtleBrush}" FontSize="14" TextWrapping="Wrap"
                            Visibility="{Binding FormularAktiv, Converter={StaticResource InverseBoolToVisibility}}" />
 
                 <StackPanel Visibility="{Binding FormularAktiv, Converter={StaticResource BoolToVisibility}}">
 
                     <!-- BASISDATEN -->
                     <TextBlock Text="BASISDATEN" FontSize="11" FontWeight="Bold"
-                               Foreground="#94A3B8" Margin="0,0,0,8" />
+                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,8" />
 
-                    <TextBlock Text="Name" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
+                    <TextBlock Text="Name" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
                     <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
                              Padding="8,6" FontSize="13" Margin="0,0,0,12"
-                             BorderBrush="#CBD5E1" BorderThickness="1" />
+                             BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
 
-                    <TextBlock Text="Saison / Jahr" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
+                    <TextBlock Text="Saison / Jahr" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
                     <TextBox Text="{Binding SaisonOderJahr, UpdateSourceTrigger=PropertyChanged}"
                              Padding="8,6" FontSize="13" Margin="0,0,0,12"
-                             BorderBrush="#CBD5E1" BorderThickness="1" />
+                             BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
 
                     <Grid Margin="0,0,0,20">
                         <Grid.ColumnDefinitions>
@@ -126,38 +126,38 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="Startjahr" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
+                            <TextBlock Text="Startjahr" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
                             <TextBox Text="{Binding Startdatum, UpdateSourceTrigger=PropertyChanged}"
-                                     Padding="8,6" FontSize="13" BorderBrush="#CBD5E1" BorderThickness="1" />
+                                     Padding="8,6" FontSize="13" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="Endjahr" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
+                            <TextBlock Text="Endjahr" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
                             <TextBox Text="{Binding Enddatum, UpdateSourceTrigger=PropertyChanged}"
-                                     Padding="8,6" FontSize="13" BorderBrush="#CBD5E1" BorderThickness="1" />
+                                     Padding="8,6" FontSize="13" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
                         </StackPanel>
                     </Grid>
 
                     <!-- Status (nur für gespeicherte Turniere) -->
                     <StackPanel Visibility="{Binding RundenSichtbar, Converter={StaticResource BoolToVisibility}}"
                                 Margin="0,0,0,20">
-                        <TextBlock Text="Status" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
-                        <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
-                                CornerRadius="4" Padding="8,6">
+                        <TextBlock Text="Status" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
+                        <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                CornerRadius="{StaticResource Radius4}" Padding="8,6">
                             <TextBlock Text="{Binding StatusAnzeige}" FontSize="13" Foreground="#374151" />
                         </Border>
                     </StackPanel>
 
                     <!-- AUSLOSUNGSFILTER -->
                     <TextBlock Text="AUSLOSUNGSFILTER" FontSize="11" FontWeight="Bold"
-                               Foreground="#94A3B8" Margin="0,0,0,8" />
+                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,8" />
 
-                    <TextBlock Text="Verband" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
+                    <TextBlock Text="Verband" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
                     <ComboBox ItemsSource="{Binding VerbandOptionen}"
                               SelectedItem="{Binding VerbandFilter}"
                               DisplayMemberPath="Anzeige"
                               FontSize="13" Margin="0,0,0,12" />
 
-                    <TextBlock Text="Mannschaftsart" FontSize="12" Foreground="#475569" Margin="0,0,0,4" />
+                    <TextBlock Text="Mannschaftsart" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
                     <ComboBox ItemsSource="{Binding TeamfilterOptionen}"
                               SelectedValuePath="Wert"
                               SelectedValue="{Binding TeamFilter}"
@@ -166,9 +166,9 @@
 
                     <!-- REGELWERK-STANDARD -->
                     <TextBlock Text="REGELWERK-STANDARD" FontSize="11" FontWeight="Bold"
-                               Foreground="#94A3B8" Margin="0,0,0,8" />
+                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,8" />
 
-                    <TextBlock FontSize="12" Foreground="#475569" Margin="0,0,0,6" TextWrapping="Wrap">
+                    <TextBlock FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,6" TextWrapping="Wrap">
                         Wird automatisch für neue Runden im Runden-Editor vorbelegt.
                     </TextBlock>
                     <ComboBox ItemsSource="{Binding StandardRegelwerkOptionen}"
@@ -181,8 +181,8 @@
                                 Margin="0,0,0,20">
                         <DockPanel Margin="0,0,0,8">
                             <TextBlock Text="VERBAND-QUOTEN" FontSize="11" FontWeight="Bold"
-                                       Foreground="#94A3B8" />
-                            <TextBlock DockPanel.Dock="Right" FontSize="11" Foreground="#94A3B8"
+                                       Foreground="{StaticResource TextSubtleBrush}" />
+                            <TextBlock DockPanel.Dock="Right" FontSize="11" Foreground="{StaticResource TextSubtleBrush}"
                                        Visibility="{Binding KapazitaetsHinweisSichtbar, Converter={StaticResource BoolToVisibility}}">
                                 <Run Text="max. Summe " /><Run Text="{Binding ErsteRundeEingang, Mode=OneWay}" /><Run Text=" (Eingang 1. Runde)" />
                             </TextBlock>
@@ -192,7 +192,7 @@
                                   CanUserAddRows="True" CanUserDeleteRows="True"
                                   CanUserSortColumns="False" CanUserReorderColumns="False"
                                   HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                                  BorderBrush="#CBD5E1" BorderThickness="1"
+                                  BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1"
                                   RowHeaderWidth="24" MaxHeight="240" FontSize="13">
                             <DataGrid.Columns>
                                 <DataGridComboBoxColumn Header="Verband" Width="*"
@@ -206,10 +206,10 @@
                     </StackPanel>
 
                     <!-- Fehlermeldung -->
-                    <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
-                            CornerRadius="4" Padding="12,8" Margin="0,16,0,0"
+                    <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius4}" Padding="12,8" Margin="0,16,0,0"
                             Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
+                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="{StaticResource ErrorBrush}"
                                    FontSize="13" TextWrapping="Wrap" />
                     </Border>
 

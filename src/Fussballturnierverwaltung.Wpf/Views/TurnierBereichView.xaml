@@ -8,10 +8,10 @@
         <!-- ── Fortschrittsanzeige (Turnier-Auswahl selbst kommt jetzt aus der äußeren
              Kopfzeile der Turnierdurchführung-Seite, siehe TurnierDurchfuehrungView) ── -->
         <Border DockPanel.Dock="Top" Background="White"
-                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="12,8"
                 Visibility="{Binding FortschrittAnzeige, Converter={StaticResource NullToCollapsed}}">
             <TextBlock Text="{Binding FortschrittAnzeige}"
-                       FontSize="12" Foreground="#475569" VerticalAlignment="Center" />
+                       FontSize="12" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
         </Border>
 
         <!-- ── Split-Ansicht: Spielplan links | Turnierbaum rechts (entfaellt bei nur einer Runde) ── -->
@@ -35,7 +35,7 @@
             </views:SpielplanView>
 
             <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch"
-                          Background="#E2E8F0" ResizeBehavior="PreviousAndNext"
+                          Background="{StaticResource BorderBrush}" ResizeBehavior="PreviousAndNext"
                           Visibility="{Binding ZeigeSplitAnsicht, Converter={StaticResource BoolToVisibility}}" />
 
             <views:TurnierBaumView Grid.Column="2" DataContext="{Binding TurnierBaumVm}"

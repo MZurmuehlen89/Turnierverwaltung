@@ -7,7 +7,7 @@
         <Style x:Key="TeamSucheTextBox" TargetType="TextBox">
             <Setter Property="Padding" Value="6,4" />
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="BorderBrush" Value="#CBD5E1" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Style.Triggers>
                 <Trigger Property="Text" Value="">
@@ -29,9 +29,9 @@
 
         <!-- "Simuliert…"-Anzeige -->
         <Border DockPanel.Dock="Top" Background="White"
-                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="10,8"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="10,8"
                 Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock Text="Simuliert…" FontSize="12" Foreground="#94A3B8" />
+            <TextBlock Text="Simuliert…" FontSize="12" Foreground="{StaticResource TextSubtleBrush}" />
         </Border>
 
         <Grid>
@@ -42,13 +42,13 @@
             </Grid.ColumnDefinitions>
 
             <!-- ── Linke Spalte: Team-Auswahl ── -->
-            <DockPanel Grid.Column="0" Background="#F8FAFC">
+            <DockPanel Grid.Column="0" Background="{StaticResource SurfaceBrush}">
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="10,8">
 
                         <TextBlock Text="HEIMTEAM" FontSize="10" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="0,4,0,4" />
+                                   Foreground="{StaticResource TextSubtleBrush}" Margin="0,4,0,4" />
                         <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -68,7 +68,7 @@
                                   FontSize="13" />
 
                         <TextBlock Text="AUSWÄRTSTEAM" FontSize="10" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="0,12,0,4" />
+                                   Foreground="{StaticResource TextSubtleBrush}" Margin="0,12,0,4" />
                         <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -88,13 +88,13 @@
                                   FontSize="13" />
 
                         <TextBlock Text="REGELWERK (OPTIONAL)" FontSize="10" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="0,12,0,4" />
+                                   Foreground="{StaticResource TextSubtleBrush}" Margin="0,12,0,4" />
                         <ComboBox ItemsSource="{Binding AlleRegelwerke}"
                                   SelectedItem="{Binding EinzelspielRegelwerk}"
                                   DisplayMemberPath="Name"
                                   FontSize="13" />
                         <TextBlock Text="Leer = kein Tiebreaker" FontSize="10"
-                                   Foreground="#94A3B8" Margin="0,2,0,0" />
+                                   Foreground="{StaticResource TextSubtleBrush}" Margin="0,2,0,0" />
 
                         <CheckBox Content="Mit Rückspiel"
                                   IsChecked="{Binding EinzelspielMitRueckspiel}"
@@ -105,37 +105,37 @@
 
             </DockPanel>
 
-            <Border Grid.Column="1" Background="#E2E8F0" />
+            <Border Grid.Column="1" Background="{StaticResource BorderBrush}" />
 
             <!-- ── Rechte Spalte: Protokoll-Anzeige ── -->
             <DockPanel Grid.Column="2">
 
                 <!-- Header -->
                 <Border DockPanel.Dock="Top" Background="White"
-                        BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="16,10">
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="16,10">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="SPIELPROTOKOLL" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" />
-                        <TextBlock Foreground="#94A3B8" FontSize="11" FontWeight="Bold" Text=" · "
+                        <TextBlock Text="SPIELPROTOKOLL" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}" />
+                        <TextBlock Foreground="{StaticResource TextSubtleBrush}" FontSize="11" FontWeight="Bold" Text=" · "
                                    Visibility="{Binding ProtokollSpielInfo, Converter={StaticResource NullToCollapsed}}" />
                         <TextBlock Text="{Binding ProtokollSpielInfo}" FontSize="11" FontWeight="Bold"
-                                   Foreground="#475569"
+                                   Foreground="{StaticResource TextBrush}"
                                    Visibility="{Binding ProtokollSpielInfo, Converter={StaticResource NullToCollapsed}}" />
                     </StackPanel>
                 </Border>
 
                 <!-- Fehlermeldung -->
                 <Border DockPanel.Dock="Top" Margin="16,10,16,0"
-                        Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
-                        CornerRadius="4" Padding="12,8"
+                        Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius4}" Padding="12,8"
                         Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                    <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
+                    <TextBlock Text="{Binding Fehlermeldung}" Foreground="{StaticResource ErrorBrush}"
                                FontSize="12" TextWrapping="Wrap" />
                 </Border>
 
                 <!-- Ergebnis-Karte -->
                 <Border DockPanel.Dock="Top"
-                        Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
-                        CornerRadius="6" Padding="16,12" Margin="16,12,16,0"
+                        Background="{StaticResource SuccessSoftBrush}" BorderBrush="#BBF7D0" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius6}" Padding="16,12" Margin="16,12,16,0"
                         Visibility="{Binding HatProtokoll, Converter={StaticResource BoolToVisibility}}">
                     <StackPanel>
                         <TextBlock Text="ERGEBNIS" FontSize="10" FontWeight="Bold"
@@ -145,7 +145,7 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding}" FontSize="14" FontWeight="SemiBold"
-                                               Foreground="#1E293B" FontFamily="Consolas" Margin="0,2"
+                                               Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas" Margin="0,2"
                                                HorizontalAlignment="Center" TextAlignment="Center" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -155,12 +155,12 @@
 
                 <!-- Spielverlauf (Ausführliche Simulation) -->
                 <Border DockPanel.Dock="Top"
-                        Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                        CornerRadius="4" Margin="16,8,16,0"
+                        Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius4}" Margin="16,8,16,0"
                         Visibility="{Binding HatProtokollEreignisse, Converter={StaticResource BoolToVisibility}}">
                     <StackPanel>
                         <TextBlock Text="SPIELVERLAUF" FontSize="10" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="12,8,12,4" />
+                                   Foreground="{StaticResource TextSubtleBrush}" Margin="12,8,12,4" />
 
                         <Grid Margin="12,0,12,4">
                             <Grid.ColumnDefinitions>
@@ -169,9 +169,9 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="HEIM" FontSize="9" FontWeight="Bold"
-                                       Foreground="#CBD5E1" HorizontalAlignment="Right" />
+                                       Foreground="{StaticResource BorderStrongBrush}" HorizontalAlignment="Right" />
                             <TextBlock Grid.Column="2" Text="AUSWÄRTS" FontSize="9" FontWeight="Bold"
-                                       Foreground="#CBD5E1" HorizontalAlignment="Left" />
+                                       Foreground="{StaticResource BorderStrongBrush}" HorizontalAlignment="Left" />
                         </Grid>
                         <Separator />
 
@@ -193,13 +193,13 @@
                                                             HorizontalAlignment="Right"
                                                             Visibility="{Binding IstHeimSeite, Converter={StaticResource BoolToVisibility}}">
                                                     <TextBlock Text="{Binding Art}" FontSize="11"
-                                                               Foreground="#1E293B" TextAlignment="Right" />
+                                                               Foreground="{StaticResource TextStrongBrush}" TextAlignment="Right" />
                                                     <TextBlock Text=" ◄" FontSize="11" FontWeight="Bold"
                                                                Foreground="#8B5CF6" Margin="4,0,0,0" />
                                                 </StackPanel>
 
                                                 <TextBlock Grid.Column="1" Text="{Binding Minute}" FontSize="11"
-                                                           Foreground="#64748B" FontFamily="Consolas"
+                                                           Foreground="{StaticResource TextMutedBrush}" FontFamily="Consolas"
                                                            HorizontalAlignment="Center" />
 
                                                 <StackPanel Grid.Column="2" Orientation="Horizontal"
@@ -207,7 +207,7 @@
                                                             Visibility="{Binding IstHeimSeite, Converter={StaticResource InverseBoolToVisibility}}">
                                                     <TextBlock Text="► " FontSize="11" FontWeight="Bold"
                                                                Foreground="#8B5CF6" />
-                                                    <TextBlock Text="{Binding Art}" FontSize="11" Foreground="#1E293B" />
+                                                    <TextBlock Text="{Binding Art}" FontSize="11" Foreground="{StaticResource TextStrongBrush}" />
                                                 </StackPanel>
                                             </Grid>
 
@@ -217,7 +217,7 @@
                                                 <Separator VerticalAlignment="Center" />
                                                 <Border Background="White" HorizontalAlignment="Center" Padding="8,0">
                                                     <TextBlock Text="{Binding TrennerText}" FontSize="9" FontWeight="Bold"
-                                                               Foreground="#94A3B8" />
+                                                               Foreground="{StaticResource TextSubtleBrush}" />
                                                 </Border>
                                             </Grid>
                                         </Grid>
@@ -230,7 +230,7 @@
 
                 <!-- Leer-Zustand -->
                 <TextBlock Text="Zwei Mannschaften auswählen und auf Simulieren klicken."
-                           Foreground="#94A3B8" FontSize="13" TextWrapping="Wrap"
+                           Foreground="{StaticResource TextSubtleBrush}" FontSize="13" TextWrapping="Wrap"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            MaxWidth="340" TextAlignment="Center"
                            Visibility="{Binding ZeigeLeerZustand, Converter={StaticResource BoolToVisibility}}" />

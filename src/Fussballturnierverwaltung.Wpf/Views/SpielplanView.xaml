@@ -13,29 +13,29 @@
         </Grid.ColumnDefinitions>
 
         <!-- ── Linke Spalte: Runden ── -->
-        <DockPanel Grid.Column="0" Background="#F8FAFC">
+        <DockPanel Grid.Column="0" Background="{StaticResource SurfaceBrush}">
 
             <!-- Runden -->
             <TextBlock DockPanel.Dock="Top" Text="RUNDEN"
-                       FontSize="11" FontWeight="Bold" Foreground="#94A3B8"
+                       FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                        Margin="12,10,8,4" />
 
             <!-- Ranking-Kriterien (unter der Rundenliste) -->
             <Border DockPanel.Dock="Bottom"
-                    Background="#F1F5F9" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
+                    Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0"
                     Padding="12,8"
                     Visibility="{Binding HatRankingKriterien, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel>
                     <TextBlock Text="RANKING-KRITERIEN" FontSize="10" FontWeight="Bold"
-                               Foreground="#94A3B8" Margin="0,0,0,3" />
+                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,3" />
                     <TextBlock Text="{Binding RankingRegelSetName}"
-                               FontSize="11" FontWeight="SemiBold" Foreground="#475569"
+                               FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"
                                Margin="0,0,0,4"
                                Visibility="{Binding RankingRegelSetName, Converter={StaticResource NullToCollapsed}}" />
                     <ItemsControl ItemsSource="{Binding RankingKriterien}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding}" FontSize="11" Foreground="#64748B"
+                                <TextBlock Text="{Binding}" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
                                            Margin="0,1" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -53,8 +53,8 @@
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         <Style.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="#EFF6FF" />
-                                <Setter Property="Foreground" Value="#1D4ED8" />
+                                <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource AccentStrongBrush}" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>
@@ -68,13 +68,13 @@
         </DockPanel>
 
         <!-- Trennlinie -->
-        <Border Grid.Column="1" Background="#E2E8F0" />
+        <Border Grid.Column="1" Background="{StaticResource BorderBrush}" />
 
         <!-- ── Rechter Bereich: Spielliste + Formular ── -->
         <DockPanel Grid.Column="2">
 
             <!-- Ergebnis-Formular (rechts angedockt, nur wenn FormAktiv) -->
-            <Border DockPanel.Dock="Right" Width="4" Background="#E2E8F0"
+            <Border DockPanel.Dock="Right" Width="4" Background="{StaticResource BorderBrush}"
                     Visibility="{Binding FormAktiv, Converter={StaticResource BoolToVisibility}}" />
 
             <ScrollViewer DockPanel.Dock="Right" Width="310"
@@ -84,27 +84,27 @@
 
                     <!-- Spiel-Kopfzeile -->
                     <TextBlock Text="{Binding FormSpielInfo}"
-                               FontSize="11" FontWeight="Bold" Foreground="#94A3B8"
+                               FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                Margin="0,0,0,8" />
 
-                    <TextBlock FontSize="15" FontWeight="Bold" Foreground="#1E293B"
+                    <TextBlock FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextStrongBrush}"
                                Margin="0,0,0,16" TextWrapping="Wrap">
                         <Run Text="{Binding FormHeimName}" />
-                        <Run Text=" vs. " Foreground="#94A3B8" />
+                        <Run Text=" vs. " Foreground="{StaticResource TextSubtleBrush}" />
                         <Run Text="{Binding FormAuswaertsName}" />
                     </TextBlock>
 
                     <!-- Fehlermeldung -->
-                    <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
-                            CornerRadius="4" Padding="10,7" Margin="0,0,0,12"
+                    <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius4}" Padding="10,7" Margin="0,0,0,12"
                             Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
+                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="{StaticResource ErrorBrush}"
                                    FontSize="12" TextWrapping="Wrap" />
                     </Border>
 
                     <!-- Reguläre Zeit -->
                     <TextBlock Text="REGULÄRE SPIELZEIT" FontSize="11" FontWeight="Bold"
-                               Foreground="#94A3B8" Margin="0,0,0,6" />
+                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,6" />
 
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
@@ -114,29 +114,29 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="{Binding FormHeimName}" FontSize="11"
-                                       Foreground="#475569" Margin="0,0,0,3"
+                                       Foreground="{StaticResource TextBrush}" Margin="0,0,0,3"
                                        TextTrimming="CharacterEllipsis" />
                             <TextBox Text="{Binding HeimToreRegulaer, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="8,6" FontSize="18" FontWeight="Bold" TextAlignment="Center"
-                                     BorderBrush="#CBD5E1" BorderThickness="1" />
+                                     BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
                         </StackPanel>
                         <TextBlock Grid.Column="1" Text=":" FontSize="20" FontWeight="Bold"
-                                   Foreground="#94A3B8" HorizontalAlignment="Center"
+                                   Foreground="{StaticResource TextSubtleBrush}" HorizontalAlignment="Center"
                                    VerticalAlignment="Bottom" Margin="0,0,0,6" />
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="{Binding FormAuswaertsName}" FontSize="11"
-                                       Foreground="#475569" Margin="0,0,0,3"
+                                       Foreground="{StaticResource TextBrush}" Margin="0,0,0,3"
                                        TextTrimming="CharacterEllipsis" />
                             <TextBox Text="{Binding AuswaertsToreRegulaer, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="8,6" FontSize="18" FontWeight="Bold" TextAlignment="Center"
-                                     BorderBrush="#CBD5E1" BorderThickness="1" />
+                                     BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
                         </StackPanel>
                     </Grid>
 
                     <!-- Verlängerung -->
                     <StackPanel Visibility="{Binding VerlaengerungAktiv, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="ERGEBNIS NACH VERLÄNGERUNG" FontSize="11" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="0,0,0,6" />
+                                   Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,6" />
                         <Grid Margin="0,0,0,12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -146,21 +146,21 @@
                             <TextBox Grid.Column="0"
                                      Text="{Binding HeimToreVerlaengerung, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="8,6" FontSize="16" FontWeight="Bold" TextAlignment="Center"
-                                     BorderBrush="#CBD5E1" BorderThickness="1" />
+                                     BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
                             <TextBlock Grid.Column="1" Text=":" FontSize="18" FontWeight="Bold"
-                                       Foreground="#94A3B8" HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextSubtleBrush}" HorizontalAlignment="Center"
                                        VerticalAlignment="Center" />
                             <TextBox Grid.Column="2"
                                      Text="{Binding AuswaertsToreVerlaengerung, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="8,6" FontSize="16" FontWeight="Bold" TextAlignment="Center"
-                                     BorderBrush="#CBD5E1" BorderThickness="1" />
+                                     BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
                         </Grid>
                     </StackPanel>
 
                     <!-- Elfmeterschießen -->
                     <StackPanel Visibility="{Binding ElfmeterAktiv, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="ELFMETER" FontSize="11" FontWeight="Bold"
-                                   Foreground="#94A3B8" Margin="0,0,0,6" />
+                                   Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,6" />
                         <Grid Margin="0,0,0,12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -170,23 +170,23 @@
                             <TextBox Grid.Column="0"
                                      Text="{Binding HeimElfmetertore, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="8,6" FontSize="16" FontWeight="Bold" TextAlignment="Center"
-                                     BorderBrush="#CBD5E1" BorderThickness="1" />
+                                     BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
                             <TextBlock Grid.Column="1" Text=":" FontSize="18" FontWeight="Bold"
-                                       Foreground="#94A3B8" HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextSubtleBrush}" HorizontalAlignment="Center"
                                        VerticalAlignment="Center" />
                             <TextBox Grid.Column="2"
                                      Text="{Binding AuswaertsElfmetertore, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="8,6" FontSize="16" FontWeight="Bold" TextAlignment="Center"
-                                     BorderBrush="#CBD5E1" BorderThickness="1" />
+                                     BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
                         </Grid>
                     </StackPanel>
 
                     <!-- Hinweis: Simulieren erst nach Zurücksetzen des bestehenden Ergebnisses möglich -->
-                    <Border Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
-                            CornerRadius="4" Padding="10,7" Margin="0,0,0,12"
+                    <Border Background="{StaticResource AccentSoftBrush}" BorderBrush="{StaticResource AccentSoftBorderBrush}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius4}" Padding="10,7" Margin="0,0,0,12"
                             Visibility="{Binding FormHatErgebnis, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="Dieses Spiel hat bereits ein Ergebnis. Zum Neu-Simulieren zuerst über 'Löschen' zurücksetzen."
-                                   Foreground="#1D4ED8" FontSize="12" TextWrapping="Wrap" />
+                                   Foreground="{StaticResource AccentStrongBrush}" FontSize="12" TextWrapping="Wrap" />
                     </Border>
 
                 </StackPanel>
@@ -196,7 +196,7 @@
             <Grid>
                 <!-- Kein Turnier / Runde gewählt -->
                 <TextBlock Text="Bitte ein Turnier und eine Runde auswählen."
-                           Foreground="#94A3B8" FontSize="14"
+                           Foreground="{StaticResource TextSubtleBrush}" FontSize="14"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            Visibility="{Binding HatRunde, Converter={StaticResource InverseBoolToVisibility}}" />
 
@@ -205,10 +205,10 @@
 
                     <!-- Header mit Ansicht-Umschalter -->
                     <Border DockPanel.Dock="Top" Background="White"
-                            BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8">
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="12,8">
                         <DockPanel>
                             <TextBlock VerticalAlignment="Center"
-                                       FontSize="11" FontWeight="Bold" Foreground="#94A3B8">
+                                       FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}">
                                 <Run Text="SPIELE · " />
                                 <Run Text="{Binding AusgewaehlteRunde.Name}" />
                                 <Run Text=" · " />
@@ -220,16 +220,16 @@
 
                     <!-- Fehlermeldung bei Spielplan-Generierung -->
                     <Border DockPanel.Dock="Top"
-                            Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
-                            CornerRadius="4" Padding="12,8" Margin="12,8,12,0"
+                            Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius4}" Padding="12,8" Margin="12,8,12,0"
                             Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
+                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="{StaticResource ErrorBrush}"
                                    FontSize="12" TextWrapping="Wrap" />
                     </Border>
 
                     <!-- Platzhalter-Banner -->
                     <Border DockPanel.Dock="Top"
-                            Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="0,0,0,1"
+                            Background="{StaticResource AccentSoftBrush}" BorderBrush="{StaticResource AccentSoftBorderBrush}" BorderThickness="0,0,0,1"
                             Padding="12,8"
                             Visibility="{Binding HatPlatzhalterSpiele, Converter={StaticResource BoolToVisibility}}">
                         <DockPanel>
@@ -237,10 +237,10 @@
                                     Content="Platzhalter aktualisieren"
                                     Command="{Binding PlatzhalterBefehl}"
                                     Padding="12,5" FontSize="12"
-                                    Background="#3B82F6" Foreground="White"
+                                    Background="{StaticResource AccentBrush}" Foreground="White"
                                     BorderThickness="0" Cursor="Hand" />
                             <TextBlock Text="Dieser Spielplan enthält Platzhalter. Sobald die Vorrunden-Ergebnisse vorliegen, können die Teams hier aufgelöst werden."
-                                       Foreground="#1D4ED8" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{StaticResource AccentStrongBrush}" FontSize="12" TextWrapping="Wrap"
                                        VerticalAlignment="Center" Margin="0,0,12,0" />
                         </DockPanel>
                     </Border>
@@ -264,7 +264,7 @@
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate DataType="{x:Type vm:SpielZeile}">
                                                 <TextBlock Text="{Binding SpieltagAnzeige}"
-                                                           FontSize="12" Foreground="#64748B"
+                                                           FontSize="12" Foreground="{StaticResource TextMutedBrush}"
                                                            HorizontalAlignment="Center" />
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
@@ -274,7 +274,7 @@
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate DataType="{x:Type vm:SpielZeile}">
                                                 <TextBlock Text="{Binding Spielnummer}"
-                                                           FontSize="12" Foreground="#94A3B8"
+                                                           FontSize="12" Foreground="{StaticResource TextSubtleBrush}"
                                                            HorizontalAlignment="Center" />
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
@@ -284,7 +284,7 @@
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate DataType="{x:Type vm:SpielZeile}">
                                                 <TextBlock Text="{Binding GruppeAnzeige}"
-                                                           FontSize="11" Foreground="#94A3B8"
+                                                           FontSize="11" Foreground="{StaticResource TextSubtleBrush}"
                                                            HorizontalAlignment="Center" />
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
@@ -309,17 +309,17 @@
                                                                FontFamily="Consolas">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="#94A3B8" />
+                                                                <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding HatErgebnis}" Value="True">
-                                                                        <Setter Property="Foreground" Value="#1E293B" />
+                                                                        <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
                                                         </TextBlock.Style>
                                                     </TextBlock>
                                                     <TextBlock Text="{Binding ErgebnisDetail}"
-                                                               FontSize="10" Foreground="#94A3B8"
+                                                               FontSize="10" Foreground="{StaticResource TextSubtleBrush}"
                                                                Margin="4,3,0,0" VerticalAlignment="Center" />
                                                 </StackPanel>
                                             </DataTemplate>
@@ -369,8 +369,8 @@
                                     </Setter>
                                     <Style.Triggers>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter Property="Background" Value="#EFF6FF" />
-                                            <Setter Property="Foreground" Value="#1E40AF" />
+                                            <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                            <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
                                         </Trigger>
                                     </Style.Triggers>
                                 </Style>
@@ -382,11 +382,11 @@
 
                             <!-- Toolbar: Filter aufheben + Gruppenname + Spieltag-Navigation -->
                             <Border DockPanel.Dock="Top" Background="White"
-                                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8">
+                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="12,8">
                                 <DockPanel>
                                     <!-- Spieltag-Navigation (rechts, nur bei mehreren Spieltagen) -->
                                     <Border DockPanel.Dock="Right"
-                                            CornerRadius="6" Background="#F1F5F9" Padding="2"
+                                            CornerRadius="{StaticResource Radius6}" Background="{StaticResource SurfaceAltBrush}" Padding="2"
                                             Visibility="{Binding HatMehrereSpieltage, Converter={StaticResource BoolToVisibility}}">
                                         <StackPanel Orientation="Horizontal">
                                             <Button Command="{Binding FokusAlleSpieltageBefehl}"
@@ -395,13 +395,13 @@
                                                 <Button.Style>
                                                     <Style TargetType="Button">
                                                         <Setter Property="Background" Value="Transparent" />
-                                                        <Setter Property="Foreground" Value="#64748B" />
+                                                        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
                                                         <Setter Property="FontWeight" Value="Normal" />
                                                         <Setter Property="BorderThickness" Value="0" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding FokusAlleAktiv}" Value="True">
                                                                 <Setter Property="Background" Value="White" />
-                                                                <Setter Property="Foreground" Value="#1E40AF" />
+                                                                <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
                                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
@@ -410,13 +410,13 @@
                                             </Button>
                                             <Button Command="{Binding FokusVorigerSpieltag}"
                                                     Content="&lt;" Padding="6,3" Cursor="Hand" FontSize="12"
-                                                    BorderThickness="0" Background="Transparent" Foreground="#64748B" />
+                                                    BorderThickness="0" Background="Transparent" Foreground="{StaticResource TextMutedBrush}" />
                                             <TextBlock Text="{Binding FokusSpieltagnummer}"
-                                                       FontSize="11" Foreground="#475569"
+                                                       FontSize="11" Foreground="{StaticResource TextBrush}"
                                                        VerticalAlignment="Center" Margin="4,0" />
                                             <Button Command="{Binding FokusNaechsterSpieltag}"
                                                     Content="&gt;" Padding="6,3" Cursor="Hand" FontSize="12"
-                                                    BorderThickness="0" Background="Transparent" Foreground="#64748B" />
+                                                    BorderThickness="0" Background="Transparent" Foreground="{StaticResource TextMutedBrush}" />
                                         </StackPanel>
                                     </Border>
 
@@ -424,12 +424,12 @@
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Button Command="{Binding ZurueckZurUebersichtBefehl}"
                                                 Padding="8,4" FontSize="11" Cursor="Hand"
-                                                Background="#F1F5F9" BorderBrush="#E2E8F0" BorderThickness="1"
-                                                Foreground="#475569" Margin="0,0,12,0"
+                                                Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                                Foreground="{StaticResource TextBrush}" Margin="0,0,12,0"
                                                 ToolTip="Gruppenfilter aufheben, alle Spiele der Runde anzeigen">
                                             ✕ Filter aufheben
                                         </Button>
-                                        <TextBlock FontSize="14" FontWeight="Bold" Foreground="#1E293B"
+                                        <TextBlock FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextStrongBrush}"
                                                    VerticalAlignment="Center" Margin="0,0,16,0">
                                             <Run Text="Gruppe " />
                                             <Run Text="{Binding AusgewaehlteGruppe.GruppenNummer}" />
@@ -440,7 +440,7 @@
 
                             <!-- Spielliste der fokussierten Gruppe -->
                             <TextBlock DockPanel.Dock="Top"
-                                       Text="SPIELE" FontSize="11" FontWeight="Bold" Foreground="#94A3B8"
+                                       Text="SPIELE" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
                                        Margin="12,10,8,4" />
                             <ListView x:Name="FokusSpielListView"
                                       ItemsSource="{Binding FokusSpiele}"
@@ -455,14 +455,14 @@
                                         <GridViewColumn Header="ST" Width="44">
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                                    <TextBlock Text="{Binding SpieltagAnzeige}" FontSize="12" Foreground="#64748B" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding SpieltagAnzeige}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center" />
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>
                                         </GridViewColumn>
                                         <GridViewColumn Header="Nr" Width="36">
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                                    <TextBlock Text="{Binding Spielnummer}" FontSize="12" Foreground="#94A3B8" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Spielnummer}" FontSize="12" Foreground="{StaticResource TextSubtleBrush}" HorizontalAlignment="Center" />
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>
                                         </GridViewColumn>
@@ -481,16 +481,16 @@
                                                                    FontSize="14" FontWeight="Bold" FontFamily="Consolas">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">
-                                                                    <Setter Property="Foreground" Value="#94A3B8" />
+                                                                    <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding HatErgebnis}" Value="True">
-                                                                            <Setter Property="Foreground" Value="#1E293B" />
+                                                                            <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
                                                             </TextBlock.Style>
                                                         </TextBlock>
-                                                        <TextBlock Text="{Binding ErgebnisDetail}" FontSize="10" Foreground="#94A3B8" Margin="4,3,0,0" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding ErgebnisDetail}" FontSize="10" Foreground="{StaticResource TextSubtleBrush}" Margin="4,3,0,0" VerticalAlignment="Center" />
                                                     </StackPanel>
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>
@@ -532,8 +532,8 @@
                                         </Setter>
                                         <Style.Triggers>
                                             <Trigger Property="IsSelected" Value="True">
-                                                <Setter Property="Background" Value="#EFF6FF" />
-                                                <Setter Property="Foreground" Value="#1E40AF" />
+                                                <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                                <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
                                             </Trigger>
                                         </Style.Triggers>
                                     </Style>

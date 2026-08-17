@@ -7,8 +7,8 @@
 
             <!-- Seitentitel -->
             <TextBlock Text="Import / Export" FontSize="22" FontWeight="Bold"
-                       Foreground="#1E293B" Margin="0,0,0,4" />
-            <TextBlock FontSize="13" Foreground="#64748B" Margin="0,0,0,28"
+                       Foreground="{StaticResource TextStrongBrush}" Margin="0,0,0,4" />
+            <TextBlock FontSize="13" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,28"
                        TextWrapping="Wrap">
                 Mannschaften und Turnierdaten importieren oder exportieren.
                 Ribbon: <Run FontWeight="SemiBold">Neu</Run> = Import,
@@ -16,42 +16,42 @@
             </TextBlock>
 
             <!-- Lade-Indikator -->
-            <Border Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
-                    CornerRadius="4" Padding="12,8" Margin="0,0,0,16"
+            <Border Background="{StaticResource AccentSoftBrush}" BorderBrush="{StaticResource AccentSoftBorderBrush}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius4}" Padding="12,8" Margin="0,0,0,16"
                     Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}">
-                <TextBlock Text="Verarbeite…" Foreground="#1D4ED8" FontSize="13" />
+                <TextBlock Text="Verarbeite…" Foreground="{StaticResource AccentStrongBrush}" FontSize="13" />
             </Border>
 
             <!-- Fehlermeldung -->
-            <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1"
-                    CornerRadius="4" Padding="12,8" Margin="0,0,0,8"
+            <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius4}" Padding="12,8" Margin="0,0,0,8"
                     Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                <TextBlock Text="{Binding Fehlermeldung}" Foreground="#DC2626"
+                <TextBlock Text="{Binding Fehlermeldung}" Foreground="{StaticResource ErrorBrush}"
                            FontSize="13" TextWrapping="Wrap" />
             </Border>
 
             <!-- Import-Detail (Fehler-Zeilen) -->
             <Border Background="#FFF7ED" BorderBrush="#FED7AA" BorderThickness="1"
-                    CornerRadius="4" Padding="12,8" Margin="0,0,0,8"
+                    CornerRadius="{StaticResource Radius4}" Padding="12,8" Margin="0,0,0,8"
                     Visibility="{Binding ImportDetail, Converter={StaticResource NullToCollapsed}}">
                 <TextBlock Text="{Binding ImportDetail}" Foreground="#92400E"
                            FontSize="12" TextWrapping="Wrap" FontFamily="Consolas" />
             </Border>
 
             <!-- Statusmeldung -->
-            <Border Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
-                    CornerRadius="4" Padding="12,8" Margin="0,0,0,20"
+            <Border Background="{StaticResource SuccessSoftBrush}" BorderBrush="#BBF7D0" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius4}" Padding="12,8" Margin="0,0,0,20"
                     Visibility="{Binding StatusMeldung, Converter={StaticResource NullToCollapsed}}">
-                <TextBlock Text="{Binding StatusMeldung}" Foreground="#166534"
+                <TextBlock Text="{Binding StatusMeldung}" Foreground="{StaticResource SuccessBrush}"
                            FontSize="13" TextWrapping="Wrap" />
             </Border>
 
             <!-- ── Karte: Import ── -->
-            <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                    CornerRadius="6" Padding="20,16" Margin="0,0,0,16">
+            <Border Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius6}" Padding="20,16" Margin="0,0,0,16">
                 <StackPanel>
                     <TextBlock Text="IMPORT" FontSize="11" FontWeight="Bold"
-                               Foreground="#94A3B8" Margin="0,0,0,12" />
+                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,12" />
 
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -62,14 +62,14 @@
                         <!-- Icon -->
                         <TextBlock Grid.Column="0" Text="&#xE896;"
                                    FontFamily="Segoe MDL2 Assets" FontSize="28"
-                                   Foreground="#3B82F6" VerticalAlignment="Center"
+                                   Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"
                                    Margin="0,0,16,0" />
 
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Mannschaften importieren (CSV)"
                                        FontSize="14" FontWeight="SemiBold"
-                                       Foreground="#1E293B" Margin="0,0,0,4" />
-                            <TextBlock FontSize="12" Foreground="#64748B" TextWrapping="Wrap"
+                                       Foreground="{StaticResource TextStrongBrush}" Margin="0,0,0,4" />
+                            <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"
                                        Margin="0,0,0,10">
                                 CSV-Datei mit Mannschaftsdaten einlesen
                                 (Name;Kurzname;Mannschaftsart;LandFifaCode;Ratings…).
@@ -78,7 +78,7 @@
                             <Button Content="Datei auswählen und importieren…"
                                     Command="{Binding NeuBefehl}"
                                     HorizontalAlignment="Left" Padding="12,6" FontSize="13"
-                                    Background="#3B82F6" Foreground="White"
+                                    Background="{StaticResource AccentBrush}" Foreground="White"
                                     BorderThickness="0" Cursor="Hand" />
                         </StackPanel>
                     </Grid>
@@ -86,11 +86,11 @@
             </Border>
 
             <!-- ── Karte: Export Stammdaten ── -->
-            <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                    CornerRadius="6" Padding="20,16" Margin="0,0,0,16">
+            <Border Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius6}" Padding="20,16" Margin="0,0,0,16">
                 <StackPanel>
                     <TextBlock Text="EXPORT — STAMMDATEN" FontSize="11" FontWeight="Bold"
-                               Foreground="#94A3B8" Margin="0,0,0,12" />
+                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,12" />
 
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -106,8 +106,8 @@
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Mannschaften exportieren (CSV)"
                                        FontSize="14" FontWeight="SemiBold"
-                                       Foreground="#1E293B" Margin="0,0,0,4" />
-                            <TextBlock FontSize="12" Foreground="#64748B" TextWrapping="Wrap"
+                                       Foreground="{StaticResource TextStrongBrush}" Margin="0,0,0,4" />
+                            <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"
                                        Margin="0,0,0,10">
                                 Alle Mannschaften inkl. Ratings als CSV-Datei speichern.
                                 Entspricht dem Ribbon-Befehl <Run FontWeight="SemiBold">Speichern</Run>.
@@ -123,16 +123,16 @@
             </Border>
 
             <!-- ── Karte: Export Turnierdaten ── -->
-            <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                    CornerRadius="6" Padding="20,16" Margin="0,0,0,16">
+            <Border Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius6}" Padding="20,16" Margin="0,0,0,16">
                 <StackPanel>
                     <TextBlock Text="EXPORT — TURNIERDATEN" FontSize="11" FontWeight="Bold"
-                               Foreground="#94A3B8" Margin="0,0,0,12" />
+                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,12" />
 
                     <!-- Turnier-Auswahl -->
                     <StackPanel Margin="0,0,0,14">
                         <TextBlock Text="Turnier auswählen:" FontSize="12"
-                                   Foreground="#475569" Margin="0,0,0,4" />
+                                   Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
                         <ComboBox ItemsSource="{Binding Instanzen}"
                                   SelectedItem="{Binding AusgewaehlteInstanz}"
                                   DisplayMemberPath="Name"
@@ -144,38 +144,38 @@
                     <StackPanel Orientation="Horizontal">
 
                         <!-- Spielplan CSV -->
-                        <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
-                                CornerRadius="4" Padding="16,12" Margin="0,0,12,0" Width="210">
+                        <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                CornerRadius="{StaticResource Radius4}" Padding="16,12" Margin="0,0,12,0" Width="210">
                             <StackPanel>
                                 <TextBlock Text="&#xE898;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="20" Foreground="#F59E0B"
+                                           FontSize="20" Foreground="{StaticResource WarningBrush}"
                                            Margin="0,0,0,6" />
                                 <TextBlock Text="Spielplan (CSV)" FontSize="13"
-                                           FontWeight="SemiBold" Foreground="#1E293B"
+                                           FontWeight="SemiBold" Foreground="{StaticResource TextStrongBrush}"
                                            Margin="0,0,0,4" />
                                 <TextBlock Text="Alle Spiele mit Ergebnissen"
-                                           FontSize="11" Foreground="#64748B"
+                                           FontSize="11" Foreground="{StaticResource TextMutedBrush}"
                                            TextWrapping="Wrap" Margin="0,0,0,10" />
                                 <Button Content="Exportieren…"
                                         Command="{Binding SpielplanExportierenBefehl}"
                                         HorizontalAlignment="Left" Padding="10,5" FontSize="12"
-                                        Background="#F59E0B" Foreground="White"
+                                        Background="{StaticResource WarningBrush}" Foreground="White"
                                         BorderThickness="0" Cursor="Hand" />
                             </StackPanel>
                         </Border>
 
                         <!-- Turnier JSON -->
-                        <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
-                                CornerRadius="4" Padding="16,12" Width="210">
+                        <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                CornerRadius="{StaticResource Radius4}" Padding="16,12" Width="210">
                             <StackPanel>
                                 <TextBlock Text="&#xE898;" FontFamily="Segoe MDL2 Assets"
                                            FontSize="20" Foreground="#8B5CF6"
                                            Margin="0,0,0,6" />
                                 <TextBlock Text="Turnierdaten (JSON)" FontSize="13"
-                                           FontWeight="SemiBold" Foreground="#1E293B"
+                                           FontWeight="SemiBold" Foreground="{StaticResource TextStrongBrush}"
                                            Margin="0,0,0,4" />
                                 <TextBlock Text="Vollständige Turnierdaten mit Runden"
-                                           FontSize="11" Foreground="#64748B"
+                                           FontSize="11" Foreground="{StaticResource TextMutedBrush}"
                                            TextWrapping="Wrap" Margin="0,0,0,10" />
                                 <Button Content="Exportieren…"
                                         Command="{Binding TurnierJsonExportierenBefehl}"
