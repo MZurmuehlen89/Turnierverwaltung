@@ -27,10 +27,59 @@ public class SeedDatenService
             _logger.LogInformation("Seed-Daten bereits vorhanden – Basis-Seed übersprungen.");
         }
 
+        await LaenderNachruesten(cancellationToken);
+        await MannschaftenNachruesten(cancellationToken);
         await RegelwerkeNachruesten(cancellationToken);
         await VorlagenRundenNachruesten(cancellationToken);
         await VorlagenRundenRegelwerkeNachruesten(cancellationToken);
         await TurnierVorlagenNachruesten(cancellationToken);
+    }
+
+    private async Task LaenderNachruesten(CancellationToken ct)
+    {
+        var verbaendeLookup = await _context.Verbaende
+            .ToDictionaryAsync(v => v.Kurzname, v => v.Id, ct);
+
+        var vorhandeneCodes = await _context.Laender
+            .Select(l => l.FifaCode)
+            .ToHashSetAsync(ct);
+
+        var alleLaender = LaenderSeedDaten.Erstellen(verbaendeLookup);
+        var neue = alleLaender.Where(l => !vorhandeneCodes.Contains(l.FifaCode)).ToList();
+
+        if (neue.Count > 0)
+        {
+            _context.Laender.AddRange(neue);
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("{Anzahl} Länder nachgerüstet.", neue.Count);
+        }
+    }
+
+    private async Task MannschaftenNachruesten(CancellationToken ct)
+    {
+        var laender = await _context.Laender.ToListAsync(ct);
+        var laenderLookup = laender.ToDictionary(l => l.FifaCode, l => l.Id);
+
+        var sollMannschaften = NationalmannschaftenSeedDaten.Erstellen(laender, laenderLookup)
+            .Concat(VereinsmannschaftenSeedDaten.Erstellen(laenderLookup))
+            .ToList();
+
+        var vorhandeneSchluessel = (await _context.Mannschaften
+                .Select(m => new { m.Kurzname, m.LandId })
+                .ToListAsync(ct))
+            .Select(m => (m.Kurzname, m.LandId))
+            .ToHashSet();
+
+        var neue = sollMannschaften
+            .Where(m => !vorhandeneSchluessel.Contains((m.Kurzname, m.LandId)))
+            .ToList();
+
+        if (neue.Count > 0)
+        {
+            _context.Mannschaften.AddRange(neue);
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("{Anzahl} Mannschaften nachgerüstet.", neue.Count);
+        }
     }
 
     private async Task RegelwerkeNachruesten(CancellationToken ct)
