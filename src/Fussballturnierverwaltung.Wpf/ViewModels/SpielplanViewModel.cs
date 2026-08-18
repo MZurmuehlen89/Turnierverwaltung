@@ -61,10 +61,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private Dictionary<int, int> _teamGruppeMap = [];
     private List<VerfahrenArt> _erlaubteVerfahren = [];
 
-    // Spiel/Runde, dessen Ergebnis aktuell im Formular steht (für Dirty-Check beim Spielwechsel)
+    // Spiel/Runde, dessen Ergebnis aktuell im Formular steht (für Dirty-Check beim Spiel-/Rundenwechsel)
     private int? _formularSpielId;
     private int? _formularRundeId;
     private int  _spielWechselUnterdrueckt;
+    private int  _rundeWechselUnterdrueckt;
 
     private static readonly HashSet<string> _formFelder =
     [
@@ -452,7 +453,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 // Kein fire-and-forget hier — Laden erfolgt sequenziell via LadeInstanzAsync()
                 break;
             case nameof(AusgewaehlteRunde):
-                _ = BeiRundeAenderungAsync();
+                _ = RundeWechselAsync();
                 break;
             case nameof(AusgewaehlteSpiel):
                 _ = SpielWechselAsync();
@@ -490,9 +491,25 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         Runden.Clear();
         Spiele.Clear();
-        AusgewaehlteRunde  = null;
         AusgewaehlteSpiel  = null;
         FormAktiv          = false;
+
+        // Instanzwechsel bleibt bewusst außerhalb des Dirty-Check-Scopes von RundeWechselAsync (Issue #93
+        // behandelt nur den Rundenwechsel, analog zu #79s Spielwechsel-Scope) — außerdem ist Runden hier
+        // bereits geleert, ein Cancel-Revert auf die alte Runde liefe sonst ins Leere. Die Seiteneffekte
+        // von BeiRundeAenderungAsync (Zurücksetzen von RankingKriterien/GruppenTabellen/Turnierbaum-Fokus)
+        // müssen trotzdem weiterhin laufen, daher hier explizit awaitet statt implizit über den
+        // Property-Change-Hook.
+        _rundeWechselUnterdrueckt++;
+        try
+        {
+            AusgewaehlteRunde = null;
+        }
+        finally
+        {
+            _rundeWechselUnterdrueckt--;
+        }
+        await BeiRundeAenderungAsync();
 
         if (AusgewaehlteInstanz is null) return;
 
@@ -501,6 +518,100 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         foreach (var r in instanz.Runden.OrderBy(r => r.Reihenfolge))
             Runden.Add(r);
+    }
+
+    private async Task RundeWechselAsync()
+    {
+        // Programmatische Korrektur der Auswahl (siehe unten) — die aufrufende Stelle
+        // steuert selbst, ob/wie der Rundenwechsel nachvollzogen wird.
+        if (_rundeWechselUnterdrueckt > 0) return;
+
+        var neueRundeId = AusgewaehlteRunde?.Id;
+
+        if (IsDirty &&
+            _formularRundeId is { } vorherigeRundeId &&
+            vorherigeRundeId != neueRundeId)
+        {
+            var vorherigeSpielId = _formularSpielId;
+
+            var ergebnis = MessageBox.Show(
+                "Das aktuelle Spielergebnis wurde geändert, aber nicht gespeichert.\nÄnderungen speichern?",
+                "Ungespeicherte Änderungen",
+                MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
+
+            // Auswahl erst nach Abschluss des aktuellen SelectionChanged-Zyklus setzen,
+            // sonst übernimmt die WPF-ListBox die Änderung nicht ins sichtbare Highlight.
+            await Task.Yield();
+
+            if (ergebnis == MessageBoxResult.Cancel)
+            {
+                _rundeWechselUnterdrueckt++;
+                try
+                {
+                    AusgewaehlteRunde = Runden.FirstOrDefault(r => r.Id == vorherigeRundeId);
+                }
+                finally
+                {
+                    _rundeWechselUnterdrueckt--;
+                }
+
+                // Auswahl zurückgesetzt, Formular NICHT neu geladen — die ungespeicherte
+                // Eingabe des Nutzers bleibt unverändert stehen.
+                return;
+            }
+
+            if (ergebnis == MessageBoxResult.Yes && vorherigeSpielId is { } spielId)
+            {
+                var vorherigeRunde = Runden.FirstOrDefault(r => r.Id == vorherigeRundeId);
+                bool gespeichert = vorherigeRunde is not null &&
+                    await ErgebnisSpeichernBeiRundenwechselAsync(spielId, vorherigeRunde);
+
+                if (!gespeichert)
+                {
+                    _rundeWechselUnterdrueckt++;
+                    try
+                    {
+                        AusgewaehlteRunde = vorherigeRunde;
+                    }
+                    finally
+                    {
+                        _rundeWechselUnterdrueckt--;
+                    }
+
+                    // Fehlermeldung bleibt sichtbar, Formular unverändert (ungespeicherte Eingabe erhalten).
+                    return;
+                }
+            }
+
+            IsDirty = false;
+        }
+
+        await BeiRundeAenderungAsync();
+    }
+
+    // Analog zu ErgebnisSpeichernAsync, aber ohne dessen UI-Refreshs (Spielliste/Gruppentabellen/
+    // Fortschrittsanzeige/Turnierbaum-Fokus) für die verlassene alte Runde — AusgewaehlteRunde zeigt
+    // zum Aufrufzeitpunkt bereits auf die neue Zielrunde (RundeWechselAsync, Fall "Ja speichern"),
+    // ein Refresh der schon verlassenen Ansicht wäre verschwendete Arbeit, da BeiRundeAenderungAsync
+    // im Anschluss ohnehin für die neue Runde neu lädt. Nimmt die Runde daher explizit als Parameter
+    // statt sich wie ErgebnisSpeichernAsync auf AusgewaehlteRunde zu verlassen.
+    private async Task<bool> ErgebnisSpeichernBeiRundenwechselAsync(int spielId, TurnierRunde runde)
+    {
+        Fehlermeldung = null;
+        try
+        {
+            await _spielService.ErgebnisErfassenAsync(spielId, BaueEingabe());
+
+            // Siehe ErgebnisSpeichernAsync: kann eine Finale-Runde entscheidungsreif machen.
+            await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(runde.TurnierInstanzId);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+            return false;
+        }
     }
 
     private async Task BeiRundeAenderungAsync()
