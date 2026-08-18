@@ -1145,12 +1145,31 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     /// <summary>Generiert den Spielplan automatisch, sobald die Auslosung abgeschlossen ist - der manuelle
     /// "Neu generieren"-Klick im Spielplan entfällt dadurch (Issue #19). Erwartet, dass _auslosungDetail
-    /// bereits per LadeDetailAsync neu geladen wurde (inkl. Ergebnisse).</summary>
+    /// bereits per LadeDetailAsync neu geladen wurde (inkl. Ergebnisse).
+    /// Prüft zuerst auf bereits vorhandene Spiele (z.B. aus einer früheren, inzwischen gelöschten/neu
+    /// angelegten Auslosung derselben Runde) — GenerierenAusAuslosungAsync fügt sonst nur neue Spiele
+    /// hinzu, statt den bestehenden Spielplan zu ersetzen (Issue, beim manuellen Test von #88 gefunden;
+    /// Bestätigungsdialog analog SpielplanViewModel.SpielplanNeuGenerierenAsync).</summary>
     private async Task SpielplanAutomatischGenerierenAsync()
     {
         if (_auslosungDetail is null || _auslosungDetail.Status != AuslosungsStatus.Abgeschlossen) return;
-        await _spielplanService.GenerierenAusAuslosungAsync(
-            _auslosungDetail.TurnierRundeId, [.. _auslosungDetail.Ergebnisse]);
+
+        var rundeId = _auslosungDetail.TurnierRundeId;
+        var vorhandeneSpiele = await _spielplanService.SpielplanAbrufenAsync(rundeId);
+        if (vorhandeneSpiele.Count > 0)
+        {
+            var antwort = MessageBox.Show(
+                $"Die Runde hat bereits {vorhandeneSpiele.Count} Spiel(e) (z.B. aus einer früheren Auslosung). " +
+                "Soll der bestehende Spielplan gelöscht und aus dieser Auslosung neu generiert werden?",
+                "Spielplan neu generieren",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (antwort != MessageBoxResult.Yes) return;
+
+            await _spielplanService.LoeschenAsync(rundeId);
+        }
+
+        await _spielplanService.GenerierenAusAuslosungAsync(rundeId, [.. _auslosungDetail.Ergebnisse]);
     }
 
     // ── Öffentliche Methoden: Manuelle Slot-Zuweisung ────────────────────────
@@ -1455,11 +1474,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             // Determine round order to decide real-teams vs placeholders
             var aktuelleRunde = InstanzRunden.FirstOrDefault(r => r.Id == detail.TurnierRundeId);
-            var vorherigeRunde = aktuelleRunde is not null
-                ? InstanzRunden.Where(r => r.Reihenfolge < aktuelleRunde.Reihenfolge)
-                               .OrderByDescending(r => r.Reihenfolge)
-                               .FirstOrDefault()
-                : null;
+            var vorherigeRunde = aktuelleRunde is not null ? VorgaengerrundeErmitteln(aktuelleRunde) : null;
 
             IReadOnlyList<TeilnehmerAnzeige> alleTeilnehmer;
             if (vorherigeRunde is null)
@@ -1590,6 +1605,20 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
     }
 
+    /// <summary>Ermittelt die für Sieger/Verlierer-Platzhaltervorschläge relevante Vorgängerrunde
+    /// (Issue #198): die naive "nächstniedrigere Reihenfolge" reicht nicht, da Finale und
+    /// SpielUmPlatzDrei stets parallele Geschwisterrunden desselben Halbfinales sind, nicht
+    /// sequenziell verkettet — ohne Ausschluss würde die Finale-Auslosung fälschlich "Spiel um
+    /// Platz 3" als Vorgänger wählen, weil dessen Reihenfolge dazwischen liegt. Analog zum bereits
+    /// bestehenden Filter in SpielplanService.QualifikantenAusFinaleHeuristikAsync (dort auf
+    /// Rundenart.KoRunde eingeschränkt).</summary>
+    private TurnierRunde? VorgaengerrundeErmitteln(TurnierRunde aktuelleRunde) =>
+        InstanzRunden
+            .Where(r => r.Reihenfolge < aktuelleRunde.Reihenfolge
+                     && r.Rundenart is not (Rundenart.Finale or Rundenart.SpielUmPlatzDrei))
+            .OrderByDescending(r => r.Reihenfolge)
+            .FirstOrDefault();
+
     private static IReadOnlyList<TeilnehmerAnzeige> PlatzhalterGenerieren(
         TurnierRunde aktuelleRunde, TurnierRunde vorherigeRunde)
     {
@@ -1640,11 +1669,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (ersterTopf is null) return;
 
         var aktuelleRunde  = InstanzRunden.FirstOrDefault(r => r.Id == runde.Id);
-        var vorherigeRunde = aktuelleRunde is not null
-            ? InstanzRunden.Where(r => r.Reihenfolge < aktuelleRunde.Reihenfolge)
-                           .OrderByDescending(r => r.Reihenfolge)
-                           .FirstOrDefault()
-            : null;
+        var vorherigeRunde = aktuelleRunde is not null ? VorgaengerrundeErmitteln(aktuelleRunde) : null;
 
         if (vorherigeRunde is null)
         {
@@ -1783,6 +1808,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task AktualisiereVerbandsQuotenAnzeigeAsync(Auslosung detail)
     {
         if (AusgewaehlteInstanz is null) { VerbandsQuotenAnzeige = []; return; }
+
+        // Verbandsquoten gelten laut Domänen-Annahme nur für die initiale Turnierrunde (Zulassung),
+        // nicht kumulativ für Folgerunden mit eigenem Losvorgang — siehe [[project_verbandsquote_scope]]
+        // und Issue #197 (dort für die eigentliche Validierung in AuslosungService.AusfuehrenAsync bereits
+        // behoben; diese reine Anzeige hier war unabhängig davon noch ungegatet).
+        bool istErsteRunde = InstanzRunden.Count > 0 && InstanzRunden[0].Id == detail.TurnierRundeId;
+        if (!istErsteRunde) { VerbandsQuotenAnzeige = []; return; }
 
         var quoten = await _verbandsQuoteService.AlleNachTurnierInstanzIdAsync(AusgewaehlteInstanz.Id);
         if (quoten.Count == 0) { VerbandsQuotenAnzeige = []; return; }
