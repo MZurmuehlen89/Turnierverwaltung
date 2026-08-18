@@ -848,13 +848,6 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-
-                        <!-- Abschließen -->
-                        <Button Content="Auslosung abschließen"
-                                Command="{Binding ManuelleAuslosungAbschliessenCommand}"
-                                Padding="14,7" FontSize="13" Margin="0,8,0,0"
-                                HorizontalAlignment="Left"
-                                Background="#16A34A" Foreground="White" BorderThickness="0" />
                     </StackPanel>
 
                     <!-- KO/Liga-Paarungs-Ergebnis (ausgeblendet während TV-Modus-Animation) -->

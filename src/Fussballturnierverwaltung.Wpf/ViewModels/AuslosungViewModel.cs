@@ -622,6 +622,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 },
                 new RibbonAktion
                 {
+                    Header = "Auslosung abschließen",
+                    Befehl = ManuelleAuslosungAbschliessenCommand,
+                    IconVektorDatei = "check.xaml",
+                },
+                new RibbonAktion
+                {
                     Header = "Zurücksetzen",
                     Befehl = AuslosungZuruecksetzenCommand,
                     IconGlyph = "",
