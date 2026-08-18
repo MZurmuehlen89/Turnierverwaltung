@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -32,10 +33,13 @@ public class SpielplanServiceTests
         var baumRepo = new TurnierBaumRepository(ctx);
         var uebergangsregelRepo = new UebergangsregelRepository(ctx);
         var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator()]);
+        var auslosungService = new AuslosungService(
+            new AuslosungRepository(ctx), new VerbandsQuoteRepository(ctx), rundeRepo, new AuslosungsValidator(),
+            NullLogger<AuslosungService>.Instance);
         return new SpielplanService(
             rundeRepo, spielRepo, mannschaftRepo, baumRepo, uebergangsregelRepo,
             factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
-            NullLogger<SpielplanService>.Instance);
+            auslosungService, NullLogger<SpielplanService>.Instance);
     }
 
     /// <summary>Legt Regelwerk (mit Entscheidungsverfahren, für KO/Finale Pflicht), Halbfinale- und Finale-Runde
@@ -251,6 +255,41 @@ public class SpielplanServiceTests
         finaleSpiele[0].Id.Should().Be(finaleSpielId);
         var teilnehmer = new[] { finaleSpiele[0].HeimMannschaftId, finaleSpiele[0].AuswaertsMannschaftId };
         teilnehmer.Should().BeEquivalentTo(new int?[] { 1, 3 }, "die ursprüngliche, bereits gespielte Paarung bleibt erhalten");
+    }
+
+    [Fact]
+    public async Task FinaleAutomatischGenerierenWennBereitAsync_GeneriertSpielUmPlatzDreiMitVerlierern_NichtSiegern()
+    {
+        // Regressionstest für Issue #199: die Heuristik lieferte für JEDE Zielrunde mit zwei
+        // Eingangsteams die Sieger der Vorrunde — "Spiel um Platz 3" muss stattdessen die Verlierer
+        // bekommen.
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
+        var spielUmPlatzDrei = new TurnierRunde
+        {
+            Id = 3, TurnierInstanzId = 1, Name = "Spiel um Platz 3", Reihenfolge = 2,
+            // Reihenfolge bewusst zwischen Halbfinale (1) und Finale, wie in den Turniervorlagen üblich.
+            Rundenart = Rundenart.SpielUmPlatzDrei, EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1,
+            RegelwerkId = 1
+        };
+        ctx.TurnierRunden.Add(spielUmPlatzDrei);
+        ctx.TurnierRunden.First(r => r.Id == finaleRundeId).Reihenfolge = 3;
+        ctx.SaveChanges();
+        HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
+        HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
+        var service = ServiceFuer(ctx);
+
+        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+
+        var finaleSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).ToList();
+        finaleSpiele.Should().HaveCount(1);
+        new[] { finaleSpiele[0].HeimMannschaftId, finaleSpiele[0].AuswaertsMannschaftId }
+            .Should().BeEquivalentTo(new int?[] { 1, 3 }, "Finale bekommt die Sieger (Team A, Team C)");
+
+        var platzDreiSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == spielUmPlatzDrei.Id).ToList();
+        platzDreiSpiele.Should().HaveCount(1);
+        new[] { platzDreiSpiele[0].HeimMannschaftId, platzDreiSpiele[0].AuswaertsMannschaftId }
+            .Should().BeEquivalentTo(new int?[] { 2, 4 }, "Spiel um Platz 3 bekommt die Verlierer (Team B, Team D), nicht die Sieger");
     }
 
     // ── Tests: automatische Generierung aus abgeschlossener Auslosung (Issue #19) ─
@@ -659,5 +698,268 @@ public class SpielplanServiceTests
         await service.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         ctx.Spiele.Where(s => s.TurnierRundeId == zielRundeId).Should().BeEmpty();
+    }
+
+    // ── Tests: Kaskaden-Reset für über Auslosung aufgelöste Folgerunden (Issue #88) ─
+
+    private static async Task<Auslosung> AuslosungMitPlatzhalternAnlegen(
+        TurnierverwaltungDbContext ctx, int rundeId,
+        params (string? Heim, string? Auswaerts)[] paarungen)
+    {
+        var auslosung = new Auslosung
+        {
+            TurnierInstanzId = 1, TurnierRundeId = rundeId, Name = "Auslosung",
+            Auslosungsart = Auslosungsart.Manuell, Status = AuslosungsStatus.Abgeschlossen
+        };
+        ctx.Auslosungen.Add(auslosung);
+        await ctx.SaveChangesAsync();
+
+        int nr = 1;
+        foreach (var (heim, auswaerts) in paarungen)
+            ctx.AuslosungsErgebnisse.Add(new AuslosungsErgebnis
+            {
+                AuslosungId = auslosung.Id, PaarungsNummer = nr++,
+                HeimPlatzhalterName = heim, AuswaertsPlatzhalterName = auswaerts
+            });
+        await ctx.SaveChangesAsync();
+        return auslosung;
+    }
+
+    [Fact]
+    public async Task PlatzhalterKaskadePlanenAsync_ErkenntStaleKoSpiel_WennGruppenphaseErgebnisSichAendert()
+    {
+        await using var ctx = NeuerContext();
+        GruppenphaseUndKoSetupAnlegen(ctx, out _, out int koRundeId);
+        var auslosung = await AuslosungMitPlatzhalternAnlegen(
+            ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"));
+        var service = ServiceFuer(ctx);
+        await service.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await service.PlatzhalterAufloesenAsync(koRundeId);
+
+        var koSpielVorher = ctx.Spiele.First(s => s.TurnierRundeId == koRundeId);
+        koSpielVorher.HeimMannschaftId.Should().Be(1, "Vorbedingung: Sieger Gruppe A = Team A");
+
+        // Gruppenspiel neu entschieden: Team B gewinnt Gruppe A statt Team A
+        var gruppenErgebnis = ctx.SpielErgebnisse.First(e => e.SpielId == 1);
+        gruppenErgebnis.HeimToreRegulaer = 0;
+        gruppenErgebnis.AuswaertsToreRegulaer = 1;
+        await ctx.SaveChangesAsync();
+
+        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+
+        plan.HatAuswirkungen.Should().BeTrue();
+        plan.Schritte.Should().ContainSingle(s => s.RundeId == koRundeId);
+    }
+
+    [Fact]
+    public async Task PlatzhalterKaskadeAusfuehrenAsync_GeneriertKoRundeMitNeuemGruppensieger()
+    {
+        await using var ctx = NeuerContext();
+        GruppenphaseUndKoSetupAnlegen(ctx, out _, out int koRundeId);
+        var auslosung = await AuslosungMitPlatzhalternAnlegen(
+            ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"));
+        var service = ServiceFuer(ctx);
+        await service.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await service.PlatzhalterAufloesenAsync(koRundeId);
+
+        var gruppenErgebnis = ctx.SpielErgebnisse.First(e => e.SpielId == 1);
+        gruppenErgebnis.HeimToreRegulaer = 0;
+        gruppenErgebnis.AuswaertsToreRegulaer = 1;
+        await ctx.SaveChangesAsync();
+
+        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        await service.PlatzhalterKaskadeAusfuehrenAsync(plan);
+
+        var koSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId).ToList();
+        koSpiele.Should().HaveCount(1);
+        koSpiele[0].HeimMannschaftId.Should().Be(2, "Sieger Gruppe A ist jetzt Team B");
+        koSpiele[0].AuswaertsMannschaftId.Should().Be(4, "2. Gruppe B bleibt unverändert Team D");
+    }
+
+    [Fact]
+    public async Task PlatzhalterKaskade_LoeschtBereitsGespieltesFinaleUndGeneriertNeu_WennHalbfinaleSichAendert()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
+        HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
+        HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
+        var auslosung = await AuslosungMitPlatzhalternAnlegen(
+            ctx, finaleRundeId, ("Sieger HF 1", "Sieger HF 2"));
+        var service = ServiceFuer(ctx);
+        await service.GenerierenAusAuslosungAsync(finaleRundeId, [.. auslosung.Ergebnisse]);
+        await service.PlatzhalterAufloesenAsync(finaleRundeId);
+
+        var finaleSpielId = ctx.Spiele.First(s => s.TurnierRundeId == finaleRundeId).Id;
+        ctx.Spiele.First(s => s.Id == finaleSpielId).Status = SpielStatus.Abgeschlossen;
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+        {
+            Id = finaleSpielId, SpielId = finaleSpielId,
+            HeimToreRegulaer = 2, AuswaertsToreRegulaer = 1,
+            EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = 1
+        });
+        await ctx.SaveChangesAsync();
+
+        // Halbfinalspiel 1 nachträglich anders entschieden
+        var hf1 = ctx.SpielErgebnisse.First(e => e.SpielId == 1);
+        hf1.SiegerMannschaftId = 2;
+        hf1.HeimToreRegulaer = 0;
+        hf1.AuswaertsToreRegulaer = 1;
+        await ctx.SaveChangesAsync();
+
+        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+
+        plan.HatAuswirkungen.Should().BeTrue();
+        var schritt = plan.Schritte.Should().ContainSingle(s => s.RundeId == finaleRundeId).Subject
+            .Should().BeOfType<KaskadenSpielSchritt>().Subject;
+        schritt.SpielId.Should().Be(finaleSpielId);
+        schritt.HatteErgebnis.Should().BeTrue(
+            "das bereits erfasste Finale-Ergebnis basiert auf einer jetzt ungültigen Halbfinale-Paarung");
+
+        await service.PlatzhalterKaskadeAusfuehrenAsync(plan);
+
+        var finaleSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).ToList();
+        finaleSpiele.Should().HaveCount(1);
+        finaleSpiele[0].Id.Should().Be(finaleSpielId, "dasselbe Spiel wird korrigiert statt gelöscht+neu angelegt");
+        ctx.SpielErgebnisse.Any(e => e.SpielId == finaleSpielId).Should().BeFalse("das ungültige Ergebnis wurde entfernt");
+        finaleSpiele[0].HeimMannschaftId.Should().Be(2, "Sieger HF 1 ist jetzt Team B");
+    }
+
+    [Fact]
+    public async Task PlatzhalterKaskade_RuehrtUnbetroffenesSpielDerselbenRundeNichtAn()
+    {
+        // Regressionstest: Eine Runde mit zwei unabhängigen Platzhalter-Paarungen (z.B. zwei
+        // Halbfinal-Spiele aus vier verschiedenen Gruppen) darf beim Zurücksetzen einer einzelnen
+        // Quell-Gruppe nur das tatsächlich betroffene Spiel anfassen — das andere, davon unabhängige
+        // Spiel muss inklusive seines bereits erfassten Ergebnisses unverändert bleiben.
+        await using var ctx = NeuerContext();
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        var gruppenphase = new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Reihenfolge = 1,
+            Rundenart = Rundenart.Gruppenphase, EingangsMannschaftsanzahl = 8, AusgangsMannschaftsanzahl = 8,
+            RegelwerkId = 1, GruppenAnzahl = 4
+        };
+        var hf = new TurnierRunde
+        {
+            Id = 2, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 2,
+            Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2,
+            RegelwerkId = 1
+        };
+        ctx.TurnierRunden.AddRange(gruppenphase, hf);
+        ctx.Mannschaften.AddRange(Enumerable.Range(1, 8)
+            .Select(i => new Mannschaft { Id = i, Name = $"Team {i}", Kurzname = $"T{i}", LandId = 1 }));
+
+        // Gruppe 1: Team1/Team2 (Team1 gewinnt). Gruppe 2: Team3/Team4 (Team3 gewinnt).
+        // Gruppe 3: Team5/Team6 (Team5 gewinnt). Gruppe 4: Team7/Team8 (Team7 gewinnt).
+        for (int g = 0; g < 4; g++)
+        {
+            int heim = g * 2 + 1, ausw = g * 2 + 2;
+            ctx.Spiele.Add(new Spiel
+            {
+                Id = heim, TurnierInstanzId = 1, TurnierRundeId = gruppenphase.Id, Spielnummer = heim,
+                HeimMannschaftId = heim, AuswaertsMannschaftId = ausw, Status = SpielStatus.Abgeschlossen
+            });
+            ctx.SpielErgebnisse.Add(new SpielErgebnis
+            {
+                Id = heim, SpielId = heim, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0,
+                EntscheidungArt = EntscheidungArt.RegulaereSpielzeit
+            });
+        }
+        await ctx.SaveChangesAsync();
+
+        var auslosung = await AuslosungMitPlatzhalternAnlegen(
+            ctx, hf.Id,
+            ("Sieger Gruppe 1", "2. Gruppe 2"),   // HF1: Team1 vs Team4
+            ("Sieger Gruppe 3", "2. Gruppe 4"));  // HF2: Team5 vs Team8
+        var service = ServiceFuer(ctx);
+        await service.GenerierenAusAuslosungAsync(hf.Id, [.. auslosung.Ergebnisse]);
+        await service.PlatzhalterAufloesenAsync(hf.Id);
+
+        var hfSpieleVorher = ctx.Spiele.Where(s => s.TurnierRundeId == hf.Id).OrderBy(s => s.Spielnummer).ToList();
+        hfSpieleVorher.Should().HaveCount(2);
+        var hf1Id = hfSpieleVorher[0].Id;
+        var hf2Id = hfSpieleVorher[1].Id;
+
+        // Beide Halbfinal-Spiele werden ausgetragen.
+        ctx.Spiele.First(s => s.Id == hf1Id).Status = SpielStatus.Abgeschlossen;
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+        {
+            Id = 100, SpielId = hf1Id, HeimToreRegulaer = 2, AuswaertsToreRegulaer = 0,
+            EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = 1
+        });
+        ctx.Spiele.First(s => s.Id == hf2Id).Status = SpielStatus.Abgeschlossen;
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+        {
+            Id = 101, SpielId = hf2Id, HeimToreRegulaer = 3, AuswaertsToreRegulaer = 1,
+            EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = 5
+        });
+        await ctx.SaveChangesAsync();
+
+        // Nur Gruppe 1 wird neu entschieden (Team2 gewinnt statt Team1) — betrifft ausschließlich HF1.
+        var gruppe1Ergebnis = ctx.SpielErgebnisse.First(e => e.SpielId == 1);
+        gruppe1Ergebnis.HeimToreRegulaer = 0;
+        gruppe1Ergebnis.AuswaertsToreRegulaer = 1;
+        await ctx.SaveChangesAsync();
+
+        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        var spielSchritt = plan.Schritte.Should().ContainSingle().Subject.Should().BeOfType<KaskadenSpielSchritt>().Subject;
+        spielSchritt.SpielId.Should().Be(hf1Id, "nur HF1 hängt von Gruppe 1 ab");
+
+        await service.PlatzhalterKaskadeAusfuehrenAsync(plan);
+
+        var hf1 = ctx.Spiele.First(s => s.Id == hf1Id);
+        hf1.HeimMannschaftId.Should().Be(2, "Sieger Gruppe 1 ist jetzt Team 2");
+        hf1.AuswaertsMannschaftId.Should().Be(4, "2. Gruppe 2 bleibt unverändert Team 4");
+        ctx.SpielErgebnisse.Any(e => e.SpielId == hf1Id).Should().BeFalse("das alte HF1-Ergebnis basierte auf der ungültigen Paarung");
+
+        var hf2 = ctx.Spiele.First(s => s.Id == hf2Id);
+        hf2.HeimMannschaftId.Should().Be(5, "HF2 ist von Gruppe 1 unabhängig und muss unverändert bleiben");
+        hf2.AuswaertsMannschaftId.Should().Be(8);
+        var hf2Ergebnis = ctx.SpielErgebnisse.FirstOrDefault(e => e.SpielId == hf2Id);
+        hf2Ergebnis.Should().NotBeNull("das gültige HF2-Ergebnis darf nicht angefasst werden");
+        hf2Ergebnis!.HeimToreRegulaer.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task PlatzhalterKaskadePlanenAsync_KeineAuswirkung_WennRundeOhneAuslosungGeneriertWurde()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
+        HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
+        HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
+        var service = ServiceFuer(ctx);
+        // Erzeugt das Finale automatisch OHNE Auslosung (Issue #113/#125-Mechanismus)
+        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+
+        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+
+        plan.HatAuswirkungen.Should().BeFalse(
+            "die Finale-Runde wurde ohne Auslosung generiert — Issue #88 deckt nur Auslosungs-basierte Runden ab");
+    }
+
+    [Fact]
+    public async Task PlatzhalterKaskadeAusfuehrenAsync_IstIdempotent_NachAusfuehrungKeineWeiterenAuswirkungen()
+    {
+        await using var ctx = NeuerContext();
+        GruppenphaseUndKoSetupAnlegen(ctx, out _, out int koRundeId);
+        var auslosung = await AuslosungMitPlatzhalternAnlegen(
+            ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"));
+        var service = ServiceFuer(ctx);
+        await service.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await service.PlatzhalterAufloesenAsync(koRundeId);
+
+        var gruppenErgebnis = ctx.SpielErgebnisse.First(e => e.SpielId == 1);
+        gruppenErgebnis.HeimToreRegulaer = 0;
+        gruppenErgebnis.AuswaertsToreRegulaer = 1;
+        await ctx.SaveChangesAsync();
+
+        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        await service.PlatzhalterKaskadeAusfuehrenAsync(plan);
+
+        var planNachAusfuehrung = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+
+        planNachAusfuehrung.HatAuswirkungen.Should().BeFalse();
     }
 }

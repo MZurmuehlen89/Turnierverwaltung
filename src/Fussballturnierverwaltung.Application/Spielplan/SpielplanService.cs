@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
@@ -21,6 +22,7 @@ public class SpielplanService(
     SpielplanGeneratorFactory generatorFactory,
     TurnierValidator turnierValidator,
     TabellenService tabellenService,
+    AuslosungService auslosungService,
     ILogger<SpielplanService> logger)
 {
     /// <summary>
@@ -519,6 +521,136 @@ public class SpielplanService(
         return aufgeloest;
     }
 
+    // ── Kaskaden-Reset für Folgerunden (Issue #88) ─────────────────────────
+
+    /// <summary>
+    /// Ermittelt (reine Leseoperation, keine Schreibzugriffe) auf Spiel-Ebene, welche bereits
+    /// aufgelösten Platzhalter-Zuordnungen nicht mehr zum aktuellen Stand ihrer Quellrunde(n) passen.
+    /// Bewusst pro Spiel statt pro Runde — eine Runde kann mehrere unabhängige Platzhalter-Paarungen
+    /// enthalten (z.B. zwei Halbfinal-Spiele aus zwei verschiedenen Gruppen), von denen nur eine
+    /// betroffen ist; die andere darf inklusive ihres Ergebnisses nicht angefasst werden.
+    /// <paramref name="zusaetzlichIgnorierteSpielIds"/> sind Spiele, deren Ergebnis (real oder nur
+    /// hypothetisch für eine Vorschau) als bereits entfernt gilt. Runden werden in aufsteigender
+    /// <see cref="TurnierRunde.Reihenfolge"/> geprüft — eine Quellrunde hat in diesem Domain-Modell
+    /// immer eine niedrigere Reihenfolge als ihre Zielrunde, ein einziger Durchlauf reicht.
+    /// </summary>
+    public async Task<KaskadenPlan> PlatzhalterKaskadePlanenAsync(
+        int turnierInstanzId, IReadOnlySet<int> zusaetzlichIgnorierteSpielIds, CancellationToken ct = default)
+    {
+        var alleRunden = (await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct))
+            .OrderBy(r => r.Reihenfolge)
+            .ToList();
+
+        var ignoriert = new HashSet<int>(zusaetzlichIgnorierteSpielIds);
+        var schritte  = new List<KaskadenSchritt>();
+
+        foreach (var runde in alleRunden)
+        {
+            var auslosung = await auslosungService.FindenAbgeschlosseneNachRundeAsync(turnierInstanzId, runde.Id, ct);
+            if (auslosung is null) continue;
+
+            // IstFreilos ausgeschlossen: GenerierenAusPlatzhalterPaarungenAsync/
+            // GenerierenAusGruppenMitPlatzhalternAsync erzeugen dafür kein Spiel — ohne denselben
+            // Filter hier würde die positionale Zuordnung unten um ein Freilos verschoben sein.
+            var platzhalterEintraege = auslosung.Ergebnisse
+                .Where(e => !e.IstFreilos && (e.HeimPlatzhalterName is not null || e.AuswaertsPlatzhalterName is not null))
+                .OrderBy(e => e.PaarungsNummer)
+                .ToList();
+            if (platzhalterEintraege.Count == 0) continue;
+
+            var aktuelleSpiele = (await spielRepository.AlleNachRundeAsync(runde.Id, ct))
+                .OrderBy(s => s.Spielnummer)
+                .ToList();
+
+            // Eine Auslosung-basierte Platzhalter-Runde ohne ein einziges Spiel muss komplett neu
+            // generiert werden — z.B. wenn die enge #125-Logik (FinaleAutomatischGenerierenWennBereitAsync)
+            // das einzige, noch nicht gespielte Spiel bereits entfernt hat, weil ihre eigene
+            // (Auslosung-unabhängige) Heuristik die Quelle als nicht mehr entschieden einstuft, aber
+            // mangels erkanntem Nachfolger nicht selbst neu generiert. Kein Ergebnisverlust möglich,
+            // da nichts vorhanden ist.
+            if (aktuelleSpiele.Count == 0)
+            {
+                schritte.Add(new KaskadenRundeNeuGenerierenSchritt(runde.Id, runde.Name));
+                continue;
+            }
+
+            // Positionale Zuordnung Auslosungs-Eintrag <-> aktuelles Spiel — exakt die Reihenfolge, in der
+            // GenerierenAusPlatzhalterPaarungenAsync/GenerierenAusGruppenMitPlatzhalternAsync sie erzeugt haben.
+            for (int i = 0; i < platzhalterEintraege.Count && i < aktuelleSpiele.Count; i++)
+            {
+                var eintrag = platzhalterEintraege[i];
+                var spiel   = aktuelleSpiele[i];
+
+                var sollHeim = eintrag.HeimPlatzhalterName is { } heimName
+                    ? await PlatzhalterNameAufloessenAsync(heimName, runde, alleRunden, ct, ignoriert)
+                    : eintrag.HeimMannschaftId;
+                var sollAusw = eintrag.AuswaertsPlatzhalterName is { } auswName
+                    ? await PlatzhalterNameAufloessenAsync(auswName, runde, alleRunden, ct, ignoriert)
+                    : eintrag.AuswaertsMannschaftId;
+
+                // Nur ein bereits konkret aufgelöster Slot, der nicht mehr zum neu ermittelten Soll-Wert
+                // passt, ist ein Kaskaden-Fall — ein noch nie aufgelöster Platzhalter ist normales,
+                // ausstehendes Auflösen und kein Rücksetz-Fall.
+                bool heimBetroffen = spiel.HeimMannschaftId.HasValue && spiel.HeimMannschaftId != sollHeim;
+                bool auswBetroffen = spiel.AuswaertsMannschaftId.HasValue && spiel.AuswaertsMannschaftId != sollAusw;
+                if (!heimBetroffen && !auswBetroffen) continue;
+
+                bool hatteErgebnis = spiel.Ergebnis is not null;
+                schritte.Add(new KaskadenSpielSchritt(
+                    spiel.Id, runde.Id, runde.Name, hatteErgebnis,
+                    sollHeim, sollAusw, eintrag.HeimPlatzhalterName, eintrag.AuswaertsPlatzhalterName));
+
+                if (hatteErgebnis) ignoriert.Add(spiel.Id);
+            }
+        }
+
+        return new KaskadenPlan(schritte);
+    }
+
+    /// <summary>Führt einen zuvor mit <see cref="PlatzhalterKaskadePlanenAsync"/> berechneten Plan aus.
+    /// Betroffene Einzelspiele werden gezielt korrigiert (Ergebnis ggf. löschen, dann entweder direkt auf
+    /// die neu ermittelten Teams setzen oder — falls noch nicht vollständig auflösbar — auf Platzhalter
+    /// zurücksetzen), ohne andere, nicht betroffene Spiele derselben Runde anzufassen. Nur echt leere
+    /// Runden werden komplett neu aus ihrer Auslosung generiert.</summary>
+    public async Task PlatzhalterKaskadeAusfuehrenAsync(KaskadenPlan plan, CancellationToken ct = default)
+    {
+        foreach (var schritt in plan.Schritte)
+        {
+            switch (schritt)
+            {
+                case KaskadenSpielSchritt spielSchritt:
+                    if (spielSchritt.HatteErgebnis)
+                        await spielRepository.ErgebnisLoeschenAsync(spielSchritt.SpielId, ct);
+
+                    await spielRepository.PlatzhalterKorrigierenAsync(
+                        spielSchritt.SpielId,
+                        spielSchritt.NeuesHeimMannschaftId, spielSchritt.HeimPlatzhalterName,
+                        spielSchritt.NeuesAuswaertsMannschaftId, spielSchritt.AuswaertsPlatzhalterName,
+                        ct);
+
+                    logger.LogInformation(
+                        "Spiel {SpielId} in Runde '{Runde}' im Rahmen der Kaskade korrigiert.",
+                        spielSchritt.SpielId, spielSchritt.RundeName);
+                    break;
+
+                case KaskadenRundeNeuGenerierenSchritt rundeSchritt:
+                    var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(rundeSchritt.RundeId, ct);
+                    if (runde is null) continue;
+
+                    var auslosung = await auslosungService.FindenAbgeschlosseneNachRundeAsync(
+                        runde.TurnierInstanzId, runde.Id, ct);
+                    if (auslosung is null) continue;
+
+                    await GenerierenAusAuslosungAsync(rundeSchritt.RundeId, [.. auslosung.Ergebnisse], ct);
+                    await PlatzhalterAufloesenAsync(rundeSchritt.RundeId, ct);
+
+                    logger.LogInformation(
+                        "Runde '{Runde}' im Rahmen der Kaskade neu generiert.", rundeSchritt.RundeName);
+                    break;
+            }
+        }
+    }
+
     // ── Automatische Finale-Generierung ohne Auslosung (Issue #113) ────────
 
     /// <summary>
@@ -548,6 +680,13 @@ public class SpielplanService(
 
         foreach (var ziel in zielRunden)
         {
+            // Zielrunden mit eigener Auslosung gehören ausschließlich der breiteren #88-Kaskade
+            // (PlatzhalterKaskadePlanenAsync/-AusfuehrenAsync) — sonst würde diese Heuristik eine gerade
+            // frisch aus der Auslosung regenerierte Platzhalter-Paarung sofort wieder entfernen, da sie
+            // Auslosung-Zustand nicht kennt (nur Ergebnis-Vorhandensein prüft).
+            if (await auslosungService.FindenAbgeschlosseneNachRundeAsync(turnierInstanzId, ziel.Id, ct) is not null)
+                continue;
+
             var zielSpiele = await spielRepository.AlleNachRundeAsync(ziel.Id, ct);
 
             // Bereits gespielt oder unerwartete Struktur (z.B. mehr als ein Spiel) - nie automatisch anfassen.
@@ -613,7 +752,9 @@ public class SpielplanService(
     }
 
     /// <summary>Fallback für Turniere ohne explizite <see cref="Uebergangsregel"/>n: sucht die nächstgelegene
-    /// einbeinige K.-o.-Vorrunde mit zwei Ausgangsteams und ermittelt deren beide Sieger (Issue #113).</summary>
+    /// einbeinige K.-o.-Vorrunde mit zwei Ausgangsteams und ermittelt deren beide Qualifikanten (Issue #113) —
+    /// bei <paramref name="ziel"/> = <see cref="Rundenart.SpielUmPlatzDrei"/> die Verlierer statt der Sieger
+    /// (Issue #199, analog zur Platzierung=2-Auflösung im K.o.-Zweig von RangAufloesenAsync).</summary>
     private async Task<(List<int>? Teilnehmer, string Beschreibung)> QualifikantenAusFinaleHeuristikAsync(
         TurnierRunde ziel, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
     {
@@ -631,13 +772,18 @@ public class SpielplanService(
         if (vorRundenSpiele.Count == 0 || vorRundenSpiele.Any(s => s.Ergebnis?.SiegerMannschaftId is null))
             return (null, $"'{vorRunde.Name}'"); // noch nicht (vollständig) entschieden
 
-        var sieger = vorRundenSpiele
+        bool verlierer = ziel.Rundenart == Rundenart.SpielUmPlatzDrei;
+        var qualifikanten = vorRundenSpiele
             .OrderBy(s => s.Spielnummer)
-            .Select(s => s.Ergebnis!.SiegerMannschaftId!.Value)
+            .Select(s => verlierer
+                ? (s.Ergebnis!.SiegerMannschaftId == s.HeimMannschaftId ? s.AuswaertsMannschaftId : s.HeimMannschaftId)
+                : s.Ergebnis!.SiegerMannschaftId)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
             .Distinct()
             .ToList();
 
-        return sieger.Count == 2 ? (sieger, $"'{vorRunde.Name}'") : (null, $"'{vorRunde.Name}'");
+        return qualifikanten.Count == 2 ? (qualifikanten, $"'{vorRunde.Name}'") : (null, $"'{vorRunde.Name}'");
     }
 
     // ── Platzhalter-Auflösungslogik ───────────────────────────────────────
@@ -648,33 +794,35 @@ public class SpielplanService(
     private static readonly Regex _koVerliererRx    = new(@"^Verlierer ([A-Za-z0-9.]+) (\d+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private async Task<int?> PlatzhalterNameAufloessenAsync(
-        string name, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
+        string name, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
+        IReadOnlySet<int>? ignorierteSpielIds = null)
     {
         // Pattern 1: "Sieger Gruppe A" → Rang 1 der Gruppe A
         var m = _gruppenSiegerRx.Match(name);
         if (m.Success)
-            return await GruppenrangAufloessenAsync(m.Groups[1].Value, 1, runde, alleRunden, ct);
+            return await GruppenrangAufloessenAsync(m.Groups[1].Value, 1, runde, alleRunden, ct, ignorierteSpielIds);
 
         // Pattern 2: "2. Gruppe A" → Rang 2 der Gruppe A
         m = _gruppenRangRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[1].Value, out int rang))
-            return await GruppenrangAufloessenAsync(m.Groups[2].Value, rang, runde, alleRunden, ct);
+            return await GruppenrangAufloessenAsync(m.Groups[2].Value, rang, runde, alleRunden, ct, ignorierteSpielIds);
 
         // Pattern 3: "Sieger VF 1" → Sieger des 1. Spiels im Viertelfinale
         m = _koSiegerRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[2].Value, out int spielNr))
-            return await KoSiegerAufloessenAsync(m.Groups[1].Value, spielNr, runde, alleRunden, ct);
+            return await KoSiegerAufloessenAsync(m.Groups[1].Value, spielNr, runde, alleRunden, ct, ignorierteSpielIds);
 
         // Pattern 4: "Verlierer HF 1" → Verlierer des 1. Spiels im Halbfinale
         m = _koVerliererRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[2].Value, out spielNr))
-            return await KoVerliererAufloessenAsync(m.Groups[1].Value, spielNr, runde, alleRunden, ct);
+            return await KoVerliererAufloessenAsync(m.Groups[1].Value, spielNr, runde, alleRunden, ct, ignorierteSpielIds);
 
         return null;
     }
 
     private async Task<int?> GruppenrangAufloessenAsync(
-        string gruppenKennung, int rang, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
+        string gruppenKennung, int rang, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
+        IReadOnlySet<int>? ignorierteSpielIds = null)
     {
         // Gruppenkennung → Gruppenindex (A=1, B=2, ... oder direkte Zahl)
         int gruppenNummer = gruppenKennung.Length == 1 && char.IsLetter(gruppenKennung[0])
@@ -691,7 +839,7 @@ public class SpielplanService(
             .FirstOrDefault();
         if (gruppenphaseRunde is null) return null;
 
-        return await RangAufloesenAsync(gruppenphaseRunde, gruppenNummer, rang, ct);
+        return await RangAufloesenAsync(gruppenphaseRunde, gruppenNummer, rang, ct, ignorierteSpielIds);
     }
 
     private static int? KuerzelZuEingangsteams(string kuerzel) => kuerzel.ToUpperInvariant() switch
@@ -706,7 +854,8 @@ public class SpielplanService(
     };
 
     private async Task<int?> KoSiegerAufloessenAsync(
-        string kuerzel, int spielNummer, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
+        string kuerzel, int spielNummer, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
+        IReadOnlySet<int>? ignorierteSpielIds = null)
     {
         int? eingangTeams = KuerzelZuEingangsteams(kuerzel);
         if (eingangTeams is null) return null;
@@ -721,11 +870,12 @@ public class SpielplanService(
             .FirstOrDefault();
         if (koRunde is null) return null;
 
-        return await RangAufloesenAsync(koRunde, spielNummer, 1, ct);
+        return await RangAufloesenAsync(koRunde, spielNummer, 1, ct, ignorierteSpielIds);
     }
 
     private async Task<int?> KoVerliererAufloessenAsync(
-        string kuerzel, int spielNummer, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
+        string kuerzel, int spielNummer, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
+        IReadOnlySet<int>? ignorierteSpielIds = null)
     {
         int? eingangTeams = KuerzelZuEingangsteams(kuerzel);
         if (eingangTeams is null) return null;
@@ -740,7 +890,7 @@ public class SpielplanService(
             .FirstOrDefault();
         if (koRunde is null) return null;
 
-        return await RangAufloesenAsync(koRunde, spielNummer, 2, ct);
+        return await RangAufloesenAsync(koRunde, spielNummer, 2, ct, ignorierteSpielIds);
     }
 
     // ── Regelbasierte Auflösung (Issue #130) ──────────────────────────────
@@ -777,13 +927,21 @@ public class SpielplanService(
     /// K.-o.-Runde/Finale → Spielnummer innerhalb der Runde (Platzierung 1 = Sieger, 2 = Verlierer).
     /// </summary>
     private async Task<int?> RangAufloesenAsync(
-        TurnierRunde quellRunde, int? gruppeIndex, int platzierung, CancellationToken ct)
+        TurnierRunde quellRunde, int? gruppeIndex, int platzierung, CancellationToken ct,
+        IReadOnlySet<int>? ignorierteSpielIds = null)
     {
         switch (quellRunde.Rundenart)
         {
             case Rundenart.Gruppenphase:
             {
                 if (gruppeIndex is null) return null;
+                // Issue #88: sobald irgendein Ergebnis dieser Quellrunde zur Löschung ansteht, gilt die
+                // gesamte Runde vorübergehend als nicht ermittelbar — Spiel trägt kein GruppeNummer-Feld,
+                // eine praezisere Nur-diese-Gruppe-Prüfung wäre nur über TabellenService mit einer neuen
+                // Ausschluss-Fähigkeit möglich (bewusst nicht umgesetzt, siehe Plan-Kontext).
+                if (ignorierteSpielIds is { Count: > 0 } &&
+                    (await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct)).Any(s => ignorierteSpielIds.Contains(s.Id)))
+                    return null;
                 var gruppenTabellen = await tabellenService.GruppenTabellenBerechnenAsync(quellRunde.Id, ct: ct);
                 var gruppe = gruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppeIndex.Value);
                 return gruppe?.Tabelle.FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id;
@@ -791,6 +949,9 @@ public class SpielplanService(
 
             case Rundenart.Liga:
             {
+                if (ignorierteSpielIds is { Count: > 0 } &&
+                    (await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct)).Any(s => ignorierteSpielIds.Contains(s.Id)))
+                    return null;
                 var tabelle = await tabellenService.TabelleBerechnenAsync(quellRunde.Id, ct: ct);
                 return tabelle.FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id;
             }
@@ -807,6 +968,7 @@ public class SpielplanService(
                 if (spiele.Count < spielNummer) return null;
 
                 var spiel  = spiele[spielNummer - 1];
+                if (ignorierteSpielIds is not null && ignorierteSpielIds.Contains(spiel.Id)) return null;
                 var sieger = spiel.Ergebnis?.SiegerMannschaftId;
                 if (sieger is null) return null;
 

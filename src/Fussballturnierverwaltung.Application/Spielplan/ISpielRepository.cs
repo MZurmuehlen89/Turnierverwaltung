@@ -40,6 +40,16 @@ public interface ISpielRepository : IRepository<Spiel>
     /// <summary>Setzt die realen Mannschaften auf einem Platzhalter-Spiel und löscht die Platzhalternamen.</summary>
     Task PlatzhalterAktualisierenAsync(int spielId, int heimMannschaftId, int auswaertsMannschaftId, CancellationToken ct = default);
 
+    /// <summary>Setzt Heim- und Auswärtsseite unabhängig voneinander entweder auf eine konkrete
+    /// Mannschaft oder zurück auf einen Platzhalternamen (jeweils genau eines von beiden pro Seite) —
+    /// für Issue #88, wenn eine bereits aufgelöste Paarung teilweise ungültig geworden ist. Anders als
+    /// PlatzhalterAktualisierenAsync rührt diese Methode eine bereits korrekte Seite nicht unnötig an.</summary>
+    Task PlatzhalterKorrigierenAsync(
+        int spielId,
+        int? heimMannschaftId, string? heimPlatzhalterName,
+        int? auswaertsMannschaftId, string? auswaertsPlatzhalterName,
+        CancellationToken ct = default);
+
     /// <summary>Ermittelt die (distinkten) TurnierInstanz-IDs der angegebenen Spiele.</summary>
     Task<IReadOnlyList<int>> TurnierInstanzIdsAsync(IReadOnlyList<int> spielIds, CancellationToken ct = default);
 }

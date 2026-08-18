@@ -87,16 +87,28 @@ public class SpielErgebnisService(
 
     /// <summary>
     /// Prüft nach jedem Ergebnis-Reset (einzeln oder Batch, gleich über welchen Aufrufer — WPF oder
-    /// Konsole), ob automatisch generierte Folgerunden-Inhalte (aktuell: ohne Auslosung generierte
-    /// Finale-Runden, siehe SpielplanService.FinaleAutomatischGenerierenWennBereitAsync) zurückgenommen
-    /// oder neu generiert werden müssen. Zentral hier statt an jeder Aufrufstelle (Issue #125) — betrifft
-    /// dadurch automatisch auch die Konsole, die dieselben Methoden nutzt.
+    /// Konsole), ob automatisch generierte Folgerunden-Inhalte zurückgenommen oder neu generiert werden
+    /// müssen. Zentral hier statt an jeder Aufrufstelle (Issue #125) — betrifft dadurch automatisch auch
+    /// die Konsole, die dieselben Methoden nutzt. Zwei Mechanismen: (1) die enge #125-Logik für ohne
+    /// Auslosung generierte Zielrunden mit genau zwei Eingangsteams, (2) die breitere #88-Kaskade für über
+    /// Auslosung + Platzhalter aufgelöste Folgerunden beliebiger Größe. Läuft mit leerem Ignorier-Set, da
+    /// die Löschung zu diesem Zeitpunkt bereits real erfolgt ist. (1) läuft bewusst zweimal — vor UND nach
+    /// (2): die #88-Kaskade kann eine Zwischenrunde (z.B. Halbfinale) selbst korrigieren/entwerten, wovon
+    /// wiederum eine #125-Zielrunde (z.B. Finale) abhängt — ohne den zweiten Lauf bliebe eine solche
+    /// Zielrunde inkonsistent zum tatsächlichen Endergebnis der Kaskade stehen.
     /// </summary>
     private async Task KaskadeAusloesenAsync(IReadOnlyList<int> spielIds, CancellationToken ct)
     {
         var instanzIds = await spielRepository.TurnierInstanzIdsAsync(spielIds, ct);
         foreach (var instanzId in instanzIds)
+        {
             await spielplanService.FinaleAutomatischGenerierenWennBereitAsync(instanzId, ct);
+
+            var plan = await spielplanService.PlatzhalterKaskadePlanenAsync(instanzId, new HashSet<int>(), ct);
+            await spielplanService.PlatzhalterKaskadeAusfuehrenAsync(plan, ct);
+
+            await spielplanService.FinaleAutomatischGenerierenWennBereitAsync(instanzId, ct);
+        }
     }
 
     // Bestimmt Sieger und EndgültigeEntscheidungsArt.

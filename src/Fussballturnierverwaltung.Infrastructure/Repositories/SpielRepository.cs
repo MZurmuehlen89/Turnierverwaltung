@@ -178,6 +178,22 @@ public class SpielRepository(TurnierverwaltungDbContext context)
         await Context.SaveChangesAsync(ct);
     }
 
+    public async Task PlatzhalterKorrigierenAsync(
+        int spielId,
+        int? heimMannschaftId, string? heimPlatzhalterName,
+        int? auswaertsMannschaftId, string? auswaertsPlatzhalterName,
+        CancellationToken ct = default)
+    {
+        var spiel = await Context.Spiele.FirstOrDefaultAsync(s => s.Id == spielId, ct);
+        if (spiel is null) return;
+
+        spiel.HeimMannschaftId         = heimMannschaftId;
+        spiel.HeimPlatzhalterName      = heimMannschaftId is null ? heimPlatzhalterName : null;
+        spiel.AuswaertsMannschaftId    = auswaertsMannschaftId;
+        spiel.AuswaertsPlatzhalterName = auswaertsMannschaftId is null ? auswaertsPlatzhalterName : null;
+        await Context.SaveChangesAsync(ct);
+    }
+
     public async Task<IReadOnlyList<int>> TurnierInstanzIdsAsync(IReadOnlyList<int> spielIds, CancellationToken ct = default)
         => await Context.Spiele
             .Where(s => spielIds.Contains(s.Id))

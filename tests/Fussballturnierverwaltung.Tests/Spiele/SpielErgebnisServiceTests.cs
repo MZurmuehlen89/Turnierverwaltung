@@ -1,9 +1,11 @@
 using FluentAssertions;
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spiele.Eingaben;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
@@ -33,10 +35,13 @@ public class SpielErgebnisServiceTests
         var baumRepo = new TurnierBaumRepository(ctx);
         var uebergangsregelRepo = new UebergangsregelRepository(ctx);
         var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator()]);
+        var auslosungService = new AuslosungService(
+            new AuslosungRepository(ctx), new VerbandsQuoteRepository(ctx), rundeRepo, new AuslosungsValidator(),
+            NullLogger<AuslosungService>.Instance);
         return new SpielplanService(
             rundeRepo, spielRepo, mannschaftRepo, baumRepo, uebergangsregelRepo,
             factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
-            NullLogger<SpielplanService>.Instance);
+            auslosungService, NullLogger<SpielplanService>.Instance);
     }
 
     private static SpielErgebnisService ServiceFuer(TurnierverwaltungDbContext ctx) =>
@@ -292,5 +297,161 @@ public class SpielErgebnisServiceTests
         ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).Should().BeEmpty(
             "Issue #125: MehrereErgebnisseLoeschenAsync muss denselben Kaskaden-Check auslösen wie das " +
             "Einzelspiel-Löschen — das noch nicht gespielte Finale muss entfernt werden");
+    }
+
+    [Fact]
+    public async Task ErgebnisLoeschenAsync_LoestPlatzhalterKaskadeAus_RegeneriertUeberAuslosungAufgeloesteFolgerunde()
+    {
+        await using var ctx = NeuerContext();
+        KaskadeSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
+
+        var auslosung = new Auslosung
+        {
+            TurnierInstanzId = 1, TurnierRundeId = finaleRundeId, Name = "Finale-Auslosung",
+            Auslosungsart = Auslosungsart.Manuell, Status = AuslosungsStatus.Abgeschlossen
+        };
+        ctx.Auslosungen.Add(auslosung);
+        ctx.SaveChanges();
+        ctx.AuslosungsErgebnisse.Add(new AuslosungsErgebnis
+        {
+            AuslosungId = auslosung.Id, PaarungsNummer = 1,
+            HeimPlatzhalterName = "Sieger HF 1", AuswaertsPlatzhalterName = "Sieger HF 2"
+        });
+        ctx.SaveChanges();
+
+        var spielplanService = SpielplanServiceFuer(ctx);
+        await spielplanService.GenerierenAusAuslosungAsync(
+            finaleRundeId, [.. ctx.AuslosungsErgebnisse.Where(e => e.AuslosungId == auslosung.Id)]);
+        await spielplanService.PlatzhalterAufloesenAsync(finaleRundeId);
+
+        var finaleSpielVorher = ctx.Spiele.First(s => s.TurnierRundeId == finaleRundeId);
+        finaleSpielVorher.HeimMannschaftId.Should().Be(10, "Vorbedingung: Sieger HF 1 = Team A");
+
+        // Halbfinalspiel 1 (Team A vs. Team B) wird zurückgesetzt — über SpielErgebnisService, nicht
+        // direkt über SpielplanService, um die vollständige Verdrahtung (Issue #88) zu prüfen.
+        await ServiceFuer(ctx).ErgebnisLoeschenAsync(20);
+
+        var finaleSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).ToList();
+        finaleSpiele.Should().HaveCount(1);
+        finaleSpiele[0].Id.Should().Be(finaleSpielVorher.Id,
+            "das Spiel wird gezielt korrigiert statt die ganze Runde zu löschen und neu anzulegen");
+        finaleSpiele[0].HeimMannschaftId.Should().BeNull(
+            "Sieger HF 1 ist nach dem Zurücksetzen nicht mehr bekannt, das Finale muss wieder auf Platzhalter stehen");
+        finaleSpiele[0].HeimPlatzhalterName.Should().Be("Sieger HF 1");
+        finaleSpiele[0].AuswaertsMannschaftId.Should().Be(12,
+            "Sieger HF 2 ist weiterhin bekannt (Team C) und darf durch die Korrektur der Heim-Seite nicht angefasst werden");
+    }
+
+    [Fact]
+    public async Task ErgebnisLoeschenAsync_HaeltAutomatischGeneriertesFinaleKonsistent_WennKaskadeVorgelagerteRundeAendert()
+    {
+        // Regressionstest: Finale hat KEINE eigene Auslosung (klassischer #113/#125-Fall), hängt aber über
+        // die #125-Heuristik vom Halbfinale ab, das seinerseits über Auslosung+Platzhalter vom Viertelfinale
+        // abhängt (#88-Fall). Wird ein Viertelfinal-Ergebnis zurückgesetzt, muss die #125-Logik NACH der
+        // #88-Kaskade erneut laufen — sonst bliebe das Finale auf der jetzt ungültigen, veralteten
+        // Halbfinale-Paarung stehen (Issue #88, beim manuellen Test gefunden).
+        await using var ctx = NeuerContext();
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
+            { Id = 1, RegelwerkId = 1, Reihenfolge = 1, VerfahrenArt = VerfahrenArt.Elfmeterschiessen });
+
+        // Eingang 8 → Kürzel "VF" (KuerzelZuEingangsteams), damit "Sieger VF n" im Halbfinale eindeutig
+        // hierauf verweist.
+        var viertelfinale = new TurnierRunde
+        {
+            Id = 30, TurnierInstanzId = 1, Name = "Viertelfinale", Reihenfolge = 1,
+            Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 8, AusgangsMannschaftsanzahl = 4,
+            RegelwerkId = 1
+        };
+        var hf = new TurnierRunde
+        {
+            Id = 31, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 2,
+            Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2,
+            RegelwerkId = 1
+        };
+        var finale = new TurnierRunde
+        {
+            Id = 32, TurnierInstanzId = 1, Name = "Finale", Reihenfolge = 3,
+            Rundenart = Rundenart.Finale, EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1,
+            RegelwerkId = 1
+        };
+        ctx.TurnierRunden.AddRange(viertelfinale, hf, finale);
+        ctx.Mannschaften.AddRange(Enumerable.Range(30, 8)
+            .Select(i => new Mannschaft { Id = i, Name = $"Team {i}", Kurzname = $"T{i}", LandId = 1 }));
+
+        // VF1: 30 schlägt 31. VF2: 32 schlägt 33. VF3: 34 schlägt 35. VF4: 36 schlägt 37.
+        for (int i = 0; i < 4; i++)
+        {
+            int spielId = 30 + i, heim = 30 + i * 2, ausw = 31 + i * 2;
+            ctx.Spiele.Add(new Spiel
+            {
+                Id = spielId, TurnierInstanzId = 1, TurnierRundeId = viertelfinale.Id, Spielnummer = spielId,
+                HeimMannschaftId = heim, AuswaertsMannschaftId = ausw, Status = SpielStatus.Abgeschlossen
+            });
+            ctx.SpielErgebnisse.Add(new SpielErgebnis
+            {
+                Id = spielId, SpielId = spielId, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0,
+                EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = heim
+            });
+        }
+        await ctx.SaveChangesAsync();
+
+        var spielplanService = SpielplanServiceFuer(ctx);
+        var auslosung = new Auslosung
+        {
+            TurnierInstanzId = 1, TurnierRundeId = hf.Id, Name = "HF-Auslosung",
+            Auslosungsart = Auslosungsart.Manuell, Status = AuslosungsStatus.Abgeschlossen
+        };
+        ctx.Auslosungen.Add(auslosung);
+        await ctx.SaveChangesAsync();
+        ctx.AuslosungsErgebnisse.AddRange(
+            new AuslosungsErgebnis { AuslosungId = auslosung.Id, PaarungsNummer = 1, HeimPlatzhalterName = "Sieger VF 1", AuswaertsPlatzhalterName = "Sieger VF 2" },
+            new AuslosungsErgebnis { AuslosungId = auslosung.Id, PaarungsNummer = 2, HeimPlatzhalterName = "Sieger VF 3", AuswaertsPlatzhalterName = "Sieger VF 4" });
+        await ctx.SaveChangesAsync();
+        await spielplanService.GenerierenAusAuslosungAsync(
+            hf.Id, [.. ctx.AuslosungsErgebnisse.Where(e => e.AuslosungId == auslosung.Id)]);
+        await spielplanService.PlatzhalterAufloesenAsync(hf.Id);
+
+        var hfSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == hf.Id).OrderBy(s => s.Spielnummer).ToList();
+        hfSpiele.Should().HaveCount(2);
+        var hf1Id = hfSpiele[0].Id; // Team30 vs Team32
+        var hf2Id = hfSpiele[1].Id; // Team34 vs Team36
+
+        // Beide Halbfinal-Spiele werden ausgetragen (Team30, Team34 gewinnen) — das Finale wird daraufhin
+        // automatisch generiert (#113/#125), aber noch nicht gespielt.
+        ctx.Spiele.First(s => s.Id == hf1Id).Status = SpielStatus.Abgeschlossen;
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+            { Id = 100, SpielId = hf1Id, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = 30 });
+        ctx.Spiele.First(s => s.Id == hf2Id).Status = SpielStatus.Abgeschlossen;
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+            { Id = 101, SpielId = hf2Id, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = 34 });
+        await ctx.SaveChangesAsync();
+        await spielplanService.FinaleAutomatischGenerierenWennBereitAsync(1);
+
+        var finaleVorher = ctx.Spiele.Where(s => s.TurnierRundeId == finale.Id).ToList();
+        finaleVorher.Should().HaveCount(1, "Vorbedingung: Finale wurde automatisch aus Team30/Team34 generiert");
+        var finaleTeilnehmerVorher = new[] { finaleVorher[0].HeimMannschaftId, finaleVorher[0].AuswaertsMannschaftId };
+        finaleTeilnehmerVorher.Should().BeEquivalentTo(new int?[] { 30, 34 });
+
+        // VF1 wird zurückgesetzt (Ergebnis gelöscht) — betrifft nur HF1 ("Sieger VF 1"), und darüber
+        // indirekt auch das Finale.
+        await ServiceFuer(ctx).ErgebnisLoeschenAsync(30);
+
+        var hf1Danach = ctx.Spiele.First(s => s.Id == hf1Id);
+        hf1Danach.HeimMannschaftId.Should().BeNull("Sieger VF 1 ist nicht mehr bekannt");
+        hf1Danach.AuswaertsMannschaftId.Should().Be(32, "Sieger VF 2 bleibt unverändert Team32");
+        ctx.SpielErgebnisse.Any(e => e.SpielId == hf1Id).Should().BeFalse("HF1-Ergebnis basierte auf der ungültigen Paarung");
+
+        var hf2Danach = ctx.Spiele.First(s => s.Id == hf2Id);
+        hf2Danach.HeimMannschaftId.Should().Be(34, "HF2 ist von VF1 unabhängig und muss unverändert bleiben");
+        hf2Danach.AuswaertsMannschaftId.Should().Be(36);
+        ctx.SpielErgebnisse.Any(e => e.SpielId == hf2Id).Should().BeTrue("das gültige HF2-Ergebnis darf nicht angefasst werden");
+
+        var finaleDanach = ctx.Spiele.Where(s => s.TurnierRundeId == finale.Id).ToList();
+        finaleDanach.Should().BeEmpty(
+            "HF1 ist jetzt nicht mehr entschieden — die #125-Logik muss das NACH der #88-Kaskade erneut " +
+            "erkennen und darf das Finale nicht auf der alten Team30/Team34-Paarung stehen lassen");
     }
 }

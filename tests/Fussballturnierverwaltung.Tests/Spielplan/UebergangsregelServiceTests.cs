@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Spielplan.Eingaben;
 using Fussballturnierverwaltung.Application.Tabelle;
@@ -30,10 +31,13 @@ public class UebergangsregelServiceTests
         var baumRepo = new TurnierBaumRepository(ctx);
         var uebergangsregelRepo = new UebergangsregelRepository(ctx);
         var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator()]);
+        var auslosungService = new AuslosungService(
+            new AuslosungRepository(ctx), new VerbandsQuoteRepository(ctx), rundeRepo, new AuslosungsValidator(),
+            NullLogger<AuslosungService>.Instance);
         var spielplanService = new SpielplanService(
             rundeRepo, spielRepo, mannschaftRepo, baumRepo, uebergangsregelRepo,
             factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
-            NullLogger<SpielplanService>.Instance);
+            auslosungService, NullLogger<SpielplanService>.Instance);
 
         return new UebergangsregelService(
             uebergangsregelRepo, rundeRepo, new UebergangsregelValidator(),

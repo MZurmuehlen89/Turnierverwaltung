@@ -1011,18 +1011,22 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         if (AusgewaehlteSpiel is null || !FormHatErgebnis || AusgewaehlteRunde is null) return;
 
+        var spielId = AusgewaehlteSpiel.Id;
+        var rundeId = AusgewaehlteRunde.Id;
+        var spielnummer = AusgewaehlteSpiel.Spielnummer;
+        var kaskadenHinweis = await KaskadenHinweisAsync([spielId]);
+
         var ergebnis = MessageBox.Show(
-            $"Ergebnis von Spiel #{AusgewaehlteSpiel.Spielnummer} wirklich löschen?",
+            $"Ergebnis von Spiel #{spielnummer} wirklich löschen?{kaskadenHinweis}",
             "Ergebnis löschen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (ergebnis != MessageBoxResult.Yes) return;
 
-        var spielId   = AusgewaehlteSpiel.Id;
-        var rundeId   = AusgewaehlteRunde.Id;
         Fehlermeldung = null;
         try
         {
-            // Kaskaden-Check (automatisch generiertes Finale ggf. entfernen/neu generieren) läuft
-            // seit Issue #125 zentral in SpielErgebnisService.ErgebnisLoeschenAsync.
+            // Kaskaden-Check (automatisch generiertes Finale ggf. entfernen/neu generieren, Issue #125;
+            // Folgerunden mit Platzhalter-Auflösung neu generieren, Issue #88) läuft zentral in
+            // SpielErgebnisService.ErgebnisLoeschenAsync.
             await _spielService.ErgebnisLoeschenAsync(spielId);
 
             await TabellenNeuLadenAsync(rundeId);
@@ -1033,11 +1037,24 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             OnPropertyChanged(nameof(FokusSpiele));
 
             AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
+            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
         }
         catch (Exception ex)
         {
             Fehlermeldung = ex.Message;
         }
+    }
+
+    /// <summary>Vorschau-Text für den Bestätigungsdialog (Issue #88) — leer, wenn das Zurücksetzen der
+    /// übergebenen Spiele keine Folgerunden betrifft.</summary>
+    private async Task<string> KaskadenHinweisAsync(IReadOnlyList<int> spielIds)
+    {
+        if (AusgewaehlteInstanz is null || spielIds.Count == 0) return "";
+        var vorschau = await _spielplanService.PlatzhalterKaskadePlanenAsync(AusgewaehlteInstanz.Id, spielIds.ToHashSet());
+        return vorschau.HatAuswirkungen
+            ? $"\n\nZusätzlich werden dadurch {vorschau.GesamtBetroffeneSpiele} Ergebnis(se) in Folgerunden " +
+              "zurückgesetzt, deren Paarungen davon abhängen."
+            : "";
     }
 
     private async Task TurnierBaumAktualisierenAsync(int turnierInstanzId)
@@ -1484,9 +1501,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (AusgewaehlteRunde is null) return;
         var spielIds = Spiele.Where(s => s.HatErgebnis).Select(s => s.Id).ToList();
         if (spielIds.Count == 0) return;
+        var kaskadenHinweis = await KaskadenHinweisAsync(spielIds);
 
         var antwort = MessageBox.Show(
-            $"Alle {spielIds.Count} Ergebnis(se) der Runde '{AusgewaehlteRunde.Name}' zurücksetzen?",
+            $"Alle {spielIds.Count} Ergebnis(se) der Runde '{AusgewaehlteRunde.Name}' zurücksetzen?{kaskadenHinweis}",
             "Ergebnisse zurücksetzen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (antwort != MessageBoxResult.Yes) return;
 
@@ -1525,9 +1543,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             .Where(s => s.GruppeNummer == gruppe.GruppenNummer && s.HatErgebnis)
             .Select(s => s.Id).ToList();
         if (spielIds.Count == 0) return;
+        var kaskadenHinweis = await KaskadenHinweisAsync(spielIds);
 
         var antwort = MessageBox.Show(
-            $"Alle {spielIds.Count} Ergebnis(se) der Gruppe {gruppe.GruppenNummer} zurücksetzen?",
+            $"Alle {spielIds.Count} Ergebnis(se) der Gruppe {gruppe.GruppenNummer} zurücksetzen?{kaskadenHinweis}",
             "Ergebnisse zurücksetzen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (antwort != MessageBoxResult.Yes) return;
 
@@ -1547,6 +1566,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(FokusSpiele));
             await SpielAuswahlWiederherstellenAsync(spielId);
+            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
         catch (Exception ex)
         {
@@ -1568,9 +1588,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                      && s.Spieltag == spieltag && s.HatErgebnis)
             .Select(s => s.Id).ToList();
         if (spielIds.Count == 0) return;
+        var kaskadenHinweis = await KaskadenHinweisAsync(spielIds);
 
         var antwort = MessageBox.Show(
-            $"Alle {spielIds.Count} Ergebnis(se) von Spieltag {spieltag} (Gruppe {gruppe.GruppenNummer}) zurücksetzen?",
+            $"Alle {spielIds.Count} Ergebnis(se) von Spieltag {spieltag} (Gruppe {gruppe.GruppenNummer}) zurücksetzen?{kaskadenHinweis}",
             "Ergebnisse zurücksetzen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (antwort != MessageBoxResult.Yes) return;
 
@@ -1590,6 +1611,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(FokusSpiele));
             await SpielAuswahlWiederherstellenAsync(spielId);
+            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
         catch (Exception ex)
         {
@@ -1607,9 +1629,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (AusgewaehlteRunde is null) return;
         var spielIds = MehrfachAusgewaehlteSpiele.Where(s => s.HatErgebnis).Select(s => s.Id).ToList();
         if (spielIds.Count == 0) return;
+        var kaskadenHinweis = await KaskadenHinweisAsync(spielIds);
 
         var antwort = MessageBox.Show(
-            $"{spielIds.Count} Spielergebnis(se) zurücksetzen?",
+            $"{spielIds.Count} Spielergebnis(se) zurücksetzen?{kaskadenHinweis}",
             "Ergebnisse zurücksetzen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (antwort != MessageBoxResult.Yes) return;
 
