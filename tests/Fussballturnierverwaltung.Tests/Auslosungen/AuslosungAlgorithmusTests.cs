@@ -23,8 +23,9 @@ public class AuslosungAlgorithmusTests
     public AuslosungAlgorithmusTests()
     {
         _repo    = new FakeAuslosungRepository();
-        _service = new AuslosungService(_repo, new FakeVerbandsQuoteRepository(), new AuslosungsValidator(),
-                                        NullLogger<AuslosungService>.Instance);
+        _service = new AuslosungService(
+            _repo, new FakeVerbandsQuoteRepository(), new FakeTurnierRundeRepository(), new AuslosungsValidator(),
+            NullLogger<AuslosungService>.Instance);
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────

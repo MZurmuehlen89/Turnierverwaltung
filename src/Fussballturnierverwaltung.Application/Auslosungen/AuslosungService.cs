@@ -1,7 +1,9 @@
+using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
@@ -18,6 +20,7 @@ public record AuslosungErstellenEingabe(
 public class AuslosungService(
     IAuslosungRepository repository,
     IVerbandsQuoteRepository verbandsQuoteRepository,
+    ITurnierRundeRepository rundeRepository,
     AuslosungsValidator validator,
     ILogger<AuslosungService> logger)
 {
@@ -225,7 +228,15 @@ public class AuslosungService(
         var alleEintraege = auslosung.Lostoepfe
             .SelectMany(l => l.Eintraege)
             .ToList();
-        var verbandsQuoten = await verbandsQuoteRepository.AlleNachTurnierInstanzIdAsync(auslosung.TurnierInstanzId, ct);
+
+        // Verbandsquoten gelten laut bestätigter Domänen-Annahme nur für die initiale Turnierrunde
+        // (Zulassung/erste Auslosung), nicht kumulativ für Folgerunden mit eigenem Losvorgang (z.B. eine
+        // separate K.o.-Auslosung nach der Gruppenphase) — siehe [[project_verbandsquote_scope]].
+        IReadOnlyList<VerbandsQuote>? verbandsQuoten = null;
+        var alleRunden = await rundeRepository.AlleNachInstanzAsync(auslosung.TurnierInstanzId, ct);
+        var ersteRunde = alleRunden.OrderBy(r => r.Reihenfolge).FirstOrDefault();
+        if (ersteRunde is not null && ersteRunde.Id == auslosung.TurnierRundeId)
+            verbandsQuoten = await verbandsQuoteRepository.AlleNachTurnierInstanzIdAsync(auslosung.TurnierInstanzId, ct);
 
         ValidationException.WerfenWennUngueltig(
             validator.Validieren(auslosung, alleEintraege, verbandsQuoten));
