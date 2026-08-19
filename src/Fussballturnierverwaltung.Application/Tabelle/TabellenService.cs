@@ -393,13 +393,10 @@ public class TabellenService(
         {
             int teamId = eintrag.Mannschaft.Id;
 
-            var bestCase = SimuliereErgebnisse(offen, teamId, teamGewinntAlles: true);
-            var bestTabelle = TabelleAusSpielenBerechnen([..abgeschlossen, ..bestCase], punkteRegel, rankingRegeln);
-            int bestRang = bestTabelle.FirstOrDefault(e => e.Mannschaft.Id == teamId)?.Rang ?? int.MaxValue;
-
-            var worstCase = SimuliereErgebnisse(offen, teamId, teamGewinntAlles: false);
-            var worstTabelle = TabelleAusSpielenBerechnen([..abgeschlossen, ..worstCase], punkteRegel, rankingRegeln);
-            int worstRang = worstTabelle.FirstOrDefault(e => e.Mannschaft.Id == teamId)?.Rang ?? int.MaxValue;
+            int bestRang = ExtremRangErmitteln(
+                abgeschlossen, offen, teamId, punkteRegel, rankingRegeln, teamGewinntAlles: true, bestenfalls: true);
+            int worstRang = ExtremRangErmitteln(
+                abgeschlossen, offen, teamId, punkteRegel, rankingRegeln, teamGewinntAlles: false, bestenfalls: false);
 
             eintrag.Qualifikationsstatus = bestRang > qualifiziertePlaetze
                 ? Qualifikationsstatus.SicherAusgeschieden
@@ -409,16 +406,40 @@ public class TabellenService(
         }
     }
 
-    private static List<Spiel> SimuliereErgebnisse(
-        List<Spiel> offeneSpiele, int teamId, bool teamGewinntAlles)
+    /// <summary>Ermittelt den best- bzw. schlechtestmöglichen Rang von <paramref name="teamId"/>: die eigenen offenen
+    /// Spiele sind gemäß <paramref name="teamGewinntAlles"/> fixiert, für alle fremden offenen Spiele (die
+    /// <paramref name="teamId"/> nicht betreffen) wird per Brute-Force jede der 2^n Sieg-Kombinationen durchgerechnet
+    /// und der für das Team jeweils beste bzw. schlechteste resultierende Rang zurückgegeben (AD: Issue #201 —
+    /// ein pauschales "fremde Spiele enden immer X:Y" ignoriert das für das Team ungünstigste/günstigste Szenario).</summary>
+    private static int ExtremRangErmitteln(
+        List<Spiel> abgeschlossen, List<Spiel> offen, int teamId,
+        PunkteRegel punkteRegel, List<RankingRegel> rankingRegeln,
+        bool teamGewinntAlles, bool bestenfalls)
     {
-        return offeneSpiele.Select(s =>
+        var eigene = offen.Where(s => s.HeimMannschaftId == teamId || s.AuswaertsMannschaftId == teamId).ToList();
+        var fremde = offen.Where(s => s.HeimMannschaftId != teamId && s.AuswaertsMannschaftId != teamId).ToList();
+
+        var eigeneErgebnisse = eigene
+            .Select(s => SpielMitSimuliertemErgebnis(s, heimSiegt: s.HeimMannschaftId == teamId ? teamGewinntAlles : !teamGewinntAlles))
+            .ToList();
+
+        int extremRang = bestenfalls ? int.MaxValue : int.MinValue;
+        int kombinationen = 1 << fremde.Count;
+
+        for (int mask = 0; mask < kombinationen; mask++)
         {
-            bool heimSiegt = s.HeimMannschaftId == teamId ? teamGewinntAlles
-                           : s.AuswaertsMannschaftId == teamId ? !teamGewinntAlles
-                           : true;
-            return SpielMitSimuliertemErgebnis(s, heimSiegt);
-        }).ToList();
+            var fremdeErgebnisse = fremde
+                .Select((s, i) => SpielMitSimuliertemErgebnis(s, heimSiegt: (mask & (1 << i)) != 0))
+                .ToList();
+
+            var tabelle = TabelleAusSpielenBerechnen(
+                [..abgeschlossen, ..eigeneErgebnisse, ..fremdeErgebnisse], punkteRegel, rankingRegeln);
+            int rang = tabelle.FirstOrDefault(e => e.Mannschaft.Id == teamId)?.Rang ?? int.MaxValue;
+
+            extremRang = bestenfalls ? Math.Min(extremRang, rang) : Math.Max(extremRang, rang);
+        }
+
+        return extremRang;
     }
 
     private static Spiel SpielMitSimuliertemErgebnis(Spiel original, bool heimSiegt) => new()
