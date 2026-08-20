@@ -521,6 +521,17 @@ public class SpielplanService(
         return aufgeloest;
     }
 
+    /// <summary>Löst die Platzhalter aller Runden der Turnierinstanz auf (Issue #90, Vorwärts-Gegenstück
+    /// zur Rückwärts-Kaskade aus #88). Idempotent und günstig für Runden ohne offene Platzhalter-Spiele —
+    /// <see cref="PlatzhalterAufloesenAsync"/> selbst kehrt dafür sofort zurück (früher Return bei
+    /// <c>platzhalterSpiele.Count == 0</c>).</summary>
+    public async Task PlatzhalterAlleRundenAufloesenAsync(int turnierInstanzId, CancellationToken ct = default)
+    {
+        var runden = await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
+        foreach (var runde in runden.OrderBy(r => r.Reihenfolge))
+            await PlatzhalterAufloesenAsync(runde.Id, ct);
+    }
+
     // ── Kaskaden-Reset für Folgerunden (Issue #88) ─────────────────────────
 
     /// <summary>

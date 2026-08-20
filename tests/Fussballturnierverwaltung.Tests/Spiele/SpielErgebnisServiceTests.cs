@@ -342,6 +342,83 @@ public class SpielErgebnisServiceTests
             "Sieger HF 2 ist weiterhin bekannt (Team C) und darf durch die Korrektur der Heim-Seite nicht angefasst werden");
     }
 
+    // ── Tests: Automatische Platzhalter-Auflösung nach Rundenabschluss (Issue #90) ─────────
+
+    [Fact]
+    public async Task ErgebnisErfassenAsync_RundeWirdKomplett_LoestPlatzhalterFolgerundeAutomatischAuf()
+    {
+        await using var ctx = NeuerContext();
+        KaskadeSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
+
+        var auslosung = new Auslosung
+        {
+            TurnierInstanzId = 1, TurnierRundeId = finaleRundeId, Name = "Finale-Auslosung",
+            Auslosungsart = Auslosungsart.Manuell, Status = AuslosungsStatus.Abgeschlossen
+        };
+        ctx.Auslosungen.Add(auslosung);
+        ctx.SaveChanges();
+        ctx.AuslosungsErgebnisse.Add(new AuslosungsErgebnis
+        {
+            AuslosungId = auslosung.Id, PaarungsNummer = 1,
+            HeimPlatzhalterName = "Sieger HF 1", AuswaertsPlatzhalterName = "Sieger HF 2"
+        });
+        ctx.SaveChanges();
+
+        var spielplanService = SpielplanServiceFuer(ctx);
+        await spielplanService.GenerierenAusAuslosungAsync(
+            finaleRundeId, [.. ctx.AuslosungsErgebnisse.Where(e => e.AuslosungId == auslosung.Id)]);
+
+        // Halbfinalspiel 2 wird zurückgesetzt, damit die Runde unten wirklich erst durch das erneute
+        // Erfassen komplett wird (Vorbedingung: noch KEIN manueller PlatzhalterAufloesenAsync-Aufruf,
+        // anders als im Nachbartest oben).
+        await ServiceFuer(ctx).ErgebnisLoeschenAsync(21);
+
+        var finaleVorher = ctx.Spiele.AsNoTracking().First(s => s.TurnierRundeId == finaleRundeId);
+        finaleVorher.HeimMannschaftId.Should().BeNull("Vorbedingung: Halbfinale noch nicht vollständig, nichts aufgelöst");
+
+        // Kein manueller PlatzhalterAufloesenAsync-Aufruf hier — Issue #90 verlangt, dass das Speichern
+        // dieses Ergebnisses (macht die Runde komplett) die Auflösung von selbst anstößt.
+        await ServiceFuer(ctx).ErgebnisErfassenAsync(21, new ErgebnisErfassenEingabe(1, 0, EntscheidungArt.RegulaereSpielzeit));
+
+        var finaleNachher = ctx.Spiele.AsNoTracking().First(s => s.TurnierRundeId == finaleRundeId);
+        finaleNachher.HeimMannschaftId.Should().Be(10, "Sieger HF 1 = Team A, automatisch aufgelöst ohne manuellen Trigger");
+        finaleNachher.AuswaertsMannschaftId.Should().Be(12, "Sieger HF 2 = Team C, automatisch aufgelöst ohne manuellen Trigger");
+    }
+
+    [Fact]
+    public async Task ErgebnisErfassenAsync_RundeNochNichtKomplett_LoestNochNichtAus()
+    {
+        await using var ctx = NeuerContext();
+        KaskadeSetupAnlegen(ctx, out _, out int finaleRundeId);
+
+        var auslosung = new Auslosung
+        {
+            TurnierInstanzId = 1, TurnierRundeId = finaleRundeId, Name = "Finale-Auslosung",
+            Auslosungsart = Auslosungsart.Manuell, Status = AuslosungsStatus.Abgeschlossen
+        };
+        ctx.Auslosungen.Add(auslosung);
+        ctx.SaveChanges();
+        ctx.AuslosungsErgebnisse.Add(new AuslosungsErgebnis
+        {
+            AuslosungId = auslosung.Id, PaarungsNummer = 1,
+            HeimPlatzhalterName = "Sieger HF 1", AuswaertsPlatzhalterName = "Sieger HF 2"
+        });
+        ctx.SaveChanges();
+
+        var spielplanService = SpielplanServiceFuer(ctx);
+        await spielplanService.GenerierenAusAuslosungAsync(
+            finaleRundeId, [.. ctx.AuslosungsErgebnisse.Where(e => e.AuslosungId == auslosung.Id)]);
+
+        // Halbfinalspiel 2 UND 1 zurücksetzen, dann nur Spiel 1 neu erfassen — die Runde bleibt wegen
+        // Spiel 2 unvollständig, die Auflösung darf noch nicht anspringen.
+        await ServiceFuer(ctx).MehrereErgebnisseLoeschenAsync([20, 21]);
+        await ServiceFuer(ctx).ErgebnisErfassenAsync(20, new ErgebnisErfassenEingabe(1, 0, EntscheidungArt.RegulaereSpielzeit));
+
+        var finale = ctx.Spiele.AsNoTracking().First(s => s.TurnierRundeId == finaleRundeId);
+        finale.HeimMannschaftId.Should().BeNull(
+            "Runde ist wegen des noch offenen zweiten Halbfinalspiels nicht komplett — keine Auflösung erwartet");
+    }
+
     [Fact]
     public async Task ErgebnisLoeschenAsync_HaeltAutomatischGeneriertesFinaleKonsistent_WennKaskadeVorgelagerteRundeAendert()
     {

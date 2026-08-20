@@ -86,6 +86,10 @@ public class SimulationsService(
             ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,
             spiel.AuswaertsMannschaft.Name, ergebnis.EntscheidungArt);
 
+        // Issue #90: simulierte Ergebnisse laufen nicht über SpielErgebnisService.ErgebnisErfassenAsync
+        // (direkter Repository-Zugriff oben in SpeichernAsync), daher hier explizit derselbe Trigger.
+        await ergebnisService.PlatzhalterAutomatischAufloesenWennRundeKomplettAsync(spielId, ct);
+
         return ergebnis;
     }
 

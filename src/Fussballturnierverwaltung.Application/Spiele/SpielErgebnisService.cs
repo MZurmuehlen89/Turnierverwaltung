@@ -67,6 +67,28 @@ public class SpielErgebnisService(
         logger.LogInformation(
             "Ergebnis für Spiel {Id} erfasst: {Heim}:{Auswaerts} ({Art}).",
             spielId, eingabe.HeimToreRegulaer, eingabe.AuswaertsToreRegulaer, entscheidungArt);
+
+        await PlatzhalterAutomatischAufloesenWennRundeKomplettAsync(spielId, ct);
+    }
+
+    /// <summary>
+    /// Löst automatisch die Platzhalter aller Runden der Turnierinstanz auf, sobald das gerade
+    /// gespeicherte Ergebnis die letzte offene Lücke seiner Runde geschlossen hat (Issue #90) —
+    /// Vorwärts-Gegenstück zur Rückwärts-Kaskade in <see cref="KaskadeAusloesenAsync"/> (Issue #88).
+    /// Prüft bewusst vorher, ob die Runde dadurch wirklich komplett wurde, statt bei jedem
+    /// Zwischenergebnis unnötig alle Runden der Instanz zu durchsuchen. Auch von
+    /// <see cref="Simulation.SimulationsService"/> genutzt, da simulierte Ergebnisse den
+    /// Spielrepository-Zugriff direkt nutzen und nicht über <see cref="ErgebnisErfassenAsync"/> laufen.
+    /// </summary>
+    public async Task PlatzhalterAutomatischAufloesenWennRundeKomplettAsync(int spielId, CancellationToken ct = default)
+    {
+        var spiel = await spielRepository.FindenNachIdMitErgebnisAsync(spielId, ct);
+        if (spiel is null) return;
+
+        var alleSpieleDerRunde = await spielRepository.AlleNachRundeAsync(spiel.TurnierRundeId, ct);
+        if (!alleSpieleDerRunde.All(s => s.Status == SpielStatus.Abgeschlossen)) return;
+
+        await spielplanService.PlatzhalterAlleRundenAufloesenAsync(spiel.TurnierInstanzId, ct);
     }
 
     public async Task ErgebnisLoeschenAsync(int spielId, CancellationToken ct = default)
