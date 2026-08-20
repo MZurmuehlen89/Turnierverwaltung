@@ -37,13 +37,11 @@ public interface ISpielRepository : IRepository<Spiel>
     /// <summary>Lädt ein einzelnes Spiel mit Ergebnis, Teams und allen SpielEreignissen (für Liveticker).</summary>
     Task<Spiel?> FindenNachIdMitEreignissenAsync(int id, CancellationToken ct = default);
 
-    /// <summary>Setzt die realen Mannschaften auf einem Platzhalter-Spiel und löscht die Platzhalternamen.</summary>
-    Task PlatzhalterAktualisierenAsync(int spielId, int heimMannschaftId, int auswaertsMannschaftId, CancellationToken ct = default);
-
     /// <summary>Setzt Heim- und Auswärtsseite unabhängig voneinander entweder auf eine konkrete
     /// Mannschaft oder zurück auf einen Platzhalternamen (jeweils genau eines von beiden pro Seite) —
-    /// für Issue #88, wenn eine bereits aufgelöste Paarung teilweise ungültig geworden ist. Anders als
-    /// PlatzhalterAktualisierenAsync rührt diese Methode eine bereits korrekte Seite nicht unnötig an.</summary>
+    /// ursprünglich für Issue #88 (bereits aufgelöste Paarung teilweise ungültig geworden), seit #206
+    /// auch für die reguläre, seitenunabhängige Erstauflösung genutzt. Rührt eine bereits korrekte
+    /// Seite nicht unnötig an.</summary>
     Task PlatzhalterKorrigierenAsync(
         int spielId,
         int? heimMannschaftId, string? heimPlatzhalterName,

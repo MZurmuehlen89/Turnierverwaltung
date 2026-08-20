@@ -505,12 +505,23 @@ public class SpielplanService(
         int aufgeloest = 0;
         foreach (var spiel in platzhalterSpiele)
         {
-            var heimId     = spiel.HeimMannschaftId     ?? await AufloessenAsync(spiel.HeimPlatzhalterName);
+            // Issue #206: jede Seite unabhängig auflösen (TV-Präsentation-Stil) — eine Seite kann
+            // schon feststehen, während die andere noch als Platzhaltertext offen bleibt, statt beide
+            // Seiten erst gemeinsam zu schreiben, wenn beide auflösbar sind. PlatzhalterKorrigierenAsync
+            // (aus #88) unterstützt unabhängige Seiten bereits — für die jeweils noch nicht auflösbare
+            // Seite wird schlicht der unveränderte Platzhaltertext zurückgeschrieben (No-Op).
+            var heimId      = spiel.HeimMannschaftId      ?? await AufloessenAsync(spiel.HeimPlatzhalterName);
             var auswaertsId = spiel.AuswaertsMannschaftId ?? await AufloessenAsync(spiel.AuswaertsPlatzhalterName);
 
-            if (heimId is null || auswaertsId is null) continue;
+            bool heimNeuAufgeloest      = heimId is not null && spiel.HeimMannschaftId is null;
+            bool auswaertsNeuAufgeloest = auswaertsId is not null && spiel.AuswaertsMannschaftId is null;
+            if (!heimNeuAufgeloest && !auswaertsNeuAufgeloest) continue;
 
-            await spielRepository.PlatzhalterAktualisierenAsync(spiel.Id, heimId.Value, auswaertsId.Value, ct);
+            await spielRepository.PlatzhalterKorrigierenAsync(
+                spiel.Id,
+                heimId, spiel.HeimPlatzhalterName,
+                auswaertsId, spiel.AuswaertsPlatzhalterName,
+                ct);
             aufgeloest++;
         }
 

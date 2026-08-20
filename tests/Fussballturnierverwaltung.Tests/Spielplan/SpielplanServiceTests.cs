@@ -476,6 +476,91 @@ public class SpielplanServiceTests
     }
 
     [Fact]
+    public async Task PlatzhalterAufloesenAsync_LoestNurAufloesbareSeiteAufWennAndereSeiteNochOffenIst()
+    {
+        // Issue #206 (TV-Präsentation-Stil): Gruppe A ist entschieden (einziges Spiel der 2er-Gruppe
+        // gespielt), Gruppe B ist noch offen (Spiel C-D noch nicht gespielt). Das Halbfinale soll
+        // trotzdem die bereits bekannte Heim-Seite ("Sieger Gruppe A") schreiben, während die
+        // Auswärts-Seite ("2. Gruppe B") als Platzhaltertext stehen bleibt, statt beide Seiten erst
+        // gemeinsam zu schreiben, wenn auch Gruppe B entschieden ist.
+        await using var ctx = NeuerContext();
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
+            { Id = 1, RegelwerkId = 1, Reihenfolge = 1, VerfahrenArt = VerfahrenArt.Elfmeterschiessen });
+
+        var gruppenphase = new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Reihenfolge = 1,
+            Rundenart = Rundenart.Gruppenphase, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 4,
+            RegelwerkId = 1, GruppenAnzahl = 2
+        };
+        var ko = new TurnierRunde
+        {
+            Id = 2, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 2,
+            Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2,
+            RegelwerkId = 1
+        };
+        ctx.TurnierRunden.AddRange(gruppenphase, ko);
+
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team A", Kurzname = "TA", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team B", Kurzname = "TB", LandId = 1 },
+            new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 },
+            new Mannschaft { Id = 4, Name = "Team D", Kurzname = "TD", LandId = 1 });
+
+        // Gruppe A (Team A/B): entschieden, Team A gewinnt.
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 1, TurnierInstanzId = 1, TurnierRundeId = gruppenphase.Id, Spielnummer = 1,
+            HeimMannschaftId = 1, AuswaertsMannschaftId = 2, Status = SpielStatus.Abgeschlossen
+        });
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+            { Id = 1, SpielId = 1, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
+
+        // Gruppe B (Team C/D): noch offen, Spiel noch nicht gespielt.
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 2, TurnierInstanzId = 1, TurnierRundeId = gruppenphase.Id, Spielnummer = 2,
+            HeimMannschaftId = 3, AuswaertsMannschaftId = 4, Status = SpielStatus.Geplant
+        });
+
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 10, TurnierInstanzId = 1, TurnierRundeId = ko.Id, Spielnummer = 10,
+            HeimPlatzhalterName = "Sieger Gruppe A", AuswaertsPlatzhalterName = "2. Gruppe B",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        var anzahl = await service.PlatzhalterAufloesenAsync(ko.Id);
+
+        anzahl.Should().Be(1, "das Spiel wurde teilweise aufgelöst und zählt als Fortschritt");
+        var spiel = ctx.Spiele.AsNoTracking().First(s => s.Id == 10);
+        spiel.HeimMannschaftId.Should().Be(1, "Sieger Gruppe A = Team A, bereits entschieden");
+        spiel.HeimPlatzhalterName.Should().BeNull();
+        spiel.AuswaertsMannschaftId.Should().BeNull("Gruppe B ist noch offen");
+        spiel.AuswaertsPlatzhalterName.Should().Be("2. Gruppe B", "Platzhaltertext bleibt stehen, bis Gruppe B entschieden ist");
+
+        // Gruppe B jetzt abschließen (Team C gewinnt) — ein zweiter Aufruf muss die restliche Seite
+        // nachziehen, ohne die bereits aufgelöste Heim-Seite anzufassen.
+        ctx.Spiele.First(s => s.Id == 2).Status = SpielStatus.Abgeschlossen;
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+            { Id = 2, SpielId = 2, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
+        await ctx.SaveChangesAsync();
+
+        var anzahlNachher = await service.PlatzhalterAufloesenAsync(ko.Id);
+
+        anzahlNachher.Should().Be(1, "die zweite, nachziehende Auflösung zählt erneut als Fortschritt");
+        var spielNachher = ctx.Spiele.AsNoTracking().First(s => s.Id == 10);
+        spielNachher.HeimMannschaftId.Should().Be(1, "bereits vorher aufgelöste Heim-Seite bleibt unverändert stehen");
+        spielNachher.AuswaertsMannschaftId.Should().Be(4, "2. Gruppe B = Team D, jetzt auch entschieden");
+        spielNachher.AuswaertsPlatzhalterName.Should().BeNull();
+    }
+
+    [Fact]
     public async Task PlatzhalterAufloesenAsync_LoestGruppensiegerErstAufWennRangSicherPositioniertIst()
     {
         // 3-Team-Gruppe (Top 2 qualifizieren): Team C ist bereits abgehaengt, aber das direkte Duell A vs. B

@@ -161,29 +161,16 @@ public class SpielRepository(TurnierverwaltungDbContext context)
             .Include(s => s.Ereignisse.OrderBy(e => e.Minute))
             .FirstOrDefaultAsync(s => s.Id == id, ct);
 
-    public async Task PlatzhalterAktualisierenAsync(
-        int spielId, int heimMannschaftId, int auswaertsMannschaftId, CancellationToken ct = default)
-    {
-        // Kein ExecuteUpdateAsync: das umgeht den Change-Tracker, wodurch bereits im selben
-        // (scope-langlebigen) DbContext geladene Spiel-Instanzen veraltet bleiben und bei
-        // erneutem Laden per Identity-Resolution zurueckgegeben werden (sichtbar erst nach
-        // Neustart der App).
-        var spiel = await Context.Spiele.FirstOrDefaultAsync(s => s.Id == spielId, ct);
-        if (spiel is null) return;
-
-        spiel.HeimMannschaftId         = heimMannschaftId;
-        spiel.AuswaertsMannschaftId    = auswaertsMannschaftId;
-        spiel.HeimPlatzhalterName      = null;
-        spiel.AuswaertsPlatzhalterName = null;
-        await Context.SaveChangesAsync(ct);
-    }
-
     public async Task PlatzhalterKorrigierenAsync(
         int spielId,
         int? heimMannschaftId, string? heimPlatzhalterName,
         int? auswaertsMannschaftId, string? auswaertsPlatzhalterName,
         CancellationToken ct = default)
     {
+        // Kein ExecuteUpdateAsync: das umgeht den Change-Tracker, wodurch bereits im selben
+        // (scope-langlebigen) DbContext geladene Spiel-Instanzen veraltet bleiben und bei
+        // erneutem Laden per Identity-Resolution zurueckgegeben werden (sichtbar erst nach
+        // Neustart der App).
         var spiel = await Context.Spiele.FirstOrDefaultAsync(s => s.Id == spielId, ct);
         if (spiel is null) return;
 
