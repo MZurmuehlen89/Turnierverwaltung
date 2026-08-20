@@ -757,6 +757,59 @@ public class TabellenServiceTests
     }
 
     [Fact]
+    public async Task GruppenTabellenBerechnenAsync_WorstCasePrueftAuchUnentschiedenImFremdenSpiel()
+    {
+        // Reproduziert einen beim manuellen #206-Test gefundenen Bug (Fund im echten Testturnier,
+        // Gruppe "Arsenal/Dortmund/Polen/PSG"): Team A hat alle 3 Spiele absolviert, ausschliesslich
+        // Unentschieden (3 Punkte). Team C hat ebenfalls alle Spiele absolviert und ist mit 7 Punkten
+        // uneinholbar Erster. Team B und Team D haben noch gegeneinander zu spielen (aus Sicht von
+        // Team A ein "fremdes" Spiel) und stehen bei je 1 Punkt. Endet dieses Spiel unentschieden,
+        // bleiben beide bei 2 Punkten - Team A haelt Rang 2. Gewinnt hingegen eines der beiden Teams,
+        // erreicht es 4 Punkte und verdraengt Team A auf Rang 3. Die alte ExtremRangErmitteln-
+        // Implementierung probierte fuer fremde Spiele nur die 4 Sieg-Varianten (Heim/Auswaerts x
+        // knapp/extrem), NIE ein Unentschieden - Team A galt dadurch faelschlich als SicherPositioniert
+        // auf Rang 3 (statt korrekt: Rang unsicher zwischen 2 und 3, je nach Ausgang).
+        await using var ctx = NeuerContext();
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Rundenart = Rundenart.Gruppenphase,
+            RegelwerkId = 1, Reihenfolge = 1, GruppenAnzahl = 1, AusgangsMannschaftsanzahl = 2
+        });
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team A", Kurzname = "TA", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team B", Kurzname = "TB", LandId = 1 },
+            new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 },
+            new Mannschaft { Id = 4, Name = "Team D", Kurzname = "TD", LandId = 1 });
+        ctx.SaveChanges();
+
+        SpielHinzufuegen(ctx, 1, rundeId: 1, heimId: 1, auswaertsId: 2,
+            heimTore: 1, auswaertsTore: 1, spieltag: 1);                                 // A - B 1:1
+        SpielHinzufuegen(ctx, 2, rundeId: 1, heimId: 3, auswaertsId: 4,
+            heimTore: 2, auswaertsTore: 1, siegerMannschaftId: 3, spieltag: 1);           // C schlägt D 2:1
+        SpielHinzufuegen(ctx, 3, rundeId: 1, heimId: 4, auswaertsId: 1,
+            heimTore: 0, auswaertsTore: 0, spieltag: 2);                                  // D - A 0:0
+        SpielHinzufuegen(ctx, 4, rundeId: 1, heimId: 2, auswaertsId: 3,
+            heimTore: 0, auswaertsTore: 1, siegerMannschaftId: 3, spieltag: 2);           // C schlägt B 1:0
+        SpielHinzufuegen(ctx, 5, rundeId: 1, heimId: 1, auswaertsId: 3,
+            heimTore: 1, auswaertsTore: 1, spieltag: 2);                                  // A - C 1:1
+        SpielHinzufuegen(ctx, 6, rundeId: 1, heimId: 4, auswaertsId: 2,
+            heimTore: null, auswaertsTore: null, spieltag: 3);                            // D - B noch offen
+        var service = ServiceFuer(ctx);
+
+        var gruppen = await service.GruppenTabellenBerechnenAsync(1);
+
+        var teamA = gruppen[0].Tabelle.First(e => e.Mannschaft.Id == 1);
+        teamA.Punkte.Should().Be(3, "drei Unentschieden");
+        teamA.SicherPositioniert.Should().BeFalse(
+            "ein Unentschieden im fremden Spiel D-B haelt Team A auf Rang 2, ein Sieg von D oder B verdraengt es auf Rang 3");
+        teamA.Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen,
+            "Team A kann sowohl noch auf Rang 2 qualifizieren (bei Unentschieden) als auch auf Rang 3 ausscheiden (bei Sieg)");
+    }
+
+    [Fact]
     public async Task VerfuegbareSpieltageAsync_BegrenztAufLetztenSpieltagMitErgebnis()
     {
         await using var ctx = NeuerContext();

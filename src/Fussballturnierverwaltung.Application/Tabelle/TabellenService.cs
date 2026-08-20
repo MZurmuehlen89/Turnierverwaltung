@@ -417,14 +417,19 @@ public class TabellenService(
     /// ein extremeres Ergebnis wirkt daher immer eindeutig in dieselbe Richtung (nie schwächer).
     ///
     /// Für alle fremden offenen Spiele (die <paramref name="teamId"/> nicht betreffen) wird per Brute-Force jede
-    /// Kombination aus Sieger UND Tordifferenz (knapp/extrem) durchgerechnet - macht pro fremdem Spiel 4 statt 2
-    /// Varianten, insgesamt 4^n statt 2^n Kombinationen. Notwendig, weil ein fremdes Spiel einen "Umweg" über einen
-    /// dritten Verein nimmt: Team X gewinnt gegen Team Y - ein knapper Sieg schadet Y kaum, ein extremer Sieg
-    /// zertrümmert Ys Tordifferenz. Ob das für <paramref name="teamId"/> gut oder schlecht ist, hängt davon ab, ob
-    /// teamId gerade mit X oder mit Y um einen Platz konkurriert - das kann bei jedem Aufruf anders liegen, ein
-    /// pauschal "immer knapp" oder "immer extrem" für fremde Spiele ist daher in keine Richtung sicher korrekt
-    /// (beide wurden ausprobiert und haben je einen der beiden unten stehenden Tests zum Scheitern gebracht).
-    /// (AD: Issue #201/#202/#205, Funde aus manuellem #202-Test).</summary>
+    /// Kombination aus Ausgang (Heim-/Auswärtssieg/Unentschieden) UND Tordifferenz (knapp/extrem) durchgerechnet -
+    /// macht pro fremdem Spiel 6 statt 2 Varianten, insgesamt 6^n statt 2^n Kombinationen. Notwendig, weil ein
+    /// fremdes Spiel einen "Umweg" über einen dritten Verein nimmt: Team X gewinnt gegen Team Y - ein knapper Sieg
+    /// schadet Y kaum, ein extremer Sieg zertrümmert Ys Tordifferenz. Ob das für <paramref name="teamId"/> gut oder
+    /// schlecht ist, hängt davon ab, ob teamId gerade mit X oder mit Y um einen Platz konkurriert - das kann bei
+    /// jedem Aufruf anders liegen, ein pauschal "immer knapp" oder "immer extrem" für fremde Spiele ist daher in
+    /// keine Richtung sicher korrekt (beide wurden ausprobiert und haben je einen der beiden unten stehenden Tests
+    /// zum Scheitern gebracht). Unentschieden ist ein eigenständiger, nicht auf einen "Sieger" reduzierbarer
+    /// Ausgang und fehlte ursprünglich komplett in der Brute-Force (nur 4 Sieg-Varianten) - dadurch konnte ein Team
+    /// fälschlich als SicherPositioniert gelten, obwohl erst ein Unentschieden im fremden Spiel diesen Rang absichert
+    /// oder gefährdet hätte (Fund aus manuellem #206-Test: Rang 2 einer Gruppe wurde vorschnell aufgelöst, obwohl
+    /// nur ein Sieg in beide Richtungen, nicht aber ein Unentschieden im offenen Fremdspiel geprüft wurde).
+    /// (AD: Issue #201/#202/#205/#206, Funde aus manuellem Test).</summary>
     private static int ExtremRangErmitteln(
         List<Spiel> abgeschlossen, List<Spiel> offen, int teamId,
         PunkteRegel punkteRegel, List<RankingRegel> rankingRegeln,
@@ -439,17 +444,26 @@ public class TabellenService(
             .ToList();
 
         int extremRang = bestenfalls ? int.MaxValue : int.MinValue;
-        int kombinationen = 1 << (2 * fremde.Count); // 4 Varianten pro fremdem Spiel = 2 Bit pro Spiel im Maskenwort
+        int kombinationen = (int)Math.Pow(_fremdSpielVariantenAnzahl, fremde.Count);
 
-        for (int mask = 0; mask < kombinationen; mask++)
+        for (int kombi = 0; kombi < kombinationen; kombi++)
         {
-            var fremdeErgebnisse = fremde.Select((s, i) =>
+            var fremdeErgebnisse = new List<Spiel>(fremde.Count);
+            int rest = kombi;
+            foreach (var s in fremde)
             {
-                int variante = (mask >> (2 * i)) & 0b11;
-                bool heimSiegt = variante is 0 or 1;
-                int torergebnis = variante is 0 or 2 ? KnappesTorergebnis : ExtremesTorergebnis;
-                return SpielMitSimuliertemErgebnis(s, heimSiegt, torergebnis);
-            }).ToList();
+                int variante = rest % _fremdSpielVariantenAnzahl;
+                rest /= _fremdSpielVariantenAnzahl;
+                fremdeErgebnisse.Add(variante switch
+                {
+                    0 => SpielMitSimuliertemErgebnis(s, heimSiegt: true,  KnappesTorergebnis),
+                    1 => SpielMitSimuliertemErgebnis(s, heimSiegt: true,  ExtremesTorergebnis),
+                    2 => SpielMitSimuliertemErgebnis(s, heimSiegt: false, KnappesTorergebnis),
+                    3 => SpielMitSimuliertemErgebnis(s, heimSiegt: false, ExtremesTorergebnis),
+                    4 => SpielMitUnentschieden(s, UnentschiedenKnapp),
+                    _ => SpielMitUnentschieden(s, UnentschiedenExtrem)
+                });
+            }
 
             var tabelle = TabelleAusSpielenBerechnen(
                 [..abgeschlossen, ..eigeneErgebnisse, ..fremdeErgebnisse], punkteRegel, rankingRegeln);
@@ -461,8 +475,13 @@ public class TabellenService(
         return extremRang;
     }
 
-    private const int KnappesTorergebnis  = 1;
-    private const int ExtremesTorergebnis = 1000;
+    // 6 Varianten pro fremdem Spiel: Heim-/Auswärtssieg × knapp/extrem, plus Unentschieden × knapp/extrem.
+    private const int _fremdSpielVariantenAnzahl = 6;
+
+    private const int KnappesTorergebnis    = 1;
+    private const int ExtremesTorergebnis   = 1000;
+    private const int UnentschiedenKnapp    = 0;
+    private const int UnentschiedenExtrem   = 500;
 
     private static Spiel SpielMitSimuliertemErgebnis(Spiel original, bool heimSiegt, int torergebnis) => new()
     {
@@ -476,6 +495,22 @@ public class TabellenService(
         {
             HeimToreRegulaer      = heimSiegt ? torergebnis : 0,
             AuswaertsToreRegulaer = heimSiegt ? 0 : torergebnis,
+            EntscheidungArt       = EntscheidungArt.RegulaereSpielzeit
+        }
+    };
+
+    private static Spiel SpielMitUnentschieden(Spiel original, int tore) => new()
+    {
+        Spielnummer           = original.Spielnummer,
+        HeimMannschaftId      = original.HeimMannschaftId,
+        HeimMannschaft        = original.HeimMannschaft,
+        AuswaertsMannschaftId = original.AuswaertsMannschaftId,
+        AuswaertsMannschaft   = original.AuswaertsMannschaft,
+        Status                = SpielStatus.Abgeschlossen,
+        Ergebnis = new SpielErgebnis
+        {
+            HeimToreRegulaer      = tore,
+            AuswaertsToreRegulaer = tore,
             EntscheidungArt       = EntscheidungArt.RegulaereSpielzeit
         }
     };
