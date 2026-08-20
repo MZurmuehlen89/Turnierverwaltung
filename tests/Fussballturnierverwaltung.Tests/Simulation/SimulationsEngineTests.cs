@@ -95,8 +95,26 @@ public class SimulationsEngineTests
             .Select(e => e.Beschreibung)
             .ToList();
 
-        torBeschreibungen.Should().Contain(b => b.EndsWith("nach Konter"));
-        torBeschreibungen.Should().Contain(b => !b.EndsWith("nach Konter"));
+        torBeschreibungen.Should().Contain(b => b.Contains("nach Konter"));
+        torBeschreibungen.Should().Contain(b => !b.Contains("nach Konter"));
+    }
+
+    [Fact]
+    public void AusfuehrlicheSimulation_TorEreignisseHabenTorzoneInKlammern()
+    {
+        // Issue #128: jedes Tor-Ereignis trägt zusätzlich eine grob zugeloste Torzone in Klammern
+        // am Ende der Beschreibung, z.B. "Tor per Kopfball (unten Mitte)".
+        var torBeschreibungen = Enumerable.Range(0, 50)
+            .SelectMany(seed => SimulationsEngine.Simulieren(Team(1), Team(2), [], true, new Random(seed)).Ereignisse)
+            .Where(e => e.Art == EreignisArt.Tor)
+            .Select(e => e.Beschreibung)
+            .ToList();
+
+        torBeschreibungen.Should().NotBeEmpty();
+        torBeschreibungen.Should().AllSatisfy(b =>
+        {
+            b.Should().MatchRegex(@"\([a-zA-ZäöüÄÖÜ ]+\)$");
+        });
     }
 
     [Fact]

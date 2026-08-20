@@ -253,10 +253,21 @@ public static class SimulationsEngine
     // Profifußball liegt grob im niedrigen zweistelligen Prozentbereich.
     private const double KontertorWahrscheinlichkeit = 0.15;
 
+    // Issue #128: ebenfalls reine Flavor-Anreicherung, kein Einfluss auf Spielstand oder
+    // Simulationslogik. Grobes 3x3-Raster angelehnt an die "Torzone" im DFL-Definitionskatalog
+    // "Offizielle Spieldaten" (Abbildung 5) — Mitte/Mitte bewusst als "Mitte" statt "Mitte Mitte".
+    private static readonly string[] _torzonen =
+    [
+        "oben links", "oben Mitte", "oben rechts",
+        "Mitte links", "Mitte",      "Mitte rechts",
+        "unten links", "unten Mitte", "unten rechts"
+    ];
+
     private static string ZufaelligerTorstilText(Random rng)
     {
         string basis = $"Tor per {_torstile[rng.Next(_torstile.Length)]}";
-        return rng.NextDouble() < KontertorWahrscheinlichkeit ? $"{basis} nach Konter" : basis;
+        string mitKonter = rng.NextDouble() < KontertorWahrscheinlichkeit ? $"{basis} nach Konter" : basis;
+        return $"{mitKonter} ({_torzonen[rng.Next(_torzonen.Length)]})";
     }
 
     private static List<int> ZufallsMinuten(int anzahl, int von, int bis, Random rng)
