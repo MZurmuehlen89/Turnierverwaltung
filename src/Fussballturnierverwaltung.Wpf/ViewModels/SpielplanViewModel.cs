@@ -239,11 +239,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly AsyncRelayCommand _gruppeSimulierenBefehl;
     private readonly AsyncRelayCommand _spieltagSimulierenBefehl;
     private readonly AsyncRelayCommand _ausfuehrlichSimulierenBefehl;
+    private readonly AsyncRelayCommand _auswahlSimulierenBefehl;
 
     public ICommand RundeSimulierenBefehl         => _rundeSimulierenBefehl;
     public ICommand GruppeSimulierenBefehl        => _gruppeSimulierenBefehl;
     public ICommand SpieltagSimulierenBefehl      => _spieltagSimulierenBefehl;
     public ICommand AusfuehrlichSimulierenBefehl  => _ausfuehrlichSimulierenBefehl;
+    public ICommand AuswahlSimulierenBefehl       => _auswahlSimulierenBefehl;
 
     // ── Ergebnis-Reset auf Ebene Runde/Gruppe/Spieltag (Issue #123) ─────────────
 
@@ -258,15 +260,24 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     // ── Manuelle Multi-Selektion (Issue #124) ─────────────────────────────────────
     // Wird von der View per Code-Behind (ListView.SelectionChanged, da ListView.SelectedItems
     // nicht direkt bindbar ist) aktuell gehalten — siehe AktualisiereMehrfachAuswahl. Wird seit
-    // Issue #204 direkt vom "Löschen"-Befehl gelesen statt über einen eigenen Befehl.
+    // Issue #204 direkt vom "Löschen"-Befehl gelesen, seit Issue #207 zusätzlich vom
+    // "Auswahl simulieren"-Befehl.
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AnzahlMehrfachSimulierbar))]
+    [NotifyPropertyChangedFor(nameof(AuswahlSimulierenMenuText))]
+    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
     private IReadOnlyList<SpielZeile> _mehrfachAusgewaehlteSpiele = [];
+
+    public int    AnzahlMehrfachSimulierbar =>
+        MehrfachAusgewaehlteSpiele.Count(s => s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
+    public string AuswahlSimulierenMenuText => $"Auswahl ({AnzahlMehrfachSimulierbar}) simulieren";
 
     public void AktualisiereMehrfachAuswahl(IEnumerable<SpielZeile> ausgewaehlt)
     {
         MehrfachAusgewaehlteSpiele = ausgewaehlt.ToList();
         _loeschenBefehl.NotifyCanExecuteChanged();
+        _auswahlSimulierenBefehl.NotifyCanExecuteChanged();
     }
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
@@ -325,6 +336,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     Header = "Spiel simulieren",
                     Befehl = AusfuehrlichSimulierenBefehl,
                     IconGlyph = "",
+                    Unteraktionen =
+                    [
+                        new RibbonAktion { Header = AuswahlSimulierenMenuText, Befehl = AuswahlSimulierenBefehl, IconGlyph = "" },
+                    ],
                 },
             ],
         },
@@ -371,6 +386,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _gruppeSimulierenBefehl       = new AsyncRelayCommand(GruppeSimulierenAsync,        CanGruppeSimulieren);
         _spieltagSimulierenBefehl     = new AsyncRelayCommand(SpieltagSimulierenAsync,      CanSpieltagSimulieren);
         _ausfuehrlichSimulierenBefehl = new AsyncRelayCommand(AusfuehrlichSimulierenAsync,  CanAusfuehrlichSimulieren);
+        _auswahlSimulierenBefehl      = new AsyncRelayCommand(AuswahlSimulierenAsync,       CanAuswahlSimulieren);
 
         _rundeZuruecksetzenBefehl    = new AsyncRelayCommand(RundeZuruecksetzenAsync,    CanRundeZuruecksetzen);
         _gruppeZuruecksetzenBefehl   = new AsyncRelayCommand(GruppeZuruecksetzenAsync,   CanGruppeZuruecksetzen);
@@ -1099,6 +1115,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _gruppeSimulierenBefehl.NotifyCanExecuteChanged();
         _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
         _ausfuehrlichSimulierenBefehl.NotifyCanExecuteChanged();
+        _auswahlSimulierenBefehl.NotifyCanExecuteChanged();
         _rundeZuruecksetzenBefehl.NotifyCanExecuteChanged();
         _gruppeZuruecksetzenBefehl.NotifyCanExecuteChanged();
         _spieltagZuruecksetzenBefehl.NotifyCanExecuteChanged();
@@ -1341,6 +1358,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                          && s.Spieltag == spieltag
                          && s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
 
+    // Issue #207: eigene Mehrfachauswahl gezielt simulieren, analog zum Löschen-Pfad aus #204 —
+    // Count > 1 grenzt gegen die im Formular geladene Einzelauswahl ab ("Spiel simulieren").
+    private bool CanAuswahlSimulieren() =>
+        !IstSimulierend && MehrfachAusgewaehlteSpiele.Count > 1 && AnzahlMehrfachSimulierbar > 0;
+
     // ── Ergebnis-Reset: CanExecute ───────────────────────────────────────────────
 
     private bool CanRundeZuruecksetzen() =>
@@ -1478,6 +1500,49 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
             OnPropertyChanged(nameof(FokusSpiele));
             await SpielAuswahlWiederherstellenAsync(spielId);
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstSimulierend = false;
+            AktualisiereBefehle();
+        }
+    }
+
+    // Issue #207: eigene Mehrfachauswahl gezielt simulieren, analog zu Runde/Gruppe/Spieltag
+    // simulieren, aber mit expliziter Spiel-Id-Liste statt eines Bereichsfilters.
+    private async Task AuswahlSimulierenAsync()
+    {
+        if (AusgewaehlteRunde is null) return;
+        var spielIds = MehrfachAusgewaehlteSpiele
+            .Where(s => s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel)
+            .Select(s => s.Id).ToList();
+        if (spielIds.Count == 0) return;
+
+        int rundeId = AusgewaehlteRunde.Id;
+        Fehlermeldung  = null;
+        IstSimulierend = true;
+        try
+        {
+            await _simulationsService.SpieleSimulierenAsync(spielIds, SimulationsModus.AusfuehrlicheSimulation);
+
+            // Siehe RundeSimulierenAsync — die Auswahl kann eine K.o.-Runde komplett abschließen
+            // und damit eine Finale-Runde entscheidungsreif machen.
+            await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
+
+            await TabellenNeuLadenAsync(rundeId);
+
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            OnPropertyChanged(nameof(FokusSpiele));
+            AusgewaehlteSpiel = null;
+            MehrfachAusgewaehlteSpiele = [];
+            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
         catch (Exception ex)
         {

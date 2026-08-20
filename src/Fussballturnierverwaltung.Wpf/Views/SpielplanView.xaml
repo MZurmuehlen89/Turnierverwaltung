@@ -364,6 +364,10 @@
                                                 <MenuItem Header="Ausgewählte Ergebnisse zurücksetzen"
                                                           Command="{Binding PlacementTarget.Tag.LoeschenBefehl,
                                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                <MenuItem Header="{Binding PlacementTarget.Tag.AuswahlSimulierenMenuText,
+                                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                          Command="{Binding PlacementTarget.Tag.AuswahlSimulierenBefehl,
+                                                                            RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                             </ContextMenu>
                                         </Setter.Value>
                                     </Setter>
@@ -526,6 +530,10 @@
                                                 <ContextMenu>
                                                     <MenuItem Header="Ausgewählte Ergebnisse zurücksetzen"
                                                               Command="{Binding PlacementTarget.Tag.LoeschenBefehl,
+                                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                    <MenuItem Header="{Binding PlacementTarget.Tag.AuswahlSimulierenMenuText,
+                                                                               RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                              Command="{Binding PlacementTarget.Tag.AuswahlSimulierenBefehl,
                                                                                 RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                 </ContextMenu>
                                             </Setter.Value>

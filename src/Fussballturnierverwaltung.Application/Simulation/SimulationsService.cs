@@ -89,6 +89,36 @@ public class SimulationsService(
         return ergebnis;
     }
 
+    // ── Eine freie Auswahl ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Simuliert genau die übergebenen, noch nicht abgeschlossenen Spiele — für eine frei
+    /// getroffene Mehrfachauswahl in der WPF-Spielliste (Issue #207), unabhängig von
+    /// Runde/Gruppe/Spieltag. Bereits abgeschlossene oder nicht gefundene Spiele werden
+    /// übersprungen statt die restliche Auswahl abzubrechen. Gibt die Anzahl simulierter Spiele zurück.
+    /// </summary>
+    public async Task<int> SpieleSimulierenAsync(
+        IReadOnlyCollection<int> spielIds,
+        SimulationsModus modus,
+        int? seed = null,
+        CancellationToken ct = default)
+    {
+        var rng = seed.HasValue ? new Random(seed.Value) : new Random();
+        int simuliert = 0;
+
+        foreach (var spielId in spielIds)
+        {
+            var spiel = await spielRepository.FindenNachIdFuerSimulationAsync(spielId, ct);
+            if (spiel is null || spiel.Status == SpielStatus.Abgeschlossen) continue;
+
+            await SpielSimulierenAsync(spielId, modus, rng, ct);
+            simuliert++;
+        }
+
+        logger.LogInformation("Auswahl: {Anz} Spiel(e) simuliert.", simuliert);
+        return simuliert;
+    }
+
     // ── Ein Spieltag ──────────────────────────────────────────────────────
 
     /// <summary>
