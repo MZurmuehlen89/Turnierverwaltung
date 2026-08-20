@@ -561,6 +561,91 @@ public class SpielplanServiceTests
     }
 
     [Fact]
+    public async Task PlatzhalterVorschauAsync_LiefertOptimistischenNamenOhneZuPersistieren()
+    {
+        // Issue #208: Team A führt Gruppe A aktuell auf Rang 2 (3 Punkte, alle Spiele gespielt),
+        // Team C ist uneinholbar Erster (7 Punkte). Rang 2 ist NICHT SicherPositioniert (ein
+        // Unentschieden im offenen Spiel B-D hält Team A auf Rang 2, ein Sieg verdrängt es auf
+        // Rang 3) — die reguläre Auflösung darf daher nur die Auswaerts-Seite (sicherer Rang 1)
+        // schreiben, nicht die Heim-Seite (unsicherer Rang 2). Die Vorschau soll für beide Seiten
+        // den aktuell führenden Namen liefern, ohne zusätzlich etwas zu persistieren.
+        await using var ctx = NeuerContext();
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
+            { Id = 1, RegelwerkId = 1, Reihenfolge = 1, VerfahrenArt = VerfahrenArt.Elfmeterschiessen });
+
+        var gruppenphase = new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Reihenfolge = 1,
+            Rundenart = Rundenart.Gruppenphase, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 4,
+            RegelwerkId = 1, GruppenAnzahl = 1
+        };
+        var ko = new TurnierRunde
+        {
+            Id = 2, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 2,
+            Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2,
+            RegelwerkId = 1
+        };
+        ctx.TurnierRunden.AddRange(gruppenphase, ko);
+
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team A", Kurzname = "TA", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team B", Kurzname = "TB", LandId = 1 },
+            new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 },
+            new Mannschaft { Id = 4, Name = "Team D", Kurzname = "TD", LandId = 1 });
+
+        void Spiel(int id, int heim, int auswaerts, int? heimTore, int? auswaertsTore, int? sieger = null)
+        {
+            ctx.Spiele.Add(new Spiel
+            {
+                Id = id, TurnierInstanzId = 1, TurnierRundeId = gruppenphase.Id, Spielnummer = id,
+                HeimMannschaftId = heim, AuswaertsMannschaftId = auswaerts,
+                Status = heimTore.HasValue ? SpielStatus.Abgeschlossen : SpielStatus.Geplant
+            });
+            if (heimTore.HasValue && auswaertsTore.HasValue)
+                ctx.SpielErgebnisse.Add(new SpielErgebnis
+                {
+                    Id = id, SpielId = id, HeimToreRegulaer = heimTore.Value, AuswaertsToreRegulaer = auswaertsTore.Value,
+                    EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = sieger
+                });
+        }
+        Spiel(1, 1, 2, 1, 1);                    // A - B 1:1
+        Spiel(2, 3, 4, 2, 1, sieger: 3);          // C schlägt D
+        Spiel(3, 4, 1, 0, 0);                     // D - A 0:0
+        Spiel(4, 2, 3, 0, 1, sieger: 3);          // C schlägt B
+        Spiel(5, 1, 3, 1, 1);                     // A - C 1:1
+        Spiel(6, 4, 2, null, null);                // D - B noch offen
+        await ctx.SaveChangesAsync();
+
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 10, TurnierInstanzId = 1, TurnierRundeId = ko.Id, Spielnummer = 10,
+            HeimPlatzhalterName = "2. Gruppe A", AuswaertsPlatzhalterName = "Sieger Gruppe A",
+            Status = SpielStatus.Geplant
+        });
+        await ctx.SaveChangesAsync();
+        var service = ServiceFuer(ctx);
+
+        var regulaer = await service.PlatzhalterAufloesenAsync(ko.Id);
+        regulaer.Should().Be(1, "nur die Auswaerts-Seite (Sieger Gruppe A, sicher positioniert) darf regulär aufgelöst werden");
+        var spielNachRegulaer = ctx.Spiele.AsNoTracking().First(s => s.Id == 10);
+        spielNachRegulaer.HeimMannschaftId.Should().BeNull(
+            "Rang 2 ist noch nicht SicherPositioniert, die reguläre Auflösung darf diese Seite nicht schreiben");
+        spielNachRegulaer.AuswaertsMannschaftId.Should().Be(3, "Team C ist uneinholbar Erster und darf regulär aufgelöst werden");
+
+        var vorschau = await service.PlatzhalterVorschauAsync(ko.Id);
+
+        vorschau.Should().ContainKey(10);
+        vorschau[10].Heim.Should().Be("Team A", "Team A führt Rang 2 aktuell, auch wenn das noch nicht sicher ist");
+        vorschau[10].Auswaerts.Should().BeNull(
+            "Auswaerts ist bereits regulär (persistent) aufgelöst, dafür liefert die Vorschau keinen Zusatzwert mehr");
+        ctx.Spiele.AsNoTracking().First(s => s.Id == 10).HeimMannschaftId.Should().BeNull(
+            "die Vorschau darf weiterhin nichts in die Datenbank geschrieben haben");
+    }
+
+    [Fact]
     public async Task PlatzhalterAufloesenAsync_LoestGruppensiegerErstAufWennRangSicherPositioniertIst()
     {
         // 3-Team-Gruppe (Top 2 qualifizieren): Team C ist bereits abgehaengt, aber das direkte Duell A vs. B

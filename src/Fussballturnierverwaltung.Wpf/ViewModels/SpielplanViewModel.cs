@@ -17,6 +17,7 @@ using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
@@ -38,6 +39,11 @@ public class SpielZeile
     public string ErgebnisDetail { get; init; } = "";
     public bool IstRueckspiel { get; init; }
     public bool IstPlatzhalterSpiel { get; init; }
+    // Issue #208: Vorschau-Namen (optimistisch, noch nicht SicherPositioniert) für Platzhalter-Seiten,
+    // wenn der Vorschau-Umschalter aktiv ist — HeimName/AuswaertsName zeigen dann den Vorschau-Namen
+    // in Klammern statt des reinen Platzhaltertexts, diese Flags erlauben zusätzliche optische Kennzeichnung.
+    public bool HeimIstVorschau { get; init; }
+    public bool AuswaertsIstVorschau { get; init; }
     public int? GruppeNummer { get; init; }
     public string GruppeAnzeige => GruppeNummer.HasValue ? $"Gr.{GruppeNummer}" : "";
     public decimal? HeimRating { get; init; }
@@ -60,6 +66,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private int _populiertGerade;
     private Dictionary<int, int> _teamGruppeMap = [];
     private List<VerfahrenArt> _erlaubteVerfahren = [];
+    private IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)> _platzhalterVorschau =
+        new Dictionary<int, (string?, string?)>();
 
     // Spiel/Runde, dessen Ergebnis aktuell im Formular steht (für Dirty-Check beim Spiel-/Rundenwechsel)
     private int? _formularSpielId;
@@ -223,11 +231,31 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
     }
 
-    // ── Platzhalter ───────────────────────────────────────────────────────────
+    // ── Platzhalter-Vorschau (Issue #208) ───────────────────────────────────────
+    // Ersetzt den vormaligen "Platzhalter aktualisieren"-Button: seit #90 löst die App Platzhalter
+    // ohnehin automatisch nach jedem Ergebnis auf, ein manueller Persistier-Trigger ist damit
+    // überflüssig. Der Umschalter zeigt stattdessen rein optisch (nichts wird persistiert) den
+    // aktuell optimistisch führenden Namen für noch nicht sicher aufgelöste Platzhalter-Seiten an.
 
     public bool HatPlatzhalterSpiele => Spiele.Any(s => s.IstPlatzhalterSpiel);
-    public ICommand PlatzhalterBefehl => _platzhalterBefehl;
-    private readonly AsyncRelayCommand _platzhalterBefehl;
+
+    [ObservableProperty] private bool _vorschauAktiv;
+
+    partial void OnVorschauAktivChanged(bool value) => _ = AktualisierePlatzhalterVorschauAsync();
+
+    private async Task AktualisierePlatzhalterVorschauAsync()
+    {
+        _platzhalterVorschau = VorschauAktiv && AusgewaehlteRunde is not null
+            ? await _spielplanService.PlatzhalterVorschauAsync(AusgewaehlteRunde.Id)
+            : new Dictionary<int, (string?, string?)>();
+
+        if (AusgewaehlteRunde is null) return;
+        var spiele = await _spielService.AlleNachRundeAsync(AusgewaehlteRunde.Id);
+        Spiele.Clear();
+        foreach (var (s, i) in spiele.Select((x, i) => (x, i)))
+            Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+        OnPropertyChanged(nameof(FokusSpiele));
+    }
 
     // ── Simulation ────────────────────────────────────────────────────────────
     // Issue #171: Schnell-/Ausführlich-Wahl entfällt hier komplett — SimulationsService berechnet
@@ -341,6 +369,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                         new RibbonAktion { Header = AuswahlSimulierenMenuText, Befehl = AuswahlSimulierenBefehl, IconGlyph = "" },
                     ],
                 },
+                new RibbonAktion
+                {
+                    Header = "Platzhalter-Vorschau",
+                    IstAktivBinding = new Binding(nameof(VorschauAktiv)) { Source = this, Mode = BindingMode.TwoWay },
+                    IconGlyph = "",
+                },
             ],
         },
     ];
@@ -375,7 +409,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _speichernBefehl           = new AsyncRelayCommand(SpeichernAsync,                () => FormAktiv && IsDirty);
         _abbrechenBefehl           = new RelayCommand(FormZuruecksetzen,                  () => FormAktiv && IsDirty);
         _loeschenBefehl            = new AsyncRelayCommand(ErgebnisLoeschenAsync,         CanErgebnisLoeschen);
-        _platzhalterBefehl         = new AsyncRelayCommand(PlatzhalterAktualisierenAsync, () => HatRunde && HatPlatzhalterSpiele);
 
         _zurueckZurUebersichtBefehl = new RelayCommand(() => AusgewaehlteGruppe = null, () => AusgewaehlteGruppe is not null);
         _fokusVorigerSpieltag       = new RelayCommand(FokusEinSpieltag_Vorig, () => KannFokusZurueck);
@@ -418,10 +451,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
         Spiele.Clear();
         foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-            Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
         OnPropertyChanged(nameof(FokusSpiele));
         OnPropertyChanged(nameof(HatPlatzhalterSpiele));
-        _platzhalterBefehl.NotifyCanExecuteChanged();
 
         // Auswahl anhand der Id wiederherstellen, SpielWechselAsync dabei unterdrücken (Spiele
         // wurde neu aufgebaut, die Auswahl "wechselt" technisch die Objektinstanz, fachlich aber
@@ -633,6 +665,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         AusgewaehlteGruppe   = null;
         GruppenTabellen.Clear();
         _teamGruppeMap = [];
+        _platzhalterVorschau = new Dictionary<int, (string?, string?)>(); // gehört zur alten Runde
         AktualisiereBefehle();
 
         if (AusgewaehlteRunde is null)
@@ -645,10 +678,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         var liste = await _spielService.AlleNachRundeAsync(AusgewaehlteRunde.Id);
         foreach (var (s, i) in liste.Select((x, i) => (x, i)))
-            Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
 
         OnPropertyChanged(nameof(HatPlatzhalterSpiele));
-        _platzhalterBefehl.NotifyCanExecuteChanged();
+        // Issue #208: Vorschau-Umschalter bleibt rundenübergreifend aktiv, Inhalt muss aber für die
+        // neue Runde neu berechnet werden (oben nur mit dem geleerten Stand der alten Runde befüllt).
+        if (VorschauAktiv) await AktualisierePlatzhalterVorschauAsync();
 
         var regelwerk = await _regelwerkService.FindenNachIdAsync(AusgewaehlteRunde.RegelwerkId);
 
@@ -917,10 +952,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
             OnPropertyChanged(nameof(FokusSpiele));
-            _platzhalterBefehl.NotifyCanExecuteChanged();
             AusgewaehlteSpiel = null;
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
         }
@@ -930,36 +964,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
     }
 
-    private async Task PlatzhalterAktualisierenAsync()
-    {
-        if (AusgewaehlteRunde is null) return;
-        var rundeId   = AusgewaehlteRunde.Id;
-        Fehlermeldung = null;
-        try
-        {
-            int aufgeloest = await _spielplanService.PlatzhalterAufloesenAsync(rundeId);
-
-            await TabellenNeuLadenAsync(rundeId);
-
-            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
-            Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
-            OnPropertyChanged(nameof(HatPlatzhalterSpiele));
-            OnPropertyChanged(nameof(FokusSpiele));
-            _platzhalterBefehl.NotifyCanExecuteChanged();
-            AusgewaehlteSpiel = null;
-
-            if (aufgeloest == 0)
-                Fehlermeldung = "Keine Platzhalter konnten aufgelöst werden. " +
-                                "Bitte sicherstellen, dass die Vorrunden-Ergebnisse vollständig eingetragen sind.";
-            else
-                await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-        }
-    }
 
     private async Task SpeichernAsync()
     {
@@ -993,7 +997,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             try
             {
                 Spiele.Clear();
-                foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+                foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
             }
             finally
             {
@@ -1044,7 +1048,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
             OnPropertyChanged(nameof(FokusSpiele));
 
             AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
@@ -1107,7 +1111,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _speichernBefehl.NotifyCanExecuteChanged();
         _abbrechenBefehl.NotifyCanExecuteChanged();
         _loeschenBefehl.NotifyCanExecuteChanged();
-        _platzhalterBefehl.NotifyCanExecuteChanged();
         _fokusVorigerSpieltag.NotifyCanExecuteChanged();
         _fokusNaechsterSpieltag.NotifyCanExecuteChanged();
         _fokusAlleSpieltageBefehl.NotifyCanExecuteChanged();
@@ -1123,7 +1126,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private static SpielZeile MapSpielZeile(
         Spiel s, TurnierRunde? runde, int positionInRunde,
-        IReadOnlyDictionary<int, int>? teamGruppeMap = null)
+        IReadOnlyDictionary<int, int>? teamGruppeMap = null,
+        IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)>? vorschau = null)
     {
         string text   = "-:-";
         string detail = "";
@@ -1143,20 +1147,31 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             && teamGruppeMap.TryGetValue(s.HeimMannschaftId.Value, out var gr))
             gruppeNummer = gr;
 
+        // Issue #208: Vorschau-Namen (optimistisch, ungesichert) nur für Seiten heranziehen, die noch
+        // als Platzhalter offen sind — eine bereits real zugewiesene Seite bleibt unangetastet.
+        (string? Heim, string? Auswaerts) vor = default;
+        vorschau?.TryGetValue(s.Id, out vor);
+        string? heimVorschau      = s.HeimMannschaftId      is null ? vor.Heim      : null;
+        string? auswaertsVorschau = s.AuswaertsMannschaftId is null ? vor.Auswaerts : null;
+
         return new SpielZeile
         {
             Id                  = s.Id,
             Spielnummer         = s.Spielnummer,
             Spieltag            = s.Spieltag,
             KoLabel             = KoPositionsLabel(s, runde, positionInRunde),
-            HeimName            = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "?",
-            AuswaertsName       = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "?",
+            HeimName            = s.HeimMannschaft?.Name ?? (heimVorschau is not null ? $"({heimVorschau})" : null)
+                                   ?? s.HeimPlatzhalterName ?? "?",
+            AuswaertsName       = s.AuswaertsMannschaft?.Name ?? (auswaertsVorschau is not null ? $"({auswaertsVorschau})" : null)
+                                   ?? s.AuswaertsPlatzhalterName ?? "?",
             Status              = s.Status,
             HatErgebnis         = s.Ergebnis is not null,
             ErgebnisText        = text,
             ErgebnisDetail      = detail,
             IstRueckspiel       = s.IstRueckspiel,
             IstPlatzhalterSpiel = !s.HeimMannschaftId.HasValue || !s.AuswaertsMannschaftId.HasValue,
+            HeimIstVorschau     = heimVorschau is not null,
+            AuswaertsIstVorschau = auswaertsVorschau is not null,
             GruppeNummer        = gruppeNummer
         };
     }
@@ -1429,7 +1444,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
@@ -1463,7 +1478,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
             OnPropertyChanged(nameof(FokusSpiele));
             await SpielAuswahlWiederherstellenAsync(spielId);
         }
@@ -1497,7 +1512,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
             OnPropertyChanged(nameof(FokusSpiele));
             await SpielAuswahlWiederherstellenAsync(spielId);
         }
@@ -1538,7 +1553,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             MehrfachAusgewaehlteSpiele = [];
@@ -1583,7 +1598,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
@@ -1626,7 +1641,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
             OnPropertyChanged(nameof(FokusSpiele));
             await SpielAuswahlWiederherstellenAsync(spielId);
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
@@ -1671,7 +1686,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
             OnPropertyChanged(nameof(FokusSpiele));
             await SpielAuswahlWiederherstellenAsync(spielId);
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
@@ -1711,7 +1726,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap));
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             MehrfachAusgewaehlteSpiele = [];

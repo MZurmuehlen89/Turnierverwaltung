@@ -532,6 +532,58 @@ public class SpielplanService(
         return aufgeloest;
     }
 
+    /// <summary>Rein lesende Vorschau (Issue #208, Ergänzung zu #202): welcher Mannschaftsname würde nach
+    /// dem aktuellen, noch nicht zwingend sicheren Tabellenstand jede noch offene Platzhalter-Seite einer
+    /// Runde besetzen? Schreibt nichts in die Datenbank. Liefert nur Einträge für Spiele, bei denen
+    /// mindestens eine Seite optimistisch (ohne SicherPositioniert-Gate) ermittelbar ist; bereits real
+    /// zugewiesene Seiten liefern keinen Vorschau-Wert (null).</summary>
+    public async Task<IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)>> PlatzhalterVorschauAsync(
+        int turnierRundeId, CancellationToken ct = default)
+    {
+        var ergebnis = new Dictionary<int, (string? Heim, string? Auswaerts)>();
+
+        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
+            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+        var alleRunden = await rundeRepository.AlleNachInstanzAsync(runde.TurnierInstanzId, ct);
+
+        var platzhalterSpiele = (await spielRepository.AlleNachRundeAsync(turnierRundeId, ct))
+            .Where(s => s.HeimMannschaftId is null || s.AuswaertsMannschaftId is null)
+            .ToList();
+        if (platzhalterSpiele.Count == 0) return ergebnis;
+
+        var cache = new Dictionary<string, int?>(StringComparer.OrdinalIgnoreCase);
+
+        async Task<int?> VorschauAufloessenAsync(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return null;
+            if (cache.TryGetValue(name, out var cached)) return cached;
+            var result = await PlatzhalterNameAufloessenAsync(name, runde, alleRunden, ct, nurSicherPositioniert: false);
+            cache[name] = result;
+            return result;
+        }
+
+        var vorschauIds = new Dictionary<int, (int? Heim, int? Auswaerts)>();
+        foreach (var spiel in platzhalterSpiele)
+        {
+            int? heimVorschau      = spiel.HeimMannschaftId      is null ? await VorschauAufloessenAsync(spiel.HeimPlatzhalterName)      : null;
+            int? auswaertsVorschau = spiel.AuswaertsMannschaftId is null ? await VorschauAufloessenAsync(spiel.AuswaertsPlatzhalterName) : null;
+            if (heimVorschau is not null || auswaertsVorschau is not null)
+                vorschauIds[spiel.Id] = (heimVorschau, auswaertsVorschau);
+        }
+        if (vorschauIds.Count == 0) return ergebnis;
+
+        var teamIds = vorschauIds.Values.SelectMany(v => new[] { v.Heim, v.Auswaerts })
+            .Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+        var teams = (await mannschaftRepository.FindenNachIdsAsync(teamIds, ct)).ToDictionary(m => m.Id, m => m.Name);
+
+        foreach (var (spielId, (heimId, auswaertsId)) in vorschauIds)
+            ergebnis[spielId] = (
+                heimId.HasValue ? teams.GetValueOrDefault(heimId.Value) : null,
+                auswaertsId.HasValue ? teams.GetValueOrDefault(auswaertsId.Value) : null);
+
+        return ergebnis;
+    }
+
     /// <summary>Löst die Platzhalter aller Runden der Turnierinstanz auf (Issue #90, Vorwärts-Gegenstück
     /// zur Rückwärts-Kaskade aus #88). Idempotent und günstig für Runden ohne offene Platzhalter-Spiele —
     /// <see cref="PlatzhalterAufloesenAsync"/> selbst kehrt dafür sofort zurück (früher Return bei
@@ -817,17 +869,17 @@ public class SpielplanService(
 
     private async Task<int?> PlatzhalterNameAufloessenAsync(
         string name, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
-        IReadOnlySet<int>? ignorierteSpielIds = null)
+        IReadOnlySet<int>? ignorierteSpielIds = null, bool nurSicherPositioniert = true)
     {
         // Pattern 1: "Sieger Gruppe A" → Rang 1 der Gruppe A
         var m = _gruppenSiegerRx.Match(name);
         if (m.Success)
-            return await GruppenrangAufloessenAsync(m.Groups[1].Value, 1, runde, alleRunden, ct, ignorierteSpielIds);
+            return await GruppenrangAufloessenAsync(m.Groups[1].Value, 1, runde, alleRunden, ct, ignorierteSpielIds, nurSicherPositioniert);
 
         // Pattern 2: "2. Gruppe A" → Rang 2 der Gruppe A
         m = _gruppenRangRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[1].Value, out int rang))
-            return await GruppenrangAufloessenAsync(m.Groups[2].Value, rang, runde, alleRunden, ct, ignorierteSpielIds);
+            return await GruppenrangAufloessenAsync(m.Groups[2].Value, rang, runde, alleRunden, ct, ignorierteSpielIds, nurSicherPositioniert);
 
         // Pattern 3: "Sieger VF 1" → Sieger des 1. Spiels im Viertelfinale
         m = _koSiegerRx.Match(name);
@@ -844,7 +896,7 @@ public class SpielplanService(
 
     private async Task<int?> GruppenrangAufloessenAsync(
         string gruppenKennung, int rang, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
-        IReadOnlySet<int>? ignorierteSpielIds = null)
+        IReadOnlySet<int>? ignorierteSpielIds = null, bool nurSicherPositioniert = true)
     {
         // Gruppenkennung → Gruppenindex (A=1, B=2, ... oder direkte Zahl)
         int gruppenNummer = gruppenKennung.Length == 1 && char.IsLetter(gruppenKennung[0])
@@ -861,7 +913,7 @@ public class SpielplanService(
             .FirstOrDefault();
         if (gruppenphaseRunde is null) return null;
 
-        return await RangAufloesenAsync(gruppenphaseRunde, gruppenNummer, rang, ct, ignorierteSpielIds);
+        return await RangAufloesenAsync(gruppenphaseRunde, gruppenNummer, rang, ct, ignorierteSpielIds, nurSicherPositioniert);
     }
 
     private static int? KuerzelZuEingangsteams(string kuerzel) => kuerzel.ToUpperInvariant() switch
@@ -954,7 +1006,7 @@ public class SpielplanService(
     /// </summary>
     private async Task<int?> RangAufloesenAsync(
         TurnierRunde quellRunde, int? gruppeIndex, int platzierung, CancellationToken ct,
-        IReadOnlySet<int>? ignorierteSpielIds = null)
+        IReadOnlySet<int>? ignorierteSpielIds = null, bool nurSicherPositioniert = true)
     {
         switch (quellRunde.Rundenart)
         {
@@ -972,8 +1024,11 @@ public class SpielplanService(
                 var gruppe = gruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppeIndex.Value);
                 // Issue #202: der aktuelle Rang allein reicht nicht - er darf durch kein Ergebnis der noch
                 // offenen Spiele mehr verdrängbar sein, sonst würde die Platzhalter-Auflösung optimistisch
-                // vorgreifen (siehe Qualifikationsstatus-Ampel in der Gruppentabelle, Issue #70/#201).
-                return gruppe?.Tabelle.FirstOrDefault(e => e.Rang == platzierung && e.SicherPositioniert)?.Mannschaft.Id;
+                // vorgreifen (siehe Qualifikationsstatus-Ampel in der Gruppentabelle, Issue #70/#201) — außer
+                // die aufrufende Stelle will bewusst genau diese Optimistisch-Auflösung als Vorschau
+                // (Issue #208, nurSicherPositioniert=false), die nichts persistiert.
+                return gruppe?.Tabelle.FirstOrDefault(e =>
+                    e.Rang == platzierung && (!nurSicherPositioniert || e.SicherPositioniert))?.Mannschaft.Id;
             }
 
             // Liga-Runden bewusst unverändert: TabelleBerechnenAsync (unten) berechnet noch kein

@@ -234,23 +234,10 @@
                                    FontSize="12" TextWrapping="Wrap" />
                     </Border>
 
-                    <!-- Platzhalter-Banner -->
-                    <Border DockPanel.Dock="Top"
-                            Background="{StaticResource AccentSoftBrush}" BorderBrush="{StaticResource AccentSoftBorderBrush}" BorderThickness="0,0,0,1"
-                            Padding="12,8"
-                            Visibility="{Binding HatPlatzhalterSpiele, Converter={StaticResource BoolToVisibility}}">
-                        <DockPanel>
-                            <Button DockPanel.Dock="Right"
-                                    Content="Platzhalter aktualisieren"
-                                    Command="{Binding PlatzhalterBefehl}"
-                                    Padding="12,5" FontSize="12"
-                                    Background="{StaticResource AccentBrush}" Foreground="White"
-                                    BorderThickness="0" Cursor="Hand" />
-                            <TextBlock Text="Dieser Spielplan enthält Platzhalter. Sobald die Vorrunden-Ergebnisse vorliegen, können die Teams hier aufgelöst werden."
-                                       Foreground="{StaticResource AccentStrongBrush}" FontSize="12" TextWrapping="Wrap"
-                                       VerticalAlignment="Center" Margin="0,0,12,0" />
-                        </DockPanel>
-                    </Border>
+                    <!-- Issue #90: Platzhalter lösen sich automatisch nach jedem Ergebnis auf, das
+                         vormalige Banner mit manuellem "Platzhalter aktualisieren"-Button ist damit
+                         entfallen. Vorschau für noch offene Platzhalter läuft über den Ribbon-Umschalter
+                         "Platzhalter-Vorschau" (Issue #208). -->
 
                     <!-- Haupt-Inhaltsbereich: Spielplan ODER auf eine Gruppe gefilterte Spielliste -->
                     <Grid>

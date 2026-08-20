@@ -29,4 +29,9 @@ public sealed class RibbonAktion
     /// implizitem DataTemplate (Window.Resources) im Dropdown dargestellt werden. Erzeugt einen reinen
     /// DropDownButton (kein Befehl).</summary>
     public Binding? ItemsQuelleBinding { get; init; }
+
+    /// <summary>TwoWay-Bindung auf eine bool-Eigenschaft für einen Umschalter statt eines reinen
+    /// Klick-Befehls (z.B. "Platzhalter-Vorschau", Issue #208). Erzeugt einen Fluent.ToggleButton mit
+    /// Binding auf IsChecked, kein <see cref="Befehl"/> und keine <see cref="Unteraktionen"/> nötig.</summary>
+    public Binding? IstAktivBinding { get; init; }
 }

@@ -61,6 +61,18 @@ public partial class MainWindow : Window
     /// Menüpunkten; dynamische Item-Quelle ohne Befehl (z.B. Auslosungs-Regeln) → DropDownButton.</summary>
     private static UIElement RibbonElementErstellen(RibbonAktion aktion)
     {
+        if (aktion.IstAktivBinding is not null)
+        {
+            var toggleButton = new Fluent.ToggleButton
+            {
+                Header = aktion.Header,
+                SizeDefinition = new RibbonControlSizeDefinition("Large"),
+            };
+            IconSetzen(toggleButton, aktion);
+            toggleButton.SetBinding(Fluent.ToggleButton.IsCheckedProperty, aktion.IstAktivBinding);
+            return toggleButton;
+        }
+
         if (aktion.Unteraktionen is { Count: > 0 } && aktion.Befehl is null)
         {
             var dropDownButton = new Fluent.DropDownButton
