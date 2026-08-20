@@ -39,9 +39,10 @@ public class TabellenService(
         return TabelleAusSpielenBerechnen(spiele, punkteRegel, rankingRegeln, nurHeimspiele);
     }
 
-    /// <summary>Berechnet je eine Tabelle pro Gruppe inkl. Qualifikationsstatus. Gruppen werden aus den Spielpaarungen
-    /// rekonstruiert. Mit <paramref name="bisSpieltag"/> wird der historische Tabellenstand nach diesem Spieltag berechnet;
-    /// die Qualifikationsstatus-Berechnung bezieht sich dabei weiterhin auf den vollständigen (aktuellen) Datenstand.</summary>
+    /// <summary>Berechnet je eine Tabelle pro Gruppe inkl. Qualifikationsstatus und <see cref="TabellenEintrag.SicherPositioniert"/>
+    /// (Issue #202 - ob der exakte Rang durch kein Ergebnis der verbleibenden Spiele mehr verändert werden kann). Gruppen werden
+    /// aus den Spielpaarungen rekonstruiert. Mit <paramref name="bisSpieltag"/> wird der historische Tabellenstand nach diesem
+    /// Spieltag berechnet; die Qualifikationsstatus-Berechnung bezieht sich dabei weiterhin auf den vollständigen (aktuellen) Datenstand.</summary>
     public async Task<IReadOnlyList<GruppenTabelle>> GruppenTabellenBerechnenAsync(
         int turnierRundeId, int? bisSpieltag = null, CancellationToken ct = default)
     {
@@ -383,9 +384,12 @@ public class TabellenService(
         if (!offen.Any())
         {
             foreach (var e in gruppe.Tabelle)
+            {
                 e.Qualifikationsstatus = e.Rang <= qualifiziertePlaetze
                     ? Qualifikationsstatus.SicherQualifiziert
                     : Qualifikationsstatus.SicherAusgeschieden;
+                e.SicherPositioniert = true; // keine offenen Spiele mehr - jeder Rang ist final
+            }
             return;
         }
 
@@ -403,14 +407,24 @@ public class TabellenService(
                 : worstRang <= qualifiziertePlaetze
                     ? Qualifikationsstatus.SicherQualifiziert
                     : Qualifikationsstatus.Offen;
+            eintrag.SicherPositioniert = bestRang == worstRang;
         }
     }
 
     /// <summary>Ermittelt den best- bzw. schlechtestmöglichen Rang von <paramref name="teamId"/>: die eigenen offenen
-    /// Spiele sind gemäß <paramref name="teamGewinntAlles"/> fixiert, für alle fremden offenen Spiele (die
-    /// <paramref name="teamId"/> nicht betreffen) wird per Brute-Force jede der 2^n Sieg-Kombinationen durchgerechnet
-    /// und der für das Team jeweils beste bzw. schlechteste resultierende Rang zurückgegeben (AD: Issue #201 —
-    /// ein pauschales "fremde Spiele enden immer X:Y" ignoriert das für das Team ungünstigste/günstigste Szenario).</summary>
+    /// Spiele sind gemäß <paramref name="teamGewinntAlles"/> fixiert und werden mit einem extremen statt einem
+    /// knappen Ergebnis simuliert - für das eigene Spiel gibt es nur zwei Beteiligte (das Team und den Gegner),
+    /// ein extremeres Ergebnis wirkt daher immer eindeutig in dieselbe Richtung (nie schwächer).
+    ///
+    /// Für alle fremden offenen Spiele (die <paramref name="teamId"/> nicht betreffen) wird per Brute-Force jede
+    /// Kombination aus Sieger UND Tordifferenz (knapp/extrem) durchgerechnet - macht pro fremdem Spiel 4 statt 2
+    /// Varianten, insgesamt 4^n statt 2^n Kombinationen. Notwendig, weil ein fremdes Spiel einen "Umweg" über einen
+    /// dritten Verein nimmt: Team X gewinnt gegen Team Y - ein knapper Sieg schadet Y kaum, ein extremer Sieg
+    /// zertrümmert Ys Tordifferenz. Ob das für <paramref name="teamId"/> gut oder schlecht ist, hängt davon ab, ob
+    /// teamId gerade mit X oder mit Y um einen Platz konkurriert - das kann bei jedem Aufruf anders liegen, ein
+    /// pauschal "immer knapp" oder "immer extrem" für fremde Spiele ist daher in keine Richtung sicher korrekt
+    /// (beide wurden ausprobiert und haben je einen der beiden unten stehenden Tests zum Scheitern gebracht).
+    /// (AD: Issue #201/#202/#205, Funde aus manuellem #202-Test).</summary>
     private static int ExtremRangErmitteln(
         List<Spiel> abgeschlossen, List<Spiel> offen, int teamId,
         PunkteRegel punkteRegel, List<RankingRegel> rankingRegeln,
@@ -420,17 +434,22 @@ public class TabellenService(
         var fremde = offen.Where(s => s.HeimMannschaftId != teamId && s.AuswaertsMannschaftId != teamId).ToList();
 
         var eigeneErgebnisse = eigene
-            .Select(s => SpielMitSimuliertemErgebnis(s, heimSiegt: s.HeimMannschaftId == teamId ? teamGewinntAlles : !teamGewinntAlles))
+            .Select(s => SpielMitSimuliertemErgebnis(
+                s, heimSiegt: s.HeimMannschaftId == teamId ? teamGewinntAlles : !teamGewinntAlles, ExtremesTorergebnis))
             .ToList();
 
         int extremRang = bestenfalls ? int.MaxValue : int.MinValue;
-        int kombinationen = 1 << fremde.Count;
+        int kombinationen = 1 << (2 * fremde.Count); // 4 Varianten pro fremdem Spiel = 2 Bit pro Spiel im Maskenwort
 
         for (int mask = 0; mask < kombinationen; mask++)
         {
-            var fremdeErgebnisse = fremde
-                .Select((s, i) => SpielMitSimuliertemErgebnis(s, heimSiegt: (mask & (1 << i)) != 0))
-                .ToList();
+            var fremdeErgebnisse = fremde.Select((s, i) =>
+            {
+                int variante = (mask >> (2 * i)) & 0b11;
+                bool heimSiegt = variante is 0 or 1;
+                int torergebnis = variante is 0 or 2 ? KnappesTorergebnis : ExtremesTorergebnis;
+                return SpielMitSimuliertemErgebnis(s, heimSiegt, torergebnis);
+            }).ToList();
 
             var tabelle = TabelleAusSpielenBerechnen(
                 [..abgeschlossen, ..eigeneErgebnisse, ..fremdeErgebnisse], punkteRegel, rankingRegeln);
@@ -442,7 +461,10 @@ public class TabellenService(
         return extremRang;
     }
 
-    private static Spiel SpielMitSimuliertemErgebnis(Spiel original, bool heimSiegt) => new()
+    private const int KnappesTorergebnis  = 1;
+    private const int ExtremesTorergebnis = 1000;
+
+    private static Spiel SpielMitSimuliertemErgebnis(Spiel original, bool heimSiegt, int torergebnis) => new()
     {
         Spielnummer           = original.Spielnummer,
         HeimMannschaftId      = original.HeimMannschaftId,
@@ -452,8 +474,8 @@ public class TabellenService(
         Status                = SpielStatus.Abgeschlossen,
         Ergebnis = new SpielErgebnis
         {
-            HeimToreRegulaer      = heimSiegt ? 1 : 0,
-            AuswaertsToreRegulaer = heimSiegt ? 0 : 1,
+            HeimToreRegulaer      = heimSiegt ? torergebnis : 0,
+            AuswaertsToreRegulaer = heimSiegt ? 0 : torergebnis,
             EntscheidungArt       = EntscheidungArt.RegulaereSpielzeit
         }
     };

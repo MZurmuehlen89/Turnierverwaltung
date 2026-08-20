@@ -476,6 +476,192 @@ public class SpielplanServiceTests
     }
 
     [Fact]
+    public async Task PlatzhalterAufloesenAsync_LoestGruppensiegerErstAufWennRangSicherPositioniertIst()
+    {
+        // 3-Team-Gruppe (Top 2 qualifizieren): Team C ist bereits abgehaengt, aber das direkte Duell A vs. B
+        // ist noch offen und entscheidet erst, wer Rang 1 ("Sieger Gruppe A") wird (Issue #202 - der aktuelle
+        // Tabellenrang allein reicht nicht, der Rang muss SicherPositioniert sein).
+        await using var ctx = NeuerContext();
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
+            { Id = 1, RegelwerkId = 1, Reihenfolge = 1, VerfahrenArt = VerfahrenArt.Elfmeterschiessen });
+
+        var gruppenphase = new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Reihenfolge = 1,
+            Rundenart = Rundenart.Gruppenphase, EingangsMannschaftsanzahl = 3, AusgangsMannschaftsanzahl = 2,
+            RegelwerkId = 1, GruppenAnzahl = 1
+        };
+        var ko = new TurnierRunde
+        {
+            Id = 2, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 2,
+            Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1,
+            RegelwerkId = 1
+        };
+        ctx.TurnierRunden.AddRange(gruppenphase, ko);
+
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team A", Kurzname = "TA", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team B", Kurzname = "TB", LandId = 1 },
+            new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 });
+
+        // A schlägt C 5:0, B schlägt C 5:0 (C rechnerisch raus) - A gegen B (Sieger = Gruppenerster) noch offen.
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 1, TurnierInstanzId = 1, TurnierRundeId = gruppenphase.Id, Spielnummer = 1,
+            HeimMannschaftId = 1, AuswaertsMannschaftId = 3, Status = SpielStatus.Abgeschlossen
+        });
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+            { Id = 1, SpielId = 1, HeimToreRegulaer = 5, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 2, TurnierInstanzId = 1, TurnierRundeId = gruppenphase.Id, Spielnummer = 2,
+            HeimMannschaftId = 2, AuswaertsMannschaftId = 3, Status = SpielStatus.Abgeschlossen
+        });
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+            { Id = 2, SpielId = 2, HeimToreRegulaer = 5, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
+        var abSpiel = new Spiel
+        {
+            Id = 3, TurnierInstanzId = 1, TurnierRundeId = gruppenphase.Id, Spielnummer = 3,
+            HeimMannschaftId = 1, AuswaertsMannschaftId = 2, Status = SpielStatus.Geplant
+        };
+        ctx.Spiele.Add(abSpiel);
+
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 10, TurnierInstanzId = 1, TurnierRundeId = ko.Id, Spielnummer = 10,
+            HeimPlatzhalterName = "Sieger Gruppe A", AuswaertsMannschaftId = 3,
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        var anzahlVorher = await service.PlatzhalterAufloesenAsync(ko.Id);
+
+        anzahlVorher.Should().Be(0, "wer Gruppenerster wird, entscheidet erst das noch offene Duell A vs. B");
+        ctx.Spiele.First(s => s.Id == 10).HeimMannschaftId.Should().BeNull();
+
+        // Jetzt A vs B abschließen (A gewinnt) - Rang 1 ist jetzt final.
+        abSpiel.Status = SpielStatus.Abgeschlossen;
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+            { Id = 3, SpielId = 3, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
+        await ctx.SaveChangesAsync();
+
+        var anzahlNachher = await service.PlatzhalterAufloesenAsync(ko.Id);
+
+        anzahlNachher.Should().Be(1);
+        ctx.Spiele.First(s => s.Id == 10).HeimMannschaftId.Should().Be(1, "Sieger Gruppe A = Team A");
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_ReproduziertRealeGruppeAusManuellemTest()
+    {
+        // Reproduziert 1:1 die reale Gruppe "Gruppenphase 2" / "Gruppe A" aus dem manuellen #202-Test
+        // (Arsenal/Dortmund/Polen/PSG, echtes FIFA-Regelwerk mit DirekterVergleich-Kaskade). Polen hat alle
+        // 3 Spiele gespielt (9 Punkte), PSG (3 Punkte, 2 Spiele) kann selbst mit einem Sieg gegen Dortmund
+        // maximal 6 Punkte erreichen - Polen ist damit rein rechnerisch bereits als Gruppenerster fixiert.
+        await using var ctx = NeuerContext();
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+
+        var regelSet = new RankingRegelSet { Id = 1, Name = "FIFA" };
+        var regeln = new[]
+        {
+            new RankingRegel { Id = 1, Regelart = RankingRegelArt.Punkte,                       Sortierrichtung = Sortierrichtung.Absteigend },
+            new RankingRegel { Id = 2, Regelart = RankingRegelArt.Tordifferenz,                  Sortierrichtung = Sortierrichtung.Absteigend },
+            new RankingRegel { Id = 3, Regelart = RankingRegelArt.ErzielteTore,                  Sortierrichtung = Sortierrichtung.Absteigend },
+            new RankingRegel { Id = 4, Regelart = RankingRegelArt.DirekterVergleichPunkte,       Sortierrichtung = Sortierrichtung.Absteigend },
+            new RankingRegel { Id = 5, Regelart = RankingRegelArt.DirekterVergleichTordifferenz, Sortierrichtung = Sortierrichtung.Absteigend },
+            new RankingRegel { Id = 6, Regelart = RankingRegelArt.DirekterVergleichErzielteTore, Sortierrichtung = Sortierrichtung.Absteigend },
+            new RankingRegel { Id = 7, Regelart = RankingRegelArt.DirekterVergleichAuswaertstore,Sortierrichtung = Sortierrichtung.Absteigend },
+            new RankingRegel { Id = 8, Regelart = RankingRegelArt.FairplayWertung,               Sortierrichtung = Sortierrichtung.Aufsteigend },
+            new RankingRegel { Id = 9, Regelart = RankingRegelArt.Losentscheid,                  Sortierrichtung = Sortierrichtung.Aufsteigend },
+        };
+        var eintraege = regeln.Select((r, i) => new RankingRegelSetEintrag
+            { Id = i + 1, RankingRegelSetId = 1, RankingRegelId = r.Id, Reihenfolge = i + 1 }).ToArray();
+        ctx.RankingRegelSets.Add(regelSet);
+        ctx.RankingRegeln.AddRange(regeln);
+        ctx.RankingRegelSetEintraege.AddRange(eintraege);
+
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "FIFA-Regelwerk", RankingRegelSetId = 1 });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
+            { Id = 1, RegelwerkId = 1, Reihenfolge = 1, VerfahrenArt = VerfahrenArt.Elfmeterschiessen });
+
+        var gruppenphase = new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase 2", Reihenfolge = 1,
+            Rundenart = Rundenart.Gruppenphase, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2,
+            RegelwerkId = 1, GruppenAnzahl = 1
+        };
+        var halbfinale = new TurnierRunde
+        {
+            Id = 2, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 2,
+            Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2,
+            RegelwerkId = 1
+        };
+        ctx.TurnierRunden.AddRange(gruppenphase, halbfinale);
+
+        const int arsenal = 67, dortmund = 61, polen = 15, psg = 69;
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = arsenal,  Name = "Arsenal FC",           Kurzname = "ARS", LandId = 1 },
+            new Mannschaft { Id = dortmund, Name = "Borussia Dortmund",    Kurzname = "BVB", LandId = 1 },
+            new Mannschaft { Id = polen,    Name = "Polen",                Kurzname = "POL", LandId = 1 },
+            new Mannschaft { Id = psg,      Name = "Paris Saint-Germain",  Kurzname = "PSG", LandId = 1 });
+        ctx.SaveChanges();
+
+        void Ergebnis(int id, int spielnr, int heim, int auswaerts, int heimTore, int auswaertsTore)
+        {
+            ctx.Spiele.Add(new Spiel
+            {
+                Id = id, TurnierInstanzId = 1, TurnierRundeId = gruppenphase.Id, Spielnummer = spielnr,
+                HeimMannschaftId = heim, AuswaertsMannschaftId = auswaerts, Status = SpielStatus.Abgeschlossen
+            });
+            ctx.SpielErgebnisse.Add(new SpielErgebnis
+            {
+                Id = id, SpielId = id, HeimToreRegulaer = heimTore, AuswaertsToreRegulaer = auswaertsTore,
+                EntscheidungArt = EntscheidungArt.RegulaereSpielzeit
+            });
+        }
+
+        Ergebnis(1, 49, arsenal, dortmund, 1, 1); // Arsenal - Dortmund 1:1
+        Ergebnis(2, 50, polen, psg, 2, 1);        // Polen schlägt PSG 2:1
+        Ergebnis(3, 53, psg, arsenal, 3, 1);      // PSG schlägt Arsenal 3:1
+        Ergebnis(4, 54, dortmund, polen, 1, 2);   // Polen schlägt Dortmund 1:2
+        Ergebnis(5, 57, arsenal, polen, 1, 3);    // Polen schlägt Arsenal 1:3
+        ctx.Spiele.Add(new Spiel                  // PSG - Dortmund noch offen
+        {
+            Id = 6, TurnierInstanzId = 1, TurnierRundeId = gruppenphase.Id, Spielnummer = 58,
+            HeimMannschaftId = psg, AuswaertsMannschaftId = dortmund, Status = SpielStatus.Geplant
+        });
+
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 10, TurnierInstanzId = 1, TurnierRundeId = halbfinale.Id, Spielnummer = 61,
+            HeimPlatzhalterName = "1. Gruppe A", AuswaertsMannschaftId = arsenal, Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+        var tabellenService = new TabellenService(new TurnierRundeRepository(ctx), new SpielRepository(ctx), new RegelwerkRepository(ctx));
+
+        var gruppen = await tabellenService.GruppenTabellenBerechnenAsync(gruppenphase.Id);
+        var polenEintrag = gruppen[0].Tabelle.First(e => e.Mannschaft.Id == polen);
+        polenEintrag.Punkte.Should().Be(9);
+        polenEintrag.Rang.Should().Be(1);
+        polenEintrag.Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherQualifiziert);
+        polenEintrag.SicherPositioniert.Should().BeTrue(
+            "PSG kann mit maximal 6 Punkten Polens 9 Punkte nicht mehr einholen - unabhängig von der Tordifferenz");
+
+        var anzahl = await service.PlatzhalterAufloesenAsync(halbfinale.Id);
+
+        anzahl.Should().Be(1, "Polen ist bereits als Gruppenerster fixiert und sollte übernommen werden");
+        ctx.Spiele.First(s => s.Id == 10).HeimMannschaftId.Should().Be(polen, "1. Gruppe A = Polen");
+    }
+
+    [Fact]
     public async Task PlatzhalterAufloesenAsync_LoestKoSiegerUndVerliererAuf()
     {
         await using var ctx = NeuerContext();

@@ -463,6 +463,232 @@ public class TabellenServiceTests
             "obwohl B bei den Punkten gleichauf mit A liegt");
     }
 
+    // ── SicherPositioniert: exakter Rang fixiert vs. nur Zonen-Zugehoerigkeit (Issue #202) ─────
+
+    [Fact]
+    public async Task GruppenTabellenBerechnenAsync_OhneOffeneSpiele_IstSicherPositioniertFuerAlle()
+    {
+        await using var ctx = NeuerContext();
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Rundenart = Rundenart.Gruppenphase,
+            RegelwerkId = 1, Reihenfolge = 1, GruppenAnzahl = 1, AusgangsMannschaftsanzahl = 1
+        });
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team A", Kurzname = "TA", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team B", Kurzname = "TB", LandId = 1 });
+        ctx.SaveChanges();
+
+        SpielHinzufuegen(ctx, 1, rundeId: 1, heimId: 1, auswaertsId: 2,
+            heimTore: 1, auswaertsTore: 0, siegerMannschaftId: 1, spieltag: 1);
+        var service = ServiceFuer(ctx);
+
+        var gruppen = await service.GruppenTabellenBerechnenAsync(1);
+
+        gruppen[0].Tabelle.Should().AllSatisfy(e =>
+            e.SicherPositioniert.Should().BeTrue("keine offenen Spiele mehr - jeder Rang ist final"));
+    }
+
+    [Fact]
+    public async Task GruppenTabellenBerechnenAsync_SicherQualifiziertAberRangInnerhalbDerZoneNochOffen()
+    {
+        // 3 Teams, Top 2 qualifizieren. A und B haben Team C bereits so deutlich abgehaengt, dass beide in
+        // jedem Fall unter den Top 2 landen (SicherQualifiziert) - aber das direkte Duell A vs. B ist noch
+        // offen und entscheidet, wer am Ende Rang 1 bzw. Rang 2 wird. Beide duerfen daher trotz gesicherter
+        // Qualifikationszone noch NICHT SicherPositioniert sein.
+        await using var ctx = NeuerContext();
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Rundenart = Rundenart.Gruppenphase,
+            RegelwerkId = 1, Reihenfolge = 1, GruppenAnzahl = 1, AusgangsMannschaftsanzahl = 2
+        });
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team A", Kurzname = "TA", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team B", Kurzname = "TB", LandId = 1 },
+            new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 });
+        ctx.SaveChanges();
+
+        SpielHinzufuegen(ctx, 1, rundeId: 1, heimId: 1, auswaertsId: 3,
+            heimTore: 5, auswaertsTore: 0, siegerMannschaftId: 1, spieltag: 1); // A schlägt C 5:0
+        SpielHinzufuegen(ctx, 2, rundeId: 1, heimId: 2, auswaertsId: 3,
+            heimTore: 5, auswaertsTore: 0, siegerMannschaftId: 2, spieltag: 1); // B schlägt C 5:0
+        SpielHinzufuegen(ctx, 3, rundeId: 1, heimId: 1, auswaertsId: 2,
+            heimTore: null, auswaertsTore: null, spieltag: 2);                 // A - B noch offen
+        var service = ServiceFuer(ctx);
+
+        var gruppen = await service.GruppenTabellenBerechnenAsync(1);
+
+        var tabelle = gruppen[0].Tabelle;
+        var teamA = tabelle.First(e => e.Mannschaft.Id == 1);
+        var teamB = tabelle.First(e => e.Mannschaft.Id == 2);
+        teamA.Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherQualifiziert,
+            "Team C kann A selbst bei einer Niederlage im direkten Duell nicht mehr einholen");
+        teamB.Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherQualifiziert,
+            "Team C kann B selbst bei einer Niederlage im direkten Duell nicht mehr einholen");
+        teamA.SicherPositioniert.Should().BeFalse("ob A Rang 1 oder Rang 2 wird, entscheidet erst das offene Duell gegen B");
+        teamB.SicherPositioniert.Should().BeFalse("ob B Rang 1 oder Rang 2 wird, entscheidet erst das offene Duell gegen A");
+    }
+
+    [Fact]
+    public async Task GruppenTabellenBerechnenAsync_WorstCasePrueftAuchDeutlichenTordifferenzUmschwung()
+    {
+        // Nutzer-Fund beim manuellen #202-Test: 4 Teams, Rang 2 (X) hat keine offenen Spiele mehr außer dem
+        // direkten Duell gegen Rang 4 (Z). Aktuell: W=7, X=4, C=1, Z=1 Punkte. Gewinnt Z gegen X, ziehen beide
+        // auf 4 Punkte gleich - die Tordifferenz entscheidet. Vor dem Fix simulierte ExtremRangErmitteln jedes
+        // offene Spiel nur mit einem knappen 1:0, das reicht nicht, um Z' schlechtere Ausgangs-Tordifferenz
+        // (-1 vs. X' +3) noch zu drehen - X galt faelschlich als SicherQualifiziert. Ein deutlicher Sieg (die
+        // in der Praxis jederzeit moeglich ist) wuerde das aber sehr wohl tun.
+        await using var ctx = NeuerContext();
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Rundenart = Rundenart.Gruppenphase,
+            RegelwerkId = 1, Reihenfolge = 1, GruppenAnzahl = 1, AusgangsMannschaftsanzahl = 2
+        });
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team W", Kurzname = "TW", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team X", Kurzname = "TX", LandId = 1 },
+            new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 },
+            new Mannschaft { Id = 4, Name = "Team Z", Kurzname = "TZ", LandId = 1 });
+        ctx.SaveChanges();
+
+        SpielHinzufuegen(ctx, 1, rundeId: 1, heimId: 1, auswaertsId: 2,
+            heimTore: 1, auswaertsTore: 1, siegerMannschaftId: null, spieltag: 1); // W - X 1:1
+        SpielHinzufuegen(ctx, 2, rundeId: 1, heimId: 1, auswaertsId: 3,
+            heimTore: 1, auswaertsTore: 0, siegerMannschaftId: 1, spieltag: 1);    // W schlägt C 1:0
+        SpielHinzufuegen(ctx, 3, rundeId: 1, heimId: 1, auswaertsId: 4,
+            heimTore: 1, auswaertsTore: 0, siegerMannschaftId: 1, spieltag: 2);    // W schlägt Z 1:0
+        SpielHinzufuegen(ctx, 4, rundeId: 1, heimId: 2, auswaertsId: 3,
+            heimTore: 3, auswaertsTore: 0, siegerMannschaftId: 2, spieltag: 2);    // X schlägt C 3:0
+        SpielHinzufuegen(ctx, 5, rundeId: 1, heimId: 3, auswaertsId: 4,
+            heimTore: 0, auswaertsTore: 0, siegerMannschaftId: null, spieltag: 3); // C - Z 0:0
+        SpielHinzufuegen(ctx, 6, rundeId: 1, heimId: 2, auswaertsId: 4,
+            heimTore: null, auswaertsTore: null, spieltag: 3);                    // X - Z noch offen
+        var service = ServiceFuer(ctx);
+
+        var gruppen = await service.GruppenTabellenBerechnenAsync(1);
+
+        var tabelle = gruppen[0].Tabelle;
+        tabelle.First(e => e.Mannschaft.Id == 1).Punkte.Should().Be(7);
+        tabelle.First(e => e.Mannschaft.Id == 2).Punkte.Should().Be(4);
+        tabelle.First(e => e.Mannschaft.Id == 3).Punkte.Should().Be(1);
+        tabelle.First(e => e.Mannschaft.Id == 4).Punkte.Should().Be(1);
+
+        var teamX = tabelle.First(e => e.Mannschaft.Id == 2);
+        teamX.Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen,
+            "Team Z kann bei einem ausreichend deutlichen Sieg im direkten Duell mit Team X gleichziehen " +
+            "und es per Tordifferenz noch verdrängen - nicht nur bei einem knappen 1:0");
+    }
+
+    [Fact]
+    public async Task GruppenTabellenBerechnenAsync_ExtremesErgebnisInFremdemSpielKannDrittesTeamGefaehrden()
+    {
+        // Spiegelbildlicher Fall zum vorigen Test: hier ist ein EXTREMES (nicht ein knappes) Ergebnis in einem
+        // FREMDEN Spiel das für Team B gefährliche Szenario - ein reiner "fremde Spiele bleiben knapp"-Ansatz
+        // würde das übersehen (mit genau dieser Konstellation nachweislich zu einem falschen "SicherQualifiziert"
+        // gefuehrt, bevor ExtremRangErmitteln auch fuer fremde Spiele beide Tordifferenz-Varianten durchprobiert).
+        //
+        // 4 Teams, nur Rang 1 qualifiziert. Team B hat kein offenes Spiel mehr (5 Punkte, GD+3, fertig).
+        // Team A (2 Punkte, GD0) und Team D (1 Punkt, GD-1) haben noch gegeneinander zu spielen (fremd für B).
+        // Gewinnt A, zieht A exakt auf B's 5 Punkte gleich - Tordifferenz entscheidet:
+        //   - Gewinnt A nur knapp (1:0), bleibt B's GD (+3) vor A's GD (+1) -> B bleibt Erster.
+        //   - Gewinnt A deutlich (bei entsprechend hoher Tordifferenz gegen D), überholt A's GD Bs GD -> A wird
+        //     Erster, B rutscht auf Rang 2 - und ist bei nur einem Aufstiegsplatz raus.
+        await using var ctx = NeuerContext();
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Rundenart = Rundenart.Gruppenphase,
+            RegelwerkId = 1, Reihenfolge = 1, GruppenAnzahl = 1, AusgangsMannschaftsanzahl = 1
+        });
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team A", Kurzname = "TA", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team B", Kurzname = "TB", LandId = 1 },
+            new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 },
+            new Mannschaft { Id = 4, Name = "Team D", Kurzname = "TD", LandId = 1 });
+        ctx.SaveChanges();
+
+        SpielHinzufuegen(ctx, 1, rundeId: 1, heimId: 1, auswaertsId: 2,
+            heimTore: 1, auswaertsTore: 1, siegerMannschaftId: null, spieltag: 1); // A - B 1:1
+        SpielHinzufuegen(ctx, 2, rundeId: 1, heimId: 1, auswaertsId: 3,
+            heimTore: 1, auswaertsTore: 1, siegerMannschaftId: null, spieltag: 1); // A - C 1:1
+        SpielHinzufuegen(ctx, 3, rundeId: 1, heimId: 2, auswaertsId: 3,
+            heimTore: 3, auswaertsTore: 0, siegerMannschaftId: 2, spieltag: 2);    // B schlägt C 3:0
+        SpielHinzufuegen(ctx, 4, rundeId: 1, heimId: 2, auswaertsId: 4,
+            heimTore: 1, auswaertsTore: 1, siegerMannschaftId: null, spieltag: 2); // B - D 1:1
+        SpielHinzufuegen(ctx, 5, rundeId: 1, heimId: 3, auswaertsId: 4,
+            heimTore: 1, auswaertsTore: 0, siegerMannschaftId: 3, spieltag: 3);    // C schlägt D 1:0
+        SpielHinzufuegen(ctx, 6, rundeId: 1, heimId: 1, auswaertsId: 4,
+            heimTore: null, auswaertsTore: null, spieltag: 3);                    // A - D noch offen
+        var service = ServiceFuer(ctx);
+
+        var gruppen = await service.GruppenTabellenBerechnenAsync(1);
+
+        var tabelle = gruppen[0].Tabelle;
+        tabelle.First(e => e.Mannschaft.Id == 2).Punkte.Should().Be(5, "B: 1 Unentschieden + 1 Sieg + 1 Unentschieden");
+
+        var teamB = tabelle.First(e => e.Mannschaft.Id == 2);
+        teamB.Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen,
+            "gewinnt Team A deutlich gegen Team D, überholt Team A Team B per Tordifferenz - " +
+            "obwohl das fremde Spiel A-D Team B selbst gar nicht betrifft");
+    }
+
+    [Fact]
+    public async Task GruppenTabellenBerechnenAsync_SicherAusgeschiedenAberSchlussrangNochOffen()
+    {
+        // 4 Teams, Top 2 qualifizieren. C und D sind beide schon rechnerisch aus dem Rennen um die Top 2
+        // (SicherAusgeschieden) - aber ihr direktes Duell entscheidet noch, wer Rang 3 bzw. Rang 4 wird.
+        // Symmetrischer Fall zu SicherQualifiziert: auch auf der Ausscheider-Seite darf SicherPositioniert
+        // erst gelten, wenn der exakte Schlussrang feststeht (Issue #202, Nutzer-Entscheidung: symmetrisch).
+        await using var ctx = NeuerContext();
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Rundenart = Rundenart.Gruppenphase,
+            RegelwerkId = 1, Reihenfolge = 1, GruppenAnzahl = 1, AusgangsMannschaftsanzahl = 2
+        });
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team A", Kurzname = "TA", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team B", Kurzname = "TB", LandId = 1 },
+            new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 },
+            new Mannschaft { Id = 4, Name = "Team D", Kurzname = "TD", LandId = 1 });
+        ctx.SaveChanges();
+
+        SpielHinzufuegen(ctx, 1, rundeId: 1, heimId: 1, auswaertsId: 3,
+            heimTore: 5, auswaertsTore: 0, siegerMannschaftId: 1, spieltag: 1); // A schlägt C 5:0
+        SpielHinzufuegen(ctx, 2, rundeId: 1, heimId: 1, auswaertsId: 4,
+            heimTore: 5, auswaertsTore: 0, siegerMannschaftId: 1, spieltag: 1); // A schlägt D 5:0
+        SpielHinzufuegen(ctx, 3, rundeId: 1, heimId: 2, auswaertsId: 3,
+            heimTore: 5, auswaertsTore: 0, siegerMannschaftId: 2, spieltag: 2); // B schlägt C 5:0
+        SpielHinzufuegen(ctx, 4, rundeId: 1, heimId: 2, auswaertsId: 4,
+            heimTore: 5, auswaertsTore: 0, siegerMannschaftId: 2, spieltag: 2); // B schlägt D 5:0
+        SpielHinzufuegen(ctx, 5, rundeId: 1, heimId: 3, auswaertsId: 4,
+            heimTore: null, auswaertsTore: null, spieltag: 3);                 // C - D noch offen
+        var service = ServiceFuer(ctx);
+
+        var gruppen = await service.GruppenTabellenBerechnenAsync(1);
+
+        var tabelle = gruppen[0].Tabelle;
+        var teamC = tabelle.First(e => e.Mannschaft.Id == 3);
+        var teamD = tabelle.First(e => e.Mannschaft.Id == 4);
+        teamC.Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherAusgeschieden);
+        teamD.Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherAusgeschieden);
+        teamC.SicherPositioniert.Should().BeFalse("ob C Rang 3 oder Rang 4 wird, entscheidet erst das offene Duell gegen D");
+        teamD.SicherPositioniert.Should().BeFalse("ob D Rang 3 oder Rang 4 wird, entscheidet erst das offene Duell gegen C");
+    }
+
     [Fact]
     public async Task VerfuegbareSpieltageAsync_OhneErgebnisse_GibtLeereListe()
     {

@@ -407,10 +407,31 @@
                                                             <StackPanel Grid.Column="0" Orientation="Horizontal"
                                                                         HorizontalAlignment="Center" VerticalAlignment="Center"
                                                                         Margin="4,6,0,6">
+                                                                <StackPanel.Style>
+                                                                    <Style TargetType="StackPanel">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding SicherPositioniert}" Value="True">
+                                                                                <Setter Property="ToolTip" Value="Position steht endgültig fest" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </StackPanel.Style>
                                                                 <Ellipse Width="6" Height="6" Margin="0,0,3,0"
                                                                          Fill="{Binding Qualifikationsstatus, Converter={StaticResource QualifikationsstatusZuFarbe}}" />
-                                                                <TextBlock Text="{Binding Rang}"
-                                                                           FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextMutedBrush}" />
+                                                                <TextBlock Text="{Binding Rang}" FontSize="12">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                                            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding SicherPositioniert}" Value="True">
+                                                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                                                    <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
                                                             </StackPanel>
                                                             <TextBlock Grid.Column="1" Text="{Binding Mannschaft.Name}"
                                                                        FontSize="12" TextTrimming="CharacterEllipsis"

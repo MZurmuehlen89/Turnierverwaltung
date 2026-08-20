@@ -922,9 +922,13 @@ public class SpielplanService(
     /// Koordinaten (Quellrunde/Gruppenindex/Platzierung) aus einer <see cref="Uebergangsregel"/> oder — für
     /// bestehende, per Freitext angelegte Turniere — aus dem Regex-Parser stammen. Die Bedeutung von
     /// <paramref name="gruppeIndex"/> hängt von der Rundenart der Quellrunde ab:
-    /// Gruppenphase → Gruppennummer (Platzierung = Tabellenrang in dieser Gruppe),
-    /// Liga → nicht verwendet (Platzierung = Tabellenrang der Gesamttabelle),
-    /// K.-o.-Runde/Finale → Spielnummer innerhalb der Runde (Platzierung 1 = Sieger, 2 = Verlierer).
+    /// Gruppenphase → Gruppennummer (Platzierung = Tabellenrang in dieser Gruppe), löst erst auf, sobald der
+    /// Rang laut <see cref="TabellenEintrag.SicherPositioniert"/> nicht mehr verdrängbar ist (Issue #202);
+    /// Liga → nicht verwendet (Platzierung = Tabellenrang der Gesamttabelle), bewusst noch ohne
+    /// SicherPositioniert-Gate (kein Qualifikationsstatus-Äquivalent in <see cref="TabellenService"/> für
+    /// Liga-Tabellen, siehe Folge-Issue zu #202);
+    /// K.-o.-Runde/Finale → Spielnummer innerhalb der Runde (Platzierung 1 = Sieger, 2 = Verlierer), bereits
+    /// exakt über ein eingetragenes Ergebnis abgesichert, keine Simulation nötig.
     /// </summary>
     private async Task<int?> RangAufloesenAsync(
         TurnierRunde quellRunde, int? gruppeIndex, int platzierung, CancellationToken ct,
@@ -944,9 +948,14 @@ public class SpielplanService(
                     return null;
                 var gruppenTabellen = await tabellenService.GruppenTabellenBerechnenAsync(quellRunde.Id, ct: ct);
                 var gruppe = gruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppeIndex.Value);
-                return gruppe?.Tabelle.FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id;
+                // Issue #202: der aktuelle Rang allein reicht nicht - er darf durch kein Ergebnis der noch
+                // offenen Spiele mehr verdrängbar sein, sonst würde die Platzhalter-Auflösung optimistisch
+                // vorgreifen (siehe Qualifikationsstatus-Ampel in der Gruppentabelle, Issue #70/#201).
+                return gruppe?.Tabelle.FirstOrDefault(e => e.Rang == platzierung && e.SicherPositioniert)?.Mannschaft.Id;
             }
 
+            // Liga-Runden bewusst unverändert: TabelleBerechnenAsync (unten) berechnet noch kein
+            // SicherPositioniert-Äquivalent - eigenes Folge-Issue zu #202.
             case Rundenart.Liga:
             {
                 if (ignorierteSpielIds is { Count: > 0 } &&
