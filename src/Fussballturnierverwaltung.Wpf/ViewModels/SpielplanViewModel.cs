@@ -255,26 +255,18 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public ICommand GruppeZuruecksetzenBefehl   => _gruppeZuruecksetzenBefehl;
     public ICommand SpieltagZuruecksetzenBefehl => _spieltagZuruecksetzenBefehl;
 
-    // ── Manuelle Multi-Selektion zum Zurücksetzen (Issue #124) ───────────────────
+    // ── Manuelle Multi-Selektion (Issue #124) ─────────────────────────────────────
     // Wird von der View per Code-Behind (ListView.SelectionChanged, da ListView.SelectedItems
-    // nicht direkt bindbar ist) aktuell gehalten — siehe AktualisiereMehrfachAuswahl.
-
-    private readonly AsyncRelayCommand _mehrfachZuruecksetzenBefehl;
-    public ICommand MehrfachZuruecksetzenBefehl => _mehrfachZuruecksetzenBefehl;
+    // nicht direkt bindbar ist) aktuell gehalten — siehe AktualisiereMehrfachAuswahl. Wird seit
+    // Issue #204 direkt vom "Löschen"-Befehl gelesen statt über einen eigenen Befehl.
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(AnzahlMehrfachZuruecksetzbar))]
-    [NotifyPropertyChangedFor(nameof(MehrfachZuruecksetzenMenuText))]
-    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
     private IReadOnlyList<SpielZeile> _mehrfachAusgewaehlteSpiele = [];
-
-    public int    AnzahlMehrfachZuruecksetzbar => MehrfachAusgewaehlteSpiele.Count(s => s.HatErgebnis);
-    public string MehrfachZuruecksetzenMenuText => $"Auswahl ({AnzahlMehrfachZuruecksetzbar}) zurücksetzen";
 
     public void AktualisiereMehrfachAuswahl(IEnumerable<SpielZeile> ausgewaehlt)
     {
         MehrfachAusgewaehlteSpiele = ausgewaehlt.ToList();
-        _mehrfachZuruecksetzenBefehl.NotifyCanExecuteChanged();
+        _loeschenBefehl.NotifyCanExecuteChanged();
     }
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
@@ -306,7 +298,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     Unteraktionen =
                     [
                         new RibbonAktion { Header = "Runde zurücksetzen", Befehl = RundeZuruecksetzenBefehl, IconGlyph = "" },
-                        new RibbonAktion { Header = MehrfachZuruecksetzenMenuText, Befehl = MehrfachZuruecksetzenBefehl, IconGlyph = "" },
                     ],
                 },
                 new RibbonAktion
@@ -368,7 +359,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _neuBefehl                 = new AsyncRelayCommand(SpielplanNeuGenerierenAsync,   () => HatRunde);
         _speichernBefehl           = new AsyncRelayCommand(SpeichernAsync,                () => FormAktiv && IsDirty);
         _abbrechenBefehl           = new RelayCommand(FormZuruecksetzen,                  () => FormAktiv && IsDirty);
-        _loeschenBefehl            = new AsyncRelayCommand(ErgebnisLoeschenAsync,         () => FormAktiv && FormHatErgebnis);
+        _loeschenBefehl            = new AsyncRelayCommand(ErgebnisLoeschenAsync,         CanErgebnisLoeschen);
         _platzhalterBefehl         = new AsyncRelayCommand(PlatzhalterAktualisierenAsync, () => HatRunde && HatPlatzhalterSpiele);
 
         _zurueckZurUebersichtBefehl = new RelayCommand(() => AusgewaehlteGruppe = null, () => AusgewaehlteGruppe is not null);
@@ -384,7 +375,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _rundeZuruecksetzenBefehl    = new AsyncRelayCommand(RundeZuruecksetzenAsync,    CanRundeZuruecksetzen);
         _gruppeZuruecksetzenBefehl   = new AsyncRelayCommand(GruppeZuruecksetzenAsync,   CanGruppeZuruecksetzen);
         _spieltagZuruecksetzenBefehl = new AsyncRelayCommand(SpieltagZuruecksetzenAsync, CanSpieltagZuruecksetzen);
-        _mehrfachZuruecksetzenBefehl = new AsyncRelayCommand(MehrfachZuruecksetzenAsync, CanMehrfachZuruecksetzen);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -1007,7 +997,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private void FormZuruecksetzen()
         => _ = BeiSpielAenderungAsync();
 
-    private async Task ErgebnisLoeschenAsync()
+    // Issue #204: Löschen respektiert eine aktive Mehrfachauswahl (>1 Spiel) mit Batch-Reset,
+    // sonst greift wie bisher das Einzel-Löschen des im Formular geladenen Spiels.
+    private Task ErgebnisLoeschenAsync() =>
+        MehrfachAusgewaehlteSpiele.Count > 1 ? ErgebnisMehrfachLoeschenAsync() : ErgebnisEinzelLoeschenAsync();
+
+    private async Task ErgebnisEinzelLoeschenAsync()
     {
         if (AusgewaehlteSpiel is null || !FormHatErgebnis || AusgewaehlteRunde is null) return;
 
@@ -1107,7 +1102,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _rundeZuruecksetzenBefehl.NotifyCanExecuteChanged();
         _gruppeZuruecksetzenBefehl.NotifyCanExecuteChanged();
         _spieltagZuruecksetzenBefehl.NotifyCanExecuteChanged();
-        _mehrfachZuruecksetzenBefehl.NotifyCanExecuteChanged();
     }
 
     private static SpielZeile MapSpielZeile(
@@ -1361,8 +1355,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         && Spiele.Any(s => s.GruppeNummer == gruppe.GruppenNummer
                          && s.Spieltag == spieltag && s.HatErgebnis);
 
-    private bool CanMehrfachZuruecksetzen() =>
-        !IstSimulierend && AnzahlMehrfachZuruecksetzbar > 0;
+    // Issue #204: "Löschen" respektiert die Mehrfachauswahl (Batch-Reset) statt nur das im
+    // Formular geladene Einzelspiel — deckt beide Fälle mit einem Button ab.
+    private bool CanErgebnisLoeschen() =>
+        !IstSimulierend
+        && (MehrfachAusgewaehlteSpiele.Count > 1 && MehrfachAusgewaehlteSpiele.Any(s => s.HatErgebnis)
+            || FormAktiv && FormHatErgebnis);
 
     // ── Simulation: Aktionen ───────────────────────────────────────────────────
 
@@ -1624,7 +1622,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
     }
 
-    private async Task MehrfachZuruecksetzenAsync()
+    private async Task ErgebnisMehrfachLoeschenAsync()
     {
         if (AusgewaehlteRunde is null) return;
         var spielIds = MehrfachAusgewaehlteSpiele.Where(s => s.HatErgebnis).Select(s => s.Id).ToList();

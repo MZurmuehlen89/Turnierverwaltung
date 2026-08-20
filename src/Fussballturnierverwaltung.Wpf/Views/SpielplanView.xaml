@@ -362,7 +362,7 @@
                                         <Setter.Value>
                                             <ContextMenu>
                                                 <MenuItem Header="Ausgewählte Ergebnisse zurücksetzen"
-                                                          Command="{Binding PlacementTarget.Tag.MehrfachZuruecksetzenBefehl,
+                                                          Command="{Binding PlacementTarget.Tag.LoeschenBefehl,
                                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                             </ContextMenu>
                                         </Setter.Value>
@@ -525,7 +525,7 @@
                                             <Setter.Value>
                                                 <ContextMenu>
                                                     <MenuItem Header="Ausgewählte Ergebnisse zurücksetzen"
-                                                              Command="{Binding PlacementTarget.Tag.MehrfachZuruecksetzenBefehl,
+                                                              Command="{Binding PlacementTarget.Tag.LoeschenBefehl,
                                                                                 RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                                 </ContextMenu>
                                             </Setter.Value>
