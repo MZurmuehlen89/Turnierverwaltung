@@ -214,9 +214,9 @@ public static class SimulationsEngine
         var gastMinuten = ZufallsMinuten(gastTore, vonMinute, bisMinute, rng);
 
         foreach (var min in heimMinuten)
-            ereignisse.Add(new(min, EreignisArt.Tor, true, "Tor"));
+            ereignisse.Add(new(min, EreignisArt.Tor, true, ZufaelligerTorstilText(rng)));
         foreach (var min in gastMinuten)
-            ereignisse.Add(new(min, EreignisArt.Tor, false, "Tor"));
+            ereignisse.Add(new(min, EreignisArt.Tor, false, ZufaelligerTorstilText(rng)));
 
         // Gelbe Karten: ~2,5 pro Team bei 90 Min., anteilig für kürzere Zeiträume
         double basisGelbe = 2.5 * spanne / 90.0;
@@ -238,6 +238,17 @@ public static class SimulationsEngine
         ereignisse.Sort((a, b) => a.Minute.CompareTo(b.Minute));
         return ereignisse;
     }
+
+    // Issue #126: reine Text-/Flavor-Anreicherung des Tor-Ereignisses, kein Einfluss auf Spielstand
+    // oder Simulationslogik. Auswahl angelehnt an das Attribut "Schussart II" im DFL-Definitionskatalog
+    // "Offizielle Spieldaten" (2189_original.pdf), das u.a. Fallrückzieher, Hacke, Chip und Schlenzer führt.
+    private static readonly string[] _torstile =
+    [
+        "Kopfball", "Flachschuss", "Volleyschuss", "Fallrückzieher", "Hacke",
+        "Chipball", "Schlenzer", "Abstauber", "Distanzschuss", "Direktabnahme"
+    ];
+
+    private static string ZufaelligerTorstilText(Random rng) => $"Tor per {_torstile[rng.Next(_torstile.Length)]}";
 
     private static List<int> ZufallsMinuten(int anzahl, int von, int bis, Random rng)
     {

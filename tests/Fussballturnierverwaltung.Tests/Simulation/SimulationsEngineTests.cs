@@ -71,6 +71,20 @@ public class SimulationsEngineTests
     }
 
     [Fact]
+    public void AusfuehrlicheSimulation_TorEreignisseHabenZufaelligenTorstil()
+    {
+        // Issue #126: Tor-Ereignisse tragen zur Flavor-Anreicherung einen zufälligen Torstil in der
+        // Beschreibung ("Tor per <Stil>") statt nur "Tor". Seed durchsuchen, bis mindestens ein Tor fällt.
+        var torEreignisse = Enumerable.Range(0, 50)
+            .SelectMany(seed => SimulationsEngine.Simulieren(Team(1), Team(2), [], true, new Random(seed)).Ereignisse)
+            .Where(e => e.Art == EreignisArt.Tor)
+            .ToList();
+
+        torEreignisse.Should().NotBeEmpty();
+        torEreignisse.Should().AllSatisfy(e => e.Beschreibung.Should().StartWith("Tor per "));
+    }
+
+    [Fact]
     public void MitElfmeterVerfahren_BeimUnentschiedenImmerSieger()
     {
         var verfahren = new[] { Verfahren(VerfahrenArt.Elfmeterschiessen) };
