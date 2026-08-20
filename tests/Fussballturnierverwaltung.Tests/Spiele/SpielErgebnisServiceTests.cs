@@ -386,8 +386,13 @@ public class SpielErgebnisServiceTests
     }
 
     [Fact]
-    public async Task ErgebnisErfassenAsync_RundeNochNichtKomplett_LoestNochNichtAus()
+    public async Task ErgebnisErfassenAsync_LoestBereitsBeiTeilweiseKompletterRundeDieAufloesbareSeiteAuf()
     {
+        // Issue #90 kombiniert mit #206: die Auflösung läuft absichtlich OHNE Vorprüfung "ist die ganze
+        // Runde komplett" — eine frühere Fassung prüfte genau das und verpasste dadurch den Fall, dass
+        // eine Runde mehrere unabhängige Teile hat (hier: zwei Halbfinalspiele) und einer davon längst
+        // fertig ist, während der andere noch offen ist. Die auflösbare Seite ("Sieger HF 1") muss
+        // sofort geschrieben werden, auch wenn Spiel 2 (und damit "Sieger HF 2") noch offen ist.
         await using var ctx = NeuerContext();
         KaskadeSetupAnlegen(ctx, out _, out int finaleRundeId);
 
@@ -409,14 +414,15 @@ public class SpielErgebnisServiceTests
         await spielplanService.GenerierenAusAuslosungAsync(
             finaleRundeId, [.. ctx.AuslosungsErgebnisse.Where(e => e.AuslosungId == auslosung.Id)]);
 
-        // Halbfinalspiel 2 UND 1 zurücksetzen, dann nur Spiel 1 neu erfassen — die Runde bleibt wegen
-        // Spiel 2 unvollständig, die Auflösung darf noch nicht anspringen.
+        // Halbfinalspiel 2 UND 1 zurücksetzen, dann nur Spiel 1 neu erfassen — Spiel 2 bleibt offen.
         await ServiceFuer(ctx).MehrereErgebnisseLoeschenAsync([20, 21]);
         await ServiceFuer(ctx).ErgebnisErfassenAsync(20, new ErgebnisErfassenEingabe(1, 0, EntscheidungArt.RegulaereSpielzeit));
 
         var finale = ctx.Spiele.AsNoTracking().First(s => s.TurnierRundeId == finaleRundeId);
-        finale.HeimMannschaftId.Should().BeNull(
-            "Runde ist wegen des noch offenen zweiten Halbfinalspiels nicht komplett — keine Auflösung erwartet");
+        finale.HeimMannschaftId.Should().Be(10,
+            "Sieger HF 1 = Team A steht schon fest und muss automatisch aufgelöst werden, auch wenn Spiel 2 noch offen ist");
+        finale.AuswaertsMannschaftId.Should().BeNull("Sieger HF 2 ist mangels Ergebnis von Spiel 2 noch nicht bekannt");
+        finale.AuswaertsPlatzhalterName.Should().Be("Sieger HF 2");
     }
 
     [Fact]

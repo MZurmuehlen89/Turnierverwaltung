@@ -68,25 +68,27 @@ public class SpielErgebnisService(
             "Ergebnis für Spiel {Id} erfasst: {Heim}:{Auswaerts} ({Art}).",
             spielId, eingabe.HeimToreRegulaer, eingabe.AuswaertsToreRegulaer, entscheidungArt);
 
-        await PlatzhalterAutomatischAufloesenWennRundeKomplettAsync(spielId, ct);
+        await PlatzhalterAutomatischAufloesenAsync(spielId, ct);
     }
 
     /// <summary>
-    /// Löst automatisch die Platzhalter aller Runden der Turnierinstanz auf, sobald das gerade
-    /// gespeicherte Ergebnis die letzte offene Lücke seiner Runde geschlossen hat (Issue #90) —
-    /// Vorwärts-Gegenstück zur Rückwärts-Kaskade in <see cref="KaskadeAusloesenAsync"/> (Issue #88).
-    /// Prüft bewusst vorher, ob die Runde dadurch wirklich komplett wurde, statt bei jedem
-    /// Zwischenergebnis unnötig alle Runden der Instanz zu durchsuchen. Auch von
-    /// <see cref="Simulation.SimulationsService"/> genutzt, da simulierte Ergebnisse den
-    /// Spielrepository-Zugriff direkt nutzen und nicht über <see cref="ErgebnisErfassenAsync"/> laufen.
+    /// Löst nach jedem gespeicherten Ergebnis automatisch die Platzhalter aller Runden der
+    /// Turnierinstanz auf, die dadurch (ganz oder teilweise, Issue #206) ermittelbar geworden sind —
+    /// Vorwärts-Gegenstück zur Rückwärts-Kaskade in <see cref="KaskadeAusloesenAsync"/> (Issue #88,
+    /// hier #90). Läuft bewusst ohne Vorprüfung "ist die ganze Runde jetzt komplett": eine Runde kann
+    /// mehrere unabhängige Gruppen enthalten (z.B. Gruppenphase mit GruppenAnzahl &gt; 1) — eine bereits
+    /// fertige Gruppe soll sofort auflösen, auch wenn eine andere Gruppe derselben Runde noch offen ist.
+    /// Eine frühere Version prüfte hier "ist die GESAMTE Runde abgeschlossen" und verpasste dadurch genau
+    /// diesen Fall (Fund beim manuellen #206-Test). <see cref="SpielplanService.PlatzhalterAufloesenAsync"/>
+    /// ist für Runden ohne offene Platzhalter-Spiele bereits günstig (früher Return), daher ist der
+    /// Verzicht auf die Vorprüfung unkritisch. Auch von <see cref="Simulation.SimulationsService"/>
+    /// genutzt, da simulierte Ergebnisse den Spielrepository-Zugriff direkt nutzen und nicht über
+    /// <see cref="ErgebnisErfassenAsync"/> laufen.
     /// </summary>
-    public async Task PlatzhalterAutomatischAufloesenWennRundeKomplettAsync(int spielId, CancellationToken ct = default)
+    public async Task PlatzhalterAutomatischAufloesenAsync(int spielId, CancellationToken ct = default)
     {
         var spiel = await spielRepository.FindenNachIdMitErgebnisAsync(spielId, ct);
         if (spiel is null) return;
-
-        var alleSpieleDerRunde = await spielRepository.AlleNachRundeAsync(spiel.TurnierRundeId, ct);
-        if (!alleSpieleDerRunde.All(s => s.Status == SpielStatus.Abgeschlossen)) return;
 
         await spielplanService.PlatzhalterAlleRundenAufloesenAsync(spiel.TurnierInstanzId, ct);
     }
