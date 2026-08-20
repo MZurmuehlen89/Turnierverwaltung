@@ -14,6 +14,12 @@ public partial class AuslosungView : UserControl
     private Point _dragStartPoint;
     private DragData? _pendingDrag;
 
+    // Issue #28: Klick auf ein bereits mehrfach markiertes Item darf die Selektion nicht sofort auf
+    // das einzelne Item zurücksetzen (WPF-Standardverhalten bei MouseLeftButtonDown ohne Strg/Umschalt)
+    // — sonst wäre ein Drag der gesamten Auswahl nie möglich. Der Kollaps auf das einzelne Item wird
+    // in PreviewMouseLeftButtonUp nachgeholt, aber nur, wenn tatsächlich NICHT gezogen wurde.
+    private bool _unterdrueckeSelektionsReset;
+
     public AuslosungView()
     {
         InitializeComponent();
@@ -25,13 +31,39 @@ public partial class AuslosungView : UserControl
     {
         _dragStartPoint = e.GetPosition(null);
         _pendingDrag    = null;
+        _unterdrueckeSelektionsReset = false;
 
         var teilnehmer = HoleGezogenenTeilnehmer(e.OriginalSource);
         if (teilnehmer is null) return;
 
         var listBox = (ListBox)sender;
         var topfVm  = listBox.DataContext as LostopfViewModel;
-        _pendingDrag = new DragData(teilnehmer, topfVm?.Id);
+
+        // Issue #28: ist das angeklickte Item Teil einer bestehenden Mehrfachauswahl, zieht der Drag
+        // die gesamte Auswahl statt nur des einzelnen Items.
+        bool teilVonMehrfachauswahl = listBox.SelectedItems.Count > 1 && listBox.SelectedItems.Contains(teilnehmer);
+        IReadOnlyList<TeilnehmerAnzeige> gezogeneTeilnehmer = teilVonMehrfachauswahl
+            ? listBox.SelectedItems.Cast<TeilnehmerAnzeige>().ToList()
+            : [teilnehmer];
+
+        _pendingDrag = new DragData(gezogeneTeilnehmer, topfVm?.Id);
+
+        if (teilVonMehrfachauswahl && Keyboard.Modifiers is not (ModifierKeys.Control or ModifierKeys.Shift))
+        {
+            _unterdrueckeSelektionsReset = true;
+            e.Handled = true;
+        }
+    }
+
+    private void ListBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_unterdrueckeSelektionsReset) return;
+        _unterdrueckeSelektionsReset = false;
+
+        var teilnehmer = HoleGezogenenTeilnehmer(e.OriginalSource);
+        if (teilnehmer is null) return;
+
+        ((ListBox)sender).SelectedItem = teilnehmer;
     }
 
     private void ListBox_MouseMove(object sender, MouseEventArgs e)
@@ -44,6 +76,7 @@ public partial class AuslosungView : UserControl
             Math.Abs(diff.Y) < SystemParameters.MinimumVerticalDragDistance)
             return;
 
+        _unterdrueckeSelektionsReset = false; // ein echter Drag hat begonnen — Klick-Selektion nicht nachholen
         var data = new DataObject(typeof(DragData), _pendingDrag);
         DragDrop.DoDragDrop((DependencyObject)sender, data, DragDropEffects.Move);
         _pendingDrag = null;
@@ -145,8 +178,16 @@ public partial class AuslosungView : UserControl
         var vm = (AuslosungViewModel)DataContext;
         if (!vm.Lostoepfe.Any()) return;
 
+        // Issue #28: bei aktiver Mehrfachauswahl gilt das Kontextmenü für alle markierten Teams.
+        var listBox = FindParent<ListBox>(item);
+        bool mehrfach = listBox is not null && listBox.SelectedItems.Count > 1 && listBox.SelectedItems.Contains(teilnehmer);
+        IReadOnlyList<TeilnehmerAnzeige> ausgewaehlt = mehrfach
+            ? listBox!.SelectedItems.Cast<TeilnehmerAnzeige>().ToList()
+            : [teilnehmer];
+        string bezeichnung = mehrfach ? $"{ausgewaehlt.Count} Teams" : $"'{teilnehmer.Name}'";
+
         var menu = new ContextMenu();
-        var header = new MenuItem { Header = $"'{teilnehmer.Name}' in Topf:", IsEnabled = false };
+        var header = new MenuItem { Header = $"{bezeichnung} in Topf:", IsEnabled = false };
         menu.Items.Add(header);
         menu.Items.Add(new Separator());
 
@@ -154,11 +195,7 @@ public partial class AuslosungView : UserControl
         {
             var topfCopy = topf;
             var menuItem = new MenuItem { Header = topfCopy.Name };
-            menuItem.Click += async (_, _) =>
-            {
-                vm.AusgewaehlterVerfuegbarTeilnehmer = teilnehmer;
-                await vm.TeilnehmerZuTopfHinzufuegenCommand.ExecuteAsync(topfCopy.Id);
-            };
+            menuItem.Click += async (_, _) => await vm.TeilnehmerZuTopfVerschieben(ausgewaehlt, null, topfCopy.Id);
             menu.Items.Add(menuItem);
         }
 
@@ -179,15 +216,23 @@ public partial class AuslosungView : UserControl
         if (listBox?.DataContext is not LostopfViewModel quellTopf) return;
 
         var vm = (AuslosungViewModel)DataContext;
+
+        // Issue #28: bei aktiver Mehrfachauswahl gilt das Kontextmenü für alle markierten Teams.
+        bool mehrfach = listBox.SelectedItems.Count > 1 && listBox.SelectedItems.Contains(teilnehmer);
+        IReadOnlyList<TeilnehmerAnzeige> ausgewaehlt = mehrfach
+            ? listBox.SelectedItems.Cast<TeilnehmerAnzeige>().ToList()
+            : [teilnehmer];
+
         var menu = new ContextMenu();
 
-        var header = new MenuItem { Header = $"'{teilnehmer.Name}'", IsEnabled = false };
+        var header = new MenuItem { Header = mehrfach ? $"{ausgewaehlt.Count} Teams" : $"'{teilnehmer.Name}'", IsEnabled = false };
         menu.Items.Add(header);
         menu.Items.Add(new Separator());
 
-        var entfernen = new MenuItem { Header = $"← Zurück zu Verfügbar" };
+        var entfernenHeader = mehrfach ? $"← Alle ausgewählten ({ausgewaehlt.Count}) zurück zu Verfügbar" : "← Zurück zu Verfügbar";
+        var entfernen = new MenuItem { Header = entfernenHeader };
         entfernen.Click += async (_, _) =>
-            await vm.TeilnehmerZuVerfuegbarZurueck(teilnehmer, quellTopf.Id);
+            await vm.TeilnehmerZuVerfuegbarZurueck(ausgewaehlt, quellTopf.Id);
         menu.Items.Add(entfernen);
 
         var anderen = vm.Lostoepfe.Where(l => l.Id != quellTopf.Id).ToList();
@@ -197,9 +242,12 @@ public partial class AuslosungView : UserControl
             foreach (var ziel in anderen)
             {
                 var zielCopy = ziel;
-                var verschieben = new MenuItem { Header = $"→ {zielCopy.Name}" };
+                var verschiebenHeader = mehrfach
+                    ? $"→ Alle ausgewählten ({ausgewaehlt.Count}) in {zielCopy.Name}"
+                    : $"→ {zielCopy.Name}";
+                var verschieben = new MenuItem { Header = verschiebenHeader };
                 verschieben.Click += async (_, _) =>
-                    await vm.TeilnehmerZuTopfVerschieben(teilnehmer, quellTopf.Id, zielCopy.Id);
+                    await vm.TeilnehmerZuTopfVerschieben(ausgewaehlt, quellTopf.Id, zielCopy.Id);
                 menu.Items.Add(verschieben);
             }
         }
@@ -247,14 +295,18 @@ public partial class AuslosungView : UserControl
         ResetSlotDragVisual(sender);
         if (e.Data.GetData(typeof(DragData)) is not DragData data) return;
         if (!data.QuellTopfId.HasValue) return;
+        // Issue #28 bewusst außen vor: ein Slot nimmt genau ein Team auf, Mehrfachauswahl ergibt hier
+        // keinen Sinn — ein Drag aus einer Mehrfachauswahl heraus wird auf dem Slot ignoriert.
+        if (data.Teilnehmer.Count != 1) return;
 
         var vm = (AuslosungViewModel)DataContext;
         if (sender is FrameworkElement fe)
         {
+            var teilnehmer = data.Teilnehmer[0];
             if (fe.Tag is ManuellerKoSlot koSlot)
-                vm.TeamInKoSlotPlatzieren(data.Teilnehmer, data.QuellTopfId.Value, koSlot);
+                vm.TeamInKoSlotPlatzieren(teilnehmer, data.QuellTopfId.Value, koSlot);
             else if (fe.Tag is ManuellerGruppenSlot gruppenSlot)
-                vm.TeamInGruppenSlotPlatzieren(data.Teilnehmer, data.QuellTopfId.Value, gruppenSlot);
+                vm.TeamInGruppenSlotPlatzieren(teilnehmer, data.QuellTopfId.Value, gruppenSlot);
         }
         e.Handled = true;
     }
@@ -398,5 +450,5 @@ public partial class AuslosungView : UserControl
 
     // ── Drag-Daten ────────────────────────────────────────────────────────────
 
-    private sealed record DragData(TeilnehmerAnzeige Teilnehmer, int? QuellTopfId);
+    private sealed record DragData(IReadOnlyList<TeilnehmerAnzeige> Teilnehmer, int? QuellTopfId);
 }

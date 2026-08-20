@@ -1357,33 +1357,40 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     }
 
     // ── Öffentliche Methoden für D&D und Kontextmenü ─────────────────────────
+    // Issue #28: nehmen eine Liste statt eines einzelnen Teilnehmers entgegen — deckt sowohl
+    // Einzel- (Liste mit 1 Element) als auch Mehrfachauswahl uniform ab, ohne zwei Codepfade zu
+    // pflegen (analog zur #204-Entscheidung im Spielplan).
 
-    public async Task TeilnehmerZuTopfVerschieben(TeilnehmerAnzeige teilnehmer, int? vonTopfId, int nachTopfId)
+    public async Task TeilnehmerZuTopfVerschieben(IReadOnlyList<TeilnehmerAnzeige> teilnehmer, int? vonTopfId, int nachTopfId)
     {
-        if (_auslosungDetail is null) return;
+        if (_auslosungDetail is null || teilnehmer.Count == 0) return;
         Fehlermeldung = null;
         try
         {
-            if (vonTopfId.HasValue)
-                await _auslosungService.EintragAusLostopfEntfernenAsync(_auslosungDetail.Id, vonTopfId.Value, teilnehmer.EintragId);
+            foreach (var t in teilnehmer)
+            {
+                if (vonTopfId.HasValue)
+                    await _auslosungService.EintragAusLostopfEntfernenAsync(_auslosungDetail.Id, vonTopfId.Value, t.EintragId);
 
-            if (teilnehmer.MannschaftId.HasValue)
-                await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(_auslosungDetail.Id, nachTopfId, teilnehmer.MannschaftId.Value);
-            else
-                await _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(_auslosungDetail.Id, nachTopfId, teilnehmer.Name);
+                if (t.MannschaftId.HasValue)
+                    await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(_auslosungDetail.Id, nachTopfId, t.MannschaftId.Value);
+                else
+                    await _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(_auslosungDetail.Id, nachTopfId, t.Name);
+            }
 
             await LadeDetailAsync(_auslosungDetail.Id);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
 
-    public async Task TeilnehmerZuVerfuegbarZurueck(TeilnehmerAnzeige teilnehmer, int vonTopfId)
+    public async Task TeilnehmerZuVerfuegbarZurueck(IReadOnlyList<TeilnehmerAnzeige> teilnehmer, int vonTopfId)
     {
-        if (_auslosungDetail is null) return;
+        if (_auslosungDetail is null || teilnehmer.Count == 0) return;
         Fehlermeldung = null;
         try
         {
-            await _auslosungService.EintragAusLostopfEntfernenAsync(_auslosungDetail.Id, vonTopfId, teilnehmer.EintragId);
+            foreach (var t in teilnehmer)
+                await _auslosungService.EintragAusLostopfEntfernenAsync(_auslosungDetail.Id, vonTopfId, t.EintragId);
             await LadeDetailAsync(_auslosungDetail.Id);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }

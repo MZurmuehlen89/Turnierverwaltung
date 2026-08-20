@@ -550,6 +550,7 @@
                                 <ListBox x:Name="VerfuegbarListBox"
                                          ItemsSource="{Binding VerfuegbareTeilnehmerGefiltert}"
                                          SelectedItem="{Binding AusgewaehlterVerfuegbarTeilnehmer}"
+                                         SelectionMode="Extended"
                                          AllowDrop="True"
                                          MaxHeight="260"
                                          BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1,0,1,1"
@@ -559,6 +560,7 @@
                                          DragEnter="VerfuegbarListBox_DragEnter"
                                          DragLeave="ListBox_DragLeave"
                                          PreviewMouseLeftButtonDown="ListBox_PreviewMouseLeftButtonDown"
+                                         PreviewMouseLeftButtonUp="ListBox_PreviewMouseLeftButtonUp"
                                          MouseMove="ListBox_MouseMove"
                                          MouseDoubleClick="VerfuegbarListBox_MouseDoubleClick"
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -622,6 +624,7 @@
                                                         </DockPanel>
                                                     </Border>
                                                     <ListBox ItemsSource="{Binding Teilnehmer}"
+                                                             SelectionMode="Extended"
                                                              AllowDrop="True"
                                                              MinHeight="140" MaxHeight="280"
                                                              BorderThickness="0"
@@ -631,6 +634,7 @@
                                                              DragEnter="TopfListBox_DragEnter"
                                                              DragLeave="ListBox_DragLeave"
                                                              PreviewMouseLeftButtonDown="ListBox_PreviewMouseLeftButtonDown"
+                                                             PreviewMouseLeftButtonUp="ListBox_PreviewMouseLeftButtonUp"
                                                              MouseMove="ListBox_MouseMove"
                                                              MouseDoubleClick="TopfListBox_MouseDoubleClick"
                                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
