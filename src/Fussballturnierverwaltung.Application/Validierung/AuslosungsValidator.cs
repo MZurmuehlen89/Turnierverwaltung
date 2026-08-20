@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Application.Abstraktionen;
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -110,27 +111,12 @@ public class AuslosungsValidator
                            $"({alleEintraege.Count - benoetigte.Value} zu viel).");
         }
 
-        // Auslosungsart und Rundenart auf Kompatibilität prüfen
+        // Auslosungsart und Rundenart auf Kompatibilität prüfen (Issue #94: zentrale Matrix statt
+        // separat gepflegter Regeln, dieselbe Quelle wie das Ausblenden in der WPF-ComboBox).
         var rundenart = auslosung.TurnierRunde?.Rundenart;
-        if (rundenart.HasValue)
-        {
-            if (auslosung.Auslosungsart == Auslosungsart.GruppensiegerGegenGruppenzweite &&
-                rundenart.Value is not (Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei))
-                fehler.Add("Auslosungsart 'Gruppensieger vs. Zweite' ist nur für K.O.-Runden geeignet, " +
-                           "die auf eine Gruppenphase folgen.");
-
-            if (auslosung.Auslosungsart == Auslosungsart.TopfZuordnung &&
-                rundenart.Value is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
-                fehler.Add("Auslosungsart 'Topf-Zuordnung' weist Teams direkt Gruppenplätzen zu " +
-                           "und ist für K.O.-Runden nicht geeignet. " +
-                           "Verwenden Sie stattdessen 'Zufällig' oder 'Nach Töpfen'.");
-
-            if (auslosung.Auslosungsart == Auslosungsart.TopfZuordnung &&
-                rundenart.Value == Rundenart.Gruppenphase)
-                fehler.Add("Auslosungsart 'Topf-Zuordnung' ist für die UCL-Ligaphase gedacht, " +
-                           "nicht für eine klassische Gruppenphase. " +
-                           "Verwenden Sie 'Nach Töpfen' für eine topfbasierte Gruppenauslosung.");
-        }
+        if (rundenart.HasValue &&
+            AuslosungsKompatibilitaet.InkompatibilitaetsGrund(rundenart.Value, auslosung.Auslosungsart) is { } grund)
+            fehler.Add(grund);
 
         // Paarungsmodus (nicht Gruppenphase): 'Nach Töpfen' und 'Gruppensieger vs. Zweite' losen die
         // Lostöpfe im Duell Topf 1↔2, Topf 3↔4 usw. gegeneinander aus. Weniger als 2 Töpfe liefert

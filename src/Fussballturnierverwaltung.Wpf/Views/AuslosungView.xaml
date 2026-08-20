@@ -71,7 +71,7 @@
                                Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,12" />
 
                     <TextBlock Text="Auslosungsart" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
-                    <ComboBox ItemsSource="{Binding AuslosungsartOptionen}"
+                    <ComboBox ItemsSource="{Binding NeuAuslosungsartOptionen}"
                               SelectedValuePath="Wert"
                               SelectedValue="{Binding NeuAuslosungsart}"
                               DisplayMemberPath="Anzeige"
@@ -380,7 +380,7 @@
                                     <TextBlock Grid.Column="0" Text="Auslosungsart:" FontSize="12"
                                                Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
                                     <ComboBox Grid.Column="1"
-                                              ItemsSource="{Binding AuslosungsartOptionen}"
+                                              ItemsSource="{Binding DetailAuslosungsartOptionen}"
                                               SelectedValue="{Binding DetailAuslosungsart}"
                                               SelectedValuePath="Wert"
                                               DisplayMemberPath="Anzeige"

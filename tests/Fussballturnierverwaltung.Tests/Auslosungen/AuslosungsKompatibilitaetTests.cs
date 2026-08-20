@@ -1,0 +1,51 @@
+using FluentAssertions;
+using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Domain.Enums;
+
+namespace Fussballturnierverwaltung.Tests.Auslosungen;
+
+/// <summary>
+/// Prüft die zentrale Rundenart × Auslosungsart-Matrix (Issue #94) — einzige Quelle für die
+/// serverseitige Hart-Validierung (<see cref="AuslosungsValidatorTests"/> deckt die Verwendung
+/// im Validator bereits ab) und die WPF-ComboBox-Filterung.
+/// </summary>
+public class AuslosungsKompatibilitaetTests
+{
+    [Theory]
+    [InlineData(Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Liga)]
+    [InlineData(Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Gruppenphase)]
+    [InlineData(Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.TopfLiga)]
+    [InlineData(Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.SchweizerSystem)]
+    [InlineData(Auslosungsart.TopfZuordnung, Rundenart.Gruppenphase)]
+    [InlineData(Auslosungsart.TopfZuordnung, Rundenart.KoRunde)]
+    [InlineData(Auslosungsart.TopfZuordnung, Rundenart.Finale)]
+    [InlineData(Auslosungsart.TopfZuordnung, Rundenart.SpielUmPlatzDrei)]
+    public void InkompatibleKombination_IstNichtKompatibelUndLiefertGrund(Auslosungsart art, Rundenart rundenart)
+    {
+        AuslosungsKompatibilitaet.IstKompatibel(rundenart, art).Should().BeFalse();
+        AuslosungsKompatibilitaet.InkompatibilitaetsGrund(rundenart, art).Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Theory]
+    [InlineData(Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.KoRunde)]
+    [InlineData(Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Finale)]
+    [InlineData(Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.SpielUmPlatzDrei)]
+    [InlineData(Auslosungsart.TopfZuordnung, Rundenart.TopfLiga)]
+    // Bewusst nur schwach gewarnt statt hart gesperrt (Nutzer-Entscheidung Issue #94): funktioniert
+    // korrekt (Bugfix 606ba6f), hat bei Liga (eine Gruppe) nur keine sichtbare Wirkung.
+    [InlineData(Auslosungsart.NachToepfen, Rundenart.Liga)]
+    [InlineData(Auslosungsart.NachSetzliste, Rundenart.Liga)]
+    [InlineData(Auslosungsart.NachSetzliste, Rundenart.SchweizerSystem)]
+    public void KompatibleKombination_IstKompatibelUndLiefertKeinenGrund(Auslosungsart art, Rundenart rundenart)
+    {
+        AuslosungsKompatibilitaet.IstKompatibel(rundenart, art).Should().BeTrue();
+        AuslosungsKompatibilitaet.InkompatibilitaetsGrund(rundenart, art).Should().BeNull();
+    }
+
+    [Theory]
+    [MemberData(nameof(AlleRundenarten))]
+    public void Zufall_IstMitJederRundenartKompatibel(Rundenart rundenart) =>
+        AuslosungsKompatibilitaet.IstKompatibel(rundenart, Auslosungsart.Zufall).Should().BeTrue();
+
+    public static TheoryData<Rundenart> AlleRundenarten() => [.. Enum.GetValues<Rundenart>()];
+}

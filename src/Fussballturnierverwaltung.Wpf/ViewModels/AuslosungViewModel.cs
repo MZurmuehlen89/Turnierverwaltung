@@ -271,6 +271,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
     [NotifyPropertyChangedFor(nameof(AuslosungsartHinweis))]
     [NotifyPropertyChangedFor(nameof(AuslosungsartWarnung))]
+    [NotifyPropertyChangedFor(nameof(NeuAuslosungsartOptionen))]
     private TurnierRunde? _neuRunde;
 
     private string _autoNeuName = "";
@@ -300,6 +301,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DetailAuslosungsartHinweis))]
     [NotifyPropertyChangedFor(nameof(DetailAuslosungsartWarnung))]
+    [NotifyPropertyChangedFor(nameof(DetailAuslosungsartOptionen))]
     [NotifyPropertyChangedFor(nameof(IstManuellerModus))]
     [NotifyPropertyChangedFor(nameof(IstBearbeitbarNichtManuell))]
     [NotifyPropertyChangedFor(nameof(IstManuellKoModus))]
@@ -481,8 +483,14 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             : VerfuegbareTeilnehmer.Where(t =>
                 t.Name.Contains(TeilnehmerFilter, StringComparison.OrdinalIgnoreCase));
 
-    public IReadOnlyList<AuslosungsartOption> AuslosungsartOptionen =>
+    // Issue #94: die ComboBox blendet inkompatible Auslosungsarten jetzt aus, statt sie wählbar zu
+    // lassen und nur per Text zu warnen — dieselbe Matrix wie die serverseitige Validierung.
+    public IReadOnlyList<AuslosungsartOption> NeuAuslosungsartOptionen    => AuslosungsartOptionenFuer(NeuRunde?.Rundenart);
+    public IReadOnlyList<AuslosungsartOption> DetailAuslosungsartOptionen => AuslosungsartOptionenFuer(_auslosungDetail?.TurnierRunde?.Rundenart);
+
+    private static IReadOnlyList<AuslosungsartOption> AuslosungsartOptionenFuer(Rundenart? rundenart) =>
         Enum.GetValues<Auslosungsart>()
+            .Where(a => rundenart is null || AuslosungsKompatibilitaet.IstKompatibel(rundenart.Value, a))
             .Select(a => new AuslosungsartOption(AuslosungsartAnzeigeName(a), a))
             .ToList();
 
@@ -531,27 +539,20 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _ => ""
     };
 
+    // Issue #94: die drei vormals hier gewarnten Kombinationen (GruppensiegerGegenGruppenzweite
+    // außerhalb K.O., TopfZuordnung bei Gruppenphase/K.O.) sind jetzt über AuslosungsKompatibilitaet
+    // hart blockiert und in der ComboBox gar nicht mehr wählbar — die Warnung wäre dort unerreichbar.
+    // Verbleibend: zwei bewusst NICHT hart gesperrte, nur unübliche/wirkungslose Kombinationen.
     private static string? AuslosungsartWarnungText(Auslosungsart art, Rundenart? rundenart) =>
         (art, rundenart) switch
         {
-            (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Liga) or
-            (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Gruppenphase) or
-            (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.TopfLiga) or
-            (Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.SchweizerSystem) =>
-                "⚠  Diese Auslosungsart setzt voraus, dass bereits eine Gruppenphase gespielt wurde. " +
-                "Sie ist für K.O.-Runden gedacht, die auf eine Gruppenphase folgen.",
-            (Auslosungsart.TopfZuordnung, Rundenart.Gruppenphase) =>
-                "⚠  Für eine klassische Gruppenphase verwenden Sie 'Nach Töpfen' — " +
-                "dabei wird ein Team pro Topf in jede Gruppe gelost. " +
-                "'Topf-Zuordnung' ist für die UCL-Ligaphase (direkte Gegnerbestimmung) gedacht.",
-            (Auslosungsart.TopfZuordnung, Rundenart.KoRunde) or
-            (Auslosungsart.TopfZuordnung, Rundenart.Finale) or
-            (Auslosungsart.TopfZuordnung, Rundenart.SpielUmPlatzDrei) =>
-                "⚠  Topf-Zuordnung weist Teams direkt Gruppenplätzen zu. " +
-                "Für K.O.-Runden ist 'Nach Töpfen' oder 'Zufällig' besser geeignet.",
             (Auslosungsart.NachSetzliste, Rundenart.SchweizerSystem) =>
                 "⚠  Im Schweizer System wird die Paarung automatisch anhand der Tabelle berechnet. " +
                 "Eine manuelle Setzlisten-Auslosung ist hier in der Regel nicht sinnvoll.",
+            (Auslosungsart.NachToepfen, Rundenart.Liga) or
+            (Auslosungsart.NachSetzliste, Rundenart.Liga) =>
+                "⚠  Liga besteht aus nur einer Gruppe — die Topf-/Setzlisten-Reihenfolge hat hier " +
+                "keine Auswirkung, alle Teams landen unabhängig davon in derselben Gruppe.",
             _ => null
         };
 
@@ -1473,6 +1474,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var detail = await _auslosungService.FindenNachIdAsync(auslosungId);
             if (detail is null) return;
             _auslosungDetail = detail;
+            // Issue #94: DetailAuslosungsart-Setter (unten) notifiziert nur bei Wertänderung —
+            // ohne diesen expliziten Aufruf würde die Optionsliste bei gleichbleibender Auslosungsart
+            // fälschlich noch die Rundenart der vorherigen Detail-Auslosung widerspiegeln.
+            OnPropertyChanged(nameof(DetailAuslosungsartOptionen));
 
             ManuelleKoPaarungen = [];
             ManuelleGruppen     = [];
@@ -1713,6 +1718,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             _autoNeuName = value.Name;
             NeuName      = value.Name;
         }
+
+        // Issue #94: bei Rundenwechsel kann die bisher gewählte Auslosungsart inkompatibel werden —
+        // Zufall passt laut Matrix zu jeder Rundenart und ist damit ein sicherer Fallback.
+        if (!AuslosungsKompatibilitaet.IstKompatibel(value.Rundenart, NeuAuslosungsart))
+            NeuAuslosungsart = Auslosungsart.Zufall;
     }
 
     partial void OnNeuAuslosungsartChanged(Auslosungsart value)
