@@ -248,7 +248,16 @@ public static class SimulationsEngine
         "Chipball", "Schlenzer", "Abstauber", "Distanzschuss", "Direktabnahme"
     ];
 
-    private static string ZufaelligerTorstilText(Random rng) => $"Tor per {_torstile[rng.Next(_torstile.Length)]}";
+    // Issue #127: ebenfalls reine Flavor-Anreicherung, kein Einfluss auf Spielstand oder
+    // Tor-Wahrscheinlichkeit. Realistischer Anteil von Kontertoren an allen Toren im Amateur-/
+    // Profifußball liegt grob im niedrigen zweistelligen Prozentbereich.
+    private const double KontertorWahrscheinlichkeit = 0.15;
+
+    private static string ZufaelligerTorstilText(Random rng)
+    {
+        string basis = $"Tor per {_torstile[rng.Next(_torstile.Length)]}";
+        return rng.NextDouble() < KontertorWahrscheinlichkeit ? $"{basis} nach Konter" : basis;
+    }
 
     private static List<int> ZufallsMinuten(int anzahl, int von, int bis, Random rng)
     {

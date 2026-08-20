@@ -85,6 +85,21 @@ public class SimulationsEngineTests
     }
 
     [Fact]
+    public void AusfuehrlicheSimulation_EinigeTorEreignisseSindKontertore()
+    {
+        // Issue #127: mit ~15% Wahrscheinlichkeit trägt ein Tor-Ereignis den Zusatz "nach Konter" —
+        // über genug simulierte Tore hinweg müssen sowohl Kontertore als auch normale Tore vorkommen.
+        var torBeschreibungen = Enumerable.Range(0, 200)
+            .SelectMany(seed => SimulationsEngine.Simulieren(Team(1), Team(2), [], true, new Random(seed)).Ereignisse)
+            .Where(e => e.Art == EreignisArt.Tor)
+            .Select(e => e.Beschreibung)
+            .ToList();
+
+        torBeschreibungen.Should().Contain(b => b.EndsWith("nach Konter"));
+        torBeschreibungen.Should().Contain(b => !b.EndsWith("nach Konter"));
+    }
+
+    [Fact]
     public void MitElfmeterVerfahren_BeimUnentschiedenImmerSieger()
     {
         var verfahren = new[] { Verfahren(VerfahrenArt.Elfmeterschiessen) };
