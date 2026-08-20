@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:Fussballturnierverwaltung.Wpf.ViewModels"
              xmlns:tabelle="clr-namespace:Fussballturnierverwaltung.Application.Tabelle;assembly=Fussballturnierverwaltung.Application"
-             xmlns:enums="clr-namespace:Fussballturnierverwaltung.Domain.Enums;assembly=Fussballturnierverwaltung.Domain">
+             xmlns:enums="clr-namespace:Fussballturnierverwaltung.Domain.Enums;assembly=Fussballturnierverwaltung.Domain"
+             xmlns:helpers="clr-namespace:Fussballturnierverwaltung.Wpf.Helpers">
 
     <Grid>
         <Grid.ColumnDefinitions>
@@ -117,6 +118,7 @@
                                        Foreground="{StaticResource TextBrush}" Margin="0,0,0,3"
                                        TextTrimming="CharacterEllipsis" />
                             <TextBox Text="{Binding HeimToreRegulaer, UpdateSourceTrigger=PropertyChanged}"
+                                     helpers:TextBoxSelectAllOnFocusBehavior.SelectAllOnFocus="True"
                                      Padding="8,6" FontSize="18" FontWeight="Bold" TextAlignment="Center"
                                      BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
                         </StackPanel>
@@ -128,6 +130,7 @@
                                        Foreground="{StaticResource TextBrush}" Margin="0,0,0,3"
                                        TextTrimming="CharacterEllipsis" />
                             <TextBox Text="{Binding AuswaertsToreRegulaer, UpdateSourceTrigger=PropertyChanged}"
+                                     helpers:TextBoxSelectAllOnFocusBehavior.SelectAllOnFocus="True"
                                      Padding="8,6" FontSize="18" FontWeight="Bold" TextAlignment="Center"
                                      BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
                         </StackPanel>
@@ -145,6 +148,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBox Grid.Column="0"
                                      Text="{Binding HeimToreVerlaengerung, UpdateSourceTrigger=PropertyChanged}"
+                                     helpers:TextBoxSelectAllOnFocusBehavior.SelectAllOnFocus="True"
                                      Padding="8,6" FontSize="16" FontWeight="Bold" TextAlignment="Center"
                                      BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
                             <TextBlock Grid.Column="1" Text=":" FontSize="18" FontWeight="Bold"
@@ -152,6 +156,7 @@
                                        VerticalAlignment="Center" />
                             <TextBox Grid.Column="2"
                                      Text="{Binding AuswaertsToreVerlaengerung, UpdateSourceTrigger=PropertyChanged}"
+                                     helpers:TextBoxSelectAllOnFocusBehavior.SelectAllOnFocus="True"
                                      Padding="8,6" FontSize="16" FontWeight="Bold" TextAlignment="Center"
                                      BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
                         </Grid>
@@ -169,6 +174,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBox Grid.Column="0"
                                      Text="{Binding HeimElfmetertore, UpdateSourceTrigger=PropertyChanged}"
+                                     helpers:TextBoxSelectAllOnFocusBehavior.SelectAllOnFocus="True"
                                      Padding="8,6" FontSize="16" FontWeight="Bold" TextAlignment="Center"
                                      BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
                             <TextBlock Grid.Column="1" Text=":" FontSize="18" FontWeight="Bold"
@@ -176,6 +182,7 @@
                                        VerticalAlignment="Center" />
                             <TextBox Grid.Column="2"
                                      Text="{Binding AuswaertsElfmetertore, UpdateSourceTrigger=PropertyChanged}"
+                                     helpers:TextBoxSelectAllOnFocusBehavior.SelectAllOnFocus="True"
                                      Padding="8,6" FontSize="16" FontWeight="Bold" TextAlignment="Center"
                                      BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
                         </Grid>
