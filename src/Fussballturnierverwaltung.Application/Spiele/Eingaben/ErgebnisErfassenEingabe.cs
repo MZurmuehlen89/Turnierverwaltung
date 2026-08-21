@@ -9,4 +9,6 @@ public record ErgebnisErfassenEingabe(
     int? HeimToreVerlaengerung = null,
     int? AuswaertsToreVerlaengerung = null,
     int? HeimElfmetertore = null,
-    int? AuswaertsElfmetertore = null);
+    int? AuswaertsElfmetertore = null,
+    int? HalbzeitHeimTore = null,
+    int? HalbzeitAuswaertsTore = null);

@@ -61,6 +61,35 @@ public class SimulationsEngineTests
     }
 
     [Fact]
+    public void SchnellSimulation_LiefertKeinenHalbzeitstand()
+    {
+        // Issue #104: ohne Ereignisse (keine Minutenangaben) darf kein Halbzeitstand vorgetäuscht werden.
+        var erg = SimulationsEngine.Simulieren(Team(1), Team(2), [], false, new Random(42));
+
+        erg.HalbzeitHeimTore.Should().BeNull();
+        erg.HalbzeitAuswaertsTore.Should().BeNull();
+    }
+
+    [Fact]
+    public void AusfuehrlicheSimulation_HalbzeitstandEntsprichtTorenBisMinute45()
+    {
+        // Issue #104: Halbzeitstand wird aus den generierten Torereignissen abgeleitet — muss über
+        // viele Seeds hinweg exakt der Anzahl der Heim-/Auswärtstore mit Minute <= 45 entsprechen.
+        foreach (var seed in Enumerable.Range(0, 50))
+        {
+            var erg = SimulationsEngine.Simulieren(Team(1), Team(2), [], true, new Random(seed));
+
+            int erwarteterHeim = erg.Ereignisse.Count(e => e.Art == EreignisArt.Tor && e.IstHeim && e.Minute <= 45);
+            int erwarteterGast = erg.Ereignisse.Count(e => e.Art == EreignisArt.Tor && !e.IstHeim && e.Minute <= 45);
+
+            erg.HalbzeitHeimTore.Should().Be(erwarteterHeim);
+            erg.HalbzeitAuswaertsTore.Should().Be(erwarteterGast);
+            erg.HalbzeitHeimTore.Should().BeLessThanOrEqualTo(erg.HeimToreRegulaer);
+            erg.HalbzeitAuswaertsTore.Should().BeLessThanOrEqualTo(erg.AuswaertsToreRegulaer);
+        }
+    }
+
+    [Fact]
     public void AusfuehrlicheSimulation_EreignisseHabenGueltigeMinuten()
     {
         // Seed 5 liefert mindestens ein Tor, sodass Ereignisse entstehen

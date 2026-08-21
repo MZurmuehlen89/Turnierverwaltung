@@ -13,6 +13,20 @@ public class SpielErgebnisValidator
         if (eingabe.HeimToreRegulaer < 0 || eingabe.AuswaertsToreRegulaer < 0)
             fehler.Add("Tore der regulären Spielzeit dürfen nicht negativ sein.");
 
+        // Halbzeitstand ist optional (Issue #104), aber wenn angegeben nur für beide Seiten zusammen
+        // und muss zum Regulärzeit-Endstand passen (kann bis zur Halbzeit nicht mehr Tore haben als
+        // am Ende der regulären Spielzeit).
+        if (eingabe.HalbzeitHeimTore.HasValue != eingabe.HalbzeitAuswaertsTore.HasValue)
+            fehler.Add("Der Halbzeitstand muss für beide Mannschaften zusammen angegeben werden.");
+        else if (eingabe.HalbzeitHeimTore.HasValue && eingabe.HalbzeitAuswaertsTore.HasValue)
+        {
+            if (eingabe.HalbzeitHeimTore < 0 || eingabe.HalbzeitAuswaertsTore < 0)
+                fehler.Add("Der Halbzeitstand darf nicht negativ sein.");
+            else if (eingabe.HalbzeitHeimTore > eingabe.HeimToreRegulaer ||
+                     eingabe.HalbzeitAuswaertsTore > eingabe.AuswaertsToreRegulaer)
+                fehler.Add("Der Halbzeitstand darf den Stand der regulären Spielzeit nicht überschreiten.");
+        }
+
         // Elfmeterschiessen kann direkt nach Regulärzeit folgen → keine Verlängerungstore erforderlich
         var brauchtVerlaengerung = eingabe.EntscheidungArt is
             EntscheidungArt.Verlaengerung or EntscheidungArt.GoldenGoal or EntscheidungArt.SilverGoal;

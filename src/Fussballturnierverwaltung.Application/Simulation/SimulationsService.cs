@@ -369,7 +369,9 @@ public class SimulationsService(
             sim.HeimToreVerlaengerung,
             sim.AuswaertsToreVerlaengerung,
             sim.HeimElfmetertore,
-            sim.AuswaertsElfmetertore);
+            sim.AuswaertsElfmetertore,
+            sim.HalbzeitHeimTore,
+            sim.HalbzeitAuswaertsTore);
 
         await ergebnisService.ErgebnisErfassenAsync(spiel.Id, eingabe, ct);
 

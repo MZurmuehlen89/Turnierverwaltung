@@ -572,6 +572,12 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("EntscheidungArt")
                         .HasColumnType("int");
 
+                    b.Property<int?>("HalbzeitAuswaertsTore")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("HalbzeitHeimTore")
+                        .HasColumnType("int");
+
                     b.Property<int?>("HeimElfmetertore")
                         .HasColumnType("int");
 

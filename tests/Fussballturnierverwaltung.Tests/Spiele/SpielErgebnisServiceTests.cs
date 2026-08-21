@@ -221,6 +221,51 @@ public class SpielErgebnisServiceTests
         erg.EntscheidungArt.Should().Be(EntscheidungArt.RegulaereSpielzeit);
     }
 
+    [Fact]
+    public async Task MitHalbzeitstand_WirdPersistiert()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, auswaertstorRegel: false);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 1, TurnierInstanzId = 1, TurnierRundeId = 1,
+            Spielnummer = 1, HeimMannschaftId = 1, AuswaertsMannschaftId = 2,
+            Status = SpielStatus.Geplant, IstRueckspiel = false
+        });
+        ctx.SaveChanges();
+
+        var service = ServiceFuer(ctx);
+        await service.ErgebnisErfassenAsync(1, new ErgebnisErfassenEingabe(
+            2, 1, EntscheidungArt.RegulaereSpielzeit,
+            HalbzeitHeimTore: 1, HalbzeitAuswaertsTore: 0));
+
+        var erg = await ErgebnisFuer(ctx, 1);
+        erg!.HalbzeitHeimTore.Should().Be(1);
+        erg.HalbzeitAuswaertsTore.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task MitUngueltigemHalbzeitstand_WirftValidationException()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, auswaertstorRegel: false);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 1, TurnierInstanzId = 1, TurnierRundeId = 1,
+            Spielnummer = 1, HeimMannschaftId = 1, AuswaertsMannschaftId = 2,
+            Status = SpielStatus.Geplant, IstRueckspiel = false
+        });
+        ctx.SaveChanges();
+
+        var service = ServiceFuer(ctx);
+        // 2 Tore zur Halbzeit, aber nur 1 Tor im Endstand.
+        var aufruf = () => service.ErgebnisErfassenAsync(1, new ErgebnisErfassenEingabe(
+            1, 0, EntscheidungArt.RegulaereSpielzeit,
+            HalbzeitHeimTore: 2, HalbzeitAuswaertsTore: 0));
+
+        await aufruf.Should().ThrowAsync<ValidationException>();
+    }
+
     // ── Tests: Kaskaden-Check nach Batch-Reset (Issue #125) ─────────────────
 
     private static void KaskadeSetupAnlegen(TurnierverwaltungDbContext ctx, out int hfRundeId, out int finaleRundeId)

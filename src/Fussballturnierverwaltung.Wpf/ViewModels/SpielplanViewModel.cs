@@ -79,7 +79,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [
         nameof(HeimToreRegulaer),       nameof(AuswaertsToreRegulaer),
         nameof(HeimToreVerlaengerung),  nameof(AuswaertsToreVerlaengerung),
-        nameof(HeimElfmetertore),       nameof(AuswaertsElfmetertore)
+        nameof(HeimElfmetertore),       nameof(AuswaertsElfmetertore),
+        nameof(HeimHalbzeitTore),       nameof(AuswaertsHalbzeitTore)
     ];
 
     private static readonly HashSet<string> _scoreFelder =
@@ -203,6 +204,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty] private string _auswaertsToreVerlaengerung = "";
     [ObservableProperty] private string _heimElfmetertore = "";
     [ObservableProperty] private string _auswaertsElfmetertore = "";
+
+    // Issue #104: Halbzeitstand, optional und unabhängig von der Rundenart/Entscheidungsart erfassbar.
+    [ObservableProperty] private string _heimHalbzeitTore = "";
+    [ObservableProperty] private string _auswaertsHalbzeitTore = "";
 
     private bool IstKoRunde => AusgewaehlteRunde?.Rundenart is
         Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
@@ -911,6 +916,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     : "";
                 HeimElfmetertore           = e.HeimElfmetertore?.ToString() ?? "";
                 AuswaertsElfmetertore      = e.AuswaertsElfmetertore?.ToString() ?? "";
+                HeimHalbzeitTore           = e.HalbzeitHeimTore?.ToString() ?? "";
+                AuswaertsHalbzeitTore      = e.HalbzeitAuswaertsTore?.ToString() ?? "";
             }
             else
             {
@@ -921,6 +928,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 AuswaertsToreVerlaengerung = "";
                 HeimElfmetertore           = "";
                 AuswaertsElfmetertore      = "";
+                HeimHalbzeitTore           = "";
+                AuswaertsHalbzeitTore      = "";
             }
         }
         finally
@@ -1123,7 +1132,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             heimVerlaengerungDelta,
             auswaertsVerlaengerungDelta,
             ParseIntNullable(HeimElfmetertore),
-            ParseIntNullable(AuswaertsElfmetertore));
+            ParseIntNullable(AuswaertsElfmetertore),
+            ParseIntNullable(HeimHalbzeitTore),
+            ParseIntNullable(AuswaertsHalbzeitTore));
     }
 
     private void AktualisiereBefehle()
@@ -1165,6 +1176,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
                 e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
                 e.HeimElfmetertore, e.AuswaertsElfmetertore);
+
+            // Issue #104: Halbzeitstand nur anzeigen, wenn kein K.o.-Detail (n.V./i.E./A.T.) den
+            // Platz schon belegt — DetailText liefert dann "", die beiden schließen sich gegenseitig aus.
+            if (detail.Length == 0)
+                detail = SpielErgebnisFormatierer.HalbzeitKlammer(
+                    e.EntscheidungArt, e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
+                    e.HalbzeitHeimTore, e.HalbzeitAuswaertsTore);
         }
 
         int? gruppeNummer = null;

@@ -54,9 +54,20 @@ public static class SimulationsEngine
             }
         }
 
+        // Issue #104: Halbzeitstand aus den generierten Torereignissen ableiten (nur bei ausführlicher
+        // Simulation verfügbar, sonst existieren keine Minutenangaben — bleibt dann null statt eines
+        // fälschlich vorgetäuschten 0:0). Verlängerungs-Torereignisse liegen immer jenseits Minute 90
+        // und fließen hier nie mit ein.
+        int? heimHalbzeit = ausfuehrlich
+            ? ereignisse.Count(e => e.Art == EreignisArt.Tor && e.IstHeim && e.Minute <= 45)
+            : null;
+        int? gastHalbzeit = ausfuehrlich
+            ? ereignisse.Count(e => e.Art == EreignisArt.Tor && !e.IstHeim && e.Minute <= 45)
+            : null;
+
         return new SimulationsErgebnis(
             heimTore, gastTore, heimVerl, gastVerl, heimElf, gastElf,
-            entscheidung, ereignisse);
+            entscheidung, ereignisse, heimHalbzeit, gastHalbzeit);
     }
 
     // ── Expected-Goals-Formel ──────────────────────────────────────────────
@@ -290,7 +301,9 @@ public record SimulationsErgebnis(
     int? HeimElfmetertore,
     int? AuswaertsElfmetertore,
     EntscheidungArt EntscheidungArt,
-    IReadOnlyList<SimuliertesEreignis> Ereignisse);
+    IReadOnlyList<SimuliertesEreignis> Ereignisse,
+    int? HalbzeitHeimTore = null,
+    int? HalbzeitAuswaertsTore = null);
 
 public record SimuliertesEreignis(
     int Minute,

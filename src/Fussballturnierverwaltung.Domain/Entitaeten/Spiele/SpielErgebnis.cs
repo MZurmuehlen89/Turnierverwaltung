@@ -14,6 +14,8 @@ public class SpielErgebnis : BasisEntitaet
     public int? AuswaertsToreVerlaengerung { get; set; }
     public int? HeimElfmetertore { get; set; }
     public int? AuswaertsElfmetertore { get; set; }
+    public int? HalbzeitHeimTore { get; set; }
+    public int? HalbzeitAuswaertsTore { get; set; }
 
     public int? SiegerMannschaftId { get; set; }
     public Mannschaft? SiegerMannschaft { get; set; }

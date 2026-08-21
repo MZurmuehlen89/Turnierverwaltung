@@ -12,4 +12,6 @@ public record SpielErgebnisEingabe(
     int? HeimElfmetertore,
     int? AuswaertsElfmetertore,
     EntscheidungArt EntscheidungArt,
-    int? SiegerMannschaftId);
+    int? SiegerMannschaftId,
+    int? HalbzeitHeimTore = null,
+    int? HalbzeitAuswaertsTore = null);

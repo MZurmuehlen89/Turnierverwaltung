@@ -39,4 +39,23 @@ public static class SpielErgebnisFormatierer
         };
         return $"{regulaerKlammer}{marker}";
     }
+
+    /// <summary>
+    /// Formatiert den Halbzeitstand in Klammern (z.B. "(1:0)") für die Ergebnisanzeige, analog zur
+    /// gängigen Sportportal-Konvention "2:1 (1:0)" (Issue #104). Nur bei reinen Regulärzeit-Spielen —
+    /// bei Verlängerung/Elfmeterschießen/Auswärtstorregel steht in derselben Anzeige-Position bereits
+    /// das <see cref="DetailText"/>-Kürzel. Leer, wenn kein Halbzeitstand erfasst wurde oder er dem
+    /// Regulärzeit-Endstand entspricht (sonst wäre die Klammer redundant).
+    /// </summary>
+    public static string HalbzeitKlammer(
+        EntscheidungArt entscheidungArt,
+        int heimToreRegulaer, int auswaertsToreRegulaer,
+        int? halbzeitHeimTore, int? halbzeitAuswaertsTore)
+    {
+        if (entscheidungArt != EntscheidungArt.RegulaereSpielzeit) return "";
+        if (halbzeitHeimTore is null || halbzeitAuswaertsTore is null) return "";
+        if (halbzeitHeimTore == heimToreRegulaer && halbzeitAuswaertsTore == auswaertsToreRegulaer) return "";
+
+        return $"({halbzeitHeimTore}:{halbzeitAuswaertsTore})";
+    }
 }

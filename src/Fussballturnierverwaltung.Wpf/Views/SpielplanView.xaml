@@ -136,6 +136,30 @@
                         </StackPanel>
                     </Grid>
 
+                    <!-- Halbzeitstand (Issue #104): optional, unabhängig von Rundenart/Entscheidungsart -->
+                    <TextBlock Text="HALBZEITSTAND (OPTIONAL)" FontSize="11" FontWeight="Bold"
+                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,6" />
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="20" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding HeimHalbzeitTore, UpdateSourceTrigger=PropertyChanged}"
+                                 helpers:TextBoxSelectAllOnFocusBehavior.SelectAllOnFocus="True"
+                                 Padding="8,6" FontSize="16" FontWeight="Bold" TextAlignment="Center"
+                                 BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
+                        <TextBlock Grid.Column="1" Text=":" FontSize="18" FontWeight="Bold"
+                                   Foreground="{StaticResource TextSubtleBrush}" HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                        <TextBox Grid.Column="2"
+                                 Text="{Binding AuswaertsHalbzeitTore, UpdateSourceTrigger=PropertyChanged}"
+                                 helpers:TextBoxSelectAllOnFocusBehavior.SelectAllOnFocus="True"
+                                 Padding="8,6" FontSize="16" FontWeight="Bold" TextAlignment="Center"
+                                 BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
+                    </Grid>
+
                     <!-- Verlängerung -->
                     <StackPanel Visibility="{Binding VerlaengerungAktiv, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="ERGEBNIS NACH VERLÄNGERUNG" FontSize="11" FontWeight="Bold"

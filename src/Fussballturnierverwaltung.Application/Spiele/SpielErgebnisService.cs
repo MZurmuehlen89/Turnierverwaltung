@@ -46,7 +46,8 @@ public class SpielErgebnisService(
             eingabe.HeimToreRegulaer, eingabe.AuswaertsToreRegulaer,
             eingabe.HeimToreVerlaengerung, eingabe.AuswaertsToreVerlaengerung,
             eingabe.HeimElfmetertore, eingabe.AuswaertsElfmetertore,
-            entscheidungArt, sieger);
+            entscheidungArt, sieger,
+            eingabe.HalbzeitHeimTore, eingabe.HalbzeitAuswaertsTore);
 
         ValidationException.WerfenWennUngueltig(validator.Validieren(vollEingabe));
 
@@ -58,6 +59,8 @@ public class SpielErgebnisService(
             AuswaertsToreVerlaengerung = eingabe.AuswaertsToreVerlaengerung,
             HeimElfmetertore           = eingabe.HeimElfmetertore,
             AuswaertsElfmetertore      = eingabe.AuswaertsElfmetertore,
+            HalbzeitHeimTore           = eingabe.HalbzeitHeimTore,
+            HalbzeitAuswaertsTore      = eingabe.HalbzeitAuswaertsTore,
             SiegerMannschaftId         = sieger,
             EntscheidungArt            = entscheidungArt
         };
