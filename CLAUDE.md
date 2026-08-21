@@ -100,6 +100,15 @@ Both `Console` and `Wpf` are independent startup projects that reference `Infras
 
 All domain types, properties, methods, and enums are in **German**. English is used only where established in German IT/football context (Rating, Repository, Service, DbContext, Seed, Import, Export, ViewModel, View).
 
+| Pattern | Usage |
+|---|---|
+| `_camelCase` | Private/static fields |
+| `camelCase` | Local variables |
+| `ALL_UPPER` | Constants |
+| `PascalCase` | Everything else (properties, methods, types, public members) |
+
+`_camelCase` for private/static fields is mandatory for source-generated `[ObservableProperty]` fields (CommunityToolkit.Mvvm generates the PascalCase property from the `_camelCase` field name). Binding for new code only — no retroactive rename of existing code (see Issue #143).
+
 ## Important Domain Concepts
 
 **`TurnierRunde.AuswaertstorRegelAktiv`** is a Boolean flag active only when `MitRueckspiel = true`. The away-goals rule is evaluated *before* `EntscheidungsVerfahren` when checking aggregate scores (AD-001).
