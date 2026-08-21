@@ -65,7 +65,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private int _populiertGerade;
     private Dictionary<int, int> _teamGruppeMap = [];
-    private List<VerfahrenArt> _erlaubteVerfahren = [];
+    private readonly ObservableCollection<VerfahrenArt> _erlaubteVerfahren = [];
     private IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)> _platzhalterVorschau =
         new Dictionary<int, (string?, string?)>();
 
@@ -109,6 +109,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public bool IstGruppenphase => AusgewaehlteRunde?.Rundenart == Rundenart.Gruppenphase;
     public bool IstLigaRunde    => AusgewaehlteRunde?.Rundenart == Rundenart.Liga;
+
+    // Issue #82: Ranking-Kriterien ergeben nur bei Runden mit Tabelle einen Sinn.
+    private bool IstTabellenRunde => AusgewaehlteRunde?.Rundenart is
+        Rundenart.Gruppenphase or Rundenart.Liga or Rundenart.SchweizerSystem or Rundenart.TopfLiga;
 
     // Issue #100: Hin-/Rückrunde-Simulation ist nur bei Liga-Runden mit Rückspiel sinnvoll.
     public bool IstLigaMitRueckspiel => IstLigaRunde && (AusgewaehlteRunde?.MitRueckspiel ?? false);
@@ -176,6 +180,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public bool HatRankingKriterien => RankingKriterien.Count > 0;
 
+    // Issue #82: bei K.-o.-Runden gibt es keine Tabelle, daher hier statt der Ranking-Kriterien
+    // eine Regelwerk-Kurzinfo (Verlängerung/Elfmeterschießen/Auswärtstorregel).
+    public ObservableCollection<string> RegelwerkKurzinfo { get; } = [];
+
+    public bool HatRegelwerkInfo => RegelwerkKurzinfo.Count > 0;
+
     // ── Spielliste ────────────────────────────────────────────────────────────
 
     [ObservableProperty] private ObservableCollection<SpielZeile> _spiele = [];
@@ -209,7 +219,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty] private string _heimHalbzeitTore = "";
     [ObservableProperty] private string _auswaertsHalbzeitTore = "";
 
-    private bool IstKoRunde => AusgewaehlteRunde?.Rundenart is
+    public bool IstKoRunde => AusgewaehlteRunde?.Rundenart is
         Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
 
     private bool HatVerlaengerungsVerfahren =>
@@ -687,7 +697,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         RankingKriterien.Clear();
         OnPropertyChanged(nameof(HatRankingKriterien));
         RankingRegelSetName  = "";
-        _erlaubteVerfahren   = [];
+        RegelwerkKurzinfo.Clear();
+        OnPropertyChanged(nameof(HatRegelwerkInfo));
+        _erlaubteVerfahren.Clear();
         AusgewaehlteGruppe   = null;
         GruppenTabellen.Clear();
         _teamGruppeMap = [];
@@ -713,18 +725,31 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         var regelwerk = await _regelwerkService.FindenNachIdAsync(AusgewaehlteRunde.RegelwerkId);
 
-        _erlaubteVerfahren = regelwerk?.Entscheidungsverfahren
-            .OrderBy(v => v.Reihenfolge)
-            .Select(v => v.VerfahrenArt)
-            .ToList() ?? [];
+        foreach (var v in regelwerk?.Entscheidungsverfahren
+                     .OrderBy(v => v.Reihenfolge)
+                     .Select(v => v.VerfahrenArt) ?? [])
+            _erlaubteVerfahren.Add(v);
 
-        if (regelwerk?.RankingRegelSet?.Eintraege is { Count: > 0 } eintraege)
+        if (IstTabellenRunde && regelwerk?.RankingRegelSet?.Eintraege is { Count: > 0 } eintraege)
         {
             RankingRegelSetName = regelwerk.RankingRegelSet.Name;
             int pos = 1;
             foreach (var eintrag in eintraege.OrderBy(e => e.Reihenfolge))
                 RankingKriterien.Add($"{pos++}. {RegelartZuText(eintrag.RankingRegel.Regelart)}");
             OnPropertyChanged(nameof(HatRankingKriterien));
+        }
+
+        if (IstKoRunde)
+        {
+            foreach (var vart in _erlaubteVerfahren.Where(v =>
+                         v is VerfahrenArt.VerlaengerungKlassisch or VerfahrenArt.GoldenGoal or VerfahrenArt.SilverGoal
+                             or VerfahrenArt.Elfmeterschiessen))
+                RegelwerkKurzinfo.Add(VerfahrenArtZuTextConverter.VerfahrenAnzeigeName(vart));
+
+            if (AusgewaehlteRunde.MitRueckspiel)
+                RegelwerkKurzinfo.Add($"Auswärtstorregel: {(AusgewaehlteRunde.AuswaertstorRegelAktiv ? "Ja" : "Nein")}");
+
+            OnPropertyChanged(nameof(HatRegelwerkInfo));
         }
 
         // Simulations-/Formularbefehle (u.a. "Runde simulieren") haengen von der jetzt geladenen

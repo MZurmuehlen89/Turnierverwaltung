@@ -44,6 +44,26 @@
                 </StackPanel>
             </Border>
 
+            <!-- Regelwerk-Kurzinfo für K.-o.-Runden (Issue #82): Ranking-Kriterien ergeben hier
+                 keinen Sinn (keine Tabelle), stattdessen Verlängerungs-/Elfmeter-/Auswärtstorregel. -->
+            <Border DockPanel.Dock="Bottom"
+                    Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0"
+                    Padding="12,8"
+                    Visibility="{Binding HatRegelwerkInfo, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock Text="REGELWERK" FontSize="10" FontWeight="Bold"
+                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,3" />
+                    <ItemsControl ItemsSource="{Binding RegelwerkKurzinfo}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                           Margin="0,1" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
             <ListBox ItemsSource="{Binding Runden}"
                      SelectedItem="{Binding AusgewaehlteRunde}"
                      BorderThickness="0" Background="Transparent"
