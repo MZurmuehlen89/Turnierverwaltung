@@ -70,6 +70,8 @@ public partial class MainWindow : Window
             };
             IconSetzen(toggleButton, aktion);
             toggleButton.SetBinding(Fluent.ToggleButton.IsCheckedProperty, aktion.IstAktivBinding);
+            if (aktion.IstAktivierbarBinding is not null)
+                toggleButton.SetBinding(Fluent.ToggleButton.IsEnabledProperty, aktion.IstAktivierbarBinding);
             return toggleButton;
         }
 

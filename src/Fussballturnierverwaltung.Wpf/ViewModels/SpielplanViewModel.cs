@@ -348,7 +348,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     IconGlyph = "",
                     Unteraktionen =
                     [
+                        new RibbonAktion { Header = "Hinrunde simulieren", Befehl = HinrundeSimulierenBefehl, IconGlyph = "" },
+                        new RibbonAktion { Header = "Rückrunde simulieren", Befehl = RueckrundeSimulierenBefehl, IconGlyph = "" },
                         new RibbonAktion { Header = "Runde zurücksetzen", Befehl = RundeZuruecksetzenBefehl, IconGlyph = "" },
+                        new RibbonAktion { Header = "Hinrunde zurücksetzen", Befehl = HinrundeZuruecksetzenBefehl, IconGlyph = "" },
+                        new RibbonAktion { Header = "Rückrunde zurücksetzen", Befehl = RueckrundeZuruecksetzenBefehl, IconGlyph = "" },
                     ],
                 },
                 new RibbonAktion
@@ -383,28 +387,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 },
                 new RibbonAktion
                 {
-                    Header = "Hinrunde simulieren",
-                    Befehl = HinrundeSimulierenBefehl,
-                    IconGlyph = "",
-                    Unteraktionen =
-                    [
-                        new RibbonAktion { Header = "Hinrunde zurücksetzen", Befehl = HinrundeZuruecksetzenBefehl, IconGlyph = "" },
-                    ],
-                },
-                new RibbonAktion
-                {
-                    Header = "Rückrunde simulieren",
-                    Befehl = RueckrundeSimulierenBefehl,
-                    IconGlyph = "",
-                    Unteraktionen =
-                    [
-                        new RibbonAktion { Header = "Rückrunde zurücksetzen", Befehl = RueckrundeZuruecksetzenBefehl, IconGlyph = "" },
-                    ],
-                },
-                new RibbonAktion
-                {
                     Header = "Platzhalter-Vorschau",
                     IstAktivBinding = new Binding(nameof(VorschauAktiv)) { Source = this, Mode = BindingMode.TwoWay },
+                    IstAktivierbarBinding = new Binding(nameof(HatPlatzhalterSpiele)) { Source = this },
                     IconGlyph = "",
                 },
             ],

@@ -34,4 +34,10 @@ public sealed class RibbonAktion
     /// Klick-Befehls (z.B. "Platzhalter-Vorschau", Issue #208). Erzeugt einen Fluent.ToggleButton mit
     /// Binding auf IsChecked, kein <see cref="Befehl"/> und keine <see cref="Unteraktionen"/> nötig.</summary>
     public Binding? IstAktivBinding { get; init; }
+
+    /// <summary>Optionale Bindung auf IsEnabled für einen per <see cref="IstAktivBinding"/> erzeugten
+    /// Umschalter (z.B. "Platzhalter-Vorschau" bleibt deaktiviert, solange die aktuelle Runde keine
+    /// Platzhalter-Spiele hat — Nutzer-Feedback 2026-08-21). Ohne Befehl gibt es sonst kein CanExecute,
+    /// über das sich das automatisch ergäbe.</summary>
+    public Binding? IstAktivierbarBinding { get; init; }
 }

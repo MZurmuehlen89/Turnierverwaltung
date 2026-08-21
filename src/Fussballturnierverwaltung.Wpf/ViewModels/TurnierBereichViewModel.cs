@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
@@ -27,9 +28,15 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
 
     public event EventHandler<VorausgewaehlteSimulation>? AusfuehrlicheSimulationAngefordert;
 
-    // Ein Turnierbaum ergibt nur bei mehreren aufeinanderfolgenden Runden Sinn — bei genau einer
-    // Runde (oder keiner) entfaellt die Split-Ansicht komplett zugunsten des vollen Spielplans.
-    public bool ZeigeSplitAnsicht => SpielplanVm.Runden.Count > 1;
+    // Ein K.-o.-Turnierbaum ergibt nur bei mehreren aufeinanderfolgenden Runden Sinn. Eine
+    // Gruppenphase-/Liga-Tabelle ist aber auch bei genau einer Runde sinnvoll (Nutzer-Feedback,
+    // 2026-08-21) — die Split-Ansicht bleibt daher zusätzlich sichtbar, wenn die aktuell
+    // ausgewählte Runde eine eigene Tabelle zeigt (siehe TurnierBaumViewModel.ZeigtGruppenphase/
+    // ZeigtLigaTabelle für dieselbe Rundenart-Liste).
+    public bool ZeigeSplitAnsicht =>
+        SpielplanVm.Runden.Count > 1 ||
+        SpielplanVm.AusgewaehlteRunde?.Rundenart is
+            Rundenart.Gruppenphase or Rundenart.Liga or Rundenart.TopfLiga or Rundenart.SchweizerSystem;
 
     [ObservableProperty] private string? _fortschrittAnzeige;
 
@@ -87,6 +94,12 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
 
             if (e.PropertyName == nameof(SpielplanViewModel.RibbonZusatzGruppen))
                 OnPropertyChanged(nameof(RibbonZusatzGruppen));
+
+            // Bei Turnieren mit genau einer Runde ist AusgewaehlteRunde anfangs null und wird erst
+            // durch die Nutzerauswahl in der Rundenliste gesetzt — ZeigeSplitAnsicht muss dann neu
+            // ausgewertet werden (siehe Kommentar dort).
+            if (e.PropertyName == nameof(SpielplanViewModel.AusgewaehlteRunde))
+                OnPropertyChanged(nameof(ZeigeSplitAnsicht));
         };
 
         // Issue #141: Spieltag-Navigation in der Spielliste (links) setzt den Tabellen-Snapshot
