@@ -109,6 +109,23 @@ All domain types, properties, methods, and enums are in **German**. English is u
 
 `_camelCase` for private/static fields is mandatory for source-generated `[ObservableProperty]` fields (CommunityToolkit.Mvvm generates the PascalCase property from the `_camelCase` field name). Binding for new code only — no retroactive rename of existing code (see Issue #143).
 
+## Formatting Conventions
+
+Enforced machine-readably by the repo-root `.editorconfig` (naming rules + indentation/brace/using-directive settings, all at `suggestion` severity — visible as IDE hints, does not fail the build). Summary:
+
+- **Indentation**: 4 spaces, no tabs — in both C# and XAML (2 spaces for `.csproj`/`.json`).
+- **Braces**: Allman style (opening brace on its own line) for type/method/multi-statement blocks. A single-statement `if`/`foreach` body may skip braces and stay on one line (e.g. `if (result != 0) break;`).
+- **Namespaces**: file-scoped (`namespace X.Y;`), never block-scoped.
+- **`using` directives**: one flat block in plain alphabetical order — `System.*` is *not* grouped separately or sorted first.
+- **Section-divider comments**: for logically distinct regions inside a larger file, use `// ── Section name ────────────────────────`.
+- **XAML**: wrapped attributes align to the column of the first attribute on the opening tag; self-closing tags get a space before `/>`.
+
+Binding for new code only — no big-bang reformat of the existing codebase. When a file is opened for an issue anyway, bring the touched parts in line with these conventions as part of that change (opportunistic cleanup, not a separate pass).
+
+
+
+Binding for new code only — no retroactive reformatting of existing code.
+
 ## Important Domain Concepts
 
 **`TurnierRunde.AuswaertstorRegelAktiv`** is a Boolean flag active only when `MitRueckspiel = true`. The away-goals rule is evaluated *before* `EntscheidungsVerfahren` when checking aggregate scores (AD-001).
