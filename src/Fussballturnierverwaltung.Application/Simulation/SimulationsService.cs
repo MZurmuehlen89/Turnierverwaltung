@@ -229,6 +229,42 @@ public class SimulationsService(
         return simuliert;
     }
 
+    // ── Hin-/Rückrunde ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Simuliert alle noch nicht abgeschlossenen Spiele einer Rundenhälfte (Hin- oder Rückrunde,
+    /// nach <see cref="Spiel.IstRueckspiel"/> unterschieden) — für Liga-Runden mit Rückspiel
+    /// (Issue #100), analog zu <see cref="RundeSimulierenAsync"/> für die gesamte Runde.
+    /// Gibt die Anzahl simulierter Spiele zurück.
+    /// </summary>
+    public async Task<int> RundenHaelfteSimulierenAsync(
+        int turnierRundeId,
+        bool istRueckrunde,
+        SimulationsModus modus,
+        int? seed = null,
+        CancellationToken ct = default)
+    {
+        var spiele = await spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
+        var offene = spiele
+            .Where(s => s.IstRueckspiel == istRueckrunde && s.Status != SpielStatus.Abgeschlossen)
+            .ToList();
+
+        if (!offene.Any()) return 0;
+
+        var rng = seed.HasValue ? new Random(seed.Value) : new Random();
+        int simuliert = 0;
+
+        foreach (var spiel in offene)
+        {
+            await SpielSimulierenAsync(spiel.Id, modus, rng, ct);
+            simuliert++;
+        }
+
+        logger.LogInformation("{Haelfte} (Runde {Id}): {Anz} Spiel(e) simuliert.",
+            istRueckrunde ? "Rückrunde" : "Hinrunde", turnierRundeId, simuliert);
+        return simuliert;
+    }
+
     // ── Eine Runde ────────────────────────────────────────────────────────
 
     /// <summary>

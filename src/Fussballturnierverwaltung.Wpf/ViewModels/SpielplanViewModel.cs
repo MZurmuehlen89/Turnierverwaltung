@@ -97,6 +97,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(IstGruppenphase))]
     [NotifyPropertyChangedFor(nameof(IstKoRunde))]
     [NotifyPropertyChangedFor(nameof(IstLigaRunde))]
+    [NotifyPropertyChangedFor(nameof(IstLigaMitRueckspiel))]
     private TurnierRunde? _ausgewaehlteRunde;
 
     public bool HatRunde => AusgewaehlteRunde is not null;
@@ -107,6 +108,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public bool IstGruppenphase => AusgewaehlteRunde?.Rundenart == Rundenart.Gruppenphase;
     public bool IstLigaRunde    => AusgewaehlteRunde?.Rundenart == Rundenart.Liga;
+
+    // Issue #100: Hin-/Rückrunde-Simulation ist nur bei Liga-Runden mit Rückspiel sinnvoll.
+    public bool IstLigaMitRueckspiel => IstLigaRunde && (AusgewaehlteRunde?.MitRueckspiel ?? false);
 
     // GruppenTabellen wird weiterhin intern geladen (nicht mehr direkt angezeigt): liefert die
     // Team→Gruppe-Zuordnung für MapSpielZeile sowie die Team-Ids für "Gruppe simulieren/zurücksetzen".
@@ -268,22 +272,30 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly AsyncRelayCommand _spieltagSimulierenBefehl;
     private readonly AsyncRelayCommand _ausfuehrlichSimulierenBefehl;
     private readonly AsyncRelayCommand _auswahlSimulierenBefehl;
+    private readonly AsyncRelayCommand _hinrundeSimulierenBefehl;
+    private readonly AsyncRelayCommand _rueckrundeSimulierenBefehl;
 
     public ICommand RundeSimulierenBefehl         => _rundeSimulierenBefehl;
     public ICommand GruppeSimulierenBefehl        => _gruppeSimulierenBefehl;
     public ICommand SpieltagSimulierenBefehl      => _spieltagSimulierenBefehl;
     public ICommand AusfuehrlichSimulierenBefehl  => _ausfuehrlichSimulierenBefehl;
     public ICommand AuswahlSimulierenBefehl       => _auswahlSimulierenBefehl;
+    public ICommand HinrundeSimulierenBefehl      => _hinrundeSimulierenBefehl;
+    public ICommand RueckrundeSimulierenBefehl    => _rueckrundeSimulierenBefehl;
 
     // ── Ergebnis-Reset auf Ebene Runde/Gruppe/Spieltag (Issue #123) ─────────────
 
     private readonly AsyncRelayCommand _rundeZuruecksetzenBefehl;
     private readonly AsyncRelayCommand _gruppeZuruecksetzenBefehl;
     private readonly AsyncRelayCommand _spieltagZuruecksetzenBefehl;
+    private readonly AsyncRelayCommand _hinrundeZuruecksetzenBefehl;
+    private readonly AsyncRelayCommand _rueckrundeZuruecksetzenBefehl;
 
     public ICommand RundeZuruecksetzenBefehl    => _rundeZuruecksetzenBefehl;
     public ICommand GruppeZuruecksetzenBefehl   => _gruppeZuruecksetzenBefehl;
     public ICommand SpieltagZuruecksetzenBefehl => _spieltagZuruecksetzenBefehl;
+    public ICommand HinrundeZuruecksetzenBefehl => _hinrundeZuruecksetzenBefehl;
+    public ICommand RueckrundeZuruecksetzenBefehl => _rueckrundeZuruecksetzenBefehl;
 
     // ── Manuelle Multi-Selektion (Issue #124) ─────────────────────────────────────
     // Wird von der View per Code-Behind (ListView.SelectionChanged, da ListView.SelectedItems
@@ -371,6 +383,26 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 },
                 new RibbonAktion
                 {
+                    Header = "Hinrunde simulieren",
+                    Befehl = HinrundeSimulierenBefehl,
+                    IconGlyph = "",
+                    Unteraktionen =
+                    [
+                        new RibbonAktion { Header = "Hinrunde zurücksetzen", Befehl = HinrundeZuruecksetzenBefehl, IconGlyph = "" },
+                    ],
+                },
+                new RibbonAktion
+                {
+                    Header = "Rückrunde simulieren",
+                    Befehl = RueckrundeSimulierenBefehl,
+                    IconGlyph = "",
+                    Unteraktionen =
+                    [
+                        new RibbonAktion { Header = "Rückrunde zurücksetzen", Befehl = RueckrundeZuruecksetzenBefehl, IconGlyph = "" },
+                    ],
+                },
+                new RibbonAktion
+                {
                     Header = "Platzhalter-Vorschau",
                     IstAktivBinding = new Binding(nameof(VorschauAktiv)) { Source = this, Mode = BindingMode.TwoWay },
                     IconGlyph = "",
@@ -420,10 +452,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _spieltagSimulierenBefehl     = new AsyncRelayCommand(SpieltagSimulierenAsync,      CanSpieltagSimulieren);
         _ausfuehrlichSimulierenBefehl = new AsyncRelayCommand(AusfuehrlichSimulierenAsync,  CanAusfuehrlichSimulieren);
         _auswahlSimulierenBefehl      = new AsyncRelayCommand(AuswahlSimulierenAsync,       CanAuswahlSimulieren);
+        _hinrundeSimulierenBefehl     = new AsyncRelayCommand(HinrundeSimulierenAsync,      CanHinrundeSimulieren);
+        _rueckrundeSimulierenBefehl   = new AsyncRelayCommand(RueckrundeSimulierenAsync,    CanRueckrundeSimulieren);
 
         _rundeZuruecksetzenBefehl    = new AsyncRelayCommand(RundeZuruecksetzenAsync,    CanRundeZuruecksetzen);
         _gruppeZuruecksetzenBefehl   = new AsyncRelayCommand(GruppeZuruecksetzenAsync,   CanGruppeZuruecksetzen);
         _spieltagZuruecksetzenBefehl = new AsyncRelayCommand(SpieltagZuruecksetzenAsync, CanSpieltagZuruecksetzen);
+        _hinrundeZuruecksetzenBefehl   = new AsyncRelayCommand(HinrundeZuruecksetzenAsync,   CanHinrundeZuruecksetzen);
+        _rueckrundeZuruecksetzenBefehl = new AsyncRelayCommand(RueckrundeZuruecksetzenAsync, CanRueckrundeZuruecksetzen);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -1122,6 +1158,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _rundeZuruecksetzenBefehl.NotifyCanExecuteChanged();
         _gruppeZuruecksetzenBefehl.NotifyCanExecuteChanged();
         _spieltagZuruecksetzenBefehl.NotifyCanExecuteChanged();
+        _hinrundeSimulierenBefehl.NotifyCanExecuteChanged();
+        _rueckrundeSimulierenBefehl.NotifyCanExecuteChanged();
+        _hinrundeZuruecksetzenBefehl.NotifyCanExecuteChanged();
+        _rueckrundeZuruecksetzenBefehl.NotifyCanExecuteChanged();
     }
 
     private static SpielZeile MapSpielZeile(
@@ -1367,16 +1407,35 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         && Spiele.Any(s => s.GruppeNummer == gruppe.GruppenNummer
                          && s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
 
+    // Issue #100: Liga-Runden haben keine "Gruppe" (EffektiveGruppe bleibt dort immer null, da
+    // GruppenTabellen nur für Gruppenphase geladen wird) — Spieltag-Aktionen greifen für sie
+    // stattdessen direkt auf alle Spiele der Runde am effektiven Spieltag zu (kein Team-Filter nötig,
+    // eine Liga-Runde hat nur eine "Gruppe" = die gesamte Liga).
+    private IEnumerable<SpielZeile> SpieleAmEffektivenSpieltag()
+    {
+        if (EffektiverSpieltag is not { } spieltag) return [];
+        if (EffektiveGruppe is { } gruppe)
+            return Spiele.Where(s => s.GruppeNummer == gruppe.GruppenNummer && s.Spieltag == spieltag);
+        return IstLigaRunde ? Spiele.Where(s => s.Spieltag == spieltag) : [];
+    }
+
     private bool CanSpieltagSimulieren() =>
-        EffektiveGruppe is { } gruppe && EffektiverSpieltag is { } spieltag && !IstSimulierend
-        && Spiele.Any(s => s.GruppeNummer == gruppe.GruppenNummer
-                         && s.Spieltag == spieltag
-                         && s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
+        !IstSimulierend
+        && SpieleAmEffektivenSpieltag().Any(s => s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
 
     // Issue #207: eigene Mehrfachauswahl gezielt simulieren, analog zum Löschen-Pfad aus #204 —
     // Count > 1 grenzt gegen die im Formular geladene Einzelauswahl ab ("Spiel simulieren").
     private bool CanAuswahlSimulieren() =>
         !IstSimulierend && MehrfachAusgewaehlteSpiele.Count > 1 && AnzahlMehrfachSimulierbar > 0;
+
+    // Issue #100: Hin-/Rückrunde simulieren — nur für Liga-Runden mit Rückspiel sinnvoll.
+    private bool CanHinrundeSimulieren() =>
+        IstLigaMitRueckspiel && !IstSimulierend
+        && Spiele.Any(s => !s.IstRueckspiel && s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
+
+    private bool CanRueckrundeSimulieren() =>
+        IstLigaMitRueckspiel && !IstSimulierend
+        && Spiele.Any(s => s.IstRueckspiel && s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
 
     // ── Ergebnis-Reset: CanExecute ───────────────────────────────────────────────
 
@@ -1388,9 +1447,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         && Spiele.Any(s => s.GruppeNummer == gruppe.GruppenNummer && s.HatErgebnis);
 
     private bool CanSpieltagZuruecksetzen() =>
-        EffektiveGruppe is { } gruppe && EffektiverSpieltag is { } spieltag && !IstSimulierend
-        && Spiele.Any(s => s.GruppeNummer == gruppe.GruppenNummer
-                         && s.Spieltag == spieltag && s.HatErgebnis);
+        !IstSimulierend && SpieleAmEffektivenSpieltag().Any(s => s.HatErgebnis);
+
+    // Issue #100: Hin-/Rückrunde zurücksetzen — analog zu Hin-/Rückrunde simulieren.
+    private bool CanHinrundeZuruecksetzen() =>
+        IstLigaMitRueckspiel && !IstSimulierend && Spiele.Any(s => !s.IstRueckspiel && s.HatErgebnis);
+
+    private bool CanRueckrundeZuruecksetzen() =>
+        IstLigaMitRueckspiel && !IstSimulierend && Spiele.Any(s => s.IstRueckspiel && s.HatErgebnis);
 
     // Issue #204: "Löschen" respektiert die Mehrfachauswahl (Batch-Reset) statt nur das im
     // Formular geladene Einzelspiel — deckt beide Fälle mit einem Button ab.
@@ -1495,17 +1559,27 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task SpieltagSimulierenAsync()
     {
-        if (EffektiveGruppe is not { } gruppe || AusgewaehlteRunde is null
-            || EffektiverSpieltag is not { } spieltag) return;
+        if (AusgewaehlteRunde is null || EffektiverSpieltag is not { } spieltag) return;
+        var effektiveGruppe = EffektiveGruppe;
+        if (effektiveGruppe is null && !IstLigaRunde) return;
+
         int rundeId  = AusgewaehlteRunde.Id;
         int? spielId = AusgewaehlteSpiel?.Id;
-        var teamIds  = gruppe.Tabelle.Select(t => t.Mannschaft.Id).ToList();
         Fehlermeldung  = null;
         IstSimulierend = true;
         try
         {
-            await _simulationsService.SpieltagInGruppeSimulierenAsync(
-                rundeId, spieltag, teamIds, SimulationsModus.AusfuehrlicheSimulation);
+            if (effektiveGruppe is { } gruppe)
+            {
+                var teamIds = gruppe.Tabelle.Select(t => t.Mannschaft.Id).ToList();
+                await _simulationsService.SpieltagInGruppeSimulierenAsync(
+                    rundeId, spieltag, teamIds, SimulationsModus.AusfuehrlicheSimulation);
+            }
+            else
+            {
+                await _simulationsService.SpieltageSimulierenAsync(
+                    rundeId, spieltag, SimulationsModus.AusfuehrlicheSimulation);
+            }
 
             await TabellenNeuLadenAsync(rundeId);
 
@@ -1557,6 +1631,46 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             MehrfachAusgewaehlteSpiele = [];
+            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstSimulierend = false;
+            AktualisiereBefehle();
+        }
+    }
+
+    // Issue #100: Hin-/Rückrunde simulieren — analog zu RundeSimulierenAsync, aber auf die per
+    // IstRueckspiel unterschiedene Rundenhälfte einer Liga-Runde beschränkt.
+    private Task HinrundeSimulierenAsync()   => RundenHaelfteSimulierenAsync(istRueckrunde: false);
+    private Task RueckrundeSimulierenAsync() => RundenHaelfteSimulierenAsync(istRueckrunde: true);
+
+    private async Task RundenHaelfteSimulierenAsync(bool istRueckrunde)
+    {
+        if (AusgewaehlteRunde is null) return;
+        int rundeId = AusgewaehlteRunde.Id;
+        Fehlermeldung  = null;
+        IstSimulierend = true;
+        try
+        {
+            await _simulationsService.RundenHaelfteSimulierenAsync(
+                rundeId, istRueckrunde, SimulationsModus.AusfuehrlicheSimulation);
+
+            // Siehe RundeSimulierenAsync — kann die Runde komplett abschließen.
+            await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
+
+            await TabellenNeuLadenAsync(rundeId);
+
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            OnPropertyChanged(nameof(FokusSpiele));
+            AusgewaehlteSpiel = null;
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
         catch (Exception ex)
@@ -1659,17 +1773,17 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task SpieltagZuruecksetzenAsync()
     {
-        if (EffektiveGruppe is not { } gruppe || AusgewaehlteRunde is null
-            || EffektiverSpieltag is not { } spieltag) return;
-        var spielIds = Spiele
-            .Where(s => s.GruppeNummer == gruppe.GruppenNummer
-                     && s.Spieltag == spieltag && s.HatErgebnis)
-            .Select(s => s.Id).ToList();
+        if (AusgewaehlteRunde is null || EffektiverSpieltag is not { } spieltag) return;
+        var effektiveGruppe = EffektiveGruppe;
+        if (effektiveGruppe is null && !IstLigaRunde) return;
+
+        var spielIds = SpieleAmEffektivenSpieltag().Where(s => s.HatErgebnis).Select(s => s.Id).ToList();
         if (spielIds.Count == 0) return;
         var kaskadenHinweis = await KaskadenHinweisAsync(spielIds);
 
+        var gruppenHinweis = effektiveGruppe is { } gruppe ? $" (Gruppe {gruppe.GruppenNummer})" : "";
         var antwort = MessageBox.Show(
-            $"Alle {spielIds.Count} Ergebnis(se) von Spieltag {spieltag} (Gruppe {gruppe.GruppenNummer}) zurücksetzen?{kaskadenHinweis}",
+            $"Alle {spielIds.Count} Ergebnis(se) von Spieltag {spieltag}{gruppenHinweis} zurücksetzen?{kaskadenHinweis}",
             "Ergebnisse zurücksetzen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (antwort != MessageBoxResult.Yes) return;
 
@@ -1730,6 +1844,53 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             MehrfachAusgewaehlteSpiele = [];
+            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstSimulierend = false;
+            AktualisiereBefehle();
+        }
+    }
+
+    // Issue #100: Hin-/Rückrunde zurücksetzen — analog zu RundeZuruecksetzenAsync, aber auf die
+    // per IstRueckspiel unterschiedene Rundenhälfte einer Liga-Runde beschränkt.
+    private Task HinrundeZuruecksetzenAsync()   => RundenHaelfteZuruecksetzenAsync(istRueckrunde: false);
+    private Task RueckrundeZuruecksetzenAsync() => RundenHaelfteZuruecksetzenAsync(istRueckrunde: true);
+
+    private async Task RundenHaelfteZuruecksetzenAsync(bool istRueckrunde)
+    {
+        if (AusgewaehlteRunde is null) return;
+        var spielIds = Spiele.Where(s => s.IstRueckspiel == istRueckrunde && s.HatErgebnis)
+            .Select(s => s.Id).ToList();
+        if (spielIds.Count == 0) return;
+        var kaskadenHinweis = await KaskadenHinweisAsync(spielIds);
+
+        var bezeichnung = istRueckrunde ? "Rückrunde" : "Hinrunde";
+        var antwort = MessageBox.Show(
+            $"Alle {spielIds.Count} Ergebnis(se) der {bezeichnung} zurücksetzen?{kaskadenHinweis}",
+            "Ergebnisse zurücksetzen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (antwort != MessageBoxResult.Yes) return;
+
+        int rundeId = AusgewaehlteRunde.Id;
+        Fehlermeldung  = null;
+        IstSimulierend = true;
+        try
+        {
+            await _spielService.MehrereErgebnisseLoeschenAsync(spielIds);
+
+            await TabellenNeuLadenAsync(rundeId);
+
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            OnPropertyChanged(nameof(FokusSpiele));
+            AusgewaehlteSpiel = null;
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
         catch (Exception ex)
