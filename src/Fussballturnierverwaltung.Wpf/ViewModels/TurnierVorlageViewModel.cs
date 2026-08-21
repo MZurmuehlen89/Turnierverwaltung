@@ -33,9 +33,24 @@ public partial class VorlagenRundeZeile : ObservableObject
     }
     [ObservableProperty] private int _eingangsMannschaftsanzahl = 8;
     [ObservableProperty] private int _ausgangsMannschaftsanzahl = 4;
+    [ObservableProperty] private int? _gruppenAnzahl;
     [ObservableProperty] private bool _mitRueckspiel;
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
     [ObservableProperty] private RegelwerkOption _regelwerk = new("— Wählen —", null);
+}
+
+/// <summary>Vorlagen-Variante der Übergangsregel (Issue #166) — Quelle/Ziel werden per Objektreferenz auf
+/// eine <see cref="VorlagenRundeZeile"/> gebunden statt per Id, da neue Runden vor dem Speichern noch keine
+/// reale Id haben; beim Speichern wird daraus die 1-basierte Listenposition (Reihenfolge) abgeleitet.</summary>
+public partial class VorlagenUebergangsRegelZeile : ObservableObject
+{
+    public int? DbId { get; init; }
+
+    [ObservableProperty] private VorlagenRundeZeile? _quelle;
+    [ObservableProperty] private VorlagenRundeZeile? _ziel;
+    [ObservableProperty] private int? _gruppeIndex;
+    [ObservableProperty] private int _platzierungVon = 1;
+    [ObservableProperty] private int _platzierungBis = 1;
 }
 
 public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
@@ -101,6 +116,13 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
     private VorlagenRundeZeile? _ausgewaehlteRunde;
 
     [ObservableProperty] private ObservableCollection<VorlagenRundeZeile> _rundenZeilen = [];
+
+    // ── Übergangsregeln (Issue #166) ─────────────────────────────────────────────
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(UebergangsregelEntfernenCommand))]
+    private VorlagenUebergangsRegelZeile? _ausgewaehlteUebergangsregel;
+
+    [ObservableProperty] private ObservableCollection<VorlagenUebergangsRegelZeile> _uebergangsregelZeilen = [];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RegelwerkOptionen))]
@@ -178,6 +200,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
                 AusgewaehlteKategorie = KategorieOptionen.First(o => o.Wert == VorlagenKategorie.Benutzerdefiniert);
                 IstHistorisch = false;
                 RundenZeilen = [];
+                UebergangsregelZeilen = [];
             }
             else
             {
@@ -217,20 +240,40 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
             _populiertGerade++;
             try
             {
-                RundenZeilen = new ObservableCollection<VorlagenRundeZeile>(
-                    (mitRunden?.VorlagenRunden ?? []).Select(r => new VorlagenRundeZeile
-                    {
-                        DbId                      = r.Id,
-                        Name                      = r.Name,
-                        Rundenart                 = r.Rundenart,
-                        EingangsMannschaftsanzahl = r.EingangsMannschaftsanzahl,
-                        AusgangsMannschaftsanzahl = r.AusgangsMannschaftsanzahl,
-                        MitRueckspiel             = r.MitRueckspiel,
-                        AuswaertstorRegelAktiv    = r.AuswaertstorRegelAktiv,
-                        Regelwerk                 = RegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == r.RegelwerkId)
-                                                    ?? _keinRegelwerk
-                    }));
+                var vorlagenRunden = (mitRunden?.VorlagenRunden ?? []).OrderBy(r => r.Reihenfolge).ToList();
+                var zeilen = vorlagenRunden.Select(r => new VorlagenRundeZeile
+                {
+                    DbId                      = r.Id,
+                    Name                      = r.Name,
+                    Rundenart                 = r.Rundenart,
+                    EingangsMannschaftsanzahl = r.EingangsMannschaftsanzahl,
+                    AusgangsMannschaftsanzahl = r.AusgangsMannschaftsanzahl,
+                    GruppenAnzahl             = r.GruppenAnzahl,
+                    MitRueckspiel             = r.MitRueckspiel,
+                    AuswaertstorRegelAktiv    = r.AuswaertstorRegelAktiv,
+                    Regelwerk                 = RegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == r.RegelwerkId)
+                                                ?? _keinRegelwerk
+                }).ToList();
+                RundenZeilen = new ObservableCollection<VorlagenRundeZeile>(zeilen);
                 AbonniereRundenAenderungen();
+
+                // Issue #166: Übergangsregeln aus derselben Zip-Reihenfolge auflösen (VorlagenRunden und
+                // RundenZeilen stehen an identischer Position, da beide aus derselben sortierten Quelle stammen).
+                var zeileNachVorlagenRundeId = vorlagenRunden.Zip(zeilen, (r, z) => (r.Id, z))
+                    .ToDictionary(p => p.Id, p => p.z);
+                UebergangsregelZeilen = new ObservableCollection<VorlagenUebergangsRegelZeile>(
+                    vorlagenRunden.SelectMany(r => r.AusgehendeUebergangsregeln)
+                        .Where(regel => zeileNachVorlagenRundeId.ContainsKey(regel.ZielVorlagenRundeId))
+                        .Select(regel => new VorlagenUebergangsRegelZeile
+                        {
+                            DbId           = regel.Id,
+                            Quelle         = zeileNachVorlagenRundeId[regel.QuellVorlagenRundeId],
+                            Ziel           = zeileNachVorlagenRundeId[regel.ZielVorlagenRundeId],
+                            GruppeIndex    = regel.GruppeIndex,
+                            PlatzierungVon = regel.PlatzierungVon,
+                            PlatzierungBis = regel.PlatzierungBis
+                        }));
+                AbonniereUebergangsregelnAenderungen();
                 IsDirty = false;
             }
             finally
@@ -261,6 +304,13 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
             IsDirty = true;
     }
 
+    // Issue #166: analoges Dirty-Tracking für die Übergangsregel-Zeilen
+    private void AbonniereUebergangsregelnAenderungen()
+    {
+        foreach (var zeile in UebergangsregelZeilen)
+            zeile.PropertyChanged += OnRundeZeileGeaendert;
+    }
+
     // ── Runden-Befehle ────────────────────────────────────────────────────────
 
     [RelayCommand]
@@ -283,10 +333,39 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
     private void RundeEntfernen()
     {
         if (AusgewaehlteRunde is null) return;
-        RundenZeilen.Remove(AusgewaehlteRunde);
+        var entfernt = AusgewaehlteRunde;
+        RundenZeilen.Remove(entfernt);
         AusgewaehlteRunde = RundenZeilen.LastOrDefault();
+
+        // Issue #166: Übergangsregeln, die auf die entfernte Runde verweisen, sind sonst verwaist.
+        foreach (var regel in UebergangsregelZeilen.Where(z => z.Quelle == entfernt || z.Ziel == entfernt).ToList())
+            UebergangsregelZeilen.Remove(regel);
+
         IsDirty = true;
     }
+
+    // ── Übergangsregel-Befehle (Issue #166) ──────────────────────────────────────
+
+    [RelayCommand]
+    private void UebergangsregelHinzufuegen()
+    {
+        var neu = new VorlagenUebergangsRegelZeile();
+        neu.PropertyChanged += OnRundeZeileGeaendert;
+        UebergangsregelZeilen.Add(neu);
+        AusgewaehlteUebergangsregel = neu;
+        IsDirty = true;
+    }
+
+    [RelayCommand(CanExecute = nameof(KannUebergangsregelEntfernen))]
+    private void UebergangsregelEntfernen()
+    {
+        if (AusgewaehlteUebergangsregel is null) return;
+        UebergangsregelZeilen.Remove(AusgewaehlteUebergangsregel);
+        AusgewaehlteUebergangsregel = UebergangsregelZeilen.LastOrDefault();
+        IsDirty = true;
+    }
+
+    private bool KannUebergangsregelEntfernen() => AusgewaehlteUebergangsregel is not null;
 
     [RelayCommand(CanExecute = nameof(KannRundeNachOben))]
     private void RundeNachOben()
@@ -324,6 +403,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
             AusgewaehlteKategorie = KategorieOptionen.First(o => o.Wert == VorlagenKategorie.Benutzerdefiniert);
             IstHistorisch = false;
             RundenZeilen = [];
+            UebergangsregelZeilen = [];
             Fehlermeldung = null;
         }
         finally
@@ -346,14 +426,29 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
             var rundenEingaben = RundenZeilen.Select(z => new VorlagenRundeEingabe(
                 z.Name, z.Rundenart,
                 z.EingangsMannschaftsanzahl, z.AusgangsMannschaftsanzahl,
-                z.MitRueckspiel, z.AuswaertstorRegelAktiv, z.Regelwerk.Wert?.Id)).ToList();
+                z.MitRueckspiel, z.AuswaertstorRegelAktiv, z.Regelwerk.Wert?.Id,
+                z.Rundenart == Rundenart.Gruppenphase ? z.GruppenAnzahl : null)).ToList();
+
+            // Issue #166: Quelle/Ziel sind Objektreferenzen auf RundenZeilen — für die Persistierung in die
+            // 1-basierte Listenposition (Reihenfolge) auflösen, die RundenSynchronisierenAsync den neu
+            // angelegten VorlagenRunden in derselben Listenreihenfolge zuweist.
+            var uebergangsregelEingaben = UebergangsregelZeilen.Select(z =>
+            {
+                if (z.Quelle is null || z.Ziel is null)
+                    throw new ArgumentException("Übergangsregel benötigt Quell- und Zielrunde.");
+                if (ReferenceEquals(z.Quelle, z.Ziel))
+                    throw new ArgumentException("Übergangsregel: Quell- und Zielrunde dürfen nicht identisch sein.");
+                return new VorlagenUebergangsRegelEingabe(
+                    RundenZeilen.IndexOf(z.Quelle) + 1, RundenZeilen.IndexOf(z.Ziel) + 1,
+                    z.GruppeIndex, z.PlatzierungVon, z.PlatzierungBis);
+            }).ToList();
 
             if (IstNeuModus)
             {
                 var eingabe = new TurnierVorlageErstellenEingabe(
                     Name, Beschreibung, anzahl, kategorie, IstHistorisch, gueltigVon, gueltigBis);
                 var neu = await _service.ErstellenAsync(eingabe);
-                await _service.RundenSynchronisierenAsync(neu.Id, rundenEingaben);
+                await _service.RundenSynchronisierenAsync(neu.Id, rundenEingaben, uebergangsregelEingaben);
                 await LadenAsync();
                 Ausgewaehltes = Vorlagen.FirstOrDefault(v => v.Id == neu.Id);
             }
@@ -363,7 +458,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
                 var eingabe = new TurnierVorlageAktualisierenEingabe(
                     Name, Beschreibung, anzahl, kategorie, IstHistorisch, gueltigVon, gueltigBis);
                 await _service.AktualisierenAsync(id, eingabe);
-                await _service.RundenSynchronisierenAsync(id, rundenEingaben);
+                await _service.RundenSynchronisierenAsync(id, rundenEingaben, uebergangsregelEingaben);
                 await LadenAsync();
                 Ausgewaehltes = Vorlagen.FirstOrDefault(v => v.Id == id);
             }

@@ -22,7 +22,8 @@ public class UebergangsregelValidator
         var kanten = alleRegeln.Where(r => r.Id != bearbeiteteRegelId).ToList();
         var fehler = new List<string>(FeldFehlerErmitteln(eingabe, quellRunde, zielRunde));
 
-        if (WuerdeZyklusSchliessen(eingabe.QuellRundeId, eingabe.ZielRundeId, kanten))
+        if (UebergangsregelFeldValidierung.WuerdeZyklusSchliessen(
+                eingabe.QuellRundeId, eingabe.ZielRundeId, kanten.Select(r => (r.QuellRundeId, r.ZielRundeId))))
             fehler.Add($"Übergangsregel '{quellRunde.Name}' → '{zielRunde.Name}' würde einen zyklischen Übergang erzeugen.");
 
         var summe = alleRegeln
@@ -66,7 +67,8 @@ public class UebergangsregelValidator
             fehler.Add($"Gruppenindex/Spielnummer {dup} ist mehrfach in diesem Übergangsregel-Block vorhanden.");
 
         var kanten = alleRegeln.Where(r => !(r.QuellRundeId == quellRunde.Id && r.ZielRundeId == zielRunde.Id)).ToList();
-        if (WuerdeZyklusSchliessen(quellRunde.Id, zielRunde.Id, kanten))
+        if (UebergangsregelFeldValidierung.WuerdeZyklusSchliessen(
+                quellRunde.Id, zielRunde.Id, kanten.Select(r => (r.QuellRundeId, r.ZielRundeId))))
             fehler.Add($"Übergangsregel '{quellRunde.Name}' → '{zielRunde.Name}' würde einen zyklischen Übergang erzeugen.");
 
         var summeAndererBloecke = alleRegeln
@@ -84,81 +86,8 @@ public class UebergangsregelValidator
     /// <summary>Rundenart-spezifische Feldprüfungen einer einzelnen Eingabe (Gruppenindex/Spielnummer-Bereich,
     /// Platzierungsbereich innerhalb der Quellrunde). Wird sowohl von der Einzel- als auch der Block-Validierung genutzt.</summary>
     private static IEnumerable<string> FeldFehlerErmitteln(UebergangsregelEingabe eingabe, TurnierRunde quellRunde, TurnierRunde zielRunde)
-    {
-        var fehler = new List<string>();
-
-        if (eingabe.QuellRundeId == eingabe.ZielRundeId)
-            fehler.Add("Quell- und Zielrunde dürfen nicht identisch sein.");
-
-        if (eingabe.PlatzierungVon < 1)
-            fehler.Add("PlatzierungVon muss mindestens 1 sein.");
-
-        if (eingabe.PlatzierungBis < eingabe.PlatzierungVon)
-            fehler.Add("PlatzierungBis darf nicht kleiner als PlatzierungVon sein.");
-
-        switch (quellRunde.Rundenart)
-        {
-            case Rundenart.Gruppenphase:
-                if (eingabe.GruppeIndex is null)
-                    fehler.Add("Für eine Gruppenphase als Quellrunde muss ein Gruppenindex angegeben werden.");
-                else if (quellRunde.GruppenAnzahl is not > 0 || eingabe.GruppeIndex < 1 || eingabe.GruppeIndex > quellRunde.GruppenAnzahl)
-                    fehler.Add($"Gruppenindex {eingabe.GruppeIndex} ist außerhalb des gültigen Bereichs " +
-                               $"(1–{quellRunde.GruppenAnzahl ?? 0}) der Quellrunde '{quellRunde.Name}'.");
-                else if (eingabe.PlatzierungBis > quellRunde.EingangsMannschaftsanzahl / quellRunde.GruppenAnzahl!.Value)
-                    fehler.Add($"Platzierung {eingabe.PlatzierungBis} übersteigt die Gruppengröße " +
-                               $"({quellRunde.EingangsMannschaftsanzahl / quellRunde.GruppenAnzahl.Value}) der Quellrunde '{quellRunde.Name}'.");
-                break;
-
-            case Rundenart.Liga:
-                if (eingabe.GruppeIndex is not null)
-                    fehler.Add("Für eine Liga-Runde als Quellrunde darf kein Gruppenindex angegeben werden.");
-                if (eingabe.PlatzierungBis > quellRunde.EingangsMannschaftsanzahl)
-                    fehler.Add($"Platzierung {eingabe.PlatzierungBis} übersteigt die Teilnehmerzahl " +
-                               $"({quellRunde.EingangsMannschaftsanzahl}) der Quellrunde '{quellRunde.Name}'.");
-                break;
-
-            case Rundenart.KoRunde:
-            case Rundenart.Finale:
-            case Rundenart.SpielUmPlatzDrei:
-                if (eingabe.GruppeIndex is null)
-                    fehler.Add("Für eine K.-o.-Runde als Quellrunde muss die Spielnummer (als Gruppenindex) angegeben werden.");
-                else if (eingabe.GruppeIndex < 1 || eingabe.GruppeIndex > quellRunde.EingangsMannschaftsanzahl / 2)
-                    fehler.Add($"Spielnummer {eingabe.GruppeIndex} ist außerhalb des gültigen Bereichs " +
-                               $"(1–{quellRunde.EingangsMannschaftsanzahl / 2}) der Quellrunde '{quellRunde.Name}'.");
-                if (eingabe.PlatzierungBis > 2)
-                    fehler.Add("Eine K.-o.-Runde als Quellrunde liefert je Spiel nur Sieger (Platzierung 1) und Verlierer (Platzierung 2).");
-                break;
-
-            default:
-                fehler.Add($"Rundenart '{quellRunde.Rundenart}' wird als Quellrunde für Übergangsregeln nicht unterstützt.");
-                break;
-        }
-
-        return fehler;
-    }
-
-    /// <summary>Prüft per DFS ausgehend von der vorgeschlagenen Zielrunde, ob die Quellrunde über bestehende
-    /// Regeln (QuellRundeId → ZielRundeId) wieder erreichbar ist — dann würde die neue Kante einen Zyklus schließen.</summary>
-    private static bool WuerdeZyklusSchliessen(int quellRundeId, int zielRundeId, IReadOnlyList<Uebergangsregel> kantenQuelle)
-    {
-        var kanten = kantenQuelle.ToLookup(r => r.QuellRundeId, r => r.ZielRundeId);
-
-        var besucht = new HashSet<int>();
-        var stapel = new Stack<int>();
-        stapel.Push(zielRundeId);
-
-        while (stapel.Count > 0)
-        {
-            var aktuell = stapel.Pop();
-            if (aktuell == quellRundeId)
-                return true;
-            if (!besucht.Add(aktuell))
-                continue;
-
-            foreach (var naechste in kanten[aktuell])
-                stapel.Push(naechste);
-        }
-
-        return false;
-    }
+        => UebergangsregelFeldValidierung.FeldFehlerErmitteln(
+            eingabe.QuellRundeId == eingabe.ZielRundeId,
+            quellRunde.Rundenart, quellRunde.Name, quellRunde.EingangsMannschaftsanzahl, quellRunde.GruppenAnzahl,
+            eingabe.GruppeIndex, eingabe.PlatzierungVon, eingabe.PlatzierungBis);
 }

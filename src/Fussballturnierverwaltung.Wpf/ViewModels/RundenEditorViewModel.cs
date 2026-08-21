@@ -355,6 +355,12 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     private readonly AusgewaehlteTurnierInstanzService _turnierAuswahlService;
     private int _populiertGerade;
 
+    // Issue #166: aus einer Vorlage übernommene Übergangsregel-Struktur, per Objektreferenz auf die geladenen
+    // RundenEintrag-Zeilen (statt Index) — bleibt so auch bei Umsortierung/Löschen einzelner Zeilen konsistent.
+    // Wird erst beim nächsten Speichern in echte Uebergangsregeln zwischen den persistierten Runden übersetzt.
+    private List<(RundenEintrag Quelle, RundenEintrag Ziel, int? GruppeIndex, int PlatzierungVon, int PlatzierungBis)>
+        _vorlagenUebergangsregelnPending = [];
+
     // Preserved turnier metadata for VollAktualisierenAsync on save
     private string _instanzName = "";
     private string _instanzSaison = "";
@@ -634,9 +640,16 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     private void RundeEntfernen()
     {
         if (AusgewaehlteRunde is null) return;
-        var idx = Runden.IndexOf(AusgewaehlteRunde);
-        Runden.Remove(AusgewaehlteRunde);
+        var entfernt = AusgewaehlteRunde;
+        var idx = Runden.IndexOf(entfernt);
+        Runden.Remove(entfernt);
         AusgewaehlteRunde = Runden.Count > 0 ? Runden[Math.Max(0, idx - 1)] : null;
+
+        // Issue #166: eine noch nicht materialisierte Vorlagen-Übergangsregel auf die entfernte Runde
+        // würde sonst beim nächsten Speichern gegen eine nicht mehr existierende Zeile aufgelöst.
+        if (_vorlagenUebergangsregelnPending.Count > 0)
+            _vorlagenUebergangsregelnPending.RemoveAll(p => p.Quelle == entfernt || p.Ziel == entfernt);
+
         AktualisiereRundenFehler();
         IsDirty = true;
     }
@@ -675,14 +688,15 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         {
             var vorlage = await _vorlageService.FindenNachIdMitRundenAsync(AusgewaehlteVorlagenquelle.Id);
             if (vorlage is null) return;
-            var runden = vorlage.VorlagenRunden
-                .OrderBy(r => r.Reihenfolge)
+            var vorlagenRunden = vorlage.VorlagenRunden.OrderBy(r => r.Reihenfolge).ToList();
+            var runden = vorlagenRunden
                 .Select(r => new RundenEintrag
                 {
                     Name                   = r.Name,
                     Rundenart              = r.Rundenart,
                     EingangsMannschaften   = r.EingangsMannschaftsanzahl,
                     AusgangsMannschaften   = r.AusgangsMannschaftsanzahl,
+                    GruppenAnzahl          = r.GruppenAnzahl,
                     RegelwerkId            = r.RegelwerkId ?? 0,
                     RegelwerkName          = r.Regelwerk?.Name
                                             ?? RegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == r.RegelwerkId)?.Wert?.Name
@@ -693,6 +707,20 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                 .ToList();
             RundenZuruecksetzen(runden);
             _vorlageId = AusgewaehlteVorlagenquelle.Id;
+
+            // Issue #166: Übergangsstruktur der Vorlage merken (per Objektreferenz auf die geladenen
+            // RundenEintrag-Zeilen), wird beim nächsten Speichern in echte Uebergangsregeln übersetzt.
+            var eintragNachVorlagenRundeId = vorlagenRunden.Zip(runden, (r, e) => (r.Id, e))
+                .ToDictionary(p => p.Id, p => p.e);
+            _vorlagenUebergangsregelnPending = vorlagenRunden
+                .SelectMany(r => r.AusgehendeUebergangsregeln)
+                .Where(regel => eintragNachVorlagenRundeId.ContainsKey(regel.ZielVorlagenRundeId))
+                .Select(regel => (
+                    Quelle: eintragNachVorlagenRundeId[regel.QuellVorlagenRundeId],
+                    Ziel: eintragNachVorlagenRundeId[regel.ZielVorlagenRundeId],
+                    regel.GruppeIndex, regel.PlatzierungVon, regel.PlatzierungBis))
+                .ToList();
+
             IsDirty = true;
         }
         catch (Exception ex)
@@ -729,6 +757,26 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                 Runden[i].Id = persistiert[i].Id;
             OnPropertyChanged(nameof(FrueherRundenOptionen));
             NeuerUebergangsregelBlockCommand.NotifyCanExecuteChanged();
+
+            // Issue #166: aus einer Vorlage übernommene Übergangsstruktur jetzt, da Quell- und Zielrunden
+            // reale Ids haben, in echte Uebergangsregeln übersetzen. Einmalig — danach geleert, damit ein
+            // zweites Speichern in derselben Sitzung nicht dieselben Regeln erneut anlegt.
+            if (_vorlagenUebergangsregelnPending.Count > 0)
+            {
+                // Folgefix (manueller Test): RundenErsetzenAsync aktualisiert bestehende Runden id-stabil
+                // in-place statt sie zu löschen/neu anzulegen (bewusst so, um Auslosungs-Referenzen zu
+                // erhalten) — bei erneutem "Vorlage laden" auf eine bereits zuvor materialisierte Runde
+                // träfe die Übersetzung sonst auf dieselbe Id und legte die Regeln ein zweites Mal an.
+                // Ausgehende Regeln der betroffenen Quellrunden daher zuerst vollständig ersetzen.
+                foreach (var quellRundeId in _vorlagenUebergangsregelnPending.Select(p => p.Quelle.Id).Distinct())
+                    foreach (var bestehende in await _uebergangsregelService.AlleNachQuellRundeIdAsync(quellRundeId))
+                        await _uebergangsregelService.LoeschenAsync(bestehende.Id);
+
+                foreach (var (quelle, ziel, gruppeIndex, von, bis) in _vorlagenUebergangsregelnPending)
+                    await _uebergangsregelService.ErstellenAsync(
+                        new UebergangsregelEingabe(quelle.Id, ziel.Id, gruppeIndex, von, bis));
+                _vorlagenUebergangsregelnPending = [];
+            }
 
             // Neue Vergleichsbasis für die #181-Änderungserkennung — ein zweites Speichern in derselben
             // Sitzung soll nicht erneut warnen, wenn seither nichts weiter geändert wurde.
@@ -1298,6 +1346,9 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
             FormularZuruecksetzen();
             IsDirty       = false;
             Fehlermeldung = null;
+            // Issue #166: jeder Reset invalidiert eine zuvor gemerkte Vorlagen-Übergangsstruktur —
+            // VorlageRundenLaden setzt sie direkt danach bei Bedarf erneut.
+            _vorlagenUebergangsregelnPending = [];
         }
         finally { _populiertGerade--; }
         AktualisiereRundenFehler();

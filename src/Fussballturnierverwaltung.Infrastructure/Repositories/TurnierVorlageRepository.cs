@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
@@ -25,10 +26,22 @@ public class TurnierVorlageRepository(TurnierverwaltungDbContext context)
         => await Context.TurnierVorlagen
             .Include(v => v.VorlagenRunden.OrderBy(r => r.Reihenfolge))
                 .ThenInclude(r => r.Regelwerk)
+            .Include(v => v.VorlagenRunden)
+                .ThenInclude(r => r.AusgehendeUebergangsregeln)
+                    .ThenInclude(regel => regel.ZielVorlagenRunde)
             .FirstOrDefaultAsync(v => v.Id == id, ct);
 
-    public async Task RundenErsetzenAsync(int vorlageId, IReadOnlyList<VorlagenRunde> neueRunden, CancellationToken ct = default)
+    public async Task RundenErsetzenAsync(
+        int vorlageId,
+        IReadOnlyList<VorlagenRunde> neueRunden,
+        IReadOnlyList<VorlagenUebergangsRegelEingabe> neueUebergangsregeln,
+        CancellationToken ct = default)
     {
+        var alteRegeln = await Context.VorlagenUebergangsregeln
+            .Where(r => r.QuellVorlagenRunde.TurnierVorlageId == vorlageId)
+            .ToListAsync(ct);
+        Context.VorlagenUebergangsregeln.RemoveRange(alteRegeln);
+
         var alteRunden = await Context.VorlagenRunden
             .Where(r => r.TurnierVorlageId == vorlageId)
             .ToListAsync(ct);
@@ -38,6 +51,21 @@ public class TurnierVorlageRepository(TurnierverwaltungDbContext context)
         if (neueRunden.Count > 0)
         {
             Context.VorlagenRunden.AddRange(neueRunden);
+            await Context.SaveChangesAsync(ct);
+        }
+
+        if (neueUebergangsregeln.Count > 0)
+        {
+            var idNachReihenfolge = neueRunden.ToDictionary(r => r.Reihenfolge, r => r.Id);
+            var regeln = neueUebergangsregeln.Select(e => new VorlagenUebergangsRegel
+            {
+                QuellVorlagenRundeId = idNachReihenfolge[e.QuellReihenfolge],
+                ZielVorlagenRundeId  = idNachReihenfolge[e.ZielReihenfolge],
+                GruppeIndex          = e.GruppeIndex,
+                PlatzierungVon       = e.PlatzierungVon,
+                PlatzierungBis       = e.PlatzierungBis
+            }).ToList();
+            Context.VorlagenUebergangsregeln.AddRange(regeln);
             await Context.SaveChangesAsync(ct);
         }
     }

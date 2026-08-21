@@ -15,6 +15,7 @@ public class VorlagenRundeKonfiguration : IEntityTypeConfiguration<VorlagenRunde
         builder.Property(r => r.Rundenart).IsRequired();
         builder.Property(r => r.EingangsMannschaftsanzahl).IsRequired();
         builder.Property(r => r.AusgangsMannschaftsanzahl).IsRequired();
+        builder.Property(r => r.GruppenAnzahl);
         builder.Property(r => r.MitRueckspiel).IsRequired();
         builder.Property(r => r.AuswaertstorRegelAktiv).IsRequired();
 

@@ -59,6 +59,7 @@ builder.Services.AddScoped<AuslosungsValidator>();
 builder.Services.AddScoped<ImportValidator>();
 builder.Services.AddScoped<RanglisteValidator>();
 builder.Services.AddScoped<UebergangsregelValidator>();
+builder.Services.AddScoped<VorlagenUebergangsregelValidator>();
 builder.Services.AddScoped<VerbandsQuoteValidator>();
 
 // Application Services – Stammdaten

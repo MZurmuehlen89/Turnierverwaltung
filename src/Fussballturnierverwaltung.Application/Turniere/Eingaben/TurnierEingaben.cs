@@ -9,7 +9,18 @@ public record VorlagenRundeEingabe(
     int AusgangsMannschaftsanzahl,
     bool MitRueckspiel = false,
     bool AuswaertstorRegelAktiv = false,
-    int? RegelwerkId = null);
+    int? RegelwerkId = null,
+    int? GruppenAnzahl = null);
+
+/// <summary>Vorlagen-Variante der Übergangsregel (Issue #166) — referenziert Quell-/Zielrunde über die
+/// 1-basierte <see cref="VorlagenRundeEingabe"/>-Listenposition (Reihenfolge) statt über eine reale
+/// TurnierRunde-Id, da beim Speichern einer Vorlage alle VorlagenRunden ersetzt werden (neue Ids).</summary>
+public record VorlagenUebergangsRegelEingabe(
+    int QuellReihenfolge,
+    int ZielReihenfolge,
+    int? GruppeIndex,
+    int PlatzierungVon,
+    int PlatzierungBis);
 
 public record TurnierVorlageErstellenEingabe(
     string Name,

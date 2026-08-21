@@ -122,6 +122,7 @@ public partial class App
         builder.Services.AddScoped<RegelwerkService>();
         builder.Services.AddScoped<RanglisteService>();
         builder.Services.AddScoped<UebergangsregelValidator>();
+        builder.Services.AddScoped<VorlagenUebergangsregelValidator>();
         builder.Services.AddScoped<UebergangsregelService>();
         builder.Services.AddScoped<VerbandsQuoteService>();
 

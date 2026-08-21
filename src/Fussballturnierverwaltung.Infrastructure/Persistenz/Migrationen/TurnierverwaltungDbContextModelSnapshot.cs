@@ -999,6 +999,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("EingangsMannschaftsanzahl")
                         .HasColumnType("int");
 
+                    b.Property<int?>("GruppenAnzahl")
+                        .HasColumnType("int");
+
                     b.Property<bool>("MitRueckspiel")
                         .HasColumnType("bit");
 
@@ -1027,6 +1030,38 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .IsUnique();
 
                     b.ToTable("VorlagenRunden", (string)null);
+                });
+
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenUebergangsRegel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("GruppeIndex")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PlatzierungBis")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PlatzierungVon")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuellVorlagenRundeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ZielVorlagenRundeId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("QuellVorlagenRundeId");
+
+                    b.HasIndex("ZielVorlagenRundeId");
+
+                    b.ToTable("VorlagenUebergangsregeln", (string)null);
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen.Auslosung", b =>
@@ -1462,6 +1497,25 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("TurnierVorlage");
                 });
 
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenUebergangsRegel", b =>
+                {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", "QuellVorlagenRunde")
+                        .WithMany("AusgehendeUebergangsregeln")
+                        .HasForeignKey("QuellVorlagenRundeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", "ZielVorlagenRunde")
+                        .WithMany()
+                        .HasForeignKey("ZielVorlagenRundeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("QuellVorlagenRunde");
+
+                    b.Navigation("ZielVorlagenRunde");
+                });
+
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen.Auslosung", b =>
                 {
                     b.Navigation("Ergebnisse");
@@ -1540,6 +1594,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("TurnierInstanzen");
 
                     b.Navigation("VorlagenRunden");
+                });
+
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", b =>
+                {
+                    b.Navigation("AusgehendeUebergangsregeln");
                 });
 #pragma warning restore 612, 618
         }

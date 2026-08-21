@@ -6,6 +6,48 @@
     <UserControl.Resources>
         <conv:VorlagenKategorieZuTextConverter x:Key="KategorieZuText" />
         <conv:RundenartZuTextConverter x:Key="RundenartZuText" />
+
+        <!-- Von den Vorlagen-DataGrids (Runden, Übergangsregeln) gemeinsam genutzte Styles -->
+        <Style x:Key="VorlagenGridColumnHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{StaticResource BorderBrush}" />
+            <Setter Property="Foreground" Value="#374151" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,1,0" />
+        </Style>
+
+        <Style x:Key="VorlagenGridRowStyle" TargetType="DataGridRow">
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#DBEAFE" />
+                    <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
+                </Trigger>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="IsMouseOver" Value="True" />
+                        <Condition Property="IsSelected" Value="False" />
+                    </MultiTrigger.Conditions>
+                    <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                </MultiTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="VorlagenGridCellStyle" TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -211,54 +253,10 @@
                               BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                               RowHeight="28"
                               FontSize="12"
-                              Margin="0,0,0,16">
-
-                        <DataGrid.ColumnHeaderStyle>
-                            <Style TargetType="DataGridColumnHeader">
-                                <Setter Property="Background" Value="{StaticResource BorderBrush}" />
-                                <Setter Property="Foreground" Value="#374151" />
-                                <Setter Property="FontWeight" Value="SemiBold" />
-                                <Setter Property="FontSize" Value="11" />
-                                <Setter Property="Padding" Value="8,5" />
-                                <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
-                                <Setter Property="BorderThickness" Value="0,0,1,0" />
-                            </Style>
-                        </DataGrid.ColumnHeaderStyle>
-
-                        <DataGrid.RowStyle>
-                            <Style TargetType="DataGridRow">
-                                <Style.Triggers>
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Background" Value="#DBEAFE" />
-                                        <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
-                                    </Trigger>
-                                    <MultiTrigger>
-                                        <MultiTrigger.Conditions>
-                                            <Condition Property="IsMouseOver" Value="True" />
-                                            <Condition Property="IsSelected" Value="False" />
-                                        </MultiTrigger.Conditions>
-                                        <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
-                                    </MultiTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </DataGrid.RowStyle>
-
-                        <DataGrid.CellStyle>
-                            <Style TargetType="DataGridCell">
-                                <Setter Property="BorderThickness" Value="0" />
-                                <Setter Property="Padding" Value="8,0" />
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="DataGridCell">
-                                            <Border Padding="{TemplateBinding Padding}"
-                                                    Background="{TemplateBinding Background}">
-                                                <ContentPresenter VerticalAlignment="Center" />
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </DataGrid.CellStyle>
+                              Margin="0,0,0,16"
+                              ColumnHeaderStyle="{StaticResource VorlagenGridColumnHeaderStyle}"
+                              RowStyle="{StaticResource VorlagenGridRowStyle}"
+                              CellStyle="{StaticResource VorlagenGridCellStyle}">
 
                         <DataGrid.Columns>
 
@@ -313,6 +311,17 @@
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
 
+                            <!-- Gruppen (nur bei Gruppenphase relevant, leer = nicht gesetzt) -->
+                            <DataGridTextColumn Header="Gruppen"
+                                                Binding="{Binding GruppenAnzahl, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"
+                                                Width="64">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Right" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
                             <!-- Hin+Rückspiel -->
                             <DataGridCheckBoxColumn Header="H+R"
                                                     Binding="{Binding MitRueckspiel, UpdateSourceTrigger=PropertyChanged}"
@@ -341,6 +350,116 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellEditingTemplate>
                             </DataGridTemplateColumn>
+
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- ÜBERGANGSREGELN (Issue #166) -->
+                    <DockPanel Margin="0,0,0,8">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="＋" ToolTip="Übergangsregel hinzufügen"
+                                    Command="{Binding UebergangsregelHinzufuegenCommand}"
+                                    Width="28" Height="24" FontSize="14" Padding="0"
+                                    Margin="0,0,4,0" Cursor="Hand" />
+                            <Button Content="－" ToolTip="Übergangsregel entfernen"
+                                    Command="{Binding UebergangsregelEntfernenCommand}"
+                                    Width="28" Height="24" FontSize="14" Padding="0"
+                                    Cursor="Hand" />
+                        </StackPanel>
+                        <TextBlock Text="ÜBERGANGSREGELN" FontSize="11" FontWeight="Bold"
+                                   Foreground="{StaticResource TextSubtleBrush}" VerticalAlignment="Center" />
+                    </DockPanel>
+
+                    <TextBlock Text="Definiert, welche Platzierungen einer Runde in welche Folgerunde übergehen. Wird beim Laden dieser Vorlage im Runden-Editor automatisch in echte Übergangsregeln zwischen den neu angelegten Runden übersetzt."
+                               FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
+
+                    <DataGrid x:Name="UebergangsregelGrid"
+                              ItemsSource="{Binding UebergangsregelZeilen}"
+                              SelectedItem="{Binding AusgewaehlteUebergangsregel}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserResizeRows="False"
+                              GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="{StaticResource BorderBrush}"
+                              HeadersVisibility="Column"
+                              AlternatingRowBackground="{StaticResource SurfaceBrush}"
+                              Background="White"
+                              BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                              RowHeight="28"
+                              FontSize="12"
+                              Margin="0,0,0,16"
+                              ColumnHeaderStyle="{StaticResource VorlagenGridColumnHeaderStyle}"
+                              RowStyle="{StaticResource VorlagenGridRowStyle}"
+                              CellStyle="{StaticResource VorlagenGridCellStyle}">
+
+                        <DataGrid.Columns>
+
+                            <!-- Quelle -->
+                            <DataGridTemplateColumn Header="Quelle" Width="*" MinWidth="100">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Quelle.Name}" Margin="8,0" VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <ComboBox SelectedItem="{Binding Quelle, UpdateSourceTrigger=PropertyChanged}"
+                                                  ItemsSource="{Binding DataContext.RundenZeilen,
+                                                                        RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                  DisplayMemberPath="Name"
+                                                  BorderThickness="0" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Ziel -->
+                            <DataGridTemplateColumn Header="Ziel" Width="*" MinWidth="100">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Ziel.Name}" Margin="8,0" VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <ComboBox SelectedItem="{Binding Ziel, UpdateSourceTrigger=PropertyChanged}"
+                                                  ItemsSource="{Binding DataContext.RundenZeilen,
+                                                                        RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                  DisplayMemberPath="Name"
+                                                  BorderThickness="0" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Gruppe (leer = alle Gruppen) -->
+                            <DataGridTextColumn Header="Gruppe" Width="64"
+                                                Binding="{Binding GruppeIndex, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Right" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- Platz von/bis -->
+                            <DataGridTextColumn Header="Platz von"
+                                                Binding="{Binding PlatzierungVon, UpdateSourceTrigger=PropertyChanged}"
+                                                Width="72">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Right" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Platz bis"
+                                                Binding="{Binding PlatzierungBis, UpdateSourceTrigger=PropertyChanged}"
+                                                Width="72">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Right" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
 
                         </DataGrid.Columns>
                     </DataGrid>

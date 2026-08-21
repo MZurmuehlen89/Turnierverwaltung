@@ -1,11 +1,15 @@
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
+using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace Fussballturnierverwaltung.Application.Turniere;
 
-public class TurnierVorlageService(ITurnierVorlageRepository repository, ILogger<TurnierVorlageService> logger)
+public class TurnierVorlageService(
+    ITurnierVorlageRepository repository,
+    VorlagenUebergangsregelValidator uebergangsregelValidator,
+    ILogger<TurnierVorlageService> logger)
 {
     public Task<IReadOnlyList<TurnierVorlage>> AlleAbrufenAsync(CancellationToken ct = default)
         => repository.AlleFindenAsync(ct);
@@ -19,7 +23,11 @@ public class TurnierVorlageService(ITurnierVorlageRepository repository, ILogger
     public Task<TurnierVorlage?> FindenNachIdMitRundenAsync(int id, CancellationToken ct = default)
         => repository.FindenNachIdMitRundenAsync(id, ct);
 
-    public async Task RundenSynchronisierenAsync(int vorlageId, IReadOnlyList<VorlagenRundeEingabe> runden, CancellationToken ct = default)
+    public async Task RundenSynchronisierenAsync(
+        int vorlageId,
+        IReadOnlyList<VorlagenRundeEingabe> runden,
+        IReadOnlyList<VorlagenUebergangsRegelEingabe>? uebergangsregeln = null,
+        CancellationToken ct = default)
     {
         var neueRunden = runden.Select((r, i) => new VorlagenRunde
         {
@@ -29,12 +37,19 @@ public class TurnierVorlageService(ITurnierVorlageRepository repository, ILogger
             Rundenart                 = r.Rundenart,
             EingangsMannschaftsanzahl = r.EingangsMannschaftsanzahl,
             AusgangsMannschaftsanzahl = r.AusgangsMannschaftsanzahl,
+            GruppenAnzahl             = r.GruppenAnzahl,
             MitRueckspiel             = r.MitRueckspiel,
             AuswaertstorRegelAktiv    = r.AuswaertstorRegelAktiv,
             RegelwerkId               = r.RegelwerkId
         }).ToList();
-        await repository.RundenErsetzenAsync(vorlageId, neueRunden, ct);
-        logger.LogInformation("Vorlage {Id}: {Anzahl} Runde(n) synchronisiert.", vorlageId, neueRunden.Count);
+
+        var regeln = uebergangsregeln ?? [];
+        ValidationException.WerfenWennUngueltig(uebergangsregelValidator.Validieren(runden, regeln));
+
+        await repository.RundenErsetzenAsync(vorlageId, neueRunden, regeln, ct);
+        logger.LogInformation(
+            "Vorlage {Id}: {Anzahl} Runde(n), {AnzahlRegeln} Übergangsregel(n) synchronisiert.",
+            vorlageId, neueRunden.Count, regeln.Count);
     }
 
     public async Task<TurnierVorlage> ErstellenAsync(TurnierVorlageErstellenEingabe eingabe, CancellationToken ct = default)
