@@ -262,4 +262,78 @@ public class UebergangsregelValidatorTests
 
         ergebnis.IstGueltig.Should().BeTrue();
     }
+
+    // ── Gruppenübergreifende Rangfolge-Regel (Issue #184) ──────────────────────
+
+    [Fact]
+    public void GueltigeAnzahlBesteRegel_IstGueltig()
+    {
+        // 24 Teams / 6 Gruppen = 4 pro Gruppe - Platz 3 existiert, "beste 2" ist <= 6 Gruppen.
+        var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 2);
+
+        var ergebnis = _validator.Validieren(eingabe, Gruppenphase(gruppenAnzahl: 6, eingangsMannschaftsanzahl: 24), Ziel(eingangsMannschaftsanzahl: 2), _keineRegeln);
+
+        ergebnis.IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AnzahlBesteBeiNichtGruppenphase_IstUngueltig()
+    {
+        var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 2);
+
+        _validator.Validieren(eingabe, Liga(eingangsMannschaftsanzahl: 36), Ziel(), _keineRegeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AnzahlBesteMitGruppenIndex_IstUngueltig()
+    {
+        var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: 1, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 2);
+
+        _validator.Validieren(eingabe, Gruppenphase(gruppenAnzahl: 6, eingangsMannschaftsanzahl: 24), Ziel(), _keineRegeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AnzahlBestePlatzierungVonUngleichBis_IstUngueltig()
+    {
+        var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 4, AnzahlBeste: 2);
+
+        _validator.Validieren(eingabe, Gruppenphase(gruppenAnzahl: 6, eingangsMannschaftsanzahl: 24), Ziel(), _keineRegeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AnzahlBesteGroesserGruppenAnzahl_IstUngueltig()
+    {
+        // Nur 6 Gruppen -> es gibt maximal 6 Kandidaten auf Platz 3, "beste 7" ist unmöglich.
+        var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 7);
+
+        _validator.Validieren(eingabe, Gruppenphase(gruppenAnzahl: 6, eingangsMannschaftsanzahl: 24), Ziel(eingangsMannschaftsanzahl: 7), _keineRegeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AnzahlBesteKapazitaetsSummeWirdBerücksichtigt()
+    {
+        // Zielrunde erwartet 2 Mannschaften, AnzahlBeste liefert aber 3 -> Kapazität überschritten,
+        // obwohl die Platzierungsspanne selbst nur 1 wäre (Von == Bis).
+        var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 3);
+
+        var ergebnis = _validator.Validieren(eingabe, Gruppenphase(gruppenAnzahl: 6, eingangsMannschaftsanzahl: 24), Ziel(eingangsMannschaftsanzahl: 2), _keineRegeln);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*3*2*");
+    }
+
+    [Fact]
+    public void Block_DoppelteAnzahlBestePlatzierung_IstUngueltig()
+    {
+        var eingaben = new[]
+        {
+            new UebergangsregelEingabe(1, 2, null, 3, 3, AnzahlBeste: 2),
+            new UebergangsregelEingabe(1, 2, null, 3, 3, AnzahlBeste: 1),
+        };
+
+        var ergebnis = _validator.Validieren(eingaben, Gruppenphase(gruppenAnzahl: 6, eingangsMannschaftsanzahl: 24), Ziel(eingangsMannschaftsanzahl: 3), _keineRegeln);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*mehrfach*");
+    }
 }

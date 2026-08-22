@@ -13,6 +13,7 @@ public class UebergangsregelKonfiguration : IEntityTypeConfiguration<Uebergangsr
         builder.Property(r => r.GruppeIndex);
         builder.Property(r => r.PlatzierungVon).IsRequired();
         builder.Property(r => r.PlatzierungBis).IsRequired();
+        builder.Property(r => r.AnzahlBeste);
 
         builder.HasOne(r => r.QuellRunde)
             .WithMany(t => t.Uebergangsregeln)

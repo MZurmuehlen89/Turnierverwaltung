@@ -13,7 +13,7 @@ internal static class UebergangsregelFeldValidierung
     public static IEnumerable<string> FeldFehlerErmitteln(
         bool quellGleichZiel,
         Rundenart quellRundenart, string quellName, int quellEingangsMannschaftsanzahl, int? quellGruppenAnzahl,
-        int? gruppeIndex, int platzierungVon, int platzierungBis)
+        int? gruppeIndex, int platzierungVon, int platzierungBis, int? anzahlBeste = null)
     {
         var fehler = new List<string>();
 
@@ -25,6 +25,27 @@ internal static class UebergangsregelFeldValidierung
 
         if (platzierungBis < platzierungVon)
             fehler.Add("PlatzierungBis darf nicht kleiner als PlatzierungVon sein.");
+
+        if (anzahlBeste is not null)
+        {
+            if (quellRundenart != Rundenart.Gruppenphase)
+                fehler.Add("Eine gruppenübergreifende Rangfolge-Regel ist nur für eine Gruppenphase als Quellrunde möglich.");
+            if (gruppeIndex is not null)
+                fehler.Add("Eine gruppenübergreifende Rangfolge-Regel darf keinen Gruppenindex angeben.");
+            if (platzierungVon != platzierungBis)
+                fehler.Add("Eine gruppenübergreifende Rangfolge-Regel gilt für genau eine Platzierung (PlatzierungVon muss PlatzierungBis entsprechen).");
+            if (anzahlBeste < 1)
+                fehler.Add("AnzahlBeste muss mindestens 1 sein.");
+            else if (quellGruppenAnzahl is not > 0 || anzahlBeste > quellGruppenAnzahl)
+                fehler.Add($"AnzahlBeste ({anzahlBeste}) übersteigt die Gruppenanzahl ({quellGruppenAnzahl ?? 0}) der Quellrunde '{quellName}'.");
+
+            if (quellRundenart == Rundenart.Gruppenphase && quellGruppenAnzahl is > 0 &&
+                platzierungBis > quellEingangsMannschaftsanzahl / quellGruppenAnzahl.Value)
+                fehler.Add($"Platzierung {platzierungBis} übersteigt die Gruppengröße " +
+                           $"({quellEingangsMannschaftsanzahl / quellGruppenAnzahl.Value}) der Quellrunde '{quellName}'.");
+
+            return fehler;
+        }
 
         switch (quellRundenart)
         {

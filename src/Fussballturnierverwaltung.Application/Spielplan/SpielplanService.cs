@@ -813,6 +813,14 @@ public class SpielplanService(
         var teilnehmer = new List<int>();
         foreach (var regel in regeln)
         {
+            if (regel.AnzahlBeste is not null)
+            {
+                var beste = await BesteNAufloesenAsync(regel, ct);
+                if (beste.Any(t => t is null)) return (null, "");
+                teilnehmer.AddRange(beste.Select(t => t!.Value));
+                continue;
+            }
+
             for (int platz = regel.PlatzierungVon; platz <= regel.PlatzierungBis; platz++)
             {
                 var teamId = await RangAufloesenAsync(regel.QuellRunde, regel.GruppeIndex, platz, ct);
@@ -981,14 +989,45 @@ public class SpielplanService(
     }
 
     /// <summary>Löst alle Platzierungen einer <see cref="Uebergangsregel"/> auf (Platzierung → Mannschaft-Id oder
-    /// <c>null</c>, solange die Quellrunde für diese Platzierung noch nicht entschieden ist).</summary>
+    /// <c>null</c>, solange die Quellrunde für diese Platzierung noch nicht entschieden ist). Bei einer
+    /// gruppenübergreifenden Rangfolge-Regel (<see cref="Uebergangsregel.AnzahlBeste"/> gesetzt, Issue #184) ist der
+    /// Schlüssel der Rang innerhalb des Cross-Group-Pools (1..AnzahlBeste), nicht die absolute Gruppenplatzierung.</summary>
     public async Task<IReadOnlyDictionary<int, int?>> UebergangsregelQualifikantenAsync(
         Uebergangsregel regel, CancellationToken ct = default)
     {
+        if (regel.AnzahlBeste is not null)
+        {
+            var beste = await BesteNAufloesenAsync(regel, ct);
+            return beste.Select((teamId, i) => (Rang: i + 1, TeamId: teamId))
+                .ToDictionary(x => x.Rang, x => x.TeamId);
+        }
+
         var ergebnis = new Dictionary<int, int?>();
         for (int platz = regel.PlatzierungVon; platz <= regel.PlatzierungBis; platz++)
             ergebnis[platz] = await RangAufloesenAsync(regel.QuellRunde, regel.GruppeIndex, platz, ct);
         return ergebnis;
+    }
+
+    /// <summary>Löst eine gruppenübergreifende Rangfolge-Regel (Issue #184) auf: nimmt das Team an
+    /// <see cref="Uebergangsregel.PlatzierungVon"/> aus jeder Gruppe der Quellrunde, vergleicht diese Kandidaten
+    /// nach den Ranking-Regeln des Regelwerks und liefert die <see cref="Uebergangsregel.AnzahlBeste"/> besten.
+    /// Bewusst konservatives Gate: löst erst auf, sobald ALLE Spiele der Quellrunde (alle Gruppen) abgeschlossen
+    /// sind — kein Extremrang-artiger Optimistic-Preview wie bei #202/#206, das wäre eine kombinatorische
+    /// Erweiterung über Gruppengrenzen hinweg und würde den Aufwand dieses Features deutlich sprengen.</summary>
+    public Task<IReadOnlyList<int?>> UebergangsregelBesteNAufloesenAsync(Uebergangsregel regel, CancellationToken ct = default)
+        => BesteNAufloesenAsync(regel, ct);
+
+    private async Task<IReadOnlyList<int?>> BesteNAufloesenAsync(Uebergangsregel regel, CancellationToken ct)
+    {
+        int n = regel.AnzahlBeste!.Value;
+        bool offene = (await spielRepository.AlleNachRundeAsync(regel.QuellRundeId, ct))
+            .Any(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue && s.Status != SpielStatus.Abgeschlossen);
+        if (offene) return [.. Enumerable.Repeat((int?)null, n)];
+
+        var rangfolge = await tabellenService.UebergreifendeRangfolgeBerechnenAsync(regel.QuellRundeId, regel.PlatzierungVon, ct);
+        return Enumerable.Range(0, n)
+            .Select(i => i < rangfolge.Count ? (int?)rangfolge[i].Mannschaft.Id : null)
+            .ToList();
     }
 
     /// <summary>

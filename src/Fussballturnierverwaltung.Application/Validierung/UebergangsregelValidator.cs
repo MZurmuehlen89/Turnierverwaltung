@@ -28,8 +28,8 @@ public class UebergangsregelValidator
 
         var summe = alleRegeln
             .Where(r => r.ZielRundeId == eingabe.ZielRundeId && r.Id != bearbeiteteRegelId)
-            .Sum(r => r.PlatzierungBis - r.PlatzierungVon + 1)
-            + (eingabe.PlatzierungBis - eingabe.PlatzierungVon + 1);
+            .Sum(r => r.AnzahlBeste ?? (r.PlatzierungBis - r.PlatzierungVon + 1))
+            + (eingabe.AnzahlBeste ?? (eingabe.PlatzierungBis - eingabe.PlatzierungVon + 1));
 
         if (summe > zielRunde.EingangsMannschaftsanzahl)
             fehler.Add($"Übergangsregeln für '{zielRunde.Name}' liefern zusammen {summe} Mannschaften, " +
@@ -66,6 +66,14 @@ public class UebergangsregelValidator
         foreach (var dup in duplikate)
             fehler.Add($"Gruppenindex/Spielnummer {dup} ist mehrfach in diesem Übergangsregel-Block vorhanden.");
 
+        var anzahlBesteDuplikate = eingaben
+            .Where(e => e.AnzahlBeste is not null)
+            .GroupBy(e => e.PlatzierungVon)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key);
+        foreach (var dup in anzahlBesteDuplikate)
+            fehler.Add($"Gruppenübergreifende Rangfolge-Regel für Platzierung {dup} ist mehrfach in diesem Übergangsregel-Block vorhanden.");
+
         var kanten = alleRegeln.Where(r => !(r.QuellRundeId == quellRunde.Id && r.ZielRundeId == zielRunde.Id)).ToList();
         if (UebergangsregelFeldValidierung.WuerdeZyklusSchliessen(
                 quellRunde.Id, zielRunde.Id, kanten.Select(r => (r.QuellRundeId, r.ZielRundeId))))
@@ -73,8 +81,8 @@ public class UebergangsregelValidator
 
         var summeAndererBloecke = alleRegeln
             .Where(r => r.ZielRundeId == zielRunde.Id && r.QuellRundeId != quellRunde.Id)
-            .Sum(r => r.PlatzierungBis - r.PlatzierungVon + 1);
-        var summe = summeAndererBloecke + eingaben.Sum(e => e.PlatzierungBis - e.PlatzierungVon + 1);
+            .Sum(r => r.AnzahlBeste ?? (r.PlatzierungBis - r.PlatzierungVon + 1));
+        var summe = summeAndererBloecke + eingaben.Sum(e => e.AnzahlBeste ?? (e.PlatzierungBis - e.PlatzierungVon + 1));
 
         if (summe > zielRunde.EingangsMannschaftsanzahl)
             fehler.Add($"Übergangsregeln für '{zielRunde.Name}' liefern zusammen {summe} Mannschaften, " +
@@ -89,5 +97,5 @@ public class UebergangsregelValidator
         => UebergangsregelFeldValidierung.FeldFehlerErmitteln(
             eingabe.QuellRundeId == eingabe.ZielRundeId,
             quellRunde.Rundenart, quellRunde.Name, quellRunde.EingangsMannschaftsanzahl, quellRunde.GruppenAnzahl,
-            eingabe.GruppeIndex, eingabe.PlatzierungVon, eingabe.PlatzierungBis);
+            eingabe.GruppeIndex, eingabe.PlatzierungVon, eingabe.PlatzierungBis, eingabe.AnzahlBeste);
 }

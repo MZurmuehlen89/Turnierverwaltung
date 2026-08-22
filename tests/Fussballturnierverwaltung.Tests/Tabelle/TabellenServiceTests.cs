@@ -827,4 +827,107 @@ public class TabellenServiceTests
 
         spieltage.Should().Equal([1, 2], "Spieltag 3 hat noch kein Ergebnis und darf nicht waehlbar sein");
     }
+
+    // ── UebergreifendeRangfolgeBerechnenAsync (Issue #184) ──────────────────
+
+    [Fact]
+    public async Task UebergreifendeRangfolgeBerechnenAsync_SortiertGruppendritteNachTordifferenz()
+    {
+        // Drei Gruppen zu je drei Teams (via je zwei verkettenden Spielen einer Kette A-B, B-C statt
+        // vollem Round-Robin - reicht fuer GruppenAusSpielenAbleiten, um die Gruppenzugehoerigkeit
+        // ueber Paarungen zu erkennen). Alle drei Gruppendritten stehen bei 1 Punkt, aber mit
+        // unterschiedlicher Tordifferenz (-3 / -2 / -1) - der Cross-Group-Vergleich muss exakt danach sortieren.
+        await using var ctx = NeuerContext();
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Rundenart = Rundenart.Gruppenphase,
+            RegelwerkId = 1, Reihenfolge = 1, GruppenAnzahl = 3, AusgangsMannschaftsanzahl = 9
+        });
+        for (int i = 1; i <= 9; i++)
+            ctx.Mannschaften.Add(new Mannschaft { Id = i, Name = $"Team {i}", Kurzname = $"T{i}", LandId = 1 });
+        ctx.SaveChanges();
+
+        // Gruppe 1 (Team 1/2/3) - Gruppendritter (Team 2): Punkte 1, Tordifferenz -3.
+        SpielHinzufuegen(ctx, 1, rundeId: 1, heimId: 1, auswaertsId: 2, heimTore: 3, auswaertsTore: 0, siegerMannschaftId: 1);
+        SpielHinzufuegen(ctx, 2, rundeId: 1, heimId: 2, auswaertsId: 3, heimTore: 1, auswaertsTore: 1);
+
+        // Gruppe 2 (Team 4/5/6) - Gruppendritter (Team 5): Punkte 1, Tordifferenz -2.
+        SpielHinzufuegen(ctx, 3, rundeId: 1, heimId: 4, auswaertsId: 5, heimTore: 2, auswaertsTore: 0, siegerMannschaftId: 4);
+        SpielHinzufuegen(ctx, 4, rundeId: 1, heimId: 5, auswaertsId: 6, heimTore: 0, auswaertsTore: 0);
+
+        // Gruppe 3 (Team 7/8/9) - Gruppendritter (Team 8): Punkte 1, Tordifferenz -1.
+        SpielHinzufuegen(ctx, 5, rundeId: 1, heimId: 7, auswaertsId: 8, heimTore: 1, auswaertsTore: 0, siegerMannschaftId: 7);
+        SpielHinzufuegen(ctx, 6, rundeId: 1, heimId: 8, auswaertsId: 9, heimTore: 2, auswaertsTore: 2);
+        var service = ServiceFuer(ctx);
+
+        var rangfolge = await service.UebergreifendeRangfolgeBerechnenAsync(1, platzierung: 3);
+
+        rangfolge.Select(e => e.Mannschaft.Id).Should().Equal(new[] { 8, 5, 2 },
+            "Tordifferenz -1 (Team 8) schlägt -2 (Team 5) schlägt -3 (Team 2), obwohl alle drei nur 1 Punkt haben");
+        rangfolge.Select(e => e.Rang).Should().Equal(1, 2, 3);
+    }
+
+    [Fact]
+    public async Task UebergreifendeRangfolgeBerechnenAsync_DirekterVergleichZwischenGruppenFremdenTeamsFaelltDurch()
+    {
+        // Gleiches Szenario wie oben, aber das Regelwerk sortiert zuerst nach DirekterVergleichPunkte -
+        // zwischen Kandidaten aus unterschiedlichen Gruppen gibt es nie ein gemeinsames Spiel, das Kriterium
+        // muss also wirkungslos durchfallen (cmp=0) und ErzielteTore (zweites Kriterium) entscheidet. Die
+        // erwartete Reihenfolge nach ERZIELTEN TOREN weicht bewusst von der Tordifferenz-Reihenfolge des
+        // vorigen Tests ab, um zu beweisen, dass tatsächlich das zweite Kriterium greift.
+        await using var ctx = NeuerContext();
+        var regelSet = new RankingRegelSet { Id = 1, Name = "DirektDannTore" };
+        var regeln = new[]
+        {
+            new RankingRegel { Id = 1, Regelart = RankingRegelArt.DirekterVergleichPunkte, Sortierrichtung = Sortierrichtung.Absteigend },
+            new RankingRegel { Id = 2, Regelart = RankingRegelArt.ErzielteTore,             Sortierrichtung = Sortierrichtung.Absteigend },
+        };
+        ctx.RankingRegelSets.Add(regelSet);
+        ctx.RankingRegeln.AddRange(regeln);
+        ctx.RankingRegelSetEintraege.AddRange(
+            new RankingRegelSetEintrag { Id = 1, RankingRegelSetId = 1, RankingRegelId = 1, Reihenfolge = 1 },
+            new RankingRegelSetEintrag { Id = 2, RankingRegelSetId = 1, RankingRegelId = 2, Reihenfolge = 2 });
+
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard", RankingRegelSetId = 1 });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Rundenart = Rundenart.Gruppenphase,
+            RegelwerkId = 1, Reihenfolge = 1, GruppenAnzahl = 3, AusgangsMannschaftsanzahl = 9
+        });
+        for (int i = 1; i <= 9; i++)
+            ctx.Mannschaften.Add(new Mannschaft { Id = i, Name = $"Team {i}", Kurzname = $"T{i}", LandId = 1 });
+        ctx.SaveChanges();
+
+        // Volles Round-Robin je Gruppe (statt nur einer Kette wie im vorigen Test) - DirekterVergleichPunkte
+        // wirkt INNERHALB einer Gruppe auf echte gemeinsame Spiele, daher braucht die Gruppenrangfolge selbst
+        // konsistente Kopf-an-Kopf-Ergebnisse (kein Unentschieden/keine Zyklen), sonst wäre schon die Ermittlung
+        // "wer ist Gruppendritter" unter diesem Regelwerk mehrdeutig.
+
+        // Gruppe 1: 1 > 2 > 3 (alle Duelle eindeutig). Gruppendritter Team 3: erzielte Tore 0.
+        SpielHinzufuegen(ctx, 1, rundeId: 1, heimId: 1, auswaertsId: 2, heimTore: 2, auswaertsTore: 0, siegerMannschaftId: 1);
+        SpielHinzufuegen(ctx, 2, rundeId: 1, heimId: 1, auswaertsId: 3, heimTore: 3, auswaertsTore: 0, siegerMannschaftId: 1);
+        SpielHinzufuegen(ctx, 3, rundeId: 1, heimId: 2, auswaertsId: 3, heimTore: 1, auswaertsTore: 0, siegerMannschaftId: 2);
+
+        // Gruppe 2: 4 > 5 > 6. Gruppendritter Team 6: erzielte Tore 1 (verliert 0:1, dann 1:2).
+        SpielHinzufuegen(ctx, 4, rundeId: 1, heimId: 4, auswaertsId: 5, heimTore: 2, auswaertsTore: 0, siegerMannschaftId: 4);
+        SpielHinzufuegen(ctx, 5, rundeId: 1, heimId: 4, auswaertsId: 6, heimTore: 1, auswaertsTore: 0, siegerMannschaftId: 4);
+        SpielHinzufuegen(ctx, 6, rundeId: 1, heimId: 5, auswaertsId: 6, heimTore: 2, auswaertsTore: 1, siegerMannschaftId: 5);
+
+        // Gruppe 3: 7 > 8 > 9. Gruppendritter Team 9: erzielte Tore 2 (verliert 0:1, dann 2:3).
+        SpielHinzufuegen(ctx, 7, rundeId: 1, heimId: 7, auswaertsId: 8, heimTore: 1, auswaertsTore: 0, siegerMannschaftId: 7);
+        SpielHinzufuegen(ctx, 8, rundeId: 1, heimId: 7, auswaertsId: 9, heimTore: 1, auswaertsTore: 0, siegerMannschaftId: 7);
+        SpielHinzufuegen(ctx, 9, rundeId: 1, heimId: 8, auswaertsId: 9, heimTore: 3, auswaertsTore: 2, siegerMannschaftId: 8);
+        var service = ServiceFuer(ctx);
+
+        var rangfolge = await service.UebergreifendeRangfolgeBerechnenAsync(1, platzierung: 3);
+
+        rangfolge.Select(e => e.Mannschaft.Id).Should().Equal(new[] { 9, 6, 3 },
+            "erzielte Tore 2 (Team 9) schlägt 1 (Team 6) schlägt 0 (Team 3) - direkter Vergleich liefert zwischen " +
+            "gruppenfremden Teams stets 0 und faellt korrekt auf das zweite Kriterium durch");
+    }
 }

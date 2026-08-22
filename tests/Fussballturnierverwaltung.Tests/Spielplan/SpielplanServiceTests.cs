@@ -1056,6 +1056,108 @@ public class SpielplanServiceTests
         ctx.Spiele.Where(s => s.TurnierRundeId == zielRundeId).Should().BeEmpty();
     }
 
+    // ── Tests: gruppenübergreifende Rangfolge-Regel (Issue #184) ────────────────
+
+    private static void AnzahlBesteSetupAnlegen(
+        TurnierverwaltungDbContext ctx, out int gruppenphaseId, out int zielRundeId)
+    {
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
+            { Id = 1, RegelwerkId = 1, Reihenfolge = 1, VerfahrenArt = VerfahrenArt.Elfmeterschiessen });
+
+        var gruppenphase = new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Reihenfolge = 1,
+            Rundenart = Rundenart.Gruppenphase, EingangsMannschaftsanzahl = 9, AusgangsMannschaftsanzahl = 2,
+            RegelwerkId = 1, GruppenAnzahl = 3
+        };
+        var ziel = new TurnierRunde
+        {
+            Id = 2, TurnierInstanzId = 1, Name = "Finale", Reihenfolge = 2,
+            Rundenart = Rundenart.Finale, EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1, RegelwerkId = 1
+        };
+        ctx.TurnierRunden.AddRange(gruppenphase, ziel);
+
+        for (int i = 1; i <= 9; i++)
+            ctx.Mannschaften.Add(new Mannschaft { Id = i, Name = $"Team {i}", Kurzname = $"T{i}", LandId = 1 });
+
+        ctx.Uebergangsregeln.Add(new Uebergangsregel
+        {
+            QuellRundeId = gruppenphase.Id, ZielRundeId = ziel.Id,
+            GruppeIndex = null, PlatzierungVon = 3, PlatzierungBis = 3, AnzahlBeste = 2
+        });
+
+        ctx.SaveChanges();
+        gruppenphaseId = gruppenphase.Id;
+        zielRundeId = ziel.Id;
+    }
+
+    private static void AnzahlBesteSpieleHinzufuegen(TurnierverwaltungDbContext ctx, int rundeId)
+    {
+        // Drei Gruppen zu je drei Teams, Gruppendritte mit unterschiedlicher Tordifferenz (-3/-2/-1) -
+        // identisches Szenario wie TabellenServiceTests.UebergreifendeRangfolgeBerechnenAsync_*.
+        void Spiel(int id, int heim, int aus, int heimTore, int ausTore, int? sieger)
+        {
+            ctx.Spiele.Add(new Spiel
+            {
+                Id = id, TurnierInstanzId = 1, TurnierRundeId = rundeId, Spielnummer = id,
+                HeimMannschaftId = heim, AuswaertsMannschaftId = aus, Status = SpielStatus.Abgeschlossen
+            });
+            ctx.SpielErgebnisse.Add(new SpielErgebnis
+            {
+                Id = id, SpielId = id, HeimToreRegulaer = heimTore, AuswaertsToreRegulaer = ausTore,
+                EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = sieger
+            });
+        }
+
+        Spiel(1, heim: 1, aus: 2, heimTore: 3, ausTore: 0, sieger: 1);
+        Spiel(2, heim: 2, aus: 3, heimTore: 1, ausTore: 1, sieger: null); // Gruppe 1, 3. = Team 2 (GD -3)
+        Spiel(3, heim: 4, aus: 5, heimTore: 2, ausTore: 0, sieger: 4);
+        Spiel(4, heim: 5, aus: 6, heimTore: 0, ausTore: 0, sieger: null); // Gruppe 2, 3. = Team 5 (GD -2)
+        Spiel(5, heim: 7, aus: 8, heimTore: 1, ausTore: 0, sieger: 7);
+        Spiel(6, heim: 8, aus: 9, heimTore: 2, ausTore: 2, sieger: null); // Gruppe 3, 3. = Team 8 (GD -1)
+    }
+
+    [Fact]
+    public async Task FinaleAutomatischGenerierenWennBereitAsync_AnzahlBesteRegel_GeneriertMitDenBeidenBestenGruppendritten()
+    {
+        await using var ctx = NeuerContext();
+        AnzahlBesteSetupAnlegen(ctx, out int gruppenphaseId, out int zielRundeId);
+        AnzahlBesteSpieleHinzufuegen(ctx, gruppenphaseId);
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+
+        var zielSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == zielRundeId).ToList();
+        zielSpiele.Should().HaveCount(1);
+        var teilnehmer = new[] { zielSpiele[0].HeimMannschaftId, zielSpiele[0].AuswaertsMannschaftId };
+        teilnehmer.Should().BeEquivalentTo(new int?[] { 8, 5 }, "Team 8 (GD -1) und Team 5 (GD -2) sind die beiden besten Gruppendritten, Team 2 (GD -3) fällt raus");
+    }
+
+    [Fact]
+    public async Task FinaleAutomatischGenerierenWennBereitAsync_AnzahlBesteRegel_GeneriertNicht_WennEineGruppeNochOffenIst()
+    {
+        await using var ctx = NeuerContext();
+        AnzahlBesteSetupAnlegen(ctx, out int gruppenphaseId, out int zielRundeId);
+        AnzahlBesteSpieleHinzufuegen(ctx, gruppenphaseId);
+        ctx.SaveChanges();
+        // Gruppe 3 (Spiel 6) wieder auf offen setzen - alle Gruppen müssen fertig sein (konservatives Gate).
+        var spiel6 = ctx.Spiele.First(s => s.Id == 6);
+        spiel6.Status = SpielStatus.Geplant;
+        ctx.SpielErgebnisse.Remove(ctx.SpielErgebnisse.First(e => e.SpielId == 6));
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+
+        ctx.Spiele.Where(s => s.TurnierRundeId == zielRundeId).Should().BeEmpty();
+    }
+
     // ── Tests: Kaskaden-Reset für über Auslosung aufgelöste Folgerunden (Issue #88) ─
 
     private static async Task<Auslosung> AuslosungMitPlatzhalternAnlegen(

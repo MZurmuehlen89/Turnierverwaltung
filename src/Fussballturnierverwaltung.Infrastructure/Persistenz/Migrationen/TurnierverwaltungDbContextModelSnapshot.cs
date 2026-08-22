@@ -932,6 +932,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AnzahlBeste")
+                        .HasColumnType("int");
+
                     b.Property<int?>("GruppeIndex")
                         .HasColumnType("int");
 

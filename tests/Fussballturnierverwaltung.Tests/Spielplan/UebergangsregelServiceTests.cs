@@ -258,4 +258,65 @@ public class UebergangsregelServiceTests
 
         UebergangsregelService.AusgangAbleiten(regeln).Should().Be(3);
     }
+
+    // ── Gruppenübergreifende Rangfolge-Regel (Issue #184) ──────────────────────
+
+    private static Uebergangsregel AnzahlBesteRegel(int anzahlBeste, int platzierung) =>
+        new() { QuellRundeId = 1, ZielRundeId = 2, GruppeIndex = null, PlatzierungVon = platzierung, PlatzierungBis = platzierung, AnzahlBeste = anzahlBeste };
+
+    [Fact]
+    public void AusgangAbleiten_MischungAusRegulaerenUndAnzahlBesteRegeln_SummiertKorrekt()
+    {
+        var regeln = new[]
+        {
+            Regel(gruppeIndex: 1, von: 1, bis: 1),
+            Regel(gruppeIndex: 2, von: 1, bis: 1),
+            AnzahlBesteRegel(anzahlBeste: 2, platzierung: 3),
+        };
+
+        // 1 (Gruppe1 Platz1) + 1 (Gruppe2 Platz1) + 2 (beste 2 Gruppendritte) = 4.
+        UebergangsregelService.AusgangAbleiten(regeln).Should().Be(4);
+    }
+
+    [Fact]
+    public async Task QualifikantenErmittelnAsync_AnzahlBesteRegel_LoestErstAufWennAlleGruppenEntschiedenSind()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int gruppenphaseRundeId, out int koRundeId);
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team 1", Kurzname = "T1", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team 2", Kurzname = "T2", LandId = 1 },
+            new Mannschaft { Id = 3, Name = "Team 3", Kurzname = "T3", LandId = 1 },
+            new Mannschaft { Id = 4, Name = "Team 4", Kurzname = "T4", LandId = 1 });
+        // Gruppe 1: Team 1 schlägt Team 2 2:0 -> Rang 2 = Team 2 (Tordifferenz -2).
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 1, TurnierInstanzId = 1, TurnierRundeId = gruppenphaseRundeId, Spielnummer = 1,
+            HeimMannschaftId = 1, AuswaertsMannschaftId = 2, Status = SpielStatus.Abgeschlossen
+        });
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+            { Id = 1, SpielId = 1, HeimToreRegulaer = 2, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
+        // Gruppe 2: Team 3 vs Team 4 noch offen.
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 2, TurnierInstanzId = 1, TurnierRundeId = gruppenphaseRundeId, Spielnummer = 2,
+            HeimMannschaftId = 3, AuswaertsMannschaftId = 4, Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+        var regel = await service.ErstellenAsync(new UebergangsregelEingabe(
+            gruppenphaseRundeId, koRundeId, GruppeIndex: null, PlatzierungVon: 2, PlatzierungBis: 2, AnzahlBeste: 1));
+
+        var nochOffen = await service.QualifikantenErmittelnAsync(regel.Id);
+        nochOffen[1].Should().BeNull("Gruppe 2 ist noch nicht entschieden - das konservative Gate löst erst auf, wenn ALLE Gruppen fertig sind");
+
+        // Gruppe 2 abschließen: Team 3 schlägt Team 4 1:0 -> Rang 2 = Team 4 (Tordifferenz -1, besser als Team 2s -2).
+        ctx.Spiele.First(s => s.Id == 2).Status = SpielStatus.Abgeschlossen;
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+            { Id = 2, SpielId = 2, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
+        ctx.SaveChanges();
+
+        var qualifikanten = await service.QualifikantenErmittelnAsync(regel.Id);
+        qualifikanten[1].Should().Be(4, "Team 4 hat die bessere Tordifferenz unter den beiden Gruppenzweiten");
+    }
 }

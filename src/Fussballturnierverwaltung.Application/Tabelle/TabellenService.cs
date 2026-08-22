@@ -72,6 +72,37 @@ public class TabellenService(
         return result.Select(r => r.Gruppe).ToList();
     }
 
+    /// <summary>Berechnet die Rangfolge der Kandidaten an einer festen Platzierung (z.B. "Platz 3") über alle
+    /// Gruppen der Quellrunde hinweg, sortiert nach denselben Ranking-Regeln wie innerhalb einer Gruppe (Issue #184).
+    /// "Direkter Vergleich"-Kriterien liefern zwischen Teams aus verschiedenen Gruppen naturgemäß keinen Treffer
+    /// (kein gemeinsames Spiel) und fallen automatisch auf das nächste Kriterium durch - kein Sonderfall nötig.</summary>
+    public async Task<IReadOnlyList<TabellenEintrag>> UebergreifendeRangfolgeBerechnenAsync(
+        int turnierRundeId, int platzierung, CancellationToken ct = default)
+    {
+        var (punkteRegel, rankingRegeln, alleSpiele) = await LadeTabellenDatenAsync(turnierRundeId, ct);
+        if (!alleSpiele.Any()) return [];
+
+        // Gesamttabelle über ALLE Teams der Runde - liefert korrekte Team-Stats (BerechneSpielerStats filtert
+        // ohnehin je Team auf dessen eigene Spiele) und die richtige Sortierreihenfolge in einem Aufwasch.
+        var gesamtTabelle = TabelleAusSpielenBerechnen(alleSpiele, punkteRegel, rankingRegeln);
+
+        var kandidatenIds = GruppenAusSpielenAbleiten(alleSpiele)
+            .Select(gruppenTeamIds =>
+            {
+                var teamIds = gruppenTeamIds.ToHashSet();
+                var gruppenSpiele = alleSpiele
+                    .Where(s => s.HeimMannschaftId.HasValue && teamIds.Contains(s.HeimMannschaftId.Value))
+                    .ToList();
+                return TabelleAusSpielenBerechnen(gruppenSpiele, punkteRegel, rankingRegeln)
+                    .FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id;
+            })
+            .Where(id => id.HasValue).Select(id => id!.Value).ToHashSet();
+
+        var ergebnis = gesamtTabelle.Where(e => kandidatenIds.Contains(e.Mannschaft.Id)).ToList();
+        for (int i = 0; i < ergebnis.Count; i++) ergebnis[i].Rang = i + 1;
+        return ergebnis;
+    }
+
     private static IReadOnlyList<Spiel> SpieleBisSpieltagFiltern(IReadOnlyList<Spiel> spiele, int? bisSpieltag) =>
         bisSpieltag is null ? spiele : spiele.Where(s => s.Spieltag is { } sp && sp <= bisSpieltag).ToList();
 

@@ -76,7 +76,7 @@ public class UebergangsregelMenue(
         foreach (var r in regeln.OrderBy(r => r.QuellRunde.Reihenfolge).ThenBy(r => r.GruppeIndex).ThenBy(r => r.PlatzierungVon))
             tabelle.AddRow(
                 $"[grey]{r.Id}[/]", Markup.Escape(r.QuellRunde.Name),
-                r.GruppeIndex?.ToString() ?? "[grey]–[/]",
+                r.AnzahlBeste is { } n ? $"beste {n}" : r.GruppeIndex?.ToString() ?? "[grey]–[/]",
                 r.PlatzierungVon == r.PlatzierungBis ? r.PlatzierungVon.ToString() : $"{r.PlatzierungVon}–{r.PlatzierungBis}",
                 Markup.Escape(r.ZielRunde.Name));
 
@@ -98,7 +98,7 @@ public class UebergangsregelMenue(
         var werte = UebergangsregelWerteAbfragen(quellRunde);
 
         var regel = await regelService.ErstellenAsync(new UebergangsregelEingabe(
-            quellRunde.Id, zielRunde.Id, werte.GruppeIndex, werte.PlatzierungVon, werte.PlatzierungBis), ct);
+            quellRunde.Id, zielRunde.Id, werte.GruppeIndex, werte.PlatzierungVon, werte.PlatzierungBis, werte.AnzahlBeste), ct);
 
         KonsolenHilfsmittel.ErfolgAnzeigen(
             $"Übergangsregel angelegt (ID {regel.Id}): '{quellRunde.Name}' → '{zielRunde.Name}'.");
@@ -124,7 +124,7 @@ public class UebergangsregelMenue(
         var werte = UebergangsregelWerteAbfragen(quellRunde, regel);
 
         await regelService.AktualisierenAsync(regel.Id, new UebergangsregelEingabe(
-            quellRunde.Id, zielRunde.Id, werte.GruppeIndex, werte.PlatzierungVon, werte.PlatzierungBis), ct);
+            quellRunde.Id, zielRunde.Id, werte.GruppeIndex, werte.PlatzierungVon, werte.PlatzierungBis, werte.AnzahlBeste), ct);
 
         KonsolenHilfsmittel.ErfolgAnzeigen($"Übergangsregel {regel.Id} gespeichert.");
         KonsolenHilfsmittel.Pause();
@@ -187,12 +187,25 @@ public class UebergangsregelMenue(
             .AddChoices(regeln.Cast<Uebergangsregel?>().Append(null)));
     }
 
-    private sealed record UebergangsregelWerte(int? GruppeIndex, int PlatzierungVon, int PlatzierungBis);
+    private sealed record UebergangsregelWerte(int? GruppeIndex, int PlatzierungVon, int PlatzierungBis, int? AnzahlBeste = null);
 
     /// <summary>Fragt Gruppenindex/Spielnummer und Platzierungsbereich ab. Die Bedeutung von "Gruppenindex" hängt
-    /// von der Rundenart der Quellrunde ab (siehe UebergangsregelValidator).</summary>
+    /// von der Rundenart der Quellrunde ab (siehe UebergangsregelValidator). Bei einer Gruppenphase kann statt
+    /// eines festen Gruppenindex auch eine gruppenübergreifende Rangfolge-Regel angelegt werden (Issue #184,
+    /// z.B. "die 2 besten Gruppendritten").</summary>
     private static UebergangsregelWerte UebergangsregelWerteAbfragen(TurnierRunde quellRunde, Uebergangsregel? bestehend = null)
     {
+        if (quellRunde.Rundenart == Rundenart.Gruppenphase &&
+            AnsiConsole.Confirm("Gruppenübergreifende Regel (beste N über alle Gruppen)?", bestehend?.AnzahlBeste is not null))
+        {
+            var platzierung = AnsiConsole.Prompt(
+                new TextPrompt<int>("Platzierung (z.B. 3 für Gruppendritte):").DefaultValue(bestehend?.PlatzierungVon ?? 3));
+            var anzahlBeste = AnsiConsole.Prompt(
+                new TextPrompt<int>("Anzahl der besten Teams:").DefaultValue(bestehend?.AnzahlBeste ?? 1));
+
+            return new UebergangsregelWerte(null, platzierung, platzierung, anzahlBeste);
+        }
+
         int? gruppeIndex = null;
         string? gruppeIndexLabel = quellRunde.Rundenart switch
         {

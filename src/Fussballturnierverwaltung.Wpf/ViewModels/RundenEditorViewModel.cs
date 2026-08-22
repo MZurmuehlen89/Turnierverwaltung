@@ -29,7 +29,11 @@ public partial class UebergangsregelZeile : ObservableObject
     [ObservableProperty] private int _platzierungBis = 1;
     [ObservableProperty] private bool _istAbweichend;
 
-    public string GruppenLabel => GruppeIndex is null ? "Alle" : $"Gruppe {(char)('A' + GruppeIndex.Value - 1)}";
+    // Gesetzt = gruppenübergreifende Rangfolge-Regel (Issue #184): GruppeIndex ist dann null, PlatzierungVon
+    // == PlatzierungBis (genau eine Platzierung), AnzahlBeste ist die Anzahl der besten Teams über alle Gruppen.
+    [ObservableProperty] private int? _anzahlBeste;
+
+    public string GruppenLabel => AnzahlBeste is { } n ? $"Beste {n}" : GruppeIndex is null ? "Alle" : $"Gruppe {(char)('A' + GruppeIndex.Value - 1)}";
 
     // Nur relevant für K.o.-Sonderfall-Zeilen (GruppeIndex = Spielnummer): Checkbox-Ersatz für den früheren
     // "Platz von/bis"-Zahlenbereich (Issue #186-Folgefund) — Platz 1 = Sieger, Platz 2 = Verlierer. Aus einem
@@ -53,6 +57,14 @@ public partial class UebergangsregelZeile : ObservableObject
         PlatzierungBis = sieger ? 1 : 2;
         OnPropertyChanged(nameof(IstSieger));
         OnPropertyChanged(nameof(IstVerlierer));
+    }
+
+    // Nur relevant für gruppenübergreifende Zeilen (AnzahlBeste gesetzt): eine einzelne Platzierung statt
+    // eines Von/Bis-Bereichs (Issue #184) - setzt beide Felder synchron.
+    public int Platzierung
+    {
+        get => PlatzierungVon;
+        set { PlatzierungVon = value; PlatzierungBis = value; }
     }
 
     partial void OnPlatzierungVonChanged(int value) { if (!_populiertGerade) IstAbweichend = true; }
@@ -105,6 +117,7 @@ public partial class UebergangsregelBlock : ObservableObject
     [NotifyPropertyChangedFor(nameof(IstLiga))]
     [NotifyPropertyChangedFor(nameof(IstKoSonderfall))]
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    [NotifyCanExecuteChangedFor(nameof(NeueGruppenuebergreifendeZeileCommand))]
     private RundenEintrag? _quellRunde;
 
     [ObservableProperty]
@@ -112,6 +125,13 @@ public partial class UebergangsregelBlock : ObservableObject
     private RundenEintrag? _zielRunde;
 
     [ObservableProperty] private ObservableCollection<UebergangsregelZeile> _zeilen = [];
+
+    // Gruppenübergreifende Rangfolge-Regeln (Issue #184) - bewusst eine separate Collection statt Teil von
+    // Zeilen: die bestehende Pro-Gruppe-Sync-Logik (ErwarteteGruppenIndizes/PasstZurQuellrunde/Aktualisieren)
+    // arbeitet ausschließlich mit Zeilen und darf davon unberührt bleiben, da diese Zeilen nicht 1:1 einer
+    // Gruppe zugeordnet sind.
+    [ObservableProperty] private ObservableCollection<UebergangsregelZeile> _gruppenuebergreifendeZeilen = [];
+
     [ObservableProperty] private int _standardPlatzierungVon = 1;
     [ObservableProperty] private int _standardPlatzierungBis = 1;
 
@@ -158,16 +178,36 @@ public partial class UebergangsregelBlock : ObservableObject
         var block = new UebergangsregelBlock(service, richtung, fixierteRunde, sicherstellenRundenGespeichertAsync);
         foreach (var regel in regeln.OrderBy(r => r.GruppeIndex ?? 0))
         {
-            var zeile = new UebergangsregelZeile { GruppeIndex = regel.GruppeIndex, Id = regel.Id };
+            var zeile = new UebergangsregelZeile { GruppeIndex = regel.GruppeIndex, AnzahlBeste = regel.AnzahlBeste, Id = regel.Id };
             zeile.WerteSetzenOhneAbweichung(regel.PlatzierungVon, regel.PlatzierungBis);
-            block.Zeilen.Add(zeile);
+            (regel.AnzahlBeste is null ? block.Zeilen : block.GruppenuebergreifendeZeilen).Add(zeile);
             block._urspruenglicheZeilenIds.Add(regel.Id);
         }
         if (richtung == UebergangsregelRichtung.Eingehend) block.QuellRunde = quellRunde;
         else block.ZielRunde = zielRunde;
-        foreach (var z in block.Zeilen)
+        foreach (var z in block.Zeilen.Concat(block.GruppenuebergreifendeZeilen))
             z.PropertyChanged += (_, __) => block.IsDirty = true;
         return block;
+    }
+
+    /// <summary>Fügt eine neue gruppenübergreifende Rangfolge-Regel-Zeile hinzu (Issue #184), nur sinnvoll bei
+    /// einer Gruppenphase als Quellrunde. Default "Platz 3, beste 1" - der EM/WM-Klassiker als Startpunkt.</summary>
+    [RelayCommand(CanExecute = nameof(KannGruppenuebergreifendeZeileHinzufuegen))]
+    private void NeueGruppenuebergreifendeZeile()
+    {
+        var zeile = new UebergangsregelZeile { GruppeIndex = null, AnzahlBeste = 1 };
+        zeile.WerteSetzenOhneAbweichung(3, 3);
+        zeile.PropertyChanged += (_, __) => IsDirty = true;
+        GruppenuebergreifendeZeilen.Add(zeile);
+        IsDirty = true;
+    }
+    private bool KannGruppenuebergreifendeZeileHinzufuegen() => QuellRunde?.Rundenart == Rundenart.Gruppenphase;
+
+    [RelayCommand]
+    private void GruppenuebergreifendeZeileEntfernen(UebergangsregelZeile zeile)
+    {
+        GruppenuebergreifendeZeilen.Remove(zeile);
+        IsDirty = true;
     }
 
     partial void OnQuellRundeChanged(RundenEintrag? value)
@@ -287,20 +327,21 @@ public partial class UebergangsregelBlock : ObservableObject
                 }
             }
 
-            var zeilenEingaben = Zeilen
-                .Select(z => new UebergangsregelZeileEingabe(z.Id, z.GruppeIndex, z.PlatzierungVon, z.PlatzierungBis))
+            var alleZeilen = Zeilen.Concat(GruppenuebergreifendeZeilen).ToList();
+            var zeilenEingaben = alleZeilen
+                .Select(z => new UebergangsregelZeileEingabe(z.Id, z.GruppeIndex, z.PlatzierungVon, z.PlatzierungBis, z.AnzahlBeste))
                 .ToList();
             var zuLoeschendeIds = _urspruenglicheZeilenIds
-                .Except(Zeilen.Where(z => z.Id.HasValue).Select(z => z.Id!.Value))
+                .Except(alleZeilen.Where(z => z.Id.HasValue).Select(z => z.Id!.Value))
                 .ToList();
 
             var ergebnis = await _service.BlockSpeichernAsync(QuellRunde.Id, ZielRunde.Id, zeilenEingaben, zuLoeschendeIds);
 
-            for (int i = 0; i < Zeilen.Count && i < ergebnis.Count; i++)
-                Zeilen[i].Id = ergebnis[i].Id;
+            for (int i = 0; i < alleZeilen.Count && i < ergebnis.Count; i++)
+                alleZeilen[i].Id = ergebnis[i].Id;
 
             _urspruenglicheZeilenIds.Clear();
-            foreach (var id in Zeilen.Where(z => z.Id.HasValue).Select(z => z.Id!.Value))
+            foreach (var id in alleZeilen.Where(z => z.Id.HasValue).Select(z => z.Id!.Value))
                 _urspruenglicheZeilenIds.Add(id);
 
             // Issue #153: Ausgang der Quellrunde direkt im geteilten RundenEintrag-Objekt aktualisieren
@@ -308,7 +349,8 @@ public partial class UebergangsregelBlock : ObservableObject
             // ohne DB-Roundtrip zeigt die Rundenliste sofort den korrekten Wert. K.o.-Rundenarten ausgenommen
             // (Issue #186): deren Ausgang bleibt immer Eingang/2 (Issue #182) und kann sich strukturell auf
             // zwei Zielrunden aufteilen (Sieger/Verlierer) — die Summe eines einzelnen Blocks wäre hier falsch.
-            var neuerAusgang = Zeilen.Sum(z => z.PlatzierungBis - z.PlatzierungVon + 1);
+            var neuerAusgang = Zeilen.Sum(z => z.PlatzierungBis - z.PlatzierungVon + 1)
+                + GruppenuebergreifendeZeilen.Sum(z => z.AnzahlBeste ?? 0);
             if (QuellRunde.AusgangsMannschaften != neuerAusgang && !IstKoRundenartVon(QuellRunde.Rundenart))
             {
                 QuellRunde.AusgangsMannschaften = neuerAusgang;
@@ -335,7 +377,7 @@ public partial class UebergangsregelBlock : ObservableObject
         Fehlermeldung = null;
         try
         {
-            foreach (var z in Zeilen.Where(z => z.Id is not null))
+            foreach (var z in Zeilen.Concat(GruppenuebergreifendeZeilen).Where(z => z.Id is not null))
                 await _service.LoeschenAsync(z.Id!.Value);
             Geloescht?.Invoke();
         }

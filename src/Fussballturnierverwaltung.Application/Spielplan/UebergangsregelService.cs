@@ -26,7 +26,7 @@ public class UebergangsregelService(
     /// Gruppenphase-Quellrunde immer in eine Zeile je Gruppe, siehe UebergangsregelBlock.OnQuellRundeChanged;
     /// GruppeIndex=null ist für Gruppenphase-Quellrunden ohnehin ungültig, siehe UebergangsregelValidator).</summary>
     public static int AusgangAbleiten(IReadOnlyList<Uebergangsregel> ausgehendeRegeln)
-        => ausgehendeRegeln.Sum(r => r.PlatzierungBis - r.PlatzierungVon + 1);
+        => ausgehendeRegeln.Sum(r => r.AnzahlBeste ?? (r.PlatzierungBis - r.PlatzierungVon + 1));
 
     /// <summary>Spiegel von <see cref="AusgangAbleiten"/> für die Eingangsseite (Issue #186-Folgefund):
     /// identische Rechenformel, hier aus Sicht der Zielrunde über alle ihre eingehenden Übergangsregeln
@@ -46,7 +46,8 @@ public class UebergangsregelService(
             ZielRundeId     = eingabe.ZielRundeId,
             GruppeIndex     = eingabe.GruppeIndex,
             PlatzierungVon  = eingabe.PlatzierungVon,
-            PlatzierungBis  = eingabe.PlatzierungBis
+            PlatzierungBis  = eingabe.PlatzierungBis,
+            AnzahlBeste     = eingabe.AnzahlBeste
         };
 
         await repository.HinzufuegenAsync(regel, ct);
@@ -71,6 +72,7 @@ public class UebergangsregelService(
         regel.GruppeIndex    = eingabe.GruppeIndex;
         regel.PlatzierungVon = eingabe.PlatzierungVon;
         regel.PlatzierungBis = eingabe.PlatzierungBis;
+        regel.AnzahlBeste    = eingabe.AnzahlBeste;
 
         await repository.AktualisierenAsync(regel, ct);
         logger.LogInformation("Übergangsregel {Id} aktualisiert.", id);
@@ -90,7 +92,7 @@ public class UebergangsregelService(
         var alleRegeln = await repository.AlleFindenAsync(ct);
 
         var eingaben = zeilen
-            .Select(z => new UebergangsregelEingabe(quellRundeId, zielRundeId, z.GruppeIndex, z.PlatzierungVon, z.PlatzierungBis))
+            .Select(z => new UebergangsregelEingabe(quellRundeId, zielRundeId, z.GruppeIndex, z.PlatzierungVon, z.PlatzierungBis, z.AnzahlBeste))
             .ToList();
         ValidationException.WerfenWennUngueltig(validator.Validieren(eingaben, quellRunde, zielRunde, alleRegeln));
 
@@ -112,7 +114,8 @@ public class UebergangsregelService(
                     ZielRundeId    = zielRundeId,
                     GruppeIndex    = eingabe.GruppeIndex,
                     PlatzierungVon = eingabe.PlatzierungVon,
-                    PlatzierungBis = eingabe.PlatzierungBis
+                    PlatzierungBis = eingabe.PlatzierungBis,
+                    AnzahlBeste    = eingabe.AnzahlBeste
                 };
                 await repository.HinzufuegenAsync(regel, ct);
                 ergebnis.Add(regel);
@@ -124,6 +127,7 @@ public class UebergangsregelService(
                 regel.GruppeIndex    = eingabe.GruppeIndex;
                 regel.PlatzierungVon = eingabe.PlatzierungVon;
                 regel.PlatzierungBis = eingabe.PlatzierungBis;
+                regel.AnzahlBeste    = eingabe.AnzahlBeste;
                 await repository.AktualisierenAsync(regel, ct);
                 ergebnis.Add(regel);
             }
