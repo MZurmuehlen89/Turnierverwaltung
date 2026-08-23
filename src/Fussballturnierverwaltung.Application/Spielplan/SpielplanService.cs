@@ -870,10 +870,11 @@ public class SpielplanService(
 
     // ── Platzhalter-Auflösungslogik ───────────────────────────────────────
 
-    private static readonly Regex _gruppenSiegerRx  = new(@"^Sieger Gruppe ([A-Z0-9]+)$",   RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex _gruppenRangRx    = new(@"^(\d+)\. Gruppe ([A-Z0-9]+)$",  RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex _koSiegerRx       = new(@"^Sieger ([A-Za-z0-9.]+) (\d+)$",   RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex _koVerliererRx    = new(@"^Verlierer ([A-Za-z0-9.]+) (\d+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex _gruppenSiegerRx     = new(@"^Sieger Gruppe ([A-Z0-9]+)$",   RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex _gruppenRangRx       = new(@"^(\d+)\. Gruppe ([A-Z0-9]+)$",  RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex _bestePlatzierungRx  = new(@"^(\d+)\. bester (\d+)\. Platz$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex _koSiegerRx          = new(@"^Sieger ([A-Za-z0-9.]+) (\d+)$",   RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex _koVerliererRx       = new(@"^Verlierer ([A-Za-z0-9.]+) (\d+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private async Task<int?> PlatzhalterNameAufloessenAsync(
         string name, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
@@ -889,12 +890,17 @@ public class SpielplanService(
         if (m.Success && int.TryParse(m.Groups[1].Value, out int rang))
             return await GruppenrangAufloessenAsync(m.Groups[2].Value, rang, runde, alleRunden, ct, ignorierteSpielIds, nurSicherPositioniert);
 
-        // Pattern 3: "Sieger VF 1" → Sieger des 1. Spiels im Viertelfinale
+        // Pattern 3: "2. bester 3. Platz" → gruppenübergreifende Rangfolge-Regel (Issue #213)
+        m = _bestePlatzierungRx.Match(name);
+        if (m.Success && int.TryParse(m.Groups[1].Value, out int bestenRang) && int.TryParse(m.Groups[2].Value, out int platzierung))
+            return await BestePlatzierungAufloessenAsync(bestenRang, platzierung, runde, alleRunden, ct, ignorierteSpielIds);
+
+        // Pattern 4: "Sieger VF 1" → Sieger des 1. Spiels im Viertelfinale
         m = _koSiegerRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[2].Value, out int spielNr))
             return await KoSiegerAufloessenAsync(m.Groups[1].Value, spielNr, runde, alleRunden, ct, ignorierteSpielIds);
 
-        // Pattern 4: "Verlierer HF 1" → Verlierer des 1. Spiels im Halbfinale
+        // Pattern 5: "Verlierer HF 1" → Verlierer des 1. Spiels im Halbfinale
         m = _koVerliererRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[2].Value, out spielNr))
             return await KoVerliererAufloessenAsync(m.Groups[1].Value, spielNr, runde, alleRunden, ct, ignorierteSpielIds);
@@ -922,6 +928,32 @@ public class SpielplanService(
         if (gruppenphaseRunde is null) return null;
 
         return await RangAufloesenAsync(gruppenphaseRunde, gruppenNummer, rang, ct, ignorierteSpielIds, nurSicherPositioniert);
+    }
+
+    /// <summary>Löst "N. bester X. Platz" auf (Issue #213): sucht die nächstgelegene vorhergehende
+    /// Gruppenphase-Runde, prüft dasselbe konservative All-or-nothing-Gate wie <see cref="BesteNAufloesenAsync"/>
+    /// (alle Spiele der Gruppenphase abgeschlossen), und liefert das N-te Team der über
+    /// <see cref="Fussballturnierverwaltung.Application.Tabelle.TabellenService.UebergreifendeRangfolgeBerechnenAsync"/>
+    /// ermittelten Cross-Group-Rangfolge an Platzierung X. Funktioniert bewusst auch ohne konfigurierte
+    /// <see cref="Uebergangsregel"/> (Freitext-Turniere).</summary>
+    private async Task<int?> BestePlatzierungAufloessenAsync(
+        int rang, int platzierung, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
+        IReadOnlySet<int>? ignorierteSpielIds = null)
+    {
+        var gruppenphaseRunde = alleRunden
+            .Where(r => r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge < runde.Reihenfolge)
+            .OrderByDescending(r => r.Reihenfolge)
+            .FirstOrDefault();
+        if (gruppenphaseRunde is null) return null;
+
+        var spiele = await spielRepository.AlleNachRundeAsync(gruppenphaseRunde.Id, ct);
+        if (ignorierteSpielIds is { Count: > 0 } && spiele.Any(s => ignorierteSpielIds.Contains(s.Id)))
+            return null;
+        if (spiele.Any(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue && s.Status != SpielStatus.Abgeschlossen))
+            return null;
+
+        var rangfolge = await tabellenService.UebergreifendeRangfolgeBerechnenAsync(gruppenphaseRunde.Id, platzierung, ct);
+        return rang <= rangfolge.Count ? rangfolge[rang - 1].Mannschaft.Id : null;
     }
 
     private static int? KuerzelZuEingangsteams(string kuerzel) => kuerzel.ToUpperInvariant() switch

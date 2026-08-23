@@ -1158,6 +1158,139 @@ public class SpielplanServiceTests
         ctx.Spiele.Where(s => s.TurnierRundeId == zielRundeId).Should().BeEmpty();
     }
 
+    // ── Tests: gruppenübergreifende Platzhalter-Auflösung in der Auslosung (Issue #213) ─
+
+    private static void DreiGruppenUndZielrundeSetupAnlegen(
+        TurnierverwaltungDbContext ctx, out int gruppenphaseRundeId, out int zielRundeId)
+    {
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
+            { Id = 1, RegelwerkId = 1, Reihenfolge = 1, VerfahrenArt = VerfahrenArt.Elfmeterschiessen });
+
+        var gruppenphase = new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Reihenfolge = 1,
+            Rundenart = Rundenart.Gruppenphase, EingangsMannschaftsanzahl = 9, AusgangsMannschaftsanzahl = 9,
+            RegelwerkId = 1, GruppenAnzahl = 3
+        };
+        var ziel = new TurnierRunde
+        {
+            Id = 2, TurnierInstanzId = 1, Name = "Achtelfinale", Reihenfolge = 2,
+            Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1,
+            RegelwerkId = 1
+        };
+        ctx.TurnierRunden.AddRange(gruppenphase, ziel);
+
+        for (int i = 1; i <= 9; i++)
+            ctx.Mannschaften.Add(new Mannschaft { Id = i, Name = $"Team {i}", Kurzname = $"T{i}", LandId = 1 });
+
+        ctx.SaveChanges();
+        gruppenphaseRundeId = gruppenphase.Id;
+        zielRundeId = ziel.Id;
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_LoestBestenDrittenUeberMehrereGruppenAuf()
+    {
+        await using var ctx = NeuerContext();
+        DreiGruppenUndZielrundeSetupAnlegen(ctx, out int gruppenphaseId, out int zielRundeId);
+        AnzahlBesteSpieleHinzufuegen(ctx, gruppenphaseId);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 10, TurnierInstanzId = 1, TurnierRundeId = zielRundeId, Spielnummer = 10,
+            HeimPlatzhalterName = "1. bester 3. Platz", AuswaertsPlatzhalterName = "2. bester 3. Platz",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        var anzahl = await service.PlatzhalterAufloesenAsync(zielRundeId);
+
+        anzahl.Should().Be(1);
+        var spiel = ctx.Spiele.First(s => s.Id == 10);
+        spiel.HeimMannschaftId.Should().Be(8, "Team 8 (GD -1) ist der beste Gruppendritte");
+        spiel.AuswaertsMannschaftId.Should().Be(5, "Team 5 (GD -2) ist der zweitbeste Gruppendritte");
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_BestePlatzierungBleibtOffenSolangeGruppenphaseNichtVollstaendigIst()
+    {
+        await using var ctx = NeuerContext();
+        DreiGruppenUndZielrundeSetupAnlegen(ctx, out int gruppenphaseId, out int zielRundeId);
+        AnzahlBesteSpieleHinzufuegen(ctx, gruppenphaseId);
+        ctx.SaveChanges();
+        // Spiel 6 (Gruppe 3) wieder auf offen setzen - alle Gruppen müssen fertig sein (konservatives Gate).
+        var spiel6 = ctx.Spiele.First(s => s.Id == 6);
+        spiel6.Status = SpielStatus.Geplant;
+        ctx.SpielErgebnisse.Remove(ctx.SpielErgebnisse.First(e => e.SpielId == 6));
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 10, TurnierInstanzId = 1, TurnierRundeId = zielRundeId, Spielnummer = 10,
+            HeimPlatzhalterName = "1. bester 3. Platz", AuswaertsPlatzhalterName = "2. bester 3. Platz",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        var anzahl = await service.PlatzhalterAufloesenAsync(zielRundeId);
+
+        anzahl.Should().Be(0);
+        var spiel = ctx.Spiele.First(s => s.Id == 10);
+        spiel.HeimMannschaftId.Should().BeNull();
+        spiel.AuswaertsMannschaftId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_BestePlatzierungLoestNurAufloesbareSeiteAufWennAngeforderterRangNichtExistiert()
+    {
+        await using var ctx = NeuerContext();
+        DreiGruppenUndZielrundeSetupAnlegen(ctx, out int gruppenphaseId, out int zielRundeId);
+        AnzahlBesteSpieleHinzufuegen(ctx, gruppenphaseId);
+        ctx.Spiele.Add(new Spiel
+        {
+            // Nur 3 Gruppendritte existieren (3 Gruppen) - Rang 5 ist nicht auflösbar.
+            Id = 10, TurnierInstanzId = 1, TurnierRundeId = zielRundeId, Spielnummer = 10,
+            HeimPlatzhalterName = "1. bester 3. Platz", AuswaertsPlatzhalterName = "5. bester 3. Platz",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        var anzahl = await service.PlatzhalterAufloesenAsync(zielRundeId);
+
+        anzahl.Should().Be(1, "die Heim-Seite ist auflösbar, unabhängig von der nicht auflösbaren Auswärts-Seite (Issue #206)");
+        var spiel = ctx.Spiele.First(s => s.Id == 10);
+        spiel.HeimMannschaftId.Should().Be(8, "Team 8 (GD -1) ist der beste Gruppendritte");
+        spiel.AuswaertsMannschaftId.Should().BeNull("Rang 5 existiert bei nur 3 Gruppen nicht");
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_BestePlatzierungUndGruppensiegerAufDenBeidenSpielseitenUnabhaengigVoneinanderAufloesbar()
+    {
+        await using var ctx = NeuerContext();
+        DreiGruppenUndZielrundeSetupAnlegen(ctx, out int gruppenphaseId, out int zielRundeId);
+        AnzahlBesteSpieleHinzufuegen(ctx, gruppenphaseId);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 10, TurnierInstanzId = 1, TurnierRundeId = zielRundeId, Spielnummer = 10,
+            HeimPlatzhalterName = "Sieger Gruppe 1", AuswaertsPlatzhalterName = "1. bester 3. Platz",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        var anzahl = await service.PlatzhalterAufloesenAsync(zielRundeId);
+
+        anzahl.Should().Be(1);
+        var spiel = ctx.Spiele.First(s => s.Id == 10);
+        spiel.HeimMannschaftId.Should().Be(1, "Team 1 gewinnt Gruppe 1");
+        spiel.AuswaertsMannschaftId.Should().Be(8, "Team 8 (GD -1) ist der beste Gruppendritte");
+    }
+
     // ── Tests: Kaskaden-Reset für über Auslosung aufgelöste Folgerunden (Issue #88) ─
 
     private static async Task<Auslosung> AuslosungMitPlatzhalternAnlegen(

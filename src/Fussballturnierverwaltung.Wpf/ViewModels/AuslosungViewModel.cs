@@ -230,6 +230,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly RanglisteService _ranglisteService;
     private readonly VerbandsQuoteService _verbandsQuoteService;
     private readonly AusgewaehlteTurnierInstanzService _turnierAuswahlService;
+    private readonly UebergangsregelService _uebergangsregelService;
 
     private Auslosung? _auslosungDetail;
 
@@ -644,7 +645,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         SpielplanService spielplanService,
         RanglisteService ranglisteService,
         VerbandsQuoteService verbandsQuoteService,
-        AusgewaehlteTurnierInstanzService turnierAuswahlService)
+        AusgewaehlteTurnierInstanzService turnierAuswahlService,
+        UebergangsregelService uebergangsregelService)
     {
         _auslosungService     = auslosungService;
         _instanzService       = instanzService;
@@ -653,6 +655,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _ranglisteService     = ranglisteService;
         _verbandsQuoteService = verbandsQuoteService;
         _turnierAuswahlService = turnierAuswahlService;
+        _uebergangsregelService = uebergangsregelService;
     }
 
     public override async Task AktivierenAsync()
@@ -1504,7 +1507,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             }
             else
             {
-                alleTeilnehmer = PlatzhalterGenerieren(aktuelleRunde!, vorherigeRunde);
+                var gruppenuebergreifendeRegeln = (await _uebergangsregelService.AlleNachZielRundeIdAsync(aktuelleRunde!.Id))
+                    .Where(r => r.AnzahlBeste is not null).ToList();
+                alleTeilnehmer = PlatzhalterGenerieren(aktuelleRunde!, vorherigeRunde, gruppenuebergreifendeRegeln);
             }
 
             var assignedMannschaftIds = detail.Lostoepfe
@@ -1637,18 +1642,41 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             .OrderByDescending(r => r.Reihenfolge)
             .FirstOrDefault();
 
+    /// <summary>Erzeugt Platzhalter-Vorschläge für den Teilnehmer-Pool der Auslosung. Bei einer
+    /// vorhergehenden Gruppenphase mit konfigurierter gruppenübergreifender Rangfolge-Regel (Issue #184)
+    /// werden die betroffenen Platzierungen NICHT als normale "X. Gruppe Y"-Einträge angeboten, sondern
+    /// als "N. bester X. Platz"-Einträge (Issue #213) — sonst würde ein simples Take(anzahl) willkürlich
+    /// die ersten Gruppen abschneiden statt der tatsächlich tabellenbesten Kandidaten. Erwartet, dass
+    /// <paramref name="gruppenuebergreifendeRegeln"/> bereits auf <c>AnzahlBeste is not null</c> gefiltert
+    /// und nach <c>ZielRundeId == aktuelleRunde.Id</c> geladen ist (sonst wirft ToDictionary bei
+    /// mehrdeutigen PlatzierungVon-Werten).</summary>
     private static IReadOnlyList<TeilnehmerAnzeige> PlatzhalterGenerieren(
-        TurnierRunde aktuelleRunde, TurnierRunde vorherigeRunde)
+        TurnierRunde aktuelleRunde, TurnierRunde vorherigeRunde,
+        IReadOnlyList<Uebergangsregel> gruppenuebergreifendeRegeln)
     {
         int anzahl = aktuelleRunde.EingangsMannschaftsanzahl;
 
         if (vorherigeRunde.Rundenart == Rundenart.Gruppenphase && vorherigeRunde.GruppenAnzahl.HasValue)
         {
             var gruppen  = vorherigeRunde.GruppenAnzahl.Value;
+            var besteRegelnProPlatz = gruppenuebergreifendeRegeln.ToDictionary(r => r.PlatzierungVon);
+            // AusgangsMannschaftsanzahl zählt nur die regulären Direktqualifikanten (z.B. 6 Gruppen × 2 = 12);
+            // die per AnzahlBeste-Regel abgedeckten Platzierungen (z.B. "3. Platz") liegen bewusst außerhalb
+            // dieser Zählung und müssen die Schleifenobergrenze zusätzlich anheben, sonst wird die Regel nie
+            // erreicht (Issue #213, Nachbesserung aus manuellem Test).
             var proGruppe = vorherigeRunde.AusgangsMannschaftsanzahl / gruppen;
+            var maxPlatz = besteRegelnProPlatz.Count > 0
+                ? Math.Max(proGruppe, besteRegelnProPlatz.Keys.Max())
+                : proGruppe;
             var liste = new List<TeilnehmerAnzeige>();
-            for (int platz = 1; platz <= proGruppe; platz++)
+            for (int platz = 1; platz <= maxPlatz; platz++)
             {
+                if (besteRegelnProPlatz.TryGetValue(platz, out var regel))
+                {
+                    liste.AddRange(Enumerable.Range(1, regel.AnzahlBeste!.Value)
+                        .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"{i}. bester {platz}. Platz")));
+                    continue;
+                }
                 for (int g = 0; g < gruppen; g++)
                 {
                     var buchstabe = (char)('A' + g);
@@ -1702,7 +1730,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
         else if (aktuelleRunde is not null)
         {
-            var platzhalter = PlatzhalterGenerieren(aktuelleRunde, vorherigeRunde);
+            var gruppenuebergreifendeRegeln = (await _uebergangsregelService.AlleNachZielRundeIdAsync(aktuelleRunde.Id))
+                .Where(r => r.AnzahlBeste is not null).ToList();
+            var platzhalter = PlatzhalterGenerieren(aktuelleRunde, vorherigeRunde, gruppenuebergreifendeRegeln);
             foreach (var p in platzhalter)
                 await _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(auslosungId, ersterTopf.Id, p.Name);
         }
