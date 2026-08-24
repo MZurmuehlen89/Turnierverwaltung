@@ -666,10 +666,13 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     {
         var letzte  = Runden.LastOrDefault();
         var eingang = letzte?.AusgangsMannschaften ?? 4;
+        // Neue Runde ist standardmäßig Rundenart.Liga (kein K.o.) — dort ist Ausgang ein frei wählbarer
+        // Wert, sinnvoll vorbelegt mit Eingang statt der nur für K.o.-Rundenarten geltenden Eingang/2-Regel
+        // (Issue #209, Issue #182).
         var eintrag = new RundenEintrag
         {
             EingangsMannschaften = eingang,
-            AusgangsMannschaften = Math.Max(1, eingang / 2),
+            AusgangsMannschaften = eingang,
             RegelwerkId          = 0,  // 0 = Turnierstandard (wird beim Speichern aufgelöst)
             RegelwerkName        = ""
         };
@@ -919,12 +922,18 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     {
         if (_populiertGerade > 0 || AusgewaehlteRunde is null || !EingangEditierbar) return;
         var eingang = ParseAnzahl(value, 4);
-        var ausgang = Math.Max(1, eingang / 2);
         AusgewaehlteRunde.EingangsMannschaften = eingang;
-        AusgewaehlteRunde.AusgangsMannschaften = ausgang;
-        _populiertGerade++;
-        try { Ausgang = ausgang.ToString(); }
-        finally { _populiertGerade--; }
+
+        // Ausgang = Eingang/2 gilt nur für K.o.-Rundenarten (Issue #182) — bei Liga/Gruppenphase/Sonderrunde
+        // ist Ausgang ein frei wählbarer Wert und darf hier nicht überschrieben werden (Issue #209).
+        if (IstKoRundenart)
+        {
+            var ausgang = Math.Max(1, eingang / 2);
+            AusgewaehlteRunde.AusgangsMannschaften = ausgang;
+            _populiertGerade++;
+            try { Ausgang = ausgang.ToString(); }
+            finally { _populiertGerade--; }
+        }
         AktualisiereRundenFehler();
         IsDirty = true;
     }
