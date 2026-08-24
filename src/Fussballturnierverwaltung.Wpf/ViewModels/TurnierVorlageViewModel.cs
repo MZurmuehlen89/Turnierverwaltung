@@ -113,7 +113,12 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
     [NotifyCanExecuteChangedFor(nameof(RundeNachObenCommand))]
     [NotifyCanExecuteChangedFor(nameof(RundeNachUntenCommand))]
     [NotifyCanExecuteChangedFor(nameof(RundeEntfernenCommand))]
+    [NotifyPropertyChangedFor(nameof(KeineRundeFokussiert))]
     private VorlagenRundeZeile? _ausgewaehlteRunde;
+
+    partial void OnAusgewaehlteRundeChanged(VorlagenRundeZeile? value) => AktualisiereUebergangsregelnGefiltert();
+
+    public bool KeineRundeFokussiert => AusgewaehlteRunde is null;
 
     [ObservableProperty] private ObservableCollection<VorlagenRundeZeile> _rundenZeilen = [];
 
@@ -123,6 +128,32 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
     private VorlagenUebergangsRegelZeile? _ausgewaehlteUebergangsregel;
 
     [ObservableProperty] private ObservableCollection<VorlagenUebergangsRegelZeile> _uebergangsregelZeilen = [];
+
+    partial void OnUebergangsregelZeilenChanged(ObservableCollection<VorlagenUebergangsRegelZeile> value)
+        => AktualisiereUebergangsregelnGefiltert();
+
+    /// <summary>Issue #210: statt aller Übergangsregeln der Vorlage nur die der in <see cref="RundenZeilen"/>
+    /// fokussierten Runde (als Quelle oder Ziel) — analog zur eingehend/ausgehend-Filterung im
+    /// <c>RundenEditorViewModel</c>, hier aber als eine gemeinsame Liste statt getrennter Blöcke, da das
+    /// ordnungsbasierte (statt id-basierte) Vorlagen-Datenmodell keine 1:1-Übernahme erlaubt.
+    ///
+    /// Bewusst eine stabile, in-place per Add/Remove synchronisierte ObservableCollection statt einer per
+    /// Getter neu berechneten IEnumerable/LINQ-Projektion (Issue #210-Folgefund): DataGrid löst "'EditItem' ist
+    /// für diese Ansicht nicht zulässig" aus, sobald ItemsSource nur IEnumerable (keine IList) implementiert —
+    /// WPF nutzt dafür intern die nicht editierbare EnumerableCollectionView statt ListCollectionView.</summary>
+    public ObservableCollection<VorlagenUebergangsRegelZeile> UebergangsregelZeilenFuerFokussierteRunde { get; } = [];
+
+    private void AktualisiereUebergangsregelnGefiltert()
+    {
+        var soll = AusgewaehlteRunde is null
+            ? []
+            : UebergangsregelZeilen.Where(z => z.Quelle == AusgewaehlteRunde || z.Ziel == AusgewaehlteRunde).ToList();
+
+        foreach (var alt in UebergangsregelZeilenFuerFokussierteRunde.Where(z => !soll.Contains(z)).ToList())
+            UebergangsregelZeilenFuerFokussierteRunde.Remove(alt);
+        foreach (var neu in soll.Where(z => !UebergangsregelZeilenFuerFokussierteRunde.Contains(z)))
+            UebergangsregelZeilenFuerFokussierteRunde.Add(neu);
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RegelwerkOptionen))]
@@ -201,6 +232,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
                 IstHistorisch = false;
                 RundenZeilen = [];
                 UebergangsregelZeilen = [];
+                AusgewaehlteRunde = null;
             }
             else
             {
@@ -302,6 +334,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
     {
         if (_populiertGerade == 0)
             IsDirty = true;
+        AktualisiereUebergangsregelnGefiltert();
     }
 
     // Issue #166: analoges Dirty-Tracking für die Übergangsregel-Zeilen
@@ -341,6 +374,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
         foreach (var regel in UebergangsregelZeilen.Where(z => z.Quelle == entfernt || z.Ziel == entfernt).ToList())
             UebergangsregelZeilen.Remove(regel);
 
+        AktualisiereUebergangsregelnGefiltert();
         IsDirty = true;
     }
 
@@ -349,10 +383,13 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
     [RelayCommand]
     private void UebergangsregelHinzufuegen()
     {
-        var neu = new VorlagenUebergangsRegelZeile();
+        // Issue #210: neue Regel geht standardmäßig von der fokussierten Runde aus, damit sie sofort in der
+        // gefilterten Liste erscheint statt spurlos in einer unfokussierten Runde zu verschwinden.
+        var neu = new VorlagenUebergangsRegelZeile { Quelle = AusgewaehlteRunde };
         neu.PropertyChanged += OnRundeZeileGeaendert;
         UebergangsregelZeilen.Add(neu);
         AusgewaehlteUebergangsregel = neu;
+        AktualisiereUebergangsregelnGefiltert();
         IsDirty = true;
     }
 
@@ -362,6 +399,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
         if (AusgewaehlteUebergangsregel is null) return;
         UebergangsregelZeilen.Remove(AusgewaehlteUebergangsregel);
         AusgewaehlteUebergangsregel = UebergangsregelZeilen.LastOrDefault();
+        AktualisiereUebergangsregelnGefiltert();
         IsDirty = true;
     }
 

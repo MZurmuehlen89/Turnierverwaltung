@@ -370,11 +370,16 @@
                                    Foreground="{StaticResource TextSubtleBrush}" VerticalAlignment="Center" />
                     </DockPanel>
 
-                    <TextBlock Text="Definiert, welche Platzierungen einer Runde in welche Folgerunde übergehen. Wird beim Laden dieser Vorlage im Runden-Editor automatisch in echte Übergangsregeln zwischen den neu angelegten Runden übersetzt."
+                    <TextBlock Text="Definiert, welche Platzierungen einer Runde in welche Folgerunde übergehen. Wird beim Laden dieser Vorlage im Runden-Editor automatisch in echte Übergangsregeln zwischen den neu angelegten Runden übersetzt. Zeigt nur die Regeln der oben in der Runden-Tabelle ausgewählten Runde (als Quelle oder Ziel)."
                                FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
 
+                    <TextBlock Text="Wählen Sie oben eine Runde aus, um deren Übergangsregeln zu sehen."
+                               FontSize="12" Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,16"
+                               Visibility="{Binding KeineRundeFokussiert, Converter={StaticResource BoolToVisibility}}" />
+
                     <DataGrid x:Name="UebergangsregelGrid"
-                              ItemsSource="{Binding UebergangsregelZeilen}"
+                              Visibility="{Binding KeineRundeFokussiert, Converter={StaticResource InverseBoolToVisibility}}"
+                              ItemsSource="{Binding UebergangsregelZeilenFuerFokussierteRunde}"
                               SelectedItem="{Binding AusgewaehlteUebergangsregel}"
                               AutoGenerateColumns="False"
                               CanUserAddRows="False"
