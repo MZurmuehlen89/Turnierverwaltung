@@ -23,8 +23,8 @@ public class MannschaftService(
     public Task<IReadOnlyList<Mannschaft>> AlleNachArtAbrufenAsync(Mannschaftsart art, CancellationToken ct = default)
         => repository.AlleNachArtFindenAsync(art, ct);
 
-    public Task<IReadOnlyList<Mannschaft>> AlleNachTurnierfilterAsync(int? verbandId, MannschaftsartFilter filter, CancellationToken ct = default)
-        => repository.AlleNachTurnierfilterAsync(verbandId, filter, ct);
+    public Task<IReadOnlyList<Mannschaft>> AlleNachTurnierfilterAsync(int? verbandId, int? landId, MannschaftsartFilter filter, CancellationToken ct = default)
+        => repository.AlleNachTurnierfilterAsync(verbandId, landId, filter, ct);
 
     public async Task<Mannschaft?> FindenNachIdAsync(int id, CancellationToken ct = default)
         => await repository.FindenNachIdMitLandAsync(id, ct);

@@ -48,6 +48,7 @@ public record TurnierInstanzVollAktualisierenEingabe(
     DateOnly? Enddatum,
     TurnierStatus Status,
     int? VerbandId = null,
+    int? LandId = null,
     MannschaftsartFilter MannschaftsartFilter = MannschaftsartFilter.Alle,
     int? StandardRegelwerkId = null);
 
@@ -58,6 +59,7 @@ public record TurnierInstanzErstellenEingabe(
     DateOnly? Startdatum,
     DateOnly? Enddatum,
     int? VerbandId = null,
+    int? LandId = null,
     MannschaftsartFilter MannschaftsartFilter = MannschaftsartFilter.Alle,
     int? StandardRegelwerkId = null);
 

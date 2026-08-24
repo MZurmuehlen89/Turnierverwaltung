@@ -411,6 +411,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     private TurnierStatus _instanzStatus = TurnierStatus.Geplant;
     private int? _vorlageId;
     private int? _instanzVerbandId;
+    private int? _instanzLandId;
     private MannschaftsartFilter _instanzTeamFilter = MannschaftsartFilter.Alle;
 
     private static readonly RegelwerkOption _turnierStandard = new("Turnierstandard", null);
@@ -788,7 +789,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         {
             var vollEingabe = new TurnierInstanzVollAktualisierenEingabe(
                 _instanzName, _instanzSaison, _vorlageId, _instanzStart, _instanzEnd, _instanzStatus,
-                _instanzVerbandId, _instanzTeamFilter,
+                _instanzVerbandId, _instanzLandId, _instanzTeamFilter,
                 StandardRegelwerkId: _instanzStandardRegelwerkId);
             await _service.VollAktualisierenAsync(AusgewaehlteInstanz.Id, vollEingabe);
             var persistiert = await _service.RundenErsetzenAsync(AusgewaehlteInstanz.Id, RundenListeZuEingaben());
@@ -1082,6 +1083,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                 _instanzStatus     = detail.Status;
                 _vorlageId         = detail.TurnierVorlageId;
                 _instanzVerbandId          = detail.VerbandId;
+                _instanzLandId             = detail.LandId;
                 _instanzTeamFilter         = detail.MannschaftsartFilter;
                 _instanzStandardRegelwerkId = detail.StandardRegelwerkId;
                 _instanzStandardRegelwerk   = detail.StandardRegelwerk;

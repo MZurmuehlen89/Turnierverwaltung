@@ -789,6 +789,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<DateOnly?>("Enddatum")
                         .HasColumnType("date");
 
+                    b.Property<int?>("LandId")
+                        .HasColumnType("int");
+
                     b.Property<int>("MannschaftsartFilter")
                         .HasColumnType("int");
 
@@ -818,6 +821,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LandId");
 
                     b.HasIndex("StandardRegelwerkId");
 
@@ -1403,6 +1408,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", b =>
                 {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Land", "Land")
+                        .WithMany()
+                        .HasForeignKey("LandId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke.Regelwerk", "StandardRegelwerk")
                         .WithMany()
                         .HasForeignKey("StandardRegelwerkId")
@@ -1417,6 +1427,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .WithMany()
                         .HasForeignKey("VerbandId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Land");
 
                     b.Navigation("StandardRegelwerk");
 

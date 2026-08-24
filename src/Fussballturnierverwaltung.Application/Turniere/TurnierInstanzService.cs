@@ -64,6 +64,7 @@ public class TurnierInstanzService(
             Enddatum              = instanzEingabe.Enddatum,
             Status                = TurnierStatus.Geplant,
             VerbandId             = instanzEingabe.VerbandId,
+            LandId                = instanzEingabe.LandId,
             MannschaftsartFilter  = instanzEingabe.MannschaftsartFilter
         };
 
@@ -89,6 +90,7 @@ public class TurnierInstanzService(
             Enddatum              = instanzEingabe.Enddatum,
             Status                = TurnierStatus.Geplant,
             VerbandId             = instanzEingabe.VerbandId,
+            LandId                = instanzEingabe.LandId,
             MannschaftsartFilter  = instanzEingabe.MannschaftsartFilter,
             StandardRegelwerkId   = instanzEingabe.StandardRegelwerkId
         };
@@ -129,6 +131,7 @@ public class TurnierInstanzService(
         instanz.Enddatum             = eingabe.Enddatum;
         instanz.Status               = eingabe.Status;
         instanz.VerbandId            = eingabe.VerbandId;
+        instanz.LandId               = eingabe.LandId;
         instanz.MannschaftsartFilter = eingabe.MannschaftsartFilter;
         instanz.StandardRegelwerkId  = eingabe.StandardRegelwerkId;
         await repository.AktualisierenAsync(instanz, ct);

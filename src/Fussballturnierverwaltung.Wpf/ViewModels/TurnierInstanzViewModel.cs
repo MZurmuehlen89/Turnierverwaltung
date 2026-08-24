@@ -22,6 +22,7 @@ public record TurnierStatusOption(string Anzeige, TurnierStatus? Wert);
 public record TurnierVorlageOption(string Anzeige, TurnierVorlage? Wert);
 public record RegelwerkOption(string Anzeige, Regelwerk? Wert);
 public record VerbandOption(string Anzeige, Verband? Wert);
+public record LandOption(string Anzeige, Land? Wert);
 public record TeamfilterOption(string Anzeige, MannschaftsartFilter Wert);
 
 public partial class RundenEintrag : ObservableObject
@@ -77,6 +78,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
 {
     private readonly TurnierInstanzService _service;
     private readonly VerbandService _verbandService;
+    private readonly LandService _landService;
     private readonly RegelwerkService _regelwerkService;
     private readonly VerbandsQuoteService _verbandsQuoteService;
     private readonly VerbandsQuoteValidator _verbandsQuoteValidator;
@@ -84,6 +86,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
 
     private static readonly TurnierStatusOption _alleStatus   = new("— Alle —", null);
     private static readonly VerbandOption _keinVerband        = new("— Kein Filter —", null);
+    private static readonly LandOption _keinLand               = new("— Kein Filter —", null);
     private static readonly RegelwerkOption _keinRegelwerk    = new("— Kein Standard —", null);
 
     // ── Liste ──────────────────────────────────────────────────────────────────
@@ -135,11 +138,43 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
     [ObservableProperty] private string _enddatum = "";
 
     // ── Auslosungsfilter ──────────────────────────────────────────────────────
-    [ObservableProperty] private IReadOnlyList<VerbandOption> _verbandOptionen = [];
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(VerbandOptionenGefiltert))]
+    private IReadOnlyList<VerbandOption> _verbandOptionen = [];
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(VerbandsQuotenSichtbar))]
+    [NotifyPropertyChangedFor(nameof(LandOptionenGefiltert))]
     private VerbandOption _verbandFilter = _keinVerband;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LandOptionenGefiltert))]
+    private IReadOnlyList<LandOption> _landOptionen = [];
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(VerbandsQuotenSichtbar))]
+    [NotifyPropertyChangedFor(nameof(VerbandOptionenGefiltert))]
+    private LandOption _landFilter = _keinLand;
     [ObservableProperty] private MannschaftsartFilter _teamFilter = MannschaftsartFilter.Alle;
+
+    // Beide Filter schränken sich gegenseitig ein, damit widersprüchliche Kombinationen (z.B.
+    // CONMEBOL + Deutschland) im Turnierkopf gar nicht erst auswählbar sind.
+    public IReadOnlyList<LandOption> LandOptionenGefiltert => VerbandFilter.Wert is null
+        ? LandOptionen
+        : [_keinLand, .. LandOptionen.Where(o => o.Wert?.VerbandId == VerbandFilter.Wert.Id)];
+
+    public IReadOnlyList<VerbandOption> VerbandOptionenGefiltert => LandFilter.Wert is null
+        ? VerbandOptionen
+        : [_keinVerband, .. VerbandOptionen.Where(o => o.Wert?.Id == LandFilter.Wert.VerbandId)];
+
+    partial void OnVerbandFilterChanged(VerbandOption value)
+    {
+        if (value.Wert is not null && LandFilter.Wert is not null && LandFilter.Wert.VerbandId != value.Wert.Id)
+            LandFilter = _keinLand;
+    }
+
+    partial void OnLandFilterChanged(LandOption value)
+    {
+        if (value.Wert is not null && VerbandFilter.Wert is not null && VerbandFilter.Wert.Id != value.Wert.VerbandId)
+            VerbandFilter = _keinVerband;
+    }
 
     public IReadOnlyList<TeamfilterOption> TeamfilterOptionen =>
         [new("Alle Mannschaften", MannschaftsartFilter.Alle),
@@ -169,11 +204,11 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
     public bool KapazitaetsHinweisSichtbar => ErsteRundeEingang.HasValue;
 
     // "Verband" ist in diesem Datenmodell ausschließlich die Kontinentalebene (UEFA, CONMEBOL, ...) — ist der
-    // Verbandsfilter gesetzt, gehören zwangsläufig alle zugelassenen Teams zu genau diesem einen Verband, eine
-    // Verband-Quote (die nur auf Kontinentalverband-Ebene arbeitet) kann dann nie etwas Sinnvolles ausdrücken,
-    // unabhängig von der Mannschaftsart (Issue #154). Quoten auf Landesebene für Vereinswettbewerbe wären ein
-    // eigenständiges, neues Feature — siehe Folge-Issue.
-    public bool VerbandsQuotenSichtbar => RundenSichtbar && VerbandFilter.Wert is null;
+    // Verbandsfilter ODER der Länderfilter gesetzt, gehören zwangsläufig alle zugelassenen Teams zu genau einem
+    // Kontinentalverband, eine Verband-Quote (die nur auf Kontinentalverband-Ebene arbeitet) kann dann nie etwas
+    // Sinnvolles ausdrücken, unabhängig von der Mannschaftsart (Issue #154). Quoten auf Landesebene für
+    // Vereinswettbewerbe wären ein eigenständiges, neues Feature — siehe Folge-Issue #189.
+    public bool VerbandsQuotenSichtbar => RundenSichtbar && VerbandFilter.Wert is null && LandFilter.Wert is null;
 
     // ── Berechnete Eigenschaften ──────────────────────────────────────────────
     public bool RundenSichtbar => FormularAktiv && !IstNeuModus;
@@ -195,7 +230,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
 
     private static readonly HashSet<string> _formFelder =
         [nameof(Name), nameof(SaisonOderJahr), nameof(Startdatum), nameof(Enddatum),
-         nameof(VerbandFilter), nameof(TeamFilter), nameof(StandardRegelwerk)];
+         nameof(VerbandFilter), nameof(LandFilter), nameof(TeamFilter), nameof(StandardRegelwerk)];
 
     // ── IRibbonAware ───────────────────────────────────────────────────────────
     public string RibbonTabTitel => "Turnierkopf";
@@ -205,11 +240,13 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
     public ICommand LoeschenBefehl => LoeschenCommand;
 
     public TurnierInstanzViewModel(
-        TurnierInstanzService service, VerbandService verbandService, RegelwerkService regelwerkService,
+        TurnierInstanzService service, VerbandService verbandService, LandService landService,
+        RegelwerkService regelwerkService,
         VerbandsQuoteService verbandsQuoteService, VerbandsQuoteValidator verbandsQuoteValidator)
     {
         _service = service;
         _verbandService = verbandService;
+        _landService = landService;
         _regelwerkService = regelwerkService;
         _verbandsQuoteService = verbandsQuoteService;
         _verbandsQuoteValidator = verbandsQuoteValidator;
@@ -223,6 +260,8 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
             var verbände   = await _verbandService.AlleAbrufenAsync();
             VerbandOptionen = [_keinVerband, .. verbände.Select(v => new VerbandOption(v.Name, v))];
             AlleVerbaende  = verbände;
+            var laender    = await _landService.AlleAbrufenAsync();
+            LandOptionen   = [_keinLand, .. laender.OrderBy(l => l.Name).Select(l => new LandOption(l.Name, l))];
             Regelwerke = await _regelwerkService.AlleAbrufenAsync();
             await LadenAsync();
         }
@@ -246,6 +285,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
                 IstNeuModus        = false;
                 Name = SaisonOderJahr = Startdatum = Enddatum = "";
                 VerbandFilter      = _keinVerband;
+                LandFilter         = _keinLand;
                 TeamFilter         = MannschaftsartFilter.Alle;
                 StandardRegelwerk  = _keinRegelwerk;
             }
@@ -259,6 +299,8 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
                 Enddatum          = instanz.Enddatum?.Year.ToString() ?? "";
                 VerbandFilter     = VerbandOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.VerbandId)
                                     ?? _keinVerband;
+                LandFilter        = LandOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.LandId)
+                                    ?? _keinLand;
                 TeamFilter        = instanz.MannschaftsartFilter;
                 StandardRegelwerk = StandardRegelwerkOptionen.FirstOrDefault(
                                         o => o.Wert?.Id == instanz.StandardRegelwerkId)
@@ -307,12 +349,13 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
             var enddatum   = ParseJahr(Enddatum);
 
             var verbandId      = VerbandFilter.Wert?.Id;
+            var landId         = LandFilter.Wert?.Id;
             var standardRwId   = StandardRegelwerk.Wert?.Id;
             if (IstNeuModus)
             {
                 var eingabe = new TurnierInstanzErstellenEingabe(
                     Name, SaisonOderJahr, null, startdatum, enddatum,
-                    verbandId, TeamFilter, standardRwId);
+                    verbandId, landId, TeamFilter, standardRwId);
                 var neu = await _service.ErstellenAsync(eingabe);
                 await LadenAsync();
                 Ausgewaehltes = Instanzen.FirstOrDefault(i => i.Id == neu.Id);
@@ -329,7 +372,7 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
 
                 var eingabe = new TurnierInstanzVollAktualisierenEingabe(
                     Name, SaisonOderJahr, null, startdatum, enddatum, Ausgewaehltes.Status,
-                    verbandId, TeamFilter, standardRwId);
+                    verbandId, landId, TeamFilter, standardRwId);
                 await _service.VollAktualisierenAsync(id, eingabe);
                 await _verbandsQuoteService.QuotenErsetzenAsync(id, quotenZeilen, ErsteRundeEingang);
                 await LadenAsync();

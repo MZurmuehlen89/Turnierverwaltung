@@ -55,12 +55,15 @@ public class MannschaftRepository(TurnierverwaltungDbContext context)
     }
 
     public async Task<IReadOnlyList<Mannschaft>> AlleNachTurnierfilterAsync(
-        int? verbandId, MannschaftsartFilter filter, CancellationToken ct = default)
+        int? verbandId, int? landId, MannschaftsartFilter filter, CancellationToken ct = default)
     {
         var query = Context.Mannschaften.Include(m => m.Land).AsQueryable();
 
         if (verbandId.HasValue)
             query = query.Where(m => m.Land.VerbandId == verbandId.Value);
+
+        if (landId.HasValue)
+            query = query.Where(m => m.LandId == landId.Value);
 
         query = filter switch
         {

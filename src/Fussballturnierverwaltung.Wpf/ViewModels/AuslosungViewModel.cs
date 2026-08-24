@@ -1502,6 +1502,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             {
                 var teams = await _mannschaftService.AlleNachTurnierfilterAsync(
                     AusgewaehlteInstanz?.VerbandId,
+                    AusgewaehlteInstanz?.LandId,
                     AusgewaehlteInstanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
                 alleTeilnehmer = teams.Select(TeilnehmerAnzeige.AusMannschaft).ToList();
             }
@@ -1721,6 +1722,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             var teams = await _mannschaftService.AlleNachTurnierfilterAsync(
                 AusgewaehlteInstanz?.VerbandId,
+                AusgewaehlteInstanz?.LandId,
                 AusgewaehlteInstanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
             var zuFuellende = runde.EingangsMannschaftsanzahl > 0
                 ? teams.Take(runde.EingangsMannschaftsanzahl)

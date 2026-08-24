@@ -22,6 +22,8 @@ public class TurnierInstanz : BasisEntitaet
 
     public int? VerbandId { get; set; }
     public Verband? Verband { get; set; }
+    public int? LandId { get; set; }
+    public Land? Land { get; set; }
     public MannschaftsartFilter MannschaftsartFilter { get; set; } = MannschaftsartFilter.Alle;
 
     public ICollection<TurnierRunde> Runden { get; set; } = new List<TurnierRunde>();

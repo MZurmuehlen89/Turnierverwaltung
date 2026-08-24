@@ -152,8 +152,14 @@
                                Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,8" />
 
                     <TextBlock Text="Verband" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
-                    <ComboBox ItemsSource="{Binding VerbandOptionen}"
+                    <ComboBox ItemsSource="{Binding VerbandOptionenGefiltert}"
                               SelectedItem="{Binding VerbandFilter}"
+                              DisplayMemberPath="Anzeige"
+                              FontSize="13" Margin="0,0,0,12" />
+
+                    <TextBlock Text="Land" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding LandOptionenGefiltert}"
+                              SelectedItem="{Binding LandFilter}"
                               DisplayMemberPath="Anzeige"
                               FontSize="13" Margin="0,0,0,12" />
 
