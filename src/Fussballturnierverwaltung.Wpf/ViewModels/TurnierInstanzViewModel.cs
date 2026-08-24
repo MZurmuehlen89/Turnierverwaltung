@@ -155,24 +155,35 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
     [ObservableProperty] private MannschaftsartFilter _teamFilter = MannschaftsartFilter.Alle;
 
     // Beide Filter schränken sich gegenseitig ein, damit widersprüchliche Kombinationen (z.B.
-    // CONMEBOL + Deutschland) im Turnierkopf gar nicht erst auswählbar sind.
-    public IReadOnlyList<LandOption> LandOptionenGefiltert => VerbandFilter.Wert is null
+    // CONMEBOL + Deutschland) im Turnierkopf gar nicht erst auswählbar sind. FIFA ist die Ausnahme
+    // (Issue #211): kein Land ist ihr direkt zugeordnet, als Filter bedeutet sie "weltweit" — sie
+    // schränkt die Länderliste also nicht ein und schließt keine Länderauswahl aus.
+    public IReadOnlyList<LandOption> LandOptionenGefiltert => VerbandFilter.Wert is null || IstFifa(VerbandFilter.Wert)
         ? LandOptionen
         : [_keinLand, .. LandOptionen.Where(o => o.Wert?.VerbandId == VerbandFilter.Wert.Id)];
 
+    // FIFA bleibt hier immer wählbar (statt nur bei zum Land passendem Kontinentalverband gefiltert zu
+    // werden) — sonst verliert die Combobox bei gesetztem Länderfilter ihr SelectedItem, WPF setzt es auf
+    // null, und OnVerbandFilterChanged bekäme null statt einer Option (Issue #211, NullReferenceException).
     public IReadOnlyList<VerbandOption> VerbandOptionenGefiltert => LandFilter.Wert is null
         ? VerbandOptionen
-        : [_keinVerband, .. VerbandOptionen.Where(o => o.Wert?.Id == LandFilter.Wert.VerbandId)];
+        : [_keinVerband, .. VerbandOptionen.Where(o => o.Wert?.Id == LandFilter.Wert.VerbandId || IstFifa(o.Wert))];
+
+    private static bool IstFifa(Verband? v) => v?.Kurzname == "FIFA";
 
     partial void OnVerbandFilterChanged(VerbandOption value)
     {
-        if (value.Wert is not null && LandFilter.Wert is not null && LandFilter.Wert.VerbandId != value.Wert.Id)
+        // value kann trotz nicht-nullablem Property-Typ null sein: verliert eine gebundene Combobox durch
+        // eine ItemsSource-Neuberechnung (VerbandOptionenGefiltert) ihr SelectedItem, setzt WPF es auf null.
+        if (value is not null && value.Wert is not null && !IstFifa(value.Wert)
+            && LandFilter.Wert is not null && LandFilter.Wert.VerbandId != value.Wert.Id)
             LandFilter = _keinLand;
     }
 
     partial void OnLandFilterChanged(LandOption value)
     {
-        if (value.Wert is not null && VerbandFilter.Wert is not null && VerbandFilter.Wert.Id != value.Wert.VerbandId)
+        if (value is not null && value.Wert is not null && VerbandFilter.Wert is not null && !IstFifa(VerbandFilter.Wert)
+            && VerbandFilter.Wert.Id != value.Wert.VerbandId)
             VerbandFilter = _keinVerband;
     }
 
@@ -208,7 +219,11 @@ public partial class TurnierInstanzViewModel : ViewModelBase, IRibbonAware, IHat
     // Kontinentalverband, eine Verband-Quote (die nur auf Kontinentalverband-Ebene arbeitet) kann dann nie etwas
     // Sinnvolles ausdrücken, unabhängig von der Mannschaftsart (Issue #154). Quoten auf Landesebene für
     // Vereinswettbewerbe wären ein eigenständiges, neues Feature — siehe Folge-Issue #189.
-    public bool VerbandsQuotenSichtbar => RundenSichtbar && VerbandFilter.Wert is null && LandFilter.Wert is null;
+    // Ausnahme FIFA (Issue #211): kein Land ist ihr direkt zugeordnet, als Filter bedeutet sie "weltweit" —
+    // dann sind wieder alle sechs Kontinentalverbände im Spiel und eine Verband-Quote sinnvoll.
+    public bool VerbandsQuotenSichtbar => RundenSichtbar
+        && (VerbandFilter.Wert is null || IstFifa(VerbandFilter.Wert))
+        && LandFilter.Wert is null;
 
     // ── Berechnete Eigenschaften ──────────────────────────────────────────────
     public bool RundenSichtbar => FormularAktiv && !IstNeuModus;
