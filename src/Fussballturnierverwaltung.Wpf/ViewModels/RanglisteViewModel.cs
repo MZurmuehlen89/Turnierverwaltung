@@ -2,11 +2,13 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Ranglisten.Eingaben;
+using Fussballturnierverwaltung.Application.Ranglisten.Import;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
+using Fussballturnierverwaltung.Wpf.Views;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
@@ -31,6 +33,8 @@ public partial class RanglisteViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly RanglisteService _service;
     private readonly MannschaftService _mannschaftService;
     private readonly VerbandService _verbandService;
+    private readonly RanglistenImportService _importService;
+    private readonly RanglistenQuelleService _quelleService;
     private int _populiertGerade;
 
     private static readonly VerbandFilterOption _allesVerband = new("— Alle —", null);
@@ -126,11 +130,31 @@ public partial class RanglisteViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public ICommand AbbrechenBefehl => AbbrechenCommand;
     public ICommand LoeschenBefehl => LoeschenCommand;
 
-    public RanglisteViewModel(RanglisteService service, MannschaftService mannschaftService, VerbandService verbandService)
+    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
+    [
+        new RibbonGruppe
+        {
+            Header = "Import",
+            Aktionen =
+            [
+                new RibbonAktion { Header = "Aus dem Internet importieren", Befehl = ImportAusInternetCommand },
+                new RibbonAktion { Header = "Import-Quellen verwalten", Befehl = QuellenVerwaltenCommand }
+            ]
+        }
+    ];
+
+    public RanglisteViewModel(
+        RanglisteService service,
+        MannschaftService mannschaftService,
+        VerbandService verbandService,
+        RanglistenImportService importService,
+        RanglistenQuelleService quelleService)
     {
         _service = service;
         _mannschaftService = mannschaftService;
         _verbandService = verbandService;
+        _importService = importService;
+        _quelleService = quelleService;
     }
 
     public override async Task AktivierenAsync() => await LadenAsync();
@@ -312,6 +336,33 @@ public partial class RanglisteViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             Fehlermeldung = ex.Message;
         }
+    }
+
+    // ── Import (Issue #120) ──────────────────────────────────────────────────
+    // Ribbon-Aktionen binden direkt auf ICommand (kein View-Code-Behind als Zwischenschicht
+    // wie bei TurnierAuswahlView/-Dialog) — die Dialoge werden deshalb hier statt in einem
+    // Click-Handler geöffnet.
+
+    [RelayCommand]
+    private async Task ImportAusInternet()
+    {
+        var dialogViewModel = new RanglistenImportDialogViewModel(_importService, _quelleService, _service, _mannschaftService);
+        var dialog = new RanglistenImportDialog(dialogViewModel, _quelleService)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        if (dialog.ShowDialog() == true)
+            await LadenAsync();
+    }
+
+    [RelayCommand]
+    private void QuellenVerwalten()
+    {
+        var dialog = new RanglistenQuellenVerwaltenDialog(_quelleService)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        dialog.ShowDialog();
     }
 
     // ── Eintrag-Befehle ───────────────────────────────────────────────────────

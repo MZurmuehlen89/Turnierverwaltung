@@ -1,6 +1,7 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.ImportExport;
 using Fussballturnierverwaltung.Application.Ranglisten;
+using Fussballturnierverwaltung.Application.Ranglisten.Import;
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spielplan;
@@ -109,6 +110,7 @@ public partial class App
         builder.Services.AddScoped<AuslosungsValidator>();
         builder.Services.AddScoped<ImportValidator>();
         builder.Services.AddScoped<RanglisteValidator>();
+        builder.Services.AddScoped<RanglistenQuelleValidator>();
         builder.Services.AddScoped<VerbandsQuoteValidator>();
 
         // Application Services – Stammdaten
@@ -121,6 +123,8 @@ public partial class App
         builder.Services.AddScoped<TurnierInstanzService>();
         builder.Services.AddScoped<RegelwerkService>();
         builder.Services.AddScoped<RanglisteService>();
+        builder.Services.AddScoped<RanglistenQuelleService>();
+        builder.Services.AddScoped<RanglistenImportService>();
         builder.Services.AddScoped<UebergangsregelValidator>();
         builder.Services.AddScoped<VorlagenUebergangsregelValidator>();
         builder.Services.AddScoped<UebergangsregelService>();

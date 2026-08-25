@@ -1,0 +1,40 @@
+<Window x:Class="Fussballturnierverwaltung.Wpf.Views.RanglistenQuellenVerwaltenDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Ranglisten-Quellen verwalten"
+        Width="720" Height="420"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+
+    <DockPanel Margin="12">
+
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button Content="Neu…" Click="NeuButton_Click" Padding="12,5" Margin="0,0,8,0" Cursor="Hand" />
+            <Button Content="Bearbeiten…" Click="BearbeitenButton_Click" Padding="12,5" Margin="0,0,8,0" Cursor="Hand" />
+            <Button Content="Löschen" Click="LoeschenButton_Click" Padding="12,5" Cursor="Hand" />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Schließen" Click="SchliessenButton_Click" Padding="14,6" FontSize="12" Cursor="Hand" />
+        </StackPanel>
+
+        <DataGrid x:Name="QuellenGrid"
+                  ItemsSource="{Binding Quellen}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  IsReadOnly="True"
+                  GridLinesVisibility="Horizontal"
+                  HeadersVisibility="Column"
+                  RowHeight="28"
+                  FontSize="13">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" MinWidth="140" />
+                <DataGridTextColumn Header="URL" Binding="{Binding Url}" Width="2*" MinWidth="200" />
+                <DataGridTextColumn Header="Team-Spalte" Binding="{Binding MannschaftSpalte}" Width="90" />
+                <DataGridTextColumn Header="Punkte-Spalte" Binding="{Binding PunkteSpalte}" Width="90" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+    </DockPanel>
+</Window>
