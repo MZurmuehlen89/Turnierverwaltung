@@ -97,22 +97,39 @@ public class RanglistenImportServiceTests
     }
 
     [Fact]
-    public async Task RangWirdAusPositionNachUeberspringenAbgeleitet()
+    public async Task UebersprungeneZeile_WirdAusgeschlossen()
     {
         using var ctx = NeuerContext();
         var service = await ServiceMitMannschaftenAsync(ctx, "Argentina", "France");
         var vorschau = await service.VorschauAbrufenAsync(Quelle);
 
-        // Simuliert: "Unbekanntes Team" wird vom Nutzer übersprungen, die beiden
-        // aufgelösten Zeilen bleiben in ihrer Quellreihenfolge.
-        var zuordnung = vorschau.Aufgeloest
-            .Select(z => (z.Mannschaft, z.Quelle.Punkte))
-            .ToList();
-
-        var eintraege = service.EintraegeAusAufloesungErstellen(zuordnung);
+        // "Unbekanntes Team" (Index 1) wird vom Nutzer übersprungen (kein Eintrag in der Zuordnung).
+        var eintraege = service.EintraegeErstellen(vorschau, new Dictionary<int, Mannschaft?>());
 
         eintraege.Should().HaveCount(2);
         eintraege[0].Rang.Should().Be(1);
+        eintraege[1].Rang.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ManuellAufgeloesteZeile_BehaeltUrspruenglicheReihenfolge()
+    {
+        using var ctx = NeuerContext();
+        // "Unbekanntes Team" (Rang 2 in der Quelle) wird manuell auf "Brasilien" gemappt und muss
+        // trotz später Auflösung an Position 2 (Index 1) einsortiert bleiben, nicht ans Ende rutschen.
+        var service = await ServiceMitMannschaftenAsync(ctx, "Argentina", "France", "Brasilien");
+        var vorschau = await service.VorschauAbrufenAsync(Quelle);
+
+        var unbekannt = vorschau.Unaufgeloest.Should().ContainSingle().Which;
+        var brasilien = (await new MannschaftRepository(ctx).AlleFindenAsync())
+            .Single(m => m.Name == "Brasilien");
+
+        var zuordnung = new Dictionary<int, Mannschaft?> { [unbekannt.Index] = brasilien };
+        var eintraege = service.EintraegeErstellen(vorschau, zuordnung);
+
+        eintraege.Should().HaveCount(3);
+        eintraege.Should().BeInAscendingOrder(e => e.Rang);
+        eintraege[1].MannschaftId.Should().Be(brasilien.Id);
         eintraege[1].Rang.Should().Be(2);
     }
 }

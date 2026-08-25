@@ -42,15 +42,27 @@ public class RanglistenImportService(
     }
 
     /// <summary>
-    /// Baut Eintraege-Eingaben aus der final zusammengestellten, geordneten Liste
-    /// (aufgelöste + manuell zugeordnete Zeilen, übersprungene bereits ausgeschlossen).
-    /// Rang ergibt sich ausschließlich aus der Position — analog zu RanglisteViewModel.
+    /// Baut Eintraege-Eingaben aus der Vorschau plus der manuellen Zuordnung nicht aufgelöster
+    /// Zeilen (Schlüssel = RanglistenRohZeile.Index, Wert = zugeordnete Mannschaft oder null
+    /// zum Überspringen). Die Reihenfolge in der Quelltabelle (Index) bleibt erhalten — Rang
+    /// ergibt sich ausschließlich aus der resultierenden Position, analog zu RanglisteViewModel.
     /// </summary>
-    public IReadOnlyList<RanglistenEintragEingabe> EintraegeAusAufloesungErstellen(
-        IReadOnlyList<(Mannschaft Mannschaft, int? Punkte)> geordneteZuordnung)
-        => geordneteZuordnung
-            .Select((z, index) => new RanglistenEintragEingabe(z.Mannschaft.Id, index + 1, z.Punkte))
+    public IReadOnlyList<RanglistenEintragEingabe> EintraegeErstellen(
+        RanglistenImportVorschau vorschau,
+        IReadOnlyDictionary<int, Mannschaft?> manuelleZuordnung)
+    {
+        var zeilen = vorschau.Aufgeloest
+            .Select(z => (z.Quelle.Index, Mannschaft: (Mannschaft?)z.Mannschaft, z.Quelle.Punkte))
+            .Concat(vorschau.Unaufgeloest
+                .Where(z => manuelleZuordnung.TryGetValue(z.Index, out var m) && m is not null)
+                .Select(z => (z.Index, Mannschaft: manuelleZuordnung[z.Index], z.Punkte)))
+            .OrderBy(z => z.Index)
             .ToList();
+
+        return zeilen
+            .Select((z, index) => new RanglistenEintragEingabe(z.Mannschaft!.Id, index + 1, z.Punkte))
+            .ToList();
+    }
 
     private static string Normalisieren(string name) => name.Trim().ToUpperInvariant();
 }

@@ -42,7 +42,7 @@ public class RanglistenHtmlAuswerter : IRanglistenHtmlAuswerter
                 ? PunkteParsen(zellen[spalte].TextContent)
                 : null;
 
-            ergebnis.Add(new RanglistenRohZeile(rohName, punkte));
+            ergebnis.Add(new RanglistenRohZeile(ergebnis.Count, rohName, punkte));
         }
 
         return ergebnis;
