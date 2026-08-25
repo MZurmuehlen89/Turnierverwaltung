@@ -65,7 +65,8 @@ public class TurnierInstanzService(
             Status                = TurnierStatus.Geplant,
             VerbandId             = instanzEingabe.VerbandId,
             LandId                = instanzEingabe.LandId,
-            MannschaftsartFilter  = instanzEingabe.MannschaftsartFilter
+            MannschaftsartFilter  = instanzEingabe.MannschaftsartFilter,
+            StandardRegelwerkId   = instanzEingabe.StandardRegelwerkId
         };
 
         await repository.HinzufuegenAsync(instanz, ct);
