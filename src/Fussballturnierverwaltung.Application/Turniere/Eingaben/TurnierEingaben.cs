@@ -20,7 +20,8 @@ public record VorlagenUebergangsRegelEingabe(
     int ZielReihenfolge,
     int? GruppeIndex,
     int PlatzierungVon,
-    int PlatzierungBis);
+    int PlatzierungBis,
+    int? AnzahlBeste = null);
 
 public record TurnierVorlageErstellenEingabe(
     string Name,

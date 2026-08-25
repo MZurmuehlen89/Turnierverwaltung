@@ -400,7 +400,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     // Issue #166: aus einer Vorlage übernommene Übergangsregel-Struktur, per Objektreferenz auf die geladenen
     // RundenEintrag-Zeilen (statt Index) — bleibt so auch bei Umsortierung/Löschen einzelner Zeilen konsistent.
     // Wird erst beim nächsten Speichern in echte Uebergangsregeln zwischen den persistierten Runden übersetzt.
-    private List<(RundenEintrag Quelle, RundenEintrag Ziel, int? GruppeIndex, int PlatzierungVon, int PlatzierungBis)>
+    private List<(RundenEintrag Quelle, RundenEintrag Ziel, int? GruppeIndex, int PlatzierungVon, int PlatzierungBis, int? AnzahlBeste)>
         _vorlagenUebergangsregelnPending = [];
 
     // Einmal je Instanz-Laden geholt (Issue #188) — Grundlage für die live berechneten RundenWarnungen,
@@ -812,7 +812,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                 .Select(regel => (
                     Quelle: eintragNachVorlagenRundeId[regel.QuellVorlagenRundeId],
                     Ziel: eintragNachVorlagenRundeId[regel.ZielVorlagenRundeId],
-                    regel.GruppeIndex, regel.PlatzierungVon, regel.PlatzierungBis))
+                    regel.GruppeIndex, regel.PlatzierungVon, regel.PlatzierungBis, regel.AnzahlBeste))
                 .ToList();
 
             IsDirty = true;
@@ -865,9 +865,9 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                     foreach (var bestehende in await _uebergangsregelService.AlleNachQuellRundeIdAsync(quellRundeId))
                         await _uebergangsregelService.LoeschenAsync(bestehende.Id);
 
-                foreach (var (quelle, ziel, gruppeIndex, von, bis) in _vorlagenUebergangsregelnPending)
+                foreach (var (quelle, ziel, gruppeIndex, von, bis, anzahlBeste) in _vorlagenUebergangsregelnPending)
                     await _uebergangsregelService.ErstellenAsync(
-                        new UebergangsregelEingabe(quelle.Id, ziel.Id, gruppeIndex, von, bis));
+                        new UebergangsregelEingabe(quelle.Id, ziel.Id, gruppeIndex, von, bis, anzahlBeste));
                 _vorlagenUebergangsregelnPending = [];
             }
 

@@ -30,7 +30,7 @@ public class VorlagenUebergangsregelValidator
             fehler.AddRange(UebergangsregelFeldValidierung.FeldFehlerErmitteln(
                 regel.QuellReihenfolge == regel.ZielReihenfolge,
                 quelle.Rundenart, quelle.Name, quelle.EingangsMannschaftsanzahl, quelle.GruppenAnzahl,
-                regel.GruppeIndex, regel.PlatzierungVon, regel.PlatzierungBis));
+                regel.GruppeIndex, regel.PlatzierungVon, regel.PlatzierungBis, regel.AnzahlBeste));
         }
 
         // Gültige Referenzen vorausgesetzt für die folgenden Prüfungen (sonst schon oben gemeldet).
@@ -46,13 +46,20 @@ public class VorlagenUebergangsregelValidator
             fehler.Add($"Gruppenindex/Spielnummer {dup.Key.GruppeIndex} ist für Runde " +
                        $"'{runden[dup.Key.QuellReihenfolge - 1].Name}' mehrfach vergeben.");
 
+        foreach (var dup in gueltigeRegeln
+                     .Where(r => r.AnzahlBeste is not null)
+                     .GroupBy(r => (r.QuellReihenfolge, r.PlatzierungVon))
+                     .Where(g => g.Count() > 1))
+            fehler.Add($"Gruppenübergreifende Rangfolge-Regel für Platzierung {dup.Key.PlatzierungVon} ist für Runde " +
+                       $"'{runden[dup.Key.QuellReihenfolge - 1].Name}' mehrfach vergeben.");
+
         if (HatZyklus(gueltigeRegeln))
             fehler.Add("Die Übergangsregeln der Vorlage enthalten einen zyklischen Übergang.");
 
         foreach (var zielGruppe in gueltigeRegeln.GroupBy(r => r.ZielReihenfolge))
         {
             var ziel = runden[zielGruppe.Key - 1];
-            var summe = zielGruppe.Sum(r => r.PlatzierungBis - r.PlatzierungVon + 1);
+            var summe = zielGruppe.Sum(r => r.AnzahlBeste ?? (r.PlatzierungBis - r.PlatzierungVon + 1));
             if (summe > ziel.EingangsMannschaftsanzahl)
                 fehler.Add($"Übergangsregeln für '{ziel.Name}' liefern zusammen {summe} Mannschaften, " +
                            $"erwartet werden aber nur {ziel.EingangsMannschaftsanzahl}.");

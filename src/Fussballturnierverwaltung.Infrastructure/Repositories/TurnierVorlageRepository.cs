@@ -63,7 +63,8 @@ public class TurnierVorlageRepository(TurnierverwaltungDbContext context)
                 ZielVorlagenRundeId  = idNachReihenfolge[e.ZielReihenfolge],
                 GruppeIndex          = e.GruppeIndex,
                 PlatzierungVon       = e.PlatzierungVon,
-                PlatzierungBis       = e.PlatzierungBis
+                PlatzierungBis       = e.PlatzierungBis,
+                AnzahlBeste          = e.AnzahlBeste
             }).ToList();
             Context.VorlagenUebergangsregeln.AddRange(regeln);
             await Context.SaveChangesAsync(ct);

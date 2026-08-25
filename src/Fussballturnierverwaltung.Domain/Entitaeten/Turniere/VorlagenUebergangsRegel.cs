@@ -16,4 +16,11 @@ public class VorlagenUebergangsRegel : BasisEntitaet
 
     public int PlatzierungVon { get; set; } // inklusiv
     public int PlatzierungBis { get; set; } // inklusiv
+
+    // Wenn gesetzt: gruppenübergreifende Rangfolge-Regel (Issue #217, Vorlagen-Pendant zu Issue #184) -
+    // GruppeIndex ist dann null, PlatzierungVon == PlatzierungBis (genau eine Platzierung, z.B. "Platz 3"),
+    // Quellrunde muss Gruppenphase sein. Bedeutung: die AnzahlBeste besten Teams an dieser Platzierung über
+    // alle Gruppen hinweg ziehen in die Zielrunde ein — wird beim Laden der Vorlage in eine echte
+    // Uebergangsregel mit AnzahlBeste übersetzt.
+    public int? AnzahlBeste { get; set; }
 }

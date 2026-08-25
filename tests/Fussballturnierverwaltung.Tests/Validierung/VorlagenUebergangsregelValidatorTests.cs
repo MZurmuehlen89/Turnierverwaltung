@@ -129,4 +129,67 @@ public class VorlagenUebergangsregelValidatorTests
 
         _validator.Validieren(runden, regeln).IstGueltig.Should().BeTrue();
     }
+
+    // ── Gruppenübergreifende Rangfolge-Regel (Issue #217, Vorlagen-Pendant zu #184) ──────────────────
+
+    [Fact]
+    public void GueltigeAnzahlBesteRegel_IstGueltig()
+    {
+        var runden = new[] { Gruppenphase(gruppenAnzahl: 4, eingangsMannschaftsanzahl: 16), Ziel(eingangsMannschaftsanzahl: 2) };
+        var regeln = new[] { new VorlagenUebergangsRegelEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 2) };
+
+        _validator.Validieren(runden, regeln).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AnzahlBesteBeiNichtGruppenphase_IstUngueltig()
+    {
+        var runden = new[] { Liga(eingangsMannschaftsanzahl: 8), Ziel(eingangsMannschaftsanzahl: 2) };
+        var regeln = new[] { new VorlagenUebergangsRegelEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 2) };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AnzahlBesteMitGruppenIndex_IstUngueltig()
+    {
+        var runden = new[] { Gruppenphase(gruppenAnzahl: 4, eingangsMannschaftsanzahl: 16), Ziel(eingangsMannschaftsanzahl: 2) };
+        var regeln = new[] { new VorlagenUebergangsRegelEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 2) };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AnzahlBesteGroesserGruppenAnzahl_IstUngueltig()
+    {
+        var runden = new[] { Gruppenphase(gruppenAnzahl: 4, eingangsMannschaftsanzahl: 16), Ziel(eingangsMannschaftsanzahl: 8) };
+        var regeln = new[] { new VorlagenUebergangsRegelEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 7) };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void DoppelteAnzahlBestePlatzierungFuerDieselbeQuellrunde_IstUngueltig()
+    {
+        var runden = new[] { Gruppenphase(gruppenAnzahl: 4, eingangsMannschaftsanzahl: 16), Ziel(eingangsMannschaftsanzahl: 4) };
+        var regeln = new[]
+        {
+            new VorlagenUebergangsRegelEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 2),
+            new VorlagenUebergangsRegelEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 1)
+        };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AnzahlBesteKapazitaetsSummeWirdBeruecksichtigt()
+    {
+        var runden = new[] { Gruppenphase(gruppenAnzahl: 4, eingangsMannschaftsanzahl: 16), Ziel(eingangsMannschaftsanzahl: 2) };
+        var regeln = new[] { new VorlagenUebergangsRegelEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 3) };
+
+        var ergebnis = _validator.Validieren(runden, regeln);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*3*2*");
+    }
 }

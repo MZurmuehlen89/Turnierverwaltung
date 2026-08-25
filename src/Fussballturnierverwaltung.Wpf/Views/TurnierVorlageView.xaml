@@ -466,6 +466,18 @@
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
 
+                            <!-- Gruppenübergreifende Rangfolge-Regel (Issue #217): leer = normale Regel,
+                                 gesetzt = die N besten Teams dieser Platzierung über alle Gruppen hinweg -->
+                            <DataGridTextColumn Header="Beste N"
+                                                Binding="{Binding AnzahlBeste, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"
+                                                Width="64">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Right" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
                         </DataGrid.Columns>
                     </DataGrid>
 

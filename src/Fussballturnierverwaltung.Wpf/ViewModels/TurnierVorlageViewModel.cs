@@ -51,6 +51,9 @@ public partial class VorlagenUebergangsRegelZeile : ObservableObject
     [ObservableProperty] private int? _gruppeIndex;
     [ObservableProperty] private int _platzierungVon = 1;
     [ObservableProperty] private int _platzierungBis = 1;
+
+    // Issue #217: gruppenübergreifende Rangfolge-Regel, Vorlagen-Pendant zu Uebergangsregel.AnzahlBeste (#184).
+    [ObservableProperty] private int? _anzahlBeste;
 }
 
 public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
@@ -303,7 +306,8 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
                             Ziel           = zeileNachVorlagenRundeId[regel.ZielVorlagenRundeId],
                             GruppeIndex    = regel.GruppeIndex,
                             PlatzierungVon = regel.PlatzierungVon,
-                            PlatzierungBis = regel.PlatzierungBis
+                            PlatzierungBis = regel.PlatzierungBis,
+                            AnzahlBeste    = regel.AnzahlBeste
                         }));
                 AbonniereUebergangsregelnAenderungen();
                 IsDirty = false;
@@ -478,7 +482,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
                     throw new ArgumentException("Übergangsregel: Quell- und Zielrunde dürfen nicht identisch sein.");
                 return new VorlagenUebergangsRegelEingabe(
                     RundenZeilen.IndexOf(z.Quelle) + 1, RundenZeilen.IndexOf(z.Ziel) + 1,
-                    z.GruppeIndex, z.PlatzierungVon, z.PlatzierungBis);
+                    z.GruppeIndex, z.PlatzierungVon, z.PlatzierungBis, z.AnzahlBeste);
             }).ToList();
 
             if (IstNeuModus)
