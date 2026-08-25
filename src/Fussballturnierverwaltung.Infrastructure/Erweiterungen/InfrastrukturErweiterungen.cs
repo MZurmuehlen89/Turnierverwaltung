@@ -56,6 +56,7 @@ public static class InfrastrukturErweiterungen
 
         // Ranglisten-Repository
         services.AddScoped<IRanglisteRepository, RanglisteRepository>();
+        services.AddScoped<IRanglistenQuelleRepository, RanglistenQuelleRepository>();
 
         return services;
     }
