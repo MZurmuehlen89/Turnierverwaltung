@@ -8,6 +8,11 @@
             <ColumnDefinition Width="240" MinWidth="180" MaxWidth="320" />
             <ColumnDefinition Width="4" />
             <ColumnDefinition Width="*" />
+            <!-- Verband-Quoten-Spalte (Issue #188) — 0 Breite solange keine Quoten für die aktuelle
+                 Runde bestehen, damit sie ohne Warnungen keinen Platz beansprucht. -->
+            <ColumnDefinition Width="{Binding ZeigeVerbandsQuoten, Converter={StaticResource BoolZuAngepinnterSpaltenbreite}, ConverterParameter=4}" />
+            <ColumnDefinition Width="{Binding ZeigeVerbandsQuoten, Converter={StaticResource BoolZuAngepinnterSpaltenbreite}, ConverterParameter=280}"
+                              MinWidth="0" />
         </Grid.ColumnDefinitions>
 
         <!-- ── Linke Spalte: Turnier + Auslosungs-Liste ── -->
@@ -445,75 +450,10 @@
                             </TextBlock>
                         </Border>
 
-                        <!-- VERBAND-QUOTEN: nicht einklappbar (Issue #156) und direkt neben der
-                             Fortschrittsanzeige platziert (Issue #156-Folgefeedback), da beide
-                             Hinweise zusammen relevant sind, um die Auslosung tatsächlich
-                             auslösen zu können. -->
-                        <StackPanel Margin="0,0,0,10"
-                                    Visibility="{Binding ZeigeVerbandsQuoten, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="VERBAND-QUOTEN" FontSize="12" FontWeight="Bold"
-                                       Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,4" />
-                            <!-- Nebeneinander statt untereinander (Issue #162-Folgefeedback), umbricht bei
-                                 Bedarf mehrzeilig. SharedSizeGroup sorgt dafür, dass jede Kachel exakt so
-                                 breit wird wie die längste Verbandbezeichnung, unabhängig vom Umbruch. -->
-                            <ItemsControl ItemsSource="{Binding VerbandsQuotenAnzeige}" Margin="8,4,0,0"
-                                          Grid.IsSharedSizeScope="True">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:VerbandsQuoteAnzeigeViewModel}">
-                                        <Grid Margin="0,3,6,3">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" SharedSizeGroup="VerbandsQuoteBreite" />
-                                            </Grid.ColumnDefinitions>
-                                            <Border Padding="8,7" CornerRadius="{StaticResource Radius4}"
-                                                    BorderThickness="1" BorderBrush="{StaticResource BorderBrush}">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Background" Value="White" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding UeberAnzahl}" Value="True">
-                                                                <Setter Property="Background" Value="{StaticResource ErrorSoftBrush}" />
-                                                                <Setter Property="BorderBrush" Value="#FCA5A5" />
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding UnterAnzahl}" Value="True">
-                                                                <Setter Property="Background" Value="{StaticResource WarningSoftBrush}" />
-                                                                <Setter Property="BorderBrush" Value="{StaticResource WarningSoftBorderBrush}" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                <DockPanel>
-                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding AnzeigeText}"
-                                                               FontSize="13" Margin="8,0,0,0">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding UeberAnzahl}" Value="True">
-                                                                        <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
-                                                                        <Setter Property="FontWeight" Value="Bold" />
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding UnterAnzahl}" Value="True">
-                                                                        <Setter Property="Foreground" Value="#D97706" />
-                                                                        <Setter Property="FontWeight" Value="Bold" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                    <TextBlock Text="{Binding VerbandName}" FontSize="13"
-                                                               FontWeight="SemiBold" Foreground="{StaticResource TextStrongBrush}" />
-                                                </DockPanel>
-                                            </Border>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
+                        <!-- VERBAND-QUOTEN: lebt seit Issue #188 ausschließlich in der dauerhaft
+                             angepinnten rechten Spalte (unten im äußeren Grid), nicht mehr inline
+                             hier — vermeidet, dass ein Stau vieler Verbände den Formularfluss
+                             verdrängt, ohne dass dafür ein Umschalten nötig ist. -->
 
                         <TextBlock Text="Teams zuweisen: Doppelklick, Rechtsklick oder Drag &amp; Drop"
                                    FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,8" />
@@ -899,5 +839,78 @@
                 </StackPanel>
             </ScrollViewer>
         </Grid>
+
+        <!-- ── Verband-Quoten-Spalte (Issue #188) ── Dauerhaft (kein Umschalten), erscheint nur
+             solange es für die aktuelle Runde Quoten gibt. Bleibt sichtbar, auch wenn der Rest des
+             Formulars (linke ScrollViewer oben) gescrollt wird — löst das Anliegen, dass ein Stau
+             vieler Verbände sonst weit nach unten wandert. -->
+        <GridSplitter Grid.Column="3" Width="4" HorizontalAlignment="Stretch"
+                      Background="{StaticResource BorderBrush}"
+                      Visibility="{Binding ZeigeVerbandsQuoten, Converter={StaticResource BoolToVisibility}}" />
+
+        <DockPanel Grid.Column="4" Background="{StaticResource SurfaceBrush}"
+                   Visibility="{Binding ZeigeVerbandsQuoten, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock DockPanel.Dock="Top" Text="VERBAND-QUOTEN" FontSize="11" FontWeight="Bold"
+                       Foreground="{StaticResource TextSubtleBrush}" Margin="12,10,12,4" />
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding VerbandsQuotenAnzeige}" Margin="8,4,8,8"
+                              Grid.IsSharedSizeScope="True">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Vertical" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:VerbandsQuoteAnzeigeViewModel}">
+                            <Grid Margin="0,3,6,3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="VerbandsQuoteBreite" />
+                                </Grid.ColumnDefinitions>
+                                <Border Padding="8,7" CornerRadius="{StaticResource Radius4}"
+                                        BorderThickness="1" BorderBrush="{StaticResource BorderBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="White" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding UeberAnzahl}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource ErrorSoftBrush}" />
+                                                    <Setter Property="BorderBrush" Value="#FCA5A5" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding UnterAnzahl}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource WarningSoftBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource WarningSoftBorderBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding AnzeigeText}"
+                                                   FontSize="13" Margin="8,0,0,0">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding UeberAnzahl}" Value="True">
+                                                            <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
+                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding UnterAnzahl}" Value="True">
+                                                            <Setter Property="Foreground" Value="#D97706" />
+                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding VerbandName}" FontSize="13"
+                                                   FontWeight="SemiBold" Foreground="{StaticResource TextStrongBrush}" />
+                                    </DockPanel>
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </DockPanel>
     </Grid>
 </UserControl>

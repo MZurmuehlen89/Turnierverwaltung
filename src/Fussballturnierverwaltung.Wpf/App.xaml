@@ -22,6 +22,7 @@
             <conv:EntscheidungArtZuTextConverter x:Key="EntscheidungArtZuText" />
             <conv:QualifikationsstatusZuFarbeConverter x:Key="QualifikationsstatusZuFarbe" />
             <conv:SpieltagOptionZuTextConverter x:Key="SpieltagOptionZuText" />
+            <conv:BoolZuAngepinnterSpaltenbreiteConverter x:Key="BoolZuAngepinnterSpaltenbreite" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

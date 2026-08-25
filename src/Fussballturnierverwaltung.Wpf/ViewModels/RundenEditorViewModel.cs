@@ -403,6 +403,10 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     private List<(RundenEintrag Quelle, RundenEintrag Ziel, int? GruppeIndex, int PlatzierungVon, int PlatzierungBis)>
         _vorlagenUebergangsregelnPending = [];
 
+    // Einmal je Instanz-Laden geholt (Issue #188) — Grundlage für die live berechneten RundenWarnungen,
+    // erspart einen Service-Roundtrip bei jedem Tastendruck.
+    private IReadOnlyList<Uebergangsregel> _alleUebergangsregelnFuerWarnung = [];
+
     // Preserved turnier metadata for VollAktualisierenAsync on save
     private string _instanzName = "";
     private string _instanzSaison = "";
@@ -459,6 +463,11 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     [ObservableProperty]
     private ObservableCollection<UebergangsregelBlock> _ausgehendeUebergangsregelBloecke = [];
 
+    // Jede Neuzuweisung der Collection (Laden/Zurücksetzen) enthält ggf. andere Blöcke mit anderen
+    // Fehlermeldungen als zuvor — Issue #188-Folgefeedback.
+    partial void OnEingehendeUebergangsregelBloeckeChanged(ObservableCollection<UebergangsregelBlock> value) => AktualisiereBlockFehlermeldungen();
+    partial void OnAusgehendeUebergangsregelBloeckeChanged(ObservableCollection<UebergangsregelBlock> value) => AktualisiereBlockFehlermeldungen();
+
     // ── Rechte Spalte: Detailformular ─────────────────────────────────────────
     [ObservableProperty] private string _name = "";
     [ObservableProperty]
@@ -510,15 +519,54 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     private bool _isDirty;
 
     [ObservableProperty] private bool _istLadend;
-    [ObservableProperty] private string? _fehlermeldung;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ZeigeMeldungsSpalte))]
+    private string? _fehlermeldung;
 
     // ── Validierung ───────────────────────────────────────────────────────────
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatRundenFehler))]
+    [NotifyPropertyChangedFor(nameof(ZeigeMeldungsSpalte))]
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
     private IReadOnlyList<string> _rundenFehler = [];
 
     public bool HatRundenFehler => RundenFehler.Count > 0;
+
+    /// <summary>Live-Warnungen (Issue #188), kein Speichern-Blocker anders als <see cref="RundenFehler"/>:
+    /// eine bereits gespeicherte Runde, die als Quellrunde für bestehende Übergangsregeln dient, hat ihre
+    /// Eingangs-/Ausgangs-/Gruppenzahl seit dem Laden geändert. Ersetzt die frühere Speichervorgang-MessageBox
+    /// (Issue #181) — passend zu den übrigen bereits vor dem Speichern sichtbaren Validierungen.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatRundenWarnungen))]
+    [NotifyPropertyChangedFor(nameof(ZeigeMeldungsSpalte))]
+    private IReadOnlyList<string> _rundenWarnungen = [];
+
+    public bool HatRundenWarnungen => RundenWarnungen.Count > 0;
+
+    /// <summary>Fehlermeldungen einzelner Übergangsregel-Blöcke (Issue #188-Folgefeedback, z.B. die
+    /// UebergangsregelValidator-Meldung "Übergangsregeln für 'X' liefern zusammen Y Mannschaften, erwartet
+    /// werden aber Z") — bisher nur inline im jeweiligen Block sichtbar, bei vielen Blöcken (z.B. viele
+    /// Gruppen der Vorgängerrunde) nur durch Scrollen erreichbar. Mit Quell-/Zielrunde präfixiert, da in der
+    /// Spalte der Blockkontext sonst verloren ginge.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatBlockFehlermeldungen))]
+    [NotifyPropertyChangedFor(nameof(ZeigeMeldungsSpalte))]
+    private IReadOnlyList<string> _blockFehlermeldungen = [];
+
+    public bool HatBlockFehlermeldungen => BlockFehlermeldungen.Count > 0;
+
+    /// <summary>Steuert die rechte Meldungs-Spalte (Issue #188-Folgefeedback) — sammelt Fehlermeldung,
+    /// Runden-Konsistenzfehler, Übergangsregel-Warnungen und Block-Fehlermeldungen dort, analog zu den
+    /// Verband-Quoten in der Auslosung, damit sie bei vielen Runden/Gruppen nicht erst durch Scrollen
+    /// sichtbar werden.</summary>
+    public bool ZeigeMeldungsSpalte => Fehlermeldung is not null || HatRundenFehler || HatRundenWarnungen || HatBlockFehlermeldungen;
+
+    private void AktualisiereBlockFehlermeldungen() => BlockFehlermeldungen =
+        EingehendeUebergangsregelBloecke.Concat(AusgehendeUebergangsregelBloecke)
+            .Where(b => b.Fehlermeldung is not null)
+            .Select(b => $"{b.QuellRunde?.Name} → {b.ZielRunde?.Name}: {b.Fehlermeldung}")
+            .ToList();
 
     // ── Berechnete Eigenschaften ──────────────────────────────────────────────
     public bool IstKoRundenart =>
@@ -785,7 +833,6 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     private async Task Speichern()
     {
         if (AusgewaehlteInstanz is null) return;
-        if (!await BestaetigeAenderungenAnQuellrundenAsync()) return;
 
         Fehlermeldung = null;
         try
@@ -832,6 +879,8 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                 r.UrspruenglichAusgangsMannschaften = r.AusgangsMannschaften;
                 r.UrspruenglichGruppenAnzahl        = r.GruppenAnzahl;
             }
+            _alleUebergangsregelnFuerWarnung = await _uebergangsregelService.AlleNachTurnierInstanzIdAsync(AusgewaehlteInstanz.Id);
+            AktualisiereRundenWarnungen();
 
             IsDirty = false;
         }
@@ -847,28 +896,23 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         await LadeRundenFuerInstanzAsync(AusgewaehlteInstanz);
     }
 
-    /// <summary>Warnt, falls eine bereits gespeicherte Runde, die als Quellrunde für bestehende Übergangsregeln
-    /// dient, ihre Eingangs-/Ausgangs-/Gruppenzahl seit dem Laden geändert hat (Issue #181). Läuft nur beim
-    /// Speichern (nicht pro Tastendruck), da genau dort eine Änderung tatsächlich wirksam wird.</summary>
-    private async Task<bool> BestaetigeAenderungenAnQuellrundenAsync()
+    private void AktualisiereRundenWarnungen() => RundenWarnungen = BerechneRundenWarnungen();
+
+    /// <summary>Warnt live, wenn eine bereits gespeicherte Runde, die als Quellrunde für bestehende
+    /// Übergangsregeln dient, ihre Eingangs-/Ausgangs-/Gruppenzahl seit dem Laden geändert hat
+    /// (Issue #181, seit #188 als Vorab-Anzeige statt Speichervorgang-MessageBox).</summary>
+    private IReadOnlyList<string> BerechneRundenWarnungen()
     {
         var geaenderte = Runden.Where(r => r.Id > 0 && HatSichGeaendert(r)).ToList();
-        if (geaenderte.Count == 0) return true;
+        if (geaenderte.Count == 0) return [];
 
-        var alleRegeln = await _uebergangsregelService.AlleNachTurnierInstanzIdAsync(AusgewaehlteInstanz!.Id);
-        var betroffene = geaenderte
-            .Select(r => (Runde: r, Ziele: alleRegeln.Where(u => u.QuellRundeId == r.Id)
-                                                       .Select(u => u.ZielRunde.Name).Distinct().ToList()))
+        return geaenderte
+            .Select(r => (Runde: r, Ziele: _alleUebergangsregelnFuerWarnung.Where(u => u.QuellRundeId == r.Id)
+                                                                            .Select(u => u.ZielRunde.Name).Distinct().ToList()))
             .Where(x => x.Ziele.Count > 0)
+            .Select(x => $"'{x.Runde.Name}' wird bereits als Quelle für Übergangsregeln verwendet in: " +
+                         $"{string.Join(", ", x.Ziele)} — die Änderungen können diese Regeln ungültig machen.")
             .ToList();
-        if (betroffene.Count == 0) return true;
-
-        var text = string.Join("\n", betroffene.Select(b => $"'{b.Runde.Name}' → verwendet in: {string.Join(", ", b.Ziele)}"));
-        var ergebnis = MessageBox.Show(
-            $"Folgende geänderte Runden werden bereits als Quelle für Übergangsregeln verwendet:\n\n{text}\n\n" +
-            "Die Änderungen können diese Regeln ungültig machen (siehe Hinweis \"Aktualisieren\" im Übergangsregeln-Bereich der Zielrunde). Trotzdem speichern?",
-            "Übergangsregeln betroffen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        return ergebnis == MessageBoxResult.Yes;
     }
 
     private static bool HatSichGeaendert(RundenEintrag r) =>
@@ -935,6 +979,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
             finally { _populiertGerade--; }
         }
         AktualisiereRundenFehler();
+        AktualisiereRundenWarnungen();
         IsDirty = true;
     }
 
@@ -943,6 +988,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         if (_populiertGerade > 0 || AusgewaehlteRunde is null || !AusgangEditierbar) return;
         AusgewaehlteRunde.AusgangsMannschaften = ParseAnzahl(value, 4);
         AktualisiereRundenFehler();
+        AktualisiereRundenWarnungen();
         IsDirty = true;
     }
 
@@ -951,6 +997,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
         AusgewaehlteRunde.GruppenAnzahl = string.IsNullOrWhiteSpace(value) ? null : ParseAnzahl(value, 2);
         AktualisiereRundenFehler();
+        AktualisiereRundenWarnungen();
         IsDirty = true;
     }
 
@@ -1077,6 +1124,8 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         if (instanz is null)
         {
             RundenZuruecksetzen([]);
+            _alleUebergangsregelnFuerWarnung = [];
+            AktualisiereRundenWarnungen();
             return;
         }
         IstLadend = true;
@@ -1099,6 +1148,10 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
             }
             RundenZuruecksetzen(
                 (detail?.Runden ?? []).OrderBy(r => r.Reihenfolge).Select(RundeZuEintrag));
+
+            // Grundlage für die live berechneten RundenWarnungen (Issue #188/#181).
+            _alleUebergangsregelnFuerWarnung = await _uebergangsregelService.AlleNachTurnierInstanzIdAsync(instanz.Id);
+            AktualisiereRundenWarnungen();
         }
         catch (Exception ex)
         {
@@ -1270,6 +1323,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         finally { _populiertGerade--; }
         IsDirty = true;
         AktualisiereRundenFehler();
+        AktualisiereRundenWarnungen();
     }
 
     /// <summary>Spiegel von <see cref="LadeUebergangsregelnAsync"/> für den "Ausgehende Übergangsregeln"-Bereich
@@ -1329,6 +1383,13 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
 
     private void VerdrahteBlockEvents(UebergangsregelBlock block)
     {
+        // Issue #188-Folgefeedback: Block-Fehlermeldungen (z.B. UebergangsregelValidator-Meldungen) in die
+        // rechte Meldungs-Spalte spiegeln, statt sie nur inline im ggf. langen Block sichtbar zu lassen.
+        block.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(UebergangsregelBlock.Fehlermeldung))
+                AktualisiereBlockFehlermeldungen();
+        };
         block.Geloescht += () =>
         {
             if (block.Richtung == UebergangsregelRichtung.Eingehend)
@@ -1337,6 +1398,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                 EingehendeRegelnNeuLaden(block);
             }
             else AusgehendeUebergangsregelBloecke.Remove(block);
+            AktualisiereBlockFehlermeldungen();
         };
         block.Gespeichert += () =>
         {
@@ -1352,6 +1414,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         {
             IsDirty = true;
             AktualisiereRundenFehler();
+            AktualisiereRundenWarnungen();
             if (ReferenceEquals(AusgewaehlteRunde, block.QuellRunde) && block.QuellRunde is not null)
             {
                 HatAusgehendeUebergangsregeln = true;
@@ -1405,6 +1468,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         }
         finally { _populiertGerade--; }
         AktualisiereRundenFehler();
+        AktualisiereRundenWarnungen();
     }
 
     private void FormularZuruecksetzen()

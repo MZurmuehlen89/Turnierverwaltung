@@ -377,7 +377,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(ZeigeVerbandsQuoten))]
     private ObservableCollection<VerbandsQuoteAnzeigeViewModel> _verbandsQuotenAnzeige = [];
 
+    /// <summary>Steuert die dauerhaft angepinnte rechte Spalte mit den Verband-Quoten (Issue #188)
+    /// — erscheint nur, solange es für die aktuelle Runde Quoten gibt, sonst kein reservierter
+    /// Platz. Kein Umschalten mehr nötig/möglich, die Spalte ist die einzige Darstellung.</summary>
     public bool ZeigeVerbandsQuoten => VerbandsQuotenAnzeige.Count > 0;
+
     [ObservableProperty] private ObservableCollection<ErgebnisAnzeige> _ergebnisseAnzeige = [];
     [ObservableProperty] private ObservableCollection<GruppenErgebnisAnzeige> _gruppenErgebnisse = [];
 

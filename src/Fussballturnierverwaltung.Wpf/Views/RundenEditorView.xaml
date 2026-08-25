@@ -12,6 +12,11 @@
             <ColumnDefinition Width="220" MinWidth="160" MaxWidth="300" />
             <ColumnDefinition Width="4" />
             <ColumnDefinition Width="*" />
+            <!-- Meldungs-Spalte (Issue #188-Folgefeedback) — 0 Breite solange nichts zu melden ist,
+                 analog zu den Verband-Quoten in der Auslosung. -->
+            <ColumnDefinition Width="{Binding ZeigeMeldungsSpalte, Converter={StaticResource BoolZuAngepinnterSpaltenbreite}, ConverterParameter=4}" />
+            <ColumnDefinition Width="{Binding ZeigeMeldungsSpalte, Converter={StaticResource BoolZuAngepinnterSpaltenbreite}, ConverterParameter=300}"
+                              MinWidth="0" />
         </Grid.ColumnDefinitions>
 
         <!-- ── Spalte 1: Vorlage laden + Rundenliste ── -->
@@ -390,13 +395,10 @@
                                                         Padding="10,4" FontSize="12" Margin="0,0,8,0" Cursor="Hand" />
                                             </StackPanel>
 
-                                            <!-- Block-Fehlermeldung -->
-                                            <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
-                                                    CornerRadius="{StaticResource Radius4}" Padding="10,6" Margin="0,8,0,0"
-                                                    Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                                                <TextBlock Text="{Binding Fehlermeldung}" Foreground="{StaticResource ErrorBrush}"
-                                                           FontSize="12" TextWrapping="Wrap" />
-                                            </Border>
+                                            <!-- Block-Fehlermeldung: seit Issue #188-Folgefeedback in der
+                                                 rechten Meldungs-Spalte (BlockFehlermeldungen), nicht mehr
+                                                 hier inline — sonst bei vielen Blöcken nur durch Scrollen
+                                                 sichtbar, siehe RundenEditorViewModel.AktualisiereBlockFehlermeldungen. -->
 
                                         </StackPanel>
                                     </Border>
@@ -601,13 +603,10 @@
                                                         Padding="10,4" FontSize="12" Margin="0,0,8,0" Cursor="Hand" />
                                             </StackPanel>
 
-                                            <!-- Block-Fehlermeldung -->
-                                            <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
-                                                    CornerRadius="{StaticResource Radius4}" Padding="10,6" Margin="0,8,0,0"
-                                                    Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                                                <TextBlock Text="{Binding Fehlermeldung}" Foreground="{StaticResource ErrorBrush}"
-                                                           FontSize="12" TextWrapping="Wrap" />
-                                            </Border>
+                                            <!-- Block-Fehlermeldung: seit Issue #188-Folgefeedback in der
+                                                 rechten Meldungs-Spalte (BlockFehlermeldungen), nicht mehr
+                                                 hier inline — sonst bei vielen Blöcken nur durch Scrollen
+                                                 sichtbar, siehe RundenEditorViewModel.AktualisiereBlockFehlermeldungen. -->
 
                                         </StackPanel>
                                     </Border>
@@ -616,19 +615,34 @@
                         </ItemsControl>
                     </StackPanel>
 
-                    <!-- Fehlermeldung -->
-                    <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
-                            CornerRadius="{StaticResource Radius4}" Padding="12,8"
-                            Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="{StaticResource ErrorBrush}"
-                                   FontSize="13" TextWrapping="Wrap" />
-                    </Border>
-
                 </StackPanel>
+
+                </StackPanel><!-- end RundenEditorAktiv -->
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ── Meldungs-Spalte (Issue #188-Folgefeedback) ── Sammelt Fehlermeldung, Runden-Konsistenzfehler
+             und Übergangsregel-Warnungen dauerhaft am rechten Rand, analog zu den Verband-Quoten in der
+             Auslosung — bei vielen Runden/Gruppen sonst nur durch Scrollen sichtbar. -->
+        <GridSplitter Grid.Column="3" Width="4" HorizontalAlignment="Stretch"
+                      Background="{StaticResource BorderBrush}"
+                      Visibility="{Binding ZeigeMeldungsSpalte, Converter={StaticResource BoolToVisibility}}" />
+
+        <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto"
+                      Visibility="{Binding ZeigeMeldungsSpalte, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel Margin="8,10,8,8" Background="{StaticResource SurfaceBrush}">
+
+                <!-- Fehlermeldung -->
+                <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius4}" Padding="12,8" Margin="0,0,0,10"
+                        Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
+                    <TextBlock Text="{Binding Fehlermeldung}" Foreground="{StaticResource ErrorBrush}"
+                               FontSize="13" TextWrapping="Wrap" />
+                </Border>
 
                 <!-- Runden-Konsistenzfehler (immer sichtbar wenn Turnier aktiv) -->
                 <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
-                        CornerRadius="{StaticResource Radius4}" Padding="12,10" Margin="0,16,0,0"
+                        CornerRadius="{StaticResource Radius4}" Padding="12,10" Margin="0,0,0,10"
                         Visibility="{Binding HatRundenFehler, Converter={StaticResource BoolToVisibility}}">
                     <StackPanel>
                         <TextBlock Text="RUNDEN-KONSISTENZ" FontSize="10" FontWeight="Bold"
@@ -644,7 +658,46 @@
                     </StackPanel>
                 </Border>
 
-                </StackPanel><!-- end RundenEditorAktiv -->
+                <!-- Übergangsregel-Warnungen (Issue #188/#181): live berechnet, kein Speichern-Blocker
+                     anders als "Runden-Konsistenz" oben — ersetzt die frühere Speichervorgang-MessageBox,
+                     passend zu den übrigen bereits vor dem Speichern sichtbaren Validierungen. -->
+                <Border Background="{StaticResource WarningSoftBrush}" BorderBrush="{StaticResource WarningSoftBorderBrush}" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius4}" Padding="12,10"
+                        Visibility="{Binding HatRundenWarnungen, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="ÜBERGANGSREGELN BETROFFEN" FontSize="10" FontWeight="Bold"
+                                   Foreground="#D97706" Margin="0,0,0,6" />
+                        <ItemsControl ItemsSource="{Binding RundenWarnungen}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Foreground="#B45309"
+                                               FontSize="12" TextWrapping="Wrap" Margin="0,0,0,3" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Block-Fehlermeldungen (Issue #188-Folgefeedback): Fehler einzelner Übergangsregel-Blöcke
+                     (z.B. UebergangsregelValidator "liefern zusammen X Mannschaften, erwartet werden aber Y"),
+                     mit Quell-/Zielrunde präfixiert, da der Blockkontext hier sonst verloren ginge. -->
+                <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius4}" Padding="12,10" Margin="0,10,0,0"
+                        Visibility="{Binding HatBlockFehlermeldungen, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="ÜBERGANGSREGELN FEHLERHAFT" FontSize="10" FontWeight="Bold"
+                                   Foreground="{StaticResource ErrorBrush}" Margin="0,0,0,6" />
+                        <ItemsControl ItemsSource="{Binding BlockFehlermeldungen}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Foreground="#991B1B"
+                                               FontSize="12" TextWrapping="Wrap" Margin="0,0,0,3" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
             </StackPanel>
         </ScrollViewer>
     </Grid>
