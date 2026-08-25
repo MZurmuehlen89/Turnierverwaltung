@@ -126,6 +126,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IstGefiltertAufGruppe))]
     [NotifyPropertyChangedFor(nameof(FokusSpiele))]
+    [NotifyPropertyChangedFor(nameof(SpieltagSimulierenMenuText))]
+    [NotifyPropertyChangedFor(nameof(SpieltagZuruecksetzenMenuText))]
+    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
     private GruppenTabelle? _ausgewaehlteGruppe;
 
     /// <summary>Steuert, ob die Spielliste auf eine Gruppe gefiltert ist (per Klick auf eine
@@ -137,6 +140,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FokusSpiele))]
+    [NotifyPropertyChangedFor(nameof(SpieltagSimulierenMenuText))]
+    [NotifyPropertyChangedFor(nameof(SpieltagZuruecksetzenMenuText))]
+    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
     private bool _fokusAlleAktiv = true;
 
     [ObservableProperty]
@@ -153,10 +159,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     // Vorformatierte Menü-Texte fürs "Aktionen ▾"-Dropdown (Issue #144) — MenuItem.Header ist vom
     // Typ object, Binding.StringFormat wird dort nicht zuverlässig angewendet (zeigte nur die
     // rohe Zahl statt des formatierten Texts), daher hier als fertige Strings bereitgestellt.
-    // Ohne aktiven expliziten Gruppenfilter (Issue #170, Fallback auf die Spiel-Selektion) bleibt
-    // FokusAktiverSpieltag auf 0 — dann bewusst generischer Text statt "Spieltag 0".
-    public string SpieltagSimulierenMenuText    => FokusAktiverSpieltag > 0 ? $"{FokusSpieltagnummer} simulieren" : "Spieltag simulieren";
-    public string SpieltagZuruecksetzenMenuText => FokusAktiverSpieltag > 0 ? $"{FokusSpieltagnummer} zurücksetzen" : "Spieltag zurücksetzen";
+    // Issue #219-Nachbesserung: beide Fälle von EffektiverSpieltag abgeleitet statt von
+    // FokusAktiverSpieltag allein — das deckt sowohl die ungefilterte Spielliste (Spieltag der
+    // AusgewaehlteSpiel-Selektion, kein expliziter Gruppenfilter) als auch die auf eine Gruppe
+    // gefilterte Ansicht ab (FokusAktiverSpieltag, nur solange FokusAlleAktiv nicht aktiv ist).
+    // Ohne konkreten Zielspieltag (EffektiverSpieltag null) bewusst generischer Text statt "Spieltag 0".
+    public string SpieltagSimulierenMenuText    => EffektiverSpieltag is { } st ? $"Spieltag {st} simulieren" : "Spieltag simulieren";
+    public string SpieltagZuruecksetzenMenuText => EffektiverSpieltag is { } st ? $"Spieltag {st} zurücksetzen" : "Spieltag zurücksetzen";
     public bool   KannFokusZurueck     => !FokusAlleAktiv && FokusSpieltage.Count > 0 && FokusAktiverSpieltag > FokusSpieltage[0];
     public bool   KannFokusVor         => FokusSpieltage.Count > 1 && (FokusAlleAktiv || FokusAktiverSpieltag < FokusSpieltage[^1]);
 
@@ -189,7 +198,16 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     // ── Spielliste ────────────────────────────────────────────────────────────
 
     [ObservableProperty] private ObservableCollection<SpielZeile> _spiele = [];
-    [ObservableProperty] private SpielZeile? _ausgewaehlteSpiel;
+
+    // Issue #219-Nachbesserung: in der ungefilterten Spielliste (alle Gruppen, kein expliziter
+    // Gruppenfilter) leitet sich der Ziel-Spieltag für "Spieltag simulieren/zurücksetzen" allein aus
+    // dem markierten Spiel ab (EffektiverSpieltag-Fallback) — Label/RibbonZusatzGruppen müssen daher
+    // auch bei reiner Spiel-Selektion neu ausgewertet werden.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SpieltagSimulierenMenuText))]
+    [NotifyPropertyChangedFor(nameof(SpieltagZuruecksetzenMenuText))]
+    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
+    private SpielZeile? _ausgewaehlteSpiel;
 
     // ── Ergebnis-Formular ─────────────────────────────────────────────────────
 
@@ -541,6 +559,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 _fokusNaechsterSpieltag.NotifyCanExecuteChanged();
                 _fokusAlleSpieltageBefehl.NotifyCanExecuteChanged();
                 _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
+                // Issue #219-Nachbesserung: fehlte hier — "Spieltag zurücksetzen" blieb dadurch nach
+                // jeder Spieltag-Navigation/Alle-Umschaltung auf seinem zuletzt ausgewerteten
+                // CanExecute-Stand eingefroren (AsyncRelayCommand fragt CanExecute nicht automatisch
+                // neu ab, siehe fehlende Requery bei WPF-Commands ohne CommandManager-Kopplung).
+                _spieltagZuruecksetzenBefehl.NotifyCanExecuteChanged();
                 SpieltagNavigiert?.Invoke();
                 break;
         }
@@ -1375,6 +1398,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         _gruppeSimulierenBefehl.NotifyCanExecuteChanged();
         _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
+        _spieltagZuruecksetzenBefehl.NotifyCanExecuteChanged();
         _zurueckZurUebersichtBefehl.NotifyCanExecuteChanged();
 
         if (istEchterGruppenwechsel)
@@ -1395,6 +1419,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 }
                 if (FokusSpieltage.Count > 0)
                     FokusAktiverSpieltag = FokusSpieltage[0];
+
+                // Issue #219-Nachbesserung: bei genau einem Spieltag bleibt die Alle/Einzeltag-
+                // Umschaltung in der View unsichtbar (HatMehrereSpieltage = false) — FokusAlleAktiv
+                // bliebe sonst dauerhaft "true" hängen, EffektiverSpieltag damit dauerhaft null und
+                // die Spieltag-Ribbon-Aktionen für einspieltägige Gruppen permanent deaktiviert.
+                if (FokusSpieltage.Count == 1)
+                    FokusAlleAktiv = false;
             }
         }
 
@@ -1415,9 +1446,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             ? GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gn)
             : null);
 
+    // Issue #219-Nachbesserung: FokusAktiverSpieltag hat nur Vorrang, solange die explizite
+    // Spieltag-Navigation (</>) innerhalb der Gruppenfilter-Ansicht tatsächlich einen Tag ausgewählt
+    // hat (!FokusAlleAktiv) — im "Alle Spieltage"-Sub-Zustand dieser Ansicht (weiterhin auf die Gruppe
+    // gefiltert, aber noch nicht auf einen Tag) muss wie in der ungefilterten Liste die Selektion des
+    // markierten Spiels greifen, sonst bleibt EffektiverSpieltag dort permanent null.
     private int? EffektiverSpieltag =>
-        AusgewaehlteGruppe is not null
-            ? (FokusAlleAktiv ? null : FokusAktiverSpieltag)
+        AusgewaehlteGruppe is not null && !FokusAlleAktiv
+            ? FokusAktiverSpieltag
             : AusgewaehlteSpiel?.Spieltag;
 
     // ── Simulation: CanExecute ─────────────────────────────────────────────────
@@ -1435,16 +1471,18 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         && Spiele.Any(s => s.GruppeNummer == gruppe.GruppenNummer
                          && s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
 
-    // Issue #100: Liga-Runden haben keine "Gruppe" (EffektiveGruppe bleibt dort immer null, da
-    // GruppenTabellen nur für Gruppenphase geladen wird) — Spieltag-Aktionen greifen für sie
-    // stattdessen direkt auf alle Spiele der Runde am effektiven Spieltag zu (kein Team-Filter nötig,
-    // eine Liga-Runde hat nur eine "Gruppe" = die gesamte Liga).
+    // Issue #219: Spieltag-Aktionen sollen nur bei einem EXPLIZITEN Gruppenfilter (AusgewaehlteGruppe,
+    // per Klick auf eine Gruppen-Karte im rechten Panel) auf eine Gruppe eingeschränkt werden — anders
+    // als bei "Gruppe simulieren/zurücksetzen" darf die bloße Selektion eines Spiels (EffektiveGruppe-
+    // Fallback aus #138) die Aktion nicht implizit auf dessen Gruppe begrenzen. Ohne expliziten Filter
+    // greift die Aktion daher rundenweit über alle Gruppen (analog zu SimulationsService.SpieltageSimulierenAsync,
+    // das ebenfalls nur nach Spieltag statt nach Team/Gruppe filtert).
     private IEnumerable<SpielZeile> SpieleAmEffektivenSpieltag()
     {
         if (EffektiverSpieltag is not { } spieltag) return [];
-        if (EffektiveGruppe is { } gruppe)
-            return Spiele.Where(s => s.GruppeNummer == gruppe.GruppenNummer && s.Spieltag == spieltag);
-        return IstLigaRunde ? Spiele.Where(s => s.Spieltag == spieltag) : [];
+        return AusgewaehlteGruppe is { } gruppe
+            ? Spiele.Where(s => s.GruppeNummer == gruppe.GruppenNummer && s.Spieltag == spieltag)
+            : Spiele.Where(s => s.Spieltag == spieltag);
     }
 
     private bool CanSpieltagSimulieren() =>
@@ -1588,8 +1626,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task SpieltagSimulierenAsync()
     {
         if (AusgewaehlteRunde is null || EffektiverSpieltag is not { } spieltag) return;
-        var effektiveGruppe = EffektiveGruppe;
-        if (effektiveGruppe is null && !IstLigaRunde) return;
 
         int rundeId  = AusgewaehlteRunde.Id;
         int? spielId = AusgewaehlteSpiel?.Id;
@@ -1597,7 +1633,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IstSimulierend = true;
         try
         {
-            if (effektiveGruppe is { } gruppe)
+            // Issue #219: nur bei explizitem Gruppenfilter (AusgewaehlteGruppe) auf eine Gruppe
+            // eingeschränkt, siehe SpieleAmEffektivenSpieltag.
+            if (AusgewaehlteGruppe is { } gruppe)
             {
                 var teamIds = gruppe.Tabelle.Select(t => t.Mannschaft.Id).ToList();
                 await _simulationsService.SpieltagInGruppeSimulierenAsync(
@@ -1802,14 +1840,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task SpieltagZuruecksetzenAsync()
     {
         if (AusgewaehlteRunde is null || EffektiverSpieltag is not { } spieltag) return;
-        var effektiveGruppe = EffektiveGruppe;
-        if (effektiveGruppe is null && !IstLigaRunde) return;
 
         var spielIds = SpieleAmEffektivenSpieltag().Where(s => s.HatErgebnis).Select(s => s.Id).ToList();
         if (spielIds.Count == 0) return;
         var kaskadenHinweis = await KaskadenHinweisAsync(spielIds);
 
-        var gruppenHinweis = effektiveGruppe is { } gruppe ? $" (Gruppe {gruppe.GruppenNummer})" : "";
+        // Issue #219: nur bei explizitem Gruppenfilter (AusgewaehlteGruppe) auf eine Gruppe
+        // eingeschränkt, siehe SpieleAmEffektivenSpieltag.
+        var gruppenHinweis = AusgewaehlteGruppe is { } gruppe ? $" (Gruppe {gruppe.GruppenNummer})" : "";
         var antwort = MessageBox.Show(
             $"Alle {spielIds.Count} Ergebnis(se) von Spieltag {spieltag}{gruppenHinweis} zurücksetzen?{kaskadenHinweis}",
             "Ergebnisse zurücksetzen", MessageBoxButton.YesNo, MessageBoxImage.Warning);
