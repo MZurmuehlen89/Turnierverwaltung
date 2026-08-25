@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Ranglisten.Eingaben;
+using Fussballturnierverwaltung.Application.Ranglisten.Import;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
@@ -8,9 +9,13 @@ using Spectre.Console;
 
 namespace Fussballturnierverwaltung.Konsole.Menues.Stammdaten;
 
-public class RanglisteMenue(RanglisteService ranglisteService, MannschaftService mannschaftService)
+public class RanglisteMenue(
+    RanglisteService ranglisteService,
+    MannschaftService mannschaftService,
+    RanglistenImportService importService,
+    RanglistenQuelleMenue quelleMenue)
 {
-    private enum Option { AlleAnzeigen, Details, NeuAnlegen, Loeschen, Zurueck }
+    private enum Option { AlleAnzeigen, Details, NeuAnlegen, ImportAusDemInternet, QuellenVerwalten, Loeschen, Zurueck }
 
     public async Task AnzeigenAsync(CancellationToken ct = default)
     {
@@ -22,14 +27,17 @@ public class RanglisteMenue(RanglisteService ranglisteService, MannschaftService
                 new SelectionPrompt<Option>()
                     .UseConverter(o => o switch
                     {
-                        Option.AlleAnzeigen => "Alle anzeigen",
-                        Option.Details      => "Details anzeigen",
-                        Option.NeuAnlegen   => "Neue Rangliste anlegen",
-                        Option.Loeschen     => "Rangliste löschen",
-                        Option.Zurueck      => "← Zurück",
-                        _                   => o.ToString()
+                        Option.AlleAnzeigen          => "Alle anzeigen",
+                        Option.Details               => "Details anzeigen",
+                        Option.NeuAnlegen            => "Neue Rangliste anlegen",
+                        Option.ImportAusDemInternet  => "Aus dem Internet importieren",
+                        Option.QuellenVerwalten      => "Import-Quellen verwalten",
+                        Option.Loeschen              => "Rangliste löschen",
+                        Option.Zurueck               => "← Zurück",
+                        _                            => o.ToString()
                     })
-                    .AddChoices(Option.AlleAnzeigen, Option.Details, Option.NeuAnlegen, Option.Loeschen, Option.Zurueck));
+                    .AddChoices(Option.AlleAnzeigen, Option.Details, Option.NeuAnlegen,
+                        Option.ImportAusDemInternet, Option.QuellenVerwalten, Option.Loeschen, Option.Zurueck));
 
             if (auswahl == Option.Zurueck) break;
 
@@ -42,10 +50,12 @@ public class RanglisteMenue(RanglisteService ranglisteService, MannschaftService
     {
         switch (auswahl)
         {
-            case Option.AlleAnzeigen: await AlleAnzeigenAsync(ct); break;
-            case Option.Details:      await DetailsAnzeigenAsync(ct); break;
-            case Option.NeuAnlegen:   await NeuAnlegenAsync(ct); break;
-            case Option.Loeschen:     await LoeschenAsync(ct); break;
+            case Option.AlleAnzeigen:         await AlleAnzeigenAsync(ct); break;
+            case Option.Details:              await DetailsAnzeigenAsync(ct); break;
+            case Option.NeuAnlegen:           await NeuAnlegenAsync(ct); break;
+            case Option.ImportAusDemInternet: await ImportAusDemInternetAsync(ct); break;
+            case Option.QuellenVerwalten:     await quelleMenue.AnzeigenAsync(ct); break;
+            case Option.Loeschen:             await LoeschenAsync(ct); break;
         }
     }
 
@@ -137,6 +147,77 @@ public class RanglisteMenue(RanglisteService ranglisteService, MannschaftService
 
         AnsiConsole.WriteLine();
         KonsolenHilfsmittel.ErfolgAnzeigen($"Rangliste '{neu.Name}' angelegt (ID {neu.Id}).");
+        KonsolenHilfsmittel.Pause();
+    }
+
+    private async Task ImportAusDemInternetAsync(CancellationToken ct)
+    {
+        KonsolenHilfsmittel.Kopf("Rangliste aus dem Internet importieren");
+
+        var quelle = await quelleMenue.AuswaehlenAsync("Quelle:", ct);
+        if (quelle is null) return;
+
+        var vorschau = await AnsiConsole.Status()
+            .StartAsync("Rufe Rangliste ab...", async _ => await importService.VorschauAbrufenAsync(quelle, ct));
+
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine($"[grey]{vorschau.Aufgeloest.Count} automatisch zugeordnet, {vorschau.Unaufgeloest.Count} nicht erkannt.[/]");
+
+        var alleTeams = await mannschaftService.AlleAbrufenAsync(ct);
+        var bereitsVergeben = vorschau.Aufgeloest.Select(z => z.Mannschaft.Id).ToHashSet();
+        var zuordnung = new Dictionary<int, Mannschaft?>();
+
+        foreach (var zeile in vorschau.Unaufgeloest.OrderBy(z => z.Index))
+        {
+            var verbleibend = alleTeams.Where(t => !bereitsVergeben.Contains(t.Id)).ToList();
+            var auswahl = AnsiConsole.Prompt(new SelectionPrompt<Mannschaft?>()
+                .Title($"'{Markup.Escape(zeile.RohName)}' zuordnen:")
+                .UseConverter(t => t is null ? "→ Überspringen" : t.Name)
+                .EnableSearch()
+                .AddChoices(verbleibend.Cast<Mannschaft?>().Append(null)));
+
+            zuordnung[zeile.Index] = auswahl;
+            if (auswahl is not null) bereitsVergeben.Add(auswahl.Id);
+        }
+
+        var eintraege = importService.EintraegeErstellen(vorschau, zuordnung);
+        if (eintraege.Count == 0)
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen("Keine Einträge zum Importieren (alle Zeilen übersprungen).");
+            KonsolenHilfsmittel.Pause();
+            return;
+        }
+
+        AnsiConsole.WriteLine();
+        var name = KonsolenHilfsmittel.TextEingeben("Name", quelle.Name);
+        var datum = AnsiConsole.Prompt(new TextPrompt<DateOnly>("Datum (yyyy-MM-dd):").DefaultValue(DateOnly.FromDateTime(DateTime.Today)));
+        var quelleText = KonsolenHilfsmittel.TextEingeben("Quelle", $"{quelle.Name} ({quelle.Url})");
+
+        var vorhandene = await ranglisteService.AlleAbrufenAsync(ct);
+        Rangliste? ziel = null;
+        if (vorhandene.Count > 0 && AnsiConsole.Confirm("Bestehende Rangliste aktualisieren statt neu anzulegen?", defaultValue: false))
+        {
+            ziel = await AuswaehlenAsync("Zu aktualisierende Rangliste:", ct);
+            if (ziel is null) return;
+        }
+
+        if (ziel is not null)
+        {
+            KonsolenHilfsmittel.WarnungAnzeigen($"Alle bisherigen Einträge von '{ziel.Name}' werden ersetzt.");
+            if (!KonsolenHilfsmittel.Bestaetigen("Fortfahren?"))
+            { KonsolenHilfsmittel.WarnungAnzeigen("Abgebrochen."); KonsolenHilfsmittel.Pause(); return; }
+
+            var aktualisierenEingabe = new RanglisteAktualisierenEingabe(name, datum, quelleText, eintraege);
+            await ranglisteService.AktualisierenAsync(ziel.Id, aktualisierenEingabe, ct);
+            KonsolenHilfsmittel.ErfolgAnzeigen($"'{name}' aktualisiert: {eintraege.Count} Einträge.");
+        }
+        else
+        {
+            var erstellenEingabe = new RanglisteErstellenEingabe(name, datum, quelleText, eintraege);
+            var neu = await ranglisteService.ErstellenAsync(erstellenEingabe, ct);
+            KonsolenHilfsmittel.ErfolgAnzeigen($"Rangliste '{neu.Name}' angelegt (ID {neu.Id}): {eintraege.Count} Einträge.");
+        }
+
         KonsolenHilfsmittel.Pause();
     }
 
