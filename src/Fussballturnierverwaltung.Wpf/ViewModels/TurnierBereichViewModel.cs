@@ -122,8 +122,13 @@ public partial class TurnierBereichViewModel : ViewModelBase, IRibbonAware, IHat
         {
             AusgewaehlteInstanz = null;
         }
-        else if (AusgewaehlteInstanz is null)
+        else if (AusgewaehlteInstanz?.Id != _turnierAuswahlService.TurnierInstanzId)
         {
+            // Issue #218: die geteilte Turnierauswahl (TurnierTabKoordinator, Ribbon-Dropdown) lebt in
+            // _turnierAuswahlService.TurnierInstanzId, unabhängig von der eigenen AusgewaehlteInstanz
+            // dieses Composites. Ein reiner Vergleich "AusgewaehlteInstanz is null" (wie vor #218)
+            // erkennt einen erneuten Turnierwechsel bei bereits aktivem Tab nicht, da die alte Instanz
+            // i.d.R. weiterhin in Instanzen enthalten ist — die neue Auswahl wurde dann nie nachgeladen.
             AusgewaehlteInstanz = Instanzen.FirstOrDefault(
                 i => i.Id == _turnierAuswahlService.TurnierInstanzId);
         }
