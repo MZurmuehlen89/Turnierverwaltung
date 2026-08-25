@@ -5,6 +5,82 @@
              xmlns:tabelle="clr-namespace:Fussballturnierverwaltung.Application.Tabelle;assembly=Fussballturnierverwaltung.Application"
              xmlns:enums="clr-namespace:Fussballturnierverwaltung.Domain.Enums;assembly=Fussballturnierverwaltung.Domain">
 
+    <UserControl.Resources>
+        <!-- Gemeinsame Tabellenzeile für Gruppen-Karten (Issue #137) und gruppenübergreifende
+             Rangfolge-Karten (Issue #212) — gleiche Qualifikationsstatus-Ampel/SicherPositioniert-Optik. -->
+        <DataTemplate x:Key="TabellenEintragZeileTemplate" DataType="{x:Type tabelle:TabellenEintrag}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="26" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="24" />
+                    <ColumnDefinition Width="46" />
+                    <ColumnDefinition Width="32" />
+                    <ColumnDefinition Width="28" />
+                </Grid.ColumnDefinitions>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Qualifikationsstatus}" Value="{x:Static enums:Qualifikationsstatus.SicherQualifiziert}">
+                                <Setter Property="Background" Value="{StaticResource SuccessSoftBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Qualifikationsstatus}" Value="{x:Static enums:Qualifikationsstatus.SicherAusgeschieden}">
+                                <Setter Property="Background" Value="{StaticResource ErrorSoftBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <StackPanel Grid.Column="0" Orientation="Horizontal"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Margin="4,6,0,6">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SicherPositioniert}" Value="True">
+                                    <Setter Property="ToolTip" Value="Position steht endgültig fest" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <Ellipse Width="6" Height="6" Margin="0,0,3,0"
+                             Fill="{Binding Qualifikationsstatus, Converter={StaticResource QualifikationsstatusZuFarbe}}" />
+                    <TextBlock Text="{Binding Rang}" FontSize="12">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SicherPositioniert}" Value="True">
+                                        <Setter Property="FontWeight" Value="Bold" />
+                                        <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{Binding Mannschaft.Name}"
+                           FontSize="12" TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" Padding="4,6" />
+                <TextBlock Grid.Column="2" Text="{Binding Spiele}"
+                           FontSize="12" Foreground="{StaticResource TextBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
+                <TextBlock Grid.Column="3"
+                           FontSize="12" Foreground="{StaticResource TextBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6">
+                    <Run Text="{Binding Tore}" /><Run Text=":" /><Run Text="{Binding Gegentore}" />
+                </TextBlock>
+                <TextBlock Grid.Column="4" Text="{Binding Tordifferenz}"
+                           FontSize="12" Foreground="{StaticResource TextBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
+                <TextBlock Grid.Column="5" Text="{Binding Punkte}"
+                           FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextStrongBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6,6,6" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
     <DockPanel>
 
         <!-- ── Hauptbereich ── -->
@@ -312,8 +388,8 @@
                                    TextWrapping="Wrap" TextAlignment="Center"
                                    Visibility="{Binding HatGruppenTabellenAnzeige, Converter={StaticResource InverseBoolToVisibility}}" />
 
-                        <ItemsControl ItemsSource="{Binding AnzeigeGruppenTabellen}"
-                                      Visibility="{Binding HatGruppenTabellenAnzeige, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Visibility="{Binding HatGruppenTabellenAnzeige, Converter={StaticResource BoolToVisibility}}">
+                        <ItemsControl ItemsSource="{Binding AnzeigeGruppenTabellen}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel Orientation="Horizontal" />
@@ -379,81 +455,8 @@
                                             <Rectangle Height="1" Fill="{StaticResource BorderBrush}" />
 
                                             <!-- Tabellen-Einträge -->
-                                            <ItemsControl ItemsSource="{Binding Tabelle}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate DataType="{x:Type tabelle:TabellenEintrag}">
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="26" />
-                                                                <ColumnDefinition Width="*" />
-                                                                <ColumnDefinition Width="24" />
-                                                                <ColumnDefinition Width="46" />
-                                                                <ColumnDefinition Width="32" />
-                                                                <ColumnDefinition Width="28" />
-                                                            </Grid.ColumnDefinitions>
-                                                            <Grid.Style>
-                                                                <Style TargetType="Grid">
-                                                                    <Setter Property="Background" Value="Transparent" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding Qualifikationsstatus}" Value="{x:Static enums:Qualifikationsstatus.SicherQualifiziert}">
-                                                                            <Setter Property="Background" Value="{StaticResource SuccessSoftBrush}" />
-                                                                        </DataTrigger>
-                                                                        <DataTrigger Binding="{Binding Qualifikationsstatus}" Value="{x:Static enums:Qualifikationsstatus.SicherAusgeschieden}">
-                                                                            <Setter Property="Background" Value="{StaticResource ErrorSoftBrush}" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </Grid.Style>
-                                                            <StackPanel Grid.Column="0" Orientation="Horizontal"
-                                                                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                        Margin="4,6,0,6">
-                                                                <StackPanel.Style>
-                                                                    <Style TargetType="StackPanel">
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding SicherPositioniert}" Value="True">
-                                                                                <Setter Property="ToolTip" Value="Position steht endgültig fest" />
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </StackPanel.Style>
-                                                                <Ellipse Width="6" Height="6" Margin="0,0,3,0"
-                                                                         Fill="{Binding Qualifikationsstatus, Converter={StaticResource QualifikationsstatusZuFarbe}}" />
-                                                                <TextBlock Text="{Binding Rang}" FontSize="12">
-                                                                    <TextBlock.Style>
-                                                                        <Style TargetType="TextBlock">
-                                                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                                                            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
-                                                                            <Style.Triggers>
-                                                                                <DataTrigger Binding="{Binding SicherPositioniert}" Value="True">
-                                                                                    <Setter Property="FontWeight" Value="Bold" />
-                                                                                    <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
-                                                                                </DataTrigger>
-                                                                            </Style.Triggers>
-                                                                        </Style>
-                                                                    </TextBlock.Style>
-                                                                </TextBlock>
-                                                            </StackPanel>
-                                                            <TextBlock Grid.Column="1" Text="{Binding Mannschaft.Name}"
-                                                                       FontSize="12" TextTrimming="CharacterEllipsis"
-                                                                       VerticalAlignment="Center" Padding="4,6" />
-                                                            <TextBlock Grid.Column="2" Text="{Binding Spiele}"
-                                                                       FontSize="12" Foreground="{StaticResource TextBrush}"
-                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
-                                                            <TextBlock Grid.Column="3"
-                                                                       FontSize="12" Foreground="{StaticResource TextBrush}"
-                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6">
-                                                                <Run Text="{Binding Tore}" /><Run Text=":" /><Run Text="{Binding Gegentore}" />
-                                                            </TextBlock>
-                                                            <TextBlock Grid.Column="4" Text="{Binding Tordifferenz}"
-                                                                       FontSize="12" Foreground="{StaticResource TextBrush}"
-                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
-                                                            <TextBlock Grid.Column="5" Text="{Binding Punkte}"
-                                                                       FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextStrongBrush}"
-                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6,6,6" />
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
+                                            <ItemsControl ItemsSource="{Binding Tabelle}"
+                                                          ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
 
                                         </StackPanel>
                                     </Border>
@@ -461,6 +464,83 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+
+                        <!-- Gruppenübergreifende Rangfolge-Regeln (Issue #184/#212) -->
+                        <ItemsControl ItemsSource="{Binding UebergreifendeRangfolgenAnzeige}"
+                                      Visibility="{Binding HatUebergreifendeRangfolgenAnzeige, Converter={StaticResource BoolToVisibility}}"
+                                      Margin="0,12,0,0">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:UebergreifendeRangfolgeAnzeige}">
+                                    <Border Width="290"
+                                            Background="White"
+                                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                            CornerRadius="{StaticResource Radius8}"
+                                            Margin="0,0,12,12">
+                                        <StackPanel>
+
+                                            <!-- Card-Header -->
+                                            <Border Background="{StaticResource AccentDarkBrush}"
+                                                    CornerRadius="8,8,0,0" Padding="12,8">
+                                                <StackPanel>
+                                                    <TextBlock Foreground="White" FontWeight="Bold" FontSize="13">
+                                                        <Run Text="Platz " />
+                                                        <Run Text="{Binding Platzierung}" />
+                                                        <Run Text=" gruppenübergreifend" />
+                                                    </TextBlock>
+                                                    <TextBlock Foreground="White" FontSize="10" Opacity="0.85">
+                                                        <Run Text="beste " /><Run Text="{Binding AnzahlBeste}" />
+                                                        <Run Text=" → " /><Run Text="{Binding ZielRundeName}" />
+                                                    </TextBlock>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!-- Tabellen-Kopfzeile -->
+                                            <Grid Background="{StaticResource SurfaceBrush}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="26" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="24" />
+                                                    <ColumnDefinition Width="46" />
+                                                    <ColumnDefinition Width="32" />
+                                                    <ColumnDefinition Width="28" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="#"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           HorizontalAlignment="Center" Padding="6,5,0,5" />
+                                                <TextBlock Grid.Column="1" Text="Team"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           Padding="4,5" />
+                                                <TextBlock Grid.Column="2" Text="Sp"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           HorizontalAlignment="Center" Padding="0,5" />
+                                                <TextBlock Grid.Column="3" Text="Tore"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           HorizontalAlignment="Center" Padding="0,5" />
+                                                <TextBlock Grid.Column="4" Text="Diff"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           HorizontalAlignment="Center" Padding="0,5" />
+                                                <TextBlock Grid.Column="5" Text="Pkt"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           HorizontalAlignment="Center" Padding="0,5,6,5" />
+                                            </Grid>
+
+                                            <Rectangle Height="1" Fill="{StaticResource BorderBrush}" />
+
+                                            <!-- Tabellen-Einträge -->
+                                            <ItemsControl ItemsSource="{Binding Rangfolge}"
+                                                          ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
+
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        </StackPanel>
                     </Grid>
                     </ScrollViewer>
                 </DockPanel>

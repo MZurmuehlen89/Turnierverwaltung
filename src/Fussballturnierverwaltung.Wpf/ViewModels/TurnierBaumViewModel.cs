@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Spiele;
+using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
@@ -49,12 +50,24 @@ public class BracketLinie
     public double Y2 { get; init; }
 }
 
+// Issue #212: Anzeige einer gruppenübergreifenden Rangfolge-Regel (Issue #184, Uebergangsregel.AnzahlBeste
+// gesetzt) — analog zur GruppenTabelle-Karte, aber mit den Kandidaten einer festen Platzierung (z.B. "Platz 3")
+// über alle Gruppen der Quellrunde hinweg.
+public class UebergreifendeRangfolgeAnzeige
+{
+    public int Platzierung { get; init; }
+    public int AnzahlBeste { get; init; }
+    public string ZielRundeName { get; init; } = "";
+    public IReadOnlyList<TabellenEintrag> Rangfolge { get; init; } = [];
+}
+
 // ── ViewModel ─────────────────────────────────────────────────────────────────
 
 public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 {
-    private readonly TurnierBaumService _baumService;
-    private readonly TabellenService    _tabellenService;
+    private readonly TurnierBaumService     _baumService;
+    private readonly TabellenService        _tabellenService;
+    private readonly UebergangsregelService _uebergangsregelService;
 
     private const double NODE_W  = 185.0;
     private const double NODE_H  = 90.0;
@@ -113,6 +126,13 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     [NotifyPropertyChangedFor(nameof(HatLigaTabelleAnzeige))]
     private ObservableCollection<TabellenEintrag> _ligaTabelleAnzeige = [];
     public bool HatLigaTabelleAnzeige => LigaTabelleAnzeige.Count > 0;
+
+    // Issue #212: gruppenübergreifende Rangfolge-Regeln (Issue #184) der fokussierten Gruppenphase-Runde —
+    // zusätzlich zu den Gruppen-Karten oben, eine Karte je Regel mit AnzahlBeste gesetzt.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatUebergreifendeRangfolgenAnzeige))]
+    private ObservableCollection<UebergreifendeRangfolgeAnzeige> _uebergreifendeRangfolgenAnzeige = [];
+    public bool HatUebergreifendeRangfolgenAnzeige => UebergreifendeRangfolgenAnzeige.Count > 0;
 
     // ── Bidirektionale Fokus-Reaktivität (Issue #138, Phase B von #33) ────────
     // Kopplungsmodell (nach manuellem Testdurchlauf überarbeitet): primär an
@@ -197,6 +217,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             {
                 var tabellen = await _tabellenService.GruppenTabellenBerechnenAsync(_fokusRunde.Id, TabellenBisSpieltag);
                 GruppenTabellenAnzeige = new ObservableCollection<GruppenTabelle>(tabellen);
+                await UebergreifendeRangfolgenLadenAsync();
             }
             else if (ZeigtLigaTabelle)
             {
@@ -208,6 +229,52 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         {
             Fehlermeldung = ex.Message;
         }
+    }
+
+    /// <summary>Lädt die Kandidaten-Rangfolge je gruppenübergreifender Übergangsregel (Issue #184) der
+    /// fokussierten Quellrunde. Kein bisSpieltag-Snapshot (Issue #141) — <see cref="TabellenService.UebergreifendeRangfolgeBerechnenAsync"/>
+    /// unterstützt das nicht, analog zur bewusst konservativen Gesamtrunden-Gate-Logik in
+    /// <c>SpielplanService.BesteNAufloesenAsync</c> (keine historische Ansicht für diesen Sonderfall nötig).
+    /// Die Qualifikationsstatus-Ampel wird erst gesetzt, wenn <see cref="UebergangsregelService.QualifikantenErmittelnAsync"/>
+    /// für ALLE AnzahlBeste-Plätze ein Ergebnis liefert (Quellrunde vollständig abgeschlossen) — bis dahin bleibt
+    /// sie auf "Offen", da ein optimistischer Cross-Group-Vorgriff wie bei #202/#206 hier bewusst nicht
+    /// implementiert ist.</summary>
+    private async Task UebergreifendeRangfolgenLadenAsync()
+    {
+        if (_fokusRunde is null) { UebergreifendeRangfolgenAnzeige = []; return; }
+
+        var regeln = (await _uebergangsregelService.AlleNachQuellRundeIdAsync(_fokusRunde.Id))
+            .Where(r => r.AnzahlBeste is not null)
+            .ToList();
+
+        var anzeigen = new List<UebergreifendeRangfolgeAnzeige>();
+        foreach (var regel in regeln)
+        {
+            var rangfolge = await _tabellenService.UebergreifendeRangfolgeBerechnenAsync(regel.QuellRundeId, regel.PlatzierungVon);
+            var qualifikanten = await _uebergangsregelService.QualifikantenErmittelnAsync(regel.Id);
+
+            if (qualifikanten.Values.All(v => v.HasValue))
+            {
+                var qualifizierteIds = qualifikanten.Values.Select(v => v!.Value).ToHashSet();
+                foreach (var eintrag in rangfolge)
+                {
+                    eintrag.Qualifikationsstatus = qualifizierteIds.Contains(eintrag.Mannschaft.Id)
+                        ? Qualifikationsstatus.SicherQualifiziert
+                        : Qualifikationsstatus.SicherAusgeschieden;
+                    eintrag.SicherPositioniert = true;
+                }
+            }
+
+            anzeigen.Add(new UebergreifendeRangfolgeAnzeige
+            {
+                Platzierung   = regel.PlatzierungVon,
+                AnzahlBeste   = regel.AnzahlBeste!.Value,
+                ZielRundeName = regel.ZielRunde.Name,
+                Rangfolge     = rangfolge
+            });
+        }
+
+        UebergreifendeRangfolgenAnzeige = new ObservableCollection<UebergreifendeRangfolgeAnzeige>(anzeigen);
     }
 
     public string  RibbonTabTitel  => "Turnierbaum";
@@ -246,10 +313,11 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     private readonly RelayCommand<BracketKnotenAnzeige>  _knotenAngeklicktBefehl;
     private readonly RelayCommand<GruppenTabelle>        _gruppeAngeklicktBefehl;
 
-    public TurnierBaumViewModel(TurnierBaumService baumService, TabellenService tabellenService)
+    public TurnierBaumViewModel(TurnierBaumService baumService, TabellenService tabellenService, UebergangsregelService uebergangsregelService)
     {
-        _baumService     = baumService;
-        _tabellenService = tabellenService;
+        _baumService             = baumService;
+        _tabellenService         = tabellenService;
+        _uebergangsregelService  = uebergangsregelService;
 
         // ZeigtBracket-Gating (Issue #163): die 3 Baum-Aktionen ergeben nur im K.-o.-Bracket Sinn
         // (Liga/Gruppenphase zeigen stattdessen eine Tabelle) — vormals über die Sichtbarkeit der
