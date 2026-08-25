@@ -16,6 +16,9 @@ public static class TurnierVorlagenSeedDaten
         UefaEm8Teams(regelwerkLookup),
         UefaChampionsLeague32TeamsKlassisch(regelwerkLookup),
         UefaChampionsLeague32TeamsModern(regelwerkLookup),
+        UefaChampionsLeague36TeamsModern(regelwerkLookup),
+        UefaEuropaLeague36Teams(regelwerkLookup),
+        UefaConferenceLeague36Teams(regelwerkLookup),
         DfbPokal64Teams(regelwerkLookup),
         MiniTurnier8Teams(regelwerkLookup),
         MiniTurnier4Teams(regelwerkLookup),
@@ -199,6 +202,58 @@ public static class TurnierVorlagenSeedDaten
         return v;
     }
 
+    // ── UEFA Clubwettbewerbe (aktuelles Format, 2024+) ─────────────────────────
+
+    private static TurnierVorlage UefaChampionsLeague36TeamsModern(IReadOnlyDictionary<string, int>? rw) =>
+        UefaClubwettbewerbModern(rw, "UEFA Champions League (36 Teams, ab 2024/25)");
+
+    private static TurnierVorlage UefaEuropaLeague36Teams(IReadOnlyDictionary<string, int>? rw) =>
+        UefaClubwettbewerbModern(rw, "UEFA Europa League (36 Teams, ab 2024/25)");
+
+    private static TurnierVorlage UefaConferenceLeague36Teams(IReadOnlyDictionary<string, int>? rw) =>
+        UefaClubwettbewerbModern(rw, "UEFA Conference League (36 Teams, ab 2024/25)");
+
+    // Gemeinsame Struktur für CL/EL/ECL seit 2024/25 (Issue #25-Nachlieferung, freigegeben durch #29):
+    // Ligaphase (36 Teams, je 8 Gegner statt voller Punktrunde) → Platz 1–8 direkt ins Achtelfinale,
+    // Platz 9–24 in die zweibeinige Playoff-Runde, deren 8 Sieger die restlichen Achtelfinal-Plätze
+    // füllen. Das Achtelfinale hat damit zwei Quellrunden — genau der Fall, für den strukturierte
+    // Übergangsregeln (statt linearer Eingangs-/Ausgangszahl) eingeführt wurden.
+    private static TurnierVorlage UefaClubwettbewerbModern(IReadOnlyDictionary<string, int>? rw, string name)
+    {
+        var v = new TurnierVorlage
+        {
+            Name = name,
+            Beschreibung = "Ligaphase (36 Teams, je 8 Gegner) → Platz 1–8 direkt ins Achtelfinale, " +
+                           "Platz 9–24 in die Playoff-Runde (Hin-/Rückspiel) → Achtelfinale → Viertelfinale → " +
+                           "Halbfinale → Finale (Einzelspiel); keine Auswärtstorregel",
+            ErforderlicheMannschaftsanzahl = 36,
+            VorlagenKategorie = VorlagenKategorie.Vereinspokal,
+            IstHistorisch = false,
+            GueltigVon = new DateOnly(2024, 1, 1),
+        };
+        int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
+
+        var liga          = Runde(1, "Ligaphase",       Rundenart.SchweizerSystem, 36, 24, regelwerkId: rId);
+        var playoff       = Runde(2, "Playoff-Runde",   Rundenart.KoRunde,         16,  8, mitRueckspiel: true, regelwerkId: rId);
+        var achtelfinale  = Runde(3, "Achtelfinale",    Rundenart.KoRunde,         16,  8, mitRueckspiel: true, regelwerkId: rId);
+        var viertelfinale = Runde(4, "Viertelfinale",   Rundenart.KoRunde,          8,  4, mitRueckspiel: true, regelwerkId: rId);
+        var halbfinale    = Runde(5, "Halbfinale",      Rundenart.KoRunde,          4,  2, mitRueckspiel: true, regelwerkId: rId);
+        var finale        = Runde(6, "Finale",          Rundenart.Finale,           2,  1, regelwerkId: rId);
+
+        Uebergang(liga, achtelfinale, gruppeIndex: null, platzierungVon: 1, platzierungBis: 8);
+        Uebergang(liga, playoff,      gruppeIndex: null, platzierungVon: 9, platzierungBis: 24);
+        for (int spiel = 1; spiel <= 8; spiel++)
+            Uebergang(playoff, achtelfinale, gruppeIndex: spiel, platzierungVon: 1, platzierungBis: 1);
+
+        v.VorlagenRunden.Add(liga);
+        v.VorlagenRunden.Add(playoff);
+        v.VorlagenRunden.Add(achtelfinale);
+        v.VorlagenRunden.Add(viertelfinale);
+        v.VorlagenRunden.Add(halbfinale);
+        v.VorlagenRunden.Add(finale);
+        return v;
+    }
+
     // ── FIFA Klubwettbewerbe ───────────────────────────────────────────────────
 
     private static TurnierVorlage FifaKlubWm32Teams(IReadOnlyDictionary<string, int>? rw)
@@ -306,4 +361,16 @@ public static class TurnierVorlagenSeedDaten
         MitRueckspiel             = mitRueckspiel,
         RegelwerkId               = regelwerkId,
     };
+
+    // Verdrahtet eine VorlagenUebergangsRegel per Objektreferenz, da Quelle/Ziel vor dem Speichern noch
+    // keine reale Id haben — EF Core löst die Fremdschlüssel beim SaveChanges über den Objektgraphen auf.
+    private static void Uebergang(VorlagenRunde quelle, VorlagenRunde ziel, int? gruppeIndex, int platzierungVon, int platzierungBis)
+        => quelle.AusgehendeUebergangsregeln.Add(new VorlagenUebergangsRegel
+        {
+            QuellVorlagenRunde = quelle,
+            ZielVorlagenRunde  = ziel,
+            GruppeIndex        = gruppeIndex,
+            PlatzierungVon     = platzierungVon,
+            PlatzierungBis     = platzierungBis,
+        });
 }

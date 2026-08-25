@@ -910,6 +910,63 @@ public class SpielplanServiceTests
         platz1.Should().Be(1); // Team A: 3 Punkte, Tordifferenz +3 → Rang 1
     }
 
+    private static void SchweizerSystemGrundSetupAnlegen(TurnierverwaltungDbContext ctx, out int rundeId)
+    {
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        var runde = new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Ligaphase", Reihenfolge = 1,
+            Rundenart = Rundenart.SchweizerSystem, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 4,
+            RegelwerkId = 1
+        };
+        ctx.TurnierRunden.Add(runde);
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team A", Kurzname = "TA", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team B", Kurzname = "TB", LandId = 1 },
+            new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 },
+            new Mannschaft { Id = 4, Name = "Team D", Kurzname = "TD", LandId = 1 });
+        ctx.SaveChanges();
+        rundeId = runde.Id;
+    }
+
+    [Fact]
+    public async Task UebergangsregelPlatzAufloesenAsync_SchweizerSystemQuelle_LoestTabellenrangAuf()
+    {
+        // Issue #25-Nachlieferung: Ligaphase im CL-2024+-Format nutzt SchweizerSystem statt Liga
+        // (Teilrunde, nicht volle Punktrunde) — Rangauflösung muss denselben Tabellenweg gehen wie Liga.
+        await using var ctx = NeuerContext();
+        SchweizerSystemGrundSetupAnlegen(ctx, out int ligaphaseRundeId);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 1, TurnierInstanzId = 1, TurnierRundeId = ligaphaseRundeId, Spielnummer = 1,
+            HeimMannschaftId = 1, AuswaertsMannschaftId = 2, Status = SpielStatus.Abgeschlossen
+        });
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+            { Id = 1, SpielId = 1, HeimToreRegulaer = 3, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 2, TurnierInstanzId = 1, TurnierRundeId = ligaphaseRundeId, Spielnummer = 2,
+            HeimMannschaftId = 3, AuswaertsMannschaftId = 4, Status = SpielStatus.Abgeschlossen
+        });
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+            { Id = 2, SpielId = 2, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
+        ctx.SaveChanges();
+
+        var ligaphaseRunde = ctx.TurnierRunden.First(r => r.Id == ligaphaseRundeId);
+        var regel = new Uebergangsregel
+        {
+            QuellRundeId = ligaphaseRundeId, QuellRunde = ligaphaseRunde, ZielRundeId = 999,
+            GruppeIndex = null, PlatzierungVon = 1, PlatzierungBis = 1
+        };
+        var service = ServiceFuer(ctx);
+
+        var platz1 = await service.UebergangsregelPlatzAufloesenAsync(regel, 1);
+
+        platz1.Should().Be(1); // Team A: 3 Punkte, Tordifferenz +3 → Rang 1
+    }
+
     [Fact]
     public async Task UebergangsregelPlatzAufloesenAsync_KoRundeQuelle_LoestSiegerUndVerliererAuf()
     {

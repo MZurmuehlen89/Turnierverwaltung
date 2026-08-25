@@ -143,7 +143,9 @@ public partial class UebergangsregelBlock : ObservableObject
 
     public bool IstNeu => Zeilen.Count == 0 || Zeilen.All(z => z.Id is null);
     public bool IstGruppenphase => QuellRunde?.Rundenart == Rundenart.Gruppenphase;
-    public bool IstLiga => QuellRunde?.Rundenart == Rundenart.Liga;
+    // SchweizerSystem teilt sich die Liga-Darstellung (Issue #25-Nachlieferung): Teilrunde statt voller
+    // Punktrunde, aber genauso eine reine Tabellenrang-Platzierung ohne Gruppenindex/Spielnummer.
+    public bool IstLiga => QuellRunde?.Rundenart is Rundenart.Liga or Rundenart.SchweizerSystem;
     public bool IstKoSonderfall => QuellRunde is not null && !IstGruppenphase && !IstLiga;
 
     /// <summary>Erstellt einen neuen, leeren Block. <paramref name="fixierteRunde"/> ist die aktuell im
@@ -242,7 +244,7 @@ public partial class UebergangsregelBlock : ObservableObject
         }
         else
         {
-            var zeile = new UebergangsregelZeile { GruppeIndex = value.Rundenart == Rundenart.Liga ? null : 1 };
+            var zeile = new UebergangsregelZeile { GruppeIndex = value.Rundenart is Rundenart.Liga or Rundenart.SchweizerSystem ? null : 1 };
             zeile.WerteSetzenOhneAbweichung(StandardPlatzierungVon, StandardPlatzierungBis);
             Zeilen.Add(zeile);
         }
@@ -814,6 +816,15 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                     Ziel: eintragNachVorlagenRundeId[regel.ZielVorlagenRundeId],
                     regel.GruppeIndex, regel.PlatzierungVon, regel.PlatzierungBis, regel.AnzahlBeste))
                 .ToList();
+
+            // Issue #25-Nachlieferung: bei nicht-linearen Vorlagen (z.B. UEFA-Ligaphase → zwei Zielrunden)
+            // sonst falscher "Ausgang != Eingang der Folgerunde"-Fehler in BerechneRundenFehler, weil die
+            // Zielrunden noch keine reale Id haben und LadeUebergangsregelnAsync (setzt das Flag normalerweise
+            // aus persistierten Uebergangsregeln ab) erst nach dem ersten Speichern greifen kann — die
+            // Kettenprüfung hier also schon vor dem ersten Speichern deaktivieren, analog zu EingangAusRegelnAbleiten.
+            foreach (var ziel in _vorlagenUebergangsregelnPending.Select(p => p.Ziel).Distinct())
+                ziel.EingangUeberUebergangsregeln = true;
+            AktualisiereRundenFehler();
 
             IsDirty = true;
         }

@@ -61,6 +61,7 @@ internal static class UebergangsregelFeldValidierung
                 break;
 
             case Rundenart.Liga:
+            case Rundenart.SchweizerSystem:
                 if (gruppeIndex is not null)
                     fehler.Add("Für eine Liga-Runde als Quellrunde darf kein Gruppenindex angegeben werden.");
                 if (platzierungBis > quellEingangsMannschaftsanzahl)

@@ -23,6 +23,11 @@ public class UebergangsregelValidatorTests
         Id = 1, Name = "Liga-Phase", Rundenart = Rundenart.Liga, EingangsMannschaftsanzahl = eingangsMannschaftsanzahl
     };
 
+    private static TurnierRunde SchweizerSystem(int eingangsMannschaftsanzahl = 36) => new()
+    {
+        Id = 1, Name = "Ligaphase", Rundenart = Rundenart.SchweizerSystem, EingangsMannschaftsanzahl = eingangsMannschaftsanzahl
+    };
+
     private static TurnierRunde KoRunde(int eingangsMannschaftsanzahl = 16) => new()
     {
         Id = 1, Name = "Sechzehntelfinale", Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = eingangsMannschaftsanzahl
@@ -43,6 +48,13 @@ public class UebergangsregelValidatorTests
     {
         var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 8);
         _validator.Validieren(eingabe, Liga(eingangsMannschaftsanzahl: 36), Ziel(eingangsMannschaftsanzahl: 8), _keineRegeln).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void GueltigeSchweizerSystemRegel_IstGueltig()
+    {
+        var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 8);
+        _validator.Validieren(eingabe, SchweizerSystem(eingangsMannschaftsanzahl: 36), Ziel(eingangsMannschaftsanzahl: 8), _keineRegeln).IstGueltig.Should().BeTrue();
     }
 
     [Fact]
@@ -124,10 +136,12 @@ public class UebergangsregelValidatorTests
     }
 
     [Fact]
-    public void SchweizerSystemAlsQuelle_IstUngueltig()
+    public void SchweizerSystemAlsQuelleMitGruppenIndex_IstUngueltig()
     {
+        // War früher pauschal ungültig (SchweizerSystem als Quellrunde unterstützt) - seit
+        // Issue #25-Nachlieferung erlaubt, sofern kein Gruppenindex angegeben wird (analog Liga).
         var quelle = new TurnierRunde { Id = 1, Name = "Schweiz", Rundenart = Rundenart.SchweizerSystem, EingangsMannschaftsanzahl = 8 };
-        var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 1);
+        var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1);
         _validator.Validieren(eingabe, quelle, Ziel(), _keineRegeln).IstUngueltig.Should().BeTrue();
     }
 

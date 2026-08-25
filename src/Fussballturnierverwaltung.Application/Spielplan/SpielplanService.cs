@@ -1103,8 +1103,11 @@ public class SpielplanService(
             }
 
             // Liga-Runden bewusst unverändert: TabelleBerechnenAsync (unten) berechnet noch kein
-            // SicherPositioniert-Äquivalent - eigenes Folge-Issue zu #202.
+            // SicherPositioniert-Äquivalent - eigenes Folge-Issue zu #202. SchweizerSystem teilt sich
+            // denselben Zweig (Issue #25-Nachlieferung): TabelleBerechnenAsync ist Rundenart-unabhängig
+            // und aggregiert einfach alle Spiele der Runde, unabhängig von Voll- oder Teilrunde.
             case Rundenart.Liga:
+            case Rundenart.SchweizerSystem:
             {
                 if (ignorierteSpielIds is { Count: > 0 } &&
                     (await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct)).Any(s => ignorierteSpielIds.Contains(s.Id)))

@@ -15,6 +15,9 @@ public class VorlagenUebergangsregelValidatorTests
     private static VorlagenRundeEingabe Liga(int eingangsMannschaftsanzahl = 8) =>
         new("Liga", Rundenart.Liga, eingangsMannschaftsanzahl, eingangsMannschaftsanzahl);
 
+    private static VorlagenRundeEingabe SchweizerSystem(int eingangsMannschaftsanzahl = 8) =>
+        new("Ligaphase", Rundenart.SchweizerSystem, eingangsMannschaftsanzahl, eingangsMannschaftsanzahl);
+
     private static VorlagenRundeEingabe KoRunde(int eingangsMannschaftsanzahl = 4) =>
         new("Halbfinale", Rundenart.KoRunde, eingangsMannschaftsanzahl, eingangsMannschaftsanzahl / 2);
 
@@ -43,6 +46,24 @@ public class VorlagenUebergangsregelValidatorTests
     public void LigaMitGruppenIndex_IstUngueltig()
     {
         var runden = new[] { Liga(), Ziel() };
+        var regeln = new[] { new VorlagenUebergangsRegelEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1) };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void GueltigeSchweizerSystemRegel_IstGueltig()
+    {
+        var runden = new[] { SchweizerSystem(eingangsMannschaftsanzahl: 36), Ziel(eingangsMannschaftsanzahl: 8) };
+        var regeln = new[] { new VorlagenUebergangsRegelEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 8) };
+
+        _validator.Validieren(runden, regeln).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void SchweizerSystemMitGruppenIndex_IstUngueltig()
+    {
+        var runden = new[] { SchweizerSystem(), Ziel() };
         var regeln = new[] { new VorlagenUebergangsRegelEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1) };
 
         _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
