@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Application.Ranglisten.Eingaben;
+using Fussballturnierverwaltung.Application.Ranglisten.Import;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Microsoft.Extensions.Logging;
@@ -8,10 +9,20 @@ namespace Fussballturnierverwaltung.Application.Ranglisten;
 public class RanglistenQuelleService(
     IRanglistenQuelleRepository repository,
     RanglistenQuelleValidator validator,
+    IHtmlHerunterlader htmlHerunterlader,
+    IRanglistenHtmlAuswerter htmlAuswerter,
     ILogger<RanglistenQuelleService> logger)
 {
     public Task<IReadOnlyList<RanglistenQuelle>> AlleAbrufenAsync(CancellationToken ct = default)
         => repository.AlleFindenAsync(ct);
+
+    /// <summary>Lädt die Seite und ermittelt alle enthaltenen Tabellen mit Vorschau (Issue #225) —
+    /// Grundlage für die interaktive Tabellen-/Spaltenauswahl beim Anlegen/Bearbeiten einer Quelle.</summary>
+    public async Task<IReadOnlyList<RanglistenTabellenVorschau>> WebseitePruefenAsync(string url, CancellationToken ct = default)
+    {
+        var html = await htmlHerunterlader.HerunterladenAsync(url, ct);
+        return htmlAuswerter.TabellenErmitteln(html);
+    }
 
     public Task<RanglistenQuelle?> FindenNachIdAsync(int id, CancellationToken ct = default)
         => repository.FindenNachIdAsync(id, ct);

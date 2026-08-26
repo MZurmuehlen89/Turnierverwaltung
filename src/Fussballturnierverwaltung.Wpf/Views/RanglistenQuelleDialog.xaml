@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Ranglisten-Quelle"
-        Width="480" SizeToContent="Height"
+        Width="560" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False">
 
@@ -14,37 +14,44 @@
         <TextBlock Text="URL" FontWeight="SemiBold" Margin="0,0,0,4" />
         <TextBox x:Name="UrlBox" Padding="6,4" Margin="0,0,0,10" />
 
-        <TextBlock Text="CSS-Selektor der Tabelle (leer = per Index wählen)" FontWeight="SemiBold" Margin="0,0,0,4" />
-        <TextBox x:Name="TabellenSelektorBox" Padding="6,4" Margin="0,0,0,10" />
+        <Button x:Name="PruefenButton" Content="Webseite prüfen" Click="PruefenButton_Click"
+                HorizontalAlignment="Left" Padding="14,6" FontSize="12" Margin="0,0,0,4" Cursor="Hand" />
 
-        <Grid Margin="0,0,0,10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="10" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+        <TextBlock x:Name="LadeText" Text="Seite wird geladen…" Foreground="Gray" Margin="0,4,0,0"
+                   Visibility="Collapsed" />
 
-            <StackPanel Grid.Column="0">
-                <TextBlock Text="Tabellenindex (0-basiert)" FontWeight="SemiBold" Margin="0,0,0,4" />
-                <TextBox x:Name="TabellenIndexBox" Padding="6,4" />
-            </StackPanel>
+        <StackPanel x:Name="TabellenPanel" Visibility="Collapsed" Margin="0,12,0,0">
+            <TextBlock Text="1. Tabelle auswählen" FontWeight="SemiBold" Margin="0,0,0,4" />
+            <ListBox x:Name="TabellenListBox" DisplayMemberPath="Beschreibung" MaxHeight="150"
+                     SelectionChanged="TabellenListBox_SelectionChanged" />
+        </StackPanel>
 
-            <StackPanel Grid.Column="2">
-                <TextBlock Text="Team-/Landname-Spalte (0-basiert)" FontWeight="SemiBold" Margin="0,0,0,4" />
-                <TextBox x:Name="MannschaftSpalteBox" Padding="6,4" />
-            </StackPanel>
-        </Grid>
+        <StackPanel x:Name="SpaltenPanel" Visibility="Collapsed" Margin="0,12,0,0">
+            <TextBlock Text="2. Spalten zuordnen" FontWeight="SemiBold" Margin="0,0,0,4" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-        <CheckBox x:Name="PunkteSpalteCheckbox" Content="Punkte-Spalte vorhanden" Margin="0,0,0,6" />
-        <TextBlock Text="Punkte-Spalte (0-basiert)" FontWeight="SemiBold" Margin="0,0,0,4" />
-        <TextBox x:Name="PunkteSpalteBox" Padding="6,4" Margin="0,0,0,10"
-                 IsEnabled="{Binding IsChecked, ElementName=PunkteSpalteCheckbox}" />
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Team-/Landname-Spalte" Margin="0,0,0,4" />
+                    <ListBox x:Name="MannschaftListBox" DisplayMemberPath="Beschreibung" MaxHeight="130" />
+                </StackPanel>
 
-        <CheckBox x:Name="KopfzeileCheckbox" Content="Erste Zeile ist Kopfzeile (überspringen)" Margin="0,0,0,10" />
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Punkte-Spalte (optional)" Margin="0,0,0,4" />
+                    <ListBox x:Name="PunkteListBox" DisplayMemberPath="Beschreibung" MaxHeight="130" />
+                </StackPanel>
+            </Grid>
 
-        <TextBlock x:Name="FehlerText" Foreground="Red" TextWrapping="Wrap" Margin="0,0,0,10" />
+            <CheckBox x:Name="KopfzeileCheckbox" Content="Erste Zeile ist Kopfzeile (überspringen)" Margin="0,10,0,0" />
+        </StackPanel>
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <TextBlock x:Name="FehlerText" Foreground="Red" TextWrapping="Wrap" Margin="0,10,0,0" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
             <Button Content="Abbrechen" Click="AbbrechenButton_Click"
                     Padding="14,6" FontSize="12" Margin="0,0,8,0" Cursor="Hand" />
             <Button Content="Speichern" Click="SpeichernButton_Click"

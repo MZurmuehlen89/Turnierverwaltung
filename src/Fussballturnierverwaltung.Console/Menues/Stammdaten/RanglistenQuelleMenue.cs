@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Ranglisten.Eingaben;
+using Fussballturnierverwaltung.Application.Ranglisten.Import;
 using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Konsole.Hilfsmittel;
 using Spectre.Console;
@@ -73,7 +74,9 @@ public class RanglistenQuelleMenue(RanglistenQuelleService quelleService)
     private async Task NeuAnlegenAsync(CancellationToken ct)
     {
         KonsolenHilfsmittel.Kopf("Neue Ranglisten-Quelle anlegen");
-        var eingabe = EingabeAbfragen();
+        var eingabe = await EingabeAbfragenAsync(ct: ct);
+        if (eingabe is null) return;
+
         var neu = await quelleService.ErstellenAsync(eingabe, ct);
         KonsolenHilfsmittel.ErfolgAnzeigen($"Quelle '{neu.Name}' angelegt (ID {neu.Id}).");
         KonsolenHilfsmittel.Pause();
@@ -85,7 +88,9 @@ public class RanglistenQuelleMenue(RanglistenQuelleService quelleService)
         if (quelle is null) return;
 
         KonsolenHilfsmittel.Kopf($"Quelle bearbeiten: {quelle.Name}");
-        var eingabe = EingabeAbfragen(quelle);
+        var eingabe = await EingabeAbfragenAsync(quelle, ct);
+        if (eingabe is null) return;
+
         await quelleService.AktualisierenAsync(quelle.Id, new RanglistenQuelleAktualisierenEingabe(
             eingabe.Name, eingabe.Url, eingabe.TabellenIndex, eingabe.TabellenSelektor,
             eingabe.MannschaftSpalte, eingabe.PunkteSpalte, eingabe.KopfzeileUeberspringen), ct);
@@ -116,35 +121,109 @@ public class RanglistenQuelleMenue(RanglistenQuelleService quelleService)
             .AddChoices(quellen.Cast<RanglistenQuelle?>().Append(null)));
     }
 
-    private static RanglistenQuelleErstellenEingabe EingabeAbfragen(RanglistenQuelle? vorhanden = null)
+    /// <summary>Auswahloption einer Spalten-Auswahl (Issue #225) — Index null steht für
+    /// "— keine —" (nur bei der optionalen Punkte-Spalte verwendet).</summary>
+    private record SpaltenOption(int? Index, string Beschreibung);
+
+    private async Task<RanglistenQuelleErstellenEingabe?> EingabeAbfragenAsync(RanglistenQuelle? vorhanden = null, CancellationToken ct = default)
     {
         var name = KonsolenHilfsmittel.TextEingeben("Name", vorhanden?.Name ?? "");
-        var url  = KonsolenHilfsmittel.TextEingeben("URL", vorhanden?.Url ?? "");
 
-        var tabellenSelektor = AnsiConsole.Prompt(
-            new TextPrompt<string>("CSS-Selektor der Tabelle (leer = per Index wählen):")
-                .AllowEmpty()
-                .DefaultValue(vorhanden?.TabellenSelektor ?? ""));
+        IReadOnlyList<RanglistenTabellenVorschau> tabellen;
+        string url;
+        while (true)
+        {
+            url = KonsolenHilfsmittel.TextEingeben("URL", vorhanden?.Url ?? "");
+            try
+            {
+                tabellen = await AnsiConsole.Status().StartAsync("Webseite wird geprüft…",
+                    _ => quelleService.WebseitePruefenAsync(url, ct));
 
-        var tabellenIndex = string.IsNullOrWhiteSpace(tabellenSelektor)
-            ? AnsiConsole.Prompt(new TextPrompt<int>("Tabellenindex (0-basiert):").DefaultValue(vorhanden?.TabellenIndex ?? 0).Validate(v => v >= 0))
-            : vorhanden?.TabellenIndex ?? 0;
+                if (tabellen.Count == 0)
+                {
+                    KonsolenHilfsmittel.FehlerAnzeigen("Auf der Seite wurden keine Tabellen gefunden.");
+                    if (!AnsiConsole.Confirm("Andere URL versuchen?")) return null;
+                    continue;
+                }
 
-        var mannschaftSpalte = AnsiConsole.Prompt(new TextPrompt<int>("Spalte mit Team-/Landname (0-basiert):")
-            .DefaultValue(vorhanden?.MannschaftSpalte ?? 1).Validate(v => v >= 0));
+                break;
+            }
+            catch (Exception ex)
+            {
+                KonsolenHilfsmittel.FehlerAnzeigen($"Seite konnte nicht geladen werden: {ex.Message}");
+                if (!AnsiConsole.Confirm("Erneut versuchen?")) return null;
+            }
+        }
 
-        var punkteAngeben = AnsiConsole.Confirm("Punkte-Spalte vorhanden?", defaultValue: vorhanden?.PunkteSpalte is not null);
-        var punkteSpalte = punkteAngeben
-            ? AnsiConsole.Prompt(new TextPrompt<int>("Spalte mit Punkten (0-basiert):")
-                .DefaultValue(vorhanden?.PunkteSpalte ?? 2).Validate(v => v >= 0 && v != mannschaftSpalte))
-            : (int?)null;
+        var gewaehlteTabelle = tabellen.Count == 1
+            ? tabellen[0]
+            : AnsiConsole.Prompt(new SelectionPrompt<RanglistenTabellenVorschau>()
+                .Title("Welche Tabelle enthält die Rangliste?")
+                .UseConverter(t => $"Tabelle {t.Index + 1}: {t.ZeilenAnzahl} Zeilen × {t.SpaltenAnzahl} Spalten"
+                    + (t.VorschauZeilen.Count > 0 ? $" — {string.Join(" | ", t.VorschauZeilen[0])}" : ""))
+                .AddChoices(tabellen));
+
+        VorschauAnzeigen(gewaehlteTabelle);
+
+        var spaltenOptionen = SpaltenOptionenErmitteln(gewaehlteTabelle);
+
+        var mannschaftSpalte = AnsiConsole.Prompt(new SelectionPrompt<SpaltenOption>()
+            .Title("Welche Spalte enthält den Team-/Landnamen?")
+            .UseConverter(s => s.Beschreibung)
+            .AddChoices(spaltenOptionen)).Index!.Value;
+
+        var punkteOptionen = new[] { new SpaltenOption(null, "— keine —") }
+            .Concat(spaltenOptionen.Where(s => s.Index != mannschaftSpalte));
+        var punkteSpalte = AnsiConsole.Prompt(new SelectionPrompt<SpaltenOption>()
+            .Title("Welche Spalte enthält die Punkte? (optional)")
+            .UseConverter(s => s.Beschreibung)
+            .AddChoices(punkteOptionen)).Index;
 
         var kopfzeileUeberspringen = AnsiConsole.Confirm("Erste Zeile ist Kopfzeile (überspringen)?",
-            defaultValue: vorhanden?.KopfzeileUeberspringen ?? true);
+            defaultValue: gewaehlteTabelle.ErkannteKopfzeile);
 
         return new RanglistenQuelleErstellenEingabe(
-            name, url, tabellenIndex,
-            string.IsNullOrWhiteSpace(tabellenSelektor) ? null : tabellenSelektor,
-            mannschaftSpalte, punkteSpalte, kopfzeileUeberspringen);
+            name, url, gewaehlteTabelle.Index, null, mannschaftSpalte, punkteSpalte, kopfzeileUeberspringen);
+    }
+
+    private static void VorschauAnzeigen(RanglistenTabellenVorschau vorschau)
+    {
+        if (vorschau.VorschauZeilen.Count == 0) return;
+
+        var tabelle = new Table().Border(TableBorder.Rounded);
+        for (int i = 0; i < vorschau.SpaltenAnzahl; i++)
+            tabelle.AddColumn(vorschau.ErkannteKopfzeile && i < vorschau.VorschauZeilen[0].Count
+                ? Markup.Escape(vorschau.VorschauZeilen[0][i])
+                : $"Spalte {i + 1}");
+
+        var datenZeilen = vorschau.ErkannteKopfzeile ? vorschau.VorschauZeilen.Skip(1) : vorschau.VorschauZeilen;
+        foreach (var zeile in datenZeilen)
+            tabelle.AddRow([.. Enumerable.Range(0, vorschau.SpaltenAnzahl)
+                .Select(i => Markup.Escape(i < zeile.Count ? zeile[i] : ""))]);
+
+        AnsiConsole.Write(tabelle);
+    }
+
+    private static List<SpaltenOption> SpaltenOptionenErmitteln(RanglistenTabellenVorschau vorschau)
+    {
+        var datenZeilen = (vorschau.ErkannteKopfzeile ? vorschau.VorschauZeilen.Skip(1) : vorschau.VorschauZeilen).ToList();
+        var optionen = new List<SpaltenOption>();
+
+        for (int spalte = 0; spalte < vorschau.SpaltenAnzahl; spalte++)
+        {
+            var beispiele = datenZeilen
+                .Select(zeile => spalte < zeile.Count ? zeile[spalte] : "")
+                .Where(wert => !string.IsNullOrWhiteSpace(wert))
+                .Take(3)
+                .ToList();
+
+            var kopf = vorschau.ErkannteKopfzeile && spalte < vorschau.VorschauZeilen[0].Count
+                ? vorschau.VorschauZeilen[0][spalte]
+                : $"Spalte {spalte + 1}";
+
+            optionen.Add(new SpaltenOption(spalte, beispiele.Count > 0 ? $"{kopf} ({string.Join(", ", beispiele)})" : kopf));
+        }
+
+        return optionen;
     }
 }
