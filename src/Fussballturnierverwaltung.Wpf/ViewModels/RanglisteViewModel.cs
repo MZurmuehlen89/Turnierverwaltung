@@ -35,6 +35,7 @@ public partial class RanglisteViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly VerbandService _verbandService;
     private readonly RanglistenImportService _importService;
     private readonly RanglistenQuelleService _quelleService;
+    private readonly LandService _landService;
     private int _populiertGerade;
 
     private static readonly VerbandFilterOption _allesVerband = new("— Alle —", null);
@@ -148,13 +149,15 @@ public partial class RanglisteViewModel : ViewModelBase, IRibbonAware, IHatUnges
         MannschaftService mannschaftService,
         VerbandService verbandService,
         RanglistenImportService importService,
-        RanglistenQuelleService quelleService)
+        RanglistenQuelleService quelleService,
+        LandService landService)
     {
         _service = service;
         _mannschaftService = mannschaftService;
         _verbandService = verbandService;
         _importService = importService;
         _quelleService = quelleService;
+        _landService = landService;
     }
 
     public override async Task AktivierenAsync() => await LadenAsync();
@@ -347,7 +350,7 @@ public partial class RanglisteViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task ImportAusInternet()
     {
         var dialogViewModel = new RanglistenImportDialogViewModel(_importService, _quelleService, _service, _mannschaftService);
-        var dialog = new RanglistenImportDialog(dialogViewModel, _quelleService)
+        var dialog = new RanglistenImportDialog(dialogViewModel, _quelleService, _mannschaftService, _landService)
         {
             Owner = System.Windows.Application.Current.MainWindow
         };

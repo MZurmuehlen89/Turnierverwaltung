@@ -13,8 +13,18 @@ public class RanglisteMenue(
     RanglisteService ranglisteService,
     MannschaftService mannschaftService,
     RanglistenImportService importService,
-    RanglistenQuelleMenue quelleMenue)
+    RanglistenQuelleMenue quelleMenue,
+    MannschaftMenue mannschaftMenue)
 {
+    /// <summary>Zuordnungsoption einer nicht aufgelösten Import-Zeile — Team null + NeuAnlegen
+    /// false bedeutet "Überspringen", Team null + NeuAnlegen true löst den Schnell-Anlegen-Dialog
+    /// aus (Issue #227).</summary>
+    private record ZuordnungsOption(Mannschaft? Team, bool IstNeuAnlegen)
+    {
+        public static readonly ZuordnungsOption Ueberspringen = new(null, false);
+        public static readonly ZuordnungsOption NeuAnlegenWahl = new(null, true);
+    }
+
     private enum Option { AlleAnzeigen, Details, NeuAnlegen, ImportAusDemInternet, QuellenVerwalten, Loeschen, Zurueck }
 
     public async Task AnzeigenAsync(CancellationToken ct = default)
@@ -169,15 +179,34 @@ public class RanglisteMenue(
 
         foreach (var zeile in vorschau.Unaufgeloest.OrderBy(z => z.Index))
         {
-            var verbleibend = alleTeams.Where(t => !bereitsVergeben.Contains(t.Id)).ToList();
-            var auswahl = AnsiConsole.Prompt(new SelectionPrompt<Mannschaft?>()
-                .Title($"'{Markup.Escape(zeile.RohName)}' zuordnen:")
-                .UseConverter(t => t is null ? "→ Überspringen" : t.Name)
-                .EnableSearch()
-                .AddChoices(verbleibend.Cast<Mannschaft?>().Append(null)));
+            while (true)
+            {
+                var verbleibend = alleTeams.Where(t => !bereitsVergeben.Contains(t.Id)).ToList();
+                var optionen = new List<ZuordnungsOption> { ZuordnungsOption.Ueberspringen, ZuordnungsOption.NeuAnlegenWahl };
+                optionen.AddRange(verbleibend.Select(t => new ZuordnungsOption(t, false)));
 
-            zuordnung[zeile.Index] = auswahl;
-            if (auswahl is not null) bereitsVergeben.Add(auswahl.Id);
+                var auswahl = AnsiConsole.Prompt(new SelectionPrompt<ZuordnungsOption>()
+                    .Title($"'{Markup.Escape(zeile.RohName)}' zuordnen:")
+                    .UseConverter(o => o.IstNeuAnlegen ? "+ Neue Mannschaft anlegen…" : o.Team is null ? "→ Überspringen" : o.Team.Name)
+                    .EnableSearch()
+                    .AddChoices(optionen));
+
+                if (auswahl.IstNeuAnlegen)
+                {
+                    var neu = await mannschaftMenue.SchnellAnlegenAsync(zeile.RohName, ct);
+                    if (neu is null) continue; // Abgebrochen -> Zeile erneut zuordnen
+
+                    alleTeams = [.. alleTeams, neu];
+                    zuordnung[zeile.Index] = neu;
+                    bereitsVergeben.Add(neu.Id);
+                    AnsiConsole.MarkupLine($"  → neu angelegt und zugeordnet: {Markup.Escape(neu.Name)}");
+                    break;
+                }
+
+                zuordnung[zeile.Index] = auswahl.Team;
+                if (auswahl.Team is not null) bereitsVergeben.Add(auswahl.Team.Id);
+                break;
+            }
         }
 
         var eintraege = importService.EintraegeErstellen(vorschau, zuordnung);

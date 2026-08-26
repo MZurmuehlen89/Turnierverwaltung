@@ -106,26 +106,40 @@ public class MannschaftMenue(MannschaftService mannschaftService, LandService la
     {
         KonsolenHilfsmittel.Kopf("Neue Mannschaft anlegen");
 
+        var neu = await SchnellAnlegenAsync("", ct);
+        if (neu is null) return;
+
+        AnsiConsole.WriteLine();
+        KonsolenHilfsmittel.ErfolgAnzeigen($"'{neu.Name}' wurde angelegt (ID {neu.Id}, GesamtRating {neu.GesamtRating:F1}).");
+        KonsolenHilfsmittel.Pause();
+    }
+
+    /// <summary>Fragt alle Felder für eine neue Mannschaft ab und legt sie an — wiederverwendbar
+    /// für den "Neu anlegen"-Menüpunkt und für nicht aufgelöste Ranglisten-Import-Zeilen
+    /// (Issue #227). Gibt null zurück, wenn der Nutzer abbricht (kein Pause/Erfolgsmeldung hier,
+    /// das übernimmt der jeweilige Aufrufer).</summary>
+    public async Task<Mannschaft?> SchnellAnlegenAsync(string vorschlagName, CancellationToken ct = default)
+    {
         var laender = await landService.AlleAbrufenAsync(ct);
         if (laender.Count == 0)
         {
             KonsolenHilfsmittel.WarnungAnzeigen("Keine Länder vorhanden. Bitte zuerst Länder anlegen.");
             KonsolenHilfsmittel.Pause();
-            return;
+            return null;
         }
 
-        var name     = KonsolenHilfsmittel.TextEingeben("Name");
-        var kurzname = KonsolenHilfsmittel.TextEingeben("Kürzel");
+        var name     = KonsolenHilfsmittel.TextEingeben("Name", vorschlagName);
+        var kurzname = KonsolenHilfsmittel.TextEingeben("Kürzel", KurznameVorschlagen(vorschlagName));
 
         var art = AnsiConsole.Prompt(
             new SelectionPrompt<Mannschaftsart?>()
                 .Title("Mannschaftsart:")
-                .UseConverter(a => a is null ? "← Zurück" : a == Mannschaftsart.Nationalmannschaft ? "Nationalmannschaft" : "Verein")
+                .UseConverter(a => a is null ? "← Abbrechen" : a == Mannschaftsart.Nationalmannschaft ? "Nationalmannschaft" : "Verein")
                 .AddChoices((Mannschaftsart?)Mannschaftsart.Nationalmannschaft, Mannschaftsart.Verein, null));
-        if (art is null) return;
+        if (art is null) return null;
 
         var land = LandAuswaehlen(laender);
-        if (land is null) return;
+        if (land is null) return null;
 
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine("[grey]Ratings (1–100)[/]");
@@ -136,12 +150,11 @@ public class MannschaftMenue(MannschaftService mannschaftService, LandService la
         var ausw = KonsolenHilfsmittel.RatingEingeben("Auswärtsstärke");
 
         var eingabe = new MannschaftErstellenEingabe(name, kurzname, art.Value, land.Id, off, mid, def, heim, ausw);
-        var neu = await mannschaftService.ErstellenAsync(eingabe, ct);
-
-        AnsiConsole.WriteLine();
-        KonsolenHilfsmittel.ErfolgAnzeigen($"'{neu.Name}' wurde angelegt (ID {neu.Id}, GesamtRating {neu.GesamtRating:F1}).");
-        KonsolenHilfsmittel.Pause();
+        return await mannschaftService.ErstellenAsync(eingabe, ct);
     }
+
+    private static string KurznameVorschlagen(string name) =>
+        new string(name.Where(char.IsLetter).Take(3).ToArray()).ToUpperInvariant();
 
     // --- Bearbeiten ---
 

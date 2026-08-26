@@ -12,21 +12,33 @@ using System.Windows;
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
 /// <summary>Auswahloption für die Zuordnungs-ComboBox einer nicht aufgelösten Zeile —
-/// Mannschaft null bedeutet "Überspringen".</summary>
-public record MannschaftAuswahlOption(string Anzeige, Mannschaft? Mannschaft);
+/// Mannschaft null + IstNeuAnlegen false bedeutet "Überspringen", Mannschaft null +
+/// IstNeuAnlegen true löst den Schnell-Anlegen-Dialog aus (Issue #227).</summary>
+public record MannschaftAuswahlOption(string Anzeige, Mannschaft? Mannschaft, bool IstNeuAnlegen = false);
 
 public partial class UnaufgeloesteZeileZuordnung : ObservableObject
 {
     public RanglistenRohZeile Quelle { get; }
-    public IReadOnlyList<MannschaftAuswahlOption> Optionen { get; }
+    public ObservableCollection<MannschaftAuswahlOption> Optionen { get; }
 
     [ObservableProperty] private MannschaftAuswahlOption _ausgewaehlt;
+
+    /// <summary>Wird ausgelöst, sobald der Nutzer "+ Neue Mannschaft anlegen…" wählt — die View
+    /// öffnet daraufhin den Schnell-Anlegen-Dialog (ViewModels erzeugen keine Windows, siehe
+    /// bestehendes Pattern bei RanglistenQuellenVerwaltenDialog).</summary>
+    public event Action<UnaufgeloesteZeileZuordnung>? NeuAnlegenAngefordert;
 
     public UnaufgeloesteZeileZuordnung(RanglistenRohZeile quelle, IReadOnlyList<MannschaftAuswahlOption> optionen)
     {
         Quelle = quelle;
-        Optionen = optionen;
+        Optionen = new ObservableCollection<MannschaftAuswahlOption>(optionen);
         _ausgewaehlt = optionen[0];
+    }
+
+    partial void OnAusgewaehltChanged(MannschaftAuswahlOption value)
+    {
+        if (value.IstNeuAnlegen)
+            NeuAnlegenAngefordert?.Invoke(this);
     }
 }
 
@@ -37,8 +49,14 @@ public partial class RanglistenImportDialogViewModel(
     MannschaftService mannschaftService) : ObservableObject
 {
     private static readonly MannschaftAuswahlOption Ueberspringen = new("— Überspringen —", null);
+    private static readonly MannschaftAuswahlOption NeuAnlegenOption = new("+ Neue Mannschaft anlegen…", null, IstNeuAnlegen: true);
 
     private RanglistenImportVorschau? _vorschau;
+
+    /// <summary>Wird von einer UnaufgeloesteZeileZuordnung durchgereicht, sobald der Nutzer
+    /// "+ Neue Mannschaft anlegen…" wählt — die View öffnet den Schnell-Anlegen-Dialog und ruft
+    /// anschließend MannschaftUebernehmen bzw. setzt bei Abbruch die Auswahl zurück.</summary>
+    public event Action<UnaufgeloesteZeileZuordnung>? MannschaftNeuAnlegenAngefordert;
 
     [ObservableProperty] private ObservableCollection<RanglistenQuelle> _quellen = [];
     [ObservableProperty] private RanglistenQuelle? _ausgewaehlteQuelle;
@@ -103,12 +121,14 @@ public partial class RanglistenImportDialogViewModel(
             var alleTeams = await mannschaftService.AlleAbrufenAsync();
             var vergeben = _vorschau.Aufgeloest.Select(z => z.Mannschaft.Id).ToHashSet();
             var verfuegbar = alleTeams.Where(t => !vergeben.Contains(t.Id)).OrderBy(t => t.Name).ToList();
-            var optionen = new List<MannschaftAuswahlOption> { Ueberspringen };
+            var optionen = new List<MannschaftAuswahlOption> { Ueberspringen, NeuAnlegenOption };
             optionen.AddRange(verfuegbar.Select(t => new MannschaftAuswahlOption(t.Name, t)));
 
             Unaufgeloest = new ObservableCollection<UnaufgeloesteZeileZuordnung>(_vorschau.Unaufgeloest
                 .OrderBy(z => z.Index)
                 .Select(z => new UnaufgeloesteZeileZuordnung(z, optionen)));
+            foreach (var zeile in Unaufgeloest)
+                zeile.NeuAnlegenAngefordert += z => MannschaftNeuAnlegenAngefordert?.Invoke(z);
 
             Name = AusgewaehlteQuelle.Name;
             QuelleText = $"{AusgewaehlteQuelle.Name} ({AusgewaehlteQuelle.Url})";
@@ -119,6 +139,18 @@ public partial class RanglistenImportDialogViewModel(
             Fehlermeldung = ex.Message;
         }
         finally { IstLadend = false; }
+    }
+
+    /// <summary>Übernimmt eine im Schnell-Anlegen-Dialog neu erstellte Mannschaft als Zuordnung
+    /// für die auslösende Zeile — sie wird außerdem allen anderen offenen Zeilen als Option
+    /// angeboten (Issue #227).</summary>
+    public void MannschaftUebernehmen(UnaufgeloesteZeileZuordnung zeile, Mannschaft neu)
+    {
+        var option = new MannschaftAuswahlOption(neu.Name, neu);
+        foreach (var z in Unaufgeloest)
+            z.Optionen.Add(option);
+
+        zeile.Ausgewaehlt = option;
     }
 
     [RelayCommand]
