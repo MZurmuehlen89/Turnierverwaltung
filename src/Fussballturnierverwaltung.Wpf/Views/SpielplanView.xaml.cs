@@ -25,10 +25,38 @@ public partial class SpielplanView : UserControl
     // automatisch AktualisiereMehrfachAuswahl aus und setzt AusgewaehlteSpiel (TwoWay-Binding)
     // auf null, wodurch der rechte Gruppen-Fokus (sekundäre Automatik aus #138) verschwindet,
     // ohne den unabhängigen, bewussten Gruppenfilter (AusgewaehlteGruppe) anzufassen.
+    // Enter springt bei aktivem Formular direkt ins erste Formularfeld (Issue #63) — die Auswahl
+    // selbst (und damit das Öffnen des Formulars) übernimmt bereits die bestehende
+    // SelectedItem-Bindung bei Pfeiltasten-Navigation, Enter dient hier nur dem Fokuswechsel.
     private void SpielListView_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Escape || sender is not ListView listView) return;
-        listView.UnselectAll();
+        if (sender is not ListView { DataContext: SpielplanViewModel vm } listView) return;
+
+        switch (e.Key)
+        {
+            case Key.Escape:
+                listView.UnselectAll();
+                e.Handled = true;
+                break;
+            case Key.Enter when vm.FormAktiv:
+                ErstesFormularFeld.Focus();
+                e.Handled = true;
+                break;
+        }
+    }
+
+    // Escape schließt bei Fokus innerhalb des Ergebnis-Formulars ebenfalls das Formular (Issue #63)
+    // — SpielListView_KeyDown greift nur, solange der Fokus noch in der Liste liegt. Spiegelt dieselbe
+    // Deselektion+Fokusrückgabe wie dort, damit der Dirty-Check-Dialog aus RundeWechselAsync/
+    // SpielWechselAsync konsistent bleibt (kein zweiter Schließ-Pfad mit abweichendem Verhalten).
+    private void ErgebnisFormular_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+
+        // SpielListView bzw. FokusSpielListView sind je nach IstGefiltertAufGruppe alternativ sichtbar.
+        var zielListView = SpielListView.Visibility == System.Windows.Visibility.Visible ? SpielListView : FokusSpielListView;
+        zielListView.UnselectAll();
+        zielListView.Focus();
         e.Handled = true;
     }
 }
