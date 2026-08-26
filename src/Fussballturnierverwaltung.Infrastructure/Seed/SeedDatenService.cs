@@ -33,6 +33,7 @@ public class SeedDatenService
         await VorlagenRundenNachruesten(cancellationToken);
         await VorlagenRundenRegelwerkeNachruesten(cancellationToken);
         await TurnierVorlagenNachruesten(cancellationToken);
+        await RanglistenQuellenNachruesten(cancellationToken);
     }
 
     private async Task LaenderNachruesten(CancellationToken ct)
@@ -206,6 +207,24 @@ public class SeedDatenService
         {
             await _context.SaveChangesAsync(ct);
             _logger.LogInformation("{Anzahl} VorlagenRunden mit Regelwerk nachgerüstet.", aktualisiert);
+        }
+    }
+
+    private async Task RanglistenQuellenNachruesten(CancellationToken ct)
+    {
+        var vorhandeneNamen = await _context.RanglistenQuellen
+            .Select(q => q.Name)
+            .ToHashSetAsync(ct);
+
+        var neue = RanglistenQuellenSeedDaten.Erstellen()
+            .Where(q => !vorhandeneNamen.Contains(q.Name))
+            .ToList();
+
+        if (neue.Count > 0)
+        {
+            _context.RanglistenQuellen.AddRange(neue);
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("{Anzahl} Ranglisten-Quellen nachgerüstet.", neue.Count);
         }
     }
 
