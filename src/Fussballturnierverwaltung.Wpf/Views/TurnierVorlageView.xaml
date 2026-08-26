@@ -55,6 +55,10 @@
             <ColumnDefinition Width="260" MinWidth="200" MaxWidth="380" />
             <ColumnDefinition Width="4" />
             <ColumnDefinition Width="*" />
+            <!-- Meldungs-Spalte (Issue #222, analog #188) — 0 Breite solange nichts zu melden ist. -->
+            <ColumnDefinition Width="{Binding ZeigeMeldungsSpalte, Converter={StaticResource BoolZuAngepinnterSpaltenbreite}, ConverterParameter=4}" />
+            <ColumnDefinition Width="{Binding ZeigeMeldungsSpalte, Converter={StaticResource BoolZuAngepinnterSpaltenbreite}, ConverterParameter=300}"
+                              MinWidth="0" />
         </Grid.ColumnDefinitions>
 
         <!-- ── Linke Spalte: Filter + Liste ── -->
@@ -481,15 +485,48 @@
                         </DataGrid.Columns>
                     </DataGrid>
 
-                    <!-- Fehlermeldung -->
-                    <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
-                            CornerRadius="{StaticResource Radius4}" Padding="12,8" Margin="0,0,0,12"
-                            Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="{StaticResource ErrorBrush}"
-                                   FontSize="13" TextWrapping="Wrap" />
-                    </Border>
-
                 </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ── Meldungs-Spalte (Issue #222, analog #188) ── Sammelt Speicherfehler und Live-Strukturfehler
+             dauerhaft am rechten Rand, damit sie bei einem langen Formular nicht erst durch Scrollen
+             sichtbar werden (siehe TurnierVorlageViewModel.AktualisiereStrukturFehler). -->
+        <GridSplitter Grid.Column="3" Width="4" HorizontalAlignment="Stretch"
+                      Background="{StaticResource BorderBrush}"
+                      Visibility="{Binding ZeigeMeldungsSpalte, Converter={StaticResource BoolToVisibility}}" />
+
+        <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto"
+                      Visibility="{Binding ZeigeMeldungsSpalte, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel Margin="8,10,8,8" Background="{StaticResource SurfaceBrush}">
+
+                <!-- Fehlermeldung -->
+                <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius4}" Padding="12,8" Margin="0,0,0,10"
+                        Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
+                    <TextBlock Text="{Binding Fehlermeldung}" Foreground="{StaticResource ErrorBrush}"
+                               FontSize="13" TextWrapping="Wrap" />
+                </Border>
+
+                <!-- Strukturfehler (Issue #222): Live-Vorschau der VorlagenUebergangsregelValidator-Prüfung,
+                     die bisher nur beim Speichern lief. -->
+                <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius4}" Padding="12,10"
+                        Visibility="{Binding HatStrukturFehler, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="STRUKTURPRÜFUNG" FontSize="10" FontWeight="Bold"
+                                   Foreground="{StaticResource ErrorBrush}" Margin="0,0,0,6" />
+                        <ItemsControl ItemsSource="{Binding StrukturFehler}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Foreground="#991B1B"
+                                               FontSize="12" TextWrapping="Wrap" Margin="0,0,0,3" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
             </StackPanel>
         </ScrollViewer>
     </Grid>
