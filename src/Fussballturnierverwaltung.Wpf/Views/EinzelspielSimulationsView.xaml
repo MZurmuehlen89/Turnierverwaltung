@@ -206,87 +206,96 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Spielverlauf (Ausführliche Simulation) -->
-                <Border DockPanel.Dock="Top"
-                        Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                        CornerRadius="{StaticResource Radius4}" Margin="16,8,16,0"
-                        Visibility="{Binding HatProtokollEreignisse, Converter={StaticResource BoolToVisibility}}">
-                    <StackPanel>
-                        <TextBlock Text="SPIELVERLAUF" FontSize="10" FontWeight="Bold"
-                                   Foreground="{StaticResource TextSubtleBrush}" Margin="12,8,12,4" />
+                <!-- Spielverlauf + Leer-Zustand: gemeinsam letztes, nicht gedocktes DockPanel-Kind,
+                     damit der Spielverlauf die Resthöhe ausfüllt statt bei fester Höhe zu scrollen (Issue #236) -->
+                <Grid>
+                    <Border Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius4}" Margin="16,8,16,0"
+                            Visibility="{Binding HatProtokollEreignisse, Converter={StaticResource BoolToVisibility}}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
 
-                        <Grid Margin="12,0,12,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="50" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="HEIM" FontSize="9" FontWeight="Bold"
-                                       Foreground="{StaticResource BorderStrongBrush}" HorizontalAlignment="Right" />
-                            <TextBlock Grid.Column="2" Text="AUSWÄRTS" FontSize="9" FontWeight="Bold"
-                                       Foreground="{StaticResource BorderStrongBrush}" HorizontalAlignment="Left" />
+                            <TextBlock Grid.Row="0" Text="SPIELVERLAUF" FontSize="10" FontWeight="Bold"
+                                       Foreground="{StaticResource TextSubtleBrush}" Margin="12,8,12,4" />
+
+                            <Grid Grid.Row="1" Margin="12,0,12,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="50" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="HEIM" FontSize="9" FontWeight="Bold"
+                                           Foreground="{StaticResource BorderStrongBrush}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="2" Text="AUSWÄRTS" FontSize="9" FontWeight="Bold"
+                                           Foreground="{StaticResource BorderStrongBrush}" HorizontalAlignment="Left" />
+                            </Grid>
+                            <Separator Grid.Row="2" />
+
+                            <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding ProtokollEreignisse}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
+                                            <Grid>
+                                                <!-- Ereignis-Zeile -->
+                                                <Grid Margin="12,4"
+                                                      Visibility="{Binding IstTrenner, Converter={StaticResource InverseBoolToVisibility}}">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="50" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                                                HorizontalAlignment="Right"
+                                                                Visibility="{Binding IstHeimSeite, Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock Text="{Binding Art}" FontSize="11"
+                                                                   Foreground="{StaticResource TextStrongBrush}" TextAlignment="Right" />
+                                                        <TextBlock Text=" ◄" FontSize="11" FontWeight="Bold"
+                                                                   Foreground="#8B5CF6" Margin="4,0,0,0" />
+                                                    </StackPanel>
+
+                                                    <TextBlock Grid.Column="1" Text="{Binding Minute}" FontSize="11"
+                                                               Foreground="{StaticResource TextMutedBrush}" FontFamily="Consolas"
+                                                               HorizontalAlignment="Center" />
+
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                                HorizontalAlignment="Left"
+                                                                Visibility="{Binding IstHeimSeite, Converter={StaticResource InverseBoolToVisibility}}">
+                                                        <TextBlock Text="► " FontSize="11" FontWeight="Bold"
+                                                                   Foreground="#8B5CF6" />
+                                                        <TextBlock Text="{Binding Art}" FontSize="11" Foreground="{StaticResource TextStrongBrush}" />
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <!-- Abschnittstrenner -->
+                                                <Grid Margin="12,10"
+                                                      Visibility="{Binding IstTrenner, Converter={StaticResource BoolToVisibility}}">
+                                                    <Separator VerticalAlignment="Center" />
+                                                    <Border Background="White" HorizontalAlignment="Center" Padding="8,0">
+                                                        <TextBlock Text="{Binding TrennerText}" FontSize="9" FontWeight="Bold"
+                                                                   Foreground="{StaticResource TextSubtleBrush}" />
+                                                    </Border>
+                                                </Grid>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
                         </Grid>
-                        <Separator />
+                    </Border>
 
-                        <ScrollViewer MaxHeight="400" VerticalScrollBarVisibility="Auto">
-                            <ItemsControl ItemsSource="{Binding ProtokollEreignisse}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
-                                        <Grid>
-                                            <!-- Ereignis-Zeile -->
-                                            <Grid Margin="12,4"
-                                                  Visibility="{Binding IstTrenner, Converter={StaticResource InverseBoolToVisibility}}">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="50" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-
-                                                <StackPanel Grid.Column="0" Orientation="Horizontal"
-                                                            HorizontalAlignment="Right"
-                                                            Visibility="{Binding IstHeimSeite, Converter={StaticResource BoolToVisibility}}">
-                                                    <TextBlock Text="{Binding Art}" FontSize="11"
-                                                               Foreground="{StaticResource TextStrongBrush}" TextAlignment="Right" />
-                                                    <TextBlock Text=" ◄" FontSize="11" FontWeight="Bold"
-                                                               Foreground="#8B5CF6" Margin="4,0,0,0" />
-                                                </StackPanel>
-
-                                                <TextBlock Grid.Column="1" Text="{Binding Minute}" FontSize="11"
-                                                           Foreground="{StaticResource TextMutedBrush}" FontFamily="Consolas"
-                                                           HorizontalAlignment="Center" />
-
-                                                <StackPanel Grid.Column="2" Orientation="Horizontal"
-                                                            HorizontalAlignment="Left"
-                                                            Visibility="{Binding IstHeimSeite, Converter={StaticResource InverseBoolToVisibility}}">
-                                                    <TextBlock Text="► " FontSize="11" FontWeight="Bold"
-                                                               Foreground="#8B5CF6" />
-                                                    <TextBlock Text="{Binding Art}" FontSize="11" Foreground="{StaticResource TextStrongBrush}" />
-                                                </StackPanel>
-                                            </Grid>
-
-                                            <!-- Abschnittstrenner -->
-                                            <Grid Margin="12,10"
-                                                  Visibility="{Binding IstTrenner, Converter={StaticResource BoolToVisibility}}">
-                                                <Separator VerticalAlignment="Center" />
-                                                <Border Background="White" HorizontalAlignment="Center" Padding="8,0">
-                                                    <TextBlock Text="{Binding TrennerText}" FontSize="9" FontWeight="Bold"
-                                                               Foreground="{StaticResource TextSubtleBrush}" />
-                                                </Border>
-                                            </Grid>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </StackPanel>
-                </Border>
-
-                <!-- Leer-Zustand -->
-                <TextBlock Text="Zwei Mannschaften auswählen und auf Simulieren klicken."
-                           Foreground="{StaticResource TextSubtleBrush}" FontSize="13" TextWrapping="Wrap"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           MaxWidth="340" TextAlignment="Center"
-                           Visibility="{Binding ZeigeLeerZustand, Converter={StaticResource BoolToVisibility}}" />
+                    <!-- Leer-Zustand -->
+                    <TextBlock Text="Zwei Mannschaften auswählen und auf Simulieren klicken."
+                               Foreground="{StaticResource TextSubtleBrush}" FontSize="13" TextWrapping="Wrap"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               MaxWidth="340" TextAlignment="Center"
+                               Visibility="{Binding ZeigeLeerZustand, Converter={StaticResource BoolToVisibility}}" />
+                </Grid>
 
             </DockPanel>
 
