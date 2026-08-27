@@ -341,9 +341,19 @@
                                     <GridViewColumn Header="Heim" Width="150">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                                <TextBlock Text="{Binding HeimName}"
-                                                           FontSize="13" FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis" />
+                                                <DockPanel>
+                                                    <Grid Width="16" Height="16" DockPanel.Dock="Left" Margin="0,0,5,0">
+                                                        <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                               Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                                                               Stretch="Uniform" />
+                                                        <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                   Opacity="0.35"
+                                                                   Visibility="{Binding HeimWappen, Converter={StaticResource NullToVisible}}" />
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding HeimName}"
+                                                               FontSize="13" FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </DockPanel>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
@@ -377,9 +387,19 @@
                                     <GridViewColumn Header="Auswärts" Width="150">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                                <TextBlock Text="{Binding AuswaertsName}"
-                                                           FontSize="13"
-                                                           TextTrimming="CharacterEllipsis" />
+                                                <DockPanel>
+                                                    <Grid Width="16" Height="16" DockPanel.Dock="Left" Margin="0,0,5,0">
+                                                        <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                               Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                                                               Stretch="Uniform" />
+                                                        <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                   Opacity="0.35"
+                                                                   Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToVisible}}" />
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding AuswaertsName}"
+                                                               FontSize="13"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </DockPanel>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
@@ -521,7 +541,17 @@
                                         <GridViewColumn Header="Heim" Width="160">
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                                    <TextBlock Text="{Binding HeimName}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                    <DockPanel>
+                                                        <Grid Width="16" Height="16" DockPanel.Dock="Left" Margin="0,0,5,0">
+                                                            <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                   Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                                                                   Stretch="Uniform" />
+                                                            <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                       Opacity="0.35"
+                                                                       Visibility="{Binding HeimWappen, Converter={StaticResource NullToVisible}}" />
+                                                        </Grid>
+                                                        <TextBlock Text="{Binding HeimName}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                    </DockPanel>
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>
                                         </GridViewColumn>
@@ -550,7 +580,17 @@
                                         <GridViewColumn Header="Auswärts" Width="160">
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                                    <TextBlock Text="{Binding AuswaertsName}" FontSize="13" TextTrimming="CharacterEllipsis" />
+                                                    <DockPanel>
+                                                        <Grid Width="16" Height="16" DockPanel.Dock="Left" Margin="0,0,5,0">
+                                                            <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                   Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                                                                   Stretch="Uniform" />
+                                                            <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                       Opacity="0.35"
+                                                                       Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToVisible}}" />
+                                                        </Grid>
+                                                        <TextBlock Text="{Binding AuswaertsName}" FontSize="13" TextTrimming="CharacterEllipsis" />
+                                                    </DockPanel>
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>
                                         </GridViewColumn>

@@ -9,6 +9,7 @@ using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Wpf.Converters;
@@ -33,6 +34,8 @@ public class SpielZeile
     public string SpieltagAnzeige => KoLabel ?? (Spieltag.HasValue ? $"ST {Spieltag}" : "-");
     public string HeimName { get; init; } = "";
     public string AuswaertsName { get; init; } = "";
+    public byte[]? HeimWappen { get; init; }
+    public byte[]? AuswaertsWappen { get; init; }
     public SpielStatus Status { get; init; }
     public bool HatErgebnis { get; init; }
     public string ErgebnisText { get; init; } = "-:-";
@@ -1255,6 +1258,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                                    ?? s.HeimPlatzhalterName ?? "?",
             AuswaertsName       = s.AuswaertsMannschaft?.Name ?? (auswaertsVorschau is not null ? $"({auswaertsVorschau})" : null)
                                    ?? s.AuswaertsPlatzhalterName ?? "?",
+            HeimWappen          = MannschaftsIcon(s.HeimMannschaft),
+            AuswaertsWappen     = MannschaftsIcon(s.AuswaertsMannschaft),
             Status              = s.Status,
             HatErgebnis         = s.Ergebnis is not null,
             ErgebnisText        = text,
@@ -1266,6 +1271,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             GruppeNummer        = gruppeNummer
         };
     }
+
+    // Issue #229 Nachtrag: Nationalmannschaften zeigen die Landesflagge statt des Mannschafts-Wappens,
+    // das eigene Wappen bleibt in der DB erhalten (z.B. für die Mannschaften-Stammdatenansicht).
+    private static byte[]? MannschaftsIcon(Mannschaft? mannschaft)
+        => mannschaft?.Mannschaftsart == Mannschaftsart.Nationalmannschaft
+            ? mannschaft.Land?.Flagge
+            : mannschaft?.Wappen;
 
     internal static string? KoPositionsLabel(Spiel s, TurnierRunde? runde, int positionInRunde)
     {
