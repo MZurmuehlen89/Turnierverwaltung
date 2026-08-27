@@ -22,24 +22,33 @@ namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
 // ── Darstellungstypen ────────────────────────────────────────────────────────
 
-public record TeilnehmerAnzeige(int? MannschaftId, string Name, string? Kuerzel, int EintragId = 0, int? LandId = null)
+public record TeilnehmerAnzeige(int? MannschaftId, string Name, string? Kuerzel, int EintragId = 0, int? LandId = null, byte[]? Wappen = null)
 {
     public bool IstPlatzhalter => !MannschaftId.HasValue;
 
     public static TeilnehmerAnzeige AusMannschaft(Mannschaft m) =>
-        new(m.Id, m.Name, m.Land?.Kurzname, LandId: m.LandId);
+        new(m.Id, m.Name, m.Land?.Kurzname, LandId: m.LandId, Wappen: MannschaftsIcon(m));
 
     public static TeilnehmerAnzeige AusPlatzhalter(string name) =>
         new(null, name, null);
 
     public static TeilnehmerAnzeige AusEintrag(LostopfEintrag e) =>
         e.MannschaftId.HasValue
-            ? new(e.MannschaftId, e.Mannschaft?.Name ?? "?", e.Mannschaft?.Land?.Kurzname, e.Id, e.Mannschaft?.LandId)
+            ? new(e.MannschaftId, e.Mannschaft?.Name ?? "?", e.Mannschaft?.Land?.Kurzname, e.Id, e.Mannschaft?.LandId, MannschaftsIcon(e.Mannschaft))
             : new(null, e.PlatzhalterName ?? "?", null, e.Id);
+
+    // Issue #230, analog #229: Nationalmannschaften zeigen die Landesflagge statt des
+    // Mannschafts-Wappens, das eigene Wappen bleibt in der DB erhalten.
+    internal static byte[]? MannschaftsIcon(Mannschaft? mannschaft)
+        => mannschaft?.Mannschaftsart == Mannschaftsart.Nationalmannschaft
+            ? mannschaft.Land?.Flagge
+            : mannschaft?.Wappen;
 }
 
-public record ErgebnisAnzeige(int PaarungsNummer, string HeimName, string AuswaertsName, bool IstFreilos);
-public record GruppenErgebnisAnzeige(int GruppenNummer, string GruppenName, IReadOnlyList<string> Teams);
+public record ErgebnisAnzeige(int PaarungsNummer, string HeimName, string AuswaertsName, bool IstFreilos,
+    byte[]? HeimWappen = null, byte[]? AuswaertsWappen = null);
+public record GruppenTeamAnzeige(string Name, byte[]? Wappen);
+public record GruppenErgebnisAnzeige(int GruppenNummer, string GruppenName, IReadOnlyList<GruppenTeamAnzeige> Teams);
 
 public class ManuellerKoSlot : ObservableObject
 {
@@ -134,6 +143,8 @@ public class AnimationsGruppenSlot : ObservableObject
         set { if (SetProperty(ref _anzeige, value)) OnPropertyChanged(nameof(Befuellt)); }
     }
     public bool Befuellt => _anzeige != "…";
+    private byte[]? _wappen;
+    public byte[]? Wappen { get => _wappen; set => SetProperty(ref _wappen, value); }
 }
 
 public class AnimationsGruppe : ObservableObject
@@ -148,9 +159,23 @@ public class AnimationsPaarung : ObservableObject
     public int PaarungsNr { get; init; }
     public bool IstFreilos { get; init; }
     private string _heim = "…";
-    public string Heim { get => _heim; set => SetProperty(ref _heim, value); }
+    public string Heim
+    {
+        get => _heim;
+        set { if (SetProperty(ref _heim, value)) OnPropertyChanged(nameof(HeimBefuellt)); }
+    }
+    public bool HeimBefuellt => _heim != "…";
+    private byte[]? _heimWappen;
+    public byte[]? HeimWappen { get => _heimWappen; set => SetProperty(ref _heimWappen, value); }
     private string _auswaerts = "…";
-    public string Auswaerts { get => _auswaerts; set => SetProperty(ref _auswaerts, value); }
+    public string Auswaerts
+    {
+        get => _auswaerts;
+        set { if (SetProperty(ref _auswaerts, value)) OnPropertyChanged(nameof(AuswaertsBefuellt)); }
+    }
+    public bool AuswaertsBefuellt => _auswaerts != "…";
+    private byte[]? _auswaertsWappen;
+    public byte[]? AuswaertsWappen { get => _auswaertsWappen; set => SetProperty(ref _auswaertsWappen, value); }
 }
 
 /// <summary>Feste Anzahl Topf-Plätze für die TV-Modus-Anzeige: die Slots werden nie hinzugefügt
@@ -160,6 +185,7 @@ public class AnimationsTopfSlot : ObservableObject
 {
     public int EintragId { get; init; }
     public string Name { get; init; } = "";
+    public byte[]? Wappen { get; init; }
     private bool _gezogen;
     public bool Gezogen
     {
@@ -1032,7 +1058,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 TopfId = l.Id,
                 Name   = l.Name,
                 Slots  = new ObservableCollection<AnimationsTopfSlot>(
-                    l.Teilnehmer.Select(t => new AnimationsTopfSlot { EintragId = t.EintragId, Name = t.Name }))
+                    l.Teilnehmer.Select(t => new AnimationsTopfSlot { EintragId = t.EintragId, Name = t.Name, Wappen = t.Wappen }))
             }));
 
         bool istGruppenmodus = schritte[0].IstGruppenmodus;
@@ -1101,13 +1127,23 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 if (schritt.IstGruppenmodus)
                 {
                     var gruppe = AnimationGruppen.First(g => g.GruppenNummer == schritt.ZielNummer);
-                    gruppe.Slots[schritt.Position!.Value - 1].Anzeige = schritt.Team.Name;
+                    var slot = gruppe.Slots[schritt.Position!.Value - 1];
+                    slot.Anzeige = schritt.Team.Name;
+                    slot.Wappen  = schritt.Team.Wappen;
                 }
                 else
                 {
                     var paarung = AnimationPaarungen.First(p => p.PaarungsNr == schritt.ZielNummer);
-                    if (schritt.IstFreilos || schritt.IstHeim == true) paarung.Heim = schritt.Team.Name;
-                    else paarung.Auswaerts = schritt.Team.Name;
+                    if (schritt.IstFreilos || schritt.IstHeim == true)
+                    {
+                        paarung.Heim       = schritt.Team.Name;
+                        paarung.HeimWappen = schritt.Team.Wappen;
+                    }
+                    else
+                    {
+                        paarung.Auswaerts       = schritt.Team.Name;
+                        paarung.AuswaertsWappen = schritt.Team.Wappen;
+                    }
                 }
 
                 // Vollständig gezogene Mannschaft: Banner leeren (kurzer "blank screen"), dann Pause
@@ -1587,8 +1623,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                         .Select(g => new GruppenErgebnisAnzeige(
                             g.Key,
                             $"Gruppe {GruppenBuchstabe(g.Key)}",
-                            g.Select(e => e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?")
-                             .OrderBy(n => n)
+                            g.Select(e => new GruppenTeamAnzeige(
+                                    e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
+                                    TeilnehmerAnzeige.MannschaftsIcon(e.HeimMannschaft)))
+                             .OrderBy(t => t.Name)
                              .ToList())));
                 ErgebnisseAnzeige = [];
             }
@@ -1600,7 +1638,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                         e.PaarungsNummer,
                         e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
                         e.AuswaertsMannschaft?.Name ?? e.AuswaertsPlatzhalterName ?? "?",
-                        e.IstFreilos)));
+                        e.IstFreilos,
+                        TeilnehmerAnzeige.MannschaftsIcon(e.HeimMannschaft),
+                        TeilnehmerAnzeige.MannschaftsIcon(e.AuswaertsMannschaft))));
             }
 
             TeamsZugewiesen       = detail.Lostoepfe.SelectMany(l => l.Eintraege).Count();

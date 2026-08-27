@@ -234,7 +234,18 @@
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate DataType="{x:Type vm:AnimationsTopfSlot}">
                                                                 <Border BorderBrush="{StaticResource SurfaceAltBrush}" BorderThickness="0,0,0,1" Padding="8,4">
-                                                                    <TextBlock Text="{Binding Anzeige}" FontSize="12" />
+                                                                    <DockPanel>
+                                                                        <Grid Width="14" Height="14" DockPanel.Dock="Left" Margin="0,0,5,0"
+                                                                              Visibility="{Binding Gezogen, Converter={StaticResource InverseBoolToVisibility}}">
+                                                                            <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                                   Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                                                   Stretch="Uniform" />
+                                                                            <TextBlock Text="🏳" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                                       Opacity="0.35"
+                                                                                       Visibility="{Binding Wappen, Converter={StaticResource NullToVisible}}" />
+                                                                        </Grid>
+                                                                        <TextBlock Text="{Binding Anzeige}" FontSize="12" />
+                                                                    </DockPanel>
                                                                 </Border>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
@@ -284,11 +295,23 @@
                                                             <ItemsControl.ItemTemplate>
                                                                 <DataTemplate DataType="{x:Type vm:AnimationsGruppenSlot}">
                                                                     <Border BorderBrush="{StaticResource SurfaceAltBrush}" BorderThickness="0,0,0,1" Padding="10,5">
-                                                                        <TextBlock FontSize="13">
-                                                                            <Run Text="{Binding Position}" Foreground="{StaticResource BorderStrongBrush}" />
-                                                                            <Run Text=". " Foreground="{StaticResource BorderStrongBrush}" />
-                                                                            <Run Text="{Binding Anzeige}" />
-                                                                        </TextBlock>
+                                                                        <DockPanel>
+                                                                            <TextBlock DockPanel.Dock="Left" FontSize="13" VerticalAlignment="Center" Margin="0,0,4,0"
+                                                                                       Foreground="{StaticResource BorderStrongBrush}">
+                                                                                <Run Text="{Binding Position}" />
+                                                                                <Run Text="." />
+                                                                            </TextBlock>
+                                                                            <Grid Width="14" Height="14" DockPanel.Dock="Left" Margin="0,0,5,0"
+                                                                                  Visibility="{Binding Befuellt, Converter={StaticResource BoolToVisibility}}">
+                                                                                <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                                       Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                                                       Stretch="Uniform" />
+                                                                                <TextBlock Text="🏳" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                                           Opacity="0.35"
+                                                                                           Visibility="{Binding Wappen, Converter={StaticResource NullToVisible}}" />
+                                                                            </Grid>
+                                                                            <TextBlock Text="{Binding Anzeige}" FontSize="13" VerticalAlignment="Center" />
+                                                                        </DockPanel>
                                                                     </Border>
                                                                 </DataTemplate>
                                                             </ItemsControl.ItemTemplate>
@@ -328,21 +351,47 @@
                                                             </Grid.ColumnDefinitions>
                                                             <TextBlock Grid.Column="0" Text="{Binding PaarungsNr}"
                                                                        Foreground="{StaticResource TextSubtleBrush}" FontSize="12" VerticalAlignment="Center" />
-                                                            <TextBlock Grid.Column="1" FontSize="13">
-                                                                <TextBlock.Style>
-                                                                    <Style TargetType="TextBlock">
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding IstFreilos}" Value="True">
-                                                                                <Setter Property="Text" Value="{Binding Heim, StringFormat='Freilos: {0}'}" />
-                                                                                <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </TextBlock.Style>
-                                                                <Run Text="{Binding Heim}" FontWeight="SemiBold" />
-                                                                <Run Text="  vs  " Foreground="{StaticResource TextSubtleBrush}" />
-                                                                <Run Text="{Binding Auswaerts}" />
-                                                            </TextBlock>
+                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                                <TextBlock Text="Freilos: " FontSize="13" Foreground="{StaticResource TextSubtleBrush}"
+                                                                           Visibility="{Binding IstFreilos, Converter={StaticResource BoolToVisibility}}" />
+                                                                <Grid Width="14" Height="14" Margin="0,0,5,0"
+                                                                      Visibility="{Binding HeimBefuellt, Converter={StaticResource BoolToVisibility}}">
+                                                                    <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                           Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                                                                           Stretch="Uniform" />
+                                                                    <TextBlock Text="🏳" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                               Opacity="0.35"
+                                                                               Visibility="{Binding HeimWappen, Converter={StaticResource NullToVisible}}" />
+                                                                </Grid>
+                                                                <TextBlock Text="{Binding Heim}" FontSize="13" VerticalAlignment="Center">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IstFreilos}" Value="True">
+                                                                                    <Setter Property="FontWeight" Value="Normal" />
+                                                                                    <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                                <StackPanel Orientation="Horizontal"
+                                                                            Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}">
+                                                                    <TextBlock Text="  vs  " FontSize="13" Foreground="{StaticResource TextSubtleBrush}"
+                                                                               VerticalAlignment="Center" />
+                                                                    <Grid Width="14" Height="14" Margin="0,0,5,0"
+                                                                          Visibility="{Binding AuswaertsBefuellt, Converter={StaticResource BoolToVisibility}}">
+                                                                        <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                               Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                                                                               Stretch="Uniform" />
+                                                                        <TextBlock Text="🏳" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                                   Opacity="0.35"
+                                                                                   Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToVisible}}" />
+                                                                    </Grid>
+                                                                    <TextBlock Text="{Binding Auswaerts}" FontSize="13" VerticalAlignment="Center" />
+                                                                </StackPanel>
+                                                            </StackPanel>
                                                         </Grid>
                                                     </Border>
                                                 </DataTemplate>
@@ -513,12 +562,22 @@
                                     </ListBox.ItemContainerStyle>
                                     <ListBox.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:TeilnehmerAnzeige}">
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Name}" FontSize="13" />
-                                                <TextBlock Text="{Binding Kuerzel}" FontSize="10"
-                                                           Foreground="{StaticResource TextSubtleBrush}"
-                                                           Visibility="{Binding Kuerzel, Converter={StaticResource NullToCollapsed}}" />
-                                            </StackPanel>
+                                            <DockPanel>
+                                                <Grid Width="16" Height="16" DockPanel.Dock="Left" Margin="0,0,6,0">
+                                                    <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                           Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                           Stretch="Uniform" />
+                                                    <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Opacity="0.35"
+                                                               Visibility="{Binding Wappen, Converter={StaticResource NullToVisible}}" />
+                                                </Grid>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Name}" FontSize="13" />
+                                                    <TextBlock Text="{Binding Kuerzel}" FontSize="10"
+                                                               Foreground="{StaticResource TextSubtleBrush}"
+                                                               Visibility="{Binding Kuerzel, Converter={StaticResource NullToCollapsed}}" />
+                                                </StackPanel>
+                                            </DockPanel>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
@@ -585,12 +644,22 @@
                                                         </ListBox.ItemContainerStyle>
                                                         <ListBox.ItemTemplate>
                                                             <DataTemplate DataType="{x:Type vm:TeilnehmerAnzeige}">
-                                                                <StackPanel>
-                                                                    <TextBlock Text="{Binding Name}" FontSize="12" />
-                                                                    <TextBlock Text="{Binding Kuerzel}" FontSize="10"
-                                                                               Foreground="{StaticResource TextSubtleBrush}"
-                                                                               Visibility="{Binding Kuerzel, Converter={StaticResource NullToCollapsed}}" />
-                                                                </StackPanel>
+                                                                <DockPanel>
+                                                                    <Grid Width="14" Height="14" DockPanel.Dock="Left" Margin="0,0,5,0">
+                                                                        <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                               Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                                               Stretch="Uniform" />
+                                                                        <TextBlock Text="🏳" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                                   Opacity="0.35"
+                                                                                   Visibility="{Binding Wappen, Converter={StaticResource NullToVisible}}" />
+                                                                    </Grid>
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="{Binding Name}" FontSize="12" />
+                                                                        <TextBlock Text="{Binding Kuerzel}" FontSize="10"
+                                                                                   Foreground="{StaticResource TextSubtleBrush}"
+                                                                                   Visibility="{Binding Kuerzel, Converter={StaticResource NullToCollapsed}}" />
+                                                                    </StackPanel>
+                                                                </DockPanel>
                                                             </DataTemplate>
                                                         </ListBox.ItemTemplate>
                                                     </ListBox>
@@ -634,10 +703,20 @@
                                             </Border>
                                             <ItemsControl ItemsSource="{Binding Teams}" Background="White">
                                                 <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
+                                                    <DataTemplate DataType="{x:Type vm:GruppenTeamAnzeige}">
                                                         <Border BorderBrush="{StaticResource SurfaceAltBrush}" BorderThickness="0,0,0,1"
                                                                 Padding="10,5">
-                                                            <TextBlock Text="{Binding}" FontSize="13" />
+                                                            <DockPanel>
+                                                                <Grid Width="14" Height="14" DockPanel.Dock="Left" Margin="0,0,5,0">
+                                                                    <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                           Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                                           Stretch="Uniform" />
+                                                                    <TextBlock Text="🏳" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                               Opacity="0.35"
+                                                                               Visibility="{Binding Wappen, Converter={StaticResource NullToVisible}}" />
+                                                                </Grid>
+                                                                <TextBlock Text="{Binding Name}" FontSize="13" />
+                                                            </DockPanel>
                                                         </Border>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
@@ -706,8 +785,19 @@
                                                         </Style.Triggers>
                                                     </Style>
                                                 </Border.Style>
-                                                <TextBlock Text="{Binding HeimSlot.AnzeigeName}" FontSize="12"
-                                                           Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                                                <DockPanel>
+                                                    <Grid Width="14" Height="14" DockPanel.Dock="Left" Margin="0,0,5,0"
+                                                          Visibility="{Binding HeimSlot.IstLeer, Converter={StaticResource InverseBoolToVisibility}}">
+                                                        <Image Source="{Binding HeimSlot.Team.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                               Visibility="{Binding HeimSlot.Team.Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                               Stretch="Uniform" />
+                                                        <TextBlock Text="🏳" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                   Opacity="0.35"
+                                                                   Visibility="{Binding HeimSlot.Team.Wappen, Converter={StaticResource NullToVisible}}" />
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding HeimSlot.AnzeigeName}" FontSize="12"
+                                                               Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                                                </DockPanel>
                                             </Border>
                                             <TextBlock Grid.Column="2" Text=" vs " FontSize="12"
                                                        Foreground="{StaticResource TextSubtleBrush}" VerticalAlignment="Center" Margin="6,0" />
@@ -733,8 +823,19 @@
                                                         </Style.Triggers>
                                                     </Style>
                                                 </Border.Style>
-                                                <TextBlock Text="{Binding AuswaertsSlot.AnzeigeName}" FontSize="12"
-                                                           Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                                                <DockPanel>
+                                                    <Grid Width="14" Height="14" DockPanel.Dock="Left" Margin="0,0,5,0"
+                                                          Visibility="{Binding AuswaertsSlot.IstLeer, Converter={StaticResource InverseBoolToVisibility}}">
+                                                        <Image Source="{Binding AuswaertsSlot.Team.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                               Visibility="{Binding AuswaertsSlot.Team.Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                               Stretch="Uniform" />
+                                                        <TextBlock Text="🏳" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                   Opacity="0.35"
+                                                                   Visibility="{Binding AuswaertsSlot.Team.Wappen, Converter={StaticResource NullToVisible}}" />
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding AuswaertsSlot.AnzeigeName}" FontSize="12"
+                                                               Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                                                </DockPanel>
                                             </Border>
                                         </Grid>
                                     </Border>
@@ -781,8 +882,19 @@
                                                                     </Style.Triggers>
                                                                 </Style>
                                                             </Border.Style>
-                                                            <TextBlock Text="{Binding AnzeigeName}" FontSize="12"
-                                                                       Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                                                            <DockPanel>
+                                                                <Grid Width="14" Height="14" DockPanel.Dock="Left" Margin="0,0,5,0"
+                                                                      Visibility="{Binding IstLeer, Converter={StaticResource InverseBoolToVisibility}}">
+                                                                    <Image Source="{Binding Team.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                           Visibility="{Binding Team.Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                                           Stretch="Uniform" />
+                                                                    <TextBlock Text="🏳" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                               Opacity="0.35"
+                                                                               Visibility="{Binding Team.Wappen, Converter={StaticResource NullToVisible}}" />
+                                                                </Grid>
+                                                                <TextBlock Text="{Binding AnzeigeName}" FontSize="12"
+                                                                           Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                                                            </DockPanel>
                                                         </Border>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
@@ -812,22 +924,45 @@
                                                 <TextBlock Grid.Column="0" Text="{Binding PaarungsNummer}"
                                                            Foreground="{StaticResource TextSubtleBrush}" FontSize="12"
                                                            VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="1" FontSize="13">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IstFreilos}" Value="True">
-                                                                    <Setter Property="Text"
-                                                                            Value="{Binding HeimName, StringFormat='Freilos: {0}'}" />
-                                                                    <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                    <Run Text="{Binding HeimName}" FontWeight="SemiBold" />
-                                                    <Run Text="  vs  " Foreground="{StaticResource TextSubtleBrush}" />
-                                                    <Run Text="{Binding AuswaertsName}" />
-                                                </TextBlock>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="Freilos: " FontSize="13" Foreground="{StaticResource TextSubtleBrush}"
+                                                               Visibility="{Binding IstFreilos, Converter={StaticResource BoolToVisibility}}" />
+                                                    <Grid Width="16" Height="16" Margin="0,0,5,0">
+                                                        <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                               Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                                                               Stretch="Uniform" />
+                                                        <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                   Opacity="0.35"
+                                                                   Visibility="{Binding HeimWappen, Converter={StaticResource NullToVisible}}" />
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding HeimName}" FontSize="13" VerticalAlignment="Center">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IstFreilos}" Value="True">
+                                                                        <Setter Property="FontWeight" Value="Normal" />
+                                                                        <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <StackPanel Orientation="Horizontal"
+                                                                Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}">
+                                                        <TextBlock Text="  vs  " FontSize="13" Foreground="{StaticResource TextSubtleBrush}"
+                                                                   VerticalAlignment="Center" />
+                                                        <Grid Width="16" Height="16" Margin="0,0,5,0">
+                                                            <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                   Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                                                                   Stretch="Uniform" />
+                                                            <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                       Opacity="0.35"
+                                                                       Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToVisible}}" />
+                                                        </Grid>
+                                                        <TextBlock Text="{Binding AuswaertsName}" FontSize="13" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </StackPanel>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>

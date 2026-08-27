@@ -27,8 +27,10 @@ public class AuslosungRepository(TurnierverwaltungDbContext context)
             .Include(a => a.Regeln)
             .Include(a => a.Ergebnisse.OrderBy(e => e.PaarungsNummer))
                 .ThenInclude(e => e.HeimMannschaft)
+                    .ThenInclude(m => m!.Land)
             .Include(a => a.Ergebnisse)
                 .ThenInclude(e => e.AuswaertsMannschaft)
+                    .ThenInclude(m => m!.Land)
             .AsSplitQuery()
             .FirstOrDefaultAsync(a => a.Id == id, ct);
 
