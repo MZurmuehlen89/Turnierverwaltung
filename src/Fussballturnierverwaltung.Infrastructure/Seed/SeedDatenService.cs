@@ -28,6 +28,7 @@ public class SeedDatenService
         }
 
         await LaenderNachruesten(cancellationToken);
+        await BildmaterialNachruesten(cancellationToken);
         await MannschaftenNachruesten(cancellationToken);
         await RegelwerkeNachruesten(cancellationToken);
         await VorlagenRundenNachruesten(cancellationToken);
@@ -53,6 +54,37 @@ public class SeedDatenService
             _context.Laender.AddRange(neue);
             await _context.SaveChangesAsync(ct);
             _logger.LogInformation("{Anzahl} Länder nachgerüstet.", neue.Count);
+        }
+    }
+
+    /// <summary>Issue #233: befüllt Flagge/Logo bei bereits vorhandenen Länder-/Verbands-Datensätzen ohne
+    /// Bild nachträglich (Nachrüsten-Pattern, analog zu <see cref="LaenderNachruesten"/>) — betrifft sowohl
+    /// frisch angelegte Datensätze aus <see cref="ErstSeedAsync"/> als auch ältere Datenbanken ohne Bildspalten.</summary>
+    private async Task BildmaterialNachruesten(CancellationToken ct)
+    {
+        var verbaendeOhneLogo = await _context.Verbaende.Where(v => v.Logo == null).ToListAsync(ct);
+        int aktualisiert = 0;
+        foreach (var verband in verbaendeOhneLogo)
+        {
+            var logo = SeedBildLader.Laden("Verbandslogos", verband.Kurzname);
+            if (logo is null) continue;
+            verband.Logo = logo;
+            aktualisiert++;
+        }
+
+        var laenderOhneFlagge = await _context.Laender.Where(l => l.Flagge == null).ToListAsync(ct);
+        foreach (var land in laenderOhneFlagge)
+        {
+            var flagge = SeedBildLader.Laden("Flaggen", land.FifaCode);
+            if (flagge is null) continue;
+            land.Flagge = flagge;
+            aktualisiert++;
+        }
+
+        if (aktualisiert > 0)
+        {
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("{Anzahl} Verbands-/Länder-Bilder nachgerüstet.", aktualisiert);
         }
     }
 

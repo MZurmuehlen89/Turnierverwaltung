@@ -6,6 +6,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Seed-Bildmaterial (Issue #233): Flaggen aus flag-icons (MIT), Verbandslogos einzeln beschafft -->
+    <EmbeddedResource Include="Seed\Bildmaterial\**\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="AngleSharp" Version="1.7.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
