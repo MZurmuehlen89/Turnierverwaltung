@@ -11,5 +11,7 @@ public class Land : BasisEntitaet
     public int VerbandId { get; set; }
     public Verband Verband { get; set; } = null!;
 
+    public byte[]? Flagge { get; set; }
+
     public ICollection<Mannschaft> Mannschaften { get; set; } = new List<Mannschaft>();
 }

@@ -12,6 +12,8 @@ public class TurnierVorlage : BasisEntitaet
     public DateOnly? GueltigVon { get; set; }
     public DateOnly? GueltigBis { get; set; }
 
+    public byte[]? Logo { get; set; }
+
     public ICollection<TurnierInstanz> TurnierInstanzen { get; set; } = new List<TurnierInstanz>();
     public ICollection<VorlagenRunde> VorlagenRunden { get; set; } = new List<VorlagenRunde>();
 }

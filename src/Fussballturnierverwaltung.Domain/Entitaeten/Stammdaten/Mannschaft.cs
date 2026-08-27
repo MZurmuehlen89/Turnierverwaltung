@@ -16,6 +16,8 @@ public class Mannschaft : BasisEntitaet
     public int Heimstaerke { get; set; }
     public int Auswaertsstaerke { get; set; }
 
+    public byte[]? Wappen { get; set; }
+
     // Nicht gespeichert, da aus den Teilratings berechenbar
     public decimal GesamtRating => (OffensivRating + MittelfeldRating + DefensivRating) / 3m;
 }
