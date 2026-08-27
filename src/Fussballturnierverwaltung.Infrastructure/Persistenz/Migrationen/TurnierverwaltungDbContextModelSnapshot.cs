@@ -655,6 +655,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasMaxLength(3)
                         .HasColumnType("nvarchar(3)");
 
+                    b.Property<byte[]>("Flagge")
+                        .HasColumnType("varbinary(max)");
+
                     b.Property<int>("Kontinent")
                         .HasColumnType("int");
 
@@ -720,6 +723,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("OffensivRating")
                         .HasColumnType("int");
 
+                    b.Property<byte[]>("Wappen")
+                        .HasColumnType("varbinary(max)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("LandId");
@@ -739,6 +745,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<byte[]>("Logo")
+                        .HasColumnType("varbinary(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -954,6 +963,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     b.Property<bool>("IstHistorisch")
                         .HasColumnType("bit");
+
+                    b.Property<byte[]>("Logo")
+                        .HasColumnType("varbinary(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
