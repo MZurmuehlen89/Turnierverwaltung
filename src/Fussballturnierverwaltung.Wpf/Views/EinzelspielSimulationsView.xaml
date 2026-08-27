@@ -168,11 +168,11 @@
 
                                         <StackPanel Orientation="Horizontal"
                                                     Visibility="{Binding ZeigtTeams, Converter={StaticResource BoolToVisibility}}">
-                                            <Grid Width="16" Height="16" Margin="0,0,5,0" VerticalAlignment="Center">
+                                            <Grid Width="32" Height="32" Margin="0,0,5,0" VerticalAlignment="Center">
                                                 <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                        Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
                                                        Stretch="Uniform" />
-                                                <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                <TextBlock Text="🏳" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Opacity="0.35"
                                                            Visibility="{Binding HeimWappen, Converter={StaticResource NullToVisible}}" />
                                             </Grid>
@@ -184,11 +184,11 @@
                                             <TextBlock Text="{Binding AuswaertsName}" FontSize="14" FontWeight="SemiBold"
                                                        Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas" Margin="0,0,5,0"
                                                        VerticalAlignment="Center" />
-                                            <Grid Width="16" Height="16" VerticalAlignment="Center">
+                                            <Grid Width="32" Height="32" VerticalAlignment="Center">
                                                 <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                        Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
                                                        Stretch="Uniform" />
-                                                <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                <TextBlock Text="🏳" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Opacity="0.35"
                                                            Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToVisible}}" />
                                             </Grid>
