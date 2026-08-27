@@ -7,9 +7,11 @@ using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
+using Fussballturnierverwaltung.Wpf.Converters;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
 
@@ -21,18 +23,23 @@ public class BracketKnotenAnzeige
 {
     public double X { get; init; }
     public double Y { get; init; }
+    public int    RundenIndex { get; init; }
     public int?   TurnierRundeId { get; init; }
     public bool IstFreilos { get; init; }
     public string Label { get; init; } = "";
     public bool HatLabel => !string.IsNullOrEmpty(Label);
     public string HeimName { get; init; } = "";
     public string AuswaertsName { get; init; } = "";
+    public byte[]? HeimWappen { get; init; }
+    public byte[]? AuswaertsWappen { get; init; }
     public bool HeimIstSieger { get; init; }
     public bool AuswaertsIstSieger { get; init; }
     public bool HatErgebnis { get; init; }
     public string HeimScore { get; init; } = "";
     public string AuswaertsScore { get; init; } = "";
     public string ErgebnisDetail { get; init; } = "";
+    public string Datum { get; init; } = "";
+    public bool HatDatum => !string.IsNullOrEmpty(Datum);
 }
 
 public class BracketRundenkopf
@@ -97,6 +104,102 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     [ObservableProperty] private ObservableCollection<BracketRundenkopf>   _rundenKoepfe      = [];
     [ObservableProperty] private ObservableCollection<BracketKnotenAnzeige> _knoten            = [];
     [ObservableProperty] private ObservableCollection<BracketLinie>         _verbindungsLinien = [];
+
+    // ── Rundenweise Navigation (Issue #108, an kicker.de-Vorbild angelehnt) ───
+    // Statt des gesamten Baums in einem scrollbaren Canvas wird ein Fenster von zwei
+    // benachbarten Runden (aktuelle + nächste) als Kartenspalten angezeigt, mit Pfeilen zur
+    // Nachbarrunde. Beim Finale (letztes Fenster) rutscht das Fenster auf Halbfinale+Finale,
+    // da es kein "danach" mehr gibt — kein Sonderfall nötig, ergibt sich aus der Obergrenze.
+    // Der bestehende Canvas/Linien-Rechenweg (X/Y, VerbindungsLinien) bleibt für eine spätere
+    // Gesamtübersicht (separates Folge-Issue #238) erhalten, wird hier aber nicht mehr gebunden.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LinkeSpalteKnoten))]
+    [NotifyPropertyChangedFor(nameof(RechteSpalteKnoten))]
+    [NotifyPropertyChangedFor(nameof(LinkeSpalteName))]
+    [NotifyPropertyChangedFor(nameof(RechteSpalteName))]
+    [NotifyPropertyChangedFor(nameof(ZeigtZweiteSpalte))]
+    [NotifyPropertyChangedFor(nameof(HatVorherigeRunde))]
+    [NotifyPropertyChangedFor(nameof(HatNaechsteRunde))]
+    [NotifyPropertyChangedFor(nameof(VorherigeRundeName))]
+    [NotifyPropertyChangedFor(nameof(NaechsteRundeName))]
+    private int _aktuellerRundenIndex;
+
+    partial void OnAktuellerRundenIndexChanged(int value)
+    {
+        _vorherigeRundeBefehl.NotifyCanExecuteChanged();
+        _naechsteRundeBefehl.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Index der zweiten (rechten) Fensterspalte — identisch zum Startindex, wenn nur eine
+    /// Runde existiert (reines Finale-Bracket).</summary>
+    private int FensterEndeIndex => Math.Min(AktuellerRundenIndex + 1, Math.Max(0, RundenKoepfe.Count - 1));
+
+    /// <summary>Höchster gültiger Fenster-Startindex, sodass rechts immer eine zweite Spalte Platz hat
+    /// (Ausnahme: nur eine Runde insgesamt).</summary>
+    private int MaxFensterStartIndex => Math.Max(0, RundenKoepfe.Count - 2);
+
+    public bool ZeigtZweiteSpalte => FensterEndeIndex != AktuellerRundenIndex;
+
+    public IReadOnlyList<BracketKnotenAnzeige> LinkeSpalteKnoten =>
+        Knoten.Where(k => k.RundenIndex == AktuellerRundenIndex).OrderBy(k => k.Y).ToList();
+
+    public IReadOnlyList<BracketKnotenAnzeige> RechteSpalteKnoten =>
+        ZeigtZweiteSpalte
+            ? Knoten.Where(k => k.RundenIndex == FensterEndeIndex).OrderBy(k => k.Y).ToList()
+            : [];
+
+    public string LinkeSpalteName =>
+        AktuellerRundenIndex >= 0 && AktuellerRundenIndex < RundenKoepfe.Count
+            ? RundenKoepfe[AktuellerRundenIndex].Name
+            : "";
+
+    public string? RechteSpalteName => ZeigtZweiteSpalte ? RundenKoepfe[FensterEndeIndex].Name : null;
+
+    public bool HatVorherigeRunde => AktuellerRundenIndex > 0;
+    public bool HatNaechsteRunde  => AktuellerRundenIndex < MaxFensterStartIndex;
+
+    public string? VorherigeRundeName => HatVorherigeRunde ? RundenKoepfe[AktuellerRundenIndex - 1].Name : null;
+    public string? NaechsteRundeName  => HatNaechsteRunde  ? RundenKoepfe[FensterEndeIndex + 1].Name : null;
+
+    public ICommand VorherigeRundeBefehl => _vorherigeRundeBefehl;
+    public ICommand NaechsteRundeBefehl  => _naechsteRundeBefehl;
+    private readonly RelayCommand _vorherigeRundeBefehl;
+    private readonly RelayCommand _naechsteRundeBefehl;
+
+    /// <summary>Setzt die Rundennavigation auf das erste Fenster zurück und erzwingt die
+    /// Benachrichtigung der abgeleiteten Properties — der CommunityToolkit-Setter überspringt
+    /// sonst die Notification, wenn der Index bereits 0 war (z.B. nach Neuladen desselben Baums).</summary>
+    private void RundenNavigationZuruecksetzen()
+    {
+        AktuellerRundenIndex = 0;
+        OnPropertyChanged(nameof(AktuellerRundenIndex));
+        OnPropertyChanged(nameof(LinkeSpalteKnoten));
+        OnPropertyChanged(nameof(RechteSpalteKnoten));
+        OnPropertyChanged(nameof(LinkeSpalteName));
+        OnPropertyChanged(nameof(RechteSpalteName));
+        OnPropertyChanged(nameof(ZeigtZweiteSpalte));
+        OnPropertyChanged(nameof(HatVorherigeRunde));
+        OnPropertyChanged(nameof(HatNaechsteRunde));
+        OnPropertyChanged(nameof(VorherigeRundeName));
+        OnPropertyChanged(nameof(NaechsteRundeName));
+        _vorherigeRundeBefehl.NotifyCanExecuteChanged();
+        _naechsteRundeBefehl.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Aktualisiert die Rundennavigation nach einem reinen Ergebnis-Refresh (Bracket-Struktur
+    /// unverändert) — hält den Index, klemmt ihn nur bei Bedarf auf den gültigen Bereich, und
+    /// benachrichtigt beide Spalten immer neu, da sich die Knoten-Instanzen (Score, Sieger) geändert
+    /// haben, auch wenn der Index gleich bleibt.</summary>
+    private void RundenNavigationAktualisieren()
+    {
+        if (AktuellerRundenIndex > MaxFensterStartIndex)
+        {
+            AktuellerRundenIndex = MaxFensterStartIndex; // löst über NotifyPropertyChangedFor bereits alle Notifications aus
+            return;
+        }
+        OnPropertyChanged(nameof(LinkeSpalteKnoten));
+        OnPropertyChanged(nameof(RechteSpalteKnoten));
+    }
 
     // ── Gruppenphase-/Liga-Darstellung (Issue #137, Phase A von #33) ──────────
     // Zeigt, je nach Rundenart der aktuell im Spielplan fokussierten Runde, statt des
@@ -332,6 +435,8 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         _gruppeAngeklicktBefehl  = new RelayCommand<GruppenTabelle>(
             g => { if (g is not null) GruppeAngeklickt?.Invoke(this, g.GruppenNummer); });
         _ligaAnsichtWaehlenBefehl = new RelayCommand<TabellenAnsicht?>(a => AusgewaehlteLigaAnsicht = a ?? TabellenAnsicht.Gesamt);
+        _vorherigeRundeBefehl    = new RelayCommand(() => AktuellerRundenIndex--, () => HatVorherigeRunde);
+        _naechsteRundeBefehl     = new RelayCommand(() => AktuellerRundenIndex++, () => HatNaechsteRunde);
     }
 
     public override Task AktivierenAsync() => Task.CompletedTask;
@@ -374,7 +479,14 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         ZeigtLigaTabelle  = istLigaArtig;
         AktualisiereBefehle();
 
-        if (!istGruppenphase && !istLigaArtig) return;
+        if (!istGruppenphase && !istLigaArtig)
+        {
+            // K.-o.-Bracket: Ergebnisse neu laden, damit Simulationen (Einzelspiel oder Batch, Issue #108-
+            // Nachbesserung) sich sofort in den Bracket-Karten (Score, Sieger-Hervorhebung) niederschlagen —
+            // ohne die Rundennavigation zurückzusetzen, siehe AktualisiereBracketErgebnisseAsync.
+            if (HatBaum) await AktualisiereBracketErgebnisseAsync();
+            return;
+        }
 
         Fehlermeldung = null;
         try
@@ -403,6 +515,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         Knoten.Clear();
         VerbindungsLinien.Clear();
         RundenKoepfe.Clear();
+        RundenNavigationZuruecksetzen();
         AktualisiereBefehle();
 
         if (AusgewaehlteInstanz is null) return;
@@ -414,7 +527,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             if (runden.Count == 0) return;
 
             HatBaumIntern = true;
-            BerechneBracket(runden);
+            BerechneBracket(runden, rundenNavigationZuruecksetzen: true);
         }
         catch (Exception ex)
         {
@@ -427,7 +540,25 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         }
     }
 
-    private void BerechneBracket(IReadOnlyList<BracketRunde> runden)
+    /// <summary>Lädt die Bracket-Knoten neu (Score, Sieger-Hervorhebung) nach einer Ergebnis-/
+    /// Simulationsänderung, ohne die aktuell betrachtete Runde umzuschalten — im Unterschied zu
+    /// <see cref="LadeBracketAsync"/>, das für einen echten Neu-/Erstladevorgang gedacht ist.</summary>
+    private async Task AktualisiereBracketErgebnisseAsync()
+    {
+        if (AusgewaehlteInstanz is null) return;
+        try
+        {
+            var runden = await _baumService.BracketLadenAsync(AusgewaehlteInstanz.Id);
+            if (runden.Count == 0) return;
+            BerechneBracket(runden, rundenNavigationZuruecksetzen: false);
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+    }
+
+    private void BerechneBracket(IReadOnlyList<BracketRunde> runden, bool rundenNavigationZuruecksetzen)
     {
         var alleKnoten = runden.SelectMany(r => r.Knoten).ToDictionary(k => k.Id);
 
@@ -484,7 +615,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
                 string label = istFest
                     ? (runde.Knoten.Count == 1 ? "F" : $"{kuerzel}{pos + 1}")
                     : "";
-                Knoten.Add(BaueKnotenAnzeige(k, x, centerY - NODE_H / 2, label, turnierRundeId));
+                Knoten.Add(BaueKnotenAnzeige(k, x, centerY - NODE_H / 2, runde.RundeNummer - 1, label, turnierRundeId));
             }
         }
 
@@ -522,6 +653,11 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
                 }
             }
         }
+
+        if (rundenNavigationZuruecksetzen)
+            RundenNavigationZuruecksetzen();
+        else
+            RundenNavigationAktualisieren();
     }
 
     private static void AssignierePositionen(
@@ -661,10 +797,10 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         return int.TryParse(m.Groups[2].Value, out int nr) ? nr : null;
     }
 
-    private static BracketKnotenAnzeige BaueKnotenAnzeige(TurnierBaumKnoten k, double x, double y, string label, int? turnierRundeId = null)
+    private static BracketKnotenAnzeige BaueKnotenAnzeige(TurnierBaumKnoten k, double x, double y, int rundenIndex, string label, int? turnierRundeId = null)
     {
         if (k.Spiel is null)
-            return new BracketKnotenAnzeige { X = x, Y = y, TurnierRundeId = turnierRundeId, IstFreilos = true, Label = label, HeimName = "–", AuswaertsName = "–" };
+            return new BracketKnotenAnzeige { X = x, Y = y, RundenIndex = rundenIndex, TurnierRundeId = turnierRundeId, IstFreilos = true, Label = label, HeimName = "–", AuswaertsName = "–" };
 
         var s     = k.Spiel;
         var e     = s.Ergebnis;
@@ -682,17 +818,21 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         {
             X                  = x,
             Y                  = y,
+            RundenIndex        = rundenIndex,
             TurnierRundeId     = turnierRundeId ?? s.TurnierRundeId,
             IstFreilos         = false,
             Label              = label,
             HeimName           = s.HeimMannschaft?.Name      ?? s.HeimPlatzhalterName      ?? "—",
             AuswaertsName      = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "—",
+            HeimWappen         = MannschaftWappenErmittlung.Bytes(s.HeimMannschaft),
+            AuswaertsWappen    = MannschaftWappenErmittlung.Bytes(s.AuswaertsMannschaft),
             HatErgebnis        = hatE,
             HeimScore          = hatE ? e!.HeimToreGesamt.ToString()      : "",
             AuswaertsScore     = hatE ? e!.AuswaertsToreGesamt.ToString() : "",
             ErgebnisDetail     = detail,
             HeimIstSieger      = hatE && e!.SiegerMannschaftId == s.HeimMannschaftId,
-            AuswaertsIstSieger = hatE && e!.SiegerMannschaftId == s.AuswaertsMannschaftId
+            AuswaertsIstSieger = hatE && e!.SiegerMannschaftId == s.AuswaertsMannschaftId,
+            Datum              = s.Datum?.ToString("ddd, dd.MM.yy", CultureInfo.GetCultureInfo("de-DE")) ?? ""
         };
     }
 
@@ -739,6 +879,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             Knoten.Clear();
             VerbindungsLinien.Clear();
             RundenKoepfe.Clear();
+            RundenNavigationZuruecksetzen();
             AktualisiereBefehle();
         }
         catch (Exception ex)

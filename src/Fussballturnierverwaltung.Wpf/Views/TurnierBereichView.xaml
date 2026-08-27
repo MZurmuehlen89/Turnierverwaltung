@@ -14,12 +14,15 @@
                        FontSize="12" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
         </Border>
 
-        <!-- ── Split-Ansicht: Spielplan links | Turnierbaum rechts (entfaellt bei nur einer Runde) ── -->
+        <!-- ── Split-Ansicht: Spielplan links | Turnierbaum rechts (entfaellt bei nur einer Runde) ──
+             Turnierbaum-Spalte bewusst mit fester Pixelbreite statt "*"/GridSplitter (Issue #108-
+             Nachbesserung, Nutzerwunsch: fester Bereich ohne Größenänderung) — Fensterbreitenänderungen
+             wirken sich nur auf die Spielplan-Spalte aus. -->
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="3*" MinWidth="420" />
-                <ColumnDefinition Width="4" />
-                <ColumnDefinition Width="2*" MinWidth="320" />
+                <ColumnDefinition Width="*" MinWidth="420" />
+                <ColumnDefinition Width="1" />
+                <ColumnDefinition Width="600" />
             </Grid.ColumnDefinitions>
 
             <views:SpielplanView Grid.Column="0" DataContext="{Binding SpielplanVm}">
@@ -34,9 +37,8 @@
                 </views:SpielplanView.Style>
             </views:SpielplanView>
 
-            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch"
-                          Background="{StaticResource BorderBrush}" ResizeBehavior="PreviousAndNext"
-                          Visibility="{Binding ZeigeSplitAnsicht, Converter={StaticResource BoolToVisibility}}" />
+            <Border Grid.Column="1" Background="{StaticResource BorderBrush}"
+                    Visibility="{Binding ZeigeSplitAnsicht, Converter={StaticResource BoolToVisibility}}" />
 
             <views:TurnierBaumView Grid.Column="2" DataContext="{Binding TurnierBaumVm}"
                                     Visibility="{Binding DataContext.ZeigeSplitAnsicht, RelativeSource={RelativeSource AncestorType=Grid}, Converter={StaticResource BoolToVisibility}}" />

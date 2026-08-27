@@ -6,6 +6,186 @@
              xmlns:enums="clr-namespace:Fussballturnierverwaltung.Domain.Enums;assembly=Fussballturnierverwaltung.Domain">
 
     <UserControl.Resources>
+        <!-- Bracket-Spielpaarungskarte (Issue #108) — gemeinsam für die linke und rechte Rundenspalte,
+             damit die Fenster-Navigation (aktuelle + nächste Runde) nicht zwei Kopien pflegen muss. -->
+        <DataTemplate x:Key="BracketKartenTemplate" DataType="{x:Type vm:BracketKnotenAnzeige}">
+            <Button Command="{Binding DataContext.KnotenAngeklicktBefehl, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding}"
+                    Padding="0" Cursor="Hand" Margin="0,0,0,12">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter />
+                    </ControlTemplate>
+                </Button.Template>
+
+                <!-- Einheitliche Breite je Spalte über SharedSizeGroup (an den längsten Teamnamen der
+                     jeweiligen Spalte angepasst, mit Sicherheitsobergrenze) — die IsSharedSizeScope sitzt
+                     auf dem umschließenden Spalten-DockPanel, sodass linke und rechte Spalte unabhängig
+                     voneinander eine einheitliche Breite bilden. -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" MinWidth="220" SharedSizeGroup="BracketKarteBreite" />
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" MaxWidth="260" BorderThickness="1" CornerRadius="{StaticResource Radius6}" Background="White">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IstFreilos}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding HatErgebnis}" Value="True">
+                                    <Setter Property="BorderBrush" Value="{StaticResource AccentSoftBorderBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+
+                    <StackPanel>
+
+                        <!-- Label-Streifen (nur bei festem Bracket sichtbar) -->
+                        <Border Background="{StaticResource SurfaceBrush}"
+                                BorderBrush="{StaticResource SurfaceAltBrush}" BorderThickness="0,0,0,1"
+                                CornerRadius="6,6,0,0"
+                                Visibility="{Binding HatLabel, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding Label}"
+                                       FontSize="9" FontWeight="Bold"
+                                       Foreground="{StaticResource TextSubtleBrush}"
+                                       Padding="10,4" />
+                        </Border>
+
+                        <!-- Datum-Kopfzeile -->
+                        <Border Background="{StaticResource SurfaceBrush}"
+                                BorderBrush="{StaticResource SurfaceAltBrush}" BorderThickness="0,0,0,1"
+                                Visibility="{Binding HatDatum, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding Datum}"
+                                       FontSize="10" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextSubtleBrush}"
+                                       HorizontalAlignment="Center" Padding="10,4" />
+                        </Border>
+
+                        <!-- Freilos -->
+                        <TextBlock Text="–" FontSize="22" Foreground="{StaticResource BorderStrongBrush}"
+                                   HorizontalAlignment="Center" Padding="0,16"
+                                   Visibility="{Binding IstFreilos, Converter={StaticResource BoolToVisibility}}" />
+
+                        <!-- Reguläres Spiel -->
+                        <Grid Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Heimmannschaft -->
+                            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="12,10,8,4">
+                                <Grid Width="18" Height="18" Margin="0,0,8,0">
+                                    <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                           Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                                           Stretch="Uniform" />
+                                    <TextBlock Text="🏳" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Opacity="0.35"
+                                               Visibility="{Binding HeimWappen, Converter={StaticResource NullToVisible}}" />
+                                </Grid>
+                                <TextBlock Text="{Binding HeimName}" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                            <Setter Property="FontWeight" Value="Normal" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HeimScore}"
+                                       FontSize="15" FontWeight="Bold" Margin="8,10,12,4" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <!-- Trennlinie -->
+                            <Border Grid.Row="1" Grid.Column="0" Background="{StaticResource SurfaceAltBrush}" Height="1" Margin="12,4,0,4" VerticalAlignment="Center" />
+
+                            <!-- Meta-Zeile zwischen den Scores (n.V., i.E.) -->
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ErgebnisDetail}"
+                                       FontSize="9" Foreground="{StaticResource TextSubtleBrush}"
+                                       HorizontalAlignment="Center" Margin="8,0,12,0" />
+
+                            <!-- Auswärtsmannschaft -->
+                            <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Margin="12,4,8,10">
+                                <Grid Width="18" Height="18" Margin="0,0,8,0">
+                                    <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                           Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                                           Stretch="Uniform" />
+                                    <TextBlock Text="🏳" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Opacity="0.35"
+                                               Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToVisible}}" />
+                                </Grid>
+                                <TextBlock Text="{Binding AuswaertsName}" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                            <Setter Property="FontWeight" Value="Normal" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AuswaertsScore}"
+                                       FontSize="15" FontWeight="Bold" Margin="8,4,12,10" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+
+                    </StackPanel>
+                </Border>
+                </Grid>
+            </Button>
+        </DataTemplate>
+
         <!-- Gemeinsame Tabellenzeile für Gruppen-Karten (Issue #137) und gruppenübergreifende
              Rangfolge-Karten (Issue #212) — gleiche Qualifikationsstatus-Ampel/SicherPositioniert-Optik. -->
         <DataTemplate x:Key="TabellenEintragZeileTemplate" DataType="{x:Type tabelle:TabellenEintrag}">
@@ -109,254 +289,96 @@
                                FontSize="12" TextWrapping="Wrap" />
                 </Border>
 
-                <!-- Bracket-Bereich -->
-                <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Auto"
-                              Padding="16"
-                              Visibility="{Binding ZeigtBracketInhalt, Converter={StaticResource BoolToVisibility}}">
-                    <StackPanel Orientation="Vertical">
+                <!-- Bracket-Bereich: Fenster aus zwei benachbarten Runden (aktuelle + nächste) statt
+                     Gesamtübersicht (Issue #108, an kicker.de-Vorbild angelehnt). Fester Bereich ohne
+                     Größenänderung — beide Spalten scrollen unabhängig, keine Größenänderung mit
+                     wechselndem Rundeninhalt. Eine vollständige Baum-Gesamtübersicht ohne Blättern ist
+                     als eigenes Folge-Issue (#238) vorgesehen. -->
+                <DockPanel Visibility="{Binding ZeigtBracketInhalt, Converter={StaticResource BoolToVisibility}}">
 
-                        <!-- Runden-Köpfe -->
-                        <Grid Height="32"
-                              Width="{Binding CanvasBreite}"
-                              HorizontalAlignment="Left">
-                            <ItemsControl ItemsSource="{Binding RundenKoepfe}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <Canvas />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemContainerStyle>
-                                    <Style TargetType="ContentPresenter">
-                                        <Setter Property="Canvas.Left" Value="{Binding X}" />
-                                        <Setter Property="Canvas.Top" Value="0" />
-                                    </Style>
-                                </ItemsControl.ItemContainerStyle>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:BracketRundenkopf}">
-                                        <TextBlock Text="{Binding Name}"
-                                                   Width="{Binding Breite}"
-                                                   TextAlignment="Center"
-                                                   FontSize="12" FontWeight="Bold"
-                                                   Foreground="{StaticResource TextBrush}" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </Grid>
+                    <!-- Rundennavigation -->
+                    <Grid DockPanel.Dock="Top" Margin="16,12,16,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                        <!-- Trennlinie unter Köpfen -->
-                        <Border Height="1" Background="{StaticResource BorderBrush}"
-                                Width="{Binding CanvasBreite}"
-                                HorizontalAlignment="Left" Margin="0,0,0,8" />
+                        <Button Grid.Column="0" Command="{Binding VorherigeRundeBefehl}"
+                                Padding="10,6" Cursor="Hand" Background="Transparent" BorderThickness="0"
+                                Visibility="{Binding HatVorherigeRunde, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="◀" FontSize="14" Foreground="{StaticResource AccentDarkBrush}"
+                                           VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="{Binding VorherigeRundeName}" FontSize="12"
+                                           Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
 
-                        <!-- Bracket (Linien + Knoten überlagert) -->
-                        <Grid Width="{Binding CanvasBreite}"
-                              Height="{Binding CanvasHoehe}"
-                              HorizontalAlignment="Left"
-                              VerticalAlignment="Top">
+                        <TextBlock Grid.Column="1" Text="Turnierbaum"
+                                   FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextStrongBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
 
-                            <!-- Verbindungslinien (untere Ebene) -->
-                            <ItemsControl ItemsSource="{Binding VerbindungsLinien}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <Canvas />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:BracketLinie}">
-                                        <Line X1="{Binding X1}" Y1="{Binding Y1}"
-                                              X2="{Binding X2}" Y2="{Binding Y2}"
-                                              Stroke="{StaticResource BorderStrongBrush}" StrokeThickness="1.5" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                        <Button Grid.Column="2" Command="{Binding NaechsteRundeBefehl}"
+                                Padding="10,6" Cursor="Hand" Background="Transparent" BorderThickness="0"
+                                Visibility="{Binding HatNaechsteRunde, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding NaechsteRundeName}" FontSize="12"
+                                           Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="▶" FontSize="14" Foreground="{StaticResource AccentDarkBrush}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
 
-                            <!-- Bracket-Knoten (obere Ebene) -->
-                            <ItemsControl ItemsSource="{Binding Knoten}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <Canvas />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemContainerStyle>
-                                    <Style TargetType="ContentPresenter">
-                                        <Setter Property="Canvas.Left" Value="{Binding X}" />
-                                        <Setter Property="Canvas.Top" Value="{Binding Y}" />
-                                    </Style>
-                                </ItemsControl.ItemContainerStyle>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:BracketKnotenAnzeige}">
-                                        <Button Command="{Binding DataContext.KnotenAngeklicktBefehl, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}"
-                                                Padding="0" Cursor="Hand">
-                                            <Button.Template>
-                                                <ControlTemplate TargetType="Button">
-                                                    <ContentPresenter />
-                                                </ControlTemplate>
-                                            </Button.Template>
-                                        <Border Width="185" Height="90"
-                                                BorderThickness="1" CornerRadius="{StaticResource Radius4}"
-                                                Background="White">
-                                            <Border.Style>
-                                                <Style TargetType="Border">
-                                                    <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IstFreilos}" Value="True">
-                                                            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
-                                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding HatErgebnis}" Value="True">
-                                                            <Setter Property="BorderBrush" Value="{StaticResource AccentSoftBorderBrush}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
+                    <!-- Zwei unabhängige Rundenspalten mit einheitlicher Kartenbreite je Spalte (an den
+                         längsten Teamnamen dieser Spalte angepasst, über je eine eigene SharedSizeGroup-
+                         Scope). Verbindungslinien zwischen den Runden bewusst NICHT dargestellt (Issue
+                         #108-Nachbesserung, 2026-08-28): die zugrunde liegende "wer speist wen"-Beziehung
+                         ist app-weit nur als Text-Platzhalter modelliert, nicht als echte ID-Verknüpfung
+                         (siehe #241) — jeder Versuch, das auf UI-Ebene zu rekonstruieren, war unzuverlässig
+                         und wird erst nach dem dortigen Architektur-Umbau sauber möglich sein. -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
 
-                                            <Grid>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="*" />
-                                            </Grid.RowDefinitions>
+                        <DockPanel Grid.Column="0" Grid.IsSharedSizeScope="True">
+                            <DockPanel.Style>
+                                <Style TargetType="DockPanel">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ZeigtZweiteSpalte}" Value="False">
+                                            <Setter Property="Grid.ColumnSpan" Value="2" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DockPanel.Style>
+                            <TextBlock DockPanel.Dock="Top" Text="{Binding LinkeSpalteName}"
+                                       FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"
+                                       HorizontalAlignment="Center" Margin="0,0,0,8" />
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,0,4">
+                                <ItemsControl ItemsSource="{Binding LinkeSpalteKnoten}" ItemTemplate="{StaticResource BracketKartenTemplate}"
+                                              HorizontalAlignment="Center" />
+                            </ScrollViewer>
+                        </DockPanel>
 
-                                            <!-- Label-Streifen (nur bei festem Bracket sichtbar) -->
-                                            <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}"
-                                                    BorderBrush="{StaticResource SurfaceAltBrush}" BorderThickness="0,0,0,1"
-                                                    CornerRadius="4,4,0,0"
-                                                    Visibility="{Binding HatLabel, Converter={StaticResource BoolToVisibility}}">
-                                                <TextBlock Text="{Binding Label}"
-                                                           FontSize="9" FontWeight="Bold"
-                                                           Foreground="{StaticResource TextSubtleBrush}"
-                                                           Padding="6,0"
-                                                           VerticalAlignment="Center" />
-                                            </Border>
+                        <Border Grid.Column="0" Grid.ColumnSpan="2" Width="1" HorizontalAlignment="Center"
+                                Background="{StaticResource BorderBrush}"
+                                Visibility="{Binding ZeigtZweiteSpalte, Converter={StaticResource BoolToVisibility}}" />
 
-                                            <!-- Freilos -->
-                                            <TextBlock Grid.Row="1" Text="–" FontSize="22" Foreground="{StaticResource BorderStrongBrush}"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"
-                                                       Visibility="{Binding IstFreilos, Converter={StaticResource BoolToVisibility}}" />
-
-                                            <!-- Reguläres Spiel -->
-                                            <Grid Grid.Row="1" Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}">
-                                                <Grid.RowDefinitions>
-                                                    <RowDefinition Height="*" />
-                                                    <RowDefinition Height="1" />
-                                                    <RowDefinition Height="*" />
-                                                </Grid.RowDefinitions>
-
-                                                <!-- Heimmannschaft -->
-                                                <Grid Grid.Row="0" Margin="8,4,8,2">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0"
-                                                               Text="{Binding HeimName}"
-                                                               FontSize="12"
-                                                               TextTrimming="CharacterEllipsis"
-                                                               VerticalAlignment="Center">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-                                                                <Setter Property="FontWeight" Value="Normal" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
-                                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
-                                                                        <Setter Property="FontWeight" Value="Bold" />
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
-                                                                        <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                    <TextBlock Grid.Column="1"
-                                                               Text="{Binding HeimScore}"
-                                                               FontSize="13" FontWeight="Bold"
-                                                               Margin="6,0,0,0"
-                                                               VerticalAlignment="Center">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
-                                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
-                                                                        <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                </Grid>
-
-                                                <!-- Trennlinie -->
-                                                <Border Grid.Row="1" Background="{StaticResource SurfaceAltBrush}" />
-
-                                                <!-- Auswärtsmannschaft -->
-                                                <Grid Grid.Row="2" Margin="8,2,8,4">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0"
-                                                               Text="{Binding AuswaertsName}"
-                                                               FontSize="12"
-                                                               TextTrimming="CharacterEllipsis"
-                                                               VerticalAlignment="Center">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-                                                                <Setter Property="FontWeight" Value="Normal" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
-                                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
-                                                                        <Setter Property="FontWeight" Value="Bold" />
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
-                                                                        <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                    <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                                                VerticalAlignment="Center" Margin="6,0,0,0">
-                                                        <TextBlock Text="{Binding AuswaertsScore}"
-                                                                   FontSize="13" FontWeight="Bold">
-                                                            <TextBlock.Style>
-                                                                <Style TargetType="TextBlock">
-                                                                    <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
-                                                                            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
-                                                                        </DataTrigger>
-                                                                        <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
-                                                                            <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </TextBlock.Style>
-                                                        </TextBlock>
-                                                        <TextBlock Text="{Binding ErgebnisDetail}"
-                                                                   FontSize="9" Foreground="{StaticResource TextSubtleBrush}"
-                                                                   Margin="3,2,0,0"
-                                                                   VerticalAlignment="Center" />
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Grid>
-                                            </Grid>
-                                        </Border>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </Grid>
-
-                    </StackPanel>
-                </ScrollViewer>
+                        <DockPanel Grid.Column="1" Grid.IsSharedSizeScope="True"
+                                   Visibility="{Binding ZeigtZweiteSpalte, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock DockPanel.Dock="Top" Text="{Binding RechteSpalteName}"
+                                       FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"
+                                       HorizontalAlignment="Center" Margin="0,0,0,8" />
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,0,4">
+                                <ItemsControl ItemsSource="{Binding RechteSpalteKnoten}" ItemTemplate="{StaticResource BracketKartenTemplate}"
+                                              HorizontalAlignment="Center" />
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Grid>
+                </DockPanel>
 
                 <!-- ── Gruppenphase-Ansicht (Issue #137, Phase A von #33) ── -->
                 <DockPanel Visibility="{Binding ZeigtGruppenphase, Converter={StaticResource BoolToVisibility}}">
