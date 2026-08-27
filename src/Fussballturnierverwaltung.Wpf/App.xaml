@@ -15,6 +15,9 @@
             <conv:NullZuGeklapptConverter x:Key="NullToCollapsed" />
             <conv:NullZuSichtbarConverter x:Key="NullToVisible" />
             <conv:BildDatenZuBildquelleConverter x:Key="BildDatenZuBildquelle" />
+            <conv:MannschaftZuWappenBildquelleConverter x:Key="MannschaftZuWappenBildquelle" />
+            <conv:MannschaftHatWappenConverter x:Key="MannschaftHatWappen" />
+            <conv:MannschaftHatKeinWappenConverter x:Key="MannschaftHatKeinWappen" />
             <conv:VerfahrenArtZuTextConverter x:Key="VerfahrenArtZuText" />
             <conv:VorlagenKategorieZuTextConverter x:Key="VorlagenKategorieZuText" />
             <conv:RundenartZuTextConverter x:Key="RundenartZuText" />

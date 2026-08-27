@@ -10,8 +10,11 @@ namespace Fussballturnierverwaltung.Wpf.Converters;
 public class BildDatenZuBildquelleConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+        => BildAusBytes(value as byte[]);
+
+    public static ImageSource? BildAusBytes(byte[]? bytes)
     {
-        if (value is not byte[] { Length: > 0 } bytes) return null;
+        if (bytes is not { Length: > 0 }) return null;
 
         using var stream = new MemoryStream(bytes);
         var bild = new BitmapImage();

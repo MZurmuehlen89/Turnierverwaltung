@@ -85,7 +85,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
     [ObservableProperty] private string? _protokollSpielInfo;
 
-    public ObservableCollection<string>                   ProtokollZeilen    { get; } = [];
+    public ObservableCollection<ProtokollErgebnisZeile>   ProtokollZeilen    { get; } = [];
     public ObservableCollection<EinzelspielEreignisZeile> ProtokollEreignisse { get; } = [];
 
     public bool HatProtokoll           => ProtokollZeilen.Count > 0;
@@ -228,11 +228,20 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                               : heimGesamt < auswaertsGesamt ? auswaerts.Name
                               : "Unentschieden";
 
+                byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(heim);
+                byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(auswaerts);
+
+                var (score1, detail1) = SimulationsProtokollHelfer.ScoreUndDetail(erg1);
+                var (score2, detail2) = SimulationsProtokollHelfer.ScoreUndDetail(erg2);
+
                 ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name} (Hin & Rück)";
-                ProtokollZeilen.Add($"Hinspiel:   {SimulationsProtokollHelfer.FormatErgebnisZeile(erg1, heim.Name, auswaerts.Name)}");
-                ProtokollZeilen.Add($"Rückspiel:  {SimulationsProtokollHelfer.FormatErgebnisZeile(erg2, auswaerts.Name, heim.Name)}");
-                ProtokollZeilen.Add($"Gesamt:     {heim.Name}  {heimGesamt}:{auswaertsGesamt}  {auswaerts.Name}");
-                ProtokollZeilen.Add($"Weiter:     {weiter}");
+                ProtokollZeilen.Add(new ProtokollErgebnisZeile(
+                    "Hinspiel", heim.Name, heimWappen, score1, auswaerts.Name, auswaertsWappen, detail1));
+                ProtokollZeilen.Add(new ProtokollErgebnisZeile(
+                    "Rückspiel", auswaerts.Name, auswaertsWappen, score2, heim.Name, heimWappen, detail2));
+                ProtokollZeilen.Add(new ProtokollErgebnisZeile(
+                    "Gesamt", heim.Name, heimWappen, $"{heimGesamt}:{auswaertsGesamt}", auswaerts.Name, auswaertsWappen));
+                ProtokollZeilen.Add(ProtokollErgebnisZeile.Text("Weiter", weiter));
 
                 if (modus == SimulationsModus.AusfuehrlicheSimulation)
                 {
@@ -260,8 +269,14 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             else
             {
                 var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, modus);
+                var (score, detail) = SimulationsProtokollHelfer.ScoreUndDetail(erg);
                 ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
-                ProtokollZeilen.Add(SimulationsProtokollHelfer.FormatErgebnisZeile(erg, heim.Name, auswaerts.Name));
+                ProtokollZeilen.Add(new ProtokollErgebnisZeile(
+                    null,
+                    heim.Name, SimulationsProtokollHelfer.MannschaftsIcon(heim),
+                    score,
+                    auswaerts.Name, SimulationsProtokollHelfer.MannschaftsIcon(auswaerts),
+                    detail));
 
                 if (modus == SimulationsModus.AusfuehrlicheSimulation)
                 {

@@ -1,7 +1,8 @@
 <UserControl x:Class="Fussballturnierverwaltung.Wpf.Views.EinzelspielSimulationsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:Fussballturnierverwaltung.Wpf.ViewModels">
+             xmlns:vm="clr-namespace:Fussballturnierverwaltung.Wpf.ViewModels"
+             xmlns:dom="clr-namespace:Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;assembly=Fussballturnierverwaltung.Domain">
 
     <UserControl.Resources>
         <Style x:Key="TeamSucheTextBox" TargetType="TextBox">
@@ -23,6 +24,22 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <!-- Issue #232: Wappen bzw. bei Nationalmannschaften Landesflagge neben der Mannschaft in
+             beiden Team-Auswahl-ComboBoxen, mit Fallback-Platzhalter-Icon analog Issue #2/#229/#230. -->
+        <DataTemplate x:Key="MannschaftMitWappenTemplate" DataType="{x:Type dom:Mannschaft}">
+            <DockPanel>
+                <Grid Width="16" Height="16" DockPanel.Dock="Left" Margin="0,0,6,0">
+                    <Image Source="{Binding Converter={StaticResource MannschaftZuWappenBildquelle}}"
+                           Visibility="{Binding Converter={StaticResource MannschaftHatWappen}}"
+                           Stretch="Uniform" />
+                    <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Opacity="0.35"
+                               Visibility="{Binding Converter={StaticResource MannschaftHatKeinWappen}}" />
+                </Grid>
+                <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center" />
+            </DockPanel>
+        </DataTemplate>
     </UserControl.Resources>
 
     <DockPanel>
@@ -64,7 +81,7 @@
                         </Grid>
                         <ComboBox ItemsSource="{Binding HeimMannschaftenGefiltert}"
                                   SelectedItem="{Binding EinzelspielHeim}"
-                                  DisplayMemberPath="Name"
+                                  ItemTemplate="{StaticResource MannschaftMitWappenTemplate}"
                                   FontSize="13" />
 
                         <TextBlock Text="AUSWÄRTSTEAM" FontSize="10" FontWeight="Bold"
@@ -84,7 +101,7 @@
                         </Grid>
                         <ComboBox ItemsSource="{Binding AuswaertsMannschaftenGefiltert}"
                                   SelectedItem="{Binding EinzelspielAuswaerts}"
-                                  DisplayMemberPath="Name"
+                                  ItemTemplate="{StaticResource MannschaftMitWappenTemplate}"
                                   FontSize="13" />
 
                         <TextBlock Text="REGELWERK (OPTIONAL)" FontSize="10" FontWeight="Bold"
@@ -143,10 +160,46 @@
                         <ItemsControl ItemsSource="{Binding ProtokollZeilen}"
                                       HorizontalAlignment="Center" HorizontalContentAlignment="Center">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding}" FontSize="14" FontWeight="SemiBold"
-                                               Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas" Margin="0,2"
-                                               HorizontalAlignment="Center" TextAlignment="Center" />
+                                <DataTemplate DataType="{x:Type vm:ProtokollErgebnisZeile}">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,2">
+                                        <TextBlock Text="{Binding Label, StringFormat={}{0}:  }" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas"
+                                                   Visibility="{Binding Label, Converter={StaticResource NullToCollapsed}}" />
+
+                                        <StackPanel Orientation="Horizontal"
+                                                    Visibility="{Binding ZeigtTeams, Converter={StaticResource BoolToVisibility}}">
+                                            <Grid Width="16" Height="16" Margin="0,0,5,0" VerticalAlignment="Center">
+                                                <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                       Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                                                       Stretch="Uniform" />
+                                                <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Opacity="0.35"
+                                                           Visibility="{Binding HeimWappen, Converter={StaticResource NullToVisible}}" />
+                                            </Grid>
+                                            <TextBlock Text="{Binding HeimName}" FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding Score}" FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas" Margin="8,0"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding AuswaertsName}" FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas" Margin="0,0,5,0"
+                                                       VerticalAlignment="Center" />
+                                            <Grid Width="16" Height="16" VerticalAlignment="Center">
+                                                <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                       Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                                                       Stretch="Uniform" />
+                                                <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Opacity="0.35"
+                                                           Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToVisible}}" />
+                                            </Grid>
+                                            <TextBlock Text="{Binding Detail}" FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas" VerticalAlignment="Center" />
+                                        </StackPanel>
+
+                                        <TextBlock Text="{Binding Score}" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas" VerticalAlignment="Center"
+                                                   Visibility="{Binding ZeigtTeams, Converter={StaticResource InverseBoolToVisibility}}" />
+                                    </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

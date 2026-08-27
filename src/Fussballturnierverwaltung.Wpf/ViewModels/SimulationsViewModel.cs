@@ -78,7 +78,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
     [ObservableProperty] private string? _protokollSpielInfo;
 
-    public ObservableCollection<string>                   ProtokollZeilen    { get; } = [];
+    public ObservableCollection<ProtokollErgebnisZeile>   ProtokollZeilen    { get; } = [];
     public ObservableCollection<EinzelspielEreignisZeile> ProtokollEreignisse { get; } = [];
 
     public bool HatProtokoll          => ProtokollZeilen.Count > 0;
@@ -399,14 +399,18 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
         if (spiel.Ergebnis is { } e)
         {
-            string ergebnis = $"{heim}  {e.HeimToreGesamt}:{e.AuswaertsToreGesamt}  {auswaerts}";
             string detailText = SpielErgebnisFormatierer.DetailText(
                 e.EntscheidungArt,
                 e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
                 e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
                 e.HeimElfmetertore, e.AuswaertsElfmetertore);
             string detail = detailText.Length > 0 ? $" ({detailText})" : "";
-            ProtokollZeilen.Add(ergebnis + detail);
+            ProtokollZeilen.Add(new ProtokollErgebnisZeile(
+                null,
+                heim, SimulationsProtokollHelfer.MannschaftsIcon(spiel.HeimMannschaft),
+                $"{e.HeimToreGesamt}:{e.AuswaertsToreGesamt}",
+                auswaerts, SimulationsProtokollHelfer.MannschaftsIcon(spiel.AuswaertsMannschaft),
+                detail));
 
             SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
                 ProtokollEreignisse,
@@ -463,6 +467,8 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             KoLabel        = SpielplanViewModel.KoPositionsLabel(s, AusgewaehlteRunde, positionInRunde),
             HeimName       = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "?",
             AuswaertsName  = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "?",
+            HeimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(s.HeimMannschaft),
+            AuswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(s.AuswaertsMannschaft),
             Status         = s.Status,
             HatErgebnis    = s.Ergebnis is not null,
             ErgebnisText   = text,

@@ -1,8 +1,25 @@
 using Fussballturnierverwaltung.Application.Simulation;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using System.Collections.ObjectModel;
 
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
+
+/// <summary>Issue #232: eine Zeile der Ergebnis-Karte — entweder eine Team-vs-Team-Zeile mit Wappen/
+/// Flaggen (<see cref="ZeigtTeams"/>) oder eine reine Text-Meldung (z. B. "Weiter: TeamX"), die
+/// Score als Freitext nutzt.</summary>
+public record ProtokollErgebnisZeile(
+    string? Label,
+    string? HeimName, byte[]? HeimWappen,
+    string Score,
+    string? AuswaertsName, byte[]? AuswaertsWappen,
+    string Detail = "")
+{
+    public bool ZeigtTeams => HeimName is not null;
+
+    public static ProtokollErgebnisZeile Text(string? label, string text) =>
+        new(label, null, null, text, null, null);
+}
 
 /// <summary>
 /// Gemeinsame Protokoll-Formatierung für Turnierspiel- und Einzelspiel-Simulation (Issue #164/#174) —
@@ -11,7 +28,7 @@ namespace Fussballturnierverwaltung.Wpf.ViewModels;
 /// </summary>
 internal static class SimulationsProtokollHelfer
 {
-    public static string FormatErgebnisZeile(SimulationsErgebnis e, string heimName, string auswaertsName)
+    public static (string Score, string Detail) ScoreUndDetail(SimulationsErgebnis e)
     {
         int heim = e.HeimToreRegulaer + (e.HeimToreVerlaengerung ?? 0);
         int gast = e.AuswaertsToreRegulaer + (e.AuswaertsToreVerlaengerung ?? 0);
@@ -28,8 +45,15 @@ internal static class SimulationsProtokollHelfer
             _                                 => ""
         };
 
-        return $"{heimName}  {heim}:{gast}  {auswaertsName}{detail}";
+        return ($"{heim}:{gast}", detail);
     }
+
+    // Issue #232, analog #229/#230: Nationalmannschaften zeigen die Landesflagge statt des
+    // Mannschafts-Wappens, das eigene Wappen bleibt in der DB erhalten.
+    public static byte[]? MannschaftsIcon(Mannschaft? mannschaft)
+        => mannschaft?.Mannschaftsart == Mannschaftsart.Nationalmannschaft
+            ? mannschaft.Land?.Flagge
+            : mannschaft?.Wappen;
 
     // Baut die Ereigniszeitleiste inkl. Abschnittstrenner (Halbzeit, 90 Minuten,
     // Halbzeit/Ende Verlängerung, Elfmeterschießen) für die übergebene Ziel-Collection auf.
