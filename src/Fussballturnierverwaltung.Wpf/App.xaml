@@ -13,6 +13,8 @@
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
             <conv:UmgekehrterBoolZuSichtbarkeitsConverter x:Key="InverseBoolToVisibility" />
             <conv:NullZuGeklapptConverter x:Key="NullToCollapsed" />
+            <conv:NullZuSichtbarConverter x:Key="NullToVisible" />
+            <conv:BildDatenZuBildquelleConverter x:Key="BildDatenZuBildquelle" />
             <conv:VerfahrenArtZuTextConverter x:Key="VerfahrenArtZuText" />
             <conv:VorlagenKategorieZuTextConverter x:Key="VorlagenKategorieZuText" />
             <conv:RundenartZuTextConverter x:Key="RundenartZuText" />
