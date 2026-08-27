@@ -115,22 +115,32 @@
                             </ListBox.ItemContainerStyle>
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <StackPanel>
-                                        <DockPanel>
-                                            <TextBlock Text="{Binding FifaCode}" DockPanel.Dock="Right"
-                                                       Foreground="#9CA3AF" FontSize="11" FontFamily="Courier New"
-                                                       VerticalAlignment="Center" Margin="4,0,0,0" />
-                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
-                                                       TextTrimming="CharacterEllipsis" />
-                                        </DockPanel>
-                                        <DockPanel>
-                                            <TextBlock Text="{Binding Verband.Kurzname}" DockPanel.Dock="Right"
-                                                       FontSize="10" Foreground="#9CA3AF"
-                                                       VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding Kurzname}" FontSize="11"
-                                                       Foreground="#6B7280" TextTrimming="CharacterEllipsis" />
-                                        </DockPanel>
-                                    </StackPanel>
+                                    <DockPanel>
+                                        <Grid Width="28" Height="28" DockPanel.Dock="Left" Margin="0,0,8,0">
+                                            <Image Source="{Binding Flagge, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                   Visibility="{Binding Flagge, Converter={StaticResource NullToCollapsed}}"
+                                                   Stretch="Uniform" />
+                                            <TextBlock Text="🌍" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       Opacity="0.4"
+                                                       Visibility="{Binding Flagge, Converter={StaticResource NullToVisible}}" />
+                                        </Grid>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <DockPanel>
+                                                <TextBlock Text="{Binding FifaCode}" DockPanel.Dock="Right"
+                                                           Foreground="#9CA3AF" FontSize="11" FontFamily="Courier New"
+                                                           VerticalAlignment="Center" Margin="4,0,0,0" />
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </DockPanel>
+                                            <DockPanel>
+                                                <TextBlock Text="{Binding Verband.Kurzname}" DockPanel.Dock="Right"
+                                                           FontSize="10" Foreground="#9CA3AF"
+                                                           VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Kurzname}" FontSize="11"
+                                                           Foreground="#6B7280" TextTrimming="CharacterEllipsis" />
+                                            </DockPanel>
+                                        </StackPanel>
+                                    </DockPanel>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
@@ -160,6 +170,26 @@
 
                                 <TextBlock Text="BASISDATEN" FontWeight="SemiBold" FontSize="11"
                                            Foreground="#9CA3AF" Margin="0,0,0,12" />
+
+                                <!-- Flagge -->
+                                <DockPanel Margin="0,0,0,16">
+                                    <Grid Width="64" Height="64" DockPanel.Dock="Left" Margin="0,0,16,0">
+                                        <Border Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" />
+                                        <Image Source="{Binding LandFlaggeDaten, Converter={StaticResource BildDatenZuBildquelle}}"
+                                               Visibility="{Binding LandFlaggeDaten, Converter={StaticResource NullToCollapsed}}"
+                                               Stretch="Uniform" Margin="4" />
+                                        <TextBlock Text="🌍" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Opacity="0.35"
+                                                   Visibility="{Binding LandFlaggeDaten, Converter={StaticResource NullToVisible}}" />
+                                    </Grid>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <Button Content="Bild wählen…" Command="{Binding LandFlaggeWaehlenCommand}"
+                                                HorizontalAlignment="Left" FontSize="12" Padding="8,4" Margin="0,0,0,6" Cursor="Hand" />
+                                        <Button Content="Entfernen" Command="{Binding LandFlaggeEntfernenCommand}"
+                                                Visibility="{Binding LandFlaggeDaten, Converter={StaticResource NullToCollapsed}}"
+                                                HorizontalAlignment="Left" FontSize="11" Padding="8,3" Cursor="Hand" />
+                                    </StackPanel>
+                                </DockPanel>
 
                                 <TextBlock Text="Name" FontSize="12" Foreground="#374151" Margin="0,0,0,3" />
                                 <TextBox Text="{Binding LandName, UpdateSourceTrigger=PropertyChanged}"
@@ -298,11 +328,23 @@
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <DockPanel>
-                                        <TextBlock Text="{Binding Kurzname}" DockPanel.Dock="Right"
-                                                   Foreground="#9CA3AF" FontSize="11"
-                                                   VerticalAlignment="Center" Margin="4,0,0,0" />
-                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
-                                                   TextTrimming="CharacterEllipsis" />
+                                        <Grid Width="28" Height="28" DockPanel.Dock="Left" Margin="0,0,8,0">
+                                            <Image Source="{Binding Logo, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                   Visibility="{Binding Logo, Converter={StaticResource NullToCollapsed}}"
+                                                   Stretch="Uniform" />
+                                            <TextBlock Text="🏛" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       Opacity="0.4"
+                                                       Visibility="{Binding Logo, Converter={StaticResource NullToVisible}}" />
+                                        </Grid>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <DockPanel>
+                                                <TextBlock Text="{Binding Kurzname}" DockPanel.Dock="Right"
+                                                           Foreground="#9CA3AF" FontSize="11"
+                                                           VerticalAlignment="Center" Margin="4,0,0,0" />
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </DockPanel>
+                                        </StackPanel>
                                     </DockPanel>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
@@ -333,6 +375,26 @@
 
                                 <TextBlock Text="BASISDATEN" FontWeight="SemiBold" FontSize="11"
                                            Foreground="#9CA3AF" Margin="0,0,0,12" />
+
+                                <!-- Logo -->
+                                <DockPanel Margin="0,0,0,16">
+                                    <Grid Width="64" Height="64" DockPanel.Dock="Left" Margin="0,0,16,0">
+                                        <Border Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" />
+                                        <Image Source="{Binding VerbandLogoDaten, Converter={StaticResource BildDatenZuBildquelle}}"
+                                               Visibility="{Binding VerbandLogoDaten, Converter={StaticResource NullToCollapsed}}"
+                                               Stretch="Uniform" Margin="4" />
+                                        <TextBlock Text="🏛" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Opacity="0.35"
+                                                   Visibility="{Binding VerbandLogoDaten, Converter={StaticResource NullToVisible}}" />
+                                    </Grid>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <Button Content="Bild wählen…" Command="{Binding VerbandLogoWaehlenCommand}"
+                                                HorizontalAlignment="Left" FontSize="12" Padding="8,4" Margin="0,0,0,6" Cursor="Hand" />
+                                        <Button Content="Entfernen" Command="{Binding VerbandLogoEntfernenCommand}"
+                                                Visibility="{Binding VerbandLogoDaten, Converter={StaticResource NullToCollapsed}}"
+                                                HorizontalAlignment="Left" FontSize="11" Padding="8,3" Cursor="Hand" />
+                                    </StackPanel>
+                                </DockPanel>
 
                                 <TextBlock Text="Name" FontSize="12" Foreground="#374151" Margin="0,0,0,3" />
                                 <TextBox Text="{Binding VerbandName, UpdateSourceTrigger=PropertyChanged}"
