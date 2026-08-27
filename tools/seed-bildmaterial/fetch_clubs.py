@@ -1,0 +1,133 @@
+# Beschafft Vereinswappen (Issue #233) ueber die Wikipedia-Action-API.
+# Nutzung: python fetch_clubs.py [start_idx] [end_idx]   (Default: alle 224 Zeilen aus vereine.tsv)
+# Ist wiederholbar/resumable: bereits erfolgreiche Kurznamen (Status OK in clubs_log.csv) werden uebersprungen.
+#
+# WICHTIG (siehe reference_wikimedia_api_ratelimits.md): SLEEP_SECONDS=6.5 haelt uns unter dem
+# 10-Anfragen/Minute-Limit fuer unidentifizierte Clients. NICHT erhoehen ohne triftigen Grund,
+# NICHT mehrere Instanzen parallel starten (Etikette verlangt serielle Anfragen).
+import urllib.request, urllib.parse, json, re, time, os, sys, csv
+
+SLEEP_SECONDS = 6.5
+HEADERS = {"User-Agent": "Turnierverwaltung-SeedBot/1.0 (privates Hobbyprojekt, siehe github.com/MZurmuehlen89/Turnierverwaltung; kontakt via GitHub Issue)"}
+OUT_DIR = "svg_clubs"
+LOG_FILE = "clubs_log.csv"
+os.makedirs(OUT_DIR, exist_ok=True)
+
+def api_get(url, retries=6):
+    req = urllib.request.Request(url, headers=HEADERS)
+    for attempt in range(retries):
+        try:
+            with urllib.request.urlopen(req, timeout=15) as r:
+                return json.load(r)
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < retries - 1:
+                wait = int(e.headers.get("Retry-After", 15 * (attempt + 1)))
+                time.sleep(wait)
+                continue
+            raise
+
+def get_content(title):
+    url = f"https://en.wikipedia.org/w/api.php?action=query&titles={urllib.parse.quote(title)}&prop=revisions&rvprop=content&rvslots=main&format=json&redirects=1"
+    data = api_get(url)
+    pages = data.get("query", {}).get("pages", {})
+    for pid, page in pages.items():
+        if pid == "-1":
+            return None
+        rev = page.get("revisions", [{}])[0]
+        return rev.get("slots", {}).get("main", {}).get("*", "")
+    return None
+
+def search_title(query):
+    url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(query)}&format=json&srlimit=1"
+    data = api_get(url)
+    hits = data.get("query", {}).get("search", [])
+    return hits[0]["title"] if hits else None
+
+def extract_club_image(content):
+    if "Infobox football club" not in content:
+        return None
+    m = re.search(r"\|\s*(?:image|current)\s*=\s*\[?\[?(?:File:)?([^\|\]\n]+\.(?:svg|png|SVG|PNG))", content)
+    return m.group(1).strip() if m else None
+
+def get_thumb_url(filename, width=128):
+    url = f"https://en.wikipedia.org/w/api.php?action=query&titles={urllib.parse.quote('File:' + filename)}&prop=imageinfo&iiprop=url&iiurlwidth={width}&format=json"
+    data = api_get(url)
+    pages = data.get("query", {}).get("pages", {})
+    for pid, page in pages.items():
+        if pid == "-1":
+            return None
+        info = page.get("imageinfo", [{}])[0]
+        return info.get("thumburl") or info.get("url")
+    return None
+
+def download_binary(url, out_path, retries=6):
+    req = urllib.request.Request(url, headers=HEADERS)
+    for attempt in range(retries):
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                content = r.read()
+            with open(out_path, "wb") as f:
+                f.write(content)
+            return len(content)
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < retries - 1:
+                wait = int(e.headers.get("Retry-After", 15 * (attempt + 1)))
+                time.sleep(wait)
+                continue
+            raise
+
+with open("vereine.tsv", encoding="utf-8") as f:
+    rows = [line.rstrip("\n").split("\t") for line in f if line.strip()]
+
+already_done = set()
+if os.path.exists(LOG_FILE):
+    with open(LOG_FILE, encoding="utf-8") as f:
+        for row in csv.reader(f):
+            if row and row[2] == "OK":
+                already_done.add(row[1])
+
+start_idx = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+end_idx = int(sys.argv[2]) if len(sys.argv) > 2 else len(rows)
+
+log_f = open(LOG_FILE, "a", newline="", encoding="utf-8")
+writer = csv.writer(log_f)
+ok_count = 0
+total = 0
+
+for i, (name, kurz, land) in enumerate(rows[start_idx:end_idx], start=start_idx):
+    if kurz in already_done:
+        continue
+    total += 1
+    try:
+        content = get_content(name)
+        time.sleep(SLEEP_SECONDS)
+        title_used = name
+        badge = extract_club_image(content) if content else None
+        if not badge:
+            found_title = search_title(f"{name} football club")
+            time.sleep(SLEEP_SECONDS)
+            if found_title:
+                content = get_content(found_title)
+                time.sleep(SLEEP_SECONDS)
+                title_used = found_title
+                badge = extract_club_image(content) if content else None
+        if badge:
+            thumb_url = get_thumb_url(badge, width=128)
+            time.sleep(SLEEP_SECONDS)
+            if thumb_url:
+                ext = os.path.splitext(thumb_url.split("?")[0])[1].lower() or ".png"
+                download_binary(thumb_url, os.path.join(OUT_DIR, f"{kurz}{ext}"))
+                writer.writerow((name, kurz, "OK", f"{title_used} | {badge}"))
+                ok_count += 1
+            else:
+                writer.writerow((name, kurz, "NO_THUMB", f"title={title_used} badge={badge}"))
+        else:
+            writer.writerow((name, kurz, "NO_MATCH", f"tried={title_used}"))
+    except Exception as e:
+        writer.writerow((name, kurz, "ERROR", str(e)))
+    log_f.flush()
+    if (i - start_idx) % 10 == 0:
+        print(f"... {i}/{end_idx}", file=sys.stderr)
+
+log_f.close()
+print(f"Fertig: {ok_count}/{total} erfolgreich in diesem Lauf.")
