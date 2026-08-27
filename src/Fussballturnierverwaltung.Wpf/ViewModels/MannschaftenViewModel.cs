@@ -6,8 +6,10 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
+using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 
@@ -81,6 +83,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
 
     [ObservableProperty] private int _heimstaerke = 70;
     [ObservableProperty] private int _auswaertsstaerke = 65;
+    [ObservableProperty] private byte[]? _wappenDaten;
 
     // ── Filter ───────────────────────────────────────────────────────────────
     [ObservableProperty]
@@ -151,7 +154,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
     [
         nameof(Name), nameof(Kurzname), nameof(AusgewaehlteArt), nameof(AusgewaehltesLand),
         nameof(OffensivRating), nameof(MittelfeldRating), nameof(DefensivRating),
-        nameof(Heimstaerke), nameof(Auswaertsstaerke)
+        nameof(Heimstaerke), nameof(Auswaertsstaerke), nameof(WappenDaten)
     ];
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
@@ -212,6 +215,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
                 OffensivRating = MittelfeldRating = DefensivRating = 70;
                 Heimstaerke = 70;
                 Auswaertsstaerke = 65;
+                WappenDaten = null;
             }
             else
             {
@@ -226,6 +230,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
                 DefensivRating = mannschaft.DefensivRating;
                 Heimstaerke = mannschaft.Heimstaerke;
                 Auswaertsstaerke = mannschaft.Auswaertsstaerke;
+                WappenDaten = mannschaft.Wappen;
             }
             IsDirty = false;
             Fehlermeldung = null;
@@ -253,6 +258,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
             OffensivRating = MittelfeldRating = DefensivRating = 70;
             Heimstaerke = 70;
             Auswaertsstaerke = 65;
+            WappenDaten = null;
             Fehlermeldung = null;
         }
         finally
@@ -261,6 +267,21 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
         }
         IsDirty = true;
     }
+
+    [RelayCommand]
+    private void WappenWaehlen()
+    {
+        var dlg = new OpenFileDialog
+        {
+            Title  = "Vereinswappen wählen",
+            Filter = "Bilddateien (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg|Alle Dateien (*.*)|*.*"
+        };
+        if (dlg.ShowDialog() != true) return;
+        WappenDaten = File.ReadAllBytes(dlg.FileName);
+    }
+
+    [RelayCommand]
+    private void WappenEntfernen() => WappenDaten = null;
 
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
     private async Task Speichern()
@@ -274,7 +295,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
                     Name, Kurzname, AusgewaehlteArt,
                     AusgewaehltesLand?.Id ?? 0,
                     OffensivRating, MittelfeldRating, DefensivRating,
-                    Heimstaerke, Auswaertsstaerke);
+                    Heimstaerke, Auswaertsstaerke, WappenDaten);
                 var neu = await _mannschaftService.ErstellenAsync(eingabe);
                 await LadenAsync();
                 Ausgewaehlte = Mannschaften.FirstOrDefault(m => m.Id == neu.Id);
@@ -286,7 +307,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
                     Name, Kurzname,
                     AusgewaehltesLand?.Id ?? 0,
                     OffensivRating, MittelfeldRating, DefensivRating,
-                    Heimstaerke, Auswaertsstaerke);
+                    Heimstaerke, Auswaertsstaerke, WappenDaten);
                 await _mannschaftService.AktualisierenAsync(id, eingabe);
                 await LadenAsync();
                 Ausgewaehlte = Mannschaften.FirstOrDefault(m => m.Id == id);

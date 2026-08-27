@@ -171,6 +171,20 @@
                 </DataGrid.CellStyle>
 
                 <DataGrid.Columns>
+                    <DataGridTemplateColumn Header="" Width="40" CanUserResize="False">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Grid Width="32" Height="32">
+                                    <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                           Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                           Stretch="Uniform" />
+                                    <TextBlock Text="⚽" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Opacity="0.4"
+                                               Visibility="{Binding Wappen, Converter={StaticResource NullToVisible}}" />
+                                </Grid>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" MinWidth="120" />
                     <DataGridTextColumn Header="Kurz" Binding="{Binding Kurzname}" Width="52" />
                     <DataGridTextColumn Header="Land" Binding="{Binding Land.Name}" Width="130" />
@@ -240,6 +254,26 @@
 
                     <TextBlock Text="BASISDATEN" FontWeight="SemiBold" FontSize="11"
                                Foreground="#9CA3AF" Margin="0,0,0,12" />
+
+                    <!-- Wappen -->
+                    <DockPanel Margin="0,0,0,16">
+                        <Grid Width="64" Height="64" DockPanel.Dock="Left" Margin="0,0,16,0">
+                            <Border Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" />
+                            <Image Source="{Binding WappenDaten, Converter={StaticResource BildDatenZuBildquelle}}"
+                                   Visibility="{Binding WappenDaten, Converter={StaticResource NullToCollapsed}}"
+                                   Stretch="Uniform" Margin="4" />
+                            <TextBlock Text="⚽" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Opacity="0.35"
+                                       Visibility="{Binding WappenDaten, Converter={StaticResource NullToVisible}}" />
+                        </Grid>
+                        <StackPanel VerticalAlignment="Center">
+                            <Button Content="Bild wählen…" Command="{Binding WappenWaehlenCommand}"
+                                    HorizontalAlignment="Left" FontSize="12" Padding="8,4" Margin="0,0,0,6" Cursor="Hand" />
+                            <Button Content="Entfernen" Command="{Binding WappenEntfernenCommand}"
+                                    Visibility="{Binding WappenDaten, Converter={StaticResource NullToCollapsed}}"
+                                    HorizontalAlignment="Left" FontSize="11" Padding="8,3" Cursor="Hand" />
+                        </StackPanel>
+                    </DockPanel>
 
                     <TextBlock Text="Name" FontSize="12" Foreground="#374151" Margin="0,0,0,3" />
                     <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
