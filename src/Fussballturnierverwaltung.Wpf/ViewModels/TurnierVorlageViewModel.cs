@@ -62,6 +62,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
     private readonly TurnierVorlageService _service;
     private readonly RegelwerkService _regelwerkService;
     private readonly VorlagenUebergangsregelValidator _uebergangsregelValidator;
+    private readonly TurnierVorlageValidator _vorlageValidator;
     private int _populiertGerade;
 
     private static readonly RegelwerkOption _keinRegelwerk = new("— Wählen —", null);
@@ -92,6 +93,8 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
     private bool _formularAktiv;
 
+    partial void OnFormularAktivChanged(bool value) => AktualisiereFormularFehler();
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
     [NotifyCanExecuteChangedFor(nameof(AbbrechenCommand))]
@@ -121,9 +124,20 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
 
     public bool HatStrukturFehler => StrukturFehler.Count > 0;
 
+    /// <summary>Live-Vorschau von <see cref="TurnierVorlageValidator"/> (Issue #234) — Basisdaten,
+    /// Turniereinstellungen (bisher stilles Clamping in <see cref="ParseAnzahl"/>/<see cref="ParseJahr"/>)
+    /// und einzelne Runden-Felder, die bisher weder client- noch serverseitig geprüft wurden.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatFormularFehler))]
+    [NotifyPropertyChangedFor(nameof(ZeigeMeldungsSpalte))]
+    [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    private IReadOnlyList<string> _formularFehler = [];
+
+    public bool HatFormularFehler => FormularFehler.Count > 0;
+
     /// <summary>Steuert die rechte Meldungs-Spalte (Issue #222, analog #188) — Speicherfehler und Live-
     /// Strukturfehler erscheinen dort dauerhaft statt im scrollenden Formular unterzugehen.</summary>
-    public bool ZeigeMeldungsSpalte => Fehlermeldung is not null || HatStrukturFehler;
+    public bool ZeigeMeldungsSpalte => Fehlermeldung is not null || HatStrukturFehler || HatFormularFehler;
 
     private void AktualisiereStrukturFehler()
     {
@@ -141,6 +155,39 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
             .ToList();
 
         StrukturFehler = _uebergangsregelValidator.Validieren(rundenEingaben, uebergangsregelEingaben).Fehler;
+    }
+
+    /// <summary>Nicht als Zahl parsbare Werte fließen nicht in <see cref="TurnierVorlageValidator.BasisdatenValidieren"/>
+    /// ein (der erwartet bereits geparste Werte wie <see cref="TurnierVorlageService"/>) — dafür hier je ein
+    /// eigener Format-Fehler, analog zum Umgang mit unvollständigen Zeilen in <see cref="AktualisiereStrukturFehler"/>.</summary>
+    private void AktualisiereFormularFehler()
+    {
+        if (!FormularAktiv) { FormularFehler = []; return; }
+
+        var fehler = new List<string>();
+
+        var anzahlText = AnzahlMannschaften.Trim();
+        if (!int.TryParse(anzahlText, out var anzahl))
+        {
+            fehler.Add("Erforderliche Mannschaftsanzahl muss eine gültige Zahl sein.");
+            anzahl = 2;
+        }
+
+        if (!string.IsNullOrWhiteSpace(GueltigVon) && ParseJahr(GueltigVon) is null)
+            fehler.Add("Gültig von muss eine Jahreszahl zwischen 1800 und 2100 sein.");
+        if (!string.IsNullOrWhiteSpace(GueltigBis) && ParseJahr(GueltigBis) is null)
+            fehler.Add("Gültig bis muss eine Jahreszahl zwischen 1800 und 2100 sein.");
+
+        fehler.AddRange(_vorlageValidator.BasisdatenValidieren(Name, anzahl, ParseJahr(GueltigVon), ParseJahr(GueltigBis)).Fehler);
+
+        var rundenEingaben = RundenZeilen.Select(z => new VorlagenRundeEingabe(
+            z.Name, z.Rundenart,
+            z.EingangsMannschaftsanzahl, z.AusgangsMannschaftsanzahl,
+            z.MitRueckspiel, z.AuswaertstorRegelAktiv, z.Regelwerk.Wert?.Id,
+            z.Rundenart == Rundenart.Gruppenphase ? z.GruppenAnzahl : null)).ToList();
+        fehler.AddRange(_vorlageValidator.RundenValidieren(rundenEingaben).Fehler);
+
+        FormularFehler = fehler;
     }
 
     // ── Formularfelder ────────────────────────────────────────────────────────
@@ -166,7 +213,11 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
 
     [ObservableProperty] private ObservableCollection<VorlagenRundeZeile> _rundenZeilen = [];
 
-    partial void OnRundenZeilenChanged(ObservableCollection<VorlagenRundeZeile> value) => AktualisiereStrukturFehler();
+    partial void OnRundenZeilenChanged(ObservableCollection<VorlagenRundeZeile> value)
+    {
+        AktualisiereStrukturFehler();
+        AktualisiereFormularFehler();
+    }
 
     // ── Übergangsregeln (Issue #166) ─────────────────────────────────────────────
     [ObservableProperty]
@@ -244,11 +295,13 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
 
     public TurnierVorlageViewModel(
         TurnierVorlageService service, RegelwerkService regelwerkService,
-        VorlagenUebergangsregelValidator uebergangsregelValidator)
+        VorlagenUebergangsregelValidator uebergangsregelValidator,
+        TurnierVorlageValidator vorlageValidator)
     {
         _service = service;
         _regelwerkService = regelwerkService;
         _uebergangsregelValidator = uebergangsregelValidator;
+        _vorlageValidator = vorlageValidator;
     }
 
     public override async Task AktivierenAsync() => await LadenAsync();
@@ -389,6 +442,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
             IsDirty = true;
         AktualisiereUebergangsregelnGefiltert();
         AktualisiereStrukturFehler();
+        AktualisiereFormularFehler();
     }
 
     // Issue #166: analoges Dirty-Tracking für die Übergangsregel-Zeilen
@@ -415,6 +469,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
         AusgewaehlteRunde = neu;
         IsDirty = true;
         AktualisiereStrukturFehler();
+        AktualisiereFormularFehler();
     }
 
     [RelayCommand(CanExecute = nameof(KannRundeEntfernen))]
@@ -432,6 +487,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
         AktualisiereUebergangsregelnGefiltert();
         IsDirty = true;
         AktualisiereStrukturFehler();
+        AktualisiereFormularFehler();
     }
 
     // ── Übergangsregel-Befehle (Issue #166) ──────────────────────────────────────
@@ -597,11 +653,15 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (_populiertGerade == 0 && _formFelder.Contains(e.PropertyName!))
-            IsDirty = true;
+        if (_formFelder.Contains(e.PropertyName!))
+        {
+            if (_populiertGerade == 0)
+                IsDirty = true;
+            AktualisiereFormularFehler();
+        }
     }
 
-    private bool KannSpeichern() => FormularAktiv && IsDirty && !HatStrukturFehler;
+    private bool KannSpeichern() => FormularAktiv && IsDirty && !HatStrukturFehler && !HatFormularFehler;
     private bool KannAbbrechen() => FormularAktiv && IsDirty;
 
     public bool HatUngespeicherteAenderungen => FormularAktiv && IsDirty;

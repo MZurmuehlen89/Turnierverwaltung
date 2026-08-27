@@ -9,6 +9,7 @@ namespace Fussballturnierverwaltung.Application.Turniere;
 public class TurnierVorlageService(
     ITurnierVorlageRepository repository,
     VorlagenUebergangsregelValidator uebergangsregelValidator,
+    TurnierVorlageValidator vorlageValidator,
     ILogger<TurnierVorlageService> logger)
 {
     public Task<IReadOnlyList<TurnierVorlage>> AlleAbrufenAsync(CancellationToken ct = default)
@@ -44,6 +45,7 @@ public class TurnierVorlageService(
         }).ToList();
 
         var regeln = uebergangsregeln ?? [];
+        ValidationException.WerfenWennUngueltig(vorlageValidator.RundenValidieren(runden));
         ValidationException.WerfenWennUngueltig(uebergangsregelValidator.Validieren(runden, regeln));
 
         await repository.RundenErsetzenAsync(vorlageId, neueRunden, regeln, ct);
@@ -54,8 +56,8 @@ public class TurnierVorlageService(
 
     public async Task<TurnierVorlage> ErstellenAsync(TurnierVorlageErstellenEingabe eingabe, CancellationToken ct = default)
     {
-        if (eingabe.ErforderlicheMannschaftsanzahl < 2)
-            throw new ArgumentException("Eine Turniervorlage muss mindestens 2 Mannschaften erfordern.");
+        ValidationException.WerfenWennUngueltig(vorlageValidator.BasisdatenValidieren(
+            eingabe.Name, eingabe.ErforderlicheMannschaftsanzahl, eingabe.GueltigVon, eingabe.GueltigBis));
 
         var vorlage = new TurnierVorlage
         {
@@ -77,8 +79,8 @@ public class TurnierVorlageService(
     {
         var vorlage = await repository.FindenNachIdAsync(id, ct)
             ?? throw new InvalidOperationException($"Turniervorlage mit ID {id} nicht gefunden.");
-        if (eingabe.ErforderlicheMannschaftsanzahl < 2)
-            throw new ArgumentException("Eine Turniervorlage muss mindestens 2 Mannschaften erfordern.");
+        ValidationException.WerfenWennUngueltig(vorlageValidator.BasisdatenValidieren(
+            eingabe.Name, eingabe.ErforderlicheMannschaftsanzahl, eingabe.GueltigVon, eingabe.GueltigBis));
         vorlage.Name                           = eingabe.Name.Trim();
         vorlage.Beschreibung                   = eingabe.Beschreibung.Trim();
         vorlage.ErforderlicheMannschaftsanzahl = eingabe.ErforderlicheMannschaftsanzahl;

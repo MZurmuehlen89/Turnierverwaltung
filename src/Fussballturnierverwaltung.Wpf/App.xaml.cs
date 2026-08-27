@@ -127,6 +127,7 @@ public partial class App
         builder.Services.AddScoped<RanglistenImportService>();
         builder.Services.AddScoped<UebergangsregelValidator>();
         builder.Services.AddScoped<VorlagenUebergangsregelValidator>();
+        builder.Services.AddScoped<TurnierVorlageValidator>();
         builder.Services.AddScoped<UebergangsregelService>();
         builder.Services.AddScoped<VerbandsQuoteService>();
 

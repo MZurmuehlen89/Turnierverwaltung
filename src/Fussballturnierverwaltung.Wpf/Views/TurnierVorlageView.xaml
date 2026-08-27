@@ -508,6 +508,25 @@
                                FontSize="13" TextWrapping="Wrap" />
                 </Border>
 
+                <!-- Formularfehler (Issue #234): Live-Vorschau von TurnierVorlageValidator (Basisdaten,
+                     Turniereinstellungen, einzelne Runden-Felder) — bisher gar nicht geprüft. -->
+                <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius4}" Padding="12,10" Margin="0,0,0,10"
+                        Visibility="{Binding HatFormularFehler, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="FORMULARPRÜFUNG" FontSize="10" FontWeight="Bold"
+                                   Foreground="{StaticResource ErrorBrush}" Margin="0,0,0,6" />
+                        <ItemsControl ItemsSource="{Binding FormularFehler}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Foreground="#991B1B"
+                                               FontSize="12" TextWrapping="Wrap" Margin="0,0,0,3" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
                 <!-- Strukturfehler (Issue #222): Live-Vorschau der VorlagenUebergangsregelValidator-Prüfung,
                      die bisher nur beim Speichern lief. -->
                 <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"
