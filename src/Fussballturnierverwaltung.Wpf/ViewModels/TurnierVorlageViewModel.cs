@@ -9,8 +9,10 @@ using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Wpf.Converters;
 using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
+using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 
@@ -178,7 +180,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
         if (!string.IsNullOrWhiteSpace(GueltigBis) && ParseJahr(GueltigBis) is null)
             fehler.Add("Gültig bis muss eine Jahreszahl zwischen 1800 und 2100 sein.");
 
-        fehler.AddRange(_vorlageValidator.BasisdatenValidieren(Name, anzahl, ParseJahr(GueltigVon), ParseJahr(GueltigBis)).Fehler);
+        fehler.AddRange(_vorlageValidator.BasisdatenValidieren(Name, anzahl, ParseJahr(GueltigVon), ParseJahr(GueltigBis), LogoDaten).Fehler);
 
         var rundenEingaben = RundenZeilen.Select(z => new VorlagenRundeEingabe(
             z.Name, z.Rundenart,
@@ -198,6 +200,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
     [ObservableProperty] private bool _istHistorisch;
     [ObservableProperty] private string _gueltigVon = "";
     [ObservableProperty] private string _gueltigBis = "";
+    [ObservableProperty] private byte[]? _logoDaten;
 
     // ── Runden ────────────────────────────────────────────────────────────────
     [ObservableProperty]
@@ -283,7 +286,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
     [
         nameof(Name), nameof(Beschreibung), nameof(AnzahlMannschaften),
         nameof(AusgewaehlteKategorie), nameof(IstHistorisch),
-        nameof(GueltigVon), nameof(GueltigBis)
+        nameof(GueltigVon), nameof(GueltigBis), nameof(LogoDaten)
     ];
 
     // ── IRibbonAware ───────────────────────────────────────────────────────────
@@ -335,6 +338,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
                 AnzahlMannschaften = "8";
                 AusgewaehlteKategorie = KategorieOptionen.First(o => o.Wert == VorlagenKategorie.Benutzerdefiniert);
                 IstHistorisch = false;
+                LogoDaten = null;
                 RundenZeilen = [];
                 UebergangsregelZeilen = [];
                 AusgewaehlteRunde = null;
@@ -351,6 +355,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
                 IstHistorisch = vorlage.IstHistorisch;
                 GueltigVon = vorlage.GueltigVon?.Year.ToString() ?? "";
                 GueltigBis = vorlage.GueltigBis?.Year.ToString() ?? "";
+                LogoDaten = vorlage.Logo;
                 // VorlagenRunden werden async in AusgewaehltesGeaendertAsync geladen
             }
             IsDirty = false;
@@ -554,6 +559,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
             AnzahlMannschaften = "8";
             AusgewaehlteKategorie = KategorieOptionen.First(o => o.Wert == VorlagenKategorie.Benutzerdefiniert);
             IstHistorisch = false;
+            LogoDaten = null;
             RundenZeilen = [];
             UebergangsregelZeilen = [];
             Fehlermeldung = null;
@@ -564,6 +570,21 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
         }
         IsDirty = true;
     }
+
+    [RelayCommand]
+    private void LogoWaehlen()
+    {
+        var dlg = new OpenFileDialog
+        {
+            Title  = "Turnierlogo wählen",
+            Filter = "Bilddateien (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg|Alle Dateien (*.*)|*.*"
+        };
+        if (dlg.ShowDialog() != true) return;
+        LogoDaten = File.ReadAllBytes(dlg.FileName);
+    }
+
+    [RelayCommand]
+    private void LogoEntfernen() => LogoDaten = null;
 
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
     private async Task Speichern()
@@ -598,7 +619,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
             if (IstNeuModus)
             {
                 var eingabe = new TurnierVorlageErstellenEingabe(
-                    Name, Beschreibung, anzahl, kategorie, IstHistorisch, gueltigVon, gueltigBis);
+                    Name, Beschreibung, anzahl, kategorie, IstHistorisch, gueltigVon, gueltigBis, LogoDaten);
                 var neu = await _service.ErstellenAsync(eingabe);
                 await _service.RundenSynchronisierenAsync(neu.Id, rundenEingaben, uebergangsregelEingaben);
                 await LadenAsync();
@@ -608,7 +629,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware, IHat
             {
                 var id = Ausgewaehltes.Id;
                 var eingabe = new TurnierVorlageAktualisierenEingabe(
-                    Name, Beschreibung, anzahl, kategorie, IstHistorisch, gueltigVon, gueltigBis);
+                    Name, Beschreibung, anzahl, kategorie, IstHistorisch, gueltigVon, gueltigBis, LogoDaten);
                 await _service.AktualisierenAsync(id, eingabe);
                 await _service.RundenSynchronisierenAsync(id, rundenEingaben, uebergangsregelEingaben);
                 await LadenAsync();
