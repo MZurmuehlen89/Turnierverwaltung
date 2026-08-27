@@ -252,10 +252,23 @@
                                     </DataGridTextColumn>
 
                                     <!-- Mannschaft (nicht editierbar - Team ändern = entfernen + neu hinzufügen) -->
-                                    <DataGridTextColumn Header="Mannschaft"
-                                                        Binding="{Binding Mannschaft.Name}"
-                                                        Width="*" MinWidth="120"
-                                                        IsReadOnly="True" />
+                                    <DataGridTemplateColumn Header="Mannschaft" Width="*" MinWidth="120" IsReadOnly="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <DockPanel>
+                                                    <Grid Width="16" Height="16" DockPanel.Dock="Left" Margin="0,0,5,0">
+                                                        <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                               Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                               Stretch="Uniform" />
+                                                        <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                   Opacity="0.35"
+                                                                   Visibility="{Binding Wappen, Converter={StaticResource NullToVisible}}" />
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding Mannschaft.Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
 
                                     <!-- Punkte (optional, rein informativ - siehe Hinweistext oben) -->
                                     <DataGridTextColumn Header="Punkte"

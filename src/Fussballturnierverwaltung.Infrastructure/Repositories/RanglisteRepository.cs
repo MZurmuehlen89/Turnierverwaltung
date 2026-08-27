@@ -12,6 +12,7 @@ public class RanglisteRepository(TurnierverwaltungDbContext context)
         => await Context.Ranglisten
             .Include(r => r.Eintraege.OrderBy(e => e.Rang))
                 .ThenInclude(e => e.Mannschaft)
+                    .ThenInclude(m => m.Land)
             .AsSplitQuery()
             .OrderByDescending(r => r.Datum)
             .ToListAsync(ct);
@@ -20,6 +21,7 @@ public class RanglisteRepository(TurnierverwaltungDbContext context)
         => await Context.Ranglisten
             .Include(r => r.Eintraege.OrderBy(e => e.Rang))
                 .ThenInclude(e => e.Mannschaft)
+                    .ThenInclude(m => m.Land)
             .AsSplitQuery()
             .FirstOrDefaultAsync(r => r.Id == id, ct);
 
