@@ -79,7 +79,7 @@ internal static class SimulationsProtokollHelfer
         bool hatVerlaengerung = heimToreVerlaengerung.HasValue && auswaertsToreVerlaengerung.HasValue;
         bool hatElfmeter      = entscheidungArt == EntscheidungArt.Elfmeterschiessen;
 
-        bool halbzeitEingefuegt = false, neunzigEingefuegt = false, vzHalbzeitEingefuegt = false;
+        bool halbzeitEingefuegt = false, neunzigEingefuegt = false, vzHalbzeitEingefuegt = false, vzEndeEingefuegt = false;
         int heimStand = 0, auswaertsStand = 0;
 
         void SchwellenPruefen(int minute)
@@ -99,16 +99,28 @@ internal static class SimulationsProtokollHelfer
                 ziel.Add(EinzelspielEreignisZeile.Trenner("HALBZEIT VERLÄNGERUNG"));
                 vzHalbzeitEingefuegt = true;
             }
+            // Issue #232 Nachtrag: Schwelle statt fixer Nachbereitung, damit die (jetzt einzeln
+            // aufgefuehrten) Elfmeterschiessen-Schuesse mit Minute > 120 chronologisch NACH diesem
+            // Trenner in der Zeitleiste erscheinen.
+            if (!vzEndeEingefuegt && hatVerlaengerung && minute > 120)
+            {
+                int heimGesamt      = heimToreRegulaer      + (heimToreVerlaengerung ?? 0);
+                int auswaertsGesamt = auswaertsToreRegulaer + (auswaertsToreVerlaengerung ?? 0);
+                ziel.Add(EinzelspielEreignisZeile.Trenner($"ENDE VERLÄNGERUNG ({heimGesamt}:{auswaertsGesamt})"));
+                vzEndeEingefuegt = true;
+            }
         }
 
         static string ArtText(EreignisArt art) => art switch
         {
-            EreignisArt.Tor        => "Tor",
-            EreignisArt.GelbeKarte => "Gelbe Karte",
-            EreignisArt.RoteKarte  => "Rote Karte",
-            EreignisArt.GoldenGoal => "Golden Goal",
-            EreignisArt.SilverGoal => "Silver Goal",
-            _                      => art.ToString()
+            EreignisArt.Tor                 => "Tor",
+            EreignisArt.GelbeKarte          => "Gelbe Karte",
+            EreignisArt.RoteKarte           => "Rote Karte",
+            EreignisArt.GoldenGoal          => "Golden Goal",
+            EreignisArt.SilverGoal          => "Silver Goal",
+            EreignisArt.ElfmeterTor         => "Elfmeter verwandelt",
+            EreignisArt.ElfmeterVerschossen => "Elfmeter verschossen",
+            _                               => art.ToString()
         };
 
         foreach (var (minute, art, istHeimSeite) in ereignisListe.OrderBy(ev => ev.Minute))
@@ -127,13 +139,6 @@ internal static class SimulationsProtokollHelfer
 
         // Noch nicht erreichte Schwellen (z. B. Halbzeit ohne Tor, Spielende ohne Ereignis danach) nachtragen
         SchwellenPruefen(int.MaxValue);
-
-        if (hatVerlaengerung)
-        {
-            int heimGesamt      = heimToreRegulaer      + (heimToreVerlaengerung ?? 0);
-            int auswaertsGesamt = auswaertsToreRegulaer + (auswaertsToreVerlaengerung ?? 0);
-            ziel.Add(EinzelspielEreignisZeile.Trenner($"ENDE VERLÄNGERUNG ({heimGesamt}:{auswaertsGesamt})"));
-        }
 
         if (hatElfmeter)
             ziel.Add(EinzelspielEreignisZeile.Trenner($"ELFMETERSCHIESSEN ({heimElfmetertore}:{auswaertsElfmetertore})"));

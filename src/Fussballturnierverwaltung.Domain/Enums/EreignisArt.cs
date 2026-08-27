@@ -9,5 +9,7 @@ public enum EreignisArt
     RoteKarte,
     Taktikwechsel,
     GoldenGoal,
-    SilverGoal
+    SilverGoal,
+    ElfmeterTor,
+    ElfmeterVerschossen
 }

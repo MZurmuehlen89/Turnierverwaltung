@@ -197,6 +197,45 @@ public class SimulationsEngineTests
     }
 
     [Fact]
+    public void Elfmeterschiessen_BrichtAbSobaldRechnerischEntschieden()
+    {
+        // Regression #235: Sobald der Torvorsprung mit den verbleibenden Versuchen des
+        // zurückliegenden Teams nicht mehr aufholbar ist, dürfen keine weiteren Schüsse
+        // mehr protokolliert werden — auch nicht innerhalb der ersten 5 Runden.
+        var verfahren = new[] { Verfahren(VerfahrenArt.Elfmeterschiessen) };
+
+        for (int seed = 0; seed < 500; seed++)
+        {
+            var erg = SimulationsEngine.Simulieren(Team(1), Team(2), verfahren, true, new Random(seed));
+            if (erg.EntscheidungArt != EntscheidungArt.Elfmeterschiessen) continue;
+
+            var schuesse = erg.Ereignisse
+                .Where(e => e.Art is EreignisArt.ElfmeterTor or EreignisArt.ElfmeterVerschossen)
+                .OrderBy(e => e.Minute)
+                .ToList();
+
+            int h = 0, g = 0, heimSchuesse = 0, gastSchuesse = 0;
+            for (int i = 0; i < schuesse.Count; i++)
+            {
+                var schuss = schuesse[i];
+                bool tor = schuss.Art == EreignisArt.ElfmeterTor;
+                if (schuss.IstHeim) { heimSchuesse++; if (tor) h++; }
+                else { gastSchuesse++; if (tor) g++; }
+
+                if (heimSchuesse > 5 || gastSchuesse > 5) continue;
+
+                int heimRest = 5 - heimSchuesse;
+                int gastRest = 5 - gastSchuesse;
+                bool entschieden = h - g > gastRest || g - h > heimRest;
+
+                if (entschieden)
+                    i.Should().Be(schuesse.Count - 1,
+                        "nach diesem Schuss war das Ergebnis bereits rechnerisch entschieden");
+            }
+        }
+    }
+
+    [Fact]
     public void StarkesTeamGewinntHaeufiger()
     {
         var stark  = Team(1, off: 95, mid: 90, def: 90, heim: 95, ausw: 90);
