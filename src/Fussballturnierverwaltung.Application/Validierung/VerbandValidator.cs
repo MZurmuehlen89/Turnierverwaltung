@@ -14,6 +14,7 @@ public class VerbandValidator
             fehler.Add("Verbandsname darf maximal 200 Zeichen haben.");
         if (string.IsNullOrWhiteSpace(eingabe.Kurzname))
             fehler.Add("Kurzname darf nicht leer sein.");
+        BildValidierung.GroessePruefen(eingabe.Logo, fehler);
         return Ergebnis(fehler);
     }
 
@@ -24,6 +25,7 @@ public class VerbandValidator
             fehler.Add("Verbandsname darf nicht leer sein.");
         if (string.IsNullOrWhiteSpace(eingabe.Kurzname))
             fehler.Add("Kurzname darf nicht leer sein.");
+        BildValidierung.GroessePruefen(eingabe.Logo, fehler);
         return Ergebnis(fehler);
     }
 

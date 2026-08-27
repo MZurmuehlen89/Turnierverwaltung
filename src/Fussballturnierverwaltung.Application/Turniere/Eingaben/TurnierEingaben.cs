@@ -30,7 +30,8 @@ public record TurnierVorlageErstellenEingabe(
     VorlagenKategorie VorlagenKategorie,
     bool IstHistorisch,
     DateOnly? GueltigVon,
-    DateOnly? GueltigBis);
+    DateOnly? GueltigBis,
+    byte[]? Logo = null);
 
 public record TurnierVorlageAktualisierenEingabe(
     string Name,
@@ -39,7 +40,8 @@ public record TurnierVorlageAktualisierenEingabe(
     VorlagenKategorie VorlagenKategorie,
     bool IstHistorisch,
     DateOnly? GueltigVon,
-    DateOnly? GueltigBis);
+    DateOnly? GueltigBis,
+    byte[]? Logo = null);
 
 public record TurnierInstanzVollAktualisierenEingabe(
     string Name,

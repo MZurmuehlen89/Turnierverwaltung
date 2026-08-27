@@ -7,11 +7,13 @@ public record LandErstellenEingabe(
     string Kurzname,
     string FifaCode,
     Kontinent Kontinent,
-    int VerbandId);
+    int VerbandId,
+    byte[]? Flagge = null);
 
 public record LandAktualisierenEingabe(
     string Name,
     string Kurzname,
     string FifaCode,
     Kontinent Kontinent,
-    int VerbandId);
+    int VerbandId,
+    byte[]? Flagge = null);

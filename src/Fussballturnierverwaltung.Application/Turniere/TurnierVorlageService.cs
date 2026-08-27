@@ -57,7 +57,7 @@ public class TurnierVorlageService(
     public async Task<TurnierVorlage> ErstellenAsync(TurnierVorlageErstellenEingabe eingabe, CancellationToken ct = default)
     {
         ValidationException.WerfenWennUngueltig(vorlageValidator.BasisdatenValidieren(
-            eingabe.Name, eingabe.ErforderlicheMannschaftsanzahl, eingabe.GueltigVon, eingabe.GueltigBis));
+            eingabe.Name, eingabe.ErforderlicheMannschaftsanzahl, eingabe.GueltigVon, eingabe.GueltigBis, eingabe.Logo));
 
         var vorlage = new TurnierVorlage
         {
@@ -67,7 +67,8 @@ public class TurnierVorlageService(
             VorlagenKategorie          = eingabe.VorlagenKategorie,
             IstHistorisch              = eingabe.IstHistorisch,
             GueltigVon                 = eingabe.GueltigVon,
-            GueltigBis                 = eingabe.GueltigBis
+            GueltigBis                 = eingabe.GueltigBis,
+            Logo                       = eingabe.Logo
         };
 
         await repository.HinzufuegenAsync(vorlage, ct);
@@ -80,7 +81,7 @@ public class TurnierVorlageService(
         var vorlage = await repository.FindenNachIdAsync(id, ct)
             ?? throw new InvalidOperationException($"Turniervorlage mit ID {id} nicht gefunden.");
         ValidationException.WerfenWennUngueltig(vorlageValidator.BasisdatenValidieren(
-            eingabe.Name, eingabe.ErforderlicheMannschaftsanzahl, eingabe.GueltigVon, eingabe.GueltigBis));
+            eingabe.Name, eingabe.ErforderlicheMannschaftsanzahl, eingabe.GueltigVon, eingabe.GueltigBis, eingabe.Logo));
         vorlage.Name                           = eingabe.Name.Trim();
         vorlage.Beschreibung                   = eingabe.Beschreibung.Trim();
         vorlage.ErforderlicheMannschaftsanzahl = eingabe.ErforderlicheMannschaftsanzahl;
@@ -88,6 +89,7 @@ public class TurnierVorlageService(
         vorlage.IstHistorisch                  = eingabe.IstHistorisch;
         vorlage.GueltigVon                     = eingabe.GueltigVon;
         vorlage.GueltigBis                     = eingabe.GueltigBis;
+        vorlage.Logo                           = eingabe.Logo;
         await repository.AktualisierenAsync(vorlage, ct);
         logger.LogInformation("Turniervorlage '{Name}' (ID {Id}) aktualisiert.", vorlage.Name, vorlage.Id);
         return vorlage;

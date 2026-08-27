@@ -13,6 +13,7 @@ public class LandValidator
         FifaCodePruefen(eingabe.FifaCode, fehler);
         if (eingabe.VerbandId <= 0)
             fehler.Add("Es muss ein Verband ausgewählt werden.");
+        BildValidierung.GroessePruefen(eingabe.Flagge, fehler);
         return Ergebnis(fehler);
     }
 
@@ -24,6 +25,7 @@ public class LandValidator
         FifaCodePruefen(eingabe.FifaCode, fehler);
         if (eingabe.VerbandId <= 0)
             fehler.Add("Es muss ein Verband ausgewählt werden.");
+        BildValidierung.GroessePruefen(eingabe.Flagge, fehler);
         return Ergebnis(fehler);
     }
 

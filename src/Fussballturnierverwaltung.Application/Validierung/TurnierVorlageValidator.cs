@@ -11,7 +11,7 @@ namespace Fussballturnierverwaltung.Application.Validierung;
 /// aufgerufen, damit dieselbe Prüfung an beiden Stellen greift.</summary>
 public class TurnierVorlageValidator
 {
-    public ValidationErgebnis BasisdatenValidieren(string name, int anzahlMannschaften, DateOnly? gueltigVon, DateOnly? gueltigBis)
+    public ValidationErgebnis BasisdatenValidieren(string name, int anzahlMannschaften, DateOnly? gueltigVon, DateOnly? gueltigBis, byte[]? logo = null)
     {
         var fehler = new List<string>();
 
@@ -23,6 +23,8 @@ public class TurnierVorlageValidator
 
         if (gueltigVon is not null && gueltigBis is not null && gueltigVon > gueltigBis)
             fehler.Add("Gültig von darf nicht nach Gültig bis liegen.");
+
+        BildValidierung.GroessePruefen(logo, fehler);
 
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }

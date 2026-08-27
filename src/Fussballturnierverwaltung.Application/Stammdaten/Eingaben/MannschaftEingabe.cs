@@ -11,7 +11,8 @@ public record MannschaftErstellenEingabe(
     int MittelfeldRating,
     int DefensivRating,
     int Heimstaerke,
-    int Auswaertsstaerke);
+    int Auswaertsstaerke,
+    byte[]? Wappen = null);
 
 public record MannschaftAktualisierenEingabe(
     string Name,
@@ -21,4 +22,5 @@ public record MannschaftAktualisierenEingabe(
     int MittelfeldRating,
     int DefensivRating,
     int Heimstaerke,
-    int Auswaertsstaerke);
+    int Auswaertsstaerke,
+    byte[]? Wappen = null);

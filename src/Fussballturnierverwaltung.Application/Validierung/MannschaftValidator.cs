@@ -27,6 +27,8 @@ public class MannschaftValidator
         if (eingabe.LandId <= 0)
             fehler.Add("Es muss ein Land ausgewählt werden.");
 
+        BildValidierung.GroessePruefen(eingabe.Wappen, fehler);
+
         return Ergebnis(fehler);
     }
 
@@ -45,6 +47,8 @@ public class MannschaftValidator
         RatingPruefen("Defensiv-Rating",   eingabe.DefensivRating,   fehler);
         RatingPruefen("Heimstärke",        eingabe.Heimstaerke,      fehler);
         RatingPruefen("Auswärtsstärke",    eingabe.Auswaertsstaerke, fehler);
+
+        BildValidierung.GroessePruefen(eingabe.Wappen, fehler);
 
         return Ergebnis(fehler);
     }

@@ -43,7 +43,8 @@ public class MannschaftService(
             MittelfeldRating = eingabe.MittelfeldRating,
             DefensivRating   = eingabe.DefensivRating,
             Heimstaerke      = eingabe.Heimstaerke,
-            Auswaertsstaerke = eingabe.Auswaertsstaerke
+            Auswaertsstaerke = eingabe.Auswaertsstaerke,
+            Wappen           = eingabe.Wappen
         };
 
         await repository.HinzufuegenAsync(mannschaft, ct);
@@ -66,6 +67,7 @@ public class MannschaftService(
         mannschaft.DefensivRating   = eingabe.DefensivRating;
         mannschaft.Heimstaerke      = eingabe.Heimstaerke;
         mannschaft.Auswaertsstaerke = eingabe.Auswaertsstaerke;
+        mannschaft.Wappen           = eingabe.Wappen;
 
         await repository.AktualisierenAsync(mannschaft, ct);
         logger.LogInformation("Mannschaft '{Name}' (ID {Id}) aktualisiert.", mannschaft.Name, mannschaft.Id);
