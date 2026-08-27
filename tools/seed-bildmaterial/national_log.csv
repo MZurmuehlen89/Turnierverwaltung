@@ -245,3 +245,75 @@ WAL,Wales,OK,Wales national football team | Wales national football team logo.sv
 YEM,Yemen,OK,Yemen national football team | Yemen Football Association.png
 ZAM,Zambia,OK,Zambia national football team | Flag of Zambia.svg
 ZIM,Zimbabwe,OK,Zimbabwe national football team | Zifa-full-crest.png
+SWE,Sweden,NO_MATCH,title=Sweden national football team trig=None badge=None
+NIR,Northern Ireland,NO_MATCH,title=Northern Ireland national football team trig=NIR badge=None
+LIE,Liechtenstein,NO_THUMB,title=Liechtenstein national football team trig=LIE badge=Crown of Liechtenstein.svg
+COL,Colombia,NO_THUMB,title=Colombia national football team trig=COL badge=FCF-Logo-2023.svg
+CHI,Chile,NO_THUMB,title=Chile national football team trig=CHI badge=Federación de Fútbol de Chile logo.svg
+PAR,Paraguay,NO_THUMB,title=Paraguay national football team trig=PAR badge=Asociación Paraguaya de Fútbol logo.svg
+VEN,Venezuela,NO_THUMB,title=Venezuela national football team trig=VEN badge=Logotipo de la Federación Venezolana de Fútbol.svg
+USA,United States men's national soccer,NO_MATCH,title=United States men's national soccer national football team trig=None badge=None
+CAN,Canada,NO_MATCH,title=Canada national football team trig=None badge=None
+CRC,Costa Rica,NO_THUMB,title=Costa Rica national football team trig=CRC badge=Costa Rica national football team logo.svg
+PAN,Panama,NO_MATCH,title=Panama national football team trig=PAN badge=None
+HON,Honduras,NO_THUMB,title=Honduras national football team trig=HON badge=Honduras football crest.svg
+SLV,El Salvador,NO_THUMB,title=El Salvador national football team trig=SLV badge=El Salvador crest.svg
+NCA,Nicaragua,NO_THUMB,title=Nicaragua national football team trig=NCA badge=Nicaragua Football Crest.png
+HAI,Haiti,NO_MATCH,title=Haiti national football team trig=HAI badge=None
+DOM,Dominican Republic,NO_THUMB,title=Dominican Republic national football team trig=DOM badge=Federación Dominicana de Fútbol logo (2025).svg
+PUR,Puerto Rico,NO_THUMB,title=Puerto Rico national football team trig=PUR badge=Puerto Rican Football Federation logo.svg
+BRB,Barbados,NO_MATCH,title=Barbados national football team trig=BRB badge=None
+LCA,Saint Lucia,NO_MATCH,title=Saint Lucia national football team trig=LCA badge=None
+VIN,Saint Vincent and the Grenadines,NO_MATCH,title=Saint Vincent and the Grenadines national football team trig=VIN badge=None
+VGB,British Virgin Islands,NO_MATCH,title=British Virgin Islands national football team trig=VGB badge=None
+TOG,Togo,NO_MATCH,title=Togo national football team trig=TOG badge=None
+AUS,Australia,NO_MATCH,title=Australia national football team trig=None badge=None
+UAE,United Arab Emirates,NO_THUMB,title=United Arab Emirates national football team trig=UAE badge=United Arab Emirates Football Association logo.svg
+IND,India,NO_THUMB,title=India national football team trig=IND badge=All India Football Federation logo.svg
+JOR,Jordan,NO_THUMB,title=Jordan national football team trig=JOR badge=Jordan national football team logo 2024.svg
+KUW,Kuwait,NO_THUMB,title=Kuwait national football team trig=KUW badge=Kuwait Football Association logo.png
+PLE,Palestine,NO_THUMB,title=Palestine national football team trig=PLE badge=2024 Palestine Football National Team Badge.svg
+IDN,Indonesia,NO_THUMB,title=Indonesia national football team trig=IDN badge=National_emblem_of_Indonesia_Garuda_Pancasila.svg
+PHI,Philippines,NO_THUMB,title=Philippines national football team trig=PHI badge=Logo of Philippine Football Federation.png
+CAM,Cambodia,NO_MATCH,title=Cambodia national football team trig=CAM badge=None
+TPE,Chinese Taipei,NO_MATCH,title=Chinese Taipei national football team trig=TPE badge=None
+BAN,Bangladesh,NO_THUMB,title=Bangladesh national football team trig=BAN badge=Logo of Bangladesh Football Federation.svg
+BHU,Bhutan,NO_MATCH,title=Bhutan national football team trig=BHU badge=None
+NZL,New Zealand,NO_MATCH,title=New Zealand national football team trig=None badge=None
+NCL,New Caledonia,NO_MATCH,title=New Caledonia national football team trig=NCL badge=None
+SWE,Sweden,OK,Sweden men's national football team | Sweden national football team badge.svg | trig=SWE
+NIR,Northern Ireland,NO_MATCH,title=Northern Ireland men's national football team trig=NIR badge=None
+LIE,Liechtenstein,OK,Liechtenstein national football team | Crown of Liechtenstein.svg | trig=LIE
+COL,Colombia,OK,Colombia national football team | FCF-Logo-2023.svg | trig=COL
+CHI,Chile,OK,Chile national football team | Federación de Fútbol de Chile logo.svg | trig=CHI
+PAR,Paraguay,OK,Paraguay national football team | Asociación Paraguaya de Fútbol logo.svg | trig=PAR
+VEN,Venezuela,OK,Venezuela national football team | Logotipo de la Federación Venezolana de Fútbol.svg | trig=VEN
+USA,United States men's national soccer,OK,United States men's national soccer team | United States Soccer Federation logo.svg | trig=USA
+CAN,Canada,OK,Canada men's national soccer team | Canadian Soccer Association logo.svg | trig=CAN
+CRC,Costa Rica,OK,Costa Rica national football team | Costa Rica national football team logo.svg | trig=CRC
+PAN,Panama,NO_MATCH,title=Panama men's national football team trig=PAN badge=None
+HON,Honduras,OK,Honduras national football team | Honduras football crest.svg | trig=HON
+SLV,El Salvador,OK,El Salvador national football team | El Salvador crest.svg | trig=SLV
+NCA,Nicaragua,OK,Nicaragua national football team | Nicaragua Football Crest.png | trig=NCA
+HAI,Haiti,NO_MATCH,title=Haiti men's national football team trig=HAI badge=None
+DOM,Dominican Republic,OK,Dominican Republic national football team | Federación Dominicana de Fútbol logo (2025).svg | trig=DOM
+PUR,Puerto Rico,OK,Puerto Rico national football team | Puerto Rican Football Federation logo.svg | trig=PUR
+BRB,Barbados,NO_MATCH,title=Barbados men's national football team trig=BRB badge=None
+LCA,Saint Lucia,NO_MATCH,title=Saint Lucia men's national football team trig=LCA badge=None
+VIN,Saint Vincent and the Grenadines,NO_MATCH,title=Saint Vincent and the Grenadines men's national football team trig=VIN badge=None
+VGB,British Virgin Islands,NO_MATCH,title=British Virgin Islands men's national football team trig=VGB badge=None
+TOG,Togo,NO_MATCH,title=Togo men's national football team trig=TOG badge=None
+AUS,Australia,OK,Australia men's national soccer team | Australia national football team badge.svg | trig=AUS
+UAE,United Arab Emirates,OK,United Arab Emirates national football team | United Arab Emirates Football Association logo.svg | trig=UAE
+IND,India,OK,India national football team | All India Football Federation logo.svg | trig=IND
+JOR,Jordan,OK,Jordan national football team | Jordan national football team logo 2024.svg | trig=JOR
+KUW,Kuwait,OK,Kuwait national football team | Kuwait Football Association logo.png | trig=KUW
+PLE,Palestine,OK,Palestine national football team | 2024 Palestine Football National Team Badge.svg | trig=PLE
+IDN,Indonesia,OK,Indonesia national football team | National_emblem_of_Indonesia_Garuda_Pancasila.svg | trig=IDN
+PHI,Philippines,OK,Philippines national football team | Logo of Philippine Football Federation.png | trig=PHI
+CAM,Cambodia,NO_MATCH,title=Cambodia men's national football team trig=CAM badge=None
+TPE,Chinese Taipei,NO_MATCH,title=Chinese Taipei men's national football team trig=TPE badge=None
+BAN,Bangladesh,OK,Bangladesh national football team | Logo of Bangladesh Football Federation.svg | trig=BAN
+BHU,Bhutan,NO_MATCH,title=Bhutan men's national football team trig=BHU badge=None
+NZL,New Zealand,OK,New Zealand men's national football team | New Zealand Football Crest 2022.svg | trig=NZL
+NCL,New Caledonia,NO_MATCH,title=New Caledonia men's national football team trig=NCL badge=None

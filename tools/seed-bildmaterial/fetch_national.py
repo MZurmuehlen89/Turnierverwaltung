@@ -50,9 +50,10 @@ def get_thumb_url(filename, width=128):
     data = api_get(url)
     pages = data.get("query", {}).get("pages", {})
     for pid, page in pages.items():
-        if pid == "-1":
-            return None
-        info = page.get("imageinfo", [{}])[0]
+        info_list = page.get("imageinfo")
+        if not info_list:
+            continue
+        info = info_list[0]
         return info.get("thumburl") or info.get("url")
     return None
 
@@ -71,6 +72,16 @@ def download_binary(url, out_path, retries=5):
                 time.sleep(wait)
                 continue
             raise
+
+# Laender, deren Wikipedia-Artikel vom generischen "X national football team"-
+# Muster abweichen (bekannte Sonderfaelle, z.B. "soccer" statt "football" im
+# US-amerikanischen/kanadischen Sprachgebrauch).
+TITLE_OVERRIDES = {
+    "USA": "United States men's national soccer team",
+    "CAN": "Canada men's national soccer team",
+    "AUS": "Australia men's national soccer team",
+    "TPE": "Chinese Taipei football team",
+}
 
 with open("fifa_english.tsv", encoding="utf-8") as f:
     rows = [line.strip().split("\t") for line in f if line.strip()]
@@ -95,11 +106,19 @@ for i, (code, ename) in enumerate(rows[start_idx:end_idx], start=start_idx):
         continue
     total += 1
     try:
-        title = f"{ename} national football team"
+        title = TITLE_OVERRIDES.get(code, f"{ename} national football team")
         content = get_content(title)
         time.sleep(SLEEP_SECONDS)
         trig = extract_trigramme(content) if content else None
         badge = extract_badge(content) if content else None
+        if not badge:
+            # Laender mit eigenstaendiger Frauen-Nationalmannschaft haben den
+            # generischen Titel oft als Begriffsklaerungsseite belegt.
+            title = f"{ename} men's national football team"
+            content = get_content(title)
+            time.sleep(SLEEP_SECONDS)
+            trig = extract_trigramme(content) if content else trig
+            badge = extract_badge(content) if content else None
         if badge:
             thumb_url = get_thumb_url(badge, width=128)
             time.sleep(SLEEP_SECONDS)

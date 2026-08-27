@@ -11,8 +11,13 @@ Resource eingebunden wird.
 |---|---|---|
 | 209 Nationalflaggen | ✅ fertig | abf5c3b |
 | 7 Verbandslogos | ✅ fertig (Lizenz vor Veröffentlichung prüfen) | abf5c3b |
-| Nationalmannschafts-Wappen | 🟡 173/209 | ed0cc09 |
-| Vereinswappen | ⬜ 0/224, noch nicht begonnen | — |
+| Nationalmannschafts-Wappen | ✅ 197/209 abgeschlossen (12 dauerhaft ohne Wikipedia-Badge) | ed0cc09, (dieser Commit) |
+| Vereinswappen | ✅ 224/224 abgeschlossen | (dieser Commit) |
+
+Damit ist Issue #233 inhaltlich vollständig — die verbleibenden 12 Nationalmannschaften haben laut
+Stichprobe (z. B. Panama) ein schlicht leeres `Badge`-Feld in der Wikipedia-Infobox, keine
+Skript-Limitierung. Nachtrag nur noch manuell möglich (Verbands-Website o. Ä.), kein Automatisierungs-
+Kandidat mehr.
 
 ## Wichtig: Rate-Limit
 
@@ -22,35 +27,36 @@ kein API-Token) sind bei Wikimedia auf **10 Anfragen/Minute** begrenzt. Beide Sk
 (Wikimedia-Etikette verlangt serielle Anfragen; das hat in dieser Session zu doppelten/fehlerhaften
 Log-Einträgen geführt, siehe Commit-Historie).
 
-## Nationalmannschaften fortsetzen (36 fehlend)
+## Bugs behoben in dieser Session (relevant bei künftiger Wiederverwendung der Skripte)
 
-```bash
-cd tools/seed-bildmaterial
-python fetch_national.py 0 209
-```
-
-Läuft automatisch nur die fehlenden Codes nach (Resume über `national_log.csv`, Status `OK` wird
-übersprungen). Bei 36 Einträgen × ~2 Anfragen × 6.5s ≈ 8 Minuten.
-
-Fehlende Codes (Stand 2026-08-27): AUS, BAN, BHU, BRB, CAM, CAN, CHI, COL, CRC, DOM, HAI, HON, IDN,
-IND, JOR, KUW, LCA, LIE, NCA, NCL, NIR, NZL, PAN, PAR, PHI, PLE, PUR, SLV, SWE, TOG, TPE, UAE, USA,
-VEN, VGB, VIN. Bei einem Teil (z. B. NIR) ist das Badge-Feld der Wikipedia-Infobox schlicht leer —
-die werden vermutlich dauerhaft ohne Treffer bleiben und müssten von Hand nachgetragen werden.
-
-## Vereinswappen (224, noch nicht begonnen)
-
-```bash
-cd tools/seed-bildmaterial
-python fetch_clubs.py 0 224
-```
-
-224 Einträge × bis zu 3 Anfragen × 6.5s ≈ **bis zu 75 Minuten** — realistisch in mehreren Blöcken
-laufen lassen (`start_idx`/`end_idx`-Argumente nutzen), z. B. `python fetch_clubs.py 0 60`,
-`python fetch_clubs.py 60 120`, … Zwischen Blöcken ruhig eine Pause einlegen.
-
-**Kein Trigramme-Äquivalent zur Verifikation** (anders als bei Nationalmannschaften) — Vereinsnamen
-sind nicht immer eindeutig, False-Positives sind möglich. Nach dem Lauf eine Stichprobe (~15-20
-zufällige PNGs) visuell prüfen, bevor eingebettet wird.
+- **`get_thumb_url` verwarf Commons-Dateien fälschlich**: Die MediaWiki-API liefert für Dateien, die
+  nicht lokal auf en.wikipedia liegen (sondern auf Wikimedia Commons — der Normalfall), eine
+  `pageid=-1`, **obwohl** `imageinfo` trotzdem mitgeliefert wird. Der alte Code hat `pid == "-1"` als
+  "nicht gefunden" behandelt und dadurch ca. 19 von 36 fehlenden Nationalmannschafts-Wappen verworfen.
+  Fix: nur auf Vorhandensein von `imageinfo` prüfen, nicht auf die Page-ID.
+- **Titel-Sonderfälle**: Länder mit eigener Frauen-Nationalmannschaft haben den generischen Titel
+  ("X national football team") oft als Begriffsklärungsseite belegt — Fallback auf
+  "X men's national football team" ergänzt. Zusätzlich ein `TITLE_OVERRIDES`-Dict für Länder, deren
+  Artikel komplett anders heißen (USA/Kanada/Australien nutzen "soccer" statt "football", Chinese
+  Taipei hat kein "national" im Titel).
+- **Vereine mit neuerem Infobox-Template**: `extract_club_image` prüfte nur auf den String
+  "Infobox football club", neuere Artikel nutzen aber `{{Football club infobox` (umgekehrte
+  Wortreihenfolge) — beide Varianten werden jetzt akzeptiert.
+- **Doppelt kodierte Dateinamen**: Manche Commons-Dateien sind im Wikitext bereits Prozent-kodiert
+  (Akzente/Umlaute), `urllib.parse.quote()` hat das doppelt kodiert und den Lookup zerschossen — Fix:
+  vorher `unquote()`.
+- **Deutsche Vereinsnamen ohne Wikipedia-Entsprechung**: Für ausländische Vereine mit eingedeutschtem
+  Namen (Inter Mailand, AC Mailand, CSKA/Spartak Moskau, Metalist Charkiw, AEK Athen, River Plate) traf
+  die Volltextsuche oft Spielerseiten statt der Vereinsseite — `TITLE_OVERRIDES`-Dict mit den echten
+  englischen Artikeltiteln ergänzt.
+- **Echte Kurzname-Kollision in den Stammdaten gefunden**: `Celta Vigo` und `Celtic FC` hatten beide
+  `Kurzname="CEL"` (Wappen-Lookup-Schlüssel) — Celtic FC wurde in `VereinsmannschaftenSeedDaten.cs` auf
+  `"CLT"` umbenannt (`vereine.tsv` entsprechend angepasst). Bei einer bereits laufenden lokalen DB muss
+  der Bestandsdatensatz zusätzlich per UPDATE nachgezogen werden (Kurzname + `Wappen=NULL`, dann Seed
+  erneut laufen lassen) — ein reiner Neustart mit dem aktualisierten Seed-Code reicht bei einer
+  **frischen** DB dagegen aus. Dabei zusätzlich ein unreferenziertes Duplikat (zwei identische
+  "Celtic FC"-Zeilen) in der lokalen Dev-DB gefunden und gelöscht — Ursache unklar, vermutlich Rest
+  eines früheren doppelten Seed-Laufs, kein Code-Bug mehr in der aktuellen Seed-Quelle gefunden.
 
 ## Nach jedem Lauf: konvertieren + einbetten
 

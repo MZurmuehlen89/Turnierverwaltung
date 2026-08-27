@@ -109,7 +109,7 @@ public static class VereinsmannschaftenSeedDaten
         new("Le Havre AC",             "LHV", "FRA", 67, 67, 66, 70, 61),
         new("Stade Brestois 29",       "SBR", "FRA", 68, 67, 67, 70, 62),
         new("FC Nantes",               "NAN", "FRA", 68, 67, 67, 71, 62),
-        new("AJ Auxerre",              "AUX", "FRA", 66, 65, 65, 68, 60),
+        new("AJ Auxerre",              "AJA", "FRA", 66, 65, 65, 68, 60),
         new("Angers SCO",              "ANG", "FRA", 65, 65, 64, 68, 59),
         new("AS Saint-Étienne",        "ASS", "FRA", 64, 63, 63, 69, 57),
 
@@ -157,7 +157,7 @@ public static class VereinsmannschaftenSeedDaten
         new("Royal Antwerp FC",        "ANT", "BEL", 74, 73, 72, 76, 68),
 
         // ── Schottland (Premiership Top 5) ───────────────────────────────
-        new("Celtic FC",               "CEL", "SCO", 79, 77, 76, 82, 72),
+        new("Celtic FC",               "CLT", "SCO", 79, 77, 76, 82, 72),
         new("Rangers FC",              "RAN", "SCO", 78, 77, 75, 81, 71),
         new("Aberdeen FC",             "ABE", "SCO", 69, 68, 68, 72, 63),
         new("Heart of Midlothian",     "HRT", "SCO", 68, 67, 67, 71, 62),

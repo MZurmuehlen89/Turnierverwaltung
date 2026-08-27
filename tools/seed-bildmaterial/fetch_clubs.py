@@ -44,19 +44,23 @@ def search_title(query):
     return hits[0]["title"] if hits else None
 
 def extract_club_image(content):
-    if "Infobox football club" not in content:
+    if "Infobox football club" not in content and "Football club infobox" not in content:
         return None
     m = re.search(r"\|\s*(?:image|current)\s*=\s*\[?\[?(?:File:)?([^\|\]\n]+\.(?:svg|png|SVG|PNG))", content)
     return m.group(1).strip() if m else None
 
 def get_thumb_url(filename, width=128):
+    # Manche Commons-Dateinamen stehen im Wikitext bereits Prozent-kodiert
+    # (z.B. Umlaute/Akzente) - ohne unquote wuerde quote() sie doppelt kodieren.
+    filename = urllib.parse.unquote(filename)
     url = f"https://en.wikipedia.org/w/api.php?action=query&titles={urllib.parse.quote('File:' + filename)}&prop=imageinfo&iiprop=url&iiurlwidth={width}&format=json"
     data = api_get(url)
     pages = data.get("query", {}).get("pages", {})
     for pid, page in pages.items():
-        if pid == "-1":
-            return None
-        info = page.get("imageinfo", [{}])[0]
+        info_list = page.get("imageinfo")
+        if not info_list:
+            continue
+        info = info_list[0]
         return info.get("thumburl") or info.get("url")
     return None
 
@@ -75,6 +79,18 @@ def download_binary(url, out_path, retries=6):
                 time.sleep(wait)
                 continue
             raise
+
+# Deutsche Namen aus vereine.tsv, die auf en.wikipedia unter einem anderen
+# Titel liegen bzw. deren Volltextsuche auf Fehltreffer (Spielerseiten etc.) lief.
+TITLE_OVERRIDES = {
+    "INT": "Inter Milan",
+    "ACM": "AC Milan",
+    "CSK": "PFC CSKA Moscow",
+    "SPK": "FC Spartak Moscow",
+    "MET": "FC Metalist Kharkiv",
+    "AEK": "AEK Athens F.C.",
+    "RIV": "Club Atlético River Plate",
+}
 
 with open("vereine.tsv", encoding="utf-8") as f:
     rows = [line.rstrip("\n").split("\t") for line in f if line.strip()]
@@ -99,9 +115,9 @@ for i, (name, kurz, land) in enumerate(rows[start_idx:end_idx], start=start_idx)
         continue
     total += 1
     try:
-        content = get_content(name)
+        title_used = TITLE_OVERRIDES.get(kurz, name)
+        content = get_content(title_used)
         time.sleep(SLEEP_SECONDS)
-        title_used = name
         badge = extract_club_image(content) if content else None
         if not badge:
             found_title = search_title(f"{name} football club")
