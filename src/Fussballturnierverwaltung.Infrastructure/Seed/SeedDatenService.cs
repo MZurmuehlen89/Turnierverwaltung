@@ -30,6 +30,7 @@ public class SeedDatenService
         await LaenderNachruesten(cancellationToken);
         await BildmaterialNachruesten(cancellationToken);
         await MannschaftenNachruesten(cancellationToken);
+        await MannschaftsBildmaterialNachruesten(cancellationToken);
         await RegelwerkeNachruesten(cancellationToken);
         await VorlagenRundenNachruesten(cancellationToken);
         await VorlagenRundenRegelwerkeNachruesten(cancellationToken);
@@ -85,6 +86,31 @@ public class SeedDatenService
         {
             await _context.SaveChangesAsync(ct);
             _logger.LogInformation("{Anzahl} Verbands-/Länder-Bilder nachgerüstet.", aktualisiert);
+        }
+    }
+
+    /// <summary>Issue #233: befüllt Wappen bei bereits vorhandenen Mannschaften ohne Bild nachträglich —
+    /// getrennt von <see cref="BildmaterialNachruesten"/>, da Mannschaften selbst erst durch
+    /// <see cref="MannschaftenNachruesten"/> angelegt werden (Reihenfolge in <see cref="InitialisierenAsync"/>).</summary>
+    private async Task MannschaftsBildmaterialNachruesten(CancellationToken ct)
+    {
+        var mannschaftenOhneWappen = await _context.Mannschaften.Where(m => m.Wappen == null).ToListAsync(ct);
+        int aktualisiert = 0;
+        foreach (var mannschaft in mannschaftenOhneWappen)
+        {
+            var kategorie = mannschaft.Mannschaftsart == Domain.Enums.Mannschaftsart.Nationalmannschaft
+                ? "Nationalmannschaften"
+                : "Vereinswappen";
+            var wappen = SeedBildLader.Laden(kategorie, mannschaft.Kurzname);
+            if (wappen is null) continue;
+            mannschaft.Wappen = wappen;
+            aktualisiert++;
+        }
+
+        if (aktualisiert > 0)
+        {
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("{Anzahl} Mannschafts-Wappen nachgerüstet.", aktualisiert);
         }
     }
 
