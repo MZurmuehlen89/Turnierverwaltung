@@ -102,8 +102,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
     // ── Befehle ───────────────────────────────────────────────────────────────
 
-    public ICommand EinzelspielFreiBefehl             { get; }
-    public ICommand EinzelspielFreiAusfuehrlichBefehl { get; }
+    public ICommand EinzelspielFreiBefehl { get; }
 
     // ── IRibbonAware (Issue #174) ─────────────────────────────────────────────
     // Weder Neu/Speichern/Abbrechen/Löschen haben hier eine Entsprechung — Simulieren schreibt
@@ -131,10 +130,6 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                     Header = "Einzelspiel simulieren",
                     Befehl = EinzelspielFreiBefehl,
                     IconGlyph = "",
-                    Unteraktionen =
-                    [
-                        new RibbonAktion { Header = "Ausführliche Simulation", Befehl = EinzelspielFreiAusfuehrlichBefehl, IconVektorDatei = "magnifying_glass.xaml" },
-                    ],
                 },
             ],
         },
@@ -153,8 +148,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         _regelwerkService    = regelwerkService;
         _verbandService      = verbandService;
 
-        EinzelspielFreiBefehl             = new AsyncRelayCommand(() => EinzelspielFreiSimulierenAsync(SimulationsModus.SchnellSimulation), () => EinzelspielKannSimuliert);
-        EinzelspielFreiAusfuehrlichBefehl = new AsyncRelayCommand(() => EinzelspielFreiSimulierenAsync(SimulationsModus.AusfuehrlicheSimulation), () => EinzelspielKannSimuliert);
+        EinzelspielFreiBefehl = new AsyncRelayCommand(EinzelspielFreiSimulierenAsync, () => EinzelspielKannSimuliert);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -196,7 +190,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
     // ── Freie Simulation ──────────────────────────────────────────────────────
 
-    private async Task EinzelspielFreiSimulierenAsync(SimulationsModus modus)
+    private async Task EinzelspielFreiSimulierenAsync()
     {
         if (EinzelspielHeim is null || EinzelspielAuswaerts is null) return;
 
@@ -216,8 +210,8 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             if (EinzelspielMitRueckspiel)
             {
                 var rng  = new Random();
-                var erg1 = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, modus, rng);
-                var erg2 = _simulationsService.EinzelspielSimulieren(auswaerts, heim, verfahren, modus, rng);
+                var erg1 = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, SimulationsModus.AusfuehrlicheSimulation, rng);
+                var erg2 = _simulationsService.EinzelspielSimulieren(auswaerts, heim, verfahren, SimulationsModus.AusfuehrlicheSimulation, rng);
 
                 int heimGesamt      = (erg1.HeimToreRegulaer     + (erg1.HeimToreVerlaengerung ?? 0))
                                     + (erg2.AuswaertsToreRegulaer + (erg2.AuswaertsToreVerlaengerung ?? 0));
@@ -243,32 +237,29 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                     "Gesamt", heim.Name, heimWappen, $"{heimGesamt}:{auswaertsGesamt}", auswaerts.Name, auswaertsWappen));
                 ProtokollZeilen.Add(ProtokollErgebnisZeile.Text("Weiter", weiter));
 
-                if (modus == SimulationsModus.AusfuehrlicheSimulation)
-                {
-                    SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
-                        ProtokollEreignisse,
-                        erg1.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
-                        heim.Name, auswaerts.Name, erg1.EntscheidungArt,
-                        erg1.HeimToreRegulaer, erg1.AuswaertsToreRegulaer,
-                        erg1.HeimToreVerlaengerung, erg1.AuswaertsToreVerlaengerung,
-                        erg1.HeimElfmetertore, erg1.AuswaertsElfmetertore,
-                        minutenPraefix: "Hin");
+                SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
+                    ProtokollEreignisse,
+                    erg1.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
+                    heim.Name, auswaerts.Name, erg1.EntscheidungArt,
+                    erg1.HeimToreRegulaer, erg1.AuswaertsToreRegulaer,
+                    erg1.HeimToreVerlaengerung, erg1.AuswaertsToreVerlaengerung,
+                    erg1.HeimElfmetertore, erg1.AuswaertsElfmetertore,
+                    minutenPraefix: "Hin");
 
-                    // erg2 wurde mit vertauschten Rollen simuliert (Auswärts spielt zu Hause) —
-                    // Seiten und Tore auf die feste Team-Identität (heim/auswaerts) zurückspiegeln.
-                    SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
-                        ProtokollEreignisse,
-                        erg2.Ereignisse.Select(ev => (ev.Minute, ev.Art, !ev.IstHeim)),
-                        heim.Name, auswaerts.Name, erg2.EntscheidungArt,
-                        erg2.AuswaertsToreRegulaer, erg2.HeimToreRegulaer,
-                        erg2.AuswaertsToreVerlaengerung, erg2.HeimToreVerlaengerung,
-                        erg2.AuswaertsElfmetertore, erg2.HeimElfmetertore,
-                        minutenPraefix: "Rück");
-                }
+                // erg2 wurde mit vertauschten Rollen simuliert (Auswärts spielt zu Hause) —
+                // Seiten und Tore auf die feste Team-Identität (heim/auswaerts) zurückspiegeln.
+                SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
+                    ProtokollEreignisse,
+                    erg2.Ereignisse.Select(ev => (ev.Minute, ev.Art, !ev.IstHeim)),
+                    heim.Name, auswaerts.Name, erg2.EntscheidungArt,
+                    erg2.AuswaertsToreRegulaer, erg2.HeimToreRegulaer,
+                    erg2.AuswaertsToreVerlaengerung, erg2.HeimToreVerlaengerung,
+                    erg2.AuswaertsElfmetertore, erg2.HeimElfmetertore,
+                    minutenPraefix: "Rück");
             }
             else
             {
-                var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, modus);
+                var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, SimulationsModus.AusfuehrlicheSimulation);
                 var (score, detail) = SimulationsProtokollHelfer.ScoreUndDetail(erg);
                 ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
                 ProtokollZeilen.Add(new ProtokollErgebnisZeile(
@@ -278,16 +269,13 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                     auswaerts.Name, SimulationsProtokollHelfer.MannschaftsIcon(auswaerts),
                     detail));
 
-                if (modus == SimulationsModus.AusfuehrlicheSimulation)
-                {
-                    SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
-                        ProtokollEreignisse,
-                        erg.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
-                        heim.Name, auswaerts.Name, erg.EntscheidungArt,
-                        erg.HeimToreRegulaer, erg.AuswaertsToreRegulaer,
-                        erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
-                        erg.HeimElfmetertore, erg.AuswaertsElfmetertore);
-                }
+                SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
+                    ProtokollEreignisse,
+                    erg.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
+                    heim.Name, auswaerts.Name, erg.EntscheidungArt,
+                    erg.HeimToreRegulaer, erg.AuswaertsToreRegulaer,
+                    erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
+                    erg.HeimElfmetertore, erg.AuswaertsElfmetertore);
             }
         }
         catch (Exception ex)
@@ -317,6 +305,5 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     private void AktualisiereBefehle()
     {
         ((AsyncRelayCommand)EinzelspielFreiBefehl).NotifyCanExecuteChanged();
-        ((AsyncRelayCommand)EinzelspielFreiAusfuehrlichBefehl).NotifyCanExecuteChanged();
     }
 }
