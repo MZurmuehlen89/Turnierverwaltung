@@ -1,7 +1,8 @@
 <UserControl x:Class="Fussballturnierverwaltung.Wpf.Views.SimulationsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:Fussballturnierverwaltung.Wpf.ViewModels">
+             xmlns:vm="clr-namespace:Fussballturnierverwaltung.Wpf.ViewModels"
+             xmlns:views="clr-namespace:Fussballturnierverwaltung.Wpf.Views">
 
     <UserControl.Resources>
         <!-- Flache ComboBox fuer die Breadcrumb-Leiste (Turnier/Runde/Spiel) -->
@@ -138,153 +139,11 @@
                            FontSize="12" TextWrapping="Wrap" />
             </Border>
 
-            <!-- Ergebnis-Karte -->
-            <Border DockPanel.Dock="Top"
-                    Background="{StaticResource SuccessSoftBrush}" BorderBrush="#BBF7D0" BorderThickness="1"
-                    CornerRadius="{StaticResource Radius6}" Padding="16,12" Margin="16,12,16,0"
-                    Visibility="{Binding HatProtokoll, Converter={StaticResource BoolToVisibility}}">
-                <StackPanel>
-                    <TextBlock Text="ERGEBNIS" FontSize="10" FontWeight="Bold"
-                               Foreground="#16A34A" Margin="0,0,0,8" HorizontalAlignment="Center" />
-                    <ItemsControl ItemsSource="{Binding ProtokollZeilen}"
-                                  HorizontalAlignment="Center" HorizontalContentAlignment="Center">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type vm:ProtokollErgebnisZeile}">
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="{Binding Label, StringFormat={}{0}:  }" FontSize="14" FontWeight="SemiBold"
-                                               Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas"
-                                               Visibility="{Binding Label, Converter={StaticResource NullToCollapsed}}" />
-
-                                    <StackPanel Orientation="Horizontal"
-                                                Visibility="{Binding ZeigtTeams, Converter={StaticResource BoolToVisibility}}">
-                                        <Grid Width="32" Height="32" Margin="0,0,5,0" VerticalAlignment="Center">
-                                            <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                                   Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
-                                                   Stretch="Uniform" />
-                                            <TextBlock Text="🏳" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                       Opacity="0.35"
-                                                       Visibility="{Binding HeimWappen, Converter={StaticResource NullToVisible}}" />
-                                        </Grid>
-                                        <TextBlock Text="{Binding HeimName}" FontSize="14" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Score}" FontSize="14" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas" Margin="8,0"
-                                                   VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding AuswaertsName}" FontSize="14" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas" Margin="0,0,5,0"
-                                                   VerticalAlignment="Center" />
-                                        <Grid Width="32" Height="32" VerticalAlignment="Center">
-                                            <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                                   Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
-                                                   Stretch="Uniform" />
-                                            <TextBlock Text="🏳" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                       Opacity="0.35"
-                                                       Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToVisible}}" />
-                                        </Grid>
-                                        <TextBlock Text="{Binding Detail}" FontSize="14" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas" VerticalAlignment="Center" />
-                                    </StackPanel>
-
-                                    <TextBlock Text="{Binding Score}" FontSize="14" FontWeight="SemiBold"
-                                               Foreground="{StaticResource TextStrongBrush}" FontFamily="Consolas" VerticalAlignment="Center"
-                                               Visibility="{Binding ZeigtTeams, Converter={StaticResource InverseBoolToVisibility}}" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Border>
-
-            <!-- Spielverlauf + Leer-Zustand: gemeinsam letztes, nicht gedocktes DockPanel-Kind,
-                 damit der Spielverlauf die Resthöhe ausfüllt statt bei fester Höhe zu scrollen (Issue #236) -->
-            <Grid>
-                <Border Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                        CornerRadius="{StaticResource Radius4}" Margin="16,8,16,0"
-                        Visibility="{Binding HatProtokollEreignisse, Converter={StaticResource BoolToVisibility}}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0" Text="SPIELVERLAUF" FontSize="10" FontWeight="Bold"
-                                   Foreground="{StaticResource TextSubtleBrush}" Margin="12,8,12,4" />
-
-                        <Grid Grid.Row="1" Margin="12,0,12,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="50" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="HEIM" FontSize="9" FontWeight="Bold"
-                                       Foreground="{StaticResource BorderStrongBrush}" HorizontalAlignment="Right" />
-                            <TextBlock Grid.Column="2" Text="AUSWÄRTS" FontSize="9" FontWeight="Bold"
-                                       Foreground="{StaticResource BorderStrongBrush}" HorizontalAlignment="Left" />
-                        </Grid>
-                        <Separator Grid.Row="2" />
-
-                        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
-                            <ItemsControl ItemsSource="{Binding ProtokollEreignisse}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:EinzelspielEreignisZeile}">
-                                        <Grid>
-                                            <!-- Ereignis-Zeile -->
-                                            <Grid Margin="12,4"
-                                                  Visibility="{Binding IstTrenner, Converter={StaticResource InverseBoolToVisibility}}">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="50" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-
-                                                <StackPanel Grid.Column="0" Orientation="Horizontal"
-                                                            HorizontalAlignment="Right"
-                                                            Visibility="{Binding IstHeimSeite, Converter={StaticResource BoolToVisibility}}">
-                                                    <TextBlock Text="{Binding Art}" FontSize="11"
-                                                               Foreground="{StaticResource TextStrongBrush}" TextAlignment="Right" />
-                                                    <TextBlock Text=" ◄" FontSize="11" FontWeight="Bold"
-                                                               Foreground="#8B5CF6" Margin="4,0,0,0" />
-                                                </StackPanel>
-
-                                                <TextBlock Grid.Column="1" Text="{Binding Minute}" FontSize="11"
-                                                           Foreground="{StaticResource TextMutedBrush}" FontFamily="Consolas"
-                                                           HorizontalAlignment="Center" />
-
-                                                <StackPanel Grid.Column="2" Orientation="Horizontal"
-                                                            HorizontalAlignment="Left"
-                                                            Visibility="{Binding IstHeimSeite, Converter={StaticResource InverseBoolToVisibility}}">
-                                                    <TextBlock Text="► " FontSize="11" FontWeight="Bold"
-                                                               Foreground="#8B5CF6" />
-                                                    <TextBlock Text="{Binding Art}" FontSize="11" Foreground="{StaticResource TextStrongBrush}" />
-                                                </StackPanel>
-                                            </Grid>
-
-                                            <!-- Abschnittstrenner -->
-                                            <Grid Margin="12,10"
-                                                  Visibility="{Binding IstTrenner, Converter={StaticResource BoolToVisibility}}">
-                                                <Separator VerticalAlignment="Center" />
-                                                <Border Background="White" HorizontalAlignment="Center" Padding="8,0">
-                                                    <TextBlock Text="{Binding TrennerText}" FontSize="9" FontWeight="Bold"
-                                                               Foreground="{StaticResource TextSubtleBrush}" />
-                                                </Border>
-                                            </Grid>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </Grid>
-                </Border>
-
-                <!-- Leer-Zustand -->
-                <TextBlock Text="Spiel auswählen und auf Simulieren klicken&#x0a;— oder über Spielplan → Ausführliche Simulation starten."
-                           Foreground="{StaticResource TextSubtleBrush}" FontSize="13" TextWrapping="Wrap"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           MaxWidth="340" TextAlignment="Center"
-                           Visibility="{Binding ZeigeLeerZustand, Converter={StaticResource BoolToVisibility}}" />
-            </Grid>
+            <!-- Vereinheitlichte Spielbericht-Karte (Scoreboard + Zeitleiste, Issue #237) — letztes,
+                 nicht gedocktes DockPanel-Kind, damit sie die Resthöhe ausfüllt statt bei fester Höhe
+                 zu scrollen (Issue #236). -->
+            <views:SpielberichtControl Margin="16,12,16,0"
+                LeerZustandText="Spiel auswählen und auf Simulieren klicken&#x0a;— oder über Spielplan → Ausführliche Simulation starten." />
 
         </DockPanel>
     </DockPanel>

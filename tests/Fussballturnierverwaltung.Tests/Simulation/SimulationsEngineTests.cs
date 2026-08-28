@@ -236,6 +236,40 @@ public class SimulationsEngineTests
     }
 
     [Fact]
+    public void EntscheidungsverfahrenAnwenden_MitElfmeterschiessenImmerEntschieden()
+    {
+        // Issue #237: aus Simulieren() extrahierte Methode — von der freien Hin-/Rückspiel-Simulation
+        // direkt genutzt, um erst nach dem Aggregat beider Beine (statt blind pro Bein) zu entscheiden,
+        // ob überhaupt eine Verlängerung/ein Elfmeterschießen fällig ist.
+        var verfahren = new[] { Verfahren(VerfahrenArt.Elfmeterschiessen) };
+
+        for (int seed = 0; seed < 200; seed++)
+        {
+            var (_, _, he, ge, art, _) =
+                SimulationsEngine.EntscheidungsverfahrenAnwenden(Team(1), Team(2), verfahren, false, new Random(seed));
+
+            art.Should().Be(EntscheidungArt.Elfmeterschiessen);
+            he.Should().NotBeNull();
+            ge.Should().NotBeNull();
+            he.Should().NotBe(ge, "Elfmeterschießen darf nicht mit Gleichstand enden");
+        }
+    }
+
+    [Fact]
+    public void EntscheidungsverfahrenAnwenden_OhneVerfahrenBleibtRegulaereSpielzeitOhneTore()
+    {
+        var (hv, gv, he, ge, art, ereignisse) =
+            SimulationsEngine.EntscheidungsverfahrenAnwenden(Team(1), Team(2), [], false, new Random(1));
+
+        art.Should().Be(EntscheidungArt.RegulaereSpielzeit);
+        hv.Should().BeNull();
+        gv.Should().BeNull();
+        he.Should().BeNull();
+        ge.Should().BeNull();
+        ereignisse.Should().BeEmpty();
+    }
+
+    [Fact]
     public void StarkesTeamGewinntHaeufiger()
     {
         var stark  = Team(1, off: 95, mid: 90, def: 90, heim: 95, ausw: 90);

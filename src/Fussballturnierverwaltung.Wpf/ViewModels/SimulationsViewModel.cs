@@ -26,7 +26,11 @@ public record EinzelspielEreignisZeile(
     byte[]? Wappen = null,
     bool IstTor = false, bool IstGelbeKarte = false, bool IstRoteKarte = false, bool IstElfmeterVerschossen = false)
 {
-    public bool ZeigtTrennerlinie => TrennerArt is TrennerArt.Abschnitt or TrennerArt.Elfmeter;
+    // Nur fuer IstTrenner==true aussagekräftig — die beiden Properties kombinieren beides, damit die
+    // Zeitleisten-DataTemplate-Grids nicht zusätzlich auf IstTrenner prüfen müssen (sonst würde bei
+    // TrennerArt-Default=Abschnitt jede normale Ereignis-Zeile fälschlich als Abschnittstrenner gelten).
+    public bool ZeigtAlsAbschnittMitLinie   => IstTrenner && TrennerArt is TrennerArt.Abschnitt or TrennerArt.Elfmeter;
+    public bool ZeigtAlsEigenstaendigeMarke => IstTrenner && TrennerArt is TrennerArt.Start or TrennerArt.Ende or TrennerArt.Beinabschnitt;
 
     public static EinzelspielEreignisZeile Trenner(string text, TrennerArt art = TrennerArt.Abschnitt) =>
         new("", "", "", false, IstTrenner: true, TrennerText: text, TrennerArt: art);

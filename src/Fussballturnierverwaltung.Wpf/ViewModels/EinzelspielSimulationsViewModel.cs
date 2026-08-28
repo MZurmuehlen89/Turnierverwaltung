@@ -209,18 +209,45 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         {
             if (EinzelspielMitRueckspiel)
             {
-                var rng  = new Random();
-                var erg1 = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, SimulationsModus.AusfuehrlicheSimulation, rng);
-                var erg2 = _simulationsService.EinzelspielSimulieren(auswaerts, heim, verfahren, SimulationsModus.AusfuehrlicheSimulation, rng);
+                var rng = new Random();
 
-                int heimGesamt      = (erg1.HeimToreRegulaer     + (erg1.HeimToreVerlaengerung ?? 0))
-                                    + (erg2.AuswaertsToreRegulaer + (erg2.AuswaertsToreVerlaengerung ?? 0));
-                int auswaertsGesamt = (erg1.AuswaertsToreRegulaer + (erg1.AuswaertsToreVerlaengerung ?? 0))
-                                    + (erg2.HeimToreRegulaer      + (erg2.HeimToreVerlaengerung ?? 0));
+                // Issue #237 (Fund beim manuellen Test): Hinspiel läuft IMMER ohne Entscheidungsverfahren
+                // (leeres verfahren) — ein bei 90 Minuten unentschiedenes Hinspiel braucht für sich allein
+                // keine Verlängerung, das entscheidet erst das Aggregat nach dem Rückspiel. Vorherige
+                // Fassung wandte "verfahren" blind auf jedes Bein einzeln an.
+                var erg1 = _simulationsService.EinzelspielSimulieren(heim, auswaerts, [], SimulationsModus.AusfuehrlicheSimulation, rng);
+                var erg2 = _simulationsService.EinzelspielSimulieren(auswaerts, heim, [], SimulationsModus.AusfuehrlicheSimulation, rng);
 
-                string weiter = heimGesamt > auswaertsGesamt ? heim.Name
-                              : heimGesamt < auswaertsGesamt ? auswaerts.Name
-                              : "Unentschieden";
+                int heimGesamtRegulaer      = erg1.HeimToreRegulaer      + erg2.AuswaertsToreRegulaer;
+                int auswaertsGesamtRegulaer = erg1.AuswaertsToreRegulaer + erg2.HeimToreRegulaer;
+
+                // Aggregat nach 180 Minuten unentschieden → Rückspiel geht gemäß Regelwerk in die
+                // Verlängerung (und ggf. Elfmeterschießen) — angewandt auf erg2, da die Verlängerung
+                // real im Stadion des Rückspiels gespielt würde. Rollen bei EntscheidungsverfahrenAnwenden
+                // entsprechen erg2s eigener Heim/Auswärts-Zuordnung (auswaerts spielt zu Hause).
+                if (heimGesamtRegulaer == auswaertsGesamtRegulaer && verfahren.Count > 0)
+                {
+                    var (hv, gv, he, ge, art, extras) =
+                        SimulationsEngine.EntscheidungsverfahrenAnwenden(auswaerts, heim, verfahren, ausfuehrlich: true, rng);
+                    erg2 = erg2 with
+                    {
+                        HeimToreVerlaengerung = hv, AuswaertsToreVerlaengerung = gv,
+                        HeimElfmetertore = he, AuswaertsElfmetertore = ge,
+                        EntscheidungArt = art,
+                        Ereignisse = [.. erg2.Ereignisse, .. extras],
+                    };
+                }
+
+                int heimGesamt      = heimGesamtRegulaer      + (erg2.AuswaertsToreVerlaengerung ?? 0);
+                int auswaertsGesamt = auswaertsGesamtRegulaer + (erg2.HeimToreVerlaengerung ?? 0);
+
+                string weiter;
+                if (heimGesamt != auswaertsGesamt)
+                    weiter = heimGesamt > auswaertsGesamt ? heim.Name : auswaerts.Name;
+                else if (erg2 is { EntscheidungArt: EntscheidungArt.Elfmeterschiessen, HeimElfmetertore: not null, AuswaertsElfmetertore: not null })
+                    weiter = erg2.HeimElfmetertore > erg2.AuswaertsElfmetertore ? auswaerts.Name : heim.Name; // erg2 "Heim" = auswaerts
+                else
+                    weiter = "Unentschieden";
 
                 byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(heim);
                 byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(auswaerts);
@@ -253,16 +280,19 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                     abpfiffPraefix: "ENDE HINSPIEL");
 
                 ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner("RÜCKSPIEL", TrennerArt.Beinabschnitt));
-                // erg2 wurde mit vertauschten Rollen simuliert (Auswärts spielt zu Hause) —
-                // Seiten und Tore auf die feste Team-Identität (heim/auswaerts) zurückspiegeln.
+                // Issue #237 (Nutzer-Feedback): Rückspiel-Ereignisse bewusst NICHT mehr auf die feste
+                // Heim/Auswärts-Seite des Hinspiels zurückgespiegelt — Auswärts hat im Rückspiel Heimrecht,
+                // die Zeitleiste zeigt das (Achsen-links = jeweiliges Heimteam der Zeile, analog zur
+                // "Rückspiel: Auswärts – Heim"-Beschriftung im Scoreboard). erg2 wird dafür einfach in
+                // seiner eigenen, natürlichen Heim/Auswärts-Rolle übergeben (Auswärts = Heim des Rückspiels).
                 SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
                     ProtokollEreignisse,
-                    erg2.Ereignisse.Select(ev => (ev.Minute, ev.Art, !ev.IstHeim)),
-                    heim.Name, auswaerts.Name, erg2.EntscheidungArt,
-                    erg2.AuswaertsToreRegulaer, erg2.HeimToreRegulaer,
-                    erg2.AuswaertsToreVerlaengerung, erg2.HeimToreVerlaengerung,
-                    erg2.AuswaertsElfmetertore, erg2.HeimElfmetertore,
-                    heimWappen, auswaertsWappen,
+                    erg2.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
+                    auswaerts.Name, heim.Name, erg2.EntscheidungArt,
+                    erg2.HeimToreRegulaer, erg2.AuswaertsToreRegulaer,
+                    erg2.HeimToreVerlaengerung, erg2.AuswaertsToreVerlaengerung,
+                    erg2.HeimElfmetertore, erg2.AuswaertsElfmetertore,
+                    auswaertsWappen, heimWappen,
                     anpfiffText: null, abpfiffPraefix: null);
                 ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner(
                     $"ABPFIFF · Gesamt {heimGesamt}:{auswaertsGesamt}", TrennerArt.Ende));

@@ -36,22 +36,10 @@ public static class SimulationsEngine
 
         if (heimTore == gastTore)
         {
-            foreach (var v in verfahren.OrderBy(v => v.Reihenfolge))
-            {
-                var (result, art, hv, gv, he, ge, extraEreignisse) =
-                    VerfahrenSimulieren(v.VerfahrenArt, heim, auswaerts, rng, ausfuehrlich);
-
-                entscheidung = art;
-                // Verlängerungstore aus einem früheren Schritt (z.B. VerlaengerungKlassisch)
-                // nicht mit null überschreiben, wenn der Folgeschritt (z.B. Elfmeter) null zurückgibt
-                if (hv.HasValue) heimVerl = hv;
-                if (gv.HasValue) gastVerl = gv;
-                if (he.HasValue) heimElf = he;
-                if (ge.HasValue) gastElf = ge;
-                ereignisse = [.. ereignisse, .. extraEreignisse];
-
-                if (result != 0) break; // Sieger gefunden
-            }
+            IReadOnlyList<SimuliertesEreignis> extras;
+            (heimVerl, gastVerl, heimElf, gastElf, entscheidung, extras) =
+                EntscheidungsverfahrenAnwenden(heim, auswaerts, verfahren, ausfuehrlich, rng);
+            ereignisse = [.. ereignisse, .. extras];
         }
 
         // Issue #104: Halbzeitstand aus den generierten Torereignissen ableiten (nur bei ausführlicher
@@ -68,6 +56,43 @@ public static class SimulationsEngine
         return new SimulationsErgebnis(
             heimTore, gastTore, heimVerl, gastVerl, heimElf, gastElf,
             entscheidung, ereignisse, heimHalbzeit, gastHalbzeit);
+    }
+
+    /// <summary>
+    /// Wendet die Entscheidungsverfahren-Kette (Verlängerung, Elfmeterschießen, …) direkt an, ohne
+    /// vorher eine reguläre Spielzeit zu würfeln — aus <see cref="Simulieren"/> extrahiert (dort bei
+    /// Gleichstand nach 90 Minuten genutzt), zusätzlich öffentlich für die freie Hin-/Rückspiel-
+    /// Simulation (Issue #237): dort entscheidet erst das Aggregat aus beiden Beinen, ob überhaupt
+    /// eine Verlängerung fällig ist — das darf nicht (wie zuvor) blind pro Bein einzeln geprüft werden.
+    /// </summary>
+    public static (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf,
+                   EntscheidungArt Art, IReadOnlyList<SimuliertesEreignis> Ereignisse)
+        EntscheidungsverfahrenAnwenden(
+            Mannschaft heim, Mannschaft auswaerts,
+            IReadOnlyList<EntscheidungsVerfahren> verfahren, bool ausfuehrlich, Random rng)
+    {
+        int? heimVerl = null, gastVerl = null, heimElf = null, gastElf = null;
+        var entscheidung = EntscheidungArt.RegulaereSpielzeit;
+        IReadOnlyList<SimuliertesEreignis> ereignisse = [];
+
+        foreach (var v in verfahren.OrderBy(v => v.Reihenfolge))
+        {
+            var (result, art, hv, gv, he, ge, extraEreignisse) =
+                VerfahrenSimulieren(v.VerfahrenArt, heim, auswaerts, rng, ausfuehrlich);
+
+            entscheidung = art;
+            // Verlängerungstore aus einem früheren Schritt (z.B. VerlaengerungKlassisch)
+            // nicht mit null überschreiben, wenn der Folgeschritt (z.B. Elfmeter) null zurückgibt
+            if (hv.HasValue) heimVerl = hv;
+            if (gv.HasValue) gastVerl = gv;
+            if (he.HasValue) heimElf = he;
+            if (ge.HasValue) gastElf = ge;
+            ereignisse = [.. ereignisse, .. extraEreignisse];
+
+            if (result != 0) break; // Sieger gefunden
+        }
+
+        return (heimVerl, gastVerl, heimElf, gastElf, entscheidung, ereignisse);
     }
 
     // ── Expected-Goals-Formel ──────────────────────────────────────────────

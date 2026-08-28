@@ -40,12 +40,18 @@ internal static class SimulationsProtokollHelfer
         int heim = e.HeimToreRegulaer + (e.HeimToreVerlaengerung ?? 0);
         int gast = e.AuswaertsToreRegulaer + (e.AuswaertsToreVerlaengerung ?? 0);
 
+        // Issue #237 (Nutzer-Feedback): bei Verlängerung/Elfmeterschießen weicht das kombinierte
+        // Endergebnis vom 90-Minuten-Stand ab — ohne ihn zu nennen, ist z.B. bei "2:2 (i.E. 4:3)" nicht
+        // erkennbar, wie das Spiel nach regulärer Spielzeit stand.
+        bool hatteVerlaengerung = e.HeimToreVerlaengerung.HasValue && e.AuswaertsToreVerlaengerung.HasValue;
+        string regulaerHinweis = hatteVerlaengerung ? $"90' {e.HeimToreRegulaer}:{e.AuswaertsToreRegulaer}, " : "";
+
         string detail = e.EntscheidungArt switch
         {
-            EntscheidungArt.Verlaengerung     => " (n.V.)",
-            EntscheidungArt.GoldenGoal        => " (G.G.)",
-            EntscheidungArt.SilverGoal        => " (S.G.)",
-            EntscheidungArt.Elfmeterschiessen => $" (i.E. {e.HeimElfmetertore}:{e.AuswaertsElfmetertore})",
+            EntscheidungArt.Verlaengerung     => $" ({regulaerHinweis}n.V.)",
+            EntscheidungArt.GoldenGoal        => $" ({regulaerHinweis}G.G.)",
+            EntscheidungArt.SilverGoal        => $" ({regulaerHinweis}S.G.)",
+            EntscheidungArt.Elfmeterschiessen => $" ({regulaerHinweis}i.E. {e.HeimElfmetertore}:{e.AuswaertsElfmetertore})",
             EntscheidungArt.Auswaertstorregel => " (A.T.)",
             EntscheidungArt.Losentscheid      => " (Los)",
             EntscheidungArt.Muenzwurf         => " (Münze)",
