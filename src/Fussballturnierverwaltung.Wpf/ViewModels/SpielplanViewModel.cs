@@ -102,6 +102,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(IstKoRunde))]
     [NotifyPropertyChangedFor(nameof(IstLigaRunde))]
     [NotifyPropertyChangedFor(nameof(IstLigaMitRueckspiel))]
+    [NotifyPropertyChangedFor(nameof(ZeigeLigaSpieltagUmschalter))]
     private TurnierRunde? _ausgewaehlteRunde;
 
     public bool HatRunde => AusgewaehlteRunde is not null;
@@ -138,6 +139,22 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// Gruppen-Karte im rechten Panel gesetzt, siehe TurnierBereichViewModel) — ersetzt die frühere
     /// separate Gruppen-Fokus-Ansicht, da es nur noch eine Listenansicht gibt (Issue #141).</summary>
     public bool IstGefiltertAufGruppe => AusgewaehlteGruppe is not null;
+
+    // Analog zum Gruppenfilter, aber für Liga-Runden (keine Gruppen, daher kein Klick-Einstieg über
+    // eine Gruppen-Karte möglich) — eigener Umschalter im Spielplan-Header (Issue #246).
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ZeigeFokusListe))]
+    [NotifyPropertyChangedFor(nameof(FokusSpiele))]
+    [NotifyPropertyChangedFor(nameof(SpieltagSimulierenMenuText))]
+    [NotifyPropertyChangedFor(nameof(SpieltagZuruecksetzenMenuText))]
+    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
+    private bool _ligaProSpieltagAktiv;
+
+    public bool ZeigeLigaSpieltagUmschalter => IstLigaRunde;
+
+    /// <summary>Vereint Gruppenfilter und Liga-Spieltag-Umschalter: beide zeigen dieselbe fokussierte,
+    /// nach Spieltag blätterbare Spielliste (FokusSpiele) statt der ungefilterten Gesamtliste an.</summary>
+    public bool ZeigeFokusListe => AusgewaehlteGruppe is not null || LigaProSpieltagAktiv;
 
     public ObservableCollection<int> FokusSpieltage { get; } = [];
 
@@ -178,11 +195,15 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly RelayCommand                 _fokusVorigerSpieltag;
     private readonly RelayCommand                 _fokusNaechsterSpieltag;
     private readonly RelayCommand                 _fokusAlleSpieltageBefehl;
+    private readonly RelayCommand                 _ligaGesamtAnsichtBefehl;
+    private readonly RelayCommand                 _ligaProSpieltagAnsichtBefehl;
 
-    public ICommand ZurueckZurUebersichtBefehl => _zurueckZurUebersichtBefehl;
-    public ICommand FokusVorigerSpieltag       => _fokusVorigerSpieltag;
-    public ICommand FokusNaechsterSpieltag     => _fokusNaechsterSpieltag;
-    public ICommand FokusAlleSpieltageBefehl   => _fokusAlleSpieltageBefehl;
+    public ICommand ZurueckZurUebersichtBefehl   => _zurueckZurUebersichtBefehl;
+    public ICommand FokusVorigerSpieltag         => _fokusVorigerSpieltag;
+    public ICommand FokusNaechsterSpieltag       => _fokusNaechsterSpieltag;
+    public ICommand FokusAlleSpieltageBefehl     => _fokusAlleSpieltageBefehl;
+    public ICommand LigaGesamtAnsichtBefehl      => _ligaGesamtAnsichtBefehl;
+    public ICommand LigaProSpieltagAnsichtBefehl => _ligaProSpieltagAnsichtBefehl;
 
     // ── Ranking-Kriterien ─────────────────────────────────────────────────────
 
@@ -467,6 +488,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _fokusVorigerSpieltag       = new RelayCommand(FokusEinSpieltag_Vorig, () => KannFokusZurueck);
         _fokusNaechsterSpieltag     = new RelayCommand(FokusEinSpieltag_Vor,   () => KannFokusVor);
         _fokusAlleSpieltageBefehl   = new RelayCommand(() => FokusAlleAktiv = true, () => !FokusAlleAktiv);
+        _ligaGesamtAnsichtBefehl      = new RelayCommand(() => LigaProSpieltagAktiv = false);
+        _ligaProSpieltagAnsichtBefehl = new RelayCommand(() => LigaProSpieltagAktiv = true);
 
         _rundeSimulierenBefehl        = new AsyncRelayCommand(RundeSimulierenAsync,         CanRundeSimulieren);
         _gruppeSimulierenBefehl       = new AsyncRelayCommand(GruppeSimulierenAsync,        CanGruppeSimulieren);
@@ -555,6 +578,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 break;
             case nameof(AusgewaehlteGruppe):
                 BeiGruppeFokusAenderung();
+                break;
+            case nameof(LigaProSpieltagAktiv):
+                BeiLigaProSpieltagAenderung();
                 break;
             case nameof(FokusAlleAktiv):
             case nameof(FokusAktiverSpieltag):
@@ -727,6 +753,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         OnPropertyChanged(nameof(HatRegelwerkInfo));
         _erlaubteVerfahren.Clear();
         AusgewaehlteGruppe   = null;
+        LigaProSpieltagAktiv = false;
         GruppenTabellen.Clear();
         _teamGruppeMap = [];
         _platzhalterVorschau = new Dictionary<int, (string?, string?)>(); // gehört zur alten Runde
@@ -1415,30 +1442,48 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         if (istEchterGruppenwechsel)
         {
-            FokusSpieltage.Clear();
-            FokusAlleAktiv       = true;
-            FokusAktiverSpieltag = 0;
+            AktualisiereFokusSpieltage(AusgewaehlteGruppe is not null
+                ? Spiele.Where(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer && s.Spieltag.HasValue)
+                        .Select(s => s.Spieltag!.Value)
+                : null);
+        }
+    }
 
-            if (AusgewaehlteGruppe is not null)
-            {
-                foreach (var st in Spiele
-                    .Where(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer && s.Spieltag.HasValue)
-                    .Select(s => s.Spieltag!.Value)
-                    .Distinct()
-                    .OrderBy(t => t))
-                {
-                    FokusSpieltage.Add(st);
-                }
-                if (FokusSpieltage.Count > 0)
-                    FokusAktiverSpieltag = FokusSpieltage[0];
+    // Analog zu BeiGruppeFokusAenderung, aber für den Liga-Spieltag-Umschalter (Issue #246) — dort gibt
+    // es keine "echter Wechsel"-Unterscheidung nötig, da der Umschalter selbst schon binär ist (An/Aus).
+    private void BeiLigaProSpieltagAenderung()
+    {
+        _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
+        _spieltagZuruecksetzenBefehl.NotifyCanExecuteChanged();
 
-                // Issue #219-Nachbesserung: bei genau einem Spieltag bleibt die Alle/Einzeltag-
-                // Umschaltung in der View unsichtbar (HatMehrereSpieltage = false) — FokusAlleAktiv
-                // bliebe sonst dauerhaft "true" hängen, EffektiverSpieltag damit dauerhaft null und
-                // die Spieltag-Ribbon-Aktionen für einspieltägige Gruppen permanent deaktiviert.
-                if (FokusSpieltage.Count == 1)
-                    FokusAlleAktiv = false;
-            }
+        AktualisiereFokusSpieltage(LigaProSpieltagAktiv
+            ? Spiele.Where(s => s.Spieltag.HasValue).Select(s => s.Spieltag!.Value)
+            : null);
+    }
+
+    /// <summary>Baut FokusSpieltage aus den übergebenen Spieltag-Nummern neu auf (oder leert sie bei
+    /// null) und setzt FokusAlleAktiv/FokusAktiverSpieltag zurück — gemeinsame Grundlage für den
+    /// Gruppenfilter und den Liga-Spieltag-Umschalter.</summary>
+    private void AktualisiereFokusSpieltage(IEnumerable<int>? spieltage)
+    {
+        FokusSpieltage.Clear();
+        FokusAlleAktiv       = true;
+        FokusAktiverSpieltag = 0;
+
+        if (spieltage is not null)
+        {
+            foreach (var st in spieltage.Distinct().OrderBy(t => t))
+                FokusSpieltage.Add(st);
+            if (FokusSpieltage.Count > 0)
+                FokusAktiverSpieltag = FokusSpieltage[0];
+
+            // Issue #219-Nachbesserung: bei genau einem Spieltag bleibt die Alle/Einzeltag-
+            // Umschaltung in der View unsichtbar (HatMehrereSpieltage = false) — FokusAlleAktiv
+            // bliebe sonst dauerhaft "true" hängen, EffektiverSpieltag damit dauerhaft null und
+            // die Spieltag-Ribbon-Aktionen für einspieltägige Gruppen/Liga-Ansichten permanent
+            // deaktiviert.
+            if (FokusSpieltage.Count == 1)
+                FokusAlleAktiv = false;
         }
 
         OnPropertyChanged(nameof(HatMehrereSpieltage));
@@ -1464,7 +1509,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     // gefiltert, aber noch nicht auf einen Tag) muss wie in der ungefilterten Liste die Selektion des
     // markierten Spiels greifen, sonst bleibt EffektiverSpieltag dort permanent null.
     private int? EffektiverSpieltag =>
-        AusgewaehlteGruppe is not null && !FokusAlleAktiv
+        ZeigeFokusListe && !FokusAlleAktiv
             ? FokusAktiverSpieltag
             : AusgewaehlteSpiel?.Spieltag;
 
@@ -1984,8 +2029,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private IReadOnlyList<SpielZeile> BerechneFokusSpiele()
     {
-        if (AusgewaehlteGruppe is null) return [];
-        var spiele = Spiele.Where(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer);
+        IEnumerable<SpielZeile> spiele;
+        if (AusgewaehlteGruppe is not null)
+            spiele = Spiele.Where(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer);
+        else if (LigaProSpieltagAktiv)
+            spiele = Spiele;
+        else
+            return [];
+
         if (!FokusAlleAktiv)
             spiele = spiele.Where(s => s.Spieltag == FokusAktiverSpieltag);
         return spiele.ToList();
