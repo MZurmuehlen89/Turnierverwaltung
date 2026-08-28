@@ -312,6 +312,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusManuellAusfuehrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungZuruecksetzenCommand))]
     [NotifyCanExecuteChangedFor(nameof(LostoepfeAutomatischBefuellenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AlleToepfeZuruecksetzenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ManuelleAuslosungAbschliessenCommand))]
     private bool _detailAktiv;
 
     [ObservableProperty]
@@ -323,6 +325,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusAusfuehrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusManuellAusfuehrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(LostoepfeAutomatischBefuellenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AlleToepfeZuruecksetzenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ManuelleAuslosungAbschliessenCommand))]
     private bool _istBearbeitbar;
 
     [ObservableProperty]
@@ -337,6 +341,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyCanExecuteChangedFor(nameof(AuslosungAusfuehrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusAusfuehrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusManuellAusfuehrenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ManuelleAuslosungAbschliessenCommand))]
     private Auslosungsart _detailAuslosungsart;
 
     [ObservableProperty] private string _detailName = "";
@@ -383,7 +388,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     [ObservableProperty] private TeilnehmerAnzeige? _ausgewaehlterVerfuegbarTeilnehmer;
 
-    [ObservableProperty] private ObservableCollection<LostopfViewModel> _lostoepfe = [];
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AlleToepfeZuruecksetzenCommand))]
+    private ObservableCollection<LostopfViewModel> _lostoepfe = [];
 
     // ── Automatische Lostopf-Zuordnung via Rangliste (Issue #119) ────────────────
     private static readonly RanglisteOption _keineRangliste = new("— Keine —", null);
@@ -1287,7 +1294,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public ManuellerGruppenSlot? NaechsterFreierGruppenSlot() =>
         ManuelleGruppen.SelectMany(g => g.Slots).FirstOrDefault(s => s.IstLeer);
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(KannManuelleAuslosungAbschliessen))]
     private async Task ManuelleAuslosungAbschliessen()
     {
         if (_auslosungDetail is null) return;
@@ -1452,7 +1459,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(KannAlleToepfeZuruecksetzen))]
     private async Task AlleToepfeZuruecksetzen()
     {
         if (_auslosungDetail is null) return;
@@ -1825,6 +1832,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private bool KannAuslosungAusfuehren()             => DetailAktiv && IstBearbeitbarNichtManuell;
     private bool KannAuslosungZuruecksetzen()           => DetailAktiv && IstAbgeschlossen && AnimationLaeuftNicht;
     private bool KannLostoepfeAutomatischBefuellen()    => DetailAktiv && IstBearbeitbar;
+    private bool KannManuelleAuslosungAbschliessen()    => DetailAktiv && IstManuellerModus;
+    private bool KannAlleToepfeZuruecksetzen()          => DetailAktiv && IstBearbeitbar && Lostoepfe.Any(l => l.Teilnehmer.Count > 0);
 
     partial void OnDetailNameChanged(string value)           { if (!_ladenAktiv) IstDetailDirty = true; }
     partial void OnDetailAuslosungsartChanged(Auslosungsart value)
