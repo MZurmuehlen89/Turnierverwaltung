@@ -250,6 +250,15 @@
                                    Foreground="{StaticResource AccentStrongBrush}" FontSize="12" TextWrapping="Wrap" />
                     </Border>
 
+                    <!-- Issue #240: Zugriff auf den detaillierten Spielverlauf eines bereits
+                         simulierten Spiels (Ereignisse Minute für Minute, wie in der
+                         Einzelspiel-Simulation) — springt in den Simulation-Tab, ohne das
+                         vorhandene Ergebnis zu überschreiben. -->
+                    <Button Content="Spielverlauf ansehen"
+                            Command="{Binding SpielverlaufAnsehenBefehl}"
+                            HorizontalAlignment="Stretch" Padding="10,7" FontSize="12" Cursor="Hand"
+                            Visibility="{Binding FormHatErgebnis, Converter={StaticResource BoolToVisibility}}" />
+
                 </StackPanel>
             </ScrollViewer>
 

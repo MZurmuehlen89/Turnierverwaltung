@@ -331,6 +331,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly AsyncRelayCommand _auswahlSimulierenBefehl;
     private readonly AsyncRelayCommand _hinrundeSimulierenBefehl;
     private readonly AsyncRelayCommand _rueckrundeSimulierenBefehl;
+    private readonly RelayCommand      _spielverlaufAnsehenBefehl;
 
     public ICommand RundeSimulierenBefehl         => _rundeSimulierenBefehl;
     public ICommand GruppeSimulierenBefehl        => _gruppeSimulierenBefehl;
@@ -339,6 +340,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public ICommand AuswahlSimulierenBefehl       => _auswahlSimulierenBefehl;
     public ICommand HinrundeSimulierenBefehl      => _hinrundeSimulierenBefehl;
     public ICommand RueckrundeSimulierenBefehl    => _rueckrundeSimulierenBefehl;
+    public ICommand SpielverlaufAnsehenBefehl     => _spielverlaufAnsehenBefehl;
 
     // ── Ergebnis-Reset auf Ebene Runde/Gruppe/Spieltag (Issue #123) ─────────────
 
@@ -498,6 +500,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _auswahlSimulierenBefehl      = new AsyncRelayCommand(AuswahlSimulierenAsync,       CanAuswahlSimulieren);
         _hinrundeSimulierenBefehl     = new AsyncRelayCommand(HinrundeSimulierenAsync,      CanHinrundeSimulieren);
         _rueckrundeSimulierenBefehl   = new AsyncRelayCommand(RueckrundeSimulierenAsync,    CanRueckrundeSimulieren);
+        _spielverlaufAnsehenBefehl    = new RelayCommand(SpielverlaufAnsehen,               () => FormHatErgebnis);
 
         _rundeZuruecksetzenBefehl    = new AsyncRelayCommand(RundeZuruecksetzenAsync,    CanRundeZuruecksetzen);
         _gruppeZuruecksetzenBefehl   = new AsyncRelayCommand(GruppeZuruecksetzenAsync,   CanGruppeZuruecksetzen);
@@ -1236,6 +1239,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _rueckrundeSimulierenBefehl.NotifyCanExecuteChanged();
         _hinrundeZuruecksetzenBefehl.NotifyCanExecuteChanged();
         _rueckrundeZuruecksetzenBefehl.NotifyCanExecuteChanged();
+        _spielverlaufAnsehenBefehl.NotifyCanExecuteChanged();
     }
 
     private static SpielZeile MapSpielZeile(
@@ -1610,6 +1614,23 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         AusfuehrlicheSimulationAngefordert?.Invoke(this, vorauswahl);
         return Task.CompletedTask;
+    }
+
+    // Issue #240: Zugriff auf den detaillierten Spielverlauf eines bereits (im Spielplan) simulierten
+    // Spiels — nutzt denselben Navigations-/Vorauswahl-Mechanismus wie "Spiel simulieren" oben, nur
+    // mit NurAnzeigen: true, damit SimulationsViewModel das vorhandene Ergebnis nicht überschreibt.
+    private void SpielverlaufAnsehen()
+    {
+        if (AusgewaehlteSpiel is null || AusgewaehlteRunde is null || AusgewaehlteInstanz is null)
+            return;
+
+        var vorauswahl = new VorausgewaehlteSimulation(
+            AusgewaehlteInstanz.Id,
+            AusgewaehlteRunde.Id,
+            AusgewaehlteSpiel.Id,
+            NurAnzeigen: true);
+
+        AusfuehrlicheSimulationAngefordert?.Invoke(this, vorauswahl);
     }
 
     private async Task RundeSimulierenAsync()

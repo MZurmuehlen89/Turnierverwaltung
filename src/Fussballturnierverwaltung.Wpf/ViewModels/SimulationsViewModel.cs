@@ -395,7 +395,13 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         AusgewaehlteSpiel  = spiel;
         _ladeUnterdrückt--;
 
-        await TurnierSpielSimulierenAsync();
+        // Issue #240: reine Ansicht eines bereits simulierten Spiels — kein Neu-Simulieren/
+        // Überschreiben, nur das vorhandene Protokoll laden. Ohne Ergebnis (z. B. Zurücksetzen
+        // zwischen Auslösen und Verarbeiten der Navigation) bleibt es beim Simulieren als Fallback.
+        if (v.NurAnzeigen && spiel.HatErgebnis)
+            await LadeProtokollAsync(spiel.Id);
+        else
+            await TurnierSpielSimulierenAsync();
     }
 
     // ── Protokoll ─────────────────────────────────────────────────────────────
