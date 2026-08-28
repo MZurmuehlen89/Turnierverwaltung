@@ -17,6 +17,13 @@ public record ProtokollErgebnisZeile(
 {
     public bool ZeigtTeams => HeimName is not null;
 
+    // Issue #237: Kennzeichnung für die vereinheitlichte Spielbericht-Kopfzeile — die Hauptzeile
+    // (Einzelspiel oder "Gesamt" bei Hin-/Rückspiel) wird groß als Scoreboard dargestellt, Hin-/
+    // Rückspiel-Einzelergebnisse als kleine Chips, eine reine Text-Zeile (z. B. "Weiter: TeamX") als Pill.
+    public bool IstHauptzeile => Label is null or "Gesamt";
+    public bool IstBeinzeile  => Label is "Hinspiel" or "Rückspiel";
+    public bool HatDetail     => !string.IsNullOrWhiteSpace(Detail);
+
     public static ProtokollErgebnisZeile Text(string? label, string text) =>
         new(label, null, null, text, null, null);
 }
@@ -57,7 +64,12 @@ internal static class SimulationsProtokollHelfer
 
     // Baut die Ereigniszeitleiste inkl. Abschnittstrenner (Halbzeit, 90 Minuten,
     // Halbzeit/Ende Verlängerung, Elfmeterschießen) für die übergebene Ziel-Collection auf.
-    public static void ZeitleisteHinzufuegen(
+    // Issue #237: rahmt die Zeitleiste zusätzlich mit ANPFIFF/ABPFIFF-Marken (Text per Parameter
+    // überschreibbar, z. B. "ENDE HINSPIEL" bei Hin-/Rückspiel — null unterdrückt die jeweilige Marke,
+    // etwa beim Rückspiel-Aufruf, wo der Aufrufer stattdessen selbst eine Gesamt-Abpfiff-Marke anhängt)
+    // und trägt die Team-Wappen je Ereignis ein. Rückgabewert zeigt an, ob überhaupt Ereignisse
+    // (und damit auch die Marken) hinzugefügt wurden.
+    public static bool ZeitleisteHinzufuegen(
         ObservableCollection<EinzelspielEreignisZeile> ziel,
         IEnumerable<(int Minute, EreignisArt Art, bool IstHeimSeite)> ereignisse,
         string heimName, string auswaertsName,
@@ -65,13 +77,14 @@ internal static class SimulationsProtokollHelfer
         int heimToreRegulaer, int auswaertsToreRegulaer,
         int? heimToreVerlaengerung, int? auswaertsToreVerlaengerung,
         int? heimElfmetertore, int? auswaertsElfmetertore,
-        string? minutenPraefix = null)
+        byte[]? heimWappen = null, byte[]? auswaertsWappen = null,
+        string? anpfiffText = "ANPFIFF", string? abpfiffPraefix = "ABPFIFF")
     {
         // Schnellsimulation persistiert keine Einzelereignisse (siehe SimulationsService.SpeichernAsync,
         // sim.Ereignisse.Any()-Gate) — ohne diesen fruehen Ausstieg wuerde SchwellenPruefen(int.MaxValue)
         // unten trotzdem einen "HALBZEIT"-Trenner einfuegen und eine leere Zeitleiste vortaeuschen.
         var ereignisListe = ereignisse.ToList();
-        if (ereignisListe.Count == 0) return;
+        if (ereignisListe.Count == 0) return false;
 
         // Verlaengerung fand statt, sobald die Verlaengerungs-Torfelder gesetzt sind — unabhaengig
         // von der finalen EntscheidungArt (auch bei Elfmeterschiessen ging dem immer eine
@@ -86,12 +99,12 @@ internal static class SimulationsProtokollHelfer
         {
             if (!halbzeitEingefuegt && minute > 45)
             {
-                ziel.Add(EinzelspielEreignisZeile.Trenner($"HALBZEIT ({heimStand}:{auswaertsStand})"));
+                ziel.Add(EinzelspielEreignisZeile.Trenner($"HALBZEIT · {heimStand}:{auswaertsStand}"));
                 halbzeitEingefuegt = true;
             }
             if (!neunzigEingefuegt && (hatVerlaengerung || hatElfmeter) && minute > 90)
             {
-                ziel.Add(EinzelspielEreignisZeile.Trenner($"90 MINUTEN ({heimToreRegulaer}:{auswaertsToreRegulaer})"));
+                ziel.Add(EinzelspielEreignisZeile.Trenner($"90 MINUTEN · {heimToreRegulaer}:{auswaertsToreRegulaer}"));
                 neunzigEingefuegt = true;
             }
             if (!vzHalbzeitEingefuegt && hatVerlaengerung && minute > 105)
@@ -106,7 +119,7 @@ internal static class SimulationsProtokollHelfer
             {
                 int heimGesamt      = heimToreRegulaer      + (heimToreVerlaengerung ?? 0);
                 int auswaertsGesamt = auswaertsToreRegulaer + (auswaertsToreVerlaengerung ?? 0);
-                ziel.Add(EinzelspielEreignisZeile.Trenner($"ENDE VERLÄNGERUNG ({heimGesamt}:{auswaertsGesamt})"));
+                ziel.Add(EinzelspielEreignisZeile.Trenner($"ENDE VERLÄNGERUNG · {heimGesamt}:{auswaertsGesamt}"));
                 vzEndeEingefuegt = true;
             }
         }
@@ -123,6 +136,9 @@ internal static class SimulationsProtokollHelfer
             _                               => art.ToString()
         };
 
+        if (anpfiffText is not null)
+            ziel.Add(EinzelspielEreignisZeile.Trenner(anpfiffText, TrennerArt.Start));
+
         foreach (var (minute, art, istHeimSeite) in ereignisListe.OrderBy(ev => ev.Minute))
         {
             SchwellenPruefen(minute);
@@ -132,15 +148,31 @@ internal static class SimulationsProtokollHelfer
                 if (istHeimSeite) heimStand++; else auswaertsStand++;
             }
 
-            string minuteText = minutenPraefix is null ? $"{minute}'" : $"{minutenPraefix} {minute}'";
             ziel.Add(new EinzelspielEreignisZeile(
-                minuteText, istHeimSeite ? heimName : auswaertsName, ArtText(art), istHeimSeite));
+                $"{minute}'", istHeimSeite ? heimName : auswaertsName, ArtText(art), istHeimSeite,
+                Wappen: istHeimSeite ? heimWappen : auswaertsWappen,
+                IstTor: art is EreignisArt.Tor or EreignisArt.GoldenGoal or EreignisArt.SilverGoal or EreignisArt.ElfmeterTor,
+                IstGelbeKarte: art == EreignisArt.GelbeKarte,
+                IstRoteKarte: art == EreignisArt.RoteKarte,
+                IstElfmeterVerschossen: art == EreignisArt.ElfmeterVerschossen));
         }
 
         // Noch nicht erreichte Schwellen (z. B. Halbzeit ohne Tor, Spielende ohne Ereignis danach) nachtragen
         SchwellenPruefen(int.MaxValue);
 
         if (hatElfmeter)
-            ziel.Add(EinzelspielEreignisZeile.Trenner($"ELFMETERSCHIESSEN ({heimElfmetertore}:{auswaertsElfmetertore})"));
+            ziel.Add(EinzelspielEreignisZeile.Trenner(
+                $"ELFMETERSCHIESSEN · {heimElfmetertore}:{auswaertsElfmetertore}", TrennerArt.Elfmeter));
+
+        if (abpfiffPraefix is not null)
+        {
+            int heimEndstand      = heimToreRegulaer      + (heimToreVerlaengerung ?? 0);
+            int auswaertsEndstand = auswaertsToreRegulaer + (auswaertsToreVerlaengerung ?? 0);
+            string elfmeterZusatz = hatElfmeter ? $" ({heimElfmetertore}:{auswaertsElfmetertore} i.E.)" : "";
+            ziel.Add(EinzelspielEreignisZeile.Trenner(
+                $"{abpfiffPraefix} · {heimEndstand}:{auswaertsEndstand}{elfmeterZusatz}", TrennerArt.Ende));
+        }
+
+        return true;
     }
 }

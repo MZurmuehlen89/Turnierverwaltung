@@ -15,12 +15,21 @@ using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
+/// <summary>Issue #237: Trenner-Untertyp fürs Rendering der Zeitleisten-Grafik — Abschnitt/Elfmeter
+/// durchbrechen die Mittelachse mit einer Linie, Start/Ende/Beinabschnitt stehen als eigenständige
+/// Marke ohne Linie (Anpfiff/Abpfiff bzw. HINSPIEL/RÜCKSPIEL-Kopf bei Hin- und Rückspiel).</summary>
+public enum TrennerArt { Abschnitt, Elfmeter, Start, Ende, Beinabschnitt }
+
 public record EinzelspielEreignisZeile(
     string Minute, string Seite, string Art, bool IstHeimSeite,
-    bool IstTrenner = false, string? TrennerText = null)
+    bool IstTrenner = false, string? TrennerText = null, TrennerArt TrennerArt = TrennerArt.Abschnitt,
+    byte[]? Wappen = null,
+    bool IstTor = false, bool IstGelbeKarte = false, bool IstRoteKarte = false, bool IstElfmeterVerschossen = false)
 {
-    public static EinzelspielEreignisZeile Trenner(string text) =>
-        new("", "", "", false, IstTrenner: true, TrennerText: text);
+    public bool ZeigtTrennerlinie => TrennerArt is TrennerArt.Abschnitt or TrennerArt.Elfmeter;
+
+    public static EinzelspielEreignisZeile Trenner(string text, TrennerArt art = TrennerArt.Abschnitt) =>
+        new("", "", "", false, IstTrenner: true, TrennerText: text, TrennerArt: art);
 }
 
 /// <summary>
@@ -405,11 +414,13 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
                 e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
                 e.HeimElfmetertore, e.AuswaertsElfmetertore);
             string detail = detailText.Length > 0 ? $" ({detailText})" : "";
+            byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(spiel.HeimMannschaft);
+            byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(spiel.AuswaertsMannschaft);
             ProtokollZeilen.Add(new ProtokollErgebnisZeile(
                 null,
-                heim, SimulationsProtokollHelfer.MannschaftsIcon(spiel.HeimMannschaft),
+                heim, heimWappen,
                 $"{e.HeimToreGesamt}:{e.AuswaertsToreGesamt}",
-                auswaerts, SimulationsProtokollHelfer.MannschaftsIcon(spiel.AuswaertsMannschaft),
+                auswaerts, auswaertsWappen,
                 detail));
 
             SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
@@ -418,7 +429,8 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
                 heim, auswaerts, e.EntscheidungArt,
                 e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
                 e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
-                e.HeimElfmetertore, e.AuswaertsElfmetertore);
+                e.HeimElfmetertore, e.AuswaertsElfmetertore,
+                heimWappen, auswaertsWappen);
         }
 
         OnPropertyChanged(nameof(HatProtokoll));

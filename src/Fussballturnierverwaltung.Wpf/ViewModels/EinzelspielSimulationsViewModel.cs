@@ -237,6 +237,11 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                     "Gesamt", heim.Name, heimWappen, $"{heimGesamt}:{auswaertsGesamt}", auswaerts.Name, auswaertsWappen));
                 ProtokollZeilen.Add(ProtokollErgebnisZeile.Text("Weiter", weiter));
 
+                // Issue #237: HINSPIEL/RÜCKSPIEL-Abschnittsköpfe statt der frueheren "Hin"/"Rück"-
+                // Minutenpräfixe — sonst waeren die beiden Halbzeit-Trenner (je Bein einer) in der
+                // neuen Zeitleisten-Grafik nicht mehr unterscheidbar. Abpfiff-Marke pro Bein wird beim
+                // Rückspiel unterdrueckt, stattdessen eine Gesamt-Marke am Ende angehängt.
+                ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner("HINSPIEL", TrennerArt.Beinabschnitt));
                 SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
                     ProtokollEreignisse,
                     erg1.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
@@ -244,8 +249,10 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                     erg1.HeimToreRegulaer, erg1.AuswaertsToreRegulaer,
                     erg1.HeimToreVerlaengerung, erg1.AuswaertsToreVerlaengerung,
                     erg1.HeimElfmetertore, erg1.AuswaertsElfmetertore,
-                    minutenPraefix: "Hin");
+                    heimWappen, auswaertsWappen,
+                    abpfiffPraefix: "ENDE HINSPIEL");
 
+                ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner("RÜCKSPIEL", TrennerArt.Beinabschnitt));
                 // erg2 wurde mit vertauschten Rollen simuliert (Auswärts spielt zu Hause) —
                 // Seiten und Tore auf die feste Team-Identität (heim/auswaerts) zurückspiegeln.
                 SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
@@ -255,18 +262,23 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                     erg2.AuswaertsToreRegulaer, erg2.HeimToreRegulaer,
                     erg2.AuswaertsToreVerlaengerung, erg2.HeimToreVerlaengerung,
                     erg2.AuswaertsElfmetertore, erg2.HeimElfmetertore,
-                    minutenPraefix: "Rück");
+                    heimWappen, auswaertsWappen,
+                    anpfiffText: null, abpfiffPraefix: null);
+                ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner(
+                    $"ABPFIFF · Gesamt {heimGesamt}:{auswaertsGesamt}", TrennerArt.Ende));
             }
             else
             {
                 var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, SimulationsModus.AusfuehrlicheSimulation);
                 var (score, detail) = SimulationsProtokollHelfer.ScoreUndDetail(erg);
+                byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(heim);
+                byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(auswaerts);
                 ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
                 ProtokollZeilen.Add(new ProtokollErgebnisZeile(
                     null,
-                    heim.Name, SimulationsProtokollHelfer.MannschaftsIcon(heim),
+                    heim.Name, heimWappen,
                     score,
-                    auswaerts.Name, SimulationsProtokollHelfer.MannschaftsIcon(auswaerts),
+                    auswaerts.Name, auswaertsWappen,
                     detail));
 
                 SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
@@ -275,7 +287,8 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                     heim.Name, auswaerts.Name, erg.EntscheidungArt,
                     erg.HeimToreRegulaer, erg.AuswaertsToreRegulaer,
                     erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
-                    erg.HeimElfmetertore, erg.AuswaertsElfmetertore);
+                    erg.HeimElfmetertore, erg.AuswaertsElfmetertore,
+                    heimWappen, auswaertsWappen);
             }
         }
         catch (Exception ex)
