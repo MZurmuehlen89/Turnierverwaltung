@@ -12,7 +12,6 @@ using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
-using System.Text.RegularExpressions;
 using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
@@ -562,12 +561,17 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     {
         var alleKnoten = runden.SelectMany(r => r.Knoten).ToDictionary(k => k.Id);
 
-        // Logik 2 (festes Bracket): sequentielle Platzhalterstruktur → Labels + korrekte Verbindungen
-        // Logik 1 (freie Auslosung): beliebige Paarungen → keine Labels, sequentielle Visualisierung
-        bool istFest = IstFestesKoBracket(runden);
-        var (effLinks, effRechts) = istFest
-            ? BerechneEffektiveVerbindungen(runden, alleKnoten)
-            : BauSequenzielleVerbindungen(runden, alleKnoten);
+        // Issue #241: LinkerKindKnotenId/RechterKindKnotenId kommen jetzt zuverlässig aus der DB —
+        // TurnierBaumService.GenerierenAsync setzt sie entweder aus der echten Spiel.HeimQuellSpielId-
+        // Verknüpfung (festes K.o.-Bracket) oder aus dem sequentiellen Fallback (freie Auslosung mit
+        // direkt bekannten Teams). Kein Text-Raten mehr nötig hier.
+        var effLinks  = alleKnoten.ToDictionary(kv => kv.Key, kv => kv.Value.LinkerKindKnotenId);
+        var effRechts = alleKnoten.ToDictionary(kv => kv.Key, kv => kv.Value.RechterKindKnotenId);
+
+        // "VF1"/"AF3"-Kürzel-Labels ergeben nur bei einem echten, platzhalterbasierten K.o.-Bracket Sinn,
+        // nicht bei frei ausgelosten Runden mit direkt bekannten Teams (keine Labels dort).
+        bool istFest = runden.Skip(1).Any(r => r.Knoten.Any(k =>
+            k.Spiel is not null && (k.Spiel.HeimPlatzhalterName is not null || k.Spiel.AuswaertsPlatzhalterName is not null)));
 
         var posMap      = new Dictionary<int, double>();
         double blaetter = 0;
@@ -689,112 +693,6 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         double cy1 = lId.HasValue && posMap.TryGetValue(lId.Value, out var v1) ? v1 : 0;
         double cy2 = rId.HasValue && posMap.TryGetValue(rId.Value, out var v2) ? v2 : cy1;
         posMap[knoten.Id] = (cy1 + cy2) / 2.0;
-    }
-
-    // Logik 2: mindestens ein Übergang mit ≥4 Kind-Spielen ist positiv sequentiell bestätigt
-    // und kein Übergang ist nicht-sequentiell.
-    // Übergänge mit ≤2 Kinder (z.B. HF→Finale) sind trivial sequentiell und kein Beweis für ein festes Bracket.
-    private static bool IstFestesKoBracket(IReadOnlyList<BracketRunde> runden)
-    {
-        bool hatBestaetigtenUebergang = false;
-
-        for (int ri = 1; ri < runden.Count; ri++)
-        {
-            int kindAnzahl = runden[ri - 1].Knoten.Count;
-            if (kindAnzahl < 4) continue; // trivial sequentiell, kein Aussagewert
-
-            var elternSortiert = runden[ri].Knoten
-                .OrderBy(k => k.Spiel?.Spielnummer ?? int.MaxValue)
-                .ToList();
-            string kuerzel = RundenKuerzel(kindAnzahl);
-
-            bool hatBefund = false;
-            for (int j = 0; j < elternSortiert.Count; j++)
-            {
-                var ek = elternSortiert[j];
-                if (ek.Spiel is null) continue;
-
-                var heimPos = ExtrahiereKoSiegerPos(ek.Spiel.HeimPlatzhalterName,      kuerzel);
-                var ausPos  = ExtrahiereKoSiegerPos(ek.Spiel.AuswaertsPlatzhalterName, kuerzel);
-
-                if (!heimPos.HasValue && !ausPos.HasValue) continue;
-                hatBefund = true;
-
-                if (heimPos.HasValue && heimPos.Value != j * 2 + 1) return false;
-                if (ausPos.HasValue  && ausPos.Value  != j * 2 + 2) return false;
-            }
-            if (hatBefund) hatBestaetigtenUebergang = true;
-        }
-
-        // Logik 2 nur wenn wir sequentielle Struktur positiv beobachtet haben
-        return hatBestaetigtenUebergang;
-    }
-
-    // Berechnet effektive Verbindungen für Logik 2: überschreibt gespeicherte Verbindungen mit
-    // Platzhalternamen-basierten (korrigiert ggf. alte sequentiell gespeicherte Brackets).
-    private static (Dictionary<int, int?> Links, Dictionary<int, int?> Rechts) BerechneEffektiveVerbindungen(
-        IReadOnlyList<BracketRunde> runden, Dictionary<int, TurnierBaumKnoten> alleKnoten)
-    {
-        var effLinks  = alleKnoten.ToDictionary(kv => kv.Key, kv => kv.Value.LinkerKindKnotenId);
-        var effRechts = alleKnoten.ToDictionary(kv => kv.Key, kv => kv.Value.RechterKindKnotenId);
-
-        for (int ri = 1; ri < runden.Count; ri++)
-        {
-            string kuerzel = RundenKuerzel(runden[ri - 1].Knoten.Count);
-            var kindNachPos = runden[ri - 1].Knoten
-                .OrderBy(k => k.Spiel?.Spielnummer ?? int.MaxValue)
-                .Select((k, idx) => (k.Id, pos: idx + 1))
-                .ToDictionary(x => x.pos, x => x.Id);
-
-            foreach (var ek in runden[ri].Knoten)
-            {
-                if (ek.Spiel is null) continue;
-                var heimPos = ExtrahiereKoSiegerPos(ek.Spiel.HeimPlatzhalterName,      kuerzel);
-                var ausPos  = ExtrahiereKoSiegerPos(ek.Spiel.AuswaertsPlatzhalterName, kuerzel);
-
-                if (heimPos.HasValue && kindNachPos.TryGetValue(heimPos.Value, out var lId)) effLinks[ek.Id]  = lId;
-                if (ausPos.HasValue  && kindNachPos.TryGetValue(ausPos.Value,  out var rId)) effRechts[ek.Id] = rId;
-            }
-        }
-        return (effLinks, effRechts);
-    }
-
-    // Baut rein sequentielle Verbindungen für Logik 1 (freie Auslosung): ästhetisch saubere
-    // Darstellung ohne Anspruch auf korrekte Abhängigkeiten (die Spielkarte zeigt die echten Paarungen).
-    private static (Dictionary<int, int?> Links, Dictionary<int, int?> Rechts) BauSequenzielleVerbindungen(
-        IReadOnlyList<BracketRunde> runden, Dictionary<int, TurnierBaumKnoten> alleKnoten)
-    {
-        var effLinks  = alleKnoten.Keys.ToDictionary(id => id, _ => (int?)null);
-        var effRechts = alleKnoten.Keys.ToDictionary(id => id, _ => (int?)null);
-
-        for (int ri = 1; ri < runden.Count; ri++)
-        {
-            var elternSortiert = runden[ri].Knoten
-                .OrderBy(k => k.Spiel?.Spielnummer ?? int.MaxValue)
-                .ToList();
-            var kindSortiert = runden[ri - 1].Knoten
-                .OrderBy(k => k.Spiel?.Spielnummer ?? int.MaxValue)
-                .ToList();
-
-            for (int j = 0; j < elternSortiert.Count; j++)
-            {
-                var ek  = elternSortiert[j];
-                int li  = j * 2;
-                int ri2 = j * 2 + 1;
-                if (li  < kindSortiert.Count) effLinks[ek.Id]  = kindSortiert[li].Id;
-                if (ri2 < kindSortiert.Count) effRechts[ek.Id] = kindSortiert[ri2].Id;
-            }
-        }
-        return (effLinks, effRechts);
-    }
-
-    private static int? ExtrahiereKoSiegerPos(string? name, string kuerzel)
-    {
-        if (name is null) return null;
-        var m = Regex.Match(name, @"^Sieger ([A-Za-z0-9.]+) (\d+)$", RegexOptions.IgnoreCase);
-        if (!m.Success || !string.Equals(m.Groups[1].Value, kuerzel, StringComparison.OrdinalIgnoreCase))
-            return null;
-        return int.TryParse(m.Groups[2].Value, out int nr) ? nr : null;
     }
 
     private static BracketKnotenAnzeige BaueKnotenAnzeige(TurnierBaumKnoten k, double x, double y, int rundenIndex, string label, int? turnierRundeId = null)

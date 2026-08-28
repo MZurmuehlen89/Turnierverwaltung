@@ -508,6 +508,12 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int?>("AuswaertsQuellErgebnis")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("AuswaertsQuellSpielId")
+                        .HasColumnType("int");
+
                     b.Property<DateOnly?>("Datum")
                         .HasColumnType("date");
 
@@ -517,6 +523,12 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<string>("HeimPlatzhalterName")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("HeimQuellErgebnis")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("HeimQuellSpielId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("HinspielId")
                         .HasColumnType("int");
@@ -546,7 +558,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     b.HasIndex("AuswaertsMannschaftId");
 
+                    b.HasIndex("AuswaertsQuellSpielId");
+
                     b.HasIndex("HeimMannschaftId");
+
+                    b.HasIndex("HeimQuellSpielId");
 
                     b.HasIndex("HinspielId");
 
@@ -1312,10 +1328,20 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasForeignKey("AuswaertsMannschaftId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Spiele.Spiel", "AuswaertsQuellSpiel")
+                        .WithMany()
+                        .HasForeignKey("AuswaertsQuellSpielId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Mannschaft", "HeimMannschaft")
                         .WithMany()
                         .HasForeignKey("HeimMannschaftId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Spiele.Spiel", "HeimQuellSpiel")
+                        .WithMany()
+                        .HasForeignKey("HeimQuellSpielId")
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Spiele.Spiel", "Hinspiel")
                         .WithMany()
@@ -1336,7 +1362,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     b.Navigation("AuswaertsMannschaft");
 
+                    b.Navigation("AuswaertsQuellSpiel");
+
                     b.Navigation("HeimMannschaft");
+
+                    b.Navigation("HeimQuellSpiel");
 
                     b.Navigation("Hinspiel");
 

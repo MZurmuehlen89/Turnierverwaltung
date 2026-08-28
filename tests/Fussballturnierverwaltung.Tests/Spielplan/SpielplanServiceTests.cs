@@ -855,6 +855,61 @@ public class SpielplanServiceTests
         spiel.AuswaertsMannschaftId.Should().Be(4); // Verlierer HF 2 = Team D
     }
 
+    // ── Tests: K.o.-Quellverknüpfung (Issue #241) ──────────────────────────
+
+    [Fact]
+    public async Task SpielQuellenAlleTransitionsVerknuepfenAsync_SetztQuellIdsFuerSiegerUndVerlierer()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
+        HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: null);
+        HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: null);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 20, TurnierInstanzId = 1, TurnierRundeId = finaleRundeId, Spielnummer = 20,
+            HeimPlatzhalterName = "Sieger HF 1", AuswaertsPlatzhalterName = "Verlierer HF 2",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        // Verknüpfung ist rein strukturell (Text-basiert) und braucht kein Ergebnis der HF-Spiele.
+        await service.SpielQuellenAlleTransitionsVerknuepfenAsync(1);
+
+        var finale = ctx.Spiele.First(s => s.Id == 20);
+        finale.HeimQuellSpielId.Should().Be(1);
+        finale.HeimQuellErgebnis.Should().Be(SpielQuellErgebnisTyp.Sieger);
+        finale.AuswaertsQuellSpielId.Should().Be(2);
+        finale.AuswaertsQuellErgebnis.Should().Be(SpielQuellErgebnisTyp.Verlierer);
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_NutztIdFastpathOhneRegex_WennQuellIdBereitsGesetzt()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
+        HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
+        HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
+        // Kein (bzw. ein zur Regex nicht passender) Platzhaltertext — die ID-Felder sind die einzige
+        // Quelle, aus der aufgelöst werden kann.
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 20, TurnierInstanzId = 1, TurnierRundeId = finaleRundeId, Spielnummer = 20,
+            HeimQuellSpielId = 1, HeimQuellErgebnis = SpielQuellErgebnisTyp.Sieger,
+            AuswaertsQuellSpielId = 2, AuswaertsQuellErgebnis = SpielQuellErgebnisTyp.Verlierer,
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        var anzahl = await service.PlatzhalterAufloesenAsync(finaleRundeId);
+
+        anzahl.Should().Be(1);
+        var spiel = ctx.Spiele.First(s => s.Id == 20);
+        spiel.HeimMannschaftId.Should().Be(1);      // Sieger HF 1 = Team A
+        spiel.AuswaertsMannschaftId.Should().Be(4); // Verlierer HF 2 = Team D
+    }
+
     // ── Tests: regelbasierte Auflösung über Uebergangsregel (Issue #130) ─
 
     [Fact]

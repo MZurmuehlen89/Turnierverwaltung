@@ -25,6 +25,14 @@ public class Spiel : BasisEntitaet
     public int? HinspielId { get; set; }
     public Spiel? Hinspiel { get; set; }
 
+    public int? HeimQuellSpielId { get; set; }
+    public Spiel? HeimQuellSpiel { get; set; }
+    public SpielQuellErgebnisTyp? HeimQuellErgebnis { get; set; }
+
+    public int? AuswaertsQuellSpielId { get; set; }
+    public Spiel? AuswaertsQuellSpiel { get; set; }
+    public SpielQuellErgebnisTyp? AuswaertsQuellErgebnis { get; set; }
+
     public SpielErgebnis? Ergebnis { get; set; }
     public ICollection<SpielEreignis> Ereignisse { get; set; } = new List<SpielEreignis>();
 }

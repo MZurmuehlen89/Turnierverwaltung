@@ -177,6 +177,11 @@ public class SpielplanService(
                 break;
             }
         }
+
+        // Issue #241: K.o.-Quellverknüpfungen (Sieger/Verlierer eines konkreten Vorrundenspiels) direkt
+        // nach jeder Generierung nachziehen — idempotent, unabhängig davon, in welcher Reihenfolge Runden
+        // erzeugt werden.
+        await SpielQuellenAlleTransitionsVerknuepfenAsync(runde.TurnierInstanzId, ct);
     }
 
     /// <summary>
@@ -492,6 +497,7 @@ public class SpielplanService(
 
         // Platzhalter-Cache aufbauen (jeder eindeutige Name nur einmal auflösen)
         var cache = new Dictionary<string, int?>(StringComparer.OrdinalIgnoreCase);
+        var quellSpielCache = new Dictionary<int, Spiel?>();
 
         async Task<int?> AufloessenAsync(string? name)
         {
@@ -502,6 +508,12 @@ public class SpielplanService(
             return result;
         }
 
+        // Issue #241: eine gesetzte Quell-ID (K.o.-zu-K.o.) geht direkt, ohne Text-Regex, vor.
+        async Task<int?> AufloesenSeiteAsync(int? quellSpielId, SpielQuellErgebnisTyp? quellTyp, string? platzhalterName)
+            => quellSpielId is int qId && quellTyp is { } typ
+                ? await QuellSpielAufloesenAsync(qId, typ, quellSpielCache, ct)
+                : await AufloessenAsync(platzhalterName);
+
         int aufgeloest = 0;
         foreach (var spiel in platzhalterSpiele)
         {
@@ -510,8 +522,8 @@ public class SpielplanService(
             // Seiten erst gemeinsam zu schreiben, wenn beide auflösbar sind. PlatzhalterKorrigierenAsync
             // (aus #88) unterstützt unabhängige Seiten bereits — für die jeweils noch nicht auflösbare
             // Seite wird schlicht der unveränderte Platzhaltertext zurückgeschrieben (No-Op).
-            var heimId      = spiel.HeimMannschaftId      ?? await AufloessenAsync(spiel.HeimPlatzhalterName);
-            var auswaertsId = spiel.AuswaertsMannschaftId ?? await AufloessenAsync(spiel.AuswaertsPlatzhalterName);
+            var heimId      = spiel.HeimMannschaftId      ?? await AufloesenSeiteAsync(spiel.HeimQuellSpielId, spiel.HeimQuellErgebnis, spiel.HeimPlatzhalterName);
+            var auswaertsId = spiel.AuswaertsMannschaftId ?? await AufloesenSeiteAsync(spiel.AuswaertsQuellSpielId, spiel.AuswaertsQuellErgebnis, spiel.AuswaertsPlatzhalterName);
 
             bool heimNeuAufgeloest      = heimId is not null && spiel.HeimMannschaftId is null;
             bool auswaertsNeuAufgeloest = auswaertsId is not null && spiel.AuswaertsMannschaftId is null;
@@ -552,6 +564,7 @@ public class SpielplanService(
         if (platzhalterSpiele.Count == 0) return ergebnis;
 
         var cache = new Dictionary<string, int?>(StringComparer.OrdinalIgnoreCase);
+        var quellSpielCache = new Dictionary<int, Spiel?>();
 
         async Task<int?> VorschauAufloessenAsync(string? name)
         {
@@ -562,11 +575,17 @@ public class SpielplanService(
             return result;
         }
 
+        // Issue #241: ID-Fastpath auch in der Vorschau, für Konsistenz mit der tatsächlichen Auflösung.
+        async Task<int?> VorschauSeiteAsync(int? quellSpielId, SpielQuellErgebnisTyp? quellTyp, string? platzhalterName)
+            => quellSpielId is int qId && quellTyp is { } typ
+                ? await QuellSpielAufloesenAsync(qId, typ, quellSpielCache, ct)
+                : await VorschauAufloessenAsync(platzhalterName);
+
         var vorschauIds = new Dictionary<int, (int? Heim, int? Auswaerts)>();
         foreach (var spiel in platzhalterSpiele)
         {
-            int? heimVorschau      = spiel.HeimMannschaftId      is null ? await VorschauAufloessenAsync(spiel.HeimPlatzhalterName)      : null;
-            int? auswaertsVorschau = spiel.AuswaertsMannschaftId is null ? await VorschauAufloessenAsync(spiel.AuswaertsPlatzhalterName) : null;
+            int? heimVorschau      = spiel.HeimMannschaftId      is null ? await VorschauSeiteAsync(spiel.HeimQuellSpielId, spiel.HeimQuellErgebnis, spiel.HeimPlatzhalterName)           : null;
+            int? auswaertsVorschau = spiel.AuswaertsMannschaftId is null ? await VorschauSeiteAsync(spiel.AuswaertsQuellSpielId, spiel.AuswaertsQuellErgebnis, spiel.AuswaertsPlatzhalterName) : null;
             if (heimVorschau is not null || auswaertsVorschau is not null)
                 vorschauIds[spiel.Id] = (heimVorschau, auswaertsVorschau);
         }
@@ -587,12 +606,127 @@ public class SpielplanService(
     /// <summary>Löst die Platzhalter aller Runden der Turnierinstanz auf (Issue #90, Vorwärts-Gegenstück
     /// zur Rückwärts-Kaskade aus #88). Idempotent und günstig für Runden ohne offene Platzhalter-Spiele —
     /// <see cref="PlatzhalterAufloesenAsync"/> selbst kehrt dafür sofort zurück (früher Return bei
-    /// <c>platzhalterSpiele.Count == 0</c>).</summary>
-    public async Task PlatzhalterAlleRundenAufloesenAsync(int turnierInstanzId, CancellationToken ct = default)
+    /// <c>platzhalterSpiele.Count == 0</c>). Gibt die Gesamtanzahl neu aufgelöster Spiele zurück.</summary>
+    public async Task<int> PlatzhalterAlleRundenAufloesenAsync(int turnierInstanzId, CancellationToken ct = default)
     {
+        await SpielQuellenAlleTransitionsVerknuepfenAsync(turnierInstanzId, ct);
+
         var runden = await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
+        int gesamt = 0;
         foreach (var runde in runden.OrderBy(r => r.Reihenfolge))
-            await PlatzhalterAufloesenAsync(runde.Id, ct);
+            gesamt += await PlatzhalterAufloesenAsync(runde.Id, ct);
+        return gesamt;
+    }
+
+    // ── K.o.-Quellverknüpfung (Issue #241) ──────────────────────────────────
+
+    /// <summary>Löst für alle K.o.-artigen Runden (K.o.-Runde/Finale/Spiel um Platz 3) einer Turnierinstanz
+    /// die K.o.-zu-K.o.-Quellverknüpfungen auf. Ersetzt das frühere, ausschließlich in
+    /// <c>TurnierBaumService.VerkuepfenPerPlatzhalter</c> lebende Erraten aus Text — die ID wird jetzt
+    /// direkt auf <see cref="Spiel"/> persistiert, damit sowohl die Platzhalter-Auflösung als auch der
+    /// Turnierbaum dieselbe robuste Quelle nutzen können. Idempotent und günstig.</summary>
+    public async Task SpielQuellenAlleTransitionsVerknuepfenAsync(int turnierInstanzId, CancellationToken ct = default)
+    {
+        var alleRunden = await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
+        var koRunden = alleRunden
+            .Where(r => r.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
+            .OrderBy(r => r.Reihenfolge);
+
+        foreach (var zielRunde in koRunden)
+            await SpielQuellenVerknuepfenAsync(zielRunde, alleRunden, ct);
+    }
+
+    /// <summary>Ermittelt für eine K.o.-Zielrunde, welches Vorrundenspiel (Sieger/Verlierer) jeden noch
+    /// nicht ID-verknüpften Platzhalter-Slot speist, und persistiert das Ergebnis auf
+    /// <see cref="Spiel.HeimQuellSpielId"/>/<see cref="Spiel.AuswaertsQuellSpielId"/>. Arbeitet pro Slot
+    /// unabhängig — anders als das frühere <c>TurnierBaumService.VerkuepfenPerPlatzhalter</c>, das einen
+    /// gesamten Rundenübergang fälschlich als "erledigt" markierte, sobald irgendein Spiel per Text
+    /// zugeordnet werden konnte. Idempotent: bereits verknüpfte Seiten werden übersprungen.</summary>
+    public async Task SpielQuellenVerknuepfenAsync(
+        TurnierRunde zielRunde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct = default)
+    {
+        var zielSpiele = await spielRepository.AlleNachRundeAsync(zielRunde.Id, ct);
+        if (zielSpiele.Count == 0) return;
+
+        var quellSpieleProRunde = new Dictionary<int, List<Spiel>>();
+
+        async Task<List<Spiel>> QuellSpieleAsync(TurnierRunde quellRunde)
+        {
+            if (quellSpieleProRunde.TryGetValue(quellRunde.Id, out var cached)) return cached;
+            var liste = (await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct))
+                .OrderBy(s => s.Spielnummer)
+                .ToList();
+            quellSpieleProRunde[quellRunde.Id] = liste;
+            return liste;
+        }
+
+        // Bracket-Slot-Position ist ab Erzeugung der Runde stabil — bewusst NICHT wie im Regex-/
+        // Uebergangsregel-Pfad (RangAufloesenAsync) auf bereits aufgelöste Spiele gefiltert.
+        async Task<(int SpielId, SpielQuellErgebnisTyp Typ)?> QuelleAufloesenAsync(string? platzhalterName)
+        {
+            if (string.IsNullOrWhiteSpace(platzhalterName)) return null;
+
+            bool verlierer = false;
+            var match = _koSiegerRx.Match(platzhalterName);
+            if (!match.Success)
+            {
+                match = _koVerliererRx.Match(platzhalterName);
+                verlierer = true;
+            }
+            if (!match.Success || !int.TryParse(match.Groups[2].Value, out int spielNr)) return null;
+
+            var arten = verlierer
+                ? new[] { Rundenart.KoRunde }
+                : new[] { Rundenart.KoRunde, Rundenart.Finale };
+            var quellRunde = NaechstgelegeneKoQuellrunde(match.Groups[1].Value, arten, zielRunde, alleRunden);
+            if (quellRunde is null) return null;
+
+            var quellSpiele = await QuellSpieleAsync(quellRunde);
+            if (spielNr < 1 || spielNr > quellSpiele.Count) return null;
+
+            return (quellSpiele[spielNr - 1].Id, verlierer ? SpielQuellErgebnisTyp.Verlierer : SpielQuellErgebnisTyp.Sieger);
+        }
+
+        foreach (var spiel in zielSpiele)
+        {
+            bool geaendert = false;
+
+            if (spiel.HeimQuellSpielId is null &&
+                await QuelleAufloesenAsync(spiel.HeimPlatzhalterName) is { } heimQuelle)
+            {
+                spiel.HeimQuellSpielId  = heimQuelle.SpielId;
+                spiel.HeimQuellErgebnis = heimQuelle.Typ;
+                geaendert = true;
+            }
+
+            if (spiel.AuswaertsQuellSpielId is null &&
+                await QuelleAufloesenAsync(spiel.AuswaertsPlatzhalterName) is { } auswaertsQuelle)
+            {
+                spiel.AuswaertsQuellSpielId  = auswaertsQuelle.SpielId;
+                spiel.AuswaertsQuellErgebnis = auswaertsQuelle.Typ;
+                geaendert = true;
+            }
+
+            if (geaendert)
+                await spielRepository.AktualisierenAsync(spiel, ct);
+        }
+    }
+
+    /// <summary>Löst eine K.o.-Quellverknüpfung (<see cref="Spiel.HeimQuellSpielId"/>/-<c>Ergebnis</c>) direkt
+    /// zur Mannschafts-ID auf, ohne Text-Regex — Gegenstück zum entsprechenden Zweig in
+    /// <see cref="RangAufloesenAsync"/>, aber ohne dessen "nur bereits aufgelöste Spiele"-Filter, da die
+    /// Quell-ID bereits eindeutig auf ein konkretes Spiel zeigt.</summary>
+    private async Task<int?> QuellSpielAufloesenAsync(
+        int quellSpielId, SpielQuellErgebnisTyp typ, Dictionary<int, Spiel?> cache, CancellationToken ct)
+    {
+        if (!cache.TryGetValue(quellSpielId, out var quellSpiel))
+        {
+            quellSpiel = await spielRepository.FindenNachIdMitErgebnisAsync(quellSpielId, ct);
+            cache[quellSpielId] = quellSpiel;
+        }
+        if (quellSpiel is null) return null;
+
+        return SiegerOderVerliererId(quellSpiel, typ == SpielQuellErgebnisTyp.Sieger ? 1 : 2);
     }
 
     // ── Kaskaden-Reset für Folgerunden (Issue #88) ─────────────────────────
@@ -971,17 +1105,7 @@ public class SpielplanService(
         string kuerzel, int spielNummer, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
         IReadOnlySet<int>? ignorierteSpielIds = null)
     {
-        int? eingangTeams = KuerzelZuEingangsteams(kuerzel);
-        if (eingangTeams is null) return null;
-
-        // Bei mehreren KO-Zweigen mit gleicher Eingangs-Mannschaftsanzahl im selben Turnier
-        // muss die naechstgelegene VORHERGEHENDE Runde verwendet werden, nicht immer die erste.
-        var koRunde = alleRunden
-            .Where(r => r.Rundenart is Rundenart.KoRunde or Rundenart.Finale &&
-                        r.EingangsMannschaftsanzahl == eingangTeams.Value &&
-                        r.Reihenfolge < runde.Reihenfolge)
-            .OrderByDescending(r => r.Reihenfolge)
-            .FirstOrDefault();
+        var koRunde = NaechstgelegeneKoQuellrunde(kuerzel, [Rundenart.KoRunde, Rundenart.Finale], runde, alleRunden);
         if (koRunde is null) return null;
 
         return await RangAufloesenAsync(koRunde, spielNummer, 1, ct, ignorierteSpielIds);
@@ -991,20 +1115,28 @@ public class SpielplanService(
         string kuerzel, int spielNummer, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
         IReadOnlySet<int>? ignorierteSpielIds = null)
     {
+        var koRunde = NaechstgelegeneKoQuellrunde(kuerzel, [Rundenart.KoRunde], runde, alleRunden);
+        if (koRunde is null) return null;
+
+        return await RangAufloesenAsync(koRunde, spielNummer, 2, ct, ignorierteSpielIds);
+    }
+
+    /// <summary>Findet die nächstgelegene VORHERGEHENDE K.o.-Runde mit zum Kürzel passender
+    /// <see cref="TurnierRunde.EingangsMannschaftsanzahl"/> (z.B. "VF" → 8). Bei mehreren K.o.-Zweigen
+    /// gleicher Größe im selben Turnier ist das die per <see cref="TurnierRunde.Reihenfolge"/> nächste,
+    /// nicht immer die erste.</summary>
+    private static TurnierRunde? NaechstgelegeneKoQuellrunde(
+        string kuerzel, IReadOnlyList<Rundenart> arten, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden)
+    {
         int? eingangTeams = KuerzelZuEingangsteams(kuerzel);
         if (eingangTeams is null) return null;
 
-        // Bei mehreren KO-Zweigen mit gleicher Eingangs-Mannschaftsanzahl im selben Turnier
-        // muss die naechstgelegene VORHERGEHENDE Runde verwendet werden, nicht immer die erste.
-        var koRunde = alleRunden
-            .Where(r => r.Rundenart is Rundenart.KoRunde &&
+        return alleRunden
+            .Where(r => arten.Contains(r.Rundenart) &&
                         r.EingangsMannschaftsanzahl == eingangTeams.Value &&
                         r.Reihenfolge < runde.Reihenfolge)
             .OrderByDescending(r => r.Reihenfolge)
             .FirstOrDefault();
-        if (koRunde is null) return null;
-
-        return await RangAufloesenAsync(koRunde, spielNummer, 2, ct, ignorierteSpielIds);
     }
 
     // ── Regelbasierte Auflösung (Issue #130) ──────────────────────────────
@@ -1127,22 +1259,30 @@ public class SpielplanService(
                     .ToList();
                 if (spiele.Count < spielNummer) return null;
 
-                var spiel  = spiele[spielNummer - 1];
+                var spiel = spiele[spielNummer - 1];
                 if (ignorierteSpielIds is not null && ignorierteSpielIds.Contains(spiel.Id)) return null;
-                var sieger = spiel.Ergebnis?.SiegerMannschaftId;
-                if (sieger is null) return null;
 
-                return platzierung switch
-                {
-                    1 => sieger,
-                    2 => sieger == spiel.HeimMannschaftId ? spiel.AuswaertsMannschaftId : spiel.HeimMannschaftId,
-                    _ => null
-                };
+                return SiegerOderVerliererId(spiel, platzierung);
             }
 
             default:
                 return null;
         }
+    }
+
+    /// <summary>Liefert je nach <paramref name="platzierung"/> (1 = Sieger, 2 = Verlierer) die Mannschafts-ID
+    /// aus einem entschiedenen K.o.-Spiel, oder <c>null</c> falls noch kein Ergebnis vorliegt.</summary>
+    private static int? SiegerOderVerliererId(Spiel spiel, int platzierung)
+    {
+        var sieger = spiel.Ergebnis?.SiegerMannschaftId;
+        if (sieger is null) return null;
+
+        return platzierung switch
+        {
+            1 => sieger,
+            2 => sieger == spiel.HeimMannschaftId ? spiel.AuswaertsMannschaftId : spiel.HeimMannschaftId,
+            _ => null
+        };
     }
 
     private async Task SpeichernAsync(SpielplanErgebnis ergebnis, CancellationToken ct)

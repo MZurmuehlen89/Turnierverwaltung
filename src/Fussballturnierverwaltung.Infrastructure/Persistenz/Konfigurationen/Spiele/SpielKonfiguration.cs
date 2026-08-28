@@ -49,5 +49,17 @@ public class SpielKonfiguration : IEntityTypeConfiguration<Spiel>
             .WithMany()
             .HasForeignKey(s => s.HinspielId)
             .OnDelete(DeleteBehavior.NoAction);
+
+        // Selbstreferenzen: welches Vorrundenspiel speist Heim-/Auswärtsplatz (Issue #241).
+        // NoAction analog zu HinspielId — vermeidet Multi-Cascade-Konflikt über TurnierRunde.
+        builder.HasOne(s => s.HeimQuellSpiel)
+            .WithMany()
+            .HasForeignKey(s => s.HeimQuellSpielId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        builder.HasOne(s => s.AuswaertsQuellSpiel)
+            .WithMany()
+            .HasForeignKey(s => s.AuswaertsQuellSpielId)
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }
