@@ -20,10 +20,26 @@ namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
 public class BracketKnotenAnzeige
 {
+    public int    Id { get; init; }
     public double X { get; init; }
+    // Globale, auf den gesamten Baum bemessene Position (Blätter des ersten Runde im UNIT-Raster,
+    // Elternknoten auf dem Mittelwert ihrer Kinder) — gedacht für die künftige Gesamtübersicht (#238),
+    // in der alle Runden gleichzeitig sichtbar sind und ein konsistenter Blattabstand über die ganze
+    // Breite gebraucht wird. Für die aktuelle Fenster-Navigation (zwei sichtbare Runden) siehe FensterY.
     public double Y { get; init; }
+    // Issue #244-Nachbesserung: rein fensterlokale Position, siehe TurnierBaumViewModel.AktualisiereFensterPositionen —
+    // Y wäre hier zu sperrig, weil sie den Abstand aller Blätter des GESAMTEN Baums einrechnet (z.B.
+    // Halbfinale+Finale würden dann so weit auseinandergezogen wie im vollen 16er-Baum). FensterY zählt
+    // stattdessen nur die aktuell sichtbaren Karten und ordnet sie entsprechend kompakt an. Bewusst
+    // mutable (kein init) statt eines neuen Objekts, da dieselbe Instanz zwischen Fenstern wiederverwendet wird.
+    public double FensterY { get; set; }
     public int    RundenIndex { get; init; }
     public int?   TurnierRundeId { get; init; }
+    // Issue #244: für die Verbindungslinien-Zeichnung im Code-Behind (Overlay-Canvas, misst reale
+    // Kartenpositionen statt der veralteten Canvas-Konstanten) — verweist auf die Id des jeweils
+    // linken/rechten Kind-Knotens (eine Runde früher), null wenn kein Kind vorhanden (Freilos-Slot).
+    public int?   LinkerKindKnotenId { get; init; }
+    public int?   RechterKindKnotenId { get; init; }
     public bool IstFreilos { get; init; }
     public string Label { get; init; } = "";
     public bool HatLabel => !string.IsNullOrEmpty(Label);
@@ -75,12 +91,17 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     private readonly TabellenService        _tabellenService;
     private readonly UebergangsregelService _uebergangsregelService;
 
-    private const double NODE_W  = 185.0;
-    private const double NODE_H  = 90.0;
+    // Issue #244-Nachbesserung: NODE_H/GAP_V großzügig genug für die höchste Kartenvariante (Label- +
+    // Datum-Kopfzeile + zwei Team-Zeilen, real ca. 128px) bemessen — Y wird jetzt direkt als Canvas.Top
+    // gebunden (TurnierBaumView.xaml, kein automatisches Stapeln mehr), daher muss der reservierte
+    // Platz pro Knoten in jedem Fall reichen, auch wenn kürzere Karten dadurch etwas Leerraum darunter
+    // haben. NODE_W an die jetzt feste Kartenbreite (BracketKartenTemplate) angeglichen.
+    private const double NODE_W  = 240.0;
+    private const double NODE_H  = 148.0;
     private const double GAP_H   = 40.0;
-    private const double GAP_V   = 14.0;
-    private const double ROUND_W = NODE_W + GAP_H;   // 225
-    private const double UNIT    = NODE_H + GAP_V;   // 88
+    private const double GAP_V   = 24.0;
+    private const double ROUND_W = NODE_W + GAP_H;   // 280
+    private const double UNIT    = NODE_H + GAP_V;   // 172
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(KeinTurnierGewaehlt))]
@@ -99,6 +120,11 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 
     [ObservableProperty] private double _canvasBreite;
     [ObservableProperty] private double _canvasHoehe;
+
+    // Issue #244-Nachbesserung: Höhe, die die Fenster-Navigation (siehe unten) tatsächlich braucht — nur
+    // anhand der aktuell sichtbaren Kartenanzahl, nicht anhand des ganzen Baums wie CanvasHoehe. Verhindert
+    // unnötigen Scrollraum/-balken bei kleinen Fenstern (z.B. Halbfinale+Finale).
+    [ObservableProperty] private double _fensterCanvasHoehe;
 
     [ObservableProperty] private ObservableCollection<BracketRundenkopf>   _rundenKoepfe      = [];
     [ObservableProperty] private ObservableCollection<BracketKnotenAnzeige> _knoten            = [];
@@ -125,8 +151,40 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 
     partial void OnAktuellerRundenIndexChanged(int value)
     {
+        AktualisiereFensterPositionen();
         _vorherigeRundeBefehl.NotifyCanExecuteChanged();
         _naechsteRundeBefehl.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Berechnet für die aktuell sichtbaren zwei Spalten eine rein fensterlokale, kompakte
+    /// vertikale Anordnung (FensterY) statt der globalen, auf den gesamten Baum bemessenen Y — sonst
+    /// wirkt z.B. ein Halbfinale+Finale-Fenster (nur 3 Karten) unnötig sperrig/leer, weil die globale
+    /// Position auf den Blattabstand des ganzen Turnierbaums ausgelegt ist (Nutzer-Feedback). Die linke
+    /// Spalte bekommt einfach durchnummerierte UNIT-Slots, die rechte Spalte den Mittelwert der FensterY
+    /// ihrer sichtbaren Kind-Knoten (Fallback: Slot-Nummer, falls beide Kinder außerhalb des Fensters
+    /// lägen — kommt bei der aktuellen Fenster-Definition [aktuelle+nächste Runde] nicht vor, jedes
+    /// Kind eines sichtbaren Eltern-Knotens liegt immer in der aktuell sichtbaren linken Spalte).</summary>
+    private void AktualisiereFensterPositionen()
+    {
+        var linke = Knoten.Where(k => k.RundenIndex == AktuellerRundenIndex).OrderBy(k => k.Y).ToList();
+        for (int i = 0; i < linke.Count; i++)
+            linke[i].FensterY = i * UNIT + UNIT / 2;
+
+        FensterCanvasHoehe = Math.Max(1, linke.Count) * UNIT + GAP_V;
+
+        if (!ZeigtZweiteSpalte) return;
+
+        var rechte = Knoten.Where(k => k.RundenIndex == FensterEndeIndex).OrderBy(k => k.Y).ToList();
+        for (int i = 0; i < rechte.Count; i++)
+        {
+            var eltern = rechte[i];
+            var kindPositionen = new List<double>();
+            if (eltern.LinkerKindKnotenId is { } lid && linke.FirstOrDefault(k => k.Id == lid) is { } l)
+                kindPositionen.Add(l.FensterY);
+            if (eltern.RechterKindKnotenId is { } rid && linke.FirstOrDefault(k => k.Id == rid) is { } r)
+                kindPositionen.Add(r.FensterY);
+            eltern.FensterY = kindPositionen.Count > 0 ? kindPositionen.Average() : i * UNIT + UNIT / 2;
+        }
     }
 
     /// <summary>Index der zweiten (rechten) Fensterspalte — identisch zum Startindex, wenn nur eine
@@ -171,6 +229,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     private void RundenNavigationZuruecksetzen()
     {
         AktuellerRundenIndex = 0;
+        AktualisiereFensterPositionen();
         OnPropertyChanged(nameof(AktuellerRundenIndex));
         OnPropertyChanged(nameof(LinkeSpalteKnoten));
         OnPropertyChanged(nameof(RechteSpalteKnoten));
@@ -196,6 +255,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             AktuellerRundenIndex = MaxFensterStartIndex; // löst über NotifyPropertyChangedFor bereits alle Notifications aus
             return;
         }
+        AktualisiereFensterPositionen();
         OnPropertyChanged(nameof(LinkeSpalteKnoten));
         OnPropertyChanged(nameof(RechteSpalteKnoten));
     }
@@ -619,7 +679,8 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
                 string label = istFest
                     ? (runde.Knoten.Count == 1 ? "F" : $"{kuerzel}{pos + 1}")
                     : "";
-                Knoten.Add(BaueKnotenAnzeige(k, x, centerY - NODE_H / 2, runde.RundeNummer - 1, label, turnierRundeId));
+                Knoten.Add(BaueKnotenAnzeige(k, x, centerY - NODE_H / 2, runde.RundeNummer - 1, label,
+                    effLinks.GetValueOrDefault(k.Id), effRechts.GetValueOrDefault(k.Id), turnierRundeId));
             }
         }
 
@@ -695,10 +756,11 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         posMap[knoten.Id] = (cy1 + cy2) / 2.0;
     }
 
-    private static BracketKnotenAnzeige BaueKnotenAnzeige(TurnierBaumKnoten k, double x, double y, int rundenIndex, string label, int? turnierRundeId = null)
+    private static BracketKnotenAnzeige BaueKnotenAnzeige(TurnierBaumKnoten k, double x, double y, int rundenIndex, string label,
+        int? linkerKindKnotenId, int? rechterKindKnotenId, int? turnierRundeId = null)
     {
         if (k.Spiel is null)
-            return new BracketKnotenAnzeige { X = x, Y = y, RundenIndex = rundenIndex, TurnierRundeId = turnierRundeId, IstFreilos = true, Label = label, HeimName = "–", AuswaertsName = "–" };
+            return new BracketKnotenAnzeige { Id = k.Id, X = x, Y = y, RundenIndex = rundenIndex, TurnierRundeId = turnierRundeId, LinkerKindKnotenId = linkerKindKnotenId, RechterKindKnotenId = rechterKindKnotenId, IstFreilos = true, Label = label, HeimName = "–", AuswaertsName = "–" };
 
         var s     = k.Spiel;
         var e     = s.Ergebnis;
@@ -714,10 +776,13 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 
         return new BracketKnotenAnzeige
         {
+            Id                 = k.Id,
             X                  = x,
             Y                  = y,
             RundenIndex        = rundenIndex,
             TurnierRundeId     = turnierRundeId ?? s.TurnierRundeId,
+            LinkerKindKnotenId = linkerKindKnotenId,
+            RechterKindKnotenId = rechterKindKnotenId,
             IstFreilos         = false,
             Label              = label,
             HeimName           = s.HeimMannschaft?.Name      ?? s.HeimPlatzhalterName      ?? "—",
