@@ -28,6 +28,12 @@ public class TurnierRunde : BasisEntitaet
     // geprüft, sondern über eine oder mehrere Uebergangsregeln gespeist (Issue #178).
     public bool EingangUeberUebergangsregeln { get; set; }
 
+    // Wenn true, stehen die Paarungen dieser Runde von vornherein fest (Auslosungsart.Manuell) und werden
+    // in der Turnierdefinition (Tab "Paarungen") statt in Turnierdurchführung → Auslosung festgelegt
+    // (Issue #251-Folgefund) — ohne dieses Feld erschien dort jede Runde initial editierbar, bis anderswo
+    // eine echte Auslosung angelegt wurde.
+    public bool PaarungFestVorgegeben { get; set; }
+
     public ICollection<Spiel> Spiele { get; set; } = new List<Spiel>();
 
     // Übergangsregeln, die aus dieser Runde in eine (ggf. andere) Zielrunde führen.

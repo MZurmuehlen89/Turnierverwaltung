@@ -487,6 +487,10 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
     private bool _mitRueckspiel;
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
+    // Issue #251-Folgefund: legt beim Anlegen der Runde fest, ob ihre Paarungen von vornherein feststehen
+    // (dann Bearbeitung im Turnierdefinition-Tab "Paarungen") statt später in Turnierdurchführung →
+    // Auslosung ausgelost zu werden — steuert, welcher der beiden Tabs die Runde anbietet.
+    [ObservableProperty] private bool _paarungFestVorgegeben;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EingangEditierbar))]
     private bool _eingangUeberUebergangsregeln;
@@ -973,6 +977,13 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         IsDirty = true;
     }
 
+    partial void OnPaarungFestVorgegebenChanged(bool value)
+    {
+        if (_populiertGerade > 0 || AusgewaehlteRunde is null) return;
+        AusgewaehlteRunde.PaarungFestVorgegeben = value;
+        IsDirty = true;
+    }
+
     partial void OnEingangChanged(string value)
     {
         if (_populiertGerade > 0 || AusgewaehlteRunde is null || !EingangEditierbar) return;
@@ -1197,6 +1208,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
             MitRueckspiel          = value.MitRueckspiel;
             AuswaertstorRegelAktiv = value.AuswaertstorRegelAktiv;
             EingangUeberUebergangsregeln = value.EingangUeberUebergangsregeln;
+            PaarungFestVorgegeben  = value.PaarungFestVorgegeben;
         }
         finally { _populiertGerade--; }
 
@@ -1496,6 +1508,7 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
             MitRueckspiel          = false;
             AuswaertstorRegelAktiv = false;
             EingangUeberUebergangsregeln = false;
+            PaarungFestVorgegeben  = false;
         }
         finally { _populiertGerade--; }
         HatAusgehendeUebergangsregeln = false;
@@ -1511,7 +1524,8 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                 r.Name, r.Rundenart, r.EingangsMannschaften, r.AusgangsMannschaften,
                 regelwerkId, r.MitRueckspiel, r.AuswaertstorRegelAktiv,
                 GruppenAnzahl: r.GruppenAnzahl,
-                EingangUeberUebergangsregeln: r.EingangUeberUebergangsregeln);
+                EingangUeberUebergangsregeln: r.EingangUeberUebergangsregeln,
+                PaarungFestVorgegeben: r.PaarungFestVorgegeben);
         }).ToList();
 
     private static RundenEintrag RundeZuEintrag(TurnierRunde r) => new()
@@ -1529,7 +1543,8 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         RegelwerkName          = r.Regelwerk?.Name ?? "",
         MitRueckspiel          = r.MitRueckspiel,
         AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv,
-        EingangUeberUebergangsregeln = r.EingangUeberUebergangsregeln
+        EingangUeberUebergangsregeln = r.EingangUeberUebergangsregeln,
+        PaarungFestVorgegeben  = r.PaarungFestVorgegeben
     };
 
     private bool KannSpeichern()          => IsDirty && AusgewaehlteInstanz is not null && !HatRundenFehler;

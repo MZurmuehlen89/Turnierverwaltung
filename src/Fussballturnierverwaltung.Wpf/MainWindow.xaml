@@ -58,6 +58,9 @@
         <DataTemplate DataType="{x:Type vm:RundenUebergaengeViewModel}">
             <views:RundenUebergaengeView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:PaarungsfestlegungViewModel}">
+            <views:PaarungsfestlegungView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:TurnierDefinitionViewModel}">
             <views:TurnierDefinitionView />
         </DataTemplate>

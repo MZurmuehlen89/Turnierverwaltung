@@ -85,7 +85,8 @@ public record TurnierRundeEingabe(
     bool AuswaertstorRegelAktiv = false,
     string? KonfigurationJson = null,
     int? GruppenAnzahl = null,
-    bool EingangUeberUebergangsregeln = false);
+    bool EingangUeberUebergangsregeln = false,
+    bool PaarungFestVorgegeben = false);
 
 public record RegelwerkErstellenEingabe(
     string Name,

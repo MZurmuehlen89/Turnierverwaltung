@@ -199,6 +199,16 @@
                                    Visibility="{Binding EingangUeberUebergangsregeln, Converter={StaticResource BoolToVisibility}}" />
                     </StackPanel>
 
+                    <!-- Issue #251-Folgefund: legt fest, ob diese Runde im Turnierdefinition-Tab
+                         "Paarungen" (feste Paarungen) oder in Turnierdurchführung → Auslosung (echte
+                         Auslosung) bearbeitet wird. -->
+                    <CheckBox Content="Paarung fest vorgegeben (statt Auslosung)"
+                              IsChecked="{Binding PaarungFestVorgegeben}"
+                              FontSize="12" Margin="0,0,0,4" />
+                    <TextBlock Text="Diese Runde erscheint im Tab &quot;Paarungen&quot; der Turnierdefinition statt in Turnierdurchführung → Auslosung."
+                               Foreground="{StaticResource TextSubtleBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,16"
+                               Visibility="{Binding PaarungFestVorgegeben, Converter={StaticResource BoolToVisibility}}" />
+
                     <!-- Eingehende Übergangsregeln (Issue #169) -->
                     <StackPanel Visibility="{Binding EingehendeUebergangsregelnSichtbar, Converter={StaticResource BoolToVisibility}}"
                                 Margin="0,0,0,16">

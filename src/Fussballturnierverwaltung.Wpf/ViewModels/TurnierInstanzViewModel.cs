@@ -54,6 +54,7 @@ public partial class RundenEintrag : ObservableObject
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private bool _mitRueckspiel;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private bool _auswaertstorRegelAktiv;
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private bool _eingangUeberUebergangsregeln;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Anzeige))] private bool _paarungFestVorgegeben;
 
     public string Anzeige =>
         $"{Name} · {RundenartZuTextConverter.RundenartAnzeigeName(Rundenart)} · " +
@@ -61,7 +62,8 @@ public partial class RundenEintrag : ObservableObject
         (Rundenart == Rundenart.Gruppenphase && GruppenAnzahl.HasValue ? $" · {GruppenAnzahl}G" : "") +
         (MitRueckspiel ? " · H+R" : "") +
         (AuswaertstorRegelAktiv ? " · Auswärtstor" : "") +
-        (EingangUeberUebergangsregeln ? " · Eingang über Übergangsregeln" : "");
+        (EingangUeberUebergangsregeln ? " · Eingang über Übergangsregeln" : "") +
+        (PaarungFestVorgegeben ? " · Fest vorgegeben" : "");
 
     // Issue #153: Auswahl einer noch nicht gespeicherten Runde als Quellrunde löst beim Speichern des
     // Übergangsregel-Blocks automatisch einen Speichervorgang der gesamten Rundenliste aus — sichtbar machen.

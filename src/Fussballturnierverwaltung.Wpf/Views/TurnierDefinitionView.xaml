@@ -23,7 +23,7 @@
                        FontSize="12" Foreground="#92400E" />
         </Border>
 
-        <!-- ── Sub-Navigation: Runden, Rundenübergänge (Issue #249) ── -->
+        <!-- ── Sub-Navigation: Runden, Rundenübergänge (Issue #249), Paarungen (Issue #251) ── -->
         <TabControl SelectedIndex="{Binding TabKoordinator.AktiverTabIndex, Mode=TwoWay}"
                     BorderThickness="0">
 
@@ -32,6 +32,9 @@
             </TabItem>
             <TabItem Header="Rundenübergänge">
                 <ContentControl Content="{Binding UebergaengeVm}" />
+            </TabItem>
+            <TabItem Header="Paarungen">
+                <ContentControl Content="{Binding PaarungenVm}" />
             </TabItem>
 
         </TabControl>

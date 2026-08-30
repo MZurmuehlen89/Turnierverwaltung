@@ -177,7 +177,8 @@ public class TurnierInstanzService(
             MitRueckspiel             = e.MitRueckspiel,
             AuswaertstorRegelAktiv    = e.AuswaertstorRegelAktiv,
             KonfigurationJson         = e.KonfigurationJson,
-            EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln
+            EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
+            PaarungFestVorgegeben     = e.PaarungFestVorgegeben
         }).ToList();
 
         var ergebnis = await repository.RundenErsetzenAsync(id, neueRunden, ct);

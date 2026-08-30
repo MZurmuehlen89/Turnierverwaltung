@@ -50,79 +50,6 @@ public record ErgebnisAnzeige(int PaarungsNummer, string HeimName, string Auswae
 public record GruppenTeamAnzeige(string Name, byte[]? Wappen);
 public record GruppenErgebnisAnzeige(int GruppenNummer, string GruppenName, IReadOnlyList<GruppenTeamAnzeige> Teams);
 
-public class ManuellerKoSlot : ObservableObject
-{
-    private TeilnehmerAnzeige? _team;
-    public int PaarungsNr { get; init; }
-    public bool IstHeim { get; init; }
-    public int? QuellTopfId { get; private set; }
-
-    public TeilnehmerAnzeige? Team
-    {
-        get => _team;
-        private set
-        {
-            if (SetProperty(ref _team, value))
-            {
-                OnPropertyChanged(nameof(IstLeer));
-                OnPropertyChanged(nameof(AnzeigeName));
-            }
-        }
-    }
-    public bool IstLeer => Team is null;
-    public string AnzeigeName => Team?.Name ?? "…";
-
-    public void Besetzen(TeilnehmerAnzeige team, int topfId) { Team = team; QuellTopfId = topfId; }
-    public (TeilnehmerAnzeige Team, int TopfId)? Leeren()
-    {
-        if (Team is null) return null;
-        var ergebnis = (Team, QuellTopfId!.Value);
-        Team = null; QuellTopfId = null;
-        return ergebnis;
-    }
-}
-
-public record ManuelleKoPaarungAnzeige(int PaarungsNr, ManuellerKoSlot HeimSlot, ManuellerKoSlot AuswaertsSlot);
-
-public class ManuellerGruppenSlot : ObservableObject
-{
-    private TeilnehmerAnzeige? _team;
-    public int GruppenNr { get; init; }
-    public int SlotNr { get; init; }
-    public int? QuellTopfId { get; private set; }
-
-    public TeilnehmerAnzeige? Team
-    {
-        get => _team;
-        private set
-        {
-            if (SetProperty(ref _team, value))
-            {
-                OnPropertyChanged(nameof(IstLeer));
-                OnPropertyChanged(nameof(AnzeigeName));
-            }
-        }
-    }
-    public bool IstLeer => Team is null;
-    public string AnzeigeName => Team?.Name ?? "…";
-
-    public void Besetzen(TeilnehmerAnzeige team, int topfId) { Team = team; QuellTopfId = topfId; }
-    public (TeilnehmerAnzeige Team, int TopfId)? Leeren()
-    {
-        if (Team is null) return null;
-        var ergebnis = (Team, QuellTopfId!.Value);
-        Team = null; QuellTopfId = null;
-        return ergebnis;
-    }
-}
-
-public class ManuelleGruppe : ObservableObject
-{
-    public int GruppenNr { get; init; }
-    public string GruppenName { get; init; } = "";
-    public ObservableCollection<ManuellerGruppenSlot> Slots { get; init; } = [];
-}
-
 public class LostopfViewModel : ObservableObject
 {
     public int Id { get; init; }
@@ -274,7 +201,15 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
     private Auslosung? _ausgewaehlteAuslosung;
 
-    [ObservableProperty] private ObservableCollection<TurnierRunde> _instanzRunden = [];
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NeuRundenOptionen))]
+    private ObservableCollection<TurnierRunde> _instanzRunden = [];
+
+    // Issue #251-Folgefund: Runden mit PaarungFestVorgegeben=true werden im Turnierdefinition-Tab
+    // "Paarungen" verwaltet, nicht hier — InstanzRunden selbst bleibt ungefiltert (wird u.a. für die
+    // Vorgängerrunden-Ermittlung/Platzhalter-Generierung anderer Runden gebraucht), nur die Auswahlliste
+    // im "Neu"-Formular blendet sie aus.
+    public IEnumerable<TurnierRunde> NeuRundenOptionen => InstanzRunden.Where(r => !r.PaarungFestVorgegeben);
 
     // ── Neue-Auslosung-Formular ────────────────────────────────────────────────
     [ObservableProperty]
@@ -313,35 +248,24 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyCanExecuteChangedFor(nameof(AuslosungZuruecksetzenCommand))]
     [NotifyCanExecuteChangedFor(nameof(LostoepfeAutomatischBefuellenCommand))]
     [NotifyCanExecuteChangedFor(nameof(AlleToepfeZuruecksetzenCommand))]
-    [NotifyCanExecuteChangedFor(nameof(ManuelleAuslosungAbschliessenCommand))]
     private bool _detailAktiv;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IstManuellerModus))]
-    [NotifyPropertyChangedFor(nameof(IstBearbeitbarNichtManuell))]
-    [NotifyPropertyChangedFor(nameof(IstManuellKoModus))]
-    [NotifyPropertyChangedFor(nameof(IstManuellGruppenModus))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungAusfuehrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusAusfuehrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusManuellAusfuehrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(LostoepfeAutomatischBefuellenCommand))]
     [NotifyCanExecuteChangedFor(nameof(AlleToepfeZuruecksetzenCommand))]
-    [NotifyCanExecuteChangedFor(nameof(ManuelleAuslosungAbschliessenCommand))]
     private bool _istBearbeitbar;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DetailAuslosungsartHinweis))]
     [NotifyPropertyChangedFor(nameof(DetailAuslosungsartWarnung))]
     [NotifyPropertyChangedFor(nameof(DetailAuslosungsartOptionen))]
-    [NotifyPropertyChangedFor(nameof(IstManuellerModus))]
-    [NotifyPropertyChangedFor(nameof(IstBearbeitbarNichtManuell))]
-    [NotifyPropertyChangedFor(nameof(IstManuellKoModus))]
-    [NotifyPropertyChangedFor(nameof(IstManuellGruppenModus))]
     [NotifyPropertyChangedFor(nameof(DetailAnzahlLostoepfeBearbeitbar))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungAusfuehrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusAusfuehrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungMitTvModusManuellAusfuehrenCommand))]
-    [NotifyCanExecuteChangedFor(nameof(ManuelleAuslosungAbschliessenCommand))]
     private Auslosungsart _detailAuslosungsart;
 
     [ObservableProperty] private string _detailName = "";
@@ -477,11 +401,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         TeilnehmerAnzeige Team, int TopfId, string TopfName, int ZielNummer,
         bool IstGruppenmodus, bool? IstHeim, int? Position, bool IstFreilos);
 
-    // ── Manuelle Auslosung ────────────────────────────────────────────────────
-    [ObservableProperty] private ObservableCollection<ManuelleKoPaarungAnzeige> _manuelleKoPaarungen = [];
-    [ObservableProperty] private ObservableCollection<ManuelleGruppe> _manuelleGruppen = [];
-    [ObservableProperty] private string? _manuellesFehler;
-
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TeamsStatusText))]
     [NotifyPropertyChangedFor(nameof(TeamsVollstaendig))]
@@ -502,12 +421,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 ? $"⚠  {TeamsZugewiesen} Teams zugewiesen — {TeamsZugewiesen - TeamsBenoetigt} zu viel (Runde erwartet {TeamsBenoetigt})"
                 : $"{TeamsZugewiesen} / {TeamsBenoetigt} Teams zugewiesen — noch {TeamsBenoetigt - TeamsZugewiesen} fehlen";
 
-    // ── Manueller Modus ───────────────────────────────────────────────────────
-    public bool IstManuellerModus          => IstBearbeitbar && DetailAuslosungsart == Auslosungsart.Manuell;
-    public bool IstBearbeitbarNichtManuell => IstBearbeitbar && !IstManuellerModus;
-    public bool IstManuellKoModus          => IstManuellerModus && _auslosungDetail?.TurnierRunde?.Rundenart != Rundenart.Gruppenphase;
-    public bool IstManuellGruppenModus     => IstManuellerModus && _auslosungDetail?.TurnierRunde?.Rundenart == Rundenart.Gruppenphase;
-
     // ── Status ────────────────────────────────────────────────────────────────
     [ObservableProperty] private bool _istLadend;
     [ObservableProperty] private string? _fehlermeldung;
@@ -526,8 +439,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public IReadOnlyList<AuslosungsartOption> NeuAuslosungsartOptionen    => AuslosungsartOptionenFuer(NeuRunde?.Rundenart);
     public IReadOnlyList<AuslosungsartOption> DetailAuslosungsartOptionen => AuslosungsartOptionenFuer(_auslosungDetail?.TurnierRunde?.Rundenart);
 
+    // Issue #251: Auslosungsart.Manuell wird hier nicht mehr angeboten — die Paarungsfestlegung für
+    // Runden mit von vornherein feststehenden Paarungen lebt jetzt in der Turnierdefinition
+    // (Tab "Paarungen", PaarungsfestlegungViewModel/ManuellePaarungWorkspaceViewModel).
     private static IReadOnlyList<AuslosungsartOption> AuslosungsartOptionenFuer(Rundenart? rundenart) =>
         Enum.GetValues<Auslosungsart>()
+            .Where(a => a != Auslosungsart.Manuell)
             .Where(a => rundenart is null || AuslosungsKompatibilitaet.IstKompatibel(rundenart.Value, a))
             .Select(a => new AuslosungsartOption(AuslosungsartAnzeigeName(a), a))
             .ToList();
@@ -661,12 +578,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 },
                 new RibbonAktion
                 {
-                    Header = "Auslosung abschließen",
-                    Befehl = ManuelleAuslosungAbschliessenCommand,
-                    IconVektorDatei = "check.xaml",
-                },
-                new RibbonAktion
-                {
                     Header = "Zurücksetzen",
                     Befehl = AuslosungZuruecksetzenCommand,
                     IconVektorDatei = "refresh.xaml",
@@ -721,7 +632,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _autoNeuName        = "";
         NeuName             = "";
         NeuAuslosungsart    = Auslosungsart.Zufall;
-        NeuRunde            = InstanzRunden.FirstOrDefault();
+        NeuRunde            = NeuRundenOptionen.FirstOrDefault();
         NeuAnzahlLostoepfe  = 1;
         Fehlermeldung       = null;
     }
@@ -745,8 +656,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
                 NeuFormAktiv = false;
 
-                var auslosungen = await _auslosungService.AlleNachInstanzAbrufenAsync(AusgewaehlteInstanz.Id);
-                Auslosungen = new ObservableCollection<Auslosung>(auslosungen);
+                Auslosungen = await LadeAuslosungenGefiltertAsync(AusgewaehlteInstanz.Id);
                 AusgewaehlteAuslosung = Auslosungen.FirstOrDefault(a => a.Id == neu.Id);
             }
             catch (Exception ex) { Fehlermeldung = ex.Message; }
@@ -790,8 +700,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         try
         {
             await _auslosungService.LoeschenAsync(AusgewaehlteAuslosung.Id);
-            var auslosungen = await _auslosungService.AlleNachInstanzAbrufenAsync(AusgewaehlteInstanz!.Id);
-            Auslosungen = new ObservableCollection<Auslosung>(auslosungen);
+            Auslosungen = await LadeAuslosungenGefiltertAsync(AusgewaehlteInstanz!.Id);
             AusgewaehlteAuslosung = null;
             DetailAktiv = false;
         }
@@ -1229,169 +1138,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         await _spielplanService.GenerierenAusAuslosungAsync(rundeId, [.. _auslosungDetail.Ergebnisse]);
     }
 
-    // ── Öffentliche Methoden: Manuelle Slot-Zuweisung ────────────────────────
-
-    public string? TeamInKoSlotPlatzieren(TeilnehmerAnzeige team, int quellTopfId, ManuellerKoSlot slot)
-    {
-        ManuellesFehler = null;
-        if (HatKeinGleichesLandVerletzung(team, slot.PaarungsNr, istHeim: slot.IstHeim, out var fehler))
-        {
-            ManuellesFehler = fehler;
-            return fehler;
-        }
-        EntferneAusTopf(team, quellTopfId);
-        slot.Besetzen(team, quellTopfId);
-        return null;
-    }
-
-    public void TeamAusKoSlotEntfernen(ManuellerKoSlot slot)
-    {
-        var ergebnis = slot.Leeren();
-        if (ergebnis is not null) GibeAnTopfZurueck(ergebnis.Value.Team, ergebnis.Value.TopfId);
-        ManuellesFehler = null;
-    }
-
-    public string? TeamInGruppenSlotPlatzieren(TeilnehmerAnzeige team, int quellTopfId, ManuellerGruppenSlot slot)
-    {
-        ManuellesFehler = null;
-        if (HatKeinGleichesLandVerletzungGruppe(team, slot.GruppenNr, out var fehler))
-        {
-            ManuellesFehler = fehler;
-            return fehler;
-        }
-        EntferneAusTopf(team, quellTopfId);
-        slot.Besetzen(team, quellTopfId);
-        return null;
-    }
-
-    public void TeamAusGruppenSlotEntfernen(ManuellerGruppenSlot slot)
-    {
-        var ergebnis = slot.Leeren();
-        if (ergebnis is not null) GibeAnTopfZurueck(ergebnis.Value.Team, ergebnis.Value.TopfId);
-        ManuellesFehler = null;
-    }
-
-    private void EntferneAusTopf(TeilnehmerAnzeige team, int topfId)
-    {
-        var topf    = Lostoepfe.FirstOrDefault(t => t.Id == topfId);
-        var eintrag = topf?.Teilnehmer.FirstOrDefault(t =>
-            (t.EintragId > 0 && t.EintragId == team.EintragId) || t.Name == team.Name);
-        if (eintrag is not null) topf!.Teilnehmer.Remove(eintrag);
-    }
-
-    private void GibeAnTopfZurueck(TeilnehmerAnzeige team, int topfId)
-    {
-        var topf = Lostoepfe.FirstOrDefault(t => t.Id == topfId);
-        if (topf is null) return;
-        bool bereitsVorhanden = topf.Teilnehmer.Any(t =>
-            (t.EintragId > 0 && t.EintragId == team.EintragId) || t.Name == team.Name);
-        if (!bereitsVorhanden) topf.Teilnehmer.Add(team);
-    }
-
-    public ManuellerKoSlot? NaechsterFreierKoSlot() =>
-        ManuelleKoPaarungen.SelectMany(p => new[] { p.HeimSlot, p.AuswaertsSlot }).FirstOrDefault(s => s.IstLeer);
-
-    public ManuellerGruppenSlot? NaechsterFreierGruppenSlot() =>
-        ManuelleGruppen.SelectMany(g => g.Slots).FirstOrDefault(s => s.IstLeer);
-
-    [RelayCommand(CanExecute = nameof(KannManuelleAuslosungAbschliessen))]
-    private async Task ManuelleAuslosungAbschliessen()
-    {
-        if (_auslosungDetail is null) return;
-        ManuellesFehler = null;
-        Fehlermeldung = null;
-        try
-        {
-            List<ManuellePaarungEingabe> paarungen;
-            if (IstManuellGruppenModus)
-            {
-                var alleSlots = ManuelleGruppen
-                    .SelectMany(g => g.Slots.Select(s => (g.GruppenNr, s)))
-                    .Where(x => !x.s.IstLeer)
-                    .ToList();
-                if (!alleSlots.Any())
-                {
-                    ManuellesFehler = "Bitte mindestens eine Zuweisung vornehmen.";
-                    return;
-                }
-                var leereSlots = ManuelleGruppen.Sum(g => g.Slots.Count(s => s.IstLeer));
-                if (leereSlots > 0)
-                {
-                    ManuellesFehler = $"Es sind noch {leereSlots} Gruppenplatz/-plätze unbesetzt. " +
-                                      "Bitte alle Plätze befüllen, bevor die Auslosung abgeschlossen wird.";
-                    return;
-                }
-                paarungen = alleSlots.Select(x => new ManuellePaarungEingabe(
-                    HeimMannschaftId:         x.s.Team!.MannschaftId,
-                    HeimPlatzhalterName:      x.s.Team!.MannschaftId is null ? x.s.Team!.Name : null,
-                    AuswaertsMannschaftId:    null,
-                    AuswaertsPlatzhalterName: null,
-                    PaarungsNummer:           x.GruppenNr
-                )).ToList();
-            }
-            else
-            {
-                var allePaarungen = ManuelleKoPaarungen
-                    .Where(p => !p.HeimSlot.IstLeer)
-                    .ToList();
-                if (!allePaarungen.Any())
-                {
-                    ManuellesFehler = "Bitte mindestens eine Paarung befüllen.";
-                    return;
-                }
-                paarungen = allePaarungen.Select(p => new ManuellePaarungEingabe(
-                    HeimMannschaftId:         p.HeimSlot.Team!.MannschaftId,
-                    HeimPlatzhalterName:      p.HeimSlot.Team!.MannschaftId is null ? p.HeimSlot.Team!.Name : null,
-                    AuswaertsMannschaftId:    p.AuswaertsSlot.Team?.MannschaftId,
-                    AuswaertsPlatzhalterName: p.AuswaertsSlot.Team?.MannschaftId is null ? p.AuswaertsSlot.Team?.Name : null,
-                    PaarungsNummer:           p.PaarungsNr
-                )).ToList();
-            }
-            await _auslosungService.ManuelleErgebnisseAbschliessenAsync(_auslosungDetail.Id, paarungen);
-            await LadeDetailAsync(_auslosungDetail.Id);
-            await SpielplanAutomatischGenerierenAsync();
-            await AktualisiereSeitenlisteAsync();
-        }
-        catch (Exception ex) { Fehlermeldung = ex.Message; }
-    }
-
-    private bool HatKeinGleichesLandVerletzung(TeilnehmerAnzeige neuTeam, int paarungsNr, bool istHeim, out string? fehler)
-    {
-        fehler = null;
-        if (_auslosungDetail?.Regeln.Any(r => r.IstAktiv && r.Regelart == AuslosungsRegelArt.KeinGleichesLand) != true)
-            return false;
-        if (!neuTeam.LandId.HasValue) return false;
-        var paarung = ManuelleKoPaarungen.FirstOrDefault(p => p.PaarungsNr == paarungsNr);
-        if (paarung is null) return false;
-        var gegnerSlot = istHeim ? paarung.AuswaertsSlot : paarung.HeimSlot;
-        if (gegnerSlot.IstLeer || !gegnerSlot.Team!.LandId.HasValue) return false;
-        if (gegnerSlot.Team!.LandId == neuTeam.LandId)
-        {
-            fehler = $"Regel 'Kein gleiches Land': '{neuTeam.Name}' und '{gegnerSlot.Team!.Name}' " +
-                     "sind aus demselben Land und dürfen nicht gepaart werden.";
-            return true;
-        }
-        return false;
-    }
-
-    private bool HatKeinGleichesLandVerletzungGruppe(TeilnehmerAnzeige neuTeam, int gruppenNr, out string? fehler)
-    {
-        fehler = null;
-        if (_auslosungDetail?.Regeln.Any(r => r.IstAktiv && r.Regelart == AuslosungsRegelArt.KeinGleichesLand) != true)
-            return false;
-        if (!neuTeam.LandId.HasValue) return false;
-        var gruppe = ManuelleGruppen.FirstOrDefault(g => g.GruppenNr == gruppenNr);
-        if (gruppe is null) return false;
-        var konflikt = gruppe.Slots.FirstOrDefault(s => !s.IstLeer && s.Team!.LandId == neuTeam.LandId);
-        if (konflikt is not null)
-        {
-            fehler = $"Regel 'Kein gleiches Land': '{neuTeam.Name}' und '{konflikt.Team!.Name}' " +
-                     "sind aus demselben Land und dürfen nicht in dieselbe Gruppe.";
-            return true;
-        }
-        return false;
-    }
-
     [RelayCommand(CanExecute = nameof(KannAuslosungZuruecksetzen))]
     private async Task AuslosungZuruecksetzen()
     {
@@ -1505,8 +1251,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IstLadend = true;
         try
         {
-            var auslosungen = await _auslosungService.AlleNachInstanzAbrufenAsync(AusgewaehlteInstanz.Id);
-            Auslosungen = new ObservableCollection<Auslosung>(auslosungen);
+            Auslosungen = await LadeAuslosungenGefiltertAsync(AusgewaehlteInstanz.Id);
 
             var detail = await _instanzService.FindenNachIdMitRundenAsync(AusgewaehlteInstanz.Id);
             if (detail is not null)
@@ -1536,28 +1281,38 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             // fälschlich noch die Rundenart der vorherigen Detail-Auslosung widerspiegeln.
             OnPropertyChanged(nameof(DetailAuslosungsartOptionen));
 
-            ManuelleKoPaarungen = [];
-            ManuelleGruppen     = [];
-            ManuellesFehler     = null;
-
             // Determine round order to decide real-teams vs placeholders
             var aktuelleRunde = InstanzRunden.FirstOrDefault(r => r.Id == detail.TurnierRundeId);
-            var vorherigeRunde = aktuelleRunde is not null ? VorgaengerrundeErmitteln(aktuelleRunde) : null;
+            var eingehendeRegeln = aktuelleRunde is not null
+                ? await _uebergangsregelService.AlleNachZielRundeIdAsync(aktuelleRunde.Id)
+                : [];
 
             IReadOnlyList<TeilnehmerAnzeige> alleTeilnehmer;
-            if (vorherigeRunde is null)
+            if (eingehendeRegeln.Count > 0)
             {
-                var teams = await _mannschaftService.AlleNachTurnierfilterAsync(
-                    AusgewaehlteInstanz?.VerbandId,
-                    AusgewaehlteInstanz?.LandId,
-                    AusgewaehlteInstanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
-                alleTeilnehmer = teams.Select(TeilnehmerAnzeige.AusMannschaft).ToList();
+                // Issue #251-Folgefund: unterstützt auch mehrere unabhängige Quellrunden gleichzeitig
+                // (Champions-League-Testfall: Achtelfinale erhält Platz 1-8 direkt aus der Liga-Phase UND
+                // die Sieger der Playoff-Runde) — die alte "nächstgelegene einzelne Vorgängerrunde"-
+                // Heuristik berücksichtigte nur eine Quelle.
+                alleTeilnehmer = TeilnehmerPoolHilfsmittel.PlatzhalterAusRegelnGenerieren(eingehendeRegeln);
             }
             else
             {
-                var gruppenuebergreifendeRegeln = (await _uebergangsregelService.AlleNachZielRundeIdAsync(aktuelleRunde!.Id))
-                    .Where(r => r.AnzahlBeste is not null).ToList();
-                alleTeilnehmer = PlatzhalterGenerieren(aktuelleRunde!, vorherigeRunde, gruppenuebergreifendeRegeln);
+                var vorherigeRunde = aktuelleRunde is not null
+                    ? TeilnehmerPoolHilfsmittel.VorgaengerrundeErmitteln(InstanzRunden, aktuelleRunde)
+                    : null;
+                if (vorherigeRunde is null)
+                {
+                    var teams = await _mannschaftService.AlleNachTurnierfilterAsync(
+                        AusgewaehlteInstanz?.VerbandId,
+                        AusgewaehlteInstanz?.LandId,
+                        AusgewaehlteInstanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
+                    alleTeilnehmer = teams.Select(TeilnehmerAnzeige.AusMannschaft).ToList();
+                }
+                else
+                {
+                    alleTeilnehmer = TeilnehmerPoolHilfsmittel.PlatzhalterOhneRegelnGenerieren(aktuelleRunde!, vorherigeRunde);
+                }
             }
 
             var assignedMannschaftIds = detail.Lostoepfe
@@ -1653,18 +1408,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             TeamsZugewiesen       = detail.Lostoepfe.SelectMany(l => l.Eintraege).Count();
             TeamsBenoetigt        = detail.TurnierRunde?.EingangsMannschaftsanzahl ?? 0;
 
-            // IstBearbeitbar muss vor ManuelleSlotsAufbauen gesetzt werden, da IstManuellerModus davon abhängt.
             IstBearbeitbar        = detail.Status is not (AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen);
             IstAbgeschlossen      = detail.Status == AuslosungsStatus.Abgeschlossen;
             DetailName            = detail.Name;
             DetailAuslosungsart   = detail.Auslosungsart;
             DetailAnzahlLostoepfe = Math.Max(1, detail.Lostoepfe.Count);
-
-            // Explizit statt nur über den OnDetailAuslosungsartChanged-Seiteneffekt aufrufen: Der
-            // [ObservableProperty]-Setter feuert nur bei einer tatsächlichen Werteänderung — bleibt
-            // die Auslosungsart über ein Neuladen hinweg unverändert (z. B. nach 'Zurücksetzen' einer
-            // Manuell-Auslosung), würde der Slot-Aufbau sonst übersprungen und die Anzeige leer bleiben.
-            ManuelleSlotsAufbauen();
 
             AuslosungKopfzeile = $"{detail.Name}  ·  {detail.TurnierRunde.Name}  ·  " +
                                  $"{AuslosungsartAnzeigeName(detail.Auslosungsart)}  ·  " +
@@ -1680,94 +1428,28 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
     }
 
-    /// <summary>Ermittelt die für Sieger/Verlierer-Platzhaltervorschläge relevante Vorgängerrunde
-    /// (Issue #198): die naive "nächstniedrigere Reihenfolge" reicht nicht, da Finale und
-    /// SpielUmPlatzDrei stets parallele Geschwisterrunden desselben Halbfinales sind, nicht
-    /// sequenziell verkettet — ohne Ausschluss würde die Finale-Auslosung fälschlich "Spiel um
-    /// Platz 3" als Vorgänger wählen, weil dessen Reihenfolge dazwischen liegt. Analog zum bereits
-    /// bestehenden Filter in SpielplanService.QualifikantenAusFinaleHeuristikAsync (dort auf
-    /// Rundenart.KoRunde eingeschränkt).</summary>
-    private TurnierRunde? VorgaengerrundeErmitteln(TurnierRunde aktuelleRunde) =>
-        InstanzRunden
-            .Where(r => r.Reihenfolge < aktuelleRunde.Reihenfolge
-                     && r.Rundenart is not (Rundenart.Finale or Rundenart.SpielUmPlatzDrei))
-            .OrderByDescending(r => r.Reihenfolge)
-            .FirstOrDefault();
-
-    /// <summary>Erzeugt Platzhalter-Vorschläge für den Teilnehmer-Pool der Auslosung. Bei einer
-    /// vorhergehenden Gruppenphase mit konfigurierter gruppenübergreifender Rangfolge-Regel (Issue #184)
-    /// werden die betroffenen Platzierungen NICHT als normale "X. Gruppe Y"-Einträge angeboten, sondern
-    /// als "N. bester X. Platz"-Einträge (Issue #213) — sonst würde ein simples Take(anzahl) willkürlich
-    /// die ersten Gruppen abschneiden statt der tatsächlich tabellenbesten Kandidaten. Erwartet, dass
-    /// <paramref name="gruppenuebergreifendeRegeln"/> bereits auf <c>AnzahlBeste is not null</c> gefiltert
-    /// und nach <c>ZielRundeId == aktuelleRunde.Id</c> geladen ist (sonst wirft ToDictionary bei
-    /// mehrdeutigen PlatzierungVon-Werten).</summary>
-    private static IReadOnlyList<TeilnehmerAnzeige> PlatzhalterGenerieren(
-        TurnierRunde aktuelleRunde, TurnierRunde vorherigeRunde,
-        IReadOnlyList<Uebergangsregel> gruppenuebergreifendeRegeln)
-    {
-        int anzahl = aktuelleRunde.EingangsMannschaftsanzahl;
-
-        if (vorherigeRunde.Rundenart == Rundenart.Gruppenphase && vorherigeRunde.GruppenAnzahl.HasValue)
-        {
-            var gruppen  = vorherigeRunde.GruppenAnzahl.Value;
-            var besteRegelnProPlatz = gruppenuebergreifendeRegeln.ToDictionary(r => r.PlatzierungVon);
-            // AusgangsMannschaftsanzahl zählt nur die regulären Direktqualifikanten (z.B. 6 Gruppen × 2 = 12);
-            // die per AnzahlBeste-Regel abgedeckten Platzierungen (z.B. "3. Platz") liegen bewusst außerhalb
-            // dieser Zählung und müssen die Schleifenobergrenze zusätzlich anheben, sonst wird die Regel nie
-            // erreicht (Issue #213, Nachbesserung aus manuellem Test).
-            var proGruppe = vorherigeRunde.AusgangsMannschaftsanzahl / gruppen;
-            var maxPlatz = besteRegelnProPlatz.Count > 0
-                ? Math.Max(proGruppe, besteRegelnProPlatz.Keys.Max())
-                : proGruppe;
-            var liste = new List<TeilnehmerAnzeige>();
-            for (int platz = 1; platz <= maxPlatz; platz++)
-            {
-                if (besteRegelnProPlatz.TryGetValue(platz, out var regel))
-                {
-                    liste.AddRange(Enumerable.Range(1, regel.AnzahlBeste!.Value)
-                        .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"{i}. bester {platz}. Platz")));
-                    continue;
-                }
-                for (int g = 0; g < gruppen; g++)
-                {
-                    var buchstabe = (char)('A' + g);
-                    liste.Add(TeilnehmerAnzeige.AusPlatzhalter($"{platz}. Gruppe {buchstabe}"));
-                }
-            }
-            return liste.Take(anzahl).ToList();
-        }
-
-        if (vorherigeRunde.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei)
-        {
-            var spiele  = vorherigeRunde.EingangsMannschaftsanzahl / 2;
-            var kuerzel = KoPlatzhalterKuerzel(vorherigeRunde);
-            string prefix = aktuelleRunde.Rundenart == Rundenart.SpielUmPlatzDrei ? "Verlierer" : "Sieger";
-            return Enumerable.Range(1, Math.Min(spiele, anzahl))
-                .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"{prefix} {kuerzel} {i}"))
-                .ToList();
-        }
-
-        return Enumerable.Range(1, anzahl)
-            .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"Platz {i} ({vorherigeRunde.Name})"))
-            .ToList();
-    }
-
-    private static string KoPlatzhalterKuerzel(TurnierRunde runde) => runde.Rundenart switch
-    {
-        Rundenart.Finale           => "Finale",
-        Rundenart.SpielUmPlatzDrei => "3.Platz",
-        _                          => SpielplanViewModel.KoKuerzel(runde.EingangsMannschaftsanzahl) ?? runde.Name
-    };
-
     private async Task AlleTeamsZuErstemTopfHinzufuegenAsync(int auslosungId, TurnierRunde runde)
     {
         var detail = await _auslosungService.FindenNachIdAsync(auslosungId);
         var ersterTopf = detail?.Lostoepfe.FirstOrDefault();
         if (ersterTopf is null) return;
 
-        var aktuelleRunde  = InstanzRunden.FirstOrDefault(r => r.Id == runde.Id);
-        var vorherigeRunde = aktuelleRunde is not null ? VorgaengerrundeErmitteln(aktuelleRunde) : null;
+        var aktuelleRunde   = InstanzRunden.FirstOrDefault(r => r.Id == runde.Id);
+        var eingehendeRegeln = aktuelleRunde is not null
+            ? await _uebergangsregelService.AlleNachZielRundeIdAsync(aktuelleRunde.Id)
+            : [];
+
+        if (eingehendeRegeln.Count > 0)
+        {
+            var platzhalter = TeilnehmerPoolHilfsmittel.PlatzhalterAusRegelnGenerieren(eingehendeRegeln);
+            foreach (var p in platzhalter)
+                await _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(auslosungId, ersterTopf.Id, p.Name);
+            return;
+        }
+
+        var vorherigeRunde = aktuelleRunde is not null
+            ? TeilnehmerPoolHilfsmittel.VorgaengerrundeErmitteln(InstanzRunden, aktuelleRunde)
+            : null;
 
         if (vorherigeRunde is null)
         {
@@ -1783,9 +1465,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
         else if (aktuelleRunde is not null)
         {
-            var gruppenuebergreifendeRegeln = (await _uebergangsregelService.AlleNachZielRundeIdAsync(aktuelleRunde.Id))
-                .Where(r => r.AnzahlBeste is not null).ToList();
-            var platzhalter = PlatzhalterGenerieren(aktuelleRunde, vorherigeRunde, gruppenuebergreifendeRegeln);
+            var platzhalter = TeilnehmerPoolHilfsmittel.PlatzhalterOhneRegelnGenerieren(aktuelleRunde, vorherigeRunde);
             foreach (var p in platzhalter)
                 await _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(auslosungId, ersterTopf.Id, p.Name);
         }
@@ -1794,10 +1474,17 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task AktualisiereSeitenlisteAsync()
     {
         if (AusgewaehlteInstanz is null) return;
-        var auslosungen = await _auslosungService.AlleNachInstanzAbrufenAsync(AusgewaehlteInstanz.Id);
-        Auslosungen = new ObservableCollection<Auslosung>(auslosungen);
+        Auslosungen = await LadeAuslosungenGefiltertAsync(AusgewaehlteInstanz.Id);
         if (_auslosungDetail is not null)
             AusgewaehlteAuslosung = Auslosungen.FirstOrDefault(a => a.Id == _auslosungDetail.Id);
+    }
+
+    /// <summary>Issue #251: Auslosungsart.Manuell wird hier nicht mehr angezeigt — deren Paarungsfestlegung
+    /// lebt jetzt ausschließlich im "Paarungen"-Tab der Turnierdefinition.</summary>
+    private async Task<ObservableCollection<Auslosung>> LadeAuslosungenGefiltertAsync(int turnierInstanzId)
+    {
+        var auslosungen = await _auslosungService.AlleNachInstanzAbrufenAsync(turnierInstanzId);
+        return new ObservableCollection<Auslosung>(auslosungen.Where(a => a.Auslosungsart != Auslosungsart.Manuell));
     }
 
     partial void OnNeuRundeChanged(TurnierRunde? value)
@@ -1829,10 +1516,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public bool HatUngespeicherteAenderungen => NeuFormAktiv || IstDetailDirty;
     private bool KannLoeschen()  => AusgewaehlteAuslosung is not null && !NeuFormAktiv;
 
-    private bool KannAuslosungAusfuehren()             => DetailAktiv && IstBearbeitbarNichtManuell;
+    private bool KannAuslosungAusfuehren()             => DetailAktiv && IstBearbeitbar;
     private bool KannAuslosungZuruecksetzen()           => DetailAktiv && IstAbgeschlossen && AnimationLaeuftNicht;
     private bool KannLostoepfeAutomatischBefuellen()    => DetailAktiv && IstBearbeitbar;
-    private bool KannManuelleAuslosungAbschliessen()    => DetailAktiv && IstManuellerModus;
     private bool KannAlleToepfeZuruecksetzen()          => DetailAktiv && IstBearbeitbar && Lostoepfe.Any(l => l.Teilnehmer.Count > 0);
 
     partial void OnDetailNameChanged(string value)           { if (!_ladenAktiv) IstDetailDirty = true; }
@@ -1840,7 +1526,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         if (!_ladenAktiv) IstDetailDirty = true;
         AktualisiereRedundanteRegeln(value);
-        ManuelleSlotsAufbauen();
 
         // Zufall/Benutzerdefiniert erlauben nur 1 Lostopf (Issue #134). Die eigentliche Reduktion der
         // gespeicherten Lostöpfe passiert erst beim Speichern via LostoepfeSynchronisierenAsync — das
@@ -1848,53 +1533,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // automatisch zusammenzuführen.
         if (!DetailAnzahlLostoepfeBearbeitbar)
             DetailAnzahlLostoepfe = 1;
-    }
-
-    /// <summary>Baut ManuelleGruppen/ManuelleKoPaarungen (die Slot-Anzeige für Auslosungsart 'Manuell')
-    /// aus der zugehörigen TurnierRunde neu auf. Muss sowohl beim Laden einer Auslosung laufen als auch,
-    /// wenn der Nutzer die Auslosungsart interaktiv auf 'Manuell' umschaltet (sonst bleibt der Bereich
-    /// sichtbar, aber leer, bis einmal gespeichert und neu geladen wurde).</summary>
-    private void ManuelleSlotsAufbauen()
-    {
-        if (DetailAuslosungsart != Auslosungsart.Manuell || _auslosungDetail is null ||
-            _auslosungDetail.Status is AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen)
-        {
-            ManuelleKoPaarungen = [];
-            ManuelleGruppen     = [];
-            return;
-        }
-
-        int teamAnzahl = _auslosungDetail.TurnierRunde?.EingangsMannschaftsanzahl ?? 0;
-        if (_auslosungDetail.TurnierRunde?.Rundenart == Rundenart.Gruppenphase)
-        {
-            int gruppenAnzahl = _auslosungDetail.TurnierRunde.GruppenAnzahl ?? 1;
-            int slotsProGruppe = teamAnzahl > 0 && gruppenAnzahl > 0 ? teamAnzahl / gruppenAnzahl : 4;
-            ManuelleGruppen = new ObservableCollection<ManuelleGruppe>(
-                Enumerable.Range(1, gruppenAnzahl).Select(gNr => new ManuelleGruppe
-                {
-                    GruppenNr   = gNr,
-                    GruppenName = $"Gruppe {GruppenBuchstabe(gNr)}",
-                    Slots       = new ObservableCollection<ManuellerGruppenSlot>(
-                        Enumerable.Range(1, slotsProGruppe).Select(sNr => new ManuellerGruppenSlot
-                        {
-                            GruppenNr = gNr,
-                            SlotNr    = sNr
-                        }))
-                }));
-            ManuelleKoPaarungen = [];
-        }
-        else
-        {
-            int paarAnzahl = teamAnzahl > 0 ? (int)Math.Ceiling(teamAnzahl / 2.0) : 1;
-            ManuelleKoPaarungen = new ObservableCollection<ManuelleKoPaarungAnzeige>(
-                Enumerable.Range(1, paarAnzahl).Select(nr => new ManuelleKoPaarungAnzeige(
-                    nr,
-                    new ManuellerKoSlot { PaarungsNr = nr, IstHeim = true },
-                    new ManuellerKoSlot { PaarungsNr = nr, IstHeim = false })));
-            ManuelleGruppen = [];
-        }
-        OnPropertyChanged(nameof(IstManuellKoModus));
-        OnPropertyChanged(nameof(IstManuellGruppenModus));
     }
 
     private void AktualisiereRedundanteRegeln(Auslosungsart art)

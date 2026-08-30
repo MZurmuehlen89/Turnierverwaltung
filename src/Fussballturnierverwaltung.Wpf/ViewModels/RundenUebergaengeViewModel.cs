@@ -192,7 +192,12 @@ public partial class RundenUebergaengeViewModel : ViewModelBase
                     var runde = geordnete[zeile];
                     karten.Add(KarteErstellen(
                         runde,
-                        auslosungenNachRundeId.TryGetValue(runde.Id, out var art) ? art : null,
+                        // Issue #251-Folgefund: PaarungFestVorgegeben zeigt "Fest vorgegeben" schon an,
+                        // bevor überhaupt eine Auslosung/Paarung angelegt wurde — sonst bliebe das Label
+                        // bis zum ersten Öffnen des "Paarungen"-Tabs leer.
+                        auslosungenNachRundeId.TryGetValue(runde.Id, out var art) ? art
+                            : runde.PaarungFestVorgegeben ? Auslosungsart.Manuell
+                            : null,
                         regeln,
                         x: spalte.Key * (CARD_W + GAP_H),
                         y: kartenObenRand + zeile * (CARD_H + GAP_V)));

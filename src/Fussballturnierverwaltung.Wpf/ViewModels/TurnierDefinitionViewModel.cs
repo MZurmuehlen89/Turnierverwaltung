@@ -7,17 +7,20 @@ using System.Windows.Input;
 namespace Fussballturnierverwaltung.Wpf.ViewModels;
 
 /// <summary>
-/// "Turnierdefinition"-Seite — Runden-Editor + Rundenübergänge-Übersicht unter einem gemeinsamen
-/// Turnier-Header. Generische Turnier-Liste/-Auswahl/-Filterung weiterhin über TurnierTabKoordinator
-/// (geteilt mit TurnierDurchfuehrungViewModel). Die frühere Ein-Tab-Hülle (seit Verband-Quoten in den
-/// Turnierkopf gewandert sind, Issue #161) bekam mit #249 wieder einen zweiten Tab — eine rein lesende
-/// visuelle Übersicht der Rundenübergänge neben dem bestehenden tabellarischen Editor (der weiterhin die
-/// einzige Bearbeitungsmöglichkeit für Übergangsregeln bleibt, siehe #169/#186).
+/// "Turnierdefinition"-Seite — Runden-Editor + Rundenübergänge-Übersicht + Paarungsfestlegung unter
+/// einem gemeinsamen Turnier-Header. Generische Turnier-Liste/-Auswahl/-Filterung weiterhin über
+/// TurnierTabKoordinator (geteilt mit TurnierDurchfuehrungViewModel). Die frühere Ein-Tab-Hülle (seit
+/// Verband-Quoten in den Turnierkopf gewandert sind, Issue #161) bekam mit #249 einen zweiten Tab — eine
+/// rein lesende visuelle Übersicht der Rundenübergänge neben dem bestehenden tabellarischen Editor (der
+/// weiterhin die einzige Bearbeitungsmöglichkeit für Übergangsregeln bleibt, siehe #169/#186) — und mit
+/// #251 einen dritten Tab: die Paarungsfestlegung für Runden mit von vornherein feststehenden Paarungen
+/// (Auslosungsart.Manuell), die zuvor Teil von Turnierdurchführung → Auslosung war.
 /// </summary>
 public class TurnierDefinitionViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     public RundenEditorViewModel RundenVm { get; }
     public RundenUebergaengeViewModel UebergaengeVm { get; }
+    public PaarungsfestlegungViewModel PaarungenVm { get; }
 
     public TurnierTabKoordinator TabKoordinator { get; }
 
@@ -30,12 +33,14 @@ public class TurnierDefinitionViewModel : ViewModelBase, IRibbonAware, IHatUnges
         TurnierInstanzService instanzService,
         AusgewaehlteTurnierInstanzService turnierAuswahlService,
         RundenEditorViewModel rundenVm,
-        RundenUebergaengeViewModel uebergaengeVm)
+        RundenUebergaengeViewModel uebergaengeVm,
+        PaarungsfestlegungViewModel paarungenVm)
     {
         RundenVm = rundenVm;
         UebergaengeVm = uebergaengeVm;
+        PaarungenVm = paarungenVm;
 
-        TabKoordinator = new TurnierTabKoordinator(instanzService, turnierAuswahlService, [RundenVm, UebergaengeVm]);
+        TabKoordinator = new TurnierTabKoordinator(instanzService, turnierAuswahlService, [RundenVm, UebergaengeVm, PaarungenVm]);
 
         TabKoordinator.PropertyChanged += (_, e) =>
         {

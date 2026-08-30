@@ -1028,4 +1028,29 @@ public class AuslosungAlgorithmusTests
 
         _repo.GespeicherteErgebnisse.Should().ContainSingle(e => e.IstFreilos);
     }
+
+    [Theory]
+    [InlineData(Rundenart.Liga)]
+    [InlineData(Rundenart.SchweizerSystem)]
+    public async Task ManuelleAuslosung_LigaUndSchweizerSystem_ErzeugtTeilnehmerliste_KeinFreilos(Rundenart rundenart)
+    {
+        // Liga/SchweizerSystem teilen sich mit Gruppenphase die "flache Teilnehmerliste ohne echte
+        // Paarung"-Semantik (Issue #251-Folgefund) — ein Team pro Zeile ist auch hier kein Freilos.
+        AuslosungMit(rundenart, Auslosungsart.Manuell);
+
+        var paarungen = new List<ManuellePaarungEingabe>
+        {
+            new(Team(1).Id, null, null, null, PaarungsNummer: 1),
+            new(Team(2).Id, null, null, null, PaarungsNummer: 1),
+            new(Team(3).Id, null, null, null, PaarungsNummer: 1),
+        };
+
+        await _service.ManuelleErgebnisseAbschliessenAsync(_repo.Aktuelle!.Id, paarungen);
+
+        _repo.GespeicherteErgebnisse.Should().AllSatisfy(e =>
+        {
+            e.IstFreilos.Should().BeFalse();
+            e.AuswaertsMannschaftId.Should().BeNull();
+        });
+    }
 }

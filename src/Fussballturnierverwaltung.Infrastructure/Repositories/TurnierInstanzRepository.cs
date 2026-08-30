@@ -57,6 +57,7 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             alt.AuswaertstorRegelAktiv    = neu.AuswaertstorRegelAktiv;
             alt.KonfigurationJson         = neu.KonfigurationJson;
             alt.EingangUeberUebergangsregeln = neu.EingangUeberUebergangsregeln;
+            alt.PaarungFestVorgegeben     = neu.PaarungFestVorgegeben;
         }
 
         // Add rounds if the new list is longer
