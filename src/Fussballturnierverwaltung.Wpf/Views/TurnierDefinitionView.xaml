@@ -23,8 +23,18 @@
                        FontSize="12" Foreground="#92400E" />
         </Border>
 
-        <!-- ── Runden-Editor (einziger verbliebener Inhalt, ohne Tab-Hülle — Issue #161) ── -->
-        <ContentControl Content="{Binding RundenVm}" IsEnabled="{Binding RundenTabAktiv}" />
+        <!-- ── Sub-Navigation: Runden, Rundenübergänge (Issue #249) ── -->
+        <TabControl SelectedIndex="{Binding TabKoordinator.AktiverTabIndex, Mode=TwoWay}"
+                    BorderThickness="0">
+
+            <TabItem Header="Runden">
+                <ContentControl Content="{Binding RundenVm}" IsEnabled="{Binding RundenTabAktiv}" />
+            </TabItem>
+            <TabItem Header="Rundenübergänge">
+                <ContentControl Content="{Binding UebergaengeVm}" />
+            </TabItem>
+
+        </TabControl>
 
     </DockPanel>
 

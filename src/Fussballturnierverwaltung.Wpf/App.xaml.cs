@@ -160,6 +160,7 @@ public partial class App
         builder.Services.AddTransient<TurnierBereichViewModel>();
         builder.Services.AddTransient<ImportExportViewModel>();
         builder.Services.AddTransient<RundenEditorViewModel>();
+        builder.Services.AddTransient<RundenUebergaengeViewModel>();
         builder.Services.AddTransient<TurnierDefinitionViewModel>();
         builder.Services.AddTransient<TurnierDurchfuehrungViewModel>();
 
