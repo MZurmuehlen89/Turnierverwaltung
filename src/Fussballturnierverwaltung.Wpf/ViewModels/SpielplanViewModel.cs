@@ -404,44 +404,44 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 {
                     Header = "Runde simulieren",
                     Befehl = RundeSimulierenBefehl,
-                    IconGlyph = "",
+                    IconVektorDatei = "whistle.xaml",
                     Unteraktionen =
                     [
-                        new RibbonAktion { Header = "Hinrunde simulieren", Befehl = HinrundeSimulierenBefehl, IconGlyph = "" },
-                        new RibbonAktion { Header = "Rückrunde simulieren", Befehl = RueckrundeSimulierenBefehl, IconGlyph = "" },
-                        new RibbonAktion { Header = "Runde zurücksetzen", Befehl = RundeZuruecksetzenBefehl, IconGlyph = "" },
-                        new RibbonAktion { Header = "Hinrunde zurücksetzen", Befehl = HinrundeZuruecksetzenBefehl, IconGlyph = "" },
-                        new RibbonAktion { Header = "Rückrunde zurücksetzen", Befehl = RueckrundeZuruecksetzenBefehl, IconGlyph = "" },
+                        new RibbonAktion { Header = "Hinrunde simulieren", Befehl = HinrundeSimulierenBefehl, IconVektorDatei = "whistle.xaml" },
+                        new RibbonAktion { Header = "Rückrunde simulieren", Befehl = RueckrundeSimulierenBefehl, IconVektorDatei = "whistle.xaml" },
+                        new RibbonAktion { Header = "Runde zurücksetzen", Befehl = RundeZuruecksetzenBefehl, IconVektorDatei = "refresh.xaml" },
+                        new RibbonAktion { Header = "Hinrunde zurücksetzen", Befehl = HinrundeZuruecksetzenBefehl, IconVektorDatei = "refresh.xaml" },
+                        new RibbonAktion { Header = "Rückrunde zurücksetzen", Befehl = RueckrundeZuruecksetzenBefehl, IconVektorDatei = "refresh.xaml" },
                     ],
                 },
                 new RibbonAktion
                 {
                     Header = "Gruppe simulieren",
                     Befehl = GruppeSimulierenBefehl,
-                    IconGlyph = "",
+                    IconVektorDatei = "whistle.xaml",
                     Unteraktionen =
                     [
-                        new RibbonAktion { Header = "Gruppe zurücksetzen", Befehl = GruppeZuruecksetzenBefehl, IconGlyph = "" },
+                        new RibbonAktion { Header = "Gruppe zurücksetzen", Befehl = GruppeZuruecksetzenBefehl, IconVektorDatei = "refresh.xaml" },
                     ],
                 },
                 new RibbonAktion
                 {
                     Header = SpieltagSimulierenMenuText,
                     Befehl = SpieltagSimulierenBefehl,
-                    IconGlyph = "",
+                    IconVektorDatei = "whistle.xaml",
                     Unteraktionen =
                     [
-                        new RibbonAktion { Header = SpieltagZuruecksetzenMenuText, Befehl = SpieltagZuruecksetzenBefehl, IconGlyph = "" },
+                        new RibbonAktion { Header = SpieltagZuruecksetzenMenuText, Befehl = SpieltagZuruecksetzenBefehl, IconVektorDatei = "refresh.xaml" },
                     ],
                 },
                 new RibbonAktion
                 {
                     Header = "Spiel simulieren",
                     Befehl = AusfuehrlichSimulierenBefehl,
-                    IconGlyph = "",
+                    IconVektorDatei = "whistle.xaml",
                     Unteraktionen =
                     [
-                        new RibbonAktion { Header = AuswahlSimulierenMenuText, Befehl = AuswahlSimulierenBefehl, IconGlyph = "" },
+                        new RibbonAktion { Header = AuswahlSimulierenMenuText, Befehl = AuswahlSimulierenBefehl, IconVektorDatei = "whistle.xaml" },
                     ],
                 },
                 new RibbonAktion
@@ -449,7 +449,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     Header = "Platzhalter-Vorschau",
                     IstAktivBinding = new Binding(nameof(VorschauAktiv)) { Source = this, Mode = BindingMode.TwoWay },
                     IstAktivierbarBinding = new Binding(nameof(HatPlatzhalterSpiele)) { Source = this },
-                    IconGlyph = "",
+                    IconVektorDatei = "eye.xaml",
                 },
             ],
         },

@@ -143,7 +143,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
                 {
                     Header = "Turnierspiel simulieren",
                     Befehl = TurnierSpielSimulierenBefehl,
-                    IconGlyph = "",
+                    IconVektorDatei = "whistle.xaml",
                 },
             ],
         },

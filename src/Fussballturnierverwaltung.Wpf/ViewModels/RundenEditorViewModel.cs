@@ -638,13 +638,13 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                 {
                     Header = "Runde nach oben",
                     Befehl = RundeHochCommand,
-                    IconGlyph = "",
+                    IconVektorDatei = "arrow_up.xaml",
                 },
                 new RibbonAktion
                 {
                     Header = "Runde nach unten",
                     Befehl = RundeRunterCommand,
-                    IconGlyph = "",
+                    IconVektorDatei = "arrow_down.xaml",
                 },
             ],
         },

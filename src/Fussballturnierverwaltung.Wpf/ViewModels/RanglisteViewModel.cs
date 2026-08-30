@@ -145,8 +145,8 @@ public partial class RanglisteViewModel : ViewModelBase, IRibbonAware, IHatUnges
             Header = "Import",
             Aktionen =
             [
-                new RibbonAktion { Header = "Aus dem Internet importieren", Befehl = ImportAusInternetCommand },
-                new RibbonAktion { Header = "Import-Quellen verwalten", Befehl = QuellenVerwaltenCommand }
+                new RibbonAktion { Header = "Aus dem Internet importieren", Befehl = ImportAusInternetCommand, IconVektorDatei = "download.xaml" },
+                new RibbonAktion { Header = "Import-Quellen verwalten", Befehl = QuellenVerwaltenCommand, IconVektorDatei = "data_table.xaml" }
             ]
         }
     ];

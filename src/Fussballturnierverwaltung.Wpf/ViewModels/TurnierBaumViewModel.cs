@@ -460,7 +460,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             [
                 new RibbonAktion { Header = "Baum generieren", Befehl = _neuBefehl, IconVektorDatei = "elements_hierarchy.xaml" },
                 new RibbonAktion { Header = "Sieger fortschreiben", Befehl = _speichernBefehl, IconVektorDatei = "trophy.xaml" },
-                new RibbonAktion { Header = "Baum löschen", Befehl = _loeschenBefehl, IconGlyph = "" },
+                new RibbonAktion { Header = "Baum löschen", Befehl = _loeschenBefehl, IconVektorDatei = "delete.xaml" },
             ],
         },
     ];

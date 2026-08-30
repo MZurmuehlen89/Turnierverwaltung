@@ -129,7 +129,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                 {
                     Header = "Einzelspiel simulieren",
                     Befehl = EinzelspielFreiBefehl,
-                    IconGlyph = "",
+                    IconVektorDatei = "whistle.xaml",
                 },
             ],
         },

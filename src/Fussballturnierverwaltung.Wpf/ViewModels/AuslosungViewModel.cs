@@ -612,19 +612,19 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 {
                     Header = "Lostöpfe automatisch befüllen",
                     Befehl = LostoepfeAutomatischBefuellenCommand,
-                    IconGlyph = "",
+                    IconVektorDatei = "arrow_shuffle.xaml",
                 },
                 new RibbonAktion
                 {
                     Header = "Alle Töpfe leeren",
                     Befehl = AlleToepfeZuruecksetzenCommand,
-                    IconGlyph = "",
+                    IconVektorDatei = "erase.xaml",
                 },
                 new RibbonAktion
                 {
                     Header = "Auslosungs-Regeln",
                     ItemsQuelleBinding = new Binding(nameof(Regeln)) { Source = this },
-                    IconGlyph = "",
+                    IconVektorDatei = "folding_rule.xaml",
                 },
                 new RibbonAktion
                 {
@@ -636,28 +636,28 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                         {
                             Header = "Mit TV-Modus ausführen",
                             Befehl = AuslosungMitTvModusAusfuehrenCommand,
-                            IconGlyph = "",
+                            IconVektorDatei = "tv.xaml",
                         },
                         new RibbonAktion
                         {
                             Header = "Mit TV-Modus manuell ausführen",
                             Befehl = AuslosungMitTvModusManuellAusfuehrenCommand,
-                            IconGlyph = "",
+                            IconVektorDatei = "hand_point_right.xaml",
                         },
                     ],
-                    IconGlyph = "",
+                    IconVektorDatei = "dice.xaml",
                 },
                 new RibbonAktion
                 {
                     Header = "Weiter",
                     Befehl = AnimationWeiterCommand,
-                    IconGlyph = "",
+                    IconVektorDatei = "media_step_forward.xaml",
                 },
                 new RibbonAktion
                 {
                     Header = "Rest sofort anzeigen",
                     Befehl = AnimationUeberspringenCommand,
-                    IconGlyph = "",
+                    IconVektorDatei = "media_fast_forward.xaml",
                 },
                 new RibbonAktion
                 {
@@ -669,7 +669,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 {
                     Header = "Zurücksetzen",
                     Befehl = AuslosungZuruecksetzenCommand,
-                    IconGlyph = "",
+                    IconVektorDatei = "refresh.xaml",
                 },
             ],
         },
