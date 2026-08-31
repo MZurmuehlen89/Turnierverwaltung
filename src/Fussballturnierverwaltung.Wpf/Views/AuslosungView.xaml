@@ -34,7 +34,10 @@
                          BorderThickness="0" Background="Transparent"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemContainerStyle>
-                        <Style TargetType="ListBoxItem">
+                        <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
+                             und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
+                             (theme-unabhängig hell) ist und unsere eigenen Trigger-Setter ignoriert. -->
+                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                             <Setter Property="Padding" Value="12,6" />
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                             <Style.Triggers>
@@ -556,7 +559,10 @@
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                     <!-- Fix #4: Rechtsklick-Kontextmenü -->
                                     <ListBox.ItemContainerStyle>
-                                        <Style TargetType="ListBoxItem">
+                                        <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
+                                             und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
+                                             (theme-unabhängig hell) ist. -->
+                                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                                             <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" />
                                             <EventSetter Event="MouseRightButtonUp" Handler="VerfuegbarItem_MouseRightButtonUp" />
                                         </Style>
@@ -638,7 +644,10 @@
                                                              MouseMove="ListBox_MouseMove"
                                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                                         <ListBox.ItemContainerStyle>
-                                                            <Style TargetType="ListBoxItem">
+                                                            <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
+                                                                 und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
+                                                                 (theme-unabhängig hell) ist. -->
+                                                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                                                                 <EventSetter Event="MouseRightButtonUp" Handler="TopfItem_MouseRightButtonUp" />
                                                             </Style>
                                                         </ListBox.ItemContainerStyle>

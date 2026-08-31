@@ -78,7 +78,10 @@
                                  BorderThickness="0" Background="Transparent"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <ListBox.ItemContainerStyle>
-                                <Style TargetType="ListBoxItem">
+                                <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
+                                     und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
+                                     (theme-unabhängig hell) ist und unsere eigenen Trigger-Setter ignoriert. -->
+                                <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                                     <Setter Property="Padding" Value="12,8" />
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                     <Setter Property="BorderThickness" Value="0" />
@@ -272,7 +275,10 @@
                                  BorderThickness="0" Background="Transparent"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <ListBox.ItemContainerStyle>
-                                <Style TargetType="ListBoxItem">
+                                <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
+                                     und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
+                                     (theme-unabhängig hell) ist und unsere eigenen Trigger-Setter ignoriert. -->
+                                <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                                     <Setter Property="Padding" Value="12,8" />
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                     <Setter Property="BorderThickness" Value="0" />
