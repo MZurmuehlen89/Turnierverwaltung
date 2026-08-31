@@ -1,3 +1,4 @@
+using ControlzEx.Theming;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.ImportExport;
 using Fussballturnierverwaltung.Application.Ranglisten;
@@ -179,6 +180,12 @@ public partial class App
             var seed = scope.ServiceProvider.GetRequiredService<SeedDatenService>();
             await seed.InitialisierenAsync();
         }
+
+        // Dark Theme (Issue #3/#257): Fluent.Ribbon/ControlzEx bringen eigene, fertige Dark-Themes
+        // mit ("Dark.Blue" passt farblich zur MaterialDesign-PrimaryColor="Blue" der Content-Views).
+        // App-weit statt am Window gesetzt, damit auch künftig geöffnete Dialoge (separate Windows)
+        // die Ribbon-Chrome konsistent dunkel bekommen.
+        ThemeManager.Current.ChangeTheme(this, "Dark.Blue");
 
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
         mainWindow.Show();

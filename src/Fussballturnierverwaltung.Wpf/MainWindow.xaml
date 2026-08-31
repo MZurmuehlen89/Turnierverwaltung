@@ -72,13 +72,13 @@
              nötig, da RegelViewModel ausschließlich dort verwendet wird. -->
         <DataTemplate DataType="{x:Type vm:RegelViewModel}">
             <Border Margin="0,3" Padding="8,7" CornerRadius="{StaticResource Radius4}" Width="660"
-                    BorderThickness="1" BorderBrush="{StaticResource BorderBrush}">
+                    BorderThickness="1" BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}">
                 <Border.Style>
                     <Style TargetType="Border">
-                        <Setter Property="Background" Value="White" />
+                        <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IstRedundant}" Value="True">
-                                <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+                                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Background}" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
@@ -99,10 +99,10 @@
                                    TextWrapping="Wrap">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
-                                    <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IstRedundant}" Value="True">
-                                            <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -110,7 +110,7 @@
                         </TextBlock>
                     </CheckBox>
                     <TextBlock Text="{Binding Beschreibung}"
-                               FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                TextWrapping="Wrap" Margin="20,3,0,0" />
                     <TextBlock Text="{Binding RedundanzHinweis}"
                                FontSize="11" Foreground="{StaticResource WarningBrush}"
