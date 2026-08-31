@@ -37,6 +37,7 @@
 
     <!-- Warnung (Amber) -->
     <SolidColorBrush x:Key="WarningBrush" Color="#F59E0B" />
+    <SolidColorBrush x:Key="WarningStrongBrush" Color="#B45309" />
     <SolidColorBrush x:Key="WarningSoftBrush" Color="#FFFBEB" />
     <SolidColorBrush x:Key="WarningSoftBorderBrush" Color="#FDE68A" />
 

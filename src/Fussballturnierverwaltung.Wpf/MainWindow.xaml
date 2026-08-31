@@ -161,8 +161,8 @@
             <!-- Dauerhafter Tab — immer sichtbar -->
             <fluent:RibbonTabItem x:Name="StartTab" Header="Start">
                 <fluent:RibbonGroupBox Header="Anwendung">
-                    <fluent:ToggleButton Header="Helles Design"
-                                         IsChecked="{Binding IstHellModus, Mode=OneWay}"
+                    <fluent:ToggleButton Header="Dunkles Design"
+                                         IsChecked="{Binding IstDunkelModus, Mode=OneWay}"
                                          Command="{Binding ThemeUmschaltenCommand}"
                                          SizeDefinition="Middle">
                         <fluent:ToggleButton.Icon>

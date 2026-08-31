@@ -16,7 +16,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly ThemeService _themeService;
 
     [ObservableProperty]
-    private bool _istHellModus;
+    private bool _istDunkelModus;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatRibbonBereich))]
@@ -50,7 +50,7 @@ public partial class MainViewModel : ViewModelBase
     {
         _navigation = navigation;
         _themeService = themeService;
-        _istHellModus = _themeService.AktuellerModus == ThemeModus.Hell;
+        _istDunkelModus = _themeService.AktuellerModus == ThemeModus.Dunkel;
 
         _navigation.AktuellesViewModelGeaendert += (_, _) =>
         {
@@ -100,7 +100,7 @@ public partial class MainViewModel : ViewModelBase
     private void ThemeUmschalten()
     {
         _themeService.Umschalten(System.Windows.Application.Current);
-        IstHellModus = _themeService.AktuellerModus == ThemeModus.Hell;
+        IstDunkelModus = _themeService.AktuellerModus == ThemeModus.Dunkel;
     }
 
     private void OnAktuellesViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

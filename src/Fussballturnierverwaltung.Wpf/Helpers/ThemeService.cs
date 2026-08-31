@@ -9,7 +9,7 @@ public class ThemeService(EinstellungenService einstellungenService)
 {
     private readonly PaletteHelper _paletteHelper = new();
 
-    public ThemeModus AktuellerModus { get; private set; } = ThemeModus.Dunkel;
+    public ThemeModus AktuellerModus { get; private set; } = ThemeModus.Hell;
 
     public void AnwendenAusEinstellungen(System.Windows.Application app)
     {

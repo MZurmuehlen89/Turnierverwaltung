@@ -12,13 +12,23 @@
                      Mannschaften-Prototyp. Nach Fluent.Ribbon gemerged, damit Ribbon-eigene Typen
                      (RibbonButton etc.) unangetastet bleiben; MaterialDesign deckt nur, was Fluent
                      nicht selbst stylt (also plain Button/ComboBox/TextBox in unseren eigenen Views).
-                     BaseTheme="Dark" ist nur der Compile-Zeit-Startwert — ThemeService.AnwendenAusEinstellungen
-                     überschreibt ihn beim App-Start sofort mit dem gespeicherten Modus (Issue #268). -->
-                <materialDesign:BundledTheme BaseTheme="Dark" PrimaryColor="Blue" SecondaryColor="Lime" />
+                     BaseTheme="Light" ist nur der Compile-Zeit-Startwert — ThemeService.AnwendenAusEinstellungen
+                     überschreibt ihn beim App-Start sofort mit dem gespeicherten Modus (Issue #268, Standard: Hell). -->
+                <materialDesign:BundledTheme BaseTheme="Light" PrimaryColor="Blue" SecondaryColor="Lime" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign2.Defaults.xaml" />
                 <ResourceDictionary Source="Resources/Colors.xaml" />
                 <ResourceDictionary Source="Resources/Metrics.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Eingabefelder heben sich vom Formularhintergrund ab (Issue #268 Pkt. 3) — ohne
+                 explizite Background bleibt TextBox/ComboBox transparent und verschmilzt optisch mit
+                 MaterialDesign.Brush.Background des umgebenden Grids. -->
+            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+            </Style>
+            <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+            </Style>
 
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
             <conv:UmgekehrterBoolZuSichtbarkeitsConverter x:Key="InverseBoolToVisibility" />
