@@ -77,7 +77,7 @@ public partial class TurnierBaumView : UserControl
         _letzteSignatur.AddRange(signatur);
 
         VerbindungsCanvas.Children.Clear();
-        var pinsel = (Brush)FindResource("BorderStrongBrush");
+        var pinsel = (Brush)FindResource("MaterialDesign.Brush.Card.Border");
         foreach (var (von, nach) in segmente)
         {
             VerbindungsCanvas.Children.Add(new Line

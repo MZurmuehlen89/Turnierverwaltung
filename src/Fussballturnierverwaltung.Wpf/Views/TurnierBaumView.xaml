@@ -9,9 +9,13 @@
         <!-- Bracket-Spielpaarungskarte (Issue #108) — gemeinsam für die linke und rechte Rundenspalte,
              damit die Fenster-Navigation (aktuelle + nächste Runde) nicht zwei Kopien pflegen muss. -->
         <DataTemplate x:Key="BracketKartenTemplate" DataType="{x:Type vm:BracketKnotenAnzeige}">
+            <!-- Height="Auto" ist Pflicht seit #257 (MaterialDesignThemes global gemerged): der implizite
+                 MaterialDesign-Button-Style setzt eine feste Höhe, die trotz überschriebenem Button.Template
+                 unten weiterhin greift und die Karte auf Label-Zeilenhöhe klemmt — der restliche Karteninhalt
+                 wird dann unsichtbar abgeschnitten, ohne Fehler oder Exception. -->
             <Button Command="{Binding DataContext.KnotenAngeklicktBefehl, RelativeSource={RelativeSource AncestorType=UserControl}}"
                     CommandParameter="{Binding}"
-                    Padding="0" Cursor="Hand">
+                    Padding="0" Cursor="Hand" Height="Auto">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <ContentPresenter />
@@ -25,16 +29,16 @@
                      mit entsprechend mehr vertikalem Abstand). Das ist mit der bisherigen SharedSizeGroup-
                      Breitenanpassung an den längsten Teamnamen nicht mehr vereinbar — lange Namen werden
                      stattdessen per TextTrimming abgeschnitten. -->
-                <Border Width="240" BorderThickness="1" CornerRadius="{StaticResource Radius6}" Background="White">
+                <Border Width="240" BorderThickness="1" CornerRadius="{StaticResource Radius6}" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
                     <Border.Style>
                         <Style TargetType="Border">
-                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Card.Border}" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IstFreilos}" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+                                    <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Background}" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding HatErgebnis}" Value="True">
-                                    <Setter Property="BorderBrush" Value="{StaticResource AccentSoftBorderBrush}" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -43,28 +47,28 @@
                     <StackPanel>
 
                         <!-- Label-Streifen (nur bei festem Bracket sichtbar) -->
-                        <Border Background="{StaticResource SurfaceBrush}"
-                                BorderBrush="{StaticResource SurfaceAltBrush}" BorderThickness="0,0,0,1"
+                        <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                                BorderBrush="{DynamicResource MaterialDesign.Brush.Background}" BorderThickness="0,0,0,1"
                                 CornerRadius="6,6,0,0"
                                 Visibility="{Binding HatLabel, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="{Binding Label}"
                                        FontSize="9" FontWeight="Bold"
-                                       Foreground="{StaticResource TextSubtleBrush}"
+                                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                        Padding="10,4" />
                         </Border>
 
                         <!-- Datum-Kopfzeile -->
-                        <Border Background="{StaticResource SurfaceBrush}"
-                                BorderBrush="{StaticResource SurfaceAltBrush}" BorderThickness="0,0,0,1"
+                        <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                                BorderBrush="{DynamicResource MaterialDesign.Brush.Background}" BorderThickness="0,0,0,1"
                                 Visibility="{Binding HatDatum, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="{Binding Datum}"
                                        FontSize="10" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextSubtleBrush}"
+                                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                        HorizontalAlignment="Center" Padding="10,4" />
                         </Border>
 
                         <!-- Freilos -->
-                        <TextBlock Text="–" FontSize="22" Foreground="{StaticResource BorderStrongBrush}"
+                        <TextBlock Text="–" FontSize="22" Foreground="{DynamicResource MaterialDesign.Brush.Card.Border}"
                                    HorizontalAlignment="Center" Padding="0,16"
                                    Visibility="{Binding IstFreilos, Converter={StaticResource BoolToVisibility}}" />
 
@@ -93,7 +97,7 @@
                                 <TextBlock Text="{Binding HeimName}" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
                                             <Setter Property="FontWeight" Value="Normal" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
@@ -101,7 +105,7 @@
                                                     <Setter Property="FontWeight" Value="Bold" />
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
-                                                    <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -112,13 +116,13 @@
                                        FontSize="15" FontWeight="Bold" Margin="8,10,12,4" VerticalAlignment="Center">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
                                                 <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
-                                                <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -126,11 +130,11 @@
                             </TextBlock>
 
                             <!-- Trennlinie -->
-                            <Border Grid.Row="1" Grid.Column="0" Background="{StaticResource SurfaceAltBrush}" Height="1" Margin="12,4,0,4" VerticalAlignment="Center" />
+                            <Border Grid.Row="1" Grid.Column="0" Background="{DynamicResource MaterialDesign.Brush.Background}" Height="1" Margin="12,4,0,4" VerticalAlignment="Center" />
 
                             <!-- Meta-Zeile zwischen den Scores (n.V., i.E.) -->
                             <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ErgebnisDetail}"
-                                       FontSize="9" Foreground="{StaticResource TextSubtleBrush}"
+                                       FontSize="9" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                        HorizontalAlignment="Center" Margin="8,0,12,0" />
 
                             <!-- Auswärtsmannschaft -->
@@ -146,7 +150,7 @@
                                 <TextBlock Text="{Binding AuswaertsName}" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
                                             <Setter Property="FontWeight" Value="Normal" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
@@ -154,7 +158,7 @@
                                                     <Setter Property="FontWeight" Value="Bold" />
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
-                                                    <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -165,13 +169,13 @@
                                        FontSize="15" FontWeight="Bold" Margin="8,4,12,10" VerticalAlignment="Center">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding AuswaertsIstSieger}" Value="True">
                                                 <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding HeimIstSieger}" Value="True">
-                                                <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -227,11 +231,11 @@
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="FontWeight" Value="SemiBold" />
-                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding SicherPositioniert}" Value="True">
                                         <Setter Property="FontWeight" Value="Bold" />
-                                        <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -249,39 +253,36 @@
                     </Grid>
                     <TextBlock Text="{Binding Mannschaft.Name}"
                                FontSize="12" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                VerticalAlignment="Center" />
                 </DockPanel>
                 <TextBlock Grid.Column="2" Text="{Binding Spiele}"
-                           FontSize="12" Foreground="{StaticResource TextBrush}"
+                           FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
                 <TextBlock Grid.Column="3"
-                           FontSize="12" Foreground="{StaticResource TextBrush}"
+                           FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6">
                     <Run Text="{Binding Tore}" /><Run Text=":" /><Run Text="{Binding Gegentore}" />
                 </TextBlock>
                 <TextBlock Grid.Column="4" Text="{Binding Tordifferenz}"
-                           FontSize="12" Foreground="{StaticResource TextBrush}"
+                           FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
                 <TextBlock Grid.Column="5" Text="{Binding Punkte}"
-                           FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextStrongBrush}"
+                           FontSize="12" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6,6,6" />
             </Grid>
         </DataTemplate>
     </UserControl.Resources>
 
-    <!-- Übergangsfix bis #260: Diese View ist noch nicht auf das Dark Theme (#3/#257) portiert und
-         verwendet weiterhin die alten Colors.xaml-Brushes auf hartcodiert weißen Karten. Seit #257
-         global MaterialDesignThemes gemerged ist, bräche ohne dieses Foreground-Pin geerbtes helles
-         Text auf den eigenen weißen Karten unlesbar zusammen (weiß auf weiß) — TextBrush zeigt
-         wieder auf die alte, für Hellmodus gedachte Textfarbe. -->
-    <DockPanel TextElement.Foreground="{StaticResource TextBrush}">
+    <DockPanel Background="{DynamicResource MaterialDesign.Brush.Background}"
+               TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}">
 
         <!-- ── Hauptbereich ── -->
         <Grid>
 
             <!-- Kein Turnier gewählt -->
             <TextBlock Text="Bitte ein Turnier auswählen."
-                       Foreground="{StaticResource TextSubtleBrush}" FontSize="14"
+                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="14"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
                        Visibility="{Binding KeinTurnierGewaehlt, Converter={StaticResource BoolToVisibility}}" />
 
@@ -290,7 +291,7 @@
 
                 <!-- Lade-Spinner -->
                 <TextBlock DockPanel.Dock="Top" Text="Lade…" Margin="16,12"
-                           Foreground="{StaticResource TextSubtleBrush}" FontSize="13"
+                           Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="13"
                            Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
 
                 <!-- Fehlermeldung -->
@@ -321,15 +322,15 @@
                                 Padding="10,6" Cursor="Hand" Background="Transparent" BorderThickness="0"
                                 Visibility="{Binding HatVorherigeRunde, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="◀" FontSize="14" Foreground="{StaticResource AccentDarkBrush}"
+                                <TextBlock Text="◀" FontSize="14" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}"
                                            VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <TextBlock Text="{Binding VorherigeRundeName}" FontSize="12"
-                                           Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" />
+                                           Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 
                         <TextBlock Grid.Column="1" Text="Turnierbaum"
-                                   FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextStrongBrush}"
+                                   FontSize="16" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
 
                         <Button Grid.Column="2" Command="{Binding NaechsteRundeBefehl}"
@@ -337,8 +338,8 @@
                                 Visibility="{Binding HatNaechsteRunde, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{Binding NaechsteRundeName}" FontSize="12"
-                                           Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <TextBlock Text="▶" FontSize="14" Foreground="{StaticResource AccentDarkBrush}"
+                                           Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="▶" FontSize="14" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}"
                                            VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -355,7 +356,7 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{Binding LinkeSpalteName}"
-                                   FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"
+                                   FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                    HorizontalAlignment="Center">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
@@ -368,7 +369,7 @@
                             </TextBlock.Style>
                         </TextBlock>
                         <TextBlock Grid.Column="2" Text="{Binding RechteSpalteName}"
-                                   FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"
+                                   FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                    HorizontalAlignment="Center"
                                    Visibility="{Binding ZeigtZweiteSpalte, Converter={StaticResource BoolToVisibility}}" />
                     </Grid>
@@ -457,11 +458,11 @@
                 <DockPanel Visibility="{Binding ZeigtGruppenphase, Converter={StaticResource BoolToVisibility}}">
 
                     <!-- Tabellenstand-Snapshot nach Spieltag (Issue #141) -->
-                    <Border DockPanel.Dock="Top" Background="White"
-                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="16,8"
+                    <Border DockPanel.Dock="Top" Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                            BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="0,0,0,1" Padding="16,8"
                             Visibility="{Binding HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Tabellenstand:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                            <TextBlock Text="Tabellenstand:" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                        VerticalAlignment="Center" Margin="0,0,6,0" />
                             <ComboBox ItemsSource="{Binding TabellenSpieltagOptionen}"
                                       SelectedItem="{Binding TabellenBisSpieltagAuswahl}"
@@ -478,7 +479,7 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
                     <Grid>
                         <TextBlock Text="Noch keine Gruppenzuordnung — Gruppen erscheinen nach der Auslosung/Spielplan-Generierung."
-                                   Foreground="{StaticResource TextSubtleBrush}" FontSize="13"
+                                   Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="13"
                                    HorizontalAlignment="Center" Margin="16,48"
                                    TextWrapping="Wrap" TextAlignment="Center"
                                    Visibility="{Binding HatGruppenTabellenAnzeige, Converter={StaticResource InverseBoolToVisibility}}" />
@@ -492,24 +493,26 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type tabelle:GruppenTabelle}">
+                                    <!-- Height="Auto" gegen dieselbe MaterialDesign-Button-Höhenklemme wie bei
+                                         BracketKartenTemplate weiter oben. -->
                                     <Button Command="{Binding DataContext.GruppeAngeklicktBefehl, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding}"
                                             Cursor="Hand" BorderThickness="0" Padding="0" Background="Transparent"
                                             ToolTip="Klicken, um den Spielplan links auf diese Gruppe zu filtern."
-                                            Margin="0,0,12,12">
+                                            Margin="0,0,12,12" Height="Auto">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
                                                 <ContentPresenter />
                                             </ControlTemplate>
                                         </Button.Template>
                                     <Border Width="290"
-                                            Background="White"
-                                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                            Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                                            BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1"
                                             CornerRadius="{StaticResource Radius8}">
                                         <StackPanel>
 
                                             <!-- Card-Header -->
-                                            <Border Background="{StaticResource AccentDarkBrush}"
+                                            <Border Background="{DynamicResource MaterialDesign.Brush.Primary}"
                                                     CornerRadius="8,8,0,0" Padding="12,8">
                                                 <TextBlock Foreground="White" FontWeight="Bold" FontSize="13">
                                                     <Run Text="Gruppe " />
@@ -518,7 +521,7 @@
                                             </Border>
 
                                             <!-- Tabellen-Kopfzeile -->
-                                            <Grid Background="{StaticResource SurfaceBrush}">
+                                            <Grid Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="26" />
                                                     <ColumnDefinition Width="*" />
@@ -528,26 +531,26 @@
                                                     <ColumnDefinition Width="28" />
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0" Text="#"
-                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            HorizontalAlignment="Center" Padding="6,5,0,5" />
                                                 <TextBlock Grid.Column="1" Text="Team"
-                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            Padding="4,5" />
                                                 <TextBlock Grid.Column="2" Text="Sp"
-                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            HorizontalAlignment="Center" Padding="0,5" />
                                                 <TextBlock Grid.Column="3" Text="Tore"
-                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            HorizontalAlignment="Center" Padding="0,5" />
                                                 <TextBlock Grid.Column="4" Text="Diff"
-                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            HorizontalAlignment="Center" Padding="0,5" />
                                                 <TextBlock Grid.Column="5" Text="Pkt"
-                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            HorizontalAlignment="Center" Padding="0,5,6,5" />
                                             </Grid>
 
-                                            <Rectangle Height="1" Fill="{StaticResource BorderBrush}" />
+                                            <Rectangle Height="1" Fill="{DynamicResource MaterialDesign.Brush.Card.Border}" />
 
                                             <!-- Tabellen-Einträge -->
                                             <ItemsControl ItemsSource="{Binding Tabelle}"
@@ -572,14 +575,14 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:UebergreifendeRangfolgeAnzeige}">
                                     <Border Width="290"
-                                            Background="White"
-                                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                            Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                                            BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1"
                                             CornerRadius="{StaticResource Radius8}"
                                             Margin="0,0,12,12">
                                         <StackPanel>
 
                                             <!-- Card-Header -->
-                                            <Border Background="{StaticResource AccentDarkBrush}"
+                                            <Border Background="{DynamicResource MaterialDesign.Brush.Primary}"
                                                     CornerRadius="8,8,0,0" Padding="12,8">
                                                 <StackPanel>
                                                     <TextBlock Foreground="White" FontWeight="Bold" FontSize="13">
@@ -595,7 +598,7 @@
                                             </Border>
 
                                             <!-- Tabellen-Kopfzeile -->
-                                            <Grid Background="{StaticResource SurfaceBrush}">
+                                            <Grid Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="26" />
                                                     <ColumnDefinition Width="*" />
@@ -605,26 +608,26 @@
                                                     <ColumnDefinition Width="28" />
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0" Text="#"
-                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            HorizontalAlignment="Center" Padding="6,5,0,5" />
                                                 <TextBlock Grid.Column="1" Text="Team"
-                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            Padding="4,5" />
                                                 <TextBlock Grid.Column="2" Text="Sp"
-                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            HorizontalAlignment="Center" Padding="0,5" />
                                                 <TextBlock Grid.Column="3" Text="Tore"
-                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            HorizontalAlignment="Center" Padding="0,5" />
                                                 <TextBlock Grid.Column="4" Text="Diff"
-                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            HorizontalAlignment="Center" Padding="0,5" />
                                                 <TextBlock Grid.Column="5" Text="Pkt"
-                                                           FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                                           FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            HorizontalAlignment="Center" Padding="0,5,6,5" />
                                             </Grid>
 
-                                            <Rectangle Height="1" Fill="{StaticResource BorderBrush}" />
+                                            <Rectangle Height="1" Fill="{DynamicResource MaterialDesign.Brush.Card.Border}" />
 
                                             <!-- Tabellen-Einträge -->
                                             <ItemsControl ItemsSource="{Binding Rangfolge}"
@@ -644,10 +647,10 @@
                 <DockPanel Visibility="{Binding ZeigtLigaTabelle, Converter={StaticResource BoolToVisibility}}">
 
                     <!-- Ansicht-Tabs (Gesamt/Hinrunde/Rückrunde/Heim/Auswärts, Issue #95) + Tabellenstand-Snapshot (Issue #141) -->
-                    <Border DockPanel.Dock="Top" Background="White"
-                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="16,8">
+                    <Border DockPanel.Dock="Top" Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                            BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="0,0,0,1" Padding="16,8">
                         <StackPanel Orientation="Horizontal">
-                            <Border CornerRadius="{StaticResource Radius6}" Background="{StaticResource SurfaceAltBrush}" Padding="2">
+                            <Border CornerRadius="{StaticResource Radius6}" Background="{DynamicResource MaterialDesign.Brush.Background}" Padding="2">
                                 <StackPanel Orientation="Horizontal">
                                     <Button Content="Gesamt"
                                             Command="{Binding LigaAnsichtWaehlenBefehl}"
@@ -656,13 +659,13 @@
                                         <Button.Style>
                                             <Style TargetType="Button">
                                                 <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                                 <Setter Property="FontWeight" Value="Normal" />
                                                 <Setter Property="BorderThickness" Value="0" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Gesamt}">
-                                                        <Setter Property="Background" Value="White" />
-                                                        <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
+                                                        <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -677,13 +680,13 @@
                                         <Button.Style>
                                             <Style TargetType="Button">
                                                 <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                                 <Setter Property="FontWeight" Value="Normal" />
                                                 <Setter Property="BorderThickness" Value="0" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Hinrunde}">
-                                                        <Setter Property="Background" Value="White" />
-                                                        <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
+                                                        <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -698,13 +701,13 @@
                                         <Button.Style>
                                             <Style TargetType="Button">
                                                 <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                                 <Setter Property="FontWeight" Value="Normal" />
                                                 <Setter Property="BorderThickness" Value="0" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Rueckrunde}">
-                                                        <Setter Property="Background" Value="White" />
-                                                        <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
+                                                        <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -718,13 +721,13 @@
                                         <Button.Style>
                                             <Style TargetType="Button">
                                                 <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                                 <Setter Property="FontWeight" Value="Normal" />
                                                 <Setter Property="BorderThickness" Value="0" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Heimtabelle}">
-                                                        <Setter Property="Background" Value="White" />
-                                                        <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
+                                                        <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -738,13 +741,13 @@
                                         <Button.Style>
                                             <Style TargetType="Button">
                                                 <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                                 <Setter Property="FontWeight" Value="Normal" />
                                                 <Setter Property="BorderThickness" Value="0" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Auswaertstabelle}">
-                                                        <Setter Property="Background" Value="White" />
-                                                        <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
+                                                        <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -757,7 +760,7 @@
                             <!-- Tabellenstand-Snapshot nach Spieltag (Issue #141) -->
                             <StackPanel Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center"
                                         Visibility="{Binding HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="Tabellenstand:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                <TextBlock Text="Tabellenstand:" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                            VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <ComboBox ItemsSource="{Binding TabellenSpieltagOptionen}"
                                           SelectedItem="{Binding TabellenBisSpieltagAuswahl}"
@@ -775,19 +778,19 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
                     <Grid>
                         <TextBlock Text="Noch kein Spielplan generiert. Die Tabelle erscheint, sobald Spiele vorhanden sind."
-                                   Foreground="{StaticResource TextSubtleBrush}" FontSize="13"
+                                   Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="13"
                                    HorizontalAlignment="Center" Margin="16,48"
                                    TextWrapping="Wrap" TextAlignment="Center"
                                    Visibility="{Binding HatLigaTabelleAnzeige, Converter={StaticResource InverseBoolToVisibility}}" />
 
-                        <Border Background="White"
-                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="{StaticResource Radius8}"
+                        <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                                BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" CornerRadius="{StaticResource Radius8}"
                                 VerticalAlignment="Top"
                                 Visibility="{Binding HatLigaTabelleAnzeige, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel>
 
                                 <!-- Tabellen-Kopfzeile -->
-                                <Grid Background="{StaticResource SurfaceBrush}">
+                                <Grid Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="26" />
                                         <ColumnDefinition Width="*" />
@@ -800,35 +803,35 @@
                                         <ColumnDefinition Width="28" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="#"
-                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                               FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                HorizontalAlignment="Center" Padding="6,5,0,5" />
                                     <TextBlock Grid.Column="1" Text="Team"
-                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                               FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                Padding="4,5" />
                                     <TextBlock Grid.Column="2" Text="Sp"
-                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                               FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                HorizontalAlignment="Center" Padding="0,5" />
                                     <TextBlock Grid.Column="3" Text="S"
-                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                               FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                HorizontalAlignment="Center" Padding="0,5" />
                                     <TextBlock Grid.Column="4" Text="U"
-                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                               FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                HorizontalAlignment="Center" Padding="0,5" />
                                     <TextBlock Grid.Column="5" Text="N"
-                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                               FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                HorizontalAlignment="Center" Padding="0,5" />
                                     <TextBlock Grid.Column="6" Text="Tore"
-                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                               FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                HorizontalAlignment="Center" Padding="0,5" />
                                     <TextBlock Grid.Column="7" Text="Diff"
-                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                               FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                HorizontalAlignment="Center" Padding="0,5" />
                                     <TextBlock Grid.Column="8" Text="Pkt"
-                                               FontSize="10" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}"
+                                               FontSize="10" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                HorizontalAlignment="Center" Padding="0,5,6,5" />
                                 </Grid>
 
-                                <Rectangle Height="1" Fill="{StaticResource BorderBrush}" />
+                                <Rectangle Height="1" Fill="{DynamicResource MaterialDesign.Brush.Card.Border}" />
 
                                 <!-- Tabellen-Einträge -->
                                 <ItemsControl ItemsSource="{Binding LigaTabelleAnzeige}">
@@ -848,7 +851,7 @@
                                                 </Grid.ColumnDefinitions>
 
                                                 <TextBlock Grid.Column="0" Text="{Binding Rang}"
-                                                           FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextMutedBrush}"
+                                                           FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="4,6,0,6" />
                                                 <DockPanel Grid.Column="1" Margin="4,6">
                                                     <Grid Width="16" Height="16" DockPanel.Dock="Left" Margin="0,0,5,0">
@@ -864,27 +867,27 @@
                                                                VerticalAlignment="Center" />
                                                 </DockPanel>
                                                 <TextBlock Grid.Column="2" Text="{Binding Spiele}"
-                                                           FontSize="12" Foreground="{StaticResource TextBrush}"
+                                                           FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
                                                 <TextBlock Grid.Column="3" Text="{Binding Siege}"
-                                                           FontSize="12" Foreground="{StaticResource TextBrush}"
+                                                           FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
                                                 <TextBlock Grid.Column="4" Text="{Binding Unentschieden}"
-                                                           FontSize="12" Foreground="{StaticResource TextBrush}"
+                                                           FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
                                                 <TextBlock Grid.Column="5" Text="{Binding Niederlagen}"
-                                                           FontSize="12" Foreground="{StaticResource TextBrush}"
+                                                           FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
                                                 <TextBlock Grid.Column="6"
-                                                           FontSize="12" Foreground="{StaticResource TextBrush}"
+                                                           FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6">
                                                     <Run Text="{Binding Tore}" /><Run Text=":" /><Run Text="{Binding Gegentore}" />
                                                 </TextBlock>
                                                 <TextBlock Grid.Column="7" Text="{Binding Tordifferenz}"
-                                                           FontSize="12" Foreground="{StaticResource TextBrush}"
+                                                           FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6" />
                                                 <TextBlock Grid.Column="8" Text="{Binding Punkte}"
-                                                           FontSize="12" FontWeight="Bold" Foreground="{StaticResource TextStrongBrush}"
+                                                           FontSize="12" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0,6,6,6" />
                                             </Grid>
                                         </DataTemplate>
