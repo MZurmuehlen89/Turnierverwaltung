@@ -14,6 +14,26 @@
         <KeyBinding Key="S" Modifiers="Ctrl" Command="{Binding DataContext.SpeichernBefehl, ElementName=Root}" />
     </UserControl.InputBindings>
 
+    <UserControl.Resources>
+        <!-- Gedämpfter Zelltext (ST/Nr/Gr./Ergebnis-Detail) in den GridView-Spielzeilen: setzt lokal
+             Foreground, was Vererbung vom ListViewItem-Foreground-Trigger überschreibt. Da das native
+             Aero2-Hover-Overlay (siehe Kommentar bei ListView.ItemContainerStyle) nicht abschaltbar ist,
+             muss der Hover-Kontrast hier separat über den geerbten IsMouseOver-Zustand der Zeile
+             (RelativeSource AncestorType=ListViewItem) nachgezogen werden. -->
+        <Style x:Key="SpielplanGedaempfterZellText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsMouseOver}" Value="True" />
+                        <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsSelected}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
     <Grid Background="{DynamicResource MaterialDesign.Brush.Background}"
           TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}">
         <Grid.ColumnDefinitions>
@@ -78,7 +98,10 @@
                      BorderThickness="0" Background="Transparent"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem">
+                    <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
+                         und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
+                         (theme-unabhängig hell) ist und unsere eigenen Trigger-Setter ignoriert. -->
+                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                         <Setter Property="Padding" Value="12,6" />
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         <Style.Triggers>
@@ -367,7 +390,7 @@
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate DataType="{x:Type vm:SpielZeile}">
                                                 <TextBlock Text="{Binding SpieltagAnzeige}"
-                                                           FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
+                                                           FontSize="12" Style="{StaticResource SpielplanGedaempfterZellText}"
                                                            HorizontalAlignment="Center" />
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
@@ -377,7 +400,7 @@
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate DataType="{x:Type vm:SpielZeile}">
                                                 <TextBlock Text="{Binding Spielnummer}"
-                                                           FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
+                                                           FontSize="12" Style="{StaticResource SpielplanGedaempfterZellText}"
                                                            HorizontalAlignment="Center" />
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
@@ -387,7 +410,7 @@
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate DataType="{x:Type vm:SpielZeile}">
                                                 <TextBlock Text="{Binding GruppeAnzeige}"
-                                                           FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
+                                                           FontSize="11" Style="{StaticResource SpielplanGedaempfterZellText}"
                                                            HorizontalAlignment="Center" />
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
@@ -427,12 +450,19 @@
                                                                     <DataTrigger Binding="{Binding HatErgebnis}" Value="True">
                                                                         <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
                                                                     </DataTrigger>
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsMouseOver}" Value="True" />
+                                                                            <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsSelected}" Value="False" />
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
+                                                                    </MultiDataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
                                                         </TextBlock.Style>
                                                     </TextBlock>
                                                     <TextBlock Text="{Binding ErgebnisDetail}"
-                                                               FontSize="10" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
+                                                               FontSize="10" Style="{StaticResource SpielplanGedaempfterZellText}"
                                                                Margin="4,3,0,0" VerticalAlignment="Center" />
                                                 </StackPanel>
                                             </DataTemplate>
@@ -477,6 +507,11 @@
                             </ListView.View>
 
                             <ListView.ItemContainerStyle>
+                                <!-- Kein BasedOn: Diese ListView nutzt GridView (mehrspaltige Zeilen). Das
+                                     MaterialDesign-Implicit-Style für ListViewItem kennt GridView nicht und
+                                     ersetzt den GridViewRowPresenter, wodurch Zeilen nur noch den ToString()
+                                     des ViewModels zeigen. Hover bleibt daher das native (helle) Aero2-Overlay
+                                     — siehe #263 für eine dauerhafte Lösung. -->
                                 <Style TargetType="ListViewItem">
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                     <Setter Property="Padding" Value="0,4" />
@@ -499,6 +534,16 @@
                                             <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
                                             <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                                         </Trigger>
+                                        <MultiTrigger>
+                                            <MultiTrigger.Conditions>
+                                                <Condition Property="IsMouseOver" Value="True" />
+                                                <Condition Property="IsSelected" Value="False" />
+                                            </MultiTrigger.Conditions>
+                                            <!-- Native Aero2-Hover-Overlay (siehe Kommentar oben) lässt sich per Trigger nicht
+                                                 abschalten — Foreground wird aber trotzdem über den Content-TemplateBinding
+                                                 respektiert, daher hier auf die alte, für Hellflächen gedachte Textfarbe gepinnt. -->
+                                            <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
+                                        </MultiTrigger>
                                     </Style.Triggers>
                                 </Style>
                             </ListView.ItemContainerStyle>
@@ -583,14 +628,14 @@
                                         <GridViewColumn Header="ST" Width="44">
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                                    <TextBlock Text="{Binding SpieltagAnzeige}" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding SpieltagAnzeige}" FontSize="12" Style="{StaticResource SpielplanGedaempfterZellText}" HorizontalAlignment="Center" />
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>
                                         </GridViewColumn>
                                         <GridViewColumn Header="Nr" Width="36">
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate DataType="{x:Type vm:SpielZeile}">
-                                                    <TextBlock Text="{Binding Spielnummer}" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Spielnummer}" FontSize="12" Style="{StaticResource SpielplanGedaempfterZellText}" HorizontalAlignment="Center" />
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>
                                         </GridViewColumn>
@@ -624,11 +669,18 @@
                                                                         <DataTrigger Binding="{Binding HatErgebnis}" Value="True">
                                                                             <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
                                                                         </DataTrigger>
+                                                                        <MultiDataTrigger>
+                                                                            <MultiDataTrigger.Conditions>
+                                                                                <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsMouseOver}" Value="True" />
+                                                                                <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsSelected}" Value="False" />
+                                                                            </MultiDataTrigger.Conditions>
+                                                                            <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
+                                                                        </MultiDataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
                                                             </TextBlock.Style>
                                                         </TextBlock>
-                                                        <TextBlock Text="{Binding ErgebnisDetail}" FontSize="10" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="4,3,0,0" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding ErgebnisDetail}" FontSize="10" Style="{StaticResource SpielplanGedaempfterZellText}" Margin="4,3,0,0" VerticalAlignment="Center" />
                                                     </StackPanel>
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>
@@ -665,6 +717,11 @@
                                     </GridView>
                                 </ListView.View>
                                 <ListView.ItemContainerStyle>
+                                    <!-- Kein BasedOn: Diese ListView nutzt GridView (mehrspaltige Zeilen). Das
+                                         MaterialDesign-Implicit-Style für ListViewItem kennt GridView nicht und
+                                         ersetzt den GridViewRowPresenter, wodurch Zeilen nur noch den ToString()
+                                         des ViewModels zeigen. Hover bleibt daher das native (helle) Aero2-Overlay
+                                         — siehe #263 für eine dauerhafte Lösung. -->
                                     <Style TargetType="ListViewItem">
                                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                         <Setter Property="Padding" Value="0,4" />
@@ -687,6 +744,16 @@
                                                 <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                                             </Trigger>
+                                            <MultiTrigger>
+                                                <MultiTrigger.Conditions>
+                                                    <Condition Property="IsMouseOver" Value="True" />
+                                                    <Condition Property="IsSelected" Value="False" />
+                                                </MultiTrigger.Conditions>
+                                                <!-- Native Aero2-Hover-Overlay (siehe Kommentar oben) lässt sich per Trigger nicht
+                                                     abschalten — Foreground wird aber trotzdem über den Content-TemplateBinding
+                                                     respektiert, daher hier auf die alte, für Hellflächen gedachte Textfarbe gepinnt. -->
+                                                <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
+                                            </MultiTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </ListView.ItemContainerStyle>

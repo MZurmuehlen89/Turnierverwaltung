@@ -4,7 +4,56 @@
         Title="Rangliste aus dem Internet importieren"
         Width="840" Height="640"
         WindowStartupLocation="CenterOwner"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        Background="{DynamicResource MaterialDesign.Brush.Background}"
+        Foreground="{DynamicResource MaterialDesign.Brush.Foreground}">
+
+    <Window.Resources>
+        <Style x:Key="ImportGridColumnHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Background}" />
+            <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Card.Border}" />
+            <Setter Property="BorderThickness" Value="0,0,1,0" />
+        </Style>
+
+        <Style x:Key="ImportGridRowStyle" TargetType="DataGridRow">
+            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.DataGrid.Selected}" />
+                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
+                </Trigger>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="IsMouseOver" Value="True" />
+                        <Condition Property="IsSelected" Value="False" />
+                    </MultiTrigger.Conditions>
+                    <!-- Card.Border ist als Hover-Fläche heller als die geerbte helle Dark-Theme-Textfarbe verträgt
+                         (weiß auf hell) — Foreground hier auf die alte, für Hellflächen gedachte Textfarbe gepinnt. -->
+                    <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Border}" />
+                    <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
+                </MultiTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ImportGridCellStyle" TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
 
     <DockPanel Margin="16">
 
@@ -73,7 +122,17 @@
             <DockPanel Grid.Row="0">
                 <TextBlock DockPanel.Dock="Top" Text="Automatisch zugeordnet" FontWeight="SemiBold" Margin="0,0,0,4" />
                 <DataGrid ItemsSource="{Binding Aufgeloest}" AutoGenerateColumns="False"
-                          CanUserAddRows="False" IsReadOnly="True" HeadersVisibility="Column" RowHeight="26" FontSize="12">
+                          CanUserAddRows="False" IsReadOnly="True"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="{DynamicResource MaterialDesign.Brush.DataGrid.Border}"
+                          HeadersVisibility="Column"
+                          AlternatingRowBackground="{DynamicResource MaterialDesign.Brush.Card.Border}"
+                          Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                          BorderThickness="0"
+                          RowHeight="26" FontSize="12"
+                          ColumnHeaderStyle="{StaticResource ImportGridColumnHeaderStyle}"
+                          RowStyle="{StaticResource ImportGridRowStyle}"
+                          CellStyle="{StaticResource ImportGridCellStyle}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Quellname" Binding="{Binding Quelle.RohName}" Width="*" />
                         <DataGridTextColumn Header="Mannschaft" Binding="{Binding Mannschaft.Name}" Width="*" />
@@ -85,7 +144,17 @@
             <DockPanel Grid.Row="2">
                 <TextBlock DockPanel.Dock="Top" Text="Nicht erkannt — bitte zuordnen oder überspringen" FontWeight="SemiBold" Margin="0,0,0,4" />
                 <DataGrid ItemsSource="{Binding Unaufgeloest}" AutoGenerateColumns="False"
-                          CanUserAddRows="False" HeadersVisibility="Column" RowHeight="30" FontSize="12">
+                          CanUserAddRows="False"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="{DynamicResource MaterialDesign.Brush.DataGrid.Border}"
+                          HeadersVisibility="Column"
+                          AlternatingRowBackground="{DynamicResource MaterialDesign.Brush.Card.Border}"
+                          Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                          BorderThickness="0"
+                          RowHeight="30" FontSize="12"
+                          ColumnHeaderStyle="{StaticResource ImportGridColumnHeaderStyle}"
+                          RowStyle="{StaticResource ImportGridRowStyle}"
+                          CellStyle="{StaticResource ImportGridCellStyle}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Quellname" Binding="{Binding Quelle.RohName}" Width="*" IsReadOnly="True" />
                         <DataGridTextColumn Header="Punkte" Binding="{Binding Quelle.Punkte}" Width="80" IsReadOnly="True" />

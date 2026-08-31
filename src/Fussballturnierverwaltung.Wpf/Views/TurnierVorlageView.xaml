@@ -1,7 +1,8 @@
 <UserControl x:Class="Fussballturnierverwaltung.Wpf.Views.TurnierVorlageView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:conv="clr-namespace:Fussballturnierverwaltung.Wpf.Converters">
+             xmlns:conv="clr-namespace:Fussballturnierverwaltung.Wpf.Converters"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
 
     <UserControl.Resources>
         <conv:VorlagenKategorieZuTextConverter x:Key="KategorieZuText" />
@@ -9,27 +10,31 @@
 
         <!-- Von den Vorlagen-DataGrids (Runden, Übergangsregeln) gemeinsam genutzte Styles -->
         <Style x:Key="VorlagenGridColumnHeaderStyle" TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="{StaticResource BorderBrush}" />
-            <Setter Property="Foreground" Value="#374151" />
+            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Background}" />
+            <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="Padding" Value="8,5" />
-            <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Card.Border}" />
             <Setter Property="BorderThickness" Value="0,0,1,0" />
         </Style>
 
         <Style x:Key="VorlagenGridRowStyle" TargetType="DataGridRow">
+            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#DBEAFE" />
-                    <Setter Property="Foreground" Value="{StaticResource AccentDarkBrush}" />
+                    <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.DataGrid.Selected}" />
+                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                 </Trigger>
                 <MultiTrigger>
                     <MultiTrigger.Conditions>
                         <Condition Property="IsMouseOver" Value="True" />
                         <Condition Property="IsSelected" Value="False" />
                     </MultiTrigger.Conditions>
-                    <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                    <!-- Card.Border ist als Hover-Fläche heller als die geerbte helle Dark-Theme-Textfarbe verträgt
+                         (weiß auf hell) — Foreground hier auf die alte, für Hellflächen gedachte Textfarbe gepinnt. -->
+                    <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Border}" />
+                    <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
                 </MultiTrigger>
             </Style.Triggers>
         </Style>
@@ -50,7 +55,8 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid>
+    <Grid Background="{DynamicResource MaterialDesign.Brush.Background}"
+          TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="260" MinWidth="200" MaxWidth="380" />
             <ColumnDefinition Width="4" />
@@ -62,39 +68,21 @@
         </Grid.ColumnDefinitions>
 
         <!-- ── Linke Spalte: Filter + Liste ── -->
-        <DockPanel Grid.Column="0" Background="{StaticResource SurfaceBrush}">
+        <DockPanel Grid.Column="0" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
 
             <!-- Suchfeld -->
-            <Border DockPanel.Dock="Top" Background="White"
-                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8,6">
+            <Border DockPanel.Dock="Top" Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                    BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="0,0,0,1" Padding="8,6">
                 <TextBox Text="{Binding Suchbegriff, UpdateSourceTrigger=PropertyChanged}"
+                         materialDesign:HintAssist.Hint="🔍  Suchen …"
+                         materialDesign:HintAssist.IsFloating="False"
                          Padding="6,4" FontSize="13"
-                         BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1">
-                    <TextBox.Style>
-                        <Style TargetType="TextBox">
-                            <Style.Triggers>
-                                <Trigger Property="Text" Value="">
-                                    <Setter Property="Background">
-                                        <Setter.Value>
-                                            <VisualBrush Stretch="None" AlignmentX="Left">
-                                                <VisualBrush.Visual>
-                                                    <TextBlock Text="🔍  Suchen …"
-                                                               Foreground="#9CA3AF" Margin="8,4"
-                                                               FontSize="13" />
-                                                </VisualBrush.Visual>
-                                            </VisualBrush>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBox.Style>
-                </TextBox>
+                         BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" />
             </Border>
 
             <!-- Kategorie-Filter -->
-            <Border DockPanel.Dock="Top" Background="White"
-                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8,6">
+            <Border DockPanel.Dock="Top" Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                    BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="0,0,0,1" Padding="8,6">
                 <ComboBox ItemsSource="{Binding KategorieFilterOptionen}"
                           SelectedItem="{Binding KategorieFilter}"
                           DisplayMemberPath="Anzeige"
@@ -112,13 +100,16 @@
                      BorderThickness="0" Background="Transparent"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem">
+                    <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
+                         und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
+                         (theme-unabhängig hell) ist und unsere eigenen Trigger-Setter ignoriert. -->
+                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                         <Setter Property="Padding" Value="12,8" />
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         <Style.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
-                                <Setter Property="Foreground" Value="{StaticResource AccentStrongBrush}" />
+                                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.ListBoxItem.Selected}" />
+                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>
@@ -138,11 +129,11 @@
                                 <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{Binding VorlagenKategorie, Converter={StaticResource KategorieZuText}}"
-                                               FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
-                                    <TextBlock Text=" · " FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
+                                               FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
+                                    <TextBlock Text=" · " FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                     <TextBlock Text="{Binding ErforderlicheMannschaftsanzahl, StringFormat='{}{0} Teams'}"
-                                               FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
-                                    <TextBlock FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
+                                    <TextBlock FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                Visibility="{Binding IstHistorisch, Converter={StaticResource BoolToVisibility}}">
                                         <Run Text=" · " /><Run Text="historisch" />
                                     </TextBlock>
@@ -155,7 +146,7 @@
         </DockPanel>
 
         <!-- Trennlinie -->
-        <Border Grid.Column="1" Background="{StaticResource BorderBrush}" />
+        <Border Grid.Column="1" Background="{DynamicResource MaterialDesign.Brush.Card.Border}" />
 
         <!-- ── Rechte Spalte: Formular ── -->
         <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
@@ -163,19 +154,19 @@
 
                 <!-- Platzhalter wenn kein Formular -->
                 <TextBlock Text="Wählen Sie eine Turniervorlage aus oder legen Sie eine neue an."
-                           Foreground="{StaticResource TextSubtleBrush}" FontSize="14" TextWrapping="Wrap"
+                           Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="14" TextWrapping="Wrap"
                            Visibility="{Binding FormularAktiv, Converter={StaticResource InverseBoolToVisibility}}" />
 
                 <StackPanel Visibility="{Binding FormularAktiv, Converter={StaticResource BoolToVisibility}}">
 
                     <!-- BASISDATEN -->
                     <TextBlock Text="BASISDATEN" FontSize="11" FontWeight="Bold"
-                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,8" />
+                               Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,0,0,8" />
 
                     <!-- Logo -->
                     <DockPanel Margin="0,0,0,16">
                         <Grid Width="64" Height="64" DockPanel.Dock="Left" Margin="0,0,16,0">
-                            <Border Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" />
+                            <Border Background="{DynamicResource MaterialDesign.Brush.Background}" BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" />
                             <Image Source="{Binding LogoDaten, Converter={StaticResource BildDatenZuBildquelle}}"
                                    Visibility="{Binding LogoDaten, Converter={StaticResource NullToCollapsed}}"
                                    Stretch="Uniform" Margin="4" />
@@ -192,33 +183,33 @@
                         </StackPanel>
                     </DockPanel>
 
-                    <TextBlock Text="Name" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
+                    <TextBlock Text="Name" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" Margin="0,0,0,4" />
                     <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
                              Padding="8,6" FontSize="13" Margin="0,0,0,12"
-                             BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
+                             BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" />
 
-                    <TextBlock Text="Beschreibung" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
+                    <TextBlock Text="Beschreibung" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" Margin="0,0,0,4" />
                     <TextBox Text="{Binding Beschreibung, UpdateSourceTrigger=PropertyChanged}"
                              Padding="8,6" FontSize="13" Margin="0,0,0,12"
                              AcceptsReturn="True" TextWrapping="Wrap" Height="72"
                              VerticalScrollBarVisibility="Auto"
-                             BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
+                             BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" />
 
                     <!-- TURNIER-EINSTELLUNGEN -->
                     <TextBlock Text="TURNIER-EINSTELLUNGEN" FontSize="11" FontWeight="Bold"
-                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,8,0,8" />
+                               Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,8,0,8" />
 
-                    <TextBlock Text="Kategorie" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
+                    <TextBlock Text="Kategorie" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" Margin="0,0,0,4" />
                     <ComboBox ItemsSource="{Binding KategorieOptionen}"
                               SelectedItem="{Binding AusgewaehlteKategorie}"
                               DisplayMemberPath="Anzeige"
                               FontSize="13" Margin="0,0,0,12" />
 
-                    <TextBlock Text="Erforderliche Mannschaftsanzahl" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
+                    <TextBlock Text="Erforderliche Mannschaftsanzahl" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" Margin="0,0,0,4" />
                     <TextBox Text="{Binding AnzahlMannschaften, UpdateSourceTrigger=PropertyChanged}"
                              Padding="8,6" FontSize="13" Margin="0,0,0,12" Width="120"
                              HorizontalAlignment="Left"
-                             BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
+                             BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" />
 
                     <CheckBox Content="Historisch (abgeschlossene Edition)"
                               IsChecked="{Binding IstHistorisch}"
@@ -226,7 +217,7 @@
 
                     <!-- GÜLTIGKEIT -->
                     <TextBlock Text="GÜLTIGKEIT" FontSize="11" FontWeight="Bold"
-                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,8" />
+                               Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,0,0,8" />
 
                     <Grid Margin="0,0,0,24">
                         <Grid.ColumnDefinitions>
@@ -235,16 +226,16 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="Gültig von (Jahr)" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
+                            <TextBlock Text="Gültig von (Jahr)" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" Margin="0,0,0,4" />
                             <TextBox Text="{Binding GueltigVon, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="8,6" FontSize="13"
-                                     BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
+                                     BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="Gültig bis (Jahr)" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
+                            <TextBlock Text="Gültig bis (Jahr)" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" Margin="0,0,0,4" />
                             <TextBox Text="{Binding GueltigBis, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="8,6" FontSize="13"
-                                     BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
+                                     BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" />
                         </StackPanel>
                     </Grid>
 
@@ -269,7 +260,7 @@
                                     Cursor="Hand" />
                         </StackPanel>
                         <TextBlock Text="TURNIERRUNDEN" FontSize="11" FontWeight="Bold"
-                                   Foreground="{StaticResource TextSubtleBrush}" VerticalAlignment="Center" />
+                                   Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" VerticalAlignment="Center" />
                     </DockPanel>
 
                     <DataGrid x:Name="RundenGrid"
@@ -280,11 +271,11 @@
                               CanUserDeleteRows="False"
                               CanUserResizeRows="False"
                               GridLinesVisibility="Horizontal"
-                              HorizontalGridLinesBrush="{StaticResource BorderBrush}"
+                              HorizontalGridLinesBrush="{DynamicResource MaterialDesign.Brush.DataGrid.Border}"
                               HeadersVisibility="Column"
-                              AlternatingRowBackground="{StaticResource SurfaceBrush}"
-                              Background="White"
-                              BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                              AlternatingRowBackground="{DynamicResource MaterialDesign.Brush.Card.Border}"
+                              Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                              BorderThickness="0"
                               RowHeight="28"
                               FontSize="12"
                               Margin="0,0,0,16"
@@ -401,14 +392,14 @@
                                     Cursor="Hand" />
                         </StackPanel>
                         <TextBlock Text="ÜBERGANGSREGELN" FontSize="11" FontWeight="Bold"
-                                   Foreground="{StaticResource TextSubtleBrush}" VerticalAlignment="Center" />
+                                   Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" VerticalAlignment="Center" />
                     </DockPanel>
 
                     <TextBlock Text="Definiert, welche Platzierungen einer Runde in welche Folgerunde übergehen. Wird beim Laden dieser Vorlage im Runden-Editor automatisch in echte Übergangsregeln zwischen den neu angelegten Runden übersetzt. Zeigt nur die Regeln der oben in der Runden-Tabelle ausgewählten Runde (als Quelle oder Ziel)."
-                               FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                               FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" TextWrapping="Wrap" Margin="0,0,0,8" />
 
                     <TextBlock Text="Wählen Sie oben eine Runde aus, um deren Übergangsregeln zu sehen."
-                               FontSize="12" Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,16"
+                               FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,0,0,16"
                                Visibility="{Binding KeineRundeFokussiert, Converter={StaticResource BoolToVisibility}}" />
 
                     <DataGrid x:Name="UebergangsregelGrid"
@@ -420,11 +411,11 @@
                               CanUserDeleteRows="False"
                               CanUserResizeRows="False"
                               GridLinesVisibility="Horizontal"
-                              HorizontalGridLinesBrush="{StaticResource BorderBrush}"
+                              HorizontalGridLinesBrush="{DynamicResource MaterialDesign.Brush.DataGrid.Border}"
                               HeadersVisibility="Column"
-                              AlternatingRowBackground="{StaticResource SurfaceBrush}"
-                              Background="White"
-                              BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                              AlternatingRowBackground="{DynamicResource MaterialDesign.Brush.Card.Border}"
+                              Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                              BorderThickness="0"
                               RowHeight="28"
                               FontSize="12"
                               Margin="0,0,0,16"
@@ -523,12 +514,12 @@
              dauerhaft am rechten Rand, damit sie bei einem langen Formular nicht erst durch Scrollen
              sichtbar werden (siehe TurnierVorlageViewModel.AktualisiereStrukturFehler). -->
         <GridSplitter Grid.Column="3" Width="4" HorizontalAlignment="Stretch"
-                      Background="{StaticResource BorderBrush}"
+                      Background="{DynamicResource MaterialDesign.Brush.Card.Border}"
                       Visibility="{Binding ZeigeMeldungsSpalte, Converter={StaticResource BoolToVisibility}}" />
 
         <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto"
                       Visibility="{Binding ZeigeMeldungsSpalte, Converter={StaticResource BoolToVisibility}}">
-            <StackPanel Margin="8,10,8,8" Background="{StaticResource SurfaceBrush}">
+            <StackPanel Margin="8,10,8,8" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
 
                 <!-- Fehlermeldung -->
                 <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"

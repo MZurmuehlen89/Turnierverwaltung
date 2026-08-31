@@ -134,7 +134,10 @@
                                     <Condition Property="IsMouseOver" Value="True" />
                                     <Condition Property="IsSelected" Value="False" />
                                 </MultiTrigger.Conditions>
+                                <!-- Card.Border ist als Hover-Fläche heller als die geerbte helle Dark-Theme-Textfarbe verträgt
+                                     (weiß auf hell) — Foreground hier auf die alte, für Hellflächen gedachte Textfarbe gepinnt. -->
                                 <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Border}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
                             </MultiTrigger>
                         </Style.Triggers>
                     </Style>
