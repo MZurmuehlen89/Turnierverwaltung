@@ -1,5 +1,6 @@
 using ControlzEx.Theming;
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Einstellungen;
 using Fussballturnierverwaltung.Application.ImportExport;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Ranglisten.Import;
@@ -13,6 +14,7 @@ using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Infrastructure.Erweiterungen;
 using Fussballturnierverwaltung.Infrastructure.Seed;
+using Fussballturnierverwaltung.Wpf.Helpers;
 using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -168,6 +170,8 @@ public partial class App
         builder.Services.AddTransient<TurnierDurchfuehrungViewModel>();
 
         // Navigation & Hauptfenster
+        builder.Services.AddSingleton<EinstellungenService>();
+        builder.Services.AddSingleton<ThemeService>();
         builder.Services.AddSingleton<AusgewaehlteTurnierInstanzService>();
         builder.Services.AddSingleton<INavigationService, NavigationService>();
         builder.Services.AddSingleton<MainViewModel>();
@@ -182,11 +186,11 @@ public partial class App
             await seed.InitialisierenAsync();
         }
 
-        // Dark Theme (Issue #3/#257): Fluent.Ribbon/ControlzEx bringen eigene, fertige Dark-Themes
-        // mit ("Dark.Blue" passt farblich zur MaterialDesign-PrimaryColor="Blue" der Content-Views).
-        // App-weit statt am Window gesetzt, damit auch künftig geöffnete Dialoge (separate Windows)
-        // die Ribbon-Chrome konsistent dunkel bekommen.
-        ThemeManager.Current.ChangeTheme(this, "Dark.Blue");
+        // Hell/Dunkel umschaltbar (Issue #268): ThemeService setzt MaterialDesign-PaletteHelper
+        // (eigene Views) und Fluent.Ribbon/ControlzEx-ThemeManager (Ribbon-Chrome) synchron auf den
+        // zuletzt gespeicherten Modus. App-weit statt am Window gesetzt, damit auch künftig geöffnete
+        // Dialoge (separate Windows) die Ribbon-Chrome konsistent mitbekommen.
+        _host.Services.GetRequiredService<ThemeService>().AnwendenAusEinstellungen(this);
 
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
         mainWindow.Show();

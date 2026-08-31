@@ -161,6 +161,14 @@
             <!-- Dauerhafter Tab — immer sichtbar -->
             <fluent:RibbonTabItem x:Name="StartTab" Header="Start">
                 <fluent:RibbonGroupBox Header="Anwendung">
+                    <fluent:ToggleButton Header="Helles Design"
+                                         IsChecked="{Binding IstHellModus, Mode=OneWay}"
+                                         Command="{Binding ThemeUmschaltenCommand}"
+                                         SizeDefinition="Middle">
+                        <fluent:ToggleButton.Icon>
+                            <TextBlock Text="&#xE706;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
+                        </fluent:ToggleButton.Icon>
+                    </fluent:ToggleButton>
                     <fluent:Button Header="Beenden"
                                    SizeDefinition="Middle"
                                    Click="BeendenButton_Click">

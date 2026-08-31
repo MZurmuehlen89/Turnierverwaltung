@@ -7,11 +7,13 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="pack://application:,,,/Fluent;component/Themes/Generic.xaml" />
-                <!-- Dark Theme (Issue #3/#257): MaterialDesignInXaml liefert Default-Styles für alle
+                <!-- Theme (Issue #3/#257): MaterialDesignInXaml liefert Default-Styles für alle
                      Standard-Controls (Button/ComboBox/TextBox/DataGrid/...), erprobt im isolierten
                      Mannschaften-Prototyp. Nach Fluent.Ribbon gemerged, damit Ribbon-eigene Typen
                      (RibbonButton etc.) unangetastet bleiben; MaterialDesign deckt nur, was Fluent
-                     nicht selbst stylt (also plain Button/ComboBox/TextBox in unseren eigenen Views). -->
+                     nicht selbst stylt (also plain Button/ComboBox/TextBox in unseren eigenen Views).
+                     BaseTheme="Dark" ist nur der Compile-Zeit-Startwert — ThemeService.AnwendenAusEinstellungen
+                     überschreibt ihn beim App-Start sofort mit dem gespeicherten Modus (Issue #268). -->
                 <materialDesign:BundledTheme BaseTheme="Dark" PrimaryColor="Blue" SecondaryColor="Lime" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign2.Defaults.xaml" />
                 <ResourceDictionary Source="Resources/Colors.xaml" />

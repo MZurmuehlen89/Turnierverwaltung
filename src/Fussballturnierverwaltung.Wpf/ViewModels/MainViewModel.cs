@@ -1,5 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Domain.Enums;
+using Fussballturnierverwaltung.Wpf.Helpers;
 using Fussballturnierverwaltung.Wpf.Navigation;
 using Fussballturnierverwaltung.Wpf.Ribbon;
 using System.Collections.ObjectModel;
@@ -11,6 +13,10 @@ namespace Fussballturnierverwaltung.Wpf.ViewModels;
 public partial class MainViewModel : ViewModelBase
 {
     private readonly INavigationService _navigation;
+    private readonly ThemeService _themeService;
+
+    [ObservableProperty]
+    private bool _istHellModus;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatRibbonBereich))]
@@ -40,9 +46,12 @@ public partial class MainViewModel : ViewModelBase
 
     public ObservableCollection<NavigationsGruppe> NavigationsGruppen { get; } = [];
 
-    public MainViewModel(INavigationService navigation)
+    public MainViewModel(INavigationService navigation, ThemeService themeService)
     {
         _navigation = navigation;
+        _themeService = themeService;
+        _istHellModus = _themeService.AktuellerModus == ThemeModus.Hell;
+
         _navigation.AktuellesViewModelGeaendert += (_, _) =>
         {
             if (AktuellesViewModel is not null)
@@ -85,6 +94,13 @@ public partial class MainViewModel : ViewModelBase
                 EintragErstellen("Import / Export",   () => _navigation.NavigiereZuAsync<ImportExportViewModel>()),
             ]
         });
+    }
+
+    [RelayCommand]
+    private void ThemeUmschalten()
+    {
+        _themeService.Umschalten(System.Windows.Application.Current);
+        IstHellModus = _themeService.AktuellerModus == ThemeModus.Hell;
     }
 
     private void OnAktuellesViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
