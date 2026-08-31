@@ -15,22 +15,12 @@
     </UserControl.InputBindings>
 
     <UserControl.Resources>
-        <!-- Gedämpfter Zelltext (ST/Nr/Gr./Ergebnis-Detail) in den GridView-Spielzeilen: setzt lokal
-             Foreground, was Vererbung vom ListViewItem-Foreground-Trigger überschreibt. Da das native
-             Aero2-Hover-Overlay (siehe Kommentar bei ListView.ItemContainerStyle) nicht abschaltbar ist,
-             muss der Hover-Kontrast hier separat über den geerbten IsMouseOver-Zustand der Zeile
-             (RelativeSource AncestorType=ListViewItem) nachgezogen werden. -->
+        <!-- Gedämpfter Zelltext (ST/Nr/Gr./Ergebnis-Detail) in den GridView-Spielzeilen: statt eines
+             lokalen Foreground (bricht Vererbung vom ListViewItem-Foreground-Trigger, siehe Issue #264)
+             bleibt Foreground geerbt und nur Opacity reduziert — folgt damit automatisch Hover/Selected
+             der Zeile, ohne separaten Hover-Trigger. -->
         <Style x:Key="SpielplanGedaempfterZellText" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
-            <Style.Triggers>
-                <MultiDataTrigger>
-                    <MultiDataTrigger.Conditions>
-                        <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsMouseOver}" Value="True" />
-                        <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsSelected}" Value="False" />
-                    </MultiDataTrigger.Conditions>
-                    <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
-                </MultiDataTrigger>
-            </Style.Triggers>
+            <Setter Property="Opacity" Value="0.60" />
         </Style>
     </UserControl.Resources>
 
@@ -445,18 +435,11 @@
                                                                FontFamily="Consolas">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
+                                                                <Setter Property="Opacity" Value="0.60" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding HatErgebnis}" Value="True">
-                                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
+                                                                        <Setter Property="Opacity" Value="1" />
                                                                     </DataTrigger>
-                                                                    <MultiDataTrigger>
-                                                                        <MultiDataTrigger.Conditions>
-                                                                            <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsMouseOver}" Value="True" />
-                                                                            <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsSelected}" Value="False" />
-                                                                        </MultiDataTrigger.Conditions>
-                                                                        <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
-                                                                    </MultiDataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
                                                         </TextBlock.Style>
@@ -664,18 +647,11 @@
                                                                    FontSize="14" FontWeight="Bold" FontFamily="Consolas">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">
-                                                                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
+                                                                    <Setter Property="Opacity" Value="0.60" />
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding HatErgebnis}" Value="True">
-                                                                            <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
+                                                                            <Setter Property="Opacity" Value="1" />
                                                                         </DataTrigger>
-                                                                        <MultiDataTrigger>
-                                                                            <MultiDataTrigger.Conditions>
-                                                                                <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsMouseOver}" Value="True" />
-                                                                                <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsSelected}" Value="False" />
-                                                                            </MultiDataTrigger.Conditions>
-                                                                            <Setter Property="Foreground" Value="{StaticResource TextStrongBrush}" />
-                                                                        </MultiDataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
                                                             </TextBlock.Style>

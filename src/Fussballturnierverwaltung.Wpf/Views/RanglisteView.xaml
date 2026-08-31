@@ -98,9 +98,9 @@
                                        TextTrimming="CharacterEllipsis" />
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{Binding Datum, StringFormat=yyyy-MM-dd}"
-                                           FontSize="10" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,0,8,0" />
+                                           FontSize="10" Opacity="0.60" Margin="0,0,8,0" />
                                 <TextBlock Text="{Binding Eintraege.Count, StringFormat={}{0} Einträge}"
-                                           FontSize="10" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
+                                           FontSize="10" Opacity="0.60" />
                             </StackPanel>
                         </StackPanel>
                     </DataTemplate>

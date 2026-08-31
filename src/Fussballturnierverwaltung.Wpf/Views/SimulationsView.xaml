@@ -55,10 +55,10 @@
                         <DataTemplate DataType="{x:Type vm:SpielZeile}">
                             <TextBlock FontSize="12" TextTrimming="CharacterEllipsis">
                                 <Run Text="{Binding HeimName}" />
-                                <Run Text=" – " Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
+                                <Run Text=" – " />
                                 <Run Text="{Binding AuswaertsName}" />
                                 <Run Text=" " />
-                                <Run Text="{Binding ErgebnisText}" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontFamily="Consolas" />
+                                <Run Text="{Binding ErgebnisText}" FontFamily="Consolas" />
                             </TextBlock>
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
