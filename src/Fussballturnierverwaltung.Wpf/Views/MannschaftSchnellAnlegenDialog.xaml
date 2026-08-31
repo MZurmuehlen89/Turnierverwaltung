@@ -4,7 +4,9 @@
         Title="Neue Mannschaft anlegen"
         Width="420" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        Background="{DynamicResource MaterialDesign.Brush.Background}"
+        Foreground="{DynamicResource MaterialDesign.Brush.Foreground}">
 
     <StackPanel Margin="16">
 
@@ -35,15 +37,15 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Offensiv" FontSize="11" Foreground="Gray" Margin="0,0,0,2" />
+                <TextBlock Text="Offensiv" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,0,0,2" />
                 <TextBox x:Name="OffensivBox" Text="60" Padding="6,4" />
             </StackPanel>
             <StackPanel Grid.Column="2">
-                <TextBlock Text="Mittelfeld" FontSize="11" Foreground="Gray" Margin="0,0,0,2" />
+                <TextBlock Text="Mittelfeld" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,0,0,2" />
                 <TextBox x:Name="MittelfeldBox" Text="60" Padding="6,4" />
             </StackPanel>
             <StackPanel Grid.Column="4">
-                <TextBlock Text="Defensiv" FontSize="11" Foreground="Gray" Margin="0,0,0,2" />
+                <TextBlock Text="Defensiv" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,0,0,2" />
                 <TextBox x:Name="DefensivBox" Text="60" Padding="6,4" />
             </StackPanel>
         </Grid>
@@ -55,11 +57,11 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Heimstärke" FontSize="11" Foreground="Gray" Margin="0,0,0,2" />
+                <TextBlock Text="Heimstärke" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,0,0,2" />
                 <TextBox x:Name="HeimstaerkeBox" Text="60" Padding="6,4" />
             </StackPanel>
             <StackPanel Grid.Column="2">
-                <TextBlock Text="Auswärtsstärke" FontSize="11" Foreground="Gray" Margin="0,0,0,2" />
+                <TextBlock Text="Auswärtsstärke" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,0,0,2" />
                 <TextBox x:Name="AuswaertsstaerkeBox" Text="60" Padding="6,4" />
             </StackPanel>
         </Grid>

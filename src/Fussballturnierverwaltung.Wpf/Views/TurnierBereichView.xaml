@@ -3,15 +3,16 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="clr-namespace:Fussballturnierverwaltung.Wpf.Views">
 
-    <DockPanel>
+    <DockPanel Background="{DynamicResource MaterialDesign.Brush.Background}"
+               TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}">
 
         <!-- ── Fortschrittsanzeige (Turnier-Auswahl selbst kommt jetzt aus der äußeren
              Kopfzeile der Turnierdurchführung-Seite, siehe TurnierDurchfuehrungView) ── -->
-        <Border DockPanel.Dock="Top" Background="White"
-                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="12,8"
+        <Border DockPanel.Dock="Top" Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="0,0,0,1" Padding="12,8"
                 Visibility="{Binding FortschrittAnzeige, Converter={StaticResource NullToCollapsed}}">
             <TextBlock Text="{Binding FortschrittAnzeige}"
-                       FontSize="12" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                       FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" VerticalAlignment="Center" />
         </Border>
 
         <!-- ── Split-Ansicht: Spielplan links | Turnierbaum rechts (entfaellt bei nur einer Runde) ──
@@ -37,7 +38,7 @@
                 </views:SpielplanView.Style>
             </views:SpielplanView>
 
-            <Border Grid.Column="1" Background="{StaticResource BorderBrush}"
+            <Border Grid.Column="1" Background="{DynamicResource MaterialDesign.Brush.Card.Border}"
                     Visibility="{Binding ZeigeSplitAnsicht, Converter={StaticResource BoolToVisibility}}" />
 
             <views:TurnierBaumView Grid.Column="2" DataContext="{Binding TurnierBaumVm}"

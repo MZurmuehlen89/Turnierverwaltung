@@ -7,7 +7,8 @@
         <conv:RundenartZuTextConverter x:Key="RundenartZuText" />
     </UserControl.Resources>
 
-    <Grid>
+    <Grid Background="{DynamicResource MaterialDesign.Brush.Background}"
+          TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="220" MinWidth="160" MaxWidth="300" />
             <ColumnDefinition Width="4" />
@@ -25,17 +26,17 @@
             <!-- Placeholder wenn kein Turnier -->
             <TextBlock DockPanel.Dock="Top"
                        Text="Turnier auswählen"
-                       Foreground="{StaticResource TextSubtleBrush}" FontSize="13" TextWrapping="Wrap"
+                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="13" TextWrapping="Wrap"
                        Margin="12,60,12,0" TextAlignment="Center"
                        Visibility="{Binding KeinTurnierGewaehlt, Converter={StaticResource BoolToVisibility}}" />
 
             <!-- Vorlage laden (nur wenn Turnier gewählt) -->
-            <Border DockPanel.Dock="Top" Background="{StaticResource SurfaceBrush}"
-                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="8,7"
+            <Border DockPanel.Dock="Top" Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                    BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="0,0,0,1" Padding="8,7"
                     Visibility="{Binding RundenEditorAktiv, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel>
                     <TextBlock Text="VORLAGE LADEN" FontSize="10" FontWeight="Bold"
-                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,4" />
+                               Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,0,0,4" />
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -67,8 +68,8 @@
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         <Style.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
-                                <Setter Property="Foreground" Value="{StaticResource AccentStrongBrush}" />
+                                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>
@@ -77,7 +78,7 @@
                     <DataTemplate>
                         <StackPanel>
                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
-                            <TextBlock FontSize="11" Foreground="{StaticResource TextMutedBrush}">
+                            <TextBlock FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}">
                                 <Run Text="{Binding Rundenart, Converter={StaticResource RundenartZuText}}" />
                                 <Run Text=" · " />
                                 <Run Text="{Binding EingangsMannschaften}" />
@@ -91,7 +92,7 @@
         </DockPanel>
 
         <!-- Trennlinie -->
-        <Border Grid.Column="1" Background="{StaticResource BorderBrush}" />
+        <Border Grid.Column="1" Background="{DynamicResource MaterialDesign.Brush.Card.Border}" />
 
         <!-- ── Spalte 2: Detailformular ── -->
         <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
@@ -99,7 +100,7 @@
 
                 <!-- Kein Turnier gewählt -->
                 <TextBlock Text="Wählen Sie oben ein Turnier aus, um dessen Runden zu bearbeiten."
-                           Foreground="{StaticResource TextSubtleBrush}" FontSize="14" TextWrapping="Wrap"
+                           Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="14" TextWrapping="Wrap"
                            Visibility="{Binding KeinTurnierGewaehlt, Converter={StaticResource BoolToVisibility}}" />
 
                 <!-- Turnier gewählt: Runden-Placeholder oder Formular -->
@@ -107,21 +108,21 @@
 
                 <!-- Keine Runde ausgewählt -->
                 <TextBlock Text="Wählen Sie eine Runde aus der Liste oder klicken Sie auf ＋ für eine neue Runde."
-                           Foreground="{StaticResource TextSubtleBrush}" FontSize="14" TextWrapping="Wrap"
+                           Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="14" TextWrapping="Wrap"
                            Visibility="{Binding FormularSichtbar, Converter={StaticResource InverseBoolToVisibility}}" />
 
                 <!-- Formular (Runde ausgewählt) -->
                 <StackPanel Visibility="{Binding FormularSichtbar, Converter={StaticResource BoolToVisibility}}">
 
                     <TextBlock Text="RUNDENDETAILS" FontSize="11" FontWeight="Bold"
-                               Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,12" />
+                               Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,0,0,12" />
 
-                    <TextBlock Text="Name" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
+                    <TextBlock Text="Name" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" Margin="0,0,0,4" />
                     <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
                              Padding="8,6" FontSize="13" Margin="0,0,0,12"
-                             BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
+                             BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" />
 
-                    <TextBlock Text="Rundenart" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
+                    <TextBlock Text="Rundenart" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" Margin="0,0,0,4" />
                     <ComboBox ItemsSource="{Binding RundenartOptionen}"
                               SelectedItem="{Binding Rundenart}"
                               FontSize="13" Margin="0,0,0,12">
@@ -139,39 +140,39 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="Eingang" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
+                            <TextBlock Text="Eingang" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" Margin="0,0,0,4" />
                             <TextBox Text="{Binding Eingang, UpdateSourceTrigger=PropertyChanged}"
                                      IsEnabled="{Binding EingangEditierbar}"
                                      Padding="8,6" FontSize="13"
-                                     BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
+                                     BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" />
                             <TextBlock Text="Diese Runde hat bereits eingehende Übergangsregeln — der Eingang wird automatisch aus deren Platzierungsbereichen berechnet."
-                                       Foreground="{StaticResource TextSubtleBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
                                        Visibility="{Binding ZeigeUebergangsregelnEingangHinweis, Converter={StaticResource BoolToVisibility}}" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="Ausgang" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
+                            <TextBlock Text="Ausgang" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" Margin="0,0,0,4" />
                             <TextBox Text="{Binding Ausgang, UpdateSourceTrigger=PropertyChanged}"
                                      IsEnabled="{Binding AusgangEditierbar}"
                                      Padding="8,6" FontSize="13"
-                                     BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
+                                     BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" />
                             <TextBlock Text="Bei K.-o.-Rundenarten wird der Ausgang automatisch aus dem Eingang berechnet (Eingang / 2)."
-                                       Foreground="{StaticResource TextSubtleBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
                                        Visibility="{Binding IstKoRundenart, Converter={StaticResource BoolToVisibility}}" />
                             <TextBlock Text="Diese Runde hat bereits ausgehende Übergangsregeln — der Ausgang wird automatisch aus deren Platzierungsbereichen berechnet."
-                                       Foreground="{StaticResource TextSubtleBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
                                        Visibility="{Binding ZeigeUebergangsregelnAusgangHinweis, Converter={StaticResource BoolToVisibility}}" />
                         </StackPanel>
                     </Grid>
 
                     <!-- Gruppenanzahl (nur bei Gruppenphase) -->
                     <StackPanel Visibility="{Binding GruppenAnzahlSichtbar, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="Anzahl Gruppen" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
+                        <TextBlock Text="Anzahl Gruppen" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" Margin="0,0,0,4" />
                         <TextBox Text="{Binding GruppenAnzahl, UpdateSourceTrigger=PropertyChanged}"
                                  Padding="8,6" FontSize="13" Margin="0,0,0,12"
-                                 BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
+                                 BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" />
                     </StackPanel>
 
-                    <TextBlock Text="Regelwerk" FontSize="12" Foreground="{StaticResource TextBrush}" Margin="0,0,0,4" />
+                    <TextBlock Text="Regelwerk" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" Margin="0,0,0,4" />
                     <ComboBox ItemsSource="{Binding RegelwerkOptionen}"
                               SelectedItem="{Binding Regelwerk}"
                               DisplayMemberPath="Anzeige"
@@ -195,7 +196,7 @@
                                   IsChecked="{Binding EingangUeberUebergangsregeln}"
                                   FontSize="12" Margin="0,0,0,4" />
                         <TextBlock Text="Diese Runde wird nicht gegen die unmittelbar vorangehende Runde in der Liste geprüft, sondern erhält ihren Eingang aus den unten konfigurierten Übergangsregeln."
-                                   Foreground="{StaticResource TextSubtleBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,16"
+                                   Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,16"
                                    Visibility="{Binding EingangUeberUebergangsregeln, Converter={StaticResource BoolToVisibility}}" />
                     </StackPanel>
 
@@ -206,7 +207,7 @@
                               IsChecked="{Binding PaarungFestVorgegeben}"
                               FontSize="12" Margin="0,0,0,4" />
                     <TextBlock Text="Diese Runde erscheint im Tab &quot;Paarungen&quot; der Turnierdefinition statt in Turnierdurchführung → Auslosung."
-                               Foreground="{StaticResource TextSubtleBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,16"
+                               Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,16"
                                Visibility="{Binding PaarungFestVorgegeben, Converter={StaticResource BoolToVisibility}}" />
 
                     <!-- Eingehende Übergangsregeln (Issue #169) -->
@@ -217,13 +218,13 @@
                                     Command="{Binding NeuerUebergangsregelBlockCommand}"
                                     Padding="8,4" FontSize="12" Cursor="Hand" />
                             <TextBlock Text="EINGEHENDE ÜBERGANGSREGELN" FontSize="11" FontWeight="Bold"
-                                       Foreground="{StaticResource TextSubtleBrush}" VerticalAlignment="Center" />
+                                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" VerticalAlignment="Center" />
                         </DockPanel>
 
                         <ItemsControl ItemsSource="{Binding EingehendeUebergangsregelBloecke}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                    <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1"
                                             CornerRadius="{StaticResource Radius4}" Padding="12,10" Margin="0,0,0,10">
                                         <StackPanel>
 
@@ -234,7 +235,7 @@
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="Aus Runde:" FontSize="12" Foreground="{StaticResource TextBrush}"
+                                                    <TextBlock Text="Aus Runde:" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                                                VerticalAlignment="Center" Margin="0,0,6,0" />
                                                     <ComboBox Width="220" FontSize="12"
                                                               ItemsSource="{Binding DataContext.FrueherRundenOptionen,
@@ -271,7 +272,7 @@
                                                         <ColumnDefinition Width="8" />
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="Standard Platz" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                    <TextBlock Text="Standard Platz" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                                VerticalAlignment="Center" />
                                                     <TextBox Grid.Column="1" Text="{Binding StandardPlatzierungVon, UpdateSourceTrigger=PropertyChanged}"
                                                              Padding="4,3" FontSize="12" Margin="6,0,0,0" />
@@ -323,11 +324,11 @@
                                                                     <ColumnDefinition Width="50" />
                                                                     <ColumnDefinition Width="Auto" />
                                                                 </Grid.ColumnDefinitions>
-                                                                <TextBlock Text="Beste N von Platz" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                                <TextBlock Text="Beste N von Platz" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                                            VerticalAlignment="Center" />
                                                                 <TextBox Grid.Column="1" Text="{Binding Platzierung, UpdateSourceTrigger=PropertyChanged}"
                                                                          Padding="4,3" FontSize="12" Margin="6,0,0,0" />
-                                                                <TextBlock Grid.Column="2" Text="Anzahl" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                                <TextBlock Grid.Column="2" Text="Anzahl" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                                            VerticalAlignment="Center" Margin="12,0,0,0" />
                                                                 <TextBox Grid.Column="3" Text="{Binding AnzahlBeste, UpdateSourceTrigger=PropertyChanged}"
                                                                          Padding="4,3" FontSize="12" Margin="6,0,0,0" />
@@ -352,7 +353,7 @@
                                                     <ColumnDefinition Width="8" />
                                                     <ColumnDefinition Width="50" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Text="Platzierung" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                <TextBlock Text="Platzierung" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            VerticalAlignment="Center" />
                                                 <ItemsControl Grid.Column="1" Grid.ColumnSpan="3" ItemsSource="{Binding Zeilen}">
                                                     <ItemsControl.ItemTemplate>
@@ -385,7 +386,7 @@
                                                                     <ColumnDefinition Width="Auto" />
                                                                     <ColumnDefinition Width="Auto" />
                                                                 </Grid.ColumnDefinitions>
-                                                                <TextBlock Text="Spielnummer" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                                <TextBlock Text="Spielnummer" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                                            VerticalAlignment="Center" />
                                                                 <TextBox Grid.Column="1" Text="{Binding GruppeIndex, UpdateSourceTrigger=PropertyChanged}"
                                                                          Padding="4,3" FontSize="12" Margin="6,0,0,0" />
@@ -425,13 +426,13 @@
                                     Command="{Binding NeuerAusgehenderUebergangsregelBlockCommand}"
                                     Padding="8,4" FontSize="12" Cursor="Hand" />
                             <TextBlock Text="AUSGEHENDE ÜBERGANGSREGELN" FontSize="11" FontWeight="Bold"
-                                       Foreground="{StaticResource TextSubtleBrush}" VerticalAlignment="Center" />
+                                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" VerticalAlignment="Center" />
                         </DockPanel>
 
                         <ItemsControl ItemsSource="{Binding AusgehendeUebergangsregelBloecke}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                    <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1"
                                             CornerRadius="{StaticResource Radius4}" Padding="12,10" Margin="0,0,0,10">
                                         <StackPanel>
 
@@ -442,7 +443,7 @@
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="Nach Runde:" FontSize="12" Foreground="{StaticResource TextBrush}"
+                                                    <TextBlock Text="Nach Runde:" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                                                VerticalAlignment="Center" Margin="0,0,6,0" />
                                                     <ComboBox Width="220" FontSize="12"
                                                               ItemsSource="{Binding DataContext.SpaeterRundenOptionen,
@@ -479,7 +480,7 @@
                                                         <ColumnDefinition Width="8" />
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="Standard Platz" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                    <TextBlock Text="Standard Platz" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                                VerticalAlignment="Center" />
                                                     <TextBox Grid.Column="1" Text="{Binding StandardPlatzierungVon, UpdateSourceTrigger=PropertyChanged}"
                                                              Padding="4,3" FontSize="12" Margin="6,0,0,0" />
@@ -531,11 +532,11 @@
                                                                     <ColumnDefinition Width="50" />
                                                                     <ColumnDefinition Width="Auto" />
                                                                 </Grid.ColumnDefinitions>
-                                                                <TextBlock Text="Beste N von Platz" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                                <TextBlock Text="Beste N von Platz" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                                            VerticalAlignment="Center" />
                                                                 <TextBox Grid.Column="1" Text="{Binding Platzierung, UpdateSourceTrigger=PropertyChanged}"
                                                                          Padding="4,3" FontSize="12" Margin="6,0,0,0" />
-                                                                <TextBlock Grid.Column="2" Text="Anzahl" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                                <TextBlock Grid.Column="2" Text="Anzahl" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                                            VerticalAlignment="Center" Margin="12,0,0,0" />
                                                                 <TextBox Grid.Column="3" Text="{Binding AnzahlBeste, UpdateSourceTrigger=PropertyChanged}"
                                                                          Padding="4,3" FontSize="12" Margin="6,0,0,0" />
@@ -560,7 +561,7 @@
                                                     <ColumnDefinition Width="8" />
                                                     <ColumnDefinition Width="50" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Text="Platzierung" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                <TextBlock Text="Platzierung" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            VerticalAlignment="Center" />
                                                 <ItemsControl Grid.Column="1" Grid.ColumnSpan="3" ItemsSource="{Binding Zeilen}">
                                                     <ItemsControl.ItemTemplate>
@@ -593,7 +594,7 @@
                                                                     <ColumnDefinition Width="Auto" />
                                                                     <ColumnDefinition Width="Auto" />
                                                                 </Grid.ColumnDefinitions>
-                                                                <TextBlock Text="Spielnummer" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                                <TextBlock Text="Spielnummer" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                                            VerticalAlignment="Center" />
                                                                 <TextBox Grid.Column="1" Text="{Binding GruppeIndex, UpdateSourceTrigger=PropertyChanged}"
                                                                          Padding="4,3" FontSize="12" Margin="6,0,0,0" />
@@ -635,12 +636,12 @@
              und Übergangsregel-Warnungen dauerhaft am rechten Rand, analog zu den Verband-Quoten in der
              Auslosung — bei vielen Runden/Gruppen sonst nur durch Scrollen sichtbar. -->
         <GridSplitter Grid.Column="3" Width="4" HorizontalAlignment="Stretch"
-                      Background="{StaticResource BorderBrush}"
+                      Background="{DynamicResource MaterialDesign.Brush.Card.Border}"
                       Visibility="{Binding ZeigeMeldungsSpalte, Converter={StaticResource BoolToVisibility}}" />
 
         <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto"
                       Visibility="{Binding ZeigeMeldungsSpalte, Converter={StaticResource BoolToVisibility}}">
-            <StackPanel Margin="8,10,8,8" Background="{StaticResource SurfaceBrush}">
+            <StackPanel Margin="8,10,8,8" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
 
                 <!-- Fehlermeldung -->
                 <Border Background="{StaticResource ErrorSoftBrush}" BorderBrush="{StaticResource ErrorSoftBorderBrush}" BorderThickness="1"

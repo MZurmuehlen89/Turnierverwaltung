@@ -4,7 +4,9 @@
         Title="Ranglisten-Quelle"
         Width="560" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        Background="{DynamicResource MaterialDesign.Brush.Background}"
+        Foreground="{DynamicResource MaterialDesign.Brush.Foreground}">
 
     <StackPanel Margin="16">
 
@@ -17,7 +19,7 @@
         <Button x:Name="PruefenButton" Content="Webseite prüfen" Click="PruefenButton_Click"
                 HorizontalAlignment="Left" Padding="14,6" FontSize="12" Margin="0,0,0,4" Cursor="Hand" />
 
-        <TextBlock x:Name="LadeText" Text="Seite wird geladen…" Foreground="Gray" Margin="0,4,0,0"
+        <TextBlock x:Name="LadeText" Text="Seite wird geladen…" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,4,0,0"
                    Visibility="Collapsed" />
 
         <StackPanel x:Name="TabellenPanel" Visibility="Collapsed" Margin="0,12,0,0">

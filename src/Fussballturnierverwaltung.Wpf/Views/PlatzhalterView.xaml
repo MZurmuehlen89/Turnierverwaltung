@@ -2,14 +2,14 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:Fussballturnierverwaltung.Wpf.ViewModels">
-    <Grid>
+    <Grid Background="{DynamicResource MaterialDesign.Brush.Background}">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <TextBlock Text="{Binding SeitenTitel}"
                        FontSize="24" FontWeight="SemiBold"
-                       Foreground="#555"
+                       Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                        HorizontalAlignment="Center" />
             <TextBlock Text="Diese Maske wird in einem späteren Schritt implementiert."
-                       FontSize="14" Foreground="#888"
+                       FontSize="14" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                        Margin="0,12,0,0"
                        HorizontalAlignment="Center" />
         </StackPanel>

@@ -3,27 +3,17 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:Fussballturnierverwaltung.Wpf.ViewModels"
              xmlns:dom="clr-namespace:Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;assembly=Fussballturnierverwaltung.Domain"
-             xmlns:views="clr-namespace:Fussballturnierverwaltung.Wpf.Views">
+             xmlns:views="clr-namespace:Fussballturnierverwaltung.Wpf.Views"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
 
     <UserControl.Resources>
         <Style x:Key="TeamSucheTextBox" TargetType="TextBox">
             <Setter Property="Padding" Value="6,4" />
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Card.Border}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Style.Triggers>
-                <Trigger Property="Text" Value="">
-                    <Setter Property="Background">
-                        <Setter.Value>
-                            <VisualBrush Stretch="None" AlignmentX="Left">
-                                <VisualBrush.Visual>
-                                    <TextBlock Text="🔍  Suche…" Foreground="#9CA3AF" Margin="6,4" FontSize="12" />
-                                </VisualBrush.Visual>
-                            </VisualBrush>
-                        </Setter.Value>
-                    </Setter>
-                </Trigger>
-            </Style.Triggers>
+            <Setter Property="materialDesign:HintAssist.Hint" Value="🔍  Suche…" />
+            <Setter Property="materialDesign:HintAssist.IsFloating" Value="False" />
         </Style>
 
         <!-- Issue #232: Wappen bzw. bei Nationalmannschaften Landesflagge neben der Mannschaft in
@@ -43,13 +33,14 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <DockPanel>
+    <DockPanel Background="{DynamicResource MaterialDesign.Brush.Background}"
+               TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}">
 
         <!-- "Simuliert…"-Anzeige -->
-        <Border DockPanel.Dock="Top" Background="White"
-                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="10,8"
+        <Border DockPanel.Dock="Top" Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="0,0,0,1" Padding="10,8"
                 Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock Text="Simuliert…" FontSize="12" Foreground="{StaticResource TextSubtleBrush}" />
+            <TextBlock Text="Simuliert…" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
         </Border>
 
         <Grid>
@@ -60,13 +51,13 @@
             </Grid.ColumnDefinitions>
 
             <!-- ── Linke Spalte: Team-Auswahl ── -->
-            <DockPanel Grid.Column="0" Background="{StaticResource SurfaceBrush}">
+            <DockPanel Grid.Column="0" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="10,8">
 
                         <TextBlock Text="HEIMTEAM" FontSize="10" FontWeight="Bold"
-                                   Foreground="{StaticResource TextSubtleBrush}" Margin="0,4,0,4" />
+                                   Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,4,0,4" />
                         <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -86,7 +77,7 @@
                                   FontSize="13" />
 
                         <TextBlock Text="AUSWÄRTSTEAM" FontSize="10" FontWeight="Bold"
-                                   Foreground="{StaticResource TextSubtleBrush}" Margin="0,12,0,4" />
+                                   Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,12,0,4" />
                         <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -106,13 +97,13 @@
                                   FontSize="13" />
 
                         <TextBlock Text="REGELWERK (OPTIONAL)" FontSize="10" FontWeight="Bold"
-                                   Foreground="{StaticResource TextSubtleBrush}" Margin="0,12,0,4" />
+                                   Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,12,0,4" />
                         <ComboBox ItemsSource="{Binding AlleRegelwerke}"
                                   SelectedItem="{Binding EinzelspielRegelwerk}"
                                   DisplayMemberPath="Name"
                                   FontSize="13" />
                         <TextBlock Text="Leer = kein Tiebreaker" FontSize="10"
-                                   Foreground="{StaticResource TextSubtleBrush}" Margin="0,2,0,0" />
+                                   Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,2,0,0" />
 
                         <CheckBox Content="Mit Rückspiel"
                                   IsChecked="{Binding EinzelspielMitRueckspiel}"
@@ -123,20 +114,20 @@
 
             </DockPanel>
 
-            <Border Grid.Column="1" Background="{StaticResource BorderBrush}" />
+            <Border Grid.Column="1" Background="{DynamicResource MaterialDesign.Brush.Card.Border}" />
 
             <!-- ── Rechte Spalte: Protokoll-Anzeige ── -->
             <DockPanel Grid.Column="2">
 
                 <!-- Header -->
-                <Border DockPanel.Dock="Top" Background="White"
-                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="16,10">
+                <Border DockPanel.Dock="Top" Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                        BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="0,0,0,1" Padding="16,10">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="SPIELPROTOKOLL" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}" />
-                        <TextBlock Foreground="{StaticResource TextSubtleBrush}" FontSize="11" FontWeight="Bold" Text=" · "
+                        <TextBlock Text="SPIELPROTOKOLL" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
+                        <TextBlock Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="11" FontWeight="Bold" Text=" · "
                                    Visibility="{Binding ProtokollSpielInfo, Converter={StaticResource NullToCollapsed}}" />
                         <TextBlock Text="{Binding ProtokollSpielInfo}" FontSize="11" FontWeight="Bold"
-                                   Foreground="{StaticResource TextBrush}"
+                                   Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                    Visibility="{Binding ProtokollSpielInfo, Converter={StaticResource NullToCollapsed}}" />
                     </StackPanel>
                 </Border>

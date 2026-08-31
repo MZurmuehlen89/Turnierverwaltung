@@ -43,9 +43,10 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <Grid>
+    <Grid Background="{DynamicResource MaterialDesign.Brush.Background}"
+          TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}">
 
-        <Border Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+        <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1"
                 CornerRadius="{StaticResource Radius4}"
                 Visibility="{Binding HatProtokoll, Converter={StaticResource BoolToVisibility}}">
             <DockPanel>
@@ -74,13 +75,13 @@
                                                        Visibility="{Binding HeimWappen, Converter={StaticResource NullToVisible}}" />
                                         </Grid>
                                         <TextBlock Text="{Binding HeimName}" FontSize="14" FontWeight="Bold"
-                                                   Foreground="{StaticResource TextStrongBrush}" HorizontalAlignment="Center" />
+                                                   Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" HorizontalAlignment="Center" />
                                     </StackPanel>
 
                                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="6,0">
                                         <TextBlock Text="{Binding Score}" FontSize="26" FontWeight="Black" FontFamily="Consolas"
-                                                   Foreground="{StaticResource TextStrongBrush}" HorizontalAlignment="Center" />
-                                        <TextBlock Text="{Binding Detail}" FontSize="11" FontWeight="Bold" Foreground="#B45309"
+                                                   Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" HorizontalAlignment="Center" />
+                                        <TextBlock Text="{Binding Detail}" FontSize="11" FontWeight="Bold" Foreground="#FBBF24"
                                                    HorizontalAlignment="Center" Margin="0,2,0,0"
                                                    Visibility="{Binding HatDetail, Converter={StaticResource BoolToVisibility}}" />
                                     </StackPanel>
@@ -96,7 +97,7 @@
                                                        Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToVisible}}" />
                                         </Grid>
                                         <TextBlock Text="{Binding AuswaertsName}" FontSize="14" FontWeight="Bold"
-                                                   Foreground="{StaticResource TextStrongBrush}" HorizontalAlignment="Center" />
+                                                   Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </StackPanel>
 
@@ -104,16 +105,16 @@
                                      Team-Reihenfolge mit, da sie im Rückspiel vertauscht ist (Heimrecht wechselt) -->
                                 <TextBlock Visibility="{Binding IstBeinzeile, Converter={StaticResource BoolToVisibility}}"
                                            FontSize="11" HorizontalAlignment="Center" Margin="0,1" TextAlignment="Center">
-                                    <Run Text="{Binding Label, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource TextMutedBrush}" />
-                                    <Run Text=" " /><Run Text="{Binding HeimName, Mode=OneWay}" Foreground="{StaticResource TextBrush}" />
-                                    <Run Text="–" Foreground="{StaticResource TextSubtleBrush}" />
-                                    <Run Text="{Binding AuswaertsName, Mode=OneWay}" Foreground="{StaticResource TextBrush}" />
-                                    <Run Text=" " /><Run Text="{Binding Score, Mode=OneWay}" FontFamily="Consolas" FontWeight="SemiBold" Foreground="{StaticResource TextStrongBrush}" /><Run Text="{Binding Detail, Mode=OneWay}" FontFamily="Consolas" Foreground="{StaticResource TextBrush}" />
+                                    <Run Text="{Binding Label, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
+                                    <Run Text=" " /><Run Text="{Binding HeimName, Mode=OneWay}" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" />
+                                    <Run Text="–" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
+                                    <Run Text="{Binding AuswaertsName, Mode=OneWay}" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" />
+                                    <Run Text=" " /><Run Text="{Binding Score, Mode=OneWay}" FontFamily="Consolas" FontWeight="SemiBold" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" /><Run Text="{Binding Detail, Mode=OneWay}" FontFamily="Consolas" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" />
                                 </TextBlock>
 
                                 <!-- Text-Zeile ohne Teams (z. B. "Weiter: TeamX"): kompakte Zeile, farblich hervorgehoben -->
                                 <TextBlock Visibility="{Binding ZeigtTeams, Converter={StaticResource InverseBoolToVisibility}}"
-                                           FontSize="12" FontWeight="Bold" Foreground="{StaticResource AccentStrongBrush}"
+                                           FontSize="12" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}"
                                            HorizontalAlignment="Center" Margin="0,4,0,0">
                                     <Run Text="{Binding Label, Mode=OneWay}" /><Run Text=": " /><Run Text="{Binding Score, Mode=OneWay}" />
                                 </TextBlock>
@@ -132,13 +133,13 @@
 
                     <Separator Grid.Row="0" />
                     <TextBlock Grid.Row="1" Text="SPIELVERLAUF" FontSize="10" FontWeight="Bold"
-                               Foreground="{StaticResource TextSubtleBrush}" Margin="14,8,14,4" />
+                               Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="14,8,14,4" />
 
                     <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                         <Grid Margin="14,4,14,14">
 
                             <!-- Mittelachse -->
-                            <Border Width="2" Background="{StaticResource BorderBrush}" HorizontalAlignment="Center"
+                            <Border Width="2" Background="{DynamicResource MaterialDesign.Brush.Card.Border}" HorizontalAlignment="Center"
                                     Margin="0,18" />
 
                             <ItemsControl ItemsSource="{Binding ProtokollEreignisse}" Focusable="False">
@@ -158,9 +159,9 @@
                                                 <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Right"
                                                             Visibility="{Binding IstHeimSeite, Converter={StaticResource BoolToVisibility}}">
                                                     <TextBlock Text="{Binding Art}" FontSize="12" FontWeight="SemiBold"
-                                                               Foreground="{StaticResource TextStrongBrush}" VerticalAlignment="Center" />
+                                                               Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" VerticalAlignment="Center" />
                                                     <Grid Width="18" Height="18" Margin="6,0,0,0" VerticalAlignment="Center">
-                                                        <Ellipse Fill="{StaticResource SurfaceAltBrush}" />
+                                                        <Ellipse Fill="{DynamicResource MaterialDesign.Brush.Background}" />
                                                         <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                                Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
                                                                Stretch="Uniform" Margin="2" />
@@ -173,8 +174,8 @@
                                                 <Border Grid.Column="1" CornerRadius="999" Padding="6,2" HorizontalAlignment="Center" BorderThickness="1">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
-                                                            <Setter Property="Background" Value="White" />
-                                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+                                                            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Card.Border}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding IstTor}" Value="True">
                                                                     <Setter Property="Background" Value="{StaticResource SuccessSoftBrush}" />
@@ -186,7 +187,7 @@
                                                     <TextBlock Text="{Binding Minute}" FontSize="10" FontFamily="Consolas" HorizontalAlignment="Center">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding IstTor}" Value="True">
                                                                         <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
@@ -203,13 +204,13 @@
                                                     <ContentPresenter Content="{Binding}" Margin="0,0,6,0"
                                                                        ContentTemplate="{StaticResource EreignisIconVorlage}" />
                                                     <Grid Width="18" Height="18" Margin="0,0,6,0" VerticalAlignment="Center">
-                                                        <Ellipse Fill="{StaticResource SurfaceAltBrush}" />
+                                                        <Ellipse Fill="{DynamicResource MaterialDesign.Brush.Background}" />
                                                         <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                                Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
                                                                Stretch="Uniform" Margin="2" />
                                                     </Grid>
                                                     <TextBlock Text="{Binding Art}" FontSize="12" FontWeight="SemiBold"
-                                                               Foreground="{StaticResource TextStrongBrush}" VerticalAlignment="Center" />
+                                                               Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" VerticalAlignment="Center" />
                                                 </StackPanel>
                                             </Grid>
 
@@ -219,8 +220,8 @@
                                                 <Border HorizontalAlignment="Center" CornerRadius="999" Padding="10,3" BorderThickness="1">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
-                                                            <Setter Property="Background" Value="White" />
-                                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+                                                            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Card.Border}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding TrennerArt}" Value="Elfmeter">
                                                                     <Setter Property="Background" Value="{StaticResource WarningSoftBrush}" />
@@ -232,7 +233,7 @@
                                                     <TextBlock Text="{Binding TrennerText}">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock" BasedOn="{StaticResource TrennerPillText}">
-                                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding TrennerArt}" Value="Elfmeter">
                                                                         <Setter Property="Foreground" Value="#B45309" />
@@ -250,13 +251,13 @@
                                                 <Border HorizontalAlignment="Center" CornerRadius="999" Padding="10,3">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
-                                                            <Setter Property="Background" Value="{StaticResource TextSubtleBrush}" />
+                                                            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding TrennerArt}" Value="Ende">
-                                                                    <Setter Property="Background" Value="{StaticResource TextStrongBrush}" />
+                                                                    <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Primary}" />
                                                                 </DataTrigger>
                                                                 <DataTrigger Binding="{Binding TrennerArt}" Value="Beinabschnitt">
-                                                                    <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
+                                                                    <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -267,7 +268,7 @@
                                                                 <Setter Property="Foreground" Value="White" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding TrennerArt}" Value="Beinabschnitt">
-                                                                        <Setter Property="Foreground" Value="{StaticResource AccentStrongBrush}" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
@@ -289,7 +290,7 @@
 
         <!-- Leer-Zustand -->
         <TextBlock Text="{Binding LeerZustandText, ElementName=Wurzel}"
-                   Foreground="{StaticResource TextSubtleBrush}" FontSize="13" TextWrapping="Wrap"
+                   Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="13" TextWrapping="Wrap"
                    HorizontalAlignment="Center" VerticalAlignment="Center"
                    MaxWidth="340" TextAlignment="Center"
                    Visibility="{Binding ZeigeLeerZustand, Converter={StaticResource BoolToVisibility}}" />

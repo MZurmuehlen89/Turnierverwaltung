@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:Fussballturnierverwaltung.Wpf.ViewModels">
 
-    <Grid>
+    <Grid Background="{DynamicResource MaterialDesign.Brush.Background}"
+          TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="240" MinWidth="180" MaxWidth="320" />
             <ColumnDefinition Width="4" />
@@ -11,15 +12,15 @@
         </Grid.ColumnDefinitions>
 
         <!-- ── Linke Spalte: Rundenliste mit Paarungsfestlegungs-Status ── -->
-        <DockPanel Grid.Column="0" Background="{StaticResource SurfaceBrush}">
+        <DockPanel Grid.Column="0" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
 
             <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="3"
                          Foreground="{StaticResource AccentBrush}"
                          Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
 
-            <DockPanel DockPanel.Dock="Top" Background="White" LastChildFill="True">
+            <DockPanel DockPanel.Dock="Top" Background="{DynamicResource MaterialDesign.Brush.Card.Background}" LastChildFill="True">
                 <TextBlock DockPanel.Dock="Top" Text="RUNDEN" FontSize="11"
-                           FontWeight="Bold" Foreground="{StaticResource TextSubtleBrush}" Margin="12,10,8,4" />
+                           FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="12,10,8,4" />
                 <ListBox ItemsSource="{Binding Runden}"
                          SelectedItem="{Binding AusgewaehlteRunde}"
                          BorderThickness="0" Background="Transparent"
@@ -30,8 +31,8 @@
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                             <Style.Triggers>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource AccentSoftBrush}" />
-                                    <Setter Property="Foreground" Value="{StaticResource AccentStrongBrush}" />
+                                    <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                                 </Trigger>
                             </Style.Triggers>
                         </Style>
@@ -40,7 +41,7 @@
                         <DataTemplate DataType="{x:Type vm:RundenPaarungsEintrag}">
                             <StackPanel>
                                 <TextBlock Text="{Binding Runde.Name}" FontWeight="SemiBold" FontSize="13" />
-                                <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                             </StackPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -49,28 +50,28 @@
         </DockPanel>
 
         <!-- Trennlinie -->
-        <Border Grid.Column="1" Background="{StaticResource BorderBrush}" />
+        <Border Grid.Column="1" Background="{DynamicResource MaterialDesign.Brush.Card.Border}" />
 
         <!-- ── Rechte Spalte ── -->
         <Grid Grid.Column="2">
 
             <TextBlock Text="Bitte zuerst ein Turnier auswählen."
-                       Foreground="{StaticResource TextSubtleBrush}" FontSize="14"
+                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="14"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
                        Visibility="{Binding KeinTurnierGewaehlt, Converter={StaticResource BoolToVisibility}}" />
 
             <TextBlock Text="Noch keine Runden angelegt — siehe Tab &quot;Runden&quot;."
-                       Foreground="{StaticResource TextSubtleBrush}" FontSize="14"
+                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="14"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
                        Visibility="{Binding HatKeineRunden, Converter={StaticResource BoolToVisibility}}" />
 
             <TextBlock Text="Keine Runde ist als &quot;Fest vorgegeben&quot; markiert — Checkbox im Tab &quot;Runden&quot;."
-                       Foreground="{StaticResource TextSubtleBrush}" FontSize="14" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="360"
+                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="14" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="360"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
                        Visibility="{Binding HatKeineFestVorgegebenenRunden, Converter={StaticResource BoolToVisibility}}" />
 
             <TextBlock Text="Bitte links eine Runde auswählen."
-                       Foreground="{StaticResource TextSubtleBrush}" FontSize="14"
+                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="14"
                        HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
@@ -91,7 +92,7 @@
 
             <!-- Ausgewählte Runde hat bereits eine echte Auslosung -->
             <TextBlock Text="Diese Runde nutzt eine Auslosung — siehe Turnierdurchführung → Auslosung."
-                       Foreground="{StaticResource TextSubtleBrush}" FontSize="14" TextWrapping="Wrap"
+                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="14" TextWrapping="Wrap"
                        TextAlignment="Center" MaxWidth="400"
                        HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock.Style>
@@ -116,7 +117,7 @@
 
                     <DockPanel Margin="0,0,0,12">
                         <TextBlock Text="{Binding TeamsStatusText}" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextBrush}" />
+                                   Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" />
                     </DockPanel>
 
                     <!-- Fehlermeldung -->
@@ -127,7 +128,7 @@
                                    FontSize="13" TextWrapping="Wrap" />
                     </Border>
 
-                    <TextBlock FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,0,0,10"
+                    <TextBlock FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" TextWrapping="Wrap" Margin="0,0,0,10"
                                Visibility="{Binding IstBearbeitbar, Converter={StaticResource BoolToVisibility}}">
                         Doppelklick oder Ziehen aus "Verfügbar" → Slot. Rechtsklick auf Slot → entfernen.
                     </TextBlock>
@@ -141,21 +142,21 @@
 
                         <!-- Verfügbare Teilnehmer -->
                         <DockPanel Grid.Column="0" VerticalAlignment="Top">
-                            <Border DockPanel.Dock="Top" Background="{StaticResource SurfaceAltBrush}"
+                            <Border DockPanel.Dock="Top" Background="{DynamicResource MaterialDesign.Brush.Background}"
                                     Padding="6,4" CornerRadius="4,4,0,0">
                                 <TextBlock Text="{Binding VerfuegbareTeilnehmer.Count, StringFormat='Verfügbar ({0})'}"
-                                           FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                           FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" />
                             </Border>
                             <TextBox DockPanel.Dock="Top"
                                      Text="{Binding TeilnehmerFilter, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="6,4" FontSize="12"
-                                     BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1,0,1,1" />
+                                     BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1,0,1,1" />
                             <ListBox x:Name="VerfuegbarListBox"
                                      ItemsSource="{Binding VerfuegbareTeilnehmerGefiltert}"
                                      SelectedItem="{Binding AusgewaehlterVerfuegbarTeilnehmer}"
                                      MaxHeight="400"
-                                     BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1,0,1,1"
-                                     Background="White"
+                                     BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1,0,1,1"
+                                     Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
                                      PreviewMouseLeftButtonDown="VerfuegbarListBox_PreviewMouseLeftButtonDown"
                                      MouseMove="VerfuegbarListBox_MouseMove"
                                      MouseDoubleClick="VerfuegbarListBox_MouseDoubleClick"
@@ -174,7 +175,7 @@
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Name}" FontSize="13" />
                                                 <TextBlock Text="{Binding Kuerzel}" FontSize="10"
-                                                           Foreground="{StaticResource TextSubtleBrush}"
+                                                           Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                                            Visibility="{Binding Kuerzel, Converter={StaticResource NullToCollapsed}}" />
                                             </StackPanel>
                                         </DockPanel>
@@ -188,8 +189,8 @@
                             <ItemsControl ItemsSource="{Binding KoPaarungen}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:ManuelleKoPaarungAnzeige}">
-                                        <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="{StaticResource Radius4}"
-                                                Background="White" Margin="0,0,0,4">
+                                        <Border BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" CornerRadius="{StaticResource Radius4}"
+                                                Background="{DynamicResource MaterialDesign.Brush.Card.Background}" Margin="0,0,0,4">
                                             <Grid Margin="10,7">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="28" />
@@ -198,7 +199,7 @@
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0" Text="{Binding PaarungsNr}"
-                                                           Foreground="{StaticResource TextSubtleBrush}" FontSize="12"
+                                                           Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="12"
                                                            VerticalAlignment="Center" />
                                                 <!-- Heim-Slot -->
                                                 <Border Grid.Column="1"
@@ -212,8 +213,8 @@
                                                         MouseRightButtonUp="ManuellerSlot_MouseRightButtonUp">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
-                                                            <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
-                                                            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Card.Border}" />
+                                                            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding HeimSlot.IstLeer}" Value="False">
                                                                     <Setter Property="BorderBrush" Value="#86EFAC" />
@@ -233,11 +234,11 @@
                                                                        Visibility="{Binding HeimSlot.Team.Wappen, Converter={StaticResource NullToVisible}}" />
                                                         </Grid>
                                                         <TextBlock Text="{Binding HeimSlot.AnzeigeName}" FontSize="12"
-                                                                   Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                                                                   Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" VerticalAlignment="Center" />
                                                     </DockPanel>
                                                 </Border>
                                                 <TextBlock Grid.Column="2" Text=" vs " FontSize="12"
-                                                           Foreground="{StaticResource TextSubtleBrush}" VerticalAlignment="Center" Margin="6,0" />
+                                                           Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" VerticalAlignment="Center" Margin="6,0" />
                                                 <!-- Auswärts-Slot -->
                                                 <Border Grid.Column="3"
                                                         Tag="{Binding AuswaertsSlot}"
@@ -250,8 +251,8 @@
                                                         MouseRightButtonUp="ManuellerSlot_MouseRightButtonUp">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
-                                                            <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}" />
-                                                            <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Card.Border}" />
+                                                            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding AuswaertsSlot.IstLeer}" Value="False">
                                                                     <Setter Property="BorderBrush" Value="#86EFAC" />
@@ -271,7 +272,7 @@
                                                                        Visibility="{Binding AuswaertsSlot.Team.Wappen, Converter={StaticResource NullToVisible}}" />
                                                         </Grid>
                                                         <TextBlock Text="{Binding AuswaertsSlot.AnzeigeName}" FontSize="12"
-                                                                   Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                                                                   Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" VerticalAlignment="Center" />
                                                     </DockPanel>
                                                 </Border>
                                             </Grid>
@@ -292,17 +293,17 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:ManuelleGruppe}">
                                     <Border Width="160" Margin="0,0,8,8"
-                                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="{StaticResource Radius4}">
+                                            BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" CornerRadius="{StaticResource Radius4}">
                                         <StackPanel>
-                                            <Border Background="{StaticResource AccentSoftBrush}" Padding="10,5" CornerRadius="4,4,0,0">
+                                            <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" Padding="10,5" CornerRadius="4,4,0,0">
                                                 <TextBlock Text="{Binding GruppenName}"
                                                            FontSize="13" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource AccentDarkBrush}" />
+                                                           Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                                             </Border>
-                                            <ItemsControl ItemsSource="{Binding Slots}" Background="White">
+                                            <ItemsControl ItemsSource="{Binding Slots}" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate DataType="{x:Type vm:ManuellerGruppenSlot}">
-                                                        <Border BorderBrush="{StaticResource SurfaceAltBrush}" BorderThickness="0,0,0,1"
+                                                        <Border BorderBrush="{DynamicResource MaterialDesign.Brush.Background}" BorderThickness="0,0,0,1"
                                                                 Padding="10,5" MinHeight="30"
                                                                 Tag="{Binding}"
                                                                 AllowDrop="True"
@@ -331,7 +332,7 @@
                                                                                Visibility="{Binding Team.Wappen, Converter={StaticResource NullToVisible}}" />
                                                                 </Grid>
                                                                 <TextBlock Text="{Binding AnzeigeName}" FontSize="12"
-                                                                           Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                                                                           Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" VerticalAlignment="Center" />
                                                             </DockPanel>
                                                         </Border>
                                                     </DataTemplate>
@@ -346,17 +347,17 @@
 
                     <!-- Abgeschlossen: read-only Anzeige derselben Grids (Slots bereits befüllt) -->
                     <TextBlock Text="Paarung abgeschlossen. „Zurücksetzen&quot; im Ribbon, um sie zu ändern."
-                               FontSize="12" Foreground="{StaticResource TextSubtleBrush}" Margin="0,0,0,10"
+                               FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,0,0,10"
                                Visibility="{Binding IstAbgeschlossen, Converter={StaticResource BoolToVisibility}}" />
                     <StackPanel Visibility="{Binding IstAbgeschlossen, Converter={StaticResource BoolToVisibility}}">
                         <ItemsControl ItemsSource="{Binding KoPaarungen}"
                                       Visibility="{Binding IstKoModus, Converter={StaticResource BoolToVisibility}}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:ManuelleKoPaarungAnzeige}">
-                                    <Border BorderBrush="{StaticResource SurfaceAltBrush}" BorderThickness="0,0,0,1" Padding="12,6">
+                                    <Border BorderBrush="{DynamicResource MaterialDesign.Brush.Background}" BorderThickness="0,0,0,1" Padding="12,6">
                                         <TextBlock FontSize="13">
                                             <Run Text="{Binding HeimSlot.AnzeigeName, Mode=OneWay}" FontWeight="SemiBold" />
-                                            <Run Text=" vs " Foreground="{StaticResource TextSubtleBrush}" />
+                                            <Run Text=" vs " Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                             <Run Text="{Binding AuswaertsSlot.AnzeigeName, Mode=OneWay}" />
                                         </TextBlock>
                                     </Border>
@@ -373,16 +374,16 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:ManuelleGruppe}">
                                     <Border Width="160" Margin="0,0,8,8"
-                                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="{StaticResource Radius4}">
+                                            BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1" CornerRadius="{StaticResource Radius4}">
                                         <StackPanel>
-                                            <Border Background="{StaticResource AccentSoftBrush}" Padding="10,5" CornerRadius="4,4,0,0">
+                                            <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" Padding="10,5" CornerRadius="4,4,0,0">
                                                 <TextBlock Text="{Binding GruppenName}" FontSize="13" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource AccentDarkBrush}" />
+                                                           Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                                             </Border>
-                                            <ItemsControl ItemsSource="{Binding Slots}" Background="White">
+                                            <ItemsControl ItemsSource="{Binding Slots}" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate DataType="{x:Type vm:ManuellerGruppenSlot}">
-                                                        <Border BorderBrush="{StaticResource SurfaceAltBrush}" BorderThickness="0,0,0,1" Padding="10,5">
+                                                        <Border BorderBrush="{DynamicResource MaterialDesign.Brush.Background}" BorderThickness="0,0,0,1" Padding="10,5">
                                                             <TextBlock Text="{Binding AnzeigeName}" FontSize="13" />
                                                         </Border>
                                                     </DataTemplate>

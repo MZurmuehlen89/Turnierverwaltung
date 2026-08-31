@@ -17,19 +17,20 @@
         <Style x:Key="BreadcrumbTrenner" TargetType="TextBlock">
             <Setter Property="Text" Value="›" />
             <Setter Property="FontSize" Value="14" />
-            <Setter Property="Foreground" Value="{StaticResource TextSubtleBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Margin" Value="4,0" />
         </Style>
 
     </UserControl.Resources>
 
-    <DockPanel>
+    <DockPanel Background="{DynamicResource MaterialDesign.Brush.Background}"
+               TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}">
 
         <!-- Kopf-Leiste: Breadcrumb (Turnier › Runde › Spiel) — Issue #174: Einzelspiel-Simulation
              ist jetzt ein eigenständiger Menüpunkt, kein Modus-Umschalter mehr nötig -->
-        <Border DockPanel.Dock="Top" Background="White"
-                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="16,8">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
+                BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="0,0,0,1" Padding="16,8">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="🏆" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0" />
                 <TextBlock Text="{Binding AusgewaehlteInstanz.Name}" FontSize="13"
@@ -54,16 +55,16 @@
                         <DataTemplate DataType="{x:Type vm:SpielZeile}">
                             <TextBlock FontSize="12" TextTrimming="CharacterEllipsis">
                                 <Run Text="{Binding HeimName}" />
-                                <Run Text=" – " Foreground="{StaticResource TextSubtleBrush}" />
+                                <Run Text=" – " Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
                                 <Run Text="{Binding AuswaertsName}" />
                                 <Run Text=" " />
-                                <Run Text="{Binding ErgebnisText}" Foreground="{StaticResource TextMutedBrush}" FontFamily="Consolas" />
+                                <Run Text="{Binding ErgebnisText}" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontFamily="Consolas" />
                             </TextBlock>
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
 
-                <TextBlock Text="Simuliert…" FontSize="12" Foreground="{StaticResource TextSubtleBrush}"
+                <TextBlock Text="Simuliert…" FontSize="12" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                            VerticalAlignment="Center" Margin="16,0,0,0"
                            Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
             </StackPanel>
@@ -73,7 +74,7 @@
 
             <!-- Team-Vorschau-Karte vor der Simulation -->
             <Border DockPanel.Dock="Top" Margin="16,16,16,0"
-                    Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                    Background="{DynamicResource MaterialDesign.Brush.Card.Background}" BorderBrush="{DynamicResource MaterialDesign.Brush.Card.Border}" BorderThickness="1"
                     CornerRadius="{StaticResource Radius8}" Padding="24,20"
                     Visibility="{Binding ZeigeVorschauKarte, Converter={StaticResource BoolToVisibility}}">
                 <Grid HorizontalAlignment="Center">
@@ -99,7 +100,7 @@
                                        Visibility="{Binding AusgewaehlteSpiel.HeimWappen, Converter={StaticResource NullToVisible}}" />
                         </Grid>
                         <TextBlock Text="{Binding AusgewaehlteSpiel.HeimName}"
-                                   FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextStrongBrush}"
+                                   FontSize="20" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal"
@@ -113,19 +114,19 @@
                                        Visibility="{Binding AusgewaehlteSpiel.AuswaertsWappen, Converter={StaticResource NullToVisible}}" />
                         </Grid>
                         <TextBlock Text="{Binding AusgewaehlteSpiel.AuswaertsName}"
-                                   FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextStrongBrush}"
+                                   FontSize="20" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.Foreground}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
 
                     <TextBlock Grid.Row="1" Grid.Column="0"
                                Text="{Binding AusgewaehlteSpiel.HeimRating, StringFormat={}⭐ {0:F1}}"
-                               FontSize="13" Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="13" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                HorizontalAlignment="Center" Margin="0,4,0,0" />
                     <TextBlock Grid.Row="1" Grid.Column="1" Text="vs" FontSize="14" FontWeight="Bold"
-                               Foreground="{StaticResource TextSubtleBrush}" VerticalAlignment="Center" Margin="16,4,16,0" />
+                               Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" VerticalAlignment="Center" Margin="16,4,16,0" />
                     <TextBlock Grid.Row="1" Grid.Column="2"
                                Text="{Binding AusgewaehlteSpiel.AuswaertsRating, StringFormat={}⭐ {0:F1}}"
-                               FontSize="13" Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="13" Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}"
                                HorizontalAlignment="Center" Margin="0,4,0,0" />
                 </Grid>
             </Border>

@@ -3,11 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:Fussballturnierverwaltung.Wpf.ViewModels">
 
-    <Grid>
+    <Grid Background="{DynamicResource MaterialDesign.Brush.Background}"
+          TextElement.Foreground="{DynamicResource MaterialDesign.Brush.Foreground}">
 
         <!-- Kein Turnier gewählt -->
         <TextBlock Text="Bitte ein Turnier auswählen."
-                   Foreground="{StaticResource TextSubtleBrush}" FontSize="14"
+                   Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="14"
                    HorizontalAlignment="Center" VerticalAlignment="Center"
                    Visibility="{Binding KeinTurnierGewaehlt, Converter={StaticResource BoolToVisibility}}" />
 
@@ -15,7 +16,7 @@
 
             <!-- Lade-Spinner -->
             <TextBlock DockPanel.Dock="Top" Text="Lade…" Margin="16,12"
-                       Foreground="{StaticResource TextSubtleBrush}" FontSize="13"
+                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="13"
                        Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
 
             <!-- Fehlermeldung -->
@@ -29,7 +30,7 @@
 
             <!-- Keine Runden -->
             <TextBlock DockPanel.Dock="Top" Text="Noch keine Runden angelegt — siehe Tab &quot;Runden&quot;."
-                       Foreground="{StaticResource TextSubtleBrush}" FontSize="13"
+                       Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" FontSize="13"
                        HorizontalAlignment="Center" Margin="16,48"
                        Visibility="{Binding HatKeineRunden, Converter={StaticResource BoolToVisibility}}" />
 
@@ -57,12 +58,12 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vm:RundenUebergangKarte}">
                                 <Border Width="190"
-                                        Background="White"
+                                        Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
                                         BorderThickness="1"
                                         CornerRadius="{StaticResource Radius8}" Padding="12,10">
                                     <Border.Style>
                                         <Style TargetType="Border">
-                                            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Card.Border}" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding HatUnstimmigkeit}" Value="True">
                                                     <Setter Property="BorderBrush" Value="{StaticResource WarningSoftBorderBrush}" />
@@ -73,14 +74,14 @@
                                     </Border.Style>
                                     <StackPanel>
                                         <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Bold"
-                                                   Foreground="{StaticResource TextStrongBrush}" TextWrapping="Wrap" />
+                                                   Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding RundenartText}" FontSize="11"
-                                                   Foreground="{StaticResource TextMutedBrush}" Margin="0,4,0,0"
+                                                   Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" Margin="0,4,0,0"
                                                    TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding EinAusgangText}" FontSize="12"
-                                                   Foreground="{StaticResource TextBrush}" Margin="0,8,0,0" />
+                                                   Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" Margin="0,8,0,0" />
                                         <TextBlock Text="{Binding AuslosungsLabel}" FontSize="10"
-                                                   Foreground="{StaticResource AccentDarkBrush}" Margin="0,6,0,0"
+                                                   Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}" Margin="0,6,0,0"
                                                    TextWrapping="Wrap"
                                                    Visibility="{Binding HatAuslosungsLabel, Converter={StaticResource BoolToVisibility}}" />
                                         <TextBlock Text="{Binding UnstimmigkeitText}" FontSize="10"
