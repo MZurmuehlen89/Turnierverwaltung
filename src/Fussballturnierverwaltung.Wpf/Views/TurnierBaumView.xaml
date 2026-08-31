@@ -269,7 +269,12 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <DockPanel>
+    <!-- Übergangsfix bis #260: Diese View ist noch nicht auf das Dark Theme (#3/#257) portiert und
+         verwendet weiterhin die alten Colors.xaml-Brushes auf hartcodiert weißen Karten. Seit #257
+         global MaterialDesignThemes gemerged ist, bräche ohne dieses Foreground-Pin geerbtes helles
+         Text auf den eigenen weißen Karten unlesbar zusammen (weiß auf weiß) — TextBrush zeigt
+         wieder auf die alte, für Hellmodus gedachte Textfarbe. -->
+    <DockPanel TextElement.Foreground="{StaticResource TextBrush}">
 
         <!-- ── Hauptbereich ── -->
         <Grid>
