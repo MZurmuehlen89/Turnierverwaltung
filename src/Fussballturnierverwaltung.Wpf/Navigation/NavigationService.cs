@@ -9,6 +9,7 @@ namespace Fussballturnierverwaltung.Wpf.Navigation;
 public class NavigationService : INavigationService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly SemaphoreSlim _navigationLock = new(1, 1);
     private IServiceScope? _aktiverScope;
 
     public ViewModelBase? AktuellesViewModel { get; private set; }
@@ -23,13 +24,26 @@ public class NavigationService : INavigationService
     {
         if (!await DarfWegnavigierenAsync()) return;
 
-        _aktiverScope?.Dispose();
-        _aktiverScope = _scopeFactory.CreateScope();
-        var vm = _aktiverScope.ServiceProvider.GetRequiredService<TViewModel>();
-        konfigurator?.Invoke(vm);
-        AktuellesViewModel = vm;
-        AktuellesViewModelGeaendert?.Invoke(this, EventArgs.Empty);
-        await vm.AktivierenAsync();
+        // Navigation muss serialisiert werden: NavigiereZuAsync wird pro Klick direkt aus einem
+        // RelayCommand aufgerufen. Ohne Sperre disposed ein schnell aufeinanderfolgender zweiter
+        // Aufruf _aktiverScope, während der erste noch in vm.AktivierenAsync() (DB-Zugriff über
+        // genau dieses Scope) hängt — die noch laufende Abfrage bricht dann mit "Verbindung ist
+        // geschlossen" ab, sobald sie nach dem Dispose fortgesetzt wird.
+        await _navigationLock.WaitAsync();
+        try
+        {
+            _aktiverScope?.Dispose();
+            _aktiverScope = _scopeFactory.CreateScope();
+            var vm = _aktiverScope.ServiceProvider.GetRequiredService<TViewModel>();
+            konfigurator?.Invoke(vm);
+            AktuellesViewModel = vm;
+            AktuellesViewModelGeaendert?.Invoke(this, EventArgs.Empty);
+            await vm.AktivierenAsync();
+        }
+        finally
+        {
+            _navigationLock.Release();
+        }
     }
 
     private async Task<bool> DarfWegnavigierenAsync()
