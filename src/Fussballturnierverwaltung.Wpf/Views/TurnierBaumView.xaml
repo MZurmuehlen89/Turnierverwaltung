@@ -244,12 +244,12 @@
                 </StackPanel>
                 <DockPanel Grid.Column="1" Margin="4,6">
                     <Grid Width="16" Height="16" DockPanel.Dock="Left" Margin="0,0,5,0">
-                        <Image Source="{Binding Mannschaft.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                               Visibility="{Binding Mannschaft.Wappen, Converter={StaticResource NullToCollapsed}}"
+                        <Image Source="{Binding Mannschaft, Converter={StaticResource MannschaftZuWappenBildquelle}}"
+                               Visibility="{Binding Mannschaft, Converter={StaticResource MannschaftHatWappen}}"
                                Stretch="Uniform" />
                         <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Opacity="0.35"
-                                   Visibility="{Binding Mannschaft.Wappen, Converter={StaticResource NullToVisible}}" />
+                                   Visibility="{Binding Mannschaft, Converter={StaticResource MannschaftHatKeinWappen}}" />
                     </Grid>
                     <TextBlock Text="{Binding Mannschaft.Name}"
                                FontSize="12" TextTrimming="CharacterEllipsis"
@@ -835,12 +835,12 @@
                                                            HorizontalAlignment="Center" VerticalAlignment="Center" Padding="4,6,0,6" />
                                                 <DockPanel Grid.Column="1" Margin="4,6">
                                                     <Grid Width="16" Height="16" DockPanel.Dock="Left" Margin="0,0,5,0">
-                                                        <Image Source="{Binding Mannschaft.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                                               Visibility="{Binding Mannschaft.Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                        <Image Source="{Binding Mannschaft, Converter={StaticResource MannschaftZuWappenBildquelle}}"
+                                                               Visibility="{Binding Mannschaft, Converter={StaticResource MannschaftHatWappen}}"
                                                                Stretch="Uniform" />
                                                         <TextBlock Text="🏳" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                                    Opacity="0.35"
-                                                                   Visibility="{Binding Mannschaft.Wappen, Converter={StaticResource NullToVisible}}" />
+                                                                   Visibility="{Binding Mannschaft, Converter={StaticResource MannschaftHatKeinWappen}}" />
                                                     </Grid>
                                                     <TextBlock Text="{Binding Mannschaft.Name}"
                                                                FontSize="12" TextTrimming="CharacterEllipsis"
