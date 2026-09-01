@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Fussballturnierverwaltung.WinUi (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Fussballturnierverwaltung.WinUi (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="Fussballturnierverwaltung.WinUi.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Fussballturnierverwaltung.WinUi"
+    xmlns:views="using:Fussballturnierverwaltung.WinUi.Views"
+    Title="Turnierverwaltung — WinUI3-Spike (#278)">
+
+    <Grid x:Name="RootGrid">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Ribbon-Ersatz (kein first-party WinUI-3-Ribbon vorhanden, siehe #278-Recherche): CommandBar mit
+             AppBarButton/AppBarToggleButton, bewusst analog zum IRibbonAware-Bindungsmuster gegen das
+             aktive ViewModel gebunden statt direkt gegen TurnierVorlageViewModel. -->
+        <CommandBar Grid.Row="0" DefaultLabelPosition="Right"
+                    Visibility="{x:Bind ViewModel.HatRibbonBereich, Mode=OneWay}">
+            <CommandBar.Content>
+                <TextBlock Text="{x:Bind ViewModel.RibbonTabTitel, Mode=OneWay}"
+                           FontWeight="Bold" VerticalAlignment="Center" Margin="12,0,0,0" />
+            </CommandBar.Content>
+            <AppBarButton Icon="Add" Label="Neu" Command="{x:Bind ViewModel.RibbonNeuBefehl, Mode=OneWay}"
+                          Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
+            <AppBarButton Icon="Save" Label="Speichern" Command="{x:Bind ViewModel.RibbonSpeichernBefehl, Mode=OneWay}"
+                          Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
+            <AppBarButton Icon="Undo" Label="Abbrechen" Command="{x:Bind ViewModel.RibbonAbbrechenBefehl, Mode=OneWay}"
+                          Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
+            <AppBarSeparator Visibility="{x:Bind ViewModel.HatLoeschenAktion, Mode=OneWay}" />
+            <AppBarButton Icon="Delete" Label="Löschen" Command="{x:Bind ViewModel.RibbonLoeschenBefehl, Mode=OneWay}"
+                          Visibility="{x:Bind ViewModel.HatLoeschenAktion, Mode=OneWay}" />
+            <CommandBar.SecondaryCommands>
+                <AppBarToggleButton x:Name="DarkModeToggle" Label="Dark Mode" Click="OnDarkModeToggleClick" />
+            </CommandBar.SecondaryCommands>
+        </CommandBar>
+
+        <views:TurnierVorlagePage Grid.Row="1" ViewModel="{x:Bind ViewModel.TurnierVorlage, Mode=OneWay}" />
+    </Grid>
+</Window>
