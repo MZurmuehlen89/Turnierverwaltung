@@ -29,11 +29,12 @@
                   GridLinesVisibility="Horizontal"
                   HorizontalGridLinesBrush="{DynamicResource MaterialDesign.Brush.DataGrid.Border}"
                   HeadersVisibility="Column"
-                  AlternatingRowBackground="{DynamicResource MaterialDesign.Brush.Card.Border}"
+                  AlternationCount="2"
                   Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
                   BorderThickness="0"
                   RowHeight="28"
-                  FontSize="13">
+                  FontSize="13"
+                  RowStyle="{StaticResource StandardDataGridRowStyle}">
 
             <DataGrid.ColumnHeaderStyle>
                 <Style TargetType="DataGridColumnHeader">
@@ -46,27 +47,6 @@
                     <Setter Property="BorderThickness" Value="0,0,1,0" />
                 </Style>
             </DataGrid.ColumnHeaderStyle>
-
-            <DataGrid.RowStyle>
-                <Style TargetType="DataGridRow">
-                    <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
-                    <Style.Triggers>
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.DataGrid.Selected}" />
-                            <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
-                        </Trigger>
-                        <MultiTrigger>
-                            <MultiTrigger.Conditions>
-                                <Condition Property="IsMouseOver" Value="True" />
-                                <Condition Property="IsSelected" Value="False" />
-                            </MultiTrigger.Conditions>
-                            <!-- Eigener Hover-Brush statt Card.Border (Issue #268 Pkt. 2): Card.Border ist
-                                 auch AlternatingRowBackground, auf geraden Zeilen wäre der Hover sonst unsichtbar. -->
-                            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.DataGrid.RowHoverBackground}" />
-                        </MultiTrigger>
-                    </Style.Triggers>
-                </Style>
-            </DataGrid.RowStyle>
 
             <DataGrid.CellStyle>
                 <Style TargetType="DataGridCell">

@@ -25,7 +25,11 @@
         <StackPanel x:Name="TabellenPanel" Visibility="Collapsed" Margin="0,12,0,0">
             <TextBlock Text="1. Tabelle auswählen" FontWeight="SemiBold" Margin="0,0,0,4" />
             <ListBox x:Name="TabellenListBox" DisplayMemberPath="Beschreibung" MaxHeight="150"
-                     SelectionChanged="TabellenListBox_SelectionChanged" />
+                     SelectionChanged="TabellenListBox_SelectionChanged">
+                <ListBox.ItemContainerStyle>
+                    <StaticResource ResourceKey="StandardListBoxItemStyle" />
+                </ListBox.ItemContainerStyle>
+            </ListBox>
         </StackPanel>
 
         <StackPanel x:Name="SpaltenPanel" Visibility="Collapsed" Margin="0,12,0,0">
@@ -39,12 +43,20 @@
 
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="Team-/Landname-Spalte" Margin="0,0,0,4" />
-                    <ListBox x:Name="MannschaftListBox" DisplayMemberPath="Beschreibung" MaxHeight="130" />
+                    <ListBox x:Name="MannschaftListBox" DisplayMemberPath="Beschreibung" MaxHeight="130">
+                        <ListBox.ItemContainerStyle>
+                            <StaticResource ResourceKey="StandardListBoxItemStyle" />
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="Punkte-Spalte (optional)" Margin="0,0,0,4" />
-                    <ListBox x:Name="PunkteListBox" DisplayMemberPath="Beschreibung" MaxHeight="130" />
+                    <ListBox x:Name="PunkteListBox" DisplayMemberPath="Beschreibung" MaxHeight="130">
+                        <ListBox.ItemContainerStyle>
+                            <StaticResource ResourceKey="StandardListBoxItemStyle" />
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
                 </StackPanel>
             </Grid>
 

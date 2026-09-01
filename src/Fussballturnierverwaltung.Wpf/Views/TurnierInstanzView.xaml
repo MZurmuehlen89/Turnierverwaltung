@@ -186,7 +186,7 @@
                                   CanUserSortColumns="False" CanUserReorderColumns="False"
                                   HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                   HorizontalGridLinesBrush="{DynamicResource MaterialDesign.Brush.DataGrid.Border}"
-                                  AlternatingRowBackground="{DynamicResource MaterialDesign.Brush.Card.Border}"
+                                  AlternationCount="2"
                                   Background="{DynamicResource MaterialDesign.Brush.Card.Background}"
                                   BorderThickness="0"
                                   RowHeaderWidth="24" MaxHeight="240" FontSize="13"

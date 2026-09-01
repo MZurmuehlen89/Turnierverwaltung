@@ -13,9 +13,19 @@
          Hover-Ton reicht das nicht, siehe ThemeService.cs). -->
     <SolidColorBrush x:Key="RowHoverAccentBrush" Color="#E3EEFC" />
 
+    <!-- Zebra-Streifen (AlternationIndex) bewusst als Style.Trigger statt über die DataGrid-eigene
+         AlternatingRowBackground-Property (bekannter WPF-Fallstrick, Fund aus #270-Nachtest: DataGrid
+         setzt den Streifen bei gesetzter AlternatingRowBackground intern per SetValue mit höherer Präzedenz
+         als Style-Trigger — Hover/Selected aus dem RowStyle bleiben dadurch auf geraden Zeilen unsichtbar,
+         unabhängig vom gewählten Hover-Ton. Verbrauchende Views setzen daher AlternationCount="2" statt
+         AlternatingRowBackground; Reihenfolge der Trigger hier ist bewusst Alternation → Selected → Hover,
+         damit die jeweils "stärkere" Markierung im Property-System gewinnt. -->
     <Style x:Key="StandardDataGridRowStyle" TargetType="DataGridRow">
         <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
         <Style.Triggers>
+            <Trigger Property="AlternationIndex" Value="1">
+                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Border}" />
+            </Trigger>
             <Trigger Property="IsSelected" Value="True">
                 <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.DataGrid.Selected}" />
                 <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
@@ -32,8 +42,9 @@
 
     <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template und fällt auf
          das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet (theme-unabhängig hell)
-         ist und eigene Trigger-Setter ignoriert. Hover bleibt auf Card.Background (nicht RowHoverAccentBrush):
-         ListBox hat kein AlternatingRowBackground, die für DataGridRow nötige Abgrenzung entfällt hier. -->
+         ist und eigene Trigger-Setter ignoriert. Hover einheitlich RowHoverAccentBrush (wie DataGridRow/
+         GridViewItem) statt des bisherigen, deutlich schwächeren Card.Background — sonst bleibt der neue
+         kräftigere Hover-Ton auf Listen (die Mehrheit der App) unwirksam. -->
     <Style x:Key="StandardListBoxItemStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
         <Setter Property="Padding" Value="12,8" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -48,7 +59,7 @@
                     <Condition Property="IsMouseOver" Value="True" />
                     <Condition Property="IsSelected" Value="False" />
                 </MultiTrigger.Conditions>
-                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+                <Setter Property="Background" Value="{DynamicResource RowHoverAccentBrush}" />
             </MultiTrigger>
         </Style.Triggers>
     </Style>

@@ -547,10 +547,7 @@
                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                     <!-- Fix #4: Rechtsklick-Kontextmenü -->
                                     <ListBox.ItemContainerStyle>
-                                        <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
-                                             und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
-                                             (theme-unabhängig hell) ist. -->
-                                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource StandardListBoxItemStyle}">
                                             <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" />
                                             <EventSetter Event="MouseRightButtonUp" Handler="VerfuegbarItem_MouseRightButtonUp" />
                                         </Style>
@@ -632,10 +629,7 @@
                                                              MouseMove="ListBox_MouseMove"
                                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                                         <ListBox.ItemContainerStyle>
-                                                            <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
-                                                                 und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
-                                                                 (theme-unabhängig hell) ist. -->
-                                                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource StandardListBoxItemStyle}">
                                                                 <EventSetter Event="MouseRightButtonUp" Handler="TopfItem_MouseRightButtonUp" />
                                                             </Style>
                                                         </ListBox.ItemContainerStyle>

@@ -152,6 +152,9 @@
                                      MouseMove="VerfuegbarListBox_MouseMove"
                                      MouseDoubleClick="VerfuegbarListBox_MouseDoubleClick"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemContainerStyle>
+                                    <StaticResource ResourceKey="StandardListBoxItemStyle" />
+                                </ListBox.ItemContainerStyle>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:TeilnehmerAnzeige}">
                                         <DockPanel>
