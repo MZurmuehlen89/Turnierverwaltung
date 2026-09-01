@@ -44,7 +44,7 @@ Seed data (Verbände, Länder, Mannschaften, Regelwerke, Turniervorlagen) is app
 
 ## Architecture
 
-**Clean Architecture** with five projects:
+**Clean Architecture** with five core projects, plus two non-productive UI-technology spike projects:
 
 | Project | Namespace | Role |
 |---|---|---|
@@ -53,12 +53,14 @@ Seed data (Verbände, Länder, Mannschaften, Regelwerke, Turniervorlagen) is app
 | `Infrastructure` | `Fussballturnierverwaltung.Infrastructure` | EF Core, repositories, migrations, seed |
 | `Console` | `Fussballturnierverwaltung.Konsole` | Spectre.Console menus, DI root |
 | `Wpf` | `Fussballturnierverwaltung.Wpf` | WPF GUI with Fluent.Ribbon, MVVM (CommunityToolkit.Mvvm) |
+| `Avalonia` *(spike, not productive)* | `Fussballturnierverwaltung.AvaloniaSpike` | Avalonia 12 rebuild of a DataGrid-heavy view (Issue #278), feeds the WPF/WinUI3/Avalonia decision in #272 |
+| `WinUi` *(spike, not productive)* | `Fussballturnierverwaltung.WinUi` | WinUI 3 / WindowsAppSDK rebuild of the same view, ListView-based instead of DataGrid (Issue #278) |
 
-Note: The Console project is named `*.Console` on disk but uses the namespace `*.Konsole` to avoid collision with `System.Console` (AD-005).
+Note: The Console project is named `*.Console` on disk but uses the namespace `*.Konsole` to avoid collision with `System.Console` (AD-005). The Avalonia spike project has the same collision, but with its own `Fussballturnierverwaltung.Application` project instead — any `Fussballturnierverwaltung.*`-namespaced project whose code references the `Application` type from a UI framework (`Avalonia.Application`, `Microsoft.UI.Xaml.Application`, …) unqualified hits this, since C# resolves the sibling namespace `Fussballturnierverwaltung.Application` first; the Avalonia project is namespaced `*.AvaloniaSpike` to sidestep it, the WinUI project instead qualifies the base class as `global::Microsoft.UI.Xaml.Application`.
 
-**Dependency direction:** `Domain ← Application ← Infrastructure ← Console / Wpf`
+**Dependency direction:** `Domain ← Application ← Infrastructure ← Console / Wpf / Avalonia / WinUi`
 
-Both `Console` and `Wpf` are independent startup projects that reference `Infrastructure` and share all Application-layer services.
+`Console`, `Wpf`, `Avalonia`, and `WinUi` are independent startup projects that reference `Infrastructure` and share all Application-layer services. `Avalonia` and `WinUi` are Issue #278 machine-feasibility spikes only — not wired into any release process, not part of "add a new feature" below.
 
 ## Key Patterns
 
