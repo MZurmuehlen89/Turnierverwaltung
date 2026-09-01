@@ -161,10 +161,16 @@
             <!-- Dauerhafter Tab — immer sichtbar -->
             <fluent:RibbonTabItem x:Name="StartTab" Header="Start">
                 <fluent:RibbonGroupBox Header="Anwendung">
+                    <!-- Dark Mode vorerst deaktiviert (Nutzerentscheidung nach mehreren Korrekturrunden zu
+                         #270/#268 — wiederkehrende native-Control-Fallstricke, siehe ThemeService.cs).
+                         Ausgeblendet statt entfernt: Command/Binding/ThemeService bleiben vollständig
+                         erhalten, Wiedereinschalten für eine spätere, eigene Sitzung ist nur diese eine
+                         Visibility-Zeile. -->
                     <fluent:ToggleButton Header="Dunkles Design"
                                          IsChecked="{Binding IstDunkelModus, Mode=OneWay}"
                                          Command="{Binding ThemeUmschaltenCommand}"
-                                         SizeDefinition="Middle">
+                                         SizeDefinition="Middle"
+                                         Visibility="Collapsed">
                         <fluent:ToggleButton.Icon>
                             <TextBlock Text="&#xE706;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
                         </fluent:ToggleButton.Icon>

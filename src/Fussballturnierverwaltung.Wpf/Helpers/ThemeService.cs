@@ -14,7 +14,15 @@ public class ThemeService(EinstellungenService einstellungenService)
 
     public void AnwendenAusEinstellungen(System.Windows.Application app)
     {
-        Anwenden(einstellungenService.Laden().ThemeModus, app);
+        // Dark Mode vorerst deaktiviert (Nutzerentscheidung nach mehreren Korrekturrunden zu #270/#268 —
+        // wiederkehrende native-Control-Fallstricke wie SystemColors-Bindungen und das ComboBox-Popup-
+        // Template, siehe feedback_wpf_darktheme_systemcolors und project_theme_konsistenz_270 im
+        // Memory). Gespeicherter ThemeModus wird bewusst ignoriert, damit die App auch dann hell startet,
+        // wenn zuvor lokal Dunkel gewählt/gespeichert wurde — kein Weg mehr, das über die UI zu ändern
+        // (Ribbon-Umschalter ist ausgeblendet, siehe MainWindow.xaml). Restlicher Theme-Code bleibt
+        // unangetastet: Dark Mode ist ein eigenes, sauber geplantes Thema für eine spätere Sitzung, kein
+        // gelöschtes Feature.
+        Anwenden(ThemeModus.Hell, app);
     }
 
     public void Umschalten(System.Windows.Application app)
