@@ -35,6 +35,15 @@
                 <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
             </Style>
 
+            <!-- Aufgeklappte ComboBox-Liste (Popup): Nutzer-Testfund im Dark Mode — weiße Schrift auf
+                 weißem Grund, das Popup folgt dem Theme offenbar nicht zuverlässig über den impliziten
+                 ComboBox-Style allein. Jeder Listeneintrag bekommt Background/Foreground hier explizit
+                 statt sich auf ererbtes/Popup-internes Verhalten zu verlassen. -->
+            <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
+            </Style>
+
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
             <conv:UmgekehrterBoolZuSichtbarkeitsConverter x:Key="InverseBoolToVisibility" />
             <conv:NullZuGeklapptConverter x:Key="NullToCollapsed" />

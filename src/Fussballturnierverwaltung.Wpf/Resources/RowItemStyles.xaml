@@ -3,9 +3,12 @@
 
     <!-- Einheitliches Hover-/Selected-/Aktiv-Zustandsschema (Issue #270) — ersetzt die bisher pro View
          kopierten DataGridRowStyle-/ListBoxItem-Blöcke (teils identisch, teils divergiert) durch eine
-         zentrale Definition. Selected: ...Selected-Background + Primary.Foreground-Text (durchgängig).
-         Hover: eigener, kräftigerer RowHoverAccentBrush statt des zu subtilen
-         MaterialDesign.Brush.DataGrid.RowHoverBackground (Nutzer-Feedback nach #268). -->
+         zentrale Definition. Selected: ...Selected-Background + normaler Foreground/SemiBold (NICHT
+         Primary.Foreground — Nutzer-Testfund: dieser Token ist für Text AUF der satten Primary-Fläche
+         kalibriert, nicht für die deutlich dunkleren ListBoxItem.Selected/DataGrid.Selected-Tönungen im
+         Dark Mode; Ergebnis war schwarzer Text auf dunkelgrauem Grund). Hover: eigener, kräftigerer
+         RowHoverAccentBrush statt des zu subtilen MaterialDesign.Brush.DataGrid.RowHoverBackground
+         (Nutzer-Feedback nach #268). -->
 
     <!-- Fallback/Designer-Wert fürs Hell-Theme. ThemeService.Anwenden() überschreibt diese Ressource
          zur Laufzeit passend zum aktuellen Theme (anders als die Colors.xaml-Brushes, die statisch sind
@@ -28,7 +31,8 @@
             </Trigger>
             <Trigger Property="IsSelected" Value="True">
                 <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.DataGrid.Selected}" />
-                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
             </Trigger>
             <MultiTrigger>
                 <MultiTrigger.Conditions>
@@ -52,7 +56,8 @@
         <Style.Triggers>
             <Trigger Property="IsSelected" Value="True">
                 <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.ListBoxItem.Selected}" />
-                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
             </Trigger>
             <MultiTrigger>
                 <MultiTrigger.Conditions>
@@ -94,7 +99,8 @@
         </Setter>
         <Style.Triggers>
             <Trigger Property="IsSelected" Value="True">
-                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
             </Trigger>
         </Style.Triggers>
     </Style>
