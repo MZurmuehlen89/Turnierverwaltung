@@ -38,7 +38,7 @@
                                     <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Background}" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding HatErgebnis}" Value="True">
-                                    <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -322,7 +322,7 @@
                                 Padding="10,6" Cursor="Hand" Background="Transparent" BorderThickness="0"
                                 Visibility="{Binding HatVorherigeRunde, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="◀" FontSize="14" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}"
+                                <TextBlock Text="◀" FontSize="14" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Foreground}"
                                            VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <TextBlock Text="{Binding VorherigeRundeName}" FontSize="12"
                                            Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" VerticalAlignment="Center" />
@@ -339,7 +339,7 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{Binding NaechsteRundeName}" FontSize="12"
                                            Foreground="{DynamicResource MaterialDesign.Brush.ForegroundLight}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <TextBlock Text="▶" FontSize="14" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}"
+                                <TextBlock Text="▶" FontSize="14" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Foreground}"
                                            VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -657,15 +657,11 @@
                                             CommandParameter="{x:Static tabelle:TabellenAnsicht.Gesamt}"
                                             Padding="10,3" Cursor="Hand" FontSize="11">
                                         <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
-                                                <Setter Property="FontWeight" Value="Normal" />
-                                                <Setter Property="BorderThickness" Value="0" />
+                                            <Style TargetType="Button" BasedOn="{StaticResource AktivTabButtonStyle}">
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Gesamt}">
-                                                        <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
-                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -678,15 +674,11 @@
                                             Padding="10,3" Cursor="Hand" FontSize="11"
                                             Visibility="{Binding ZeigtHinRueckrundenTabs, Converter={StaticResource BoolToVisibility}}">
                                         <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
-                                                <Setter Property="FontWeight" Value="Normal" />
-                                                <Setter Property="BorderThickness" Value="0" />
+                                            <Style TargetType="Button" BasedOn="{StaticResource AktivTabButtonStyle}">
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Hinrunde}">
-                                                        <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
-                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -699,15 +691,11 @@
                                             Padding="10,3" Cursor="Hand" FontSize="11"
                                             Visibility="{Binding ZeigtHinRueckrundenTabs, Converter={StaticResource BoolToVisibility}}">
                                         <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
-                                                <Setter Property="FontWeight" Value="Normal" />
-                                                <Setter Property="BorderThickness" Value="0" />
+                                            <Style TargetType="Button" BasedOn="{StaticResource AktivTabButtonStyle}">
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Rueckrunde}">
-                                                        <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
-                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -719,15 +707,11 @@
                                             CommandParameter="{x:Static tabelle:TabellenAnsicht.Heimtabelle}"
                                             Padding="10,3" Cursor="Hand" FontSize="11">
                                         <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
-                                                <Setter Property="FontWeight" Value="Normal" />
-                                                <Setter Property="BorderThickness" Value="0" />
+                                            <Style TargetType="Button" BasedOn="{StaticResource AktivTabButtonStyle}">
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Heimtabelle}">
-                                                        <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
-                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -739,15 +723,11 @@
                                             CommandParameter="{x:Static tabelle:TabellenAnsicht.Auswaertstabelle}"
                                             Padding="10,3" Cursor="Hand" FontSize="11">
                                         <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
-                                                <Setter Property="FontWeight" Value="Normal" />
-                                                <Setter Property="BorderThickness" Value="0" />
+                                            <Style TargetType="Button" BasedOn="{StaticResource AktivTabButtonStyle}">
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding AusgewaehlteLigaAnsicht}" Value="{x:Static tabelle:TabellenAnsicht.Auswaertstabelle}">
-                                                        <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
-                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>

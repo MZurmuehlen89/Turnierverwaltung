@@ -78,13 +78,10 @@
             </Setter>
         </Style>
 
-        <!-- Issue #191: ListViewItem-Style für die GridView-Spielzeilen. Eigener ControlTemplate statt
-             BasedOn (siehe Kommentar bei den ListView.ItemContainerStyle-Verwendungen unten) — jetzt mit
-             Card-Look-Farben statt der bisherigen, an #264 hängenden Foreground-Pinning-Behelfslösung. -->
-        <Style x:Key="SpielplanGridViewItemStyle" TargetType="ListViewItem">
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Padding" Value="0,4" />
-            <Setter Property="Background" Value="Transparent" />
+        <!-- Kontextmenü der GridView-Spielzeilen: der geteilte StandardGridViewItemStyle (Issue #270,
+             Resources/RowItemStyles.xaml) deckt nur Farben/Struktur ab, dieses View-spezifische
+             ContextMenu bleibt lokal und wird per BasedOn ergänzt. -->
+        <Style x:Key="SpielplanGridViewItemStyle" TargetType="ListViewItem" BasedOn="{StaticResource StandardGridViewItemStyle}">
             <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListView}}" />
             <Setter Property="ContextMenu">
                 <Setter.Value>
@@ -99,33 +96,6 @@
                     </ContextMenu>
                 </Setter.Value>
             </Setter>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListViewItem">
-                        <Border x:Name="RowBorder" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"
-                                SnapsToDevicePixels="True">
-                            <GridViewRowPresenter Content="{TemplateBinding Content}"
-                                                   Columns="{TemplateBinding GridView.ColumnCollection}" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <!-- Hover=Card.Background, Selected=eigener ListBoxItem.Selected-Brush: müssen sich
-                                 voneinander UND vom transparenten Normalzustand (zeigt den Background-farbenen
-                                 Grid-Hintergrund durch) unterscheiden, sonst bleibt der Zustand unsichtbar. -->
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource MaterialDesign.Brush.ListBoxItem.Selected}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
-                </Trigger>
-            </Style.Triggers>
         </Style>
     </UserControl.Resources>
 
@@ -193,19 +163,7 @@
                      BorderThickness="0" Background="Transparent"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListBox.ItemContainerStyle>
-                    <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
-                         und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
-                         (theme-unabhängig hell) ist und unsere eigenen Trigger-Setter ignoriert. -->
-                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
-                        <Setter Property="Padding" Value="12,6" />
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Style.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
-                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
+                    <StaticResource ResourceKey="StandardListBoxItemStyle" />
                 </ListBox.ItemContainerStyle>
                 <ListBox.ItemTemplate>
                     <DataTemplate>
@@ -362,11 +320,11 @@
                     </StackPanel>
 
                     <!-- Hinweis: Simulieren erst nach Zurücksetzen des bestehenden Ergebnisses möglich -->
-                    <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" BorderBrush="{DynamicResource MaterialDesign.Brush.Primary.Light}" BorderThickness="1"
+                    <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" BorderBrush="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" BorderThickness="1"
                             CornerRadius="{StaticResource Radius4}" Padding="10,7" Margin="0,0,0,12"
                             Visibility="{Binding FormHatErgebnis, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="Dieses Spiel hat bereits ein Ergebnis. Zum Neu-Simulieren zuerst über 'Löschen' zurücksetzen."
-                                   Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}" FontSize="12" TextWrapping="Wrap" />
+                                   Foreground="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" FontSize="12" TextWrapping="Wrap" />
                     </Border>
 
                     <!-- Issue #240: Zugriff auf den detaillierten Spielverlauf eines bereits
@@ -405,15 +363,11 @@
                                     <Button Command="{Binding LigaGesamtAnsichtBefehl}"
                                             Content="Gesamt" Padding="8,3" Cursor="Hand" FontSize="11">
                                         <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
-                                                <Setter Property="FontWeight" Value="Normal" />
-                                                <Setter Property="BorderThickness" Value="0" />
+                                            <Style TargetType="Button" BasedOn="{StaticResource AktivTabButtonStyle}">
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding LigaProSpieltagAktiv}" Value="False">
-                                                        <Setter Property="Background" Value="White" />
-                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -423,15 +377,11 @@
                                     <Button Command="{Binding LigaProSpieltagAnsichtBefehl}"
                                             Content="Pro Spieltag" Padding="8,3" Cursor="Hand" FontSize="11">
                                         <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
-                                                <Setter Property="FontWeight" Value="Normal" />
-                                                <Setter Property="BorderThickness" Value="0" />
+                                            <Style TargetType="Button" BasedOn="{StaticResource AktivTabButtonStyle}">
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding LigaProSpieltagAktiv}" Value="True">
-                                                        <Setter Property="Background" Value="White" />
-                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                                                         <Setter Property="FontWeight" Value="SemiBold" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -615,15 +565,11 @@
                                                     Padding="8,3" Cursor="Hand" FontSize="11">
                                                 <Button.Content>Alle</Button.Content>
                                                 <Button.Style>
-                                                    <Style TargetType="Button">
-                                                        <Setter Property="Background" Value="Transparent" />
-                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
-                                                        <Setter Property="FontWeight" Value="Normal" />
-                                                        <Setter Property="BorderThickness" Value="0" />
+                                                    <Style TargetType="Button" BasedOn="{StaticResource AktivTabButtonStyle}">
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding FokusAlleAktiv}" Value="True">
-                                                                <Setter Property="Background" Value="White" />
-                                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
