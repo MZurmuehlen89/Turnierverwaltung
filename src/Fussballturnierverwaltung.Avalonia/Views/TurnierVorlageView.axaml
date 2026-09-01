@@ -1,0 +1,147 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:dg="using:Avalonia.Controls"
+             xmlns:vm="using:Fussballturnierverwaltung.AvaloniaSpike.ViewModels"
+             xmlns:turniere="using:Fussballturnierverwaltung.Domain.Entitaeten.Turniere"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             x:Class="Fussballturnierverwaltung.AvaloniaSpike.Views.TurnierVorlageView"
+             x:DataType="vm:TurnierVorlageViewModel">
+
+    <Grid ColumnDefinitions="260,1,*">
+
+        <!-- Master-Liste -->
+        <ListBox Grid.Column="0" ItemsSource="{Binding Vorlagen}" SelectedItem="{Binding Ausgewaehltes}" Margin="8">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="turniere:TurnierVorlage">
+                    <TextBlock Text="{Binding Name}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <GridSplitter Grid.Column="1" Background="{DynamicResource SystemBaseLowColor}" />
+
+        <!-- Formular -->
+        <ScrollViewer Grid.Column="2" Margin="8" IsVisible="{Binding FormularAktiv}">
+            <StackPanel Spacing="8">
+
+                <TextBlock Text="{Binding Fehlermeldung}" Foreground="Red" IsVisible="{Binding Fehlermeldung, Converter={x:Static conv:ObjectConverters.IsNotNull}}" />
+
+                <TextBlock Text="Name" />
+                <TextBox Text="{Binding Name}" />
+
+                <TextBlock Text="Beschreibung" />
+                <TextBox Text="{Binding Beschreibung}" />
+
+                <TextBlock Text="Erforderliche Mannschaftsanzahl" />
+                <TextBox Text="{Binding AnzahlMannschaften}" Width="100" HorizontalAlignment="Left" />
+
+                <!-- RundenGrid: DataGrid-Nachbau (Kern des #278-Spikes) -->
+                <TextBlock Text="Runden" FontWeight="Bold" Margin="0,12,0,0" />
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <Button Content="Runde hinzufügen" Command="{Binding RundeHinzufuegenCommand}" />
+                    <Button Content="Runde entfernen" Command="{Binding RundeEntfernenCommand}" />
+                </StackPanel>
+
+                <dg:DataGrid ItemsSource="{Binding RundenZeilen}"
+                             SelectedItem="{Binding AusgewaehlteRunde}"
+                             AutoGenerateColumns="False"
+                             CanUserResizeColumns="True"
+                             GridLinesVisibility="Horizontal"
+                             HeadersVisibility="Column"
+                             Height="220">
+                    <dg:DataGrid.Columns>
+                        <dg:DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+
+                        <dg:DataGridTemplateColumn Header="Rundenart" Width="150">
+                            <dg:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:VorlagenRundeZeile">
+                                    <TextBlock Text="{Binding Rundenart}" Margin="8,0" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellTemplate>
+                            <dg:DataGridTemplateColumn.CellEditingTemplate>
+                                <DataTemplate x:DataType="vm:VorlagenRundeZeile">
+                                    <ComboBox SelectedItem="{Binding Rundenart}"
+                                              ItemsSource="{Binding $parent[dg:DataGrid].((vm:TurnierVorlageViewModel)DataContext).RundenartOptionen}"
+                                              HorizontalAlignment="Stretch" />
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellEditingTemplate>
+                        </dg:DataGridTemplateColumn>
+
+                        <dg:DataGridTextColumn Header="Eingang" Binding="{Binding EingangsMannschaftsanzahl}" Width="64" />
+                        <dg:DataGridTextColumn Header="Ausgang" Binding="{Binding AusgangsMannschaftsanzahl}" Width="64" />
+                        <dg:DataGridCheckBoxColumn Header="H+R" Binding="{Binding MitRueckspiel}" Width="52" />
+                        <dg:DataGridCheckBoxColumn Header="AuswTor" Binding="{Binding AuswaertstorRegelAktiv}" Width="80" />
+
+                        <dg:DataGridTemplateColumn Header="Regelwerk" Width="*">
+                            <dg:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:VorlagenRundeZeile">
+                                    <TextBlock Text="{Binding Regelwerk.Anzeige}" Margin="4,0" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellTemplate>
+                            <dg:DataGridTemplateColumn.CellEditingTemplate>
+                                <DataTemplate x:DataType="vm:VorlagenRundeZeile">
+                                    <ComboBox SelectedItem="{Binding Regelwerk}"
+                                              ItemsSource="{Binding $parent[dg:DataGrid].((vm:TurnierVorlageViewModel)DataContext).RegelwerkOptionen}"
+                                              DisplayMemberBinding="{Binding Anzeige}"
+                                              HorizontalAlignment="Stretch" />
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellEditingTemplate>
+                        </dg:DataGridTemplateColumn>
+                    </dg:DataGrid.Columns>
+                </dg:DataGrid>
+
+                <!-- UebergangsregelGrid -->
+                <TextBlock Text="Übergangsregeln" FontWeight="Bold" Margin="0,12,0,0" />
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <Button Content="Übergangsregel hinzufügen" Command="{Binding UebergangsregelHinzufuegenCommand}" />
+                    <Button Content="Übergangsregel entfernen" Command="{Binding UebergangsregelEntfernenCommand}" />
+                </StackPanel>
+
+                <dg:DataGrid ItemsSource="{Binding UebergangsregelZeilen}"
+                             SelectedItem="{Binding AusgewaehlteUebergangsregel}"
+                             AutoGenerateColumns="False"
+                             GridLinesVisibility="Horizontal"
+                             HeadersVisibility="Column"
+                             Height="180">
+                    <dg:DataGrid.Columns>
+                        <dg:DataGridTemplateColumn Header="Quelle" Width="*">
+                            <dg:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:VorlagenUebergangsRegelZeile">
+                                    <TextBlock Text="{Binding Quelle.Name}" Margin="8,0" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellTemplate>
+                            <dg:DataGridTemplateColumn.CellEditingTemplate>
+                                <DataTemplate x:DataType="vm:VorlagenUebergangsRegelZeile">
+                                    <ComboBox SelectedItem="{Binding Quelle}"
+                                              ItemsSource="{Binding $parent[dg:DataGrid].((vm:TurnierVorlageViewModel)DataContext).RundenZeilen}"
+                                              DisplayMemberBinding="{Binding Name}"
+                                              HorizontalAlignment="Stretch" />
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellEditingTemplate>
+                        </dg:DataGridTemplateColumn>
+
+                        <dg:DataGridTemplateColumn Header="Ziel" Width="*">
+                            <dg:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:VorlagenUebergangsRegelZeile">
+                                    <TextBlock Text="{Binding Ziel.Name}" Margin="8,0" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellTemplate>
+                            <dg:DataGridTemplateColumn.CellEditingTemplate>
+                                <DataTemplate x:DataType="vm:VorlagenUebergangsRegelZeile">
+                                    <ComboBox SelectedItem="{Binding Ziel}"
+                                              ItemsSource="{Binding $parent[dg:DataGrid].((vm:TurnierVorlageViewModel)DataContext).RundenZeilen}"
+                                              DisplayMemberBinding="{Binding Name}"
+                                              HorizontalAlignment="Stretch" />
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellEditingTemplate>
+                        </dg:DataGridTemplateColumn>
+
+                        <dg:DataGridTextColumn Header="Gruppe" Binding="{Binding GruppeIndex}" Width="64" />
+                        <dg:DataGridTextColumn Header="Platz von" Binding="{Binding PlatzierungVon}" Width="72" />
+                        <dg:DataGridTextColumn Header="Platz bis" Binding="{Binding PlatzierungBis}" Width="72" />
+                    </dg:DataGrid.Columns>
+                </dg:DataGrid>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

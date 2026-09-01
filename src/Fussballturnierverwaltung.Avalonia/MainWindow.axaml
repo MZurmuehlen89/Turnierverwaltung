@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Fussballturnierverwaltung.AvaloniaSpike.ViewModels"
+        xmlns:views="using:Fussballturnierverwaltung.AvaloniaSpike.Views"
+        x:Class="Fussballturnierverwaltung.AvaloniaSpike.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Turnierverwaltung — Avalonia-Spike (#278)"
+        Width="1100" Height="700">
+
+    <DockPanel>
+        <!-- Ribbon-Ersatz (kein first-party Avalonia-Ribbon vorhanden, siehe #278-Recherche):
+             TabHeader + Button-Gruppen-Toolbar, bewusst analog zum IRibbonAware-Bindungsmuster
+             gegen das aktive ViewModel gebunden statt direkt gegen TurnierVorlageViewModel. -->
+        <Border DockPanel.Dock="Top" Padding="8" BorderThickness="0,0,0,1"
+                BorderBrush="{DynamicResource SystemBaseLowColor}"
+                IsVisible="{Binding HatRibbonBereich}">
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <TextBlock Text="{Binding RibbonTabTitel}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,16,0" />
+
+                <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HatStandardAktionen}">
+                    <Button Content="Neu" Command="{Binding RibbonNeuBefehl}" />
+                    <Button Content="Speichern" Command="{Binding RibbonSpeichernBefehl}" />
+                    <Button Content="Abbrechen" Command="{Binding RibbonAbbrechenBefehl}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HatLoeschenAktion}">
+                    <Button Content="Löschen" Command="{Binding RibbonLoeschenBefehl}" />
+                </StackPanel>
+
+                <Border Width="1" Margin="8,0" Background="{DynamicResource SystemBaseLowColor}" />
+                <ToggleButton x:Name="DarkModeToggle" Content="Dark Mode" Click="OnDarkModeToggleClick" />
+            </StackPanel>
+        </Border>
+
+        <ContentControl Content="{Binding AktuellesViewModel}">
+            <ContentControl.DataTemplates>
+                <DataTemplate DataType="vm:TurnierVorlageViewModel">
+                    <views:TurnierVorlageView />
+                </DataTemplate>
+            </ContentControl.DataTemplates>
+        </ContentControl>
+    </DockPanel>
+</Window>
