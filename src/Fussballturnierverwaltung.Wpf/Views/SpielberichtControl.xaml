@@ -114,7 +114,7 @@
 
                                 <!-- Text-Zeile ohne Teams (z. B. "Weiter: TeamX"): kompakte Zeile, farblich hervorgehoben -->
                                 <TextBlock Visibility="{Binding ZeigtTeams, Converter={StaticResource InverseBoolToVisibility}}"
-                                           FontSize="12" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}"
+                                           FontSize="12" FontWeight="Bold" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Foreground}"
                                            HorizontalAlignment="Center" Margin="0,4,0,0">
                                     <Run Text="{Binding Label, Mode=OneWay}" /><Run Text=": " /><Run Text="{Binding Score, Mode=OneWay}" />
                                 </TextBlock>
@@ -268,7 +268,7 @@
                                                                 <Setter Property="Foreground" Value="White" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding TrennerArt}" Value="Beinabschnitt">
-                                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>

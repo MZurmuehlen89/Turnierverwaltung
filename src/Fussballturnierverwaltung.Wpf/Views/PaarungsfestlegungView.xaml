@@ -26,19 +26,7 @@
                          BorderThickness="0" Background="Transparent"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemContainerStyle>
-                        <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
-                             und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
-                             (theme-unabhängig hell) ist und unsere eigenen Trigger-Setter ignoriert. -->
-                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
-                            <Setter Property="Padding" Value="12,6" />
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            <Style.Triggers>
-                                <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
-                                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
+                        <StaticResource ResourceKey="StandardListBoxItemStyle" />
                     </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:RundenPaarungsEintrag}">
@@ -301,7 +289,7 @@
                                             <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" Padding="10,5" CornerRadius="4,4,0,0">
                                                 <TextBlock Text="{Binding GruppenName}"
                                                            FontSize="13" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                                           Foreground="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                                             </Border>
                                             <ItemsControl ItemsSource="{Binding Slots}" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
                                                 <ItemsControl.ItemTemplate>
@@ -381,7 +369,7 @@
                                         <StackPanel>
                                             <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" Padding="10,5" CornerRadius="4,4,0,0">
                                                 <TextBlock Text="{Binding GruppenName}" FontSize="13" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                                           Foreground="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                                             </Border>
                                             <ItemsControl ItemsSource="{Binding Slots}" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
                                                 <ItemsControl.ItemTemplate>

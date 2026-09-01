@@ -81,7 +81,7 @@
                                         <TextBlock Text="{Binding EinAusgangText}" FontSize="12"
                                                    Foreground="{DynamicResource MaterialDesign.Brush.Foreground}" Margin="0,8,0,0" />
                                         <TextBlock Text="{Binding AuslosungsLabel}" FontSize="10"
-                                                   Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}" Margin="0,6,0,0"
+                                                   Foreground="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" Margin="0,6,0,0"
                                                    TextWrapping="Wrap"
                                                    Visibility="{Binding HatAuslosungsLabel, Converter={StaticResource BoolToVisibility}}" />
                                         <TextBlock Text="{Binding UnstimmigkeitText}" FontSize="10"

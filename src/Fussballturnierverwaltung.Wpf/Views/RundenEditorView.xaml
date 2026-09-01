@@ -63,18 +63,9 @@
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      Visibility="{Binding RundenEditorAktiv, Converter={StaticResource BoolToVisibility}}">
                 <ListBox.ItemContainerStyle>
-                    <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
-                         und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
-                         (theme-unabhängig hell) ist und unsere eigenen Trigger-Setter ignoriert. -->
-                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                    <!-- BasedOn StandardListBoxItemStyle: kompakteres Padding als Standard. -->
+                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource StandardListBoxItemStyle}">
                         <Setter Property="Padding" Value="10,8" />
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Style.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
-                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
-                            </Trigger>
-                        </Style.Triggers>
                     </Style>
                 </ListBox.ItemContainerStyle>
                 <ListBox.ItemTemplate>

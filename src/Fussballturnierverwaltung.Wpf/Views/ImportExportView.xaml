@@ -18,10 +18,10 @@
             </TextBlock>
 
             <!-- Lade-Indikator -->
-            <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" BorderBrush="{DynamicResource MaterialDesign.Brush.Primary.Light}" BorderThickness="1"
+            <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" BorderBrush="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" BorderThickness="1"
                     CornerRadius="{StaticResource Radius4}" Padding="12,8" Margin="0,0,0,16"
                     Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}">
-                <TextBlock Text="Verarbeite…" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}" FontSize="13" />
+                <TextBlock Text="Verarbeite…" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" FontSize="13" />
             </Border>
 
             <!-- Fehlermeldung -->

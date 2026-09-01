@@ -34,19 +34,7 @@
                          BorderThickness="0" Background="Transparent"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemContainerStyle>
-                        <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
-                             und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
-                             (theme-unabhängig hell) ist und unsere eigenen Trigger-Setter ignoriert. -->
-                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
-                            <Setter Property="Padding" Value="12,6" />
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            <Style.Triggers>
-                                <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
-                                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
+                        <StaticResource ResourceKey="StandardListBoxItemStyle" />
                     </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
@@ -87,10 +75,10 @@
                               FontSize="13" Margin="0,0,0,8" />
 
                     <!-- Erklärung zur gewählten Auslosungsart -->
-                    <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" BorderBrush="{DynamicResource MaterialDesign.Brush.Primary.Light}" BorderThickness="1"
+                    <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" BorderBrush="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" BorderThickness="1"
                             CornerRadius="{StaticResource Radius4}" Padding="10,7" Margin="0,0,0,6">
                         <TextBlock Text="{Binding AuslosungsartHinweis}" FontSize="12"
-                                   Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}" TextWrapping="Wrap" />
+                                   Foreground="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" TextWrapping="Wrap" />
                     </Border>
 
                     <!-- Warnung bei unpassender Auslosungsart/Rundenart-Kombination -->
@@ -291,7 +279,7 @@
                                                 <StackPanel>
                                                     <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" Padding="10,5" CornerRadius="4,4,0,0">
                                                         <TextBlock Text="{Binding GruppenName}" FontSize="13"
-                                                                   FontWeight="SemiBold" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                                                   FontWeight="SemiBold" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                                                     </Border>
                                                     <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto"
                                                                   HorizontalScrollBarVisibility="Disabled">
@@ -460,10 +448,10 @@
                                               ToolTip="Wird von 'Lostöpfe automatisch befüllen' im Ribbon (Tab Auslosung, Gruppe Auslosung) verwendet." />
                                 </Grid>
                                 <!-- Hinweis zur gewählten Auslosungsart -->
-                                <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" BorderBrush="{DynamicResource MaterialDesign.Brush.Primary.Light}" BorderThickness="1"
+                                <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" BorderBrush="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" BorderThickness="1"
                                         CornerRadius="3" Padding="8,5" Margin="0,2,0,0">
                                     <TextBlock Text="{Binding DetailAuslosungsartHinweis}"
-                                               FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}" TextWrapping="Wrap" />
+                                               FontSize="11" Foreground="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" TextWrapping="Wrap" />
                                 </Border>
                                 <!-- Warnung bei unpassender Kombination -->
                                 <Border Background="{StaticResource WarningSoftBrush}" BorderBrush="{StaticResource WarningSoftBorderBrush}" BorderThickness="1"
@@ -708,7 +696,7 @@
                                             <Border Background="{DynamicResource MaterialDesign.Brush.Card.Background}" Padding="10,5" CornerRadius="4,4,0,0">
                                                 <TextBlock Text="{Binding GruppenName}"
                                                            FontSize="13" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                                           Foreground="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
                                             </Border>
                                             <ItemsControl ItemsSource="{Binding Teams}" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
                                                 <ItemsControl.ItemTemplate>
