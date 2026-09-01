@@ -12,27 +12,12 @@
             <Setter Property="materialDesign:HintAssist.Hint" Value="🔍  Suche…" />
             <Setter Property="materialDesign:HintAssist.IsFloating" Value="False" />
         </Style>
-        <Style x:Key="EintraegeRowStyle" TargetType="DataGridRow">
+        <!-- BasedOn StandardDataGridRowStyle: nur die Drag&amp;Drop-Ergänzungen bleiben hier lokal. -->
+        <Style x:Key="EintraegeRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource StandardDataGridRowStyle}">
             <Setter Property="AllowDrop" Value="True" />
-            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
             <EventSetter Event="PreviewMouseLeftButtonDown" Handler="EintraegeRow_PreviewMouseLeftButtonDown" />
             <EventSetter Event="MouseMove" Handler="EintraegeRow_MouseMove" />
             <EventSetter Event="Drop" Handler="EintraegeRow_Drop" />
-            <Style.Triggers>
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.DataGrid.Selected}" />
-                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
-                </Trigger>
-                <MultiTrigger>
-                    <MultiTrigger.Conditions>
-                        <Condition Property="IsMouseOver" Value="True" />
-                        <Condition Property="IsSelected" Value="False" />
-                    </MultiTrigger.Conditions>
-                    <!-- Eigener Hover-Brush statt Card.Border (Issue #268 Pkt. 2): Card.Border ist
-                         auch AlternatingRowBackground, auf geraden Zeilen wäre der Hover sonst unsichtbar. -->
-                    <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.DataGrid.RowHoverBackground}" />
-                </MultiTrigger>
-            </Style.Triggers>
         </Style>
     </UserControl.Resources>
 
@@ -68,27 +53,7 @@
                      BorderThickness="0" Background="Transparent"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListBox.ItemContainerStyle>
-                    <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
-                         und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
-                         (theme-unabhängig hell) ist und unsere eigenen Trigger-Setter ignoriert. -->
-                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
-                        <Setter Property="Padding" Value="12,8" />
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Setter Property="BorderThickness" Value="0" />
-                        <Style.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.ListBoxItem.Selected}" />
-                                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
-                            </Trigger>
-                            <MultiTrigger>
-                                <MultiTrigger.Conditions>
-                                    <Condition Property="IsMouseOver" Value="True" />
-                                    <Condition Property="IsSelected" Value="False" />
-                                </MultiTrigger.Conditions>
-                                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
-                            </MultiTrigger>
-                        </Style.Triggers>
-                    </Style>
+                    <StaticResource ResourceKey="StandardListBoxItemStyle" />
                 </ListBox.ItemContainerStyle>
                 <ListBox.ItemTemplate>
                     <DataTemplate>

@@ -1,3 +1,4 @@
+using System.Windows.Media;
 using ControlzEx.Theming;
 using Fussballturnierverwaltung.Application.Einstellungen;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -33,6 +34,14 @@ public class ThemeService(EinstellungenService einstellungenService)
         _paletteHelper.SetTheme(theme);
 
         ThemeManager.Current.ChangeTheme(app, modus == ThemeModus.Hell ? "Light.Blue" : "Dark.Blue");
+
+        // RowHoverAccentBrush (Issue #270): projekteigener Hover-Ton, kein MaterialDesign-Brush und
+        // daher nicht automatisch durch PaletteHelper.SetTheme theme-reaktiv — hier analog dazu manuell
+        // je Modus gesetzt. Werte visuell gegen die laufende App abgeglichen (Mockup-Artifact zu #270).
+        app.Resources["RowHoverAccentBrush"] = new SolidColorBrush(
+            modus == ThemeModus.Hell
+                ? (Color)ColorConverter.ConvertFromString("#DCE9FA")
+                : (Color)ColorConverter.ConvertFromString("#243447"));
 
         AktuellerModus = modus;
     }

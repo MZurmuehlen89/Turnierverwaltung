@@ -18,16 +18,21 @@
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign2.Defaults.xaml" />
                 <ResourceDictionary Source="Resources/Colors.xaml" />
                 <ResourceDictionary Source="Resources/Metrics.xaml" />
+                <ResourceDictionary Source="Resources/RowItemStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Eingabefelder heben sich vom Formularhintergrund ab (Issue #268 Pkt. 3) — ohne
                  explizite Background bleibt TextBox/ComboBox transparent und verschmilzt optisch mit
-                 MaterialDesign.Brush.Background des umgebenden Grids. -->
+                 MaterialDesign.Brush.Background des umgebenden Grids. Foreground explizit (Issue #270
+                 Befund 2): ohne den eigenen Setter blieb die Schrift im Dark Mode schwarz auf dunkelgrauem
+                 Hintergrund. -->
             <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
                 <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
             </Style>
             <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
                 <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}" />
             </Style>
 
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />

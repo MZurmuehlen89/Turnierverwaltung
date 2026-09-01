@@ -1,0 +1,104 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Einheitliches Hover-/Selected-/Aktiv-Zustandsschema (Issue #270) — ersetzt die bisher pro View
+         kopierten DataGridRowStyle-/ListBoxItem-Blöcke (teils identisch, teils divergiert) durch eine
+         zentrale Definition. Selected: ...Selected-Background + Primary.Foreground-Text (durchgängig).
+         Hover: eigener, kräftigerer RowHoverAccentBrush statt des zu subtilen
+         MaterialDesign.Brush.DataGrid.RowHoverBackground (Nutzer-Feedback nach #268). -->
+
+    <!-- Fallback/Designer-Wert fürs Hell-Theme. ThemeService.Anwenden() überschreibt diese Ressource
+         zur Laufzeit passend zum aktuellen Theme (anders als die Colors.xaml-Brushes, die statisch sind
+         und beim Theme-Umschalten NICHT mitwechseln — für einen App-eigenen, nicht MaterialDesign-eigenen
+         Hover-Ton reicht das nicht, siehe ThemeService.cs). -->
+    <SolidColorBrush x:Key="RowHoverAccentBrush" Color="#E3EEFC" />
+
+    <Style x:Key="StandardDataGridRowStyle" TargetType="DataGridRow">
+        <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.DataGrid.Selected}" />
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
+            </Trigger>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" Value="True" />
+                    <Condition Property="IsSelected" Value="False" />
+                </MultiTrigger.Conditions>
+                <Setter Property="Background" Value="{DynamicResource RowHoverAccentBrush}" />
+            </MultiTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template und fällt auf
+         das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet (theme-unabhängig hell)
+         ist und eigene Trigger-Setter ignoriert. Hover bleibt auf Card.Background (nicht RowHoverAccentBrush):
+         ListBox hat kein AlternatingRowBackground, die für DataGridRow nötige Abgrenzung entfällt hier. -->
+    <Style x:Key="StandardListBoxItemStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.ListBoxItem.Selected}" />
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
+            </Trigger>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" Value="True" />
+                    <Condition Property="IsSelected" Value="False" />
+                </MultiTrigger.Conditions>
+                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
+            </MultiTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- GridView/GridViewColumnHeader haben kein MaterialDesign-Template (Issue #191) — eigener
+         ControlTemplate von Grund auf (aus SpielplanView extrahiert, jetzt zentral). -->
+    <Style x:Key="StandardGridViewItemStyle" TargetType="ListViewItem">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Padding" Value="0,4" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListViewItem">
+                    <Border x:Name="RowBorder" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <GridViewRowPresenter Content="{TemplateBinding Content}"
+                                               Columns="{TemplateBinding GridView.ColumnCollection}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <!-- Hover=RowHoverAccentBrush, Selected=ListBoxItem.Selected: müssen sich voneinander
+                             UND vom transparenten Normalzustand unterscheiden, sonst bleibt der Zustand
+                             unsichtbar (Issue #191/#264). -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource RowHoverAccentBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource MaterialDesign.Brush.ListBoxItem.Selected}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Aktiv-Tab-Buttons (Liga-Umschalter, Spieltag-Fokus): Akzent-Rahmen statt Flächenfarbe, ersetzt das
+         bisher pro Button kopierte Background="White" (Dark-Mode-Bug in SpielplanView) bzw. Card.Background
+         + Primary.Light-Muster (TurnierBaumView). Views setzen weiterhin ihren eigenen DataTrigger (Bindings
+         unterscheiden sich je View), aber BasedOn dieser Basis und reduziert auf BorderBrush/Foreground/
+         FontWeight statt vollem Style + Background-Setter. -->
+    <Style x:Key="AktivTabButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.ForegroundLight}" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="BorderThickness" Value="0,0,0,2" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+</ResourceDictionary>

@@ -78,27 +78,7 @@
                                  BorderThickness="0" Background="Transparent"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <ListBox.ItemContainerStyle>
-                                <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
-                                     und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
-                                     (theme-unabhängig hell) ist und unsere eigenen Trigger-Setter ignoriert. -->
-                                <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
-                                    <Setter Property="Padding" Value="12,8" />
-                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                    <Setter Property="BorderThickness" Value="0" />
-                                    <Style.Triggers>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.ListBoxItem.Selected}" />
-                                            <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
-                                        </Trigger>
-                                        <MultiTrigger>
-                                            <MultiTrigger.Conditions>
-                                                <Condition Property="IsMouseOver" Value="True" />
-                                                <Condition Property="IsSelected" Value="False" />
-                                            </MultiTrigger.Conditions>
-                                            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
-                                        </MultiTrigger>
-                                    </Style.Triggers>
-                                </Style>
+                                <StaticResource ResourceKey="StandardListBoxItemStyle" />
                             </ListBox.ItemContainerStyle>
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
@@ -275,27 +255,7 @@
                                  BorderThickness="0" Background="Transparent"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <ListBox.ItemContainerStyle>
-                                <!-- BasedOn ist Pflicht: ohne ihn verliert der Container das MaterialDesign-Template
-                                     und fällt auf das native Aero2-Template zurück, dessen Hover-Overlay fest verdrahtet
-                                     (theme-unabhängig hell) ist und unsere eigenen Trigger-Setter ignoriert. -->
-                                <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
-                                    <Setter Property="Padding" Value="12,8" />
-                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                    <Setter Property="BorderThickness" Value="0" />
-                                    <Style.Triggers>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.ListBoxItem.Selected}" />
-                                            <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
-                                        </Trigger>
-                                        <MultiTrigger>
-                                            <MultiTrigger.Conditions>
-                                                <Condition Property="IsMouseOver" Value="True" />
-                                                <Condition Property="IsSelected" Value="False" />
-                                            </MultiTrigger.Conditions>
-                                            <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}" />
-                                        </MultiTrigger>
-                                    </Style.Triggers>
-                                </Style>
+                                <StaticResource ResourceKey="StandardListBoxItemStyle" />
                             </ListBox.ItemContainerStyle>
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
