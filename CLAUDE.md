@@ -98,6 +98,37 @@ Note: The Console project is named `*.Console` on disk but uses the namespace `*
 - *Turniere*: Turnierkopf, Turnierdefinition (Runden, Aufstiegsregeln, Verband-Quoten), Turnierdurchführung (Auslosung, Spielplan & Baum, Simulation), Einzelspiel-Simulation
 - *Import / Export*: Import / Export
 
+## WinUi Patterns
+
+The WinUI 3 project (`Fussballturnierverwaltung.WinUi`) is the target of the ongoing WPF-to-WinUI3 migration
+(#279). Its own `Navigation`/`Ribbon` types are deliberate independent copies of the WPF originals (both
+startup projects must stay independent) — same names, same shape, but no shared assembly.
+
+**`ViewModelTemplateSelector`** (`src/Fussballturnierverwaltung.WinUi/ViewModelTemplateSelector.cs`) is the
+WinUI3 equivalent of the WPF `MainWindow.xaml` implicit `DataType`-`DataTemplate`s: `x:Bind` is strongly typed
+and cannot map `MainViewModel.AktuellesViewModel` (`ViewModelBase`) to the concrete View at compile time, and
+WinUI 3 does not reliably resolve implicit `DataTemplate`s for a bare `ContentControl` the way WPF does. Adding
+a new Fach-View therefore means: add a `case` to `SelectTemplateCore` + a `DataTemplate` property on the
+selector, declare the `DataTemplate` as a resource in `MainWindow.xaml`, and wire the property via
+`{StaticResource ...}` on `ViewModelTemplateSelector` in `MainWindow.xaml` — omitting this compiles fine and
+navigates without error, but the content area silently stays blank (analogous silent-failure risk to the WPF
+`DataTemplate`-omission pitfall in "Adding a new feature" above).
+
+**`IDialogService`** replaces WPF's `MessageBox.Show` (not available in WinUI 3). It holds the `XamlRoot` set
+by `MainWindow` at startup and shows a `ContentDialog` — `NavigationService.DarfWegnavigierenAsync` depends on
+it instead of calling a static dialog API directly.
+
+**`[ObservableProperty]` stays on `_camelCase` private fields, not partial properties**, even though
+CommunityToolkit.Mvvm 8.4 recommends partial properties for WinRT/AOT scenarios (warning `MVVMTK0045`): in this
+project's WinUI3 setup, a `partial` property with `[ObservableProperty]` fails to compile (`CS9248`, generator
+does not produce the implementation part) — root cause not identified, and not worth chasing since
+`PublishTrimmed`/AOT is not used here. The `MVVMTK0045` warning is expected and intentionally left unresolved.
+
+**CommandBar has no `ItemsSource` binding** for `PrimaryCommands`/`SecondaryCommands` (unlike WPF's
+`fluent:RibbonGroupBox`, which binds children declaratively). `IRibbonAware.RibbonZusatzGruppen` is therefore
+synced into `CommandBar.PrimaryCommands` imperatively in `MainWindow.xaml.cs`
+(`RibbonZusatzGruppenAktualisieren`, triggered by `MainViewModel.PropertyChanged`) rather than via XAML binding.
+
 ## Naming Conventions
 
 All domain types, properties, methods, and enums are in **German**. English is used only where established in German IT/football context (Rating, Repository, Service, DbContext, Seed, Import, Export, ViewModel, View).

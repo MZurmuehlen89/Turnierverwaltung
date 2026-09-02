@@ -1,7 +1,9 @@
-using Fussballturnierverwaltung.Application.Turniere;
-using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Application.Einstellungen;
 using Fussballturnierverwaltung.Infrastructure.Erweiterungen;
 using Fussballturnierverwaltung.Infrastructure.Seed;
+using Fussballturnierverwaltung.WinUi.Dialoge;
+using Fussballturnierverwaltung.WinUi.Helpers;
+using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -10,8 +12,8 @@ using Serilog;
 
 namespace Fussballturnierverwaltung.WinUi;
 
-/// <summary>Spike (#278): DI-/Seed-Aufbau analog zu Fussballturnierverwaltung.Wpf\App.xaml.cs, auf den
-/// TurnierVorlage-Ausschnitt reduziert.</summary>
+/// <summary>Fundament (#280): DI-/Seed-Aufbau analog zu Fussballturnierverwaltung.Wpf\App.xaml.cs. Fach-
+/// Services/Validatoren/ViewModels werden erst mit der jeweiligen View (#281–#290) ergänzt.</summary>
 public partial class App : global::Microsoft.UI.Xaml.Application
 {
     private Window? _window;
@@ -23,7 +25,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
     {
         var logPfad = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Turnierverwaltung", "logs", "winui-spike-.log");
+            "Turnierverwaltung", "logs", "turnierverwaltung-.log");
 
         var builder = Host.CreateApplicationBuilder();
         builder.Services.AddSerilog((_, lc) => lc
@@ -35,13 +37,14 @@ public partial class App : global::Microsoft.UI.Xaml.Application
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}"));
         builder.Services.AddInfrastruktur(builder.Configuration);
 
-        builder.Services.AddScoped<VorlagenUebergangsregelValidator>();
-        builder.Services.AddScoped<TurnierVorlageValidator>();
-        builder.Services.AddScoped<RegelwerkValidator>();
-        builder.Services.AddScoped<TurnierVorlageService>();
-        builder.Services.AddScoped<RegelwerkService>();
+        // ViewModels (Transient = neuer Scope bei jeder Navigation)
+        builder.Services.AddTransient<PlatzhalterViewModel>();
 
-        builder.Services.AddTransient<TurnierVorlageViewModel>();
+        // Navigation & Hauptfenster
+        builder.Services.AddSingleton<EinstellungenService>();
+        builder.Services.AddSingleton<ThemeService>();
+        builder.Services.AddSingleton<IDialogService, DialogService>();
+        builder.Services.AddSingleton<INavigationService, NavigationService>();
         builder.Services.AddSingleton<MainViewModel>();
 
         _host = builder.Build();
@@ -52,7 +55,10 @@ public partial class App : global::Microsoft.UI.Xaml.Application
             await seed.InitialisierenAsync();
         }
 
-        _window = new MainWindow(_host.Services.GetRequiredService<MainViewModel>());
+        _window = new MainWindow(
+            _host.Services.GetRequiredService<MainViewModel>(),
+            _host.Services.GetRequiredService<ThemeService>(),
+            _host.Services.GetRequiredService<IDialogService>());
         _window.Activate();
     }
 }
