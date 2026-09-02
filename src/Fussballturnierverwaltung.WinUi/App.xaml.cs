@@ -1,4 +1,6 @@
 using Fussballturnierverwaltung.Application.Einstellungen;
+using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Infrastructure.Erweiterungen;
 using Fussballturnierverwaltung.Infrastructure.Seed;
 using Fussballturnierverwaltung.WinUi.Dialoge;
@@ -37,8 +39,15 @@ public partial class App : global::Microsoft.UI.Xaml.Application
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}"));
         builder.Services.AddInfrastruktur(builder.Configuration);
 
+        // Validatoren & Services (Mannschaften, #281)
+        builder.Services.AddScoped<MannschaftValidator>();
+        builder.Services.AddScoped<LandValidator>();
+        builder.Services.AddScoped<MannschaftService>();
+        builder.Services.AddScoped<LandService>();
+
         // ViewModels (Transient = neuer Scope bei jeder Navigation)
         builder.Services.AddTransient<PlatzhalterViewModel>();
+        builder.Services.AddTransient<MannschaftenViewModel>();
 
         // Navigation & Hauptfenster
         builder.Services.AddSingleton<EinstellungenService>();

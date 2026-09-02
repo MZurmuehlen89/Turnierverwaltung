@@ -19,5 +19,15 @@ public interface IDialogService
 {
     void XamlRootSetzen(XamlRoot root);
 
+    /// <summary>Vom MainWindow beim Start gesetzt — nötig für <see cref="BilddateiWaehlenAsync"/>,
+    /// da FileOpenPicker unter WinUI 3 Desktop ein Fenster-Handle (HWND) braucht.</summary>
+    void FensterSetzen(Window fenster);
+
     Task<UngespeichertAntwort> UngespeicherteAenderungenAbfragenAsync();
+
+    Task<bool> BestaetigenAsync(string titel, string nachricht);
+
+    /// <summary>Öffnet den Datei-Auswahldialog für ein Bild (png/jpg) und liefert dessen Rohdaten,
+    /// oder null bei Abbruch.</summary>
+    Task<byte[]?> BilddateiWaehlenAsync();
 }

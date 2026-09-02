@@ -9,10 +9,10 @@ namespace Fussballturnierverwaltung.WinUi;
 
 public sealed partial class MainWindow : Window
 {
-    // Dark-Mode-Toggle/Separator/Neu/Speichern/Abbrechen/Separator/Löschen aus dem XAML — dahinter werden
-    // die dynamischen RibbonZusatzGruppen eingefügt (CommandBar unterstützt kein ItemsSource-Binding für
-    // PrimaryCommands).
-    private const int AnzahlFesterPrimaryCommands = 7;
+    // Titel/Neu/Speichern/Abbrechen/Separator/Löschen aus dem XAML in AktionenPanel (CommandBar.Content,
+    // fensterseitig links verankert) — dahinter werden die dynamischen RibbonZusatzGruppen angehängt
+    // (CommandBar unterstützt kein ItemsSource-Binding für PrimaryCommands).
+    private const int AnzahlFesterAktionen = 6;
 
     private readonly ThemeService _themeService;
     private readonly IDialogService _dialogService;
@@ -29,6 +29,7 @@ public sealed partial class MainWindow : Window
 
         RootGrid.DataContext = ViewModel;
         RootGrid.Loaded += (_, _) => _dialogService.XamlRootSetzen(RootGrid.XamlRoot);
+        _dialogService.FensterSetzen(this);
 
         _themeService.RootSetzen(RootGrid);
         _themeService.AnwendenAusEinstellungen();
@@ -45,19 +46,19 @@ public sealed partial class MainWindow : Window
 
     private void RibbonZusatzGruppenAktualisieren()
     {
-        while (HauptCommandBar.PrimaryCommands.Count > AnzahlFesterPrimaryCommands)
-            HauptCommandBar.PrimaryCommands.RemoveAt(AnzahlFesterPrimaryCommands);
+        while (AktionenPanel.Children.Count > AnzahlFesterAktionen)
+            AktionenPanel.Children.RemoveAt(AnzahlFesterAktionen);
 
         var gruppen = ViewModel.RibbonZusatzGruppen;
         for (var g = 0; g < gruppen.Count; g++)
         {
-            HauptCommandBar.PrimaryCommands.Add(new AppBarSeparator());
+            AktionenPanel.Children.Add(new AppBarSeparator());
             foreach (var aktion in gruppen[g].Aktionen)
             {
                 var button = new AppBarButton { Label = aktion.Header, Command = aktion.Befehl };
                 if (aktion.IconGlyph is not null)
                     button.Icon = new FontIcon { Glyph = aktion.IconGlyph };
-                HauptCommandBar.PrimaryCommands.Add(button);
+                AktionenPanel.Children.Add(button);
             }
         }
     }

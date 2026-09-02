@@ -12,10 +12,12 @@ namespace Fussballturnierverwaltung.WinUi;
 public class ViewModelTemplateSelector : DataTemplateSelector
 {
     public DataTemplate? PlatzhalterTemplate { get; set; }
+    public DataTemplate? MannschaftenTemplate { get; set; }
 
     protected override DataTemplate? SelectTemplateCore(object item, DependencyObject container)
         => item switch
         {
+            MannschaftenViewModel => MannschaftenTemplate,
             PlatzhalterViewModel => PlatzhalterTemplate,
             _ => null,
         };

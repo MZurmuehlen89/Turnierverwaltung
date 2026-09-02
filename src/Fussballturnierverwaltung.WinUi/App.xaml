@@ -3,12 +3,22 @@
     x:Class="Fussballturnierverwaltung.WinUi.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:Fussballturnierverwaltung.WinUi">
+    xmlns:local="using:Fussballturnierverwaltung.WinUi"
+    xmlns:conv="using:Fussballturnierverwaltung.WinUi.Converters">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Global verfügbare Converter, analog zu Fussballturnierverwaltung.Wpf\App.xaml -->
+            <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+            <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
+            <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+            <conv:NullToVisibleConverter x:Key="NullToVisible" />
+            <conv:BildDatenZuBildquelleConverter x:Key="BildDatenZuBildquelle" />
+            <conv:RatingRundenConverter x:Key="RatingRunden" />
+            <conv:IstNichtNullConverter x:Key="IstNichtNull" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

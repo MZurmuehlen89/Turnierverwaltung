@@ -19,9 +19,13 @@
             <DataTemplate x:Key="PlatzhalterTemplate" x:DataType="vm:PlatzhalterViewModel">
                 <views:PlatzhalterPage />
             </DataTemplate>
+            <DataTemplate x:Key="MannschaftenTemplate" x:DataType="vm:MannschaftenViewModel">
+                <views:MannschaftenPage />
+            </DataTemplate>
             <local:ViewModelTemplateSelector x:Key="ViewLocator"
                                               xmlns:local="using:Fussballturnierverwaltung.WinUi"
-                                              PlatzhalterTemplate="{StaticResource PlatzhalterTemplate}" />
+                                              PlatzhalterTemplate="{StaticResource PlatzhalterTemplate}"
+                                              MannschaftenTemplate="{StaticResource MannschaftenTemplate}" />
         </Grid.Resources>
 
         <Grid.RowDefinitions>
@@ -34,30 +38,37 @@
              reicht die Ribbon-Properties des aktuellen ViewModel als Proxy durch). Die CommandBar selbst
              bleibt immer sichtbar (App-weite Aktionen wie der Dark-Mode-Toggle müssen unabhängig davon
              erreichbar sein, ob die aktive View überhaupt IRibbonAware ist) — nur der Fach-View-Titel und
-             die Standardaktionen blenden sich individuell ein/aus. -->
+             die Standardaktionen blenden sich individuell ein/aus.
+             Positionierung (Nutzerwunsch aus #281-Test): CommandBar.PrimaryCommands rendert als Gruppe
+             rechtsbündig (rechts von Content, vor dem Overflow) — "links" innerhalb dieser Gruppe ist
+             NICHT dasselbe wie "ganz links im Fenster". Die Fach-View-Aktionen (inkl. dynamischer
+             RibbonZusatzGruppen, siehe MainWindow.xaml.cs) laufen daher über CommandBar.Content (das
+             fensterseitig links verankert ist); PrimaryCommands enthält dadurch nur noch den App-weiten
+             Dark-Mode-Toggle, der so automatisch ganz rechts landet. -->
         <CommandBar x:Name="HauptCommandBar" Grid.Row="0" DefaultLabelPosition="Right">
             <CommandBar.Content>
-                <TextBlock Text="{x:Bind ViewModel.RibbonTabTitel, Mode=OneWay}"
-                           FontWeight="Bold" VerticalAlignment="Center" Margin="12,0,0,0"
-                           Visibility="{x:Bind ViewModel.HatRibbonBereich, Mode=OneWay}" />
+                <StackPanel x:Name="AktionenPanel" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind ViewModel.RibbonTabTitel, Mode=OneWay}"
+                               FontWeight="Bold" VerticalAlignment="Center" Margin="12,0,16,0"
+                               Visibility="{x:Bind ViewModel.HatRibbonBereich, Mode=OneWay}" />
+                    <AppBarButton Icon="Add" Label="Neu" Command="{x:Bind ViewModel.RibbonNeuBefehl, Mode=OneWay}"
+                                  Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
+                    <AppBarButton Icon="Save" Label="Speichern" Command="{x:Bind ViewModel.RibbonSpeichernBefehl, Mode=OneWay}"
+                                  Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
+                    <AppBarButton Icon="Undo" Label="Abbrechen" Command="{x:Bind ViewModel.RibbonAbbrechenBefehl, Mode=OneWay}"
+                                  Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
+                    <AppBarSeparator Visibility="{x:Bind ViewModel.HatLoeschenAktion, Mode=OneWay}" />
+                    <AppBarButton Icon="Delete" Label="Löschen" Command="{x:Bind ViewModel.RibbonLoeschenBefehl, Mode=OneWay}"
+                                  Visibility="{x:Bind ViewModel.HatLoeschenAktion, Mode=OneWay}" />
+                    <!-- Dynamische RibbonZusatzGruppen werden hier angehängt — siehe MainWindow.xaml.cs,
+                         RibbonZusatzGruppenAktualisieren. -->
+                </StackPanel>
             </CommandBar.Content>
-            <!-- App-weit, immer sichtbar (unabhängig von der aktiven View) -->
+            <!-- App-weit, immer sichtbar, bewusst ganz rechts -->
+            <AppBarSeparator />
             <AppBarToggleButton Icon="View" Label="Dunkles Design"
                                  IsChecked="{x:Bind ViewModel.IstDunkelModus, Mode=OneWay}"
                                  Command="{x:Bind ViewModel.ThemeUmschaltenCommand}" />
-            <AppBarSeparator />
-            <AppBarButton Icon="Add" Label="Neu" Command="{x:Bind ViewModel.RibbonNeuBefehl, Mode=OneWay}"
-                          Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
-            <AppBarButton Icon="Save" Label="Speichern" Command="{x:Bind ViewModel.RibbonSpeichernBefehl, Mode=OneWay}"
-                          Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
-            <AppBarButton Icon="Undo" Label="Abbrechen" Command="{x:Bind ViewModel.RibbonAbbrechenBefehl, Mode=OneWay}"
-                          Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
-            <AppBarSeparator Visibility="{x:Bind ViewModel.HatLoeschenAktion, Mode=OneWay}" />
-            <AppBarButton Icon="Delete" Label="Löschen" Command="{x:Bind ViewModel.RibbonLoeschenBefehl, Mode=OneWay}"
-                          Visibility="{x:Bind ViewModel.HatLoeschenAktion, Mode=OneWay}" />
-            <!-- Zusätzliche, editor-spezifische Ribbon-Gruppen: CommandBar unterstützt kein ItemsSource-
-                 Binding für PrimaryCommands, daher wird diese Liste in MainWindow.xaml.cs bei Änderung von
-                 ViewModel.RibbonZusatzGruppen programmatisch synchronisiert (ab AnzahlFesterPrimaryCommands). -->
         </CommandBar>
 
         <Grid Grid.Row="1" ColumnDefinitions="220,1,*">
