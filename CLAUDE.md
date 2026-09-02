@@ -26,21 +26,7 @@ dotnet test --filter "FullyQualifiedName~KoRundeGeneratorTests.AnzahlSpiele_IstH
 
 ## Database
 
-SQL Server is required. The connection string defaults to `Server=.;Database=Fussballturnierverwaltung;Trusted_Connection=True;TrustServerCertificate=True;` (see `appsettings.json` in each startup project).
-
-```bash
-# Apply migrations (creates DB if not exists) — use either startup project
-dotnet ef database update \
-  --project src/Fussballturnierverwaltung.Infrastructure \
-  --startup-project src/Fussballturnierverwaltung.Console
-
-# Add a new migration after model changes
-dotnet ef migrations add <Name> \
-  --project src/Fussballturnierverwaltung.Infrastructure \
-  --startup-project src/Fussballturnierverwaltung.Console
-```
-
-Seed data (Verbände, Länder, Mannschaften, Regelwerke, Turniervorlagen) is applied automatically on first startup via `SeedDatenService.InitialisierenAsync()` — runs in both Console and WPF startup paths.
+See `src/Fussballturnierverwaltung.Infrastructure/CLAUDE.md` (connection string, EF-Migrationsbefehle, Seed) — loaded automatically once a file in that project is touched. If you need the migration commands without having touched Infrastructure yet (e.g. right after a Domain entity change), read that file directly.
 
 ## Architecture
 
@@ -135,6 +121,4 @@ Binding for new code only — no retroactive reformatting of existing code.
 
 ## Testing
 
-Tests use xUnit + FluentAssertions. Integration tests use `Microsoft.EntityFrameworkCore.InMemory`. Test files mirror the source namespace structure under `tests/Fussballturnierverwaltung.Tests/`. No mocking framework is used — generators and validators are instantiated directly.
-
-Coverage areas: `KoRundeGeneratorTests`, `RoundRobinGeneratorTests`, `TopfLigaGeneratorTests`, `SchweizerSystemGeneratorTests`, `SimulationsEngineTests`, `TabellenServiceTests`, `SpielErgebnisServiceTests`, `TurnierValidatorTests`, `RegelwerkValidatorTests`, `MannschaftValidatorTests`, `AuslosungsValidatorTests`, `AuslosungAlgorithmusTests`.
+See `tests/Fussballturnierverwaltung.Tests/CLAUDE.md` (Framework/Coverage-Liste) — loaded automatically once a file in that project is touched. Test-Kommandos (Build/Filter) stehen oben unter "Build & Run".
