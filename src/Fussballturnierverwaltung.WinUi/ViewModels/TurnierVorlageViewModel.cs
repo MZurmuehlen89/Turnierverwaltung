@@ -28,6 +28,12 @@ public partial class VorlagenRundeZeile : ObservableObject
     [ObservableProperty] private bool _mitRueckspiel;
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
     [ObservableProperty] private RegelwerkOption _regelwerk = new("— Wählen —", null);
+
+    /// <summary>Auf der Zeile statt am RootPage-Element gehalten, damit die ComboBox im ListView-Template
+    /// per x:Bind statt {Binding ElementName=...} bindet — ElementName-Lookups skalieren schlecht mit der
+    /// Zeilenanzahl (pro Container eine Visual-Tree-Suche via FindName), siehe Performance-Fund #278.</summary>
+    public IEnumerable<Rundenart> RundenartOptionen { get; } = Enum.GetValues<Rundenart>();
+    public IReadOnlyList<RegelwerkOption> RegelwerkOptionen { get; init; } = [];
 }
 
 /// <summary>Spike-Nachbau von VorlagenUebergangsRegelZeile — Quelle/Ziel bewusst als Objektreferenz auf eine
@@ -40,6 +46,10 @@ public partial class VorlagenUebergangsRegelZeile : ObservableObject
     [ObservableProperty] private int? _gruppeIndex;
     [ObservableProperty] private int _platzierungVon = 1;
     [ObservableProperty] private int _platzierungBis = 1;
+
+    /// <summary>Siehe RundenartOptionen/RegelwerkOptionen auf VorlagenRundeZeile — dieselbe x:Bind-statt-
+    /// ElementName-Begründung, hier für die Quelle/Ziel-ComboBoxen.</summary>
+    public ObservableCollection<VorlagenRundeZeile> VerfuegbareRunden { get; init; } = [];
 }
 
 public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
@@ -47,6 +57,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
     private readonly TurnierVorlageService _service;
     private readonly RegelwerkService _regelwerkService;
     private int _populiertGerade;
+    private Task _laufenderLadevorgang = Task.CompletedTask;
 
     private static readonly RegelwerkOption _keinRegelwerk = new("— Wählen —", null);
 
@@ -156,6 +167,25 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
 
         if (vorlage is null) return;
 
+        // Fire-and-Forget aus OnAusgewaehltesChanged würde bei schnellem Vorlagenwechsel mehrere
+        // überlappende Ladevorgänge auf demselben (hier app-weit einzigen, nicht per-Navigation
+        // gescopten) DbContext starten — EF Core erlaubt das nicht parallel, jeder weitere Wechsel
+        // stapelt sich dadurch auf ("wird mit jedem Wechsel langsamer", Fund 2026-09-02, siehe
+        // [[feedback_dbcontext_concurrency]]). Daher strikt sequenziell verketten statt parallel.
+        var vorheriger = _laufenderLadevorgang;
+        var eigener = RundenLadenAsync(vorlage, vorheriger);
+        _laufenderLadevorgang = eigener;
+        await eigener;
+    }
+
+    private async Task RundenLadenAsync(TurnierVorlage vorlage, Task vorheriger)
+    {
+        try { await vorheriger; } catch { /* Fehler des Vorgängers wurde dort bereits behandelt */ }
+
+        // Der Nutzer hat inzwischen weitergeklickt — dieser Ladevorgang ist überholt, sein Ergebnis
+        // würde sofort wieder überschrieben, also DB-Zugriff sparen.
+        if (!ReferenceEquals(Ausgewaehltes, vorlage)) return;
+
         IstLadend = true;
         try
         {
@@ -173,7 +203,8 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
                     AusgangsMannschaftsanzahl = r.AusgangsMannschaftsanzahl,
                     MitRueckspiel = r.MitRueckspiel,
                     AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv,
-                    Regelwerk = RegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == r.RegelwerkId) ?? _keinRegelwerk
+                    Regelwerk = RegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == r.RegelwerkId) ?? _keinRegelwerk,
+                    RegelwerkOptionen = RegelwerkOptionen
                 }).ToList();
                 RundenZeilen = new ObservableCollection<VorlagenRundeZeile>(zeilen);
                 AbonniereAenderungen(RundenZeilen.Cast<ObservableObject>());
@@ -189,7 +220,8 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
                             Ziel = zeileNachVorlagenRundeId[regel.ZielVorlagenRundeId],
                             GruppeIndex = regel.GruppeIndex,
                             PlatzierungVon = regel.PlatzierungVon,
-                            PlatzierungBis = regel.PlatzierungBis
+                            PlatzierungBis = regel.PlatzierungBis,
+                            VerfuegbareRunden = RundenZeilen
                         }));
                 AbonniereAenderungen(UebergangsregelZeilen.Cast<ObservableObject>());
                 IsDirty = false;
@@ -229,7 +261,8 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
         {
             Rundenart = Rundenart.Liga,
             EingangsMannschaftsanzahl = letzte?.AusgangsMannschaftsanzahl ?? 8,
-            AusgangsMannschaftsanzahl = Math.Max(1, (letzte?.AusgangsMannschaftsanzahl ?? 8) / 2)
+            AusgangsMannschaftsanzahl = Math.Max(1, (letzte?.AusgangsMannschaftsanzahl ?? 8) / 2),
+            RegelwerkOptionen = RegelwerkOptionen
         };
         neu.PropertyChanged += OnZeileGeaendert;
         RundenZeilen.Add(neu);
@@ -254,7 +287,7 @@ public partial class TurnierVorlageViewModel : ViewModelBase, IRibbonAware
     [RelayCommand]
     private void UebergangsregelHinzufuegen()
     {
-        var neu = new VorlagenUebergangsRegelZeile { Quelle = AusgewaehlteRunde };
+        var neu = new VorlagenUebergangsRegelZeile { Quelle = AusgewaehlteRunde, VerfuegbareRunden = RundenZeilen };
         neu.PropertyChanged += OnZeileGeaendert;
         UebergangsregelZeilen.Add(neu);
         AusgewaehlteUebergangsregel = neu;

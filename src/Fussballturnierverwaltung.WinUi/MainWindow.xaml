@@ -7,7 +7,7 @@
     xmlns:views="using:Fussballturnierverwaltung.WinUi.Views"
     Title="Turnierverwaltung — WinUI3-Spike (#278)">
 
-    <Grid x:Name="RootGrid">
+    <Grid x:Name="RootGrid" RequestedTheme="Light" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />

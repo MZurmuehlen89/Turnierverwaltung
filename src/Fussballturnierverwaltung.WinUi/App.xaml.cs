@@ -19,7 +19,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
 
     public App() => InitializeComponent();
 
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
         var logPfad = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -49,7 +49,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         using (var scope = _host.Services.CreateScope())
         {
             var seed = scope.ServiceProvider.GetRequiredService<SeedDatenService>();
-            seed.InitialisierenAsync().GetAwaiter().GetResult();
+            await seed.InitialisierenAsync();
         }
 
         _window = new MainWindow(_host.Services.GetRequiredService<MainViewModel>());

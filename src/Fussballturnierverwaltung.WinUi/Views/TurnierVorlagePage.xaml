@@ -46,22 +46,36 @@
                     <Button Content="Runde entfernen" Command="{x:Bind ViewModel.RundeEntfernenCommand, Mode=OneWay}" />
                 </StackPanel>
 
+                <Grid ColumnDefinitions="*,150,64,64,52,80,*" ColumnSpacing="6" Padding="0,0,0,4">
+                    <TextBlock Grid.Column="0" Text="Name" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="1" Text="Rundenart" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="2" Text="Eingang" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="3" Text="Ausgang" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="4" Text="H+R" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="5" Text="AuswTor" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="6" Text="Regelwerk" FontWeight="SemiBold" />
+                </Grid>
                 <ListView ItemsSource="{x:Bind ViewModel.RundenZeilen, Mode=OneWay}"
                           SelectedItem="{x:Bind ViewModel.AusgewaehlteRunde, Mode=TwoWay}"
                           MaxHeight="260" SelectionMode="Single">
+                    <!-- Test auf Performance-Fund (2026-09-02): Standard-Einblende-Animationen pro
+                         Container deaktiviert, um zu prüfen ob sie den trägen Ersteindruck verursachen. -->
+                    <ListView.ItemContainerTransitions>
+                        <TransitionCollection />
+                    </ListView.ItemContainerTransitions>
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:VorlagenRundeZeile">
                             <Grid ColumnDefinitions="*,150,64,64,52,80,*" ColumnSpacing="6" Padding="0,4">
                                 <TextBox Grid.Column="0" Text="{x:Bind Name, Mode=TwoWay}" />
                                 <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
-                                          ItemsSource="{Binding ElementName=RootPage, Path=ViewModel.RundenartOptionen}"
+                                          ItemsSource="{x:Bind RundenartOptionen}"
                                           SelectedItem="{x:Bind Rundenart, Mode=TwoWay}" />
                                 <TextBox Grid.Column="2" Text="{x:Bind EingangsMannschaftsanzahl, Mode=TwoWay}" />
                                 <TextBox Grid.Column="3" Text="{x:Bind AusgangsMannschaftsanzahl, Mode=TwoWay}" />
                                 <CheckBox Grid.Column="4" IsChecked="{x:Bind MitRueckspiel, Mode=TwoWay}" />
                                 <CheckBox Grid.Column="5" IsChecked="{x:Bind AuswaertstorRegelAktiv, Mode=TwoWay}" />
                                 <ComboBox Grid.Column="6" HorizontalAlignment="Stretch"
-                                          ItemsSource="{Binding ElementName=RootPage, Path=ViewModel.RegelwerkOptionen}"
+                                          ItemsSource="{x:Bind RegelwerkOptionen}"
                                           DisplayMemberPath="Anzeige"
                                           SelectedItem="{x:Bind Regelwerk, Mode=TwoWay}" />
                             </Grid>
@@ -76,18 +90,28 @@
                     <Button Content="Übergangsregel entfernen" Command="{x:Bind ViewModel.UebergangsregelEntfernenCommand, Mode=OneWay}" />
                 </StackPanel>
 
+                <Grid ColumnDefinitions="*,*,64,72,72" ColumnSpacing="6" Padding="0,0,0,4">
+                    <TextBlock Grid.Column="0" Text="Quelle" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="1" Text="Ziel" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="2" Text="Gruppe" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="3" Text="Platz von" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="4" Text="Platz bis" FontWeight="SemiBold" />
+                </Grid>
                 <ListView ItemsSource="{x:Bind ViewModel.UebergangsregelZeilen, Mode=OneWay}"
                           SelectedItem="{x:Bind ViewModel.AusgewaehlteUebergangsregel, Mode=TwoWay}"
                           MaxHeight="220" SelectionMode="Single">
+                    <ListView.ItemContainerTransitions>
+                        <TransitionCollection />
+                    </ListView.ItemContainerTransitions>
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:VorlagenUebergangsRegelZeile">
                             <Grid ColumnDefinitions="*,*,64,72,72" ColumnSpacing="6" Padding="0,4">
                                 <ComboBox Grid.Column="0" HorizontalAlignment="Stretch"
-                                          ItemsSource="{Binding ElementName=RootPage, Path=ViewModel.RundenZeilen}"
+                                          ItemsSource="{x:Bind VerfuegbareRunden}"
                                           DisplayMemberPath="Name"
                                           SelectedItem="{x:Bind Quelle, Mode=TwoWay}" />
                                 <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
-                                          ItemsSource="{Binding ElementName=RootPage, Path=ViewModel.RundenZeilen}"
+                                          ItemsSource="{x:Bind VerfuegbareRunden}"
                                           DisplayMemberPath="Name"
                                           SelectedItem="{x:Bind Ziel, Mode=TwoWay}" />
                                 <TextBox Grid.Column="2" Text="{x:Bind GruppeIndex, Mode=TwoWay}" />

@@ -85,7 +85,8 @@
   <PropertyGroup>
     <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
     <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+    <!-- Trimming braucht eine eigenständige (self-contained) Bereitstellung, die dieser Spike nicht
+         verwendet, und wäre bei EF Core/CommunityToolkit.Mvvm ohnehin riskant (siehe MVVMTK0045). -->
+    <PublishTrimmed>False</PublishTrimmed>
   </PropertyGroup>
 </Project>

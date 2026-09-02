@@ -5,7 +5,10 @@
     <Project Path="src/Fussballturnierverwaltung.Console/Fussballturnierverwaltung.Console.csproj" />
     <Project Path="src/Fussballturnierverwaltung.Domain/Fussballturnierverwaltung.Domain.csproj" />
     <Project Path="src/Fussballturnierverwaltung.Infrastructure/Fussballturnierverwaltung.Infrastructure.csproj" />
-    <Project Path="src/Fussballturnierverwaltung.WinUi/Fussballturnierverwaltung.WinUi.csproj" />
+    <Project Path="src/Fussballturnierverwaltung.WinUi/Fussballturnierverwaltung.WinUi.csproj">
+      <Platform Project="x64" />
+      <Deploy Solution="Debug|*" />
+    </Project>
     <Project Path="src/Fussballturnierverwaltung.Wpf/Fussballturnierverwaltung.Wpf.csproj" />
   </Folder>
   <Folder Name="/tests/">
