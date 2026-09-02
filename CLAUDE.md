@@ -129,6 +129,23 @@ does not produce the implementation part) — root cause not identified, and not
 synced into `CommandBar.PrimaryCommands` imperatively in `MainWindow.xaml.cs`
 (`RibbonZusatzGruppenAktualisieren`, triggered by `MainViewModel.PropertyChanged`) rather than via XAML binding.
 
+**The whole `CommandBar` must stay visible regardless of `HatRibbonBereich`** — only bind that flag to
+individual elements inside it (the Fach-View title, the standard-action buttons). App-wide actions like the
+Dark-Mode toggle live in the same `CommandBar` and must stay reachable even when the active View is not
+`IRibbonAware` (e.g. `PlatzhalterViewModel`); binding `Visibility` on the `CommandBar` itself hides everything
+inside it, including those app-wide actions (found in #280's manual test).
+
+**`MainWindow`'s root `Grid` needs an explicit `Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"`.**
+Without it the grid stays transparent and WinUI 3's window backdrop (Mica) follows the *system* theme instead
+of the app-internal `RequestedTheme` — if they diverge (e.g. system in dark, app in light), text and background
+mismatch (found in #280's manual test).
+
+**`ThemeService.AktuellerModus` must be loaded in its constructor, not lazily on first apply.** `MainViewModel`
+is resolved via DI before `MainWindow` exists (its constructor is called first, and `MainWindow` is the one
+that calls `ThemeService.AnwendenAusEinstellungen()`) — if `AktuellerModus` only gets its real value on that
+later call, `MainViewModel.IstDunkelModus` (read in *its* constructor) captures the stale default and the
+Dark-Mode toggle shows the wrong state until the user clicks it once (found in #280's manual test).
+
 ## Naming Conventions
 
 All domain types, properties, methods, and enums are in **German**. English is used only where established in German IT/football context (Rating, Repository, Service, DbContext, Seed, Import, Export, ViewModel, View).
