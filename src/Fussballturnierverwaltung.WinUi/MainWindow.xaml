@@ -22,10 +22,14 @@
             <DataTemplate x:Key="MannschaftenTemplate" x:DataType="vm:MannschaftenViewModel">
                 <views:MannschaftenPage />
             </DataTemplate>
+            <DataTemplate x:Key="LaenderUndVerbaendeTemplate" x:DataType="vm:LaenderUndVerbaendeViewModel">
+                <views:LaenderUndVerbaendePage />
+            </DataTemplate>
             <local:ViewModelTemplateSelector x:Key="ViewLocator"
                                               xmlns:local="using:Fussballturnierverwaltung.WinUi"
                                               PlatzhalterTemplate="{StaticResource PlatzhalterTemplate}"
-                                              MannschaftenTemplate="{StaticResource MannschaftenTemplate}" />
+                                              MannschaftenTemplate="{StaticResource MannschaftenTemplate}"
+                                              LaenderUndVerbaendeTemplate="{StaticResource LaenderUndVerbaendeTemplate}" />
         </Grid.Resources>
 
         <Grid.RowDefinitions>

@@ -13,11 +13,13 @@ public class ViewModelTemplateSelector : DataTemplateSelector
 {
     public DataTemplate? PlatzhalterTemplate { get; set; }
     public DataTemplate? MannschaftenTemplate { get; set; }
+    public DataTemplate? LaenderUndVerbaendeTemplate { get; set; }
 
     protected override DataTemplate? SelectTemplateCore(object item, DependencyObject container)
         => item switch
         {
             MannschaftenViewModel => MannschaftenTemplate,
+            LaenderUndVerbaendeViewModel => LaenderUndVerbaendeTemplate,
             PlatzhalterViewModel => PlatzhalterTemplate,
             _ => null,
         };

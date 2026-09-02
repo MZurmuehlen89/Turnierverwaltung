@@ -39,15 +39,18 @@ public partial class App : global::Microsoft.UI.Xaml.Application
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}"));
         builder.Services.AddInfrastruktur(builder.Configuration);
 
-        // Validatoren & Services (Mannschaften, #281)
+        // Validatoren & Services (Mannschaften, #281; Länder & Verbände, #282)
         builder.Services.AddScoped<MannschaftValidator>();
         builder.Services.AddScoped<LandValidator>();
+        builder.Services.AddScoped<VerbandValidator>();
         builder.Services.AddScoped<MannschaftService>();
         builder.Services.AddScoped<LandService>();
+        builder.Services.AddScoped<VerbandService>();
 
         // ViewModels (Transient = neuer Scope bei jeder Navigation)
         builder.Services.AddTransient<PlatzhalterViewModel>();
         builder.Services.AddTransient<MannschaftenViewModel>();
+        builder.Services.AddTransient<LaenderUndVerbaendeViewModel>();
 
         // Navigation & Hauptfenster
         builder.Services.AddSingleton<EinstellungenService>();
