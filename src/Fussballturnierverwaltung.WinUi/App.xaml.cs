@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Einstellungen;
 using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Infrastructure.Erweiterungen;
 using Fussballturnierverwaltung.Infrastructure.Seed;
@@ -39,18 +40,21 @@ public partial class App : global::Microsoft.UI.Xaml.Application
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}"));
         builder.Services.AddInfrastruktur(builder.Configuration);
 
-        // Validatoren & Services (Mannschaften, #281; Länder & Verbände, #282)
+        // Validatoren & Services (Mannschaften, #281; Länder & Verbände, #282; Regelwerke, #283)
         builder.Services.AddScoped<MannschaftValidator>();
         builder.Services.AddScoped<LandValidator>();
         builder.Services.AddScoped<VerbandValidator>();
+        builder.Services.AddScoped<RegelwerkValidator>();
         builder.Services.AddScoped<MannschaftService>();
         builder.Services.AddScoped<LandService>();
         builder.Services.AddScoped<VerbandService>();
+        builder.Services.AddScoped<RegelwerkService>();
 
         // ViewModels (Transient = neuer Scope bei jeder Navigation)
         builder.Services.AddTransient<PlatzhalterViewModel>();
         builder.Services.AddTransient<MannschaftenViewModel>();
         builder.Services.AddTransient<LaenderUndVerbaendeViewModel>();
+        builder.Services.AddTransient<RegelwerkeViewModel>();
 
         // Navigation & Hauptfenster
         builder.Services.AddSingleton<EinstellungenService>();
