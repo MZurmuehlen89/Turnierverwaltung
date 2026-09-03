@@ -18,5 +18,13 @@ public class VorlagenRunde : BasisEntitaet
     public int? RegelwerkId { get; set; }
     public Regelwerk? Regelwerk { get; set; }
 
+    // Wenn true, stehen die Paarungen dieser Runde von vornherein fest und werden im Vorlagen-Tab
+    // "Paarungen" statt per Auslosung festgelegt (Issue #277, Vorlagen-Pendant zu
+    // TurnierRunde.PaarungFestVorgegeben). Für die erste Runde einer Vorlage nicht verfügbar — dort
+    // existieren noch keine eingehenden Übergangsregeln, aus denen sich Platzhalter ableiten ließen, und
+    // jedes reale Turnier durchläuft dort zwingend eine echte Auslosung.
+    public bool PaarungFestVorgegeben { get; set; }
+
     public ICollection<VorlagenUebergangsRegel> AusgehendeUebergangsregeln { get; set; } = new List<VorlagenUebergangsRegel>();
+    public ICollection<VorlagenPaarung> Paarungen { get; set; } = new List<VorlagenPaarung>();
 }

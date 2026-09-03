@@ -1060,6 +1060,36 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.ToTable("VerbandsQuoten", (string)null);
                 });
 
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenPaarung", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("PaarungsNummer")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PlatzhalterBezeichnung")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("SlotNr")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VorlagenRundeId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VorlagenRundeId", "PaarungsNummer", "SlotNr")
+                        .IsUnique();
+
+                    b.ToTable("VorlagenPaarungen", (string)null);
+                });
+
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", b =>
                 {
                     b.Property<int>("Id")
@@ -1087,6 +1117,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("PaarungFestVorgegeben")
+                        .HasColumnType("bit");
 
                     b.Property<int?>("RegelwerkId")
                         .HasColumnType("int");
@@ -1581,6 +1614,17 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("Verband");
                 });
 
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenPaarung", b =>
+                {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", "VorlagenRunde")
+                        .WithMany("Paarungen")
+                        .HasForeignKey("VorlagenRundeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("VorlagenRunde");
+                });
+
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", b =>
                 {
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke.Regelwerk", "Regelwerk")
@@ -1701,6 +1745,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", b =>
                 {
                     b.Navigation("AusgehendeUebergangsregeln");
+
+                    b.Navigation("Paarungen");
                 });
 #pragma warning restore 612, 618
         }

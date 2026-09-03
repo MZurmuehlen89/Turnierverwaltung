@@ -32,6 +32,7 @@ public class TurnierverwaltungDbContext : DbContext
     public DbSet<TurnierVorlage> TurnierVorlagen => Set<TurnierVorlage>();
     public DbSet<VorlagenRunde> VorlagenRunden => Set<VorlagenRunde>();
     public DbSet<VorlagenUebergangsRegel> VorlagenUebergangsregeln => Set<VorlagenUebergangsRegel>();
+    public DbSet<VorlagenPaarung> VorlagenPaarungen => Set<VorlagenPaarung>();
     public DbSet<TurnierInstanz> TurnierInstanzen => Set<TurnierInstanz>();
     public DbSet<TurnierRunde> TurnierRunden => Set<TurnierRunde>();
     public DbSet<Uebergangsregel> Uebergangsregeln => Set<Uebergangsregel>();

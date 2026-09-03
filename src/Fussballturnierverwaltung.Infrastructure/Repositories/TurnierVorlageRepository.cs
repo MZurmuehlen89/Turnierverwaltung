@@ -29,12 +29,15 @@ public class TurnierVorlageRepository(TurnierverwaltungDbContext context)
             .Include(v => v.VorlagenRunden)
                 .ThenInclude(r => r.AusgehendeUebergangsregeln)
                     .ThenInclude(regel => regel.ZielVorlagenRunde)
+            .Include(v => v.VorlagenRunden)
+                .ThenInclude(r => r.Paarungen)
             .FirstOrDefaultAsync(v => v.Id == id, ct);
 
     public async Task RundenErsetzenAsync(
         int vorlageId,
         IReadOnlyList<VorlagenRunde> neueRunden,
         IReadOnlyList<VorlagenUebergangsRegelEingabe> neueUebergangsregeln,
+        IReadOnlyList<VorlagenPaarungEingabe>? neuePaarungen = null,
         CancellationToken ct = default)
     {
         var alteRegeln = await Context.VorlagenUebergangsregeln
@@ -42,6 +45,9 @@ public class TurnierVorlageRepository(TurnierverwaltungDbContext context)
             .ToListAsync(ct);
         Context.VorlagenUebergangsregeln.RemoveRange(alteRegeln);
 
+        // Kein separates Entfernen der alten VorlagenPaarungen nötig: sie referenzieren ausschließlich ihre
+        // eigene VorlagenRunde (Cascade), anders als die Übergangsregeln oben mit ihrer zweiten Restrict-FK
+        // auf die Zielrunde — das serverseitige ON DELETE CASCADE der Runden-Löschung unten reicht aus.
         var alteRunden = await Context.VorlagenRunden
             .Where(r => r.TurnierVorlageId == vorlageId)
             .ToListAsync(ct);
@@ -67,6 +73,20 @@ public class TurnierVorlageRepository(TurnierverwaltungDbContext context)
                 AnzahlBeste          = e.AnzahlBeste
             }).ToList();
             Context.VorlagenUebergangsregeln.AddRange(regeln);
+            await Context.SaveChangesAsync(ct);
+        }
+
+        if (neuePaarungen is { Count: > 0 })
+        {
+            var idNachReihenfolge = neueRunden.ToDictionary(r => r.Reihenfolge, r => r.Id);
+            var paarungen = neuePaarungen.Select(e => new VorlagenPaarung
+            {
+                VorlagenRundeId       = idNachReihenfolge[e.RundenReihenfolge],
+                PaarungsNummer        = e.PaarungsNummer,
+                SlotNr                = e.SlotNr,
+                PlatzhalterBezeichnung = e.PlatzhalterBezeichnung
+            }).ToList();
+            Context.VorlagenPaarungen.AddRange(paarungen);
             await Context.SaveChangesAsync(ct);
         }
     }

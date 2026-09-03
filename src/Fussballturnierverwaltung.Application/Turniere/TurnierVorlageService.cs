@@ -9,6 +9,7 @@ namespace Fussballturnierverwaltung.Application.Turniere;
 public class TurnierVorlageService(
     ITurnierVorlageRepository repository,
     VorlagenUebergangsregelValidator uebergangsregelValidator,
+    VorlagenPaarungValidator paarungValidator,
     TurnierVorlageValidator vorlageValidator,
     ILogger<TurnierVorlageService> logger)
 {
@@ -28,6 +29,7 @@ public class TurnierVorlageService(
         int vorlageId,
         IReadOnlyList<VorlagenRundeEingabe> runden,
         IReadOnlyList<VorlagenUebergangsRegelEingabe>? uebergangsregeln = null,
+        IReadOnlyList<VorlagenPaarungEingabe>? paarungen = null,
         CancellationToken ct = default)
     {
         var neueRunden = runden.Select((r, i) => new VorlagenRunde
@@ -41,17 +43,20 @@ public class TurnierVorlageService(
             GruppenAnzahl             = r.GruppenAnzahl,
             MitRueckspiel             = r.MitRueckspiel,
             AuswaertstorRegelAktiv    = r.AuswaertstorRegelAktiv,
-            RegelwerkId               = r.RegelwerkId
+            RegelwerkId               = r.RegelwerkId,
+            PaarungFestVorgegeben     = r.PaarungFestVorgegeben
         }).ToList();
 
         var regeln = uebergangsregeln ?? [];
+        var paarungsListe = paarungen ?? [];
         ValidationException.WerfenWennUngueltig(vorlageValidator.RundenValidieren(runden));
         ValidationException.WerfenWennUngueltig(uebergangsregelValidator.Validieren(runden, regeln));
+        ValidationException.WerfenWennUngueltig(paarungValidator.Validieren(runden, regeln, paarungsListe));
 
-        await repository.RundenErsetzenAsync(vorlageId, neueRunden, regeln, ct);
+        await repository.RundenErsetzenAsync(vorlageId, neueRunden, regeln, paarungsListe, ct);
         logger.LogInformation(
-            "Vorlage {Id}: {Anzahl} Runde(n), {AnzahlRegeln} Übergangsregel(n) synchronisiert.",
-            vorlageId, neueRunden.Count, regeln.Count);
+            "Vorlage {Id}: {Anzahl} Runde(n), {AnzahlRegeln} Übergangsregel(n), {AnzahlPaarungen} Paarung(en) synchronisiert.",
+            vorlageId, neueRunden.Count, regeln.Count, paarungsListe.Count);
     }
 
     public async Task<TurnierVorlage> ErstellenAsync(TurnierVorlageErstellenEingabe eingabe, CancellationToken ct = default)

@@ -62,6 +62,7 @@ builder.Services.AddScoped<RanglisteValidator>();
 builder.Services.AddScoped<RanglistenQuelleValidator>();
 builder.Services.AddScoped<UebergangsregelValidator>();
 builder.Services.AddScoped<VorlagenUebergangsregelValidator>();
+builder.Services.AddScoped<VorlagenPaarungValidator>();
 builder.Services.AddScoped<TurnierVorlageValidator>();
 builder.Services.AddScoped<VerbandsQuoteValidator>();
 

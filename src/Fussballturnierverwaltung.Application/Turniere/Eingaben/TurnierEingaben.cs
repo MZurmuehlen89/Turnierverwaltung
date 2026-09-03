@@ -10,7 +10,18 @@ public record VorlagenRundeEingabe(
     bool MitRueckspiel = false,
     bool AuswaertstorRegelAktiv = false,
     int? RegelwerkId = null,
-    int? GruppenAnzahl = null);
+    int? GruppenAnzahl = null,
+    bool PaarungFestVorgegeben = false);
+
+/// <summary>Vorlagen-Variante der festen Paarungszuweisung (Issue #277, Vorlagen-Pendant zu
+/// <c>ManuellePaarungEingabe</c>) — referenziert die Runde über die 1-basierte
+/// <see cref="VorlagenRundeEingabe"/>-Listenposition, aus demselben Grund wie
+/// <see cref="VorlagenUebergangsRegelEingabe"/>.</summary>
+public record VorlagenPaarungEingabe(
+    int RundenReihenfolge,
+    int PaarungsNummer,
+    int SlotNr,
+    string PlatzhalterBezeichnung);
 
 /// <summary>Vorlagen-Variante der Übergangsregel (Issue #166) — referenziert Quell-/Zielrunde über die
 /// 1-basierte <see cref="VorlagenRundeEingabe"/>-Listenposition (Reihenfolge) statt über eine reale

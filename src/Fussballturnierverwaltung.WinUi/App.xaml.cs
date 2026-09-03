@@ -48,6 +48,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<RegelwerkValidator>();
         builder.Services.AddScoped<TurnierVorlageValidator>();
         builder.Services.AddScoped<VorlagenUebergangsregelValidator>();
+        builder.Services.AddScoped<VorlagenPaarungValidator>();
         builder.Services.AddScoped<MannschaftService>();
         builder.Services.AddScoped<LandService>();
         builder.Services.AddScoped<VerbandService>();
