@@ -49,6 +49,9 @@
             <PivotItem Header="Rundenübergänge" IsEnabled="{Binding RundenTabAktiv}">
                 <views:VorlagenRundenUebergaengePage DataContext="{Binding RundenUebergaengeVm}" />
             </PivotItem>
+            <PivotItem Header="Paarungen" IsEnabled="{Binding RundenTabAktiv}">
+                <views:VorlagenPaarungenPage DataContext="{Binding PaarungenVm}" />
+            </PivotItem>
         </Pivot>
     </Grid>
 </UserControl>

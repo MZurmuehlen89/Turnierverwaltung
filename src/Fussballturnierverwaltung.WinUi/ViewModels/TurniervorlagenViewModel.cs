@@ -10,35 +10,36 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// geteilten Vorlagenliste, analog zum WPF-Original <c>TurnierDefinitionViewModel</c>/<c>TurnierTabKoordinator</c>
 /// für Turnier-Instanzen. Runden und Rundenübergänge waren ursprünglich ein gemeinsamer Tab, wurden aber nach
 /// Nutzer-Feedback getrennt (reine Rundendaten vs. Perlenkette/Übergangsregeln) — beide teilen sich weiterhin
-/// dieselbe Datenhaltung in <see cref="VorlagenRundenViewModel"/> (siehe dort). Ein vierter Tab "Paarungen"
-/// (feste Paarungen auf Platzhalterbasis, Issue #277) ist bewusst nicht Teil dieser Etappe —
-/// <see cref="VorlagenTabKoordinator.Tabs"/> ist als Array angelegt, damit er später ohne Strukturänderung
-/// ergänzt werden kann.
+/// dieselbe Datenhaltung in <see cref="VorlagenRundenViewModel"/> (siehe dort), ebenso der vierte Tab
+/// "Paarungen" (feste Paarungen auf Platzhalterbasis, <see cref="VorlagenPaarungenViewModel"/>, Issue #277).
 /// </summary>
 public class TurniervorlagenViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     public TurnierkopfViewModel TurnierkopfVm { get; }
     public VorlagenRundenViewModel RundenVm { get; }
     public VorlagenRundenUebergaengeViewModel RundenUebergaengeVm { get; }
+    public VorlagenPaarungenViewModel PaarungenVm { get; }
 
     public VorlagenTabKoordinator TabKoordinator { get; }
 
-    /// <summary>Runden und Rundenübergänge dürfen erst bearbeitet werden, sobald eine Vorlage gewählt UND
-    /// gespeichert ist (eine neu angelegte, noch nicht gespeicherte Vorlage hat keine Id, <c>VorlagenRunde</c>n
-    /// können ihr noch nicht zugeordnet werden).</summary>
+    /// <summary>Runden, Rundenübergänge und Paarungen dürfen erst bearbeitet werden, sobald eine Vorlage
+    /// gewählt UND gespeichert ist (eine neu angelegte, noch nicht gespeicherte Vorlage hat keine Id,
+    /// <c>VorlagenRunde</c>n können ihr noch nicht zugeordnet werden).</summary>
     public bool RundenTabAktiv => TabKoordinator.AusgewaehlteVorlage is not null;
 
     public TurniervorlagenViewModel(
         TurnierVorlageService service,
         TurnierkopfViewModel turnierkopfVm,
         VorlagenRundenViewModel rundenVm,
-        VorlagenRundenUebergaengeViewModel rundenUebergaengeVm)
+        VorlagenRundenUebergaengeViewModel rundenUebergaengeVm,
+        VorlagenPaarungenViewModel paarungenVm)
     {
         TurnierkopfVm = turnierkopfVm;
         RundenVm = rundenVm;
         RundenUebergaengeVm = rundenUebergaengeVm;
+        PaarungenVm = paarungenVm;
 
-        TabKoordinator = new VorlagenTabKoordinator(service, [TurnierkopfVm, RundenVm, RundenUebergaengeVm]);
+        TabKoordinator = new VorlagenTabKoordinator(service, [TurnierkopfVm, RundenVm, RundenUebergaengeVm, PaarungenVm]);
 
         TabKoordinator.PropertyChanged += (_, e) =>
         {

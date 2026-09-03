@@ -55,9 +55,10 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<RegelwerkService>();
         builder.Services.AddScoped<TurnierVorlageService>();
 
-        // VorlagenRundenViewModel ist der geteilte Datenhalter für die Tabs "Runden" und "Rundenübergänge"
-        // (#284-Redesign) — Scoped statt Transient, damit beide innerhalb derselben Navigations-Scope
-        // dieselbe Instanz injiziert bekommen (TurniervorlagenViewModel UND VorlagenRundenUebergaengeViewModel).
+        // VorlagenRundenViewModel ist der geteilte Datenhalter für die Tabs "Runden", "Rundenübergänge" und
+        // "Paarungen" (#284-Redesign, #277-Erweiterung) — Scoped statt Transient, damit alle drei innerhalb
+        // derselben Navigations-Scope dieselbe Instanz injiziert bekommen (TurniervorlagenViewModel UND
+        // VorlagenRundenUebergaengeViewModel/VorlagenPaarungenViewModel).
         builder.Services.AddScoped<VorlagenRundenViewModel>();
 
         // ViewModels (Transient = neuer Scope bei jeder Navigation)
@@ -67,6 +68,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<RegelwerkeViewModel>();
         builder.Services.AddTransient<TurnierkopfViewModel>();
         builder.Services.AddTransient<VorlagenRundenUebergaengeViewModel>();
+        builder.Services.AddTransient<VorlagenPaarungenViewModel>();
         builder.Services.AddTransient<TurniervorlagenViewModel>();
 
         // Navigation & Hauptfenster

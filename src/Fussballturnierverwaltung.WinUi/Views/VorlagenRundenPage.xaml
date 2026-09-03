@@ -109,7 +109,12 @@
 
                         <CheckBox Content="Mit Rückspiel" IsChecked="{Binding MitRueckspiel, Mode=TwoWay}" Margin="0,0,0,4" />
                         <CheckBox Content="Auswärtstorregel aktiv" IsChecked="{Binding AuswaertstorRegelAktiv, Mode=TwoWay}"
-                                  IsEnabled="{Binding AuswaertstorAktivierbar}" Margin="16,0,0,24" />
+                                  IsEnabled="{Binding AuswaertstorAktivierbar}" Margin="16,0,0,4" />
+                        <CheckBox Content="Paarung fest vorgegeben" IsChecked="{Binding PaarungFestVorgegeben, Mode=TwoWay}"
+                                  IsEnabled="{Binding PaarungFestVorgegebenVerfuegbar}" Margin="0,0,0,4" />
+                        <TextBlock Text="Nicht verfügbar für die erste Runde einer Vorlage (keine eingehenden Übergangsregeln)."
+                                   Visibility="{Binding PaarungFestVorgegebenVerfuegbar, Converter={StaticResource InverseBoolToVisibility}}"
+                                   FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="16,0,0,24" />
 
                         <Button Content="Runde entfernen" Command="{Binding RundeEntfernenCommand}"
                                 HorizontalAlignment="Stretch" />

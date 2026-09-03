@@ -171,6 +171,24 @@ public partial class VorlagenUebergangsregelBlock : ObservableObject
     }
 }
 
+/// <summary>Ein fest zugewiesener Platzhalter-Slot innerhalb einer <see cref="VorlagenRundeZeile"/> (Issue
+/// #277) — Spiegel eines <see cref="VorlagenPaarung"/>-Eintrags. Wird sowohl als Datenhaltung auf
+/// <see cref="VorlagenRundeZeile.Paarungen"/> als auch als Anzeige-/Bearbeitungszeile im "Paarungen"-Tab
+/// (<see cref="VorlagenPaarungenViewModel"/>) verwendet. <see cref="PaarungsNummer"/>/<see cref="SlotNr"/>
+/// sind Identität, nicht editierbar — nur <see cref="PlatzhalterBezeichnung"/> ändert sich per Formular.</summary>
+public partial class VorlagenPaarungSlot : ObservableObject
+{
+    public required int PaarungsNummer { get; init; }
+    public required int SlotNr { get; init; }
+    public required string Label { get; init; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IstBesetzt))]
+    [NotifyPropertyChangedFor(nameof(AnzeigeText))]
+    private string? _platzhalterBezeichnung;
+    public bool IstBesetzt => !string.IsNullOrEmpty(PlatzhalterBezeichnung);
+    public string AnzeigeText => IstBesetzt ? PlatzhalterBezeichnung! : "— nicht zugewiesen —";
+}
+
 /// <summary>ViewModel-Zeile für die Rundenliste — Spiegel einer <see cref="VorlagenRunde"/>, reiner UI-Zustand
 /// bis zum nächsten Speichern (analog dem WPF-Original <c>VorlagenRundeZeile</c>). Bewusst ein reiner
 /// Datenträger ohne eigene Änderungs-/Berechnungslogik — die Formulare binden NICHT direkt auf diese Instanz,
@@ -190,6 +208,12 @@ public partial class VorlagenRundeZeile : ObservableObject
     [ObservableProperty] private bool _mitRueckspiel;
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
     [ObservableProperty] private RegelwerkOption _regelwerk = KeinRegelwerk;
+    [ObservableProperty] private bool _paarungFestVorgegeben;
+
+    /// <summary>Feste Paarungszuweisungen dieser Runde (Issue #277) — vom "Paarungen"-Tab gepflegt, hier nur
+    /// als Datenhaltung zwischen Laden und Speichern (analog <see cref="VorlagenRundenViewModel.AlleUebergaenge"/>
+    /// für Übergangsregeln, nur pro Runde statt global, da eine Paarung nie rundenübergreifend ist).</summary>
+    public ObservableCollection<VorlagenPaarungSlot> Paarungen { get; set; } = [];
 }
 
 /// <summary>"Runden"-Tab von <see cref="TurniervorlagenViewModel"/> (#284) — Rundenliste + Rundenformular (nur
@@ -206,6 +230,7 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
     private readonly RegelwerkService _regelwerkService;
     private readonly TurnierVorlageValidator _vorlageValidator;
     private readonly VorlagenUebergangsregelValidator _uebergangsregelValidator;
+    private readonly VorlagenPaarungValidator _paarungValidator;
     private int _populiertGerade;
 
     // Reentrancy-Guard: Vorlage-Id, deren Ladevorgang gerade läuft — verhindert, dass ein schneller
@@ -223,6 +248,15 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
     /// dies, um Perlenkette/Eingehend-/Ausgehend-Listen zu aktualisieren.</summary>
     public event Action? UebergaengeGeaendert;
 
+    /// <summary>Feuert <see cref="UebergaengeGeaendert"/> und aktualisiert die davon abhängigen, aber nicht
+    /// automatisch benachrichtigten Properties (Issue #277: <see cref="PaarungFestVorgegebenVerfuegbar"/>
+    /// hängt an <see cref="AlleUebergaenge"/>, das kein eigenes PropertyChanged auslöst).</summary>
+    private void UebergaengeGeaendertMelden()
+    {
+        OnPropertyChanged(nameof(PaarungFestVorgegebenVerfuegbar));
+        UebergaengeGeaendert?.Invoke();
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatVorlage))]
     [NotifyCanExecuteChangedFor(nameof(NeueRundeCommand))]
@@ -235,7 +269,11 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
     [NotifyPropertyChangedFor(nameof(FormularSichtbar))]
     private VorlagenRundeZeile? _ausgewaehlteRunde;
 
-    partial void OnAusgewaehlteRundeChanged(VorlagenRundeZeile? value) => FormularAusFuellenMit(value);
+    partial void OnAusgewaehlteRundeChanged(VorlagenRundeZeile? value)
+    {
+        FormularAusFuellenMit(value);
+        OnPropertyChanged(nameof(PaarungFestVorgegebenVerfuegbar));
+    }
 
     public bool FormularSichtbar => AusgewaehlteRunde is not null;
 
@@ -246,7 +284,8 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
     private static readonly HashSet<string> FormFelder =
     [
         nameof(Name), nameof(Rundenart), nameof(EingangsMannschaftsanzahl), nameof(AusgangsMannschaftsanzahl),
-        nameof(GruppenAnzahl), nameof(MitRueckspiel), nameof(AuswaertstorRegelAktiv), nameof(Regelwerk)
+        nameof(GruppenAnzahl), nameof(MitRueckspiel), nameof(AuswaertstorRegelAktiv), nameof(Regelwerk),
+        nameof(PaarungFestVorgegeben)
     ];
 
     [ObservableProperty] private string _name = "";
@@ -268,8 +307,15 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
 
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
     [ObservableProperty] private RegelwerkOption _regelwerk = VorlagenRundeZeile.KeinRegelwerk;
+    [ObservableProperty] private bool _paarungFestVorgegeben;
 
     public bool IstGruppenphase => Rundenart == Rundenart.Gruppenphase;
+
+    /// <summary>Feste Paarungen (Issue #277) ergeben nur für eine Runde mit mindestens einer eingehenden
+    /// Übergangsregel Sinn — die erste Runde einer Vorlage hat noch keine Platzhalter-Basis und durchläuft in
+    /// jedem realen Turnier zwingend eine echte Auslosung (siehe VorlagenPaarungValidator).</summary>
+    public bool PaarungFestVorgegebenVerfuegbar =>
+        AusgewaehlteRunde is not null && AlleUebergaenge.Any(b => b.ZielRunde == AusgewaehlteRunde);
 
     /// <summary>Die Auswärtstorregel ergibt nur bei Hin-/Rückspiel-Aggregaten in K.o.-Rundenarten Sinn
     /// (AD-001) — analog WPF-Original <c>RundenEditorViewModel.AuswaertstorAktivierbar</c>.</summary>
@@ -312,6 +358,7 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
             MitRueckspiel = zeile?.MitRueckspiel ?? false;
             AuswaertstorRegelAktiv = zeile?.AuswaertstorRegelAktiv ?? false;
             Regelwerk = zeile?.Regelwerk ?? VorlagenRundeZeile.KeinRegelwerk;
+            PaarungFestVorgegeben = zeile?.PaarungFestVorgegeben ?? false;
         }
         finally
         {
@@ -334,9 +381,18 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
         AusgewaehlteRunde.AuswaertstorRegelAktiv = AuswaertstorRegelAktiv;
         AusgewaehlteRunde.Regelwerk = Regelwerk;
 
+        // Wird das Flag deaktiviert, sind vorhandene Zuweisungen verwaist (VorlagenPaarungValidator lehnt
+        // Paarungen an einer nicht als fest markierten Runde ab) — konsistent leeren statt stillen Fehler
+        // erst beim Speichern zu produzieren.
+        if (AusgewaehlteRunde.PaarungFestVorgegeben != PaarungFestVorgegeben)
+        {
+            AusgewaehlteRunde.PaarungFestVorgegeben = PaarungFestVorgegeben;
+            if (!PaarungFestVorgegeben) AusgewaehlteRunde.Paarungen.Clear();
+        }
+
         IsDirty = true;
         AktualisiereRundenFehler();
-        UebergaengeGeaendert?.Invoke(); // Name/Eingang/Ausgang betreffen die Perlenkette-Kartenanzeige
+        UebergaengeGeaendertMelden(); // Name/Eingang/Ausgang betreffen die Perlenkette-Kartenanzeige
     }
 
     [ObservableProperty] private ObservableCollection<VorlagenRundeZeile> _runden = [];
@@ -380,12 +436,14 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
 
     public VorlagenRundenViewModel(
         TurnierVorlageService service, RegelwerkService regelwerkService,
-        TurnierVorlageValidator vorlageValidator, VorlagenUebergangsregelValidator uebergangsregelValidator)
+        TurnierVorlageValidator vorlageValidator, VorlagenUebergangsregelValidator uebergangsregelValidator,
+        VorlagenPaarungValidator paarungValidator)
     {
         _service = service;
         _regelwerkService = regelwerkService;
         _vorlageValidator = vorlageValidator;
         _uebergangsregelValidator = uebergangsregelValidator;
+        _paarungValidator = paarungValidator;
     }
 
     /// <summary>Vom Composite gesetzt, wenn sich die geteilte Vorlagenauswahl ändert — lädt Runden und
@@ -446,7 +504,7 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
             }
 
             AktualisiereRundenFehler();
-            UebergaengeGeaendert?.Invoke();
+            UebergaengeGeaendertMelden();
             IsDirty = false;
         }
         catch (Exception ex)
@@ -469,7 +527,15 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
         GruppenAnzahl = r.GruppenAnzahl,
         MitRueckspiel = r.MitRueckspiel,
         AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv,
-        Regelwerk = r.Regelwerk is not null ? new RegelwerkOption(r.Regelwerk.Name, r.Regelwerk) : VorlagenRundeZeile.KeinRegelwerk
+        Regelwerk = r.Regelwerk is not null ? new RegelwerkOption(r.Regelwerk.Name, r.Regelwerk) : VorlagenRundeZeile.KeinRegelwerk,
+        PaarungFestVorgegeben = r.PaarungFestVorgegeben,
+        Paarungen = new ObservableCollection<VorlagenPaarungSlot>(r.Paarungen.Select(p => new VorlagenPaarungSlot
+        {
+            PaarungsNummer = p.PaarungsNummer,
+            SlotNr = p.SlotNr,
+            Label = "", // wird beim Öffnen des Paarungen-Tabs aus Rundenart/Slot-Position neu ermittelt
+            PlatzhalterBezeichnung = p.PlatzhalterBezeichnung
+        }))
     };
 
     private void RundenZuruecksetzen(IEnumerable<VorlagenRundeZeile> runden)
@@ -488,7 +554,7 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
             _populiertGerade--;
         }
         AktualisiereRundenFehler();
-        UebergaengeGeaendert?.Invoke();
+        UebergaengeGeaendertMelden();
     }
 
     // ── Runden-Befehle ────────────────────────────────────────────────────────
@@ -503,7 +569,7 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
         AusgewaehlteRunde = zeile;
         IsDirty = true;
         AktualisiereRundenFehler();
-        UebergaengeGeaendert?.Invoke();
+        UebergaengeGeaendertMelden();
     }
     private bool KannNeueRunde() => HatVorlage;
 
@@ -521,7 +587,7 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
         AusgewaehlteRunde = Runden.Count > 0 ? Runden[Math.Max(0, idx - 1)] : null;
         AktualisiereRundenFehler();
         IsDirty = true;
-        UebergaengeGeaendert?.Invoke();
+        UebergaengeGeaendertMelden();
     }
     private bool KannRundeEntfernen() => AusgewaehlteRunde is not null;
 
@@ -533,7 +599,7 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
         _alleUebergaenge.Add(block);
         IsDirty = true;
         AktualisiereRundenFehler();
-        UebergaengeGeaendert?.Invoke();
+        UebergaengeGeaendertMelden();
     }
 
     public void UebergangEntfernen(VorlagenUebergangsregelBlock block)
@@ -541,7 +607,7 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
         _alleUebergaenge.Remove(block);
         IsDirty = true;
         AktualisiereRundenFehler();
-        UebergaengeGeaendert?.Invoke();
+        UebergaengeGeaendertMelden();
     }
 
     private void VerdrahteBlock(VorlagenUebergangsregelBlock block)
@@ -550,7 +616,7 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
         {
             if (_populiertGerade == 0) IsDirty = true;
             AktualisiereRundenFehler();
-            UebergaengeGeaendert?.Invoke();
+            UebergaengeGeaendertMelden();
         };
     }
 
@@ -559,7 +625,8 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
     public List<VorlagenRundeEingabe> RundenZuEingaben() => Runden.Select(z => new VorlagenRundeEingabe(
         z.Name, z.Rundenart, z.EingangsMannschaftsanzahl, z.AusgangsMannschaftsanzahl,
         z.MitRueckspiel, z.AuswaertstorRegelAktiv, z.Regelwerk.Wert?.Id,
-        z.Rundenart == Rundenart.Gruppenphase ? z.GruppenAnzahl : null)).ToList();
+        z.Rundenart == Rundenart.Gruppenphase ? z.GruppenAnzahl : null,
+        z.PaarungFestVorgegeben)).ToList();
 
     public List<VorlagenUebergangsRegelEingabe> UebergangsregelnZuEingaben() => _alleUebergaenge
         .Where(b => b.QuellRunde is not null && b.ZielRunde is not null && b.QuellRunde != b.ZielRunde)
@@ -568,13 +635,32 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
             z.GruppeIndex, z.PlatzierungVon, z.PlatzierungBis, z.AnzahlBeste)))
         .ToList();
 
+    /// <summary>Feste Paarungszuweisungen aller Runden (Issue #277) — nur belegte Slots, referenziert die
+    /// Runde über ihre 1-basierte Listenposition analog <see cref="UebergangsregelnZuEingaben"/>.</summary>
+    public List<VorlagenPaarungEingabe> PaarungenZuEingaben() => Runden
+        .SelectMany((z, i) => z.Paarungen
+            .Where(p => p.IstBesetzt)
+            .Select(p => new VorlagenPaarungEingabe(i + 1, p.PaarungsNummer, p.SlotNr, p.PlatzhalterBezeichnung!)))
+        .ToList();
+
     private void AktualisiereRundenFehler()
     {
         if (Runden.Count == 0) { RundenFehler = []; return; }
         var rundenEingaben = RundenZuEingaben();
+        var uebergangsregelEingaben = UebergangsregelnZuEingaben();
         var fehler = new List<string>(_vorlageValidator.RundenValidieren(rundenEingaben).Fehler);
-        fehler.AddRange(_uebergangsregelValidator.Validieren(rundenEingaben, UebergangsregelnZuEingaben()).Fehler);
+        fehler.AddRange(_uebergangsregelValidator.Validieren(rundenEingaben, uebergangsregelEingaben).Fehler);
+        fehler.AddRange(_paarungValidator.Validieren(rundenEingaben, uebergangsregelEingaben, PaarungenZuEingaben()).Fehler);
         RundenFehler = fehler;
+    }
+
+    /// <summary>Vom "Paarungen"-Tab (<see cref="VorlagenPaarungenViewModel"/>) aufgerufen, sobald sich eine
+    /// Slot-Zuweisung ändert — die Slots selbst liegen direkt auf <see cref="VorlagenRundeZeile.Paarungen"/>
+    /// (kein eigener Datenbestand hier, analog Übergangsregeln in umgekehrter Datenhaltungs-Richtung).</summary>
+    public void PaarungenGeaendert()
+    {
+        IsDirty = true;
+        AktualisiereRundenFehler();
     }
 
     // ── Ribbon-Befehle ────────────────────────────────────────────────────────
@@ -586,7 +672,8 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
         Fehlermeldung = null;
         try
         {
-            await _service.RundenSynchronisierenAsync(AktuelleVorlage.Id, RundenZuEingaben(), UebergangsregelnZuEingaben());
+            await _service.RundenSynchronisierenAsync(
+                AktuelleVorlage.Id, RundenZuEingaben(), UebergangsregelnZuEingaben(), PaarungenZuEingaben());
             await VorlageSetzenAsync(AktuelleVorlage);
         }
         catch (Exception ex)
