@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Spielplan.Eingaben;
 using Fussballturnierverwaltung.Application.Turniere;
@@ -396,6 +397,8 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     private readonly RegelwerkService _regelwerkService;
     private readonly TurnierVorlageService _vorlageService;
     private readonly UebergangsregelService _uebergangsregelService;
+    private readonly AuslosungService _auslosungService;
+    private readonly SpielplanService _spielplanService;
     private readonly AusgewaehlteTurnierInstanzService _turnierAuswahlService;
     private int _populiertGerade;
 
@@ -404,6 +407,13 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
     // Wird erst beim nächsten Speichern in echte Uebergangsregeln zwischen den persistierten Runden übersetzt.
     private List<(RundenEintrag Quelle, RundenEintrag Ziel, int? GruppeIndex, int PlatzierungVon, int PlatzierungBis, int? AnzahlBeste)>
         _vorlagenUebergangsregelnPending = [];
+
+    // Issue #277: aus einer Vorlage übernommene feste Paarungszuweisungen — analog
+    // _vorlagenUebergangsregelnPending per Objektreferenz auf die Zielrunde, da diese beim Laden noch keine
+    // reale Id hat. Wird beim nächsten Speichern in eine abgeschlossene Auslosung (Auslosungsart.Manuell)
+    // samt generiertem Spielplan übersetzt — erst dann ist "Turnier aus Vorlage direkt startklar" erfüllt.
+    private List<(RundenEintrag Ziel, int PaarungsNummer, int SlotNr, string PlatzhalterBezeichnung)>
+        _vorlagenPaarungenPending = [];
 
     // Einmal je Instanz-Laden geholt (Issue #188) — Grundlage für die live berechneten RundenWarnungen,
     // erspart einen Service-Roundtrip bei jedem Tastendruck.
@@ -659,12 +669,16 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         RegelwerkService regelwerkService,
         TurnierVorlageService vorlageService,
         UebergangsregelService uebergangsregelService,
+        AuslosungService auslosungService,
+        SpielplanService spielplanService,
         AusgewaehlteTurnierInstanzService turnierAuswahlService)
     {
         _service = service;
         _regelwerkService = regelwerkService;
         _vorlageService = vorlageService;
         _uebergangsregelService = uebergangsregelService;
+        _auslosungService = auslosungService;
+        _spielplanService = spielplanService;
         _turnierAuswahlService = turnierAuswahlService;
     }
 
@@ -802,7 +816,8 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                                             ?? RegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == r.RegelwerkId)?.Wert?.Name
                                             ?? "",
                     MitRueckspiel          = r.MitRueckspiel,
-                    AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv
+                    AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv,
+                    PaarungFestVorgegeben  = r.PaarungFestVorgegeben
                 })
                 .ToList();
             RundenZuruecksetzen(runden);
@@ -819,6 +834,14 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                     Quelle: eintragNachVorlagenRundeId[regel.QuellVorlagenRundeId],
                     Ziel: eintragNachVorlagenRundeId[regel.ZielVorlagenRundeId],
                     regel.GruppeIndex, regel.PlatzierungVon, regel.PlatzierungBis, regel.AnzahlBeste))
+                .ToList();
+
+            // Issue #277: feste Paarungszuweisungen der Vorlage merken (dieselbe Zweiphasen-Logik wie die
+            // Übergangsregeln oben) — wird beim nächsten Speichern in eine abgeschlossene Auslosung samt
+            // generiertem Spielplan übersetzt.
+            _vorlagenPaarungenPending = vorlagenRunden
+                .SelectMany(r => r.Paarungen.Select(p => (Ziel: eintragNachVorlagenRundeId[r.Id], p)))
+                .Select(x => (x.Ziel, x.p.PaarungsNummer, x.p.SlotNr, x.p.PlatzhalterBezeichnung))
                 .ToList();
 
             // Issue #25-Nachlieferung: bei nicht-linearen Vorlagen (z.B. UEFA-Ligaphase → zwei Zielrunden)
@@ -886,6 +909,17 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
                 _vorlagenUebergangsregelnPending = [];
             }
 
+            // Issue #277: aus einer Vorlage übernommene feste Paarungen jetzt (Zielrunden haben reale Ids)
+            // in eine abgeschlossene Auslosung (Auslosungsart.Manuell) samt generiertem Spielplan übersetzen —
+            // das macht "Turnier aus Vorlage direkt startklar", ohne dass der Nutzer dieselben Platzhalter im
+            // Paarungen-Tab ein zweites Mal eintragen muss. Einmalig, aus demselben Grund wie oben.
+            if (_vorlagenPaarungenPending.Count > 0)
+            {
+                foreach (var gruppe in _vorlagenPaarungenPending.GroupBy(p => p.Ziel))
+                    await PaarungenAusVorlageUebernehmenAsync(gruppe.Key, [.. gruppe]);
+                _vorlagenPaarungenPending = [];
+            }
+
             // Neue Vergleichsbasis für die #181-Änderungserkennung — ein zweites Speichern in derselben
             // Sitzung soll nicht erneut warnen, wenn seither nichts weiter geändert wurde.
             foreach (var r in Runden)
@@ -903,6 +937,44 @@ public partial class RundenEditorViewModel : ViewModelBase, IRibbonAware, IHatUn
         {
             Fehlermeldung = ex.Message;
         }
+    }
+
+    /// <summary>Übersetzt die aus einer Vorlage übernommenen <c>VorlagenPaarung</c>-Zuweisungen einer
+    /// Zielrunde in eine abgeschlossene <see cref="Auslosungsart.Manuell"/>-Auslosung samt generiertem
+    /// Spielplan — dasselbe Ergebnis, das <c>ManuellePaarungWorkspaceViewModel.Abschliessen</c> auf
+    /// Instanzebene erzeugt, nur ohne manuelle Nutzerinteraktion (Issue #277). Wiederholtes Speichern in
+    /// derselben Sitzung (z.B. erneutes "Vorlage laden") ersetzt eine zuvor aus der Vorlage erzeugte
+    /// Auslosung vollständig statt sie zu duplizieren — eine vom Nutzer inzwischen manuell bearbeitete
+    /// Auslosung derselben Runde bleibt dagegen unangetastet (kein <c>ZuruecksetzenAsync</c>-Aufruf ohne
+    /// erneutes "Vorlage laden").</summary>
+    private async Task PaarungenAusVorlageUebernehmenAsync(
+        RundenEintrag ziel, IReadOnlyList<(RundenEintrag Ziel, int PaarungsNummer, int SlotNr, string PlatzhalterBezeichnung)> paarungen)
+    {
+        var bestehende = (await _auslosungService.AlleNachInstanzAbrufenAsync(AusgewaehlteInstanz!.Id))
+            .FirstOrDefault(a => a.TurnierRundeId == ziel.Id);
+        if (bestehende is not null) await _auslosungService.LoeschenAsync(bestehende.Id);
+
+        bool istGruppenModus = ziel.Rundenart is Rundenart.Gruppenphase or Rundenart.Liga or Rundenart.SchweizerSystem;
+        List<ManuellePaarungEingabe> eingaben = istGruppenModus
+            ? paarungen.Select(p => new ManuellePaarungEingabe(
+                HeimMannschaftId: null, HeimPlatzhalterName: p.PlatzhalterBezeichnung,
+                AuswaertsMannschaftId: null, AuswaertsPlatzhalterName: null,
+                PaarungsNummer: p.PaarungsNummer)).ToList()
+            : paarungen.GroupBy(p => p.PaarungsNummer).Select(g => new ManuellePaarungEingabe(
+                HeimMannschaftId: null, HeimPlatzhalterName: g.FirstOrDefault(p => p.SlotNr == 1).PlatzhalterBezeichnung,
+                AuswaertsMannschaftId: null, AuswaertsPlatzhalterName: g.FirstOrDefault(p => p.SlotNr == 2).PlatzhalterBezeichnung,
+                PaarungsNummer: g.Key)).ToList();
+        if (eingaben.Count == 0) return;
+
+        var auslosung = await _auslosungService.ErstellenAsync(
+            new AuslosungErstellenEingabe(AusgewaehlteInstanz.Id, ziel.Id, ziel.Name, Auslosungsart.Manuell, IstAutomatisch: false));
+        await _auslosungService.ManuelleErgebnisseAbschliessenAsync(auslosung.Id, eingaben);
+
+        var detail = await _auslosungService.FindenNachIdAsync(auslosung.Id);
+        if (detail is null || detail.Status != AuslosungsStatus.Abgeschlossen) return;
+        if ((await _spielplanService.SpielplanAbrufenAsync(ziel.Id)).Count > 0)
+            await _spielplanService.LoeschenAsync(ziel.Id);
+        await _spielplanService.GenerierenAusAuslosungAsync(ziel.Id, [.. detail.Ergebnisse]);
     }
 
     [RelayCommand(CanExecute = nameof(KannAbbrechen))]

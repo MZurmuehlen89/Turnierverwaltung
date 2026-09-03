@@ -99,4 +99,62 @@ public class TurnierVorlageRepositoryTests
         quellRunde.AusgehendeUebergangsregeln.Should().ContainSingle();
         quellRunde.AusgehendeUebergangsregeln.Single().ZielVorlagenRunde.Reihenfolge.Should().Be(2);
     }
+
+    // ── Feste Paarungen (Issue #277) ─────────────────────────────────────────────
+
+    [Fact]
+    public async Task RundenErsetzenAsync_LoestPaarungsReihenfolgeAufReeleRundeIdAuf()
+    {
+        using var ctx = NeuerContext();
+        var vorlageId = await VorlageAnlegenAsync(ctx);
+        var repo = new TurnierVorlageRepository(ctx);
+        var runden = ZweiRunden(vorlageId);
+        runden[1].PaarungFestVorgegeben = true;
+
+        await repo.RundenErsetzenAsync(vorlageId, runden, [],
+            [new VorlagenPaarungEingabe(RundenReihenfolge: 2, PaarungsNummer: 1, SlotNr: 1, "Sieger Gruppe A")]);
+
+        var gespeichert = await ctx.VorlagenPaarungen.ToListAsync();
+        gespeichert.Should().ContainSingle();
+        gespeichert[0].VorlagenRundeId.Should().Be(runden[1].Id);
+        gespeichert[0].PlatzhalterBezeichnung.Should().Be("Sieger Gruppe A");
+    }
+
+    [Fact]
+    public async Task RundenErsetzenAsync_ZweiterAufrufErsetztAltePaarungenVollstaendig()
+    {
+        using var ctx = NeuerContext();
+        var vorlageId = await VorlageAnlegenAsync(ctx);
+        var repo = new TurnierVorlageRepository(ctx);
+        var runden = ZweiRunden(vorlageId);
+        runden[1].PaarungFestVorgegeben = true;
+        await repo.RundenErsetzenAsync(vorlageId, runden, [],
+            [new VorlagenPaarungEingabe(RundenReihenfolge: 2, PaarungsNummer: 1, SlotNr: 1, "Sieger Gruppe A")]);
+
+        // Zweiter Sync ohne Paarungen — die alte VorlagenPaarung hängt an der inzwischen ersetzten (neu
+        // angelegten) Runde und darf nicht als Datenleiche zurückbleiben.
+        var runden2 = ZweiRunden(vorlageId);
+        await repo.RundenErsetzenAsync(vorlageId, runden2, []);
+
+        (await ctx.VorlagenPaarungen.ToListAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task FindenNachIdMitRundenAsync_LaedtPaarungenDerRunde()
+    {
+        using var ctx = NeuerContext();
+        var vorlageId = await VorlageAnlegenAsync(ctx);
+        var repo = new TurnierVorlageRepository(ctx);
+        var runden = ZweiRunden(vorlageId);
+        runden[1].PaarungFestVorgegeben = true;
+        await repo.RundenErsetzenAsync(vorlageId, runden, [],
+            [new VorlagenPaarungEingabe(RundenReihenfolge: 2, PaarungsNummer: 1, SlotNr: 1, "Sieger Gruppe A")]);
+
+        var geladen = await repo.FindenNachIdMitRundenAsync(vorlageId);
+
+        var zielRunde = geladen!.VorlagenRunden.Single(r => r.Reihenfolge == 2);
+        zielRunde.PaarungFestVorgegeben.Should().BeTrue();
+        zielRunde.Paarungen.Should().ContainSingle();
+        zielRunde.Paarungen.Single().PlatzhalterBezeichnung.Should().Be("Sieger Gruppe A");
+    }
 }
