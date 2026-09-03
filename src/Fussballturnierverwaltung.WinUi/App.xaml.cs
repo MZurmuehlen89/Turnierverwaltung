@@ -40,21 +40,33 @@ public partial class App : global::Microsoft.UI.Xaml.Application
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}"));
         builder.Services.AddInfrastruktur(builder.Configuration);
 
-        // Validatoren & Services (Mannschaften, #281; Länder & Verbände, #282; Regelwerke, #283)
+        // Validatoren & Services (Mannschaften, #281; Länder & Verbände, #282; Regelwerke, #283;
+        // Turniervorlagen, #284)
         builder.Services.AddScoped<MannschaftValidator>();
         builder.Services.AddScoped<LandValidator>();
         builder.Services.AddScoped<VerbandValidator>();
         builder.Services.AddScoped<RegelwerkValidator>();
+        builder.Services.AddScoped<TurnierVorlageValidator>();
+        builder.Services.AddScoped<VorlagenUebergangsregelValidator>();
         builder.Services.AddScoped<MannschaftService>();
         builder.Services.AddScoped<LandService>();
         builder.Services.AddScoped<VerbandService>();
         builder.Services.AddScoped<RegelwerkService>();
+        builder.Services.AddScoped<TurnierVorlageService>();
+
+        // VorlagenRundenViewModel ist der geteilte Datenhalter für die Tabs "Runden" und "Rundenübergänge"
+        // (#284-Redesign) — Scoped statt Transient, damit beide innerhalb derselben Navigations-Scope
+        // dieselbe Instanz injiziert bekommen (TurniervorlagenViewModel UND VorlagenRundenUebergaengeViewModel).
+        builder.Services.AddScoped<VorlagenRundenViewModel>();
 
         // ViewModels (Transient = neuer Scope bei jeder Navigation)
         builder.Services.AddTransient<PlatzhalterViewModel>();
         builder.Services.AddTransient<MannschaftenViewModel>();
         builder.Services.AddTransient<LaenderUndVerbaendeViewModel>();
         builder.Services.AddTransient<RegelwerkeViewModel>();
+        builder.Services.AddTransient<TurnierkopfViewModel>();
+        builder.Services.AddTransient<VorlagenRundenUebergaengeViewModel>();
+        builder.Services.AddTransient<TurniervorlagenViewModel>();
 
         // Navigation & Hauptfenster
         builder.Services.AddSingleton<EinstellungenService>();

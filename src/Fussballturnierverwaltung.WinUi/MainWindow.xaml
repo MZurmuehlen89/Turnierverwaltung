@@ -28,12 +28,16 @@
             <DataTemplate x:Key="RegelwerkeTemplate" x:DataType="vm:RegelwerkeViewModel">
                 <views:RegelwerkePage />
             </DataTemplate>
+            <DataTemplate x:Key="TurniervorlagenTemplate" x:DataType="vm:TurniervorlagenViewModel">
+                <views:TurniervorlagenPage />
+            </DataTemplate>
             <local:ViewModelTemplateSelector x:Key="ViewLocator"
                                               xmlns:local="using:Fussballturnierverwaltung.WinUi"
                                               PlatzhalterTemplate="{StaticResource PlatzhalterTemplate}"
                                               MannschaftenTemplate="{StaticResource MannschaftenTemplate}"
                                               LaenderUndVerbaendeTemplate="{StaticResource LaenderUndVerbaendeTemplate}"
-                                              RegelwerkeTemplate="{StaticResource RegelwerkeTemplate}" />
+                                              RegelwerkeTemplate="{StaticResource RegelwerkeTemplate}"
+                                              TurniervorlagenTemplate="{StaticResource TurniervorlagenTemplate}" />
         </Grid.Resources>
 
         <Grid.RowDefinitions>

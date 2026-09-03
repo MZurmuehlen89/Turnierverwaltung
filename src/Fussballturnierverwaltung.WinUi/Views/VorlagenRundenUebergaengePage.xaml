@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Fussballturnierverwaltung.WinUi.Views.VorlagenRundenUebergaengePage"
+    x:Name="Root"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Fussballturnierverwaltung.WinUi.Views">
+
+    <UserControl.Resources>
+        <local:BoolZuAuswahlHintergrundConverter x:Key="BoolZuAuswahlHintergrund" />
+
+        <!-- Drei Formate für Übergangsregel-Zeilen, je nach Rundenart der Quellrunde (Nutzer-Feedback aus
+             #284-Test: "In einer K.o.-Runde kann ich nicht von Platz 1 bis 1 sprechen") — im Regelformular
+             über RegelIstGruppenphase/RegelIstKoSonderfall/RegelIstLiga (ViewModel-Ebene) ausgewählt. -->
+        <DataTemplate x:Key="ZeileGruppenphaseTemplate">
+            <Grid ColumnDefinitions="70,Auto,44,Auto,44" Margin="0,2">
+                <TextBlock Text="{Binding GruppenLabel}" VerticalAlignment="Center" FontSize="12" />
+                <TextBlock Grid.Column="1" Text="Platz" VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="0,0,4,0" />
+                <TextBox Grid.Column="2" Text="{Binding PlatzierungVon, Mode=TwoWay}" />
+                <TextBlock Grid.Column="3" Text="bis" VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="4,0" />
+                <TextBox Grid.Column="4" Text="{Binding PlatzierungBis, Mode=TwoWay}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="ZeileKoSonderfallTemplate">
+            <Grid ColumnDefinitions="Auto,44,Auto,Auto" Margin="0,2">
+                <TextBlock Text="Spiel" VerticalAlignment="Center" FontSize="11" Opacity="0.6" />
+                <TextBox Grid.Column="1" Text="{Binding GruppeIndex, Mode=TwoWay}" />
+                <CheckBox Grid.Column="2" Content="Sieger" IsChecked="{Binding IstSieger, Mode=TwoWay}" FontSize="12" Margin="10,0,0,0" />
+                <CheckBox Grid.Column="3" Content="Verlierer" IsChecked="{Binding IstVerlierer, Mode=TwoWay}" FontSize="12" Margin="8,0,0,0" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="ZeileLigaTemplate">
+            <Grid ColumnDefinitions="Auto,44,Auto,44" Margin="0,2">
+                <TextBlock Text="Platz" VerticalAlignment="Center" FontSize="11" Opacity="0.6" />
+                <TextBox Grid.Column="1" Text="{Binding PlatzierungVon, Mode=TwoWay}" />
+                <TextBlock Grid.Column="2" Text="bis" VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="4,0" />
+                <TextBox Grid.Column="3" Text="{Binding PlatzierungBis, Mode=TwoWay}" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- Eingehend/Ausgehend-Zeile: normaler Button statt ToggleButton (Nutzer-Fund: ToggleButtons
+             eigenes natives Klick-Toggle-Verhalten kollidierte mit der IsChecked-OneWay-Bindung, mehrere
+             Zeilen konnten gleichzeitig als "markiert" hängen bleiben). Hervorhebung stattdessen rein über
+             Background, aus IstAusgewaehlt per Converter — kein eigener Selektions-State mehr, der
+             kollidieren könnte. -->
+        <DataTemplate x:Key="RegelZeileTemplate">
+            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Margin="0,0,0,4" Padding="8,6"
+                    Background="{Binding IstAusgewaehlt, Converter={StaticResource BoolZuAuswahlHintergrund}}"
+                    Command="{Binding DataContext.RegelAuswaehlenCommand, ElementName=Root}"
+                    CommandParameter="{Binding}">
+                <StackPanel>
+                    <TextBlock FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis">
+                        <Run Text="{Binding QuellRunde.Name}" /><Run Text=" → " /><Run Text="{Binding ZielRunde.Name}" />
+                    </TextBlock>
+                    <TextBlock FontSize="11" Opacity="0.6">
+                        <Run Text="{Binding Zeilen.Count}" /><Run Text=" Eintrag/Einträge" />
+                    </TextBlock>
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+
+        <!-- Sperre, solange keine (gespeicherte) Vorlage gewählt ist -->
+        <StackPanel Visibility="{Binding HatVorlage, Converter={StaticResource InverseBoolToVisibility}}"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.4">
+            <TextBlock Text="🔒" FontSize="48" HorizontalAlignment="Center" />
+            <TextBlock Text="Bitte zuerst die Vorlage im Turnierkopf speichern" FontSize="14" HorizontalAlignment="Center" Margin="0,12,0,0" />
+        </StackPanel>
+
+        <!-- Layout (Nutzer-Vorgabe): links die Rundenliste, Mitte Eingehend (oben)/Ausgehend (unten),
+             rechts das Formular (Runde ODER Regel, je nach Auswahl). -->
+        <Grid Visibility="{Binding HatVorlage, Converter={StaticResource BoolToVisibility}}"
+              ColumnDefinitions="220,1,*">
+
+            <!-- ── Spalte 0: Rundenliste — dieselbe native ListView wie im "Runden"-Tab (nur Item-Inhalt
+                 reicher: Rundenart/Eingang-Ausgang als separate Zeile + optionaler Unstimmigkeits-Hinweis).
+                 SelectedValuePath="Runde" + SelectedValue statt SelectedItem, da ItemsSource hier DTOs
+                 (VorlagenRundenKarte) sind, AusgewaehlteRunde aber vom Typ VorlagenRundeZeile ist. ── -->
+            <Grid Grid.Column="0" RowDefinitions="Auto,*">
+                <ProgressBar Grid.Row="0" IsIndeterminate="True" Height="2"
+                             Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
+                <ListView Grid.Row="1"
+                          ItemsSource="{Binding Karten}"
+                          SelectedValuePath="Runde"
+                          SelectedValue="{Binding AusgewaehlteRunde, Mode=TwoWay}"
+                          SelectionMode="Single">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Padding="0,4">
+                                <TextBlock Text="{Binding Runde.Name}" FontWeight="SemiBold" FontSize="13" />
+                                <TextBlock FontSize="11" Opacity="0.6">
+                                    <Run Text="{Binding RundenartText}" />
+                                    <Run Text=" · " />
+                                    <Run Text="{Binding EinAusgangText}" />
+                                </TextBlock>
+                                <TextBlock Text="{Binding UnstimmigkeitText}" FontSize="10" Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                           Margin="0,4,0,0" TextWrapping="Wrap"
+                                           Visibility="{Binding HatUnstimmigkeit, Converter={StaticResource BoolToVisibility}}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+
+            <Rectangle Grid.Column="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Width="1" />
+
+            <!-- ── Spalte 2: Eingehend/Ausgehend + Formular ── -->
+            <Grid Grid.Column="2">
+                <StackPanel Visibility="{Binding FormularSichtbar, Converter={StaticResource InverseBoolToVisibility}}"
+                            VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.4">
+                    <TextBlock Text="📋" FontSize="48" HorizontalAlignment="Center" />
+                    <TextBlock Text="Runde links auswählen" FontSize="14" HorizontalAlignment="Center" Margin="0,12,0,0" />
+                </StackPanel>
+
+                <Grid Visibility="{Binding FormularSichtbar, Converter={StaticResource BoolToVisibility}}"
+                      ColumnDefinitions="1*,1,1.2*">
+
+                    <!-- ── Spalte 0: Eingehend (oben) / Ausgehend (unten) ── -->
+                    <Grid Grid.Column="0" RowDefinitions="1*,1,1*">
+
+                        <Grid Grid.Row="0" RowDefinitions="Auto,*">
+                            <Grid Grid.Row="0" Margin="16,16,12,8" ColumnDefinitions="*,Auto">
+                                <TextBlock Text="EINGEHENDE REGELN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Content="+ Neu" FontSize="11" Command="{Binding NeueEingehendeRegelCommand}" />
+                            </Grid>
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl Margin="16,0,12,12" ItemsSource="{Binding EingehendeRegeln}"
+                                              ItemTemplate="{StaticResource RegelZeileTemplate}" />
+                            </ScrollViewer>
+                        </Grid>
+
+                        <Rectangle Grid.Row="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Height="1" />
+
+                        <Grid Grid.Row="2" RowDefinitions="Auto,*">
+                            <Grid Grid.Row="0" Margin="16,12,12,8" ColumnDefinitions="*,Auto">
+                                <TextBlock Text="AUSGEHENDE REGELN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Content="+ Neu" FontSize="11" Command="{Binding NeueAusgehendeRegelCommand}" />
+                            </Grid>
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl Margin="16,0,12,16" ItemsSource="{Binding AusgehendeRegeln}"
+                                              ItemTemplate="{StaticResource RegelZeileTemplate}" />
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
+
+                    <Rectangle Grid.Column="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Width="1" />
+
+                    <!-- ── Spalte 2: Regelformular ── -->
+                    <Grid Grid.Column="2" RowDefinitions="*,Auto">
+                        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="16,16,16,12" HorizontalAlignment="Stretch">
+
+                                <StackPanel Visibility="{Binding ZeigeRegelformular, Converter={StaticResource InverseBoolToVisibility}}"
+                                            VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,40,0,0" Opacity="0.4">
+                                    <TextBlock Text="↔" FontSize="40" HorizontalAlignment="Center" />
+                                    <TextBlock Text="Regel links/mittig auswählen" FontSize="13" HorizontalAlignment="Center" Margin="0,8,0,0" />
+                                    <TextBlock Text="oder &quot;+ Neu&quot; klicken" FontSize="13" HorizontalAlignment="Center" />
+                                </StackPanel>
+
+                                <StackPanel Visibility="{Binding ZeigeRegelformular, Converter={StaticResource BoolToVisibility}}">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                                        <TextBlock Text="ÜBERGANGSREGEL" FontWeight="SemiBold" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
+                                        <Button Grid.Column="1" Content="← Zurück" FontSize="11" Command="{Binding RegelFormularSchliessenCommand}" />
+                                    </Grid>
+
+                                    <TextBlock Text="Von (Quelle)" FontSize="12" Margin="0,0,0,3" />
+                                    <ComboBox ItemsSource="{Binding Runden}"
+                                              SelectedItem="{Binding RegelQuelle, Mode=TwoWay}"
+                                              DisplayMemberPath="Name" HorizontalAlignment="Stretch" Margin="0,0,0,12" />
+
+                                    <TextBlock Text="Nach (Ziel)" FontSize="12" Margin="0,0,0,3" />
+                                    <ComboBox ItemsSource="{Binding Runden}"
+                                              SelectedItem="{Binding RegelZiel, Mode=TwoWay}"
+                                              DisplayMemberPath="Name" HorizontalAlignment="Stretch" Margin="0,0,0,16" />
+
+                                    <ItemsControl ItemsSource="{Binding RegelZeilen}" ItemTemplate="{StaticResource ZeileGruppenphaseTemplate}"
+                                                  Visibility="{Binding RegelIstGruppenphase, Converter={StaticResource BoolToVisibility}}" />
+                                    <ItemsControl ItemsSource="{Binding RegelZeilen}" ItemTemplate="{StaticResource ZeileKoSonderfallTemplate}"
+                                                  Visibility="{Binding RegelIstKoSonderfall, Converter={StaticResource BoolToVisibility}}" />
+                                    <ItemsControl ItemsSource="{Binding RegelZeilen}" ItemTemplate="{StaticResource ZeileLigaTemplate}"
+                                                  Visibility="{Binding RegelIstLiga, Converter={StaticResource BoolToVisibility}}" />
+
+                                    <Button Content="Regel löschen" Command="{Binding RegelLoeschenCommand}" Margin="0,16,0,0"
+                                            HorizontalAlignment="Stretch" />
+                                </StackPanel>
+
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Meldungen -->
+                        <StackPanel Grid.Row="1" Margin="16,0,16,16" Spacing="6"
+                                    Visibility="{Binding ZeigeMeldungsSpalte, Converter={StaticResource BoolToVisibility}}">
+                            <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
+                                    Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                                    CornerRadius="4" Padding="8,6">
+                                <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                           FontSize="11" TextWrapping="Wrap" />
+                            </Border>
+                            <ItemsControl ItemsSource="{Binding RundenFehler}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                                                CornerRadius="4" Padding="8,6" Margin="0,0,0,6">
+                                            <TextBlock Text="{Binding}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                       FontSize="11" TextWrapping="Wrap" />
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Grid>
+
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -56,13 +56,40 @@ public class VorlagenUebergangsregelValidator
         if (HatZyklus(gueltigeRegeln))
             fehler.Add("Die Übergangsregeln der Vorlage enthalten einen zyklischen Übergang.");
 
-        foreach (var zielGruppe in gueltigeRegeln.GroupBy(r => r.ZielReihenfolge))
+        // Eingehend: eine Runde ganz ohne eingehende Übergangsregeln gilt als eigenständiger Startpunkt
+        // (z.B. mehrere parallele Gruppenphasen/Ligen ohne gemeinsame Vorrunde, siehe
+        // ZusammenfuehrungAusZweiQuellrunden-Testfall) und wird hier bewusst nicht verlangt — VorlagenRunde
+        // hat anders als TurnierRunde kein explizites "EingangUeberUebergangsregeln"-Flag, das das
+        // unterscheiden könnte. Hat eine Runde aber MINDESTENS eine eingehende Regel, muss deren Summe exakt
+        // der Eingangsmannschaftszahl entsprechen — unabhängig davon, aus wie vielen Quellrunden sie sich
+        // zusammensetzt (vorher wurde nur "> erwartet" geprüft, ein zu geringer Summenwert rutschte durch).
+        var eingehendNachZiel = gueltigeRegeln.ToLookup(r => r.ZielReihenfolge);
+        for (var i = 0; i < runden.Count; i++)
         {
-            var ziel = runden[zielGruppe.Key - 1];
-            var summe = zielGruppe.Sum(r => r.AnzahlBeste ?? (r.PlatzierungBis - r.PlatzierungVon + 1));
-            if (summe > ziel.EingangsMannschaftsanzahl)
+            var regelnDiesesZiels = eingehendNachZiel[i + 1].ToList();
+            if (regelnDiesesZiels.Count == 0) continue;
+
+            var ziel = runden[i];
+            var summe = regelnDiesesZiels.Sum(r => r.AnzahlBeste ?? (r.PlatzierungBis - r.PlatzierungVon + 1));
+            if (summe != ziel.EingangsMannschaftsanzahl)
                 fehler.Add($"Übergangsregeln für '{ziel.Name}' liefern zusammen {summe} Mannschaften, " +
-                           $"erwartet werden aber nur {ziel.EingangsMannschaftsanzahl}.");
+                           $"erwartet werden aber {ziel.EingangsMannschaftsanzahl}.");
+        }
+
+        // Ausgehend: eine Runde darf terminal sein (keine ausgehenden Regeln, z.B. Finale) — hat sie aber
+        // mindestens eine, muss die Summe exakt der Ausgangsmannschaftszahl entsprechen, unabhängig davon,
+        // in wie viele Zielrunden sie sich aufteilt (z.B. Sieger→Finale, Verlierer→Spiel um Platz 3).
+        var ausgehendNachQuelle = gueltigeRegeln.ToLookup(r => r.QuellReihenfolge);
+        for (var i = 0; i < runden.Count; i++)
+        {
+            var regelnDieserQuelle = ausgehendNachQuelle[i + 1].ToList();
+            if (regelnDieserQuelle.Count == 0) continue;
+
+            var quelle = runden[i];
+            var summe = regelnDieserQuelle.Sum(r => r.AnzahlBeste ?? (r.PlatzierungBis - r.PlatzierungVon + 1));
+            if (summe != quelle.AusgangsMannschaftsanzahl)
+                fehler.Add($"Ausgehende Übergangsregeln von '{quelle.Name}' verteilen zusammen {summe} Mannschaften, " +
+                           $"erwartet werden aber {quelle.AusgangsMannschaftsanzahl}.");
         }
 
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);

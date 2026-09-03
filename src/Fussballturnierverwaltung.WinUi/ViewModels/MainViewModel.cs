@@ -66,7 +66,7 @@ public partial class MainViewModel : ObservableObject
                 EintragErstellen("Mannschaften",      () => _navigation.NavigiereZuAsync<MannschaftenViewModel>()),
                 EintragErstellen("Länder & Verbände", () => _navigation.NavigiereZuAsync<LaenderUndVerbaendeViewModel>()),
                 EintragErstellen("Regelwerke",        () => _navigation.NavigiereZuAsync<RegelwerkeViewModel>()),
-                EintragErstellen("Turniervorlagen",   () => NavigiereZuPlatzhalterAsync("Turniervorlagen")),
+                EintragErstellen("Turniervorlagen",   () => _navigation.NavigiereZuAsync<TurniervorlagenViewModel>()),
                 EintragErstellen("Ranglisten",        () => NavigiereZuPlatzhalterAsync("Ranglisten")),
             ]
         });
