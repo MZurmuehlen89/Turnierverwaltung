@@ -15,12 +15,37 @@ public class VerbandsQuoteRepository(TurnierverwaltungDbContext context)
             .OrderBy(q => q.Verband.Name)
             .ToListAsync(ct);
 
+    /// <summary>Synchronisiert per Schlüssel-Diff statt Löschen+Neuanlegen (Nutzer-Vorgabe: grundsätzlich
+    /// Insert/Update statt Löschen+Neuanlegen, Delete nur für tatsächlich weggefallene Zeilen — analog
+    /// TurnierVorlageRepository.RundenErsetzenAsync). VerbandId identifiziert die Zeile eindeutig je
+    /// TurnierInstanz, Anzahl ist das einzige veränderliche Feld.</summary>
     public async Task<IReadOnlyList<VerbandsQuote>> QuotenErsetzenAsync(int turnierInstanzId, IReadOnlyList<VerbandsQuote> neueQuoten, CancellationToken ct = default)
     {
         var alte = await Context.VerbandsQuoten.Where(q => q.TurnierInstanzId == turnierInstanzId).ToListAsync(ct);
-        Context.VerbandsQuoten.RemoveRange(alte);
-        Context.VerbandsQuoten.AddRange(neueQuoten);
+        var alteNachVerband = alte.ToDictionary(q => q.VerbandId);
+
+        var ergebnis = new List<VerbandsQuote>(neueQuoten.Count);
+        var neueVerbandIds = new HashSet<int>();
+
+        foreach (var neu in neueQuoten)
+        {
+            neueVerbandIds.Add(neu.VerbandId);
+            if (alteNachVerband.TryGetValue(neu.VerbandId, out var bestehend))
+            {
+                bestehend.Anzahl = neu.Anzahl;
+                ergebnis.Add(bestehend);
+            }
+            else
+            {
+                Context.VerbandsQuoten.Add(neu);
+                ergebnis.Add(neu);
+            }
+        }
+
+        var entfernte = alte.Where(q => !neueVerbandIds.Contains(q.VerbandId)).ToList();
+        Context.VerbandsQuoten.RemoveRange(entfernte);
+
         await Context.SaveChangesAsync(ct);
-        return neueQuoten;
+        return ergebnis;
     }
 }

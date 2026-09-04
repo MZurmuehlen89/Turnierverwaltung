@@ -40,54 +40,134 @@ public class TurnierVorlageRepository(TurnierverwaltungDbContext context)
         IReadOnlyList<VorlagenPaarungEingabe>? neuePaarungen = null,
         CancellationToken ct = default)
     {
-        var alteRegeln = await Context.VorlagenUebergangsregeln
-            .Where(r => r.QuellVorlagenRunde.TurnierVorlageId == vorlageId)
-            .ToListAsync(ct);
-        Context.VorlagenUebergangsregeln.RemoveRange(alteRegeln);
-
-        // Kein separates Entfernen der alten VorlagenPaarungen nötig: sie referenzieren ausschließlich ihre
-        // eigene VorlagenRunde (Cascade), anders als die Übergangsregeln oben mit ihrer zweiten Restrict-FK
-        // auf die Zielrunde — das serverseitige ON DELETE CASCADE der Runden-Löschung unten reicht aus.
+        // Runden positionsbasiert aktualisieren statt komplett zu löschen und neu anzulegen (Nutzer-Fund:
+        // ein blindes Ersetzen vergibt für JEDE Runde eine neue Id, auch für unveränderte — das ließ die
+        // Rundenauswahl in der WinUI3-Oberfläche nach jedem Speichern verschwinden). Analog zum bereits
+        // etablierten, korrekten Muster in TurnierInstanzRepository.RundenErsetzenAsync: bestehende Zeilen
+        // in-place aktualisieren (Id bleibt erhalten), nur überzählige alte Runden werden tatsächlich
+        // gelöscht — dieselbe Diff-Technik (statt Löschen+Neuanlegen) gilt jetzt einheitlich auch für
+        // Übergangsregeln und Paarungen weiter unten (Nutzer-Vorgabe: grundsätzlich Insert/Update statt
+        // Löschen+Neuanlegen, Delete nur für tatsächlich weggefallene Zeilen).
         var alteRunden = await Context.VorlagenRunden
             .Where(r => r.TurnierVorlageId == vorlageId)
+            .OrderBy(r => r.Reihenfolge)
             .ToListAsync(ct);
-        Context.VorlagenRunden.RemoveRange(alteRunden);
+
+        int gemeinsam = Math.Min(alteRunden.Count, neueRunden.Count);
+        for (int i = 0; i < gemeinsam; i++)
+        {
+            var alt = alteRunden[i];
+            var neu = neueRunden[i];
+            alt.Name                      = neu.Name;
+            alt.Reihenfolge                = neu.Reihenfolge;
+            alt.Rundenart                  = neu.Rundenart;
+            alt.EingangsMannschaftsanzahl  = neu.EingangsMannschaftsanzahl;
+            alt.AusgangsMannschaftsanzahl  = neu.AusgangsMannschaftsanzahl;
+            alt.GruppenAnzahl              = neu.GruppenAnzahl;
+            alt.MitRueckspiel              = neu.MitRueckspiel;
+            alt.AuswaertstorRegelAktiv     = neu.AuswaertstorRegelAktiv;
+            alt.RegelwerkId                = neu.RegelwerkId;
+            alt.PaarungFestVorgegeben      = neu.PaarungFestVorgegeben;
+        }
+
+        for (int i = alteRunden.Count; i < neueRunden.Count; i++)
+            Context.VorlagenRunden.Add(neueRunden[i]);
+
+        if (alteRunden.Count > neueRunden.Count)
+        {
+            var entfernte = alteRunden.Skip(neueRunden.Count).ToList();
+            var entfernteIds = entfernte.Select(r => r.Id).ToHashSet();
+
+            // Übergangsregeln, die eine entfernte Runde als Zielrunde referenzieren, müssen vorab entfernt
+            // werden: die Quellrunden-Beziehung cascadet bereits über die DB-Konfiguration, die Zielrunden-
+            // Beziehung ist bewusst Restrict (analog TurnierInstanzRepository.RundenErsetzenAsync).
+            var betroffeneZielregeln = await Context.VorlagenUebergangsregeln
+                .Where(r => entfernteIds.Contains(r.ZielVorlagenRundeId))
+                .ToListAsync(ct);
+            Context.VorlagenUebergangsregeln.RemoveRange(betroffeneZielregeln);
+
+            // Kein separates Entfernen der zugehörigen VorlagenPaarungen nötig: ON DELETE CASCADE der
+            // Runden-Löschung reicht (Paarungen referenzieren ausschließlich ihre eigene VorlagenRunde).
+            Context.VorlagenRunden.RemoveRange(entfernte);
+        }
+
         await Context.SaveChangesAsync(ct);
 
-        if (neueRunden.Count > 0)
+        // Positionsgleich zu neueRunden: bestehende Runden über alteRunden[i] (Id unverändert), neu
+        // hinzugefügte über neueRunden[i] (EF befüllt deren Id erst nach SaveChangesAsync) — analog
+        // TurnierInstanzRepository.RundenErsetzenAsync.
+        var idNachReihenfolge = new Dictionary<int, int>(neueRunden.Count);
+        for (int i = 0; i < neueRunden.Count; i++)
         {
-            Context.VorlagenRunden.AddRange(neueRunden);
-            await Context.SaveChangesAsync(ct);
+            var runde = i < gemeinsam ? alteRunden[i] : neueRunden[i];
+            idNachReihenfolge[runde.Reihenfolge] = runde.Id;
         }
+        var aktuelleRundenIds = idNachReihenfolge.Values.ToHashSet();
 
-        if (neueUebergangsregeln.Count > 0)
-        {
-            var idNachReihenfolge = neueRunden.ToDictionary(r => r.Reihenfolge, r => r.Id);
-            var regeln = neueUebergangsregeln.Select(e => new VorlagenUebergangsRegel
-            {
-                QuellVorlagenRundeId = idNachReihenfolge[e.QuellReihenfolge],
-                ZielVorlagenRundeId  = idNachReihenfolge[e.ZielReihenfolge],
-                GruppeIndex          = e.GruppeIndex,
-                PlatzierungVon       = e.PlatzierungVon,
-                PlatzierungBis       = e.PlatzierungBis,
-                AnzahlBeste          = e.AnzahlBeste
-            }).ToList();
-            Context.VorlagenUebergangsregeln.AddRange(regeln);
-            await Context.SaveChangesAsync(ct);
-        }
+        // Übergangsregeln per Schlüssel-Diff synchronisieren: Quell-/Zielrunde + Gruppe/Platzierung bilden
+        // zusammen die vollständige Identität einer Regel (kein separates veränderliches Feld) — nur
+        // tatsächlich neue Kombinationen werden angelegt, nur weggefallene entfernt, unveränderte bleiben
+        // unangetastet (bleiben dadurch auch ihre eigene Id/Existenz über einen Speichervorgang hinweg behalten).
+        var alteRegeln = await Context.VorlagenUebergangsregeln
+            .Where(r => aktuelleRundenIds.Contains(r.QuellVorlagenRundeId))
+            .ToListAsync(ct);
+        var alteRegelSchluessel = alteRegeln
+            .ToDictionary(r => (r.QuellVorlagenRundeId, r.ZielVorlagenRundeId, r.GruppeIndex, r.PlatzierungVon, r.PlatzierungBis, r.AnzahlBeste));
 
-        if (neuePaarungen is { Count: > 0 })
+        var neueRegelSchluessel = new HashSet<(int Quell, int Ziel, int? GruppeIndex, int Von, int Bis, int? AnzahlBeste)>();
+        foreach (var e in neueUebergangsregeln)
         {
-            var idNachReihenfolge = neueRunden.ToDictionary(r => r.Reihenfolge, r => r.Id);
-            var paarungen = neuePaarungen.Select(e => new VorlagenPaarung
-            {
-                VorlagenRundeId       = idNachReihenfolge[e.RundenReihenfolge],
-                PaarungsNummer        = e.PaarungsNummer,
-                SlotNr                = e.SlotNr,
-                PlatzhalterBezeichnung = e.PlatzhalterBezeichnung
-            }).ToList();
-            Context.VorlagenPaarungen.AddRange(paarungen);
-            await Context.SaveChangesAsync(ct);
+            (int Quell, int Ziel, int? GruppeIndex, int Von, int Bis, int? AnzahlBeste) schluessel =
+                (idNachReihenfolge[e.QuellReihenfolge], idNachReihenfolge[e.ZielReihenfolge], e.GruppeIndex, e.PlatzierungVon, e.PlatzierungBis, e.AnzahlBeste);
+            neueRegelSchluessel.Add(schluessel);
+            if (!alteRegelSchluessel.ContainsKey(schluessel))
+                Context.VorlagenUebergangsregeln.Add(new VorlagenUebergangsRegel
+                {
+                    QuellVorlagenRundeId = schluessel.Quell,
+                    ZielVorlagenRundeId  = schluessel.Ziel,
+                    GruppeIndex          = schluessel.GruppeIndex,
+                    PlatzierungVon       = schluessel.Von,
+                    PlatzierungBis       = schluessel.Bis,
+                    AnzahlBeste          = schluessel.AnzahlBeste
+                });
         }
+        var entfernteRegeln = alteRegeln
+            .Where(r => !neueRegelSchluessel.Contains((r.QuellVorlagenRundeId, r.ZielVorlagenRundeId, r.GruppeIndex, r.PlatzierungVon, r.PlatzierungBis, r.AnzahlBeste)))
+            .ToList();
+        Context.VorlagenUebergangsregeln.RemoveRange(entfernteRegeln);
+
+        // Paarungen per Schlüssel-Diff synchronisieren: Runde+PaarungsNummer+SlotNr identifizieren einen
+        // Slot eindeutig, PlatzhalterBezeichnung ist das einzige veränderliche Feld — bestehende Slots
+        // werden aktualisiert statt gelöscht+neu angelegt, nur wirklich neue/weggefallene Slots werden
+        // hinzugefügt/entfernt.
+        var altePaarungen = await Context.VorlagenPaarungen
+            .Where(p => aktuelleRundenIds.Contains(p.VorlagenRundeId))
+            .ToListAsync(ct);
+        var altePaarungenNachSchluessel = altePaarungen.ToDictionary(p => (p.VorlagenRundeId, p.PaarungsNummer, p.SlotNr));
+
+        var neueSlotSchluessel = new HashSet<(int RundeId, int PaarungsNummer, int SlotNr)>();
+        foreach (var e in neuePaarungen ?? [])
+        {
+            var rundeId = idNachReihenfolge[e.RundenReihenfolge];
+            var schluessel = (rundeId, e.PaarungsNummer, e.SlotNr);
+            neueSlotSchluessel.Add(schluessel);
+
+            if (altePaarungenNachSchluessel.TryGetValue(schluessel, out var bestehend))
+                bestehend.PlatzhalterBezeichnung = e.PlatzhalterBezeichnung;
+            else
+                Context.VorlagenPaarungen.Add(new VorlagenPaarung
+                {
+                    VorlagenRundeId        = rundeId,
+                    PaarungsNummer         = e.PaarungsNummer,
+                    SlotNr                 = e.SlotNr,
+                    PlatzhalterBezeichnung = e.PlatzhalterBezeichnung
+                });
+        }
+        var entfernteSlots = altePaarungen
+            .Where(p => !neueSlotSchluessel.Contains((p.VorlagenRundeId, p.PaarungsNummer, p.SlotNr)))
+            .ToList();
+        Context.VorlagenPaarungen.RemoveRange(entfernteSlots);
+
+        await Context.SaveChangesAsync(ct);
     }
 }
