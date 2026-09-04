@@ -49,3 +49,15 @@ is resolved via DI before `MainWindow` exists (its constructor is called first, 
 that calls `ThemeService.AnwendenAusEinstellungen()`) — if `AktuellerModus` only gets its real value on that
 later call, `MainViewModel.IstDunkelModus` (read in *its* constructor) captures the stale default and the
 Dark-Mode toggle shows the wrong state until the user clicks it once (found in #280's manual test).
+
+**Only one `ContentDialog` can be shown at a time per `XamlRoot`** — a second `ShowAsync()` while one is
+already open throws. This blocks any WPF-Window-dialog pattern that nests a child dialog inside a parent
+dialog (found while porting Ranglisten-Import in #285, which in WPF opens a "Quellen verwalten" child window
+from inside the import window, and a "Mannschaft schnell anlegen" child window from inside an unresolved
+import row). Two independent workarounds used there: (1) merge a parent-dialog + child-dialog pair into one
+ContentDialog with an app-wide list+form layout instead of two windows (`RanglistenQuellenVerwaltenDialog`);
+(2) replace a child dialog with an inline expanding form directly in the triggering row/element instead of a
+popup (`UnaufgeloesteZeileZuordnung.NeuAnlegenAktiv` in `RanglistenImportDialog`). A `ViewModel`-owned
+`ContentDialog` also has no `XamlRoot` of its own — `IDialogService.AnzeigenAsync(ContentDialog)` sets it
+centrally (mirrors the WPF original, where the ViewModel directly opens the `Window`; see
+`RanglistenViewModel.ImportAusInternet`/`QuellenVerwalten`).
