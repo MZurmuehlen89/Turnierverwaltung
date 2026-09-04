@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="Fussballturnierverwaltung.WinUi.Views.RanglistenImportDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Rangliste aus dem Internet importieren"
+    CloseButtonText="Abbrechen"
+    DefaultButton="Close">
+
+    <Grid Width="900" Height="640" RowDefinitions="Auto,Auto,Auto,*,Auto">
+
+        <!-- ── Quelle wählen ── -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+            <TextBlock Text="Quelle:" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding Quellen}" SelectedItem="{Binding AusgewaehlteQuelle, Mode=TwoWay}"
+                      DisplayMemberPath="Name" Width="280" />
+            <Button Content="Abrufen" Command="{Binding AbrufenCommand}" Style="{StaticResource AccentButtonStyle}" />
+        </StackPanel>
+
+        <ProgressBar Grid.Row="1" IsIndeterminate="True" Height="2" Margin="0,0,0,10"
+                     Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
+
+        <TextBlock Grid.Row="2" Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                   TextWrapping="Wrap" Margin="0,0,0,10"
+                   Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}" />
+
+        <!-- ── Vorschau ── -->
+        <Grid Grid.Row="3" Visibility="{Binding VorschauVorhanden, Converter={StaticResource BoolToVisibility}}"
+              RowDefinitions="1*,8,1*">
+
+            <Grid Grid.Row="0" RowDefinitions="Auto,*">
+                <TextBlock Grid.Row="0" Text="Automatisch zugeordnet" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <ListView Grid.Row="1" ItemsSource="{Binding Aufgeloest}" SelectionMode="None">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid ColumnDefinitions="*,*,80" Padding="0,2">
+                                <TextBlock Grid.Column="0" Text="{Binding Quelle.RohName}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Mannschaft.Name}" />
+                                <TextBlock Grid.Column="2" Text="{Binding Quelle.Punkte}" HorizontalAlignment="Right" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+
+            <Grid Grid.Row="2" RowDefinitions="Auto,*">
+                <TextBlock Grid.Row="0" Text="Nicht erkannt — bitte zuordnen oder überspringen" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <ListView Grid.Row="1" ItemsSource="{Binding Unaufgeloest}" SelectionMode="None">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Padding="0,4" BorderThickness="0,0,0,1"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                                <Grid ColumnDefinitions="*,60,2*">
+                                    <TextBlock Grid.Column="0" Text="{Binding Quelle.RohName}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Quelle.Punkte}" VerticalAlignment="Center" />
+                                    <ComboBox Grid.Column="2" ItemsSource="{Binding Optionen}"
+                                              SelectedItem="{Binding Ausgewaehlt, Mode=TwoWay}"
+                                              DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
+                                </Grid>
+
+                                <!-- Inline-Schnell-Anlegen (Issue #227/#285) statt separatem Dialog -->
+                                <Border Visibility="{Binding NeuAnlegenAktiv, Converter={StaticResource BoolToVisibility}}"
+                                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                        CornerRadius="4" Padding="10" Margin="0,6,0,6">
+                                    <StackPanel Spacing="6">
+                                        <Grid ColumnDefinitions="*,8,*">
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Name" FontSize="11" Opacity="0.6" />
+                                                <TextBox Text="{Binding NeuName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Kürzel" FontSize="11" Opacity="0.6" />
+                                                <TextBox Text="{Binding NeuKurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,8,*">
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Art" FontSize="11" Opacity="0.6" />
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <RadioButton Content="Nationalmannschaft"
+                                                                 IsChecked="{Binding NeuIstNationalmannschaft, Mode=TwoWay}" />
+                                                    <RadioButton Content="Verein"
+                                                                 IsChecked="{Binding NeuIstVerein, Mode=TwoWay}" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Land" FontSize="11" Opacity="0.6" />
+                                                <ComboBox ItemsSource="{Binding Laender}"
+                                                          SelectedItem="{Binding NeuLand, Mode=TwoWay}"
+                                                          DisplayMemberPath="Name" HorizontalAlignment="Stretch" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <TextBlock Text="{Binding NeuFehler}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                   TextWrapping="Wrap"
+                                                   Visibility="{Binding NeuFehler, Converter={StaticResource NullToCollapsed}}" />
+
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                                            <Button Content="Abbrechen" Command="{Binding NeuAnlegenAbbrechenCommand}" />
+                                            <Button Content="Anlegen" Command="{Binding MannschaftAnlegenCommand}"
+                                                    Style="{StaticResource AccentButtonStyle}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </Grid>
+
+        <!-- ── Ziel-Rangliste + Aktionen ── -->
+        <StackPanel Grid.Row="4" Margin="0,10,0,0"
+                    Visibility="{Binding VorschauVorhanden, Converter={StaticResource BoolToVisibility}}">
+
+            <Grid ColumnDefinitions="1*,10,1*" Margin="0,0,0,8">
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Name" FontWeight="SemiBold" />
+                    <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
+                    <TextBlock Text="Datum (JJJJ-MM-TT)" FontWeight="SemiBold" />
+                    <TextBox Text="{Binding Datum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
+                    <TextBlock Text="Quelle (Anzeigetext)" FontWeight="SemiBold" />
+                    <TextBox Text="{Binding QuelleText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <RadioButton Content="Neue Rangliste anlegen" GroupName="Ziel"
+                                 IsChecked="{Binding NeueRanglisteErstellen, Mode=TwoWay}" Margin="0,0,0,6" />
+                    <RadioButton Content="Bestehende Rangliste aktualisieren" GroupName="Ziel"
+                                 IsChecked="{Binding BestehendeAktualisieren, Mode=TwoWay}" Margin="0,0,0,6" />
+                    <ComboBox ItemsSource="{Binding VorhandeneRanglisten}" SelectedItem="{Binding ZielRangliste, Mode=TwoWay}"
+                              DisplayMemberPath="Name" HorizontalAlignment="Stretch"
+                              IsEnabled="{Binding BestehendeAktualisieren}" />
+                </StackPanel>
+            </Grid>
+
+            <Button Content="Import ausführen" Command="{Binding ImportierenCommand}"
+                    Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" />
+        </StackPanel>
+    </Grid>
+</ContentDialog>

@@ -1,4 +1,6 @@
 using Fussballturnierverwaltung.Application.Einstellungen;
+using Fussballturnierverwaltung.Application.Ranglisten;
+using Fussballturnierverwaltung.Application.Ranglisten.Import;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -49,11 +51,16 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<TurnierVorlageValidator>();
         builder.Services.AddScoped<VorlagenUebergangsregelValidator>();
         builder.Services.AddScoped<VorlagenPaarungValidator>();
+        builder.Services.AddScoped<RanglisteValidator>();
+        builder.Services.AddScoped<RanglistenQuelleValidator>();
         builder.Services.AddScoped<MannschaftService>();
         builder.Services.AddScoped<LandService>();
         builder.Services.AddScoped<VerbandService>();
         builder.Services.AddScoped<RegelwerkService>();
         builder.Services.AddScoped<TurnierVorlageService>();
+        builder.Services.AddScoped<RanglisteService>();
+        builder.Services.AddScoped<RanglistenQuelleService>();
+        builder.Services.AddScoped<RanglistenImportService>();
 
         // VorlagenRundenViewModel ist der geteilte Datenhalter für die Tabs "Runden", "Rundenübergänge" und
         // "Paarungen" (#284-Redesign, #277-Erweiterung) — Scoped statt Transient, damit alle drei innerhalb
@@ -70,6 +77,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<VorlagenRundenUebergaengeViewModel>();
         builder.Services.AddTransient<VorlagenPaarungenViewModel>();
         builder.Services.AddTransient<TurniervorlagenViewModel>();
+        builder.Services.AddTransient<RanglistenViewModel>();
 
         // Navigation & Hauptfenster
         builder.Services.AddSingleton<EinstellungenService>();

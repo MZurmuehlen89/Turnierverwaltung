@@ -49,6 +49,12 @@ public class DialogService : IDialogService
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
+    public async Task<ContentDialogResult> AnzeigenAsync(ContentDialog dialog)
+    {
+        dialog.XamlRoot = _xamlRoot;
+        return await dialog.ShowAsync();
+    }
+
     public async Task<byte[]?> BilddateiWaehlenAsync()
     {
         var picker = new FileOpenPicker();
