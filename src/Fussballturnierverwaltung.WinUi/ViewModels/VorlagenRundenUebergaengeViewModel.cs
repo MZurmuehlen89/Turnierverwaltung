@@ -16,12 +16,14 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// nach Nutzer-Rückmeldung auf eine einfache Liste reduziert: der Informationsgehalt war für eine grafische
 /// Darstellung zu gering, während das Canvas-Layout in WinUI3 mehrfach eigene Stolperfallen aufgeworfen hat
 /// (zwei gescheiterte deklarative Positionierungsversuche, siehe Git-Historie dieser Datei).</summary>
-public class VorlagenRundenKarte
+public partial class VorlagenRundenKarte : ObservableObject
 {
     public required VorlagenRundeZeile Runde { get; init; }
-    public string RundenartText { get; init; } = "";
-    public string EinAusgangText { get; init; } = "";
-    public string? UnstimmigkeitText { get; init; }
+    [ObservableProperty] private string _rundenartText = "";
+    [ObservableProperty] private string _einAusgangText = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatUnstimmigkeit))]
+    private string? _unstimmigkeitText;
     public bool HatUnstimmigkeit => UnstimmigkeitText is not null;
 }
 
@@ -237,8 +239,31 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
     // ── Rundenliste (rein lesend) ─────────────────────────────────────────────
     [ObservableProperty] private ObservableCollection<VorlagenRundenKarte> _karten = [];
 
+    /// <summary>Aktualisiert die Kartenliste. Feuert bei JEDER Rundenformular-Änderung (nicht nur strukturellen
+    /// wie Hinzufügen/Entfernen einer Runde), da Name/Eingang/Ausgang die Kartenanzeige betreffen — <see cref="Karten"/>
+    /// darf daher im unstrukturierten Fall NICHT neu instanziiert werden: die ListView bindet ihre Auswahl per
+    /// SelectedValue TwoWay auf die geteilte <see cref="AusgewaehlteRunde"/>, und ein ItemsSource-Austausch
+    /// setzt diese Auswahl transient zurück — schreibt über TwoWay sofort null in die geteilte Property und
+    /// löscht damit auch die Auswahl im "Runden"-Tab (derselbe Fallstrick wie in <see cref="OnRundenVmPropertyChanged"/>
+    /// dokumentiert, hier nur für Feldänderungen statt Rundenwechsel). Nur bei tatsächlicher Struktur-Änderung
+    /// (Runde hinzugefügt/entfernt/umsortiert) wird die Collection ersetzt — dabei wird die aktuelle Auswahl
+    /// vorab gesichert und danach wiederhergestellt (analog <see cref="VorlagenPaarungenViewModel.AktualisierePaarungsRunden"/>),
+    /// da der Collection-Tausch sie sonst transient auf null zurücksetzt (Löschen-Fall: die Rundenliste
+    /// selektiert bewusst die Nachbarrunde VOR diesem Aufruf, siehe <see cref="VorlagenRundenViewModel.RundeEntfernen"/>).</summary>
     private void AktualisiereRundenliste()
     {
+        if (Karten.Count == Runden.Count && Karten.Select(k => k.Runde).SequenceEqual(Runden))
+        {
+            foreach (var karte in Karten)
+            {
+                karte.RundenartText = RundenartAnzeigetext(karte.Runde.Rundenart, karte.Runde.GruppenAnzahl);
+                karte.EinAusgangText = $"{karte.Runde.EingangsMannschaftsanzahl} → {karte.Runde.AusgangsMannschaftsanzahl}";
+                karte.UnstimmigkeitText = UnstimmigkeitErmitteln(karte.Runde);
+            }
+            return;
+        }
+
+        var vorherAusgewaehlt = AusgewaehlteRunde;
         Karten = new ObservableCollection<VorlagenRundenKarte>(Runden.Select(r => new VorlagenRundenKarte
         {
             Runde = r,
@@ -246,6 +271,8 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
             EinAusgangText = $"{r.EingangsMannschaftsanzahl} → {r.AusgangsMannschaftsanzahl}",
             UnstimmigkeitText = UnstimmigkeitErmitteln(r)
         }));
+        if (vorherAusgewaehlt is not null && Runden.Contains(vorherAusgewaehlt))
+            AusgewaehlteRunde = vorherAusgewaehlt;
     }
 
     private static string RundenartAnzeigetext(Rundenart art, int? gruppenAnzahl) => art switch
@@ -282,7 +309,7 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
     }
 
     // ── IRibbonAware — reine Weiterleitung an den Runden-Tab (EIN gemeinsames Speichern für beide Tabs) ──
-    public string RibbonTabTitel => "Rundenübergänge";
+    public string RibbonTabTitel => "Übergänge";
     public ICommand? NeuBefehl => _rundenVm.NeuBefehl;
     public ICommand? SpeichernBefehl => _rundenVm.SpeichernBefehl;
     public ICommand? AbbrechenBefehl => _rundenVm.AbbrechenBefehl;

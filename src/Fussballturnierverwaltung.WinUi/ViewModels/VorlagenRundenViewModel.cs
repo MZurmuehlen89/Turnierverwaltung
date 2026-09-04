@@ -447,9 +447,15 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
     }
 
     /// <summary>Vom Composite gesetzt, wenn sich die geteilte Vorlagenauswahl ändert — lädt Runden und
-    /// Übergangsregeln der neuen Vorlage in einem Rutsch (<see cref="TurnierVorlageService.FindenNachIdMitRundenAsync"/>).</summary>
+    /// Übergangsregeln der neuen Vorlage in einem Rutsch (<see cref="TurnierVorlageService.FindenNachIdMitRundenAsync"/>).
+    /// Wird auch von <see cref="Speichern"/>/<see cref="Abbrechen"/> für denselben Vorlage-Reload genutzt — die
+    /// zuvor ausgewählte Runde wird danach wiederhergestellt (per Id, sonst per Listenposition für eine gerade
+    /// erst angelegte, noch ungespeicherte Runde), statt das Formular kommentarlos zu leeren.</summary>
     public async Task VorlageSetzenAsync(TurnierVorlage? vorlage)
     {
+        var vorherAusgewaehlteId = AusgewaehlteRunde?.Id;
+        var vorherAusgewaehlterIndex = AusgewaehlteRunde is not null ? Runden.IndexOf(AusgewaehlteRunde) : -1;
+
         AktuelleVorlage = vorlage;
         var meineId = vorlage?.Id ?? -1;
         _ladevorgangLaufendFuer = meineId;
@@ -502,6 +508,18 @@ public partial class VorlagenRundenViewModel : ViewModelBase, IRibbonAware, IHat
             {
                 _populiertGerade--;
             }
+
+            // Id-Fallback greift nur bei Abbrechen (kein DB-Schreibzugriff, alte Ids bleiben gültig) — nach
+            // Speichern hat TurnierVorlageService.RundenSynchronisierenAsync ALLE Runden per Löschen+Neuanlegen
+            // ersetzt (siehe TurnierVorlageService.cs), auch unveränderte bekommen dabei eine neue Id. Der
+            // Id-Treffer schlägt dann für JEDE Runde fehl — deshalb per Listenposition weitersuchen, statt nur
+            // beim Fehlen einer alten Id (Nutzer-Rückmeldung: Fix wirkte nur bei Abbrechen, nicht bei Speichern).
+            VorlagenRundeZeile? wiederhergestellt = vorherAusgewaehlteId is int id
+                ? Runden.FirstOrDefault(z => z.Id == id)
+                : null;
+            if (wiederhergestellt is null && vorherAusgewaehlterIndex >= 0 && vorherAusgewaehlterIndex < Runden.Count)
+                wiederhergestellt = Runden[vorherAusgewaehlterIndex];
+            AusgewaehlteRunde = wiederhergestellt;
 
             AktualisiereRundenFehler();
             UebergaengeGeaendertMelden();
