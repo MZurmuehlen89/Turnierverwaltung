@@ -4,18 +4,22 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Rangliste aus dem Internet importieren"
+    PrimaryButtonText="Import ausführen"
     CloseButtonText="Abbrechen"
+    IsPrimaryButtonEnabled="{Binding VorschauVorhanden}"
+    PrimaryButtonClick="ContentDialog_PrimaryButtonClick"
     DefaultButton="Close">
 
     <!-- Standard-ContentDialog-Theme begrenzt Breite/Höhe auf klein (ContentDialogMaxWidth ≈ 548) —
          ohne diese Überschreibung wird der Inhalt unten/rechts abgeschnitten statt den Dialog zu
-         vergrößern (Fund aus #285-Test). -->
+         vergrößern (Fund aus #285-Test). Import-/Abbrechen-Button kommen aus dem nativen
+         Primary-/Close-Footer (gleich groß, nebeneinander) statt aus eigenem Content — spart zusätzlich
+         die Höhe einer eigenen Button-Zeile. -->
     <ContentDialog.Resources>
         <x:Double x:Key="ContentDialogMaxWidth">1040</x:Double>
         <x:Double x:Key="ContentDialogMaxHeight">760</x:Double>
     </ContentDialog.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <Grid Width="1000" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
 
         <!-- ── Quelle wählen ── -->
@@ -33,18 +37,19 @@
                    TextWrapping="Wrap" Margin="0,0,0,10"
                    Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}" />
 
-        <!-- ── Vorschau ── Feste Höhen statt "*": innerhalb des äußeren ScrollViewer hätte "*" keine
-             begrenzte verfügbare Höhe und würde kollabieren. -->
-        <StackPanel Grid.Row="3" Visibility="{Binding VorschauVorhanden, Converter={StaticResource BoolToVisibility}}">
+        <!-- ── Vorschau: beide Listen nebeneinander statt untereinander, damit der Dialog ohne
+             eigenen Scrollbalken auskommt. ── -->
+        <Grid Grid.Row="3" ColumnDefinitions="1*,16,1*"
+              Visibility="{Binding VorschauVorhanden, Converter={StaticResource BoolToVisibility}}">
 
-            <StackPanel Margin="0,0,0,12">
+            <StackPanel Grid.Column="0">
                 <TextBlock Text="Automatisch zugeordnet" FontWeight="SemiBold" Margin="0,0,0,4" />
-                <ListView Height="150" ItemsSource="{Binding Aufgeloest}" SelectionMode="None">
+                <ListView Height="300" ItemsSource="{Binding Aufgeloest}" SelectionMode="None">
                     <ListView.ItemTemplate>
                         <DataTemplate>
-                            <Grid ColumnDefinitions="*,*,80" Padding="0,2">
-                                <TextBlock Grid.Column="0" Text="{Binding Quelle.RohName}" />
-                                <TextBlock Grid.Column="1" Text="{Binding Mannschaft.Name}" />
+                            <Grid ColumnDefinitions="*,*,60" Padding="0,2">
+                                <TextBlock Grid.Column="0" Text="{Binding Quelle.RohName}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="1" Text="{Binding Mannschaft.Name}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Grid.Column="2" Text="{Binding Quelle.Punkte}" HorizontalAlignment="Right" />
                             </Grid>
                         </DataTemplate>
@@ -52,15 +57,15 @@
                 </ListView>
             </StackPanel>
 
-            <StackPanel>
+            <StackPanel Grid.Column="2">
                 <TextBlock Text="Nicht erkannt — bitte zuordnen oder überspringen" FontWeight="SemiBold" Margin="0,0,0,4" />
-                <ListView Height="260" ItemsSource="{Binding Unaufgeloest}" SelectionMode="None">
+                <ListView Height="300" ItemsSource="{Binding Unaufgeloest}" SelectionMode="None">
                     <ListView.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Padding="0,4" BorderThickness="0,0,0,1"
                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
-                                <Grid ColumnDefinitions="*,60,2*">
-                                    <TextBlock Grid.Column="0" Text="{Binding Quelle.RohName}" VerticalAlignment="Center" />
+                                <Grid ColumnDefinitions="*,50,2*">
+                                    <TextBlock Grid.Column="0" Text="{Binding Quelle.RohName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                     <TextBlock Grid.Column="1" Text="{Binding Quelle.Punkte}" VerticalAlignment="Center" />
                                     <ComboBox Grid.Column="2" ItemsSource="{Binding Optionen}"
                                               SelectedItem="{Binding Ausgewaehlt, Mode=TwoWay}"
@@ -82,23 +87,16 @@
                                                 <TextBox Text="{Binding NeuKurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                             </StackPanel>
                                         </Grid>
-                                        <Grid ColumnDefinitions="*,8,*">
-                                            <StackPanel Grid.Column="0">
-                                                <TextBlock Text="Art" FontSize="11" Opacity="0.6" />
-                                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                                    <RadioButton Content="Nationalmannschaft"
-                                                                 IsChecked="{Binding NeuIstNationalmannschaft, Mode=TwoWay}" />
-                                                    <RadioButton Content="Verein"
-                                                                 IsChecked="{Binding NeuIstVerein, Mode=TwoWay}" />
-                                                </StackPanel>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="2">
-                                                <TextBlock Text="Land" FontSize="11" Opacity="0.6" />
-                                                <ComboBox ItemsSource="{Binding Laender}"
-                                                          SelectedItem="{Binding NeuLand, Mode=TwoWay}"
-                                                          DisplayMemberPath="Name" HorizontalAlignment="Stretch" />
-                                            </StackPanel>
-                                        </Grid>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <RadioButton Content="Nationalmannschaft"
+                                                         IsChecked="{Binding NeuIstNationalmannschaft, Mode=TwoWay}" />
+                                            <RadioButton Content="Verein"
+                                                         IsChecked="{Binding NeuIstVerein, Mode=TwoWay}" />
+                                        </StackPanel>
+                                        <ComboBox ItemsSource="{Binding Laender}"
+                                                  SelectedItem="{Binding NeuLand, Mode=TwoWay}"
+                                                  DisplayMemberPath="Name" PlaceholderText="Land wählen…"
+                                                  HorizontalAlignment="Stretch" />
 
                                         <TextBlock Text="{Binding NeuFehler}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                                    TextWrapping="Wrap"
@@ -116,13 +114,12 @@
                     </ListView.ItemTemplate>
                 </ListView>
             </StackPanel>
-        </StackPanel>
+        </Grid>
 
-        <!-- ── Ziel-Rangliste + Aktionen ── -->
+        <!-- ── Ziel-Rangliste ── -->
         <StackPanel Grid.Row="4" Margin="0,10,0,0"
                     Visibility="{Binding VorschauVorhanden, Converter={StaticResource BoolToVisibility}}">
-
-            <Grid ColumnDefinitions="1*,10,1*" Margin="0,0,0,8">
+            <Grid ColumnDefinitions="1*,10,1*">
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="Name" FontWeight="SemiBold" />
                     <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
@@ -141,10 +138,6 @@
                               IsEnabled="{Binding BestehendeAktualisieren}" />
                 </StackPanel>
             </Grid>
-
-            <Button Content="Import ausführen" Command="{Binding ImportierenCommand}"
-                    Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" />
         </StackPanel>
     </Grid>
-    </ScrollViewer>
 </ContentDialog>

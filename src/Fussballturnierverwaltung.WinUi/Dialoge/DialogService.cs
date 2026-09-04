@@ -16,7 +16,6 @@ public class DialogService : IDialogService
     {
         var dialog = new ContentDialog
         {
-            XamlRoot = _xamlRoot,
             Title = "Ungespeicherte Änderungen",
             Content = "Es gibt ungespeicherte Änderungen. Speichern, Verwerfen oder Abbrechen?",
             PrimaryButtonText = "Speichern",
@@ -25,7 +24,7 @@ public class DialogService : IDialogService
             DefaultButton = ContentDialogButton.Primary,
         };
 
-        var ergebnis = await dialog.ShowAsync();
+        var ergebnis = await AnzeigenAsync(dialog);
         return ergebnis switch
         {
             ContentDialogResult.Primary => UngespeichertAntwort.Speichern,
@@ -38,7 +37,6 @@ public class DialogService : IDialogService
     {
         var dialog = new ContentDialog
         {
-            XamlRoot = _xamlRoot,
             Title = titel,
             Content = nachricht,
             PrimaryButtonText = "Ja",
@@ -46,12 +44,18 @@ public class DialogService : IDialogService
             DefaultButton = ContentDialogButton.Close,
         };
 
-        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        return await AnzeigenAsync(dialog) == ContentDialogResult.Primary;
     }
 
     public async Task<ContentDialogResult> AnzeigenAsync(ContentDialog dialog)
     {
         dialog.XamlRoot = _xamlRoot;
+        // Popups (ContentDialog eingeschlossen) hängen nicht im Visual Tree unterhalb von RootGrid und
+        // erben dessen RequestedTheme deshalb nicht automatisch — ohne diese explizite Übernahme bleiben
+        // ContentDialogs immer im (System-)Standard-Theme, unabhängig vom App-internen Light/Dark-Toggle
+        // (Fund aus #285-Test).
+        if (_xamlRoot?.Content is FrameworkElement root)
+            dialog.RequestedTheme = root.ActualTheme;
         return await dialog.ShowAsync();
     }
 

@@ -4,7 +4,6 @@ using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.UI.Xaml.Controls;
-using System.ComponentModel;
 
 namespace Fussballturnierverwaltung.WinUi.Views;
 
@@ -25,13 +24,24 @@ public sealed partial class RanglistenImportDialog : ContentDialog
         InitializeComponent();
         ViewModel = new RanglistenImportViewModel(importService, quelleService, ranglisteService, mannschaftService, landService, dialogService);
         DataContext = ViewModel;
-        ViewModel.PropertyChanged += ViewModel_PropertyChanged;
         Loaded += async (_, _) => await ViewModel.InitialisierenAsync();
     }
 
-    private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    // Der native Primary-Button (statt einem eigenen Content-Button) übernimmt Klick UND Enter-Taste,
+    // muss den Dialog aber offen halten, solange der Import nicht erfolgreich war (z.B. fehlende
+    // Ziel-Rangliste) — daher Deferral statt einfachem Command-Binding.
+    private async void ContentDialog_PrimaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
-        if (e.PropertyName == nameof(ViewModel.ImportAbgeschlossen) && ViewModel.ImportAbgeschlossen)
-            Hide();
+        var deferral = args.GetDeferral();
+        try
+        {
+            await ViewModel.ImportierenCommand.ExecuteAsync(null);
+            if (!ViewModel.ImportAbgeschlossen)
+                args.Cancel = true;
+        }
+        finally
+        {
+            deferral.Complete();
+        }
     }
 }

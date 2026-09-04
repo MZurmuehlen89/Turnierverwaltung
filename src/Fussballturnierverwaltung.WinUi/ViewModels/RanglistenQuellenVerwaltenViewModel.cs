@@ -30,13 +30,14 @@ public partial class RanglistenQuellenVerwaltenViewModel : ObservableObject
     private RanglistenQuelle? _bearbeitet;
 
     [ObservableProperty] private ObservableCollection<RanglistenQuelle> _quellen = [];
+
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(BearbeitenCommand))]
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
     private RanglistenQuelle? _ausgewaehlte;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FormularAbbrechenCommand))]
     private bool _formularAktiv;
 
     [ObservableProperty] private string _name = "";
@@ -79,29 +80,37 @@ public partial class RanglistenQuellenVerwaltenViewModel : ObservableObject
     [RelayCommand]
     private void Neu()
     {
-        Ausgewaehlte = null;
+        _populiertGerade++;
+        try
+        {
+            Ausgewaehlte = null;
+        }
+        finally { _populiertGerade--; }
         _bearbeitet = null;
         FormularZuruecksetzen();
         FormularAktiv = true;
     }
 
-    [RelayCommand(CanExecute = nameof(KannBearbeiten))]
-    private void Bearbeiten()
+    // Ersetzt den früheren separaten "Bearbeiten…"-Button (der neben der Listenauswahl keinen
+    // zusätzlichen Sinn ergab): Auswahl in der Liste füllt das Formular direkt, analog zum app-weiten
+    // Liste+Formular-Muster (z.B. RanglistenViewModel.OnAusgewaehltesChanged).
+    partial void OnAusgewaehlteChanged(RanglistenQuelle? value)
     {
-        if (Ausgewaehlte is null) return;
-        _bearbeitet = Ausgewaehlte;
+        if (value is null || _populiertGerade > 0) return;
+
+        _bearbeitet = value;
         _populiertGerade++;
         try
         {
-            Name = _bearbeitet.Name;
-            Url = _bearbeitet.Url;
+            Name = value.Name;
+            Url = value.Url;
             TabellenOptionen = [];
             AusgewaehlteTabelle = null;
             MannschaftSpaltenOptionen = [];
             PunkteSpaltenOptionen = [];
             AusgewaehlteMannschaftSpalte = null;
             AusgewaehltePunkteSpalte = null;
-            KopfzeileUeberspringen = _bearbeitet.KopfzeileUeberspringen;
+            KopfzeileUeberspringen = value.KopfzeileUeberspringen;
             Fehlermeldung = null;
         }
         finally { _populiertGerade--; }
@@ -117,13 +126,27 @@ public partial class RanglistenQuellenVerwaltenViewModel : ObservableObject
         if (!bestaetigt) return;
 
         await _service.LoeschenAsync(Ausgewaehlte.Id);
-        Ausgewaehlte = null;
+        _populiertGerade++;
+        try
+        {
+            Ausgewaehlte = null;
+        }
+        finally { _populiertGerade--; }
+        _bearbeitet = null;
+        FormularAktiv = false;
+        FormularZuruecksetzen();
         await LadenAsync();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(KannAbbrechen))]
     private void FormularAbbrechen()
     {
+        _populiertGerade++;
+        try
+        {
+            Ausgewaehlte = null;
+        }
+        finally { _populiertGerade--; }
         FormularAktiv = false;
         _bearbeitet = null;
         FormularZuruecksetzen();
@@ -301,7 +324,7 @@ public partial class RanglistenQuellenVerwaltenViewModel : ObservableObject
         }
     }
 
-    private bool KannBearbeiten() => Ausgewaehlte is not null;
     private bool KannLoeschen() => Ausgewaehlte is not null;
-    private bool KannSpeichern() => !string.IsNullOrWhiteSpace(Name) && !string.IsNullOrWhiteSpace(Url);
+    private bool KannAbbrechen() => FormularAktiv;
+    private bool KannSpeichern() => FormularAktiv && !string.IsNullOrWhiteSpace(Name) && !string.IsNullOrWhiteSpace(Url);
 }
