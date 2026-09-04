@@ -14,7 +14,7 @@
         </StackPanel>
 
         <Grid Visibility="{Binding HatVorlage, Converter={StaticResource BoolToVisibility}}"
-              ColumnDefinitions="260,1,2*,1,1.4*">
+              ColumnDefinitions="260,1,2.4*,1,1*">
 
             <!-- ── Spalte 0: Runden mit fest vorgegebener Paarung ── -->
             <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*">
@@ -41,7 +41,9 @@
 
             <Rectangle Grid.Column="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Width="1" />
 
-            <!-- ── Spalte 2: Slots der ausgewählten Runde ── -->
+            <!-- ── Spalte 2: Verfügbare Platzhalter (Drag-Quelle) + Slots der ausgewählten Runde (Drop-Ziel) ──
+                 Layout/Interaktion orientiert an WPF-Original PaarungsfestlegungView: Drag&Drop aus "Verfügbar",
+                 Klick wählt einen Slot fürs Formular (Spalte 4), Rechtsklick auf besetzten Slot entfernt ihn. -->
             <Grid Grid.Column="2">
                 <StackPanel Visibility="{Binding FormularSichtbar, Converter={StaticResource InverseBoolToVisibility}}"
                             VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.4">
@@ -49,24 +51,107 @@
                     <TextBlock Text="Runde links auswählen" FontSize="14" HorizontalAlignment="Center" Margin="0,12,0,0" />
                 </StackPanel>
 
-                <ListView Visibility="{Binding FormularSichtbar, Converter={StaticResource BoolToVisibility}}"
-                          ItemsSource="{Binding Slots}"
-                          SelectedItem="{Binding AusgewaehlterSlot, Mode=TwoWay}"
-                          SelectionMode="Single" Margin="12,20,12,12">
-                    <ListView.ItemTemplate>
-                        <DataTemplate>
-                            <Grid ColumnDefinitions="*,Auto" Padding="0,4">
-                                <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="13" />
-                                <TextBlock Grid.Column="1" Text="{Binding AnzeigeText}" FontSize="12" Opacity="0.7" HorizontalAlignment="Right" />
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
+                <Grid Visibility="{Binding FormularSichtbar, Converter={StaticResource BoolToVisibility}}"
+                      ColumnDefinitions="200,12,*" Margin="12,20,12,12" RowDefinitions="Auto,*">
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                               Text="Ziehen aus &quot;Verfügbar&quot; auf einen Slot. Rechtsklick auf einen besetzten Slot entfernt ihn."
+                               FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,10" />
+
+                    <!-- Verfügbare Platzhalter (Drag-Quelle) -->
+                    <Grid Grid.Row="1" Grid.Column="0" RowDefinitions="Auto,*">
+                        <TextBlock Grid.Row="0" Text="VERFÜGBAR" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
+                        <ListView Grid.Row="1"
+                                  ItemsSource="{Binding VerfuegbarePlatzhalterPool}"
+                                  CanDragItems="True" CanReorderItems="False"
+                                  DragItemsStarting="VerfuegbarListView_DragItemsStarting"
+                                  DoubleTapped="VerfuegbarListView_DoubleTapped"
+                                  SelectionMode="Single">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" FontSize="12" Padding="0,4" TextWrapping="Wrap" />
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+
+                    <!-- KO-Modus: paarweise Anzeige (Heim vs. Auswärts) -->
+                    <ScrollViewer Grid.Row="1" Grid.Column="2" VerticalScrollBarVisibility="Auto"
+                                  Visibility="{Binding IstKoModus, Converter={StaticResource BoolToVisibility}}">
+                        <ItemsControl ItemsSource="{Binding KoPaare}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4"
+                                            Padding="10,7" Margin="0,0,0,6">
+                                        <Grid ColumnDefinitions="28,*,Auto,*">
+                                            <TextBlock Grid.Column="0" Text="{Binding PaarungsNummer}" FontSize="12" Opacity="0.6" VerticalAlignment="Center" />
+                                            <Border Grid.Column="1" DataContext="{Binding HeimSlot}"
+                                                    Background="Transparent"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="3" Padding="8,6"
+                                                    AllowDrop="True"
+                                                    Drop="Slot_Drop" DragOver="Slot_DragOver" DragEnter="Slot_DragEnter" DragLeave="Slot_DragLeave"
+                                                    Tapped="Slot_Tapped" RightTapped="Slot_RightTapped">
+                                                <TextBlock Text="{Binding AnzeigeText}" FontSize="12" TextWrapping="Wrap" />
+                                            </Border>
+                                            <TextBlock Grid.Column="2" Text=" vs " FontSize="12" Opacity="0.6" VerticalAlignment="Center" Margin="6,0" />
+                                            <Border Grid.Column="3" DataContext="{Binding AuswaertsSlot}"
+                                                    Background="Transparent"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="3" Padding="8,6"
+                                                    AllowDrop="True"
+                                                    Drop="Slot_Drop" DragOver="Slot_DragOver" DragEnter="Slot_DragEnter" DragLeave="Slot_DragLeave"
+                                                    Tapped="Slot_Tapped" RightTapped="Slot_RightTapped">
+                                                <TextBlock Text="{Binding AnzeigeText}" FontSize="12" TextWrapping="Wrap" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!-- Gruppenphase/Liga/SchweizerSystem-Modus: gruppierte Anzeige -->
+                    <ScrollViewer Grid.Row="1" Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                                  Visibility="{Binding IstGruppenModus, Converter={StaticResource BoolToVisibility}}">
+                        <ItemsControl ItemsSource="{Binding PaarungsGruppen}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Width="180" Margin="0,0,10,10" VerticalAlignment="Top"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
+                                        <StackPanel>
+                                            <Border Background="{ThemeResource LayerFillColorDefaultBrush}" Padding="10,6" CornerRadius="4,4,0,0">
+                                                <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" />
+                                            </Border>
+                                            <ItemsControl ItemsSource="{Binding Slots}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="Transparent"
+                                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
+                                                                Padding="10,6" MinHeight="32"
+                                                                AllowDrop="True"
+                                                                Drop="Slot_Drop" DragOver="Slot_DragOver" DragEnter="Slot_DragEnter" DragLeave="Slot_DragLeave"
+                                                                Tapped="Slot_Tapped" RightTapped="Slot_RightTapped">
+                                                            <TextBlock Text="{Binding AnzeigeText}" FontSize="12" TextWrapping="Wrap" />
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
             </Grid>
 
             <Rectangle Grid.Column="3" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Width="1" />
 
-            <!-- ── Spalte 4: Zuweisungsformular + Meldungen ── -->
+            <!-- ── Spalte 4: Zuweisungsformular (Klick-Alternative zu Drag&Drop) + Meldungen ── -->
             <Grid Grid.Column="4" RowDefinitions="Auto,*">
 
                 <StackPanel Grid.Row="0" Margin="20" Visibility="{Binding SlotFormularSichtbar, Converter={StaticResource BoolToVisibility}}">

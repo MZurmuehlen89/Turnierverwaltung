@@ -10,6 +10,20 @@ using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
+/// <summary>Ein KO-Paar (Heim/Auswärts nebeneinander mit "vs" dazwischen) für die Anzeige im "Paarungen"-Tab
+/// (Issue #277-Nachbesserung nach Nutzer-Rückmeldung: Slots waren als flache Liste nicht als "Mannschaft 1
+/// gegen Mannschaft 2" erkennbar) — analog WPF-Original <c>ManuelleKoPaarungAnzeige</c>.</summary>
+public record VorlagenPaarungKoPaar(int PaarungsNummer, VorlagenPaarungSlot HeimSlot, VorlagenPaarungSlot AuswaertsSlot);
+
+/// <summary>Eine Gruppe (Gruppenphase) bzw. die einzelne "Teilnehmer"-Gruppe (Liga/SchweizerSystem) für die
+/// Anzeige im "Paarungen"-Tab — analog WPF-Original <c>ManuelleGruppe</c>.</summary>
+public class VorlagenPaarungGruppe
+{
+    public required int Nummer { get; init; }
+    public required string Name { get; init; }
+    public required ObservableCollection<VorlagenPaarungSlot> Slots { get; init; }
+}
+
 /// <summary>"Paarungen"-Tab von <see cref="TurniervorlagenViewModel"/> (Issue #277) — vierter Tab, wie im
 /// #284-Kommentar auf <see cref="TurniervorlagenViewModel"/> angekündigt. Zeigt nur Runden mit
 /// <see cref="VorlagenRundeZeile.PaarungFestVorgegeben"/> = true; pro Runde eine aus Rundenart/Eingang/
@@ -88,15 +102,33 @@ public partial class VorlagenPaarungenViewModel : ViewModelBase, IRibbonAware, I
 
     public bool KeinePaarungsrundenVorhanden => PaarungsRunden.Count == 0;
 
+    /// <summary>Nach Speichern/Abbrechen (<see cref="VorlagenRundenViewModel.VorlageSetzenAsync"/>) besteht
+    /// <see cref="VorlagenRundenViewModel.Runden"/> aus komplett neuen Objektinstanzen (RundeZuZeile erzeugt
+    /// je Ladevorgang frische Zeilen) — ein Vergleich per Objektreferenz (wie zuvor) findet die vorherige
+    /// Auswahl dort nie wieder. Analog zum selben Fund/Fix in <see cref="VorlagenRundenViewModel.VorlageSetzenAsync"/>:
+    /// per Id wiederherstellen, sonst per Listenposition. Der Id-Treffer schlägt nach Speichern (anders als bei
+    /// Abbrechen) für JEDE Runde fehl, da TurnierVorlageService.RundenSynchronisierenAsync alle Runden per
+    /// Löschen+Neuanlegen ersetzt — deshalb bei fehlgeschlagenem Id-Treffer IMMER per Position weitersuchen,
+    /// nicht nur wenn keine alte Id vorhanden war (Nutzer-Rückmeldung: Fix wirkte nur bei Abbrechen).</summary>
     private void AktualisierePaarungsRunden()
     {
-        var vorherAusgewaehlt = AusgewaehlteRunde;
+        var vorherAusgewaehlteId = AusgewaehlteRunde?.Id;
+        var vorherIndex = AusgewaehlteRunde is not null ? PaarungsRunden.IndexOf(AusgewaehlteRunde) : -1;
+
         PaarungsRunden = new ObservableCollection<VorlagenRundeZeile>(_rundenVm.Runden.Where(r => r.PaarungFestVorgegeben));
-        AusgewaehlteRunde = vorherAusgewaehlt is not null && PaarungsRunden.Contains(vorherAusgewaehlt) ? vorherAusgewaehlt : null;
+
+        VorlagenRundeZeile? wiederhergestellt = vorherAusgewaehlteId is int id
+            ? PaarungsRunden.FirstOrDefault(r => r.Id == id)
+            : null;
+        if (wiederhergestellt is null && vorherIndex >= 0 && vorherIndex < PaarungsRunden.Count)
+            wiederhergestellt = PaarungsRunden[vorherIndex];
+        AusgewaehlteRunde = wiederhergestellt;
     }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FormularSichtbar))]
+    [NotifyPropertyChangedFor(nameof(IstKoModus))]
+    [NotifyPropertyChangedFor(nameof(IstGruppenModus))]
     private VorlagenRundeZeile? _ausgewaehlteRunde;
 
     partial void OnAusgewaehlteRundeChanged(VorlagenRundeZeile? value)
@@ -107,19 +139,32 @@ public partial class VorlagenPaarungenViewModel : ViewModelBase, IRibbonAware, I
 
     public bool FormularSichtbar => AusgewaehlteRunde is not null;
 
-    // ── Slot-Liste der ausgewählten Runde (rein lesend, Klick wählt einen Slot) ─
+    /// <summary>Für die paarweise (KO) bzw. gruppierte (Gruppenphase/Liga/SchweizerSystem) Anzeige (Nutzer-
+    /// Rückmeldung nach #277-Test: Slots waren als flache Liste nicht als "Mannschaft 1 gegen Mannschaft 2"
+    /// erkennbar) — analog WPF-Original <see cref="ManuellePaarungWorkspaceViewModel.IstKoModus"/>.</summary>
+    public bool IstKoModus => AusgewaehlteRunde?.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+    public bool IstGruppenModus => AusgewaehlteRunde is not null && !IstKoModus;
+
+    // ── Slot-Liste der ausgewählten Runde (rein lesend, Drop-Ziel für Drag&Drop aus "Verfügbar") ─
     [ObservableProperty] private ObservableCollection<VorlagenPaarungSlot> _slots = [];
+
+    /// <summary>Paarweise Anzeige für KO-Rundenarten (Heim/Auswärts nebeneinander mit "vs" dazwischen) —
+    /// analog WPF-Original <see cref="ManuellePaarungWorkspaceViewModel.KoPaarungen"/>.</summary>
+    [ObservableProperty] private ObservableCollection<VorlagenPaarungKoPaar> _koPaare = [];
+
+    /// <summary>Gruppierte Anzeige für Gruppenphase (echte Gruppen) bzw. Liga/SchweizerSystem (eine einzelne
+    /// "Teilnehmer"-Gruppe) — analog WPF-Original <see cref="ManuellePaarungWorkspaceViewModel.Gruppen"/>.</summary>
+    [ObservableProperty] private ObservableCollection<VorlagenPaarungGruppe> _paarungsGruppen = [];
 
     private void AktualisiereSlots()
     {
         var runde = AusgewaehlteRunde;
-        if (runde is null) { Slots = []; return; }
+        if (runde is null) { Slots = []; KoPaare = []; PaarungsGruppen = []; return; }
 
         var bestehende = runde.Paarungen.ToDictionary(p => (p.PaarungsNummer, p.SlotNr), p => p.PlatzhalterBezeichnung);
         var neue = new List<VorlagenPaarungSlot>();
 
-        bool istGruppenModus = runde.Rundenart is Rundenart.Gruppenphase or Rundenart.Liga or Rundenart.SchweizerSystem;
-        if (istGruppenModus)
+        if (IstGruppenModus)
         {
             if (runde.Rundenart == Rundenart.Gruppenphase)
             {
@@ -127,7 +172,7 @@ public partial class VorlagenPaarungenViewModel : ViewModelBase, IRibbonAware, I
                 int proGruppe = Math.Max(1, runde.EingangsMannschaftsanzahl / gruppenAnzahl);
                 for (int g = 1; g <= gruppenAnzahl; g++)
                     for (int s = 1; s <= proGruppe; s++)
-                        neue.Add(NeuerSlot(g, s, $"Gruppe {GruppenBuchstabe(g)} – Platz {s}", bestehende));
+                        neue.Add(NeuerSlot(g, s, $"Platz {s}", bestehende));
             }
             else
             {
@@ -140,8 +185,8 @@ public partial class VorlagenPaarungenViewModel : ViewModelBase, IRibbonAware, I
             int paare = Math.Max(1, (int)Math.Ceiling(runde.EingangsMannschaftsanzahl / 2.0));
             for (int p = 1; p <= paare; p++)
             {
-                neue.Add(NeuerSlot(p, 1, $"Paarung {p} – Heim", bestehende));
-                neue.Add(NeuerSlot(p, 2, $"Paarung {p} – Auswärts", bestehende));
+                neue.Add(NeuerSlot(p, 1, "Heim", bestehende));
+                neue.Add(NeuerSlot(p, 2, "Auswärts", bestehende));
             }
         }
 
@@ -149,6 +194,27 @@ public partial class VorlagenPaarungenViewModel : ViewModelBase, IRibbonAware, I
         // sich seit dem Laden geändert haben) — alte, jetzt nicht mehr passende Slot-Positionen entfallen.
         runde.Paarungen = new ObservableCollection<VorlagenPaarungSlot>(neue);
         Slots = runde.Paarungen;
+
+        if (IstGruppenModus)
+        {
+            KoPaare = [];
+            PaarungsGruppen = new ObservableCollection<VorlagenPaarungGruppe>(Slots
+                .GroupBy(s => s.PaarungsNummer)
+                .Select(g => new VorlagenPaarungGruppe
+                {
+                    Nummer = g.Key,
+                    Name = runde.Rundenart == Rundenart.Gruppenphase ? $"Gruppe {GruppenBuchstabe(g.Key)}" : "Teilnehmer",
+                    Slots = new ObservableCollection<VorlagenPaarungSlot>(g.OrderBy(s => s.SlotNr))
+                }));
+        }
+        else
+        {
+            PaarungsGruppen = [];
+            KoPaare = new ObservableCollection<VorlagenPaarungKoPaar>(Slots
+                .GroupBy(s => s.PaarungsNummer)
+                .Select(g => new VorlagenPaarungKoPaar(g.Key, g.First(s => s.SlotNr == 1), g.First(s => s.SlotNr == 2))));
+        }
+
         AktualisiereVerfuegbarePlatzhalter();
     }
 
@@ -198,7 +264,14 @@ public partial class VorlagenPaarungenViewModel : ViewModelBase, IRibbonAware, I
 
         AlleVerfuegbarenPlatzhalter = new ObservableCollection<string>(VorlagenPlatzhalterHilfsmittel.PlatzhalterGenerieren(quellen));
         OnPropertyChanged(nameof(AuswaehlbarePlatzhalter));
+        OnPropertyChanged(nameof(VerfuegbarePlatzhalterPool));
     }
+
+    /// <summary>Alle generierten Platzhalter, die noch KEINEM Slot zugewiesen sind — Drag-Quelle "Verfügbar"
+    /// (Issue #277-Nachbesserung: Drag&amp;Drop auf die Slots, analog WPF-Original
+    /// <see cref="ManuellePaarungWorkspaceViewModel.VerfuegbareTeilnehmer"/>).</summary>
+    public IEnumerable<string> VerfuegbarePlatzhalterPool =>
+        AlleVerfuegbarenPlatzhalter.Where(p => !Slots.Any(s => s.PlatzhalterBezeichnung == p));
 
     // ── Zuweisungsformular (stabil, Populier-/Zurückschreib-Muster) ─────────────
     [ObservableProperty]
@@ -225,6 +298,7 @@ public partial class VorlagenPaarungenViewModel : ViewModelBase, IRibbonAware, I
 
         AusgewaehlterSlot.PlatzhalterBezeichnung = FormularPlatzhalter;
         OnPropertyChanged(nameof(AuswaehlbarePlatzhalter));
+        OnPropertyChanged(nameof(VerfuegbarePlatzhalterPool));
         _rundenVm.PaarungenGeaendert();
     }
 
@@ -236,8 +310,45 @@ public partial class VorlagenPaarungenViewModel : ViewModelBase, IRibbonAware, I
     }
     private bool KannZuweisungEntfernen() => AusgewaehlterSlot is not null;
 
+    // ── Drag&Drop-Zuweisung (Issue #277-Nachbesserung, Code-behind-Aufrufer: VorlagenPaarungenPage) ──────
+
+    /// <summary>Weist einen Platzhalter direkt einem Slot zu — unabhängig von der aktuellen Formular-Auswahl
+    /// (das Drop-Ziel kann ein beliebiger Slot sein). Hält <see cref="FormularPlatzhalter"/> synchron, falls
+    /// der Ziel-Slot zufällig der gerade ausgewählte ist.</summary>
+    public void PlatzhalterZuweisen(VorlagenPaarungSlot slot, string platzhalter)
+    {
+        if (slot.PlatzhalterBezeichnung == platzhalter) return;
+        slot.PlatzhalterBezeichnung = platzhalter;
+        if (AusgewaehlterSlot == slot)
+        {
+            _populiertGerade++;
+            try { FormularPlatzhalter = platzhalter; }
+            finally { _populiertGerade--; }
+        }
+        OnPropertyChanged(nameof(AuswaehlbarePlatzhalter));
+        OnPropertyChanged(nameof(VerfuegbarePlatzhalterPool));
+        _rundenVm.PaarungenGeaendert();
+    }
+
+    public void PlatzhalterAusSlotEntfernen(VorlagenPaarungSlot slot)
+    {
+        if (slot.PlatzhalterBezeichnung is null) return;
+        slot.PlatzhalterBezeichnung = null;
+        if (AusgewaehlterSlot == slot)
+        {
+            _populiertGerade++;
+            try { FormularPlatzhalter = null; }
+            finally { _populiertGerade--; }
+        }
+        OnPropertyChanged(nameof(AuswaehlbarePlatzhalter));
+        OnPropertyChanged(nameof(VerfuegbarePlatzhalterPool));
+        _rundenVm.PaarungenGeaendert();
+    }
+
+    public VorlagenPaarungSlot? NaechsterFreierSlot() => Slots.FirstOrDefault(s => !s.IstBesetzt);
+
     // ── IRibbonAware — reine Weiterleitung an den Runden-Tab (EIN gemeinsames Speichern für alle Tabs) ──
-    public string RibbonTabTitel => "Paarungen";
+    public string RibbonTabTitel => "Vorbelegung";
     public ICommand? NeuBefehl => _rundenVm.NeuBefehl;
     public ICommand? SpeichernBefehl => _rundenVm.SpeichernBefehl;
     public ICommand? AbbrechenBefehl => _rundenVm.AbbrechenBefehl;
