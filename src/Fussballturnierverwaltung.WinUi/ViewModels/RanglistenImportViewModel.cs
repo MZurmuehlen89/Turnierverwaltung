@@ -77,8 +77,18 @@ public partial class UnaufgeloesteZeileZuordnung : ObservableObject
         _neuKurzname = new string(quelle.RohName.Where(char.IsLetter).Take(3).ToArray()).ToUpperInvariant();
     }
 
+    // Null-Guard: WinUI-ComboBox setzt SelectedItem beim Austausch der ItemsSource (z.B. erneutes
+    // "Abrufen", das Unaufgeloest komplett neu befüllt) kurzzeitig auf null zurück, bevor sie den
+    // passenden Eintrag wiederfindet — analog zum bestehenden Fallstrick bei
+    // MannschaftenViewModel.OnFilterLandOptionChanged.
     partial void OnAusgewaehltChanged(MannschaftAuswahlOption value)
     {
+        if (value is null)
+        {
+            Ausgewaehlt = Optionen[0];
+            return;
+        }
+
         NeuAnlegenAktiv = value.IstNeuAnlegen;
         if (value.IstNeuAnlegen)
             NeuFehler = null;

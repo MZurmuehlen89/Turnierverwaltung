@@ -7,6 +7,14 @@
     CloseButtonText="Schließen"
     DefaultButton="Close">
 
+    <!-- Standard-ContentDialog-Theme begrenzt Breite/Höhe auf klein (ContentDialogMaxWidth ≈ 548) —
+         ohne diese Überschreibung wird der Inhalt abgeschnitten statt den Dialog zu vergrößern
+         (analoger Fund zu RanglistenImportDialog, #285-Test). -->
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMaxWidth">820</x:Double>
+        <x:Double x:Key="ContentDialogMaxHeight">560</x:Double>
+    </ContentDialog.Resources>
+
     <Grid Width="760" Height="480" ColumnDefinitions="1*,1,1*">
 
         <!-- ── Linke Spalte: Liste ── -->
