@@ -194,4 +194,78 @@ public class TurnierValidatorTests
 
         _validator.RundenValidieren(runden).IstGueltig.Should().BeTrue();
     }
+
+    // ── BasisdatenValidieren (Issue #294 — Nachfolger von TurnierVorlageValidatorTests, vereinheitlicht
+    // mit der früheren entitätsbasierten TurnierInstanzValidieren) ────────────────────────────────
+
+    [Fact]
+    public void GueltigeBasisdaten_IstGueltig()
+    {
+        _validator.BasisdatenValidieren("WM", "2026", 32, new DateOnly(2026, 1, 1), new DateOnly(2026, 2, 1))
+            .IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void GueltigeBasisdatenOhneZielMannschaftsanzahlUndDaten_IstGueltig()
+    {
+        _validator.BasisdatenValidieren("WM", "2026", null, null, null).IstGueltig.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void LeererName_IstUngueltig(string name)
+    {
+        _validator.BasisdatenValidieren(name, "2026", 32, null, null).IstGueltig.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void LeereSaison_IstUngueltig(string saison)
+    {
+        _validator.BasisdatenValidieren("WM", saison, 32, null, null).IstGueltig.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void ZielMannschaftsanzahlUnter2_IstUngueltig(int anzahl)
+    {
+        _validator.BasisdatenValidieren("WM", "2026", anzahl, null, null).IstGueltig.Should().BeFalse();
+    }
+
+    [Fact]
+    public void EnddatumVorStartdatum_IstUngueltig()
+    {
+        _validator.BasisdatenValidieren("WM", "2026", 32, new DateOnly(2026, 2, 1), new DateOnly(2026, 1, 1))
+            .IstGueltig.Should().BeFalse();
+    }
+
+    // ── RegelwerkPflichtValidieren (Issue #294) ─────────────────────────────────────────────
+
+    [Fact]
+    public void RegelwerkPflicht_StatusVorlage_IgnoriertFehlendesRegelwerk()
+    {
+        var runden = new[] { new Domain.Entitaeten.Turniere.TurnierRunde { Name = "Gruppenphase", RegelwerkId = null } };
+
+        _validator.RegelwerkPflichtValidieren(runden, Domain.Enums.TurnierStatus.Vorlage).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RegelwerkPflicht_StatusGeplantOhneRegelwerk_IstUngueltig()
+    {
+        var runden = new[] { new Domain.Entitaeten.Turniere.TurnierRunde { Name = "Gruppenphase", RegelwerkId = null } };
+
+        _validator.RegelwerkPflichtValidieren(runden, Domain.Enums.TurnierStatus.Geplant).IstGueltig.Should().BeFalse();
+    }
+
+    [Fact]
+    public void RegelwerkPflicht_StatusGeplantMitRegelwerkAufAllenRunden_IstGueltig()
+    {
+        var runden = new[] { new Domain.Entitaeten.Turniere.TurnierRunde { Name = "Gruppenphase", RegelwerkId = 1 } };
+
+        _validator.RegelwerkPflichtValidieren(runden, Domain.Enums.TurnierStatus.Geplant).IstGueltig.Should().BeTrue();
+    }
 }

@@ -6,5 +6,6 @@ public enum TurnierStatus
     Auslosung,
     Laufend,
     Abgeschlossen,
-    Abgebrochen
+    Abgebrochen,
+    Vorlage
 }

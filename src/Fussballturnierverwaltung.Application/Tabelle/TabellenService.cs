@@ -132,8 +132,10 @@ public class TabellenService(
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Runde {turnierRundeId} nicht gefunden.");
 
-        var regelwerk = await regelwerkRepository.FindenNachIdMitAllenRegelnAsync(runde.RegelwerkId, ct)
-            ?? throw new InvalidOperationException($"Regelwerk {runde.RegelwerkId} nicht gefunden.");
+        var regelwerkId = runde.RegelwerkId
+            ?? throw new InvalidOperationException($"Runde {turnierRundeId} hat kein Regelwerk zugewiesen.");
+        var regelwerk = await regelwerkRepository.FindenNachIdMitAllenRegelnAsync(regelwerkId, ct)
+            ?? throw new InvalidOperationException($"Regelwerk {regelwerkId} nicht gefunden.");
 
         var alleSpiele = await spielRepository.AlleNachRundeMitEreignissenAsync(turnierRundeId, ct);
 

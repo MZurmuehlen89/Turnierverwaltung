@@ -2,80 +2,35 @@ using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Turniere.Eingaben;
 
-public record VorlagenRundeEingabe(
-    string Name,
-    Rundenart Rundenart,
-    int EingangsMannschaftsanzahl,
-    int AusgangsMannschaftsanzahl,
-    bool MitRueckspiel = false,
-    bool AuswaertstorRegelAktiv = false,
-    int? RegelwerkId = null,
-    int? GruppenAnzahl = null,
-    bool PaarungFestVorgegeben = false);
-
-/// <summary>Vorlagen-Variante der festen Paarungszuweisung (Issue #277, Vorlagen-Pendant zu
-/// <c>ManuellePaarungEingabe</c>) — referenziert die Runde über die 1-basierte
-/// <see cref="VorlagenRundeEingabe"/>-Listenposition, aus demselben Grund wie
-/// <see cref="VorlagenUebergangsRegelEingabe"/>.</summary>
-public record VorlagenPaarungEingabe(
-    int RundenReihenfolge,
-    int PaarungsNummer,
-    int SlotNr,
-    string PlatzhalterBezeichnung);
-
-/// <summary>Vorlagen-Variante der Übergangsregel (Issue #166) — referenziert Quell-/Zielrunde über die
-/// 1-basierte <see cref="VorlagenRundeEingabe"/>-Listenposition (Reihenfolge) statt über eine reale
-/// TurnierRunde-Id, da beim Speichern einer Vorlage alle VorlagenRunden ersetzt werden (neue Ids).</summary>
-public record VorlagenUebergangsRegelEingabe(
-    int QuellReihenfolge,
-    int ZielReihenfolge,
-    int? GruppeIndex,
-    int PlatzierungVon,
-    int PlatzierungBis,
-    int? AnzahlBeste = null);
-
-public record TurnierVorlageErstellenEingabe(
-    string Name,
-    string Beschreibung,
-    int ErforderlicheMannschaftsanzahl,
-    VorlagenKategorie VorlagenKategorie,
-    bool IstHistorisch,
-    DateOnly? GueltigVon,
-    DateOnly? GueltigBis,
-    byte[]? Logo = null);
-
-public record TurnierVorlageAktualisierenEingabe(
-    string Name,
-    string Beschreibung,
-    int ErforderlicheMannschaftsanzahl,
-    VorlagenKategorie VorlagenKategorie,
-    bool IstHistorisch,
-    DateOnly? GueltigVon,
-    DateOnly? GueltigBis,
-    byte[]? Logo = null);
-
 public record TurnierInstanzVollAktualisierenEingabe(
     string Name,
+    string Beschreibung,
     string SaisonOderJahr,
-    int? TurnierVorlageId,
+    TurnierKategorie Kategorie,
+    int? ZielMannschaftsanzahl,
     DateOnly? Startdatum,
     DateOnly? Enddatum,
     TurnierStatus Status,
     int? VerbandId = null,
     int? LandId = null,
     MannschaftsartFilter MannschaftsartFilter = MannschaftsartFilter.Alle,
-    int? StandardRegelwerkId = null);
+    int? StandardRegelwerkId = null,
+    byte[]? Logo = null);
 
 public record TurnierInstanzErstellenEingabe(
     string Name,
+    string Beschreibung,
     string SaisonOderJahr,
-    int? TurnierVorlageId,
+    TurnierKategorie Kategorie,
+    int? ZielMannschaftsanzahl,
     DateOnly? Startdatum,
     DateOnly? Enddatum,
+    TurnierStatus Status = TurnierStatus.Geplant,
     int? VerbandId = null,
     int? LandId = null,
     MannschaftsartFilter MannschaftsartFilter = MannschaftsartFilter.Alle,
-    int? StandardRegelwerkId = null);
+    int? StandardRegelwerkId = null,
+    byte[]? Logo = null);
 
 public record TurnierAktualisierenEingabe(
     string Name,
@@ -83,7 +38,7 @@ public record TurnierAktualisierenEingabe(
 
 public record TurnierRundeAktualisierenEingabe(
     string Name,
-    int RegelwerkId,
+    int? RegelwerkId,
     bool AuswaertstorRegelAktiv);
 
 public record TurnierRundeEingabe(
@@ -91,7 +46,7 @@ public record TurnierRundeEingabe(
     Rundenart Rundenart,
     int EingangsMannschaftsanzahl,
     int AusgangsMannschaftsanzahl,
-    int RegelwerkId,
+    int? RegelwerkId,
     bool MitRueckspiel = false,
     bool AuswaertstorRegelAktiv = false,
     string? KonfigurationJson = null,

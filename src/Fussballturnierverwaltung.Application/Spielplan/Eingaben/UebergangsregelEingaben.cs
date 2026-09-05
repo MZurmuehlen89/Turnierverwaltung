@@ -16,3 +16,15 @@ public record UebergangsregelZeileEingabe(
     int PlatzierungVon,
     int PlatzierungBis,
     int? AnzahlBeste = null);
+
+/// <summary>Übergangsregel für den Vollersatz-Fall (siehe <see cref="Fussballturnierverwaltung.Application.Spielplan.UebergangsregelService.AlleErsetzenAsync"/>,
+/// Issue #294-Nachfolger von <c>VorlagenUebergangsRegelEingabe</c>) — referenziert Quell-/Zielrunde
+/// über die 1-basierte Listenposition (Reihenfolge) statt über eine reale <c>TurnierRunde</c>-Id, da
+/// beim Vollersatz auch neu angelegte Runden ohne bereits bekannte Id mitgemeint sein können.</summary>
+public record UebergangsregelPositionsEingabe(
+    int QuellReihenfolge,
+    int ZielReihenfolge,
+    int? GruppeIndex,
+    int PlatzierungVon,
+    int PlatzierungBis,
+    int? AnzahlBeste = null);

@@ -107,20 +107,44 @@ public class TurnierValidator
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }
 
-    /// <summary>Validiert eine persistierte TurnierInstanz auf Konsistenz.</summary>
-    public ValidationErgebnis TurnierInstanzValidieren(TurnierInstanz instanz)
+    /// <summary>Validiert Basisdaten einer TurnierInstanz (Issue #294 — vereinheitlicht die frühere
+    /// entitätsbasierte <c>TurnierInstanzValidieren</c> mit dem primitiv-basierten
+    /// <c>TurnierVorlageValidator.BasisdatenValidieren</c>, da eine Vorlage jetzt dieselbe Entität ist).
+    /// Primitiv-basiert, damit sie auch als Live-Vorschau vor dem Speichern (ViewModel) nutzbar ist.</summary>
+    public ValidationErgebnis BasisdatenValidieren(
+        string name, string saisonOderJahr, int? zielMannschaftsanzahl,
+        DateOnly? startdatum, DateOnly? enddatum, byte[]? logo = null)
     {
         var fehler = new List<string>();
 
-        if (string.IsNullOrWhiteSpace(instanz.Name))
+        if (string.IsNullOrWhiteSpace(name))
             fehler.Add("Turniername darf nicht leer sein.");
 
-        if (string.IsNullOrWhiteSpace(instanz.SaisonOderJahr))
+        if (string.IsNullOrWhiteSpace(saisonOderJahr))
             fehler.Add("Saison/Jahr darf nicht leer sein.");
 
-        if (instanz.Startdatum.HasValue && instanz.Enddatum.HasValue &&
-            instanz.Enddatum < instanz.Startdatum)
+        if (zielMannschaftsanzahl is not null && zielMannschaftsanzahl < 2)
+            fehler.Add($"Zielmannschaftsanzahl muss mindestens 2 betragen (war: {zielMannschaftsanzahl}).");
+
+        if (startdatum.HasValue && enddatum.HasValue && enddatum < startdatum)
             fehler.Add("Enddatum darf nicht vor dem Startdatum liegen.");
+
+        BildValidierung.GroessePruefen(logo, fehler);
+
+        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+    }
+
+    /// <summary>Issue #294: ein Statuswechsel weg von <see cref="TurnierStatus.Vorlage"/> erfordert ein
+    /// Regelwerk je Runde (eine Vorlage darf ohne Regelwerk existieren, ein echtes Turnier nicht).</summary>
+    public ValidationErgebnis RegelwerkPflichtValidieren(IReadOnlyList<TurnierRunde> runden, TurnierStatus neuerStatus)
+    {
+        if (neuerStatus == TurnierStatus.Vorlage)
+            return ValidationErgebnis.Ok();
+
+        var fehler = runden
+            .Where(r => r.RegelwerkId is null)
+            .Select(r => $"Runde '{r.Name}' hat kein Regelwerk zugewiesen.")
+            .ToList();
 
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }

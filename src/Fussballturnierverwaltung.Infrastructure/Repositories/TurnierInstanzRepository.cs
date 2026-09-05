@@ -11,16 +11,12 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
 {
     public async Task<IReadOnlyList<TurnierInstanz>> AlleFindenMitVorlageAsync(CancellationToken ct = default)
         => await Context.TurnierInstanzen
-            .Include(ti => ti.TurnierVorlage)
             .OrderByDescending(ti => ti.SaisonOderJahr)
             .ThenBy(ti => ti.Name)
             .ToListAsync(ct);
 
     public async Task<TurnierInstanz?> FindenNachIdMitRundenAsync(int id, CancellationToken ct = default)
         => await Context.TurnierInstanzen
-            .Include(ti => ti.TurnierVorlage)
-                .ThenInclude(v => v!.VorlagenRunden.OrderBy(r => r.Reihenfolge))
-                    .ThenInclude(r => r.Regelwerk)
             .Include(ti => ti.Runden.OrderBy(r => r.Reihenfolge))
                 .ThenInclude(r => r.Regelwerk)
             .Include(ti => ti.StandardRegelwerk)
@@ -28,10 +24,18 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
 
     public async Task<IReadOnlyList<TurnierInstanz>> AlleNachStatusFindenAsync(TurnierStatus status, CancellationToken ct = default)
         => await Context.TurnierInstanzen
-            .Include(ti => ti.TurnierVorlage)
             .Where(ti => ti.Status == status)
             .OrderByDescending(ti => ti.SaisonOderJahr)
             .ToListAsync(ct);
+
+    /// <summary>Issue #294: vollständiger Objektgraph für <see cref="Application.Turniere.TurnierKlonService"/>
+    /// — Runden inkl. ausgehender Übergangsregeln sowie Verbandsquoten (nie Spiele/Auslosungen/SimulationsLaeufe).</summary>
+    public async Task<TurnierInstanz?> FindenNachIdMitVollstaendigenDatenAsync(int id, CancellationToken ct = default)
+        => await Context.TurnierInstanzen
+            .Include(ti => ti.Runden.OrderBy(r => r.Reihenfolge))
+                .ThenInclude(r => r.Uebergangsregeln)
+            .Include(ti => ti.VerbandsQuoten)
+            .FirstOrDefaultAsync(ti => ti.Id == id, ct);
 
     public async Task<IReadOnlyList<TurnierRunde>> RundenErsetzenAsync(int instanzId, IReadOnlyList<TurnierRunde> neueRunden, CancellationToken ct = default)
     {

@@ -81,4 +81,54 @@ public class TurnierInstanzRepositoryTests
 
         (await uebergangsregelRepo.FindenNachIdAsync(geloeschteRegel.Id)).Should().BeNull();
     }
+
+    // ── Runden-Diff (Issue #294, Nachfolger von TurnierVorlageRepositoryTests) ──────────────────
+
+    private static async Task<int> InstanzAnlegenAsync(TurnierverwaltungDbContext ctx)
+    {
+        var instanz = new TurnierInstanz { Name = "Test-Turnier", SaisonOderJahr = "2026", Status = TurnierStatus.Geplant };
+        ctx.TurnierInstanzen.Add(instanz);
+        await ctx.SaveChangesAsync();
+        return instanz.Id;
+    }
+
+    private static List<TurnierRunde> ZweiRunden(int instanzId) =>
+    [
+        new() { TurnierInstanzId = instanzId, Name = "Gruppenphase", Reihenfolge = 1, Rundenart = Rundenart.Gruppenphase, EingangsMannschaftsanzahl = 8, AusgangsMannschaftsanzahl = 4, GruppenAnzahl = 2 },
+        new() { TurnierInstanzId = instanzId, Name = "Halbfinale", Reihenfolge = 2, Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2 }
+    ];
+
+    [Fact]
+    public async Task RundenErsetzenAsync_SpeichertGruppenAnzahlDerGruppenphaseRunde()
+    {
+        using var ctx = NeuerContext();
+        var instanzId = await InstanzAnlegenAsync(ctx);
+        var repo = new TurnierInstanzRepository(ctx);
+
+        await repo.RundenErsetzenAsync(instanzId, ZweiRunden(instanzId));
+
+        var geladen = await repo.FindenNachIdMitRundenAsync(instanzId);
+        geladen!.Runden.Single(r => r.Reihenfolge == 1).GruppenAnzahl.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task RundenErsetzenAsync_ZweiterAufrufMitWenigerRundenBehaeltIdDerErstenRundeUndEntferntUeberzaehlige()
+    {
+        using var ctx = NeuerContext();
+        var instanzId = await InstanzAnlegenAsync(ctx);
+        var repo = new TurnierInstanzRepository(ctx);
+        var ersteRunden = ZweiRunden(instanzId);
+        await repo.RundenErsetzenAsync(instanzId, ersteRunden);
+        var ersteRundeId = ersteRunden[0].Id;
+
+        var einzelneRunde = new List<TurnierRunde>
+        {
+            new() { TurnierInstanzId = instanzId, Name = "Liga", Reihenfolge = 1, Rundenart = Rundenart.Liga, EingangsMannschaftsanzahl = 8, AusgangsMannschaftsanzahl = 8 }
+        };
+        var ergebnis = await repo.RundenErsetzenAsync(instanzId, einzelneRunde);
+
+        ergebnis.Should().ContainSingle();
+        ergebnis[0].Id.Should().Be(ersteRundeId);
+        (await ctx.TurnierRunden.Where(r => r.TurnierInstanzId == instanzId).ToListAsync()).Should().ContainSingle();
+    }
 }

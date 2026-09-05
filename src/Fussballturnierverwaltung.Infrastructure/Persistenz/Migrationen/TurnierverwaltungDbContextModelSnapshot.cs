@@ -850,11 +850,22 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Beschreibung")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<DateOnly?>("Enddatum")
                         .HasColumnType("date");
 
+                    b.Property<int>("Kategorie")
+                        .HasColumnType("int");
+
                     b.Property<int?>("LandId")
                         .HasColumnType("int");
+
+                    b.Property<byte[]>("Logo")
+                        .HasColumnType("varbinary(max)");
 
                     b.Property<int>("MannschaftsartFilter")
                         .HasColumnType("int");
@@ -878,10 +889,10 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
-                    b.Property<int?>("TurnierVorlageId")
+                    b.Property<int?>("VerbandId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("VerbandId")
+                    b.Property<int?>("ZielMannschaftsanzahl")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -889,8 +900,6 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.HasIndex("LandId");
 
                     b.HasIndex("StandardRegelwerkId");
-
-                    b.HasIndex("TurnierVorlageId");
 
                     b.HasIndex("VerbandId");
 
@@ -936,7 +945,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<bool>("PaarungFestVorgegeben")
                         .HasColumnType("bit");
 
-                    b.Property<int>("RegelwerkId")
+                    b.Property<int?>("RegelwerkId")
                         .HasColumnType("int");
 
                     b.Property<int>("Reihenfolge")
@@ -956,47 +965,6 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .IsUnique();
 
                     b.ToTable("TurnierRunden", (string)null);
-                });
-
-            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierVorlage", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Beschreibung")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<int>("ErforderlicheMannschaftsanzahl")
-                        .HasColumnType("int");
-
-                    b.Property<DateOnly?>("GueltigBis")
-                        .HasColumnType("date");
-
-                    b.Property<DateOnly?>("GueltigVon")
-                        .HasColumnType("date");
-
-                    b.Property<bool>("IstHistorisch")
-                        .HasColumnType("bit");
-
-                    b.Property<byte[]>("Logo")
-                        .HasColumnType("varbinary(max)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("VorlagenKategorie")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("TurnierVorlagen", (string)null);
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.Uebergangsregel", b =>
@@ -1058,124 +1026,6 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.HasIndex("VerbandId");
 
                     b.ToTable("VerbandsQuoten", (string)null);
-                });
-
-            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenPaarung", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("PaarungsNummer")
-                        .HasColumnType("int");
-
-                    b.Property<string>("PlatzhalterBezeichnung")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("SlotNr")
-                        .HasColumnType("int");
-
-                    b.Property<int>("VorlagenRundeId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("VorlagenRundeId", "PaarungsNummer", "SlotNr")
-                        .IsUnique();
-
-                    b.ToTable("VorlagenPaarungen", (string)null);
-                });
-
-            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("AusgangsMannschaftsanzahl")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("AuswaertstorRegelAktiv")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("EingangsMannschaftsanzahl")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("GruppenAnzahl")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("MitRueckspiel")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<bool>("PaarungFestVorgegeben")
-                        .HasColumnType("bit");
-
-                    b.Property<int?>("RegelwerkId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Reihenfolge")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Rundenart")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TurnierVorlageId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RegelwerkId");
-
-                    b.HasIndex("TurnierVorlageId", "Reihenfolge")
-                        .IsUnique();
-
-                    b.ToTable("VorlagenRunden", (string)null);
-                });
-
-            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenUebergangsRegel", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("AnzahlBeste")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("GruppeIndex")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PlatzierungBis")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PlatzierungVon")
-                        .HasColumnType("int");
-
-                    b.Property<int>("QuellVorlagenRundeId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ZielVorlagenRundeId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("QuellVorlagenRundeId");
-
-                    b.HasIndex("ZielVorlagenRundeId");
-
-                    b.ToTable("VorlagenUebergangsregeln", (string)null);
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen.Auslosung", b =>
@@ -1538,11 +1388,6 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasForeignKey("StandardRegelwerkId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierVorlage", "TurnierVorlage")
-                        .WithMany("TurnierInstanzen")
-                        .HasForeignKey("TurnierVorlageId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Verband", "Verband")
                         .WithMany()
                         .HasForeignKey("VerbandId")
@@ -1552,8 +1397,6 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     b.Navigation("StandardRegelwerk");
 
-                    b.Navigation("TurnierVorlage");
-
                     b.Navigation("Verband");
                 });
 
@@ -1562,8 +1405,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke.Regelwerk", "Regelwerk")
                         .WithMany()
                         .HasForeignKey("RegelwerkId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", "TurnierInstanz")
                         .WithMany("Runden")
@@ -1612,54 +1454,6 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("TurnierInstanz");
 
                     b.Navigation("Verband");
-                });
-
-            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenPaarung", b =>
-                {
-                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", "VorlagenRunde")
-                        .WithMany("Paarungen")
-                        .HasForeignKey("VorlagenRundeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("VorlagenRunde");
-                });
-
-            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", b =>
-                {
-                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke.Regelwerk", "Regelwerk")
-                        .WithMany()
-                        .HasForeignKey("RegelwerkId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierVorlage", "TurnierVorlage")
-                        .WithMany("VorlagenRunden")
-                        .HasForeignKey("TurnierVorlageId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Regelwerk");
-
-                    b.Navigation("TurnierVorlage");
-                });
-
-            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenUebergangsRegel", b =>
-                {
-                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", "QuellVorlagenRunde")
-                        .WithMany("AusgehendeUebergangsregeln")
-                        .HasForeignKey("QuellVorlagenRundeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", "ZielVorlagenRunde")
-                        .WithMany()
-                        .HasForeignKey("ZielVorlagenRundeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("QuellVorlagenRunde");
-
-                    b.Navigation("ZielVorlagenRunde");
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen.Auslosung", b =>
@@ -1733,20 +1527,6 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("Spiele");
 
                     b.Navigation("Uebergangsregeln");
-                });
-
-            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierVorlage", b =>
-                {
-                    b.Navigation("TurnierInstanzen");
-
-                    b.Navigation("VorlagenRunden");
-                });
-
-            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.VorlagenRunde", b =>
-                {
-                    b.Navigation("AusgehendeUebergangsregeln");
-
-                    b.Navigation("Paarungen");
                 });
 #pragma warning restore 612, 618
         }

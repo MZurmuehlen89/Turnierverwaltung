@@ -350,4 +350,294 @@ public class UebergangsregelValidatorTests
         ergebnis.IstUngueltig.Should().BeTrue();
         ergebnis.Fehler.Should().ContainMatch("*mehrfach*");
     }
+
+    // ── Ganzgraph-Validierung (Vollersatz, Issue #294 — Nachfolger von VorlagenUebergangsregelValidatorTests) ──
+
+    private static TurnierRunde GanzgraphGruppenphase(int? gruppenAnzahl = 2, int eingangsMannschaftsanzahl = 8, int? ausgangsMannschaftsanzahl = null) => new()
+    {
+        Name = "Gruppenphase", Rundenart = Rundenart.Gruppenphase,
+        EingangsMannschaftsanzahl = eingangsMannschaftsanzahl,
+        AusgangsMannschaftsanzahl = ausgangsMannschaftsanzahl ?? eingangsMannschaftsanzahl / 2,
+        GruppenAnzahl = gruppenAnzahl
+    };
+
+    private static TurnierRunde GanzgraphLiga(int eingangsMannschaftsanzahl = 8, int? ausgangsMannschaftsanzahl = null) => new()
+    {
+        Name = "Liga", Rundenart = Rundenart.Liga,
+        EingangsMannschaftsanzahl = eingangsMannschaftsanzahl,
+        AusgangsMannschaftsanzahl = ausgangsMannschaftsanzahl ?? eingangsMannschaftsanzahl
+    };
+
+    private static TurnierRunde GanzgraphSchweizerSystem(int eingangsMannschaftsanzahl = 8, int? ausgangsMannschaftsanzahl = null) => new()
+    {
+        Name = "Ligaphase", Rundenart = Rundenart.SchweizerSystem,
+        EingangsMannschaftsanzahl = eingangsMannschaftsanzahl,
+        AusgangsMannschaftsanzahl = ausgangsMannschaftsanzahl ?? eingangsMannschaftsanzahl
+    };
+
+    private static TurnierRunde GanzgraphKoRunde(int eingangsMannschaftsanzahl = 4) => new()
+    {
+        Name = "Halbfinale", Rundenart = Rundenart.KoRunde,
+        EingangsMannschaftsanzahl = eingangsMannschaftsanzahl, AusgangsMannschaftsanzahl = eingangsMannschaftsanzahl / 2
+    };
+
+    private static TurnierRunde GanzgraphZiel(int eingangsMannschaftsanzahl = 4) => new()
+    {
+        Name = "Finale", Rundenart = Rundenart.KoRunde,
+        EingangsMannschaftsanzahl = eingangsMannschaftsanzahl, AusgangsMannschaftsanzahl = eingangsMannschaftsanzahl / 2
+    };
+
+    [Fact]
+    public void Ganzgraph_GueltigeGruppenphaseRegel_IstGueltig()
+    {
+        var runden = new[] { GanzgraphGruppenphase(gruppenAnzahl: 2, eingangsMannschaftsanzahl: 8, ausgangsMannschaftsanzahl: 2), GanzgraphZiel(eingangsMannschaftsanzahl: 2) };
+        var regeln = new[]
+        {
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1),
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 2, PlatzierungVon: 1, PlatzierungBis: 1)
+        };
+
+        _validator.Validieren(runden, regeln).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_GruppenphaseOhneGruppenIndex_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphGruppenphase(), GanzgraphZiel() };
+        var regeln = new[] { new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 1) };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_LigaMitGruppenIndex_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphLiga(), GanzgraphZiel() };
+        var regeln = new[] { new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1) };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_GueltigeSchweizerSystemRegel_IstGueltig()
+    {
+        var runden = new[] { GanzgraphSchweizerSystem(eingangsMannschaftsanzahl: 36, ausgangsMannschaftsanzahl: 8), GanzgraphZiel(eingangsMannschaftsanzahl: 8) };
+        var regeln = new[] { new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 8) };
+
+        _validator.Validieren(runden, regeln).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_SchweizerSystemMitGruppenIndex_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphSchweizerSystem(), GanzgraphZiel() };
+        var regeln = new[] { new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1) };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_KoRundeOhneSpielnummer_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphKoRunde(), GanzgraphZiel() };
+        var regeln = new[] { new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 1) };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_QuellUndZielGleich_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphLiga(), GanzgraphZiel() };
+        var regeln = new[] { new UebergangsregelPositionsEingabe(1, 1, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 1) };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_ReihenfolgeAusserhalbDerRundenliste_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphLiga(), GanzgraphZiel() };
+        var regeln = new[] { new UebergangsregelPositionsEingabe(1, 5, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 1) };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_DoppelterGruppenindexFuerDieselbeQuellrunde_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphGruppenphase(gruppenAnzahl: 2, eingangsMannschaftsanzahl: 8), GanzgraphZiel(eingangsMannschaftsanzahl: 4) };
+        var regeln = new[]
+        {
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1),
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 2, PlatzierungBis: 2)
+        };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_SummeUebersteigtEingangsanzahlDerZielrunde_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphGruppenphase(gruppenAnzahl: 2, eingangsMannschaftsanzahl: 8), GanzgraphZiel(eingangsMannschaftsanzahl: 3) };
+        var regeln = new[]
+        {
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 2),
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 2, PlatzierungVon: 1, PlatzierungBis: 2)
+        };
+
+        var ergebnis = _validator.Validieren(runden, regeln);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*4*3*");
+    }
+
+    [Fact]
+    public void Ganzgraph_SummeUnterschreitetEingangsanzahlDerZielrunde_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphGruppenphase(gruppenAnzahl: 2, eingangsMannschaftsanzahl: 8, ausgangsMannschaftsanzahl: 2), GanzgraphZiel(eingangsMannschaftsanzahl: 2) };
+        var regeln = new[] { new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1) };
+
+        var ergebnis = _validator.Validieren(runden, regeln);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*1*2*");
+    }
+
+    [Fact]
+    public void Ganzgraph_AusgehendeRegelnDeckenNichtDieGesamteAusgangsanzahlAb_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphGruppenphase(gruppenAnzahl: 2, eingangsMannschaftsanzahl: 8, ausgangsMannschaftsanzahl: 4), GanzgraphZiel(eingangsMannschaftsanzahl: 2) };
+        var regeln = new[]
+        {
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1),
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 2, PlatzierungVon: 1, PlatzierungBis: 1)
+        };
+
+        var ergebnis = _validator.Validieren(runden, regeln);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*Gruppenphase*");
+    }
+
+    [Fact]
+    public void Ganzgraph_TerminaleRundeOhneAusgehendeRegeln_IstGueltig()
+    {
+        var runden = new[] { GanzgraphGruppenphase(gruppenAnzahl: 2, eingangsMannschaftsanzahl: 8, ausgangsMannschaftsanzahl: 2), GanzgraphZiel(eingangsMannschaftsanzahl: 2) };
+        var regeln = new[]
+        {
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1),
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 2, PlatzierungVon: 1, PlatzierungBis: 1)
+        };
+
+        _validator.Validieren(runden, regeln).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_ZyklischerUebergang_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphLiga(), GanzgraphZiel() };
+        var regeln = new[]
+        {
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 1),
+            new UebergangsregelPositionsEingabe(2, 1, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1)
+        };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_ZusammenfuehrungAusZweiQuellrunden_IstGueltig()
+    {
+        var runden = new[]
+        {
+            GanzgraphLiga(eingangsMannschaftsanzahl: 8, ausgangsMannschaftsanzahl: 2),
+            GanzgraphLiga(eingangsMannschaftsanzahl: 8, ausgangsMannschaftsanzahl: 2),
+            GanzgraphZiel(eingangsMannschaftsanzahl: 4)
+        };
+        var regeln = new[]
+        {
+            new UebergangsregelPositionsEingabe(1, 3, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 2),
+            new UebergangsregelPositionsEingabe(2, 3, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 2)
+        };
+
+        _validator.Validieren(runden, regeln).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_ZusammenfuehrungAusLigaUndKoRundeUnterschiedlicherArt_IstGueltig()
+    {
+        var runden = new[] { GanzgraphLiga(eingangsMannschaftsanzahl: 8), GanzgraphKoRunde(eingangsMannschaftsanzahl: 16), GanzgraphZiel(eingangsMannschaftsanzahl: 16) };
+        var regeln = new List<UebergangsregelPositionsEingabe>
+        {
+            new(1, 3, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 8)
+        };
+        for (var spiel = 1; spiel <= 8; spiel++)
+            regeln.Add(new UebergangsregelPositionsEingabe(2, 3, GruppeIndex: spiel, PlatzierungVon: 1, PlatzierungBis: 1));
+
+        var ergebnis = _validator.Validieren(runden, regeln);
+
+        ergebnis.IstGueltig.Should().BeTrue(because: string.Join(" | ", ergebnis.Fehler));
+    }
+
+    [Fact]
+    public void Ganzgraph_GueltigeAnzahlBesteRegel_IstGueltig()
+    {
+        var runden = new[] { GanzgraphGruppenphase(gruppenAnzahl: 4, eingangsMannschaftsanzahl: 16, ausgangsMannschaftsanzahl: 2), GanzgraphZiel(eingangsMannschaftsanzahl: 2) };
+        var regeln = new[] { new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 2) };
+
+        _validator.Validieren(runden, regeln).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_AnzahlBesteBeiNichtGruppenphase_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphLiga(eingangsMannschaftsanzahl: 8), GanzgraphZiel(eingangsMannschaftsanzahl: 2) };
+        var regeln = new[] { new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 2) };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_AnzahlBesteMitGruppenIndex_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphGruppenphase(gruppenAnzahl: 4, eingangsMannschaftsanzahl: 16), GanzgraphZiel(eingangsMannschaftsanzahl: 2) };
+        var regeln = new[] { new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 2) };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_AnzahlBesteGroesserGruppenAnzahl_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphGruppenphase(gruppenAnzahl: 4, eingangsMannschaftsanzahl: 16), GanzgraphZiel(eingangsMannschaftsanzahl: 8) };
+        var regeln = new[] { new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 7) };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_DoppelteAnzahlBestePlatzierungFuerDieselbeQuellrunde_IstUngueltig()
+    {
+        var runden = new[] { GanzgraphGruppenphase(gruppenAnzahl: 4, eingangsMannschaftsanzahl: 16), GanzgraphZiel(eingangsMannschaftsanzahl: 4) };
+        var regeln = new[]
+        {
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 2),
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 1)
+        };
+
+        _validator.Validieren(runden, regeln).IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ganzgraph_AnzahlBesteKapazitaetsSummeWirdBeruecksichtigt()
+    {
+        var runden = new[] { GanzgraphGruppenphase(gruppenAnzahl: 4, eingangsMannschaftsanzahl: 16), GanzgraphZiel(eingangsMannschaftsanzahl: 2) };
+        var regeln = new[] { new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 3) };
+
+        var ergebnis = _validator.Validieren(runden, regeln);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*3*2*");
+    }
 }

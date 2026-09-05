@@ -14,8 +14,8 @@ public class TurnierRunde : BasisEntitaet
     public int EingangsMannschaftsanzahl { get; set; }
     public int AusgangsMannschaftsanzahl { get; set; }
     public int? GruppenAnzahl { get; set; }
-    public int RegelwerkId { get; set; }
-    public Regelwerk Regelwerk { get; set; } = null!;
+    public int? RegelwerkId { get; set; }
+    public Regelwerk? Regelwerk { get; set; }
 
     public bool MitRueckspiel { get; set; }
 

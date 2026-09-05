@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Spielplan;
+using Fussballturnierverwaltung.Application.Spielplan.Eingaben;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -13,6 +14,7 @@ public class TurnierInstanzService(
     ITurnierRundeRepository rundeRepository,
     ISpielRepository spielRepository,
     TurnierValidator validator,
+    UebergangsregelService uebergangsregelService,
     ILogger<TurnierInstanzService> logger)
 {
     public Task<IReadOnlyList<TurnierInstanz>> AlleAbrufenAsync(CancellationToken ct = default)
@@ -47,22 +49,21 @@ public class TurnierInstanzService(
         TurnierInstanzErstellenEingabe instanzEingabe,
         CancellationToken ct = default)
     {
-        ValidationException.WerfenWennUngueltig(validator.TurnierInstanzValidieren(new TurnierInstanz
-        {
-            Name           = instanzEingabe.Name.Trim(),
-            SaisonOderJahr = instanzEingabe.SaisonOderJahr.Trim(),
-            Startdatum     = instanzEingabe.Startdatum,
-            Enddatum       = instanzEingabe.Enddatum
-        }));
+        ValidationException.WerfenWennUngueltig(validator.BasisdatenValidieren(
+            instanzEingabe.Name, instanzEingabe.SaisonOderJahr, instanzEingabe.ZielMannschaftsanzahl,
+            instanzEingabe.Startdatum, instanzEingabe.Enddatum, instanzEingabe.Logo));
 
         var instanz = new TurnierInstanz
         {
             Name                  = instanzEingabe.Name.Trim(),
+            Beschreibung          = instanzEingabe.Beschreibung.Trim(),
             SaisonOderJahr        = instanzEingabe.SaisonOderJahr.Trim(),
-            TurnierVorlageId      = instanzEingabe.TurnierVorlageId,
+            Kategorie             = instanzEingabe.Kategorie,
+            ZielMannschaftsanzahl = instanzEingabe.ZielMannschaftsanzahl,
+            Logo                  = instanzEingabe.Logo,
             Startdatum            = instanzEingabe.Startdatum,
             Enddatum              = instanzEingabe.Enddatum,
-            Status                = TurnierStatus.Geplant,
+            Status                = instanzEingabe.Status,
             VerbandId             = instanzEingabe.VerbandId,
             LandId                = instanzEingabe.LandId,
             MannschaftsartFilter  = instanzEingabe.MannschaftsartFilter,
@@ -80,16 +81,22 @@ public class TurnierInstanzService(
         IReadOnlyList<TurnierRundeEingabe> rundenEingaben,
         CancellationToken ct = default)
     {
+        ValidationException.WerfenWennUngueltig(validator.BasisdatenValidieren(
+            instanzEingabe.Name, instanzEingabe.SaisonOderJahr, instanzEingabe.ZielMannschaftsanzahl,
+            instanzEingabe.Startdatum, instanzEingabe.Enddatum, instanzEingabe.Logo));
         ValidationException.WerfenWennUngueltig(validator.RundenValidieren(rundenEingaben));
 
         var instanz = new TurnierInstanz
         {
             Name                  = instanzEingabe.Name.Trim(),
+            Beschreibung          = instanzEingabe.Beschreibung.Trim(),
             SaisonOderJahr        = instanzEingabe.SaisonOderJahr.Trim(),
-            TurnierVorlageId      = instanzEingabe.TurnierVorlageId,
+            Kategorie             = instanzEingabe.Kategorie,
+            ZielMannschaftsanzahl = instanzEingabe.ZielMannschaftsanzahl,
+            Logo                  = instanzEingabe.Logo,
             Startdatum            = instanzEingabe.Startdatum,
             Enddatum              = instanzEingabe.Enddatum,
-            Status                = TurnierStatus.Geplant,
+            Status                = instanzEingabe.Status,
             VerbandId             = instanzEingabe.VerbandId,
             LandId                = instanzEingabe.LandId,
             MannschaftsartFilter  = instanzEingabe.MannschaftsartFilter,
@@ -125,9 +132,16 @@ public class TurnierInstanzService(
     {
         var instanz = await repository.FindenNachIdAsync(id, ct)
             ?? throw new InvalidOperationException($"TurnierInstanz mit ID {id} nicht gefunden.");
+        ValidationException.WerfenWennUngueltig(validator.BasisdatenValidieren(
+            eingabe.Name, eingabe.SaisonOderJahr, eingabe.ZielMannschaftsanzahl,
+            eingabe.Startdatum, eingabe.Enddatum, eingabe.Logo));
+
         instanz.Name                 = eingabe.Name.Trim();
+        instanz.Beschreibung         = eingabe.Beschreibung.Trim();
         instanz.SaisonOderJahr       = eingabe.SaisonOderJahr.Trim();
-        instanz.TurnierVorlageId     = eingabe.TurnierVorlageId;
+        instanz.Kategorie            = eingabe.Kategorie;
+        instanz.ZielMannschaftsanzahl = eingabe.ZielMannschaftsanzahl;
+        instanz.Logo                 = eingabe.Logo;
         instanz.Startdatum           = eingabe.Startdatum;
         instanz.Enddatum             = eingabe.Enddatum;
         instanz.Status               = eingabe.Status;
@@ -186,10 +200,49 @@ public class TurnierInstanzService(
         return ergebnis;
     }
 
+    /// <summary>Issue #294: ersetzt Runden UND ihre Übergangsregeln atomar in einem Zug — fachlicher
+    /// Nachfolger von <c>TurnierVorlageService.RundenSynchronisierenAsync</c>. Ersetzt zuerst die Runden
+    /// (bestehendes <see cref="ITurnierInstanzRepository.RundenErsetzenAsync"/>, Ids bleiben für unveränderte
+    /// Runden erhalten), ruft danach mit den jetzt realen Runden-Ids <see cref="UebergangsregelService.AlleErsetzenAsync"/> auf.</summary>
+    public async Task<IReadOnlyList<TurnierRunde>> RundenUndUebergaengeErsetzenAsync(
+        int id,
+        IReadOnlyList<TurnierRundeEingabe> rundenEingaben,
+        IReadOnlyList<UebergangsregelPositionsEingabe> uebergangsregelEingaben,
+        CancellationToken ct = default)
+    {
+        ValidationException.WerfenWennUngueltig(validator.RundenValidieren(rundenEingaben));
+
+        var neueRunden = rundenEingaben.Select((e, i) => new TurnierRunde
+        {
+            TurnierInstanzId          = id,
+            Name                      = e.Name.Trim(),
+            Reihenfolge               = i + 1,
+            Rundenart                 = e.Rundenart,
+            EingangsMannschaftsanzahl = e.EingangsMannschaftsanzahl,
+            AusgangsMannschaftsanzahl = e.AusgangsMannschaftsanzahl,
+            GruppenAnzahl             = e.GruppenAnzahl,
+            RegelwerkId               = e.RegelwerkId,
+            MitRueckspiel             = e.MitRueckspiel,
+            AuswaertstorRegelAktiv    = e.AuswaertstorRegelAktiv,
+            KonfigurationJson         = e.KonfigurationJson,
+            EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
+            PaarungFestVorgegeben     = e.PaarungFestVorgegeben
+        }).ToList();
+
+        var runden = await repository.RundenErsetzenAsync(id, neueRunden, ct);
+        await uebergangsregelService.AlleErsetzenAsync(runden, uebergangsregelEingaben, ct);
+
+        logger.LogInformation(
+            "TurnierInstanz {Id}: {Anzahl} Runde(n), {AnzahlRegeln} Übergangsregel(n) vollständig ersetzt.",
+            id, runden.Count, uebergangsregelEingaben.Count);
+        return runden;
+    }
+
     public async Task StatusAendernAsync(int id, TurnierStatus neuerStatus, CancellationToken ct = default)
     {
-        var instanz = await repository.FindenNachIdAsync(id, ct)
+        var instanz = await repository.FindenNachIdMitRundenAsync(id, ct)
             ?? throw new InvalidOperationException($"TurnierInstanz mit ID {id} nicht gefunden.");
+        ValidationException.WerfenWennUngueltig(validator.RegelwerkPflichtValidieren(instanz.Runden.ToList(), neuerStatus));
         instanz.Status = neuerStatus;
         await repository.AktualisierenAsync(instanz, ct);
     }

@@ -1,6 +1,6 @@
 namespace Fussballturnierverwaltung.Domain.Enums;
 
-public enum VorlagenKategorie
+public enum TurnierKategorie
 {
     Weltmeisterschaft,
     Kontinentalmeisterschaft,

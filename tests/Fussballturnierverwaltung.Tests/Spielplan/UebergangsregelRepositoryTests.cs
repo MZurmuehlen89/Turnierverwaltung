@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Fussballturnierverwaltung.Application.Spielplan.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -164,5 +165,58 @@ public class UebergangsregelRepositoryTests
         geladen.Should().NotBeNull();
         geladen!.QuellRunde.Should().NotBeNull();
         geladen.ZielRunde.Should().NotBeNull();
+    }
+
+    // ── AlleErsetzenAsync (Vollersatz, Issue #294 — Nachfolger des Übergangsregel-Teils von
+    // TurnierVorlageRepositoryTests) ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task AlleErsetzenAsync_LegtNeueRegelPerReihenfolgeAn()
+    {
+        using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out var ligaRundeId, out var koRundeId);
+        var repo = new UebergangsregelRepository(ctx);
+        var runden = await ctx.TurnierRunden.OrderBy(r => r.Reihenfolge).ToListAsync();
+
+        await repo.AlleErsetzenAsync(runden,
+            [new UebergangsregelPositionsEingabe(QuellReihenfolge: 1, ZielReihenfolge: 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 8)]);
+
+        var gespeicherteRegeln = await ctx.Uebergangsregeln.ToListAsync();
+        gespeicherteRegeln.Should().ContainSingle();
+        gespeicherteRegeln[0].QuellRundeId.Should().Be(ligaRundeId);
+        gespeicherteRegeln[0].ZielRundeId.Should().Be(koRundeId);
+    }
+
+    [Fact]
+    public async Task AlleErsetzenAsync_ZweiterAufrufOhneRegelnEntferntAlteVollstaendig()
+    {
+        using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out _, out _);
+        var repo = new UebergangsregelRepository(ctx);
+        var runden = await ctx.TurnierRunden.OrderBy(r => r.Reihenfolge).ToListAsync();
+        await repo.AlleErsetzenAsync(runden,
+            [new UebergangsregelPositionsEingabe(1, 2, null, 1, 8)]);
+
+        await repo.AlleErsetzenAsync(runden, []);
+
+        (await ctx.Uebergangsregeln.ToListAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AlleErsetzenAsync_UnveraendertePlatzierungBleibtUnangetastet()
+    {
+        using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out _, out _);
+        var repo = new UebergangsregelRepository(ctx);
+        var runden = await ctx.TurnierRunden.OrderBy(r => r.Reihenfolge).ToListAsync();
+        await repo.AlleErsetzenAsync(runden,
+            [new UebergangsregelPositionsEingabe(1, 2, null, 1, 8)]);
+        var ersteId = (await ctx.Uebergangsregeln.SingleAsync()).Id;
+
+        // Erneuter Aufruf mit identischer Regel darf die bestehende Zeile nicht löschen+neu anlegen.
+        await repo.AlleErsetzenAsync(runden,
+            [new UebergangsregelPositionsEingabe(1, 2, null, 1, 8)]);
+
+        (await ctx.Uebergangsregeln.SingleAsync()).Id.Should().Be(ersteId);
     }
 }

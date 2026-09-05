@@ -9,10 +9,12 @@ namespace Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 
 public class TurnierInstanz : BasisEntitaet
 {
-    public int? TurnierVorlageId { get; set; }
-    public TurnierVorlage? TurnierVorlage { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string Beschreibung { get; set; } = string.Empty;
     public string SaisonOderJahr { get; set; } = string.Empty;
+    public TurnierKategorie Kategorie { get; set; }
+    public int? ZielMannschaftsanzahl { get; set; }
+    public byte[]? Logo { get; set; }
     public DateOnly? Startdatum { get; set; }
     public DateOnly? Enddatum { get; set; }
     public TurnierStatus Status { get; set; }

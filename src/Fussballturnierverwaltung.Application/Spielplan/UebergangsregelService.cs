@@ -139,6 +139,22 @@ public class UebergangsregelService(
         return ergebnis;
     }
 
+    /// <summary>Vollersatz-Semantik (Issue #294): ersetzt die kompletten Übergangsregeln über alle
+    /// übergebenen <paramref name="runden"/> hinweg in einem Zug — fachlicher Nachfolger von
+    /// <c>TurnierVorlageService.RundenSynchronisierenAsync</c>s Übergangsregel-Teil, jetzt auf echten
+    /// <see cref="TurnierRunde"/>/<see cref="Uebergangsregel"/>-Entitäten statt Vorlagen-Pendants.</summary>
+    public async Task<IReadOnlyList<Uebergangsregel>> AlleErsetzenAsync(
+        IReadOnlyList<TurnierRunde> runden,
+        IReadOnlyList<UebergangsregelPositionsEingabe> neueRegeln,
+        CancellationToken ct = default)
+    {
+        ValidationException.WerfenWennUngueltig(validator.Validieren(runden, neueRegeln));
+        var ergebnis = await repository.AlleErsetzenAsync(runden, neueRegeln, ct);
+        logger.LogInformation("Übergangsregeln für {Anzahl} Runde(n) vollständig ersetzt ({Regeln} Regel(n)).",
+            runden.Count, neueRegeln.Count);
+        return ergebnis;
+    }
+
     public async Task LoeschenAsync(int id, CancellationToken ct = default)
     {
         var regel = await repository.FindenNachIdAsync(id, ct)

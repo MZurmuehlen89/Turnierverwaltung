@@ -32,8 +32,6 @@ public class SeedDatenService
         await MannschaftenNachruesten(cancellationToken);
         await MannschaftsBildmaterialNachruesten(cancellationToken);
         await RegelwerkeNachruesten(cancellationToken);
-        await VorlagenRundenNachruesten(cancellationToken);
-        await VorlagenRundenRegelwerkeNachruesten(cancellationToken);
         await TurnierVorlagenNachruesten(cancellationToken);
         await RanglistenQuellenNachruesten(cancellationToken);
     }
@@ -182,9 +180,16 @@ public class SeedDatenService
         }
     }
 
+    /// <summary>Issue #294: seit der Vorlage/Instanz-Vereinheitlichung sind Vorlagen ganz normale
+    /// <see cref="Domain.Entitaeten.Turniere.TurnierInstanz"/>-Zeilen mit
+    /// <see cref="Domain.Enums.TurnierStatus.Vorlage"/> — Name **und** Status bilden die Identität, damit
+    /// ein echtes Turnier mit zufällig gleichem Namen nicht fälschlich als "bereits vorhanden" zählt.
+    /// Ersetzt die vormals drei getrennten Methoden (Vorlagen/Runden/Runden-Regelwerke), da eine neue
+    /// Vorlage jetzt als vollständiger Objektgraph (inkl. Runden + Übergangsregeln) in einem Zug eingefügt wird.</summary>
     private async Task TurnierVorlagenNachruesten(CancellationToken ct)
     {
-        var vorhandeneNamen = await _context.TurnierVorlagen
+        var vorhandeneNamen = await _context.TurnierInstanzen
+            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
             .Select(v => v.Name)
             .ToHashSetAsync(ct);
 
@@ -197,7 +202,7 @@ public class SeedDatenService
         foreach (var vorlage in alleVorlagen)
         {
             if (vorhandeneNamen.Contains(vorlage.Name)) continue;
-            _context.TurnierVorlagen.Add(vorlage);
+            _context.TurnierInstanzen.Add(vorlage);
             hinzugefuegt++;
         }
 
@@ -205,66 +210,6 @@ public class SeedDatenService
         {
             await _context.SaveChangesAsync(ct);
             _logger.LogInformation("{Anzahl} neue Turniervorlagen nachgerüstet.", hinzugefuegt);
-        }
-    }
-
-    private async Task VorlagenRundenNachruesten(CancellationToken ct)
-    {
-        if (await _context.VorlagenRunden.AnyAsync(ct)) return;
-
-        var regelwerkLookup = await _context.Regelwerke
-            .ToDictionaryAsync(r => r.Name, r => r.Id, ct);
-        var definitionen = TurnierVorlagenSeedDaten.RundenNachVorlagenName(regelwerkLookup);
-        int hinzugefuegt = 0;
-
-        foreach (var (vorlagenName, runden) in definitionen)
-        {
-            var vorlage = await _context.TurnierVorlagen
-                .FirstOrDefaultAsync(v => v.Name == vorlagenName, ct);
-            if (vorlage is null) continue;
-
-            foreach (var runde in runden)
-            {
-                runde.TurnierVorlageId = vorlage.Id;
-                _context.VorlagenRunden.Add(runde);
-                hinzugefuegt++;
-            }
-        }
-
-        if (hinzugefuegt > 0)
-        {
-            await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("{Anzahl} VorlagenRunden nachgerüstet.", hinzugefuegt);
-        }
-    }
-
-    private async Task VorlagenRundenRegelwerkeNachruesten(CancellationToken ct)
-    {
-        if (!await _context.VorlagenRunden.AnyAsync(r => r.RegelwerkId == null, ct)) return;
-
-        var regelwerkLookup = await _context.Regelwerke
-            .ToDictionaryAsync(r => r.Name, r => r.Id, ct);
-        var sollRunden = TurnierVorlagenSeedDaten.RundenNachVorlagenName(regelwerkLookup);
-
-        var istRunden = await _context.VorlagenRunden
-            .Where(r => r.RegelwerkId == null)
-            .Include(r => r.TurnierVorlage)
-            .ToListAsync(ct);
-
-        int aktualisiert = 0;
-        foreach (var runde in istRunden)
-        {
-            if (!sollRunden.TryGetValue(runde.TurnierVorlage.Name, out var sollListe)) continue;
-            var soll = sollListe.FirstOrDefault(s => s.Reihenfolge == runde.Reihenfolge);
-            if (soll?.RegelwerkId is null) continue;
-            runde.RegelwerkId = soll.RegelwerkId;
-            aktualisiert++;
-        }
-
-        if (aktualisiert > 0)
-        {
-            await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("{Anzahl} VorlagenRunden mit Regelwerk nachgerüstet.", aktualisiert);
         }
     }
 
@@ -365,11 +310,11 @@ public class SeedDatenService
         await _context.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("{Anzahl} Regelwerke angelegt.", regelwerkeDefinitionen.Count);
 
-        // 7. TurnierVorlagen (mit Regelwerk-Lookup für VorlagenRunden)
+        // 7. Turniervorlagen (TurnierInstanz mit Status=Vorlage, mit Regelwerk-Lookup für ihre Runden)
         var regelwerkLookup = regelwerkeDefinitionen.ToDictionary(
             t => t.Regelwerk.Name, t => t.Regelwerk.Id);
         var vorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup);
-        _context.TurnierVorlagen.AddRange(vorlagen);
+        _context.TurnierInstanzen.AddRange(vorlagen);
         await _context.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("{Anzahl} Turniervorlagen angelegt.", vorlagen.Count);
 

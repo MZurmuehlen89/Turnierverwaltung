@@ -16,11 +16,12 @@ public record VorlagenPlatzhalterQuelle(
     int PlatzierungBis,
     int? AnzahlBeste);
 
-/// <summary>Vorlagen-Variante von <c>TeilnehmerPoolHilfsmittel.PlatzhalterAusRegelnGenerieren</c> (WPF, Issue
-/// #251) für Issue #277 — dieselbe Ableitungslogik (Übergangsregel-Zeile → Reihenfolge-sortierte
-/// Platzhalter-Anzeigenamen), aber ohne <c>TeilnehmerAnzeige</c>/Mannschafts-Bezug, da auf Vorlagenebene nie
-/// echte Mannschaften existieren.</summary>
-public static class VorlagenPlatzhalterHilfsmittel
+/// <summary>Rundenart-neutrale Ableitung von Platzhalter-Anzeigenamen aus eingehenden Übergangsregeln
+/// (ursprünglich <c>VorlagenPlatzhalterHilfsmittel</c> aus Issue #277, mit #294 auf die vereinheitlichte
+/// TurnierInstanz/-Runde umbenannt) — analog zu <c>TeilnehmerPoolHilfsmittel.PlatzhalterAusRegelnGenerieren</c>
+/// (WPF, Issue #251), aber ohne <c>TeilnehmerAnzeige</c>/Mannschafts-Bezug, da eine Vorlage nie echte
+/// Mannschaften besitzt.</summary>
+public static class PlatzhalterHilfsmittel
 {
     public static IReadOnlyList<string> PlatzhalterGenerieren(IReadOnlyList<VorlagenPlatzhalterQuelle> eingehendeRegeln) =>
         eingehendeRegeln

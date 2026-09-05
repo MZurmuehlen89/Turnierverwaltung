@@ -29,7 +29,8 @@ public class TurnierRundeKonfiguration : IEntityTypeConfiguration<TurnierRunde>
         builder.HasOne(r => r.Regelwerk)
             .WithMany()
             .HasForeignKey(r => r.RegelwerkId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Restrict)
+            .IsRequired(false);
 
         builder.HasIndex(r => new { r.TurnierInstanzId, r.Reihenfolge }).IsUnique();
     }

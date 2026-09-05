@@ -35,7 +35,6 @@ public static class InfrastrukturErweiterungen
         services.AddScoped<IVerbandRepository, VerbandRepository>();
 
         // Turniere-Repositories
-        services.AddScoped<ITurnierVorlageRepository, TurnierVorlageRepository>();
         services.AddScoped<ITurnierInstanzRepository, TurnierInstanzRepository>();
         services.AddScoped<IRegelwerkRepository, RegelwerkRepository>();
         services.AddScoped<IRankingRegelSetRepository, RankingRegelSetRepository>();
