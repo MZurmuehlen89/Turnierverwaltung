@@ -658,18 +658,25 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         RundenFehler = fehler;
     }
 
+    /// <summary>Feuert nach erfolgreichem Speichern — <see cref="VorbelegungViewModel"/> liest Runden
+    /// (insbesondere <c>PaarungFestVorgegeben</c>) unabhängig frisch aus der DB und bekommt sonst nichts
+    /// vom hier erfolgten Rundenersatz mit (Fund aus #297-Test: Vorbelegung-Tab blieb nach dem Setzen von
+    /// "Paarung fest vorgegeben" + Speichern im Runden-Tab leer, weil niemand seinen Reload ausgelöst hat).</summary>
+    public event Action<TurnierInstanz>? RundenGespeichert;
+
     // ── Ribbon-Befehle ────────────────────────────────────────────────────────
 
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
     private async Task Speichern()
     {
-        if (AktuelleInstanz is null) return;
+        if (AktuelleInstanz is not { } instanz) return;
         Fehlermeldung = null;
         try
         {
             await _service.RundenUndUebergaengeErsetzenAsync(
-                AktuelleInstanz.Id, RundenZuEingaben(), UebergangsregelnZuEingaben());
-            await InstanzSetzenAsync(AktuelleInstanz);
+                instanz.Id, RundenZuEingaben(), UebergangsregelnZuEingaben());
+            await InstanzSetzenAsync(instanz);
+            RundenGespeichert?.Invoke(instanz);
         }
         catch (Exception ex)
         {

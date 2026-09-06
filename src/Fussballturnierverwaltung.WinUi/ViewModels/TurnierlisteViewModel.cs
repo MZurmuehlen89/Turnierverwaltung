@@ -63,6 +63,11 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         // (ggf. neue) Instanz erneut auswählen — löst über AusgewaehlteInstanzGesetzt automatisch den Reload
         // der übrigen Tabs mit aus.
         TurnierkopfVm.InstanzGeaendert += instanz => _ = TabKoordinator.InstanzenNeuLadenAsync(instanz?.Id);
+
+        // Nach Speichern im Runden-Tab liest VorbelegungVm (PaarungFestVorgegeben, Rundenstruktur für
+        // "RUNDEN MIT FESTER PAARUNG") unabhängig frisch aus der DB — ohne diesen Reload blieb der
+        // Vorbelegung-Tab nach dem Setzen von "Paarung fest vorgegeben" leer (Fund aus #297-Test).
+        RundenVm.RundenGespeichert += instanz => _ = VorbelegungVm.InstanzSetzenAsync(instanz);
     }
 
     private async Task InstanzAnKindViewModelsWeiterreichenAsync(TurnierInstanz? instanz)
