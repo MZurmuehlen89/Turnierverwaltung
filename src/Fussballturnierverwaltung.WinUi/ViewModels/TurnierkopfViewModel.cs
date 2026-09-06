@@ -54,6 +54,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     private static readonly VerbandOption _keinVerband = new("— Kein Filter —", null);
     private static readonly LandOption _keinLand = new("— Kein Filter —", null);
     private static readonly RegelwerkOption _keinStandardRegelwerk = new("— Kein Standard —", null);
+    private static readonly TeamfilterOption _alleMannschaften = new("Alle Mannschaften", MannschaftsartFilter.Alle);
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
@@ -114,7 +115,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     [NotifyPropertyChangedFor(nameof(VerbandsQuotenSichtbar))]
     [NotifyPropertyChangedFor(nameof(VerbandOptionenGefiltert))]
     private LandOption _landFilter = _keinLand;
-    [ObservableProperty] private MannschaftsartFilter _teamFilter = MannschaftsartFilter.Alle;
+    [ObservableProperty] private TeamfilterOption _teamFilter = _alleMannschaften;
 
     // Beide Filter schränken sich gegenseitig ein (Issue #211-Muster aus dem WPF-Original): FIFA ist die
     // Ausnahme, kein Land ist ihr direkt zugeordnet, als Filter bedeutet sie "weltweit".
@@ -155,7 +156,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     }
 
     public IReadOnlyList<TeamfilterOption> TeamfilterOptionen =>
-        [new("Alle Mannschaften", MannschaftsartFilter.Alle),
+        [_alleMannschaften,
          new("Nur Vereine", MannschaftsartFilter.Verein),
          new("Nur Nationalmannschaften", MannschaftsartFilter.Nationalmannschaft)];
 
@@ -321,7 +322,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 Kategorie = TurnierKategorie.Benutzerdefiniert;
                 VerbandFilter = _keinVerband;
                 LandFilter = _keinLand;
-                TeamFilter = MannschaftsartFilter.Alle;
+                TeamFilter = _alleMannschaften;
                 StandardRegelwerk = _keinStandardRegelwerk;
                 Status = StatusOptionen.First(o => o.Wert == TurnierStatus.Geplant);
                 LogoDaten = null;
@@ -341,7 +342,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 Enddatum = instanz.Enddatum?.Year.ToString() ?? "";
                 VerbandFilter = VerbandOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.VerbandId) ?? _keinVerband;
                 LandFilter = LandOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.LandId) ?? _keinLand;
-                TeamFilter = instanz.MannschaftsartFilter;
+                TeamFilter = TeamfilterOptionen.FirstOrDefault(o => o.Wert == instanz.MannschaftsartFilter) ?? _alleMannschaften;
                 StandardRegelwerk = StandardRegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.StandardRegelwerkId) ?? _keinStandardRegelwerk;
                 Status = StatusOptionen.First(o => o.Wert == instanz.Status);
                 LogoDaten = instanz.Logo;
@@ -405,7 +406,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             Kategorie = TurnierKategorie.Benutzerdefiniert;
             VerbandFilter = _keinVerband;
             LandFilter = _keinLand;
-            TeamFilter = MannschaftsartFilter.Alle;
+            TeamFilter = _alleMannschaften;
             StandardRegelwerk = _keinStandardRegelwerk;
             Status = StatusOptionen.First(o => o.Wert == TurnierStatus.Geplant);
             LogoDaten = null;
@@ -459,7 +460,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 var eingabe = new TurnierInstanzErstellenEingabe(
                     Name: Name, Beschreibung: Beschreibung, SaisonOderJahr: SaisonOderJahr, Kategorie: Kategorie,
                     ZielMannschaftsanzahl: zielAnzahl, Startdatum: startdatum, Enddatum: enddatum, Status: Status.Wert,
-                    VerbandId: verbandId, LandId: landId, MannschaftsartFilter: TeamFilter,
+                    VerbandId: verbandId, LandId: landId, MannschaftsartFilter: TeamFilter.Wert,
                     StandardRegelwerkId: standardRwId, Logo: LogoDaten);
                 ergebnis = await _service.ErstellenAsync(eingabe);
             }
@@ -476,7 +477,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 var eingabe = new TurnierInstanzVollAktualisierenEingabe(
                     Name: Name, Beschreibung: Beschreibung, SaisonOderJahr: SaisonOderJahr, Kategorie: Kategorie,
                     ZielMannschaftsanzahl: zielAnzahl, Startdatum: startdatum, Enddatum: enddatum, Status: AktuelleInstanz.Status,
-                    VerbandId: verbandId, LandId: landId, MannschaftsartFilter: TeamFilter,
+                    VerbandId: verbandId, LandId: landId, MannschaftsartFilter: TeamFilter.Wert,
                     StandardRegelwerkId: standardRwId, Logo: LogoDaten);
                 await _service.VollAktualisierenAsync(id, eingabe);
                 await _verbandsQuoteService.QuotenErsetzenAsync(id, quotenZeilen, ErsteRundeEingang);
