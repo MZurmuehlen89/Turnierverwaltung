@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using System.Windows.Input;
@@ -49,13 +50,12 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         };
 
         // Kein geteilter Kontext-Service (anders als beim WPF-Instanz-Vorbild) — die ausgewählte Instanz wird
-        // direkt an alle Kind-ViewModels durchgereicht.
-        TabKoordinator.AusgewaehlteInstanzGesetzt += instanz =>
-        {
-            _ = TurnierkopfVm.InstanzSetzenAsync(instanz);
-            _ = RundenVm.InstanzSetzenAsync(instanz);
-            _ = VorbelegungVm.InstanzSetzenAsync(instanz);
-        };
+        // direkt an alle Kind-ViewModels durchgereicht. NACHEINANDER (nicht per Fire-and-Forget parallel) —
+        // alle drei Kind-ViewModels teilen sich denselben Scoped-DbContext über ihre Services, ein
+        // gleichzeitiger Start mehrerer DB-Abfragen auf derselben Kontext-Instanz wirft "A second operation
+        // was started on this context instance before a previous operation completed" (Fund aus #297-Test,
+        // siehe auch feedback_dbcontext_concurrency in Memory).
+        TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = InstanzAnKindViewModelsWeiterreichenAsync(instanz);
 
         TabKoordinator.AktivesTabZustandGeaendert += (_, _) => RibbonEigenschaftenGeaendertMelden();
 
@@ -63,6 +63,13 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         // (ggf. neue) Instanz erneut auswählen — löst über AusgewaehlteInstanzGesetzt automatisch den Reload
         // der übrigen Tabs mit aus.
         TurnierkopfVm.InstanzGeaendert += instanz => _ = TabKoordinator.InstanzenNeuLadenAsync(instanz?.Id);
+    }
+
+    private async Task InstanzAnKindViewModelsWeiterreichenAsync(TurnierInstanz? instanz)
+    {
+        await TurnierkopfVm.InstanzSetzenAsync(instanz);
+        await RundenVm.InstanzSetzenAsync(instanz);
+        await VorbelegungVm.InstanzSetzenAsync(instanz);
     }
 
     public override async Task AktivierenAsync()
