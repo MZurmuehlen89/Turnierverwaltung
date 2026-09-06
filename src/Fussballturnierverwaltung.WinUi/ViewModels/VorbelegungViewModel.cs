@@ -322,7 +322,12 @@ public partial class VorbelegungWorkspace : ObservableObject
         }
         else
         {
-            VerfuegbareTeilnehmer = new ObservableCollection<TeilnehmerAnzeige>(alleTeilnehmer.OrderBy(t => t.Name));
+            // Platzhalter (z.B. "Platz 9 (Ligaphase)" … "Platz 24 (Ligaphase)") kommen aus den Generatoren
+            // in TeilnehmerPoolHilfsmittel bereits in der richtigen (numerischen) Reihenfolge — ein
+            // Alphabet-Sort nach Name reißt sie auseinander ("Platz 10" vor "Platz 9", Fund aus #297-Test).
+            // Nur echte Mannschaftslisten (Erste-Runde-ohne-Vorgänger-Fall) profitieren vom Alphabet-Sort.
+            VerfuegbareTeilnehmer = new ObservableCollection<TeilnehmerAnzeige>(
+                alleTeilnehmer.All(t => t.IstPlatzhalter) ? alleTeilnehmer : alleTeilnehmer.OrderBy(t => t.Name));
         }
         AktualisiereTeamsZugewiesen();
     }
