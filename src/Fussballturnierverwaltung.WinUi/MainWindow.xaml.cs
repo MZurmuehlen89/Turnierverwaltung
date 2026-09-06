@@ -9,10 +9,16 @@ namespace Fussballturnierverwaltung.WinUi;
 
 public sealed partial class MainWindow : Window
 {
-    // Titel/Neu/Neu-Unterpunkte-Pfeil/Speichern/Abbrechen/Separator/Löschen aus dem XAML in AktionenPanel
-    // (CommandBar.Content, fensterseitig links verankert) — dahinter werden die dynamischen
+    // Titel/Neu/Speichern/Abbrechen/Separator/Löschen aus dem XAML in AktionenPanel (CommandBar.Content,
+    // fensterseitig links verankert) — direkt danach werden die dynamischen Neu-Unterpunkte (Issue
+    // #297-Nachzug, z.B. "Aus Vorlage erstellen") als eigene Buttons eingefügt, danach die
     // RibbonZusatzGruppen angehängt (CommandBar unterstützt kein ItemsSource-Binding für PrimaryCommands).
-    private const int AnzahlFesterAktionen = 7;
+    private const int AnzahlFesterAktionenBasis = 6;
+
+    // Wie viele Buttons NeuUnterpunkteAktualisieren aktuell direkt nach "Neu" eingefügt hat — bestimmt den
+    // tatsächlichen Startindex der RibbonZusatzGruppen (Basis + diese Anzahl), da beide Bereiche sich
+    // denselben AktionenPanel teilen und die Neu-Unterpunkte VOR den RibbonZusatzGruppen sitzen.
+    private int _neuUnterpunkteAnzahl;
 
     private readonly ThemeService _themeService;
     private readonly IDialogService _dialogService;
@@ -35,47 +41,47 @@ public sealed partial class MainWindow : Window
         _themeService.AnwendenAusEinstellungen();
 
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        NeuUnterpunkteAktualisieren();
         RibbonZusatzGruppenAktualisieren();
-        NeuFlyoutAktualisieren();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MainViewModel.RibbonZusatzGruppen))
+        if (e.PropertyName is nameof(MainViewModel.RibbonZusatzGruppen) or nameof(MainViewModel.RibbonNeuUnterpunkte))
+        {
+            NeuUnterpunkteAktualisieren();
             RibbonZusatzGruppenAktualisieren();
-        if (e.PropertyName == nameof(MainViewModel.RibbonNeuUnterpunkte))
-            NeuFlyoutAktualisieren();
+        }
     }
 
-    /// <summary>Befüllt bei vorhandenen <see cref="MainViewModel.RibbonNeuUnterpunkte"/> (Issue #297-Nachzug,
-    /// z.B. "Aus Vorlage erstellen") das Flyout des separaten Pfeil-Buttons <c>NeuUnterpunkteButton</c> —
-    /// bewusst NICHT am "Neu"-Button selbst, da WinUI bei gesetztem <c>AppBarButton.Flyout</c> den Klick
-    /// nicht mehr an <c>Command</c> durchreicht (Nutzerwunsch aus #297-Test: "Neu" soll immer direkt ein
-    /// neues Turnier anlegen, das Untermenü nur die Zusatzoption zeigen).</summary>
-    private void NeuFlyoutAktualisieren()
+    /// <summary>Fügt <see cref="MainViewModel.RibbonNeuUnterpunkte"/> (Issue #297-Nachzug, z.B. "Aus Vorlage
+    /// erstellen") als eigenständige Buttons direkt nach "Neu" ein (Index 2, nach Titel-TextBlock und
+    /// NeuButton) — bewusst kein Flyout/Split-Button mehr (Nutzerwunsch aus #297-Test: "sieht nicht schön
+    /// aus"), einfach ein weiterer sichtbarer Button. Entfernt zuerst die zuvor eingefügten Buttons, damit
+    /// ein Tabwechsel nicht immer weiter anhäuft.</summary>
+    private void NeuUnterpunkteAktualisieren()
     {
-        var unterpunkte = ViewModel.RibbonNeuUnterpunkte;
-        if (unterpunkte.Count == 0)
-        {
-            NeuUnterpunkteButton.Flyout = null;
-            return;
-        }
+        for (var i = 0; i < _neuUnterpunkteAnzahl; i++)
+            AktionenPanel.Children.RemoveAt(2);
+        _neuUnterpunkteAnzahl = 0;
 
-        var menu = new MenuFlyout();
-        foreach (var aktion in unterpunkte)
+        var unterpunkte = ViewModel.RibbonNeuUnterpunkte;
+        for (var i = 0; i < unterpunkte.Count; i++)
         {
-            var item = new MenuFlyoutItem { Text = aktion.Header, Command = aktion.Befehl };
+            var aktion = unterpunkte[i];
+            var button = new AppBarButton { Label = aktion.Header, Command = aktion.Befehl };
             if (aktion.IconGlyph is not null)
-                item.Icon = new FontIcon { Glyph = aktion.IconGlyph };
-            menu.Items.Add(item);
+                button.Icon = new FontIcon { Glyph = aktion.IconGlyph };
+            AktionenPanel.Children.Insert(2 + i, button);
         }
-        NeuUnterpunkteButton.Flyout = menu;
+        _neuUnterpunkteAnzahl = unterpunkte.Count;
     }
 
     private void RibbonZusatzGruppenAktualisieren()
     {
-        while (AktionenPanel.Children.Count > AnzahlFesterAktionen)
-            AktionenPanel.Children.RemoveAt(AnzahlFesterAktionen);
+        var start = AnzahlFesterAktionenBasis + _neuUnterpunkteAnzahl;
+        while (AktionenPanel.Children.Count > start)
+            AktionenPanel.Children.RemoveAt(start);
 
         var gruppen = ViewModel.RibbonZusatzGruppen;
         for (var g = 0; g < gruppen.Count; g++)

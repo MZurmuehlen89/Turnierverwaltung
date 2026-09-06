@@ -27,7 +27,6 @@ public partial class MainViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(RibbonLoeschenBefehl))]
     [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
     [NotifyPropertyChangedFor(nameof(RibbonNeuUnterpunkte))]
-    [NotifyPropertyChangedFor(nameof(HatNeuUnterpunkte))]
     [NotifyPropertyChangedFor(nameof(HatStandardAktionen))]
     [NotifyPropertyChangedFor(nameof(HatLoeschenAktion))]
     private ViewModelBase? _aktuellesViewModel;
@@ -41,7 +40,6 @@ public partial class MainViewModel : ObservableObject
     public ICommand? RibbonLoeschenBefehl => (AktuellesViewModel as IRibbonAware)?.LoeschenBefehl;
     public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen => (AktuellesViewModel as IRibbonAware)?.RibbonZusatzGruppen ?? [];
     public IReadOnlyList<RibbonAktion> RibbonNeuUnterpunkte => (AktuellesViewModel as IRibbonAware)?.NeuUnterpunkte ?? [];
-    public bool HatNeuUnterpunkte => RibbonNeuUnterpunkte.Count > 0;
     public bool HatStandardAktionen => (AktuellesViewModel as IRibbonAware)?.HatStandardAktionen ?? false;
     public bool HatLoeschenAktion   => (AktuellesViewModel as IRibbonAware)?.HatLoeschenAktion ?? false;
 
@@ -122,7 +120,6 @@ public partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(RibbonLoeschenBefehl));
             OnPropertyChanged(nameof(RibbonZusatzGruppen));
             OnPropertyChanged(nameof(RibbonNeuUnterpunkte));
-            OnPropertyChanged(nameof(HatNeuUnterpunkte));
             OnPropertyChanged(nameof(HatStandardAktionen));
             OnPropertyChanged(nameof(HatLoeschenAktion));
         }
