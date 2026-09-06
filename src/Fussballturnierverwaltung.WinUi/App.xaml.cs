@@ -62,6 +62,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<VerbandService>();
         builder.Services.AddScoped<RegelwerkService>();
         builder.Services.AddScoped<TurnierInstanzService>();
+        builder.Services.AddScoped<TurnierKlonService>();
         builder.Services.AddScoped<UebergangsregelService>();
         builder.Services.AddScoped<VerbandsQuoteService>();
         builder.Services.AddScoped<AuslosungService>();

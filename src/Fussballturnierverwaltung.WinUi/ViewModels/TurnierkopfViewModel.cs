@@ -12,6 +12,7 @@ using Fussballturnierverwaltung.WinUi.Converters;
 using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
+using Fussballturnierverwaltung.WinUi.Views;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -47,6 +48,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     private readonly RegelwerkService _regelwerkService;
     private readonly VerbandsQuoteService _verbandsQuoteService;
     private readonly VerbandsQuoteValidator _verbandsQuoteValidator;
+    private readonly TurnierKlonService _klonService;
     private int _populiertGerade;
 
     private static readonly VerbandOption _keinVerband = new("— Kein Filter —", null);
@@ -252,10 +254,23 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     public ICommand? AbbrechenBefehl => AbbrechenCommand;
     public ICommand? LoeschenBefehl => LoeschenCommand;
 
+    /// <summary>Issue #297-Nachzug: <see cref="TurnierKlonService"/> existiert seit #294, war aber in
+    /// keiner UI verdrahtet (dokumentierte Scope-Lücke). "Aus Vorlage erstellen" legt eine neue Instanz an
+    /// (echtes Turnier oder weitere Vorlage), löst nebenbei #46.</summary>
+    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
+    [
+        new RibbonGruppe
+        {
+            Header = "Vorlage",
+            Aktionen = [new RibbonAktion { Header = "Aus Vorlage erstellen", Befehl = AusVorlageErstellenCommand }]
+        }
+    ];
+
     public TurnierkopfViewModel(
         TurnierInstanzService service, TurnierValidator validator, IDialogService dialogService,
         VerbandService verbandService, LandService landService, RegelwerkService regelwerkService,
-        VerbandsQuoteService verbandsQuoteService, VerbandsQuoteValidator verbandsQuoteValidator)
+        VerbandsQuoteService verbandsQuoteService, VerbandsQuoteValidator verbandsQuoteValidator,
+        TurnierKlonService klonService)
     {
         _service = service;
         _validator = validator;
@@ -265,6 +280,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         _regelwerkService = regelwerkService;
         _verbandsQuoteService = verbandsQuoteService;
         _verbandsQuoteValidator = verbandsQuoteValidator;
+        _klonService = klonService;
         QuotenZeilenAbonnieren();
     }
 
@@ -393,6 +409,15 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         }
         IsDirty = true;
         AktualisiereFormularFehler();
+    }
+
+    [RelayCommand]
+    private async Task AusVorlageErstellenAsync()
+    {
+        var dialog = new AusVorlageErstellenDialog(_service, _klonService);
+        await _dialogService.AnzeigenAsync(dialog);
+        if (dialog.ViewModel.ErstellteInstanz is { } neu)
+            InstanzGeaendert?.Invoke(neu);
     }
 
     [RelayCommand]

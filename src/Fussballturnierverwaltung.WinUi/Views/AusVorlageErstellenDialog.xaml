@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="Fussballturnierverwaltung.WinUi.Views.AusVorlageErstellenDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Aus Vorlage erstellen"
+    PrimaryButtonText="Erstellen"
+    CloseButtonText="Abbrechen"
+    IsPrimaryButtonEnabled="{Binding KannErstellen}"
+    PrimaryButtonClick="ContentDialog_PrimaryButtonClick"
+    DefaultButton="Primary">
+
+    <StackPanel Width="420" Spacing="4">
+
+        <ProgressBar IsIndeterminate="True" Height="2" Margin="0,0,0,8"
+                     Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
+
+        <StackPanel Visibility="{Binding KeineVorlagenVorhanden, Converter={StaticResource BoolToVisibility}}"
+                    Opacity="0.6" Margin="0,8,0,8">
+            <TextBlock Text="Keine Vorlagen vorhanden." FontSize="13" TextWrapping="Wrap" />
+            <TextBlock Text="Im Turnierkopf mit Status 'Vorlage' anlegen, dann hier erneut versuchen."
+                       FontSize="13" TextWrapping="Wrap" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding KeineVorlagenVorhanden, Converter={StaticResource InverseBoolToVisibility}}"
+                    Spacing="4">
+            <TextBlock Text="Vorlage" FontWeight="SemiBold" />
+            <ComboBox ItemsSource="{Binding Vorlagen}"
+                      SelectedItem="{Binding AusgewaehlteVorlage, Mode=TwoWay}"
+                      DisplayMemberPath="Name"
+                      HorizontalAlignment="Stretch" Margin="0,0,0,8" />
+
+            <TextBlock Text="Name" FontWeight="SemiBold" />
+            <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+
+            <TextBlock Text="Saison / Jahr" FontWeight="SemiBold" />
+            <TextBox Text="{Binding SaisonOderJahr, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     PlaceholderText="z.B. 2027 oder 2027/28" Margin="0,0,0,8" />
+
+            <CheckBox Content="Als weitere Vorlage anlegen (statt als echtes Turnier)"
+                      IsChecked="{Binding AlsVorlageAnlegen, Mode=TwoWay}" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
+                Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                CornerRadius="4" Padding="10,8" Margin="0,12,0,0">
+            <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                       FontSize="12" TextWrapping="Wrap" />
+        </Border>
+    </StackPanel>
+</ContentDialog>
