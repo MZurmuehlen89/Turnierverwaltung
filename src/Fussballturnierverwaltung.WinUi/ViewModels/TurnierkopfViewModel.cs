@@ -130,7 +130,14 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     partial void OnVerbandFilterChanged(VerbandOption value)
     {
+        // WinUI setzt ComboBox.SelectedItem transient auf null, wenn ItemsSource neu zugewiesen wird
+        // (LandOptionenGefiltert liefert bei jedem Zugriff ein neues Array) — TwoWay-Binding drückt das
+        // kurzzeitig als null-value in diesen Handler, obwohl der Property-Typ nicht-nullable ist (Fund
+        // aus #297-Test: NullReferenceException beim Setzen des Verbands). Explizit auf "Kein Filter"
+        // zurücksetzen statt nur früh zurückzukehren, sonst bleibt das Backing-Field null und spätere
+        // Lesezugriffe (VerbandsQuotenSichtbar, Speichern, …) crashen ebenfalls.
         if (_populiertGerade > 0) return;
+        if (value is null) { VerbandFilter = _keinVerband; return; }
         if (value.Wert is not null && !IstFifa(value.Wert)
             && LandFilter.Wert is not null && LandFilter.Wert.VerbandId != value.Wert.Id)
             LandFilter = _keinLand;
@@ -138,7 +145,10 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     partial void OnLandFilterChanged(LandOption value)
     {
+        // Siehe OnVerbandFilterChanged — derselbe ComboBox-ItemsSource-Reset-Fallstrick, hier für
+        // VerbandOptionenGefiltert.
         if (_populiertGerade > 0) return;
+        if (value is null) { LandFilter = _keinLand; return; }
         if (value.Wert is not null && VerbandFilter.Wert is not null && !IstFifa(VerbandFilter.Wert)
             && VerbandFilter.Wert.Id != value.Wert.VerbandId)
             VerbandFilter = _keinVerband;
