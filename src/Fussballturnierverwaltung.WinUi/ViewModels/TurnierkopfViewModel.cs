@@ -118,12 +118,16 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     [ObservableProperty] private TeamfilterOption _teamFilter = _alleMannschaften;
 
     // Beide Filter schränken sich gegenseitig ein (Issue #211-Muster aus dem WPF-Original): FIFA ist die
-    // Ausnahme, kein Land ist ihr direkt zugeordnet, als Filter bedeutet sie "weltweit".
-    public IReadOnlyList<LandOption> LandOptionenGefiltert => VerbandFilter.Wert is null || IstFifa(VerbandFilter.Wert)
+    // Ausnahme, kein Land ist ihr direkt zugeordnet, als Filter bedeutet sie "weltweit". Null-conditional
+    // auf VerbandFilter/LandFilter selbst (nicht nur .Wert) — derselbe transiente ComboBox-Reset-Fallstrick
+    // wie in OnVerbandFilterChanged/OnLandFilterChanged kann diese Getter treffen, bevor die dortige
+    // Korrektur greift (NRE hier gefunden bei #297-Test, Stapelüberwachung zeigte den Crash direkt im
+    // Getter statt im Change-Handler).
+    public IReadOnlyList<LandOption> LandOptionenGefiltert => VerbandFilter?.Wert is null || IstFifa(VerbandFilter.Wert)
         ? LandOptionen
         : [_keinLand, .. LandOptionen.Where(o => o.Wert?.VerbandId == VerbandFilter.Wert.Id)];
 
-    public IReadOnlyList<VerbandOption> VerbandOptionenGefiltert => LandFilter.Wert is null
+    public IReadOnlyList<VerbandOption> VerbandOptionenGefiltert => LandFilter?.Wert is null
         ? VerbandOptionen
         : [_keinVerband, .. VerbandOptionen.Where(o => o.Wert?.Id == LandFilter.Wert.VerbandId || IstFifa(o.Wert))];
 

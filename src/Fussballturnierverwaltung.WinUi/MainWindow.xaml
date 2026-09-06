@@ -69,6 +69,15 @@
                                Visibility="{x:Bind ViewModel.HatRibbonBereich, Mode=OneWay}" />
                     <AppBarButton x:Name="NeuButton" Icon="Add" Label="Neu" Command="{x:Bind ViewModel.RibbonNeuBefehl, Mode=OneWay}"
                                   Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
+                    <!-- Nur der kleine Pfeil öffnet ein Flyout (z.B. "Aus Vorlage erstellen") — "Neu" selbst
+                         bleibt direkt klickbar und löst weiterhin sofort RibbonNeuBefehl aus (Nutzerwunsch
+                         aus #297-Test: ein AppBarButton mit gesetztem Flyout würde den Klick sonst NUR
+                         noch als Menü-Öffner behandeln, siehe MainWindow.xaml.cs NeuFlyoutAktualisieren). -->
+                    <DropDownButton x:Name="NeuUnterpunkteButton" Padding="4,6" MinWidth="0"
+                                    VerticalAlignment="Center"
+                                    Visibility="{x:Bind ViewModel.HatNeuUnterpunkte, Mode=OneWay}">
+                        <FontIcon Glyph="&#xE70D;" FontSize="10" />
+                    </DropDownButton>
                     <AppBarButton Icon="Save" Label="Speichern" Command="{x:Bind ViewModel.RibbonSpeichernBefehl, Mode=OneWay}"
                                   Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
                     <AppBarButton Icon="Undo" Label="Abbrechen" Command="{x:Bind ViewModel.RibbonAbbrechenBefehl, Mode=OneWay}"

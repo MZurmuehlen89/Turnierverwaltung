@@ -9,10 +9,10 @@ namespace Fussballturnierverwaltung.WinUi;
 
 public sealed partial class MainWindow : Window
 {
-    // Titel/Neu/Speichern/Abbrechen/Separator/Löschen aus dem XAML in AktionenPanel (CommandBar.Content,
-    // fensterseitig links verankert) — dahinter werden die dynamischen RibbonZusatzGruppen angehängt
-    // (CommandBar unterstützt kein ItemsSource-Binding für PrimaryCommands).
-    private const int AnzahlFesterAktionen = 6;
+    // Titel/Neu/Neu-Unterpunkte-Pfeil/Speichern/Abbrechen/Separator/Löschen aus dem XAML in AktionenPanel
+    // (CommandBar.Content, fensterseitig links verankert) — dahinter werden die dynamischen
+    // RibbonZusatzGruppen angehängt (CommandBar unterstützt kein ItemsSource-Binding für PrimaryCommands).
+    private const int AnzahlFesterAktionen = 7;
 
     private readonly ThemeService _themeService;
     private readonly IDialogService _dialogService;
@@ -43,31 +43,25 @@ public sealed partial class MainWindow : Window
     {
         if (e.PropertyName == nameof(MainViewModel.RibbonZusatzGruppen))
             RibbonZusatzGruppenAktualisieren();
-        if (e.PropertyName is nameof(MainViewModel.RibbonNeuUnterpunkte) or nameof(MainViewModel.RibbonNeuBefehl))
+        if (e.PropertyName == nameof(MainViewModel.RibbonNeuUnterpunkte))
             NeuFlyoutAktualisieren();
     }
 
-    /// <summary>Hängt bei vorhandenen <see cref="MainViewModel.RibbonNeuUnterpunkte"/> (Issue #297-Nachzug,
-    /// z.B. "Aus Vorlage erstellen") ein Flyout an den "Neu"-Button — WinUI löst bei gesetztem
-    /// <c>AppBarButton.Flyout</c> beim Klick NICHT mehr das <c>Command</c> aus, daher wird "Neues Turnier"
-    /// als erster Menüpunkt mitgeliefert, um den direkten Klick-Fall weiterhin verfügbar zu halten. Ohne
-    /// Unterpunkte bleibt der Button unverändert direkt klickbar (Flyout = null).</summary>
+    /// <summary>Befüllt bei vorhandenen <see cref="MainViewModel.RibbonNeuUnterpunkte"/> (Issue #297-Nachzug,
+    /// z.B. "Aus Vorlage erstellen") das Flyout des separaten Pfeil-Buttons <c>NeuUnterpunkteButton</c> —
+    /// bewusst NICHT am "Neu"-Button selbst, da WinUI bei gesetztem <c>AppBarButton.Flyout</c> den Klick
+    /// nicht mehr an <c>Command</c> durchreicht (Nutzerwunsch aus #297-Test: "Neu" soll immer direkt ein
+    /// neues Turnier anlegen, das Untermenü nur die Zusatzoption zeigen).</summary>
     private void NeuFlyoutAktualisieren()
     {
         var unterpunkte = ViewModel.RibbonNeuUnterpunkte;
         if (unterpunkte.Count == 0)
         {
-            NeuButton.Flyout = null;
+            NeuUnterpunkteButton.Flyout = null;
             return;
         }
 
         var menu = new MenuFlyout();
-        menu.Items.Add(new MenuFlyoutItem
-        {
-            Text = "Neues Turnier",
-            Command = ViewModel.RibbonNeuBefehl,
-            Icon = new SymbolIcon(Symbol.Add)
-        });
         foreach (var aktion in unterpunkte)
         {
             var item = new MenuFlyoutItem { Text = aktion.Header, Command = aktion.Befehl };
@@ -75,7 +69,7 @@ public sealed partial class MainWindow : Window
                 item.Icon = new FontIcon { Glyph = aktion.IconGlyph };
             menu.Items.Add(item);
         }
-        NeuButton.Flyout = menu;
+        NeuUnterpunkteButton.Flyout = menu;
     }
 
     private void RibbonZusatzGruppenAktualisieren()
