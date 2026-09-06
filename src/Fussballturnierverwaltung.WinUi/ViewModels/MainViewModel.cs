@@ -66,7 +66,6 @@ public partial class MainViewModel : ObservableObject
                 EintragErstellen("Mannschaften",      () => _navigation.NavigiereZuAsync<MannschaftenViewModel>()),
                 EintragErstellen("Länder & Verbände", () => _navigation.NavigiereZuAsync<LaenderUndVerbaendeViewModel>()),
                 EintragErstellen("Regelwerke",        () => _navigation.NavigiereZuAsync<RegelwerkeViewModel>()),
-                EintragErstellen("Turniervorlagen",   () => _navigation.NavigiereZuAsync<TurniervorlagenViewModel>()),
                 EintragErstellen("Ranglisten",        () => _navigation.NavigiereZuAsync<RanglistenViewModel>()),
             ]
         });
@@ -76,8 +75,7 @@ public partial class MainViewModel : ObservableObject
             Titel = "Turniere",
             Eintraege =
             [
-                EintragErstellen("Turnierkopf",            () => NavigiereZuPlatzhalterAsync("Turnierkopf")),
-                EintragErstellen("Turnierdefinition",      () => NavigiereZuPlatzhalterAsync("Turnierdefinition")),
+                EintragErstellen("Turniere",               () => _navigation.NavigiereZuAsync<TurnierlisteViewModel>()),
                 EintragErstellen("Turnierdurchführung",    () => NavigiereZuPlatzhalterAsync("Turnierdurchführung")),
                 EintragErstellen("Einzelspiel-Simulation", () => NavigiereZuPlatzhalterAsync("Einzelspiel-Simulation")),
             ]

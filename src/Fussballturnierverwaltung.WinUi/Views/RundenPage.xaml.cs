@@ -2,9 +2,9 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace Fussballturnierverwaltung.WinUi.Views;
 
-public sealed partial class VorlagenRundenPage : UserControl
+public sealed partial class RundenPage : UserControl
 {
-    public VorlagenRundenPage()
+    public RundenPage()
     {
         InitializeComponent();
     }

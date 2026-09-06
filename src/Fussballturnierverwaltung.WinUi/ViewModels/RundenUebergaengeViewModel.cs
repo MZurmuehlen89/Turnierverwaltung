@@ -11,14 +11,10 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 /// <summary>Rein lesende Anzeige-Zeile für die Rundenliste — Name/Rundenart/Eingang→Ausgang + optionaler
 /// Unstimmigkeits-Hinweis, wenn die ausgehenden Übergangsregeln dieser Runde nicht zu ihrer
-/// Ausgangsmannschaftszahl passen. War ursprünglich eine grafische, positionierte "Perlenkette" mit
-/// Verbindungslinien (Graphtiefe-basiertes Canvas-Layout, analog WPF-Original <c>RundenUebergangKarte</c>) —
-/// nach Nutzer-Rückmeldung auf eine einfache Liste reduziert: der Informationsgehalt war für eine grafische
-/// Darstellung zu gering, während das Canvas-Layout in WinUI3 mehrfach eigene Stolperfallen aufgeworfen hat
-/// (zwei gescheiterte deklarative Positionierungsversuche, siehe Git-Historie dieser Datei).</summary>
-public partial class VorlagenRundenKarte : ObservableObject
+/// Ausgangsmannschaftszahl passen.</summary>
+public partial class RundenKarte : ObservableObject
 {
-    public required VorlagenRundeZeile Runde { get; init; }
+    public required RundeZeile Runde { get; init; }
     [ObservableProperty] private string _rundenartText = "";
     [ObservableProperty] private string _einAusgangText = "";
     [ObservableProperty]
@@ -27,24 +23,17 @@ public partial class VorlagenRundenKarte : ObservableObject
     public bool HatUnstimmigkeit => UnstimmigkeitText is not null;
 }
 
-/// <summary>"Rundenübergänge"-Tab von <see cref="TurniervorlagenViewModel"/> (#284) — Rundenliste (rein
+/// <summary>"Rundenübergänge"-Tab von <see cref="TurnierlisteViewModel"/> (Issue #297) — Rundenliste (rein
 /// lesend, Fokus per Klick) links, daneben Eingehende/Ausgehende Übergangsregeln der fokussierten Runde (rein
 /// lesende Zusammenfassung, Klick wählt eine Regel aus) + ein Regelformular. Liest und schreibt die geteilte
-/// Runden-/Übergangsregel-Datenhaltung in <see cref="VorlagenRundenViewModel"/> (per DI referenziert, beide
-/// Scoped in derselben Navigations-Scope) — kein eigener Datenbestand, kein eigenes Speichern (delegiert 1:1
-/// an den Runden-Tab). Redesign-Historie: die ursprüngliche Fassung bettete bearbeitbare ComboBoxen in die bei
-/// jedem Rundenfokus-Wechsel neu aufgebauten Eingehend-/Ausgehend-Karten ein — das hat wiederholt zu
-/// Datenkorruption geführt. Jetzt gilt strikt: bearbeitbare TwoWay-Controls leben nur noch im stabilen
-/// Regelformular, alles andere ist reine Anzeige mit Klick-Commands. Die Regelformular-ComboBoxen (Quelle/
-/// Ziel) binden immer auf die komplette, unveränderliche Rundenliste — keine pro Auswahl neu berechnete
-/// Optionsliste mehr (das hatte in einer Zwischenfassung erneut zu leerem Formular bei Regelauswahl geführt,
-/// da eine Neuberechnung der Optionsliste denselben ItemsSource-Tausch-Fallstrick auslöst wie die
-/// ComboBox-Probleme davor).</summary>
-public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
+/// Runden-/Übergangsregel-Datenhaltung in <see cref="RundenViewModel"/> (per DI referenziert, beide Scoped in
+/// derselben Navigations-Scope) — kein eigener Datenbestand, kein eigenes Speichern (delegiert 1:1 an den
+/// Runden-Tab).</summary>
+public partial class RundenUebergaengeViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
-    private readonly VorlagenRundenViewModel _rundenVm;
+    private readonly RundenViewModel _rundenVm;
 
-    public VorlagenRundenUebergaengeViewModel(VorlagenRundenViewModel rundenVm)
+    public RundenUebergaengeViewModel(RundenViewModel rundenVm)
     {
         _rundenVm = rundenVm;
 
@@ -63,13 +52,10 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
     {
         switch (e.PropertyName)
         {
-            case nameof(VorlagenRundenViewModel.AusgewaehlteRunde):
-                // AktualisiereRundenliste() bewusst NICHT hier aufrufen: Karten wird jetzt per SelectedValue
-                // an eine native ListView gebunden (siehe AusgewaehlteRunde-Property unten) — eine
-                // Neuzuweisung der Collection bei jedem Fokuswechsel würde die ListView-Auswahl transient
-                // zurücksetzen und über die TwoWay-Bindung wieder auf null schreiben (derselbe Fallstrick,
-                // der bei der Perlenkette und den Regel-Quelle/Ziel-ComboBoxen bereits aufgetreten ist).
-                // AktualisiereRundenliste() läuft nur noch bei strukturellen Änderungen (UebergaengeGeaendert).
+            case nameof(RundenViewModel.AusgewaehlteRunde):
+                // AktualisiereRundenliste() bewusst NICHT hier aufrufen: Karten wird per SelectedValue an eine
+                // native ListView gebunden — eine Neuzuweisung der Collection bei jedem Fokuswechsel würde die
+                // ListView-Auswahl transient zurücksetzen und über die TwoWay-Bindung wieder auf null schreiben.
                 AusgewaehlteRegel = null; // schließt ein offenes Regelformular bei Rundenwechsel
                 OnPropertyChanged(nameof(AusgewaehlteRunde));
                 OnPropertyChanged(nameof(FormularSichtbar));
@@ -77,44 +63,45 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
                 NeueAusgehendeRegelCommand.NotifyCanExecuteChanged();
                 AktualisiereRegelListen();
                 break;
-            case nameof(VorlagenRundenViewModel.HatVorlage):
-                OnPropertyChanged(nameof(HatVorlage));
+            case nameof(RundenViewModel.HatInstanz):
+                OnPropertyChanged(nameof(HatInstanz));
                 break;
-            case nameof(VorlagenRundenViewModel.IstLadend):
+            case nameof(RundenViewModel.RundenBearbeitbar):
+                OnPropertyChanged(nameof(RundenBearbeitbar));
+                break;
+            case nameof(RundenViewModel.IstLadend):
                 OnPropertyChanged(nameof(IstLadend));
                 break;
-            case nameof(VorlagenRundenViewModel.Fehlermeldung):
+            case nameof(RundenViewModel.Fehlermeldung):
                 OnPropertyChanged(nameof(Fehlermeldung));
                 OnPropertyChanged(nameof(ZeigeMeldungsSpalte));
                 break;
-            case nameof(VorlagenRundenViewModel.RundenFehler):
+            case nameof(RundenViewModel.RundenFehler):
                 OnPropertyChanged(nameof(RundenFehler));
                 OnPropertyChanged(nameof(HatRundenFehler));
                 OnPropertyChanged(nameof(ZeigeMeldungsSpalte));
                 break;
-            case nameof(VorlagenRundenViewModel.RibbonTabTitel) or nameof(VorlagenRundenViewModel.NeuBefehl)
-                or nameof(VorlagenRundenViewModel.SpeichernBefehl) or nameof(VorlagenRundenViewModel.AbbrechenBefehl)
-                or nameof(VorlagenRundenViewModel.LoeschenBefehl) or nameof(VorlagenRundenViewModel.HatUngespeicherteAenderungen):
+            case nameof(RundenViewModel.RibbonTabTitel) or nameof(RundenViewModel.NeuBefehl)
+                or nameof(RundenViewModel.SpeichernBefehl) or nameof(RundenViewModel.AbbrechenBefehl)
+                or nameof(RundenViewModel.LoeschenBefehl) or nameof(RundenViewModel.HatUngespeicherteAenderungen):
                 OnPropertyChanged(nameof(HatUngespeicherteAenderungen));
                 break;
         }
     }
 
-    // ── Geteilter Zustand (Pass-Through auf VorlagenRundenViewModel) ────────────
-    public bool HatVorlage => _rundenVm.HatVorlage;
+    // ── Geteilter Zustand (Pass-Through auf RundenViewModel) ────────────────────
+    public bool HatInstanz => _rundenVm.HatInstanz;
+    public bool RundenBearbeitbar => _rundenVm.RundenBearbeitbar;
     public bool IstLadend => _rundenVm.IstLadend;
     public string? Fehlermeldung => _rundenVm.Fehlermeldung;
     public IReadOnlyList<string> RundenFehler => _rundenVm.RundenFehler;
     public bool HatRundenFehler => _rundenVm.HatRundenFehler;
     public bool ZeigeMeldungsSpalte => _rundenVm.ZeigeMeldungsSpalte;
-    public ObservableCollection<VorlagenRundeZeile> Runden => _rundenVm.Runden;
+    public ObservableCollection<RundeZeile> Runden => _rundenVm.Runden;
 
     /// <summary>Echte Get/Set-Passthrough-Property (nicht nur lesend) — ermöglicht eine native
-    /// ListView.SelectedValue-TwoWay-Bindung in der Rundenliste, konsistent mit dem "Runden"-Tab (dort
-    /// SelectedItem direkt auf die dortige, eigene AusgewaehlteRunde-Property). Schreibt bei Auswahl direkt
-    /// in <see cref="VorlagenRundenViewModel.AusgewaehlteRunde"/> zurück, PropertyChanged kommt über
-    /// <see cref="OnRundenVmPropertyChanged"/> zurück (kein eigenes Feld nötig, kein Duplikat-Zustand).</summary>
-    public VorlagenRundeZeile? AusgewaehlteRunde
+    /// ListView.SelectedValue-TwoWay-Bindung in der Rundenliste, konsistent mit dem "Runden"-Tab.</summary>
+    public RundeZeile? AusgewaehlteRunde
     {
         get => _rundenVm.AusgewaehlteRunde;
         set => _rundenVm.AusgewaehlteRunde = value;
@@ -123,8 +110,8 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
     public bool FormularSichtbar => AusgewaehlteRunde is not null;
 
     // ── Eingehende/Ausgehende Übergangsregeln der fokussierten Runde (rein lesend) ──
-    public ObservableCollection<VorlagenUebergangsregelBlock> EingehendeRegeln { get; } = [];
-    public ObservableCollection<VorlagenUebergangsregelBlock> AusgehendeRegeln { get; } = [];
+    public ObservableCollection<UebergangsregelBlock> EingehendeRegeln { get; } = [];
+    public ObservableCollection<UebergangsregelBlock> AusgehendeRegeln { get; } = [];
 
     private void AktualisiereRegelListen()
     {
@@ -142,17 +129,17 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
 
     // ── Regelformular ─────────────────────────────────────────────────────────
     // Populier-/Zurückschreib-Muster wie das Rundenformular. Quelle/Ziel-ComboBoxen binden auf die komplette
-    // Rundenliste (Runden-Property oben) — bewusst KEINE gefilterte Optionsliste (siehe Klassendokumentation).
+    // Rundenliste (Runden-Property oben) — bewusst KEINE gefilterte Optionsliste.
     private static readonly HashSet<string> RegelFormFelder = [nameof(RegelQuelle), nameof(RegelZiel)];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RegelIstGruppenphase))]
     [NotifyPropertyChangedFor(nameof(RegelIstKoSonderfall))]
     [NotifyPropertyChangedFor(nameof(RegelIstLiga))]
-    private VorlagenRundeZeile? _regelQuelle;
+    private RundeZeile? _regelQuelle;
 
-    [ObservableProperty] private VorlagenRundeZeile? _regelZiel;
-    [ObservableProperty] private ObservableCollection<VorlagenUebergangsregelZeile> _regelZeilen = [];
+    [ObservableProperty] private RundeZeile? _regelZiel;
+    [ObservableProperty] private ObservableCollection<UebergangsregelZeile> _regelZeilen = [];
 
     public bool RegelIstGruppenphase => RegelQuelle?.Rundenart == Rundenart.Gruppenphase;
     public bool RegelIstKoSonderfall => RegelQuelle?.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
@@ -160,13 +147,13 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ZeigeRegelformular))]
-    private VorlagenUebergangsregelBlock? _ausgewaehlteRegel;
+    private UebergangsregelBlock? _ausgewaehlteRegel;
 
     public bool ZeigeRegelformular => AusgewaehlteRegel is not null;
 
     private int _populiertGerade;
 
-    partial void OnAusgewaehlteRegelChanged(VorlagenUebergangsregelBlock? oldValue, VorlagenUebergangsregelBlock? newValue)
+    partial void OnAusgewaehlteRegelChanged(UebergangsregelBlock? oldValue, UebergangsregelBlock? newValue)
     {
         if (oldValue is not null) oldValue.IstAusgewaehlt = false;
         if (newValue is not null) newValue.IstAusgewaehlt = true;
@@ -174,7 +161,7 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
         RegelLoeschenCommand.NotifyCanExecuteChanged();
     }
 
-    private void FormularAusFuellenMitRegel(VorlagenUebergangsregelBlock? regel)
+    private void FormularAusFuellenMitRegel(UebergangsregelBlock? regel)
     {
         _populiertGerade++;
         try
@@ -195,15 +182,14 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
         if (_populiertGerade > 0 || e.PropertyName is null || AusgewaehlteRegel is null) return;
         if (!RegelFormFelder.Contains(e.PropertyName)) return;
 
-        // IsDirty/Validierung/Listen-Refresh laufen über den Geaendert-Handler in VorlagenRundenViewModel
-        // (VerdrahteBlock), der durch die folgenden Zuweisungen ausgelöst wird
-        // (OnQuellRundeChanged/OnZielRundeChanged auf dem Block).
+        // IsDirty/Validierung/Listen-Refresh laufen über den Geaendert-Handler in RundenViewModel
+        // (VerdrahteBlock), der durch die folgenden Zuweisungen ausgelöst wird.
         AusgewaehlteRegel.QuellRunde = RegelQuelle;
         AusgewaehlteRegel.ZielRunde = RegelZiel;
     }
 
     [RelayCommand]
-    private void RegelAuswaehlen(VorlagenUebergangsregelBlock regel) => AusgewaehlteRegel = regel;
+    private void RegelAuswaehlen(UebergangsregelBlock regel) => AusgewaehlteRegel = regel;
 
     [RelayCommand]
     private void RegelFormularSchliessen() => AusgewaehlteRegel = null;
@@ -212,7 +198,7 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
     private void NeueEingehendeRegel()
     {
         if (AusgewaehlteRunde is null) return;
-        var block = VorlagenUebergangsregelBlock.NeuLeer(quelle: null, ziel: AusgewaehlteRunde);
+        var block = UebergangsregelBlock.NeuLeer(quelle: null, ziel: AusgewaehlteRunde);
         _rundenVm.UebergangHinzufuegen(block);
         AusgewaehlteRegel = block;
     }
@@ -221,7 +207,7 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
     private void NeueAusgehendeRegel()
     {
         if (AusgewaehlteRunde is null) return;
-        var block = VorlagenUebergangsregelBlock.NeuLeer(quelle: AusgewaehlteRunde, ziel: null);
+        var block = UebergangsregelBlock.NeuLeer(quelle: AusgewaehlteRunde, ziel: null);
         _rundenVm.UebergangHinzufuegen(block);
         AusgewaehlteRegel = block;
     }
@@ -237,19 +223,15 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
     private bool KannRegelLoeschen() => AusgewaehlteRegel is not null;
 
     // ── Rundenliste (rein lesend) ─────────────────────────────────────────────
-    [ObservableProperty] private ObservableCollection<VorlagenRundenKarte> _karten = [];
+    [ObservableProperty] private ObservableCollection<RundenKarte> _karten = [];
 
     /// <summary>Aktualisiert die Kartenliste. Feuert bei JEDER Rundenformular-Änderung (nicht nur strukturellen
     /// wie Hinzufügen/Entfernen einer Runde), da Name/Eingang/Ausgang die Kartenanzeige betreffen — <see cref="Karten"/>
     /// darf daher im unstrukturierten Fall NICHT neu instanziiert werden: die ListView bindet ihre Auswahl per
     /// SelectedValue TwoWay auf die geteilte <see cref="AusgewaehlteRunde"/>, und ein ItemsSource-Austausch
-    /// setzt diese Auswahl transient zurück — schreibt über TwoWay sofort null in die geteilte Property und
-    /// löscht damit auch die Auswahl im "Runden"-Tab (derselbe Fallstrick wie in <see cref="OnRundenVmPropertyChanged"/>
-    /// dokumentiert, hier nur für Feldänderungen statt Rundenwechsel). Nur bei tatsächlicher Struktur-Änderung
-    /// (Runde hinzugefügt/entfernt/umsortiert) wird die Collection ersetzt — dabei wird die aktuelle Auswahl
-    /// vorab gesichert und danach wiederhergestellt (analog <see cref="VorlagenPaarungenViewModel.AktualisierePaarungsRunden"/>),
-    /// da der Collection-Tausch sie sonst transient auf null zurücksetzt (Löschen-Fall: die Rundenliste
-    /// selektiert bewusst die Nachbarrunde VOR diesem Aufruf, siehe <see cref="VorlagenRundenViewModel.RundeEntfernen"/>).</summary>
+    /// setzt diese Auswahl transient zurück. Nur bei tatsächlicher Struktur-Änderung (Runde hinzugefügt/
+    /// entfernt/umsortiert) wird die Collection ersetzt — dabei wird die aktuelle Auswahl vorab gesichert und
+    /// danach wiederhergestellt.</summary>
     private void AktualisiereRundenliste()
     {
         if (Karten.Count == Runden.Count && Karten.Select(k => k.Runde).SequenceEqual(Runden))
@@ -264,7 +246,7 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
         }
 
         var vorherAusgewaehlt = AusgewaehlteRunde;
-        Karten = new ObservableCollection<VorlagenRundenKarte>(Runden.Select(r => new VorlagenRundenKarte
+        Karten = new ObservableCollection<RundenKarte>(Runden.Select(r => new RundenKarte
         {
             Runde = r,
             RundenartText = RundenartAnzeigetext(r.Rundenart, r.GruppenAnzahl),
@@ -289,12 +271,9 @@ public partial class VorlagenRundenUebergaengeViewModel : ViewModelBase, IRibbon
     };
 
     /// <summary>Prüft, ob die Summe ALLER ausgehenden Übergangsregeln einer Runde (über ggf. mehrere
-    /// unabhängige Regeln zu verschiedenen Zielrunden hinweg) tatsächlich deren Ausgangsanzahl ergibt —
-    /// analog WPF-Original <c>RundenUebergaengeViewModel.UnstimmigkeitErmitteln</c> (Issue #187), aber ohne
-    /// den dortigen K.o.-Sonderfall (Ausgang wird für K.o.-Runden bereits automatisch auf Eingang/2
-    /// gehalten). Nur relevant, wenn überhaupt ausgehende Regeln existieren — eine Runde ganz ohne (z.B. das
-    /// Finale) ist kein Fehlerfall.</summary>
-    private string? UnstimmigkeitErmitteln(VorlagenRundeZeile runde)
+    /// unabhängige Regeln zu verschiedenen Zielrunden hinweg) tatsächlich deren Ausgangsanzahl ergibt (Issue
+    /// #187). Nur relevant, wenn überhaupt ausgehende Regeln existieren.</summary>
+    private string? UnstimmigkeitErmitteln(RundeZeile runde)
     {
         var ausgehende = _rundenVm.AlleUebergaenge.Where(b => b.QuellRunde == runde).ToList();
         if (ausgehende.Count == 0) return null;

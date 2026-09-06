@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Fussballturnierverwaltung.WinUi.Views.VorbelegungPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid ColumnDefinitions="260,1,*">
+
+        <!-- ── Spalte 0: Runden mit fester Paarung ── -->
+        <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*">
+            <TextBlock Grid.Row="0" Text="RUNDEN MIT FESTER PAARUNG" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="12,12,12,8" />
+            <ProgressBar Grid.Row="1" IsIndeterminate="True" Height="2"
+                         Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
+            <ListView Grid.Row="2"
+                      ItemsSource="{Binding Runden}"
+                      SelectedItem="{Binding AusgewaehlteRunde, Mode=TwoWay}"
+                      SelectionMode="Single">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Padding="0,4">
+                            <TextBlock Text="{Binding Runde.Name}" FontWeight="SemiBold" FontSize="13" />
+                            <TextBlock Text="{Binding StatusText}" FontSize="11" Opacity="0.6" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Grid>
+
+        <Rectangle Grid.Column="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Width="1" />
+
+        <!-- ── Spalte 2: Platzhalter-Hinweise ODER Workspace ── -->
+        <Grid Grid.Column="2">
+
+            <StackPanel Visibility="{Binding KeinTurnierGewaehlt, Converter={StaticResource BoolToVisibility}}"
+                        VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.4">
+                <TextBlock Text="🏆" FontSize="48" HorizontalAlignment="Center" />
+                <TextBlock Text="Bitte zuerst ein Turnier im Turnierkopf auswählen" FontSize="14" HorizontalAlignment="Center" Margin="0,12,0,0" />
+            </StackPanel>
+
+            <StackPanel Visibility="{Binding HatKeineRunden, Converter={StaticResource BoolToVisibility}}"
+                        VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.5" Margin="24">
+                <TextBlock Text="Dieses Turnier hat noch keine Runden." FontSize="13" TextWrapping="Wrap" TextAlignment="Center" />
+                <TextBlock Text="Im Tab 'Runden' anlegbar." FontSize="13" TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" />
+            </StackPanel>
+
+            <StackPanel Visibility="{Binding HatKeineFestVorgegebenenRunden, Converter={StaticResource BoolToVisibility}}"
+                        VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.5" Margin="24">
+                <TextBlock Text="Keine Runde ist als 'Paarung fest vorgegeben' markiert." FontSize="13" TextWrapping="Wrap" TextAlignment="Center" />
+                <TextBlock Text="Im Tab 'Runden' aktivierbar (ab der zweiten Runde)." FontSize="13" TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" />
+            </StackPanel>
+
+            <Grid Visibility="{Binding ZeigtRundenBereich, Converter={StaticResource BoolToVisibility}}">
+
+                <StackPanel Visibility="{Binding AusgewaehlteRunde, Converter={StaticResource NullToVisible}}"
+                            VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.4">
+                    <TextBlock Text="📋" FontSize="48" HorizontalAlignment="Center" />
+                    <TextBlock Text="Runde links auswählen" FontSize="14" HorizontalAlignment="Center" Margin="0,12,0,0" />
+                </StackPanel>
+
+                <StackPanel Visibility="{Binding RundeNichtEditierbarHier, Converter={StaticResource BoolToVisibility}}"
+                            VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.5" Margin="24">
+                    <TextBlock Text="Diese Runde hat bereits eine echte Auslosung." FontSize="13" TextWrapping="Wrap" TextAlignment="Center" />
+                    <TextBlock Text="Siehe Turnierdurchführung → Auslosung." FontSize="13" TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" />
+                </StackPanel>
+
+                <Grid Visibility="{Binding ZeigeWorkspace, Converter={StaticResource BoolToVisibility}}"
+                      Margin="16" DataContext="{Binding Workspace}"
+                      RowDefinitions="Auto,Auto,*" ColumnDefinitions="220,12,*">
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                               Text="Ziehen aus &quot;Verfügbar&quot; auf einen Slot, oder doppeltippen. Rechtsklick auf einen besetzten Slot entfernt ihn."
+                               FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,10" />
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding TeamsStatusText}" FontSize="12" Margin="0,0,0,8" />
+                    <Border Grid.Row="1" Grid.Column="2" HorizontalAlignment="Left"
+                            Visibility="{Binding ManuellesFehler, Converter={StaticResource NullToCollapsed}}"
+                            Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                            CornerRadius="4" Padding="8,4" Margin="0,0,0,8">
+                        <TextBlock Text="{Binding ManuellesFehler}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                   FontSize="11" TextWrapping="Wrap" />
+                    </Border>
+
+                    <!-- Verfügbare Teilnehmer (Drag-Quelle) -->
+                    <Grid Grid.Row="2" Grid.Column="0" RowDefinitions="Auto,Auto,*">
+                        <TextBlock Grid.Row="0" Text="VERFÜGBAR" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
+                        <TextBox Grid.Row="1" Text="{Binding TeilnehmerFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 PlaceholderText="🔍  Filtern …" Margin="0,0,0,8" />
+                        <ListView Grid.Row="2"
+                                  ItemsSource="{Binding VerfuegbareTeilnehmerGefiltert}"
+                                  CanDragItems="True" CanReorderItems="False"
+                                  DragItemsStarting="VerfuegbarListView_DragItemsStarting"
+                                  DoubleTapped="VerfuegbarListView_DoubleTapped"
+                                  SelectionMode="Single">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}" FontSize="12" Padding="0,4" TextWrapping="Wrap" />
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+
+                    <!-- KO-Modus: paarweise Anzeige (Heim vs. Auswärts) -->
+                    <ScrollViewer Grid.Row="2" Grid.Column="2" VerticalScrollBarVisibility="Auto"
+                                  Visibility="{Binding IstKoModus, Converter={StaticResource BoolToVisibility}}">
+                        <ItemsControl ItemsSource="{Binding KoPaarungen}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4"
+                                            Padding="10,7" Margin="0,0,0,6">
+                                        <Grid ColumnDefinitions="28,*,Auto,*">
+                                            <TextBlock Grid.Column="0" Text="{Binding PaarungsNr}" FontSize="12" Opacity="0.6" VerticalAlignment="Center" />
+                                            <Border Grid.Column="1" DataContext="{Binding HeimSlot}"
+                                                    Background="Transparent"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="3" Padding="8,6"
+                                                    AllowDrop="True"
+                                                    Drop="Slot_Drop" DragOver="Slot_DragOver" DragEnter="Slot_DragEnter" DragLeave="Slot_DragLeave"
+                                                    RightTapped="Slot_RightTapped">
+                                                <TextBlock Text="{Binding AnzeigeName}" FontSize="12" TextWrapping="Wrap" />
+                                            </Border>
+                                            <TextBlock Grid.Column="2" Text=" vs " FontSize="12" Opacity="0.6" VerticalAlignment="Center" Margin="6,0" />
+                                            <Border Grid.Column="3" DataContext="{Binding AuswaertsSlot}"
+                                                    Background="Transparent"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="3" Padding="8,6"
+                                                    AllowDrop="True"
+                                                    Drop="Slot_Drop" DragOver="Slot_DragOver" DragEnter="Slot_DragEnter" DragLeave="Slot_DragLeave"
+                                                    RightTapped="Slot_RightTapped">
+                                                <TextBlock Text="{Binding AnzeigeName}" FontSize="12" TextWrapping="Wrap" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!-- Gruppenphase/Liga/SchweizerSystem-Modus: gruppierte Anzeige -->
+                    <ScrollViewer Grid.Row="2" Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                                  Visibility="{Binding IstGruppenModus, Converter={StaticResource BoolToVisibility}}">
+                        <ItemsControl ItemsSource="{Binding Gruppen}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Width="180" Margin="0,0,10,10" VerticalAlignment="Top"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
+                                        <StackPanel>
+                                            <Border Background="{ThemeResource LayerFillColorDefaultBrush}" Padding="10,6" CornerRadius="4,4,0,0">
+                                                <TextBlock Text="{Binding GruppenName}" FontSize="13" FontWeight="SemiBold" />
+                                            </Border>
+                                            <ItemsControl ItemsSource="{Binding Slots}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="Transparent"
+                                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
+                                                                Padding="10,6" MinHeight="32"
+                                                                AllowDrop="True"
+                                                                Drop="Slot_Drop" DragOver="Slot_DragOver" DragEnter="Slot_DragEnter" DragLeave="Slot_DragLeave"
+                                                                RightTapped="Slot_RightTapped">
+                                                            <TextBlock Text="{Binding AnzeigeName}" FontSize="12" TextWrapping="Wrap" />
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Grid>
+
+            <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
+                    Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                    CornerRadius="4" Padding="10,8" VerticalAlignment="Bottom" Margin="16">
+                <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                           FontSize="12" TextWrapping="Wrap" />
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

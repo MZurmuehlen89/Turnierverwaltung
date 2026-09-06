@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <UserControl
-    x:Class="Fussballturnierverwaltung.WinUi.Views.VorlagenRundenUebergaengePage"
+    x:Class="Fussballturnierverwaltung.WinUi.Views.RundenUebergaengePage"
     x:Name="Root"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -64,22 +64,24 @@
 
     <Grid>
 
-        <!-- Sperre, solange keine (gespeicherte) Vorlage gewählt ist -->
-        <StackPanel Visibility="{Binding HatVorlage, Converter={StaticResource InverseBoolToVisibility}}"
+        <!-- Sperre, solange kein (gespeichertes) Turnier gewählt ist -->
+        <StackPanel Visibility="{Binding HatInstanz, Converter={StaticResource InverseBoolToVisibility}}"
                     VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.4">
             <TextBlock Text="🔒" FontSize="48" HorizontalAlignment="Center" />
-            <TextBlock Text="Bitte zuerst die Vorlage im Turnierkopf speichern" FontSize="14" HorizontalAlignment="Center" Margin="0,12,0,0" />
+            <TextBlock Text="Bitte zuerst ein Turnier im Turnierkopf speichern" FontSize="14" HorizontalAlignment="Center" Margin="0,12,0,0" />
         </StackPanel>
 
         <!-- Layout (Nutzer-Vorgabe): links die Rundenliste, Mitte Eingehend (oben)/Ausgehend (unten),
              rechts das Formular (Runde ODER Regel, je nach Auswahl). -->
-        <Grid Visibility="{Binding HatVorlage, Converter={StaticResource BoolToVisibility}}"
-              ColumnDefinitions="220,1,*">
+        <ContentControl Visibility="{Binding HatInstanz, Converter={StaticResource BoolToVisibility}}"
+                        IsEnabled="{Binding RundenBearbeitbar}" IsTabStop="False"
+                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+        <Grid ColumnDefinitions="220,1,*">
 
             <!-- ── Spalte 0: Rundenliste — dieselbe native ListView wie im "Runden"-Tab (nur Item-Inhalt
                  reicher: Rundenart/Eingang-Ausgang als separate Zeile + optionaler Unstimmigkeits-Hinweis).
                  SelectedValuePath="Runde" + SelectedValue statt SelectedItem, da ItemsSource hier DTOs
-                 (VorlagenRundenKarte) sind, AusgewaehlteRunde aber vom Typ VorlagenRundeZeile ist. ── -->
+                 (RundenKarte) sind, AusgewaehlteRunde aber vom Typ RundeZeile ist. ── -->
             <Grid Grid.Column="0" RowDefinitions="Auto,*">
                 <ProgressBar Grid.Row="0" IsIndeterminate="True" Height="2"
                              Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
@@ -217,5 +219,6 @@
                 </Grid>
             </Grid>
         </Grid>
+        </ContentControl>
     </Grid>
 </UserControl>

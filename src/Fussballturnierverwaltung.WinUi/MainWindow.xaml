@@ -28,8 +28,8 @@
             <DataTemplate x:Key="RegelwerkeTemplate" x:DataType="vm:RegelwerkeViewModel">
                 <views:RegelwerkePage />
             </DataTemplate>
-            <DataTemplate x:Key="TurniervorlagenTemplate" x:DataType="vm:TurniervorlagenViewModel">
-                <views:TurniervorlagenPage />
+            <DataTemplate x:Key="TurnierlisteTemplate" x:DataType="vm:TurnierlisteViewModel">
+                <views:TurnierlistePage />
             </DataTemplate>
             <DataTemplate x:Key="RanglistenTemplate" x:DataType="vm:RanglistenViewModel">
                 <views:RanglistenPage />
@@ -40,7 +40,7 @@
                                               MannschaftenTemplate="{StaticResource MannschaftenTemplate}"
                                               LaenderUndVerbaendeTemplate="{StaticResource LaenderUndVerbaendeTemplate}"
                                               RegelwerkeTemplate="{StaticResource RegelwerkeTemplate}"
-                                              TurniervorlagenTemplate="{StaticResource TurniervorlagenTemplate}"
+                                              TurnierlisteTemplate="{StaticResource TurnierlisteTemplate}"
                                               RanglistenTemplate="{StaticResource RanglistenTemplate}" />
         </Grid.Resources>
 

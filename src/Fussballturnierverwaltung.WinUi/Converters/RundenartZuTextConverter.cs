@@ -3,7 +3,7 @@ using Microsoft.UI.Xaml.Data;
 
 namespace Fussballturnierverwaltung.WinUi.Converters;
 
-/// <summary>Nur lokal in Views registriert, die Rundenart anzeigen (aktuell nur VorlagenRundenPage) — kein
+/// <summary>Nur lokal in Views registriert, die Rundenart anzeigen (aktuell nur RundenPage) — kein
 /// globaler App.xaml-Eintrag, analog zu VerfahrenArtZuTextConverter.</summary>
 public class RundenartZuTextConverter : IValueConverter
 {

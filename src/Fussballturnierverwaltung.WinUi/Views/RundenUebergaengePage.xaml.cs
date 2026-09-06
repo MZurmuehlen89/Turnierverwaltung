@@ -4,9 +4,9 @@ using Microsoft.UI.Xaml.Media;
 
 namespace Fussballturnierverwaltung.WinUi.Views;
 
-public sealed partial class VorlagenRundenUebergaengePage : UserControl
+public sealed partial class RundenUebergaengePage : UserControl
 {
-    public VorlagenRundenUebergaengePage()
+    public RundenUebergaengePage()
     {
         InitializeComponent();
     }

@@ -1,7 +1,10 @@
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Einstellungen;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Ranglisten.Import;
+using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Infrastructure.Erweiterungen;
@@ -43,30 +46,40 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddInfrastruktur(builder.Configuration);
 
         // Validatoren & Services (Mannschaften, #281; Länder & Verbände, #282; Regelwerke, #283;
-        // Turniervorlagen, #284)
+        // Turniere/Vorlagen vereinheitlicht, #297)
         builder.Services.AddScoped<MannschaftValidator>();
         builder.Services.AddScoped<LandValidator>();
         builder.Services.AddScoped<VerbandValidator>();
         builder.Services.AddScoped<RegelwerkValidator>();
-        builder.Services.AddScoped<TurnierVorlageValidator>();
-        builder.Services.AddScoped<VorlagenUebergangsregelValidator>();
-        builder.Services.AddScoped<VorlagenPaarungValidator>();
+        builder.Services.AddScoped<TurnierValidator>();
+        builder.Services.AddScoped<UebergangsregelValidator>();
+        builder.Services.AddScoped<VerbandsQuoteValidator>();
+        builder.Services.AddScoped<AuslosungsValidator>();
         builder.Services.AddScoped<RanglisteValidator>();
         builder.Services.AddScoped<RanglistenQuelleValidator>();
         builder.Services.AddScoped<MannschaftService>();
         builder.Services.AddScoped<LandService>();
         builder.Services.AddScoped<VerbandService>();
         builder.Services.AddScoped<RegelwerkService>();
-        builder.Services.AddScoped<TurnierVorlageService>();
+        builder.Services.AddScoped<TurnierInstanzService>();
+        builder.Services.AddScoped<UebergangsregelService>();
+        builder.Services.AddScoped<VerbandsQuoteService>();
+        builder.Services.AddScoped<AuslosungService>();
+        builder.Services.AddScoped<TabellenService>();
+        builder.Services.AddScoped<ISpielplanGenerator, RoundRobinGenerator>();
+        builder.Services.AddScoped<ISpielplanGenerator, KoRundeGenerator>();
+        builder.Services.AddScoped<ISpielplanGenerator, TopfLigaGenerator>();
+        builder.Services.AddScoped<ISpielplanGenerator, SchweizerSystemGenerator>();
+        builder.Services.AddScoped<SpielplanGeneratorFactory>();
+        builder.Services.AddScoped<SpielplanService>();
         builder.Services.AddScoped<RanglisteService>();
         builder.Services.AddScoped<RanglistenQuelleService>();
         builder.Services.AddScoped<RanglistenImportService>();
 
-        // VorlagenRundenViewModel ist der geteilte Datenhalter für die Tabs "Runden", "Rundenübergänge" und
-        // "Paarungen" (#284-Redesign, #277-Erweiterung) — Scoped statt Transient, damit alle drei innerhalb
-        // derselben Navigations-Scope dieselbe Instanz injiziert bekommen (TurniervorlagenViewModel UND
-        // VorlagenRundenUebergaengeViewModel/VorlagenPaarungenViewModel).
-        builder.Services.AddScoped<VorlagenRundenViewModel>();
+        // RundenViewModel ist der geteilte Datenhalter für die Tabs "Runden" und "Rundenübergänge" (Issue
+        // #297) — Scoped statt Transient, damit beide innerhalb derselben Navigations-Scope dieselbe Instanz
+        // injiziert bekommen (TurnierlisteViewModel UND RundenUebergaengeViewModel).
+        builder.Services.AddScoped<RundenViewModel>();
 
         // ViewModels (Transient = neuer Scope bei jeder Navigation)
         builder.Services.AddTransient<PlatzhalterViewModel>();
@@ -74,9 +87,9 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<LaenderUndVerbaendeViewModel>();
         builder.Services.AddTransient<RegelwerkeViewModel>();
         builder.Services.AddTransient<TurnierkopfViewModel>();
-        builder.Services.AddTransient<VorlagenRundenUebergaengeViewModel>();
-        builder.Services.AddTransient<VorlagenPaarungenViewModel>();
-        builder.Services.AddTransient<TurniervorlagenViewModel>();
+        builder.Services.AddTransient<RundenUebergaengeViewModel>();
+        builder.Services.AddTransient<VorbelegungViewModel>();
+        builder.Services.AddTransient<TurnierlisteViewModel>();
         builder.Services.AddTransient<RanglistenViewModel>();
 
         // Navigation & Hauptfenster
