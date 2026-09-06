@@ -605,6 +605,16 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
 
     // ── Validierung ───────────────────────────────────────────────────────────
 
+    /// <summary>Issue #297-Nachzug: der WinUi-Port hatte <c>TurnierRunde.EingangUeberUebergangsregeln</c>
+    /// komplett vergessen (weder in <see cref="RundeZeile"/> noch beim Laden/Speichern berücksichtigt) —
+    /// dadurch prüfte <see cref="TurnierValidator.RundenValidieren"/> stur die lineare Rundenkette
+    /// (Ausgang[i] == Eingang[i+1]), was bei parallelen/zusammenlaufenden Pfaden (z.B. UEFA Champions
+    /// League: Ligaphase speist Achtelfinale UND Playoff-Runde parallel) zu falschen Validierungsfehlern
+    /// führte (Fund aus #297-Test). Statt das Flag als eigenes, manuell zu pflegendes Formularfeld
+    /// nachzuziehen (wie im WPF-Original), wird es hier — analog zu dessen Auto-Set-Logik — direkt aus dem
+    /// tatsächlichen Vorhandensein eingehender Übergangsregeln abgeleitet: hat eine Runde mindestens einen
+    /// Übergangsregel-Block, der auf sie zielt, ist ihr Eingang per Definition regelbasiert und nicht mehr
+    /// die unmittelbar vorangehende Runde.</summary>
     public List<TurnierRundeEingabe> RundenZuEingaben() => Runden.Select(z => new TurnierRundeEingabe(
         Name: z.Name,
         Rundenart: z.Rundenart,
@@ -614,6 +624,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         MitRueckspiel: z.MitRueckspiel,
         AuswaertstorRegelAktiv: z.AuswaertstorRegelAktiv,
         GruppenAnzahl: z.Rundenart == Rundenart.Gruppenphase ? z.GruppenAnzahl : null,
+        EingangUeberUebergangsregeln: AlleUebergaenge.Any(b => b.ZielRunde == z),
         PaarungFestVorgegeben: z.PaarungFestVorgegeben)).ToList();
 
     public List<UebergangsregelPositionsEingabe> UebergangsregelnZuEingaben() => _alleUebergaenge
