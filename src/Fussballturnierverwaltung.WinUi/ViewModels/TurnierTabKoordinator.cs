@@ -121,6 +121,7 @@ public partial class TurnierTabKoordinator : ObservableObject
                                nameof(IRibbonAware.AbbrechenBefehl) or
                                nameof(IRibbonAware.LoeschenBefehl) or
                                nameof(IRibbonAware.RibbonZusatzGruppen) or
+                               nameof(IRibbonAware.NeuUnterpunkte) or
                                nameof(IHatUngespeicherteAenderungen.HatUngespeicherteAenderungen))
         {
             AktivesTabZustandGeaendert?.Invoke(this, EventArgs.Empty);

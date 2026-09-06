@@ -267,15 +267,10 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     /// <summary>Issue #297-Nachzug: <see cref="TurnierKlonService"/> existiert seit #294, war aber in
     /// keiner UI verdrahtet (dokumentierte Scope-Lücke). "Aus Vorlage erstellen" legt eine neue Instanz an
-    /// (echtes Turnier oder weitere Vorlage), löst nebenbei #46.</summary>
-    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
-    [
-        new RibbonGruppe
-        {
-            Header = "Vorlage",
-            Aktionen = [new RibbonAktion { Header = "Aus Vorlage erstellen", Befehl = AusVorlageErstellenCommand }]
-        }
-    ];
+    /// (echtes Turnier oder weitere Vorlage), löst nebenbei #46. Als Unterpunkt im "Neu"-Flyout statt
+    /// eigener Ribbon-Gruppe (Nutzerwunsch aus #297-Test).</summary>
+    public IReadOnlyList<RibbonAktion> NeuUnterpunkte =>
+        [new RibbonAktion { Header = "Aus Vorlage erstellen", Befehl = AusVorlageErstellenCommand, IconGlyph = "" }];
 
     public TurnierkopfViewModel(
         TurnierInstanzService service, TurnierValidator validator, IDialogService dialogService,

@@ -18,6 +18,12 @@ public interface IRibbonAware
     /// Gruppen, damit bestehende Implementierungen unverändert bleiben.</summary>
     IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen => [];
 
+    /// <summary>Zusätzliche Optionen im Flyout-Menü des "Neu"-Buttons, z.B. "Aus Vorlage erstellen"
+    /// (Issue #297-Nachzug) — leer lässt den Button wie gewohnt direkt <see cref="NeuBefehl"/> auslösen,
+    /// nicht-leer hängt ein Flyout mit "Neu" + diesen Zusatzpunkten an (siehe MainWindow.xaml.cs,
+    /// NeuFlyoutAktualisieren).</summary>
+    IReadOnlyList<RibbonAktion> NeuUnterpunkte => [];
+
     bool HatStandardAktionen => true;
     bool HatLoeschenAktion => true;
 }

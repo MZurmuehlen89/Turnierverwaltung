@@ -90,6 +90,7 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         OnPropertyChanged(nameof(AbbrechenBefehl));
         OnPropertyChanged(nameof(LoeschenBefehl));
         OnPropertyChanged(nameof(RibbonZusatzGruppen));
+        OnPropertyChanged(nameof(NeuUnterpunkte));
         OnPropertyChanged(nameof(HatStandardAktionen));
         OnPropertyChanged(nameof(HatLoeschenAktion));
         OnPropertyChanged(nameof(HatUngespeicherteAenderungen));
@@ -103,6 +104,8 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
     public ICommand? LoeschenBefehl  => (TabKoordinator.AktivesTab as IRibbonAware)?.LoeschenBefehl;
     public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen
         => (TabKoordinator.AktivesTab as IRibbonAware)?.RibbonZusatzGruppen ?? [];
+    public IReadOnlyList<RibbonAktion> NeuUnterpunkte
+        => (TabKoordinator.AktivesTab as IRibbonAware)?.NeuUnterpunkte ?? [];
     public bool HatStandardAktionen => (TabKoordinator.AktivesTab as IRibbonAware)?.HatStandardAktionen ?? false;
     public bool HatLoeschenAktion   => (TabKoordinator.AktivesTab as IRibbonAware)?.HatLoeschenAktion ?? false;
 

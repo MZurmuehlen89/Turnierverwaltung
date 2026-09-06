@@ -36,12 +36,46 @@ public sealed partial class MainWindow : Window
 
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         RibbonZusatzGruppenAktualisieren();
+        NeuFlyoutAktualisieren();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MainViewModel.RibbonZusatzGruppen))
             RibbonZusatzGruppenAktualisieren();
+        if (e.PropertyName is nameof(MainViewModel.RibbonNeuUnterpunkte) or nameof(MainViewModel.RibbonNeuBefehl))
+            NeuFlyoutAktualisieren();
+    }
+
+    /// <summary>Hängt bei vorhandenen <see cref="MainViewModel.RibbonNeuUnterpunkte"/> (Issue #297-Nachzug,
+    /// z.B. "Aus Vorlage erstellen") ein Flyout an den "Neu"-Button — WinUI löst bei gesetztem
+    /// <c>AppBarButton.Flyout</c> beim Klick NICHT mehr das <c>Command</c> aus, daher wird "Neues Turnier"
+    /// als erster Menüpunkt mitgeliefert, um den direkten Klick-Fall weiterhin verfügbar zu halten. Ohne
+    /// Unterpunkte bleibt der Button unverändert direkt klickbar (Flyout = null).</summary>
+    private void NeuFlyoutAktualisieren()
+    {
+        var unterpunkte = ViewModel.RibbonNeuUnterpunkte;
+        if (unterpunkte.Count == 0)
+        {
+            NeuButton.Flyout = null;
+            return;
+        }
+
+        var menu = new MenuFlyout();
+        menu.Items.Add(new MenuFlyoutItem
+        {
+            Text = "Neues Turnier",
+            Command = ViewModel.RibbonNeuBefehl,
+            Icon = new SymbolIcon(Symbol.Add)
+        });
+        foreach (var aktion in unterpunkte)
+        {
+            var item = new MenuFlyoutItem { Text = aktion.Header, Command = aktion.Befehl };
+            if (aktion.IconGlyph is not null)
+                item.Icon = new FontIcon { Glyph = aktion.IconGlyph };
+            menu.Items.Add(item);
+        }
+        NeuButton.Flyout = menu;
     }
 
     private void RibbonZusatzGruppenAktualisieren()

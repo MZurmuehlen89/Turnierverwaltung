@@ -67,7 +67,7 @@
                     <TextBlock Text="{x:Bind ViewModel.RibbonTabTitel, Mode=OneWay}"
                                FontWeight="Bold" VerticalAlignment="Center" Margin="12,0,16,0"
                                Visibility="{x:Bind ViewModel.HatRibbonBereich, Mode=OneWay}" />
-                    <AppBarButton Icon="Add" Label="Neu" Command="{x:Bind ViewModel.RibbonNeuBefehl, Mode=OneWay}"
+                    <AppBarButton x:Name="NeuButton" Icon="Add" Label="Neu" Command="{x:Bind ViewModel.RibbonNeuBefehl, Mode=OneWay}"
                                   Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
                     <AppBarButton Icon="Save" Label="Speichern" Command="{x:Bind ViewModel.RibbonSpeichernBefehl, Mode=OneWay}"
                                   Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
