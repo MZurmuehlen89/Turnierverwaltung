@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
@@ -47,8 +48,12 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         TabKoordinator = new TurnierTabKoordinator(service, [AuslosungTab, SpielplanUndBaumTab, SimulationTab], turnierAuswahlService);
 
         // SimulationTab ist noch Platzhalter (#302) und wird dort um dieselbe Verdrahtung ergänzt.
-        TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = AuslosungTab.InstanzSetzenAsync(instanz);
-        TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = SpielplanUndBaumTab.InstanzSetzenAsync(instanz);
+        // Beide Tabs SEQUENZIELL innerhalb EINES Fire-and-Forget-Aufrufs statt zweier eigenständiger
+        // (Testfund: paralleles Fire-and-Forget mit DB-Zugriff auf denselben scoped DbContext löste eine
+        // stille "A second operation was started on this context instance"-Exception aus — der Spielplan-Tab
+        // brach seinen Runden-Ladevorgang lautlos ab, sobald der Auslosungs-Tab gleichzeitig auf demselben
+        // DbContext arbeitete).
+        TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = InstanzAnBeideTabsSequenziellSetzenAsync(instanz);
 
         TabKoordinator.AktivesTabZustandGeaendert += (_, _) => RibbonEigenschaftenGeaendertMelden();
     }
@@ -67,6 +72,12 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
     {
         await AuslosungTab.RanglistenLadenAsync();
         await TabKoordinator.AktivierenAsync();
+    }
+
+    private async Task InstanzAnBeideTabsSequenziellSetzenAsync(TurnierInstanz? instanz)
+    {
+        await AuslosungTab.InstanzSetzenAsync(instanz);
+        await SpielplanUndBaumTab.InstanzSetzenAsync(instanz);
     }
 
     private void RibbonEigenschaftenGeaendertMelden()
