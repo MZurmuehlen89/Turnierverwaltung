@@ -144,7 +144,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         if (_populiertGerade > 0) return;
         if (value is null) { VerbandFilter = _keinVerband; return; }
         if (value.Wert is not null && !IstFifa(value.Wert)
-            && LandFilter.Wert is not null && LandFilter.Wert.VerbandId != value.Wert.Id)
+            && LandFilter?.Wert is not null && LandFilter.Wert.VerbandId != value.Wert.Id)
             LandFilter = _keinLand;
     }
 
@@ -154,7 +154,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         // VerbandOptionenGefiltert.
         if (_populiertGerade > 0) return;
         if (value is null) { LandFilter = _keinLand; return; }
-        if (value.Wert is not null && VerbandFilter.Wert is not null && !IstFifa(VerbandFilter.Wert)
+        if (value.Wert is not null && VerbandFilter?.Wert is not null && !IstFifa(VerbandFilter.Wert)
             && VerbandFilter.Wert.Id != value.Wert.VerbandId)
             VerbandFilter = _keinVerband;
     }
@@ -225,8 +225,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     // nie etwas Sinnvolles ausdrücken (Issue #154). FIFA-Ausnahme (Issue #211): "weltweit" lässt wieder alle
     // Kontinentalverbände zu. Nur für bereits gespeicherte Instanzen sichtbar (Quoten brauchen eine Id).
     public bool VerbandsQuotenSichtbar => FormularAktiv && !IstNeuModus
-        && (VerbandFilter.Wert is null || IstFifa(VerbandFilter.Wert))
-        && LandFilter.Wert is null;
+        && (VerbandFilter?.Wert is null || IstFifa(VerbandFilter.Wert))
+        && LandFilter?.Wert is null;
 
     [RelayCommand]
     private void VerbandsQuoteHinzufuegen() => QuotenZeilen.Add(new VerbandsQuoteZeile());
