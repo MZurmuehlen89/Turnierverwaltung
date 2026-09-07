@@ -855,6 +855,38 @@ public class SpielplanServiceTests
         spiel.AuswaertsMannschaftId.Should().Be(4); // Verlierer HF 2 = Team D
     }
 
+    /// <summary>Regressionstest für einen Nutzerfund: keine mitgelieferte Turniervorlage benennt ihre K.o.-
+    /// Runden mit einer Kurzform ("VF"/"HF"/"AF") — sie heißen immer ausgeschrieben ("Viertelfinale",
+    /// "Halbfinale", ...). <see cref="TeilnehmerPoolHilfsmittel"/> (WinUi) bzw. dessen WPF-Pendant erzeugen
+    /// Platzhaltertext ausschließlich aus dem ECHTEN Rundennamen ("Sieger Halbfinale 1"), nie aus einer
+    /// Kurzform — der obige Test <see cref="PlatzhalterAufloesenAsync_LoestKoSiegerUndVerliererAuf"/> verdeckte
+    /// das, weil er den Platzhaltertext von Hand mit der Kurzform "HF" schreibt statt mit dem echten
+    /// Rundennamen "Halbfinale" der Testrunde. In der Praxis lösten sich K.o.-Platzhalter dadurch nie auf,
+    /// weder einzeln noch simuliert, weder produktiv noch in der Vorschau.</summary>
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_LoestKoSiegerAufMitAusgeschriebenemRundennamen()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
+        HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
+        HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 20, TurnierInstanzId = 1, TurnierRundeId = finaleRundeId, Spielnummer = 20,
+            HeimPlatzhalterName = "Sieger Halbfinale 1", AuswaertsPlatzhalterName = "Verlierer Halbfinale 2",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        var anzahl = await service.PlatzhalterAufloesenAsync(finaleRundeId);
+
+        anzahl.Should().Be(1);
+        var spiel = ctx.Spiele.First(s => s.Id == 20);
+        spiel.HeimMannschaftId.Should().Be(1);      // Sieger Halbfinale 1 = Team A
+        spiel.AuswaertsMannschaftId.Should().Be(4); // Verlierer Halbfinale 2 = Team D
+    }
+
     // ── Tests: K.o.-Quellverknüpfung (Issue #241) ──────────────────────────
 
     [Fact]

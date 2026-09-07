@@ -1121,20 +1121,33 @@ public class SpielplanService(
         return await RangAufloesenAsync(koRunde, spielNummer, 2, ct, ignorierteSpielIds);
     }
 
-    /// <summary>Findet die nächstgelegene VORHERGEHENDE K.o.-Runde mit zum Kürzel passender
-    /// <see cref="TurnierRunde.EingangsMannschaftsanzahl"/> (z.B. "VF" → 8). Bei mehreren K.o.-Zweigen
-    /// gleicher Größe im selben Turnier ist das die per <see cref="TurnierRunde.Reihenfolge"/> nächste,
+    /// <summary>Findet die nächstgelegene VORHERGEHENDE K.o.-Runde, auf die sich ein Platzhaltertext wie
+    /// "Sieger Halbfinale 1" bezieht. Zuerst per EXAKTEM Rundennamen (Fund: <see cref="TeilnehmerPoolHilfsmittel"/>
+    /// — bzw. deren WPF-Pendant — erzeugt diesen Text immer aus dem echten Rundennamen, nie aus einer Kurzform;
+    /// keine der mitgelieferten Turniervorlagen benennt ihre Runden "VF"/"HF"/"AF", wodurch die Kürzel-Tabelle
+    /// unten in der Praxis nie traf und K.o.-Platzhalter nach der ersten K.o.-Runde nie automatisch aufgelöst
+    /// wurden — Nutzerfund: "Sieger/Verlierer"-Übergänge zwischen zwei K.o.-Runden funktionierten nie, weder
+    /// einzeln noch simuliert, weder produktiv noch in der Vorschau). Fällt nur mangels Namenstreffer auf die
+    /// alte Kürzel-zu-Eingangsteams-Tabelle zurück (z.B. "VF" → 8) — deckt Turniere ab, deren Runden tatsächlich
+    /// so kurz benannt sind, und hält die bestehenden Tests unverändert grün. Bei mehreren K.o.-Zweigen gleicher
+    /// Größe/gleichen Namens im selben Turnier ist das die per <see cref="TurnierRunde.Reihenfolge"/> nächste,
     /// nicht immer die erste.</summary>
     private static TurnierRunde? NaechstgelegeneKoQuellrunde(
         string kuerzel, IReadOnlyList<Rundenart> arten, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden)
     {
+        var kandidaten = alleRunden.Where(r => arten.Contains(r.Rundenart) && r.Reihenfolge < runde.Reihenfolge);
+
+        var perName = kandidaten
+            .Where(r => string.Equals(r.Name, kuerzel, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(r => r.Reihenfolge)
+            .FirstOrDefault();
+        if (perName is not null) return perName;
+
         int? eingangTeams = KuerzelZuEingangsteams(kuerzel);
         if (eingangTeams is null) return null;
 
-        return alleRunden
-            .Where(r => arten.Contains(r.Rundenart) &&
-                        r.EingangsMannschaftsanzahl == eingangTeams.Value &&
-                        r.Reihenfolge < runde.Reihenfolge)
+        return kandidaten
+            .Where(r => r.EingangsMannschaftsanzahl == eingangTeams.Value)
             .OrderByDescending(r => r.Reihenfolge)
             .FirstOrDefault();
     }
