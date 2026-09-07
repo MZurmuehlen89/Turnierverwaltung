@@ -27,7 +27,7 @@
                 <views:AuslosungPage DataContext="{Binding AuslosungTab}" />
             </PivotItem>
             <PivotItem Header="Spielplan &amp; Baum">
-                <views:PlatzhalterPage DataContext="{Binding SpielplanUndBaumTab}" />
+                <views:SpielplanUndBaumPage DataContext="{Binding SpielplanUndBaumTab}" />
             </PivotItem>
             <PivotItem Header="Simulation">
                 <views:PlatzhalterPage DataContext="{Binding SimulationTab}" />

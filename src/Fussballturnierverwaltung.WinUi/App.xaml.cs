@@ -98,6 +98,9 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<VorbelegungViewModel>();
         builder.Services.AddTransient<TurnierlisteViewModel>();
         builder.Services.AddTransient<AuslosungViewModel>();
+        builder.Services.AddTransient<SpielplanViewModel>();
+        builder.Services.AddTransient<TurnierBaumViewModel>();
+        builder.Services.AddTransient<SpielplanUndBaumViewModel>();
         builder.Services.AddTransient<TurnierdurchfuehrungViewModel>();
         builder.Services.AddTransient<RanglistenViewModel>();
 

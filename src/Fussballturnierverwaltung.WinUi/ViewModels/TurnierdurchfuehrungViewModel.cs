@@ -28,7 +28,7 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
     private readonly IDialogService _dialogService;
 
     public AuslosungViewModel AuslosungTab { get; }
-    public PlatzhalterViewModel SpielplanUndBaumTab { get; } = new() { SeitenTitel = "Spielplan & Baum — folgt in #301" };
+    public SpielplanUndBaumViewModel SpielplanUndBaumTab { get; }
     public PlatzhalterViewModel SimulationTab { get; } = new() { SeitenTitel = "Simulation — folgt in #302" };
 
     public TurnierTabKoordinator TabKoordinator { get; }
@@ -37,16 +37,18 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         TurnierInstanzService service,
         AusgewaehlteTurnierInstanzService turnierAuswahlService,
         AuslosungViewModel auslosungTab,
+        SpielplanUndBaumViewModel spielplanUndBaumTab,
         IDialogService dialogService)
     {
         _dialogService = dialogService;
         AuslosungTab = auslosungTab;
+        SpielplanUndBaumTab = spielplanUndBaumTab;
 
         TabKoordinator = new TurnierTabKoordinator(service, [AuslosungTab, SpielplanUndBaumTab, SimulationTab], turnierAuswahlService);
 
-        // Nur AuslosungTab kennt InstanzSetzenAsync (Precedent: TurnierlisteViewModel) — die übrigen beiden
-        // sind noch Platzhalter (#301/#302) und werden dort um dieselbe Verdrahtung ergänzt.
+        // SimulationTab ist noch Platzhalter (#302) und wird dort um dieselbe Verdrahtung ergänzt.
         TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = AuslosungTab.InstanzSetzenAsync(instanz);
+        TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = SpielplanUndBaumTab.InstanzSetzenAsync(instanz);
 
         TabKoordinator.AktivesTabZustandGeaendert += (_, _) => RibbonEigenschaftenGeaendertMelden();
     }
