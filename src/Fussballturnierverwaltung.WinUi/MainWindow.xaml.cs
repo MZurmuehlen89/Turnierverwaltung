@@ -112,18 +112,22 @@ public sealed partial class MainWindow : Window
     /// <c>ToggleMenuFlyoutItem</c>/<c>MenuFlyout</c>: Letzteres kann nur eine einzeilige Beschriftung
     /// anzeigen, der Infotext (<see cref="RibbonToggleAktion.Beschreibung"/>) landete nur als Tooltip —
     /// unentdeckt, da ein Flyout typischerweise nicht lange genug gehovert wird (Nutzerfund nach #300-Test:
-    /// "Auslosungsregeln haben keine Infotexte mehr"). Stattdessen ToggleSwitch + Titel + immer sichtbarer
-    /// Beschreibungstext pro Zeile — entspricht der ursprünglichen Seiten-Darstellung, nur jetzt im Menü.</summary>
+    /// "Auslosungsregeln haben keine Infotexte mehr"). <see cref="CheckBox"/> statt <see cref="ToggleSwitch"/>
+    /// für den Umschalter — Letzterer reserviert intern immer Platz für seinen An/Aus-Beschriftungsbereich,
+    /// selbst bei leerem <c>OnContent</c>/<c>OffContent</c>, was eine auffällige Lücke zwischen Schalter und
+    /// Text erzeugte (Nutzerfund). Feste Breite + <c>HorizontalScrollBarVisibility="Disabled"</c>: bei vielen
+    /// Regeln soll nur vertikal, nie horizontal gescrollt werden müssen — Text bricht stattdessen um.</summary>
     private static Flyout ToggleFlyoutErstellen(IReadOnlyList<RibbonToggleAktion> toggles)
     {
-        var liste = new StackPanel { Padding = new Thickness(4), Spacing = 12 };
+        const double breite = 560;
+        var liste = new StackPanel { Padding = new Thickness(4), Spacing = 14, Width = breite };
         foreach (var toggle in toggles)
         {
             var zeile = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-            var umschalter = new ToggleSwitch { IsOn = toggle.IstAktiv, OnContent = "", OffContent = "" };
-            umschalter.Toggled += (_, _) => toggle.Setzen(umschalter.IsOn);
+            var umschalter = new CheckBox { IsChecked = toggle.IstAktiv, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 0, 0) };
+            umschalter.Click += (_, _) => toggle.Setzen(umschalter.IsChecked == true);
 
-            var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MaxWidth = 420 };
+            var text = new StackPanel { Width = breite - 40 };
             text.Children.Add(new TextBlock { Text = toggle.Header, FontSize = 13 });
             if (toggle.Beschreibung is { Length: > 0 } beschreibung)
                 text.Children.Add(new TextBlock
@@ -136,7 +140,15 @@ public sealed partial class MainWindow : Window
             liste.Children.Add(zeile);
         }
 
-        return new Flyout { Content = new ScrollViewer { Content = liste, MaxHeight = 480 } };
+        return new Flyout
+        {
+            Content = new ScrollViewer
+            {
+                Content = liste, MaxHeight = 520, Width = breite,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            }
+        };
     }
 
     private static double BreiteFuerLabel(string label) => Math.Max(90, 26 + label.Length * 7.5);
