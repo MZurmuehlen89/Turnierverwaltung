@@ -50,21 +50,25 @@ RankingRegelSet 1 ──< RankingRegelSetEintrag >── RankingRegel (Punkte, T
 ### Turniere
 
 ```
-TurnierVorlage  0..1── VorlagenKategorie (Enum)
-                1 ──< VorlagenRunden (Vorlagen-Rundenstruktur ohne Instanz-Daten)
-                0..* ──< TurnierInstanz
-
-TurnierInstanz  >── TurnierVorlage (optional)
+TurnierInstanz  0..1── Kategorie (Enum)
                 0..1── StandardRegelwerk (Regelwerk-Default für alle Runden)
                 0..1── Verband (Filter für Mannschaftsauswahl)
-                enthält Status (TurnierStatus), SaisonOderJahr, MannschaftsartFilter
+                enthält Status (TurnierStatus, inkl. Vorlage), SaisonOderJahr, MannschaftsartFilter,
+                ZielMannschaftsanzahl (optional, rein informativ)
                 1 ──< TurnierRunde
 
-TurnierRunde    >── Regelwerk (überschreibt StandardRegelwerk der Instanz)
+TurnierRunde    >── Regelwerk (optional; überschreibt StandardRegelwerk der Instanz, Pflicht sobald
+                Status != Vorlage)
                 enthält Rundenart, Reihenfolge, EingangsMannschaftsanzahl, AusgangsMannschaftsanzahl
                 MitRueckspiel (Bool), AuswaertstorRegelAktiv (Flag, nur aktiv wenn MitRueckspiel=true)
+                PaarungFestVorgegeben (Bool, feste Paarungen statt Auslosung)
                 KonfigurationJson (rundenspezifische Parameter, z.B. Gruppenanzahl)
 ```
+
+Eine "Turniervorlage" ist keine eigene Entität mehr, sondern eine `TurnierInstanz` mit
+`Status = TurnierStatus.Vorlage` (siehe AD-009). `TurnierKlonService.KlonenAsync` kopiert die
+Struktur einer Instanz (Kopf-Felder, Runden, Übergangsregeln, Verbandsquoten) in eine neue Instanz —
+sowohl für "Instanz aus Vorlage erstellen" als auch fürs Klonen eines echten Turniers.
 
 ### Spiele
 
@@ -175,6 +179,21 @@ Auslosung ──< Lostopf ──< LostopfEintrag ──> Mannschaft
 **Entscheidung:** `TurnierInstanz.StandardRegelwerkId` definiert ein optionales Default-Regelwerk. Jede `TurnierRunde` hat ein eigenes verpflichtendes `RegelwerkId`, das das Instanz-Default überschreibt.
 
 **Begründung:** Turniere können mehrere Runden mit unterschiedlichen Regelwerken haben (z.B. Gruppenphase mit 3-Punkte-Regel, KO-Runde mit Elfmeter statt Verlängerung). Das Instanz-Default vereinfacht die Ersterfassung, wenn alle Runden dasselbe Regelwerk nutzen. Die Runden-Ebene erlaubt rundenspezifische Abweichungen ohne Redundanz.
+
+### AD-009: Vorlage als Status statt eigener Entität
+
+**Entscheidung:** Es gibt keine eigenständige `TurnierVorlage`-Entität mehr. Eine Vorlage ist eine
+`TurnierInstanz` mit `TurnierStatus.Vorlage`, ohne Selbstreferenz zurück auf ihre Vorlage.
+
+**Begründung:** `TurnierVorlage` und `TurnierInstanz` waren strukturell nahezu identisch (Runden,
+Übergangsregeln, Verbandsquoten) und pflegten das doppelt. Eine Rückreferenz Instanz→Vorlage wurde
+nie für Logik gebraucht, nur zur Nachverfolgung. "Instanz aus Vorlage erstellen" ist dadurch ein
+reiner Kopiervorgang (`TurnierKlonService`), der auch fürs allgemeine Turnier-Klonen dient.
+
+**Konsequenz:** Es gilt für Vorlagen und echte Turniere eine einzige, strenge Rundenvalidierung
+(`TurnierValidator`) statt einer separaten, laxeren Vorlagen-Validierung. `Spiel.HeimPlatzhalterName`/
+`AuswaertsPlatzhalterName` bilden feste Paarungen (`TurnierRunde.PaarungFestVorgegeben`) sowohl für
+Vorlagen als auch für Instanzen ab; die frühere `VorlagenPaarung`-Entität entfällt ersatzlos.
 
 ## Erweiterungspunkte für Version 2
 
