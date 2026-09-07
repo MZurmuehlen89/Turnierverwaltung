@@ -72,6 +72,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly RegelwerkService _regelwerkService;
     private readonly TabellenService _tabellenService;
     private readonly SimulationsService _simulationsService;
+    private readonly TurnierInstanzService _instanzService;
     private readonly IDialogService _dialogService;
 
     private int _populiertGerade;
@@ -339,6 +340,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public ICommand AbbrechenBefehl => _abbrechenBefehl;
     public ICommand LoeschenBefehl => _loeschenBefehl;
 
+    // Simulieren/Zurücksetzen als je EIN Flyout-Button statt elf Einzelbuttons (Nutzerfund #301-Test:
+    // Ribbon-Leiste selbst mit Overflow unübersichtlich überfüllt) — die einzelnen Ebenen (Runde/Hinrunde/
+    // Rückrunde/Gruppe/Spieltag/Auswahl) bleiben als Flyout-Menüpunkte erreichbar, nur die Andockstelle im
+    // Ribbon selbst schrumpft von 11 auf 2 Buttons. Platzhalter-Vorschau bleibt eigener Button (Toggle,
+    // kein Aktions-Flyout).
     public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
     [
         new RibbonGruppe
@@ -346,17 +352,33 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             Header = "Spielplan",
             Aktionen =
             [
-                new RibbonAktion { Header = "Runde simulieren", Befehl = RundeSimulierenBefehl, IconGlyph = "" },
-                new RibbonAktion { Header = "Runde zurücksetzen", Befehl = RundeZuruecksetzenBefehl, IconGlyph = "" },
-                new RibbonAktion { Header = "Hinrunde simulieren", Befehl = HinrundeSimulierenBefehl, IconGlyph = "" },
-                new RibbonAktion { Header = "Rückrunde simulieren", Befehl = RueckrundeSimulierenBefehl, IconGlyph = "" },
-                new RibbonAktion { Header = "Hinrunde zurücksetzen", Befehl = HinrundeZuruecksetzenBefehl, IconGlyph = "" },
-                new RibbonAktion { Header = "Rückrunde zurücksetzen", Befehl = RueckrundeZuruecksetzenBefehl, IconGlyph = "" },
-                new RibbonAktion { Header = "Gruppe simulieren", Befehl = GruppeSimulierenBefehl, IconGlyph = "" },
-                new RibbonAktion { Header = "Gruppe zurücksetzen", Befehl = GruppeZuruecksetzenBefehl, IconGlyph = "" },
-                new RibbonAktion { Header = SpieltagSimulierenMenuText, Befehl = SpieltagSimulierenBefehl, IconGlyph = "" },
-                new RibbonAktion { Header = SpieltagZuruecksetzenMenuText, Befehl = SpieltagZuruecksetzenBefehl, IconGlyph = "" },
-                new RibbonAktion { Header = AuswahlSimulierenMenuText, Befehl = AuswahlSimulierenBefehl, IconGlyph = "" },
+                new RibbonAktion
+                {
+                    Header = "Simulieren",
+                    IconGlyph = "",
+                    Unteraktionen =
+                    [
+                        new RibbonUnteraktion("Runde", RundeSimulierenBefehl),
+                        new RibbonUnteraktion("Hinrunde", HinrundeSimulierenBefehl),
+                        new RibbonUnteraktion("Rückrunde", RueckrundeSimulierenBefehl),
+                        new RibbonUnteraktion("Gruppe", GruppeSimulierenBefehl),
+                        new RibbonUnteraktion(SpieltagSimulierenMenuText, SpieltagSimulierenBefehl),
+                        new RibbonUnteraktion(AuswahlSimulierenMenuText, AuswahlSimulierenBefehl),
+                    ],
+                },
+                new RibbonAktion
+                {
+                    Header = "Zurücksetzen",
+                    IconGlyph = "",
+                    Unteraktionen =
+                    [
+                        new RibbonUnteraktion("Runde", RundeZuruecksetzenBefehl),
+                        new RibbonUnteraktion("Hinrunde", HinrundeZuruecksetzenBefehl),
+                        new RibbonUnteraktion("Rückrunde", RueckrundeZuruecksetzenBefehl),
+                        new RibbonUnteraktion("Gruppe", GruppeZuruecksetzenBefehl),
+                        new RibbonUnteraktion(SpieltagZuruecksetzenMenuText, SpieltagZuruecksetzenBefehl),
+                    ],
+                },
                 new RibbonAktion
                 {
                     Header = VorschauAktiv ? "Platzhalter-Vorschau: Ein" : "Platzhalter-Vorschau: Aus",
@@ -382,6 +404,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         RegelwerkService regelwerkService,
         TabellenService tabellenService,
         SimulationsService simulationsService,
+        TurnierInstanzService instanzService,
         IDialogService dialogService)
     {
         _spielService = spielService;
@@ -391,6 +414,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _regelwerkService = regelwerkService;
         _tabellenService = tabellenService;
         _simulationsService = simulationsService;
+        _instanzService = instanzService;
         _dialogService = dialogService;
 
         _neuBefehl = new AsyncRelayCommand(SpielplanNeuGenerierenAsync, () => HatRunde);
@@ -536,13 +560,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         if (AusgewaehlteInstanz is null) return;
 
-        // TurnierInstanzService nicht direkt referenziert — Runden kommen über die bereits injizierten
-        // Services, siehe VorbelegungViewModel/AuslosungViewModel-Precedent: der Composite übergibt eine
-        // bereits geladene TurnierInstanz mit Runden nicht, daher hier über die Instanz selbst iterieren,
-        // falls Runden dort vorhanden sind — sonst leer lassen (Composite lädt separat nach).
-        if (AusgewaehlteInstanz.Runden is { Count: > 0 })
-            foreach (var r in AusgewaehlteInstanz.Runden.OrderBy(r => r.Reihenfolge))
-                Runden.Add(r);
+        var instanz = await _instanzService.FindenNachIdMitRundenAsync(AusgewaehlteInstanz.Id);
+        if (instanz is null) return;
+
+        foreach (var r in instanz.Runden.OrderBy(r => r.Reihenfolge))
+            Runden.Add(r);
     }
 
     private async Task RundeWechselAsync()
@@ -955,13 +977,17 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             : "";
     }
 
+    /// <summary>Generiert/aktualisiert den Turnierbaum nach jeder Ergebnisänderung — anders als das WPF-
+    /// Original (das hier nur einen bereits existierenden Baum aktualisierte, sodass der erste Baum
+    /// weiterhin manuell über "Baum generieren" angestoßen werden musste) ruft dieser WinUi-Port
+    /// <see cref="TurnierBaumService.GenerierenAsync"/> IMMER auf, auch für den allerersten Baum
+    /// (Nutzerwunsch: manuelles Generieren soll nicht mehr nötig sein). Für Turniere ganz ohne K.o.-Runden
+    /// wirft GenerierenAsync vermutlich, was der bestehende catch-Block wie bisher schluckt.</summary>
     private async Task TurnierBaumAktualisierenAsync(int turnierInstanzId)
     {
         try
         {
-            var baum = await _baumService.AbrufenAsync(turnierInstanzId);
-            if (baum is not null)
-                await _baumService.GenerierenAsync(turnierInstanzId);
+            await _baumService.GenerierenAsync(turnierInstanzId);
         }
         catch { /* TurnierBaum-Rebuild ist optional — nie Fehler an den Benutzer weitergeben */ }
     }
