@@ -582,6 +582,31 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
 
+    /// <summary>Drag&amp;Drop aus einem Lostopf in einen anderen (Codebehind, Precedent: Wpf
+    /// <c>AuslosungViewModel.TeilnehmerZuTopfVerschieben</c>) — <see cref="TeilnehmerZuTopfHinzufuegenAsync(int, IReadOnlyList{TeilnehmerAnzeige})"/>
+    /// allein reicht nicht: <c>MannschaftZuLostopfHinzufuegenAsync</c> lehnt eine bereits einem Lostopf
+    /// zugeordnete Mannschaft ab, der Quell-Lostopf muss also zuerst geleert werden.</summary>
+    public async Task TeilnehmerZuTopfVerschiebenAsync(IReadOnlyList<TeilnehmerAnzeige> teilnehmer, int? vonTopfId, int nachTopfId)
+    {
+        if (_auslosungDetail is null || teilnehmer.Count == 0) return;
+        Fehlermeldung = null;
+        try
+        {
+            foreach (var t in teilnehmer)
+            {
+                if (vonTopfId.HasValue)
+                    await _auslosungService.EintragAusLostopfEntfernenAsync(_auslosungDetail.Id, vonTopfId.Value, t.EintragId);
+
+                if (t.MannschaftId.HasValue)
+                    await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(_auslosungDetail.Id, nachTopfId, t.MannschaftId.Value);
+                else
+                    await _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(_auslosungDetail.Id, nachTopfId, t.Name);
+            }
+            await LadeDetailAsync(_auslosungDetail.Id);
+        }
+        catch (Exception ex) { Fehlermeldung = ex.Message; }
+    }
+
     /// <summary>
     /// Verteilt die aktuell noch unzugeordneten Mannschaften (VerfuegbareTeilnehmer, Platzhalter
     /// ausgenommen) anhand der ausgewählten Rangliste auf die Lostöpfe: die bestplatzierten Teams

@@ -199,7 +199,9 @@
                                                 </Grid>
                                                 <ListView Grid.Row="1" AllowDrop="True" CanReorderItems="False"
                                                           SelectionMode="Extended"
+                                                          CanDragItems="True"
                                                           ItemsSource="{Binding Teilnehmer}" Height="380"
+                                                          DragItemsStarting="TopfListView_DragItemsStarting"
                                                           DragOver="TopfListView_DragOver"
                                                           Drop="TopfListView_Drop"
                                                           DragEnter="TopfListView_DragEnter"

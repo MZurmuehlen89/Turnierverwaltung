@@ -25,12 +25,31 @@ public sealed partial class AuslosungPage : UserControl
 
     private AuslosungViewModel? ViewModel => DataContext as AuslosungViewModel;
 
+    // Quelle des laufenden Drags (Precedent: Wpf AuslosungView-Feld _pendingDrag) — die tatsächlichen
+    // Teilnehmer + Quell-Lostopf-Id kommen aus diesem Feld statt aus dem DataPackage-Text: Teams, die
+    // bereits in einem Lostopf liegen, lassen sich per Namen nicht mehr über VerfuegbareTeilnehmer
+    // auflösen (Nutzerfund: Drag&Drop von einem Lostopf in einen anderen tat nichts).
+    private (IReadOnlyList<TeilnehmerAnzeige> Teilnehmer, int? QuellTopfId)? _pendingDrag;
+
     // ── Drag starten (aus "Verfügbar") ───────────────────────────────────────
 
     private void VerfuegbarListView_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
     {
         var teams = e.Items.OfType<TeilnehmerAnzeige>().ToList();
         if (teams.Count == 0) return;
+        _pendingDrag = (teams, null);
+        e.Data.SetText(string.Join("\n", teams.Select(t => t.Name)));
+        e.Data.RequestedOperation = DataPackageOperation.Move;
+    }
+
+    // ── Drag starten (aus einem Lostopf) ─────────────────────────────────────
+
+    private void TopfListView_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
+    {
+        if (sender is not ListView { DataContext: LostopfViewModel topf }) return;
+        var teams = e.Items.OfType<TeilnehmerAnzeige>().ToList();
+        if (teams.Count == 0) return;
+        _pendingDrag = (teams, topf.Id);
         e.Data.SetText(string.Join("\n", teams.Select(t => t.Name)));
         e.Data.RequestedOperation = DataPackageOperation.Move;
     }
@@ -82,24 +101,18 @@ public sealed partial class AuslosungPage : UserControl
     private async void TopfListView_Drop(object sender, DragEventArgs e)
     {
         ResetDragVisual(sender);
-        if (!e.DataView.Contains(StandardDataFormats.Text)) return;
 
-        // Ziel-Topf VOR dem await lesen (siehe VorbelegungPage-Precedent): GetTextAsync gibt die Kontrolle
-        // an die Message-Loop zurück, in der Lücke könnte ein Rundenwechsel die Collections neu aufbauen.
+        // Ziel-Topf VOR dem await lesen (siehe VorbelegungPage-Precedent): ein await gibt die Kontrolle an
+        // die Message-Loop zurück, in der Lücke könnte ein Rundenwechsel die Collections neu aufbauen.
         if (sender is not ListView { DataContext: LostopfViewModel topf }) return;
         var viewModel = ViewModel;
         if (viewModel is null) return;
 
-        var text = await e.DataView.GetTextAsync();
-        var namen = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        var teams = namen
-            .Select(n => viewModel.VerfuegbareTeilnehmer.FirstOrDefault(t => t.Name == n))
-            .Where(t => t is not null)
-            .Select(t => t!)
-            .ToList();
-        if (teams.Count == 0) return;
+        var drag = _pendingDrag;
+        _pendingDrag = null;
+        if (drag is null || drag.Value.QuellTopfId == topf.Id) return;
 
-        await viewModel.TeilnehmerZuTopfHinzufuegenAsync(topf.Id, teams);
+        await viewModel.TeilnehmerZuTopfVerschiebenAsync(drag.Value.Teilnehmer, drag.Value.QuellTopfId, topf.Id);
     }
 
     private void TopfListView_DragEnter(object sender, DragEventArgs e)
