@@ -108,7 +108,7 @@
                                             </Grid>
                                             <TextBlock Grid.Column="2" Text="{Binding Mannschaft.Name}" VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis" />
-                                            <TextBox Grid.Column="3" Text="{Binding Punkte, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"
+                                            <TextBox Grid.Column="3" Text="{Binding Punkte, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
                                                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Right"
                                                      ToolTipService.ToolTip="Optionaler Zusatzwert (z.B. FIFA-Punkte). Rein informativ." />
                                         </Grid>

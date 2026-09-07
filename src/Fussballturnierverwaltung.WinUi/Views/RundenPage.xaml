@@ -94,7 +94,7 @@
                             <StackPanel Grid.Column="2" HorizontalAlignment="Stretch"
                                         Visibility="{Binding IstGruppenphase, Converter={StaticResource BoolToVisibility}}">
                                 <TextBlock Text="Gruppenanzahl" FontSize="12" Margin="0,0,0,3" />
-                                <TextBox Text="{Binding GruppenAnzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                <TextBox Text="{Binding GruppenAnzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
                                          HorizontalAlignment="Stretch" />
                             </StackPanel>
                         </Grid>

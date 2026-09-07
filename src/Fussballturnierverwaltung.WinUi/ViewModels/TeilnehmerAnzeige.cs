@@ -28,7 +28,7 @@ public record TeilnehmerAnzeige(int? MannschaftId, string Name, string? Kuerzel,
 
     // Issue #230, analog #229: Nationalmannschaften zeigen die Landesflagge statt des
     // Mannschafts-Wappens, das eigene Wappen bleibt in der DB erhalten.
-    internal static byte[]? MannschaftsIcon(Mannschaft? mannschaft)
+    public static byte[]? MannschaftsIcon(Mannschaft? mannschaft)
         => mannschaft?.Mannschaftsart == Mannschaftsart.Nationalmannschaft
             ? mannschaft.Land?.Flagge
             : mannschaft?.Wappen;

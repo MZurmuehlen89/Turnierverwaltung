@@ -19,6 +19,9 @@
             <conv:BildDatenZuBildquelleConverter x:Key="BildDatenZuBildquelle" />
             <conv:RatingRundenConverter x:Key="RatingRunden" />
             <conv:IstNichtNullConverter x:Key="IstNichtNull" />
+            <conv:NullableIntZuTextConverter x:Key="NullableIntZuText" />
+            <conv:MannschaftZuWappenConverter x:Key="MannschaftZuWappen" />
+            <conv:MannschaftHatWappenConverter x:Key="MannschaftHatWappen" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
