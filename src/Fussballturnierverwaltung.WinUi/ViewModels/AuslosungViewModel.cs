@@ -515,29 +515,44 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     /// <summary>Aufgerufen aus dem Drop-Handler des Codebehind (Drag&amp;Drop aus "Verfügbar" auf einen
     /// Lostopf, Precedent: <see cref="Views.VorbelegungPage"/>).</summary>
-    public async Task TeilnehmerZuTopfHinzufuegenAsync(int topfId, TeilnehmerAnzeige teilnehmer)
+    public Task TeilnehmerZuTopfHinzufuegenAsync(int topfId, TeilnehmerAnzeige teilnehmer)
+        => TeilnehmerZuTopfHinzufuegenAsync(topfId, [teilnehmer]);
+
+    /// <summary>Mehrfachselektions-Variante (Issue #28-Muster aus dem WPF-Original: eine Liste statt eines
+    /// einzelnen Teilnehmers deckt Einzel- UND Mehrfachauswahl uniform ab) — aufgerufen aus dem
+    /// Rechtsklick-Kontextmenü sowie dem Mehrfach-Drag&amp;Drop im Codebehind. Ein gemeinsamer Reload am Ende
+    /// statt pro Teilnehmer, damit die UI nicht mehrfach kurz aufflackert.</summary>
+    public async Task TeilnehmerZuTopfHinzufuegenAsync(int topfId, IReadOnlyList<TeilnehmerAnzeige> teilnehmer)
     {
-        if (_auslosungDetail is null) return;
+        if (_auslosungDetail is null || teilnehmer.Count == 0) return;
         Fehlermeldung = null;
         try
         {
-            if (teilnehmer.MannschaftId.HasValue)
-                await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(_auslosungDetail.Id, topfId, teilnehmer.MannschaftId.Value);
-            else
-                await _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(_auslosungDetail.Id, topfId, teilnehmer.Name);
+            foreach (var t in teilnehmer)
+            {
+                if (t.MannschaftId.HasValue)
+                    await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(_auslosungDetail.Id, topfId, t.MannschaftId.Value);
+                else
+                    await _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(_auslosungDetail.Id, topfId, t.Name);
+            }
             await LadeDetailAsync(_auslosungDetail.Id);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
 
-    /// <summary>Rechtsklick-Kontextmenü in einem Lostopf: Eintrag zurück in "Verfügbar".</summary>
-    public async Task TeilnehmerAusTopfEntfernenAsync(int topfId, int eintragId)
+    /// <summary>Rechtsklick-Kontextmenü in einem Lostopf: Eintrag/Einträge zurück in "Verfügbar".</summary>
+    public Task TeilnehmerAusTopfEntfernenAsync(int topfId, int eintragId)
+        => TeilnehmerAusTopfEntfernenAsync(topfId, [eintragId]);
+
+    /// <summary>Mehrfachselektions-Variante, siehe <see cref="TeilnehmerZuTopfHinzufuegenAsync(int, IReadOnlyList{TeilnehmerAnzeige})"/>.</summary>
+    public async Task TeilnehmerAusTopfEntfernenAsync(int topfId, IReadOnlyList<int> eintragIds)
     {
-        if (_auslosungDetail is null) return;
+        if (_auslosungDetail is null || eintragIds.Count == 0) return;
         Fehlermeldung = null;
         try
         {
-            await _auslosungService.EintragAusLostopfEntfernenAsync(_auslosungDetail.Id, topfId, eintragId);
+            foreach (var eintragId in eintragIds)
+                await _auslosungService.EintragAusLostopfEntfernenAsync(_auslosungDetail.Id, topfId, eintragId);
             await LadeDetailAsync(_auslosungDetail.Id);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
@@ -594,13 +609,23 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             }
 
             var toepfe = Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
-            int potGroesse = (int)Math.Ceiling(teamsZuVerteilen.Count / (double)toepfe.Count);
 
-            for (int i = 0; i < teamsZuVerteilen.Count; i++)
+            // Faire Blockgrößen statt Ceiling-Division: bei nicht glatt teilbarer Teamanzahl (z.B. 9 Teams
+            // auf 4 Töpfe) ließ Ceiling(9/4)=3 den letzten Topf komplett leer (3,3,3,0 statt 3,2,2,2) —
+            // Nutzerfund "automatische Befüllung nicht gleichmäßig". Die ersten `rest` Töpfe bekommen ein
+            // Team mehr, den Rang-Tiers-Charakter (beste Teams zuerst in Topf 1 usw.) behält das bei.
+            int basisGroesse = teamsZuVerteilen.Count / toepfe.Count;
+            int rest = teamsZuVerteilen.Count % toepfe.Count;
+
+            int index = 0;
+            for (int topfIndex = 0; topfIndex < toepfe.Count; topfIndex++)
             {
-                var topf = toepfe[Math.Min(i / potGroesse, toepfe.Count - 1)];
-                await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(
-                    _auslosungDetail.Id, topf.Id, teamsZuVerteilen[i].MannschaftId!.Value);
+                int groesse = basisGroesse + (topfIndex < rest ? 1 : 0);
+                for (int j = 0; j < groesse; j++, index++)
+                {
+                    await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(
+                        _auslosungDetail.Id, toepfe[topfIndex].Id, teamsZuVerteilen[index].MannschaftId!.Value);
+                }
             }
 
             await LadeDetailAsync(_auslosungDetail.Id);

@@ -10,7 +10,8 @@
         <conv:AuslosungsartZuTextConverter x:Key="AuslosungsartZuText" />
     </UserControl.Resources>
 
-    <Grid ColumnDefinitions="3*,1,9*">
+    <!-- Spalte 0 auf 75% der ursprünglichen Breite gestutzt (Nutzerwunsch: mehr Platz für den Workspace) -->
+    <Grid ColumnDefinitions="2.25*,1,9*">
 
         <!-- ── Spalte 0: Auslosungsliste ── -->
         <Grid Grid.Column="0" RowDefinitions="Auto,*">
@@ -144,8 +145,10 @@
                     </Border>
 
                     <!-- ── Töpfe/Teilnehmer-Workspace (vor Abschluss) ── -->
+                    <!-- Verfügbar-Spalte auf 80% der ursprünglichen Breite gestutzt (Nutzerwunsch: mehr
+                         Platz für die Lostöpfe) -->
                     <Grid Visibility="{Binding IstAbgeschlossen, Converter={StaticResource InverseBoolToVisibility}}"
-                          ColumnDefinitions="3*,16,7*" Margin="0,0,0,16">
+                          ColumnDefinitions="2.4*,16,7*" Margin="0,0,0,16">
 
                         <!-- Verfügbare Teilnehmer -->
                         <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*">
@@ -155,9 +158,11 @@
                                      Margin="0,0,0,6" />
                             <ListView Grid.Row="2" x:Name="VerfuegbarListView"
                                       ItemsSource="{Binding VerfuegbareTeilnehmerGefiltert}"
+                                      SelectionMode="Extended"
                                       CanDragItems="True" CanReorderItems="False"
                                       DragItemsStarting="VerfuegbarListView_DragItemsStarting"
                                       DoubleTapped="VerfuegbarListView_DoubleTapped"
+                                      RightTapped="VerfuegbarListView_RightTapped"
                                       Height="450">
                                 <ListView.ItemTemplate>
                                     <DataTemplate>
@@ -192,6 +197,7 @@
                                                             CommandParameter="{Binding}" />
                                                 </Grid>
                                                 <ListView Grid.Row="1" AllowDrop="True" CanReorderItems="False"
+                                                          SelectionMode="Extended"
                                                           ItemsSource="{Binding Teilnehmer}" Height="380"
                                                           DragOver="TopfListView_DragOver"
                                                           Drop="TopfListView_Drop"

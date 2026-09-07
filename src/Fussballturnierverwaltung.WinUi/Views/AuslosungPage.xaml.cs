@@ -10,7 +10,12 @@ namespace Fussballturnierverwaltung.WinUi.Views;
 
 /// <summary>Drag&amp;Drop-Mechanik für den "Auslosung"-Tab (#300) — analog <see cref="VorbelegungPage"/>
 /// (#297), adaptiert auf Lostöpfe statt fester Slots: Ziel ist die gesamte Lostopf-<see cref="ListView"/>
-/// (DataContext = <see cref="LostopfViewModel"/>) statt eines einzelnen Slot-Objekts.</summary>
+/// (DataContext = <see cref="LostopfViewModel"/>) statt eines einzelnen Slot-Objekts. Beide ListViews nutzen
+/// <c>SelectionMode="Extended"</c> — Mehrfachauswahl per Strg/Umschalt-Klick wird sowohl beim Drag (mehrere
+/// Namen newline-getrennt im DataPackage) als auch beim Rechtsklick-Kontextmenü (wirkt auf die gesamte
+/// aktuelle Auswahl, falls das rechtsgeklickte Element Teil davon ist, sonst nur auf dieses eine Element —
+/// Windows-Explorer-Konvention) berücksichtigt (Nutzerfund: Mehrfachauswahl/Rechtsklick funktionierten
+/// zunächst nicht, da nur <c>e.Items[0]</c> ausgewertet wurde).</summary>
 public sealed partial class AuslosungPage : UserControl
 {
     public AuslosungPage()
@@ -24,8 +29,9 @@ public sealed partial class AuslosungPage : UserControl
 
     private void VerfuegbarListView_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
     {
-        if (e.Items.Count == 0 || e.Items[0] is not TeilnehmerAnzeige team) return;
-        e.Data.SetText(team.Name);
+        var teams = e.Items.OfType<TeilnehmerAnzeige>().ToList();
+        if (teams.Count == 0) return;
+        e.Data.SetText(string.Join("\n", teams.Select(t => t.Name)));
         e.Data.RequestedOperation = DataPackageOperation.Move;
     }
 
@@ -41,6 +47,28 @@ public sealed partial class AuslosungPage : UserControl
 
         await viewModel.TeilnehmerZuTopfHinzufuegenAsync(ersterTopf.Id, team);
         e.Handled = true;
+    }
+
+    // ── Rechtsklick auf "Verfügbar": Zu einem Lostopf hinzufügen ─────────────
+
+    private void VerfuegbarListView_RightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        var viewModel = ViewModel;
+        if (viewModel is null || sender is not ListView lv) return;
+        if (e.OriginalSource is not FrameworkElement { DataContext: TeilnehmerAnzeige team }) return;
+
+        var ausgewaehlt = ZielAuswahlErmitteln(lv, team);
+        var toepfe = viewModel.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
+        if (toepfe.Count == 0) return;
+
+        var flyout = new MenuFlyout();
+        foreach (var topf in toepfe)
+        {
+            var item = new MenuFlyoutItem { Text = $"Zu '{topf.Name}' hinzufügen" };
+            item.Click += (_, _) => _ = viewModel.TeilnehmerZuTopfHinzufuegenAsync(topf.Id, ausgewaehlt);
+            flyout.Items.Add(item);
+        }
+        flyout.ShowAt((FrameworkElement)e.OriginalSource);
     }
 
     // ── Lostopf-Drop ──────────────────────────────────────────────────────────
@@ -62,11 +90,16 @@ public sealed partial class AuslosungPage : UserControl
         var viewModel = ViewModel;
         if (viewModel is null) return;
 
-        var name = await e.DataView.GetTextAsync();
-        var team = viewModel.VerfuegbareTeilnehmer.FirstOrDefault(t => t.Name == name);
-        if (team is null) return;
+        var text = await e.DataView.GetTextAsync();
+        var namen = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var teams = namen
+            .Select(n => viewModel.VerfuegbareTeilnehmer.FirstOrDefault(t => t.Name == n))
+            .Where(t => t is not null)
+            .Select(t => t!)
+            .ToList();
+        if (teams.Count == 0) return;
 
-        await viewModel.TeilnehmerZuTopfHinzufuegenAsync(topf.Id, team);
+        await viewModel.TeilnehmerZuTopfHinzufuegenAsync(topf.Id, teams);
     }
 
     private void TopfListView_DragEnter(object sender, DragEventArgs e)
@@ -95,13 +128,23 @@ public sealed partial class AuslosungPage : UserControl
     private void TopfListView_RightTapped(object sender, RightTappedRoutedEventArgs e)
     {
         var viewModel = ViewModel;
-        if (viewModel is null || sender is not ListView { DataContext: LostopfViewModel topf }) return;
+        if (viewModel is null || sender is not ListView { DataContext: LostopfViewModel topf } lv) return;
         if (e.OriginalSource is not FrameworkElement { DataContext: TeilnehmerAnzeige team }) return;
 
+        var ausgewaehlt = ZielAuswahlErmitteln(lv, team);
+        var beschreibung = ausgewaehlt.Count == 1 ? $"'{ausgewaehlt[0].Name}'" : $"{ausgewaehlt.Count} Teams";
+
         var flyout = new MenuFlyout();
-        var item = new MenuFlyoutItem { Text = $"'{team.Name}' entfernen" };
-        item.Click += (_, _) => _ = viewModel.TeilnehmerAusTopfEntfernenAsync(topf.Id, team.EintragId);
+        var item = new MenuFlyoutItem { Text = $"{beschreibung} entfernen" };
+        item.Click += (_, _) => _ = viewModel.TeilnehmerAusTopfEntfernenAsync(topf.Id, ausgewaehlt.Select(t => t.EintragId).ToList());
         flyout.Items.Add(item);
         flyout.ShowAt((FrameworkElement)e.OriginalSource);
     }
+
+    /// <summary>Windows-Explorer-Konvention: ist das rechtsgeklickte Element Teil der aktuellen
+    /// Mehrfachauswahl, wirkt die Aktion auf die gesamte Auswahl — sonst nur auf dieses eine Element.</summary>
+    private static List<TeilnehmerAnzeige> ZielAuswahlErmitteln(ListView lv, TeilnehmerAnzeige rechtsgeklickt) =>
+        lv.SelectedItems.Contains(rechtsgeklickt)
+            ? lv.SelectedItems.OfType<TeilnehmerAnzeige>().ToList()
+            : [rechtsgeklickt];
 }

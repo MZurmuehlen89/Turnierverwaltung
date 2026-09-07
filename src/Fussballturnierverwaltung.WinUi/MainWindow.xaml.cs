@@ -89,10 +89,11 @@ public sealed partial class MainWindow : Window
 
     /// <summary>Erzeugt einen <see cref="AppBarButton"/> aus einer <see cref="RibbonAktion"/> — entweder mit
     /// direktem <see cref="RibbonAktion.Befehl"/> oder, falls gesetzt, mit einem Flyout aus <see
-    /// cref="RibbonAktion.ToggleUnterpunkte"/> (an-/abschaltbare Menüpunkte, z.B. Auslosungs-Regeln).
-    /// Explizite <see cref="AppBarButton.Width"/> statt der AppBarButton-Standardbreite: das Standard-Layout
-    /// bricht/bschneidet bei mehrzeiligem Label nicht sauber um, längere deutsche Beschriftungen ("Lostöpfe
-    /// automatisch befüllen") passten sonst nicht einzeilig in den Button (Nutzerfund nach #300-Test).</summary>
+    /// cref="RibbonAktion.ToggleUnterpunkte"/> (an-/abschaltbare Optionen mit Infotext, z.B. Auslosungs-
+    /// Regeln). Explizite <see cref="AppBarButton.Width"/> statt der AppBarButton-Standardbreite: das
+    /// Standard-Layout bricht/bschneidet bei mehrzeiligem Label nicht sauber um, längere deutsche
+    /// Beschriftungen ("Lostöpfe automatisch befüllen") passten sonst nicht einzeilig in den Button
+    /// (Nutzerfund nach #300-Test).</summary>
     private static AppBarButton RibbonButtonErstellen(RibbonAktion aktion)
     {
         var button = new AppBarButton { Label = aktion.Header, Width = BreiteFuerLabel(aktion.Header) };
@@ -100,24 +101,42 @@ public sealed partial class MainWindow : Window
             button.Icon = new FontIcon { Glyph = aktion.IconGlyph };
 
         if (aktion.ToggleUnterpunkte is { Count: > 0 } toggles)
-        {
-            var flyout = new MenuFlyout();
-            foreach (var toggle in toggles)
-            {
-                var item = new ToggleMenuFlyoutItem { Text = toggle.Header, IsChecked = toggle.IstAktiv };
-                if (toggle.Beschreibung is not null)
-                    ToolTipService.SetToolTip(item, toggle.Beschreibung);
-                item.Click += (_, _) => toggle.Setzen(item.IsChecked);
-                flyout.Items.Add(item);
-            }
-            button.Flyout = flyout;
-        }
+            button.Flyout = ToggleFlyoutErstellen(toggles);
         else
-        {
             button.Command = aktion.Befehl;
-        }
 
         return button;
+    }
+
+    /// <summary>Baut den Flyout-Inhalt für <see cref="RibbonAktion.ToggleUnterpunkte"/> imperativ statt über
+    /// <c>ToggleMenuFlyoutItem</c>/<c>MenuFlyout</c>: Letzteres kann nur eine einzeilige Beschriftung
+    /// anzeigen, der Infotext (<see cref="RibbonToggleAktion.Beschreibung"/>) landete nur als Tooltip —
+    /// unentdeckt, da ein Flyout typischerweise nicht lange genug gehovert wird (Nutzerfund nach #300-Test:
+    /// "Auslosungsregeln haben keine Infotexte mehr"). Stattdessen ToggleSwitch + Titel + immer sichtbarer
+    /// Beschreibungstext pro Zeile — entspricht der ursprünglichen Seiten-Darstellung, nur jetzt im Menü.</summary>
+    private static Flyout ToggleFlyoutErstellen(IReadOnlyList<RibbonToggleAktion> toggles)
+    {
+        var liste = new StackPanel { Padding = new Thickness(4), Spacing = 12 };
+        foreach (var toggle in toggles)
+        {
+            var zeile = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+            var umschalter = new ToggleSwitch { IsOn = toggle.IstAktiv, OnContent = "", OffContent = "" };
+            umschalter.Toggled += (_, _) => toggle.Setzen(umschalter.IsOn);
+
+            var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MaxWidth = 260 };
+            text.Children.Add(new TextBlock { Text = toggle.Header, FontSize = 13 });
+            if (toggle.Beschreibung is { Length: > 0 } beschreibung)
+                text.Children.Add(new TextBlock
+                {
+                    Text = beschreibung, FontSize = 11, Opacity = 0.6, TextWrapping = TextWrapping.Wrap
+                });
+
+            zeile.Children.Add(umschalter);
+            zeile.Children.Add(text);
+            liste.Children.Add(zeile);
+        }
+
+        return new Flyout { Content = new ScrollViewer { Content = liste, MaxHeight = 480 } };
     }
 
     private static double BreiteFuerLabel(string label) => Math.Max(90, 26 + label.Length * 7.5);
