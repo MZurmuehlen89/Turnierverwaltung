@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Fussballturnierverwaltung.WinUi.Views.SpielplanView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <Style x:Key="SpielKopfzeileTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Opacity" Value="0.6" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid ColumnDefinitions="220,*,Auto">
+
+        <!-- ── Spalte 0: Runden ── -->
+        <Grid Grid.Column="0" RowDefinitions="Auto,*"
+              BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
+            <TextBlock Grid.Row="0" Text="RUNDEN" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="12,10,8,4" />
+            <ListView Grid.Row="1" ItemsSource="{Binding Runden}"
+                      SelectedItem="{Binding AusgewaehlteRunde, Mode=TwoWay}" SelectionMode="Single">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Name}" FontSize="13" Padding="0,4" />
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Grid>
+
+        <!-- ── Spalte 1: Spielliste ── -->
+        <Grid Grid.Column="1">
+            <TextBlock Text="Bitte ein Turnier und eine Runde auswählen."
+                       Opacity="0.5" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Visibility="{Binding HatRunde, Converter={StaticResource InverseBoolToVisibility}}" />
+
+            <Grid RowDefinitions="Auto,Auto,*" Visibility="{Binding HatRunde, Converter={StaticResource BoolToVisibility}}">
+
+                <!-- Kopfzeile -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="12,8"
+                      BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                    <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Opacity="0.6">
+                        <Run Text="SPIELE · " />
+                        <Run Text="{Binding AusgewaehlteRunde.Name}" />
+                        <Run Text=" · " />
+                        <Run Text="{Binding Spiele.Count}" />
+                        <Run Text=" Spiel(e)" />
+                    </TextBlock>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
+                                Visibility="{Binding ZeigeLigaSpieltagUmschalter, Converter={StaticResource BoolToVisibility}}">
+                        <Button Content="Gesamt" Command="{Binding LigaGesamtAnsichtBefehl}" FontSize="11" Padding="8,3" />
+                        <Button Content="Pro Spieltag" Command="{Binding LigaProSpieltagAnsichtBefehl}" FontSize="11" Padding="8,3" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Fehlermeldung -->
+                <Border Grid.Row="1" Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                        CornerRadius="4" Padding="10,7" Margin="12,8,12,0"
+                        Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
+                    <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                               FontSize="12" TextWrapping="Wrap" />
+                </Border>
+
+                <Grid Grid.Row="2">
+
+                    <!-- ── Gesamtliste ── -->
+                    <Grid RowDefinitions="Auto,*" Visibility="{Binding ZeigeFokusListe, Converter={StaticResource InverseBoolToVisibility}}">
+                        <Grid Grid.Row="0" ColumnDefinitions="46,40,40,*,110,*,90" Padding="8,6"
+                              BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                            <TextBlock Grid.Column="0" Text="ST" Style="{StaticResource SpielKopfzeileTextStyle}" />
+                            <TextBlock Grid.Column="1" Text="Nr" Style="{StaticResource SpielKopfzeileTextStyle}" />
+                            <TextBlock Grid.Column="2" Text="Gr." Style="{StaticResource SpielKopfzeileTextStyle}" />
+                            <TextBlock Grid.Column="3" Text="Heim" Style="{StaticResource SpielKopfzeileTextStyle}" />
+                            <TextBlock Grid.Column="4" Text="Ergebnis" Style="{StaticResource SpielKopfzeileTextStyle}" HorizontalAlignment="Center" />
+                            <TextBlock Grid.Column="5" Text="Auswärts" Style="{StaticResource SpielKopfzeileTextStyle}" />
+                            <TextBlock Grid.Column="6" Text="Status" Style="{StaticResource SpielKopfzeileTextStyle}" />
+                        </Grid>
+                        <ListView Grid.Row="1" x:Name="SpielListView"
+                                  ItemsSource="{Binding Spiele}" SelectedItem="{Binding AusgewaehlteSpiel, Mode=TwoWay}"
+                                  SelectionMode="Extended" SelectionChanged="SpielListView_SelectionChanged">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="46,40,40,*,110,*,90" Padding="8,4">
+                                        <TextBlock Grid.Column="0" Text="{Binding SpieltagAnzeige}" FontSize="12" Opacity="0.6" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Spielnummer}" FontSize="12" Opacity="0.6" />
+                                        <TextBlock Grid.Column="2" Text="{Binding GruppeAnzeige}" FontSize="11" Opacity="0.6" />
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="5">
+                                            <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                   Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                                                   Width="16" Height="16" Stretch="Uniform" />
+                                            <TextBlock Text="{Binding HeimName}" FontSize="13" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                                            <TextBlock Text="{Binding ErgebnisText}" FontSize="14" FontWeight="Bold" FontFamily="Consolas" />
+                                            <TextBlock Text="{Binding ErgebnisDetail}" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="5">
+                                            <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                   Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                                                   Width="16" Height="16" Stretch="Uniform" />
+                                            <TextBlock Text="{Binding AuswaertsName}" FontSize="13"
+                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="6" Text="{Binding StatusAnzeige}" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+
+                    <!-- ── Auf Gruppe/Spieltag fokussierte Liste (Issue #141/#246) ── -->
+                    <Grid RowDefinitions="Auto,Auto,*" Visibility="{Binding ZeigeFokusListe, Converter={StaticResource BoolToVisibility}}">
+                        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Padding="12,8"
+                              BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8"
+                                        Visibility="{Binding IstGefiltertAufGruppe, Converter={StaticResource BoolToVisibility}}">
+                                <Button Content="✕ Filter aufheben" Command="{Binding ZurueckZurUebersichtBefehl}" FontSize="11" Padding="8,4" />
+                                <TextBlock VerticalAlignment="Center" FontWeight="Bold" FontSize="13">
+                                    <Run Text="Gruppe " />
+                                    <Run Text="{Binding AusgewaehlteGruppe.GruppenNummer}" />
+                                </TextBlock>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center"
+                                        Visibility="{Binding HatMehrereSpieltage, Converter={StaticResource BoolToVisibility}}">
+                                <Button Content="Alle" Command="{Binding FokusAlleSpieltageBefehl}" FontSize="11" Padding="8,3" />
+                                <Button Content="&lt;" Command="{Binding FokusVorigerSpieltag}" FontSize="12" Padding="6,3" />
+                                <TextBlock Text="{Binding FokusSpieltagnummer}" FontSize="11" VerticalAlignment="Center" Margin="4,0" />
+                                <Button Content="&gt;" Command="{Binding FokusNaechsterSpieltag}" FontSize="12" Padding="6,3" />
+                            </StackPanel>
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="46,40,*,110,*,90" Padding="8,6"
+                              BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                            <TextBlock Grid.Column="0" Text="ST" Style="{StaticResource SpielKopfzeileTextStyle}" />
+                            <TextBlock Grid.Column="1" Text="Nr" Style="{StaticResource SpielKopfzeileTextStyle}" />
+                            <TextBlock Grid.Column="2" Text="Heim" Style="{StaticResource SpielKopfzeileTextStyle}" />
+                            <TextBlock Grid.Column="3" Text="Ergebnis" Style="{StaticResource SpielKopfzeileTextStyle}" HorizontalAlignment="Center" />
+                            <TextBlock Grid.Column="4" Text="Auswärts" Style="{StaticResource SpielKopfzeileTextStyle}" />
+                            <TextBlock Grid.Column="5" Text="Status" Style="{StaticResource SpielKopfzeileTextStyle}" />
+                        </Grid>
+                        <ListView Grid.Row="2" x:Name="FokusSpielListView"
+                                  ItemsSource="{Binding FokusSpiele}" SelectedItem="{Binding AusgewaehlteSpiel, Mode=TwoWay}"
+                                  SelectionMode="Extended" SelectionChanged="SpielListView_SelectionChanged">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="46,40,*,110,*,90" Padding="8,4">
+                                        <TextBlock Grid.Column="0" Text="{Binding SpieltagAnzeige}" FontSize="12" Opacity="0.6" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Spielnummer}" FontSize="12" Opacity="0.6" />
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5">
+                                            <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                   Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                                                   Width="16" Height="16" Stretch="Uniform" />
+                                            <TextBlock Text="{Binding HeimName}" FontSize="13" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                                            <TextBlock Text="{Binding ErgebnisText}" FontSize="14" FontWeight="Bold" FontFamily="Consolas" />
+                                            <TextBlock Text="{Binding ErgebnisDetail}" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="5">
+                                            <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                   Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                                                   Width="16" Height="16" Stretch="Uniform" />
+                                            <TextBlock Text="{Binding AuswaertsName}" FontSize="13"
+                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="5" Text="{Binding StatusAnzeige}" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <!-- ── Spalte 2: Ergebnis-Formular ── -->
+        <Border Grid.Column="2" Width="310"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1,0,0,0"
+                Visibility="{Binding FormAktiv, Converter={StaticResource BoolToVisibility}}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="16,14">
+
+                    <TextBlock Text="{Binding FormSpielInfo}" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
+                    <TextBlock FontSize="15" FontWeight="Bold" Margin="0,0,0,16" TextWrapping="Wrap">
+                        <Run Text="{Binding FormHeimName}" />
+                        <Run Text=" vs. " />
+                        <Run Text="{Binding FormAuswaertsName}" />
+                    </TextBlock>
+
+                    <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                            CornerRadius="4" Padding="10,7" Margin="0,0,0,12"
+                            Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
+                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                   FontSize="12" TextWrapping="Wrap" />
+                    </Border>
+
+                    <TextBlock Text="REGULÄRE SPIELZEIT" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="0,0,0,6" />
+                    <Grid ColumnDefinitions="*,20,*" Margin="0,0,0,12">
+                        <TextBox Grid.Column="0" Text="{Binding HeimToreRegulaer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="18" FontWeight="Bold" TextAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text=":" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="2" Text="{Binding AuswaertsToreRegulaer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="18" FontWeight="Bold" TextAlignment="Center" />
+                    </Grid>
+
+                    <TextBlock Text="HALBZEITSTAND (OPTIONAL)" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="0,0,0,6" />
+                    <Grid ColumnDefinitions="*,20,*" Margin="0,0,0,12">
+                        <TextBox Grid.Column="0" Text="{Binding HeimHalbzeitTore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="16" FontWeight="Bold" TextAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text=":" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="2" Text="{Binding AuswaertsHalbzeitTore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="16" FontWeight="Bold" TextAlignment="Center" />
+                    </Grid>
+
+                    <StackPanel Visibility="{Binding VerlaengerungAktiv, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="ERGEBNIS NACH VERLÄNGERUNG" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="0,0,0,6" />
+                        <Grid ColumnDefinitions="*,20,*" Margin="0,0,0,12">
+                            <TextBox Grid.Column="0" Text="{Binding HeimToreVerlaengerung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="16" FontWeight="Bold" TextAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text=":" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="2" Text="{Binding AuswaertsToreVerlaengerung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="16" FontWeight="Bold" TextAlignment="Center" />
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding ElfmeterAktiv, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="ELFMETER" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="0,0,0,6" />
+                        <Grid ColumnDefinitions="*,20,*" Margin="0,0,0,12">
+                            <TextBox Grid.Column="0" Text="{Binding HeimElfmetertore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="16" FontWeight="Bold" TextAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text=":" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="2" Text="{Binding AuswaertsElfmetertore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="16" FontWeight="Bold" TextAlignment="Center" />
+                        </Grid>
+                    </StackPanel>
+
+                    <Border BorderBrush="{ThemeResource SystemFillColorCautionBrush}" BorderThickness="1"
+                            CornerRadius="4" Padding="10,7" Margin="0,0,0,12"
+                            Visibility="{Binding FormHatErgebnis, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="Dieses Spiel hat bereits ein Ergebnis. Zum Neu-Simulieren zuerst über 'Löschen' zurücksetzen."
+                                   FontSize="12" TextWrapping="Wrap" />
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+    </Grid>
+</UserControl>
