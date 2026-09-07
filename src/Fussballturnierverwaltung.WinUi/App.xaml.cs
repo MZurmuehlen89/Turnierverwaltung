@@ -60,6 +60,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<AuslosungsValidator>();
         builder.Services.AddScoped<RanglisteValidator>();
         builder.Services.AddScoped<RanglistenQuelleValidator>();
+        builder.Services.AddScoped<SpielErgebnisValidator>();
         builder.Services.AddScoped<MannschaftService>();
         builder.Services.AddScoped<LandService>();
         builder.Services.AddScoped<VerbandService>();
