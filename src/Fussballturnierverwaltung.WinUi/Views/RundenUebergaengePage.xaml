@@ -40,6 +40,20 @@
             </Grid>
         </DataTemplate>
 
+        <!-- Gruppenübergreifende Rangfolge-Regel (z.B. "2 beste Gruppendritte", EM/WM-Klassiker) — nur bei
+             Gruppenphase als Quellrunde verfügbar, siehe RundenUebergaengeViewModel.GruppenuebergreifendeZeilen. -->
+        <DataTemplate x:Key="ZeileGruppenuebergreifendTemplate">
+            <Grid ColumnDefinitions="Auto,44,Auto,44,Auto" Margin="0,2">
+                <TextBlock Text="Beste" VerticalAlignment="Center" FontSize="11" Opacity="0.6" />
+                <TextBox Grid.Column="1" Text="{Binding AnzahlBeste, Mode=TwoWay, Converter={StaticResource NullableIntZuText}}" />
+                <TextBlock Grid.Column="2" Text="von Platz" VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="4,0" />
+                <TextBox Grid.Column="3" Text="{Binding Platzierung, Mode=TwoWay}" />
+                <Button Grid.Column="4" Content="✕" FontSize="11" Padding="6,3" Margin="8,0,0,0"
+                        Command="{Binding DataContext.GruppenuebergreifendeZeileEntfernenCommand, ElementName=Root}"
+                        CommandParameter="{Binding}" />
+            </Grid>
+        </DataTemplate>
+
         <!-- Eingehend/Ausgehend-Zeile: normaler Button statt ToggleButton (Nutzer-Fund: ToggleButtons
              eigenes natives Klick-Toggle-Verhalten kollidierte mit der IsChecked-OneWay-Bindung, mehrere
              Zeilen konnten gleichzeitig als "markiert" hängen bleiben). Hervorhebung stattdessen rein über
@@ -179,12 +193,23 @@
                                               SelectedItem="{Binding RegelZiel, Mode=TwoWay}"
                                               DisplayMemberPath="Name" HorizontalAlignment="Stretch" Margin="0,0,0,16" />
 
-                                    <ItemsControl ItemsSource="{Binding RegelZeilen}" ItemTemplate="{StaticResource ZeileGruppenphaseTemplate}"
+                                    <ItemsControl ItemsSource="{Binding NormaleZeilen}" ItemTemplate="{StaticResource ZeileGruppenphaseTemplate}"
                                                   Visibility="{Binding RegelIstGruppenphase, Converter={StaticResource BoolToVisibility}}" />
-                                    <ItemsControl ItemsSource="{Binding RegelZeilen}" ItemTemplate="{StaticResource ZeileKoSonderfallTemplate}"
+                                    <ItemsControl ItemsSource="{Binding NormaleZeilen}" ItemTemplate="{StaticResource ZeileKoSonderfallTemplate}"
                                                   Visibility="{Binding RegelIstKoSonderfall, Converter={StaticResource BoolToVisibility}}" />
-                                    <ItemsControl ItemsSource="{Binding RegelZeilen}" ItemTemplate="{StaticResource ZeileLigaTemplate}"
+                                    <ItemsControl ItemsSource="{Binding NormaleZeilen}" ItemTemplate="{StaticResource ZeileLigaTemplate}"
                                                   Visibility="{Binding RegelIstLiga, Converter={StaticResource BoolToVisibility}}" />
+
+                                    <!-- Gruppenübergreifende Rangfolge-Regeln (z.B. "2 beste Gruppendritte") — nur
+                                         bei Gruppenphase als Quellrunde sinnvoll (Nutzerfund: EM-Turniervorlage
+                                         ließ sich mangels dieser UI nicht abbilden). -->
+                                    <StackPanel Margin="0,12,0,0" Visibility="{Binding RegelIstGruppenphase, Converter={StaticResource BoolToVisibility}}">
+                                        <Rectangle Fill="{ThemeResource CardStrokeColorDefaultBrush}" Height="1" Margin="0,0,0,8" />
+                                        <TextBlock Text="GRUPPENÜBERGREIFEND" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,6" />
+                                        <ItemsControl ItemsSource="{Binding GruppenuebergreifendeZeilen}" ItemTemplate="{StaticResource ZeileGruppenuebergreifendTemplate}" />
+                                        <Button Content="+ Gruppenübergreifende Regel" FontSize="11" Padding="8,4" Margin="0,6,0,0"
+                                                HorizontalAlignment="Left" Command="{Binding NeueGruppenuebergreifendeZeileCommand}" />
+                                    </StackPanel>
 
                                     <Button Content="Regel löschen" Command="{Binding RegelLoeschenCommand}" Margin="0,16,0,0"
                                             HorizontalAlignment="Stretch" />

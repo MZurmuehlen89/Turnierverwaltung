@@ -136,14 +136,43 @@ public partial class RundenUebergaengeViewModel : ViewModelBase, IRibbonAware, I
     [NotifyPropertyChangedFor(nameof(RegelIstGruppenphase))]
     [NotifyPropertyChangedFor(nameof(RegelIstKoSonderfall))]
     [NotifyPropertyChangedFor(nameof(RegelIstLiga))]
+    [NotifyCanExecuteChangedFor(nameof(NeueGruppenuebergreifendeZeileCommand))]
     private RundeZeile? _regelQuelle;
 
     [ObservableProperty] private RundeZeile? _regelZiel;
-    [ObservableProperty] private ObservableCollection<UebergangsregelZeile> _regelZeilen = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NormaleZeilen))]
+    [NotifyPropertyChangedFor(nameof(GruppenuebergreifendeZeilen))]
+    private ObservableCollection<UebergangsregelZeile> _regelZeilen = [];
 
     public bool RegelIstGruppenphase => RegelQuelle?.Rundenart == Rundenart.Gruppenphase;
     public bool RegelIstKoSonderfall => RegelQuelle?.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
     public bool RegelIstLiga => RegelQuelle is not null && !RegelIstGruppenphase && !RegelIstKoSonderfall;
+
+    // ── Gruppenübergreifende Rangfolge-Regeln (z.B. "2 beste Gruppendritte") ────
+    // Bewusst KEINE eigene Collection wie im WPF-Original, sondern eine gefilterte Sicht auf RegelZeilen
+    // (AnzahlBeste gesetzt = gruppenübergreifend) — die WinUi-Architektur hält Runden UND Übergangsregeln in
+    // EINER geteilten Datenhaltung (RundenViewModel), eine zweite parallele Collection müsste dort zusätzlich
+    // mitgeführt und synchron gehalten werden, ohne fachlichen Mehrwert.
+    public IEnumerable<UebergangsregelZeile> NormaleZeilen => RegelZeilen.Where(z => z.AnzahlBeste is null);
+    public IEnumerable<UebergangsregelZeile> GruppenuebergreifendeZeilen => RegelZeilen.Where(z => z.AnzahlBeste is not null);
+
+    [RelayCommand(CanExecute = nameof(RegelIstGruppenphase))]
+    private void NeueGruppenuebergreifendeZeile()
+    {
+        AusgewaehlteRegel?.GruppenuebergreifendeZeileHinzufuegen();
+        OnPropertyChanged(nameof(NormaleZeilen));
+        OnPropertyChanged(nameof(GruppenuebergreifendeZeilen));
+    }
+
+    [RelayCommand]
+    private void GruppenuebergreifendeZeileEntfernen(UebergangsregelZeile zeile)
+    {
+        AusgewaehlteRegel?.ZeileEntfernen(zeile);
+        OnPropertyChanged(nameof(NormaleZeilen));
+        OnPropertyChanged(nameof(GruppenuebergreifendeZeilen));
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ZeigeRegelformular))]

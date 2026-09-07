@@ -21,8 +21,9 @@ public record RegelwerkOption(string Anzeige, Regelwerk? Wert);
 
 /// <summary>Eine Zeile innerhalb eines <see cref="UebergangsregelBlock"/> — je Gruppe (Gruppenphase-
 /// Quellrunde), je Spiel (K.o.-Quellrunde) oder eine einzelne Zeile (Liga-Quellrunde, <see cref="GruppeIndex"/>
-/// = null). <see cref="AnzahlBeste"/> (gruppenübergreifende Rangfolge-Regel, Issue #217) wird in dieser ersten
-/// Etappe nicht über die UI gesetzt, bleibt aber im Modell für eine spätere Erweiterung erhalten.</summary>
+/// = null). <see cref="AnzahlBeste"/> (gruppenübergreifende Rangfolge-Regel, Issue #217, z.B. "2 beste
+/// Gruppendritte") ist gesetzt, wenn <see cref="GruppeIndex"/> null bleibt UND die Zeile über
+/// <see cref="RundenUebergaengeViewModel.NeueGruppenuebergreifendeZeileCommand"/> angelegt wurde.</summary>
 public partial class UebergangsregelZeile : ObservableObject
 {
     [ObservableProperty]
@@ -59,6 +60,14 @@ public partial class UebergangsregelZeile : ObservableObject
     {
         get => PlatzierungVon == 2 && PlatzierungBis == 2;
         set { if (value) PlatzSetzen(sieger: false); else OnPropertyChanged(nameof(IstVerlierer)); }
+    }
+
+    /// <summary>Nur für gruppenübergreifende Zeilen (<see cref="AnzahlBeste"/> gesetzt) relevant: eine
+    /// einzelne Platzierung statt eines Von/Bis-Bereichs (z.B. "Platz 3") — setzt beide Felder synchron.</summary>
+    public int Platzierung
+    {
+        get => PlatzierungVon;
+        set { PlatzierungVon = value; PlatzierungBis = value; }
     }
 
     private void PlatzSetzen(bool sieger)
@@ -170,6 +179,29 @@ public partial class UebergangsregelBlock : ObservableObject
         {
             ZeileHinzufuegen(null, 1, 1);
         }
+        Geaendert?.Invoke();
+    }
+
+    /// <summary>Fügt eine gruppenübergreifende Rangfolge-Regel-Zeile hinzu (z.B. "2 beste Gruppendritte",
+    /// EM/WM-Klassiker) — nur bei Gruppenphase als Quellrunde sinnvoll. Anders als die per-Gruppe-Zeilen aus
+    /// <see cref="BefuelleStandardZeilen"/> bleibt <see cref="UebergangsregelZeile.GruppeIndex"/> hier null,
+    /// <see cref="UebergangsregelZeile.AnzahlBeste"/> markiert die Zeile als gruppenübergreifend (siehe
+    /// <see cref="RundenUebergaengeViewModel.GruppenuebergreifendeZeilen"/>). Default "Platz 3, beste 1"
+    /// analog WPF-Original.</summary>
+    public void GruppenuebergreifendeZeileHinzufuegen()
+    {
+        var zeile = new UebergangsregelZeile { GruppeIndex = null, AnzahlBeste = 1, PlatzierungVon = 3, PlatzierungBis = 3 };
+        zeile.PropertyChanged += (_, __) => Geaendert?.Invoke();
+        Zeilen.Add(zeile);
+        Geaendert?.Invoke();
+    }
+
+    /// <summary>Entfernt eine einzelne Zeile (aktuell nur für gruppenübergreifende Regeln genutzt — die
+    /// per-Gruppe-Zeilen werden weiterhin automatisch aus der Quellrundenstruktur abgeleitet, nicht einzeln
+    /// entfernbar).</summary>
+    public void ZeileEntfernen(UebergangsregelZeile zeile)
+    {
+        Zeilen.Remove(zeile);
         Geaendert?.Invoke();
     }
 }
