@@ -123,7 +123,7 @@ public sealed partial class MainWindow : Window
             var umschalter = new ToggleSwitch { IsOn = toggle.IstAktiv, OnContent = "", OffContent = "" };
             umschalter.Toggled += (_, _) => toggle.Setzen(umschalter.IsOn);
 
-            var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MaxWidth = 260 };
+            var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MaxWidth = 420 };
             text.Children.Add(new TextBlock { Text = toggle.Header, FontSize = 13 });
             if (toggle.Beschreibung is { Length: > 0 } beschreibung)
                 text.Children.Add(new TextBlock

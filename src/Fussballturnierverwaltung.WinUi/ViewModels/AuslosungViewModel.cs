@@ -141,7 +141,19 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(AuslosungsartHinweis))]
     [NotifyPropertyChangedFor(nameof(AuslosungsartWarnung))]
     [NotifyPropertyChangedFor(nameof(NeuAnzahlLostoepfeBearbeitbar))]
+    [NotifyPropertyChangedFor(nameof(NeuAuslosungsartAusgewaehlt))]
     private Auslosungsart _neuAuslosungsart = Auslosungsart.Zufall;
+
+    /// <summary>Wrapper für die ComboBox-Bindung: <c>SelectedItem</c> statt <c>SelectedValue</c>/
+    /// <c>SelectedValuePath</c> — Letzteres zeigte in #300-Tests wiederholt einen WinUI3-Fallstrick (Auswahl
+    /// erschien nach Reload/Sichtbarkeitswechsel leer, obwohl der zugrunde liegende Wert korrekt war), auch
+    /// nach gezielter Nachbenachrichtigung. <c>SelectedItem</c> gegen den Options-Record (Werte-Gleichheit
+    /// dank <c>record</c>) ist der im Rest der App bereits bewährte, robustere Mechanismus.</summary>
+    public AuslosungsartOption? NeuAuslosungsartAusgewaehlt
+    {
+        get => NeuAuslosungsartOptionen.FirstOrDefault(o => o.Wert == NeuAuslosungsart);
+        set { if (value is not null) NeuAuslosungsart = value.Wert; }
+    }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
@@ -155,7 +167,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// <c>SelectedValuePath</c> kann das zu einem transienten Reset führen, der die eigentlich korrekte
     /// Auswahl visuell verwaist zurücklässt (Fund aus #300-Test — "Auslosungsart erscheint leer trotz
     /// vorheriger Auswahl"). Wird explizit in <see cref="OnNeuRundeChanged"/> aktualisiert.</summary>
-    [ObservableProperty] private IReadOnlyList<AuslosungsartOption> _neuAuslosungsartOptionen = [];
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NeuAuslosungsartAusgewaehlt))]
+    private IReadOnlyList<AuslosungsartOption> _neuAuslosungsartOptionen = [];
 
     private string _autoNeuName = "";
 
@@ -184,11 +198,21 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(DetailAuslosungsartHinweis))]
     [NotifyPropertyChangedFor(nameof(DetailAuslosungsartWarnung))]
     [NotifyPropertyChangedFor(nameof(DetailAnzahlLostoepfeBearbeitbar))]
+    [NotifyPropertyChangedFor(nameof(DetailAuslosungsartAusgewaehlt))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungAusfuehrenCommand))]
     private Auslosungsart _detailAuslosungsart;
 
     /// <summary>Gecacht, siehe <see cref="NeuAuslosungsartOptionen"/> — aktualisiert in <see cref="LadeDetailAsync"/>.</summary>
-    [ObservableProperty] private IReadOnlyList<AuslosungsartOption> _detailAuslosungsartOptionen = [];
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DetailAuslosungsartAusgewaehlt))]
+    private IReadOnlyList<AuslosungsartOption> _detailAuslosungsartOptionen = [];
+
+    /// <summary>Wrapper für die ComboBox-Bindung, siehe <see cref="NeuAuslosungsartAusgewaehlt"/>.</summary>
+    public AuslosungsartOption? DetailAuslosungsartAusgewaehlt
+    {
+        get => DetailAuslosungsartOptionen.FirstOrDefault(o => o.Wert == DetailAuslosungsart);
+        set { if (value is not null) DetailAuslosungsart = value.Wert; }
+    }
 
     [ObservableProperty] private string _detailName = "";
     [ObservableProperty] private int _detailAnzahlLostoepfe = 1;

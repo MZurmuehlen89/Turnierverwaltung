@@ -68,8 +68,8 @@
 
                     <TextBlock Text="Auslosungsart" FontSize="12" Margin="0,0,0,3" />
                     <ComboBox ItemsSource="{Binding NeuAuslosungsartOptionen}"
-                              SelectedValue="{Binding NeuAuslosungsart, Mode=TwoWay}"
-                              SelectedValuePath="Wert" DisplayMemberPath="Anzeige"
+                              SelectedItem="{Binding NeuAuslosungsartAusgewaehlt, Mode=TwoWay}"
+                              DisplayMemberPath="Anzeige"
                               HorizontalAlignment="Stretch" Margin="0,0,0,6" />
                     <TextBlock Text="{Binding AuslosungsartHinweis}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,6" />
                     <TextBlock Text="{Binding AuslosungsartWarnung}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"
@@ -108,8 +108,8 @@
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Auslosungsart" FontSize="12" Margin="0,0,0,3" />
                                 <ComboBox ItemsSource="{Binding DetailAuslosungsartOptionen}"
-                                          SelectedValue="{Binding DetailAuslosungsart, Mode=TwoWay}"
-                                          SelectedValuePath="Wert" DisplayMemberPath="Anzeige"
+                                          SelectedItem="{Binding DetailAuslosungsartAusgewaehlt, Mode=TwoWay}"
+                                          DisplayMemberPath="Anzeige"
                                           HorizontalAlignment="Stretch" />
                             </StackPanel>
                             <StackPanel Grid.Column="4">
@@ -166,10 +166,11 @@
                                       Height="450">
                                 <ListView.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid ColumnDefinitions="20,8,*" Padding="0,3">
+                                        <Grid ColumnDefinitions="20,8,*" Height="26" Padding="0,3">
                                             <Image Grid.Column="0" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                                   Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}" Stretch="Uniform" />
-                                            <TextBlock Grid.Column="2" Text="{Binding Name}" />
+                                                   Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                   Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center" />
                                         </Grid>
                                     </DataTemplate>
                                 </ListView.ItemTemplate>
@@ -206,10 +207,12 @@
                                                           RightTapped="TopfListView_RightTapped">
                                                     <ListView.ItemTemplate>
                                                         <DataTemplate>
-                                                            <Grid ColumnDefinitions="20,8,*" Padding="0,3">
+                                                            <Grid ColumnDefinitions="20,8,*" Height="26" Padding="0,3">
                                                                 <Image Grid.Column="0" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                                                       Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}" Stretch="Uniform" />
-                                                                <TextBlock Grid.Column="2" Text="{Binding Name}" TextWrapping="Wrap" />
+                                                                       Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                                       Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center"
+                                                                           TextTrimming="CharacterEllipsis" />
                                                             </Grid>
                                                         </DataTemplate>
                                                     </ListView.ItemTemplate>
@@ -253,10 +256,11 @@
                                             <ItemsRepeater ItemsSource="{Binding Teams}">
                                                 <ItemsRepeater.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Grid ColumnDefinitions="20,8,*" Margin="0,0,0,3">
+                                                        <Grid ColumnDefinitions="20,8,*" Height="20" Margin="0,0,0,3">
                                                             <Image Grid.Column="0" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                                                   Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}" Stretch="Uniform" />
-                                                            <TextBlock Grid.Column="2" Text="{Binding Name}" FontSize="12" />
+                                                                   Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                                   Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
+                                                            <TextBlock Grid.Column="2" Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" />
                                                         </Grid>
                                                     </DataTemplate>
                                                 </ItemsRepeater.ItemTemplate>
@@ -272,15 +276,17 @@
                                       ItemsSource="{Binding ErgebnisseAnzeige}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid ColumnDefinitions="Auto,20,8,*,40,20,8,*" Margin="0,0,0,6">
-                                        <TextBlock Grid.Column="0" Text="{Binding PaarungsNummer}" Opacity="0.5" Width="24" />
+                                    <Grid ColumnDefinitions="Auto,20,8,*,40,20,8,*" Height="24" Margin="0,0,0,6">
+                                        <TextBlock Grid.Column="0" Text="{Binding PaarungsNummer}" Opacity="0.5" Width="24" VerticalAlignment="Center" />
                                         <Image Grid.Column="1" Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                               Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}" Stretch="Uniform" />
-                                        <TextBlock Grid.Column="3" Text="{Binding HeimName}" />
-                                        <TextBlock Grid.Column="4" Text="vs." Opacity="0.5" HorizontalAlignment="Center" />
+                                               Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                                               Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="{Binding HeimName}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="4" Text="vs." Opacity="0.5" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         <Image Grid.Column="5" Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                               Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}" Stretch="Uniform" />
-                                        <TextBlock Grid.Column="7" Text="{Binding AuswaertsName}" />
+                                               Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                                               Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="7" Text="{Binding AuswaertsName}" VerticalAlignment="Center" />
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
