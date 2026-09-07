@@ -16,6 +16,7 @@ public class ViewModelTemplateSelector : DataTemplateSelector
     public DataTemplate? LaenderUndVerbaendeTemplate { get; set; }
     public DataTemplate? RegelwerkeTemplate { get; set; }
     public DataTemplate? TurnierlisteTemplate { get; set; }
+    public DataTemplate? TurnierdurchfuehrungTemplate { get; set; }
     public DataTemplate? RanglistenTemplate { get; set; }
 
     protected override DataTemplate? SelectTemplateCore(object item, DependencyObject container)
@@ -25,6 +26,7 @@ public class ViewModelTemplateSelector : DataTemplateSelector
             LaenderUndVerbaendeViewModel => LaenderUndVerbaendeTemplate,
             RegelwerkeViewModel => RegelwerkeTemplate,
             TurnierlisteViewModel => TurnierlisteTemplate,
+            TurnierdurchfuehrungViewModel => TurnierdurchfuehrungTemplate,
             RanglistenViewModel => RanglistenTemplate,
             PlatzhalterViewModel => PlatzhalterTemplate,
             _ => null,

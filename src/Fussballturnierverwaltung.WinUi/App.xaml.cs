@@ -91,9 +91,15 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<RundenUebergaengeViewModel>();
         builder.Services.AddTransient<VorbelegungViewModel>();
         builder.Services.AddTransient<TurnierlisteViewModel>();
+        builder.Services.AddTransient<AuslosungViewModel>();
+        builder.Services.AddTransient<TurnierdurchfuehrungViewModel>();
         builder.Services.AddTransient<RanglistenViewModel>();
 
         // Navigation & Hauptfenster
+        // AusgewaehlteTurnierInstanzService (#299) haelt die Instanzauswahl geteilt zwischen "Turniere" und
+        // "Turnierdurchführung" — zwingend Singleton, da NavigationService bei jeder Navigation den Scope
+        // disposed und ein Scoped-Service die Auswahl beim Menüwechsel sofort verlieren würde.
+        builder.Services.AddSingleton<AusgewaehlteTurnierInstanzService>();
         builder.Services.AddSingleton<EinstellungenService>();
         builder.Services.AddSingleton<ThemeService>();
         builder.Services.AddSingleton<IDialogService, DialogService>();

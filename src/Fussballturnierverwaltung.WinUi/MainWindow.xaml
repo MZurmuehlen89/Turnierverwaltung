@@ -31,6 +31,9 @@
             <DataTemplate x:Key="TurnierlisteTemplate" x:DataType="vm:TurnierlisteViewModel">
                 <views:TurnierlistePage />
             </DataTemplate>
+            <DataTemplate x:Key="TurnierdurchfuehrungTemplate" x:DataType="vm:TurnierdurchfuehrungViewModel">
+                <views:TurnierdurchfuehrungPage />
+            </DataTemplate>
             <DataTemplate x:Key="RanglistenTemplate" x:DataType="vm:RanglistenViewModel">
                 <views:RanglistenPage />
             </DataTemplate>
@@ -41,6 +44,7 @@
                                               LaenderUndVerbaendeTemplate="{StaticResource LaenderUndVerbaendeTemplate}"
                                               RegelwerkeTemplate="{StaticResource RegelwerkeTemplate}"
                                               TurnierlisteTemplate="{StaticResource TurnierlisteTemplate}"
+                                              TurnierdurchfuehrungTemplate="{StaticResource TurnierdurchfuehrungTemplate}"
                                               RanglistenTemplate="{StaticResource RanglistenTemplate}" />
         </Grid.Resources>
 

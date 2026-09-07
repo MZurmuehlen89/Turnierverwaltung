@@ -10,16 +10,19 @@ using System.ComponentModel;
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 /// <summary>
-/// Tab-Container-Mechanik für <see cref="TurnierlisteViewModel"/> — Instanzliste/-auswahl/-filterung
-/// (Status-Umschalter Turniere/Vorlagen, Issue #297), aktives-Tab-Tracking, IRibbonAware-Weiterleitung ans
-/// aktive Kind. Pendant zum WPF-Original <c>TurnierTabKoordinator</c>, aber ohne externen Singleton-Kontext-
-/// Service: die vereinheitlichte Turnier-View hat nur einen Menüpunkt ("Turniere"), die Auswahl kann rein
-/// lokal gehalten werden (anders als bei WPF, wo zwei unabhängige Menüpunkte "Turnierdefinition"/
-/// "Turnierdurchführung" dieselbe Auswahl teilen müssen).
+/// Tab-Container-Mechanik für <see cref="TurnierlisteViewModel"/>/<see cref="TurnierdurchfuehrungViewModel"/>
+/// (#299) — Instanzliste/-auswahl/-filterung (Status-Umschalter Turniere/Vorlagen, Issue #297),
+/// aktives-Tab-Tracking, IRibbonAware-Weiterleitung ans aktive Kind. Pendant zum WPF-Original
+/// <c>TurnierTabKoordinator</c>. Der optionale <paramref name="turnierAuswahlService"/> (Singleton) hält die
+/// Auswahl über mehrere Menüpunkte hinweg — nötig, da ViewModels bei jeder Navigation per Transient-Scope
+/// neu erzeugt werden und lokaler Zustand sonst verloren ginge (analog WPFs zwei unabhängigen Menüpunkten
+/// "Turnierdefinition"/"Turnierdurchführung", die dieselbe Auswahl teilen). <see cref="TurnierlisteViewModel"/>
+/// nutzt ihn ebenfalls, damit die Auswahl beim Wechsel zu "Turnierdurchführung" erhalten bleibt.
 /// </summary>
 public partial class TurnierTabKoordinator : ObservableObject
 {
     private readonly TurnierInstanzService _service;
+    private readonly AusgewaehlteTurnierInstanzService? _turnierAuswahlService;
 
     public ViewModelBase[] Tabs { get; }
 
@@ -57,10 +60,11 @@ public partial class TurnierTabKoordinator : ObservableObject
     /// da hier (anders als beim WPF-Vorbild) kein geteilter Kontext-Service existiert.</summary>
     public event Action<TurnierInstanz?>? AusgewaehlteInstanzGesetzt;
 
-    public TurnierTabKoordinator(TurnierInstanzService service, ViewModelBase[] tabs)
+    public TurnierTabKoordinator(TurnierInstanzService service, ViewModelBase[] tabs, AusgewaehlteTurnierInstanzService? turnierAuswahlService = null)
     {
         _service = service;
         Tabs = tabs;
+        _turnierAuswahlService = turnierAuswahlService;
     }
 
     private bool _initialisierungAktiv;
@@ -68,7 +72,8 @@ public partial class TurnierTabKoordinator : ObservableObject
     public async Task AktivierenAsync()
     {
         _initialisierungAktiv = true;
-        await InstanzenNeuLadenAsync(AusgewaehlteInstanz?.Id);
+        var behalteId = _turnierAuswahlService?.TurnierInstanzId ?? AusgewaehlteInstanz?.Id;
+        await InstanzenNeuLadenAsync(behalteId);
         _initialisierungAktiv = false;
 
         AktiviereAktivenTab(vorherigesTab: null);
@@ -90,6 +95,7 @@ public partial class TurnierTabKoordinator : ObservableObject
 
     partial void OnAusgewaehlteInstanzChanged(TurnierInstanz? value)
     {
+        if (_turnierAuswahlService is not null) _turnierAuswahlService.TurnierInstanzId = value?.Id;
         if (_initialisierungAktiv) return;
         AusgewaehlteInstanzGesetzt?.Invoke(value);
     }

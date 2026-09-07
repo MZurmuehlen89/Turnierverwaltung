@@ -34,14 +34,17 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         TurnierkopfViewModel turnierkopfVm,
         RundenViewModel rundenVm,
         RundenUebergaengeViewModel rundenUebergaengeVm,
-        VorbelegungViewModel vorbelegungVm)
+        VorbelegungViewModel vorbelegungVm,
+        AusgewaehlteTurnierInstanzService turnierAuswahlService)
     {
         TurnierkopfVm = turnierkopfVm;
         RundenVm = rundenVm;
         RundenUebergaengeVm = rundenUebergaengeVm;
         VorbelegungVm = vorbelegungVm;
 
-        TabKoordinator = new TurnierTabKoordinator(service, [TurnierkopfVm, RundenVm, RundenUebergaengeVm, VorbelegungVm]);
+        // Geteilter Kontext-Service (#299) — hält die Auswahl über den Wechsel zu "Turnierdurchführung"
+        // hinweg, da beide ViewModels per Transient-Scope bei jeder Navigation neu erzeugt werden.
+        TabKoordinator = new TurnierTabKoordinator(service, [TurnierkopfVm, RundenVm, RundenUebergaengeVm, VorbelegungVm], turnierAuswahlService);
 
         TabKoordinator.PropertyChanged += (_, e) =>
         {
@@ -49,12 +52,11 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
                 OnPropertyChanged(nameof(RundenTabAktiv));
         };
 
-        // Kein geteilter Kontext-Service (anders als beim WPF-Instanz-Vorbild) — die ausgewählte Instanz wird
-        // direkt an alle Kind-ViewModels durchgereicht. NACHEINANDER (nicht per Fire-and-Forget parallel) —
-        // alle drei Kind-ViewModels teilen sich denselben Scoped-DbContext über ihre Services, ein
-        // gleichzeitiger Start mehrerer DB-Abfragen auf derselben Kontext-Instanz wirft "A second operation
-        // was started on this context instance before a previous operation completed" (Fund aus #297-Test,
-        // siehe auch feedback_dbcontext_concurrency in Memory).
+        // Die ausgewählte Instanz wird direkt an alle Kind-ViewModels durchgereicht, NACHEINANDER (nicht per
+        // Fire-and-Forget parallel) — alle drei Kind-ViewModels teilen sich denselben Scoped-DbContext über
+        // ihre Services, ein gleichzeitiger Start mehrerer DB-Abfragen auf derselben Kontext-Instanz wirft
+        // "A second operation was started on this context instance before a previous operation completed"
+        // (Fund aus #297-Test, siehe auch feedback_dbcontext_concurrency in Memory).
         TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = InstanzAnKindViewModelsWeiterreichenAsync(instanz);
 
         TabKoordinator.AktivesTabZustandGeaendert += (_, _) => RibbonEigenschaftenGeaendertMelden();
