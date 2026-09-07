@@ -63,27 +63,27 @@ public sealed partial class MainWindow : Window
     private void NeuUnterpunkteAktualisieren()
     {
         for (var i = 0; i < _neuUnterpunkteAnzahl; i++)
-            AktionenPanel.Children.RemoveAt(2);
+            AktionenPanel.PrimaryCommands.RemoveAt(2);
         _neuUnterpunkteAnzahl = 0;
 
         var unterpunkte = ViewModel.RibbonNeuUnterpunkte;
         for (var i = 0; i < unterpunkte.Count; i++)
-            AktionenPanel.Children.Insert(2 + i, RibbonButtonErstellen(unterpunkte[i]));
+            AktionenPanel.PrimaryCommands.Insert(2 + i, RibbonButtonErstellen(unterpunkte[i]));
         _neuUnterpunkteAnzahl = unterpunkte.Count;
     }
 
     private void RibbonZusatzGruppenAktualisieren()
     {
         var start = AnzahlFesterAktionenBasis + _neuUnterpunkteAnzahl;
-        while (AktionenPanel.Children.Count > start)
-            AktionenPanel.Children.RemoveAt(start);
+        while (AktionenPanel.PrimaryCommands.Count > start)
+            AktionenPanel.PrimaryCommands.RemoveAt(start);
 
         var gruppen = ViewModel.RibbonZusatzGruppen;
         for (var g = 0; g < gruppen.Count; g++)
         {
-            AktionenPanel.Children.Add(new AppBarSeparator());
+            AktionenPanel.PrimaryCommands.Add(new AppBarSeparator());
             foreach (var aktion in gruppen[g].Aktionen)
-                AktionenPanel.Children.Add(RibbonButtonErstellen(aktion));
+                AktionenPanel.PrimaryCommands.Add(RibbonButtonErstellen(aktion));
         }
     }
 
@@ -102,10 +102,28 @@ public sealed partial class MainWindow : Window
 
         if (aktion.ToggleUnterpunkte is { Count: > 0 } toggles)
             button.Flyout = ToggleFlyoutErstellen(toggles);
+        else if (aktion.Unteraktionen is { Count: > 0 } unteraktionen)
+            button.Flyout = AktionsFlyoutErstellen(unteraktionen);
         else
             button.Command = aktion.Befehl;
 
         return button;
+    }
+
+    /// <summary>Flyout für <see cref="RibbonAktion.Unteraktionen"/> — jeder Menüpunkt führt sofort seinen
+    /// Befehl aus und schließt das Flyout (Standardverhalten von <see cref="MenuFlyoutItem"/>), anders als
+    /// <see cref="ToggleFlyoutErstellen"/>, das offen bleibt, solange mehrere Umschalter gesetzt werden.</summary>
+    private static MenuFlyout AktionsFlyoutErstellen(IReadOnlyList<RibbonUnteraktion> unteraktionen)
+    {
+        var flyout = new MenuFlyout();
+        foreach (var unteraktion in unteraktionen)
+        {
+            var item = new MenuFlyoutItem { Text = unteraktion.Header, Command = unteraktion.Befehl };
+            if (unteraktion.IconGlyph is not null)
+                item.Icon = new FontIcon { Glyph = unteraktion.IconGlyph };
+            flyout.Items.Add(item);
+        }
+        return flyout;
     }
 
     /// <summary>Baut den Flyout-Inhalt für <see cref="RibbonAktion.ToggleUnterpunkte"/> imperativ statt über

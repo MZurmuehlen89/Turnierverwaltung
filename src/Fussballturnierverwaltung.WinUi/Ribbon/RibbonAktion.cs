@@ -16,7 +16,18 @@ public sealed class RibbonAktion
     /// damit beliebige ViewModels es wiederverwenden können — siehe MainWindow.xaml.cs,
     /// RibbonZusatzGruppenAktualisieren.</summary>
     public IReadOnlyList<RibbonToggleAktion>? ToggleUnterpunkte { get; init; }
+
+    /// <summary>Zweite Alternative zu <see cref="Befehl"/>: der Button öffnet ein Flyout mit einer Liste
+    /// direkt ausführbarer Aktionen (kein An/Aus-Zustand wie <see cref="ToggleUnterpunkte"/>, jeder Klick
+    /// löst sofort den jeweiligen Befehl aus und schließt das Flyout) — Bündelung mehrerer eng verwandter
+    /// Einzelbuttons unter einem gemeinsamen Oberbegriff (z.B. "Simulieren" statt sechs Einzelbuttons für
+    /// Runde/Hinrunde/Rückrunde/Gruppe/Spieltag/Auswahl, Nutzerfund: Ribbon-Leiste bei #301 überfüllt).</summary>
+    public IReadOnlyList<RibbonUnteraktion>? Unteraktionen { get; init; }
 }
+
+/// <summary>Ein Menüpunkt in einem <see cref="RibbonAktion.Unteraktionen"/>-Flyout — im Unterschied zu
+/// <see cref="RibbonToggleAktion"/> keine Checkbox, sondern eine sofort ausgeführte Aktion.</summary>
+public sealed record RibbonUnteraktion(string Header, ICommand Befehl, string? IconGlyph = null);
 
 /// <summary>Ein an-/abschaltbarer Menüpunkt in einem <see cref="RibbonAktion.ToggleUnterpunkte"/>-Flyout.
 /// Bewusst ohne Binding-Mechanismus (kein <see cref="Microsoft.UI.Xaml.Data.Binding"/>-Objekt wie im

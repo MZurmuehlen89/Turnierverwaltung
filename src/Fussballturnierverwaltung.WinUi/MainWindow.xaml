@@ -67,10 +67,24 @@
              Dark-Mode-Toggle, der so automatisch ganz rechts landet. -->
         <CommandBar x:Name="HauptCommandBar" Grid.Row="0" DefaultLabelPosition="Right">
             <CommandBar.Content>
-                <StackPanel x:Name="AktionenPanel" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="{x:Bind ViewModel.RibbonTabTitel, Mode=OneWay}"
-                               FontWeight="Bold" VerticalAlignment="Center" Margin="12,0,16,0"
-                               Visibility="{x:Bind ViewModel.HatRibbonBereich, Mode=OneWay}" />
+                <!-- Verschachtelte CommandBar statt StackPanel (#301-Testfund): ein AppBarButton, der nicht
+                     Teil der PrimaryCommands/SecondaryCommands-Auflistung EINER CommandBar ist, ignoriert
+                     deren DefaultLabelPosition komplett und fällt auf sein eigenständiges Default-Layout
+                     zurück (Icon oben/Label unten) — höher als die feste Content-Zeilenhöhe der äußeren
+                     CommandBar, das Label wurde unten abgeschnitten (erst beim Hover sichtbar, weil dessen
+                     Hervorhebungs-Rechteck über den Clip-Bereich hinausragt). Eine zweite, hier verschachtelte
+                     CommandBar mit eigenem DefaultLabelPosition="Right" behandelt ihre eigenen PrimaryCommands
+                     wieder korrekt UND bringt als Bonus automatisches Overflow (⋯), sobald die Fach-Aktionen
+                     (inkl. RibbonZusatzGruppen) nicht mehr in die Fensterbreite passen (zweiter #301-Testfund).
+                     AppBarElementContainer hüllt den Titel-TextBlock, da CommandBar.PrimaryCommands nur
+                     ICommandBarElement (AppBarButton/-ToggleButton/-Separator/-ElementContainer) aufnimmt. -->
+                <CommandBar x:Name="AktionenPanel" DefaultLabelPosition="Right" Background="Transparent"
+                            IsDynamicOverflowEnabled="True">
+                    <AppBarElementContainer>
+                        <TextBlock Text="{x:Bind ViewModel.RibbonTabTitel, Mode=OneWay}"
+                                   FontWeight="Bold" VerticalAlignment="Center" Margin="12,0,16,0"
+                                   Visibility="{x:Bind ViewModel.HatRibbonBereich, Mode=OneWay}" />
+                    </AppBarElementContainer>
                     <AppBarButton x:Name="NeuButton" Icon="Add" Label="Neu" Command="{x:Bind ViewModel.RibbonNeuBefehl, Mode=OneWay}"
                                   Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
                     <!-- Zusatzpunkte zu "Neu" (z.B. "Aus Vorlage erstellen", Issue #297-Nachzug) werden hier
@@ -86,7 +100,7 @@
                                   Visibility="{x:Bind ViewModel.HatLoeschenAktion, Mode=OneWay}" />
                     <!-- Dynamische RibbonZusatzGruppen werden hier angehängt — siehe MainWindow.xaml.cs,
                          RibbonZusatzGruppenAktualisieren. -->
-                </StackPanel>
+                </CommandBar>
             </CommandBar.Content>
             <!-- App-weit, immer sichtbar, bewusst ganz rechts -->
             <AppBarSeparator />
