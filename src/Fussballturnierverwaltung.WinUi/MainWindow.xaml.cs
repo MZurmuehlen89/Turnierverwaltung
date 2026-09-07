@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
+using Fussballturnierverwaltung.WinUi.Ribbon;
 using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -67,13 +68,7 @@ public sealed partial class MainWindow : Window
 
         var unterpunkte = ViewModel.RibbonNeuUnterpunkte;
         for (var i = 0; i < unterpunkte.Count; i++)
-        {
-            var aktion = unterpunkte[i];
-            var button = new AppBarButton { Label = aktion.Header, Command = aktion.Befehl };
-            if (aktion.IconGlyph is not null)
-                button.Icon = new FontIcon { Glyph = aktion.IconGlyph };
-            AktionenPanel.Children.Insert(2 + i, button);
-        }
+            AktionenPanel.Children.Insert(2 + i, RibbonButtonErstellen(unterpunkte[i]));
         _neuUnterpunkteAnzahl = unterpunkte.Count;
     }
 
@@ -88,12 +83,42 @@ public sealed partial class MainWindow : Window
         {
             AktionenPanel.Children.Add(new AppBarSeparator());
             foreach (var aktion in gruppen[g].Aktionen)
-            {
-                var button = new AppBarButton { Label = aktion.Header, Command = aktion.Befehl };
-                if (aktion.IconGlyph is not null)
-                    button.Icon = new FontIcon { Glyph = aktion.IconGlyph };
-                AktionenPanel.Children.Add(button);
-            }
+                AktionenPanel.Children.Add(RibbonButtonErstellen(aktion));
         }
     }
+
+    /// <summary>Erzeugt einen <see cref="AppBarButton"/> aus einer <see cref="RibbonAktion"/> — entweder mit
+    /// direktem <see cref="RibbonAktion.Befehl"/> oder, falls gesetzt, mit einem Flyout aus <see
+    /// cref="RibbonAktion.ToggleUnterpunkte"/> (an-/abschaltbare Menüpunkte, z.B. Auslosungs-Regeln).
+    /// Explizite <see cref="AppBarButton.Width"/> statt der AppBarButton-Standardbreite: das Standard-Layout
+    /// bricht/bschneidet bei mehrzeiligem Label nicht sauber um, längere deutsche Beschriftungen ("Lostöpfe
+    /// automatisch befüllen") passten sonst nicht einzeilig in den Button (Nutzerfund nach #300-Test).</summary>
+    private static AppBarButton RibbonButtonErstellen(RibbonAktion aktion)
+    {
+        var button = new AppBarButton { Label = aktion.Header, Width = BreiteFuerLabel(aktion.Header) };
+        if (aktion.IconGlyph is not null)
+            button.Icon = new FontIcon { Glyph = aktion.IconGlyph };
+
+        if (aktion.ToggleUnterpunkte is { Count: > 0 } toggles)
+        {
+            var flyout = new MenuFlyout();
+            foreach (var toggle in toggles)
+            {
+                var item = new ToggleMenuFlyoutItem { Text = toggle.Header, IsChecked = toggle.IstAktiv };
+                if (toggle.Beschreibung is not null)
+                    ToolTipService.SetToolTip(item, toggle.Beschreibung);
+                item.Click += (_, _) => toggle.Setzen(item.IsChecked);
+                flyout.Items.Add(item);
+            }
+            button.Flyout = flyout;
+        }
+        else
+        {
+            button.Command = aktion.Befehl;
+        }
+
+        return button;
+    }
+
+    private static double BreiteFuerLabel(string label) => Math.Max(90, 26 + label.Length * 7.5);
 }

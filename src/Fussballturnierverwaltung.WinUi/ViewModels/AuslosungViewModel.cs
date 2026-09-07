@@ -147,8 +147,15 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
     [NotifyPropertyChangedFor(nameof(AuslosungsartHinweis))]
     [NotifyPropertyChangedFor(nameof(AuslosungsartWarnung))]
-    [NotifyPropertyChangedFor(nameof(NeuAuslosungsartOptionen))]
     private TurnierRunde? _neuRunde;
+
+    /// <summary>Gecachte Optionsliste statt einer bei jedem Binding-Zugriff neu berechneten Liste — eine
+    /// dauerhaft neue Listeninstanz pro Lesezugriff ist ein bekannter WinUI3-ComboBox-Fallstrick
+    /// (siehe WinUi/CLAUDE.md, "ItemsSource pro Fokus neu berechnet"): kombiniert mit
+    /// <c>SelectedValuePath</c> kann das zu einem transienten Reset führen, der die eigentlich korrekte
+    /// Auswahl visuell verwaist zurücklässt (Fund aus #300-Test — "Auslosungsart erscheint leer trotz
+    /// vorheriger Auswahl"). Wird explizit in <see cref="OnNeuRundeChanged"/> aktualisiert.</summary>
+    [ObservableProperty] private IReadOnlyList<AuslosungsartOption> _neuAuslosungsartOptionen = [];
 
     private string _autoNeuName = "";
 
@@ -176,10 +183,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DetailAuslosungsartHinweis))]
     [NotifyPropertyChangedFor(nameof(DetailAuslosungsartWarnung))]
-    [NotifyPropertyChangedFor(nameof(DetailAuslosungsartOptionen))]
     [NotifyPropertyChangedFor(nameof(DetailAnzahlLostoepfeBearbeitbar))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungAusfuehrenCommand))]
     private Auslosungsart _detailAuslosungsart;
+
+    /// <summary>Gecacht, siehe <see cref="NeuAuslosungsartOptionen"/> — aktualisiert in <see cref="LadeDetailAsync"/>.</summary>
+    [ObservableProperty] private IReadOnlyList<AuslosungsartOption> _detailAuslosungsartOptionen = [];
 
     [ObservableProperty] private string _detailName = "";
     [ObservableProperty] private int _detailAnzahlLostoepfe = 1;
@@ -226,7 +235,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public IReadOnlyList<RanglisteOption> RanglisteOptionen =>
         [_keineRangliste, .. AlleRanglisten.Select(r => new RanglisteOption(r.Name, r))];
 
-    [ObservableProperty] private ObservableCollection<RegelViewModel> _regeln = [];
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
+    private ObservableCollection<RegelViewModel> _regeln = [];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ZeigeVerbandsQuoten))]
@@ -269,9 +280,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     // Auslosungsart.Manuell wird hier nicht angeboten — die Paarungsfestlegung für Runden mit von vornherein
     // feststehenden Paarungen lebt im Vorbelegung-Tab (VorbelegungViewModel/VorbelegungWorkspace, #297).
-    public IReadOnlyList<AuslosungsartOption> NeuAuslosungsartOptionen    => AuslosungsartOptionenFuer(NeuRunde?.Rundenart);
-    public IReadOnlyList<AuslosungsartOption> DetailAuslosungsartOptionen => AuslosungsartOptionenFuer(_auslosungDetail?.TurnierRunde?.Rundenart);
-
     private static IReadOnlyList<AuslosungsartOption> AuslosungsartOptionenFuer(Rundenart? rundenart) =>
         Enum.GetValues<Auslosungsart>()
             .Where(a => a != Auslosungsart.Manuell)
@@ -348,6 +356,15 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             [
                 new RibbonAktion { Header = "Lostöpfe automatisch befüllen", Befehl = LostoepfeAutomatischBefuellenCommand, IconGlyph = "" },
                 new RibbonAktion { Header = "Alle Töpfe leeren", Befehl = AlleToepfeZuruecksetzenCommand, IconGlyph = "" },
+                new RibbonAktion
+                {
+                    Header = "Auslosungs-Regeln",
+                    ToggleUnterpunkte = Regeln
+                        .Select(r => new RibbonToggleAktion(
+                            r.Anzeige, r.IstAktiv, aktiv => r.IstAktiv = aktiv,
+                            r.IstRedundant ? $"{r.Beschreibung}\n\n{r.RedundanzHinweis}" : r.Beschreibung))
+                        .ToList(),
+                },
                 new RibbonAktion { Header = "Auslosung durchführen", Befehl = AuslosungAusfuehrenCommand, IconGlyph = "" },
                 new RibbonAktion { Header = "Zurücksetzen", Befehl = AuslosungZuruecksetzenCommand, IconGlyph = "" },
             ],
@@ -692,7 +709,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var detail = await _auslosungService.FindenNachIdAsync(auslosungId);
             if (detail is null) return;
             _auslosungDetail = detail;
-            OnPropertyChanged(nameof(DetailAuslosungsartOptionen));
 
             var aktuelleRunde = InstanzRunden.FirstOrDefault(r => r.Id == detail.TurnierRundeId);
             var eingehendeRegeln = aktuelleRunde is not null
@@ -817,6 +833,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             IstAbgeschlossen      = detail.Status == AuslosungsStatus.Abgeschlossen;
             DetailName            = detail.Name;
             DetailAuslosungsart   = detail.Auslosungsart;
+            DetailAuslosungsartOptionen = AuslosungsartOptionenFuer(detail.TurnierRunde?.Rundenart);
+            // Siehe OnNeuRundeChanged — erzwungene Nachbenachrichtigung gegen den WinUI3-ComboBox-Reset-
+            // Fallstrick (Fund aus #300-Test: Auslosungsart erschien nach Anlage einer Auslosung leer).
+            OnPropertyChanged(nameof(DetailAuslosungsart));
             DetailAnzahlLostoepfe = Math.Max(1, detail.Lostoepfe.Count);
 
             AuslosungKopfzeile = $"{detail.Name}  ·  {detail.TurnierRunde.Name}  ·  " +
@@ -851,15 +871,26 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     partial void OnNeuRundeChanged(TurnierRunde? value)
     {
+        // Reihenfolge bewusst: erst den Zielwert festlegen (falls die aktuelle Art in der neuen Runde nicht
+        // mehr kompatibel ist), DANACH die Optionsliste (ItemsSource) neu setzen — minimiert das Zeitfenster,
+        // in dem die ComboBox eine ItemsSource ohne passenden Eintrag zur aktuellen Auswahl hätte (siehe
+        // Klassendoku bei NeuAuslosungsartOptionen).
+        if (value is not null && !AuslosungsKompatibilitaet.IstKompatibel(value.Rundenart, NeuAuslosungsart))
+            NeuAuslosungsart = Auslosungsart.Zufall;
+
+        NeuAuslosungsartOptionen = AuslosungsartOptionenFuer(value?.Rundenart);
+        // Erzwungene Nachbenachrichtigung: falls WinUI die ComboBox-Auswahl beim ItemsSource-Wechsel
+        // transient zurücksetzt und der anschließende Vergleich zufällig denselben Enum-Wert ergibt,
+        // unterdrückt CommunityToolkits Gleichheitsprüfung die Benachrichtigung — die ComboBox bliebe dann
+        // visuell leer, obwohl NeuAuslosungsart korrekt ist (Fund aus #300-Test).
+        OnPropertyChanged(nameof(NeuAuslosungsart));
+
         if (value is null) return;
         if (string.IsNullOrWhiteSpace(NeuName) || NeuName == _autoNeuName)
         {
             _autoNeuName = value.Name;
             NeuName      = value.Name;
         }
-
-        if (!AuslosungsKompatibilitaet.IstKompatibel(value.Rundenart, NeuAuslosungsart))
-            NeuAuslosungsart = Auslosungsart.Zufall;
     }
 
     partial void OnNeuAuslosungsartChanged(Auslosungsart value)

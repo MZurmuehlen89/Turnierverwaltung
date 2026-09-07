@@ -124,6 +124,15 @@
                                    Visibility="{Binding DetailAuslosungsartWarnung, Converter={StaticResource NullToCollapsed}}" />
                     </StackPanel>
 
+                    <!-- Ranglisten-Automatik (Befüllen-Button lebt im Menü, "Auslosung"-Gruppe) -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,12"
+                                Visibility="{Binding IstAbgeschlossen, Converter={StaticResource InverseBoolToVisibility}}">
+                        <TextBlock Text="Rangliste für Automatik:" VerticalAlignment="Center" FontSize="12" />
+                        <ComboBox ItemsSource="{Binding RanglisteOptionen}"
+                                  SelectedItem="{Binding AusgewaehlteRanglisteOption, Mode=TwoWay}"
+                                  DisplayMemberPath="Anzeige" Width="220" />
+                    </StackPanel>
+
                     <TextBlock Text="{Binding TeamsStatusText}" FontSize="12" Margin="0,0,0,12" />
 
                     <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
@@ -149,7 +158,7 @@
                                       CanDragItems="True" CanReorderItems="False"
                                       DragItemsStarting="VerfuegbarListView_DragItemsStarting"
                                       DoubleTapped="VerfuegbarListView_DoubleTapped"
-                                      Height="360">
+                                      Height="450">
                                 <ListView.ItemTemplate>
                                     <DataTemplate>
                                         <Grid ColumnDefinitions="20,8,*" Padding="0,3">
@@ -163,7 +172,8 @@
                         </Grid>
 
                         <!-- Lostöpfe -->
-                        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Height="410">
+                        <ScrollViewer Grid.Column="2" Height="450"
+                                      HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                             <ItemsControl ItemsSource="{Binding Lostoepfe}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -182,7 +192,7 @@
                                                             CommandParameter="{Binding}" />
                                                 </Grid>
                                                 <ListView Grid.Row="1" AllowDrop="True" CanReorderItems="False"
-                                                          ItemsSource="{Binding Teilnehmer}" Height="330"
+                                                          ItemsSource="{Binding Teilnehmer}" Height="380"
                                                           DragOver="TopfListView_DragOver"
                                                           Drop="TopfListView_Drop"
                                                           DragEnter="TopfListView_DragEnter"
@@ -205,32 +215,6 @@
                             </ItemsControl>
                         </ScrollViewer>
                     </Grid>
-
-                    <!-- Ranglisten-Automatik -->
-                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,16"
-                                Visibility="{Binding IstAbgeschlossen, Converter={StaticResource InverseBoolToVisibility}}">
-                        <ComboBox ItemsSource="{Binding RanglisteOptionen}"
-                                  SelectedItem="{Binding AusgewaehlteRanglisteOption, Mode=TwoWay}"
-                                  DisplayMemberPath="Anzeige" Width="220" />
-                        <Button Content="Lostöpfe automatisch befüllen" Command="{Binding LostoepfeAutomatischBefuellenCommand}" />
-                    </StackPanel>
-
-                    <!-- Regeln -->
-                    <TextBlock Text="AUSLOSUNGS-REGELN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
-                    <ItemsRepeater ItemsSource="{Binding Regeln}" Margin="0,0,0,16">
-                        <ItemsRepeater.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4" Spacing="8">
-                                    <ToggleSwitch IsOn="{Binding IstAktiv, Mode=TwoWay}" OnContent="" OffContent="" />
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Anzeige}" FontSize="13" />
-                                        <TextBlock Text="{Binding RedundanzHinweis}" FontSize="10" Opacity="0.6" TextWrapping="Wrap"
-                                                   Visibility="{Binding IstRedundant, Converter={StaticResource BoolToVisibility}}" />
-                                    </StackPanel>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsRepeater.ItemTemplate>
-                    </ItemsRepeater>
 
                     <!-- Verbandsquoten -->
                     <StackPanel Visibility="{Binding ZeigeVerbandsQuoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">

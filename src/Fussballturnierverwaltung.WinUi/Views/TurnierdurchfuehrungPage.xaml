@@ -5,46 +5,24 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:views="using:Fussballturnierverwaltung.WinUi.Views">
 
-    <Grid ColumnDefinitions="3*,1,7*">
+    <Grid RowDefinitions="Auto,*">
 
-        <!-- ── Spalte 0: Instanzliste — Auswahl geteilt mit "Turniere" über AusgewaehlteTurnierInstanzService ── -->
-        <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,*">
+        <!-- ── Kompakte Kopfzeile statt permanenter Instanzliste (Nutzerfeedback #300-Test: nahm zu viel
+             Platz ein) — Precedent: WPF TurnierAuswahlView/TurnierAuswahlDialog. Auswahl geteilt mit
+             "Turniere" über AusgewaehlteTurnierInstanzService. ── -->
+        <Border Grid.Row="0" Padding="16,10"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBlock Text="Turnier:" VerticalAlignment="Center" Opacity="0.6" />
+                <Button Command="{Binding TurnierWaehlenCommand}">
+                    <TextBlock Text="{Binding TabKoordinator.AusgewaehlteInstanz.Name, TargetNullValue='Kein Turnier gewählt'}"
+                               MaxWidth="320" TextTrimming="CharacterEllipsis" />
+                </Button>
+            </StackPanel>
+        </Border>
 
-            <Border Grid.Row="0" Padding="8,6"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
-                <TextBox Text="{Binding TabKoordinator.Suchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         PlaceholderText="🔍  Suchen …" HorizontalAlignment="Stretch" />
-            </Border>
-
-            <ToggleSwitch Grid.Row="1" Margin="8,4"
-                          OnContent="Vorlagen" OffContent="Turniere"
-                          IsOn="{Binding TabKoordinator.NurVorlagenAnzeigen, Mode=TwoWay}" />
-
-            <Rectangle Grid.Row="2" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Height="1" />
-
-            <ListView Grid.Row="3"
-                      ItemsSource="{Binding TabKoordinator.InstanzenGefiltert}"
-                      SelectedItem="{Binding TabKoordinator.AusgewaehlteInstanz, Mode=TwoWay}"
-                      SelectionMode="Single">
-                <ListView.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Padding="0,4">
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
-                            <TextBlock FontSize="11" Opacity="0.6">
-                                <Run Text="{Binding Status}" />
-                                <Run Text=" · " />
-                                <Run Text="{Binding SaisonOderJahr}" />
-                            </TextBlock>
-                        </StackPanel>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
-        </Grid>
-
-        <Rectangle Grid.Column="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Width="1" />
-
-        <!-- ── Spalte 2: Auslosung-, Spielplan & Baum- und Simulation-Tab (Platzhalter, folgen in #300–#302) ── -->
-        <Pivot Grid.Column="2" SelectedIndex="{Binding TabKoordinator.AktiverTabIndex, Mode=TwoWay}">
+        <!-- ── Auslosung-, Spielplan & Baum- und Simulation-Tab (Platzhalter, folgen in #301/#302) ── -->
+        <Pivot Grid.Row="1" SelectedIndex="{Binding TabKoordinator.AktiverTabIndex, Mode=TwoWay}">
             <PivotItem Header="Auslosung">
                 <views:AuslosungPage DataContext="{Binding AuslosungTab}" />
             </PivotItem>
