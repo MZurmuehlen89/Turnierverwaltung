@@ -128,6 +128,9 @@
                 <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="0,0,0,4">
                     <Grid Margin="0,0,0,16" ColumnDefinitions="*,60,*">
 
+                        <!-- Canvas.Top wird NICHT per ItemContainerStyle-Binding gesetzt (in WinUI3 nicht
+                             zuverlässig ausgewertet, siehe TurnierBaumView.xaml.cs/PositioniereKarten) —
+                             stattdessen programmatisch im Code-Behind, analog zur Verbindungslinien-Messung. -->
                         <ItemsControl x:Name="LinkeSpalteItems" Grid.Column="0"
                                       ItemsSource="{Binding LinkeSpalteKnoten}" ItemTemplate="{StaticResource BracketKartenTemplate}"
                                       Width="240" Height="{Binding FensterCanvasHoehe}" HorizontalAlignment="Center">
@@ -136,11 +139,6 @@
                                     <Canvas />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemContainerStyle>
-                                <Style TargetType="ContentPresenter">
-                                    <Setter Property="Canvas.Top" Value="{Binding FensterY}" />
-                                </Style>
-                            </ItemsControl.ItemContainerStyle>
                         </ItemsControl>
 
                         <ItemsControl x:Name="RechteSpalteItems" Grid.Column="2"
@@ -152,11 +150,6 @@
                                     <Canvas />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemContainerStyle>
-                                <Style TargetType="ContentPresenter">
-                                    <Setter Property="Canvas.Top" Value="{Binding FensterY}" />
-                                </Style>
-                            </ItemsControl.ItemContainerStyle>
                         </ItemsControl>
 
                         <Canvas x:Name="VerbindungsCanvas" Grid.Column="0" Grid.ColumnSpan="3"

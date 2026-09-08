@@ -27,7 +27,19 @@ public sealed partial class TurnierBaumView : UserControl
 
     private void VerbindungsLinienAktualisieren()
     {
-        if (DataContext is not TurnierBaumViewModel vm || !vm.ZeigtBracketInhalt || !vm.ZeigtZweiteSpalte)
+        if (DataContext is not TurnierBaumViewModel vm || !vm.ZeigtBracketInhalt)
+        {
+            LeereCanvas();
+            return;
+        }
+
+        // Canvas.Top per ItemContainerStyle-Binding wird in WinUI3 nicht zuverlässig ausgewertet (siehe
+        // TurnierBaumView.xaml) — deshalb hier programmatisch gesetzt, bei jedem Layout-Durchlauf neu.
+        PositioniereKarten(LinkeSpalteItems, vm.LinkeSpalteKnoten);
+        if (vm.ZeigtZweiteSpalte)
+            PositioniereKarten(RechteSpalteItems, vm.RechteSpalteKnoten);
+
+        if (!vm.ZeigtZweiteSpalte)
         {
             LeereCanvas();
             return;
@@ -84,6 +96,15 @@ public sealed partial class TurnierBaumView : UserControl
                 X1 = von.X, Y1 = von.Y, X2 = nach.X, Y2 = nach.Y,
                 Stroke = pinsel, StrokeThickness = 1.5
             });
+        }
+    }
+
+    private static void PositioniereKarten(ItemsControl liste, IReadOnlyList<BracketKnotenAnzeige> knoten)
+    {
+        foreach (var k in knoten)
+        {
+            if (liste.ContainerFromItem(k) is ContentPresenter praesentator)
+                Canvas.SetTop(praesentator, k.FensterY);
         }
     }
 
