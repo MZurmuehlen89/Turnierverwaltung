@@ -340,6 +340,30 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public ICommand AbbrechenBefehl => _abbrechenBefehl;
     public ICommand LoeschenBefehl => _loeschenBefehl;
 
+    /// <summary>#302: Sprung in den Simulation-Tab derselben, bereits offenen Turnierdurchführung-Seite
+    /// (abgefangen von <see cref="TurnierdurchfuehrungViewModel"/>, Precedent WPF-Original
+    /// <c>TurnierBereichViewModel</c>/<c>TurnierDurchfuehrungViewModel</c>). "Ausführlich simulieren"
+    /// startet dort eine neue Simulation (ggf. mit Überschreiben-Rückfrage), "Spielverlauf ansehen" zeigt
+    /// nur das bereits vorhandene Protokoll (Issue #240, <see cref="VorausgewaehlteSimulation.NurAnzeigen"/>).</summary>
+    public event EventHandler<VorausgewaehlteSimulation>? AusfuehrlicheSimulationAngefordert;
+
+    private void AusfuehrlichSimulieren()
+    {
+        if (AusgewaehlteSpiel is null || AusgewaehlteRunde is null || AusgewaehlteInstanz is null) return;
+        AusfuehrlicheSimulationAngefordert?.Invoke(this, new VorausgewaehlteSimulation(
+            AusgewaehlteInstanz.Id, AusgewaehlteRunde.Id, AusgewaehlteSpiel.Id));
+    }
+
+    private void SpielverlaufAnsehen()
+    {
+        if (AusgewaehlteSpiel is null || AusgewaehlteRunde is null || AusgewaehlteInstanz is null) return;
+        AusfuehrlicheSimulationAngefordert?.Invoke(this, new VorausgewaehlteSimulation(
+            AusgewaehlteInstanz.Id, AusgewaehlteRunde.Id, AusgewaehlteSpiel.Id, NurAnzeigen: true));
+    }
+
+    private bool CanAusfuehrlichSimulieren() => AusgewaehlteSpiel is { IstPlatzhalterSpiel: false };
+    private bool CanSpielverlaufAnsehen() => AusgewaehlteSpiel is { IstPlatzhalterSpiel: false, HatErgebnis: true };
+
     // Simulieren/Zurücksetzen als je EIN Flyout-Button statt elf Einzelbuttons (Nutzerfund #301-Test:
     // Ribbon-Leiste selbst mit Overflow unübersichtlich überfüllt) — die einzelnen Ebenen (Runde/Hinrunde/
     // Rückrunde/Gruppe/Spieltag/Auswahl) bleiben als Flyout-Menüpunkte erreichbar, nur die Andockstelle im
@@ -381,6 +405,16 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 },
                 new RibbonAktion
                 {
+                    Header = "Ausführlich simulieren",
+                    Befehl = _ausfuehrlichSimulierenBefehl,
+                },
+                new RibbonAktion
+                {
+                    Header = "Spielverlauf ansehen",
+                    Befehl = _spielverlaufAnsehenBefehl,
+                },
+                new RibbonAktion
+                {
                     Header = VorschauAktiv ? "Platzhalter-Vorschau: Ein" : "Platzhalter-Vorschau: Aus",
                     Befehl = _vorschauUmschaltenBefehl,
                     IconGlyph = "",
@@ -393,6 +427,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly AsyncRelayCommand _speichernBefehl;
     private readonly RelayCommand _abbrechenBefehl;
     private readonly AsyncRelayCommand _loeschenBefehl;
+    private readonly RelayCommand _ausfuehrlichSimulierenBefehl;
+    private readonly RelayCommand _spielverlaufAnsehenBefehl;
 
     // ── Konstruktor ───────────────────────────────────────────────────────────
 
@@ -447,6 +483,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             VorschauAktiv = !VorschauAktiv;
             _ = AktualisierePlatzhalterVorschauAsync();
         });
+
+        _ausfuehrlichSimulierenBefehl = new RelayCommand(AusfuehrlichSimulieren, CanAusfuehrlichSimulieren);
+        _spielverlaufAnsehenBefehl = new RelayCommand(SpielverlaufAnsehen, CanSpielverlaufAnsehen);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -1034,6 +1073,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _rueckrundeSimulierenBefehl.NotifyCanExecuteChanged();
         _hinrundeZuruecksetzenBefehl.NotifyCanExecuteChanged();
         _rueckrundeZuruecksetzenBefehl.NotifyCanExecuteChanged();
+        _ausfuehrlichSimulierenBefehl.NotifyCanExecuteChanged();
+        _spielverlaufAnsehenBefehl.NotifyCanExecuteChanged();
     }
 
     private static SpielZeile MapSpielZeile(

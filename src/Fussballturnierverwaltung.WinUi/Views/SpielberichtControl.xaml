@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Fussballturnierverwaltung.WinUi.Views.SpielberichtControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Fussballturnierverwaltung.WinUi.ViewModels"
+    x:Name="Wurzel">
+
+    <!-- Issue #237/#302: vereinheitlichte Spielbericht-Karte (Scoreboard + Zeitleiste), 1:1-Port aus
+         Wpf/Views/SpielberichtControl.xaml. WinUI3 kennt kein Style.Triggers/DataTrigger — bedingte
+         Farbwechsel (Tor-Pille, Elfmeter-Trenner) lösen daher über zwei übereinanderliegende Elemente mit
+         gegensätzlicher Bool/InverseBoolToVisibility-Bindung statt eines DataTriggers, analog zum bereits
+         hier verwendeten Icon-Muster (mehrere Elemente je nach Bool sichtbar/unsichtbar). -->
+
+    <UserControl.Resources>
+        <Style x:Key="TrennerPillText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="9" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
+        <!-- Ereignis-Icon je Art: Ball (Tor/Golden-/Silver Goal/verwandelter Elfmeter), Gelbe/Rote
+             Karte, verschossener Elfmeter (Ball mit Kreuz). -->
+        <DataTemplate x:Key="EreignisIconVorlage">
+            <Grid Width="15" Height="15">
+                <Viewbox Visibility="{Binding IstTor, Converter={StaticResource BoolToVisibility}}">
+                    <Canvas Width="24" Height="24">
+                        <Ellipse Width="24" Height="24" Stroke="{ThemeResource SystemFillColorSuccessBrush}" StrokeThickness="2" />
+                        <Path Data="M12 7l3 2.2-1.1 3.5H10.1L9 9.2z" Fill="{ThemeResource SystemFillColorSuccessBrush}" />
+                    </Canvas>
+                </Viewbox>
+                <Rectangle Width="10" Height="14" RadiusX="2" RadiusY="2" Fill="{ThemeResource SystemFillColorCautionBrush}"
+                           Visibility="{Binding IstGelbeKarte, Converter={StaticResource BoolToVisibility}}" />
+                <Rectangle Width="10" Height="14" RadiusX="2" RadiusY="2" Fill="{ThemeResource SystemFillColorCriticalBrush}"
+                           Visibility="{Binding IstRoteKarte, Converter={StaticResource BoolToVisibility}}" />
+                <Viewbox Visibility="{Binding IstElfmeterVerschossen, Converter={StaticResource BoolToVisibility}}">
+                    <Canvas Width="24" Height="24">
+                        <Ellipse Width="24" Height="24" Stroke="{ThemeResource SystemFillColorCriticalBrush}" StrokeThickness="2" />
+                        <Path Data="M9 9l6 6M15 9l-6 6" Stroke="{ThemeResource SystemFillColorCriticalBrush}" StrokeThickness="2" />
+                    </Canvas>
+                </Viewbox>
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                CornerRadius="6"
+                Visibility="{Binding HatProtokoll, Converter={StaticResource BoolToVisibility}}">
+            <Grid RowDefinitions="Auto,Auto,*">
+
+                <!-- ── Scoreboard-Kopf ── Hauptzeile (großes Ergebnis) oben, Hin-/Rückspiel-Beinzeilen
+                     und "Weiter"-Hinweis darunter kompakt gestapelt (Issue #237). -->
+                <ItemsControl Grid.Row="0" ItemsSource="{Binding ProtokollZeilen}"
+                              HorizontalAlignment="Center" Margin="16,20,16,16">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+
+                                <!-- Hauptzeile: großes Scoreboard (Einzelspiel bzw. "Gesamt" bei Hin-/Rückspiel) -->
+                                <StackPanel Orientation="Horizontal" Margin="4"
+                                            Visibility="{Binding IstHauptzeile, Converter={StaticResource BoolToVisibility}}">
+                                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Margin="0,0,14,0"
+                                                Visibility="{Binding ZeigtTeams, Converter={StaticResource BoolToVisibility}}">
+                                        <Grid Width="40" Height="40" Margin="0,0,0,6">
+                                            <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                   Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                                                   Stretch="Uniform" />
+                                            <TextBlock Text="🏳" FontSize="26" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       Opacity="0.35"
+                                                       Visibility="{Binding HeimWappen, Converter={StaticResource NullToVisible}}" />
+                                        </Grid>
+                                        <TextBlock Text="{Binding HeimName}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" />
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="6,0">
+                                        <TextBlock Text="{Binding Score}" FontSize="26" FontWeight="Black" FontFamily="Consolas"
+                                                   HorizontalAlignment="Center" />
+                                        <TextBlock Text="{Binding Detail}" FontSize="11" FontWeight="Bold" Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                                   HorizontalAlignment="Center" Margin="0,2,0,0"
+                                                   Visibility="{Binding HatDetail, Converter={StaticResource BoolToVisibility}}" />
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Margin="14,0,0,0"
+                                                Visibility="{Binding ZeigtTeams, Converter={StaticResource BoolToVisibility}}">
+                                        <Grid Width="40" Height="40" Margin="0,0,0,6">
+                                            <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                   Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                                                   Stretch="Uniform" />
+                                            <TextBlock Text="🏳" FontSize="26" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       Opacity="0.35"
+                                                       Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToVisible}}" />
+                                        </Grid>
+                                        <TextBlock Text="{Binding AuswaertsName}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Beinzeile: kompakte Textzeile (Hinspiel/Rückspiel-Einzelergebnis) -->
+                                <TextBlock Visibility="{Binding IstBeinzeile, Converter={StaticResource BoolToVisibility}}"
+                                           FontSize="11" HorizontalAlignment="Center" Margin="0,1" TextAlignment="Center">
+                                    <Run Text="{Binding Label}" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <Run Text=" " /><Run Text="{Binding HeimName}" />
+                                    <Run Text="–" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <Run Text="{Binding AuswaertsName}" />
+                                    <Run Text=" " /><Run Text="{Binding Score}" FontFamily="Consolas" FontWeight="SemiBold" /><Run Text="{Binding Detail}" FontFamily="Consolas" />
+                                </TextBlock>
+
+                                <!-- Text-Zeile ohne Teams (z. B. "Weiter: TeamX") -->
+                                <TextBlock Visibility="{Binding ZeigtTeams, Converter={StaticResource InverseBoolToVisibility}}"
+                                           FontSize="12" FontWeight="Bold" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                           HorizontalAlignment="Center" Margin="0,4,0,0">
+                                    <Run Text="{Binding Label}" /><Run Text=": " /><Run Text="{Binding Score}" />
+                                </TextBlock>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- ── Zeitleiste ── nur wenn Ereignisse vorhanden, füllt die Restfläche -->
+                <Grid Grid.Row="1" Grid.RowSpan="2" Visibility="{Binding HatProtokollEreignisse, Converter={StaticResource BoolToVisibility}}"
+                      RowDefinitions="Auto,Auto,*">
+
+                    <Border Grid.Row="0" Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                    <TextBlock Grid.Row="1" Text="SPIELVERLAUF" FontSize="10" FontWeight="Bold" Opacity="0.6" Margin="14,8,14,4" />
+
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="14,4,14,14">
+
+                            <!-- Mittelachse -->
+                            <Border Width="2" Background="{ThemeResource CardStrokeColorDefaultBrush}" HorizontalAlignment="Center"
+                                    Margin="0,18" />
+
+                            <ItemsControl ItemsSource="{Binding ProtokollEreignisse}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:EinzelspielEreignisZeile">
+                                        <Grid>
+
+                                            <!-- Ereignis-Zeile -->
+                                            <Grid Margin="0,5" Visibility="{Binding IstTrenner, Converter={StaticResource InverseBoolToVisibility}}"
+                                                  ColumnDefinitions="*,44,*">
+
+                                                <!-- Heim-Seite -->
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Right"
+                                                            Visibility="{Binding IstHeimSeite, Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock Text="{Binding Art}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                    <Grid Width="18" Height="18" Margin="6,0,0,0" VerticalAlignment="Center">
+                                                        <Ellipse Fill="{ThemeResource ApplicationPageBackgroundThemeBrush}" />
+                                                        <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                               Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                               Stretch="Uniform" Margin="2" />
+                                                    </Grid>
+                                                    <ContentPresenter Content="{Binding}" Margin="6,0,0,0"
+                                                                       ContentTemplate="{StaticResource EreignisIconVorlage}" />
+                                                </StackPanel>
+
+                                                <!-- Minuten-Pille auf der Achse — Grün nur bei Tor (zwei übereinanderliegende
+                                                     Border/TextBlock-Paare statt DataTrigger, siehe Klassenkommentar oben) -->
+                                                <Grid Grid.Column="1" HorizontalAlignment="Center">
+                                                    <Border CornerRadius="999" Padding="6,2" BorderThickness="1"
+                                                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                            Visibility="{Binding IstTor, Converter={StaticResource InverseBoolToVisibility}}">
+                                                        <TextBlock Text="{Binding Minute}" FontSize="10" FontFamily="Consolas" Opacity="0.6" />
+                                                    </Border>
+                                                    <Border CornerRadius="999" Padding="6,2" BorderThickness="1"
+                                                            Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                                                            BorderBrush="{ThemeResource SystemFillColorSuccessBrush}"
+                                                            Visibility="{Binding IstTor, Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock Text="{Binding Minute}" FontSize="10" FontFamily="Consolas"
+                                                                   Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                                                    </Border>
+                                                </Grid>
+
+                                                <!-- Auswärts-Seite -->
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Left"
+                                                            Visibility="{Binding IstHeimSeite, Converter={StaticResource InverseBoolToVisibility}}">
+                                                    <ContentPresenter Content="{Binding}" Margin="0,0,6,0"
+                                                                       ContentTemplate="{StaticResource EreignisIconVorlage}" />
+                                                    <Grid Width="18" Height="18" Margin="0,0,6,0" VerticalAlignment="Center">
+                                                        <Ellipse Fill="{ThemeResource ApplicationPageBackgroundThemeBrush}" />
+                                                        <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                               Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                               Stretch="Uniform" Margin="2" />
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding Art}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Abschnittstrenner mit Linie (HALBZEIT, 90 MINUTEN, VERLÄNGERUNG, ELFMETERSCHIESSEN) —
+                                                 Gelb nur bei Elfmeterschießen (zwei überlagerte Border/TextBlock-Paare) -->
+                                            <Grid Margin="0,12" Visibility="{Binding ZeigtAlsAbschnittMitLinie, Converter={StaticResource BoolToVisibility}}">
+                                                <Border VerticalAlignment="Center" Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                                                <Border HorizontalAlignment="Center" CornerRadius="999" Padding="10,3" BorderThickness="1"
+                                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                        Visibility="{Binding IstElfmeterTrenner, Converter={StaticResource InverseBoolToVisibility}}">
+                                                    <TextBlock Text="{Binding TrennerText}" Opacity="0.6" Style="{StaticResource TrennerPillText}" />
+                                                </Border>
+                                                <Border HorizontalAlignment="Center" CornerRadius="999" Padding="10,3" BorderThickness="1"
+                                                        Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                                                        BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
+                                                        Visibility="{Binding IstElfmeterTrenner, Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock Text="{Binding TrennerText}" Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                                               Style="{StaticResource TrennerPillText}" />
+                                                </Border>
+                                            </Grid>
+
+                                            <!-- Eigenständige Marke ohne Linie (Anpfiff/Abpfiff/Beinabschnitt) -->
+                                            <Grid Margin="0,6" Visibility="{Binding ZeigtAlsEigenstaendigeMarke, Converter={StaticResource BoolToVisibility}}">
+                                                <Border HorizontalAlignment="Center" CornerRadius="999" Padding="10,3"
+                                                        Background="{ThemeResource TextFillColorSecondaryBrush}">
+                                                    <TextBlock Text="{Binding TrennerText}" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                               Style="{StaticResource TrennerPillText}" />
+                                                </Border>
+                                            </Grid>
+
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </ScrollViewer>
+                </Grid>
+
+            </Grid>
+        </Border>
+
+        <!-- Leer-Zustand -->
+        <TextBlock Text="{Binding LeerZustandText, ElementName=Wurzel}"
+                   Opacity="0.5" FontSize="13" TextWrapping="Wrap"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   MaxWidth="340" TextAlignment="Center"
+                   Visibility="{Binding ZeigeLeerZustand, Converter={StaticResource BoolToVisibility}}" />
+
+    </Grid>
+</UserControl>

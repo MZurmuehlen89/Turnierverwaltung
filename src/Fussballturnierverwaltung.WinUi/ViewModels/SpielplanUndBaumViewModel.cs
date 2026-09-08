@@ -23,6 +23,10 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
 
     private TurnierInstanz? _instanz;
 
+    /// <summary>#302: nur durchgereicht — <see cref="TurnierdurchfuehrungViewModel"/> fängt es ab und
+    /// wechselt auf den Simulation-Tab (Precedent WPF-Original <c>TurnierBereichViewModel</c>).</summary>
+    public event EventHandler<VorausgewaehlteSimulation>? AusfuehrlicheSimulationAngefordert;
+
     /// <summary>Ein K.-o.-Turnierbaum ergibt nur bei mehreren aufeinanderfolgenden Runden Sinn — eine
     /// Gruppenphase-/Liga-Tabelle ist aber auch bei genau einer Runde sinnvoll (Precedent aus dem
     /// WPF-Original, Nutzer-Feedback 2026-08-21).</summary>
@@ -73,6 +77,9 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
             if (e.PropertyName == nameof(SpielplanViewModel.AusgewaehlteRunde))
                 OnPropertyChanged(nameof(ZeigeSplitAnsicht));
         };
+
+        SpielplanVm.AusfuehrlicheSimulationAngefordert += (sender, vorauswahl) =>
+            AusfuehrlicheSimulationAngefordert?.Invoke(sender, vorauswahl);
 
         SpielplanVm.SpieltagNavigiert = TurnierBaumVm.ZeigeAktuellenStand;
         SpielplanVm.SpielstandGeaendertAsync = FortschrittAktualisierenAsync;

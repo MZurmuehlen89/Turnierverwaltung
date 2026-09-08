@@ -21,8 +21,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// Auslosung/Spielplan/Simulation) — <see cref="TurnierTabKoordinator.NurVorlagenAnzeigen"/> bleibt hier
 /// daher dauerhaft auf dem Default <c>false</c>, ohne UI dafür.
 ///
-/// Enthält vorerst drei Platzhalter-Tabs — werden in #300 (Auslosung), #301 (Spielplan &amp; Baum) und #302
-/// (Simulation) durch die jeweilige Fach-VM ersetzt.
+/// Drei Fach-Tabs: #300 (Auslosung), #301 (Spielplan &amp; Baum), #302 (Simulation).
 /// </summary>
 public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
@@ -30,7 +29,7 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
 
     public AuslosungViewModel AuslosungTab { get; }
     public SpielplanUndBaumViewModel SpielplanUndBaumTab { get; }
-    public PlatzhalterViewModel SimulationTab { get; } = new() { SeitenTitel = "Simulation — folgt in #302" };
+    public SimulationsViewModel SimulationTab { get; }
 
     public TurnierTabKoordinator TabKoordinator { get; }
 
@@ -39,31 +38,45 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         AusgewaehlteTurnierInstanzService turnierAuswahlService,
         AuslosungViewModel auslosungTab,
         SpielplanUndBaumViewModel spielplanUndBaumTab,
+        SimulationsViewModel simulationTab,
         IDialogService dialogService)
     {
         _dialogService = dialogService;
         AuslosungTab = auslosungTab;
         SpielplanUndBaumTab = spielplanUndBaumTab;
+        SimulationTab = simulationTab;
 
         TabKoordinator = new TurnierTabKoordinator(service, [AuslosungTab, SpielplanUndBaumTab, SimulationTab], turnierAuswahlService);
 
-        // SimulationTab ist noch Platzhalter (#302) und wird dort um dieselbe Verdrahtung ergänzt.
-        // Beide Tabs SEQUENZIELL innerhalb EINES Fire-and-Forget-Aufrufs statt zweier eigenständiger
+        // Alle drei Tabs SEQUENZIELL innerhalb EINES Fire-and-Forget-Aufrufs statt eigenständiger
         // (Testfund: paralleles Fire-and-Forget mit DB-Zugriff auf denselben scoped DbContext löste eine
         // stille "A second operation was started on this context instance"-Exception aus — der Spielplan-Tab
         // brach seinen Runden-Ladevorgang lautlos ab, sobald der Auslosungs-Tab gleichzeitig auf demselben
         // DbContext arbeitete).
-        TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = InstanzAnBeideTabsSequenziellSetzenAsync(instanz);
+        TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = InstanzAnAlleTabsSequenziellSetzenAsync(instanz);
 
         // Ein reiner Tab-Wechsel ist in WinUi (anders als in WPF, siehe TurnierTabKoordinator.AktiverTabGewechselt-
         // Doku) keine eigene Navigation und lädt daher nichts automatisch neu — Daten, die sich in einem anderen
         // Tab geändert haben (z.B. Spielplan-Neugenerierung nach einer Auslosung), blieben beim Zurückwechseln
-        // sonst veraltet stehen (Fund aus #301-Testsession). Beide Tabs neu setzen statt nur das Ziel-Tab, analog
-        // InstanzAnBeideTabsSequenziellSetzenAsync (vermeidet den bekannten Parallel-DbContext-Bug aus #300/#301).
+        // sonst veraltet stehen (Fund aus #301-Testsession). Alle Tabs neu setzen statt nur das Ziel-Tab, analog
+        // InstanzAnAlleTabsSequenziellSetzenAsync (vermeidet den bekannten Parallel-DbContext-Bug aus #300/#301).
         TabKoordinator.AktiverTabGewechselt += (_, _) =>
-            _ = InstanzAnBeideTabsSequenziellSetzenAsync(TabKoordinator.AusgewaehlteInstanz);
+            _ = InstanzAnAlleTabsSequenziellSetzenAsync(TabKoordinator.AusgewaehlteInstanz);
 
         TabKoordinator.AktivesTabZustandGeaendert += (_, _) => RibbonEigenschaftenGeaendertMelden();
+
+        // Nachbesserung zu #163 (WPF-Original TurnierDurchfuehrungViewModel): "Ausführlich simulieren"/
+        // "Spielverlauf ansehen" im Spielplan-Tab wechselt nur auf den Simulation-Tab derselben, bereits
+        // offenen Turnierdurchführung-Seite statt eine eigene Navigation auszulösen. Die Vorauswahl wird
+        // VOR dem Tab-Wechsel gesetzt und von SimulationsViewModel.InstanzSetzenAsync verarbeitet — der
+        // Tab-Wechsel selbst löst über AktiverTabGewechselt (oben) ohnehin einen sequenziellen
+        // InstanzSetzenAsync-Durchlauf aller Tabs aus, ein zusätzlicher paralleler Aufruf hier würde den
+        // bekannten Parallel-DbContext-Bug aus #300/#301 erneut riskieren.
+        SpielplanUndBaumTab.AusfuehrlicheSimulationAngefordert += (_, vorauswahl) =>
+        {
+            SimulationTab.Vorauswahl = vorauswahl;
+            TabKoordinator.AktiverTabIndex = Array.IndexOf(TabKoordinator.Tabs, SimulationTab);
+        };
     }
 
     /// <summary>Öffnet den Turnier-Auswahl-Dialog (Precedent: WPF <c>TurnierAuswahlDialog</c>) — Auswahl
@@ -82,10 +95,11 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         await TabKoordinator.AktivierenAsync();
     }
 
-    private async Task InstanzAnBeideTabsSequenziellSetzenAsync(TurnierInstanz? instanz)
+    private async Task InstanzAnAlleTabsSequenziellSetzenAsync(TurnierInstanz? instanz)
     {
         await AuslosungTab.InstanzSetzenAsync(instanz);
         await SpielplanUndBaumTab.InstanzSetzenAsync(instanz);
+        await SimulationTab.InstanzSetzenAsync(instanz);
     }
 
     private void RibbonEigenschaftenGeaendertMelden()
