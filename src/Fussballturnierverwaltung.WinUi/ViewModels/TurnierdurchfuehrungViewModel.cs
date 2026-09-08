@@ -55,6 +55,14 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         // DbContext arbeitete).
         TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = InstanzAnBeideTabsSequenziellSetzenAsync(instanz);
 
+        // Ein reiner Tab-Wechsel ist in WinUi (anders als in WPF, siehe TurnierTabKoordinator.AktiverTabGewechselt-
+        // Doku) keine eigene Navigation und lädt daher nichts automatisch neu — Daten, die sich in einem anderen
+        // Tab geändert haben (z.B. Spielplan-Neugenerierung nach einer Auslosung), blieben beim Zurückwechseln
+        // sonst veraltet stehen (Fund aus #301-Testsession). Beide Tabs neu setzen statt nur das Ziel-Tab, analog
+        // InstanzAnBeideTabsSequenziellSetzenAsync (vermeidet den bekannten Parallel-DbContext-Bug aus #300/#301).
+        TabKoordinator.AktiverTabGewechselt += (_, _) =>
+            _ = InstanzAnBeideTabsSequenziellSetzenAsync(TabKoordinator.AusgewaehlteInstanz);
+
         TabKoordinator.AktivesTabZustandGeaendert += (_, _) => RibbonEigenschaftenGeaendertMelden();
     }
 

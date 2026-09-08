@@ -55,6 +55,15 @@ public partial class TurnierTabKoordinator : ObservableObject
     /// <summary>Feuert bei jeder Ribbon-relevanten Änderung des aktiven Kinds oder bei Tab-Wechsel.</summary>
     public event EventHandler? AktivesTabZustandGeaendert;
 
+    /// <summary>Feuert NUR bei einem echten Tab-Wechsel (nicht bei jeder Ribbon-relevanten Änderung, siehe
+    /// <see cref="AktivesTabZustandGeaendert"/> — daran zu hängen würde eine Rückkopplungsschleife erzeugen,
+    /// sobald der Reload selbst Ribbon-Properties ändert). Anders als bei WPF (jeder Tab-Wechsel ist dort eine
+    /// echte <c>NavigationService</c>-Navigation mit <c>AktivierenAsync()</c>-Aufruf) ist ein WinUi-Tab-Wechsel
+    /// nur ein Index-Wechsel auf bereits erzeugten VM-Instanzen — ohne dieses Event bleiben Daten, die sich in
+    /// einem ANDEREN Tab geändert haben (z.B. Spielplan-Neugenerierung nach einer Auslosung), beim
+    /// Zurückwechseln veraltet stehen (Fund aus #301-Testsession).</summary>
+    public event EventHandler? AktiverTabGewechselt;
+
     /// <summary>Feuert bei jeder Änderung der ausgewählten Instanz (inkl. Neuladen nach Speichern/Löschen)
     /// — <see cref="TurnierlisteViewModel"/> reicht den neuen Wert direkt an alle Kind-ViewModels weiter,
     /// da hier (anders als beim WPF-Vorbild) kein geteilter Kontext-Service existiert.</summary>
@@ -104,6 +113,7 @@ public partial class TurnierTabKoordinator : ObservableObject
     {
         if (_initialisierungAktiv) return;
         AktiviereAktivenTab(_vorherigesTab);
+        AktiverTabGewechselt?.Invoke(this, EventArgs.Empty);
     }
 
     private ViewModelBase? _vorherigesTab;
