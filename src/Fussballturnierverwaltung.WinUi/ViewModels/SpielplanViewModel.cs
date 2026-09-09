@@ -581,10 +581,59 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task BeiInstanzAenderungAsync()
     {
+        FormAktiv = false;
+
+        int? vorherigeRundeId = AusgewaehlteRunde?.Id;
+
         Runden.Clear();
+
+        var instanz = AusgewaehlteInstanz is null
+            ? null
+            : await _instanzService.FindenNachIdMitRundenAsync(AusgewaehlteInstanz.Id);
+
+        if (instanz is null)
+        {
+            await RundeUndSpielZuruecksetzenAsync();
+            return;
+        }
+
+        foreach (var r in instanz.Runden.OrderBy(r => r.Reihenfolge))
+            Runden.Add(r);
+
+        // Reiner Tab-Wechsel ohne echten Instanzwechsel (#307): dieselbe Runde existiert nach dem
+        // Neuladen noch — Auswahl anhand der Id wiederherstellen statt sie zu verlieren. Bei echtem
+        // Instanzwechsel findet sich die alte Runden-Id nicht mehr (Ids sind global eindeutig), dann
+        // greift der volle Reset wie zuvor.
+        var wiederhergestellteRunde = vorherigeRundeId.HasValue
+            ? Runden.FirstOrDefault(r => r.Id == vorherigeRundeId)
+            : null;
+
+        if (wiederhergestellteRunde is null)
+        {
+            await RundeUndSpielZuruecksetzenAsync();
+            return;
+        }
+
+        _rundeWechselUnterdrueckt++;
+        try
+        {
+            AusgewaehlteRunde = wiederhergestellteRunde;
+        }
+        finally
+        {
+            _rundeWechselUnterdrueckt--;
+        }
+
+        // Spiele/Tabellen frisch laden (externe Änderungen aus anderen Tabs sichtbar machen), aber
+        // Spiel-Auswahl anhand ihrer Id wiederherstellen statt hart zurückzusetzen (Precedent:
+        // SpiellisteAktualisierenAsync, bereits genau dieses Muster für AktivierenAsync).
+        await SpiellisteAktualisierenAsync();
+    }
+
+    private async Task RundeUndSpielZuruecksetzenAsync()
+    {
         Spiele.Clear();
         AusgewaehlteSpiel = null;
-        FormAktiv = false;
 
         _rundeWechselUnterdrueckt++;
         try
@@ -595,15 +644,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             _rundeWechselUnterdrueckt--;
         }
+
         await BeiRundeAenderungAsync();
-
-        if (AusgewaehlteInstanz is null) return;
-
-        var instanz = await _instanzService.FindenNachIdMitRundenAsync(AusgewaehlteInstanz.Id);
-        if (instanz is null) return;
-
-        foreach (var r in instanz.Runden.OrderBy(r => r.Reihenfolge))
-            Runden.Add(r);
     }
 
     private async Task RundeWechselAsync()
