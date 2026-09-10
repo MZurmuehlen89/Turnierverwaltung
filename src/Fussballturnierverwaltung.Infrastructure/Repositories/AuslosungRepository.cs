@@ -34,6 +34,20 @@ public class AuslosungRepository(TurnierverwaltungDbContext context)
             .AsSplitQuery()
             .FirstOrDefaultAsync(a => a.Id == id, ct);
 
+    public async Task<Auslosung?> FindenAbgeschlosseneNachRundeAsync(
+        int turnierInstanzId, int turnierRundeId, CancellationToken ct = default)
+    {
+        var trefferId = await Context.Auslosungen
+            .Where(a => a.TurnierInstanzId == turnierInstanzId
+                     && a.TurnierRundeId == turnierRundeId
+                     && a.Status == AuslosungsStatus.Abgeschlossen)
+            .OrderByDescending(a => a.Id)
+            .Select(a => (int?)a.Id)
+            .FirstOrDefaultAsync(ct);
+
+        return trefferId is null ? null : await FindenNachIdMitDetailsAsync(trefferId.Value, ct);
+    }
+
     public async Task ErgebnisseSetzenUndAbschliessenAsync(
         int auslosungId,
         IReadOnlyList<AuslosungsErgebnis> ergebnisse,

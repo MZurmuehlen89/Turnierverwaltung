@@ -148,6 +148,7 @@ public partial class App
         builder.Services.AddScoped<ISpielplanGenerator, SchweizerSystemGenerator>();
         builder.Services.AddScoped<SpielplanGeneratorFactory>();
         builder.Services.AddScoped<SpielplanService>();
+        builder.Services.AddScoped<IPlatzhalterKaskadeService>(sp => sp.GetRequiredService<SpielplanService>());
 
         // ViewModels (Transient = neuer Scope bei jeder Navigation)
         builder.Services.AddTransient<PlatzhalterViewModel>();

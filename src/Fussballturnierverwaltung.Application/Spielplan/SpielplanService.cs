@@ -22,8 +22,8 @@ public class SpielplanService(
     SpielplanGeneratorFactory generatorFactory,
     TurnierValidator turnierValidator,
     TabellenService tabellenService,
-    AuslosungService auslosungService,
-    ILogger<SpielplanService> logger)
+    IAuslosungRepository auslosungRepository,
+    ILogger<SpielplanService> logger) : IPlatzhalterKaskadeService
 {
     /// <summary>
     /// Generiert den Spielplan für eine Runde. Die Mannschafts-IDs bestimmen Reihenfolge und Paarungen
@@ -274,11 +274,30 @@ public class SpielplanService(
 
     public async Task LoeschenAsync(int turnierRundeId, CancellationToken ct = default)
     {
+        var runde = await LoeschenOhneKaskadeAsync(turnierRundeId, ct);
+
+        // Issue #306: Die Runde hat gerade ihren entschiedenen Spielplan verloren (typischerweise vor
+        // einer Neugenerierung aus einer neuen/zurückgesetzten Auslosung) — Folgerunden können dadurch
+        // stale werden, z.B. wenn "Sieger Gruppe A" durch den Verlust der Gruppenphase-Spiele nicht mehr
+        // auflösbar ist, ein zuvor aufgelöster Platzhalter-Slot einer Folgerunde aber noch die alte
+        // Mannschaft zeigt. Zentral hier statt an jeder der sechs WPF/WinUi/Konsole-Aufrufstellen.
+        await KaskadeAusloesenAsync(runde.TurnierInstanzId, ct);
+    }
+
+    /// <summary>Kern von <see cref="LoeschenAsync"/> ohne den Issue-#306-Kaskaden-Trigger — für den internen
+    /// Aufruf aus <see cref="FinaleAutomatischGenerierenWennBereitAsync"/>, der selbst bereits Teil der
+    /// Kaskade ist: würde dieser Aufruf ebenfalls die volle Kaskade auslösen, riefe er
+    /// <see cref="FinaleAutomatischGenerierenWennBereitAsync"/> reentrant erneut auf, bevor der äußere Aufruf
+    /// seine eigene <see cref="GenerierenAsync(int,IReadOnlyList{int},CancellationToken)"/>-Zeile erreicht —
+    /// mit doppelt generiertem Spiel als Folge (beim manuellen #306-Test gefunden).</summary>
+    private async Task<TurnierRunde> LoeschenOhneKaskadeAsync(int turnierRundeId, CancellationToken ct)
+    {
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
         await turnierBaumRepository.SpielIdsNullSetzenAsync(turnierRundeId, ct);
         await spielRepository.AlleNachRundeLoeschenAsync(turnierRundeId, ct);
         logger.LogInformation("Spielplan für Runde '{Runde}' gelöscht.", runde.Name);
+        return runde;
     }
 
     /// <summary>
@@ -754,7 +773,7 @@ public class SpielplanService(
 
         foreach (var runde in alleRunden)
         {
-            var auslosung = await auslosungService.FindenAbgeschlosseneNachRundeAsync(turnierInstanzId, runde.Id, ct);
+            var auslosung = await auslosungRepository.FindenAbgeschlosseneNachRundeAsync(turnierInstanzId, runde.Id, ct);
             if (auslosung is null) continue;
 
             // IstFreilos ausgeschlossen: GenerierenAusPlatzhalterPaarungenAsync/
@@ -845,7 +864,7 @@ public class SpielplanService(
                     var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(rundeSchritt.RundeId, ct);
                     if (runde is null) continue;
 
-                    var auslosung = await auslosungService.FindenAbgeschlosseneNachRundeAsync(
+                    var auslosung = await auslosungRepository.FindenAbgeschlosseneNachRundeAsync(
                         runde.TurnierInstanzId, runde.Id, ct);
                     if (auslosung is null) continue;
 
@@ -857,6 +876,23 @@ public class SpielplanService(
                     break;
             }
         }
+    }
+
+    /// <summary>Kombiniert Rückwärts-Kaskade (<see cref="PlatzhalterKaskadePlanenAsync"/>/
+    /// <see cref="PlatzhalterKaskadeAusfuehrenAsync"/>, Issue #88) und automatische Finale-Generierung
+    /// (<see cref="FinaleAutomatischGenerierenWennBereitAsync"/>, Issue #113) zu einem einzigen Aufruf.
+    /// Zentraler Trigger-Punkt für jede Stelle, die den Stand einer Turnierinstanz nachträglich ändert und
+    /// dadurch Folgerunden ungültig machen kann — bisher nur <see cref="Spiele.SpielErgebnisService"/>
+    /// (Ergebnis-Löschen), jetzt auch <see cref="Auslosungen.AuslosungService"/> (Auslosung ausführen/
+    /// zurücksetzen, Issue #306). Idempotent und günstig, wenn nichts betroffen ist.</summary>
+    public async Task KaskadeAusloesenAsync(int turnierInstanzId, CancellationToken ct = default)
+    {
+        await FinaleAutomatischGenerierenWennBereitAsync(turnierInstanzId, ct);
+
+        var plan = await PlatzhalterKaskadePlanenAsync(turnierInstanzId, new HashSet<int>(), ct);
+        await PlatzhalterKaskadeAusfuehrenAsync(plan, ct);
+
+        await FinaleAutomatischGenerierenWennBereitAsync(turnierInstanzId, ct);
     }
 
     // ── Automatische Finale-Generierung ohne Auslosung (Issue #113) ────────
@@ -892,7 +928,7 @@ public class SpielplanService(
             // (PlatzhalterKaskadePlanenAsync/-AusfuehrenAsync) — sonst würde diese Heuristik eine gerade
             // frisch aus der Auslosung regenerierte Platzhalter-Paarung sofort wieder entfernen, da sie
             // Auslosung-Zustand nicht kennt (nur Ergebnis-Vorhandensein prüft).
-            if (await auslosungService.FindenAbgeschlosseneNachRundeAsync(turnierInstanzId, ziel.Id, ct) is not null)
+            if (await auslosungRepository.FindenAbgeschlosseneNachRundeAsync(turnierInstanzId, ziel.Id, ct) is not null)
                 continue;
 
             var zielSpiele = await spielRepository.AlleNachRundeAsync(ziel.Id, ct);
@@ -924,7 +960,7 @@ public class SpielplanService(
                 && aktuelleTeilnehmer.SetEquals(sollTeilnehmer);
             if (stimmtUeberein) continue; // bereits korrekt
 
-            await LoeschenAsync(ziel.Id, ct);
+            await LoeschenOhneKaskadeAsync(ziel.Id, ct);
             logger.LogInformation(
                 "Automatisch generiertes, noch nicht gespieltes Spiel in Runde '{Runde}' entfernt " +
                 "(Quellrunden-Stand hat sich geändert).", ziel.Name);

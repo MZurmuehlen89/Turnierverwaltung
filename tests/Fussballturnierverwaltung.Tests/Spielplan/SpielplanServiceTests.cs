@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -33,13 +32,10 @@ public class SpielplanServiceTests
         var baumRepo = new TurnierBaumRepository(ctx);
         var uebergangsregelRepo = new UebergangsregelRepository(ctx);
         var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator()]);
-        var auslosungService = new AuslosungService(
-            new AuslosungRepository(ctx), new VerbandsQuoteRepository(ctx), rundeRepo, new AuslosungsValidator(),
-            NullLogger<AuslosungService>.Instance);
         return new SpielplanService(
             rundeRepo, spielRepo, mannschaftRepo, baumRepo, uebergangsregelRepo,
             factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
-            auslosungService, NullLogger<SpielplanService>.Instance);
+            new AuslosungRepository(ctx), NullLogger<SpielplanService>.Instance);
     }
 
     /// <summary>Legt Regelwerk (mit Entscheidungsverfahren, für KO/Finale Pflicht), Halbfinale- und Finale-Runde
@@ -1696,5 +1692,37 @@ public class SpielplanServiceTests
         var planNachAusfuehrung = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
 
         planNachAusfuehrung.HatAuswirkungen.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task LoeschenAsync_SetztStaleFolgerundenPlatzhalterZurueck_WennQuellrundeNeuGeneriertWird()
+    {
+        // Regressionstest für Issue #306: Beim Reset+Redo einer Auslosung (z.B. Gruppenphase) löscht die
+        // aufrufende UI-Schicht den alten Spielplan der Quellrunde (LoeschenAsync) vor der Neugenerierung.
+        // Genau in diesem Moment wird "Sieger Gruppe A" unauflösbar — eine bereits aufgelöste Folgerunde
+        // (hier: Halbfinale) muss dadurch automatisch auf Platzhaltertext zurückgesetzt werden, statt die
+        // alten, jetzt ungültigen Mannschafts-IDs zu behalten.
+        await using var ctx = NeuerContext();
+        GruppenphaseUndKoSetupAnlegen(ctx, out int gruppenphaseRundeId, out int koRundeId);
+        var auslosung = await AuslosungMitPlatzhalternAnlegen(
+            ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"));
+        var service = ServiceFuer(ctx);
+        await service.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await service.PlatzhalterAufloesenAsync(koRundeId);
+
+        var koSpielVorher = ctx.Spiele.First(s => s.TurnierRundeId == koRundeId);
+        koSpielVorher.HeimMannschaftId.Should().Be(1, "Vorbedingung: Sieger Gruppe A = Team A");
+        koSpielVorher.AuswaertsMannschaftId.Should().Be(4, "Vorbedingung: 2. Gruppe B = Team D");
+
+        // Auslosung-Redo: die UI löscht den bestehenden Gruppenphase-Spielplan vor der Neugenerierung.
+        await service.LoeschenAsync(gruppenphaseRundeId);
+
+        var koSpielNachher = ctx.Spiele.First(s => s.TurnierRundeId == koRundeId);
+        koSpielNachher.HeimMannschaftId.Should().BeNull(
+            "Gruppenphase hat keine Spiele mehr — 'Sieger Gruppe A' ist nicht mehr auflösbar");
+        koSpielNachher.HeimPlatzhalterName.Should().Be("Sieger Gruppe A");
+        koSpielNachher.AuswaertsMannschaftId.Should().BeNull(
+            "Gruppenphase hat keine Spiele mehr — '2. Gruppe B' ist nicht mehr auflösbar");
+        koSpielNachher.AuswaertsPlatzhalterName.Should().Be("2. Gruppe B");
     }
 }

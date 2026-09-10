@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spiele.Eingaben;
@@ -35,13 +34,10 @@ public class SpielErgebnisServiceTests
         var baumRepo = new TurnierBaumRepository(ctx);
         var uebergangsregelRepo = new UebergangsregelRepository(ctx);
         var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator()]);
-        var auslosungService = new AuslosungService(
-            new AuslosungRepository(ctx), new VerbandsQuoteRepository(ctx), rundeRepo, new AuslosungsValidator(),
-            NullLogger<AuslosungService>.Instance);
         return new SpielplanService(
             rundeRepo, spielRepo, mannschaftRepo, baumRepo, uebergangsregelRepo,
             factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
-            auslosungService, NullLogger<SpielplanService>.Instance);
+            new AuslosungRepository(ctx), NullLogger<SpielplanService>.Instance);
     }
 
     private static SpielErgebnisService ServiceFuer(TurnierverwaltungDbContext ctx) =>

@@ -42,6 +42,14 @@ public class FakeAuslosungRepository : IAuslosungRepository
     public Task<Auslosung?> FindenNachIdMitDetailsAsync(int id, CancellationToken ct = default) =>
         Task.FromResult(_store.GetValueOrDefault(id));
 
+    public Task<Auslosung?> FindenAbgeschlosseneNachRundeAsync(
+        int turnierInstanzId, int turnierRundeId, CancellationToken ct = default) =>
+        Task.FromResult(_store.Values
+            .Where(a => a.TurnierInstanzId == turnierInstanzId
+                     && a.TurnierRundeId == turnierRundeId
+                     && a.Status == AuslosungsStatus.Abgeschlossen)
+            .MaxBy(a => a.Id));
+
     public Task ErgebnisseSetzenUndAbschliessenAsync(
         int auslosungId, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct = default)
     {

@@ -22,6 +22,7 @@ public class AuslosungService(
     IVerbandsQuoteRepository verbandsQuoteRepository,
     ITurnierRundeRepository rundeRepository,
     AuslosungsValidator validator,
+    IPlatzhalterKaskadeService platzhalterKaskadeService,
     ILogger<AuslosungService> logger)
 {
     public Task<IReadOnlyList<Auslosung>> AlleNachInstanzAbrufenAsync(int turnierInstanzId, CancellationToken ct = default)
@@ -245,6 +246,11 @@ public class AuslosungService(
         await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);
 
         logger.LogInformation("Auslosung '{Name}' durchgeführt: {Anzahl} Paarungen.", auslosung.Name, ergebnisse.Count);
+
+        // Folgerunden können bereits aus einer früheren Durchführung dieser Auslosung aufgelöste
+        // Platzhalter enthalten, die nicht mehr zum neuen Ergebnis passen (Redo-Fall, Issue #306).
+        await platzhalterKaskadeService.KaskadeAusloesenAsync(auslosung.TurnierInstanzId, ct);
+
         return ergebnisse;
     }
 
@@ -295,22 +301,21 @@ public class AuslosungService(
         logger.LogInformation("Auslosung {Id}: Name='{Name}', Art={Art} aktualisiert.", auslosungId, auslosung.Name, auslosungsart);
     }
 
-    public async Task<Auslosung?> FindenAbgeschlosseneNachRundeAsync(
+    public Task<Auslosung?> FindenAbgeschlosseneNachRundeAsync(
         int turnierInstanzId, int turnierRundeId, CancellationToken ct = default)
-    {
-        var alle    = await repository.AlleNachInstanzAsync(turnierInstanzId, ct);
-        var treffer = alle
-            .Where(a => a.TurnierRundeId == turnierRundeId && a.Status == AuslosungsStatus.Abgeschlossen)
-            .MaxBy(a => a.Id);
-
-        if (treffer is null) return null;
-        return await repository.FindenNachIdMitDetailsAsync(treffer.Id, ct);
-    }
+        => repository.FindenAbgeschlosseneNachRundeAsync(turnierInstanzId, turnierRundeId, ct);
 
     public async Task ZuruecksetzenAsync(int auslosungId, CancellationToken ct = default)
     {
+        var auslosung = await repository.FindenNachIdAsync(auslosungId, ct)
+            ?? throw new InvalidOperationException($"Auslosung {auslosungId} nicht gefunden.");
+
         await repository.ErgebnisseLoeschenUndZuruecksetzenAsync(auslosungId, ct);
         logger.LogInformation("Auslosung {Id} zurückgesetzt.", auslosungId);
+
+        // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf dieser jetzt
+        // zurückgesetzten Auslosung basieren — ohne die Kaskade blieben sie fälschlich stehen (#306).
+        await platzhalterKaskadeService.KaskadeAusloesenAsync(auslosung.TurnierInstanzId, ct);
     }
 
     public async Task LoeschenAsync(int auslosungId, CancellationToken ct = default)
@@ -873,6 +878,8 @@ public class AuslosungService(
         await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);
         logger.LogInformation("Manuelle Auslosung '{Name}' abgeschlossen: {Anzahl} Paarungen.",
             auslosung.Name, ergebnisse.Count);
+
+        await platzhalterKaskadeService.KaskadeAusloesenAsync(auslosung.TurnierInstanzId, ct);
     }
 
     private static bool HatAktiveRegel(Auslosung auslosung, AuslosungsRegelArt art)

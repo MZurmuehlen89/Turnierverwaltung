@@ -108,6 +108,7 @@ builder.Services.AddScoped<ISpielplanGenerator, TopfLigaGenerator>();
 builder.Services.AddScoped<ISpielplanGenerator, SchweizerSystemGenerator>();
 builder.Services.AddScoped<SpielplanGeneratorFactory>();
 builder.Services.AddScoped<SpielplanService>();
+builder.Services.AddScoped<IPlatzhalterKaskadeService>(sp => sp.GetRequiredService<SpielplanService>());
 builder.Services.AddScoped<UebergangsregelService>();
 builder.Services.AddScoped<VerbandsQuoteService>();
 

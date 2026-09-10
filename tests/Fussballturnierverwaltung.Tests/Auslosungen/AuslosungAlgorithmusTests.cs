@@ -18,14 +18,16 @@ namespace Fussballturnierverwaltung.Tests.Auslosungen;
 public class AuslosungAlgorithmusTests
 {
     private readonly FakeAuslosungRepository _repo;
+    private readonly FakePlatzhalterKaskadeService _kaskade;
     private readonly AuslosungService _service;
 
     public AuslosungAlgorithmusTests()
     {
         _repo    = new FakeAuslosungRepository();
+        _kaskade = new FakePlatzhalterKaskadeService();
         _service = new AuslosungService(
             _repo, new FakeVerbandsQuoteRepository(), new FakeTurnierRundeRepository(), new AuslosungsValidator(),
-            NullLogger<AuslosungService>.Instance);
+            _kaskade, NullLogger<AuslosungService>.Instance);
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
@@ -1052,5 +1054,48 @@ public class AuslosungAlgorithmusTests
             e.IstFreilos.Should().BeFalse();
             e.AuswaertsMannschaftId.Should().BeNull();
         });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // ISSUE #306 — Platzhalter-Kaskade wird bei jeder Auslosungs-Zustandsänderung ausgelöst
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task AusfuehrenAsync_LoestPlatzhalterKaskadeFuerTurnierInstanzAus()
+    {
+        var teams = Enumerable.Range(1, 2).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        var auslosung = AuslosungMit(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+        auslosung.TurnierInstanzId = 42;
+
+        await Ausfuehren();
+
+        _kaskade.AufrufeAnzahl.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ZuruecksetzenAsync_LoestPlatzhalterKaskadeFuerTurnierInstanzAus()
+    {
+        var teams = Enumerable.Range(1, 2).Select(Team).ToList();
+        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
+        var auslosung = AuslosungMit(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+        auslosung.TurnierInstanzId = 42;
+        await Ausfuehren();
+
+        await _service.ZuruecksetzenAsync(auslosung.Id);
+
+        _kaskade.AufrufeAnzahl.Should().Be(2, "einmal durch AusfuehrenAsync, einmal durch ZuruecksetzenAsync");
+    }
+
+    [Fact]
+    public async Task ManuelleErgebnisseAbschliessenAsync_LoestPlatzhalterKaskadeFuerTurnierInstanzAus()
+    {
+        var auslosung = AuslosungMit(Rundenart.KoRunde, Auslosungsart.Manuell);
+        auslosung.TurnierInstanzId = 42;
+        var paarungen = new List<ManuellePaarungEingabe> { new(Team(1).Id, null, Team(2).Id, null) };
+
+        await _service.ManuelleErgebnisseAbschliessenAsync(auslosung.Id, paarungen);
+
+        _kaskade.AufrufeAnzahl.Should().Be(1);
     }
 }
