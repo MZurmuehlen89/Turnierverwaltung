@@ -503,7 +503,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         int? spielId = AusgewaehlteSpiel?.Id;
 
         await TabellenNeuLadenAsync(rundeId);
-
         var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
         Spiele.Clear();
         foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
@@ -585,18 +584,23 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         int? vorherigeRundeId = AusgewaehlteRunde?.Id;
 
-        Runden.Clear();
-
+        // Runden.Clear() erst NACH der Abfrage (nicht davor): die ComboBox-Bindung auf AusgewaehlteRunde
+        // nullt diese Property automatisch mit, sobald ihre ItemsSource geleert wird. Bricht die Abfrage
+        // danach ab (z.B. #317, "second operation"-Exception + Retry im Composite), lief bislang genau
+        // dieser destruktive Clear() bereits — der anschließende Retry startet BeiInstanzAenderungAsync
+        // komplett neu und liest vorherigeRundeId dann als bereits leer (Fund aus #308-Nachtest).
         var instanz = AusgewaehlteInstanz is null
             ? null
             : await _instanzService.FindenNachIdMitRundenAsync(AusgewaehlteInstanz.Id);
 
         if (instanz is null)
         {
+            Runden.Clear();
             await RundeUndSpielZuruecksetzenAsync();
             return;
         }
 
+        Runden.Clear();
         foreach (var r in instanz.Runden.OrderBy(r => r.Reihenfolge))
             Runden.Add(r);
 

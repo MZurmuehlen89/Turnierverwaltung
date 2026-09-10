@@ -195,20 +195,65 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
     private async Task BeiInstanzAenderungAsync()
     {
+        int? vorherigeRundeId = AusgewaehlteRunde?.Id;
+        Fehlermeldung = null;
+
+        // Runden.Clear() erst NACH der Abfrage (nicht davor, Precedent: SpielplanViewModel) — sonst nullt
+        // die ComboBox-Bindung AusgewaehlteRunde bereits beim Clear(), und ein Retry nach #317 (
+        // "second operation"-Exception) findet beim neuen Versuch keine vorherigeRundeId mehr vor (#308).
+        var instanz = _instanz is null ? null : await _instanzService.FindenNachIdMitRundenAsync(_instanz.Id);
+
+        if (instanz is null)
+        {
+            Runden.Clear();
+            await RundeUndSpielZuruecksetzenAsync();
+            return;
+        }
+
         Runden.Clear();
-        Spiele.Clear();
-        AusgewaehlteRunde = null;
-        AusgewaehlteSpiel = null;
-        Fehlermeldung     = null;
-        AktualisiereBefehle();
-
-        if (_instanz is null) return;
-
-        var instanz = await _instanzService.FindenNachIdMitRundenAsync(_instanz.Id);
-        if (instanz is null) return;
-
         foreach (var r in instanz.Runden.OrderBy(r => r.Reihenfolge))
             Runden.Add(r);
+
+        // Reiner Tab-Wechsel ohne echten Instanzwechsel (Precedent: SpielplanViewModel.BeiInstanzAenderungAsync,
+        // #307): dieselbe Runde existiert nach dem Neuladen noch — Auswahl anhand der Id wiederherstellen statt
+        // sie hart zurückzusetzen. Ohne das ging z.B. eine per "Spielverlauf ansehen"/"Ausführlich simulieren"
+        // gesetzte Auswahl bei jedem weiteren, redundant ausgelösten Tab-Wechsel sofort wieder verloren (#308).
+        var wiederhergestellteRunde = vorherigeRundeId.HasValue
+            ? Runden.FirstOrDefault(r => r.Id == vorherigeRundeId)
+            : null;
+
+        if (wiederhergestellteRunde is null)
+        {
+            await RundeUndSpielZuruecksetzenAsync();
+            return;
+        }
+
+        _ladeUnterdrueckt++;
+        try
+        {
+            AusgewaehlteRunde = wiederhergestellteRunde;
+        }
+        finally
+        {
+            _ladeUnterdrueckt--;
+        }
+
+        await SpiellisteAktualisierenAsync();
+    }
+
+    private async Task RundeUndSpielZuruecksetzenAsync()
+    {
+        _ladeUnterdrueckt++;
+        try
+        {
+            AusgewaehlteRunde = null;
+        }
+        finally
+        {
+            _ladeUnterdrueckt--;
+        }
+
+        await BeiRundeAenderungAsync();
     }
 
     private async Task BeiRundeAenderungAsync()
@@ -219,7 +264,34 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         AktualisiereBefehle();
 
         if (AusgewaehlteRunde is null) return;
-        await LadeSpiellisteAsync();
+        await SpiellisteAktualisierenAsync();
+    }
+
+    // Lädt die Spielliste der aktuellen Runde neu und stellt die zuvor ausgewählte Spiel-Auswahl anhand
+    // ihrer Id wieder her, statt sie hart zurückzusetzen (Precedent: SpielplanViewModel.SpiellisteAktualisierenAsync).
+    private async Task SpiellisteAktualisierenAsync()
+    {
+        if (AusgewaehlteRunde is null) return;
+        int rundeId = AusgewaehlteRunde.Id;
+        int? spielId = AusgewaehlteSpiel?.Id;
+
+        var liste = await _spielService.AlleNachRundeAsync(rundeId);
+        Spiele.Clear();
+        foreach (var (s, i) in liste.Select((x, i) => (x, i)))
+            Spiele.Add(MapSpielZeile(s, i));
+
+        _ladeUnterdrueckt++;
+        try
+        {
+            AusgewaehlteSpiel = spielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == spielId) : null;
+        }
+        finally
+        {
+            _ladeUnterdrueckt--;
+        }
+
+        await BeiSpielAuswahlAsync();
+        AktualisiereBefehle();
     }
 
     // Wird beim manuellen Auswaehlen eines Spiels (Breadcrumb-Combobox) ausgeloest — laedt das
@@ -235,16 +307,6 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             await LadeProtokollAsync(AusgewaehlteSpiel.Id);
         else
             LeerProtokoll();
-    }
-
-    private async Task LadeSpiellisteAsync()
-    {
-        if (AusgewaehlteRunde is null) return;
-
-        var liste = await _spielService.AlleNachRundeAsync(AusgewaehlteRunde.Id);
-        Spiele.Clear();
-        foreach (var (s, i) in liste.Select((x, i) => (x, i)))
-            Spiele.Add(MapSpielZeile(s, i));
     }
 
     // ── Turnierspiel simulieren ───────────────────────────────────────────────

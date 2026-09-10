@@ -26,6 +26,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly IDialogService _dialogService;
+    private readonly SemaphoreSlim _instanzSetzenLock = new(1, 1);
 
     public AuslosungViewModel AuslosungTab { get; }
     public SpielplanUndBaumViewModel SpielplanUndBaumTab { get; }
@@ -52,7 +53,10 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         // (Testfund: paralleles Fire-and-Forget mit DB-Zugriff auf denselben scoped DbContext löste eine
         // stille "A second operation was started on this context instance"-Exception aus — der Spielplan-Tab
         // brach seinen Runden-Ladevorgang lautlos ab, sobald der Auslosungs-Tab gleichzeitig auf demselben
-        // DbContext arbeitete).
+        // DbContext arbeitete). Nachbesserung #308: das war nur die halbe Miete — auch ZWEI dieser
+        // Fire-and-Forget-Ketten selbst können sich überlappen (z.B. schneller Tab-Wechsel während der
+        // vorige Durchlauf noch lädt), mit demselben Symptom. _instanzSetzenLock serialisiert sie
+        // (Precedent: NavigationService._navigationLock).
         TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = InstanzAnAlleTabsSequenziellSetzenAsync(instanz);
 
         // Ein reiner Tab-Wechsel ist in WinUi (anders als in WPF, siehe TurnierTabKoordinator.AktiverTabGewechselt-
@@ -93,13 +97,58 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
     {
         await AuslosungTab.RanglistenLadenAsync();
         await TabKoordinator.AktivierenAsync();
+
+        // TabKoordinator.AktivierenAsync() löst den initialen Tab-Reload nur als Fire-and-Forget über
+        // AusgewaehlteInstanzGesetzt aus (Event-Handler können nicht awaitet werden) — ohne diesen
+        // expliziten Await hier gilt die Seite als "aktiv", bevor der erste Reload tatsächlich
+        // abgeschlossen ist. Läuft über denselben Lock wie der Event-Aufruf, wartet also einfach mit,
+        // statt ihn zu duplizieren.
+        await InstanzAnAlleTabsSequenziellSetzenAsync(TabKoordinator.AusgewaehlteInstanz);
     }
 
     private async Task InstanzAnAlleTabsSequenziellSetzenAsync(TurnierInstanz? instanz)
     {
-        await AuslosungTab.InstanzSetzenAsync(instanz);
-        await SpielplanUndBaumTab.InstanzSetzenAsync(instanz);
-        await SimulationTab.InstanzSetzenAsync(instanz);
+        await _instanzSetzenLock.WaitAsync();
+        try
+        {
+            // Trat sporadisch als "second operation"-Exception genau an der Nahtstelle zwischen zwei
+            // aufeinanderfolgenden Abfragen auf derselben DbContext-Instanz auf, obwohl der Reload durch
+            // _instanzSetzenLock bereits strikt sequenziell läuft — eine timing-abhängige Eigenheit auf
+            // EF-Core-/ADO.NET-Ebene, kein App-seitiger Reentrancy-Bug (siehe #317 für Details/Root-Cause-
+            // Recherche). Ein einmaliger Retry nach kurzer Pause reicht zuverlässig.
+            const int MAX_VERSUCHE = 2;
+            for (int versuch = 1; versuch <= MAX_VERSUCHE; versuch++)
+            {
+                try
+                {
+                    await AuslosungTab.InstanzSetzenAsync(instanz);
+                    await SpielplanUndBaumTab.InstanzSetzenAsync(instanz);
+                    await SimulationTab.InstanzSetzenAsync(instanz);
+                    return;
+                }
+                catch (InvalidOperationException ex) when (versuch < MAX_VERSUCHE && ex.Message.Contains("second operation"))
+                {
+                    await Task.Delay(50);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Dieser Aufruf läuft als Fire-and-Forget (_ = ...) ohne Awaiter — eine Exception hier
+            // verschwand bisher spurlos (z.B. Runden.Clear() bereits ausgeführt, danach Abbruch mitten im
+            // Reload → leere Rundenliste ohne jede Fehlermeldung). Auf dem gerade aktiven Tab anzeigen,
+            // analog den lokalen Fehlerpfaden der drei Fach-ViewModels.
+            switch (TabKoordinator.AktivesTab)
+            {
+                case AuslosungViewModel a: a.Fehlermeldung = ex.Message; break;
+                case SpielplanUndBaumViewModel s: s.SpielplanVm.Fehlermeldung = ex.Message; break;
+                case SimulationsViewModel sim: sim.Fehlermeldung = ex.Message; break;
+            }
+        }
+        finally
+        {
+            _instanzSetzenLock.Release();
+        }
     }
 
     private void RibbonEigenschaftenGeaendertMelden()

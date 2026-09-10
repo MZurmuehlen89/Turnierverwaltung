@@ -442,7 +442,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         try
         {
             Auslosungen = await LadeAuslosungenGefiltertAsync(instanz.Id);
-
             var detail = await _instanzService.FindenNachIdMitRundenAsync(instanz.Id);
             if (detail is not null)
                 InstanzRunden = new ObservableCollection<TurnierRunde>(detail.Runden.OrderBy(r => r.Reihenfolge));
