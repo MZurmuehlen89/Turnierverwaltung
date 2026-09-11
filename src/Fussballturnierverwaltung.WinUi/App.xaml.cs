@@ -106,6 +106,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<SimulationsViewModel>();
         builder.Services.AddTransient<TurnierdurchfuehrungViewModel>();
         builder.Services.AddTransient<RanglistenViewModel>();
+        builder.Services.AddTransient<EinzelspielSimulationsViewModel>();
 
         // Navigation & Hauptfenster
         // AusgewaehlteTurnierInstanzService (#299) haelt die Instanzauswahl geteilt zwischen "Turniere" und

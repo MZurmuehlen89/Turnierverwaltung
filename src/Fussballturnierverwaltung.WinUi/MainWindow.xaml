@@ -37,6 +37,9 @@
             <DataTemplate x:Key="RanglistenTemplate" x:DataType="vm:RanglistenViewModel">
                 <views:RanglistenPage />
             </DataTemplate>
+            <DataTemplate x:Key="EinzelspielSimulationsTemplate" x:DataType="vm:EinzelspielSimulationsViewModel">
+                <views:EinzelspielSimulationsPage />
+            </DataTemplate>
             <local:ViewModelTemplateSelector x:Key="ViewLocator"
                                               xmlns:local="using:Fussballturnierverwaltung.WinUi"
                                               PlatzhalterTemplate="{StaticResource PlatzhalterTemplate}"
@@ -45,7 +48,8 @@
                                               RegelwerkeTemplate="{StaticResource RegelwerkeTemplate}"
                                               TurnierlisteTemplate="{StaticResource TurnierlisteTemplate}"
                                               TurnierdurchfuehrungTemplate="{StaticResource TurnierdurchfuehrungTemplate}"
-                                              RanglistenTemplate="{StaticResource RanglistenTemplate}" />
+                                              RanglistenTemplate="{StaticResource RanglistenTemplate}"
+                                              EinzelspielSimulationsTemplate="{StaticResource EinzelspielSimulationsTemplate}" />
         </Grid.Resources>
 
         <Grid.RowDefinitions>

@@ -79,7 +79,7 @@ public partial class MainViewModel : ObservableObject
             [
                 EintragErstellen("Turniere",               () => _navigation.NavigiereZuAsync<TurnierlisteViewModel>()),
                 EintragErstellen("Turnierdurchführung",    () => _navigation.NavigiereZuAsync<TurnierdurchfuehrungViewModel>()),
-                EintragErstellen("Einzelspiel-Simulation", () => NavigiereZuPlatzhalterAsync("Einzelspiel-Simulation")),
+                EintragErstellen("Einzelspiel-Simulation", () => _navigation.NavigiereZuAsync<EinzelspielSimulationsViewModel>()),
             ]
         });
 
