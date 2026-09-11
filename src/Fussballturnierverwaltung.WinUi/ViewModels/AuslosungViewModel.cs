@@ -78,6 +78,84 @@ public class VerbandsQuoteAnzeigeViewModel
 public record AuslosungsartOption(string Anzeige, Auslosungsart Wert);
 public record RanglisteOption(string Anzeige, Rangliste? Wert);
 
+// ── TV-Modus: Live-Ziehungsanzeige (#303, Port aus Wpf/ViewModels/AuslosungViewModel.cs, Issue #5) ──
+// WinUI3 kennt kein Style.Triggers/DataTrigger (siehe WinUi/CLAUDE.md-Fallstricke) — das WPF-Original graut
+// gezogene/unbefüllte Slots per DataTrigger auf den Foreground aus, hier stattdessen direkt gebundene
+// *Opacity-Properties (Precedent: SpielberichtControl aus #302).
+
+public class AnimationsGruppenSlot : ObservableObject
+{
+    public int Position { get; init; }
+    private string _anzeige = "…";
+    public string Anzeige
+    {
+        get => _anzeige;
+        set { if (SetProperty(ref _anzeige, value)) { OnPropertyChanged(nameof(Befuellt)); OnPropertyChanged(nameof(BefuelltOpacity)); } }
+    }
+    public bool Befuellt => _anzeige != "…";
+    public double BefuelltOpacity => Befuellt ? 1.0 : 0.4;
+    private byte[]? _wappen;
+    public byte[]? Wappen { get => _wappen; set => SetProperty(ref _wappen, value); }
+}
+
+public class AnimationsGruppe : ObservableObject
+{
+    public int GruppenNummer { get; init; }
+    public string GruppenName { get; init; } = "";
+    public ObservableCollection<AnimationsGruppenSlot> Slots { get; init; } = [];
+}
+
+public class AnimationsPaarung : ObservableObject
+{
+    public int PaarungsNr { get; init; }
+    public bool IstFreilos { get; init; }
+    private string _heim = "…";
+    public string Heim
+    {
+        get => _heim;
+        set { if (SetProperty(ref _heim, value)) { OnPropertyChanged(nameof(HeimBefuellt)); OnPropertyChanged(nameof(HeimBefuelltOpacity)); } }
+    }
+    public bool HeimBefuellt => _heim != "…";
+    public double HeimBefuelltOpacity => HeimBefuellt ? 1.0 : 0.4;
+    private byte[]? _heimWappen;
+    public byte[]? HeimWappen { get => _heimWappen; set => SetProperty(ref _heimWappen, value); }
+    private string _auswaerts = "…";
+    public string Auswaerts
+    {
+        get => _auswaerts;
+        set { if (SetProperty(ref _auswaerts, value)) { OnPropertyChanged(nameof(AuswaertsBefuellt)); OnPropertyChanged(nameof(AuswaertsBefuelltOpacity)); } }
+    }
+    public bool AuswaertsBefuellt => _auswaerts != "…";
+    public double AuswaertsBefuelltOpacity => AuswaertsBefuellt ? 1.0 : 0.4;
+    private byte[]? _auswaertsWappen;
+    public byte[]? AuswaertsWappen { get => _auswaertsWappen; set => SetProperty(ref _auswaertsWappen, value); }
+}
+
+/// <summary>Feste Anzahl Topf-Plätze für die TV-Modus-Anzeige: die Slots werden nie hinzugefügt oder
+/// entfernt, damit sich das Layout nicht verschiebt, sobald ein Topf leerer wird — nur Gezogen/Anzeige
+/// ändern sich pro Slot.</summary>
+public class AnimationsTopfSlot : ObservableObject
+{
+    public int EintragId { get; init; }
+    public string Name { get; init; } = "";
+    public byte[]? Wappen { get; init; }
+    private bool _gezogen;
+    public bool Gezogen
+    {
+        get => _gezogen;
+        set { if (SetProperty(ref _gezogen, value)) { OnPropertyChanged(nameof(Anzeige)); OnPropertyChanged(nameof(GezogenOpacity)); } }
+    }
+    public string Anzeige => Gezogen ? "…" : Name;
+    public double GezogenOpacity => Gezogen ? 0.4 : 1.0;
+}
+
+public class AnimationsTopf
+{
+    public int TopfId { get; init; }
+    public string Name { get; init; } = "";
+    public ObservableCollection<AnimationsTopfSlot> Slots { get; init; } = [];
+}
+
 /// <summary>
 /// "Auslosung"-Tab der Turnierdurchführung (#300, ersetzt den Platzhalter aus #299) — Master-Detail analog
 /// Wpf/ViewModels/AuslosungViewModel.cs: Auslosungsliste/Neu-Formular + Workspace (Lostöpfe, Teilnehmerfilter,
@@ -224,6 +302,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IstPaarungsergebnis))]
+    [NotifyPropertyChangedFor(nameof(ZeigeErgebnis))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungZuruecksetzenCommand))]
     private bool _istAbgeschlossen;
 
@@ -271,6 +350,67 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     [ObservableProperty] private ObservableCollection<ErgebnisAnzeige> _ergebnisseAnzeige = [];
     [ObservableProperty] private ObservableCollection<GruppenErgebnisAnzeige> _gruppenErgebnisse = [];
+
+    // ── TV-Modus: Schrittweise Ziehungsanimation (#303, Issue #5) ────────────────
+    [ObservableProperty] private bool _tvModusAktiv;
+    [ObservableProperty] private bool _tvModusManuell;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AnimationLaeuftNicht))]
+    [NotifyPropertyChangedFor(nameof(ZeigeErgebnis))]
+    [NotifyCanExecuteChangedFor(nameof(AuslosungZuruecksetzenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AnimationUeberspringenCommand))]
+    private bool _animationLaeuft;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AnimationWeiterCommand))]
+    private bool _animationWartetAufWeiter;
+    [ObservableProperty] private string? _animationBannerMannschaft;
+    [ObservableProperty] private string? _animationBannerTopf;
+    [ObservableProperty] private string? _animationBannerZiel;
+    [ObservableProperty] private string? _animationBannerSlot;
+    [ObservableProperty] private string? _animationBannerPosition;
+    [ObservableProperty] private ObservableCollection<AnimationsTopf> _animationToepfe = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AnimationIstGruppenmodus))]
+    private ObservableCollection<AnimationsGruppe> _animationGruppen = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AnimationIstPaarungsmodus))]
+    private ObservableCollection<AnimationsPaarung> _animationPaarungen = [];
+
+    public bool AnimationIstGruppenmodus  => AnimationGruppen.Count > 0;
+    public bool AnimationIstPaarungsmodus => AnimationPaarungen.Count > 0;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AnimationFortschrittText))]
+    private int _animationSchrittIndex;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AnimationFortschrittText))]
+    private int _animationSchrittGesamt;
+
+    public bool AnimationLaeuftNicht => !AnimationLaeuft;
+    public string AnimationFortschrittText => $"{AnimationSchrittIndex} / {AnimationSchrittGesamt}";
+
+    /// <summary>Ergebnis-Panel bleibt während der Ziehungsanimation verborgen — das bereits von
+    /// LadeDetailAsync geladene Endergebnis wird erst nach Animationsende (bzw. bei "Überspringen" sofort)
+    /// sichtbar.</summary>
+    public bool ZeigeErgebnis => IstAbgeschlossen && AnimationLaeuftNicht;
+
+    private bool _animationUeberspringen;
+    private TaskCompletionSource _weiterSignal = new();
+    private static readonly TimeSpan _tvModusSchrittVerzoegerung = TimeSpan.FromMilliseconds(900);
+    private static readonly TimeSpan _tvModusPausenVerzoegerung  = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>Ein einzelner Ziehungsschritt für den TV-Modus: eine Mannschaft aus einem Lostopf, die einem
+    /// bereits feststehenden Ziel (Gruppe/Paarung) zugeordnet ist. Das Endergebnis steht durch AusfuehrenAsync
+    /// schon fest (holistischer Zuordnungsalgorithmus) — hier wird nur die Reihenfolge/Dramaturgie der
+    /// Enthüllung bestimmt.</summary>
+    private sealed record ZiehungsSchritt(
+        TeilnehmerAnzeige Team, int TopfId, string TopfName, int ZielNummer,
+        bool IstGruppenmodus, bool? IstHeim, int? Position, bool IstFreilos);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TeamsStatusText))]
@@ -390,6 +530,18 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                         .ToList(),
                 },
                 new RibbonAktion { Header = "Auslosung durchführen", Befehl = AuslosungAusfuehrenCommand, IconGlyph = "" },
+                new RibbonAktion
+                {
+                    Header = "TV-Modus",
+                    Unteraktionen =
+                    [
+                        new RibbonUnteraktion("Mit TV-Modus", AuslosungMitTvModusAusfuehrenCommand),
+                        new RibbonUnteraktion("Mit TV-Modus manuell", AuslosungMitTvModusManuellAusfuehrenCommand),
+                    ],
+                    IconGlyph = "",
+                },
+                new RibbonAktion { Header = "Weiter", Befehl = AnimationWeiterCommand, IconGlyph = "" },
+                new RibbonAktion { Header = "Rest sofort anzeigen", Befehl = AnimationUeberspringenCommand, IconGlyph = "" },
                 new RibbonAktion { Header = "Zurücksetzen", Befehl = AuslosungZuruecksetzenCommand, IconGlyph = "" },
             ],
         },
@@ -684,16 +836,308 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [RelayCommand(CanExecute = nameof(KannAuslosungAusfuehren))]
     private async Task AuslosungAusfuehren()
     {
+        TvModusAktiv = false; TvModusManuell = false;
+        await AuslosungDurchfuehrenAsync();
+    }
+
+    /// <summary>Ribbon-Unteraktion (Flyout "TV-Modus"): führt wie der Hauptbutton sofort aus, aber mit
+    /// TV-Modus-Ziehungsanimation (automatischer Schrittablauf).</summary>
+    [RelayCommand(CanExecute = nameof(KannAuslosungAusfuehren))]
+    private async Task AuslosungMitTvModusAusfuehren()
+    {
+        TvModusAktiv = true; TvModusManuell = false;
+        await AuslosungDurchfuehrenAsync();
+    }
+
+    /// <summary>Ribbon-Unteraktion (Flyout "TV-Modus"): führt wie der Hauptbutton sofort aus, aber mit
+    /// TV-Modus-Ziehungsanimation im manuellen Schrittmodus (Klick je Schritt).</summary>
+    [RelayCommand(CanExecute = nameof(KannAuslosungAusfuehren))]
+    private async Task AuslosungMitTvModusManuellAusfuehren()
+    {
+        TvModusAktiv = true; TvModusManuell = true;
+        await AuslosungDurchfuehrenAsync();
+    }
+
+    private async Task AuslosungDurchfuehrenAsync()
+    {
         if (_auslosungDetail is null) return;
         Fehlermeldung = null;
         try
         {
             await _auslosungService.AusfuehrenAsync(_auslosungDetail.Id);
             await LadeDetailAsync(_auslosungDetail.Id);
+
+            // Ziehungsschritte bewusst ERST NACH dem Reload aus _auslosungDetail bauen (nicht aus einem vor
+            // AusfuehrenAsync genommenen Lostöpfe-Snapshot + dem separaten Rückgabewert von AusfuehrenAsync):
+            // ViewModel und AuslosungService teilen denselben DbContext-Scope, ein vorheriger Snapshot kann
+            // durch EF-Change-Tracking/Identity-Resolution zwischen den beiden Aufrufen verändert werden.
+            // Nach dem Reload stammen Lostöpfe UND Ergebnisse garantiert aus demselben, aktuellen Snapshot —
+            // exakt die Daten, die danach auch als "echtes" Ergebnis angezeigt werden (Fund aus #303-Test:
+            // TV-Modus-Endanzeige wich bei Gruppenphase nach vorherigem Zurücksetzen vom echten Ergebnis ab).
+            if (TvModusAktiv && _auslosungDetail is not null)
+            {
+                var schritte = ZiehungsSchritteAufbauen(_auslosungDetail.Lostoepfe, _auslosungDetail.Ergebnisse);
+                await ZiehungAnimierenAsync(schritte);
+            }
+
             await SpielplanAutomatischGenerierenAsync();
             await AktualisiereSeitenlisteAsync();
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
+    }
+
+    [RelayCommand(CanExecute = nameof(AnimationWartetAufWeiter))]
+    private void AnimationWeiter() => _weiterSignal.TrySetResult();
+
+    [RelayCommand(CanExecute = nameof(AnimationLaeuft))]
+    private void AnimationUeberspringen()
+    {
+        _animationUeberspringen = true;
+        _weiterSignal.TrySetResult();
+    }
+
+    /// <summary>Baut die Ziehungsreihenfolge für den TV-Modus (Issue #5) auf: analog einer echten Auslosung
+    /// wird ein Lostopf vollständig leergezogen, bevor der nächste an die Reihe kommt (Topf-Reihenfolge nach
+    /// <see cref="Lostopf.Reihenfolge"/>). Bei Gruppenphase wird zusätzlich pro Gruppe eine von der
+    /// Ziehungsreihenfolge unabhängige Position (1..Gruppengröße) verlost — analog historischer
+    /// Auslosungsverfahren mit separater Positions-Kugel. Innerhalb eines einzelnen Topfes wird die
+    /// Ziehungsreihenfolge gleichmäßig auf alle Zielgruppen verteilt (reihum eine Gruppe nach der anderen,
+    /// siehe <see cref="ProGruppeGleichmaessigVerteilen"/>), damit nicht z.B. Gruppe A bereits ihre 2.
+    /// Mannschaft aus diesem Topf erhält, während Gruppe B noch gar keine hat — die Umsortierung bleibt aber
+    /// strikt auf den jeweiligen Topf beschränkt, ein bereits begonnener Topf wird also weiterhin vollständig
+    /// geleert, bevor der nächste beginnt.</summary>
+    private static List<ZiehungsSchritt> ZiehungsSchritteAufbauen(
+        IEnumerable<Lostopf> lostoepfe, IEnumerable<AuslosungsErgebnis> ergebnisse)
+    {
+        bool istGruppenmodus = ergebnisse.Any() &&
+            ergebnisse.All(e => !e.IstFreilos && e.AuswaertsMannschaftId == null && e.AuswaertsPlatzhalterName == null);
+
+        // Position = tatsächlicher Index des Teams innerhalb seiner Gruppe in `ergebnisse`, NICHT
+        // zufällig gewürfelt: SpielplanService.GenerierenAusAuslosungAsync baut den Spielplan (bei
+        // Round-Robin/Berger-Rotationsschema reihenfolgeabhängig) exakt aus dieser Reihenfolge —
+        // die im TV-Modus gezeigte Position muss mit der tatsächlich gespeicherten übereinstimmen,
+        // sonst zeigt die Ziehung eine Position, die mit dem späteren Spielplan nichts zu tun hat.
+        var positionProErgebnis = ergebnisse
+            .GroupBy(e => e.PaarungsNummer)
+            .SelectMany(g => g.Select((e, index) => (Ergebnis: e, Position: index + 1)))
+            .ToDictionary(x => x.Ergebnis, x => x.Position);
+
+        bool PasstZuHeim(AuslosungsErgebnis e, LostopfEintrag eintrag) => eintrag.MannschaftId.HasValue
+            ? e.HeimMannschaftId == eintrag.MannschaftId
+            : e.HeimPlatzhalterName == eintrag.PlatzhalterName;
+        bool PasstZuAuswaerts(AuslosungsErgebnis e, LostopfEintrag eintrag) => eintrag.MannschaftId.HasValue
+            ? e.AuswaertsMannschaftId == eintrag.MannschaftId
+            : e.AuswaertsPlatzhalterName == eintrag.PlatzhalterName;
+
+        var schritte = new List<ZiehungsSchritt>();
+        foreach (var topf in lostoepfe.OrderBy(l => l.Reihenfolge))
+        {
+            var topfSchritte = new List<ZiehungsSchritt>();
+            var teamsGemischt = topf.Eintraege.OrderBy(_ => Random.Shared.Next()).ToList();
+            foreach (var eintrag in teamsGemischt)
+            {
+                var team = TeilnehmerAnzeige.AusEintrag(eintrag);
+                var treffer = ergebnisse.FirstOrDefault(e => PasstZuHeim(e, eintrag) || PasstZuAuswaerts(e, eintrag));
+                if (treffer is null) continue;
+
+                if (istGruppenmodus)
+                {
+                    int position = positionProErgebnis[treffer];
+                    topfSchritte.Add(new ZiehungsSchritt(team, topf.Id, topf.Name, treffer.PaarungsNummer,
+                        IstGruppenmodus: true, IstHeim: null, Position: position, IstFreilos: false));
+                }
+                else
+                {
+                    bool istHeim = PasstZuHeim(treffer, eintrag);
+                    topfSchritte.Add(new ZiehungsSchritt(team, topf.Id, topf.Name, treffer.PaarungsNummer,
+                        IstGruppenmodus: false, IstHeim: istHeim, Position: null, IstFreilos: treffer.IstFreilos));
+                }
+            }
+
+            schritte.AddRange(istGruppenmodus ? ProGruppeGleichmaessigVerteilen(topfSchritte) : topfSchritte);
+        }
+
+        return schritte;
+    }
+
+    /// <summary>Verteilt die Ziehungsschritte EINES Topfes gleichmäßig auf alle Zielgruppen: reihum wird aus
+    /// jeder Gruppen-Warteschlange (in zufälliger Gruppen-Reihenfolge je Runde) je ein Schritt entnommen, bis
+    /// alle Warteschlangen leer sind. Verhindert, dass innerhalb eines Topfes eine Gruppe bereits mehrere
+    /// Mannschaften erhält, während eine andere noch leer ausgeht.</summary>
+    private static List<ZiehungsSchritt> ProGruppeGleichmaessigVerteilen(List<ZiehungsSchritt> topfSchritte)
+    {
+        var proGruppe = topfSchritte
+            .GroupBy(s => s.ZielNummer)
+            .Select(g => new Queue<ZiehungsSchritt>(g.OrderBy(_ => Random.Shared.Next())))
+            .ToList();
+
+        var ergebnis = new List<ZiehungsSchritt>(topfSchritte.Count);
+        bool weitereRunde = true;
+        while (weitereRunde)
+        {
+            weitereRunde = false;
+            foreach (var queue in proGruppe.OrderBy(_ => Random.Shared.Next()))
+            {
+                if (queue.Count == 0) continue;
+                ergebnis.Add(queue.Dequeue());
+                weitereRunde = true;
+            }
+        }
+        return ergebnis;
+    }
+
+    /// <summary>Spielt die Ziehungsschritte nacheinander im UI ab: pro Schritt wird zunächst die gezogene
+    /// Mannschaft angezeigt (dabei in der Topf-Anzeige als "gezogen" markiert — die Slots bleiben
+    /// zahlenmäßig fix, nur ihr Inhalt wechselt zu "…", damit sich das Layout nicht verschiebt, sobald ein
+    /// Topf leerer wird), dann das Ziel (Gruppe/Paarung), bei Gruppenphase zusätzlich die Position — je nach
+    /// TvModusManuell entweder automatisch mit Verzögerung oder wartend auf einen "Weiter"-Klick.
+    /// AnimationGruppen/AnimationPaarungen werden vorab mit der vollen Anzahl leerer Plätze ("…") aufgebaut
+    /// (nicht erst bei der ersten Zuweisung sichtbar) und danach Slot für Slot befüllt. Das bereits von
+    /// LadeDetailAsync geladene Endergebnis wird während der Animation nicht verändert — es wird einfach
+    /// erst nach Animationsende (bzw. bei "Überspringen" sofort) sichtbar, siehe <see cref="ZeigeErgebnis"/>.</summary>
+    private async Task ZiehungAnimierenAsync(List<ZiehungsSchritt> schritte)
+    {
+        if (schritte.Count == 0) return;
+
+        AnimationLaeuft         = true;
+        AnimationSchrittGesamt  = schritte.Count;
+        _animationUeberspringen = false;
+        _weiterSignal           = new TaskCompletionSource();
+
+        AnimationToepfe = new ObservableCollection<AnimationsTopf>(
+            Lostoepfe.OrderBy(l => l.Reihenfolge).Select(l => new AnimationsTopf
+            {
+                TopfId = l.Id,
+                Name   = l.Name,
+                Slots  = new ObservableCollection<AnimationsTopfSlot>(
+                    l.Teilnehmer.Select(t => new AnimationsTopfSlot { EintragId = t.EintragId, Name = t.Name, Wappen = t.Wappen }))
+            }));
+
+        bool istGruppenmodus = schritte[0].IstGruppenmodus;
+        if (istGruppenmodus)
+        {
+            AnimationGruppen = new ObservableCollection<AnimationsGruppe>(
+                schritte.GroupBy(s => s.ZielNummer).OrderBy(g => g.Key).Select(g => new AnimationsGruppe
+                {
+                    GruppenNummer = g.Key,
+                    GruppenName   = $"Gruppe {GruppenBuchstabe(g.Key)}",
+                    Slots         = new ObservableCollection<AnimationsGruppenSlot>(
+                        Enumerable.Range(1, g.Count()).Select(p => new AnimationsGruppenSlot { Position = p }))
+                }));
+            AnimationPaarungen = [];
+        }
+        else
+        {
+            AnimationPaarungen = new ObservableCollection<AnimationsPaarung>(
+                schritte.GroupBy(s => s.ZielNummer).OrderBy(g => g.Key).Select(g => new AnimationsPaarung
+                {
+                    PaarungsNr = g.Key,
+                    IstFreilos = g.First().IstFreilos
+                }));
+            AnimationGruppen = [];
+        }
+
+        try
+        {
+            for (int i = 0; i < schritte.Count; i++)
+            {
+                if (_animationUeberspringen) break;
+                var schritt = schritte[i];
+                AnimationSchrittIndex = i + 1;
+
+                var topfSlot = AnimationToepfe
+                    .FirstOrDefault(t => t.TopfId == schritt.TopfId)?.Slots
+                    .FirstOrDefault(s => s.EintragId == schritt.Team.EintragId);
+                if (topfSlot is not null) topfSlot.Gezogen = true;
+
+                AnimationBannerMannschaft = schritt.Team.Name;
+                AnimationBannerTopf       = schritt.TopfName;
+                AnimationBannerZiel       = null;
+                AnimationBannerSlot       = null;
+                AnimationBannerPosition   = null;
+                await WarteAufSchrittAsync(_tvModusSchrittVerzoegerung);
+                if (_animationUeberspringen) break;
+
+                AnimationBannerZiel = schritt.IstGruppenmodus
+                    ? $"Gruppe {GruppenBuchstabe(schritt.ZielNummer)}"
+                    : $"Paarung {schritt.ZielNummer}";
+                AnimationBannerSlot = schritt.IstGruppenmodus
+                    ? null
+                    : (schritt.IstFreilos ? "Freilos" : (schritt.IstHeim == true ? "Heim" : "Auswärts"));
+                await WarteAufSchrittAsync(_tvModusSchrittVerzoegerung);
+                if (_animationUeberspringen) break;
+
+                if (schritt.IstGruppenmodus)
+                {
+                    AnimationBannerPosition = $"Position {schritt.Position}";
+                    await WarteAufSchrittAsync(_tvModusSchrittVerzoegerung);
+                    if (_animationUeberspringen) break;
+                }
+
+                if (schritt.IstGruppenmodus)
+                {
+                    var gruppe = AnimationGruppen.First(g => g.GruppenNummer == schritt.ZielNummer);
+                    var slot = gruppe.Slots[schritt.Position!.Value - 1];
+                    slot.Anzeige = schritt.Team.Name;
+                    slot.Wappen  = schritt.Team.Wappen;
+                }
+                else
+                {
+                    var paarung = AnimationPaarungen.First(p => p.PaarungsNr == schritt.ZielNummer);
+                    if (schritt.IstFreilos || schritt.IstHeim == true)
+                    {
+                        paarung.Heim       = schritt.Team.Name;
+                        paarung.HeimWappen = schritt.Team.Wappen;
+                    }
+                    else
+                    {
+                        paarung.Auswaerts       = schritt.Team.Name;
+                        paarung.AuswaertsWappen = schritt.Team.Wappen;
+                    }
+                }
+
+                AnimationBannerMannschaft = null;
+                AnimationBannerTopf       = null;
+                AnimationBannerZiel       = null;
+                AnimationBannerSlot       = null;
+                AnimationBannerPosition   = null;
+                if (i < schritte.Count - 1)
+                {
+                    await WarteAufSchrittAsync(_tvModusPausenVerzoegerung);
+                    if (_animationUeberspringen) break;
+                }
+            }
+        }
+        finally
+        {
+            AnimationLaeuft           = false;
+            AnimationWartetAufWeiter  = false;
+            AnimationBannerMannschaft = null;
+            AnimationBannerTopf       = null;
+            AnimationBannerZiel       = null;
+            AnimationBannerSlot       = null;
+            AnimationBannerPosition   = null;
+            AnimationToepfe           = [];
+            AnimationGruppen          = [];
+            AnimationPaarungen        = [];
+        }
+    }
+
+    private async Task WarteAufSchrittAsync(TimeSpan verzoegerung)
+    {
+        if (_animationUeberspringen) return;
+
+        if (TvModusManuell)
+        {
+            AnimationWartetAufWeiter = true;
+            await _weiterSignal.Task;
+        }
+        else
+        {
+            await Task.WhenAny(Task.Delay(verzoegerung), _weiterSignal.Task);
+        }
+        AnimationWartetAufWeiter = false;
+        _weiterSignal = new TaskCompletionSource();
     }
 
     /// <summary>Generiert den Spielplan automatisch, sobald die Auslosung abgeschlossen ist (Issue #19,
@@ -872,6 +1316,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             if (istGruppe)
             {
+                // Team-Reihenfolge innerhalb der Gruppe bewusst NICHT alphabetisch sortiert: sie muss mit
+                // der tatsächlich gespeicherten Reihenfolge übereinstimmen, aus der
+                // SpielplanService.GenerierenAusAuslosungAsync den Spielplan generiert (dort ohne eigene
+                // Sortierung, ebenfalls direkt aus der PaarungsNummer-Gruppierung) — siehe #303-Diskussion.
                 GruppenErgebnisse = new ObservableCollection<GruppenErgebnisAnzeige>(
                     detail.Ergebnisse
                         .GroupBy(e => e.PaarungsNummer)
@@ -882,7 +1330,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                             g.Select(e => new GruppenTeamAnzeige(
                                     e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
                                     TeilnehmerAnzeige.MannschaftsIcon(e.HeimMannschaft)))
-                             .OrderBy(t => t.Name)
                              .ToList())));
                 ErgebnisseAnzeige = [];
             }
@@ -981,7 +1428,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private bool KannLoeschen()  => AusgewaehlteAuslosung is not null && !NeuFormAktiv;
 
     private bool KannAuslosungAusfuehren()             => DetailAktiv && IstBearbeitbar;
-    private bool KannAuslosungZuruecksetzen()           => DetailAktiv && IstAbgeschlossen;
+    private bool KannAuslosungZuruecksetzen()           => DetailAktiv && IstAbgeschlossen && !AnimationLaeuft;
     private bool KannLostoepfeAutomatischBefuellen()    => DetailAktiv && IstBearbeitbar;
     private bool KannAlleToepfeZuruecksetzen()          => DetailAktiv && IstBearbeitbar && Lostoepfe.Any(l => l.Teilnehmer.Count > 0);
 

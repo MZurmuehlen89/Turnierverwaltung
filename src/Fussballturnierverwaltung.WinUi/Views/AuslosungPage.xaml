@@ -97,6 +97,197 @@
                 <StackPanel Margin="20">
                     <TextBlock Text="{Binding AuslosungKopfzeile}" FontWeight="SemiBold" FontSize="15" Margin="0,0,0,16" />
 
+                    <!-- TV-Modus: Live-Ziehungsbanner (#303) -->
+                    <Border Background="#0F172A" CornerRadius="6" Padding="16,14" Margin="0,0,0,16"
+                            Visibility="{Binding AnimationLaeuft, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,10">
+                                <TextBlock Text="LIVE-ZIEHUNG" FontSize="11" FontWeight="Bold"
+                                           Foreground="#FBBF24" HorizontalAlignment="Left" />
+                                <TextBlock Text="{Binding AnimationFortschrittText}" FontSize="11"
+                                           Foreground="White" Opacity="0.7" HorizontalAlignment="Right" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,4">
+                                <!-- Pille "MANNSCHAFT" -->
+                                <Border Background="#1E293B" CornerRadius="4" Padding="14,8" Margin="0,0,8,0" MinWidth="150">
+                                    <StackPanel>
+                                        <TextBlock Text="MANNSCHAFT" FontSize="9" Foreground="White" Opacity="0.6" HorizontalAlignment="Center" />
+                                        <TextBlock Text="{Binding AnimationBannerMannschaft}" FontSize="15" FontWeight="Bold"
+                                                   Foreground="White" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+                                        <TextBlock Text="{Binding AnimationBannerTopf}" FontSize="10" Foreground="White" Opacity="0.6" HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                                <!-- Pille "ZIEL" -->
+                                <StackPanel Orientation="Horizontal"
+                                            Visibility="{Binding AnimationBannerZiel, Converter={StaticResource NullToCollapsed}}">
+                                    <TextBlock Text="→" FontSize="20" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <Border Background="#1E293B" CornerRadius="4" Padding="14,8" Margin="0,0,8,0" MinWidth="110">
+                                        <StackPanel>
+                                            <TextBlock Text="ZIEL" FontSize="9" Foreground="White" Opacity="0.6" HorizontalAlignment="Center" />
+                                            <TextBlock Text="{Binding AnimationBannerZiel}" FontSize="15" FontWeight="Bold"
+                                                       Foreground="#4ADE80" HorizontalAlignment="Center" />
+                                            <TextBlock Text="{Binding AnimationBannerSlot}" FontSize="10" Foreground="White" Opacity="0.6" HorizontalAlignment="Center"
+                                                       Visibility="{Binding AnimationBannerSlot, Converter={StaticResource NullToCollapsed}}" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                                <!-- Pille "POSITION" -->
+                                <StackPanel Orientation="Horizontal"
+                                            Visibility="{Binding AnimationBannerPosition, Converter={StaticResource NullToCollapsed}}">
+                                    <TextBlock Text="→" FontSize="20" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <Border Background="#1E293B" CornerRadius="4" Padding="14,8" MinWidth="90">
+                                        <StackPanel>
+                                            <TextBlock Text="POSITION" FontSize="9" Foreground="White" Opacity="0.6" HorizontalAlignment="Center" />
+                                            <TextBlock Text="{Binding AnimationBannerPosition}" FontSize="15" FontWeight="Bold"
+                                                       Foreground="#60A5FA" HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- TV-Modus: Lostöpfe (links) und Gruppen/Paarungen (rechts) -->
+                    <Grid Margin="0,0,0,16" ColumnDefinitions="*,16,*"
+                          Visibility="{Binding AnimationLaeuft, Converter={StaticResource BoolToVisibility}}">
+
+                        <!-- Lostöpfe: feste Anzahl Plätze pro Topf, damit sich das Layout nicht verschiebt,
+                             sobald ein Topf leerer wird — gezogene Plätze werden nur ausgegraut (Opacity),
+                             statt entfernt zu werden. -->
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="LOSTÖPFE" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding AnimationToepfe}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Width="150" Margin="0,0,8,8"
+                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
+                                                <StackPanel>
+                                                    <Border Background="{ThemeResource LayerFillColorDefaultBrush}" Padding="8,4" CornerRadius="4,4,0,0">
+                                                        <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" />
+                                                    </Border>
+                                                    <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                                        <ItemsControl ItemsSource="{Binding Slots}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="8,4"
+                                                                            Opacity="{Binding GezogenOpacity}">
+                                                                        <Grid ColumnDefinitions="14,5,*">
+                                                                            <Image Grid.Column="0" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                                   Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                                                   Stretch="Uniform" Width="14" Height="14" />
+                                                                            <TextBlock Grid.Column="2" Text="{Binding Anzeige}" FontSize="12" />
+                                                                        </Grid>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </ScrollViewer>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+
+                        <!-- Gruppen / Paarungen -->
+                        <StackPanel Grid.Column="2">
+
+                            <!-- Gruppen: alle Plätze von Anfang an sichtbar, füllen sich Slot für Slot -->
+                            <StackPanel Visibility="{Binding AnimationIstGruppenmodus, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="GRUPPEN" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                    <ItemsControl ItemsSource="{Binding AnimationGruppen}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Width="160" Margin="0,0,8,8"
+                                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
+                                                    <StackPanel>
+                                                        <Border Background="{ThemeResource LayerFillColorDefaultBrush}" Padding="10,5" CornerRadius="4,4,0,0">
+                                                            <TextBlock Text="{Binding GruppenName}" FontSize="13" FontWeight="SemiBold"
+                                                                       Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                                        </Border>
+                                                        <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                                            <ItemsControl ItemsSource="{Binding Slots}">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="10,5"
+                                                                                Opacity="{Binding BefuelltOpacity}">
+                                                                            <Grid ColumnDefinitions="16,14,5,*">
+                                                                                <TextBlock Grid.Column="0" FontSize="13" VerticalAlignment="Center" Opacity="0.6">
+                                                                                    <Run Text="{Binding Position}" /><Run Text="." />
+                                                                                </TextBlock>
+                                                                                <Image Grid.Column="1" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                                       Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                                                       Stretch="Uniform" Width="14" Height="14" VerticalAlignment="Center" />
+                                                                                <TextBlock Grid.Column="3" Text="{Binding Anzeige}" FontSize="13" VerticalAlignment="Center" />
+                                                                            </Grid>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </ScrollViewer>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </StackPanel>
+
+                            <!-- Paarungen: alle Paarungen von Anfang an sichtbar, Heim/Auswärts füllen sich -->
+                            <StackPanel Visibility="{Binding AnimationIstPaarungsmodus, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="PAARUNGEN" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
+                                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
+                                    <ScrollViewer MaxHeight="340" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsControl ItemsSource="{Binding AnimationPaarungen}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="12,6">
+                                                        <Grid ColumnDefinitions="28,*">
+                                                            <TextBlock Grid.Column="0" Text="{Binding PaarungsNr}" FontSize="12" Opacity="0.6" VerticalAlignment="Center" />
+                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                                <TextBlock Text="Freilos: " FontSize="13" Opacity="0.6"
+                                                                           Visibility="{Binding IstFreilos, Converter={StaticResource BoolToVisibility}}" />
+                                                                <Image Width="14" Height="14" Margin="0,0,5,0"
+                                                                       Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                       Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                                                                       Stretch="Uniform" />
+                                                                <TextBlock Text="{Binding Heim}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                                           Opacity="{Binding HeimBefuelltOpacity}" />
+                                                                <StackPanel Orientation="Horizontal"
+                                                                            Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}">
+                                                                    <TextBlock Text="  vs.  " FontSize="12" Opacity="0.5" VerticalAlignment="Center" />
+                                                                    <Image Width="14" Height="14" Margin="0,0,5,0"
+                                                                           Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                           Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                                                                           Stretch="Uniform" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="{Binding Auswaerts}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                                               Opacity="{Binding AuswaertsBefuelltOpacity}" />
+                                                                </StackPanel>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+
                     <!-- Editierbare Basisdaten (nur solange nicht abgeschlossen) -->
                     <StackPanel Visibility="{Binding IstBearbeitbar, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
                         <Grid ColumnDefinitions="*,16,*,16,Auto">
@@ -242,8 +433,8 @@
                         </ItemsRepeater>
                     </StackPanel>
 
-                    <!-- Ergebnis-Anzeige (nach Abschluss) -->
-                    <StackPanel Visibility="{Binding IstAbgeschlossen, Converter={StaticResource BoolToVisibility}}">
+                    <!-- Ergebnis-Anzeige (nach Abschluss, aber verborgen während der TV-Modus-Animation läuft) -->
+                    <StackPanel Visibility="{Binding ZeigeErgebnis, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="ERGEBNIS" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
 
                         <!-- Gruppenergebnis -->
