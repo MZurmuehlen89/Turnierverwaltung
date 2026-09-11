@@ -75,4 +75,26 @@ public class DialogService : IDialogService
         await stream.CopyToAsync(ms);
         return ms.ToArray();
     }
+
+    public async Task<string?> CsvDateiOeffnenAsync()
+    {
+        var picker = new FileOpenPicker();
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(_fenster));
+        picker.FileTypeFilter.Add(".csv");
+
+        var datei = await picker.PickSingleFileAsync();
+        return datei?.Path;
+    }
+
+    public async Task<string?> DateiSpeichernUnterAsync(string vorschlagsname, string erweiterungOhnePunkt, string dateiTypAnzeige)
+    {
+        var picker = new FileSavePicker();
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(_fenster));
+        picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+        picker.SuggestedFileName = Path.GetFileNameWithoutExtension(vorschlagsname);
+        picker.FileTypeChoices.Add(dateiTypAnzeige, [$".{erweiterungOhnePunkt}"]);
+
+        var datei = await picker.PickSaveFileAsync();
+        return datei?.Path;
+    }
 }

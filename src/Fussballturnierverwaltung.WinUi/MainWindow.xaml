@@ -40,6 +40,9 @@
             <DataTemplate x:Key="EinzelspielSimulationsTemplate" x:DataType="vm:EinzelspielSimulationsViewModel">
                 <views:EinzelspielSimulationsPage />
             </DataTemplate>
+            <DataTemplate x:Key="ImportExportTemplate" x:DataType="vm:ImportExportViewModel">
+                <views:ImportExportPage />
+            </DataTemplate>
             <local:ViewModelTemplateSelector x:Key="ViewLocator"
                                               xmlns:local="using:Fussballturnierverwaltung.WinUi"
                                               PlatzhalterTemplate="{StaticResource PlatzhalterTemplate}"
@@ -49,7 +52,8 @@
                                               TurnierlisteTemplate="{StaticResource TurnierlisteTemplate}"
                                               TurnierdurchfuehrungTemplate="{StaticResource TurnierdurchfuehrungTemplate}"
                                               RanglistenTemplate="{StaticResource RanglistenTemplate}"
-                                              EinzelspielSimulationsTemplate="{StaticResource EinzelspielSimulationsTemplate}" />
+                                              EinzelspielSimulationsTemplate="{StaticResource EinzelspielSimulationsTemplate}"
+                                              ImportExportTemplate="{StaticResource ImportExportTemplate}" />
         </Grid.Resources>
 
         <Grid.RowDefinitions>

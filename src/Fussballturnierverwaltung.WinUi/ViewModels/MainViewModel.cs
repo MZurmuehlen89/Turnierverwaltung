@@ -88,7 +88,7 @@ public partial class MainViewModel : ObservableObject
             Titel = "Import / Export",
             Eintraege =
             [
-                EintragErstellen("Import / Export", () => NavigiereZuPlatzhalterAsync("Import / Export")),
+                EintragErstellen("Import / Export", () => _navigation.NavigiereZuAsync<ImportExportViewModel>()),
             ]
         });
     }
@@ -127,11 +127,4 @@ public partial class MainViewModel : ObservableObject
 
     private NavigationsEintrag EintragErstellen(string titel, Func<Task> aktion)
         => new() { Titel = titel, Befehl = new AsyncRelayCommand(aktion) };
-
-    private async Task NavigiereZuPlatzhalterAsync(string titel)
-    {
-        await _navigation.NavigiereZuAsync<PlatzhalterViewModel>();
-        if (_navigation.AktuellesViewModel is PlatzhalterViewModel ph)
-            ph.SeitenTitel = titel;
-    }
 }

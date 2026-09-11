@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Einstellungen;
+using Fussballturnierverwaltung.Application.ImportExport;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Ranglisten.Import;
 using Fussballturnierverwaltung.Application.Simulation;
@@ -61,6 +62,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<RanglisteValidator>();
         builder.Services.AddScoped<RanglistenQuelleValidator>();
         builder.Services.AddScoped<SpielErgebnisValidator>();
+        builder.Services.AddScoped<ImportValidator>();
         builder.Services.AddScoped<MannschaftService>();
         builder.Services.AddScoped<LandService>();
         builder.Services.AddScoped<VerbandService>();
@@ -84,6 +86,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<RanglisteService>();
         builder.Services.AddScoped<RanglistenQuelleService>();
         builder.Services.AddScoped<RanglistenImportService>();
+        builder.Services.AddScoped<ImportExportService>();
 
         // RundenViewModel ist der geteilte Datenhalter für die Tabs "Runden" und "Rundenübergänge" (Issue
         // #297) — Scoped statt Transient, damit beide innerhalb derselben Navigations-Scope dieselbe Instanz
@@ -107,6 +110,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<TurnierdurchfuehrungViewModel>();
         builder.Services.AddTransient<RanglistenViewModel>();
         builder.Services.AddTransient<EinzelspielSimulationsViewModel>();
+        builder.Services.AddTransient<ImportExportViewModel>();
 
         // Navigation & Hauptfenster
         // AusgewaehlteTurnierInstanzService (#299) haelt die Instanzauswahl geteilt zwischen "Turniere" und

@@ -32,6 +32,16 @@ public interface IDialogService
     /// oder null bei Abbruch.</summary>
     Task<byte[]?> BilddateiWaehlenAsync();
 
+    /// <summary>Öffnet den Datei-Auswahldialog für eine CSV-Datei und liefert deren vollen Pfad,
+    /// oder null bei Abbruch (#290, Import/Export).</summary>
+    Task<string?> CsvDateiOeffnenAsync();
+
+    /// <summary>Öffnet den Speicherort-Dialog für eine Datei mit Vorschlagsnamen und liefert den
+    /// vollen Pfad, oder null bei Abbruch (#290, Import/Export). WinUI 3 kennt anders als WPFs
+    /// SaveFileDialog kein InitialDirectory für einen beliebigen Pfad — der Nutzer landet im
+    /// Standardordner (Dokumente) und muss ggf. selbst navigieren.</summary>
+    Task<string?> DateiSpeichernUnterAsync(string vorschlagsname, string erweiterungOhnePunkt, string dateiTypAnzeige);
+
     /// <summary>Setzt den aktuellen XamlRoot auf den übergebenen, selbst erstellten ContentDialog
     /// (z.B. für Ranglisten-Import/-Quellen, #285) und zeigt ihn an — ViewModels bauen ihre eigenen,
     /// fachspezifischen ContentDialogs analog zu den WPF-Window-Originalen, kennen aber keinen

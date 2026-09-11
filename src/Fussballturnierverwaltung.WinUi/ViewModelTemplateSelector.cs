@@ -19,6 +19,7 @@ public class ViewModelTemplateSelector : DataTemplateSelector
     public DataTemplate? TurnierdurchfuehrungTemplate { get; set; }
     public DataTemplate? RanglistenTemplate { get; set; }
     public DataTemplate? EinzelspielSimulationsTemplate { get; set; }
+    public DataTemplate? ImportExportTemplate { get; set; }
 
     protected override DataTemplate? SelectTemplateCore(object item, DependencyObject container)
         => item switch
@@ -30,6 +31,7 @@ public class ViewModelTemplateSelector : DataTemplateSelector
             TurnierdurchfuehrungViewModel => TurnierdurchfuehrungTemplate,
             RanglistenViewModel => RanglistenTemplate,
             EinzelspielSimulationsViewModel => EinzelspielSimulationsTemplate,
+            ImportExportViewModel => ImportExportTemplate,
             PlatzhalterViewModel => PlatzhalterTemplate,
             _ => null,
         };

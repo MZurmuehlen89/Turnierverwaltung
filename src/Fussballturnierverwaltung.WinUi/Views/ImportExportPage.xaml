@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Fussballturnierverwaltung.WinUi.Views.ImportExportPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- #290, 1:1-Port aus Wpf/Views/ImportExportView.xaml — letzter Menüpunkt der WinUI3-Migration. -->
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel MaxWidth="680" Margin="32,28" HorizontalAlignment="Left">
+
+            <!-- Seitentitel -->
+            <TextBlock Text="Import / Export" FontSize="22" FontWeight="Bold" Margin="0,0,0,4" />
+            <TextBlock FontSize="13" Opacity="0.7" Margin="0,0,0,28" TextWrapping="Wrap"
+                       Text="Mannschaften und Turnierdaten importieren oder exportieren." />
+
+            <!-- Lade-Indikator -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="4" Padding="12,8" Margin="0,0,0,16"
+                    Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="Verarbeite…" Foreground="{ThemeResource AccentFillColorDefaultBrush}" FontSize="13" />
+            </Border>
+
+            <!-- Fehlermeldung -->
+            <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                    BorderBrush="{ThemeResource SystemFillColorCriticalBrush}" BorderThickness="1"
+                    CornerRadius="4" Padding="12,8" Margin="0,0,0,8"
+                    Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
+                <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                           FontSize="13" TextWrapping="Wrap" />
+            </Border>
+
+            <!-- Import-Detail (Fehler-Zeilen) -->
+            <Border Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                    BorderBrush="{ThemeResource SystemFillColorCautionBrush}" BorderThickness="1"
+                    CornerRadius="4" Padding="12,8" Margin="0,0,0,8"
+                    Visibility="{Binding ImportDetail, Converter={StaticResource NullToCollapsed}}">
+                <TextBlock Text="{Binding ImportDetail}" Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                           FontSize="12" TextWrapping="Wrap" FontFamily="Consolas" />
+            </Border>
+
+            <!-- Statusmeldung -->
+            <Border Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                    BorderBrush="{ThemeResource SystemFillColorSuccessBrush}" BorderThickness="1"
+                    CornerRadius="4" Padding="12,8" Margin="0,0,0,20"
+                    Visibility="{Binding StatusMeldung, Converter={StaticResource NullToCollapsed}}">
+                <TextBlock Text="{Binding StatusMeldung}" Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                           FontSize="13" TextWrapping="Wrap" />
+            </Border>
+
+            <!-- ── Karte: Import ── -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="6" Padding="20,16" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="IMPORT" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,12" />
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <FontIcon Grid.Column="0" Glyph="&#xE896;" FontSize="28"
+                                  Foreground="{ThemeResource AccentFillColorDefaultBrush}" VerticalAlignment="Center"
+                                  Margin="0,0,16,0" />
+
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="Mannschaften importieren (CSV)"
+                                       FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4" />
+                            <TextBlock FontSize="12" Opacity="0.7" TextWrapping="Wrap" Margin="0,0,0,10"
+                                       Text="CSV-Datei mit Mannschaftsdaten einlesen (Name;Kurzname;Mannschaftsart;LandFifaCode;Ratings…)." />
+                            <Button Content="Datei auswählen und importieren…"
+                                    Command="{Binding NeuBefehl}"
+                                    HorizontalAlignment="Left" Style="{StaticResource AccentButtonStyle}" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ── Karte: Export Stammdaten ── -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="6" Padding="20,16" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="EXPORT — STAMMDATEN" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,12" />
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <FontIcon Grid.Column="0" Glyph="&#xE898;" FontSize="28"
+                                  Foreground="{ThemeResource SystemFillColorSuccessBrush}" VerticalAlignment="Center"
+                                  Margin="0,0,16,0" />
+
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="Mannschaften exportieren (CSV)"
+                                       FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4" />
+                            <TextBlock FontSize="12" Opacity="0.7" TextWrapping="Wrap" Margin="0,0,0,10"
+                                       Text="Alle Mannschaften inkl. Ratings als CSV-Datei speichern." />
+                            <Button Content="Speicherort wählen und exportieren…"
+                                    Command="{Binding SpeichernBefehl}"
+                                    HorizontalAlignment="Left" Style="{StaticResource AccentButtonStyle}" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ── Karte: Export Turnierdaten ── -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="6" Padding="20,16" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="EXPORT — TURNIERDATEN" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,12" />
+
+                    <!-- Turnier-Auswahl -->
+                    <StackPanel Margin="0,0,0,14">
+                        <TextBlock Text="Turnier auswählen:" FontSize="12" Margin="0,0,0,4" />
+                        <ComboBox ItemsSource="{Binding Instanzen}"
+                                  SelectedItem="{Binding AusgewaehlteInstanz, Mode=TwoWay}"
+                                  DisplayMemberPath="Name"
+                                  MaxWidth="360" HorizontalAlignment="Left" FontSize="13" />
+                    </StackPanel>
+
+                    <!-- Export-Buttons nebeneinander -->
+                    <StackPanel Orientation="Horizontal">
+
+                        <!-- Spielplan CSV -->
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                CornerRadius="4" Padding="16,12" Margin="0,0,12,0" Width="210">
+                            <StackPanel>
+                                <FontIcon Glyph="&#xE898;" FontSize="20"
+                                          Foreground="{ThemeResource SystemFillColorCautionBrush}" Margin="0,0,0,6" />
+                                <TextBlock Text="Spielplan (CSV)" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,4" />
+                                <TextBlock Text="Alle Spiele mit Ergebnissen" FontSize="11" Opacity="0.7"
+                                           TextWrapping="Wrap" Margin="0,0,0,10" />
+                                <Button Content="Exportieren…" Command="{Binding SpielplanExportierenBefehl}"
+                                        HorizontalAlignment="Left" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Turnier JSON -->
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                CornerRadius="4" Padding="16,12" Width="210">
+                            <StackPanel>
+                                <FontIcon Glyph="&#xE898;" FontSize="20"
+                                          Foreground="{ThemeResource SystemAccentColorLight1}" Margin="0,0,0,6" />
+                                <TextBlock Text="Turnierdaten (JSON)" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,4" />
+                                <TextBlock Text="Vollständige Turnierdaten mit Runden" FontSize="11" Opacity="0.7"
+                                           TextWrapping="Wrap" Margin="0,0,0,10" />
+                                <Button Content="Exportieren…" Command="{Binding TurnierJsonExportierenBefehl}"
+                                        HorizontalAlignment="Left" />
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
