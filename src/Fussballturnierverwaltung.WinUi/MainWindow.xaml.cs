@@ -134,35 +134,56 @@ public sealed partial class MainWindow : Window
     /// für den Umschalter — Letzterer reserviert intern immer Platz für seinen An/Aus-Beschriftungsbereich,
     /// selbst bei leerem <c>OnContent</c>/<c>OffContent</c>, was eine auffällige Lücke zwischen Schalter und
     /// Text erzeugte (Nutzerfund). Feste Breite + <c>HorizontalScrollBarVisibility="Disabled"</c>: bei vielen
-    /// Regeln soll nur vertikal, nie horizontal gescrollt werden müssen — Text bricht stattdessen um.</summary>
+    /// Regeln soll nur vertikal, nie horizontal gescrollt werden müssen — Text bricht stattdessen um.
+    /// <c>MaxHeight</c> großzügig bemessen, damit die vertikale Scrollbar im Normalfall (die 7 festen
+    /// <c>AuslosungsRegelArt</c>-Einträge) gar nicht erst zum Tragen kommt und nur als Fallback bei
+    /// sehr kleinen Fenstern/vielen zukünftigen Einträgen greift (#310).
+    /// Header+Beschreibung werden als <see cref="CheckBox.Content"/> gesetzt statt in einer separaten Zelle
+    /// daneben: Ein eigenes Grid mit fester oder aus der Checkbox-Breite abgeleiteter Spaltenaufteilung
+    /// scheiterte an WinUI3s <c>ButtonBase</c>-Erbe, das auch bei leerem Content ~120px Platz reserviert und so
+    /// eine auffällige Lücke erzeugte; als Content sitzt der Text im Standard-Template direkt neben dem Glyph
+    /// mit sinnvollem Default-Abstand, und der gesamte Text wird nebenbei mitklickbar (#310). Explizite
+    /// <c>FlyoutPresenterStyle</c> mit explizit angehobener <c>MaxWidth</c>: WinUI3s Standard-<c>FlyoutPresenter</c>
+    /// (der System-Container, den jeder <c>Flyout</c> automatisch um seinen <c>Content</c> legt) hat selbst eine
+    /// kleinere Default-<c>MaxWidth</c> und bringt dafür einen eigenen, unsichtbaren ScrollViewer mit — der
+    /// horizontale Scrollbalken kam von dort, nicht von unserem eigenen inneren <c>ScrollViewer</c>
+    /// (<c>HorizontalScrollBarVisibility="Disabled"</c> darauf allein reichte deshalb nicht, Text-<c>MaxWidth</c>
+    /// auf der Inhalts-Ebene blieb wirkungslos, siehe #310).</summary>
     private static Flyout ToggleFlyoutErstellen(IReadOnlyList<RibbonToggleAktion> toggles)
     {
         const double breite = 560;
         var liste = new StackPanel { Padding = new Thickness(4), Spacing = 14, Width = breite };
         foreach (var toggle in toggles)
         {
-            var zeile = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-            var umschalter = new CheckBox { IsChecked = toggle.IstAktiv, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 0, 0) };
-            umschalter.Click += (_, _) => toggle.Setzen(umschalter.IsChecked == true);
-
-            var text = new StackPanel { Width = breite - 40 };
-            text.Children.Add(new TextBlock { Text = toggle.Header, FontSize = 13 });
+            var text = new StackPanel();
+            text.Children.Add(new TextBlock { Text = toggle.Header, FontSize = 13, TextWrapping = TextWrapping.Wrap });
             if (toggle.Beschreibung is { Length: > 0 } beschreibung)
                 text.Children.Add(new TextBlock
                 {
                     Text = beschreibung, FontSize = 11, Opacity = 0.6, TextWrapping = TextWrapping.Wrap
                 });
 
-            zeile.Children.Add(umschalter);
-            zeile.Children.Add(text);
-            liste.Children.Add(zeile);
+            var umschalter = new CheckBox
+            {
+                IsChecked = toggle.IstAktiv, Content = text,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                VerticalContentAlignment = VerticalAlignment.Top
+            };
+            umschalter.Click += (_, _) => toggle.Setzen(umschalter.IsChecked == true);
+
+            liste.Children.Add(umschalter);
         }
+
+        var flyoutPresenterStyle = new Style(typeof(FlyoutPresenter));
+        flyoutPresenterStyle.Setters.Add(new Setter(FrameworkElement.MaxWidthProperty, breite + 40));
 
         return new Flyout
         {
+            FlyoutPresenterStyle = flyoutPresenterStyle,
             Content = new ScrollViewer
             {
-                Content = liste, MaxHeight = 520, Width = breite,
+                Content = liste, MaxHeight = 720, Width = breite,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             }
