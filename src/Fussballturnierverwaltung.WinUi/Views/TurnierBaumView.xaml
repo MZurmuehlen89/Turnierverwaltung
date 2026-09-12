@@ -14,7 +14,7 @@
         <DataTemplate x:Key="BracketKartenTemplate" x:DataType="vm:BracketKnotenAnzeige">
             <Button Command="{Binding DataContext.KnotenAngeklicktBefehl, ElementName=Root}"
                     CommandParameter="{Binding}"
-                    Padding="0" Width="240">
+                    Padding="0" Width="240" HorizontalContentAlignment="Stretch">
                 <Border BorderThickness="1" CornerRadius="6" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{Binding HatErgebnis, Converter={StaticResource BoolToVisibility}}">
                     <StackPanel>
