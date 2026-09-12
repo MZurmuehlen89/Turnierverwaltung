@@ -529,6 +529,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                             r.Anzeige, r.IstAktiv, aktiv => r.IstAktiv = aktiv,
                             r.IstRedundant ? $"{r.Beschreibung}\n\n{r.RedundanzHinweis}" : r.Beschreibung))
                         .ToList(),
+                    IconGlyph = "",
                 },
                 new RibbonAktion { Header = "Auslosung durchführen", Befehl = AuslosungAusfuehrenCommand, IconGlyph = "" },
                 new RibbonAktion
