@@ -407,11 +407,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 {
                     Header = "Ausführlich simulieren",
                     Befehl = _ausfuehrlichSimulierenBefehl,
+                    IconGlyph = "",
                 },
                 new RibbonAktion
                 {
                     Header = "Spielverlauf ansehen",
                     Befehl = _spielverlaufAnsehenBefehl,
+                    IconGlyph = "",
                 },
                 new RibbonAktion
                 {
