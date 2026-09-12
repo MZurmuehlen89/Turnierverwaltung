@@ -15,7 +15,7 @@
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <TextBlock Text="Turnier:" VerticalAlignment="Center" Opacity="0.6" />
                 <Button Command="{Binding TurnierWaehlenCommand}">
-                    <TextBlock Text="{Binding TabKoordinator.AusgewaehlteInstanz.Name, TargetNullValue='Kein Turnier gewählt'}"
+                    <TextBlock Text="{Binding TabKoordinator.AusgewaehlteInstanz.Name, TargetNullValue='Kein Turnier gewählt', FallbackValue='Kein Turnier gewählt'}"
                                MaxWidth="320" TextTrimming="CharacterEllipsis" />
                 </Button>
             </StackPanel>
