@@ -478,6 +478,12 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         var spiel = await _spielService.FindenNachIdMitEreignissenAsync(spielId);
         if (spiel is null) return;
 
+        // Fügte bisher nur hinzu, ohne vorher zu leeren — beim Wechsel zwischen zwei bereits simulierten
+        // Spielen (Breadcrumb-Combobox oder "Spielverlauf ansehen" aus dem Spielplan) hängten sich die
+        // Einträge des neuen Spiels an die des vorherigen an, statt sie zu ersetzen.
+        ProtokollZeilen.Clear();
+        ProtokollEreignisse.Clear();
+
         string heim      = spiel.HeimMannschaft?.Name ?? spiel.HeimPlatzhalterName ?? "?";
         string auswaerts = spiel.AuswaertsMannschaft?.Name ?? spiel.AuswaertsPlatzhalterName ?? "?";
 
