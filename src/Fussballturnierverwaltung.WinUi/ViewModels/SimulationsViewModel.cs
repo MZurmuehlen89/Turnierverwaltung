@@ -34,6 +34,14 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     private TurnierInstanz? _instanz;
     private int _ladeUnterdrueckt;
 
+    // Deckt Vorschau-Karte/Protokoll komplett ab, solange der automatische Vorauswahl-Pfad
+    // (VorauswahlLadenUndSimulierenAsync, "Ausführlich simulieren"/"Spielverlauf ansehen" aus dem
+    // Spielplan) läuft — ohne dieses Flag blitzten dort nacheinander das alte Protokoll des zuvor
+    // betrachteten Spiels, dann kurz die Vorschau-Karte des neuen (noch unsimulierten) Spiels auf,
+    // bevor das fertige Ergebnis erscheint (Nutzer-Fund beim #317-Test). Bewusst getrennt von
+    // IstLadend, das eigenständig (und verschachtelt) in TurnierSpielSimulierenAsync gesetzt wird.
+    [ObservableProperty] private bool _istVorauswahlLadend;
+
     // ── Runde/Spiel-Auswahl ───────────────────────────────────────────────────
 
     [ObservableProperty] private TurnierInstanz? _ausgewaehlteInstanz;
@@ -415,16 +423,24 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     {
         if (instanz is null || instanz.Id != v.InstanzId) return;
 
-        var spiel = await VorauswahlDatenLadenAsync(instanz, v);
-        if (spiel is null) return;
+        IstVorauswahlLadend = true;
+        try
+        {
+            var spiel = await VorauswahlDatenLadenAsync(instanz, v);
+            if (spiel is null) return;
 
-        // Issue #240: reine Ansicht eines bereits simulierten Spiels — kein Neu-Simulieren/
-        // Überschreiben, nur das vorhandene Protokoll laden. Ohne Ergebnis (z. B. Zurücksetzen
-        // zwischen Auslösen und Verarbeiten der Navigation) bleibt es beim Simulieren als Fallback.
-        if (v.NurAnzeigen && spiel.HatErgebnis)
-            await LadeProtokollAsync(spiel.Id);
-        else
-            await TurnierSpielSimulierenAsync();
+            // Issue #240: reine Ansicht eines bereits simulierten Spiels — kein Neu-Simulieren/
+            // Überschreiben, nur das vorhandene Protokoll laden. Ohne Ergebnis (z. B. Zurücksetzen
+            // zwischen Auslösen und Verarbeiten der Navigation) bleibt es beim Simulieren als Fallback.
+            if (v.NurAnzeigen && spiel.HatErgebnis)
+                await LadeProtokollAsync(spiel.Id);
+            else
+                await TurnierSpielSimulierenAsync();
+        }
+        finally
+        {
+            IstVorauswahlLadend = false;
+        }
     }
 
     // #317: Instanz→Runden→Spiele-Ladevorgang hinter EINEM Suppression-Fenster statt pro Zuweisung

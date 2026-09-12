@@ -92,6 +92,18 @@
             <views:SpielberichtControl Grid.Row="2" Margin="16,12,16,16"
                 LeerZustandText="Spiel auswählen und auf 'Turnierspiel simulieren' klicken — oder über Spielplan → 'Spielverlauf ansehen' springen." />
 
+            <!-- Deckt Vorschau-Karte/Protokoll komplett ab, solange der automatische Vorauswahl-Pfad
+                 ("Ausführlich simulieren"/"Spielverlauf ansehen" aus dem Spielplan) läuft — sonst blitzen
+                 dort nacheinander das alte Protokoll des zuvor betrachteten Spiels und kurz die
+                 Vorschau-Karte des neuen (noch unsimulierten) Spiels auf, bevor das Ergebnis erscheint. -->
+            <Border Grid.Row="0" Grid.RowSpan="3" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                    Visibility="{Binding IstVorauswahlLadend, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                    <ProgressRing IsActive="True" Width="32" Height="32" />
+                    <TextBlock Text="Lädt …" Opacity="0.7" />
+                </StackPanel>
+            </Border>
+
         </Grid>
     </Grid>
 </UserControl>
