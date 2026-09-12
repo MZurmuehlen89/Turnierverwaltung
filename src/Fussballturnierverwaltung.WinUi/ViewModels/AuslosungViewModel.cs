@@ -183,6 +183,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private TurnierInstanz? _instanz;
     private Auslosung? _auslosungDetail;
     private bool _ladenAktiv;
+    private bool _seitenlisteAktualisierungAktiv;
 
     // ── Geteilter Instanz-Kontext (siehe Klassendoku) ────────────────────────────
     [ObservableProperty]
@@ -1212,8 +1213,23 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task BeiAuslosungAenderungAsync()
     {
+        // AktualisiereSeitenlisteAsync() tauscht die ListView-ItemsSource (neue Auslosungen-Collection-
+        // Instanz) aus, BEVOR sie AusgewaehlteAuslosung passend zur neuen Collection neu zuweist — die
+        // TwoWay-SelectedItem-Bindung nullt AusgewaehlteAuslosung dabei transient (WinUI3-Fallstrick, siehe
+        // WinUi/CLAUDE.md "Collection.Clear() vor async Abfrage nullt gebundene Selektion"), bevor die
+        // korrekte Zuweisung nachkommt. Ohne diesen Guard setzt genau dieses transiente Null DetailAktiv auf
+        // false, und da die anschließende korrekte Zuweisung dieselbe Id hat, greift unten der Id-Vergleich
+        // und lädt NICHT neu — DetailAktiv bliebe fälschlich false (Fokusverlust, Fund aus #318-Nachtest).
+        if (_seitenlisteAktualisierungAktiv) return;
+
         NeuFormAktiv = false;
         if (AusgewaehlteAuslosung is null) { DetailAktiv = false; return; }
+
+        // AktualisiereSeitenlisteAsync() weist AusgewaehlteAuslosung nach einem Reload der Seitenliste
+        // erneut zu (neue Objektinstanz, gleiche Id) — das würde hier ohne diesen Guard einen bereits
+        // frisch geladenen Detail-Stand ein zweites Mal nachladen (sichtbares Flackern, Issue #318).
+        if (_auslosungDetail?.Id == AusgewaehlteAuslosung.Id) return;
+
         await LadeDetailAsync(AusgewaehlteAuslosung.Id);
     }
 
@@ -1376,9 +1392,19 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task AktualisiereSeitenlisteAsync()
     {
         if (_instanz is null) return;
-        Auslosungen = await LadeAuslosungenGefiltertAsync(_instanz.Id);
-        if (_auslosungDetail is not null)
-            AusgewaehlteAuslosung = Auslosungen.FirstOrDefault(a => a.Id == _auslosungDetail.Id);
+        var neueListe = await LadeAuslosungenGefiltertAsync(_instanz.Id);
+
+        // Guard gegen den transienten Null-Durchlauf, den die TwoWay-SelectedItem-Bindung beim
+        // ItemsSource-Tausch auslöst (siehe BeiAuslosungAenderungAsync) — ohne ihn würde dieser Reload den
+        // bereits offenen Detail-Workspace kurz schließen (DetailAktiv=false) und nicht wieder öffnen.
+        _seitenlisteAktualisierungAktiv = true;
+        try
+        {
+            Auslosungen = neueListe;
+            if (_auslosungDetail is not null)
+                AusgewaehlteAuslosung = Auslosungen.FirstOrDefault(a => a.Id == _auslosungDetail.Id);
+        }
+        finally { _seitenlisteAktualisierungAktiv = false; }
     }
 
     /// <summary>Auslosungsart.Manuell wird hier nicht angezeigt — deren Paarungsfestlegung
