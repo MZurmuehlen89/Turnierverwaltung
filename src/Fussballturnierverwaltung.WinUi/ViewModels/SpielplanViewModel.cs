@@ -503,26 +503,33 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (AusgewaehlteRunde is null) return;
         int rundeId = AusgewaehlteRunde.Id;
         int? spielId = AusgewaehlteSpiel?.Id;
+        var runde = AusgewaehlteRunde;
 
-        await TabellenNeuLadenAsync(rundeId);
-        var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
-        Spiele.Clear();
-        foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-            Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
-        OnPropertyChanged(nameof(FokusSpiele));
-        OnPropertyChanged(nameof(HatPlatzhalterSpiele));
-
+        // #317: Guard umschließt Spiele.Clear()/Add() bis zum Ende der davon abhängigen Folge-Abfragen,
+        // nicht nur die AusgewaehlteSpiel-Zuweisung — eine WinUI-ComboBox kann SelectionChanged bei
+        // ItemsSource.Clear() über die DispatcherQueue VERZÖGERT statt synchron auslösen. Feuert der
+        // Callback erst während TurnierBaumAktualisierenAsync/BeiSpielAenderungAsync, entsteht sonst ein
+        // ungeschützter Parallelzugriff auf denselben DbContext ("second operation"-Exception, #317).
         _spielWechselUnterdrueckt++;
         try
         {
+            await TabellenNeuLadenAsync(rundeId);
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
+                Spiele.Add(MapSpielZeile(s, runde, i, _teamGruppeMap, _platzhalterVorschau));
+            OnPropertyChanged(nameof(FokusSpiele));
+            OnPropertyChanged(nameof(HatPlatzhalterSpiele));
+
             AusgewaehlteSpiel = spielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == spielId) : null;
+
+            await TurnierBaumAktualisierenAsync(runde.TurnierInstanzId);
         }
         finally
         {
             _spielWechselUnterdrueckt--;
         }
 
-        await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
         await BeiSpielAenderungAsync();
         AktualisiereBefehle();
     }
@@ -586,54 +593,55 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         int? vorherigeRundeId = AusgewaehlteRunde?.Id;
 
-        // Runden.Clear() erst NACH der Abfrage (nicht davor): die ComboBox-Bindung auf AusgewaehlteRunde
-        // nullt diese Property automatisch mit, sobald ihre ItemsSource geleert wird. Bricht die Abfrage
-        // danach ab (z.B. #317, "second operation"-Exception + Retry im Composite), lief bislang genau
-        // dieser destruktive Clear() bereits — der anschließende Retry startet BeiInstanzAenderungAsync
-        // komplett neu und liest vorherigeRundeId dann als bereits leer (Fund aus #308-Nachtest).
         var instanz = AusgewaehlteInstanz is null
             ? null
             : await _instanzService.FindenNachIdMitRundenAsync(AusgewaehlteInstanz.Id);
 
-        if (instanz is null)
-        {
-            Runden.Clear();
-            await RundeUndSpielZuruecksetzenAsync();
-            return;
-        }
-
-        Runden.Clear();
-        foreach (var r in instanz.Runden.OrderBy(r => r.Reihenfolge))
-            Runden.Add(r);
-
-        // Reiner Tab-Wechsel ohne echten Instanzwechsel (#307): dieselbe Runde existiert nach dem
-        // Neuladen noch — Auswahl anhand der Id wiederherstellen statt sie zu verlieren. Bei echtem
-        // Instanzwechsel findet sich die alte Runden-Id nicht mehr (Ids sind global eindeutig), dann
-        // greift der volle Reset wie zuvor.
-        var wiederhergestellteRunde = vorherigeRundeId.HasValue
-            ? Runden.FirstOrDefault(r => r.Id == vorherigeRundeId)
-            : null;
-
-        if (wiederhergestellteRunde is null)
-        {
-            await RundeUndSpielZuruecksetzenAsync();
-            return;
-        }
-
+        // #317: Guard umschließt Runden.Clear()/Add() bis zum Ende des kompletten Reloads (inkl. des
+        // verschachtelten SpiellisteAktualisierenAsync-Aufrufs), nicht nur die AusgewaehlteRunde-
+        // Zuweisung — eine WinUI-ComboBox kann SelectionChanged bei ItemsSource.Clear() über die
+        // DispatcherQueue VERZÖGERT statt synchron auslösen. Feuert der Callback erst während einer der
+        // nachfolgenden Abfragen, entsteht sonst ein ungeschützter Parallelzugriff auf denselben
+        // DbContext ("second operation"-Exception, bislang nur per Retry im Composite abgefangen, #317).
         _rundeWechselUnterdrueckt++;
         try
         {
+            if (instanz is null)
+            {
+                Runden.Clear();
+                await RundeUndSpielZuruecksetzenAsync();
+                return;
+            }
+
+            Runden.Clear();
+            foreach (var r in instanz.Runden.OrderBy(r => r.Reihenfolge))
+                Runden.Add(r);
+
+            // Reiner Tab-Wechsel ohne echten Instanzwechsel (#307): dieselbe Runde existiert nach dem
+            // Neuladen noch — Auswahl anhand der Id wiederherstellen statt sie zu verlieren. Bei echtem
+            // Instanzwechsel findet sich die alte Runden-Id nicht mehr (Ids sind global eindeutig), dann
+            // greift der volle Reset wie zuvor.
+            var wiederhergestellteRunde = vorherigeRundeId.HasValue
+                ? Runden.FirstOrDefault(r => r.Id == vorherigeRundeId)
+                : null;
+
+            if (wiederhergestellteRunde is null)
+            {
+                await RundeUndSpielZuruecksetzenAsync();
+                return;
+            }
+
             AusgewaehlteRunde = wiederhergestellteRunde;
+
+            // Spiele/Tabellen frisch laden (externe Änderungen aus anderen Tabs sichtbar machen), aber
+            // Spiel-Auswahl anhand ihrer Id wiederherstellen statt hart zurückzusetzen (Precedent:
+            // SpiellisteAktualisierenAsync, bereits genau dieses Muster für AktivierenAsync).
+            await SpiellisteAktualisierenAsync();
         }
         finally
         {
             _rundeWechselUnterdrueckt--;
         }
-
-        // Spiele/Tabellen frisch laden (externe Änderungen aus anderen Tabs sichtbar machen), aber
-        // Spiel-Auswahl anhand ihrer Id wiederherstellen statt hart zurückzusetzen (Precedent:
-        // SpiellisteAktualisierenAsync, bereits genau dieses Muster für AktivierenAsync).
-        await SpiellisteAktualisierenAsync();
     }
 
     private async Task RundeUndSpielZuruecksetzenAsync()

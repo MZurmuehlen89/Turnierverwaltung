@@ -161,11 +161,22 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
         _instanz = instanz;
 
+        // #317: Guard umschließt den kompletten Reload, nicht nur die Zuweisung — eine WinUI-ComboBox
+        // kann SelectionChanged bei ItemsSource.Clear() über die DispatcherQueue VERZÖGERT statt
+        // synchron auslösen. Feuert der Callback erst während der nachfolgenden Abfrage in
+        // BeiInstanzAenderungAsync, entsteht sonst ein ungeschützter Parallelzugriff auf denselben
+        // DbContext ("second operation"-Exception trotz augenscheinlich striktem Single-Thread-Ablauf,
+        // siehe #317 — dort ausschließlich per Retry im Composite-ViewModel abgefangen).
         _ladeUnterdrueckt++;
-        AusgewaehlteInstanz = instanz;
-        _ladeUnterdrueckt--;
-
-        await BeiInstanzAenderungAsync();
+        try
+        {
+            AusgewaehlteInstanz = instanz;
+            await BeiInstanzAenderungAsync();
+        }
+        finally
+        {
+            _ladeUnterdrueckt--;
+        }
     }
 
     // ── Property-Reaktionen ───────────────────────────────────────────────────
@@ -201,6 +212,10 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         // Runden.Clear() erst NACH der Abfrage (nicht davor, Precedent: SpielplanViewModel) — sonst nullt
         // die ComboBox-Bindung AusgewaehlteRunde bereits beim Clear(), und ein Retry nach #317 (
         // "second operation"-Exception) findet beim neuen Versuch keine vorherigeRundeId mehr vor (#308).
+        // Der komplette Methodenkörper läuft jetzt ohnehin innerhalb des _ladeUnterdrueckt-Fensters, das
+        // InstanzSetzenAsync um diesen Aufruf legt (#317-Nachbesserung) — Clear() darf ein verzögertes
+        // SelectionChanged also auch dann nicht mehr auf einen ungeschützten Fire-and-Forget-Zugriff
+        // treffen lassen, wenn dieses Timing-Fenster größer als erwartet ausfällt.
         var instanz = _instanz is null ? null : await _instanzService.FindenNachIdMitRundenAsync(_instanz.Id);
 
         if (instanz is null)
@@ -400,36 +415,8 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     {
         if (instanz is null || instanz.Id != v.InstanzId) return;
 
-        _instanz = instanz;
-        _ladeUnterdrueckt++;
-        AusgewaehlteInstanz = instanz;
-        _ladeUnterdrueckt--;
-
-        var instanzMitRunden = await _instanzService.FindenNachIdMitRundenAsync(v.InstanzId);
-        if (instanzMitRunden is null) return;
-
-        Runden.Clear();
-        foreach (var r in instanzMitRunden.Runden.OrderBy(r => r.Reihenfolge))
-            Runden.Add(r);
-
-        var runde = Runden.FirstOrDefault(r => r.Id == v.RundeId);
-        if (runde is null) return;
-
-        _ladeUnterdrueckt++;
-        AusgewaehlteRunde = runde;
-        _ladeUnterdrueckt--;
-
-        var liste = await _spielService.AlleNachRundeAsync(v.RundeId);
-        Spiele.Clear();
-        foreach (var (s, i) in liste.Select((x, i) => (x, i)))
-            Spiele.Add(MapSpielZeile(s, i));
-
-        var spiel = Spiele.FirstOrDefault(s => s.Id == v.SpielId);
+        var spiel = await VorauswahlDatenLadenAsync(instanz, v);
         if (spiel is null) return;
-
-        _ladeUnterdrueckt++;
-        AusgewaehlteSpiel = spiel;
-        _ladeUnterdrueckt--;
 
         // Issue #240: reine Ansicht eines bereits simulierten Spiels — kein Neu-Simulieren/
         // Überschreiben, nur das vorhandene Protokoll laden. Ohne Ergebnis (z. B. Zurücksetzen
@@ -438,6 +425,50 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             await LadeProtokollAsync(spiel.Id);
         else
             await TurnierSpielSimulierenAsync();
+    }
+
+    // #317: Instanz→Runden→Spiele-Ladevorgang hinter EINEM Suppression-Fenster statt pro Zuweisung
+    // einzeln (Precedent: BeiInstanzAenderungAsync/InstanzSetzenAsync) — sonst kann ein durch
+    // Runden.Clear()/Spiele.Clear() ausgelöstes, über die WinUI-DispatcherQueue VERZÖGERTES
+    // SelectionChanged noch während der nächsten Abfrage dieser Kette einen ungeschützten
+    // Fire-and-Forget-Zugriff auf denselben DbContext starten ("second operation"-Exception). Bewusst
+    // NICHT bis LadeProtokollAsync/TurnierSpielSimulierenAsync ausgeweitet — die setzen IstLadend und
+    // brauchen ihre eigene, ungebremste OnPropertyChanged-Reaktion.
+    private async Task<SpielZeile?> VorauswahlDatenLadenAsync(TurnierInstanz instanz, VorausgewaehlteSimulation v)
+    {
+        _ladeUnterdrueckt++;
+        try
+        {
+            _instanz = instanz;
+            AusgewaehlteInstanz = instanz;
+
+            var instanzMitRunden = await _instanzService.FindenNachIdMitRundenAsync(v.InstanzId);
+            if (instanzMitRunden is null) return null;
+
+            Runden.Clear();
+            foreach (var r in instanzMitRunden.Runden.OrderBy(r => r.Reihenfolge))
+                Runden.Add(r);
+
+            var runde = Runden.FirstOrDefault(r => r.Id == v.RundeId);
+            if (runde is null) return null;
+
+            AusgewaehlteRunde = runde;
+
+            var liste = await _spielService.AlleNachRundeAsync(v.RundeId);
+            Spiele.Clear();
+            foreach (var (s, i) in liste.Select((x, i) => (x, i)))
+                Spiele.Add(MapSpielZeile(s, i));
+
+            var spiel = Spiele.FirstOrDefault(s => s.Id == v.SpielId);
+            if (spiel is not null)
+                AusgewaehlteSpiel = spiel;
+
+            return spiel;
+        }
+        finally
+        {
+            _ladeUnterdrueckt--;
+        }
     }
 
     // ── Protokoll ─────────────────────────────────────────────────────────────
