@@ -236,7 +236,7 @@ public static class TurnierVorlagenSeedDaten
         };
         int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
 
-        var liga          = Runde(1, "Ligaphase",       Rundenart.SchweizerSystem, 36, 24, regelwerkId: rId);
+        var liga          = Runde(1, "Ligaphase",       Rundenart.TopfLiga,        36, 24, regelwerkId: rId);
         var playoff       = Runde(2, "Playoff-Runde",   Rundenart.KoRunde,         16,  8, mitRueckspiel: true, regelwerkId: rId);
         var achtelfinale  = Runde(3, "Achtelfinale",    Rundenart.KoRunde,         16,  8, mitRueckspiel: true, regelwerkId: rId);
         var viertelfinale = Runde(4, "Viertelfinale",   Rundenart.KoRunde,          8,  4, mitRueckspiel: true, regelwerkId: rId);

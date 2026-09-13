@@ -17,7 +17,7 @@ public class RundenartZuTextConverter : IValueConverter
     {
         Rundenart.Liga             => "Liga",
         Rundenart.Gruppenphase     => "Gruppenphase",
-        Rundenart.TopfLiga         => "Topf-Liga",
+        Rundenart.TopfLiga         => "Topf-Liga (Swiss-Modell)",
         Rundenart.KoRunde          => "K.o.-Runde",
         Rundenart.SchweizerSystem  => "Schweizer System",
         Rundenart.Sonderrunde      => "Sonderrunde",

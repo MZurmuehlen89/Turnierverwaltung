@@ -290,7 +290,7 @@ public partial class RundenUebergaengeViewModel : ViewModelBase, IRibbonAware, I
     {
         Rundenart.Gruppenphase => gruppenAnzahl is > 0 ? $"Gruppenphase ({gruppenAnzahl} Gruppen)" : "Gruppenphase",
         Rundenart.Liga => "Liga",
-        Rundenart.TopfLiga => "Liga (Topf)",
+        Rundenart.TopfLiga => "Topf-Liga (Swiss-Modell)",
         Rundenart.SchweizerSystem => "Schweizer System",
         Rundenart.KoRunde => "K.o.-Runde",
         Rundenart.Finale => "Finale",
