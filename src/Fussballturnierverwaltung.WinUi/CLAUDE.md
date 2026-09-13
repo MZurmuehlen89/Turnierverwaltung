@@ -61,3 +61,19 @@ popup (`UnaufgeloesteZeileZuordnung.NeuAnlegenAktiv` in `RanglistenImportDialog`
 `ContentDialog` also has no `XamlRoot` of its own — `IDialogService.AnzeigenAsync(ContentDialog)` sets it
 centrally (mirrors the WPF original, where the ViewModel directly opens the `Window`; see
 `RanglistenViewModel.ImportAusInternet`/`QuellenVerwalten`).
+
+**`Flyout.Content` sizing is fought over by two containers**: the System-provided `FlyoutPresenter` that wraps
+whatever you assign to `Flyout.Content` has its own default `MaxWidth` and its own internal scroll handling,
+independent of any `ScrollViewer` you put inside `Content` yourself. A `ScrollViewer` with
+`HorizontalScrollBarVisibility="Disabled"` inside `Content` does not prevent a horizontal scrollbar if the
+outer `FlyoutPresenter` itself is narrower than your content — that scrollbar comes from the `FlyoutPresenter`,
+not your own `ScrollViewer`, and widening your own content or clamping a child's `MaxWidth` has no effect on
+it. Fix: set `Flyout.FlyoutPresenterStyle` with a `Setter` raising `FrameworkElement.MaxWidthProperty` to at
+least your content's width (see `MainWindow.ToggleFlyoutErstellen`, #310).
+
+**`CheckBox`/`ToggleButton`-derived controls reserve significant content space even with no `Content` set** —
+their `ButtonBase` ancestry defaults to a `MinWidth` around 120px that applies to the whole control regardless
+of column/grid sizing around it. Prefer setting the label/description as the control's own `Content` (a
+`StackPanel` with `TextBlock`s works and stays clickable as part of the toggle) over placing it in a sibling
+cell next to an empty-`Content` `CheckBox` — the latter reserves the ~120px gap no matter how the grid column
+is computed (#310).
