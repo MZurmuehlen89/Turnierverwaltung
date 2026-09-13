@@ -71,6 +71,30 @@ public class SpielRepository(TurnierverwaltungDbContext context)
             .Where(s => s.TurnierRundeId == turnierRundeId)
             .ToListAsync(ct);
 
+        var spielIds = spiele.Select(s => s.Id).ToHashSet();
+
+        // Issue #320-Folgefund: Folgerunden-Spiele, die per Übergangsregel über HeimQuellSpielId/
+        // AuswaertsQuellSpielId (Self-Referencing FK, NoAction) auf eines dieser Spiele verweisen, müssen
+        // die Referenz zuerst verlieren — sonst schlägt das folgende RemoveRange mit einer SQL-FK-Verletzung
+        // fehl (verifiziert an einem Alt-Turnier mit bereits generiertem, dieselben Spiele referenzierendem
+        // Turnierbaum/Folgespielen; TurnierBaumKnoten.SpielId wird bereits separat von
+        // SpielplanService.LoeschenOhneKaskadeAsync vor diesem Aufruf genullt).
+        var abhaengigeSpiele = await Context.Spiele
+            .Where(s => (s.HeimQuellSpielId != null && spielIds.Contains(s.HeimQuellSpielId.Value)) ||
+                        (s.AuswaertsQuellSpielId != null && spielIds.Contains(s.AuswaertsQuellSpielId.Value)))
+            .ToListAsync(ct);
+
+        foreach (var abhaengiges in abhaengigeSpiele)
+        {
+            if (abhaengiges.HeimQuellSpielId.HasValue && spielIds.Contains(abhaengiges.HeimQuellSpielId.Value))
+                abhaengiges.HeimQuellSpielId = null;
+            if (abhaengiges.AuswaertsQuellSpielId.HasValue && spielIds.Contains(abhaengiges.AuswaertsQuellSpielId.Value))
+                abhaengiges.AuswaertsQuellSpielId = null;
+        }
+
+        if (abhaengigeSpiele.Count > 0)
+            await Context.SaveChangesAsync(ct);
+
         Context.Spiele.RemoveRange(spiele);
         await Context.SaveChangesAsync(ct);
     }

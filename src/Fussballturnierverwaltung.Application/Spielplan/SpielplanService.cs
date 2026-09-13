@@ -284,6 +284,15 @@ public class SpielplanService(
         await KaskadeAusloesenAsync(runde.TurnierInstanzId, ct);
     }
 
+    /// <summary>Issue #320: löscht einen ggf. bereits generierten Spielplan einer Runde, ohne selbst die
+    /// Platzhalter-Kaskade auszulösen — für <see cref="Auslosungen.AuslosungService.ZuruecksetzenAsync"/>,
+    /// das im Anschluss ohnehin <see cref="KaskadeAusloesenAsync"/> für die ganze Instanz aufruft. Nutzt
+    /// dieselbe kaskadenlose Löschung wie <see cref="FinaleAutomatischGenerierenWennBereitAsync"/> (siehe
+    /// <see cref="LoeschenOhneKaskadeAsync"/>). Ein Aufruf ohne existierenden Spielplan ist ein No-Op
+    /// (<see cref="ISpielRepository.AlleNachRundeLoeschenAsync"/> auf 0 Zeilen).</summary>
+    public async Task RundenSpielplanOhneKaskadeLoeschenAsync(int turnierRundeId, CancellationToken ct = default)
+        => await LoeschenOhneKaskadeAsync(turnierRundeId, ct);
+
     /// <summary>Kern von <see cref="LoeschenAsync"/> ohne den Issue-#306-Kaskaden-Trigger — für den internen
     /// Aufruf aus <see cref="FinaleAutomatischGenerierenWennBereitAsync"/>, der selbst bereits Teil der
     /// Kaskade ist: würde dieser Aufruf ebenfalls die volle Kaskade auslösen, riefe er

@@ -7,4 +7,12 @@ namespace Fussballturnierverwaltung.Application.Spielplan;
 public interface IPlatzhalterKaskadeService
 {
     Task KaskadeAusloesenAsync(int turnierInstanzId, CancellationToken ct = default);
+
+    /// <summary>Löscht einen ggf. bereits generierten Spielplan (Spiele) einer Runde, OHNE selbst die
+    /// Platzhalter-Kaskade auszulösen — für Aufrufer, die im Anschluss ohnehin
+    /// <see cref="KaskadeAusloesenAsync"/> separat aufrufen (siehe <see cref="Auslosungen.AuslosungService.ZuruecksetzenAsync"/>,
+    /// Issue #320: ohne diesen Aufruf blieb ein aus einer zurückgesetzten Auslosung bereits generierter
+    /// Spielplan als Karteileiche stehen und summierte sich beim nächsten Abschließen/Ausführen zu
+    /// doppelten Partien).</summary>
+    Task RundenSpielplanOhneKaskadeLoeschenAsync(int turnierRundeId, CancellationToken ct = default);
 }

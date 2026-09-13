@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -103,6 +104,7 @@ public partial class ManuellePaarungWorkspaceViewModel : ObservableObject
     private readonly AuslosungService _auslosungService;
     private readonly MannschaftService _mannschaftService;
     private readonly SpielplanService _spielplanService;
+    private readonly TurnierBaumService _baumService;
     private readonly UebergangsregelService _uebergangsregelService;
 
     private readonly TurnierInstanz _instanz;
@@ -181,6 +183,7 @@ public partial class ManuellePaarungWorkspaceViewModel : ObservableObject
         AuslosungService auslosungService,
         MannschaftService mannschaftService,
         SpielplanService spielplanService,
+        TurnierBaumService baumService,
         UebergangsregelService uebergangsregelService,
         TurnierInstanz instanz,
         TurnierRunde runde,
@@ -189,10 +192,21 @@ public partial class ManuellePaarungWorkspaceViewModel : ObservableObject
         _auslosungService = auslosungService;
         _mannschaftService = mannschaftService;
         _spielplanService = spielplanService;
+        _baumService = baumService;
         _uebergangsregelService = uebergangsregelService;
         _instanz = instanz;
         Runde = runde;
         _instanzRunden = instanzRunden;
+    }
+
+    /// <summary>Aktualisiert den Turnierbaum nach jeder Spielplan-Änderung automatisch (Issue #320-
+    /// Folgefund: der Nutzer soll den Baum nie manuell neu generieren müssen). Für Turniere ganz ohne
+    /// K.o.-Runden wirft <see cref="TurnierBaumService.GenerierenAsync"/>, was hier bewusst geschluckt wird
+    /// (analog SpielplanViewModel.TurnierBaumAktualisierenAsync).</summary>
+    private async Task TurnierBaumAktualisierenAsync()
+    {
+        try { await _baumService.GenerierenAsync(_instanz.Id); }
+        catch { /* TurnierBaum-Rebuild ist optional — nie Fehler an den Benutzer weitergeben */ }
     }
 
     public async Task LadenAsync()
@@ -527,6 +541,7 @@ public partial class ManuellePaarungWorkspaceViewModel : ObservableObject
         try
         {
             await _auslosungService.ZuruecksetzenAsync(_auslosung.Id);
+            await TurnierBaumAktualisierenAsync();
             Geaendert?.Invoke();
             await LadenAsync();
         }
@@ -556,9 +571,18 @@ public partial class ManuellePaarungWorkspaceViewModel : ObservableObject
                 MessageBoxImage.Warning);
             if (antwort != MessageBoxResult.Yes) return;
 
-            await _spielplanService.LoeschenAsync(rundeId);
+            // Issue #320-Folgefund: kaskadenlos löschen — LoeschenAsync würde selbst sofort wieder die
+            // Kaskade auslösen, die bei einer Platzhalter-K.o.-Runde mit weiterhin abgeschlossener
+            // Auslosung erneut komplett neu generiert, bevor der folgende GenerierenAusAuslosungAsync-
+            // Aufruf noch einmal generiert — macht aus 4 erwarteten Spielen 8 Phantom-Spiele.
+            await _spielplanService.RundenSpielplanOhneKaskadeLoeschenAsync(rundeId);
         }
 
         await _spielplanService.GenerierenAusAuslosungAsync(rundeId, [.. detail.Ergebnisse]);
+
+        // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf den alten (jetzt ersetzten)
+        // Spielplan verwiesen haben (#306) — ohne die Kaskade blieben sie fälschlich stehen.
+        await _spielplanService.KaskadeAusloesenAsync(detail.TurnierInstanzId);
+        await TurnierBaumAktualisierenAsync();
     }
 }

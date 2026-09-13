@@ -1048,7 +1048,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         try
         {
             if (Spiele.Count > 0)
-                await _spielplanService.LoeschenAsync(rundeId);
+                // Issue #320-Folgefund: kaskadenlos löschen — LoeschenAsync würde selbst sofort wieder die
+                // Kaskade auslösen, die bei einer Platzhalter-K.o.-Runde mit weiterhin abgeschlossener
+                // Auslosung erneut komplett neu generiert, bevor der folgende GenerierenAusAuslosungAsync-
+                // Aufruf noch einmal generiert — macht aus den erwarteten Spielen doppelt so viele.
+                await _spielplanService.RundenSpielplanOhneKaskadeLoeschenAsync(rundeId);
             var auslosung = await _auslosungService.FindenAbgeschlosseneNachRundeAsync(instanzId, rundeId);
             if (auslosung is null)
             {
@@ -1058,6 +1062,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             }
 
             await _spielplanService.GenerierenAusAuslosungAsync(rundeId, [.. auslosung.Ergebnisse]);
+
+            // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf den alten (jetzt
+            // ersetzten) Spielplan verwiesen haben (#306) — ohne die Kaskade blieben sie fälschlich stehen.
+            await _spielplanService.KaskadeAusloesenAsync(instanzId);
 
             await TabellenNeuLadenAsync(rundeId);
 

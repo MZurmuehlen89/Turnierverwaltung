@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -117,6 +118,7 @@ public partial class VorbelegungWorkspace : ObservableObject
     private readonly AuslosungService _auslosungService;
     private readonly MannschaftService _mannschaftService;
     private readonly SpielplanService _spielplanService;
+    private readonly TurnierBaumService _baumService;
     private readonly UebergangsregelService _uebergangsregelService;
     private readonly IDialogService _dialogService;
 
@@ -190,6 +192,7 @@ public partial class VorbelegungWorkspace : ObservableObject
         AuslosungService auslosungService,
         MannschaftService mannschaftService,
         SpielplanService spielplanService,
+        TurnierBaumService baumService,
         UebergangsregelService uebergangsregelService,
         IDialogService dialogService,
         TurnierInstanz instanz,
@@ -199,6 +202,7 @@ public partial class VorbelegungWorkspace : ObservableObject
         _auslosungService = auslosungService;
         _mannschaftService = mannschaftService;
         _spielplanService = spielplanService;
+        _baumService = baumService;
         _uebergangsregelService = uebergangsregelService;
         _dialogService = dialogService;
         _instanz = instanz;
@@ -542,6 +546,7 @@ public partial class VorbelegungWorkspace : ObservableObject
         try
         {
             await _auslosungService.ZuruecksetzenAsync(_auslosung.Id);
+            await TurnierBaumAktualisierenAsync();
             Geaendert?.Invoke();
             await LadenAsync();
         }
@@ -569,10 +574,29 @@ public partial class VorbelegungWorkspace : ObservableObject
                 "Soll der bestehende Spielplan gelöscht und aus dieser Paarung neu generiert werden?");
             if (!bestaetigt) return;
 
-            await _spielplanService.LoeschenAsync(rundeId);
+            // Issue #320-Folgefund: kaskadenlos löschen — LoeschenAsync würde selbst sofort wieder die
+            // Kaskade auslösen, die bei einer Platzhalter-K.o.-Runde mit weiterhin abgeschlossener
+            // Auslosung erneut komplett neu generiert, bevor der folgende GenerierenAusAuslosungAsync-
+            // Aufruf noch einmal generiert — macht aus 4 erwarteten Spielen 8 Phantom-Spiele.
+            await _spielplanService.RundenSpielplanOhneKaskadeLoeschenAsync(rundeId);
         }
 
         await _spielplanService.GenerierenAusAuslosungAsync(rundeId, [.. detail.Ergebnisse]);
+
+        // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf den alten (jetzt ersetzten)
+        // Spielplan verwiesen haben (#306) — ohne die Kaskade blieben sie fälschlich stehen.
+        await _spielplanService.KaskadeAusloesenAsync(detail.TurnierInstanzId);
+        await TurnierBaumAktualisierenAsync();
+    }
+
+    /// <summary>Aktualisiert den Turnierbaum nach jeder Spielplan-Änderung automatisch (Issue #320-
+    /// Folgefund: der Nutzer soll den Baum nie manuell neu generieren müssen). Für Turniere ganz ohne
+    /// K.o.-Runden wirft <see cref="TurnierBaumService.GenerierenAsync"/>, was hier bewusst geschluckt wird
+    /// (analog SpielplanViewModel.TurnierBaumAktualisierenAsync).</summary>
+    private async Task TurnierBaumAktualisierenAsync()
+    {
+        try { await _baumService.GenerierenAsync(_instanz.Id); }
+        catch { /* TurnierBaum-Rebuild ist optional — nie Fehler an den Benutzer weitergeben */ }
     }
 }
 
@@ -590,6 +614,7 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware, IHatUng
     private readonly AuslosungService _auslosungService;
     private readonly MannschaftService _mannschaftService;
     private readonly SpielplanService _spielplanService;
+    private readonly TurnierBaumService _baumService;
     private readonly UebergangsregelService _uebergangsregelService;
     private readonly IDialogService _dialogService;
 
@@ -642,6 +667,7 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware, IHatUng
         AuslosungService auslosungService,
         MannschaftService mannschaftService,
         SpielplanService spielplanService,
+        TurnierBaumService baumService,
         UebergangsregelService uebergangsregelService,
         IDialogService dialogService)
     {
@@ -649,6 +675,7 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware, IHatUng
         _auslosungService = auslosungService;
         _mannschaftService = mannschaftService;
         _spielplanService = spielplanService;
+        _baumService = baumService;
         _uebergangsregelService = uebergangsregelService;
         _dialogService = dialogService;
     }
@@ -685,7 +712,14 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware, IHatUng
             _instanzRunden = _instanz.Runden.OrderBy(r => r.Reihenfolge).ToList();
             HatUeberhauptRunden = _instanzRunden.Count > 0;
             var auslosungen = await _auslosungService.AlleNachInstanzAbrufenAsync(_instanz.Id);
-            var auslosungNachRundeId = auslosungen.ToDictionary(a => a.TurnierRundeId);
+
+            // Issue #320: GroupBy statt ToDictionary — Neuanlage einer zweiten Auslosung für dieselbe Runde
+            // ist jetzt in AuslosungService.ErstellenAsync unterbunden, aber vor diesem Fix bereits entstandene
+            // Alt-Daten sollen die Ansicht nicht mit einer ArgumentException zum Absturz bringen (die Manuell-
+            // Auslosung, sofern vorhanden, gewinnt — das ist die für diesen Tab relevante).
+            var auslosungNachRundeId = auslosungen
+                .GroupBy(a => a.TurnierRundeId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.Auslosungsart == Auslosungsart.Manuell).First());
 
             var sichtbareRunden = _instanzRunden.Where(r =>
                 r.PaarungFestVorgegeben ||
@@ -726,7 +760,7 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware, IHatUng
         }
 
         var workspace = new VorbelegungWorkspace(
-            _auslosungService, _mannschaftService, _spielplanService, _uebergangsregelService, _dialogService,
+            _auslosungService, _mannschaftService, _spielplanService, _baumService, _uebergangsregelService, _dialogService,
             _instanz, newValue.Runde, _instanzRunden);
         workspace.PropertyChanged += OnWorkspacePropertyChanged;
         workspace.Geaendert += OnWorkspaceGeaendert;

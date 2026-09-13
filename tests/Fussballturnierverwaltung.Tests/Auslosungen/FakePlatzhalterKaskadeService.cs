@@ -7,10 +7,17 @@ namespace Fussballturnierverwaltung.Tests.Auslosungen;
 public class FakePlatzhalterKaskadeService : IPlatzhalterKaskadeService
 {
     public int AufrufeAnzahl { get; private set; }
+    public List<int> GeloeschteRundenIds { get; } = [];
 
     public Task KaskadeAusloesenAsync(int turnierInstanzId, CancellationToken ct = default)
     {
         AufrufeAnzahl++;
+        return Task.CompletedTask;
+    }
+
+    public Task RundenSpielplanOhneKaskadeLoeschenAsync(int turnierRundeId, CancellationToken ct = default)
+    {
+        GeloeschteRundenIds.Add(turnierRundeId);
         return Task.CompletedTask;
     }
 }

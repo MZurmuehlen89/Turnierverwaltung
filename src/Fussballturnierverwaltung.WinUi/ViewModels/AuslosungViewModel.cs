@@ -4,6 +4,7 @@ using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
@@ -175,6 +176,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly TurnierInstanzService _instanzService;
     private readonly MannschaftService _mannschaftService;
     private readonly SpielplanService _spielplanService;
+    private readonly TurnierBaumService _baumService;
     private readonly RanglisteService _ranglisteService;
     private readonly VerbandsQuoteService _verbandsQuoteService;
     private readonly UebergangsregelService _uebergangsregelService;
@@ -200,8 +202,18 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(NeuRundenOptionen))]
     private ObservableCollection<TurnierRunde> _instanzRunden = [];
 
-    // Runden mit PaarungFestVorgegeben=true werden im Vorbelegung-Tab verwaltet, nicht hier.
-    public IEnumerable<TurnierRunde> NeuRundenOptionen => InstanzRunden.Where(r => !r.PaarungFestVorgegeben);
+    /// <summary>Runden mit PaarungFestVorgegeben=true werden im Vorbelegung-Tab verwaltet, nicht hier. Runden
+    /// mit bereits vorhandener Auslosung (auch einer im Vorbelegung-Tab abgeschlossenen, hier unsichtbaren
+    /// Manuell-Auslosung — siehe <see cref="_belegteRundenIds"/>) werden ebenfalls ausgeblendet: sonst könnte
+    /// eine zweite Auslosung für dieselbe Runde angelegt werden, was den Vorbelegung-Tab beim
+    /// ToDictionary(a => a.TurnierRundeId)-Aufbau mit einer ArgumentException abstürzen lässt (Issue #320).</summary>
+    public IEnumerable<TurnierRunde> NeuRundenOptionen =>
+        InstanzRunden.Where(r => !r.PaarungFestVorgegeben && !_belegteRundenIds.Contains(r.Id));
+
+    /// <summary>TurnierRundeId aller Auslosungen der Instanz — inkl. der hier absichtlich ausgeblendeten
+    /// Auslosungsart.Manuell (siehe <see cref="LadeAuslosungenGefiltertAsync"/>), damit
+    /// <see cref="NeuRundenOptionen"/> auch solche Runden zuverlässig ausschließt (Issue #320).</summary>
+    private HashSet<int> _belegteRundenIds = [];
 
     // ── Neue-Auslosung-Formular ────────────────────────────────────────────────
     [ObservableProperty]
@@ -554,6 +566,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         TurnierInstanzService instanzService,
         MannschaftService mannschaftService,
         SpielplanService spielplanService,
+        TurnierBaumService baumService,
         RanglisteService ranglisteService,
         VerbandsQuoteService verbandsQuoteService,
         UebergangsregelService uebergangsregelService,
@@ -563,10 +576,21 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _instanzService = instanzService;
         _mannschaftService = mannschaftService;
         _spielplanService = spielplanService;
+        _baumService = baumService;
         _ranglisteService = ranglisteService;
         _verbandsQuoteService = verbandsQuoteService;
         _uebergangsregelService = uebergangsregelService;
         _dialogService = dialogService;
+    }
+
+    /// <summary>Aktualisiert den Turnierbaum nach jeder Spielplan-Änderung automatisch (Issue #320-
+    /// Folgefund: der Nutzer soll den Baum nie manuell neu generieren müssen). Für Turniere ganz ohne
+    /// K.o.-Runden wirft <see cref="TurnierBaumService.GenerierenAsync"/>, was hier bewusst geschluckt wird
+    /// (analog SpielplanViewModel.TurnierBaumAktualisierenAsync).</summary>
+    private async Task TurnierBaumAktualisierenAsync(int turnierInstanzId)
+    {
+        try { await _baumService.GenerierenAsync(turnierInstanzId); }
+        catch { /* TurnierBaum-Rebuild ist optional — nie Fehler an den Benutzer weitergeben */ }
     }
 
     /// <summary>Von <see cref="TurnierdurchfuehrungViewModel"/> einmalig beim Aktivieren geladen — analog
@@ -1159,10 +1183,19 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 "Soll der bestehende Spielplan gelöscht und aus dieser Auslosung neu generiert werden?");
             if (!bestaetigt) return;
 
-            await _spielplanService.LoeschenAsync(rundeId);
+            // Issue #320-Folgefund: kaskadenlos löschen — LoeschenAsync würde selbst sofort wieder die
+            // Kaskade auslösen, die bei einer Platzhalter-K.o.-Runde mit weiterhin abgeschlossener
+            // Auslosung erneut komplett neu generiert, bevor der folgende GenerierenAusAuslosungAsync-
+            // Aufruf noch einmal generiert — macht aus 4 erwarteten Spielen 8 Phantom-Spiele.
+            await _spielplanService.RundenSpielplanOhneKaskadeLoeschenAsync(rundeId);
         }
 
         await _spielplanService.GenerierenAusAuslosungAsync(rundeId, [.. _auslosungDetail.Ergebnisse]);
+
+        // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf den alten (jetzt ersetzten)
+        // Spielplan verwiesen haben (#306) — ohne die Kaskade blieben sie fälschlich stehen.
+        await _spielplanService.KaskadeAusloesenAsync(_auslosungDetail.TurnierInstanzId);
+        await TurnierBaumAktualisierenAsync(_auslosungDetail.TurnierInstanzId);
     }
 
     [RelayCommand(CanExecute = nameof(KannAuslosungZuruecksetzen))]
@@ -1172,7 +1205,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Fehlermeldung = null;
         try
         {
+            var instanzId = _auslosungDetail.TurnierInstanzId;
             await _auslosungService.ZuruecksetzenAsync(_auslosungDetail.Id);
+            await TurnierBaumAktualisierenAsync(instanzId);
             await LadeDetailAsync(_auslosungDetail.Id);
             await AktualisiereSeitenlisteAsync();
         }
@@ -1413,6 +1448,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task<ObservableCollection<Auslosung>> LadeAuslosungenGefiltertAsync(int turnierInstanzId)
     {
         var auslosungen = await _auslosungService.AlleNachInstanzAbrufenAsync(turnierInstanzId);
+
+        // Issue #320: _belegteRundenIds bewusst aus der UNGEFILTERTEN Liste (inkl. Manuell) befüllen —
+        // NeuRundenOptionen muss auch Runden mit einer hier unsichtbaren Manuell-Auslosung ausblenden.
+        _belegteRundenIds = auslosungen.Select(a => a.TurnierRundeId).ToHashSet();
+        OnPropertyChanged(nameof(NeuRundenOptionen));
+
         return new ObservableCollection<Auslosung>(auslosungen.Where(a => a.Auslosungsart != Auslosungsart.Manuell));
     }
 

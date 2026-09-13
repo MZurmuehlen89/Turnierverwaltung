@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -40,6 +41,7 @@ public partial class PaarungsfestlegungViewModel : ViewModelBase, IRibbonAware, 
     private readonly AuslosungService _auslosungService;
     private readonly MannschaftService _mannschaftService;
     private readonly SpielplanService _spielplanService;
+    private readonly TurnierBaumService _baumService;
     private readonly UebergangsregelService _uebergangsregelService;
     private readonly AusgewaehlteTurnierInstanzService _turnierAuswahlService;
 
@@ -81,6 +83,7 @@ public partial class PaarungsfestlegungViewModel : ViewModelBase, IRibbonAware, 
         AuslosungService auslosungService,
         MannschaftService mannschaftService,
         SpielplanService spielplanService,
+        TurnierBaumService baumService,
         UebergangsregelService uebergangsregelService,
         AusgewaehlteTurnierInstanzService turnierAuswahlService)
     {
@@ -88,6 +91,7 @@ public partial class PaarungsfestlegungViewModel : ViewModelBase, IRibbonAware, 
         _auslosungService = auslosungService;
         _mannschaftService = mannschaftService;
         _spielplanService = spielplanService;
+        _baumService = baumService;
         _uebergangsregelService = uebergangsregelService;
         _turnierAuswahlService = turnierAuswahlService;
     }
@@ -124,7 +128,14 @@ public partial class PaarungsfestlegungViewModel : ViewModelBase, IRibbonAware, 
             _instanzRunden = _instanz.Runden.OrderBy(r => r.Reihenfolge).ToList();
             HatUeberhauptRunden = _instanzRunden.Count > 0;
             var auslosungen = await _auslosungService.AlleNachInstanzAbrufenAsync(_instanz.Id);
-            var auslosungNachRundeId = auslosungen.ToDictionary(a => a.TurnierRundeId);
+
+            // Issue #320: GroupBy statt ToDictionary — Neuanlage einer zweiten Auslosung für dieselbe Runde
+            // ist jetzt in AuslosungService.ErstellenAsync unterbunden, aber vor diesem Fix bereits entstandene
+            // Alt-Daten sollen die Ansicht nicht mit einer ArgumentException zum Absturz bringen (die Manuell-
+            // Auslosung, sofern vorhanden, gewinnt — das ist die für diesen Tab relevante).
+            var auslosungNachRundeId = auslosungen
+                .GroupBy(a => a.TurnierRundeId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.Auslosungsart == Auslosungsart.Manuell).First());
 
             // Issue #251-Folgefund: nur Runden anzeigen, deren Paarung laut Rundendefinition fest
             // vorgegeben ist — sonst erschien anfangs jede Runde hier editierbar, bis anderswo eine echte
@@ -169,7 +180,7 @@ public partial class PaarungsfestlegungViewModel : ViewModelBase, IRibbonAware, 
         }
 
         var workspace = new ManuellePaarungWorkspaceViewModel(
-            _auslosungService, _mannschaftService, _spielplanService, _uebergangsregelService,
+            _auslosungService, _mannschaftService, _spielplanService, _baumService, _uebergangsregelService,
             _instanz, newValue.Runde, _instanzRunden);
         workspace.PropertyChanged += OnWorkspacePropertyChanged;
         workspace.Geaendert += OnWorkspaceGeaendert;

@@ -33,6 +33,16 @@ public class AuslosungService(
 
     public async Task<Auslosung> ErstellenAsync(AuslosungErstellenEingabe eingabe, CancellationToken ct = default)
     {
+        // Issue #320: eine Runde darf nie zwei Auslosung-Zeilen gleichzeitig haben — sonst kollidiert
+        // z.B. der Vorbelegung-Tab beim ToDictionary(a => a.TurnierRundeId)-Aufbau mit einer
+        // ArgumentException. Betrifft insbesondere den Fall, dass eine Runde zuvor per "Paarung fest
+        // vorgegeben" eine Manuell-Auslosung erhalten hat und das Flag danach wieder deaktiviert wurde.
+        var bestehendeDerInstanz = await repository.AlleNachInstanzAsync(eingabe.TurnierInstanzId, ct);
+        if (bestehendeDerInstanz.Any(a => a.TurnierRundeId == eingabe.TurnierRundeId))
+            throw new InvalidOperationException(
+                "Für diese Runde existiert bereits eine Auslosung. Bitte zuerst die bestehende Auslosung " +
+                "löschen (oder im Vorbelegung-Tab zurücksetzen), bevor eine neue angelegt wird.");
+
         var auslosung = new Auslosung
         {
             TurnierInstanzId = eingabe.TurnierInstanzId,
@@ -311,6 +321,11 @@ public class AuslosungService(
             ?? throw new InvalidOperationException($"Auslosung {auslosungId} nicht gefunden.");
 
         await repository.ErgebnisseLoeschenUndZuruecksetzenAsync(auslosungId, ct);
+
+        // Issue #320: ein aus dieser Auslosung bereits generierter Spielplan wird beim Zurücksetzen
+        // konsistent mitgelöscht — sonst bleibt er beim erneuten Abschließen/Ausführen als Karteileiche
+        // stehen und summiert sich mit dem neu generierten Spielplan zu doppelten Partien.
+        await platzhalterKaskadeService.RundenSpielplanOhneKaskadeLoeschenAsync(auslosung.TurnierRundeId, ct);
         logger.LogInformation("Auslosung {Id} zurückgesetzt.", auslosungId);
 
         // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf dieser jetzt
@@ -323,6 +338,16 @@ public class AuslosungService(
         var auslosung = await repository.FindenNachIdAsync(auslosungId, ct)
             ?? throw new InvalidOperationException($"Auslosung {auslosungId} nicht gefunden.");
         await repository.LoeschenAsync(auslosung, ct);
+
+        // Issue #320: wie in ZuruecksetzenAsync — ein aus dieser Auslosung bereits generierter
+        // Spielplan wird mitgelöscht, sonst bleibt er als Karteileiche stehen und summiert sich bei
+        // einer neu erstellten Auslosung derselben Runde zu doppelten Partien.
+        await platzhalterKaskadeService.RundenSpielplanOhneKaskadeLoeschenAsync(auslosung.TurnierRundeId, ct);
+        logger.LogInformation("Auslosung {Id} gelöscht.", auslosungId);
+
+        // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf dieser jetzt
+        // gelöschten Auslosung basieren — ohne die Kaskade blieben sie fälschlich stehen (#306).
+        await platzhalterKaskadeService.KaskadeAusloesenAsync(auslosung.TurnierInstanzId, ct);
     }
 
     private async Task<Auslosung> LadenOderFehler(int auslosungId, CancellationToken ct)
