@@ -8,11 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build (all projects)
 dotnet build
 
-# Run the Console application
-dotnet run --project src/Fussballturnierverwaltung.Console
-
-# Run the WPF application
-dotnet run --project src/Fussballturnierverwaltung.Wpf
+# Run the WinUi application
+dotnet run --project src/Fussballturnierverwaltung.WinUi
 
 # Run all tests
 dotnet test
@@ -30,46 +27,38 @@ See `src/Fussballturnierverwaltung.Infrastructure/CLAUDE.md` (connection string,
 
 ## Architecture
 
-**Clean Architecture** with five core projects, plus two non-productive UI-technology spike projects:
+**Clean Architecture** with four projects:
 
 | Project | Namespace | Role |
 |---|---|---|
 | `Domain` | `Fussballturnierverwaltung.Domain` | Entities, enums — no external deps |
 | `Application` | `Fussballturnierverwaltung.Application` | Services, validators, repository interfaces, generators |
 | `Infrastructure` | `Fussballturnierverwaltung.Infrastructure` | EF Core, repositories, migrations, seed |
-| `Console` | `Fussballturnierverwaltung.Konsole` | Spectre.Console menus, DI root |
-| `Wpf` | `Fussballturnierverwaltung.Wpf` | WPF GUI with Fluent.Ribbon, MVVM (CommunityToolkit.Mvvm) |
-| `Avalonia` *(spike, not productive)* | `Fussballturnierverwaltung.AvaloniaSpike` | Avalonia 12 rebuild of a DataGrid-heavy view (Issue #278), feeds the WPF/WinUI3/Avalonia decision in #272 |
-| `WinUi` *(spike, not productive)* | `Fussballturnierverwaltung.WinUi` | WinUI 3 / WindowsAppSDK rebuild of the same view, ListView-based instead of DataGrid (Issue #278) |
+| `WinUi` | `Fussballturnierverwaltung.WinUi` | WinUI 3 / WindowsAppSDK GUI, MVVM (CommunityToolkit.Mvvm), DI root |
 
-Note: The Console project is named `*.Console` on disk but uses the namespace `*.Konsole` to avoid collision with `System.Console` (AD-005). The Avalonia spike project has the same collision, but with its own `Fussballturnierverwaltung.Application` project instead — any `Fussballturnierverwaltung.*`-namespaced project whose code references the `Application` type from a UI framework (`Avalonia.Application`, `Microsoft.UI.Xaml.Application`, …) unqualified hits this, since C# resolves the sibling namespace `Fussballturnierverwaltung.Application` first; the Avalonia project is namespaced `*.AvaloniaSpike` to sidestep it, the WinUI project instead qualifies the base class as `global::Microsoft.UI.Xaml.Application`.
+**Dependency direction:** `Domain ← Application ← Infrastructure ← WinUi`
 
-**Dependency direction:** `Domain ← Application ← Infrastructure ← Console / Wpf / Avalonia / WinUi`
+Domain has no external dependencies. `WinUi` is the sole startup project, referencing `Infrastructure` and all Application-layer services.
 
-`Console`, `Wpf`, `Avalonia`, and `WinUi` are independent startup projects that reference `Infrastructure` and share all Application-layer services. `Avalonia` and `WinUi` are Issue #278 machine-feasibility spikes only — not wired into any release process, not part of "add a new feature" below.
+Note: Console, WPF, and an Avalonia feasibility spike previously existed alongside WinUi (see Issue #326 for their archived architecture/status before removal). WPF was the original desktop GUI but was retired because native WPF controls (`DataGrid`, `TextBox`, `ComboBox`) bind directly to `SystemColors` keys instead of inheritable styles, making a clean Dark Mode structurally unworkable — this drove the WinUI3 rebuild (#279ff.). Console was the original UI before any graphical one existed. Avalonia was a side-by-side feasibility spike (#278) evaluated against WinUI3 and not pursued further.
 
 ## Key Patterns
 
-**Adding a new feature** typically requires touching all four core layers:
+**Adding a new feature** typically requires touching all four layers:
 1. **Domain**: entity in `Entitaeten/`, enum in `Enums/`
 2. **Application**: repository interface + service class; validator if user input is involved
 3. **Infrastructure**: EF Core configuration in `Persistenz/Konfigurationen/`, repository implementation, migration
-4. **Console**: menu class registered in `Program.cs`, wired into `StammdatenMenue`, `BewegungsdatenMenue`, or `HauptMenue`
-5. **WPF** (if applicable): ViewModel + View pair, registered in `App.xaml.cs`, wired into `MainViewModel.NavigationsGruppen`, **and** given a `DataTemplate` in `MainWindow.xaml` (`Window.Resources`) mapping the ViewModel type to the View — omitting this compiles fine and navigates without error, but the view silently renders as the ViewModel's `ToString()` instead of the actual UI
+4. **WinUi**: ViewModel + View pair, registered in DI, wired into navigation — see `src/Fussballturnierverwaltung.WinUi/CLAUDE.md` for the exact pattern and its pitfalls
 
 **Repository pattern**: All repository interfaces extend `IRepository<T>` (`Application/Abstraktionen/IRepository.cs`). Concrete implementations extend `GenericRepository<T>`. Domain-specific query methods are added to the interface and implemented in Infrastructure.
 
-**DI registration** for the Console lives in `Program.cs`. For the WPF it lives in `App.xaml.cs` (startup) and `InfrastrukturErweiterungen.cs` (Infrastructure). All services are `Scoped` except `EinstellungenService` which is `Singleton` (reads/writes a JSON file, holds no DbContext).
+**DI registration** lives in the WinUi startup (see `src/Fussballturnierverwaltung.WinUi/CLAUDE.md`) and `InfrastrukturErweiterungen.cs` (Infrastructure). All services are `Scoped` except `EinstellungenService` which is `Singleton` (reads/writes a JSON file, holds no DbContext).
 
-**Validation**: Validators live in `Application/Validierung/` and return `ValidationErgebnis`. Services call `ValidationException.WerfenWennUngueltig(validator.Validieren(...))`. The Console layer catches `Exception` and shows it via `KonsolenHilfsmittel.FehlerAnzeigen`.
+**Validation**: Validators live in `Application/Validierung/` and return `ValidationErgebnis`. Services call `ValidationException.WerfenWennUngueltig(validator.Validieren(...))`.
 
-**Spielplan generators** (`ISpielplanGenerator`) use a factory pattern (`SpielplanGeneratorFactory`) keyed on `Rundenart`. Four generators are implemented: `RoundRobinGenerator`, `KoRundeGenerator`, `TopfLigaGenerator`, `SchweizerSystemGenerator`. Register new generators in both `Program.cs` (Console) and `App.xaml.cs` (WPF) as `ISpielplanGenerator`.
+**Spielplan generators** (`ISpielplanGenerator`) use a factory pattern (`SpielplanGeneratorFactory`) keyed on `Rundenart`. Four generators are implemented: `RoundRobinGenerator`, `KoRundeGenerator`, `TopfLigaGenerator`, `SchweizerSystemGenerator`. Register new generators as `ISpielplanGenerator` in the WinUi DI setup.
 
-**User settings** (`EinstellungenService`) persist to `%APPDATA%\Turnierverwaltung\einstellungen.json` as JSON. Registered as Singleton in both startup projects.
-
-## WPF Patterns
-
-See `src/Fussballturnierverwaltung.Wpf/CLAUDE.md` (MVVM/ViewModelBase/NavigationService/IRibbonAware/Navigation groups) — loaded automatically once a file in that project is touched.
+**User settings** (`EinstellungenService`) persist to `%APPDATA%\Turnierverwaltung\einstellungen.json` as JSON. Registered as Singleton.
 
 ## WinUi Patterns
 

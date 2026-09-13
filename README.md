@@ -1,6 +1,6 @@
 # Fussballturnierverwaltung
 
-Private Anwendung zur Verwaltung, Auslosung, Simulation und Auswertung von Fußballturnieren. Verfügbar als Konsolenanwendung (Spectre.Console) und als WPF-Desktop-GUI (Fluent.Ribbon).
+Private Anwendung zur Verwaltung, Auslosung, Simulation und Auswertung von Fußballturnieren. Verfügbar als WinUI-3-Desktop-Anwendung (WindowsAppSDK).
 
 ## Ziel
 
@@ -12,9 +12,9 @@ Version 1 ermöglicht:
 - Konfigurierbare Regelwerke (Punkte, Ranking, Entscheidungsverfahren)
 - Turnierbaum-Darstellung
 - Import und Export (CSV, JSON)
-- WPF-Desktop-Oberfläche mit Fluent.Ribbon-Navigation
+- WinUI-3-Desktop-Oberfläche mit MVVM-Navigation
 
-Die Fachlogik ist vollständig von der UI getrennt: beide Oberflächen (Console, WPF) teilen sich dieselbe Application- und Infrastructure-Schicht.
+Die Fachlogik ist vollständig von der UI getrennt: die Oberfläche teilt sich mit den übrigen Schichten dieselbe Application- und Infrastructure-Schicht.
 
 ## Technologie
 
@@ -23,8 +23,7 @@ Die Fachlogik ist vollständig von der UI getrennt: beide Oberflächen (Console,
 | Sprache | C# / .NET 10 |
 | Datenbank | SQL Server Developer Edition |
 | ORM | Entity Framework Core 10 (Code First) |
-| Konsolenoberfläche | Spectre.Console |
-| Desktop-Oberfläche | WPF + Fluent.Ribbon + CommunityToolkit.Mvvm |
+| Desktop-Oberfläche | WinUI 3 / WindowsAppSDK + CommunityToolkit.Mvvm |
 | Tests | xUnit + FluentAssertions |
 | Logging | Microsoft.Extensions.Logging |
 | Architektur | Clean Architecture |
@@ -32,14 +31,13 @@ Die Fachlogik ist vollständig von der UI getrennt: beide Oberflächen (Console,
 ## Projektstruktur
 
 ```
-Fussballturnierverwaltung.sln
+Fussballturnierverwaltung.slnx
 
 src/
   Fussballturnierverwaltung.Domain          # Entitäten, Value Objects, Enums
   Fussballturnierverwaltung.Application     # Services, Use Cases, Logik, Generatoren
   Fussballturnierverwaltung.Infrastructure  # EF Core, Repositories, Migrationen, Seed
-  Fussballturnierverwaltung.Console         # Spectre.Console UI, Startup (Konsole)
-  Fussballturnierverwaltung.Wpf             # WPF GUI, MVVM ViewModels, Startup (Desktop)
+  Fussballturnierverwaltung.WinUi           # WinUI 3 GUI, MVVM ViewModels, Startup (Desktop)
 
 tests/
   Fussballturnierverwaltung.Tests           # xUnit Unit- und Integrationstests
@@ -48,25 +46,19 @@ tests/
 ## Abhängigkeiten (Clean Architecture)
 
 ```
-Domain  <──  Application  <──  Infrastructure
-                    ▲                 ▲
-                    ├──── Console ────┤
-                    └──── Wpf ────────┘
+Domain  <──  Application  <──  Infrastructure  <──  WinUi
 ```
 
-Domain hat keine externen Abhängigkeiten. Console und Wpf sind unabhängige Kompositionswurzeln.
+Domain hat keine externen Abhängigkeiten. WinUi ist die einzige Kompositionswurzel.
 
 ## Erste Schritte
 
 ```bash
 # Datenbank erstellen (SQL Server muss laufen)
-dotnet ef database update --project src/Fussballturnierverwaltung.Infrastructure --startup-project src/Fussballturnierverwaltung.Console
+dotnet ef database update --project src/Fussballturnierverwaltung.Infrastructure --startup-project src/Fussballturnierverwaltung.WinUi
 
-# Konsolenanwendung starten
-dotnet run --project src/Fussballturnierverwaltung.Console
-
-# WPF-Anwendung starten
-dotnet run --project src/Fussballturnierverwaltung.Wpf
+# Anwendung starten
+dotnet run --project src/Fussballturnierverwaltung.WinUi
 
 # Tests ausführen
 dotnet test
@@ -82,7 +74,7 @@ Implementiert in Version 1:
 - Spielsimulation (Schnell, Ausführlich, Manuell) mit Liveticker
 - Turnierbaum-Darstellung
 - Import/Export (CSV, JSON)
-- WPF-Desktop-Oberfläche mit Fluent.Ribbon, MVVM, Scope-basierter Navigation
+- WinUI-3-Desktop-Oberfläche mit MVVM, Scope-basierter Navigation
 
 Nicht in Version 1 (Backlog für Version 2):
 - Spieler/Kader, Form/Moral/Verletzungen, Turnierdruck, Massensimulationen
