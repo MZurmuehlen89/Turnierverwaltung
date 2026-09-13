@@ -236,13 +236,33 @@ public class SpielplanService(
             : 1;
 
         // Normalize to (min, max) for order-independent rematch detection (Platzhalter-Spiele ignorieren)
-        var bereitsGespielt = vorhandeneSpiele
+        var echteSpiele = vorhandeneSpiele
             .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
+            .ToList();
+
+        var bereitsGespielt = echteSpiele
             .Select(s => (
                 TeamAId: Math.Min(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value),
                 TeamBId: Math.Max(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value)))
             .Distinct()
             .ToList<(int TeamAId, int TeamBId)>();
+
+        // Freilos-Historie: es wird kein eigener Spiel-Datensatz für ein Freilos angelegt — ein Team, das
+        // an weniger Spieltagen teilgenommen hat als bisher stattgefunden haben, hat mindestens einmal
+        // ausgesetzt (jedes Team spielt pro Spieltag höchstens ein Spiel).
+        var spieltageGespielt = echteSpiele
+            .SelectMany(s => new[] { s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value })
+            .GroupBy(id => id)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var freilosHistorie = sortierteMannschaftIds
+            .Where(id => spieltageGespielt.GetValueOrDefault(id) < naechsterSpieltag - 1)
+            .ToHashSet();
+
+        // Heim-Bilanz für den Farbausgleich
+        var heimBilanz = echteSpiele
+            .GroupBy(s => s.HeimMannschaftId!.Value)
+            .ToDictionary(g => g.Key, g => g.Count());
 
         var mannschaften = await mannschaftRepository.FindenNachIdsAsync(sortierteMannschaftIds, ct);
         var geordnet = sortierteMannschaftIds
@@ -257,7 +277,9 @@ public class SpielplanService(
             runde, geordnet, startNr,
             Paarungen:       null,
             BereitsGespielt: bereitsGespielt,
-            Spieltag:        naechsterSpieltag);
+            Spieltag:        naechsterSpieltag,
+            FreilosHistorie: freilosHistorie,
+            HeimBilanz:      heimBilanz);
 
         var ergebnis = generator.Generieren(kontext);
         await SpeichernAsync(ergebnis, ct);

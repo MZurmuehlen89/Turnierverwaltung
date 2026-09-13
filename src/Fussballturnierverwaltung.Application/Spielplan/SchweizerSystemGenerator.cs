@@ -7,7 +7,11 @@ namespace Fussballturnierverwaltung.Application.Spielplan;
 /// <summary>
 /// Schweizer System: generiert für jeden Spieltag eine neue Runde basierend auf der
 /// aktuellen Tabelle. Vermeidet Rückspiele gegen bereits gespielte Gegner (Backtracking).
-/// Bei ungerader Teamanzahl erhält das am schwächsten gesetzte Team ein Freilos (kein Spiel).
+/// Bei ungerader Teamanzahl erhält das niedrigstplatzierte Team ohne vorheriges Freilos
+/// (Rotation) ein Freilos. Farbausgleich: das Team mit weniger bisherigen Heimspielen bekommt
+/// den Heimplatz. Die Paarungslogik selbst (Rang-Nachbar-Backtracking) ist eine bewusste
+/// Vereinfachung gegenüber dem vollständigen FIDE-Dutch-System (explizite Punktgruppen,
+/// Downfloater, Transpositionen) — siehe Issue #330.
 /// </summary>
 public class SchweizerSystemGenerator : ISpielplanGenerator
 {
@@ -28,20 +32,34 @@ public class SchweizerSystemGenerator : ISpielplanGenerator
                 .Select(p => (Math.Min(p.TeamAId, p.TeamBId), Math.Max(p.TeamAId, p.TeamBId)))
                 .ToHashSet();
 
-        // Odd number of teams: lowest-ranked (last) team gets a bye this round
+        // Odd number of teams: niedrigstplatziertes Team ohne vorheriges Freilos sitzt aus
+        // (Rotation) — Fallback auf absolut letztes Team, falls alle verbleibenden Kandidaten
+        // schon einmal ausgesetzt haben.
         if (n % 2 == 1)
-            teams = teams.Take(n - 1).ToList();
+        {
+            var freilosHistorie = kontext.FreilosHistorie ?? (IReadOnlySet<int>)new HashSet<int>();
+            var freilosTeam = teams.AsEnumerable().Reverse().FirstOrDefault(t => !freilosHistorie.Contains(t.Id))
+                            ?? teams[^1];
+            teams = teams.Where(t => t.Id != freilosTeam.Id).ToList();
+        }
 
         // Try strict Swiss pairing (no rematch), fall back to best-effort if all opponents met
         var paarungen = SchweizerPaaren(teams, verboten)
                      ?? SchweizerPaaren(teams, [])!;
 
+        var heimBilanz = kontext.HeimBilanz ?? new Dictionary<int, int>();
+
         int spieltag = kontext.Spieltag ?? 1;
         int spielNr  = kontext.StartSpielNummer;
         var spiele   = new List<Spiel>();
 
-        foreach (var (heim, auswaerts) in paarungen)
+        foreach (var (a, b) in paarungen)
         {
+            // Farbausgleich: das Team mit weniger bisherigen Heimspielen bekommt den Heimplatz;
+            // bei Gleichstand bleibt das ranghöhere Team (a) Heim.
+            var (heim, auswaerts) = heimBilanz.GetValueOrDefault(a.Id) <= heimBilanz.GetValueOrDefault(b.Id)
+                ? (a, b) : (b, a);
+
             spiele.Add(new Spiel
             {
                 TurnierInstanzId      = kontext.Runde.TurnierInstanzId,
@@ -62,7 +80,7 @@ public class SchweizerSystemGenerator : ISpielplanGenerator
     /// Rekursives Backtracking: paart teams[0] mit dem erstbesten Partner ohne Rematch,
     /// löst das Restproblem rekursiv. Gibt null zurück wenn keine zulässige Paarung existiert.
     /// </summary>
-    private static List<(Mannschaft Heim, Mannschaft Auswaerts)>? SchweizerPaaren(
+    private static List<(Mannschaft, Mannschaft)>? SchweizerPaaren(
         List<Mannschaft> teams,
         HashSet<(int, int)> verboten)
     {

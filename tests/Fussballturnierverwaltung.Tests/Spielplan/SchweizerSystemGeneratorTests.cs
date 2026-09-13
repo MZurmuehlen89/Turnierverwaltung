@@ -21,8 +21,11 @@ public class SchweizerSystemGeneratorTests
     private static SpielplanKontext Kontext(
         IReadOnlyList<Mannschaft> teams,
         IReadOnlyList<(int, int)>? bereitsGespielt = null,
-        int spieltag = 1) =>
-        new(TestRunde(), teams, 1, Paarungen: null, BereitsGespielt: bereitsGespielt, Spieltag: spieltag);
+        int spieltag = 1,
+        IReadOnlySet<int>? freilosHistorie = null,
+        IReadOnlyDictionary<int, int>? heimBilanz = null) =>
+        new(TestRunde(), teams, 1, Paarungen: null, BereitsGespielt: bereitsGespielt, Spieltag: spieltag,
+            FreilosHistorie: freilosHistorie, HeimBilanz: heimBilanz);
 
     // ── Grundinvarianten ──────────────────────────────────────────────────
 
@@ -122,6 +125,62 @@ public class SchweizerSystemGeneratorTests
         var ergebnis = _generator.Generieren(kontext);
 
         ergebnis.Spiele.Should().HaveCount(1, "Fallback auf Wiederholung wenn keine freie Paarung möglich");
+    }
+
+    // ── Freilos-Rotation ──────────────────────────────────────────────────
+
+    [Fact]
+    public void Freilos_OhneHistorie_NiedrigstplatziertesTeamSitztAus()
+    {
+        var ergebnis = _generator.Generieren(Kontext(Teams(5)));
+
+        var spielendeTeams = ergebnis.Spiele
+            .SelectMany(s => new[] { s.HeimMannschaftId, s.AuswaertsMannschaftId })
+            .ToHashSet();
+
+        spielendeTeams.Should().NotContain(5, "Team 5 ist ohne Freilos-Historie das niedrigstplatzierte Team");
+    }
+
+    [Fact]
+    public void Freilos_TeamHatBereitsAusgesetzt_NaechstniedrigeresTeamSitztStattdessenAus()
+    {
+        var freilosHistorie = new HashSet<int> { 5 };
+        var kontext = Kontext(Teams(5), freilosHistorie: freilosHistorie);
+
+        var ergebnis = _generator.Generieren(kontext);
+
+        var spielendeTeams = ergebnis.Spiele
+            .SelectMany(s => new[] { s.HeimMannschaftId, s.AuswaertsMannschaftId })
+            .ToHashSet();
+
+        spielendeTeams.Should().Contain(5, "Team 5 hatte bereits ein Freilos und soll nicht erneut aussetzen");
+        spielendeTeams.Should().NotContain(4, "Team 4 ist ohne eigene Freilos-Historie das nächstniedrigste Team");
+    }
+
+    // ── Farbausgleich ─────────────────────────────────────────────────────
+
+    [Fact]
+    public void Farbausgleich_TeamMitWenigerHeimspielen_BekommtHeimplatz()
+    {
+        var heimBilanz = new Dictionary<int, int> { [1] = 2, [2] = 0 };
+        var kontext = Kontext(Teams(2), heimBilanz: heimBilanz);
+
+        var ergebnis = _generator.Generieren(kontext);
+
+        ergebnis.Spiele.Single().HeimMannschaftId.Should().Be(2,
+            "Team 2 hat bisher weniger Heimspiele und soll deshalb den Heimplatz bekommen");
+    }
+
+    [Fact]
+    public void Farbausgleich_BeiGleichstand_RanghoeheresTeamBleibtHeim()
+    {
+        var heimBilanz = new Dictionary<int, int> { [1] = 1, [2] = 1 };
+        var kontext = Kontext(Teams(2), heimBilanz: heimBilanz);
+
+        var ergebnis = _generator.Generieren(kontext);
+
+        ergebnis.Spiele.Single().HeimMannschaftId.Should().Be(1,
+            "bei gleicher Heim-Bilanz bleibt das ranghöhere Team (Team 1) Heim");
     }
 
     // ── Metadaten ─────────────────────────────────────────────────────────
