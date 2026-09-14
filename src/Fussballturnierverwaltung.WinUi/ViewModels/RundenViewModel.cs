@@ -221,6 +221,7 @@ public partial class RundeZeile : ObservableObject
     [ObservableProperty] private int _eingangsMannschaftsanzahl = 8;
     [ObservableProperty] private int _ausgangsMannschaftsanzahl = 4;
     [ObservableProperty] private int? _gruppenAnzahl;
+    [ObservableProperty] private int? _anzahlSpieltage;
     [ObservableProperty] private bool _mitRueckspiel;
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
     [ObservableProperty] private RegelwerkOption _regelwerk = KeinRegelwerk;
@@ -299,8 +300,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     private static readonly HashSet<string> FormFelder =
     [
         nameof(Name), nameof(Rundenart), nameof(EingangsMannschaftsanzahl), nameof(AusgangsMannschaftsanzahl),
-        nameof(GruppenAnzahl), nameof(MitRueckspiel), nameof(AuswaertstorRegelAktiv), nameof(Regelwerk),
-        nameof(PaarungFestVorgegeben)
+        nameof(GruppenAnzahl), nameof(AnzahlSpieltage), nameof(MitRueckspiel), nameof(AuswaertstorRegelAktiv),
+        nameof(Regelwerk), nameof(PaarungFestVorgegeben)
     ];
 
     [ObservableProperty] private string _name = "";
@@ -308,13 +309,18 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IstGruppenphase))]
     [NotifyPropertyChangedFor(nameof(IstKoRundenart))]
+    [NotifyPropertyChangedFor(nameof(IstSchweizerSystem))]
     [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
     [NotifyPropertyChangedFor(nameof(AusgangEditierbar))]
     private Rundenart _rundenart = Rundenart.Liga;
 
-    [ObservableProperty] private int _eingangsMannschaftsanzahl = 8;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AnzahlSpieltageVorschlag))]
+    private int _eingangsMannschaftsanzahl = 8;
+
     [ObservableProperty] private int _ausgangsMannschaftsanzahl = 4;
     [ObservableProperty] private int? _gruppenAnzahl;
+    [ObservableProperty] private int? _anzahlSpieltage;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
@@ -325,6 +331,11 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     [ObservableProperty] private bool _paarungFestVorgegeben;
 
     public bool IstGruppenphase => Rundenart == Rundenart.Gruppenphase;
+    public bool IstSchweizerSystem => Rundenart == Rundenart.SchweizerSystem;
+
+    /// <summary>Fachlicher Standard-Vorschlag ceil(log2(n)) für <see cref="AnzahlSpieltage"/> (Issue #329 Teil D) —
+    /// nur eine Anzeige-Hilfe, <see cref="AnzahlSpieltage"/> bleibt frei editierbar.</summary>
+    public int AnzahlSpieltageVorschlag => RundenKonfiguration.VorschlagAnzahlSpieltage(EingangsMannschaftsanzahl);
 
     /// <summary>Feste Paarungen (Vorbelegung, Issue #277/#297) ergeben nur für eine Runde mit mindestens
     /// einer eingehenden Übergangsregel Sinn — die erste Runde eines Turniers hat noch keine Platzhalter-
@@ -352,12 +363,14 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         if (_populiertGerade > 0) return;
         if (!AuswaertstorAktivierbar) AuswaertstorRegelAktiv = false;
         if (IstKoRundenart) AusgangsMannschaftsanzahl = Math.Max(1, EingangsMannschaftsanzahl / 2);
+        if (value == Rundenart.SchweizerSystem && AnzahlSpieltage is null) AnzahlSpieltage = AnzahlSpieltageVorschlag;
     }
 
     partial void OnEingangsMannschaftsanzahlChanged(int value)
     {
         if (_populiertGerade > 0) return;
         if (IstKoRundenart) AusgangsMannschaftsanzahl = Math.Max(1, value / 2);
+        if (Rundenart == Rundenart.SchweizerSystem && AnzahlSpieltage is null) AnzahlSpieltage = AnzahlSpieltageVorschlag;
     }
 
     private void FormularAusFuellenMit(RundeZeile? zeile)
@@ -370,6 +383,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
             EingangsMannschaftsanzahl = zeile?.EingangsMannschaftsanzahl ?? 8;
             AusgangsMannschaftsanzahl = zeile?.AusgangsMannschaftsanzahl ?? 4;
             GruppenAnzahl = zeile?.GruppenAnzahl;
+            AnzahlSpieltage = zeile?.AnzahlSpieltage;
             MitRueckspiel = zeile?.MitRueckspiel ?? false;
             AuswaertstorRegelAktiv = zeile?.AuswaertstorRegelAktiv ?? false;
             Regelwerk = zeile?.Regelwerk ?? RundeZeile.KeinRegelwerk;
@@ -392,6 +406,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         AusgewaehlteRunde.EingangsMannschaftsanzahl = EingangsMannschaftsanzahl;
         AusgewaehlteRunde.AusgangsMannschaftsanzahl = AusgangsMannschaftsanzahl;
         AusgewaehlteRunde.GruppenAnzahl = GruppenAnzahl;
+        AusgewaehlteRunde.AnzahlSpieltage = AnzahlSpieltage;
         AusgewaehlteRunde.MitRueckspiel = MitRueckspiel;
         AusgewaehlteRunde.AuswaertstorRegelAktiv = AuswaertstorRegelAktiv;
         AusgewaehlteRunde.Regelwerk = Regelwerk;
@@ -547,6 +562,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         EingangsMannschaftsanzahl = r.EingangsMannschaftsanzahl,
         AusgangsMannschaftsanzahl = r.AusgangsMannschaftsanzahl,
         GruppenAnzahl = r.GruppenAnzahl,
+        AnzahlSpieltage = RundenKonfiguration.AusJson(r.KonfigurationJson).AnzahlSpieltage,
         MitRueckspiel = r.MitRueckspiel,
         AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv,
         Regelwerk = r.Regelwerk is not null ? new RegelwerkOption(r.Regelwerk.Name, r.Regelwerk) : RundeZeile.KeinRegelwerk,
@@ -655,6 +671,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         RegelwerkId: z.Regelwerk.Wert?.Id,
         MitRueckspiel: z.MitRueckspiel,
         AuswaertstorRegelAktiv: z.AuswaertstorRegelAktiv,
+        KonfigurationJson: z.Rundenart == Rundenart.SchweizerSystem
+            ? new RundenKonfiguration(z.AnzahlSpieltage).ZuJson() : null,
         GruppenAnzahl: z.Rundenart == Rundenart.Gruppenphase ? z.GruppenAnzahl : null,
         EingangUeberUebergangsregeln: AlleUebergaenge.Any(b => b.ZielRunde == z),
         PaarungFestVorgegeben: z.PaarungFestVorgegeben)).ToList();
