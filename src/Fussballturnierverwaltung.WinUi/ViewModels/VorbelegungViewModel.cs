@@ -802,7 +802,7 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware, IHatUng
                 Aktionen =
                 [
                     new RibbonAktion { Header = "Paarung abschließen", Befehl = Workspace.AbschliessenCommand, IconGlyph = "" },
-                    new RibbonAktion { Header = "Zurück-\nsetzen", Befehl = Workspace.ZuruecksetzenCommand, IconGlyph = "" },
+                    new RibbonAktion { Header = "Zurücksetzen", Befehl = Workspace.ZuruecksetzenCommand, IconGlyph = "" },
                 ],
             },
         ];
