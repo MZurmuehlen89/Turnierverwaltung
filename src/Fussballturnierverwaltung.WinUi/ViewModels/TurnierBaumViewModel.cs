@@ -221,6 +221,9 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     [NotifyPropertyChangedFor(nameof(ZeigtBracketInhalt))]
     private bool _zeigtLigaTabelle;
 
+    [ObservableProperty]
+    private bool _zeigtBuchholzSpalte;
+
     public bool ZeigtBracket => !ZeigtGruppenphase && !ZeigtLigaTabelle;
     public bool ZeigtBracketInhalt => ZeigtBracket && HatBaum;
 
@@ -429,6 +432,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 
         ZeigtGruppenphase = istGruppenphase;
         ZeigtLigaTabelle = istLigaArtig;
+        ZeigtBuchholzSpalte = rundenart == Rundenart.SchweizerSystem;
         AktualisiereBefehle();
 
         if (!istGruppenphase && !istLigaArtig)

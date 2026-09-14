@@ -183,12 +183,24 @@ public class TabellenService(
             Niederlagen   = stats[kv.Key].Niederlagen,
             Tore          = stats[kv.Key].Tore,
             Gegentore     = stats[kv.Key].Gegentore,
-            Punkte        = stats[kv.Key].Punkte
+            Punkte        = stats[kv.Key].Punkte,
+            Buchholz      = BuchholzBerechnen(kv.Key, abgeschlossene, stats)
         }).ToList();
 
         SortierenUndRangZuweisen(eintraege, stats, rankingRegeln, abgeschlossene, punkteRegel);
         return eintraege;
     }
+
+    /// <summary>Buchholz-Zahl: Summe der aktuellen Punkte aller Gegner, gegen die <paramref name="teamId"/>
+    /// bisher gespielt hat (Schweizer System). Ein Freilos-Spieltag erzeugt kein Spiel für das aussetzende
+    /// Team (siehe <see cref="Fussballturnierverwaltung.Application.Spielplan.SchweizerSystemGenerator"/>),
+    /// zählt also korrekt nicht als Gegner mit.</summary>
+    private static int BuchholzBerechnen(int teamId, List<Spiel> abgeschlossene, Dictionary<int, RohStats> stats) =>
+        abgeschlossene
+            .Where(s => s.HeimMannschaftId == teamId || s.AuswaertsMannschaftId == teamId)
+            .Select(s => s.HeimMannschaftId == teamId ? s.AuswaertsMannschaftId : s.HeimMannschaftId)
+            .Where(gegnerId => gegnerId.HasValue && stats.ContainsKey(gegnerId.Value))
+            .Sum(gegnerId => stats[gegnerId!.Value].Punkte);
 
     /// <summary>
     /// Rekonstruiert Gruppen aus Spielpaarungen via Union-Find.

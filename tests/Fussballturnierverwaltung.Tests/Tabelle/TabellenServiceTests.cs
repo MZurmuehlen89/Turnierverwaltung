@@ -140,6 +140,33 @@ public class TabellenServiceTests
     }
 
     [Fact]
+    public async Task Buchholz_IstSummeDerAktuellenPunkteAllerBisherigenGegner()
+    {
+        // A schlägt B, B schlägt C -> B hat 3 Punkte (0 aus A-Spiel, 3 aus C-Spiel)
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int rundeId);
+        ctx.Mannschaften.Add(new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 });
+        ctx.SaveChanges();
+
+        SpielHinzufuegen(ctx, 1, rundeId, heimId: 1, auswaertsId: 2,
+            heimTore: 2, auswaertsTore: 0, siegerMannschaftId: 1);
+        SpielHinzufuegen(ctx, 2, rundeId, heimId: 2, auswaertsId: 3,
+            heimTore: 1, auswaertsTore: 0, siegerMannschaftId: 2);
+        var service = ServiceFuer(ctx);
+
+        var tabelle = await service.TabelleBerechnenAsync(rundeId);
+
+        var teamA = tabelle.First(e => e.Mannschaft.Id == 1);
+        var teamB = tabelle.First(e => e.Mannschaft.Id == 2);
+        var teamC = tabelle.First(e => e.Mannschaft.Id == 3);
+
+        teamB.Punkte.Should().Be(3);
+        teamA.Buchholz.Should().Be(teamB.Punkte);
+        teamC.Buchholz.Should().Be(teamB.Punkte);
+        teamB.Buchholz.Should().Be(teamA.Punkte + teamC.Punkte);
+    }
+
+    [Fact]
     public async Task TordifferenzBestimmtRangBeiGleichenPunkten()
     {
         // Team A: 1 Sieg mit +3 GD; Team B: 1 Sieg mit +1 GD → gleiche Punkte

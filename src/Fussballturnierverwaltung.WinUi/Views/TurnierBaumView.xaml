@@ -59,8 +59,11 @@
         <!-- Tabellenzeile für Gruppen-/Rangfolge-Karten. #262-Fix: keine feste schmale Breite/Trimming
              mehr auf der Team-Spalte — Karte ist breit genug (siehe Karten-Border unten), Name darf
              ggf. umbrechen statt abgeschnitten zu werden. -->
+        <!-- Buchholz-Spalte (Schweizer System, Issue #329 Teil C) nur sichtbar, wenn die fokussierte
+             Runde SchweizerSystem ist (TurnierBaumViewModel.ZeigtBuchholzSpalte) - dieselbe Vorlage wird
+             auch für Gruppenphase-/Rangfolge-Karten verwendet, wo Buchholz nicht zutrifft. -->
         <DataTemplate x:Key="TabellenEintragZeileTemplate" x:DataType="tabelle:TabellenEintrag">
-            <Grid ColumnDefinitions="28,*,26,50,34,30" Padding="4,4">
+            <Grid ColumnDefinitions="28,*,26,50,34,30,34" Padding="4,4">
                 <TextBlock Grid.Column="0" Text="{Binding Rang}" FontSize="12" FontWeight="SemiBold" Opacity="0.7"
                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
@@ -75,6 +78,8 @@
                 </TextBlock>
                 <TextBlock Grid.Column="4" Text="{Binding Tordifferenz}" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="5" Text="{Binding Punkte}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="6" Text="{Binding Buchholz}" FontSize="12" Opacity="0.7" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Visibility="{Binding DataContext.ZeigtBuchholzSpalte, ElementName=Root, Converter={StaticResource BoolToVisibility}}" />
             </Grid>
         </DataTemplate>
     </UserControl.Resources>

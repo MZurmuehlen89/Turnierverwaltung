@@ -15,6 +15,10 @@ public sealed class TabellenEintrag
     public required int Punkte { get; init; }
     public int Tordifferenz => Tore - Gegentore;
     public int Rang { get; set; }
+
+    /// <summary>Buchholz-Zahl (Schweizer System): Summe der aktuellen Punkte aller bisherigen Gegner —
+    /// Standard-Tiebreaker bei Punktgleichheit, höherer Wert deutet auf eine stärkere Gegnerschaft hin.</summary>
+    public int Buchholz { get; set; }
     public Qualifikationsstatus Qualifikationsstatus { get; set; } = Qualifikationsstatus.Offen;
 
     /// <summary>Der Rang kann sich durch kein Ergebnis der verbleibenden offenen Spiele mehr ändern
