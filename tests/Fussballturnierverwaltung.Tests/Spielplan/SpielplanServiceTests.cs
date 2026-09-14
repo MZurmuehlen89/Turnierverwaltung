@@ -31,7 +31,7 @@ public class SpielplanServiceTests
         var mannschaftRepo = new MannschaftRepository(ctx);
         var baumRepo = new TurnierBaumRepository(ctx);
         var uebergangsregelRepo = new UebergangsregelRepository(ctx);
-        var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator()]);
+        var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator(), new SchweizerSystemGenerator()]);
         return new SpielplanService(
             rundeRepo, spielRepo, mannschaftRepo, baumRepo, uebergangsregelRepo,
             factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
@@ -1048,6 +1048,114 @@ public class SpielplanServiceTests
         var platz1 = await service.UebergangsregelPlatzAufloesenAsync(regel, 1);
 
         platz1.Should().Be(1); // Team A: 3 Punkte, Tordifferenz +3 → Rang 1
+    }
+
+    // ── Tests: Schweizer-Rundenfolge über mehrere Spieltage (Issue #329 Teil E) ─
+
+    private static async Task<Auslosung> SchweizerAuslosungAnlegen(
+        TurnierverwaltungDbContext ctx, int rundeId, params (int? Heim, int? Auswaerts)[] paarungen)
+    {
+        var auslosung = new Auslosung
+        {
+            TurnierInstanzId = 1, TurnierRundeId = rundeId, Name = "Auslosung",
+            Auslosungsart = Auslosungsart.Manuell, Status = AuslosungsStatus.Abgeschlossen
+        };
+        ctx.Auslosungen.Add(auslosung);
+        await ctx.SaveChangesAsync();
+
+        int nr = 1;
+        foreach (var (heim, auswaerts) in paarungen)
+            ctx.AuslosungsErgebnisse.Add(new AuslosungsErgebnis
+            {
+                AuslosungId = auslosung.Id, PaarungsNummer = nr++,
+                HeimMannschaftId = heim, AuswaertsMannschaftId = auswaerts, IstFreilos = auswaerts is null
+            });
+        await ctx.SaveChangesAsync();
+        return auslosung;
+    }
+
+    [Fact]
+    public async Task SchweizerNaechsteRundeGenerierenAsync_GeneriertFolgeSpieltagAusAktuellerTabelle()
+    {
+        await using var ctx = NeuerContext();
+        SchweizerSystemGrundSetupAnlegen(ctx, out int rundeId); // 4 Teams
+        var auslosung = await SchweizerAuslosungAnlegen(ctx, rundeId, (1, 2), (3, 4));
+        var service = ServiceFuer(ctx);
+        await service.GenerierenAusAuslosungAsync(rundeId, [.. auslosung.Ergebnisse]);
+
+        var spieltag1 = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId).ToList();
+        spieltag1.Should().HaveCount(2);
+        foreach (var s in spieltag1)
+        {
+            ctx.SpielErgebnisse.Add(new SpielErgebnis
+            {
+                SpielId = s.Id, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0,
+                EntscheidungArt = EntscheidungArt.RegulaereSpielzeit
+            });
+            s.Status = SpielStatus.Abgeschlossen;
+        }
+        await ctx.SaveChangesAsync();
+
+        await service.SchweizerNaechsteRundeGenerierenAsync(rundeId);
+
+        var alleSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId).ToList();
+        alleSpiele.Should().HaveCount(4);
+        alleSpiele.Where(s => s.Spieltag == 2).Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task SchweizerNaechsteRundeGenerierenAsync_FreilosTeamOhneVorherigesSpiel_WirdWiederEingeplant()
+    {
+        // Regressionstest: Team 5 sitzt Spieltag 1 aus (Freilos, kein Spiel-Datensatz) und hat zum Zeitpunkt
+        // der Spieltag-2-Generierung noch KEIN gespieltes Spiel — TabellenService allein würde es daher aus
+        // der Teamliste verlieren (Tabelle baut sich nur aus gespielten Spielen auf). Die Teamliste muss aus
+        // der Auslosung kommen, damit Team 5 hier wieder eingeplant wird.
+        await using var ctx = NeuerContext();
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        var runde = new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Ligaphase", Reihenfolge = 1,
+            Rundenart = Rundenart.SchweizerSystem, EingangsMannschaftsanzahl = 5, AusgangsMannschaftsanzahl = 5,
+            RegelwerkId = 1
+        };
+        ctx.TurnierRunden.Add(runde);
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 1, Name = "Team A", Kurzname = "TA", LandId = 1 },
+            new Mannschaft { Id = 2, Name = "Team B", Kurzname = "TB", LandId = 1 },
+            new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 },
+            new Mannschaft { Id = 4, Name = "Team D", Kurzname = "TD", LandId = 1 },
+            new Mannschaft { Id = 5, Name = "Team E", Kurzname = "TE", LandId = 1 });
+        await ctx.SaveChangesAsync();
+        int rundeId = runde.Id;
+
+        var auslosung = await SchweizerAuslosungAnlegen(ctx, rundeId, (1, 2), (3, 4), (5, null));
+        var service = ServiceFuer(ctx);
+        await service.GenerierenAusAuslosungAsync(rundeId, [.. auslosung.Ergebnisse]);
+
+        var spieltag1 = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId).ToList();
+        spieltag1.Should().HaveCount(2, "bei 5 Teams sitzt eines aus, ohne eigenen Spiel-Datensatz");
+        spieltag1.SelectMany(s => new[] { s.HeimMannschaftId, s.AuswaertsMannschaftId })
+            .Should().NotContain(5, "Team 5 hat laut Freilos-Auswahl in Spieltag 1 ausgesetzt");
+
+        foreach (var s in spieltag1)
+        {
+            ctx.SpielErgebnisse.Add(new SpielErgebnis
+            {
+                SpielId = s.Id, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0,
+                EntscheidungArt = EntscheidungArt.RegulaereSpielzeit
+            });
+            s.Status = SpielStatus.Abgeschlossen;
+        }
+        await ctx.SaveChangesAsync();
+
+        await service.SchweizerNaechsteRundeGenerierenAsync(rundeId);
+
+        var spieltag2 = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId && s.Spieltag == 2).ToList();
+        spieltag2.Should().HaveCount(2);
+        spieltag2.SelectMany(s => new[] { s.HeimMannschaftId, s.AuswaertsMannschaftId })
+            .Should().Contain(5, "Team 5 muss nach seinem Freilos in Spieltag 2 wieder eingeplant werden");
     }
 
     [Fact]

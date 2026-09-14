@@ -113,6 +113,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(IstLigaRunde))]
     [NotifyPropertyChangedFor(nameof(IstLigaMitRueckspiel))]
     [NotifyPropertyChangedFor(nameof(ZeigeLigaSpieltagUmschalter))]
+    [NotifyPropertyChangedFor(nameof(ZeigtSchweizerRundenSteuerung))]
     private TurnierRunde? _ausgewaehlteRunde;
 
     public bool HatRunde => AusgewaehlteRunde is not null;
@@ -149,6 +150,37 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public bool ZeigeLigaSpieltagUmschalter => IstLigaRunde;
     public bool ZeigeFokusListe => AusgewaehlteGruppe is not null || LigaProSpieltagAktiv;
+
+    // ── Schweizer-Rundensteuerung (Issue #329 Teil E) ────────────────────────────
+    // "Nächste Runde generieren" ist bewusst ein eigener Inline-Button in der Spielliste-Kopfzeile statt im
+    // Ribbon (laut #301-Fund oben bereits überfüllt) und bewusst getrennt vom Ribbon-"Neu"-Befehl
+    // (SpielplanNeuGenerierenAsync), der den kompletten Spielplan löscht+aus der Auslosung neu generiert —
+    // für eine laufende Schweizer-Rundenfolge wäre das destruktiv. Rundenabschluss nach dem letzten
+    // Spieltag braucht keinen Sonderfall: sobald alle Ergebnisse eingetragen sind, lösen die bestehenden
+    // Mechanismen (PlatzhalterAutomatischAufloesenAsync) die Übergangsregeln der Folgerunde ganz normal auf,
+    // exakt wie bei Liga-Runden heute schon.
+
+    public bool ZeigtSchweizerRundenSteuerung => AusgewaehlteRunde?.Rundenart == Rundenart.SchweizerSystem;
+
+    private int SchweizerAktuellerSpieltag =>
+        Spiele.Where(s => s.Spieltag.HasValue).Select(s => s.Spieltag!.Value).DefaultIfEmpty(0).Max();
+
+    private int SchweizerZielSpieltage => AusgewaehlteRunde is { } r
+        ? RundenKonfiguration.AusJson(r.KonfigurationJson).AnzahlSpieltage ?? RundenKonfiguration.VorschlagAnzahlSpieltage(r.EingangsMannschaftsanzahl)
+        : 0;
+
+    private bool SchweizerAktuellerSpieltagKomplett => SchweizerAktuellerSpieltag > 0 &&
+        Spiele.Where(s => s.Spieltag == SchweizerAktuellerSpieltag).All(s => s.Status == SpielStatus.Abgeschlossen);
+
+    public string SchweizerFortschrittsText => $"Spieltag {SchweizerAktuellerSpieltag} von {SchweizerZielSpieltage}";
+    public string NaechsteSchweizerRundeLabel => $"Spieltag {SchweizerAktuellerSpieltag + 1} generieren";
+
+    private void SchweizerAnzeigeAktualisieren()
+    {
+        OnPropertyChanged(nameof(SchweizerFortschrittsText));
+        OnPropertyChanged(nameof(NaechsteSchweizerRundeLabel));
+        _naechsteSchweizerRundeBefehl.NotifyCanExecuteChanged();
+    }
 
     public ObservableCollection<int> FokusSpieltage { get; } = [];
 
@@ -431,6 +463,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly AsyncRelayCommand _loeschenBefehl;
     private readonly RelayCommand _ausfuehrlichSimulierenBefehl;
     private readonly RelayCommand _spielverlaufAnsehenBefehl;
+    private readonly AsyncRelayCommand _naechsteSchweizerRundeBefehl;
+
+    public ICommand NaechsteSchweizerRundeBefehl => _naechsteSchweizerRundeBefehl;
 
     // ── Konstruktor ───────────────────────────────────────────────────────────
 
@@ -488,6 +523,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         _ausfuehrlichSimulierenBefehl = new RelayCommand(AusfuehrlichSimulieren, CanAusfuehrlichSimulieren);
         _spielverlaufAnsehenBefehl = new RelayCommand(SpielverlaufAnsehen, CanSpielverlaufAnsehen);
+
+        _naechsteSchweizerRundeBefehl = new AsyncRelayCommand(NaechsteSchweizerRundeGenerierenAsync, KannNaechsteSchweizerRundeGenerieren);
+        Spiele.CollectionChanged += (_, __) => SchweizerAnzeigeAktualisieren();
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -989,6 +1027,35 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
     }
 
+    private bool KannNaechsteSchweizerRundeGenerieren() =>
+        ZeigtSchweizerRundenSteuerung && Spiele.Count > 0 &&
+        SchweizerAktuellerSpieltagKomplett && SchweizerAktuellerSpieltag < SchweizerZielSpieltage;
+
+    private async Task NaechsteSchweizerRundeGenerierenAsync()
+    {
+        if (AusgewaehlteRunde is null) return;
+        var rundeId = AusgewaehlteRunde.Id;
+        Fehlermeldung = null;
+        try
+        {
+            await _spielplanService.SchweizerNaechsteRundeGenerierenAsync(rundeId);
+
+            await TabellenNeuLadenAsync(rundeId);
+
+            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            Spiele.Clear();
+            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
+                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            OnPropertyChanged(nameof(HatPlatzhalterSpiele));
+            OnPropertyChanged(nameof(FokusSpiele));
+            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+    }
+
     private async Task SpeichernAsync()
     {
         if (AusgewaehlteSpiel is null || AusgewaehlteRunde is null) return;
@@ -1139,6 +1206,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _rueckrundeZuruecksetzenBefehl.NotifyCanExecuteChanged();
         _ausfuehrlichSimulierenBefehl.NotifyCanExecuteChanged();
         _spielverlaufAnsehenBefehl.NotifyCanExecuteChanged();
+        SchweizerAnzeigeAktualisieren();
     }
 
     private static SpielZeile MapSpielZeile(
