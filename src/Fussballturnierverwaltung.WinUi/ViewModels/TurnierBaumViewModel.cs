@@ -354,35 +354,25 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         UebergreifendeRangfolgenAnzeige = new ObservableCollection<UebergreifendeRangfolgeAnzeige>(anzeigen);
     }
 
+    // Ribbon-Standardaktionen bewusst komplett ausgeblendet (#311): "Baum generieren"/"Sieger
+    // fortschreiben"/"Baum löschen" waren toter Code — beide Vorgänge laufen bereits automatisch nach
+    // jeder Ergebnisänderung (SpielplanViewModel.TurnierBaumAktualisierenAsync), "Baum löschen" ist
+    // ebenfalls überflüssig, da der Baum beim nächsten Ergebnis ohnehin neu generiert wird.
     public string RibbonTabTitel => "Turnierbaum";
-    public ICommand NeuBefehl => _neuBefehl;
-    public ICommand SpeichernBefehl => _speichernBefehl;
+    public ICommand? NeuBefehl => null;
+    public ICommand? SpeichernBefehl => null;
     public ICommand AbbrechenBefehl => _abbrechenBefehl;
-    public ICommand LoeschenBefehl => _loeschenBefehl;
+    public ICommand? LoeschenBefehl => null;
     public ICommand KnotenAngeklicktBefehl => _knotenAngeklicktBefehl;
     public ICommand GruppeAngeklicktBefehl => _gruppeAngeklicktBefehl;
-
-    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
-    [
-        new RibbonGruppe
-        {
-            Header = "Turnierbaum",
-            Aktionen =
-            [
-                new RibbonAktion { Header = "Baum generieren", Befehl = _neuBefehl, IconGlyph = "" },
-                new RibbonAktion { Header = "Sieger fortschreiben", Befehl = _speichernBefehl, IconGlyph = "" },
-                new RibbonAktion { Header = "Baum löschen", Befehl = _loeschenBefehl, IconGlyph = "" },
-            ],
-        },
-    ];
+    public bool HatStandardAktionen => false;
+    public bool HatLoeschenAktion => false;
+    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen => [];
 
     public event EventHandler<int>? RundeAngeklickt;
     public event EventHandler<int>? GruppeAngeklickt;
 
-    private readonly AsyncRelayCommand _neuBefehl;
-    private readonly AsyncRelayCommand _speichernBefehl;
     private readonly RelayCommand _abbrechenBefehl;
-    private readonly AsyncRelayCommand _loeschenBefehl;
     private readonly RelayCommand<BracketKnotenAnzeige> _knotenAngeklicktBefehl;
     private readonly RelayCommand<GruppenTabelle> _gruppeAngeklicktBefehl;
 
@@ -392,10 +382,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         _tabellenService = tabellenService;
         _uebergangsregelService = uebergangsregelService;
 
-        _neuBefehl = new AsyncRelayCommand(GenerierenAsync, () => AusgewaehlteInstanz != null && ZeigtBracket);
-        _speichernBefehl = new AsyncRelayCommand(SiegerFortsteiernAsync, () => AusgewaehlteInstanz != null && HatBaum && ZeigtBracket);
         _abbrechenBefehl = new RelayCommand(() => { }, () => false);
-        _loeschenBefehl = new AsyncRelayCommand(BaumLoeschenAsync, () => AusgewaehlteInstanz != null && HatBaum && ZeigtBracket);
         _knotenAngeklicktBefehl = new RelayCommand<BracketKnotenAnzeige>(
             k => { if (k?.TurnierRundeId is { } rundeId) RundeAngeklickt?.Invoke(this, rundeId); });
         _gruppeAngeklicktBefehl = new RelayCommand<GruppenTabelle>(
@@ -433,7 +420,6 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         ZeigtGruppenphase = istGruppenphase;
         ZeigtLigaTabelle = istLigaArtig;
         ZeigtBuchholzSpalte = rundenart == Rundenart.SchweizerSystem;
-        AktualisiereBefehle();
 
         if (!istGruppenphase && !istLigaArtig)
         {
@@ -464,7 +450,6 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         Knoten.Clear();
         RundenKoepfe.Clear();
         RundenNavigationZuruecksetzen();
-        AktualisiereBefehle();
 
         if (AusgewaehlteInstanz is null) return;
 
@@ -484,7 +469,6 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         finally
         {
             IstLadend = false;
-            AktualisiereBefehle();
         }
     }
 
@@ -642,64 +626,6 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             AuswaertsIstSieger = hatE && e!.SiegerMannschaftId == s.AuswaertsMannschaftId,
             Datum = s.Datum?.ToString("ddd, dd.MM.yy", CultureInfo.GetCultureInfo("de-DE")) ?? ""
         };
-    }
-
-    private async Task GenerierenAsync()
-    {
-        if (AusgewaehlteInstanz is null) return;
-        Fehlermeldung = null;
-        IstLadend = true;
-        try
-        {
-            await _baumService.GenerierenAsync(AusgewaehlteInstanz.Id);
-            await LadeBracketAsync();
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-            IstLadend = false;
-        }
-    }
-
-    private async Task SiegerFortsteiernAsync()
-    {
-        if (AusgewaehlteInstanz is null) return;
-        Fehlermeldung = null;
-        try
-        {
-            await _baumService.SiegerFortsteiernAsync(AusgewaehlteInstanz.Id);
-            await LadeBracketAsync();
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-        }
-    }
-
-    private async Task BaumLoeschenAsync()
-    {
-        if (AusgewaehlteInstanz is null) return;
-        Fehlermeldung = null;
-        try
-        {
-            await _baumService.LoeschenAsync(AusgewaehlteInstanz.Id);
-            HatBaumIntern = false;
-            Knoten.Clear();
-            RundenKoepfe.Clear();
-            RundenNavigationZuruecksetzen();
-            AktualisiereBefehle();
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-        }
-    }
-
-    private void AktualisiereBefehle()
-    {
-        _neuBefehl.NotifyCanExecuteChanged();
-        _speichernBefehl.NotifyCanExecuteChanged();
-        _loeschenBefehl.NotifyCanExecuteChanged();
     }
 
     private static string RundenAnzeigeName(int anzahl) => anzahl switch
