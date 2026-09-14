@@ -524,6 +524,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public ICommand AbbrechenBefehl => AbbrechenCommand;
     public ICommand LoeschenBefehl => LoeschenCommand;
 
+    // "Töpfe" und "TV-Modus-Steuerung" als je EIN Flyout-Button statt vier Einzelbuttons (Nutzerfund #303-Test:
+    // Ribbon-Gruppe nach TV-Modus/Weiter/Rest-sofort-anzeigen voll, #319) — analog zum "Simulieren"-Flyout-
+    // Muster aus SpielplanViewModel (#301).
     public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
     [
         new RibbonGruppe
@@ -531,8 +534,16 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             Header = "Auslosung",
             Aktionen =
             [
-                new RibbonAktion { Header = "Lostöpfe automatisch befüllen", Befehl = LostoepfeAutomatischBefuellenCommand, IconGlyph = "" },
-                new RibbonAktion { Header = "Alle Töpfe leeren", Befehl = AlleToepfeZuruecksetzenCommand, IconGlyph = "" },
+                new RibbonAktion
+                {
+                    Header = "Töpfe",
+                    Unteraktionen =
+                    [
+                        new RibbonUnteraktion("Automatisch befüllen", LostoepfeAutomatischBefuellenCommand),
+                        new RibbonUnteraktion("Alle leeren", AlleToepfeZuruecksetzenCommand),
+                    ],
+                    IconGlyph = "",
+                },
                 new RibbonAktion
                 {
                     Header = "Auslosungs-Regeln",
@@ -554,8 +565,16 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     ],
                     IconGlyph = "",
                 },
-                new RibbonAktion { Header = "Weiter", Befehl = AnimationWeiterCommand, IconGlyph = "" },
-                new RibbonAktion { Header = "Rest sofort anzeigen", Befehl = AnimationUeberspringenCommand, IconGlyph = "" },
+                new RibbonAktion
+                {
+                    Header = "TV-Modus-Steuerung",
+                    Unteraktionen =
+                    [
+                        new RibbonUnteraktion("Weiter", AnimationWeiterCommand),
+                        new RibbonUnteraktion("Rest sofort anzeigen", AnimationUeberspringenCommand),
+                    ],
+                    IconGlyph = "",
+                },
                 new RibbonAktion { Header = "Zurücksetzen", Befehl = AuslosungZuruecksetzenCommand, IconGlyph = "" },
             ],
         },
