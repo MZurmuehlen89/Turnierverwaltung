@@ -287,9 +287,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
     }
 
-    // ── Platzhalter-Vorschau (Issue #208) ────────────────────────────────────
-    // WinUi-Ribbon kennt kein IstAktivBinding-Toggle wie WPF — stattdessen ein einfacher
-    // RelayCommand, dessen Header den aktuellen Zustand zeigt (siehe RibbonZusatzGruppen unten).
+    // ── Platzhalter-Vorschau (Issue #208, sichtbarer Toggle-Zustand #325) ────────────────────────────────
+    // RibbonAktion.IstAktiv steuert das AppBarToggleButton-Rendering in MainWindow.xaml.cs
+    // (siehe RibbonZusatzGruppen unten).
 
     public bool HatPlatzhalterSpiele => Spiele.Any(s => s.IstPlatzhalterSpiel);
 
@@ -449,8 +449,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 },
                 new RibbonAktion
                 {
-                    Header = VorschauAktiv ? "Platzhalter-Vorschau: Ein" : "Platzhalter-Vorschau: Aus",
+                    Header = "Platzhalter-Vorschau",
                     Befehl = _vorschauUmschaltenBefehl,
+                    IstAktiv = VorschauAktiv,
                     IconGlyph = "",
                 },
             ],

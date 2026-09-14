@@ -10,6 +10,14 @@ public sealed class RibbonAktion
     /// <summary>Segoe Fluent Icons Glyph (z.B. "" für Add) für den AppBarButton.</summary>
     public string? IconGlyph { get; init; }
 
+    /// <summary>Aktiv-/An-Zustand des Buttons selbst (nicht zu verwechseln mit <see
+    /// cref="RibbonToggleAktion.IstAktiv"/>, das Flyout-Unterpunkte betrifft). Null (Standard) rendert einen
+    /// normalen <c>AppBarButton</c> wie bisher; ein gesetzter Wert rendert stattdessen einen
+    /// <c>AppBarToggleButton</c> mit sichtbar gedrücktem Zustand (analog zum Dark-Mode-Toggle in
+    /// <c>MainWindow.xaml</c>), damit ein An/Aus-Button seinen Zustand nicht nur über den Label-Text zeigen
+    /// muss (Issue #325).</summary>
+    public bool? IstAktiv { get; init; }
+
     /// <summary>Alternative zu <see cref="Befehl"/>: der Button öffnet statt einer direkten Aktion ein
     /// Flyout mit an-/abschaltbaren Unterpunkten (Precedent: WPF-Original nutzte dafür eine an eine
     /// Collection gebundene Gallery, z.B. "Auslosungs-Regeln"). Generisch gehalten (kein Domänenbezug),

@@ -87,15 +87,28 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    /// <summary>Erzeugt einen <see cref="AppBarButton"/> aus einer <see cref="RibbonAktion"/> — entweder mit
-    /// direktem <see cref="RibbonAktion.Befehl"/> oder, falls gesetzt, mit einem Flyout aus <see
-    /// cref="RibbonAktion.ToggleUnterpunkte"/> (an-/abschaltbare Optionen mit Infotext, z.B. Auslosungs-
-    /// Regeln). Explizite <see cref="AppBarButton.Width"/> statt der AppBarButton-Standardbreite: das
-    /// Standard-Layout bricht/bschneidet bei mehrzeiligem Label nicht sauber um, längere deutsche
-    /// Beschriftungen ("Lostöpfe automatisch befüllen") passten sonst nicht einzeilig in den Button
-    /// (Nutzerfund nach #300-Test).</summary>
-    private static AppBarButton RibbonButtonErstellen(RibbonAktion aktion)
+    /// <summary>Erzeugt einen <see cref="AppBarButton"/> (oder, falls <see cref="RibbonAktion.IstAktiv"/>
+    /// gesetzt ist, einen <see cref="AppBarToggleButton"/> mit sichtbar gedrücktem Zustand — Issue #325) aus
+    /// einer <see cref="RibbonAktion"/> — entweder mit direktem <see cref="RibbonAktion.Befehl"/> oder, falls
+    /// gesetzt, mit einem Flyout aus <see cref="RibbonAktion.ToggleUnterpunkte"/> (an-/abschaltbare Optionen
+    /// mit Infotext, z.B. Auslosungs-Regeln). Explizite <see cref="AppBarButton.Width"/> statt der
+    /// AppBarButton-Standardbreite: das Standard-Layout bricht/bschneidet bei mehrzeiligem Label nicht sauber
+    /// um, längere deutsche Beschriftungen ("Lostöpfe automatisch befüllen") passten sonst nicht einzeilig in
+    /// den Button (Nutzerfund nach #300-Test).</summary>
+    private static ICommandBarElement RibbonButtonErstellen(RibbonAktion aktion)
     {
+        if (aktion.IstAktiv is { } istAktiv)
+        {
+            var toggleButton = new AppBarToggleButton
+            {
+                Label = aktion.Header, Width = BreiteFuerLabel(aktion.Header),
+                IsChecked = istAktiv, Command = aktion.Befehl
+            };
+            if (aktion.IconGlyph is not null)
+                toggleButton.Icon = new FontIcon { Glyph = aktion.IconGlyph };
+            return toggleButton;
+        }
+
         var button = new AppBarButton { Label = aktion.Header, Width = BreiteFuerLabel(aktion.Header) };
         if (aktion.IconGlyph is not null)
             button.Icon = new FontIcon { Glyph = aktion.IconGlyph };
