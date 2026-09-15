@@ -100,7 +100,8 @@
                                 <ItemsRepeater ItemsSource="{Binding GruppenAnzahlVorschlaege}" Margin="0,4,0,0"
                                                Visibility="{Binding HatGruppenAnzahlVorschlaege, Converter={StaticResource BoolToVisibility}}">
                                     <ItemsRepeater.Layout>
-                                        <StackLayout Orientation="Horizontal" Spacing="4" />
+                                        <UniformGridLayout Orientation="Horizontal" MinRowSpacing="4" MinColumnSpacing="4"
+                                                            ItemsJustification="Start" />
                                     </ItemsRepeater.Layout>
                                     <ItemsRepeater.ItemTemplate>
                                         <DataTemplate>
