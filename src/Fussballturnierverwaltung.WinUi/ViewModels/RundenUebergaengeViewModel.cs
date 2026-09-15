@@ -63,6 +63,22 @@ public partial class RundenUebergaengeViewModel : ViewModelBase, IRibbonAware, I
                 NeueAusgehendeRegelCommand.NotifyCanExecuteChanged();
                 AktualisiereRegelListen();
                 break;
+            case nameof(RundenViewModel.Runden):
+                // RundenZuruecksetzen weist bei jedem Instanz-/Vorlagenwechsel eine NEUE Collection-Instanz zu
+                // (nicht nur Inhaltsänderungen an der bestehenden) — ohne Weiterleitung bleiben die Quelle/
+                // Ziel-ComboBoxen im Regelformular (binden direkt auf Runden, siehe RundenUebergaengePage.xaml)
+                // dauerhaft an der zuerst geladenen Rundenliste hängen (Fund aus Nutzer-Test: identische Liste
+                // über mehrere Vorlagen hinweg). Regelformular VORHER schließen (nicht erst im nachfolgenden
+                // AusgewaehlteRunde-Case): Runden wird bereits VOR AusgewaehlteRunde=null neu zugewiesen (siehe
+                // RundenViewModel.RundenZuruecksetzen), ein offenes Formular würde sonst die neue ItemsSource
+                // sehen, bevor es geschlossen ist — die ComboBox wirft ihr selektiertes (jetzt fremdes) Element
+                // dabei per TwoWay-Binding synchron auf RegelQuelle/RegelZiel zurück, was in
+                // AusgewaehlteRegel.QuellRunde/ZielRunde einer noch offenen, aber schon ungültigen Regel der
+                // ALTEN Vorlage landet (NullReferenceException-Fund aus Nutzer-Test: Vorlagenwechsel während
+                // offenem Regelformular).
+                AusgewaehlteRegel = null;
+                OnPropertyChanged(nameof(Runden));
+                break;
             case nameof(RundenViewModel.HatInstanz):
                 OnPropertyChanged(nameof(HatInstanz));
                 break;
@@ -208,13 +224,21 @@ public partial class RundenUebergaengeViewModel : ViewModelBase, IRibbonAware, I
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (_populiertGerade > 0 || e.PropertyName is null || AusgewaehlteRegel is null) return;
+        if (_populiertGerade > 0 || e.PropertyName is null) return;
         if (!RegelFormFelder.Contains(e.PropertyName)) return;
+
+        // Einmal in eine lokale Variable lesen statt AusgewaehlteRegel mehrfach über den Getter abzufragen:
+        // base.OnPropertyChanged(e) oben kann UI-Bindings synchron benachrichtigen, die ihrerseits
+        // AusgewaehlteRegel zurücksetzen (siehe NullReferenceException-Fund oben bei OnRundenVmPropertyChanged/
+        // Runden) — ein erneuter Getter-Aufruf nach dem Null-Check wäre sonst wieder anfällig für dieselbe
+        // Reentrancy-Klasse.
+        var regel = AusgewaehlteRegel;
+        if (regel is null) return;
 
         // IsDirty/Validierung/Listen-Refresh laufen über den Geaendert-Handler in RundenViewModel
         // (VerdrahteBlock), der durch die folgenden Zuweisungen ausgelöst wird.
-        AusgewaehlteRegel.QuellRunde = RegelQuelle;
-        AusgewaehlteRegel.ZielRunde = RegelZiel;
+        regel.QuellRunde = RegelQuelle;
+        regel.ZielRunde = RegelZiel;
     }
 
     [RelayCommand]
