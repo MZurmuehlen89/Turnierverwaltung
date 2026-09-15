@@ -19,6 +19,13 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 public record RegelwerkOption(string Anzeige, Regelwerk? Wert);
 
+/// <summary>Ein Vorschlag für Gruppenanzahl/Gruppengröße (Issue #215), abgeleitet aus den Teilern der
+/// Eingangsmannschaftsanzahl per <see cref="RundenKonfiguration.GruppenAnzahlVorschlaege"/>.</summary>
+public record GruppenAnzahlVorschlag(int GruppenAnzahl, int Gruppengroesse)
+{
+    public string Anzeige => $"{GruppenAnzahl} × {Gruppengroesse}";
+}
+
 /// <summary>Eine Zeile innerhalb eines <see cref="UebergangsregelBlock"/> — je Gruppe (Gruppenphase-
 /// Quellrunde), je Spiel (K.o.-Quellrunde) oder eine einzelne Zeile (Liga-Quellrunde, <see cref="GruppeIndex"/>
 /// = null). <see cref="AnzahlBeste"/> (gruppenübergreifende Rangfolge-Regel, Issue #217, z.B. "2 beste
@@ -316,6 +323,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnzahlSpieltageVorschlag))]
+    [NotifyPropertyChangedFor(nameof(GruppenAnzahlVorschlaege))]
+    [NotifyPropertyChangedFor(nameof(HatGruppenAnzahlVorschlaege))]
     private int _eingangsMannschaftsanzahl = 8;
 
     [ObservableProperty] private int _ausgangsMannschaftsanzahl = 4;
@@ -336,6 +345,18 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     /// <summary>Fachlicher Standard-Vorschlag ceil(log2(n)) für <see cref="AnzahlSpieltage"/> (Issue #329 Teil D) —
     /// nur eine Anzeige-Hilfe, <see cref="AnzahlSpieltage"/> bleibt frei editierbar.</summary>
     public int AnzahlSpieltageVorschlag => RundenKonfiguration.VorschlagAnzahlSpieltage(EingangsMannschaftsanzahl);
+
+    /// <summary>Gruppenanzahl/Gruppengröße-Kombinationen zur Auswahl statt blinder Eingabe (Issue #215) —
+    /// nur bei Gruppenphase relevant, aus den Teilern von <see cref="EingangsMannschaftsanzahl"/> abgeleitet.</summary>
+    public IReadOnlyList<GruppenAnzahlVorschlag> GruppenAnzahlVorschlaege => RundenKonfiguration
+        .GruppenAnzahlVorschlaege(EingangsMannschaftsanzahl)
+        .Select(v => new GruppenAnzahlVorschlag(v.GruppenAnzahl, v.Gruppengroesse))
+        .ToList();
+
+    public bool HatGruppenAnzahlVorschlaege => GruppenAnzahlVorschlaege.Count > 0;
+
+    [RelayCommand]
+    private void GruppenAnzahlVorschlagWaehlen(GruppenAnzahlVorschlag vorschlag) => GruppenAnzahl = vorschlag.GruppenAnzahl;
 
     /// <summary>Feste Paarungen (Vorbelegung, Issue #277/#297) ergeben nur für eine Runde mit mindestens
     /// einer eingehenden Übergangsregel Sinn — die erste Runde eines Turniers hat noch keine Platzhalter-

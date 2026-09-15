@@ -36,4 +36,22 @@ public class RundenKonfigurationTests
     [InlineData("kein-json")]
     public void AusJson_UngueltigOderLeer_GibtLeereKonfiguration(string? json) =>
         RundenKonfiguration.AusJson(json).AnzahlSpieltage.Should().BeNull();
+
+    [Fact]
+    public void GruppenAnzahlVorschlaege_Bei24Mannschaften_EnthaeltAlleTeilerPaare() =>
+        RundenKonfiguration.GruppenAnzahlVorschlaege(24).Should().BeEquivalentTo(
+        [
+            (2, 12), (3, 8), (4, 6), (6, 4), (8, 3), (12, 2)
+        ]);
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void GruppenAnzahlVorschlaege_UnterVierMannschaften_IstLeer(int mannschaftsanzahl) =>
+        RundenKonfiguration.GruppenAnzahlVorschlaege(mannschaftsanzahl).Should().BeEmpty();
+
+    [Fact]
+    public void GruppenAnzahlVorschlaege_BeiPrimzahl_IstLeer() =>
+        RundenKonfiguration.GruppenAnzahlVorschlaege(7).Should().BeEmpty();
 }

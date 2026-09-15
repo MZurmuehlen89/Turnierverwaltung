@@ -32,4 +32,19 @@ public record RundenKonfiguration(int? AnzahlSpieltage = null)
     /// genug Spieltage, um bei n Teilnehmern eindeutige Platzierungen zu ermöglichen.</summary>
     public static int VorschlagAnzahlSpieltage(int mannschaftsanzahl) =>
         (int)Math.Ceiling(Math.Log2(Math.Max(2, mannschaftsanzahl)));
+
+    /// <summary>Alle sinnvollen Gruppenanzahl/Gruppengröße-Kombinationen (Teiler von
+    /// <paramref name="eingangsMannschaftsanzahl"/>, jeweils mindestens 2 Gruppen à mindestens 2 Mannschaften) —
+    /// Vorschlagsliste für die Gruppenanzahl-Eingabe im Runden-Editor (Issue #215), damit nicht blind
+    /// eingetippt werden muss.</summary>
+    public static IReadOnlyList<(int GruppenAnzahl, int Gruppengroesse)> GruppenAnzahlVorschlaege(int eingangsMannschaftsanzahl)
+    {
+        var ergebnis = new List<(int, int)>();
+        for (var gruppenAnzahl = 2; gruppenAnzahl <= eingangsMannschaftsanzahl / 2; gruppenAnzahl++)
+        {
+            if (eingangsMannschaftsanzahl % gruppenAnzahl != 0) continue;
+            ergebnis.Add((gruppenAnzahl, eingangsMannschaftsanzahl / gruppenAnzahl));
+        }
+        return ergebnis;
+    }
 }
