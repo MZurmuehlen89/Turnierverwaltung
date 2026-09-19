@@ -20,6 +20,7 @@ public record AuslosungErstellenEingabe(
 public class AuslosungService(
     IAuslosungRepository repository,
     IVerbandsQuoteRepository verbandsQuoteRepository,
+    ILandesQuoteRepository landesQuoteRepository,
     ITurnierRundeRepository rundeRepository,
     AuslosungsValidator validator,
     IPlatzhalterKaskadeService platzhalterKaskadeService,
@@ -244,13 +245,17 @@ public class AuslosungService(
         // (Zulassung/erste Auslosung), nicht kumulativ für Folgerunden mit eigenem Losvorgang (z.B. eine
         // separate K.o.-Auslosung nach der Gruppenphase) — siehe [[project_verbandsquote_scope]].
         IReadOnlyList<VerbandsQuote>? verbandsQuoten = null;
+        IReadOnlyList<LandesQuote>? landesQuoten = null;
         var alleRunden = await rundeRepository.AlleNachInstanzAsync(auslosung.TurnierInstanzId, ct);
         var ersteRunde = alleRunden.OrderBy(r => r.Reihenfolge).FirstOrDefault();
         if (ersteRunde is not null && ersteRunde.Id == auslosung.TurnierRundeId)
+        {
             verbandsQuoten = await verbandsQuoteRepository.AlleNachTurnierInstanzIdAsync(auslosung.TurnierInstanzId, ct);
+            landesQuoten = await landesQuoteRepository.AlleNachTurnierInstanzIdAsync(auslosung.TurnierInstanzId, ct);
+        }
 
         ValidationException.WerfenWennUngueltig(
-            validator.Validieren(auslosung, alleEintraege, verbandsQuoten));
+            validator.Validieren(auslosung, alleEintraege, verbandsQuoten, landesQuoten));
 
         var ergebnisse = Ausloesen(auslosung);
         await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);

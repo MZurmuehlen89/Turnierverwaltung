@@ -13,7 +13,8 @@ public class AuslosungsValidator
     public ValidationErgebnis Validieren(
         Auslosung auslosung,
         IReadOnlyList<LostopfEintrag> alleEintraege,
-        IReadOnlyList<VerbandsQuote>? verbandsQuoten = null)
+        IReadOnlyList<VerbandsQuote>? verbandsQuoten = null,
+        IReadOnlyList<LandesQuote>? landesQuoten = null)
     {
         var fehler = new List<string>();
 
@@ -38,6 +39,28 @@ public class AuslosungsValidator
 
                 if (anzahl != quote.Anzahl)
                     fehler.Add($"Verband-Quote '{verbandName}': genau {quote.Anzahl} Team(s) erforderlich, " +
+                               $"aber {anzahl} zugewiesen.");
+            }
+        }
+
+        // Landes-Quoten (Issue #189): analog Verband-Quoten oben, aber auf Land statt Kontinentalverband
+        // skaliert — relevant für Vereinswettbewerbe mit gesetztem Verbandsfilter (dort ist die
+        // Verband-Quote immer trivial, siehe oben). Mannschaft.LandId ist ein direktes Scalar-Feld,
+        // keine Indirektion über Land.VerbandId nötig.
+        if (landesQuoten is { Count: > 0 })
+        {
+            var anzahlProLand = alleEintraege
+                .Where(e => e.Mannschaft is not null)
+                .GroupBy(e => e.Mannschaft!.LandId)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            foreach (var quote in landesQuoten)
+            {
+                var anzahl = anzahlProLand.GetValueOrDefault(quote.LandId);
+                var landName = quote.Land?.Name ?? $"Land {quote.LandId}";
+
+                if (anzahl != quote.Anzahl)
+                    fehler.Add($"Landes-Quote '{landName}': genau {quote.Anzahl} Team(s) erforderlich, " +
                                $"aber {anzahl} zugewiesen.");
             }
         }

@@ -53,7 +53,7 @@ public class AuslosungServiceVerbandsQuoteTests
         rundeRepo.Speichern(alleRundenDerInstanz);
 
         var service = new AuslosungService(
-            auslosungRepo, verbandsQuoteRepo, rundeRepo, new AuslosungsValidator(),
+            auslosungRepo, verbandsQuoteRepo, new FakeLandesQuoteRepository(), rundeRepo, new AuslosungsValidator(),
             new FakePlatzhalterKaskadeService(), NullLogger<AuslosungService>.Instance);
 
         return (service, auslosungRepo, auslosung);
