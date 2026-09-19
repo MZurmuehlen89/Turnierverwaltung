@@ -76,6 +76,19 @@ public class VerbandsQuoteAnzeigeViewModel
     public string AnzeigeText => $"{Aktuell} / {Anzahl}";
 }
 
+/// <summary>Live-Anzeige einer Landes-Quote im Auslosungseditor (Issue #189), analog
+/// <see cref="VerbandsQuoteAnzeigeViewModel"/>.</summary>
+public class LandesQuoteAnzeigeViewModel
+{
+    public string LandName { get; init; } = "";
+    public int Aktuell { get; init; }
+    public int Anzahl { get; init; }
+
+    public bool UeberAnzahl => Aktuell > Anzahl;
+    public bool UnterAnzahl => Aktuell < Anzahl;
+    public string AnzeigeText => $"{Aktuell} / {Anzahl}";
+}
+
 public record AuslosungsartOption(string Anzeige, Auslosungsart Wert);
 public record RanglisteOption(string Anzeige, Rangliste? Wert);
 
@@ -179,6 +192,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly TurnierBaumService _baumService;
     private readonly RanglisteService _ranglisteService;
     private readonly VerbandsQuoteService _verbandsQuoteService;
+    private readonly LandesQuoteService _landesQuoteService;
     private readonly UebergangsregelService _uebergangsregelService;
     private readonly IDialogService _dialogService;
 
@@ -360,6 +374,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private ObservableCollection<VerbandsQuoteAnzeigeViewModel> _verbandsQuotenAnzeige = [];
 
     public bool ZeigeVerbandsQuoten => VerbandsQuotenAnzeige.Count > 0;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ZeigeLandesQuoten))]
+    private ObservableCollection<LandesQuoteAnzeigeViewModel> _landesQuotenAnzeige = [];
+
+    public bool ZeigeLandesQuoten => LandesQuotenAnzeige.Count > 0;
 
     [ObservableProperty] private ObservableCollection<ErgebnisAnzeige> _ergebnisseAnzeige = [];
     [ObservableProperty] private ObservableCollection<GruppenErgebnisAnzeige> _gruppenErgebnisse = [];
@@ -588,6 +608,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         TurnierBaumService baumService,
         RanglisteService ranglisteService,
         VerbandsQuoteService verbandsQuoteService,
+        LandesQuoteService landesQuoteService,
         UebergangsregelService uebergangsregelService,
         IDialogService dialogService)
     {
@@ -598,6 +619,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _baumService = baumService;
         _ranglisteService = ranglisteService;
         _verbandsQuoteService = verbandsQuoteService;
+        _landesQuoteService = landesQuoteService;
         _uebergangsregelService = uebergangsregelService;
         _dialogService = dialogService;
     }
@@ -1358,6 +1380,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 }));
 
             await AktualisiereVerbandsQuotenAnzeigeAsync(detail);
+            await AktualisiereLandesQuotenAnzeigeAsync(detail);
 
             Regeln = new ObservableCollection<RegelViewModel>(
                 Enum.GetValues<AuslosungsRegelArt>()
@@ -1570,6 +1593,35 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 VerbandName = q.Verband?.Name ?? $"Verband {q.VerbandId}",
                 Aktuell     = anzahlProVerband.GetValueOrDefault(q.VerbandId),
                 Anzahl      = q.Anzahl
+            }));
+    }
+
+    /// <summary>Landes-Quoten-Pendant zu <see cref="AktualisiereVerbandsQuotenAnzeigeAsync"/> (Issue #189)
+    /// — dieselbe "nur erste Runde"-Domänenregel, zusätzlich nur für Vereinswettbewerbe sichtbar
+    /// (Landesquoten sind bei Nationalmannschaften trivial, siehe TurnierkopfViewModel.LandesQuotenSichtbar).
+    /// Gruppierung über Mannschaft.LandId direkt statt der Verband-Indirektion über Land.VerbandId.</summary>
+    private async Task AktualisiereLandesQuotenAnzeigeAsync(Auslosung detail)
+    {
+        if (_instanz is null || _instanz.MannschaftsartFilter != MannschaftsartFilter.Verein) { LandesQuotenAnzeige = []; return; }
+
+        bool istErsteRunde = InstanzRunden.Count > 0 && InstanzRunden[0].Id == detail.TurnierRundeId;
+        if (!istErsteRunde) { LandesQuotenAnzeige = []; return; }
+
+        var quoten = await _landesQuoteService.AlleNachTurnierInstanzIdAsync(_instanz.Id);
+        if (quoten.Count == 0) { LandesQuotenAnzeige = []; return; }
+
+        var anzahlProLand = detail.Lostoepfe
+            .SelectMany(l => l.Eintraege)
+            .Where(e => e.Mannschaft is not null)
+            .GroupBy(e => e.Mannschaft!.LandId)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        LandesQuotenAnzeige = new ObservableCollection<LandesQuoteAnzeigeViewModel>(
+            quoten.Select(q => new LandesQuoteAnzeigeViewModel
+            {
+                LandName = q.Land?.Name ?? $"Land {q.LandId}",
+                Aktuell  = anzahlProLand.GetValueOrDefault(q.LandId),
+                Anzahl   = q.Anzahl
             }));
     }
 
