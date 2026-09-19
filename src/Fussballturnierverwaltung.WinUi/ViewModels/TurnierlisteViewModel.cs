@@ -56,7 +56,10 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         // Fire-and-Forget parallel) — alle drei Kind-ViewModels teilen sich denselben Scoped-DbContext über
         // ihre Services, ein gleichzeitiger Start mehrerer DB-Abfragen auf derselben Kontext-Instanz wirft
         // "A second operation was started on this context instance before a previous operation completed"
-        // (Fund aus #297-Test, siehe auch feedback_dbcontext_concurrency in Memory).
+        // (Fund aus #297-Test, siehe auch feedback_dbcontext_concurrency in Memory). Zusätzlich überlappen
+        // sich bei schnellem Durchsteppen der Instanzliste (z.B. Pfeiltasten) auch ZWEI dieser Fire-and-
+        // Forget-Aufrufe selbst, mit demselben Symptom — TabKoordinator.SequenziellMitDbContextSchutzAsync
+        // serialisiert das (#189-Nebenfund, gemeinsame Basis mit TurnierdurchfuehrungViewModel, siehe #317).
         TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = InstanzAnKindViewModelsWeiterreichenAsync(instanz);
 
         TabKoordinator.AktivesTabZustandGeaendert += (_, _) => RibbonEigenschaftenGeaendertMelden();
@@ -72,17 +75,36 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         RundenVm.RundenGespeichert += instanz => _ = VorbelegungVm.InstanzSetzenAsync(instanz);
     }
 
-    private async Task InstanzAnKindViewModelsWeiterreichenAsync(TurnierInstanz? instanz)
-    {
-        await TurnierkopfVm.InstanzSetzenAsync(instanz);
-        await RundenVm.InstanzSetzenAsync(instanz);
-        await VorbelegungVm.InstanzSetzenAsync(instanz);
-    }
+    private Task InstanzAnKindViewModelsWeiterreichenAsync(TurnierInstanz? instanz) =>
+        TabKoordinator.SequenziellMitDbContextSchutzAsync(
+            async () =>
+            {
+                await TurnierkopfVm.InstanzSetzenAsync(instanz);
+                await RundenVm.InstanzSetzenAsync(instanz);
+                await VorbelegungVm.InstanzSetzenAsync(instanz);
+            },
+            ex =>
+            {
+                // Auf dem gerade aktiven Tab anzeigen, analog dem lokalen Fehlerpfad der drei Kind-ViewModels.
+                switch (TabKoordinator.AktivesTab)
+                {
+                    case TurnierkopfViewModel t: t.Fehlermeldung = ex.Message; break;
+                    case RundenViewModel r: r.Fehlermeldung = ex.Message; break;
+                    case VorbelegungViewModel v: v.Fehlermeldung = ex.Message; break;
+                }
+            });
 
     public override async Task AktivierenAsync()
     {
         await TurnierkopfVm.StammdatenLadenAsync();
         await TabKoordinator.AktivierenAsync();
+
+        // TabKoordinator.AktivierenAsync() löst den initialen Tab-Reload nur als Fire-and-Forget über
+        // AusgewaehlteInstanzGesetzt aus (Event-Handler können nicht awaitet werden) — ohne diesen
+        // expliziten Await hier gilt die Seite als "aktiv", bevor der erste Reload tatsächlich
+        // abgeschlossen ist. Läuft über denselben Lock wie der Event-Aufruf, wartet also einfach mit,
+        // statt ihn zu duplizieren (Precedent: TurnierdurchfuehrungViewModel.AktivierenAsync).
+        await InstanzAnKindViewModelsWeiterreichenAsync(TabKoordinator.AusgewaehlteInstanz);
     }
 
     private void RibbonEigenschaftenGeaendertMelden()
