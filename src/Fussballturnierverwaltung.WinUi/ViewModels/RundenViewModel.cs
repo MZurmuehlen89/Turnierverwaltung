@@ -318,7 +318,6 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     [NotifyPropertyChangedFor(nameof(IstKoRundenart))]
     [NotifyPropertyChangedFor(nameof(IstSchweizerSystem))]
     [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
-    [NotifyPropertyChangedFor(nameof(AusgangEditierbar))]
     private Rundenart _rundenart = Rundenart.Liga;
 
     [ObservableProperty]
@@ -369,10 +368,6 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     public bool IstKoRundenart => Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
     public bool AuswaertstorAktivierbar => MitRueckspiel && IstKoRundenart;
 
-    /// <summary>Ausgang ist bei K.o.-Rundenarten kein frei wählbarer Wert, sondern immer Eingang/2 (Issue
-    /// #182, analog WPF-Original) — bei Liga/Gruppenphase/Sonderrunde bleibt es frei editierbar.</summary>
-    public bool AusgangEditierbar => !IstKoRundenart;
-
     partial void OnMitRueckspielChanged(bool value)
     {
         if (_populiertGerade > 0) return;
@@ -383,6 +378,9 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     {
         if (_populiertGerade > 0) return;
         if (!AuswaertstorAktivierbar) AuswaertstorRegelAktiv = false;
+        // Nur ein Vorschlag (Normalfall: nur Sieger steigen auf) — bleibt frei editierbar, siehe Issue #334:
+        // der K.o.-Split-Sonderfall (Sieger UND Verlierer steigen in getrennte Zielrunden auf) braucht die
+        // volle Eingangsmannschaftsanzahl statt der Hälfte.
         if (IstKoRundenart) AusgangsMannschaftsanzahl = Math.Max(1, EingangsMannschaftsanzahl / 2);
         if (value == Rundenart.SchweizerSystem && AnzahlSpieltage is null) AnzahlSpieltage = AnzahlSpieltageVorschlag;
     }

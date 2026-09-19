@@ -581,6 +581,52 @@ public class UebergangsregelValidatorTests
     }
 
     [Fact]
+    public void Ganzgraph_KoRundeSplitAufSiegerUndVerliererZielrunde_IstGueltig()
+    {
+        // Issue #334: Halbfinale (4 Eingang) speist BEIDE Sieger (→ Finale) UND Verlierer (→ Spiel um Platz 3)
+        // über explizite Übergangsregeln — AusgangsMannschaftsanzahl entspricht dann der vollen Eingangszahl.
+        var runden = new[]
+        {
+            new TurnierRunde { Name = "Halbfinale", Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 4 },
+            new TurnierRunde { Name = "Finale", Rundenart = Rundenart.Finale, EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1 },
+            new TurnierRunde { Name = "Spiel um Platz 3", Rundenart = Rundenart.SpielUmPlatzDrei, EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1 },
+        };
+        var regeln = new[]
+        {
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1), // Sieger Spiel 1 -> Finale
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 2, PlatzierungVon: 1, PlatzierungBis: 1), // Sieger Spiel 2 -> Finale
+            new UebergangsregelPositionsEingabe(1, 3, GruppeIndex: 1, PlatzierungVon: 2, PlatzierungBis: 2), // Verlierer Spiel 1 -> Spiel um Platz 3
+            new UebergangsregelPositionsEingabe(1, 3, GruppeIndex: 2, PlatzierungVon: 2, PlatzierungBis: 2), // Verlierer Spiel 2 -> Spiel um Platz 3
+        };
+
+        var ergebnis = _validator.Validieren(runden, regeln);
+
+        ergebnis.IstGueltig.Should().BeTrue(because: string.Join(" | ", ergebnis.Fehler));
+    }
+
+    [Fact]
+    public void Ganzgraph_KoRundeSplitOhneVerliererRegeln_IstUngueltig()
+    {
+        // Dieselbe Ausgangslage, aber nur die Sieger-Regeln gepflegt: die ausgehende Summe (2) deckt nicht
+        // die deklarierte AusgangsMannschaftsanzahl (4) ab.
+        var runden = new[]
+        {
+            new TurnierRunde { Name = "Halbfinale", Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 4 },
+            new TurnierRunde { Name = "Finale", Rundenart = Rundenart.Finale, EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1 },
+        };
+        var regeln = new[]
+        {
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1),
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 2, PlatzierungVon: 1, PlatzierungBis: 1),
+        };
+
+        var ergebnis = _validator.Validieren(runden, regeln);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*Halbfinale*");
+    }
+
+    [Fact]
     public void Ganzgraph_GueltigeAnzahlBesteRegel_IstGueltig()
     {
         var runden = new[] { GanzgraphGruppenphase(gruppenAnzahl: 4, eingangsMannschaftsanzahl: 16, ausgangsMannschaftsanzahl: 2), GanzgraphZiel(eingangsMannschaftsanzahl: 2) };

@@ -100,16 +100,29 @@ public class TurnierValidatorTests
     }
 
     [Fact]
-    public void KoRundeMitAusgang_GroesserGleichEingang_IstUngueltig()
+    public void KoRundeMitAusgang_GroesserAlsEingang_IstUngueltig()
     {
         var runden = new[]
         {
-            Runde("Halbfinale", Rundenart.KoRunde, eingang: 4, ausgang: 4), // gleich, nicht weniger
+            Runde("Halbfinale", Rundenart.KoRunde, eingang: 4, ausgang: 6), // weder Hälfte noch voll
         };
 
         var ergebnis = _validator.RundenValidieren(runden);
 
         ergebnis.IstUngueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void KoRundeMitAusgangGleichEingang_IstGueltig()
+    {
+        // Issue #334: Ausgang == Eingang ist der Split-Sonderfall (Sieger UND Verlierer steigen auf, in
+        // getrennte Zielrunden, z.B. Halbfinale → Finale + Spiel um Platz 3 über explizite Übergangsregeln).
+        var runden = new[]
+        {
+            Runde("Halbfinale", Rundenart.KoRunde, eingang: 4, ausgang: 4),
+        };
+
+        _validator.RundenValidieren(runden).IstGueltig.Should().BeTrue();
     }
 
     [Fact]
@@ -180,7 +193,7 @@ public class TurnierValidatorTests
         var ergebnis = _validator.RundenValidieren(runden);
 
         ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().ContainMatch("*genau der Hälfte*");
+        ergebnis.Fehler.Should().ContainMatch("*entweder der Hälfte*");
     }
 
     [Theory]

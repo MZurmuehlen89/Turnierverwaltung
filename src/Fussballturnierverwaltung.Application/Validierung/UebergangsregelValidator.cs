@@ -129,9 +129,13 @@ public class UebergangsregelValidator
                         r.ZielReihenfolge >= 1 && r.ZielReihenfolge <= runden.Count)
             .ToList();
 
+        // Gruppiert zusätzlich nach ZielReihenfolge: derselbe Gruppenindex/dieselbe Spielnummer darf mehrfach
+        // auftreten, wenn er/sie (mit unterschiedlicher Platzierung) auf getrennte Zielrunden verteilt wird
+        // — der K.o.-Split-Sonderfall (Sieger UND Verlierer eines Spiels in zwei Zielrunden, Issue #334).
+        // Mehrfachvergabe an dieselbe Zielrunde bleibt ein Fehler (redundante/uneindeutige Zeilen).
         foreach (var dup in gueltigeRegeln
                      .Where(r => r.GruppeIndex is not null)
-                     .GroupBy(r => (r.QuellReihenfolge, r.GruppeIndex))
+                     .GroupBy(r => (r.QuellReihenfolge, r.GruppeIndex, r.ZielReihenfolge))
                      .Where(g => g.Count() > 1))
             fehler.Add($"Gruppenindex/Spielnummer {dup.Key.GruppeIndex} ist für Runde " +
                        $"'{runden[dup.Key.QuellReihenfolge - 1].Name}' mehrfach vergeben.");

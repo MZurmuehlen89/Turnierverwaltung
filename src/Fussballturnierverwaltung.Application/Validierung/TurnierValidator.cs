@@ -30,20 +30,30 @@ public class TurnierValidator
             if (r.AusgangsMannschaftsanzahl < 1)
                 fehler.Add($"Runde '{r.Name}': AusgangsMannschaftsanzahl muss mindestens 1 betragen.");
 
-            // Liga-Runden können mehr Ausgangsteams als erwartet haben (alle spielen alle)
-            if (r.Rundenart != Rundenart.Liga && r.AusgangsMannschaftsanzahl >= r.EingangsMannschaftsanzahl)
-                fehler.Add($"Runde '{r.Name}': In K.-o.-Runden müssen Ausgangsteams ({r.AusgangsMannschaftsanzahl}) " +
-                           $"kleiner als Eingangsteams ({r.EingangsMannschaftsanzahl}) sein.");
+            // Liga-Runden können mehr Ausgangsteams als erwartet haben (alle spielen alle). K.-o.-Rundenarten
+            // werden unten separat geprüft (dort auch der Split-Sonderfall, Issue #334).
+            if (r.Rundenart != Rundenart.Liga && !IstKoRundenart(r.Rundenart) && r.AusgangsMannschaftsanzahl >= r.EingangsMannschaftsanzahl)
+                fehler.Add($"Runde '{r.Name}': Ausgangsteams ({r.AusgangsMannschaftsanzahl}) " +
+                           $"müssen kleiner als Eingangsteams ({r.EingangsMannschaftsanzahl}) sein.");
 
             // KoRundeGenerator verlangt zwingend eine gerade Eingangszahl und bildet strikt n/2-Paarungen —
-            // jedes Spiel liefert genau einen Sieger (Issue #182).
+            // jedes Spiel liefert genau einen Sieger und einen Verlierer (Issue #182). AusgangsMannschaftsanzahl
+            // ist entweder die Hälfte (Normalfall: nur Sieger steigen auf, Verlierer scheiden aus) oder die
+            // volle Eingangszahl (Sonderfall: Sieger UND Verlierer steigen auf, aber in zwei getrennte
+            // Zielrunden — z.B. Halbfinale → Finale + Spiel um Platz 3 über separate Übergangsregeln je
+            // Spielnummer/Platzierung, Issue #334). Ob ein deklarierter Split tatsächlich korrekt auf
+            // Zielrunden verteilt ist, prüft nicht dieser Validator, sondern die Ganzgraph-Summenprüfung in
+            // UebergangsregelValidator.
             if (IstKoRundenart(r.Rundenart))
             {
                 if (r.EingangsMannschaftsanzahl % 2 != 0)
                     fehler.Add($"Runde '{r.Name}': K.-o.-Rundenarten benötigen eine gerade Eingangsmannschaftsanzahl (war: {r.EingangsMannschaftsanzahl}).");
-                else if (r.AusgangsMannschaftsanzahl != r.EingangsMannschaftsanzahl / 2)
-                    fehler.Add($"Runde '{r.Name}': AusgangsMannschaftsanzahl muss bei K.-o.-Rundenarten genau der Hälfte der Eingangsmannschaftsanzahl entsprechen " +
-                               $"({r.EingangsMannschaftsanzahl} / 2 = {r.EingangsMannschaftsanzahl / 2}, war: {r.AusgangsMannschaftsanzahl}).");
+                else if (r.AusgangsMannschaftsanzahl != r.EingangsMannschaftsanzahl / 2 &&
+                         r.AusgangsMannschaftsanzahl != r.EingangsMannschaftsanzahl)
+                    fehler.Add($"Runde '{r.Name}': AusgangsMannschaftsanzahl muss bei K.-o.-Rundenarten entweder der Hälfte " +
+                               $"der Eingangsmannschaftsanzahl entsprechen ({r.EingangsMannschaftsanzahl / 2}, nur Sieger steigen auf) " +
+                               $"oder der vollen Eingangsmannschaftsanzahl ({r.EingangsMannschaftsanzahl}, Sieger und Verlierer steigen " +
+                               $"in getrennte Zielrunden auf) — war: {r.AusgangsMannschaftsanzahl}.");
             }
 
             if (r.AuswaertstorRegelAktiv && !r.MitRueckspiel)
