@@ -133,6 +133,61 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     private static bool IstFifa(Verband? v) => v?.Kurzname == "FIFA";
 
+    /// <summary>Setzt Verband- und Landfilter atomar statt sequenziell. Bei sequenzieller Zuweisung
+    /// (erst VerbandFilter, dann LandFilter) feuert das Setzen von VerbandFilter sofort
+    /// NotifyPropertyChangedFor(LandOptionenGefiltert) — die Land-ComboBox bekommt dadurch schon die neue,
+    /// verbandsgefilterte ItemsSource-Liste, während LandFilter selbst noch den alten Wert des vorherigen
+    /// Turniers trägt; ist dieser darin nicht mehr enthalten, nullt WinUI die Selektion sofort, und die
+    /// eigentlich korrekte nachfolgende Zuweisung kommt zu spät (Fund: Verband-/Land-Feld blieb beim
+    /// Wechsel zwischen Turniervorlagen sporadisch leer — ein reines Guard-Fenster half hier nicht, das
+    /// Problem war die Reihenfolge, nicht das Timing).
+    ///
+    /// Benachrichtigt jede gefilterte Liste (ItemsSource) nur, wenn sich ihr bestimmender Filter
+    /// tatsächlich geändert hat — ein unveränderter Filter soll keine neue Array-Instanz an die ComboBox
+    /// ausliefern, jede ItemsSource-Neuzuweisung ist ein weiterer Anlass für den WinUI-Selection-Reset-
+    /// Zyklus (Fund: bei Vorlagen mit gleichem Verband, aber unterschiedlichem Land — z.B. "DFB-Pokal"
+    /// und "UEFA EM (16 Teams)", beide UEFA — trat der Bug trotz atomarer Zuweisung noch auf, weil
+    /// LandOptionenGefiltert unnötig auch bei unverändertem VerbandFilter neu benachrichtigt wurde). Beide
+    /// SelectedItem-Bindungen (VerbandFilter/LandFilter) werden dagegen IMMER neu angestoßen, sobald
+    /// irgendetwas sich geändert hat — auch ohne eigene Wertänderung, da ihre eigene ComboBox ggf. gerade
+    /// eine neue ItemsSource von der jeweils ANDEREN Änderung bekommen hat und resynchronisiert werden muss.</summary>
+    private void AuslosungsfilterSetzen(VerbandOption verband, LandOption land)
+    {
+        var verbandGeaendert = VerbandFilter != verband;
+        var landGeaendert = LandFilter != land;
+        if (!verbandGeaendert && !landGeaendert) return;
+
+        // Bewusster Direktzugriff auf die Backing-Fields statt der generierten Properties: Wir wollen die
+        // Notify-Kaskade der generierten Setter (die pro Zuweisung sofort feuert) durch die kontrollierte
+        // Reihenfolge unten ersetzen, siehe Klassenkommentar oben.
+#pragma warning disable MVVMTK0034
+        _verbandFilter = verband;
+        _landFilter = land;
+#pragma warning restore MVVMTK0034
+
+        if (verbandGeaendert) OnPropertyChanged(nameof(LandOptionenGefiltert));
+        if (landGeaendert) OnPropertyChanged(nameof(VerbandOptionenGefiltert));
+
+        // Die beiden Notifications oben können die jeweils betroffene ComboBox veranlassen, ihre
+        // SelectedItem-Bindung transient zurückzuschreiben (WinUI-ItemsSource-Reset-Quirk) — das läuft über
+        // den GENERIERTEN Property-Setter (nicht über unsere Direktzuweisung oben), der dabei
+        // OnVerbandFilterChanged/OnLandFilterChanged mit "null" aufruft; deren Selbstkorrektur ist aber
+        // wegen des _populiertGerade-Guards hier absichtlich unterdrückt (siehe dort), sodass ein
+        // zwischenzeitliches "null" im Backing-Field stehen bleiben würde. Fund (#189): führte dazu, dass
+        // das Land-Feld nach einem Vorlagenwechsel komplett leer blieb (nicht nur fälschlich "Kein
+        // Filter") — die anschließende Benachrichtigung unten hätte sonst dieses korrumpierte "null" statt
+        // des beabsichtigten Werts gemeldet. Deshalb die Backing-Fields hier erneut auf die beabsichtigten
+        // Werte zurücksetzen, unmittelbar vor der finalen Benachrichtigung.
+#pragma warning disable MVVMTK0034
+        _verbandFilter = verband;
+        _landFilter = land;
+#pragma warning restore MVVMTK0034
+
+        OnPropertyChanged(nameof(VerbandFilter));
+        OnPropertyChanged(nameof(LandFilter));
+        OnPropertyChanged(nameof(VerbandsQuotenSichtbar));
+    }
+
     partial void OnVerbandFilterChanged(VerbandOption value)
     {
         // WinUI setzt ComboBox.SelectedItem transient auf null, wenn ItemsSource neu zugewiesen wird
@@ -306,7 +361,12 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         Regelwerke = new ObservableCollection<Regelwerk>(await _regelwerkService.AlleAbrufenAsync());
     }
 
-    /// <summary>Vom Composite gesetzt, wenn sich die geteilte Instanzauswahl ändert.</summary>
+    /// <summary>Vom Composite gesetzt, wenn sich die geteilte Instanzauswahl ändert. Der Guard
+    /// (<see cref="_populiertGerade"/>) umspannt die gesamte Methode inkl. der nachfolgenden
+    /// async-Ladeschritte, damit während des Ladens ausgelöste Zwischen-Änderungen nicht fälschlich
+    /// IsDirty setzen. Verband-/Landfilter werden über <see cref="AuslosungsfilterSetzen"/> atomar
+    /// gesetzt (siehe dort) statt sequenziell — sequenzielle Zuweisung führte zu sporadisch leeren
+    /// Feldern beim Wechsel zwischen Turniervorlagen.</summary>
     public async Task InstanzSetzenAsync(TurnierInstanz? instanz)
     {
         AktuelleInstanz = instanz;
@@ -319,8 +379,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 IstNeuModus = false;
                 Name = Beschreibung = SaisonOderJahr = ZielMannschaftsanzahl = Startdatum = Enddatum = "";
                 Kategorie = TurnierKategorie.Benutzerdefiniert;
-                VerbandFilter = _keinVerband;
-                LandFilter = _keinLand;
+                AuslosungsfilterSetzen(_keinVerband, _keinLand);
                 TeamFilter = _alleMannschaften;
                 StandardRegelwerk = _keinStandardRegelwerk;
                 Status = StatusOptionen.First(o => o.Wert == TurnierStatus.Geplant);
@@ -339,8 +398,9 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 Kategorie = instanz.Kategorie;
                 Startdatum = instanz.Startdatum?.Year.ToString() ?? "";
                 Enddatum = instanz.Enddatum?.Year.ToString() ?? "";
-                VerbandFilter = VerbandOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.VerbandId) ?? _keinVerband;
-                LandFilter = LandOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.LandId) ?? _keinLand;
+                AuslosungsfilterSetzen(
+                    VerbandOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.VerbandId) ?? _keinVerband,
+                    LandOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.LandId) ?? _keinLand);
                 TeamFilter = TeamfilterOptionen.FirstOrDefault(o => o.Wert == instanz.MannschaftsartFilter) ?? _alleMannschaften;
                 StandardRegelwerk = StandardRegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.StandardRegelwerkId) ?? _keinStandardRegelwerk;
                 Status = StatusOptionen.First(o => o.Wert == instanz.Status);
@@ -348,29 +408,30 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             }
             IsDirty = false;
             Fehlermeldung = null;
+
+            AktualisiereFormularFehler();
+
+            if (instanz is null) return;
+
+            IstLadend = true;
+            try
+            {
+                var detail = await _service.FindenNachIdMitRundenAsync(instanz.Id);
+                ErsteRundeEingang = detail?.Runden.OrderBy(r => r.Reihenfolge).FirstOrDefault()?.EingangsMannschaftsanzahl;
+                await QuotenLadenAsync(instanz.Id);
+            }
+            catch (Exception ex)
+            {
+                Fehlermeldung = ex.Message;
+            }
+            finally
+            {
+                IstLadend = false;
+            }
         }
         finally
         {
             _populiertGerade--;
-        }
-        AktualisiereFormularFehler();
-
-        if (instanz is null) return;
-
-        IstLadend = true;
-        try
-        {
-            var detail = await _service.FindenNachIdMitRundenAsync(instanz.Id);
-            ErsteRundeEingang = detail?.Runden.OrderBy(r => r.Reihenfolge).FirstOrDefault()?.EingangsMannschaftsanzahl;
-            await QuotenLadenAsync(instanz.Id);
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-        }
-        finally
-        {
-            IstLadend = false;
         }
     }
 
@@ -403,8 +464,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             IstNeuModus = true;
             Name = Beschreibung = SaisonOderJahr = ZielMannschaftsanzahl = Startdatum = Enddatum = "";
             Kategorie = TurnierKategorie.Benutzerdefiniert;
-            VerbandFilter = _keinVerband;
-            LandFilter = _keinLand;
+            AuslosungsfilterSetzen(_keinVerband, _keinLand);
             TeamFilter = _alleMannschaften;
             StandardRegelwerk = _keinStandardRegelwerk;
             Status = StatusOptionen.First(o => o.Wert == TurnierStatus.Geplant);
