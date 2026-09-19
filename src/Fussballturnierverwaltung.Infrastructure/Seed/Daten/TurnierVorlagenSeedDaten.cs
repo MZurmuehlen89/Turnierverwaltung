@@ -8,21 +8,24 @@ namespace Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 /// eigener Typ mehr).</summary>
 public static class TurnierVorlagenSeedDaten
 {
-    public static List<TurnierInstanz> Erstellen(IReadOnlyDictionary<string, int>? regelwerkLookup = null) =>
+    public static List<TurnierInstanz> Erstellen(
+        IReadOnlyDictionary<string, int>? regelwerkLookup = null,
+        IReadOnlyDictionary<string, int>? verbandLookup = null,
+        IReadOnlyDictionary<string, int>? landLookup = null) =>
     [
         FifaWm32Teams(regelwerkLookup),
         FifaWm24Teams(regelwerkLookup),
         FifaWm16Teams(regelwerkLookup),
         FifaKlubWm32Teams(regelwerkLookup),
-        UefaEm24Teams(regelwerkLookup),
-        UefaEm16Teams(regelwerkLookup),
-        UefaEm8Teams(regelwerkLookup),
-        UefaChampionsLeague32TeamsKlassisch(regelwerkLookup),
-        UefaChampionsLeague32TeamsModern(regelwerkLookup),
-        UefaChampionsLeague36TeamsModern(regelwerkLookup),
-        UefaEuropaLeague36Teams(regelwerkLookup),
-        UefaConferenceLeague36Teams(regelwerkLookup),
-        DfbPokal64Teams(regelwerkLookup),
+        UefaEm24Teams(regelwerkLookup, verbandLookup),
+        UefaEm16Teams(regelwerkLookup, verbandLookup),
+        UefaEm8Teams(regelwerkLookup, verbandLookup),
+        UefaChampionsLeague32TeamsKlassisch(regelwerkLookup, verbandLookup),
+        UefaChampionsLeague32TeamsModern(regelwerkLookup, verbandLookup),
+        UefaChampionsLeague36TeamsModern(regelwerkLookup, verbandLookup),
+        UefaEuropaLeague36Teams(regelwerkLookup, verbandLookup),
+        UefaConferenceLeague36Teams(regelwerkLookup, verbandLookup),
+        DfbPokal64Teams(regelwerkLookup, verbandLookup, landLookup),
         MiniTurnier8Teams(regelwerkLookup),
         MiniTurnier4Teams(regelwerkLookup),
         FreiesTurnier(),
@@ -33,6 +36,12 @@ public static class TurnierVorlagenSeedDaten
         => Erstellen(regelwerkLookup)
             .Where(v => v.Runden.Count > 0)
             .ToDictionary(v => v.Name, v => v.Runden.ToList());
+
+    // Für Nachrüstung bestehender DBs: Name → Soll-Filterwerte (VerbandId, LandId, MannschaftsartFilter)
+    public static Dictionary<string, (int? VerbandId, int? LandId, MannschaftsartFilter MannschaftsartFilter)> FilterNachVorlagenName(
+        IReadOnlyDictionary<string, int>? verbandLookup = null, IReadOnlyDictionary<string, int>? landLookup = null)
+        => Erstellen(verbandLookup: verbandLookup, landLookup: landLookup)
+            .ToDictionary(v => v.Name, v => (v.VerbandId, v.LandId, v.MannschaftsartFilter));
 
     // ── Weltmeisterschaften ────────────────────────────────────────────────────
 
@@ -46,6 +55,7 @@ public static class TurnierVorlagenSeedDaten
             ZielMannschaftsanzahl = 32,
             Kategorie = TurnierKategorie.Weltmeisterschaft,
             Startdatum = new DateOnly(1998, 1, 1),
+            MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
         };
         int? rId = RwId(rw, "FIFA Standard Modern (3-Punkte)");
         v.Runden.Add(Runde(1, "Gruppenphase",      Rundenart.Gruppenphase,    32, 16, regelwerkId: rId));
@@ -68,6 +78,7 @@ public static class TurnierVorlagenSeedDaten
             Kategorie = TurnierKategorie.Weltmeisterschaft,
             Startdatum = new DateOnly(1982, 1, 1),
             Enddatum = new DateOnly(1994, 12, 31),
+            MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
         };
         int? rId = RwId(rw, "FIFA Historisch (2-Punkte, vor 1994)");
         v.Runden.Add(Runde(1, "Gruppenphase",      Rundenart.Gruppenphase,    24, 12, regelwerkId: rId));
@@ -89,6 +100,7 @@ public static class TurnierVorlagenSeedDaten
             Kategorie = TurnierKategorie.Weltmeisterschaft,
             Startdatum = new DateOnly(1934, 1, 1),
             Enddatum = new DateOnly(1978, 12, 31),
+            MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
         };
         int? rId = RwId(rw, "Historisch: Wiederholungsspiel + Los");
         v.Runden.Add(Runde(1, "Achtelfinale",      Rundenart.KoRunde,          16,  8, regelwerkId: rId));
@@ -101,7 +113,7 @@ public static class TurnierVorlagenSeedDaten
 
     // ── Europameisterschaften ──────────────────────────────────────────────────
 
-    private static TurnierInstanz UefaEm24Teams(IReadOnlyDictionary<string, int>? rw)
+    private static TurnierInstanz UefaEm24Teams(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband)
     {
         var v = new TurnierInstanz
         {
@@ -111,6 +123,8 @@ public static class TurnierVorlagenSeedDaten
             ZielMannschaftsanzahl = 24,
             Kategorie = TurnierKategorie.Kontinentalmeisterschaft,
             Startdatum = new DateOnly(2016, 1, 1),
+            MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
+            VerbandId = VId(verband, "UEFA"),
         };
         int? rId = RwId(rw, "FIFA Standard Modern (3-Punkte)");
         v.Runden.Add(Runde(1, "Gruppenphase",  Rundenart.Gruppenphase, 24, 16, regelwerkId: rId));
@@ -121,7 +135,7 @@ public static class TurnierVorlagenSeedDaten
         return v;
     }
 
-    private static TurnierInstanz UefaEm16Teams(IReadOnlyDictionary<string, int>? rw)
+    private static TurnierInstanz UefaEm16Teams(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband)
     {
         var v = new TurnierInstanz
         {
@@ -132,6 +146,8 @@ public static class TurnierVorlagenSeedDaten
             Kategorie = TurnierKategorie.Kontinentalmeisterschaft,
             Startdatum = new DateOnly(1996, 1, 1),
             Enddatum = new DateOnly(2012, 12, 31),
+            MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
+            VerbandId = VId(verband, "UEFA"),
         };
         int? rId = RwId(rw, "UEFA EM 1996 (Golden Goal)");
         v.Runden.Add(Runde(1, "Gruppenphase",  Rundenart.Gruppenphase, 16,  8, regelwerkId: rId));
@@ -141,7 +157,7 @@ public static class TurnierVorlagenSeedDaten
         return v;
     }
 
-    private static TurnierInstanz UefaEm8Teams(IReadOnlyDictionary<string, int>? rw)
+    private static TurnierInstanz UefaEm8Teams(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband)
     {
         var v = new TurnierInstanz
         {
@@ -152,6 +168,8 @@ public static class TurnierVorlagenSeedDaten
             Kategorie = TurnierKategorie.Kontinentalmeisterschaft,
             Startdatum = new DateOnly(1960, 1, 1),
             Enddatum = new DateOnly(1992, 12, 31),
+            MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
+            VerbandId = VId(verband, "UEFA"),
         };
         int? rId = RwId(rw, "Historisch: Wiederholungsspiel + Los");
         v.Runden.Add(Runde(1, "Gruppenphase",     Rundenart.Gruppenphase,     8,  4, regelwerkId: rId));
@@ -163,7 +181,7 @@ public static class TurnierVorlagenSeedDaten
 
     // ── UEFA Clubwettbewerbe ───────────────────────────────────────────────────
 
-    private static TurnierInstanz UefaChampionsLeague32TeamsKlassisch(IReadOnlyDictionary<string, int>? rw)
+    private static TurnierInstanz UefaChampionsLeague32TeamsKlassisch(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband)
     {
         var v = new TurnierInstanz
         {
@@ -174,6 +192,8 @@ public static class TurnierVorlagenSeedDaten
             Kategorie = TurnierKategorie.Vereinspokal,
             Startdatum = new DateOnly(2003, 1, 1),
             Enddatum = new DateOnly(2021, 12, 31),
+            MannschaftsartFilter = MannschaftsartFilter.Verein,
+            VerbandId = VId(verband, "UEFA"),
         };
         int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
         v.Runden.Add(Runde(1, "Gruppenphase",  Rundenart.Gruppenphase, 32, 16, regelwerkId: rId));
@@ -184,7 +204,7 @@ public static class TurnierVorlagenSeedDaten
         return v;
     }
 
-    private static TurnierInstanz UefaChampionsLeague32TeamsModern(IReadOnlyDictionary<string, int>? rw)
+    private static TurnierInstanz UefaChampionsLeague32TeamsModern(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband)
     {
         var v = new TurnierInstanz
         {
@@ -195,6 +215,8 @@ public static class TurnierVorlagenSeedDaten
             Kategorie = TurnierKategorie.Vereinspokal,
             Startdatum = new DateOnly(2021, 1, 1),
             Enddatum = new DateOnly(2024, 12, 31),
+            MannschaftsartFilter = MannschaftsartFilter.Verein,
+            VerbandId = VId(verband, "UEFA"),
         };
         int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
         v.Runden.Add(Runde(1, "Gruppenphase",  Rundenart.Gruppenphase, 32, 16, regelwerkId: rId));
@@ -207,21 +229,21 @@ public static class TurnierVorlagenSeedDaten
 
     // ── UEFA Clubwettbewerbe (aktuelles Format, 2024+) ─────────────────────────
 
-    private static TurnierInstanz UefaChampionsLeague36TeamsModern(IReadOnlyDictionary<string, int>? rw) =>
-        UefaClubwettbewerbModern(rw, "UEFA Champions League (36 Teams, ab 2024/25)");
+    private static TurnierInstanz UefaChampionsLeague36TeamsModern(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband) =>
+        UefaClubwettbewerbModern(rw, verband, "UEFA Champions League (36 Teams, ab 2024/25)");
 
-    private static TurnierInstanz UefaEuropaLeague36Teams(IReadOnlyDictionary<string, int>? rw) =>
-        UefaClubwettbewerbModern(rw, "UEFA Europa League (36 Teams, ab 2024/25)");
+    private static TurnierInstanz UefaEuropaLeague36Teams(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband) =>
+        UefaClubwettbewerbModern(rw, verband, "UEFA Europa League (36 Teams, ab 2024/25)");
 
-    private static TurnierInstanz UefaConferenceLeague36Teams(IReadOnlyDictionary<string, int>? rw) =>
-        UefaClubwettbewerbModern(rw, "UEFA Conference League (36 Teams, ab 2024/25)");
+    private static TurnierInstanz UefaConferenceLeague36Teams(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband) =>
+        UefaClubwettbewerbModern(rw, verband, "UEFA Conference League (36 Teams, ab 2024/25)");
 
     // Gemeinsame Struktur für CL/EL/ECL seit 2024/25 (Issue #25-Nachlieferung, freigegeben durch #29):
     // Ligaphase (36 Teams, je 8 Gegner statt voller Punktrunde) → Platz 1–8 direkt ins Achtelfinale,
     // Platz 9–24 in die zweibeinige Playoff-Runde, deren 8 Sieger die restlichen Achtelfinal-Plätze
     // füllen. Das Achtelfinale hat damit zwei Quellrunden — genau der Fall, für den strukturierte
     // Übergangsregeln (statt linearer Eingangs-/Ausgangszahl) eingeführt wurden.
-    private static TurnierInstanz UefaClubwettbewerbModern(IReadOnlyDictionary<string, int>? rw, string name)
+    private static TurnierInstanz UefaClubwettbewerbModern(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, string name)
     {
         var v = new TurnierInstanz
         {
@@ -233,6 +255,8 @@ public static class TurnierVorlagenSeedDaten
             ZielMannschaftsanzahl = 36,
             Kategorie = TurnierKategorie.Vereinspokal,
             Startdatum = new DateOnly(2024, 1, 1),
+            MannschaftsartFilter = MannschaftsartFilter.Verein,
+            VerbandId = VId(verband, "UEFA"),
         };
         int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
 
@@ -269,6 +293,7 @@ public static class TurnierVorlagenSeedDaten
             ZielMannschaftsanzahl = 32,
             Kategorie = TurnierKategorie.Weltmeisterschaft,
             Startdatum = new DateOnly(2025, 1, 1),
+            MannschaftsartFilter = MannschaftsartFilter.Verein,
         };
         int? rId = RwId(rw, "FIFA Standard Modern (3-Punkte)");
         v.Runden.Add(Runde(1, "Gruppenphase",     Rundenart.Gruppenphase,    32, 16, regelwerkId: rId));
@@ -281,7 +306,8 @@ public static class TurnierVorlagenSeedDaten
 
     // ── Nationale Vereinspokale ────────────────────────────────────────────────
 
-    private static TurnierInstanz DfbPokal64Teams(IReadOnlyDictionary<string, int>? rw)
+    private static TurnierInstanz DfbPokal64Teams(
+        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? land)
     {
         var v = new TurnierInstanz
         {
@@ -290,6 +316,12 @@ public static class TurnierVorlagenSeedDaten
             Beschreibung = "Reines K.-o.-Format ab 64 Teams; alle Runden als Einzelspiel (kein Rückspiel)",
             ZielMannschaftsanzahl = 64,
             Kategorie = TurnierKategorie.Vereinspokal,
+            MannschaftsartFilter = MannschaftsartFilter.Verein,
+            // Landesfilter ist die schärfere Bedingung; VerbandId wird zusätzlich (redundant) gesetzt,
+            // damit der Filter im Turnierkopf vollständig statt lückenhaft aussieht (Land impliziert immer
+            // genau einen Kontinentalverband, siehe Land.VerbandId).
+            LandId = LId(land, "GER"),
+            VerbandId = VId(verband, "UEFA"),
         };
         int? rId = RwId(rw, "FIFA Standard Modern (3-Punkte)");
         v.Runden.Add(Runde(1, "1. Runde",          Rundenart.KoRunde,          64, 32, regelwerkId: rId));
@@ -349,6 +381,13 @@ public static class TurnierVorlagenSeedDaten
 
     private static int? RwId(IReadOnlyDictionary<string, int>? lookup, string name)
         => lookup is not null && lookup.TryGetValue(name, out var id) ? id : null;
+
+    // Verband-Lookup nach Kurzname (z.B. "UEFA"), Land-Lookup nach FifaCode (z.B. "GER") — analog RwId.
+    private static int? VId(IReadOnlyDictionary<string, int>? lookup, string kurzname)
+        => lookup is not null && lookup.TryGetValue(kurzname, out var id) ? id : null;
+
+    private static int? LId(IReadOnlyDictionary<string, int>? lookup, string fifaCode)
+        => lookup is not null && lookup.TryGetValue(fifaCode, out var id) ? id : null;
 
     private static TurnierRunde Runde(
         int reihenfolge, string name, Rundenart art,

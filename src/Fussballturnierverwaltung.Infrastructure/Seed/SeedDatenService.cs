@@ -33,6 +33,7 @@ public class SeedDatenService
         await MannschaftsBildmaterialNachruesten(cancellationToken);
         await RegelwerkeNachruesten(cancellationToken);
         await TurnierVorlagenNachruesten(cancellationToken);
+        await TurnierVorlagenFilterNachruesten(cancellationToken);
         await RanglistenQuellenNachruesten(cancellationToken);
     }
 
@@ -195,8 +196,12 @@ public class SeedDatenService
 
         var regelwerkLookup = await _context.Regelwerke
             .ToDictionaryAsync(r => r.Name, r => r.Id, ct);
+        var verbandLookup = await _context.Verbaende
+            .ToDictionaryAsync(v => v.Kurzname, v => v.Id, ct);
+        var landLookup = await _context.Laender
+            .ToDictionaryAsync(l => l.FifaCode, l => l.Id, ct);
 
-        var alleVorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup);
+        var alleVorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup, verbandLookup, landLookup);
         int hinzugefuegt = 0;
 
         foreach (var vorlage in alleVorlagen)
@@ -210,6 +215,42 @@ public class SeedDatenService
         {
             await _context.SaveChangesAsync(ct);
             _logger.LogInformation("{Anzahl} neue Turniervorlagen nachgerüstet.", hinzugefuegt);
+        }
+    }
+
+    /// <summary>Issue #189-Vorarbeit: VerbandId/LandId/MannschaftsartFilter wurden nachträglich zu
+    /// TurnierInstanz hinzugefügt und beim ursprünglichen Vorlagen-Seed nicht rückwirkend gepflegt. Trägt
+    /// sie bei bereits vorhandenen Vorlagen nach — nur wo das Feld noch auf dem technischen Default steht,
+    /// damit eine eventuell schon manuell in der UI vorgenommene Anpassung nicht überschrieben wird.</summary>
+    private async Task TurnierVorlagenFilterNachruesten(CancellationToken ct)
+    {
+        var verbandLookup = await _context.Verbaende
+            .ToDictionaryAsync(v => v.Kurzname, v => v.Id, ct);
+        var landLookup = await _context.Laender
+            .ToDictionaryAsync(l => l.FifaCode, l => l.Id, ct);
+        var sollFilter = TurnierVorlagenSeedDaten.FilterNachVorlagenName(verbandLookup, landLookup);
+
+        var vorhandeneVorlagen = await _context.TurnierInstanzen
+            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
+            .ToListAsync(ct);
+
+        int aktualisiert = 0;
+        foreach (var vorlage in vorhandeneVorlagen)
+        {
+            if (!sollFilter.TryGetValue(vorlage.Name, out var soll)) continue;
+            if (vorlage.VerbandId is not null || vorlage.LandId is not null
+                || vorlage.MannschaftsartFilter != Domain.Enums.MannschaftsartFilter.Alle) continue;
+
+            vorlage.VerbandId = soll.VerbandId;
+            vorlage.LandId = soll.LandId;
+            vorlage.MannschaftsartFilter = soll.MannschaftsartFilter;
+            aktualisiert++;
+        }
+
+        if (aktualisiert > 0)
+        {
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("{Anzahl} Turniervorlagen um Verband-/Land-/Mannschaftsartfilter ergänzt.", aktualisiert);
         }
     }
 
@@ -313,7 +354,7 @@ public class SeedDatenService
         // 7. Turniervorlagen (TurnierInstanz mit Status=Vorlage, mit Regelwerk-Lookup für ihre Runden)
         var regelwerkLookup = regelwerkeDefinitionen.ToDictionary(
             t => t.Regelwerk.Name, t => t.Regelwerk.Id);
-        var vorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup);
+        var vorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup, verbaendeLookup, laenderLookup);
         _context.TurnierInstanzen.AddRange(vorlagen);
         await _context.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("{Anzahl} Turniervorlagen angelegt.", vorlagen.Count);
