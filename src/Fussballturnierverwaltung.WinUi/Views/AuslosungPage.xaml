@@ -327,6 +327,37 @@
 
                     <TextBlock Text="{Binding TeamsStatusText}" FontSize="12" Margin="0,0,0,12" />
 
+                    <!-- Verbandsquoten (Nutzerwunsch: direkt bei der Teams-zugewiesen-Anzeige, nicht erst
+                         nach dem gesamten Zuweisungsbereich, damit Status und Quoten auf einen Blick sichtbar sind) -->
+                    <StackPanel Visibility="{Binding ZeigeVerbandsQuoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
+                        <TextBlock Text="VERBAND-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
+                        <ItemsRepeater ItemsSource="{Binding VerbandsQuotenAnzeige}">
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                                        <TextBlock Grid.Column="0" Text="{Binding VerbandName}" FontSize="12" />
+                                        <TextBlock Grid.Column="1" Text="{Binding AnzeigeText}" FontSize="12" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                    </StackPanel>
+
+                    <!-- Landesquoten -->
+                    <StackPanel Visibility="{Binding ZeigeLandesQuoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
+                        <TextBlock Text="LANDES-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
+                        <ItemsRepeater ItemsSource="{Binding LandesQuotenAnzeige}">
+                            <ItemsRepeater.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                                        <TextBlock Grid.Column="0" Text="{Binding LandName}" FontSize="12" />
+                                        <TextBlock Grid.Column="1" Text="{Binding AnzeigeText}" FontSize="12" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                    </StackPanel>
+
                     <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
                             Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
                             CornerRadius="4" Padding="10,8" Margin="0,0,0,16">
@@ -417,36 +448,6 @@
                             </ItemsControl>
                         </ScrollViewer>
                     </Grid>
-
-                    <!-- Verbandsquoten -->
-                    <StackPanel Visibility="{Binding ZeigeVerbandsQuoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
-                        <TextBlock Text="VERBAND-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
-                        <ItemsRepeater ItemsSource="{Binding VerbandsQuotenAnzeige}">
-                            <ItemsRepeater.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
-                                        <TextBlock Grid.Column="0" Text="{Binding VerbandName}" FontSize="12" />
-                                        <TextBlock Grid.Column="1" Text="{Binding AnzeigeText}" FontSize="12" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsRepeater.ItemTemplate>
-                        </ItemsRepeater>
-                    </StackPanel>
-
-                    <!-- Landesquoten -->
-                    <StackPanel Visibility="{Binding ZeigeLandesQuoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
-                        <TextBlock Text="LANDES-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
-                        <ItemsRepeater ItemsSource="{Binding LandesQuotenAnzeige}">
-                            <ItemsRepeater.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
-                                        <TextBlock Grid.Column="0" Text="{Binding LandName}" FontSize="12" />
-                                        <TextBlock Grid.Column="1" Text="{Binding AnzeigeText}" FontSize="12" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsRepeater.ItemTemplate>
-                        </ItemsRepeater>
-                    </StackPanel>
 
                     <!-- Ergebnis-Anzeige (nach Abschluss, aber verborgen während der TV-Modus-Animation läuft) -->
                     <StackPanel Visibility="{Binding ZeigeErgebnis, Converter={StaticResource BoolToVisibility}}">
