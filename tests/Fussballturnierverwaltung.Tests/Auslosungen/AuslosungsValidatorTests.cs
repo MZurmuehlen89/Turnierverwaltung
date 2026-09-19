@@ -607,4 +607,58 @@ public class AuslosungsValidatorTests
 
         _validator.Validieren(a, AlleEintraege(a)).IstGueltig.Should().BeTrue();
     }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // LANDES-QUOTEN (Issue #189)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    private static LostopfEintrag EintragMitLand(int id, int landId) =>
+        new() { Id = id, MannschaftId = id, Mannschaft = new Mannschaft { Id = id, Name = $"Team {id}", LandId = landId } };
+
+    private static LandesQuote LandQuote(int landId, int anzahl) =>
+        new() { LandId = landId, Anzahl = anzahl };
+
+    [Fact]
+    public void LandesQuote_GenauErfuellt_IstGueltig()
+    {
+        var topf = Topf(1, 1, [EintragMitLand(1, landId: 10), EintragMitLand(2, landId: 10), EintragMitLand(3, landId: 20)]);
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a), landesQuoten: [LandQuote(10, anzahl: 2)]);
+
+        ergebnis.IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void LandesQuote_Ueberschritten_WirdAbgelehnt()
+    {
+        var topf = Topf(1, 1, [EintragMitLand(1, landId: 10), EintragMitLand(2, landId: 10), EintragMitLand(3, landId: 10)]);
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a), landesQuoten: [LandQuote(10, anzahl: 2)]);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*genau 2*");
+    }
+
+    [Fact]
+    public void LandesQuote_Unterschritten_WirdAbgelehnt()
+    {
+        var topf = Topf(1, 1, [EintragMitLand(1, landId: 10), EintragMitLand(2, landId: 20)]);
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a), landesQuoten: [LandQuote(10, anzahl: 2)]);
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*genau 2*");
+    }
+
+    [Fact]
+    public void LandesQuote_OhneKonfigurierteQuoten_WirdNichtGeprueft()
+    {
+        var topf = Topf(1, 1, [EintragMitLand(1, landId: 10), EintragMitLand(2, landId: 10), EintragMitLand(3, landId: 10)]);
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+
+        _validator.Validieren(a, AlleEintraege(a)).IstGueltig.Should().BeTrue();
+    }
 }

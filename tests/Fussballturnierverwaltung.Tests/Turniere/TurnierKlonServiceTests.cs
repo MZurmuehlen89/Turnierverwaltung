@@ -26,6 +26,7 @@ public class TurnierKlonServiceTests
     {
         ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
         ctx.Verbaende.Add(new Verband { Id = 1, Name = "UEFA", Kurzname = "UEFA" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Deutschland", Kurzname = "GER", FifaCode = "GER", VerbandId = 1 });
 
         var quelle = new TurnierInstanz
         {
@@ -50,6 +51,7 @@ public class TurnierKlonServiceTests
         ctx.Uebergangsregeln.Add(new Uebergangsregel
             { QuellRundeId = halbfinale.Id, ZielRundeId = finale.Id, GruppeIndex = 1, PlatzierungVon = 1, PlatzierungBis = 1 });
         ctx.VerbandsQuoten.Add(new VerbandsQuote { TurnierInstanzId = 1, VerbandId = 1, Anzahl = 2 });
+        ctx.LandesQuoten.Add(new LandesQuote { TurnierInstanzId = 1, LandId = 1, Anzahl = 1 });
         ctx.Spiele.Add(new Spiel
         {
             TurnierInstanzId = 1, TurnierRundeId = finale.Id, Spielnummer = 1, Status = SpielStatus.Abgeschlossen
@@ -121,6 +123,10 @@ public class TurnierKlonServiceTests
         klon.VerbandsQuoten.Should().ContainSingle();
         klon.VerbandsQuoten.Single().VerbandId.Should().Be(1);
         klon.VerbandsQuoten.Single().Anzahl.Should().Be(2);
+
+        klon.LandesQuoten.Should().ContainSingle();
+        klon.LandesQuoten.Single().LandId.Should().Be(1);
+        klon.LandesQuoten.Single().Anzahl.Should().Be(1);
     }
 
     [Fact]
