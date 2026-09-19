@@ -7,7 +7,7 @@ namespace Fussballturnierverwaltung.Application.Turniere;
 /// <summary>Klont eine TurnierInstanz strukturell (Issue #294, löst #46 "Turnier klonen") — seit der
 /// Vorlage/Instanz-Vereinheitlichung ist "Instanz aus Vorlage erzeugen" derselbe Vorgang wie "Turnier für
 /// eine neue Saison duplizieren": beides ist ein reiner Kopiervorgang ohne persistente Rückreferenz auf
-/// die Quelle. Kopiert Kopf-Felder, Runden, Übergangsregeln und Verbandsquoten — NIE Spiele, Auslosungen
+/// die Quelle. Kopiert Kopf-Felder, Runden, Übergangsregeln sowie Verbands- und Landesquoten — NIE Spiele, Auslosungen
 /// oder SimulationsLaeufe, auch nicht von einer bereits gespielten Quelle (eine Vorlage ist ein
 /// Musterturnier ohne Teams/Ergebnisse, ein Klon startet immer bei null).</summary>
 public class TurnierKlonService(
@@ -74,6 +74,9 @@ public class TurnierKlonService(
 
         foreach (var quote in quelle.VerbandsQuoten)
             neu.VerbandsQuoten.Add(new VerbandsQuote { VerbandId = quote.VerbandId, Anzahl = quote.Anzahl });
+
+        foreach (var quote in quelle.LandesQuoten)
+            neu.LandesQuoten.Add(new LandesQuote { LandId = quote.LandId, Anzahl = quote.Anzahl });
 
         await repository.HinzufuegenAsync(neu, ct);
         logger.LogInformation("TurnierInstanz {QuellId} als '{Name}' geklont (neue ID {NeueId}).", quellId, neu.Name, neu.Id);

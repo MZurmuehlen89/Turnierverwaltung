@@ -58,6 +58,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<TurnierValidator>();
         builder.Services.AddScoped<UebergangsregelValidator>();
         builder.Services.AddScoped<VerbandsQuoteValidator>();
+        builder.Services.AddScoped<LandesQuoteValidator>();
         builder.Services.AddScoped<AuslosungsValidator>();
         builder.Services.AddScoped<RanglisteValidator>();
         builder.Services.AddScoped<RanglistenQuelleValidator>();
@@ -71,6 +72,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<TurnierKlonService>();
         builder.Services.AddScoped<UebergangsregelService>();
         builder.Services.AddScoped<VerbandsQuoteService>();
+        builder.Services.AddScoped<LandesQuoteService>();
         builder.Services.AddScoped<AuslosungService>();
         builder.Services.AddScoped<TabellenService>();
         builder.Services.AddScoped<ISpielplanGenerator, RoundRobinGenerator>();
