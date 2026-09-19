@@ -13,6 +13,7 @@ using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using Fussballturnierverwaltung.WinUi.Views;
+using Microsoft.UI.Dispatching;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -113,89 +114,124 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     public IEnumerable<TurnierKategorie> KategorieOptionen => Enum.GetValues<TurnierKategorie>();
 
     // ── Auslosungsfilter (Verband/Land/Mannschaftsart) ───────────────────────
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(VerbandOptionenGefiltert))]
-    private IReadOnlyList<VerbandOption> _verbandOptionen = [];
+    [ObservableProperty] private IReadOnlyList<VerbandOption> _verbandOptionen = [];
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(VerbandsQuotenSichtbar))]
-    [NotifyPropertyChangedFor(nameof(LandOptionenGefiltert))]
     private VerbandOption _verbandFilter = _keinVerband;
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LandOptionenGefiltert))]
-    private IReadOnlyList<LandOption> _landOptionen = [];
+    [ObservableProperty] private IReadOnlyList<LandOption> _landOptionen = [];
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(VerbandsQuotenSichtbar))]
-    [NotifyPropertyChangedFor(nameof(VerbandOptionenGefiltert))]
     private LandOption _landFilter = _keinLand;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(LandesQuotenSichtbar))]
     private TeamfilterOption _teamFilter = _alleMannschaften;
 
     // Beide Filter schränken sich gegenseitig ein (Issue #211-Muster aus dem WPF-Original): FIFA ist die
-    // Ausnahme, kein Land ist ihr direkt zugeordnet, als Filter bedeutet sie "weltweit". Null-conditional
-    // auf VerbandFilter/LandFilter selbst (nicht nur .Wert) — derselbe transiente ComboBox-Reset-Fallstrick
-    // wie in OnVerbandFilterChanged/OnLandFilterChanged kann diese Getter treffen, bevor die dortige
-    // Korrektur greift (NRE hier gefunden bei #297-Test, Stapelüberwachung zeigte den Crash direkt im
-    // Getter statt im Change-Handler).
-    public IReadOnlyList<LandOption> LandOptionenGefiltert => VerbandFilter?.Wert is null || IstFifa(VerbandFilter.Wert)
-        ? LandOptionen
-        : [_keinLand, .. LandOptionen.Where(o => o.Wert?.VerbandId == VerbandFilter.Wert.Id)];
+    // Ausnahme, kein Land ist ihr direkt zugeordnet, als Filter bedeutet sie "weltweit".
+    //
+    // Stabile Collection-Instanzen statt berechneten Properties, die bei jedem Zugriff ein neues Array
+    // liefern: Eine ComboBox, deren ItemsSource bei jeder Filteränderung eine komplett NEUE Listen-Instanz
+    // zugewiesen bekommt, setzt ihr TwoWay-gebundenes SelectedItem in WinUI transient auf null zurück (der
+    // reine null-Reassert-Guard in OnVerbandFilterChanged/OnLandFilterChanged reichte dagegen NICHT aus —
+    // Fund #335, Land-Feld blieb beim direkten Setzen des Verband-Filters per ComboBox trotzdem leer;
+    // siehe auch der projektweite Fallstrick "pro Fokus/Auswahl neu berechnete ItemsSource" im WinUi-
+    // CLAUDE.md). <see cref="LandOptionenGefiltertSynchronisieren"/>/<see cref="VerbandOptionenGefiltertSynchronisieren"/>
+    // aktualisieren den Inhalt dieser EINEN Instanz inkrementell (Index-Diff statt Clear+Add), die
+    // ItemsSource-Referenz selbst wird nie ausgetauscht.
+    public ObservableCollection<LandOption> LandOptionenGefiltert { get; } = [];
+    public ObservableCollection<VerbandOption> VerbandOptionenGefiltert { get; } = [];
 
-    public IReadOnlyList<VerbandOption> VerbandOptionenGefiltert => LandFilter?.Wert is null
-        ? VerbandOptionen
-        : [_keinVerband, .. VerbandOptionen.Where(o => o.Wert?.Id == LandFilter.Wert.VerbandId || IstFifa(o.Wert))];
+    partial void OnVerbandOptionenChanged(IReadOnlyList<VerbandOption> value) => VerbandOptionenGefiltertSynchronisieren();
+    partial void OnLandOptionenChanged(IReadOnlyList<LandOption> value) => LandOptionenGefiltertSynchronisieren();
+
+    private void LandOptionenGefiltertSynchronisieren()
+    {
+        IReadOnlyList<LandOption> soll = VerbandFilter?.Wert is null || IstFifa(VerbandFilter.Wert)
+            ? LandOptionen
+            : [_keinLand, .. LandOptionen.Where(o => o.Wert?.VerbandId == VerbandFilter.Wert.Id)];
+        CollectionInkrementellSynchronisieren(LandOptionenGefiltert, soll);
+    }
+
+    private void VerbandOptionenGefiltertSynchronisieren()
+    {
+        IReadOnlyList<VerbandOption> soll = LandFilter?.Wert is null
+            ? VerbandOptionen
+            : [_keinVerband, .. VerbandOptionen.Where(o => o.Wert?.Id == LandFilter.Wert.VerbandId || IstFifa(o.Wert))];
+        CollectionInkrementellSynchronisieren(VerbandOptionenGefiltert, soll);
+    }
+
+    /// <summary>Bringt <paramref name="ziel"/> per reinem Merge auf denselben Inhalt wie <paramref name="soll"/>
+    /// — nur <c>RemoveAt</c> für weggefallene und <c>Insert</c> für neu hinzugekommene Einträge, NIE
+    /// Indexer-Zuweisung/<c>Replace</c>, NIE <c>Clear()</c>+Neubefüllen und NIE ein bereits vorhandenes
+    /// Element entfernen+an anderer Stelle neu einfügen ("Move" per Remove+Insert).
+    ///
+    /// Zwei WinUI3-Fallstricke wurden hier nacheinander gefunden (#335):
+    /// 1. <c>Replace</c>-Notifications lösten eine <c>ArgumentException</c> ("cannot work with indices
+    ///    larger than Int32.MaxValue - 1") in der WinRT-ABI-Marshalling-Schicht der gebundenen ComboBox aus
+    ///    (<c>ABI.System.Collections.IList.ToAbiHelper.GetAt</c>) — vermutlich ein intern nicht gefundener
+    ///    <c>IndexOf</c> (-1), der als riesiger <c>UInt32</c>-Index missinterpretiert wird.
+    /// 2. Ein naiver Index-Diff (RemoveAt+Insert pro abweichendem Index) kann ein Element, das seine Position
+    ///    wechseln muss, kurzzeitig DUPLIZIEREN (neu an der Zielposition eingefügt, während das alte
+    ///    Vorkommen an seiner ursprünglichen — jetzt verschobenen — Position noch nicht bereinigt ist) — bei
+    ///    mehreren solcher Operationen in schneller Folge verlor die ComboBox die Selektion komplett (beide
+    ///    Felder zeigten nichts mehr an).
+    ///
+    /// Diese Methode vermeidet beides: Es werden zuerst nur Elemente ENTFERNT, die in <paramref name="soll"/>
+    /// nicht mehr vorkommen (die verbleibenden bilden garantiert eine Teilfolge von <paramref name="soll"/>,
+    /// da alle Aufrufe hier stets von derselben festen, sortierten Basisliste filtern), danach werden
+    /// ausschließlich fehlende Elemente an ihrer Zielposition eingefügt — kein vorhandenes Element wird je
+    /// entfernt und neu eingefügt. Der stets an Index 0 stehende Sentinel-Eintrag (<c>_keinLand</c>/
+    /// <c>_keinVerband</c>) bleibt dadurch unangetastet. Siehe <see cref="LandOptionenGefiltert"/>.</summary>
+    private static void CollectionInkrementellSynchronisieren<T>(ObservableCollection<T> ziel, IReadOnlyList<T> soll)
+    {
+        var behalten = new HashSet<T>(soll);
+        for (var i = ziel.Count - 1; i >= 0; i--)
+            if (!behalten.Contains(ziel[i]))
+                ziel.RemoveAt(i);
+
+        var i2 = 0;
+        foreach (var item in soll)
+        {
+            if (i2 < ziel.Count && EqualityComparer<T>.Default.Equals(ziel[i2], item)) { i2++; continue; }
+            ziel.Insert(i2, item);
+            i2++;
+        }
+    }
 
     private static bool IstFifa(Verband? v) => v?.Kurzname == "FIFA";
 
+    /// <summary>Verschiebt eine Collection-Synchronisierung auf den nächsten Dispatcher-Tick statt sie
+    /// synchron aus einem ComboBox-Change-Handler heraus auszuführen. Fund #335: Wird
+    /// <see cref="LandOptionenGefiltertSynchronisieren"/>/<see cref="VerbandOptionenGefiltertSynchronisieren"/>
+    /// synchron aus <see cref="OnVerbandFilterChanged"/>/<see cref="OnLandFilterChanged"/> heraus
+    /// aufgerufen, mutiert das die ItemsSource der EINEN ComboBox, während der native WinUI-XAML-Kern noch
+    /// mitten in der Verarbeitung des SelectionChanged der ANDEREN ComboBox steckt — führte reproduzierbar
+    /// zu einer <c>COMException (0x8000FFFF, "Schwerwiegender Fehler")</c> ohne verwertbaren Managed-Stack.
+    /// Über <see cref="DispatcherQueue.TryEnqueue"/> läuft die Mutation erst, nachdem die aktuelle
+    /// Bindungsoperation vollständig abgeschlossen ist.</summary>
+    private static void CollectionSyncVerzoegern(Action synchronisieren) =>
+        DispatcherQueue.GetForCurrentThread()?.TryEnqueue(() => synchronisieren());
+
     /// <summary>Setzt Verband- und Landfilter atomar statt sequenziell. Bei sequenzieller Zuweisung
-    /// (erst VerbandFilter, dann LandFilter) feuert das Setzen von VerbandFilter sofort
-    /// NotifyPropertyChangedFor(LandOptionenGefiltert) — die Land-ComboBox bekommt dadurch schon die neue,
-    /// verbandsgefilterte ItemsSource-Liste, während LandFilter selbst noch den alten Wert des vorherigen
-    /// Turniers trägt; ist dieser darin nicht mehr enthalten, nullt WinUI die Selektion sofort, und die
-    /// eigentlich korrekte nachfolgende Zuweisung kommt zu spät (Fund: Verband-/Land-Feld blieb beim
-    /// Wechsel zwischen Turniervorlagen sporadisch leer — ein reines Guard-Fenster half hier nicht, das
-    /// Problem war die Reihenfolge, nicht das Timing).
-    ///
-    /// Benachrichtigt jede gefilterte Liste (ItemsSource) nur, wenn sich ihr bestimmender Filter
-    /// tatsächlich geändert hat — ein unveränderter Filter soll keine neue Array-Instanz an die ComboBox
-    /// ausliefern, jede ItemsSource-Neuzuweisung ist ein weiterer Anlass für den WinUI-Selection-Reset-
-    /// Zyklus (Fund: bei Vorlagen mit gleichem Verband, aber unterschiedlichem Land — z.B. "DFB-Pokal"
-    /// und "UEFA EM (16 Teams)", beide UEFA — trat der Bug trotz atomarer Zuweisung noch auf, weil
-    /// LandOptionenGefiltert unnötig auch bei unverändertem VerbandFilter neu benachrichtigt wurde). Beide
-    /// SelectedItem-Bindungen (VerbandFilter/LandFilter) werden dagegen IMMER neu angestoßen, sobald
-    /// irgendetwas sich geändert hat — auch ohne eigene Wertänderung, da ihre eigene ComboBox ggf. gerade
-    /// eine neue ItemsSource von der jeweils ANDEREN Änderung bekommen hat und resynchronisiert werden muss.</summary>
+    /// (erst VerbandFilter, dann LandFilter) sieht der Zwischenzustand kurzzeitig den neuen Verband mit dem
+    /// noch alten Land — <see cref="OnVerbandFilterChanged"/> könnte das Land dann fälschlich als
+    /// inkompatibel zurücksetzen, bevor die eigentlich korrekte nachfolgende Land-Zuweisung überhaupt
+    /// passiert ist (Fund: Verband-/Land-Feld blieb beim Wechsel zwischen Turniervorlagen sporadisch
+    /// falsch). Direktzugriff auf die Backing-Fields umgeht die generierten Setter (und damit
+    /// On[Verband|Land]FilterChanged) bewusst, damit beide Werte VOR jeder Change-Reaktion feststehen.</summary>
     private void AuslosungsfilterSetzen(VerbandOption verband, LandOption land)
     {
         var verbandGeaendert = VerbandFilter != verband;
         var landGeaendert = LandFilter != land;
         if (!verbandGeaendert && !landGeaendert) return;
 
-        // Bewusster Direktzugriff auf die Backing-Fields statt der generierten Properties: Wir wollen die
-        // Notify-Kaskade der generierten Setter (die pro Zuweisung sofort feuert) durch die kontrollierte
-        // Reihenfolge unten ersetzen, siehe Klassenkommentar oben.
 #pragma warning disable MVVMTK0034
         _verbandFilter = verband;
         _landFilter = land;
 #pragma warning restore MVVMTK0034
 
-        if (verbandGeaendert) OnPropertyChanged(nameof(LandOptionenGefiltert));
-        if (landGeaendert) OnPropertyChanged(nameof(VerbandOptionenGefiltert));
-
-        // Die beiden Notifications oben können die jeweils betroffene ComboBox veranlassen, ihre
-        // SelectedItem-Bindung transient zurückzuschreiben (WinUI-ItemsSource-Reset-Quirk) — das läuft über
-        // den GENERIERTEN Property-Setter (nicht über unsere Direktzuweisung oben), der dabei
-        // OnVerbandFilterChanged/OnLandFilterChanged mit "null" aufruft; deren Selbstkorrektur ist aber
-        // wegen des _populiertGerade-Guards hier absichtlich unterdrückt (siehe dort), sodass ein
-        // zwischenzeitliches "null" im Backing-Field stehen bleiben würde. Fund (#189): führte dazu, dass
-        // das Land-Feld nach einem Vorlagenwechsel komplett leer blieb (nicht nur fälschlich "Kein
-        // Filter") — die anschließende Benachrichtigung unten hätte sonst dieses korrumpierte "null" statt
-        // des beabsichtigten Werts gemeldet. Deshalb die Backing-Fields hier erneut auf die beabsichtigten
-        // Werte zurücksetzen, unmittelbar vor der finalen Benachrichtigung.
-#pragma warning disable MVVMTK0034
-        _verbandFilter = verband;
-        _landFilter = land;
-#pragma warning restore MVVMTK0034
+        if (verbandGeaendert) LandOptionenGefiltertSynchronisieren();
+        if (landGeaendert) VerbandOptionenGefiltertSynchronisieren();
 
         OnPropertyChanged(nameof(VerbandFilter));
         OnPropertyChanged(nameof(LandFilter));
@@ -204,28 +240,28 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     partial void OnVerbandFilterChanged(VerbandOption value)
     {
-        // WinUI setzt ComboBox.SelectedItem transient auf null, wenn ItemsSource neu zugewiesen wird
-        // (LandOptionenGefiltert liefert bei jedem Zugriff ein neues Array) — TwoWay-Binding drückt das
-        // kurzzeitig als null-value in diesen Handler, obwohl der Property-Typ nicht-nullable ist (Fund
-        // aus #297-Test: NullReferenceException beim Setzen des Verbands). Explizit auf "Kein Filter"
-        // zurücksetzen statt nur früh zurückzukehren, sonst bleibt das Backing-Field null und spätere
-        // Lesezugriffe (VerbandsQuotenSichtbar, Speichern, …) crashen ebenfalls.
+        // WinUI kann ComboBox.SelectedItem transient auf null zurückschreiben (TwoWay-Binding) — Fund aus
+        // #297-Test: NullReferenceException beim Setzen des Verbands, obwohl der Property-Typ
+        // nicht-nullable ist. Explizit auf "Kein Filter" zurücksetzen statt nur früh zurückzukehren, sonst
+        // bleibt das Backing-Field null und spätere Lesezugriffe (VerbandsQuotenSichtbar, Speichern, …)
+        // crashen ebenfalls.
         if (_populiertGerade > 0) return;
         if (value is null) { VerbandFilter = _keinVerband; return; }
         if (value.Wert is not null && !IstFifa(value.Wert)
             && LandFilter?.Wert is not null && LandFilter.Wert.VerbandId != value.Wert.Id)
             LandFilter = _keinLand;
+        CollectionSyncVerzoegern(LandOptionenGefiltertSynchronisieren);
     }
 
     partial void OnLandFilterChanged(LandOption value)
     {
-        // Siehe OnVerbandFilterChanged — derselbe ComboBox-ItemsSource-Reset-Fallstrick, hier für
-        // VerbandOptionenGefiltert.
+        // Siehe OnVerbandFilterChanged.
         if (_populiertGerade > 0) return;
         if (value is null) { LandFilter = _keinLand; return; }
         if (value.Wert is not null && VerbandFilter?.Wert is not null && !IstFifa(VerbandFilter.Wert)
             && VerbandFilter.Wert.Id != value.Wert.VerbandId)
             VerbandFilter = _keinVerband;
+        CollectionSyncVerzoegern(VerbandOptionenGefiltertSynchronisieren);
     }
 
     public IReadOnlyList<TeamfilterOption> TeamfilterOptionen =>
