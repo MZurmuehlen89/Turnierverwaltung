@@ -87,7 +87,14 @@ public partial class TurnierTabKoordinator : ObservableObject
         _initialisierungAktiv = false;
 
         AktiviereAktivenTab(vorherigesTab: null);
-        AusgewaehlteInstanzGesetzt?.Invoke(AusgewaehlteInstanz);
+
+        // Absichtlich KEIN AusgewaehlteInstanzGesetzt-Invoke hier: beide Composite-ViewModels
+        // (TurnierlisteViewModel/TurnierdurchfuehrungViewModel) awaiten den initialen Reload direkt im
+        // Anschluss an AktivierenAsync() explizit selbst (siehe dort). Ein zusätzlicher Invoke hier würde
+        // denselben Reload ein zweites Mal auslösen — der Event-Handler läuft als Fire-and-Forget parallel
+        // zum expliziten Await, der SequenziellMitDbContextSchutzAsync-Lock serialisiert die beiden Läufe
+        // dann nur nacheinander, statt sie zusammenzuführen. Root Cause von #336 (Vorbelegung-Detailbereich
+        // baute sich nach dem doppelten Reload nicht mehr auf).
     }
 
     /// <summary>Lädt die Instanzliste neu und wählt, sofern noch vorhanden, die Instanz mit

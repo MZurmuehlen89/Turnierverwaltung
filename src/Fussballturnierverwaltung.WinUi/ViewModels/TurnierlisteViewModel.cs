@@ -99,11 +99,13 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         await TurnierkopfVm.StammdatenLadenAsync();
         await TabKoordinator.AktivierenAsync();
 
-        // TabKoordinator.AktivierenAsync() löst den initialen Tab-Reload nur als Fire-and-Forget über
-        // AusgewaehlteInstanzGesetzt aus (Event-Handler können nicht awaitet werden) — ohne diesen
-        // expliziten Await hier gilt die Seite als "aktiv", bevor der erste Reload tatsächlich
-        // abgeschlossen ist. Läuft über denselben Lock wie der Event-Aufruf, wartet also einfach mit,
-        // statt ihn zu duplizieren (Precedent: TurnierdurchfuehrungViewModel.AktivierenAsync).
+        // TabKoordinator.AktivierenAsync() löst den initialen Tab-Reload bewusst NICHT selbst über
+        // AusgewaehlteInstanzGesetzt aus (siehe dortige Doku) — sonst gälte die Seite als "aktiv", bevor
+        // der erste Reload abgeschlossen ist, UND der hier folgende explizite Aufruf würde denselben
+        // Reload ein zweites Mal ausführen statt nur mitzuwarten (Root Cause von #336: der Event-Invoke
+        // lief als eigener Fire-and-Forget-Durchlauf, der SequenziellMitDbContextSchutzAsync-Lock hat die
+        // beiden Läufe nur nacheinander statt zusammengeführt ausgeführt — Vorbelegung baute sich danach
+        // nicht mehr auf). Dieser Aufruf hier ist daher der EINZIGE initiale Reload.
         await InstanzAnKindViewModelsWeiterreichenAsync(TabKoordinator.AusgewaehlteInstanz);
     }
 
