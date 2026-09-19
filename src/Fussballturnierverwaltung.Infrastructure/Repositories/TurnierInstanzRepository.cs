@@ -29,12 +29,13 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             .ToListAsync(ct);
 
     /// <summary>Issue #294: vollständiger Objektgraph für <see cref="Application.Turniere.TurnierKlonService"/>
-    /// — Runden inkl. ausgehender Übergangsregeln sowie Verbandsquoten (nie Spiele/Auslosungen/SimulationsLaeufe).</summary>
+    /// — Runden inkl. ausgehender Übergangsregeln sowie Verbands-/Landesquoten (nie Spiele/Auslosungen/SimulationsLaeufe).</summary>
     public async Task<TurnierInstanz?> FindenNachIdMitVollstaendigenDatenAsync(int id, CancellationToken ct = default)
         => await Context.TurnierInstanzen
             .Include(ti => ti.Runden.OrderBy(r => r.Reihenfolge))
                 .ThenInclude(r => r.Uebergangsregeln)
             .Include(ti => ti.VerbandsQuoten)
+            .Include(ti => ti.LandesQuoten)
             .FirstOrDefaultAsync(ti => ti.Id == id, ct);
 
     public async Task<IReadOnlyList<TurnierRunde>> RundenErsetzenAsync(int instanzId, IReadOnlyList<TurnierRunde> neueRunden, CancellationToken ct = default)

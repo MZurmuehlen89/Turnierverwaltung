@@ -33,6 +33,7 @@ public class TurnierverwaltungDbContext : DbContext
     public DbSet<TurnierRunde> TurnierRunden => Set<TurnierRunde>();
     public DbSet<Uebergangsregel> Uebergangsregeln => Set<Uebergangsregel>();
     public DbSet<VerbandsQuote> VerbandsQuoten => Set<VerbandsQuote>();
+    public DbSet<LandesQuote> LandesQuoten => Set<LandesQuote>();
 
     // Spiele
     public DbSet<Spiel> Spiele => Set<Spiel>();

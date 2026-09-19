@@ -842,6 +842,32 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.ToTable("TurnierBaumKnoten", (string)null);
                 });
 
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.LandesQuote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Anzahl")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LandId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TurnierInstanzId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LandId");
+
+                    b.HasIndex("TurnierInstanzId");
+
+                    b.ToTable("LandesQuoten", (string)null);
+                });
+
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", b =>
                 {
                     b.Property<int>("Id")
@@ -1376,6 +1402,25 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("TurnierBaum");
                 });
 
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.LandesQuote", b =>
+                {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Land", "Land")
+                        .WithMany()
+                        .HasForeignKey("LandId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", "TurnierInstanz")
+                        .WithMany("LandesQuoten")
+                        .HasForeignKey("TurnierInstanzId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Land");
+
+                    b.Navigation("TurnierInstanz");
+                });
+
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", b =>
                 {
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Land", "Land")
@@ -1512,6 +1557,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", b =>
                 {
                     b.Navigation("Auslosungen");
+
+                    b.Navigation("LandesQuoten");
 
                     b.Navigation("Runden");
 

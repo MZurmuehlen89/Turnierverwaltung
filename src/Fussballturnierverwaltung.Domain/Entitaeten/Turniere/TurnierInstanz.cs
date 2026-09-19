@@ -33,4 +33,5 @@ public class TurnierInstanz : BasisEntitaet
     public ICollection<Auslosung> Auslosungen { get; set; } = new List<Auslosung>();
     public ICollection<SimulationsLauf> SimulationsLaeufe { get; set; } = new List<SimulationsLauf>();
     public ICollection<VerbandsQuote> VerbandsQuoten { get; set; } = new List<VerbandsQuote>();
+    public ICollection<LandesQuote> LandesQuoten { get; set; } = new List<LandesQuote>();
 }
