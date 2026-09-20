@@ -20,6 +20,14 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// sich die Protokoll-Formatierung mit SimulationsViewModel über SimulationsProtokollHelfer statt sie
 /// zu duplizieren. <see cref="VerbandFilterOption"/> ist die bereits in MannschaftenViewModel
 /// definierte, hier wiederverwendete Filter-Option (public record, gleicher Namespace).
+///
+/// #248: Bei aktiviertem "Mit Rückspiel" ersetzen zwei unabhängige Schritte (Hinspiel/Rückspiel
+/// simulieren, je eigener Ribbon-Befehl) die vormals kombinierte Ein-Klick-Simulation beider Beine.
+/// Das Hinspiel-Ergebnis ist zusätzlich manuell vorgebbar (Sidebar-Eingabe, dauerhaft sichtbar und
+/// vorausgefüllt, nicht nur vor der ersten Simulation — sonst gäbe es nach dem Simulieren keine
+/// Korrekturmöglichkeit mehr). Jede Änderung des Hinspiel-Ergebnisses (erneutes Simulieren ODER
+/// manuelles Übernehmen) verwirft ein bereits vorhandenes Rückspiel-Ergebnis, da dessen
+/// Entscheidungsverfahren vom alten Hinspiel-Aggregat abhing.
 /// </summary>
 public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAware
 {
@@ -46,7 +54,10 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     private Mannschaft? _einzelspielAuswaerts;
 
     [ObservableProperty] private Regelwerk? _einzelspielRegelwerk;
-    [ObservableProperty] private bool       _einzelspielMitRueckspiel;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
+    private bool _einzelspielMitRueckspiel;
 
     // Verband-Filter + Suche je Seite — Heim und Auswaerts unabhaengig voneinander filterbar.
     // Nullable + On...Changed-Reset (Precedent: MannschaftenViewModel/TurnierkopfViewModel): eine
@@ -98,7 +109,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         EinzelspielHeim != EinzelspielAuswaerts &&
         !IstLadend;
 
-    // ── Protokoll ─────────────────────────────────────────────────────────────
+    // ── Protokoll: ohne Rückspiel (unverändert, SpielberichtControl) ────────────
 
     [ObservableProperty] private string? _protokollSpielInfo;
 
@@ -108,6 +119,40 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     public bool HatProtokoll           => ProtokollZeilen.Count > 0;
     public bool HatProtokollEreignisse => ProtokollEreignisse.Count > 0;
     public bool ZeigeLeerZustand       => !HatProtokoll;
+
+    // ── Protokoll: mit Rückspiel (#248, zweistufig, aufklappbare Karten) ────────
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RueckspielSimulierenKann))]
+    [NotifyPropertyChangedFor(nameof(HatHinspielErgebnis))]
+    [NotifyPropertyChangedFor(nameof(ZeigeHinRueckLeerZustand))]
+    private SimulationsErgebnis? _hinspielErgebnis;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatRueckspielErgebnis))]
+    private SimulationsErgebnis? _rueckspielErgebnis;
+
+    public bool HatHinspielErgebnis   => HinspielErgebnis is not null;
+    public bool HatRueckspielErgebnis => RueckspielErgebnis is not null;
+
+    // Manuelle Eingabe: dauerhaft sichtbar (auch nach Simulation), vorausgefüllt mit dem jeweils
+    // aktuellen Hinspiel-Ergebnis — sonst gäbe es nach dem ersten Simulieren keine Möglichkeit mehr,
+    // das Hinspiel manuell zu korrigieren (Nutzer-Fund bei der Mockup-Abstimmung zu #248).
+    [ObservableProperty] private int _hinspielHeimToreEingabe;
+    [ObservableProperty] private int _hinspielAuswaertsToreEingabe;
+
+    [ObservableProperty] private bool _hinspielOffen;
+    [ObservableProperty] private bool _rueckspielOffen;
+
+    [ObservableProperty] private ProtokollErgebnisZeile? _hinspielZeile;
+    [ObservableProperty] private ProtokollErgebnisZeile? _rueckspielZeile;
+    [ObservableProperty] private ProtokollErgebnisZeile? _gesamtZeile;
+    [ObservableProperty] private ProtokollErgebnisZeile? _weiterZeile;
+
+    public ObservableCollection<EinzelspielEreignisZeile> HinspielEreignisse   { get; } = [];
+    public ObservableCollection<EinzelspielEreignisZeile> RueckspielEreignisse { get; } = [];
+
+    public bool ZeigeHinRueckLeerZustand => !HatHinspielErgebnis;
 
     // ── Status ────────────────────────────────────────────────────────────────
 
@@ -119,7 +164,13 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
     // ── Befehle ───────────────────────────────────────────────────────────────
 
-    public ICommand EinzelspielFreiBefehl { get; }
+    public ICommand EinzelspielFreiBefehl        { get; }
+    public ICommand HinspielSimulierenBefehl     { get; }
+    public ICommand RueckspielSimulierenBefehl   { get; }
+    public ICommand HinspielUebernehmenBefehl    { get; }
+
+    public bool RueckspielSimulierenKann =>
+        EinzelspielKannSimuliert && EinzelspielMitRueckspiel && HatHinspielErgebnis;
 
     // ── IRibbonAware ─────────────────────────────────────────────────────────
     // Weder Neu/Speichern/Abbrechen/Löschen haben hier eine Entsprechung — Simulieren schreibt
@@ -135,20 +186,40 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     public bool HatStandardAktionen => false;
     public bool HatLoeschenAktion   => false;
 
+    // #248: Bei "Mit Rückspiel" ersetzen zwei unabhängige Buttons den einen kombinierten — die
+    // MainViewModel-Weiterleitung reagiert nur auf PropertyChanged(RibbonZusatzGruppen) selbst
+    // (nicht auf beliebige andere Properties dieses ViewModels), daher hängt
+    // [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))] an _einzelspielMitRueckspiel oben.
     public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
     [
         new RibbonGruppe
         {
             Header = "Simulation",
-            Aktionen =
-            [
-                new RibbonAktion
-                {
-                    Header = "Einzelspiel simulieren",
-                    Befehl = EinzelspielFreiBefehl,
-                    IconGlyph = "",
-                },
-            ],
+            Aktionen = EinzelspielMitRueckspiel
+                ?
+                [
+                    new RibbonAktion
+                    {
+                        Header = "Hinspiel simulieren",
+                        Befehl = HinspielSimulierenBefehl,
+                        IconGlyph = "",
+                    },
+                    new RibbonAktion
+                    {
+                        Header = "Rückspiel simulieren",
+                        Befehl = RueckspielSimulierenBefehl,
+                        IconGlyph = "",
+                    },
+                ]
+                :
+                [
+                    new RibbonAktion
+                    {
+                        Header = "Einzelspiel simulieren",
+                        Befehl = EinzelspielFreiBefehl,
+                        IconGlyph = "",
+                    },
+                ],
         },
     ];
 
@@ -165,7 +236,10 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         _regelwerkService    = regelwerkService;
         _verbandService      = verbandService;
 
-        EinzelspielFreiBefehl = new AsyncRelayCommand(EinzelspielFreiSimulierenAsync, () => EinzelspielKannSimuliert);
+        EinzelspielFreiBefehl      = new AsyncRelayCommand(EinzelspielFreiSimulierenAsync, () => EinzelspielKannSimuliert && !EinzelspielMitRueckspiel);
+        HinspielSimulierenBefehl   = new AsyncRelayCommand(HinspielSimulierenAsync, () => EinzelspielKannSimuliert);
+        RueckspielSimulierenBefehl = new AsyncRelayCommand(RueckspielSimulierenAsync, () => RueckspielSimulierenKann && !IstLadend);
+        HinspielUebernehmenBefehl  = new RelayCommand(HinspielUebernehmen, () => EinzelspielKannSimuliert);
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
@@ -200,12 +274,22 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             case nameof(IstLadend):
             case nameof(EinzelspielHeim):
             case nameof(EinzelspielAuswaerts):
+            case nameof(EinzelspielMitRueckspiel):
+            case nameof(HinspielErgebnis):
                 AktualisiereBefehle();
                 break;
         }
     }
 
-    // ── Freie Simulation ──────────────────────────────────────────────────────
+    // #248: Wechsel von/zu "Mit Rückspiel" setzt den kompletten zweistufigen Zwischenstand zurück —
+    // ein Hinspiel-Ergebnis aus dem jeweils anderen Modus ergibt sonst keinen Sinn mehr.
+    partial void OnEinzelspielMitRueckspielChanged(bool value)
+    {
+        LeerProtokoll();
+        LeerHinRueckProtokoll();
+    }
+
+    // ── Freie Simulation (ohne Rückspiel) ────────────────────────────────────
 
     private async Task EinzelspielFreiSimulierenAsync()
     {
@@ -224,117 +308,26 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
         try
         {
-            if (EinzelspielMitRueckspiel)
-            {
-                var rng = new Random();
+            var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, SimulationsModus.AusfuehrlicheSimulation);
+            var (score, detail) = SimulationsProtokollHelfer.ScoreUndDetail(erg);
+            byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(heim);
+            byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(auswaerts);
+            ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
+            ProtokollZeilen.Add(new ProtokollErgebnisZeile(
+                null,
+                heim.Name, heimWappen,
+                score,
+                auswaerts.Name, auswaertsWappen,
+                detail));
 
-                // Hinspiel läuft immer ohne Entscheidungsverfahren (leeres verfahren) — ein bei 90
-                // Minuten unentschiedenes Hinspiel braucht für sich allein keine Verlängerung, das
-                // entscheidet erst das Aggregat nach dem Rückspiel (Precedent: WPF-Original, #237).
-                var erg1 = _simulationsService.EinzelspielSimulieren(heim, auswaerts, [], SimulationsModus.AusfuehrlicheSimulation, rng);
-                var erg2 = _simulationsService.EinzelspielSimulieren(auswaerts, heim, [], SimulationsModus.AusfuehrlicheSimulation, rng);
-
-                int heimGesamtRegulaer      = erg1.HeimToreRegulaer      + erg2.AuswaertsToreRegulaer;
-                int auswaertsGesamtRegulaer = erg1.AuswaertsToreRegulaer + erg2.HeimToreRegulaer;
-
-                // Aggregat nach 180 Minuten unentschieden → Rückspiel geht gemäß Regelwerk in die
-                // Verlängerung (und ggf. Elfmeterschießen) — angewandt auf erg2, da die Verlängerung
-                // real im Stadion des Rückspiels gespielt würde. Rollen bei EntscheidungsverfahrenAnwenden
-                // entsprechen erg2s eigener Heim/Auswärts-Zuordnung (auswaerts spielt zu Hause).
-                if (heimGesamtRegulaer == auswaertsGesamtRegulaer && verfahren.Count > 0)
-                {
-                    var (hv, gv, he, ge, art, extras) =
-                        SimulationsEngine.EntscheidungsverfahrenAnwenden(auswaerts, heim, verfahren, ausfuehrlich: true, rng);
-                    erg2 = erg2 with
-                    {
-                        HeimToreVerlaengerung = hv, AuswaertsToreVerlaengerung = gv,
-                        HeimElfmetertore = he, AuswaertsElfmetertore = ge,
-                        EntscheidungArt = art,
-                        Ereignisse = [.. erg2.Ereignisse, .. extras],
-                    };
-                }
-
-                int heimGesamt      = heimGesamtRegulaer      + (erg2.AuswaertsToreVerlaengerung ?? 0);
-                int auswaertsGesamt = auswaertsGesamtRegulaer + (erg2.HeimToreVerlaengerung ?? 0);
-
-                string weiter;
-                if (heimGesamt != auswaertsGesamt)
-                    weiter = heimGesamt > auswaertsGesamt ? heim.Name : auswaerts.Name;
-                else if (erg2 is { EntscheidungArt: EntscheidungArt.Elfmeterschiessen, HeimElfmetertore: not null, AuswaertsElfmetertore: not null })
-                    weiter = erg2.HeimElfmetertore > erg2.AuswaertsElfmetertore ? auswaerts.Name : heim.Name; // erg2 "Heim" = auswaerts
-                else
-                    weiter = "Unentschieden";
-
-                byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(heim);
-                byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(auswaerts);
-
-                var (score1, detail1) = SimulationsProtokollHelfer.ScoreUndDetail(erg1);
-                var (score2, detail2) = SimulationsProtokollHelfer.ScoreUndDetail(erg2);
-
-                ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name} (Hin & Rück)";
-                ProtokollZeilen.Add(new ProtokollErgebnisZeile(
-                    "Hinspiel", heim.Name, heimWappen, score1, auswaerts.Name, auswaertsWappen, detail1));
-                ProtokollZeilen.Add(new ProtokollErgebnisZeile(
-                    "Rückspiel", auswaerts.Name, auswaertsWappen, score2, heim.Name, heimWappen, detail2));
-                ProtokollZeilen.Add(new ProtokollErgebnisZeile(
-                    "Gesamt", heim.Name, heimWappen, $"{heimGesamt}:{auswaertsGesamt}", auswaerts.Name, auswaertsWappen));
-                ProtokollZeilen.Add(ProtokollErgebnisZeile.Text("Weiter", weiter));
-
-                // HINSPIEL/RÜCKSPIEL-Abschnittsköpfe statt Minutenpräfixe — sonst wären die beiden
-                // Halbzeit-Trenner (je Bein einer) in der Zeitleisten-Grafik nicht unterscheidbar.
-                // Abpfiff-Marke pro Bein wird beim Rückspiel unterdrückt, stattdessen eine
-                // Gesamt-Marke am Ende angehängt (Precedent: WPF-Original, #237).
-                ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner("HINSPIEL", TrennerArt.Beinabschnitt));
-                SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
-                    ProtokollEreignisse,
-                    erg1.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
-                    heim.Name, auswaerts.Name, erg1.EntscheidungArt,
-                    erg1.HeimToreRegulaer, erg1.AuswaertsToreRegulaer,
-                    erg1.HeimToreVerlaengerung, erg1.AuswaertsToreVerlaengerung,
-                    erg1.HeimElfmetertore, erg1.AuswaertsElfmetertore,
-                    heimWappen, auswaertsWappen,
-                    abpfiffPraefix: "ENDE HINSPIEL");
-
-                ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner("RÜCKSPIEL", TrennerArt.Beinabschnitt));
-                // Rückspiel-Ereignisse bewusst NICHT mehr auf die feste Heim/Auswärts-Seite des
-                // Hinspiels zurückgespiegelt — Auswärts hat im Rückspiel Heimrecht, die Zeitleiste
-                // zeigt das (Achsen-links = jeweiliges Heimteam der Zeile). erg2 wird dafür einfach
-                // in seiner eigenen, natürlichen Heim/Auswärts-Rolle übergeben (Precedent: WPF-Original, #237).
-                SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
-                    ProtokollEreignisse,
-                    erg2.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
-                    auswaerts.Name, heim.Name, erg2.EntscheidungArt,
-                    erg2.HeimToreRegulaer, erg2.AuswaertsToreRegulaer,
-                    erg2.HeimToreVerlaengerung, erg2.AuswaertsToreVerlaengerung,
-                    erg2.HeimElfmetertore, erg2.AuswaertsElfmetertore,
-                    auswaertsWappen, heimWappen,
-                    anpfiffText: null, abpfiffPraefix: null);
-                ProtokollEreignisse.Add(EinzelspielEreignisZeile.Trenner(
-                    $"ABPFIFF · Gesamt {heimGesamt}:{auswaertsGesamt}", TrennerArt.Ende));
-            }
-            else
-            {
-                var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, SimulationsModus.AusfuehrlicheSimulation);
-                var (score, detail) = SimulationsProtokollHelfer.ScoreUndDetail(erg);
-                byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(heim);
-                byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(auswaerts);
-                ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
-                ProtokollZeilen.Add(new ProtokollErgebnisZeile(
-                    null,
-                    heim.Name, heimWappen,
-                    score,
-                    auswaerts.Name, auswaertsWappen,
-                    detail));
-
-                SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
-                    ProtokollEreignisse,
-                    erg.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
-                    heim.Name, auswaerts.Name, erg.EntscheidungArt,
-                    erg.HeimToreRegulaer, erg.AuswaertsToreRegulaer,
-                    erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
-                    erg.HeimElfmetertore, erg.AuswaertsElfmetertore,
-                    heimWappen, auswaertsWappen);
-            }
+            SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
+                ProtokollEreignisse,
+                erg.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
+                heim.Name, auswaerts.Name, erg.EntscheidungArt,
+                erg.HeimToreRegulaer, erg.AuswaertsToreRegulaer,
+                erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
+                erg.HeimElfmetertore, erg.AuswaertsElfmetertore,
+                heimWappen, auswaertsWappen);
         }
         catch (Exception ex)
         {
@@ -350,6 +343,190 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         }
     }
 
+    // ── Hinspiel/Rückspiel unabhängig (#248) ─────────────────────────────────
+
+    private async Task HinspielSimulierenAsync()
+    {
+        if (EinzelspielHeim is null || EinzelspielAuswaerts is null) return;
+
+        var heim      = EinzelspielHeim;
+        var auswaerts = EinzelspielAuswaerts;
+
+        Fehlermeldung = null;
+        IstLadend     = true;
+
+        await Task.Yield();
+
+        try
+        {
+            // Hinspiel läuft immer ohne Entscheidungsverfahren (leeres verfahren) — ein bei 90
+            // Minuten unentschiedenes Hinspiel braucht für sich allein keine Verlängerung, das
+            // entscheidet erst das Aggregat nach dem Rückspiel (Precedent: WPF-Original, #237).
+            var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, [], SimulationsModus.AusfuehrlicheSimulation);
+            HinspielUebernehmen(erg);
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstLadend = false;
+            AktualisiereBefehle();
+        }
+    }
+
+    // Manuelle Eingabe — teilt sich die Übernahme-Logik mit dem Simulieren-Pfad: ein manuell
+    // eingegebenes Ergebnis ist einfach ein SimulationsErgebnis ohne Ereignisse und ohne
+    // Verlängerung/Elfmeterschießen (Hinspiel kennt beides ohnehin nicht, s.o.) — dadurch bleibt die
+    // Zeitleiste für diesen Fall leer, ganz ohne Sonderbehandlung (ZeitleisteHinzufuegen steigt bei
+    // Ereignisse.Count==0 früh aus).
+    private void HinspielUebernehmen()
+    {
+        var erg = new SimulationsErgebnis(
+            HinspielHeimToreEingabe, HinspielAuswaertsToreEingabe,
+            null, null, null, null,
+            EntscheidungArt.RegulaereSpielzeit, []);
+        HinspielUebernehmen(erg);
+    }
+
+    private void HinspielUebernehmen(SimulationsErgebnis erg)
+    {
+        if (EinzelspielHeim is null || EinzelspielAuswaerts is null) return;
+
+        var heim      = EinzelspielHeim;
+        var auswaerts = EinzelspielAuswaerts;
+
+        HinspielErgebnis = erg;
+        RueckspielErgebnis = null; // ein verändertes Hinspiel macht ein bestehendes Rückspiel ungültig
+        RueckspielZeile = null;
+        GesamtZeile = null;
+        WeiterZeile = null;
+        RueckspielEreignisse.Clear();
+        HinspielEreignisse.Clear();
+
+        HinspielHeimToreEingabe      = erg.HeimToreRegulaer;
+        HinspielAuswaertsToreEingabe = erg.AuswaertsToreRegulaer;
+
+        byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(heim);
+        byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(auswaerts);
+        var (score, detail) = SimulationsProtokollHelfer.ScoreUndDetail(erg);
+
+        ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name} (Hin & Rück)";
+        HinspielZeile = new ProtokollErgebnisZeile(
+            "Hinspiel", heim.Name, heimWappen, score, auswaerts.Name, auswaertsWappen, detail);
+
+        SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
+            HinspielEreignisse,
+            erg.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
+            heim.Name, auswaerts.Name, erg.EntscheidungArt,
+            erg.HeimToreRegulaer, erg.AuswaertsToreRegulaer,
+            erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
+            erg.HeimElfmetertore, erg.AuswaertsElfmetertore,
+            heimWappen, auswaertsWappen);
+
+        // Hinspiel steht fest → aufgeklappt; ein vorheriges Rückspiel ist jetzt ungültig → eingeklappt.
+        HinspielOffen   = true;
+        RueckspielOffen = false;
+
+        OnPropertyChanged(nameof(HatHinspielEreignisse));
+        OnPropertyChanged(nameof(HatRueckspielEreignisse));
+        OnPropertyChanged(nameof(ZeigeHinRueckLeerZustand));
+        AktualisiereBefehle();
+    }
+
+    public bool HatHinspielEreignisse   => HinspielEreignisse.Count > 0;
+    public bool HatRueckspielEreignisse => RueckspielEreignisse.Count > 0;
+
+    private async Task RueckspielSimulierenAsync()
+    {
+        if (EinzelspielHeim is null || EinzelspielAuswaerts is null || HinspielErgebnis is null) return;
+
+        var heim      = EinzelspielHeim;
+        var auswaerts = EinzelspielAuswaerts;
+        var erg1      = HinspielErgebnis;
+        var verfahren = EinzelspielRegelwerk?.Entscheidungsverfahren.ToList()
+                        ?? (IReadOnlyList<EntscheidungsVerfahren>)[];
+
+        Fehlermeldung = null;
+        IstLadend     = true;
+
+        await Task.Yield();
+
+        try
+        {
+            var rng = new Random();
+            var erg2 = _simulationsService.EinzelspielSimulieren(auswaerts, heim, [], SimulationsModus.AusfuehrlicheSimulation, rng);
+
+            int heimGesamtRegulaer      = erg1.HeimToreRegulaer      + erg2.AuswaertsToreRegulaer;
+            int auswaertsGesamtRegulaer = erg1.AuswaertsToreRegulaer + erg2.HeimToreRegulaer;
+
+            // Aggregat nach 180 Minuten unentschieden → Rückspiel geht gemäß Regelwerk in die
+            // Verlängerung (und ggf. Elfmeterschießen) — angewandt auf erg2, da die Verlängerung
+            // real im Stadion des Rückspiels gespielt würde. Rollen bei EntscheidungsverfahrenAnwenden
+            // entsprechen erg2s eigener Heim/Auswärts-Zuordnung (auswaerts spielt zu Hause).
+            if (heimGesamtRegulaer == auswaertsGesamtRegulaer && verfahren.Count > 0)
+            {
+                var (hv, gv, he, ge, art, extras) =
+                    SimulationsEngine.EntscheidungsverfahrenAnwenden(auswaerts, heim, verfahren, ausfuehrlich: true, rng);
+                erg2 = erg2 with
+                {
+                    HeimToreVerlaengerung = hv, AuswaertsToreVerlaengerung = gv,
+                    HeimElfmetertore = he, AuswaertsElfmetertore = ge,
+                    EntscheidungArt = art,
+                    Ereignisse = [.. erg2.Ereignisse, .. extras],
+                };
+            }
+
+            RueckspielErgebnis = erg2;
+
+            int heimGesamt      = heimGesamtRegulaer      + (erg2.AuswaertsToreVerlaengerung ?? 0);
+            int auswaertsGesamt = auswaertsGesamtRegulaer + (erg2.HeimToreVerlaengerung ?? 0);
+
+            string weiter;
+            if (heimGesamt != auswaertsGesamt)
+                weiter = heimGesamt > auswaertsGesamt ? heim.Name : auswaerts.Name;
+            else if (erg2 is { EntscheidungArt: EntscheidungArt.Elfmeterschiessen, HeimElfmetertore: not null, AuswaertsElfmetertore: not null })
+                weiter = erg2.HeimElfmetertore > erg2.AuswaertsElfmetertore ? auswaerts.Name : heim.Name; // erg2 "Heim" = auswaerts
+            else
+                weiter = "Unentschieden";
+
+            byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(heim);
+            byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(auswaerts);
+            var (score2, detail2) = SimulationsProtokollHelfer.ScoreUndDetail(erg2);
+
+            RueckspielZeile = new ProtokollErgebnisZeile(
+                "Rückspiel", auswaerts.Name, auswaertsWappen, score2, heim.Name, heimWappen, detail2);
+            GesamtZeile = new ProtokollErgebnisZeile(
+                "Gesamt", heim.Name, heimWappen, $"{heimGesamt}:{auswaertsGesamt}", auswaerts.Name, auswaertsWappen);
+            WeiterZeile = ProtokollErgebnisZeile.Text("Weiter", weiter);
+
+            RueckspielEreignisse.Clear();
+            SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
+                RueckspielEreignisse,
+                erg2.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
+                auswaerts.Name, heim.Name, erg2.EntscheidungArt,
+                erg2.HeimToreRegulaer, erg2.AuswaertsToreRegulaer,
+                erg2.HeimToreVerlaengerung, erg2.AuswaertsToreVerlaengerung,
+                erg2.HeimElfmetertore, erg2.AuswaertsElfmetertore,
+                auswaertsWappen, heimWappen);
+
+            // Rückspiel steht fest → aufgeklappt, Hinspiel klappt automatisch ein (Nutzer-Vorgabe #248).
+            HinspielOffen   = false;
+            RueckspielOffen = true;
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstLadend = false;
+            AktualisiereBefehle();
+            OnPropertyChanged(nameof(HatRueckspielEreignisse));
+        }
+    }
+
     private void LeerProtokoll()
     {
         ProtokollSpielInfo = null;
@@ -360,8 +537,30 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         OnPropertyChanged(nameof(ZeigeLeerZustand));
     }
 
+    private void LeerHinRueckProtokoll()
+    {
+        HinspielErgebnis = null;
+        RueckspielErgebnis = null;
+        HinspielZeile = null;
+        RueckspielZeile = null;
+        GesamtZeile = null;
+        WeiterZeile = null;
+        HinspielEreignisse.Clear();
+        RueckspielEreignisse.Clear();
+        HinspielHeimToreEingabe = 0;
+        HinspielAuswaertsToreEingabe = 0;
+        HinspielOffen = false;
+        RueckspielOffen = false;
+        OnPropertyChanged(nameof(HatHinspielEreignisse));
+        OnPropertyChanged(nameof(HatRueckspielEreignisse));
+        OnPropertyChanged(nameof(ZeigeHinRueckLeerZustand));
+    }
+
     private void AktualisiereBefehle()
     {
         ((AsyncRelayCommand)EinzelspielFreiBefehl).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)HinspielSimulierenBefehl).NotifyCanExecuteChanged();
+        ((AsyncRelayCommand)RueckspielSimulierenBefehl).NotifyCanExecuteChanged();
+        ((RelayCommand)HinspielUebernehmenBefehl).NotifyCanExecuteChanged();
     }
 }

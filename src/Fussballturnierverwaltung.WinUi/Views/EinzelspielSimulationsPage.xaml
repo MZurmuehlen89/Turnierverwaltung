@@ -9,7 +9,15 @@
 
     <!-- #289, 1:1-Port aus Wpf/Views/EinzelspielSimulationsView.xaml — linke Spalte Team-Auswahl,
          rechte Spalte vereinheitlichte Spielbericht-Karte (SpielberichtControl, geteilt mit
-         SimulationsView aus #302). -->
+         SimulationsView aus #302).
+
+         #248: Bei "Mit Rückspiel" ersetzt eine eigene, kompaktere Protokoll-Darstellung
+         (HinRueckProtokollBereich unten) die SpielberichtControl — zwei aufklappbare Karten
+         (Hinspiel/Rückspiel, WinUI-Expander) statt einer kombinierten Zeitleiste, da der Spielverlauf
+         jetzt je Bein direkt in dessen Karte steht statt in einem gemeinsamen Abschnitt am Ende.
+         Bewusst eigene, kleinere Kopie der Zeitleisten-Vorlage aus SpielberichtControl.xaml statt
+         Wiederverwendung — SpielberichtControl rendert eine eigene Karte mit großem Scoreboard-Kopf,
+         die innerhalb eines Expanders verschachtelt unpassend doppelte Rahmen/Chrome ergäbe. -->
 
     <UserControl.Resources>
         <!-- Wappen bzw. bei Nationalmannschaften Landesflagge (Issue #230/#232, Precedent:
@@ -23,9 +31,136 @@
                 <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center" />
             </StackPanel>
         </DataTemplate>
+
+        <Style x:Key="MiniTrennerPillText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="9" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
+        <!-- Ereignis-Icon je Art, 1:1 aus SpielberichtControl.xaml (eigene Kopie, s. Kommentar oben). -->
+        <DataTemplate x:Key="MiniEreignisIconVorlage">
+            <Grid Width="13" Height="13">
+                <Viewbox Visibility="{Binding IstTor, Converter={StaticResource BoolToVisibility}}">
+                    <Canvas Width="24" Height="24">
+                        <Ellipse Width="24" Height="24" Stroke="{ThemeResource SystemFillColorSuccessBrush}" StrokeThickness="2" />
+                        <Path Data="M12 7l3 2.2-1.1 3.5H10.1L9 9.2z" Fill="{ThemeResource SystemFillColorSuccessBrush}" />
+                    </Canvas>
+                </Viewbox>
+                <Rectangle Width="9" Height="12" RadiusX="2" RadiusY="2" Fill="{ThemeResource SystemFillColorCautionBrush}"
+                           Visibility="{Binding IstGelbeKarte, Converter={StaticResource BoolToVisibility}}" />
+                <Rectangle Width="9" Height="12" RadiusX="2" RadiusY="2" Fill="{ThemeResource SystemFillColorCriticalBrush}"
+                           Visibility="{Binding IstRoteKarte, Converter={StaticResource BoolToVisibility}}" />
+                <Viewbox Visibility="{Binding IstElfmeterVerschossen, Converter={StaticResource BoolToVisibility}}">
+                    <Canvas Width="24" Height="24">
+                        <Ellipse Width="24" Height="24" Stroke="{ThemeResource SystemFillColorCriticalBrush}" StrokeThickness="2" />
+                        <Path Data="M9 9l6 6M15 9l-6 6" Stroke="{ThemeResource SystemFillColorCriticalBrush}" StrokeThickness="2" />
+                    </Canvas>
+                </Viewbox>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Eine Zeile der Mini-Zeitleiste innerhalb einer Hinspiel-/Rückspiel-Karte — Mittelachse mit
+             Minuten-Pille, Ereignis auf der jeweiligen Team-Seite (kompaktere Kopie des ItemTemplates aus
+             SpielberichtControl.xaml, ohne Wappen-Bild — bei freier Simulation zweier beliebiger Teams
+             lohnt sich der Bild-Ladeaufwand hier nicht extra je Zeile). -->
+        <DataTemplate x:Key="MiniZeitleisteZeileVorlage" x:DataType="vm:EinzelspielEreignisZeile">
+            <Grid>
+                <Grid Margin="0,4" Visibility="{Binding IstTrenner, Converter={StaticResource InverseBoolToVisibility}}"
+                      ColumnDefinitions="*,40,*">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Right"
+                                Visibility="{Binding IstHeimSeite, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{Binding Art}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <ContentPresenter Content="{Binding}" Margin="6,0,0,0"
+                                           ContentTemplate="{StaticResource MiniEreignisIconVorlage}" />
+                    </StackPanel>
+                    <Grid Grid.Column="1" HorizontalAlignment="Center">
+                        <Border CornerRadius="999" Padding="5,2" BorderThickness="1"
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                Visibility="{Binding IstTor, Converter={StaticResource InverseBoolToVisibility}}">
+                            <TextBlock Text="{Binding Minute}" FontSize="9" FontFamily="Consolas" Opacity="0.6" />
+                        </Border>
+                        <Border CornerRadius="999" Padding="5,2" BorderThickness="1"
+                                Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                                BorderBrush="{ThemeResource SystemFillColorSuccessBrush}"
+                                Visibility="{Binding IstTor, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding Minute}" FontSize="9" FontFamily="Consolas"
+                                       Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                        </Border>
+                    </Grid>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Left"
+                                Visibility="{Binding IstHeimSeite, Converter={StaticResource InverseBoolToVisibility}}">
+                        <ContentPresenter Content="{Binding}" Margin="0,0,6,0"
+                                           ContentTemplate="{StaticResource MiniEreignisIconVorlage}" />
+                        <TextBlock Text="{Binding Art}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Abschnittstrenner mit Linie (HALBZEIT etc.) -->
+                <Grid Margin="0,8" Visibility="{Binding ZeigtAlsAbschnittMitLinie, Converter={StaticResource BoolToVisibility}}">
+                    <Border VerticalAlignment="Center" Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+                    <Border HorizontalAlignment="Center" CornerRadius="999" Padding="8,2" BorderThickness="1"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            Visibility="{Binding IstElfmeterTrenner, Converter={StaticResource InverseBoolToVisibility}}">
+                        <TextBlock Text="{Binding TrennerText}" Opacity="0.6" Style="{StaticResource MiniTrennerPillText}" />
+                    </Border>
+                    <Border HorizontalAlignment="Center" CornerRadius="999" Padding="8,2" BorderThickness="1"
+                            Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                            BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
+                            Visibility="{Binding IstElfmeterTrenner, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{Binding TrennerText}" Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                   Style="{StaticResource MiniTrennerPillText}" />
+                    </Border>
+                </Grid>
+
+                <!-- Eigenständige Marke ohne Linie (Anpfiff/Abpfiff) -->
+                <Grid Margin="0,4" Visibility="{Binding ZeigtAlsEigenstaendigeMarke, Converter={StaticResource BoolToVisibility}}">
+                    <Border HorizontalAlignment="Center" CornerRadius="999" Padding="8,2"
+                            Background="{ThemeResource TextFillColorSecondaryBrush}">
+                        <TextBlock Text="{Binding TrennerText}" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                   Style="{StaticResource MiniTrennerPillText}" />
+                    </Border>
+                </Grid>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Kopfzeile einer Hinspiel-/Rückspiel-Karte (Expander.Header) — Team vs. Team + Score, analog
+             zur Beinzeile in SpielberichtControl.xaml, aber als eigenständige Kartenüberschrift statt
+             kompakter Textzeile. -->
+        <DataTemplate x:Key="BeinKopfVorlage" x:DataType="vm:ProtokollErgebnisZeile">
+            <Grid ColumnDefinitions="56,*,Auto,*" Padding="4,2">
+                <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="11" FontWeight="Bold" Opacity="0.55"
+                           VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <TextBlock Text="{Binding HeimName}" FontSize="13" VerticalAlignment="Center" />
+                    <Grid Width="18" Height="18" VerticalAlignment="Center">
+                        <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                               Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                               Stretch="Uniform" />
+                    </Grid>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="12,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Score}" FontSize="15" FontWeight="Bold" FontFamily="Consolas" />
+                    <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                               Margin="6,0,0,0" VerticalAlignment="Center"
+                               Visibility="{Binding HatDetail, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+                <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Left" Spacing="8">
+                    <Grid Width="18" Height="18" VerticalAlignment="Center">
+                        <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                               Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                               Stretch="Uniform" />
+                    </Grid>
+                    <TextBlock Text="{Binding AuswaertsName}" FontSize="13" VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
     </UserControl.Resources>
 
-    <Grid ColumnDefinitions="260,1,*">
+    <!-- Sidebar-Breite 347 = 260 * 4/3 (ein Drittel breiter, Nutzer-Vorgabe #248-Feinschliff) -->
+    <Grid ColumnDefinitions="347,1,*">
 
         <!-- ── Linke Spalte: Team-Auswahl ── -->
         <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto"
@@ -74,6 +209,25 @@
                 <CheckBox Content="Mit Rückspiel" IsChecked="{Binding EinzelspielMitRueckspiel, Mode=TwoWay}"
                           FontSize="13" Margin="0,14,0,0" />
 
+                <!-- #248: manuelle Hinspiel-Eingabe — dauerhaft sichtbar (nicht nur vor der ersten
+                     Simulation!) und mit dem jeweils aktuellen Ergebnis vorausgefüllt, sonst gäbe es
+                     nach dem Simulieren keine Korrekturmöglichkeit mehr. "Hinspiel simulieren" steht
+                     nur oben im Ribbon, nicht nochmal hier als Button. -->
+                <StackPanel Visibility="{Binding EinzelspielMitRueckspiel, Converter={StaticResource BoolToVisibility}}">
+                    <Rectangle Height="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Margin="0,14,0,14" />
+                    <TextBlock Text="HINSPIEL-ERGEBNIS" FontSize="10" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,10" />
+                    <Grid ColumnDefinitions="*,16,*" Margin="0,0,0,10">
+                        <NumberBox Grid.Column="0" Header="{Binding EinzelspielHeim.Name}"
+                                   Value="{Binding HinspielHeimToreEingabe, Mode=TwoWay}"
+                                   Minimum="0" SpinButtonPlacementMode="Compact" />
+                        <NumberBox Grid.Column="2" Header="{Binding EinzelspielAuswaerts.Name}"
+                                   Value="{Binding HinspielAuswaertsToreEingabe, Mode=TwoWay}"
+                                   Minimum="0" SpinButtonPlacementMode="Compact" />
+                    </Grid>
+                    <Button Content="Übernehmen" Command="{Binding HinspielUebernehmenBefehl}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                </StackPanel>
+
             </StackPanel>
         </ScrollViewer>
 
@@ -100,8 +254,90 @@
                            FontSize="12" TextWrapping="Wrap" />
             </Border>
 
+            <!-- Ohne Rückspiel: unverändert die vereinheitlichte Spielbericht-Karte. -->
             <views:SpielberichtControl Grid.Row="2" Margin="16,12,16,16"
+                Visibility="{Binding EinzelspielMitRueckspiel, Converter={StaticResource InverseBoolToVisibility}}"
                 LeerZustandText="Zwei Mannschaften auswählen und auf Simulieren klicken." />
+
+            <!-- Mit Rückspiel (#248): zwei aufklappbare Karten statt einer kombinierten Zeitleiste. -->
+            <Grid Grid.Row="2" Visibility="{Binding EinzelspielMitRueckspiel, Converter={StaticResource BoolToVisibility}}">
+
+                <TextBlock Text="Hinspiel oben simulieren oder Score eintippen und übernehmen."
+                           Visibility="{Binding ZeigeHinRueckLeerZustand, Converter={StaticResource BoolToVisibility}}"
+                           Opacity="0.5" FontSize="13" TextWrapping="Wrap"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           MaxWidth="340" TextAlignment="Center" />
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding HatHinspielErgebnis, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel Margin="16,12,16,16" Spacing="10">
+
+                        <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                  IsExpanded="{Binding HinspielOffen, Mode=TwoWay}"
+                                  Header="{Binding HinspielZeile}" HeaderTemplate="{StaticResource BeinKopfVorlage}">
+                            <StackPanel Visibility="{Binding HatHinspielEreignisse, Converter={StaticResource BoolToVisibility}}"
+                                        Margin="8,4">
+                                <ItemsControl ItemsSource="{Binding HinspielEreignisse}"
+                                              ItemTemplate="{StaticResource MiniZeitleisteZeileVorlage}" />
+                            </StackPanel>
+                        </Expander>
+
+                        <Border Visibility="{Binding HatRueckspielErgebnis, Converter={StaticResource InverseBoolToVisibility}}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                CornerRadius="4" Padding="14,11">
+                            <TextBlock Text="Rückspiel steht noch aus — oben „Rückspiel simulieren“ klicken."
+                                       Opacity="0.5" FontSize="13" />
+                        </Border>
+
+                        <Expander Visibility="{Binding HatRueckspielErgebnis, Converter={StaticResource BoolToVisibility}}"
+                                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                  IsExpanded="{Binding RueckspielOffen, Mode=TwoWay}"
+                                  Header="{Binding RueckspielZeile}" HeaderTemplate="{StaticResource BeinKopfVorlage}">
+                            <StackPanel Visibility="{Binding HatRueckspielEreignisse, Converter={StaticResource BoolToVisibility}}"
+                                        Margin="8,4">
+                                <ItemsControl ItemsSource="{Binding RueckspielEreignisse}"
+                                              ItemTemplate="{StaticResource MiniZeitleisteZeileVorlage}" />
+                            </StackPanel>
+                        </Expander>
+
+                        <!-- Echte Zentrierung statt BeinKopfVorlage (deren 56px-Label-Spalte den
+                             Team/Score-Cluster spürbar nach rechts verschiebt — im Expander-Header der
+                             Hin-/Rückspiel-Karten fällt das wegen des Chevrons kaum auf, hier ohne Chevron
+                             schon). Padding 16,14 an die native Expander-Header-Höhe angeglichen, damit der
+                             Balken gleich hoch wirkt wie die beiden Karten darüber (Nutzer-Vorgabe). -->
+                        <Border Visibility="{Binding HatRueckspielErgebnis, Converter={StaticResource BoolToVisibility}}"
+                                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                CornerRadius="4" Padding="16,14">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
+                                <TextBlock Text="Gesamt" FontSize="11" FontWeight="Bold" Opacity="0.55"
+                                           VerticalAlignment="Center" Margin="0,0,4,0" />
+                                <TextBlock Text="{Binding GesamtZeile.HeimName}" FontSize="14" VerticalAlignment="Center" />
+                                <Image Source="{Binding GesamtZeile.HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                       Visibility="{Binding GesamtZeile.HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                                       Width="22" Height="22" Stretch="Uniform" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding GesamtZeile.Score}" FontSize="17" FontWeight="Bold"
+                                           FontFamily="Consolas" VerticalAlignment="Center" Margin="4,0" />
+                                <Image Source="{Binding GesamtZeile.AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                       Visibility="{Binding GesamtZeile.AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                                       Width="22" Height="22" Stretch="Uniform" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding GesamtZeile.AuswaertsName}" FontSize="14" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Visibility="{Binding HatRueckspielErgebnis, Converter={StaticResource BoolToVisibility}}"
+                                Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                                BorderBrush="{ThemeResource SystemFillColorSuccessBrush}" BorderThickness="1"
+                                CornerRadius="4" Padding="10,8" HorizontalAlignment="Center">
+                            <TextBlock FontSize="13" FontWeight="Bold" Foreground="{ThemeResource SystemFillColorSuccessBrush}">
+                                <Run Text="{Binding WeiterZeile.Label}" /><Run Text=": " /><Run Text="{Binding WeiterZeile.Score}" />
+                            </TextBlock>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+            </Grid>
 
         </Grid>
 
