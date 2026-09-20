@@ -31,7 +31,35 @@ public partial class App : global::Microsoft.UI.Xaml.Application
     private Window? _window;
     private IHost _host = null!;
 
-    public App() => InitializeComponent();
+    public App()
+    {
+        InitializeComponent();
+
+        // Diagnose für sporadische, nicht-reproduzierbare Abstürze beim App-Beenden (z.B. gemeldeter
+        // JIT-Debugger-Dialog mit COMException 0x8000FFFF ohne Stacktrace) — schreibt UNABHÄNGIG von
+        // Serilog (das bei einem harten nativen Absturz während des Shutdowns evtl. nicht mehr flusht)
+        // synchron+direkt in eine eigene Datei, damit der nächste Vorfall einen echten Stacktrace
+        // hinterlässt statt nur den generischen OS-Dialog.
+        UnhandledException += (_, e) => CrashDiagnoseSchreiben("Application.UnhandledException", e.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            CrashDiagnoseSchreiben("AppDomain.UnhandledException", e.ExceptionObject as Exception);
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+            CrashDiagnoseSchreiben("TaskScheduler.UnobservedTaskException", e.Exception);
+    }
+
+    private static void CrashDiagnoseSchreiben(string quelle, Exception? ex)
+    {
+        try
+        {
+            var pfad = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "Turnierverwaltung", "logs", "crash-diagnose.log");
+            Directory.CreateDirectory(Path.GetDirectoryName(pfad)!);
+            File.AppendAllText(pfad,
+                $"{DateTimeOffset.Now:O} [{quelle}]{Environment.NewLine}{ex}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch { /* Diagnose darf den eigentlichen Absturz nicht verdecken oder selbst werfen */ }
+    }
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {

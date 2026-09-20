@@ -86,6 +86,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private int _spielWechselUnterdrueckt;
     private int _rundeWechselUnterdrueckt;
 
+    // #338: schützt gegen zwei echte, schnell aufeinanderfolgende Runde-/Spiel-Auswahländerungen (nicht
+    // gegen die selbstverursachte Reentrancy, die _rundeWechselUnterdrueckt/_spielWechselUnterdrueckt oben
+    // bereits abdecken — siehe DbContextReentrancySchutz-Doku).
+    private readonly DbContextReentrancySchutz _wechselSchutz = new();
+
     private static readonly HashSet<string> _formFelder =
     [
         nameof(HeimToreRegulaer), nameof(AuswaertsToreRegulaer),
@@ -751,7 +756,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             IsDirty = false;
         }
 
-        await BeiRundeAenderungAsync();
+        // #338: zwei echte, schnell aufeinanderfolgende Runde-Auswahländerungen (z.B. Pfeiltasten in der
+        // ComboBox) können sonst überlappende Abfragen auf demselben DbContext auslösen ("second
+        // operation"-Exception) — derselbe Root Cause wie #317, hier innerhalb des Tabs statt beim
+        // Instanzwechsel. istNochAktuell verwirft veraltete Zwischenauswahlen aus der Lock-Warteschlange
+        // (Ruckel-Fund aus #338-Test) — nur die zuletzt tatsächlich ausgewählte Runde führt die Abfrage aus.
+        await _wechselSchutz.AusfuehrenAsync(
+            BeiRundeAenderungAsync, ex => Fehlermeldung = ex.Message,
+            istNochAktuell: () => AusgewaehlteRunde?.Id == neueRundeId);
     }
 
     private async Task<bool> ErgebnisSpeichernBeiRundenwechselAsync(int spielId, TurnierRunde runde)
@@ -878,11 +890,17 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 _spielWechselUnterdrueckt--;
             }
 
-            await BeiSpielAenderungAsync();
+            // #338: siehe Kommentar in RundeWechselAsync — schützt gegen zwei echte, schnell
+            // aufeinanderfolgende Spiel-Auswahländerungen; istNochAktuell verwirft veraltete Zwischenauswahlen.
+            await _wechselSchutz.AusfuehrenAsync(
+                BeiSpielAenderungAsync, ex => Fehlermeldung = ex.Message,
+                istNochAktuell: () => AusgewaehlteSpiel?.Id == neuesSpielId);
             return;
         }
 
-        await BeiSpielAenderungAsync();
+        await _wechselSchutz.AusfuehrenAsync(
+            BeiSpielAenderungAsync, ex => Fehlermeldung = ex.Message,
+            istNochAktuell: () => AusgewaehlteSpiel?.Id == neuesSpielId);
     }
 
     private async Task BeiSpielAenderungAsync()

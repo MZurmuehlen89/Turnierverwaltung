@@ -2,6 +2,7 @@ using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using Fussballturnierverwaltung.WinUi.ViewModels;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System.ComponentModel;
@@ -23,6 +24,7 @@ public sealed partial class MainWindow : Window
 
     private readonly ThemeService _themeService;
     private readonly IDialogService _dialogService;
+    private readonly DispatcherQueueTimer _ribbonAktualisierenTimer;
 
     public MainViewModel ViewModel { get; }
 
@@ -41,6 +43,21 @@ public sealed partial class MainWindow : Window
         _themeService.RootSetzen(RootGrid);
         _themeService.AnwendenAusEinstellungen();
 
+        // Debounce für den CommandBar-Rebuild (Issue #338-Folgefund): RibbonZusatzGruppen hängt an
+        // AusgewaehlteSpiel/AusgewaehlteRunde einiger Fach-ViewModels (z.B. SpielplanViewModel) — bei
+        // schnellem Durchklicken per Pfeiltasten feuerte das PropertyChanged bei JEDER Zwischenauswahl
+        // synchron auf dem UI-Thread, und RibbonZusatzGruppenAktualisieren wirft dabei jedes Mal alle
+        // CommandBar-Buttons weg und erzeugt sie neu — spürbar ruckelnd. Ein kurzer Timer sammelt mehrere
+        // schnell aufeinanderfolgende Änderungen und baut nur einmal für den jeweils letzten Zustand neu auf.
+        _ribbonAktualisierenTimer = DispatcherQueue.CreateTimer();
+        _ribbonAktualisierenTimer.Interval = TimeSpan.FromMilliseconds(120);
+        _ribbonAktualisierenTimer.IsRepeating = false;
+        _ribbonAktualisierenTimer.Tick += (_, _) =>
+        {
+            NeuUnterpunkteAktualisieren();
+            RibbonZusatzGruppenAktualisieren();
+        };
+
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         NeuUnterpunkteAktualisieren();
         RibbonZusatzGruppenAktualisieren();
@@ -50,8 +67,8 @@ public sealed partial class MainWindow : Window
     {
         if (e.PropertyName is nameof(MainViewModel.RibbonZusatzGruppen) or nameof(MainViewModel.RibbonNeuUnterpunkte))
         {
-            NeuUnterpunkteAktualisieren();
-            RibbonZusatzGruppenAktualisieren();
+            _ribbonAktualisierenTimer.Stop();
+            _ribbonAktualisierenTimer.Start();
         }
     }
 

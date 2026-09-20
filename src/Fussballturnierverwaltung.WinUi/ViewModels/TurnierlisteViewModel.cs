@@ -66,13 +66,20 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
 
         // Nach Speichern/Löschen/Statuswechsel im Turnierkopf-Tab die geteilte Instanzliste neu laden und die
         // (ggf. neue) Instanz erneut auswählen — löst über AusgewaehlteInstanzGesetzt automatisch den Reload
-        // der übrigen Tabs mit aus.
-        TurnierkopfVm.InstanzGeaendert += instanz => _ = TabKoordinator.InstanzenNeuLadenAsync(instanz?.Id);
+        // der übrigen Tabs mit aus. Über denselben TabKoordinator-Lock wie die Weiterreichung selbst (#338)
+        // — sonst könnte dieser direkte DB-Zugriff einen parallel laufenden, gesperrten Reload treffen
+        // (z.B. Speichern im Turnierkopf während gleichzeitig per Pfeiltaste die Instanz gewechselt wird).
+        TurnierkopfVm.InstanzGeaendert += instanz => _ = TabKoordinator.SequenziellMitDbContextSchutzAsync(
+            () => TabKoordinator.InstanzenNeuLadenAsync(instanz?.Id),
+            ex => TurnierkopfVm.Fehlermeldung = ex.Message);
 
         // Nach Speichern im Runden-Tab liest VorbelegungVm (PaarungFestVorgegeben, Rundenstruktur für
         // "RUNDEN MIT FESTER PAARUNG") unabhängig frisch aus der DB — ohne diesen Reload blieb der
-        // Vorbelegung-Tab nach dem Setzen von "Paarung fest vorgegeben" leer (Fund aus #297-Test).
-        RundenVm.RundenGespeichert += instanz => _ = VorbelegungVm.InstanzSetzenAsync(instanz);
+        // Vorbelegung-Tab nach dem Setzen von "Paarung fest vorgegeben" leer (Fund aus #297-Test). Ebenfalls
+        // über den TabKoordinator-Lock (#338) statt direktem Fire-and-Forget-Zugriff auf denselben Grund.
+        RundenVm.RundenGespeichert += instanz => _ = TabKoordinator.SequenziellMitDbContextSchutzAsync(
+            () => VorbelegungVm.InstanzSetzenAsync(instanz),
+            ex => VorbelegungVm.Fehlermeldung = ex.Message);
     }
 
     private Task InstanzAnKindViewModelsWeiterreichenAsync(TurnierInstanz? instanz) =>

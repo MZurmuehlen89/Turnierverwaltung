@@ -34,6 +34,11 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     private TurnierInstanz? _instanz;
     private int _ladeUnterdrueckt;
 
+    // #338: schützt gegen zwei echte, schnell aufeinanderfolgende Runde-/Spiel-Auswahländerungen (nicht
+    // gegen die selbstverursachte Reentrancy, die _ladeUnterdrueckt oben bereits abdeckt — siehe
+    // DbContextReentrancySchutz-Doku).
+    private readonly DbContextReentrancySchutz _wechselSchutz = new();
+
     // Deckt Vorschau-Karte/Protokoll komplett ab, solange der automatische Vorauswahl-Pfad
     // (VorauswahlLadenUndSimulierenAsync, "Ausführlich simulieren"/"Spielverlauf ansehen" aus dem
     // Spielplan) läuft — ohne dieses Flag blitzten dort nacheinander das alte Protokoll des zuvor
@@ -198,10 +203,21 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         switch (e.PropertyName)
         {
             case nameof(AusgewaehlteRunde):
-                _ = BeiRundeAenderungAsync();
+                // #338: zwei echte, schnell aufeinanderfolgende Runde-Auswahländerungen können sonst
+                // überlappende Abfragen auf demselben DbContext auslösen ("second operation"-Exception,
+                // derselbe Root Cause wie #317, hier innerhalb des Tabs statt beim Instanzwechsel).
+                // istNochAktuell verwirft veraltete Zwischenauswahlen aus der Lock-Warteschlange
+                // (Ruckel-Fund aus #338-Test).
+                var erwarteteRundeId = AusgewaehlteRunde?.Id;
+                _ = _wechselSchutz.AusfuehrenAsync(
+                    BeiRundeAenderungAsync, ex => Fehlermeldung = ex.Message,
+                    istNochAktuell: () => AusgewaehlteRunde?.Id == erwarteteRundeId);
                 break;
             case nameof(AusgewaehlteSpiel):
-                _ = BeiSpielAuswahlAsync();
+                var erwarteteSpielId = AusgewaehlteSpiel?.Id;
+                _ = _wechselSchutz.AusfuehrenAsync(
+                    BeiSpielAuswahlAsync, ex => Fehlermeldung = ex.Message,
+                    istNochAktuell: () => AusgewaehlteSpiel?.Id == erwarteteSpielId);
                 AktualisiereBefehle();
                 break;
             case nameof(IstLadend):

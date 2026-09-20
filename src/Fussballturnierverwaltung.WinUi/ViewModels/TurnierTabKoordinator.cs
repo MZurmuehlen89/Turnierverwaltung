@@ -23,7 +23,7 @@ public partial class TurnierTabKoordinator : ObservableObject
 {
     private readonly TurnierInstanzService _service;
     private readonly AusgewaehlteTurnierInstanzService? _turnierAuswahlService;
-    private readonly SemaphoreSlim _instanzSetzenLock = new(1, 1);
+    private readonly DbContextReentrancySchutz _instanzSetzenSchutz = new();
 
     public ViewModelBase[] Tabs { get; }
 
@@ -153,43 +153,13 @@ public partial class TurnierTabKoordinator : ObservableObject
     }
 
     /// <summary>Serialisiert asynchrone DbContext-Zugriffe, die durch Instanz-/Tab-Wechsel ausgelöst
-    /// werden, und fängt die sporadische EF-Core-"second operation"-Exception mit einem einmaligen Retry
-    /// ab. Gemeinsame Basis für <see cref="TurnierlisteViewModel"/> und
-    /// <see cref="TurnierdurchfuehrungViewModel"/> (#189-Nebenfund) — beide reichen die ausgewählte Instanz
-    /// per Fire-and-Forget-Event an mehrere Kind-ViewModels weiter, die sich denselben Scoped-DbContext
-    /// teilen; bei schnellem Durchsteppen der Instanzliste (z.B. Pfeiltasten) überlappten sich sonst zwei
-    /// dieser Weiterreichungen und lösten "A second operation was started on this context instance before
-    /// a previous operation completed" aus. War ursprünglich in beiden Composites separat implementiert
-    /// (siehe #317) — hierher verschoben, da beide ohnehin denselben Koordinator besitzen und die Logik
-    /// sonst ein drittes Mal kopiert worden wäre.</summary>
-    public async Task SequenziellMitDbContextSchutzAsync(Func<Task> aktion, Action<Exception>? fehlerBehandlung = null)
-    {
-        await _instanzSetzenLock.WaitAsync();
-        try
-        {
-            const int MAX_VERSUCHE = 2;
-            for (int versuch = 1; versuch <= MAX_VERSUCHE; versuch++)
-            {
-                try
-                {
-                    await aktion();
-                    return;
-                }
-                catch (InvalidOperationException ex) when (versuch < MAX_VERSUCHE && ex.Message.Contains("second operation"))
-                {
-                    await Task.Delay(50);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            // Läuft typischerweise als Fire-and-Forget (_ = ...) ohne Awaiter beim Aufrufer — eine
-            // Exception hier würde sonst spurlos verschwinden.
-            fehlerBehandlung?.Invoke(ex);
-        }
-        finally
-        {
-            _instanzSetzenLock.Release();
-        }
-    }
+    /// werden (siehe <see cref="DbContextReentrancySchutz"/>). Gemeinsame Basis für
+    /// <see cref="TurnierlisteViewModel"/> und <see cref="TurnierdurchfuehrungViewModel"/>
+    /// (#189-Nebenfund) — beide reichen die ausgewählte Instanz per Fire-and-Forget-Event an mehrere
+    /// Kind-ViewModels weiter, die sich denselben Scoped-DbContext teilen; bei schnellem Durchsteppen der
+    /// Instanzliste (z.B. Pfeiltasten) überlappten sich sonst zwei dieser Weiterreichungen und lösten
+    /// "A second operation was started on this context instance before a previous operation completed"
+    /// aus (#317).</summary>
+    public Task SequenziellMitDbContextSchutzAsync(Func<Task> aktion, Action<Exception>? fehlerBehandlung = null) =>
+        _instanzSetzenSchutz.AusfuehrenAsync(aktion, fehlerBehandlung);
 }
