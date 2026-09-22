@@ -12,6 +12,7 @@ using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Infrastructure.Erweiterungen;
+using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Seed;
 using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
@@ -154,6 +155,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddSingleton<MainViewModel>();
 
         _host = builder.Build();
+        _host.Services.GetRequiredService<DbZugriffsDiagnose>().KollisionenUeberwachen();
 
         using (var scope = _host.Services.CreateScope())
         {

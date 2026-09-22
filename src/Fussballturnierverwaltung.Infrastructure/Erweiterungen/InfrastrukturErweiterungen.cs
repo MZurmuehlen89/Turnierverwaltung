@@ -22,10 +22,14 @@ public static class InfrastrukturErweiterungen
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddDbContext<TurnierverwaltungDbContext>(options =>
+        // Diagnose für DbContext-Kollisionen/langsame Abfragen (#317/#338-Folgefund) — Singleton, da sie ihren
+        // Zustand pro DbContext-Instanz selbst verwaltet; KollisionenUeberwachen() startet der WinUi-Startpfad.
+        services.AddSingleton<DbZugriffsDiagnose>();
+        services.AddDbContext<TurnierverwaltungDbContext>((sp, options) =>
             options.UseSqlServer(
-                configuration.GetConnectionString("Standard"),
-                sql => sql.MigrationsAssembly(typeof(TurnierverwaltungDbContext).Assembly.FullName)));
+                    configuration.GetConnectionString("Standard"),
+                    sql => sql.MigrationsAssembly(typeof(TurnierverwaltungDbContext).Assembly.FullName))
+                .AddInterceptors(sp.GetRequiredService<DbZugriffsDiagnose>()));
 
         services.AddScoped<SeedDatenService>();
 
