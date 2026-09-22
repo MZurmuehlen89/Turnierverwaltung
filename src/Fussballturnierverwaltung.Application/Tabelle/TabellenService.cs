@@ -3,6 +3,7 @@ using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Tabelle;
@@ -37,6 +38,77 @@ public class TabellenService(
         };
 
         return TabelleAusSpielenBerechnen(spiele, punkteRegel, rankingRegeln, nurHeimspiele);
+    }
+
+    /// <summary>Berechnet die Gesamttabelle einer Liga-/TopfLiga-/Schweizer-System-Runde inkl.
+    /// <see cref="TabellenEintrag.SicherPositioniert"/> (Issue #343, Liga-Gegenstück zu #202). Anders als bei
+    /// <see cref="GruppenTabellenBerechnenAsync"/> wird nicht jede Ergebniskombination der offenen Spiele
+    /// durchgerechnet (6^n ist bei z. B. 18 offenen Spielen je Ligaphasen-Spieltag nicht berechenbar), sondern
+    /// konservativ über Punkte-Schranken: bester Rang = 1 + Anzahl Teams, die selbst im schlechtesten Fall mehr
+    /// Punkte haben als das Team im besten Fall; schlechtester Rang = 1 + Anzahl Teams, die im besten Fall
+    /// mindestens so viele Punkte erreichen können wie das Team im schlechtesten Fall (Punktgleichheit zählt
+    /// als "kann vorbeiziehen", da Tiebreaker bei offenen Spielen nicht vorhersagbar sind). Sicher ⇔ beide
+    /// gleich. Kann einen tatsächlich schon feststehenden Rang übersehen, meldet aber nie fälschlich "sicher".</summary>
+    public async Task<IReadOnlyList<TabellenEintrag>> LigaTabelleMitSicherheitBerechnenAsync(
+        int turnierRundeId, CancellationToken ct = default)
+    {
+        var (punkteRegel, rankingRegeln, alleSpiele) = await LadeTabellenDatenAsync(turnierRundeId, ct);
+        if (!alleSpiele.Any()) return [];
+
+        var tabelle = TabelleAusSpielenBerechnen(alleSpiele, punkteRegel, rankingRegeln);
+        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct);
+        var verbleibend = VerbleibendeSpieleProTeam(runde, alleSpiele, tabelle);
+
+        // Unbekannter Rest (noch unaufgelöste Platzhalter-Spiele, Schweizer System ohne Spieltag-Anzahl):
+        // kein Rang ist sicher.
+        if (verbleibend is null) return tabelle;
+
+        if (verbleibend.Values.All(n => n == 0))
+        {
+            foreach (var e in tabelle) e.SicherPositioniert = true; // alles gespielt - jeder Rang ist final
+            return tabelle;
+        }
+
+        int maxProSpiel = Math.Max(punkteRegel.PunkteFuerSieg, Math.Max(punkteRegel.PunkteFuerUnentschieden, punkteRegel.PunkteFuerNiederlage));
+        int minProSpiel = Math.Min(punkteRegel.PunkteFuerSieg, Math.Min(punkteRegel.PunkteFuerUnentschieden, punkteRegel.PunkteFuerNiederlage));
+        var schranken = tabelle.ToDictionary(
+            e => e.Mannschaft.Id,
+            e => (Min: e.Punkte + verbleibend[e.Mannschaft.Id] * minProSpiel,
+                  Max: e.Punkte + verbleibend[e.Mannschaft.Id] * maxProSpiel));
+
+        foreach (var eintrag in tabelle)
+        {
+            var (eigenMin, eigenMax) = schranken[eintrag.Mannschaft.Id];
+            var andere = schranken.Where(kv => kv.Key != eintrag.Mannschaft.Id).Select(kv => kv.Value).ToList();
+            int bestRang  = 1 + andere.Count(s => s.Min > eigenMax);
+            int worstRang = 1 + andere.Count(s => s.Max >= eigenMin);
+            eintrag.SicherPositioniert = bestRang == worstRang && bestRang == eintrag.Rang;
+        }
+        return tabelle;
+    }
+
+    /// <summary>Anzahl noch ausstehender Spiele je Team, oder <c>null</c> wenn diese nicht zuverlässig bestimmbar
+    /// ist. Schweizer System: künftige Spieltage sind noch nicht generiert, daher kommen zu den angesetzten offenen
+    /// Spielen (<see cref="RundenKonfiguration.AnzahlSpieltage"/> − höchster generierter Spieltag) weitere hinzu
+    /// (je Spieltag höchstens ein Spiel pro Team; ein Freilos wird dabei konservativ wie ein Spiel gezählt).</summary>
+    private static Dictionary<int, int>? VerbleibendeSpieleProTeam(
+        TurnierRunde? runde, IReadOnlyList<Spiel> alleSpiele, IReadOnlyList<TabellenEintrag> tabelle)
+    {
+        if (alleSpiele.Any(s => s.HeimMannschaftId is null || s.AuswaertsMannschaftId is null)) return null;
+
+        var offen = alleSpiele.Where(s => s.Status != SpielStatus.Abgeschlossen || s.Ergebnis is null).ToList();
+        var ergebnis = tabelle.ToDictionary(
+            e => e.Mannschaft.Id,
+            e => offen.Count(s => s.HeimMannschaftId == e.Mannschaft.Id || s.AuswaertsMannschaftId == e.Mannschaft.Id));
+
+        if (runde?.Rundenart == Rundenart.SchweizerSystem)
+        {
+            if (RundenKonfiguration.AusJson(runde.KonfigurationJson).AnzahlSpieltage is not { } anzahlSpieltage) return null;
+            int generiert = alleSpiele.Select(s => s.Spieltag ?? 0).DefaultIfEmpty().Max();
+            int ausstehend = Math.Max(0, anzahlSpieltage - generiert);
+            foreach (var id in ergebnis.Keys) ergebnis[id] += ausstehend;
+        }
+        return ergebnis;
     }
 
     /// <summary>Berechnet je eine Tabelle pro Gruppe inkl. Qualifikationsstatus und <see cref="TabellenEintrag.SicherPositioniert"/>

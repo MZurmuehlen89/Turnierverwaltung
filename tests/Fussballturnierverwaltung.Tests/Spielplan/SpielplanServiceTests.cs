@@ -1023,14 +1023,14 @@ public class SpielplanServiceTests
         SchweizerSystemGrundSetupAnlegen(ctx, out int ligaphaseRundeId);
         ctx.Spiele.Add(new Spiel
         {
-            Id = 1, TurnierInstanzId = 1, TurnierRundeId = ligaphaseRundeId, Spielnummer = 1,
+            Id = 1, TurnierInstanzId = 1, TurnierRundeId = ligaphaseRundeId, Spielnummer = 1, Spieltag = 1,
             HeimMannschaftId = 1, AuswaertsMannschaftId = 2, Status = SpielStatus.Abgeschlossen
         });
         ctx.SpielErgebnisse.Add(new SpielErgebnis
             { Id = 1, SpielId = 1, HeimToreRegulaer = 3, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
         ctx.Spiele.Add(new Spiel
         {
-            Id = 2, TurnierInstanzId = 1, TurnierRundeId = ligaphaseRundeId, Spielnummer = 2,
+            Id = 2, TurnierInstanzId = 1, TurnierRundeId = ligaphaseRundeId, Spielnummer = 2, Spieltag = 1,
             HeimMannschaftId = 3, AuswaertsMannschaftId = 4, Status = SpielStatus.Abgeschlossen
         });
         ctx.SpielErgebnisse.Add(new SpielErgebnis
@@ -1038,6 +1038,9 @@ public class SpielplanServiceTests
         ctx.SaveChanges();
 
         var ligaphaseRunde = ctx.TurnierRunden.First(r => r.Id == ligaphaseRundeId);
+        // Issue #343: fest aufgelöst wird nur ein gesicherter Rang — mit nur einem Spieltag ist die Runde komplett.
+        ligaphaseRunde.KonfigurationJson = "{\"anzahlSpieltage\":1}";
+        ctx.SaveChanges();
         var regel = new Uebergangsregel
         {
             QuellRundeId = ligaphaseRundeId, QuellRunde = ligaphaseRunde, ZielRundeId = 999,
@@ -1832,5 +1835,183 @@ public class SpielplanServiceTests
         koSpielNachher.AuswaertsMannschaftId.Should().BeNull(
             "Gruppenphase hat keine Spiele mehr — '2. Gruppe B' ist nicht mehr auflösbar");
         koSpielNachher.AuswaertsPlatzhalterName.Should().Be("2. Gruppe B");
+    }
+
+    // ── Tests: Liga-Platzhalter "Platz N (Runde)" mit Sicherheits-Gate (Issue #343) ─
+
+    /// <summary>Ligaphase (4 Teams, Einfachrunde, 3 Spieltage) + Halbfinale mit Platzhaltern
+    /// "Platz 1/4 (Ligaphase)" und "Platz 2/3 (Ligaphase)". Spieltag 1: A–B, C–D; 2: A–C, B–D; 3: A–D, B–C.</summary>
+    private static void LigaMitFolgeKoRundeAnlegen(
+        TurnierverwaltungDbContext ctx, out int ligaRundeId, out int koRundeId,
+        Rundenart ligaRundenart = Rundenart.Liga)
+    {
+        LigaGrundSetupAnlegen(ctx, out ligaRundeId);
+        var liga = ctx.TurnierRunden.Single(r => r.Id == 1);
+        liga.Name = "Ligaphase";
+        liga.Rundenart = ligaRundenart;
+        ctx.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
+            { Id = 1, RegelwerkId = 1, Reihenfolge = 1, VerfahrenArt = VerfahrenArt.Elfmeterschiessen });
+        var ko = new TurnierRunde
+        {
+            Id = 2, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 2,
+            Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2,
+            RegelwerkId = 1
+        };
+        ctx.TurnierRunden.Add(ko);
+        ctx.Spiele.AddRange(
+            new Spiel { Id = 101, TurnierInstanzId = 1, TurnierRundeId = 2, Spielnummer = 101,
+                        HeimPlatzhalterName = "Platz 1 (Ligaphase)", AuswaertsPlatzhalterName = "Platz 4 (Ligaphase)" },
+            new Spiel { Id = 102, TurnierInstanzId = 1, TurnierRundeId = 2, Spielnummer = 102,
+                        HeimPlatzhalterName = "Platz 2 (Ligaphase)", AuswaertsPlatzhalterName = "Platz 3 (Ligaphase)" });
+
+        (int Id, int Spieltag, int Heim, int Auswaerts)[] paarungen =
+            [(1, 1, 1, 2), (2, 1, 3, 4), (3, 2, 1, 3), (4, 2, 2, 4), (5, 3, 1, 4), (6, 3, 2, 3)];
+        foreach (var (id, spieltag, heim, auswaerts) in paarungen)
+            ctx.Spiele.Add(new Spiel
+            {
+                Id = id, TurnierInstanzId = 1, TurnierRundeId = 1, Spielnummer = id, Spieltag = spieltag,
+                HeimMannschaftId = heim, AuswaertsMannschaftId = auswaerts, Status = SpielStatus.Geplant
+            });
+        ctx.SaveChanges();
+        koRundeId = ko.Id;
+    }
+
+    private static void LigaErgebnisSetzen(TurnierverwaltungDbContext ctx, int spielId, int heimTore, int auswaertsTore)
+    {
+        var spiel = ctx.Spiele.Single(s => s.Id == spielId);
+        spiel.Status = SpielStatus.Abgeschlossen;
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+        {
+            Id = spielId, SpielId = spielId, HeimToreRegulaer = heimTore, AuswaertsToreRegulaer = auswaertsTore,
+            EntscheidungArt = EntscheidungArt.RegulaereSpielzeit,
+            SiegerMannschaftId = heimTore > auswaertsTore ? spiel.HeimMannschaftId
+                               : auswaertsTore > heimTore ? spiel.AuswaertsMannschaftId : null
+        });
+        ctx.SaveChanges();
+    }
+
+    /// <summary>Spieltag 1+2: A gewinnt beide (6 Pkt.), alle übrigen Spiele Unentschieden
+    /// (B 1, C 1, D 2) — A ist vor dem letzten Spieltag uneinholbar Erster (D max. 5).</summary>
+    private static void ZweiSpieltageMitUneinholbaremTabellenfuehrer(TurnierverwaltungDbContext ctx)
+    {
+        LigaErgebnisSetzen(ctx, 1, 2, 0); // A–B
+        LigaErgebnisSetzen(ctx, 2, 1, 1); // C–D
+        LigaErgebnisSetzen(ctx, 3, 3, 0); // A–C
+        LigaErgebnisSetzen(ctx, 4, 0, 0); // B–D
+    }
+
+    /// <summary>Letzter Spieltag: A–D 1:0, B–C 2:1 → Endstand A 9, B 4, D 2, C 1.</summary>
+    private static void LetztenSpieltagSpielen(TurnierverwaltungDbContext ctx)
+    {
+        LigaErgebnisSetzen(ctx, 5, 1, 0);
+        LigaErgebnisSetzen(ctx, 6, 2, 1);
+    }
+
+    [Theory]
+    [InlineData(Rundenart.Liga)]
+    [InlineData(Rundenart.TopfLiga)]
+    public async Task PlatzhalterAufloesenAsync_LigaKomplettGespielt_LoestPlatzNAufTabellenrangAuf(Rundenart ligaRundenart)
+    {
+        await using var ctx = NeuerContext();
+        LigaMitFolgeKoRundeAnlegen(ctx, out _, out int koRundeId, ligaRundenart);
+        ZweiSpieltageMitUneinholbaremTabellenfuehrer(ctx);
+        LetztenSpieltagSpielen(ctx);
+        var service = ServiceFuer(ctx);
+
+        await service.PlatzhalterAufloesenAsync(koRundeId);
+
+        var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId).OrderBy(s => s.Id).ToList();
+        (spiele[0].HeimMannschaftId, spiele[0].AuswaertsMannschaftId).Should().Be((1, 3), "Platz 1 = A, Platz 4 = C");
+        (spiele[1].HeimMannschaftId, spiele[1].AuswaertsMannschaftId).Should().Be((2, 4), "Platz 2 = B, Platz 3 = D");
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_LigaVorLetztemSpieltag_LoestNurUneinholbarenRangAuf()
+    {
+        await using var ctx = NeuerContext();
+        LigaMitFolgeKoRundeAnlegen(ctx, out _, out int koRundeId);
+        ZweiSpieltageMitUneinholbaremTabellenfuehrer(ctx);
+        var service = ServiceFuer(ctx);
+
+        await service.PlatzhalterAufloesenAsync(koRundeId);
+
+        var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId).OrderBy(s => s.Id).ToList();
+        spiele[0].HeimMannschaftId.Should().Be(1, "A kann mit 6 Punkten von niemandem mehr eingeholt werden");
+        spiele[0].AuswaertsMannschaftId.Should().BeNull("Platz 4 hängt noch vom letzten Spieltag ab");
+        spiele[1].HeimMannschaftId.Should().BeNull();
+        spiele[1].AuswaertsMannschaftId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_LigaNachErstemSpieltag_LoestNichtsAufAberVorschauZeigtStand()
+    {
+        await using var ctx = NeuerContext();
+        LigaMitFolgeKoRundeAnlegen(ctx, out _, out int koRundeId);
+        LigaErgebnisSetzen(ctx, 1, 2, 0); // A–B
+        LigaErgebnisSetzen(ctx, 2, 1, 0); // C–D
+        var service = ServiceFuer(ctx);
+
+        var aufgeloest = await service.PlatzhalterAufloesenAsync(koRundeId);
+        var vorschau = await service.PlatzhalterVorschauAsync(koRundeId);
+
+        aufgeloest.Should().Be(0, "nach einem Spieltag ist noch kein Tabellenplatz gesichert");
+        ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId)
+            .Should().OnlyContain(s => s.HeimMannschaftId == null && s.AuswaertsMannschaftId == null);
+        vorschau.Should().HaveCount(2, "die optimistische Vorschau zeigt den aktuellen Tabellenstand");
+        vorschau[101].Heim.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_SchweizerSystemOhneSpieltagAnzahl_LoestNichtFestAuf()
+    {
+        await using var ctx = NeuerContext();
+        LigaMitFolgeKoRundeAnlegen(ctx, out _, out int koRundeId, Rundenart.SchweizerSystem);
+        ZweiSpieltageMitUneinholbaremTabellenfuehrer(ctx);
+        LetztenSpieltagSpielen(ctx);
+        var service = ServiceFuer(ctx);
+
+        var aufgeloest = await service.PlatzhalterAufloesenAsync(koRundeId);
+
+        aufgeloest.Should().Be(0,
+            "ohne AnzahlSpieltage ist unbekannt, ob noch Schweizer Spieltage folgen — kein Rang gilt als gesichert");
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_SchweizerSystemAlleSpieltageGespielt_LoestAllesAuf()
+    {
+        await using var ctx = NeuerContext();
+        LigaMitFolgeKoRundeAnlegen(ctx, out _, out int koRundeId, Rundenart.SchweizerSystem);
+        ctx.TurnierRunden.Single(r => r.Id == 1).KonfigurationJson = "{\"anzahlSpieltage\":3}";
+        ctx.SaveChanges();
+        ZweiSpieltageMitUneinholbaremTabellenfuehrer(ctx);
+        LetztenSpieltagSpielen(ctx);
+        var service = ServiceFuer(ctx);
+
+        await service.PlatzhalterAufloesenAsync(koRundeId);
+
+        ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId)
+            .Should().OnlyContain(s => s.HeimMannschaftId != null && s.AuswaertsMannschaftId != null);
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_SchweizerSystemNochNichtGenerierterSpieltag_ZaehltAlsOffen()
+    {
+        await using var ctx = NeuerContext();
+        LigaMitFolgeKoRundeAnlegen(ctx, out _, out int koRundeId, Rundenart.SchweizerSystem);
+        ctx.TurnierRunden.Single(r => r.Id == 1).KonfigurationJson = "{\"anzahlSpieltage\":4}";
+        ctx.SaveChanges();
+        ZweiSpieltageMitUneinholbaremTabellenfuehrer(ctx);
+        LetztenSpieltagSpielen(ctx);
+        var service = ServiceFuer(ctx);
+
+        await service.PlatzhalterAufloesenAsync(koRundeId);
+
+        // Spieltag 4 ist noch nicht generiert: A (9, max. 12) bleibt uneinholbar vor B (max. 7), alle anderen
+        // Plätze sind noch offen.
+        var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId).OrderBy(s => s.Id).ToList();
+        spiele[0].HeimMannschaftId.Should().Be(1);
+        spiele[0].AuswaertsMannschaftId.Should().BeNull();
+        spiele[1].HeimMannschaftId.Should().BeNull();
+        spiele[1].AuswaertsMannschaftId.Should().BeNull();
     }
 }

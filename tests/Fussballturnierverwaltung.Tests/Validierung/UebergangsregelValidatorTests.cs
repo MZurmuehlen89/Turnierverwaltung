@@ -58,6 +58,15 @@ public class UebergangsregelValidatorTests
     }
 
     [Fact]
+    public void GueltigeTopfLigaRegel_IstGueltig()
+    {
+        // Issue #343: TopfLiga (UEFA-Swiss-Modell) war als Quellrunde fälschlich "nicht unterstützt".
+        var topfLiga = new TurnierRunde { Id = 1, Name = "Ligaphase", Rundenart = Rundenart.TopfLiga, EingangsMannschaftsanzahl = 36 };
+        var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: null, PlatzierungVon: 9, PlatzierungBis: 24);
+        _validator.Validieren(eingabe, topfLiga, Ziel(eingangsMannschaftsanzahl: 16), _keineRegeln).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
     public void GueltigeKoRundeRegel_IstGueltig()
     {
         var eingabe = new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1);

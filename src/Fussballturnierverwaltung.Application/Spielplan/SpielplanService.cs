@@ -1108,6 +1108,7 @@ public class SpielplanService(
     private static readonly Regex _bestePlatzierungRx  = new(@"^(\d+)\. bester (\d+)\. Platz$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex _koSiegerRx          = new(@"^Sieger ([A-Za-z0-9.]+) (\d+)$",   RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex _koVerliererRx       = new(@"^Verlierer ([A-Za-z0-9.]+) (\d+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex _tabellenPlatzRx     = new(@"^Platz (\d+) \((.+)\)$",            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private async Task<int?> PlatzhalterNameAufloessenAsync(
         string name, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
@@ -1137,6 +1138,20 @@ public class SpielplanService(
         m = _koVerliererRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[2].Value, out spielNr))
             return await KoVerliererAufloessenAsync(m.Groups[1].Value, spielNr, runde, alleRunden, ct, ignorierteSpielIds);
+
+        // Pattern 6: "Platz 3 (Ligaphase)" → Tabellenrang 3 der Liga-/TopfLiga-/Schweizer-Runde "Ligaphase"
+        // (Format aus PlatzhalterHilfsmittel, Issue #343)
+        m = _tabellenPlatzRx.Match(name);
+        if (m.Success && int.TryParse(m.Groups[1].Value, out int platz))
+        {
+            var quellRunde = alleRunden
+                .Where(r => r.Reihenfolge < runde.Reihenfolge
+                         && string.Equals(r.Name, m.Groups[2].Value, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(r => r.Reihenfolge)
+                .FirstOrDefault();
+            if (quellRunde is null) return null;
+            return await RangAufloesenAsync(quellRunde, null, platz, ct, ignorierteSpielIds, nurSicherPositioniert);
+        }
 
         return null;
     }
@@ -1313,9 +1328,8 @@ public class SpielplanService(
     /// <paramref name="gruppeIndex"/> hängt von der Rundenart der Quellrunde ab:
     /// Gruppenphase → Gruppennummer (Platzierung = Tabellenrang in dieser Gruppe), löst erst auf, sobald der
     /// Rang laut <see cref="TabellenEintrag.SicherPositioniert"/> nicht mehr verdrängbar ist (Issue #202);
-    /// Liga → nicht verwendet (Platzierung = Tabellenrang der Gesamttabelle), bewusst noch ohne
-    /// SicherPositioniert-Gate (kein Qualifikationsstatus-Äquivalent in <see cref="TabellenService"/> für
-    /// Liga-Tabellen, siehe Folge-Issue zu #202);
+    /// Liga/TopfLiga/Schweizer System → nicht verwendet (Platzierung = Tabellenrang der Gesamttabelle), mit
+    /// Punkte-Schranken-Gate aus <see cref="TabellenService.LigaTabelleMitSicherheitBerechnenAsync"/> (Issue #343);
     /// K.-o.-Runde/Finale → Spielnummer innerhalb der Runde (Platzierung 1 = Sieger, 2 = Verlierer), bereits
     /// exakt über ein eingetragenes Ergebnis abgesichert, keine Simulation nötig.
     /// </summary>
@@ -1346,18 +1360,22 @@ public class SpielplanService(
                     e.Rang == platzierung && (!nurSicherPositioniert || e.SicherPositioniert))?.Mannschaft.Id;
             }
 
-            // Liga-Runden bewusst unverändert: TabelleBerechnenAsync (unten) berechnet noch kein
-            // SicherPositioniert-Äquivalent - eigenes Folge-Issue zu #202. SchweizerSystem teilt sich
-            // denselben Zweig (Issue #25-Nachlieferung): TabelleBerechnenAsync ist Rundenart-unabhängig
-            // und aggregiert einfach alle Spiele der Runde, unabhängig von Voll- oder Teilrunde.
+            // Liga/TopfLiga/SchweizerSystem teilen sich eine Gesamttabelle über alle Spiele der Runde (Issue
+            // #25-Nachlieferung). Issue #343: wie bei der Gruppenphase (#202) nur fest auflösen, wenn der Rang
+            // durch die verbleibenden Spiele nicht mehr verdrängbar ist — die optimistische Vorschau (#208,
+            // nurSicherPositioniert=false) nutzt weiter den aktuellen Tabellenstand.
             case Rundenart.Liga:
+            case Rundenart.TopfLiga:
             case Rundenart.SchweizerSystem:
             {
                 if (ignorierteSpielIds is { Count: > 0 } &&
                     (await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct)).Any(s => ignorierteSpielIds.Contains(s.Id)))
                     return null;
-                var tabelle = await tabellenService.TabelleBerechnenAsync(quellRunde.Id, ct: ct);
-                return tabelle.FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id;
+                var tabelle = nurSicherPositioniert
+                    ? await tabellenService.LigaTabelleMitSicherheitBerechnenAsync(quellRunde.Id, ct)
+                    : await tabellenService.TabelleBerechnenAsync(quellRunde.Id, ct: ct);
+                return tabelle.FirstOrDefault(e =>
+                    e.Rang == platzierung && (!nurSicherPositioniert || e.SicherPositioniert))?.Mannschaft.Id;
             }
 
             case Rundenart.KoRunde:

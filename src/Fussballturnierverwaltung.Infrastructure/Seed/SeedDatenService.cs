@@ -34,6 +34,7 @@ public class SeedDatenService
         await RegelwerkeNachruesten(cancellationToken);
         await TurnierVorlagenNachruesten(cancellationToken);
         await TurnierVorlagenFilterNachruesten(cancellationToken);
+        await TurnierVorlagenRundenartNachruesten(cancellationToken);
         await RanglistenQuellenNachruesten(cancellationToken);
     }
 
@@ -251,6 +252,49 @@ public class SeedDatenService
         {
             await _context.SaveChangesAsync(ct);
             _logger.LogInformation("{Anzahl} Turniervorlagen um Verband-/Land-/Mannschaftsartfilter ergänzt.", aktualisiert);
+        }
+    }
+
+    /// <summary>Issue #343: der #328-Fix (CL/EL/ECL-Ligaphase TopfLiga statt SchweizerSystem) änderte nur die
+    /// Seed-Daten — <see cref="TurnierVorlagenNachruesten"/> ergänzt ausschließlich fehlende Vorlagen, bestehende
+    /// Datenbanken behielten daher die falsche Rundenart. Korrigiert gezielt nur diesen bekannten Altwert (Runde
+    /// derselben Reihenfolge und desselben Namens steht noch auf SchweizerSystem, Seed sagt TopfLiga), damit
+    /// manuelle Anpassungen an Vorlagen nicht überschrieben werden.</summary>
+    private async Task TurnierVorlagenRundenartNachruesten(CancellationToken ct)
+    {
+        var regelwerkLookup = await _context.Regelwerke
+            .ToDictionaryAsync(r => r.Name, r => r.Id, ct);
+        var verbandLookup = await _context.Verbaende
+            .ToDictionaryAsync(v => v.Kurzname, v => v.Id, ct);
+        var landLookup = await _context.Laender
+            .ToDictionaryAsync(l => l.FifaCode, l => l.Id, ct);
+        var sollVorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup, verbandLookup, landLookup)
+            .ToDictionary(v => v.Name);
+
+        var vorhandeneVorlagen = await _context.TurnierInstanzen
+            .Include(i => i.Runden)
+            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
+            .ToListAsync(ct);
+
+        int aktualisiert = 0;
+        foreach (var vorlage in vorhandeneVorlagen)
+        {
+            if (!sollVorlagen.TryGetValue(vorlage.Name, out var soll)) continue;
+            foreach (var runde in vorlage.Runden.Where(r => r.Rundenart == Domain.Enums.Rundenart.SchweizerSystem))
+            {
+                var sollRunde = soll.Runden.FirstOrDefault(r => r.Reihenfolge == runde.Reihenfolge && r.Name == runde.Name);
+                if (sollRunde?.Rundenart != Domain.Enums.Rundenart.TopfLiga) continue;
+
+                runde.Rundenart = Domain.Enums.Rundenart.TopfLiga;
+                runde.KonfigurationJson = null; // AnzahlSpieltage ist nur für SchweizerSystem relevant
+                aktualisiert++;
+            }
+        }
+
+        if (aktualisiert > 0)
+        {
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("{Anzahl} Vorlagen-Runden von SchweizerSystem auf TopfLiga korrigiert.", aktualisiert);
         }
     }
 
