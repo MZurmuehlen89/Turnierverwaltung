@@ -31,15 +31,23 @@ public class SpielErgebnisService(
             throw new InvalidOperationException(
                 "Das Spiel enthält Platzhalter, die noch nicht aufgelöst wurden.");
 
-        // Auswärtstorregel: bei Rückspiel mit aktivierter Regel Aggregat + Auswärtstore prüfen (AD-001)
-        SpielErgebnis? hinspielErgebnis = spiel.IstRueckspiel
-            && spiel.TurnierRunde.AuswaertstorRegelAktiv
-            && spiel.Hinspiel?.Ergebnis is not null
-            ? spiel.Hinspiel.Ergebnis
-            : null;
+        // Issue #346: in K.-o.-Runden mit Hin-/Rückspiel entscheidet das Rückspiel über das Gesamtergebnis
+        // beider Spiele (Auswärtstorregel nur bei aktivem Flag, AD-001) — nicht mehr nur bei aktiver
+        // Auswärtstorregel wie zuvor, wodurch ohne Regel schlicht der Rückspielsieger weiterkam.
+        bool istKoRueckspiel = HinRueckspielWertung.IstKoRueckspiel(spiel, spiel.TurnierRunde);
+        bool istKoHinspiel   = HinRueckspielWertung.IstKoHinspiel(spiel, spiel.TurnierRunde);
+
+        SpielErgebnis? hinspielErgebnis = null;
+        if (istKoRueckspiel)
+        {
+            hinspielErgebnis = spiel.Hinspiel?.Ergebnis
+                ?? throw new InvalidOperationException(
+                    "Das Hinspiel dieser Paarung hat noch kein Ergebnis. Bitte zuerst das Hinspiel erfassen.");
+        }
 
         var (sieger, entscheidungArt) = BestimmeSieger(
-            spiel.HeimMannschaftId.Value, spiel.AuswaertsMannschaftId.Value, eingabe, hinspielErgebnis);
+            spiel.HeimMannschaftId.Value, spiel.AuswaertsMannschaftId.Value, eingabe,
+            hinspielErgebnis, spiel.TurnierRunde.AuswaertstorRegelAktiv);
 
         var vollEingabe = new SpielErgebnisEingabe(
             spiel.HeimMannschaftId.Value, spiel.AuswaertsMannschaftId.Value,
@@ -47,7 +55,9 @@ public class SpielErgebnisService(
             eingabe.HeimToreVerlaengerung, eingabe.AuswaertsToreVerlaengerung,
             eingabe.HeimElfmetertore, eingabe.AuswaertsElfmetertore,
             entscheidungArt, sieger,
-            eingabe.HalbzeitHeimTore, eingabe.HalbzeitAuswaertsTore);
+            eingabe.HalbzeitHeimTore, eingabe.HalbzeitAuswaertsTore,
+            IstGesamtwertung: istKoRueckspiel,
+            IstKoHinspiel: istKoHinspiel);
 
         ValidationException.WerfenWennUngueltig(validator.Validieren(vollEingabe));
 
@@ -65,13 +75,46 @@ public class SpielErgebnisService(
             EntscheidungArt            = entscheidungArt
         };
 
+        bool ueberschreibt = spiel.Ergebnis is not null;
+
+        // Ein neues Hinspiel-Ergebnis entzieht einem bereits gespielten Rückspiel die Grundlage seiner
+        // Gesamtwertung (Sieger, ggf. Verlängerung) — dessen Ergebnis wird daher zurückgesetzt.
+        var rueckspielIds = istKoHinspiel
+            ? await RueckspieleMitErgebnisAsync([spiel], ct)
+            : [];
+        foreach (var rueckId in rueckspielIds)
+            await spielRepository.ErgebnisLoeschenAsync(rueckId, ct);
+
         await spielRepository.ErgebnisSetzenAsync(spielId, ergebnis, ct);
 
         logger.LogInformation(
             "Ergebnis für Spiel {Id} erfasst: {Heim}:{Auswaerts} ({Art}).",
             spielId, eingabe.HeimToreRegulaer, eingabe.AuswaertsToreRegulaer, entscheidungArt);
 
+        // Ein überschriebenes Ergebnis kann den Sieger ändern — bereits damit aufgelöste Folgepaarungen
+        // korrigiert erst die Rückwärts-Kaskade (Issue #88); die Vorwärts-Auflösung unten füllt nur noch
+        // offene Platzhalter (Issue #346-Folgefund: Rückspiel per Elfmeterschießen umentschieden, das
+        // Halbfinale behielt den alten Sieger).
+        if (ueberschreibt || rueckspielIds.Count > 0)
+            await KaskadeAusloesenAsync([spielId, .. rueckspielIds], ct);
+
         await PlatzhalterAutomatischAufloesenAsync(spielId, ct);
+    }
+
+    /// <summary>Issue #346: Rückspiele (mit Ergebnis) der übergebenen K.-o.-Hinspiele — deren Gesamtwertung
+    /// hängt am Hinspiel-Ergebnis und muss mit ihm zusammen zurückgesetzt werden.</summary>
+    private async Task<IReadOnlyList<int>> RueckspieleMitErgebnisAsync(
+        IReadOnlyList<Spiel> hinspiele, CancellationToken ct)
+    {
+        var ergebnis = new List<int>();
+        foreach (var rundeId in hinspiele.Select(s => s.TurnierRundeId).Distinct())
+        {
+            var hinIds = hinspiele.Where(s => s.TurnierRundeId == rundeId).Select(s => s.Id).ToHashSet();
+            ergebnis.AddRange((await spielRepository.AlleNachRundeAsync(rundeId, ct))
+                .Where(s => s.IstRueckspiel && s.HinspielId is int h && hinIds.Contains(h) && s.Ergebnis is not null)
+                .Select(s => s.Id));
+        }
+        return ergebnis;
     }
 
     /// <summary>
@@ -98,18 +141,39 @@ public class SpielErgebnisService(
 
     public async Task ErgebnisLoeschenAsync(int spielId, CancellationToken ct = default)
     {
-        await spielRepository.ErgebnisLoeschenAsync(spielId, ct);
+        var ids = await MitAbhaengigenRueckspielenAsync([spielId], ct);
+        foreach (var id in ids)
+            await spielRepository.ErgebnisLoeschenAsync(id, ct);
         logger.LogInformation("Ergebnis für Spiel {Id} gelöscht.", spielId);
-        await KaskadeAusloesenAsync([spielId], ct);
+        await KaskadeAusloesenAsync(ids, ct);
     }
 
     public async Task<int> MehrereErgebnisseLoeschenAsync(IReadOnlyList<int> spielIds, CancellationToken ct = default)
     {
-        foreach (var id in spielIds)
+        var ids = await MitAbhaengigenRueckspielenAsync(spielIds, ct);
+        foreach (var id in ids)
             await spielRepository.ErgebnisLoeschenAsync(id, ct);
-        logger.LogInformation("{Anzahl} Ergebnis(se) gelöscht.", spielIds.Count);
-        await KaskadeAusloesenAsync(spielIds, ct);
+        logger.LogInformation("{Anzahl} Ergebnis(se) gelöscht.", ids.Count);
+        await KaskadeAusloesenAsync(ids, ct);
         return spielIds.Count;
+    }
+
+    /// <summary>Ergänzt die übergebenen Spiel-IDs um die Rückspiele (mit Ergebnis) enthaltener
+    /// K.-o.-Hinspiele — ohne Hinspiel-Ergebnis ist deren Gesamtwertung hinfällig (Issue #346).</summary>
+    private async Task<IReadOnlyList<int>> MitAbhaengigenRueckspielenAsync(
+        IReadOnlyList<int> spielIds, CancellationToken ct)
+    {
+        var hinspiele = new List<Spiel>();
+        foreach (var id in spielIds)
+        {
+            var spiel = await spielRepository.FindenNachIdMitRundeUndHinspielAsync(id, ct);
+            if (spiel is not null && HinRueckspielWertung.IstKoHinspiel(spiel, spiel.TurnierRunde))
+                hinspiele.Add(spiel);
+        }
+        if (hinspiele.Count == 0) return spielIds;
+
+        var rueckspiele = await RueckspieleMitErgebnisAsync(hinspiele, ct);
+        return [.. spielIds.Concat(rueckspiele).Distinct()];
     }
 
     /// <summary>
@@ -128,35 +192,53 @@ public class SpielErgebnisService(
     }
 
     // Bestimmt Sieger und EndgültigeEntscheidungsArt.
-    // Wenn hinspielErgebnis übergeben wird (Rückspiel mit AuswaertstorRegelAktiv), wird das
-    // Aggregat und — bei Gleichstand — die Auswärtstore vor dem Entscheidungsverfahren geprüft (AD-001).
+    // Wenn hinspielErgebnis übergeben wird (K.-o.-Rückspiel, Issue #346), entscheidet das Gesamtergebnis
+    // beider Spiele; bei Gleichstand — und nur mit aktiver Regel — die Auswärtstore (AD-001), danach das
+    // Entscheidungsverfahren, dessen Tore (Verlängerung/Elfmeter) allein im Rückspiel fallen.
     private static (int? sieger, EntscheidungArt art) BestimmeSieger(
         int heimId, int auswaertsId,
         ErgebnisErfassenEingabe e,
-        SpielErgebnis? hinspielErgebnis)
+        SpielErgebnis? hinspielErgebnis,
+        bool auswaertstorRegelAktiv)
     {
         if (hinspielErgebnis is not null)
         {
             // Rückspiel:  HeimId = Team B (war Auswärts im Hinspiel)
             //             AuswaertsId = Team A (war Heim im Hinspiel)
-            int teamA_gesamt = hinspielErgebnis.HeimToreRegulaer       + e.AuswaertsToreRegulaer;
-            int teamB_gesamt = hinspielErgebnis.AuswaertsToreRegulaer  + e.HeimToreRegulaer;
+            int teamA_gesamt = HinRueckspielWertung.HinspielTore(hinspielErgebnis, heim: true)  + e.AuswaertsToreRegulaer;
+            int teamB_gesamt = HinRueckspielWertung.HinspielTore(hinspielErgebnis, heim: false) + e.HeimToreRegulaer;
 
             if (teamA_gesamt != teamB_gesamt)
                 return teamA_gesamt > teamB_gesamt
                     ? (auswaertsId, EntscheidungArt.RegulaereSpielzeit)
                     : (heimId,      EntscheidungArt.RegulaereSpielzeit);
 
-            // Aggregat gleich → Auswärtstore vergleichen
-            int teamA_weg = e.AuswaertsToreRegulaer;               // Team A als Auswärts im Rückspiel
-            int teamB_weg = hinspielErgebnis.AuswaertsToreRegulaer; // Team B als Auswärts im Hinspiel
+            if (auswaertstorRegelAktiv)
+            {
+                // Gesamtergebnis gleich → Auswärtstore vergleichen
+                int teamA_weg = e.AuswaertsToreRegulaer;                                          // Team A als Auswärts im Rückspiel
+                int teamB_weg = HinRueckspielWertung.HinspielTore(hinspielErgebnis, heim: false); // Team B als Auswärts im Hinspiel
 
-            if (teamA_weg != teamB_weg)
-                return teamA_weg > teamB_weg
-                    ? (auswaertsId, EntscheidungArt.Auswaertstorregel)
-                    : (heimId,      EntscheidungArt.Auswaertstorregel);
+                if (teamA_weg != teamB_weg)
+                    return teamA_weg > teamB_weg
+                        ? (auswaertsId, EntscheidungArt.Auswaertstorregel)
+                        : (heimId,      EntscheidungArt.Auswaertstorregel);
+            }
 
-            // Auch Auswärtstore gleich → Entscheidungsverfahren (Verlängerung, Elfmeter…)
+            // Gesamtergebnis (und ggf. Auswärtstore) gleich → Entscheidungsverfahren. Da der Gesamtstand
+            // nach 90 Minuten ausgeglichen ist, entscheiden allein die Tore der Verlängerung bzw. des
+            // Elfmeterschießens — nicht (wie bei einem Einzelspiel) Regulär- plus Verlängerungstore.
+            return (e.EntscheidungArt switch
+            {
+                EntscheidungArt.Verlaengerung or EntscheidungArt.GoldenGoal or EntscheidungArt.SilverGoal
+                    when e.HeimToreVerlaengerung.HasValue && e.AuswaertsToreVerlaengerung.HasValue
+                         && e.HeimToreVerlaengerung != e.AuswaertsToreVerlaengerung
+                    => e.HeimToreVerlaengerung > e.AuswaertsToreVerlaengerung ? heimId : auswaertsId,
+                EntscheidungArt.Elfmeterschiessen
+                    when e.HeimElfmetertore.HasValue && e.AuswaertsElfmetertore.HasValue
+                    => e.HeimElfmetertore.Value > e.AuswaertsElfmetertore.Value ? heimId : auswaertsId,
+                _ => null
+            }, e.EntscheidungArt);
         }
 
         return (SiegerAbleiten(heimId, auswaertsId, e), e.EntscheidungArt);

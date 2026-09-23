@@ -177,23 +177,188 @@ public class SpielErgebnisServiceTests
     }
 
     [Fact]
-    public async Task Rueckspiel_OhneAuswaertstorRegel_NormaleEntscheidung()
+    public async Task Rueckspiel_OhneAuswaertstorRegel_GesamtGleich_KeinSiegerOhneEntscheidungsverfahren()
     {
-        // Gleiche Konstellation, aber AuswaertstorRegel ist deaktiviert.
-        // → Unentschieden in der Regulärzeit → kein Sieger über Aggregat → EntscheidungsVerfahren nötig
+        // Gleiche Konstellation, aber AuswaertstorRegel ist deaktiviert (Issue #346: früher entschied hier
+        // fälschlich das Einzelspiel-Ergebnis des Rückspiels).
+        // Gesamt: A = 0+2 = 2, B = 1+1 = 2 → ohne Auswärtstorregel Entscheidungsverfahren nötig
         await using var ctx = NeuerContext();
         GrundSetupAnlegen(ctx, auswaertstorRegel: false);  // deaktiviert!
         HinspielAnlegen(ctx, spielId: 1, rundeId: 1, heimId: 1, auswaertsId: 2, heimTore: 0, auswaertsTore: 1);
         RueckspielAnlegen(ctx, spielId: 2, rundeId: 1, heimId: 2, auswaertsId: 1, hinspielId: 1);
 
         var service = ServiceFuer(ctx);
-        // Rückspiel 1:2: die BestimmeSieger-Methode ignoriert Aggregat, wertet nur Rückspiel allein aus
         await service.ErgebnisErfassenAsync(2, new ErgebnisErfassenEingabe(1, 2, EntscheidungArt.RegulaereSpielzeit));
 
         var erg = await ErgebnisFuer(ctx, 2);
-        // Kein Auswaertstor-Check → SiegerAbleiten(heim=2, auswaerts=1, 1:2) → AuswaertsId (Team A, id=1) gewinnt
-        erg!.SiegerMannschaftId.Should().Be(1, "Ohne Auswaertstorregel entscheidet das Einzelspiel-Ergebnis");
+        erg!.SiegerMannschaftId.Should().BeNull("das Gesamtergebnis ist ausgeglichen, die Auswärtstorregel greift nicht");
         erg.EntscheidungArt.Should().Be(EntscheidungArt.RegulaereSpielzeit);
+    }
+
+    // ── Tests: Gesamtwertung Hin-/Rückspiel (Issue #346) ────────────────────
+
+    [Fact]
+    public async Task Rueckspiel_OhneAuswaertstorRegel_GesamtsiegerTrotzRueckspielNiederlage()
+    {
+        // Hinspiel: A (id=1) heim 3:0. Rückspiel: B (id=2) heim 1:0 → gesamt A 3, B 1 → A weiter,
+        // obwohl A das Rückspiel verliert (früher: Validierungsfehler bzw. B als Sieger).
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, auswaertstorRegel: false);
+        HinspielAnlegen(ctx, spielId: 1, rundeId: 1, heimId: 1, auswaertsId: 2, heimTore: 3, auswaertsTore: 0);
+        RueckspielAnlegen(ctx, spielId: 2, rundeId: 1, heimId: 2, auswaertsId: 1, hinspielId: 1);
+
+        var service = ServiceFuer(ctx);
+        await service.ErgebnisErfassenAsync(2, new ErgebnisErfassenEingabe(1, 0, EntscheidungArt.RegulaereSpielzeit));
+
+        var erg = await ErgebnisFuer(ctx, 2);
+        erg!.SiegerMannschaftId.Should().Be(1, "Team A gewinnt das Gesamtergebnis 3:1");
+        erg.EntscheidungArt.Should().Be(EntscheidungArt.RegulaereSpielzeit);
+    }
+
+    [Fact]
+    public async Task Rueckspiel_GesamtGleich_VerlaengerungstoreEntscheiden()
+    {
+        // Hinspiel: A heim 1:0. Rückspiel: B heim 1:0 → gesamt 1:1. Verlängerung 0:1 → A (Auswärts im
+        // Rückspiel) gewinnt — obwohl das Rückspiel selbst (1:1 n.V.) nach Einzelspiel-Logik offen wäre.
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, auswaertstorRegel: false);
+        HinspielAnlegen(ctx, spielId: 1, rundeId: 1, heimId: 1, auswaertsId: 2, heimTore: 1, auswaertsTore: 0);
+        RueckspielAnlegen(ctx, spielId: 2, rundeId: 1, heimId: 2, auswaertsId: 1, hinspielId: 1);
+
+        var service = ServiceFuer(ctx);
+        await service.ErgebnisErfassenAsync(2, new ErgebnisErfassenEingabe(
+            1, 0, EntscheidungArt.Verlaengerung, HeimToreVerlaengerung: 0, AuswaertsToreVerlaengerung: 1));
+
+        var erg = await ErgebnisFuer(ctx, 2);
+        erg!.SiegerMannschaftId.Should().Be(1);
+        erg.EntscheidungArt.Should().Be(EntscheidungArt.Verlaengerung);
+    }
+
+    [Fact]
+    public async Task Rueckspiel_OhneHinspielErgebnis_Wirft()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, auswaertstorRegel: false);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 1, TurnierInstanzId = 1, TurnierRundeId = 1, Spielnummer = 1,
+            HeimMannschaftId = 1, AuswaertsMannschaftId = 2, Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        RueckspielAnlegen(ctx, spielId: 2, rundeId: 1, heimId: 2, auswaertsId: 1, hinspielId: 1);
+
+        var service = ServiceFuer(ctx);
+        var aufruf = () => service.ErgebnisErfassenAsync(2, new ErgebnisErfassenEingabe(1, 0, EntscheidungArt.RegulaereSpielzeit));
+
+        await aufruf.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Hinspiel*");
+    }
+
+    [Fact]
+    public async Task KoHinspiel_MitElfmeterschiessen_WirftValidationException()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, auswaertstorRegel: false);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 1, TurnierInstanzId = 1, TurnierRundeId = 1, Spielnummer = 1,
+            HeimMannschaftId = 1, AuswaertsMannschaftId = 2, Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+
+        var service = ServiceFuer(ctx);
+        var aufruf = () => service.ErgebnisErfassenAsync(1, new ErgebnisErfassenEingabe(
+            1, 1, EntscheidungArt.Elfmeterschiessen, HeimElfmetertore: 5, AuswaertsElfmetertore: 4));
+
+        await aufruf.Should().ThrowAsync<ValidationException>();
+    }
+
+    [Fact]
+    public async Task KoHinspiel_ErgebnisGeaendert_SetztGespieltesRueckspielZurueck()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, auswaertstorRegel: false);
+        HinspielAnlegen(ctx, spielId: 1, rundeId: 1, heimId: 1, auswaertsId: 2, heimTore: 3, auswaertsTore: 0);
+        RueckspielAnlegen(ctx, spielId: 2, rundeId: 1, heimId: 2, auswaertsId: 1, hinspielId: 1);
+        var service = ServiceFuer(ctx);
+        await service.ErgebnisErfassenAsync(2, new ErgebnisErfassenEingabe(1, 0, EntscheidungArt.RegulaereSpielzeit));
+
+        // Hinspiel nachträglich korrigiert → die Gesamtwertung des Rückspiels ist hinfällig.
+        await service.ErgebnisErfassenAsync(1, new ErgebnisErfassenEingabe(0, 0, EntscheidungArt.RegulaereSpielzeit));
+
+        (await ErgebnisFuer(ctx, 2)).Should().BeNull();
+        ctx.Spiele.First(s => s.Id == 2).Status.Should().NotBe(SpielStatus.Abgeschlossen);
+        (await ErgebnisFuer(ctx, 1))!.HeimToreRegulaer.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Rueckspiel_ErgebnisUeberschriebenMitAnderemSieger_KorrigiertFolgerunde()
+    {
+        // Manueller #346-Testfund: Rückspiel zuerst regulär für B entschieden, dann per Elfmeterschießen für A
+        // umentschieden — das Viertelfinale behielt den alten Sieger B.
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, auswaertstorRegel: false);
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 },
+            new Mannschaft { Id = 4, Name = "Team D", Kurzname = "TD", LandId = 1 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 2, TurnierInstanzId = 1, Name = "Viertelfinale", Rundenart = Rundenart.KoRunde,
+            RegelwerkId = 1, Reihenfolge = 2
+        });
+        ctx.SaveChanges();
+        HinspielAnlegen(ctx, spielId: 1, rundeId: 1, heimId: 1, auswaertsId: 2, heimTore: 2, auswaertsTore: 1);
+        RueckspielAnlegen(ctx, spielId: 2, rundeId: 1, heimId: 2, auswaertsId: 1, hinspielId: 1);
+        HinspielAnlegen(ctx, spielId: 3, rundeId: 1, heimId: 3, auswaertsId: 4, heimTore: 1, auswaertsTore: 0);
+        RueckspielAnlegen(ctx, spielId: 4, rundeId: 1, heimId: 4, auswaertsId: 3, hinspielId: 3);
+
+        var service = ServiceFuer(ctx);
+        await service.ErgebnisErfassenAsync(2, new ErgebnisErfassenEingabe(2, 0, EntscheidungArt.RegulaereSpielzeit)); // B gesamt 3:2
+        await service.ErgebnisErfassenAsync(4, new ErgebnisErfassenEingabe(0, 0, EntscheidungArt.RegulaereSpielzeit)); // C gesamt 1:0
+
+        var auslosung = new Auslosung
+        {
+            TurnierInstanzId = 1, TurnierRundeId = 2, Name = "VF-Auslosung",
+            Auslosungsart = Auslosungsart.Manuell, Status = AuslosungsStatus.Abgeschlossen
+        };
+        ctx.Auslosungen.Add(auslosung);
+        ctx.SaveChanges();
+        ctx.AuslosungsErgebnisse.Add(new AuslosungsErgebnis
+        {
+            AuslosungId = auslosung.Id, PaarungsNummer = 1,
+            HeimPlatzhalterName = "Sieger Achtelfinale 1", AuswaertsPlatzhalterName = "Sieger Achtelfinale 2"
+        });
+        ctx.SaveChanges();
+        await SpielplanServiceFuer(ctx).GenerierenAusAuslosungAsync(
+            2, [.. ctx.AuslosungsErgebnisse.Where(e => e.AuslosungId == auslosung.Id)]);
+        ctx.Spiele.AsNoTracking().Single(s => s.TurnierRundeId == 2).HeimMannschaftId
+            .Should().Be(2, "Vorbedingung: Team B hat Paarung 1 gewonnen");
+
+        // Rückspiel 1:0 → gesamt 2:2, Elfmeterschießen 3:4 → Team A (Auswärts im Rückspiel) weiter
+        await service.ErgebnisErfassenAsync(2, new ErgebnisErfassenEingabe(
+            1, 0, EntscheidungArt.Elfmeterschiessen,
+            HeimToreVerlaengerung: 0, AuswaertsToreVerlaengerung: 0,
+            HeimElfmetertore: 3, AuswaertsElfmetertore: 4));
+
+        (await ErgebnisFuer(ctx, 2))!.SiegerMannschaftId.Should().Be(1);
+        var vf = ctx.Spiele.AsNoTracking().Single(s => s.TurnierRundeId == 2);
+        vf.HeimMannschaftId.Should().Be(1, "der neue Gesamtsieger Team A rückt nach");
+        vf.AuswaertsMannschaftId.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task KoHinspiel_ErgebnisGeloescht_LoeschtRueckspielErgebnisMit()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, auswaertstorRegel: false);
+        HinspielAnlegen(ctx, spielId: 1, rundeId: 1, heimId: 1, auswaertsId: 2, heimTore: 3, auswaertsTore: 0);
+        RueckspielAnlegen(ctx, spielId: 2, rundeId: 1, heimId: 2, auswaertsId: 1, hinspielId: 1);
+        var service = ServiceFuer(ctx);
+        await service.ErgebnisErfassenAsync(2, new ErgebnisErfassenEingabe(1, 0, EntscheidungArt.RegulaereSpielzeit));
+
+        await service.ErgebnisLoeschenAsync(1);
+
+        (await ErgebnisFuer(ctx, 1)).Should().BeNull();
+        (await ErgebnisFuer(ctx, 2)).Should().BeNull();
     }
 
     [Fact]
@@ -415,7 +580,9 @@ public class SpielErgebnisServiceTests
         await ServiceFuer(ctx).ErgebnisLoeschenAsync(21);
 
         var finaleVorher = ctx.Spiele.AsNoTracking().First(s => s.TurnierRundeId == finaleRundeId);
-        finaleVorher.HeimMannschaftId.Should().BeNull("Vorbedingung: Halbfinale noch nicht vollständig, nichts aufgelöst");
+        // Issue #346-Folgefund: das bereits entschiedene HF 1 wird schon beim Generieren eingetragen.
+        finaleVorher.HeimMannschaftId.Should().Be(10, "Vorbedingung: Sieger HF 1 steht schon bei der Generierung fest");
+        finaleVorher.AuswaertsMannschaftId.Should().BeNull("Vorbedingung: HF 2 noch offen, nicht aufgelöst");
 
         // Kein manueller PlatzhalterAufloesenAsync-Aufruf hier — Issue #90 verlangt, dass das Speichern
         // dieses Ergebnisses (macht die Runde komplett) die Auflösung von selbst anstößt.

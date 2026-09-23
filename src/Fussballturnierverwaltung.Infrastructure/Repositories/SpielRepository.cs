@@ -153,6 +153,8 @@ public class SpielRepository(TurnierverwaltungDbContext context)
             .Include(s => s.TurnierRunde)
                 .ThenInclude(r => r.Regelwerk)
                     .ThenInclude(rw => rw!.Entscheidungsverfahren.OrderBy(e => e.Reihenfolge))
+            .Include(s => s.Hinspiel)
+                .ThenInclude(h => h!.Ergebnis)
             .FirstOrDefaultAsync(s => s.Id == id, ct);
 
     public async Task EreignisseHinzufuegenAsync(

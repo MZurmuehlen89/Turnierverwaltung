@@ -72,11 +72,43 @@ public class SimulationsService(
             throw new InvalidOperationException(
                 $"Spiel #{spiel.Spielnummer} enthält Platzhalter und kann nicht simuliert werden.");
 
+        // Issue #346: in K.-o.-Paarungen mit Hin- und Rückspiel entscheidet erst das Gesamtergebnis, ob
+        // überhaupt ein Entscheidungsverfahren fällig ist — das Hinspiel läuft nie in die Verlängerung,
+        // das Rückspiel nur bei ausgeglichenem Gesamtstand (analog zur freien Simulation aus #237).
+        var runde = spiel.TurnierRunde!;
+        bool istKoHinspiel   = istKoRunde && HinRueckspielWertung.IstKoHinspiel(spiel, runde);
+        bool istKoRueckspiel = istKoRunde && HinRueckspielWertung.IstKoRueckspiel(spiel, runde);
+        var hinspielErgebnis = spiel.Hinspiel?.Ergebnis;
+        if (istKoRueckspiel && hinspielErgebnis is null)
+            throw new InvalidOperationException(
+                $"Spiel #{spiel.Spielnummer} ist ein Rückspiel, dessen Hinspiel noch kein Ergebnis hat.");
+
         // Issue #171: Ereignisse werden unabhängig vom gewählten Modus immer berechnet und
         // gespeichert (In-Memory-Berechnung ist vernachlässigbar teuer) — sonst bleibt der
         // Spielverlauf leer, wenn ein schnellsimuliertes Spiel später im Detail betrachtet wird.
         var ergebnis = SimulationsEngine.Simulieren(
-            spiel.HeimMannschaft, spiel.AuswaertsMannschaft, verfahren, ausfuehrlich: true, rng);
+            spiel.HeimMannschaft, spiel.AuswaertsMannschaft,
+            istKoHinspiel || istKoRueckspiel ? [] : verfahren, ausfuehrlich: true, rng);
+
+        if (istKoRueckspiel && verfahren.Count > 0 &&
+            HinRueckspielWertung.EntscheidungsverfahrenNoetig(
+                HinRueckspielWertung.HinspielTore(hinspielErgebnis!, heim: true),
+                HinRueckspielWertung.HinspielTore(hinspielErgebnis!, heim: false),
+                ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,
+                runde.AuswaertstorRegelAktiv))
+        {
+            var (hv, gv, he, ge, art, extras) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
+                spiel.HeimMannschaft, spiel.AuswaertsMannschaft, verfahren, ausfuehrlich: true, rng);
+            ergebnis = ergebnis with
+            {
+                HeimToreVerlaengerung      = hv,
+                AuswaertsToreVerlaengerung = gv,
+                HeimElfmetertore           = he,
+                AuswaertsElfmetertore      = ge,
+                EntscheidungArt            = art,
+                Ereignisse                 = [.. ergebnis.Ereignisse, .. extras],
+            };
+        }
 
         await SpeichernAsync(spiel, ergebnis, ct);
 
@@ -110,12 +142,18 @@ public class SimulationsService(
         var rng = seed.HasValue ? new Random(seed.Value) : new Random();
         int simuliert = 0;
 
+        // Issue #346: Hinspiele vor Rückspielen — ein K.-o.-Rückspiel braucht das Hinspiel-Ergebnis.
+        var offene = new List<Spiel>();
         foreach (var spielId in spielIds)
         {
             var spiel = await spielRepository.FindenNachIdFuerSimulationAsync(spielId, ct);
             if (spiel is null || spiel.Status == SpielStatus.Abgeschlossen) continue;
+            offene.Add(spiel);
+        }
 
-            await SpielSimulierenAsync(spielId, modus, rng, ct);
+        foreach (var spiel in offene.OrderBy(s => s.IstRueckspiel).ThenBy(s => s.Spielnummer))
+        {
+            await SpielSimulierenAsync(spiel.Id, modus, rng, ct);
             simuliert++;
         }
 
@@ -278,7 +316,10 @@ public class SimulationsService(
         CancellationToken ct = default)
     {
         var spiele = await spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
-        var offene = spiele.Where(s => s.Status != SpielStatus.Abgeschlossen).ToList();
+        // Issue #346: Hinspiele vor Rückspielen — ein K.-o.-Rückspiel braucht das Hinspiel-Ergebnis.
+        var offene = spiele.Where(s => s.Status != SpielStatus.Abgeschlossen)
+            .OrderBy(s => s.IstRueckspiel).ThenBy(s => s.Spielnummer)
+            .ToList();
 
         if (!offene.Any()) return 0;
 

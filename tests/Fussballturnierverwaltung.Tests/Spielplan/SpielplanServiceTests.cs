@@ -2014,4 +2014,170 @@ public class SpielplanServiceTests
         spiele[1].HeimMannschaftId.Should().BeNull();
         spiele[1].AuswaertsMannschaftId.Should().BeNull();
     }
+
+    // ── Tests: K.o.-Runden mit Hin-/Rückspiel und Platzhaltern (Issue #346) ─
+
+    private static void KoSpielAnlegen(
+        TurnierverwaltungDbContext ctx, int id, int rundeId, int heimId, int auswaertsId,
+        int? siegerMannschaftId, bool istRueckspiel = false, int? hinspielId = null)
+    {
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = id, TurnierInstanzId = 1, TurnierRundeId = rundeId,
+            Spielnummer = id, HeimMannschaftId = heimId, AuswaertsMannschaftId = auswaertsId,
+            Status = SpielStatus.Abgeschlossen, IstRueckspiel = istRueckspiel, HinspielId = hinspielId
+        });
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+        {
+            Id = id, SpielId = id,
+            HeimToreRegulaer = siegerMannschaftId == heimId ? 1 : 0,
+            AuswaertsToreRegulaer = siegerMannschaftId == auswaertsId ? 1 : 0,
+            EntscheidungArt = EntscheidungArt.RegulaereSpielzeit,
+            SiegerMannschaftId = siegerMannschaftId
+        });
+        ctx.SaveChanges();
+    }
+
+    /// <summary>Halbfinale mit Hin-/Rückspiel: Paarung 1 A–B (Hinspiel-Sieger B, Gesamtsieger A),
+    /// Paarung 2 C–D (Gesamtsieger D). Spielnummern 1–4, Rückspiele direkt nach ihrem Hinspiel.</summary>
+    private static void HalbfinaleMitRueckspielenAnlegen(TurnierverwaltungDbContext ctx, int hfRundeId)
+    {
+        KoSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 2);
+        KoSpielAnlegen(ctx, 2, hfRundeId, heimId: 2, auswaertsId: 1, siegerMannschaftId: 1, istRueckspiel: true, hinspielId: 1);
+        KoSpielAnlegen(ctx, 3, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 4);
+        KoSpielAnlegen(ctx, 4, hfRundeId, heimId: 4, auswaertsId: 3, siegerMannschaftId: 4, istRueckspiel: true, hinspielId: 3);
+    }
+
+    [Fact]
+    public async Task GenerierenAusAuslosungAsync_KoRundeMitRueckspielUndPlatzhaltern_ErzeugtGespiegelteRueckspiele()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out _, hfMitRueckspiel: true);
+        var ergebnisse = new List<AuslosungsErgebnis>
+        {
+            new() { PaarungsNummer = 1, HeimPlatzhalterName = "Sieger Gruppe A", AuswaertsPlatzhalterName = "2. Gruppe B" },
+            new() { PaarungsNummer = 2, HeimPlatzhalterName = "Sieger Gruppe B", AuswaertsPlatzhalterName = "2. Gruppe A" },
+        };
+        var service = ServiceFuer(ctx);
+
+        await service.GenerierenAusAuslosungAsync(hfRundeId, ergebnisse);
+
+        var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == hfRundeId).OrderBy(s => s.Spielnummer).ToList();
+        spiele.Should().HaveCount(4, "je Paarung Hin- und Rückspiel");
+        spiele.Select(s => s.IstRueckspiel).Should().Equal(false, false, true, true);
+
+        var (hin1, rueck1) = (spiele[0], spiele[2]);
+        hin1.HeimPlatzhalterName.Should().Be("Sieger Gruppe A");
+        hin1.Spieltag.Should().Be(1);
+        rueck1.HeimPlatzhalterName.Should().Be("2. Gruppe B", "das Rückspiel ist gespiegelt");
+        rueck1.AuswaertsPlatzhalterName.Should().Be("Sieger Gruppe A");
+        rueck1.Spieltag.Should().Be(2);
+        rueck1.HinspielId.Should().Be(hin1.Id);
+        rueck1.Spielnummer.Should().Be(hin1.Spielnummer + 2, "erst alle Hinspiele, dann alle Rückspiele");
+        spiele[3].HinspielId.Should().Be(spiele[1].Id);
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_KoSiegerAusHinUndRueckspiel_NimmtGesamtsiegerJePaarung()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId, hfMitRueckspiel: true);
+        HalbfinaleMitRueckspielenAnlegen(ctx, hfRundeId);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 20, TurnierInstanzId = 1, TurnierRundeId = finaleRundeId, Spielnummer = 20,
+            HeimPlatzhalterName = "Sieger Halbfinale 1", AuswaertsPlatzhalterName = "Sieger Halbfinale 2",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        await service.PlatzhalterAufloesenAsync(finaleRundeId);
+
+        var finale = ctx.Spiele.First(s => s.Id == 20);
+        // Früher: "Sieger Halbfinale 1" = Hinspiel-Sieger B, "Sieger Halbfinale 2" = Rückspiel der 1. Paarung.
+        finale.HeimMannschaftId.Should().Be(1, "Team A gewinnt Paarung 1 über beide Spiele");
+        finale.AuswaertsMannschaftId.Should().Be(4, "Team D gewinnt Paarung 2");
+    }
+
+    [Fact]
+    public async Task SpielQuellenAlleTransitionsVerknuepfenAsync_HinUndRueckspiel_VerweistAufRueckspielDerPaarung()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId, hfMitRueckspiel: true);
+        HalbfinaleMitRueckspielenAnlegen(ctx, hfRundeId);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 20, TurnierInstanzId = 1, TurnierRundeId = finaleRundeId, Spielnummer = 20,
+            HeimPlatzhalterName = "Sieger Halbfinale 1", AuswaertsPlatzhalterName = "Verlierer Halbfinale 2",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        await service.SpielQuellenAlleTransitionsVerknuepfenAsync(1);
+        await service.PlatzhalterAufloesenAsync(finaleRundeId);
+
+        var finale = ctx.Spiele.First(s => s.Id == 20);
+        finale.HeimQuellSpielId.Should().Be(2, "das Rückspiel der 1. Paarung trägt den Gesamtsieger");
+        finale.AuswaertsQuellSpielId.Should().Be(4);
+        finale.HeimMannschaftId.Should().Be(1);
+        finale.AuswaertsMannschaftId.Should().Be(3, "Verlierer der 2. Paarung = Team C");
+    }
+
+    [Fact]
+    public async Task PlatzhalterKaskade_KoRundeMitRueckspiel_KorrigiertHinUndRueckspielJederPaarung()
+    {
+        await using var ctx = NeuerContext();
+        GruppenphaseUndKoSetupAnlegen(ctx, out _, out int koRundeId);
+        ctx.TurnierRunden.First(r => r.Id == koRundeId).MitRueckspiel = true;
+        ctx.SaveChanges();
+        var auslosung = await AuslosungMitPlatzhalternAnlegen(
+            ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"), ("Sieger Gruppe B", "2. Gruppe A"));
+        var service = ServiceFuer(ctx);
+        await service.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await service.PlatzhalterAufloesenAsync(koRundeId);
+
+        // Gruppenspiel neu entschieden: Team B gewinnt Gruppe A statt Team A
+        var gruppenErgebnis = ctx.SpielErgebnisse.First(e => e.SpielId == 1);
+        gruppenErgebnis.HeimToreRegulaer = 0;
+        gruppenErgebnis.AuswaertsToreRegulaer = 1;
+        await ctx.SaveChangesAsync();
+
+        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        plan.Schritte.Should().HaveCount(4, "Hin- und Rückspiel beider Paarungen sind betroffen");
+        await service.PlatzhalterKaskadeAusfuehrenAsync(plan);
+
+        var teams = ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId).OrderBy(s => s.Spielnummer)
+            .Select(s => new { s.HeimMannschaftId, s.AuswaertsMannschaftId }).ToList();
+        teams.Should().Equal(
+            new { HeimMannschaftId = (int?)2, AuswaertsMannschaftId = (int?)4 },   // Hinspiel: Sieger Gr. A – 2. Gr. B
+            new { HeimMannschaftId = (int?)3, AuswaertsMannschaftId = (int?)1 },   // Hinspiel: Sieger Gr. B – 2. Gr. A
+            new { HeimMannschaftId = (int?)4, AuswaertsMannschaftId = (int?)2 },   // Rückspiele gespiegelt
+            new { HeimMannschaftId = (int?)1, AuswaertsMannschaftId = (int?)3 });
+    }
+
+    [Fact]
+    public async Task GenerierenAusAuslosungAsync_VorrundeBereitsEntschieden_TraegtFeststehendeTeamsSofortEin()
+    {
+        // Issue #346-Folgefund: eine nach komplett gespielter Gruppenphase neu generierte K.o.-Runde (hier mit
+        // Rückspielen) zeigte zunächst nur Platzhalter, bis ein weiteres Ergebnis die Auflösung anstieß.
+        await using var ctx = NeuerContext();
+        GruppenphaseUndKoSetupAnlegen(ctx, out _, out int koRundeId);
+        ctx.TurnierRunden.First(r => r.Id == koRundeId).MitRueckspiel = true;
+        ctx.SaveChanges();
+        var auslosung = await AuslosungMitPlatzhalternAnlegen(
+            ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"), ("Sieger Gruppe B", "2. Gruppe A"));
+        var service = ServiceFuer(ctx);
+
+        await service.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
+
+        var teams = ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId).OrderBy(s => s.Spielnummer)
+            .Select(s => new { s.HeimMannschaftId, s.AuswaertsMannschaftId }).ToList();
+        teams.Should().Equal(
+            new { HeimMannschaftId = (int?)1, AuswaertsMannschaftId = (int?)4 },
+            new { HeimMannschaftId = (int?)3, AuswaertsMannschaftId = (int?)2 },
+            new { HeimMannschaftId = (int?)4, AuswaertsMannschaftId = (int?)1 },
+            new { HeimMannschaftId = (int?)2, AuswaertsMannschaftId = (int?)3 });
+    }
 }

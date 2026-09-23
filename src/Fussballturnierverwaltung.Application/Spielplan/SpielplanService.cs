@@ -182,6 +182,11 @@ public class SpielplanService(
         // nach jeder Generierung nachziehen — idempotent, unabhängig davon, in welcher Reihenfolge Runden
         // erzeugt werden.
         await SpielQuellenAlleTransitionsVerknuepfenAsync(runde.TurnierInstanzId, ct);
+
+        // Issue #346-Folgefund: bereits feststehende Teilnehmer sofort eintragen — sonst zeigte eine neu
+        // generierte Runde nach bereits entschiedener Vorrunde wieder reine Platzhalter, bis irgendwo das
+        // nächste Ergebnis die Auflösung anstieß (alle Aufrufer: Spielplan, Auslosung, Vorbelegung, Kaskade).
+        await PlatzhalterAufloesenAsync(turnierRundeId, ct);
     }
 
     /// <summary>
@@ -538,19 +543,46 @@ public class SpielplanService(
 
         int spielNr = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
 
-        var spiele = paarungen.Select((p, i) => new Spiel
+        List<Spiel> spiele;
+        if (!runde.MitRueckspiel)
         {
-            TurnierInstanzId         = runde.TurnierInstanzId,
-            TurnierRundeId           = turnierRundeId,
-            Spielnummer              = spielNr + i,
-            HeimPlatzhalterName      = p.Heim,
-            AuswaertsPlatzhalterName = p.Auswaerts,
-            Status                   = SpielStatus.Geplant,
-            SimulationsModus         = SimulationsModus.ManuellesErgebnis,
-            IstRueckspiel            = false,
-        }).ToList();
+            spiele = paarungen.Select((p, i) => new Spiel
+            {
+                TurnierInstanzId         = runde.TurnierInstanzId,
+                TurnierRundeId           = turnierRundeId,
+                Spielnummer              = spielNr + i,
+                HeimPlatzhalterName      = p.Heim,
+                AuswaertsPlatzhalterName = p.Auswaerts,
+                Status                   = SpielStatus.Geplant,
+                SimulationsModus         = SimulationsModus.ManuellesErgebnis,
+                IstRueckspiel            = false,
+            }).ToList();
 
-        await spielRepository.HinzufuegenMehrfachAsync(spiele, ct);
+            await spielRepository.HinzufuegenMehrfachAsync(spiele, ct);
+        }
+        else
+        {
+            // Issue #346: je Paarung Hin- und gespiegeltes Rückspiel — erst alle Hinspiele, dann alle Rückspiele
+            // nummeriert (so, wie sie ausgetragen werden; wie im KoRundeGenerator). Zweiphasig gespeichert (wie
+            // SpeichernAsync), damit die Rückspiele die HinspielId ihres bereits gespeicherten Hinspiels erhalten.
+            var hinspiele = paarungen
+                .Select((p, i) => PlatzhalterSpiel(runde, p.Heim, p.Auswaerts, spielNr + i, spieltag: 1))
+                .ToList();
+            await spielRepository.HinzufuegenMehrfachAsync(hinspiele, ct);
+
+            var rueckspiele = hinspiele
+                .Select(h =>
+                {
+                    var rueck = PlatzhalterSpiel(runde, h.AuswaertsPlatzhalterName!, h.HeimPlatzhalterName!,
+                        h.Spielnummer + hinspiele.Count, spieltag: 2, istRueckspiel: true);
+                    rueck.HinspielId = h.Id;
+                    return rueck;
+                })
+                .ToList();
+            await spielRepository.HinzufuegenMehrfachAsync(rueckspiele, ct);
+
+            spiele = [.. hinspiele, .. rueckspiele];
+        }
 
         logger.LogInformation(
             "Platzhalter-Spielplan für Runde '{Runde}' generiert: {Anzahl} Spiele.",
@@ -735,9 +767,9 @@ public class SpielplanService(
         async Task<List<Spiel>> QuellSpieleAsync(TurnierRunde quellRunde)
         {
             if (quellSpieleProRunde.TryGetValue(quellRunde.Id, out var cached)) return cached;
-            var liste = (await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct))
-                .OrderBy(s => s.Spielnummer)
-                .ToList();
+            // Issue #346: "Sieger <Runde> N" meint die N-te Paarung — bei Hin-/Rückspiel deren Rückspiel,
+            // das die Gesamtwertung trägt.
+            var liste = EntscheidungsspieleJePaarung(await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct));
             quellSpieleProRunde[quellRunde.Id] = liste;
             return liste;
         }
@@ -848,9 +880,7 @@ public class SpielplanService(
                 .ToList();
             if (platzhalterEintraege.Count == 0) continue;
 
-            var aktuelleSpiele = (await spielRepository.AlleNachRundeAsync(runde.Id, ct))
-                .OrderBy(s => s.Spielnummer)
-                .ToList();
+            var alleRundenSpiele = await spielRepository.AlleNachRundeAsync(runde.Id, ct);
 
             // Eine Auslosung-basierte Platzhalter-Runde ohne ein einziges Spiel muss komplett neu
             // generiert werden — z.B. wenn die enge #125-Logik (FinaleAutomatischGenerierenWennBereitAsync)
@@ -858,11 +888,22 @@ public class SpielplanService(
             // (Auslosung-unabhängige) Heuristik die Quelle als nicht mehr entschieden einstuft, aber
             // mangels erkanntem Nachfolger nicht selbst neu generiert. Kein Ergebnisverlust möglich,
             // da nichts vorhanden ist.
-            if (aktuelleSpiele.Count == 0)
+            if (alleRundenSpiele.Count == 0)
             {
                 schritte.Add(new KaskadenRundeNeuGenerierenSchritt(runde.Id, runde.Name));
                 continue;
             }
+
+            // Issue #346: in K.o.-Runden mit Rückspiel gehört zu jedem Auslosungs-Eintrag ein Hinspiel plus
+            // dessen gespiegeltes Rückspiel — positional gezählt wird nur über die Hinspiele, sonst
+            // verrutscht die Zuordnung ab der zweiten Paarung.
+            bool paarweise = runde.MitRueckspiel &&
+                runde.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
+            var rueckspielJeHinspiel = paarweise ? RueckspielJeHinspiel(alleRundenSpiele) : [];
+            var aktuelleSpiele = alleRundenSpiele
+                .Where(s => !paarweise || !s.IstRueckspiel)
+                .OrderBy(s => s.Spielnummer)
+                .ToList();
 
             // Positionale Zuordnung Auslosungs-Eintrag <-> aktuelles Spiel — exakt die Reihenfolge, in der
             // GenerierenAusPlatzhalterPaarungenAsync/GenerierenAusGruppenMitPlatzhalternAsync sie erzeugt haben.
@@ -878,17 +919,26 @@ public class SpielplanService(
                     ? await PlatzhalterNameAufloessenAsync(auswName, runde, alleRunden, ct, ignoriert)
                     : eintrag.AuswaertsMannschaftId;
 
+                SpielPruefen(spiel, sollHeim, sollAusw, eintrag.HeimPlatzhalterName, eintrag.AuswaertsPlatzhalterName);
+
+                // Rückspiel mit vertauschten Rollen
+                if (rueckspielJeHinspiel.GetValueOrDefault(spiel.Id) is { } rueckspiel)
+                    SpielPruefen(rueckspiel, sollAusw, sollHeim, eintrag.AuswaertsPlatzhalterName, eintrag.HeimPlatzhalterName);
+            }
+
+            void SpielPruefen(Spiel spiel, int? sollHeim, int? sollAusw, string? heimName, string? auswName)
+            {
                 // Nur ein bereits konkret aufgelöster Slot, der nicht mehr zum neu ermittelten Soll-Wert
                 // passt, ist ein Kaskaden-Fall — ein noch nie aufgelöster Platzhalter ist normales,
                 // ausstehendes Auflösen und kein Rücksetz-Fall.
                 bool heimBetroffen = spiel.HeimMannschaftId.HasValue && spiel.HeimMannschaftId != sollHeim;
                 bool auswBetroffen = spiel.AuswaertsMannschaftId.HasValue && spiel.AuswaertsMannschaftId != sollAusw;
-                if (!heimBetroffen && !auswBetroffen) continue;
+                if (!heimBetroffen && !auswBetroffen) return;
 
                 bool hatteErgebnis = spiel.Ergebnis is not null;
                 schritte.Add(new KaskadenSpielSchritt(
                     spiel.Id, runde.Id, runde.Name, hatteErgebnis,
-                    sollHeim, sollAusw, eintrag.HeimPlatzhalterName, eintrag.AuswaertsPlatzhalterName));
+                    sollHeim, sollAusw, heimName, auswName));
 
                 if (hatteErgebnis) ignoriert.Add(spiel.Id);
             }
@@ -932,7 +982,6 @@ public class SpielplanService(
                     if (auslosung is null) continue;
 
                     await GenerierenAusAuslosungAsync(rundeSchritt.RundeId, [.. auslosung.Ergebnisse], ct);
-                    await PlatzhalterAufloesenAsync(rundeSchritt.RundeId, ct);
 
                     logger.LogInformation(
                         "Runde '{Runde}' im Rahmen der Kaskade neu generiert.", rundeSchritt.RundeName);
@@ -1383,14 +1432,21 @@ public class SpielplanService(
             case Rundenart.SpielUmPlatzDrei:
             {
                 if (gruppeIndex is not { } spielNummer) return null;
-                var spiele = (await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct))
-                    .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
+                // Issue #346: gezählt wird je Paarung (Hinspiel); entschieden wird bei Hin-/Rückspiel im
+                // Rückspiel, das den Gesamtsieger trägt.
+                var alleSpiele = await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct);
+                var rueckspielJeHinspiel = RueckspielJeHinspiel(alleSpiele);
+                var paarungen = alleSpiele
+                    .Where(s => !s.IstRueckspiel && s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
                     .OrderBy(s => s.Spielnummer)
                     .ToList();
-                if (spiele.Count < spielNummer) return null;
+                if (paarungen.Count < spielNummer) return null;
 
-                var spiel = spiele[spielNummer - 1];
-                if (ignorierteSpielIds is not null && ignorierteSpielIds.Contains(spiel.Id)) return null;
+                var hinspiel = paarungen[spielNummer - 1];
+                var spiel    = rueckspielJeHinspiel.GetValueOrDefault(hinspiel.Id) ?? hinspiel;
+                if (ignorierteSpielIds is not null &&
+                    (ignorierteSpielIds.Contains(hinspiel.Id) || ignorierteSpielIds.Contains(spiel.Id)))
+                    return null;
 
                 return SiegerOderVerliererId(spiel, platzierung);
             }
@@ -1398,6 +1454,24 @@ public class SpielplanService(
             default:
                 return null;
         }
+    }
+
+    private static Dictionary<int, Spiel> RueckspielJeHinspiel(IEnumerable<Spiel> spiele) =>
+        spiele.Where(s => s.IstRueckspiel && s.HinspielId.HasValue)
+            .GroupBy(s => s.HinspielId!.Value)
+            .ToDictionary(g => g.Key, g => g.First());
+
+    /// <summary>Das entscheidende Spiel jeder Paarung einer K.o.-Runde in Paarungsreihenfolge (Issue #346):
+    /// bei Hin-/Rückspiel das Rückspiel (trägt den Gesamtsieger), sonst das Einzelspiel. Ein Hinspiel ohne
+    /// zugehöriges Rückspiel (Altbestand vor #346) steht für sich selbst.</summary>
+    private static List<Spiel> EntscheidungsspieleJePaarung(IReadOnlyList<Spiel> spiele)
+    {
+        var rueckspielJeHinspiel = RueckspielJeHinspiel(spiele);
+        return spiele
+            .Where(s => !s.IstRueckspiel)
+            .OrderBy(s => s.Spielnummer)
+            .Select(h => rueckspielJeHinspiel.GetValueOrDefault(h.Id) ?? h)
+            .ToList();
     }
 
     /// <summary>Liefert je nach <paramref name="platzierung"/> (1 = Sieger, 2 = Verlierer) die Mannschafts-ID

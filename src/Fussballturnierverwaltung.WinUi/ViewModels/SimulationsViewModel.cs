@@ -316,8 +316,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
         var liste = await _spielService.AlleNachRundeAsync(rundeId);
         Spiele.Clear();
-        foreach (var (s, i) in liste.Select((x, i) => (x, i)))
-            Spiele.Add(MapSpielZeile(s, i));
+        SpieleHinzufuegen(liste);
 
         _ladeUnterdrueckt++;
         try
@@ -380,7 +379,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             {
                 var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId.Value);
                 Spiele.Clear();
-                foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, i));
+                SpieleHinzufuegen(neueSpiele);
                 _ladeUnterdrueckt++;
                 AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
                 _ladeUnterdrueckt--;
@@ -414,7 +413,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             {
                 var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId.Value);
                 Spiele.Clear();
-                foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, i));
+                SpieleHinzufuegen(neueSpiele);
                 _ladeUnterdrueckt++;
                 AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
                 _ladeUnterdrueckt--;
@@ -488,8 +487,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
             var liste = await _spielService.AlleNachRundeAsync(v.RundeId);
             Spiele.Clear();
-            foreach (var (s, i) in liste.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, i));
+            SpieleHinzufuegen(liste);
 
             var spiel = Spiele.FirstOrDefault(s => s.Id == v.SpielId);
             if (spiel is not null)
@@ -571,7 +569,14 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         ((AsyncRelayCommand)ErgebnisZuruecksetzenBefehl).NotifyCanExecuteChanged();
     }
 
-    private SpielZeile MapSpielZeile(Spiel s, int positionInRunde = 0)
+    private void SpieleHinzufuegen(IReadOnlyList<Spiel> spiele)
+    {
+        var paarungsNummern = SpielplanViewModel.PaarungsNummern(spiele);
+        foreach (var s in spiele)
+            Spiele.Add(MapSpielZeile(s, paarungsNummern[s.Id]));
+    }
+
+    private SpielZeile MapSpielZeile(Spiel s, int paarungsNummer)
     {
         string text   = "-:-";
         string detail = "";
@@ -591,7 +596,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             Id             = s.Id,
             Spielnummer    = s.Spielnummer,
             Spieltag       = s.Spieltag,
-            KoLabel        = SpielplanViewModel.KoPositionsLabel(s, AusgewaehlteRunde, positionInRunde),
+            KoLabel        = SpielplanViewModel.KoPositionsLabel(s, AusgewaehlteRunde, paarungsNummer),
             HeimName       = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "?",
             AuswaertsName  = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "?",
             HeimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(s.HeimMannschaft),

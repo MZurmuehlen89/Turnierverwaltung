@@ -82,6 +82,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         new Dictionary<int, (string?, string?)>();
 
     private int? _formularSpielId;
+
+    // Issue #346: K.-o.-Paarung mit Hin- und Rückspiel — im Hinspiel gibt es kein Entscheidungsverfahren,
+    // im Rückspiel nur bei ausgeglichenem Gesamtergebnis (Hinspiel-Tore aus Sicht des Hinspiels).
+    private bool _formularIstKoHinspiel;
+    private (int Heim, int Auswaerts)? _formularHinspielTore;
     private int? _formularRundeId;
     private int _spielWechselUnterdrueckt;
     private int _rundeWechselUnterdrueckt;
@@ -272,24 +277,32 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private bool HatElfmeterVerfahren => _erlaubteVerfahren.Any(v => v == VerfahrenArt.Elfmeterschiessen);
 
     public bool VerlaengerungAktiv =>
-        IstKoRunde && HatVerlaengerungsVerfahren &&
-        ParseIntNullable(HeimToreRegulaer) is { } heimRegVA &&
-        ParseIntNullable(AuswaertsToreRegulaer) is { } ausRegVA &&
-        heimRegVA == ausRegVA;
+        IstKoRunde && HatVerlaengerungsVerfahren && EntscheidungsverfahrenNoetig();
 
     public bool ElfmeterAktiv
     {
         get
         {
             if (!IstKoRunde || !HatElfmeterVerfahren) return false;
-            if (ParseIntNullable(HeimToreRegulaer) is not { } heimRegEA ||
-                ParseIntNullable(AuswaertsToreRegulaer) is not { } ausRegEA ||
-                heimRegEA != ausRegEA) return false;
+            if (!EntscheidungsverfahrenNoetig()) return false;
             if (!HatVerlaengerungsVerfahren) return true;
-            int? heimV = ParseIntNullable(HeimToreVerlaengerung);
-            int? ausV = ParseIntNullable(AuswaertsToreVerlaengerung);
-            return heimV.HasValue && ausV.HasValue && heimV == ausV;
+            return VerlaengerungToreDifferenz() == 0;
         }
+    }
+
+    /// <summary>Tordifferenz (Heim minus Auswärts) allein der in der Verlängerung gefallenen Tore, oder
+    /// <c>null</c>, solange der Stand nach Verlängerung nicht vollständig eingegeben ist. Die Felder enthalten
+    /// den Spielstand inklusive regulärer Spielzeit — entscheidend ist aber nur, was IN der Verlängerung
+    /// fällt: beim Einzelspiel identisch mit dem Vergleich der Spielstände, im K.-o.-Rückspiel mit
+    /// ausgeglichenem Gesamtergebnis nicht (reguläre Spielzeit z.B. 3:2, Issue #346).</summary>
+    private int? VerlaengerungToreDifferenz()
+    {
+        if (ParseIntNullable(HeimToreVerlaengerung) is not { } heimV ||
+            ParseIntNullable(AuswaertsToreVerlaengerung) is not { } ausV ||
+            ParseIntNullable(HeimToreRegulaer) is not { } heimReg ||
+            ParseIntNullable(AuswaertsToreRegulaer) is not { } ausReg) return null;
+
+        return (heimV - heimReg) - (ausV - ausReg);
     }
 
     // ── Platzhalter-Vorschau (Issue #208, sichtbarer Toggle-Zustand #325) ────────────────────────────────
@@ -313,8 +326,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (AusgewaehlteRunde is null) return;
         var spiele = await _spielService.AlleNachRundeAsync(AusgewaehlteRunde.Id);
         Spiele.Clear();
-        foreach (var (s, i) in spiele.Select((x, i) => (x, i)))
-            Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+        SpieleHinzufuegen(spiele, AusgewaehlteRunde);
         OnPropertyChanged(nameof(FokusSpiele));
     }
 
@@ -560,8 +572,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             await TabellenNeuLadenAsync(rundeId);
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, runde, i, _teamGruppeMap, _platzhalterVorschau));
+            SpieleHinzufuegen(neueSpiele, runde);
             OnPropertyChanged(nameof(FokusSpiele));
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
 
@@ -805,8 +816,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         await TabellenNeuLadenAsync(AusgewaehlteRunde.Id);
 
         var liste = await _spielService.AlleNachRundeAsync(AusgewaehlteRunde.Id);
-        foreach (var (s, i) in liste.Select((x, i) => (x, i)))
-            Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+        SpieleHinzufuegen(liste, AusgewaehlteRunde);
 
         OnPropertyChanged(nameof(HatPlatzhalterSpiele));
         if (VorschauAktiv) await AktualisierePlatzhalterVorschauAsync();
@@ -915,7 +925,20 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         var spiel = await _spielService.FindenNachIdAsync(AusgewaehlteSpiel.Id);
         if (spiel is null) return;
 
+        bool koMitRueckspiel = IstKoRunde && AusgewaehlteRunde?.MitRueckspiel == true;
+        _formularIstKoHinspiel = koMitRueckspiel && !spiel.IstRueckspiel;
+        _formularHinspielTore  = null;
+        if (koMitRueckspiel && spiel.IstRueckspiel && spiel.HinspielId is int hinspielId &&
+            (await _spielService.FindenNachIdAsync(hinspielId))?.Ergebnis is { } hinErgebnis)
+        {
+            _formularHinspielTore = (
+                HinRueckspielWertung.HinspielTore(hinErgebnis, heim: true),
+                HinRueckspielWertung.HinspielTore(hinErgebnis, heim: false));
+        }
+
         FormularAusFuellenMit(spiel);
+        OnPropertyChanged(nameof(VerlaengerungAktiv));
+        OnPropertyChanged(nameof(ElfmeterAktiv));
         FormAktiv = true;
         AktualisiereBefehle();
     }
@@ -1034,7 +1057,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
@@ -1063,8 +1086,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
             OnPropertyChanged(nameof(FokusSpiele));
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
@@ -1100,7 +1122,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             try
             {
                 Spiele.Clear();
-                foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+                SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             }
             finally
             {
@@ -1144,7 +1166,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i))) Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
 
             AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
@@ -1228,8 +1250,32 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         SchweizerAnzeigeAktualisieren();
     }
 
+    private void SpieleHinzufuegen(IReadOnlyList<Spiel> spiele, TurnierRunde? runde)
+    {
+        var paarungsNummern = PaarungsNummern(spiele);
+        foreach (var s in spiele)
+            Spiele.Add(MapSpielZeile(s, runde, paarungsNummern[s.Id], _teamGruppeMap, _platzhalterVorschau));
+    }
+
+    /// <summary>Paarungsnummer (1-basiert) je Spiel-ID: Hinspiele bzw. Einzelspiele in Spielnummer-Reihenfolge,
+    /// ein Rückspiel übernimmt die Nummer seines Hinspiels (Issue #346) — unabhängig von der Listenposition,
+    /// die bei nach Spieltag sortierter Liste Hin- und Rückspiel nicht nebeneinander führt.</summary>
+    internal static IReadOnlyDictionary<int, int> PaarungsNummern(IEnumerable<Spiel> spiele)
+    {
+        var liste = spiele.ToList();
+        var nummern = liste.Where(s => !s.IstRueckspiel)
+            .OrderBy(s => s.Spielnummer)
+            .Select((s, i) => (s.Id, Nr: i + 1))
+            .ToDictionary(x => x.Id, x => x.Nr);
+        foreach (var rueck in liste.Where(s => s.IstRueckspiel).OrderBy(s => s.Spielnummer))
+            nummern[rueck.Id] = rueck.HinspielId is int hinId && nummern.TryGetValue(hinId, out var nr)
+                ? nr
+                : nummern.Count + 1;
+        return nummern;
+    }
+
     private static SpielZeile MapSpielZeile(
-        Spiel s, TurnierRunde? runde, int positionInRunde,
+        Spiel s, TurnierRunde? runde, int paarungsNummer,
         IReadOnlyDictionary<int, int>? teamGruppeMap = null,
         IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)>? vorschau = null)
     {
@@ -1266,7 +1312,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             Id = s.Id,
             Spielnummer = s.Spielnummer,
             Spieltag = s.Spieltag,
-            KoLabel = KoPositionsLabel(s, runde, positionInRunde),
+            KoLabel = KoPositionsLabel(s, runde, paarungsNummer),
             HeimName = s.HeimMannschaft?.Name ?? (heimVorschau is not null ? $"({heimVorschau})" : null)
                        ?? s.HeimPlatzhalterName ?? "?",
             AuswaertsName = s.AuswaertsMannschaft?.Name ?? (auswaertsVorschau is not null ? $"({auswaertsVorschau})" : null)
@@ -1285,29 +1331,24 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         };
     }
 
-    internal static string? KoPositionsLabel(Spiel s, TurnierRunde? runde, int positionInRunde)
+    internal static string? KoPositionsLabel(Spiel s, TurnierRunde? runde, int paarungsNummer)
     {
         if (runde is null) return null;
         bool mitRueck = runde.MitRueckspiel;
         return runde.Rundenart switch
         {
-            Rundenart.Finale => FormatKoLabel("Finale", positionInRunde, mitRueck, s.IstRueckspiel),
-            Rundenart.SpielUmPlatzDrei => FormatKoLabel("3. Platz", positionInRunde, mitRueck, s.IstRueckspiel),
+            Rundenart.Finale => FormatKoLabel("Finale", paarungsNummer, mitRueck, s.IstRueckspiel),
+            Rundenart.SpielUmPlatzDrei => FormatKoLabel("3. Platz", paarungsNummer, mitRueck, s.IstRueckspiel),
             Rundenart.KoRunde => KoKuerzel(runde.EingangsMannschaftsanzahl) is { } k
-                                          ? FormatKoLabel(k, positionInRunde, mitRueck, s.IstRueckspiel) : null,
+                                          ? FormatKoLabel(k, paarungsNummer, mitRueck, s.IstRueckspiel) : null,
             _ => null
         };
     }
 
-    private static string FormatKoLabel(string kuerzel, int positionInRunde, bool mitRueckspiel, bool istRueckspiel)
-    {
-        if (mitRueckspiel)
-        {
-            int paarNr = (positionInRunde / 2) + 1;
-            return $"{kuerzel} {paarNr} {(istRueckspiel ? "R" : "H")}";
-        }
-        return $"{kuerzel} {positionInRunde + 1}";
-    }
+    private static string FormatKoLabel(string kuerzel, int paarungsNummer, bool mitRueckspiel, bool istRueckspiel) =>
+        mitRueckspiel
+            ? $"{kuerzel} {paarungsNummer} {(istRueckspiel ? "R" : "H")}"
+            : $"{kuerzel} {paarungsNummer}";
 
     internal static string? KoKuerzel(int eingangTeams) => eingangTeams switch
     {
@@ -1330,25 +1371,34 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         OnPropertyChanged(nameof(ElfmeterAktiv));
     }
 
+    /// <summary>Ob nach der regulären Spielzeit ein Entscheidungsverfahren fällig ist: im Einzelspiel bei
+    /// Remis, im K.-o.-Hinspiel nie, im K.-o.-Rückspiel bei ausgeglichenem Gesamtergebnis (Issue #346).</summary>
+    private bool EntscheidungsverfahrenNoetig()
+    {
+        if (ParseIntNullable(HeimToreRegulaer) is not { } heimReg ||
+            ParseIntNullable(AuswaertsToreRegulaer) is not { } ausReg) return false;
+
+        if (_formularIstKoHinspiel) return false;
+
+        if (_formularHinspielTore is { } hin)
+            return HinRueckspielWertung.EntscheidungsverfahrenNoetig(
+                hin.Heim, hin.Auswaerts, heimReg, ausReg, AusgewaehlteRunde?.AuswaertstorRegelAktiv == true);
+
+        return heimReg == ausReg;
+    }
+
     private EntscheidungArt BerechneEntscheidungArt()
     {
-        bool reg90Draw = ParseIntNullable(HeimToreRegulaer) is { } heimReg &&
-                         ParseIntNullable(AuswaertsToreRegulaer) is { } ausReg &&
-                         heimReg == ausReg;
-
-        if (!reg90Draw || !IstKoRunde) return EntscheidungArt.RegulaereSpielzeit;
+        if (!IstKoRunde || !EntscheidungsverfahrenNoetig()) return EntscheidungArt.RegulaereSpielzeit;
 
         bool hatVerl = HatVerlaengerungsVerfahren;
         bool hatElf = HatElfmeterVerfahren;
 
         if (hatVerl)
         {
-            int? heimV = ParseIntNullable(HeimToreVerlaengerung);
-            int? ausV = ParseIntNullable(AuswaertsToreVerlaengerung);
-
-            if (heimV.HasValue && ausV.HasValue)
+            if (VerlaengerungToreDifferenz() is { } differenz)
             {
-                if (heimV != ausV)
+                if (differenz != 0)
                 {
                     var vart = _erlaubteVerfahren.First(v =>
                         v is VerfahrenArt.VerlaengerungKlassisch or VerfahrenArt.GoldenGoal or VerfahrenArt.SilverGoal);
@@ -1531,8 +1581,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
@@ -1564,8 +1613,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             await SpielAuswahlWiederherstellenAsync(spielId);
         }
@@ -1605,8 +1653,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             await SpielAuswahlWiederherstellenAsync(spielId);
         }
@@ -1641,8 +1688,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             MehrfachAusgewaehlteSpiele = [];
@@ -1677,8 +1723,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
@@ -1719,8 +1764,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
@@ -1762,8 +1806,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             await SpielAuswahlWiederherstellenAsync(spielId);
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
@@ -1805,8 +1848,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             await SpielAuswahlWiederherstellenAsync(spielId);
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
@@ -1844,8 +1886,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             MehrfachAusgewaehlteSpiele = [];
@@ -1889,8 +1930,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
-            foreach (var (s, i) in neueSpiele.Select((x, i) => (x, i)))
-                Spiele.Add(MapSpielZeile(s, AusgewaehlteRunde, i, _teamGruppeMap, _platzhalterVorschau));
+            SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);

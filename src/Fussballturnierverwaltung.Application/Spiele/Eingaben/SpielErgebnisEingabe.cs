@@ -14,4 +14,6 @@ public record SpielErgebnisEingabe(
     EntscheidungArt EntscheidungArt,
     int? SiegerMannschaftId,
     int? HalbzeitHeimTore = null,
-    int? HalbzeitAuswaertsTore = null);
+    int? HalbzeitAuswaertsTore = null,
+    bool IstGesamtwertung = false,
+    bool IstKoHinspiel = false);

@@ -95,6 +95,18 @@ public class KoRundeGeneratorTests
     }
 
     [Fact]
+    public void HinRueckspiel_ErstAlleHinspieleDannAlleRueckspiele()
+    {
+        // Issue #346: Nummerierung in der Reihenfolge, in der gespielt wird — nicht Hin/Rück abwechselnd.
+        var runde = TestRunde(mitRueckspiel: true);
+        var ergebnis = _generator.Generieren(new SpielplanKontext(runde, Teams(8), 1));
+
+        ergebnis.Spiele.Select(s => s.Spielnummer).Should().Equal(1, 2, 3, 4, 5, 6, 7, 8);
+        ergebnis.Spiele.Select(s => s.IstRueckspiel).Should().Equal(false, false, false, false, true, true, true, true);
+        ergebnis.HinRueckspielPaare.Should().Equal((0, 4), (1, 5), (2, 6), (3, 7));
+    }
+
+    [Fact]
     public void HinRueckspiel_SpieltageKorrekt()
     {
         var runde = TestRunde(mitRueckspiel: true);

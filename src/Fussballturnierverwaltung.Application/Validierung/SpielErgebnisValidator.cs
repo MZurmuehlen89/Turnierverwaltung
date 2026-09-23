@@ -59,8 +59,15 @@ public class SpielErgebnisValidator
             eingabe.SiegerMannschaftId != eingabe.AuswaertsMannschaftId)
             fehler.Add("Der Sieger muss eine der beiden beteiligten Mannschaften sein.");
 
-        // Bei regulärer Spielzeit: Sieger aus Torverhältnis ableiten und prüfen
-        if (eingabe.EntscheidungArt == EntscheidungArt.RegulaereSpielzeit)
+        // Issue #346: ein K.-o.-Hinspiel entscheidet für sich allein nichts — Verlängerung/Elfmeterschießen
+        // gibt es erst im Rückspiel, abhängig vom Gesamtergebnis beider Spiele.
+        if (eingabe.IstKoHinspiel && eingabe.EntscheidungArt != EntscheidungArt.RegulaereSpielzeit)
+            fehler.Add("Im Hinspiel gibt es keine Verlängerung und kein Elfmeterschießen – die Entscheidung fällt erst im Rückspiel.");
+
+        // Bei regulärer Spielzeit: Sieger aus Torverhältnis ableiten und prüfen — nicht bei einem
+        // K.-o.-Rückspiel (IstGesamtwertung), dort kann der Sieger aus dem Gesamtergebnis beider Spiele
+        // auch der Verlierer bzw. ein Remis-Partner des einzelnen Rückspiels sein (Issue #346).
+        if (eingabe.EntscheidungArt == EntscheidungArt.RegulaereSpielzeit && !eingabe.IstGesamtwertung)
         {
             if (eingabe.HeimToreRegulaer == eingabe.AuswaertsToreRegulaer && eingabe.SiegerMannschaftId.HasValue)
                 fehler.Add("Bei Unentschieden in regulärer Spielzeit kann es keinen Sieger geben.");
