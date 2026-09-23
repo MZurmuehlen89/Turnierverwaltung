@@ -52,7 +52,8 @@ public class TurnierKlonService(
                 AuswaertstorRegelAktiv    = runde.AuswaertstorRegelAktiv,
                 KonfigurationJson         = runde.KonfigurationJson,
                 EingangUeberUebergangsregeln = runde.EingangUeberUebergangsregeln,
-                PaarungFestVorgegeben     = runde.PaarungFestVorgegeben
+                PaarungFestVorgegeben     = runde.PaarungFestVorgegeben,
+                VorgegebeneAuslosungsart  = runde.VorgegebeneAuslosungsart
             };
             neu.Runden.Add(neueRunde);
             rundenNachQuellId[runde.Id] = neueRunde;

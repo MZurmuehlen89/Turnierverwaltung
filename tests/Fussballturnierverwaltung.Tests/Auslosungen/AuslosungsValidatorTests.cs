@@ -199,13 +199,17 @@ public class AuslosungsValidatorTests
     }
 
     [Fact]
-    public void TopfLiga_NachToepfen_IstGueltig()
+    public void TopfLiga_NachToepfen_WirdAbgelehnt()
     {
+        // Issue #347: nur die Topf-Zuordnung liefert den 8-Spieltage-Plan der UCL-Ligaphase.
         var topf1 = Topf(1, 1, Enumerable.Range(1, 4).Select(Eintrag).ToArray());
         var topf2 = Topf(2, 2, Enumerable.Range(5, 4).Select(Eintrag).ToArray());
         var a     = Auslosung(Rundenart.TopfLiga, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2]);
 
-        _validator.Validieren(a, AlleEintraege(a)).IstGueltig.Should().BeTrue();
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*Topf-Zuordnung*");
     }
 
     // ══════════════════════════════════════════════════════════════════════════

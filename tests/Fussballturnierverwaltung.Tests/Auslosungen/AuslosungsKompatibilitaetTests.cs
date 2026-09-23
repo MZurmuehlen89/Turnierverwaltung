@@ -20,6 +20,11 @@ public class AuslosungsKompatibilitaetTests
     [InlineData(Auslosungsart.TopfZuordnung, Rundenart.KoRunde)]
     [InlineData(Auslosungsart.TopfZuordnung, Rundenart.Finale)]
     [InlineData(Auslosungsart.TopfZuordnung, Rundenart.SpielUmPlatzDrei)]
+    // Issue #347: TopfLiga nur per Topf-Zuordnung (bzw. Manuell über die Vorbelegung)
+    [InlineData(Auslosungsart.Zufall, Rundenart.TopfLiga)]
+    [InlineData(Auslosungsart.NachToepfen, Rundenart.TopfLiga)]
+    [InlineData(Auslosungsart.NachSetzliste, Rundenart.TopfLiga)]
+    [InlineData(Auslosungsart.Benutzerdefiniert, Rundenart.TopfLiga)]
     public void InkompatibleKombination_IstNichtKompatibelUndLiefertGrund(Auslosungsart art, Rundenart rundenart)
     {
         AuslosungsKompatibilitaet.IstKompatibel(rundenart, art).Should().BeFalse();
@@ -31,6 +36,7 @@ public class AuslosungsKompatibilitaetTests
     [InlineData(Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Finale)]
     [InlineData(Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.SpielUmPlatzDrei)]
     [InlineData(Auslosungsart.TopfZuordnung, Rundenart.TopfLiga)]
+    [InlineData(Auslosungsart.Manuell, Rundenart.TopfLiga)]
     // Bewusst nur schwach gewarnt statt hart gesperrt (Nutzer-Entscheidung Issue #94): funktioniert
     // korrekt (Bugfix 606ba6f), hat bei Liga (eine Gruppe) nur keine sichtbare Wirkung.
     [InlineData(Auslosungsart.NachToepfen, Rundenart.Liga)]
@@ -44,8 +50,9 @@ public class AuslosungsKompatibilitaetTests
 
     [Theory]
     [MemberData(nameof(AlleRundenarten))]
-    public void Zufall_IstMitJederRundenartKompatibel(Rundenart rundenart) =>
+    public void Zufall_IstMitJederRundenartAusserTopfLigaKompatibel(Rundenart rundenart) =>
         AuslosungsKompatibilitaet.IstKompatibel(rundenart, Auslosungsart.Zufall).Should().BeTrue();
 
-    public static TheoryData<Rundenart> AlleRundenarten() => [.. Enum.GetValues<Rundenart>()];
+    public static TheoryData<Rundenart> AlleRundenarten() =>
+        [.. Enum.GetValues<Rundenart>().Where(r => r != Rundenart.TopfLiga)];
 }

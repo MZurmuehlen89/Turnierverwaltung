@@ -34,6 +34,10 @@ public class TurnierRunde : BasisEntitaet
     // eine echte Auslosung angelegt wurde.
     public bool PaarungFestVorgegeben { get; set; }
 
+    // Von der Vorlage vorgegebene Auslosungsart (Issue #347) — wird beim Anlegen einer Auslosung für diese
+    // Runde vorausgewählt, bleibt aber innerhalb der kompatiblen Arten änderbar. null = frei wählbar.
+    public Auslosungsart? VorgegebeneAuslosungsart { get; set; }
+
     public ICollection<Spiel> Spiele { get; set; } = new List<Spiel>();
 
     // Übergangsregeln, die aus dieser Runde in eine (ggf. andere) Zielrunde führen.

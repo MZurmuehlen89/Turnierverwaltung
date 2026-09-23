@@ -118,7 +118,9 @@ public class TurnierInstanzService(
                 MitRueckspiel              = re.MitRueckspiel,
                 AuswaertstorRegelAktiv     = re.AuswaertstorRegelAktiv,
                 KonfigurationJson          = re.KonfigurationJson,
-                EingangUeberUebergangsregeln = re.EingangUeberUebergangsregeln
+                EingangUeberUebergangsregeln = re.EingangUeberUebergangsregeln,
+                PaarungFestVorgegeben      = re.PaarungFestVorgegeben,
+                VorgegebeneAuslosungsart   = re.VorgegebeneAuslosungsart
             });
         }
 
@@ -192,7 +194,8 @@ public class TurnierInstanzService(
             AuswaertstorRegelAktiv    = e.AuswaertstorRegelAktiv,
             KonfigurationJson         = e.KonfigurationJson,
             EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
-            PaarungFestVorgegeben     = e.PaarungFestVorgegeben
+            PaarungFestVorgegeben     = e.PaarungFestVorgegeben,
+            VorgegebeneAuslosungsart  = e.VorgegebeneAuslosungsart
         }).ToList();
 
         var ergebnis = await repository.RundenErsetzenAsync(id, neueRunden, ct);
@@ -226,7 +229,8 @@ public class TurnierInstanzService(
             AuswaertstorRegelAktiv    = e.AuswaertstorRegelAktiv,
             KonfigurationJson         = e.KonfigurationJson,
             EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
-            PaarungFestVorgegeben     = e.PaarungFestVorgegeben
+            PaarungFestVorgegeben     = e.PaarungFestVorgegeben,
+            VorgegebeneAuslosungsart  = e.VorgegebeneAuslosungsart
         }).ToList();
 
         var runden = await repository.RundenErsetzenAsync(id, neueRunden, ct);

@@ -20,6 +20,7 @@ public class TurnierRundeKonfiguration : IEntityTypeConfiguration<TurnierRunde>
         builder.Property(r => r.AuswaertstorRegelAktiv).IsRequired();
         builder.Property(r => r.KonfigurationJson).HasColumnType("nvarchar(max)");
         builder.Property(r => r.EingangUeberUebergangsregeln).IsRequired().HasDefaultValue(false);
+        builder.Property(r => r.VorgegebeneAuslosungsart).IsRequired(false);
 
         builder.HasOne(r => r.TurnierInstanz)
             .WithMany(i => i.Runden)

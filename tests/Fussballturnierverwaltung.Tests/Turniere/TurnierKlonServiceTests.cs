@@ -37,7 +37,8 @@ public class TurnierKlonServiceTests
         var halbfinale = new TurnierRunde
         {
             Id = 1, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 1,
-            Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2, RegelwerkId = 1
+            Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2, RegelwerkId = 1,
+            VorgegebeneAuslosungsart = Auslosungsart.NachToepfen
         };
         var finale = new TurnierRunde
         {
@@ -92,6 +93,19 @@ public class TurnierKlonServiceTests
         klon.Runden.Should().HaveCount(2);
         klon.Runden.Should().OnlyContain(r => r.TurnierInstanzId == klon.Id);
         klon.Runden.Select(r => r.Id).Should().NotIntersectWith(new[] { 1, 2 });
+    }
+
+    [Fact]
+    public async Task KlonenAsync_UebernimmtVorgegebeneAuslosungsartJeRunde()
+    {
+        using var ctx = NeuerContext();
+        var quellId = await QuelleAnlegenAsync(ctx);
+        var service = ServiceFuer(ctx);
+
+        var klon = await service.KlonenAsync(quellId, "EM 2028", "2028", TurnierStatus.Geplant);
+
+        klon.Runden.Single(r => r.Name == "Halbfinale").VorgegebeneAuslosungsart.Should().Be(Auslosungsart.NachToepfen);
+        klon.Runden.Single(r => r.Name == "Finale").VorgegebeneAuslosungsart.Should().BeNull();
     }
 
     [Fact]

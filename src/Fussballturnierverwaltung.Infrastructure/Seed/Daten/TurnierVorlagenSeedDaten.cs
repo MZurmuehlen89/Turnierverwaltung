@@ -260,12 +260,15 @@ public static class TurnierVorlagenSeedDaten
         };
         int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
 
-        var liga          = Runde(1, "Ligaphase",       Rundenart.TopfLiga,        36, 24, regelwerkId: rId);
-        var playoff       = Runde(2, "Playoff-Runde",   Rundenart.KoRunde,         16,  8, mitRueckspiel: true, regelwerkId: rId);
-        var achtelfinale  = Runde(3, "Achtelfinale",    Rundenart.KoRunde,         16,  8, mitRueckspiel: true, regelwerkId: rId);
-        var viertelfinale = Runde(4, "Viertelfinale",   Rundenart.KoRunde,          8,  4, mitRueckspiel: true, regelwerkId: rId);
-        var halbfinale    = Runde(5, "Halbfinale",      Rundenart.KoRunde,          4,  2, mitRueckspiel: true, regelwerkId: rId);
-        var finale        = Runde(6, "Finale",          Rundenart.Finale,           2,  1, regelwerkId: rId);
+        // Vorgegebene Auslosungsarten (Issue #347): Ligaphase per Topf-Zuordnung (je 2 Gegner aus jedem Topf),
+        // Playoff und Achtelfinale nach Töpfen (besser Platzierte gegen schlechter Platzierte bzw. Platz 1–8
+        // gegen Playoff-Sieger), danach Zufall. Bestehende Datenbanken: Migration AuslosungsartVorgabeJeRunde.
+        var liga          = Runde(1, "Ligaphase",       Rundenart.TopfLiga,        36, 24, regelwerkId: rId, auslosungsart: Auslosungsart.TopfZuordnung);
+        var playoff       = Runde(2, "Playoff-Runde",   Rundenart.KoRunde,         16,  8, mitRueckspiel: true, regelwerkId: rId, auslosungsart: Auslosungsart.NachToepfen);
+        var achtelfinale  = Runde(3, "Achtelfinale",    Rundenart.KoRunde,         16,  8, mitRueckspiel: true, regelwerkId: rId, auslosungsart: Auslosungsart.NachToepfen);
+        var viertelfinale = Runde(4, "Viertelfinale",   Rundenart.KoRunde,          8,  4, mitRueckspiel: true, regelwerkId: rId, auslosungsart: Auslosungsart.Zufall);
+        var halbfinale    = Runde(5, "Halbfinale",      Rundenart.KoRunde,          4,  2, mitRueckspiel: true, regelwerkId: rId, auslosungsart: Auslosungsart.Zufall);
+        var finale        = Runde(6, "Finale",          Rundenart.Finale,           2,  1, regelwerkId: rId, auslosungsart: Auslosungsart.Zufall);
 
         Uebergang(liga, achtelfinale, gruppeIndex: null, platzierungVon: 1, platzierungBis: 8);
         Uebergang(liga, playoff,      gruppeIndex: null, platzierungVon: 9, platzierungBis: 24);
@@ -392,7 +395,7 @@ public static class TurnierVorlagenSeedDaten
     private static TurnierRunde Runde(
         int reihenfolge, string name, Rundenart art,
         int eingang, int ausgang, bool auswaerts = false,
-        bool mitRueckspiel = false, int? regelwerkId = null) => new()
+        bool mitRueckspiel = false, int? regelwerkId = null, Auslosungsart? auslosungsart = null) => new()
     {
         Reihenfolge               = reihenfolge,
         Name                      = name,
@@ -402,6 +405,7 @@ public static class TurnierVorlagenSeedDaten
         AuswaertstorRegelAktiv    = auswaerts,
         MitRueckspiel             = mitRueckspiel,
         RegelwerkId               = regelwerkId,
+        VorgegebeneAuslosungsart  = auslosungsart,
     };
 
     // Verdrahtet eine Uebergangsregel per Objektreferenz, da Quelle/Ziel vor dem Speichern noch

@@ -983,6 +983,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("TurnierInstanzId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("VorgegebeneAuslosungsart")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("RegelwerkId");

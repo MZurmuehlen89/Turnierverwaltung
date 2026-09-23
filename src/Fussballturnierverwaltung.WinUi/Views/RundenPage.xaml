@@ -142,6 +142,13 @@
                                   SelectedItem="{Binding Regelwerk, Mode=TwoWay}"
                                   DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,16" />
 
+                        <TextBlock Text="Auslosungsart (Vorgabe)" FontSize="12" Margin="0,0,0,3" />
+                        <ComboBox ItemsSource="{Binding VorgegebeneAuslosungsartOptionen}"
+                                  SelectedItem="{Binding VorgegebeneAuslosungsart, Mode=TwoWay}"
+                                  DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
+                        <TextBlock Text="Wird beim Anlegen der Auslosung vorausgewählt und bleibt dort änderbar."
+                                   FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,16" />
+
                         <CheckBox Content="Mit Rückspiel" IsChecked="{Binding MitRueckspiel, Mode=TwoWay}" Margin="0,0,0,4" />
                         <CheckBox Content="Auswärtstorregel aktiv" IsChecked="{Binding AuswaertstorRegelAktiv, Mode=TwoWay}"
                                   IsEnabled="{Binding AuswaertstorAktivierbar}" Margin="16,0,0,4" />

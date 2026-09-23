@@ -499,7 +499,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private static string AuslosungsartHinweisText(Auslosungsart art) => art switch
     {
         Auslosungsart.Zufall =>
-            "Alle Teams werden zufällig gemischt und paarweise zugelost. Passt zu jeder Rundenart. " +
+            "Alle Teams werden zufällig gemischt und paarweise zugelost. Passt zu jeder Rundenart außer der TopfLiga. " +
             "Kennt keine Topf-Struktur — auf 1 Lostopf begrenzt.",
         Auslosungsart.NachSetzliste =>
             "Gesetzte Teams (Topf 1) werden gleichmäßig auf Gruppen oder Paare verteilt, " +
@@ -510,9 +510,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             "mindestens ein Lostopf ist erforderlich. " +
             "Typisch für UEFA Europa League und internationale Pokal-Wettbewerbe.",
         Auslosungsart.TopfZuordnung =>
-            "Jeder Topf belegt genau einen Setzplatz: Topf 1 → Gruppenplatz A, Topf 2 → Gruppenplatz B usw. " +
-            "Alle Töpfe müssen gleich groß sein. " +
-            "Gängig in der UEFA Champions League (Gruppen- und K.O.-Phase).",
+            "UCL-Ligaphase (ab 2024/25): Jedes Team erhält aus jedem Topf zwei Gegner — einen zu Hause, " +
+            "einen auswärts. Alle Töpfe müssen gleich groß sein (typisch 4 × 9 Teams). " +
+            "Ist 'Kein gleiches Land' aktiv, gilt zusätzlich: höchstens 2 Gegner aus demselben Land.",
         Auslosungsart.GruppensiegerGegenGruppenzweite =>
             "Gruppensieger werden den Zweitplatzierten einer anderen Gruppe zugelost, " +
             "wobei Teams aus derselben Gruppe nicht aufeinandertreffen dürfen. " +
@@ -677,9 +677,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         DetailAktiv         = false;
         _autoNeuName        = "";
         NeuName             = "";
+        NeuAnzahlLostoepfe  = 1;
         NeuAuslosungsart    = Auslosungsart.Zufall;
         NeuRunde            = NeuRundenOptionen.FirstOrDefault();
-        NeuAnzahlLostoepfe  = 1;
+        // Explizit statt nur über OnNeuRundeChanged: bleibt die vorausgewählte Runde dieselbe wie beim letzten
+        // Mal, feuert der Hook nicht, und die Vorgabe der Runde (Issue #347) ginge durch den Reset oben verloren.
+        NeuAuslosungsart    = StartAuslosungsartFuer(NeuRunde, NeuAuslosungsart);
         Fehlermeldung       = null;
     }
 
@@ -1505,8 +1508,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // mehr kompatibel ist), DANACH die Optionsliste (ItemsSource) neu setzen — minimiert das Zeitfenster,
         // in dem die ComboBox eine ItemsSource ohne passenden Eintrag zur aktuellen Auswahl hätte (siehe
         // Klassendoku bei NeuAuslosungsartOptionen).
-        if (value is not null && !AuslosungsKompatibilitaet.IstKompatibel(value.Rundenart, NeuAuslosungsart))
-            NeuAuslosungsart = Auslosungsart.Zufall;
+        NeuAuslosungsart = StartAuslosungsartFuer(value, NeuAuslosungsart);
 
         NeuAuslosungsartOptionen = AuslosungsartOptionenFuer(value?.Rundenart);
         // Erzwungene Nachbenachrichtigung: falls WinUI die ComboBox-Auswahl beim ItemsSource-Wechsel
@@ -1527,6 +1529,22 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         if (!NeuAnzahlLostoepfeBearbeitbar)
             NeuAnzahlLostoepfe = 1;
+        // Topf-Zuordnung braucht mindestens 2 gleich große Töpfe — 4 entspricht der UCL-Ligaphase (Issue #347).
+        else if (value == Auslosungsart.TopfZuordnung && NeuAnzahlLostoepfe < 2)
+            NeuAnzahlLostoepfe = 4;
+    }
+
+    /// <summary>Auslosungsart, mit der das Neu-Formular für <paramref name="runde"/> startet (Issue #347):
+    /// zuerst die von der Vorlage vorgegebene Art der Runde, sonst die bisherige Auswahl, solange sie zur
+    /// Rundenart passt, sonst die erste kompatible Art (z.B. Topf-Zuordnung bei einer TopfLiga).</summary>
+    private static Auslosungsart StartAuslosungsartFuer(TurnierRunde? runde, Auslosungsart bisher)
+    {
+        if (runde is null) return bisher;
+        if (runde.VorgegebeneAuslosungsart is { } vorgabe && AuslosungsKompatibilitaet.IstKompatibel(runde.Rundenart, vorgabe))
+            return vorgabe;
+        if (AuslosungsKompatibilitaet.IstKompatibel(runde.Rundenart, bisher))
+            return bisher;
+        return AuslosungsartOptionenFuer(runde.Rundenart).Select(o => o.Wert).DefaultIfEmpty(Auslosungsart.Zufall).First();
     }
 
     private bool KannNeu()       => !NeuFormAktiv && _instanz is not null && _instanz.Status != TurnierStatus.Vorlage;

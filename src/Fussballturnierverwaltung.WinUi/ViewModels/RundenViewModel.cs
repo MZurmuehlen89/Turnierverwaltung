@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Spielplan.Eingaben;
 using Fussballturnierverwaltung.Application.Stammdaten;
@@ -233,7 +234,14 @@ public partial class RundeZeile : ObservableObject
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
     [ObservableProperty] private RegelwerkOption _regelwerk = KeinRegelwerk;
     [ObservableProperty] private bool _paarungFestVorgegeben;
+    [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = KeineAuslosungsartVorgabe;
+
+    public static readonly VorgegebeneAuslosungsartOption KeineAuslosungsartVorgabe = new("— frei wählbar —", null);
 }
+
+/// <summary>Option der "Auslosungsart (Vorgabe)"-ComboBox im Rundenformular (Issue #347) — <c>record</c> für
+/// Werte-Gleichheit bei der <c>SelectedItem</c>-Bindung, <see cref="Wert"/> = null steht für "frei wählbar".</summary>
+public record VorgegebeneAuslosungsartOption(string Anzeige, Auslosungsart? Wert);
 
 /// <summary>"Runden"-Tab von <see cref="TurnierlisteViewModel"/> (Issue #297) — Rundenliste + Rundenformular
 /// (Name/Rundenart/Eingang/Ausgang/GruppenAnzahl/MitRueckspiel/AuswaertstorRegelAktiv/Regelwerk/PaarungFest-
@@ -308,7 +316,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     [
         nameof(Name), nameof(Rundenart), nameof(EingangsMannschaftsanzahl), nameof(AusgangsMannschaftsanzahl),
         nameof(GruppenAnzahl), nameof(AnzahlSpieltage), nameof(MitRueckspiel), nameof(AuswaertstorRegelAktiv),
-        nameof(Regelwerk), nameof(PaarungFestVorgegeben)
+        nameof(Regelwerk), nameof(PaarungFestVorgegeben), nameof(VorgegebeneAuslosungsart)
     ];
 
     [ObservableProperty] private string _name = "";
@@ -337,6 +345,27 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
     [ObservableProperty] private RegelwerkOption _regelwerk = RundeZeile.KeinRegelwerk;
     [ObservableProperty] private bool _paarungFestVorgegeben;
+    [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = RundeZeile.KeineAuslosungsartVorgabe;
+
+    /// <summary>Nur zur Rundenart kompatible Auslosungsarten (Issue #347, Prävention statt Speicher-Validierung).
+    /// Gecacht und nur bei Rundenart-Wechsel neu gesetzt statt pro Binding-Zugriff neu berechnet — eine
+    /// dauerhaft neue ItemsSource-Instanz ist ein bekannter WinUI3-ComboBox-Fallstrick (WinUi/CLAUDE.md).</summary>
+    [ObservableProperty]
+    private IReadOnlyList<VorgegebeneAuslosungsartOption> _vorgegebeneAuslosungsartOptionen = AuslosungsartVorgabeOptionenFuer(Rundenart.Liga);
+
+    // Manuell wird nicht angeboten — das regelt die Checkbox "Paarung fest vorgegeben".
+    private static IReadOnlyList<VorgegebeneAuslosungsartOption> AuslosungsartVorgabeOptionenFuer(Rundenart rundenart) =>
+    [
+        RundeZeile.KeineAuslosungsartVorgabe,
+        .. Enum.GetValues<Auslosungsart>()
+            .Where(a => a != Auslosungsart.Manuell && AuslosungsKompatibilitaet.IstKompatibel(rundenart, a))
+            .Select(a => new VorgegebeneAuslosungsartOption(AuslosungViewModel.AuslosungsartAnzeigeName(a), a))
+    ];
+
+    private static VorgegebeneAuslosungsartOption AuslosungsartVorgabeOptionFuer(Auslosungsart? art) =>
+        art is { } a
+            ? new VorgegebeneAuslosungsartOption(AuslosungViewModel.AuslosungsartAnzeigeName(a), a)
+            : RundeZeile.KeineAuslosungsartVorgabe;
 
     public bool IstGruppenphase => Rundenart == Rundenart.Gruppenphase;
     public bool IstSchweizerSystem => Rundenart == Rundenart.SchweizerSystem;
@@ -376,6 +405,13 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
 
     partial void OnRundenartChanged(Rundenart value)
     {
+        // Vor dem Populier-Guard: die Optionsliste muss auch beim Befüllen des Formulars zur Rundenart passen.
+        // Erst den Zielwert, dann die ItemsSource setzen (siehe AuslosungViewModel.OnNeuRundeChanged).
+        if (VorgegebeneAuslosungsart.Wert is { } vorgabe && !AuslosungsKompatibilitaet.IstKompatibel(value, vorgabe))
+            VorgegebeneAuslosungsart = RundeZeile.KeineAuslosungsartVorgabe;
+        VorgegebeneAuslosungsartOptionen = AuslosungsartVorgabeOptionenFuer(value);
+        OnPropertyChanged(nameof(VorgegebeneAuslosungsart));
+
         if (_populiertGerade > 0) return;
         if (!AuswaertstorAktivierbar) AuswaertstorRegelAktiv = false;
         // Nur ein Vorschlag (Normalfall: nur Sieger steigen auf) — bleibt frei editierbar, siehe Issue #334:
@@ -407,6 +443,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
             AuswaertstorRegelAktiv = zeile?.AuswaertstorRegelAktiv ?? false;
             Regelwerk = zeile?.Regelwerk ?? RundeZeile.KeinRegelwerk;
             PaarungFestVorgegeben = zeile?.PaarungFestVorgegeben ?? false;
+            VorgegebeneAuslosungsart = zeile?.VorgegebeneAuslosungsart ?? RundeZeile.KeineAuslosungsartVorgabe;
         }
         finally
         {
@@ -430,6 +467,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         AusgewaehlteRunde.AuswaertstorRegelAktiv = AuswaertstorRegelAktiv;
         AusgewaehlteRunde.Regelwerk = Regelwerk;
         AusgewaehlteRunde.PaarungFestVorgegeben = PaarungFestVorgegeben;
+        AusgewaehlteRunde.VorgegebeneAuslosungsart = VorgegebeneAuslosungsart;
 
         IsDirty = true;
         AktualisiereRundenFehler();
@@ -585,7 +623,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         MitRueckspiel = r.MitRueckspiel,
         AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv,
         Regelwerk = r.Regelwerk is not null ? new RegelwerkOption(r.Regelwerk.Name, r.Regelwerk) : RundeZeile.KeinRegelwerk,
-        PaarungFestVorgegeben = r.PaarungFestVorgegeben
+        PaarungFestVorgegeben = r.PaarungFestVorgegeben,
+        VorgegebeneAuslosungsart = AuslosungsartVorgabeOptionFuer(r.VorgegebeneAuslosungsart)
     };
 
     private void RundenZuruecksetzen(IEnumerable<RundeZeile> runden)
@@ -694,7 +733,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
             ? new RundenKonfiguration(z.AnzahlSpieltage).ZuJson() : null,
         GruppenAnzahl: z.Rundenart == Rundenart.Gruppenphase ? z.GruppenAnzahl : null,
         EingangUeberUebergangsregeln: AlleUebergaenge.Any(b => b.ZielRunde == z),
-        PaarungFestVorgegeben: z.PaarungFestVorgegeben)).ToList();
+        PaarungFestVorgegeben: z.PaarungFestVorgegeben,
+        VorgegebeneAuslosungsart: z.VorgegebeneAuslosungsart.Wert)).ToList();
 
     public List<UebergangsregelPositionsEingabe> UebergangsregelnZuEingaben() => _alleUebergaenge
         .Where(b => b.QuellRunde is not null && b.ZielRunde is not null && b.QuellRunde != b.ZielRunde)

@@ -52,7 +52,8 @@ public record TurnierRundeEingabe(
     string? KonfigurationJson = null,
     int? GruppenAnzahl = null,
     bool EingangUeberUebergangsregeln = false,
-    bool PaarungFestVorgegeben = false);
+    bool PaarungFestVorgegeben = false,
+    Auslosungsart? VorgegebeneAuslosungsart = null);
 
 public record RegelwerkErstellenEingabe(
     string Name,

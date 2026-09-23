@@ -662,62 +662,8 @@ public class AuslosungAlgorithmusTests
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // TOPFLIGA — alle Auslosungsarten
+    // TOPFLIGA — nur Topf-Zuordnung (Issue #347; andere Arten sperrt AuslosungsKompatibilitaet)
     // ══════════════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public async Task TopfLiga_Zufall_ErzeugtPaarungen()
-    {
-        var teams = Enumerable.Range(1, 6).Select(Team).ToList();
-        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
-        AuslosungMit(Rundenart.TopfLiga, Auslosungsart.Zufall, lostoepfe: [topf]);
-
-        var ergebnisse = await Ausfuehren();
-
-        ergebnisse.Should().HaveCount(3, "6 Teams → 3 Paarungen");
-        ergebnisse.Should().AllSatisfy(e =>
-        {
-            e.HeimMannschaftId.Should().NotBeNull();
-            e.AuswaertsMannschaftId.Should().NotBeNull();
-        });
-        AlleTeamIds(ergebnisse).Should().BeEquivalentTo(Enumerable.Range(1, 6));
-    }
-
-    [Fact]
-    public async Task TopfLiga_NachSetzliste_GesetzteVsUngesetzte()
-    {
-        var gesetzte   = Enumerable.Range(1, 3).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
-        var ungesetzte = Enumerable.Range(4, 3).Select(i => Eintrag(Team(i))).ToArray();
-        var topf       = Topf(1, 1, [.. gesetzte, .. ungesetzte]);
-        AuslosungMit(Rundenart.TopfLiga, Auslosungsart.NachSetzliste, lostoepfe: [topf]);
-
-        var ergebnisse = await Ausfuehren();
-
-        ergebnisse.Should().HaveCount(3);
-        var gesetzteIds = new HashSet<int> { 1, 2, 3 };
-        ergebnisse.Should().AllSatisfy(e =>
-            gesetzteIds.Contains(e.HeimMannschaftId!.Value).Should().BeTrue("Heim = Gesetzter"));
-    }
-
-    [Fact]
-    public async Task TopfLiga_NachToepfen_PaartTeamsAusVerschiedenenToepfen()
-    {
-        var topf1 = Topf(1, 1, Enumerable.Range(1, 3).Select(i => Eintrag(Team(i))).ToArray());
-        var topf2 = Topf(2, 2, Enumerable.Range(4, 3).Select(i => Eintrag(Team(i))).ToArray());
-        AuslosungMit(Rundenart.TopfLiga, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2]);
-
-        var ergebnisse = await Ausfuehren();
-
-        ergebnisse.Should().HaveCount(3);
-        var topf1Ids = new HashSet<int> { 1, 2, 3 };
-        var topf2Ids = new HashSet<int> { 4, 5, 6 };
-        ergebnisse.Should().AllSatisfy(e =>
-        {
-            bool kreuzPaarung = (topf1Ids.Contains(e.HeimMannschaftId!.Value) && topf2Ids.Contains(e.AuswaertsMannschaftId!.Value))
-                             || (topf2Ids.Contains(e.HeimMannschaftId!.Value) && topf1Ids.Contains(e.AuswaertsMannschaftId!.Value));
-            kreuzPaarung.Should().BeTrue("jede Paarung verbindet Teams aus verschiedenen Töpfen");
-        });
-    }
 
     [Fact]
     public async Task TopfLiga_TopfZuordnung_ErzeugtTopfUebergreifendePaarungen()
@@ -729,23 +675,6 @@ public class AuslosungAlgorithmusTests
         var ergebnisse = await Ausfuehren();
 
         ergebnisse.Should().NotBeEmpty();
-        ergebnisse.Should().AllSatisfy(e =>
-        {
-            e.HeimMannschaftId.Should().NotBeNull();
-            e.AuswaertsMannschaftId.Should().NotBeNull();
-        });
-    }
-
-    [Fact]
-    public async Task TopfLiga_Benutzerdefiniert_ErzeugtPaarungen()
-    {
-        var teams = Enumerable.Range(1, 4).Select(Team).ToList();
-        var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
-        AuslosungMit(Rundenart.TopfLiga, Auslosungsart.Benutzerdefiniert, lostoepfe: [topf]);
-
-        var ergebnisse = await Ausfuehren();
-
-        ergebnisse.Should().HaveCount(2);
         ergebnisse.Should().AllSatisfy(e =>
         {
             e.HeimMannschaftId.Should().NotBeNull();
