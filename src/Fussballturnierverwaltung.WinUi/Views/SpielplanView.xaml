@@ -93,7 +93,7 @@
                                   SelectionMode="Extended" SelectionChanged="SpielListView_SelectionChanged">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid ColumnDefinitions="46,40,40,*,110,*,90" Padding="8,4">
+                                    <Grid ColumnDefinitions="46,40,40,*,110,*,90" RowDefinitions="Auto,Auto" Padding="8,4" Margin="{Binding PaarungsAbstand}">
                                         <TextBlock Grid.Column="0" Text="{Binding SpieltagAnzeige}" FontSize="12" Opacity="0.6" />
                                         <TextBlock Grid.Column="1" Text="{Binding Spielnummer}" FontSize="12" Opacity="0.6" />
                                         <TextBlock Grid.Column="2" Text="{Binding GruppeAnzeige}" FontSize="11" Opacity="0.6" />
@@ -116,6 +116,10 @@
                                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         </StackPanel>
                                         <TextBlock Grid.Column="6" Text="{Binding StatusAnzeige}" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />
+                                        <!-- Issue #340: Gesamtergebnis unter dem K.-o.-Rückspiel, zentriert unter der Ergebnis-Spalte. -->
+                                        <TextBlock Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="3" Text="{Binding GesamtText}"
+                                                   FontSize="11" Opacity="0.7" HorizontalAlignment="Center" Margin="0,2,0,0"
+                                                   Visibility="{Binding HatGesamtText, Converter={StaticResource BoolToVisibility}}" />
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>

@@ -23,6 +23,13 @@ public sealed partial class TurnierBaumView : UserControl
     {
         InitializeComponent();
         LayoutUpdated += (_, _) => VerbindungsLinienAktualisieren();
+        // Bei Theme-Wechsel ändern sich nur die Farben, nicht die Positionen — Signatur verwerfen, damit neu
+        // gezeichnet wird.
+        ActualThemeChanged += (_, _) =>
+        {
+            _letzteSignatur.Clear();
+            VerbindungsLinienAktualisieren();
+        };
     }
 
     private void VerbindungsLinienAktualisieren()
@@ -87,8 +94,7 @@ public sealed partial class TurnierBaumView : UserControl
         _letzteSignatur.AddRange(signatur);
 
         VerbindungsCanvas.Children.Clear();
-        var pinsel = Microsoft.UI.Xaml.Application.Current.Resources["CardStrokeColorDefaultBrush"] as Brush
-            ?? new SolidColorBrush(Microsoft.UI.Colors.Gray);
+        var pinsel = LinienFarbQuelle.Fill ?? new SolidColorBrush(Microsoft.UI.Colors.Gray);
         foreach (var (von, nach) in segmente)
         {
             VerbindungsCanvas.Children.Add(new Line

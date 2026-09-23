@@ -47,11 +47,18 @@ public class SpielZeile
     public bool HatErgebnis { get; init; }
     public string ErgebnisText { get; init; } = "-:-";
     public string ErgebnisDetail { get; init; } = "";
+    /// <summary>Gesamtergebnis-Zeile unter einem K.-o.-Rückspiel (Issue #340), z.B. "Gesamt 3:3 · i.E. 2:4".</summary>
+    public string GesamtText { get; init; } = "";
+    public bool HatGesamtText => !string.IsNullOrEmpty(GesamtText);
     public bool IstRueckspiel { get; init; }
     public bool IstPlatzhalterSpiel { get; init; }
     public bool HeimIstVorschau { get; init; }
     public bool AuswaertsIstVorschau { get; init; }
     public int? GruppeNummer { get; init; }
+    /// <summary>Erste Zeile einer Hin-/Rückspiel-Paarung nach der ersten (Issue #340) — bekommt Abstand nach oben,
+    /// damit Paarungen wie in der kicker-Paarungsansicht als Block erkennbar sind.</summary>
+    public bool IstPaarungsStart { get; init; }
+    public Microsoft.UI.Xaml.Thickness PaarungsAbstand => IstPaarungsStart ? new(0, 10, 0, 0) : new(0);
     public string GruppeAnzeige => GruppeNummer.HasValue ? $"Gr.{GruppeNummer}" : "";
 }
 
@@ -1253,8 +1260,30 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private void SpieleHinzufuegen(IReadOnlyList<Spiel> spiele, TurnierRunde? runde)
     {
         var paarungsNummern = PaarungsNummern(spiele);
-        foreach (var s in spiele)
-            Spiele.Add(MapSpielZeile(s, runde, paarungsNummern[s.Id], _teamGruppeMap, _platzhalterVorschau));
+
+        // Issue #340: K.-o.-Runden mit Hin-/Rückspiel nach Paarung statt nach Spielnummer — Hin- und
+        // Rückspiel stehen direkt untereinander (Vorbild kicker.de-Paarungsansicht).
+        bool nachPaarung = runde is not null && runde.MitRueckspiel && HinRueckspielWertung.IstKoRunde(runde);
+        var reihenfolge = nachPaarung
+            ? spiele.OrderBy(s => paarungsNummern[s.Id]).ThenBy(s => s.IstRueckspiel).ToList()
+            : spiele;
+        var hinspielErgebnisse = spiele
+            .Where(s => !s.IstRueckspiel && s.Ergebnis is not null)
+            .ToDictionary(s => s.Id, s => s.Ergebnis!);
+
+        int? letztePaarung = null;
+        foreach (var s in reihenfolge)
+        {
+            int paarung = paarungsNummern[s.Id];
+            bool paarungsStart = nachPaarung && letztePaarung is not null && paarung != letztePaarung;
+            letztePaarung = paarung;
+
+            var hinspielErgebnis = nachPaarung && s.IstRueckspiel && s.HinspielId is int hinId
+                ? hinspielErgebnisse.GetValueOrDefault(hinId)
+                : null;
+            Spiele.Add(MapSpielZeile(s, runde, paarung, _teamGruppeMap, _platzhalterVorschau,
+                hinspielErgebnis, paarungsStart));
+        }
     }
 
     /// <summary>Paarungsnummer (1-basiert) je Spiel-ID: Hinspiele bzw. Einzelspiele in Spielnummer-Reihenfolge,
@@ -1277,10 +1306,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private static SpielZeile MapSpielZeile(
         Spiel s, TurnierRunde? runde, int paarungsNummer,
         IReadOnlyDictionary<int, int>? teamGruppeMap = null,
-        IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)>? vorschau = null)
+        IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)>? vorschau = null,
+        SpielErgebnis? hinspielErgebnis = null, bool istPaarungsStart = false)
     {
         string text = "-:-";
         string detail = "";
+        string gesamt = "";
 
         if (s.Ergebnis is { } e)
         {
@@ -1295,6 +1326,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 detail = SpielErgebnisFormatierer.HalbzeitKlammer(
                     e.EntscheidungArt, e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
                     e.HalbzeitHeimTore, e.HalbzeitAuswaertsTore);
+
+            // Issue #340: unter dem Rückspiel eine eigene Zeile mit dem Gesamtergebnis der Paarung.
+            if (hinspielErgebnis is not null)
+                gesamt = SpielErgebnisFormatierer.RueckspielGesamtText(hinspielErgebnis, e);
         }
 
         int? gruppeNummer = null;
@@ -1323,11 +1358,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             HatErgebnis = s.Ergebnis is not null,
             ErgebnisText = text,
             ErgebnisDetail = detail,
+            GesamtText = gesamt,
             IstRueckspiel = s.IstRueckspiel,
             IstPlatzhalterSpiel = !s.HeimMannschaftId.HasValue || !s.AuswaertsMannschaftId.HasValue,
             HeimIstVorschau = heimVorschau is not null,
             AuswaertsIstVorschau = auswaertsVorschau is not null,
-            GruppeNummer = gruppeNummer
+            GruppeNummer = gruppeNummer,
+            IstPaarungsStart = istPaarungsStart
         };
     }
 

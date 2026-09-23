@@ -208,4 +208,71 @@ public class TurnierBaumServiceTests
         fortgeschrieben.Should().BeGreaterThan(0);
         ctx.Spiele.First(s => s.Id == 101).HeimMannschaftId.Should().Be(1, "Sieger AF 1 = Team 1");
     }
+
+    // ── Hin-/Rückspiel (Issue #340) ───────────────────────────────────────
+
+    [Fact]
+    public async Task GenerierenAsync_VerknuepftHinspielKnoten_WennQuellIdAufRueckspielZeigt()
+    {
+        await using var ctx = NeuerContext();
+        AchtelfinaleUndViertelfinaleAnlegen(ctx, out int afRundeId, out int vfRundeId);
+        ctx.TurnierRunden.Find(afRundeId)!.MitRueckspiel = true;
+
+        // Rückspiele zu den 8 AF-Hinspielen (Spielnummern nach den Hinspielen, wie seit #346 generiert).
+        for (int i = 1; i <= 8; i++)
+        {
+            ctx.Spiele.Add(new Spiel
+            {
+                Id = 10 + i, TurnierInstanzId = 1, TurnierRundeId = afRundeId, Spielnummer = 8 + i,
+                HeimMannschaftId = i * 2, AuswaertsMannschaftId = i * 2 - 1,
+                IstRueckspiel = true, HinspielId = i, Status = SpielStatus.Geplant
+            });
+        }
+        // Seit #346 zeigen die Quell-IDs auf das Rückspiel, das den Gesamtsieger trägt.
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 101, TurnierInstanzId = 1, TurnierRundeId = vfRundeId, Spielnummer = 101,
+            HeimPlatzhalterName = "Sieger AF 1", AuswaertsPlatzhalterName = "Sieger AF 2",
+            HeimQuellSpielId = 11, HeimQuellErgebnis = SpielQuellErgebnisTyp.Sieger,
+            AuswaertsQuellSpielId = 12, AuswaertsQuellErgebnis = SpielQuellErgebnisTyp.Sieger,
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+
+        var (baumService, _) = ServiceFuer(ctx);
+        await baumService.GenerierenAsync(1);
+        var geladen = await baumService.AbrufenAsync(1);
+
+        var afKnoten = geladen!.Knoten.Where(k => k.Runde == 1).OrderBy(k => k.Spiel!.Spielnummer).ToList();
+        var vfKnoten = geladen.Knoten.Single(k => k.Runde == 2);
+
+        afKnoten.Should().HaveCount(8, "ein Knoten je Paarung (Hinspiel)");
+        vfKnoten.LinkerKindKnotenId.Should().Be(afKnoten[0].Id);
+        vfKnoten.RechterKindKnotenId.Should().Be(afKnoten[1].Id);
+        afKnoten[0].ElternKnotenId.Should().Be(vfKnoten.Id);
+    }
+
+    [Fact]
+    public async Task BracketLadenAsync_LiefertRueckspielJeHinspielKnoten()
+    {
+        await using var ctx = NeuerContext();
+        AchtelfinaleUndViertelfinaleAnlegen(ctx, out int afRundeId, out _);
+        ctx.TurnierRunden.Find(afRundeId)!.MitRueckspiel = true;
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 11, TurnierInstanzId = 1, TurnierRundeId = afRundeId, Spielnummer = 9,
+            HeimMannschaftId = 2, AuswaertsMannschaftId = 1,
+            IstRueckspiel = true, HinspielId = 1, Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+
+        var (baumService, _) = ServiceFuer(ctx);
+        await baumService.GenerierenAsync(1);
+        var runden = await baumService.BracketLadenAsync(1);
+
+        var af = runden.First();
+        af.RueckspielJeHinspielId.Should().ContainKey(1);
+        af.RueckspielJeHinspielId[1].Id.Should().Be(11);
+        af.RueckspielJeHinspielId.Should().NotContainKey(2, "Paarung 2 hat (hier) kein Rückspiel");
+    }
 }

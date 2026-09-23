@@ -51,6 +51,13 @@
                             </StackPanel>
                             <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AuswaertsScore}" FontSize="15" FontWeight="Bold" Margin="8,4,12,10" VerticalAlignment="Center" />
                         </Grid>
+
+                        <!-- Issue #340: Einzelergebnisse einer Hin-/Rückspiel-Paarung über die volle Kartenbreite. -->
+                        <StackPanel Visibility="{Binding HatPaarungsText, Converter={StaticResource BoolToVisibility}}">
+                            <Rectangle Height="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Margin="12,0" />
+                            <TextBlock Text="{Binding PaarungsText}" FontSize="10" Opacity="0.6"
+                                       HorizontalAlignment="Center" Padding="10,4,10,6" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
             </Button>
@@ -159,6 +166,11 @@
 
                         <Canvas x:Name="VerbindungsCanvas" Grid.Column="0" Grid.ColumnSpan="3"
                                 Background="Transparent" IsHitTestVisible="False" />
+                        <!-- Issue #340: Farbquelle der Verbindungslinien. ThemeResource wird hier nach dem Theme des
+                             Elements aufgelöst (Dunkelmodus sitzt per RequestedTheme am Fenster-Wurzelelement) —
+                             Application.Current.Resources lieferte dagegen immer die Hell-Variante. -->
+                        <Rectangle x:Name="LinienFarbQuelle" Visibility="Collapsed"
+                                   Fill="{ThemeResource SurfaceStrokeColorDefaultBrush}" />
                     </Grid>
                 </ScrollViewer>
             </Grid>

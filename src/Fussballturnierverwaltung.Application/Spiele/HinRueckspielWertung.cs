@@ -30,6 +30,13 @@ public static class HinRueckspielWertung
         ? hinspiel.HeimToreRegulaer      + (hinspiel.HeimToreVerlaengerung      ?? 0)
         : hinspiel.AuswaertsToreRegulaer + (hinspiel.AuswaertsToreVerlaengerung ?? 0);
 
+    /// <summary>Gesamtergebnis einer entschiedenen oder laufenden Paarung aus Sicht des Hinspiels (Issue #340):
+    /// Tore des Hinspiel-Heimteams (Team A) und des Hinspiel-Auswärtsteams (Team B) über beide Spiele, jeweils
+    /// inklusive Verlängerung, ohne Elfmeterschießen.</summary>
+    public static (int TeamA, int TeamB) GesamtTore(SpielErgebnis hinspiel, SpielErgebnis rueckspiel) =>
+        (HinspielTore(hinspiel, heim: true)  + rueckspiel.AuswaertsToreGesamt,
+         HinspielTore(hinspiel, heim: false) + rueckspiel.HeimToreGesamt);
+
     /// <summary>True, wenn nach der regulären Spielzeit des Rückspiels weder das Gesamtergebnis noch —
     /// bei aktiver Auswärtstorregel (AD-001) — die Auswärtstore entscheiden, also das
     /// Entscheidungsverfahren (Verlängerung/Elfmeterschießen) im Rückspiel fällig ist.</summary>

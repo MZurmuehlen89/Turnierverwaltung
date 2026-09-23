@@ -45,9 +45,13 @@ public class TurnierBaumService(
 
         // Spiele pro Runde laden
         var spieleProRunde = new List<List<Spiel>>();
+        var rueckspielZuHinspielProRunde = new List<Dictionary<int, int>>();
         foreach (var runde in koRunden)
         {
             var spiele = await spielRepository.AlleNachRundeAsync(runde.Id, ct);
+            rueckspielZuHinspielProRunde.Add(spiele
+                .Where(s => s.IstRueckspiel && s.HinspielId.HasValue)
+                .ToDictionary(s => s.Id, s => s.HinspielId!.Value));
             // Bei Hin/Rückspiel: nur Hinspiele als Bracket-Knoten (ein Knoten pro Paarung)
             var relevant = runde.MitRueckspiel
                 ? spiele.Where(s => !s.IstRueckspiel).OrderBy(s => s.Spielnummer).ToList()
@@ -123,6 +127,12 @@ public class TurnierBaumService(
                 .Where(k => k.SpielId.HasValue)
                 .ToDictionary(k => k.SpielId!.Value, k => k);
 
+            // Issue #340: seit #346 zeigen Quell-IDs bei Hin-/Rückspiel auf das Rückspiel (trägt den
+            // Gesamtsieger), der Knoten hängt aber am Hinspiel — Rückspiel-ID auf denselben Knoten abbilden.
+            foreach (var (rueckspielId, hinspielId) in rueckspielZuHinspielProRunde[i])
+                if (kindKnotenNachSpielId.TryGetValue(hinspielId, out var hinspielKnoten))
+                    kindKnotenNachSpielId[rueckspielId] = hinspielKnoten;
+
             bool irgendeinSpielHatQuellId = elternSpiele.Any(
                 s => s.HeimQuellSpielId.HasValue || s.AuswaertsQuellSpielId.HasValue);
 
@@ -195,6 +205,21 @@ public class TurnierBaumService(
         if (baum is null) return [];
 
         // Knoten nach Runde gruppieren und sortieren
+        // Issue #340: Knoten hängen bei Hin-/Rückspiel am Hinspiel — die Rückspiele (Gesamtergebnis und
+        // -sieger) werden je Hinspiel-ID mitgeliefert.
+        var rueckspielJeHinspielId = new Dictionary<int, Spiel>();
+        var turnierRundeIds = baum.Knoten
+            .Where(k => k.Spiel is not null)
+            .Select(k => k.Spiel!.TurnierRundeId)
+            .Distinct()
+            .ToList();
+        foreach (var rundeId in turnierRundeIds)
+        {
+            foreach (var rueck in (await spielRepository.AlleNachRundeAsync(rundeId, ct))
+                         .Where(s => s.IstRueckspiel && s.HinspielId.HasValue))
+                rueckspielJeHinspielId.TryAdd(rueck.HinspielId!.Value, rueck);
+        }
+
         var rundenGruppen = baum.Knoten
             .GroupBy(k => k.Runde)
             .OrderBy(g => g.Key)
@@ -202,7 +227,10 @@ public class TurnierBaumService(
             {
                 // Innerhalb der Runde: linke Kinder vor rechten (Bracket-Reihenfolge wiederherstellen)
                 var geordnet = OrdinierteKnoten(g.ToList());
-                return new BracketRunde(g.Key, geordnet);
+                var rueckspiele = geordnet
+                    .Where(k => k.SpielId.HasValue && rueckspielJeHinspielId.ContainsKey(k.SpielId.Value))
+                    .ToDictionary(k => k.SpielId!.Value, k => rueckspielJeHinspielId[k.SpielId!.Value]);
+                return new BracketRunde(g.Key, geordnet, rueckspiele);
             })
             .ToList();
 
@@ -264,5 +292,9 @@ public class TurnierBaumService(
     }
 }
 
-/// <summary>Eine Runde im Turnierbaum mit ihren Knoten.</summary>
-public record BracketRunde(int RundeNummer, IReadOnlyList<TurnierBaumKnoten> Knoten);
+/// <summary>Eine Runde im Turnierbaum mit ihren Knoten. <paramref name="RueckspielJeHinspielId"/> enthält bei
+/// Hin-/Rückspiel-Runden das Rückspiel je Hinspiel-Knoten (Issue #340), sonst ist es leer.</summary>
+public record BracketRunde(
+    int RundeNummer,
+    IReadOnlyList<TurnierBaumKnoten> Knoten,
+    IReadOnlyDictionary<int, Spiel> RueckspielJeHinspielId);

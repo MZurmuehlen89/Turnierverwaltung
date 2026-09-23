@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Spiele;
@@ -39,6 +40,45 @@ public static class SpielErgebnisFormatierer
         };
         return $"{regulaerKlammer}{marker}";
     }
+
+    /// <summary>
+    /// Kurzform der Entscheidung einer Hin-/Rückspiel-Paarung aus Sicht des Rückspiels (Issue #340) — anders
+    /// als <see cref="DetailText"/> ohne Regulärzeit-Klammer, da die im Gesamtkontext nichts aussagt.
+    /// Leer bei Entscheidung nach Toren.
+    /// </summary>
+    public static string PaarungsEntscheidung(SpielErgebnis rueckspiel) => rueckspiel.EntscheidungArt switch
+    {
+        EntscheidungArt.Auswaertstorregel => "A.T.",
+        EntscheidungArt.Elfmeterschiessen => $"i.E. {rueckspiel.HeimElfmetertore}:{rueckspiel.AuswaertsElfmetertore}",
+        EntscheidungArt.Verlaengerung     => "n.V.",
+        EntscheidungArt.GoldenGoal        => "G.G.",
+        EntscheidungArt.SilverGoal        => "S.G.",
+        _                                 => ""
+    };
+
+    /// <summary>
+    /// Gesamt-Zeile unter dem Rückspiel im Spielplan (Issue #340): Gesamtergebnis aus Sicht des
+    /// Rückspiel-Heimteams plus ggf. Entscheidungs-Kürzel, z.B. "Gesamt 3:3 · i.E. 2:4".
+    /// </summary>
+    public static string RueckspielGesamtText(SpielErgebnis hinspiel, SpielErgebnis rueckspiel)
+    {
+        var (teamA, teamB) = HinRueckspielWertung.GesamtTore(hinspiel, rueckspiel);
+        string entscheidung = PaarungsEntscheidung(rueckspiel);
+        // Rückspiel-Heimteam = Team B (Hinspiel-Auswärtsteam).
+        return entscheidung.Length == 0 ? $"Gesamt {teamB}:{teamA}" : $"Gesamt {teamB}:{teamA} · {entscheidung}";
+    }
+
+    /// <summary>
+    /// Fußzeile einer Turnierbaum-Karte für eine Hin-/Rückspiel-Paarung (Issue #340): beide Einzelergebnisse
+    /// jeweils aus Sicht ihres Heimteams, z.B. "Hin 1:0 · Rück 3:2" — die Entscheidung steht separat
+    /// (<see cref="PaarungsEntscheidung"/>) zwischen den Gesamt-Scores. Ohne Rückspiel-Ergebnis nur der
+    /// Hinweis, dass der Stand nach dem Hinspiel gezeigt wird.
+    /// </summary>
+    public static string PaarungsEinzelergebnisse(SpielErgebnis hinspiel, SpielErgebnis? rueckspiel) =>
+        rueckspiel is null
+            ? "nach Hinspiel"
+            : $"Hin {hinspiel.HeimToreGesamt}:{hinspiel.AuswaertsToreGesamt} · " +
+              $"Rück {rueckspiel.HeimToreGesamt}:{rueckspiel.AuswaertsToreGesamt}";
 
     /// <summary>
     /// Formatiert den Halbzeitstand in Klammern (z.B. "(1:0)") für die Ergebnisanzeige, analog zur

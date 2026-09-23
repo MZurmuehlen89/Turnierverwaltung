@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Spiele;
+using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Tests.Spiele;
@@ -62,5 +63,64 @@ public class SpielErgebnisFormatiererTests
         var klammer = SpielErgebnisFormatierer.HalbzeitKlammer(
             entscheidungArt, 1, 1, 1, 0);
         klammer.Should().BeEmpty();
+    }
+
+    // ── Hin-/Rückspiel-Paarung (Issue #340) ───────────────────────────────────
+
+    private static SpielErgebnis Ergebnis(int heim, int auswaerts, EntscheidungArt art = EntscheidungArt.RegulaereSpielzeit,
+        int? heimVerl = null, int? auswVerl = null, int? heimElf = null, int? auswElf = null) => new()
+    {
+        HeimToreRegulaer = heim, AuswaertsToreRegulaer = auswaerts,
+        HeimToreVerlaengerung = heimVerl, AuswaertsToreVerlaengerung = auswVerl,
+        HeimElfmetertore = heimElf, AuswaertsElfmetertore = auswElf,
+        EntscheidungArt = art
+    };
+
+    [Fact]
+    public void RueckspielGesamtText_ZeigtGesamtstandAusSichtDesRueckspielHeimteams()
+    {
+        // Hinspiel A–B 1:0, Rückspiel B–A 3:1 → Gesamt aus Sicht B: 3:2.
+        var text = SpielErgebnisFormatierer.RueckspielGesamtText(Ergebnis(1, 0), Ergebnis(3, 1));
+        text.Should().Be("Gesamt 3:2");
+    }
+
+    [Fact]
+    public void RueckspielGesamtText_Elfmeterschiessen_HaengtKuerzelAn()
+    {
+        // Hinspiel A–B 1:0, Rückspiel B–A 2:1 → 2:2 gesamt, keine Auswärtstorregel, i.E. 2:4.
+        var text = SpielErgebnisFormatierer.RueckspielGesamtText(
+            Ergebnis(1, 0), Ergebnis(2, 1, EntscheidungArt.Elfmeterschiessen, 0, 0, 2, 4));
+        text.Should().Be("Gesamt 2:2 · i.E. 2:4");
+    }
+
+    [Fact]
+    public void RueckspielGesamtText_Verlaengerung_ZaehltVerlaengerungstoreMit()
+    {
+        // Hinspiel A–B 5:2, Rückspiel B–A 3:0 reg. + 0:2 n.V. → Gesamt aus Sicht B: 5:7.
+        var text = SpielErgebnisFormatierer.RueckspielGesamtText(
+            Ergebnis(5, 2), Ergebnis(3, 0, EntscheidungArt.Verlaengerung, 0, 2));
+        text.Should().Be("Gesamt 5:7 · n.V.");
+    }
+
+    [Fact]
+    public void PaarungsEinzelergebnisse_ZeigtBeideEinzelergebnisse()
+    {
+        var text = SpielErgebnisFormatierer.PaarungsEinzelergebnisse(
+            Ergebnis(1, 0), Ergebnis(2, 1, EntscheidungArt.Elfmeterschiessen, 0, 0, 4, 2));
+        text.Should().Be("Hin 1:0 · Rück 2:1");
+    }
+
+    [Fact]
+    public void PaarungsEntscheidung_Elfmeterschiessen_ZeigtElfmeterstand()
+    {
+        SpielErgebnisFormatierer.PaarungsEntscheidung(
+                Ergebnis(2, 1, EntscheidungArt.Elfmeterschiessen, 0, 0, 4, 2))
+            .Should().Be("i.E. 4:2");
+    }
+
+    [Fact]
+    public void PaarungsEinzelergebnisse_OhneRueckspiel_ZeigtHinweis()
+    {
+        SpielErgebnisFormatierer.PaarungsEinzelergebnisse(Ergebnis(1, 0), null).Should().Be("nach Hinspiel");
     }
 }

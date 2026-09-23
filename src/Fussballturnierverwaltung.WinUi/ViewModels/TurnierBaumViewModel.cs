@@ -4,6 +4,7 @@ using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
+using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -42,6 +43,9 @@ public class BracketKnotenAnzeige
     public string HeimScore { get; init; } = "";
     public string AuswaertsScore { get; init; } = "";
     public string ErgebnisDetail { get; init; } = "";
+    /// <summary>Fußzeile bei Hin-/Rückspiel-Paarungen (Issue #340), z.B. "Hin 1:0 · Rück 3:2".</summary>
+    public string PaarungsText { get; init; } = "";
+    public bool HatPaarungsText => !string.IsNullOrEmpty(PaarungsText);
     public string Datum { get; init; } = "";
     public bool HatDatum => !string.IsNullOrEmpty(Datum);
 }
@@ -543,7 +547,8 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
                 string label = istFest
                     ? (runde.Knoten.Count == 1 ? "F" : $"{kuerzel}{pos + 1}")
                     : "";
-                Knoten.Add(BaueKnotenAnzeige(k, x, centerY - NODE_H / 2, runde.RundeNummer - 1, label,
+                var rueckspiel = k.SpielId is int spielId ? runde.RueckspielJeHinspielId.GetValueOrDefault(spielId) : null;
+                Knoten.Add(BaueKnotenAnzeige(k, rueckspiel, x, centerY - NODE_H / 2, runde.RundeNummer - 1, label,
                     effLinks.GetValueOrDefault(k.Id), effRechts.GetValueOrDefault(k.Id), turnierRundeId));
             }
         }
@@ -585,8 +590,8 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         posMap[knoten.Id] = (cy1 + cy2) / 2.0;
     }
 
-    private static BracketKnotenAnzeige BaueKnotenAnzeige(TurnierBaumKnoten k, double x, double y, int rundenIndex, string label,
-        int? linkerKindKnotenId, int? rechterKindKnotenId, int? turnierRundeId = null)
+    private static BracketKnotenAnzeige BaueKnotenAnzeige(TurnierBaumKnoten k, Spiel? rueckspiel, double x, double y,
+        int rundenIndex, string label, int? linkerKindKnotenId, int? rechterKindKnotenId, int? turnierRundeId = null)
     {
         if (k.Spiel is null)
             return new BracketKnotenAnzeige { Id = k.Id, X = x, Y = y, RundenIndex = rundenIndex, TurnierRundeId = turnierRundeId, LinkerKindKnotenId = linkerKindKnotenId, RechterKindKnotenId = rechterKindKnotenId, IstFreilos = true, Label = label, HeimName = "–", AuswaertsName = "–" };
@@ -602,6 +607,27 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
                 e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
                 e.HeimElfmetertore, e.AuswaertsElfmetertore)
             : "";
+        string heimScore      = hatE ? e!.HeimToreGesamt.ToString()      : "";
+        string auswaertsScore = hatE ? e!.AuswaertsToreGesamt.ToString() : "";
+        int? siegerId = e?.SiegerMannschaftId;
+        string paarungsText = "";
+
+        // Issue #340: Hin-/Rückspiel-Paarung — Gesamtergebnis beider Spiele, Sieger aus dem Rückspiel (das
+        // Hinspiel-Ergebnis trägt nur den Sieger des Einzelspiels). Ohne Rückspiel-Ergebnis steht der Stand
+        // nach dem Hinspiel ohne Sieger-Markierung.
+        if (rueckspiel is not null && hatE)
+        {
+            var re = rueckspiel.Ergebnis;
+            paarungsText = SpielErgebnisFormatierer.PaarungsEinzelergebnisse(e!, re);
+            detail = re is not null ? SpielErgebnisFormatierer.PaarungsEntscheidung(re) : "";
+            siegerId = re?.SiegerMannschaftId;
+            if (re is not null)
+            {
+                var (teamA, teamB) = HinRueckspielWertung.GesamtTore(e!, re);
+                heimScore      = teamA.ToString();
+                auswaertsScore = teamB.ToString();
+            }
+        }
 
         return new BracketKnotenAnzeige
         {
@@ -619,11 +645,12 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             HeimWappen = TeilnehmerAnzeige.MannschaftsIcon(s.HeimMannschaft),
             AuswaertsWappen = TeilnehmerAnzeige.MannschaftsIcon(s.AuswaertsMannschaft),
             HatErgebnis = hatE,
-            HeimScore = hatE ? e!.HeimToreGesamt.ToString() : "",
-            AuswaertsScore = hatE ? e!.AuswaertsToreGesamt.ToString() : "",
+            HeimScore = heimScore,
+            AuswaertsScore = auswaertsScore,
             ErgebnisDetail = detail,
-            HeimIstSieger = hatE && e!.SiegerMannschaftId == s.HeimMannschaftId,
-            AuswaertsIstSieger = hatE && e!.SiegerMannschaftId == s.AuswaertsMannschaftId,
+            PaarungsText = paarungsText,
+            HeimIstSieger = siegerId is not null && siegerId == s.HeimMannschaftId,
+            AuswaertsIstSieger = siegerId is not null && siegerId == s.AuswaertsMannschaftId,
             Datum = s.Datum?.ToString("ddd, dd.MM.yy", CultureInfo.GetCultureInfo("de-DE")) ?? ""
         };
     }
