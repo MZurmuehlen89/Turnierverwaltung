@@ -26,7 +26,10 @@
                             <SolidColorBrush Color="{ThemeResource SystemAccentColor}" Opacity="0.25" />
                         </Border.Background>
                     </Border>
-                    <Grid ColumnDefinitions="18,6,*">
+                    <TextBlock Text="…" FontSize="12" Opacity="0.4" VerticalAlignment="Center"
+                               Visibility="{Binding IstAufgedeckt, Converter={StaticResource InverseBoolToVisibility}}" />
+                    <Grid ColumnDefinitions="18,6,*"
+                          Visibility="{Binding IstAufgedeckt, Converter={StaticResource BoolToVisibility}}">
                         <Image Grid.Column="0" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
                                Stretch="Uniform" Width="18" Height="18" VerticalAlignment="Center" />
@@ -47,6 +50,80 @@
                     <Run Text="{Binding Name}" /><Run Text="  " /><Run Text="{Binding Land}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </TextBlock>
             </Grid>
+        </DataTemplate>
+
+        <!-- Eine Gegner-Matrix (#362): Zeilen = Teams des Topfs, Spalten = je Gegner-Topf Heim/Auswärts.
+             Gemeinsam genutzt von Ergebnisanzeige und TV-Modus (#364). -->
+        <DataTemplate x:Key="GegnerMatrixTemplate">
+            <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="4" Padding="10" Margin="0,0,0,12" HorizontalAlignment="Left">
+                <StackPanel>
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <!-- Spaltenköpfe -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <Border Width="200" />
+                        <ItemsControl ItemsSource="{Binding Spalten}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Width="116" Margin="0,0,2,0" Padding="4,0">
+                                        <TextBlock Text="{Binding TopfName}" FontSize="11" FontWeight="SemiBold"
+                                                   Opacity="0.7" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Seite}" FontSize="11" Opacity="0.5" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                    <!-- Zeilen -->
+                    <ItemsControl ItemsSource="{Binding Zeilen}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,2">
+                                    <Border CornerRadius="3"
+                                            Visibility="{Binding IstHervorgehoben, Converter={StaticResource BoolToVisibility}}">
+                                        <Border.Background>
+                                            <SolidColorBrush Color="{ThemeResource SystemAccentColor}" Opacity="0.15" />
+                                        </Border.Background>
+                                    </Border>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Width="200" Height="30" Padding="4,0"
+                                                Background="Transparent" BorderThickness="0"
+                                                HorizontalContentAlignment="Stretch"
+                                                ToolTipService.ToolTip="{Binding Team.Land}"
+                                                Opacity="{Binding TeamOpacity}"
+                                                Command="{Binding DataContext.TeamFokussierenCommand, ElementName=Root}"
+                                                CommandParameter="{Binding Team}">
+                                            <Grid ColumnDefinitions="Auto,20,8,*">
+                                                <TextBlock Grid.Column="0" Text="✓" FontSize="12" FontWeight="Bold" Margin="0,0,6,0"
+                                                           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center"
+                                                           Visibility="{Binding ZeigeGezogenHaken, Converter={StaticResource BoolToVisibility}}" />
+                                                <Image Grid.Column="1" Source="{Binding Team.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                       Visibility="{Binding Team.Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                       Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="3" Text="{Binding Team.Name}" FontSize="12" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Button>
+                                        <ItemsControl ItemsSource="{Binding Gegner}"
+                                                      ItemTemplate="{StaticResource GegnerMatrixZelleTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
         </DataTemplate>
     </UserControl.Resources>
 
@@ -184,12 +261,50 @@
                                     </Border>
                                 </StackPanel>
                             </StackPanel>
+                            <!-- Ligaphase (#364): Gegner des gezogenen Teams namentlich nebeneinander — feste Plätze in
+                                 Matrix-Spaltenreihenfolge, neue Gegner erscheinen nacheinander, bereits feststehende abgeblendet -->
+                            <StackPanel Margin="0,10,0,0" HorizontalAlignment="Center"
+                                        Visibility="{Binding AnimationZeigeBannerGegner, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="GEGNER" FontSize="9" Foreground="White" Opacity="0.6" HorizontalAlignment="Center" Margin="0,0,0,4" />
+                                <ItemsControl ItemsSource="{Binding AnimationBannerGegner}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#1E293B" CornerRadius="4" Padding="8,6" Margin="0,0,6,0" Width="112"
+                                                    Opacity="{Binding Opacity}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Kopf}" FontSize="9" Foreground="White" Opacity="0.6"
+                                                               HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                    <Grid Height="22" Margin="0,2,0,0">
+                                                        <TextBlock Text="…" FontSize="13" Foreground="White" Opacity="0.4"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                   Visibility="{Binding Zelle.IstAufgedeckt, Converter={StaticResource InverseBoolToVisibility}}" />
+                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                                                                    ToolTipService.ToolTip="{Binding Zelle.Name}"
+                                                                    Visibility="{Binding Zelle.IstAufgedeckt, Converter={StaticResource BoolToVisibility}}">
+                                                            <Image Source="{Binding Zelle.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                   Visibility="{Binding Zelle.Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                                   Stretch="Uniform" Width="18" Height="18" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding Zelle.Kurzname}" FontSize="13" FontWeight="Bold" Foreground="White"
+                                                                       MaxWidth="72" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
-                    <!-- TV-Modus: Lostöpfe (links) und Gruppen/Paarungen (rechts) -->
+                    <!-- TV-Modus: Lostöpfe (links) und Gruppen/Paarungen (rechts) — nicht in der Ligaphase (#364) -->
                     <Grid Margin="0,0,0,16" ColumnDefinitions="*,16,*"
-                          Visibility="{Binding AnimationLaeuft, Converter={StaticResource BoolToVisibility}}">
+                          Visibility="{Binding AnimationZeigeListenmodus, Converter={StaticResource BoolToVisibility}}">
 
                         <!-- Lostöpfe: feste Anzahl Plätze pro Topf, damit sich das Layout nicht verschiebt,
                              sobald ein Topf leerer wird — gezogene Plätze werden nur ausgegraut (Opacity),
@@ -327,6 +442,32 @@
                             </StackPanel>
                         </StackPanel>
                     </Grid>
+
+                    <!-- TV-Modus Ligaphase (#364): Fokus auf die Matrix des gerade gezogenen Topfs, nach jedem Topf
+                         einmal die Übersicht aller Matrizen. Klicks gesperrt (Team-Fokus wirkt nur auf die Ergebnisanzeige). -->
+                    <StackPanel Margin="0,0,0,16" IsHitTestVisible="False"
+                                Visibility="{Binding AnimationIstMatrixmodus, Converter={StaticResource BoolToVisibility}}">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Enabled"
+                                      VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled"
+                                      Visibility="{Binding AnimationZeigeFokusMatrix, Converter={StaticResource BoolToVisibility}}">
+                            <Border BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="2"
+                                    CornerRadius="6" Padding="6" HorizontalAlignment="Left">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding AnimationFokusKopf}" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Margin="4,0,0,6" />
+                                    <ContentControl Content="{Binding AnimationFokusMatrix}"
+                                                    ContentTemplate="{StaticResource GegnerMatrixTemplate}" />
+                                </StackPanel>
+                            </Border>
+                        </ScrollViewer>
+                        <StackPanel Visibility="{Binding AnimationZeigeUebersicht, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="ZWISCHENSTAND" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Enabled"
+                                          VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
+                                <ItemsControl ItemsSource="{Binding AnimationMatrizen}" ItemTemplate="{StaticResource GegnerMatrixTemplate}" />
+                            </ScrollViewer>
+                        </StackPanel>
+                    </StackPanel>
 
                     <!-- Editierbare Basisdaten (nur solange nicht abgeschlossen) -->
                     <StackPanel Visibility="{Binding IstBearbeitbar, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
@@ -574,77 +715,7 @@
                             <!-- Eine Matrix je Topf: Zeilen = Teams des Topfs, Spalten = je Gegner-Topf Heim/Auswärts -->
                             <ScrollViewer HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Enabled"
                                           VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
-                                <ItemsControl ItemsSource="{Binding GegnerMatrizen}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                                                    CornerRadius="4" Padding="10" Margin="0,0,0,12" HorizontalAlignment="Left">
-                                                <StackPanel>
-                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Margin="0,0,0,6" />
-                                                    <!-- Spaltenköpfe -->
-                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                                        <Border Width="200" />
-                                                        <ItemsControl ItemsSource="{Binding Spalten}">
-                                                            <ItemsControl.ItemsPanel>
-                                                                <ItemsPanelTemplate>
-                                                                    <StackPanel Orientation="Horizontal" />
-                                                                </ItemsPanelTemplate>
-                                                            </ItemsControl.ItemsPanel>
-                                                            <ItemsControl.ItemTemplate>
-                                                                <DataTemplate>
-                                                                    <StackPanel Width="116" Margin="0,0,2,0" Padding="4,0">
-                                                                        <TextBlock Text="{Binding TopfName}" FontSize="11" FontWeight="SemiBold"
-                                                                                   Opacity="0.7" TextTrimming="CharacterEllipsis" />
-                                                                        <TextBlock Text="{Binding Seite}" FontSize="11" Opacity="0.5" />
-                                                                    </StackPanel>
-                                                                </DataTemplate>
-                                                            </ItemsControl.ItemTemplate>
-                                                        </ItemsControl>
-                                                    </StackPanel>
-                                                    <!-- Zeilen -->
-                                                    <ItemsControl ItemsSource="{Binding Zeilen}">
-                                                        <ItemsControl.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <Grid Margin="0,0,0,2">
-                                                                    <Border CornerRadius="3"
-                                                                            Visibility="{Binding IstHervorgehoben, Converter={StaticResource BoolToVisibility}}">
-                                                                        <Border.Background>
-                                                                            <SolidColorBrush Color="{ThemeResource SystemAccentColor}" Opacity="0.15" />
-                                                                        </Border.Background>
-                                                                    </Border>
-                                                                    <StackPanel Orientation="Horizontal">
-                                                                        <Button Width="200" Height="30" Padding="4,0"
-                                                                                Background="Transparent" BorderThickness="0"
-                                                                                HorizontalContentAlignment="Stretch"
-                                                                                ToolTipService.ToolTip="{Binding Team.Land}"
-                                                                                Command="{Binding DataContext.TeamFokussierenCommand, ElementName=Root}"
-                                                                                CommandParameter="{Binding Team}">
-                                                                            <Grid ColumnDefinitions="20,8,*">
-                                                                                <Image Grid.Column="0" Source="{Binding Team.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                                                                       Visibility="{Binding Team.Wappen, Converter={StaticResource NullToCollapsed}}"
-                                                                                       Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
-                                                                                <TextBlock Grid.Column="2" Text="{Binding Team.Name}" FontSize="12" FontWeight="SemiBold"
-                                                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                                                            </Grid>
-                                                                        </Button>
-                                                                        <ItemsControl ItemsSource="{Binding Gegner}"
-                                                                                      ItemTemplate="{StaticResource GegnerMatrixZelleTemplate}">
-                                                                            <ItemsControl.ItemsPanel>
-                                                                                <ItemsPanelTemplate>
-                                                                                    <StackPanel Orientation="Horizontal" />
-                                                                                </ItemsPanelTemplate>
-                                                                            </ItemsControl.ItemsPanel>
-                                                                        </ItemsControl>
-                                                                    </StackPanel>
-                                                                </Grid>
-                                                            </DataTemplate>
-                                                        </ItemsControl.ItemTemplate>
-                                                    </ItemsControl>
-                                                </StackPanel>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                <ItemsControl ItemsSource="{Binding GegnerMatrizen}" ItemTemplate="{StaticResource GegnerMatrixTemplate}" />
                             </ScrollViewer>
                         </StackPanel>
 

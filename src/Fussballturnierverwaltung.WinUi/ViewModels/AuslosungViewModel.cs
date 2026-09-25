@@ -185,6 +185,9 @@ public class GegnerMatrixZelle : ObservableObject
     public byte[]? Wappen { get; init; }
     private bool _istHervorgehoben;
     public bool IstHervorgehoben { get => _istHervorgehoben; set => SetProperty(ref _istHervorgehoben, value); }
+    /// <summary>TV-Modus (#364): noch nicht aufgedeckte Zellen zeigen "…" statt des Gegners.</summary>
+    private bool _istAufgedeckt = true;
+    public bool IstAufgedeckt { get => _istAufgedeckt; set => SetProperty(ref _istAufgedeckt, value); }
 }
 
 public class GegnerMatrixZeile : ObservableObject
@@ -193,6 +196,18 @@ public class GegnerMatrixZeile : ObservableObject
     public IReadOnlyList<GegnerMatrixZelle> Gegner { get; init; } = [];
     private bool _istHervorgehoben;
     public bool IstHervorgehoben { get => _istHervorgehoben; set => SetProperty(ref _istHervorgehoben, value); }
+    /// <summary>TV-Modus (#364): noch nicht gezogene Teams erscheinen abgeblendet.</summary>
+    private bool _istGezogen = true;
+    public bool IstGezogen
+    {
+        get => _istGezogen;
+        set { if (SetProperty(ref _istGezogen, value)) OnPropertyChanged(nameof(TeamOpacity)); }
+    }
+    public double TeamOpacity => IstGezogen ? 1.0 : 0.45;
+    /// <summary>TV-Modus (#364): Haken vor dem Namen, sobald das Team während der Live-Ziehung gezogen wurde
+    /// (bleibt in der Ergebnisanzeige aus).</summary>
+    private bool _zeigeGezogenHaken;
+    public bool ZeigeGezogenHaken { get => _zeigeGezogenHaken; set => SetProperty(ref _zeigeGezogenHaken, value); }
 }
 
 public record GegnerMatrixSpalte(string TopfName, string Seite);
@@ -200,6 +215,13 @@ public record GegnerMatrixSpalte(string TopfName, string Seite);
 public record GegnerMatrixTopf(string Name, IReadOnlyList<GegnerMatrixSpalte> Spalten, IReadOnlyList<GegnerMatrixZeile> Zeilen);
 
 public record FokusGegnerEintrag(string TopfName, GegnerMatrixZelle Heim, GegnerMatrixZelle Auswaerts);
+
+/// <summary>TV-Modus Ligaphase (#364): ein Gegner im Live-Banner — teilt die Matrix-Zelle, damit er genau dann
+/// erscheint, wenn die Zelle aufgedeckt wird. Bereits vorher feststehende Gegner werden abgeblendet gezeigt.</summary>
+public record AnimationsBannerGegner(string Kopf, GegnerMatrixZelle Zelle, bool IstNeu)
+{
+    public double Opacity => IstNeu ? 1.0 : 0.55;
+}
 
 /// <summary>
 /// "Auslosung"-Tab der Turnierdurchführung (#300, ersetzt den Platzhalter aus #299) — Master-Detail analog
@@ -434,6 +456,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnimationLaeuftNicht))]
+    [NotifyPropertyChangedFor(nameof(AnimationZeigeListenmodus))]
     [NotifyPropertyChangedFor(nameof(ZeigeErgebnis))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungZuruecksetzenCommand))]
     [NotifyCanExecuteChangedFor(nameof(AnimationUeberspringenCommand))]
@@ -460,6 +483,33 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public bool AnimationIstGruppenmodus  => AnimationGruppen.Count > 0;
     public bool AnimationIstPaarungsmodus => AnimationPaarungen.Count > 0;
 
+    // Ligaphase (#364): eigene Matrix-Instanzen für die Animation (Ergebnis-Matrizen bleiben unberührt).
+    // Fokus = nur die Matrix des gerade gezogenen Topfs; Übersicht = alle Matrizen nach Abschluss eines Topfs.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AnimationIstMatrixmodus))]
+    [NotifyPropertyChangedFor(nameof(AnimationZeigeListenmodus))]
+    private ObservableCollection<GegnerMatrixTopf> _animationMatrizen = [];
+
+    [ObservableProperty] private GegnerMatrixTopf? _animationFokusMatrix;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AnimationZeigeFokusMatrix))]
+    private bool _animationZeigeUebersicht;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AnimationZeigeBannerGegner))]
+    private ObservableCollection<AnimationsBannerGegner> _animationBannerGegner = [];
+
+    public bool AnimationZeigeBannerGegner => AnimationBannerGegner.Count > 0;
+
+    public bool AnimationIstMatrixmodus   => AnimationMatrizen.Count > 0;
+    public bool AnimationZeigeFokusMatrix => !AnimationZeigeUebersicht;
+    /// <summary>Lostöpfe + Gruppen/Paarungen nur außerhalb der Ligaphase — dort zeigt die Matrix den Topf-Inhalt
+    /// selbst (abgeblendete Zeilen = noch im Topf).</summary>
+    public bool AnimationZeigeListenmodus => AnimationLaeuft && !AnimationIstMatrixmodus;
+
+    [ObservableProperty] private string? _animationFokusKopf;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnimationFortschrittText))]
     private int _animationSchrittIndex;
@@ -480,6 +530,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private TaskCompletionSource _weiterSignal = new();
     private static readonly TimeSpan _tvModusSchrittVerzoegerung = TimeSpan.FromMilliseconds(900);
     private static readonly TimeSpan _tvModusPausenVerzoegerung  = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan _tvModusAufdeckVerzoegerung = TimeSpan.FromMilliseconds(1600);
+    private static readonly TimeSpan _tvModusGegnerVerzoegerung  = TimeSpan.FromMilliseconds(350);
+    private static readonly TimeSpan _tvModusUebersichtVerzoegerung = TimeSpan.FromMilliseconds(3000);
 
     /// <summary>Ein einzelner Ziehungsschritt für den TV-Modus: eine Mannschaft aus einem Lostopf, die einem
     /// bereits feststehenden Ziel (Gruppe/Paarung) zugeordnet ist. Das Endergebnis steht durch AusfuehrenAsync
@@ -629,16 +682,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     ],
                     IconGlyph = "",
                 },
-                new RibbonAktion
-                {
-                    Header = "TV-Modus-Steuerung",
-                    Unteraktionen =
-                    [
-                        new RibbonUnteraktion("Weiter", AnimationWeiterCommand),
-                        new RibbonUnteraktion("Rest sofort anzeigen", AnimationUeberspringenCommand),
-                    ],
-                    IconGlyph = "",
-                },
+                // Direkte Buttons statt Flyout (#364): während der Live-Ziehung ständig gebraucht
+                new RibbonAktion { Header = "Weiter", Befehl = AnimationWeiterCommand, IconGlyph = "" },
+                new RibbonAktion { Header = "Rest sofort anzeigen", Befehl = AnimationUeberspringenCommand, IconGlyph = "" },
                 new RibbonAktion { Header = "Zurücksetzen", Befehl = AuslosungZuruecksetzenCommand, IconGlyph = "" },
             ],
         },
@@ -988,7 +1034,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             // Nach dem Reload stammen Lostöpfe UND Ergebnisse garantiert aus demselben, aktuellen Snapshot —
             // exakt die Daten, die danach auch als "echtes" Ergebnis angezeigt werden (Fund aus #303-Test:
             // TV-Modus-Endanzeige wich bei Gruppenphase nach vorherigem Zurücksetzen vom echten Ergebnis ab).
-            if (TvModusAktiv && _auslosungDetail is not null)
+            if (TvModusAktiv && _auslosungDetail is not null && IstGegnerMatrixergebnis)
+            {
+                await LigaphasenZiehungAnimierenAsync(_auslosungDetail);
+            }
+            else if (TvModusAktiv && _auslosungDetail is not null)
             {
                 var schritte = ZiehungsSchritteAufbauen(_auslosungDetail.Lostoepfe, _auslosungDetail.Ergebnisse);
                 await ZiehungAnimierenAsync(schritte);
@@ -1234,6 +1284,153 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             AnimationToepfe           = [];
             AnimationGruppen          = [];
             AnimationPaarungen        = [];
+        }
+    }
+
+    /// <summary>TV-Modus der Ligaphase (#364, Vorbild UEFA-Live-Show): Topf für Topf wird Team für Team gezogen
+    /// (Reihenfolge innerhalb des Topfs nur für die Anzeige zufällig). Pro Team deckt sich seine Zeile in der
+    /// Gegner-Matrix auf — gleichzeitig die gespiegelten Zellen bei den Gegnern (Heim gegen X ⇒ bei X "Auswärts"),
+    /// sodass später gezogene Teams bereits vorbelegte Zellen haben. Während eines Topfs ist nur dessen Matrix
+    /// sichtbar; nach jedem Topf (außer dem letzten) folgt einmal die Übersicht aller Matrizen.</summary>
+    private async Task LigaphasenZiehungAnimierenAsync(Auslosung detail)
+    {
+        var matrizen = GegnerMatrizenAufbauen(detail);
+        if (matrizen.Count == 0) return;
+
+        // Zeile je Team-Schlüssel, um die gespiegelte Zelle beim Gegner zu finden
+        var zeileJeTeam = matrizen.SelectMany(m => m.Zeilen)
+            .Where(z => z.Team.Schluessel is not null)
+            .ToDictionary(z => z.Team.Schluessel!);
+        foreach (var zeile in zeileJeTeam.Values)
+        {
+            zeile.IstGezogen = false;
+            foreach (var zelle in zeile.Gegner)
+                if (zelle.Schluessel is not null) zelle.IstAufgedeckt = false;
+        }
+
+        AnimationLaeuft          = true;
+        AnimationSchrittGesamt   = matrizen.Sum(m => m.Zeilen.Count);
+        AnimationSchrittIndex    = 0;
+        _animationUeberspringen  = false;
+        _weiterSignal            = new TaskCompletionSource();
+
+        AnimationMatrizen        = matrizen;
+        AnimationFokusMatrix     = matrizen[0];
+        AnimationZeigeUebersicht = false;
+
+        var markiert = new List<ObservableObject>();
+        void MarkierungAufheben()
+        {
+            foreach (var o in markiert)
+            {
+                if (o is GegnerMatrixZelle z) z.IstHervorgehoben = false;
+                else if (o is GegnerMatrixZeile r) r.IstHervorgehoben = false;
+            }
+            markiert.Clear();
+        }
+
+        try
+        {
+            for (int topfIndex = 0; topfIndex < matrizen.Count; topfIndex++)
+            {
+                var matrix = matrizen[topfIndex];
+                AnimationFokusMatrix     = matrix;
+                AnimationZeigeUebersicht = false;
+                int nochImTopf = matrix.Zeilen.Count;
+                AnimationFokusKopf = $"Ziehung {matrix.Name} · noch {nochImTopf} von {matrix.Zeilen.Count} Teams im Topf";
+
+                foreach (var zeile in matrix.Zeilen.OrderBy(_ => Random.Shared.Next()).ToList())
+                {
+                    if (_animationUeberspringen) break;
+                    AnimationSchrittIndex++;
+
+                    // 1) Team ziehen
+                    zeile.IstGezogen        = true;
+                    zeile.ZeigeGezogenHaken = true;
+                    nochImTopf--;
+                    AnimationFokusKopf = $"Ziehung {matrix.Name} · noch {nochImTopf} von {matrix.Zeilen.Count} Teams im Topf";
+                    zeile.IstHervorgehoben = true;
+                    markiert.Add(zeile);
+
+                    AnimationBannerMannschaft = zeile.Team.Name;
+                    AnimationBannerTopf       = matrix.Name;
+                    AnimationBannerZiel       = null;
+                    AnimationBannerSlot       = null;
+                    await WarteAufSchrittAsync(_tvModusSchrittVerzoegerung);
+                    if (_animationUeberspringen) break;
+
+                    // 2) Gegner aufdecken — im Banner namentlich nebeneinander, bereits feststehende sofort, neue
+                    //    nacheinander (auch im manuellen Modus ohne eigenen Klick); dabei jeweils eigene Zeile +
+                    //    Spiegelzelle beim Gegner aufdecken
+                    AnimationBannerGegner = new ObservableCollection<AnimationsBannerGegner>(zeile.Gegner
+                        .Select((zelle, index) => (zelle, index))
+                        .Where(x => x.zelle.Schluessel is not null)
+                        .Select(x => new AnimationsBannerGegner(
+                            $"{matrix.Spalten[x.index].TopfName} · {matrix.Spalten[x.index].Seite}", x.zelle, !x.zelle.IstAufgedeckt)));
+
+                    foreach (var zelle in AnimationBannerGegner.Where(g => g.IstNeu).Select(g => g.Zelle))
+                    {
+                        zelle.IstAufgedeckt    = true;
+                        zelle.IstHervorgehoben = true;
+                        markiert.Add(zelle);
+
+                        var spiegel = zeileJeTeam.GetValueOrDefault(zelle.Schluessel!)?.Gegner
+                            .FirstOrDefault(g => g.Schluessel == zeile.Team.Schluessel);
+                        if (spiegel is not null)
+                        {
+                            spiegel.IstAufgedeckt    = true;
+                            spiegel.IstHervorgehoben = true;
+                            markiert.Add(spiegel);
+                        }
+
+                        await Task.WhenAny(Task.Delay(_tvModusGegnerVerzoegerung), _weiterSignal.Task);
+                        if (_animationUeberspringen) break;
+                    }
+                    if (_animationUeberspringen) break;
+
+                    await WarteAufSchrittAsync(_tvModusAufdeckVerzoegerung);
+                    if (_animationUeberspringen) break;
+
+                    MarkierungAufheben();
+                    AnimationBannerGegner     = [];
+                    AnimationBannerMannschaft = null;
+                    AnimationBannerTopf       = null;
+                    AnimationBannerZiel       = null;
+                    AnimationBannerSlot       = null;
+                    // Im manuellen Modus keine eigene "Weiter"-Pause — zwei Klicks je Team (ziehen, aufdecken) genügen.
+                    if (!TvModusManuell)
+                    {
+                        await WarteAufSchrittAsync(_tvModusPausenVerzoegerung);
+                        if (_animationUeberspringen) break;
+                    }
+                }
+                if (_animationUeberspringen) break;
+
+                // 3) Zwischen-Übersicht nach jedem Topf (nach dem letzten folgt direkt die Ergebnisanzeige)
+                if (topfIndex < matrizen.Count - 1)
+                {
+                    AnimationZeigeUebersicht  = true;
+                    AnimationBannerMannschaft = $"{matrix.Name} komplett";
+                    AnimationBannerTopf       = "Zwischenstand aller Töpfe";
+                    await WarteAufSchrittAsync(_tvModusUebersichtVerzoegerung);
+                    AnimationBannerMannschaft = null;
+                    AnimationBannerTopf       = null;
+                }
+            }
+        }
+        finally
+        {
+            AnimationLaeuft           = false;
+            AnimationWartetAufWeiter  = false;
+            AnimationBannerMannschaft = null;
+            AnimationBannerTopf       = null;
+            AnimationBannerZiel       = null;
+            AnimationBannerSlot       = null;
+            AnimationBannerGegner     = [];
+            AnimationMatrizen         = [];
+            AnimationFokusKopf        = null;
+            AnimationFokusMatrix      = null;
+            AnimationZeigeUebersicht  = false;
         }
     }
 
