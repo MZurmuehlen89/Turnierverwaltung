@@ -1308,7 +1308,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // AktualisiereSeitenlisteAsync() weist AusgewaehlteAuslosung nach einem Reload der Seitenliste
         // erneut zu (neue Objektinstanz, gleiche Id) — das würde hier ohne diesen Guard einen bereits
         // frisch geladenen Detail-Stand ein zweites Mal nachladen (sichtbares Flackern, Issue #318).
-        if (_auslosungDetail?.Id == AusgewaehlteAuslosung.Id) return;
+        // Nur bei offenem Detail: nach einem Reset (z.B. InstanzSetzenAsync beim Reiter-Wechsel) steht
+        // _auslosungDetail noch auf der alten Id, und erneutes Auswählen derselben Auslosung zeigte sonst nichts (#347).
+        if (DetailAktiv && _auslosungDetail?.Id == AusgewaehlteAuslosung.Id) return;
 
         await LadeDetailAsync(AusgewaehlteAuslosung.Id);
     }
