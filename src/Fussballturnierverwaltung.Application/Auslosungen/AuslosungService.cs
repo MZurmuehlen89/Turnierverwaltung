@@ -1,4 +1,4 @@
-using Fussballturnierverwaltung.Application.Spielplan;
+﻿using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
@@ -692,95 +692,50 @@ public class AuslosungService(
 
     // ── TopfZuordnung (UCL-Ligaphase) ──────────────────────────────────────
 
+    // Die Länder-Regeln (kein gleiches Land, höchstens 2 Gegner aus demselben Land) sind fest an die Regel
+    // "Kein gleiches Land" gekoppelt (Nutzerentscheidung Issue #347, keine eigene AuslosungsRegelArt).
     private static List<AuslosungsErgebnis> TopfZuordnungAusloesen(Auslosung auslosung)
     {
         var keinGleichesLand = HatAktiveRegel(auslosung, AuslosungsRegelArt.KeinGleichesLand);
-        var lostoepfe        = auslosung.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
+        var lostoepfe        = auslosung.Lostoepfe
+            .OrderBy(l => l.Reihenfolge)
+            .Select(l => l.Eintraege.Select(TeilnehmerSlot.AusEintrag).ToList())
+            .ToList();
 
-        var alleErgebnisse = new List<AuslosungsErgebnis>();
-        int paarungsNr     = 1;
+        if (keinGleichesLand) LandverteilungPruefen(lostoepfe);
 
+        var teilnehmer = lostoepfe.SelectMany((topf, i) => topf.Select(slot => (Slot: slot, Topf: i))).ToList();
+        var paarungen  = new LigaphasenAuslosung(
+                teilnehmer.Select(t => t.Topf).ToList(),
+                teilnehmer.Select(t => t.Slot.LandId).ToList(),
+                keinGleichesLand,
+                Random.Shared)
+            .Ausloesen()
+            ?? throw new InvalidOperationException(
+                "Keine gültige Topf-Zuordnung gefunden: Die Einschränkungen (kein gleiches Land, höchstens " +
+                $"{LigaphasenAuslosung.MAX_GEGNER_JE_LAND} Gegner aus demselben Land, konfliktfreie Spieltage) " +
+                "sind mit dieser Topf-Besetzung nicht erfüllbar.");
+
+        return paarungen
+            .Select((p, i) => Paarung(i + 1, teilnehmer[p.Heim].Slot, teilnehmer[p.Gast].Slot))
+            .ToList();
+    }
+
+    // Innerhalb eines Topfs braucht jedes Team einen Gastgeber und einen Gast aus einem anderen Land — mehr als
+    // die Hälfte eines Topfs aus einem Land ist daher nie auslosbar. Vorab prüfen, statt erst nach erfolgloser
+    // Suche mit einer unspezifischen Meldung zu scheitern.
+    private static void LandverteilungPruefen(List<List<TeilnehmerSlot>> lostoepfe)
+    {
         for (int i = 0; i < lostoepfe.Count; i++)
         {
-            var teamsA = lostoepfe[i].Eintraege.Select(TeilnehmerSlot.AusEintrag).ToList();
-
-            foreach (var (heim, auswaerts) in InnerPotPaaren(teamsA, keinGleichesLand))
-                alleErgebnisse.Add(Paarung(paarungsNr++, heim, auswaerts));
-
-            for (int j = i + 1; j < lostoepfe.Count; j++)
-            {
-                var teamsB = lostoepfe[j].Eintraege.Select(TeilnehmerSlot.AusEintrag).ToList();
-                foreach (var (heim, auswaerts) in CrossPotPaaren(teamsA, teamsB, keinGleichesLand))
-                    alleErgebnisse.Add(Paarung(paarungsNr++, heim, auswaerts));
-            }
+            var topf = lostoepfe[i];
+            int groessteGruppe = topf.Where(t => t.LandId.HasValue).GroupBy(t => t.LandId)
+                .Select(g => g.Count()).DefaultIfEmpty(0).Max();
+            if (groessteGruppe > topf.Count / 2)
+                throw new InvalidOperationException(
+                    $"Topf {i + 1} enthält {groessteGruppe} von {topf.Count} Mannschaften aus demselben Land. " +
+                    "Mit der Regel 'Kein gleiches Land' darf höchstens die Hälfte eines Topfs aus einem Land kommen.");
         }
-
-        return alleErgebnisse;
-    }
-
-    private static List<(TeilnehmerSlot Heim, TeilnehmerSlot Auswaerts)> InnerPotPaaren(
-        List<TeilnehmerSlot> slots, bool keinGleichesLand)
-    {
-        int n = slots.Count;
-        for (int versuch = 0; versuch < 300; versuch++)
-        {
-            var shuffled = slots.OrderBy(_ => Random.Shared.Next()).ToList();
-            bool valid   = true;
-
-            for (int i = 0; i < n; i++)
-            {
-                if (keinGleichesLand && GleichesLand(shuffled[i], shuffled[(i + 1) % n]))
-                {
-                    valid = false;
-                    break;
-                }
-            }
-
-            if (!valid) continue;
-
-            var result = new List<(TeilnehmerSlot, TeilnehmerSlot)>(n);
-            for (int i = 0; i < n; i++)
-                result.Add((shuffled[i], shuffled[(i + 1) % n]));
-            return result;
-        }
-
-        throw new InvalidOperationException(
-            "Keine gültige Innerhalb-Topf-Auslosung gefunden. " +
-            "Zu viele Mannschaften aus demselben Land im Topf?");
-    }
-
-    private static List<(TeilnehmerSlot Heim, TeilnehmerSlot Auswaerts)> CrossPotPaaren(
-        List<TeilnehmerSlot> teamsA, List<TeilnehmerSlot> teamsB, bool keinGleichesLand)
-    {
-        int m = teamsA.Count;
-        for (int versuch = 0; versuch < 500; versuch++)
-        {
-            var perm1  = teamsB.OrderBy(_ => Random.Shared.Next()).ToList();
-            var perm2  = teamsB.OrderBy(_ => Random.Shared.Next()).ToList();
-            bool valid = true;
-
-            for (int i = 0; i < m; i++)
-            {
-                if (perm1[i] == perm2[i]) { valid = false; break; }
-                if (keinGleichesLand &&
-                    (GleichesLand(teamsA[i], perm1[i]) || GleichesLand(teamsA[i], perm2[i])))
-                { valid = false; break; }
-            }
-
-            if (!valid) continue;
-
-            var result = new List<(TeilnehmerSlot, TeilnehmerSlot)>(m * 2);
-            for (int i = 0; i < m; i++)
-            {
-                result.Add((teamsA[i], perm1[i]));
-                result.Add((perm2[i], teamsA[i]));
-            }
-            return result;
-        }
-
-        throw new InvalidOperationException(
-            "Keine gültige Topf-Überkreuz-Auslosung gefunden. " +
-            "Die Einschränkungen (z. B. 'Kein gleiches Land') können nicht erfüllt werden.");
     }
 
     // ─────────────────────────────────────────────────────────────────────

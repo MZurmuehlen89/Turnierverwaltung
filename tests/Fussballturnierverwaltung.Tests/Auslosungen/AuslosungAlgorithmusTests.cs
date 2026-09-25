@@ -668,18 +668,73 @@ public class AuslosungAlgorithmusTests
     [Fact]
     public async Task TopfLiga_TopfZuordnung_ErzeugtTopfUebergreifendePaarungen()
     {
-        var topf1 = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)));
-        var topf2 = Topf(2, 2, Eintrag(Team(3)), Eintrag(Team(4)));
+        // Topf-Zuordnung braucht mindestens 3 Teams je Topf (Issue #347): 2 Töpfe à 3 → jedes Team 4 Spiele
+        var topf1 = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)), Eintrag(Team(3)));
+        var topf2 = Topf(2, 2, Eintrag(Team(4)), Eintrag(Team(5)), Eintrag(Team(6)));
         AuslosungMit(Rundenart.TopfLiga, Auslosungsart.TopfZuordnung, lostoepfe: [topf1, topf2]);
 
         var ergebnisse = await Ausfuehren();
 
-        ergebnisse.Should().NotBeEmpty();
-        ergebnisse.Should().AllSatisfy(e =>
+        ergebnisse.Should().HaveCount(12);
+        ergebnisse.Select(e => (Math.Min(e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value),
+                                Math.Max(e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value)))
+            .Should().OnlyHaveUniqueItems("kein Gegner zweimal");
+    }
+
+    // ── UCL-Ligaphase 4 × 9 (Issue #347) ─────────────────────────────────────
+
+    private static List<Lostopf> UclToepfe(Func<int, Mannschaft> team) =>
+        [.. Enumerable.Range(0, 4).Select(t =>
+            Topf(t + 1, t + 1, Enumerable.Range(t * 9 + 1, 9).Select(i => Eintrag(team(i))).ToArray()))];
+
+    private static int TopfVon(int teamId) => (teamId - 1) / 9;
+
+    [Fact]
+    public async Task TopfLiga_TopfZuordnung_UclLigaphase_JedesTeamAchtGegnerZweiJeTopfVierHeim()
+    {
+        AuslosungMit(Rundenart.TopfLiga, Auslosungsart.TopfZuordnung, lostoepfe: UclToepfe(Team));
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(144);
+        foreach (int team in Enumerable.Range(1, 36))
         {
-            e.HeimMannschaftId.Should().NotBeNull();
-            e.AuswaertsMannschaftId.Should().NotBeNull();
-        });
+            var heim  = ergebnisse.Where(e => e.HeimMannschaftId == team).Select(e => e.AuswaertsMannschaftId!.Value).ToList();
+            var gast  = ergebnisse.Where(e => e.AuswaertsMannschaftId == team).Select(e => e.HeimMannschaftId!.Value).ToList();
+            var alle  = heim.Concat(gast).ToList();
+
+            heim.Should().HaveCount(4, $"Team {team}: 4 Heimspiele");
+            gast.Should().HaveCount(4, $"Team {team}: 4 Auswärtsspiele");
+            alle.Should().OnlyHaveUniqueItems($"Team {team}: 8 verschiedene Gegner").And.NotContain(team);
+            alle.GroupBy(TopfVon).Should().HaveCount(4).And.OnlyContain(g => g.Count() == 2, $"Team {team}: 2 Gegner je Topf");
+            heim.GroupBy(TopfVon).Should().HaveCount(4, $"Team {team}: je Topf ein Heimgegner");
+        }
+    }
+
+    [Fact]
+    public async Task TopfLiga_TopfZuordnung_KeinGleichesLand_HoechstensZweiGegnerJeLand()
+    {
+        // 16 der 36 Teams aus 4 Ländern (je 4, über alle Töpfe verteilt), der Rest mit eigenem Land —
+        // ohne Obergrenze bekäme ein Team leicht 3 Gegner aus demselben Land.
+        static int LandVon(int id) => id % 9 < 4 ? 100 + id % 9 : id;
+        for (int durchlauf = 0; durchlauf < 10; durchlauf++)
+        {
+            AuslosungMit(Rundenart.TopfLiga, Auslosungsart.TopfZuordnung,
+                lostoepfe: UclToepfe(i => TeamMitLand(i, LandVon(i))),
+                regeln: [Regel(AuslosungsRegelArt.KeinGleichesLand)]);
+            var ergebnisse = await Ausfuehren();
+
+            foreach (int team in Enumerable.Range(1, 36))
+            {
+                var gegnerLaender = ergebnisse
+                    .Where(e => e.HeimMannschaftId == team || e.AuswaertsMannschaftId == team)
+                    .Select(e => LandVon(e.HeimMannschaftId == team ? e.AuswaertsMannschaftId!.Value : e.HeimMannschaftId!.Value))
+                    .ToList();
+                gegnerLaender.Should().NotContain(LandVon(team), $"Team {team}: kein Gegner aus dem eigenen Land");
+                gegnerLaender.GroupBy(l => l).Should().OnlyContain(g => g.Count() <= 2,
+                    $"Team {team}: höchstens 2 Gegner aus demselben Land");
+            }
+        }
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -706,18 +761,17 @@ public class AuslosungAlgorithmusTests
     [Fact]
     public async Task SchweizerSystem_TopfZuordnung_ErzeugtPaarungen()
     {
-        var topf1 = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)));
-        var topf2 = Topf(2, 2, Eintrag(Team(3)), Eintrag(Team(4)));
+        // Topf-Zuordnung braucht mindestens 3 Teams je Topf (Issue #347): 2 Töpfe à 3 → jedes Team 4 Spiele
+        var topf1 = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)), Eintrag(Team(3)));
+        var topf2 = Topf(2, 2, Eintrag(Team(4)), Eintrag(Team(5)), Eintrag(Team(6)));
         AuslosungMit(Rundenart.SchweizerSystem, Auslosungsart.TopfZuordnung, lostoepfe: [topf1, topf2]);
 
         var ergebnisse = await Ausfuehren();
 
-        ergebnisse.Should().NotBeEmpty();
-        ergebnisse.Should().AllSatisfy(e =>
-        {
-            e.HeimMannschaftId.Should().NotBeNull();
-            e.AuswaertsMannschaftId.Should().NotBeNull();
-        });
+        ergebnisse.Should().HaveCount(12);
+        ergebnisse.Select(e => (Math.Min(e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value),
+                                Math.Max(e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value)))
+            .Should().OnlyHaveUniqueItems("kein Gegner zweimal");
     }
 
     [Fact]
@@ -780,18 +834,17 @@ public class AuslosungAlgorithmusTests
     [Fact]
     public async Task Sonderrunde_TopfZuordnung_ErzeugtPaarungen()
     {
-        var topf1 = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)));
-        var topf2 = Topf(2, 2, Eintrag(Team(3)), Eintrag(Team(4)));
+        // Topf-Zuordnung braucht mindestens 3 Teams je Topf (Issue #347): 2 Töpfe à 3 → jedes Team 4 Spiele
+        var topf1 = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)), Eintrag(Team(3)));
+        var topf2 = Topf(2, 2, Eintrag(Team(4)), Eintrag(Team(5)), Eintrag(Team(6)));
         AuslosungMit(Rundenart.Sonderrunde, Auslosungsart.TopfZuordnung, lostoepfe: [topf1, topf2]);
 
         var ergebnisse = await Ausfuehren();
 
-        ergebnisse.Should().NotBeEmpty();
-        ergebnisse.Should().AllSatisfy(e =>
-        {
-            e.HeimMannschaftId.Should().NotBeNull();
-            e.AuswaertsMannschaftId.Should().NotBeNull();
-        });
+        ergebnisse.Should().HaveCount(12);
+        ergebnisse.Select(e => (Math.Min(e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value),
+                                Math.Max(e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value)))
+            .Should().OnlyHaveUniqueItems("kein Gegner zweimal");
     }
 
     [Fact]

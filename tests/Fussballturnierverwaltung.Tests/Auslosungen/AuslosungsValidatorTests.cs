@@ -212,6 +212,20 @@ public class AuslosungsValidatorTests
         ergebnis.Fehler.Should().ContainMatch("*Topf-Zuordnung*");
     }
 
+    [Fact]
+    public void TopfLiga_TopfZuordnung_ToepfeMitZweiTeams_WirdAbgelehnt()
+    {
+        // Issue #347: Heim- und Auswärtsgegner aus dem eigenen Topf wären bei 2 Teams dieselbe Paarung
+        var topf1 = Topf(1, 1, Eintrag(1), Eintrag(2));
+        var topf2 = Topf(2, 2, Eintrag(3), Eintrag(4));
+        var a     = Auslosung(Rundenart.TopfLiga, Auslosungsart.TopfZuordnung, lostoepfe: [topf1, topf2]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.Fehler.Should().ContainMatch("*mindestens 3 Teams*");
+    }
+
     // ══════════════════════════════════════════════════════════════════════════
     // UNGÜLTIGE KOMBINATIONEN — Auslosungsart + Rundenart
     // ══════════════════════════════════════════════════════════════════════════

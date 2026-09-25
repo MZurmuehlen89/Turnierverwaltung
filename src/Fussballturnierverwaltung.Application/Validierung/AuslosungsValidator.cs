@@ -109,6 +109,12 @@ public class AuslosungsValidator
             if (topfGroessen.Count > 1)
                 fehler.Add("TopfZuordnung erfordert gleich große Lostöpfe " +
                            $"(gefunden: {string.Join(", ", topfGroessen.Select(g => $"{g} Teams"))}).");
+
+            // Issue #347: jedes Team erhält aus dem eigenen Topf einen Heim- und einen anderen Auswärtsgegner —
+            // bei nur 2 Teams wäre das zweimal dieselbe Paarung (Liga/Gruppenphase verteilen nur auf Gruppen).
+            if (auslosung.TurnierRunde?.Rundenart is not (Rundenart.Liga or Rundenart.Gruppenphase) &&
+                topfGroessen.Any(g => g < 3))
+                fehler.Add("TopfZuordnung erfordert mindestens 3 Teams je Lostopf.");
         }
 
         // Zufall/Benutzerdefiniert: höchstens 1 Lostopf (keine Topf-Struktur, eine Urne)

@@ -239,8 +239,9 @@ public partial class RundeZeile : ObservableObject
     public static readonly VorgegebeneAuslosungsartOption KeineAuslosungsartVorgabe = new("— frei wählbar —", null);
 }
 
-/// <summary>Option der "Auslosungsart (Vorgabe)"-ComboBox im Rundenformular (Issue #347) — <c>record</c> für
-/// Werte-Gleichheit bei der <c>SelectedItem</c>-Bindung, <see cref="Wert"/> = null steht für "frei wählbar".</summary>
+/// <summary>Option der "Auslosungsart (Vorgabe)"-ComboBox im Rundenformular (Issue #347), <see cref="Wert"/> = null
+/// steht für "frei wählbar". Instanzen nur über <c>RundenViewModel.AuslosungsartVorgabeOptionFuer</c> beziehen —
+/// die ComboBox vergleicht <c>SelectedItem</c> per Referenz, Record-Gleichheit hilft dort nicht.</summary>
 public record VorgegebeneAuslosungsartOption(string Anzeige, Auslosungsart? Wert);
 
 /// <summary>"Runden"-Tab von <see cref="TurnierlisteViewModel"/> (Issue #297) — Rundenliste + Rundenformular
@@ -353,19 +354,24 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     [ObservableProperty]
     private IReadOnlyList<VorgegebeneAuslosungsartOption> _vorgegebeneAuslosungsartOptionen = AuslosungsartVorgabeOptionenFuer(Rundenart.Liga);
 
+    /// <summary>Genau eine Instanz je Auslosungsart: die WinUI3-ComboBox gleicht <c>SelectedItem</c> per Referenz
+    /// (nicht per Record-Gleichheit) mit der ItemsSource ab — mit jeweils neuen Instanzen fand sie die Auswahl
+    /// nach einem ItemsSource-Wechsel nicht mehr und schrieb über TwoWay null zurück (NullReferenceException).</summary>
+    private static readonly Dictionary<Auslosungsart, VorgegebeneAuslosungsartOption> _auslosungsartVorgabeOptionen =
+        Enum.GetValues<Auslosungsart>().ToDictionary(
+            a => a, a => new VorgegebeneAuslosungsartOption(AuslosungViewModel.AuslosungsartAnzeigeName(a), a));
+
     // Manuell wird nicht angeboten — das regelt die Checkbox "Paarung fest vorgegeben".
     private static IReadOnlyList<VorgegebeneAuslosungsartOption> AuslosungsartVorgabeOptionenFuer(Rundenart rundenart) =>
     [
         RundeZeile.KeineAuslosungsartVorgabe,
         .. Enum.GetValues<Auslosungsart>()
             .Where(a => a != Auslosungsart.Manuell && AuslosungsKompatibilitaet.IstKompatibel(rundenart, a))
-            .Select(a => new VorgegebeneAuslosungsartOption(AuslosungViewModel.AuslosungsartAnzeigeName(a), a))
+            .Select(a => _auslosungsartVorgabeOptionen[a])
     ];
 
     private static VorgegebeneAuslosungsartOption AuslosungsartVorgabeOptionFuer(Auslosungsart? art) =>
-        art is { } a
-            ? new VorgegebeneAuslosungsartOption(AuslosungViewModel.AuslosungsartAnzeigeName(a), a)
-            : RundeZeile.KeineAuslosungsartVorgabe;
+        art is { } a ? _auslosungsartVorgabeOptionen[a] : RundeZeile.KeineAuslosungsartVorgabe;
 
     public bool IstGruppenphase => Rundenart == Rundenart.Gruppenphase;
     public bool IstSchweizerSystem => Rundenart == Rundenart.SchweizerSystem;
@@ -407,7 +413,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     {
         // Vor dem Populier-Guard: die Optionsliste muss auch beim Befüllen des Formulars zur Rundenart passen.
         // Erst den Zielwert, dann die ItemsSource setzen (siehe AuslosungViewModel.OnNeuRundeChanged).
-        if (VorgegebeneAuslosungsart.Wert is { } vorgabe && !AuslosungsKompatibilitaet.IstKompatibel(value, vorgabe))
+        if (VorgegebeneAuslosungsart?.Wert is { } vorgabe &&!AuslosungsKompatibilitaet.IstKompatibel(value, vorgabe))
             VorgegebeneAuslosungsart = RundeZeile.KeineAuslosungsartVorgabe;
         VorgegebeneAuslosungsartOptionen = AuslosungsartVorgabeOptionenFuer(value);
         OnPropertyChanged(nameof(VorgegebeneAuslosungsart));
@@ -467,7 +473,9 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         AusgewaehlteRunde.AuswaertstorRegelAktiv = AuswaertstorRegelAktiv;
         AusgewaehlteRunde.Regelwerk = Regelwerk;
         AusgewaehlteRunde.PaarungFestVorgegeben = PaarungFestVorgegeben;
-        AusgewaehlteRunde.VorgegebeneAuslosungsart = VorgegebeneAuslosungsart;
+        // null kommt nur transient aus der ComboBox (Auswahl beim ItemsSource-Wechsel nicht gefunden) — nie übernehmen.
+        if (VorgegebeneAuslosungsart is not null)
+            AusgewaehlteRunde.VorgegebeneAuslosungsart = VorgegebeneAuslosungsart;
 
         IsDirty = true;
         AktualisiereRundenFehler();
