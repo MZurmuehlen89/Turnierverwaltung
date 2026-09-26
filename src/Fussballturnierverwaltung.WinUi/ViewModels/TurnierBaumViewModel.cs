@@ -523,13 +523,13 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             {
                 X = ri * ROUND_W,
                 Breite = NODE_W,
-                Name = RundenAnzeigeName(runden[ri].Knoten.Count)
+                Name = runden[ri].RundenName ?? RundenAnzeigeName(runden[ri].Knoten.Count)
             });
 
         Knoten.Clear();
         foreach (var runde in runden)
         {
-            string kuerzel = RundenKuerzel(runde.Knoten.Count);
+            string kuerzel = RundenKuerzelAusName(runde.RundenName) ?? RundenKuerzel(runde.Knoten.Count);
             double x = (runde.RundeNummer - 1) * ROUND_W;
 
             int? turnierRundeId = runde.Knoten
@@ -545,7 +545,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
                 var k = geordnet[pos];
                 if (!posMap.TryGetValue(k.Id, out var centerY)) continue;
                 string label = istFest
-                    ? (runde.Knoten.Count == 1 ? "F" : $"{kuerzel}{pos + 1}")
+                    ? (runde.Knoten.Count == 1 ? kuerzel.TrimEnd('-') : $"{kuerzel}{pos + 1}")
                     : "";
                 var rueckspiel = k.SpielId is int spielId ? runde.RueckspielJeHinspielId.GetValueOrDefault(spielId) : null;
                 Knoten.Add(BaueKnotenAnzeige(k, rueckspiel, x, centerY - NODE_H / 2, runde.RundeNummer - 1, label,
@@ -653,6 +653,33 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             AuswaertsIstSieger = siegerId is not null && siegerId == s.AuswaertsMannschaftId,
             Datum = s.Datum?.ToString("ddd, dd.MM.yy", CultureInfo.GetCultureInfo("de-DE")) ?? ""
         };
+    }
+
+    /// <summary>Kürzel der Knoten-Labels aus dem echten Rundennamen (Issue #365), z.B. "Playoff-Runde" → "PO",
+    /// "Achtelfinale" → "AF". Unbekannte Namen: Anfangsbuchstaben der Wörter. <c>null</c> ohne Namen — dann greift
+    /// der Rückfall über die Spielanzahl.</summary>
+    private static string? RundenKuerzelAusName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+
+        string normiert = name.Trim().ToLowerInvariant();
+        string? bekannt = normiert switch
+        {
+            "finale" => "F",
+            "halbfinale" => "HF",
+            "viertelfinale" => "VF",
+            "achtelfinale" => "AF",
+            "sechzehntelfinale" => "L32-",
+            _ when normiert.Contains("playoff") || normiert.Contains("play-off") => "PO",
+            _ => null
+        };
+        if (bekannt is not null) return bekannt;
+
+        string initialen = string.Concat(name
+            .Split([' ', '-', '.'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(w => char.ToUpperInvariant(w[0])));
+        if (initialen.Length == 0) return null;
+        return char.IsDigit(initialen[^1]) ? initialen + "-" : initialen;
     }
 
     private static string RundenAnzeigeName(int anzahl) => anzahl switch

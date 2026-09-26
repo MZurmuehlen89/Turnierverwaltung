@@ -220,6 +220,11 @@ public class TurnierBaumService(
                 rueckspielJeHinspielId.TryAdd(rueck.HinspielId!.Value, rueck);
         }
 
+        // Issue #365: echter Rundenname je Baum-Spalte statt Ableitung aus der Spielanzahl
+        // (CL-Playoff-Runde hat ebenfalls 8 Paarungen und wurde als "Achtelfinale" beschriftet).
+        var instanz = await instanzRepository.FindenNachIdMitRundenAsync(turnierInstanzId, ct);
+        var rundenNameJeId = instanz?.Runden.ToDictionary(r => r.Id, r => r.Name) ?? [];
+
         var rundenGruppen = baum.Knoten
             .GroupBy(k => k.Runde)
             .OrderBy(g => g.Key)
@@ -230,7 +235,12 @@ public class TurnierBaumService(
                 var rueckspiele = geordnet
                     .Where(k => k.SpielId.HasValue && rueckspielJeHinspielId.ContainsKey(k.SpielId.Value))
                     .ToDictionary(k => k.SpielId!.Value, k => rueckspielJeHinspielId[k.SpielId!.Value]);
-                return new BracketRunde(g.Key, geordnet, rueckspiele);
+                string? rundenName = geordnet
+                    .Select(k => k.Spiel?.TurnierRundeId)
+                    .Where(id => id.HasValue)
+                    .Select(id => rundenNameJeId.GetValueOrDefault(id!.Value))
+                    .FirstOrDefault(n => !string.IsNullOrWhiteSpace(n));
+                return new BracketRunde(g.Key, geordnet, rueckspiele, rundenName);
             })
             .ToList();
 
@@ -293,8 +303,11 @@ public class TurnierBaumService(
 }
 
 /// <summary>Eine Runde im Turnierbaum mit ihren Knoten. <paramref name="RueckspielJeHinspielId"/> enthält bei
-/// Hin-/Rückspiel-Runden das Rückspiel je Hinspiel-Knoten (Issue #340), sonst ist es leer.</summary>
+/// Hin-/Rückspiel-Runden das Rückspiel je Hinspiel-Knoten (Issue #340), sonst ist es leer.
+/// <paramref name="RundenName"/> ist der Name der zugehörigen <see cref="Domain.Entitaeten.Turniere.TurnierRunde"/>
+/// (Issue #365), <c>null</c> wenn keiner ermittelbar ist.</summary>
 public record BracketRunde(
     int RundeNummer,
     IReadOnlyList<TurnierBaumKnoten> Knoten,
-    IReadOnlyDictionary<int, Spiel> RueckspielJeHinspielId);
+    IReadOnlyDictionary<int, Spiel> RueckspielJeHinspielId,
+    string? RundenName = null);
