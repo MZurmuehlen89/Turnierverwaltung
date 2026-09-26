@@ -31,7 +31,7 @@ public record GruppenAnzahlVorschlag(int GruppenAnzahl, int Gruppengroesse)
 /// Quellrunde), je Spiel (K.o.-Quellrunde) oder eine einzelne Zeile (Liga-Quellrunde, <see cref="GruppeIndex"/>
 /// = null). <see cref="AnzahlBeste"/> (gruppenübergreifende Rangfolge-Regel, Issue #217, z.B. "2 beste
 /// Gruppendritte") ist gesetzt, wenn <see cref="GruppeIndex"/> null bleibt UND die Zeile über
-/// <see cref="RundenUebergaengeViewModel.NeueGruppenuebergreifendeZeileCommand"/> angelegt wurde.</summary>
+/// <see cref="UebergangsregelEditorViewModel.NeueGruppenuebergreifendeZeileCommand"/> angelegt wurde.</summary>
 public partial class UebergangsregelZeile : ObservableObject
 {
     [ObservableProperty]
@@ -86,9 +86,8 @@ public partial class UebergangsregelZeile : ObservableObject
 }
 
 /// <summary>Eine Übergangsregel (Quelle→Ziel + Detailzeilen) — zentrale Datenhaltung in
-/// <see cref="RundenViewModel"/>.AlleUebergaenge, gemeinsam genutzt von den Tabs "Runden" und
-/// "Rundenübergänge" (<see cref="RundenUebergaengeViewModel"/>). Bearbeitet wird sie AUSSCHLIESSLICH
-/// über das stabile Regelformular in <see cref="RundenUebergaengeViewModel"/> (Populier-/Zurückschreib-
+/// <see cref="RundenViewModel"/>.AlleUebergaenge. Bearbeitet wird sie AUSSCHLIESSLICH
+/// über das stabile Regelformular in <see cref="UebergangsregelEditorViewModel"/> (Populier-/Zurückschreib-
 /// Muster) — dieser Typ selbst enthält keine TwoWay-Bindungspunkte für Quelle/Ziel (siehe #284-Redesign-
 /// Historie: eine frühere Fassung mit eingebetteter ComboBox pro Karte hat bei jedem Rundenfokus-Wechsel
 /// wiederholt zu Datenkorruption geführt, weil die Karte selbst bei jedem Wechsel neu aufgebaut wurde). Nur
@@ -106,7 +105,7 @@ public partial class UebergangsregelBlock : ObservableObject
     [ObservableProperty] private RundeZeile? _zielRunde;
     [ObservableProperty] private ObservableCollection<UebergangsregelZeile> _zeilen = [];
 
-    /// <summary>Vom Übergänge-Tab gesetzt, wenn dieser Block gerade im Regelformular bearbeitet wird — reine
+    /// <summary>Vom Übergangsregel-Editor gesetzt, wenn dieser Block gerade im Regelformular bearbeitet wird — reine
     /// Anzeige-Markierung für die Hervorhebung in den Eingehend-/Ausgehend-Listen, keine Nutzereingabe.</summary>
     [ObservableProperty] private bool _istAusgewaehlt;
 
@@ -194,7 +193,7 @@ public partial class UebergangsregelBlock : ObservableObject
     /// EM/WM-Klassiker) — nur bei Gruppenphase als Quellrunde sinnvoll. Anders als die per-Gruppe-Zeilen aus
     /// <see cref="BefuelleStandardZeilen"/> bleibt <see cref="UebergangsregelZeile.GruppeIndex"/> hier null,
     /// <see cref="UebergangsregelZeile.AnzahlBeste"/> markiert die Zeile als gruppenübergreifend (siehe
-    /// <see cref="RundenUebergaengeViewModel.GruppenuebergreifendeZeilen"/>). Default "Platz 3, beste 1"
+    /// <see cref="UebergangsregelEditorViewModel.GruppenuebergreifendeZeilen"/>). Default "Platz 3, beste 1"
     /// analog WPF-Original.</summary>
     public void GruppenuebergreifendeZeileHinzufuegen()
     {
@@ -236,6 +235,13 @@ public partial class RundeZeile : ObservableObject
     [ObservableProperty] private bool _paarungFestVorgegeben;
     [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = KeineAuslosungsartVorgabe;
 
+    /// <summary>Reine Anzeige in der Rundenliste (#187, seit #348 im Runden-Reiter): gesetzt, wenn die ausgehenden
+    /// Übergangsregeln nicht zur Ausgangsanzahl passen — berechnet von <c>RundenViewModel</c>, nie gespeichert.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatUnstimmigkeit))]
+    private string? _unstimmigkeitText;
+    public bool HatUnstimmigkeit => UnstimmigkeitText is not null;
+
     public static readonly VorgegebeneAuslosungsartOption KeineAuslosungsartVorgabe = new("— frei wählbar —", null);
 }
 
@@ -246,12 +252,12 @@ public record VorgegebeneAuslosungsartOption(string Anzeige, Auslosungsart? Wert
 
 /// <summary>"Runden"-Tab von <see cref="TurnierlisteViewModel"/> (Issue #297) — Rundenliste + Rundenformular
 /// (Name/Rundenart/Eingang/Ausgang/GruppenAnzahl/MitRueckspiel/AuswaertstorRegelAktiv/Regelwerk/PaarungFest-
-/// Vorgegeben). Zugleich alleiniger DATENHALTER für Runden UND Übergangsregeln (<see cref="AlleUebergaenge"/>)
-/// — der separate Tab "Rundenübergänge" (<see cref="RundenUebergaengeViewModel"/>) referenziert dieses
-/// ViewModel per DI (beide Scoped in derselben Navigations-Scope) und liest/schreibt die geteilten Daten über
-/// die öffentlichen Methoden/Property unten, statt eigene Kopien zu halten — EIN "Speichern" committet Runden
-/// UND Übergangsregeln gemeinsam über <see cref="TurnierInstanzService.RundenUndUebergaengeErsetzenAsync"/>,
-/// unabhängig davon, welcher der beiden Tabs gerade aktiv ist. Feste Paarungen (Vorbelegung) werden seit
+/// Vorgegeben) + Übergangsregeln der gewählten Runde (<see cref="UebergangsregelEditor"/>, Issue #348 — vorher
+/// eigener Reiter, dadurch Reiterwechsel für abhängige Optionen wie "Paarung fest vorgegeben"). Alleiniger
+/// DATENHALTER für Runden UND Übergangsregeln (<see cref="AlleUebergaenge"/>) — der Editor liest/schreibt die
+/// Daten über die öffentlichen Methoden/Property unten, statt eigene Kopien zu halten — EIN "Speichern"
+/// committet Runden UND Übergangsregeln gemeinsam über
+/// <see cref="TurnierInstanzService.RundenUndUebergaengeErsetzenAsync"/>. Feste Paarungen (Vorbelegung) werden seit
 /// #297 unabhängig davon im <see cref="VorbelegungViewModel"/> direkt gegen Spiel/Auslosung verwaltet.</summary>
 public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
@@ -268,19 +274,41 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
 
     private readonly List<UebergangsregelBlock> _alleUebergaenge = [];
 
-    /// <summary>Geteilte Übergangsregel-Datenhaltung, gelesen von <see cref="RundenUebergaengeViewModel"/>.</summary>
+    /// <summary>Geteilte Übergangsregel-Datenhaltung, gelesen von <see cref="UebergangsregelEditorViewModel"/>.</summary>
     public IReadOnlyList<UebergangsregelBlock> AlleUebergaenge => _alleUebergaenge;
 
     /// <summary>Feuert bei jeder strukturellen (hinzugefügt/entfernt) oder inhaltlichen (Quelle/Ziel/Zeilen)
     /// Änderung an <see cref="AlleUebergaenge"/> sowie bei jeder Rundendaten-Änderung, die die Kartenanzeige
-    /// betrifft (Name/Eingang/Ausgang) — <see cref="RundenUebergaengeViewModel"/> abonniert dies.</summary>
+    /// betrifft — <see cref="UebergangsregelEditorViewModel"/> abonniert dies.</summary>
     public event Action? UebergaengeGeaendert;
 
     private void UebergaengeGeaendertMelden()
     {
         OnPropertyChanged(nameof(PaarungFestVorgegebenVerfuegbar));
+        foreach (var runde in Runden)
+            runde.UnstimmigkeitText = UnstimmigkeitErmitteln(runde);
         UebergaengeGeaendert?.Invoke();
     }
+
+    /// <summary>Prüft, ob die Summe ALLER ausgehenden Übergangsregeln einer Runde (über ggf. mehrere
+    /// unabhängige Regeln zu verschiedenen Zielrunden hinweg) tatsächlich deren Ausgangsanzahl ergibt (Issue
+    /// #187). Nur relevant, wenn überhaupt ausgehende Regeln existieren.</summary>
+    private string? UnstimmigkeitErmitteln(RundeZeile runde)
+    {
+        var ausgehende = _alleUebergaenge.Where(b => b.QuellRunde == runde).ToList();
+        if (ausgehende.Count == 0) return null;
+
+        var summe = ausgehende.SelectMany(b => b.Zeilen).Sum(z => z.AnzahlBeste ?? (z.PlatzierungBis - z.PlatzierungVon + 1));
+        var erwartet = runde.AusgangsMannschaftsanzahl;
+
+        if (summe == erwartet) return null;
+        return summe < erwartet
+            ? $"Übergangsregeln decken nur {summe} von {erwartet} Plätzen ab."
+            : $"Übergangsregeln decken {summe} von {erwartet} Plätzen ab — mehr als erwartet.";
+    }
+
+    /// <summary>Übergangsregel-Bereich im Runden-Detail (Issue #348).</summary>
+    public UebergangsregelEditorViewModel UebergangsregelEditor { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatInstanz))]
@@ -312,7 +340,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     // ── Rundenformular ────────────────────────────────────────────────────────
     // Bewusst VM-Felder statt Direktbindung auf AusgewaehlteRunde.<Feld> (siehe #284-Umsetzungsnotiz für die
     // ausführliche Begründung: eine Direktbindung auf ein bei Fokuswechsel wechselndes Objekt hat wiederholt
-    // zu Datenkorruption geführt). Dasselbe Muster gilt im Regelformular des Übergänge-Tabs.
+    // zu Datenkorruption geführt). Dasselbe Muster gilt im Regelformular des Übergangsregel-Editors.
     private static readonly HashSet<string> FormFelder =
     [
         nameof(Name), nameof(Rundenart), nameof(EingangsMannschaftsanzahl), nameof(AusgangsMannschaftsanzahl),
@@ -479,7 +507,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
 
         IsDirty = true;
         AktualisiereRundenFehler();
-        UebergaengeGeaendertMelden(); // Name/Eingang/Ausgang betreffen die Kartenanzeige im Übergänge-Tab
+        UebergaengeGeaendertMelden(); // Name/Ausgang betreffen Regelanzeige und Unstimmigkeits-Hinweis
     }
 
     [ObservableProperty] private ObservableCollection<RundeZeile> _runden = [];
@@ -530,6 +558,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         _uebergangsregelService = uebergangsregelService;
         _turnierValidator = turnierValidator;
         _uebergangsregelValidator = uebergangsregelValidator;
+        UebergangsregelEditor = new UebergangsregelEditorViewModel(this);
     }
 
     /// <summary>Vom Composite gesetzt, wenn sich die geteilte Instanzauswahl ändert — lädt Runden und
@@ -688,7 +717,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     }
     private bool KannRundeEntfernen() => AusgewaehlteRunde is not null;
 
-    // ── Übergangsregel-Datenhaltung (öffentlich, vom Übergänge-Tab genutzt) ─────
+    // ── Übergangsregel-Datenhaltung (öffentlich, vom Übergangsregel-Editor genutzt) ─────
 
     public void UebergangHinzufuegen(UebergangsregelBlock block)
     {

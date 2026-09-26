@@ -8,7 +8,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 /// <summary>
 /// "Turniere"-Seite (Issue #297) — die EINE vereinheitlichte Turnier-View, Composite aus Turnierkopf-,
-/// Runden-, Rundenübergänge- und Vorbelegungs-Tab unter einer geteilten Instanzliste (Status-Filter
+/// Runden- (inkl. Übergangsregeln, #348) und Vorbelegungs-Tab unter einer geteilten Instanzliste (Status-Filter
 /// Turniere/Vorlagen). Ersetzt sowohl die bisherige "Turniervorlagen"-Seite (#284) als auch die Platzhalter
 /// "Turnierkopf"/"Turnierdefinition" — eine Vorlage ist seit #294 einfach eine <c>TurnierInstanz</c> mit
 /// Status <c>Vorlage</c>, die je nach Status unterschiedliche Interaktionen freischaltet, statt zwei
@@ -18,7 +18,6 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
 {
     public TurnierkopfViewModel TurnierkopfVm { get; }
     public RundenViewModel RundenVm { get; }
-    public RundenUebergaengeViewModel RundenUebergaengeVm { get; }
     public VorbelegungViewModel VorbelegungVm { get; }
 
     public TurnierTabKoordinator TabKoordinator { get; }
@@ -33,18 +32,16 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         TurnierInstanzService service,
         TurnierkopfViewModel turnierkopfVm,
         RundenViewModel rundenVm,
-        RundenUebergaengeViewModel rundenUebergaengeVm,
         VorbelegungViewModel vorbelegungVm,
         AusgewaehlteTurnierInstanzService turnierAuswahlService)
     {
         TurnierkopfVm = turnierkopfVm;
         RundenVm = rundenVm;
-        RundenUebergaengeVm = rundenUebergaengeVm;
         VorbelegungVm = vorbelegungVm;
 
         // Geteilter Kontext-Service (#299) — hält die Auswahl über den Wechsel zu "Turnierdurchführung"
         // hinweg, da beide ViewModels per Transient-Scope bei jeder Navigation neu erzeugt werden.
-        TabKoordinator = new TurnierTabKoordinator(service, [TurnierkopfVm, RundenVm, RundenUebergaengeVm, VorbelegungVm], turnierAuswahlService);
+        TabKoordinator = new TurnierTabKoordinator(service, [TurnierkopfVm, RundenVm, VorbelegungVm], turnierAuswahlService);
 
         TabKoordinator.PropertyChanged += (_, e) =>
         {

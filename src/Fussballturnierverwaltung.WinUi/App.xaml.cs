@@ -119,9 +119,8 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<RanglistenImportService>();
         builder.Services.AddScoped<ImportExportService>();
 
-        // RundenViewModel ist der geteilte Datenhalter für die Tabs "Runden" und "Rundenübergänge" (Issue
-        // #297) — Scoped statt Transient, damit beide innerhalb derselben Navigations-Scope dieselbe Instanz
-        // injiziert bekommen (TurnierlisteViewModel UND RundenUebergaengeViewModel).
+        // RundenViewModel ist Datenhalter für Runden und Übergangsregeln (Issue #297/#348) — Scoped, damit
+        // TurnierlisteViewModel innerhalb derselben Navigations-Scope dieselbe Instanz erhält.
         builder.Services.AddScoped<RundenViewModel>();
 
         // ViewModels (Transient = neuer Scope bei jeder Navigation)
@@ -130,7 +129,6 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<LaenderUndVerbaendeViewModel>();
         builder.Services.AddTransient<RegelwerkeViewModel>();
         builder.Services.AddTransient<TurnierkopfViewModel>();
-        builder.Services.AddTransient<RundenUebergaengeViewModel>();
         builder.Services.AddTransient<VorbelegungViewModel>();
         builder.Services.AddTransient<TurnierlisteViewModel>();
         builder.Services.AddTransient<AuslosungViewModel>();
