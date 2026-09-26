@@ -13,6 +13,7 @@ Resource eingebunden wird.
 | 7 Verbandslogos | ✅ fertig (Lizenz vor Veröffentlichung prüfen) | abf5c3b |
 | Nationalmannschafts-Wappen | ✅ 197/209 abgeschlossen (12 dauerhaft ohne Wikipedia-Badge) | ed0cc09, (dieser Commit) |
 | Vereinswappen | ✅ 224/224 abgeschlossen | (dieser Commit) |
+| Vereinswappen Nachtrag #351 (GER 3. Liga/Regionalliga, ENG Championship/League One) | ✅ 76/76 (`python fetch_clubs.py 224 300`) | (#351-Commit) |
 
 Damit ist Issue #233 inhaltlich vollständig — die verbleibenden 12 Nationalmannschaften haben laut
 Stichprobe (z. B. Panama) ein schlicht leeres `Badge`-Feld in der Wikipedia-Infobox, keine

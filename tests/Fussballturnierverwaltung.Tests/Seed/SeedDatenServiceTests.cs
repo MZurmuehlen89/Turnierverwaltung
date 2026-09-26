@@ -46,4 +46,52 @@ public class SeedDatenServiceTests
                 .Should().Be(Rundenart.Liga, "manuelle Anpassungen außerhalb des bekannten Altwerts bleiben erhalten");
         }
     }
+
+    [Fact]
+    public async Task InitialisierenAsync_JedeVorlageLaesstSichAusDemSeedPoolVollstaendigBesetzen()
+    {
+        var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new TurnierverwaltungDbContext(optionen);
+        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+        var mannschaften = await ctx.Mannschaften.Include(m => m.Land).ToListAsync();
+        var vorlagen = await ctx.TurnierInstanzen.Where(i => i.Status == TurnierStatus.Vorlage).ToListAsync();
+
+        // #351: DFB-Pokal (64) filterte auf GER-Vereine, der Seed hatte aber nur 36.
+        foreach (var vorlage in vorlagen.Where(v => v.ZielMannschaftsanzahl > 0))
+        {
+            var pool = mannschaften.Count(m =>
+                (vorlage.LandId is null || m.LandId == vorlage.LandId)
+                && (vorlage.VerbandId is null || m.Land.VerbandId == vorlage.VerbandId)
+                && vorlage.MannschaftsartFilter switch
+                {
+                    MannschaftsartFilter.Verein => m.Mannschaftsart == Mannschaftsart.Verein,
+                    MannschaftsartFilter.Nationalmannschaft => m.Mannschaftsart == Mannschaftsart.Nationalmannschaft,
+                    _ => true
+                });
+            pool.Should().BeGreaterThanOrEqualTo(vorlage.ZielMannschaftsanzahl!.Value, vorlage.Name);
+        }
+    }
+
+    [Fact]
+    public async Task InitialisierenAsync_VereinsKurznamenSindEindeutig()
+    {
+        var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new TurnierverwaltungDbContext(optionen);
+        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+        // Kurzname ist Dateiname des Wappens (Seed/Bildmaterial/Vereinswappen/<Kurzname>.png) — muss
+        // über alle Länder eindeutig sein und darf kein reservierter Windows-Gerätename sein (#233).
+        var kurznamen = await ctx.Mannschaften
+            .Where(m => m.Mannschaftsart == Mannschaftsart.Verein)
+            .Select(m => m.Kurzname)
+            .ToListAsync();
+        kurznamen.Should().OnlyHaveUniqueItems();
+        kurznamen.Should().NotContain(k => System.Text.RegularExpressions.Regex.IsMatch(
+            k, "^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+    }
 }

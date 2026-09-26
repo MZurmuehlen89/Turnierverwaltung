@@ -9,7 +9,7 @@ public static class VereinsmannschaftenSeedDaten
 
     private static readonly E[] Eintraege =
     [
-        // ── Bundesliga 1 ─────────────────────────────────────────────────
+        // ── Bundesliga (Saison 2025/26) ────────────────────────────────────
         new("Bayern München",          "FCB", "GER", 90, 88, 86, 95, 82),
         new("Bayer 04 Leverkusen",     "B04", "GER", 87, 86, 84, 88, 80),
         new("Borussia Dortmund",       "BVB", "GER", 84, 82, 78, 88, 76),
@@ -24,13 +24,14 @@ public static class VereinsmannschaftenSeedDaten
         new("Borussia Mönchengladbach","BMG", "GER", 73, 73, 71, 76, 67),
         new("1. FSV Mainz 05",         "M05", "GER", 72, 72, 71, 75, 67),
         new("FC Augsburg",             "FCA", "GER", 70, 70, 70, 73, 65),
-        new("VfL Bochum",              "BOC", "GER", 68, 68, 68, 71, 62),
         new("FC St. Pauli",            "STPA","GER", 68, 68, 67, 73, 62),
-        new("Holstein Kiel",           "KIE", "GER", 67, 67, 67, 70, 61),
         new("1. FC Heidenheim",        "HEI", "GER", 67, 67, 66, 70, 61),
-
-        // ── Bundesliga 2 ─────────────────────────────────────────────────
         new("Hamburger SV",            "HSV", "GER", 73, 72, 71, 77, 67),
+        new("1. FC Köln",              "KOE", "GER", 70, 69, 68, 75, 63),
+
+        // ── 2. Bundesliga (Saison 2025/26) ─────────────────────────────────
+        new("VfL Bochum",              "BOC", "GER", 68, 68, 68, 71, 62),
+        new("Holstein Kiel",           "KIE", "GER", 67, 67, 67, 70, 61),
         new("Schalke 04",              "S04", "GER", 71, 70, 70, 76, 64),
         new("Hannover 96",             "H96", "GER", 69, 69, 68, 72, 63),
         new("1. FC Nürnberg",          "FCN", "GER", 68, 68, 67, 71, 62),
@@ -43,11 +44,44 @@ public static class VereinsmannschaftenSeedDaten
         new("SC Paderborn 07",         "SCP", "GER", 65, 65, 64, 68, 59),
         new("1. FC Magdeburg",         "FCM", "GER", 65, 65, 64, 68, 59),
         new("SV Elversberg",           "SVE", "GER", 65, 64, 63, 67, 58),
-        new("SSV Ulm 1846",            "ULM", "GER", 64, 63, 63, 67, 57),
         new("Preußen Münster",         "PRM", "GER", 63, 63, 62, 66, 56),
         new("Eintracht Braunschweig",  "EBR", "GER", 63, 62, 62, 65, 56),
+        new("Arminia Bielefeld",       "DSC", "GER", 65, 64, 64, 69, 58),
+        new("Dynamo Dresden",          "SGD", "GER", 64, 64, 63, 69, 57),
+
+        // ── 3. Liga (Saison 2025/26) ───────────────────────────────────────
+        // VfB Stuttgart II / TSG Hoffenheim II bewusst weggelassen: Reserveteams sind im DFB-Pokal
+        // nicht zugelassen, würden aber über den Land-/Vereinsfilter der Pokal-Vorlage mit ausgelost (#351).
+        new("SSV Ulm 1846",            "ULM", "GER", 64, 63, 63, 67, 57),
         new("SV Wehen Wiesbaden",      "WIE", "GER", 62, 62, 61, 64, 55),
         new("Jahn Regensburg",         "JRG", "GER", 62, 61, 61, 64, 55),
+        new("1. FC Saarbrücken",       "SAA", "GER", 62, 61, 61, 66, 56),
+        new("FC Energie Cottbus",      "FCE", "GER", 62, 61, 60, 66, 55),
+        new("FC Hansa Rostock",        "HRO", "GER", 62, 61, 61, 67, 55),
+        new("TSV 1860 München",        "M60", "GER", 61, 61, 60, 66, 55),
+        new("FC Ingolstadt 04",        "FCI", "GER", 61, 60, 60, 64, 55),
+        new("MSV Duisburg",            "MSV", "GER", 61, 60, 59, 66, 55),
+        new("VfL Osnabrück",           "OSN", "GER", 61, 60, 60, 65, 55),
+        new("Rot-Weiss Essen",         "RWE", "GER", 61, 60, 60, 66, 54),
+        new("Alemannia Aachen",        "AAC", "GER", 60, 60, 60, 65, 54),
+        new("SV Waldhof Mannheim",     "WAL", "GER", 60, 59, 59, 64, 54),
+        new("SC Verl",                 "VRL", "GER", 60, 60, 59, 63, 54),
+        new("FC Erzgebirge Aue",       "AUE", "GER", 60, 59, 59, 64, 53),
+        new("FC Viktoria Köln",        "VIK", "GER", 59, 59, 58, 62, 53),
+        new("TSV Havelse",             "HAV", "GER", 56, 56, 56, 60, 51),
+        new("1. FC Schweinfurt 05",    "SWF", "GER", 56, 56, 55, 60, 50),
+
+        // ── Regionalliga (DFB-Pokal-Teilnehmer über Landespokale) ──────────
+        new("Kickers Offenbach",       "OFC", "GER", 56, 55, 55, 60, 50),
+        new("SV Sandhausen",           "SVS", "GER", 55, 55, 54, 59, 50),
+        new("1. FC Lokomotive Leipzig", "LLE", "GER", 55, 55, 54, 60, 49),
+        new("FC Carl Zeiss Jena",      "FCC", "GER", 55, 55, 54, 59, 49),
+        new("Hallescher FC",           "HFC", "GER", 54, 54, 54, 59, 49),
+        new("SpVgg Unterhaching",      "SPU", "GER", 54, 54, 53, 58, 49),
+        new("Rot-Weiß Oberhausen",     "RWO", "GER", 54, 53, 53, 58, 48),
+        new("Chemnitzer FC",           "CFC", "GER", 53, 53, 53, 58, 48),
+        new("Würzburger Kickers",      "FWK", "GER", 53, 53, 52, 57, 48),
+        new("Wuppertaler SV",          "WSV", "GER", 53, 52, 52, 57, 47),
 
         // ── La Liga ───────────────────────────────────────────────────────
         new("Real Madrid",             "RMA", "ESP", 91, 87, 85, 93, 83),
@@ -71,7 +105,7 @@ public static class VereinsmannschaftenSeedDaten
         new("Real Valladolid",         "VLD", "ESP", 64, 64, 64, 67, 58),
         new("CD Leganés",              "LEG", "ESP", 64, 63, 64, 67, 57),
 
-        // ── Premier League ────────────────────────────────────────────────
+        // ── Premier League (Saison 2025/26) ────────────────────────────────
         new("Manchester City",         "MCI", "ENG", 91, 90, 87, 90, 85),
         new("FC Liverpool",            "LIV", "ENG", 88, 86, 84, 91, 82),
         new("Arsenal FC",              "ARS", "ENG", 84, 84, 81, 87, 77),
@@ -89,9 +123,61 @@ public static class VereinsmannschaftenSeedDaten
         new("Nottingham Forest",       "NFO", "ENG", 73, 72, 73, 75, 67),
         new("Everton FC",              "EVE", "ENG", 72, 71, 71, 74, 66),
         new("AFC Bournemouth",         "BOU", "ENG", 71, 70, 70, 73, 65),
+        new("Leeds United",            "LEE", "ENG", 72, 71, 70, 76, 65),
+        new("Sunderland AFC",          "SUN", "ENG", 69, 68, 68, 74, 62),
+        new("Burnley FC",              "BUR", "ENG", 69, 68, 69, 72, 63),
+
+        // ── Championship (Saison 2025/26) ──────────────────────────────────
         new("Leicester City",          "LEI", "ENG", 71, 70, 70, 73, 65),
         new("Southampton FC",          "SOU", "ENG", 68, 67, 67, 70, 62),
         new("Ipswich Town",            "IPS", "ENG", 66, 65, 65, 68, 60),
+        new("Sheffield United",        "SHU", "ENG", 68, 67, 67, 71, 62),
+        new("Middlesbrough FC",        "MID", "ENG", 67, 67, 66, 70, 61),
+        new("Coventry City",           "COV", "ENG", 67, 66, 66, 70, 61),
+        new("Birmingham City",         "BIR", "ENG", 66, 65, 64, 70, 60),
+        new("West Bromwich Albion",    "WBA", "ENG", 66, 66, 65, 69, 60),
+        new("Norwich City",            "NOR", "ENG", 66, 65, 64, 69, 60),
+        new("Bristol City",            "BRC", "ENG", 66, 65, 65, 69, 60),
+        new("Blackburn Rovers",        "BLB", "ENG", 65, 65, 64, 68, 59),
+        new("Watford FC",              "WAT", "ENG", 65, 64, 63, 68, 59),
+        new("Wrexham AFC",             "WRX", "ENG", 65, 64, 63, 69, 59),
+        new("Millwall FC",             "MLW", "ENG", 64, 64, 65, 69, 58),
+        new("Stoke City",              "STK", "ENG", 64, 63, 63, 67, 58),
+        new("Hull City",               "HUL", "ENG", 64, 63, 62, 67, 58),
+        new("Swansea City",            "SWA", "ENG", 64, 65, 63, 67, 58),
+        new("Preston North End",       "PNE", "ENG", 63, 63, 64, 67, 57),
+        new("Queens Park Rangers",     "QPR", "ENG", 63, 63, 62, 67, 57),
+        new("Derby County",            "DER", "ENG", 63, 63, 62, 67, 57),
+        new("Portsmouth FC",           "POR", "ENG", 63, 62, 62, 68, 56),
+        new("Sheffield Wednesday",     "SHW", "ENG", 63, 62, 62, 67, 57),
+        new("Charlton Athletic",       "CHA", "ENG", 63, 62, 62, 66, 57),
+        new("Oxford United",           "OXF", "ENG", 62, 62, 62, 66, 56),
+
+        // ── League One (Saison 2025/26) ────────────────────────────────────
+        new("Luton Town",              "LUT", "ENG", 62, 61, 61, 66, 56),
+        new("Cardiff City",            "CAR", "ENG", 61, 60, 60, 65, 55),
+        new("Plymouth Argyle",         "PLY", "ENG", 60, 59, 59, 64, 54),
+        new("Huddersfield Town",       "HUD", "ENG", 60, 59, 58, 63, 54),
+        new("Stockport County",        "STO", "ENG", 59, 59, 58, 63, 54),
+        new("Bolton Wanderers",        "BLT", "ENG", 59, 58, 58, 63, 53),
+        new("Wycombe Wanderers",       "WYC", "ENG", 59, 58, 58, 62, 53),
+        new("Leyton Orient",           "LEY", "ENG", 58, 58, 57, 61, 53),
+        new("Reading FC",              "REA", "ENG", 58, 58, 57, 62, 53),
+        new("Doncaster Rovers",        "DON", "ENG", 57, 57, 56, 61, 52),
+        new("Bradford City",           "BRA", "ENG", 57, 56, 56, 62, 51),
+        new("Blackpool FC",            "BPL", "ENG", 57, 57, 56, 61, 52),
+        new("Lincoln City",            "LIN", "ENG", 57, 57, 57, 61, 52),
+        new("Barnsley FC",             "BNS", "ENG", 57, 56, 56, 61, 51),
+        new("Rotherham United",        "ROT", "ENG", 57, 56, 56, 61, 51),
+        new("Peterborough United",     "PET", "ENG", 57, 57, 55, 61, 51),
+        new("Port Vale",               "PVA", "ENG", 56, 56, 56, 60, 51),
+        new("AFC Wimbledon",           "WIM", "ENG", 56, 56, 55, 60, 51),
+        new("Wigan Athletic",          "WIG", "ENG", 56, 56, 56, 60, 51),
+        new("Stevenage FC",            "STE", "ENG", 55, 55, 56, 59, 50),
+        new("Mansfield Town",          "MFT", "ENG", 55, 55, 55, 59, 50),
+        new("Exeter City",             "EXE", "ENG", 55, 55, 55, 59, 50),
+        new("Burton Albion",           "BUA", "ENG", 54, 54, 54, 58, 49),
+        new("Northampton Town",        "NTH", "ENG", 54, 54, 54, 58, 49),
 
         // ── Ligue 1 ───────────────────────────────────────────────────────
         new("Paris Saint-Germain",     "PSG", "FRA", 92, 88, 85, 91, 84),
