@@ -204,8 +204,11 @@ public class TabellenService(
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Runde {turnierRundeId} nicht gefunden.");
 
+        // AD-026: Rundenregelwerk überschreibt das Standard-Regelwerk der Instanz, fehlt es, gilt dieses.
         var regelwerkId = runde.RegelwerkId
-            ?? throw new InvalidOperationException($"Runde {turnierRundeId} hat kein Regelwerk zugewiesen.");
+            ?? await rundeRepository.StandardRegelwerkIdDerInstanzAsync(runde.TurnierInstanzId, ct)
+            ?? throw new InvalidOperationException(
+                $"Runde '{runde.Name}' hat kein Regelwerk zugewiesen, und das Turnier hat kein Standard-Regelwerk.");
         var regelwerk = await regelwerkRepository.FindenNachIdMitAllenRegelnAsync(regelwerkId, ct)
             ?? throw new InvalidOperationException($"Regelwerk {regelwerkId} nicht gefunden.");
 

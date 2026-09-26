@@ -144,7 +144,8 @@ public class SpielRepository(TurnierverwaltungDbContext context)
     }
 
     public async Task<Spiel?> FindenNachIdFuerSimulationAsync(int id, CancellationToken ct = default)
-        => await Context.Spiele
+    {
+        var spiel = await Context.Spiele
             .Include(s => s.HeimMannschaft)
                 .ThenInclude(m => m!.Land)
             .Include(s => s.AuswaertsMannschaft)
@@ -156,6 +157,17 @@ public class SpielRepository(TurnierverwaltungDbContext context)
             .Include(s => s.Hinspiel)
                 .ThenInclude(h => h!.Ergebnis)
             .FirstOrDefaultAsync(s => s.Id == id, ct);
+
+        // AD-026: Runde ohne eigenes Regelwerk fällt auf das Standard-Regelwerk der Instanz zurück — nur dann
+        // nachladen (ein Include wäre ein Inner Join und würde Spiele ohne geladene Instanz verschlucken).
+        if (spiel?.TurnierRunde is { RegelwerkId: null } runde)
+            await Context.Entry(runde).Reference(r => r.TurnierInstanz).Query()
+                .Include(i => i.StandardRegelwerk)
+                    .ThenInclude(rw => rw!.Entscheidungsverfahren)
+                .LoadAsync(ct);
+
+        return spiel;
+    }
 
     public async Task EreignisseHinzufuegenAsync(
         int spielId, IEnumerable<SpielEreignis> ereignisse, CancellationToken ct = default)

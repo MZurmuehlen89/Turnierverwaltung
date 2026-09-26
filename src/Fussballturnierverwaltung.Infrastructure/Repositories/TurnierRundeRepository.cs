@@ -14,6 +14,12 @@ public class TurnierRundeRepository(TurnierverwaltungDbContext context)
                 .ThenInclude(rw => rw!.Entscheidungsverfahren)
             .FirstOrDefaultAsync(r => r.Id == id, ct);
 
+    public async Task<int?> StandardRegelwerkIdDerInstanzAsync(int turnierInstanzId, CancellationToken ct = default)
+        => await Context.TurnierInstanzen
+            .Where(i => i.Id == turnierInstanzId)
+            .Select(i => i.StandardRegelwerkId)
+            .FirstOrDefaultAsync(ct);
+
     public async Task<IReadOnlyList<TurnierRunde>> AlleNachInstanzAsync(int turnierInstanzId, CancellationToken ct = default)
         => await Context.TurnierRunden
             .Include(r => r.Regelwerk)

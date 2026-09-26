@@ -28,6 +28,9 @@ public class FakeTurnierRundeRepository : ITurnierRundeRepository
     public Task<TurnierRunde?> FindenNachIdMitRegelwerkAsync(int id, CancellationToken ct = default) =>
         FindenNachIdAsync(id, ct);
 
+    public Task<int?> StandardRegelwerkIdDerInstanzAsync(int turnierInstanzId, CancellationToken ct = default) =>
+        Task.FromResult<int?>(null);
+
     public Task<IReadOnlyList<TurnierRunde>> AlleNachInstanzAsync(int turnierInstanzId, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<TurnierRunde>>([.. _runden.Where(r => r.TurnierInstanzId == turnierInstanzId)]);
 }

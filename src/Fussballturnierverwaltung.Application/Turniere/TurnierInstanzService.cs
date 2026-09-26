@@ -246,7 +246,7 @@ public class TurnierInstanzService(
     {
         var instanz = await repository.FindenNachIdMitRundenAsync(id, ct)
             ?? throw new InvalidOperationException($"TurnierInstanz mit ID {id} nicht gefunden.");
-        ValidationException.WerfenWennUngueltig(validator.RegelwerkPflichtValidieren(instanz.Runden.ToList(), neuerStatus));
+        ValidationException.WerfenWennUngueltig(validator.RegelwerkPflichtValidieren(instanz.Runden.ToList(), neuerStatus, instanz.StandardRegelwerkId));
         instanz.Status = neuerStatus;
         await repository.AktualisierenAsync(instanz, ct);
     }

@@ -281,4 +281,13 @@ public class TurnierValidatorTests
 
         _validator.RegelwerkPflichtValidieren(runden, Domain.Enums.TurnierStatus.Geplant).IstGueltig.Should().BeTrue();
     }
+
+    [Fact]
+    public void RegelwerkPflicht_StatusGeplantOhneRundenregelwerkMitStandardRegelwerk_IstGueltig()
+    {
+        var runden = new[] { new Domain.Entitaeten.Turniere.TurnierRunde { Name = "Runde 1", RegelwerkId = null } };
+
+        _validator.RegelwerkPflichtValidieren(runden, Domain.Enums.TurnierStatus.Geplant, standardRegelwerkId: 1)
+            .IstGueltig.Should().BeTrue();
+    }
 }

@@ -64,7 +64,7 @@ public class SimulationsService(
         bool istKoRunde = spiel.TurnierRunde?.Rundenart is
             Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
         var verfahren = istKoRunde
-            ? (spiel.TurnierRunde?.Regelwerk?.Entscheidungsverfahren
+            ? ((spiel.TurnierRunde?.Regelwerk ?? spiel.TurnierRunde?.TurnierInstanz?.StandardRegelwerk)?.Entscheidungsverfahren
                 .OrderBy(v => v.Reihenfolge).ToList() ?? [])
             : [];
 

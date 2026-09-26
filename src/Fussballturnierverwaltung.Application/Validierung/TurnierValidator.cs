@@ -145,10 +145,12 @@ public class TurnierValidator
     }
 
     /// <summary>Issue #294: ein Statuswechsel weg von <see cref="TurnierStatus.Vorlage"/> erfordert ein
-    /// Regelwerk je Runde (eine Vorlage darf ohne Regelwerk existieren, ein echtes Turnier nicht).</summary>
-    public ValidationErgebnis RegelwerkPflichtValidieren(IReadOnlyList<TurnierRunde> runden, TurnierStatus neuerStatus)
+    /// Regelwerk je Runde (eine Vorlage darf ohne Regelwerk existieren, ein echtes Turnier nicht). Ein
+    /// Standard-Regelwerk der Instanz deckt Runden ohne eigenes Regelwerk ab (AD-026).</summary>
+    public ValidationErgebnis RegelwerkPflichtValidieren(
+        IReadOnlyList<TurnierRunde> runden, TurnierStatus neuerStatus, int? standardRegelwerkId = null)
     {
-        if (neuerStatus == TurnierStatus.Vorlage)
+        if (neuerStatus == TurnierStatus.Vorlage || standardRegelwerkId is not null)
             return ValidationErgebnis.Ok();
 
         var fehler = runden
