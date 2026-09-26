@@ -54,11 +54,6 @@
                         <Run Text="{Binding Spiele.Count}" />
                         <Run Text=" Spiel(e)" />
                     </TextBlock>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
-                                Visibility="{Binding ZeigeLigaSpieltagUmschalter, Converter={StaticResource BoolToVisibility}}">
-                        <Button Content="Gesamt" Command="{Binding LigaGesamtAnsichtBefehl}" FontSize="11" Padding="8,3" />
-                        <Button Content="Pro Spieltag" Command="{Binding LigaProSpieltagAnsichtBefehl}" FontSize="11" Padding="8,3" />
-                    </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
                                 Visibility="{Binding ZeigtSchweizerRundenSteuerung, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="{Binding SchweizerFortschrittsText}" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
@@ -126,9 +121,10 @@
                         </ListView>
                     </Grid>
 
-                    <!-- ── Auf Gruppe/Spieltag fokussierte Liste (Issue #141/#246) ── -->
+                    <!-- ── Auf Gruppe/Spieltag fokussierte Liste (Issue #141/#246; Spieltag-Blättern für alle
+                         Rundenarten mit Spieltagen, Vorbild kicker.de: ‹ [n. Spieltag ▾] ›, Issue #363) ── -->
                     <Grid RowDefinitions="Auto,Auto,*" Visibility="{Binding ZeigeFokusListe, Converter={StaticResource BoolToVisibility}}">
-                        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Padding="12,8"
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,*" Padding="12,8"
                               BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8"
                                         Visibility="{Binding IstGefiltertAufGruppe, Converter={StaticResource BoolToVisibility}}">
@@ -138,12 +134,15 @@
                                     <Run Text="{Binding AusgewaehlteGruppe.GruppenNummer}" />
                                 </TextBlock>
                             </StackPanel>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center"
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                                         Visibility="{Binding HatMehrereSpieltage, Converter={StaticResource BoolToVisibility}}">
-                                <Button Content="Alle" Command="{Binding FokusAlleSpieltageBefehl}" FontSize="11" Padding="8,3" />
-                                <Button Content="&lt;" Command="{Binding FokusVorigerSpieltag}" FontSize="12" Padding="6,3" />
-                                <TextBlock Text="{Binding FokusSpieltagnummer}" FontSize="11" VerticalAlignment="Center" Margin="4,0" />
-                                <Button Content="&gt;" Command="{Binding FokusNaechsterSpieltag}" FontSize="12" Padding="6,3" />
+                                <Button Content="&#x2039;" Command="{Binding FokusVorigerSpieltag}" FontSize="16" Padding="10,0,10,2"
+                                        ToolTipService.ToolTip="Voriger Spieltag" />
+                                <ComboBox ItemsSource="{Binding SpieltagOptionen}" DisplayMemberPath="Anzeige"
+                                          SelectedItem="{Binding AusgewaehlteSpieltagOption, Mode=TwoWay}"
+                                          MinWidth="150" FontWeight="SemiBold" />
+                                <Button Content="&#x203A;" Command="{Binding FokusNaechsterSpieltag}" FontSize="16" Padding="10,0,10,2"
+                                        ToolTipService.ToolTip="Nächster Spieltag" />
                             </StackPanel>
                         </Grid>
                         <Grid Grid.Row="1" ColumnDefinitions="46,40,*,110,*,90" Padding="8,6"
@@ -160,28 +159,32 @@
                                   SelectionMode="Extended" SelectionChanged="SpielListView_SelectionChanged">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid ColumnDefinitions="46,40,*,110,*,90" Padding="8,4">
-                                        <TextBlock Grid.Column="0" Text="{Binding SpieltagAnzeige}" FontSize="12" Opacity="0.6" />
-                                        <TextBlock Grid.Column="1" Text="{Binding Spielnummer}" FontSize="12" Opacity="0.6" />
-                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5">
+                                    <Grid ColumnDefinitions="46,40,*,110,*,90" RowDefinitions="Auto,Auto" Padding="8,4">
+                                        <!-- Issue #363: Gruppenphase — Zwischenüberschrift über der ersten Partie jeder Gruppe. -->
+                                        <TextBlock Grid.Row="0" Grid.ColumnSpan="6" Text="{Binding GruppenKopf}"
+                                                   FontSize="12" FontWeight="Bold" Margin="0,6,0,4"
+                                                   Visibility="{Binding HatGruppenKopf, Converter={StaticResource BoolToVisibility}}" />
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding SpieltagAnzeige}" FontSize="12" Opacity="0.6" />
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Spielnummer}" FontSize="12" Opacity="0.6" />
+                                        <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Spacing="5">
                                             <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
                                                    Width="16" Height="16" Stretch="Uniform" />
                                             <TextBlock Text="{Binding HeimName}" FontSize="13" FontWeight="SemiBold"
                                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         </StackPanel>
-                                        <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                                        <StackPanel Grid.Row="1" Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
                                             <TextBlock Text="{Binding ErgebnisText}" FontSize="14" FontWeight="Bold" FontFamily="Consolas" />
                                             <TextBlock Text="{Binding ErgebnisDetail}" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
                                         </StackPanel>
-                                        <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="5">
+                                        <StackPanel Grid.Row="1" Grid.Column="4" Orientation="Horizontal" Spacing="5">
                                             <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
                                                    Width="16" Height="16" Stretch="Uniform" />
                                             <TextBlock Text="{Binding AuswaertsName}" FontSize="13"
                                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         </StackPanel>
-                                        <TextBlock Grid.Column="5" Text="{Binding StatusAnzeige}" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Row="1" Grid.Column="5" Text="{Binding StatusAnzeige}" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>

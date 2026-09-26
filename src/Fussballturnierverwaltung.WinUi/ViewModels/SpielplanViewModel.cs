@@ -23,7 +23,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 // ── Hilfsklasse — 1:1 aus Wpf/ViewModels/SpielplanViewModel.cs portiert ──────────────────────────
 
-public class SpielZeile
+public partial class SpielZeile : ObservableObject
 {
     public int Id { get; init; }
     public int Spielnummer { get; init; }
@@ -60,6 +60,21 @@ public class SpielZeile
     public bool IstPaarungsStart { get; init; }
     public Microsoft.UI.Xaml.Thickness PaarungsAbstand => IstPaarungsStart ? new(0, 10, 0, 0) : new(0);
     public string GruppeAnzeige => GruppeNummer.HasValue ? $"Gr.{GruppeNummer}" : "";
+
+    /// <summary>Zwischenüberschrift über der ersten Zeile einer Gruppe in der Spieltag-Ansicht der Gruppenphase
+    /// (Issue #363) — hängt von der gerade angezeigten Auswahl ab, deshalb veränderlich statt init.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatGruppenKopf))]
+    private string? _gruppenKopf;
+
+    public bool HatGruppenKopf => GruppenKopf is not null;
+}
+
+/// <summary>Eintrag der Spieltag-Auswahl (Issue #363); <see cref="Nummer"/> <c>null</c> = "Alle Spieltage".</summary>
+public sealed class SpieltagOption(int? nummer, string anzeige)
+{
+    public int? Nummer { get; } = nummer;
+    public string Anzeige { get; } = anzeige;
 }
 
 /// <summary>
@@ -129,7 +144,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(IstKoRunde))]
     [NotifyPropertyChangedFor(nameof(IstLigaRunde))]
     [NotifyPropertyChangedFor(nameof(IstLigaMitRueckspiel))]
-    [NotifyPropertyChangedFor(nameof(ZeigeLigaSpieltagUmschalter))]
+    [NotifyPropertyChangedFor(nameof(IstSpieltagRunde))]
+    [NotifyPropertyChangedFor(nameof(ZeigeFokusListe))]
     [NotifyPropertyChangedFor(nameof(ZeigtSchweizerRundenSteuerung))]
     private TurnierRunde? _ausgewaehlteRunde;
 
@@ -139,6 +155,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private bool IstTabellenRunde => AusgewaehlteRunde?.Rundenart is
         Rundenart.Gruppenphase or Rundenart.Liga or Rundenart.SchweizerSystem or Rundenart.TopfLiga;
+
+    /// <summary>Rundenarten mit Spieltagen, deren Spielplan je Spieltag durchgeblättert wird (Issue #363) —
+    /// K.-o.-Runden behalten die Paarungsansicht aus #340.</summary>
+    public bool IstSpieltagRunde => IstTabellenRunde;
 
     public bool IstLigaMitRueckspiel => IstLigaRunde && (AusgewaehlteRunde?.MitRueckspiel ?? false);
 
@@ -157,16 +177,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public bool IstGefiltertAufGruppe => AusgewaehlteGruppe is not null;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ZeigeFokusListe))]
-    [NotifyPropertyChangedFor(nameof(FokusSpiele))]
-    [NotifyPropertyChangedFor(nameof(SpieltagSimulierenMenuText))]
-    [NotifyPropertyChangedFor(nameof(SpieltagZuruecksetzenMenuText))]
-    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
-    private bool _ligaProSpieltagAktiv;
-
-    public bool ZeigeLigaSpieltagUmschalter => IstLigaRunde;
-    public bool ZeigeFokusListe => AusgewaehlteGruppe is not null || LigaProSpieltagAktiv;
+    public bool ZeigeFokusListe => AusgewaehlteGruppe is not null || IstSpieltagRunde;
 
     // ── Schweizer-Rundensteuerung (Issue #329 Teil E) ────────────────────────────
     // "Nächste Runde generieren" ist bewusst ein eigener Inline-Button in der Spielliste-Kopfzeile statt im
@@ -201,6 +212,37 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public ObservableCollection<int> FokusSpieltage { get; } = [];
 
+    // ── Spieltag-Auswahl (Issue #363, Vorbild kicker.de: ‹ [n. Spieltag ▾] ›) ─────────────────────────
+
+    public ObservableCollection<SpieltagOption> SpieltagOptionen { get; } = [];
+    private int _spieltagOptionenImAufbau;
+
+    // false nach Runden-/Gruppenwechsel: der nächste Abgleich wählt den Start-Spieltag neu, statt die
+    // bisherige Auswahl zu übernehmen (Spieltagnummern verschiedener Runden überschneiden sich).
+    private bool _spieltagAuswahlFestgelegt;
+
+    /// <summary>Abgleich per Referenz aus <see cref="SpieltagOptionen"/> (WinUI-ComboBox, siehe #347-Fund);
+    /// <c>null</c> beim Neuaufbau der Liste wird ignoriert.</summary>
+    public SpieltagOption? AusgewaehlteSpieltagOption
+    {
+        get => FokusAlleAktiv
+            ? SpieltagOptionen.FirstOrDefault(o => o.Nummer is null)
+            : SpieltagOptionen.FirstOrDefault(o => o.Nummer == FokusAktiverSpieltag);
+        set
+        {
+            if (value is null || _spieltagOptionenImAufbau > 0) return;
+            if (value.Nummer is { } nummer)
+            {
+                FokusAktiverSpieltag = nummer;
+                FokusAlleAktiv = false;
+            }
+            else
+            {
+                FokusAlleAktiv = true;
+            }
+        }
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FokusSpiele))]
     [NotifyPropertyChangedFor(nameof(SpieltagSimulierenMenuText))]
@@ -210,13 +252,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FokusSpiele))]
-    [NotifyPropertyChangedFor(nameof(FokusSpieltagnummer))]
     [NotifyPropertyChangedFor(nameof(SpieltagSimulierenMenuText))]
     [NotifyPropertyChangedFor(nameof(SpieltagZuruecksetzenMenuText))]
     [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
     private int _fokusAktiverSpieltag;
 
-    public string FokusSpieltagnummer => $"Spieltag {FokusAktiverSpieltag}";
     public bool HatMehrereSpieltage => FokusSpieltage.Count > 1;
 
     public string SpieltagSimulierenMenuText => EffektiverSpieltag is { } st ? $"Spieltag {st} simulieren" : "Spieltag simulieren";
@@ -229,16 +269,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly RelayCommand _zurueckZurUebersichtBefehl;
     private readonly RelayCommand _fokusVorigerSpieltag;
     private readonly RelayCommand _fokusNaechsterSpieltag;
-    private readonly RelayCommand _fokusAlleSpieltageBefehl;
-    private readonly RelayCommand _ligaGesamtAnsichtBefehl;
-    private readonly RelayCommand _ligaProSpieltagAnsichtBefehl;
 
     public ICommand ZurueckZurUebersichtBefehl => _zurueckZurUebersichtBefehl;
     public ICommand FokusVorigerSpieltag => _fokusVorigerSpieltag;
     public ICommand FokusNaechsterSpieltag => _fokusNaechsterSpieltag;
-    public ICommand FokusAlleSpieltageBefehl => _fokusAlleSpieltageBefehl;
-    public ICommand LigaGesamtAnsichtBefehl => _ligaGesamtAnsichtBefehl;
-    public ICommand LigaProSpieltagAnsichtBefehl => _ligaProSpieltagAnsichtBefehl;
 
     // ── Spielliste ────────────────────────────────────────────────────────────
 
@@ -523,9 +557,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _zurueckZurUebersichtBefehl = new RelayCommand(() => AusgewaehlteGruppe = null, () => AusgewaehlteGruppe is not null);
         _fokusVorigerSpieltag = new RelayCommand(FokusEinSpieltag_Vorig, () => KannFokusZurueck);
         _fokusNaechsterSpieltag = new RelayCommand(FokusEinSpieltag_Vor, () => KannFokusVor);
-        _fokusAlleSpieltageBefehl = new RelayCommand(() => FokusAlleAktiv = true, () => !FokusAlleAktiv);
-        _ligaGesamtAnsichtBefehl = new RelayCommand(() => LigaProSpieltagAktiv = false);
-        _ligaProSpieltagAnsichtBefehl = new RelayCommand(() => LigaProSpieltagAktiv = true);
 
         _rundeSimulierenBefehl = new AsyncRelayCommand(RundeSimulierenAsync, CanRundeSimulieren);
         _gruppeSimulierenBefehl = new AsyncRelayCommand(GruppeSimulierenAsync, CanGruppeSimulieren);
@@ -619,14 +650,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             case nameof(AusgewaehlteGruppe):
                 BeiGruppeFokusAenderung();
                 break;
-            case nameof(LigaProSpieltagAktiv):
-                BeiLigaProSpieltagAenderung();
-                break;
             case nameof(FokusAlleAktiv):
             case nameof(FokusAktiverSpieltag):
+                OnPropertyChanged(nameof(AusgewaehlteSpieltagOption));
                 _fokusVorigerSpieltag.NotifyCanExecuteChanged();
                 _fokusNaechsterSpieltag.NotifyCanExecuteChanged();
-                _fokusAlleSpieltageBefehl.NotifyCanExecuteChanged();
                 _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
                 _spieltagZuruecksetzenBefehl.NotifyCanExecuteChanged();
                 SpieltagNavigiert?.Invoke();
@@ -808,7 +836,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Fehlermeldung = null;
         _erlaubteVerfahren.Clear();
         AusgewaehlteGruppe = null;
-        LigaProSpieltagAktiv = false;
+        _spieltagAuswahlFestgelegt = false;
+        FokusSpieltageAbgleichen();
         GruppenTabellen.Clear();
         _teamGruppeMap = [];
         _platzhalterVorschau = new Dictionary<int, (string?, string?)>();
@@ -1094,6 +1123,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
+
+            // Issue #363: direkt den gerade generierten Spieltag zeigen.
+            if (AusgewaehlteGruppe is null && FokusSpieltage.Count > 0)
+            {
+                FokusAktiverSpieltag = FokusSpieltage[^1];
+                FokusAlleAktiv = false;
+            }
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
             OnPropertyChanged(nameof(FokusSpiele));
             await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
@@ -1240,7 +1276,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _loeschenBefehl.NotifyCanExecuteChanged();
         _fokusVorigerSpieltag.NotifyCanExecuteChanged();
         _fokusNaechsterSpieltag.NotifyCanExecuteChanged();
-        _fokusAlleSpieltageBefehl.NotifyCanExecuteChanged();
         _rundeSimulierenBefehl.NotifyCanExecuteChanged();
         _gruppeSimulierenBefehl.NotifyCanExecuteChanged();
         _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
@@ -1284,6 +1319,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             Spiele.Add(MapSpielZeile(s, runde, paarung, _teamGruppeMap, _platzhalterVorschau,
                 hinspielErgebnis, paarungsStart));
         }
+
+        FokusSpieltageAbgleichen();
     }
 
     /// <summary>Paarungsnummer (1-basiert) je Spiel-ID: Hinspiele bzw. Einzelspiele in Spielnummer-Reihenfolge,
@@ -1495,46 +1532,74 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _spieltagZuruecksetzenBefehl.NotifyCanExecuteChanged();
         _zurueckZurUebersichtBefehl.NotifyCanExecuteChanged();
 
+        // Beim Gruppenwechsel bleibt der angezeigte Spieltag stehen, sofern die Gruppe ihn hat (Issue #363).
         if (istEchterGruppenwechsel)
+            FokusSpieltageAbgleichen();
+    }
+
+    private IReadOnlyList<SpielZeile>? SpieltagRelevanteSpiele() =>
+        AusgewaehlteGruppe is { } gruppe ? Spiele.Where(s => s.GruppeNummer == gruppe.GruppenNummer).ToList()
+        : IstSpieltagRunde ? Spiele.ToList()
+        : null;
+
+    /// <summary>Gleicht Spieltagliste und Auswahl mit den aktuell geladenen Spielen ab (Issue #363): die
+    /// bisherige Auswahl bleibt erhalten, solange es sie noch gibt — sonst bzw. nach Runden-/Gruppenwechsel
+    /// greift der Start-Spieltag (erster mit offenen Spielen, sonst der letzte).</summary>
+    private void FokusSpieltageAbgleichen()
+    {
+        var relevante = SpieltagRelevanteSpiele() ?? [];
+        var spieltage = relevante.Where(s => s.Spieltag.HasValue).Select(s => s.Spieltag!.Value)
+            .Distinct().Order().ToList();
+
+        if (!spieltage.SequenceEqual(FokusSpieltage))
         {
-            AktualisiereFokusSpieltage(AusgewaehlteGruppe is not null
-                ? Spiele.Where(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer && s.Spieltag.HasValue)
-                        .Select(s => s.Spieltag!.Value)
-                : null);
+            _spieltagOptionenImAufbau++;
+            try
+            {
+                FokusSpieltage.Clear();
+                SpieltagOptionen.Clear();
+                if (spieltage.Count > 1)
+                    SpieltagOptionen.Add(new SpieltagOption(null, "Alle Spieltage"));
+                foreach (var st in spieltage)
+                {
+                    FokusSpieltage.Add(st);
+                    SpieltagOptionen.Add(new SpieltagOption(st, $"{st}. Spieltag"));
+                }
+            }
+            finally
+            {
+                _spieltagOptionenImAufbau--;
+            }
         }
-    }
 
-    private void BeiLigaProSpieltagAenderung()
-    {
-        _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
-        _spieltagZuruecksetzenBefehl.NotifyCanExecuteChanged();
+        bool auswahlGueltig = _spieltagAuswahlFestgelegt &&
+            (FokusAlleAktiv ? spieltage.Count > 1 : spieltage.Contains(FokusAktiverSpieltag));
 
-        AktualisiereFokusSpieltage(LigaProSpieltagAktiv
-            ? Spiele.Where(s => s.Spieltag.HasValue).Select(s => s.Spieltag!.Value)
-            : null);
-    }
-
-    private void AktualisiereFokusSpieltage(IEnumerable<int>? spieltage)
-    {
-        FokusSpieltage.Clear();
-        FokusAlleAktiv = true;
-        FokusAktiverSpieltag = 0;
-
-        if (spieltage is not null)
+        if (!auswahlGueltig)
         {
-            foreach (var st in spieltage.Distinct().OrderBy(t => t))
-                FokusSpieltage.Add(st);
-            if (FokusSpieltage.Count > 0)
-                FokusAktiverSpieltag = FokusSpieltage[0];
-
-            if (FokusSpieltage.Count == 1)
+            if (spieltage.Count == 0)
+            {
+                FokusAktiverSpieltag = 0;
+                FokusAlleAktiv = true;
+            }
+            else
+            {
+                FokusAktiverSpieltag = spieltage
+                    .Where(st => relevante.Any(s => s.Spieltag == st && s.Status != SpielStatus.Abgeschlossen))
+                    .DefaultIfEmpty(spieltage[^1])
+                    .First();
                 FokusAlleAktiv = false;
+                _spieltagAuswahlFestgelegt = true;
+            }
         }
 
         OnPropertyChanged(nameof(HatMehrereSpieltage));
+        OnPropertyChanged(nameof(AusgewaehlteSpieltagOption));
+        OnPropertyChanged(nameof(FokusSpiele));
         _fokusVorigerSpieltag.NotifyCanExecuteChanged();
         _fokusNaechsterSpieltag.NotifyCanExecuteChanged();
-        _fokusAlleSpieltageBefehl.NotifyCanExecuteChanged();
+        _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
+        _spieltagZuruecksetzenBefehl.NotifyCanExecuteChanged();
     }
 
     private GruppenTabelle? EffektiveGruppe =>
@@ -1988,13 +2053,29 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IEnumerable<SpielZeile> spiele;
         if (AusgewaehlteGruppe is not null)
             spiele = Spiele.Where(s => s.GruppeNummer == AusgewaehlteGruppe.GruppenNummer);
-        else if (LigaProSpieltagAktiv)
+        else if (IstSpieltagRunde)
             spiele = Spiele;
         else
             return [];
 
         if (!FokusAlleAktiv)
             spiele = spiele.Where(s => s.Spieltag == FokusAktiverSpieltag);
-        return spiele.ToList();
+
+        // Issue #363: Gruppenphase ohne Gruppenfilter — ein Spieltag über alle Gruppen, nach Gruppe gegliedert.
+        bool nachGruppe = AusgewaehlteGruppe is null && IstGruppenphase;
+        var liste = nachGruppe
+            ? spiele.OrderBy(s => s.GruppeNummer ?? int.MaxValue).ToList()
+            : spiele.ToList();
+
+        int? vorigeGruppe = null;
+        for (int i = 0; i < liste.Count; i++)
+        {
+            var zeile = liste[i];
+            zeile.GruppenKopf = nachGruppe && (i == 0 || zeile.GruppeNummer != vorigeGruppe)
+                ? (zeile.GruppeNummer is { } nr ? $"Gruppe {nr}" : "Ohne Gruppe")
+                : null;
+            vorigeGruppe = zeile.GruppeNummer;
+        }
+        return liste;
     }
 }
