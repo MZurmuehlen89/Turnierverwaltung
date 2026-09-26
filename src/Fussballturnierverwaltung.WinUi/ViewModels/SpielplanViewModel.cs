@@ -1158,20 +1158,24 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             await _spielService.ErgebnisErfassenAsync(spielId, BaueEingabe());
             await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
 
-            await TabellenNeuLadenAsync(rundeId);
-
-            var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+            // Das gesamte Neuladen läuft im Schutz: sowohl das Neusetzen von AusgewaehlteGruppe in
+            // GruppenTabellenLadenAsync als auch FokusSpiele geben der Fokus-Liste (Gruppenfilter/Spieltag) eine
+            // neue ItemsSource, die deren SelectedItem nullt — das löste trotz gerade laufendem Speichern die
+            // Ungespeichert-Abfrage aus (Issue #345).
             _spielWechselUnterdrueckt++;
             try
             {
+                await TabellenNeuLadenAsync(rundeId);
+
+                var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
                 Spiele.Clear();
                 SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
+                OnPropertyChanged(nameof(FokusSpiele));
             }
             finally
             {
                 _spielWechselUnterdrueckt--;
             }
-            OnPropertyChanged(nameof(FokusSpiele));
 
             return true;
         }

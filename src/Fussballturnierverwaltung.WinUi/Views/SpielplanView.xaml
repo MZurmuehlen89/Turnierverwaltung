@@ -196,7 +196,7 @@
         </Grid>
 
         <!-- ── Spalte 2: Ergebnis-Formular ── -->
-        <Border Grid.Column="2" Width="310"
+        <Border Grid.Column="2" x:Name="ErgebnisFormular" Width="310"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1,0,0,0"
                 Visibility="{Binding FormAktiv, Converter={StaticResource BoolToVisibility}}">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -218,7 +218,7 @@
 
                     <TextBlock Text="REGULÄRE SPIELZEIT" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="0,0,0,6" />
                     <Grid ColumnDefinitions="*,20,*" Margin="0,0,0,12">
-                        <TextBox Grid.Column="0" Text="{Binding HeimToreRegulaer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox Grid.Column="0" x:Name="ErstesFormularFeld" Text="{Binding HeimToreRegulaer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  FontSize="18" FontWeight="Bold" TextAlignment="Center" />
                         <TextBlock Grid.Column="1" Text=":" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         <TextBox Grid.Column="2" Text="{Binding AuswaertsToreRegulaer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
