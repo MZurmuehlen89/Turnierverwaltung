@@ -626,16 +626,19 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatKeineRunden))]
+    [NotifyPropertyChangedFor(nameof(ZeigtRundenBereich))]
     private bool _keinTurnierGewaehlt = true;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatKeineRunden))]
     [NotifyPropertyChangedFor(nameof(HatKeineFestVorgegebenenRunden))]
+    [NotifyPropertyChangedFor(nameof(ZeigtRundenBereich))]
     private ObservableCollection<RundenVorbelegungsEintrag> _runden = [];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatKeineRunden))]
     [NotifyPropertyChangedFor(nameof(HatKeineFestVorgegebenenRunden))]
+    [NotifyPropertyChangedFor(nameof(ZeigtRundenBereich))]
     private bool _hatUeberhauptRunden;
 
     public bool HatKeineRunden => !KeinTurnierGewaehlt && !HatUeberhauptRunden;
