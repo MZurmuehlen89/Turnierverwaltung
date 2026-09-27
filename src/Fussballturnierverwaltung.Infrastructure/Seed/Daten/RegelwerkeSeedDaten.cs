@@ -133,5 +133,28 @@ public static class RegelwerkeSeedDaten
             Sieg: 3, Unentschieden: 1, Niederlage: 0,
             Verfahren: [VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Elfmeterschiessen]
         ),
+        // Issue #350: nationale Ligen brauchen kein Entscheidungsverfahren (kein K.-o.), unterscheiden sich
+        // aber im Tiebreaker — Bundesliga/Premier League/Ligue 1 werten die Tordifferenz vor dem direkten
+        // Vergleich, La Liga/Serie A umgekehrt.
+        (
+            new Regelwerk
+            {
+                Name = TurnierVorlagenSeedDaten.LIGA_TORDIFFERENZ,
+                Beschreibung = "Nationale Liga: 3 Punkte für Sieg, Tordifferenz vor direktem Vergleich (z. B. Bundesliga, Premier League, Ligue 1).",
+                RankingRegelSetId = rankingRegelSetLookup.GetValueOrDefault("FIFA Standard")
+            },
+            Sieg: 3, Unentschieden: 1, Niederlage: 0,
+            Verfahren: []
+        ),
+        (
+            new Regelwerk
+            {
+                Name = TurnierVorlagenSeedDaten.LIGA_DIREKTER_VERGLEICH,
+                Beschreibung = "Nationale Liga: 3 Punkte für Sieg, direkter Vergleich vor Tordifferenz (z. B. La Liga, Serie A).",
+                RankingRegelSetId = rankingRegelSetLookup.GetValueOrDefault("UEFA Standard")
+            },
+            Sieg: 3, Unentschieden: 1, Niederlage: 0,
+            Verfahren: []
+        ),
     ];
 }

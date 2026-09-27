@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 using Microsoft.EntityFrameworkCore;
@@ -32,9 +33,11 @@ public class SeedDatenService
         await MannschaftenNachruesten(cancellationToken);
         await MannschaftsBildmaterialNachruesten(cancellationToken);
         await RegelwerkeNachruesten(cancellationToken);
+        await TurnierVorlagenUmbenennen(cancellationToken);
         await TurnierVorlagenNachruesten(cancellationToken);
         await TurnierVorlagenFilterNachruesten(cancellationToken);
         await TurnierVorlagenRundenartNachruesten(cancellationToken);
+        await TurnierVorlagenStrukturNachruesten(cancellationToken);
         await RanglistenQuellenNachruesten(cancellationToken);
     }
 
@@ -295,6 +298,125 @@ public class SeedDatenService
         {
             await _context.SaveChangesAsync(ct);
             _logger.LogInformation("{Anzahl} Vorlagen-Runden von SchweizerSystem auf TopfLiga korrigiert.", aktualisiert);
+        }
+    }
+
+    // Seed-Stand der WM-24-Vorlage vor #350 (damals als "1982–1994" geführt).
+    private const string ALTE_BESCHREIBUNG_WM24 = "6 Dreiergruppen + Achtelfinale-Runde → K.-o.";
+
+    /// <summary>Issue #350: benennt Bestands-Vorlagen um, deren Seed-Name sich geändert hat — muss vor
+    /// <see cref="TurnierVorlagenNachruesten"/> laufen, sonst entstünde unter dem neuen Namen ein Duplikat. Nur,
+    /// solange unter dem neuen Namen noch keine Vorlage existiert. Beschreibung/Enddatum werden nur mitgezogen,
+    /// wenn sie noch dem alten Seed-Stand entsprechen (keine manuelle Anpassung überschreiben).</summary>
+    private async Task TurnierVorlagenUmbenennen(CancellationToken ct)
+    {
+        var vorlagen = await _context.TurnierInstanzen
+            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
+            .ToListAsync(ct);
+        var sollNachName = TurnierVorlagenSeedDaten.Erstellen().ToDictionary(v => v.Name);
+
+        int umbenannt = 0;
+        foreach (var (alterName, neuerName) in TurnierVorlagenSeedDaten.UmbenennungenNachAltemNamen)
+        {
+            var alt = vorlagen.FirstOrDefault(v => v.Name == alterName);
+            if (alt is null || vorlagen.Any(v => v.Name == neuerName)) continue;
+
+            var soll = sollNachName[neuerName];
+            alt.Name = neuerName;
+            if (alt.Beschreibung == ALTE_BESCHREIBUNG_WM24) alt.Beschreibung = soll.Beschreibung;
+            if (alt.Enddatum == new DateOnly(1994, 12, 31)) alt.Enddatum = soll.Enddatum;
+            umbenannt++;
+        }
+
+        if (umbenannt > 0)
+        {
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("{Anzahl} Turniervorlagen umbenannt.", umbenannt);
+        }
+    }
+
+    /// <summary>Issue #350: ältere Seed-Stände legten Gruppenphasen ohne <c>GruppenAnzahl</c> und Vorlagen mit
+    /// besten Gruppendritten (EM 24) ohne Übergangsregeln an — solche Vorlagen scheiterten beim Speichern am
+    /// TurnierValidator bzw. konnten die Dritten nicht weiterleiten. Ergänzt ausschließlich fehlende Werte:
+    /// <c>GruppenAnzahl</c> nur, wo sie leer ist; Übergangsregeln nur bei Vorlagen ganz ohne Regeln, deren
+    /// beteiligte Runden noch dem Seed entsprechen; <c>EingangUeberUebergangsregeln</c> nur bei Runden mit
+    /// tatsächlich eingehenden Regeln (fehlte auch beim Achtelfinale von CL/EL/ECL ab 2024/25).</summary>
+    private async Task TurnierVorlagenStrukturNachruesten(CancellationToken ct)
+    {
+        var sollVorlagen = TurnierVorlagenSeedDaten.Erstellen().ToDictionary(v => v.Name);
+
+        var vorhandeneVorlagen = await _context.TurnierInstanzen
+            .Include(i => i.Runden)
+            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
+            .ToListAsync(ct);
+        var rundenIds = vorhandeneVorlagen.SelectMany(v => v.Runden).Select(r => r.Id).ToList();
+        var vorhandeneRegeln = await _context.Uebergangsregeln
+            .Where(u => rundenIds.Contains(u.QuellRundeId))
+            .ToListAsync(ct);
+
+        int aktualisiert = 0;
+        foreach (var vorlage in vorhandeneVorlagen)
+        {
+            if (!sollVorlagen.TryGetValue(vorlage.Name, out var soll)) continue;
+
+            TurnierRunde? Zuordnen(TurnierRunde sollRunde) =>
+                vorlage.Runden.FirstOrDefault(r => r.Reihenfolge == sollRunde.Reihenfolge && r.Name == sollRunde.Name);
+
+            foreach (var sollRunde in soll.Runden.Where(r => r.GruppenAnzahl is not null))
+            {
+                var runde = Zuordnen(sollRunde);
+                if (runde is null || runde.GruppenAnzahl is not null || runde.Rundenart != sollRunde.Rundenart) continue;
+                runde.GruppenAnzahl = sollRunde.GruppenAnzahl;
+                aktualisiert++;
+            }
+
+            var eigeneRundenIds = vorlage.Runden.Select(r => r.Id).ToHashSet();
+            var sollRegeln = soll.Runden.SelectMany(r => r.Uebergangsregeln).ToList();
+            if (sollRegeln.Count > 0 && !vorhandeneRegeln.Any(u => eigeneRundenIds.Contains(u.QuellRundeId)))
+            {
+                var zuordnung = sollRegeln
+                    .SelectMany(u => new[] { u.QuellRunde, u.ZielRunde })
+                    .Distinct()
+                    .ToDictionary(r => r, Zuordnen);
+                bool passt = zuordnung.All(z => z.Value is not null
+                    && z.Value.Rundenart == z.Key.Rundenart
+                    && z.Value.EingangsMannschaftsanzahl == z.Key.EingangsMannschaftsanzahl
+                    && z.Value.AusgangsMannschaftsanzahl == z.Key.AusgangsMannschaftsanzahl
+                    && z.Value.GruppenAnzahl == z.Key.GruppenAnzahl);
+                if (passt)
+                {
+                    foreach (var sollRegel in sollRegeln)
+                    {
+                        var regel = new Uebergangsregel
+                        {
+                            QuellRundeId   = zuordnung[sollRegel.QuellRunde]!.Id,
+                            ZielRundeId    = zuordnung[sollRegel.ZielRunde]!.Id,
+                            GruppeIndex    = sollRegel.GruppeIndex,
+                            PlatzierungVon = sollRegel.PlatzierungVon,
+                            PlatzierungBis = sollRegel.PlatzierungBis,
+                            AnzahlBeste    = sollRegel.AnzahlBeste,
+                        };
+                        _context.Uebergangsregeln.Add(regel);
+                        vorhandeneRegeln.Add(regel);
+                    }
+                    aktualisiert++;
+                }
+            }
+
+            foreach (var sollRunde in soll.Runden.Where(r => r.EingangUeberUebergangsregeln))
+            {
+                var runde = Zuordnen(sollRunde);
+                if (runde is null || runde.EingangUeberUebergangsregeln) continue;
+                if (!vorhandeneRegeln.Any(u => u.ZielRundeId == runde.Id)) continue;
+                runde.EingangUeberUebergangsregeln = true;
+                aktualisiert++;
+            }
+        }
+
+        if (aktualisiert > 0)
+        {
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("{Anzahl} Struktur-Ergänzungen an Turniervorlagen nachgerüstet.", aktualisiert);
         }
     }
 
