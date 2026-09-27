@@ -36,6 +36,9 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
                 .ThenInclude(r => r.Uebergangsregeln)
             .Include(ti => ti.VerbandsQuoten)
             .Include(ti => ti.LandesQuoten)
+            .Include(ti => ti.Auslosungen)
+                .ThenInclude(a => a.Ergebnisse)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(ti => ti.Id == id, ct);
 
     public async Task<IReadOnlyList<TurnierRunde>> RundenErsetzenAsync(int instanzId, IReadOnlyList<TurnierRunde> neueRunden, CancellationToken ct = default)

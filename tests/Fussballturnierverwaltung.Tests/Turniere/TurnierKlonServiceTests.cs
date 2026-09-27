@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
@@ -153,5 +154,67 @@ public class TurnierKlonServiceTests
         var klon = await service.KlonenAsync(quellId, "EM 2028", "2028", TurnierStatus.Vorlage);
 
         (await ctx.Spiele.Where(s => s.TurnierInstanzId == klon.Id).ToListAsync()).Should().BeEmpty();
+    }
+
+    // ── Feste Vorbelegung (Issue #372) ─────────────────────────────────────────
+
+    private static async Task FesteVorbelegungAnlegenAsync(
+        TurnierverwaltungDbContext ctx, int rundeId, int? heimMannschaftId = null)
+    {
+        var runde = await ctx.TurnierRunden.SingleAsync(r => r.Id == rundeId);
+        runde.PaarungFestVorgegeben = true;
+        ctx.Auslosungen.Add(new Auslosung
+        {
+            TurnierInstanzId = 1, TurnierRundeId = rundeId, Name = "Vorbelegung",
+            Auslosungsart = Auslosungsart.Manuell, Status = AuslosungsStatus.Abgeschlossen,
+            Ergebnisse =
+            {
+                new AuslosungsErgebnis
+                {
+                    PaarungsNummer = 1, HeimMannschaftId = heimMannschaftId,
+                    HeimPlatzhalterName = heimMannschaftId is null ? "1. Gruppe B" : null,
+                    AuswaertsPlatzhalterName = "3. Gruppe A/D/E/F"
+                },
+                new AuslosungsErgebnis
+                    { PaarungsNummer = 2, HeimPlatzhalterName = "1. Gruppe A", AuswaertsPlatzhalterName = "2. Gruppe C" },
+            }
+        });
+        await ctx.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task KlonenAsync_KopiertFesteVorbelegungMitPlatzhalternAufNeueRunde()
+    {
+        using var ctx = NeuerContext();
+        var quellId = await QuelleAnlegenAsync(ctx);
+        await FesteVorbelegungAnlegenAsync(ctx, rundeId: 1);
+        var service = ServiceFuer(ctx);
+
+        var klon = await service.KlonenAsync(quellId, "EM 2028", "2028", TurnierStatus.Geplant);
+
+        var auslosungen = await ctx.Auslosungen.Include(a => a.Ergebnisse)
+            .Where(a => a.TurnierInstanzId == klon.Id).ToListAsync();
+        var kopie = auslosungen.Should().ContainSingle().Subject;
+        kopie.TurnierRundeId.Should().Be(klon.Runden.Single(r => r.Name == "Halbfinale").Id);
+        kopie.Auslosungsart.Should().Be(Auslosungsart.Manuell);
+        kopie.Status.Should().Be(AuslosungsStatus.Abgeschlossen);
+        kopie.Ergebnisse.OrderBy(e => e.PaarungsNummer)
+            .Select(e => (e.HeimPlatzhalterName, e.AuswaertsPlatzhalterName))
+            .Should().Equal(("1. Gruppe B", "3. Gruppe A/D/E/F"), ("1. Gruppe A", "2. Gruppe C"));
+    }
+
+    [Fact]
+    public async Task KlonenAsync_KopiertKeineVorbelegungMitEchtenMannschaften()
+    {
+        using var ctx = NeuerContext();
+        var quellId = await QuelleAnlegenAsync(ctx);
+        ctx.Mannschaften.Add(new Mannschaft { Id = 1, Name = "Deutschland", Kurzname = "GER" });
+        await ctx.SaveChangesAsync();
+        await FesteVorbelegungAnlegenAsync(ctx, rundeId: 1, heimMannschaftId: 1);
+        var service = ServiceFuer(ctx);
+
+        var klon = await service.KlonenAsync(quellId, "EM 2028", "2028", TurnierStatus.Geplant);
+
+        (await ctx.Auslosungen.Where(a => a.TurnierInstanzId == klon.Id).ToListAsync()).Should().BeEmpty();
     }
 }
