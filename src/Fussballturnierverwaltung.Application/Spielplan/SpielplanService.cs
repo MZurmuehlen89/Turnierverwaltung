@@ -1155,8 +1155,10 @@ public class SpielplanService(
     private static readonly Regex _gruppenSiegerRx     = new(@"^Sieger Gruppe ([A-Z0-9]+)$",   RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex _gruppenRangRx       = new(@"^(\d+)\. Gruppe ([A-Z0-9]+)$",  RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex _bestePlatzierungRx  = new(@"^(\d+)\. bester (\d+)\. Platz$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex _koSiegerRx          = new(@"^Sieger ([A-Za-z0-9.]+) (\d+)$",   RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex _koVerliererRx       = new(@"^Verlierer ([A-Za-z0-9.]+) (\d+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    // Issue #368: Rundenname beliebig (auch mit Leerzeichen/Bindestrich, z.B. "Playoff-Runde", "1. Runde") —
+    // gierig bis zur letzten Zahl, die immer die Spielnummer ist. "Sieger Gruppe A" fängt Pattern 1 vorher ab.
+    private static readonly Regex _koSiegerRx          = new(@"^Sieger (.+) (\d+)$",    RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex _koVerliererRx       = new(@"^Verlierer (.+) (\d+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex _tabellenPlatzRx     = new(@"^Platz (\d+) \((.+)\)$",            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private async Task<int?> PlatzhalterNameAufloessenAsync(

@@ -41,7 +41,8 @@ public class SpielplanServiceTests
     /// <summary>Legt Regelwerk (mit Entscheidungsverfahren, für KO/Finale Pflicht), Halbfinale- und Finale-Runde
     /// sowie 4 Mannschaften an. Halbfinale-Spiele werden NICHT angelegt (Aufgabe der einzelnen Tests).</summary>
     private static void GrundSetupAnlegen(
-        TurnierverwaltungDbContext ctx, out int hfRundeId, out int finaleRundeId, bool hfMitRueckspiel = false)
+        TurnierverwaltungDbContext ctx, out int hfRundeId, out int finaleRundeId, bool hfMitRueckspiel = false,
+        string hfName = "Halbfinale")
     {
         ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
         ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
@@ -51,7 +52,7 @@ public class SpielplanServiceTests
 
         var hf = new TurnierRunde
         {
-            Id = 1, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 1,
+            Id = 1, TurnierInstanzId = 1, Name = hfName, Reihenfolge = 1,
             Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2,
             RegelwerkId = 1, MitRueckspiel = hfMitRueckspiel
         };
@@ -883,7 +884,65 @@ public class SpielplanServiceTests
         spiel.AuswaertsMannschaftId.Should().Be(4); // Verlierer Halbfinale 2 = Team D
     }
 
+    /// <summary>Regressionstest Issue #368: Rundennamen mit Leerzeichen/Bindestrich ("Playoff-Runde" der
+    /// UEFA-Wettbewerbe, "1. Runde" im DFB-Pokal) scheiterten an der K.o.-Platzhalter-Regex — die Sieger
+    /// wurden nie in die Folgerunde übernommen.</summary>
+    [Theory]
+    [InlineData("Playoff-Runde")]
+    [InlineData("1. Runde")]
+    public async Task PlatzhalterAufloesenAsync_LoestKoSiegerAufBeiRundennamenMitLeerzeichenOderBindestrich(string rundenName)
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId, hfName: rundenName);
+        HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
+        HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 20, TurnierInstanzId = 1, TurnierRundeId = finaleRundeId, Spielnummer = 20,
+            HeimPlatzhalterName = $"Sieger {rundenName} 1", AuswaertsPlatzhalterName = $"Verlierer {rundenName} 2",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        var anzahl = await service.PlatzhalterAufloesenAsync(finaleRundeId);
+
+        anzahl.Should().Be(1);
+        var spiel = ctx.Spiele.First(s => s.Id == 20);
+        spiel.HeimMannschaftId.Should().Be(1);
+        spiel.AuswaertsMannschaftId.Should().Be(4);
+    }
+
     // ── Tests: K.o.-Quellverknüpfung (Issue #241) ──────────────────────────
+
+    /// <summary>Regressionstest Issue #368: ohne Quellverknüpfung fiel der Turnierbaum auf die sequentielle
+    /// Alt-Zuordnung zurück und verband z.B. die CL-Playoff-Runde falsch mit dem Achtelfinale.</summary>
+    [Theory]
+    [InlineData("Playoff-Runde")]
+    [InlineData("1. Runde")]
+    public async Task SpielQuellenAlleTransitionsVerknuepfenAsync_SetztQuellIdsBeiRundennamenMitLeerzeichenOderBindestrich(string rundenName)
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId, hfName: rundenName);
+        HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: null);
+        HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: null);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 20, TurnierInstanzId = 1, TurnierRundeId = finaleRundeId, Spielnummer = 20,
+            HeimPlatzhalterName = $"Sieger {rundenName} 2", AuswaertsPlatzhalterName = $"Verlierer {rundenName} 1",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        await service.SpielQuellenAlleTransitionsVerknuepfenAsync(1);
+
+        var finale = ctx.Spiele.First(s => s.Id == 20);
+        finale.HeimQuellSpielId.Should().Be(2);
+        finale.HeimQuellErgebnis.Should().Be(SpielQuellErgebnisTyp.Sieger);
+        finale.AuswaertsQuellSpielId.Should().Be(1);
+        finale.AuswaertsQuellErgebnis.Should().Be(SpielQuellErgebnisTyp.Verlierer);
+    }
 
     [Fact]
     public async Task SpielQuellenAlleTransitionsVerknuepfenAsync_SetztQuellIdsFuerSiegerUndVerlierer()
