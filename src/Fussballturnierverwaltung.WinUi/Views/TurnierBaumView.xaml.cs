@@ -105,12 +105,15 @@ public sealed partial class TurnierBaumView : UserControl
         }
     }
 
+    // FensterY ist die Kartenmitte, nicht die Oberkante (Issue #369): Karten sind unterschiedlich hoch (Label,
+    // Datum, Hin-/Rück-Fußzeile) — oberkantenbündig lägen die Mitten, an denen die Linien ansetzen, versetzt.
+    // Solange eine Karte noch nicht gemessen ist (ActualHeight 0), korrigiert der nächste Layout-Durchlauf.
     private static void PositioniereKarten(ItemsControl liste, IReadOnlyList<BracketKnotenAnzeige> knoten)
     {
         foreach (var k in knoten)
         {
             if (liste.ContainerFromItem(k) is ContentPresenter praesentator)
-                Canvas.SetTop(praesentator, k.FensterY);
+                Canvas.SetTop(praesentator, Math.Max(0, k.FensterY - praesentator.ActualHeight / 2));
         }
     }
 
