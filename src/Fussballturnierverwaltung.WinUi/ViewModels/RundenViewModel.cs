@@ -235,6 +235,9 @@ public partial class RundeZeile : ObservableObject
     [ObservableProperty] private bool _paarungFestVorgegeben;
     [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = KeineAuslosungsartVorgabe;
 
+    // Issue #372: im Editor nicht bearbeitbar (stammt aus dem Seed), wird beim Speichern unverändert durchgereicht.
+    public string? KombinationstabelleJson { get; set; }
+
     /// <summary>Reine Anzeige in der Rundenliste (#187, seit #348 im Runden-Reiter): gesetzt, wenn die ausgehenden
     /// Übergangsregeln nicht zur Ausgangsanzahl passen — berechnet von <c>RundenViewModel</c>, nie gespeichert.</summary>
     [ObservableProperty]
@@ -661,7 +664,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv,
         Regelwerk = r.Regelwerk is not null ? new RegelwerkOption(r.Regelwerk.Name, r.Regelwerk) : RundeZeile.KeinRegelwerk,
         PaarungFestVorgegeben = r.PaarungFestVorgegeben,
-        VorgegebeneAuslosungsart = AuslosungsartVorgabeOptionFuer(r.VorgegebeneAuslosungsart)
+        VorgegebeneAuslosungsart = AuslosungsartVorgabeOptionFuer(r.VorgegebeneAuslosungsart),
+        KombinationstabelleJson = r.KombinationstabelleJson
     };
 
     private void RundenZuruecksetzen(IEnumerable<RundeZeile> runden)
@@ -771,7 +775,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         GruppenAnzahl: z.Rundenart == Rundenart.Gruppenphase ? z.GruppenAnzahl : null,
         EingangUeberUebergangsregeln: AlleUebergaenge.Any(b => b.ZielRunde == z),
         PaarungFestVorgegeben: z.PaarungFestVorgegeben,
-        VorgegebeneAuslosungsart: z.VorgegebeneAuslosungsart.Wert)).ToList();
+        VorgegebeneAuslosungsart: z.VorgegebeneAuslosungsart.Wert,
+        KombinationstabelleJson: z.KombinationstabelleJson)).ToList();
 
     public List<UebergangsregelPositionsEingabe> UebergangsregelnZuEingaben() => _alleUebergaenge
         .Where(b => b.QuellRunde is not null && b.ZielRunde is not null && b.QuellRunde != b.ZielRunde)

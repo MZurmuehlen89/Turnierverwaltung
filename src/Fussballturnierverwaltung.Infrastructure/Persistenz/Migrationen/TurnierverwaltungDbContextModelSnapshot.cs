@@ -957,6 +957,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int?>("GruppenAnzahl")
                         .HasColumnType("int");
 
+                    b.Property<string>("KombinationstabelleJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("KonfigurationJson")
                         .HasColumnType("nvarchar(max)");
 

@@ -38,6 +38,11 @@ public class TurnierRunde : BasisEntitaet
     // Runde vorausgewählt, bleibt aber innerhalb der kompatiblen Arten änderbar. null = frei wählbar.
     public Auslosungsart? VorgegebeneAuslosungsart { get; set; }
 
+    // Kombinationstabelle für Platzhalter wie "3. Gruppe A/D/E/F" (Issue #372): welcher Gruppendritte auf
+    // welchen Baumplatz kommt, hängt davon ab, aus welchen Gruppen die besten Dritten stammen (UEFA EURO/
+    // FIFA-WM-Reglement). Typisierter Zugriff über Application.Turniere.Kombinationstabelle. null = keine.
+    public string? KombinationstabelleJson { get; set; }
+
     public ICollection<Spiel> Spiele { get; set; } = new List<Spiel>();
 
     // Übergangsregeln, die aus dieser Runde in eine (ggf. andere) Zielrunde führen.

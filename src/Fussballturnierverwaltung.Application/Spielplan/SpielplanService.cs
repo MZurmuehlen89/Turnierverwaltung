@@ -2,6 +2,7 @@ using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
+using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
@@ -1170,6 +1171,10 @@ public class SpielplanService(
         if (m.Success)
             return await GruppenrangAufloessenAsync(m.Groups[1].Value, 1, runde, alleRunden, ct, ignorierteSpielIds, nurSicherPositioniert);
 
+        // Pattern 1a: "3. Gruppe A/D/E/F" → Gruppendritter laut Kombinationstabelle der Runde (Issue #372)
+        if (Kombinationstabelle.IstPlatz(name, out int kombinationsPlatzierung))
+            return await KombinationsPlatzAufloesenAsync(name, kombinationsPlatzierung, runde, alleRunden, ct, ignorierteSpielIds);
+
         // Pattern 2: "2. Gruppe A" → Rang 2 der Gruppe A
         m = _gruppenRangRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[1].Value, out int rang))
@@ -1235,6 +1240,49 @@ public class SpielplanService(
     /// <see cref="Fussballturnierverwaltung.Application.Tabelle.TabellenService.UebergreifendeRangfolgeBerechnenAsync"/>
     /// ermittelten Cross-Group-Rangfolge an Platzierung X. Funktioniert bewusst auch ohne konfigurierte
     /// <see cref="Uebergangsregel"/> (Freitext-Turniere).</summary>
+    /// <summary>Issue #372: löst einen Platz wie "3. Gruppe A/D/E/F" über die Kombinationstabelle der Zielrunde
+    /// auf — erst die besten Dritten über alle Gruppen ermitteln, deren Gruppenbuchstaben als Schlüssel
+    /// nachschlagen, dann den Dritten der dort eingetragenen Gruppe liefern. Wie bei
+    /// <see cref="BestePlatzierungAufloessenAsync"/> erst nach vollständig gespielter Gruppenphase: vorher
+    /// steht die Menge der qualifizierten Gruppen nicht fest.</summary>
+    private async Task<int?> KombinationsPlatzAufloesenAsync(
+        string name, int platzierung, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
+        IReadOnlySet<int>? ignorierteSpielIds)
+    {
+        if (Kombinationstabelle.AusJson(runde.KombinationstabelleJson) is not { AnzahlBeste: > 0 } tabelle) return null;
+
+        var gruppenphaseRunde = alleRunden
+            .Where(r => r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge < runde.Reihenfolge)
+            .OrderByDescending(r => r.Reihenfolge)
+            .FirstOrDefault();
+        if (gruppenphaseRunde is null) return null;
+
+        var spiele = await spielRepository.AlleNachRundeAsync(gruppenphaseRunde.Id, ct);
+        if (ignorierteSpielIds is { Count: > 0 } && spiele.Any(s => ignorierteSpielIds.Contains(s.Id)))
+            return null;
+        if (spiele.Count == 0 || spiele.Any(s => s.Status != SpielStatus.Abgeschlossen))
+            return null;
+
+        var rangfolge = await tabellenService.UebergreifendeRangfolgeBerechnenAsync(gruppenphaseRunde.Id, platzierung, ct);
+        if (rangfolge.Count < tabelle.AnzahlBeste) return null;
+        var besteIds = rangfolge.Take(tabelle.AnzahlBeste).Select(e => e.Mannschaft.Id).ToHashSet();
+
+        var gruppenTabellen = await tabellenService.GruppenTabellenBerechnenAsync(gruppenphaseRunde.Id, ct: ct);
+        var qualifizierteNachGruppe = new Dictionary<string, int>();
+        foreach (var gruppe in gruppenTabellen)
+        {
+            var mannschaftId = gruppe.Tabelle.FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id;
+            if (mannschaftId is { } id && besteIds.Contains(id) && gruppe.GruppenNummer is >= 1 and <= 26)
+                qualifizierteNachGruppe[((char)('A' + gruppe.GruppenNummer - 1)).ToString()] = id;
+        }
+        if (qualifizierteNachGruppe.Count != tabelle.AnzahlBeste) return null;
+
+        return tabelle.GruppeFuer(name, qualifizierteNachGruppe.Keys) is { } zielGruppe
+            && qualifizierteNachGruppe.TryGetValue(zielGruppe, out var ergebnis)
+            ? ergebnis
+            : null;
+    }
+
     private async Task<int?> BestePlatzierungAufloessenAsync(
         int rang, int platzierung, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
         IReadOnlySet<int>? ignorierteSpielIds = null)

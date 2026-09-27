@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Tabelle;
+using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
@@ -1599,6 +1600,85 @@ public class SpielplanServiceTests
         var spiel = ctx.Spiele.First(s => s.Id == 10);
         spiel.HeimMannschaftId.Should().Be(1, "Team 1 gewinnt Gruppe 1");
         spiel.AuswaertsMannschaftId.Should().Be(8, "Team 8 (GD -1) ist der beste Gruppendritte");
+    }
+
+    // ── Tests: Gruppendritte per Kombinationstabelle (Issue #372) ──────────────
+
+    // Drei Gruppen, zwei beste Dritte (Copa-América-12-Format): qualifiziert sind Gruppe B (Team 5) und
+    // Gruppe C (Team 8). Die Tabelle ordnet die Plätze bewusst NICHT in Ranglisten-Reihenfolge zu.
+    private static void KombinationstabelleSetzen(TurnierverwaltungDbContext ctx, int zielRundeId)
+    {
+        var tabelle = new Kombinationstabelle(
+            ["3. Gruppe A/B", "3. Gruppe B/C"],
+            new Dictionary<string, IReadOnlyList<string>>
+            {
+                ["AB"] = ["A", "B"],
+                ["AC"] = ["A", "C"],
+                ["BC"] = ["B", "C"],
+            });
+        ctx.TurnierRunden.First(r => r.Id == zielRundeId).KombinationstabelleJson = tabelle.ZuJson();
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 10, TurnierInstanzId = 1, TurnierRundeId = zielRundeId, Spielnummer = 10,
+            HeimPlatzhalterName = "3. Gruppe A/B", AuswaertsPlatzhalterName = "3. Gruppe B/C",
+            Status = SpielStatus.Geplant
+        });
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_LoestGruppendrittenPerKombinationstabelleAuf()
+    {
+        await using var ctx = NeuerContext();
+        DreiGruppenUndZielrundeSetupAnlegen(ctx, out int gruppenphaseId, out int zielRundeId);
+        AnzahlBesteSpieleHinzufuegen(ctx, gruppenphaseId);
+        KombinationstabelleSetzen(ctx, zielRundeId);
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        var anzahl = await service.PlatzhalterAufloesenAsync(zielRundeId);
+
+        anzahl.Should().Be(1);
+        var spiel = ctx.Spiele.First(s => s.Id == 10);
+        spiel.HeimMannschaftId.Should().Be(5, "Zeile BC ordnet '3. Gruppe A/B' dem Dritten aus Gruppe B zu");
+        spiel.AuswaertsMannschaftId.Should().Be(8, "Zeile BC ordnet '3. Gruppe B/C' dem Dritten aus Gruppe C zu");
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_KombinationstabelleBleibtOffenSolangeGruppenphaseNichtVollstaendigIst()
+    {
+        await using var ctx = NeuerContext();
+        DreiGruppenUndZielrundeSetupAnlegen(ctx, out int gruppenphaseId, out int zielRundeId);
+        AnzahlBesteSpieleHinzufuegen(ctx, gruppenphaseId);
+        KombinationstabelleSetzen(ctx, zielRundeId);
+        ctx.SaveChanges();
+        var spiel6 = ctx.Spiele.First(s => s.Id == 6);
+        spiel6.Status = SpielStatus.Geplant;
+        ctx.SpielErgebnisse.Remove(ctx.SpielErgebnisse.First(e => e.SpielId == 6));
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        var anzahl = await service.PlatzhalterAufloesenAsync(zielRundeId);
+
+        anzahl.Should().Be(0);
+        var spiel = ctx.Spiele.First(s => s.Id == 10);
+        spiel.HeimMannschaftId.Should().BeNull();
+        spiel.AuswaertsMannschaftId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task PlatzhalterAufloesenAsync_KombinationsplatzOhneTabelleBleibtOffen()
+    {
+        await using var ctx = NeuerContext();
+        DreiGruppenUndZielrundeSetupAnlegen(ctx, out int gruppenphaseId, out int zielRundeId);
+        AnzahlBesteSpieleHinzufuegen(ctx, gruppenphaseId);
+        KombinationstabelleSetzen(ctx, zielRundeId);
+        ctx.TurnierRunden.First(r => r.Id == zielRundeId).KombinationstabelleJson = null;
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        var anzahl = await service.PlatzhalterAufloesenAsync(zielRundeId);
+
+        anzahl.Should().Be(0);
     }
 
     // ── Tests: Kaskaden-Reset für über Auslosung aufgelöste Folgerunden (Issue #88) ─
