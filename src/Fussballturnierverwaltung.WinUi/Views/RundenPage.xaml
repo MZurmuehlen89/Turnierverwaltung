@@ -150,7 +150,7 @@
                             <StackPanel HorizontalAlignment="Stretch">
                                 <TextBlock Text="Rundenart" FontSize="12" Margin="0,0,0,3" />
                                 <ComboBox ItemsSource="{Binding RundenartOptionen}"
-                                          SelectedItem="{Binding Rundenart, Mode=TwoWay}"
+                                          SelectedItem="{Binding RundenartAuswahl, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch">
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate>

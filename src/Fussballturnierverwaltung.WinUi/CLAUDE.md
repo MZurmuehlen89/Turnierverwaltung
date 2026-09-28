@@ -71,6 +71,15 @@ not your own `ScrollViewer`, and widening your own content or clamping a child's
 it. Fix: set `Flyout.FlyoutPresenterStyle` with a `Setter` raising `FrameworkElement.MaxWidthProperty` to at
 least your content's width (see `MainWindow.ToggleFlyoutErstellen`, #310).
 
+**A `ComboBox` that receives its `SelectedItem` before it is `Loaded` drops it again on first load and writes
+`null` back through the TwoWay binding** — happens whenever a page is recreated (e.g. switching in from another
+editor) and a form is populated before its ComboBoxes finish loading (log: `SelectionChanged Removed=[x]`,
+`Index=-1`, only then `Loaded`). For enum-typed properties the `null` arrives as the enum's default value (e.g.
+`Rundenart.Liga`) and is indistinguishable from a real choice — the record silently changes. Bind enum ComboBoxes
+to a nullable wrapper property that ignores `null` and re-raises `PropertyChanged` on a low-priority
+`DispatcherQueue` tick; option-record ComboBoxes likewise restore their value from the backing record instead of
+keeping `null` (see `RundenViewModel.RundenartAuswahl`).
+
 **`CheckBox`/`ToggleButton`-derived controls reserve significant content space even with no `Content` set** —
 their `ButtonBase` ancestry defaults to a `MinWidth` around 120px that applies to the whole control regardless
 of column/grid sizing around it. Prefer setting the label/description as the control's own `Content` (a

@@ -358,7 +358,47 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     [NotifyPropertyChangedFor(nameof(IstKoRundenart))]
     [NotifyPropertyChangedFor(nameof(IstSchweizerSystem))]
     [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
+    [NotifyPropertyChangedFor(nameof(RundenartAuswahl))]
     private Rundenart _rundenart = Rundenart.Liga;
+
+    // ── Auswahl-Reset beim ersten Laden des Formulars ────────────────────────
+    // Wird die Seite neu erzeugt (Wechsel aus einem anderen Editor), bekommen die Formular-ComboBoxen ihre
+    // Auswahl, bevor sie geladen sind — beim ersten Laden verwirft WinUI diese Auswahl und schreibt über die
+    // TwoWay-Bindung null zurück (per Diagnose belegt, #349-Nachtest: SelectionChanged Removed=[KoRunde],
+    // Index=-1, erst danach Loaded). Beim Enum Rundenart kam das als Liga (= 0) an und war von einer echten
+    // Auswahl nicht zu unterscheiden — die Runde wechselte stillschweigend die Rundenart. Deshalb bindet die
+    // ComboBox an diese Nullable-Hülle: null wird verworfen und die Anzeige danach wiederhergestellt.
+    public Rundenart? RundenartAuswahl
+    {
+        get => Rundenart;
+        set
+        {
+            if (value is { } art) Rundenart = art;
+            else NachComboBoxResetWiederherstellen(() => OnPropertyChanged(nameof(RundenartAuswahl)));
+        }
+    }
+
+    /// <summary>Stellt eine vom ComboBox-Reset verworfene Auswahl nach dem Laden wieder her — auf niedriger
+    /// Priorität, damit die Wiederherstellung erst nach dem laufenden Lade-/Layoutdurchgang greift.</summary>
+    private void NachComboBoxResetWiederherstellen(Action wiederherstellen) =>
+        Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread()?.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+            {
+                _populiertGerade++;
+                try { wiederherstellen(); }
+                finally { _populiertGerade--; }
+            });
+
+    partial void OnVorgegebeneAuslosungsartChanged(VorgegebeneAuslosungsartOption value)
+    {
+        // Siehe RundenartAuswahl: null ist nie eine Nutzerauswahl; die Rundenzeile hält weiter den richtigen Wert.
+        if (value is null && _populiertGerade == 0 && AusgewaehlteRunde is { } zeile)
+            NachComboBoxResetWiederherstellen(() =>
+            {
+                if (AusgewaehlteRunde == zeile && VorgegebeneAuslosungsart is null)
+                    VorgegebeneAuslosungsart = zeile.VorgegebeneAuslosungsart;
+            });
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnzahlSpieltageVorschlag))]
