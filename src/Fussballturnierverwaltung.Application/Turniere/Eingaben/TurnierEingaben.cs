@@ -15,7 +15,8 @@ public record TurnierInstanzVollAktualisierenEingabe(
     int? LandId = null,
     MannschaftsartFilter MannschaftsartFilter = MannschaftsartFilter.Alle,
     int? StandardRegelwerkId = null,
-    byte[]? Logo = null);
+    byte[]? Logo = null,
+    int? TitelverteidigerId = null);
 
 public record TurnierInstanzErstellenEingabe(
     string Name,
@@ -30,7 +31,8 @@ public record TurnierInstanzErstellenEingabe(
     int? LandId = null,
     MannschaftsartFilter MannschaftsartFilter = MannschaftsartFilter.Alle,
     int? StandardRegelwerkId = null,
-    byte[]? Logo = null);
+    byte[]? Logo = null,
+    int? TitelverteidigerId = null);
 
 public record TurnierAktualisierenEingabe(
     string Name,
@@ -54,7 +56,9 @@ public record TurnierRundeEingabe(
     bool EingangUeberUebergangsregeln = false,
     bool PaarungFestVorgegeben = false,
     Auslosungsart? VorgegebeneAuslosungsart = null,
-    string? KombinationstabelleJson = null);
+    string? KombinationstabelleJson = null,
+    int? StandardRanglistenQuelleId = null,
+    bool TitelverteidigerInTopf1 = false);
 
 public record RegelwerkErstellenEingabe(
     string Name,

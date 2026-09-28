@@ -33,13 +33,14 @@ public class TurnierKlonServiceTests
         {
             Id = 1, Name = "EM 2024", Beschreibung = "Testbeschreibung", SaisonOderJahr = "2024",
             Kategorie = TurnierKategorie.Kontinentalmeisterschaft, ZielMannschaftsanzahl = 4,
-            Status = TurnierStatus.Abgeschlossen, StandardRegelwerkId = 1
+            Status = TurnierStatus.Abgeschlossen, StandardRegelwerkId = 1, TitelverteidigerId = 42
         };
         var halbfinale = new TurnierRunde
         {
             Id = 1, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 1,
             Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2, RegelwerkId = 1,
-            VorgegebeneAuslosungsart = Auslosungsart.NachToepfen
+            VorgegebeneAuslosungsart = Auslosungsart.NachToepfen,
+            StandardRanglistenQuelleId = 7, TitelverteidigerInTopf1 = true
         };
         var finale = new TurnierRunde
         {
@@ -107,6 +108,35 @@ public class TurnierKlonServiceTests
 
         klon.Runden.Single(r => r.Name == "Halbfinale").VorgegebeneAuslosungsart.Should().Be(Auslosungsart.NachToepfen);
         klon.Runden.Single(r => r.Name == "Finale").VorgegebeneAuslosungsart.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task KlonenAsync_UebernimmtStandardRanglisteJeRunde()
+    {
+        using var ctx = NeuerContext();
+        var quellId = await QuelleAnlegenAsync(ctx);
+        var service = ServiceFuer(ctx);
+
+        var klon = await service.KlonenAsync(quellId, "EM 2028", "2028", TurnierStatus.Geplant);
+
+        var halbfinale = klon.Runden.Single(r => r.Name == "Halbfinale");
+        halbfinale.StandardRanglistenQuelleId.Should().Be(7);
+        halbfinale.TitelverteidigerInTopf1.Should().BeTrue();
+        klon.Runden.Single(r => r.Name == "Finale").StandardRanglistenQuelleId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task KlonenAsync_UebernimmtTitelverteidigerNicht()
+    {
+        // Der Titelverteidiger gehört zur Saison: für die geklonte Folgesaison ist es der Sieger der Quelle,
+        // nicht deren Titelverteidiger (#349).
+        using var ctx = NeuerContext();
+        var quellId = await QuelleAnlegenAsync(ctx);
+        var service = ServiceFuer(ctx);
+
+        var klon = await service.KlonenAsync(quellId, "EM 2028", "2028", TurnierStatus.Geplant);
+
+        klon.TitelverteidigerId.Should().BeNull();
     }
 
     [Fact]

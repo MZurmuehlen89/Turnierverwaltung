@@ -24,7 +24,8 @@ public class RanglisteService(
         {
             Name   = eingabe.Name.Trim(),
             Datum  = eingabe.Datum,
-            Quelle = eingabe.Quelle.Trim()
+            Quelle = eingabe.Quelle.Trim(),
+            RanglistenQuelleId = eingabe.RanglistenQuelleId
         };
 
         foreach (var e in eingabe.Eintraege)
@@ -52,6 +53,9 @@ public class RanglisteService(
         rangliste.Name   = eingabe.Name.Trim();
         rangliste.Datum  = eingabe.Datum;
         rangliste.Quelle = eingabe.Quelle.Trim();
+        // Nur ein Import (mit Quelle) setzt die Verknüpfung neu; manuelles Bearbeiten lässt sie stehen (#349).
+        if (eingabe.RanglistenQuelleId is int quelleId)
+            rangliste.RanglistenQuelleId = quelleId;
 
         rangliste.Eintraege.Clear();
         foreach (var e in eingabe.Eintraege)

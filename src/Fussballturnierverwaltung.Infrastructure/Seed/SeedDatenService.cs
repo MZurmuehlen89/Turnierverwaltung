@@ -33,13 +33,14 @@ public class SeedDatenService
         await MannschaftenNachruesten(cancellationToken);
         await MannschaftsBildmaterialNachruesten(cancellationToken);
         await RegelwerkeNachruesten(cancellationToken);
+        // Vor den Vorlagen: nachgerüstete Vorlagen verweisen auf Ranglisten-Quellen (Issue #349).
+        await RanglistenQuellenNachruesten(cancellationToken);
         await TurnierVorlagenUmbenennen(cancellationToken);
         await TurnierVorlagenNachruesten(cancellationToken);
         await TurnierVorlagenFilterNachruesten(cancellationToken);
         await TurnierVorlagenRundenartNachruesten(cancellationToken);
         await TurnierVorlagenStrukturNachruesten(cancellationToken);
         await TurnierVorlagenFesteKoBaeumeNachruesten(cancellationToken);
-        await RanglistenQuellenNachruesten(cancellationToken);
     }
 
     private async Task LaenderNachruesten(CancellationToken ct)
@@ -206,7 +207,8 @@ public class SeedDatenService
         var landLookup = await _context.Laender
             .ToDictionaryAsync(l => l.FifaCode, l => l.Id, ct);
 
-        var alleVorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup, verbandLookup, landLookup);
+        var alleVorlagen = TurnierVorlagenSeedDaten.Erstellen(
+            regelwerkLookup, verbandLookup, landLookup, await RanglistenQuellenLookupAsync(ct));
         int hinzugefuegt = 0;
 
         foreach (var vorlage in alleVorlagen)
@@ -483,6 +485,12 @@ public class SeedDatenService
         }
     }
 
+    // Quellennamen sind nicht eindeutig erzwungen (frei anlegbar im Quellen-Dialog) — bei Dubletten gilt die älteste.
+    private async Task<Dictionary<string, int>> RanglistenQuellenLookupAsync(CancellationToken ct) =>
+        (await _context.RanglistenQuellen.Select(q => new { q.Name, q.Id }).ToListAsync(ct))
+            .GroupBy(q => q.Name)
+            .ToDictionary(g => g.Key, g => g.Min(q => q.Id));
+
     private async Task RanglistenQuellenNachruesten(CancellationToken ct)
     {
         var vorhandeneNamen = await _context.RanglistenQuellen
@@ -583,7 +591,9 @@ public class SeedDatenService
         // 7. Turniervorlagen (TurnierInstanz mit Status=Vorlage, mit Regelwerk-Lookup für ihre Runden)
         var regelwerkLookup = regelwerkeDefinitionen.ToDictionary(
             t => t.Regelwerk.Name, t => t.Regelwerk.Id);
-        var vorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup, verbaendeLookup, laenderLookup);
+        await RanglistenQuellenNachruesten(cancellationToken);
+        var quellenLookup = await RanglistenQuellenLookupAsync(cancellationToken);
+        var vorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup, verbaendeLookup, laenderLookup, quellenLookup);
         _context.TurnierInstanzen.AddRange(vorlagen);
         await _context.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("{Anzahl} Turniervorlagen angelegt.", vorlagen.Count);

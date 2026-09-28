@@ -202,4 +202,33 @@ public class RanglistenHtmlAuswerterTests
         ergebnis[0].ZeilenAnzahl.Should().Be(20);
         ergebnis[0].VorschauZeilen.Should().HaveCountLessThanOrEqualTo(5);
     }
+
+    // Ausschnitt der echten Seite kassiesa.net/uefa/data/method5/trank2026.html (Stand 28.09.2026): Rang und
+    // Tendenz-Spalte vor dem Klubnamen, Summe als <th> in Spalte 9, gleiche Punkte ohne Rangnummer (#349).
+    private const string KassiesKlubrangliste = """
+        <html><body>
+        <table class="t1">
+        <tr class="groupheader"><th></th><th></th><th></th><th></th><th>21/22</th><th>22/23</th><th>23/24</th>
+            <th>24/25</th><th>25/26</th><th>Total<br>Points</th><th>Country<br>Part</th></tr>
+        <tr class="clubline"><td>1</td><td></td><td class="aleft">Bayern München</td><td>Ger</td><td>26.00</td>
+            <td>27.00</td><td>28.00</td><td>27.25</td><td>39.25</td><th class="lgray">147.500</th><td>18.580</td></tr>
+        <tr class="clubline"><td>7</td><td></td><td class="aleft">Arsenal</td><td>Eng</td><td></td><td>17.00</td>
+            <td>22.00</td><td>36.00</td><td>44.00</td><th class="lgray">119.000</th><td>23.903</td></tr>
+        <tr class="clubline"><td></td><td></td><td class="aleft">Atalanta</td><td>Ita</td><td>14.00</td><td>9.00</td>
+            <td>26.00</td><td>17.00</td><td>19.00</td><th class="lgray">85.000</th><td>19.989</td></tr>
+        </table>
+        </body></html>
+        """;
+
+    [Fact]
+    public void SeedQuelleUefaKlubKoeffizient_LiestKlubnamenUndSummeAusKassiesTabelle()
+    {
+        var quelle = Fussballturnierverwaltung.Infrastructure.Seed.Daten.RanglistenQuellenSeedDaten.Erstellen()
+            .Single(q => q.Name == Fussballturnierverwaltung.Infrastructure.Seed.Daten.RanglistenQuellenSeedDaten.UEFA_KLUB_KOEFFIZIENT);
+
+        var ergebnis = _auswerter.Auswerten(KassiesKlubrangliste, quelle);
+
+        ergebnis.Select(z => z.RohName).Should().Equal("Bayern München", "Arsenal", "Atalanta");
+        ergebnis.Select(z => z.Punkte).Should().Equal(148, 119, 85);
+    }
 }

@@ -28,6 +28,10 @@ public class TurnierInstanz : BasisEntitaet
     public Land? Land { get; set; }
     public MannschaftsartFilter MannschaftsartFilter { get; set; } = MannschaftsartFilter.Alle;
 
+    // Optionaler Titelverteidiger (Issue #349) — kommt bei Runden mit TitelverteidigerInTopf1 in Topf 1.
+    public int? TitelverteidigerId { get; set; }
+    public Mannschaft? Titelverteidiger { get; set; }
+
     public ICollection<TurnierRunde> Runden { get; set; } = new List<TurnierRunde>();
     public ICollection<Spiel> Spiele { get; set; } = new List<Spiel>();
     public ICollection<Auslosung> Auslosungen { get; set; } = new List<Auslosung>();

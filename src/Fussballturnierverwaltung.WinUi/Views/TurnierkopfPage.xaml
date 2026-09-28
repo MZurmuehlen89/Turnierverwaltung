@@ -127,6 +127,15 @@
                           SelectedItem="{Binding StandardRegelwerk, Mode=TwoWay}"
                           DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,24" />
 
+                <TextBlock Text="TITELVERTEIDIGER" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
+
+                <TextBlock Text="Optional, vorgefiltert nach dem Auslosungsfilter. Kommt bei Runden mit „Titelverteidiger in Topf 1“ unabhängig vom Ranglistenplatz in Topf 1."
+                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,8" />
+                <ComboBox ItemsSource="{Binding TitelverteidigerOptionenGefiltert}"
+                          SelectedItem="{Binding Titelverteidiger, Mode=TwoWay}"
+                          DisplayMemberPath="Anzeige" IsTextSearchEnabled="True"
+                          HorizontalAlignment="Stretch" Margin="0,0,0,24" />
+
                 <StackPanel Visibility="{Binding VerbandsQuotenSichtbar, Converter={StaticResource BoolToVisibility}}">
                     <TextBlock Text="VERBAND-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,4" />
                     <TextBlock Visibility="{Binding KapazitaetsHinweisSichtbar, Converter={StaticResource BoolToVisibility}}"

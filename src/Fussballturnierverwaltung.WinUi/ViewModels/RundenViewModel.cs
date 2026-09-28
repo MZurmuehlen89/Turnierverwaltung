@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Spielplan.Eingaben;
 using Fussballturnierverwaltung.Application.Stammdaten;
@@ -234,6 +235,8 @@ public partial class RundeZeile : ObservableObject
     [ObservableProperty] private RegelwerkOption _regelwerk = KeinRegelwerk;
     [ObservableProperty] private bool _paarungFestVorgegeben;
     [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = KeineAuslosungsartVorgabe;
+    [ObservableProperty] private RanglistenQuelleOption _standardRanglistenQuelle = KeineRanglistenQuelle;
+    [ObservableProperty] private bool _titelverteidigerInTopf1;
 
     // Issue #372: im Editor nicht bearbeitbar (stammt aus dem Seed), wird beim Speichern unverändert durchgereicht.
     public string? KombinationstabelleJson { get; set; }
@@ -246,7 +249,13 @@ public partial class RundeZeile : ObservableObject
     public bool HatUnstimmigkeit => UnstimmigkeitText is not null;
 
     public static readonly VorgegebeneAuslosungsartOption KeineAuslosungsartVorgabe = new("— frei wählbar —", null);
+    public static readonly RanglistenQuelleOption KeineRanglistenQuelle = new("— keine —", null);
 }
+
+/// <summary>Option der "Standard-Rangliste"-ComboBox im Rundenformular (Issue #349), <see cref="Wert"/> = Id der
+/// Ranglisten-Quelle oder null. Wie <see cref="VorgegebeneAuslosungsartOption"/> nur über
+/// <c>RundenViewModel.RanglistenQuelleOptionFuer</c> beziehen (Referenzabgleich der ComboBox).</summary>
+public record RanglistenQuelleOption(string Anzeige, int? Wert);
 
 /// <summary>Option der "Auslosungsart (Vorgabe)"-ComboBox im Rundenformular (Issue #347), <see cref="Wert"/> = null
 /// steht für "frei wählbar". Instanzen nur über <c>RundenViewModel.AuslosungsartVorgabeOptionFuer</c> beziehen —
@@ -266,6 +275,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
 {
     private readonly TurnierInstanzService _service;
     private readonly RegelwerkService _regelwerkService;
+    private readonly RanglistenQuelleService _ranglistenQuelleService;
     private readonly UebergangsregelService _uebergangsregelService;
     private readonly TurnierValidator _turnierValidator;
     private readonly UebergangsregelValidator _uebergangsregelValidator;
@@ -348,7 +358,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     [
         nameof(Name), nameof(Rundenart), nameof(EingangsMannschaftsanzahl), nameof(AusgangsMannschaftsanzahl),
         nameof(GruppenAnzahl), nameof(AnzahlSpieltage), nameof(MitRueckspiel), nameof(AuswaertstorRegelAktiv),
-        nameof(Regelwerk), nameof(PaarungFestVorgegeben), nameof(VorgegebeneAuslosungsart)
+        nameof(Regelwerk), nameof(PaarungFestVorgegeben), nameof(VorgegebeneAuslosungsart),
+        nameof(StandardRanglistenQuelle), nameof(TitelverteidigerInTopf1)
     ];
 
     [ObservableProperty] private string _name = "";
@@ -418,6 +429,40 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     [ObservableProperty] private RegelwerkOption _regelwerk = RundeZeile.KeinRegelwerk;
     [ObservableProperty] private bool _paarungFestVorgegeben;
     [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = RundeZeile.KeineAuslosungsartVorgabe;
+
+    // ── Standard-Rangliste für die Lostopf-Vorbelegung (Issue #349) ──────────
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TitelverteidigerInTopf1Aktivierbar))]
+    private RanglistenQuelleOption _standardRanglistenQuelle = RundeZeile.KeineRanglistenQuelle;
+
+    [ObservableProperty] private bool _titelverteidigerInTopf1;
+
+    /// <summary>Einmal beim ersten Laden befüllt (analog <see cref="Regelwerke"/>), danach stabil — siehe
+    /// <see cref="RanglistenQuelleOptionFuer"/>.</summary>
+    [ObservableProperty]
+    private IReadOnlyList<RanglistenQuelleOption> _ranglistenQuelleOptionen = [RundeZeile.KeineRanglistenQuelle];
+
+    public bool TitelverteidigerInTopf1Aktivierbar => StandardRanglistenQuelle?.Wert is not null;
+
+    partial void OnStandardRanglistenQuelleChanged(RanglistenQuelleOption value)
+    {
+        // Ohne Standard-Rangliste gibt es keine automatische Topfbildung, in die der Titelverteidiger käme.
+        // value == null kommt nur transient aus der ComboBox (ItemsSource-Wechsel) und ist keine Nutzerauswahl.
+        if (_populiertGerade == 0 && value is not null && value.Wert is null) TitelverteidigerInTopf1 = false;
+
+        // Siehe RundenartAuswahl.
+        if (value is null && _populiertGerade == 0 && AusgewaehlteRunde is { } zeile)
+            NachComboBoxResetWiederherstellen(() =>
+            {
+                if (AusgewaehlteRunde == zeile && StandardRanglistenQuelle is null)
+                    StandardRanglistenQuelle = zeile.StandardRanglistenQuelle;
+            });
+    }
+
+    /// <summary>Genau eine Option je Quelle (Referenzabgleich der ComboBox). Eine nicht (mehr) bekannte Quelle
+    /// erscheint als "keine".</summary>
+    private RanglistenQuelleOption RanglistenQuelleOptionFuer(int? quelleId) =>
+        RanglistenQuelleOptionen.FirstOrDefault(o => o.Wert == quelleId && quelleId is not null) ?? RundeZeile.KeineRanglistenQuelle;
 
     /// <summary>Nur zur Rundenart kompatible Auslosungsarten (Issue #347, Prävention statt Speicher-Validierung).
     /// Gecacht und nur bei Rundenart-Wechsel neu gesetzt statt pro Binding-Zugriff neu berechnet — eine
@@ -521,6 +566,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
             Regelwerk = zeile?.Regelwerk ?? RundeZeile.KeinRegelwerk;
             PaarungFestVorgegeben = zeile?.PaarungFestVorgegeben ?? false;
             VorgegebeneAuslosungsart = zeile?.VorgegebeneAuslosungsart ?? RundeZeile.KeineAuslosungsartVorgabe;
+            StandardRanglistenQuelle = zeile?.StandardRanglistenQuelle ?? RundeZeile.KeineRanglistenQuelle;
+            TitelverteidigerInTopf1 = zeile?.TitelverteidigerInTopf1 ?? false;
         }
         finally
         {
@@ -547,6 +594,9 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         // null kommt nur transient aus der ComboBox (Auswahl beim ItemsSource-Wechsel nicht gefunden) — nie übernehmen.
         if (VorgegebeneAuslosungsart is not null)
             AusgewaehlteRunde.VorgegebeneAuslosungsart = VorgegebeneAuslosungsart;
+        if (StandardRanglistenQuelle is not null)
+            AusgewaehlteRunde.StandardRanglistenQuelle = StandardRanglistenQuelle;
+        AusgewaehlteRunde.TitelverteidigerInTopf1 = TitelverteidigerInTopf1;
 
         IsDirty = true;
         AktualisiereRundenFehler();
@@ -594,10 +644,12 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
 
     public RundenViewModel(
         TurnierInstanzService service, RegelwerkService regelwerkService, UebergangsregelService uebergangsregelService,
-        TurnierValidator turnierValidator, UebergangsregelValidator uebergangsregelValidator)
+        TurnierValidator turnierValidator, UebergangsregelValidator uebergangsregelValidator,
+        RanglistenQuelleService ranglistenQuelleService)
     {
         _service = service;
         _regelwerkService = regelwerkService;
+        _ranglistenQuelleService = ranglistenQuelleService;
         _uebergangsregelService = uebergangsregelService;
         _turnierValidator = turnierValidator;
         _uebergangsregelValidator = uebergangsregelValidator;
@@ -629,6 +681,14 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         {
             if (Regelwerke.Count == 0)
                 Regelwerke = new ObservableCollection<Regelwerk>(await _regelwerkService.AlleAbrufenAsync());
+            if (RanglistenQuelleOptionen.Count == 1)
+                RanglistenQuelleOptionen =
+                [
+                    RundeZeile.KeineRanglistenQuelle,
+                    .. (await _ranglistenQuelleService.AlleAbrufenAsync())
+                        .OrderBy(q => q.Name)
+                        .Select(q => new RanglistenQuelleOption(q.Name, q.Id))
+                ];
 
             var mitRunden = await _service.FindenNachIdMitRundenAsync(instanz.Id);
             var alleRegeln = await _uebergangsregelService.AlleNachTurnierInstanzIdAsync(instanz.Id);
@@ -691,7 +751,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         }
     }
 
-    private static RundeZeile RundeZuZeile(TurnierRunde r) => new()
+    private RundeZeile RundeZuZeile(TurnierRunde r) => new()
     {
         Id = r.Id,
         Name = r.Name,
@@ -705,6 +765,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         Regelwerk = r.Regelwerk is not null ? new RegelwerkOption(r.Regelwerk.Name, r.Regelwerk) : RundeZeile.KeinRegelwerk,
         PaarungFestVorgegeben = r.PaarungFestVorgegeben,
         VorgegebeneAuslosungsart = AuslosungsartVorgabeOptionFuer(r.VorgegebeneAuslosungsart),
+        StandardRanglistenQuelle = RanglistenQuelleOptionFuer(r.StandardRanglistenQuelleId),
+        TitelverteidigerInTopf1 = r.TitelverteidigerInTopf1,
         KombinationstabelleJson = r.KombinationstabelleJson
     };
 
@@ -816,7 +878,9 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         EingangUeberUebergangsregeln: AlleUebergaenge.Any(b => b.ZielRunde == z),
         PaarungFestVorgegeben: z.PaarungFestVorgegeben,
         VorgegebeneAuslosungsart: z.VorgegebeneAuslosungsart.Wert,
-        KombinationstabelleJson: z.KombinationstabelleJson)).ToList();
+        KombinationstabelleJson: z.KombinationstabelleJson,
+        StandardRanglistenQuelleId: z.StandardRanglistenQuelle.Wert,
+        TitelverteidigerInTopf1: z.StandardRanglistenQuelle.Wert is not null && z.TitelverteidigerInTopf1)).ToList();
 
     public List<UebergangsregelPositionsEingabe> UebergangsregelnZuEingaben() => _alleUebergaenge
         .Where(b => b.QuellRunde is not null && b.ZielRunde is not null && b.QuellRunde != b.ZielRunde)

@@ -68,6 +68,8 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             alt.PaarungFestVorgegeben     = neu.PaarungFestVorgegeben;
             alt.VorgegebeneAuslosungsart  = neu.VorgegebeneAuslosungsart;
             alt.KombinationstabelleJson   = neu.KombinationstabelleJson;
+            alt.StandardRanglistenQuelleId = neu.StandardRanglistenQuelleId;
+            alt.TitelverteidigerInTopf1   = neu.TitelverteidigerInTopf1;
         }
 
         // Add rounds if the new list is longer

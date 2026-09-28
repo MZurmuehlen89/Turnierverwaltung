@@ -486,8 +486,33 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     [ObservableProperty] private RanglisteOption _ausgewaehlteRanglisteOption = _keineRangliste;
 
-    public IReadOnlyList<RanglisteOption> RanglisteOptionen =>
-        [_keineRangliste, .. AlleRanglisten.Select(r => new RanglisteOption(r.Name, r))];
+    // Gecacht statt bei jedem Zugriff neu projiziert: die WinUI3-ComboBox gleicht SelectedItem per Referenz
+    // ab, eine programmatische Vorauswahl (Standard-Rangliste der Runde, #349) braucht daher dieselben
+    // Option-Instanzen, die auch als ItemsSource gebunden sind.
+    private IReadOnlyList<RanglisteOption> _ranglisteOptionen = [_keineRangliste];
+    // Auslosung, für die die Standard-Rangliste zuletzt vorausgewählt wurde — nur beim Wechsel der Auslosung
+    // neu vorauswählen, sonst überschriebe jedes Detail-Neuladen (z.B. nach dem Befüllen) eine Handauswahl.
+    private int? _ranglisteVorausgewaehltFuerAuslosungId;
+    public IReadOnlyList<RanglisteOption> RanglisteOptionen => _ranglisteOptionen;
+
+    partial void OnAlleRanglistenChanged(ObservableCollection<Rangliste> value) =>
+        _ranglisteOptionen = [_keineRangliste, .. value.Select(r => new RanglisteOption(r.Name, r))];
+
+    // Die TwoWay-Bindung nullt die Auswahl transient, wenn die ItemsSource ausgetauscht wird.
+    partial void OnAusgewaehlteRanglisteOptionChanged(RanglisteOption value)
+    {
+        if (value is null) AusgewaehlteRanglisteOption = _keineRangliste;
+    }
+
+    /// <summary>Wählt die neueste Rangliste der Standard-Quelle von <paramref name="runde"/> vor (#349).
+    /// Ohne Vorgabe bleibt die bisherige Auswahl stehen. Liefert die gewählte Rangliste oder <c>null</c>.</summary>
+    private Rangliste? StandardRanglisteVorauswaehlen(TurnierRunde? runde)
+    {
+        if (runde?.StandardRanglistenQuelleId is not int quelleId) return null;
+        var rangliste = LostopfVorbelegung.NeuesteRanglisteZurQuelle(AlleRanglisten, quelleId);
+        AusgewaehlteRanglisteOption = _ranglisteOptionen.FirstOrDefault(o => o.Wert == rangliste) ?? _keineRangliste;
+        return rangliste;
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
@@ -856,9 +881,25 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
                 await _auslosungService.LostoepfeSynchronisierenAsync(neu.Id, Math.Max(1, NeuAnzahlLostoepfe));
 
+                var standardQuelleId = NeuRunde.StandardRanglistenQuelleId;
                 NeuFormAktiv = false;
 
                 Auslosungen = await LadeAuslosungenGefiltertAsync(_instanz.Id);
+
+                // Standard-Rangliste der Runde (#349): Detail hier sequenziell laden und befüllen, BEVOR die
+                // Auswahl gesetzt wird — deren Change-Hook lädt fire-and-forget und liefe sonst parallel auf
+                // demselben DbContext (Reentrancy, siehe #317/#338). Danach greift dort der Gleiche-Id-Guard.
+                if (standardQuelleId is not null)
+                {
+                    await RanglistenLadenAsync();
+                    await LadeDetailAsync(neu.Id);
+                    if (StandardRanglisteVorauswaehlen(_auslosungDetail?.TurnierRunde) is { } rangliste)
+                        await LostoepfeNachRanglisteBefuellenAsync(rangliste.Id);
+                    else
+                        Fehlermeldung = "Für die Standard-Rangliste dieser Runde wurde noch keine Rangliste importiert " +
+                                        "(Ranglisten → Import). Lostöpfe bitte manuell befüllen.";
+                }
+
                 AusgewaehlteAuslosung = Auslosungen.FirstOrDefault(a => a.Id == neu.Id);
             }
             catch (Exception ex) { Fehlermeldung = ex.Message; }
@@ -1000,60 +1041,61 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             Fehlermeldung = "Bitte zuerst eine Rangliste auswählen.";
             return;
         }
+
+        try { await LostoepfeNachRanglisteBefuellenAsync(ausgewaehlteRangliste.Id); }
+        catch (Exception ex) { Fehlermeldung = ex.Message; }
+    }
+
+    /// <summary>Kern von <see cref="LostoepfeAutomatischBefuellen"/>, auch beim Anlegen einer Auslosung mit
+    /// Standard-Rangliste genutzt (#349). Setzt ein geladenes Detail voraus. Den Titelverteidiger des Turniers
+    /// setzt sie in Topf 1, wenn die Runde das vorgibt (UEFA-Champions-League-Ligaphase).</summary>
+    private async Task LostoepfeNachRanglisteBefuellenAsync(int ranglisteId)
+    {
+        if (_auslosungDetail is null) return;
         if (Lostoepfe.Count == 0)
         {
             Fehlermeldung = "Diese Auslosung hat keine Lostöpfe.";
             return;
         }
 
-        try
+        var rangliste = await _ranglisteService.FindenNachIdAsync(ranglisteId);
+        if (rangliste is null) return;
+
+        var rangProMannschaft = rangliste.Eintraege.ToDictionary(e => e.MannschaftId, e => e.Rang);
+
+        int? titelverteidigerId = null;
+        if (_auslosungDetail.TurnierRunde?.TitelverteidigerInTopf1 == true && _instanz is not null)
+            titelverteidigerId = (await _instanzService.FindenNachIdMitRundenAsync(_instanz.Id))?.TitelverteidigerId;
+
+        var teamsZuVerteilen = VerfuegbareTeilnehmer
+            .Where(t => t.MannschaftId.HasValue)
+            .OrderBy(t => t.MannschaftId == titelverteidigerId ? 0 : 1)
+            .ThenBy(t => rangProMannschaft.TryGetValue(t.MannschaftId!.Value, out var rang) ? rang : int.MaxValue)
+            .ThenBy(t => t.Name)
+            .Select(t => t.MannschaftId!.Value)
+            .ToList();
+
+        if (TeamsBenoetigt > 0)
         {
-            var rangliste = await _ranglisteService.FindenNachIdAsync(ausgewaehlteRangliste.Id);
-            if (rangliste is null) return;
-
-            var rangProMannschaft = rangliste.Eintraege.ToDictionary(e => e.MannschaftId, e => e.Rang);
-
-            var teamsZuVerteilen = VerfuegbareTeilnehmer
-                .Where(t => t.MannschaftId.HasValue)
-                .OrderBy(t => rangProMannschaft.TryGetValue(t.MannschaftId!.Value, out var rang) ? rang : int.MaxValue)
-                .ThenBy(t => t.Name)
-                .ToList();
-
-            if (TeamsBenoetigt > 0)
-            {
-                int verbleibend = Math.Max(0, TeamsBenoetigt - TeamsZugewiesen);
-                teamsZuVerteilen = teamsZuVerteilen.Take(verbleibend).ToList();
-            }
-
-            if (teamsZuVerteilen.Count == 0)
-            {
-                Fehlermeldung = "Keine verfügbaren Mannschaften zum Zuordnen.";
-                return;
-            }
-
-            var toepfe = Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
-
-            // Faire Blockgrößen statt Ceiling-Division: bei nicht glatt teilbarer Teamanzahl (z.B. 9 Teams
-            // auf 4 Töpfe) ließ Ceiling(9/4)=3 den letzten Topf komplett leer (3,3,3,0 statt 3,2,2,2) —
-            // Nutzerfund "automatische Befüllung nicht gleichmäßig". Die ersten `rest` Töpfe bekommen ein
-            // Team mehr, den Rang-Tiers-Charakter (beste Teams zuerst in Topf 1 usw.) behält das bei.
-            int basisGroesse = teamsZuVerteilen.Count / toepfe.Count;
-            int rest = teamsZuVerteilen.Count % toepfe.Count;
-
-            int index = 0;
-            for (int topfIndex = 0; topfIndex < toepfe.Count; topfIndex++)
-            {
-                int groesse = basisGroesse + (topfIndex < rest ? 1 : 0);
-                for (int j = 0; j < groesse; j++, index++)
-                {
-                    await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(
-                        _auslosungDetail.Id, toepfe[topfIndex].Id, teamsZuVerteilen[index].MannschaftId!.Value);
-                }
-            }
-
-            await LadeDetailAsync(_auslosungDetail.Id);
+            int verbleibend = Math.Max(0, TeamsBenoetigt - TeamsZugewiesen);
+            teamsZuVerteilen = teamsZuVerteilen.Take(verbleibend).ToList();
         }
-        catch (Exception ex) { Fehlermeldung = ex.Message; }
+
+        if (teamsZuVerteilen.Count == 0)
+        {
+            Fehlermeldung = "Keine verfügbaren Mannschaften zum Zuordnen.";
+            return;
+        }
+
+        var toepfe = Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
+        var verteilung = LostopfVorbelegung.Verteilen(teamsZuVerteilen, rangProMannschaft, toepfe.Count, titelverteidigerId);
+        for (int topfIndex = 0; topfIndex < toepfe.Count; topfIndex++)
+        {
+            foreach (var mannschaftId in verteilung[topfIndex])
+                await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(_auslosungDetail.Id, toepfe[topfIndex].Id, mannschaftId);
+        }
+
+        await LadeDetailAsync(_auslosungDetail.Id);
     }
 
     [RelayCommand(CanExecute = nameof(KannAuslosungAusfuehren))]
@@ -1769,6 +1811,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             // Fallstrick (Fund aus #300-Test: Auslosungsart erschien nach Anlage einer Auslosung leer).
             OnPropertyChanged(nameof(DetailAuslosungsart));
             DetailAnzahlLostoepfe = Math.Max(1, detail.Lostoepfe.Count);
+            if (_ranglisteVorausgewaehltFuerAuslosungId != detail.Id)
+            {
+                _ranglisteVorausgewaehltFuerAuslosungId = detail.Id;
+                StandardRanglisteVorauswaehlen(detail.TurnierRunde);
+            }
 
             AuslosungKopfzeile = $"{detail.Name}  ·  {detail.TurnierRunde.Name}  ·  " +
                                  $"{AuslosungsartAnzeigeName(detail.Auslosungsart)}  ·  " +

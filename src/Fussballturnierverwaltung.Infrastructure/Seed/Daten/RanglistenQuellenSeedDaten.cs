@@ -10,6 +10,10 @@ namespace Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 /// </summary>
 public static class RanglistenQuellenSeedDaten
 {
+    /// <summary>Name der Quelle für den UEFA-Klub-Koeffizienten — Standard-Rangliste der Ligaphase von CL/EL/ECL
+    /// ab 2024/25 (Issue #349). Die Migration StandardRanglisteJeRunde legt sie mit denselben Werten an.</summary>
+    public const string UEFA_KLUB_KOEFFIZIENT = "UEFA-Klub-Koeffizient (Kassies)";
+
     private record E(string Name, string Url, int TabellenIndex, int MannschaftSpalte, int PunkteSpalte);
 
     private static readonly E[] Eintraege =
@@ -41,6 +45,13 @@ public static class RanglistenQuellenSeedDaten
         new("Serie A – Abschlusstabelle",
             "https://de.wikipedia.org/wiki/Serie_A_2025/26",
             TabellenIndex: 21, MannschaftSpalte: 1, PunkteSpalte: 8),
+
+        // Issue #349: Bert Kassies' vollständige Klubrangliste (Fünfjahreswertung, ~470 Klubs, eine einzige
+        // Tabelle). Die deutsche Wikipedia listet nur die Top ~56 plus deutschsprachige Klubs — für die
+        // Topfbildung der Ligaphase zu lückenhaft. trank2026 = Stand nach 2025/26, gilt für die Auslosung 2026/27.
+        new(UEFA_KLUB_KOEFFIZIENT,
+            "https://kassiesa.net/uefa/data/method5/trank2026.html",
+            TabellenIndex: 0, MannschaftSpalte: 2, PunkteSpalte: 9),
     ];
 
     public static List<RanglistenQuelle> Erstellen() =>

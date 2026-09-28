@@ -67,7 +67,8 @@ public class TurnierInstanzService(
             VerbandId             = instanzEingabe.VerbandId,
             LandId                = instanzEingabe.LandId,
             MannschaftsartFilter  = instanzEingabe.MannschaftsartFilter,
-            StandardRegelwerkId   = instanzEingabe.StandardRegelwerkId
+            StandardRegelwerkId   = instanzEingabe.StandardRegelwerkId,
+            TitelverteidigerId    = instanzEingabe.TitelverteidigerId
         };
 
         await repository.HinzufuegenAsync(instanz, ct);
@@ -100,7 +101,8 @@ public class TurnierInstanzService(
             VerbandId             = instanzEingabe.VerbandId,
             LandId                = instanzEingabe.LandId,
             MannschaftsartFilter  = instanzEingabe.MannschaftsartFilter,
-            StandardRegelwerkId   = instanzEingabe.StandardRegelwerkId
+            StandardRegelwerkId   = instanzEingabe.StandardRegelwerkId,
+            TitelverteidigerId    = instanzEingabe.TitelverteidigerId
         };
 
         for (int i = 0; i < rundenEingaben.Count; i++)
@@ -121,7 +123,9 @@ public class TurnierInstanzService(
                 EingangUeberUebergangsregeln = re.EingangUeberUebergangsregeln,
                 PaarungFestVorgegeben      = re.PaarungFestVorgegeben,
                 VorgegebeneAuslosungsart   = re.VorgegebeneAuslosungsart,
-                KombinationstabelleJson    = re.KombinationstabelleJson
+                KombinationstabelleJson    = re.KombinationstabelleJson,
+                StandardRanglistenQuelleId = re.StandardRanglistenQuelleId,
+                TitelverteidigerInTopf1    = re.TitelverteidigerInTopf1
             });
         }
 
@@ -152,6 +156,7 @@ public class TurnierInstanzService(
         instanz.LandId               = eingabe.LandId;
         instanz.MannschaftsartFilter = eingabe.MannschaftsartFilter;
         instanz.StandardRegelwerkId  = eingabe.StandardRegelwerkId;
+        instanz.TitelverteidigerId   = eingabe.TitelverteidigerId;
         await repository.AktualisierenAsync(instanz, ct);
         logger.LogInformation("TurnierInstanz '{Name}' (ID {Id}) aktualisiert.", instanz.Name, id);
     }
@@ -197,7 +202,9 @@ public class TurnierInstanzService(
             EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
             PaarungFestVorgegeben     = e.PaarungFestVorgegeben,
             VorgegebeneAuslosungsart  = e.VorgegebeneAuslosungsart,
-            KombinationstabelleJson   = e.KombinationstabelleJson
+            KombinationstabelleJson   = e.KombinationstabelleJson,
+            StandardRanglistenQuelleId = e.StandardRanglistenQuelleId,
+            TitelverteidigerInTopf1    = e.TitelverteidigerInTopf1
         }).ToList();
 
         var ergebnis = await repository.RundenErsetzenAsync(id, neueRunden, ct);
@@ -233,7 +240,9 @@ public class TurnierInstanzService(
             EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
             PaarungFestVorgegeben     = e.PaarungFestVorgegeben,
             VorgegebeneAuslosungsart  = e.VorgegebeneAuslosungsart,
-            KombinationstabelleJson   = e.KombinationstabelleJson
+            KombinationstabelleJson   = e.KombinationstabelleJson,
+            StandardRanglistenQuelleId = e.StandardRanglistenQuelleId,
+            TitelverteidigerInTopf1    = e.TitelverteidigerInTopf1
         }).ToList();
 
         var runden = await repository.RundenErsetzenAsync(id, neueRunden, ct);

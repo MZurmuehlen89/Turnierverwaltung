@@ -1,5 +1,6 @@
-using Fussballturnierverwaltung.Domain.Enums;
+using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
+using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 
 namespace Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -37,6 +38,16 @@ public class TurnierRunde : BasisEntitaet
     // Von der Vorlage vorgegebene Auslosungsart (Issue #347) — wird beim Anlegen einer Auslosung für diese
     // Runde vorausgewählt, bleibt aber innerhalb der kompatiblen Arten änderbar. null = frei wählbar.
     public Auslosungsart? VorgegebeneAuslosungsart { get; set; }
+
+    // Standard-Rangliste für die Lostopf-Vorbelegung (Issue #349): verweist auf eine Ranglisten-Quelle statt
+    // auf eine konkrete Rangliste, damit Vorlagen sie vorgeben können und stets die neueste importierte
+    // Rangliste dieser Quelle greift (z.B. UEFA-Klub-Koeffizient). null = keine Vorbelegung.
+    public int? StandardRanglistenQuelleId { get; set; }
+    public RanglistenQuelle? StandardRanglistenQuelle { get; set; }
+
+    // Titelverteidiger (TurnierInstanz.Titelverteidiger) unabhängig vom Ranglistenplatz in Topf 1 setzen —
+    // UEFA-Champions-League-Ligaphase ab 2024/25 (Issue #349). Nur wirksam mit Standard-Rangliste.
+    public bool TitelverteidigerInTopf1 { get; set; }
 
     // Kombinationstabelle für Platzhalter wie "3. Gruppe A/D/E/F" (Issue #372): welcher Gruppendritte auf
     // welchen Baumplatz kommt, hängt davon ab, aus welchen Gruppen die besten Dritten stammen (UEFA EURO/

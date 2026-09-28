@@ -143,6 +143,8 @@ public partial class RanglistenImportViewModel(
     private static readonly MannschaftAuswahlOption NeuAnlegenOption = new("+ Neue Mannschaft anlegen…", null, IstNeuAnlegen: true);
 
     private RanglistenImportVorschau? _vorschau;
+    // Quelle, zu der _vorschau gehört — nicht AusgewaehlteQuelle, die sich nach dem Abruf noch ändern kann (#349).
+    private int? _vorschauQuelleId;
     private IReadOnlyList<Land> _laender = [];
 
     [ObservableProperty] private ObservableCollection<RanglistenQuelle> _quellen = [];
@@ -196,6 +198,7 @@ public partial class RanglistenImportViewModel(
         try
         {
             _vorschau = await importService.VorschauAbrufenAsync(AusgewaehlteQuelle);
+            _vorschauQuelleId = AusgewaehlteQuelle.Id;
             Aufgeloest = new ObservableCollection<RanglistenImportZeile>(_vorschau.Aufgeloest);
 
             var alleTeams = await mannschaftService.AlleAbrufenAsync();
@@ -251,7 +254,7 @@ public partial class RanglistenImportViewModel(
 
             if (NeueRanglisteErstellen)
             {
-                var eingabe = new RanglisteErstellenEingabe(Name, datum, QuelleText, eintraege);
+                var eingabe = new RanglisteErstellenEingabe(Name, datum, QuelleText, eintraege, _vorschauQuelleId);
                 await ranglisteService.ErstellenAsync(eingabe);
             }
             else
@@ -267,7 +270,7 @@ public partial class RanglistenImportViewModel(
                     $"Alle bisherigen Einträge von '{ZielRangliste.Name}' werden ersetzt. Fortfahren?");
                 if (!bestaetigt) return;
 
-                var eingabe = new RanglisteAktualisierenEingabe(Name, datum, QuelleText, eintraege);
+                var eingabe = new RanglisteAktualisierenEingabe(Name, datum, QuelleText, eintraege, _vorschauQuelleId);
                 await ranglisteService.AktualisierenAsync(ZielRangliste.Id, eingabe);
             }
 

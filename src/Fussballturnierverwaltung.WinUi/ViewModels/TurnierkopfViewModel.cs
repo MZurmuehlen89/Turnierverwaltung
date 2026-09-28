@@ -23,6 +23,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 public record VerbandOption(string Anzeige, Verband? Wert);
 public record LandOption(string Anzeige, Land? Wert);
 public record TeamfilterOption(string Anzeige, MannschaftsartFilter Wert);
+public record TitelverteidigerOption(string Anzeige, int? Wert);
 public record TurnierStatusOption(string Anzeige, TurnierStatus Wert);
 
 /// <summary>Eine Verband-Quoten-Zeile im Turnierkopf (Issue #161/#154, hier #297) — lokaler UI-Zustand
@@ -60,12 +61,14 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     private readonly LandesQuoteService _landesQuoteService;
     private readonly LandesQuoteValidator _landesQuoteValidator;
     private readonly TurnierKlonService _klonService;
+    private readonly MannschaftService _mannschaftService;
     private int _populiertGerade;
 
     private static readonly VerbandOption _keinVerband = new("— Kein Filter —", null);
     private static readonly LandOption _keinLand = new("— Kein Filter —", null);
     private static readonly RegelwerkOption _keinStandardRegelwerk = new("— Kein Standard —", null);
     private static readonly TeamfilterOption _alleMannschaften = new("Alle Mannschaften", MannschaftsartFilter.Alle);
+    private static readonly TitelverteidigerOption _keinTitelverteidiger = new("— keiner —", null);
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
@@ -251,6 +254,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             && LandFilter?.Wert is not null && LandFilter.Wert.VerbandId != value.Wert.Id)
             LandFilter = _keinLand;
         CollectionSyncVerzoegern(LandOptionenGefiltertSynchronisieren);
+        CollectionSyncVerzoegern(TitelverteidigerFilterAnwenden);
     }
 
     partial void OnLandFilterChanged(LandOption value)
@@ -262,6 +266,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             && VerbandFilter.Wert.Id != value.Wert.VerbandId)
             VerbandFilter = _keinVerband;
         CollectionSyncVerzoegern(VerbandOptionenGefiltertSynchronisieren);
+        CollectionSyncVerzoegern(TitelverteidigerFilterAnwenden);
     }
 
     public IReadOnlyList<TeamfilterOption> TeamfilterOptionen =>
@@ -278,6 +283,68 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     public IReadOnlyList<RegelwerkOption> StandardRegelwerkOptionen =>
         [_keinStandardRegelwerk, .. Regelwerke.Select(r => new RegelwerkOption(r.Name, r))];
+
+    // ── Titelverteidiger (Issue #349) ─────────────────────────────────────────
+    // Optional; kommt bei Runden mit "Titelverteidiger in Topf 1" unabhängig vom Ranglistenplatz in Topf 1.
+    // Die Auswahl ist nach dem Auslosungsfilter (Verband/Land/Mannschaftsart) vorgefiltert — gleiche Semantik
+    // wie MannschaftRepository.AlleNachTurnierfilterAsync, FIFA = weltweit. Stabile Collection-Instanz mit
+    // inkrementellem Abgleich statt neuer ItemsSource je Filterwechsel (WinUI3-Fallstrick, siehe
+    // LandOptionenGefiltert / #335).
+    [ObservableProperty] private TitelverteidigerOption _titelverteidiger = _keinTitelverteidiger;
+    public ObservableCollection<TitelverteidigerOption> TitelverteidigerOptionenGefiltert { get; } = [_keinTitelverteidiger];
+
+    // Alle Mannschaften nach Name sortiert, je Mannschaft genau eine Option (Referenzabgleich der ComboBox).
+    private IReadOnlyList<(TitelverteidigerOption Option, Mannschaft Mannschaft)> _titelverteidigerKandidaten = [];
+
+    partial void OnTitelverteidigerChanged(TitelverteidigerOption value)
+    {
+        if (value is null) Titelverteidiger = _keinTitelverteidiger;
+    }
+
+    partial void OnTeamFilterChanged(TeamfilterOption value)
+    {
+        if (_populiertGerade > 0 || value is null) return;
+        CollectionSyncVerzoegern(TitelverteidigerFilterAnwenden);
+    }
+
+    private TitelverteidigerOption TitelverteidigerOptionFuer(int? mannschaftId) =>
+        _titelverteidigerKandidaten.FirstOrDefault(k => k.Option.Wert == mannschaftId && mannschaftId is not null).Option
+        ?? _keinTitelverteidiger;
+
+    private bool PasstZumAuslosungsfilter(Mannschaft m) =>
+        (VerbandFilter?.Wert is null || IstFifa(VerbandFilter.Wert) || m.Land?.VerbandId == VerbandFilter.Wert.Id)
+        && (LandFilter?.Wert is null || m.LandId == LandFilter.Wert.Id)
+        && (TeamFilter?.Wert ?? MannschaftsartFilter.Alle) switch
+        {
+            MannschaftsartFilter.Verein             => m.Mannschaftsart == Mannschaftsart.Verein,
+            MannschaftsartFilter.Nationalmannschaft => m.Mannschaftsart == Mannschaftsart.Nationalmannschaft,
+            _                                       => true
+        };
+
+    /// <summary>Gleicht die Auswahlliste mit dem Auslosungsfilter ab. Die aktuelle Auswahl (und optional
+    /// <paramref name="zusaetzlich"/>, bevor sie gesetzt wird) bleibt immer enthalten — sonst fände die ComboBox
+    /// sie nicht und schriebe null zurück.</summary>
+    private void TitelverteidigerOptionenSynchronisieren(TitelverteidigerOption? zusaetzlich = null)
+    {
+        IReadOnlyList<TitelverteidigerOption> soll =
+        [
+            _keinTitelverteidiger,
+            .. _titelverteidigerKandidaten
+                .Where(k => k.Option == Titelverteidiger || k.Option == zusaetzlich || PasstZumAuslosungsfilter(k.Mannschaft))
+                .Select(k => k.Option)
+        ];
+        CollectionInkrementellSynchronisieren(TitelverteidigerOptionenGefiltert, soll);
+    }
+
+    /// <summary>Nach einer Filteränderung durch den Nutzer: passt der gewählte Titelverteidiger nicht mehr
+    /// zum Filter, wird er zurückgesetzt (Prävention statt Speicher-Validierung), danach die Liste abgeglichen.</summary>
+    private void TitelverteidigerFilterAnwenden()
+    {
+        var aktuell = _titelverteidigerKandidaten.FirstOrDefault(k => k.Option == Titelverteidiger);
+        if (aktuell.Mannschaft is not null && !PasstZumAuslosungsfilter(aktuell.Mannschaft))
+            Titelverteidiger = _keinTitelverteidiger;
+        TitelverteidigerOptionenSynchronisieren();
+    }
 
     // ── Status-Anzeige/-Auswahl ───────────────────────────────────────────────
     [ObservableProperty] private TurnierStatusOption _status = new(TurnierStatusZuTextConverter.StatusAnzeigeName(TurnierStatus.Geplant), TurnierStatus.Geplant);
@@ -395,7 +462,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     [
         nameof(Name), nameof(Beschreibung), nameof(SaisonOderJahr), nameof(ZielMannschaftsanzahl),
         nameof(Kategorie), nameof(Startdatum), nameof(Enddatum), nameof(LogoDaten),
-        nameof(VerbandFilter), nameof(LandFilter), nameof(TeamFilter), nameof(StandardRegelwerk)
+        nameof(VerbandFilter), nameof(LandFilter), nameof(TeamFilter), nameof(StandardRegelwerk),
+        nameof(Titelverteidiger)
     ];
 
     /// <summary>Feuert nach erfolgreichem Speichern (mit der neuen/aktualisierten Instanz), Statuswechsel
@@ -421,7 +489,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         VerbandService verbandService, LandService landService, RegelwerkService regelwerkService,
         VerbandsQuoteService verbandsQuoteService, VerbandsQuoteValidator verbandsQuoteValidator,
         LandesQuoteService landesQuoteService, LandesQuoteValidator landesQuoteValidator,
-        TurnierKlonService klonService)
+        TurnierKlonService klonService, MannschaftService mannschaftService)
     {
         _service = service;
         _validator = validator;
@@ -434,6 +502,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         _landesQuoteService = landesQuoteService;
         _landesQuoteValidator = landesQuoteValidator;
         _klonService = klonService;
+        _mannschaftService = mannschaftService;
         QuotenZeilenAbonnieren();
         LandesQuotenZeilenAbonnieren();
     }
@@ -449,6 +518,12 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         LandOptionen = [_keinLand, .. laender.OrderBy(l => l.Name).Select(l => new LandOption(l.Name, l))];
         AlleLaender = laender;
         Regelwerke = new ObservableCollection<Regelwerk>(await _regelwerkService.AlleAbrufenAsync());
+        var mannschaften = await _mannschaftService.AlleAbrufenMitLandAsync();
+        _titelverteidigerKandidaten = mannschaften
+            .OrderBy(m => m.Name)
+            .Select(m => (new TitelverteidigerOption(m.Name, m.Id), m))
+            .ToList();
+        TitelverteidigerOptionenSynchronisieren();
     }
 
     /// <summary>Vom Composite gesetzt, wenn sich die geteilte Instanzauswahl ändert. Der Guard
@@ -472,6 +547,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 AuslosungsfilterSetzen(_keinVerband, _keinLand);
                 TeamFilter = _alleMannschaften;
                 StandardRegelwerk = _keinStandardRegelwerk;
+                Titelverteidiger = _keinTitelverteidiger;
+                TitelverteidigerOptionenSynchronisieren();
                 Status = StatusOptionen.First(o => o.Wert == TurnierStatus.Geplant);
                 LogoDaten = null;
                 QuotenZeilen = [];
@@ -494,6 +571,10 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                     LandOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.LandId) ?? _keinLand);
                 TeamFilter = TeamfilterOptionen.FirstOrDefault(o => o.Wert == instanz.MannschaftsartFilter) ?? _alleMannschaften;
                 StandardRegelwerk = StandardRegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.StandardRegelwerkId) ?? _keinStandardRegelwerk;
+                var titelverteidiger = TitelverteidigerOptionFuer(instanz.TitelverteidigerId);
+                TitelverteidigerOptionenSynchronisieren(titelverteidiger);
+                Titelverteidiger = titelverteidiger;
+                TitelverteidigerOptionenSynchronisieren();
                 Status = StatusOptionen.First(o => o.Wert == instanz.Status);
                 LogoDaten = instanz.Logo;
             }
@@ -575,6 +656,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             AuslosungsfilterSetzen(_keinVerband, _keinLand);
             TeamFilter = _alleMannschaften;
             StandardRegelwerk = _keinStandardRegelwerk;
+            Titelverteidiger = _keinTitelverteidiger;
+            TitelverteidigerOptionenSynchronisieren();
             Status = StatusOptionen.First(o => o.Wert == TurnierStatus.Geplant);
             LogoDaten = null;
             QuotenZeilen = [];
@@ -629,7 +712,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                     Name: Name, Beschreibung: Beschreibung, SaisonOderJahr: SaisonOderJahr, Kategorie: Kategorie,
                     ZielMannschaftsanzahl: zielAnzahl, Startdatum: startdatum, Enddatum: enddatum, Status: Status.Wert,
                     VerbandId: verbandId, LandId: landId, MannschaftsartFilter: TeamFilter.Wert,
-                    StandardRegelwerkId: standardRwId, Logo: LogoDaten);
+                    StandardRegelwerkId: standardRwId, Logo: LogoDaten, TitelverteidigerId: Titelverteidiger?.Wert);
                 ergebnis = await _service.ErstellenAsync(eingabe);
             }
             else if (AktuelleInstanz is not null)
@@ -652,7 +735,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                     Name: Name, Beschreibung: Beschreibung, SaisonOderJahr: SaisonOderJahr, Kategorie: Kategorie,
                     ZielMannschaftsanzahl: zielAnzahl, Startdatum: startdatum, Enddatum: enddatum, Status: AktuelleInstanz.Status,
                     VerbandId: verbandId, LandId: landId, MannschaftsartFilter: TeamFilter.Wert,
-                    StandardRegelwerkId: standardRwId, Logo: LogoDaten);
+                    StandardRegelwerkId: standardRwId, Logo: LogoDaten, TitelverteidigerId: Titelverteidiger?.Wert);
                 await _service.VollAktualisierenAsync(id, eingabe);
                 await _verbandsQuoteService.QuotenErsetzenAsync(id, quotenZeilen, ErsteRundeEingang);
                 await _landesQuoteService.QuotenErsetzenAsync(id, landesQuotenZeilen, ErsteRundeEingang);

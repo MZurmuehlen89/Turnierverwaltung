@@ -55,7 +55,9 @@ public class TurnierKlonService(
                 EingangUeberUebergangsregeln = runde.EingangUeberUebergangsregeln,
                 PaarungFestVorgegeben     = runde.PaarungFestVorgegeben,
                 VorgegebeneAuslosungsart  = runde.VorgegebeneAuslosungsart,
-                KombinationstabelleJson   = runde.KombinationstabelleJson
+                KombinationstabelleJson   = runde.KombinationstabelleJson,
+                StandardRanglistenQuelleId = runde.StandardRanglistenQuelleId,
+                TitelverteidigerInTopf1   = runde.TitelverteidigerInTopf1
             };
             neu.Runden.Add(neueRunde);
             rundenNachQuellId[runde.Id] = neueRunde;

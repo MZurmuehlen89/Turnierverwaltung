@@ -34,6 +34,14 @@ public class TurnierRundeKonfiguration : IEntityTypeConfiguration<TurnierRunde>
             .OnDelete(DeleteBehavior.Restrict)
             .IsRequired(false);
 
+        builder.Property(r => r.TitelverteidigerInTopf1).IsRequired().HasDefaultValue(false);
+
+        builder.HasOne(r => r.StandardRanglistenQuelle)
+            .WithMany()
+            .HasForeignKey(r => r.StandardRanglistenQuelleId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
+
         builder.HasIndex(r => new { r.TurnierInstanzId, r.Reihenfolge }).IsUnique();
     }
 }

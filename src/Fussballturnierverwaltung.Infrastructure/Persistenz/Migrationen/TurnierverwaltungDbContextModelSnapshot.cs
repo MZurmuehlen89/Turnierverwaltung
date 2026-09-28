@@ -224,7 +224,12 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int?>("RanglistenQuelleId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("RanglistenQuelleId");
 
                     b.ToTable("Ranglisten", (string)null);
                 });
@@ -915,6 +920,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
+                    b.Property<int?>("TitelverteidigerId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("VerbandId")
                         .HasColumnType("int");
 
@@ -926,6 +934,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.HasIndex("LandId");
 
                     b.HasIndex("StandardRegelwerkId");
+
+                    b.HasIndex("TitelverteidigerId");
 
                     b.HasIndex("VerbandId");
 
@@ -983,6 +993,14 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("Rundenart")
                         .HasColumnType("int");
 
+                    b.Property<int?>("StandardRanglistenQuelleId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("TitelverteidigerInTopf1")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<int>("TurnierInstanzId")
                         .HasColumnType("int");
 
@@ -992,6 +1010,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.HasKey("Id");
 
                     b.HasIndex("RegelwerkId");
+
+                    b.HasIndex("StandardRanglistenQuelleId");
 
                     b.HasIndex("TurnierInstanzId", "Reihenfolge")
                         .IsUnique();
@@ -1156,6 +1176,16 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("Mannschaft");
 
                     b.Navigation("Uebergangsregel");
+                });
+
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.Rangliste", b =>
+                {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenQuelle", "RanglistenQuelle")
+                        .WithMany()
+                        .HasForeignKey("RanglistenQuelleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("RanglistenQuelle");
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenEintrag", b =>
@@ -1439,6 +1469,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasForeignKey("StandardRegelwerkId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Mannschaft", "Titelverteidiger")
+                        .WithMany()
+                        .HasForeignKey("TitelverteidigerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Verband", "Verband")
                         .WithMany()
                         .HasForeignKey("VerbandId")
@@ -1447,6 +1482,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("Land");
 
                     b.Navigation("StandardRegelwerk");
+
+                    b.Navigation("Titelverteidiger");
 
                     b.Navigation("Verband");
                 });
@@ -1458,6 +1495,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasForeignKey("RegelwerkId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenQuelle", "StandardRanglistenQuelle")
+                        .WithMany()
+                        .HasForeignKey("StandardRanglistenQuelleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", "TurnierInstanz")
                         .WithMany("Runden")
                         .HasForeignKey("TurnierInstanzId")
@@ -1465,6 +1507,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .IsRequired();
 
                     b.Navigation("Regelwerk");
+
+                    b.Navigation("StandardRanglistenQuelle");
 
                     b.Navigation("TurnierInstanz");
                 });
