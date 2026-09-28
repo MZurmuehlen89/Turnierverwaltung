@@ -91,6 +91,7 @@ public class LandesQuoteAnzeigeViewModel
 
 public record AuslosungsartOption(string Anzeige, Auslosungsart Wert);
 public record RanglisteOption(string Anzeige, Rangliste? Wert);
+public record TeilnehmerLandOption(string Anzeige, int? LandId);
 
 // ── TV-Modus: Live-Ziehungsanzeige (#303, Port aus Wpf/ViewModels/AuslosungViewModel.cs, Issue #5) ──
 // WinUI3 kennt kein Style.Triggers/DataTrigger (siehe WinUi/CLAUDE.md-Fallstricke) — das WPF-Original graut
@@ -415,6 +416,63 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(VerfuegbareTeilnehmerGefiltert))]
     private string _teilnehmerFilter = "";
 
+    // ── Länderfilter für verfügbare Teams (Issue #344) ──────────────────────────
+    // Stabile Optionsliste + eine kanonische Option je Land: WinUI3-ComboBoxen gleichen SelectedItem per
+    // Referenz ab und vertragen weder getauschte ItemsSource-Instanzen noch Replace-Notifications (#335/#347).
+    private static readonly TeilnehmerLandOption _alleLaender = new("Alle Länder", null);
+    private readonly Dictionary<int, TeilnehmerLandOption> _landOptionenJeLandId = [];
+
+    public ObservableCollection<TeilnehmerLandOption> LandFilterOptionen { get; } = [_alleLaender];
+
+    public bool ZeigeLandFilter => LandFilterOptionen.Count > 1;
+
+    private TeilnehmerLandOption _landFilter = _alleLaender;
+    public TeilnehmerLandOption? LandFilter
+    {
+        get => _landFilter;
+        set
+        {
+            // null schreibt die ComboBox beim Umbau ihrer Optionen zurück — nie ins Modell übernehmen (#347)
+            if (value is null || !SetProperty(ref _landFilter, value)) return;
+            OnPropertyChanged(nameof(VerfuegbareTeilnehmerGefiltert));
+        }
+    }
+
+    partial void OnVerfuegbareTeilnehmerChanged(ObservableCollection<TeilnehmerAnzeige> value) =>
+        LandFilterOptionenSynchronisieren();
+
+    /// <summary>Gleicht die Länderoptionen mit den aktuell verfügbaren Teams ab („Alle Länder“ + vorkommende
+    /// Länder alphabetisch). Reiner Merge (erst Überzählige entfernen, dann Fehlende einfügen) — die Restliste
+    /// ist stets eine Teilfolge der Zielliste, da beide gleich sortiert sind. Kommt das gewählte Land nicht mehr
+    /// vor (z.B. letztes Team in einen Topf gezogen), fällt der Filter auf „Alle Länder“ zurück.</summary>
+    private void LandFilterOptionenSynchronisieren()
+    {
+        var soll = VerfuegbareTeilnehmer
+            .Where(t => t.LandId.HasValue)
+            .GroupBy(t => t.LandId!.Value)
+            .Select(g => LandOptionFuer(g.Key, g.First().LandName))
+            .OrderBy(o => o.Anzeige)
+            .Prepend(_alleLaender)
+            .ToList();
+
+        if (!soll.Contains(_landFilter)) LandFilter = _alleLaender;
+
+        for (var i = LandFilterOptionen.Count - 1; i >= 0; i--)
+            if (!soll.Contains(LandFilterOptionen[i])) LandFilterOptionen.RemoveAt(i);
+        for (var i = 0; i < soll.Count; i++)
+            if (i >= LandFilterOptionen.Count || !ReferenceEquals(LandFilterOptionen[i], soll[i]))
+                LandFilterOptionen.Insert(i, soll[i]);
+
+        OnPropertyChanged(nameof(ZeigeLandFilter));
+    }
+
+    private TeilnehmerLandOption LandOptionFuer(int landId, string? landName)
+    {
+        if (!_landOptionenJeLandId.TryGetValue(landId, out var option))
+            _landOptionenJeLandId[landId] = option = new TeilnehmerLandOption(landName ?? $"Land {landId}", landId);
+        return option;
+    }
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AlleToepfeZuruecksetzenCommand))]
     private ObservableCollection<LostopfViewModel> _lostoepfe = [];
@@ -568,9 +626,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     // ── Berechnete Eigenschaften ─────────────────────────────────────────────
     public IEnumerable<TeilnehmerAnzeige> VerfuegbareTeilnehmerGefiltert =>
-        string.IsNullOrWhiteSpace(TeilnehmerFilter)
+        string.IsNullOrWhiteSpace(TeilnehmerFilter) && _landFilter.LandId is null
             ? VerfuegbareTeilnehmer
-            : VerfuegbareTeilnehmer.Where(t => t.Name.Contains(TeilnehmerFilter, StringComparison.OrdinalIgnoreCase));
+            : VerfuegbareTeilnehmer
+                .Where(t => string.IsNullOrWhiteSpace(TeilnehmerFilter)
+                            || t.Name.Contains(TeilnehmerFilter, StringComparison.OrdinalIgnoreCase))
+                .Where(t => _landFilter.LandId is null || t.LandId == _landFilter.LandId);
 
     // Auslosungsart.Manuell wird hier nicht angeboten — die Paarungsfestlegung für Runden mit von vornherein
     // feststehenden Paarungen lebt im Vorbelegung-Tab (VorbelegungViewModel/VorbelegungWorkspace, #297).
@@ -742,6 +803,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         InstanzRunden.Clear();
         VerfuegbareTeilnehmer.Clear();
         TeilnehmerFilter = "";
+        LandFilter = _alleLaender;
+        LandFilterOptionenSynchronisieren();
         DetailAktiv = false;
         NeuFormAktiv = false;
         AusgewaehlteAuslosung = null;

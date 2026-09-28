@@ -554,12 +554,18 @@
                           ColumnDefinitions="2.4*,16,7*" Margin="0,0,0,16">
 
                         <!-- Verfügbare Teilnehmer -->
-                        <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*">
+                        <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,*">
                             <TextBlock Grid.Row="0" Text="VERFÜGBAR" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,6" />
                             <TextBox Grid.Row="1" PlaceholderText="🔍  Filtern …"
                                      Text="{Binding TeilnehmerFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      Margin="0,0,0,6" />
-                            <ListView Grid.Row="2" x:Name="VerfuegbarListView"
+                            <!-- Länderfilter (#344), nur sichtbar, wenn der Pool Teams mit Land enthält -->
+                            <ComboBox Grid.Row="2" HorizontalAlignment="Stretch" Margin="0,0,0,6"
+                                      ItemsSource="{Binding LandFilterOptionen}"
+                                      SelectedItem="{Binding LandFilter, Mode=TwoWay}"
+                                      DisplayMemberPath="Anzeige"
+                                      Visibility="{Binding ZeigeLandFilter, Converter={StaticResource BoolToVisibility}}" />
+                            <ListView Grid.Row="3" x:Name="VerfuegbarListView"
                                       ItemsSource="{Binding VerfuegbareTeilnehmerGefiltert}"
                                       SelectionMode="Extended"
                                       CanDragItems="True" CanReorderItems="False"

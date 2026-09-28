@@ -10,13 +10,14 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// müssen, siehe WinUi-CLAUDE.md). <see cref="EintragId"/> (Default 0, ungenutzt von Vorbelegung) identifiziert
 /// den zugehörigen <see cref="LostopfEintrag"/> — nötig, damit Auslosung (#300) gezielt einen Eintrag aus
 /// einem Lostopf entfernen kann, ohne nach Name/MannschaftId zu suchen (mehrere Platzhalter könnten gleich
-/// heißen).</summary>
-public record TeilnehmerAnzeige(int? MannschaftId, string Name, string? Kuerzel, int EintragId = 0, int? LandId = null, byte[]? Wappen = null)
+/// heißen). <see cref="LandName"/> speist den Länderfilter der verfügbaren Teams in der Auslosung (#344).</summary>
+public record TeilnehmerAnzeige(int? MannschaftId, string Name, string? Kuerzel, int EintragId = 0, int? LandId = null, byte[]? Wappen = null,
+                                string? LandName = null)
 {
     public bool IstPlatzhalter => !MannschaftId.HasValue;
 
     public static TeilnehmerAnzeige AusMannschaft(Mannschaft m) =>
-        new(m.Id, m.Name, m.Land?.Kurzname, LandId: m.LandId, Wappen: MannschaftsIcon(m));
+        new(m.Id, m.Name, m.Land?.Kurzname, LandId: m.LandId, Wappen: MannschaftsIcon(m), LandName: m.Land?.Name);
 
     public static TeilnehmerAnzeige AusPlatzhalter(string name) =>
         new(null, name, null);
