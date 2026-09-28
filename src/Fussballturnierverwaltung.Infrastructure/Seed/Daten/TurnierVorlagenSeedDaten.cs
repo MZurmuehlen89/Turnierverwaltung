@@ -1,3 +1,5 @@
+using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 
@@ -71,9 +73,8 @@ public static class TurnierVorlagenSeedDaten
 
     // ── Weltmeisterschaften ────────────────────────────────────────────────────
 
-    // Issue #350: 12 Vierergruppen, Erste/Zweite + 8 beste Dritte → Sechzehntelfinale. Die reale feste
-    // Baum-Zuordnung der Dritten per Kombinationstabelle (495 Fälle) ist noch nicht abbildbar (#372) —
-    // das Sechzehntelfinale wird bis dahin ausgelost.
+    // Issue #350: 12 Vierergruppen, Erste/Zweite + 8 beste Dritte → Sechzehntelfinale. Issue #372: fester Baum
+    // wie WM 2026 (Spiele 73–88 in Baumreihenfolge), Dritte per Kombinationstabelle aus Annex C (495 Fälle).
     private static TurnierInstanz FifaWm48Teams(IReadOnlyDictionary<string, int>? rw)
     {
         var v = new TurnierInstanz
@@ -98,6 +99,9 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(5, "Halbfinale",        Rundenart.KoRunde,           4,  2, regelwerkId: rId));
         v.Runden.Add(Runde(6, "Spiel um Platz 3",  Rundenart.SpielUmPlatzDrei,  2,  1, regelwerkId: rId));
         v.Runden.Add(Runde(7, "Finale",            Rundenart.Finale,            2,  1, regelwerkId: rId));
+        FesterKoBaum(v, KombinationstabellenSeedDaten.FifaWm2026,
+            "1E-3ABCDF", "1I-3CDFGH", "2A-2B", "1F-2C", "2K-2L", "1H-2J", "1D-3BEFIJ", "1G-3AEHIJ",
+            "1C-2F", "2E-2I", "1A-3CEFHI", "1L-3EHIJK", "1J-2H", "2D-2G", "1B-3EFGIJ", "1K-3DEIJL");
         return v;
     }
 
@@ -120,6 +124,7 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(4, "Halbfinale",        Rundenart.KoRunde,           4,  2, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Spiel um Platz 3",  Rundenart.SpielUmPlatzDrei,  2,  1, regelwerkId: rId));
         v.Runden.Add(Runde(6, "Finale",            Rundenart.Finale,            2,  1, regelwerkId: rId));
+        FesterKoBaum(v, tabelle: null, ACHT_GRUPPEN_BAUM);
         return v;
     }
 
@@ -163,6 +168,9 @@ public static class TurnierVorlagenSeedDaten
             MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
         };
         SechsGruppenMitBestenDrittenUndKo(v, RwId(rw, "FIFA Historisch (2-Punkte, vor 1994)"), mitSpielUmPlatzDrei: true);
+        // Issue #372: fester Baum wie WM 1994, Dritten-Zuordnung laut Reglement (identisch mit EURO 2016).
+        FesterKoBaum(v, KombinationstabellenSeedDaten.SechsGruppenSchema2016,
+            "1A-3CDE", "2B-2F", "1F-2E", "1B-3ACD", "1E-2D", "1C-3ABF", "1D-3BEF", "2A-2C");
         return v;
     }
 
@@ -203,8 +211,11 @@ public static class TurnierVorlagenSeedDaten
             MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
             VerbandId = VId(verband, "UEFA"),
         };
-        // Issue #350: Erste/Zweite + 4 beste Dritte; die feste Baum-Zuordnung der Dritten folgt mit #372.
+        // Issue #350: Erste/Zweite + 4 beste Dritte. Issue #372: fester Baum und Dritten-Zuordnung wie EURO 2020/2024
+        // (die EURO 2016 hatte noch den Baum der Afrika-Cup-/Asian-Cup-Vorlagen).
         SechsGruppenMitBestenDrittenUndKo(v, RwId(rw, "FIFA Standard Modern (3-Punkte)"), mitSpielUmPlatzDrei: false);
+        FesterKoBaum(v, KombinationstabellenSeedDaten.SechsGruppenSchema2020,
+            "1B-3ADEF", "1A-2C", "1F-3ABC", "2D-2E", "1E-3ABCD", "1D-2F", "1C-3DEF", "2A-2B");
         return v;
     }
 
@@ -227,6 +238,8 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(2, "Viertelfinale", Rundenart.KoRunde,       8,  4, regelwerkId: rId));
         v.Runden.Add(Runde(3, "Halbfinale",    Rundenart.KoRunde,       4,  2, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Finale",        Rundenart.Finale,        2,  1, regelwerkId: rId));
+        // Issue #372: fester Baum 1996–2012 (VF 1A–2B/1C–2D bilden HF 1, 1B–2A/1D–2C HF 2).
+        FesterKoBaum(v, tabelle: null, "1A-2B", "1C-2D", "1B-2A", "1D-2C");
         return v;
     }
 
@@ -249,6 +262,8 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(2, "Halbfinale",       Rundenart.KoRunde,          4,  2, regelwerkId: rId));
         v.Runden.Add(Runde(3, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei, 2,  1, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Finale",           Rundenart.Finale,           2,  1, regelwerkId: rId));
+        // Issue #372: Halbfinale über Kreuz wie 1984–1992.
+        FesterKoBaum(v, tabelle: null, "1A-2B", "1B-2A");
         return v;
     }
 
@@ -301,6 +316,8 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(3, "Halbfinale",       Rundenart.KoRunde,           4, 2, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei,  2, 1, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Finale",           Rundenart.Finale,            2, 1, regelwerkId: rId));
+        // Issue #372: fester Baum wie Copa América 2024.
+        FesterKoBaum(v, tabelle: null, "1A-2B", "1B-2A", "1C-2D", "1D-2C");
         return v;
     }
 
@@ -327,6 +344,8 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(3, "Halbfinale",       Rundenart.KoRunde,           4, 2, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei,  2, 1, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Finale",           Rundenart.Finale,            2, 1, regelwerkId: rId));
+        // Issue #372: fester Baum und Dritten-Zuordnung wie Copa América 2019.
+        FesterKoBaum(v, KombinationstabellenSeedDaten.CopaAmerica12, "1A-3BC", "2A-2B", "1B-2C", "1C-3AB");
         return v;
     }
 
@@ -345,6 +364,8 @@ public static class TurnierVorlagenSeedDaten
             VerbandId = VId(verband, "CAF"),
         };
         SechsGruppenMitBestenDrittenUndKo(v, RwId(rw, "FIFA Standard Modern (3-Punkte)"), mitSpielUmPlatzDrei: true);
+        // Issue #372: fester Baum wie Afrika-Cup 2023, Dritten-Zuordnung laut Reglement (identisch mit EURO 2016).
+        FesterKoBaum(v, KombinationstabellenSeedDaten.SechsGruppenSchema2016, SECHS_GRUPPEN_BAUM_2016);
         return v;
     }
 
@@ -363,6 +384,8 @@ public static class TurnierVorlagenSeedDaten
             VerbandId = VId(verband, "AFC"),
         };
         SechsGruppenMitBestenDrittenUndKo(v, RwId(rw, "FIFA Standard Modern (3-Punkte)"), mitSpielUmPlatzDrei: false);
+        // Issue #372: fester Baum wie Asian Cup 2023, Dritten-Zuordnung laut Reglement (identisch mit EURO 2016).
+        FesterKoBaum(v, KombinationstabellenSeedDaten.SechsGruppenSchema2016, SECHS_GRUPPEN_BAUM_2016);
         return v;
     }
 
@@ -385,6 +408,8 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(2, "Viertelfinale", Rundenart.KoRunde,       8, 4, regelwerkId: rId));
         v.Runden.Add(Runde(3, "Halbfinale",    Rundenart.KoRunde,       4, 2, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Finale",        Rundenart.Finale,        2, 1, regelwerkId: rId));
+        // Issue #372: fester Baum wie Gold Cup 2025.
+        FesterKoBaum(v, tabelle: null, "1D-2A", "1B-2C", "1A-2D", "1C-2B");
         return v;
     }
 
@@ -513,6 +538,8 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(3, "Viertelfinale",    Rundenart.KoRunde,          8,  4, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Halbfinale",       Rundenart.KoRunde,          4,  2, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Finale",           Rundenart.Finale,           2,  1, regelwerkId: rId));
+        // Issue #372: fester Baum wie Klub-WM 2025 (gleiche Struktur wie die WM mit 32 Teams).
+        FesterKoBaum(v, tabelle: null, ACHT_GRUPPEN_BAUM);
         return v;
     }
 
@@ -697,6 +724,59 @@ public static class TurnierVorlagenSeedDaten
             Uebergang(gruppenphase, ziel, gruppe, 1, direktProGruppe);
         if (besteDritte > 0)
             Uebergang(gruppenphase, ziel, gruppeIndex: null, direktProGruppe + 1, direktProGruppe + 1, anzahlBeste: besteDritte);
+    }
+
+    // ── Feste K.-o.-Bäume (Issue #372) ───────────────────────────────────────
+
+    // WM 32 (1998–2022) und Klub-WM 2025: Achtelfinale in Baumreihenfolge (Spiele 49, 50, 53, 54, 51, 52, 55, 56).
+    private static readonly string[] ACHT_GRUPPEN_BAUM =
+        ["1A-2B", "1C-2D", "1E-2F", "1G-2H", "1B-2A", "1D-2C", "1F-2E", "1H-2G"];
+
+    // Afrika-Cup/Asian Cup ab 2019 (Baum wie EURO 2016): Achtelfinale in Baumreihenfolge.
+    private static readonly string[] SECHS_GRUPPEN_BAUM_2016 =
+        ["2A-2C", "1D-3BEF", "1B-3ACD", "1F-2E", "1E-2D", "1C-3ABF", "2B-2F", "1A-3CDE"];
+
+    /// <summary>Hinterlegt den realen festen K.-o.-Baum als Vorbelegung: die erste K.-o.-Runde bekommt die
+    /// übergebenen Paarungen in Baumreihenfolge (Kurznotation "1B-3ADEF" = "1. Gruppe B" gegen "3. Gruppe A/D/E/F"),
+    /// jede weitere K.-o.-Runde "Sieger &lt;Vorrunde&gt; 1 – Sieger &lt;Vorrunde&gt; 2" usw., Spiel um Platz 3 und Finale
+    /// die Verlierer bzw. Sieger des Halbfinals. Muss nach dem Anlegen aller Runden aufgerufen werden.</summary>
+    private static void FesterKoBaum(TurnierInstanz v, Kombinationstabelle? tabelle, params string[] ersteRunde)
+    {
+        var koRunden = v.Runden.OrderBy(r => r.Reihenfolge).Where(r => r.Rundenart != Rundenart.Gruppenphase).ToList();
+        var erste = koRunden.First(r => r.Rundenart == Rundenart.KoRunde);
+        erste.KombinationstabelleJson = tabelle?.ZuJson();
+        FestePaarungen(v, erste, ersteRunde.Select(p => p.Split('-')).Select(t => (GruppenPlatz(t[0]), GruppenPlatz(t[1]))));
+
+        var vorrunde = erste;
+        foreach (var runde in koRunden.Where(r => r.Reihenfolge > erste.Reihenfolge))
+        {
+            string prefix = runde.Rundenart == Rundenart.SpielUmPlatzDrei ? "Verlierer" : "Sieger";
+            int spiele = vorrunde.EingangsMannschaftsanzahl / 2;
+            FestePaarungen(v, runde, Enumerable.Range(0, spiele / 2)
+                .Select(i => ($"{prefix} {vorrunde.Name} {2 * i + 1}", $"{prefix} {vorrunde.Name} {2 * i + 2}")));
+            if (runde.Rundenart == Rundenart.KoRunde) vorrunde = runde;
+        }
+    }
+
+    // "1B" → "1. Gruppe B", "3ADEF" → "3. Gruppe A/D/E/F" (Format aus PlatzhalterHilfsmittel bzw. Kombinationstabelle).
+    private static string GruppenPlatz(string kurz) => $"{kurz[0]}. Gruppe {string.Join('/', kurz[1..].ToCharArray())}";
+
+    private static void FestePaarungen(TurnierInstanz v, TurnierRunde runde, IEnumerable<(string Heim, string Auswaerts)> paarungen)
+    {
+        runde.PaarungFestVorgegeben = true;
+        var auslosung = new Auslosung
+        {
+            TurnierInstanz = v,
+            TurnierRunde   = runde,
+            Name           = runde.Name,
+            Auslosungsart  = Auslosungsart.Manuell,
+            Status         = AuslosungsStatus.Abgeschlossen,
+        };
+        int nr = 1;
+        foreach (var (heim, auswaerts) in paarungen)
+            auslosung.Ergebnisse.Add(new AuslosungsErgebnis
+                { PaarungsNummer = nr++, HeimPlatzhalterName = heim, AuswaertsPlatzhalterName = auswaerts });
+        v.Auslosungen.Add(auslosung);
     }
 
     // Gemeinsamer Aufbau der 24er-Turniere (EM 24, WM 1986–1994, Afrika-Cup, Asian Cup): 6 Vierergruppen,

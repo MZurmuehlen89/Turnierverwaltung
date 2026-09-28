@@ -228,7 +228,8 @@ public partial class VorbelegungWorkspace : ObservableObject
             bool hatVorgaenger;
             if (eingehendeRegeln.Count > 0)
             {
-                alleTeilnehmer = TeilnehmerPoolHilfsmittel.PlatzhalterAusRegelnGenerieren(eingehendeRegeln);
+                alleTeilnehmer = TeilnehmerPoolHilfsmittel.PlatzhalterAusRegelnGenerieren(
+                    eingehendeRegeln, Kombinationstabelle.AusJson(Runde.KombinationstabelleJson));
                 hatVorgaenger = true;
             }
             else

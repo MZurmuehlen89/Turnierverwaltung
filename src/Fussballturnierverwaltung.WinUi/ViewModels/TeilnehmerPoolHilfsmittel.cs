@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 
@@ -20,25 +21,29 @@ public static class TeilnehmerPoolHilfsmittel
 
     /// <summary>Erzeugt den Platzhalter-Teilnehmer-Pool aus den tatsächlichen eingehenden Übergangsregeln
     /// einer Zielrunde — unterstützt mehrere unabhängige Quellrunden gleichzeitig. <paramref name="eingehendeRegeln"/>
-    /// muss mit geladener QuellRunde-Navigation kommen und wird als nicht leer vorausgesetzt.</summary>
+    /// muss mit geladener QuellRunde-Navigation kommen und wird als nicht leer vorausgesetzt. Mit
+    /// <paramref name="kombinationstabelle"/> der Zielrunde (Issue #372) werden die besten Gruppendritten als deren
+    /// feste Baumplätze ("3. Gruppe A/D/E/F") statt als Rangfolge ("1. bester 3. Platz") angeboten.</summary>
     public static IReadOnlyList<TeilnehmerAnzeige> PlatzhalterAusRegelnGenerieren(
-        IReadOnlyList<Uebergangsregel> eingehendeRegeln) =>
+        IReadOnlyList<Uebergangsregel> eingehendeRegeln, Kombinationstabelle? kombinationstabelle = null) =>
         eingehendeRegeln
             .OrderBy(r => r.QuellRunde.Reihenfolge)
             .ThenBy(r => r.GruppeIndex ?? 0)
             .ThenBy(r => r.PlatzierungVon)
-            .SelectMany(PlatzhalterFuerRegel)
+            .SelectMany(r => PlatzhalterFuerRegel(r, kombinationstabelle))
             .ToList();
 
-    private static IEnumerable<TeilnehmerAnzeige> PlatzhalterFuerRegel(Uebergangsregel regel)
+    private static IEnumerable<TeilnehmerAnzeige> PlatzhalterFuerRegel(Uebergangsregel regel, Kombinationstabelle? kombinationstabelle)
     {
         var quellRunde = regel.QuellRunde;
 
         if (quellRunde.Rundenart == Rundenart.Gruppenphase)
         {
             if (regel.AnzahlBeste is { } anzahlBeste)
-                return Enumerable.Range(1, anzahlBeste)
-                    .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"{i}. bester {regel.PlatzierungVon}. Platz"));
+                return kombinationstabelle is not null && kombinationstabelle.AnzahlBeste == anzahlBeste
+                    ? kombinationstabelle.Plaetze.Select(TeilnehmerAnzeige.AusPlatzhalter)
+                    : Enumerable.Range(1, anzahlBeste)
+                        .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"{i}. bester {regel.PlatzierungVon}. Platz"));
 
             var buchstabe = regel.GruppeIndex is { } g ? GruppenBuchstabe(g) : "?";
             return Enumerable.Range(regel.PlatzierungVon, regel.PlatzierungBis - regel.PlatzierungVon + 1)

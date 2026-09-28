@@ -38,6 +38,7 @@ public class SeedDatenService
         await TurnierVorlagenFilterNachruesten(cancellationToken);
         await TurnierVorlagenRundenartNachruesten(cancellationToken);
         await TurnierVorlagenStrukturNachruesten(cancellationToken);
+        await TurnierVorlagenFesteKoBaeumeNachruesten(cancellationToken);
         await RanglistenQuellenNachruesten(cancellationToken);
     }
 
@@ -417,6 +418,68 @@ public class SeedDatenService
         {
             await _context.SaveChangesAsync(ct);
             _logger.LogInformation("{Anzahl} Struktur-Ergänzungen an Turniervorlagen nachgerüstet.", aktualisiert);
+        }
+    }
+
+    /// <summary>Issue #372: trägt den realen festen K.-o.-Baum (Vorbelegung + ggf. Kombinationstabelle) bei
+    /// bestehenden Vorlagen nach. Nur, wenn ALLE betroffenen Runden noch dem Seed entsprechen (Reihenfolge,
+    /// Name, Rundenart, Eingangsanzahl) und keine davon schon eine Auslosung hat — eine manuell angelegte
+    /// Vorbelegung wird nie überschrieben, ein halb nachgerüsteter Baum entsteht nie.</summary>
+    private async Task TurnierVorlagenFesteKoBaeumeNachruesten(CancellationToken ct)
+    {
+        var sollVorlagen = TurnierVorlagenSeedDaten.Erstellen()
+            .Where(v => v.Auslosungen.Count > 0)
+            .ToDictionary(v => v.Name);
+
+        var vorhandeneVorlagen = await _context.TurnierInstanzen
+            .Include(i => i.Runden)
+            .Include(i => i.Auslosungen)
+            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
+            .ToListAsync(ct);
+
+        int aktualisiert = 0;
+        foreach (var vorlage in vorhandeneVorlagen)
+        {
+            if (!sollVorlagen.TryGetValue(vorlage.Name, out var soll)) continue;
+
+            var zuordnung = soll.Auslosungen.ToDictionary(
+                a => a,
+                a => vorlage.Runden.FirstOrDefault(r =>
+                    r.Reihenfolge == a.TurnierRunde.Reihenfolge
+                    && r.Name == a.TurnierRunde.Name
+                    && r.Rundenart == a.TurnierRunde.Rundenart
+                    && r.EingangsMannschaftsanzahl == a.TurnierRunde.EingangsMannschaftsanzahl));
+            if (zuordnung.Values.Any(r => r is null)) continue;
+            if (zuordnung.Values.Any(r => vorlage.Auslosungen.Any(a => a.TurnierRundeId == r!.Id))) continue;
+
+            foreach (var (sollAuslosung, runde) in zuordnung)
+            {
+                runde!.PaarungFestVorgegeben = true;
+                runde.KombinationstabelleJson ??= sollAuslosung.TurnierRunde.KombinationstabelleJson;
+                var auslosung = new Domain.Entitaeten.Auslosungen.Auslosung
+                {
+                    TurnierInstanzId = vorlage.Id,
+                    TurnierRundeId   = runde.Id,
+                    Name             = sollAuslosung.Name,
+                    Auslosungsart    = sollAuslosung.Auslosungsart,
+                    Status           = sollAuslosung.Status,
+                };
+                foreach (var e in sollAuslosung.Ergebnisse)
+                    auslosung.Ergebnisse.Add(new Domain.Entitaeten.Auslosungen.AuslosungsErgebnis
+                    {
+                        PaarungsNummer           = e.PaarungsNummer,
+                        HeimPlatzhalterName      = e.HeimPlatzhalterName,
+                        AuswaertsPlatzhalterName = e.AuswaertsPlatzhalterName,
+                    });
+                _context.Auslosungen.Add(auslosung);
+            }
+            aktualisiert++;
+        }
+
+        if (aktualisiert > 0)
+        {
+            await _context.SaveChangesAsync(ct);
+            _logger.LogInformation("{Anzahl} Turniervorlagen um festen K.-o.-Baum ergänzt.", aktualisiert);
         }
     }
 
