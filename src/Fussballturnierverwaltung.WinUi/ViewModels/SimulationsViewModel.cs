@@ -86,11 +86,11 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     // ── Protokoll ─────────────────────────────────────────────────────────────
 
     [ObservableProperty] private string? _protokollSpielInfo;
-
-    public ObservableCollection<ProtokollErgebnisZeile>   ProtokollZeilen    { get; } = [];
+    // Issue #341: Spielkopf (kicker-Vorbild) statt der früheren Scoreboard-Zeilenliste
+    [ObservableProperty] private SpielKopf? _protokollKopf;
     public ObservableCollection<EinzelspielEreignisZeile> ProtokollEreignisse { get; } = [];
 
-    public bool HatProtokoll           => ProtokollZeilen.Count > 0;
+    public bool HatProtokoll           => ProtokollKopf is not null;
     public bool HatProtokollEreignisse => ProtokollEreignisse.Count > 0;
 
     // ── Status ────────────────────────────────────────────────────────────────
@@ -511,7 +511,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         // Fügte bisher nur hinzu, ohne vorher zu leeren — beim Wechsel zwischen zwei bereits simulierten
         // Spielen (Breadcrumb-Combobox oder "Spielverlauf ansehen" aus dem Spielplan) hängten sich die
         // Einträge des neuen Spiels an die des vorherigen an, statt sie zu ersetzen.
-        ProtokollZeilen.Clear();
+        ProtokollKopf = null;
         ProtokollEreignisse.Clear();
 
         string heim      = spiel.HeimMannschaft?.Name ?? spiel.HeimPlatzhalterName ?? "?";
@@ -521,20 +521,21 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
         if (spiel.Ergebnis is { } e)
         {
-            string detailText = SpielErgebnisFormatierer.DetailText(
-                e.EntscheidungArt,
-                e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
-                e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
-                e.HeimElfmetertore, e.AuswaertsElfmetertore);
-            string detail = detailText.Length > 0 ? $" ({detailText})" : "";
             byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(spiel.HeimMannschaft);
             byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(spiel.AuswaertsMannschaft);
-            ProtokollZeilen.Add(new ProtokollErgebnisZeile(
-                null,
-                heim, heimWappen,
-                $"{e.HeimToreGesamt}:{e.AuswaertsToreGesamt}",
-                auswaerts, auswaertsWappen,
-                detail));
+
+            // Kontextzeile wie bei kicker ("Champions League 2025/26, Finale") plus Hin-/Rückspiel-Kennung
+            string bein = spiel.IstRueckspiel ? ", Rückspiel" : spiel.TurnierRunde?.MitRueckspiel == true ? ", Hinspiel" : "";
+            string kontext = $"{spiel.TurnierInstanz?.Name}, {spiel.TurnierRunde?.Name}{bein}";
+            var ergebnis = new SimulationsErgebnis(
+                e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
+                e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
+                e.HeimElfmetertore, e.AuswaertsElfmetertore,
+                e.EntscheidungArt, [],
+                e.HalbzeitHeimTore, e.HalbzeitAuswaertsTore);
+            ProtokollKopf = SimulationsProtokollHelfer.SpielKopfErstellen(
+                kontext, spiel.HeimMannschaft, heim, spiel.AuswaertsMannschaft, auswaerts, ergebnis,
+                m => m.Land?.Verband?.Kurzname);
 
             SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
                 ProtokollEreignisse,
@@ -554,7 +555,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     private void LeerProtokoll()
     {
         ProtokollSpielInfo = null;
-        ProtokollZeilen.Clear();
+        ProtokollKopf = null;
         ProtokollEreignisse.Clear();
         OnPropertyChanged(nameof(HatProtokoll));
         OnPropertyChanged(nameof(HatProtokollEreignisse));

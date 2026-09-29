@@ -205,10 +205,15 @@ public class SpielRepository(TurnierverwaltungDbContext context)
 
     public async Task<Spiel?> FindenNachIdMitEreignissenAsync(int id, CancellationToken ct = default)
         => await Context.Spiele
+            // Issue #341: Turnier/Runde für die Kontextzeile, Verband für den Untertitel im Spielkopf
+            .Include(s => s.TurnierInstanz)
+            .Include(s => s.TurnierRunde)
             .Include(s => s.HeimMannschaft)
                 .ThenInclude(m => m!.Land)
+                    .ThenInclude(l => l.Verband)
             .Include(s => s.AuswaertsMannschaft)
                 .ThenInclude(m => m!.Land)
+                    .ThenInclude(l => l.Verband)
             .Include(s => s.Ergebnis)
             .Include(s => s.Ereignisse.OrderBy(e => e.Minute))
             .FirstOrDefaultAsync(s => s.Id == id, ct);

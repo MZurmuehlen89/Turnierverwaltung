@@ -5,7 +5,7 @@ namespace Fussballturnierverwaltung.WinUi.Views;
 
 /// <summary>Vereinheitlichte Spielbericht-Karte (Scoreboard + Zeitleiste), 1:1-Port aus
 /// Wpf/Views/SpielberichtControl.xaml.cs (#302). <see cref="LeerZustandText"/> ist der einzige
-/// View-spezifische Teil — der DataContext liefert lose über Property-Namen (ProtokollZeilen/
+/// View-spezifische Teil — der DataContext liefert lose über Property-Namen (ProtokollKopf/
 /// ProtokollEreignisse/HatProtokoll/HatProtokollEreignisse/ZeigeLeerZustand), die
 /// <see cref="ViewModels.SimulationsViewModel"/> über <see cref="ViewModels.SimulationsProtokollHelfer"/>
 /// bereitstellt.</summary>

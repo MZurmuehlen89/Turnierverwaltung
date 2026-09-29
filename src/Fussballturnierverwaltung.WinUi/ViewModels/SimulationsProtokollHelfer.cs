@@ -15,7 +15,7 @@ public record EinzelspielEreignisZeile(
     bool IstTrenner = false, string? TrennerText = null, TrennerArt TrennerArt = TrennerArt.Abschnitt,
     byte[]? Wappen = null,
     bool IstTor = false, bool IstGelbeKarte = false, bool IstRoteKarte = false, bool IstElfmeterVerschossen = false,
-    string? Detail = null)
+    string? Detail = null, int MinuteWert = 0, bool IstElfmeterschuss = false)
 {
     // Nur fuer IstTrenner==true aussagekräftig — die beiden Properties kombinieren beides, damit die
     // Zeitleisten-DataTemplate-Grids nicht zusätzlich auf IstTrenner prüfen müssen (sonst würde bei
@@ -28,31 +28,36 @@ public record EinzelspielEreignisZeile(
     // TrennerArt-DataTriggers im XAML (siehe SpielberichtControl.xaml).
     public bool IstElfmeterTrenner => TrennerArt == TrennerArt.Elfmeter;
 
-    public static EinzelspielEreignisZeile Trenner(string text, TrennerArt art = TrennerArt.Abschnitt) =>
-        new("", "", "", false, IstTrenner: true, TrennerText: text, TrennerArt: art);
+    // Issue #341: minuteWert = Zeitpunkt des Abschnittsendes (45/90/105/120) — der kompakte Zeitstrahl
+    // (SpielZeitstrahlControl) erkennt eine gespielte Verlängerung an Trennern jenseits der 90. Minute.
+    public static EinzelspielEreignisZeile Trenner(string text, TrennerArt art = TrennerArt.Abschnitt, int minuteWert = 0) =>
+        new("", "", "", false, IstTrenner: true, TrennerText: text, TrennerArt: art, MinuteWert: minuteWert);
 }
 
-/// <summary>Issue #237: eine Zeile der Ergebnis-Karte — entweder eine Team-vs-Team-Zeile mit Wappen/
-/// Flaggen (<see cref="ZeigtTeams"/>) oder eine reine Text-Meldung (z. B. "Weiter: TeamX"), die
-/// Score als Freitext nutzt.</summary>
-public record ProtokollErgebnisZeile(
-    string? Label,
-    string? HeimName, byte[]? HeimWappen,
-    string Score,
-    string? AuswaertsName, byte[]? AuswaertsWappen,
-    string Detail = "")
+
+/// <summary>Issue #341: Spielkopf nach kicker.de-Vorbild — Kontextzeile (Turnier/Runde bzw. Hinspiel/
+/// Rückspiel), große Wappen mit Name und Untertitel, Ergebnis-Box mit Entscheidungsart und
+/// Zwischenständen. Gemeinsam genutzt von Spielbericht-Karte und Hinspiel-/Rückspiel-Karten
+/// (<see cref="Views.SpielKopfControl"/>).</summary>
+public sealed record SpielKopf(
+    string? Kontext,
+    string HeimName, byte[]? HeimWappen, string? HeimUntertitel, string HeimKuerzel,
+    string AuswaertsName, byte[]? AuswaertsWappen, string? AuswaertsUntertitel, string AuswaertsKuerzel,
+    string Score, string? Entscheidung, string? Zwischenstaende)
 {
-    public bool ZeigtTeams => HeimName is not null;
+    public bool HatKontext             => Kontext is not null;
+    public bool HatHeimUntertitel      => HeimUntertitel is not null;
+    public bool HatAuswaertsUntertitel => AuswaertsUntertitel is not null;
+    public bool HatEntscheidung        => Entscheidung is not null;
+    public bool HatZwischenstaende     => Zwischenstaende is not null;
+}
 
-    // Issue #237: Kennzeichnung für die vereinheitlichte Spielbericht-Kopfzeile — die Hauptzeile
-    // (Einzelspiel oder "Gesamt" bei Hin-/Rückspiel) wird groß als Scoreboard dargestellt, Hin-/
-    // Rückspiel-Einzelergebnisse als kleine Chips, eine reine Text-Zeile (z. B. "Weiter: TeamX") als Pill.
-    public bool IstHauptzeile => Label is null or "Gesamt";
-    public bool IstBeinzeile  => Label is "Hinspiel" or "Rückspiel";
-    public bool HatDetail     => !string.IsNullOrWhiteSpace(Detail);
-
-    public static ProtokollErgebnisZeile Text(string? label, string text) =>
-        new(label, null, null, text, null, null);
+/// <summary>Issue #341: Kopf einer Hinspiel-/Rückspiel-Karte (Expander-Header) — Spielkopf plus
+/// kompakter Zeitstrahl in einem Objekt, damit der Header über den bewährten Header/HeaderTemplate-Weg
+/// gebunden bleibt (jede neue Simulation liefert eine neue Instanz).</summary>
+public sealed record SpielBeinAnsicht(SpielKopf Kopf, IReadOnlyCollection<EinzelspielEreignisZeile> Ereignisse)
+{
+    public bool HatEreignisse => Ereignisse.Count > 0;
 }
 
 /// <summary>
@@ -63,30 +68,88 @@ public record ProtokollErgebnisZeile(
 /// </summary>
 internal static class SimulationsProtokollHelfer
 {
-    public static (string Score, string Detail) ScoreUndDetail(SimulationsErgebnis e)
+    // ── Spielkopf (Issue #341) ────────────────────────────────────────────────
+
+    /// <summary>Baut den Spielkopf aus einem Ergebnis. <paramref name="verbandKurzname"/> liefert den
+    /// Kontinentalverband einer Mannschaft (die Aufrufer laden Verbände unterschiedlich).</summary>
+    public static SpielKopf SpielKopfErstellen(
+        string? kontext,
+        Mannschaft? heim, string heimName,
+        Mannschaft? auswaerts, string auswaertsName,
+        SimulationsErgebnis e,
+        Func<Mannschaft, string?> verbandKurzname)
     {
-        int heim = e.HeimToreRegulaer + (e.HeimToreVerlaengerung ?? 0);
-        int gast = e.AuswaertsToreRegulaer + (e.AuswaertsToreVerlaengerung ?? 0);
+        // Wie bei kicker: nach Elfmeterschießen steht der Elfmeterstand groß in der Box, das Ergebnis
+        // nach Verlängerung wandert in die Zwischenstände.
+        bool imElfmeterschiessen = e is { EntscheidungArt: EntscheidungArt.Elfmeterschiessen, HeimElfmetertore: not null, AuswaertsElfmetertore: not null };
+        string score = imElfmeterschiessen
+            ? $"{e.HeimElfmetertore}:{e.AuswaertsElfmetertore}"
+            : $"{e.HeimToreRegulaer + (e.HeimToreVerlaengerung ?? 0)}:{e.AuswaertsToreRegulaer + (e.AuswaertsToreVerlaengerung ?? 0)}";
 
-        // Issue #237 (Nutzer-Feedback): bei Verlängerung/Elfmeterschießen weicht das kombinierte
-        // Endergebnis vom 90-Minuten-Stand ab — ohne ihn zu nennen, ist z.B. bei "2:2 (i.E. 4:3)" nicht
-        // erkennbar, wie das Spiel nach regulärer Spielzeit stand.
-        bool hatteVerlaengerung = e.HeimToreVerlaengerung.HasValue && e.AuswaertsToreVerlaengerung.HasValue;
-        string regulaerHinweis = hatteVerlaengerung ? $"90' {e.HeimToreRegulaer}:{e.AuswaertsToreRegulaer}, " : "";
-
-        string detail = e.EntscheidungArt switch
+        string? entscheidung = e.EntscheidungArt switch
         {
-            EntscheidungArt.Verlaengerung     => $" ({regulaerHinweis}n.V.)",
-            EntscheidungArt.GoldenGoal        => $" ({regulaerHinweis}G.G.)",
-            EntscheidungArt.SilverGoal        => $" ({regulaerHinweis}S.G.)",
-            EntscheidungArt.Elfmeterschiessen => $" ({regulaerHinweis}i.E. {e.HeimElfmetertore}:{e.AuswaertsElfmetertore})",
-            EntscheidungArt.Auswaertstorregel => " (A.T.)",
-            EntscheidungArt.Losentscheid      => " (Los)",
-            EntscheidungArt.Muenzwurf         => " (Münze)",
-            _                                 => ""
+            EntscheidungArt.Elfmeterschiessen => "im Elfmeterschießen",
+            EntscheidungArt.Verlaengerung     => "nach Verlängerung",
+            EntscheidungArt.GoldenGoal        => "nach Golden Goal",
+            EntscheidungArt.SilverGoal        => "nach Silver Goal",
+            EntscheidungArt.Auswaertstorregel => "nach Auswärtstorregel",
+            EntscheidungArt.Losentscheid      => "per Losentscheid",
+            EntscheidungArt.Muenzwurf         => "per Münzwurf",
+            _                                 => null
         };
 
-        return ($"{heim}:{gast}", detail);
+        return new SpielKopf(
+            kontext,
+            heimName, MannschaftsIcon(heim), Untertitel(heim, auswaerts, verbandKurzname), Kuerzel(heim, heimName),
+            auswaertsName, MannschaftsIcon(auswaerts), Untertitel(auswaerts, heim, verbandKurzname), Kuerzel(auswaerts, auswaertsName),
+            score, entscheidung, ZwischenstandText(e));
+    }
+
+    /// <summary>Gesamtkopf einer Hin-/Rückspiel-Paarung aus Sicht des Hinspiel-Heimteams — Summenergebnis
+    /// in der Box, <paramref name="zusatz"/> ("Ergebnis nach Hinspiel", "nach 180 Minuten", …) darunter;
+    /// ohne Zwischenstands-Streifen, die Einzelergebnisse stehen in den Karten darüber.</summary>
+    public static SpielKopf GesamtKopfErstellen(
+        Mannschaft heim, Mannschaft auswaerts, string score, string zusatz,
+        Func<Mannschaft, string?> verbandKurzname) =>
+        new("Gesamt",
+            heim.Name, MannschaftsIcon(heim), Untertitel(heim, auswaerts, verbandKurzname), Kuerzel(heim, heim.Name),
+            auswaerts.Name, MannschaftsIcon(auswaerts), Untertitel(auswaerts, heim, verbandKurzname), Kuerzel(auswaerts, auswaerts.Name),
+            score, zusatz, null);
+
+    // Zwischenstände ("HZ 1:0 · 90' 1:1 · n.V. 2:1"). Der Halbzeitstand fehlt bei manuell eingegebenen
+    // Ergebnissen — ohne jeden Zwischenstand liefert die Methode null.
+    private static string? ZwischenstandText(SimulationsErgebnis e)
+    {
+        var teile = new List<string>();
+        if (e is { HalbzeitHeimTore: int hzHeim, HalbzeitAuswaertsTore: int hzGast })
+            teile.Add($"HZ {hzHeim}:{hzGast}");
+        bool hatVerlaengerung = e is { HeimToreVerlaengerung: not null, AuswaertsToreVerlaengerung: not null };
+        if (hatVerlaengerung || e.EntscheidungArt == EntscheidungArt.Elfmeterschiessen)
+            teile.Add($"90' {e.HeimToreRegulaer}:{e.AuswaertsToreRegulaer}");
+        if (hatVerlaengerung)
+            teile.Add($"n.V. {e.HeimToreRegulaer + e.HeimToreVerlaengerung}:{e.AuswaertsToreRegulaer + e.AuswaertsToreVerlaengerung}");
+        return teile.Count > 0 ? string.Join(" · ", teile) : null;
+    }
+
+    // Untertitel je nach Kontext der Begegnung (Nutzer-Vorgabe #341): Nationalmannschaft → Kontinental-
+    // verband; Verein → Land, außer beide sind Vereine desselben Landes (dann nichtssagend → keiner;
+    // dort gehört künftig die Liga hin, siehe #384).
+    private static string? Untertitel(Mannschaft? mannschaft, Mannschaft? gegner, Func<Mannschaft, string?> verbandKurzname)
+    {
+        if (mannschaft is null) return null;
+        if (mannschaft.Mannschaftsart == Mannschaftsart.Nationalmannschaft)
+            return verbandKurzname(mannschaft);
+        bool nationalesVereinsduell = gegner is { Mannschaftsart: Mannschaftsart.Verein } && gegner.LandId == mannschaft.LandId;
+        return nationalesVereinsduell ? null : mannschaft.Land?.Name;
+    }
+
+    // Issue #341: Team-Kürzel am Zeitstrahl — Kurzname, sonst die ersten drei Buchstaben des Namens
+    // (auch für Platzhalter-Teams ohne Mannschaft, z. B. "Sieger Gruppe A").
+    public static string Kuerzel(Mannschaft? mannschaft, string ersatzName)
+    {
+        if (!string.IsNullOrWhiteSpace(mannschaft?.Kurzname)) return mannschaft.Kurzname;
+        string name = mannschaft?.Name ?? ersatzName;
+        return name[..Math.Min(3, name.Length)].ToUpperInvariant();
     }
 
     // Issue #232, analog #229/#230: Nationalmannschaften zeigen die Landesflagge statt des
@@ -133,17 +196,17 @@ internal static class SimulationsProtokollHelfer
         {
             if (!halbzeitEingefuegt && minute > 45)
             {
-                ziel.Add(EinzelspielEreignisZeile.Trenner($"HALBZEIT · {heimStand}:{auswaertsStand}"));
+                ziel.Add(EinzelspielEreignisZeile.Trenner($"HALBZEIT · {heimStand}:{auswaertsStand}", minuteWert: 45));
                 halbzeitEingefuegt = true;
             }
             if (!neunzigEingefuegt && (hatVerlaengerung || hatElfmeter) && minute > 90)
             {
-                ziel.Add(EinzelspielEreignisZeile.Trenner($"90 MINUTEN · {heimToreRegulaer}:{auswaertsToreRegulaer}"));
+                ziel.Add(EinzelspielEreignisZeile.Trenner($"90 MINUTEN · {heimToreRegulaer}:{auswaertsToreRegulaer}", minuteWert: 90));
                 neunzigEingefuegt = true;
             }
             if (!vzHalbzeitEingefuegt && hatVerlaengerung && minute > 105)
             {
-                ziel.Add(EinzelspielEreignisZeile.Trenner("HALBZEIT VERLÄNGERUNG"));
+                ziel.Add(EinzelspielEreignisZeile.Trenner("HALBZEIT VERLÄNGERUNG", minuteWert: 105));
                 vzHalbzeitEingefuegt = true;
             }
             // Issue #232 Nachtrag: Schwelle statt fixer Nachbereitung, damit die (jetzt einzeln
@@ -153,7 +216,7 @@ internal static class SimulationsProtokollHelfer
             {
                 int heimGesamt      = heimToreRegulaer      + (heimToreVerlaengerung ?? 0);
                 int auswaertsGesamt = auswaertsToreRegulaer + (auswaertsToreVerlaengerung ?? 0);
-                ziel.Add(EinzelspielEreignisZeile.Trenner($"ENDE VERLÄNGERUNG · {heimGesamt}:{auswaertsGesamt}"));
+                ziel.Add(EinzelspielEreignisZeile.Trenner($"ENDE VERLÄNGERUNG · {heimGesamt}:{auswaertsGesamt}", minuteWert: 120));
                 vzEndeEingefuegt = true;
             }
         }
@@ -202,7 +265,9 @@ internal static class SimulationsProtokollHelfer
                 IstGelbeKarte: art == EreignisArt.GelbeKarte,
                 IstRoteKarte: art == EreignisArt.RoteKarte,
                 IstElfmeterVerschossen: art == EreignisArt.ElfmeterVerschossen,
-                Detail: DetailText(artText, beschreibung)));
+                Detail: DetailText(artText, beschreibung),
+                MinuteWert: minute,
+                IstElfmeterschuss: art is EreignisArt.ElfmeterTor or EreignisArt.ElfmeterVerschossen));
         }
 
         // Noch nicht erreichte Schwellen (z. B. Halbzeit ohne Tor, Spielende ohne Ereignis danach) nachtragen

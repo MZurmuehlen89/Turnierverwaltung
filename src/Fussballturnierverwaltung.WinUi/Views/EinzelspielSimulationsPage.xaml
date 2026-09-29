@@ -70,7 +70,11 @@
                       ColumnDefinitions="*,40,*">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Right"
                                 Visibility="{Binding IstHeimSeite, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="{Binding Art}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Art}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                            <TextBlock Text="{Binding Detail}" FontSize="10" Opacity="0.6" HorizontalAlignment="Right"
+                                       Visibility="{Binding Detail, Converter={StaticResource NullToCollapsed}}" />
+                        </StackPanel>
                         <ContentPresenter Content="{Binding}" Margin="6,0,0,0"
                                            ContentTemplate="{StaticResource MiniEreignisIconVorlage}" />
                     </StackPanel>
@@ -93,7 +97,11 @@
                                 Visibility="{Binding IstHeimSeite, Converter={StaticResource InverseBoolToVisibility}}">
                         <ContentPresenter Content="{Binding}" Margin="0,0,6,0"
                                            ContentTemplate="{StaticResource MiniEreignisIconVorlage}" />
-                        <TextBlock Text="{Binding Art}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Art}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding Detail}" FontSize="10" Opacity="0.6" HorizontalAlignment="Left"
+                                       Visibility="{Binding Detail, Converter={StaticResource NullToCollapsed}}" />
+                        </StackPanel>
                     </StackPanel>
                 </Grid>
 
@@ -126,36 +134,20 @@
             </Grid>
         </DataTemplate>
 
-        <!-- Kopfzeile einer Hinspiel-/Rückspiel-Karte (Expander.Header) — Team vs. Team + Score, analog
-             zur Beinzeile in SpielberichtControl.xaml, aber als eigenständige Kartenüberschrift statt
-             kompakter Textzeile. -->
-        <DataTemplate x:Key="BeinKopfVorlage" x:DataType="vm:ProtokollErgebnisZeile">
-            <Grid ColumnDefinitions="56,*,Auto,*" Padding="4,2">
-                <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="11" FontWeight="Bold" Opacity="0.55"
-                           VerticalAlignment="Center" />
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                    <TextBlock Text="{Binding HeimName}" FontSize="13" VerticalAlignment="Center" />
-                    <Grid Width="18" Height="18" VerticalAlignment="Center">
-                        <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                               Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
-                               Stretch="Uniform" />
-                    </Grid>
-                </StackPanel>
-                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="12,0" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Score}" FontSize="15" FontWeight="Bold" FontFamily="Consolas" />
-                    <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                               Margin="6,0,0,0" VerticalAlignment="Center"
-                               Visibility="{Binding HatDetail, Converter={StaticResource BoolToVisibility}}" />
-                </StackPanel>
-                <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Left" Spacing="8">
-                    <Grid Width="18" Height="18" VerticalAlignment="Center">
-                        <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                               Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
-                               Stretch="Uniform" />
-                    </Grid>
-                    <TextBlock Text="{Binding AuswaertsName}" FontSize="13" VerticalAlignment="Center" />
-                </StackPanel>
-            </Grid>
+        <!-- Kopf einer Hinspiel-/Rückspiel-Karte (Expander.Header), Issue #341: derselbe Spielkopf wie in der
+             Spielbericht-Karte (kicker-Vorbild) plus kompakter Zeitstrahl — alles aus einem SpielBeinAnsicht-
+             Objekt, damit der Header über Header/HeaderTemplate gebunden bleibt (ein ContentPresenter mit
+             Content-Binding im UIElement-Header zeigte nach neuer Simulation veraltete bzw. leere Kopfzeilen). -->
+        <DataTemplate x:Key="BeinKopfVorlage" x:DataType="vm:SpielBeinAnsicht">
+            <StackPanel Padding="4,10,4,4">
+                <views:SpielKopfControl DataContext="{Binding Kopf}" />
+                <views:SpielZeitstrahlControl Margin="0,12,0,2"
+                                              Ereignisse="{Binding Ereignisse}"
+                                              HeimKuerzel="{Binding Kopf.HeimKuerzel}"
+                                              AuswaertsKuerzel="{Binding Kopf.AuswaertsKuerzel}"
+                                              IconVorlage="{StaticResource MiniEreignisIconVorlage}"
+                                              Visibility="{Binding HatEreignisse, Converter={StaticResource BoolToVisibility}}" />
+            </StackPanel>
         </DataTemplate>
     </UserControl.Resources>
 
@@ -274,7 +266,7 @@
 
                         <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                   IsExpanded="{Binding HinspielOffen, Mode=TwoWay}"
-                                  Header="{Binding HinspielZeile}" HeaderTemplate="{StaticResource BeinKopfVorlage}">
+                                  Header="{Binding HinspielAnsicht}" HeaderTemplate="{StaticResource BeinKopfVorlage}">
                             <StackPanel Visibility="{Binding HatHinspielEreignisse, Converter={StaticResource BoolToVisibility}}"
                                         Margin="8,4">
                                 <ItemsControl ItemsSource="{Binding HinspielEreignisse}"
@@ -292,7 +284,7 @@
                         <Expander Visibility="{Binding HatRueckspielErgebnis, Converter={StaticResource BoolToVisibility}}"
                                   HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                   IsExpanded="{Binding RueckspielOffen, Mode=TwoWay}"
-                                  Header="{Binding RueckspielZeile}" HeaderTemplate="{StaticResource BeinKopfVorlage}">
+                                  Header="{Binding RueckspielAnsicht}" HeaderTemplate="{StaticResource BeinKopfVorlage}">
                             <StackPanel Visibility="{Binding HatRueckspielEreignisse, Converter={StaticResource BoolToVisibility}}"
                                         Margin="8,4">
                                 <ItemsControl ItemsSource="{Binding RueckspielEreignisse}"
@@ -300,37 +292,22 @@
                             </StackPanel>
                         </Expander>
 
-                        <!-- Echte Zentrierung statt BeinKopfVorlage (deren 56px-Label-Spalte den
-                             Team/Score-Cluster spürbar nach rechts verschiebt — im Expander-Header der
-                             Hin-/Rückspiel-Karten fällt das wegen des Chevrons kaum auf, hier ohne Chevron
-                             schon). Padding 16,14 an die native Expander-Header-Höhe angeglichen, damit der
-                             Balken gleich hoch wirkt wie die beiden Karten darüber (Nutzer-Vorgabe). -->
-                        <Border Visibility="{Binding HatRueckspielErgebnis, Converter={StaticResource BoolToVisibility}}"
+                        <!-- Gesamtergebnis, Issue #341: derselbe Spielkopf wie in den Karten darüber (Kontext
+                             "Gesamt", Zusatz wie "Ergebnis nach Hinspiel"/"nach Elfmeterschießen (3:4)" unter dem
+                             Summenergebnis) — schon nach dem Hinspiel sichtbar. -->
+                        <Border Visibility="{Binding GesamtKopf, Converter={StaticResource NullToCollapsed}}"
                                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                                CornerRadius="4" Padding="16,14">
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
-                                <TextBlock Text="Gesamt" FontSize="11" FontWeight="Bold" Opacity="0.55"
-                                           VerticalAlignment="Center" Margin="0,0,4,0" />
-                                <TextBlock Text="{Binding GesamtZeile.HeimName}" FontSize="14" VerticalAlignment="Center" />
-                                <Image Source="{Binding GesamtZeile.HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                       Visibility="{Binding GesamtZeile.HeimWappen, Converter={StaticResource NullToCollapsed}}"
-                                       Width="22" Height="22" Stretch="Uniform" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding GesamtZeile.Score}" FontSize="17" FontWeight="Bold"
-                                           FontFamily="Consolas" VerticalAlignment="Center" Margin="4,0" />
-                                <Image Source="{Binding GesamtZeile.AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                       Visibility="{Binding GesamtZeile.AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
-                                       Width="22" Height="22" Stretch="Uniform" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding GesamtZeile.AuswaertsName}" FontSize="14" VerticalAlignment="Center" />
-                            </StackPanel>
+                                CornerRadius="4" Padding="20,14,52,14">
+                            <views:SpielKopfControl DataContext="{Binding GesamtKopf}" />
                         </Border>
 
-                        <Border Visibility="{Binding HatRueckspielErgebnis, Converter={StaticResource BoolToVisibility}}"
+                        <Border Visibility="{Binding SiegerText, Converter={StaticResource NullToCollapsed}}"
                                 Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
                                 BorderBrush="{ThemeResource SystemFillColorSuccessBrush}" BorderThickness="1"
                                 CornerRadius="4" Padding="10,8" HorizontalAlignment="Center">
                             <TextBlock FontSize="13" FontWeight="Bold" Foreground="{ThemeResource SystemFillColorSuccessBrush}">
-                                <Run Text="{Binding WeiterZeile.Label}" /><Run Text=": " /><Run Text="{Binding WeiterZeile.Score}" />
+                                <Run Text="{Binding SiegerText}" />
                             </TextBlock>
                         </Border>
 

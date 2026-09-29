@@ -113,10 +113,11 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
     [ObservableProperty] private string? _protokollSpielInfo;
 
-    public ObservableCollection<ProtokollErgebnisZeile>   ProtokollZeilen    { get; } = [];
+    // Issue #341: Spielkopf (kicker-Vorbild) statt der früheren Scoreboard-Zeilenliste
+    [ObservableProperty] private SpielKopf? _protokollKopf;
     public ObservableCollection<EinzelspielEreignisZeile> ProtokollEreignisse { get; } = [];
 
-    public bool HatProtokoll           => ProtokollZeilen.Count > 0;
+    public bool HatProtokoll           => ProtokollKopf is not null;
     public bool HatProtokollEreignisse => ProtokollEreignisse.Count > 0;
     public bool ZeigeLeerZustand       => !HatProtokoll;
 
@@ -144,10 +145,12 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     [ObservableProperty] private bool _hinspielOffen;
     [ObservableProperty] private bool _rueckspielOffen;
 
-    [ObservableProperty] private ProtokollErgebnisZeile? _hinspielZeile;
-    [ObservableProperty] private ProtokollErgebnisZeile? _rueckspielZeile;
-    [ObservableProperty] private ProtokollErgebnisZeile? _gesamtZeile;
-    [ObservableProperty] private ProtokollErgebnisZeile? _weiterZeile;
+    [ObservableProperty] private SpielBeinAnsicht? _hinspielAnsicht;
+    [ObservableProperty] private SpielBeinAnsicht? _rueckspielAnsicht;
+    // Issue #341: Gesamtzeile steht schon nach dem Hinspiel ("Ergebnis nach Hinspiel"), Detail trägt den
+    // Zusatz ("nach 180 Minuten", "nach Elfmeterschießen (3:4)", …).
+    [ObservableProperty] private SpielKopf? _gesamtKopf;
+    [ObservableProperty] private string? _siegerText;
 
     public ObservableCollection<EinzelspielEreignisZeile> HinspielEreignisse   { get; } = [];
     public ObservableCollection<EinzelspielEreignisZeile> RueckspielEreignisse { get; } = [];
@@ -309,16 +312,11 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         try
         {
             var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, SimulationsModus.AusfuehrlicheSimulation);
-            var (score, detail) = SimulationsProtokollHelfer.ScoreUndDetail(erg);
             byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(heim);
             byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(auswaerts);
             ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
-            ProtokollZeilen.Add(new ProtokollErgebnisZeile(
-                null,
-                heim.Name, heimWappen,
-                score,
-                auswaerts.Name, auswaertsWappen,
-                detail));
+            ProtokollKopf = SimulationsProtokollHelfer.SpielKopfErstellen(
+                null, heim, heim.Name, auswaerts, auswaerts.Name, erg, VerbandKurzname);
 
             SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
                 ProtokollEreignisse,
@@ -399,9 +397,8 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
         HinspielErgebnis = erg;
         RueckspielErgebnis = null; // ein verändertes Hinspiel macht ein bestehendes Rückspiel ungültig
-        RueckspielZeile = null;
-        GesamtZeile = null;
-        WeiterZeile = null;
+        RueckspielAnsicht = null;
+        SiegerText = null;
         RueckspielEreignisse.Clear();
         HinspielEreignisse.Clear();
 
@@ -410,11 +407,9 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
         byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(heim);
         byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(auswaerts);
-        var (score, detail) = SimulationsProtokollHelfer.ScoreUndDetail(erg);
+        string score = $"{erg.HeimToreRegulaer}:{erg.AuswaertsToreRegulaer}"; // Hinspiel kennt keine Verlängerung
 
         ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name} (Hin & Rück)";
-        HinspielZeile = new ProtokollErgebnisZeile(
-            "Hinspiel", heim.Name, heimWappen, score, auswaerts.Name, auswaertsWappen, detail);
 
         SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
             HinspielEreignisse,
@@ -424,6 +419,13 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
             erg.HeimElfmetertore, erg.AuswaertsElfmetertore,
             heimWappen, auswaertsWappen);
+
+        HinspielAnsicht = new SpielBeinAnsicht(
+            SimulationsProtokollHelfer.SpielKopfErstellen(
+                "Hinspiel", heim, heim.Name, auswaerts, auswaerts.Name, erg, VerbandKurzname),
+            HinspielEreignisse);
+        GesamtKopf = SimulationsProtokollHelfer.GesamtKopfErstellen(
+            heim, auswaerts, score, "Ergebnis nach Hinspiel", VerbandKurzname);
 
         // Hinspiel steht fest → aufgeklappt; ein vorheriges Rückspiel ist jetzt ungültig → eingeklappt.
         HinspielOffen   = true;
@@ -483,23 +485,33 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             int heimGesamt      = heimGesamtRegulaer      + (erg2.AuswaertsToreVerlaengerung ?? 0);
             int auswaertsGesamt = auswaertsGesamtRegulaer + (erg2.HeimToreVerlaengerung ?? 0);
 
-            string weiter;
+            string? sieger;
             if (heimGesamt != auswaertsGesamt)
-                weiter = heimGesamt > auswaertsGesamt ? heim.Name : auswaerts.Name;
+                sieger = heimGesamt > auswaertsGesamt ? heim.Name : auswaerts.Name;
             else if (erg2 is { EntscheidungArt: EntscheidungArt.Elfmeterschiessen, HeimElfmetertore: not null, AuswaertsElfmetertore: not null })
-                weiter = erg2.HeimElfmetertore > erg2.AuswaertsElfmetertore ? auswaerts.Name : heim.Name; // erg2 "Heim" = auswaerts
+                sieger = erg2.HeimElfmetertore > erg2.AuswaertsElfmetertore ? auswaerts.Name : heim.Name; // erg2 "Heim" = auswaerts
             else
-                weiter = "Unentschieden";
+                sieger = null;
+
+            // Gesamtzeile aus Sicht des Hinspiel-Heimteams — erg2 hat vertauschte Rollen, daher auch
+            // den Elfmeterstand spiegeln.
+            string gesamtZusatz = erg2.EntscheidungArt switch
+            {
+                EntscheidungArt.Elfmeterschiessen => $"nach Elfmeterschießen ({erg2.AuswaertsElfmetertore}:{erg2.HeimElfmetertore})",
+                EntscheidungArt.Verlaengerung
+                    or EntscheidungArt.GoldenGoal
+                    or EntscheidungArt.SilverGoal => "nach Verlängerung",
+                EntscheidungArt.Auswaertstorregel => "nach Auswärtstorregel",
+                EntscheidungArt.Losentscheid      => "nach Losentscheid",
+                EntscheidungArt.Muenzwurf         => "nach Münzwurf",
+                _                                 => "nach 180 Minuten"
+            };
 
             byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(heim);
             byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(auswaerts);
-            var (score2, detail2) = SimulationsProtokollHelfer.ScoreUndDetail(erg2);
-
-            RueckspielZeile = new ProtokollErgebnisZeile(
-                "Rückspiel", auswaerts.Name, auswaertsWappen, score2, heim.Name, heimWappen, detail2);
-            GesamtZeile = new ProtokollErgebnisZeile(
-                "Gesamt", heim.Name, heimWappen, $"{heimGesamt}:{auswaertsGesamt}", auswaerts.Name, auswaertsWappen);
-            WeiterZeile = ProtokollErgebnisZeile.Text("Weiter", weiter);
+            GesamtKopf = SimulationsProtokollHelfer.GesamtKopfErstellen(
+                heim, auswaerts, $"{heimGesamt}:{auswaertsGesamt}", gesamtZusatz, VerbandKurzname);
+            SiegerText = sieger is null ? "Unentschieden" : $"Sieger: {sieger}";
 
             RueckspielEreignisse.Clear();
             SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
@@ -510,6 +522,11 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                 erg2.HeimToreVerlaengerung, erg2.AuswaertsToreVerlaengerung,
                 erg2.HeimElfmetertore, erg2.AuswaertsElfmetertore,
                 auswaertsWappen, heimWappen);
+
+            RueckspielAnsicht = new SpielBeinAnsicht(
+                SimulationsProtokollHelfer.SpielKopfErstellen(
+                    "Rückspiel", auswaerts, auswaerts.Name, heim, heim.Name, erg2, VerbandKurzname),
+                RueckspielEreignisse);
 
             // Rückspiel steht fest → aufgeklappt, Hinspiel klappt automatisch ein (Nutzer-Vorgabe #248).
             HinspielOffen   = false;
@@ -530,21 +547,26 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     private void LeerProtokoll()
     {
         ProtokollSpielInfo = null;
-        ProtokollZeilen.Clear();
+        ProtokollKopf = null;
         ProtokollEreignisse.Clear();
         OnPropertyChanged(nameof(HatProtokoll));
         OnPropertyChanged(nameof(HatProtokollEreignisse));
         OnPropertyChanged(nameof(ZeigeLeerZustand));
     }
 
+    // Mannschaften kommen ohne Verband (AlleAbrufenMitLandAsync) — Kurzname über die ohnehin geladene
+    // Verbandsliste nachschlagen (Untertitel im Spielkopf, #341).
+    private string? VerbandKurzname(Mannschaft mannschaft) =>
+        AlleVerbaende.FirstOrDefault(v => v.Id == mannschaft.Land?.VerbandId)?.Kurzname;
+
     private void LeerHinRueckProtokoll()
     {
         HinspielErgebnis = null;
         RueckspielErgebnis = null;
-        HinspielZeile = null;
-        RueckspielZeile = null;
-        GesamtZeile = null;
-        WeiterZeile = null;
+        HinspielAnsicht = null;
+        RueckspielAnsicht = null;
+        GesamtKopf = null;
+        SiegerText = null;
         HinspielEreignisse.Clear();
         RueckspielEreignisse.Clear();
         HinspielHeimToreEingabe = 0;
