@@ -51,6 +51,7 @@ public partial class SpielZeile : ObservableObject
     public string GesamtText { get; init; } = "";
     public bool HatGesamtText => !string.IsNullOrEmpty(GesamtText);
     public bool IstRueckspiel { get; init; }
+    public int? HinspielId { get; init; }
     public bool IstPlatzhalterSpiel { get; init; }
     public bool HeimIstVorschau { get; init; }
     public bool AuswaertsIstVorschau { get; init; }
@@ -147,6 +148,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(IstSpieltagRunde))]
     [NotifyPropertyChangedFor(nameof(ZeigeFokusListe))]
     [NotifyPropertyChangedFor(nameof(ZeigtSchweizerRundenSteuerung))]
+    [NotifyPropertyChangedFor(nameof(IstKoMitRueckspiel))]
+    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
     private TurnierRunde? _ausgewaehlteRunde;
 
     public bool HatRunde => AusgewaehlteRunde is not null;
@@ -161,6 +164,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public bool IstSpieltagRunde => IstTabellenRunde;
 
     public bool IstLigaMitRueckspiel => IstLigaRunde && (AusgewaehlteRunde?.MitRueckspiel ?? false);
+
+    /// <summary>Issue #387: Die Menüpunkte Hin-/Rückrunde gelten in K.-o.-Runden für Hin- und Rückspiele.</summary>
+    public bool IstKoMitRueckspiel => IstKoRunde && (AusgewaehlteRunde?.MitRueckspiel ?? false);
+    private bool HatHinUndRueckspiel => IstLigaMitRueckspiel || IstKoMitRueckspiel;
+    private string HinrundeMenuText => IstKoMitRueckspiel ? "Hinspiele" : "Hinrunde";
+    private string RueckrundeMenuText => IstKoMitRueckspiel ? "Rückspiele" : "Rückrunde";
 
     public ObservableCollection<GruppenTabelle> GruppenTabellen { get; } = [];
 
@@ -473,8 +482,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     Unteraktionen =
                     [
                         new RibbonUnteraktion("Runde", RundeSimulierenBefehl),
-                        new RibbonUnteraktion("Hinrunde", HinrundeSimulierenBefehl),
-                        new RibbonUnteraktion("Rückrunde", RueckrundeSimulierenBefehl),
+                        new RibbonUnteraktion(HinrundeMenuText, HinrundeSimulierenBefehl),
+                        new RibbonUnteraktion(RueckrundeMenuText, RueckrundeSimulierenBefehl),
                         new RibbonUnteraktion("Gruppe", GruppeSimulierenBefehl),
                         new RibbonUnteraktion(SpieltagSimulierenMenuText, SpieltagSimulierenBefehl),
                         new RibbonUnteraktion(AuswahlSimulierenMenuText, AuswahlSimulierenBefehl),
@@ -487,8 +496,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     Unteraktionen =
                     [
                         new RibbonUnteraktion("Runde", RundeZuruecksetzenBefehl),
-                        new RibbonUnteraktion("Hinrunde", HinrundeZuruecksetzenBefehl),
-                        new RibbonUnteraktion("Rückrunde", RueckrundeZuruecksetzenBefehl),
+                        new RibbonUnteraktion(HinrundeMenuText, HinrundeZuruecksetzenBefehl),
+                        new RibbonUnteraktion(RueckrundeMenuText, RueckrundeZuruecksetzenBefehl),
                         new RibbonUnteraktion("Gruppe", GruppeZuruecksetzenBefehl),
                         new RibbonUnteraktion(SpieltagZuruecksetzenMenuText, SpieltagZuruecksetzenBefehl),
                     ],
@@ -1401,6 +1410,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             ErgebnisDetail = detail,
             GesamtText = gesamt,
             IstRueckspiel = s.IstRueckspiel,
+            HinspielId = s.HinspielId,
             IstPlatzhalterSpiel = !s.HeimMannschaftId.HasValue || !s.AuswaertsMannschaftId.HasValue,
             HeimIstVorschau = heimVorschau is not null,
             AuswaertsIstVorschau = auswaertsVorschau is not null,
@@ -1643,12 +1653,17 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         !IstSimulierend && MehrfachAusgewaehlteSpiele.Count > 1 && AnzahlMehrfachSimulierbar > 0;
 
     private bool CanHinrundeSimulieren() =>
-        IstLigaMitRueckspiel && !IstSimulierend
+        HatHinUndRueckspiel && !IstSimulierend
         && Spiele.Any(s => !s.IstRueckspiel && s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
 
+    // K.-o.-Rückspiele nur mit abgeschlossenem Hinspiel (SimulationsService überspringt die übrigen).
     private bool CanRueckrundeSimulieren() =>
-        IstLigaMitRueckspiel && !IstSimulierend
-        && Spiele.Any(s => s.IstRueckspiel && s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel);
+        HatHinUndRueckspiel && !IstSimulierend
+        && Spiele.Any(s => s.IstRueckspiel && s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel
+            && (!IstKoMitRueckspiel || HinspielAbgeschlossen(s)));
+
+    private bool HinspielAbgeschlossen(SpielZeile rueckspiel) =>
+        rueckspiel.HinspielId is int hinId && Spiele.Any(h => h.Id == hinId && h.HatErgebnis);
 
     private bool CanRundeZuruecksetzen() => HatRunde && !IstSimulierend && Spiele.Any(s => s.HatErgebnis);
 
@@ -1660,10 +1675,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         !IstSimulierend && SpieleAmEffektivenSpieltag().Any(s => s.HatErgebnis);
 
     private bool CanHinrundeZuruecksetzen() =>
-        IstLigaMitRueckspiel && !IstSimulierend && Spiele.Any(s => !s.IstRueckspiel && s.HatErgebnis);
+        HatHinUndRueckspiel && !IstSimulierend && Spiele.Any(s => !s.IstRueckspiel && s.HatErgebnis);
 
     private bool CanRueckrundeZuruecksetzen() =>
-        IstLigaMitRueckspiel && !IstSimulierend && Spiele.Any(s => s.IstRueckspiel && s.HatErgebnis);
+        HatHinUndRueckspiel && !IstSimulierend && Spiele.Any(s => s.IstRueckspiel && s.HatErgebnis);
 
     private bool CanErgebnisLoeschen() =>
         !IstSimulierend
@@ -2020,9 +2035,18 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (spielIds.Count == 0) return;
         var kaskadenHinweis = await KaskadenHinweisAsync(spielIds);
 
-        var bezeichnung = istRueckrunde ? "Rückrunde" : "Hinrunde";
+        var bezeichnung = IstKoMitRueckspiel
+            ? (istRueckrunde ? "Rückspiele" : "Hinspiele")
+            : (istRueckrunde ? "Rückrunde" : "Hinrunde");
+        // Issue #387: Ohne Hinspiel-Ergebnis ist die Gesamtwertung eines K.-o.-Rückspiels hinfällig — der
+        // Ergebnis-Service setzt die zugehörigen Rückspiele mit zurück (Issue #346).
+        var rueckspielHinweis = IstKoMitRueckspiel && !istRueckrunde
+            && Spiele.Any(s => s.IstRueckspiel && s.HatErgebnis && s.HinspielId is int h && spielIds.Contains(h))
+            ? "\n\nDie Ergebnisse der zugehörigen Rückspiele werden ebenfalls zurückgesetzt."
+            : "";
         var bestaetigt = await _dialogService.BestaetigenAsync(
-            "Ergebnisse zurücksetzen", $"Alle {spielIds.Count} Ergebnis(se) der {bezeichnung} zurücksetzen?{kaskadenHinweis}");
+            "Ergebnisse zurücksetzen",
+            $"Alle {spielIds.Count} Ergebnis(se) der {bezeichnung} zurücksetzen?{rueckspielHinweis}{kaskadenHinweis}");
         if (!bestaetigt) return;
 
         int rundeId = AusgewaehlteRunde.Id;

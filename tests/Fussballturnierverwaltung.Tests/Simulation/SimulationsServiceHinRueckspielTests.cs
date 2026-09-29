@@ -130,4 +130,38 @@ public class SimulationsServiceHinRueckspielTests
         spiele.Where(s => s.IstRueckspiel).Select(s => s.Ergebnis!.EntscheidungArt).Distinct()
             .Should().Contain([EntscheidungArt.RegulaereSpielzeit, EntscheidungArt.Elfmeterschiessen]);
     }
+
+    // ── Issue #387: Hinspiele / Rückspiele einer K.-o.-Runde getrennt simulieren ─────────
+
+    [Fact]
+    public async Task RundenHaelfteSimulierenAsync_Hinspiele_SimuliertNurHinspiele()
+    {
+        await using var ctx = NeuerContext();
+        SetupAnlegen(ctx);
+        var service = ServiceFuer(ctx);
+
+        int anzahl = await service.RundenHaelfteSimulierenAsync(1, istRueckrunde: false, SimulationsModus.SchnellSimulation, seed: 387);
+
+        anzahl.Should().Be(PAARUNGEN);
+        var spiele = ctx.Spiele.Include(s => s.Ergebnis).Where(s => s.TurnierRundeId == 1).ToList();
+        spiele.Where(s => !s.IstRueckspiel).Should().OnlyContain(s => s.Ergebnis != null);
+        spiele.Where(s => s.IstRueckspiel).Should().OnlyContain(s => s.Ergebnis == null);
+    }
+
+    [Fact]
+    public async Task RundenHaelfteSimulierenAsync_Rueckspiele_UeberspringtRueckspieleMitOffenemHinspiel()
+    {
+        await using var ctx = NeuerContext();
+        SetupAnlegen(ctx);
+        var service = ServiceFuer(ctx);
+        // Nur das Hinspiel der ersten Paarung ist gespielt.
+        await service.SpielSimulierenAsync(1, SimulationsModus.SchnellSimulation, new Random(387));
+
+        int anzahl = await service.RundenHaelfteSimulierenAsync(1, istRueckrunde: true, SimulationsModus.SchnellSimulation, seed: 387);
+
+        anzahl.Should().Be(1, "nur das Rückspiel mit gespieltem Hinspiel ist simulierbar");
+        var spiele = ctx.Spiele.Include(s => s.Ergebnis).Where(s => s.TurnierRundeId == 1).ToList();
+        spiele.Single(s => s.HinspielId == 1).Ergebnis.Should().NotBeNull();
+        spiele.Where(s => s.IstRueckspiel && s.HinspielId != 1).Should().OnlyContain(s => s.Ergebnis == null);
+    }
 }

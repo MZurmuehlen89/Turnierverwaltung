@@ -272,7 +272,9 @@ public class SimulationsService(
     /// <summary>
     /// Simuliert alle noch nicht abgeschlossenen Spiele einer Rundenhälfte (Hin- oder Rückrunde,
     /// nach <see cref="Spiel.IstRueckspiel"/> unterschieden) — für Liga-Runden mit Rückspiel
-    /// (Issue #100), analog zu <see cref="RundeSimulierenAsync"/> für die gesamte Runde.
+    /// (Issue #100) und K.-o.-Runden mit Hin- und Rückspiel (Issue #387), analog zu
+    /// <see cref="RundeSimulierenAsync"/> für die gesamte Runde. Ein K.-o.-Rückspiel braucht das
+    /// Hinspiel-Ergebnis — Rückspiele mit offenem Hinspiel werden dort übersprungen.
     /// Gibt die Anzahl simulierter Spiele zurück.
     /// </summary>
     public async Task<int> RundenHaelfteSimulierenAsync(
@@ -288,6 +290,17 @@ public class SimulationsService(
             .ToList();
 
         if (!offene.Any()) return 0;
+
+        if (istRueckrunde)
+        {
+            var runde = (await spielRepository.FindenNachIdFuerSimulationAsync(offene[0].Id, ct))?.TurnierRunde;
+            if (runde is not null && HinRueckspielWertung.IstKoRunde(runde))
+            {
+                var hinspielMitErgebnis = spiele.Where(s => s.Ergebnis is not null).Select(s => s.Id).ToHashSet();
+                offene = offene.Where(s => s.HinspielId is int h && hinspielMitErgebnis.Contains(h)).ToList();
+                if (!offene.Any()) return 0;
+            }
+        }
 
         var rng = seed.HasValue ? new Random(seed.Value) : new Random();
         int simuliert = 0;
