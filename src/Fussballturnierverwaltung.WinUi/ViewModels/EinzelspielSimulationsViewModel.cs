@@ -322,7 +322,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
             SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
                 ProtokollEreignisse,
-                erg.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
+                erg.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim, ev.Beschreibung)),
                 heim.Name, auswaerts.Name, erg.EntscheidungArt,
                 erg.HeimToreRegulaer, erg.AuswaertsToreRegulaer,
                 erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
@@ -418,7 +418,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
         SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
             HinspielEreignisse,
-            erg.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
+            erg.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim, ev.Beschreibung)),
             heim.Name, auswaerts.Name, erg.EntscheidungArt,
             erg.HeimToreRegulaer, erg.AuswaertsToreRegulaer,
             erg.HeimToreVerlaengerung, erg.AuswaertsToreVerlaengerung,
@@ -504,7 +504,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             RueckspielEreignisse.Clear();
             SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
                 RueckspielEreignisse,
-                erg2.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim)),
+                erg2.Ereignisse.Select(ev => (ev.Minute, ev.Art, ev.IstHeim, ev.Beschreibung)),
                 auswaerts.Name, heim.Name, erg2.EntscheidungArt,
                 erg2.HeimToreRegulaer, erg2.AuswaertsToreRegulaer,
                 erg2.HeimToreVerlaengerung, erg2.AuswaertsToreVerlaengerung,

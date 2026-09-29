@@ -14,7 +14,8 @@ public record EinzelspielEreignisZeile(
     string Minute, string Seite, string Art, bool IstHeimSeite,
     bool IstTrenner = false, string? TrennerText = null, TrennerArt TrennerArt = TrennerArt.Abschnitt,
     byte[]? Wappen = null,
-    bool IstTor = false, bool IstGelbeKarte = false, bool IstRoteKarte = false, bool IstElfmeterVerschossen = false)
+    bool IstTor = false, bool IstGelbeKarte = false, bool IstRoteKarte = false, bool IstElfmeterVerschossen = false,
+    string? Detail = null)
 {
     // Nur fuer IstTrenner==true aussagekräftig — die beiden Properties kombinieren beides, damit die
     // Zeitleisten-DataTemplate-Grids nicht zusätzlich auf IstTrenner prüfen müssen (sonst würde bei
@@ -104,7 +105,7 @@ internal static class SimulationsProtokollHelfer
     // (und damit auch die Marken) hinzugefügt wurden.
     public static bool ZeitleisteHinzufuegen(
         ObservableCollection<EinzelspielEreignisZeile> ziel,
-        IEnumerable<(int Minute, EreignisArt Art, bool IstHeimSeite)> ereignisse,
+        IEnumerable<(int Minute, EreignisArt Art, bool IstHeimSeite, string Beschreibung)> ereignisse,
         string heimName, string auswaertsName,
         EntscheidungArt entscheidungArt,
         int heimToreRegulaer, int auswaertsToreRegulaer,
@@ -169,10 +170,22 @@ internal static class SimulationsProtokollHelfer
             _                               => art.ToString()
         };
 
+        // Issue #341: Beschreibung aus der Simulation (z. B. "Tor per Kopfball nach Konter (oben links)")
+        // als sekundären Detailtext zeigen — ohne den Präfix, der schon als Art-Text dasteht; wiederholt
+        // die Beschreibung nur den Art-Text (Karten, Elfmeter) oder fehlt sie (Altdaten), entfällt sie.
+        static string? DetailText(string artText, string beschreibung)
+        {
+            if (string.IsNullOrWhiteSpace(beschreibung)) return null;
+            string rest = beschreibung.StartsWith(artText, StringComparison.OrdinalIgnoreCase)
+                ? beschreibung[artText.Length..].Trim()
+                : beschreibung.Trim();
+            return rest.Length > 0 ? rest : null;
+        }
+
         if (anpfiffText is not null)
             ziel.Add(EinzelspielEreignisZeile.Trenner(anpfiffText, TrennerArt.Start));
 
-        foreach (var (minute, art, istHeimSeite) in ereignisListe.OrderBy(ev => ev.Minute))
+        foreach (var (minute, art, istHeimSeite, beschreibung) in ereignisListe.OrderBy(ev => ev.Minute))
         {
             SchwellenPruefen(minute);
 
@@ -181,13 +194,15 @@ internal static class SimulationsProtokollHelfer
                 if (istHeimSeite) heimStand++; else auswaertsStand++;
             }
 
+            string artText = ArtText(art);
             ziel.Add(new EinzelspielEreignisZeile(
-                $"{minute}'", istHeimSeite ? heimName : auswaertsName, ArtText(art), istHeimSeite,
+                $"{minute}'", istHeimSeite ? heimName : auswaertsName, artText, istHeimSeite,
                 Wappen: istHeimSeite ? heimWappen : auswaertsWappen,
                 IstTor: art is EreignisArt.Tor or EreignisArt.GoldenGoal or EreignisArt.SilverGoal or EreignisArt.ElfmeterTor,
                 IstGelbeKarte: art == EreignisArt.GelbeKarte,
                 IstRoteKarte: art == EreignisArt.RoteKarte,
-                IstElfmeterVerschossen: art == EreignisArt.ElfmeterVerschossen));
+                IstElfmeterVerschossen: art == EreignisArt.ElfmeterVerschossen,
+                Detail: DetailText(artText, beschreibung)));
         }
 
         // Noch nicht erreichte Schwellen (z. B. Halbzeit ohne Tor, Spielende ohne Ereignis danach) nachtragen

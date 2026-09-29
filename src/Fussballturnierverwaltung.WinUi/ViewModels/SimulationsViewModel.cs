@@ -538,7 +538,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
             SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
                 ProtokollEreignisse,
-                spiel.Ereignisse.Select(ev => (ev.Minute, ev.EreignisArt, ev.MannschaftId == spiel.HeimMannschaftId)),
+                spiel.Ereignisse.Select(ev => (ev.Minute, ev.EreignisArt, ev.MannschaftId == spiel.HeimMannschaftId, ev.Beschreibung)),
                 heim, auswaerts, e.EntscheidungArt,
                 e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
                 e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
