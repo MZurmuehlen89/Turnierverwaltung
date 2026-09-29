@@ -504,11 +504,14 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         var posMap = new Dictionary<int, double>();
         double blaetter = 0;
 
-        var wurzel = runden.Last().Knoten.FirstOrDefault();
+        // Issue #385: Das Spiel um Platz 3 steht hinter dem Finale, gehört aber nicht zur Baumkette.
+        var wurzel = runden.LastOrDefault(r => !r.IstSpielUmPlatzDrei)?.Knoten.FirstOrDefault();
         if (wurzel != null)
             AssignierePositionen(wurzel, alleKnoten, posMap, ref blaetter, effLinks, effRechts);
 
-        foreach (var k in runden.First().Knoten.Where(k => !posMap.ContainsKey(k.Id)))
+        // Knoten ohne Weg zur Wurzel (Direkteinsteiger, Spiel um Platz 3) in jeder Runde anhängen, nicht nur in
+        // der ersten — sonst fehlen sie in der Anzeige.
+        foreach (var k in runden.SelectMany(r => r.Knoten).Where(k => !posMap.ContainsKey(k.Id)))
         {
             posMap[k.Id] = blaetter * UNIT + UNIT / 2;
             blaetter++;
@@ -527,10 +530,11 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             });
 
         Knoten.Clear();
-        foreach (var runde in runden)
+        for (int ri = 0; ri < runden.Count; ri++)
         {
+            var runde = runden[ri];
             string kuerzel = RundenKuerzelAusName(runde.RundenName) ?? RundenKuerzel(runde.Knoten.Count);
-            double x = (runde.RundeNummer - 1) * ROUND_W;
+            double x = ri * ROUND_W;
 
             int? turnierRundeId = runde.Knoten
                 .Select(k => k.Spiel?.TurnierRundeId)
@@ -548,7 +552,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
                     ? (runde.Knoten.Count == 1 ? kuerzel.TrimEnd('-') : $"{kuerzel}{pos + 1}")
                     : "";
                 var rueckspiel = k.SpielId is int spielId ? runde.RueckspielJeHinspielId.GetValueOrDefault(spielId) : null;
-                Knoten.Add(BaueKnotenAnzeige(k, rueckspiel, x, centerY - NODE_H / 2, runde.RundeNummer - 1, label,
+                Knoten.Add(BaueKnotenAnzeige(k, rueckspiel, x, centerY - NODE_H / 2, ri, label,
                     effLinks.GetValueOrDefault(k.Id), effRechts.GetValueOrDefault(k.Id), turnierRundeId));
             }
         }

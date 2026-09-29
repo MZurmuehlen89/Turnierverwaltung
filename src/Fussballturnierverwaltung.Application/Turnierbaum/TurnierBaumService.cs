@@ -117,11 +117,23 @@ public class TurnierBaumService(
         // Eltern-Kind-Verknüpfungen setzen (Issue #241: direkt aus Spiel.HeimQuellSpielId/
         // AuswaertsQuellSpielId statt Text-Platzhalter zu erraten — pro Slot, nicht pro Übergang, damit
         // gemischte Ebenen aus K.o.-Siegern und Direkteinstiegen nicht mehr teilweise unverknüpft bleiben).
-        for (int i = 0; i + 1 < knotenProRunde.Count; i++)
+        // Issue #385: Das Spiel um Platz 3 liegt meist zwischen Halbfinale und Finale, gehört aber nicht in die
+        // Baumkette — es bekommt keine Kinder, und die nächste Ebene (Finale) verknüpft sich mit der letzten
+        // Ebene davor, die kein Spiel um Platz 3 ist.
+        int? kindIndex = null;
+        for (int e = 0; e < knotenProRunde.Count; e++)
         {
+            if (koRunden[e].Rundenart == Rundenart.SpielUmPlatzDrei) continue;
+            if (kindIndex is not int i)
+            {
+                kindIndex = e;
+                continue;
+            }
+            kindIndex = e;
+
             var kindEbene    = knotenProRunde[i];
-            var elternEbene  = knotenProRunde[i + 1];
-            var elternSpiele = spieleProRunde[i + 1];
+            var elternEbene  = knotenProRunde[e];
+            var elternSpiele = spieleProRunde[e];
 
             var kindKnotenNachSpielId = kindEbene
                 .Where(k => k.SpielId.HasValue)
@@ -179,8 +191,8 @@ public class TurnierBaumService(
             }
         }
 
-        // Wurzelknoten = letzter Knoten der letzten Runde
-        var letzteEbene = knotenProRunde.Last();
+        // Wurzelknoten = letzter Knoten der letzten Runde (ohne Spiel um Platz 3, Issue #385)
+        var letzteEbene = knotenProRunde[kindIndex ?? knotenProRunde.Count - 1];
         if (letzteEbene.Count == 1)
             baum.WurzelKnotenId = letzteEbene[0].Id;
 
@@ -224,6 +236,8 @@ public class TurnierBaumService(
         // (CL-Playoff-Runde hat ebenfalls 8 Paarungen und wurde als "Achtelfinale" beschriftet).
         var instanz = await instanzRepository.FindenNachIdMitRundenAsync(turnierInstanzId, ct);
         var rundenNameJeId = instanz?.Runden.ToDictionary(r => r.Id, r => r.Name) ?? [];
+        var platzDreiRundenIds = instanz?.Runden.Where(r => r.Rundenart == Rundenart.SpielUmPlatzDrei)
+            .Select(r => r.Id).ToHashSet() ?? [];
 
         var rundenGruppen = baum.Knoten
             .GroupBy(k => k.Runde)
@@ -240,8 +254,12 @@ public class TurnierBaumService(
                     .Where(id => id.HasValue)
                     .Select(id => rundenNameJeId.GetValueOrDefault(id!.Value))
                     .FirstOrDefault(n => !string.IsNullOrWhiteSpace(n));
-                return new BracketRunde(g.Key, geordnet, rueckspiele, rundenName);
+                bool istSpielUmPlatzDrei = geordnet.Any(k => k.Spiel is not null
+                    && platzDreiRundenIds.Contains(k.Spiel.TurnierRundeId));
+                return new BracketRunde(g.Key, geordnet, rueckspiele, rundenName, istSpielUmPlatzDrei);
             })
+            // Issue #385: Spiel um Platz 3 hinter das Finale, damit Halbfinale und Finale benachbart sind.
+            .OrderBy(r => r.IstSpielUmPlatzDrei)
             .ToList();
 
         return rundenGruppen;
@@ -305,9 +323,11 @@ public class TurnierBaumService(
 /// <summary>Eine Runde im Turnierbaum mit ihren Knoten. <paramref name="RueckspielJeHinspielId"/> enthält bei
 /// Hin-/Rückspiel-Runden das Rückspiel je Hinspiel-Knoten (Issue #340), sonst ist es leer.
 /// <paramref name="RundenName"/> ist der Name der zugehörigen <see cref="Domain.Entitaeten.Turniere.TurnierRunde"/>
-/// (Issue #365), <c>null</c> wenn keiner ermittelbar ist.</summary>
+/// (Issue #365), <c>null</c> wenn keiner ermittelbar ist. <paramref name="IstSpielUmPlatzDrei"/> markiert die Runde,
+/// die nicht zur Baumkette gehört (Issue #385) — sie steht immer am Ende der Liste.</summary>
 public record BracketRunde(
     int RundeNummer,
     IReadOnlyList<TurnierBaumKnoten> Knoten,
     IReadOnlyDictionary<int, Spiel> RueckspielJeHinspielId,
-    string? RundenName = null);
+    string? RundenName = null,
+    bool IstSpielUmPlatzDrei = false);

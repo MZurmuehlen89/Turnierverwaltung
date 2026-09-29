@@ -275,4 +275,71 @@ public class TurnierBaumServiceTests
         af.RueckspielJeHinspielId[1].Id.Should().Be(11);
         af.RueckspielJeHinspielId.Should().NotContainKey(2, "Paarung 2 hat (hier) kein Rückspiel");
     }
+
+    // ── Issue #385: Spiel um Platz 3 zwischen Halbfinale und Finale ─────────
+
+    /// <summary>Halbfinale (Spiele 1/2, echte Mannschaften) → Spiel um Platz 3 (Spiel 3, Verlierer) → Finale
+    /// (Spiel 4, Sieger) — Reihenfolge wie in allen Seed-Vorlagen mit Spiel um Platz 3.</summary>
+    private static void HalbfinalePlatzDreiFinaleAnlegen(TurnierverwaltungDbContext ctx)
+    {
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.TurnierInstanzen.Add(new TurnierInstanz { Id = 1, Name = "Test-Turnier", SaisonOderJahr = "2026" });
+        ctx.TurnierRunden.AddRange(
+            new TurnierRunde { Id = 1, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 1,
+                Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2, RegelwerkId = 1 },
+            new TurnierRunde { Id = 2, TurnierInstanzId = 1, Name = "Spiel um Platz 3", Reihenfolge = 2,
+                Rundenart = Rundenart.SpielUmPlatzDrei, EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1, RegelwerkId = 1 },
+            new TurnierRunde { Id = 3, TurnierInstanzId = 1, Name = "Finale", Reihenfolge = 3,
+                Rundenart = Rundenart.Finale, EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1, RegelwerkId = 1 });
+        for (int i = 1; i <= 4; i++)
+            ctx.Mannschaften.Add(new Mannschaft { Id = i, Name = $"Team {i}", Kurzname = $"T{i}", LandId = 1 });
+        ctx.Spiele.AddRange(
+            new Spiel { Id = 1, TurnierInstanzId = 1, TurnierRundeId = 1, Spielnummer = 1,
+                HeimMannschaftId = 1, AuswaertsMannschaftId = 2, Status = SpielStatus.Geplant },
+            new Spiel { Id = 2, TurnierInstanzId = 1, TurnierRundeId = 1, Spielnummer = 2,
+                HeimMannschaftId = 3, AuswaertsMannschaftId = 4, Status = SpielStatus.Geplant },
+            new Spiel { Id = 3, TurnierInstanzId = 1, TurnierRundeId = 2, Spielnummer = 3,
+                HeimPlatzhalterName = "Verlierer Halbfinale 1", AuswaertsPlatzhalterName = "Verlierer Halbfinale 2", Status = SpielStatus.Geplant },
+            new Spiel { Id = 4, TurnierInstanzId = 1, TurnierRundeId = 3, Spielnummer = 4,
+                HeimPlatzhalterName = "Sieger Halbfinale 1", AuswaertsPlatzhalterName = "Sieger Halbfinale 2", Status = SpielStatus.Geplant });
+        ctx.SaveChanges();
+    }
+
+    [Fact]
+    public async Task GenerierenAsync_VerknuepftFinaleMitHalbfinale_UeberSpielUmPlatzDreiHinweg()
+    {
+        await using var ctx = NeuerContext();
+        HalbfinalePlatzDreiFinaleAnlegen(ctx);
+        var (baumService, _) = ServiceFuer(ctx);
+
+        await baumService.GenerierenAsync(1);
+        var baum = await baumService.AbrufenAsync(1);
+
+        var hf = baum!.Knoten.Where(k => k.Runde == 1).OrderBy(k => k.SpielId).ToList();
+        var p3 = baum.Knoten.Single(k => k.Runde == 2);
+        var finale = baum.Knoten.Single(k => k.Runde == 3);
+
+        finale.LinkerKindKnotenId.Should().Be(hf[0].Id);
+        finale.RechterKindKnotenId.Should().Be(hf[1].Id);
+        hf.Should().OnlyContain(k => k.ElternKnotenId == finale.Id);
+        p3.LinkerKindKnotenId.Should().BeNull("das Spiel um Platz 3 gehört nicht zur Baumkette");
+        p3.RechterKindKnotenId.Should().BeNull();
+        baum.WurzelKnotenId.Should().Be(finale.Id);
+    }
+
+    [Fact]
+    public async Task BracketLadenAsync_StelltSpielUmPlatzDreiHinterDasFinale()
+    {
+        await using var ctx = NeuerContext();
+        HalbfinalePlatzDreiFinaleAnlegen(ctx);
+        var (baumService, _) = ServiceFuer(ctx);
+
+        await baumService.GenerierenAsync(1);
+        var runden = await baumService.BracketLadenAsync(1);
+
+        runden.Select(r => r.RundenName).Should().Equal("Halbfinale", "Finale", "Spiel um Platz 3");
+        runden.Select(r => r.IstSpielUmPlatzDrei).Should().Equal(false, false, true);
+    }
 }
