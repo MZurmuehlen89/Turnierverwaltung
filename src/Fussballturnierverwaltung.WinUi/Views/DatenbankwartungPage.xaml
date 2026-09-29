@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Fussballturnierverwaltung.WinUi.Views.DatenbankwartungPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Issue #370: Migrationsstand + "Prüfen / ergänzen" (Ribbon). Ergebnis als Protokoll, kein Dialog. -->
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel MaxWidth="680" Margin="32,28" HorizontalAlignment="Left">
+
+            <!-- Seitentitel -->
+            <TextBlock Text="Datenbankwartung" FontSize="22" FontWeight="Bold" Margin="0,0,0,4" />
+            <TextBlock FontSize="13" Opacity="0.7" Margin="0,0,0,28" TextWrapping="Wrap"
+                       Text="Datenbank auf den aktuellen Stand bringen und fehlende Stammdaten ergänzen. Vorhandene Datensätze werden dabei weder geändert noch gelöscht." />
+
+            <!-- Lade-Indikator -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="4" Padding="12,8" Margin="0,0,0,16"
+                    Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="Prüfe und ergänze…" Foreground="{ThemeResource AccentFillColorDefaultBrush}" FontSize="13" />
+            </Border>
+
+            <!-- Fehlermeldung -->
+            <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                    BorderBrush="{ThemeResource SystemFillColorCriticalBrush}" BorderThickness="1"
+                    CornerRadius="4" Padding="12,8" Margin="0,0,0,16"
+                    Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
+                <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                           FontSize="13" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+            </Border>
+
+            <!-- ── Karte: Status ── -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="6" Padding="20,16" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="STATUS" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,12" />
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="6">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Server" FontSize="13" Opacity="0.7" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Server}" FontSize="13" IsTextSelectionEnabled="True" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Datenbank" FontSize="13" Opacity="0.7" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Datenbank}" FontSize="13" IsTextSelectionEnabled="True" />
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Migrationen" FontSize="13" Opacity="0.7" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding MigrationsStand}" FontSize="13" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ── Karte: Protokoll der letzten Prüfung ── -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="6" Padding="20,16" Margin="0,0,0,16"
+                    Visibility="{Binding LetztePruefung, Converter={StaticResource NullToCollapsed}}">
+                <StackPanel>
+                    <TextBlock Text="PROTOKOLL" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,4" />
+                    <TextBlock Text="{Binding LetztePruefung}" FontSize="12" Opacity="0.7" Margin="0,0,0,10" />
+                    <ItemsControl ItemsSource="{Binding ProtokollZeilen}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,4" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

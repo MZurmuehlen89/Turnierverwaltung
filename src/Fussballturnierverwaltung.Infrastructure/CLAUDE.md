@@ -18,4 +18,4 @@ dotnet ef migrations add <Name> \
   --startup-project src/Fussballturnierverwaltung.WinUi
 ```
 
-Seed data (Verbände, Länder, Mannschaften, Regelwerke, Turniervorlagen) is applied automatically on first startup via `SeedDatenService.InitialisierenAsync()` in the WinUi startup path.
+On every startup the WinUi app calls `DatenbankWartungService.PruefenUndErgaenzenAsync()` (`Wartung/`): `MigrateAsync()` (creates the DB / applies pending migrations), then `SeedDatenService.InitialisierenAsync()` (Erst-Seed on an empty DB, otherwise non-destructive Nachrüsten of missing Stammdaten). The same flow is available manually on the "Datenbankwartung" page (#370). EF Core 10 makes `MigrateAsync` throw on model changes without a migration — always add the migration before starting the app.

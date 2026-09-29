@@ -13,7 +13,7 @@ using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Infrastructure.Erweiterungen;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
-using Fussballturnierverwaltung.Infrastructure.Seed;
+using Fussballturnierverwaltung.Infrastructure.Wartung;
 using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
@@ -140,6 +140,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<RanglistenViewModel>();
         builder.Services.AddTransient<EinzelspielSimulationsViewModel>();
         builder.Services.AddTransient<ImportExportViewModel>();
+        builder.Services.AddTransient<DatenbankwartungViewModel>();
 
         // Navigation & Hauptfenster
         // AusgewaehlteTurnierInstanzService (#299) haelt die Instanzauswahl geteilt zwischen "Turniere" und
@@ -155,16 +156,42 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         _host = builder.Build();
         _host.Services.GetRequiredService<DbZugriffsDiagnose>().KollisionenUeberwachen();
 
-        using (var scope = _host.Services.CreateScope())
-        {
-            var seed = scope.ServiceProvider.GetRequiredService<SeedDatenService>();
-            await seed.InitialisierenAsync();
-        }
+        if (!await DatenbankVorbereitenAsync()) return;
 
         _window = new MainWindow(
             _host.Services.GetRequiredService<MainViewModel>(),
             _host.Services.GetRequiredService<ThemeService>(),
             _host.Services.GetRequiredService<IDialogService>());
         _window.Activate();
+    }
+
+    /// <summary>Issue #370: legt die Datenbank bei Bedarf an, spielt fehlende Migrationen ein und ergänzt fehlende
+    /// Stammdaten. Schlägt das fehl (z. B. SQL Server nicht erreichbar), gibt es noch kein Hauptfenster und damit
+    /// keinen ContentDialog — daher native Meldung und sauberes Beenden statt Absturz.</summary>
+    private async Task<bool> DatenbankVorbereitenAsync()
+    {
+        using var scope = _host.Services.CreateScope();
+        var wartung = scope.ServiceProvider.GetRequiredService<DatenbankWartungService>();
+        try
+        {
+            await wartung.PruefenUndErgaenzenAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Datenbank konnte beim Start nicht vorbereitet werden.");
+            var (server, datenbank) = wartung.Verbindungsziel();
+            var logOrdner = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Turnierverwaltung", "logs");
+            NativeMeldung.FehlerAnzeigen(
+                "Turnierverwaltung – Datenbankfehler",
+                $"Die Datenbank konnte nicht geöffnet oder eingerichtet werden.\n\n"
+                + $"Server: {server}\nDatenbank: {datenbank}\n\n"
+                + $"Ursache: {ex.GetBaseException().Message}\n\n"
+                + $"Bitte prüfen, ob der SQL Server läuft und erreichbar ist. Details stehen im Log:\n{logOrdner}\n\n"
+                + "Die Anwendung wird beendet.");
+            Exit();
+            return false;
+        }
     }
 }

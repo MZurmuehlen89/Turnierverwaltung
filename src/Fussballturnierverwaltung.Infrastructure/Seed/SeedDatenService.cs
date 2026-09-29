@@ -10,6 +10,7 @@ public class SeedDatenService
 {
     private readonly TurnierverwaltungDbContext _context;
     private readonly ILogger<SeedDatenService> _logger;
+    private readonly List<SeedProtokollEintrag> _protokoll = [];
 
     public SeedDatenService(TurnierverwaltungDbContext context, ILogger<SeedDatenService> logger)
     {
@@ -17,8 +18,12 @@ public class SeedDatenService
         _logger = logger;
     }
 
-    public async Task InitialisierenAsync(CancellationToken cancellationToken = default)
+    /// <summary>Erst-Seed bei leerer Datenbank, sonst fehlende Stammdaten nachrüsten. Liefert je Schritt, der
+    /// tatsächlich etwas angelegt/ergänzt hat, einen Protokolleintrag (leer = alles vollständig, Issue #370).</summary>
+    public async Task<IReadOnlyList<SeedProtokollEintrag>> InitialisierenAsync(CancellationToken cancellationToken = default)
     {
+        _protokoll.Clear();
+
         if (!await _context.Verbaende.AnyAsync(cancellationToken))
         {
             await ErstSeedAsync(cancellationToken);
@@ -41,6 +46,14 @@ public class SeedDatenService
         await TurnierVorlagenRundenartNachruesten(cancellationToken);
         await TurnierVorlagenStrukturNachruesten(cancellationToken);
         await TurnierVorlagenFesteKoBaeumeNachruesten(cancellationToken);
+
+        return [.. _protokoll];
+    }
+
+    private void Protokollieren(int anzahl, string text)
+    {
+        _logger.LogInformation("{Anzahl} {Text}", anzahl, text);
+        _protokoll.Add(new SeedProtokollEintrag(anzahl, text));
     }
 
     private async Task LaenderNachruesten(CancellationToken ct)
@@ -59,7 +72,7 @@ public class SeedDatenService
         {
             _context.Laender.AddRange(neue);
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("{Anzahl} Länder nachgerüstet.", neue.Count);
+            Protokollieren(neue.Count, "Länder nachgerüstet.");
         }
     }
 
@@ -90,7 +103,7 @@ public class SeedDatenService
         if (aktualisiert > 0)
         {
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("{Anzahl} Verbands-/Länder-Bilder nachgerüstet.", aktualisiert);
+            Protokollieren(aktualisiert, "Verbands-/Länder-Bilder nachgerüstet.");
         }
     }
 
@@ -115,7 +128,7 @@ public class SeedDatenService
         if (aktualisiert > 0)
         {
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("{Anzahl} Mannschafts-Wappen nachgerüstet.", aktualisiert);
+            Protokollieren(aktualisiert, "Mannschafts-Wappen nachgerüstet.");
         }
     }
 
@@ -142,7 +155,7 @@ public class SeedDatenService
         {
             _context.Mannschaften.AddRange(neue);
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("{Anzahl} Mannschaften nachgerüstet.", neue.Count);
+            Protokollieren(neue.Count, "Mannschaften nachgerüstet.");
         }
     }
 
@@ -183,7 +196,7 @@ public class SeedDatenService
         if (hinzugefuegt > 0)
         {
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("{Anzahl} Regelwerke nachgerüstet.", hinzugefuegt);
+            Protokollieren(hinzugefuegt, "Regelwerke nachgerüstet.");
         }
     }
 
@@ -226,7 +239,7 @@ public class SeedDatenService
         if (hinzugefuegt > 0)
         {
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("{Anzahl} neue Turniervorlagen nachgerüstet.", hinzugefuegt);
+            Protokollieren(hinzugefuegt, "neue Turniervorlagen nachgerüstet.");
         }
     }
 
@@ -262,7 +275,7 @@ public class SeedDatenService
         if (aktualisiert > 0)
         {
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("{Anzahl} Turniervorlagen um Verband-/Land-/Mannschaftsartfilter ergänzt.", aktualisiert);
+            Protokollieren(aktualisiert, "Turniervorlagen um Verband-/Land-/Mannschaftsartfilter ergänzt.");
         }
     }
 
@@ -305,7 +318,7 @@ public class SeedDatenService
         if (aktualisiert > 0)
         {
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("{Anzahl} Vorlagen-Runden von SchweizerSystem auf TopfLiga korrigiert.", aktualisiert);
+            Protokollieren(aktualisiert, "Vorlagen-Runden von SchweizerSystem auf TopfLiga korrigiert.");
         }
     }
 
@@ -341,7 +354,7 @@ public class SeedDatenService
         if (umbenannt > 0)
         {
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("{Anzahl} Turniervorlagen umbenannt.", umbenannt);
+            Protokollieren(umbenannt, "Turniervorlagen umbenannt.");
         }
     }
 
@@ -426,7 +439,7 @@ public class SeedDatenService
         if (aktualisiert > 0)
         {
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("{Anzahl} Struktur-Ergänzungen an Turniervorlagen nachgerüstet.", aktualisiert);
+            Protokollieren(aktualisiert, "Struktur-Ergänzungen an Turniervorlagen nachgerüstet.");
         }
     }
 
@@ -488,7 +501,7 @@ public class SeedDatenService
         if (aktualisiert > 0)
         {
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("{Anzahl} Turniervorlagen um festen K.-o.-Baum ergänzt.", aktualisiert);
+            Protokollieren(aktualisiert, "Turniervorlagen um festen K.-o.-Baum ergänzt.");
         }
     }
 
@@ -512,7 +525,7 @@ public class SeedDatenService
         {
             _context.RanglistenQuellen.AddRange(neue);
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("{Anzahl} Ranglisten-Quellen nachgerüstet.", neue.Count);
+            Protokollieren(neue.Count, "Ranglisten-Quellen nachgerüstet.");
         }
     }
 
@@ -524,14 +537,14 @@ public class SeedDatenService
         var verbaende = VerbaendeSeedDaten.Erstellen();
         _context.Verbaende.AddRange(verbaende);
         await _context.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("{Anzahl} Verbände angelegt.", verbaende.Count);
+        Protokollieren(verbaende.Count, "Verbände angelegt.");
 
         // 2. Länder (mit VerbandId-Lookup nach SaveChanges, da IDs erst dann gesetzt sind)
         var verbaendeLookup = verbaende.ToDictionary(v => v.Kurzname, v => v.Id);
         var laender = LaenderSeedDaten.Erstellen(verbaendeLookup);
         _context.Laender.AddRange(laender);
         await _context.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("{Anzahl} Länder angelegt.", laender.Count);
+        Protokollieren(laender.Count, "Länder angelegt.");
 
         // 3. Mannschaften
         var laenderLookup = laender.ToDictionary(l => l.FifaCode, l => l.Id);
@@ -542,15 +555,14 @@ public class SeedDatenService
         _context.Mannschaften.AddRange(vereinsmannschaften);
         await _context.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation(
-            "{Nat} Nationalmannschaften und {Ver} Vereinsmannschaften angelegt.",
-            nationalmannschaften.Count, vereinsmannschaften.Count);
+        Protokollieren(nationalmannschaften.Count, "Nationalmannschaften angelegt.");
+        Protokollieren(vereinsmannschaften.Count, "Vereinsmannschaften angelegt.");
 
         // 4. RankingRegeln
         var rankingRegeln = RegelwerkeSeedDaten.RankingRegelnErstellen();
         _context.RankingRegeln.AddRange(rankingRegeln);
         await _context.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("{Anzahl} RankingRegeln angelegt.", rankingRegeln.Count);
+        Protokollieren(rankingRegeln.Count, "RankingRegeln angelegt.");
 
         // 5. RankingRegelSets + Eintraege
         var (sets, eintraegeDefinitionen) = RegelwerkeSeedDaten.RankingRegelSetsErstellen();
@@ -570,7 +582,7 @@ public class SeedDatenService
             });
         }
         await _context.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("{Anzahl} RankingRegelSets mit Einträgen angelegt.", sets.Count);
+        Protokollieren(sets.Count, "RankingRegelSets mit Einträgen angelegt.");
 
         // 6. Regelwerke (mit PunkteRegeln + EntscheidungsVerfahren)
         var regelwerkeDefinitionen = RegelwerkeSeedDaten.RegelwerkeErstellen(setLookup);
@@ -593,7 +605,7 @@ public class SeedDatenService
             _context.Regelwerke.Add(regelwerk);
         }
         await _context.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("{Anzahl} Regelwerke angelegt.", regelwerkeDefinitionen.Count);
+        Protokollieren(regelwerkeDefinitionen.Count, "Regelwerke angelegt.");
 
         // 7. Turniervorlagen (TurnierInstanz mit Status=Vorlage, mit Regelwerk-Lookup für ihre Runden)
         var regelwerkLookup = regelwerkeDefinitionen.ToDictionary(
@@ -603,7 +615,7 @@ public class SeedDatenService
         var vorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup, verbaendeLookup, laenderLookup, quellenLookup);
         _context.TurnierInstanzen.AddRange(vorlagen);
         await _context.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("{Anzahl} Turniervorlagen angelegt.", vorlagen.Count);
+        Protokollieren(vorlagen.Count, "Turniervorlagen angelegt.");
 
         _logger.LogInformation("Seed-Daten erfolgreich abgeschlossen.");
     }

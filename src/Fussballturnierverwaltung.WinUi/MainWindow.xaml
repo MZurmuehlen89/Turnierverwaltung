@@ -43,6 +43,9 @@
             <DataTemplate x:Key="ImportExportTemplate" x:DataType="vm:ImportExportViewModel">
                 <views:ImportExportPage />
             </DataTemplate>
+            <DataTemplate x:Key="DatenbankwartungTemplate" x:DataType="vm:DatenbankwartungViewModel">
+                <views:DatenbankwartungPage />
+            </DataTemplate>
             <local:ViewModelTemplateSelector x:Key="ViewLocator"
                                               xmlns:local="using:Fussballturnierverwaltung.WinUi"
                                               PlatzhalterTemplate="{StaticResource PlatzhalterTemplate}"
@@ -53,7 +56,8 @@
                                               TurnierdurchfuehrungTemplate="{StaticResource TurnierdurchfuehrungTemplate}"
                                               RanglistenTemplate="{StaticResource RanglistenTemplate}"
                                               EinzelspielSimulationsTemplate="{StaticResource EinzelspielSimulationsTemplate}"
-                                              ImportExportTemplate="{StaticResource ImportExportTemplate}" />
+                                              ImportExportTemplate="{StaticResource ImportExportTemplate}"
+                                              DatenbankwartungTemplate="{StaticResource DatenbankwartungTemplate}" />
         </Grid.Resources>
 
         <Grid.RowDefinitions>

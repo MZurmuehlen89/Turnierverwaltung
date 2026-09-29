@@ -10,6 +10,7 @@ using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Ranglisten;
 using Fussballturnierverwaltung.Infrastructure.Repositories;
 using Fussballturnierverwaltung.Infrastructure.Seed;
+using Fussballturnierverwaltung.Infrastructure.Wartung;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,6 +33,7 @@ public static class InfrastrukturErweiterungen
                 .AddInterceptors(sp.GetRequiredService<DbZugriffsDiagnose>()));
 
         services.AddScoped<SeedDatenService>();
+        services.AddScoped<DatenbankWartungService>();
 
         // Stammdaten-Repositories
         services.AddScoped<IMannschaftRepository, MannschaftRepository>();

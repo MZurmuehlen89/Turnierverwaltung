@@ -91,6 +91,15 @@ public partial class MainViewModel : ObservableObject
                 EintragErstellen("Import / Export", () => _navigation.NavigiereZuAsync<ImportExportViewModel>()),
             ]
         });
+
+        NavigationsGruppen.Add(new NavigationsGruppe
+        {
+            Titel = "Wartung",
+            Eintraege =
+            [
+                EintragErstellen("Datenbankwartung", () => _navigation.NavigiereZuAsync<DatenbankwartungViewModel>()),
+            ]
+        });
     }
 
     [RelayCommand]

@@ -20,6 +20,7 @@ public class ViewModelTemplateSelector : DataTemplateSelector
     public DataTemplate? RanglistenTemplate { get; set; }
     public DataTemplate? EinzelspielSimulationsTemplate { get; set; }
     public DataTemplate? ImportExportTemplate { get; set; }
+    public DataTemplate? DatenbankwartungTemplate { get; set; }
 
     protected override DataTemplate? SelectTemplateCore(object item, DependencyObject container)
         => item switch
@@ -32,6 +33,7 @@ public class ViewModelTemplateSelector : DataTemplateSelector
             RanglistenViewModel => RanglistenTemplate,
             EinzelspielSimulationsViewModel => EinzelspielSimulationsTemplate,
             ImportExportViewModel => ImportExportTemplate,
+            DatenbankwartungViewModel => DatenbankwartungTemplate,
             PlatzhalterViewModel => PlatzhalterTemplate,
             _ => null,
         };
