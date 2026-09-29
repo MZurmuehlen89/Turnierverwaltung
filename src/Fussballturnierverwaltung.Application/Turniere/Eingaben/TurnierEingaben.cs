@@ -16,7 +16,8 @@ public record TurnierInstanzVollAktualisierenEingabe(
     MannschaftsartFilter MannschaftsartFilter = MannschaftsartFilter.Alle,
     int? StandardRegelwerkId = null,
     byte[]? Logo = null,
-    int? TitelverteidigerId = null);
+    int? TitelverteidigerId = null,
+    string Variante = "");
 
 public record TurnierInstanzErstellenEingabe(
     string Name,
@@ -32,7 +33,8 @@ public record TurnierInstanzErstellenEingabe(
     MannschaftsartFilter MannschaftsartFilter = MannschaftsartFilter.Alle,
     int? StandardRegelwerkId = null,
     byte[]? Logo = null,
-    int? TitelverteidigerId = null);
+    int? TitelverteidigerId = null,
+    string Variante = "");
 
 public record TurnierAktualisierenEingabe(
     string Name,

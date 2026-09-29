@@ -52,11 +52,13 @@ public class TurnierInstanzService(
         ValidationException.WerfenWennUngueltig(validator.BasisdatenValidieren(
             instanzEingabe.Name, instanzEingabe.SaisonOderJahr, instanzEingabe.ZielMannschaftsanzahl,
             instanzEingabe.Startdatum, instanzEingabe.Enddatum, instanzEingabe.Logo));
+        await VorlagenEindeutigkeitPruefenAsync(instanzEingabe.Name, instanzEingabe.Variante, instanzEingabe.Status, null, ct);
 
         var instanz = new TurnierInstanz
         {
             Name                  = instanzEingabe.Name.Trim(),
             Beschreibung          = instanzEingabe.Beschreibung.Trim(),
+            Variante              = instanzEingabe.Variante.Trim(),
             SaisonOderJahr        = instanzEingabe.SaisonOderJahr.Trim(),
             Kategorie             = instanzEingabe.Kategorie,
             ZielMannschaftsanzahl = instanzEingabe.ZielMannschaftsanzahl,
@@ -85,12 +87,14 @@ public class TurnierInstanzService(
         ValidationException.WerfenWennUngueltig(validator.BasisdatenValidieren(
             instanzEingabe.Name, instanzEingabe.SaisonOderJahr, instanzEingabe.ZielMannschaftsanzahl,
             instanzEingabe.Startdatum, instanzEingabe.Enddatum, instanzEingabe.Logo));
+        await VorlagenEindeutigkeitPruefenAsync(instanzEingabe.Name, instanzEingabe.Variante, instanzEingabe.Status, null, ct);
         ValidationException.WerfenWennUngueltig(validator.RundenValidieren(rundenEingaben));
 
         var instanz = new TurnierInstanz
         {
             Name                  = instanzEingabe.Name.Trim(),
             Beschreibung          = instanzEingabe.Beschreibung.Trim(),
+            Variante              = instanzEingabe.Variante.Trim(),
             SaisonOderJahr        = instanzEingabe.SaisonOderJahr.Trim(),
             Kategorie             = instanzEingabe.Kategorie,
             ZielMannschaftsanzahl = instanzEingabe.ZielMannschaftsanzahl,
@@ -142,9 +146,11 @@ public class TurnierInstanzService(
         ValidationException.WerfenWennUngueltig(validator.BasisdatenValidieren(
             eingabe.Name, eingabe.SaisonOderJahr, eingabe.ZielMannschaftsanzahl,
             eingabe.Startdatum, eingabe.Enddatum, eingabe.Logo));
+        await VorlagenEindeutigkeitPruefenAsync(eingabe.Name, eingabe.Variante, eingabe.Status, id, ct);
 
         instanz.Name                 = eingabe.Name.Trim();
         instanz.Beschreibung         = eingabe.Beschreibung.Trim();
+        instanz.Variante             = eingabe.Variante.Trim();
         instanz.SaisonOderJahr       = eingabe.SaisonOderJahr.Trim();
         instanz.Kategorie            = eingabe.Kategorie;
         instanz.ZielMannschaftsanzahl = eingabe.ZielMannschaftsanzahl;
@@ -259,8 +265,18 @@ public class TurnierInstanzService(
         var instanz = await repository.FindenNachIdMitRundenAsync(id, ct)
             ?? throw new InvalidOperationException($"TurnierInstanz mit ID {id} nicht gefunden.");
         ValidationException.WerfenWennUngueltig(validator.RegelwerkPflichtValidieren(instanz.Runden.ToList(), neuerStatus, instanz.StandardRegelwerkId));
+        await VorlagenEindeutigkeitPruefenAsync(instanz.Name, instanz.Variante, neuerStatus, id, ct);
         instanz.Status = neuerStatus;
         await repository.AktualisierenAsync(instanz, ct);
+    }
+
+    private async Task VorlagenEindeutigkeitPruefenAsync(
+        string name, string variante, TurnierStatus status, int? eigeneId, CancellationToken ct)
+    {
+        if (status != TurnierStatus.Vorlage) return;
+        var vorlagen = await repository.AlleNachStatusFindenAsync(TurnierStatus.Vorlage, ct);
+        ValidationException.WerfenWennUngueltig(
+            TurnierValidator.VorlagenEindeutigkeitValidieren(name, variante, eigeneId, vorlagen));
     }
 
     public async Task LoeschenAsync(int id, CancellationToken ct = default)

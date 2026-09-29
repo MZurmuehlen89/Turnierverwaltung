@@ -11,6 +11,8 @@ public class TurnierInstanz : BasisEntitaet
 {
     public string Name { get; set; } = string.Empty;
     public string Beschreibung { get; set; } = string.Empty;
+    // Kurze Formatangabe, z. B. "32 Teams · 1998–2022" (Issue #367) — unterscheidet gleichnamige Vorlagen.
+    public string Variante { get; set; } = string.Empty;
     public string SaisonOderJahr { get; set; } = string.Empty;
     public TurnierKategorie Kategorie { get; set; }
     public int? ZielMannschaftsanzahl { get; set; }

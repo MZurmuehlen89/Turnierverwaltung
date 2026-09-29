@@ -31,7 +31,7 @@ public class TurnierKlonServiceTests
 
         var quelle = new TurnierInstanz
         {
-            Id = 1, Name = "EM 2024", Beschreibung = "Testbeschreibung", SaisonOderJahr = "2024",
+            Id = 1, Name = "EM 2024", Beschreibung = "Testbeschreibung", Variante = "4 Teams", SaisonOderJahr = "2024",
             Kategorie = TurnierKategorie.Kontinentalmeisterschaft, ZielMannschaftsanzahl = 4,
             Status = TurnierStatus.Abgeschlossen, StandardRegelwerkId = 1, TitelverteidigerId = 42
         };
@@ -78,9 +78,24 @@ public class TurnierKlonServiceTests
         klon.SaisonOderJahr.Should().Be("2028");
         klon.Status.Should().Be(TurnierStatus.Vorlage);
         klon.Beschreibung.Should().Be("Testbeschreibung");
+        klon.Variante.Should().Be("4 Teams");
         klon.Kategorie.Should().Be(TurnierKategorie.Kontinentalmeisterschaft);
         klon.ZielMannschaftsanzahl.Should().Be(4);
         klon.StandardRegelwerkId.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task KlonenAsync_AlsVorlageMitVorhandenemNameUndVariante_WirftValidationException()
+    {
+        using var ctx = NeuerContext();
+        var quellId = await QuelleAnlegenAsync(ctx);
+        var service = ServiceFuer(ctx);
+        await service.KlonenAsync(quellId, "EM", "2028", TurnierStatus.Vorlage);
+
+        var akt = () => service.KlonenAsync(quellId, "EM", "2032", TurnierStatus.Vorlage);
+
+        await akt.Should().ThrowAsync<Application.Validierung.ValidationException>();
+        (await service.KlonenAsync(quellId, "EM", "2032", TurnierStatus.Geplant)).Name.Should().Be("EM");
     }
 
     [Fact]

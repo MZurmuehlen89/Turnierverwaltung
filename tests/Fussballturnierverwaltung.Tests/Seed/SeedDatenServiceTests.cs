@@ -13,7 +13,8 @@ namespace Fussballturnierverwaltung.Tests.Seed;
 
 public class SeedDatenServiceTests
 {
-    private const string CL_VORLAGE = "UEFA Champions League (36 Teams, ab 2024/25)";
+    private const string CL_VORLAGE = "UEFA Champions League";
+    private const string VARIANTE_36 = "36 Teams · ab 2024/25";
 
     [Fact]
     public async Task InitialisierenAsync_KorrigiertAlteSchweizerLigaphaseInVorlageAufTopfLiga()
@@ -27,11 +28,11 @@ public class SeedDatenServiceTests
             // Stand vor #328 simulieren: Ligaphase fälschlich als Schweizer System gespeichert,
             // plus eine bewusst manuell auf Liga umgestellte Runde, die unangetastet bleiben muss.
             var cl = await ctx.TurnierInstanzen.Include(i => i.Runden)
-                .SingleAsync(i => i.Name == CL_VORLAGE && i.Status == TurnierStatus.Vorlage);
+                .SingleAsync(i => i.Name == CL_VORLAGE && i.Variante == VARIANTE_36 && i.Status == TurnierStatus.Vorlage);
             cl.Runden.Single(r => r.Name == "Ligaphase").Rundenart = Rundenart.SchweizerSystem;
             cl.Runden.Single(r => r.Name == "Ligaphase").KonfigurationJson = "{\"anzahlSpieltage\":6}";
             var el = await ctx.TurnierInstanzen.Include(i => i.Runden)
-                .SingleAsync(i => i.Name == "UEFA Europa League (36 Teams, ab 2024/25)" && i.Status == TurnierStatus.Vorlage);
+                .SingleAsync(i => i.Name == "UEFA Europa League" && i.Status == TurnierStatus.Vorlage);
             el.Runden.Single(r => r.Name == "Ligaphase").Rundenart = Rundenart.Liga;
             await ctx.SaveChangesAsync();
         }
@@ -46,7 +47,7 @@ public class SeedDatenServiceTests
                 .ToListAsync();
             runden.Single(r => r.Vorlage == CL_VORLAGE).Rundenart.Should().Be(Rundenart.TopfLiga);
             runden.Single(r => r.Vorlage == CL_VORLAGE).KonfigurationJson.Should().BeNull();
-            runden.Single(r => r.Vorlage == "UEFA Europa League (36 Teams, ab 2024/25)").Rundenart
+            runden.Single(r => r.Vorlage == "UEFA Europa League").Rundenart
                 .Should().Be(Rundenart.Liga, "manuelle Anpassungen außerhalb des bekannten Altwerts bleiben erhalten");
         }
     }
@@ -103,7 +104,7 @@ public class SeedDatenServiceTests
     [Fact]
     public async Task InitialisierenAsync_ErgaenztFehlendeVorlagenStrukturUndBenenntWm24Um()
     {
-        const string EM24 = "UEFA EM (24 Teams, 2016+)";
+        const string EM24 = "24 Teams · 2016+";
         var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
@@ -112,14 +113,15 @@ public class SeedDatenServiceTests
             await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
             // Seed-Stand vor #350 simulieren: EM 24 ohne GruppenAnzahl/Übergangsregeln, CL-Achtelfinale ohne
             // EingangUeberUebergangsregeln, WM 24 unter altem Namen; neue WM-24-Vorlage (1982) noch nicht vorhanden.
-            var em = await ctx.TurnierInstanzen.Include(i => i.Runden).SingleAsync(i => i.Name == EM24);
+            var em = await ctx.TurnierInstanzen.Include(i => i.Runden).SingleAsync(i => i.Name == "UEFA EM" && i.Variante == EM24);
             ctx.Uebergangsregeln.RemoveRange(ctx.Uebergangsregeln.Where(u => em.Runden.Select(r => r.Id).Contains(u.QuellRundeId)));
             em.Runden.Single(r => r.Name == "Gruppenphase").GruppenAnzahl = null;
             em.Runden.Single(r => r.Name == "Achtelfinale").EingangUeberUebergangsregeln = false;
-            var cl = await ctx.TurnierInstanzen.Include(i => i.Runden).SingleAsync(i => i.Name == CL_VORLAGE);
+            var cl = await ctx.TurnierInstanzen.Include(i => i.Runden).SingleAsync(i => i.Name == CL_VORLAGE && i.Variante == VARIANTE_36);
             cl.Runden.Single(r => r.Name == "Achtelfinale").EingangUeberUebergangsregeln = false;
-            var wm24 = await ctx.TurnierInstanzen.SingleAsync(i => i.Name == "FIFA WM (24 Teams, 1982)");
+            var wm24 = await ctx.TurnierInstanzen.SingleAsync(i => i.Name == "FIFA WM" && i.Variante == "24 Teams · 1982");
             wm24.Name = "FIFA WM (24 Teams, 1982–1994)";
+            wm24.Variante = "";
             wm24.Beschreibung = "6 Dreiergruppen + Achtelfinale-Runde → K.-o.";
             wm24.Enddatum = new DateOnly(1994, 12, 31);
             await ctx.SaveChangesAsync();
@@ -130,20 +132,67 @@ public class SeedDatenServiceTests
             await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
 
             var em = await ctx.TurnierInstanzen.Include(i => i.Runden).ThenInclude(r => r.Uebergangsregeln)
-                .SingleAsync(i => i.Name == EM24);
+                .SingleAsync(i => i.Name == "UEFA EM" && i.Variante == EM24);
             var gruppenphase = em.Runden.Single(r => r.Name == "Gruppenphase");
             gruppenphase.GruppenAnzahl.Should().Be(6);
             gruppenphase.Uebergangsregeln.Should().HaveCount(7);
             gruppenphase.Uebergangsregeln.Single(u => u.AnzahlBeste is not null).AnzahlBeste.Should().Be(4);
             em.Runden.Single(r => r.Name == "Achtelfinale").EingangUeberUebergangsregeln.Should().BeTrue();
 
-            (await ctx.TurnierRunden.SingleAsync(r => r.TurnierInstanz.Name == CL_VORLAGE && r.Name == "Achtelfinale"))
+            (await ctx.TurnierRunden.SingleAsync(r => r.TurnierInstanz.Name == CL_VORLAGE && r.TurnierInstanz.Variante == VARIANTE_36 && r.Name == "Achtelfinale"))
                 .EingangUeberUebergangsregeln.Should().BeTrue();
 
-            var wm24 = await ctx.TurnierInstanzen.Where(i => i.Name.StartsWith("FIFA WM (24 Teams")).ToListAsync();
-            wm24.Select(i => i.Name).Should().BeEquivalentTo("FIFA WM (24 Teams, 1982)", "FIFA WM (24 Teams, 1986–1994)");
-            wm24.Single(i => i.Name == "FIFA WM (24 Teams, 1982)").Enddatum.Should().Be(new DateOnly(1982, 12, 31));
+            var wm24 = await ctx.TurnierInstanzen.Where(i => i.Name == "FIFA WM" && i.Variante.StartsWith("24 Teams")).ToListAsync();
+            wm24.Select(i => i.Variante).Should().BeEquivalentTo("24 Teams · 1982", "24 Teams · 1986–1994");
+            wm24.Single(i => i.Variante == "24 Teams · 1982").Enddatum.Should().Be(new DateOnly(1982, 12, 31));
         }
+    }
+
+    // #367: Bestands-Datenbanken tragen noch den Klammerzusatz im Namen und keine Variante — der Seed muss sie
+    // umbenennen statt unter dem neuen Schlüssel (Name + Variante) Duplikate nachzurüsten.
+    [Fact]
+    public async Task InitialisierenAsync_VerschiebtKlammerzusatzAlterVorlagenInVarianteOhneDuplikate()
+    {
+        var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        int anzahlVorlagen;
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            var vorlagen = await ctx.TurnierInstanzen.Where(i => i.Status == TurnierStatus.Vorlage).ToListAsync();
+            anzahlVorlagen = vorlagen.Count;
+            var altNachNeu = TurnierVorlagenSeedDaten.UmbenennungenNachAltemNamen
+                .Where(u => u.Key != "FIFA WM (24 Teams, 1982–1994)")
+                .ToDictionary(u => u.Value, u => u.Key);
+            foreach (var vorlage in vorlagen)
+            {
+                vorlage.Name = altNachNeu[(vorlage.Name, vorlage.Variante)];
+                vorlage.Variante = "";
+            }
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+            var vorlagen = await ctx.TurnierInstanzen.Where(i => i.Status == TurnierStatus.Vorlage).ToListAsync();
+            vorlagen.Should().HaveCount(anzahlVorlagen);
+            vorlagen.Should().NotContain(v => v.Name.Contains('(') || v.Variante == "");
+            vorlagen.Select(v => (v.Name, v.Variante)).Should().OnlyHaveUniqueItems();
+            vorlagen.Where(v => v.Name == "FIFA WM").Select(v => v.Variante).Should().BeEquivalentTo(
+                "48 Teams · ab 2026", "32 Teams · 1998–2022", "24 Teams · 1982", "24 Teams · 1986–1994", "16 Teams · 1934–1978");
+        }
+    }
+
+    [Fact]
+    public void Erstellen_NameUndVarianteSindEindeutigUndOhneKlammerzusatz()
+    {
+        var vorlagen = TurnierVorlagenSeedDaten.Erstellen();
+        vorlagen.Select(v => (v.Name, v.Variante)).Should().OnlyHaveUniqueItems();
+        vorlagen.Should().NotContain(v => v.Name.Contains('('));
+        vorlagen.Should().NotContain(v => string.IsNullOrWhiteSpace(v.Variante));
     }
 
     [Fact]

@@ -49,7 +49,9 @@ public partial class TurnierTabKoordinator : ObservableObject
             var begriff = Suchbegriff;
             return Instanzen
                 .Where(i => NurVorlagenAnzeigen ? i.Status == TurnierStatus.Vorlage : i.Status != TurnierStatus.Vorlage)
-                .Where(i => string.IsNullOrWhiteSpace(begriff) || i.Name.Contains(begriff, StringComparison.OrdinalIgnoreCase));
+                .Where(i => string.IsNullOrWhiteSpace(begriff)
+                    || i.Name.Contains(begriff, StringComparison.OrdinalIgnoreCase)
+                    || i.Variante.Contains(begriff, StringComparison.OrdinalIgnoreCase));
         }
     }
 

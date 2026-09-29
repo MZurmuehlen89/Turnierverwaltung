@@ -12,7 +12,8 @@ namespace Fussballturnierverwaltung.Tests.Seed;
 /// <summary>Issue #372: reale Kombinationstabellen und feste K.-o.-Bäume der Seed-Vorlagen.</summary>
 public class FesteKoBaeumeSeedTests
 {
-    private const string EM24 = "UEFA EM (24 Teams, 2016+)";
+    private const string EM24 = "UEFA EM";
+    private const string EM24_VARIANTE = "24 Teams · 2016+";
 
     public static TheoryData<string, int, int> Tabellen => new()
     {
@@ -66,7 +67,8 @@ public class FesteKoBaeumeSeedTests
     public void Erstellen_FesteKoBaeumeSindVollstaendigUndKonsistent()
     {
         var vorlagen = TurnierVorlagenSeedDaten.Erstellen().Where(v => v.Auslosungen.Count > 0).ToList();
-        vorlagen.Select(v => v.Name).Should().Contain([EM24, "FIFA WM (48 Teams, ab 2026)", "FIFA WM (32 Teams, 1998–2022)"]);
+        vorlagen.Select(v => (v.Name, v.Variante)).Should().Contain(
+            [(EM24, EM24_VARIANTE), ("FIFA WM", "48 Teams · ab 2026"), ("FIFA WM", "32 Teams · 1998–2022")]);
 
         foreach (var vorlage in vorlagen)
         {
@@ -103,7 +105,8 @@ public class FesteKoBaeumeSeedTests
     [Fact]
     public async Task InitialisierenAsync_RuestetFestenKoBaumNachOhneManuelleVorbelegungZuUeberschreiben()
     {
-        const string WM32 = "FIFA WM (32 Teams, 1998–2022)";
+        const string WM32 = "FIFA WM";
+        const string WM32_VARIANTE = "32 Teams · 1998–2022";
         var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
@@ -111,10 +114,10 @@ public class FesteKoBaeumeSeedTests
         {
             await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
             // Stand vor #372: EM 24 ohne festen Baum; WM 32 mit nur einer (manuell angelegten) Vorbelegung.
-            foreach (var name in new[] { EM24, WM32 })
+            foreach (var (name, variante) in new[] { (EM24, EM24_VARIANTE), (WM32, WM32_VARIANTE) })
             {
                 var vorlage = await ctx.TurnierInstanzen.Include(i => i.Runden).Include(i => i.Auslosungen)
-                    .SingleAsync(i => i.Name == name && i.Status == TurnierStatus.Vorlage);
+                    .SingleAsync(i => i.Name == name && i.Variante == variante && i.Status == TurnierStatus.Vorlage);
                 var entfernen = name == WM32
                     ? vorlage.Auslosungen.Where(a => a.TurnierRundeId != vorlage.Runden.Single(r => r.Name == "Finale").Id)
                     : vorlage.Auslosungen;
@@ -133,7 +136,7 @@ public class FesteKoBaeumeSeedTests
             await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
 
             var em = await ctx.TurnierInstanzen.Include(i => i.Runden).Include(i => i.Auslosungen).ThenInclude(a => a.Ergebnisse)
-                .SingleAsync(i => i.Name == EM24);
+                .SingleAsync(i => i.Name == EM24 && i.Variante == EM24_VARIANTE);
             var achtelfinale = em.Runden.Single(r => r.Name == "Achtelfinale");
             achtelfinale.PaarungFestVorgegeben.Should().BeTrue();
             Kombinationstabelle.AusJson(achtelfinale.KombinationstabelleJson)!.Kombinationen.Should().HaveCount(15);
@@ -141,7 +144,7 @@ public class FesteKoBaeumeSeedTests
             em.Auslosungen.Single(a => a.TurnierRundeId == achtelfinale.Id).Ergebnisse
                 .Single(e => e.PaarungsNummer == 1).AuswaertsPlatzhalterName.Should().Be("3. Gruppe A/D/E/F");
 
-            var wm = await ctx.TurnierInstanzen.Include(i => i.Auslosungen).SingleAsync(i => i.Name == WM32);
+            var wm = await ctx.TurnierInstanzen.Include(i => i.Auslosungen).SingleAsync(i => i.Name == WM32 && i.Variante == WM32_VARIANTE);
             wm.Auslosungen.Should().ContainSingle("eine bereits vorhandene Vorbelegung verhindert die Nachrüstung");
         }
     }

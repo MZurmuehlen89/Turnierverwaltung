@@ -67,14 +67,27 @@ public partial class AusVorlageErstellenViewModel : ObservableObject
         {
             var alle = await _instanzService.AlleAbrufenAsync();
             Vorlagen = new ObservableCollection<TurnierInstanz>(
-                alle.Where(i => i.Status == TurnierStatus.Vorlage).OrderBy(i => i.Name));
+                alle.Where(i => i.Status == TurnierStatus.Vorlage).OrderBy(i => i.Name).ThenBy(i => i.Variante));
             AusgewaehlteVorlage = Vorlagen.FirstOrDefault();
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
         finally { IstLadend = false; OnPropertyChanged(nameof(KeineVorlagenVorhanden)); }
     }
 
-    partial void OnAusgewaehlteVorlageChanged(TurnierInstanz? value) => Name = value?.Name ?? "";
+    // Issue #367: der Turniername entsteht aus Vorlagenname + Saison/Jahr ("FIFA WM 2026") und wird nur so
+    // lange nachgeführt, wie der Nutzer ihn nicht selbst überschrieben hat (Name == zuletzt generierter Wert
+    // oder leer).
+    private string _generierterName = "";
+
+    partial void OnAusgewaehlteVorlageChanged(TurnierInstanz? value) => NameNachfuehren();
+    partial void OnSaisonOderJahrChanged(string value) => NameNachfuehren();
+
+    private void NameNachfuehren()
+    {
+        var neu = $"{AusgewaehlteVorlage?.Name} {SaisonOderJahr.Trim()}".Trim();
+        if (Name == _generierterName || string.IsNullOrWhiteSpace(Name)) Name = neu;
+        _generierterName = neu;
+    }
 
     [RelayCommand(CanExecute = nameof(KannErstellen))]
     public async Task ErstellenAsync()

@@ -27,15 +27,25 @@
             <TextBlock Text="Vorlage" FontWeight="SemiBold" />
             <ComboBox ItemsSource="{Binding Vorlagen}"
                       SelectedItem="{Binding AusgewaehlteVorlage, Mode=TwoWay}"
-                      DisplayMemberPath="Name"
-                      HorizontalAlignment="Stretch" Margin="0,0,0,8" />
-
-            <TextBlock Text="Name" FontWeight="SemiBold" />
-            <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+                      HorizontalAlignment="Stretch" Margin="0,0,0,8">
+                <!-- Issue #367: Variante mit anzeigen, sonst sind gleichnamige Vorlagen ("FIFA WM") nicht unterscheidbar -->
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="{Binding Name}" />
+                            <TextBlock Text="{Binding Variante}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
 
             <TextBlock Text="Saison / Jahr" FontWeight="SemiBold" />
             <TextBox Text="{Binding SaisonOderJahr, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      PlaceholderText="z.B. 2027 oder 2027/28" Margin="0,0,0,8" />
+
+            <TextBlock Text="Name" FontWeight="SemiBold" />
+            <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
 
             <CheckBox Content="Als weitere Vorlage anlegen (statt als echtes Turnier)"
                       IsChecked="{Binding AlsVorlageAnlegen, Mode=TwoWay}" Margin="0,4,0,0" />

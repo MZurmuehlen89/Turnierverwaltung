@@ -38,12 +38,12 @@ public static class TurnierVorlagenSeedDaten
         UefaConferenceLeague36Teams(regelwerkLookup, verbandLookup, ranglistenQuelleLookup),
         DfbPokal64Teams(regelwerkLookup, verbandLookup, landLookup),
         FaCup64Teams(regelwerkLookup, verbandLookup, landLookup),
-        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Bundesliga (18 Teams)",     "GER", 18, LIGA_TORDIFFERENZ),
-        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "2. Bundesliga (18 Teams)",  "GER", 18, LIGA_TORDIFFERENZ),
-        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Premier League (20 Teams)", "ENG", 20, LIGA_TORDIFFERENZ),
-        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "La Liga (20 Teams)",        "ESP", 20, LIGA_DIREKTER_VERGLEICH),
-        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Serie A (20 Teams)",        "ITA", 20, LIGA_DIREKTER_VERGLEICH),
-        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Ligue 1 (18 Teams)",        "FRA", 18, LIGA_TORDIFFERENZ),
+        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Bundesliga",     "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ),
+        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "2. Bundesliga",  "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ),
+        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Premier League", "20 Teams",  "ENG", 20, LIGA_TORDIFFERENZ),
+        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "La Liga",        "20 Teams",  "ESP", 20, LIGA_DIREKTER_VERGLEICH),
+        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Serie A",        "20 Teams",  "ITA", 20, LIGA_DIREKTER_VERGLEICH),
+        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Ligue 1",        "18 Teams",  "FRA", 18, LIGA_TORDIFFERENZ),
         MiniTurnier8Teams(regelwerkLookup),
         MiniTurnier4Teams(regelwerkLookup),
         FreiesTurnier(),
@@ -53,24 +53,51 @@ public static class TurnierVorlagenSeedDaten
     public const string LIGA_TORDIFFERENZ = "Nationale Liga (Tordifferenz vor direktem Vergleich)";
     public const string LIGA_DIREKTER_VERGLEICH = "Nationale Liga (direkter Vergleich vor Tordifferenz)";
 
-    // Issue #350: umbenannte Vorlagen (alter Name → neuer Name) — die Nachrüstung identifiziert Vorlagen über
-    // den Namen, ohne Umbenennung der Bestands-Zeile würde sie unter neuem Namen ein Duplikat anlegen.
-    public static IReadOnlyDictionary<string, string> UmbenennungenNachAltemNamen { get; } = new Dictionary<string, string>
+    // Issue #350/#367: umbenannte Vorlagen (alter Name → neuer Name + Variante) — die Nachrüstung identifiziert
+    // Vorlagen über Name + Variante, ohne Umbenennung der Bestands-Zeile würde sie ein Duplikat anlegen.
+    // #367 hat den Klammerzusatz aus dem Namen in das Feld Variante verschoben.
+    public static IReadOnlyDictionary<string, (string Name, string Variante)> UmbenennungenNachAltemNamen { get; } =
+        new Dictionary<string, (string Name, string Variante)>
     {
-        ["FIFA WM (24 Teams, 1982–1994)"] = "FIFA WM (24 Teams, 1982)",
+        ["FIFA WM (24 Teams, 1982–1994)"]                                       = ("FIFA WM", "24 Teams · 1982"),
+        ["FIFA WM (48 Teams, ab 2026)"]                                         = ("FIFA WM", "48 Teams · ab 2026"),
+        ["FIFA WM (32 Teams, 1998–2022)"]                                       = ("FIFA WM", "32 Teams · 1998–2022"),
+        ["FIFA WM (24 Teams, 1982)"]                                            = ("FIFA WM", "24 Teams · 1982"),
+        ["FIFA WM (24 Teams, 1986–1994)"]                                       = ("FIFA WM", "24 Teams · 1986–1994"),
+        ["FIFA WM (16 Teams, 1934–1978)"]                                       = ("FIFA WM", "16 Teams · 1934–1978"),
+        ["UEFA EM (24 Teams, 2016+)"]                                           = ("UEFA EM", "24 Teams · 2016+"),
+        ["UEFA EM (16 Teams, 1996–2012)"]                                       = ("UEFA EM", "16 Teams · 1996–2012"),
+        ["UEFA EM (8 Teams, 1960–1992)"]                                        = ("UEFA EM", "8 Teams · 1960–1992"),
+        ["UEFA Nations League Liga A (16 Teams, ab 2024/25)"]                   = ("UEFA Nations League Liga A", "16 Teams · ab 2024/25"),
+        ["Copa América (16 Teams, 2016/2024)"]                                  = ("Copa América", "16 Teams · 2016/2024"),
+        ["Copa América (12 Teams, 1993–2019)"]                                  = ("Copa América", "12 Teams · 1993–2019"),
+        ["Afrika-Cup (24 Teams, ab 2019)"]                                      = ("Afrika-Cup", "24 Teams · ab 2019"),
+        ["AFC Asian Cup (24 Teams, ab 2019)"]                                   = ("AFC Asian Cup", "24 Teams · ab 2019"),
+        ["CONCACAF Gold Cup (16 Teams, ab 2021)"]                               = ("CONCACAF Gold Cup", "16 Teams · ab 2021"),
+        ["UEFA Champions League (32 Teams, mit Auswärtstorregel, 2003–2021)"]   = ("UEFA Champions League", "32 Teams · mit Auswärtstorregel · 2003–2021"),
+        ["UEFA Champions League (32 Teams, ohne Auswärtstorregel, 2021–2024)"]  = ("UEFA Champions League", "32 Teams · ohne Auswärtstorregel · 2021–2024"),
+        ["FIFA Klub-WM (32 Teams, ab 2025)"]                                    = ("FIFA Klub-WM", "32 Teams · ab 2025"),
+        ["DFB-Pokal (64 Teams)"]                                                = ("DFB-Pokal", "64 Teams"),
+        ["FA Cup (64 Teams, ab 3. Hauptrunde)"]                                 = ("FA Cup", "64 Teams · ab 3. Hauptrunde"),
+        ["Mini-Turnier (8 Teams)"]                                              = ("Mini-Turnier", "8 Teams"),
+        ["Mini-Turnier (4 Teams)"]                                              = ("Mini-Turnier", "4 Teams"),
+        ["Freies Turnier (benutzerdefiniert)"]                                  = ("Freies Turnier", "benutzerdefiniert"),
+        ["Bundesliga (18 Teams)"]                                               = ("Bundesliga", "18 Teams"),
+        ["2. Bundesliga (18 Teams)"]                                            = ("2. Bundesliga", "18 Teams"),
+        ["Premier League (20 Teams)"]                                           = ("Premier League", "20 Teams"),
+        ["La Liga (20 Teams)"]                                                  = ("La Liga", "20 Teams"),
+        ["Serie A (20 Teams)"]                                                  = ("Serie A", "20 Teams"),
+        ["Ligue 1 (18 Teams)"]                                                  = ("Ligue 1", "18 Teams"),
+        ["UEFA Champions League (36 Teams, ab 2024/25)"]                        = ("UEFA Champions League", "36 Teams · ab 2024/25"),
+        ["UEFA Europa League (36 Teams, ab 2024/25)"]                           = ("UEFA Europa League", "36 Teams · ab 2024/25"),
+        ["UEFA Conference League (36 Teams, ab 2024/25)"]                       = ("UEFA Conference League", "36 Teams · ab 2024/25"),
     };
 
-    // Für Nachrüstung bestehender DBs: Name → Runden-Blueprint
-    public static Dictionary<string, List<TurnierRunde>> RundenNachVorlagenName(IReadOnlyDictionary<string, int>? regelwerkLookup = null)
-        => Erstellen(regelwerkLookup)
-            .Where(v => v.Runden.Count > 0)
-            .ToDictionary(v => v.Name, v => v.Runden.ToList());
-
-    // Für Nachrüstung bestehender DBs: Name → Soll-Filterwerte (VerbandId, LandId, MannschaftsartFilter)
-    public static Dictionary<string, (int? VerbandId, int? LandId, MannschaftsartFilter MannschaftsartFilter)> FilterNachVorlagenName(
+    // Für Nachrüstung bestehender DBs: (Name, Variante) → Soll-Filterwerte (VerbandId, LandId, MannschaftsartFilter)
+    public static Dictionary<(string Name, string Variante), (int? VerbandId, int? LandId, MannschaftsartFilter MannschaftsartFilter)> FilterNachVorlagenSchluessel(
         IReadOnlyDictionary<string, int>? verbandLookup = null, IReadOnlyDictionary<string, int>? landLookup = null)
         => Erstellen(verbandLookup: verbandLookup, landLookup: landLookup)
-            .ToDictionary(v => v.Name, v => (v.VerbandId, v.LandId, v.MannschaftsartFilter));
+            .ToDictionary(v => (v.Name, v.Variante), v => (v.VerbandId, v.LandId, v.MannschaftsartFilter));
 
     // ── Weltmeisterschaften ────────────────────────────────────────────────────
 
@@ -81,7 +108,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "FIFA WM (48 Teams, ab 2026)",
+            Name = "FIFA WM",
+            Variante = "48 Teams · ab 2026",
             Beschreibung = "Gruppenphase (12×4, Erste/Zweite + 8 beste Dritte) → Sechzehntelfinale → Achtelfinale → " +
                            "Viertelfinale → Halbfinale → Spiel um Platz 3 + Finale",
             ZielMannschaftsanzahl = 48,
@@ -111,7 +139,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "FIFA WM (32 Teams, 1998–2022)",
+            Name = "FIFA WM",
+            Variante = "32 Teams · 1998–2022",
             Beschreibung = "Gruppenphase (8×4) → Achtelfinale → Viertelfinale → Halbfinale → Spiel um Platz 3 + Finale",
             ZielMannschaftsanzahl = 32,
             Kategorie = TurnierKategorie.Weltmeisterschaft,
@@ -136,7 +165,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "FIFA WM (24 Teams, 1982)",
+            Name = "FIFA WM",
+            Variante = "24 Teams · 1982",
             Beschreibung = "Gruppenphase (6×4) → Zwischenrunde (4 Dreiergruppen, nur Gruppensieger weiter) → " +
                            "Halbfinale → Spiel um Platz 3 + Finale",
             ZielMannschaftsanzahl = 24,
@@ -159,7 +189,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "FIFA WM (24 Teams, 1986–1994)",
+            Name = "FIFA WM",
+            Variante = "24 Teams · 1986–1994",
             Beschreibung = "Gruppenphase (6×4, Erste/Zweite + 4 beste Dritte) → Achtelfinale → Viertelfinale → " +
                            "Halbfinale → Spiel um Platz 3 + Finale; 1994 bereits mit 3-Punkte-Regel (Regelwerk ggf. umstellen)",
             ZielMannschaftsanzahl = 24,
@@ -180,7 +211,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "FIFA WM (16 Teams, 1934–1978)",
+            Name = "FIFA WM",
+            Variante = "16 Teams · 1934–1978",
             Beschreibung = "Direktes K.-o. ab 16 Teams",
             ZielMannschaftsanzahl = 16,
             Kategorie = TurnierKategorie.Weltmeisterschaft,
@@ -204,7 +236,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "UEFA EM (24 Teams, 2016+)",
+            Name = "UEFA EM",
+            Variante = "24 Teams · 2016+",
             Beschreibung = "Gruppenphase (6×4) → Achtelfinale → Viertelfinale → Halbfinale → Finale",
             ZielMannschaftsanzahl = 24,
             Kategorie = TurnierKategorie.Kontinentalmeisterschaft,
@@ -225,7 +258,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "UEFA EM (16 Teams, 1996–2012)",
+            Name = "UEFA EM",
+            Variante = "16 Teams · 1996–2012",
             Beschreibung = "Gruppenphase (4×4) → Viertelfinale → Halbfinale → Finale",
             ZielMannschaftsanzahl = 16,
             Kategorie = TurnierKategorie.Kontinentalmeisterschaft,
@@ -249,7 +283,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "UEFA EM (8 Teams, 1960–1992)",
+            Name = "UEFA EM",
+            Variante = "8 Teams · 1960–1992",
             Beschreibung = "Halbfinale → Finale + Spiel um Platz 3",
             ZielMannschaftsanzahl = 8,
             Kategorie = TurnierKategorie.Kontinentalmeisterschaft,
@@ -277,7 +312,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "UEFA Nations League Liga A (16 Teams, ab 2024/25)",
+            Name = "UEFA Nations League Liga A",
+            Variante = "16 Teams · ab 2024/25",
             Beschreibung = "Gruppenphase (4×4, Hin-/Rückspiel) → Viertelfinale (Gruppensieger gegen Gruppenzweite, " +
                            "Hin-/Rückspiel) → Final Four: Halbfinale → Spiel um Platz 3 + Finale",
             ZielMannschaftsanzahl = 16,
@@ -303,7 +339,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "Copa América (16 Teams, 2016/2024)",
+            Name = "Copa América",
+            Variante = "16 Teams · 2016/2024",
             Beschreibung = "Gruppenphase (4×4) → Viertelfinale → Halbfinale → Spiel um Platz 3 + Finale; " +
                            "10 CONMEBOL-Teams + 6 Gäste (CONCACAF), daher ohne Verbandsfilter",
             ZielMannschaftsanzahl = 16,
@@ -327,7 +364,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "Copa América (12 Teams, 1993–2019)",
+            Name = "Copa América",
+            Variante = "12 Teams · 1993–2019",
             Beschreibung = "Gruppenphase (3×4, Erste/Zweite + 2 beste Dritte) → Viertelfinale → Halbfinale → " +
                            "Spiel um Platz 3 + Finale; 10 CONMEBOL-Teams + 2 Gäste, daher ohne Verbandsfilter",
             ZielMannschaftsanzahl = 12,
@@ -355,7 +393,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "Afrika-Cup (24 Teams, ab 2019)",
+            Name = "Afrika-Cup",
+            Variante = "24 Teams · ab 2019",
             Beschreibung = "Gruppenphase (6×4, Erste/Zweite + 4 beste Dritte) → Achtelfinale → Viertelfinale → " +
                            "Halbfinale → Spiel um Platz 3 + Finale",
             ZielMannschaftsanzahl = 24,
@@ -375,7 +414,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "AFC Asian Cup (24 Teams, ab 2019)",
+            Name = "AFC Asian Cup",
+            Variante = "24 Teams · ab 2019",
             Beschreibung = "Gruppenphase (6×4, Erste/Zweite + 4 beste Dritte) → Achtelfinale → Viertelfinale → " +
                            "Halbfinale → Finale (kein Spiel um Platz 3)",
             ZielMannschaftsanzahl = 24,
@@ -396,7 +436,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "CONCACAF Gold Cup (16 Teams, ab 2021)",
+            Name = "CONCACAF Gold Cup",
+            Variante = "16 Teams · ab 2021",
             Beschreibung = "Gruppenphase (4×4) → Viertelfinale → Halbfinale → Finale (kein Spiel um Platz 3)",
             ZielMannschaftsanzahl = 16,
             Kategorie = TurnierKategorie.Kontinentalmeisterschaft,
@@ -421,7 +462,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "UEFA Champions League (32 Teams, mit Auswärtstorregel, 2003–2021)",
+            Name = "UEFA Champions League",
+            Variante = "32 Teams · mit Auswärtstorregel · 2003–2021",
             Beschreibung = "Gruppenphase (8×4) → KO-Runden (Hin-/Rückspiel, Auswärtstorregel aktiv) → Finale (Einzelspiel)",
             ZielMannschaftsanzahl = 32,
             Kategorie = TurnierKategorie.Vereinspokal,
@@ -444,7 +486,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "UEFA Champions League (32 Teams, ohne Auswärtstorregel, 2021–2024)",
+            Name = "UEFA Champions League",
+            Variante = "32 Teams · ohne Auswärtstorregel · 2021–2024",
             Beschreibung = "Gruppenphase (8×4) → KO-Runden (Hin-/Rückspiel, keine Auswärtstorregel) → Finale (Einzelspiel)",
             ZielMannschaftsanzahl = 32,
             Kategorie = TurnierKategorie.Vereinspokal,
@@ -468,15 +511,15 @@ public static class TurnierVorlagenSeedDaten
     // allein aus den neun koeffizientenstärksten Klubs (Issue #349).
     private static TurnierInstanz UefaChampionsLeague36TeamsModern(
         IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle) =>
-        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Champions League (36 Teams, ab 2024/25)", titelverteidigerInTopf1: true);
+        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Champions League", "36 Teams · ab 2024/25", titelverteidigerInTopf1: true);
 
     private static TurnierInstanz UefaEuropaLeague36Teams(
         IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle) =>
-        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Europa League (36 Teams, ab 2024/25)", titelverteidigerInTopf1: false);
+        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Europa League", "36 Teams · ab 2024/25", titelverteidigerInTopf1: false);
 
     private static TurnierInstanz UefaConferenceLeague36Teams(
         IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle) =>
-        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Conference League (36 Teams, ab 2024/25)", titelverteidigerInTopf1: false);
+        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Conference League", "36 Teams · ab 2024/25", titelverteidigerInTopf1: false);
 
     // Gemeinsame Struktur für CL/EL/ECL seit 2024/25 (Issue #25-Nachlieferung, freigegeben durch #29):
     // Ligaphase (36 Teams, je 8 Gegner statt voller Punktrunde) → Platz 1–8 direkt ins Achtelfinale,
@@ -485,12 +528,13 @@ public static class TurnierVorlagenSeedDaten
     // Übergangsregeln (statt linearer Eingangs-/Ausgangszahl) eingeführt wurden.
     private static TurnierInstanz UefaClubwettbewerbModern(
         IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle,
-        string name, bool titelverteidigerInTopf1)
+        string name, string variante, bool titelverteidigerInTopf1)
     {
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
             Name = name,
+            Variante = variante,
             Beschreibung = "Ligaphase (36 Teams, je 8 Gegner) → Platz 1–8 direkt ins Achtelfinale, " +
                            "Platz 9–24 in die Playoff-Runde (Hin-/Rückspiel) → Achtelfinale → Viertelfinale → " +
                            "Halbfinale → Finale (Einzelspiel); keine Auswärtstorregel",
@@ -536,7 +580,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "FIFA Klub-WM (32 Teams, ab 2025)",
+            Name = "FIFA Klub-WM",
+            Variante = "32 Teams · ab 2025",
             Beschreibung = "Gruppenphase (8×4) → Achtelfinale → Viertelfinale → Halbfinale → Finale; alle KO-Spiele als Einzelspiel",
             ZielMannschaftsanzahl = 32,
             Kategorie = TurnierKategorie.Weltmeisterschaft,
@@ -562,7 +607,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "DFB-Pokal (64 Teams)",
+            Name = "DFB-Pokal",
+            Variante = "64 Teams",
             Beschreibung = "Reines K.-o.-Format ab 64 Teams; alle Runden als Einzelspiel (kein Rückspiel)",
             ZielMannschaftsanzahl = 64,
             Kategorie = TurnierKategorie.Vereinspokal,
@@ -591,7 +637,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "FA Cup (64 Teams, ab 3. Hauptrunde)",
+            Name = "FA Cup",
+            Variante = "64 Teams · ab 3. Hauptrunde",
             Beschreibung = "Reines K.-o.-Format ab der 3. Hauptrunde; alle Runden als Einzelspiel, " +
                            "seit 2024/25 ohne Wiederholungsspiele",
             ZielMannschaftsanzahl = 64,
@@ -617,12 +664,13 @@ public static class TurnierVorlagenSeedDaten
     // (#175/#177) und daher nicht Teil der Vorlage.
     private static TurnierInstanz NationaleLiga(
         IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? land,
-        string name, string fifaCode, int teams, string regelwerkName)
+        string name, string variante, string fifaCode, int teams, string regelwerkName)
     {
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
             Name = name,
+            Variante = variante,
             Beschreibung = $"Hin- und Rückrunde, jeder gegen jeden ({teams} Teams, {2 * (teams - 1)} Spieltage)",
             ZielMannschaftsanzahl = teams,
             Kategorie = TurnierKategorie.Liga,
@@ -641,7 +689,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "Mini-Turnier (8 Teams)",
+            Name = "Mini-Turnier",
+            Variante = "8 Teams",
             Beschreibung = "2 Vierergruppen → Halbfinale → Finale + Spiel um Platz 3",
             ZielMannschaftsanzahl = 8,
             Kategorie = TurnierKategorie.KleinesTurnier,
@@ -659,7 +708,8 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "Mini-Turnier (4 Teams)",
+            Name = "Mini-Turnier",
+            Variante = "4 Teams",
             Beschreibung = "Liga-Runde oder direktes Halbfinale + Finale",
             ZielMannschaftsanzahl = 4,
             Kategorie = TurnierKategorie.KleinesTurnier,
@@ -674,7 +724,8 @@ public static class TurnierVorlagenSeedDaten
     private static TurnierInstanz FreiesTurnier() => new()
     {
         Status = TurnierStatus.Vorlage,
-        Name = "Freies Turnier (benutzerdefiniert)",
+        Name = "Freies Turnier",
+        Variante = "benutzerdefiniert",
         Beschreibung = "Frei konfigurierbare Rundenstruktur",
         ZielMannschaftsanzahl = 0,
         Kategorie = TurnierKategorie.Benutzerdefiniert,

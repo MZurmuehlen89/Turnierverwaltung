@@ -923,6 +923,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int?>("TitelverteidigerId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Variante")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<int?>("VerbandId")
                         .HasColumnType("int");
 

@@ -256,6 +256,35 @@ public class TurnierValidatorTests
             .IstGueltig.Should().BeFalse();
     }
 
+    // ── VorlagenEindeutigkeitValidieren (Issue #367) ────────────────────────────────────────
+
+    private static readonly Domain.Entitaeten.Turniere.TurnierInstanz[] _vorlagen =
+    [
+        new() { Id = 1, Name = "FIFA WM", Variante = "32 Teams · 1998–2022", Status = TurnierStatus.Vorlage },
+        new() { Id = 2, Name = "FIFA WM", Variante = "48 Teams · ab 2026", Status = TurnierStatus.Vorlage },
+    ];
+
+    [Fact]
+    public void VorlagenEindeutigkeit_GleicherNameAndereVariante_IstGueltig()
+    {
+        TurnierValidator.VorlagenEindeutigkeitValidieren("FIFA WM", "16 Teams · 1934–1978", null, _vorlagen)
+            .IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void VorlagenEindeutigkeit_GleicherNameUndVarianteOhneBeachtungVonGrossKleinUndLeerraum_IstUngueltig()
+    {
+        TurnierValidator.VorlagenEindeutigkeitValidieren(" fifa wm ", "32 TEAMS · 1998–2022 ", null, _vorlagen)
+            .IstGueltig.Should().BeFalse();
+    }
+
+    [Fact]
+    public void VorlagenEindeutigkeit_EigeneVorlageZaehltNicht()
+    {
+        TurnierValidator.VorlagenEindeutigkeitValidieren("FIFA WM", "32 Teams · 1998–2022", 1, _vorlagen)
+            .IstGueltig.Should().BeTrue();
+    }
+
     // ── RegelwerkPflichtValidieren (Issue #294) ─────────────────────────────────────────────
 
     [Fact]

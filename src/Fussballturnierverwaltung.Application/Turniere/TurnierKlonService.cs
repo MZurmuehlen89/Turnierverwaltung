@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -21,6 +22,12 @@ public class TurnierKlonService(
     {
         var quelle = await repository.FindenNachIdMitVollstaendigenDatenAsync(quellId, ct)
             ?? throw new InvalidOperationException($"TurnierInstanz mit ID {quellId} nicht gefunden.");
+        if (zielStatus == TurnierStatus.Vorlage)
+        {
+            var vorlagen = await repository.AlleNachStatusFindenAsync(TurnierStatus.Vorlage, ct);
+            ValidationException.WerfenWennUngueltig(
+                TurnierValidator.VorlagenEindeutigkeitValidieren(neuerName, quelle.Variante, null, vorlagen));
+        }
 
         var neu = new TurnierInstanz
         {
@@ -28,6 +35,7 @@ public class TurnierKlonService(
             SaisonOderJahr        = neueSaisonOderJahr.Trim(),
             Status                = zielStatus,
             Beschreibung          = quelle.Beschreibung,
+            Variante              = quelle.Variante,
             Kategorie             = quelle.Kategorie,
             ZielMannschaftsanzahl = quelle.ZielMannschaftsanzahl,
             Logo                  = quelle.Logo,

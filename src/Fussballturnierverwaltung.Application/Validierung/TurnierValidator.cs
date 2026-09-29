@@ -144,6 +144,25 @@ public class TurnierValidator
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }
 
+    /// <summary>Issue #367: Vorlagen tragen den Formatzusatz nicht mehr im Namen ("FIFA WM"), sondern in
+    /// <see cref="TurnierInstanz.Variante"/> ("32 Teams · 1998–2022") — Name + Variante zusammen müssen daher unter
+    /// allen Vorlagen eindeutig sein, sonst wären sie in Liste und Auswahl nicht unterscheidbar. Echte Turniere
+    /// sind nicht betroffen (dort unterscheidet die Saison).</summary>
+    public static ValidationErgebnis VorlagenEindeutigkeitValidieren(
+        string name, string variante, int? eigeneId, IEnumerable<TurnierInstanz> vorhandeneVorlagen)
+    {
+        var n = name.Trim();
+        var v = variante.Trim();
+        bool doppelt = vorhandeneVorlagen.Any(x => x.Id != eigeneId
+            && string.Equals(x.Name.Trim(), n, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(x.Variante.Trim(), v, StringComparison.OrdinalIgnoreCase));
+        if (!doppelt) return ValidationErgebnis.Ok();
+
+        var varianteText = v.Length == 0 ? "ohne Variante" : $"mit der Variante '{v}'";
+        return ValidationErgebnis.MitFehlern(
+            $"Es gibt bereits eine Vorlage '{n}' {varianteText} — Name und Variante einer Vorlage müssen zusammen eindeutig sein.");
+    }
+
     /// <summary>Issue #294: ein Statuswechsel weg von <see cref="TurnierStatus.Vorlage"/> erfordert ein
     /// Regelwerk je Runde (eine Vorlage darf ohne Regelwerk existieren, ein echtes Turnier nicht). Ein
     /// Standard-Regelwerk der Instanz deckt Runden ohne eigenes Regelwerk ab (AD-026).</summary>

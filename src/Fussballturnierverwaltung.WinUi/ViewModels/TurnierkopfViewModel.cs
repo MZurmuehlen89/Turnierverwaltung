@@ -107,6 +107,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     // ── Basisdaten ────────────────────────────────────────────────────────────
     [ObservableProperty] private string _name = "";
     [ObservableProperty] private string _beschreibung = "";
+    [ObservableProperty] private string _variante = "";
     [ObservableProperty] private string _saisonOderJahr = "";
     [ObservableProperty] private string _zielMannschaftsanzahl = "";
     [ObservableProperty] private TurnierKategorie _kategorie = TurnierKategorie.Benutzerdefiniert;
@@ -460,7 +461,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     private static readonly HashSet<string> _formFelder =
     [
-        nameof(Name), nameof(Beschreibung), nameof(SaisonOderJahr), nameof(ZielMannschaftsanzahl),
+        nameof(Name), nameof(Beschreibung), nameof(Variante), nameof(SaisonOderJahr), nameof(ZielMannschaftsanzahl),
         nameof(Kategorie), nameof(Startdatum), nameof(Enddatum), nameof(LogoDaten),
         nameof(VerbandFilter), nameof(LandFilter), nameof(TeamFilter), nameof(StandardRegelwerk),
         nameof(Titelverteidiger)
@@ -542,7 +543,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             {
                 FormularAktiv = false;
                 IstNeuModus = false;
-                Name = Beschreibung = SaisonOderJahr = ZielMannschaftsanzahl = Startdatum = Enddatum = "";
+                Name = Beschreibung = Variante = SaisonOderJahr = ZielMannschaftsanzahl = Startdatum = Enddatum = "";
                 Kategorie = TurnierKategorie.Benutzerdefiniert;
                 AuslosungsfilterSetzen(_keinVerband, _keinLand);
                 TeamFilter = _alleMannschaften;
@@ -561,6 +562,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 IstNeuModus = false;
                 Name = instanz.Name;
                 Beschreibung = instanz.Beschreibung;
+                Variante = instanz.Variante;
                 SaisonOderJahr = instanz.SaisonOderJahr;
                 ZielMannschaftsanzahl = instanz.ZielMannschaftsanzahl?.ToString() ?? "";
                 Kategorie = instanz.Kategorie;
@@ -651,7 +653,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             AktuelleInstanz = null;
             FormularAktiv = true;
             IstNeuModus = true;
-            Name = Beschreibung = SaisonOderJahr = ZielMannschaftsanzahl = Startdatum = Enddatum = "";
+            Name = Beschreibung = Variante = SaisonOderJahr = ZielMannschaftsanzahl = Startdatum = Enddatum = "";
             Kategorie = TurnierKategorie.Benutzerdefiniert;
             AuslosungsfilterSetzen(_keinVerband, _keinLand);
             TeamFilter = _alleMannschaften;
@@ -712,7 +714,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                     Name: Name, Beschreibung: Beschreibung, SaisonOderJahr: SaisonOderJahr, Kategorie: Kategorie,
                     ZielMannschaftsanzahl: zielAnzahl, Startdatum: startdatum, Enddatum: enddatum, Status: Status.Wert,
                     VerbandId: verbandId, LandId: landId, MannschaftsartFilter: TeamFilter.Wert,
-                    StandardRegelwerkId: standardRwId, Logo: LogoDaten, TitelverteidigerId: Titelverteidiger?.Wert);
+                    StandardRegelwerkId: standardRwId, Logo: LogoDaten, TitelverteidigerId: Titelverteidiger?.Wert,
+                    Variante: Variante);
                 ergebnis = await _service.ErstellenAsync(eingabe);
             }
             else if (AktuelleInstanz is not null)
@@ -735,7 +738,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                     Name: Name, Beschreibung: Beschreibung, SaisonOderJahr: SaisonOderJahr, Kategorie: Kategorie,
                     ZielMannschaftsanzahl: zielAnzahl, Startdatum: startdatum, Enddatum: enddatum, Status: AktuelleInstanz.Status,
                     VerbandId: verbandId, LandId: landId, MannschaftsartFilter: TeamFilter.Wert,
-                    StandardRegelwerkId: standardRwId, Logo: LogoDaten, TitelverteidigerId: Titelverteidiger?.Wert);
+                    StandardRegelwerkId: standardRwId, Logo: LogoDaten, TitelverteidigerId: Titelverteidiger?.Wert,
+                    Variante: Variante);
                 await _service.VollAktualisierenAsync(id, eingabe);
                 await _verbandsQuoteService.QuotenErsetzenAsync(id, quotenZeilen, ErsteRundeEingang);
                 await _landesQuoteService.QuotenErsetzenAsync(id, landesQuotenZeilen, ErsteRundeEingang);

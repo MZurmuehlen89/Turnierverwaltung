@@ -49,6 +49,12 @@
                 <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
+                <!-- Issue #367: kurze Formatangabe, unterscheidet gleichnamige Vorlagen in der Turnierliste -->
+                <TextBlock Text="Variante" FontSize="12" Margin="0,0,0,3" />
+                <TextBox Text="{Binding Variante, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         PlaceholderText="z. B. 32 Teams · 1998–2022" MaxLength="100"
+                         HorizontalAlignment="Stretch" Margin="0,0,0,12" />
+
                 <TextBlock Text="Beschreibung" FontSize="12" Margin="0,0,0,3" />
                 <TextBox Text="{Binding Beschreibung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          HorizontalAlignment="Stretch" Margin="0,0,0,24"
@@ -193,32 +199,34 @@
                     <Button Content="Land hinzufügen" Command="{Binding LandesQuoteHinzufuegenCommand}"
                             HorizontalAlignment="Left" Margin="0,4,0,0" />
                 </StackPanel>
-
-                <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
-                        Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
-                        CornerRadius="4" Padding="10,8" Margin="0,20,0,0">
-                    <TextBlock Text="{Binding Fehlermeldung}"
-                               Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                               FontSize="12" TextWrapping="Wrap" />
-                </Border>
             </StackPanel>
         </ScrollViewer>
 
-        <!-- Meldungsspalte: Formularfehler (Live-Vorschau, Issue #234) -->
+        <!-- Meldungsspalte: Speicher-/Statusfehler und Formularfehler (Live-Vorschau, Issue #234). Die
+             Speicher-Fehlermeldung stand früher am Formularende und lag bei langen Formularen außer Sicht (#367). -->
         <ScrollViewer Grid.Column="1"
                       Visibility="{Binding FormularAktiv, Converter={StaticResource BoolToVisibility}}"
                       VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding FormularFehler}" Margin="12,20,12,12">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
-                                CornerRadius="4" Padding="8,6" Margin="0,0,0,6">
-                            <TextBlock Text="{Binding}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                       FontSize="11" TextWrapping="Wrap" />
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <StackPanel Margin="12,20,12,12">
+                <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
+                        Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                        CornerRadius="4" Padding="8,6" Margin="0,0,0,6">
+                    <TextBlock Text="{Binding Fehlermeldung}"
+                               Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                               FontSize="11" TextWrapping="Wrap" />
+                </Border>
+                <ItemsControl ItemsSource="{Binding FormularFehler}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                                    CornerRadius="4" Padding="8,6" Margin="0,0,0,6">
+                                <TextBlock Text="{Binding}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                           FontSize="11" TextWrapping="Wrap" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
         </ScrollViewer>
     </Grid>
 </UserControl>

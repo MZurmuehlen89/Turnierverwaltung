@@ -12,6 +12,7 @@ public class TurnierInstanzKonfiguration : IEntityTypeConfiguration<TurnierInsta
         builder.HasKey(t => t.Id);
         builder.Property(t => t.Name).IsRequired().HasMaxLength(200);
         builder.Property(t => t.Beschreibung).HasMaxLength(2000);
+        builder.Property(t => t.Variante).IsRequired().HasMaxLength(100);
         builder.Property(t => t.SaisonOderJahr).IsRequired().HasMaxLength(20);
         builder.Property(t => t.Kategorie).IsRequired();
         builder.Property(t => t.Status).IsRequired();
