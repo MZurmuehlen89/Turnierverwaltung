@@ -38,6 +38,20 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
             Fussballturnierverwaltung.Domain.Enums.Rundenart.TopfLiga or
             Fussballturnierverwaltung.Domain.Enums.Rundenart.SchweizerSystem;
 
+    /// <summary>Issue #238: Die Gesamtübersicht des Turnierbaums nimmt die ganze Seite ein — Rundenliste und
+    /// Spielplan treten dafür zurück.</summary>
+    public bool ZeigtBaumGesamtansicht => ZeigeSplitAnsicht && TurnierBaumVm.IstGesamtansicht;
+    public bool ZeigtSpielplan => !ZeigtBaumGesamtansicht;
+    public bool ZeigtTrenner => ZeigeSplitAnsicht && !TurnierBaumVm.IstGesamtansicht;
+
+    private void AnsichtGeaendert()
+    {
+        OnPropertyChanged(nameof(ZeigeSplitAnsicht));
+        OnPropertyChanged(nameof(ZeigtBaumGesamtansicht));
+        OnPropertyChanged(nameof(ZeigtSpielplan));
+        OnPropertyChanged(nameof(ZeigtTrenner));
+    }
+
     public string? FortschrittAnzeige { get; private set; }
 
     public SpielplanUndBaumViewModel(
@@ -63,6 +77,12 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
                 SpielplanVm.AusgewaehlteGruppe = gruppe;
         };
 
+        TurnierBaumVm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(TurnierBaumViewModel.IstGesamtansicht))
+                AnsichtGeaendert();
+        };
+
         SpielplanVm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(SpielplanViewModel.AusgewaehlteGruppe) ||
@@ -75,7 +95,7 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
                 OnPropertyChanged(nameof(RibbonZusatzGruppen));
 
             if (e.PropertyName == nameof(SpielplanViewModel.AusgewaehlteRunde))
-                OnPropertyChanged(nameof(ZeigeSplitAnsicht));
+                AnsichtGeaendert();
         };
 
         SpielplanVm.AusfuehrlicheSimulationAngefordert += (sender, vorauswahl) =>
@@ -90,7 +110,7 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
     {
         _instanz = instanz;
         await SpielplanVm.InstanzSetzenAsync(instanz);
-        OnPropertyChanged(nameof(ZeigeSplitAnsicht));
+        AnsichtGeaendert();
         await TurnierBaumVm.InstanzSetzenAsync(instanz);
         await FortschrittAktualisierenAsync();
     }

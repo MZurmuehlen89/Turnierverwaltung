@@ -63,6 +63,44 @@
             </Button>
         </DataTemplate>
 
+        <!-- Kompakte Karte der Gesamtübersicht (Issue #238): feste Größe KOMPAKT_W × KOMPAKT_H, damit die
+             Verbindungslinien direkt aus den berechneten Positionen gezeichnet werden können. Der umgebende
+             Button (Klick → Runde fokussieren) entsteht im Code-Behind. -->
+        <DataTemplate x:Key="KompaktKartenTemplate" x:DataType="vm:BracketKnotenAnzeige">
+            <Border BorderThickness="1" CornerRadius="6" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                <Grid>
+                    <TextBlock Text="–" FontSize="18" Opacity="0.3" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{Binding IstFreilos, Converter={StaticResource BoolToVisibility}}" />
+                    <Grid Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}"
+                          ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="*,*" Padding="8,2,8,2" ColumnSpacing="6">
+                        <Image Grid.Row="0" Grid.Column="0"
+                               Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                               Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                               Width="16" Height="16" Stretch="Uniform" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HeimName}" FontSize="12"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                   FontWeight="{Binding HeimSchrift}" />
+                        <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding HeimScore}" FontSize="13" FontWeight="Bold"
+                                   VerticalAlignment="Center" />
+
+                        <Image Grid.Row="1" Grid.Column="0"
+                               Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                               Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                               Width="16" Height="16" Stretch="Uniform" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AuswaertsName}" FontSize="12"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                   FontWeight="{Binding AuswaertsSchrift}" />
+                        <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding AuswaertsScore}" FontSize="13" FontWeight="Bold"
+                                   VerticalAlignment="Center" />
+
+                        <TextBlock Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Text="{Binding EntscheidungKurz}"
+                                   FontSize="9" Opacity="0.6" VerticalAlignment="Center" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
         <!-- Tabellenzeile für Gruppen-/Rangfolge-Karten. #262-Fix: keine feste schmale Breite/Trimming
              mehr auf der Team-Spalte — Karte ist breit genug (siehe Karten-Border unten), Name darf
              ggf. umbrechen statt abgeschnitten zu werden. -->
@@ -109,26 +147,60 @@
             <!-- ── Bracket-Fenster (Issue #108/#244) ── -->
             <Grid RowDefinitions="Auto,Auto,*" Visibility="{Binding ZeigtBracketInhalt, Converter={StaticResource BoolToVisibility}}">
 
-                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="16,12,16,8">
-                    <Button Grid.Column="0" Command="{Binding VorherigeRundeBefehl}" Background="Transparent" BorderThickness="0"
-                            Visibility="{Binding HatVorherigeRunde, Converter={StaticResource BoolToVisibility}}">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="◀" FontSize="14" />
-                            <TextBlock Text="{Binding VorherigeRundeName}" FontSize="12" Opacity="0.7" />
+                <!-- Kopfzeile: ◀/▶ blättern rundenweise, der Button in der Mitte schaltet zwischen rundenweiser Ansicht
+                     und Gesamtübersicht um (Issue #238). -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,*" Margin="16,12,16,8">
+                    <Grid Grid.Column="0" HorizontalAlignment="Left"
+                          Visibility="{Binding IstGesamtansicht, Converter={StaticResource InverseBoolToVisibility}}">
+                        <Button Command="{Binding VorherigeRundeBefehl}" Background="Transparent" BorderThickness="0"
+                                Visibility="{Binding HatVorherigeRunde, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="◀" FontSize="14" />
+                                <TextBlock Text="{Binding VorherigeRundeName}" FontSize="12" Opacity="0.7" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <Button Grid.Column="1" Command="{Binding GesamtansichtZeigenBefehl}"
+                            Visibility="{Binding IstGesamtansicht, Converter={StaticResource InverseBoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE8A9;" FontSize="14" />
+                            <TextBlock Text="Gesamtübersicht" />
                         </StackPanel>
                     </Button>
-                    <TextBlock Grid.Column="1" Text="Turnierbaum" FontSize="16" FontWeight="Bold"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    <Button Grid.Column="2" Command="{Binding NaechsteRundeBefehl}" Background="Transparent" BorderThickness="0"
-                            Visibility="{Binding HatNaechsteRunde, Converter={StaticResource BoolToVisibility}}">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="{Binding NaechsteRundeName}" FontSize="12" Opacity="0.7" />
-                            <TextBlock Text="▶" FontSize="14" />
-                        </StackPanel>
-                    </Button>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                Visibility="{Binding IstGesamtansicht, Converter={StaticResource BoolToVisibility}}">
+                        <Button Command="{Binding RundenweiseZeigenBefehl}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE72B;" FontSize="14" />
+                                <TextBlock Text="Rundenweise" />
+                            </StackPanel>
+                        </Button>
+                        <Button Click="AllesAnzeigen_Click" ToolTipService.ToolTip="Ganzen Turnierbaum ins Fenster einpassen">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE9A6;" FontSize="14" />
+                                <TextBlock Text="Alles anzeigen" />
+                            </StackPanel>
+                        </Button>
+                        <TextBlock x:Name="ZoomAnzeige" MinWidth="44" VerticalAlignment="Center" TextAlignment="Right"
+                                   FontSize="12" Opacity="0.7"
+                                   ToolTipService.ToolTip="Zoomen mit Strg + Mausrad, verschieben durch Ziehen" />
+                    </StackPanel>
+
+                    <Grid Grid.Column="2" HorizontalAlignment="Right"
+                          Visibility="{Binding IstGesamtansicht, Converter={StaticResource InverseBoolToVisibility}}">
+                        <Button Command="{Binding NaechsteRundeBefehl}" Background="Transparent" BorderThickness="0"
+                                Visibility="{Binding HatNaechsteRunde, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="{Binding NaechsteRundeName}" FontSize="12" Opacity="0.7" />
+                                <TextBlock Text="▶" FontSize="14" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
                 </Grid>
 
-                <Grid Grid.Row="1" ColumnDefinitions="*,60,*" Margin="16,0,16,8">
+                <Grid Grid.Row="1" ColumnDefinitions="*,60,*" Margin="16,0,16,8"
+                      Visibility="{Binding IstGesamtansicht, Converter={StaticResource InverseBoolToVisibility}}">
                     <TextBlock Grid.Column="0" Text="{Binding LinkeSpalteName}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"
                                Grid.ColumnSpan="3" Visibility="{Binding ZeigtZweiteSpalte, Converter={StaticResource InverseBoolToVisibility}}" />
                     <TextBlock Grid.Column="0" Text="{Binding LinkeSpalteName}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center"
@@ -137,7 +209,8 @@
                                Visibility="{Binding ZeigtZweiteSpalte, Converter={StaticResource BoolToVisibility}}" />
                 </Grid>
 
-                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="0,0,0,4">
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="0,0,0,4"
+                              Visibility="{Binding IstGesamtansicht, Converter={StaticResource InverseBoolToVisibility}}">
                     <Grid Margin="0,0,0,16" ColumnDefinitions="*,60,*">
 
                         <!-- Canvas.Top wird NICHT per ItemContainerStyle-Binding gesetzt (in WinUI3 nicht
@@ -172,6 +245,16 @@
                         <Rectangle x:Name="LinienFarbQuelle" Visibility="Collapsed"
                                    Fill="{ThemeResource SurfaceStrokeColorDefaultBrush}" />
                     </Grid>
+                </ScrollViewer>
+
+                <!-- ── Gesamtübersicht (Issue #238) mit Zoom/Verschieben (Issue #50) ── Inhalt (Karten, Linien,
+                     Beschriftungen) baut TurnierBaumView.xaml.cs imperativ aus den berechneten Positionen auf. -->
+                <ScrollViewer x:Name="GesamtScroll" Grid.Row="1" Grid.RowSpan="2"
+                              ZoomMode="Enabled" MinZoomFactor="0.2" MaxZoomFactor="2"
+                              HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding IstGesamtansicht, Converter={StaticResource BoolToVisibility}}">
+                    <Canvas x:Name="GesamtCanvas" Background="Transparent" />
                 </ScrollViewer>
             </Grid>
 

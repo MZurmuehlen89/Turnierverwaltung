@@ -18,12 +18,17 @@
              nur einer Runde ohne Tabellendarstellung, siehe SpielplanUndBaumViewModel.ZeigeSplitAnsicht) -->
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto">
 
-            <views:SpielplanView Grid.Column="0" DataContext="{Binding SpielplanVm}" />
+            <!-- Visibility am Wrapper, nicht an der SpielplanView selbst: dort würde sie gegen deren eigenen
+                 DataContext (SpielplanVm) ausgewertet und ins Leere laufen. -->
+            <Grid Grid.Column="0" Visibility="{Binding ZeigtSpielplan, Converter={StaticResource BoolToVisibility}}">
+                <views:SpielplanView DataContext="{Binding SpielplanVm}" />
+            </Grid>
 
             <Border Grid.Column="1" Width="1" Background="{ThemeResource CardStrokeColorDefaultBrush}"
-                    Visibility="{Binding ZeigeSplitAnsicht, Converter={StaticResource BoolToVisibility}}" />
+                    Visibility="{Binding ZeigtTrenner, Converter={StaticResource BoolToVisibility}}" />
 
-            <Border Grid.Column="2" Width="600"
+            <!-- Issue #238: In der Gesamtübersicht spannt der Baum über alle Spalten (Code-Behind). -->
+            <Border x:Name="BaumContainer" Grid.Column="2" Width="600"
                     Visibility="{Binding ZeigeSplitAnsicht, Converter={StaticResource BoolToVisibility}}">
                 <views:TurnierBaumView DataContext="{Binding TurnierBaumVm}" />
             </Border>

@@ -9,10 +9,12 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Ribbon;
+using Microsoft.UI.Text;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Windows.Input;
+using Windows.UI.Text;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
@@ -39,6 +41,8 @@ public class BracketKnotenAnzeige
     public byte[]? AuswaertsWappen { get; init; }
     public bool HeimIstSieger { get; init; }
     public bool AuswaertsIstSieger { get; init; }
+    public FontWeight HeimSchrift => HeimIstSieger ? FontWeights.Bold : FontWeights.Normal;
+    public FontWeight AuswaertsSchrift => AuswaertsIstSieger ? FontWeights.Bold : FontWeights.Normal;
     public bool HatErgebnis { get; init; }
     public string HeimScore { get; init; } = "";
     public string AuswaertsScore { get; init; } = "";
@@ -48,7 +52,18 @@ public class BracketKnotenAnzeige
     public bool HatPaarungsText => !string.IsNullOrEmpty(PaarungsText);
     public string Datum { get; init; } = "";
     public bool HatDatum => !string.IsNullOrEmpty(Datum);
+    /// <summary>Kurzes Entscheidungskürzel für die kompakte Karte der Gesamtübersicht (Issue #238), z.B. "n.V."</summary>
+    public string EntscheidungKurz { get; init; } = "";
+    // Oberkante der kompakten Karte in der Gesamtübersicht (Issue #238), gesetzt in BerechneGesamtbaum.
+    public double GesamtX { get; set; }
+    public double GesamtY { get; set; }
+    public bool IstInGesamtbaum { get; set; }
 }
+
+/// <summary>Spaltenkopf bzw. Kartenbeschriftung der Gesamtübersicht (Issue #238), Pixelposition der Oberkante.
+/// <paramref name="GehoertZuKarte"/>: Beschriftung direkt über einer Karte der Mitte (Finale, Spiel um Platz 3) —
+/// wandert beim vertikalen Strecken mit der Karte, Spaltenköpfe bleiben oben.</summary>
+public record GesamtbaumBeschriftungAnzeige(double X, double Y, double Breite, string Name, bool GehoertZuKarte);
 
 public class BracketRundenkopf
 {
@@ -107,6 +122,33 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 
     [ObservableProperty] private ObservableCollection<BracketRundenkopf> _rundenKoepfe = [];
     [ObservableProperty] private ObservableCollection<BracketKnotenAnzeige> _knoten = [];
+
+    // ── Gesamtübersicht (Issue #238) ───────────────────────────────────────────
+
+    public const double KOMPAKT_W = 190.0;
+    public const double KOMPAKT_H = 52.0;
+    private const double GESAMT_GAP_H = 44.0;
+    private const double GESAMT_GAP_V = 12.0;
+    public const double GESAMT_KOPF_H = 32.0;
+    public const double GESAMT_RAND = 16.0;
+    /// <summary>Abstand der Kartenbeschriftung (Finale, Spiel um Platz 3) über der Karte.</summary>
+    public const double GESAMT_BESCHRIFTUNG_ABSTAND = 22.0;
+    private const double GESAMT_UNIT = KOMPAKT_H + GESAMT_GAP_V;
+
+    /// <summary>Umschalter rundenweise ↔ Gesamtübersicht — bewusst nicht gespeichert (Abstimmung zu #238).</summary>
+    [ObservableProperty] private bool _istGesamtansicht;
+
+    public double GesamtBreite { get; private set; }
+    public double GesamtHoehe { get; private set; }
+    public IReadOnlyList<GesamtbaumBeschriftungAnzeige> GesamtBeschriftungen { get; private set; } = [];
+    public IReadOnlyList<BracketKnotenAnzeige> GesamtKnoten => Knoten.Where(k => k.IstInGesamtbaum).ToList();
+
+    /// <summary>Die Gesamtübersicht wird im Code-Behind imperativ aufgebaut (Karten, Linien, Beschriftungen) —
+    /// dieses Ereignis meldet, dass die Positionen neu berechnet wurden.</summary>
+    public event EventHandler? GesamtbaumNeuBerechnet;
+
+    public ICommand GesamtansichtZeigenBefehl { get; }
+    public ICommand RundenweiseZeigenBefehl { get; }
 
     // ── Rundenweise Navigation (Issue #108/#244) ───────────────────────────────
 
@@ -387,13 +429,21 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         _uebergangsregelService = uebergangsregelService;
 
         _abbrechenBefehl = new RelayCommand(() => { }, () => false);
-        _knotenAngeklicktBefehl = new RelayCommand<BracketKnotenAnzeige>(
-            k => { if (k?.TurnierRundeId is { } rundeId) RundeAngeklickt?.Invoke(this, rundeId); });
+        _knotenAngeklicktBefehl = new RelayCommand<BracketKnotenAnzeige>(k =>
+        {
+            if (k?.TurnierRundeId is not { } rundeId) return;
+            // Issue #238: Die Gesamtübersicht verdeckt den Spielplan — ein Klick kehrt zur rundenweisen Ansicht
+            // zurück, damit die angeklickte Runde dort sichtbar wird.
+            IstGesamtansicht = false;
+            RundeAngeklickt?.Invoke(this, rundeId);
+        });
         _gruppeAngeklicktBefehl = new RelayCommand<GruppenTabelle>(
             g => { if (g is not null) GruppeAngeklickt?.Invoke(this, g.GruppenNummer); });
         _ligaAnsichtWaehlenBefehl = new RelayCommand<TabellenAnsicht?>(a => AusgewaehlteLigaAnsicht = a ?? TabellenAnsicht.Gesamt);
         _vorherigeRundeBefehl = new RelayCommand(() => AktuellerRundenIndex--, () => HatVorherigeRunde);
         _naechsteRundeBefehl = new RelayCommand(() => AktuellerRundenIndex++, () => HatNaechsteRunde);
+        GesamtansichtZeigenBefehl = new RelayCommand(() => IstGesamtansicht = true);
+        RundenweiseZeigenBefehl = new RelayCommand(() => IstGesamtansicht = false);
     }
 
     public override Task AktivierenAsync() => Task.CompletedTask;
@@ -561,6 +611,39 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             RundenNavigationZuruecksetzen();
         else
             RundenNavigationAktualisieren();
+
+        BerechneGesamtbaum(runden);
+    }
+
+    /// <summary>Pixelpositionen der Gesamtübersicht (Issue #238) aus dem gespiegelten Raster von
+    /// <see cref="GesamtbaumLayout"/>.</summary>
+    private void BerechneGesamtbaum(IReadOnlyList<BracketRunde> runden)
+    {
+        var layout = GesamtbaumLayout.Berechnen(runden);
+        var positionJeKnoten = layout.Positionen.ToDictionary(p => p.KnotenId);
+
+        static double SpaltenX(int spalte) => GESAMT_RAND + spalte * (KOMPAKT_W + GESAMT_GAP_H);
+        static double MitteY(double zeile) => GESAMT_KOPF_H + zeile * GESAMT_UNIT;
+
+        foreach (var k in Knoten)
+        {
+            k.IstInGesamtbaum = positionJeKnoten.TryGetValue(k.Id, out var p);
+            if (p is null) continue;
+            k.GesamtX = SpaltenX(p.Spalte);
+            k.GesamtY = MitteY(p.Zeile) - KOMPAKT_H / 2;
+        }
+
+        GesamtBeschriftungen = layout.Beschriftungen
+            .Select(b => new GesamtbaumBeschriftungAnzeige(
+                SpaltenX(b.Spalte),
+                b.Zeile is double z ? MitteY(z) - KOMPAKT_H / 2 - GESAMT_BESCHRIFTUNG_ABSTAND : 4,
+                KOMPAKT_W,
+                b.Name,
+                b.Zeile is not null))
+            .ToList();
+        GesamtBreite = 2 * GESAMT_RAND + Math.Max(0, layout.SpaltenAnzahl * (KOMPAKT_W + GESAMT_GAP_H) - GESAMT_GAP_H);
+        GesamtHoehe = GESAMT_KOPF_H + layout.ZeilenAnzahl * GESAMT_UNIT + GESAMT_RAND;
+        GesamtbaumNeuBerechnet?.Invoke(this, EventArgs.Empty);
     }
 
     private static void AssignierePositionen(
@@ -615,6 +698,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         string auswaertsScore = hatE ? e!.AuswaertsToreGesamt.ToString() : "";
         int? siegerId = e?.SiegerMannschaftId;
         string paarungsText = "";
+        string entscheidungKurz = hatE ? EntscheidungKuerzel(e!.EntscheidungArt) : "";
 
         // Issue #340: Hin-/Rückspiel-Paarung — Gesamtergebnis beider Spiele, Sieger aus dem Rückspiel (das
         // Hinspiel-Ergebnis trägt nur den Sieger des Einzelspiels). Ohne Rückspiel-Ergebnis steht der Stand
@@ -625,6 +709,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             paarungsText = SpielErgebnisFormatierer.PaarungsEinzelergebnisse(e!, re);
             detail = re is not null ? SpielErgebnisFormatierer.PaarungsEntscheidung(re) : "";
             siegerId = re?.SiegerMannschaftId;
+            entscheidungKurz = re is not null ? EntscheidungKuerzel(re.EntscheidungArt) : "";
             if (re is not null)
             {
                 var (teamA, teamB) = HinRueckspielWertung.GesamtTore(e!, re);
@@ -655,9 +740,20 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             PaarungsText = paarungsText,
             HeimIstSieger = siegerId is not null && siegerId == s.HeimMannschaftId,
             AuswaertsIstSieger = siegerId is not null && siegerId == s.AuswaertsMannschaftId,
-            Datum = s.Datum?.ToString("ddd, dd.MM.yy", CultureInfo.GetCultureInfo("de-DE")) ?? ""
+            Datum = s.Datum?.ToString("ddd, dd.MM.yy", CultureInfo.GetCultureInfo("de-DE")) ?? "",
+            EntscheidungKurz = entscheidungKurz
         };
     }
+
+    private static string EntscheidungKuerzel(EntscheidungArt art) => art switch
+    {
+        EntscheidungArt.Verlaengerung     => "n.V.",
+        EntscheidungArt.Elfmeterschiessen => "i.E.",
+        EntscheidungArt.Auswaertstorregel => "A.T.",
+        EntscheidungArt.GoldenGoal        => "G.G.",
+        EntscheidungArt.SilverGoal        => "S.G.",
+        _                                 => ""
+    };
 
     /// <summary>Kürzel der Knoten-Labels aus dem echten Rundennamen (Issue #365), z.B. "Playoff-Runde" → "PO",
     /// "Achtelfinale" → "AF". Unbekannte Namen: Anfangsbuchstaben der Wörter. <c>null</c> ohne Namen — dann greift

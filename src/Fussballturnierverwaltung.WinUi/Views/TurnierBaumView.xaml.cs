@@ -1,6 +1,8 @@
 using Fussballturnierverwaltung.WinUi.ViewModels;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
 using Windows.Foundation;
@@ -19,6 +21,8 @@ public sealed partial class TurnierBaumView : UserControl
 {
     private readonly List<(double X1, double Y1, double X2, double Y2)> _letzteSignatur = [];
 
+    private TurnierBaumViewModel? _vm;
+
     public TurnierBaumView()
     {
         InitializeComponent();
@@ -29,12 +33,227 @@ public sealed partial class TurnierBaumView : UserControl
         {
             _letzteSignatur.Clear();
             VerbindungsLinienAktualisieren();
+            GesamtbaumAufbauen();
         };
+
+        DataContextChanged += (_, _) => ViewModelWechseln(DataContext as TurnierBaumViewModel);
+        GesamtScroll.ViewChanged += (_, _) => ZoomAnzeigeAktualisieren();
+        // Fenstergröße geändert → vertikale Streckung und Zoom passen nicht mehr, neu einpassen.
+        GesamtScroll.SizeChanged += (_, _) => Einpassen();
+        GesamtCanvas.PointerPressed += GesamtCanvas_PointerPressed;
+        GesamtCanvas.PointerMoved += GesamtCanvas_PointerMoved;
+        GesamtCanvas.PointerReleased += (_, e) => ZiehenBeenden(e.Pointer);
+        GesamtCanvas.PointerCaptureLost += (_, e) => ZiehenBeenden(e.Pointer);
     }
+
+    private void ViewModelWechseln(TurnierBaumViewModel? neu)
+    {
+        if (ReferenceEquals(_vm, neu)) return;
+        if (_vm is not null)
+        {
+            _vm.GesamtbaumNeuBerechnet -= Vm_GesamtbaumNeuBerechnet;
+            _vm.PropertyChanged -= Vm_PropertyChanged;
+        }
+        _vm = neu;
+        if (_vm is not null)
+        {
+            _vm.GesamtbaumNeuBerechnet += Vm_GesamtbaumNeuBerechnet;
+            _vm.PropertyChanged += Vm_PropertyChanged;
+        }
+        GesamtbaumAufbauen();
+    }
+
+    // ── Gesamtübersicht (Issue #238) ──────────────────────────────────────────
+
+    private bool _einpassenAusstehend;
+
+    /// <summary>Vertikale Streckung der Kartenabstände (≥ 1): Ein breiter Baum wird beim Einpassen auf die
+    /// Fensterbreite verkleinert und bliebe sonst ein flaches Band in der Mitte — die Zeilenabstände wachsen deshalb,
+    /// bis der Baum auch die Höhe ausfüllt. Die Karten selbst behalten ihre Größe.</summary>
+    private double _streckung = 1.0;
+    private const double MAX_STRECKUNG = 3.0;
+    private (double Breite, double Hoehe) _letzteBaumGroesse;
+
+    private void Vm_GesamtbaumNeuBerechnet(object? sender, EventArgs e)
+    {
+        // Neuer Baum mit anderer Größe (anderes Turnier) → neu einpassen; nach einem Ergebnis-Update (gleiche
+        // Größe) bleiben Zoom und Ausschnitt erhalten.
+        bool groesseGeaendert = _vm is not null && _letzteBaumGroesse != (_vm.GesamtBreite, _vm.GesamtHoehe);
+        if (_vm is not null) _letzteBaumGroesse = (_vm.GesamtBreite, _vm.GesamtHoehe);
+        GesamtbaumAufbauen();
+        if (groesseGeaendert) EinpassenAnfordern();
+    }
+
+    private void Vm_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(TurnierBaumViewModel.IstGesamtansicht) && _vm?.IstGesamtansicht == true)
+            EinpassenAnfordern();
+    }
+
+    /// <summary>Baut Linien, Beschriftungen und Karten der Gesamtübersicht aus den im ViewModel berechneten
+    /// Positionen auf. Die kompakten Karten haben eine feste Größe — die Linien lassen sich deshalb direkt aus den
+    /// Koordinaten zeichnen, ohne die gerenderten Karten zu messen (anders als in der rundenweisen Ansicht).</summary>
+    private void GesamtbaumAufbauen()
+    {
+        GesamtCanvas.Children.Clear();
+        if (_vm is null) return;
+
+        const double kopf = TurnierBaumViewModel.GESAMT_KOPF_H;
+        const double rand = TurnierBaumViewModel.GESAMT_RAND;
+        double streckung = _streckung;
+        // Kartenmitten unterhalb des Spaltenkopfs werden gestreckt, die Kartengröße bleibt.
+        double Strecken(double y) => kopf + (y - kopf) * streckung;
+
+        GesamtCanvas.Width = _vm.GesamtBreite;
+        GesamtCanvas.Height = kopf + (_vm.GesamtHoehe - kopf - rand) * streckung + rand;
+
+        const double w = TurnierBaumViewModel.KOMPAKT_W;
+        const double h = TurnierBaumViewModel.KOMPAKT_H;
+        var knoten = _vm.GesamtKnoten;
+        var knotenJeId = knoten.ToDictionary(k => k.Id);
+
+        var pinsel = LinienFarbQuelle.Fill ?? new SolidColorBrush(Microsoft.UI.Colors.Gray);
+        foreach (var eltern in knoten)
+        {
+            foreach (var kindId in new[] { eltern.LinkerKindKnotenId, eltern.RechterKindKnotenId })
+            {
+                if (kindId is not int id || !knotenJeId.TryGetValue(id, out var kind)) continue;
+
+                // Kinder liegen weiter außen: links vom Elternknoten → rechte Kante zur linken, sonst gespiegelt.
+                bool kindLinks = kind.GesamtX < eltern.GesamtX;
+                double x1 = kindLinks ? kind.GesamtX + w : kind.GesamtX;
+                double x2 = kindLinks ? eltern.GesamtX : eltern.GesamtX + w;
+                double y1 = Strecken(kind.GesamtY + h / 2);
+                double y2 = Strecken(eltern.GesamtY + h / 2);
+                double mitteX = (x1 + x2) / 2;
+
+                var linie = new Polyline { Stroke = pinsel, StrokeThickness = 1.5, IsHitTestVisible = false };
+                linie.Points.Add(new Point(x1, y1));
+                linie.Points.Add(new Point(mitteX, y1));
+                linie.Points.Add(new Point(mitteX, y2));
+                linie.Points.Add(new Point(x2, y2));
+                GesamtCanvas.Children.Add(linie);
+            }
+        }
+
+        foreach (var b in _vm.GesamtBeschriftungen)
+        {
+            var text = new TextBlock
+            {
+                Text = b.Name, Width = b.Breite, TextAlignment = TextAlignment.Center,
+                FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                TextTrimming = TextTrimming.CharacterEllipsis, IsHitTestVisible = false
+            };
+            Canvas.SetLeft(text, b.X);
+            double abstand = TurnierBaumViewModel.GESAMT_BESCHRIFTUNG_ABSTAND;
+            Canvas.SetTop(text, b.GehoertZuKarte ? Strecken(b.Y + abstand + h / 2) - h / 2 - abstand : b.Y);
+            GesamtCanvas.Children.Add(text);
+        }
+
+        var vorlage = (DataTemplate)Resources["KompaktKartenTemplate"];
+        foreach (var k in knoten)
+        {
+            var karte = new Button
+            {
+                Content = k, ContentTemplate = vorlage, Width = w, Height = h, Padding = new Thickness(0),
+                BorderThickness = new Thickness(0), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                VerticalContentAlignment = VerticalAlignment.Stretch,
+                Command = _vm.KnotenAngeklicktBefehl, CommandParameter = k
+            };
+            Canvas.SetLeft(karte, k.GesamtX);
+            Canvas.SetTop(karte, Strecken(k.GesamtY + h / 2) - h / 2);
+            GesamtCanvas.Children.Add(karte);
+        }
+    }
+
+    // ── Zoom und Verschieben (Issue #50) ──────────────────────────────────────
+
+    private void EinpassenAnfordern()
+    {
+        _einpassenAusstehend = true;
+        // Die ScrollViewer-Größe steht erst nach dem nächsten Layout-Durchlauf fest (z. B. direkt nach dem
+        // Umschalten aus Collapsed) — SizeChanged oder dieser Nachlauf übernimmt das Einpassen.
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, Einpassen);
+    }
+
+    private void Einpassen()
+    {
+        if (_vm is null || GesamtScroll.ViewportWidth <= 0 || GesamtScroll.ViewportHeight <= 0
+            || _vm.GesamtBreite <= 0 || _vm.GesamtHoehe <= 0)
+            return;
+
+        _einpassenAusstehend = false;
+
+        // Zoom richtet sich nach der Breite; die bei diesem Zoom sichtbare Höhe füllen die gestreckten Abstände.
+        const double kopf = TurnierBaumViewModel.GESAMT_KOPF_H;
+        const double rand = TurnierBaumViewModel.GESAMT_RAND;
+        double breitenFaktor = Math.Clamp(GesamtScroll.ViewportWidth / _vm.GesamtBreite, GesamtScroll.MinZoomFactor, 1.0);
+        double verfuegbareHoehe = GesamtScroll.ViewportHeight / breitenFaktor;
+        double inhaltsHoehe = _vm.GesamtHoehe - kopf - rand;
+        double streckung = inhaltsHoehe > 0
+            ? Math.Clamp((verfuegbareHoehe - kopf - rand) / inhaltsHoehe, 1.0, MAX_STRECKUNG)
+            : 1.0;
+        if (Math.Abs(streckung - _streckung) > 0.001)
+        {
+            _streckung = streckung;
+            GesamtbaumAufbauen();
+        }
+
+        double faktor = Math.Min(GesamtScroll.ViewportWidth / GesamtCanvas.Width, GesamtScroll.ViewportHeight / GesamtCanvas.Height);
+        faktor = Math.Clamp(faktor, GesamtScroll.MinZoomFactor, 1.0);
+        GesamtScroll.ChangeView(0, 0, (float)faktor, disableAnimation: true);
+        ZoomAnzeigeAktualisieren();
+    }
+
+    private void AllesAnzeigen_Click(object sender, RoutedEventArgs e) => Einpassen();
+
+    private void ZoomAnzeigeAktualisieren() =>
+        ZoomAnzeige.Text = $"{Math.Round(GesamtScroll.ZoomFactor * 100)} %";
+
+    private uint? _ziehPointerId;
+    private Point _ziehStart;
+    private double _ziehStartH, _ziehStartV;
+
+    // Verschieben per Ziehen mit der linken Maustaste auf freier Fläche — Karten sind Buttons und behandeln
+    // PointerPressed selbst, ein Klick darauf bleibt also ein Klick.
+    private void GesamtCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (e.Pointer.PointerDeviceType != PointerDeviceType.Mouse) return;
+        if (!e.GetCurrentPoint(GesamtScroll).Properties.IsLeftButtonPressed) return;
+
+        _ziehPointerId = e.Pointer.PointerId;
+        _ziehStart = e.GetCurrentPoint(GesamtScroll).Position;
+        _ziehStartH = GesamtScroll.HorizontalOffset;
+        _ziehStartV = GesamtScroll.VerticalOffset;
+        GesamtCanvas.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void GesamtCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (_ziehPointerId != e.Pointer.PointerId) return;
+
+        var position = e.GetCurrentPoint(GesamtScroll).Position;
+        GesamtScroll.ChangeView(
+            _ziehStartH - (position.X - _ziehStart.X),
+            _ziehStartV - (position.Y - _ziehStart.Y),
+            null, disableAnimation: true);
+        e.Handled = true;
+    }
+
+    private void ZiehenBeenden(Pointer pointer)
+    {
+        if (_ziehPointerId != pointer.PointerId) return;
+        _ziehPointerId = null;
+        GesamtCanvas.ReleasePointerCapture(pointer);
+    }
+
+    // ── Rundenweise Ansicht: Verbindungslinien zwischen den beiden sichtbaren Spalten ─────────────────────
 
     private void VerbindungsLinienAktualisieren()
     {
-        if (DataContext is not TurnierBaumViewModel vm || !vm.ZeigtBracketInhalt)
+        if (DataContext is not TurnierBaumViewModel vm || !vm.ZeigtBracketInhalt || vm.IstGesamtansicht)
         {
             LeereCanvas();
             return;
