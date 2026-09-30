@@ -12,6 +12,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
+using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using System.Collections.ObjectModel;
@@ -408,13 +409,27 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     [ObservableProperty] private string _auslosungKopfzeile = "";
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(VerfuegbareTeilnehmerGefiltert))]
-    private ObservableCollection<TeilnehmerAnzeige> _verfuegbareTeilnehmer = [];
+    // Beide Listen bleiben stabile Instanzen und werden nur abgeglichen (SammlungsAbgleich): eine neue
+    // ItemsSource ließ die Verfügbar-Liste nach jeder Zuweisung nach oben springen (#388).
+    public ObservableCollection<TeilnehmerAnzeige> VerfuegbareTeilnehmer { get; } = [];
+    public ObservableCollection<TeilnehmerAnzeige> VerfuegbareTeilnehmerGefiltert { get; } = [];
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(VerfuegbareTeilnehmerGefiltert))]
-    private string _teilnehmerFilter = "";
+    [ObservableProperty] private string _teilnehmerFilter = "";
+
+    partial void OnTeilnehmerFilterChanged(string value) => GefilterteTeilnehmerAbgleichen();
+
+    private static (int?, string) TeilnehmerSchluessel(TeilnehmerAnzeige t) =>
+        (t.MannschaftId, t.MannschaftId.HasValue ? "" : t.Name);
+
+    private void GefilterteTeilnehmerAbgleichen() =>
+        SammlungsAbgleich.Abgleichen(
+            VerfuegbareTeilnehmerGefiltert,
+            VerfuegbareTeilnehmer
+                .Where(t => string.IsNullOrWhiteSpace(TeilnehmerFilter)
+                            || t.Name.Contains(TeilnehmerFilter, StringComparison.OrdinalIgnoreCase))
+                .Where(t => _landFilter.LandId is null || t.LandId == _landFilter.LandId)
+                .ToList(),
+            TeilnehmerSchluessel);
 
     // ── Länderfilter für verfügbare Teams (Issue #344) ──────────────────────────
     // Stabile Optionsliste + eine kanonische Option je Land: WinUI3-ComboBoxen gleichen SelectedItem per
@@ -434,12 +449,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             // null schreibt die ComboBox beim Umbau ihrer Optionen zurück — nie ins Modell übernehmen (#347)
             if (value is null || !SetProperty(ref _landFilter, value)) return;
-            OnPropertyChanged(nameof(VerfuegbareTeilnehmerGefiltert));
+            GefilterteTeilnehmerAbgleichen();
         }
     }
-
-    partial void OnVerfuegbareTeilnehmerChanged(ObservableCollection<TeilnehmerAnzeige> value) =>
-        LandFilterOptionenSynchronisieren();
 
     /// <summary>Gleicht die Länderoptionen mit den aktuell verfügbaren Teams ab („Alle Länder“ + vorkommende
     /// Länder alphabetisch). Reiner Merge (erst Überzählige entfernen, dann Fehlende einfügen) — die Restliste
@@ -473,9 +485,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         return option;
     }
 
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(AlleToepfeZuruecksetzenCommand))]
-    private ObservableCollection<LostopfViewModel> _lostoepfe = [];
+    // Stabile Instanz, abgeglichen statt neu angelegt (#388) — sonst verlieren die Topf-Listen ihre Scrollposition.
+    public ObservableCollection<LostopfViewModel> Lostoepfe { get; } = [];
 
     // ── Automatische Lostopf-Zuordnung via Rangliste (Issue #119) ────────────────
     private static readonly RanglisteOption _keineRangliste = new("— Keine —", null);
@@ -650,14 +661,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty] private string? _fehlermeldung;
 
     // ── Berechnete Eigenschaften ─────────────────────────────────────────────
-    public IEnumerable<TeilnehmerAnzeige> VerfuegbareTeilnehmerGefiltert =>
-        string.IsNullOrWhiteSpace(TeilnehmerFilter) && _landFilter.LandId is null
-            ? VerfuegbareTeilnehmer
-            : VerfuegbareTeilnehmer
-                .Where(t => string.IsNullOrWhiteSpace(TeilnehmerFilter)
-                            || t.Name.Contains(TeilnehmerFilter, StringComparison.OrdinalIgnoreCase))
-                .Where(t => _landFilter.LandId is null || t.LandId == _landFilter.LandId);
-
     // Auslosungsart.Manuell wird hier nicht angeboten — die Paarungsfestlegung für Runden mit von vornherein
     // feststehenden Paarungen lebt im Vorbelegung-Tab (VorbelegungViewModel/VorbelegungWorkspace, #297).
     private static IReadOnlyList<AuslosungsartOption> AuslosungsartOptionenFuer(Rundenart? rundenart) =>
@@ -830,6 +833,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         TeilnehmerFilter = "";
         LandFilter = _alleLaender;
         LandFilterOptionenSynchronisieren();
+        GefilterteTeilnehmerAbgleichen();
         DetailAktiv = false;
         NeuFormAktiv = false;
         AusgewaehlteAuslosung = null;
@@ -1711,24 +1715,40 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 .Select(e => e.PlatzhalterName!)
                 .ToHashSet();
 
-            VerfuegbareTeilnehmer = new ObservableCollection<TeilnehmerAnzeige>(
+            // Abgleich statt Neuanlage, damit Scrollposition und Auswahl erhalten bleiben (#388). Die
+            // Länderoptionen werden VOR der gefilterten Liste nachgezogen: fällt das gewählte Land weg,
+            // setzt LandFilterOptionenSynchronisieren den Filter zurück und die Liste wird nur einmal abgeglichen.
+            SammlungsAbgleich.Abgleichen(
+                VerfuegbareTeilnehmer,
                 alleTeilnehmer
                     .Where(t => t.MannschaftId.HasValue
                         ? !assignedMannschaftIds.Contains(t.MannschaftId.Value)
                         : !assignedPlatzhalter.Contains(t.Name))
-                    .OrderBy(t => t.Name));
+                    .OrderBy(t => t.Name)
+                    .ToList(),
+                TeilnehmerSchluessel);
+            LandFilterOptionenSynchronisieren();
+            GefilterteTeilnehmerAbgleichen();
 
-            Lostoepfe = new ObservableCollection<LostopfViewModel>(
+            SammlungsAbgleich.Abgleichen(
+                Lostoepfe,
                 detail.Lostoepfe.Select(l => new LostopfViewModel
                 {
-                    Id         = l.Id,
-                    Name       = l.Name,
-                    Reihenfolge = l.Reihenfolge,
-                    Teilnehmer = new ObservableCollection<TeilnehmerAnzeige>(
-                        l.Eintraege
-                            .OrderBy(e => e.Id)
-                            .Select(TeilnehmerAnzeige.AusEintrag))
-                }));
+                    Id          = l.Id,
+                    Name        = l.Name,
+                    Reihenfolge = l.Reihenfolge
+                }).ToList(),
+                l => l.Id,
+                (ist, soll) => ist.Name == soll.Name && ist.Reihenfolge == soll.Reihenfolge);
+            foreach (var topf in Lostoepfe)
+                SammlungsAbgleich.Abgleichen(
+                    topf.Teilnehmer,
+                    detail.Lostoepfe.First(l => l.Id == topf.Id).Eintraege
+                        .OrderBy(e => e.Id)
+                        .Select(TeilnehmerAnzeige.AusEintrag)
+                        .ToList(),
+                    t => t.EintragId);
+            AlleToepfeZuruecksetzenCommand.NotifyCanExecuteChanged();
 
             await AktualisiereVerbandsQuotenAnzeigeAsync(detail);
             await AktualisiereLandesQuotenAnzeigeAsync(detail);
