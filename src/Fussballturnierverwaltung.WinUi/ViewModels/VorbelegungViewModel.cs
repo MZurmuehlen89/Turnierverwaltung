@@ -9,6 +9,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
+using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using System.Collections.ObjectModel;
@@ -146,18 +147,31 @@ public partial class VorbelegungWorkspace : ObservableObject
 
     public bool IstBearbeitbar => !IstAbgeschlossen;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(VerfuegbareTeilnehmerGefiltert))]
-    private ObservableCollection<TeilnehmerAnzeige> _verfuegbareTeilnehmer = [];
+    // Beide Listen bleiben stabile Instanzen und werden nur abgeglichen (SammlungsAbgleich, analog Auslosung
+    // #388): eine bei jedem Zugriff neu berechnete Where-Aufzählung meldete bei aktivem Namensfilter weder
+    // Platzieren noch Zurücklegen an die ListView (#392).
+    public ObservableCollection<TeilnehmerAnzeige> VerfuegbareTeilnehmer { get; } = [];
+    public ObservableCollection<TeilnehmerAnzeige> VerfuegbareTeilnehmerGefiltert { get; } = [];
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(VerfuegbareTeilnehmerGefiltert))]
-    private string _teilnehmerFilter = "";
+    [ObservableProperty] private string _teilnehmerFilter = "";
 
-    public IEnumerable<TeilnehmerAnzeige> VerfuegbareTeilnehmerGefiltert =>
-        string.IsNullOrWhiteSpace(TeilnehmerFilter)
-            ? VerfuegbareTeilnehmer
-            : VerfuegbareTeilnehmer.Where(t => t.Name.Contains(TeilnehmerFilter, StringComparison.OrdinalIgnoreCase));
+    /// <summary>Ausgangsreihenfolge des Teilnehmerpools (Schlüssel → Rang) — ein zurückgelegtes Team kehrt an
+    /// seine ursprüngliche Position zurück statt ans Listenende (Platzhalter bewusst nicht alphabetisch).</summary>
+    private Dictionary<(int?, string), int> _ausgangsRang = [];
+
+    partial void OnTeilnehmerFilterChanged(string value) => GefilterteTeilnehmerAbgleichen();
+
+    private static (int?, string) TeilnehmerSchluessel(TeilnehmerAnzeige t) =>
+        (t.MannschaftId, t.MannschaftId.HasValue ? "" : t.Name);
+
+    private void GefilterteTeilnehmerAbgleichen() =>
+        SammlungsAbgleich.Abgleichen(
+            VerfuegbareTeilnehmerGefiltert,
+            VerfuegbareTeilnehmer
+                .Where(t => string.IsNullOrWhiteSpace(TeilnehmerFilter)
+                            || t.Name.Contains(TeilnehmerFilter, StringComparison.OrdinalIgnoreCase))
+                .ToList(),
+            TeilnehmerSchluessel);
 
     [ObservableProperty] private ObservableCollection<ManuelleKoPaarungAnzeige> _koPaarungen = [];
     [ObservableProperty] private ObservableCollection<ManuelleGruppe> _gruppen = [];
@@ -208,6 +222,7 @@ public partial class VorbelegungWorkspace : ObservableObject
         _instanz = instanz;
         Runde = runde;
         _instanzRunden = instanzRunden;
+        VerfuegbareTeilnehmer.CollectionChanged += (_, _) => GefilterteTeilnehmerAbgleichen();
     }
 
     public async Task LadenAsync()
@@ -323,7 +338,8 @@ public partial class VorbelegungWorkspace : ObservableObject
         if (IstAbgeschlossen && _auslosung is not null)
         {
             SlotsAusErgebnissenBefuellen(_auslosung.Ergebnisse);
-            VerfuegbareTeilnehmer = [];
+            _ausgangsRang = [];
+            SammlungsAbgleich.Abgleichen(VerfuegbareTeilnehmer, [], TeilnehmerSchluessel);
         }
         else
         {
@@ -331,8 +347,14 @@ public partial class VorbelegungWorkspace : ObservableObject
             // in TeilnehmerPoolHilfsmittel bereits in der richtigen (numerischen) Reihenfolge — ein
             // Alphabet-Sort nach Name reißt sie auseinander ("Platz 10" vor "Platz 9", Fund aus #297-Test).
             // Nur echte Mannschaftslisten (Erste-Runde-ohne-Vorgänger-Fall) profitieren vom Alphabet-Sort.
-            VerfuegbareTeilnehmer = new ObservableCollection<TeilnehmerAnzeige>(
-                alleTeilnehmer.All(t => t.IstPlatzhalter) ? alleTeilnehmer : alleTeilnehmer.OrderBy(t => t.Name));
+            var sortiert = alleTeilnehmer.All(t => t.IstPlatzhalter)
+                ? alleTeilnehmer.ToList()
+                : alleTeilnehmer.OrderBy(t => t.Name).ToList();
+            _ausgangsRang = sortiert
+                .Select((t, i) => (Schluessel: TeilnehmerSchluessel(t), Rang: i))
+                .GroupBy(x => x.Schluessel)
+                .ToDictionary(g => g.Key, g => g.First().Rang);
+            SammlungsAbgleich.Abgleichen(VerfuegbareTeilnehmer, sortiert, TeilnehmerSchluessel);
         }
         AktualisiereTeamsZugewiesen();
     }
@@ -378,6 +400,7 @@ public partial class VorbelegungWorkspace : ObservableObject
     public string? TeamInKoSlotPlatzieren(TeilnehmerAnzeige team, ManuellerKoSlot slot)
     {
         ManuellesFehler = null;
+        if (!VerfuegbareTeilnehmer.Contains(team)) return null; // bereits platziert — nie doppelt besetzen (#392)
         if (HatRegelVerletzung(team, slot.PaarungsNr, istHeim: slot.IstHeim, out var fehler))
         {
             ManuellesFehler = fehler;
@@ -400,6 +423,7 @@ public partial class VorbelegungWorkspace : ObservableObject
     public string? TeamInGruppenSlotPlatzieren(TeilnehmerAnzeige team, ManuellerGruppenSlot slot)
     {
         ManuellesFehler = null;
+        if (!VerfuegbareTeilnehmer.Contains(team)) return null; // bereits platziert — nie doppelt besetzen (#392)
         if (HatRegelVerletzungGruppe(team, slot.GruppenNr, out var fehler))
         {
             ManuellesFehler = fehler;
@@ -421,8 +445,16 @@ public partial class VorbelegungWorkspace : ObservableObject
 
     private void ZurueckZuVerfuegbar(TeilnehmerAnzeige team)
     {
-        if (!VerfuegbareTeilnehmer.Any(t => t.Name == team.Name && t.MannschaftId == team.MannschaftId))
-            VerfuegbareTeilnehmer.Add(team);
+        var schluessel = TeilnehmerSchluessel(team);
+        if (VerfuegbareTeilnehmer.Any(t => TeilnehmerSchluessel(t) == schluessel)) return;
+
+        // An der Ausgangsposition einsortieren; Unbekannte (nicht aus dem Pool) ans Ende
+        var rang = _ausgangsRang.GetValueOrDefault(schluessel, int.MaxValue);
+        var index = 0;
+        while (index < VerfuegbareTeilnehmer.Count &&
+               _ausgangsRang.GetValueOrDefault(TeilnehmerSchluessel(VerfuegbareTeilnehmer[index]), int.MaxValue) <= rang)
+            index++;
+        VerfuegbareTeilnehmer.Insert(index, team);
     }
 
     public ManuellerKoSlot? NaechsterFreierKoSlot() =>
