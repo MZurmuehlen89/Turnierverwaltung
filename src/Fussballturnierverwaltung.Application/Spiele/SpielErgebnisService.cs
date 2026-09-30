@@ -22,7 +22,10 @@ public class SpielErgebnisService(
     public Task<Spiel?> FindenNachIdMitEreignissenAsync(int spielId, CancellationToken ct = default)
         => spielRepository.FindenNachIdMitEreignissenAsync(spielId, ct);
 
-    public async Task ErgebnisErfassenAsync(int spielId, ErgebnisErfassenEingabe eingabe, CancellationToken ct = default)
+    /// <param name="platzhalterAufloesen">Issue #386: <c>false</c> nur für Massensimulationen, die die Vorwärts-Auflösung
+    /// (<see cref="PlatzhalterAutomatischAufloesenAsync"/>) einmal je Block statt je Spiel selbst anstoßen.</param>
+    public async Task ErgebnisErfassenAsync(
+        int spielId, ErgebnisErfassenEingabe eingabe, CancellationToken ct = default, bool platzhalterAufloesen = true)
     {
         var spiel = await spielRepository.FindenNachIdMitRundeUndHinspielAsync(spielId, ct)
             ?? throw new InvalidOperationException($"Spiel {spielId} nicht gefunden.");
@@ -82,8 +85,7 @@ public class SpielErgebnisService(
         var rueckspielIds = istKoHinspiel
             ? await RueckspieleMitErgebnisAsync([spiel], ct)
             : [];
-        foreach (var rueckId in rueckspielIds)
-            await spielRepository.ErgebnisLoeschenAsync(rueckId, ct);
+        await spielRepository.ErgebnisseLoeschenAsync(rueckspielIds, ct);
 
         await spielRepository.ErgebnisSetzenAsync(spielId, ergebnis, ct);
 
@@ -98,7 +100,8 @@ public class SpielErgebnisService(
         if (ueberschreibt || rueckspielIds.Count > 0)
             await KaskadeAusloesenAsync([spielId, .. rueckspielIds], ct);
 
-        await PlatzhalterAutomatischAufloesenAsync(spielId, ct);
+        if (platzhalterAufloesen)
+            await PlatzhalterAutomatischAufloesenAsync(spielId, ct);
     }
 
     /// <summary>Issue #346: Rückspiele (mit Ergebnis) der übergebenen K.-o.-Hinspiele — deren Gesamtwertung
@@ -142,8 +145,7 @@ public class SpielErgebnisService(
     public async Task ErgebnisLoeschenAsync(int spielId, CancellationToken ct = default)
     {
         var ids = await MitAbhaengigenRueckspielenAsync([spielId], ct);
-        foreach (var id in ids)
-            await spielRepository.ErgebnisLoeschenAsync(id, ct);
+        await spielRepository.ErgebnisseLoeschenAsync(ids, ct);
         logger.LogInformation("Ergebnis für Spiel {Id} gelöscht.", spielId);
         await KaskadeAusloesenAsync(ids, ct);
     }
@@ -151,8 +153,7 @@ public class SpielErgebnisService(
     public async Task<int> MehrereErgebnisseLoeschenAsync(IReadOnlyList<int> spielIds, CancellationToken ct = default)
     {
         var ids = await MitAbhaengigenRueckspielenAsync(spielIds, ct);
-        foreach (var id in ids)
-            await spielRepository.ErgebnisLoeschenAsync(id, ct);
+        await spielRepository.ErgebnisseLoeschenAsync(ids, ct);
         logger.LogInformation("{Anzahl} Ergebnis(se) gelöscht.", ids.Count);
         await KaskadeAusloesenAsync(ids, ct);
         return spielIds.Count;

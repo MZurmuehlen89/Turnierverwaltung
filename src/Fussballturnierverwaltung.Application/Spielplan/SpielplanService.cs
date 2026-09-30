@@ -596,7 +596,10 @@ public class SpielplanService(
     /// Löst Platzhalternamen in einer KO-Runde auf: sucht in Vorrunden-Tabellen und KO-Ergebnissen
     /// nach den realen Teams und aktualisiert die Spiele. Gibt die Anzahl aufgelöster Spiele zurück.
     /// </summary>
-    public async Task<int> PlatzhalterAufloesenAsync(int turnierRundeId, CancellationToken ct = default)
+    public Task<int> PlatzhalterAufloesenAsync(int turnierRundeId, CancellationToken ct = default)
+        => MitTabellenZwischenspeicherAsync(() => PlatzhalterAufloesenOhneZwischenspeicherAsync(turnierRundeId, ct));
+
+    private async Task<int> PlatzhalterAufloesenOhneZwischenspeicherAsync(int turnierRundeId, CancellationToken ct)
     {
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
@@ -649,6 +652,7 @@ public class SpielplanService(
                 heimId, spiel.HeimPlatzhalterName,
                 auswaertsId, spiel.AuswaertsPlatzhalterName,
                 ct);
+            TabellenZwischenspeicherVerwerfen(turnierRundeId);
             aufgeloest++;
         }
 
@@ -664,8 +668,12 @@ public class SpielplanService(
     /// Runde besetzen? Schreibt nichts in die Datenbank. Liefert nur Einträge für Spiele, bei denen
     /// mindestens eine Seite optimistisch (ohne SicherPositioniert-Gate) ermittelbar ist; bereits real
     /// zugewiesene Seiten liefern keinen Vorschau-Wert (null).</summary>
-    public async Task<IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)>> PlatzhalterVorschauAsync(
+    public Task<IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)>> PlatzhalterVorschauAsync(
         int turnierRundeId, CancellationToken ct = default)
+        => MitTabellenZwischenspeicherAsync(() => PlatzhalterVorschauOhneZwischenspeicherAsync(turnierRundeId, ct));
+
+    private async Task<IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)>> PlatzhalterVorschauOhneZwischenspeicherAsync(
+        int turnierRundeId, CancellationToken ct)
     {
         var ergebnis = new Dictionary<int, (string? Heim, string? Auswaerts)>();
 
@@ -722,7 +730,10 @@ public class SpielplanService(
     /// zur Rückwärts-Kaskade aus #88). Idempotent und günstig für Runden ohne offene Platzhalter-Spiele —
     /// <see cref="PlatzhalterAufloesenAsync"/> selbst kehrt dafür sofort zurück (früher Return bei
     /// <c>platzhalterSpiele.Count == 0</c>). Gibt die Gesamtanzahl neu aufgelöster Spiele zurück.</summary>
-    public async Task<int> PlatzhalterAlleRundenAufloesenAsync(int turnierInstanzId, CancellationToken ct = default)
+    public Task<int> PlatzhalterAlleRundenAufloesenAsync(int turnierInstanzId, CancellationToken ct = default)
+        => MitTabellenZwischenspeicherAsync(() => PlatzhalterAlleRundenAufloesenOhneZwischenspeicherAsync(turnierInstanzId, ct));
+
+    private async Task<int> PlatzhalterAlleRundenAufloesenOhneZwischenspeicherAsync(int turnierInstanzId, CancellationToken ct)
     {
         await SpielQuellenAlleTransitionsVerknuepfenAsync(turnierInstanzId, ct);
 
@@ -844,6 +855,63 @@ public class SpielplanService(
         return SiegerOderVerliererId(quellSpiel, typ == SpielQuellErgebnisTyp.Sieger ? 1 : 2);
     }
 
+    // ── Tabellen-Zwischenspeicher je Auflösungsdurchlauf (Issue #386) ──────
+
+    // Ein Durchlauf löst jeden Platzhalternamen einzeln auf — bei der CL z. B. "Platz 1 (Ligaphase)" bis
+    // "Platz 24 (Ligaphase)" — und berechnete dafür jedes Mal dieselbe Quellrunden-Tabelle neu (gemessen: 24×
+    // je Durchlauf, ~90 % seiner Laufzeit). Der Zwischenspeicher lebt nur für einen Durchlauf: Ergebnisse
+    // ändern sich darin nicht, und trägt die Auflösung Mannschaften in eine Runde ein, wird deren Eintrag verworfen.
+    private Dictionary<(int RundeId, bool NurSicher), IReadOnlyList<TabellenEintrag>>? _ligaTabellen;
+    private Dictionary<int, IReadOnlyList<GruppenTabelle>>? _gruppenTabellen;
+
+    /// <summary>Führt <paramref name="aktion"/> mit Tabellen-Zwischenspeicher aus. Verschachtelte Aufrufe
+    /// nutzen den Speicher des äußeren Durchlaufs mit, der ihn am Ende auch wieder verwirft.</summary>
+    private async Task<T> MitTabellenZwischenspeicherAsync<T>(Func<Task<T>> aktion)
+    {
+        if (_ligaTabellen is not null) return await aktion();
+
+        _ligaTabellen    = [];
+        _gruppenTabellen = [];
+        try
+        {
+            return await aktion();
+        }
+        finally
+        {
+            _ligaTabellen    = null;
+            _gruppenTabellen = null;
+        }
+    }
+
+    private void TabellenZwischenspeicherVerwerfen(int rundeId)
+    {
+        _ligaTabellen?.Remove((rundeId, true));
+        _ligaTabellen?.Remove((rundeId, false));
+        _gruppenTabellen?.Remove(rundeId);
+    }
+
+    /// <summary>Gesamttabelle einer Liga-/TopfLiga-/Schweizer-Runde — mit <see cref="TabellenEintrag.SicherPositioniert"/>
+    /// (Issue #343) oder als reiner aktueller Stand für die Vorschau (Issue #208).</summary>
+    private async Task<IReadOnlyList<TabellenEintrag>> LigaTabelleAsync(int rundeId, bool nurSicher, CancellationToken ct)
+    {
+        if (_ligaTabellen?.TryGetValue((rundeId, nurSicher), out var gespeichert) == true) return gespeichert;
+
+        var tabelle = nurSicher
+            ? await tabellenService.LigaTabelleMitSicherheitBerechnenAsync(rundeId, ct)
+            : await tabellenService.TabelleBerechnenAsync(rundeId, ct: ct);
+        _ligaTabellen?.TryAdd((rundeId, nurSicher), tabelle);
+        return tabelle;
+    }
+
+    private async Task<IReadOnlyList<GruppenTabelle>> GruppenTabellenAsync(int rundeId, CancellationToken ct)
+    {
+        if (_gruppenTabellen?.TryGetValue(rundeId, out var gespeichert) == true) return gespeichert;
+
+        var tabellen = await tabellenService.GruppenTabellenBerechnenAsync(rundeId, ct: ct);
+        _gruppenTabellen?.TryAdd(rundeId, tabellen);
+        return tabellen;
+    }
+
     // ── Kaskaden-Reset für Folgerunden (Issue #88) ─────────────────────────
 
     /// <summary>
@@ -857,8 +925,12 @@ public class SpielplanService(
     /// <see cref="TurnierRunde.Reihenfolge"/> geprüft — eine Quellrunde hat in diesem Domain-Modell
     /// immer eine niedrigere Reihenfolge als ihre Zielrunde, ein einziger Durchlauf reicht.
     /// </summary>
-    public async Task<KaskadenPlan> PlatzhalterKaskadePlanenAsync(
+    public Task<KaskadenPlan> PlatzhalterKaskadePlanenAsync(
         int turnierInstanzId, IReadOnlySet<int> zusaetzlichIgnorierteSpielIds, CancellationToken ct = default)
+        => MitTabellenZwischenspeicherAsync(() => PlatzhalterKaskadePlanenOhneZwischenspeicherAsync(turnierInstanzId, zusaetzlichIgnorierteSpielIds, ct));
+
+    private async Task<KaskadenPlan> PlatzhalterKaskadePlanenOhneZwischenspeicherAsync(
+        int turnierInstanzId, IReadOnlySet<int> zusaetzlichIgnorierteSpielIds, CancellationToken ct)
     {
         var alleRunden = (await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct))
             .OrderBy(r => r.Reihenfolge)
@@ -1267,7 +1339,7 @@ public class SpielplanService(
         if (rangfolge.Count < tabelle.AnzahlBeste) return null;
         var besteIds = rangfolge.Take(tabelle.AnzahlBeste).Select(e => e.Mannschaft.Id).ToHashSet();
 
-        var gruppenTabellen = await tabellenService.GruppenTabellenBerechnenAsync(gruppenphaseRunde.Id, ct: ct);
+        var gruppenTabellen = await GruppenTabellenAsync(gruppenphaseRunde.Id, ct);
         var qualifizierteNachGruppe = new Dictionary<string, int>();
         foreach (var gruppe in gruppenTabellen)
         {
@@ -1448,7 +1520,7 @@ public class SpielplanService(
                 if (ignorierteSpielIds is { Count: > 0 } &&
                     (await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct)).Any(s => ignorierteSpielIds.Contains(s.Id)))
                     return null;
-                var gruppenTabellen = await tabellenService.GruppenTabellenBerechnenAsync(quellRunde.Id, ct: ct);
+                var gruppenTabellen = await GruppenTabellenAsync(quellRunde.Id, ct);
                 var gruppe = gruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppeIndex.Value);
                 // Issue #202: der aktuelle Rang allein reicht nicht - er darf durch kein Ergebnis der noch
                 // offenen Spiele mehr verdrängbar sein, sonst würde die Platzhalter-Auflösung optimistisch
@@ -1470,9 +1542,7 @@ public class SpielplanService(
                 if (ignorierteSpielIds is { Count: > 0 } &&
                     (await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct)).Any(s => ignorierteSpielIds.Contains(s.Id)))
                     return null;
-                var tabelle = nurSicherPositioniert
-                    ? await tabellenService.LigaTabelleMitSicherheitBerechnenAsync(quellRunde.Id, ct)
-                    : await tabellenService.TabelleBerechnenAsync(quellRunde.Id, ct: ct);
+                var tabelle = await LigaTabelleAsync(quellRunde.Id, nurSicherPositioniert, ct);
                 return tabelle.FirstOrDefault(e =>
                     e.Rang == platzierung && (!nurSicherPositioniert || e.SicherPositioniert))?.Mannschaft.Id;
             }

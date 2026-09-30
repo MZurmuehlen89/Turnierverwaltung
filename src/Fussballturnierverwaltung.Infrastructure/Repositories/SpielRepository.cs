@@ -128,18 +128,27 @@ public class SpielRepository(TurnierverwaltungDbContext context)
         await Context.SaveChangesAsync(ct);
     }
 
-    public async Task ErgebnisLoeschenAsync(int spielId, CancellationToken ct = default)
+    public Task ErgebnisLoeschenAsync(int spielId, CancellationToken ct = default)
+        => ErgebnisseLoeschenAsync([spielId], ct);
+
+    public async Task ErgebnisseLoeschenAsync(IReadOnlyCollection<int> spielIds, CancellationToken ct = default)
     {
-        var spiel = await Context.Spiele
+        if (spielIds.Count == 0) return;
+
+        var spiele = await Context.Spiele
             .Include(s => s.Ergebnis)
             .Include(s => s.Ereignisse)
-            .FirstOrDefaultAsync(s => s.Id == spielId, ct);
-        if (spiel?.Ergebnis is null) return;
+            .Where(s => spielIds.Contains(s.Id) && s.Ergebnis != null)
+            .ToListAsync(ct);
+        if (spiele.Count == 0) return;
 
-        Context.SpielErgebnisse.Remove(spiel.Ergebnis);
-        if (spiel.Ereignisse.Count > 0)
-            Context.SpielEreignisse.RemoveRange(spiel.Ereignisse);
-        spiel.Status = SpielStatus.Geplant;
+        foreach (var spiel in spiele)
+        {
+            Context.SpielErgebnisse.Remove(spiel.Ergebnis!);
+            if (spiel.Ereignisse.Count > 0)
+                Context.SpielEreignisse.RemoveRange(spiel.Ereignisse);
+            spiel.Status = SpielStatus.Geplant;
+        }
         await Context.SaveChangesAsync(ct);
     }
 

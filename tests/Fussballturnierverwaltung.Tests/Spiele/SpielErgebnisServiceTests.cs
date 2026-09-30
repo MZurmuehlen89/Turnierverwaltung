@@ -105,6 +105,35 @@ public class SpielErgebnisServiceTests
     // ── Tests ──────────────────────────────────────────────────────────────
 
     [Fact]
+    public async Task MehrereErgebnisseLoeschenAsync_LoeschtErgebnisseUndEreignisseGebuendelt_LaesstAndereSpieleUnberuehrt()
+    {
+        // Issue #386: gebündeltes Löschen in einer Abfrage/einem Speichern statt Spiel für Spiel.
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, auswaertstorRegel: false);
+        HinspielAnlegen(ctx, spielId: 1, rundeId: 1, heimId: 1, auswaertsId: 2, heimTore: 2, auswaertsTore: 1);
+        HinspielAnlegen(ctx, spielId: 2, rundeId: 1, heimId: 2, auswaertsId: 1, heimTore: 0, auswaertsTore: 0);
+        HinspielAnlegen(ctx, spielId: 3, rundeId: 1, heimId: 1, auswaertsId: 2, heimTore: 1, auswaertsTore: 3);
+        ctx.SpielEreignisse.AddRange(
+            new SpielEreignis { SpielId = 1, Minute = 10, EreignisArt = EreignisArt.Tor, MannschaftId = 1 },
+            new SpielEreignis { SpielId = 3, Minute = 20, EreignisArt = EreignisArt.Tor, MannschaftId = 2 });
+        ctx.SaveChanges();
+
+        await ServiceFuer(ctx).MehrereErgebnisseLoeschenAsync([1, 2]);
+
+        var spiele = await ctx.Spiele.AsNoTracking().Include(s => s.Ergebnis).Include(s => s.Ereignisse)
+            .ToDictionaryAsync(s => s.Id);
+        foreach (var id in new[] { 1, 2 })
+        {
+            spiele[id].Ergebnis.Should().BeNull();
+            spiele[id].Ereignisse.Should().BeEmpty();
+            spiele[id].Status.Should().Be(SpielStatus.Geplant);
+        }
+        spiele[3].Ergebnis.Should().NotBeNull("nicht ausgewählte Spiele behalten ihr Ergebnis");
+        spiele[3].Ereignisse.Should().HaveCount(1);
+        spiele[3].Status.Should().Be(SpielStatus.Abgeschlossen);
+    }
+
+    [Fact]
     public async Task EinfachesSpiel_HeimGewinnt_SiegerWirdGesetzt()
     {
         await using var ctx = NeuerContext();

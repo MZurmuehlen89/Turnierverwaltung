@@ -131,6 +131,37 @@ public class SimulationsServiceHinRueckspielTests
             .Should().Contain([EntscheidungArt.RegulaereSpielzeit, EntscheidungArt.Elfmeterschiessen]);
     }
 
+    // ── Issue #386: Platzhalter-Auflösung einmal je Block ────────────────────────────────
+
+    [Fact]
+    public async Task RundeSimulierenAsync_LoestFolgerundenPlatzhalterNachDemBlockAuf()
+    {
+        await using var ctx = NeuerContext();
+        SetupAnlegen(ctx);
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 2, TurnierInstanzId = 1, Name = "Viertelfinale", Reihenfolge = 2,
+            Rundenart = Rundenart.KoRunde, RegelwerkId = 1
+        });
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 1000, TurnierInstanzId = 1, TurnierRundeId = 2, Spielnummer = 1, Spieltag = 1,
+            HeimPlatzhalterName = "Sieger Achtelfinale 1", AuswaertsPlatzhalterName = "Sieger Achtelfinale 2",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var service = ServiceFuer(ctx);
+
+        await service.RundeSimulierenAsync(1, SimulationsModus.SchnellSimulation, seed: 386);
+
+        // Paarung N = N-tes Hinspiel; den Gesamtsieger trägt dessen Rückspiel (Ids 2 und 4).
+        var sieger = ctx.Spiele.Include(s => s.Ergebnis).Where(s => s.Id == 2 || s.Id == 4)
+            .ToDictionary(s => s.Id, s => s.Ergebnis!.SiegerMannschaftId);
+        var folgespiel = ctx.Spiele.AsNoTracking().Single(s => s.Id == 1000);
+        folgespiel.HeimMannschaftId.Should().Be(sieger[2]);
+        folgespiel.AuswaertsMannschaftId.Should().Be(sieger[4]);
+    }
+
     // ── Issue #387: Hinspiele / Rückspiele einer K.-o.-Runde getrennt simulieren ─────────
 
     [Fact]

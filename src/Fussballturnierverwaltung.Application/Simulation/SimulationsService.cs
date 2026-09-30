@@ -51,14 +51,27 @@ public class SimulationsService(
         CancellationToken ct = default,
         bool ueberschreiben = false)
     {
+        var ergebnis = await SimulierenUndSpeichernAsync(spielId, rng ?? new Random(), ct, ueberschreiben);
+
+        // Issue #90: Vorwärts-Auflösung der Folgerunden-Platzhalter — hier für das eine Spiel, bei
+        // Massensimulationen einmal je Block (siehe MehrereSimulierenAsync).
+        await ergebnisService.PlatzhalterAutomatischAufloesenAsync(spielId, ct);
+
+        return ergebnis;
+    }
+
+    /// <summary>Würfelt und speichert ein Spiel, ohne die Platzhalter der Folgerunden aufzulösen — die
+    /// Auflösung ist mit Abstand der teuerste Schritt (Issue #386: ~99 % der Laufzeit einer Massensimulation)
+    /// und übernimmt der Aufrufer.</summary>
+    private async Task<SimulationsErgebnis> SimulierenUndSpeichernAsync(
+        int spielId, Random rng, CancellationToken ct, bool ueberschreiben = false)
+    {
         var spiel = await spielRepository.FindenNachIdFuerSimulationAsync(spielId, ct)
             ?? throw new InvalidOperationException($"Spiel {spielId} nicht gefunden.");
 
         if (spiel.Status == SpielStatus.Abgeschlossen && !ueberschreiben)
             throw new InvalidOperationException(
                 $"Spiel #{spiel.Spielnummer} ist bereits abgeschlossen.");
-
-        rng ??= new Random();
 
         // Entscheidungsverfahren nur für KO-Runden: Liga/Gruppenphase erlaubt Unentschieden
         bool istKoRunde = spiel.TurnierRunde?.Rundenart is
@@ -118,11 +131,34 @@ public class SimulationsService(
             ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,
             spiel.AuswaertsMannschaft.Name, ergebnis.EntscheidungArt);
 
-        // Issue #90: simulierte Ergebnisse laufen nicht über SpielErgebnisService.ErgebnisErfassenAsync
-        // (direkter Repository-Zugriff oben in SpeichernAsync), daher hier explizit derselbe Trigger.
-        await ergebnisService.PlatzhalterAutomatischAufloesenAsync(spielId, ct);
-
         return ergebnis;
+    }
+
+    /// <summary>Simuliert die übergebenen Spiele in dieser Reihenfolge und löst danach einmal die Platzhalter
+    /// der Folgerunden auf (Issue #386) statt nach jedem Spiel. Unbedenklich, weil Spiele innerhalb eines
+    /// Blocks nicht über Platzhalter voneinander abhängen (ein K.-o.-Rückspiel hängt über
+    /// <see cref="Spiel.HinspielId"/> am Hinspiel, nicht über einen Platzhalter) und die Oberfläche erst nach
+    /// dem Block neu lädt. Die Reihenfolge der Zufallszüge und damit die Reproduzierbarkeit per Seed bleibt
+    /// unverändert. Bricht ein Spiel ab, werden die bis dahin gespeicherten Ergebnisse trotzdem aufgelöst.</summary>
+    private async Task<int> MehrereSimulierenAsync(IEnumerable<int> spielIds, Random rng, CancellationToken ct)
+    {
+        int? letzteSpielId = null;
+        int simuliert = 0;
+        try
+        {
+            foreach (var spielId in spielIds)
+            {
+                await SimulierenUndSpeichernAsync(spielId, rng, ct);
+                letzteSpielId = spielId;
+                simuliert++;
+            }
+        }
+        finally
+        {
+            if (letzteSpielId is int id)
+                await ergebnisService.PlatzhalterAutomatischAufloesenAsync(id, ct);
+        }
+        return simuliert;
     }
 
     // ── Eine freie Auswahl ────────────────────────────────────────────────
@@ -140,7 +176,6 @@ public class SimulationsService(
         CancellationToken ct = default)
     {
         var rng = seed.HasValue ? new Random(seed.Value) : new Random();
-        int simuliert = 0;
 
         // Issue #346: Hinspiele vor Rückspielen — ein K.-o.-Rückspiel braucht das Hinspiel-Ergebnis.
         var offene = new List<Spiel>();
@@ -151,11 +186,8 @@ public class SimulationsService(
             offene.Add(spiel);
         }
 
-        foreach (var spiel in offene.OrderBy(s => s.IstRueckspiel).ThenBy(s => s.Spielnummer))
-        {
-            await SpielSimulierenAsync(spiel.Id, modus, rng, ct);
-            simuliert++;
-        }
+        int simuliert = await MehrereSimulierenAsync(
+            offene.OrderBy(s => s.IstRueckspiel).ThenBy(s => s.Spielnummer).Select(s => s.Id), rng, ct);
 
         logger.LogInformation("Auswahl: {Anz} Spiel(e) simuliert.", simuliert);
         return simuliert;
@@ -182,13 +214,7 @@ public class SimulationsService(
         if (!offene.Any()) return 0;
 
         var rng = seed.HasValue ? new Random(seed.Value) : new Random();
-        int simuliert = 0;
-
-        foreach (var spiel in offene)
-        {
-            await SpielSimulierenAsync(spiel.Id, modus, rng, ct);
-            simuliert++;
-        }
+        int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
 
         logger.LogInformation("Spieltag {Tag} (Runde {Id}): {Anz} Spiel(e) simuliert.",
             spieltag, turnierRundeId, simuliert);
@@ -218,13 +244,7 @@ public class SimulationsService(
         if (!offene.Any()) return 0;
 
         var rng = seed.HasValue ? new Random(seed.Value) : new Random();
-        int simuliert = 0;
-
-        foreach (var spiel in offene)
-        {
-            await SpielSimulierenAsync(spiel.Id, modus, rng, ct);
-            simuliert++;
-        }
+        int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
 
         logger.LogInformation("Gruppe (Runde {Id}): {Anz} Spiel(e) simuliert.", turnierRundeId, simuliert);
         return simuliert;
@@ -254,13 +274,7 @@ public class SimulationsService(
         if (!offene.Any()) return 0;
 
         var rng = seed.HasValue ? new Random(seed.Value) : new Random();
-        int simuliert = 0;
-
-        foreach (var spiel in offene)
-        {
-            await SpielSimulierenAsync(spiel.Id, modus, rng, ct);
-            simuliert++;
-        }
+        int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
 
         logger.LogInformation("Spieltag {Tag} (Gruppe, Runde {Id}): {Anz} Spiel(e) simuliert.",
             spieltag, turnierRundeId, simuliert);
@@ -303,13 +317,7 @@ public class SimulationsService(
         }
 
         var rng = seed.HasValue ? new Random(seed.Value) : new Random();
-        int simuliert = 0;
-
-        foreach (var spiel in offene)
-        {
-            await SpielSimulierenAsync(spiel.Id, modus, rng, ct);
-            simuliert++;
-        }
+        int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
 
         logger.LogInformation("{Haelfte} (Runde {Id}): {Anz} Spiel(e) simuliert.",
             istRueckrunde ? "Rückrunde" : "Hinrunde", turnierRundeId, simuliert);
@@ -337,13 +345,7 @@ public class SimulationsService(
         if (!offene.Any()) return 0;
 
         var rng = seed.HasValue ? new Random(seed.Value) : new Random();
-        int simuliert = 0;
-
-        foreach (var spiel in offene)
-        {
-            await SpielSimulierenAsync(spiel.Id, modus, rng, ct);
-            simuliert++;
-        }
+        int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
 
         logger.LogInformation("Runde {Id}: {Anz} Spiel(e) simuliert.", turnierRundeId, simuliert);
         return simuliert;
@@ -385,11 +387,8 @@ public class SimulationsService(
             var spiele = await spielRepository.AlleNachRundeAsync(runde.Id, ct);
             var offene = spiele.Where(s => s.Status != SpielStatus.Abgeschlossen).ToList();
 
-            foreach (var spiel in offene)
-            {
-                await SpielSimulierenAsync(spiel.Id, modus, rng, ct);
-                gesamtSimuliert++;
-            }
+            // Je Runde ein Block: die Folgerunde braucht die aufgelösten Platzhalter erst beim nächsten Durchlauf.
+            gesamtSimuliert += await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
 
             // Nach K.-o.-Runden: Sieger in den Bracket fortschreiben
             bool istKo = runde.Rundenart is Rundenart.KoRunde
@@ -427,7 +426,7 @@ public class SimulationsService(
             sim.HalbzeitHeimTore,
             sim.HalbzeitAuswaertsTore);
 
-        await ergebnisService.ErgebnisErfassenAsync(spiel.Id, eingabe, ct);
+        await ergebnisService.ErgebnisErfassenAsync(spiel.Id, eingabe, ct, platzhalterAufloesen: false);
 
         if (sim.Ereignisse.Any())
         {

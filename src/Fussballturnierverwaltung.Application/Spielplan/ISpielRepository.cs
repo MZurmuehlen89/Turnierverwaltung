@@ -22,6 +22,10 @@ public interface ISpielRepository : IRepository<Spiel>
     Task ErgebnisSetzenAsync(int spielId, SpielErgebnis ergebnis, CancellationToken ct = default);
     Task ErgebnisLoeschenAsync(int spielId, CancellationToken ct = default);
 
+    /// <summary>Löscht Ergebnis und Ereignisse mehrerer Spiele mit einer Abfrage und einem Speichern (Issue #386) —
+    /// Spiele ohne Ergebnis werden übergangen.</summary>
+    Task ErgebnisseLoeschenAsync(IReadOnlyCollection<int> spielIds, CancellationToken ct = default);
+
     /// <summary>Lädt Spiel mit Teams, Ergebnis und Runde inkl. Regelwerk (für Simulation).</summary>
     Task<Spiel?> FindenNachIdFuerSimulationAsync(int id, CancellationToken ct = default);
 
