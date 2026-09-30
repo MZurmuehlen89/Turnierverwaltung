@@ -769,7 +769,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                         new RibbonUnteraktion("Mit TV-Modus", AuslosungMitTvModusAusfuehrenCommand),
                         new RibbonUnteraktion("Mit TV-Modus manuell", AuslosungMitTvModusManuellAusfuehrenCommand),
                     ],
-                    IconGlyph = "",
+                    IconGlyph = "",
                 },
                 // Direkte Buttons statt Flyout (#364): während der Live-Ziehung ständig gebraucht
                 new RibbonAktion { Header = "Weiter", Befehl = AnimationWeiterCommand, IconGlyph = "" },

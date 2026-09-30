@@ -220,5 +220,24 @@ public sealed partial class MainWindow : Window
         };
     }
 
-    private static double BreiteFuerLabel(string label) => Math.Max(90, 26 + label.Length * 7.5);
+    // ── Button-Breite ────────────────────────
+    private const double MINDESTBREITE = 90;
+    private const double ICON_BREITE = 16;
+    private const double RAND_UND_ABSTAENDE = 34;
+    private const double LABEL_SCHRIFTGROESSE = 12;
+
+    /// <summary>Misst die tatsächliche Label-Breite statt sie über die Zeichenzahl zu schätzen: die frühere
+    /// Schätzung (26 + Zeichen × 7,5) unterschätzte kurze Labels mit breiten Großbuchstaben ("TV-Modus") —
+    /// im LabelOnRight-Layout nimmt sich das Label dann seinen Platz und die Icon-Viewbox schrumpft auf 1×1 px,
+    /// das Icon erscheint nur als Punkt (#337, per Visual-Tree-Diagnose belegt). Zuschlag = Icon-Viewbox
+    /// (16 px) + Innenränder/Abstände des AppBarButton-Templates (gemessen ~33 px).</summary>
+    private static double BreiteFuerLabel(string label)
+    {
+        var messText = new TextBlock { Text = label, FontSize = LABEL_SCHRIFTGROESSE };
+        if (Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue("ContentControlThemeFontFamily", out var schrift)
+            && schrift is Microsoft.UI.Xaml.Media.FontFamily fontFamily)
+            messText.FontFamily = fontFamily;
+        messText.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        return Math.Max(MINDESTBREITE, Math.Ceiling(messText.DesiredSize.Width) + ICON_BREITE + RAND_UND_ABSTAENDE);
+    }
 }
