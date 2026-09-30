@@ -378,7 +378,7 @@ public partial class VorbelegungWorkspace : ObservableObject
     public string? TeamInKoSlotPlatzieren(TeilnehmerAnzeige team, ManuellerKoSlot slot)
     {
         ManuellesFehler = null;
-        if (HatKeinGleichesLandVerletzung(team, slot.PaarungsNr, istHeim: slot.IstHeim, out var fehler))
+        if (HatRegelVerletzung(team, slot.PaarungsNr, istHeim: slot.IstHeim, out var fehler))
         {
             ManuellesFehler = fehler;
             return fehler;
@@ -400,7 +400,7 @@ public partial class VorbelegungWorkspace : ObservableObject
     public string? TeamInGruppenSlotPlatzieren(TeilnehmerAnzeige team, ManuellerGruppenSlot slot)
     {
         ManuellesFehler = null;
-        if (HatKeinGleichesLandVerletzungGruppe(team, slot.GruppenNr, out var fehler))
+        if (HatRegelVerletzungGruppe(team, slot.GruppenNr, out var fehler))
         {
             ManuellesFehler = fehler;
             return fehler;
@@ -438,41 +438,49 @@ public partial class VorbelegungWorkspace : ObservableObject
             : KoPaarungen.SelectMany(p => new[] { p.HeimSlot, p.AuswaertsSlot }).Count(s => !s.IstLeer);
     }
 
-    private bool HatKeinGleichesLandVerletzung(TeilnehmerAnzeige neuTeam, int paarungsNr, bool istHeim, out string? fehler)
+    private bool RegelAktiv(AuslosungsRegelArt art) =>
+        _auslosung?.Regeln.Any(r => r.IstAktiv && r.Regelart == art) == true;
+
+    // Prüft „Kein gleiches Land“ und „Keine gleiche Gruppe“ (#331) — die Gruppen-Herkunft steckt im
+    // Platzhalternamen („1. Gruppe A“), echte Mannschaften gibt es hier nur in der ersten Runde ohne Vorgänger.
+    private string? RegelVerletzung(TeilnehmerAnzeige neuTeam, TeilnehmerAnzeige anderes, string beziehung)
+    {
+        if (RegelAktiv(AuslosungsRegelArt.KeinGleichesLand) &&
+            neuTeam.LandId.HasValue && neuTeam.LandId == anderes.LandId)
+            return $"Regel 'Kein gleiches Land': '{neuTeam.Name}' und '{anderes.Name}' " +
+                   $"sind aus demselben Land und dürfen nicht {beziehung}.";
+
+        if (RegelAktiv(AuslosungsRegelArt.KeineGleicheGruppe) &&
+            GruppenHerkunft.AusPlatzhalter(neuTeam.Name) is { } herkunftNeu &&
+            GruppenHerkunft.AusPlatzhalter(anderes.Name) is { } herkunftAnderes &&
+            herkunftNeu.Gruppe == herkunftAnderes.Gruppe)
+            return $"Regel 'Keine gleiche Gruppe': '{neuTeam.Name}' und '{anderes.Name}' " +
+                   $"waren in derselben Gruppe und dürfen nicht {beziehung}.";
+
+        return null;
+    }
+
+    private bool HatRegelVerletzung(TeilnehmerAnzeige neuTeam, int paarungsNr, bool istHeim, out string? fehler)
     {
         fehler = null;
-        if (_auslosung?.Regeln.Any(r => r.IstAktiv && r.Regelart == AuslosungsRegelArt.KeinGleichesLand) != true)
-            return false;
-        if (!neuTeam.LandId.HasValue) return false;
         var paarung = KoPaarungen.FirstOrDefault(p => p.PaarungsNr == paarungsNr);
         if (paarung is null) return false;
         var gegnerSlot = istHeim ? paarung.AuswaertsSlot : paarung.HeimSlot;
-        if (gegnerSlot.IstLeer || !gegnerSlot.Team!.LandId.HasValue) return false;
-        if (gegnerSlot.Team!.LandId == neuTeam.LandId)
-        {
-            fehler = $"Regel 'Kein gleiches Land': '{neuTeam.Name}' und '{gegnerSlot.Team!.Name}' " +
-                     "sind aus demselben Land und dürfen nicht gepaart werden.";
-            return true;
-        }
-        return false;
+        if (gegnerSlot.IstLeer) return false;
+        fehler = RegelVerletzung(neuTeam, gegnerSlot.Team!, "gepaart werden");
+        return fehler is not null;
     }
 
-    private bool HatKeinGleichesLandVerletzungGruppe(TeilnehmerAnzeige neuTeam, int gruppenNr, out string? fehler)
+    private bool HatRegelVerletzungGruppe(TeilnehmerAnzeige neuTeam, int gruppenNr, out string? fehler)
     {
         fehler = null;
-        if (_auslosung?.Regeln.Any(r => r.IstAktiv && r.Regelart == AuslosungsRegelArt.KeinGleichesLand) != true)
-            return false;
-        if (!neuTeam.LandId.HasValue) return false;
         var gruppe = Gruppen.FirstOrDefault(g => g.GruppenNr == gruppenNr);
         if (gruppe is null) return false;
-        var konflikt = gruppe.Slots.FirstOrDefault(s => !s.IstLeer && s.Team!.LandId == neuTeam.LandId);
-        if (konflikt is not null)
-        {
-            fehler = $"Regel 'Kein gleiches Land': '{neuTeam.Name}' und '{konflikt.Team!.Name}' " +
-                     "sind aus demselben Land und dürfen nicht in dieselbe Gruppe.";
-            return true;
-        }
-        return false;
+        fehler = gruppe.Slots
+            .Where(s => !s.IstLeer)
+            .Select(s => RegelVerletzung(neuTeam, s.Team!, "in dieselbe Gruppe"))
+            .FirstOrDefault(f => f is not null);
+        return fehler is not null;
     }
 
     // ── Abschließen / Zurücksetzen ───────────────────────────────────────────

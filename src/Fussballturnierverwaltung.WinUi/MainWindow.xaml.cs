@@ -183,6 +183,7 @@ public sealed partial class MainWindow : Window
     {
         const double breite = 560;
         var liste = new StackPanel { Padding = new Thickness(4), Spacing = 14, Width = breite };
+        var umschalterJeGruppe = new Dictionary<string, List<CheckBox>>();
         foreach (var toggle in toggles)
         {
             var text = new StackPanel();
@@ -192,15 +193,39 @@ public sealed partial class MainWindow : Window
                 {
                     Text = beschreibung, FontSize = 11, Opacity = 0.6, TextWrapping = TextWrapping.Wrap
                 });
+            // Gesperrt: ausgegraut (IsEnabled = false dimmt den ganzen Content), der Hinweis erklärt warum (#331).
+            if (toggle.SperrHinweis is { Length: > 0 } sperrHinweis)
+                text.Children.Add(new TextBlock
+                {
+                    Text = sperrHinweis, FontSize = 11, FontStyle = Windows.UI.Text.FontStyle.Italic,
+                    TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0)
+                });
 
             var umschalter = new CheckBox
             {
                 IsChecked = toggle.IstAktiv, Content = text,
+                IsEnabled = toggle.SperrHinweis is null,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 VerticalContentAlignment = VerticalAlignment.Top
             };
-            umschalter.Click += (_, _) => toggle.Setzen(umschalter.IsChecked == true);
+
+            List<CheckBox>? gruppe = null;
+            if (toggle.ExklusivGruppe is { } gruppenName)
+            {
+                if (!umschalterJeGruppe.TryGetValue(gruppenName, out gruppe))
+                    umschalterJeGruppe[gruppenName] = gruppe = [];
+                gruppe.Add(umschalter);
+            }
+
+            umschalter.Click += (_, _) =>
+            {
+                bool aktiv = umschalter.IsChecked == true;
+                if (aktiv && gruppe is not null)
+                    foreach (var andere in gruppe.Where(c => c != umschalter))
+                        andere.IsChecked = false;
+                toggle.Setzen(aktiv);
+            };
 
             liste.Children.Add(umschalter);
         }

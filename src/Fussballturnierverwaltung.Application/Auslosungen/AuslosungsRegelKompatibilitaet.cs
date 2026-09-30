@@ -1,0 +1,117 @@
+using Fussballturnierverwaltung.Domain.Enums;
+
+namespace Fussballturnierverwaltung.Application.Auslosungen;
+
+/// <summary>
+/// Zentrale Matrix Auslosungsregel × Auslosungsart × Rundenart (Issue #331), analog zu
+/// <see cref="AuslosungsKompatibilitaet"/> für Auslosungsart × Rundenart. Eine Quelle für beides: der
+/// <see cref="AuslosungService"/> wendet nur Regeln an, die hier als wirksam gelten, und die Oberfläche graut
+/// unpassende Regeln mit genau diesem Grund aus — statt sie wirkungslos anklickbar zu lassen.
+/// </summary>
+public static class AuslosungsRegelKompatibilitaet
+{
+    /// <summary>Die in der Oberfläche angebotenen Regeln. <c>GruppensiegerGegenGruppenzweite</c>,
+    /// <c>GesetzteGegenUngesetzte</c> und <c>ManuelleEinschraenkung</c> sind mit #331 entfallen — sie hatten
+    /// neben den gleichnamigen Auslosungsarten keinen eigenen fachlichen Sinn.</summary>
+    public static IReadOnlyList<AuslosungsRegelArt> AngeboteneRegeln { get; } =
+    [
+        AuslosungsRegelArt.KeinGleichesLand,
+        AuslosungsRegelArt.KeineGleicheGruppe,
+        AuslosungsRegelArt.HeimrechtNachLos,
+        AuslosungsRegelArt.HeimrechtNachSetzliste,
+        AuslosungsRegelArt.FreilosMoeglich,
+    ];
+
+    /// <summary>Regeln, die sich gegenseitig ausschließen — beide legen das Heimrecht fest.</summary>
+    public static bool SchliessenSichAus(AuslosungsRegelArt a, AuslosungsRegelArt b) =>
+        a != b && IstHeimrechtRegel(a) && IstHeimrechtRegel(b);
+
+    private static bool IstHeimrechtRegel(AuslosungsRegelArt art) =>
+        art is AuslosungsRegelArt.HeimrechtNachLos or AuslosungsRegelArt.HeimrechtNachSetzliste;
+
+    /// <summary>Liefert den Grund, warum die Regel bei der Auslosungsart <paramref name="art"/> in einer Runde der
+    /// Rundenart <paramref name="rundenart"/> keine Wirkung hätte, oder <c>null</c>, wenn sie wirkt.
+    /// <paramref name="folgtAufGruppenphase"/>: ob vor dieser Runde eine Gruppenphase liegt — nur dann gibt es
+    /// frühere Gruppen, die „Keine gleiche Gruppe“ auswerten könnte.</summary>
+    public static string? SperrGrund(
+        AuslosungsRegelArt regel, Auslosungsart art, Rundenart? rundenart, bool folgtAufGruppenphase)
+    {
+        if (rundenart == Rundenart.Liga)
+            return "In einer Liga spielt jeder gegen jeden — es gibt weder Gruppen noch ausgeloste Paarungen, " +
+                   "auf die diese Regel wirken könnte.";
+
+        if (rundenart == Rundenart.SchweizerSystem)
+            return "Beim Schweizer System bildet der Spielplan-Generator die Paarungen selbst — die Auslosung legt " +
+                   "nur die Startreihenfolge fest.";
+
+        if (ImmerAktivGrund(regel, art) is not null)
+            return null;
+
+        switch (regel)
+        {
+            case AuslosungsRegelArt.KeinGleichesLand:
+                return null;
+
+            case AuslosungsRegelArt.KeineGleicheGruppe:
+                if (!folgtAufGruppenphase)
+                    return "Diese Runde folgt auf keine Gruppenphase — es gibt keine früheren Gruppen, " +
+                           "deren Teams sich erneut begegnen könnten.";
+                return null;
+
+            case AuslosungsRegelArt.HeimrechtNachLos:
+            case AuslosungsRegelArt.HeimrechtNachSetzliste:
+                if (art == Auslosungsart.Manuell)
+                    return "Bei der manuellen Auslosung legst du das Heimrecht beim Zuweisen selbst fest " +
+                           "(Heim- oder Auswärts-Platz).";
+                if (rundenart == Rundenart.Gruppenphase)
+                    return "In der Gruppenphase werden Teams nur Gruppen zugeordnet — das Heimrecht ergibt sich " +
+                           "aus dem Spielplan der Gruppe.";
+                if (art == Auslosungsart.TopfZuordnung)
+                    return "Die Topf-Zuordnung verteilt Heim- und Auswärtsspiele selbst (je Topf ein Heim- und " +
+                           "ein Auswärtsgegner).";
+                return null;
+
+            case AuslosungsRegelArt.FreilosMoeglich:
+                if (art == Auslosungsart.Manuell)
+                    return "Bei der manuellen Auslosung vergibst du ein Freilos, indem du den Gegner-Platz " +
+                           "einer Paarung leer lässt.";
+                if (rundenart == Rundenart.Gruppenphase)
+                    return "In der Gruppenphase gibt es kein Freilos — alle Teams werden auf die Gruppen verteilt.";
+                return art switch
+                {
+                    Auslosungsart.NachToepfen or Auslosungsart.GruppensiegerGegenGruppenzweite =>
+                        "Die Töpfe werden paarweise gegeneinander gelost — ein Freilos ist dabei nicht vorgesehen.",
+                    Auslosungsart.NachSetzliste =>
+                        "Bei 'Nach Setzliste' spielt jedes gesetzte gegen ein ungesetztes Team — ein Freilos " +
+                        "ist dabei nicht vorgesehen.",
+                    Auslosungsart.TopfZuordnung =>
+                        "Die Topf-Zuordnung erfordert gleich große Töpfe — ein Freilos ist nicht vorgesehen.",
+                    _ => null
+                };
+
+            default:
+                return "Diese Regel wird nicht mehr unterstützt.";
+        }
+    }
+
+    /// <summary>Liefert den Grund, warum die Regel bei dieser Auslosungsart unabhängig vom Häkchen immer gilt,
+    /// oder <c>null</c>. Beispiel: bei „Gruppensieger vs. Zweite“ trifft ein Gruppensieger real nie auf den
+    /// Zweiten der eigenen Gruppe (u. a. Nations-League-Viertelfinale).</summary>
+    public static string? ImmerAktivGrund(AuslosungsRegelArt regel, Auslosungsart art) => (regel, art) switch
+    {
+        (AuslosungsRegelArt.KeineGleicheGruppe, Auslosungsart.GruppensiegerGegenGruppenzweite) =>
+            "Bei 'Gruppensieger vs. Zweite' immer aktiv — ein Gruppensieger trifft nie auf den Zweiten " +
+            "der eigenen Gruppe.",
+        _ => null
+    };
+
+    /// <summary>Ob die Regel bei der Auslosung tatsächlich angewendet wird: aktiv gesetzt und nicht gesperrt,
+    /// oder durch die Auslosungsart ohnehin vorgegeben.</summary>
+    public static bool Wirkt(
+        AuslosungsRegelArt regel, bool istAktiv, Auslosungsart art, Rundenart? rundenart, bool folgtAufGruppenphase)
+    {
+        if (rundenart is Rundenart.Liga or Rundenart.SchweizerSystem) return false;
+        if (ImmerAktivGrund(regel, art) is not null) return true;
+        return istAktiv && SperrGrund(regel, art, rundenart, folgtAufGruppenphase) is null;
+    }
+}

@@ -539,23 +539,6 @@ public class AuslosungsValidatorTests
     // ══════════════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void RegelKonflikt_GruppensiegerGegenGruppenzweite_UndGesetzteGegenUngesetzte_WirdAbgelehnt()
-    {
-        var topf = Topf(1, 1, Enumerable.Range(1, 4).Select(Eintrag).ToArray());
-        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf],
-            regeln:
-            [
-                Regel(AuslosungsRegelArt.GruppensiegerGegenGruppenzweite),
-                Regel(AuslosungsRegelArt.GesetzteGegenUngesetzte)
-            ]);
-
-        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
-
-        ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().ContainMatch("*Regelkonflikt*");
-    }
-
-    [Fact]
     public void RegelKonflikt_HeimrechtNachLos_UndHeimrechtNachSetzliste_WirdAbgelehnt()
     {
         var topf = Topf(1, 1, Enumerable.Range(1, 4).Select(Eintrag).ToArray());

@@ -41,12 +41,16 @@ public class RegelViewModel : ObservableObject
 {
     private readonly Func<bool, Task> _callback;
     private bool _istAktiv;
-    private bool _istRedundant;
 
     public AuslosungsRegelArt Regelart { get; init; }
     public string Anzeige { get; init; } = "";
     public string Beschreibung { get; init; } = "";
-    public string RedundanzHinweis { get; set; } = "";
+
+    /// <summary>Warum die Regel bei der aktuellen Auslosungsart/Rundenart nicht wirkt — dann ausgegraut (#331).</summary>
+    public string? SperrHinweis { get; set; }
+
+    /// <summary>Warum die Regel bei der aktuellen Auslosungsart ohnehin immer gilt — dann ausgegraut und angehakt.</summary>
+    public string? ImmerAktivHinweis { get; set; }
 
     public bool IstAktiv
     {
@@ -54,11 +58,9 @@ public class RegelViewModel : ObservableObject
         set { if (SetProperty(ref _istAktiv, value)) _ = _callback(value); }
     }
 
-    public bool IstRedundant
-    {
-        get => _istRedundant;
-        set => SetProperty(ref _istRedundant, value);
-    }
+    /// <summary>Setzt den Zustand ohne Speicher-Callback — für bereits gespeicherte Nebenwirkungen (gegenseitiger
+    /// Ausschluss der Heimrecht-Regeln).</summary>
+    public void OhneSpeichernSetzen(bool aktiv) => SetProperty(ref _istAktiv, aktiv, nameof(IstAktiv));
 
     public RegelViewModel(AuslosungsRegelArt art, string anzeige, string beschreibung, bool initial, Func<bool, Task> callback)
     {
@@ -755,8 +757,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     Header = "Auslosungs-Regeln",
                     ToggleUnterpunkte = Regeln
                         .Select(r => new RibbonToggleAktion(
-                            r.Anzeige, r.IstAktiv, aktiv => r.IstAktiv = aktiv,
-                            r.IstRedundant ? $"{r.Beschreibung}\n\n{r.RedundanzHinweis}" : r.Beschreibung))
+                            r.Anzeige, r.ImmerAktivHinweis is not null || r.IstAktiv, aktiv => r.IstAktiv = aktiv,
+                            r.Beschreibung,
+                            SperrHinweis: r.ImmerAktivHinweis ?? r.SperrHinweis,
+                            // Die Heimrecht-Regeln schließen sich aus: Anhaken der einen hakt die andere ab (#331).
+                            ExklusivGruppe: IstHeimrechtRegel(r.Regelart) ? "Heimrecht" : null))
                         .ToList(),
                     IconGlyph = "",
                 },
@@ -1753,9 +1758,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             await AktualisiereVerbandsQuotenAnzeigeAsync(detail);
             await AktualisiereLandesQuotenAnzeigeAsync(detail);
 
+            var regelRunde = InstanzRunden.FirstOrDefault(r => r.Id == detail.TurnierRundeId) ?? detail.TurnierRunde;
+            _regelRundenart = regelRunde?.Rundenart;
+            _regelFolgtAufGruppenphase = regelRunde is not null && InstanzRunden.Any(r =>
+                r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge < regelRunde.Reihenfolge);
+
             Regeln = new ObservableCollection<RegelViewModel>(
-                Enum.GetValues<AuslosungsRegelArt>()
-                .Where(art => art != AuslosungsRegelArt.ManuelleEinschraenkung)
+                AuslosungsRegelKompatibilitaet.AngeboteneRegeln
                 .Select(art =>
                 {
                     var vorh = detail.Regeln.FirstOrDefault(r => r.Regelart == art);
@@ -1764,13 +1773,24 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                         {
                             try
                             {
-                                if (aktiv) await _auslosungService.RegelHinzufuegenOderAktivierenAsync(auslosungId, art, RegelAnzeigeName(art));
-                                else       await _auslosungService.RegelDeaktivierenAsync(auslosungId, art);
+                                if (aktiv)
+                                {
+                                    // Nacheinander statt parallel speichern — ein DbContext verträgt keine zwei
+                                    // gleichzeitigen Operationen.
+                                    foreach (var andere in Regeln.Where(r =>
+                                                 r.IstAktiv && AuslosungsRegelKompatibilitaet.SchliessenSichAus(art, r.Regelart)).ToList())
+                                    {
+                                        andere.OhneSpeichernSetzen(false);
+                                        await _auslosungService.RegelDeaktivierenAsync(auslosungId, andere.Regelart);
+                                    }
+                                    await _auslosungService.RegelHinzufuegenOderAktivierenAsync(auslosungId, art, RegelAnzeigeName(art));
+                                }
+                                else await _auslosungService.RegelDeaktivierenAsync(auslosungId, art);
                             }
                             catch (Exception ex) { Fehlermeldung = ex.Message; }
                         });
                 }));
-            AktualisiereRedundanteRegeln(detail.Auslosungsart);
+            AktualisiereRegelSperren(detail.Auslosungsart);
 
             bool istGruppe = detail.Ergebnisse.Any() &&
                 detail.Ergebnisse.All(e => !e.IstFreilos &&
@@ -1945,28 +1965,30 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     partial void OnDetailAuslosungsartChanged(Auslosungsart value)
     {
         if (!_ladenAktiv) IstDetailDirty = true;
-        AktualisiereRedundanteRegeln(value);
+        AktualisiereRegelSperren(value);
 
         if (!DetailAnzahlLostoepfeBearbeitbar)
             DetailAnzahlLostoepfe = 1;
     }
 
-    private void AktualisiereRedundanteRegeln(Auslosungsart art)
+    private Rundenart? _regelRundenart;
+    private bool _regelFolgtAufGruppenphase;
+
+    // Unpassende Regeln bleiben sichtbar, werden aber ausgegraut und begründet (#331) — Quelle ist dieselbe Matrix,
+    // nach der auch der AuslosungService entscheidet, welche Regeln er anwendet.
+    private void AktualisiereRegelSperren(Auslosungsart art)
     {
         foreach (var regel in Regeln)
         {
-            bool redundant = regel.Regelart switch
-            {
-                AuslosungsRegelArt.GruppensiegerGegenGruppenzweite =>
-                    art == Auslosungsart.GruppensiegerGegenGruppenzweite,
-                _ => false
-            };
-            regel.IstRedundant    = redundant;
-            regel.RedundanzHinweis = redundant
-                ? "Diese Regel ist bei der gewählten Auslosungsart bereits im Algorithmus enthalten und hat keine zusätzliche Wirkung."
-                : "";
+            regel.ImmerAktivHinweis = AuslosungsRegelKompatibilitaet.ImmerAktivGrund(regel.Regelart, art);
+            regel.SperrHinweis = AuslosungsRegelKompatibilitaet.SperrGrund(
+                regel.Regelart, art, _regelRundenart, _regelFolgtAufGruppenphase);
         }
+        OnPropertyChanged(nameof(RibbonZusatzGruppen));
     }
+
+    private static bool IstHeimrechtRegel(AuslosungsRegelArt art) =>
+        art is AuslosungsRegelArt.HeimrechtNachLos or AuslosungsRegelArt.HeimrechtNachSetzliste;
 
     private async Task AktualisiereVerbandsQuotenAnzeigeAsync(Auslosung detail)
     {
@@ -2150,12 +2172,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         AuslosungsRegelArt.KeinGleichesLand                => "Kein gleiches Land",
         AuslosungsRegelArt.KeineGleicheGruppe              => "Keine gleiche Gruppe",
-        AuslosungsRegelArt.GruppensiegerGegenGruppenzweite => "Gruppensieger vs. Gruppenzweite",
-        AuslosungsRegelArt.GesetzteGegenUngesetzte         => "Gesetzte vs. Ungesetzte",
         AuslosungsRegelArt.HeimrechtNachLos                => "Heimrecht nach Los",
         AuslosungsRegelArt.HeimrechtNachSetzliste          => "Heimrecht nach Setzliste",
         AuslosungsRegelArt.FreilosMoeglich                 => "Freilos möglich",
-        AuslosungsRegelArt.ManuelleEinschraenkung          => "Manuelle Einschränkung",
         _                                                  => art.ToString()
     };
 
@@ -2166,30 +2185,18 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             "Verhindert z. B. nationale Duelle in der Gruppenphase (typisch bei Nationenturnieren).",
         AuslosungsRegelArt.KeineGleicheGruppe =>
             "Teams, die in einer vorangegangenen Gruppenphase bereits in derselben Gruppe waren, " +
-            "dürfen nicht erneut aufeinandertreffen. Typisch für UCL/UEL K.O.-Runden.",
-        AuslosungsRegelArt.GruppensiegerGegenGruppenzweite =>
-            "Gruppensieger werden nur mit Zweitplatzierten einer anderen Gruppe gepaart — " +
-            "nie gegeneinander und nie gegen den Zweiten der eigenen Gruppe. " +
-            "Strukturregel für K.O.-Runden nach einer Gruppenphase (z. B. WM-Achtelfinale).",
-        AuslosungsRegelArt.GesetzteGegenUngesetzte =>
-            "Gesetzte Teams (Topf 1) werden ausschließlich mit ungesetzten Teams gepaart. " +
-            "Zwei gesetzte Teams treffen nie direkt aufeinander. " +
-            "Klassische Setzlisten-Regel für nationale und internationale Pokal-Auslosungen. " +
-            "Ergänzt 'NachSetzliste' als Paarungsbeschränkung — die Auslosungsart befüllt die Töpfe, diese Regel steuert die Paarungsbildung.",
+            "dürfen nicht erneut aufeinandertreffen. Typisch für UCL/UEL K.O.-Runden nach der Gruppenphase.",
         AuslosungsRegelArt.HeimrechtNachLos =>
-            "Das Heimrecht wird separat ausgelost: Ein zufällig gezogenes Team erhält das Heimrecht " +
-            "für das Hinspiel, das andere für das Rückspiel. " +
-            "Nur relevant bei Hin- und Rückspielen.",
+            "Das Heimrecht wird je Paarung ausgelost — bei Hin- und Rückspiel entscheidet das Los, " +
+            "wer zuerst zu Hause spielt.",
         AuslosungsRegelArt.HeimrechtNachSetzliste =>
-            "Das höher gesetzte (besser platzierte) Team erhält automatisch das Heimrecht im Rückspiel. " +
-            "Bevorzugt Titelverteidiger und Top-Gesetzte — typisch für UEFA-Wettbewerbe.",
+            "Das besser eingestufte Team (höherer Topf, dann bessere Setzposition, dann besserer Gruppenplatz) " +
+            "hat Heimrecht — bei Hin- und Rückspiel im Rückspiel. Typisch für UEFA-Wettbewerbe, " +
+            "z. B. Gruppensieger im Nations-League-Viertelfinale.",
         AuslosungsRegelArt.FreilosMoeglich =>
             "Bei ungerader Teamanzahl erhält ein zufällig gezogenes Team ein Freilos und zieht " +
             "kampflos in die nächste Runde ein. Ohne diese Regel schlägt die Auslosung fehl, " +
             "wenn die Anzahl ungerade ist.",
-        AuslosungsRegelArt.ManuelleEinschraenkung =>
-            "Bestimmte Paarungen sind aus besonderen Gründen ausgeschlossen (z. B. politische " +
-            "oder logistische Einschränkungen). Die konkreten Verbote werden separat konfiguriert.",
         _ => ""
     };
 }

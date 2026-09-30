@@ -257,7 +257,8 @@ public class AuslosungService(
         ValidationException.WerfenWennUngueltig(
             validator.Validieren(auslosung, alleEintraege, verbandsQuoten, landesQuoten));
 
-        var ergebnisse = Ausloesen(auslosung);
+        var (regeln, gruppeJeMannschaft) = await RegelnErmittelnAsync(auslosung, alleRunden, ct);
+        var ergebnisse = Ausloesen(auslosung, regeln, gruppeJeMannschaft);
         await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);
 
         logger.LogInformation("Auslosung '{Name}' durchgeführt: {Anzahl} Paarungen.", auslosung.Name, ergebnisse.Count);
@@ -267,6 +268,48 @@ public class AuslosungService(
         await platzhalterKaskadeService.KaskadeAusloesenAsync(auslosung.TurnierInstanzId, ct);
 
         return ergebnisse;
+    }
+
+    // Die wirksamen Regeln (#331) und — nur wenn „Keine gleiche Gruppe“ wirkt und echte Mannschaften in den Töpfen
+    // liegen — deren Gruppe aus der letzten vorangegangenen Gruppenphase. Platzhalter („1. Gruppe A“) tragen ihre
+    // Gruppe selbst im Namen.
+    private async Task<(RegelKontext Regeln, IReadOnlyDictionary<int, string> GruppeJeMannschaft)> RegelnErmittelnAsync(
+        Auslosung auslosung, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
+    {
+        var art       = auslosung.Auslosungsart;
+        var rundenart = auslosung.TurnierRunde?.Rundenart;
+
+        // folgtAufGruppenphase: true — ohne vorangegangene Gruppenphase fehlt ohnehin jede Gruppen-Herkunft,
+        // „Keine gleiche Gruppe“ läuft dann ins Leere statt die Auslosung zu stören.
+        bool Wirkt(AuslosungsRegelArt regel) => AuslosungsRegelKompatibilitaet.Wirkt(
+            regel, HatAktiveRegel(auslosung, regel), art, rundenart, folgtAufGruppenphase: true);
+
+        var regeln = new RegelKontext(
+            Wirkt(AuslosungsRegelArt.KeinGleichesLand),
+            Wirkt(AuslosungsRegelArt.KeineGleicheGruppe),
+            Wirkt(AuslosungsRegelArt.HeimrechtNachLos),
+            Wirkt(AuslosungsRegelArt.HeimrechtNachSetzliste),
+            Wirkt(AuslosungsRegelArt.FreilosMoeglich),
+            auslosung.TurnierRunde?.MitRueckspiel ?? false);
+
+        var gruppeJeMannschaft = new Dictionary<int, string>();
+        if (!regeln.KeineGleicheGruppe ||
+            !auslosung.Lostoepfe.SelectMany(l => l.Eintraege).Any(e => e.MannschaftId.HasValue))
+            return (regeln, gruppeJeMannschaft);
+
+        var aktuelleRunde = alleRunden.FirstOrDefault(r => r.Id == auslosung.TurnierRundeId);
+        var gruppenphase  = aktuelleRunde is null ? null : alleRunden
+            .Where(r => r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge < aktuelleRunde.Reihenfolge)
+            .MaxBy(r => r.Reihenfolge);
+        if (gruppenphase is null) return (regeln, gruppeJeMannschaft);
+
+        var gruppenAuslosung = await repository.FindenAbgeschlosseneNachRundeAsync(
+            auslosung.TurnierInstanzId, gruppenphase.Id, ct);
+        foreach (var e in gruppenAuslosung?.Ergebnisse ?? [])
+            if (e.HeimMannschaftId is { } id)
+                gruppeJeMannschaft[id] = GruppenHerkunft.Buchstabe(e.PaarungsNummer);
+
+        return (regeln, gruppeJeMannschaft);
     }
 
     public async Task LostoepfeSynchronisierenAsync(int auslosungId, int anzahl, CancellationToken ct = default)
@@ -367,16 +410,40 @@ public class AuslosungService(
 
     // ── Internal slot abstraction ──────────────────────────────────────────
 
-    private record TeilnehmerSlot(int? MannschaftId, int? LandId, string? PlatzhalterName)
+    // TopfRang: 0 = erster Topf. Gruppe/Gruppenplatz: Herkunft aus einer vorangegangenen Gruppenphase — aus dem
+    // Platzhalternamen („1. Gruppe A“) oder bei echten Mannschaften aus deren Gruppen-Auslosung (#331).
+    private record TeilnehmerSlot(
+        int? MannschaftId, int? LandId, string? PlatzhalterName,
+        int TopfRang = 0, int? SetzPosition = null, string? Gruppe = null, int? Gruppenplatz = null)
     {
-        public static TeilnehmerSlot AusEintrag(LostopfEintrag e) =>
-            e.MannschaftId.HasValue
-                ? new(e.MannschaftId, e.Mannschaft?.LandId, null)
-                : new(null, null, e.PlatzhalterName);
+        public static TeilnehmerSlot AusEintrag(
+            LostopfEintrag e, int topfRang, IReadOnlyDictionary<int, string> gruppeJeMannschaft)
+        {
+            if (e.MannschaftId is { } id)
+                return new(id, e.Mannschaft?.LandId, null, topfRang, e.SetzPosition,
+                    gruppeJeMannschaft.GetValueOrDefault(id));
+
+            var herkunft = GruppenHerkunft.AusPlatzhalter(e.PlatzhalterName);
+            return new(null, null, e.PlatzhalterName, topfRang, e.SetzPosition, herkunft?.Gruppe, herkunft?.Platz);
+        }
     }
 
-    private static bool GleichesLand(TeilnehmerSlot a, TeilnehmerSlot b) =>
-        a.LandId.HasValue && b.LandId.HasValue && a.LandId == b.LandId;
+    /// <summary>Die bei dieser Auslosung tatsächlich wirksamen Regeln (siehe <see cref="AuslosungsRegelKompatibilitaet"/>).</summary>
+    private sealed record RegelKontext(
+        bool KeinGleichesLand, bool KeineGleicheGruppe, bool HeimrechtNachLos, bool HeimrechtNachSetzliste,
+        bool FreilosMoeglich, bool MitRueckspiel)
+    {
+        public bool Verbietet(TeilnehmerSlot a, TeilnehmerSlot b) =>
+            (KeinGleichesLand && a.LandId.HasValue && a.LandId == b.LandId) ||
+            (KeineGleicheGruppe && a.Gruppe is not null && a.Gruppe == b.Gruppe);
+
+        public string EinschraenkungenText =>
+            string.Join(", ", new[]
+            {
+                KeinGleichesLand ? "'Kein gleiches Land'" : null,
+                KeineGleicheGruppe ? "'Keine gleiche Gruppe'" : null
+            }.OfType<string>()) is { Length: > 0 } text ? text : "keine";
+    }
 
     private static AuslosungsErgebnis Paarung(int nr, TeilnehmerSlot heim, TeilnehmerSlot auswaerts) =>
         new()
@@ -388,20 +455,57 @@ public class AuslosungService(
             AuswaertsPlatzhalterName = auswaerts.PlatzhalterName
         };
 
+    // Heimrecht nach Setzliste (#331): das besser eingestufte Team hat Heimrecht — bei Hin- und Rückspiel im
+    // Rückspiel (UEFA-Praxis, z. B. Gruppensieger im Nations-League-Viertelfinale). Das Rückspiel entsteht
+    // gespiegelt aus dem Hinspiel, der Bessere steht hier also auswärts.
+    private static (TeilnehmerSlot Heim, TeilnehmerSlot Auswaerts) HeimrechtFestlegen(
+        TeilnehmerSlot a, TeilnehmerSlot b, RegelKontext regeln)
+    {
+        if (regeln.HeimrechtNachSetzliste)
+        {
+            int vergleich = Rangfolge(a, b);
+            if (vergleich != 0)
+            {
+                var (besser, schlechter) = vergleich < 0 ? (a, b) : (b, a);
+                return regeln.MitRueckspiel ? (schlechter, besser) : (besser, schlechter);
+            }
+        }
+
+        if (regeln.HeimrechtNachLos && Random.Shared.Next(2) == 0)
+            return (b, a);
+        return (a, b);
+    }
+
+    // Kleiner = besser: höherer Topf, dann bessere Setzposition, dann besserer Gruppenplatz.
+    private static int Rangfolge(TeilnehmerSlot a, TeilnehmerSlot b)
+    {
+        int vergleich = a.TopfRang.CompareTo(b.TopfRang);
+        if (vergleich != 0) return vergleich;
+        vergleich = (a.SetzPosition ?? int.MaxValue).CompareTo(b.SetzPosition ?? int.MaxValue);
+        if (vergleich != 0) return vergleich;
+        return (a.Gruppenplatz ?? int.MaxValue).CompareTo(b.Gruppenplatz ?? int.MaxValue);
+    }
+
     // ── Draw algorithms ────────────────────────────────────────────────────
 
-    private static List<AuslosungsErgebnis> Ausloesen(Auslosung auslosung)
+    private static List<AuslosungsErgebnis> Ausloesen(
+        Auslosung auslosung, RegelKontext regeln, IReadOnlyDictionary<int, string> gruppeJeMannschaft)
     {
         var rundenart = auslosung.TurnierRunde?.Rundenart;
+        var toepfe = auslosung.Lostoepfe
+            .OrderBy(l => l.Reihenfolge)
+            .Select((l, rang) => l.Eintraege.Select(e => TeilnehmerSlot.AusEintrag(e, rang, gruppeJeMannschaft)).ToList())
+            .ToList();
 
         // Gruppenphase und Liga: Zuweisung zu Gruppen (Liga = eine Gruppe)
         if (rundenart == Rundenart.Gruppenphase || rundenart == Rundenart.Liga)
         {
+            int gruppenAnzahl = GruppenAnzahlOderFehler(auslosung);
             return auslosung.Auslosungsart switch
             {
-                Auslosungsart.NachToepfen   => GruppenphaseNachToepfenAusloesen(auslosung),
-                Auslosungsart.NachSetzliste => GruppenphaseNachSetzlisteAusloesen(auslosung),
-                _                           => GruppenphaseZufaelligAusloesen(auslosung)
+                Auslosungsart.NachToepfen   => GruppenphaseNachToepfenAusloesen(toepfe, gruppenAnzahl, regeln),
+                Auslosungsart.NachSetzliste => GruppenphaseNachSetzlisteAusloesen(toepfe, gruppenAnzahl, regeln),
+                _                           => GruppenZuErgebnisse(GruppenBefuellen(toepfe.SelectMany(t => t).ToList(), gruppenAnzahl, regeln))
             };
         }
 
@@ -409,10 +513,10 @@ public class AuslosungService(
         return auslosung.Auslosungsart switch
         {
             Auslosungsart.NachToepfen or
-            Auslosungsart.GruppensiegerGegenGruppenzweite => NachToepfenAusloesen(auslosung),
-            Auslosungsart.NachSetzliste                   => NachSetzlisteAusloesen(auslosung),
-            Auslosungsart.TopfZuordnung                   => TopfZuordnungAusloesen(auslosung),
-            _                                             => ZufaelligAusloesen(auslosung)
+            Auslosungsart.GruppensiegerGegenGruppenzweite => NachToepfenAusloesen(toepfe, regeln),
+            Auslosungsart.NachSetzliste                   => NachSetzlisteAusloesen(toepfe, regeln),
+            Auslosungsart.TopfZuordnung                   => TopfZuordnungAusloesen(toepfe, regeln),
+            _                                             => ZufaelligAusloesen(toepfe, regeln)
         };
     }
 
@@ -426,27 +530,10 @@ public class AuslosungService(
                 "Gruppenphase-Auslosung: Die Runde hat keine Gruppenanzahl definiert.");
     }
 
-    private static List<AuslosungsErgebnis> GruppenphaseZufaelligAusloesen(Auslosung auslosung)
-    {
-        var gruppenAnzahl    = GruppenAnzahlOderFehler(auslosung);
-        var keinGleichesLand = HatAktiveRegel(auslosung, AuslosungsRegelArt.KeinGleichesLand);
-
-        var alleSlots = auslosung.Lostoepfe
-            .OrderBy(l => l.Reihenfolge)
-            .SelectMany(l => l.Eintraege)
-            .Select(TeilnehmerSlot.AusEintrag)
-            .ToList();
-
-        return GruppenZuErgebnisse(GruppenBefuellen(alleSlots, gruppenAnzahl, keinGleichesLand));
-    }
-
     // Each pot has exactly gruppenAnzahl teams; one team per pot goes into each group
-    private static List<AuslosungsErgebnis> GruppenphaseNachToepfenAusloesen(Auslosung auslosung)
+    private static List<AuslosungsErgebnis> GruppenphaseNachToepfenAusloesen(
+        List<List<TeilnehmerSlot>> toepfe, int gruppenAnzahl, RegelKontext regeln)
     {
-        var gruppenAnzahl    = GruppenAnzahlOderFehler(auslosung);
-        var keinGleichesLand = HatAktiveRegel(auslosung, AuslosungsRegelArt.KeinGleichesLand);
-        var lostoepfe        = auslosung.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
-
         var gruppen = Enumerable.Range(0, gruppenAnzahl)
             .Select(_ => new List<TeilnehmerSlot>())
             .ToList();
@@ -456,16 +543,15 @@ public class AuslosungService(
             // Liga: nur eine Gruppe — alle Teams aller Töpfe landen darin, keine Verteilung nötig.
             // Die generische Verteilung unten setzt genau ein Team pro Topf und Gruppe voraus
             // und würde hier alle bis auf ein Team je Topf verwerfen.
-            foreach (var topf in lostoepfe)
-                gruppen[0].AddRange(topf.Eintraege.Select(TeilnehmerSlot.AusEintrag));
+            foreach (var topf in toepfe)
+                gruppen[0].AddRange(topf);
 
             return GruppenZuErgebnisse(gruppen);
         }
 
-        foreach (var topf in lostoepfe)
+        foreach (var topf in toepfe)
         {
-            var slots     = topf.Eintraege.Select(TeilnehmerSlot.AusEintrag).ToList();
-            var zuweisung = GruppenTopfZuordnen(slots, gruppen, gruppenAnzahl, keinGleichesLand);
+            var zuweisung = GruppenTopfZuordnen(topf, gruppen, gruppenAnzahl, regeln);
             for (int g = 0; g < gruppenAnzahl && g < zuweisung.Count; g++)
                 gruppen[g].Add(zuweisung[g]);
         }
@@ -474,27 +560,21 @@ public class AuslosungService(
     }
 
     // Seeded teams (SetzPosition set) go one per group; rest distributed topf-wise
-    private static List<AuslosungsErgebnis> GruppenphaseNachSetzlisteAusloesen(Auslosung auslosung)
+    private static List<AuslosungsErgebnis> GruppenphaseNachSetzlisteAusloesen(
+        List<List<TeilnehmerSlot>> toepfe, int gruppenAnzahl, RegelKontext regeln)
     {
-        var gruppenAnzahl    = GruppenAnzahlOderFehler(auslosung);
-        var keinGleichesLand = HatAktiveRegel(auslosung, AuslosungsRegelArt.KeinGleichesLand);
-        var lostoepfe        = auslosung.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
-
         if (gruppenAnzahl == 1)
         {
             // Liga: nur eine Gruppe — die Setzliste hat keinen Verteilungseffekt,
             // alle Teams (gesetzt wie ungesetzt) landen in der einen Gruppe. Die
             // Take(gruppenAnzahl) unten würde sonst alle bis auf ein gesetztes Team verwerfen.
-            var alle = lostoepfe.SelectMany(l => l.Eintraege).Select(TeilnehmerSlot.AusEintrag).ToList();
-            return GruppenZuErgebnisse([alle]);
+            return GruppenZuErgebnisse([toepfe.SelectMany(t => t).ToList()]);
         }
 
-        var alleEintraege = lostoepfe.SelectMany(l => l.Eintraege).ToList();
-
-        var gesetzte = alleEintraege
-            .Where(e => e.SetzPosition.HasValue)
-            .OrderBy(e => e.SetzPosition)
-            .Select(TeilnehmerSlot.AusEintrag)
+        var gesetzte = toepfe
+            .SelectMany(t => t)
+            .Where(s => s.SetzPosition.HasValue)
+            .OrderBy(s => s.SetzPosition)
             .Take(gruppenAnzahl)
             .ToList();
 
@@ -508,24 +588,20 @@ public class AuslosungService(
         // Gruppen aufgeteilt, bevor der nächste Topf drankommt) — analog zu
         // GruppenphaseNachToepfenAusloesen, statt alle ungesetzten Töpfe topf-unabhängig
         // zusammenzuwerfen (siehe Issue #5-Diskussion).
-        foreach (var topf in lostoepfe)
+        foreach (var topf in toepfe)
         {
-            var ungesetzteImTopf = topf.Eintraege
-                .Where(e => !e.SetzPosition.HasValue)
-                .Select(TeilnehmerSlot.AusEintrag)
-                .ToList();
-
+            var ungesetzteImTopf = topf.Where(s => !s.SetzPosition.HasValue).ToList();
             if (ungesetzteImTopf.Count == 0) continue;
 
-            gruppen = GruppenBefuellen(ungesetzteImTopf, gruppenAnzahl, keinGleichesLand, gruppen);
+            gruppen = GruppenBefuellen(ungesetzteImTopf, gruppenAnzahl, regeln, gruppen);
         }
 
         return GruppenZuErgebnisse(gruppen);
     }
 
-    // Assigns slots to groups round-robin, respecting KeinGleichesLand if active
+    // Assigns slots to groups round-robin, respecting the active constraints
     private static List<List<TeilnehmerSlot>> GruppenBefuellen(
-        List<TeilnehmerSlot> slots, int gruppenAnzahl, bool keinGleichesLand,
+        List<TeilnehmerSlot> slots, int gruppenAnzahl, RegelKontext regeln,
         List<List<TeilnehmerSlot>>? startGruppen = null)
     {
         for (int versuch = 0; versuch < 500; versuch++)
@@ -542,7 +618,7 @@ public class AuslosungService(
                 for (int i = 0; i < gruppenAnzahl; i++)
                 {
                     int g = (gIdx + i) % gruppenAnzahl;
-                    if (keinGleichesLand && gruppen[g].Any(t => GleichesLand(t, slot)))
+                    if (gruppen[g].Any(t => regeln.Verbietet(t, slot)))
                         continue;
                     gruppen[g].Add(slot);
                     gIdx = (g + 1) % gruppenAnzahl;
@@ -556,14 +632,14 @@ public class AuslosungService(
         }
 
         throw new InvalidOperationException(
-            "Keine gültige Gruppenauslosung gefunden. Die Einschränkungen " +
-            "(z. B. 'Kein gleiches Land') können mit den gewählten Mannschaften nicht erfüllt werden.");
+            $"Keine gültige Gruppenauslosung gefunden. Die Einschränkungen ({regeln.EinschraenkungenText}) " +
+            "können mit den gewählten Mannschaften nicht erfüllt werden.");
     }
 
     // Returns a shuffled order of topfSlots such that shuffled[g] can go into gruppen[g]
     private static List<TeilnehmerSlot> GruppenTopfZuordnen(
         List<TeilnehmerSlot> topfSlots, List<List<TeilnehmerSlot>> gruppen,
-        int gruppenAnzahl, bool keinGleichesLand)
+        int gruppenAnzahl, RegelKontext regeln)
     {
         for (int versuch = 0; versuch < 500; versuch++)
         {
@@ -572,7 +648,7 @@ public class AuslosungService(
 
             for (int g = 0; g < gruppenAnzahl && g < shuffled.Count; g++)
             {
-                if (keinGleichesLand && gruppen[g].Any(t => GleichesLand(t, shuffled[g])))
+                if (gruppen[g].Any(t => regeln.Verbietet(t, shuffled[g])))
                 { valid = false; break; }
             }
 
@@ -581,7 +657,7 @@ public class AuslosungService(
 
         throw new InvalidOperationException(
             "Keine gültige Topf-Zuweisung für die Gruppenphase gefunden. " +
-            "Die Einschränkungen können nicht erfüllt werden.");
+            $"Die Einschränkungen ({regeln.EinschraenkungenText}) können nicht erfüllt werden.");
     }
 
     private static List<AuslosungsErgebnis> GruppenZuErgebnisse(List<List<TeilnehmerSlot>> gruppen)
@@ -603,58 +679,32 @@ public class AuslosungService(
         return ergebnisse;
     }
 
-    private static List<AuslosungsErgebnis> ZufaelligAusloesen(Auslosung auslosung)
+    private static List<AuslosungsErgebnis> ZufaelligAusloesen(List<List<TeilnehmerSlot>> toepfe, RegelKontext regeln)
     {
-        var alleSlots = auslosung.Lostoepfe
-            .OrderBy(l => l.Reihenfolge)
-            .SelectMany(l => l.Eintraege)
-            .Select(TeilnehmerSlot.AusEintrag)
-            .ToList();
-
-        var keinGleichesLand = HatAktiveRegel(auslosung, AuslosungsRegelArt.KeinGleichesLand);
-        var heimNachLos      = HatAktiveRegel(auslosung, AuslosungsRegelArt.HeimrechtNachLos);
-        var freilosMoeglich  = HatAktiveRegel(auslosung, AuslosungsRegelArt.FreilosMoeglich);
-
+        var slots = toepfe.SelectMany(t => t).ToList();
         TeilnehmerSlot? freilosSlot = null;
-        var slots = alleSlots.ToList();
 
-        if (freilosMoeglich && slots.Count % 2 == 1)
+        if (regeln.FreilosMoeglich && slots.Count % 2 == 1)
         {
             int freilosIdx = Random.Shared.Next(slots.Count);
             freilosSlot = slots[freilosIdx];
             slots.RemoveAt(freilosIdx);
         }
 
-        var paare = PaarenMitKonstraints(slots, keinGleichesLand);
-        return ErgebnisseAusListe(paare, freilosSlot, heimNachLos);
+        var paare = PaarenMitKonstraints(slots, regeln);
+        return ErgebnisseAusListe(paare, freilosSlot, regeln);
     }
 
-    private static List<AuslosungsErgebnis> NachToepfenAusloesen(Auslosung auslosung)
+    private static List<AuslosungsErgebnis> NachToepfenAusloesen(List<List<TeilnehmerSlot>> toepfe, RegelKontext regeln)
     {
-        var lostoepfe         = auslosung.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
-        var keinGleichesLand  = HatAktiveRegel(auslosung, AuslosungsRegelArt.KeinGleichesLand);
-        var heimNachLos       = HatAktiveRegel(auslosung, AuslosungsRegelArt.HeimrechtNachLos);
-
         var alleErgebnisse = new List<AuslosungsErgebnis>();
         int paarungsNr = 1;
 
-        for (int i = 0; i + 1 < lostoepfe.Count; i += 2)
+        for (int i = 0; i + 1 < toepfe.Count; i += 2)
         {
-            var topf1 = lostoepfe[i].Eintraege.Select(TeilnehmerSlot.AusEintrag).ToList();
-            var topf2 = lostoepfe[i + 1].Eintraege.Select(TeilnehmerSlot.AusEintrag).ToList();
-            var paare = ZweiTopfPaaren(topf1, topf2, keinGleichesLand);
-
-            foreach (var (slotA, slotB) in paare)
+            foreach (var (slotA, slotB) in ZweiTopfPaaren(toepfe[i], toepfe[i + 1], regeln))
             {
-                TeilnehmerSlot heim, auswaerts;
-                if (heimNachLos && Random.Shared.Next(2) == 0)
-                {
-                    heim = slotB; auswaerts = slotA;
-                }
-                else
-                {
-                    heim = slotA; auswaerts = slotB;
-                }
+                var (heim, auswaerts) = HeimrechtFestlegen(slotA, slotB, regeln);
                 alleErgebnisse.Add(Paarung(paarungsNr++, heim, auswaerts));
             }
         }
@@ -662,46 +712,30 @@ public class AuslosungService(
         return alleErgebnisse;
     }
 
-    private static List<AuslosungsErgebnis> NachSetzlisteAusloesen(Auslosung auslosung)
+    // Gesetzte (nach Setzposition) gegen Ungesetzte — dieselbe Zwei-Topf-Paarung wie „Nach Töpfen“, damit auch
+    // hier alle Einschränkungen und Heimrecht-Regeln greifen (bis #331 ignorierte „Nach Setzliste“ sie alle).
+    private static List<AuslosungsErgebnis> NachSetzlisteAusloesen(List<List<TeilnehmerSlot>> toepfe, RegelKontext regeln)
     {
-        var alleEintraege = auslosung.Lostoepfe
-            .OrderBy(l => l.Reihenfolge)
-            .SelectMany(l => l.Eintraege)
+        var alle = toepfe.SelectMany(t => t).ToList();
+        var gesetzte   = alle.Where(s => s.SetzPosition.HasValue).OrderBy(s => s.SetzPosition).ToList();
+        var ungesetzte = alle.Where(s => !s.SetzPosition.HasValue).ToList();
+
+        return ZweiTopfPaaren(gesetzte, ungesetzte, regeln)
+            .Select((p, i) =>
+            {
+                var (heim, auswaerts) = HeimrechtFestlegen(p.Item1, p.Item2, regeln);
+                return Paarung(i + 1, heim, auswaerts);
+            })
             .ToList();
-
-        var gesetzte = alleEintraege
-            .Where(e => e.SetzPosition.HasValue)
-            .OrderBy(e => e.SetzPosition)
-            .Select(TeilnehmerSlot.AusEintrag)
-            .ToList();
-
-        var ungesetzte = alleEintraege
-            .Where(e => !e.SetzPosition.HasValue)
-            .OrderBy(_ => Random.Shared.Next())
-            .Select(TeilnehmerSlot.AusEintrag)
-            .ToList();
-
-        var ergebnisse = new List<AuslosungsErgebnis>();
-        int paarungsNr = 1;
-
-        for (int i = 0; i < Math.Min(gesetzte.Count, ungesetzte.Count); i++)
-            ergebnisse.Add(Paarung(paarungsNr++, gesetzte[i], ungesetzte[i]));
-
-        return ergebnisse;
     }
 
     // ── TopfZuordnung (UCL-Ligaphase) ──────────────────────────────────────
 
     // Die Länder-Regeln (kein gleiches Land, höchstens 2 Gegner aus demselben Land) sind fest an die Regel
     // "Kein gleiches Land" gekoppelt (Nutzerentscheidung Issue #347, keine eigene AuslosungsRegelArt).
-    private static List<AuslosungsErgebnis> TopfZuordnungAusloesen(Auslosung auslosung)
+    private static List<AuslosungsErgebnis> TopfZuordnungAusloesen(List<List<TeilnehmerSlot>> lostoepfe, RegelKontext regeln)
     {
-        var keinGleichesLand = HatAktiveRegel(auslosung, AuslosungsRegelArt.KeinGleichesLand);
-        var lostoepfe        = auslosung.Lostoepfe
-            .OrderBy(l => l.Reihenfolge)
-            .Select(l => l.Eintraege.Select(TeilnehmerSlot.AusEintrag).ToList())
-            .ToList();
-
+        var keinGleichesLand = regeln.KeinGleichesLand;
         if (keinGleichesLand) LandverteilungPruefen(lostoepfe);
 
         var teilnehmer = lostoepfe.SelectMany((topf, i) => topf.Select(slot => (Slot: slot, Topf: i))).ToList();
@@ -738,75 +772,94 @@ public class AuslosungService(
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // ── Paarungssuche mit Einschränkungen ─────────────────────────────────────
 
+    // Obergrenze für die Backtracking-Schritte — eine unerfüllbare Kombination bricht so zuverlässig ab, statt
+    // bei großen Töpfen exponentiell lange zu suchen.
+    private const int MAX_SUCHSCHRITTE = 200_000;
+
+    // Backtracking statt blindem Neu-Mischen (#331): findet eine Paarung garantiert, sofern eine existiert — mit
+    // „Kein gleiches Land“ und „Keine gleiche Gruppe“ gleichzeitig wurde die Trefferquote zufälliger Versuche sonst
+    // zu klein. Die Kandidaten werden vorab gemischt, die Auslosung bleibt zufällig.
     private static List<(TeilnehmerSlot, TeilnehmerSlot)> PaarenMitKonstraints(
-        List<TeilnehmerSlot> slots, bool keinGleichesLand)
+        List<TeilnehmerSlot> slots, RegelKontext regeln)
     {
-        for (int attempt = 0; attempt < 200; attempt++)
-        {
-            var shuffled = slots.OrderBy(_ => Random.Shared.Next()).ToList();
-            bool valid = true;
+        var gemischt = slots.OrderBy(_ => Random.Shared.Next()).ToList();
+        var vergeben = new bool[gemischt.Count];
+        var paare    = new List<(TeilnehmerSlot, TeilnehmerSlot)>();
+        int schritte = 0;
 
-            for (int i = 0; i + 1 < shuffled.Count; i += 2)
+        bool Suchen()
+        {
+            // Bei ungerader Anzahl ohne Freilos bleibt ein Team übrig — wie bisher ohne Paarung.
+            if (vergeben.Count(v => !v) < 2) return true;
+            int erster = Array.IndexOf(vergeben, false);
+            if (++schritte > MAX_SUCHSCHRITTE) return false;
+
+            vergeben[erster] = true;
+            for (int j = erster + 1; j < gemischt.Count; j++)
             {
-                if (keinGleichesLand && GleichesLand(shuffled[i], shuffled[i + 1]))
-                {
-                    valid = false;
-                    break;
-                }
+                if (vergeben[j] || regeln.Verbietet(gemischt[erster], gemischt[j])) continue;
+                vergeben[j] = true;
+                paare.Add((gemischt[erster], gemischt[j]));
+                if (Suchen()) return true;
+                paare.RemoveAt(paare.Count - 1);
+                vergeben[j] = false;
             }
-
-            if (!valid) continue;
-
-            var result = new List<(TeilnehmerSlot, TeilnehmerSlot)>();
-            for (int i = 0; i + 1 < shuffled.Count; i += 2)
-                result.Add((shuffled[i], shuffled[i + 1]));
-            return result;
+            vergeben[erster] = false;
+            return false;
         }
 
-        throw new InvalidOperationException(
-            "Keine gültige Auslosung gefunden. Die Einschränkungen (z. B. 'Kein gleiches Land') " +
-            "können mit den gewählten Mannschaften nicht erfüllt werden.");
+        if (Suchen()) return paare;
+        throw KeineGueltigeAuslosung(regeln);
     }
 
+    // Paart topf1[i] mit je einem anderen Team aus topf2 (bei ungleicher Größe nur die ersten Min(n1, n2)).
     private static List<(TeilnehmerSlot, TeilnehmerSlot)> ZweiTopfPaaren(
-        List<TeilnehmerSlot> topf1, List<TeilnehmerSlot> topf2, bool keinGleichesLand)
+        List<TeilnehmerSlot> topf1, List<TeilnehmerSlot> topf2, RegelKontext regeln)
     {
-        for (int attempt = 0; attempt < 200; attempt++)
-        {
-            var shuffled2 = topf2.OrderBy(_ => Random.Shared.Next()).ToList();
-            bool valid = !keinGleichesLand ||
-                         !topf1.Where((t, i) => i < shuffled2.Count && GleichesLand(t, shuffled2[i])).Any();
+        var kandidaten = topf2.OrderBy(_ => Random.Shared.Next()).ToList();
+        int anzahl     = Math.Min(topf1.Count, kandidaten.Count);
+        var zuordnung  = new int[anzahl];
+        var vergeben   = new bool[kandidaten.Count];
+        int schritte   = 0;
 
-            if (valid)
-                return topf1.Zip(shuffled2).ToList();
+        bool Suchen(int i)
+        {
+            if (i == anzahl) return true;
+            if (++schritte > MAX_SUCHSCHRITTE) return false;
+
+            for (int j = 0; j < kandidaten.Count; j++)
+            {
+                if (vergeben[j] || regeln.Verbietet(topf1[i], kandidaten[j])) continue;
+                vergeben[j] = true;
+                zuordnung[i] = j;
+                if (Suchen(i + 1)) return true;
+                vergeben[j] = false;
+            }
+            return false;
         }
 
-        throw new InvalidOperationException(
-            "Keine gültige Auslosung gefunden. Die Einschränkungen (z. B. 'Kein gleiches Land') " +
-            "können mit den gewählten Mannschaften nicht erfüllt werden.");
+        if (Suchen(0))
+            return Enumerable.Range(0, anzahl).Select(i => (topf1[i], kandidaten[zuordnung[i]])).ToList();
+        throw KeineGueltigeAuslosung(regeln);
     }
+
+    private static InvalidOperationException KeineGueltigeAuslosung(RegelKontext regeln) =>
+        new($"Keine gültige Auslosung gefunden. Die Einschränkungen ({regeln.EinschraenkungenText}) " +
+            "können mit den gewählten Mannschaften nicht erfüllt werden.");
 
     private static List<AuslosungsErgebnis> ErgebnisseAusListe(
         List<(TeilnehmerSlot SlotA, TeilnehmerSlot SlotB)> paare,
         TeilnehmerSlot? freilosSlot,
-        bool heimNachLos)
+        RegelKontext regeln)
     {
         var ergebnisse = new List<AuslosungsErgebnis>();
         int paarungsNr = 1;
 
         foreach (var (slotA, slotB) in paare)
         {
-            TeilnehmerSlot heim, auswaerts;
-            if (heimNachLos && Random.Shared.Next(2) == 0)
-            {
-                heim = slotB; auswaerts = slotA;
-            }
-            else
-            {
-                heim = slotA; auswaerts = slotB;
-            }
+            var (heim, auswaerts) = HeimrechtFestlegen(slotA, slotB, regeln);
             ergebnisse.Add(Paarung(paarungsNr++, heim, auswaerts));
         }
 

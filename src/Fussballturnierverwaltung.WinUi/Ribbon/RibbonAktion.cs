@@ -40,5 +40,10 @@ public sealed record RibbonUnteraktion(string Header, ICommand Befehl, string? I
 /// <summary>Ein an-/abschaltbarer Menüpunkt in einem <see cref="RibbonAktion.ToggleUnterpunkte"/>-Flyout.
 /// Bewusst ohne Binding-Mechanismus (kein <see cref="Microsoft.UI.Xaml.Data.Binding"/>-Objekt wie im
 /// WPF-Original) — <paramref name="Setzen"/> wird beim Klick imperativ aufgerufen (analog zu <see
-/// cref="RibbonAktion.Befehl"/>, das ebenfalls kein deklaratives Binding braucht).</summary>
-public sealed record RibbonToggleAktion(string Header, bool IstAktiv, Action<bool> Setzen, string? Beschreibung = null);
+/// cref="RibbonAktion.Befehl"/>, das ebenfalls kein deklaratives Binding braucht).
+/// <paramref name="SperrHinweis"/>: gesetzt = Umschalter ausgegraut, der Hinweis erklärt warum (#331).
+/// <paramref name="ExklusivGruppe"/>: Umschalter derselben Gruppe schließen sich aus — Anhaken hakt die anderen
+/// nur optisch ab, das Speichern der Nebenwirkung übernimmt <paramref name="Setzen"/>.</summary>
+public sealed record RibbonToggleAktion(
+    string Header, bool IstAktiv, Action<bool> Setzen, string? Beschreibung = null,
+    string? SperrHinweis = null, string? ExklusivGruppe = null);

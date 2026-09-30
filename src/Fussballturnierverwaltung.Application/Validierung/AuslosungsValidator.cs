@@ -128,7 +128,10 @@ public class AuslosungsValidator
         var benoetigte = auslosung.TurnierRunde?.EingangsMannschaftsanzahl;
         if (benoetigte is > 0)
         {
-            bool freilosMoeglich = aktiveRegelnVorab.Contains(AuslosungsRegelArt.FreilosMoeglich);
+            // Nur ein tatsächlich wirksames Freilos erlaubt ein Team weniger (#331: bei Töpfen/Setzliste gesperrt).
+            bool freilosMoeglich = AuslosungsRegelKompatibilitaet.Wirkt(
+                AuslosungsRegelArt.FreilosMoeglich, aktiveRegelnVorab.Contains(AuslosungsRegelArt.FreilosMoeglich),
+                auslosung.Auslosungsart, auslosung.TurnierRunde?.Rundenart, folgtAufGruppenphase: true);
             int min = freilosMoeglich ? benoetigte.Value - 1 : benoetigte.Value;
             if (alleEintraege.Count < min)
                 fehler.Add($"Die Runde erwartet {benoetigte} Teams" +
@@ -193,13 +196,9 @@ public class AuslosungsValidator
             }
         }
 
-        // Regel-Konflikte prüfen
+        // Regel-Konflikte prüfen — die Oberfläche verhindert das bereits (Häkchen schließen sich gegenseitig
+        // aus, #331), die Prüfung bleibt als Absicherung für Altdaten.
         var aktiveRegeln = aktiveRegelnVorab;
-
-        if (aktiveRegeln.Contains(AuslosungsRegelArt.GruppensiegerGegenGruppenzweite) &&
-            aktiveRegeln.Contains(AuslosungsRegelArt.GesetzteGegenUngesetzte))
-            fehler.Add("Regelkonflikt: 'GruppensiegerGegenGruppenzweite' und 'GesetzteGegenUngesetzte' " +
-                       "können nicht gleichzeitig aktiv sein.");
 
         if (aktiveRegeln.Contains(AuslosungsRegelArt.HeimrechtNachLos) &&
             aktiveRegeln.Contains(AuslosungsRegelArt.HeimrechtNachSetzliste))
