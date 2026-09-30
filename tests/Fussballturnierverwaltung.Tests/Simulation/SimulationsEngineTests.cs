@@ -245,7 +245,7 @@ public class SimulationsEngineTests
 
         for (int seed = 0; seed < 200; seed++)
         {
-            var (_, _, he, ge, art, _) =
+            var (_, _, he, ge, art, _, _) =
                 SimulationsEngine.EntscheidungsverfahrenAnwenden(Team(1), Team(2), verfahren, false, new Random(seed));
 
             art.Should().Be(EntscheidungArt.Elfmeterschiessen);
@@ -258,7 +258,7 @@ public class SimulationsEngineTests
     [Fact]
     public void EntscheidungsverfahrenAnwenden_OhneVerfahrenBleibtRegulaereSpielzeitOhneTore()
     {
-        var (hv, gv, he, ge, art, ereignisse) =
+        var (hv, gv, he, ge, art, ereignisse, losGewinnerHeim) =
             SimulationsEngine.EntscheidungsverfahrenAnwenden(Team(1), Team(2), [], false, new Random(1));
 
         art.Should().Be(EntscheidungArt.RegulaereSpielzeit);
@@ -267,6 +267,36 @@ public class SimulationsEngineTests
         he.Should().BeNull();
         ge.Should().BeNull();
         ereignisse.Should().BeEmpty();
+        losGewinnerHeim.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(VerfahrenArt.Losentscheid, EntscheidungArt.Losentscheid)]
+    [InlineData(VerfahrenArt.Muenzwurf, EntscheidungArt.Muenzwurf)]
+    public void EntscheidungsverfahrenAnwenden_LosOderMuenze_LiefertGewinner(VerfahrenArt verfahrenArt, EntscheidungArt erwartet)
+    {
+        // Issue #383: der Los-/Münzsieger ging verloren — nur Art und (keine) Tore kamen zurück.
+        var gewinner = Enumerable.Range(0, 50)
+            .Select(seed => SimulationsEngine.EntscheidungsverfahrenAnwenden(
+                Team(1), Team(2), [Verfahren(verfahrenArt)], false, new Random(seed)))
+            .Select(e =>
+            {
+                e.Art.Should().Be(erwartet);
+                return e.LosGewinnerHeim;
+            })
+            .ToList();
+
+        gewinner.Should().NotContainNulls();
+        gewinner.Should().Contain(true).And.Contain(false);
+    }
+
+    [Fact]
+    public void EntscheidungsverfahrenAnwenden_Elfmeterschiessen_LiefertKeinenLosGewinner()
+    {
+        var e = SimulationsEngine.EntscheidungsverfahrenAnwenden(
+            Team(1), Team(2), [Verfahren(VerfahrenArt.Elfmeterschiessen)], false, new Random(3));
+
+        e.LosGewinnerHeim.Should().BeNull();
     }
 
     [Fact]

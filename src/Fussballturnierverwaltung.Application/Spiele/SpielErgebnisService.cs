@@ -238,6 +238,8 @@ public class SpielErgebnisService(
                 EntscheidungArt.Elfmeterschiessen
                     when e.HeimElfmetertore.HasValue && e.AuswaertsElfmetertore.HasValue
                     => e.HeimElfmetertore.Value > e.AuswaertsElfmetertore.Value ? heimId : auswaertsId,
+                EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf
+                    => LosSieger(heimId, auswaertsId, e),
                 _ => null
             }, e.EntscheidungArt);
         }
@@ -263,7 +265,18 @@ public class SpielErgebnisService(
             EntscheidungArt.Elfmeterschiessen
                 when e.HeimElfmetertore.HasValue && e.AuswaertsElfmetertore.HasValue
                 => e.HeimElfmetertore.Value > e.AuswaertsElfmetertore.Value ? heimId : auswaertsId,
+            EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf
+                => LosSieger(heimId, auswaertsId, e),
             _ => null
         };
     }
+
+    // Issue #383: bei Los/Münze geben die Tore den Sieger nicht her — ohne LosGewinnerHeim blieb er null,
+    // und die K.-o.-Folgepaarung wurde nie aufgelöst.
+    private static int? LosSieger(int heimId, int auswaertsId, ErgebnisErfassenEingabe e) => e.LosGewinnerHeim switch
+    {
+        true  => heimId,
+        false => auswaertsId,
+        null  => null
+    };
 }

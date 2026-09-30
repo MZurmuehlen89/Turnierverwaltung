@@ -263,6 +263,49 @@ public class SpielErgebnisServiceTests
         erg.EntscheidungArt.Should().Be(EntscheidungArt.Verlaengerung);
     }
 
+    [Theory]
+    [InlineData(EntscheidungArt.Losentscheid, true, 2)]
+    [InlineData(EntscheidungArt.Muenzwurf, false, 1)]
+    public async Task Rueckspiel_GesamtGleich_LosGewinnerWirdSieger(EntscheidungArt art, bool losGewinnerHeim, int erwarteterSieger)
+    {
+        // Issue #383: Los/Münze liefert keine Tore — ohne LosGewinnerHeim blieb der Sieger null und die
+        // K.-o.-Folgepaarung wurde nie aufgelöst. Rückspiel-Heim ist Team B (id=2).
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, auswaertstorRegel: false);
+        HinspielAnlegen(ctx, spielId: 1, rundeId: 1, heimId: 1, auswaertsId: 2, heimTore: 1, auswaertsTore: 0);
+        RueckspielAnlegen(ctx, spielId: 2, rundeId: 1, heimId: 2, auswaertsId: 1, hinspielId: 1);
+
+        var service = ServiceFuer(ctx);
+        await service.ErgebnisErfassenAsync(2, new ErgebnisErfassenEingabe(
+            1, 0, art, LosGewinnerHeim: losGewinnerHeim));
+
+        var erg = await ErgebnisFuer(ctx, 2);
+        erg!.SiegerMannschaftId.Should().Be(erwarteterSieger);
+        erg.EntscheidungArt.Should().Be(art);
+    }
+
+    [Fact]
+    public async Task EinfachesSpiel_Losentscheid_LosGewinnerWirdSieger()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, auswaertstorRegel: false);
+        ctx.TurnierRunden.Find(1)!.MitRueckspiel = false; // K.-o.-Einzelspiel, kein Hinspiel
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 1, TurnierInstanzId = 1, TurnierRundeId = 1,
+            Spielnummer = 1, HeimMannschaftId = 1, AuswaertsMannschaftId = 2,
+            Status = SpielStatus.Geplant, IstRueckspiel = false
+        });
+        ctx.SaveChanges();
+
+        var service = ServiceFuer(ctx);
+        await service.ErgebnisErfassenAsync(1, new ErgebnisErfassenEingabe(
+            0, 0, EntscheidungArt.Losentscheid, LosGewinnerHeim: false));
+
+        var erg = await ErgebnisFuer(ctx, 1);
+        erg!.SiegerMannschaftId.Should().Be(2);
+    }
+
     [Fact]
     public async Task Rueckspiel_OhneHinspielErgebnis_Wirft()
     {

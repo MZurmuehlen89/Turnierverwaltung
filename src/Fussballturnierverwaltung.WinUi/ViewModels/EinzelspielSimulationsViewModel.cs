@@ -469,7 +469,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             // entsprechen erg2s eigener Heim/Auswärts-Zuordnung (auswaerts spielt zu Hause).
             if (heimGesamtRegulaer == auswaertsGesamtRegulaer && verfahren.Count > 0)
             {
-                var (hv, gv, he, ge, art, extras) =
+                var (hv, gv, he, ge, art, extras, losGewinnerHeim) =
                     SimulationsEngine.EntscheidungsverfahrenAnwenden(auswaerts, heim, verfahren, ausfuehrlich: true, rng);
                 erg2 = erg2 with
                 {
@@ -477,6 +477,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                     HeimElfmetertore = he, AuswaertsElfmetertore = ge,
                     EntscheidungArt = art,
                     Ereignisse = [.. erg2.Ereignisse, .. extras],
+                    LosGewinnerHeim = losGewinnerHeim,
                 };
             }
 
@@ -490,6 +491,8 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                 sieger = heimGesamt > auswaertsGesamt ? heim.Name : auswaerts.Name;
             else if (erg2 is { EntscheidungArt: EntscheidungArt.Elfmeterschiessen, HeimElfmetertore: not null, AuswaertsElfmetertore: not null })
                 sieger = erg2.HeimElfmetertore > erg2.AuswaertsElfmetertore ? auswaerts.Name : heim.Name; // erg2 "Heim" = auswaerts
+            else if (erg2.LosGewinnerHeim is bool losFuerRueckspielHeim) // Losentscheid/Münzwurf (#383)
+                sieger = losFuerRueckspielHeim ? auswaerts.Name : heim.Name;
             else
                 sieger = null;
 

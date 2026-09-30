@@ -532,7 +532,10 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
                 e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
                 e.HeimElfmetertore, e.AuswaertsElfmetertore,
                 e.EntscheidungArt, [],
-                e.HalbzeitHeimTore, e.HalbzeitAuswaertsTore);
+                e.HalbzeitHeimTore, e.HalbzeitAuswaertsTore,
+                (e.EntscheidungArt is EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf) && e.SiegerMannschaftId is int siegerId
+                    ? siegerId == spiel.HeimMannschaftId
+                    : null);
             ProtokollKopf = SimulationsProtokollHelfer.SpielKopfErstellen(
                 kontext, spiel.HeimMannschaft, heim, spiel.AuswaertsMannschaft, auswaerts, ergebnis,
                 m => m.Land?.Verband?.Kurzname);

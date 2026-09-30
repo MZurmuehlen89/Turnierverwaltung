@@ -32,12 +32,13 @@ public static class SimulationsEngine
 
         // Entscheidungsverfahren bei Gleichstand
         int? heimVerl = null, gastVerl = null, heimElf = null, gastElf = null;
+        bool? losGewinnerHeim = null;
         var entscheidung = EntscheidungArt.RegulaereSpielzeit;
 
         if (heimTore == gastTore)
         {
             IReadOnlyList<SimuliertesEreignis> extras;
-            (heimVerl, gastVerl, heimElf, gastElf, entscheidung, extras) =
+            (heimVerl, gastVerl, heimElf, gastElf, entscheidung, extras, losGewinnerHeim) =
                 EntscheidungsverfahrenAnwenden(heim, auswaerts, verfahren, ausfuehrlich, rng);
             ereignisse = [.. ereignisse, .. extras];
         }
@@ -55,7 +56,7 @@ public static class SimulationsEngine
 
         return new SimulationsErgebnis(
             heimTore, gastTore, heimVerl, gastVerl, heimElf, gastElf,
-            entscheidung, ereignisse, heimHalbzeit, gastHalbzeit);
+            entscheidung, ereignisse, heimHalbzeit, gastHalbzeit, losGewinnerHeim);
     }
 
     /// <summary>
@@ -64,9 +65,11 @@ public static class SimulationsEngine
     /// Gleichstand nach 90 Minuten genutzt), zusätzlich öffentlich für die freie Hin-/Rückspiel-
     /// Simulation (Issue #237): dort entscheidet erst das Aggregat aus beiden Beinen, ob überhaupt
     /// eine Verlängerung fällig ist — das darf nicht (wie zuvor) blind pro Bein einzeln geprüft werden.
+    /// <c>LosGewinnerHeim</c> ist nur bei Losentscheid/Münzwurf gesetzt — dort geben die Tore den Sieger
+    /// nicht her (Issue #383).
     /// </summary>
     public static (int? HeimVerl, int? GastVerl, int? HeimElf, int? GastElf,
-                   EntscheidungArt Art, IReadOnlyList<SimuliertesEreignis> Ereignisse)
+                   EntscheidungArt Art, IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim)
         EntscheidungsverfahrenAnwenden(
             Mannschaft heim, Mannschaft auswaerts,
             IReadOnlyList<EntscheidungsVerfahren> verfahren, bool ausfuehrlich, Random rng)
@@ -89,10 +92,16 @@ public static class SimulationsEngine
             if (ge.HasValue) gastElf = ge;
             ereignisse = [.. ereignisse, .. extraEreignisse];
 
-            if (result != 0) break; // Sieger gefunden
+            if (result != 0) // Sieger gefunden
+            {
+                bool? losGewinnerHeim = art is EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf
+                    ? result > 0
+                    : null;
+                return (heimVerl, gastVerl, heimElf, gastElf, entscheidung, ereignisse, losGewinnerHeim);
+            }
         }
 
-        return (heimVerl, gastVerl, heimElf, gastElf, entscheidung, ereignisse);
+        return (heimVerl, gastVerl, heimElf, gastElf, entscheidung, ereignisse, null);
     }
 
     // ── Expected-Goals-Formel ──────────────────────────────────────────────
@@ -360,7 +369,9 @@ public record SimulationsErgebnis(
     EntscheidungArt EntscheidungArt,
     IReadOnlyList<SimuliertesEreignis> Ereignisse,
     int? HalbzeitHeimTore = null,
-    int? HalbzeitAuswaertsTore = null);
+    int? HalbzeitAuswaertsTore = null,
+    // Issue #383: Sieger eines Losentscheids/Münzwurfs (true = Heim) — sonst null, dort folgt er aus den Toren.
+    bool? LosGewinnerHeim = null);
 
 public record SimuliertesEreignis(
     int Minute,

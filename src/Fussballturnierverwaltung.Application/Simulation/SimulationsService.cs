@@ -110,7 +110,7 @@ public class SimulationsService(
                 ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,
                 runde.AuswaertstorRegelAktiv))
         {
-            var (hv, gv, he, ge, art, extras) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
+            var (hv, gv, he, ge, art, extras, losGewinnerHeim) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
                 spiel.HeimMannschaft, spiel.AuswaertsMannschaft, verfahren, ausfuehrlich: true, rng);
             ergebnis = ergebnis with
             {
@@ -120,6 +120,7 @@ public class SimulationsService(
                 AuswaertsElfmetertore      = ge,
                 EntscheidungArt            = art,
                 Ereignisse                 = [.. ergebnis.Ereignisse, .. extras],
+                LosGewinnerHeim            = losGewinnerHeim,
             };
         }
 
@@ -424,7 +425,8 @@ public class SimulationsService(
             sim.HeimElfmetertore,
             sim.AuswaertsElfmetertore,
             sim.HalbzeitHeimTore,
-            sim.HalbzeitAuswaertsTore);
+            sim.HalbzeitAuswaertsTore,
+            sim.LosGewinnerHeim);
 
         await ergebnisService.ErgebnisErfassenAsync(spiel.Id, eingabe, ct, platzhalterAufloesen: false);
 

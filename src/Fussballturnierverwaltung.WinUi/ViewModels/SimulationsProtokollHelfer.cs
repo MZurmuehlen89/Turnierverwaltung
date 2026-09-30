@@ -98,6 +98,10 @@ internal static class SimulationsProtokollHelfer
             _                                 => null
         };
 
+        // Issue #383: bei Los/Münze zeigt der (ausgeglichene) Spielstand keinen Sieger — daher ausschreiben.
+        if (e.LosGewinnerHeim is bool losFuerHeim)
+            entscheidung += $" für {(losFuerHeim ? heimName : auswaertsName)}";
+
         return new SpielKopf(
             kontext,
             heimName, MannschaftsIcon(heim), Untertitel(heim, auswaerts, verbandKurzname), Kuerzel(heim, heimName),
