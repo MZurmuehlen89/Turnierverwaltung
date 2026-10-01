@@ -933,6 +933,7 @@ public class SpielplanService(
     // ändern sich darin nicht, und trägt die Auflösung Mannschaften in eine Runde ein, wird deren Eintrag verworfen.
     private Dictionary<(int RundeId, bool NurSicher), IReadOnlyList<TabellenEintrag>>? _ligaTabellen;
     private Dictionary<int, IReadOnlyList<GruppenTabelle>>? _gruppenTabellen;
+    private Dictionary<int, IReadOnlyList<(int Id, int? GruppenNummer)>>? _spielSchluessel;
 
     /// <summary>Führt <paramref name="aktion"/> mit Tabellen-Zwischenspeicher aus. Verschachtelte Aufrufe
     /// nutzen den Speicher des äußeren Durchlaufs mit, der ihn am Ende auch wieder verwirft.</summary>
@@ -942,6 +943,7 @@ public class SpielplanService(
 
         _ligaTabellen    = [];
         _gruppenTabellen = [];
+        _spielSchluessel = [];
         try
         {
             return await aktion();
@@ -950,6 +952,7 @@ public class SpielplanService(
         {
             _ligaTabellen    = null;
             _gruppenTabellen = null;
+            _spielSchluessel = null;
         }
     }
 
@@ -980,6 +983,32 @@ public class SpielplanService(
         var tabellen = await tabellenService.GruppenTabellenBerechnenAsync(rundeId, ct: ct);
         _gruppenTabellen?.TryAdd(rundeId, tabellen);
         return tabellen;
+    }
+
+    /// <summary>Issue #88/#389: liegt ein zur Löschung anstehendes Spiel in der Quellrunde (bei
+    /// <paramref name="gruppenNummer"/> nur in dieser Gruppe; Spiele ohne Gruppennummer aus Altdaten zählen immer)?
+    /// Die Kaskadenplanung stellt diese Frage je Platzhaltername — bei der CL 46× für dieselbe Ligaphase, die dafür
+    /// jedes Mal komplett geladen wurde (~0,5 s vor dem Bestätigungsdialog). Spiel-IDs und Gruppen ändern sich
+    /// innerhalb eines Durchlaufs nicht (es werden nur Mannschaften und Ergebnisse geschrieben, keine Spiele
+    /// angelegt oder gelöscht), daher genügt ein Ladevorgang je Runde.</summary>
+    private async Task<bool> EnthaeltIgnoriertesSpielAsync(
+        int rundeId, IReadOnlySet<int>? ignorierteSpielIds, CancellationToken ct, int? gruppenNummer = null)
+    {
+        if (ignorierteSpielIds is not { Count: > 0 }) return false;
+
+        if (_spielSchluessel?.TryGetValue(rundeId, out var spiele) != true)
+            spiele = SpielSchluesselMerken(rundeId, await spielRepository.AlleNachRundeAsync(rundeId, ct));
+
+        return spiele!.Any(s => ignorierteSpielIds.Contains(s.Id)
+            && (gruppenNummer is null || s.GruppenNummer is null || s.GruppenNummer == gruppenNummer));
+    }
+
+    /// <summary>Hält die Spiel-IDs einer ohnehin geladenen Runde für <see cref="EnthaeltIgnoriertesSpielAsync"/> vor.</summary>
+    private IReadOnlyList<(int Id, int? GruppenNummer)> SpielSchluesselMerken(int rundeId, IReadOnlyList<Spiel> spiele)
+    {
+        var schluessel = spiele.Select(s => (s.Id, s.GruppenNummer)).ToList();
+        _spielSchluessel?.TryAdd(rundeId, schluessel);
+        return schluessel;
     }
 
     // ── Kaskaden-Reset für Folgerunden (Issue #88) ─────────────────────────
@@ -1023,6 +1052,7 @@ public class SpielplanService(
             if (platzhalterEintraege.Count == 0) continue;
 
             var alleRundenSpiele = await spielRepository.AlleNachRundeAsync(runde.Id, ct);
+            SpielSchluesselMerken(runde.Id, alleRundenSpiele);
 
             // Eine Auslosung-basierte Platzhalter-Runde ohne ein einziges Spiel muss komplett neu
             // generiert werden — z.B. wenn die enge #125-Logik (FinaleAutomatischGenerierenWennBereitAsync)
@@ -1430,9 +1460,8 @@ public class SpielplanService(
             .FirstOrDefault();
         if (gruppenphaseRunde is null) return null;
 
+        if (await EnthaeltIgnoriertesSpielAsync(gruppenphaseRunde.Id, ignorierteSpielIds, ct)) return null;
         var spiele = await spielRepository.AlleNachRundeAsync(gruppenphaseRunde.Id, ct);
-        if (ignorierteSpielIds is { Count: > 0 } && spiele.Any(s => ignorierteSpielIds.Contains(s.Id)))
-            return null;
         if (spiele.Count == 0 || spiele.Any(s => s.Status != SpielStatus.Abgeschlossen))
             return null;
 
@@ -1466,9 +1495,8 @@ public class SpielplanService(
             .FirstOrDefault();
         if (gruppenphaseRunde is null) return null;
 
+        if (await EnthaeltIgnoriertesSpielAsync(gruppenphaseRunde.Id, ignorierteSpielIds, ct)) return null;
         var spiele = await spielRepository.AlleNachRundeAsync(gruppenphaseRunde.Id, ct);
-        if (ignorierteSpielIds is { Count: > 0 } && spiele.Any(s => ignorierteSpielIds.Contains(s.Id)))
-            return null;
         if (spiele.Any(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue && s.Status != SpielStatus.Abgeschlossen))
             return null;
 
@@ -1617,9 +1645,7 @@ public class SpielplanService(
                 // Issue #88: sobald ein Ergebnis dieser Gruppe zur Löschung ansteht, gilt sie vorübergehend als
                 // nicht ermittelbar. Seit #397 trägt das Spiel seine Gruppennummer — ohne sie (Altdaten) bleibt
                 // es bei der ganzen Runde.
-                if (ignorierteSpielIds is { Count: > 0 } &&
-                    (await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct)).Any(s => ignorierteSpielIds.Contains(s.Id)
-                        && (s.GruppenNummer is null || s.GruppenNummer == gruppeIndex.Value)))
+                if (await EnthaeltIgnoriertesSpielAsync(quellRunde.Id, ignorierteSpielIds, ct, gruppeIndex.Value))
                     return null;
                 var gruppenTabellen = await GruppenTabellenAsync(quellRunde.Id, ct);
                 var gruppe = gruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppeIndex.Value);
@@ -1640,9 +1666,7 @@ public class SpielplanService(
             case Rundenart.TopfLiga:
             case Rundenart.SchweizerSystem:
             {
-                if (ignorierteSpielIds is { Count: > 0 } &&
-                    (await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct)).Any(s => ignorierteSpielIds.Contains(s.Id)))
-                    return null;
+                if (await EnthaeltIgnoriertesSpielAsync(quellRunde.Id, ignorierteSpielIds, ct)) return null;
                 var tabelle = await LigaTabelleAsync(quellRunde.Id, nurSicherPositioniert, ct);
                 return tabelle.FirstOrDefault(e =>
                     e.Rang == platzierung && (!nurSicherPositioniert || e.SicherPositioniert))?.Mannschaft.Id;
