@@ -77,8 +77,16 @@ public partial class MainViewModel : ObservableObject
             Titel = "Turniere",
             Eintraege =
             [
-                EintragErstellen("Turniere",               () => _navigation.NavigiereZuAsync<TurnierlisteViewModel>()),
-                EintragErstellen("Turnierdurchführung",    () => _navigation.NavigiereZuAsync<TurnierdurchfuehrungViewModel>()),
+                EintragErstellen("Turniere",            () => _navigation.NavigiereZuAsync<TurnierlisteViewModel>()),
+                EintragErstellen("Turnierdurchführung", () => _navigation.NavigiereZuAsync<TurnierdurchfuehrungViewModel>()),
+            ]
+        });
+
+        NavigationsGruppen.Add(new NavigationsGruppe
+        {
+            Titel = "Einzelspiel",
+            Eintraege =
+            [
                 EintragErstellen("Einzelspiel-Simulation", () => _navigation.NavigiereZuAsync<EinzelspielSimulationsViewModel>()),
             ]
         });
