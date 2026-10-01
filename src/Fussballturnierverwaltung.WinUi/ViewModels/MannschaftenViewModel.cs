@@ -5,6 +5,7 @@ using Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
+using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using System.Collections.ObjectModel;
@@ -149,6 +150,14 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
         .Where(m => FilterVerbandOption?.Wert == null || m.Land?.VerbandId == FilterVerbandOption.Wert.Id)
         .Where(m => FilterArtOption?.Wert == null || m.Mannschaftsart == FilterArtOption.Wert)
         .Where(m => FilterMinRating == 0 || m.GesamtRating >= FilterMinRating);
+
+    // Wird in OnPropertyChanged mit MannschaftenGefiltert nachgezogen — damit gelten automatisch alle Quellen
+    // der gefilterten Liste (Filter, Suche, Neu-Laden nach Anlegen/Löschen), ohne sie einzeln aufzuzählen.
+    public string AnzahlText => DatensatzAnzahl.Text(
+        MannschaftenGefiltert.Count(), Mannschaften.Count,
+        !string.IsNullOrWhiteSpace(Suchbegriff) || FilterLandOption?.Wert != null || FilterVerbandOption?.Wert != null
+            || FilterArtOption?.Wert != null || FilterMinRating > 0,
+        "Mannschaft", "Mannschaften");
 
     public IEnumerable<Mannschaftsart> ArtOptionen => Enum.GetValues<Mannschaftsart>();
 
@@ -371,6 +380,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
+        if (e.PropertyName == nameof(MannschaftenGefiltert)) OnPropertyChanged(nameof(AnzahlText));
         if (_populiertGerade == 0 && _formFelder.Contains(e.PropertyName!))
             IsDirty = true;
     }

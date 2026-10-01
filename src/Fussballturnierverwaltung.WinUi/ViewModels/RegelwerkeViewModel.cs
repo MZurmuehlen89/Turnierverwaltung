@@ -5,6 +5,7 @@ using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
+using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using System.Collections.ObjectModel;
@@ -92,6 +93,11 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
     public IEnumerable<Regelwerk> RegelwerkeGefiltert => Regelwerke
         .Where(r => string.IsNullOrWhiteSpace(Suchbegriff)
             || r.Name.Contains(Suchbegriff, StringComparison.OrdinalIgnoreCase));
+
+    // Wird in OnPropertyChanged mit RegelwerkeGefiltert nachgezogen (alle Quellen automatisch).
+    public string AnzahlText => DatensatzAnzahl.Text(
+        RegelwerkeGefiltert.Count(), Regelwerke.Count, !string.IsNullOrWhiteSpace(Suchbegriff),
+        "Regelwerk", "Regelwerke");
 
     public IEnumerable<VerfahrenArt> VerfuegbareVerfahren =>
         Enum.GetValues<VerfahrenArt>().Except(AusgewaehlteVerfahren);
@@ -324,6 +330,7 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
+        if (e.PropertyName == nameof(RegelwerkeGefiltert)) OnPropertyChanged(nameof(AnzahlText));
         if (_populiertGerade == 0 && _formFelder.Contains(e.PropertyName!))
             IsDirty = true;
     }

@@ -5,6 +5,7 @@ using Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
+using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using System.Collections.ObjectModel;
@@ -133,6 +134,17 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         .Where(v => string.IsNullOrWhiteSpace(VerbandSuchbegriff)
             || v.Name.Contains(VerbandSuchbegriff, StringComparison.OrdinalIgnoreCase)
             || v.Kurzname.Contains(VerbandSuchbegriff, StringComparison.OrdinalIgnoreCase));
+
+    // Werden in OnPropertyChanged mit der jeweiligen ...Gefiltert-Liste nachgezogen (alle Quellen automatisch).
+    public string LaenderAnzahlText => DatensatzAnzahl.Text(
+        LaenderGefiltert.Count(), Laender.Count,
+        !string.IsNullOrWhiteSpace(LandSuchbegriff) || LandFilterVerbandOption?.Wert != null
+            || LandFilterKontinentOption?.Wert != null,
+        "Land", "Länder");
+
+    public string VerbaendeAnzahlText => DatensatzAnzahl.Text(
+        VerbaendeGefiltert.Count(), Verbaende.Count, !string.IsNullOrWhiteSpace(VerbandSuchbegriff),
+        "Verband", "Verbände");
 
     public IReadOnlyList<VerbandFilterOption> VerbandFilterOptionen =>
         [AllesVerband, .. Verbaende.Select(v => new VerbandFilterOption(v.Name, v))];
@@ -483,6 +495,8 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
+        if (e.PropertyName == nameof(LaenderGefiltert)) OnPropertyChanged(nameof(LaenderAnzahlText));
+        if (e.PropertyName == nameof(VerbaendeGefiltert)) OnPropertyChanged(nameof(VerbaendeAnzahlText));
         if (_populiertGerade != 0) return;
         if (_landFormFelder.Contains(e.PropertyName!)) LandIsDirty = true;
         if (_verbandFormFelder.Contains(e.PropertyName!)) VerbandIsDirty = true;

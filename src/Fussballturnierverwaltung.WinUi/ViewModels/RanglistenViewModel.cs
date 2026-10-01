@@ -8,6 +8,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
+using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using Fussballturnierverwaltung.WinUi.Views;
@@ -136,6 +137,17 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             .FirstOrDefault(o => o.Wert?.Id == MannschaftVerbandFilter.Wert?.Id) ?? _allesVerband;
     }
 
+    partial void OnEintraegeChanged(ObservableCollection<RanglistenEintragZeile>? oldValue,
+        ObservableCollection<RanglistenEintragZeile> newValue)
+    {
+        if (oldValue is not null) oldValue.CollectionChanged -= EintraegeGeaendert;
+        newValue.CollectionChanged += EintraegeGeaendert;
+        OnPropertyChanged(nameof(EintraegeUeberschrift));
+    }
+
+    private void EintraegeGeaendert(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) =>
+        OnPropertyChanged(nameof(EintraegeUeberschrift));
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(VerfuegbareMannschaftenGefiltert))]
     private string _mannschaftSuchbegriff = "";
@@ -148,6 +160,15 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     public IEnumerable<Rangliste> RanglistenGefiltert => Ranglisten
         .Where(r => string.IsNullOrWhiteSpace(Suchbegriff)
             || r.Name.Contains(Suchbegriff, StringComparison.OrdinalIgnoreCase));
+
+    // Wird in OnPropertyChanged mit RanglistenGefiltert nachgezogen (alle Quellen automatisch).
+    public string AnzahlText => DatensatzAnzahl.Text(
+        RanglistenGefiltert.Count(), Ranglisten.Count, !string.IsNullOrWhiteSpace(Suchbegriff),
+        "Rangliste", "Ranglisten");
+
+    // Einträge werden per Add/Remove bearbeitet (nicht neu zugewiesen) — daher folgt die Überschrift
+    // CollectionChanged, siehe OnEintraegeChanged.
+    public string EintraegeUeberschrift => $"EINTRÄGE ({Eintraege.Count})";
 
     public IReadOnlyList<VerbandFilterOption> VerbandFilterOptionen => _verbandFilterOptionen;
 
@@ -451,6 +472,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
+        if (e.PropertyName == nameof(RanglistenGefiltert)) OnPropertyChanged(nameof(AnzahlText));
         if (_populiertGerade == 0 && e.PropertyName is not null && _formFelder.Contains(e.PropertyName))
             IsDirty = true;
     }
