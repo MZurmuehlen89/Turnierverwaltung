@@ -295,6 +295,24 @@
                                                     </TextBlock>
                                                 </Border>
                                                 <ItemsControl ItemsSource="{Binding Tabelle}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
+                                                <!-- #397: noch nicht aufgelöste Plätze als eigene Zeile, damit die Gruppe vollständig wirkt -->
+                                                <ItemsControl ItemsSource="{Binding OffenePlaetze}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid ColumnDefinitions="28,*,26,50,34,30,34" Padding="4,4" Opacity="0.6">
+                                                                <TextBlock Grid.Column="0" Text="–" FontSize="12"
+                                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="1" Text="{Binding}" FontSize="12" FontStyle="Italic"
+                                                                           TextWrapping="WrapWholeWords" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="2" Text="0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="3" Text="0:0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="4" Text="0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="5" Text="0" FontSize="12" FontWeight="Bold"
+                                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
                                             </StackPanel>
                                         </Border>
                                     </Button>

@@ -1382,8 +1382,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 gesamt = SpielErgebnisFormatierer.RueckspielGesamtText(hinspielErgebnis, e);
         }
 
-        int? gruppeNummer = null;
-        if (teamGruppeMap is not null && s.HeimMannschaftId.HasValue
+        // #397: gespeicherte Gruppe zuerst — die Team→Gruppe-Map ist nur noch Rückfall für Altdaten und kennt
+        // Spiele mit Platzhalter-Heimteam nicht.
+        int? gruppeNummer = s.GruppenNummer;
+        if (gruppeNummer is null && teamGruppeMap is not null && s.HeimMannschaftId.HasValue
             && teamGruppeMap.TryGetValue(s.HeimMannschaftId.Value, out var gr))
             gruppeNummer = gr;
 

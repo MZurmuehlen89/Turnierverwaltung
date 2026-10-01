@@ -396,7 +396,10 @@ public class SpielplanService(
             var kontext  = new SpielplanKontext(runde, gruppenTeams, tempNr);
             var ergebnis = generator.Generieren(kontext);
             foreach (var spiel in ergebnis.Spiele)
+            {
+                spiel.GruppenNummer = gi + 1;
                 gruppenMitSpielen.Add((gi, spiel));
+            }
             foreach (var (hinIdx, rueckIdx) in ergebnis.HinRueckspielPaare)
                 hinRueckspielPaare.Add((ergebnis.Spiele[hinIdx], ergebnis.Spiele[rueckIdx]));
             tempNr += ergebnis.Spiele.Count;
@@ -442,7 +445,7 @@ public class SpielplanService(
     /// <summary>Ein geplantes Gruppenspiel in Spielnummer-Reihenfolge; <see cref="HinspielIndex"/> zeigt bei
     /// Rückspielen auf den Listenindex des zugehörigen Hinspiels.</summary>
     private sealed record GeplantesGruppenSpiel(
-        GruppenSlot Heim, GruppenSlot Auswaerts, int Spieltag, bool IstRueckspiel, int? HinspielIndex);
+        GruppenSlot Heim, GruppenSlot Auswaerts, int GruppenNummer, int Spieltag, bool IstRueckspiel, int? HinspielIndex);
 
     /// <summary>Gruppen-Auslosungen speichern einen Eintrag pro Team (nur Heim-Seite, PaarungsNummer =
     /// Gruppe). Innerhalb der Gruppe nach Id sortiert, damit Generierung und Kaskade unabhängig von der
@@ -510,7 +513,7 @@ public class SpielplanService(
         var indexJeNr = sortiert.Select((x, i) => (x.Nr, i)).ToDictionary(x => x.Nr, x => x.i);
 
         return [.. sortiert.Select(x => new GeplantesGruppenSpiel(
-            x.Heim, x.Auswaerts, x.Spieltag, x.HinspielNr.HasValue,
+            x.Heim, x.Auswaerts, x.GruppenIndex + 1, x.Spieltag, x.HinspielNr.HasValue,
             x.HinspielNr is int hinNr ? indexJeNr[hinNr] : null))];
     }
 
@@ -549,6 +552,7 @@ public class SpielplanService(
             TurnierRundeId           = runde.Id,
             Spielnummer              = startNr + i,
             Spieltag                 = g.Spieltag,
+            GruppenNummer            = g.GruppenNummer,
             HeimMannschaftId         = g.Heim.MannschaftId,
             HeimPlatzhalterName      = g.Heim.MannschaftId is null ? g.Heim.PlatzhalterName ?? "?" : null,
             AuswaertsMannschaftId    = g.Auswaerts.MannschaftId,
@@ -1610,12 +1614,12 @@ public class SpielplanService(
             case Rundenart.Gruppenphase:
             {
                 if (gruppeIndex is null) return null;
-                // Issue #88: sobald irgendein Ergebnis dieser Quellrunde zur Löschung ansteht, gilt die
-                // gesamte Runde vorübergehend als nicht ermittelbar — Spiel trägt kein GruppeNummer-Feld,
-                // eine praezisere Nur-diese-Gruppe-Prüfung wäre nur über TabellenService mit einer neuen
-                // Ausschluss-Fähigkeit möglich (bewusst nicht umgesetzt, siehe Plan-Kontext).
+                // Issue #88: sobald ein Ergebnis dieser Gruppe zur Löschung ansteht, gilt sie vorübergehend als
+                // nicht ermittelbar. Seit #397 trägt das Spiel seine Gruppennummer — ohne sie (Altdaten) bleibt
+                // es bei der ganzen Runde.
                 if (ignorierteSpielIds is { Count: > 0 } &&
-                    (await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct)).Any(s => ignorierteSpielIds.Contains(s.Id)))
+                    (await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct)).Any(s => ignorierteSpielIds.Contains(s.Id)
+                        && (s.GruppenNummer is null || s.GruppenNummer == gruppeIndex.Value)))
                     return null;
                 var gruppenTabellen = await GruppenTabellenAsync(quellRunde.Id, ct);
                 var gruppe = gruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppeIndex.Value);

@@ -522,6 +522,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<DateOnly?>("Datum")
                         .HasColumnType("date");
 
+                    b.Property<int?>("GruppenNummer")
+                        .HasColumnType("int");
+
                     b.Property<int?>("HeimMannschaftId")
                         .HasColumnType("int");
 

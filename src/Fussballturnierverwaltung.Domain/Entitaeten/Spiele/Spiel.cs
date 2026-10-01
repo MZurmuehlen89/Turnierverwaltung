@@ -12,6 +12,11 @@ public class Spiel : BasisEntitaet
     public TurnierRunde TurnierRunde { get; set; } = null!;
     public int Spielnummer { get; set; }
     public int? Spieltag { get; set; }
+
+    /// <summary>Gruppe innerhalb einer Gruppenphase (1 = Gruppe A, …), beim Generieren gesetzt (Issue #397).
+    /// <c>null</c> außerhalb von Gruppenphasen und bei vor #397 generierten Spielen — dort rekonstruiert der
+    /// TabellenService die Gruppen weiterhin aus den Paarungen.</summary>
+    public int? GruppenNummer { get; set; }
     public DateOnly? Datum { get; set; }
     public int? HeimMannschaftId { get; set; }
     public Mannschaft? HeimMannschaft { get; set; }

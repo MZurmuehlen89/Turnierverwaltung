@@ -1948,8 +1948,16 @@ public class SpielplanServiceTests
 
     /// <summary>Runde 1 „Quali“ (K.o., 4 entschiedene Spiele, Heimteams 1/3/5/7 gewinnen), Runde 2
     /// Gruppenphase mit einer Gruppe und abgeschlossener Gruppen-Auslosung (ein Eintrag pro Slot).</summary>
-    private static async Task<int> QualiUndPlatzhalterGruppeAnlegen(
+    private static Task<int> QualiUndPlatzhalterGruppeAnlegen(
         TurnierverwaltungDbContext ctx, bool mitRueckspiel, params (int? MannschaftId, string? Platzhalter)[] slots)
+        => QualiUndPlatzhalterGruppenAnlegen(ctx, mitRueckspiel, entschiedeneQualiSpiele: 4,
+            [.. slots.Select(x => (1, x.MannschaftId, x.Platzhalter))]);
+
+    /// <summary>Wie <see cref="QualiUndPlatzhalterGruppeAnlegen"/>, aber mit mehreren Gruppen (Gruppe = PaarungsNummer)
+    /// und nur den ersten <paramref name="entschiedeneQualiSpiele"/> Quali-Spielen entschieden.</summary>
+    private static async Task<int> QualiUndPlatzhalterGruppenAnlegen(
+        TurnierverwaltungDbContext ctx, bool mitRueckspiel, int entschiedeneQualiSpiele,
+        (int Gruppe, int? MannschaftId, string? Platzhalter)[] slots)
     {
         ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
         ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
@@ -1966,19 +1974,21 @@ public class SpielplanServiceTests
             {
                 Id = 2, TurnierInstanzId = 1, Name = "Gruppenphase", Reihenfolge = 2, Rundenart = Rundenart.Gruppenphase,
                 EingangsMannschaftsanzahl = slots.Length, AusgangsMannschaftsanzahl = 2, RegelwerkId = 1,
-                GruppenAnzahl = 1, MitRueckspiel = mitRueckspiel
+                GruppenAnzahl = slots.Select(x => x.Gruppe).Distinct().Count(), MitRueckspiel = mitRueckspiel
             });
         ctx.Mannschaften.AddRange(Enumerable.Range(1, 10)
             .Select(i => new Mannschaft { Id = i, Name = $"Team {i}", Kurzname = $"T{i}", LandId = 1 }));
         for (int q = 1; q <= 4; q++)
         {
             int heim = q * 2 - 1;
+            bool entschieden = q <= entschiedeneQualiSpiele;
             ctx.Spiele.Add(new Spiel
             {
                 Id = q, TurnierInstanzId = 1, TurnierRundeId = 1, Spielnummer = q,
-                HeimMannschaftId = heim, AuswaertsMannschaftId = heim + 1, Status = SpielStatus.Abgeschlossen
+                HeimMannschaftId = heim, AuswaertsMannschaftId = heim + 1,
+                Status = entschieden ? SpielStatus.Abgeschlossen : SpielStatus.Geplant
             });
-            ctx.SpielErgebnisse.Add(new SpielErgebnis
+            if (entschieden) ctx.SpielErgebnisse.Add(new SpielErgebnis
             {
                 Id = q, SpielId = q, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0,
                 EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = heim
@@ -1992,10 +2002,10 @@ public class SpielplanServiceTests
         ctx.Auslosungen.Add(auslosung);
         await ctx.SaveChangesAsync();
 
-        foreach (var (mannschaftId, platzhalter) in slots)
+        foreach (var (gruppe, mannschaftId, platzhalter) in slots)
             ctx.AuslosungsErgebnisse.Add(new AuslosungsErgebnis
             {
-                AuslosungId = auslosung.Id, PaarungsNummer = 1,
+                AuslosungId = auslosung.Id, PaarungsNummer = gruppe,
                 HeimMannschaftId = mannschaftId, HeimPlatzhalterName = platzhalter
             });
         await ctx.SaveChangesAsync();
@@ -2107,6 +2117,78 @@ public class SpielplanServiceTests
 
         var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
         plan.HatAuswirkungen.Should().BeFalse();
+    }
+
+    // ── Tests: gespeicherte Gruppennummer (Issue #397) ──────────────────────
+
+    /// <summary>Gruppe 1: „Sieger Quali 1“ (= Team 1), „Sieger Quali 3“, „Sieger Quali 4“ (beide offen) —
+    /// Team 1 spielt nur gegen offene Plätze. Gruppe 2: „Sieger Quali 2“ (= Team 3), Team 9, Team 10.</summary>
+    private static Task<int> TeilaufgeloesteGruppenAnlegen(TurnierverwaltungDbContext ctx) =>
+        QualiUndPlatzhalterGruppenAnlegen(ctx, mitRueckspiel: false, entschiedeneQualiSpiele: 2,
+        [
+            (1, null, "Sieger Quali 1"), (1, null, "Sieger Quali 3"), (1, null, "Sieger Quali 4"),
+            (2, null, "Sieger Quali 2"), (2, 9, null), (2, 10, null)
+        ]);
+
+    private static TabellenService TabellenServiceFuer(TurnierverwaltungDbContext ctx) =>
+        new(new TurnierRundeRepository(ctx), new SpielRepository(ctx), new RegelwerkRepository(ctx));
+
+    [Fact]
+    public async Task GenerierenAusAuslosungAsync_Gruppenphase_SpeichertGruppenNummer()
+    {
+        await using var ctx = NeuerContext();
+        int gruppeId = await TeilaufgeloesteGruppenAnlegen(ctx);
+
+        var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == gruppeId).ToList();
+        spiele.Should().HaveCount(6);
+        spiele.Count(s => s.GruppenNummer == 1).Should().Be(3);
+        spiele.Count(s => s.GruppenNummer == 2).Should().Be(3);
+        spiele.Where(s => s.GruppenNummer == 2)
+            .SelectMany(s => new[] { s.HeimMannschaftId, s.AuswaertsMannschaftId })
+            .Should().OnlyContain(id => id == 3 || id == 9 || id == 10);
+    }
+
+    [Fact]
+    public async Task GruppenTabellenBerechnenAsync_TeilaufgeloesteGruppe_VollstaendigMitOffenenPlaetzen()
+    {
+        // Regressionstest #397: vorher fehlte Gruppe 1 ganz (Team 1 hat kein Spiel gegen ein bekanntes Team),
+        // und Gruppe 2 erschien als „Gruppe 1“.
+        await using var ctx = NeuerContext();
+        int gruppeId = await TeilaufgeloesteGruppenAnlegen(ctx);
+
+        var tabellen = await TabellenServiceFuer(ctx).GruppenTabellenBerechnenAsync(gruppeId);
+
+        tabellen.Select(t => t.GruppenNummer).Should().Equal(1, 2);
+        tabellen[0].Tabelle.Select(e => e.Mannschaft.Id).Should().Equal(1);
+        tabellen[0].OffenePlaetze.Should().BeEquivalentTo("Sieger Quali 3", "Sieger Quali 4");
+        tabellen[1].Tabelle.Select(e => e.Mannschaft.Id).Should().BeEquivalentTo([3, 9, 10]);
+        tabellen[1].OffenePlaetze.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GruppenTabellenBerechnenAsync_GruppeMitOffenenPlaetzen_KeinRangSicher()
+    {
+        // Regressionstest #397: Spiele gegen noch offene Plätze fehlten in der Status-Berechnung — sobald die
+        // Spiele unter bekannten Teams gespielt waren, galt die Gruppe fälschlich als fertig.
+        await using var ctx = NeuerContext();
+        int gruppeId = await TeilaufgeloesteGruppenAnlegen(ctx);
+        foreach (var s in ctx.Spiele.Where(s => s.TurnierRundeId == gruppeId).ToList()
+                     .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue))
+        {
+            s.Status = SpielStatus.Abgeschlossen;
+            ctx.SpielErgebnisse.Add(new SpielErgebnis
+            {
+                Id = 100 + s.Id, SpielId = s.Id, HeimToreRegulaer = s.Id % 3, AuswaertsToreRegulaer = 0,
+                EntscheidungArt = EntscheidungArt.RegulaereSpielzeit
+            });
+        }
+        await ctx.SaveChangesAsync();
+
+        var tabellen = await TabellenServiceFuer(ctx).GruppenTabellenBerechnenAsync(gruppeId);
+
+        tabellen[0].Tabelle.Should().OnlyContain(e => !e.SicherPositioniert && e.Qualifikationsstatus == Qualifikationsstatus.Offen,
+            "in Gruppe 1 sind noch zwei Teilnehmer unbekannt");
+        tabellen[1].Tabelle.Should().OnlyContain(e => e.SicherPositioniert, "Gruppe 2 ist vollständig gespielt");
     }
 
     [Fact]

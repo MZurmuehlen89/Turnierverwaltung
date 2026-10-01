@@ -126,23 +126,65 @@ public class TabellenService(
             ? Math.Max(1, runde.AusgangsMannschaftsanzahl / runde.GruppenAnzahl.Value)
             : 2;
 
-        var gruppen = GruppenAusSpielenAbleiten(alleSpiele);
-        var result = gruppen.Select((gruppenTeamIds, index) =>
+        var result = GruppenErmitteln(alleSpiele).Select(g =>
         {
-            var teamIds = gruppenTeamIds.ToHashSet();
-            var gruppenSpiele = (IReadOnlyList<Spiel>)alleSpiele
-                .Where(s => s.HeimMannschaftId.HasValue && teamIds.Contains(s.HeimMannschaftId.Value))
-                .ToList();
-            var gruppenSpieleGefiltert = SpieleBisSpieltagFiltern(gruppenSpiele, bisSpieltag);
-            return (Gruppe: new GruppenTabelle(index + 1, TabelleAusSpielenBerechnen(gruppenSpieleGefiltert, punkteRegel, rankingRegeln)),
-                    Spiele: gruppenSpiele);
+            var gruppenSpieleGefiltert = SpieleBisSpieltagFiltern(g.Spiele, bisSpieltag);
+            var tabelle = TabelleAusSpielenBerechnen(
+                gruppenSpieleGefiltert, punkteRegel, rankingRegeln, teilnehmer: AufgeloesteTeilnehmer(g.Spiele));
+            return (Gruppe: new GruppenTabelle(g.Nummer, tabelle) { OffenePlaetze = OffenePlaetze(g.Spiele) },
+                    g.Spiele);
         }).ToList();
 
         foreach (var (gruppe, spiele) in result)
+        {
+            // Issue #397: Solange ein Platz der Gruppe noch nicht aufgelöst ist, fehlen dessen Spiele in der
+            // Status-Berechnung (Gegner unbekannt) — kein Rang darf dann als sicher gelten.
+            if (gruppe.OffenePlaetze.Count > 0) continue;
             QualifikationsstatusSetzen(gruppe, spiele, qualPlaetze, punkteRegel, rankingRegeln);
+        }
 
         return result.Select(r => r.Gruppe).ToList();
     }
+
+    /// <summary>Gruppen einer Gruppenphase mit ihren Spielen. Seit Issue #397 aus der gespeicherten
+    /// <see cref="Spiel.GruppenNummer"/> — auch mit noch offenen Platzhaltern vollständig und mit der
+    /// ausgelosten Nummer. Rückfall für vor #397 generierte Spiele: Rekonstruktion aus den Paarungen.</summary>
+    private static List<(int Nummer, IReadOnlyList<Spiel> Spiele)> GruppenErmitteln(IReadOnlyList<Spiel> alleSpiele)
+    {
+        if (alleSpiele.All(s => s.GruppenNummer.HasValue))
+            return [.. alleSpiele
+                .GroupBy(s => s.GruppenNummer!.Value)
+                .OrderBy(g => g.Key)
+                .Select(g => (g.Key, (IReadOnlyList<Spiel>)[.. g]))];
+
+        return [.. GruppenAusSpielenAbleiten(alleSpiele).Select((gruppenTeamIds, index) =>
+        {
+            var teamIds = gruppenTeamIds.ToHashSet();
+            return (index + 1, (IReadOnlyList<Spiel>)[.. alleSpiele
+                .Where(s => s.HeimMannschaftId.HasValue && teamIds.Contains(s.HeimMannschaftId.Value))]);
+        })];
+    }
+
+    /// <summary>Alle bereits feststehenden Teams einer Gruppe — auch solche, die bisher nur gegen noch offene
+    /// Platzhalter angesetzt sind und daher in keinem Spiel mit zwei bekannten Teams vorkommen.</summary>
+    private static IReadOnlyList<Mannschaft> AufgeloesteTeilnehmer(IEnumerable<Spiel> spiele) =>
+        [.. spiele
+            .SelectMany(s => new[] { s.HeimMannschaft, s.AuswaertsMannschaft })
+            .Where(m => m is not null)
+            .Select(m => m!)
+            .DistinctBy(m => m.Id)];
+
+    private static IReadOnlyList<string> OffenePlaetze(IEnumerable<Spiel> spiele) =>
+        [.. spiele
+            .OrderBy(s => s.Spielnummer)
+            .SelectMany(s => new[]
+            {
+                s.HeimMannschaftId is null ? s.HeimPlatzhalterName : null,
+                s.AuswaertsMannschaftId is null ? s.AuswaertsPlatzhalterName : null
+            })
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Select(n => n!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
 
     /// <summary>Berechnet die Rangfolge der Kandidaten an einer festen Platzierung (z.B. "Platz 3") über alle
     /// Gruppen der Quellrunde hinweg, sortiert nach denselben Ranking-Regeln wie innerhalb einer Gruppe (Issue #184).
@@ -158,16 +200,9 @@ public class TabellenService(
         // ohnehin je Team auf dessen eigene Spiele) und die richtige Sortierreihenfolge in einem Aufwasch.
         var gesamtTabelle = TabelleAusSpielenBerechnen(alleSpiele, punkteRegel, rankingRegeln);
 
-        var kandidatenIds = GruppenAusSpielenAbleiten(alleSpiele)
-            .Select(gruppenTeamIds =>
-            {
-                var teamIds = gruppenTeamIds.ToHashSet();
-                var gruppenSpiele = alleSpiele
-                    .Where(s => s.HeimMannschaftId.HasValue && teamIds.Contains(s.HeimMannschaftId.Value))
-                    .ToList();
-                return TabelleAusSpielenBerechnen(gruppenSpiele, punkteRegel, rankingRegeln)
-                    .FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id;
-            })
+        var kandidatenIds = GruppenErmitteln(alleSpiele)
+            .Select(g => TabelleAusSpielenBerechnen(g.Spiele, punkteRegel, rankingRegeln)
+                .FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id)
             .Where(id => id.HasValue).Select(id => id!.Value).ToHashSet();
 
         var ergebnis = gesamtTabelle.Where(e => kandidatenIds.Contains(e.Mannschaft.Id)).ToList();
@@ -227,7 +262,7 @@ public class TabellenService(
 
     private static IReadOnlyList<TabellenEintrag> TabelleAusSpielenBerechnen(
         IReadOnlyList<Spiel> spiele, PunkteRegel punkteRegel, List<RankingRegel> rankingRegeln,
-        bool? nurHeimspiele = null)
+        bool? nurHeimspiele = null, IReadOnlyList<Mannschaft>? teilnehmer = null)
     {
         var teamMap = spiele
             .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
@@ -238,6 +273,10 @@ public class TabellenService(
             })
             .DistinctBy(t => t.Item1)
             .ToDictionary(t => t.Item1, t => t.Item2);
+
+        // Issue #397: Teams ohne Spiel gegen einen bereits bekannten Gegner trotzdem mit 0 Punkten führen.
+        foreach (var m in teilnehmer ?? [])
+            teamMap.TryAdd(m.Id, m);
 
         if (teamMap.Count == 0) return [];
 
