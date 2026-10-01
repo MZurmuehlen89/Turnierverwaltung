@@ -94,32 +94,25 @@ public class SpielplanService(
         {
             case Rundenart.Gruppenphase:
             {
-                var gruppen = ergebnisse
-                    .Where(e => e.HeimMannschaftId.HasValue)
-                    .GroupBy(e => e.PaarungsNummer)
-                    .OrderBy(g => g.Key)
-                    .Select(g => (IReadOnlyList<int>)g.Select(e => e.HeimMannschaftId!.Value).ToList())
-                    .ToList();
+                var gruppen = GruppenSlotsAusAuslosung(ergebnisse);
 
-                if (gruppen.Any())
+                if (gruppen.Count > 0 && gruppen.All(g => g.All(s => s.MannschaftId.HasValue)))
                 {
-                    await GenerierenAusGruppenAsync(turnierRundeId, gruppen, ct);
+                    await GenerierenAusGruppenAsync(
+                        turnierRundeId,
+                        [.. gruppen.Select(g => (IReadOnlyList<int>)[.. g.Select(s => s.MannschaftId!.Value)])],
+                        ct);
                 }
                 else
                 {
-                    // Platzhalter-Gruppenphase: Berger-Round-Robin mit Platzhalternamen
-                    var gruppenNamen = ergebnisse
-                        .GroupBy(e => e.PaarungsNummer)
-                        .OrderBy(g => g.Key)
-                        .Select(g => (IReadOnlyList<string>)g.Select(e => e.HeimPlatzhalterName ?? "?").ToList())
-                        .ToList();
-
-                    if (!gruppenNamen.Any() || gruppenNamen.All(g => g.Count < 2))
+                    // Platzhalter-Gruppenphase, auch gemischt mit festen Teams (#395 — vorher fielen die
+                    // Platzhalter einer gemischten Gruppe hier stillschweigend weg): Berger-Round-Robin über Slots
+                    if (gruppen.Count == 0 || gruppen.All(g => g.Count < 2))
                         throw new InvalidOperationException(ergebnisse.Any()
                             ? "Keine gültigen Gruppen-Zuordnungen in der Auslosung gefunden."
                             : "Die Auslosung hat keine Ergebnisse. Bitte die Auslosung zuerst durchführen.");
 
-                    await GenerierenAusGruppenMitPlatzhalternAsync(turnierRundeId, gruppenNamen, ct);
+                    await GenerierenAusGruppenMitPlatzhalternAsync(turnierRundeId, gruppen, ct);
                 }
                 break;
             }
@@ -441,72 +434,145 @@ public class SpielplanService(
             runde.Name, gruppen.Count, alleSpiele.Count);
     }
 
-    public async Task GenerierenAusGruppenMitPlatzhalternAsync(
-        int turnierRundeId,
-        IReadOnlyList<IReadOnlyList<string>> gruppen,
-        CancellationToken ct = default)
-    {
-        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
-            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+    // ── Platzhalter-Gruppenphase (Berger-Plan über Slots, Issue #395) ─────
 
-        int startNr = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
-        int tempNr  = 1;
-        var gruppenMitSpielen = new List<(int GruppenIndex, Spiel Spiel)>();
+    /// <summary>Ein Teilnehmerplatz einer Gruppe: feste Mannschaft oder (noch) Platzhalter.</summary>
+    private readonly record struct GruppenSlot(int? MannschaftId, string? PlatzhalterName);
+
+    /// <summary>Ein geplantes Gruppenspiel in Spielnummer-Reihenfolge; <see cref="HinspielIndex"/> zeigt bei
+    /// Rückspielen auf den Listenindex des zugehörigen Hinspiels.</summary>
+    private sealed record GeplantesGruppenSpiel(
+        GruppenSlot Heim, GruppenSlot Auswaerts, int Spieltag, bool IstRueckspiel, int? HinspielIndex);
+
+    /// <summary>Gruppen-Auslosungen speichern einen Eintrag pro Team (nur Heim-Seite, PaarungsNummer =
+    /// Gruppe). Innerhalb der Gruppe nach Id sortiert, damit Generierung und Kaskade unabhängig von der
+    /// Ladereihenfolge denselben Plan bauen.</summary>
+    private static List<IReadOnlyList<GruppenSlot>> GruppenSlotsAusAuslosung(IEnumerable<AuslosungsErgebnis> ergebnisse) =>
+        [.. ergebnisse
+            .GroupBy(e => e.PaarungsNummer)
+            .OrderBy(g => g.Key)
+            .Select(g => (IReadOnlyList<GruppenSlot>)[.. g
+                .OrderBy(e => e.Id)
+                .Select(e => new GruppenSlot(e.HeimMannschaftId, e.HeimPlatzhalterName))])];
+
+    /// <summary>Reine Funktion: Berger-Round-Robin je Gruppe, sortiert nach Spieltag und Gruppe — exakt die
+    /// Reihenfolge, in der <see cref="GenerierenAusGruppenMitPlatzhalternAsync"/> die Spielnummern vergibt.
+    /// Die Kaskade baut damit den Soll-Spielplan nach und vergleicht Spiel mit Spiel (#395).</summary>
+    private static List<GeplantesGruppenSpiel> GruppenSpielplanPlanen(
+        IReadOnlyList<IReadOnlyList<GruppenSlot>> gruppen, bool mitRueckspiel)
+    {
+        var geplant = new List<(int GruppenIndex, int Spieltag, int Nr, GruppenSlot Heim, GruppenSlot Auswaerts, int? HinspielNr)>();
+        int nr = 0;
 
         for (int gi = 0; gi < gruppen.Count; gi++)
         {
-            var namen = gruppen[gi].ToList();
-            if (namen.Count < 2) continue;
+            var slots = gruppen[gi].Select(s => (GruppenSlot?)s).ToList();
+            if (slots.Count < 2) continue;
+            if (slots.Count % 2 == 1) slots.Add(null);
 
-            var gruppenSpiele = new List<Spiel>();
-            bool hatDummy = namen.Count % 2 == 1;
-            if (hatDummy) namen.Add(null!);
-
-            int gesamt    = namen.Count;
+            int gesamt    = slots.Count;
             int spieltage = gesamt - 1;
             var kreis     = Enumerable.Range(1, gesamt - 1).ToArray();
+            var hinspiele = new List<(int Spieltag, int Nr, GruppenSlot Heim, GruppenSlot Auswaerts)>();
+
+            void Hinzufuegen(GruppenSlot? heim, GruppenSlot? ausw, int spieltag)
+            {
+                if (heim is null || ausw is null) return;
+                hinspiele.Add((spieltag, nr, heim.Value, ausw.Value));
+                geplant.Add((gi, spieltag, nr++, heim.Value, ausw.Value, null));
+            }
 
             for (int spieltag = 0; spieltag < spieltage; spieltag++)
             {
-                string? heim0 = spieltag % 2 == 0 ? namen[0]          : namen[kreis[^1]];
-                string? ausw0 = spieltag % 2 == 0 ? namen[kreis[^1]]  : namen[0];
-
-                if (heim0 is not null && ausw0 is not null)
-                    gruppenSpiele.Add(PlatzhalterSpiel(runde, heim0, ausw0, tempNr++, spieltag + 1));
+                if (spieltag % 2 == 0) Hinzufuegen(slots[0], slots[kreis[^1]], spieltag + 1);
+                else                   Hinzufuegen(slots[kreis[^1]], slots[0], spieltag + 1);
 
                 for (int i = 0; i < (gesamt - 2) / 2; i++)
-                {
-                    string? heim = namen[kreis[i]];
-                    string? ausw = namen[kreis[gesamt - 3 - i]];
-                    if (heim is not null && ausw is not null)
-                        gruppenSpiele.Add(PlatzhalterSpiel(runde, heim, ausw, tempNr++, spieltag + 1));
-                }
+                    Hinzufuegen(slots[kreis[i]], slots[kreis[gesamt - 3 - i]], spieltag + 1);
 
                 var letzter = kreis[^1];
                 for (int k = gesamt - 2; k > 0; k--) kreis[k] = kreis[k - 1];
                 kreis[0] = letzter;
             }
 
-            if (runde.MitRueckspiel)
+            if (mitRueckspiel)
             {
-                foreach (var s in gruppenSpiele.ToList())
-                    gruppenSpiele.Add(PlatzhalterSpiel(runde,
-                        s.AuswaertsPlatzhalterName!, s.HeimPlatzhalterName!,
-                        tempNr++, (s.Spieltag ?? 0) + spieltage, istRueckspiel: true));
+                foreach (var h in hinspiele)
+                    geplant.Add((gi, h.Spieltag + spieltage, nr++, h.Auswaerts, h.Heim, h.Nr));
             }
-
-            foreach (var spiel in gruppenSpiele)
-                gruppenMitSpielen.Add((gi, spiel));
         }
 
-        var alleSpiele = gruppenMitSpielen
-            .OrderBy(x => x.Spiel.Spieltag ?? 0)
+        var sortiert = geplant
+            .OrderBy(x => x.Spieltag)
             .ThenBy(x => x.GruppenIndex)
-            .Select((x, i) => { x.Spiel.Spielnummer = startNr + i; return x.Spiel; })
+            .ThenBy(x => x.Nr)
             .ToList();
+        var indexJeNr = sortiert.Select((x, i) => (x.Nr, i)).ToDictionary(x => x.Nr, x => x.i);
 
-        if (alleSpiele.Count > 0)
-            await spielRepository.HinzufuegenMehrfachAsync(alleSpiele, ct);
+        return [.. sortiert.Select(x => new GeplantesGruppenSpiel(
+            x.Heim, x.Auswaerts, x.Spieltag, x.HinspielNr.HasValue,
+            x.HinspielNr is int hinNr ? indexJeNr[hinNr] : null))];
+    }
+
+    /// <summary>Plausibilitätsprüfung vor dem Spiel-zu-Spiel-Vergleich der Kaskade: gleiche Anzahl, gleiche
+    /// Hin-/Rückspiel-Lage, feste Teams an derselben Stelle und noch offene Platzhalter mit demselben Namen.
+    /// Bereits aufgelöste Platzhalter-Seiten sind nicht prüfbar (der Name wird beim Auflösen entfernt).</summary>
+    private static bool PasstZuGruppenPlan(IReadOnlyList<GeplantesGruppenSpiel> geplant, IReadOnlyList<Spiel> spiele)
+    {
+        if (geplant.Count != spiele.Count) return false;
+
+        static bool SeitePasst(GruppenSlot soll, int? mannschaftId, string? platzhalterName) =>
+            soll.MannschaftId is int festId
+                ? mannschaftId == festId
+                : mannschaftId.HasValue || string.Equals(platzhalterName, soll.PlatzhalterName ?? "?", StringComparison.OrdinalIgnoreCase);
+
+        return geplant.Zip(spiele).All(x =>
+            x.First.IstRueckspiel == x.Second.IstRueckspiel &&
+            SeitePasst(x.First.Heim, x.Second.HeimMannschaftId, x.Second.HeimPlatzhalterName) &&
+            SeitePasst(x.First.Auswaerts, x.Second.AuswaertsMannschaftId, x.Second.AuswaertsPlatzhalterName));
+    }
+
+    private async Task GenerierenAusGruppenMitPlatzhalternAsync(
+        int turnierRundeId,
+        IReadOnlyList<IReadOnlyList<GruppenSlot>> gruppen,
+        CancellationToken ct = default)
+    {
+        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
+            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+
+        int startNr = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
+        var plan    = GruppenSpielplanPlanen(gruppen, runde.MitRueckspiel);
+
+        var alleSpiele = plan.Select((g, i) => new Spiel
+        {
+            TurnierInstanzId         = runde.TurnierInstanzId,
+            TurnierRundeId           = runde.Id,
+            Spielnummer              = startNr + i,
+            Spieltag                 = g.Spieltag,
+            HeimMannschaftId         = g.Heim.MannschaftId,
+            HeimPlatzhalterName      = g.Heim.MannschaftId is null ? g.Heim.PlatzhalterName ?? "?" : null,
+            AuswaertsMannschaftId    = g.Auswaerts.MannschaftId,
+            AuswaertsPlatzhalterName = g.Auswaerts.MannschaftId is null ? g.Auswaerts.PlatzhalterName ?? "?" : null,
+            Status                   = SpielStatus.Geplant,
+            SimulationsModus         = SimulationsModus.ManuellesErgebnis,
+            IstRueckspiel            = g.IstRueckspiel,
+        }).ToList();
+
+        // Zwei-Phasen-Speicherung wie GenerierenAusGruppenAsync: Rückspiele erhalten die HinspielId ihres
+        // bereits gespeicherten Hinspiels.
+        var hinspiele = alleSpiele.Where(s => !s.IstRueckspiel).ToList();
+        if (hinspiele.Count > 0)
+            await spielRepository.HinzufuegenMehrfachAsync(hinspiele, ct);
+
+        var rueckspiele = new List<Spiel>();
+        for (int i = 0; i < plan.Count; i++)
+        {
+            if (plan[i].HinspielIndex is not int hinIdx) continue;
+            alleSpiele[i].HinspielId = alleSpiele[hinIdx].Id;
+            rueckspiele.Add(alleSpiele[i]);
+        }
+        if (rueckspiele.Count > 0)
+            await spielRepository.HinzufuegenMehrfachAsync(rueckspiele, ct);
 
         logger.LogInformation(
             "Platzhalter-Gruppenphase für Runde '{Runde}' generiert: {Gruppen} Gruppen, {Spiele} Spiele.",
@@ -944,9 +1010,8 @@ public class SpielplanService(
             var auslosung = await auslosungRepository.FindenAbgeschlosseneNachRundeAsync(turnierInstanzId, runde.Id, ct);
             if (auslosung is null) continue;
 
-            // IstFreilos ausgeschlossen: GenerierenAusPlatzhalterPaarungenAsync/
-            // GenerierenAusGruppenMitPlatzhalternAsync erzeugen dafür kein Spiel — ohne denselben
-            // Filter hier würde die positionale Zuordnung unten um ein Freilos verschoben sein.
+            // IstFreilos ausgeschlossen: GenerierenAusPlatzhalterPaarungenAsync erzeugt dafür kein Spiel —
+            // ohne denselben Filter hier würde die positionale Zuordnung unten um ein Freilos verschoben sein.
             var platzhalterEintraege = auslosung.Ergebnisse
                 .Where(e => !e.IstFreilos && (e.HeimPlatzhalterName is not null || e.AuswaertsPlatzhalterName is not null))
                 .OrderBy(e => e.PaarungsNummer)
@@ -966,6 +1031,38 @@ public class SpielplanService(
                 schritte.Add(new KaskadenRundeNeuGenerierenSchritt(runde.Id, runde.Name));
                 continue;
             }
+
+            // Issue #395: Gruppen-Auslosungen haben einen Eintrag pro Team, nicht pro Spiel — die
+            // Eintrag-zu-Spiel-Zuordnung unten passt dort nicht. Stattdessen den Soll-Spielplan mit demselben
+            // Berger-Plan wie bei der Generierung nachbauen und Spiel für Spiel vergleichen.
+            if (runde.Rundenart == Rundenart.Gruppenphase)
+            {
+                var geplant = GruppenSpielplanPlanen(GruppenSlotsAusAuslosung(auslosung.Ergebnisse), runde.MitRueckspiel);
+                var spieleNachNummer = alleRundenSpiele.OrderBy(s => s.Spielnummer).ToList();
+                if (!PasstZuGruppenPlan(geplant, spieleNachNummer))
+                {
+                    // Unbekannte Struktur (z.B. vor #395 ohne Platzhalter generierte gemischte Gruppe) — lieber
+                    // nicht anfassen als falsche Spiele zurücksetzen.
+                    logger.LogWarning(
+                        "Kaskade: Spielplan der Gruppenphase '{Runde}' passt nicht zur Auslosung, Runde wird übersprungen.",
+                        runde.Name);
+                    continue;
+                }
+
+                for (int i = 0; i < geplant.Count; i++)
+                {
+                    var (heim, ausw) = (geplant[i].Heim, geplant[i].Auswaerts);
+                    SpielPruefen(spieleNachNummer[i],
+                        await SlotAufloesenAsync(heim), await SlotAufloesenAsync(ausw),
+                        heim.PlatzhalterName, ausw.PlatzhalterName);
+                }
+                continue;
+            }
+
+            async Task<int?> SlotAufloesenAsync(GruppenSlot slot) =>
+                slot.MannschaftId ?? (slot.PlatzhalterName is { } name
+                    ? await PlatzhalterNameAufloessenAsync(name, runde, alleRunden, ct, ignoriert)
+                    : null);
 
             // Issue #346: in K.o.-Runden mit Rückspiel gehört zu jedem Auslosungs-Eintrag ein Hinspiel plus
             // dessen gespiegeltes Rückspiel — positional gezählt wird nur über die Hinspiele, sonst

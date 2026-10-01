@@ -1944,6 +1944,171 @@ public class SpielplanServiceTests
         planNachAusfuehrung.HatAuswirkungen.Should().BeFalse();
     }
 
+    // ── Tests: Platzhalter-Gruppenphase in der Kaskade (Issue #395) ─────────
+
+    /// <summary>Runde 1 „Quali“ (K.o., 4 entschiedene Spiele, Heimteams 1/3/5/7 gewinnen), Runde 2
+    /// Gruppenphase mit einer Gruppe und abgeschlossener Gruppen-Auslosung (ein Eintrag pro Slot).</summary>
+    private static async Task<int> QualiUndPlatzhalterGruppeAnlegen(
+        TurnierverwaltungDbContext ctx, bool mitRueckspiel, params (int? MannschaftId, string? Platzhalter)[] slots)
+    {
+        ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });
+        ctx.Laender.Add(new Land { Id = 1, Name = "Land", Kurzname = "L", FifaCode = "LAN", VerbandId = 1 });
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
+            { Id = 1, RegelwerkId = 1, Reihenfolge = 1, VerfahrenArt = VerfahrenArt.Elfmeterschiessen });
+        ctx.TurnierRunden.AddRange(
+            new TurnierRunde
+            {
+                Id = 1, TurnierInstanzId = 1, Name = "Quali", Reihenfolge = 1, Rundenart = Rundenart.KoRunde,
+                EingangsMannschaftsanzahl = 8, AusgangsMannschaftsanzahl = 4, RegelwerkId = 1
+            },
+            new TurnierRunde
+            {
+                Id = 2, TurnierInstanzId = 1, Name = "Gruppenphase", Reihenfolge = 2, Rundenart = Rundenart.Gruppenphase,
+                EingangsMannschaftsanzahl = slots.Length, AusgangsMannschaftsanzahl = 2, RegelwerkId = 1,
+                GruppenAnzahl = 1, MitRueckspiel = mitRueckspiel
+            });
+        ctx.Mannschaften.AddRange(Enumerable.Range(1, 10)
+            .Select(i => new Mannschaft { Id = i, Name = $"Team {i}", Kurzname = $"T{i}", LandId = 1 }));
+        for (int q = 1; q <= 4; q++)
+        {
+            int heim = q * 2 - 1;
+            ctx.Spiele.Add(new Spiel
+            {
+                Id = q, TurnierInstanzId = 1, TurnierRundeId = 1, Spielnummer = q,
+                HeimMannschaftId = heim, AuswaertsMannschaftId = heim + 1, Status = SpielStatus.Abgeschlossen
+            });
+            ctx.SpielErgebnisse.Add(new SpielErgebnis
+            {
+                Id = q, SpielId = q, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0,
+                EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = heim
+            });
+        }
+        var auslosung = new Auslosung
+        {
+            TurnierInstanzId = 1, TurnierRundeId = 2, Name = "Auslosung",
+            Auslosungsart = Auslosungsart.Manuell, Status = AuslosungsStatus.Abgeschlossen
+        };
+        ctx.Auslosungen.Add(auslosung);
+        await ctx.SaveChangesAsync();
+
+        foreach (var (mannschaftId, platzhalter) in slots)
+            ctx.AuslosungsErgebnisse.Add(new AuslosungsErgebnis
+            {
+                AuslosungId = auslosung.Id, PaarungsNummer = 1,
+                HeimMannschaftId = mannschaftId, HeimPlatzhalterName = platzhalter
+            });
+        await ctx.SaveChangesAsync();
+
+        var service = ServiceFuer(ctx);
+        await service.GenerierenAusAuslosungAsync(2, [.. ctx.AuslosungsErgebnisse]);
+        return 2;
+    }
+
+    [Fact]
+    public async Task PlatzhalterKaskade_PlatzhalterGruppenphase_OhneAenderung_KeineAuswirkung()
+    {
+        // Regressionstest #395: vorher setzte die Kaskade hier ohne jede Änderung 4 von 6 Auswärts-Seiten
+        // auf leer, weil sie Team-Einträge der Gruppen-Auslosung positional mit Spielen abglich.
+        await using var ctx = NeuerContext();
+        int gruppeId = await QualiUndPlatzhalterGruppeAnlegen(ctx, mitRueckspiel: false,
+            (null, "Sieger Quali 1"), (null, "Sieger Quali 2"), (null, "Sieger Quali 3"), (null, "Sieger Quali 4"));
+        var service = ServiceFuer(ctx);
+
+        var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == gruppeId).ToList();
+        spiele.Should().HaveCount(6);
+        spiele.Should().OnlyContain(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue,
+            "die Quali ist entschieden, alle Platzhalter sind beim Generieren aufgelöst worden");
+
+        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+
+        plan.HatAuswirkungen.Should().BeFalse("an der Quali hat sich nichts geändert");
+    }
+
+    [Fact]
+    public async Task PlatzhalterKaskade_PlatzhalterGruppenphase_KorrigiertNurSpieleDesBetroffenenTeams()
+    {
+        await using var ctx = NeuerContext();
+        int gruppeId = await QualiUndPlatzhalterGruppeAnlegen(ctx, mitRueckspiel: false,
+            (null, "Sieger Quali 1"), (null, "Sieger Quali 2"), (null, "Sieger Quali 3"), (null, "Sieger Quali 4"));
+        var service = ServiceFuer(ctx);
+
+        // Alle Gruppenspiele ausgetragen
+        foreach (var s in ctx.Spiele.Where(s => s.TurnierRundeId == gruppeId).ToList())
+        {
+            s.Status = SpielStatus.Abgeschlossen;
+            ctx.SpielErgebnisse.Add(new SpielErgebnis
+            {
+                Id = 100 + s.Id, SpielId = s.Id, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 1,
+                EntscheidungArt = EntscheidungArt.RegulaereSpielzeit
+            });
+        }
+        await ctx.SaveChangesAsync();
+
+        // Quali-Spiel 1 nachträglich anders entschieden: Team 2 statt Team 1
+        var quali1 = ctx.SpielErgebnisse.First(e => e.SpielId == 1);
+        quali1.HeimToreRegulaer = 0;
+        quali1.AuswaertsToreRegulaer = 1;
+        quali1.SiegerMannschaftId = 2;
+        await ctx.SaveChangesAsync();
+
+        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        var betroffen = ctx.Spiele
+            .Where(s => s.TurnierRundeId == gruppeId && (s.HeimMannschaftId == 1 || s.AuswaertsMannschaftId == 1))
+            .Select(s => s.Id).ToList();
+        betroffen.Should().HaveCount(3);
+        plan.Schritte.OfType<KaskadenSpielSchritt>().Select(s => s.SpielId)
+            .Should().BeEquivalentTo(betroffen, "nur die drei Spiele von „Sieger Quali 1“ hängen an Quali-Spiel 1");
+
+        await service.PlatzhalterKaskadeAusfuehrenAsync(plan);
+
+        var gruppenSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == gruppeId).ToList();
+        gruppenSpiele.Should().NotContain(s => s.HeimMannschaftId == 1 || s.AuswaertsMannschaftId == 1);
+        gruppenSpiele.Count(s => s.HeimMannschaftId == 2 || s.AuswaertsMannschaftId == 2).Should().Be(3);
+        gruppenSpiele.Should().OnlyContain(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue);
+        ctx.SpielErgebnisse.Count(e => betroffen.Contains(e.SpielId)).Should().Be(0);
+        ctx.SpielErgebnisse.Count(e => e.SpielId > 4 && !betroffen.Contains(e.SpielId))
+            .Should().Be(3, "die Spiele ohne „Sieger Quali 1“ behalten ihr Ergebnis");
+    }
+
+    [Fact]
+    public async Task GenerierenAusAuslosungAsync_GemischteGruppe_BehaeltPlatzhalterTeams()
+    {
+        // Regressionstest #395: vorher entstand aus 2 festen Teams + 2 Platzhaltern eine Zweiergruppe.
+        await using var ctx = NeuerContext();
+        int gruppeId = await QualiUndPlatzhalterGruppeAnlegen(ctx, mitRueckspiel: false,
+            (9, null), (10, null), (null, "Sieger Quali 1"), (null, "Sieger Quali 2"));
+        var service = ServiceFuer(ctx);
+
+        var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == gruppeId).ToList();
+        spiele.Should().HaveCount(6, "Vierergruppe mit Hinrunde = 6 Spiele");
+        var teams = spiele.SelectMany(s => new[] { s.HeimMannschaftId, s.AuswaertsMannschaftId }).Distinct();
+        teams.Should().BeEquivalentTo(new int?[] { 9, 10, 1, 3 });
+
+        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        plan.HatAuswirkungen.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GenerierenAusAuslosungAsync_PlatzhalterGruppeMitRueckspiel_VerknuepftHinspiel()
+    {
+        await using var ctx = NeuerContext();
+        int gruppeId = await QualiUndPlatzhalterGruppeAnlegen(ctx, mitRueckspiel: true,
+            (null, "Sieger Quali 1"), (null, "Sieger Quali 2"), (null, "Sieger Quali 3"));
+        var service = ServiceFuer(ctx);
+
+        var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == gruppeId).ToList();
+        spiele.Should().HaveCount(6);
+        foreach (var rueck in spiele.Where(s => s.IstRueckspiel))
+        {
+            var hin = spiele.Single(s => s.Id == rueck.HinspielId);
+            (rueck.HeimMannschaftId, rueck.AuswaertsMannschaftId).Should().Be((hin.AuswaertsMannschaftId, hin.HeimMannschaftId));
+        }
+
+        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        plan.HatAuswirkungen.Should().BeFalse();
+    }
+
     [Fact]
     public async Task LoeschenAsync_SetztStaleFolgerundenPlatzhalterZurueck_WennQuellrundeNeuGeneriertWird()
     {
