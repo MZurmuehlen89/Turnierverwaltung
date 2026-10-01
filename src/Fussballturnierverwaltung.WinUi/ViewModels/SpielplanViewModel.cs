@@ -580,17 +580,24 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _hinrundeZuruecksetzenBefehl = new AsyncRelayCommand(HinrundeZuruecksetzenAsync, CanHinrundeZuruecksetzen);
         _rueckrundeZuruecksetzenBefehl = new AsyncRelayCommand(RueckrundeZuruecksetzenAsync, CanRueckrundeZuruecksetzen);
 
+        // #315: Vorschau nur bei offenen Platzhalter-Spielen anbietbar — eine aktive Vorschau bleibt aber
+        // abschaltbar, auch wenn die Runde inzwischen keine Platzhalter mehr hat.
         _vorschauUmschaltenBefehl = new RelayCommand(() =>
         {
             VorschauAktiv = !VorschauAktiv;
+            _vorschauUmschaltenBefehl!.NotifyCanExecuteChanged();
             _ = AktualisierePlatzhalterVorschauAsync();
-        });
+        }, () => HatPlatzhalterSpiele || VorschauAktiv);
 
         _ausfuehrlichSimulierenBefehl = new RelayCommand(AusfuehrlichSimulieren, CanAusfuehrlichSimulieren);
         _spielverlaufAnsehenBefehl = new RelayCommand(SpielverlaufAnsehen, CanSpielverlaufAnsehen);
 
         _naechsteSchweizerRundeBefehl = new AsyncRelayCommand(NaechsteSchweizerRundeGenerierenAsync, KannNaechsteSchweizerRundeGenerieren);
-        Spiele.CollectionChanged += (_, __) => SchweizerAnzeigeAktualisieren();
+        Spiele.CollectionChanged += (_, __) =>
+        {
+            SchweizerAnzeigeAktualisieren();
+            _vorschauUmschaltenBefehl.NotifyCanExecuteChanged();
+        };
     }
 
     // ── Initialisierung ───────────────────────────────────────────────────────
