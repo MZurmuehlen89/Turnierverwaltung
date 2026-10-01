@@ -121,7 +121,7 @@
                                 <TextBox Grid.Column="0" Text="{Binding MannschaftSuchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                          PlaceholderText="🔍  Suche…" />
                                 <ComboBox Grid.Column="2" ItemsSource="{Binding VerbandFilterOptionen}"
-                                          SelectedItem="{Binding MannschaftVerbandFilter, Mode=TwoWay}"
+                                          SelectedItem="{Binding MannschaftVerbandFilterAuswahl, Mode=TwoWay}"
                                           DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
                             </Grid>
                             <Grid ColumnDefinitions="*,8,Auto">

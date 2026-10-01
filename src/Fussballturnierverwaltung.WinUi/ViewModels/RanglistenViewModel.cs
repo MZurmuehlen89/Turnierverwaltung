@@ -104,7 +104,37 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(VerfuegbareMannschaftenGefiltert))]
+    [NotifyPropertyChangedFor(nameof(MannschaftVerbandFilterAuswahl))]
     private VerbandFilterOption _mannschaftVerbandFilter = _allesVerband;
+
+    // WinUI-ComboBox schreibt beim Laden bzw. beim Tausch der ItemsSource null über TwoWay zurück
+    // (siehe RundenViewModel.RundenartAuswahl, #377). Deshalb bindet sie an diese Nullable-Hülle:
+    // null wird verworfen und die Anzeige danach wiederhergestellt.
+    public VerbandFilterOption? MannschaftVerbandFilterAuswahl
+    {
+        get => MannschaftVerbandFilter;
+        set
+        {
+            if (value is not null) MannschaftVerbandFilter = value;
+            else NachComboBoxResetWiederherstellen();
+        }
+    }
+
+    private void NachComboBoxResetWiederherstellen() =>
+        Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread()?.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+            () => OnPropertyChanged(nameof(MannschaftVerbandFilterAuswahl)));
+
+    // Kanonische Options-Instanzen: die ComboBox gleicht SelectedItem per Referenz ab (#347),
+    // daher nur bei geänderter Verbandsliste neu aufbauen und die Auswahl auf die neue Instanz umhängen.
+    private IReadOnlyList<VerbandFilterOption> _verbandFilterOptionen = [_allesVerband];
+
+    partial void OnAlleVerbaendeChanged(ObservableCollection<Verband> value)
+    {
+        _verbandFilterOptionen = [_allesVerband, .. value.Select(v => new VerbandFilterOption(v.Name, v))];
+        MannschaftVerbandFilter = _verbandFilterOptionen
+            .FirstOrDefault(o => o.Wert?.Id == MannschaftVerbandFilter.Wert?.Id) ?? _allesVerband;
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(VerfuegbareMannschaftenGefiltert))]
@@ -119,8 +149,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
         .Where(r => string.IsNullOrWhiteSpace(Suchbegriff)
             || r.Name.Contains(Suchbegriff, StringComparison.OrdinalIgnoreCase));
 
-    public IReadOnlyList<VerbandFilterOption> VerbandFilterOptionen =>
-        [_allesVerband, .. AlleVerbaende.Select(v => new VerbandFilterOption(v.Name, v))];
+    public IReadOnlyList<VerbandFilterOption> VerbandFilterOptionen => _verbandFilterOptionen;
 
     public IEnumerable<Mannschaft> VerfuegbareMannschaftenGefiltert => AlleMannschaften
         .Where(m => Eintraege.All(e => e.Mannschaft.Id != m.Id))
