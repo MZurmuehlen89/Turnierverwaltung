@@ -139,10 +139,20 @@ public static class SimulationsEngine
             _                         => (istHeim ? angreifer.Heimstaerke : angreifer.Auswaertsstaerke) / 100.0
         };
 
-        // Grunderwartung ~1.35 Tore pro Team; Angriff vs. Verteidigung + Heimvorteil
-        double lambda = 1.35 * (angriff / Math.Max(0.3, verteid)) * ortFaktor;
-        return Math.Clamp(lambda, 0.25, 5.0);
+        // Issue #404: Kräfteverhältnis mit Exponent gespreizt — linear gestaucht gewannen Außenseiter viel zu oft
+        // (≈ 6 statt real 1–4 ausgeschiedene Bundesligisten in DFB-Pokal-Runde 1) bei nur ~2,1 Toren je Spiel.
+        double lambda = TOR_GRUNDERWARTUNG
+                        * Math.Pow(angriff / Math.Max(0.3, verteid), STAERKE_SPREIZUNG)
+                        * ortFaktor;
+        return Math.Clamp(lambda, MIN_TORERWARTUNG, MAX_TORERWARTUNG);
     }
+
+    // Issue #404: per Monte-Carlo an der Bundesliga kalibriert (Seed-Ratings) — ~3,1 Tore je Spiel, ~43 % Heimsiege,
+    // Meister ~79 Punkte, ~2,8 ausgeschiedene Bundesligisten in Pokalrunde 1. Abgesichert durch SimulationsKalibrierungTests.
+    private const double TOR_GRUNDERWARTUNG = 1.95;
+    private const double STAERKE_SPREIZUNG  = 2.2;
+    private const double MIN_TORERWARTUNG   = 0.1;
+    private const double MAX_TORERWARTUNG   = 5.0;
 
     // ── Poisson-Ziehung (Knuth) ───────────────────────────────────────────
 

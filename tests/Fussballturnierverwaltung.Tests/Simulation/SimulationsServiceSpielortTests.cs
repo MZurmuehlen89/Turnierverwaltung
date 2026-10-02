@@ -107,7 +107,8 @@ public class SimulationsServiceSpielortTests
     {
         var (heim, gast) = await RundeSimulierenAsync(neutral: true, gastIstGastgeber: false);
 
-        Math.Abs(heim - gast).Should().BeLessThan((int)(0.15 * (heim + gast) / 2));
+        // 25 % statt enger: das Poisson-Rauschen bei 300 Spielen liegt bei ~7 %, ein Heimvorteil bei 100/50 bei ~66 %.
+        Math.Abs(heim - gast).Should().BeLessThan((int)(0.25 * (heim + gast) / 2));
     }
 
     [Fact]
