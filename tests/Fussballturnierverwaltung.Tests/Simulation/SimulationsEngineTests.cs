@@ -316,4 +316,60 @@ public class SimulationsEngineTests
         starkGewinnt.Should().BeGreaterThan(schwachGewinnt * 3,
             "Ein stark überlegenes Team soll mehr als dreimal so oft gewinnen");
     }
+
+    // ── Neutraler Spielort (Issue #352) ────────────────────────────────────
+
+    [Theory]
+    [InlineData(false, new int[0],    Spielortvorteil.Heim)]
+    [InlineData(false, new[] { 2 },   Spielortvorteil.Heim)]
+    [InlineData(true,  new int[0],    Spielortvorteil.Neutral)]
+    [InlineData(true,  new[] { 1 },   Spielortvorteil.Heim)]
+    [InlineData(true,  new[] { 2 },   Spielortvorteil.Auswaerts)]
+    [InlineData(true,  new[] { 1, 2 }, Spielortvorteil.Neutral)]
+    [InlineData(true,  new[] { 3 },   Spielortvorteil.Neutral)]
+    public void SpielortvorteilErmitteln_BeruecksichtigtNeutralenPlatzUndGastgeber(
+        bool neutral, int[] gastgeber, Spielortvorteil erwartet)
+    {
+        SimulationsEngine.SpielortvorteilErmitteln(neutral, 1, 2, gastgeber).Should().Be(erwartet);
+    }
+
+    private static (double Heim, double Gast) MittlereTore(Mannschaft heim, Mannschaft gast, Spielortvorteil vorteil)
+    {
+        var ergebnisse = Enumerable.Range(0, 4000)
+            .Select(seed => SimulationsEngine.Simulieren(heim, gast, [], false, new Random(seed), vorteil))
+            .ToList();
+        return (ergebnisse.Average(e => e.HeimToreRegulaer), ergebnisse.Average(e => e.AuswaertsToreRegulaer));
+    }
+
+    [Fact]
+    public void NeutralerPlatz_GleichstarkeTeams_KeinHeimvorteil()
+    {
+        // Großer Abstand Heim-/Auswärtsstärke, damit ein verbliebener Heimvorteil deutlich auffiele.
+        var (heimMitVorteil, gastMitVorteil) = MittlereTore(Team(1, heim: 100, ausw: 50), Team(2, heim: 100, ausw: 50), Spielortvorteil.Heim);
+        var (heimNeutral, gastNeutral)       = MittlereTore(Team(1, heim: 100, ausw: 50), Team(2, heim: 100, ausw: 50), Spielortvorteil.Neutral);
+
+        (heimMitVorteil - gastMitVorteil).Should().BeGreaterThan(0.4, "mit Heimvorteil trifft das Heimteam klar häufiger");
+        Math.Abs(heimNeutral - gastNeutral).Should().BeLessThan(0.1, "auf neutralem Platz sind gleich starke Teams gleichauf");
+    }
+
+    [Fact]
+    public void NeutralerPlatz_OrtsfaktorIstMittelwertAusHeimUndAuswaertsstaerke()
+    {
+        // Mittelwert von 100/50 = 75 — entspricht einem Team, das daheim wie auswärts 75 hat.
+        var (heimNeutral, _) = MittlereTore(Team(1, heim: 100, ausw: 50), Team(2), Spielortvorteil.Neutral);
+        var (heimReferenz, _) = MittlereTore(Team(1, heim: 75, ausw: 75), Team(2), Spielortvorteil.Heim);
+
+        heimNeutral.Should().BeApproximately(heimReferenz, 0.0001);
+    }
+
+    [Fact]
+    public void GastgeberAlsGast_BekommtHeimstaerke()
+    {
+        var gastgeber = Team(1, heim: 100, ausw: 50);
+        var gegner    = Team(2, heim: 100, ausw: 50);
+
+        var (gegnerTore, gastgeberTore) = MittlereTore(gegner, gastgeber, Spielortvorteil.Auswaerts);
+
+        (gastgeberTore - gegnerTore).Should().BeGreaterThan(0.4, "der nominell als Gast angesetzte Gastgeber hat den Ortsvorteil");
+    }
 }

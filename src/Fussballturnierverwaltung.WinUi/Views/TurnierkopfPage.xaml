@@ -142,6 +142,29 @@
                           DisplayMemberPath="Anzeige" IsTextSearchEnabled="True"
                           HorizontalAlignment="Stretch" Margin="0,0,0,24" />
 
+                <!-- Issue #352 -->
+                <TextBlock Text="GASTGEBER" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
+
+                <TextBlock Text="Optional. Gastgeber behalten in Runden mit neutralem Spielort ihren Heimvorteil (z. B. Ausrichter einer WM/EM oder der Verein, in dessen Stadion das Finale stattfindet)."
+                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,8" />
+                <ItemsRepeater ItemsSource="{Binding GastgeberZeilen}">
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate>
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                                <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.GastgeberKandidaten}"
+                                          SelectedItem="{Binding Mannschaft, Mode=TwoWay}"
+                                          DisplayMemberPath="Name" IsTextSearchEnabled="True"
+                                          HorizontalAlignment="Stretch" Margin="0,0,8,0" />
+                                <Button Grid.Column="1" Content="✕"
+                                        Command="{Binding ElementName=Root, Path=DataContext.GastgeberEntfernenCommand}"
+                                        CommandParameter="{Binding}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+                <Button Content="Gastgeber hinzufügen" Command="{Binding GastgeberHinzufuegenCommand}"
+                        HorizontalAlignment="Left" Margin="0,4,0,24" />
+
                 <StackPanel Visibility="{Binding VerbandsQuotenSichtbar, Converter={StaticResource BoolToVisibility}}">
                     <TextBlock Text="VERBAND-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,4" />
                     <TextBlock Visibility="{Binding KapazitaetsHinweisSichtbar, Converter={StaticResource BoolToVisibility}}"

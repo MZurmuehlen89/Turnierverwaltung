@@ -23,6 +23,10 @@ public class TurnierRunde : BasisEntitaet
     // Nur aktiv wenn MitRueckspiel=true: Sieger bei Aggregat-Gleichstand via Auswärtstore ermitteln.
     public bool AuswaertstorRegelAktiv { get; set; }
 
+    // Spiele dieser Runde finden auf neutralem Platz statt (WM/EM, Europapokal-Finale, Issue #352) — die
+    // Simulation gibt dann keinem Team den Heimvorteil, außer einem Gastgeber des Turniers (TurnierGastgeber).
+    public bool NeutralerSpielort { get; set; }
+
     public string? KonfigurationJson { get; set; }
 
     // Wenn true, wird der Eingang dieser Runde nicht gegen die unmittelbar vorangehende Runde in der Liste

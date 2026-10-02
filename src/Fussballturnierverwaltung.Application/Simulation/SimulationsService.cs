@@ -96,12 +96,19 @@ public class SimulationsService(
             throw new InvalidOperationException(
                 $"Spiel #{spiel.Spielnummer} ist ein Rückspiel, dessen Hinspiel noch kein Ergebnis hat.");
 
+        // Issue #352: auf neutralem Platz behält nur ein Gastgeber des Turniers seinen Heimvorteil.
+        IReadOnlyCollection<int> gastgeberIds = runde.NeutralerSpielort
+            ? await instanzRepository.GastgeberIdsAsync(spiel.TurnierInstanzId, ct)
+            : [];
+        var spielortvorteil = SimulationsEngine.SpielortvorteilErmitteln(
+            runde.NeutralerSpielort, spiel.HeimMannschaftId, spiel.AuswaertsMannschaftId, gastgeberIds);
+
         // Issue #171: Ereignisse werden unabhängig vom gewählten Modus immer berechnet und
         // gespeichert (In-Memory-Berechnung ist vernachlässigbar teuer) — sonst bleibt der
         // Spielverlauf leer, wenn ein schnellsimuliertes Spiel später im Detail betrachtet wird.
         var ergebnis = SimulationsEngine.Simulieren(
             spiel.HeimMannschaft, spiel.AuswaertsMannschaft,
-            istKoHinspiel || istKoRueckspiel ? [] : verfahren, ausfuehrlich: true, rng);
+            istKoHinspiel || istKoRueckspiel ? [] : verfahren, ausfuehrlich: true, rng, spielortvorteil);
 
         if (istKoRueckspiel && verfahren.Count > 0 &&
             HinRueckspielWertung.EntscheidungsverfahrenNoetig(
@@ -111,7 +118,7 @@ public class SimulationsService(
                 runde.AuswaertstorRegelAktiv))
         {
             var (hv, gv, he, ge, art, extras, losGewinnerHeim) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
-                spiel.HeimMannschaft, spiel.AuswaertsMannschaft, verfahren, ausfuehrlich: true, rng);
+                spiel.HeimMannschaft, spiel.AuswaertsMannschaft, verfahren, ausfuehrlich: true, rng, spielortvorteil);
             ergebnis = ergebnis with
             {
                 HeimToreVerlaengerung      = hv,

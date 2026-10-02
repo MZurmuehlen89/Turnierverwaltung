@@ -34,6 +34,10 @@ public class TurnierInstanz : BasisEntitaet
     public int? TitelverteidigerId { get; set; }
     public Mannschaft? Titelverteidiger { get; set; }
 
+    // Gastgeber (Issue #352) — behalten auf neutralem Platz (TurnierRunde.NeutralerSpielort) ihren Heimvorteil.
+    // Mehrere möglich (WM 2026, EM 2008/2012); bei Vereinen z.B. der Klub, in dessen Stadion das Finale stattfindet.
+    public ICollection<TurnierGastgeber> Gastgeber { get; set; } = new List<TurnierGastgeber>();
+
     public ICollection<TurnierRunde> Runden { get; set; } = new List<TurnierRunde>();
     public ICollection<Spiel> Spiele { get; set; } = new List<Spiel>();
     public ICollection<Auslosung> Auslosungen { get; set; } = new List<Auslosung>();

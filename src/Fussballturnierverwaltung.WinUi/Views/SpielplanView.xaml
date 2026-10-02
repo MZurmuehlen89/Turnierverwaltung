@@ -53,6 +53,7 @@
                         <Run Text=" · " />
                         <Run Text="{Binding Spiele.Count}" />
                         <Run Text=" Spiel(e)" />
+                        <Run Text="{Binding SpielortHinweis}" />
                     </TextBlock>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
                                 Visibility="{Binding ZeigtSchweizerRundenSteuerung, Converter={StaticResource BoolToVisibility}}">

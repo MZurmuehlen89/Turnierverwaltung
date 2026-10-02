@@ -72,6 +72,8 @@ public class TurnierInstanzService(
             StandardRegelwerkId   = instanzEingabe.StandardRegelwerkId,
             TitelverteidigerId    = instanzEingabe.TitelverteidigerId
         };
+        foreach (var gastgeberId in (instanzEingabe.GastgeberIds ?? []).Distinct())
+            instanz.Gastgeber.Add(new TurnierGastgeber { MannschaftId = gastgeberId });
 
         await repository.HinzufuegenAsync(instanz, ct);
         logger.LogInformation("TurnierInstanz '{Name}' ({Saison}) angelegt.", instanz.Name, instanz.SaisonOderJahr);
@@ -108,6 +110,8 @@ public class TurnierInstanzService(
             StandardRegelwerkId   = instanzEingabe.StandardRegelwerkId,
             TitelverteidigerId    = instanzEingabe.TitelverteidigerId
         };
+        foreach (var gastgeberId in (instanzEingabe.GastgeberIds ?? []).Distinct())
+            instanz.Gastgeber.Add(new TurnierGastgeber { MannschaftId = gastgeberId });
 
         for (int i = 0; i < rundenEingaben.Count; i++)
         {
@@ -123,6 +127,7 @@ public class TurnierInstanzService(
                 RegelwerkId                = re.RegelwerkId,
                 MitRueckspiel              = re.MitRueckspiel,
                 AuswaertstorRegelAktiv     = re.AuswaertstorRegelAktiv,
+                NeutralerSpielort          = re.NeutralerSpielort,
                 KonfigurationJson          = re.KonfigurationJson,
                 EingangUeberUebergangsregeln = re.EingangUeberUebergangsregeln,
                 PaarungFestVorgegeben      = re.PaarungFestVorgegeben,
@@ -164,6 +169,8 @@ public class TurnierInstanzService(
         instanz.StandardRegelwerkId  = eingabe.StandardRegelwerkId;
         instanz.TitelverteidigerId   = eingabe.TitelverteidigerId;
         await repository.AktualisierenAsync(instanz, ct);
+        if (eingabe.GastgeberIds is not null)
+            await repository.GastgeberErsetzenAsync(id, eingabe.GastgeberIds, ct);
         logger.LogInformation("TurnierInstanz '{Name}' (ID {Id}) aktualisiert.", instanz.Name, id);
     }
 
@@ -204,6 +211,7 @@ public class TurnierInstanzService(
             RegelwerkId               = e.RegelwerkId,
             MitRueckspiel             = e.MitRueckspiel,
             AuswaertstorRegelAktiv    = e.AuswaertstorRegelAktiv,
+            NeutralerSpielort         = e.NeutralerSpielort,
             KonfigurationJson         = e.KonfigurationJson,
             EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
             PaarungFestVorgegeben     = e.PaarungFestVorgegeben,
@@ -242,6 +250,7 @@ public class TurnierInstanzService(
             RegelwerkId               = e.RegelwerkId,
             MitRueckspiel             = e.MitRueckspiel,
             AuswaertstorRegelAktiv    = e.AuswaertstorRegelAktiv,
+            NeutralerSpielort         = e.NeutralerSpielort,
             KonfigurationJson         = e.KonfigurationJson,
             EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
             PaarungFestVorgegeben     = e.PaarungFestVorgegeben,

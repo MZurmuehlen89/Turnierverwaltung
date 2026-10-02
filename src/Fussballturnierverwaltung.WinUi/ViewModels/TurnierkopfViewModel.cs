@@ -42,6 +42,18 @@ public partial class LandesQuoteZeile : ObservableObject
     [ObservableProperty] private int _anzahl = 1;
 }
 
+/// <summary>Gastgeber-Zeile (Issue #352). Ein <c>null</c> aus der ComboBox kommt nur transient (Auswahl vor
+/// <c>Loaded</c> gesetzt, siehe WinUi-CLAUDE.md) und wird ignoriert — entfernt wird eine Zeile über ✕.</summary>
+public partial class GastgeberZeile : ObservableObject
+{
+    private Mannschaft? _mannschaft;
+    public Mannschaft? Mannschaft
+    {
+        get => _mannschaft;
+        set { if (value is not null) SetProperty(ref _mannschaft, value); else OnPropertyChanged(); }
+    }
+}
+
 /// <summary>"Turnierkopf"-Tab von <see cref="TurnierlisteViewModel"/> (Issue #297) — Basisdaten,
 /// Auslosungsfilter (Verband/Land/Mannschaftsart), Standard-Regelwerk, Status-Anzeige/-Auswahl und
 /// Verband-Quoten einer <see cref="TurnierInstanz"/> (Vorlage- oder Turnier-Status identisch behandelt).
@@ -256,6 +268,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             LandFilter = _keinLand;
         CollectionSyncVerzoegern(LandOptionenGefiltertSynchronisieren);
         CollectionSyncVerzoegern(TitelverteidigerFilterAnwenden);
+        CollectionSyncVerzoegern(GastgeberFilterAnwenden);
     }
 
     partial void OnLandFilterChanged(LandOption value)
@@ -268,6 +281,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             VerbandFilter = _keinVerband;
         CollectionSyncVerzoegern(VerbandOptionenGefiltertSynchronisieren);
         CollectionSyncVerzoegern(TitelverteidigerFilterAnwenden);
+        CollectionSyncVerzoegern(GastgeberFilterAnwenden);
     }
 
     public IReadOnlyList<TeamfilterOption> TeamfilterOptionen =>
@@ -306,6 +320,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     {
         if (_populiertGerade > 0 || value is null) return;
         CollectionSyncVerzoegern(TitelverteidigerFilterAnwenden);
+        CollectionSyncVerzoegern(GastgeberFilterAnwenden);
     }
 
     private TitelverteidigerOption TitelverteidigerOptionFuer(int? mannschaftId) =>
@@ -346,6 +361,87 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             Titelverteidiger = _keinTitelverteidiger;
         TitelverteidigerOptionenSynchronisieren();
     }
+
+    // ── Gastgeber (Issue #352) ────────────────────────────────────────────────
+    // Behalten in Runden mit neutralem Spielort ihren Heimvorteil. Auswahl wie beim Titelverteidiger nach dem
+    // Auslosungsfilter vorgefiltert (PasstZumAuslosungsfilter); gewählte Gastgeber bleiben immer enthalten, sonst
+    // fände die ComboBox ihre Auswahl nicht. Stabile Collection-Instanzen mit inkrementellem Abgleich
+    // (WinUI3-Fallstrick #335), Referenzabgleich der ComboBox über dieselben Mannschaft-Objekte.
+    public ObservableCollection<GastgeberZeile> GastgeberZeilen { get; } = [];
+    public ObservableCollection<Mannschaft> GastgeberKandidaten { get; } = [];
+
+    // Alle Mannschaften nach Name sortiert.
+    private IReadOnlyList<Mannschaft> _alleGastgeberKandidaten = [];
+
+    [RelayCommand]
+    private void GastgeberHinzufuegen() => GastgeberZeilen.Add(new GastgeberZeile());
+
+    [RelayCommand]
+    private void GastgeberEntfernen(GastgeberZeile zeile) => GastgeberZeilen.Remove(zeile);
+
+    private void GastgeberZeilenAbonnieren()
+    {
+        GastgeberZeilen.CollectionChanged += (_, e) =>
+        {
+            if (e.NewItems is not null)
+                foreach (GastgeberZeile z in e.NewItems)
+                    z.PropertyChanged += (_, _) =>
+                    {
+                        if (_populiertGerade > 0) return;
+                        IsDirty = true;
+                        // Eine zuvor nur wegen der Auswahl enthaltene Mannschaft fällt wieder heraus.
+                        CollectionSyncVerzoegern(() => GastgeberOptionenSynchronisieren());
+                    };
+            if (_populiertGerade > 0) return;
+            IsDirty = true;
+            CollectionSyncVerzoegern(() => GastgeberOptionenSynchronisieren());
+        };
+    }
+
+    private void GastgeberSetzen(IEnumerable<int> mannschaftIds)
+    {
+        _populiertGerade++;
+        try
+        {
+            var gastgeber = _alleGastgeberKandidaten.Where(m => mannschaftIds.Contains(m.Id)).ToList();
+            GastgeberZeilen.Clear();
+            GastgeberOptionenSynchronisieren(gastgeber);
+            foreach (var m in gastgeber)
+                GastgeberZeilen.Add(new GastgeberZeile { Mannschaft = m });
+        }
+        finally
+        {
+            _populiertGerade--;
+        }
+    }
+
+    /// <summary>Gleicht die Auswahlliste mit dem Auslosungsfilter ab. Gewählte Gastgeber (und optional
+    /// <paramref name="zusaetzlich"/>, bevor sie gesetzt werden) bleiben immer enthalten.</summary>
+    private void GastgeberOptionenSynchronisieren(IReadOnlyCollection<Mannschaft>? zusaetzlich = null)
+    {
+        var gewaehlt = GastgeberZeilen.Select(z => z.Mannschaft).OfType<Mannschaft>().ToHashSet();
+        if (zusaetzlich is not null) gewaehlt.UnionWith(zusaetzlich);
+        IReadOnlyList<Mannschaft> soll = _alleGastgeberKandidaten
+            .Where(m => gewaehlt.Contains(m) || PasstZumAuslosungsfilter(m))
+            .ToList();
+        CollectionInkrementellSynchronisieren(GastgeberKandidaten, soll);
+    }
+
+    /// <summary>Nach einer Filteränderung durch den Nutzer: Gastgeber, die nicht mehr zum Filter passen, werden
+    /// entfernt (Prävention statt Speicher-Validierung, analog <see cref="TitelverteidigerFilterAnwenden"/>),
+    /// danach die Liste abgeglichen.</summary>
+    private void GastgeberFilterAnwenden()
+    {
+        foreach (var zeile in GastgeberZeilen.Where(z => z.Mannschaft is not null && !PasstZumAuslosungsfilter(z.Mannschaft)).ToList())
+            GastgeberZeilen.Remove(zeile);
+        GastgeberOptionenSynchronisieren();
+    }
+
+    private List<int> GastgeberIds() => GastgeberZeilen
+        .Where(z => z.Mannschaft is not null)
+        .Select(z => z.Mannschaft!.Id)
+        .Distinct()
+        .ToList();
 
     // ── Status-Anzeige/-Auswahl ───────────────────────────────────────────────
     [ObservableProperty] private TurnierStatusOption _status = new(TurnierStatusZuTextConverter.StatusAnzeigeName(TurnierStatus.Geplant), TurnierStatus.Geplant);
@@ -506,6 +602,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         _mannschaftService = mannschaftService;
         QuotenZeilenAbonnieren();
         LandesQuotenZeilenAbonnieren();
+        GastgeberZeilenAbonnieren();
     }
 
     /// <summary>Lädt Verbände/Länder/Regelwerke einmalig — vom Composite (<see cref="TurnierlisteViewModel"/>)
@@ -520,6 +617,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         AlleLaender = laender;
         Regelwerke = new ObservableCollection<Regelwerk>(await _regelwerkService.AlleAbrufenAsync());
         var mannschaften = await _mannschaftService.AlleAbrufenMitLandAsync();
+        _alleGastgeberKandidaten = mannschaften.OrderBy(m => m.Name).ToList();
+        GastgeberOptionenSynchronisieren();
         _titelverteidigerKandidaten = mannschaften
             .OrderBy(m => m.Name)
             .Select(m => (new TitelverteidigerOption(m.Name, m.Id), m))
@@ -554,6 +653,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 LogoDaten = null;
                 QuotenZeilen = [];
                 LandesQuotenZeilen = [];
+                GastgeberSetzen([]);
                 ErsteRundeEingang = null;
             }
             else
@@ -592,6 +692,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             {
                 var detail = await _service.FindenNachIdMitRundenAsync(instanz.Id);
                 ErsteRundeEingang = detail?.Runden.OrderBy(r => r.Reihenfolge).FirstOrDefault()?.EingangsMannschaftsanzahl;
+                GastgeberSetzen(detail?.Gastgeber.Select(g => g.MannschaftId).ToList() ?? []);
                 await QuotenLadenAsync(instanz.Id);
                 await LandesQuotenLadenAsync(instanz.Id);
             }
@@ -664,6 +765,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             LogoDaten = null;
             QuotenZeilen = [];
             LandesQuotenZeilen = [];
+            GastgeberSetzen([]);
             ErsteRundeEingang = null;
             Fehlermeldung = null;
         }
@@ -715,7 +817,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                     ZielMannschaftsanzahl: zielAnzahl, Startdatum: startdatum, Enddatum: enddatum, Status: Status.Wert,
                     VerbandId: verbandId, LandId: landId, MannschaftsartFilter: TeamFilter.Wert,
                     StandardRegelwerkId: standardRwId, Logo: LogoDaten, TitelverteidigerId: Titelverteidiger?.Wert,
-                    Variante: Variante);
+                    Variante: Variante, GastgeberIds: GastgeberIds());
                 ergebnis = await _service.ErstellenAsync(eingabe);
             }
             else if (AktuelleInstanz is not null)
@@ -739,7 +841,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                     ZielMannschaftsanzahl: zielAnzahl, Startdatum: startdatum, Enddatum: enddatum, Status: AktuelleInstanz.Status,
                     VerbandId: verbandId, LandId: landId, MannschaftsartFilter: TeamFilter.Wert,
                     StandardRegelwerkId: standardRwId, Logo: LogoDaten, TitelverteidigerId: Titelverteidiger?.Wert,
-                    Variante: Variante);
+                    Variante: Variante, GastgeberIds: GastgeberIds());
                 await _service.VollAktualisierenAsync(id, eingabe);
                 await _verbandsQuoteService.QuotenErsetzenAsync(id, quotenZeilen, ErsteRundeEingang);
                 await _landesQuoteService.QuotenErsetzenAsync(id, landesQuotenZeilen, ErsteRundeEingang);

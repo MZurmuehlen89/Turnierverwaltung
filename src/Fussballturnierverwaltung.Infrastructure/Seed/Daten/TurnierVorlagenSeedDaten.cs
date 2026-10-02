@@ -14,40 +14,73 @@ public static class TurnierVorlagenSeedDaten
         IReadOnlyDictionary<string, int>? regelwerkLookup = null,
         IReadOnlyDictionary<string, int>? verbandLookup = null,
         IReadOnlyDictionary<string, int>? landLookup = null,
-        IReadOnlyDictionary<string, int>? ranglistenQuelleLookup = null) =>
-    [
-        FifaWm48Teams(regelwerkLookup),
-        FifaWm32Teams(regelwerkLookup),
-        FifaWm24Teams1986Bis1994(regelwerkLookup),
-        FifaWm24Teams1982(regelwerkLookup),
-        FifaWm16Teams(regelwerkLookup),
-        FifaKlubWm32Teams(regelwerkLookup),
-        UefaEm24Teams(regelwerkLookup, verbandLookup),
-        UefaEm16Teams(regelwerkLookup, verbandLookup),
-        UefaEm8Teams(regelwerkLookup, verbandLookup),
-        UefaNationsLeagueLigaA(regelwerkLookup, verbandLookup),
-        CopaAmerica16Teams(regelwerkLookup),
-        CopaAmerica12Teams(regelwerkLookup),
-        AfrikaCup24Teams(regelwerkLookup, verbandLookup),
-        AfcAsianCup24Teams(regelwerkLookup, verbandLookup),
-        ConcacafGoldCup16Teams(regelwerkLookup, verbandLookup),
-        UefaChampionsLeague32TeamsKlassisch(regelwerkLookup, verbandLookup),
-        UefaChampionsLeague32TeamsModern(regelwerkLookup, verbandLookup),
-        UefaChampionsLeague36TeamsModern(regelwerkLookup, verbandLookup, ranglistenQuelleLookup),
-        UefaEuropaLeague36Teams(regelwerkLookup, verbandLookup, ranglistenQuelleLookup),
-        UefaConferenceLeague36Teams(regelwerkLookup, verbandLookup, ranglistenQuelleLookup),
-        DfbPokal64Teams(regelwerkLookup, verbandLookup, landLookup),
-        FaCup64Teams(regelwerkLookup, verbandLookup, landLookup),
-        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Bundesliga",     "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ),
-        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "2. Bundesliga",  "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ),
-        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Premier League", "20 Teams",  "ENG", 20, LIGA_TORDIFFERENZ),
-        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "La Liga",        "20 Teams",  "ESP", 20, LIGA_DIREKTER_VERGLEICH),
-        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Serie A",        "20 Teams",  "ITA", 20, LIGA_DIREKTER_VERGLEICH),
-        NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Ligue 1",        "18 Teams",  "FRA", 18, LIGA_TORDIFFERENZ),
-        MiniTurnier8Teams(regelwerkLookup),
-        MiniTurnier4Teams(regelwerkLookup),
-        FreiesTurnier(),
-    ];
+        IReadOnlyDictionary<string, int>? ranglistenQuelleLookup = null)
+    {
+        List<TurnierInstanz> vorlagen =
+        [
+            FifaWm48Teams(regelwerkLookup),
+            FifaWm32Teams(regelwerkLookup),
+            FifaWm24Teams1986Bis1994(regelwerkLookup),
+            FifaWm24Teams1982(regelwerkLookup),
+            FifaWm16Teams(regelwerkLookup),
+            FifaKlubWm32Teams(regelwerkLookup),
+            UefaEm24Teams(regelwerkLookup, verbandLookup),
+            UefaEm16Teams(regelwerkLookup, verbandLookup),
+            UefaEm8Teams(regelwerkLookup, verbandLookup),
+            UefaNationsLeagueLigaA(regelwerkLookup, verbandLookup),
+            CopaAmerica16Teams(regelwerkLookup),
+            CopaAmerica12Teams(regelwerkLookup),
+            AfrikaCup24Teams(regelwerkLookup, verbandLookup),
+            AfcAsianCup24Teams(regelwerkLookup, verbandLookup),
+            ConcacafGoldCup16Teams(regelwerkLookup, verbandLookup),
+            UefaChampionsLeague32TeamsKlassisch(regelwerkLookup, verbandLookup),
+            UefaChampionsLeague32TeamsModern(regelwerkLookup, verbandLookup),
+            UefaChampionsLeague36TeamsModern(regelwerkLookup, verbandLookup, ranglistenQuelleLookup),
+            UefaEuropaLeague36Teams(regelwerkLookup, verbandLookup, ranglistenQuelleLookup),
+            UefaConferenceLeague36Teams(regelwerkLookup, verbandLookup, ranglistenQuelleLookup),
+            DfbPokal64Teams(regelwerkLookup, verbandLookup, landLookup),
+            FaCup64Teams(regelwerkLookup, verbandLookup, landLookup),
+            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Bundesliga",     "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ),
+            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "2. Bundesliga",  "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ),
+            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Premier League", "20 Teams",  "ENG", 20, LIGA_TORDIFFERENZ),
+            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "La Liga",        "20 Teams",  "ESP", 20, LIGA_DIREKTER_VERGLEICH),
+            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Serie A",        "20 Teams",  "ITA", 20, LIGA_DIREKTER_VERGLEICH),
+            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Ligue 1",        "18 Teams",  "FRA", 18, LIGA_TORDIFFERENZ),
+            MiniTurnier8Teams(regelwerkLookup),
+            MiniTurnier4Teams(regelwerkLookup),
+            FreiesTurnier(),
+        ];
+        foreach (var vorlage in vorlagen)
+            NeutraleSpielorteSetzen(vorlage);
+        return vorlagen;
+    }
+
+    // ── Neutraler Spielort (Issue #352) ────────────────────────────────────────
+
+    // Endrunden-Turniere finden komplett in einem Gastgeberland statt — Heimvorteil hat dort nur ein Gastgeber.
+    private static readonly HashSet<string> _komplettNeutral =
+        ["FIFA WM", "FIFA Klub-WM", "UEFA EM", "Copa América", "Afrika-Cup", "AFC Asian Cup", "CONCACAF Gold Cup"];
+
+    // Europapokal-/Pokalfinale an vorab festgelegtem Ort; FA-Cup-Halbfinale seit 2008 ebenfalls in Wembley.
+    private static readonly HashSet<string> _neutralesFinale =
+        ["UEFA Champions League", "UEFA Europa League", "UEFA Conference League", "DFB-Pokal", "FA Cup"];
+
+    private static void NeutraleSpielorteSetzen(TurnierInstanz vorlage)
+    {
+        foreach (var runde in vorlage.Runden)
+            runde.NeutralerSpielort = IstNeutralerSpielort(vorlage.Name, runde);
+    }
+
+    private static bool IstNeutralerSpielort(string vorlagenName, TurnierRunde runde) => vorlagenName switch
+    {
+        _ when _komplettNeutral.Contains(vorlagenName) => true,
+        // Final Four: Halbfinale, Spiel um Platz 3 und Finale beim Gastgeber der Endrunde
+        "UEFA Nations League Liga A" => runde.Rundenart is Rundenart.Finale or Rundenart.SpielUmPlatzDrei
+                                        || runde.Name == "Halbfinale",
+        "FA Cup" => runde.Rundenart == Rundenart.Finale || runde.Name == "Halbfinale",
+        _ when _neutralesFinale.Contains(vorlagenName) => runde.Rundenart == Rundenart.Finale,
+        _ => false
+    };
 
     // Regelwerk-Namen für nationale Ligen (Issue #350) — müssen mit RegelwerkeSeedDaten übereinstimmen.
     public const string LIGA_TORDIFFERENZ = "Nationale Liga (Tordifferenz vor direktem Vergleich)";

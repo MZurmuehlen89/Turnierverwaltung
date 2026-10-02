@@ -10,6 +10,8 @@ public interface ITurnierInstanzRepository : IRepository<TurnierInstanz>
     Task<TurnierInstanz?> FindenNachIdMitRundenAsync(int id, CancellationToken ct = default);
     Task<IReadOnlyList<TurnierInstanz>> AlleNachStatusFindenAsync(TurnierStatus status, CancellationToken ct = default);
     Task<IReadOnlyList<TurnierRunde>> RundenErsetzenAsync(int instanzId, IReadOnlyList<TurnierRunde> neueRunden, CancellationToken ct = default);
+    Task<IReadOnlyList<int>> GastgeberIdsAsync(int instanzId, CancellationToken ct = default);
+    Task GastgeberErsetzenAsync(int instanzId, IReadOnlyCollection<int> mannschaftIds, CancellationToken ct = default);
     Task LoeschenMitSpielen(int id, CancellationToken ct = default);
 
     /// <summary>Issue #294: vollständiger Objektgraph für <see cref="TurnierKlonService"/> — Runden inkl.

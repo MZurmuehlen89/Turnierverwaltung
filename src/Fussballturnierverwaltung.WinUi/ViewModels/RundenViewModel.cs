@@ -232,6 +232,7 @@ public partial class RundeZeile : ObservableObject
     [ObservableProperty] private int? _anzahlSpieltage;
     [ObservableProperty] private bool _mitRueckspiel;
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
+    [ObservableProperty] private bool _neutralerSpielort;
     [ObservableProperty] private RegelwerkOption _regelwerk = KeinRegelwerk;
     [ObservableProperty] private bool _paarungFestVorgegeben;
     [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = KeineAuslosungsartVorgabe;
@@ -357,7 +358,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     private static readonly HashSet<string> FormFelder =
     [
         nameof(Name), nameof(Rundenart), nameof(EingangsMannschaftsanzahl), nameof(AusgangsMannschaftsanzahl),
-        nameof(GruppenAnzahl), nameof(AnzahlSpieltage), nameof(MitRueckspiel), nameof(AuswaertstorRegelAktiv),
+        nameof(GruppenAnzahl), nameof(AnzahlSpieltage), nameof(MitRueckspiel), nameof(AuswaertstorRegelAktiv), nameof(NeutralerSpielort),
         nameof(Regelwerk), nameof(PaarungFestVorgegeben), nameof(VorgegebeneAuslosungsart),
         nameof(StandardRanglistenQuelle), nameof(TitelverteidigerInTopf1)
     ];
@@ -426,6 +427,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     private bool _mitRueckspiel;
 
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
+    [ObservableProperty] private bool _neutralerSpielort;
     [ObservableProperty] private RegelwerkOption _regelwerk = RundeZeile.KeinRegelwerk;
     [ObservableProperty] private bool _paarungFestVorgegeben;
     [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = RundeZeile.KeineAuslosungsartVorgabe;
@@ -563,6 +565,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
             AnzahlSpieltage = zeile?.AnzahlSpieltage;
             MitRueckspiel = zeile?.MitRueckspiel ?? false;
             AuswaertstorRegelAktiv = zeile?.AuswaertstorRegelAktiv ?? false;
+            NeutralerSpielort = zeile?.NeutralerSpielort ?? false;
             Regelwerk = zeile?.Regelwerk ?? RundeZeile.KeinRegelwerk;
             PaarungFestVorgegeben = zeile?.PaarungFestVorgegeben ?? false;
             VorgegebeneAuslosungsart = zeile?.VorgegebeneAuslosungsart ?? RundeZeile.KeineAuslosungsartVorgabe;
@@ -589,6 +592,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         AusgewaehlteRunde.AnzahlSpieltage = AnzahlSpieltage;
         AusgewaehlteRunde.MitRueckspiel = MitRueckspiel;
         AusgewaehlteRunde.AuswaertstorRegelAktiv = AuswaertstorRegelAktiv;
+        AusgewaehlteRunde.NeutralerSpielort = NeutralerSpielort;
         AusgewaehlteRunde.Regelwerk = Regelwerk;
         AusgewaehlteRunde.PaarungFestVorgegeben = PaarungFestVorgegeben;
         // null kommt nur transient aus der ComboBox (Auswahl beim ItemsSource-Wechsel nicht gefunden) — nie übernehmen.
@@ -762,6 +766,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         AnzahlSpieltage = RundenKonfiguration.AusJson(r.KonfigurationJson).AnzahlSpieltage,
         MitRueckspiel = r.MitRueckspiel,
         AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv,
+        NeutralerSpielort = r.NeutralerSpielort,
         Regelwerk = r.Regelwerk is not null ? new RegelwerkOption(r.Regelwerk.Name, r.Regelwerk) : RundeZeile.KeinRegelwerk,
         PaarungFestVorgegeben = r.PaarungFestVorgegeben,
         VorgegebeneAuslosungsart = AuslosungsartVorgabeOptionFuer(r.VorgegebeneAuslosungsart),
@@ -880,7 +885,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         VorgegebeneAuslosungsart: z.VorgegebeneAuslosungsart.Wert,
         KombinationstabelleJson: z.KombinationstabelleJson,
         StandardRanglistenQuelleId: z.StandardRanglistenQuelle.Wert,
-        TitelverteidigerInTopf1: z.StandardRanglistenQuelle.Wert is not null && z.TitelverteidigerInTopf1)).ToList();
+        TitelverteidigerInTopf1: z.StandardRanglistenQuelle.Wert is not null && z.TitelverteidigerInTopf1,
+        NeutralerSpielort: z.NeutralerSpielort)).ToList();
 
     public List<UebergangsregelPositionsEingabe> UebergangsregelnZuEingaben() => _alleUebergaenge
         .Where(b => b.QuellRunde is not null && b.ZielRunde is not null && b.QuellRunde != b.ZielRunde)

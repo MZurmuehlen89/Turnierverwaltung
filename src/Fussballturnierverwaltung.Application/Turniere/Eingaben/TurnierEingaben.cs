@@ -17,7 +17,8 @@ public record TurnierInstanzVollAktualisierenEingabe(
     int? StandardRegelwerkId = null,
     byte[]? Logo = null,
     int? TitelverteidigerId = null,
-    string Variante = "");
+    string Variante = "",
+    IReadOnlyList<int>? GastgeberIds = null);
 
 public record TurnierInstanzErstellenEingabe(
     string Name,
@@ -34,7 +35,8 @@ public record TurnierInstanzErstellenEingabe(
     int? StandardRegelwerkId = null,
     byte[]? Logo = null,
     int? TitelverteidigerId = null,
-    string Variante = "");
+    string Variante = "",
+    IReadOnlyList<int>? GastgeberIds = null);
 
 public record TurnierAktualisierenEingabe(
     string Name,
@@ -60,7 +62,8 @@ public record TurnierRundeEingabe(
     Auslosungsart? VorgegebeneAuslosungsart = null,
     string? KombinationstabelleJson = null,
     int? StandardRanglistenQuelleId = null,
-    bool TitelverteidigerInTopf1 = false);
+    bool TitelverteidigerInTopf1 = false,
+    bool NeutralerSpielort = false);
 
 public record RegelwerkErstellenEingabe(
     string Name,

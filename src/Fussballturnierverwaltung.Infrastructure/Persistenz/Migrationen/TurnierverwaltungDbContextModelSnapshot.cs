@@ -876,6 +876,30 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.ToTable("LandesQuoten", (string)null);
                 });
 
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierGastgeber", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("MannschaftId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TurnierInstanzId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MannschaftId");
+
+                    b.HasIndex("TurnierInstanzId", "MannschaftId")
+                        .IsUnique();
+
+                    b.ToTable("TurnierGastgeber", (string)null);
+                });
+
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", b =>
                 {
                     b.Property<int>("Id")
@@ -988,6 +1012,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("NeutralerSpielort")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("PaarungFestVorgegeben")
                         .HasColumnType("bit");
@@ -1465,6 +1494,25 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("TurnierInstanz");
                 });
 
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierGastgeber", b =>
+                {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Mannschaft", "Mannschaft")
+                        .WithMany()
+                        .HasForeignKey("MannschaftId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", "TurnierInstanz")
+                        .WithMany("Gastgeber")
+                        .HasForeignKey("TurnierInstanzId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Mannschaft");
+
+                    b.Navigation("TurnierInstanz");
+                });
+
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", b =>
                 {
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Land", "Land")
@@ -1615,6 +1663,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", b =>
                 {
                     b.Navigation("Auslosungen");
+
+                    b.Navigation("Gastgeber");
 
                     b.Navigation("LandesQuoten");
 

@@ -11,7 +11,8 @@ namespace Fussballturnierverwaltung.Application.Turniere;
 /// eine neue Saison duplizieren": beides ist ein reiner Kopiervorgang ohne persistente Rückreferenz auf
 /// die Quelle. Kopiert Kopf-Felder, Runden, Übergangsregeln, Verbands- und Landesquoten sowie fest vorgegebene
 /// Platzhalter-Paarungen (Issue #372) — NIE Spiele, echte Auslosungen oder SimulationsLaeufe, auch nicht von einer bereits gespielten Quelle (eine Vorlage ist ein
-/// Musterturnier ohne Teams/Ergebnisse, ein Klon startet immer bei null).</summary>
+/// Musterturnier ohne Teams/Ergebnisse, ein Klon startet immer bei null). Titelverteidiger und Gastgeber (Issue #352) sind saisonspezifisch und
+/// werden ebenfalls nicht kopiert.</summary>
 public class TurnierKlonService(
     ITurnierInstanzRepository repository,
     ILogger<TurnierKlonService> logger)
@@ -59,6 +60,7 @@ public class TurnierKlonService(
                 RegelwerkId               = runde.RegelwerkId,
                 MitRueckspiel             = runde.MitRueckspiel,
                 AuswaertstorRegelAktiv    = runde.AuswaertstorRegelAktiv,
+                NeutralerSpielort         = runde.NeutralerSpielort,
                 KonfigurationJson         = runde.KonfigurationJson,
                 EingangUeberUebergangsregeln = runde.EingangUeberUebergangsregeln,
                 PaarungFestVorgegeben     = runde.PaarungFestVorgegeben,

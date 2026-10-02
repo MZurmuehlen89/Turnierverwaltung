@@ -20,6 +20,8 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             .Include(ti => ti.Runden.OrderBy(r => r.Reihenfolge))
                 .ThenInclude(r => r.Regelwerk)
             .Include(ti => ti.StandardRegelwerk)
+            .Include(ti => ti.Gastgeber)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(ti => ti.Id == id, ct);
 
     public async Task<IReadOnlyList<TurnierInstanz>> AlleNachStatusFindenAsync(TurnierStatus status, CancellationToken ct = default)
@@ -40,6 +42,29 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
                 .ThenInclude(a => a.Ergebnisse)
             .AsSplitQuery()
             .FirstOrDefaultAsync(ti => ti.Id == id, ct);
+
+    public async Task<IReadOnlyList<int>> GastgeberIdsAsync(int instanzId, CancellationToken ct = default)
+        => await Context.TurnierGastgeber
+            .Where(g => g.TurnierInstanzId == instanzId)
+            .Select(g => g.MannschaftId)
+            .ToListAsync(ct);
+
+    /// <summary>Issue #352: gleicht die Gastgeber per Schlüssel-Diff ab (nur Hinzufügen/Entfernen, kein
+    /// Löschen und Neuanlegen unveränderter Einträge).</summary>
+    public async Task GastgeberErsetzenAsync(int instanzId, IReadOnlyCollection<int> mannschaftIds, CancellationToken ct = default)
+    {
+        var soll = mannschaftIds.ToHashSet();
+        var alte = await Context.TurnierGastgeber
+            .Where(g => g.TurnierInstanzId == instanzId)
+            .ToListAsync(ct);
+
+        Context.TurnierGastgeber.RemoveRange(alte.Where(g => !soll.Contains(g.MannschaftId)));
+        var vorhanden = alte.Select(g => g.MannschaftId).ToHashSet();
+        foreach (var id in soll.Where(id => !vorhanden.Contains(id)))
+            Context.TurnierGastgeber.Add(new TurnierGastgeber { TurnierInstanzId = instanzId, MannschaftId = id });
+
+        await Context.SaveChangesAsync(ct);
+    }
 
     public async Task<IReadOnlyList<TurnierRunde>> RundenErsetzenAsync(int instanzId, IReadOnlyList<TurnierRunde> neueRunden, CancellationToken ct = default)
     {
@@ -63,6 +88,7 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             alt.RegelwerkId               = neu.RegelwerkId;
             alt.MitRueckspiel             = neu.MitRueckspiel;
             alt.AuswaertstorRegelAktiv    = neu.AuswaertstorRegelAktiv;
+            alt.NeutralerSpielort         = neu.NeutralerSpielort;
             alt.KonfigurationJson         = neu.KonfigurationJson;
             alt.EingangUeberUebergangsregeln = neu.EingangUeberUebergangsregeln;
             alt.PaarungFestVorgegeben     = neu.PaarungFestVorgegeben;

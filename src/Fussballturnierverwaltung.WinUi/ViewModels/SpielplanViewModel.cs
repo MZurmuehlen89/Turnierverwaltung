@@ -150,7 +150,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(ZeigtSchweizerRundenSteuerung))]
     [NotifyPropertyChangedFor(nameof(IstKoMitRueckspiel))]
     [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
+    [NotifyPropertyChangedFor(nameof(SpielortHinweis))]
     private TurnierRunde? _ausgewaehlteRunde;
+
+    /// <summary>Issue #352: Zusatz in der Spiellisten-Kopfzeile und im Ergebnisformular.</summary>
+    public string SpielortHinweis => AusgewaehlteRunde?.NeutralerSpielort == true ? " · neutraler Platz" : "";
 
     public bool HatRunde => AusgewaehlteRunde is not null;
     public bool IstGruppenphase => AusgewaehlteRunde?.Rundenart == Rundenart.Gruppenphase;
@@ -1021,9 +1025,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             FormHeimName = spiel.HeimMannschaft?.Name ?? spiel.HeimPlatzhalterName ?? "";
             FormAuswaertsName = spiel.AuswaertsMannschaft?.Name ?? spiel.AuswaertsPlatzhalterName ?? "";
-            FormSpielInfo = spiel.Spieltag.HasValue
+            FormSpielInfo = (spiel.Spieltag.HasValue
                 ? $"Spieltag {spiel.Spieltag} · Spiel #{spiel.Spielnummer}"
-                : $"Spiel #{spiel.Spielnummer}";
+                : $"Spiel #{spiel.Spielnummer}") + SpielortHinweis;
             FormHatErgebnis = spiel.Ergebnis is not null;
 
             if (spiel.Ergebnis is { } e)

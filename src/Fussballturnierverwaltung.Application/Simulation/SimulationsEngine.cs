@@ -17,10 +17,11 @@ public static class SimulationsEngine
         Mannschaft auswaerts,
         IReadOnlyList<EntscheidungsVerfahren> verfahren,
         bool ausfuehrlich,
-        Random rng)
+        Random rng,
+        Spielortvorteil spielortvorteil = Spielortvorteil.Heim)
     {
-        double heimLambda = BerechneErwartetesTore(heim, auswaerts, istHeim: true);
-        double gastLambda = BerechneErwartetesTore(auswaerts, heim, istHeim: false);
+        double heimLambda = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil);
+        double gastLambda = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil);
 
         int heimTore = ZiehePoisson(heimLambda, rng);
         int gastTore = ZiehePoisson(gastLambda, rng);
@@ -39,7 +40,7 @@ public static class SimulationsEngine
         {
             IReadOnlyList<SimuliertesEreignis> extras;
             (heimVerl, gastVerl, heimElf, gastElf, entscheidung, extras, losGewinnerHeim) =
-                EntscheidungsverfahrenAnwenden(heim, auswaerts, verfahren, ausfuehrlich, rng);
+                EntscheidungsverfahrenAnwenden(heim, auswaerts, verfahren, ausfuehrlich, rng, spielortvorteil);
             ereignisse = [.. ereignisse, .. extras];
         }
 
@@ -72,7 +73,8 @@ public static class SimulationsEngine
                    EntscheidungArt Art, IReadOnlyList<SimuliertesEreignis> Ereignisse, bool? LosGewinnerHeim)
         EntscheidungsverfahrenAnwenden(
             Mannschaft heim, Mannschaft auswaerts,
-            IReadOnlyList<EntscheidungsVerfahren> verfahren, bool ausfuehrlich, Random rng)
+            IReadOnlyList<EntscheidungsVerfahren> verfahren, bool ausfuehrlich, Random rng,
+            Spielortvorteil spielortvorteil = Spielortvorteil.Heim)
     {
         int? heimVerl = null, gastVerl = null, heimElf = null, gastElf = null;
         var entscheidung = EntscheidungArt.RegulaereSpielzeit;
@@ -81,7 +83,7 @@ public static class SimulationsEngine
         foreach (var v in verfahren.OrderBy(v => v.Reihenfolge))
         {
             var (result, art, hv, gv, he, ge, extraEreignisse) =
-                VerfahrenSimulieren(v.VerfahrenArt, heim, auswaerts, rng, ausfuehrlich);
+                VerfahrenSimulieren(v.VerfahrenArt, heim, auswaerts, rng, ausfuehrlich, spielortvorteil);
 
             entscheidung = art;
             // Verlängerungstore aus einem früheren Schritt (z.B. VerlaengerungKlassisch)
@@ -104,15 +106,38 @@ public static class SimulationsEngine
         return (heimVerl, gastVerl, heimElf, gastElf, entscheidung, ereignisse, null);
     }
 
+    /// <summary>Issue #352: Ortsvorteil eines Spiels. Außerhalb neutraler Runden hat immer das Heimteam den
+    /// Vorteil; auf neutralem Platz nur ein Gastgeber des Turniers — auch wenn er nominell als Gast angesetzt
+    /// ist. Treffen zwei Gastgeber (oder zwei Nicht-Gastgeber) aufeinander, bleibt der Platz neutral.</summary>
+    public static Spielortvorteil SpielortvorteilErmitteln(
+        bool neutralerSpielort, int? heimId, int? auswaertsId, IReadOnlyCollection<int> gastgeberIds)
+    {
+        if (!neutralerSpielort) return Spielortvorteil.Heim;
+        bool heimIstGastgeber      = heimId is int h && gastgeberIds.Contains(h);
+        bool auswaertsIstGastgeber = auswaertsId is int a && gastgeberIds.Contains(a);
+        return (heimIstGastgeber, auswaertsIstGastgeber) switch
+        {
+            (true, false) => Spielortvorteil.Heim,
+            (false, true) => Spielortvorteil.Auswaerts,
+            _             => Spielortvorteil.Neutral
+        };
+    }
+
     // ── Expected-Goals-Formel ──────────────────────────────────────────────
 
-    private static double BerechneErwartetesTore(Mannschaft angreifer, Mannschaft verteidiger, bool istHeim)
+    private static double BerechneErwartetesTore(
+        Mannschaft angreifer, Mannschaft verteidiger, bool istHeim, Spielortvorteil spielortvorteil)
     {
         double angriff  = (angreifer.OffensivRating  * 0.6 + angreifer.MittelfeldRating  * 0.4) / 100.0;
         double verteid  = (verteidiger.DefensivRating * 0.6 + verteidiger.MittelfeldRating * 0.4) / 100.0;
-        double ortFaktor = istHeim
-            ? angreifer.Heimstaerke     / 100.0
-            : angreifer.Auswaertsstaerke / 100.0;
+        // Issue #352: auf neutralem Platz der Mittelwert aus Heim- und Auswärtsstärke statt eines festen 1,0 —
+        // die Stärken liegen typisch bei 65–75, ein fester Faktor würde die Torerwartung deutlich aufblähen.
+        double ortFaktor = spielortvorteil switch
+        {
+            Spielortvorteil.Neutral   => (angreifer.Heimstaerke + angreifer.Auswaertsstaerke) / 200.0,
+            Spielortvorteil.Auswaerts => (istHeim ? angreifer.Auswaertsstaerke : angreifer.Heimstaerke) / 100.0,
+            _                         => (istHeim ? angreifer.Heimstaerke : angreifer.Auswaertsstaerke) / 100.0
+        };
 
         // Grunderwartung ~1.35 Tore pro Team; Angriff vs. Verteidigung + Heimvorteil
         double lambda = 1.35 * (angriff / Math.Max(0.3, verteid)) * ortFaktor;
@@ -137,14 +162,14 @@ public static class SimulationsEngine
                     IReadOnlyList<SimuliertesEreignis> Extras)
         VerfahrenSimulieren(
             VerfahrenArt verfahren, Mannschaft heim, Mannschaft auswaerts,
-            Random rng, bool ausfuehrlich)
+            Random rng, bool ausfuehrlich, Spielortvorteil spielortvorteil)
     {
         switch (verfahren)
         {
             case VerfahrenArt.VerlaengerungKlassisch:
             {
-                double hL = BerechneErwartetesTore(heim, auswaerts, istHeim: true)  * (30.0 / 90.0);
-                double gL = BerechneErwartetesTore(auswaerts, heim, istHeim: false) * (30.0 / 90.0);
+                double hL = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil) * (30.0 / 90.0);
+                double gL = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil) * (30.0 / 90.0);
                 int hv = ZiehePoisson(hL, rng);
                 int gv = ZiehePoisson(gL, rng);
                 var extras = ausfuehrlich
@@ -156,8 +181,8 @@ public static class SimulationsEngine
             case VerfahrenArt.GoldenGoal:
             {
                 // Simuliere bis zum ersten Tor (max. 30 Min.)
-                double hProbPerMin = BerechneErwartetesTore(heim, auswaerts, istHeim: true)  / 90.0;
-                double gProbPerMin = BerechneErwartetesTore(auswaerts, heim, istHeim: false) / 90.0;
+                double hProbPerMin = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil) / 90.0;
+                double gProbPerMin = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil) / 90.0;
                 int hv = 0, gv = 0;
                 var extras = new List<SimuliertesEreignis>();
                 for (int min = 91; min <= 120; min++)
@@ -174,8 +199,8 @@ public static class SimulationsEngine
             {
                 // Silbernes Tor: Führt ein Team nach der ersten Verlängerungshälfte (15 Min.), endet
                 // das Spiel sofort; bei Gleichstand wird die zweite Hälfte (weitere 15 Min.) gespielt.
-                double hL15 = BerechneErwartetesTore(heim, auswaerts, istHeim: true)  * (15.0 / 90.0);
-                double gL15 = BerechneErwartetesTore(auswaerts, heim, istHeim: false) * (15.0 / 90.0);
+                double hL15 = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil) * (15.0 / 90.0);
+                double gL15 = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil) * (15.0 / 90.0);
 
                 int hv1 = ZiehePoisson(hL15, rng);
                 int gv1 = ZiehePoisson(gL15, rng);
@@ -372,6 +397,15 @@ public record SimulationsErgebnis(
     int? HalbzeitAuswaertsTore = null,
     // Issue #383: Sieger eines Losentscheids/Münzwurfs (true = Heim) — sonst null, dort folgt er aus den Toren.
     bool? LosGewinnerHeim = null);
+
+/// <summary>Issue #352: wer im Spiel den Ortsvorteil hat — siehe
+/// <see cref="SimulationsEngine.SpielortvorteilErmitteln"/>.</summary>
+public enum Spielortvorteil
+{
+    Heim,
+    Neutral,
+    Auswaerts
+}
 
 public record SimuliertesEreignis(
     int Minute,

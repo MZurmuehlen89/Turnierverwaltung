@@ -526,7 +526,8 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
             // Kontextzeile wie bei kicker ("Champions League 2025/26, Finale") plus Hin-/Rückspiel-Kennung
             string bein = spiel.IstRueckspiel ? ", Rückspiel" : spiel.TurnierRunde?.MitRueckspiel == true ? ", Hinspiel" : "";
-            string kontext = $"{spiel.TurnierInstanz?.Name}, {spiel.TurnierRunde?.Name}{bein}";
+            string ort = spiel.TurnierRunde?.NeutralerSpielort == true ? " (neutraler Platz)" : "";
+            string kontext = $"{spiel.TurnierInstanz?.Name}, {spiel.TurnierRunde?.Name}{bein}{ort}";
             var ergebnis = new SimulationsErgebnis(
                 e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
                 e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
