@@ -63,7 +63,8 @@ public record TurnierRundeEingabe(
     string? KombinationstabelleJson = null,
     int? StandardRanglistenQuelleId = null,
     bool TitelverteidigerInTopf1 = false,
-    bool NeutralerSpielort = false);
+    bool NeutralerSpielort = false,
+    int Ueberraschungsfaktor = 0);
 
 public record RegelwerkErstellenEingabe(
     string Name,

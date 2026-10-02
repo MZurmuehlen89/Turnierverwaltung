@@ -19,6 +19,7 @@ public class TurnierRundeKonfiguration : IEntityTypeConfiguration<TurnierRunde>
         builder.Property(r => r.MitRueckspiel).IsRequired();
         builder.Property(r => r.AuswaertstorRegelAktiv).IsRequired();
         builder.Property(r => r.NeutralerSpielort).IsRequired().HasDefaultValue(false);
+        builder.Property(r => r.Ueberraschungsfaktor).IsRequired().HasDefaultValue(0);
         builder.Property(r => r.KonfigurationJson).HasColumnType("nvarchar(max)");
         builder.Property(r => r.KombinationstabelleJson).HasColumnType("nvarchar(max)");
         builder.Property(r => r.EingangUeberUebergangsregeln).IsRequired().HasDefaultValue(false);

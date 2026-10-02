@@ -233,6 +233,7 @@ public partial class RundeZeile : ObservableObject
     [ObservableProperty] private bool _mitRueckspiel;
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
     [ObservableProperty] private bool _neutralerSpielort;
+    [ObservableProperty] private int _ueberraschungsfaktor;
     [ObservableProperty] private RegelwerkOption _regelwerk = KeinRegelwerk;
     [ObservableProperty] private bool _paarungFestVorgegeben;
     [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = KeineAuslosungsartVorgabe;
@@ -359,6 +360,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     [
         nameof(Name), nameof(Rundenart), nameof(EingangsMannschaftsanzahl), nameof(AusgangsMannschaftsanzahl),
         nameof(GruppenAnzahl), nameof(AnzahlSpieltage), nameof(MitRueckspiel), nameof(AuswaertstorRegelAktiv), nameof(NeutralerSpielort),
+        nameof(Ueberraschungsfaktor),
         nameof(Regelwerk), nameof(PaarungFestVorgegeben), nameof(VorgegebeneAuslosungsart),
         nameof(StandardRanglistenQuelle), nameof(TitelverteidigerInTopf1)
     ];
@@ -428,6 +430,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
 
     [ObservableProperty] private bool _auswaertstorRegelAktiv;
     [ObservableProperty] private bool _neutralerSpielort;
+    [ObservableProperty] private int _ueberraschungsfaktor;
     [ObservableProperty] private RegelwerkOption _regelwerk = RundeZeile.KeinRegelwerk;
     [ObservableProperty] private bool _paarungFestVorgegeben;
     [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = RundeZeile.KeineAuslosungsartVorgabe;
@@ -566,6 +569,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
             MitRueckspiel = zeile?.MitRueckspiel ?? false;
             AuswaertstorRegelAktiv = zeile?.AuswaertstorRegelAktiv ?? false;
             NeutralerSpielort = zeile?.NeutralerSpielort ?? false;
+            Ueberraschungsfaktor = zeile?.Ueberraschungsfaktor ?? 0;
             Regelwerk = zeile?.Regelwerk ?? RundeZeile.KeinRegelwerk;
             PaarungFestVorgegeben = zeile?.PaarungFestVorgegeben ?? false;
             VorgegebeneAuslosungsart = zeile?.VorgegebeneAuslosungsart ?? RundeZeile.KeineAuslosungsartVorgabe;
@@ -593,6 +597,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         AusgewaehlteRunde.MitRueckspiel = MitRueckspiel;
         AusgewaehlteRunde.AuswaertstorRegelAktiv = AuswaertstorRegelAktiv;
         AusgewaehlteRunde.NeutralerSpielort = NeutralerSpielort;
+        AusgewaehlteRunde.Ueberraschungsfaktor = Ueberraschungsfaktor;
         AusgewaehlteRunde.Regelwerk = Regelwerk;
         AusgewaehlteRunde.PaarungFestVorgegeben = PaarungFestVorgegeben;
         // null kommt nur transient aus der ComboBox (Auswahl beim ItemsSource-Wechsel nicht gefunden) — nie übernehmen.
@@ -767,6 +772,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         MitRueckspiel = r.MitRueckspiel,
         AuswaertstorRegelAktiv = r.AuswaertstorRegelAktiv,
         NeutralerSpielort = r.NeutralerSpielort,
+        Ueberraschungsfaktor = r.Ueberraschungsfaktor,
         Regelwerk = r.Regelwerk is not null ? new RegelwerkOption(r.Regelwerk.Name, r.Regelwerk) : RundeZeile.KeinRegelwerk,
         PaarungFestVorgegeben = r.PaarungFestVorgegeben,
         VorgegebeneAuslosungsart = AuslosungsartVorgabeOptionFuer(r.VorgegebeneAuslosungsart),
@@ -886,7 +892,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         KombinationstabelleJson: z.KombinationstabelleJson,
         StandardRanglistenQuelleId: z.StandardRanglistenQuelle.Wert,
         TitelverteidigerInTopf1: z.StandardRanglistenQuelle.Wert is not null && z.TitelverteidigerInTopf1,
-        NeutralerSpielort: z.NeutralerSpielort)).ToList();
+        NeutralerSpielort: z.NeutralerSpielort,
+        Ueberraschungsfaktor: z.Ueberraschungsfaktor)).ToList();
 
     public List<UebergangsregelPositionsEingabe> UebergangsregelnZuEingaben() => _alleUebergaenge
         .Where(b => b.QuellRunde is not null && b.ZielRunde is not null && b.QuellRunde != b.ZielRunde)

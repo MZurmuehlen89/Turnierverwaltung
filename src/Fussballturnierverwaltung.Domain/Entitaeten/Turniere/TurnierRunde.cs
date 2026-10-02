@@ -27,6 +27,10 @@ public class TurnierRunde : BasisEntitaet
     // Simulation gibt dann keinem Team den Heimvorteil, außer einem Gastgeber des Turniers (TurnierGastgeber).
     public bool NeutralerSpielort { get; set; }
 
+    // Überraschungsfaktor in Prozent (0–100, Issue #360): dämpft in der Simulation den Einfluss der
+    // Rating-Differenz — „Pokal hat eigene Gesetze“. 0 = normale Simulation, 100 = Ratings spielen keine Rolle.
+    public int Ueberraschungsfaktor { get; set; }
+
     public string? KonfigurationJson { get; set; }
 
     // Wenn true, wird der Eingang dieser Runde nicht gegen die unmittelbar vorangehende Runde in der Liste

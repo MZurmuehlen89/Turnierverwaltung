@@ -527,7 +527,9 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             // Kontextzeile wie bei kicker ("Champions League 2025/26, Finale") plus Hin-/Rückspiel-Kennung
             string bein = spiel.IstRueckspiel ? ", Rückspiel" : spiel.TurnierRunde?.MitRueckspiel == true ? ", Hinspiel" : "";
             string ort = spiel.TurnierRunde?.NeutralerSpielort == true ? " (neutraler Platz)" : "";
-            string kontext = $"{spiel.TurnierInstanz?.Name}, {spiel.TurnierRunde?.Name}{bein}{ort}";
+            // Issue #360: macht nachvollziehbar, warum hier ein Außenseiter öfter gewinnt.
+            string ueberraschung = spiel.TurnierRunde?.Ueberraschungsfaktor is int f and > 0 ? $" · Überraschungsfaktor {f} %" : "";
+            string kontext = $"{spiel.TurnierInstanz?.Name}, {spiel.TurnierRunde?.Name}{bein}{ort}{ueberraschung}";
             var ergebnis = new SimulationsErgebnis(
                 e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
                 e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,

@@ -1041,6 +1041,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("TurnierInstanzId")
                         .HasColumnType("int");
 
+                    b.Property<int>("Ueberraschungsfaktor")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<int?>("VorgegebeneAuslosungsart")
                         .HasColumnType("int");
 

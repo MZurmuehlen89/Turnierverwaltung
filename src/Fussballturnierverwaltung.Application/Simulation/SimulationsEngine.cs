@@ -18,10 +18,11 @@ public static class SimulationsEngine
         IReadOnlyList<EntscheidungsVerfahren> verfahren,
         bool ausfuehrlich,
         Random rng,
-        Spielortvorteil spielortvorteil = Spielortvorteil.Heim)
+        Spielortvorteil spielortvorteil = Spielortvorteil.Heim,
+        int ueberraschungsfaktor = 0)
     {
-        double heimLambda = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil);
-        double gastLambda = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil);
+        double heimLambda = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil, ueberraschungsfaktor);
+        double gastLambda = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil, ueberraschungsfaktor);
 
         int heimTore = ZiehePoisson(heimLambda, rng);
         int gastTore = ZiehePoisson(gastLambda, rng);
@@ -40,7 +41,7 @@ public static class SimulationsEngine
         {
             IReadOnlyList<SimuliertesEreignis> extras;
             (heimVerl, gastVerl, heimElf, gastElf, entscheidung, extras, losGewinnerHeim) =
-                EntscheidungsverfahrenAnwenden(heim, auswaerts, verfahren, ausfuehrlich, rng, spielortvorteil);
+                EntscheidungsverfahrenAnwenden(heim, auswaerts, verfahren, ausfuehrlich, rng, spielortvorteil, ueberraschungsfaktor);
             ereignisse = [.. ereignisse, .. extras];
         }
 
@@ -74,7 +75,7 @@ public static class SimulationsEngine
         EntscheidungsverfahrenAnwenden(
             Mannschaft heim, Mannschaft auswaerts,
             IReadOnlyList<EntscheidungsVerfahren> verfahren, bool ausfuehrlich, Random rng,
-            Spielortvorteil spielortvorteil = Spielortvorteil.Heim)
+            Spielortvorteil spielortvorteil = Spielortvorteil.Heim, int ueberraschungsfaktor = 0)
     {
         int? heimVerl = null, gastVerl = null, heimElf = null, gastElf = null;
         var entscheidung = EntscheidungArt.RegulaereSpielzeit;
@@ -83,7 +84,7 @@ public static class SimulationsEngine
         foreach (var v in verfahren.OrderBy(v => v.Reihenfolge))
         {
             var (result, art, hv, gv, he, ge, extraEreignisse) =
-                VerfahrenSimulieren(v.VerfahrenArt, heim, auswaerts, rng, ausfuehrlich, spielortvorteil);
+                VerfahrenSimulieren(v.VerfahrenArt, heim, auswaerts, rng, ausfuehrlich, spielortvorteil, ueberraschungsfaktor);
 
             entscheidung = art;
             // Verlängerungstore aus einem früheren Schritt (z.B. VerlaengerungKlassisch)
@@ -126,7 +127,8 @@ public static class SimulationsEngine
     // ── Expected-Goals-Formel ──────────────────────────────────────────────
 
     private static double BerechneErwartetesTore(
-        Mannschaft angreifer, Mannschaft verteidiger, bool istHeim, Spielortvorteil spielortvorteil)
+        Mannschaft angreifer, Mannschaft verteidiger, bool istHeim, Spielortvorteil spielortvorteil,
+        int ueberraschungsfaktor)
     {
         double angriff  = (angreifer.OffensivRating  * 0.6 + angreifer.MittelfeldRating  * 0.4) / 100.0;
         double verteid  = (verteidiger.DefensivRating * 0.6 + verteidiger.MittelfeldRating * 0.4) / 100.0;
@@ -141,8 +143,10 @@ public static class SimulationsEngine
 
         // Issue #404: Kräfteverhältnis mit Exponent gespreizt — linear gestaucht gewannen Außenseiter viel zu oft
         // (≈ 6 statt real 1–4 ausgeschiedene Bundesligisten in DFB-Pokal-Runde 1) bei nur ~2,1 Toren je Spiel.
+        // Issue #360: der Überraschungsfaktor senkt die Spreizung anteilig — bei 100 % zählt nur noch der Spielort.
+        double spreizung = STAERKE_SPREIZUNG * (1 - Math.Clamp(ueberraschungsfaktor, 0, 100) / 100.0);
         double lambda = TOR_GRUNDERWARTUNG
-                        * Math.Pow(angriff / Math.Max(0.3, verteid), STAERKE_SPREIZUNG)
+                        * Math.Pow(angriff / Math.Max(0.3, verteid), spreizung)
                         * ortFaktor;
         return Math.Clamp(lambda, MIN_TORERWARTUNG, MAX_TORERWARTUNG);
     }
@@ -172,14 +176,14 @@ public static class SimulationsEngine
                     IReadOnlyList<SimuliertesEreignis> Extras)
         VerfahrenSimulieren(
             VerfahrenArt verfahren, Mannschaft heim, Mannschaft auswaerts,
-            Random rng, bool ausfuehrlich, Spielortvorteil spielortvorteil)
+            Random rng, bool ausfuehrlich, Spielortvorteil spielortvorteil, int ueberraschungsfaktor)
     {
         switch (verfahren)
         {
             case VerfahrenArt.VerlaengerungKlassisch:
             {
-                double hL = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil) * (30.0 / 90.0);
-                double gL = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil) * (30.0 / 90.0);
+                double hL = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil, ueberraschungsfaktor) * (30.0 / 90.0);
+                double gL = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil, ueberraschungsfaktor) * (30.0 / 90.0);
                 int hv = ZiehePoisson(hL, rng);
                 int gv = ZiehePoisson(gL, rng);
                 var extras = ausfuehrlich
@@ -191,8 +195,8 @@ public static class SimulationsEngine
             case VerfahrenArt.GoldenGoal:
             {
                 // Simuliere bis zum ersten Tor (max. 30 Min.)
-                double hProbPerMin = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil) / 90.0;
-                double gProbPerMin = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil) / 90.0;
+                double hProbPerMin = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil, ueberraschungsfaktor) / 90.0;
+                double gProbPerMin = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil, ueberraschungsfaktor) / 90.0;
                 int hv = 0, gv = 0;
                 var extras = new List<SimuliertesEreignis>();
                 for (int min = 91; min <= 120; min++)
@@ -209,8 +213,8 @@ public static class SimulationsEngine
             {
                 // Silbernes Tor: Führt ein Team nach der ersten Verlängerungshälfte (15 Min.), endet
                 // das Spiel sofort; bei Gleichstand wird die zweite Hälfte (weitere 15 Min.) gespielt.
-                double hL15 = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil) * (15.0 / 90.0);
-                double gL15 = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil) * (15.0 / 90.0);
+                double hL15 = BerechneErwartetesTore(heim, auswaerts, istHeim: true,  spielortvorteil, ueberraschungsfaktor) * (15.0 / 90.0);
+                double gL15 = BerechneErwartetesTore(auswaerts, heim, istHeim: false, spielortvorteil, ueberraschungsfaktor) * (15.0 / 90.0);
 
                 int hv1 = ZiehePoisson(hL15, rng);
                 int gv1 = ZiehePoisson(gL15, rng);

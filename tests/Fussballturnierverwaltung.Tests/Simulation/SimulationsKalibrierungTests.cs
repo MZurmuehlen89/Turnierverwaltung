@@ -3,6 +3,7 @@ using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
+using Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 
 namespace Fussballturnierverwaltung.Tests.Simulation;
 
@@ -83,6 +84,24 @@ public class SimulationsKalibrierungTests
     [Fact]
     public void Pokalrunde1_AussenseiterGewinnenRealistischSelten()
     {
+        // Real scheiden je Saison 1–4 der 18 Bundesligisten in Runde 1 aus.
+        AusgeschiedeneBundesligistenJeSaison(ueberraschungsfaktor: 0).Should().BeInRange(1.5, 4.0);
+    }
+
+    [Fact]
+    public void Pokalrunde1_MitPokalUeberraschungsfaktor_MehrAussenseitersiegeImRealenRahmen()
+    {
+        // Issue #360: der Pokal-Faktor der Seed-Vorlagen hebt die Quote spürbar, bleibt aber im realen Bereich (1–4,
+        // etwas Luft nach oben für die Zufallsschwankung).
+        double ohne = AusgeschiedeneBundesligistenJeSaison(ueberraschungsfaktor: 0);
+        double mit  = AusgeschiedeneBundesligistenJeSaison(TurnierVorlagenSeedDaten.POKAL_UEBERRASCHUNGSFAKTOR);
+
+        mit.Should().BeGreaterThan(ohne + 0.3);
+        mit.Should().BeInRange(2.5, 4.5);
+    }
+
+    private static double AusgeschiedeneBundesligistenJeSaison(int ueberraschungsfaktor)
+    {
         var bundesliga = Teams(_bundesliga, 1);
         var unterklassig = Teams(_unterklassig, 100);
         EntscheidungsVerfahren[] verfahren =
@@ -99,14 +118,13 @@ public class SimulationsKalibrierungTests
         foreach (var aussenseiter in unterklassig)
         {
             // Im DFB-Pokal hat der unterklassige Verein Heimrecht.
-            var erg = SimulationsEngine.Simulieren(aussenseiter, favorit, verfahren, false, rng);
+            var erg = SimulationsEngine.Simulieren(
+                aussenseiter, favorit, verfahren, false, rng, Spielortvorteil.Heim, ueberraschungsfaktor);
             spiele++;
             if (HeimGewinnt(erg)) aussenseiterSiege++;
         }
 
-        // Real scheiden je Saison 1–4 der 18 Bundesligisten in Runde 1 aus.
-        double ausgeschiedeneJeSaison = 18.0 * aussenseiterSiege / spiele;
-        ausgeschiedeneJeSaison.Should().BeInRange(1.5, 4.0);
+        return 18.0 * aussenseiterSiege / spiele;
     }
 
     [Fact]

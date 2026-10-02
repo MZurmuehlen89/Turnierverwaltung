@@ -319,4 +319,19 @@ public class TurnierValidatorTests
         _validator.RegelwerkPflichtValidieren(runden, Domain.Enums.TurnierStatus.Geplant, standardRegelwerkId: 1)
             .IstGueltig.Should().BeTrue();
     }
+
+    // ── Überraschungsfaktor (Issue #360) ───────────────────────────────────
+
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(20, true)]
+    [InlineData(100, true)]
+    [InlineData(-1, false)]
+    [InlineData(101, false)]
+    public void Ueberraschungsfaktor_NurZwischen0Und100Gueltig(int faktor, bool gueltig)
+    {
+        var runden = new[] { Runde("Finale", Rundenart.Finale, eingang: 2, ausgang: 1) with { Ueberraschungsfaktor = faktor } };
+
+        _validator.RundenValidieren(runden).IstGueltig.Should().Be(gueltig);
+    }
 }

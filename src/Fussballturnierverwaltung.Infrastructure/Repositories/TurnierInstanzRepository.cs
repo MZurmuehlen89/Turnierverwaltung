@@ -89,6 +89,7 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             alt.MitRueckspiel             = neu.MitRueckspiel;
             alt.AuswaertstorRegelAktiv    = neu.AuswaertstorRegelAktiv;
             alt.NeutralerSpielort         = neu.NeutralerSpielort;
+            alt.Ueberraschungsfaktor      = neu.Ueberraschungsfaktor;
             alt.KonfigurationJson         = neu.KonfigurationJson;
             alt.EingangUeberUebergangsregeln = neu.EingangUeberUebergangsregeln;
             alt.PaarungFestVorgegeben     = neu.PaarungFestVorgegeben;

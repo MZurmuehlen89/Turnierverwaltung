@@ -108,7 +108,8 @@ public class SimulationsService(
         // Spielverlauf leer, wenn ein schnellsimuliertes Spiel später im Detail betrachtet wird.
         var ergebnis = SimulationsEngine.Simulieren(
             spiel.HeimMannschaft, spiel.AuswaertsMannschaft,
-            istKoHinspiel || istKoRueckspiel ? [] : verfahren, ausfuehrlich: true, rng, spielortvorteil);
+            istKoHinspiel || istKoRueckspiel ? [] : verfahren, ausfuehrlich: true, rng, spielortvorteil,
+            runde.Ueberraschungsfaktor);
 
         if (istKoRueckspiel && verfahren.Count > 0 &&
             HinRueckspielWertung.EntscheidungsverfahrenNoetig(
@@ -118,7 +119,8 @@ public class SimulationsService(
                 runde.AuswaertstorRegelAktiv))
         {
             var (hv, gv, he, ge, art, extras, losGewinnerHeim) = SimulationsEngine.EntscheidungsverfahrenAnwenden(
-                spiel.HeimMannschaft, spiel.AuswaertsMannschaft, verfahren, ausfuehrlich: true, rng, spielortvorteil);
+                spiel.HeimMannschaft, spiel.AuswaertsMannschaft, verfahren, ausfuehrlich: true, rng, spielortvorteil,
+                runde.Ueberraschungsfaktor);
             ergebnis = ergebnis with
             {
                 HeimToreVerlaengerung      = hv,

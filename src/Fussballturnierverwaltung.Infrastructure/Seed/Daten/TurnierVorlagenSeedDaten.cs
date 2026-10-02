@@ -51,7 +51,10 @@ public static class TurnierVorlagenSeedDaten
             FreiesTurnier(),
         ];
         foreach (var vorlage in vorlagen)
+        {
             NeutraleSpielorteSetzen(vorlage);
+            UeberraschungsfaktorSetzen(vorlage);
+        }
         return vorlagen;
     }
 
@@ -81,6 +84,22 @@ public static class TurnierVorlagenSeedDaten
         _ when _neutralesFinale.Contains(vorlagenName) => runde.Rundenart == Rundenart.Finale,
         _ => false
     };
+
+    // ── Überraschungsfaktor (Issue #360) ───────────────────────────────────────
+
+    // Issue #360: „Pokal hat eigene Gesetze“ — in nationalen Pokalen gewinnen unterklassige Teams öfter, als die
+    // Ratings hergeben. 20 % per Monte-Carlo gewählt: ~3,6 statt ~2,9 ausgeschiedene Bundesligisten in DFB-Pokal-
+    // Runde 1 (real 1–4). Europapokale bewusst ohne Faktor — dort treffen meist ähnlich starke Teams aufeinander.
+    public const int POKAL_UEBERRASCHUNGSFAKTOR = 20;
+
+    private static readonly HashSet<string> _nationalePokale = ["DFB-Pokal", "FA Cup"];
+
+    private static void UeberraschungsfaktorSetzen(TurnierInstanz vorlage)
+    {
+        if (!_nationalePokale.Contains(vorlage.Name)) return;
+        foreach (var runde in vorlage.Runden)
+            runde.Ueberraschungsfaktor = POKAL_UEBERRASCHUNGSFAKTOR;
+    }
 
     // Regelwerk-Namen für nationale Ligen (Issue #350) — müssen mit RegelwerkeSeedDaten übereinstimmen.
     public const string LIGA_TORDIFFERENZ = "Nationale Liga (Tordifferenz vor direktem Vergleich)";

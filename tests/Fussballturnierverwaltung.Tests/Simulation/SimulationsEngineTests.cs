@@ -333,10 +333,11 @@ public class SimulationsEngineTests
         SimulationsEngine.SpielortvorteilErmitteln(neutral, 1, 2, gastgeber).Should().Be(erwartet);
     }
 
-    private static (double Heim, double Gast) MittlereTore(Mannschaft heim, Mannschaft gast, Spielortvorteil vorteil)
+    private static (double Heim, double Gast) MittlereTore(
+        Mannschaft heim, Mannschaft gast, Spielortvorteil vorteil, int ueberraschungsfaktor = 0)
     {
         var ergebnisse = Enumerable.Range(0, 4000)
-            .Select(seed => SimulationsEngine.Simulieren(heim, gast, [], false, new Random(seed), vorteil))
+            .Select(seed => SimulationsEngine.Simulieren(heim, gast, [], false, new Random(seed), vorteil, ueberraschungsfaktor))
             .ToList();
         return (ergebnisse.Average(e => e.HeimToreRegulaer), ergebnisse.Average(e => e.AuswaertsToreRegulaer));
     }
@@ -371,5 +372,51 @@ public class SimulationsEngineTests
         var (gegnerTore, gastgeberTore) = MittlereTore(gegner, gastgeber, Spielortvorteil.Auswaerts);
 
         (gastgeberTore - gegnerTore).Should().BeGreaterThan(0.4, "der nominell als Gast angesetzte Gastgeber hat den Ortsvorteil");
+    }
+
+    // ── Überraschungsfaktor (Issue #360) ───────────────────────────────────
+
+    private static double SiegquoteSchwach(int ueberraschungsfaktor)
+    {
+        var stark   = Team(1, off: 90, mid: 88, def: 86, heim: 75, ausw: 75);
+        var schwach = Team(2, off: 55, mid: 55, def: 54, heim: 75, ausw: 75);
+        return Enumerable.Range(0, 4000)
+            .Select(seed => SimulationsEngine.Simulieren(schwach, stark, [], false, new Random(seed),
+                Spielortvorteil.Heim, ueberraschungsfaktor))
+            .Count(e => e.HeimToreRegulaer > e.AuswaertsToreRegulaer) / 4000.0;
+    }
+
+    [Fact]
+    public void Ueberraschungsfaktor_AussenseiterGewinntMitSteigendemFaktorOefter()
+    {
+        double ohne = SiegquoteSchwach(0), mittel = SiegquoteSchwach(50), voll = SiegquoteSchwach(100);
+
+        mittel.Should().BeGreaterThan(ohne);
+        voll.Should().BeGreaterThan(mittel);
+    }
+
+    [Fact]
+    public void Ueberraschungsfaktor100_StaerkeSpieltKeineRolle()
+    {
+        var stark   = Team(1, off: 90, mid: 88, def: 86, heim: 75, ausw: 75);
+        var schwach = Team(2, off: 55, mid: 55, def: 54, heim: 75, ausw: 75);
+
+        // Bei gleichem Ortsfaktor ist die Torerwartung beider Teams identisch — mit gleichem Seed liefert die
+        // vertauschte Paarung dann exakt dasselbe Ergebnis.
+        for (int seed = 0; seed < 50; seed++)
+        {
+            var starkDaheim   = SimulationsEngine.Simulieren(stark, schwach, [], false, new Random(seed), Spielortvorteil.Heim, 100);
+            var schwachDaheim = SimulationsEngine.Simulieren(schwach, stark, [], false, new Random(seed), Spielortvorteil.Heim, 100);
+            starkDaheim.Should().BeEquivalentTo(schwachDaheim);
+        }
+    }
+
+    [Fact]
+    public void Ueberraschungsfaktor0_EntsprichtStandard()
+    {
+        var mitNull = SimulationsEngine.Simulieren(Team(1, off: 90), Team(2), [], true, new Random(7), Spielortvorteil.Heim, 0);
+        var standard = SimulationsEngine.Simulieren(Team(1, off: 90), Team(2), [], true, new Random(7));
+
+        mitNull.Should().BeEquivalentTo(standard);
     }
 }
