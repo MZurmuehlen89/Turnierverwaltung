@@ -756,6 +756,7 @@
                         <!-- Paarungsergebnis -->
                         <local:PaarungsSpaltenControl Visibility="{Binding IstPaarungsergebnis, Converter={StaticResource BoolToVisibility}}"
                                                       Paarungen="{Binding ErgebnisseAnzeige}"
+                                                      ZeilenJeSpalte="16"
                                                       PaarungTemplate="{StaticResource PaarungsErgebnisTemplate}" />
                     </StackPanel>
                 </StackPanel>
