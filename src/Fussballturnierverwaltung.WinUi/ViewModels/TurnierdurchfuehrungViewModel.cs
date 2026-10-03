@@ -23,7 +23,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 ///
 /// Drei Fach-Tabs: #300 (Auslosung), #301 (Spielplan &amp; Baum), #302 (Simulation).
 /// </summary>
-public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
+public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen, IVerlassenBestaetigen
 {
     private readonly IDialogService _dialogService;
 
@@ -70,6 +70,10 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
 
         TabKoordinator.AktivesTabZustandGeaendert += (_, _) => RibbonEigenschaftenGeaendertMelden();
 
+        // Reiterwechsel weg von einer laufenden TV-Ziehung erst nach Rückfrage (#406).
+        TabKoordinator.TabVerlassenBestaetigen = tab =>
+            tab == AuslosungTab ? AuslosungTab.ZiehungBeendenNachRueckfrageAsync() : Task.FromResult(true);
+
         // Nachbesserung zu #163 (WPF-Original TurnierDurchfuehrungViewModel): "Ausführlich simulieren"/
         // "Spielverlauf ansehen" im Spielplan-Tab wechselt nur auf den Simulation-Tab derselben, bereits
         // offenen Turnierdurchführung-Seite statt eine eigene Navigation auszulösen. Die Vorauswahl wird
@@ -90,6 +94,10 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
     [RelayCommand]
     private async Task TurnierWaehlenAsync()
     {
+        // Vor dem Öffnen fragen, nicht erst bei der Auswahl: der Auswahl-Dialog ist selbst ein ContentDialog,
+        // und davon kann nur einer gleichzeitig offen sein (#406).
+        if (!await AuslosungTab.ZiehungBeendenNachRueckfrageAsync()) return;
+
         var dialog = new TurnierAuswahlDialog(TabKoordinator);
         await _dialogService.AnzeigenAsync(dialog);
     }
@@ -158,4 +166,6 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
 
     public bool HatUngespeicherteAenderungen
         => (TabKoordinator.AktivesTab as IHatUngespeicherteAenderungen)?.HatUngespeicherteAenderungen ?? false;
+
+    public Task<bool> VerlassenBestaetigenAsync() => AuslosungTab.ZiehungBeendenNachRueckfrageAsync();
 }

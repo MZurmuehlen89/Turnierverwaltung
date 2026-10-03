@@ -49,6 +49,9 @@ public class NavigationService : INavigationService
 
     private async Task<bool> DarfWegnavigierenAsync()
     {
+        if (AktuellesViewModel is IVerlassenBestaetigen verlassen && !await verlassen.VerlassenBestaetigenAsync())
+            return false;
+
         if (AktuellesViewModel is not IHatUngespeicherteAenderungen { HatUngespeicherteAenderungen: true })
             return true;
 

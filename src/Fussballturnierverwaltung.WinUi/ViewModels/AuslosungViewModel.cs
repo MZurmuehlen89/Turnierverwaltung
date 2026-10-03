@@ -618,10 +618,16 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public bool AnimationLaeuftNicht => !AnimationLaeuft;
     public string AnimationFortschrittText => $"{AnimationSchrittIndex} / {AnimationSchrittGesamt}";
 
+    /// <summary>Zwischen dem Auslosen und dem Start der TV-Ziehung (Spielplan-Generierung, #406) — hält das
+    /// schon geladene Ergebnis verborgen, damit es nicht vor der Ziehung aufblitzt.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ZeigeErgebnis))]
+    private bool _ziehungInVorbereitung;
+
     /// <summary>Ergebnis-Panel bleibt während der Ziehungsanimation verborgen — das bereits von
     /// LadeDetailAsync geladene Endergebnis wird erst nach Animationsende (bzw. bei "Überspringen" sofort)
     /// sichtbar.</summary>
-    public bool ZeigeErgebnis => IstAbgeschlossen && AnimationLaeuftNicht;
+    public bool ZeigeErgebnis => IstAbgeschlossen && AnimationLaeuftNicht && !ZiehungInVorbereitung;
 
     private bool _animationUeberspringen;
     private TaskCompletionSource _weiterSignal = new();
@@ -854,6 +860,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// <see cref="VorbelegungViewModel.InstanzSetzenAsync"/>).</summary>
     public async Task InstanzSetzenAsync(TurnierInstanz? instanz)
     {
+        ZiehungBeenden();
         _instanz = instanz;
         KeinTurnierGewaehlt = instanz is null;
         Auslosungen.Clear();
@@ -882,8 +889,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     // ── Ribbon-Befehle ────────────────────────────────────────────────────────
 
     [RelayCommand(CanExecute = nameof(KannNeu))]
-    private void Neu()
+    private async Task Neu()
     {
+        if (!await ZiehungBeendenNachRueckfrageAsync()) return;
         NeuFormAktiv        = true;
         DetailAktiv         = false;
         _autoNeuName        = "";
@@ -972,6 +980,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         var bestaetigt = await _dialogService.BestaetigenAsync(
             "Auslosung löschen", $"Soll '{AusgewaehlteAuslosung.Name}' wirklich gelöscht werden?");
         if (!bestaetigt) return;
+        ZiehungBeenden();
         Fehlermeldung = null;
         try
         {
@@ -1160,32 +1169,115 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         if (_auslosungDetail is null) return;
         Fehlermeldung = null;
+        int auslosungId = _auslosungDetail.Id;
         try
         {
-            await _auslosungService.AusfuehrenAsync(_auslosungDetail.Id);
-            await LadeDetailAsync(_auslosungDetail.Id);
+            if (!await ErgebnisVerlustBestaetigtAsync(_auslosungDetail.TurnierRundeId)) return;
 
-            // Ziehungsschritte bewusst ERST NACH dem Reload aus _auslosungDetail bauen (nicht aus einem vor
+            // Das Ergebnis steht ab AusfuehrenAsync fest und wird von LadeDetailAsync geladen — im TV-Modus
+            // bleibt es bis zum Start der Ziehung verborgen, siehe ZeigeErgebnis.
+            ZiehungInVorbereitung = TvModusAktiv;
+            await _auslosungService.AusfuehrenAsync(auslosungId);
+            await LadeDetailAsync(auslosungId);
+            if (_auslosungDetail is not { } detail || detail.Id != auslosungId) return;
+
+            // Ziehungsdaten bewusst direkt NACH dem Reload aus dessen Stand bauen (nicht aus einem vor
             // AusfuehrenAsync genommenen Lostöpfe-Snapshot + dem separaten Rückgabewert von AusfuehrenAsync):
-            // ViewModel und AuslosungService teilen denselben DbContext-Scope, ein vorheriger Snapshot kann
-            // durch EF-Change-Tracking/Identity-Resolution zwischen den beiden Aufrufen verändert werden.
-            // Nach dem Reload stammen Lostöpfe UND Ergebnisse garantiert aus demselben, aktuellen Snapshot —
-            // exakt die Daten, die danach auch als "echtes" Ergebnis angezeigt werden (Fund aus #303-Test:
-            // TV-Modus-Endanzeige wich bei Gruppenphase nach vorherigem Zurücksetzen vom echten Ergebnis ab).
-            if (TvModusAktiv && _auslosungDetail is not null && IstGegnerMatrixergebnis)
-            {
-                await LigaphasenZiehungAnimierenAsync(_auslosungDetail);
-            }
-            else if (TvModusAktiv && _auslosungDetail is not null)
-            {
-                var schritte = ZiehungsSchritteAufbauen(_auslosungDetail.Lostoepfe, _auslosungDetail.Ergebnisse);
-                await ZiehungAnimierenAsync(schritte);
-            }
+            // ViewModel und AuslosungService teilen denselben DbContext-Scope, ein Snapshot kann durch
+            // EF-Change-Tracking/Identity-Resolution zwischen zwei Aufrufen verändert werden. Direkt nach dem
+            // Reload stammen Lostöpfe UND Ergebnisse garantiert aus demselben, aktuellen Snapshot — exakt die
+            // Daten, die danach auch als "echtes" Ergebnis angezeigt werden (Fund aus #303-Test: TV-Modus-
+            // Endanzeige wich bei Gruppenphase nach vorherigem Zurücksetzen vom echten Ergebnis ab). Deshalb
+            // auch VOR der Spielplan-Generierung, die auf demselben DbContext weiterarbeitet.
+            var matrizen = TvModusAktiv && IstGegnerMatrixergebnis ? GegnerMatrizenAufbauen(detail) : null;
+            var schritte = TvModusAktiv && matrizen is null
+                ? ZiehungsSchritteAufbauen(detail.Lostoepfe, detail.Ergebnisse)
+                : null;
 
-            await SpielplanAutomatischGenerierenAsync();
-            await AktualisiereSeitenlisteAsync();
+            // Spielplan VOR der Ziehung (#406): die Ziehung enthüllt nur noch und darf jederzeit enden (siehe
+            // ZiehungBeenden) — vorher lief die Generierung erst danach, eine verlassene Ziehung hinterließ eine
+            // abgeschlossene Auslosung ohne Spielplan bzw. generierte ihn für die inzwischen angezeigte Auslosung.
+            IstLadend = true;
+            try
+            {
+                await SpielplanAutomatischGenerierenAsync(detail);
+                await AktualisiereSeitenlisteAsync();
+            }
+            finally { IstLadend = false; }
+
+            // Zwischenzeitlich verlassen (Turnier-/Reiter-/Auslosungswechsel) — dann gibt es nichts mehr zu zeigen.
+            if (!DetailAktiv || _auslosungDetail?.Id != auslosungId) return;
+
+            if (matrizen is not null)
+                await LigaphasenZiehungAnimierenAsync(matrizen);
+            else if (schritte is not null)
+                await ZiehungAnimierenAsync(schritte);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
+        finally { ZiehungInVorbereitung = false; }
+    }
+
+    /// <summary>Die Auslosung ersetzt den Spielplan ihrer Runde ohne Rückfrage — wer auslost, will den Spielplan
+    /// dazu. Nachgefragt wird nur, wenn dabei bereits eingetragene Ergebnisse verloren gingen (z.B. ein
+    /// automatisch generiertes und schon gespieltes Finale), und dann VOR dem Auslosen: ein "Nein" danach
+    /// hinterließe eine abgeschlossene Auslosung mit einem Spielplan, der nicht zu ihr passt.</summary>
+    private async Task<bool> ErgebnisVerlustBestaetigtAsync(int rundeId)
+    {
+        var vorhandeneSpiele = await _spielplanService.SpielplanAbrufenAsync(rundeId);
+        int mitErgebnis = vorhandeneSpiele.Count(s => s.Ergebnis is not null);
+        if (mitErgebnis == 0) return true;
+
+        return await _dialogService.BestaetigenAsync(
+            "Auslosung durchführen",
+            $"Die Runde hat bereits {mitErgebnis} Spiel(e) mit eingetragenem Ergebnis. Die Auslosung ersetzt den " +
+            "Spielplan der Runde, diese Ergebnisse gehen dabei verloren. Trotzdem auslosen?");
+    }
+
+    /// <summary>Rückfrage, bevor eine laufende TV-Ziehung verlassen wird (Menüpunkt, Reiter, Turnierwahl, andere
+    /// Auslosung, "Neu") — bei "Ja" endet die Ziehung sofort. Ohne laufende Ziehung synchron <c>true</c>.</summary>
+    public async Task<bool> ZiehungBeendenNachRueckfrageAsync()
+    {
+        if (!AnimationLaeuft) return true;
+
+        var bestaetigt = await _dialogService.BestaetigenAsync(
+            "Ziehung läuft",
+            "Das beendet die laufende Ziehung. Auslosung und Spielplan stehen bereits fest – das Ergebnis wird " +
+            "dann ohne weitere Ziehung angezeigt. Wirklich fortfahren?");
+        if (bestaetigt) ZiehungBeenden();
+        return bestaetigt;
+    }
+
+    /// <summary>Beendet eine laufende TV-Ziehung wie "Rest sofort anzeigen" — die Ziehung ist reine Anzeige,
+    /// Auslosung und Spielplan stehen schon vorher fest. Die Nutzerwege fragen vorher nach (siehe
+    /// <see cref="ZiehungBeendenNachRueckfrageAsync"/>); die Aufrufe ohne Rückfrage sind das Netz darunter,
+    /// damit die Reste einer wartenden Ziehung nie ein danach geöffnetes Detail überlagern (#406). Der Zustand
+    /// wird hier sofort zurückgesetzt statt erst im finally der Ziehung, damit das nicht davon abhängt, wann
+    /// deren Fortsetzung läuft.</summary>
+    private void ZiehungBeenden()
+    {
+        if (!AnimationLaeuft) return;
+        _animationUeberspringen = true;
+        _weiterSignal.TrySetResult();
+        AnimationsZustandZuruecksetzen();
+    }
+
+    private void AnimationsZustandZuruecksetzen()
+    {
+        AnimationLaeuft           = false;
+        AnimationWartetAufWeiter  = false;
+        AnimationBannerMannschaft = null;
+        AnimationBannerTopf       = null;
+        AnimationBannerZiel       = null;
+        AnimationBannerSlot       = null;
+        AnimationBannerPosition   = null;
+        AnimationBannerGegner     = [];
+        AnimationToepfe           = [];
+        AnimationGruppen          = [];
+        AnimationPaarungen        = [];
+        AnimationMatrizen         = [];
+        AnimationFokusKopf        = null;
+        AnimationFokusMatrix      = null;
+        AnimationZeigeUebersicht  = false;
     }
 
     [RelayCommand(CanExecute = nameof(AnimationWartetAufWeiter))]
@@ -1410,19 +1502,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 }
             }
         }
-        finally
-        {
-            AnimationLaeuft           = false;
-            AnimationWartetAufWeiter  = false;
-            AnimationBannerMannschaft = null;
-            AnimationBannerTopf       = null;
-            AnimationBannerZiel       = null;
-            AnimationBannerSlot       = null;
-            AnimationBannerPosition   = null;
-            AnimationToepfe           = [];
-            AnimationGruppen          = [];
-            AnimationPaarungen        = [];
-        }
+        finally { AnimationsZustandZuruecksetzen(); }
     }
 
     /// <summary>TV-Modus der Ligaphase (#364, Vorbild UEFA-Live-Show): Topf für Topf wird Team für Team gezogen
@@ -1430,9 +1510,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// Gegner-Matrix auf — gleichzeitig die gespiegelten Zellen bei den Gegnern (Heim gegen X ⇒ bei X "Auswärts"),
     /// sodass später gezogene Teams bereits vorbelegte Zellen haben. Während eines Topfs ist nur dessen Matrix
     /// sichtbar; nach jedem Topf (außer dem letzten) folgt einmal die Übersicht aller Matrizen.</summary>
-    private async Task LigaphasenZiehungAnimierenAsync(Auslosung detail)
+    private async Task LigaphasenZiehungAnimierenAsync(ObservableCollection<GegnerMatrixTopf> matrizen)
     {
-        var matrizen = GegnerMatrizenAufbauen(detail);
         if (matrizen.Count == 0) return;
 
         // Zeile je Team-Schlüssel, um die gespiegelte Zelle beim Gegner zu finden
@@ -1556,20 +1635,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 }
             }
         }
-        finally
-        {
-            AnimationLaeuft           = false;
-            AnimationWartetAufWeiter  = false;
-            AnimationBannerMannschaft = null;
-            AnimationBannerTopf       = null;
-            AnimationBannerZiel       = null;
-            AnimationBannerSlot       = null;
-            AnimationBannerGegner     = [];
-            AnimationMatrizen         = [];
-            AnimationFokusKopf        = null;
-            AnimationFokusMatrix      = null;
-            AnimationZeigeUebersicht  = false;
-        }
+        finally { AnimationsZustandZuruecksetzen(); }
     }
 
     private async Task WarteAufSchrittAsync(TimeSpan verzoegerung)
@@ -1590,22 +1656,18 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     }
 
     /// <summary>Generiert den Spielplan automatisch, sobald die Auslosung abgeschlossen ist (Issue #19,
-    /// analog WPF-Original). Erwartet, dass _auslosungDetail bereits per LadeDetailAsync neu geladen wurde
-    /// (inkl. Ergebnisse). Fragt bei bereits vorhandenen Spielen nach, ob sie ersetzt werden sollen.</summary>
-    private async Task SpielplanAutomatischGenerierenAsync()
+    /// analog WPF-Original). Erwartet den per LadeDetailAsync frisch geladenen Stand der ausgelosten Auslosung
+    /// (inkl. Ergebnisse) als Parameter statt über _auslosungDetail — das kann inzwischen auf eine andere
+    /// Auslosung zeigen (#406). Vorhandene Spiele der Runde werden ohne Rückfrage ersetzt; nach eingetragenen
+    /// Ergebnissen fragt <see cref="ErgebnisVerlustBestaetigtAsync"/> schon vor dem Auslosen.</summary>
+    private async Task SpielplanAutomatischGenerierenAsync(Auslosung detail)
     {
-        if (_auslosungDetail is null || _auslosungDetail.Status != AuslosungsStatus.Abgeschlossen) return;
+        if (detail.Status != AuslosungsStatus.Abgeschlossen) return;
 
-        var rundeId = _auslosungDetail.TurnierRundeId;
+        var rundeId = detail.TurnierRundeId;
         var vorhandeneSpiele = await _spielplanService.SpielplanAbrufenAsync(rundeId);
         if (vorhandeneSpiele.Count > 0)
         {
-            var bestaetigt = await _dialogService.BestaetigenAsync(
-                "Spielplan neu generieren",
-                $"Die Runde hat bereits {vorhandeneSpiele.Count} Spiel(e) (z.B. aus einer früheren Auslosung). " +
-                "Soll der bestehende Spielplan gelöscht und aus dieser Auslosung neu generiert werden?");
-            if (!bestaetigt) return;
-
             // Issue #320-Folgefund: kaskadenlos löschen — LoeschenAsync würde selbst sofort wieder die
             // Kaskade auslösen, die bei einer Platzhalter-K.o.-Runde mit weiterhin abgeschlossener
             // Auslosung erneut komplett neu generiert, bevor der folgende GenerierenAusAuslosungAsync-
@@ -1613,12 +1675,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             await _spielplanService.RundenSpielplanOhneKaskadeLoeschenAsync(rundeId);
         }
 
-        await _spielplanService.GenerierenAusAuslosungAsync(rundeId, [.. _auslosungDetail.Ergebnisse]);
+        await _spielplanService.GenerierenAusAuslosungAsync(rundeId, [.. detail.Ergebnisse]);
 
         // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf den alten (jetzt ersetzten)
         // Spielplan verwiesen haben (#306) — ohne die Kaskade blieben sie fälschlich stehen.
-        await _spielplanService.KaskadeAusloesenAsync(_auslosungDetail.TurnierInstanzId);
-        await TurnierBaumAktualisierenAsync(_auslosungDetail.TurnierInstanzId);
+        await _spielplanService.KaskadeAusloesenAsync(detail.TurnierInstanzId);
+        await TurnierBaumAktualisierenAsync(detail.TurnierInstanzId);
     }
 
     [RelayCommand(CanExecute = nameof(KannAuslosungZuruecksetzen))]
@@ -1681,8 +1743,19 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // und lädt NICHT neu — DetailAktiv bliebe fälschlich false (Fokusverlust, Fund aus #318-Nachtest).
         if (_seitenlisteAktualisierungAktiv) return;
 
+        // Andere Auslosung während der TV-Ziehung angeklickt (#406): bei "Nein" die Auswahl zurückstellen —
+        // unter demselben Guard, damit diese Zuweisung hier nicht erneut ankommt.
+        if (AnimationLaeuft && AusgewaehlteAuslosung?.Id != _auslosungDetail?.Id
+            && !await ZiehungBeendenNachRueckfrageAsync())
+        {
+            _seitenlisteAktualisierungAktiv = true;
+            try { AusgewaehlteAuslosung = Auslosungen.FirstOrDefault(a => a.Id == _auslosungDetail?.Id); }
+            finally { _seitenlisteAktualisierungAktiv = false; }
+            return;
+        }
+
         NeuFormAktiv = false;
-        if (AusgewaehlteAuslosung is null) { DetailAktiv = false; return; }
+        if (AusgewaehlteAuslosung is null) { ZiehungBeenden(); DetailAktiv = false; return; }
 
         // AktualisiereSeitenlisteAsync() weist AusgewaehlteAuslosung nach einem Reload der Seitenliste
         // erneut zu (neue Objektinstanz, gleiche Id) — das würde hier ohne diesen Guard einen bereits
@@ -1691,6 +1764,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // _auslosungDetail noch auf der alten Id, und erneutes Auswählen derselben Auslosung zeigte sonst nichts (#347).
         if (DetailAktiv && _auslosungDetail?.Id == AusgewaehlteAuslosung.Id) return;
 
+        ZiehungBeenden();
         await LadeDetailAsync(AusgewaehlteAuslosung.Id);
     }
 

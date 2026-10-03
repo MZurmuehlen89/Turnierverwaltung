@@ -119,9 +119,30 @@ public partial class TurnierTabKoordinator : ObservableObject
         AusgewaehlteInstanzGesetzt?.Invoke(value);
     }
 
-    partial void OnAktiverTabIndexChanged(int value)
+    /// <summary>Optionale Rückfrage, bevor ein Reiter verlassen wird (Parameter: der bisherige Reiter) — z.B. bei
+    /// laufender TV-Ziehung (#406). <c>false</c> springt auf den bisherigen Reiter zurück: der Pivot kennt kein
+    /// "Changing"-Ereignis, der Wechsel ist beim Aufruf also schon sichtbar. Liefert der Aufruf einen bereits
+    /// abgeschlossenen Task, läuft der Wechsel wie ohne Rückfrage synchron durch.</summary>
+    public Func<ViewModelBase, Task<bool>>? TabVerlassenBestaetigen { get; set; }
+
+    private bool _tabRuecksprungAktiv;
+
+    partial void OnAktiverTabIndexChanged(int oldValue, int newValue)
     {
-        if (_initialisierungAktiv) return;
+        if (_initialisierungAktiv || _tabRuecksprungAktiv) return;
+        _ = TabWechselAbschliessenAsync(oldValue);
+    }
+
+    private async Task TabWechselAbschliessenAsync(int vorherigerIndex)
+    {
+        if (TabVerlassenBestaetigen is { } bestaetigen && !await bestaetigen(Tabs[vorherigerIndex]))
+        {
+            _tabRuecksprungAktiv = true;
+            try { AktiverTabIndex = vorherigerIndex; }
+            finally { _tabRuecksprungAktiv = false; }
+            return;
+        }
+
         AktiviereAktivenTab(_vorherigesTab);
         AktiverTabGewechselt?.Invoke(this, EventArgs.Empty);
     }
