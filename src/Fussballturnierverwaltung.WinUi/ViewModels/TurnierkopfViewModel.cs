@@ -467,17 +467,37 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         Fehlermeldung = null;
         try
         {
+            if (!await AenderungBestaetigtAsync())
+            {
+                StatusAuswahlZuruecksetzen();
+                return;
+            }
+
             await _service.StatusAendernAsync(AktuelleInstanz.Id, neuerStatus);
             InstanzGeaendert?.Invoke(AktuelleInstanz);
         }
         catch (Exception ex)
         {
             Fehlermeldung = ex.Message;
-            _populiertGerade++;
-            try { Status = StatusOptionen.First(o => o.Wert == AktuelleInstanz.Status); }
-            finally { _populiertGerade--; }
+            StatusAuswahlZuruecksetzen();
         }
     }
+
+    private void StatusAuswahlZuruecksetzen()
+    {
+        if (AktuelleInstanz is null) return;
+        _populiertGerade++;
+        try { Status = StatusOptionen.First(o => o.Wert == AktuelleInstanz.Status); }
+        finally { _populiertGerade--; }
+    }
+
+    /// <summary>Vom Composite gesetzte Rückfrage vor jeder Aktion, die <see cref="InstanzGeaendert"/> auslöst —
+    /// der folgende Reload aller Reiter verwirft eine begonnene, noch nicht abgeschlossene Vorbelegung, und
+    /// nach der Aktion lässt sich das nicht mehr ablehnen. "Löschen" fragt nicht zusätzlich: seine eigene
+    /// Rückfrage nennt bereits, dass alles zum Turnier Gehörende verloren geht.</summary>
+    public Func<Task<bool>>? VorAenderungBestaetigen { get; set; }
+
+    private Task<bool> AenderungBestaetigtAsync() => VorAenderungBestaetigen?.Invoke() ?? Task.FromResult(true);
 
     // ── Verband-Quoten (Issue #161/#154, hier #297) ──────────────────────────
     [ObservableProperty] private ObservableCollection<VerbandsQuoteZeile> _quotenZeilen = [];
@@ -780,6 +800,9 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     [RelayCommand]
     private async Task AusVorlageErstellenAsync()
     {
+        // Vor dem Öffnen fragen — der Erstellen-Dialog ist selbst ein ContentDialog, nur einer kann offen sein.
+        if (!await AenderungBestaetigtAsync()) return;
+
         var dialog = new AusVorlageErstellenDialog(_service, _klonService);
         await _dialogService.AnzeigenAsync(dialog);
         if (dialog.ViewModel.ErstellteInstanz is { } neu)
@@ -799,6 +822,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
     private async Task Speichern()
     {
+        if (!await AenderungBestaetigtAsync()) return;
+
         Fehlermeldung = null;
         try
         {

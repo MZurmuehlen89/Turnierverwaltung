@@ -105,18 +105,49 @@ public partial class TurnierTabKoordinator : ObservableObject
     public async Task InstanzenNeuLadenAsync(int? behalteId)
     {
         var liste = await _service.AlleAbrufenAsync();
-        Instanzen.Clear();
-        foreach (var i in liste.OrderBy(i => i.Name)) Instanzen.Add(i);
-        OnPropertyChanged(nameof(InstanzenGefiltert));
+        _instanzenWerdenNeuGeladen = true;
+        try
+        {
+            Instanzen.Clear();
+            foreach (var i in liste.OrderBy(i => i.Name)) Instanzen.Add(i);
+            OnPropertyChanged(nameof(InstanzenGefiltert));
 
-        AusgewaehlteInstanz = behalteId is { } id ? Instanzen.FirstOrDefault(i => i.Id == id) : null;
+            AusgewaehlteInstanz = behalteId is { } id ? Instanzen.FirstOrDefault(i => i.Id == id) : null;
+        }
+        finally { _instanzenWerdenNeuGeladen = false; }
     }
 
-    partial void OnAusgewaehlteInstanzChanged(TurnierInstanz? value)
+    /// <summary>Optionale Rückfrage, bevor der Nutzer ein anderes Turnier auswählt (z.B. begonnene Vorbelegung
+    /// verwerfen). <c>false</c> stellt die bisherige Auswahl wieder her, die Kind-ViewModels erfahren von dem
+    /// Wechsel dann nichts. Gefragt wird nur beim Wechsel von einem Turnier auf ein anderes — nicht beim
+    /// Neuladen der Liste (<see cref="InstanzenNeuLadenAsync"/>) und nicht bei einem Null-Durchlauf der
+    /// Auswahl, wie ihn die ListView beim Tausch ihrer ItemsSource auslöst. Liefert der Aufruf einen bereits
+    /// abgeschlossenen Task, läuft der Wechsel wie ohne Rückfrage synchron durch.</summary>
+    public Func<Task<bool>>? InstanzVerlassenBestaetigen { get; set; }
+
+    private bool _instanzRuecksprungAktiv;
+    private bool _instanzenWerdenNeuGeladen;
+
+    partial void OnAusgewaehlteInstanzChanged(TurnierInstanz? oldValue, TurnierInstanz? newValue)
     {
-        if (_turnierAuswahlService is not null) _turnierAuswahlService.TurnierInstanzId = value?.Id;
+        if (_instanzRuecksprungAktiv) return;
+        _ = InstanzWechselAbschliessenAsync(oldValue, newValue);
+    }
+
+    private async Task InstanzWechselAbschliessenAsync(TurnierInstanz? vorherige, TurnierInstanz? neue)
+    {
+        bool nutzerWechsel = !_initialisierungAktiv && !_instanzenWerdenNeuGeladen && vorherige is not null && neue is not null;
+        if (nutzerWechsel && InstanzVerlassenBestaetigen is { } bestaetigen && !await bestaetigen())
+        {
+            _instanzRuecksprungAktiv = true;
+            try { AusgewaehlteInstanz = vorherige; }
+            finally { _instanzRuecksprungAktiv = false; }
+            return;
+        }
+
+        if (_turnierAuswahlService is not null) _turnierAuswahlService.TurnierInstanzId = neue?.Id;
         if (_initialisierungAktiv) return;
-        AusgewaehlteInstanzGesetzt?.Invoke(value);
+        AusgewaehlteInstanzGesetzt?.Invoke(neue);
     }
 
     /// <summary>Optionale Rückfrage, bevor ein Reiter verlassen wird (Parameter: der bisherige Reiter) — z.B. bei

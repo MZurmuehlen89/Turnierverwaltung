@@ -188,6 +188,16 @@ public partial class VorbelegungWorkspace : ObservableObject
 
     public bool TeamsVollstaendig => TeamsBenoetigt > 0 && TeamsZugewiesen == TeamsBenoetigt;
 
+    /// <summary>Gibt "Paarung abschließen" erst frei, wenn nichts mehr fehlt — statt eine lückenhafte Belegung
+    /// erst beim Abschließen abzulehnen (Gruppen) bzw. Paarungen ohne Heimteam stillschweigend wegzulassen
+    /// (K.o.). Gruppen: alle Plätze besetzt. K.o.: alle erwarteten Teams platziert und keine Paarung, die nur
+    /// ein Auswärtsteam hat — ein einzelnes Team (Freilos bei ungerader Anzahl) steht auf dem Heimplatz.</summary>
+    public bool BelegungVollstaendig => IstGruppenModus
+        ? TeamsZugewiesen > 0 && Gruppen.All(g => g.Slots.All(s => !s.IstLeer))
+        : TeamsZugewiesen > 0
+          && (TeamsBenoetigt == 0 || TeamsZugewiesen == TeamsBenoetigt)
+          && KoPaarungen.All(p => !p.HeimSlot.IstLeer || p.AuswaertsSlot.IstLeer);
+
     public string TeamsStatusText => TeamsBenoetigt == 0
         ? $"{TeamsZugewiesen} Teams zugewiesen"
         : TeamsZugewiesen == TeamsBenoetigt
@@ -468,6 +478,11 @@ public partial class VorbelegungWorkspace : ObservableObject
         TeamsZugewiesen = IstGruppenModus
             ? Gruppen.SelectMany(g => g.Slots).Count(s => !s.IstLeer)
             : KoPaarungen.SelectMany(p => new[] { p.HeimSlot, p.AuswaertsSlot }).Count(s => !s.IstLeer);
+
+        // Bewusst bei jedem Aufruf statt über die Zähler-Property: zwei Züge können dieselbe Anzahl ergeben
+        // und trotzdem die Vollständigkeit ändern (z.B. Team vom Auswärts- auf den Heimplatz).
+        OnPropertyChanged(nameof(BelegungVollstaendig));
+        AbschliessenCommand.NotifyCanExecuteChanged();
     }
 
     private bool RegelAktiv(AuslosungsRegelArt art) =>
@@ -568,6 +583,8 @@ public partial class VorbelegungWorkspace : ObservableObject
                 )).ToList();
             }
 
+            if (!await ErgebnisVerlustBestaetigtAsync()) return;
+
             _auslosung ??= await _auslosungService.ErstellenAsync(new AuslosungErstellenEingabe(
                 _instanz.Id, Runde.Id, Runde.Name, Auslosungsart.Manuell, IstAutomatisch: false));
 
@@ -594,12 +611,28 @@ public partial class VorbelegungWorkspace : ObservableObject
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
 
-    private bool KannAbschliessen() => IstBearbeitbar;
+    private bool KannAbschliessen() => IstBearbeitbar && BelegungVollstaendig;
     private bool KannZuruecksetzen() => IstAbgeschlossen;
 
+    /// <summary>Das Abschließen ersetzt den Spielplan der Runde ohne Rückfrage — wer die Paarungen abschließt,
+    /// will den Spielplan dazu (gleiche Regel wie <c>AuslosungViewModel</c>). Nachgefragt wird nur, wenn dabei
+    /// bereits eingetragene Ergebnisse verloren gingen, und dann VOR dem Abschließen: ein "Nein" danach
+    /// hinterließe abgeschlossene Paarungen mit einem Spielplan, der nicht zu ihnen passt.</summary>
+    private async Task<bool> ErgebnisVerlustBestaetigtAsync()
+    {
+        var vorhandeneSpiele = await _spielplanService.SpielplanAbrufenAsync(Runde.Id);
+        int mitErgebnis = vorhandeneSpiele.Count(s => s.Ergebnis is not null);
+        if (mitErgebnis == 0) return true;
+
+        return await _dialogService.BestaetigenAsync(
+            "Paarung abschließen",
+            $"Die Runde hat bereits {mitErgebnis} Spiel(e) mit eingetragenem Ergebnis. Das Abschließen ersetzt den " +
+            "Spielplan der Runde, diese Ergebnisse gehen dabei verloren. Trotzdem abschließen?");
+    }
+
     /// <summary>Generiert den Spielplan automatisch, sobald die Paarung abgeschlossen ist (Issue #19,
-    /// analog WPF-Original). Fragt bei bereits vorhandenen Spielen nach, ob sie ersetzt werden sollen (z.B.
-    /// aus einer früheren, inzwischen zurückgesetzten Paarung derselben Runde).</summary>
+    /// analog WPF-Original). Vorhandene Spiele der Runde werden ohne Rückfrage ersetzt; nach eingetragenen
+    /// Ergebnissen fragt <see cref="ErgebnisVerlustBestaetigtAsync"/> schon vor dem Abschließen.</summary>
     private async Task SpielplanAutomatischGenerierenAsync(int auslosungId)
     {
         var detail = await _auslosungService.FindenNachIdAsync(auslosungId);
@@ -609,12 +642,6 @@ public partial class VorbelegungWorkspace : ObservableObject
         var vorhandeneSpiele = await _spielplanService.SpielplanAbrufenAsync(rundeId);
         if (vorhandeneSpiele.Count > 0)
         {
-            var bestaetigt = await _dialogService.BestaetigenAsync(
-                "Spielplan neu generieren",
-                $"Die Runde hat bereits {vorhandeneSpiele.Count} Spiel(e) (z.B. aus einer früheren Paarung). " +
-                "Soll der bestehende Spielplan gelöscht und aus dieser Paarung neu generiert werden?");
-            if (!bestaetigt) return;
-
             // Issue #320-Folgefund: kaskadenlos löschen — LoeschenAsync würde selbst sofort wieder die
             // Kaskade auslösen, die bei einer Platzhalter-K.o.-Runde mit weiterhin abgeschlossener
             // Auslosung erneut komplett neu generiert, bevor der folgende GenerierenAusAuslosungAsync-
@@ -649,7 +676,7 @@ public partial class VorbelegungWorkspace : ObservableObject
 /// (#288) vorbehalten und werden hier nur read-only mit Hinweis angezeigt. Arbeitet — anders als der
 /// entfallene "Paarungen"-Tab — vollständig unabhängig von <see cref="RundenViewModel"/> (lädt Runden/
 /// Auslosungen selbst, analog WPF-Original <c>PaarungsfestlegungViewModel</c>).</summary>
-public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
+public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
 {
     private readonly TurnierInstanzService _instanzService;
     private readonly AuslosungService _auslosungService;
@@ -703,8 +730,12 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
-    [NotifyPropertyChangedFor(nameof(HatUngespeicherteAenderungen))]
     private VorbelegungWorkspace? _workspace;
+
+    /// <summary>Unterdrückt die Verwerfen-Rückfrage bzw. den Wechsel-Hook, während die Rundenauswahl vom Code
+    /// selbst gesetzt wird (Instanzwechsel, Rücksprung nach "Nein").</summary>
+    private bool _rundenAuswahlOhneRueckfrage;
+    private bool _rundenRuecksprungAktiv;
 
     public VorbelegungViewModel(
         TurnierInstanzService instanzService,
@@ -730,7 +761,9 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware, IHatUng
     public async Task InstanzSetzenAsync(TurnierInstanz? instanz)
     {
         KeinTurnierGewaehlt = instanz is null;
-        AusgewaehlteRunde = null;
+        _rundenAuswahlOhneRueckfrage = true;
+        try { AusgewaehlteRunde = null; }
+        finally { _rundenAuswahlOhneRueckfrage = false; }
 
         if (instanz is null)
         {
@@ -789,13 +822,38 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware, IHatUng
         }
     };
 
+    /// <summary>Rückfrage, bevor eine begonnene, noch nicht abgeschlossene Vorbelegung verloren geht (Runden-,
+    /// Turnier- oder Menüwechsel) — gespeichert wird ausschließlich über "Paarung abschließen", ein Wechsel
+    /// verwirft die platzierten Teams. Ohne begonnene Vorbelegung synchron <c>true</c>.</summary>
+    public async Task<bool> VerwerfenBestaetigtAsync()
+    {
+        if (Workspace is not { HatUngespeicherteAenderungen: true } workspace) return true;
+
+        return await _dialogService.BestaetigenAsync(
+            "Vorbelegung verwerfen",
+            $"Für '{workspace.Runde.Name}' sind bereits {workspace.TeamsZugewiesen} Team(s) platziert, die Paarung " +
+            "ist aber noch nicht abgeschlossen. Die Vorbelegung geht dabei verloren. Wirklich fortfahren?");
+    }
+
     partial void OnAusgewaehlteRundeChanged(RundenVorbelegungsEintrag? oldValue, RundenVorbelegungsEintrag? newValue)
     {
-        if (Workspace is not null)
+        if (_rundenRuecksprungAktiv) return;
+        _ = RundenWechselAsync(oldValue, newValue);
+    }
+
+    private async Task RundenWechselAsync(RundenVorbelegungsEintrag? oldValue, RundenVorbelegungsEintrag? newValue)
+    {
+        // Läuft ohne begonnene Vorbelegung synchron durch (abgeschlossener Task) — wie vor der Rückfrage.
+        if (!_rundenAuswahlOhneRueckfrage && !await VerwerfenBestaetigtAsync())
         {
-            Workspace.PropertyChanged -= OnWorkspacePropertyChanged;
-            Workspace.Geaendert -= OnWorkspaceGeaendert;
+            _rundenRuecksprungAktiv = true;
+            try { AusgewaehlteRunde = oldValue; }
+            finally { _rundenRuecksprungAktiv = false; }
+            return;
         }
+
+        if (Workspace is not null)
+            Workspace.Geaendert -= OnWorkspaceGeaendert;
 
         if (newValue is null || !newValue.IstEditierbarHier || _instanz is null)
         {
@@ -806,16 +864,9 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware, IHatUng
         var workspace = new VorbelegungWorkspace(
             _auslosungService, _mannschaftService, _spielplanService, _baumService, _uebergangsregelService, _dialogService,
             _instanz, newValue.Runde, _instanzRunden);
-        workspace.PropertyChanged += OnWorkspacePropertyChanged;
         workspace.Geaendert += OnWorkspaceGeaendert;
         Workspace = workspace;
         _ = workspace.LadenAsync();
-    }
-
-    private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(VorbelegungWorkspace.HatUngespeicherteAenderungen))
-            OnPropertyChanged(nameof(HatUngespeicherteAenderungen));
     }
 
     /// <summary>Nach Abschließen/Zurücksetzen im Workspace: nur den Status der aktuell ausgewählten
@@ -850,6 +901,4 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware, IHatUng
                 ],
             },
         ];
-
-    public bool HatUngespeicherteAenderungen => Workspace?.HatUngespeicherteAenderungen ?? false;
 }

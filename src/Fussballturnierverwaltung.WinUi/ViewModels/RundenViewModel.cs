@@ -932,12 +932,18 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     /// "Paarung fest vorgegeben" + Speichern im Runden-Tab leer, weil niemand seinen Reload ausgelöst hat).</summary>
     public event Action<TurnierInstanz>? RundenGespeichert;
 
+    /// <summary>Vom Composite gesetzte Rückfrage vor dem Speichern — der folgende Reload des Vorbelegung-Reiters
+    /// verwirft eine begonnene, noch nicht abgeschlossene Vorbelegung, und nach dem Speichern lässt sich das
+    /// nicht mehr ablehnen.</summary>
+    public Func<Task<bool>>? VorAenderungBestaetigen { get; set; }
+
     // ── Ribbon-Befehle ────────────────────────────────────────────────────────
 
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
     private async Task Speichern()
     {
         if (AktuelleInstanz is not { } instanz) return;
+        if (VorAenderungBestaetigen is { } bestaetigen && !await bestaetigen()) return;
         Fehlermeldung = null;
         try
         {

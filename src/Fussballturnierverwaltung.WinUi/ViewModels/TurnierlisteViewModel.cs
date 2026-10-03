@@ -14,7 +14,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// Status <c>Vorlage</c>, die je nach Status unterschiedliche Interaktionen freischaltet, statt zwei
 /// parallele View-Bäume zu pflegen.
 /// </summary>
-public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
+public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen, IVerlassenBestaetigen
 {
     public TurnierkopfViewModel TurnierkopfVm { get; }
     public RundenViewModel RundenVm { get; }
@@ -60,6 +60,13 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = InstanzAnKindViewModelsWeiterreichenAsync(instanz);
 
         TabKoordinator.AktivesTabZustandGeaendert += (_, _) => RibbonEigenschaftenGeaendertMelden();
+
+        // Eine begonnene Vorbelegung überlebt den Reiterwechsel (kein Reload), nicht aber den Wechsel des
+        // Turniers — davor nachfragen. Dasselbe gilt für Speichern/Statuswechsel/"Aus Vorlage erstellen" in
+        // den beiden anderen Reitern: sie laden das Turnier in allen Reitern neu (siehe unten).
+        TabKoordinator.InstanzVerlassenBestaetigen = VorbelegungVm.VerwerfenBestaetigtAsync;
+        TurnierkopfVm.VorAenderungBestaetigen = VorbelegungVm.VerwerfenBestaetigtAsync;
+        RundenVm.VorAenderungBestaetigen = VorbelegungVm.VerwerfenBestaetigtAsync;
 
         // Nach Speichern/Löschen/Statuswechsel im Turnierkopf-Tab die geteilte Instanzliste neu laden und die
         // (ggf. neue) Instanz erneut auswählen — löst über AusgewaehlteInstanzGesetzt automatisch den Reload
@@ -141,4 +148,7 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
 
     public bool HatUngespeicherteAenderungen
         => (TabKoordinator.AktivesTab as IHatUngespeicherteAenderungen)?.HatUngespeicherteAenderungen ?? false;
+
+    /// <summary>Unabhängig vom aktiven Reiter — die Vorbelegung bleibt beim Reiterwechsel im Speicher.</summary>
+    public Task<bool> VerlassenBestaetigenAsync() => VorbelegungVm.VerwerfenBestaetigtAsync();
 }
