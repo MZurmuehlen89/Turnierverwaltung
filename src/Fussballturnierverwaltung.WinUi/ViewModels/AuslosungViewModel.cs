@@ -554,6 +554,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(AnimationLaeuftNicht))]
     [NotifyPropertyChangedFor(nameof(AnimationZeigeListenmodus))]
     [NotifyPropertyChangedFor(nameof(ZeigeErgebnis))]
+    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungZuruecksetzenCommand))]
     [NotifyCanExecuteChangedFor(nameof(AnimationUeberspringenCommand))]
     private bool _animationLaeuft;
@@ -732,39 +733,17 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public ICommand AbbrechenBefehl => AbbrechenCommand;
     public ICommand LoeschenBefehl => LoeschenCommand;
 
-    // "Töpfe" und "TV-Modus-Steuerung" als je EIN Flyout-Button statt vier Einzelbuttons (Nutzerfund #303-Test:
-    // Ribbon-Gruppe nach TV-Modus/Weiter/Rest-sofort-anzeigen voll, #319) — analog zum "Simulieren"-Flyout-
-    // Muster aus SpielplanViewModel (#301).
+    // Zwei Plätze (#400): vorn je nach Phase die Vorbereitung oder — während der laufenden TV-Ziehung — die
+    // Live-Steuerung, dahinter immer die Ziehung. Der Tausch statt einer zusätzlichen dritten Gruppe hält die
+    // Leiste ruhig: die Ziehungs-Buttons bleiben stehen, Vorbereitung ist während der Ziehung ohnehin nutzlos.
     public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
     [
+        AnimationLaeuft ? LiveSteuerungGruppe() : VorbereitungGruppe(),
         new RibbonGruppe
         {
-            Header = "Auslosung",
+            Header = "Ziehung",
             Aktionen =
             [
-                new RibbonAktion
-                {
-                    Header = "Töpfe",
-                    Unteraktionen =
-                    [
-                        new RibbonUnteraktion("Automatisch befüllen", LostoepfeAutomatischBefuellenCommand),
-                        new RibbonUnteraktion("Alle leeren", AlleToepfeZuruecksetzenCommand),
-                    ],
-                    IconGlyph = "",
-                },
-                new RibbonAktion
-                {
-                    Header = "Auslosungs-Regeln",
-                    ToggleUnterpunkte = Regeln
-                        .Select(r => new RibbonToggleAktion(
-                            r.Anzeige, r.ImmerAktivHinweis is not null || r.IstAktiv, aktiv => r.IstAktiv = aktiv,
-                            r.Beschreibung,
-                            SperrHinweis: r.ImmerAktivHinweis ?? r.SperrHinweis,
-                            // Die Heimrecht-Regeln schließen sich aus: Anhaken der einen hakt die andere ab (#331).
-                            ExklusivGruppe: IstHeimrechtRegel(r.Regelart) ? "Heimrecht" : null))
-                        .ToList(),
-                    IconGlyph = "",
-                },
                 new RibbonAktion { Header = "Auslosung durchführen", Befehl = AuslosungAusfuehrenCommand, IconGlyph = "" },
                 new RibbonAktion
                 {
@@ -776,13 +755,58 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     ],
                     IconGlyph = "",
                 },
-                // Direkte Buttons statt Flyout (#364): während der Live-Ziehung ständig gebraucht
-                new RibbonAktion { Header = "Weiter", Befehl = AnimationWeiterCommand, IconGlyph = "" },
-                new RibbonAktion { Header = "Rest sofort anzeigen", Befehl = AnimationUeberspringenCommand, IconGlyph = "" },
+                // Bewusst am Gruppenende statt direkt neben "Auslosung durchführen" — beide sind zwar nie zugleich
+                // aktiv (bearbeitbar vs. abgeschlossen), sollen aber auch optisch nicht nebeneinander liegen.
                 new RibbonAktion { Header = "Zurücksetzen", Befehl = AuslosungZuruecksetzenCommand, IconGlyph = "" },
             ],
         },
     ];
+
+    // "Töpfe" und "TV-Modus" als je EIN Flyout-Button statt Einzelbuttons (Nutzerfund #303-Test: Ribbon-Gruppe
+    // voll, #319) — analog zum "Simulieren"-Flyout-Muster aus SpielplanViewModel (#301).
+    private RibbonGruppe VorbereitungGruppe() => new()
+    {
+        Header = "Vorbereitung",
+        Aktionen =
+        [
+            new RibbonAktion
+            {
+                Header = "Töpfe",
+                Unteraktionen =
+                [
+                    new RibbonUnteraktion("Automatisch befüllen", LostoepfeAutomatischBefuellenCommand),
+                    new RibbonUnteraktion("Alle leeren", AlleToepfeZuruecksetzenCommand),
+                ],
+                IconGlyph = "",
+            },
+            new RibbonAktion
+            {
+                Header = "Auslosungs-Regeln",
+                ToggleUnterpunkte = Regeln
+                    .Select(r => new RibbonToggleAktion(
+                        r.Anzeige, r.ImmerAktivHinweis is not null || r.IstAktiv, aktiv => r.IstAktiv = aktiv,
+                        r.Beschreibung,
+                        SperrHinweis: r.ImmerAktivHinweis ?? r.SperrHinweis,
+                        // Die Heimrecht-Regeln schließen sich aus: Anhaken der einen hakt die andere ab (#331).
+                        ExklusivGruppe: IstHeimrechtRegel(r.Regelart) ? "Heimrecht" : null))
+                    .ToList(),
+                IconGlyph = "",
+            },
+        ],
+    };
+
+    /// <summary>Direkte Buttons statt Flyout (#364): während der Live-Ziehung ständig gebraucht. Beide stehen in
+    /// beiden TV-Modi da, damit die Leiste gleich bleibt — "Weiter" ist in der automatischen Ziehung lediglich
+    /// deaktiviert (wartet nie auf einen Klick).</summary>
+    private RibbonGruppe LiveSteuerungGruppe() => new()
+    {
+        Header = "Live-Steuerung",
+        Aktionen =
+        [
+            new RibbonAktion { Header = "Weiter", Befehl = AnimationWeiterCommand, IconGlyph = "" },
+            new RibbonAktion { Header = "Rest sofort anzeigen", Befehl = AnimationUeberspringenCommand, IconGlyph = "" },
+        ],
+    };
 
     public AuslosungViewModel(
         AuslosungService auslosungService,
