@@ -590,8 +590,8 @@ public partial class VorbelegungWorkspace : ObservableObject
 
             await _auslosungService.ManuelleErgebnisseAbschliessenAsync(_auslosung.Id, paarungen);
             await SpielplanAutomatischGenerierenAsync(_auslosung.Id);
-            Geaendert?.Invoke();
             await LadenAsync();
+            Geaendert?.Invoke();
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
@@ -605,8 +605,8 @@ public partial class VorbelegungWorkspace : ObservableObject
         {
             await _auslosungService.ZuruecksetzenAsync(_auslosung.Id);
             await TurnierBaumAktualisierenAsync();
-            Geaendert?.Invoke();
             await LadenAsync();
+            Geaendert?.Invoke();
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
