@@ -28,6 +28,10 @@ public record TeamfilterOption(string Anzeige, MannschaftsartFilter Wert);
 public record TitelverteidigerOption(string Anzeige, int? Wert);
 public record TurnierStatusOption(string Anzeige, TurnierStatus Wert);
 
+/// <summary>Kopfzeile eines aufklappbaren Turnierkopf-Bereichs (Issue #399): Titel plus Kurzfassung des
+/// Inhalts, damit auch zugeklappt erkennbar bleibt, ob etwas festgelegt ist.</summary>
+public record AbschnittKopf(string Titel, string Zusammenfassung);
+
 /// <summary>Eine Verband-Quoten-Zeile im Turnierkopf (Issue #161/#154, hier #297) — lokaler UI-Zustand
 /// zwischen Laden und Speichern, analog WPF-Original <c>VerbandsQuoteZeile</c>.</summary>
 public partial class VerbandsQuoteZeile : ObservableObject
@@ -390,11 +394,13 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 foreach (GastgeberZeile z in e.NewItems)
                     z.PropertyChanged += (_, _) =>
                     {
+                        OnPropertyChanged(nameof(TitelGastgeberKopf));
                         if (_populiertGerade > 0) return;
                         IsDirty = true;
                         // Eine zuvor nur wegen der Auswahl enthaltene Mannschaft fällt wieder heraus.
                         CollectionSyncVerzoegern(() => GastgeberOptionenSynchronisieren());
                     };
+            OnPropertyChanged(nameof(TitelGastgeberKopf));
             if (_populiertGerade > 0) return;
             IsDirty = true;
             CollectionSyncVerzoegern(() => GastgeberOptionenSynchronisieren());
@@ -544,6 +550,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             if (e.NewItems is not null)
                 foreach (VerbandsQuoteZeile z in e.NewItems)
                     z.PropertyChanged += OnQuotenZeileGeaendert;
+            OnPropertyChanged(nameof(QuotenKopf));
             if (_populiertGerade == 0) IsDirty = true;
         };
         foreach (var z in QuotenZeilen) z.PropertyChanged += OnQuotenZeileGeaendert;
@@ -551,6 +558,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     private void OnQuotenZeileGeaendert(object? sender, PropertyChangedEventArgs e)
     {
+        OnPropertyChanged(nameof(QuotenKopf));
         if (_populiertGerade == 0) IsDirty = true;
     }
 
@@ -579,6 +587,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             if (e.NewItems is not null)
                 foreach (LandesQuoteZeile z in e.NewItems)
                     z.PropertyChanged += OnLandesQuoteZeileGeaendert;
+            OnPropertyChanged(nameof(QuotenKopf));
             if (_populiertGerade == 0) IsDirty = true;
         };
         foreach (var z in LandesQuotenZeilen) z.PropertyChanged += OnLandesQuoteZeileGeaendert;
@@ -586,7 +595,54 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     private void OnLandesQuoteZeileGeaendert(object? sender, PropertyChangedEventArgs e)
     {
+        OnPropertyChanged(nameof(QuotenKopf));
         if (_populiertGerade == 0) IsDirty = true;
+    }
+
+    // ── Aufklappbare Bereiche (Issue #399) ────────────────────────────────────
+    // Titelverteidiger + Gastgeber und die Quoten sind selten genutzt und liegen deshalb in aufklappbaren
+    // Bereichen. Aufgeklappt wird beim Turnierwechsel, wenn der Bereich Werte enthält; danach bleibt der
+    // Zustand dem Nutzer überlassen (Speichern/Abbrechen laden dasselbe Turnier neu und klappen nichts um).
+    [ObservableProperty] private bool _titelGastgeberOffen;
+    [ObservableProperty] private bool _quotenOffen;
+
+    public bool QuotenSichtbar => VerbandsQuotenSichtbar || LandesQuotenSichtbar;
+
+    // Ohne Verband-Quoten rückt die Landes-Quote in die linke Spalte.
+    public int LandesQuotenSpalte => VerbandsQuotenSichtbar ? 2 : 0;
+
+    public AbschnittKopf TitelGastgeberKopf
+    {
+        get
+        {
+            var teile = new List<string>();
+            if (Titelverteidiger?.Wert is not null) teile.Add($"Titelverteidiger: {Titelverteidiger.Anzeige}");
+            var gastgeber = GastgeberZeilen.Select(z => z.Mannschaft).OfType<Mannschaft>().Distinct().ToList();
+            if (gastgeber.Count is > 0 and <= 3) teile.Add($"Gastgeber: {string.Join(", ", gastgeber.Select(m => m.Name))}");
+            else if (gastgeber.Count > 3) teile.Add($"Gastgeber: {gastgeber.Count}");
+            return new("TITELVERTEIDIGER & GASTGEBER", teile.Count > 0 ? string.Join(" · ", teile) : "nicht festgelegt");
+        }
+    }
+
+    public AbschnittKopf QuotenKopf
+    {
+        get
+        {
+            var teile = new List<string>();
+            var verband = QuotenZeilen.Where(z => z.Verband is not null).ToList();
+            if (VerbandsQuotenSichtbar && verband.Count > 0)
+                teile.Add($"Verband: {verband.Count} (Summe {verband.Sum(z => z.Anzahl)})");
+            var land = LandesQuotenZeilen.Where(z => z.Land is not null).ToList();
+            if (LandesQuotenSichtbar && land.Count > 0)
+                teile.Add($"Land: {land.Count} (Summe {land.Sum(z => z.Anzahl)})");
+            return new("QUOTEN", teile.Count > 0 ? string.Join(" · ", teile) : "nicht festgelegt");
+        }
+    }
+
+    private void AufklappzustandSetzen()
+    {
+        TitelGastgeberOffen = Titelverteidiger?.Wert is not null || GastgeberZeilen.Count > 0;
+        QuotenOffen = QuotenZeilen.Count > 0 || LandesQuotenZeilen.Count > 0;
     }
 
     private static readonly HashSet<string> _formFelder =
@@ -671,6 +727,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     public async Task InstanzSetzenAsync(TurnierInstanz? instanz)
     {
         using var vorgang = _logger.Vorgang($"Turnierkopf: Turnier setzen (Instanz {instanz?.Id})");
+        var instanzGewechselt = AktuelleInstanz?.Id != instanz?.Id || IstNeuModus;
         AktuelleInstanz = instanz;
         _populiertGerade++;
         try
@@ -722,7 +779,11 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
             AktualisiereFormularFehler();
 
-            if (instanz is null) return;
+            if (instanz is null)
+            {
+                AufklappzustandSetzen();
+                return;
+            }
 
             IstLadend = true;
             try
@@ -740,6 +801,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             finally
             {
                 IstLadend = false;
+                if (instanzGewechselt) AufklappzustandSetzen();
             }
         }
         finally
@@ -805,6 +867,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             GastgeberSetzen([]);
             ErsteRundeEingang = null;
             Fehlermeldung = null;
+            AufklappzustandSetzen();
         }
         finally
         {
@@ -958,13 +1021,13 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             if (int.TryParse(zielText, out var anzahl) && anzahl >= 2)
                 zielAnzahl = anzahl;
             else
-                fehler.Add("Ziel-Mannschaftsanzahl muss eine Zahl ≥ 2 sein.");
+                fehler.Add("Mannschaftsanzahl muss eine Zahl ≥ 2 sein.");
         }
 
         if (!string.IsNullOrWhiteSpace(Startdatum) && ParseJahr(Startdatum) is null)
-            fehler.Add("Startdatum muss eine Jahreszahl zwischen 1800 und 2100 sein.");
+            fehler.Add("Startjahr muss eine Jahreszahl zwischen 1800 und 2100 sein.");
         if (!string.IsNullOrWhiteSpace(Enddatum) && ParseJahr(Enddatum) is null)
-            fehler.Add("Enddatum muss eine Jahreszahl zwischen 1800 und 2100 sein.");
+            fehler.Add("Endjahr muss eine Jahreszahl zwischen 1800 und 2100 sein.");
 
         fehler.AddRange(_validator.BasisdatenValidieren(
             Name, SaisonOderJahr, zielAnzahl, ParseJahr(Startdatum), ParseJahr(Enddatum), LogoDaten).Fehler);
@@ -975,6 +1038,20 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
+        switch (e.PropertyName)
+        {
+            case nameof(Titelverteidiger):
+                OnPropertyChanged(nameof(TitelGastgeberKopf));
+                break;
+            case nameof(QuotenZeilen) or nameof(LandesQuotenZeilen):
+                OnPropertyChanged(nameof(QuotenKopf));
+                break;
+            case nameof(VerbandsQuotenSichtbar) or nameof(LandesQuotenSichtbar):
+                OnPropertyChanged(nameof(QuotenSichtbar));
+                OnPropertyChanged(nameof(LandesQuotenSpalte));
+                OnPropertyChanged(nameof(QuotenKopf));
+                break;
+        }
         if (_populiertGerade == 0 && _formFelder.Contains(e.PropertyName!))
         {
             IsDirty = true;

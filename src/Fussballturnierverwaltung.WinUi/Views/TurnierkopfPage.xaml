@@ -8,6 +8,18 @@
 
     <UserControl.Resources>
         <conv:TurnierKategorieZuTextConverter x:Key="TurnierKategorieZuText" />
+
+        <!-- Kopfzeile der aufklappbaren Bereiche (Issue #399): Titel plus Kurzfassung des Inhalts, damit
+             auch zugeklappt erkennbar bleibt, ob etwas festgelegt ist. Header + HeaderTemplate statt
+             ContentPresenter im Header (siehe #341). -->
+        <DataTemplate x:Key="AbschnittKopfVorlage">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock Text="{Binding Titel}" FontWeight="SemiBold" FontSize="11" Opacity="0.6"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Zusammenfassung}" FontSize="12" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid ColumnDefinitions="3*,1*">
@@ -25,10 +37,11 @@
                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="28,20,28,28" HorizontalAlignment="Stretch">
 
+                <!-- ── Basisdaten ──────────────────────────────────────────────── -->
                 <TextBlock Text="BASISDATEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
 
-                <Grid Margin="0,0,0,16" ColumnDefinitions="64,16,*">
-                    <Grid Width="64" Height="64">
+                <Grid Margin="0,0,0,12" ColumnDefinitions="64,12,Auto,20,*,16,*">
+                    <Grid Width="64" Height="64" VerticalAlignment="Center">
                         <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" />
                         <Image Source="{Binding LogoDaten, Converter={StaticResource BildDatenZuBildquelle}}"
                                Visibility="{Binding LogoDaten, Converter={StaticResource NullToCollapsed}}"
@@ -38,44 +51,34 @@
                                    Visibility="{Binding LogoDaten, Converter={StaticResource NullToVisible}}" />
                     </Grid>
                     <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="6">
-                        <Button Content="Logo wählen…" Command="{Binding LogoWaehlenCommand}" HorizontalAlignment="Left" />
+                        <Button Content="Logo wählen…" Command="{Binding LogoWaehlenCommand}" HorizontalAlignment="Stretch" />
                         <Button Content="Entfernen" Command="{Binding LogoEntfernenCommand}"
                                 IsEnabled="{Binding LogoDaten, Converter={StaticResource IstNichtNull}}"
-                                HorizontalAlignment="Left" />
+                                HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="4" VerticalAlignment="Center" HorizontalAlignment="Stretch">
+                        <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
+                        <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <!-- Issue #367: kurze Formatangabe, unterscheidet gleichnamige Vorlagen in der Turnierliste -->
+                    <StackPanel Grid.Column="6" VerticalAlignment="Center" HorizontalAlignment="Stretch">
+                        <TextBlock Text="Variante" FontSize="12" Margin="0,0,0,3" />
+                        <TextBox Text="{Binding Variante, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 PlaceholderText="z. B. 32 Teams · 1998–2022" MaxLength="100"
+                                 HorizontalAlignment="Stretch" />
                     </StackPanel>
                 </Grid>
-
-                <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
-                <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         HorizontalAlignment="Stretch" Margin="0,0,0,12" />
-
-                <!-- Issue #367: kurze Formatangabe, unterscheidet gleichnamige Vorlagen in der Turnierliste -->
-                <TextBlock Text="Variante" FontSize="12" Margin="0,0,0,3" />
-                <TextBox Text="{Binding Variante, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         PlaceholderText="z. B. 32 Teams · 1998–2022" MaxLength="100"
-                         HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                 <TextBlock Text="Beschreibung" FontSize="12" Margin="0,0,0,3" />
                 <TextBox Text="{Binding Beschreibung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          HorizontalAlignment="Stretch" Margin="0,0,0,24"
                          TextWrapping="Wrap" AcceptsReturn="True" Height="60" />
 
+                <!-- ── Turniereinstellungen ────────────────────────────────────── -->
                 <TextBlock Text="TURNIEREINSTELLUNGEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
 
-                <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
-                    <StackPanel HorizontalAlignment="Stretch">
-                        <TextBlock Text="Saison/Jahr" FontSize="12" Margin="0,0,0,3" />
-                        <TextBox Text="{Binding SaisonOderJahr, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 HorizontalAlignment="Stretch" />
-                    </StackPanel>
-                    <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
-                        <TextBlock Text="Ziel-Mannschaftsanzahl" FontSize="12" Margin="0,0,0,3" />
-                        <TextBox Text="{Binding ZielMannschaftsanzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 HorizontalAlignment="Stretch" />
-                    </StackPanel>
-                </Grid>
-
-                <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
+                <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*,16,*">
                     <StackPanel HorizontalAlignment="Stretch">
                         <TextBlock Text="Kategorie" FontSize="12" Margin="0,0,0,3" />
                         <ComboBox ItemsSource="{Binding KategorieOptionen}"
@@ -89,6 +92,11 @@
                         </ComboBox>
                     </StackPanel>
                     <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
+                        <TextBlock Text="Mannschaftsanzahl" FontSize="12" Margin="0,0,0,3" />
+                        <TextBox Text="{Binding ZielMannschaftsanzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="4" HorizontalAlignment="Stretch">
                         <TextBlock Text="Status" FontSize="12" Margin="0,0,0,3" />
                         <ComboBox ItemsSource="{Binding StatusOptionen}"
                                   SelectedItem="{Binding Status, Mode=TwoWay}"
@@ -96,132 +104,155 @@
                     </StackPanel>
                 </Grid>
 
-                <Grid Margin="0,0,0,24" ColumnDefinitions="*,16,*">
+                <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*,16,*">
                     <StackPanel HorizontalAlignment="Stretch">
-                        <TextBlock Text="Startdatum (Jahr)" FontSize="12" Margin="0,0,0,3" />
-                        <TextBox Text="{Binding Startdatum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBlock Text="Saison/Jahr" FontSize="12" Margin="0,0,0,3" />
+                        <TextBox Text="{Binding SaisonOderJahr, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  HorizontalAlignment="Stretch" />
                     </StackPanel>
                     <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
-                        <TextBlock Text="Enddatum (Jahr)" FontSize="12" Margin="0,0,0,3" />
+                        <TextBlock Text="Startjahr" FontSize="12" Margin="0,0,0,3" />
+                        <TextBox Text="{Binding Startdatum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="4" HorizontalAlignment="Stretch">
+                        <TextBlock Text="Endjahr" FontSize="12" Margin="0,0,0,3" />
                         <TextBox Text="{Binding Enddatum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  HorizontalAlignment="Stretch" />
                     </StackPanel>
                 </Grid>
 
-                <TextBlock Text="AUSLOSUNGSFILTER" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
-
-                <TextBlock Text="Verband" FontSize="12" Margin="0,0,0,3" />
-                <ComboBox ItemsSource="{Binding VerbandOptionenGefiltert}"
-                          SelectedItem="{Binding VerbandFilter, Mode=TwoWay}"
-                          DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,12" />
-
-                <TextBlock Text="Land" FontSize="12" Margin="0,0,0,3" />
-                <ComboBox ItemsSource="{Binding LandOptionenGefiltert}"
-                          SelectedItem="{Binding LandFilter, Mode=TwoWay}"
-                          DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,12" />
-
-                <TextBlock Text="Mannschaftsart" FontSize="12" Margin="0,0,0,3" />
-                <ComboBox ItemsSource="{Binding TeamfilterOptionen}"
-                          SelectedItem="{Binding TeamFilter, Mode=TwoWay}"
-                          DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,24" />
-
-                <TextBlock Text="REGELWERK-STANDARD" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
-
-                <TextBlock Text="Wird automatisch für neue Runden im Runden-Editor vorbelegt." FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,8" />
+                <TextBlock Text="Regelwerk-Standard" FontSize="12" Margin="0,0,0,3" />
                 <ComboBox ItemsSource="{Binding StandardRegelwerkOptionen}"
                           SelectedItem="{Binding StandardRegelwerk, Mode=TwoWay}"
-                          DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,24" />
+                          DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,24"
+                          ToolTipService.ToolTip="Wird automatisch für neue Runden im Runden-Editor vorbelegt." />
 
-                <TextBlock Text="TITELVERTEIDIGER" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
+                <!-- ── Teilnehmer & Auslosung ──────────────────────────────────── -->
+                <TextBlock Text="TEILNEHMER &amp; AUSLOSUNG" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
 
-                <TextBlock Text="Optional, vorgefiltert nach dem Auslosungsfilter. Kommt bei Runden mit „Titelverteidiger in Topf 1“ unabhängig vom Ranglistenplatz in Topf 1."
-                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,8" />
-                <ComboBox ItemsSource="{Binding TitelverteidigerOptionenGefiltert}"
-                          SelectedItem="{Binding Titelverteidiger, Mode=TwoWay}"
-                          DisplayMemberPath="Anzeige" IsTextSearchEnabled="True"
-                          HorizontalAlignment="Stretch" Margin="0,0,0,24" />
+                <Grid Margin="0,0,0,16" ColumnDefinitions="*,16,*,16,*">
+                    <StackPanel HorizontalAlignment="Stretch">
+                        <TextBlock Text="Verband" FontSize="12" Margin="0,0,0,3" />
+                        <ComboBox ItemsSource="{Binding VerbandOptionenGefiltert}"
+                                  SelectedItem="{Binding VerbandFilter, Mode=TwoWay}"
+                                  DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
+                        <TextBlock Text="Land" FontSize="12" Margin="0,0,0,3" />
+                        <ComboBox ItemsSource="{Binding LandOptionenGefiltert}"
+                                  SelectedItem="{Binding LandFilter, Mode=TwoWay}"
+                                  DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="4" HorizontalAlignment="Stretch">
+                        <TextBlock Text="Mannschaftsart" FontSize="12" Margin="0,0,0,3" />
+                        <ComboBox ItemsSource="{Binding TeamfilterOptionen}"
+                                  SelectedItem="{Binding TeamFilter, Mode=TwoWay}"
+                                  DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                </Grid>
 
-                <!-- Issue #352 -->
-                <TextBlock Text="GASTGEBER" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,8"
+                          IsExpanded="{Binding TitelGastgeberOffen, Mode=TwoWay}"
+                          Header="{Binding TitelGastgeberKopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
+                    <Grid ColumnDefinitions="*,24,*">
+                        <StackPanel HorizontalAlignment="Stretch">
+                            <TextBlock Text="Titelverteidiger" FontSize="12" Margin="0,0,0,3" />
+                            <ComboBox ItemsSource="{Binding TitelverteidigerOptionenGefiltert}"
+                                      SelectedItem="{Binding Titelverteidiger, Mode=TwoWay}"
+                                      DisplayMemberPath="Anzeige" IsTextSearchEnabled="True"
+                                      HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                            <TextBlock Text="Optional, vorgefiltert nach dem Auslosungsfilter. Kommt bei Runden mit „Titelverteidiger in Topf 1“ unabhängig vom Ranglistenplatz in Topf 1."
+                                       FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
+                        </StackPanel>
 
-                <TextBlock Text="Optional. Gastgeber behalten in Runden mit neutralem Spielort ihren Heimvorteil (z. B. Ausrichter einer WM/EM oder der Verein, in dessen Stadion das Finale stattfindet)."
-                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,8" />
-                <ItemsRepeater ItemsSource="{Binding GastgeberZeilen}">
-                    <ItemsRepeater.ItemTemplate>
-                        <DataTemplate>
-                            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
-                                <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.GastgeberKandidaten}"
-                                          SelectedItem="{Binding Mannschaft, Mode=TwoWay}"
-                                          DisplayMemberPath="Name" IsTextSearchEnabled="True"
-                                          HorizontalAlignment="Stretch" Margin="0,0,8,0" />
-                                <Button Grid.Column="1" Content="✕"
-                                        Command="{Binding ElementName=Root, Path=DataContext.GastgeberEntfernenCommand}"
-                                        CommandParameter="{Binding}" />
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsRepeater.ItemTemplate>
-                </ItemsRepeater>
-                <Button Content="Gastgeber hinzufügen" Command="{Binding GastgeberHinzufuegenCommand}"
-                        HorizontalAlignment="Left" Margin="0,4,0,24" />
+                        <!-- Issue #352 -->
+                        <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
+                            <TextBlock Text="Gastgeber" FontSize="12" Margin="0,0,0,3" />
+                            <ItemsRepeater ItemsSource="{Binding GastgeberZeilen}">
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                                            <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.GastgeberKandidaten}"
+                                                      SelectedItem="{Binding Mannschaft, Mode=TwoWay}"
+                                                      DisplayMemberPath="Name" IsTextSearchEnabled="True"
+                                                      HorizontalAlignment="Stretch" Margin="0,0,8,0" />
+                                            <Button Grid.Column="1" Content="✕"
+                                                    Command="{Binding ElementName=Root, Path=DataContext.GastgeberEntfernenCommand}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+                            <Button Content="Gastgeber hinzufügen" Command="{Binding GastgeberHinzufuegenCommand}"
+                                    HorizontalAlignment="Left" Margin="0,0,0,6" />
+                            <TextBlock Text="Optional. Gastgeber behalten in Runden mit neutralem Spielort ihren Heimvorteil (z. B. Ausrichter einer WM/EM oder der Verein, in dessen Stadion das Finale stattfindet)."
+                                       FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Expander>
 
-                <StackPanel Visibility="{Binding VerbandsQuotenSichtbar, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="VERBAND-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,4" />
-                    <TextBlock Visibility="{Binding KapazitaetsHinweisSichtbar, Converter={StaticResource BoolToVisibility}}"
-                               FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,10">
-                        <Run Text="Die Summe der Quoten darf die Eingangskapazität der ersten Runde (" />
-                        <Run Text="{Binding ErsteRundeEingang}" />
-                        <Run Text=") nicht übersteigen." />
-                    </TextBlock>
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          Visibility="{Binding QuotenSichtbar, Converter={StaticResource BoolToVisibility}}"
+                          IsExpanded="{Binding QuotenOffen, Mode=TwoWay}"
+                          Header="{Binding QuotenKopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
+                    <Grid ColumnDefinitions="*,24,*" RowDefinitions="Auto,Auto">
+                        <TextBlock Grid.ColumnSpan="3"
+                                   Visibility="{Binding KapazitaetsHinweisSichtbar, Converter={StaticResource BoolToVisibility}}"
+                                   FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,10">
+                            <Run Text="Die Summe der Quoten darf die Eingangskapazität der ersten Runde (" />
+                            <Run Text="{Binding ErsteRundeEingang}" />
+                            <Run Text=") nicht übersteigen." />
+                        </TextBlock>
 
-                    <ItemsRepeater ItemsSource="{Binding QuotenZeilen}">
-                        <ItemsRepeater.ItemTemplate>
-                            <DataTemplate>
-                                <Grid ColumnDefinitions="*,90,Auto" Margin="0,0,0,6">
-                                    <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.AlleVerbaende}"
-                                              SelectedItem="{Binding Verband, Mode=TwoWay}"
-                                              DisplayMemberPath="Name" HorizontalAlignment="Stretch" />
-                                    <NumberBox Grid.Column="1" Value="{Binding Anzahl, Mode=TwoWay}"
-                                               Minimum="1" SpinButtonPlacementMode="Inline" Margin="8,0,8,0" />
-                                    <Button Grid.Column="2" Content="✕"
-                                            Command="{Binding ElementName=Root, Path=DataContext.VerbandsQuoteEntfernenCommand}"
-                                            CommandParameter="{Binding}" />
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsRepeater.ItemTemplate>
-                    </ItemsRepeater>
-                    <Button Content="Verband hinzufügen" Command="{Binding VerbandsQuoteHinzufuegenCommand}"
-                            HorizontalAlignment="Left" Margin="0,4,0,0" />
-                </StackPanel>
+                        <StackPanel Grid.Row="1" HorizontalAlignment="Stretch"
+                                    Visibility="{Binding VerbandsQuotenSichtbar, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Verband-Quoten" FontSize="12" Margin="0,0,0,3" />
+                            <ItemsRepeater ItemsSource="{Binding QuotenZeilen}">
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="*,90,Auto" Margin="0,0,0,6">
+                                            <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.AlleVerbaende}"
+                                                      SelectedItem="{Binding Verband, Mode=TwoWay}"
+                                                      DisplayMemberPath="Name" HorizontalAlignment="Stretch" />
+                                            <NumberBox Grid.Column="1" Value="{Binding Anzahl, Mode=TwoWay}"
+                                                       Minimum="1" SpinButtonPlacementMode="Inline" Margin="8,0,8,0" />
+                                            <Button Grid.Column="2" Content="✕"
+                                                    Command="{Binding ElementName=Root, Path=DataContext.VerbandsQuoteEntfernenCommand}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+                            <Button Content="Verband hinzufügen" Command="{Binding VerbandsQuoteHinzufuegenCommand}"
+                                    HorizontalAlignment="Left" />
+                        </StackPanel>
 
-                <StackPanel Visibility="{Binding LandesQuotenSichtbar, Converter={StaticResource BoolToVisibility}}" Margin="0,20,0,0">
-                    <TextBlock Text="LANDES-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,4" />
-                    <TextBlock Visibility="{Binding KapazitaetsHinweisSichtbar, Converter={StaticResource BoolToVisibility}}"
-                               FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,10">
-                        <Run Text="Die Summe der Quoten darf die Eingangskapazität der ersten Runde (" />
-                        <Run Text="{Binding ErsteRundeEingang}" />
-                        <Run Text=") nicht übersteigen." />
-                    </TextBlock>
-
-                    <ItemsRepeater ItemsSource="{Binding LandesQuotenZeilen}">
-                        <ItemsRepeater.ItemTemplate>
-                            <DataTemplate>
-                                <Grid ColumnDefinitions="*,90,Auto" Margin="0,0,0,6">
-                                    <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.AlleLaender}"
-                                              SelectedItem="{Binding Land, Mode=TwoWay}"
-                                              DisplayMemberPath="Name" HorizontalAlignment="Stretch" />
-                                    <NumberBox Grid.Column="1" Value="{Binding Anzahl, Mode=TwoWay}"
-                                               Minimum="1" SpinButtonPlacementMode="Inline" Margin="8,0,8,0" />
-                                    <Button Grid.Column="2" Content="✕"
-                                            Command="{Binding ElementName=Root, Path=DataContext.LandesQuoteEntfernenCommand}"
-                                            CommandParameter="{Binding}" />
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsRepeater.ItemTemplate>
-                    </ItemsRepeater>
-                    <Button Content="Land hinzufügen" Command="{Binding LandesQuoteHinzufuegenCommand}"
-                            HorizontalAlignment="Left" Margin="0,4,0,0" />
-                </StackPanel>
+                        <!-- Ohne Verband-Quoten rückt die Landes-Quote in die linke Spalte. -->
+                        <StackPanel Grid.Row="1" Grid.Column="{Binding LandesQuotenSpalte}" HorizontalAlignment="Stretch"
+                                    Visibility="{Binding LandesQuotenSichtbar, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Landes-Quoten" FontSize="12" Margin="0,0,0,3" />
+                            <ItemsRepeater ItemsSource="{Binding LandesQuotenZeilen}">
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="*,90,Auto" Margin="0,0,0,6">
+                                            <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.AlleLaender}"
+                                                      SelectedItem="{Binding Land, Mode=TwoWay}"
+                                                      DisplayMemberPath="Name" HorizontalAlignment="Stretch" />
+                                            <NumberBox Grid.Column="1" Value="{Binding Anzahl, Mode=TwoWay}"
+                                                       Minimum="1" SpinButtonPlacementMode="Inline" Margin="8,0,8,0" />
+                                            <Button Grid.Column="2" Content="✕"
+                                                    Command="{Binding ElementName=Root, Path=DataContext.LandesQuoteEntfernenCommand}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+                            <Button Content="Land hinzufügen" Command="{Binding LandesQuoteHinzufuegenCommand}"
+                                    HorizontalAlignment="Left" />
+                        </StackPanel>
+                    </Grid>
+                </Expander>
             </StackPanel>
         </ScrollViewer>
 

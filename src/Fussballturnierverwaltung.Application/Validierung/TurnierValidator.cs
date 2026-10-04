@@ -137,10 +137,10 @@ public class TurnierValidator
             fehler.Add("Saison/Jahr darf nicht leer sein.");
 
         if (zielMannschaftsanzahl is not null && zielMannschaftsanzahl < 2)
-            fehler.Add($"Zielmannschaftsanzahl muss mindestens 2 betragen (war: {zielMannschaftsanzahl}).");
+            fehler.Add($"Mannschaftsanzahl muss mindestens 2 betragen (war: {zielMannschaftsanzahl}).");
 
         if (startdatum.HasValue && enddatum.HasValue && enddatum < startdatum)
-            fehler.Add("Enddatum darf nicht vor dem Startdatum liegen.");
+            fehler.Add("Endjahr darf nicht vor dem Startjahr liegen.");
 
         BildValidierung.GroessePruefen(logo, fehler);
 
