@@ -289,6 +289,13 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     private ObservableCollection<UebergreifendeRangfolgeAnzeige> _uebergreifendeRangfolgenAnzeige = [];
     public bool HatUebergreifendeRangfolgenAnzeige => UebergreifendeRangfolgenAnzeige.Count > 0;
 
+    /// <summary>Legende der Tabellenzonen der fokussierten Runde (Issue #358) — leer, wenn die Runde keine
+    /// ausgehenden Übergangsregeln hat oder eine Teilansicht (Heim, Hinrunde …) gezeigt wird.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatZonenLegende))]
+    private IReadOnlyList<ZonenLegendenEintrag> _zonenLegende = [];
+    public bool HatZonenLegende => ZonenLegende.Count > 0;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnzeigeGruppenTabellen))]
     private int? _fokussierteGruppenNummer;
@@ -352,16 +359,30 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         Fehlermeldung = null;
         try
         {
+            // Issue #358: Zonen allein aus den ausgehenden Übergangsregeln. Der Sicher-Punkt gilt nur für den
+            // aktuellen Stand — bei einem historischen Spieltag passen die möglichen Ränge nicht zur Tabelle.
+            var regeln = await _uebergangsregelService.AlleNachQuellRundeIdAsync(_fokusRunde.Id);
+            var zonen = TabellenZonen.AusRegeln(regeln);
+            bool mitSicherheit = TabellenBisSpieltag is null;
+
             if (ZeigtGruppenphase)
             {
                 var tabellen = await _tabellenService.GruppenTabellenBerechnenAsync(_fokusRunde.Id, TabellenBisSpieltag);
+                foreach (var gruppe in tabellen)
+                    TabellenZonen.Zuweisen(gruppe.Tabelle, zonen, gruppe.GruppenNummer, mitSicherheit);
                 GruppenTabellenAnzeige = new ObservableCollection<GruppenTabelle>(tabellen);
-                await UebergreifendeRangfolgenLadenAsync();
+                await UebergreifendeRangfolgenLadenAsync(regeln, zonen);
+                ZonenLegende = TabellenZonen.Legende(zonen);
             }
             else if (ZeigtLigaTabelle)
             {
+                // Heim-/Auswärts- und Halbserien-Tabellen sind keine Wertung für das Weiterkommen - ohne Zonen.
+                if (AusgewaehlteLigaAnsicht != TabellenAnsicht.Gesamt) zonen = [];
+
                 var tabelle = await _tabellenService.TabelleBerechnenAsync(_fokusRunde.Id, AusgewaehlteLigaAnsicht, TabellenBisSpieltag);
+                TabellenZonen.Zuweisen(tabelle, zonen, gruppenNummer: null, mitSicherheit);
                 LigaTabelleAnzeige = new ObservableCollection<TabellenEintrag>(tabelle);
+                ZonenLegende = TabellenZonen.Legende(zonen);
             }
         }
         catch (Exception ex)
@@ -370,29 +391,32 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         }
     }
 
-    private async Task UebergreifendeRangfolgenLadenAsync()
+    private async Task UebergreifendeRangfolgenLadenAsync(
+        IReadOnlyList<Uebergangsregel> ausgehendeRegeln, IReadOnlyList<TabellenZone> zonen)
     {
-        if (_fokusRunde is null) { UebergreifendeRangfolgenAnzeige = []; return; }
-
-        var regeln = (await _uebergangsregelService.AlleNachQuellRundeIdAsync(_fokusRunde.Id))
-            .Where(r => r.AnzahlBeste is not null)
-            .ToList();
-
         var anzeigen = new List<UebergreifendeRangfolgeAnzeige>();
-        foreach (var regel in regeln)
+        foreach (var regel in ausgehendeRegeln.Where(r => r.AnzahlBeste is not null))
         {
             var rangfolge = await _tabellenService.UebergreifendeRangfolgeBerechnenAsync(regel.QuellRundeId, regel.PlatzierungVon);
             var qualifikanten = await _uebergangsregelService.QualifikantenErmittelnAsync(regel.Id);
+
+            // Issue #358: Hier fällt die Entscheidung über das Weiterkommen — die Plätze der Besten tragen die
+            // Farbe der Zielrunde, der Punkt folgt, sobald die Qualifikanten feststehen.
+            var zielFarbe = TabellenZonen.ZielFarbe(zonen, regel.ZielRundeId);
+            foreach (var eintrag in rangfolge)
+                eintrag.ZonenFarbe = eintrag.Rang <= regel.AnzahlBeste ? zielFarbe : null;
 
             if (qualifikanten.Values.All(v => v.HasValue))
             {
                 var qualifizierteIds = qualifikanten.Values.Select(v => v!.Value).ToHashSet();
                 foreach (var eintrag in rangfolge)
                 {
-                    eintrag.Qualifikationsstatus = qualifizierteIds.Contains(eintrag.Mannschaft.Id)
+                    bool qualifiziert = qualifizierteIds.Contains(eintrag.Mannschaft.Id);
+                    eintrag.Qualifikationsstatus = qualifiziert
                         ? Qualifikationsstatus.SicherQualifiziert
                         : Qualifikationsstatus.SicherAusgeschieden;
                     eintrag.SicherPositioniert = true;
+                    eintrag.PunktFarbe = qualifiziert ? zielFarbe : ZonenFarbe.Rot;
                 }
             }
 

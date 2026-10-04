@@ -25,4 +25,17 @@ public sealed class TabellenEintrag
     /// (Issue #202) — stärker als <see cref="Qualifikationsstatus"/>, das nur die Zonen-Zugehörigkeit
     /// (qualifiziert/ausgeschieden) absichert, nicht den exakten Platz innerhalb der Zone.</summary>
     public bool SicherPositioniert { get; set; }
+
+    /// <summary>Bester und schlechtester Rang, der mit den verbleibenden offenen Spielen noch möglich ist
+    /// (Issue #358) — <c>null</c>, solange das nicht bestimmbar ist (offene Platzhalter, historischer
+    /// Tabellenstand, Teilansichten).</summary>
+    public int? BesterRang { get; set; }
+    public int? SchlechtesterRang { get; set; }
+
+    /// <summary>Farbe der Tabellenzone des aktuellen Rangs (Issue #358), <c>null</c> = keine Zone.</summary>
+    public ZonenFarbe? ZonenFarbe { get; set; }
+
+    /// <summary>Farbe des Sicher-Punkts (Issue #358): gesetzt, sobald feststeht, in welche Zielrunde das Team
+    /// kommt (deren Zonenfarbe) bzw. dass es ausscheidet (<see cref="Tabelle.ZonenFarbe.Rot"/>).</summary>
+    public ZonenFarbe? PunktFarbe { get; set; }
 }

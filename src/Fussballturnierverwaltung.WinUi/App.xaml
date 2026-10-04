@@ -11,6 +11,28 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
 
+            <!-- Tabellenzonen (Issue #358): vier Qualifikationsfarben, Amber = unter Vorbehalt/Relegation,
+                 Rot = ausgeschieden/Abstieg. Schlüssel = "ZonenFarbe" + ZonenFarbe-Enumwert + "Brush", aufgelöst
+                 von Views/ZonenMarke nach dem Theme des Elements. -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="ZonenFarbeGruenBrush" Color="#1E9E57" />
+                    <SolidColorBrush x:Key="ZonenFarbeBlauBrush" Color="#1F6FD0" />
+                    <SolidColorBrush x:Key="ZonenFarbeTuerkisBrush" Color="#0E9AA7" />
+                    <SolidColorBrush x:Key="ZonenFarbeViolettBrush" Color="#7E57C2" />
+                    <SolidColorBrush x:Key="ZonenFarbeAmberBrush" Color="#E09B00" />
+                    <SolidColorBrush x:Key="ZonenFarbeRotBrush" Color="#D13438" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="ZonenFarbeGruenBrush" Color="#4CC38A" />
+                    <SolidColorBrush x:Key="ZonenFarbeBlauBrush" Color="#5AA9F5" />
+                    <SolidColorBrush x:Key="ZonenFarbeTuerkisBrush" Color="#3CC9D3" />
+                    <SolidColorBrush x:Key="ZonenFarbeViolettBrush" Color="#B39DDB" />
+                    <SolidColorBrush x:Key="ZonenFarbeAmberBrush" Color="#F2B93B" />
+                    <SolidColorBrush x:Key="ZonenFarbeRotBrush" Color="#F1707B" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
             <!-- Global verfügbare Converter, analog zu Fussballturnierverwaltung.Wpf\App.xaml -->
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
             <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />

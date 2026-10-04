@@ -37,7 +37,16 @@ public class TabellenService(
             _                                => null
         };
 
-        return TabelleAusSpielenBerechnen(spiele, punkteRegel, rankingRegeln, nurHeimspiele);
+        var tabelle = TabelleAusSpielenBerechnen(spiele, punkteRegel, rankingRegeln, nurHeimspiele);
+
+        // Issue #358: mögliche Ränge nur für den aktuellen Gesamtstand — Teilansichten und historische
+        // Spieltage sind keine Wertung, aus der sich ein Weiterkommen ableiten ließe.
+        if (ansicht == TabellenAnsicht.Gesamt && bisSpieltag is null)
+        {
+            var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct);
+            RangSchrankenSetzen(tabelle, runde, alleSpiele, punkteRegel);
+        }
+        return tabelle;
     }
 
     /// <summary>Berechnet die Gesamttabelle einer Liga-/TopfLiga-/Schweizer-System-Runde inkl.
@@ -57,16 +66,27 @@ public class TabellenService(
 
         var tabelle = TabelleAusSpielenBerechnen(alleSpiele, punkteRegel, rankingRegeln);
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct);
-        var verbleibend = VerbleibendeSpieleProTeam(runde, alleSpiele, tabelle);
+        RangSchrankenSetzen(tabelle, runde, alleSpiele, punkteRegel);
+        foreach (var eintrag in tabelle)
+            eintrag.SicherPositioniert = eintrag.BesterRang == eintrag.Rang && eintrag.SchlechtesterRang == eintrag.Rang;
+        return tabelle;
+    }
 
-        // Unbekannter Rest (noch unaufgelöste Platzhalter-Spiele, Schweizer System ohne Spieltag-Anzahl):
-        // kein Rang ist sicher.
-        if (verbleibend is null) return tabelle;
+    /// <summary>Setzt <see cref="TabellenEintrag.BesterRang"/>/<see cref="TabellenEintrag.SchlechtesterRang"/>
+    /// einer Liga-Tabelle über die Punkte-Schranken (siehe <see cref="LigaTabelleMitSicherheitBerechnenAsync"/>).
+    /// Bleibt aus, solange der Rest der Runde unbekannt ist (noch unaufgelöste Platzhalter-Spiele, Schweizer
+    /// System ohne Spieltag-Anzahl).</summary>
+    private static void RangSchrankenSetzen(
+        IReadOnlyList<TabellenEintrag> tabelle, TurnierRunde? runde, IReadOnlyList<Spiel> alleSpiele, PunkteRegel punkteRegel)
+    {
+        var verbleibend = VerbleibendeSpieleProTeam(runde, alleSpiele, tabelle);
+        if (verbleibend is null) return;
 
         if (verbleibend.Values.All(n => n == 0))
         {
-            foreach (var e in tabelle) e.SicherPositioniert = true; // alles gespielt - jeder Rang ist final
-            return tabelle;
+            // alles gespielt - jeder Rang ist final
+            foreach (var e in tabelle) e.BesterRang = e.SchlechtesterRang = e.Rang;
+            return;
         }
 
         int maxProSpiel = Math.Max(punkteRegel.PunkteFuerSieg, Math.Max(punkteRegel.PunkteFuerUnentschieden, punkteRegel.PunkteFuerNiederlage));
@@ -80,11 +100,9 @@ public class TabellenService(
         {
             var (eigenMin, eigenMax) = schranken[eintrag.Mannschaft.Id];
             var andere = schranken.Where(kv => kv.Key != eintrag.Mannschaft.Id).Select(kv => kv.Value).ToList();
-            int bestRang  = 1 + andere.Count(s => s.Min > eigenMax);
-            int worstRang = 1 + andere.Count(s => s.Max >= eigenMin);
-            eintrag.SicherPositioniert = bestRang == worstRang && bestRang == eintrag.Rang;
+            eintrag.BesterRang        = 1 + andere.Count(s => s.Min > eigenMax);
+            eintrag.SchlechtesterRang = 1 + andere.Count(s => s.Max >= eigenMin);
         }
-        return tabelle;
     }
 
     /// <summary>Anzahl noch ausstehender Spiele je Team, oder <c>null</c> wenn diese nicht zuverlässig bestimmbar
@@ -548,6 +566,7 @@ public class TabellenService(
                     ? Qualifikationsstatus.SicherQualifiziert
                     : Qualifikationsstatus.SicherAusgeschieden;
                 e.SicherPositioniert = true; // keine offenen Spiele mehr - jeder Rang ist final
+                e.BesterRang = e.SchlechtesterRang = e.Rang;
             }
             return;
         }
@@ -567,6 +586,8 @@ public class TabellenService(
                     ? Qualifikationsstatus.SicherQualifiziert
                     : Qualifikationsstatus.Offen;
             eintrag.SicherPositioniert = bestRang == worstRang;
+            eintrag.BesterRang = bestRang;
+            eintrag.SchlechtesterRang = worstRang;
         }
     }
 
