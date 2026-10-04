@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turnierbaum;
@@ -12,6 +13,7 @@ using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -122,6 +124,8 @@ public partial class VorbelegungWorkspace : ObservableObject
     private readonly TurnierBaumService _baumService;
     private readonly UebergangsregelService _uebergangsregelService;
     private readonly IDialogService _dialogService;
+    private readonly ILogger _logger;
+    private readonly DbContextReentrancySchutz _dbContextSchutz;
 
     private readonly TurnierInstanz _instanz;
     private readonly IReadOnlyList<TurnierRunde> _instanzRunden;
@@ -219,10 +223,14 @@ public partial class VorbelegungWorkspace : ObservableObject
         TurnierBaumService baumService,
         UebergangsregelService uebergangsregelService,
         IDialogService dialogService,
+        ILogger logger,
+        DbContextReentrancySchutz dbContextSchutz,
         TurnierInstanz instanz,
         TurnierRunde runde,
         IReadOnlyList<TurnierRunde> instanzRunden)
     {
+        _logger = logger;
+        _dbContextSchutz = dbContextSchutz;
         _auslosungService = auslosungService;
         _mannschaftService = mannschaftService;
         _spielplanService = spielplanService;
@@ -235,8 +243,18 @@ public partial class VorbelegungWorkspace : ObservableObject
         VerfuegbareTeilnehmer.CollectionChanged += (_, _) => GefilterteTeilnehmerAbgleichen();
     }
 
-    public async Task LadenAsync()
+    /// <summary>Lädt die Runde unter dem gemeinsamen Schutz (#416) — für den Aufruf von außerhalb einer
+    /// geschützten Aktion (Rundenwechsel). Abschließen/Zurücksetzen halten den Schutz schon und rufen
+    /// <see cref="LadenAsync"/> direkt auf.</summary>
+    public async Task GeschuetztLadenAsync()
     {
+        using var schutz = await _dbContextSchutz.BetretenAsync();
+        await LadenAsync();
+    }
+
+    private async Task LadenAsync()
+    {
+        using var vorgang = _logger.Vorgang($"Vorbelegung: Runde laden (Runde {Runde.Id})");
         IstLadend = true;
         Fehlermeldung = null;
         ManuellesFehler = null;
@@ -583,12 +601,18 @@ public partial class VorbelegungWorkspace : ObservableObject
                 )).ToList();
             }
 
+            // Schon die Rückfrage liest den Spielplan — der Schutz gilt ab hier bis nach dem Neuladen (#416).
+            using var schutz = await _dbContextSchutz.BetretenAsync();
             if (!await ErgebnisVerlustBestaetigtAsync()) return;
+
+            // Erst ab hier messen — die Rückfrage davor wartet auf den Nutzer.
+            using var vorgang = _logger.Vorgang($"Vorbelegung: Paarung abschließen (Runde {Runde.Id}, {paarungen.Count} Einträge)");
 
             _auslosung ??= await _auslosungService.ErstellenAsync(new AuslosungErstellenEingabe(
                 _instanz.Id, Runde.Id, Runde.Name, Auslosungsart.Manuell, IstAutomatisch: false));
 
-            await _auslosungService.ManuelleErgebnisseAbschliessenAsync(_auslosung.Id, paarungen);
+            using (_logger.Vorgang($"Vorbelegung: Paarungen speichern (Auslosung {_auslosung.Id})"))
+                await _auslosungService.ManuelleErgebnisseAbschliessenAsync(_auslosung.Id, paarungen);
             await SpielplanAutomatischGenerierenAsync(_auslosung.Id);
             await LadenAsync();
             Geaendert?.Invoke();
@@ -603,7 +627,10 @@ public partial class VorbelegungWorkspace : ObservableObject
         Fehlermeldung = null;
         try
         {
-            await _auslosungService.ZuruecksetzenAsync(_auslosung.Id);
+            using var schutz = await _dbContextSchutz.BetretenAsync();
+            using var vorgang = _logger.Vorgang($"Vorbelegung: zurücksetzen (Runde {Runde.Id}, Auslosung {_auslosung.Id})");
+            using (_logger.Vorgang($"Vorbelegung: Auslosung zurücksetzen (Auslosung {_auslosung.Id})"))
+                await _auslosungService.ZuruecksetzenAsync(_auslosung.Id);
             await TurnierBaumAktualisierenAsync();
             await LadenAsync();
             Geaendert?.Invoke();
@@ -646,14 +673,17 @@ public partial class VorbelegungWorkspace : ObservableObject
             // Kaskade auslösen, die bei einer Platzhalter-K.o.-Runde mit weiterhin abgeschlossener
             // Auslosung erneut komplett neu generiert, bevor der folgende GenerierenAusAuslosungAsync-
             // Aufruf noch einmal generiert — macht aus 4 erwarteten Spielen 8 Phantom-Spiele.
-            await _spielplanService.RundenSpielplanOhneKaskadeLoeschenAsync(rundeId);
+            using (_logger.Vorgang($"Vorbelegung: alten Spielplan löschen (Runde {rundeId}, {vorhandeneSpiele.Count} Spiele)"))
+                await _spielplanService.RundenSpielplanOhneKaskadeLoeschenAsync(rundeId);
         }
 
-        await _spielplanService.GenerierenAusAuslosungAsync(rundeId, [.. detail.Ergebnisse]);
+        using (_logger.Vorgang($"Vorbelegung: Spielplan generieren (Runde {rundeId})"))
+            await _spielplanService.GenerierenAusAuslosungAsync(rundeId, [.. detail.Ergebnisse]);
 
         // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf den alten (jetzt ersetzten)
         // Spielplan verwiesen haben (#306) — ohne die Kaskade blieben sie fälschlich stehen.
-        await _spielplanService.KaskadeAusloesenAsync(detail.TurnierInstanzId);
+        using (_logger.Vorgang($"Vorbelegung: Kaskade nach Spielplan (Instanz {detail.TurnierInstanzId})"))
+            await _spielplanService.KaskadeAusloesenAsync(detail.TurnierInstanzId);
         await TurnierBaumAktualisierenAsync();
     }
 
@@ -663,6 +693,7 @@ public partial class VorbelegungWorkspace : ObservableObject
     /// (analog SpielplanViewModel.TurnierBaumAktualisierenAsync).</summary>
     private async Task TurnierBaumAktualisierenAsync()
     {
+        using var vorgang = _logger.Vorgang($"Vorbelegung: Turnierbaum aktualisieren (Instanz {_instanz.Id})");
         try { await _baumService.GenerierenAsync(_instanz.Id); }
         catch { /* TurnierBaum-Rebuild ist optional — nie Fehler an den Benutzer weitergeben */ }
     }
@@ -685,6 +716,7 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
     private readonly TurnierBaumService _baumService;
     private readonly UebergangsregelService _uebergangsregelService;
     private readonly IDialogService _dialogService;
+    private readonly ILogger<VorbelegungViewModel> _logger;
 
     private TurnierInstanz? _instanz;
     private IReadOnlyList<TurnierRunde> _instanzRunden = [];
@@ -737,6 +769,13 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
     private bool _rundenAuswahlOhneRueckfrage;
     private bool _rundenRuecksprungAktiv;
 
+    /// <summary>Reiht Abschließen, Zurücksetzen und das Laden einer Runde hinter einen Turnierwechsel ein und
+    /// umgekehrt — über den vom <see cref="TurnierlisteViewModel"/> gesetzten gemeinsamen Schutz (#416): ohne
+    /// ihn kollidierte ein laufendes Zurücksetzen mit dem Laden nach dem Turnierwechsel und brach mitten in der
+    /// Kaskade ab, ohne dass die Oberfläche etwas zeigte. Wird an jeden <see cref="VorbelegungWorkspace"/>
+    /// weitergereicht. Nicht wiedereintrittsfähig — <see cref="InstanzSetzenAsync"/> läuft bereits darunter.</summary>
+    public DbContextReentrancySchutz DbContextSchutz { get; set; } = new();
+
     public VorbelegungViewModel(
         TurnierInstanzService instanzService,
         AuslosungService auslosungService,
@@ -744,8 +783,10 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
         SpielplanService spielplanService,
         TurnierBaumService baumService,
         UebergangsregelService uebergangsregelService,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        ILogger<VorbelegungViewModel> logger)
     {
+        _logger = logger;
         _instanzService = instanzService;
         _auslosungService = auslosungService;
         _mannschaftService = mannschaftService;
@@ -760,6 +801,7 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
     /// <c>PaarungsfestlegungViewModel.AktivierenAsync</c>).</summary>
     public async Task InstanzSetzenAsync(TurnierInstanz? instanz)
     {
+        using var vorgang = _logger.Vorgang($"Vorbelegung: Turnier setzen (Instanz {instanz?.Id})");
         KeinTurnierGewaehlt = instanz is null;
         _rundenAuswahlOhneRueckfrage = true;
         try { AusgewaehlteRunde = null; }
@@ -863,10 +905,10 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
 
         var workspace = new VorbelegungWorkspace(
             _auslosungService, _mannschaftService, _spielplanService, _baumService, _uebergangsregelService, _dialogService,
-            _instanz, newValue.Runde, _instanzRunden);
+            _logger, DbContextSchutz, _instanz, newValue.Runde, _instanzRunden);
         workspace.Geaendert += OnWorkspaceGeaendert;
         Workspace = workspace;
-        _ = workspace.LadenAsync();
+        _ = workspace.GeschuetztLadenAsync();
     }
 
     /// <summary>Nach Abschließen/Zurücksetzen im Workspace: nur den Status der aktuell ausgewählten

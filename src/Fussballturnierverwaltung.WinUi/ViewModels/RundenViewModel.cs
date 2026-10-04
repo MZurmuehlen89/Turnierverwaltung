@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Spielplan.Eingaben;
@@ -13,6 +14,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -281,6 +283,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     private readonly UebergangsregelService _uebergangsregelService;
     private readonly TurnierValidator _turnierValidator;
     private readonly UebergangsregelValidator _uebergangsregelValidator;
+    private readonly ILogger<RundenViewModel> _logger;
     private int _populiertGerade;
 
     // Reentrancy-Guard: Instanz-Id, deren Ladevorgang gerade läuft — verhindert, dass ein schneller
@@ -654,8 +657,9 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     public RundenViewModel(
         TurnierInstanzService service, RegelwerkService regelwerkService, UebergangsregelService uebergangsregelService,
         TurnierValidator turnierValidator, UebergangsregelValidator uebergangsregelValidator,
-        RanglistenQuelleService ranglistenQuelleService)
+        RanglistenQuelleService ranglistenQuelleService, ILogger<RundenViewModel> logger)
     {
+        _logger = logger;
         _service = service;
         _regelwerkService = regelwerkService;
         _ranglistenQuelleService = ranglistenQuelleService;
@@ -672,6 +676,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     /// Runde), statt das Formular kommentarlos zu leeren.</summary>
     public async Task InstanzSetzenAsync(TurnierInstanz? instanz)
     {
+        using var vorgang = _logger.Vorgang($"Runden: Turnier setzen (Instanz {instanz?.Id})");
         var vorherAusgewaehlteId = AusgewaehlteRunde?.Id;
         var vorherAusgewaehlterIndex = AusgewaehlteRunde is not null ? Runden.IndexOf(AusgewaehlteRunde) : -1;
 
@@ -937,6 +942,12 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     /// nicht mehr ablehnen.</summary>
     public Func<Task<bool>>? VorAenderungBestaetigen { get; set; }
 
+    /// <summary>Reiht Speichern und Abbrechen hinter einen Turnierwechsel ein und umgekehrt — über den vom
+    /// <see cref="TurnierlisteViewModel"/> gesetzten gemeinsamen Schutz (#416). Nicht wiedereintrittsfähig:
+    /// <see cref="InstanzSetzenAsync"/> läuft bereits unter dem Schutz, und <see cref="RundenGespeichert"/>
+    /// betritt ihn als Fire-and-Forget selbst — innerhalb einer geschützten Aktion nur auslösen, nie abwarten.</summary>
+    public DbContextReentrancySchutz DbContextSchutz { get; set; } = new();
+
     // ── Ribbon-Befehle ────────────────────────────────────────────────────────
 
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
@@ -944,11 +955,17 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     {
         if (AktuelleInstanz is not { } instanz) return;
         if (VorAenderungBestaetigen is { } bestaetigen && !await bestaetigen()) return;
+
+        using var schutz = await DbContextSchutz.BetretenAsync();
+        // Hat ein Turnierwechsel die Runden während des Wartens neu geladen, gibt es nichts mehr zu speichern.
+        if (AktuelleInstanz != instanz || !KannSpeichern()) return;
         Fehlermeldung = null;
         try
         {
-            await _service.RundenUndUebergaengeErsetzenAsync(
-                instanz.Id, RundenZuEingaben(), UebergangsregelnZuEingaben());
+            using var vorgang = _logger.Vorgang($"Runden: speichern (Instanz {instanz.Id}, {Runden.Count} Runden)");
+            using (_logger.Vorgang($"Runden: Runden und Übergangsregeln ersetzen (Instanz {instanz.Id})"))
+                await _service.RundenUndUebergaengeErsetzenAsync(
+                    instanz.Id, RundenZuEingaben(), UebergangsregelnZuEingaben());
             await InstanzSetzenAsync(instanz);
             RundenGespeichert?.Invoke(instanz);
         }
@@ -960,7 +977,13 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     private bool KannSpeichern() => HatInstanz && IsDirty && !HatRundenFehler;
 
     [RelayCommand(CanExecute = nameof(KannAbbrechen))]
-    private async Task Abbrechen() => await InstanzSetzenAsync(AktuelleInstanz);
+    private async Task Abbrechen()
+    {
+        using var schutz = await DbContextSchutz.BetretenAsync();
+        if (!KannAbbrechen()) return;
+        using var vorgang = _logger.Vorgang($"Runden: abbrechen (Instanz {AktuelleInstanz?.Id})");
+        await InstanzSetzenAsync(AktuelleInstanz);
+    }
     private bool KannAbbrechen() => HatInstanz && IsDirty;
 
     public bool HatUngespeicherteAenderungen => HatInstanz && IsDirty;

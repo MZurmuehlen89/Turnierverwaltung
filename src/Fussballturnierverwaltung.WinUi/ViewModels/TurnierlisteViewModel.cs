@@ -1,7 +1,9 @@
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
+using Microsoft.Extensions.Logging;
 using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
@@ -16,6 +18,8 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// </summary>
 public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen, IVerlassenBestaetigen
 {
+    private readonly ILogger<TurnierlisteViewModel> _logger;
+
     public TurnierkopfViewModel TurnierkopfVm { get; }
     public RundenViewModel RundenVm { get; }
     public VorbelegungViewModel VorbelegungVm { get; }
@@ -33,8 +37,10 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         TurnierkopfViewModel turnierkopfVm,
         RundenViewModel rundenVm,
         VorbelegungViewModel vorbelegungVm,
-        AusgewaehlteTurnierInstanzService turnierAuswahlService)
+        AusgewaehlteTurnierInstanzService turnierAuswahlService,
+        ILogger<TurnierlisteViewModel> logger)
     {
+        _logger = logger;
         TurnierkopfVm = turnierkopfVm;
         RundenVm = rundenVm;
         VorbelegungVm = vorbelegungVm;
@@ -42,6 +48,11 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         // Geteilter Kontext-Service (#299) — hält die Auswahl über den Wechsel zu "Turnierdurchführung"
         // hinweg, da beide ViewModels per Transient-Scope bei jeder Navigation neu erzeugt werden.
         TabKoordinator = new TurnierTabKoordinator(service, [TurnierkopfVm, RundenVm, VorbelegungVm], turnierAuswahlService);
+
+        // Aktionen aller Reiter reihen sich hinter einen Turnierwechsel ein und umgekehrt (#416, analog #413/#415).
+        TurnierkopfVm.DbContextSchutz = TabKoordinator.DbContextSchutz;
+        RundenVm.DbContextSchutz = TabKoordinator.DbContextSchutz;
+        VorbelegungVm.DbContextSchutz = TabKoordinator.DbContextSchutz;
 
         TabKoordinator.PropertyChanged += (_, e) =>
         {
@@ -57,7 +68,7 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         // sich bei schnellem Durchsteppen der Instanzliste (z.B. Pfeiltasten) auch ZWEI dieser Fire-and-
         // Forget-Aufrufe selbst, mit demselben Symptom — TabKoordinator.SequenziellMitDbContextSchutzAsync
         // serialisiert das (#189-Nebenfund, gemeinsame Basis mit TurnierdurchfuehrungViewModel, siehe #317).
-        TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = InstanzAnKindViewModelsWeiterreichenAsync(instanz);
+        TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = InstanzAnKindViewModelsWeiterreichenAsync(instanz, "Turnierwechsel");
 
         TabKoordinator.AktivesTabZustandGeaendert += (_, _) => RibbonEigenschaftenGeaendertMelden();
 
@@ -74,22 +85,39 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         // — sonst könnte dieser direkte DB-Zugriff einen parallel laufenden, gesperrten Reload treffen
         // (z.B. Speichern im Turnierkopf während gleichzeitig per Pfeiltaste die Instanz gewechselt wird).
         TurnierkopfVm.InstanzGeaendert += instanz => _ = TabKoordinator.SequenziellMitDbContextSchutzAsync(
-            () => TabKoordinator.InstanzenNeuLadenAsync(instanz?.Id),
-            ex => TurnierkopfVm.Fehlermeldung = ex.Message);
+            async () =>
+            {
+                using var vorgang = _logger.Vorgang($"Turniere: Turnierliste neu laden (Instanz {instanz?.Id}, nach Änderung im Turnierkopf)");
+                await TabKoordinator.InstanzenNeuLadenAsync(instanz?.Id);
+            },
+            ex =>
+            {
+                _logger.LogError(ex, "Turnierliste neu laden fehlgeschlagen (Instanz {InstanzId}).", instanz?.Id);
+                TurnierkopfVm.Fehlermeldung = ex.Message;
+            });
 
         // Nach Speichern im Runden-Tab liest VorbelegungVm (PaarungFestVorgegeben, Rundenstruktur für
         // "RUNDEN MIT FESTER PAARUNG") unabhängig frisch aus der DB — ohne diesen Reload blieb der
         // Vorbelegung-Tab nach dem Setzen von "Paarung fest vorgegeben" leer (Fund aus #297-Test). Ebenfalls
         // über den TabKoordinator-Lock (#338) statt direktem Fire-and-Forget-Zugriff auf denselben Grund.
         RundenVm.RundenGespeichert += instanz => _ = TabKoordinator.SequenziellMitDbContextSchutzAsync(
-            () => VorbelegungVm.InstanzSetzenAsync(instanz),
-            ex => VorbelegungVm.Fehlermeldung = ex.Message);
+            async () =>
+            {
+                using var vorgang = _logger.Vorgang($"Turniere: Vorbelegung neu laden (Instanz {instanz.Id}, nach Speichern der Runden)");
+                await VorbelegungVm.InstanzSetzenAsync(instanz);
+            },
+            ex =>
+            {
+                _logger.LogError(ex, "Vorbelegung neu laden fehlgeschlagen (Instanz {InstanzId}).", instanz.Id);
+                VorbelegungVm.Fehlermeldung = ex.Message;
+            });
     }
 
-    private Task InstanzAnKindViewModelsWeiterreichenAsync(TurnierInstanz? instanz) =>
+    private Task InstanzAnKindViewModelsWeiterreichenAsync(TurnierInstanz? instanz, string ausloeser) =>
         TabKoordinator.SequenziellMitDbContextSchutzAsync(
             async () =>
             {
+                using var vorgang = _logger.Vorgang($"Turniere: alle Reiter laden (Instanz {instanz?.Id}, {ausloeser})");
                 await TurnierkopfVm.InstanzSetzenAsync(instanz);
                 await RundenVm.InstanzSetzenAsync(instanz);
                 await VorbelegungVm.InstanzSetzenAsync(instanz);
@@ -97,6 +125,7 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
             ex =>
             {
                 // Auf dem gerade aktiven Tab anzeigen, analog dem lokalen Fehlerpfad der drei Kind-ViewModels.
+                _logger.LogError(ex, "Reiter laden fehlgeschlagen (Instanz {InstanzId}, {Ausloeser}).", instanz?.Id, ausloeser);
                 switch (TabKoordinator.AktivesTab)
                 {
                     case TurnierkopfViewModel t: t.Fehlermeldung = ex.Message; break;
@@ -117,7 +146,7 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         // lief als eigener Fire-and-Forget-Durchlauf, der SequenziellMitDbContextSchutzAsync-Lock hat die
         // beiden Läufe nur nacheinander statt zusammengeführt ausgeführt — Vorbelegung baute sich danach
         // nicht mehr auf). Dieser Aufruf hier ist daher der EINZIGE initiale Reload.
-        await InstanzAnKindViewModelsWeiterreichenAsync(TabKoordinator.AusgewaehlteInstanz);
+        await InstanzAnKindViewModelsWeiterreichenAsync(TabKoordinator.AusgewaehlteInstanz, "Seite geöffnet");
     }
 
     private void RibbonEigenschaftenGeaendertMelden()

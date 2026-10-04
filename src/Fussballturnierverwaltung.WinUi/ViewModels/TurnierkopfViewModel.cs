@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
@@ -13,6 +14,7 @@ using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using Fussballturnierverwaltung.WinUi.Views;
+using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -74,6 +76,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     private readonly LandesQuoteValidator _landesQuoteValidator;
     private readonly TurnierKlonService _klonService;
     private readonly MannschaftService _mannschaftService;
+    private readonly ILogger<TurnierkopfViewModel> _logger;
     private int _populiertGerade;
 
     private static readonly VerbandOption _keinVerband = new("— Kein Filter —", null);
@@ -463,7 +466,9 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     private async Task StatusAendernAsync(TurnierStatus neuerStatus)
     {
-        if (AktuelleInstanz is null) return;
+        // Die Instanz vor dem Warten festhalten: bis der Schutz frei ist, kann ein Turnierwechsel
+        // AktuelleInstanz bereits umgesetzt haben.
+        if (AktuelleInstanz is not { } instanz) return;
         Fehlermeldung = null;
         try
         {
@@ -473,8 +478,10 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 return;
             }
 
-            await _service.StatusAendernAsync(AktuelleInstanz.Id, neuerStatus);
-            InstanzGeaendert?.Invoke(AktuelleInstanz);
+            using var schutz = await DbContextSchutz.BetretenAsync();
+            using var vorgang = _logger.Vorgang($"Turnierkopf: Status ändern (Instanz {instanz.Id}, {neuerStatus})");
+            await _service.StatusAendernAsync(instanz.Id, neuerStatus);
+            InstanzGeaendert?.Invoke(instanz);
         }
         catch (Exception ex)
         {
@@ -498,6 +505,13 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     public Func<Task<bool>>? VorAenderungBestaetigen { get; set; }
 
     private Task<bool> AenderungBestaetigtAsync() => VorAenderungBestaetigen?.Invoke() ?? Task.FromResult(true);
+
+    /// <summary>Reiht die Aktionen dieses Reiters (Speichern, Statuswechsel, Löschen, Abbrechen) hinter einen
+    /// Turnierwechsel ein und umgekehrt — über den vom <see cref="TurnierlisteViewModel"/> gesetzten gemeinsamen
+    /// Schutz (#416). Nicht wiedereintrittsfähig: <see cref="InstanzSetzenAsync"/> läuft bereits unter dem
+    /// Schutz, und <see cref="InstanzGeaendert"/> betritt ihn als Fire-and-Forget selbst — innerhalb einer
+    /// geschützten Aktion nur auslösen, nie abwarten.</summary>
+    public DbContextReentrancySchutz DbContextSchutz { get; set; } = new();
 
     // ── Verband-Quoten (Issue #161/#154, hier #297) ──────────────────────────
     [ObservableProperty] private ObservableCollection<VerbandsQuoteZeile> _quotenZeilen = [];
@@ -606,8 +620,10 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         VerbandService verbandService, LandService landService, RegelwerkService regelwerkService,
         VerbandsQuoteService verbandsQuoteService, VerbandsQuoteValidator verbandsQuoteValidator,
         LandesQuoteService landesQuoteService, LandesQuoteValidator landesQuoteValidator,
-        TurnierKlonService klonService, MannschaftService mannschaftService)
+        TurnierKlonService klonService, MannschaftService mannschaftService,
+        ILogger<TurnierkopfViewModel> logger)
     {
+        _logger = logger;
         _service = service;
         _validator = validator;
         _dialogService = dialogService;
@@ -654,6 +670,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     /// Feldern beim Wechsel zwischen Turniervorlagen.</summary>
     public async Task InstanzSetzenAsync(TurnierInstanz? instanz)
     {
+        using var vorgang = _logger.Vorgang($"Turnierkopf: Turnier setzen (Instanz {instanz?.Id})");
         AktuelleInstanz = instanz;
         _populiertGerade++;
         try
@@ -824,9 +841,14 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     {
         if (!await AenderungBestaetigtAsync()) return;
 
+        using var schutz = await DbContextSchutz.BetretenAsync();
+        // Hat ein Turnierwechsel das Formular während des Wartens neu befüllt, gibt es nichts mehr zu speichern.
+        if (!KannSpeichern()) return;
+
         Fehlermeldung = null;
         try
         {
+            using var vorgang = _logger.Vorgang($"Turnierkopf: speichern (Instanz {AktuelleInstanz?.Id})");
             var zielAnzahl = ParseZielAnzahl(ZielMannschaftsanzahl);
             var startdatum = ParseJahr(Startdatum);
             var enddatum = ParseJahr(Enddatum);
@@ -888,21 +910,31 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     }
 
     [RelayCommand(CanExecute = nameof(KannAbbrechen))]
-    private async Task Abbrechen() => await InstanzSetzenAsync(IstNeuModus ? null : AktuelleInstanz);
+    private async Task Abbrechen()
+    {
+        using var schutz = await DbContextSchutz.BetretenAsync();
+        if (!KannAbbrechen()) return;
+        using var vorgang = _logger.Vorgang($"Turnierkopf: abbrechen (Instanz {AktuelleInstanz?.Id})");
+        await InstanzSetzenAsync(IstNeuModus ? null : AktuelleInstanz);
+    }
 
     [RelayCommand(CanExecute = nameof(KannLoeschen))]
     private async Task Loeschen()
     {
-        if (AktuelleInstanz is null) return;
+        // Gelöscht wird die Instanz, die die Rückfrage genannt hat — auch wenn ein Turnierwechsel
+        // AktuelleInstanz umsetzt, bis der Schutz frei ist.
+        if (AktuelleInstanz is not { } instanz) return;
         var bestaetigt = await _dialogService.BestaetigenAsync(
             "Turnier löschen",
-            $"Soll '{AktuelleInstanz.Name}' wirklich gelöscht werden?\n\nDabei werden alle Spiele, Auslosungen und Simulationsläufe mitgelöscht.");
+            $"Soll '{instanz.Name}' wirklich gelöscht werden?\n\nDabei werden alle Spiele, Auslosungen und Simulationsläufe mitgelöscht.");
         if (!bestaetigt) return;
 
+        using var schutz = await DbContextSchutz.BetretenAsync();
         Fehlermeldung = null;
         try
         {
-            await _service.LoeschenAsync(AktuelleInstanz.Id);
+            using var vorgang = _logger.Vorgang($"Turnierkopf: Turnier löschen (Instanz {instanz.Id})");
+            await _service.LoeschenAsync(instanz.Id);
             InstanzGeaendert?.Invoke(null);
         }
         catch (Exception ex)

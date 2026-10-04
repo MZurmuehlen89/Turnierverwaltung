@@ -4,8 +4,8 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// zwei schnell aufeinanderfolgende, unabhängige WinUI-Auswahländerungen) überlappen könnten, und fängt die
 /// sporadische EF-Core-"second operation"-Exception mit einem einmaligen Retry ab (#317/#338). Maßgeblich
 /// ist der DbContext: ViewModels, die sich einen Scoped-DbContext teilen, brauchen EINE gemeinsame Instanz
-/// (die Reiter der Turnierdurchführung bekommen die des <see cref="TurnierTabKoordinator"/> hereingereicht,
-/// #413/#415) — getrennte Instanzen je ViewModel schließen einander nicht aus. Eine statische Instanz würde
+/// (die Reiter der Turnierdurchführung und der Seite "Turniere" bekommen die des
+/// <see cref="TurnierTabKoordinator"/> hereingereicht, #413/#415/#416) — getrennte Instanzen je ViewModel schließen einander nicht aus. Eine statische Instanz würde
 /// umgekehrt ViewModels ohne gemeinsamen DbContext unnötig gegeneinander serialisieren.</summary>
 public sealed class DbContextReentrancySchutz
 {
