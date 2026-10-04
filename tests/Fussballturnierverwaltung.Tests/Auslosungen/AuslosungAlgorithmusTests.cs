@@ -1043,7 +1043,7 @@ public class AuslosungAlgorithmusTests
     // ══════════════════════════════════════════════════════════════════════════
 
     [Fact]
-    public async Task AusfuehrenAsync_LoestPlatzhalterKaskadeFuerTurnierInstanzAus()
+    public async Task AusfuehrenAsync_ErsetztSpielplanDerRundeInEinemZug()
     {
         var teams = Enumerable.Range(1, 2).Select(Team).ToList();
         var topf  = Topf(1, 1, teams.Select(t => Eintrag(t)).ToArray());
@@ -1052,7 +1052,10 @@ public class AuslosungAlgorithmusTests
 
         await Ausfuehren();
 
-        _kaskade.AufrufeAnzahl.Should().Be(1);
+        // Issue #414: das Ersetzen löst die Kaskade selbst aus (#306) — ein eigener Kaskadenlauf davor würde
+        // eine Platzhalter-Runde schon einmal generieren.
+        _kaskade.ErsetzteRundenIds.Should().Equal(auslosung.TurnierRundeId);
+        _kaskade.AufrufeAnzahl.Should().Be(0);
     }
 
     [Fact]
@@ -1066,7 +1069,7 @@ public class AuslosungAlgorithmusTests
 
         await _service.ZuruecksetzenAsync(auslosung.Id);
 
-        _kaskade.AufrufeAnzahl.Should().Be(2, "einmal durch AusfuehrenAsync, einmal durch ZuruecksetzenAsync");
+        _kaskade.AufrufeAnzahl.Should().Be(1, "AusfuehrenAsync ersetzt den Spielplan samt Kaskade in einem Zug");
     }
 
     [Fact]

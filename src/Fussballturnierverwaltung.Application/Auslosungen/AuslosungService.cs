@@ -227,6 +227,9 @@ public class AuslosungService(
         }
     }
 
+    /// <summary>Führt die Auslosung durch und ersetzt den Spielplan der Runde durch den daraus generierten —
+    /// vorhandene Spiele samt Ergebnissen gehen dabei verloren, eine Rückfrage dazu ist Sache des Aufrufers.
+    /// Scheitert die Generierung, bleibt die Auslosung abgeschlossen und die Ausnahme geht an den Aufrufer.</summary>
     public async Task<IReadOnlyList<AuslosungsErgebnis>> AusfuehrenAsync(int auslosungId, CancellationToken ct = default)
     {
         var auslosung = await LadenOderFehler(auslosungId, ct);
@@ -263,9 +266,11 @@ public class AuslosungService(
 
         logger.LogInformation("Auslosung '{Name}' durchgeführt: {Anzahl} Paarungen.", auslosung.Name, ergebnisse.Count);
 
-        // Folgerunden können bereits aus einer früheren Durchführung dieser Auslosung aufgelöste
-        // Platzhalter enthalten, die nicht mehr zum neuen Ergebnis passen (Redo-Fall, Issue #306).
-        await platzhalterKaskadeService.KaskadeAusloesenAsync(auslosung.TurnierInstanzId, ct);
+        // Wer auslost, will den Spielplan dazu (#19) — in einem Zug mit der Kaskade für die Folgerunden, die aus
+        // einer früheren Durchführung aufgelöste Platzhalter enthalten können (Redo-Fall, #306). Getrennt
+        // entstand der Spielplan einer Platzhalter-Runde zweimal: einmal durch die Kaskade hier, einmal durch
+        // den Aufrufer (#414, wie #411 bei der manuellen Auslosung).
+        await platzhalterKaskadeService.RundenSpielplanAusAuslosungErsetzenAsync(auslosung.TurnierRundeId, ergebnisse, ct);
 
         return ergebnisse;
     }

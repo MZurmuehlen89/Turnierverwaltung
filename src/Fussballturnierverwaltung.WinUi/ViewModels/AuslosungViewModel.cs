@@ -1213,10 +1213,22 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 using var vorgang = _logger.Vorgang($"Auslosung durchführen (Auslosung {auslosungId})");
 
                 // Das Ergebnis steht ab AusfuehrenAsync fest und wird von LadeDetailAsync geladen — im TV-Modus
-                // bleibt es bis zum Start der Ziehung verborgen, siehe ZeigeErgebnis.
+                // bleibt es bis zum Start der Ziehung verborgen, siehe ZeigeErgebnis. Der Service ersetzt dabei
+                // auch den Spielplan der Runde und zieht die Folgerunden nach (#414) — VOR der Ziehung (#406): die
+                // enthüllt nur noch und darf jederzeit enden (siehe ZiehungBeenden).
                 ZiehungInVorbereitung = TvModusAktiv;
-                await _auslosungService.AusfuehrenAsync(auslosungId);
+                Exception? fehler = null;
+                try { await _auslosungService.AusfuehrenAsync(auslosungId); }
+                catch (Exception ex) { fehler = ex; }
+
+                // Auch nach einem Fehler neu laden: scheitert erst die Spielplan-Generierung, ist die Auslosung
+                // bereits abgeschlossen — die Anzeige zeigte sonst weiter den Stand davor.
                 await LadeDetailAsync(auslosungId);
+                if (fehler is not null)
+                {
+                    Fehlermeldung = fehler.Message;
+                    return;
+                }
                 if (_auslosungDetail is not { } detail || detail.Id != auslosungId) return;
 
                 // Ziehungsdaten bewusst direkt NACH dem Reload aus dessen Stand bauen (nicht aus einem vor
@@ -1226,19 +1238,17 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 // Reload stammen Lostöpfe UND Ergebnisse garantiert aus demselben, aktuellen Snapshot — exakt die
                 // Daten, die danach auch als "echtes" Ergebnis angezeigt werden (Fund aus #303-Test: TV-Modus-
                 // Endanzeige wich bei Gruppenphase nach vorherigem Zurücksetzen vom echten Ergebnis ab). Deshalb
-                // auch VOR der Spielplan-Generierung, die auf demselben DbContext weiterarbeitet.
+                // auch VOR der Turnierbaum-Aktualisierung, die auf demselben DbContext weiterarbeitet.
                 matrizen = TvModusAktiv && IstGegnerMatrixergebnis ? GegnerMatrizenAufbauen(detail) : null;
                 schritte = TvModusAktiv && matrizen is null
                     ? ZiehungsSchritteAufbauen(detail.Lostoepfe, detail.Ergebnisse)
                     : null;
 
-                // Spielplan VOR der Ziehung (#406): die Ziehung enthüllt nur noch und darf jederzeit enden (siehe
-                // ZiehungBeenden) — vorher lief die Generierung erst danach, eine verlassene Ziehung hinterließ eine
-                // abgeschlossene Auslosung ohne Spielplan bzw. generierte ihn für die inzwischen angezeigte Auslosung.
                 IstLadend = true;
                 try
                 {
-                    await SpielplanAutomatischGenerierenAsync(detail);
+                    using (_logger.Vorgang($"Auslosung: Turnierbaum aktualisieren (Instanz {detail.TurnierInstanzId})"))
+                        await TurnierBaumAktualisierenAsync(detail.TurnierInstanzId);
                     await AktualisiereSeitenlisteAsync();
                 }
                 finally { IstLadend = false; }
@@ -1692,35 +1702,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
         AnimationWartetAufWeiter = false;
         _weiterSignal = new TaskCompletionSource();
-    }
-
-    /// <summary>Generiert den Spielplan automatisch, sobald die Auslosung abgeschlossen ist (Issue #19,
-    /// analog WPF-Original). Erwartet den per LadeDetailAsync frisch geladenen Stand der ausgelosten Auslosung
-    /// (inkl. Ergebnisse) als Parameter statt über _auslosungDetail — das kann inzwischen auf eine andere
-    /// Auslosung zeigen (#406). Vorhandene Spiele der Runde werden ohne Rückfrage ersetzt; nach eingetragenen
-    /// Ergebnissen fragt <see cref="ErgebnisVerlustBestaetigtAsync"/> schon vor dem Auslosen.</summary>
-    private async Task SpielplanAutomatischGenerierenAsync(Auslosung detail)
-    {
-        if (detail.Status != AuslosungsStatus.Abgeschlossen) return;
-
-        var rundeId = detail.TurnierRundeId;
-        using var vorgang = _logger.Vorgang($"Spielplan aus Auslosung generieren (Runde {rundeId})");
-        var vorhandeneSpiele = await _spielplanService.SpielplanAbrufenAsync(rundeId);
-        if (vorhandeneSpiele.Count > 0)
-        {
-            // Issue #320-Folgefund: kaskadenlos löschen — LoeschenAsync würde selbst sofort wieder die
-            // Kaskade auslösen, die bei einer Platzhalter-K.o.-Runde mit weiterhin abgeschlossener
-            // Auslosung erneut komplett neu generiert, bevor der folgende GenerierenAusAuslosungAsync-
-            // Aufruf noch einmal generiert — macht aus 4 erwarteten Spielen 8 Phantom-Spiele.
-            await _spielplanService.RundenSpielplanOhneKaskadeLoeschenAsync(rundeId);
-        }
-
-        await _spielplanService.GenerierenAusAuslosungAsync(rundeId, [.. detail.Ergebnisse]);
-
-        // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf den alten (jetzt ersetzten)
-        // Spielplan verwiesen haben (#306) — ohne die Kaskade blieben sie fälschlich stehen.
-        await _spielplanService.KaskadeAusloesenAsync(detail.TurnierInstanzId);
-        await TurnierBaumAktualisierenAsync(detail.TurnierInstanzId);
     }
 
     [RelayCommand(CanExecute = nameof(KannAuslosungZuruecksetzen))]
