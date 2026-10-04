@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Spielplan.Eingaben;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -99,6 +100,22 @@ public class SeedDatenServiceTests
             new TurnierValidator().RundenValidieren(eingaben).Fehler.Should().BeEmpty(vorlage.Name);
             new UebergangsregelValidator().Validieren(runden, regeln).Fehler.Should().BeEmpty(vorlage.Name);
         }
+    }
+
+    // #358: die Tabellenzonen im Turnierbaum entstehen allein aus den ausgehenden Übergangsregeln — eine
+    // Gruppenphase ohne Regeln bliebe farblos, obwohl ihre Folgerunde per Platzhalter gespeist wird.
+    [Fact]
+    public void Erstellen_JedeGruppenphaseHatUebergangsregelnFuerIhrenGesamtenAusgang()
+    {
+        var gruppenphasen = TurnierVorlagenSeedDaten.Erstellen()
+            .SelectMany(v => v.Runden.Select(r => (Vorlage: v, Runde: r)))
+            .Where(x => x.Runde.Rundenart == Rundenart.Gruppenphase)
+            .ToList();
+
+        gruppenphasen.Should().NotBeEmpty();
+        foreach (var (vorlage, runde) in gruppenphasen)
+            UebergangsregelService.AusgangAbleiten([.. runde.Uebergangsregeln])
+                .Should().Be(runde.AusgangsMannschaftsanzahl, $"{vorlage.Name} ({vorlage.Variante}): {runde.Name}");
     }
 
     [Fact]

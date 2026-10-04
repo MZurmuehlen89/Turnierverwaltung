@@ -206,6 +206,7 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(4, "Halbfinale",        Rundenart.KoRunde,           4,  2, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Spiel um Platz 3",  Rundenart.SpielUmPlatzDrei,  2,  1, regelwerkId: rId));
         v.Runden.Add(Runde(6, "Finale",            Rundenart.Finale,            2,  1, regelwerkId: rId));
+        GruppenUebergaenge(v, direktProGruppe: 2);
         FesterKoBaum(v, tabelle: null, ACHT_GRUPPEN_BAUM);
         return v;
     }
@@ -233,6 +234,8 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(3, "Halbfinale",        Rundenart.KoRunde,          4,  2, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Spiel um Platz 3",  Rundenart.SpielUmPlatzDrei, 2,  1, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Finale",            Rundenart.Finale,           2,  1, regelwerkId: rId));
+        GruppenUebergaenge(v, direktProGruppe: 2);
+        GruppenUebergaenge(v, direktProGruppe: 1, quellReihenfolge: 2);
         return v;
     }
 
@@ -325,6 +328,7 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(2, "Viertelfinale", Rundenart.KoRunde,       8,  4, regelwerkId: rId));
         v.Runden.Add(Runde(3, "Halbfinale",    Rundenart.KoRunde,       4,  2, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Finale",        Rundenart.Finale,        2,  1, regelwerkId: rId));
+        GruppenUebergaenge(v, direktProGruppe: 2);
         // Issue #372: fester Baum 1996–2012 (VF 1A–2B/1C–2D bilden HF 1, 1B–2A/1D–2C HF 2).
         FesterKoBaum(v, tabelle: null, "1A-2B", "1C-2D", "1B-2A", "1D-2C");
         return v;
@@ -350,6 +354,7 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(2, "Halbfinale",       Rundenart.KoRunde,          4,  2, regelwerkId: rId));
         v.Runden.Add(Runde(3, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei, 2,  1, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Finale",           Rundenart.Finale,           2,  1, regelwerkId: rId));
+        GruppenUebergaenge(v, direktProGruppe: 2);
         // Issue #372: Halbfinale über Kreuz wie 1984–1992.
         FesterKoBaum(v, tabelle: null, "1A-2B", "1B-2A");
         return v;
@@ -381,6 +386,7 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(3, "Halbfinale",       Rundenart.KoRunde,           4, 2, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei,  2, 1, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Finale",           Rundenart.Finale,            2, 1, regelwerkId: rId));
+        GruppenUebergaenge(v, direktProGruppe: 2);
         return v;
     }
 
@@ -406,6 +412,7 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(3, "Halbfinale",       Rundenart.KoRunde,           4, 2, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei,  2, 1, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Finale",           Rundenart.Finale,            2, 1, regelwerkId: rId));
+        GruppenUebergaenge(v, direktProGruppe: 2);
         // Issue #372: fester Baum wie Copa América 2024.
         FesterKoBaum(v, tabelle: null, "1A-2B", "1B-2A", "1C-2D", "1D-2C");
         return v;
@@ -502,6 +509,7 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(2, "Viertelfinale", Rundenart.KoRunde,       8, 4, regelwerkId: rId));
         v.Runden.Add(Runde(3, "Halbfinale",    Rundenart.KoRunde,       4, 2, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Finale",        Rundenart.Finale,        2, 1, regelwerkId: rId));
+        GruppenUebergaenge(v, direktProGruppe: 2);
         // Issue #372: fester Baum wie Gold Cup 2025.
         FesterKoBaum(v, tabelle: null, "1D-2A", "1B-2C", "1A-2D", "1C-2B");
         return v;
@@ -530,6 +538,7 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(3, "Viertelfinale", Rundenart.KoRunde,       8,  4, auswaerts: true,  mitRueckspiel: true, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Halbfinale",    Rundenart.KoRunde,       4,  2, auswaerts: true,  mitRueckspiel: true, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Finale",        Rundenart.Finale,        2,  1, regelwerkId: rId));
+        GruppenUebergaenge(v, direktProGruppe: 2);
         return v;
     }
 
@@ -554,6 +563,7 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(3, "Viertelfinale", Rundenart.KoRunde,       8,  4, mitRueckspiel: true, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Halbfinale",    Rundenart.KoRunde,       4,  2, mitRueckspiel: true, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Finale",        Rundenart.Finale,        2,  1, regelwerkId: rId));
+        GruppenUebergaenge(v, direktProGruppe: 2);
         return v;
     }
 
@@ -646,6 +656,7 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(3, "Viertelfinale",    Rundenart.KoRunde,          8,  4, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Halbfinale",       Rundenart.KoRunde,          4,  2, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Finale",           Rundenart.Finale,           2,  1, regelwerkId: rId));
+        GruppenUebergaenge(v, direktProGruppe: 2);
         // Issue #372: fester Baum wie Klub-WM 2025 (gleiche Struktur wie die WM mit 32 Teams).
         FesterKoBaum(v, tabelle: null, ACHT_GRUPPEN_BAUM);
         return v;
@@ -752,6 +763,7 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(2, "Halbfinale",       Rundenart.KoRunde,          4,  2, regelwerkId: rId));
         v.Runden.Add(Runde(3, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei, 2,  1, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Finale",           Rundenart.Finale,           2,  1, regelwerkId: rId));
+        GruppenUebergaenge(v, direktProGruppe: 2);
         return v;
     }
 
@@ -843,6 +855,15 @@ public static class TurnierVorlagenSeedDaten
         if (besteDritte > 0)
             Uebergang(gruppenphase, ziel, gruppeIndex: null, direktProGruppe + 1, direktProGruppe + 1, anzahlBeste: besteDritte);
     }
+
+    // Kurzform für Vorlagen, deren Runden direkt an v.Runden angehängt werden (Issue #358): die Gruppenphase an
+    // quellReihenfolge speist die unmittelbar folgende Runde. Jede Gruppenphase bekommt Regeln, weil die
+    // Tabellenzonen im Turnierbaum allein aus ihnen abgeleitet werden.
+    private static void GruppenUebergaenge(TurnierInstanz v, int direktProGruppe, int quellReihenfolge = 1) =>
+        GruppenUebergaenge(
+            v.Runden.Single(r => r.Reihenfolge == quellReihenfolge),
+            v.Runden.Single(r => r.Reihenfolge == quellReihenfolge + 1),
+            direktProGruppe);
 
     // ── Feste K.-o.-Bäume (Issue #372) ───────────────────────────────────────
 
