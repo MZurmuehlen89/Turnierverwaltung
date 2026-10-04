@@ -347,6 +347,28 @@ public class SpielplanService(
     public async Task RundenSpielplanOhneKaskadeLoeschenAsync(int turnierRundeId, CancellationToken ct = default)
         => await LoeschenOhneKaskadeAsync(turnierRundeId, ct);
 
+    /// <summary>Issue #411: Spielplan einer Runde in einem Zug ersetzen — alten Spielplan kaskadenlos löschen, aus
+    /// den Auslosungsergebnissen neu generieren, dann einmal die Kaskade für die Folgerunden. Vorher lief die
+    /// Kaskade schon nach dem Abschließen der Auslosung und generierte eine Platzhalter-Runde dabei selbst
+    /// (leere Runde mit abgeschlossener Auslosung), woraufhin der Aufrufer löschte, erneut generierte und die
+    /// Kaskade ein zweites Mal auslöste. Die Kaskade läuft auch, wenn die Generierung scheitert: Folgerunden
+    /// dürfen nicht auf dem gerade gelöschten Spielplan stehen bleiben (#306).</summary>
+    public async Task RundenSpielplanAusAuslosungErsetzenAsync(
+        int turnierRundeId, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct = default)
+    {
+        using var vorgang = logger.Vorgang($"Spielplan aus Auslosung ersetzen (Runde {turnierRundeId})");
+
+        var runde = await LoeschenOhneKaskadeAsync(turnierRundeId, ct);
+        try
+        {
+            await GenerierenAusAuslosungAsync(turnierRundeId, ergebnisse, ct);
+        }
+        finally
+        {
+            await KaskadeAusloesenAsync(runde.TurnierInstanzId, ct);
+        }
+    }
+
     /// <summary>Kern von <see cref="LoeschenAsync"/> ohne den Issue-#306-Kaskaden-Trigger — für den internen
     /// Aufruf aus <see cref="FinaleAutomatischGenerierenWennBereitAsync"/>, der selbst bereits Teil der
     /// Kaskade ist: würde dieser Aufruf ebenfalls die volle Kaskade auslösen, riefe er
@@ -703,7 +725,9 @@ public class SpielplanService(
                 ? await QuellSpielAufloesenAsync(qId, typ, quellSpielCache, ct)
                 : await AufloessenAsync(platzhalterName);
 
-        int aufgeloest = 0;
+        // Gesammelt und am Ende in einem Zug gespeichert (#411) — die Auflösung liest nur Quellrunden, keine
+        // Korrektur hängt von einer anderen derselben Runde ab.
+        var korrekturen = new List<PlatzhalterKorrektur>();
         foreach (var spiel in platzhalterSpiele)
         {
             // Issue #206: jede Seite unabhängig auflösen (TV-Präsentation-Stil) — eine Seite kann
@@ -718,20 +742,21 @@ public class SpielplanService(
             bool auswaertsNeuAufgeloest = auswaertsId is not null && spiel.AuswaertsMannschaftId is null;
             if (!heimNeuAufgeloest && !auswaertsNeuAufgeloest) continue;
 
-            await spielRepository.PlatzhalterKorrigierenAsync(
-                spiel.Id,
-                heimId, spiel.HeimPlatzhalterName,
-                auswaertsId, spiel.AuswaertsPlatzhalterName,
-                ct);
+            korrekturen.Add(new PlatzhalterKorrektur(
+                spiel.Id, heimId, spiel.HeimPlatzhalterName, auswaertsId, spiel.AuswaertsPlatzhalterName));
+        }
+
+        if (korrekturen.Count > 0)
+        {
+            await spielRepository.PlatzhalterKorrigierenAsync(korrekturen, ct);
             TabellenZwischenspeicherVerwerfen(turnierRundeId);
-            aufgeloest++;
         }
 
         logger.LogInformation(
             "Platzhalter in Runde '{Runde}' aufgelöst: {Aufgeloest}/{Gesamt} Spiele.",
-            runde.Name, aufgeloest, platzhalterSpiele.Count);
+            runde.Name, korrekturen.Count, platzhalterSpiele.Count);
 
-        return aufgeloest;
+        return korrekturen.Count;
     }
 
     /// <summary>Rein lesende Vorschau (Issue #208, Ergänzung zu #202): welcher Mannschaftsname würde nach
@@ -884,6 +909,7 @@ public class SpielplanService(
             return (quellSpiele[spielNr - 1].Id, verlierer ? SpielQuellErgebnisTyp.Verlierer : SpielQuellErgebnisTyp.Sieger);
         }
 
+        var geaenderteSpiele = new List<Spiel>();
         foreach (var spiel in zielSpiele)
         {
             bool geaendert = false;
@@ -904,9 +930,10 @@ public class SpielplanService(
                 geaendert = true;
             }
 
-            if (geaendert)
-                await spielRepository.AktualisierenAsync(spiel, ct);
+            if (geaendert) geaenderteSpiele.Add(spiel);
         }
+
+        await spielRepository.AktualisierenMehrfachAsync(geaenderteSpiele, ct);
     }
 
     /// <summary>Löst eine K.o.-Quellverknüpfung (<see cref="Spiel.HeimQuellSpielId"/>/-<c>Ergebnis</c>) direkt
@@ -936,6 +963,11 @@ public class SpielplanService(
     private Dictionary<int, IReadOnlyList<GruppenTabelle>>? _gruppenTabellen;
     private Dictionary<int, IReadOnlyList<(int Id, int? GruppenNummer)>>? _spielSchluessel;
 
+    // Issue #411: auch die Spiele der Quellrunden — die K.-o.-Auflösung lud sie je Platzhaltername neu (gemessen
+    // an der CL: rund 30 Ladevorgänge je Kaskadenlauf für sechs Runden). In einem Durchlauf werden keine Spiele
+    // angelegt oder gelöscht, und geänderte Spiele sind dieselben verfolgten Objekte.
+    private Dictionary<int, IReadOnlyList<Spiel>>? _rundenSpiele;
+
     /// <summary>Führt <paramref name="aktion"/> mit Tabellen-Zwischenspeicher aus. Verschachtelte Aufrufe
     /// nutzen den Speicher des äußeren Durchlaufs mit, der ihn am Ende auch wieder verwirft.</summary>
     private async Task<T> MitTabellenZwischenspeicherAsync<T>(Func<Task<T>> aktion)
@@ -945,6 +977,7 @@ public class SpielplanService(
         _ligaTabellen    = [];
         _gruppenTabellen = [];
         _spielSchluessel = [];
+        _rundenSpiele    = [];
         try
         {
             return await aktion();
@@ -954,6 +987,7 @@ public class SpielplanService(
             _ligaTabellen    = null;
             _gruppenTabellen = null;
             _spielSchluessel = null;
+            _rundenSpiele    = null;
         }
     }
 
@@ -962,6 +996,17 @@ public class SpielplanService(
         _ligaTabellen?.Remove((rundeId, true));
         _ligaTabellen?.Remove((rundeId, false));
         _gruppenTabellen?.Remove(rundeId);
+        _rundenSpiele?.Remove(rundeId);
+    }
+
+    /// <summary>Alle Spiele einer Runde, innerhalb eines Auflösungsdurchlaufs nur einmal geladen.</summary>
+    private async Task<IReadOnlyList<Spiel>> RundenSpieleAsync(int rundeId, CancellationToken ct)
+    {
+        if (_rundenSpiele?.TryGetValue(rundeId, out var gespeichert) == true) return gespeichert;
+
+        var spiele = await spielRepository.AlleNachRundeAsync(rundeId, ct);
+        _rundenSpiele?.TryAdd(rundeId, spiele);
+        return spiele;
     }
 
     /// <summary>Gesamttabelle einer Liga-/TopfLiga-/Schweizer-Runde — mit <see cref="TabellenEintrag.SicherPositioniert"/>
@@ -998,7 +1043,7 @@ public class SpielplanService(
         if (ignorierteSpielIds is not { Count: > 0 }) return false;
 
         if (_spielSchluessel?.TryGetValue(rundeId, out var spiele) != true)
-            spiele = SpielSchluesselMerken(rundeId, await spielRepository.AlleNachRundeAsync(rundeId, ct));
+            spiele = SpielSchluesselMerken(rundeId, await RundenSpieleAsync(rundeId, ct));
 
         return spiele!.Any(s => ignorierteSpielIds.Contains(s.Id)
             && (gruppenNummer is null || s.GruppenNummer is null || s.GruppenNummer == gruppenNummer));
@@ -1052,7 +1097,7 @@ public class SpielplanService(
                 .ToList();
             if (platzhalterEintraege.Count == 0) continue;
 
-            var alleRundenSpiele = await spielRepository.AlleNachRundeAsync(runde.Id, ct);
+            var alleRundenSpiele = await RundenSpieleAsync(runde.Id, ct);
             SpielSchluesselMerken(runde.Id, alleRundenSpiele);
 
             // Eine Auslosung-basierte Platzhalter-Runde ohne ein einziges Spiel muss komplett neu
@@ -1159,39 +1204,40 @@ public class SpielplanService(
     /// Runden werden komplett neu aus ihrer Auslosung generiert.</summary>
     public async Task PlatzhalterKaskadeAusfuehrenAsync(KaskadenPlan plan, CancellationToken ct = default)
     {
-        foreach (var schritt in plan.Schritte)
+        // Spielkorrekturen gebündelt und vor den Neu-Generierungen (#411/#414, vorher zwei Datenbankzugriffe je
+        // Spiel): ihre Soll-Werte stehen im Plan fest, und eine neu generierte Runde liest beim Auflösen ihrer
+        // Platzhalter den Stand der Vorrunden — der muss dann schon korrigiert sein.
+        var spielSchritte = plan.Schritte.OfType<KaskadenSpielSchritt>().ToList();
+        if (spielSchritte.Count > 0)
         {
-            switch (schritt)
-            {
-                case KaskadenSpielSchritt spielSchritt:
-                    if (spielSchritt.HatteErgebnis)
-                        await spielRepository.ErgebnisLoeschenAsync(spielSchritt.SpielId, ct);
+            await spielRepository.ErgebnisseLoeschenAsync(
+                [.. spielSchritte.Where(s => s.HatteErgebnis).Select(s => s.SpielId)], ct);
+            await spielRepository.PlatzhalterKorrigierenAsync(
+                [.. spielSchritte.Select(s => new PlatzhalterKorrektur(
+                    s.SpielId,
+                    s.NeuesHeimMannschaftId, s.HeimPlatzhalterName,
+                    s.NeuesAuswaertsMannschaftId, s.AuswaertsPlatzhalterName))],
+                ct);
 
-                    await spielRepository.PlatzhalterKorrigierenAsync(
-                        spielSchritt.SpielId,
-                        spielSchritt.NeuesHeimMannschaftId, spielSchritt.HeimPlatzhalterName,
-                        spielSchritt.NeuesAuswaertsMannschaftId, spielSchritt.AuswaertsPlatzhalterName,
-                        ct);
+            foreach (var rundenSchritte in spielSchritte.GroupBy(s => s.RundeName))
+                logger.LogInformation(
+                    "{Anzahl} Spiel(e) in Runde '{Runde}' im Rahmen der Kaskade korrigiert.",
+                    rundenSchritte.Count(), rundenSchritte.Key);
+        }
 
-                    logger.LogInformation(
-                        "Spiel {SpielId} in Runde '{Runde}' im Rahmen der Kaskade korrigiert.",
-                        spielSchritt.SpielId, spielSchritt.RundeName);
-                    break;
+        foreach (var rundeSchritt in plan.Schritte.OfType<KaskadenRundeNeuGenerierenSchritt>())
+        {
+            var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(rundeSchritt.RundeId, ct);
+            if (runde is null) continue;
 
-                case KaskadenRundeNeuGenerierenSchritt rundeSchritt:
-                    var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(rundeSchritt.RundeId, ct);
-                    if (runde is null) continue;
+            var auslosung = await auslosungRepository.FindenAbgeschlosseneNachRundeAsync(
+                runde.TurnierInstanzId, runde.Id, ct);
+            if (auslosung is null) continue;
 
-                    var auslosung = await auslosungRepository.FindenAbgeschlosseneNachRundeAsync(
-                        runde.TurnierInstanzId, runde.Id, ct);
-                    if (auslosung is null) continue;
+            await GenerierenAusAuslosungAsync(rundeSchritt.RundeId, [.. auslosung.Ergebnisse], ct);
 
-                    await GenerierenAusAuslosungAsync(rundeSchritt.RundeId, [.. auslosung.Ergebnisse], ct);
-
-                    logger.LogInformation(
-                        "Runde '{Runde}' im Rahmen der Kaskade neu generiert.", rundeSchritt.RundeName);
-                    break;
-            }
+            logger.LogInformation(
+                "Runde '{Runde}' im Rahmen der Kaskade neu generiert.", rundeSchritt.RundeName);
         }
     }
 
@@ -1466,7 +1512,7 @@ public class SpielplanService(
         if (gruppenphaseRunde is null) return null;
 
         if (await EnthaeltIgnoriertesSpielAsync(gruppenphaseRunde.Id, ignorierteSpielIds, ct)) return null;
-        var spiele = await spielRepository.AlleNachRundeAsync(gruppenphaseRunde.Id, ct);
+        var spiele = await RundenSpieleAsync(gruppenphaseRunde.Id, ct);
         if (spiele.Count == 0 || spiele.Any(s => s.Status != SpielStatus.Abgeschlossen))
             return null;
 
@@ -1501,7 +1547,7 @@ public class SpielplanService(
         if (gruppenphaseRunde is null) return null;
 
         if (await EnthaeltIgnoriertesSpielAsync(gruppenphaseRunde.Id, ignorierteSpielIds, ct)) return null;
-        var spiele = await spielRepository.AlleNachRundeAsync(gruppenphaseRunde.Id, ct);
+        var spiele = await RundenSpieleAsync(gruppenphaseRunde.Id, ct);
         if (spiele.Any(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue && s.Status != SpielStatus.Abgeschlossen))
             return null;
 
@@ -1616,7 +1662,7 @@ public class SpielplanService(
     private async Task<IReadOnlyList<int?>> BesteNAufloesenAsync(Uebergangsregel regel, CancellationToken ct)
     {
         int n = regel.AnzahlBeste!.Value;
-        bool offene = (await spielRepository.AlleNachRundeAsync(regel.QuellRundeId, ct))
+        bool offene = (await RundenSpieleAsync(regel.QuellRundeId, ct))
             .Any(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue && s.Status != SpielStatus.Abgeschlossen);
         if (offene) return [.. Enumerable.Repeat((int?)null, n)];
 
@@ -1684,7 +1730,7 @@ public class SpielplanService(
                 if (gruppeIndex is not { } spielNummer) return null;
                 // Issue #346: gezählt wird je Paarung (Hinspiel); entschieden wird bei Hin-/Rückspiel im
                 // Rückspiel, das den Gesamtsieger trägt.
-                var alleSpiele = await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct);
+                var alleSpiele = await RundenSpieleAsync(quellRunde.Id, ct);
                 var rueckspielJeHinspiel = RueckspielJeHinspiel(alleSpiele);
                 var paarungen = alleSpiele
                     .Where(s => !s.IstRueckspiel && s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)

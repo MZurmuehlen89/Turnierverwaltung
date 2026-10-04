@@ -879,6 +879,9 @@ public class AuslosungService(
 
     // ── Manuelle Auslosung ─────────────────────────────────────────────────────
 
+    /// <summary>Schließt eine manuelle Auslosung mit den übergebenen Paarungen ab und ersetzt den Spielplan der
+    /// Runde durch den daraus generierten — vorhandene Spiele samt Ergebnissen gehen dabei verloren, eine
+    /// Rückfrage dazu ist Sache des Aufrufers.</summary>
     public async Task ManuelleErgebnisseAbschliessenAsync(
         int auslosungId,
         IReadOnlyList<ManuellePaarungEingabe> paarungen,
@@ -917,7 +920,9 @@ public class AuslosungService(
         logger.LogInformation("Manuelle Auslosung '{Name}' abgeschlossen: {Anzahl} Paarungen.",
             auslosung.Name, ergebnisse.Count);
 
-        await platzhalterKaskadeService.KaskadeAusloesenAsync(auslosung.TurnierInstanzId, ct);
+        // Wer die Paarungen abschließt, will den Spielplan dazu (#19) — in einem Zug mit der Kaskade für die
+        // Folgerunden (#306). Getrennt entstand der Spielplan einer Platzhalter-Runde zweimal (#411).
+        await platzhalterKaskadeService.RundenSpielplanAusAuslosungErsetzenAsync(auslosung.TurnierRundeId, ergebnisse, ct);
     }
 
     private static bool HatAktiveRegel(Auslosung auslosung, AuslosungsRegelArt art)

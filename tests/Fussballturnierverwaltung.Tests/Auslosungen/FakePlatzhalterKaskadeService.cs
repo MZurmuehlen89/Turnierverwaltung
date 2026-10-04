@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Application.Spielplan;
+using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 
 namespace Fussballturnierverwaltung.Tests.Auslosungen;
 
@@ -8,6 +9,7 @@ public class FakePlatzhalterKaskadeService : IPlatzhalterKaskadeService
 {
     public int AufrufeAnzahl { get; private set; }
     public List<int> GeloeschteRundenIds { get; } = [];
+    public List<int> ErsetzteRundenIds { get; } = [];
 
     public Task KaskadeAusloesenAsync(int turnierInstanzId, CancellationToken ct = default)
     {
@@ -18,6 +20,13 @@ public class FakePlatzhalterKaskadeService : IPlatzhalterKaskadeService
     public Task RundenSpielplanOhneKaskadeLoeschenAsync(int turnierRundeId, CancellationToken ct = default)
     {
         GeloeschteRundenIds.Add(turnierRundeId);
+        return Task.CompletedTask;
+    }
+
+    public Task RundenSpielplanAusAuslosungErsetzenAsync(
+        int turnierRundeId, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct = default)
+    {
+        ErsetzteRundenIds.Add(turnierRundeId);
         return Task.CompletedTask;
     }
 }

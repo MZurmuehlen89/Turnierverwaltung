@@ -611,9 +611,10 @@ public partial class VorbelegungWorkspace : ObservableObject
             _auslosung ??= await _auslosungService.ErstellenAsync(new AuslosungErstellenEingabe(
                 _instanz.Id, Runde.Id, Runde.Name, Auslosungsart.Manuell, IstAutomatisch: false));
 
-            using (_logger.Vorgang($"Vorbelegung: Paarungen speichern (Auslosung {_auslosung.Id})"))
+            // Der Service ersetzt dabei auch den Spielplan der Runde und zieht die Folgerunden nach (#411).
+            using (_logger.Vorgang($"Vorbelegung: Paarungen speichern, Spielplan generieren (Auslosung {_auslosung.Id})"))
                 await _auslosungService.ManuelleErgebnisseAbschliessenAsync(_auslosung.Id, paarungen);
-            await SpielplanAutomatischGenerierenAsync(_auslosung.Id);
+            await TurnierBaumAktualisierenAsync();
             await LadenAsync();
             Geaendert?.Invoke();
         }
@@ -655,36 +656,6 @@ public partial class VorbelegungWorkspace : ObservableObject
             "Paarung abschließen",
             $"Die Runde hat bereits {mitErgebnis} Spiel(e) mit eingetragenem Ergebnis. Das Abschließen ersetzt den " +
             "Spielplan der Runde, diese Ergebnisse gehen dabei verloren. Trotzdem abschließen?");
-    }
-
-    /// <summary>Generiert den Spielplan automatisch, sobald die Paarung abgeschlossen ist (Issue #19,
-    /// analog WPF-Original). Vorhandene Spiele der Runde werden ohne Rückfrage ersetzt; nach eingetragenen
-    /// Ergebnissen fragt <see cref="ErgebnisVerlustBestaetigtAsync"/> schon vor dem Abschließen.</summary>
-    private async Task SpielplanAutomatischGenerierenAsync(int auslosungId)
-    {
-        var detail = await _auslosungService.FindenNachIdAsync(auslosungId);
-        if (detail is null || detail.Status != AuslosungsStatus.Abgeschlossen) return;
-
-        var rundeId = detail.TurnierRundeId;
-        var vorhandeneSpiele = await _spielplanService.SpielplanAbrufenAsync(rundeId);
-        if (vorhandeneSpiele.Count > 0)
-        {
-            // Issue #320-Folgefund: kaskadenlos löschen — LoeschenAsync würde selbst sofort wieder die
-            // Kaskade auslösen, die bei einer Platzhalter-K.o.-Runde mit weiterhin abgeschlossener
-            // Auslosung erneut komplett neu generiert, bevor der folgende GenerierenAusAuslosungAsync-
-            // Aufruf noch einmal generiert — macht aus 4 erwarteten Spielen 8 Phantom-Spiele.
-            using (_logger.Vorgang($"Vorbelegung: alten Spielplan löschen (Runde {rundeId}, {vorhandeneSpiele.Count} Spiele)"))
-                await _spielplanService.RundenSpielplanOhneKaskadeLoeschenAsync(rundeId);
-        }
-
-        using (_logger.Vorgang($"Vorbelegung: Spielplan generieren (Runde {rundeId})"))
-            await _spielplanService.GenerierenAusAuslosungAsync(rundeId, [.. detail.Ergebnisse]);
-
-        // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf den alten (jetzt ersetzten)
-        // Spielplan verwiesen haben (#306) — ohne die Kaskade blieben sie fälschlich stehen.
-        using (_logger.Vorgang($"Vorbelegung: Kaskade nach Spielplan (Instanz {detail.TurnierInstanzId})"))
-            await _spielplanService.KaskadeAusloesenAsync(detail.TurnierInstanzId);
-        await TurnierBaumAktualisierenAsync();
     }
 
     /// <summary>Aktualisiert den Turnierbaum nach jeder Spielplan-Änderung automatisch (Issue #320-

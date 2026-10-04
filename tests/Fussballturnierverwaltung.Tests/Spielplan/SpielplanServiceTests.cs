@@ -1758,6 +1758,26 @@ public class SpielplanServiceTests
     }
 
     [Fact]
+    public async Task RundenSpielplanAusAuslosungErsetzenAsync_ErzeugtSpielplanGenauEinmal()
+    {
+        // Issue #411: Abschließen einer Platzhalter-Runde — ob die Runde leer ist oder schon einen Spielplan
+        // hat, am Ende steht genau ein Spiel je Paarung, mit den bereits feststehenden Teilnehmern.
+        await using var ctx = NeuerContext();
+        GruppenphaseUndKoSetupAnlegen(ctx, out _, out int koRundeId);
+        var auslosung = await AuslosungMitPlatzhalternAnlegen(
+            ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"));
+        var service = ServiceFuer(ctx);
+
+        await service.RundenSpielplanAusAuslosungErsetzenAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await service.RundenSpielplanAusAuslosungErsetzenAsync(koRundeId, [.. auslosung.Ergebnisse]);
+
+        var koSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId).ToList();
+        koSpiele.Should().HaveCount(1);
+        koSpiele[0].HeimMannschaftId.Should().Be(1, "Sieger Gruppe A = Team A");
+        koSpiele[0].AuswaertsMannschaftId.Should().Be(4, "2. Gruppe B = Team D");
+    }
+
+    [Fact]
     public async Task PlatzhalterKaskade_LoeschtBereitsGespieltesFinaleUndGeneriertNeu_WennHalbfinaleSichAendert()
     {
         await using var ctx = NeuerContext();

@@ -1070,7 +1070,7 @@ public class AuslosungAlgorithmusTests
     }
 
     [Fact]
-    public async Task ManuelleErgebnisseAbschliessenAsync_LoestPlatzhalterKaskadeFuerTurnierInstanzAus()
+    public async Task ManuelleErgebnisseAbschliessenAsync_ErsetztSpielplanDerRundeInEinemZug()
     {
         var auslosung = AuslosungMit(Rundenart.KoRunde, Auslosungsart.Manuell);
         auslosung.TurnierInstanzId = 42;
@@ -1078,6 +1078,9 @@ public class AuslosungAlgorithmusTests
 
         await _service.ManuelleErgebnisseAbschliessenAsync(auslosung.Id, paarungen);
 
-        _kaskade.AufrufeAnzahl.Should().Be(1);
+        // Issue #411: das Ersetzen löst die Kaskade selbst aus — ein eigener Kaskadenlauf davor würde eine
+        // Platzhalter-Runde schon einmal generieren.
+        _kaskade.ErsetzteRundenIds.Should().Equal(auslosung.TurnierRundeId);
+        _kaskade.AufrufeAnzahl.Should().Be(0);
     }
 }

@@ -227,23 +227,40 @@ public class SpielRepository(TurnierverwaltungDbContext context)
             .Include(s => s.Ereignisse.OrderBy(e => e.Minute))
             .FirstOrDefaultAsync(s => s.Id == id, ct);
 
-    public async Task PlatzhalterKorrigierenAsync(
-        int spielId,
-        int? heimMannschaftId, string? heimPlatzhalterName,
-        int? auswaertsMannschaftId, string? auswaertsPlatzhalterName,
-        CancellationToken ct = default)
+    public async Task PlatzhalterKorrigierenAsync(IReadOnlyCollection<PlatzhalterKorrektur> korrekturen, CancellationToken ct = default)
     {
+        if (korrekturen.Count == 0) return;
+
         // Kein ExecuteUpdateAsync: das umgeht den Change-Tracker, wodurch bereits im selben
         // (scope-langlebigen) DbContext geladene Spiel-Instanzen veraltet bleiben und bei
         // erneutem Laden per Identity-Resolution zurueckgegeben werden (sichtbar erst nach
         // Neustart der App).
-        var spiel = await Context.Spiele.FirstOrDefaultAsync(s => s.Id == spielId, ct);
-        if (spiel is null) return;
+        var spielIds = korrekturen.Select(k => k.SpielId).ToHashSet();
+        var spiele = await Context.Spiele
+            .Where(s => spielIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, ct);
 
-        spiel.HeimMannschaftId         = heimMannschaftId;
-        spiel.HeimPlatzhalterName      = heimMannschaftId is null ? heimPlatzhalterName : null;
-        spiel.AuswaertsMannschaftId    = auswaertsMannschaftId;
-        spiel.AuswaertsPlatzhalterName = auswaertsMannschaftId is null ? auswaertsPlatzhalterName : null;
+        foreach (var korrektur in korrekturen)
+        {
+            if (!spiele.TryGetValue(korrektur.SpielId, out var spiel)) continue;
+
+            spiel.HeimMannschaftId         = korrektur.HeimMannschaftId;
+            spiel.HeimPlatzhalterName      = korrektur.HeimMannschaftId is null ? korrektur.HeimPlatzhalterName : null;
+            spiel.AuswaertsMannschaftId    = korrektur.AuswaertsMannschaftId;
+            spiel.AuswaertsPlatzhalterName = korrektur.AuswaertsMannschaftId is null ? korrektur.AuswaertsPlatzhalterName : null;
+        }
+        await Context.SaveChangesAsync(ct);
+    }
+
+    public async Task AktualisierenMehrfachAsync(IReadOnlyCollection<Spiel> spiele, CancellationToken ct = default)
+    {
+        if (spiele.Count == 0) return;
+
+        // Bereits verfolgte Spiele nicht per Update() anfassen: das schriebe alle Spalten statt nur der geänderten
+        // (gemessen: 16 Spiele 137 ms statt rund 40 ms).
+        foreach (var spiel in spiele)
+            if (Context.Entry(spiel).State == EntityState.Detached)
+                Context.Spiele.Update(spiel);
         await Context.SaveChangesAsync(ct);
     }
 

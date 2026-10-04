@@ -41,17 +41,23 @@ public interface ISpielRepository : IRepository<Spiel>
     /// <summary>Lädt ein einzelnes Spiel mit Ergebnis, Teams und allen SpielEreignissen (für Liveticker).</summary>
     Task<Spiel?> FindenNachIdMitEreignissenAsync(int id, CancellationToken ct = default);
 
-    /// <summary>Setzt Heim- und Auswärtsseite unabhängig voneinander entweder auf eine konkrete
+    /// <summary>Setzt je Spiel Heim- und Auswärtsseite unabhängig voneinander entweder auf eine konkrete
     /// Mannschaft oder zurück auf einen Platzhalternamen (jeweils genau eines von beiden pro Seite) —
     /// ursprünglich für Issue #88 (bereits aufgelöste Paarung teilweise ungültig geworden), seit #206
     /// auch für die reguläre, seitenunabhängige Erstauflösung genutzt. Rührt eine bereits korrekte
-    /// Seite nicht unnötig an.</summary>
-    Task PlatzhalterKorrigierenAsync(
-        int spielId,
-        int? heimMannschaftId, string? heimPlatzhalterName,
-        int? auswaertsMannschaftId, string? auswaertsPlatzhalterName,
-        CancellationToken ct = default);
+    /// Seite nicht unnötig an. Alle Korrekturen mit einer Abfrage und einem Speichern (Issue #411).</summary>
+    Task PlatzhalterKorrigierenAsync(IReadOnlyCollection<PlatzhalterKorrektur> korrekturen, CancellationToken ct = default);
+
+    /// <summary>Speichert mehrere bereits geladene Spiele mit einem Speichern (Issue #411).</summary>
+    Task AktualisierenMehrfachAsync(IReadOnlyCollection<Spiel> spiele, CancellationToken ct = default);
 
     /// <summary>Ermittelt die (distinkten) TurnierInstanz-IDs der angegebenen Spiele.</summary>
     Task<IReadOnlyList<int>> TurnierInstanzIdsAsync(IReadOnlyList<int> spielIds, CancellationToken ct = default);
 }
+
+/// <summary>Soll-Besetzung eines Spiels für <see cref="ISpielRepository.PlatzhalterKorrigierenAsync"/>: je Seite
+/// gilt die Mannschaft, wenn gesetzt, sonst der Platzhaltername.</summary>
+public record PlatzhalterKorrektur(
+    int SpielId,
+    int? HeimMannschaftId, string? HeimPlatzhalterName,
+    int? AuswaertsMannschaftId, string? AuswaertsPlatzhalterName);
