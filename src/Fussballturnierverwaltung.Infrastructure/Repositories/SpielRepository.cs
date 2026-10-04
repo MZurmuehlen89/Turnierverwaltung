@@ -64,18 +64,15 @@ public class SpielRepository(TurnierverwaltungDbContext context)
 
     public async Task AlleNachRundeLoeschenAsync(int turnierRundeId, CancellationToken ct = default)
     {
-        // Bewusst kein ExecuteDeleteAsync (umgeht den Change-Tracker) - falls betroffene Spiele im selben
-        // Scope bereits geladen/getrackt sind, würden sie sonst als "noch vorhanden" im Speicher bleiben
-        // (Stale-Bug, siehe #103).
-        var spiele = await Context.Spiele
+        var spielIds = (await Context.Spiele
             .Where(s => s.TurnierRundeId == turnierRundeId)
-            .ToListAsync(ct);
-
-        var spielIds = spiele.Select(s => s.Id).ToHashSet();
+            .Select(s => s.Id)
+            .ToListAsync(ct)).ToHashSet();
+        if (spielIds.Count == 0) return;
 
         // Issue #320-Folgefund: Folgerunden-Spiele, die per Übergangsregel über HeimQuellSpielId/
         // AuswaertsQuellSpielId (Self-Referencing FK, NoAction) auf eines dieser Spiele verweisen, müssen
-        // die Referenz zuerst verlieren — sonst schlägt das folgende RemoveRange mit einer SQL-FK-Verletzung
+        // die Referenz zuerst verlieren — sonst schlägt das folgende Löschen mit einer SQL-FK-Verletzung
         // fehl (verifiziert an einem Alt-Turnier mit bereits generiertem, dieselben Spiele referenzierendem
         // Turnierbaum/Folgespielen; TurnierBaumKnoten.SpielId wird bereits separat von
         // SpielplanService.LoeschenOhneKaskadeAsync vor diesem Aufruf genullt).
@@ -95,8 +92,50 @@ public class SpielRepository(TurnierverwaltungDbContext context)
         if (abhaengigeSpiele.Count > 0)
             await Context.SaveChangesAsync(ct);
 
-        Context.Spiele.RemoveRange(spiele);
-        await Context.SaveChangesAsync(ct);
+        if (!Context.Database.IsRelational())
+        {
+            // Der InMemory-Provider der Tests kennt kein ExecuteDelete.
+            Context.Spiele.RemoveRange(await Context.Spiele.Where(s => s.TurnierRundeId == turnierRundeId).ToListAsync(ct));
+            await Context.SaveChangesAsync(ct);
+            return;
+        }
+
+        // Eine Anweisung für die ganze Runde (#414): der SQL Server kompiliert jedes einzelne
+        // "DELETE … WHERE Id = @p" auf dieser Tabelle bei jeder Ausführung neu (gemessen 6–8 ms je Spiel bei
+        // unter 1 ms Ausführung, 144 Spiele der Ligaphase über 1 s). Ergebnisse und Ereignisse löscht die
+        // Datenbank per Kaskade mit. ExecuteDelete läuft am Change-Tracker vorbei — die gelöschten Zeilen
+        // müssen deshalb ausdrücklich aus dem Kontext (Stale-Bug, siehe #103).
+        await Context.Spiele.Where(s => s.TurnierRundeId == turnierRundeId).ExecuteDeleteAsync(ct);
+        AusKontextNehmen(spielIds);
+    }
+
+    /// <summary>Nimmt in der Datenbank bereits gelöschte Spiele samt Ergebnissen und Ereignissen aus dem
+    /// Kontext. Ein erneutes Laden genügt dafür nicht: eine Abfrage liefert die gelöschten Zeilen nur nicht
+    /// mehr, die verfolgten Objekte blieben aber im Kontext — als Treffer für <c>FindAsync</c>, in den
+    /// Spiele-Sammlungen von Runde und Turnier und als Fehlerquelle beim nächsten Speichern.</summary>
+    public void AusKontextNehmen(IReadOnlySet<int> spielIds)
+    {
+        // Entries() löst sonst je Aufruf eine Änderungssuche über den ganzen Kontext aus.
+        var tracker = Context.ChangeTracker;
+        bool automatisch = tracker.AutoDetectChangesEnabled;
+        tracker.AutoDetectChangesEnabled = false;
+        try
+        {
+            foreach (var eintrag in tracker.Entries<SpielErgebnis>().Where(e => spielIds.Contains(e.Entity.SpielId)).ToList())
+                eintrag.State = EntityState.Detached;
+            foreach (var eintrag in tracker.Entries<SpielEreignis>().Where(e => spielIds.Contains(e.Entity.SpielId)).ToList())
+                eintrag.State = EntityState.Detached;
+
+            foreach (var eintrag in tracker.Entries<Spiel>().Where(e => spielIds.Contains(e.Entity.Id)).ToList())
+            {
+                // Beim Herausnehmen räumt EF die Sammlungen der verbleibenden Objekte nicht selbst auf.
+                var spiel = eintrag.Entity;
+                spiel.TurnierRunde?.Spiele.Remove(spiel);
+                spiel.TurnierInstanz?.Spiele.Remove(spiel);
+                eintrag.State = EntityState.Detached;
+            }
+        }
+        finally { tracker.AutoDetectChangesEnabled = automatisch; }
     }
 
     public async Task<Spiel?> FindenNachIdMitErgebnisAsync(int id, CancellationToken ct = default)
