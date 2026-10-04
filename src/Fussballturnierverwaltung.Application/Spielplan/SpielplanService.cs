@@ -11,6 +11,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace Fussballturnierverwaltung.Application.Spielplan;
@@ -176,12 +177,14 @@ public class SpielplanService(
         // Issue #241: K.o.-Quellverknüpfungen (Sieger/Verlierer eines konkreten Vorrundenspiels) direkt
         // nach jeder Generierung nachziehen — idempotent, unabhängig davon, in welcher Reihenfolge Runden
         // erzeugt werden.
-        await SpielQuellenAlleTransitionsVerknuepfenAsync(runde.TurnierInstanzId, ct);
+        using (logger.Vorgang($"Quellverknüpfung nach Generierung (Instanz {runde.TurnierInstanzId})"))
+            await SpielQuellenAlleTransitionsVerknuepfenAsync(runde.TurnierInstanzId, ct);
 
         // Issue #346-Folgefund: bereits feststehende Teilnehmer sofort eintragen — sonst zeigte eine neu
         // generierte Runde nach bereits entschiedener Vorrunde wieder reine Platzhalter, bis irgendwo das
         // nächste Ergebnis die Auflösung anstieß (alle Aufrufer: Spielplan, Auslosung, Vorbelegung, Kaskade).
-        await PlatzhalterAufloesenAsync(turnierRundeId, ct);
+        using (logger.Vorgang($"Platzhalter auflösen nach Generierung (Runde {turnierRundeId})"))
+            await PlatzhalterAufloesenAsync(turnierRundeId, ct);
     }
 
     /// <summary>
@@ -694,6 +697,11 @@ public class SpielplanService(
 
     private async Task<int> PlatzhalterAufloesenOhneZwischenspeicherAsync(int turnierRundeId, CancellationToken ct)
     {
+        // Aufschlüsselung für das Ablaufprotokoll (#414): Laden der Runde und ihrer Spiele, Auflösen der Namen
+        // (Tabellen und Quellspiele), Speichern — als Werte in der Abschlusszeile statt eigener Vorgänge, weil
+        // die Auflösung nach jedem Ergebnis für jede Runde läuft.
+        var uhr = Stopwatch.StartNew();
+
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
 
@@ -705,6 +713,7 @@ public class SpielplanService(
             .ToList();
 
         if (platzhalterSpiele.Count == 0) return 0;
+        long ladenMs = uhr.ElapsedMilliseconds;
 
         // Platzhalter-Cache aufbauen (jeder eindeutige Name nur einmal auflösen)
         var cache = new Dictionary<string, int?>(StringComparer.OrdinalIgnoreCase);
@@ -746,15 +755,19 @@ public class SpielplanService(
                 spiel.Id, heimId, spiel.HeimPlatzhalterName, auswaertsId, spiel.AuswaertsPlatzhalterName));
         }
 
+        long aufloesenMs = uhr.ElapsedMilliseconds - ladenMs;
+
         if (korrekturen.Count > 0)
         {
             await spielRepository.PlatzhalterKorrigierenAsync(korrekturen, ct);
             TabellenZwischenspeicherVerwerfen(turnierRundeId);
         }
+        long speichernMs = uhr.ElapsedMilliseconds - ladenMs - aufloesenMs;
 
         logger.LogInformation(
-            "Platzhalter in Runde '{Runde}' aufgelöst: {Aufgeloest}/{Gesamt} Spiele.",
-            runde.Name, korrekturen.Count, platzhalterSpiele.Count);
+            "Platzhalter in Runde '{Runde}' aufgelöst: {Aufgeloest}/{Gesamt} Spiele " +
+            "(Laden {Laden} ms, Auflösen {Aufloesen} ms, Speichern {Speichern} ms).",
+            runde.Name, korrekturen.Count, platzhalterSpiele.Count, ladenMs, aufloesenMs, speichernMs);
 
         return korrekturen.Count;
     }
@@ -933,7 +946,13 @@ public class SpielplanService(
             if (geaendert) geaenderteSpiele.Add(spiel);
         }
 
+        if (geaenderteSpiele.Count == 0) return;
+
+        var uhr = Stopwatch.StartNew();
         await spielRepository.AktualisierenMehrfachAsync(geaenderteSpiele, ct);
+        logger.LogInformation(
+            "Quellverknüpfung in Runde '{Runde}': {Anzahl} Spiel(e) verknüpft (Speichern {Speichern} ms).",
+            zielRunde.Name, geaenderteSpiele.Count, uhr.ElapsedMilliseconds);
     }
 
     /// <summary>Löst eine K.o.-Quellverknüpfung (<see cref="Spiel.HeimQuellSpielId"/>/-<c>Ergebnis</c>) direkt

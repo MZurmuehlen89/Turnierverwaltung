@@ -13,7 +13,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz;
 /// App-seitige Aufrufer und vor allem die Abfrage, die den Kontext gerade belegt, fehlen. Merkt sich deshalb pro
 /// DbContext die aktuell laufende Abfrage (Start, SQL-Anfang, App-Aufrufer) und schreibt beides ins Log:
 /// langsame Abfragen (&gt; <see cref="LANGSAM_AB_MS"/>) als Warnung, Kollisionen mit beiden Seiten als Fehler.</summary>
-public sealed class DbZugriffsDiagnose(ILogger<DbZugriffsDiagnose> logger) : DbCommandInterceptor, IDbConnectionInterceptor
+public sealed class DbZugriffsDiagnose(ILogger<DbZugriffsDiagnose> logger)
+    : DbCommandInterceptor, IDbConnectionInterceptor, ISaveChangesInterceptor
 {
     private const int LANGSAM_AB_MS = 500;
 
@@ -106,6 +107,75 @@ public sealed class DbZugriffsDiagnose(ILogger<DbZugriffsDiagnose> logger) : DbC
             logger.LogWarning(
                 "Langsame DB-Abfrage: {Dauer} ms — {Sql}{NewLine}Aufrufer:{NewLine}{Aufrufer}",
                 abfrage.Dauer.ElapsedMilliseconds, abfrage.Sql, Environment.NewLine, Environment.NewLine, abfrage.Aufrufer);
+    }
+
+    // ── Speichern ───────────────────────────────────────────────────────────
+
+    // Ablaufprotokoll (#414): je Speichervorgang Dauer, geschriebene Zeilen und Größe des Change-Trackers. Der
+    // Kontext lebt in der App so lange wie die Seite — mit jedem geladenen Turnier wächst die Zahl der verfolgten
+    // Objekte, die EF vor jedem Speichern auf Änderungen durchsucht.
+    private readonly ConditionalWeakTable<DbContext, Stopwatch> _speichern = new();
+
+    ValueTask<InterceptionResult<int>> ISaveChangesInterceptor.SavingChangesAsync(
+        DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken)
+    {
+        SpeichernBeginnen(eventData.Context);
+        return ValueTask.FromResult(result);
+    }
+
+    InterceptionResult<int> ISaveChangesInterceptor.SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
+    {
+        SpeichernBeginnen(eventData.Context);
+        return result;
+    }
+
+    ValueTask<int> ISaveChangesInterceptor.SavedChangesAsync(
+        SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken)
+    {
+        SpeichernAbschliessen(eventData.Context, result);
+        return ValueTask.FromResult(result);
+    }
+
+    int ISaveChangesInterceptor.SavedChanges(SaveChangesCompletedEventData eventData, int result)
+    {
+        SpeichernAbschliessen(eventData.Context, result);
+        return result;
+    }
+
+    Task ISaveChangesInterceptor.SaveChangesFailedAsync(DbContextErrorEventData eventData, CancellationToken cancellationToken)
+    {
+        if (eventData.Context is { } context) _speichern.Remove(context);
+        return Task.CompletedTask;
+    }
+
+    void ISaveChangesInterceptor.SaveChangesFailed(DbContextErrorEventData eventData)
+    {
+        if (eventData.Context is { } context) _speichern.Remove(context);
+    }
+
+    private void SpeichernBeginnen(DbContext? context)
+    {
+        if (context is not null && logger.IsEnabled(LogLevel.Information))
+            _speichern.AddOrUpdate(context, Stopwatch.StartNew());
+    }
+
+    private void SpeichernAbschliessen(DbContext? context, int geschrieben)
+    {
+        if (context is null || !_speichern.TryGetValue(context, out var dauer)) return;
+        _speichern.Remove(context);
+        long ms = dauer.ElapsedMilliseconds;
+
+        // Entries() löst sonst selbst eine Änderungssuche aus — hier soll nur gezählt werden.
+        var tracker = context.ChangeTracker;
+        bool automatisch = tracker.AutoDetectChangesEnabled;
+        tracker.AutoDetectChangesEnabled = false;
+        int verfolgt;
+        try { verfolgt = tracker.Entries().Count(); }
+        finally { tracker.AutoDetectChangesEnabled = automatisch; }
+
+        logger.LogInformation(
+            "Speichern: {Dauer} ms, {Geschrieben} Zeile(n) geschrieben, {Verfolgt} verfolgte Objekte",
+            ms, geschrieben, verfolgt);
     }
 
     // ── Kollision ───────────────────────────────────────────────────────────
