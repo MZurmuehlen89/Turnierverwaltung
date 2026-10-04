@@ -261,6 +261,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private bool _ladenAktiv;
     private bool _seitenlisteAktualisierungAktiv;
 
+    /// <summary>Schutz des geteilten DbContext — <see cref="TurnierdurchfuehrungViewModel"/> setzt hier den des
+    /// <see cref="TurnierTabKoordinator"/> ein, damit sich die Aktionen dieses Reiters und das Laden nach einem
+    /// Turnier-/Reiterwechsel gegenseitig abwarten statt zu kollidieren (#413). Betreten wird er nur an den
+    /// Einstiegspunkten (Befehle, Auswahlwechsel, Regel-Schalter), nie in den Hilfsmethoden darunter — er ist
+    /// nicht wiedereintrittsfähig. <see cref="InstanzSetzenAsync"/> läuft bereits unter dem Schutz des Aufrufers.</summary>
+    public DbContextReentrancySchutz DbContextSchutz { get; set; } = new();
+
     // ── Geteilter Instanz-Kontext (siehe Klassendoku) ────────────────────────────
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(NeuCommand))]
@@ -869,6 +876,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         ZiehungBeenden();
         _instanz = instanz;
+        // Eine hinter diesem Wechsel wartende Aktion darf nicht mehr auf dem bisherigen Detail arbeiten (#413).
+        _auslosungDetail = null;
         KeinTurnierGewaehlt = instanz is null;
         Auslosungen.Clear();
         InstanzRunden.Clear();
@@ -916,6 +925,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task Speichern()
     {
         Fehlermeldung = null;
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (NeuFormAktiv)
         {
             if (_instanz is null || NeuRunde is null) return;
@@ -973,16 +983,19 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             NeuFormAktiv = false;
             if (AusgewaehlteAuslosung is not null)
                 DetailAktiv = true;
+            return;
         }
-        else if (IstDetailDirty && _auslosungDetail is not null)
-        {
-            await LadeDetailAsync(_auslosungDetail.Id);
-        }
+
+        using var schutz = await DbContextSchutz.BetretenAsync();
+        if (!IstDetailDirty || _auslosungDetail is null) return;
+        try { await LadeDetailAsync(_auslosungDetail.Id); }
+        catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
 
     [RelayCommand(CanExecute = nameof(KannLoeschen))]
     private async Task Loeschen()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteAuslosung is null || _instanz is null) return;
         var auslosung = AusgewaehlteAuslosung;
         Fehlermeldung = null;
@@ -1016,6 +1029,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// statt pro Teilnehmer, damit die UI nicht mehrfach kurz aufflackert.</summary>
     public async Task TeilnehmerZuTopfHinzufuegenAsync(int topfId, IReadOnlyList<TeilnehmerAnzeige> teilnehmer)
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (_auslosungDetail is null || teilnehmer.Count == 0) return;
         Fehlermeldung = null;
         try
@@ -1039,6 +1053,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// <summary>Mehrfachselektions-Variante, siehe <see cref="TeilnehmerZuTopfHinzufuegenAsync(int, IReadOnlyList{TeilnehmerAnzeige})"/>.</summary>
     public async Task TeilnehmerAusTopfEntfernenAsync(int topfId, IReadOnlyList<int> eintragIds)
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (_auslosungDetail is null || eintragIds.Count == 0) return;
         Fehlermeldung = null;
         try
@@ -1056,6 +1071,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// zugeordnete Mannschaft ab, der Quell-Lostopf muss also zuerst geleert werden.</summary>
     public async Task TeilnehmerZuTopfVerschiebenAsync(IReadOnlyList<TeilnehmerAnzeige> teilnehmer, int? vonTopfId, int nachTopfId)
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (_auslosungDetail is null || teilnehmer.Count == 0) return;
         Fehlermeldung = null;
         try
@@ -1085,6 +1101,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [RelayCommand(CanExecute = nameof(KannLostoepfeAutomatischBefuellen))]
     private async Task LostoepfeAutomatischBefuellen()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (_auslosungDetail is null) return;
         Fehlermeldung = null;
 
@@ -1178,44 +1195,54 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task AuslosungDurchfuehrenAsync()
     {
-        if (_auslosungDetail is null) return;
         Fehlermeldung = null;
-        int auslosungId = _auslosungDetail.Id;
-        using var vorgang = _logger.Vorgang($"Auslosung durchführen (Auslosung {auslosungId})");
+        int auslosungId;
+        ObservableCollection<GegnerMatrixTopf>? matrizen;
+        List<ZiehungsSchritt>? schritte;
         try
         {
-            if (!await ErgebnisVerlustBestaetigtAsync(_auslosungDetail.TurnierRundeId)) return;
-
-            // Das Ergebnis steht ab AusfuehrenAsync fest und wird von LadeDetailAsync geladen — im TV-Modus
-            // bleibt es bis zum Start der Ziehung verborgen, siehe ZeigeErgebnis.
-            ZiehungInVorbereitung = TvModusAktiv;
-            await _auslosungService.AusfuehrenAsync(auslosungId);
-            await LadeDetailAsync(auslosungId);
-            if (_auslosungDetail is not { } detail || detail.Id != auslosungId) return;
-
-            // Ziehungsdaten bewusst direkt NACH dem Reload aus dessen Stand bauen (nicht aus einem vor
-            // AusfuehrenAsync genommenen Lostöpfe-Snapshot + dem separaten Rückgabewert von AusfuehrenAsync):
-            // ViewModel und AuslosungService teilen denselben DbContext-Scope, ein Snapshot kann durch
-            // EF-Change-Tracking/Identity-Resolution zwischen zwei Aufrufen verändert werden. Direkt nach dem
-            // Reload stammen Lostöpfe UND Ergebnisse garantiert aus demselben, aktuellen Snapshot — exakt die
-            // Daten, die danach auch als "echtes" Ergebnis angezeigt werden (Fund aus #303-Test: TV-Modus-
-            // Endanzeige wich bei Gruppenphase nach vorherigem Zurücksetzen vom echten Ergebnis ab). Deshalb
-            // auch VOR der Spielplan-Generierung, die auf demselben DbContext weiterarbeitet.
-            var matrizen = TvModusAktiv && IstGegnerMatrixergebnis ? GegnerMatrizenAufbauen(detail) : null;
-            var schritte = TvModusAktiv && matrizen is null
-                ? ZiehungsSchritteAufbauen(detail.Lostoepfe, detail.Ergebnisse)
-                : null;
-
-            // Spielplan VOR der Ziehung (#406): die Ziehung enthüllt nur noch und darf jederzeit enden (siehe
-            // ZiehungBeenden) — vorher lief die Generierung erst danach, eine verlassene Ziehung hinterließ eine
-            // abgeschlossene Auslosung ohne Spielplan bzw. generierte ihn für die inzwischen angezeigte Auslosung.
-            IstLadend = true;
-            try
+            // Nur der Datenbankteil läuft unter dem Schutz (#413) — die Ziehung danach ist reine Anzeige und
+            // wartet im manuellen TV-Modus beliebig lange auf Klicks.
+            using (await DbContextSchutz.BetretenAsync())
             {
-                await SpielplanAutomatischGenerierenAsync(detail);
-                await AktualisiereSeitenlisteAsync();
+                if (_auslosungDetail is null) return;
+                auslosungId = _auslosungDetail.Id;
+                if (!await ErgebnisVerlustBestaetigtAsync(_auslosungDetail.TurnierRundeId)) return;
+
+                // Erst ab hier messen — die Wartezeit auf die Rückfrage gehört nicht zur Dauer der Aktion.
+                using var vorgang = _logger.Vorgang($"Auslosung durchführen (Auslosung {auslosungId})");
+
+                // Das Ergebnis steht ab AusfuehrenAsync fest und wird von LadeDetailAsync geladen — im TV-Modus
+                // bleibt es bis zum Start der Ziehung verborgen, siehe ZeigeErgebnis.
+                ZiehungInVorbereitung = TvModusAktiv;
+                await _auslosungService.AusfuehrenAsync(auslosungId);
+                await LadeDetailAsync(auslosungId);
+                if (_auslosungDetail is not { } detail || detail.Id != auslosungId) return;
+
+                // Ziehungsdaten bewusst direkt NACH dem Reload aus dessen Stand bauen (nicht aus einem vor
+                // AusfuehrenAsync genommenen Lostöpfe-Snapshot + dem separaten Rückgabewert von AusfuehrenAsync):
+                // ViewModel und AuslosungService teilen denselben DbContext-Scope, ein Snapshot kann durch
+                // EF-Change-Tracking/Identity-Resolution zwischen zwei Aufrufen verändert werden. Direkt nach dem
+                // Reload stammen Lostöpfe UND Ergebnisse garantiert aus demselben, aktuellen Snapshot — exakt die
+                // Daten, die danach auch als "echtes" Ergebnis angezeigt werden (Fund aus #303-Test: TV-Modus-
+                // Endanzeige wich bei Gruppenphase nach vorherigem Zurücksetzen vom echten Ergebnis ab). Deshalb
+                // auch VOR der Spielplan-Generierung, die auf demselben DbContext weiterarbeitet.
+                matrizen = TvModusAktiv && IstGegnerMatrixergebnis ? GegnerMatrizenAufbauen(detail) : null;
+                schritte = TvModusAktiv && matrizen is null
+                    ? ZiehungsSchritteAufbauen(detail.Lostoepfe, detail.Ergebnisse)
+                    : null;
+
+                // Spielplan VOR der Ziehung (#406): die Ziehung enthüllt nur noch und darf jederzeit enden (siehe
+                // ZiehungBeenden) — vorher lief die Generierung erst danach, eine verlassene Ziehung hinterließ eine
+                // abgeschlossene Auslosung ohne Spielplan bzw. generierte ihn für die inzwischen angezeigte Auslosung.
+                IstLadend = true;
+                try
+                {
+                    await SpielplanAutomatischGenerierenAsync(detail);
+                    await AktualisiereSeitenlisteAsync();
+                }
+                finally { IstLadend = false; }
             }
-            finally { IstLadend = false; }
 
             // Zwischenzeitlich verlassen (Turnier-/Reiter-/Auslosungswechsel) — dann gibt es nichts mehr zu zeigen.
             if (!DetailAktiv || _auslosungDetail?.Id != auslosungId) return;
@@ -1699,19 +1726,23 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [RelayCommand(CanExecute = nameof(KannAuslosungZuruecksetzen))]
     private async Task AuslosungZuruecksetzen()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (_auslosungDetail is not { } detail) return;
         Fehlermeldung = null;
-        using var vorgang = _logger.Vorgang($"Auslosung zurücksetzen (Auslosung {detail.Id})");
         try
         {
             // Rückfrage nur, wenn tatsächlich Daten betroffen sind (#405) — frisch ausgelost und sofort
             // zurückgesetzt bleibt ohne Dialog.
-            var verlust = await SpielplanVerlustAsync(detail.TurnierInstanzId, detail.TurnierRundeId);
+            (string Hinweis, bool DatenBetroffen) verlust;
+            using (_logger.Vorgang($"Auslosung zurücksetzen: Vorschau (Auslosung {detail.Id})"))
+                verlust = await SpielplanVerlustAsync(detail.TurnierInstanzId, detail.TurnierRundeId);
             if (verlust.DatenBetroffen && !await _dialogService.BestaetigenAsync(
                     "Auslosung zurücksetzen",
                     $"Soll '{detail.Name}' wirklich zurückgesetzt werden?{verlust.Hinweis}"))
                 return;
 
+            // Erst ab hier messen — die Wartezeit auf die Rückfrage gehört nicht zur Dauer der Aktion.
+            using var vorgang = _logger.Vorgang($"Auslosung zurücksetzen (Auslosung {detail.Id})");
             await _auslosungService.ZuruecksetzenAsync(detail.Id);
             await TurnierBaumAktualisierenAsync(detail.TurnierInstanzId);
             await LadeDetailAsync(detail.Id);
@@ -1756,6 +1787,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [RelayCommand]
     private async Task TopfLeeren(LostopfViewModel topf)
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (_auslosungDetail is null) return;
         Fehlermeldung = null;
         try
@@ -1774,6 +1806,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             "Töpfe zurücksetzen", "Alle Töpfe leeren und alle Teams zurück in die Verfügbar-Liste?");
         if (!bestaetigt) return;
         Fehlermeldung = null;
+        using var schutz = await DbContextSchutz.BetretenAsync();
+        if (_auslosungDetail is null) return;
         try
         {
             await _auslosungService.AlleToepfeZuruecksetzenAsync(_auslosungDetail.Id);
@@ -1819,7 +1853,20 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (DetailAktiv && _auslosungDetail?.Id == AusgewaehlteAuslosung.Id) return;
 
         ZiehungBeenden();
-        await LadeDetailAsync(AusgewaehlteAuslosung.Id);
+        int auslosungId = AusgewaehlteAuslosung.Id;
+
+        // Läuft als Fire-and-Forget: hinter einer laufenden Aktion oder einem Turnierwechsel einreihen und
+        // Fehler anzeigen statt verschlucken (#413). Nach dem Warten zählt der dann aktuelle Stand — die
+        // Auswahl kann weitergewandert oder das Detail inzwischen von der Aktion selbst geladen sein.
+        using var schutz = await DbContextSchutz.BetretenAsync();
+        if (AusgewaehlteAuslosung?.Id != auslosungId) return;
+        if (DetailAktiv && _auslosungDetail?.Id == auslosungId) return;
+        try { await LadeDetailAsync(auslosungId); }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Auslosung {AuslosungId} konnte nicht geladen werden.", auslosungId);
+            Fehlermeldung = ex.Message;
+        }
     }
 
     private async Task LadeDetailAsync(int auslosungId)
@@ -1925,6 +1972,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     return new RegelViewModel(art, RegelAnzeigeName(art), RegelBeschreibung(art), vorh?.IstAktiv ?? false,
                         async aktiv =>
                         {
+                            using var schutz = await DbContextSchutz.BetretenAsync();
                             try
                             {
                                 if (aktiv)

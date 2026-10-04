@@ -216,4 +216,9 @@ public partial class TurnierTabKoordinator : ObservableObject
     /// aus (#317).</summary>
     public Task SequenziellMitDbContextSchutzAsync(Func<Task> aktion, Action<Exception>? fehlerBehandlung = null) =>
         _instanzSetzenSchutz.AusfuehrenAsync(aktion, fehlerBehandlung);
+
+    /// <summary>Derselbe Schutz für Kind-ViewModels, deren eigene Aktionen (Auslosen, Zurücksetzen …) auf dem
+    /// geteilten DbContext arbeiten: laufen sie daran vorbei, bekommt ein Turnier-/Reiterwechsel den Schutz
+    /// sofort und kollidiert mit der noch laufenden Aktion (#413).</summary>
+    public DbContextReentrancySchutz DbContextSchutz => _instanzSetzenSchutz;
 }

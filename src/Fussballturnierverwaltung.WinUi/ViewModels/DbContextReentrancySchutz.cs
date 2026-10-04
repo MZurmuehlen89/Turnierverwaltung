@@ -13,6 +13,29 @@ public sealed class DbContextReentrancySchutz
 {
     private readonly SemaphoreSlim _lock = new(1, 1);
 
+    /// <summary>Wartet, bis kein anderer Zugriff mehr läuft, und hält den Schutz bis zum Dispose der Rückgabe
+    /// (<c>using var schutz = await …BetretenAsync();</c>). Für Nutzeraktionen mit eigener Fehlerbehandlung
+    /// (#413): anders als <see cref="AusfuehrenAsync"/> ohne Wiederholversuch — eine schreibende Aktion darf
+    /// nicht ein zweites Mal laufen. Nicht wiedereintrittsfähig: wer den Schutz hält, darf nichts abwarten,
+    /// das ihn selbst betritt.</summary>
+    public async Task<IDisposable> BetretenAsync()
+    {
+        await _lock.WaitAsync();
+        return new Freigabe(_lock);
+    }
+
+    private sealed class Freigabe(SemaphoreSlim sperre) : IDisposable
+    {
+        private bool _freigegeben;
+
+        public void Dispose()
+        {
+            if (_freigegeben) return;
+            _freigegeben = true;
+            sperre.Release();
+        }
+    }
+
     /// <param name="istNochAktuell">Optionaler Stale-Check, direkt nach Lock-Erhalt ausgewertet: liefert er
     /// <c>false</c>, wird <paramref name="aktion"/> übersprungen. Deckt schnelles Durchklicken (z.B.
     /// Pfeiltasten durch eine Auswahlliste) ab — ohne den Check arbeitet der Lock jede in der Warteschlange

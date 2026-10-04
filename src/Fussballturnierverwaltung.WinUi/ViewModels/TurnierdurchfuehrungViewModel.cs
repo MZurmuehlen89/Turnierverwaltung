@@ -53,6 +53,9 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
 
         TabKoordinator = new TurnierTabKoordinator(service, [AuslosungTab, SpielplanUndBaumTab, SimulationTab], turnierAuswahlService);
 
+        // Aktionen im Auslosungs-Reiter reihen sich hinter Turnier-/Reiterwechsel ein und umgekehrt (#413).
+        AuslosungTab.DbContextSchutz = TabKoordinator.DbContextSchutz;
+
         // Alle drei Tabs SEQUENZIELL innerhalb EINES Fire-and-Forget-Aufrufs statt eigenständiger
         // (Testfund: paralleles Fire-and-Forget mit DB-Zugriff auf denselben scoped DbContext löste eine
         // stille "A second operation was started on this context instance"-Exception aus — der Spielplan-Tab
@@ -136,6 +139,7 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
                 // verschwand bisher spurlos (z.B. Runden.Clear() bereits ausgeführt, danach Abbruch mitten
                 // im Reload → leere Rundenliste ohne jede Fehlermeldung). Auf dem gerade aktiven Tab
                 // anzeigen, analog den lokalen Fehlerpfaden der drei Fach-ViewModels.
+                _logger.LogError(ex, "Reiter laden fehlgeschlagen (Instanz {InstanzId}, {Ausloeser}).", instanz?.Id, ausloeser);
                 switch (TabKoordinator.AktivesTab)
                 {
                     case AuslosungViewModel a: a.Fehlermeldung = ex.Message; break;
