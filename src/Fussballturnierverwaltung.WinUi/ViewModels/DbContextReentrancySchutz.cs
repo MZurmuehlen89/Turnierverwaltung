@@ -2,13 +2,11 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 /// <summary>Serialisiert asynchrone DbContext-Zugriffe, die durch unabhängige Fire-and-Forget-Ketten (z.B.
 /// zwei schnell aufeinanderfolgende, unabhängige WinUI-Auswahländerungen) überlappen könnten, und fängt die
-/// sporadische EF-Core-"second operation"-Exception mit einem einmaligen Retry ab (#317/#338). Jedes
-/// ViewModel mit mehreren solcher unabhängigen Fire-and-Forget-Ketten auf demselben Scoped-DbContext
-/// braucht eine EIGENE Instanz — eine geteilte/statische Instanz würde unabhängige ViewModels ohne
-/// gemeinsamen DbContext unnötig gegeneinander serialisieren. Ursprünglich lokal in
-/// <see cref="TurnierTabKoordinator"/> implementiert (#189-Nebenfund), hierher extrahiert, damit
-/// <see cref="SpielplanViewModel"/>/<see cref="SimulationsViewModel"/> (Runde-/Spiel-Wechsel-Reentrancy,
-/// #338) dieselbe Basis nutzen können, statt sie ein weiteres Mal zu kopieren.</summary>
+/// sporadische EF-Core-"second operation"-Exception mit einem einmaligen Retry ab (#317/#338). Maßgeblich
+/// ist der DbContext: ViewModels, die sich einen Scoped-DbContext teilen, brauchen EINE gemeinsame Instanz
+/// (die Reiter der Turnierdurchführung bekommen die des <see cref="TurnierTabKoordinator"/> hereingereicht,
+/// #413/#415) — getrennte Instanzen je ViewModel schließen einander nicht aus. Eine statische Instanz würde
+/// umgekehrt ViewModels ohne gemeinsamen DbContext unnötig gegeneinander serialisieren.</summary>
 public sealed class DbContextReentrancySchutz
 {
     private readonly SemaphoreSlim _lock = new(1, 1);

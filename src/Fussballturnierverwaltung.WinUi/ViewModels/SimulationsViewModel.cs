@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Turniere;
@@ -9,6 +10,7 @@ using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -30,14 +32,16 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     private readonly SpielErgebnisService _spielService;
     private readonly TurnierInstanzService _instanzService;
     private readonly IDialogService       _dialogService;
+    private readonly ILogger<SimulationsViewModel> _logger;
 
     private TurnierInstanz? _instanz;
     private int _ladeUnterdrueckt;
 
-    // #338: schützt gegen zwei echte, schnell aufeinanderfolgende Runde-/Spiel-Auswahländerungen (nicht
-    // gegen die selbstverursachte Reentrancy, die _ladeUnterdrueckt oben bereits abdeckt — siehe
-    // DbContextReentrancySchutz-Doku).
-    private readonly DbContextReentrancySchutz _wechselSchutz = new();
+    /// <summary>Reiht Runde-/Spiel-Wechsel (#338), die beiden Aktionen und — über den vom
+    /// <see cref="TurnierdurchfuehrungViewModel"/> gesetzten gemeinsamen Schutz — auch Turnier-/Reiterwechsel
+    /// hintereinander (#415, siehe <see cref="SpielplanViewModel.DbContextSchutz"/>). Nicht
+    /// wiedereintrittsfähig — <see cref="InstanzSetzenAsync"/> läuft bereits unter dem Schutz.</summary>
+    public DbContextReentrancySchutz DbContextSchutz { get; set; } = new();
 
     // Deckt Vorschau-Karte/Protokoll komplett ab, solange der automatische Vorauswahl-Pfad
     // (VorauswahlLadenUndSimulierenAsync, "Ausführlich simulieren"/"Spielverlauf ansehen" aus dem
@@ -145,14 +149,16 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         SimulationsService    simulationsService,
         SpielErgebnisService  spielService,
         TurnierInstanzService instanzService,
-        IDialogService         dialogService)
+        IDialogService         dialogService,
+        ILogger<SimulationsViewModel> logger)
     {
         _simulationsService = simulationsService;
         _spielService       = spielService;
         _instanzService     = instanzService;
         _dialogService      = dialogService;
+        _logger             = logger;
 
-        TurnierSpielSimulierenBefehl = new AsyncRelayCommand(TurnierSpielSimulierenAsync, () => KannTurnierSpielSimulieren);
+        TurnierSpielSimulierenBefehl = new AsyncRelayCommand(TurnierSpielSimulierenMitSchutzAsync, () => KannTurnierSpielSimulieren);
         ErgebnisZuruecksetzenBefehl  = new AsyncRelayCommand(ErgebnisZuruecksetzenAsync, () => KannTurnierErgebnisZuruecksetzen);
     }
 
@@ -165,6 +171,8 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     /// <see cref="InstanzSetzenAsync"/> statt einer echten Navigation als Einstiegspunkt.</summary>
     public async Task InstanzSetzenAsync(TurnierInstanz? instanz)
     {
+        using var vorgang = _logger.Vorgang($"Simulation: Turnier setzen (Instanz {instanz?.Id})");
+
         if (Vorauswahl is { } v)
         {
             Vorauswahl = null;
@@ -209,13 +217,13 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
                 // istNochAktuell verwirft veraltete Zwischenauswahlen aus der Lock-Warteschlange
                 // (Ruckel-Fund aus #338-Test).
                 var erwarteteRundeId = AusgewaehlteRunde?.Id;
-                _ = _wechselSchutz.AusfuehrenAsync(
+                _ = DbContextSchutz.AusfuehrenAsync(
                     BeiRundeAenderungAsync, ex => Fehlermeldung = ex.Message,
                     istNochAktuell: () => AusgewaehlteRunde?.Id == erwarteteRundeId);
                 break;
             case nameof(AusgewaehlteSpiel):
                 var erwarteteSpielId = AusgewaehlteSpiel?.Id;
-                _ = _wechselSchutz.AusfuehrenAsync(
+                _ = DbContextSchutz.AusfuehrenAsync(
                     BeiSpielAuswahlAsync, ex => Fehlermeldung = ex.Message,
                     istNochAktuell: () => AusgewaehlteSpiel?.Id == erwarteteSpielId);
                 AktualisiereBefehle();
@@ -352,6 +360,14 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     // Issue #164: "Ergebnis überschreiben" als eigener Button entfällt — bei bereits vorhandenem
     // Ergebnis fragt "Simulieren" jetzt per Dialog nach, statt eine zweite, exklusiv geschaltete
     // Aktion zu brauchen.
+    private async Task TurnierSpielSimulierenMitSchutzAsync()
+    {
+        using var schutz = await DbContextSchutz.BetretenAsync();
+        await TurnierSpielSimulierenAsync();
+    }
+
+    /// <summary>Ohne eigenen Schutz: läuft beim Sprung aus dem Spielplan innerhalb von
+    /// <see cref="InstanzSetzenAsync"/>, das den Schutz bereits hält.</summary>
     private async Task TurnierSpielSimulierenAsync()
     {
         if (AusgewaehlteSpiel is null) return;
@@ -372,6 +388,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         LeerProtokoll();
         try
         {
+            using var vorgang = _logger.Vorgang($"Simulation: Turnierspiel simulieren (Spiel {spielId})");
             await _simulationsService.SpielSimulierenAsync(
                 spielId, SimulationsModus.AusfuehrlicheSimulation, ueberschreiben: ueberschreiben);
 
@@ -400,6 +417,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
     private async Task ErgebnisZuruecksetzenAsync()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteSpiel is null) return;
         int spielId  = AusgewaehlteSpiel.Id;
         int? rundeId = AusgewaehlteRunde?.Id;
@@ -407,6 +425,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         IstLadend     = true;
         try
         {
+            using var vorgang = _logger.Vorgang($"Simulation: Ergebnis zurücksetzen (Spiel {spielId})");
             await _spielService.ErgebnisLoeschenAsync(spielId);
 
             if (rundeId.HasValue)

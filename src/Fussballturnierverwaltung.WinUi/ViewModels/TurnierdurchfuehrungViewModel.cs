@@ -53,8 +53,11 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
 
         TabKoordinator = new TurnierTabKoordinator(service, [AuslosungTab, SpielplanUndBaumTab, SimulationTab], turnierAuswahlService);
 
-        // Aktionen im Auslosungs-Reiter reihen sich hinter Turnier-/Reiterwechsel ein und umgekehrt (#413).
+        // Aktionen aller Reiter reihen sich hinter Turnier-/Reiterwechsel ein und umgekehrt (#413, #415).
         AuslosungTab.DbContextSchutz = TabKoordinator.DbContextSchutz;
+        SpielplanUndBaumTab.SpielplanVm.DbContextSchutz = TabKoordinator.DbContextSchutz;
+        SpielplanUndBaumTab.TurnierBaumVm.DbContextSchutz = TabKoordinator.DbContextSchutz;
+        SimulationTab.DbContextSchutz = TabKoordinator.DbContextSchutz;
 
         // Alle drei Tabs SEQUENZIELL innerhalb EINES Fire-and-Forget-Aufrufs statt eigenständiger
         // (Testfund: paralleles Fire-and-Forget mit DB-Zugriff auf denselben scoped DbContext löste eine

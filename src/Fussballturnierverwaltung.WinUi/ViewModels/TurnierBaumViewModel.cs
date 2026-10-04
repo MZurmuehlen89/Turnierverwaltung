@@ -323,7 +323,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     partial void OnTabellenBisSpieltagChanged(int? value)
     {
         OnPropertyChanged(nameof(TabellenBisSpieltagAuswahl));
-        if (_fokusRunde is not null) _ = TabelleNeuLadenAsync();
+        if (_fokusRunde is not null) TabelleNeuLadenMitSchutz();
     }
 
     public void ZeigeAktuellenStand() => TabellenBisSpieltag = null;
@@ -335,8 +335,16 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 
     partial void OnAusgewaehlteLigaAnsichtChanged(TabellenAnsicht value)
     {
-        if (_fokusRunde is not null) _ = TabelleNeuLadenAsync();
+        if (_fokusRunde is not null) TabelleNeuLadenMitSchutz();
     }
+
+    /// <summary>Gemeinsamer Schutz der Turnierdurchführung (#415): Das Umschalten von Tabellen-Spieltag und
+    /// Liga-Ansicht lädt die Tabelle neu und darf dabei weder eine laufende Spielplan-Aktion noch einen
+    /// Turnier-/Reiterwechsel treffen.</summary>
+    public DbContextReentrancySchutz DbContextSchutz { get; set; } = new();
+
+    private void TabelleNeuLadenMitSchutz() =>
+        _ = DbContextSchutz.AusfuehrenAsync(TabelleNeuLadenAsync, ex => Fehlermeldung = ex.Message);
 
     private async Task TabelleNeuLadenAsync()
     {

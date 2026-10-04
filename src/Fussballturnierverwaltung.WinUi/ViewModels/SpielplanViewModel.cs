@@ -117,10 +117,15 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private int _spielWechselUnterdrueckt;
     private int _rundeWechselUnterdrueckt;
 
-    // #338: schützt gegen zwei echte, schnell aufeinanderfolgende Runde-/Spiel-Auswahländerungen (nicht
-    // gegen die selbstverursachte Reentrancy, die _rundeWechselUnterdrueckt/_spielWechselUnterdrueckt oben
-    // bereits abdecken — siehe DbContextReentrancySchutz-Doku).
-    private readonly DbContextReentrancySchutz _wechselSchutz = new();
+    /// <summary>Reiht alle Datenbankzugriffe dieses Reiters hintereinander: Runde-/Spiel-Wechsel (#338), die
+    /// Aktionen (Simulieren, Zurücksetzen, Speichern …) und — über den vom
+    /// <see cref="TurnierdurchfuehrungViewModel"/> gesetzten gemeinsamen Schutz — auch Turnier-/Reiterwechsel
+    /// (#415). Ein eigener Schutz je Reiter schloss das nicht aus: eine laufende Simulation kollidierte mit dem
+    /// Laden nach einem Runden-, Reiter- oder Turnierwechsel und brach dabei selbst mittendrin ab. Nicht
+    /// wiedereintrittsfähig — <see cref="InstanzSetzenAsync"/> läuft bereits unter dem Schutz und darf nichts
+    /// abwarten, das ihn betritt (die selbstverursachte Reentrancy decken
+    /// _rundeWechselUnterdrueckt/_spielWechselUnterdrueckt ab).</summary>
+    public DbContextReentrancySchutz DbContextSchutz { get; set; } = new();
 
     private static readonly HashSet<string> _formFelder =
     [
@@ -597,7 +602,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             VorschauAktiv = !VorschauAktiv;
             _vorschauUmschaltenBefehl!.NotifyCanExecuteChanged();
-            _ = AktualisierePlatzhalterVorschauAsync();
+            _ = DbContextSchutz.AusfuehrenAsync(AktualisierePlatzhalterVorschauAsync, ex => Fehlermeldung = ex.Message);
         }, () => HatPlatzhalterSpiele || VorschauAktiv);
 
         _ausfuehrlichSimulierenBefehl = new RelayCommand(AusfuehrlichSimulieren, CanAusfuehrlichSimulieren);
@@ -810,8 +815,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             if (antwort == UngespeichertAntwort.Speichern && vorherigeSpielId is { } spielId)
             {
                 var vorherigeRunde = Runden.FirstOrDefault(r => r.Id == vorherigeRundeId);
-                bool gespeichert = vorherigeRunde is not null &&
-                    await ErgebnisSpeichernBeiRundenwechselAsync(spielId, vorherigeRunde);
+                bool gespeichert;
+                using (await DbContextSchutz.BetretenAsync())
+                    gespeichert = vorherigeRunde is not null &&
+                        await ErgebnisSpeichernBeiRundenwechselAsync(spielId, vorherigeRunde);
 
                 if (!gespeichert)
                 {
@@ -836,7 +843,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // operation"-Exception) — derselbe Root Cause wie #317, hier innerhalb des Tabs statt beim
         // Instanzwechsel. istNochAktuell verwirft veraltete Zwischenauswahlen aus der Lock-Warteschlange
         // (Ruckel-Fund aus #338-Test) — nur die zuletzt tatsächlich ausgewählte Runde führt die Abfrage aus.
-        await _wechselSchutz.AusfuehrenAsync(
+        await DbContextSchutz.AusfuehrenAsync(
             BeiRundeAenderungAsync, ex => Fehlermeldung = ex.Message,
             istNochAktuell: () => AusgewaehlteRunde?.Id == neueRundeId);
     }
@@ -846,6 +853,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Fehlermeldung = null;
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis speichern bei Rundenwechsel (Spiel {spielId})");
             await _spielService.ErgebnisErfassenAsync(spielId, BaueEingabe());
             await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(runde.TurnierInstanzId);
             return true;
@@ -958,7 +966,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 }
 
                 if (antwort == UngespeichertAntwort.Speichern)
-                    await ErgebnisSpeichernAsync(vorherigeSpielId, vorherigeRundeId);
+                {
+                    using (await DbContextSchutz.BetretenAsync())
+                        await ErgebnisSpeichernAsync(vorherigeSpielId, vorherigeRundeId);
+                }
 
                 AusgewaehlteSpiel = neuesSpielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == neuesSpielId) : null;
             }
@@ -969,13 +980,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             // #338: siehe Kommentar in RundeWechselAsync — schützt gegen zwei echte, schnell
             // aufeinanderfolgende Spiel-Auswahländerungen; istNochAktuell verwirft veraltete Zwischenauswahlen.
-            await _wechselSchutz.AusfuehrenAsync(
+            await DbContextSchutz.AusfuehrenAsync(
                 BeiSpielAenderungAsync, ex => Fehlermeldung = ex.Message,
                 istNochAktuell: () => AusgewaehlteSpiel?.Id == neuesSpielId);
             return;
         }
 
-        await _wechselSchutz.AusfuehrenAsync(
+        await DbContextSchutz.AusfuehrenAsync(
             BeiSpielAenderungAsync, ex => Fehlermeldung = ex.Message,
             istNochAktuell: () => AusgewaehlteSpiel?.Id == neuesSpielId);
     }
@@ -1083,6 +1094,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task SpielplanNeuGenerierenAsync()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteRunde is null || AusgewaehlteInstanz is null) return;
 
         var rundeId = AusgewaehlteRunde.Id;
@@ -1100,6 +1112,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan neu generieren (Runde {rundeId})");
             if (Spiele.Count > 0)
                 // Issue #320-Folgefund: kaskadenlos löschen — LoeschenAsync würde selbst sofort wieder die
                 // Kaskade auslösen, die bei einer Platzhalter-K.o.-Runde mit weiterhin abgeschlossener
@@ -1142,11 +1155,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task NaechsteSchweizerRundeGenerierenAsync()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteRunde is null) return;
         var rundeId = AusgewaehlteRunde.Id;
         Fehlermeldung = null;
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan: nächste Schweizer Runde generieren (Runde {rundeId})");
             await _spielplanService.SchweizerNaechsteRundeGenerierenAsync(rundeId);
 
             await TabellenNeuLadenAsync(rundeId);
@@ -1173,6 +1188,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task SpeichernAsync()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteSpiel is null || AusgewaehlteRunde is null) return;
         var spielId = AusgewaehlteSpiel.Id;
 
@@ -1186,6 +1202,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Fehlermeldung = null;
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis speichern (Spiel {spielId})");
             await _spielService.ErgebnisErfassenAsync(spielId, BaueEingabe());
             await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
 
@@ -1217,13 +1234,15 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
     }
 
-    private void FormZuruecksetzen() => _ = BeiSpielAenderungAsync();
+    private void FormZuruecksetzen() =>
+        _ = DbContextSchutz.AusfuehrenAsync(BeiSpielAenderungAsync, ex => Fehlermeldung = ex.Message);
 
     private Task ErgebnisLoeschenAsync() =>
         MehrfachAusgewaehlteSpiele.Count > 1 ? ErgebnisMehrfachLoeschenAsync() : ErgebnisEinzelLoeschenAsync();
 
     private async Task ErgebnisEinzelLoeschenAsync()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteSpiel is null || !FormHatErgebnis || AusgewaehlteRunde is null) return;
 
         var spielId = AusgewaehlteSpiel.Id;
@@ -1238,6 +1257,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Fehlermeldung = null;
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis löschen (Spiel {spielId})");
             await _spielService.ErgebnisLoeschenAsync(spielId);
 
             await TabellenNeuLadenAsync(rundeId);
@@ -1259,6 +1279,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task<string> KaskadenHinweisAsync(IReadOnlyList<int> spielIds)
     {
         if (AusgewaehlteInstanz is null || spielIds.Count == 0) return "";
+        using var vorgang = _logger.Vorgang($"Spielplan: Kaskaden-Vorschau ({spielIds.Count} Spiele)");
         var vorschau = await _spielplanService.PlatzhalterKaskadePlanenAsync(AusgewaehlteInstanz.Id, spielIds.ToHashSet());
         return vorschau.HatAuswirkungen
             ? $"\n\nZusätzlich werden dadurch {vorschau.GesamtBetroffeneSpiele} Ergebnis(se) in Folgerunden " +
@@ -1713,12 +1734,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task RundeSimulierenAsync()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteRunde is null) return;
         int rundeId = AusgewaehlteRunde.Id;
         Fehlermeldung = null;
         IstSimulierend = true;
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan: Runde simulieren (Runde {rundeId})");
             await _simulationsService.RundeSimulierenAsync(rundeId, SimulationsModus.AusfuehrlicheSimulation);
             await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
 
@@ -1744,6 +1767,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task GruppeSimulierenAsync()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (EffektiveGruppe is not { } gruppe || AusgewaehlteRunde is null) return;
         int rundeId = AusgewaehlteRunde.Id;
         int? spielId = AusgewaehlteSpiel?.Id;
@@ -1752,6 +1776,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IstSimulierend = true;
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan: Gruppe simulieren (Runde {rundeId})");
             await _simulationsService.GruppeSimulierenAsync(rundeId, teamIds, SimulationsModus.AusfuehrlicheSimulation);
 
             await TabellenNeuLadenAsync(rundeId);
@@ -1775,6 +1800,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task SpieltagSimulierenAsync()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteRunde is null || EffektiverSpieltag is not { } spieltag) return;
 
         int rundeId = AusgewaehlteRunde.Id;
@@ -1783,6 +1809,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IstSimulierend = true;
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan: Spieltag simulieren (Runde {rundeId}, Spieltag {spieltag})");
             if (AusgewaehlteGruppe is { } gruppe)
             {
                 var teamIds = gruppe.Tabelle.Select(t => t.Mannschaft.Id).ToList();
@@ -1815,6 +1842,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task AuswahlSimulierenAsync()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteRunde is null) return;
         var spielIds = MehrfachAusgewaehlteSpiele
             .Where(s => s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel)
@@ -1826,6 +1854,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IstSimulierend = true;
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan: Auswahl simulieren ({spielIds.Count} Spiele)");
             await _simulationsService.SpieleSimulierenAsync(spielIds, SimulationsModus.AusfuehrlicheSimulation);
             await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
 
@@ -1855,12 +1884,14 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task RundenHaelfteSimulierenAsync(bool istRueckrunde)
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteRunde is null) return;
         int rundeId = AusgewaehlteRunde.Id;
         Fehlermeldung = null;
         IstSimulierend = true;
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan: Rundenhälfte simulieren (Runde {rundeId})");
             await _simulationsService.RundenHaelfteSimulierenAsync(rundeId, istRueckrunde, SimulationsModus.AusfuehrlicheSimulation);
             await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
 
@@ -1888,6 +1919,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task RundeZuruecksetzenAsync()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteRunde is null) return;
         var spielIds = Spiele.Where(s => s.HatErgebnis).Select(s => s.Id).ToList();
         if (spielIds.Count == 0) return;
@@ -1903,6 +1935,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IstSimulierend = true;
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan: Runde zurücksetzen ({spielIds.Count} Ergebnisse)");
             await _spielService.MehrereErgebnisseLoeschenAsync(spielIds);
 
             await TabellenNeuLadenAsync(rundeId);
@@ -1927,6 +1960,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task GruppeZuruecksetzenAsync()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (EffektiveGruppe is not { } gruppe || AusgewaehlteRunde is null) return;
         var spielIds = Spiele
             .Where(s => s.GruppeNummer == gruppe.GruppenNummer && s.HatErgebnis)
@@ -1945,6 +1979,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IstSimulierend = true;
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan: Gruppe zurücksetzen ({spielIds.Count} Ergebnisse)");
             await _spielService.MehrereErgebnisseLoeschenAsync(spielIds);
 
             await TabellenNeuLadenAsync(rundeId);
@@ -1969,6 +2004,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task SpieltagZuruecksetzenAsync()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteRunde is null || EffektiverSpieltag is not { } spieltag) return;
 
         var spielIds = SpieleAmEffektivenSpieltag().Where(s => s.HatErgebnis).Select(s => s.Id).ToList();
@@ -1987,6 +2023,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IstSimulierend = true;
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan: Spieltag zurücksetzen ({spielIds.Count} Ergebnisse)");
             await _spielService.MehrereErgebnisseLoeschenAsync(spielIds);
 
             await TabellenNeuLadenAsync(rundeId);
@@ -2011,6 +2048,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task ErgebnisMehrfachLoeschenAsync()
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteRunde is null) return;
         var spielIds = MehrfachAusgewaehlteSpiele.Where(s => s.HatErgebnis).Select(s => s.Id).ToList();
         if (spielIds.Count == 0) return;
@@ -2025,6 +2063,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IstSimulierend = true;
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan: Auswahl zurücksetzen ({spielIds.Count} Ergebnisse)");
             await _spielService.MehrereErgebnisseLoeschenAsync(spielIds);
 
             await TabellenNeuLadenAsync(rundeId);
@@ -2053,6 +2092,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task RundenHaelfteZuruecksetzenAsync(bool istRueckrunde)
     {
+        using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteRunde is null) return;
         var spielIds = Spiele.Where(s => s.IstRueckspiel == istRueckrunde && s.HatErgebnis)
             .Select(s => s.Id).ToList();
@@ -2078,6 +2118,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IstSimulierend = true;
         try
         {
+            using var vorgang = _logger.Vorgang($"Spielplan: Rundenhälfte zurücksetzen ({spielIds.Count} Ergebnisse)");
             await _spielService.MehrereErgebnisseLoeschenAsync(spielIds);
 
             await TabellenNeuLadenAsync(rundeId);
