@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
@@ -15,6 +16,7 @@ using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -252,6 +254,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly LandesQuoteService _landesQuoteService;
     private readonly UebergangsregelService _uebergangsregelService;
     private readonly IDialogService _dialogService;
+    private readonly ILogger<AuslosungViewModel> _logger;
 
     private TurnierInstanz? _instanz;
     private Auslosung? _auslosungDetail;
@@ -824,7 +827,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         VerbandsQuoteService verbandsQuoteService,
         LandesQuoteService landesQuoteService,
         UebergangsregelService uebergangsregelService,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        ILogger<AuslosungViewModel> logger)
     {
         _auslosungService = auslosungService;
         _instanzService = instanzService;
@@ -836,6 +840,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _landesQuoteService = landesQuoteService;
         _uebergangsregelService = uebergangsregelService;
         _dialogService = dialogService;
+        _logger = logger;
     }
 
     /// <summary>Aktualisiert den Turnierbaum nach jeder Spielplan-Änderung automatisch (Issue #320-
@@ -860,6 +865,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// <see cref="VorbelegungViewModel.InstanzSetzenAsync"/>).</summary>
     public async Task InstanzSetzenAsync(TurnierInstanz? instanz)
     {
+        using var vorgang = _logger.Vorgang($"Auslosung: Turnier setzen (Instanz {instanz?.Id})");
+
         ZiehungBeenden();
         _instanz = instanz;
         KeinTurnierGewaehlt = instanz is null;
@@ -1174,6 +1181,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (_auslosungDetail is null) return;
         Fehlermeldung = null;
         int auslosungId = _auslosungDetail.Id;
+        using var vorgang = _logger.Vorgang($"Auslosung durchführen (Auslosung {auslosungId})");
         try
         {
             if (!await ErgebnisVerlustBestaetigtAsync(_auslosungDetail.TurnierRundeId)) return;
@@ -1669,6 +1677,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (detail.Status != AuslosungsStatus.Abgeschlossen) return;
 
         var rundeId = detail.TurnierRundeId;
+        using var vorgang = _logger.Vorgang($"Spielplan aus Auslosung generieren (Runde {rundeId})");
         var vorhandeneSpiele = await _spielplanService.SpielplanAbrufenAsync(rundeId);
         if (vorhandeneSpiele.Count > 0)
         {
@@ -1692,6 +1701,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         if (_auslosungDetail is not { } detail) return;
         Fehlermeldung = null;
+        using var vorgang = _logger.Vorgang($"Auslosung zurücksetzen (Auslosung {detail.Id})");
         try
         {
             // Rückfrage nur, wenn tatsächlich Daten betroffen sind (#405) — frisch ausgelost und sofort
@@ -1814,6 +1824,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task LadeDetailAsync(int auslosungId)
     {
+        using var vorgang = _logger.Vorgang($"Auslosung laden (Auslosung {auslosungId})");
+
         IstLadend    = true;
         _ladenAktiv  = true;
         try

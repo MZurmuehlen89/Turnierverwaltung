@@ -89,7 +89,9 @@ public class SpielErgebnisService(
 
         await spielRepository.ErgebnisSetzenAsync(spielId, ergebnis, ct);
 
-        logger.LogInformation(
+        // Ohne Platzhalter-Auflösung ruft nur die Simulation auf — dort je Spiel eine Zeile würde das
+        // Ablaufprotokoll (#413) bei einer Massensimulation fluten.
+        logger.Log(platzhalterAufloesen ? LogLevel.Information : LogLevel.Debug,
             "Ergebnis für Spiel {Id} erfasst: {Heim}:{Auswaerts} ({Art}).",
             spielId, eingabe.HeimToreRegulaer, eingabe.AuswaertsToreRegulaer, entscheidungArt);
 

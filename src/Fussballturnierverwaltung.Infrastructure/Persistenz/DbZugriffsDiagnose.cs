@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Diagnose;
 using System.Data.Common;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -135,10 +136,16 @@ public sealed class DbZugriffsDiagnose(ILogger<DbZugriffsDiagnose> logger) : DbC
             : string.Join(Environment.NewLine, laufende.Select(a =>
                 $"seit {a.Dauer.ElapsedMilliseconds} ms: {a.Sql}{Environment.NewLine}{a.Aufrufer}"));
 
+        // Offene Vorgänge des Ablaufprotokolls (#413): zeigen, welche Aktion/welcher Ladevorgang gerade lief —
+        // der Stack oben endet an der letzten async-Wiederaufnahme und nennt den Auslöser oft nicht.
+        string offeneVorgaenge = AblaufVorgang.OffeneBeschreiben();
+        if (offeneVorgaenge.Length == 0) offeneVorgaenge = "(keine)";
+
         logger.LogError(
             "DbContext-Kollision (second operation).{NewLine}Gescheiterter Aufrufer:{NewLine}{Aufrufer}{NewLine}" +
-            "Laufende Abfragen:{NewLine}{BelegtDurch}",
-            Environment.NewLine, Environment.NewLine, AppAufrufer(), Environment.NewLine, Environment.NewLine, belegtDurch);
+            "Laufende Abfragen:{NewLine}{BelegtDurch}{NewLine}Offene Vorgänge: {OffeneVorgaenge}",
+            Environment.NewLine, Environment.NewLine, AppAufrufer(), Environment.NewLine, Environment.NewLine, belegtDurch,
+            Environment.NewLine, offeneVorgaenge);
     }
 
     // ── Hilfsmittel ─────────────────────────────────────────────────────────

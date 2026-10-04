@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spiele.Eingaben;
@@ -15,6 +16,7 @@ using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -97,6 +99,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly SimulationsService _simulationsService;
     private readonly TurnierInstanzService _instanzService;
     private readonly IDialogService _dialogService;
+    private readonly ILogger<SpielplanViewModel> _logger;
 
     private int _populiertGerade;
     private Dictionary<int, int> _teamGruppeMap = [];
@@ -552,7 +555,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         TabellenService tabellenService,
         SimulationsService simulationsService,
         TurnierInstanzService instanzService,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        ILogger<SpielplanViewModel> logger)
     {
         _spielService = spielService;
         _spielplanService = spielplanService;
@@ -563,6 +567,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _simulationsService = simulationsService;
         _instanzService = instanzService;
         _dialogService = dialogService;
+        _logger = logger;
 
         _neuBefehl = new AsyncRelayCommand(SpielplanNeuGenerierenAsync, () => HatRunde);
         _speichernBefehl = new AsyncRelayCommand(SpeichernAsync, () => FormAktiv && IsDirty);
@@ -701,6 +706,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task BeiInstanzAenderungAsync()
     {
+        using var vorgang = _logger.Vorgang($"Spielplan: Turnier setzen (Instanz {AusgewaehlteInstanz?.Id})");
+
         FormAktiv = false;
 
         int? vorherigeRundeId = AusgewaehlteRunde?.Id;
@@ -852,6 +859,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task BeiRundeAenderungAsync()
     {
+        using var vorgang = _logger.Vorgang($"Spielplan: Runde laden (Runde {AusgewaehlteRunde?.Id})");
+
         Spiele.Clear();
         AusgewaehlteSpiel = null;
         FormAktiv = false;

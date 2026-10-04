@@ -36,7 +36,7 @@ public class SimulationsService(
         rng ??= new Random();
         bool ausfuehrlich = modus == SimulationsModus.AusfuehrlicheSimulation;
         var ergebnis = SimulationsEngine.Simulieren(heim, auswaerts, verfahren, ausfuehrlich, rng);
-        logger.LogInformation("Einzelspiel: {Heim} {H}:{G} {Gast}",
+        logger.LogDebug("Einzelspiel: {Heim} {H}:{G} {Gast}",
             heim.Name, ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer, auswaerts.Name);
         return ergebnis;
     }
@@ -135,7 +135,9 @@ public class SimulationsService(
 
         await SpeichernAsync(spiel, ergebnis, ct);
 
-        logger.LogInformation(
+        // Debug statt Information: je Spiel eine Zeile würde das Ablaufprotokoll (#413) bei einer
+        // Massensimulation fluten — dort genügt die Zusammenfassung je Block.
+        logger.LogDebug(
             "Spiel #{Nr} simuliert: {Heim} {H}:{G} {Gast} ({Art})",
             spiel.Spielnummer, spiel.HeimMannschaft.Name,
             ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer,

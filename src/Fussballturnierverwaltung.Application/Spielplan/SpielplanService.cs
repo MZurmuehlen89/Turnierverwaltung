@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
@@ -1203,6 +1204,8 @@ public class SpielplanService(
     /// zurücksetzen, Issue #306). Idempotent und günstig, wenn nichts betroffen ist.</summary>
     public async Task KaskadeAusloesenAsync(int turnierInstanzId, CancellationToken ct = default)
     {
+        using var vorgang = logger.Vorgang($"Kaskade (Instanz {turnierInstanzId})");
+
         await FinaleAutomatischGenerierenWennBereitAsync(turnierInstanzId, ct);
 
         var plan = await PlatzhalterKaskadePlanenAsync(turnierInstanzId, new HashSet<int>(), ct);
@@ -1231,6 +1234,8 @@ public class SpielplanService(
     /// </summary>
     public async Task FinaleAutomatischGenerierenWennBereitAsync(int turnierInstanzId, CancellationToken ct = default)
     {
+        using var vorgang = logger.Vorgang($"Finale-Generierung prüfen (Instanz {turnierInstanzId})");
+
         var alleRunden = await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
         var alleRegeln = await uebergangsregelRepository.AlleNachTurnierInstanzIdAsync(turnierInstanzId, ct);
 

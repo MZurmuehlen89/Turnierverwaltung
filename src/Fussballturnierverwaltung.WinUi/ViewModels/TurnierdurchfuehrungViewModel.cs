@@ -1,10 +1,12 @@
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using Fussballturnierverwaltung.WinUi.Views;
+using Microsoft.Extensions.Logging;
 using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
@@ -26,6 +28,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen, IVerlassenBestaetigen
 {
     private readonly IDialogService _dialogService;
+    private readonly ILogger<TurnierdurchfuehrungViewModel> _logger;
 
     public AuslosungViewModel AuslosungTab { get; }
     public SpielplanUndBaumViewModel SpielplanUndBaumTab { get; }
@@ -39,9 +42,11 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         AuslosungViewModel auslosungTab,
         SpielplanUndBaumViewModel spielplanUndBaumTab,
         SimulationsViewModel simulationTab,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        ILogger<TurnierdurchfuehrungViewModel> logger)
     {
         _dialogService = dialogService;
+        _logger = logger;
         AuslosungTab = auslosungTab;
         SpielplanUndBaumTab = spielplanUndBaumTab;
         SimulationTab = simulationTab;
@@ -58,7 +63,7 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         // TabKoordinator.SequenziellMitDbContextSchutzAsync serialisiert sie (#189-Nebenfund: dieselbe
         // Absicherung wurde für TurnierlisteViewModel gebraucht — beide teilen sich deshalb jetzt diese
         // gemeinsame Basis im Koordinator statt eigener Kopien).
-        TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = InstanzAnAlleTabsSequenziellSetzenAsync(instanz);
+        TabKoordinator.AusgewaehlteInstanzGesetzt += instanz => _ = InstanzAnAlleTabsSequenziellSetzenAsync(instanz, "Turnierwechsel");
 
         // Ein reiner Tab-Wechsel ist in WinUi (anders als in WPF, siehe TurnierTabKoordinator.AktiverTabGewechselt-
         // Doku) keine eigene Navigation und lädt daher nichts automatisch neu — Daten, die sich in einem anderen
@@ -66,7 +71,7 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         // sonst veraltet stehen (Fund aus #301-Testsession). Alle Tabs neu setzen statt nur das Ziel-Tab, analog
         // InstanzAnAlleTabsSequenziellSetzenAsync (vermeidet den bekannten Parallel-DbContext-Bug aus #300/#301).
         TabKoordinator.AktiverTabGewechselt += (_, _) =>
-            _ = InstanzAnAlleTabsSequenziellSetzenAsync(TabKoordinator.AusgewaehlteInstanz);
+            _ = InstanzAnAlleTabsSequenziellSetzenAsync(TabKoordinator.AusgewaehlteInstanz, "Reiterwechsel");
 
         TabKoordinator.AktivesTabZustandGeaendert += (_, _) => RibbonEigenschaftenGeaendertMelden();
 
@@ -113,13 +118,14 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         // Reload ein zweites Mal ausführen statt nur mitzuwarten (Root Cause von #336, siehe
         // TurnierlisteViewModel.AktivierenAsync für Details). Dieser Aufruf hier ist daher der EINZIGE
         // initiale Reload.
-        await InstanzAnAlleTabsSequenziellSetzenAsync(TabKoordinator.AusgewaehlteInstanz);
+        await InstanzAnAlleTabsSequenziellSetzenAsync(TabKoordinator.AusgewaehlteInstanz, "Seite geöffnet");
     }
 
-    private Task InstanzAnAlleTabsSequenziellSetzenAsync(TurnierInstanz? instanz) =>
+    private Task InstanzAnAlleTabsSequenziellSetzenAsync(TurnierInstanz? instanz, string ausloeser) =>
         TabKoordinator.SequenziellMitDbContextSchutzAsync(
             async () =>
             {
+                using var vorgang = _logger.Vorgang($"Turnierdurchführung: alle Reiter laden (Instanz {instanz?.Id}, {ausloeser})");
                 await AuslosungTab.InstanzSetzenAsync(instanz);
                 await SpielplanUndBaumTab.InstanzSetzenAsync(instanz);
                 await SimulationTab.InstanzSetzenAsync(instanz);

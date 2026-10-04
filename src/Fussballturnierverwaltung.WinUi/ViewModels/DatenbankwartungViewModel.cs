@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Einstellungen;
 using Fussballturnierverwaltung.Infrastructure.Wartung;
+using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -14,6 +16,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 public partial class DatenbankwartungViewModel : ViewModelBase, IRibbonAware
 {
     private readonly DatenbankWartungService _wartung;
+    private readonly Ablaufprotokoll _ablaufprotokoll;
 
     // ── Status ────────────────────────────────────────────────────────────────
 
@@ -29,6 +32,22 @@ public partial class DatenbankwartungViewModel : ViewModelBase, IRibbonAware
     public ObservableCollection<string> ProtokollZeilen { get; } = [];
 
     public AsyncRelayCommand PruefenBefehl { get; }
+
+    // ── Ablaufprotokoll (#413) ────────────────────────────────────────────────
+
+    /// <summary>Schreibt Nutzeraktionen, Wechsel und Ladevorgänge mit Dauer ins Log; wirkt sofort.</summary>
+    public bool AblaufprotokollAktiv
+    {
+        get => _ablaufprotokoll.IstAktiv;
+        set
+        {
+            if (value == _ablaufprotokoll.IstAktiv) return;
+            _ablaufprotokoll.IstAktiv = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string LogOrdner { get; }
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
 
@@ -52,9 +71,12 @@ public partial class DatenbankwartungViewModel : ViewModelBase, IRibbonAware
         }
     ];
 
-    public DatenbankwartungViewModel(DatenbankWartungService wartung)
+    public DatenbankwartungViewModel(
+        DatenbankWartungService wartung, Ablaufprotokoll ablaufprotokoll, EinstellungenService einstellungenService)
     {
         _wartung = wartung;
+        _ablaufprotokoll = ablaufprotokoll;
+        LogOrdner = einstellungenService.LogPfad;
         PruefenBefehl = new AsyncRelayCommand(PruefenUndErgaenzenAsync, () => !IstLadend);
     }
 

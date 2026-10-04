@@ -8,4 +8,8 @@ public class BenutzerEinstellungen
     public SimulationsModus StandardSimulationsModus { get; set; } = SimulationsModus.SchnellSimulation;
     public int? StandardSimulationsSeed { get; set; }
     public ThemeModus ThemeModus { get; set; } = ThemeModus.Hell;
+
+    /// <summary>Ablaufprotokoll im Log (#413): Nutzeraktionen, Wechsel und Ladevorgänge mit Dauer. Standardmäßig
+    /// an, weil es sporadische Fehler aufklären soll, die sich nicht auf Zuruf wiederholen lassen.</summary>
+    public bool AblaufprotokollAktiv { get; set; } = true;
 }

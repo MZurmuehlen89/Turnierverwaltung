@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.WinUi.Dialoge;
+using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +25,8 @@ public class NavigationService : INavigationService
     public async Task NavigiereZuAsync<TViewModel>(Action<TViewModel>? konfigurator = null) where TViewModel : ViewModelBase
     {
         if (!await DarfWegnavigierenAsync()) return;
+
+        Ablaufprotokoll.Bedienung($"Menü → {typeof(TViewModel).Name}");
 
         // Navigation muss serialisiert werden: NavigiereZuAsync wird pro Klick direkt aus einem
         // RelayCommand aufgerufen. Ohne Sperre disposed ein schnell aufeinanderfolgender zweiter

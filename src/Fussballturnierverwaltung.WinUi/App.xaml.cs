@@ -68,9 +68,14 @@ public partial class App : global::Microsoft.UI.Xaml.Application
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "Turnierverwaltung", "logs", "turnierverwaltung-.log");
 
+        // Vor dem Host: Serilog braucht den Schalter schon beim Aufbau (#413).
+        var ablaufprotokoll = new Ablaufprotokoll(new EinstellungenService());
+
         var builder = Host.CreateApplicationBuilder();
+        builder.Services.AddSingleton(ablaufprotokoll);
         builder.Services.AddSerilog((_, lc) => lc
             .ReadFrom.Configuration(builder.Configuration)
+            .MinimumLevel.Override(Ablaufprotokoll.KATEGORIE, ablaufprotokoll.Schwelle)
             .WriteTo.File(
                 path: logPfad,
                 rollingInterval: RollingInterval.Day,

@@ -121,6 +121,7 @@ public sealed partial class MainWindow : Window
                 Label = aktion.Header, Width = BreiteFuerLabel(aktion.Header),
                 IsChecked = istAktiv, Command = aktion.Befehl
             };
+            toggleButton.Click += (_, _) => Ablaufprotokoll.Bedienung(aktion.Header);
             if (aktion.IconGlyph is not null)
                 toggleButton.Icon = new FontIcon { Glyph = aktion.IconGlyph };
             return toggleButton;
@@ -135,7 +136,12 @@ public sealed partial class MainWindow : Window
         else if (aktion.Unteraktionen is { Count: > 0 } unteraktionen)
             button.Flyout = AktionsFlyoutErstellen(unteraktionen);
         else
+        {
             button.Command = aktion.Befehl;
+            // Ablaufprotokoll (#413): jede Ribbon-Aktion mit Zeitpunkt, damit ein späterer Fehler seinem Auslöser
+            // zugeordnet werden kann.
+            button.Click += (_, _) => Ablaufprotokoll.Bedienung(aktion.Header);
+        }
 
         return button;
     }
@@ -149,6 +155,7 @@ public sealed partial class MainWindow : Window
         foreach (var unteraktion in unteraktionen)
         {
             var item = new MenuFlyoutItem { Text = unteraktion.Header, Command = unteraktion.Befehl };
+            item.Click += (_, _) => Ablaufprotokoll.Bedienung(unteraktion.Header);
             if (unteraktion.IconGlyph is not null)
                 item.Icon = new FontIcon { Glyph = unteraktion.IconGlyph };
             flyout.Items.Add(item);
