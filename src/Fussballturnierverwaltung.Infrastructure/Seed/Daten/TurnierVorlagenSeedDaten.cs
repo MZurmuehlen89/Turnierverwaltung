@@ -162,6 +162,11 @@ public static class TurnierVorlagenSeedDaten
     public const string LIGA_TORDIFFERENZ = "Nationale Liga (Tordifferenz vor direktem Vergleich)";
     public const string LIGA_DIREKTER_VERGLEICH = "Nationale Liga (direkter Vergleich vor Tordifferenz)";
 
+    // Regelwerk-Namen der UEFA-Clubwettbewerbe (Issue #353): CL/EL/ECL ab 2024/25 nutzen das Ligaphasen-Regelwerk,
+    // die Formate mit Gruppenphase das Standard-Regelwerk.
+    public const string UEFA_CLUB_STANDARD = "UEFA Clubwettbewerb Standard";
+    public const string UEFA_LIGAPHASE = "UEFA Clubwettbewerb Ligaphase (ab 2024/25)";
+
     // Issue #350/#367: umbenannte Vorlagen (alter Name → neuer Name + Variante) — die Nachrüstung identifiziert
     // Vorlagen über Name + Variante, ohne Umbenennung der Bestands-Zeile würde sie ein Duplikat anlegen.
     // #367 hat den Klammerzusatz aus dem Namen in das Feld Variante verschoben.
@@ -665,7 +670,9 @@ public static class TurnierVorlagenSeedDaten
             MannschaftsartFilter = MannschaftsartFilter.Verein,
             VerbandId = VId(verband, "UEFA"),
         };
-        int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
+        // Rangfolge der Ligaphase ohne direkten Vergleich (Issue #353). Bestehende Datenbanken:
+        // SeedDatenService.TurnierVorlagenLigaphaseRegelwerkNachruesten.
+        int? rId = RwId(rw, UEFA_LIGAPHASE);
 
         // Vorgegebene Auslosungsarten (Issue #347): Ligaphase per Topf-Zuordnung (je 2 Gegner aus jedem Topf),
         // Playoff und Achtelfinale nach Töpfen (besser Platzierte gegen schlechter Platzierte bzw. Platz 1–8

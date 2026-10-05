@@ -231,4 +231,104 @@ public class SeedDatenServiceTests
         kurznamen.Should().NotContain(k => System.Text.RegularExpressions.Regex.IsMatch(
             k, "^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
     }
+
+    // ── Rangfolge der UEFA-Ligaphase (Issue #353) ──────────────────────────
+
+    [Fact]
+    public async Task InitialisierenAsync_LigaphaseDerUefaClubwettbewerbeNutztDieGegnerKriterien()
+    {
+        var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new TurnierverwaltungDbContext(optionen);
+        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+        var regelarten = await RegelartenDerRundeAsync(ctx, CL_VORLAGE, VARIANTE_36, "Ligaphase");
+        regelarten.Should().ContainInOrder(
+            RankingRegelArt.Punkte, RankingRegelArt.Tordifferenz, RankingRegelArt.ErzielteTore,
+            RankingRegelArt.AuswaertsToreGesamt, RankingRegelArt.Siege, RankingRegelArt.AuswaertsSiege,
+            RankingRegelArt.GegnerPunkte, RankingRegelArt.GegnerTordifferenz, RankingRegelArt.GegnerErzielteTore);
+        regelarten.Should().NotContain(RankingRegelArt.DirekterVergleichPunkte, "in der Ligaphase spielt nicht jeder gegen jeden");
+
+        var klassisch = await RegelartenDerRundeAsync(ctx, CL_VORLAGE, "32 Teams · ohne Auswärtstorregel · 2021–2024", "Gruppenphase");
+        klassisch.Should().Contain(RankingRegelArt.DirekterVergleichPunkte, "die Gruppenphase behält das Standard-Regelwerk");
+    }
+
+    [Fact]
+    public async Task InitialisierenAsync_RuestetRegelwerkDerLigaphaseInBestehenderDatenbankNach()
+    {
+        var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        int fifaId;
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+            // Stand vor #353 simulieren: alle Vorlagen-Runden auf dem Standard-Regelwerk, die Ligaphase der
+            // Europa League bewusst manuell auf ein anderes Regelwerk gestellt (muss unangetastet bleiben).
+            int standardId = (await ctx.Regelwerke.SingleAsync(r => r.Name == TurnierVorlagenSeedDaten.UEFA_CLUB_STANDARD)).Id;
+            int ligaphaseId = (await ctx.Regelwerke.SingleAsync(r => r.Name == TurnierVorlagenSeedDaten.UEFA_LIGAPHASE)).Id;
+            fifaId = (await ctx.Regelwerke.SingleAsync(r => r.Name == "FIFA Standard Modern (3-Punkte)")).Id;
+            foreach (var runde in await ctx.TurnierRunden.Include(r => r.TurnierInstanz).Where(r => r.RegelwerkId == ligaphaseId).ToListAsync())
+                runde.RegelwerkId = runde.TurnierInstanz.Name == "UEFA Europa League" && runde.Name == "Ligaphase" ? fifaId : standardId;
+            await ctx.SaveChangesAsync();
+        }
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            ctx.Regelwerke.Remove(await ctx.Regelwerke.SingleAsync(r => r.Name == TurnierVorlagenSeedDaten.UEFA_LIGAPHASE));
+            ctx.RankingRegelSets.Remove(await ctx.RankingRegelSets.Include(s => s.Eintraege)
+                .SingleAsync(s => s.Name == RegelwerkeSeedDaten.UEFA_LIGAPHASE_SET));
+            await ctx.SaveChangesAsync();
+            ctx.RankingRegeln.RemoveRange(await ctx.RankingRegeln
+                .Where(r => r.Regelart == RankingRegelArt.GegnerPunkte
+                         || r.Regelart == RankingRegelArt.GegnerTordifferenz
+                         || r.Regelart == RankingRegelArt.GegnerErzielteTore)
+                .ToListAsync());
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+            (await RegelartenDerRundeAsync(ctx, CL_VORLAGE, VARIANTE_36, "Ligaphase"))
+                .Should().Contain(RankingRegelArt.GegnerPunkte);
+            (await RegelartenDerRundeAsync(ctx, CL_VORLAGE, VARIANTE_36, "Achtelfinale"))
+                .Should().Contain(RankingRegelArt.GegnerPunkte, "alle Runden der Vorlage ziehen mit");
+            var elLigaphase = await ctx.TurnierRunden.SingleAsync(r =>
+                r.Name == "Ligaphase" && r.TurnierInstanz.Name == "UEFA Europa League" && r.TurnierInstanz.Status == TurnierStatus.Vorlage);
+            elLigaphase.RegelwerkId.Should().Be(fifaId, "ein manuell gewähltes Regelwerk bleibt erhalten");
+            (await ctx.RankingRegelSets.CountAsync(s => s.Name == RegelwerkeSeedDaten.UEFA_LIGAPHASE_SET)).Should().Be(1);
+        }
+    }
+
+    [Fact]
+    public async Task InitialisierenAsync_FairplayWertungBevorzugtDasTeamMitWenigerKarten()
+    {
+        var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new TurnierverwaltungDbContext(optionen);
+        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+        // Der Fairplay-Wert im TabellenService ist negativ (Karten zählen als Abzug) - nur absteigend
+        // sortiert steht das Team mit weniger Karten vorn.
+        var fairplay = await ctx.RankingRegeln.SingleAsync(r => r.Regelart == RankingRegelArt.FairplayWertung);
+        fairplay.Sortierrichtung.Should().Be(Sortierrichtung.Absteigend);
+    }
+
+    private static async Task<List<RankingRegelArt>> RegelartenDerRundeAsync(
+        TurnierverwaltungDbContext ctx, string vorlage, string variante, string rundenName)
+    {
+        var runde = await ctx.TurnierRunden.SingleAsync(r =>
+            r.Name == rundenName && r.TurnierInstanz.Name == vorlage && r.TurnierInstanz.Variante == variante
+            && r.TurnierInstanz.Status == TurnierStatus.Vorlage);
+        var regelwerk = await ctx.Regelwerke.SingleAsync(r => r.Id == runde.RegelwerkId);
+        return await ctx.RankingRegelSetEintraege
+            .Where(e => e.RankingRegelSetId == regelwerk.RankingRegelSetId)
+            .OrderBy(e => e.Reihenfolge)
+            .Select(e => e.RankingRegel.Regelart)
+            .ToListAsync();
+    }
 }

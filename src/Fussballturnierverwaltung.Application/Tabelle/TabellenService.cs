@@ -305,6 +305,7 @@ public class TabellenService(
         var stats = teamMap.Keys.ToDictionary(
             id => id,
             id => BerechneSpielerStats(id, abgeschlossene, punkteRegel, nurHeimspiele));
+        GegnerSummenErgaenzen(stats, abgeschlossene);
 
         var eintraege = teamMap.Select(kv => new TabellenEintrag
         {
@@ -316,23 +317,45 @@ public class TabellenService(
             Tore          = stats[kv.Key].Tore,
             Gegentore     = stats[kv.Key].Gegentore,
             Punkte        = stats[kv.Key].Punkte,
-            Buchholz      = BuchholzBerechnen(kv.Key, abgeschlossene, stats)
+            Buchholz      = stats[kv.Key].GegnerPunkte
         }).ToList();
 
         SortierenUndRangZuweisen(eintraege, stats, rankingRegeln, abgeschlossene, punkteRegel);
         return eintraege;
     }
 
-    /// <summary>Buchholz-Zahl: Summe der aktuellen Punkte aller Gegner, gegen die <paramref name="teamId"/>
-    /// bisher gespielt hat (Schweizer System). Ein Freilos-Spieltag erzeugt kein Spiel für das aussetzende
-    /// Team (siehe <see cref="Fussballturnierverwaltung.Application.Spielplan.SchweizerSystemGenerator"/>),
+    /// <summary>Ergänzt je Team die Summen über alle Gegner, gegen die es bisher gespielt hat: aktuelle Punkte
+    /// (Buchholz-Zahl des Schweizer Systems, Issue #329), Tordifferenz und erzielte Tore — die Kriterien der
+    /// UEFA-Ligaphase ab 2024/25 (Issue #353), in der nicht jeder gegen jeden spielt und ein direkter Vergleich
+    /// daher ausscheidet. Ein Gegner zählt je Spiel einmal. Ein Freilos-Spieltag erzeugt kein Spiel für das
+    /// aussetzende Team (siehe <see cref="Fussballturnierverwaltung.Application.Spielplan.SchweizerSystemGenerator"/>),
     /// zählt also korrekt nicht als Gegner mit.</summary>
-    private static int BuchholzBerechnen(int teamId, List<Spiel> abgeschlossene, Dictionary<int, RohStats> stats) =>
-        abgeschlossene
-            .Where(s => s.HeimMannschaftId == teamId || s.AuswaertsMannschaftId == teamId)
-            .Select(s => s.HeimMannschaftId == teamId ? s.AuswaertsMannschaftId : s.HeimMannschaftId)
-            .Where(gegnerId => gegnerId.HasValue && stats.ContainsKey(gegnerId.Value))
-            .Sum(gegnerId => stats[gegnerId!.Value].Punkte);
+    private static void GegnerSummenErgaenzen(Dictionary<int, RohStats> stats, List<Spiel> abgeschlossene)
+    {
+        var summen = stats.Keys.ToDictionary(id => id, _ => (Punkte: 0, Tordifferenz: 0, Tore: 0));
+
+        foreach (var s in abgeschlossene)
+        {
+            if (s.HeimMannschaftId is not { } heimId || s.AuswaertsMannschaftId is not { } auswaertsId) continue;
+            if (!stats.TryGetValue(heimId, out var heim) || !stats.TryGetValue(auswaertsId, out var auswaerts)) continue;
+
+            summen[heimId]      = Addieren(summen[heimId], auswaerts);
+            summen[auswaertsId] = Addieren(summen[auswaertsId], heim);
+        }
+
+        foreach (var (id, summe) in summen)
+        {
+            stats[id] = stats[id] with
+            {
+                GegnerPunkte       = summe.Punkte,
+                GegnerTordifferenz = summe.Tordifferenz,
+                GegnerTore         = summe.Tore
+            };
+        }
+
+        static (int Punkte, int Tordifferenz, int Tore) Addieren((int Punkte, int Tordifferenz, int Tore) summe, RohStats gegner) =>
+            (summe.Punkte + gegner.Punkte, summe.Tordifferenz + gegner.Tore - gegner.Gegentore, summe.Tore + gegner.Tore);
+    }
 
     /// <summary>
     /// Rekonstruiert Gruppen aus Spielpaarungen via Union-Find.
@@ -383,7 +406,7 @@ public class TabellenService(
         int teamId, IReadOnlyList<Spiel> spiele, PunkteRegel punkteRegel, bool? nurHeimspiele = null)
     {
         int gespielt = 0, siege = 0, unentschieden = 0, niederlagen = 0;
-        int tore = 0, gegentore = 0, auswaertsTore = 0, fairplay = 0;
+        int tore = 0, gegentore = 0, auswaertsTore = 0, auswaertsSiege = 0, fairplay = 0;
 
         foreach (var s in spiele)
         {
@@ -405,11 +428,15 @@ public class TabellenService(
             if (s.Ergebnis.EntscheidungArt == EntscheidungArt.RegulaereSpielzeit && eigTore == gegTore)
                 unentschieden++;
             else if (eigTore > gegTore || s.Ergebnis.SiegerMannschaftId == teamId)
+            {
                 siege++;
+                if (!istHeim) auswaertsSiege++;
+            }
             else
                 niederlagen++;
 
-            // Fairplay-Wertung: -(GelbeKarte * 1 + RoteKarte * 3)
+            // Fairplay-Wertung: -(GelbeKarte * 1 + RoteKarte * 3) - der höhere Wert ist der bessere,
+            // die Regel sortiert daher absteigend.
             foreach (var e in s.Ereignisse.Where(e => e.MannschaftId == teamId))
             {
                 fairplay -= e.EreignisArt switch
@@ -425,7 +452,10 @@ public class TabellenService(
                    + unentschieden * punkteRegel.PunkteFuerUnentschieden
                    + niederlagen * punkteRegel.PunkteFuerNiederlage;
 
-        return new RohStats(gespielt, siege, unentschieden, niederlagen, tore, gegentore, auswaertsTore, punkte, fairplay);
+        return new RohStats(gespielt, siege, unentschieden, niederlagen, tore, gegentore, auswaertsTore, punkte, fairplay)
+        {
+            AuswaertsSiege = auswaertsSiege
+        };
     }
 
     // ── Sortierung ────────────────────────────────────────────────────────
@@ -519,9 +549,14 @@ public class TabellenService(
             RankingRegelArt.DirekterVergleichErzielteTore       => x.Tore.CompareTo(y.Tore),
             RankingRegelArt.WenigerGegentore                   => x.Gegentore.CompareTo(y.Gegentore),
             RankingRegelArt.Siege                              => x.Siege.CompareTo(y.Siege),
-            RankingRegelArt.DirekterVergleichAuswaertstore      => x.AuswaertsTore.CompareTo(y.AuswaertsTore),
+            RankingRegelArt.DirekterVergleichAuswaertstore or
+            RankingRegelArt.AuswaertsToreGesamt                => x.AuswaertsTore.CompareTo(y.AuswaertsTore),
+            RankingRegelArt.AuswaertsSiege                     => x.AuswaertsSiege.CompareTo(y.AuswaertsSiege),
             RankingRegelArt.FairplayWertung                    => x.FairplayWertung.CompareTo(y.FairplayWertung),
-            _                                                  => 0
+            RankingRegelArt.GegnerPunkte                       => x.GegnerPunkte.CompareTo(y.GegnerPunkte),
+            RankingRegelArt.GegnerTordifferenz                 => x.GegnerTordifferenz.CompareTo(y.GegnerTordifferenz),
+            RankingRegelArt.GegnerErzielteTore                 => x.GegnerTore.CompareTo(y.GegnerTore),
+            _                                                => 0
         };
 
     private static bool IstDirekterVergleich(RankingRegelArt regelart) =>
@@ -539,7 +574,11 @@ public class TabellenService(
         int Gegentore,
         int AuswaertsTore,
         int Punkte,
-        int FairplayWertung = 0);
+        int FairplayWertung = 0,
+        int GegnerPunkte = 0,
+        int GegnerTordifferenz = 0,
+        int GegnerTore = 0,
+        int AuswaertsSiege = 0);
 
     // ── Qualifikationsstatus ──────────────────────────────────────────────
 

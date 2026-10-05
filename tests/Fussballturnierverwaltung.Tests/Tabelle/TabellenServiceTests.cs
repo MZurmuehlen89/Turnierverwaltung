@@ -277,6 +277,100 @@ public class TabellenServiceTests
         tabelle[1].Mannschaft.Id.Should().Be(2);
     }
 
+    // ── Gegner-Kriterien der UEFA-Ligaphase (Issue #353) ───────────────────
+
+    // Die beiden punktgleichen Teams haben je einen Gegner, deren Werte sich je Kriterium widersprechen:
+    // der eine Gegner hat mehr Punkte (6 statt 3) und mehr Tore (7 statt 3), der andere die bessere
+    // Tordifferenz (+2 statt +1). Erwartet wird immer Team 2 vorn - der Losentscheid allein (kleinere ID)
+    // sähe Team 1 vorn, ein vertauschtes Kriterium ebenfalls.
+    [Theory]
+    [InlineData(RankingRegelArt.GegnerPunkte,       2)]
+    [InlineData(RankingRegelArt.GegnerTordifferenz, 1)]
+    [InlineData(RankingRegelArt.GegnerErzielteTore, 2)]
+    public async Task GegnerKriterium_BestimmtRangBeiPunktgleichheit(RankingRegelArt regelart, int teamMitPunktstarkemGegner)
+    {
+        await using var ctx = NeuerContext();
+        var regeln = new[]
+        {
+            new RankingRegel { Id = 1, Regelart = RankingRegelArt.Punkte,       Sortierrichtung = Sortierrichtung.Absteigend },
+            new RankingRegel { Id = 2, Regelart = regelart,                     Sortierrichtung = Sortierrichtung.Absteigend },
+            new RankingRegel { Id = 3, Regelart = RankingRegelArt.Losentscheid, Sortierrichtung = Sortierrichtung.Aufsteigend },
+        };
+        ctx.RankingRegelSets.Add(new RankingRegelSet { Id = 1, Name = "Ligaphase" });
+        ctx.RankingRegeln.AddRange(regeln);
+        ctx.RankingRegelSetEintraege.AddRange(regeln.Select((r, i) => new RankingRegelSetEintrag
+            { Id = i + 1, RankingRegelSetId = 1, RankingRegelId = r.Id, Reihenfolge = i + 1 }));
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Ligaphase", RankingRegelSetId = 1 });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+            { Id = 1, TurnierInstanzId = 1, Name = "Ligaphase", Rundenart = Rundenart.TopfLiga, RegelwerkId = 1, Reihenfolge = 1 });
+        ctx.Mannschaften.AddRange(Enumerable.Range(1, 6).Select(id =>
+            new Mannschaft { Id = id, Name = $"Team {id}", Kurzname = $"T{id}", LandId = 1 }));
+        ctx.SaveChanges();
+
+        const int PUNKTSTARKER_GEGNER = 3, TORDIFFERENZSTARKER_GEGNER = 4;
+        int anderesTeam = teamMitPunktstarkemGegner == 1 ? 2 : 1;
+        SpielHinzufuegen(ctx, 1, 1, heimId: teamMitPunktstarkemGegner, auswaertsId: PUNKTSTARKER_GEGNER, heimTore: 1, auswaertsTore: 0);
+        SpielHinzufuegen(ctx, 2, 1, heimId: anderesTeam, auswaertsId: TORDIFFERENZSTARKER_GEGNER, heimTore: 1, auswaertsTore: 0);
+        // Punktstarker Gegner: 6 Punkte, 7:6 Tore (+1)
+        SpielHinzufuegen(ctx, 3, 1, heimId: PUNKTSTARKER_GEGNER, auswaertsId: 5, heimTore: 5, auswaertsTore: 4);
+        SpielHinzufuegen(ctx, 4, 1, heimId: PUNKTSTARKER_GEGNER, auswaertsId: 6, heimTore: 2, auswaertsTore: 1);
+        // Tordifferenzstarker Gegner: 3 Punkte, 3:1 Tore (+2)
+        SpielHinzufuegen(ctx, 5, 1, heimId: TORDIFFERENZSTARKER_GEGNER, auswaertsId: 5, heimTore: 3, auswaertsTore: 0);
+
+        var tabelle = await ServiceFuer(ctx).TabelleBerechnenAsync(1);
+
+        var team1 = tabelle.Single(e => e.Mannschaft.Id == 1);
+        var team2 = tabelle.Single(e => e.Mannschaft.Id == 2);
+        team1.Punkte.Should().Be(team2.Punkte);
+        team2.Rang.Should().BeLessThan(team1.Rang);
+    }
+
+    // ── Auswärtskriterien über alle Spiele (Issue #354) ────────────────────
+
+    // Team 1 und Team 2 sind punkt-, tordifferenz-, tor- und sieggleich (je ein 2:1-Sieg und eine 0:1-Niederlage).
+    // Team 2 hat auswärts gewonnen und dabei seine zwei Tore erzielt, Team 1 zu Hause - der Losentscheid allein
+    // (kleinere ID) sähe Team 1 vorn.
+    [Theory]
+    [InlineData(RankingRegelArt.AuswaertsToreGesamt)]
+    [InlineData(RankingRegelArt.AuswaertsSiege)]
+    public async Task AuswaertsKriterium_BestimmtRangBeiSonstGleichenStats(RankingRegelArt regelart)
+    {
+        await using var ctx = NeuerContext();
+        var regeln = new[]
+        {
+            new RankingRegel { Id = 1, Regelart = RankingRegelArt.Punkte,       Sortierrichtung = Sortierrichtung.Absteigend },
+            new RankingRegel { Id = 2, Regelart = regelart,                     Sortierrichtung = Sortierrichtung.Absteigend },
+            new RankingRegel { Id = 3, Regelart = RankingRegelArt.Losentscheid, Sortierrichtung = Sortierrichtung.Aufsteigend },
+        };
+        ctx.RankingRegelSets.Add(new RankingRegelSet { Id = 1, Name = "Ligaphase" });
+        ctx.RankingRegeln.AddRange(regeln);
+        ctx.RankingRegelSetEintraege.AddRange(regeln.Select((r, i) => new RankingRegelSetEintrag
+            { Id = i + 1, RankingRegelSetId = 1, RankingRegelId = r.Id, Reihenfolge = i + 1 }));
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Ligaphase", RankingRegelSetId = 1 });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+            { Id = 1, TurnierInstanzId = 1, Name = "Ligaphase", Rundenart = Rundenart.TopfLiga, RegelwerkId = 1, Reihenfolge = 1 });
+        ctx.Mannschaften.AddRange(Enumerable.Range(1, 4).Select(id =>
+            new Mannschaft { Id = id, Name = $"Team {id}", Kurzname = $"T{id}", LandId = 1 }));
+        ctx.SaveChanges();
+
+        SpielHinzufuegen(ctx, 1, 1, heimId: 1, auswaertsId: 3, heimTore: 2, auswaertsTore: 1);
+        SpielHinzufuegen(ctx, 2, 1, heimId: 4, auswaertsId: 1, heimTore: 1, auswaertsTore: 0);
+        SpielHinzufuegen(ctx, 3, 1, heimId: 3, auswaertsId: 2, heimTore: 1, auswaertsTore: 2);
+        SpielHinzufuegen(ctx, 4, 1, heimId: 2, auswaertsId: 4, heimTore: 0, auswaertsTore: 1);
+
+        var tabelle = await ServiceFuer(ctx).TabelleBerechnenAsync(1);
+
+        var team1 = tabelle.Single(e => e.Mannschaft.Id == 1);
+        var team2 = tabelle.Single(e => e.Mannschaft.Id == 2);
+        (team1.Punkte, team1.Tore, team1.Gegentore, team1.Siege)
+            .Should().Be((team2.Punkte, team2.Tore, team2.Gegentore, team2.Siege));
+        team2.Rang.Should().BeLessThan(team1.Rang);
+    }
+
     // ── Hinrunde / Rückrunde / Heim- / Auswärtstabelle (Issue #68) ─────────
 
     private static async Task<(TabellenService Service, int RundeId)> HinUndRueckspielSetupAsync()

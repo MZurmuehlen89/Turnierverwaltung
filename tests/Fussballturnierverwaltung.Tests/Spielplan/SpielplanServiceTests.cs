@@ -744,7 +744,7 @@ public class SpielplanServiceTests
             new RankingRegel { Id = 5, Regelart = RankingRegelArt.DirekterVergleichTordifferenz, Sortierrichtung = Sortierrichtung.Absteigend },
             new RankingRegel { Id = 6, Regelart = RankingRegelArt.DirekterVergleichErzielteTore, Sortierrichtung = Sortierrichtung.Absteigend },
             new RankingRegel { Id = 7, Regelart = RankingRegelArt.DirekterVergleichAuswaertstore,Sortierrichtung = Sortierrichtung.Absteigend },
-            new RankingRegel { Id = 8, Regelart = RankingRegelArt.FairplayWertung,               Sortierrichtung = Sortierrichtung.Aufsteigend },
+            new RankingRegel { Id = 8, Regelart = RankingRegelArt.FairplayWertung,               Sortierrichtung = Sortierrichtung.Absteigend },
             new RankingRegel { Id = 9, Regelart = RankingRegelArt.Losentscheid,                  Sortierrichtung = Sortierrichtung.Aufsteigend },
         };
         var eintraege = regeln.Select((r, i) => new RankingRegelSetEintrag

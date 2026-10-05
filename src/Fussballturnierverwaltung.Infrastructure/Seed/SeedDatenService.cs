@@ -37,6 +37,8 @@ public class SeedDatenService
         await BildmaterialNachruesten(cancellationToken);
         await MannschaftenNachruesten(cancellationToken);
         await MannschaftsBildmaterialNachruesten(cancellationToken);
+        // Vor den Regelwerken: nachgerüstete Regelwerke verweisen auf RankingRegelSets (Issue #353).
+        await RankingRegelnNachruesten(cancellationToken);
         await RegelwerkeNachruesten(cancellationToken);
         // Vor den Vorlagen: nachgerüstete Vorlagen verweisen auf Ranglisten-Quellen (Issue #349).
         await RanglistenQuellenNachruesten(cancellationToken);
@@ -44,6 +46,7 @@ public class SeedDatenService
         await TurnierVorlagenNachruesten(cancellationToken);
         await TurnierVorlagenFilterNachruesten(cancellationToken);
         await TurnierVorlagenRundenartNachruesten(cancellationToken);
+        await TurnierVorlagenLigaphaseRegelwerkNachruesten(cancellationToken);
         await TurnierVorlagenStrukturNachruesten(cancellationToken);
         await TurnierVorlagenFesteKoBaeumeNachruesten(cancellationToken);
 
@@ -157,6 +160,53 @@ public class SeedDatenService
             await _context.SaveChangesAsync(ct);
             Protokollieren(neue.Count, "Mannschaften nachgerüstet.");
         }
+    }
+
+    /// <summary>Issue #353: ergänzt fehlende RankingRegeln (Schlüssel: Regelart) und fehlende RankingRegelSets
+    /// (Schlüssel: Name) samt ihren Einträgen. Bestehende Sets bleiben unangetastet — ihre Zusammenstellung kann
+    /// der Nutzer geändert haben.</summary>
+    private async Task RankingRegelnNachruesten(CancellationToken ct)
+    {
+        var vorhandeneRegelarten = await _context.RankingRegeln
+            .Select(r => r.Regelart)
+            .ToHashSetAsync(ct);
+        var neueRegeln = RegelwerkeSeedDaten.RankingRegelnErstellen()
+            .Where(r => !vorhandeneRegelarten.Contains(r.Regelart))
+            .ToList();
+
+        if (neueRegeln.Count > 0)
+        {
+            _context.RankingRegeln.AddRange(neueRegeln);
+            await _context.SaveChangesAsync(ct);
+            Protokollieren(neueRegeln.Count, "RankingRegeln nachgerüstet.");
+        }
+
+        var vorhandeneSetNamen = await _context.RankingRegelSets
+            .Select(s => s.Name)
+            .ToHashSetAsync(ct);
+        var (sets, eintraegeDefinitionen) = RegelwerkeSeedDaten.RankingRegelSetsErstellen();
+        var neueSets = sets.Where(s => !vorhandeneSetNamen.Contains(s.Name)).ToList();
+        if (neueSets.Count == 0) return;
+
+        // Regeln sind nicht eindeutig je Regelart erzwungen (frei anlegbar) — bei Dubletten gilt die älteste.
+        var regelLookup = (await _context.RankingRegeln.Select(r => new { r.Regelart, r.Id }).ToListAsync(ct))
+            .GroupBy(r => r.Regelart)
+            .ToDictionary(g => g.Key, g => g.Min(r => r.Id));
+
+        foreach (var set in neueSets)
+        {
+            foreach (var (_, reihenfolge, regelart) in eintraegeDefinitionen.Where(e => e.SetName == set.Name))
+            {
+                set.Eintraege.Add(new Domain.Entitaeten.Regelwerke.RankingRegelSetEintrag
+                {
+                    RankingRegelId = regelLookup[regelart],
+                    Reihenfolge    = reihenfolge
+                });
+            }
+            _context.RankingRegelSets.Add(set);
+        }
+        await _context.SaveChangesAsync(ct);
+        Protokollieren(neueSets.Count, "RankingRegelSets nachgerüstet.");
     }
 
     private async Task RegelwerkeNachruesten(CancellationToken ct)
@@ -319,6 +369,46 @@ public class SeedDatenService
         {
             await _context.SaveChangesAsync(ct);
             Protokollieren(aktualisiert, "Vorlagen-Runden von SchweizerSystem auf TopfLiga korrigiert.");
+        }
+    }
+
+    /// <summary>Issue #353: CL/EL/ECL ab 2024/25 haben ein eigenes Regelwerk mit der Rangfolge der Ligaphase.
+    /// <see cref="TurnierVorlagenNachruesten"/> ergänzt nur fehlende Vorlagen, bestehende behielten daher
+    /// "UEFA Clubwettbewerb Standard" (direkter Vergleich zuerst). Stellt nur Runden um, die noch auf genau
+    /// diesem alten Seed-Wert stehen und deren Seed-Gegenstück (Reihenfolge + Name) das Ligaphasen-Regelwerk
+    /// nutzt — ein vom Nutzer gewähltes anderes Regelwerk bleibt erhalten.</summary>
+    private async Task TurnierVorlagenLigaphaseRegelwerkNachruesten(CancellationToken ct)
+    {
+        var regelwerkLookup = await _context.Regelwerke
+            .ToDictionaryAsync(r => r.Name, r => r.Id, ct);
+        if (!regelwerkLookup.TryGetValue(TurnierVorlagenSeedDaten.UEFA_CLUB_STANDARD, out int altId)
+            || !regelwerkLookup.TryGetValue(TurnierVorlagenSeedDaten.UEFA_LIGAPHASE, out int neuId)) return;
+
+        var sollVorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup).ToDictionary(Schluessel);
+
+        var vorhandeneVorlagen = await _context.TurnierInstanzen
+            .Include(i => i.Runden)
+            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
+            .ToListAsync(ct);
+
+        int aktualisiert = 0;
+        foreach (var vorlage in vorhandeneVorlagen)
+        {
+            if (!sollVorlagen.TryGetValue(Schluessel(vorlage), out var soll)) continue;
+            foreach (var runde in vorlage.Runden.Where(r => r.RegelwerkId == altId))
+            {
+                var sollRunde = soll.Runden.FirstOrDefault(r => r.Reihenfolge == runde.Reihenfolge && r.Name == runde.Name);
+                if (sollRunde?.RegelwerkId != neuId) continue;
+
+                runde.RegelwerkId = neuId;
+                aktualisiert++;
+            }
+        }
+
+        if (aktualisiert > 0)
+        {
+            await _context.SaveChangesAsync(ct);
+            Protokollieren(aktualisiert, "Vorlagen-Runden auf das Regelwerk der UEFA-Ligaphase umgestellt.");
         }
     }
 
