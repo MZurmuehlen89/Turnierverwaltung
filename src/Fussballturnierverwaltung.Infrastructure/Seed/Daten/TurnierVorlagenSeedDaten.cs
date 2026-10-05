@@ -54,8 +54,65 @@ public static class TurnierVorlagenSeedDaten
         {
             NeutraleSpielorteSetzen(vorlage);
             UeberraschungsfaktorSetzen(vorlage);
+            AuslosungsregelnSetzen(vorlage);
         }
         return vorlagen;
+    }
+
+    // ── Vorgegebene Auslosungsregeln (Issue #356) ──────────────────────────────
+
+    // Regeln laut realem Reglement, beim Anlegen einer Auslosung bereits aktiv. Bestehende Datenbanken: Migration
+    // AuslosungsregelnVorgabeJeRunde — dort dieselbe Zuordnung als SQL, bei Änderungen hier mitziehen.
+    private static void AuslosungsregelnSetzen(TurnierInstanz vorlage)
+    {
+        foreach (var runde in vorlage.Runden)
+            runde.VorgegebeneAuslosungsregeln = [.. VorgegebeneAuslosungsregeln(vorlage, runde)];
+    }
+
+    private static AuslosungsRegelArt[] VorgegebeneAuslosungsregeln(TurnierInstanz vorlage, TurnierRunde runde)
+    {
+        bool gruppenphase = runde.Rundenart == Rundenart.Gruppenphase && runde.Reihenfolge == 1;
+        switch (vorlage.Name)
+        {
+            // FIFA-WM: je Gruppe höchstens ein Team je Konföderation, UEFA höchstens zwei — als allgemeine Regel
+            // erst seit 1994 (davor wurden nur die Südamerikaner getrennt), daher nicht in den älteren Vorlagen;
+            // die Vorlage 1986–1994 bleibt ohne, weil die Regel nur für eines ihrer drei Turniere galt.
+            case "FIFA WM" when gruppenphase && vorlage.ZielMannschaftsanzahl >= 32:
+                return [AuslosungsRegelArt.Konfoederationsverteilung];
+
+            // Klub-WM 2025: wie die WM, zusätzlich keine zwei Klubs desselben Landes in einer Gruppe.
+            case "FIFA Klub-WM" when gruppenphase:
+                return [AuslosungsRegelArt.Konfoederationsverteilung, AuslosungsRegelArt.KeinGleichesLand];
+
+            case "UEFA Champions League" when vorlage.ZielMannschaftsanzahl == 32:
+                // Gruppenphase ohne Klubs desselben Landes; Achtelfinale Gruppensieger gegen Gruppenzweite (nie
+                // aus der eigenen Gruppe — bei dieser Auslosungsart immer aktiv), nie aus demselben Land, der
+                // Gruppensieger hat im Rückspiel Heimrecht. Ab dem Viertelfinale offene Auslosung.
+                if (gruppenphase) return [AuslosungsRegelArt.KeinGleichesLand];
+                if (runde.Name == "Achtelfinale")
+                    return [AuslosungsRegelArt.KeinGleichesLand, AuslosungsRegelArt.HeimrechtNachSetzliste];
+                return [];
+
+            // Ligaphase ab 2024/25: kein Gegner aus dem eigenen Land, höchstens zwei aus demselben Land (hängt an
+            // „Kein gleiches Land“, #347). Playoff und Achtelfinale: der in der Liga besser Platzierte hat im
+            // Rückspiel Heimrecht.
+            case "UEFA Champions League" or "UEFA Europa League" or "UEFA Conference League":
+                if (runde.Rundenart == Rundenart.TopfLiga) return [AuslosungsRegelArt.KeinGleichesLand];
+                if (runde.Name is "Playoff-Runde" or "Achtelfinale") return [AuslosungsRegelArt.HeimrechtNachSetzliste];
+                return [];
+
+            // Gruppensieger hat im Rückspiel Heimrecht.
+            case "UEFA Nations League Liga A" when runde.Name == "Viertelfinale":
+                return [AuslosungsRegelArt.HeimrechtNachSetzliste];
+
+            // Nationale Pokale: wer zuerst gezogen wird, spielt zu Hause — außer an neutralem Ort (Finale, im
+            // FA Cup auch das Halbfinale).
+            case "DFB-Pokal" or "FA Cup" when !runde.NeutralerSpielort:
+                return [AuslosungsRegelArt.HeimrechtNachLos];
+
+            default:
+                return [];
+        }
     }
 
     // ── Neutraler Spielort (Issue #352) ────────────────────────────────────────
@@ -534,7 +591,8 @@ public static class TurnierVorlagenSeedDaten
         };
         int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
         v.Runden.Add(Runde(1, "Gruppenphase",  Rundenart.Gruppenphase, 32, 16, gruppen: 8, regelwerkId: rId));
-        v.Runden.Add(Runde(2, "Achtelfinale",  Rundenart.KoRunde,      16,  8, auswaerts: true,  mitRueckspiel: true, regelwerkId: rId));
+        v.Runden.Add(Runde(2, "Achtelfinale",  Rundenart.KoRunde,      16,  8, auswaerts: true,  mitRueckspiel: true, regelwerkId: rId,
+                           auslosungsart: Auslosungsart.GruppensiegerGegenGruppenzweite));
         v.Runden.Add(Runde(3, "Viertelfinale", Rundenart.KoRunde,       8,  4, auswaerts: true,  mitRueckspiel: true, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Halbfinale",    Rundenart.KoRunde,       4,  2, auswaerts: true,  mitRueckspiel: true, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Finale",        Rundenart.Finale,        2,  1, regelwerkId: rId));
@@ -559,7 +617,8 @@ public static class TurnierVorlagenSeedDaten
         };
         int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
         v.Runden.Add(Runde(1, "Gruppenphase",  Rundenart.Gruppenphase, 32, 16, gruppen: 8, regelwerkId: rId));
-        v.Runden.Add(Runde(2, "Achtelfinale",  Rundenart.KoRunde,      16,  8, mitRueckspiel: true, regelwerkId: rId));
+        v.Runden.Add(Runde(2, "Achtelfinale",  Rundenart.KoRunde,      16,  8, mitRueckspiel: true, regelwerkId: rId,
+                           auslosungsart: Auslosungsart.GruppensiegerGegenGruppenzweite));
         v.Runden.Add(Runde(3, "Viertelfinale", Rundenart.KoRunde,       8,  4, mitRueckspiel: true, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Halbfinale",    Rundenart.KoRunde,       4,  2, mitRueckspiel: true, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Finale",        Rundenart.Finale,        2,  1, regelwerkId: rId));

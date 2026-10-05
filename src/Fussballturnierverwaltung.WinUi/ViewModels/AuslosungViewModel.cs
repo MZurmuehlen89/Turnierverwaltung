@@ -2351,17 +2351,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _                              => s.ToString()
     };
 
-    private static string RegelAnzeigeName(AuslosungsRegelArt art) => art switch
-    {
-        AuslosungsRegelArt.KeinGleichesLand                => "Kein gleiches Land",
-        AuslosungsRegelArt.KeineGleicheGruppe              => "Keine gleiche Gruppe",
-        AuslosungsRegelArt.HeimrechtNachLos                => "Heimrecht nach Los",
-        AuslosungsRegelArt.HeimrechtNachSetzliste          => "Heimrecht nach Setzliste",
-        AuslosungsRegelArt.FreilosMoeglich                 => "Freilos möglich",
-        _                                                  => art.ToString()
-    };
+    private static string RegelAnzeigeName(AuslosungsRegelArt art) => AuslosungsRegelKompatibilitaet.AnzeigeName(art);
 
-    private static string RegelBeschreibung(AuslosungsRegelArt art) => art switch
+    internal static string RegelBeschreibung(AuslosungsRegelArt art) => art switch
     {
         AuslosungsRegelArt.KeinGleichesLand =>
             "Teams aus demselben Land dürfen nicht in dieselbe Gruppe oder gegeneinander gelost werden. " +
@@ -2380,6 +2372,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             "Bei ungerader Teamanzahl erhält ein zufällig gezogenes Team ein Freilos und zieht " +
             "kampflos in die nächste Runde ein. Ohne diese Regel schlägt die Auslosung fehl, " +
             "wenn die Anzahl ungerade ist.",
+        AuslosungsRegelArt.Konfoederationsverteilung =>
+            "Die Teams eines Kontinentalverbands werden gleichmäßig auf die Gruppen verteilt: je Gruppe höchstens " +
+            "aufgerundet und mindestens abgerundet (Teams des Verbands ÷ Gruppenanzahl). Bei der FIFA-WM ergibt " +
+            "das höchstens ein Team je Konföderation und ein bis zwei aus Europa.",
         _ => ""
     };
 }

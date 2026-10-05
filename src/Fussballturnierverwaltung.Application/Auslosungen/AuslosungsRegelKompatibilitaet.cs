@@ -20,7 +20,34 @@ public static class AuslosungsRegelKompatibilitaet
         AuslosungsRegelArt.HeimrechtNachLos,
         AuslosungsRegelArt.HeimrechtNachSetzliste,
         AuslosungsRegelArt.FreilosMoeglich,
+        AuslosungsRegelArt.Konfoederationsverteilung,
     ];
+
+    public static string AnzeigeName(AuslosungsRegelArt regel) => regel switch
+    {
+        AuslosungsRegelArt.KeinGleichesLand          => "Kein gleiches Land",
+        AuslosungsRegelArt.KeineGleicheGruppe        => "Keine gleiche Gruppe",
+        AuslosungsRegelArt.HeimrechtNachLos          => "Heimrecht nach Los",
+        AuslosungsRegelArt.HeimrechtNachSetzliste    => "Heimrecht nach Setzliste",
+        AuslosungsRegelArt.FreilosMoeglich           => "Freilos möglich",
+        AuslosungsRegelArt.Konfoederationsverteilung => "Konföderationsverteilung",
+        _                                            => regel.ToString()
+    };
+
+    /// <summary>Ob eine Vorlage die Regel für eine Runde vorgeben kann (Issue #356): bei der vorgegebenen
+    /// Auslosungsart bzw. — ohne Vorgabe — bei mindestens einer zur Rundenart passenden Auslosungsart muss sie
+    /// wirken können. Manuell zählt nicht mit (das regelt „Paarung fest vorgegeben“), ebenso wenig eine
+    /// Auslosungsart, bei der die Regel ohnehin immer gilt.</summary>
+    public static bool AlsVorgabeMoeglich(
+        AuslosungsRegelArt regel, Rundenart rundenart, Auslosungsart? vorgegebeneArt, bool folgtAufGruppenphase)
+    {
+        IEnumerable<Auslosungsart> arten = vorgegebeneArt is { } vorgabe
+            ? [vorgabe]
+            : Enum.GetValues<Auslosungsart>()
+                .Where(a => a != Auslosungsart.Manuell && AuslosungsKompatibilitaet.IstKompatibel(rundenart, a));
+        return arten.Any(art => ImmerAktivGrund(regel, art) is null &&
+                                SperrGrund(regel, art, rundenart, folgtAufGruppenphase) is null);
+    }
 
     /// <summary>Regeln, die sich gegenseitig ausschließen — beide legen das Heimrecht fest.</summary>
     public static bool SchliessenSichAus(AuslosungsRegelArt a, AuslosungsRegelArt b) =>
@@ -88,6 +115,15 @@ public static class AuslosungsRegelKompatibilitaet
                         "Die Topf-Zuordnung erfordert gleich große Töpfe — ein Freilos ist nicht vorgesehen.",
                     _ => null
                 };
+
+            case AuslosungsRegelArt.Konfoederationsverteilung:
+                if (rundenart != Rundenart.Gruppenphase)
+                    return "Die Konföderationsverteilung regelt die Verteilung auf Gruppen — in dieser Runde " +
+                           "werden keine Gruppen ausgelost.";
+                if (art == Auslosungsart.Manuell)
+                    return "Bei der manuellen Auslosung werden Platzhalter statt Mannschaften zugewiesen — deren " +
+                           "Kontinentalverband steht noch nicht fest.";
+                return null;
 
             default:
                 return "Diese Regel wird nicht mehr unterstützt.";

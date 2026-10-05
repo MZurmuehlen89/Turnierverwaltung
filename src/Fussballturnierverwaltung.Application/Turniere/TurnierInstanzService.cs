@@ -133,6 +133,7 @@ public class TurnierInstanzService(
                 EingangUeberUebergangsregeln = re.EingangUeberUebergangsregeln,
                 PaarungFestVorgegeben      = re.PaarungFestVorgegeben,
                 VorgegebeneAuslosungsart   = re.VorgegebeneAuslosungsart,
+                VorgegebeneAuslosungsregeln = [.. re.VorgegebeneAuslosungsregeln ?? []],
                 KombinationstabelleJson    = re.KombinationstabelleJson,
                 StandardRanglistenQuelleId = re.StandardRanglistenQuelleId,
                 TitelverteidigerInTopf1    = re.TitelverteidigerInTopf1
@@ -218,6 +219,7 @@ public class TurnierInstanzService(
             EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
             PaarungFestVorgegeben     = e.PaarungFestVorgegeben,
             VorgegebeneAuslosungsart  = e.VorgegebeneAuslosungsart,
+            VorgegebeneAuslosungsregeln = [.. e.VorgegebeneAuslosungsregeln ?? []],
             KombinationstabelleJson   = e.KombinationstabelleJson,
             StandardRanglistenQuelleId = e.StandardRanglistenQuelleId,
             TitelverteidigerInTopf1    = e.TitelverteidigerInTopf1
@@ -258,6 +260,7 @@ public class TurnierInstanzService(
             EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
             PaarungFestVorgegeben     = e.PaarungFestVorgegeben,
             VorgegebeneAuslosungsart  = e.VorgegebeneAuslosungsart,
+            VorgegebeneAuslosungsregeln = [.. e.VorgegebeneAuslosungsregeln ?? []],
             KombinationstabelleJson   = e.KombinationstabelleJson,
             StandardRanglistenQuelleId = e.StandardRanglistenQuelleId,
             TitelverteidigerInTopf1    = e.TitelverteidigerInTopf1

@@ -67,7 +67,7 @@ public class AuslosungsRegelKompatibilitaetTests
 
     [Fact]
     public void AngeboteneRegeln_EnthaltenKeineEntfallenenRegeln() =>
-        AuslosungsRegelKompatibilitaet.AngeboteneRegeln.Should().HaveCount(5)
+        AuslosungsRegelKompatibilitaet.AngeboteneRegeln.Should().HaveCount(6)
             .And.OnlyContain(r => AuslosungsRegelKompatibilitaet.SperrGrund(r, Auslosungsart.Zufall, Rundenart.KoRunde, true)
                                   != "Diese Regel wird nicht mehr unterstützt.");
 

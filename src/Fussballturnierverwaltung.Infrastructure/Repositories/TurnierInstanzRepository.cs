@@ -94,6 +94,7 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             alt.EingangUeberUebergangsregeln = neu.EingangUeberUebergangsregeln;
             alt.PaarungFestVorgegeben     = neu.PaarungFestVorgegeben;
             alt.VorgegebeneAuslosungsart  = neu.VorgegebeneAuslosungsart;
+            alt.VorgegebeneAuslosungsregeln = [.. neu.VorgegebeneAuslosungsregeln];
             alt.KombinationstabelleJson   = neu.KombinationstabelleJson;
             alt.StandardRanglistenQuelleId = neu.StandardRanglistenQuelleId;
             alt.TitelverteidigerInTopf1   = neu.TitelverteidigerInTopf1;

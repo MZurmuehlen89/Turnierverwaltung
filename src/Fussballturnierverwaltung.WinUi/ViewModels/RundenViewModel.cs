@@ -245,6 +245,9 @@ public partial class RundeZeile : ObservableObject
     // Issue #372: im Editor nicht bearbeitbar (stammt aus dem Seed), wird beim Speichern unverändert durchgereicht.
     public string? KombinationstabelleJson { get; set; }
 
+    // Issue #356: reiner Datenträger — angezeigt und geändert wird über RundenViewModel.RegelVorgabeOptionen.
+    public IReadOnlyList<AuslosungsRegelArt> VorgegebeneAuslosungsregeln { get; set; } = [];
+
     /// <summary>Reine Anzeige in der Rundenliste (#187, seit #348 im Runden-Reiter): gesetzt, wenn die ausgehenden
     /// Übergangsregeln nicht zur Ausgangsanzahl passen — berechnet von <c>RundenViewModel</c>, nie gespeichert.</summary>
     [ObservableProperty]
@@ -260,6 +263,22 @@ public partial class RundeZeile : ObservableObject
 /// Ranglisten-Quelle oder null. Wie <see cref="VorgegebeneAuslosungsartOption"/> nur über
 /// <c>RundenViewModel.RanglistenQuelleOptionFuer</c> beziehen (Referenzabgleich der ComboBox).</summary>
 public record RanglistenQuelleOption(string Anzeige, int? Wert);
+
+/// <summary>Ankreuzbare Auslosungsregel im Rundenformular (Issue #356). Die Liste dieser Optionen bleibt über alle
+/// Runden dieselbe — je Runde wechseln nur <see cref="IstAktiv"/> und <see cref="IstVerfuegbar"/> (eine pro Auswahl
+/// neu zugewiesene ItemsSource ist ein bekannter WinUI3-Fallstrick).</summary>
+public partial class RegelVorgabeOption(AuslosungsRegelArt regelart, string anzeige, string beschreibung) : ObservableObject
+{
+    public AuslosungsRegelArt Regelart { get; } = regelart;
+    public string Anzeige { get; } = anzeige;
+    public string Beschreibung { get; } = beschreibung;
+
+    [ObservableProperty] private bool _istAktiv;
+
+    /// <summary>Ob die Regel bei Rundenart und vorgegebener Auslosungsart dieser Runde überhaupt wirken kann —
+    /// sonst wird sie gar nicht erst angeboten.</summary>
+    [ObservableProperty] private bool _istVerfuegbar;
+}
 
 /// <summary>Option der "Auslosungsart (Vorgabe)"-ComboBox im Rundenformular (Issue #347), <see cref="Wert"/> = null
 /// steht für "frei wählbar". Instanzen nur über <c>RundenViewModel.AuslosungsartVorgabeOptionFuer</c> beziehen —
@@ -415,6 +434,96 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
                 if (AusgewaehlteRunde == zeile && VorgegebeneAuslosungsart is null)
                     VorgegebeneAuslosungsart = zeile.VorgegebeneAuslosungsart;
             });
+
+        if (value is not null && _populiertGerade == 0) RegelVorgabenAnRundePassen();
+    }
+
+    // ── Auslosungsregeln als Vorgabe (Issue #356) ────────────────────────────
+
+    /// <summary>Alle anbietbaren Regeln, einmal erzeugt und nie ausgetauscht (siehe <see cref="RegelVorgabeOption"/>).</summary>
+    public IReadOnlyList<RegelVorgabeOption> RegelVorgabeOptionen => _regelVorgabeOptionen ??= RegelVorgabeOptionenErstellen();
+    private IReadOnlyList<RegelVorgabeOption>? _regelVorgabeOptionen;
+
+    [ObservableProperty] private bool _hatRegelVorgabeOptionen;
+
+    private IReadOnlyList<RegelVorgabeOption> RegelVorgabeOptionenErstellen()
+    {
+        var optionen = AuslosungsRegelKompatibilitaet.AngeboteneRegeln
+            .Select(art => new RegelVorgabeOption(
+                art, AuslosungsRegelKompatibilitaet.AnzeigeName(art), AuslosungViewModel.RegelBeschreibung(art)))
+            .ToList();
+        foreach (var option in optionen)
+            option.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(RegelVorgabeOption.IstAktiv)) RegelVorgabeGeaendert(option);
+            };
+        return optionen;
+    }
+
+    private bool RegelVorgabeMoeglich(AuslosungsRegelArt regel)
+    {
+        var zeile = AusgewaehlteRunde;
+        if (zeile is null) return false;
+        bool folgtAufGruppenphase = Runden.TakeWhile(z => z != zeile).Any(z => z.Rundenart == Rundenart.Gruppenphase);
+        return AuslosungsRegelKompatibilitaet.AlsVorgabeMoeglich(
+            regel, Rundenart, VorgegebeneAuslosungsart?.Wert, folgtAufGruppenphase);
+    }
+
+    /// <summary>Formular befüllen: Verfügbarkeit und Häkchen aus der gewählten Runde übernehmen.</summary>
+    private void RegelVorgabenAusZeile(RundeZeile? zeile)
+    {
+        foreach (var option in RegelVorgabeOptionen)
+        {
+            option.IstVerfuegbar = RegelVorgabeMoeglich(option.Regelart);
+            option.IstAktiv = option.IstVerfuegbar && zeile?.VorgegebeneAuslosungsregeln.Contains(option.Regelart) == true;
+        }
+        HatRegelVorgabeOptionen = RegelVorgabeOptionen.Any(o => o.IstVerfuegbar);
+    }
+
+    /// <summary>Nach einem Wechsel von Rundenart oder Auslosungsart-Vorgabe: Regeln, die dort nicht wirken können,
+    /// verschwinden samt Häkchen — Prävention statt einer wirkungslosen Vorgabe.</summary>
+    private void RegelVorgabenAnRundePassen()
+    {
+        _populiertGerade++;
+        try
+        {
+            foreach (var option in RegelVorgabeOptionen)
+            {
+                option.IstVerfuegbar = RegelVorgabeMoeglich(option.Regelart);
+                if (!option.IstVerfuegbar) option.IstAktiv = false;
+            }
+        }
+        finally { _populiertGerade--; }
+        HatRegelVorgabeOptionen = RegelVorgabeOptionen.Any(o => o.IstVerfuegbar);
+        RegelVorgabenInZeileSchreiben();
+    }
+
+    private void RegelVorgabeGeaendert(RegelVorgabeOption option)
+    {
+        if (_populiertGerade > 0) return;
+
+        // Die Heimrecht-Regeln schließen sich aus: Anhaken der einen hakt die andere ab (wie in der Auslosung, #331).
+        if (option.IstAktiv)
+        {
+            _populiertGerade++;
+            try
+            {
+                foreach (var andere in RegelVorgabeOptionen.Where(o =>
+                             o.IstAktiv && AuslosungsRegelKompatibilitaet.SchliessenSichAus(option.Regelart, o.Regelart)))
+                    andere.IstAktiv = false;
+            }
+            finally { _populiertGerade--; }
+        }
+        RegelVorgabenInZeileSchreiben();
+    }
+
+    private void RegelVorgabenInZeileSchreiben()
+    {
+        if (AusgewaehlteRunde is not { } zeile) return;
+        var aktiv = RegelVorgabeOptionen.Where(o => o.IstAktiv).Select(o => o.Regelart).ToList();
+        if (aktiv.SequenceEqual(zeile.VorgegebeneAuslosungsregeln)) return;
+        zeile.VorgegebeneAuslosungsregeln = aktiv;
+        IsDirty = true;
     }
 
     [ObservableProperty]
@@ -543,6 +652,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         OnPropertyChanged(nameof(VorgegebeneAuslosungsart));
 
         if (_populiertGerade > 0) return;
+        RegelVorgabenAnRundePassen();
         if (!AuswaertstorAktivierbar) AuswaertstorRegelAktiv = false;
         // Nur ein Vorschlag (Normalfall: nur Sieger steigen auf) — bleibt frei editierbar, siehe Issue #334:
         // der K.o.-Split-Sonderfall (Sieger UND Verlierer steigen in getrennte Zielrunden auf) braucht die
@@ -578,6 +688,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
             VorgegebeneAuslosungsart = zeile?.VorgegebeneAuslosungsart ?? RundeZeile.KeineAuslosungsartVorgabe;
             StandardRanglistenQuelle = zeile?.StandardRanglistenQuelle ?? RundeZeile.KeineRanglistenQuelle;
             TitelverteidigerInTopf1 = zeile?.TitelverteidigerInTopf1 ?? false;
+            RegelVorgabenAusZeile(zeile);
         }
         finally
         {
@@ -783,7 +894,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         VorgegebeneAuslosungsart = AuslosungsartVorgabeOptionFuer(r.VorgegebeneAuslosungsart),
         StandardRanglistenQuelle = RanglistenQuelleOptionFuer(r.StandardRanglistenQuelleId),
         TitelverteidigerInTopf1 = r.TitelverteidigerInTopf1,
-        KombinationstabelleJson = r.KombinationstabelleJson
+        KombinationstabelleJson = r.KombinationstabelleJson,
+        VorgegebeneAuslosungsregeln = [.. r.VorgegebeneAuslosungsregeln]
     };
 
     private void RundenZuruecksetzen(IEnumerable<RundeZeile> runden)
@@ -898,7 +1010,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         StandardRanglistenQuelleId: z.StandardRanglistenQuelle.Wert,
         TitelverteidigerInTopf1: z.StandardRanglistenQuelle.Wert is not null && z.TitelverteidigerInTopf1,
         NeutralerSpielort: z.NeutralerSpielort,
-        Ueberraschungsfaktor: z.Ueberraschungsfaktor)).ToList();
+        Ueberraschungsfaktor: z.Ueberraschungsfaktor,
+        VorgegebeneAuslosungsregeln: z.VorgegebeneAuslosungsregeln)).ToList();
 
     public List<UebergangsregelPositionsEingabe> UebergangsregelnZuEingaben() => _alleUebergaenge
         .Where(b => b.QuellRunde is not null && b.ZielRunde is not null && b.QuellRunde != b.ZielRunde)

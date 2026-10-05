@@ -64,7 +64,8 @@ public record TurnierRundeEingabe(
     int? StandardRanglistenQuelleId = null,
     bool TitelverteidigerInTopf1 = false,
     bool NeutralerSpielort = false,
-    int Ueberraschungsfaktor = 0);
+    int Ueberraschungsfaktor = 0,
+    IReadOnlyList<AuslosungsRegelArt>? VorgegebeneAuslosungsregeln = null);
 
 public record RegelwerkErstellenEingabe(
     string Name,

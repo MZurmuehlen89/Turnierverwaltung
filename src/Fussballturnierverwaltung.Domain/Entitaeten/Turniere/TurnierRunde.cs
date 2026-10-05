@@ -47,6 +47,10 @@ public class TurnierRunde : BasisEntitaet
     // Runde vorausgewählt, bleibt aber innerhalb der kompatiblen Arten änderbar. null = frei wählbar.
     public Auslosungsart? VorgegebeneAuslosungsart { get; set; }
 
+    // Von der Vorlage vorgegebene Auslosungsregeln (Issue #356) — beim Anlegen einer Auslosung für diese Runde
+    // bereits aktiv, dort weiter abwählbar. Leer = keine Vorgabe.
+    public List<AuslosungsRegelArt> VorgegebeneAuslosungsregeln { get; set; } = [];
+
     // Standard-Rangliste für die Lostopf-Vorbelegung (Issue #349): verweist auf eine Ranglisten-Quelle statt
     // auf eine konkrete Rangliste, damit Vorlagen sie vorgeben können und stets die neueste importierte
     // Rangliste dieser Quelle greift (z.B. UEFA-Klub-Koeffizient). null = keine Vorbelegung.

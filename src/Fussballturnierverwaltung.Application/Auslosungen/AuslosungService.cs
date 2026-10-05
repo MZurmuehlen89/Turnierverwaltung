@@ -54,6 +54,18 @@ public class AuslosungService(
             Datum            = eingabe.Datum,
             Status           = AuslosungsStatus.Vorbereitung
         };
+
+        // Von der Vorlage vorgegebene Regeln (#356) sind von Beginn an aktiv und bleiben abwählbar. Ob eine Regel
+        // bei der gewählten Auslosungsart tatsächlich wirkt, entscheidet weiterhin AuslosungsRegelKompatibilitaet.
+        var runde = await rundeRepository.FindenNachIdAsync(eingabe.TurnierRundeId, ct);
+        foreach (var regelart in runde?.VorgegebeneAuslosungsregeln.Distinct() ?? [])
+            auslosung.Regeln.Add(new AuslosungsRegel
+            {
+                Regelart     = regelart,
+                Beschreibung = AuslosungsRegelKompatibilitaet.AnzeigeName(regelart),
+                IstAktiv     = true
+            });
+
         await repository.HinzufuegenAsync(auslosung, ct);
         logger.LogInformation("Auslosung '{Name}' (ID {Id}) für Runde {RundeId} angelegt.",
             auslosung.Name, auslosung.Id, auslosung.TurnierRundeId);
@@ -295,6 +307,7 @@ public class AuslosungService(
             Wirkt(AuslosungsRegelArt.HeimrechtNachLos),
             Wirkt(AuslosungsRegelArt.HeimrechtNachSetzliste),
             Wirkt(AuslosungsRegelArt.FreilosMoeglich),
+            Wirkt(AuslosungsRegelArt.Konfoederationsverteilung),
             auslosung.TurnierRunde?.MitRueckspiel ?? false);
 
         var gruppeJeMannschaft = new Dictionary<int, string>();
@@ -417,16 +430,18 @@ public class AuslosungService(
 
     // TopfRang: 0 = erster Topf. Gruppe/Gruppenplatz: Herkunft aus einer vorangegangenen Gruppenphase — aus dem
     // Platzhalternamen („1. Gruppe A“) oder bei echten Mannschaften aus deren Gruppen-Auslosung (#331).
+    // VerbandId: Kontinentalverband des Landes — nur bei echten Mannschaften bekannt (#356).
     private record TeilnehmerSlot(
         int? MannschaftId, int? LandId, string? PlatzhalterName,
-        int TopfRang = 0, int? SetzPosition = null, string? Gruppe = null, int? Gruppenplatz = null)
+        int TopfRang = 0, int? SetzPosition = null, string? Gruppe = null, int? Gruppenplatz = null,
+        int? VerbandId = null)
     {
         public static TeilnehmerSlot AusEintrag(
             LostopfEintrag e, int topfRang, IReadOnlyDictionary<int, string> gruppeJeMannschaft)
         {
             if (e.MannschaftId is { } id)
                 return new(id, e.Mannschaft?.LandId, null, topfRang, e.SetzPosition,
-                    gruppeJeMannschaft.GetValueOrDefault(id));
+                    gruppeJeMannschaft.GetValueOrDefault(id), VerbandId: e.Mannschaft?.Land?.VerbandId);
 
             var herkunft = GruppenHerkunft.AusPlatzhalter(e.PlatzhalterName);
             return new(null, null, e.PlatzhalterName, topfRang, e.SetzPosition, herkunft?.Gruppe, herkunft?.Platz);
@@ -436,8 +451,10 @@ public class AuslosungService(
     /// <summary>Die bei dieser Auslosung tatsächlich wirksamen Regeln (siehe <see cref="AuslosungsRegelKompatibilitaet"/>).</summary>
     private sealed record RegelKontext(
         bool KeinGleichesLand, bool KeineGleicheGruppe, bool HeimrechtNachLos, bool HeimrechtNachSetzliste,
-        bool FreilosMoeglich, bool MitRueckspiel)
+        bool FreilosMoeglich, bool Konfoederationsverteilung, bool MitRueckspiel)
     {
+        // Paarweise Regeln. Die Konföderationsverteilung zählt je Gruppe und passt nicht in dieses Schema — sie
+        // wirkt nur in der Gruppenauslosung (GruppenAuslosung).
         public bool Verbietet(TeilnehmerSlot a, TeilnehmerSlot b) =>
             (KeinGleichesLand && a.LandId.HasValue && a.LandId == b.LandId) ||
             (KeineGleicheGruppe && a.Gruppe is not null && a.Gruppe == b.Gruppe);
@@ -446,7 +463,8 @@ public class AuslosungService(
             string.Join(", ", new[]
             {
                 KeinGleichesLand ? "'Kein gleiches Land'" : null,
-                KeineGleicheGruppe ? "'Keine gleiche Gruppe'" : null
+                KeineGleicheGruppe ? "'Keine gleiche Gruppe'" : null,
+                Konfoederationsverteilung ? "'Konföderationsverteilung'" : null
             }.OfType<string>()) is { Length: > 0 } text ? text : "keine";
     }
 
@@ -510,7 +528,7 @@ public class AuslosungService(
             {
                 Auslosungsart.NachToepfen   => GruppenphaseNachToepfenAusloesen(toepfe, gruppenAnzahl, regeln),
                 Auslosungsart.NachSetzliste => GruppenphaseNachSetzlisteAusloesen(toepfe, gruppenAnzahl, regeln),
-                _                           => GruppenZuErgebnisse(GruppenBefuellen(toepfe.SelectMany(t => t).ToList(), gruppenAnzahl, regeln))
+                _                           => GruppenAusloesen([], [toepfe.SelectMany(t => t).ToList()], gruppenAnzahl, regeln)
             };
         }
 
@@ -554,14 +572,7 @@ public class AuslosungService(
             return GruppenZuErgebnisse(gruppen);
         }
 
-        foreach (var topf in toepfe)
-        {
-            var zuweisung = GruppenTopfZuordnen(topf, gruppen, gruppenAnzahl, regeln);
-            for (int g = 0; g < gruppenAnzahl && g < zuweisung.Count; g++)
-                gruppen[g].Add(zuweisung[g]);
-        }
-
-        return GruppenZuErgebnisse(gruppen);
+        return GruppenAusloesen([], toepfe, gruppenAnzahl, regeln);
     }
 
     // Seeded teams (SetzPosition set) go one per group; rest distributed topf-wise
@@ -583,86 +594,41 @@ public class AuslosungService(
             .Take(gruppenAnzahl)
             .ToList();
 
-        var gruppen = Enumerable.Range(0, gruppenAnzahl)
-            .Select(i => i < gesetzte.Count
-                ? new List<TeilnehmerSlot> { gesetzte[i] }
-                : new List<TeilnehmerSlot>())
-            .ToList();
-
-        // Ungesetzte Teams werden topfweise verteilt (ein Topf wird komplett auf die
-        // Gruppen aufgeteilt, bevor der nächste Topf drankommt) — analog zu
-        // GruppenphaseNachToepfenAusloesen, statt alle ungesetzten Töpfe topf-unabhängig
-        // zusammenzuwerfen (siehe Issue #5-Diskussion).
-        foreach (var topf in toepfe)
-        {
-            var ungesetzteImTopf = topf.Where(s => !s.SetzPosition.HasValue).ToList();
-            if (ungesetzteImTopf.Count == 0) continue;
-
-            gruppen = GruppenBefuellen(ungesetzteImTopf, gruppenAnzahl, regeln, gruppen);
-        }
-
-        return GruppenZuErgebnisse(gruppen);
+        // Ungesetzte Teams werden topfweise verteilt (ein Topf wird komplett auf die Gruppen aufgeteilt, bevor der
+        // nächste Topf drankommt) — analog zu GruppenphaseNachToepfenAusloesen (siehe Issue #5-Diskussion).
+        return GruppenAusloesen(
+            gesetzte, toepfe.Select(t => t.Where(s => !s.SetzPosition.HasValue).ToList()), gruppenAnzahl, regeln);
     }
 
-    // Assigns slots to groups round-robin, respecting the active constraints
-    private static List<List<TeilnehmerSlot>> GruppenBefuellen(
-        List<TeilnehmerSlot> slots, int gruppenAnzahl, RegelKontext regeln,
-        List<List<TeilnehmerSlot>>? startGruppen = null)
-    {
-        for (int versuch = 0; versuch < 500; versuch++)
-        {
-            var shuffled = slots.OrderBy(_ => Random.Shared.Next()).ToList();
-            var gruppen = startGruppen?.Select(g => g.ToList()).ToList()
-                ?? Enumerable.Range(0, gruppenAnzahl).Select(_ => new List<TeilnehmerSlot>()).ToList();
-            bool valid = true;
-            int gIdx = 0;
-
-            foreach (var slot in shuffled)
-            {
-                bool placed = false;
-                for (int i = 0; i < gruppenAnzahl; i++)
-                {
-                    int g = (gIdx + i) % gruppenAnzahl;
-                    if (gruppen[g].Any(t => regeln.Verbietet(t, slot)))
-                        continue;
-                    gruppen[g].Add(slot);
-                    gIdx = (g + 1) % gruppenAnzahl;
-                    placed = true;
-                    break;
-                }
-                if (!placed) { valid = false; break; }
-            }
-
-            if (valid) return gruppen;
-        }
-
-        throw new InvalidOperationException(
-            $"Keine gültige Gruppenauslosung gefunden. Die Einschränkungen ({regeln.EinschraenkungenText}) " +
-            "können mit den gewählten Mannschaften nicht erfüllt werden.");
-    }
-
-    // Returns a shuffled order of topfSlots such that shuffled[g] can go into gruppen[g]
-    private static List<TeilnehmerSlot> GruppenTopfZuordnen(
-        List<TeilnehmerSlot> topfSlots, List<List<TeilnehmerSlot>> gruppen,
+    // Gesetzte Teams führen je eine Gruppe an, die Töpfe werden danach nacheinander gezogen — Ablauf und
+    // Regelprüfung siehe GruppenAuslosung (#356).
+    private static List<AuslosungsErgebnis> GruppenAusloesen(
+        IReadOnlyList<TeilnehmerSlot> gesetzte, IEnumerable<IReadOnlyList<TeilnehmerSlot>> toepfe,
         int gruppenAnzahl, RegelKontext regeln)
     {
-        for (int versuch = 0; versuch < 500; versuch++)
+        var slots       = new List<TeilnehmerSlot>(gesetzte);
+        var topfIndizes = new List<IReadOnlyList<int>>();
+        foreach (var topf in toepfe)
         {
-            var shuffled = topfSlots.OrderBy(_ => Random.Shared.Next()).ToList();
-            bool valid = true;
-
-            for (int g = 0; g < gruppenAnzahl && g < shuffled.Count; g++)
-            {
-                if (gruppen[g].Any(t => regeln.Verbietet(t, shuffled[g])))
-                { valid = false; break; }
-            }
-
-            if (valid) return shuffled;
+            topfIndizes.Add([.. Enumerable.Range(slots.Count, topf.Count)]);
+            slots.AddRange(topf);
         }
 
-        throw new InvalidOperationException(
-            "Keine gültige Topf-Zuweisung für die Gruppenphase gefunden. " +
-            $"Die Einschränkungen ({regeln.EinschraenkungenText}) können nicht erfüllt werden.");
+        var auslosung = new GruppenAuslosung(
+            gruppenAnzahl, [.. slots.Select(s => s.VerbandId)], regeln.Konfoederationsverteilung,
+            (a, b) => regeln.Verbietet(slots[a], slots[b]), Random.Shared);
+        for (int i = 0; i < gesetzte.Count; i++)
+            auslosung.Setzen(i, i);
+
+        var gruppeJeSlot = auslosung.Verteilen(topfIndizes)
+            ?? throw new InvalidOperationException(
+                $"Keine gültige Gruppenauslosung gefunden. Die Einschränkungen ({regeln.EinschraenkungenText}) " +
+                "können mit den gewählten Mannschaften nicht erfüllt werden.");
+
+        var gruppen = Enumerable.Range(0, gruppenAnzahl).Select(_ => new List<TeilnehmerSlot>()).ToList();
+        for (int i = 0; i < slots.Count; i++)
+            gruppen[gruppeJeSlot[i]].Add(slots[i]);
+        return GruppenZuErgebnisse(gruppen);
     }
 
     private static List<AuslosungsErgebnis> GruppenZuErgebnisse(List<List<TeilnehmerSlot>> gruppen)

@@ -1049,6 +1049,10 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int?>("VorgegebeneAuslosungsart")
                         .HasColumnType("int");
 
+                    b.PrimitiveCollection<string>("VorgegebeneAuslosungsregeln")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("RegelwerkId");

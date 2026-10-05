@@ -13,5 +13,7 @@ public enum AuslosungsRegelArt
     HeimrechtNachSetzliste,
     FreilosMoeglich,
     [Obsolete("Entfallen mit #331 — war nie konfigurierbar.")]
-    ManuelleEinschraenkung
+    ManuelleEinschraenkung,
+    // Issue #356: Teams eines Kontinentalverbands gleichmäßig auf die Gruppen verteilen (FIFA-WM seit 1994).
+    Konfoederationsverteilung
 }

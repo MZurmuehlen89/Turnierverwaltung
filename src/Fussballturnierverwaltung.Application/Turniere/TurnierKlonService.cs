@@ -66,6 +66,7 @@ public class TurnierKlonService(
                 EingangUeberUebergangsregeln = runde.EingangUeberUebergangsregeln,
                 PaarungFestVorgegeben     = runde.PaarungFestVorgegeben,
                 VorgegebeneAuslosungsart  = runde.VorgegebeneAuslosungsart,
+                VorgegebeneAuslosungsregeln = [.. runde.VorgegebeneAuslosungsregeln],
                 KombinationstabelleJson   = runde.KombinationstabelleJson,
                 StandardRanglistenQuelleId = runde.StandardRanglistenQuelleId,
                 TitelverteidigerInTopf1   = runde.TitelverteidigerInTopf1
