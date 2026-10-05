@@ -64,6 +64,132 @@
             </Grid>
         </DataTemplate>
 
+        <!-- ── TV-Modus Gruppenphase/K.-o.-Runde (#408) ── -->
+
+        <!-- Ein Platz im Lostopf: bleibt stehen und wird nur ausgegraut, damit sich das Layout nicht verschiebt -->
+        <DataTemplate x:Key="TvTopfSlotTemplate">
+            <Grid ColumnDefinitions="18,6,*" Height="26" Opacity="{Binding GezogenOpacity}">
+                <Image Grid.Column="0" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                       Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                       Stretch="Uniform" Width="18" Height="18" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding Anzeige}" FontSize="13" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- Fokus-Ansicht: der Topf, aus dem gerade gezogen wird -->
+        <DataTemplate x:Key="TvFokusTopfTemplate">
+            <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                    CornerRadius="6" Padding="14,10">
+                <StackPanel>
+                    <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <ItemsControl ItemsSource="{Binding Slots}" ItemTemplate="{StaticResource TvTopfSlotTemplate}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <local:GleichmaessigesRasterPanel MaxSpalten="2" MinSpaltenBreite="170" MaxSpaltenBreite="260" Abstand="4" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- Fokus-Ansicht: die Gruppe, in die das gezogene Team kommt — der neue Platz ist hervorgehoben -->
+        <DataTemplate x:Key="TvFokusGruppeTemplate">
+            <Border BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="2"
+                    CornerRadius="6" Padding="14,10">
+                <StackPanel>
+                    <TextBlock Text="{Binding GruppenName}" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"
+                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                    <ItemsControl ItemsSource="{Binding Slots}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Height="36" Margin="0,0,0,2">
+                                    <Border CornerRadius="3" BorderThickness="1"
+                                            BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                            Visibility="{Binding IstNeu, Converter={StaticResource BoolToVisibility}}">
+                                        <Border.Background>
+                                            <SolidColorBrush Color="{ThemeResource SystemAccentColor}" Opacity="0.25" />
+                                        </Border.Background>
+                                    </Border>
+                                    <Grid ColumnDefinitions="24,24,10,*" Margin="8,0" Opacity="{Binding BefuelltOpacity}">
+                                        <TextBlock Grid.Column="0" FontSize="15" VerticalAlignment="Center" Opacity="0.6">
+                                            <Run Text="{Binding Position}" /><Run Text="." />
+                                        </TextBlock>
+                                        <Image Grid.Column="1" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                               Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                               Stretch="Uniform" Width="24" Height="24" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="{Binding Anzeige}" FontSize="16" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- Fokus-Ansicht: die Paarung, die gerade gezogen wird -->
+        <DataTemplate x:Key="TvFokusPaarungTemplate">
+            <Border BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="2"
+                    CornerRadius="6" Padding="20,12">
+                <StackPanel>
+                    <TextBlock FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,8"
+                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}">
+                        <Run Text="Paarung" /><Run Text=" " /><Run Text="{Binding PaarungsNr}" />
+                    </TextBlock>
+                    <Grid ColumnDefinitions="*,Auto,*" Height="40">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Right"
+                                    Opacity="{Binding HeimBefuelltOpacity}">
+                            <TextBlock Text="{Binding Heim}" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                            <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                   Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                                   Stretch="Uniform" Width="32" Height="32" Margin="12,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <Grid Grid.Column="1" Width="80">
+                            <TextBlock Text="vs." FontSize="14" Opacity="0.5" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}" />
+                        </Grid>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Left"
+                                    Opacity="{Binding AuswaertsBefuelltOpacity}"
+                                    Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}">
+                            <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                   Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                                   Stretch="Uniform" Width="32" Height="32" Margin="0,0,12,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Auswaerts}" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" Text="Freilos" FontSize="20" Opacity="0.6" VerticalAlignment="Center"
+                                   Visibility="{Binding IstFreilos, Converter={StaticResource BoolToVisibility}}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- Gesamtübersicht: eine Paarung der laufenden Ziehung; Anordnung wie im Ergebnis über PaarungsSpaltenControl -->
+        <DataTemplate x:Key="TvPaarungTemplate">
+            <Grid ColumnDefinitions="24,20,8,*,40,20,8,*" Height="24" Margin="0,0,0,6">
+                <TextBlock Grid.Column="0" Text="{Binding PaarungsNr}" Opacity="0.5" VerticalAlignment="Center" />
+                <Image Grid.Column="1" Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                       Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
+                       Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="3" Text="{Binding Heim}" VerticalAlignment="Center"
+                           Opacity="{Binding HeimBefuelltOpacity}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="4" Text="vs." Opacity="0.5" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}" />
+                <Image Grid.Column="5" Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                       Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
+                       Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="7" Text="{Binding Auswaerts}" VerticalAlignment="Center"
+                           Opacity="{Binding AuswaertsBefuelltOpacity}" TextTrimming="CharacterEllipsis"
+                           Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}" />
+                <TextBlock Grid.Column="7" Text="Freilos" Opacity="0.6" VerticalAlignment="Center"
+                           Visibility="{Binding IstFreilos, Converter={StaticResource BoolToVisibility}}" />
+            </Grid>
+        </DataTemplate>
+
         <!-- Gegnerliste des fokussierten Teams: Wappen, Name, Land -->
         <DataTemplate x:Key="FokusGegnerTemplate">
             <Grid ColumnDefinitions="20,8,*" Height="22">
@@ -252,7 +378,7 @@
                                 <!-- Pille "MANNSCHAFT" -->
                                 <Border Background="#1E293B" CornerRadius="4" Padding="14,8" Margin="0,0,8,0" MinWidth="150">
                                     <StackPanel>
-                                        <TextBlock Text="MANNSCHAFT" FontSize="9" Foreground="White" Opacity="0.6" HorizontalAlignment="Center" />
+                                        <TextBlock Text="{Binding AnimationBannerKopf}" FontSize="9" Foreground="White" Opacity="0.6" HorizontalAlignment="Center" />
                                         <TextBlock Text="{Binding AnimationBannerMannschaft}" FontSize="15" FontWeight="Bold"
                                                    Foreground="White" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
                                         <TextBlock Text="{Binding AnimationBannerTopf}" FontSize="10" Foreground="White" Opacity="0.6" HorizontalAlignment="Center" />
@@ -326,146 +452,178 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- TV-Modus: Lostöpfe (links) und Gruppen/Paarungen (rechts) — nicht in der Ligaphase (#364) -->
-                    <Grid Margin="0,0,0,16" ColumnDefinitions="*,16,*"
-                          Visibility="{Binding AnimationZeigeListenmodus, Converter={StaticResource BoolToVisibility}}">
+                    <!-- TV-Modus Gruppenphase/K.-o.-Runde (#408, Vorbild UEFA-Gruppenauslosung bzw. DFB-Pokal): Fokus auf
+                         den aktuellen Topf plus Zielgruppe bzw. aktuelle Paarung; nach jedem Topf bzw. nach je acht
+                         Paarungen einmal die Gesamtübersicht. Nicht in der Ligaphase (#364). -->
+                    <StackPanel Margin="0,0,0,16" IsHitTestVisible="False"
+                                Visibility="{Binding AnimationZeigeListenFokus, Converter={StaticResource BoolToVisibility}}">
 
-                        <!-- Lostöpfe: feste Anzahl Plätze pro Topf, damit sich das Layout nicht verschiebt,
-                             sobald ein Topf leerer wird — gezogene Plätze werden nur ausgegraut (Opacity),
-                             statt entfernt zu werden. -->
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="LOSTÖPFE" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
-                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                                <ItemsControl ItemsSource="{Binding AnimationToepfe}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <StackPanel Orientation="Horizontal" />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border Width="150" Margin="0,0,8,8"
-                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
-                                                <StackPanel>
-                                                    <Border Background="{ThemeResource LayerFillColorDefaultBrush}" Padding="8,4" CornerRadius="4,4,0,0">
-                                                        <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" />
-                                                    </Border>
-                                                    <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                                        <ItemsControl ItemsSource="{Binding Slots}">
-                                                            <ItemsControl.ItemTemplate>
-                                                                <DataTemplate>
-                                                                    <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="8,4"
-                                                                            Opacity="{Binding GezogenOpacity}">
-                                                                        <Grid ColumnDefinitions="14,5,*">
-                                                                            <Image Grid.Column="0" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                                                                   Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
-                                                                                   Stretch="Uniform" Width="14" Height="14" />
-                                                                            <TextBlock Grid.Column="2" Text="{Binding Anzeige}" FontSize="12" />
-                                                                        </Grid>
-                                                                    </Border>
-                                                                </DataTemplate>
-                                                            </ItemsControl.ItemTemplate>
-                                                        </ItemsControl>
-                                                    </ScrollViewer>
-                                                </StackPanel>
+                        <!-- Fokus Gruppenphase -->
+                        <StackPanel MaxWidth="1000"
+                                    Visibility="{Binding AnimationIstGruppenmodus, Converter={StaticResource BoolToVisibility}}">
+                            <!-- Alle Gruppen als Mini-Kacheln mit Füllstand; die Zielgruppe leuchtet auf. Entfällt bei
+                                 nur einer Gruppe (Liga) — dort bleibt die Gruppe durchgehend im Fokus. -->
+                            <ItemsControl ItemsSource="{Binding AnimationGruppen}" Margin="0,0,0,12" HorizontalAlignment="Center"
+                                          Visibility="{Binding AnimationZeigeGruppenLeiste, Converter={StaticResource BoolToVisibility}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <local:GleichmaessigesRasterPanel MaxSpalten="12" MinSpaltenBreite="64" MaxSpaltenBreite="96" Abstand="6" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4" />
+                                            <Border CornerRadius="4" BorderThickness="2"
+                                                    BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                                    Visibility="{Binding IstZiel, Converter={StaticResource BoolToVisibility}}">
+                                                <Border.Background>
+                                                    <SolidColorBrush Color="{ThemeResource SystemAccentColor}" Opacity="0.25" />
+                                                </Border.Background>
                                             </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </StackPanel>
+                                            <StackPanel Margin="6,4">
+                                                <TextBlock Text="{Binding Kurzname}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                                <TextBlock Text="{Binding FuellstandText}" FontSize="11" Opacity="0.6" HorizontalAlignment="Center" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
 
-                        <!-- Gruppen / Paarungen -->
-                        <StackPanel Grid.Column="2">
-
-                            <!-- Gruppen: alle Plätze von Anfang an sichtbar, füllen sich Slot für Slot -->
-                            <StackPanel Visibility="{Binding AnimationIstGruppenmodus, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="GRUPPEN" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
-                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                                    <ItemsControl ItemsSource="{Binding AnimationGruppen}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <StackPanel Orientation="Horizontal" />
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Width="160" Margin="0,0,8,8"
-                                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
-                                                    <StackPanel>
-                                                        <Border Background="{ThemeResource LayerFillColorDefaultBrush}" Padding="10,5" CornerRadius="4,4,0,0">
-                                                            <TextBlock Text="{Binding GruppenName}" FontSize="13" FontWeight="SemiBold"
-                                                                       Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
-                                                        </Border>
-                                                        <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                                            <ItemsControl ItemsSource="{Binding Slots}">
-                                                                <ItemsControl.ItemTemplate>
-                                                                    <DataTemplate>
-                                                                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="10,5"
-                                                                                Opacity="{Binding BefuelltOpacity}">
-                                                                            <Grid ColumnDefinitions="16,14,5,*">
-                                                                                <TextBlock Grid.Column="0" FontSize="13" VerticalAlignment="Center" Opacity="0.6">
-                                                                                    <Run Text="{Binding Position}" /><Run Text="." />
-                                                                                </TextBlock>
-                                                                                <Image Grid.Column="1" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                                                                       Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
-                                                                                       Stretch="Uniform" Width="14" Height="14" VerticalAlignment="Center" />
-                                                                                <TextBlock Grid.Column="3" Text="{Binding Anzeige}" FontSize="13" VerticalAlignment="Center" />
-                                                                            </Grid>
-                                                                        </Border>
-                                                                    </DataTemplate>
-                                                                </ItemsControl.ItemTemplate>
-                                                            </ItemsControl>
-                                                        </ScrollViewer>
-                                                    </StackPanel>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
-                            </StackPanel>
-
-                            <!-- Paarungen: alle Paarungen von Anfang an sichtbar, Heim/Auswärts füllen sich -->
-                            <StackPanel Visibility="{Binding AnimationIstPaarungsmodus, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="PAARUNGEN" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
-                                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
-                                    <ScrollViewer MaxHeight="340" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                        <ItemsControl ItemsSource="{Binding AnimationPaarungen}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="12,6">
-                                                        <Grid ColumnDefinitions="28,*">
-                                                            <TextBlock Grid.Column="0" Text="{Binding PaarungsNr}" FontSize="12" Opacity="0.6" VerticalAlignment="Center" />
-                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                                                <TextBlock Text="Freilos: " FontSize="13" Opacity="0.6"
-                                                                           Visibility="{Binding IstFreilos, Converter={StaticResource BoolToVisibility}}" />
-                                                                <Image Width="14" Height="14" Margin="0,0,5,0"
-                                                                       Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                                                       Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
-                                                                       Stretch="Uniform" />
-                                                                <TextBlock Text="{Binding Heim}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
-                                                                           Opacity="{Binding HeimBefuelltOpacity}" />
-                                                                <StackPanel Orientation="Horizontal"
-                                                                            Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}">
-                                                                    <TextBlock Text="  vs.  " FontSize="12" Opacity="0.5" VerticalAlignment="Center" />
-                                                                    <Image Width="14" Height="14" Margin="0,0,5,0"
-                                                                           Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                                                           Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
-                                                                           Stretch="Uniform" VerticalAlignment="Center" />
-                                                                    <TextBlock Text="{Binding Auswaerts}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
-                                                                               Opacity="{Binding AuswaertsBefuelltOpacity}" />
-                                                                </StackPanel>
-                                                            </StackPanel>
-                                                        </Grid>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </ScrollViewer>
+                            <Grid ColumnDefinitions="*,24,*">
+                                <ContentControl Grid.Column="0" Content="{Binding AnimationFokusTopf}"
+                                                ContentTemplate="{StaticResource TvFokusTopfTemplate}"
+                                                HorizontalContentAlignment="Stretch" VerticalAlignment="Top" />
+                                <Border Grid.Column="2" VerticalAlignment="Top" MinHeight="120"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6"
+                                        Visibility="{Binding AnimationFokusGruppe, Converter={StaticResource NullToVisible}}">
+                                    <TextBlock Text="Gruppe wird gezogen …" FontSize="14" Opacity="0.5"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
-                            </StackPanel>
+                                <ContentControl Grid.Column="2" Content="{Binding AnimationFokusGruppe}"
+                                                ContentTemplate="{StaticResource TvFokusGruppeTemplate}"
+                                                HorizontalContentAlignment="Stretch" VerticalAlignment="Top"
+                                                Visibility="{Binding AnimationFokusGruppe, Converter={StaticResource NullToCollapsed}}" />
+                            </Grid>
                         </StackPanel>
-                    </Grid>
+
+                        <!-- Fokus K.-o.-Runde: aktuelle Paarung groß, darunter die Lostöpfe -->
+                        <StackPanel Visibility="{Binding AnimationIstPaarungsmodus, Converter={StaticResource BoolToVisibility}}">
+                            <ContentControl Content="{Binding AnimationFokusPaarung}"
+                                            ContentTemplate="{StaticResource TvFokusPaarungTemplate}"
+                                            HorizontalContentAlignment="Stretch" MaxWidth="900" Margin="0,0,0,12" />
+                            <ItemsControl ItemsSource="{Binding AnimationToepfe}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <local:GleichmaessigesRasterPanel MaxSpalten="2" MinSpaltenBreite="340" MaxSpaltenBreite="4000" Abstand="12" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                                CornerRadius="6" Padding="14,10">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6" />
+                                                <ItemsControl ItemsSource="{Binding Slots}" ItemTemplate="{StaticResource TvTopfSlotTemplate}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <local:GleichmaessigesRasterPanel MaxSpalten="8" MinSpaltenBreite="150" MaxSpaltenBreite="220" Abstand="4" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Gesamtübersicht Gruppenphase/K.-o.-Runde (#408) -->
+                    <StackPanel Margin="0,0,0,16"
+                                Visibility="{Binding AnimationZeigeListenUebersicht, Converter={StaticResource BoolToVisibility}}">
+
+                        <!-- Gruppenphase: Töpfe kompakt, darunter alle Gruppen als Raster -->
+                        <StackPanel Visibility="{Binding AnimationIstGruppenmodus, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="LOSTÖPFE" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
+                            <ItemsControl ItemsSource="{Binding AnimationToepfe}" Margin="0,0,0,16">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <local:GleichmaessigesRasterPanel MaxSpalten="6" MinSpaltenBreite="150" MaxSpaltenBreite="220" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
+                                            <StackPanel>
+                                                <Border Background="{ThemeResource LayerFillColorDefaultBrush}" Padding="8,4" CornerRadius="4,4,0,0">
+                                                    <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" />
+                                                </Border>
+                                                <ItemsControl ItemsSource="{Binding Slots}" Margin="8,4">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid ColumnDefinitions="14,5,*" Height="20" Opacity="{Binding GezogenOpacity}">
+                                                                <Image Grid.Column="0" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                       Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                                       Stretch="Uniform" Width="14" Height="14" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="2" Text="{Binding Anzeige}" FontSize="11" VerticalAlignment="Center"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBlock Text="GRUPPEN" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
+                            <ItemsControl ItemsSource="{Binding AnimationGruppen}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <local:GleichmaessigesRasterPanel MaxSpalten="6" MinSpaltenBreite="170" MaxSpaltenBreite="260" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
+                                            <StackPanel>
+                                                <Border Background="{ThemeResource LayerFillColorDefaultBrush}" Padding="10,5" CornerRadius="4,4,0,0">
+                                                    <TextBlock Text="{Binding GruppenName}" FontSize="13" FontWeight="SemiBold"
+                                                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                                </Border>
+                                                <ItemsControl ItemsSource="{Binding Slots}" Margin="10,4">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid ColumnDefinitions="18,18,6,*" Height="26" Opacity="{Binding BefuelltOpacity}">
+                                                                <TextBlock Grid.Column="0" FontSize="13" VerticalAlignment="Center" Opacity="0.6">
+                                                                    <Run Text="{Binding Position}" /><Run Text="." />
+                                                                </TextBlock>
+                                                                <Image Grid.Column="1" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                                       Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                                       Stretch="Uniform" Width="18" Height="18" VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="3" Text="{Binding Anzeige}" FontSize="13" VerticalAlignment="Center"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- K.-o.-Runde: alle Paarungen spaltenweise wie im Ergebnis (#407) -->
+                        <StackPanel Visibility="{Binding AnimationIstPaarungsmodus, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="PAARUNGEN" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
+                            <local:PaarungsSpaltenControl Paarungen="{Binding AnimationPaarungen}"
+                                                          ZeilenJeSpalte="16"
+                                                          PaarungTemplate="{StaticResource TvPaarungTemplate}" />
+                        </StackPanel>
+                    </StackPanel>
 
                     <!-- TV-Modus Ligaphase (#364): Fokus auf die Matrix des gerade gezogenen Topfs, nach jedem Topf
                          einmal die Übersicht aller Matrizen. Klicks gesperrt (Team-Fokus wirkt nur auf die Ergebnisanzeige). -->

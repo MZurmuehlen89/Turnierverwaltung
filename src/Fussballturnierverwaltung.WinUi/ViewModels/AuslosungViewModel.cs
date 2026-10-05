@@ -116,13 +116,23 @@ public class AnimationsGruppenSlot : ObservableObject
     public double BefuelltOpacity => Befuellt ? 1.0 : 0.4;
     private byte[]? _wappen;
     public byte[]? Wappen { get => _wappen; set => SetProperty(ref _wappen, value); }
+    /// <summary>Fokus-Ansicht (#408): der gerade befüllte Platz ist hervorgehoben.</summary>
+    private bool _istNeu;
+    public bool IstNeu { get => _istNeu; set => SetProperty(ref _istNeu, value); }
 }
 
 public class AnimationsGruppe : ObservableObject
 {
     public int GruppenNummer { get; init; }
     public string GruppenName { get; init; } = "";
+    /// <summary>Gruppenbuchstabe für die Mini-Kachel der Fokus-Ansicht (#408).</summary>
+    public string Kurzname { get; init; } = "";
     public ObservableCollection<AnimationsGruppenSlot> Slots { get; init; } = [];
+    /// <summary>Fokus-Ansicht (#408): Gruppe, in die das gerade gezogene Team kommt.</summary>
+    private bool _istZiel;
+    public bool IstZiel { get => _istZiel; set => SetProperty(ref _istZiel, value); }
+    public string FuellstandText => $"{Slots.Count(s => s.Befuellt)}/{Slots.Count}";
+    public void FuellstandAktualisieren() => OnPropertyChanged(nameof(FuellstandText));
 }
 
 public class AnimationsPaarung : ObservableObject
@@ -563,6 +573,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnimationLaeuftNicht))]
     [NotifyPropertyChangedFor(nameof(AnimationZeigeListenmodus))]
+    [NotifyPropertyChangedFor(nameof(AnimationZeigeListenFokus))]
+    [NotifyPropertyChangedFor(nameof(AnimationZeigeListenUebersicht))]
     [NotifyPropertyChangedFor(nameof(ZeigeErgebnis))]
     [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungZuruecksetzenCommand))]
@@ -581,6 +593,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnimationIstGruppenmodus))]
+    [NotifyPropertyChangedFor(nameof(AnimationZeigeGruppenLeiste))]
     private ObservableCollection<AnimationsGruppe> _animationGruppen = [];
 
     [ObservableProperty]
@@ -595,13 +608,34 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnimationIstMatrixmodus))]
     [NotifyPropertyChangedFor(nameof(AnimationZeigeListenmodus))]
+    [NotifyPropertyChangedFor(nameof(AnimationZeigeListenFokus))]
+    [NotifyPropertyChangedFor(nameof(AnimationZeigeListenUebersicht))]
     private ObservableCollection<GegnerMatrixTopf> _animationMatrizen = [];
 
     [ObservableProperty] private GegnerMatrixTopf? _animationFokusMatrix;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnimationZeigeFokusMatrix))]
+    [NotifyPropertyChangedFor(nameof(AnimationZeigeListenFokus))]
+    [NotifyPropertyChangedFor(nameof(AnimationZeigeListenUebersicht))]
     private bool _animationZeigeUebersicht;
+
+    // Gruppenphase/K.-o.-Runde (#408, Vorbild UEFA-Gruppenauslosung bzw. DFB-Pokal): Fokus = aktueller Topf plus
+    // Zielgruppe bzw. aktuelle Paarung; Übersicht = alle Gruppen/Paarungen mit dem bisherigen Stand.
+    [ObservableProperty] private AnimationsTopf? _animationFokusTopf;
+    [ObservableProperty] private AnimationsGruppe? _animationFokusGruppe;
+    [ObservableProperty] private AnimationsPaarung? _animationFokusPaarung;
+
+    public bool AnimationZeigeListenFokus      => AnimationZeigeListenmodus && !AnimationZeigeUebersicht;
+    public bool AnimationZeigeListenUebersicht => AnimationZeigeListenmodus && AnimationZeigeUebersicht;
+    /// <summary>Mini-Leiste aller Gruppen nur bei mehreren Gruppen — eine Liga hat nur eine.</summary>
+    public bool AnimationZeigeGruppenLeiste => AnimationGruppen.Count > 1;
+    /// <summary>Beschriftung der linken Banner-Pille — während der Übersicht und der Topf-Vorstellung steht dort
+    /// kein Mannschaftsname.</summary>
+    [ObservableProperty] private string _animationBannerKopf = BANNER_KOPF_MANNSCHAFT;
+    private const string BANNER_KOPF_MANNSCHAFT    = "MANNSCHAFT";
+    private const string BANNER_KOPF_ZWISCHENSTAND = "ZWISCHENSTAND";
+    private const string BANNER_KOPF_TOPF          = "NÄCHSTER TOPF";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnimationZeigeBannerGegner))]
@@ -614,6 +648,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// <summary>Lostöpfe + Gruppen/Paarungen nur außerhalb der Ligaphase — dort zeigt die Matrix den Topf-Inhalt
     /// selbst (abgeblendete Zeilen = noch im Topf).</summary>
     public bool AnimationZeigeListenmodus => AnimationLaeuft && !AnimationIstMatrixmodus;
+    private const int PAARUNGEN_JE_UEBERSICHT = 8;
 
     [ObservableProperty] private string? _animationFokusKopf;
 
@@ -1314,6 +1349,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         AnimationLaeuft           = false;
         AnimationWartetAufWeiter  = false;
+        AnimationBannerKopf       = BANNER_KOPF_MANNSCHAFT;
         AnimationBannerMannschaft = null;
         AnimationBannerTopf       = null;
         AnimationBannerZiel       = null;
@@ -1326,6 +1362,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         AnimationMatrizen         = [];
         AnimationFokusKopf        = null;
         AnimationFokusMatrix      = null;
+        AnimationFokusTopf        = null;
+        AnimationFokusGruppe      = null;
+        AnimationFokusPaarung     = null;
         AnimationZeigeUebersicht  = false;
     }
 
@@ -1348,7 +1387,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// siehe <see cref="ProGruppeGleichmaessigVerteilen"/>), damit nicht z.B. Gruppe A bereits ihre 2.
     /// Mannschaft aus diesem Topf erhält, während Gruppe B noch gar keine hat — die Umsortierung bleibt aber
     /// strikt auf den jeweiligen Topf beschränkt, ein bereits begonnener Topf wird also weiterhin vollständig
-    /// geleert, bevor der nächste beginnt.</summary>
+    /// geleert, bevor der nächste beginnt.
+    /// Paarungen (K.-o.-Runde) werden dagegen wie beim DFB-Pokal Paarung für Paarung gezogen — erst die
+    /// Heim-, dann die Auswärtsmannschaft, bei zwei Töpfen also abwechselnd aus beiden (#408).</summary>
     private static List<ZiehungsSchritt> ZiehungsSchritteAufbauen(
         IEnumerable<Lostopf> lostoepfe, IEnumerable<AuslosungsErgebnis> ergebnisse)
     {
@@ -1400,7 +1441,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             schritte.AddRange(istGruppenmodus ? ProGruppeGleichmaessigVerteilen(topfSchritte) : topfSchritte);
         }
 
-        return schritte;
+        return istGruppenmodus
+            ? schritte
+            : schritte.OrderBy(s => s.ZielNummer).ThenBy(s => s.IstFreilos || s.IstHeim == true ? 0 : 1).ToList();
     }
 
     /// <summary>Verteilt die Ziehungsschritte EINES Topfes gleichmäßig auf alle Zielgruppen: reihum wird aus
@@ -1437,7 +1480,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// AnimationGruppen/AnimationPaarungen werden vorab mit der vollen Anzahl leerer Plätze ("…") aufgebaut
     /// (nicht erst bei der ersten Zuweisung sichtbar) und danach Slot für Slot befüllt. Das bereits von
     /// LadeDetailAsync geladene Endergebnis wird während der Animation nicht verändert — es wird einfach
-    /// erst nach Animationsende (bzw. bei "Überspringen" sofort) sichtbar, siehe <see cref="ZeigeErgebnis"/>.</summary>
+    /// erst nach Animationsende (bzw. bei "Überspringen" sofort) sichtbar, siehe <see cref="ZeigeErgebnis"/>.
+    /// Gezeigt wird die Fokus-Ansicht (aktueller Topf plus Zielgruppe bzw. aktuelle Paarung); nach jedem
+    /// geleerten Topf bzw. nach je <see cref="PAARUNGEN_JE_UEBERSICHT"/> Paarungen folgt als eigener Schritt
+    /// die Gesamtübersicht (#408).</summary>
     private async Task ZiehungAnimierenAsync(List<ZiehungsSchritt> schritte)
     {
         if (schritte.Count == 0) return;
@@ -1464,6 +1510,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 {
                     GruppenNummer = g.Key,
                     GruppenName   = $"Gruppe {GruppenBuchstabe(g.Key)}",
+                    Kurzname      = GruppenBuchstabe(g.Key),
                     Slots         = new ObservableCollection<AnimationsGruppenSlot>(
                         Enumerable.Range(1, g.Count()).Select(p => new AnimationsGruppenSlot { Position = p }))
                 }));
@@ -1480,6 +1527,14 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             AnimationGruppen = [];
         }
 
+        // Eine Liga hat nur eine Gruppe: sie bleibt durchgehend im Fokus, der Schritt "Ziel" entfällt.
+        bool eineGruppe = AnimationGruppen.Count == 1;
+        if (eineGruppe) AnimationFokusGruppe = AnimationGruppen[0];
+
+        AnimationsGruppe? zielGruppe = null;
+        AnimationsGruppenSlot? neuerSlot = null;
+        int fertigePaarungen = 0;
+
         try
         {
             for (int i = 0; i < schritte.Count; i++)
@@ -1488,10 +1543,35 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 var schritt = schritte[i];
                 AnimationSchrittIndex = i + 1;
 
-                var topfSlot = AnimationToepfe
-                    .FirstOrDefault(t => t.TopfId == schritt.TopfId)?.Slots
-                    .FirstOrDefault(s => s.EintragId == schritt.Team.EintragId);
+                if (zielGruppe is not null) zielGruppe.IstZiel = false;
+                if (neuerSlot is not null) neuerSlot.IstNeu = false;
+                zielGruppe = null;
+                neuerSlot  = null;
+                if (!eineGruppe) AnimationFokusGruppe = null;
+
+                var topf = AnimationToepfe.FirstOrDefault(t => t.TopfId == schritt.TopfId);
+                AnimationFokusTopf = topf;
+
+                // 0) Neuer Topf (Gruppenphase): erst den vollen Topf zeigen, dann daraus ziehen
+                if (schritt.IstGruppenmodus && (i == 0 || schritte[i - 1].TopfId != schritt.TopfId))
+                {
+                    AnimationBannerKopf       = BANNER_KOPF_TOPF;
+                    AnimationBannerMannschaft = schritt.TopfName;
+                    AnimationBannerTopf       = topf is null ? null : $"{topf.Slots.Count} Teams";
+                    await WarteAufSchrittAsync(_tvModusAufdeckVerzoegerung);
+                    AnimationBannerKopf       = BANNER_KOPF_MANNSCHAFT;
+                    if (_animationUeberspringen) break;
+                }
+
+                // 1) Team ziehen — Fokus auf seinen Topf; die Zielgruppe ist noch offen, die Paarung steht
+                //    dagegen schon fest (es wird Paarung für Paarung gezogen)
+                var topfSlot = topf?.Slots.FirstOrDefault(s => s.EintragId == schritt.Team.EintragId);
                 if (topfSlot is not null) topfSlot.Gezogen = true;
+
+                var paarung = schritt.IstGruppenmodus
+                    ? null
+                    : AnimationPaarungen.First(p => p.PaarungsNr == schritt.ZielNummer);
+                if (paarung is not null) AnimationFokusPaarung = paarung;
 
                 AnimationBannerMannschaft = schritt.Team.Name;
                 AnimationBannerTopf       = schritt.TopfName;
@@ -1501,42 +1581,49 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 await WarteAufSchrittAsync(_tvModusSchrittVerzoegerung);
                 if (_animationUeberspringen) break;
 
-                AnimationBannerZiel = schritt.IstGruppenmodus
-                    ? $"Gruppe {GruppenBuchstabe(schritt.ZielNummer)}"
-                    : $"Paarung {schritt.ZielNummer}";
-                AnimationBannerSlot = schritt.IstGruppenmodus
-                    ? null
-                    : (schritt.IstFreilos ? "Freilos" : (schritt.IstHeim == true ? "Heim" : "Auswärts"));
-                await WarteAufSchrittAsync(_tvModusSchrittVerzoegerung);
-                if (_animationUeberspringen) break;
-
+                // 2) Ziel — die Gruppe erscheint im Fokus, in der Paarung wird das Team sofort eingetragen
                 if (schritt.IstGruppenmodus)
                 {
-                    AnimationBannerPosition = $"Position {schritt.Position}";
-                    await WarteAufSchrittAsync(_tvModusSchrittVerzoegerung);
-                    if (_animationUeberspringen) break;
-                }
-
-                if (schritt.IstGruppenmodus)
-                {
-                    var gruppe = AnimationGruppen.First(g => g.GruppenNummer == schritt.ZielNummer);
-                    var slot = gruppe.Slots[schritt.Position!.Value - 1];
-                    slot.Anzeige = schritt.Team.Name;
-                    slot.Wappen  = schritt.Team.Wappen;
+                    zielGruppe = AnimationGruppen.First(g => g.GruppenNummer == schritt.ZielNummer);
+                    if (!eineGruppe)
+                    {
+                        AnimationBannerZiel  = $"Gruppe {GruppenBuchstabe(schritt.ZielNummer)}";
+                        zielGruppe.IstZiel   = true;
+                        AnimationFokusGruppe = zielGruppe;
+                    }
                 }
                 else
                 {
-                    var paarung = AnimationPaarungen.First(p => p.PaarungsNr == schritt.ZielNummer);
+                    AnimationBannerZiel = $"Paarung {schritt.ZielNummer}";
+                    AnimationBannerSlot = schritt.IstFreilos ? "Freilos" : (schritt.IstHeim == true ? "Heim" : "Auswärts");
                     if (schritt.IstFreilos || schritt.IstHeim == true)
                     {
-                        paarung.Heim       = schritt.Team.Name;
+                        paarung!.Heim      = schritt.Team.Name;
                         paarung.HeimWappen = schritt.Team.Wappen;
                     }
                     else
                     {
-                        paarung.Auswaerts       = schritt.Team.Name;
+                        paarung!.Auswaerts      = schritt.Team.Name;
                         paarung.AuswaertsWappen = schritt.Team.Wappen;
                     }
+                }
+                if (!eineGruppe)
+                {
+                    await WarteAufSchrittAsync(_tvModusSchrittVerzoegerung);
+                    if (_animationUeberspringen) break;
+                }
+
+                // 3) Position — das Team erscheint gleichzeitig auf seinem Platz in der Gruppe
+                if (schritt.IstGruppenmodus)
+                {
+                    AnimationBannerPosition = $"Position {schritt.Position}";
+                    neuerSlot = zielGruppe!.Slots[schritt.Position!.Value - 1];
+                    neuerSlot.Anzeige = schritt.Team.Name;
+                    neuerSlot.Wappen  = schritt.Team.Wappen;
+                    neuerSlot.IstNeu  = true;
+                    zielGruppe.FuellstandAktualisieren();
+                    await WarteAufSchrittAsync(_tvModusSchrittVerzoegerung);
+                    if (_animationUeberspringen) break;
                 }
 
                 AnimationBannerMannschaft = null;
@@ -1544,10 +1631,37 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 AnimationBannerZiel       = null;
                 AnimationBannerSlot       = null;
                 AnimationBannerPosition   = null;
-                if (i < schritte.Count - 1)
+                if (i == schritte.Count - 1) break;
+
+                await WarteAufSchrittAsync(_tvModusPausenVerzoegerung);
+                if (_animationUeberspringen) break;
+
+                // 4) Gesamtübersicht: nach jedem geleerten Topf bzw. nach je acht fertigen Paarungen (nach dem
+                //    letzten Schritt folgt direkt die Ergebnisanzeige)
+                string? uebersichtTitel = null;
+                if (schritt.IstGruppenmodus)
                 {
-                    await WarteAufSchrittAsync(_tvModusPausenVerzoegerung);
+                    if (schritte[i + 1].TopfId != schritt.TopfId) uebersichtTitel = $"{schritt.TopfName} komplett";
+                }
+                else if (schritte[i + 1].ZielNummer != schritt.ZielNummer)
+                {
+                    fertigePaarungen++;
+                    if (fertigePaarungen % PAARUNGEN_JE_UEBERSICHT == 0)
+                        uebersichtTitel = $"{fertigePaarungen} von {AnimationPaarungen.Count} Paarungen gezogen";
+                }
+
+                if (uebersichtTitel is not null)
+                {
+                    AnimationZeigeUebersicht  = true;
+                    AnimationBannerKopf       = BANNER_KOPF_ZWISCHENSTAND;
+                    AnimationBannerMannschaft = uebersichtTitel;
+                    AnimationBannerTopf       = schritt.IstGruppenmodus ? "Zwischenstand aller Gruppen" : "Zwischenstand aller Paarungen";
+                    await WarteAufSchrittAsync(_tvModusUebersichtVerzoegerung);
                     if (_animationUeberspringen) break;
+                    AnimationBannerKopf       = BANNER_KOPF_MANNSCHAFT;
+                    AnimationBannerMannschaft = null;
+                    AnimationBannerTopf       = null;
+                    AnimationZeigeUebersicht  = false;
                 }
             }
         }
@@ -1676,9 +1790,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 if (topfIndex < matrizen.Count - 1)
                 {
                     AnimationZeigeUebersicht  = true;
+                    AnimationBannerKopf       = BANNER_KOPF_ZWISCHENSTAND;
                     AnimationBannerMannschaft = $"{matrix.Name} komplett";
                     AnimationBannerTopf       = "Zwischenstand aller Töpfe";
                     await WarteAufSchrittAsync(_tvModusUebersichtVerzoegerung);
+                    AnimationBannerKopf       = BANNER_KOPF_MANNSCHAFT;
                     AnimationBannerMannschaft = null;
                     AnimationBannerTopf       = null;
                 }
