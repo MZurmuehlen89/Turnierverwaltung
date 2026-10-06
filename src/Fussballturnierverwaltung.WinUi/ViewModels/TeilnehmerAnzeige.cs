@@ -10,14 +10,17 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// müssen, siehe WinUi-CLAUDE.md). <see cref="EintragId"/> (Default 0, ungenutzt von Vorbelegung) identifiziert
 /// den zugehörigen <see cref="LostopfEintrag"/> — nötig, damit Auslosung (#300) gezielt einen Eintrag aus
 /// einem Lostopf entfernen kann, ohne nach Name/MannschaftId zu suchen (mehrere Platzhalter könnten gleich
-/// heißen). <see cref="LandName"/> speist den Länderfilter der verfügbaren Teams in der Auslosung (#344).</summary>
+/// heißen). <see cref="LandName"/> speist den Länderfilter der verfügbaren Teams in der Auslosung (#344),
+/// <see cref="VerbandId"/>/<see cref="VerbandName"/> den Filter nach Kontinentalverband (#421) — der Name kommt vom
+/// Aufrufer, weil die Mannschaftsabfragen den Verband (samt Logo) nicht mitladen.</summary>
 public record TeilnehmerAnzeige(int? MannschaftId, string Name, string? Kuerzel, int EintragId = 0, int? LandId = null, byte[]? Wappen = null,
-                                string? LandName = null)
+                                string? LandName = null, int? VerbandId = null, string? VerbandName = null)
 {
     public bool IstPlatzhalter => !MannschaftId.HasValue;
 
     public static TeilnehmerAnzeige AusMannschaft(Mannschaft m) =>
-        new(m.Id, m.Name, m.Land?.Kurzname, LandId: m.LandId, Wappen: MannschaftsIcon(m), LandName: m.Land?.Name);
+        new(m.Id, m.Name, m.Land?.Kurzname, LandId: m.LandId, Wappen: MannschaftsIcon(m), LandName: m.Land?.Name,
+            VerbandId: m.Land?.VerbandId);
 
     public static TeilnehmerAnzeige AusPlatzhalter(string name) =>
         new(null, name, null);

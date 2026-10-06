@@ -77,4 +77,5 @@ public class LandesQuoteAnzeigeViewModel
 
 public record AuslosungsartOption(string Anzeige, Auslosungsart Wert);
 public record RanglisteOption(string Anzeige, Rangliste? Wert);
-public record TeilnehmerLandOption(string Anzeige, int? LandId);
+public record TeilnehmerVerbandOption(string Anzeige, int? VerbandId);
+public record TeilnehmerLandOption(string Anzeige, int? LandId, int? VerbandId = null);

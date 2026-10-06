@@ -39,6 +39,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly AuslosungService _auslosungService;
     private readonly TurnierInstanzService _instanzService;
     private readonly MannschaftService _mannschaftService;
+    private readonly VerbandService _verbandService;
     private readonly SpielplanService _spielplanService;
     private readonly TurnierBaumService _baumService;
     private readonly VerbandsQuoteService _verbandsQuoteService;
@@ -48,6 +49,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly ILogger<AuslosungViewModel> _logger;
 
     private TurnierInstanz? _instanz;
+    private IReadOnlyDictionary<int, string>? _verbandKurznamen;
     private Auslosung? _auslosungDetail;
     private bool _ladenAktiv;
     private bool _seitenlisteAktualisierungAktiv;
@@ -359,6 +361,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         AuslosungService auslosungService,
         TurnierInstanzService instanzService,
         MannschaftService mannschaftService,
+        VerbandService verbandService,
         SpielplanService spielplanService,
         TurnierBaumService baumService,
         RanglisteService ranglisteService,
@@ -371,6 +374,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _auslosungService = auslosungService;
         _instanzService = instanzService;
         _mannschaftService = mannschaftService;
+        _verbandService = verbandService;
         _spielplanService = spielplanService;
         _baumService = baumService;
         _verbandsQuoteService = verbandsQuoteService;
@@ -413,6 +417,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         Ziehung.Beenden();
         _instanz = instanz;
+        _verbandKurznamen = null;
         // Eine hinter diesem Wechsel wartende Aktion darf nicht mehr auf dem bisherigen Detail arbeiten (#413).
         _auslosungDetail = null;
         KeinTurnierGewaehlt = instanz is null;
@@ -802,7 +807,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             if (detail is null) return;
             _auslosungDetail = detail;
 
-            Arbeitsbereich.Zeigen(detail, await TeilnehmerPoolErmittelnAsync(detail));
+            Arbeitsbereich.Zeigen(detail, await TeilnehmerPoolErmittelnAsync(detail),
+                _instanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
 
             await AktualisiereVerbandsQuotenAnzeigeAsync(detail);
             await AktualisiereLandesQuotenAnzeigeAsync(detail);
@@ -936,7 +942,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     _instanz?.VerbandId,
                     _instanz?.LandId,
                     _instanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
-                return teams.Select(TeilnehmerAnzeige.AusMannschaft).ToList();
+                var verbandKurznamen = await VerbandKurznamenAsync();
+                return teams
+                    .Select(TeilnehmerAnzeige.AusMannschaft)
+                    .Select(t => t with { VerbandName = verbandKurznamen.GetValueOrDefault(t.VerbandId ?? 0) })
+                    .ToList();
             }
             else
             {
@@ -944,6 +954,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             }
         }
     }
+
+    /// <summary>Kurznamen der Verbände für den Verbandsfilter der verfügbaren Teams (#421). Je Turnier einmal
+    /// geladen: der Teilnehmer-Pool wird nach jeder Topf-Änderung neu ermittelt, und die Mannschaftsabfrage lädt
+    /// den Verband bewusst nicht mit (sein Logo käme sonst in jeder Mannschaftszeile mit).</summary>
+    private async Task<IReadOnlyDictionary<int, string>> VerbandKurznamenAsync() =>
+        _verbandKurznamen ??= (await _verbandService.AlleAbrufenAsync()).ToDictionary(v => v.Id, v => v.Kurzname);
 
     private async Task AktualisiereSeitenlisteAsync()
     {

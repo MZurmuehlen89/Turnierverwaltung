@@ -6,6 +6,7 @@ using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using System.Collections.ObjectModel;
@@ -26,7 +27,7 @@ public interface ILostopfArbeitsbereichKontext
     void FehlerMelden(string? meldung);
 }
 
-/// <summary>Arbeitsbereich einer offenen Auslosung: Liste der verfügbaren Teams mit Text- und Länderfilter (#344),
+/// <summary>Arbeitsbereich einer offenen Auslosung: Liste der verfügbaren Teams mit ihren Filtern (#344, #421),
 /// die Lostöpfe, Teams hinzufügen/entfernen/verschieben und die automatische Befüllung nach Rangliste (#119).
 /// Kind-ViewModel von <see cref="AuslosungViewModel"/>. Den Schutz des geteilten DbContext betritt es nur an
 /// seinen Einstiegspunkten (Befehle, Aufrufe aus dem Code-Behind) — er ist nicht wiedereintrittsfähig.</summary>
@@ -60,7 +61,7 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     public ObservableCollection<TeilnehmerAnzeige> VerfuegbareTeilnehmer { get; } = [];
     public ObservableCollection<TeilnehmerAnzeige> VerfuegbareTeilnehmerGefiltert { get; } = [];
 
-    /// <summary>Text- und Länderfilter über der Verfügbar-Liste.</summary>
+    /// <summary>Text-, Verbands- und Länderfilter über der Verfügbar-Liste.</summary>
     public TeilnehmerFilterViewModel Filter { get; }
 
     private static (int?, string) TeilnehmerSchluessel(TeilnehmerAnzeige t) =>
@@ -159,10 +160,11 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     }
 
     /// <summary>Gleicht Verfügbar-Liste und Lostöpfe mit dem geladenen Stand von <paramref name="detail"/> ab;
-    /// <paramref name="alleTeilnehmer"/> sind alle für die Runde in Frage kommenden Teams.</summary>
-    public void Zeigen(Auslosung detail, IReadOnlyList<TeilnehmerAnzeige> alleTeilnehmer)
+    /// <paramref name="alleTeilnehmer"/> sind alle für die Runde in Frage kommenden Teams,
+    /// <paramref name="mannschaftsart"/> ist die Vorgabe aus dem Turnierkopf (bestimmt die angebotenen Filter).</summary>
+    public void Zeigen(Auslosung detail, IReadOnlyList<TeilnehmerAnzeige> alleTeilnehmer, MannschaftsartFilter mannschaftsart)
     {
-        VerfuegbareAbgleichen(detail, alleTeilnehmer);
+        VerfuegbareAbgleichen(detail, alleTeilnehmer, mannschaftsart);
         LostoepfeAbgleichen(detail);
 
         TeamsZugewiesen = detail.Lostoepfe.SelectMany(l => l.Eintraege).Count();
@@ -177,7 +179,8 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
 
     /// <summary>Verfügbar ist, wer noch in keinem Lostopf liegt. Abgleich statt Neuanlage, damit Scrollposition
     /// und Auswahl erhalten bleiben (#388).</summary>
-    private void VerfuegbareAbgleichen(Auslosung detail, IReadOnlyList<TeilnehmerAnzeige> alleTeilnehmer)
+    private void VerfuegbareAbgleichen(Auslosung detail, IReadOnlyList<TeilnehmerAnzeige> alleTeilnehmer,
+        MannschaftsartFilter mannschaftsart)
     {
         var eintraege = detail.Lostoepfe.SelectMany(l => l.Eintraege).ToList();
         var zugeordneteMannschaftIds = eintraege.Where(e => e.MannschaftId.HasValue).Select(e => e.MannschaftId!.Value).ToHashSet();
@@ -193,9 +196,9 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
                 .ToList(),
             TeilnehmerSchluessel);
 
-        // Die Länderoptionen werden VOR der gefilterten Liste nachgezogen: fällt das gewählte Land weg, setzt
-        // LandFilterOptionenSynchronisieren den Filter zurück und die Liste wird nur einmal abgeglichen.
-        Filter.LandFilterOptionenSynchronisieren();
+        // Die Filteroptionen werden VOR der gefilterten Liste nachgezogen: fällt die gewählte Option weg, steht
+        // der Filter schon wieder auf „Alle“, wenn die Liste abgeglichen wird.
+        Filter.OptionenAbgleichen(mannschaftsart);
         GefilterteTeilnehmerAbgleichen();
     }
 
