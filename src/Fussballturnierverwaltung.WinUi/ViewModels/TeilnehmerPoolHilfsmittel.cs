@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -45,7 +46,7 @@ public static class TeilnehmerPoolHilfsmittel
                     : Enumerable.Range(1, anzahlBeste)
                         .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"{i}. bester {regel.PlatzierungVon}. Platz"));
 
-            var buchstabe = regel.GruppeIndex is { } g ? GruppenBuchstabe(g) : "?";
+            var buchstabe = regel.GruppeIndex is { } g ? GruppenHerkunft.Buchstabe(g) : "?";
             return Enumerable.Range(regel.PlatzierungVon, regel.PlatzierungBis - regel.PlatzierungVon + 1)
                 .Select(platz => TeilnehmerAnzeige.AusPlatzhalter($"{platz}. Gruppe {buchstabe}"));
         }
@@ -75,7 +76,7 @@ public static class TeilnehmerPoolHilfsmittel
             var liste = new List<TeilnehmerAnzeige>();
             for (int platz = 1; platz <= proGruppe; platz++)
                 for (int g = 0; g < gruppen; g++)
-                    liste.Add(TeilnehmerAnzeige.AusPlatzhalter($"{platz}. Gruppe {GruppenBuchstabe(g + 1)}"));
+                    liste.Add(TeilnehmerAnzeige.AusPlatzhalter($"{platz}. Gruppe {GruppenHerkunft.Buchstabe(g + 1)}"));
             return liste.Take(anzahl).ToList();
         }
 
@@ -92,6 +93,4 @@ public static class TeilnehmerPoolHilfsmittel
             .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"Platz {i} ({vorherigeRunde.Name})"))
             .ToList();
     }
-
-    private static string GruppenBuchstabe(int nr) => nr <= 26 ? ((char)('A' + nr - 1)).ToString() : $"G{nr}";
 }

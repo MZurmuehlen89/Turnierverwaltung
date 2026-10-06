@@ -5,8 +5,7 @@ using System.Collections.ObjectModel;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-// ── Darstellungstypen — 1:1 aus Wpf/ViewModels/AuslosungViewModel.cs portiert, ohne TV-Modus (#303-Backlog)
-// und ohne Auslosungsart.Manuell (bleibt beim bestehenden VorbelegungViewModel, #297) ──────────────────────
+// ── Darstellungstypen des Auslosung-Reiters: Lostöpfe, Ergebnisanzeige, Regeln, Quoten, ComboBox-Optionen ──
 
 public class LostopfViewModel : ObservableObject
 {

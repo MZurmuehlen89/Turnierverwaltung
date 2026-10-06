@@ -93,7 +93,4 @@ public static class AuslosungAnzeigeTexte
                 "keine Auswirkung, alle Teams landen unabhängig davon in derselben Gruppe.",
             _ => null
         };
-
-    public static string GruppenBuchstabe(int nr) =>
-        nr <= 26 ? ((char)('A' + nr - 1)).ToString() : $"G{nr}";
 }

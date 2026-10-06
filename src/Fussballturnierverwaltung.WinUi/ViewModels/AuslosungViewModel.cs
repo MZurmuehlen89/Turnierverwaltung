@@ -1252,8 +1252,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 schritte.GroupBy(s => s.ZielNummer).OrderBy(g => g.Key).Select(g => new AnimationsGruppe
                 {
                     GruppenNummer = g.Key,
-                    GruppenName   = $"Gruppe {AuslosungAnzeigeTexte.GruppenBuchstabe(g.Key)}",
-                    Kurzname      = AuslosungAnzeigeTexte.GruppenBuchstabe(g.Key),
+                    GruppenName   = $"Gruppe {GruppenHerkunft.Buchstabe(g.Key)}",
+                    Kurzname      = GruppenHerkunft.Buchstabe(g.Key),
                     Slots         = new ObservableCollection<AnimationsGruppenSlot>(
                         Enumerable.Range(1, g.Count()).Select(p => new AnimationsGruppenSlot { Position = p }))
                 }));
@@ -1330,7 +1330,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     zielGruppe = AnimationGruppen.First(g => g.GruppenNummer == schritt.ZielNummer);
                     if (!eineGruppe)
                     {
-                        AnimationBannerZiel  = $"Gruppe {AuslosungAnzeigeTexte.GruppenBuchstabe(schritt.ZielNummer)}";
+                        AnimationBannerZiel  = $"Gruppe {GruppenHerkunft.Buchstabe(schritt.ZielNummer)}";
                         zielGruppe.IstZiel   = true;
                         AnimationFokusGruppe = zielGruppe;
                     }
@@ -1809,7 +1809,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 .Select(art =>
                 {
                     var vorh = detail.Regeln.FirstOrDefault(r => r.Regelart == art);
-                    return new RegelViewModel(art, RegelAnzeigeName(art), AuslosungAnzeigeTexte.RegelBeschreibung(art), vorh?.IstAktiv ?? false,
+                    return new RegelViewModel(art, AuslosungsRegelKompatibilitaet.AnzeigeName(art), AuslosungAnzeigeTexte.RegelBeschreibung(art), vorh?.IstAktiv ?? false,
                         async aktiv =>
                         {
                             using var schutz = await DbContextSchutz.BetretenAsync();
@@ -1825,7 +1825,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                                         andere.OhneSpeichernSetzen(false);
                                         await _auslosungService.RegelDeaktivierenAsync(auslosungId, andere.Regelart);
                                     }
-                                    await _auslosungService.RegelHinzufuegenOderAktivierenAsync(auslosungId, art, RegelAnzeigeName(art));
+                                    await _auslosungService.RegelHinzufuegenOderAktivierenAsync(auslosungId, art, AuslosungsRegelKompatibilitaet.AnzeigeName(art));
                                 }
                                 else await _auslosungService.RegelDeaktivierenAsync(auslosungId, art);
                             }
@@ -1861,7 +1861,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                         .OrderBy(g => g.Key)
                         .Select(g => new GruppenErgebnisAnzeige(
                             g.Key,
-                            $"Gruppe {AuslosungAnzeigeTexte.GruppenBuchstabe(g.Key)}",
+                            $"Gruppe {GruppenHerkunft.Buchstabe(g.Key)}",
                             g.Select(e => new GruppenTeamAnzeige(
                                     e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
                                     TeilnehmerAnzeige.MannschaftsIcon(e.HeimMannschaft)))
@@ -2183,6 +2183,4 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 .Where(x => x.index % 2 == 0)
                 .Select(x => new FokusGegnerEintrag(x.spalte.TopfName, fokusZeile.Gegner[x.index], fokusZeile.Gegner[x.index + 1])));
     }
-
-    private static string RegelAnzeigeName(AuslosungsRegelArt art) => AuslosungsRegelKompatibilitaet.AnzeigeName(art);
 }

@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Turniere;
@@ -38,7 +39,7 @@ public static class PlatzhalterHilfsmittel
             if (regel.AnzahlBeste is { } anzahlBeste)
                 return Enumerable.Range(1, anzahlBeste).Select(i => $"{i}. bester {regel.PlatzierungVon}. Platz");
 
-            var buchstabe = regel.GruppeIndex is { } g ? GruppenBuchstabe(g) : "?";
+            var buchstabe = regel.GruppeIndex is { } g ? GruppenHerkunft.Buchstabe(g) : "?";
             return Enumerable.Range(regel.PlatzierungVon, regel.PlatzierungBis - regel.PlatzierungVon + 1)
                 .Select(platz => $"{platz}. Gruppe {buchstabe}");
         }
@@ -53,6 +54,4 @@ public static class PlatzhalterHilfsmittel
         return Enumerable.Range(regel.PlatzierungVon, regel.PlatzierungBis - regel.PlatzierungVon + 1)
             .Select(platz => $"Platz {platz} ({regel.QuellName})");
     }
-
-    private static string GruppenBuchstabe(int nr) => nr <= 26 ? ((char)('A' + nr - 1)).ToString() : $"G{nr}";
 }

@@ -323,7 +323,7 @@ public partial class VorbelegungWorkspace : ObservableObject
                     Enumerable.Range(1, gruppenAnzahl).Select(gNr => new ManuelleGruppe
                     {
                         GruppenNr   = gNr,
-                        GruppenName = $"Gruppe {GruppenBuchstabe(gNr)}",
+                        GruppenName = $"Gruppe {GruppenHerkunft.Buchstabe(gNr)}",
                         Slots       = new ObservableCollection<ManuellerGruppenSlot>(
                             Enumerable.Range(1, slotsProGruppe).Select(sNr => new ManuellerGruppenSlot
                             {
@@ -420,8 +420,6 @@ public partial class VorbelegungWorkspace : ObservableObject
             ? new TeilnehmerAnzeige(e.AuswaertsMannschaftId, e.AuswaertsMannschaft?.Name ?? "?", e.AuswaertsMannschaft?.Land?.Kurzname,
                 LandId: e.AuswaertsMannschaft?.LandId, Wappen: TeilnehmerAnzeige.MannschaftsIcon(e.AuswaertsMannschaft))
             : TeilnehmerAnzeige.AusPlatzhalter(e.AuswaertsPlatzhalterName ?? "?");
-
-    private static string GruppenBuchstabe(int nr) => nr <= 26 ? ((char)('A' + nr - 1)).ToString() : $"G{nr}";
 
     // ── Öffentliche Methoden: Slot-Zuweisung (Drag&Drop/Doppelklick-Ziel im View-Code-behind) ──────
 
