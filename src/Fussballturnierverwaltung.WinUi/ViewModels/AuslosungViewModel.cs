@@ -627,6 +627,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 IstLadend = true;
                 try
                 {
+                    // TEMPORÄR (#390-Messung): Wann arbeitet der UI-Thread nach dem Neuladen der Auslosung wieder
+                    // Nachrichten ab? Solange er beschäftigt ist, wartet auch die Fortsetzung der ersten
+                    // Datenbankabfrage der Turnierbaum-Aktualisierung.
+                    var uiUhr = System.Diagnostics.Stopwatch.StartNew();
+                    Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread()?.TryEnqueue(() =>
+                        _logger.LogInformation("Messung #390: UI-Thread wieder frei nach {Dauer} ms", uiUhr.ElapsedMilliseconds));
+
                     using (_logger.Vorgang($"Auslosung: Turnierbaum aktualisieren (Instanz {detail.TurnierInstanzId})"))
                         await TurnierBaumAktualisierenAsync(detail.TurnierInstanzId);
                     await AktualisiereSeitenlisteAsync();
