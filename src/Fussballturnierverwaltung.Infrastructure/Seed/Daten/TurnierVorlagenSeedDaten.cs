@@ -26,7 +26,9 @@ public static class TurnierVorlagenSeedDaten
             FifaKlubWm32Teams(regelwerkLookup),
             UefaEm24Teams(regelwerkLookup, verbandLookup),
             UefaEm16Teams(regelwerkLookup, verbandLookup),
-            UefaEm8Teams(regelwerkLookup, verbandLookup),
+            UefaEm8Teams1984Bis1992(regelwerkLookup, verbandLookup),
+            UefaEm8Teams1980(regelwerkLookup, verbandLookup),
+            UefaEm4Teams(regelwerkLookup, verbandLookup),
             UefaNationsLeagueLigaA(regelwerkLookup, verbandLookup),
             CopaAmerica16Teams(regelwerkLookup),
             CopaAmerica12Teams(regelwerkLookup),
@@ -172,8 +174,15 @@ public static class TurnierVorlagenSeedDaten
     public const string FIFA_STANDARD_MODERN = "FIFA Standard Modern (3-Punkte)";
     public const string COPA_DIREKTES_ELFMETERSCHIESSEN = "CONMEBOL Copa América (direktes Elfmeterschießen)";
 
-    // Seed-Beschreibungen der Copa-Vorlagen vor #374 — die Nachrüstung zieht die Beschreibung nur mit, solange
-    // sie noch diesem Stand entspricht.
+    // Regelwerk-Namen der frühen Europameisterschaften (Issue #375): bis 1992 zwei Punkte je Sieg, Verlängerung +
+    // Elfmeterschießen; das Spiel um Platz 3 von 1980 ging ohne Verlängerung direkt ins Elfmeterschießen. Die
+    // frühere Sammelvorlage stand auf dem Regelwerk mit Wiederholungsspiel + Los.
+    public const string FIFA_HISTORISCH_2_PUNKTE = "FIFA Historisch (2-Punkte, vor 1994)";
+    public const string HISTORISCH_WIEDERHOLUNGSSPIEL_LOS = "Historisch: Wiederholungsspiel + Los";
+    public const string EM_1980_DIREKTES_ELFMETERSCHIESSEN = "UEFA EM 1980 (direktes Elfmeterschießen)";
+
+    // Seed-Beschreibungen vor #374 (Copa América) und #375 (EM mit 8 Teams) — die Nachrüstung zieht die
+    // Beschreibung nur mit, solange sie noch diesem Stand entspricht.
     public static IReadOnlyDictionary<(string Name, string Variante), string> AlteBeschreibungen { get; } =
         new Dictionary<(string Name, string Variante), string>
     {
@@ -183,6 +192,7 @@ public static class TurnierVorlagenSeedDaten
         [("Copa América", "12 Teams · 1993–2019")] =
             "Gruppenphase (3×4, Erste/Zweite + 2 beste Dritte) → Viertelfinale → Halbfinale → " +
             "Spiel um Platz 3 + Finale; 10 CONMEBOL-Teams + 2 Gäste, daher ohne Verbandsfilter",
+        [("UEFA EM", EM_8_TEAMS_1984_BIS_1992)] = "Halbfinale → Finale + Spiel um Platz 3",
     };
 
     // Issue #350/#367: umbenannte Vorlagen (alter Name → neuer Name + Variante) — die Nachrüstung identifiziert
@@ -199,7 +209,7 @@ public static class TurnierVorlagenSeedDaten
         ["FIFA WM (16 Teams, 1934–1978)"]                                       = ("FIFA WM", "16 Teams · 1934–1978"),
         ["UEFA EM (24 Teams, 2016+)"]                                           = ("UEFA EM", "24 Teams · 2016+"),
         ["UEFA EM (16 Teams, 1996–2012)"]                                       = ("UEFA EM", "16 Teams · 1996–2012"),
-        ["UEFA EM (8 Teams, 1960–1992)"]                                        = ("UEFA EM", "8 Teams · 1960–1992"),
+        ["UEFA EM (8 Teams, 1960–1992)"]                                        = ("UEFA EM", EM_8_TEAMS_1984_BIS_1992),
         ["UEFA Nations League Liga A (16 Teams, ab 2024/25)"]                   = ("UEFA Nations League Liga A", "16 Teams · ab 2024/25"),
         ["Copa América (16 Teams, 2016/2024)"]                                  = ("Copa América", "16 Teams · 2016/2024"),
         ["Copa América (12 Teams, 1993–2019)"]                                  = ("Copa América", "12 Teams · 1993–2019"),
@@ -223,6 +233,18 @@ public static class TurnierVorlagenSeedDaten
         ["UEFA Champions League (36 Teams, ab 2024/25)"]                        = ("UEFA Champions League", "36 Teams · ab 2024/25"),
         ["UEFA Europa League (36 Teams, ab 2024/25)"]                           = ("UEFA Europa League", "36 Teams · ab 2024/25"),
         ["UEFA Conference League (36 Teams, ab 2024/25)"]                       = ("UEFA Conference League", "36 Teams · ab 2024/25"),
+    };
+
+    // Issue #375: die frühere Vorlage "UEFA EM · 8 Teams · 1960–1992" fasste drei verschiedene Formate zusammen.
+    // Die Bestands-Zeile wird zur Vorlage 1984–1992 (ihrem Aufbau am nächsten, siehe
+    // SeedDatenService.TurnierVorlageEm8SpielUmPlatzDreiEntfernen), die Formate 1960–1976 und 1980 kommen neu hinzu.
+    public const string EM_8_TEAMS_1984_BIS_1992 = "8 Teams · 1984–1992";
+
+    // Vorlagen, deren Variante sich seit #367 geändert hat (Name + alte Variante → neue Variante).
+    public static IReadOnlyDictionary<(string Name, string Variante), string> VariantenUmbenennungen { get; } =
+        new Dictionary<(string Name, string Variante), string>
+    {
+        [("UEFA EM", "8 Teams · 1960–1992")] = EM_8_TEAMS_1984_BIS_1992,
     };
 
     // Für Nachrüstung bestehender DBs: (Name, Variante) → Soll-Filterwerte (VerbandId, LandId, MannschaftsartFilter)
@@ -414,29 +436,91 @@ public static class TurnierVorlagenSeedDaten
         return v;
     }
 
-    private static TurnierInstanz UefaEm8Teams(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband)
+    // Issue #375: Format der Endrunden 1984, 1988 und 1992 — Halbfinale über Kreuz, kein Spiel um Platz 3 mehr.
+    private static TurnierInstanz UefaEm8Teams1984Bis1992(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband)
     {
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
             Name = "UEFA EM",
-            Variante = "8 Teams · 1960–1992",
-            Beschreibung = "Halbfinale → Finale + Spiel um Platz 3",
+            Variante = EM_8_TEAMS_1984_BIS_1992,
+            Beschreibung = "Gruppenphase (2×4) → Halbfinale (1A–2B, 1B–2A) → Finale (kein Spiel um Platz 3); " +
+                           "2 Punkte je Sieg",
             ZielMannschaftsanzahl = 8,
             Kategorie = TurnierKategorie.Kontinentalmeisterschaft,
-            Startdatum = new DateOnly(1960, 1, 1),
+            Startdatum = new DateOnly(1984, 1, 1),
             Enddatum = new DateOnly(1992, 12, 31),
             MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
             VerbandId = VId(verband, "UEFA"),
         };
-        int? rId = RwId(rw, "Historisch: Wiederholungsspiel + Los");
-        v.Runden.Add(Runde(1, "Gruppenphase",     Rundenart.Gruppenphase,     8,  4, gruppen: 2, regelwerkId: rId));
-        v.Runden.Add(Runde(2, "Halbfinale",       Rundenart.KoRunde,          4,  2, regelwerkId: rId));
-        v.Runden.Add(Runde(3, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei, 2,  1, regelwerkId: rId));
-        v.Runden.Add(Runde(4, "Finale",           Rundenart.Finale,           2,  1, regelwerkId: rId));
+        int? rId = RwId(rw, FIFA_HISTORISCH_2_PUNKTE);
+        v.Runden.Add(Runde(1, "Gruppenphase", Rundenart.Gruppenphase, 8, 4, gruppen: 2, regelwerkId: rId));
+        v.Runden.Add(Runde(2, "Halbfinale",   Rundenart.KoRunde,      4, 2, regelwerkId: rId));
+        v.Runden.Add(Runde(3, "Finale",       Rundenart.Finale,       2, 1, regelwerkId: rId));
         GruppenUebergaenge(v, direktProGruppe: 2);
         // Issue #372: Halbfinale über Kreuz wie 1984–1992.
         FesterKoBaum(v, tabelle: null, "1A-2B", "1B-2A");
+        return v;
+    }
+
+    // Issue #375: die Endrunde 1980 hatte kein Halbfinale — die Gruppensieger spielten das Finale, die
+    // Gruppenzweiten das Spiel um Platz 3 (ohne Verlängerung direkt ins Elfmeterschießen).
+    private static TurnierInstanz UefaEm8Teams1980(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband)
+    {
+        var v = new TurnierInstanz
+        {
+            Status = TurnierStatus.Vorlage,
+            Name = "UEFA EM",
+            Variante = "8 Teams · 1980",
+            Beschreibung = "Gruppenphase (2×4) → Gruppensieger im Finale, Gruppenzweite im Spiel um Platz 3 " +
+                           "(kein Halbfinale); 2 Punkte je Sieg; Spiel um Platz 3 bei Unentschieden direkt Elfmeterschießen",
+            ZielMannschaftsanzahl = 8,
+            Kategorie = TurnierKategorie.Kontinentalmeisterschaft,
+            Startdatum = new DateOnly(1980, 1, 1),
+            Enddatum = new DateOnly(1980, 12, 31),
+            MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
+            VerbandId = VId(verband, "UEFA"),
+        };
+        int? rId = RwId(rw, FIFA_HISTORISCH_2_PUNKTE);
+        var gruppenphase = Runde(1, "Gruppenphase",     Rundenart.Gruppenphase,     8, 4, gruppen: 2, regelwerkId: rId);
+        var platzDrei    = Runde(2, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei, 2, 1, regelwerkId: RwId(rw, EM_1980_DIREKTES_ELFMETERSCHIESSEN));
+        var finale       = Runde(3, "Finale",           Rundenart.Finale,           2, 1, regelwerkId: rId);
+        for (int gruppe = 1; gruppe <= 2; gruppe++)
+        {
+            Uebergang(gruppenphase, finale,    gruppe, platzierungVon: 1, platzierungBis: 1);
+            Uebergang(gruppenphase, platzDrei, gruppe, platzierungVon: 2, platzierungBis: 2);
+        }
+        v.Runden.Add(gruppenphase);
+        v.Runden.Add(platzDrei);
+        v.Runden.Add(finale);
+        FestePaarungen(v, platzDrei, [(GruppenPlatz("2A"), GruppenPlatz("2B"))]);
+        FestePaarungen(v, finale,    [(GruppenPlatz("1A"), GruppenPlatz("1B"))]);
+        return v;
+    }
+
+    // Issue #375: Endrunden 1960–1976 mit vier Teams, die Halbfinals wurden ausgelost. Die Qualifikation davor
+    // (K.-o.-Runden mit Hin-/Rückspiel, ab 1968 mit Gruppen) ist nicht Teil der Vorlage.
+    private static TurnierInstanz UefaEm4Teams(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband)
+    {
+        var v = new TurnierInstanz
+        {
+            Status = TurnierStatus.Vorlage,
+            Name = "UEFA EM",
+            Variante = "4 Teams · 1960–1976",
+            Beschreibung = "Endrunde: Halbfinale → Spiel um Platz 3 + Finale; Verlängerung + Elfmeterschießen (Stand 1976) – " +
+                           "bis 1972 entschied nach der Verlängerung im Halbfinale der Münzwurf, im Finale ein " +
+                           "Wiederholungsspiel (Regelwerk ggf. umstellen)",
+            ZielMannschaftsanzahl = 4,
+            Kategorie = TurnierKategorie.Kontinentalmeisterschaft,
+            Startdatum = new DateOnly(1960, 1, 1),
+            Enddatum = new DateOnly(1976, 12, 31),
+            MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
+            VerbandId = VId(verband, "UEFA"),
+        };
+        int? rId = RwId(rw, FIFA_HISTORISCH_2_PUNKTE);
+        v.Runden.Add(Runde(1, "Halbfinale",       Rundenart.KoRunde,          4, 2, regelwerkId: rId));
+        v.Runden.Add(Runde(2, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei, 2, 1, regelwerkId: rId));
+        v.Runden.Add(Runde(3, "Finale",           Rundenart.Finale,           2, 1, regelwerkId: rId));
         return v;
     }
 

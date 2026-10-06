@@ -61,8 +61,9 @@ public class FesteKoBaeumeSeedTests
         Tabelle(name).GruppeFuer(platz, qualifiziert.Select(c => c.ToString())).Should().Be(gruppe);
     }
 
-    // Jede fest vorbelegte Runde: richtige Paarungsanzahl, jeder Platzhalter genau einmal; die erste K.-o.-Runde
-    // deckt genau die über Gruppenrang bzw. Kombinationstabelle weitergeleiteten Plätze ab.
+    // Jede fest vorbelegte Runde: richtige Paarungsanzahl, jeder Platzhalter genau einmal; die aus der Gruppenphase
+    // gespeisten Runden decken genau die über Gruppenrang bzw. Kombinationstabelle weitergeleiteten Plätze ab — in
+    // der Regel die erste K.-o.-Runde, bei der EM 1980 Finale und Spiel um Platz 3 (#375).
     [Fact]
     public void Erstellen_FesteKoBaeumeSindVollstaendigUndKonsistent()
     {
@@ -89,9 +90,10 @@ public class FesteKoBaeumeSeedTests
             }
 
             var erste = koRunden.First();
-            var plaetze = vorlage.Auslosungen.Single(a => a.TurnierRunde == erste).Ergebnisse
-                .SelectMany(e => new[] { e.HeimPlatzhalterName!, e.AuswaertsPlatzhalterName! }).ToList();
-            int direkt = (erste.EingangsMannschaftsanzahl - (Kombinationstabelle.AusJson(erste.KombinationstabelleJson)?.AnzahlBeste ?? 0)) / gruppen;
+            var plaetze = vorlage.Auslosungen.SelectMany(a => a.Ergebnisse)
+                .SelectMany(e => new[] { e.HeimPlatzhalterName!, e.AuswaertsPlatzhalterName! })
+                .Where(p => p.Contains(". Gruppe ")).ToList();
+            int direkt = (gruppenphase.AusgangsMannschaftsanzahl - (Kombinationstabelle.AusJson(erste.KombinationstabelleJson)?.AnzahlBeste ?? 0)) / gruppen;
             var erwartetDirekt = Enumerable.Range(1, direkt)
                 .SelectMany(platz => Enumerable.Range(0, gruppen).Select(g => $"{platz}. Gruppe {(char)('A' + g)}"));
             var kombinationsPlaetze = plaetze.Where(p => Kombinationstabelle.IstPlatz(p, out _)).ToList();

@@ -182,9 +182,11 @@ public class SeedDatenServiceTests
             var altNachNeu = TurnierVorlagenSeedDaten.UmbenennungenNachAltemNamen
                 .Where(u => u.Key != "FIFA WM (24 Teams, 1982–1994)")
                 .ToDictionary(u => u.Value, u => u.Key);
+            // Vorlagen, die erst nach #367 dazukamen (#375), hatten nie einen Klammerzusatz.
             foreach (var vorlage in vorlagen)
             {
-                vorlage.Name = altNachNeu[(vorlage.Name, vorlage.Variante)];
+                if (!altNachNeu.TryGetValue((vorlage.Name, vorlage.Variante), out string? alterName)) continue;
+                vorlage.Name = alterName;
                 vorlage.Variante = "";
             }
             await ctx.SaveChangesAsync();
@@ -379,6 +381,160 @@ public class SeedDatenServiceTests
             beschreibungen[COPA_12].Should().Be("Eigene Beschreibung", "eine manuell geänderte Beschreibung bleibt erhalten");
         }
     }
+
+    // ── EM-Formate vor 1996 (Issue #375) ───────────────────────────────────
+
+    private const string EM_VORLAGE = "UEFA EM";
+    private const string EM_4 = "4 Teams · 1960–1976";
+    private const string EM_8_1980 = "8 Teams · 1980";
+    private const string EM_8_ALT = "8 Teams · 1960–1992";
+
+    [Fact]
+    public void Erstellen_Em1980FuehrtGruppensiegerInsFinaleUndGruppenzweiteInsSpielUmPlatzDrei()
+    {
+        var em = TurnierVorlagenSeedDaten.Erstellen().Single(v => v.Name == EM_VORLAGE && v.Variante == EM_8_1980);
+
+        em.Runden.Select(r => r.Rundenart).Should().Equal(Rundenart.Gruppenphase, Rundenart.SpielUmPlatzDrei, Rundenart.Finale);
+        var regeln = em.Runden.Single(r => r.Rundenart == Rundenart.Gruppenphase).Uebergangsregeln;
+        regeln.Where(u => u.ZielRunde.Rundenart == Rundenart.Finale)
+            .Select(u => (u.GruppeIndex, u.PlatzierungVon, u.PlatzierungBis)).Should().BeEquivalentTo([(1, 1, 1), (2, 1, 1)]);
+        regeln.Where(u => u.ZielRunde.Rundenart == Rundenart.SpielUmPlatzDrei)
+            .Select(u => (u.GruppeIndex, u.PlatzierungVon, u.PlatzierungBis)).Should().BeEquivalentTo([(1, 2, 2), (2, 2, 2)]);
+
+        var paarungen = em.Auslosungen.ToDictionary(
+            a => a.TurnierRunde.Rundenart,
+            a => a.Ergebnisse.Select(e => (e.HeimPlatzhalterName, e.AuswaertsPlatzhalterName)).Single());
+        paarungen[Rundenart.Finale].Should().Be(("1. Gruppe A", "1. Gruppe B"));
+        paarungen[Rundenart.SpielUmPlatzDrei].Should().Be(("2. Gruppe A", "2. Gruppe B"));
+    }
+
+    [Fact]
+    public async Task InitialisierenAsync_EmVorlagenVor1996BildenDieDreiHistorischenFormateAb()
+    {
+        var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new TurnierverwaltungDbContext(optionen);
+        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+        (await RundenNamenAsync(ctx, EM_4)).Should().Equal("Halbfinale", "Spiel um Platz 3", "Finale");
+        (await RundenNamenAsync(ctx, EM_8_1980)).Should().Equal("Gruppenphase", "Spiel um Platz 3", "Finale");
+        (await RundenNamenAsync(ctx, TurnierVorlagenSeedDaten.EM_8_TEAMS_1984_BIS_1992))
+            .Should().Equal("Gruppenphase", "Halbfinale", "Finale");
+
+        (await VerfahrenDerRundeAsync(ctx, EM_VORLAGE, EM_8_1980, "Spiel um Platz 3"))
+            .Should().Equal([VerfahrenArt.Elfmeterschiessen], "1980 ohne Verlängerung");
+        (await VerfahrenDerRundeAsync(ctx, EM_VORLAGE, EM_8_1980, "Finale"))
+            .Should().Equal(VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Elfmeterschiessen);
+        (await VerfahrenDerRundeAsync(ctx, EM_VORLAGE, TurnierVorlagenSeedDaten.EM_8_TEAMS_1984_BIS_1992, "Halbfinale"))
+            .Should().Equal(VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Elfmeterschiessen);
+    }
+
+    [Fact]
+    public async Task InitialisierenAsync_TeiltAlteEmSammelvorlageInBestehenderDatenbankAuf()
+    {
+        var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await AlteEmSammelvorlageHerstellenAsync(ctx);
+        }
+
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+            var varianten = await ctx.TurnierInstanzen
+                .Where(i => i.Name == EM_VORLAGE && i.Status == TurnierStatus.Vorlage && (i.Variante.StartsWith("8 Teams") || i.Variante.StartsWith("4 Teams")))
+                .Select(i => i.Variante).ToListAsync();
+            varianten.Should().BeEquivalentTo(EM_4, EM_8_1980, TurnierVorlagenSeedDaten.EM_8_TEAMS_1984_BIS_1992);
+
+            var em = await ctx.TurnierInstanzen.Include(i => i.Runden).Include(i => i.Auslosungen)
+                .SingleAsync(i => i.Name == EM_VORLAGE && i.Variante == TurnierVorlagenSeedDaten.EM_8_TEAMS_1984_BIS_1992);
+            em.Runden.OrderBy(r => r.Reihenfolge).Select(r => (r.Reihenfolge, r.Name))
+                .Should().Equal((1, "Gruppenphase"), (2, "Halbfinale"), (3, "Finale"));
+            em.Auslosungen.Select(a => a.Name).Should().BeEquivalentTo("Halbfinale", "Finale");
+            em.Startdatum.Should().Be(new DateOnly(1984, 1, 1));
+            em.Beschreibung.Should().Contain("kein Spiel um Platz 3");
+            foreach (string runde in new[] { "Gruppenphase", "Halbfinale", "Finale" })
+                (await VerfahrenDerRundeAsync(ctx, EM_VORLAGE, TurnierVorlagenSeedDaten.EM_8_TEAMS_1984_BIS_1992, runde))
+                    .Should().Equal(VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Elfmeterschiessen);
+            (await VerfahrenDerRundeAsync(ctx, "FIFA WM", "16 Teams · 1934–1978", "Finale"))
+                .Should().Contain(VerfahrenArt.Wiederholungsspiel, "andere Vorlagen behalten ihr Regelwerk");
+        }
+    }
+
+    [Fact]
+    public async Task InitialisierenAsync_LaesstUmgebauteEmSammelvorlageBisAufDenNamenUnangetastet()
+    {
+        var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await AlteEmSammelvorlageHerstellenAsync(ctx);
+            var platzDrei = await ctx.TurnierRunden.SingleAsync(r =>
+                r.TurnierInstanz.Name == EM_VORLAGE && r.TurnierInstanz.Variante == EM_8_ALT && r.Rundenart == Rundenart.SpielUmPlatzDrei);
+            platzDrei.Name = "Kleines Finale";
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+            (await RundenNamenAsync(ctx, TurnierVorlagenSeedDaten.EM_8_TEAMS_1984_BIS_1992))
+                .Should().Equal("Gruppenphase", "Halbfinale", "Kleines Finale", "Finale");
+        }
+    }
+
+    // Stand vor #375: eine Sammelvorlage "8 Teams · 1960–1992" mit Halbfinale UND Spiel um Platz 3 auf dem
+    // Regelwerk mit Wiederholungsspiel + Los; die Vorlagen 1960–1976 und 1980 gibt es noch nicht.
+    private static async Task AlteEmSammelvorlageHerstellenAsync(TurnierverwaltungDbContext ctx)
+    {
+        foreach (string variante in new[] { EM_4, EM_8_1980 })
+        {
+            var neu = await ctx.TurnierInstanzen.Include(i => i.Runden).ThenInclude(r => r.Uebergangsregeln)
+                .Include(i => i.Auslosungen)
+                .SingleAsync(i => i.Name == EM_VORLAGE && i.Variante == variante);
+            ctx.Uebergangsregeln.RemoveRange(neu.Runden.SelectMany(r => r.Uebergangsregeln));
+            ctx.Auslosungen.RemoveRange(neu.Auslosungen);
+            ctx.TurnierInstanzen.Remove(neu);
+        }
+
+        int altesRegelwerkId = (await ctx.Regelwerke
+            .SingleAsync(r => r.Name == TurnierVorlagenSeedDaten.HISTORISCH_WIEDERHOLUNGSSPIEL_LOS)).Id;
+        var em = await ctx.TurnierInstanzen.Include(i => i.Runden)
+            .SingleAsync(i => i.Name == EM_VORLAGE && i.Variante == TurnierVorlagenSeedDaten.EM_8_TEAMS_1984_BIS_1992);
+        em.Variante = EM_8_ALT;
+        em.Startdatum = new DateOnly(1960, 1, 1);
+        em.Beschreibung = TurnierVorlagenSeedDaten.AlteBeschreibungen[(EM_VORLAGE, TurnierVorlagenSeedDaten.EM_8_TEAMS_1984_BIS_1992)];
+        em.Runden.Single(r => r.Name == "Finale").Reihenfolge = 4;
+        var platzDrei = new Domain.Entitaeten.Turniere.TurnierRunde
+        {
+            Reihenfolge = 3, Name = "Spiel um Platz 3", Rundenart = Rundenart.SpielUmPlatzDrei,
+            EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1, PaarungFestVorgegeben = true,
+        };
+        em.Runden.Add(platzDrei);
+        foreach (var runde in em.Runden) runde.RegelwerkId = altesRegelwerkId;
+        ctx.Auslosungen.Add(new Domain.Entitaeten.Auslosungen.Auslosung
+        {
+            TurnierInstanz = em, TurnierRunde = platzDrei, Name = platzDrei.Name,
+            Auslosungsart = Auslosungsart.Manuell, Status = AuslosungsStatus.Abgeschlossen,
+        });
+        await ctx.SaveChangesAsync();
+    }
+
+    private static Task<List<string>> RundenNamenAsync(TurnierverwaltungDbContext ctx, string emVariante) =>
+        ctx.TurnierRunden
+            .Where(r => r.TurnierInstanz.Name == EM_VORLAGE && r.TurnierInstanz.Variante == emVariante
+                     && r.TurnierInstanz.Status == TurnierStatus.Vorlage)
+            .OrderBy(r => r.Reihenfolge)
+            .Select(r => r.Name)
+            .ToListAsync();
 
     private static async Task<List<VerfahrenArt>> VerfahrenDerRundeAsync(
         TurnierverwaltungDbContext ctx, string vorlage, string variante, string rundenName)

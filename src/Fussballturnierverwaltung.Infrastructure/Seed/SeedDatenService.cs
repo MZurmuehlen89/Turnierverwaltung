@@ -48,6 +48,9 @@ public class SeedDatenService
         await TurnierVorlagenRundenartNachruesten(cancellationToken);
         await TurnierVorlagenLigaphaseRegelwerkNachruesten(cancellationToken);
         await TurnierVorlagenCopaRegelwerkNachruesten(cancellationToken);
+        // Vor dem Regelwerk: die Umstellung ordnet Runden über Reihenfolge + Name zu (Issue #375).
+        await TurnierVorlageEm8SpielUmPlatzDreiEntfernen(cancellationToken);
+        await TurnierVorlagenEm8RegelwerkNachruesten(cancellationToken);
         await TurnierVorlagenBeschreibungNachruesten(cancellationToken);
         await TurnierVorlagenStrukturNachruesten(cancellationToken);
         await TurnierVorlagenFesteKoBaeumeNachruesten(cancellationToken);
@@ -388,6 +391,55 @@ public class SeedDatenService
             TurnierVorlagenSeedDaten.FIFA_STANDARD_MODERN, TurnierVorlagenSeedDaten.COPA_DIREKTES_ELFMETERSCHIESSEN,
             "Vorlagen-Runden der Copa América auf direktes Elfmeterschießen umgestellt.", ct);
 
+    /// <summary>Issue #375: die EM-Endrunden 1984–1992 liefen mit zwei Punkten je Sieg, Verlängerung und
+    /// Elfmeterschießen — die frühere Sammelvorlage stand auf Wiederholungsspiel + Los.</summary>
+    private Task TurnierVorlagenEm8RegelwerkNachruesten(CancellationToken ct) =>
+        TurnierVorlagenRegelwerkUmstellen(
+            TurnierVorlagenSeedDaten.HISTORISCH_WIEDERHOLUNGSSPIEL_LOS, TurnierVorlagenSeedDaten.FIFA_HISTORISCH_2_PUNKTE,
+            "Vorlagen-Runden der EM mit 8 Teams auf das 2-Punkte-Regelwerk mit Verlängerung + Elfmeterschießen umgestellt.", ct);
+
+    /// <summary>Issue #375: die frühere Sammelvorlage „8 Teams · 1960–1992“ hatte ein Spiel um Platz 3, das es
+    /// im Format 1984–1992 nicht mehr gab. Entfernt die Runde samt ihrer festen Paarung und rückt das Finale
+    /// nach — nur, solange die Runden noch dem alten Seed-Stand entsprechen und keine Übergangsregel an der
+    /// Runde hängt; eine vom Nutzer umgebaute Vorlage bleibt unangetastet.</summary>
+    private async Task TurnierVorlageEm8SpielUmPlatzDreiEntfernen(CancellationToken ct)
+    {
+        var vorlage = await _context.TurnierInstanzen
+            .Include(i => i.Runden)
+            .Include(i => i.Auslosungen)
+            .FirstOrDefaultAsync(i => i.Status == Domain.Enums.TurnierStatus.Vorlage
+                                   && i.Name == "UEFA EM"
+                                   && i.Variante == TurnierVorlagenSeedDaten.EM_8_TEAMS_1984_BIS_1992, ct);
+        if (vorlage is null) return;
+
+        var runden = vorlage.Runden.OrderBy(r => r.Reihenfolge).ToList();
+        if (!runden.Select(r => (r.Name, r.Rundenart)).SequenceEqual(_alteRundenEm8)) return;
+
+        var platzDrei = runden[2];
+        var finale = runden[3];
+        if (await _context.Uebergangsregeln.AnyAsync(u => u.QuellRundeId == platzDrei.Id || u.ZielRundeId == platzDrei.Id, ct))
+            return;
+
+        // Auslosung → Runde ist NoAction, daher zuerst die Auslosung; das Finale rückt erst nach dem Löschen
+        // nach, weil (TurnierInstanzId, Reihenfolge) eindeutig ist.
+        _context.Auslosungen.RemoveRange(vorlage.Auslosungen.Where(a => a.TurnierRundeId == platzDrei.Id));
+        _context.TurnierRunden.Remove(platzDrei);
+        await _context.SaveChangesAsync(ct);
+
+        finale.Reihenfolge = platzDrei.Reihenfolge;
+        await _context.SaveChangesAsync(ct);
+        Protokollieren(1, "Spiel um Platz 3 aus der Vorlage „UEFA EM · 8 Teams · 1984–1992“ entfernt.");
+    }
+
+    // Runden der EM-Sammelvorlage „8 Teams · 1960–1992“ vor #375.
+    private static readonly (string Name, Domain.Enums.Rundenart Rundenart)[] _alteRundenEm8 =
+    [
+        ("Gruppenphase",     Domain.Enums.Rundenart.Gruppenphase),
+        ("Halbfinale",       Domain.Enums.Rundenart.KoRunde),
+        ("Spiel um Platz 3", Domain.Enums.Rundenart.SpielUmPlatzDrei),
+        ("Finale",           Domain.Enums.Rundenart.Finale),
+    ];
+
     /// <summary>Issue #374: zieht die Beschreibung bestehender Vorlagen auf den Seed-Stand nach — nur, solange
     /// sie noch wörtlich dem alten Seed-Text entspricht, eine vom Nutzer geänderte Beschreibung bleibt erhalten.</summary>
     private async Task TurnierVorlagenBeschreibungNachruesten(CancellationToken ct)
@@ -457,6 +509,9 @@ public class SeedDatenService
     // Seed-Stand der WM-24-Vorlage vor #350 (damals als "1982–1994" geführt).
     private const string ALTE_BESCHREIBUNG_WM24 = "6 Dreiergruppen + Achtelfinale-Runde → K.-o.";
 
+    // Seed-Stand der EM-Vorlage mit 8 Teams vor #375 (damals als "1960–1992" geführt).
+    private static readonly DateOnly _altesStartdatumEm8 = new(1960, 1, 1);
+
     /// <summary>Issue #350/#367: benennt Bestands-Vorlagen um, deren Seed-Name sich geändert hat (seit #367 inkl.
     /// Verschiebung des Klammerzusatzes in <see cref="TurnierInstanz.Variante"/>) — muss vor
     /// <see cref="TurnierVorlagenNachruesten"/> laufen, sonst entstünde unter dem neuen Schlüssel ein Duplikat. Nur,
@@ -480,6 +535,19 @@ public class SeedDatenService
             alt.Variante = neu.Variante;
             if (alt.Beschreibung == ALTE_BESCHREIBUNG_WM24) alt.Beschreibung = soll.Beschreibung;
             if (alt.Enddatum == new DateOnly(1994, 12, 31)) alt.Enddatum = soll.Enddatum;
+            if (alt.Startdatum == _altesStartdatumEm8) alt.Startdatum = soll.Startdatum;
+            umbenannt++;
+        }
+
+        // Issue #375: Vorlagen, die schon Name + Variante tragen und nur eine neue Variante bekommen.
+        foreach (var (alt, neueVariante) in TurnierVorlagenSeedDaten.VariantenUmbenennungen)
+        {
+            var neu = (alt.Name, neueVariante);
+            var vorlage = vorlagen.FirstOrDefault(v => Schluessel(v) == alt);
+            if (vorlage is null || vorlagen.Any(v => Schluessel(v) == neu)) continue;
+
+            vorlage.Variante = neueVariante;
+            if (vorlage.Startdatum == _altesStartdatumEm8) vorlage.Startdatum = sollNachSchluessel[neu].Startdatum;
             umbenannt++;
         }
 

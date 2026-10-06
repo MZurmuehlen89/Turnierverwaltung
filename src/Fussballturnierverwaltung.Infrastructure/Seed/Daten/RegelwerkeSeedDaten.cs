@@ -207,5 +207,18 @@ public static class RegelwerkeSeedDaten
             Sieg: 3, Unentschieden: 1, Niederlage: 0,
             Verfahren: [VerfahrenArt.Elfmeterschiessen]
         ),
+        // Issue #375: das Spiel um Platz 3 der EM 1980 ging ohne Verlängerung direkt ins Elfmeterschießen.
+        (
+            new Regelwerk
+            {
+                Name = TurnierVorlagenSeedDaten.EM_1980_DIREKTES_ELFMETERSCHIESSEN,
+                Beschreibung = "EM-1980-Regelwerk für das Spiel um Platz 3: 2 Punkte für Sieg, bei Unentschieden direkt Elfmeterschießen.",
+                GueltigVon = new DateOnly(1980, 1, 1),
+                GueltigBis = new DateOnly(1980, 12, 31),
+                RankingRegelSetId = rankingRegelSetLookup.GetValueOrDefault("FIFA Standard")
+            },
+            Sieg: 2, Unentschieden: 1, Niederlage: 0,
+            Verfahren: [VerfahrenArt.Elfmeterschiessen]
+        ),
     ];
 }
