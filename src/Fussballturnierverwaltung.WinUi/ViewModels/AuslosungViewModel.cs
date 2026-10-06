@@ -24,10 +24,10 @@ using System.Windows.Input;
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 /// <summary>
-/// "Auslosung"-Tab der Turnierdurchführung (#300, ersetzt den Platzhalter aus #299) — Master-Detail analog
-/// Wpf/ViewModels/AuslosungViewModel.cs: Auslosungsliste/Neu-Formular + Workspace (Lostöpfe, Teilnehmerfilter,
-/// Verbandsquoten-Spalte, Regeln, Ranglisten-Automatik). Bewusst OHNE TV-Modus/Animation (eigenständiges
-/// Backlog-Issue #303) und OHNE <see cref="Auslosungsart.Manuell"/> (bleibt beim bestehenden
+/// "Auslosung"-Tab der Turnierdurchführung (#300) — Master-Detail: Auslosungsliste/Neu-Formular + Workspace
+/// (Lostöpfe, Teilnehmerfilter, Verbandsquoten-Spalte, Regeln, Ranglisten-Automatik), Durchführen und
+/// Zurücksetzen. Die TV-Ziehung liegt in <see cref="ZiehungViewModel"/>, die Gegner-Matrix der Ligaphase in
+/// <see cref="GegnerMatrixViewModel"/> (#401). Bewusst OHNE <see cref="Auslosungsart.Manuell"/> (bleibt beim
 /// <see cref="VorbelegungViewModel"/>, #297 — keine Dopplung).
 ///
 /// Anders als das WPF-Original hält dieses ViewModel KEINE eigene Instanzliste/-auswahl — die geteilte
@@ -345,8 +345,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty] private ObservableCollection<GruppenErgebnisAnzeige> _gruppenErgebnisse = [];
 
     // ── TV-Modus: Schrittweise Ziehungsanimation (#303, Issue #5) ────────────────
-    [ObservableProperty] private bool _tvModusAktiv;
-    [ObservableProperty] private bool _tvModusManuell;
+    /// <summary>Wie das Ergebnis nach dem Auslosen erscheint: sofort oder als TV-Ziehung.</summary>
+    private enum ZiehungsArt { Keine, Automatisch, Manuell }
 
     /// <summary>Live-Anzeige der TV-Ziehung (Kind-ViewModel, ohne Datenbankzugriff).</summary>
     public ZiehungViewModel Ziehung { get; } = new();
@@ -847,8 +847,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [RelayCommand(CanExecute = nameof(KannAuslosungAusfuehren))]
     private async Task AuslosungAusfuehren()
     {
-        TvModusAktiv = false; TvModusManuell = false;
-        await AuslosungDurchfuehrenAsync();
+        await AuslosungDurchfuehrenAsync(ZiehungsArt.Keine);
     }
 
     /// <summary>Ribbon-Unteraktion (Flyout "TV-Modus"): führt wie der Hauptbutton sofort aus, aber mit
@@ -856,8 +855,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [RelayCommand(CanExecute = nameof(KannAuslosungAusfuehren))]
     private async Task AuslosungMitTvModusAusfuehren()
     {
-        TvModusAktiv = true; TvModusManuell = false;
-        await AuslosungDurchfuehrenAsync();
+        await AuslosungDurchfuehrenAsync(ZiehungsArt.Automatisch);
     }
 
     /// <summary>Ribbon-Unteraktion (Flyout "TV-Modus"): führt wie der Hauptbutton sofort aus, aber mit
@@ -865,12 +863,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [RelayCommand(CanExecute = nameof(KannAuslosungAusfuehren))]
     private async Task AuslosungMitTvModusManuellAusfuehren()
     {
-        TvModusAktiv = true; TvModusManuell = true;
-        await AuslosungDurchfuehrenAsync();
+        await AuslosungDurchfuehrenAsync(ZiehungsArt.Manuell);
     }
 
-    private async Task AuslosungDurchfuehrenAsync()
+    private async Task AuslosungDurchfuehrenAsync(ZiehungsArt ziehungsArt)
     {
+        bool tvModus = ziehungsArt != ZiehungsArt.Keine;
+        bool manuell = ziehungsArt == ZiehungsArt.Manuell;
         Fehlermeldung = null;
         int auslosungId;
         ObservableCollection<GegnerMatrixTopf>? matrizen;
@@ -892,7 +891,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 // bleibt es bis zum Start der Ziehung verborgen, siehe ZeigeErgebnis. Der Service ersetzt dabei
                 // auch den Spielplan der Runde und zieht die Folgerunden nach (#414) — VOR der Ziehung (#406): die
                 // enthüllt nur noch und darf jederzeit enden (siehe ZiehungBeenden).
-                ZiehungInVorbereitung = TvModusAktiv;
+                ZiehungInVorbereitung = tvModus;
                 Exception? fehler = null;
                 try { await _auslosungService.AusfuehrenAsync(auslosungId); }
                 catch (Exception ex) { fehler = ex; }
@@ -915,8 +914,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 // Daten, die danach auch als "echtes" Ergebnis angezeigt werden (Fund aus #303-Test: TV-Modus-
                 // Endanzeige wich bei Gruppenphase nach vorherigem Zurücksetzen vom echten Ergebnis ab). Deshalb
                 // auch VOR der Turnierbaum-Aktualisierung, die auf demselben DbContext weiterarbeitet.
-                matrizen = TvModusAktiv && IstGegnerMatrixergebnis ? GegnerMatrixBuilder.Aufbauen(detail) : null;
-                schritte = TvModusAktiv && matrizen is null
+                matrizen = tvModus && IstGegnerMatrixergebnis ? GegnerMatrixBuilder.Aufbauen(detail) : null;
+                schritte = tvModus && matrizen is null
                     ? ZiehungsReihenfolge.Aufbauen(detail.Lostoepfe, detail.Ergebnisse)
                     : null;
 
@@ -934,9 +933,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             if (!DetailAktiv || _auslosungDetail?.Id != auslosungId) return;
 
             if (matrizen is not null)
-                await Ziehung.LigaphasenZiehungAnimierenAsync(matrizen, TvModusManuell);
+                await Ziehung.LigaphasenZiehungAnimierenAsync(matrizen, manuell);
             else if (schritte is not null)
-                await Ziehung.ZiehungAnimierenAsync(schritte, Lostoepfe, TvModusManuell);
+                await Ziehung.ZiehungAnimierenAsync(schritte, Lostoepfe, manuell);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
         finally { ZiehungInVorbereitung = false; }

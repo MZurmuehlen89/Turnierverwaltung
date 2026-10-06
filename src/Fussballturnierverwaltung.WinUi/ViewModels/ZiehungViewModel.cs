@@ -131,11 +131,7 @@ public partial class ZiehungViewModel : ObservableObject
         AnimationLaeuft           = false;
         AnimationWartetAufWeiter  = false;
         AnimationBannerKopf       = BANNER_KOPF_MANNSCHAFT;
-        AnimationBannerMannschaft = null;
-        AnimationBannerTopf       = null;
-        AnimationBannerZiel       = null;
-        AnimationBannerSlot       = null;
-        AnimationBannerPosition   = null;
+        BannerLeeren();
         AnimationBannerGegner     = [];
         AnimationToepfe           = [];
         AnimationGruppen          = [];
@@ -159,6 +155,8 @@ public partial class ZiehungViewModel : ObservableObject
         _weiterSignal.TrySetResult();
     }
 
+    // ── Gruppenphase und K.-o.-Runde ──────────────────────────────────────────
+
     /// <summary>Spielt die Ziehungsschritte nacheinander im UI ab: pro Schritt wird zunächst die gezogene
     /// Mannschaft angezeigt (dabei in der Topf-Anzeige als "gezogen" markiert — die Slots bleiben
     /// zahlenmäßig fix, nur ihr Inhalt wechselt zu "…", damit sich das Layout nicht verschiebt, sobald ein
@@ -175,46 +173,9 @@ public partial class ZiehungViewModel : ObservableObject
         List<ZiehungsSchritt> schritte, IEnumerable<LostopfViewModel> lostoepfe, bool manuell)
     {
         if (schritte.Count == 0) return;
-        _manuell = manuell;
 
-        AnimationLaeuft         = true;
-        AnimationSchrittGesamt  = schritte.Count;
-        _animationUeberspringen = false;
-        _weiterSignal           = new TaskCompletionSource();
-
-        AnimationToepfe = new ObservableCollection<AnimationsTopf>(
-            lostoepfe.OrderBy(l => l.Reihenfolge).Select(l => new AnimationsTopf
-            {
-                TopfId = l.Id,
-                Name   = l.Name,
-                Slots  = new ObservableCollection<AnimationsTopfSlot>(
-                    l.Teilnehmer.Select(t => new AnimationsTopfSlot { EintragId = t.EintragId, Name = t.Name, Wappen = t.Wappen }))
-            }));
-
-        bool istGruppenmodus = schritte[0].IstGruppenmodus;
-        if (istGruppenmodus)
-        {
-            AnimationGruppen = new ObservableCollection<AnimationsGruppe>(
-                schritte.GroupBy(s => s.ZielNummer).OrderBy(g => g.Key).Select(g => new AnimationsGruppe
-                {
-                    GruppenNummer = g.Key,
-                    GruppenName   = $"Gruppe {GruppenHerkunft.Buchstabe(g.Key)}",
-                    Kurzname      = GruppenHerkunft.Buchstabe(g.Key),
-                    Slots         = new ObservableCollection<AnimationsGruppenSlot>(
-                        Enumerable.Range(1, g.Count()).Select(p => new AnimationsGruppenSlot { Position = p }))
-                }));
-            AnimationPaarungen = [];
-        }
-        else
-        {
-            AnimationPaarungen = new ObservableCollection<AnimationsPaarung>(
-                schritte.GroupBy(s => s.ZielNummer).OrderBy(g => g.Key).Select(g => new AnimationsPaarung
-                {
-                    PaarungsNr = g.Key,
-                    IstFreilos = g.First().IstFreilos
-                }));
-            AnimationGruppen = [];
-        }
+        ZiehungStarten(schritte.Count, manuell);
+        ListenAnzeigeAufbauen(schritte, lostoepfe);
 
         // Eine Liga hat nur eine Gruppe: sie bleibt durchgehend im Fokus, der Schritt "Ziel" entfällt.
         bool eineGruppe = AnimationGruppen.Count == 1;
@@ -232,11 +193,9 @@ public partial class ZiehungViewModel : ObservableObject
                 var schritt = schritte[i];
                 AnimationSchrittIndex = i + 1;
 
-                if (zielGruppe is not null) zielGruppe.IstZiel = false;
-                if (neuerSlot is not null) neuerSlot.IstNeu = false;
+                VorigenSchrittAbschliessen(zielGruppe, neuerSlot, eineGruppe);
                 zielGruppe = null;
                 neuerSlot  = null;
-                if (!eineGruppe) AnimationFokusGruppe = null;
 
                 var topf = AnimationToepfe.FirstOrDefault(t => t.TopfId == schritt.TopfId);
                 AnimationFokusTopf = topf;
@@ -244,58 +203,21 @@ public partial class ZiehungViewModel : ObservableObject
                 // 0) Neuer Topf (Gruppenphase): erst den vollen Topf zeigen, dann daraus ziehen
                 if (schritt.IstGruppenmodus && (i == 0 || schritte[i - 1].TopfId != schritt.TopfId))
                 {
-                    AnimationBannerKopf       = BANNER_KOPF_TOPF;
-                    AnimationBannerMannschaft = schritt.TopfName;
-                    AnimationBannerTopf       = topf is null ? null : $"{topf.Slots.Count} Teams";
+                    TopfVorstellen(schritt, topf);
                     await WarteAufSchrittAsync(_tvModusAufdeckVerzoegerung);
-                    AnimationBannerKopf       = BANNER_KOPF_MANNSCHAFT;
+                    AnimationBannerKopf = BANNER_KOPF_MANNSCHAFT;
                     if (_animationUeberspringen) break;
                 }
 
                 // 1) Team ziehen — Fokus auf seinen Topf; die Zielgruppe ist noch offen, die Paarung steht
                 //    dagegen schon fest (es wird Paarung für Paarung gezogen)
-                var topfSlot = topf?.Slots.FirstOrDefault(s => s.EintragId == schritt.Team.EintragId);
-                if (topfSlot is not null) topfSlot.Gezogen = true;
-
-                var paarung = schritt.IstGruppenmodus
-                    ? null
-                    : AnimationPaarungen.First(p => p.PaarungsNr == schritt.ZielNummer);
-                if (paarung is not null) AnimationFokusPaarung = paarung;
-
-                AnimationBannerMannschaft = schritt.Team.Name;
-                AnimationBannerTopf       = schritt.TopfName;
-                AnimationBannerZiel       = null;
-                AnimationBannerSlot       = null;
-                AnimationBannerPosition   = null;
+                var paarung = TeamZiehen(schritt, topf);
                 await WarteAufSchrittAsync(_tvModusSchrittVerzoegerung);
                 if (_animationUeberspringen) break;
 
                 // 2) Ziel — die Gruppe erscheint im Fokus, in der Paarung wird das Team sofort eingetragen
-                if (schritt.IstGruppenmodus)
-                {
-                    zielGruppe = AnimationGruppen.First(g => g.GruppenNummer == schritt.ZielNummer);
-                    if (!eineGruppe)
-                    {
-                        AnimationBannerZiel  = $"Gruppe {GruppenHerkunft.Buchstabe(schritt.ZielNummer)}";
-                        zielGruppe.IstZiel   = true;
-                        AnimationFokusGruppe = zielGruppe;
-                    }
-                }
-                else
-                {
-                    AnimationBannerZiel = $"Paarung {schritt.ZielNummer}";
-                    AnimationBannerSlot = schritt.IstFreilos ? "Freilos" : (schritt.IstHeim == true ? "Heim" : "Auswärts");
-                    if (schritt.IstFreilos || schritt.IstHeim == true)
-                    {
-                        paarung!.Heim      = schritt.Team.Name;
-                        paarung.HeimWappen = schritt.Team.Wappen;
-                    }
-                    else
-                    {
-                        paarung!.Auswaerts      = schritt.Team.Name;
-                        paarung.AuswaertsWappen = schritt.Team.Wappen;
-                    }
-                }
+                if (schritt.IstGruppenmodus) zielGruppe = ZielGruppeZeigen(schritt, eineGruppe);
+                else TeamInPaarungEintragen(schritt, paarung!);
                 if (!eineGruppe)
                 {
                     await WarteAufSchrittAsync(_tvModusSchrittVerzoegerung);
@@ -305,21 +227,12 @@ public partial class ZiehungViewModel : ObservableObject
                 // 3) Position — das Team erscheint gleichzeitig auf seinem Platz in der Gruppe
                 if (schritt.IstGruppenmodus)
                 {
-                    AnimationBannerPosition = $"Position {schritt.Position}";
-                    neuerSlot = zielGruppe!.Slots[schritt.Position!.Value - 1];
-                    neuerSlot.Anzeige = schritt.Team.Name;
-                    neuerSlot.Wappen  = schritt.Team.Wappen;
-                    neuerSlot.IstNeu  = true;
-                    zielGruppe.FuellstandAktualisieren();
+                    neuerSlot = PositionBesetzen(schritt, zielGruppe!);
                     await WarteAufSchrittAsync(_tvModusSchrittVerzoegerung);
                     if (_animationUeberspringen) break;
                 }
 
-                AnimationBannerMannschaft = null;
-                AnimationBannerTopf       = null;
-                AnimationBannerZiel       = null;
-                AnimationBannerSlot       = null;
-                AnimationBannerPosition   = null;
+                BannerLeeren();
                 if (i == schritte.Count - 1) break;
 
                 await WarteAufSchrittAsync(_tvModusPausenVerzoegerung);
@@ -327,35 +240,140 @@ public partial class ZiehungViewModel : ObservableObject
 
                 // 4) Gesamtübersicht: nach jedem geleerten Topf bzw. nach je acht fertigen Paarungen (nach dem
                 //    letzten Schritt folgt direkt die Ergebnisanzeige)
-                string? uebersichtTitel = null;
-                if (schritt.IstGruppenmodus)
+                bool paarungFertig = !schritt.IstGruppenmodus && schritte[i + 1].ZielNummer != schritt.ZielNummer;
+                if (paarungFertig) fertigePaarungen++;
+                if (UebersichtTitel(schritt, schritte[i + 1], paarungFertig, fertigePaarungen) is { } titel)
                 {
-                    if (schritte[i + 1].TopfId != schritt.TopfId) uebersichtTitel = $"{schritt.TopfName} komplett";
-                }
-                else if (schritte[i + 1].ZielNummer != schritt.ZielNummer)
-                {
-                    fertigePaarungen++;
-                    if (fertigePaarungen % PAARUNGEN_JE_UEBERSICHT == 0)
-                        uebersichtTitel = $"{fertigePaarungen} von {AnimationPaarungen.Count} Paarungen gezogen";
-                }
-
-                if (uebersichtTitel is not null)
-                {
-                    AnimationZeigeUebersicht  = true;
-                    AnimationBannerKopf       = BANNER_KOPF_ZWISCHENSTAND;
-                    AnimationBannerMannschaft = uebersichtTitel;
-                    AnimationBannerTopf       = schritt.IstGruppenmodus ? "Zwischenstand aller Gruppen" : "Zwischenstand aller Paarungen";
-                    await WarteAufSchrittAsync(_tvModusUebersichtVerzoegerung);
+                    await ZwischenstandZeigenAsync(
+                        titel, schritt.IstGruppenmodus ? "Zwischenstand aller Gruppen" : "Zwischenstand aller Paarungen");
                     if (_animationUeberspringen) break;
-                    AnimationBannerKopf       = BANNER_KOPF_MANNSCHAFT;
-                    AnimationBannerMannschaft = null;
-                    AnimationBannerTopf       = null;
-                    AnimationZeigeUebersicht  = false;
                 }
             }
         }
         finally { AnimationsZustandZuruecksetzen(); }
     }
+
+    /// <summary>Töpfe und Ziele (Gruppen bzw. Paarungen) mit der vollen Anzahl noch leerer Plätze.</summary>
+    private void ListenAnzeigeAufbauen(List<ZiehungsSchritt> schritte, IEnumerable<LostopfViewModel> lostoepfe)
+    {
+        AnimationToepfe = new ObservableCollection<AnimationsTopf>(
+            lostoepfe.OrderBy(l => l.Reihenfolge).Select(l => new AnimationsTopf
+            {
+                TopfId = l.Id,
+                Name   = l.Name,
+                Slots  = new ObservableCollection<AnimationsTopfSlot>(
+                    l.Teilnehmer.Select(t => new AnimationsTopfSlot { EintragId = t.EintragId, Name = t.Name, Wappen = t.Wappen }))
+            }));
+
+        var schritteJeZiel = schritte.GroupBy(s => s.ZielNummer).OrderBy(g => g.Key);
+        if (schritte[0].IstGruppenmodus)
+        {
+            AnimationGruppen = new ObservableCollection<AnimationsGruppe>(schritteJeZiel.Select(g => new AnimationsGruppe
+            {
+                GruppenNummer = g.Key,
+                GruppenName   = $"Gruppe {GruppenHerkunft.Buchstabe(g.Key)}",
+                Kurzname      = GruppenHerkunft.Buchstabe(g.Key),
+                Slots         = new ObservableCollection<AnimationsGruppenSlot>(
+                    Enumerable.Range(1, g.Count()).Select(p => new AnimationsGruppenSlot { Position = p }))
+            }));
+            AnimationPaarungen = [];
+        }
+        else
+        {
+            AnimationPaarungen = new ObservableCollection<AnimationsPaarung>(schritteJeZiel.Select(g => new AnimationsPaarung
+            {
+                PaarungsNr = g.Key,
+                IstFreilos = g.First().IstFreilos
+            }));
+            AnimationGruppen = [];
+        }
+    }
+
+    private void VorigenSchrittAbschliessen(AnimationsGruppe? zielGruppe, AnimationsGruppenSlot? neuerSlot, bool eineGruppe)
+    {
+        if (zielGruppe is not null) zielGruppe.IstZiel = false;
+        if (neuerSlot is not null) neuerSlot.IstNeu = false;
+        if (!eineGruppe) AnimationFokusGruppe = null;
+    }
+
+    private void TopfVorstellen(ZiehungsSchritt schritt, AnimationsTopf? topf)
+    {
+        AnimationBannerKopf       = BANNER_KOPF_TOPF;
+        AnimationBannerMannschaft = schritt.TopfName;
+        AnimationBannerTopf       = topf is null ? null : $"{topf.Slots.Count} Teams";
+    }
+
+    /// <summary>Markiert das Team im Topf als gezogen und zeigt es im Banner. Liefert die Paarung, in die es
+    /// kommt — bei der Gruppenphase <c>null</c>.</summary>
+    private AnimationsPaarung? TeamZiehen(ZiehungsSchritt schritt, AnimationsTopf? topf)
+    {
+        var topfSlot = topf?.Slots.FirstOrDefault(s => s.EintragId == schritt.Team.EintragId);
+        if (topfSlot is not null) topfSlot.Gezogen = true;
+
+        var paarung = schritt.IstGruppenmodus
+            ? null
+            : AnimationPaarungen.First(p => p.PaarungsNr == schritt.ZielNummer);
+        if (paarung is not null) AnimationFokusPaarung = paarung;
+
+        AnimationBannerMannschaft = schritt.Team.Name;
+        AnimationBannerTopf       = schritt.TopfName;
+        AnimationBannerZiel       = null;
+        AnimationBannerSlot       = null;
+        AnimationBannerPosition   = null;
+        return paarung;
+    }
+
+    private AnimationsGruppe ZielGruppeZeigen(ZiehungsSchritt schritt, bool eineGruppe)
+    {
+        var zielGruppe = AnimationGruppen.First(g => g.GruppenNummer == schritt.ZielNummer);
+        if (!eineGruppe)
+        {
+            AnimationBannerZiel  = $"Gruppe {GruppenHerkunft.Buchstabe(schritt.ZielNummer)}";
+            zielGruppe.IstZiel   = true;
+            AnimationFokusGruppe = zielGruppe;
+        }
+        return zielGruppe;
+    }
+
+    private void TeamInPaarungEintragen(ZiehungsSchritt schritt, AnimationsPaarung paarung)
+    {
+        AnimationBannerZiel = $"Paarung {schritt.ZielNummer}";
+        AnimationBannerSlot = schritt.IstFreilos ? "Freilos" : (schritt.IstHeim == true ? "Heim" : "Auswärts");
+        if (schritt.IstFreilos || schritt.IstHeim == true)
+        {
+            paarung.Heim       = schritt.Team.Name;
+            paarung.HeimWappen = schritt.Team.Wappen;
+        }
+        else
+        {
+            paarung.Auswaerts       = schritt.Team.Name;
+            paarung.AuswaertsWappen = schritt.Team.Wappen;
+        }
+    }
+
+    private AnimationsGruppenSlot PositionBesetzen(ZiehungsSchritt schritt, AnimationsGruppe zielGruppe)
+    {
+        AnimationBannerPosition = $"Position {schritt.Position}";
+        var slot = zielGruppe.Slots[schritt.Position!.Value - 1];
+        slot.Anzeige = schritt.Team.Name;
+        slot.Wappen  = schritt.Team.Wappen;
+        slot.IstNeu  = true;
+        zielGruppe.FuellstandAktualisieren();
+        return slot;
+    }
+
+    /// <summary>Titel der Gesamtübersicht nach <paramref name="schritt"/> — <c>null</c>, wenn keine fällig ist.</summary>
+    private string? UebersichtTitel(ZiehungsSchritt schritt, ZiehungsSchritt naechster, bool paarungFertig, int fertigePaarungen)
+    {
+        if (schritt.IstGruppenmodus)
+            return naechster.TopfId != schritt.TopfId ? $"{schritt.TopfName} komplett" : null;
+
+        return paarungFertig && fertigePaarungen % PAARUNGEN_JE_UEBERSICHT == 0
+            ? $"{fertigePaarungen} von {AnimationPaarungen.Count} Paarungen gezogen"
+            : null;
+    }
+
+    // ── Ligaphase ─────────────────────────────────────────────────────────────
 
     /// <summary>TV-Modus der Ligaphase (#364, Vorbild UEFA-Live-Show): Topf für Topf wird Team für Team gezogen
     /// (Reihenfolge innerhalb des Topfs nur für die Anzeige zufällig). Pro Team deckt sich seine Zeile in der
@@ -365,40 +383,17 @@ public partial class ZiehungViewModel : ObservableObject
     public async Task LigaphasenZiehungAnimierenAsync(ObservableCollection<GegnerMatrixTopf> matrizen, bool manuell)
     {
         if (matrizen.Count == 0) return;
-        _manuell = manuell;
 
         // Zeile je Team-Schlüssel, um die gespiegelte Zelle beim Gegner zu finden
         var zeileJeTeam = matrizen.SelectMany(m => m.Zeilen)
             .Where(z => z.Team.Schluessel is not null)
             .ToDictionary(z => z.Team.Schluessel!);
-        foreach (var zeile in zeileJeTeam.Values)
-        {
-            zeile.IstGezogen = false;
-            foreach (var zelle in zeile.Gegner)
-                if (zelle.Schluessel is not null) zelle.IstAufgedeckt = false;
-        }
+        MatrizenVerdecken(zeileJeTeam.Values);
 
-        AnimationLaeuft          = true;
-        AnimationSchrittGesamt   = matrizen.Sum(m => m.Zeilen.Count);
-        AnimationSchrittIndex    = 0;
-        _animationUeberspringen  = false;
-        _weiterSignal            = new TaskCompletionSource();
-
-        AnimationMatrizen        = matrizen;
-        AnimationFokusMatrix     = matrizen[0];
-        AnimationZeigeUebersicht = false;
+        ZiehungStarten(matrizen.Sum(m => m.Zeilen.Count), manuell);
+        AnimationMatrizen = matrizen;
 
         var markiert = new List<ObservableObject>();
-        void MarkierungAufheben()
-        {
-            foreach (var o in markiert)
-            {
-                if (o is GegnerMatrixZelle z) z.IstHervorgehoben = false;
-                else if (o is GegnerMatrixZeile r) r.IstHervorgehoben = false;
-            }
-            markiert.Clear();
-        }
-
         try
         {
             for (int topfIndex = 0; topfIndex < matrizen.Count; topfIndex++)
@@ -407,7 +402,7 @@ public partial class ZiehungViewModel : ObservableObject
                 AnimationFokusMatrix     = matrix;
                 AnimationZeigeUebersicht = false;
                 int nochImTopf = matrix.Zeilen.Count;
-                AnimationFokusKopf = $"Ziehung {matrix.Name} · noch {nochImTopf} von {matrix.Zeilen.Count} Teams im Topf";
+                AnimationFokusKopf = TopfKopf(matrix, nochImTopf);
 
                 foreach (var zeile in matrix.Zeilen.OrderBy(_ => Random.Shared.Next()).ToList())
                 {
@@ -415,44 +410,18 @@ public partial class ZiehungViewModel : ObservableObject
                     AnimationSchrittIndex++;
 
                     // 1) Team ziehen
-                    zeile.IstGezogen        = true;
-                    zeile.ZeigeGezogenHaken = true;
                     nochImTopf--;
-                    AnimationFokusKopf = $"Ziehung {matrix.Name} · noch {nochImTopf} von {matrix.Zeilen.Count} Teams im Topf";
-                    zeile.IstHervorgehoben = true;
-                    markiert.Add(zeile);
-
-                    AnimationBannerMannschaft = zeile.Team.Name;
-                    AnimationBannerTopf       = matrix.Name;
-                    AnimationBannerZiel       = null;
-                    AnimationBannerSlot       = null;
+                    TeamAusMatrixZiehen(zeile, matrix, nochImTopf, markiert);
                     await WarteAufSchrittAsync(_tvModusSchrittVerzoegerung);
                     if (_animationUeberspringen) break;
 
                     // 2) Gegner aufdecken — im Banner namentlich nebeneinander, bereits feststehende sofort, neue
                     //    nacheinander (auch im manuellen Modus ohne eigenen Klick); dabei jeweils eigene Zeile +
                     //    Spiegelzelle beim Gegner aufdecken
-                    AnimationBannerGegner = new ObservableCollection<AnimationsBannerGegner>(zeile.Gegner
-                        .Select((zelle, index) => (zelle, index))
-                        .Where(x => x.zelle.Schluessel is not null)
-                        .Select(x => new AnimationsBannerGegner(
-                            $"{matrix.Spalten[x.index].TopfName} · {matrix.Spalten[x.index].Seite}", x.zelle, !x.zelle.IstAufgedeckt)));
-
+                    AnimationBannerGegner = BannerGegner(zeile, matrix);
                     foreach (var zelle in AnimationBannerGegner.Where(g => g.IstNeu).Select(g => g.Zelle))
                     {
-                        zelle.IstAufgedeckt    = true;
-                        zelle.IstHervorgehoben = true;
-                        markiert.Add(zelle);
-
-                        var spiegel = zeileJeTeam.GetValueOrDefault(zelle.Schluessel!)?.Gegner
-                            .FirstOrDefault(g => g.Schluessel == zeile.Team.Schluessel);
-                        if (spiegel is not null)
-                        {
-                            spiegel.IstAufgedeckt    = true;
-                            spiegel.IstHervorgehoben = true;
-                            markiert.Add(spiegel);
-                        }
-
+                        GegnerAufdecken(zelle, zeile, zeileJeTeam, markiert);
                         await Task.WhenAny(Task.Delay(_tvModusGegnerVerzoegerung), _weiterSignal.Task);
                         if (_animationUeberspringen) break;
                     }
@@ -461,12 +430,9 @@ public partial class ZiehungViewModel : ObservableObject
                     await WarteAufSchrittAsync(_tvModusAufdeckVerzoegerung);
                     if (_animationUeberspringen) break;
 
-                    MarkierungAufheben();
-                    AnimationBannerGegner     = [];
-                    AnimationBannerMannschaft = null;
-                    AnimationBannerTopf       = null;
-                    AnimationBannerZiel       = null;
-                    AnimationBannerSlot       = null;
+                    MarkierungAufheben(markiert);
+                    AnimationBannerGegner = [];
+                    BannerLeeren();
                     // Im manuellen Modus keine eigene "Weiter"-Pause — zwei Klicks je Team (ziehen, aufdecken) genügen.
                     if (!_manuell)
                     {
@@ -478,19 +444,110 @@ public partial class ZiehungViewModel : ObservableObject
 
                 // 3) Zwischen-Übersicht nach jedem Topf (nach dem letzten folgt direkt die Ergebnisanzeige)
                 if (topfIndex < matrizen.Count - 1)
-                {
-                    AnimationZeigeUebersicht  = true;
-                    AnimationBannerKopf       = BANNER_KOPF_ZWISCHENSTAND;
-                    AnimationBannerMannschaft = $"{matrix.Name} komplett";
-                    AnimationBannerTopf       = "Zwischenstand aller Töpfe";
-                    await WarteAufSchrittAsync(_tvModusUebersichtVerzoegerung);
-                    AnimationBannerKopf       = BANNER_KOPF_MANNSCHAFT;
-                    AnimationBannerMannschaft = null;
-                    AnimationBannerTopf       = null;
-                }
+                    await ZwischenstandZeigenAsync($"{matrix.Name} komplett", "Zwischenstand aller Töpfe");
             }
         }
         finally { AnimationsZustandZuruecksetzen(); }
+    }
+
+    /// <summary>Ausgangslage der Live-Ziehung: kein Team gezogen, kein Gegner aufgedeckt.</summary>
+    private static void MatrizenVerdecken(IEnumerable<GegnerMatrixZeile> zeilen)
+    {
+        foreach (var zeile in zeilen)
+        {
+            zeile.IstGezogen = false;
+            foreach (var zelle in zeile.Gegner)
+                if (zelle.Schluessel is not null) zelle.IstAufgedeckt = false;
+        }
+    }
+
+    private static string TopfKopf(GegnerMatrixTopf matrix, int nochImTopf) =>
+        $"Ziehung {matrix.Name} · noch {nochImTopf} von {matrix.Zeilen.Count} Teams im Topf";
+
+    private void TeamAusMatrixZiehen(GegnerMatrixZeile zeile, GegnerMatrixTopf matrix, int nochImTopf, List<ObservableObject> markiert)
+    {
+        zeile.IstGezogen        = true;
+        zeile.ZeigeGezogenHaken = true;
+        AnimationFokusKopf      = TopfKopf(matrix, nochImTopf);
+        zeile.IstHervorgehoben  = true;
+        markiert.Add(zeile);
+
+        AnimationBannerMannschaft = zeile.Team.Name;
+        AnimationBannerTopf       = matrix.Name;
+        AnimationBannerZiel       = null;
+        AnimationBannerSlot       = null;
+    }
+
+    /// <summary>Die Gegner der Zeile fürs Banner — neu ist ein Gegner, dessen Zelle noch verdeckt ist.</summary>
+    private static ObservableCollection<AnimationsBannerGegner> BannerGegner(GegnerMatrixZeile zeile, GegnerMatrixTopf matrix) =>
+        new(zeile.Gegner
+            .Select((zelle, index) => (zelle, index))
+            .Where(x => x.zelle.Schluessel is not null)
+            .Select(x => new AnimationsBannerGegner(
+                $"{matrix.Spalten[x.index].TopfName} · {matrix.Spalten[x.index].Seite}", x.zelle, !x.zelle.IstAufgedeckt)));
+
+    /// <summary>Deckt <paramref name="zelle"/> in der Zeile des gezogenen Teams auf und zugleich die gespiegelte
+    /// Zelle in der Zeile des Gegners.</summary>
+    private static void GegnerAufdecken(
+        GegnerMatrixZelle zelle, GegnerMatrixZeile gezogen,
+        Dictionary<string, GegnerMatrixZeile> zeileJeTeam, List<ObservableObject> markiert)
+    {
+        zelle.IstAufgedeckt    = true;
+        zelle.IstHervorgehoben = true;
+        markiert.Add(zelle);
+
+        var spiegel = zeileJeTeam.GetValueOrDefault(zelle.Schluessel!)?.Gegner
+            .FirstOrDefault(g => g.Schluessel == gezogen.Team.Schluessel);
+        if (spiegel is null) return;
+
+        spiegel.IstAufgedeckt    = true;
+        spiegel.IstHervorgehoben = true;
+        markiert.Add(spiegel);
+    }
+
+    private static void MarkierungAufheben(List<ObservableObject> markiert)
+    {
+        foreach (var o in markiert)
+        {
+            if (o is GegnerMatrixZelle zelle) zelle.IstHervorgehoben = false;
+            else if (o is GegnerMatrixZeile zeile) zeile.IstHervorgehoben = false;
+        }
+        markiert.Clear();
+    }
+
+    // ── Gemeinsamer Ablauf ────────────────────────────────────────────────────
+
+    private void ZiehungStarten(int schrittGesamt, bool manuell)
+    {
+        _manuell                = manuell;
+        _animationUeberspringen = false;
+        _weiterSignal           = new TaskCompletionSource();
+        AnimationLaeuft         = true;
+        AnimationSchrittGesamt  = schrittGesamt;
+        AnimationSchrittIndex   = 0;
+    }
+
+    private void BannerLeeren()
+    {
+        AnimationBannerMannschaft = null;
+        AnimationBannerTopf       = null;
+        AnimationBannerZiel       = null;
+        AnimationBannerSlot       = null;
+        AnimationBannerPosition   = null;
+    }
+
+    /// <summary>Blendet die Gesamtübersicht als eigenen Schritt ein und danach wieder aus.</summary>
+    private async Task ZwischenstandZeigenAsync(string titel, string untertitel)
+    {
+        AnimationZeigeUebersicht  = true;
+        AnimationBannerKopf       = BANNER_KOPF_ZWISCHENSTAND;
+        AnimationBannerMannschaft = titel;
+        AnimationBannerTopf       = untertitel;
+        await WarteAufSchrittAsync(_tvModusUebersichtVerzoegerung);
+        AnimationBannerKopf       = BANNER_KOPF_MANNSCHAFT;
+        AnimationBannerMannschaft = null;
+        AnimationBannerTopf       = null;
+        AnimationZeigeUebersicht  = false;
     }
 
     private async Task WarteAufSchrittAsync(TimeSpan verzoegerung)
