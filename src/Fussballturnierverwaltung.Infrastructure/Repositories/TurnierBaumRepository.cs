@@ -82,11 +82,31 @@ public class TurnierBaumRepository(TurnierverwaltungDbContext context)
         await Context.SaveChangesAsync(ct);
 
         // Schritt 2: Knoten löschen
-        Context.TurnierBaumKnotenMenge.RemoveRange(baum.Knoten);
-        await Context.SaveChangesAsync(ct);
+        await KnotenLoeschenAsync(baum, ct);
 
         // Schritt 3: Baum löschen
         Context.TurnierBaeume.Remove(baum);
         await Context.SaveChangesAsync(ct);
+    }
+
+    private async Task KnotenLoeschenAsync(TurnierBaum baum, CancellationToken ct)
+    {
+        if (!Context.Database.IsRelational())
+        {
+            // Der InMemory-Provider der Tests kennt kein ExecuteDelete.
+            Context.TurnierBaumKnotenMenge.RemoveRange(baum.Knoten);
+            await Context.SaveChangesAsync(ct);
+            return;
+        }
+
+        // Eine Anweisung für alle Knoten (#390): der SQL Server kompiliert jedes einzelne
+        // "DELETE … WHERE Id = @p" auf dieser Tabelle bei jeder Ausführung neu (gemessen rund 95–125 ms für
+        // 23 Knoten gegenüber 3–9 ms für ebenso viele Einfügungen, dasselbe Muster wie bei Spielen in #414).
+        // ExecuteDelete läuft am Change-Tracker vorbei — die gelöschten Knoten müssen deshalb ausdrücklich aus
+        // dem Kontext und aus der Sammlung des Baums (Stale-Bug, siehe #103).
+        await Context.TurnierBaumKnotenMenge.Where(k => k.TurnierBaumId == baum.Id).ExecuteDeleteAsync(ct);
+        foreach (var knoten in baum.Knoten)
+            Context.Entry(knoten).State = EntityState.Detached;
+        baum.Knoten.Clear();
     }
 }
