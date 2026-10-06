@@ -663,15 +663,16 @@ public class TabellenService(
             .ToList();
 
         int extremRang = bestenfalls ? int.MaxValue : int.MinValue;
-        int kombinationen = (int)Math.Pow(_fremdSpielVariantenAnzahl, fremde.Count);
+        // long: bei einer Fünfergruppe mit Rückspiel (12 fremde offene Spiele) passt 6^12 nicht mehr in int.
+        long kombinationen = (long)Math.Pow(_fremdSpielVariantenAnzahl, fremde.Count);
 
-        for (int kombi = 0; kombi < kombinationen; kombi++)
+        for (long kombi = 0; kombi < kombinationen; kombi++)
         {
             var fremdeErgebnisse = new List<Spiel>(fremde.Count);
-            int rest = kombi;
+            long rest = kombi;
             foreach (var s in fremde)
             {
-                int variante = rest % _fremdSpielVariantenAnzahl;
+                int variante = (int)(rest % _fremdSpielVariantenAnzahl);
                 rest /= _fremdSpielVariantenAnzahl;
                 fremdeErgebnisse.Add(variante switch
                 {
@@ -689,6 +690,12 @@ public class TabellenService(
             int rang = tabelle.FirstOrDefault(e => e.Mannschaft.Id == teamId)?.Rang ?? int.MaxValue;
 
             extremRang = bestenfalls ? Math.Min(extremRang, rang) : Math.Max(extremRang, rang);
+
+            // #427: Besser als Platz 1 und schlechter als der letzte Platz geht nicht — ist die Grenze erreicht,
+            // ändert keine weitere Kombination mehr etwas. Solange viele Spiele offen sind, ist das fast sofort
+            // der Fall; ohne den Abbruch rechnete eine Vierergruppe mit Rückspiel vor dem ersten Ergebnis
+            // 6^6 Tabellen je Team und Richtung (gemessen 3,4 s je Gruppe, in der App 26 s für vier Gruppen).
+            if (extremRang == (bestenfalls ? 1 : tabelle.Count)) break;
         }
 
         return extremRang;

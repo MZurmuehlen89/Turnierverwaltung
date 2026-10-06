@@ -1051,4 +1051,44 @@ public class TabellenServiceTests
             "erzielte Tore 2 (Team 9) schlägt 1 (Team 6) schlägt 0 (Team 3) - direkter Vergleich liefert zwischen " +
             "gruppenfremden Teams stets 0 und faellt korrekt auf das zweite Kriterium durch");
     }
+
+    // ── Issue #427: Rang-Sicherheitsprüfung mit vielen offenen Spielen ──────
+
+    /// <summary>Fünfergruppe mit Hin- und Rückspiel vor dem ersten Ergebnis: je Team 12 fremde offene Spiele, also
+    /// 6^12 Kombinationen je Richtung. Ohne Abbruch an der Ranggrenze wäre das nicht berechenbar (die Zahl passte
+    /// zudem nicht in int) — der Test liefe dann nicht durch.</summary>
+    [Fact]
+    public async Task GruppenTabellenBerechnenAsync_VorDemErstenErgebnis_IstFuerJedesTeamNochJederRangMoeglich()
+    {
+        await using var ctx = NeuerContext();
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Rundenart = Rundenart.Gruppenphase,
+            RegelwerkId = 1, Reihenfolge = 1, GruppenAnzahl = 1, AusgangsMannschaftsanzahl = 2, MitRueckspiel = true
+        });
+        for (int i = 1; i <= 5; i++)
+            ctx.Mannschaften.Add(new Mannschaft { Id = i, Name = $"Team {i}", Kurzname = $"T{i}", LandId = 1 });
+        ctx.SaveChanges();
+
+        int spielId = 0;
+        for (int heim = 1; heim <= 5; heim++)
+            for (int auswaerts = 1; auswaerts <= 5; auswaerts++)
+                if (heim != auswaerts)
+                    SpielHinzufuegen(ctx, ++spielId, rundeId: 1, heim, auswaerts, heimTore: null, auswaertsTore: null,
+                        istRueckspiel: heim > auswaerts);
+        var service = ServiceFuer(ctx);
+
+        var gruppen = await service.GruppenTabellenBerechnenAsync(1);
+
+        gruppen.Single().Tabelle.Should().HaveCount(5).And.AllSatisfy(e =>
+        {
+            e.BesterRang.Should().Be(1);
+            e.SchlechtesterRang.Should().Be(5);
+            e.SicherPositioniert.Should().BeFalse();
+            e.Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen);
+        });
+    }
 }
