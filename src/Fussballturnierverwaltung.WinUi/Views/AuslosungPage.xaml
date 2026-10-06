@@ -17,7 +17,7 @@
                     Background="Transparent" BorderThickness="0"
                     HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
                     ToolTipService.ToolTip="{Binding Name}"
-                    Command="{Binding DataContext.TeamFokussierenCommand, ElementName=Root}"
+                    Command="{Binding DataContext.GegnerMatrix.TeamFokussierenCommand, ElementName=Root}"
                     CommandParameter="{Binding}">
                 <Grid>
                     <Border CornerRadius="3" Margin="-4,0" BorderThickness="1"
@@ -246,7 +246,7 @@
                                                 HorizontalContentAlignment="Stretch"
                                                 ToolTipService.ToolTip="{Binding Team.Land}"
                                                 Opacity="{Binding TeamOpacity}"
-                                                Command="{Binding DataContext.TeamFokussierenCommand, ElementName=Root}"
+                                                Command="{Binding DataContext.GegnerMatrix.TeamFokussierenCommand, ElementName=Root}"
                                                 CommandParameter="{Binding Team}">
                                             <Grid ColumnDefinitions="Auto,20,8,*">
                                                 <TextBlock Grid.Column="0" Text="✓" FontSize="12" FontWeight="Bold" Margin="0,0,6,0"
@@ -860,20 +860,20 @@
                                        FontSize="12" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,8" />
 
                             <!-- Gegnerliste des fokussierten Teams -->
-                            <Border Visibility="{Binding ZeigeFokusGegner, Converter={StaticResource BoolToVisibility}}"
+                            <Border Visibility="{Binding GegnerMatrix.ZeigeFokusGegner, Converter={StaticResource BoolToVisibility}}"
                                     BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="1"
                                     CornerRadius="4" Padding="10" Margin="0,0,0,12" HorizontalAlignment="Left">
                                 <StackPanel>
                                     <Grid ColumnDefinitions="Auto,8,*,Auto" Margin="0,0,0,8">
-                                        <Image Grid.Column="0" Source="{Binding FokusTeam.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                               Visibility="{Binding FokusTeam.Wappen, Converter={StaticResource NullToCollapsed}}"
+                                        <Image Grid.Column="0" Source="{Binding GegnerMatrix.FokusTeam.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                               Visibility="{Binding GegnerMatrix.FokusTeam.Wappen, Converter={StaticResource NullToCollapsed}}"
                                                Stretch="Uniform" Width="24" Height="24" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="2" FontWeight="SemiBold" VerticalAlignment="Center">
-                                            <Run Text="Gegner von " /><Run Text="{Binding FokusTeam.Name}" />
+                                            <Run Text="Gegner von " /><Run Text="{Binding GegnerMatrix.FokusTeam.Name}" />
                                         </TextBlock>
                                         <Button Grid.Column="3" Content="✕" FontSize="11" Padding="6,3"
                                                 ToolTipService.ToolTip="Fokus aufheben"
-                                                Command="{Binding TeamFokussierenCommand}" />
+                                                Command="{Binding GegnerMatrix.TeamFokussierenCommand}" />
                                     </Grid>
                                     <!-- Feste Spaltenbreiten: der Rahmen ist links ausgerichtet und passt sich dem Inhalt an —
                                          *-Spalten würden dann je Zeile einzeln nach Inhalt bemessen (Auswärts-Spalte verrutschte). -->
@@ -885,7 +885,7 @@
                                             <TextBlock Grid.Column="3" Text="Auswärts" FontSize="11" FontWeight="SemiBold" />
                                         </Grid>
                                     </Border>
-                                    <ItemsControl ItemsSource="{Binding FokusGegner}">
+                                    <ItemsControl ItemsSource="{Binding GegnerMatrix.FokusGegner}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
@@ -907,7 +907,7 @@
                             <!-- Eine Matrix je Topf: Zeilen = Teams des Topfs, Spalten = je Gegner-Topf Heim/Auswärts -->
                             <ScrollViewer HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Enabled"
                                           VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
-                                <ItemsControl ItemsSource="{Binding GegnerMatrizen}" ItemTemplate="{StaticResource GegnerMatrixTemplate}" />
+                                <ItemsControl ItemsSource="{Binding GegnerMatrix.Matrizen}" ItemTemplate="{StaticResource GegnerMatrixTemplate}" />
                             </ScrollViewer>
                         </StackPanel>
 

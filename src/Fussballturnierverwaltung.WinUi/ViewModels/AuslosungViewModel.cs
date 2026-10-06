@@ -204,14 +204,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public bool IstPaarungsergebnis => IstAbgeschlossen && !IstGruppenergebnis && !IstGegnerMatrixergebnis;
 
-    [ObservableProperty] private ObservableCollection<GegnerMatrixTopf> _gegnerMatrizen = [];
-    [ObservableProperty] private ObservableCollection<FokusGegnerEintrag> _fokusGegner = [];
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ZeigeFokusGegner))]
-    private GegnerMatrixZelle? _fokusTeam;
-
-    public bool ZeigeFokusGegner => FokusTeam is not null;
+    /// <summary>Gegner-Matrix der Ligaphase samt Team-Fokus (#362).</summary>
+    public GegnerMatrixViewModel GegnerMatrix { get; } = new();
 
     [ObservableProperty] private string _auslosungKopfzeile = "";
 
@@ -1017,7 +1011,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 // Daten, die danach auch als "echtes" Ergebnis angezeigt werden (Fund aus #303-Test: TV-Modus-
                 // Endanzeige wich bei Gruppenphase nach vorherigem Zurücksetzen vom echten Ergebnis ab). Deshalb
                 // auch VOR der Turnierbaum-Aktualisierung, die auf demselben DbContext weiterarbeitet.
-                matrizen = TvModusAktiv && IstGegnerMatrixergebnis ? GegnerMatrizenAufbauen(detail) : null;
+                matrizen = TvModusAktiv && IstGegnerMatrixergebnis ? GegnerMatrixBuilder.Aufbauen(detail) : null;
                 schritte = TvModusAktiv && matrizen is null
                     ? ZiehungsSchritteAufbauen(detail.Lostoepfe, detail.Ergebnisse)
                     : null;
@@ -1845,9 +1839,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             bool istMatrix = !istGruppe && detail.Ergebnisse.Any() &&
                 detail.Auslosungsart == Auslosungsart.TopfZuordnung && detail.Lostoepfe.Count >= 2;
             IstGegnerMatrixergebnis = istMatrix;
-            GegnerMatrizen = istMatrix ? GegnerMatrizenAufbauen(detail) : [];
-            FokusTeam      = null;
-            FokusGegner    = [];
+            GegnerMatrix.Zeigen(istMatrix ? GegnerMatrixBuilder.Aufbauen(detail) : []);
 
             if (istGruppe)
             {
@@ -2089,98 +2081,4 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     }
 
     partial void OnDetailAnzahlLostoepfeChanged(int value)   { if (!_ladenAktiv) IstDetailDirty = true; }
-
-    // ── Gegner-Matrix der Ligaphase (#362) ────────────────────────────────────
-
-    private static string? TeamSchluessel(int? mannschaftId, string? platzhalterName) =>
-        mannschaftId?.ToString() ?? (platzhalterName is null ? null : $"P:{platzhalterName}");
-
-    private static GegnerMatrixZelle MatrixZelle(Mannschaft? mannschaft, string? platzhalterName) => new()
-    {
-        Schluessel = TeamSchluessel(mannschaft?.Id, platzhalterName),
-        Name       = mannschaft?.Name ?? platzhalterName ?? "?",
-        Kurzname   = string.IsNullOrWhiteSpace(mannschaft?.Kurzname) ? mannschaft?.Name ?? platzhalterName ?? "?" : mannschaft.Kurzname,
-        Land       = mannschaft?.Land?.Name,
-        Wappen     = TeilnehmerAnzeige.MannschaftsIcon(mannschaft),
-    };
-
-    /// <summary>Je Lostopf eine Matrix: Zeilen = Teams des Topfs (Reihenfolge wie in der Topf-Liste), Spalten =
-    /// je Gegner-Topf Heim- und Auswärtsgegner. Topf des Gegners aus den Lostopf-Einträgen, Heim/Auswärts aus der
-    /// Ergebnis-Paarung — jede Zelle ist eine eigene Instanz, damit die Hervorhebung pro Vorkommen gesetzt wird.</summary>
-    private static ObservableCollection<GegnerMatrixTopf> GegnerMatrizenAufbauen(Auslosung detail)
-    {
-        var toepfe = detail.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
-        var topfJeTeam = new Dictionary<string, int>();
-        for (int i = 0; i < toepfe.Count; i++)
-            foreach (var eintrag in toepfe[i].Eintraege)
-                if (TeamSchluessel(eintrag.MannschaftId, eintrag.PlatzhalterName) is { } schluessel)
-                    topfJeTeam[schluessel] = i;
-
-        // (Team, Topf des Gegners) → Ergebnis-Paarung, getrennt nach Heim- und Auswärtsspiel
-        var heimSpiele      = new Dictionary<(string, int), AuslosungsErgebnis>();
-        var auswaertsSpiele = new Dictionary<(string, int), AuslosungsErgebnis>();
-        foreach (var e in detail.Ergebnisse.Where(e => !e.IstFreilos))
-        {
-            var heim = TeamSchluessel(e.HeimMannschaftId, e.HeimPlatzhalterName);
-            var gast = TeamSchluessel(e.AuswaertsMannschaftId, e.AuswaertsPlatzhalterName);
-            if (heim is null || gast is null ||
-                !topfJeTeam.TryGetValue(heim, out int heimTopf) || !topfJeTeam.TryGetValue(gast, out int gastTopf))
-                continue;
-            heimSpiele[(heim, gastTopf)]      = e;
-            auswaertsSpiele[(gast, heimTopf)] = e;
-        }
-
-        var spalten = toepfe
-            .SelectMany(t => new[] { new GegnerMatrixSpalte(t.Name, "Heim"), new GegnerMatrixSpalte(t.Name, "Auswärts") })
-            .ToList();
-
-        return new ObservableCollection<GegnerMatrixTopf>(toepfe.Select(topf => new GegnerMatrixTopf(
-            topf.Name,
-            spalten,
-            topf.Eintraege.OrderBy(e => e.Id).Select(eintrag =>
-            {
-                var schluessel = TeamSchluessel(eintrag.MannschaftId, eintrag.PlatzhalterName) ?? "";
-                var gegner = new List<GegnerMatrixZelle>();
-                for (int j = 0; j < toepfe.Count; j++)
-                {
-                    gegner.Add(heimSpiele.TryGetValue((schluessel, j), out var h)
-                        ? MatrixZelle(h.AuswaertsMannschaft, h.AuswaertsPlatzhalterName)
-                        : new GegnerMatrixZelle { Kurzname = "–" });
-                    gegner.Add(auswaertsSpiele.TryGetValue((schluessel, j), out var a)
-                        ? MatrixZelle(a.HeimMannschaft, a.HeimPlatzhalterName)
-                        : new GegnerMatrixZelle { Kurzname = "–" });
-                }
-                return new GegnerMatrixZeile
-                {
-                    Team   = MatrixZelle(eintrag.Mannschaft, eintrag.PlatzhalterName),
-                    Gegner = gegner,
-                };
-            }).ToList())));
-    }
-
-    /// <summary>Team anklicken (eigene Zeile oder als Gegner in einer Zelle) → in allen Matrizen hervorheben und
-    /// seine Gegnerliste zeigen; erneuter Klick auf dasselbe Team hebt den Fokus auf.</summary>
-    [RelayCommand]
-    private void TeamFokussieren(GegnerMatrixZelle? zelle)
-    {
-        if (zelle is { Schluessel: null }) return;   // leere Zelle — Fokus bleibt
-        string? fokus = zelle?.Schluessel is { } s && s != FokusTeam?.Schluessel ? s : null;
-
-        GegnerMatrixZeile? fokusZeile = null;
-        foreach (var zeile in GegnerMatrizen.SelectMany(m => m.Zeilen))
-        {
-            zeile.IstHervorgehoben = fokus is not null && zeile.Team.Schluessel == fokus;
-            if (zeile.IstHervorgehoben) fokusZeile = zeile;
-            foreach (var gegner in zeile.Gegner)
-                gegner.IstHervorgehoben = fokus is not null && gegner.Schluessel == fokus;
-        }
-
-        FokusTeam = fokusZeile?.Team;
-        FokusGegner = fokusZeile is null
-            ? []
-            : new ObservableCollection<FokusGegnerEintrag>(GegnerMatrizen[0].Spalten
-                .Select((spalte, index) => (spalte, index))
-                .Where(x => x.index % 2 == 0)
-                .Select(x => new FokusGegnerEintrag(x.spalte.TopfName, fokusZeile.Gegner[x.index], fokusZeile.Gegner[x.index + 1])));
-    }
 }
