@@ -303,6 +303,97 @@ public class SeedDatenServiceTests
         }
     }
 
+    // ── Copa América ohne Verlängerung (Issue #374) ────────────────────────
+
+    private const string COPA_VORLAGE = "Copa América";
+    private const string COPA_16 = "16 Teams · 2016/2024";
+    private const string COPA_12 = "12 Teams · 1993–2019";
+
+    [Theory]
+    [InlineData(COPA_16)]
+    [InlineData(COPA_12)]
+    public async Task InitialisierenAsync_CopaAmericaGehtVorDemFinaleDirektInsElfmeterschiessen(string variante)
+    {
+        var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var ctx = new TurnierverwaltungDbContext(optionen);
+        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+        foreach (string runde in new[] { "Viertelfinale", "Halbfinale", "Spiel um Platz 3" })
+            (await VerfahrenDerRundeAsync(ctx, COPA_VORLAGE, variante, runde))
+                .Should().Equal([VerfahrenArt.Elfmeterschiessen], $"{runde} wird ohne Verlängerung gespielt");
+        (await VerfahrenDerRundeAsync(ctx, COPA_VORLAGE, variante, "Finale"))
+            .Should().Equal(VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Elfmeterschiessen);
+    }
+
+    [Fact]
+    public async Task InitialisierenAsync_RuestetDirektesElfmeterschiessenDerCopaAmericaInBestehenderDatenbankNach()
+    {
+        var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        int golden;
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+            // Stand vor #374 simulieren: alle Copa-Runden auf dem FIFA-Regelwerk, alte Beschreibungen. Manuell
+            // angepasst (muss unangetastet bleiben): das Halbfinale der 16er-Vorlage und die Beschreibung der 12er.
+            int fifaId = (await ctx.Regelwerke.SingleAsync(r => r.Name == TurnierVorlagenSeedDaten.FIFA_STANDARD_MODERN)).Id;
+            int copaId = (await ctx.Regelwerke.SingleAsync(r => r.Name == TurnierVorlagenSeedDaten.COPA_DIREKTES_ELFMETERSCHIESSEN)).Id;
+            golden = (await ctx.Regelwerke.SingleAsync(r => r.Name == "UEFA EM 1996 (Golden Goal)")).Id;
+            foreach (var runde in await ctx.TurnierRunden.Include(r => r.TurnierInstanz).Where(r => r.RegelwerkId == copaId).ToListAsync())
+                runde.RegelwerkId = runde.TurnierInstanz.Variante == COPA_16 && runde.Name == "Halbfinale" ? golden : fifaId;
+            foreach (var vorlage in await ctx.TurnierInstanzen.Where(i => i.Name == COPA_VORLAGE && i.Status == TurnierStatus.Vorlage).ToListAsync())
+                vorlage.Beschreibung = vorlage.Variante == COPA_12
+                    ? "Eigene Beschreibung"
+                    : TurnierVorlagenSeedDaten.AlteBeschreibungen[(vorlage.Name, vorlage.Variante)];
+            await ctx.SaveChangesAsync();
+        }
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            ctx.Regelwerke.Remove(await ctx.Regelwerke.SingleAsync(r => r.Name == TurnierVorlagenSeedDaten.COPA_DIREKTES_ELFMETERSCHIESSEN));
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+            (await VerfahrenDerRundeAsync(ctx, COPA_VORLAGE, COPA_16, "Viertelfinale")).Should().Equal(VerfahrenArt.Elfmeterschiessen);
+            (await VerfahrenDerRundeAsync(ctx, COPA_VORLAGE, COPA_12, "Spiel um Platz 3")).Should().Equal(VerfahrenArt.Elfmeterschiessen);
+            (await VerfahrenDerRundeAsync(ctx, COPA_VORLAGE, COPA_16, "Finale")).Should().Contain(VerfahrenArt.VerlaengerungKlassisch);
+            (await VerfahrenDerRundeAsync(ctx, "FIFA WM", "32 Teams · 1998–2022", "Viertelfinale"))
+                .Should().Contain(VerfahrenArt.VerlaengerungKlassisch, "andere Vorlagen behalten das FIFA-Regelwerk");
+
+            var halbfinale = await ctx.TurnierRunden.SingleAsync(r =>
+                r.Name == "Halbfinale" && r.TurnierInstanz.Name == COPA_VORLAGE && r.TurnierInstanz.Variante == COPA_16
+                && r.TurnierInstanz.Status == TurnierStatus.Vorlage);
+            halbfinale.RegelwerkId.Should().Be(golden, "ein manuell gewähltes Regelwerk bleibt erhalten");
+
+            var beschreibungen = await ctx.TurnierInstanzen
+                .Where(i => i.Name == COPA_VORLAGE && i.Status == TurnierStatus.Vorlage)
+                .ToDictionaryAsync(i => i.Variante, i => i.Beschreibung);
+            beschreibungen[COPA_16].Should().Contain("Verlängerung nur im Finale");
+            beschreibungen[COPA_12].Should().Be("Eigene Beschreibung", "eine manuell geänderte Beschreibung bleibt erhalten");
+        }
+    }
+
+    private static async Task<List<VerfahrenArt>> VerfahrenDerRundeAsync(
+        TurnierverwaltungDbContext ctx, string vorlage, string variante, string rundenName)
+    {
+        var runde = await ctx.TurnierRunden.SingleAsync(r =>
+            r.Name == rundenName && r.TurnierInstanz.Name == vorlage && r.TurnierInstanz.Variante == variante
+            && r.TurnierInstanz.Status == TurnierStatus.Vorlage);
+        return await ctx.Regelwerke
+            .Where(r => r.Id == runde.RegelwerkId)
+            .SelectMany(r => r.Entscheidungsverfahren)
+            .OrderBy(e => e.Reihenfolge)
+            .Select(e => e.VerfahrenArt)
+            .ToListAsync();
+    }
+
     [Fact]
     public async Task InitialisierenAsync_FairplayWertungBevorzugtDasTeamMitWenigerKarten()
     {

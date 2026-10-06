@@ -195,5 +195,17 @@ public static class RegelwerkeSeedDaten
             Sieg: 3, Unentschieden: 1, Niederlage: 0,
             Verfahren: []
         ),
+        // Issue #374: Copa América ohne Verlängerung — in Viertelfinale, Halbfinale und Spiel um Platz 3 seit 2015
+        // (2019 nur im Viertelfinale), bis 2007 auch im Finale. Rangfolge der Gruppen wie im FIFA-Regelwerk.
+        (
+            new Regelwerk
+            {
+                Name = TurnierVorlagenSeedDaten.COPA_DIREKTES_ELFMETERSCHIESSEN,
+                Beschreibung = "Copa-América-Regelwerk für K.-o.-Spiele ohne Verlängerung: 3 Punkte für Sieg, bei Unentschieden direkt Elfmeterschießen.",
+                RankingRegelSetId = rankingRegelSetLookup.GetValueOrDefault("FIFA Standard")
+            },
+            Sieg: 3, Unentschieden: 1, Niederlage: 0,
+            Verfahren: [VerfahrenArt.Elfmeterschiessen]
+        ),
     ];
 }

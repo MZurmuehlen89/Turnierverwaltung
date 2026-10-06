@@ -167,6 +167,24 @@ public static class TurnierVorlagenSeedDaten
     public const string UEFA_CLUB_STANDARD = "UEFA Clubwettbewerb Standard";
     public const string UEFA_LIGAPHASE = "UEFA Clubwettbewerb Ligaphase (ab 2024/25)";
 
+    // Regelwerk-Namen der Copa América (Issue #374): Viertelfinale, Halbfinale und Spiel um Platz 3 gehen bei
+    // Unentschieden direkt ins Elfmeterschießen, nur das Finale behält das FIFA-Regelwerk mit Verlängerung.
+    public const string FIFA_STANDARD_MODERN = "FIFA Standard Modern (3-Punkte)";
+    public const string COPA_DIREKTES_ELFMETERSCHIESSEN = "CONMEBOL Copa América (direktes Elfmeterschießen)";
+
+    // Seed-Beschreibungen der Copa-Vorlagen vor #374 — die Nachrüstung zieht die Beschreibung nur mit, solange
+    // sie noch diesem Stand entspricht.
+    public static IReadOnlyDictionary<(string Name, string Variante), string> AlteBeschreibungen { get; } =
+        new Dictionary<(string Name, string Variante), string>
+    {
+        [("Copa América", "16 Teams · 2016/2024")] =
+            "Gruppenphase (4×4) → Viertelfinale → Halbfinale → Spiel um Platz 3 + Finale; " +
+            "10 CONMEBOL-Teams + 6 Gäste (CONCACAF), daher ohne Verbandsfilter",
+        [("Copa América", "12 Teams · 1993–2019")] =
+            "Gruppenphase (3×4, Erste/Zweite + 2 beste Dritte) → Viertelfinale → Halbfinale → " +
+            "Spiel um Platz 3 + Finale; 10 CONMEBOL-Teams + 2 Gäste, daher ohne Verbandsfilter",
+    };
+
     // Issue #350/#367: umbenannte Vorlagen (alter Name → neuer Name + Variante) — die Nachrüstung identifiziert
     // Vorlagen über Name + Variante, ohne Umbenennung der Bestands-Zeile würde sie ein Duplikat anlegen.
     // #367 hat den Klammerzusatz aus dem Namen in das Feld Variante verschoben.
@@ -462,17 +480,20 @@ public static class TurnierVorlagenSeedDaten
             Name = "Copa América",
             Variante = "16 Teams · 2016/2024",
             Beschreibung = "Gruppenphase (4×4) → Viertelfinale → Halbfinale → Spiel um Platz 3 + Finale; " +
-                           "10 CONMEBOL-Teams + 6 Gäste (CONCACAF), daher ohne Verbandsfilter",
+                           "10 CONMEBOL-Teams + 6 Gäste (CONCACAF), daher ohne Verbandsfilter; " +
+                           "bei Unentschieden im K.-o. direkt Elfmeterschießen, Verlängerung nur im Finale",
             ZielMannschaftsanzahl = 16,
             Kategorie = TurnierKategorie.Kontinentalmeisterschaft,
             Startdatum = new DateOnly(2016, 1, 1),
             MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
         };
-        int? rId = RwId(rw, "FIFA Standard Modern (3-Punkte)");
+        // Issue #374: 2016 und 2024 ohne Verlängerung in Viertelfinale, Halbfinale und Spiel um Platz 3.
+        int? rId = RwId(rw, FIFA_STANDARD_MODERN);
+        int? elfId = RwId(rw, COPA_DIREKTES_ELFMETERSCHIESSEN);
         v.Runden.Add(Runde(1, "Gruppenphase",     Rundenart.Gruppenphase,     16, 8, gruppen: 4, regelwerkId: rId));
-        v.Runden.Add(Runde(2, "Viertelfinale",    Rundenart.KoRunde,           8, 4, regelwerkId: rId));
-        v.Runden.Add(Runde(3, "Halbfinale",       Rundenart.KoRunde,           4, 2, regelwerkId: rId));
-        v.Runden.Add(Runde(4, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei,  2, 1, regelwerkId: rId));
+        v.Runden.Add(Runde(2, "Viertelfinale",    Rundenart.KoRunde,           8, 4, regelwerkId: elfId));
+        v.Runden.Add(Runde(3, "Halbfinale",       Rundenart.KoRunde,           4, 2, regelwerkId: elfId));
+        v.Runden.Add(Runde(4, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei,  2, 1, regelwerkId: elfId));
         v.Runden.Add(Runde(5, "Finale",           Rundenart.Finale,            2, 1, regelwerkId: rId));
         GruppenUebergaenge(v, direktProGruppe: 2);
         // Issue #372: fester Baum wie Copa América 2024.
@@ -488,21 +509,27 @@ public static class TurnierVorlagenSeedDaten
             Name = "Copa América",
             Variante = "12 Teams · 1993–2019",
             Beschreibung = "Gruppenphase (3×4, Erste/Zweite + 2 beste Dritte) → Viertelfinale → Halbfinale → " +
-                           "Spiel um Platz 3 + Finale; 10 CONMEBOL-Teams + 2 Gäste, daher ohne Verbandsfilter",
+                           "Spiel um Platz 3 + Finale; 10 CONMEBOL-Teams + 2 Gäste, daher ohne Verbandsfilter; " +
+                           "bei Unentschieden im K.-o. direkt Elfmeterschießen, Verlängerung nur im Finale (Stand 2015) – " +
+                           "bis 2007 auch das Finale ohne Verlängerung, 2011 alle K.-o.-Runden mit, 2019 nur das " +
+                           "Viertelfinale ohne (Regelwerk je Runde ggf. umstellen)",
             ZielMannschaftsanzahl = 12,
             Kategorie = TurnierKategorie.Kontinentalmeisterschaft,
             Startdatum = new DateOnly(1993, 1, 1),
             Enddatum = new DateOnly(2019, 12, 31),
             MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
         };
-        int? rId = RwId(rw, "FIFA Standard Modern (3-Punkte)");
+        // Issue #374: das Reglement wechselte je Ausgabe (siehe Beschreibung) — die Vorlage bildet den Stand von
+        // 2015 ab, der auch für die 16er-Vorlage gilt.
+        int? rId = RwId(rw, FIFA_STANDARD_MODERN);
+        int? elfId = RwId(rw, COPA_DIREKTES_ELFMETERSCHIESSEN);
         var gruppenphase  = Runde(1, "Gruppenphase",  Rundenart.Gruppenphase, 12, 8, gruppen: 3, regelwerkId: rId);
-        var viertelfinale = Runde(2, "Viertelfinale", Rundenart.KoRunde,       8, 4, regelwerkId: rId);
+        var viertelfinale = Runde(2, "Viertelfinale", Rundenart.KoRunde,       8, 4, regelwerkId: elfId);
         GruppenUebergaenge(gruppenphase, viertelfinale, direktProGruppe: 2, besteDritte: 2);
         v.Runden.Add(gruppenphase);
         v.Runden.Add(viertelfinale);
-        v.Runden.Add(Runde(3, "Halbfinale",       Rundenart.KoRunde,           4, 2, regelwerkId: rId));
-        v.Runden.Add(Runde(4, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei,  2, 1, regelwerkId: rId));
+        v.Runden.Add(Runde(3, "Halbfinale",       Rundenart.KoRunde,           4, 2, regelwerkId: elfId));
+        v.Runden.Add(Runde(4, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei,  2, 1, regelwerkId: elfId));
         v.Runden.Add(Runde(5, "Finale",           Rundenart.Finale,            2, 1, regelwerkId: rId));
         // Issue #372: fester Baum und Dritten-Zuordnung wie Copa América 2019.
         FesterKoBaum(v, KombinationstabellenSeedDaten.CopaAmerica12, "1A-3BC", "2A-2B", "1B-2C", "1C-3AB");

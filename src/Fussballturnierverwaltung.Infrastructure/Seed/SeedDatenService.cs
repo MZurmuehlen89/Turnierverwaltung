@@ -47,6 +47,8 @@ public class SeedDatenService
         await TurnierVorlagenFilterNachruesten(cancellationToken);
         await TurnierVorlagenRundenartNachruesten(cancellationToken);
         await TurnierVorlagenLigaphaseRegelwerkNachruesten(cancellationToken);
+        await TurnierVorlagenCopaRegelwerkNachruesten(cancellationToken);
+        await TurnierVorlagenBeschreibungNachruesten(cancellationToken);
         await TurnierVorlagenStrukturNachruesten(cancellationToken);
         await TurnierVorlagenFesteKoBaeumeNachruesten(cancellationToken);
 
@@ -378,6 +380,39 @@ public class SeedDatenService
         TurnierVorlagenRegelwerkUmstellen(
             TurnierVorlagenSeedDaten.UEFA_CLUB_STANDARD, TurnierVorlagenSeedDaten.UEFA_LIGAPHASE,
             "Vorlagen-Runden auf das Regelwerk der UEFA-Ligaphase umgestellt.", ct);
+
+    /// <summary>Issue #374: die Copa América spielt Viertelfinale, Halbfinale und Spiel um Platz 3 ohne
+    /// Verlängerung, bestehende Vorlagen behielten dort das FIFA-Regelwerk (Verlängerung + Elfmeterschießen).</summary>
+    private Task TurnierVorlagenCopaRegelwerkNachruesten(CancellationToken ct) =>
+        TurnierVorlagenRegelwerkUmstellen(
+            TurnierVorlagenSeedDaten.FIFA_STANDARD_MODERN, TurnierVorlagenSeedDaten.COPA_DIREKTES_ELFMETERSCHIESSEN,
+            "Vorlagen-Runden der Copa América auf direktes Elfmeterschießen umgestellt.", ct);
+
+    /// <summary>Issue #374: zieht die Beschreibung bestehender Vorlagen auf den Seed-Stand nach — nur, solange
+    /// sie noch wörtlich dem alten Seed-Text entspricht, eine vom Nutzer geänderte Beschreibung bleibt erhalten.</summary>
+    private async Task TurnierVorlagenBeschreibungNachruesten(CancellationToken ct)
+    {
+        var sollVorlagen = TurnierVorlagenSeedDaten.Erstellen().ToDictionary(Schluessel);
+        var vorhandeneVorlagen = await _context.TurnierInstanzen
+            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
+            .ToListAsync(ct);
+
+        int aktualisiert = 0;
+        foreach (var vorlage in vorhandeneVorlagen)
+        {
+            if (!TurnierVorlagenSeedDaten.AlteBeschreibungen.TryGetValue(Schluessel(vorlage), out string? alt)
+                || vorlage.Beschreibung != alt) continue;
+
+            vorlage.Beschreibung = sollVorlagen[Schluessel(vorlage)].Beschreibung;
+            aktualisiert++;
+        }
+
+        if (aktualisiert > 0)
+        {
+            await _context.SaveChangesAsync(ct);
+            Protokollieren(aktualisiert, "Beschreibungen von Turniervorlagen aktualisiert.");
+        }
+    }
 
     /// <summary><see cref="TurnierVorlagenNachruesten"/> ergänzt nur fehlende Vorlagen — wechselt der Seed das
     /// Regelwerk einer Runde, behalten bestehende Vorlagen das alte. Stellt nur Runden um, die noch auf genau
