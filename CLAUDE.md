@@ -94,6 +94,37 @@ Binding for new code only — no big-bang reformat of the existing codebase. Whe
 
 Binding for new code only — no retroactive reformatting of existing code.
 
+## Clean Code
+
+New code and every refactoring follow this fixed selection from Clean Code Development
+(clean-code-developer.de, grade in brackets):
+
+| Principle | What it means here |
+|---|---|
+| **SRP / SoC** (orange) | One reason to change per class. A ViewModel/service that combines several independent responsibilities gets split (child ViewModels, builders, helper classes). |
+| **IOSP + SLA** (red/orange) | A method either coordinates other methods (integration) or contains logic (operation) — not both, and it stays on one level of abstraction. |
+| **DRY** (red) | The same logic exists once. |
+| **KISS / YAGNI** (red/blue) | No interfaces, base classes or options in reserve — only what the current issue needs. |
+| **FCoI** (red) | Composition over inheritance: child ViewModels are composed, no new inheritance hierarchies. |
+| **Information Hiding / Tell, don't ask** (yellow/green) | Child ViewModels expose state read-only; the parent calls methods instead of writing into their fields. |
+| **Boy Scout Rule** (red) | Touched code is brought in line with these principles as part of the change (same rule as for formatting). |
+| **Automated unit tests** (yellow) | Logic that becomes pure/stateless through a split gets tests — as far as the test project can reach it (it does not reference `WinUi`). |
+
+**Thresholds** (project convention, not part of CCD) at which a split must be considered — and the reason stated
+if it is not done: method > ~40 lines, class > ~400 lines, more than ~5 constructor dependencies.
+
+**Deliberate deviations:**
+
+- **Comments stay** where they record the *why* that the code cannot show (WinUI pitfalls, issue references such
+  as `#406`). Clean Code's "as few comments as possible" applies only to comments that restate the code.
+- **Law of Demeter does not apply to XAML binding paths** (`Ziehung.AnimationLaeuft`): pass-through properties on
+  the parent ViewModel would recreate exactly the bulk a split removes.
+- **No big bang**: existing code is only restructured when an issue opens the file anyway, or through dedicated
+  refactoring issues (label `thema: code-qualitaet`).
+
+**Refactoring procedure:** two commits per cut — first move the code unchanged, then clean up inside the new
+class — so a behaviour change can be traced to one of the two. No behaviour change in either.
+
 ## Important Domain Concepts
 
 **`TurnierRunde.AuswaertstorRegelAktiv`** is a Boolean flag active only when `MitRueckspiel = true`. The away-goals rule is evaluated *before* `EntscheidungsVerfahren` when checking aggregate scores (AD-001).
