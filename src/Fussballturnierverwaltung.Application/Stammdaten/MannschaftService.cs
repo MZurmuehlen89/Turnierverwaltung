@@ -17,6 +17,9 @@ public class MannschaftService(
     public Task<IReadOnlyList<Mannschaft>> AlleAbrufenMitLandAsync(CancellationToken ct = default)
         => repository.AlleFindenMitLandAsync(ct);
 
+    public Task<IReadOnlyList<MannschaftAuswahl>> AlleAlsAuswahlAbrufenAsync(CancellationToken ct = default)
+        => repository.AlleAlsAuswahlFindenAsync(ct);
+
     public Task<IReadOnlyList<Mannschaft>> SuchenAsync(string suchbegriff, CancellationToken ct = default)
         => repository.SuchenAsync(suchbegriff, ct);
 

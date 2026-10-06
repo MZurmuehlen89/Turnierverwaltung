@@ -52,8 +52,8 @@ public partial class LandesQuoteZeile : ObservableObject
 /// <c>Loaded</c> gesetzt, siehe WinUi-CLAUDE.md) und wird ignoriert — entfernt wird eine Zeile über ✕.</summary>
 public partial class GastgeberZeile : ObservableObject
 {
-    private Mannschaft? _mannschaft;
-    public Mannschaft? Mannschaft
+    private MannschaftAuswahl? _mannschaft;
+    public MannschaftAuswahl? Mannschaft
     {
         get => _mannschaft;
         set { if (value is not null) SetProperty(ref _mannschaft, value); else OnPropertyChanged(); }
@@ -316,7 +316,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     public ObservableCollection<TitelverteidigerOption> TitelverteidigerOptionenGefiltert { get; } = [_keinTitelverteidiger];
 
     // Alle Mannschaften nach Name sortiert, je Mannschaft genau eine Option (Referenzabgleich der ComboBox).
-    private IReadOnlyList<(TitelverteidigerOption Option, Mannschaft Mannschaft)> _titelverteidigerKandidaten = [];
+    private IReadOnlyList<(TitelverteidigerOption Option, MannschaftAuswahl Mannschaft)> _titelverteidigerKandidaten = [];
 
     partial void OnTitelverteidigerChanged(TitelverteidigerOption value)
     {
@@ -334,8 +334,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         _titelverteidigerKandidaten.FirstOrDefault(k => k.Option.Wert == mannschaftId && mannschaftId is not null).Option
         ?? _keinTitelverteidiger;
 
-    private bool PasstZumAuslosungsfilter(Mannschaft m) =>
-        (VerbandFilter?.Wert is null || IstFifa(VerbandFilter.Wert) || m.Land?.VerbandId == VerbandFilter.Wert.Id)
+    private bool PasstZumAuslosungsfilter(MannschaftAuswahl m) =>
+        (VerbandFilter?.Wert is null || IstFifa(VerbandFilter.Wert) || m.VerbandId == VerbandFilter.Wert.Id)
         && (LandFilter?.Wert is null || m.LandId == LandFilter.Wert.Id)
         && (TeamFilter?.Wert ?? MannschaftsartFilter.Alle) switch
         {
@@ -373,12 +373,12 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     // Behalten in Runden mit neutralem Spielort ihren Heimvorteil. Auswahl wie beim Titelverteidiger nach dem
     // Auslosungsfilter vorgefiltert (PasstZumAuslosungsfilter); gewählte Gastgeber bleiben immer enthalten, sonst
     // fände die ComboBox ihre Auswahl nicht. Stabile Collection-Instanzen mit inkrementellem Abgleich
-    // (WinUI3-Fallstrick #335), Referenzabgleich der ComboBox über dieselben Mannschaft-Objekte.
+    // (WinUI3-Fallstrick #335); die ComboBox findet ihre Auswahl über dieselben Einträge.
     public ObservableCollection<GastgeberZeile> GastgeberZeilen { get; } = [];
-    public ObservableCollection<Mannschaft> GastgeberKandidaten { get; } = [];
+    public ObservableCollection<MannschaftAuswahl> GastgeberKandidaten { get; } = [];
 
     // Alle Mannschaften nach Name sortiert.
-    private IReadOnlyList<Mannschaft> _alleGastgeberKandidaten = [];
+    private IReadOnlyList<MannschaftAuswahl> _alleGastgeberKandidaten = [];
 
     [RelayCommand]
     private void GastgeberHinzufuegen() => GastgeberZeilen.Add(new GastgeberZeile());
@@ -426,11 +426,11 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     /// <summary>Gleicht die Auswahlliste mit dem Auslosungsfilter ab. Gewählte Gastgeber (und optional
     /// <paramref name="zusaetzlich"/>, bevor sie gesetzt werden) bleiben immer enthalten.</summary>
-    private void GastgeberOptionenSynchronisieren(IReadOnlyCollection<Mannschaft>? zusaetzlich = null)
+    private void GastgeberOptionenSynchronisieren(IReadOnlyCollection<MannschaftAuswahl>? zusaetzlich = null)
     {
-        var gewaehlt = GastgeberZeilen.Select(z => z.Mannschaft).OfType<Mannschaft>().ToHashSet();
+        var gewaehlt = GastgeberZeilen.Select(z => z.Mannschaft).OfType<MannschaftAuswahl>().ToHashSet();
         if (zusaetzlich is not null) gewaehlt.UnionWith(zusaetzlich);
-        IReadOnlyList<Mannschaft> soll = _alleGastgeberKandidaten
+        IReadOnlyList<MannschaftAuswahl> soll = _alleGastgeberKandidaten
             .Where(m => gewaehlt.Contains(m) || PasstZumAuslosungsfilter(m))
             .ToList();
         CollectionInkrementellSynchronisieren(GastgeberKandidaten, soll);
@@ -622,7 +622,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         {
             var teile = new List<string>();
             if (Titelverteidiger?.Wert is not null) teile.Add($"Titelverteidiger: {Titelverteidiger.Anzeige}");
-            var gastgeber = GastgeberZeilen.Select(z => z.Mannschaft).OfType<Mannschaft>().Distinct().ToList();
+            var gastgeber = GastgeberZeilen.Select(z => z.Mannschaft).OfType<MannschaftAuswahl>().Distinct().ToList();
             if (gastgeber.Count is > 0 and <= 3) teile.Add($"Gastgeber: {string.Join(", ", gastgeber.Select(m => m.Name))}");
             else if (gastgeber.Count > 3) teile.Add($"Gastgeber: {gastgeber.Count}");
             return new("TITELVERTEIDIGER & GASTGEBER", teile.Count > 0 ? string.Join(" · ", teile) : "nicht festgelegt");
@@ -707,13 +707,18 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     public async Task StammdatenLadenAsync()
     {
         using var vorgang = _logger.Vorgang("Turnierkopf: Stammdaten laden");
-        var verbaende = await _verbandService.AlleAbrufenAsync();
+        IReadOnlyList<Verband> verbaende;
+        using (_logger.Vorgang("Turnierkopf: Verbände abfragen"))
+            verbaende = await _verbandService.AlleAbrufenAsync();
         VerbandOptionen = [_keinVerband, .. verbaende.Select(v => new VerbandOption(v.Name, v))];
         AlleVerbaende = verbaende;
-        var laender = await _landService.AlleAbrufenAsync();
+        IReadOnlyList<Land> laender;
+        using (_logger.Vorgang("Turnierkopf: Länder abfragen"))
+            laender = await _landService.AlleAbrufenAsync();
         LandOptionen = [_keinLand, .. laender.OrderBy(l => l.Name).Select(l => new LandOption(l.Name, l))];
         AlleLaender = laender;
-        Regelwerke = new ObservableCollection<Regelwerk>(await _regelwerkService.AlleAbrufenAsync());
+        using (_logger.Vorgang("Turnierkopf: Regelwerke abfragen"))
+            Regelwerke = new ObservableCollection<Regelwerk>(await _regelwerkService.AlleAbrufenAsync());
         await MannschaftsauswahlLadenAsync();
     }
 
@@ -721,13 +726,12 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     /// der Anteil der Mannschaftsabfrage am Öffnen der Seite ist nur so vom Rest der Stammdaten zu trennen.</summary>
     private async Task MannschaftsauswahlLadenAsync()
     {
-        IReadOnlyList<Mannschaft> mannschaften;
+        IReadOnlyList<MannschaftAuswahl> mannschaften;
         using (_logger.Vorgang("Turnierkopf: Mannschaften für Gastgeber/Titelverteidiger abfragen"))
-            mannschaften = await _mannschaftService.AlleAbrufenMitLandAsync();
+            mannschaften = await _mannschaftService.AlleAlsAuswahlAbrufenAsync();
         _alleGastgeberKandidaten = mannschaften.OrderBy(m => m.Name).ToList();
         GastgeberOptionenSynchronisieren();
-        _titelverteidigerKandidaten = mannschaften
-            .OrderBy(m => m.Name)
+        _titelverteidigerKandidaten = _alleGastgeberKandidaten
             .Select(m => (new TitelverteidigerOption(m.Name, m.Id), m))
             .ToList();
         TitelverteidigerOptionenSynchronisieren();

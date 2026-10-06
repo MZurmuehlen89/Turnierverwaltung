@@ -16,6 +16,12 @@ public class MannschaftRepository(TurnierverwaltungDbContext context)
             .ThenBy(m => m.Name)
             .ToListAsync(ct);
 
+    // Unsortiert und ohne Bildspalten (#419): Auswahllisten sortieren selbst, Wappen und Flaggen zeigen sie nicht.
+    public async Task<IReadOnlyList<MannschaftAuswahl>> AlleAlsAuswahlFindenAsync(CancellationToken ct = default)
+        => await Context.Mannschaften
+            .Select(m => new MannschaftAuswahl(m.Id, m.Name, m.Mannschaftsart, m.LandId, m.Land.VerbandId))
+            .ToListAsync(ct);
+
     public async Task<Mannschaft?> FindenNachIdMitLandAsync(int id, CancellationToken ct = default)
         => await Context.Mannschaften
             .Include(m => m.Land)
