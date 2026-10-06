@@ -251,6 +251,24 @@ public class SpielRepository(TurnierverwaltungDbContext context)
             .ThenBy(s => s.Spielnummer)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Spiel>> AlleNachInstanzMitEreignissenAsync(int turnierInstanzId, CancellationToken ct = default)
+        => await Context.Spiele
+            .Include(s => s.TurnierRunde)
+            .Include(s => s.HeimMannschaft)
+                .ThenInclude(m => m!.Land)
+                    .ThenInclude(l => l.Verband)
+            .Include(s => s.AuswaertsMannschaft)
+                .ThenInclude(m => m!.Land)
+                    .ThenInclude(l => l.Verband)
+            .Include(s => s.Ergebnis)
+            .Include(s => s.Ereignisse)
+            .Where(s => s.TurnierInstanzId == turnierInstanzId)
+            .OrderBy(s => s.TurnierRunde.Reihenfolge)
+            .ThenBy(s => s.Spieltag)
+            .ThenBy(s => s.Spielnummer)
+            .AsSplitQuery()
+            .ToListAsync(ct);
+
     public async Task<Spiel?> FindenNachIdMitEreignissenAsync(int id, CancellationToken ct = default)
         => await Context.Spiele
             // Issue #341: Turnier/Runde für die Kontextzeile, Verband für den Untertitel im Spielkopf

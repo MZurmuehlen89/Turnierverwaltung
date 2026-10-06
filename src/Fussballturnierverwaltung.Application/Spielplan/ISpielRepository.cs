@@ -38,6 +38,10 @@ public interface ISpielRepository : IRepository<Spiel>
     /// <summary>Lädt alle Spiele einer Runde inklusive SpielEreignisse (für Fairplay-Wertung).</summary>
     Task<IReadOnlyList<Spiel>> AlleNachRundeMitEreignissenAsync(int turnierRundeId, CancellationToken ct = default);
 
+    /// <summary>Lädt alle Spiele eines Turniers mit Runde, Ergebnis, SpielEreignissen und den Mannschaften samt
+    /// Land und Verband (für die Statistik, Issue #327).</summary>
+    Task<IReadOnlyList<Spiel>> AlleNachInstanzMitEreignissenAsync(int turnierInstanzId, CancellationToken ct = default);
+
     /// <summary>Lädt ein einzelnes Spiel mit Ergebnis, Teams und allen SpielEreignissen (für Liveticker).</summary>
     Task<Spiel?> FindenNachIdMitEreignissenAsync(int id, CancellationToken ct = default);
 

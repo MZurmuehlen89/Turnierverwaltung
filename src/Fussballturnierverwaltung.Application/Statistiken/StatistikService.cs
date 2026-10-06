@@ -1,12 +1,54 @@
 using Fussballturnierverwaltung.Application.Spielplan;
+using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Statistiken;
 
-public class StatistikService(ISpielRepository spielRepository)
+public class StatistikService(
+    ISpielRepository spielRepository,
+    ITurnierRundeRepository rundeRepository,
+    IRegelwerkRepository regelwerkRepository)
 {
+    /// <summary>Alle abgeschlossenen Spiele des Turniers aus Sicht beider Mannschaften — die Eingabe für die
+    /// Ranglisten in <see cref="StatistikBerechnung"/>.</summary>
+    public async Task<IReadOnlyList<MannschaftsSpiel>> MannschaftsSpieleLadenAsync(
+        int turnierInstanzId, CancellationToken ct = default)
+    {
+        var punkteRegelJeRunde = await PunkteRegelJeRundeLadenAsync(turnierInstanzId, ct);
+        var spiele = await spielRepository.AlleNachInstanzMitEreignissenAsync(turnierInstanzId, ct);
+        return StatistikBerechnung.AusMannschaftsSicht(spiele, punkteRegelJeRunde);
+    }
+
+    // AD-026: Rundenregelwerk überschreibt das Standard-Regelwerk der Instanz, fehlt es, gilt dieses. Ohne
+    // jedes Regelwerk gilt 3/1/0 — die Statistik soll daran nicht scheitern.
+    private async Task<Dictionary<int, PunkteRegel>> PunkteRegelJeRundeLadenAsync(int turnierInstanzId, CancellationToken ct)
+    {
+        var runden = await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
+        var standardRegelwerkId = await rundeRepository.StandardRegelwerkIdDerInstanzAsync(turnierInstanzId, ct);
+
+        var punkteRegelJeRegelwerk = new Dictionary<int, PunkteRegel?>();
+        var punkteRegelJeRunde = new Dictionary<int, PunkteRegel>();
+        foreach (var runde in runden)
+        {
+            PunkteRegel? punkteRegel = null;
+            if ((runde.RegelwerkId ?? standardRegelwerkId) is { } regelwerkId
+                && !punkteRegelJeRegelwerk.TryGetValue(regelwerkId, out punkteRegel))
+            {
+                var regelwerk = await regelwerkRepository.FindenNachIdMitAllenRegelnAsync(regelwerkId, ct);
+                punkteRegel = regelwerk?.PunkteRegeln.FirstOrDefault();
+                punkteRegelJeRegelwerk[regelwerkId] = punkteRegel;
+            }
+            punkteRegelJeRunde[runde.Id] = punkteRegel ?? _standardPunkteRegel;
+        }
+        return punkteRegelJeRunde;
+    }
+
+    private static readonly PunkteRegel _standardPunkteRegel
+        = new() { PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 };
+
     public async Task<DirektvergleichErgebnis?> DirektvergleichAsync(
         int turnierInstanzId, int mannschaftAId, int mannschaftBId, CancellationToken ct = default)
     {
