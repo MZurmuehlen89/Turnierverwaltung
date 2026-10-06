@@ -54,11 +54,8 @@ public class TurnierBaumService(
 
     private async Task<TurnierBaumPlan> PlanErmittelnAsync(int turnierInstanzId, CancellationToken ct)
     {
-        // TEMPORÄR (#390-Messung): Dauer bis zur Fortsetzung nach der ersten Datenbankabfrage.
-        var messUhr = Stopwatch.StartNew();
         var instanz = await instanzRepository.FindenNachIdMitRundenAsync(turnierInstanzId, ct)
             ?? throw new InvalidOperationException($"TurnierInstanz {turnierInstanzId} nicht gefunden.");
-        logger.LogInformation("Messung #390: Instanz geladen nach {Dauer} ms", messUhr.ElapsedMilliseconds);
 
         // Issue #241: Quellverknüpfungen defensiv nachziehen, bevor die Spiele unten geladen werden —
         // deckt auch Alt-Turniere ab, die seit der Migration noch nicht neu generiert wurden.
