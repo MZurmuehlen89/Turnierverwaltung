@@ -44,23 +44,12 @@ public class TurnierBaumService(
                 "Dieses Turnier hat keine K.-o.-Runden. Ein Turnierbaum ist nur für K.-o.-Turniere sinnvoll.");
 
         // Spiele pro Runde laden
-        var spieleProRunde = new List<List<Spiel>>();
-        var rueckspielZuHinspielProRunde = new List<Dictionary<int, int>>();
+        var spieleProRunde = new List<IReadOnlyList<Spiel>>();
         foreach (var runde in koRunden)
-        {
-            var spiele = await spielRepository.AlleNachRundeAsync(runde.Id, ct);
-            rueckspielZuHinspielProRunde.Add(spiele
-                .Where(s => s.IstRueckspiel && s.HinspielId.HasValue)
-                .ToDictionary(s => s.Id, s => s.HinspielId!.Value));
-            // Bei Hin/Rückspiel: nur Hinspiele als Bracket-Knoten (ein Knoten pro Paarung)
-            var relevant = runde.MitRueckspiel
-                ? spiele.Where(s => !s.IstRueckspiel).OrderBy(s => s.Spielnummer).ToList()
-                : spiele.OrderBy(s => s.Spielnummer).ToList();
+            spieleProRunde.Add(await spielRepository.AlleNachRundeAsync(runde.Id, ct));
 
-            spieleProRunde.Add(relevant);
-        }
-
-        if (spieleProRunde.All(l => l.Count == 0))
+        var plan = TurnierBaumPlan.Erstellen(koRunden, spieleProRunde);
+        if (!plan.HatSpiele)
             throw new InvalidOperationException(
                 "Noch keine Spiele für K.-o.-Runden vorhanden. Bitte zuerst Spielpläne generieren.");
 
@@ -69,140 +58,37 @@ public class TurnierBaumService(
         if (bestehend is not null)
             await baumRepository.LoeschenMitKnotenAsync(bestehend.Id, ct);
 
-        // Neuen Baum anlegen
-        var baum = new TurnierBaum { TurnierInstanzId = turnierInstanzId };
-        await baumRepository.HinzufuegenAsync(baum, ct);
-
-        // Knoten pro Runde erstellen
-        var knotenProRunde = new List<List<TurnierBaumKnoten>>();
-        for (int i = 0; i < koRunden.Count; i++)
-        {
-            var spiele = spieleProRunde[i];
-            var runde  = koRunden[i];
-            var rundeKnoten = new List<TurnierBaumKnoten>();
-
-            if (spiele.Any())
-            {
-                foreach (var spiel in spiele)
-                {
-                    rundeKnoten.Add(new TurnierBaumKnoten
-                    {
-                        TurnierBaumId = baum.Id,
-                        SpielId = spiel.Id,
-                        Runde = i + 1
-                    });
-                }
-            }
-            else
-            {
-                // Platzhalter-Knoten für Runden ohne Spiele
-                int anzahl = runde.EingangsMannschaftsanzahl / 2;
-                for (int j = 0; j < anzahl; j++)
-                {
-                    rundeKnoten.Add(new TurnierBaumKnoten
-                    {
-                        TurnierBaumId = baum.Id,
-                        SpielId = null,
-                        Runde = i + 1
-                    });
-                }
-            }
-
-            knotenProRunde.Add(rundeKnoten);
-        }
-
-        // Alle Knoten speichern (IDs werden gesetzt)
-        await baumRepository.KnotenSpeichernAsync(knotenProRunde.SelectMany(k => k), ct);
-
-        // Eltern-Kind-Verknüpfungen setzen (Issue #241: direkt aus Spiel.HeimQuellSpielId/
-        // AuswaertsQuellSpielId statt Text-Platzhalter zu erraten — pro Slot, nicht pro Übergang, damit
-        // gemischte Ebenen aus K.o.-Siegern und Direkteinstiegen nicht mehr teilweise unverknüpft bleiben).
-        // Issue #385: Das Spiel um Platz 3 liegt meist zwischen Halbfinale und Finale, gehört aber nicht in die
-        // Baumkette — es bekommt keine Kinder, und die nächste Ebene (Finale) verknüpft sich mit der letzten
-        // Ebene davor, die kein Spiel um Platz 3 ist.
-        int? kindIndex = null;
-        for (int e = 0; e < knotenProRunde.Count; e++)
-        {
-            if (koRunden[e].Rundenart == Rundenart.SpielUmPlatzDrei) continue;
-            if (kindIndex is not int i)
-            {
-                kindIndex = e;
-                continue;
-            }
-            kindIndex = e;
-
-            var kindEbene    = knotenProRunde[i];
-            var elternEbene  = knotenProRunde[e];
-            var elternSpiele = spieleProRunde[e];
-
-            var kindKnotenNachSpielId = kindEbene
-                .Where(k => k.SpielId.HasValue)
-                .ToDictionary(k => k.SpielId!.Value, k => k);
-
-            // Issue #340: seit #346 zeigen Quell-IDs bei Hin-/Rückspiel auf das Rückspiel (trägt den
-            // Gesamtsieger), der Knoten hängt aber am Hinspiel — Rückspiel-ID auf denselben Knoten abbilden.
-            foreach (var (rueckspielId, hinspielId) in rueckspielZuHinspielProRunde[i])
-                if (kindKnotenNachSpielId.TryGetValue(hinspielId, out var hinspielKnoten))
-                    kindKnotenNachSpielId[rueckspielId] = hinspielKnoten;
-
-            bool irgendeinSpielHatQuellId = elternSpiele.Any(
-                s => s.HeimQuellSpielId.HasValue || s.AuswaertsQuellSpielId.HasValue);
-
-            if (irgendeinSpielHatQuellId)
-            {
-                for (int j = 0; j < elternEbene.Count && j < elternSpiele.Count; j++)
-                {
-                    var elternSpiel = elternSpiele[j];
-
-                    if (elternSpiel.HeimQuellSpielId is int heimQuellId &&
-                        kindKnotenNachSpielId.TryGetValue(heimQuellId, out var linksKnoten))
-                    {
-                        elternEbene[j].LinkerKindKnotenId = linksKnoten.Id;
-                        linksKnoten.ElternKnotenId         = elternEbene[j].Id;
-                    }
-                    if (elternSpiel.AuswaertsQuellSpielId is int auswQuellId &&
-                        kindKnotenNachSpielId.TryGetValue(auswQuellId, out var rechtsKnoten))
-                    {
-                        elternEbene[j].RechterKindKnotenId = rechtsKnoten.Id;
-                        rechtsKnoten.ElternKnotenId         = elternEbene[j].Id;
-                    }
-                }
-            }
-            else
-            {
-                // Fallback für Alt-Turniere ohne jegliche Quell-ID in dieser Übergangs-Ebene
-                // (bisheriges Verhalten): sequentielle Zuordnung.
-                for (int j = 0; j < elternEbene.Count; j++)
-                {
-                    int linkerIdx  = j * 2;
-                    int rechterIdx = j * 2 + 1;
-
-                    if (linkerIdx < kindEbene.Count)
-                    {
-                        elternEbene[j].LinkerKindKnotenId = kindEbene[linkerIdx].Id;
-                        kindEbene[linkerIdx].ElternKnotenId = elternEbene[j].Id;
-                    }
-                    if (rechterIdx < kindEbene.Count)
-                    {
-                        elternEbene[j].RechterKindKnotenId = kindEbene[rechterIdx].Id;
-                        kindEbene[rechterIdx].ElternKnotenId = elternEbene[j].Id;
-                    }
-                }
-            }
-        }
-
-        // Wurzelknoten = letzter Knoten der letzten Runde (ohne Spiel um Platz 3, Issue #385)
-        var letzteEbene = knotenProRunde[kindIndex ?? knotenProRunde.Count - 1];
-        if (letzteEbene.Count == 1)
-            baum.WurzelKnotenId = letzteEbene[0].Id;
-
-        // Verknüpfungen in DB speichern
-        await baumRepository.VerknuepfungenAktualisierenAsync(baum, knotenProRunde.SelectMany(k => k), ct);
+        var baum = await PlanSpeichernAsync(turnierInstanzId, plan, ct);
 
         logger.LogInformation(
             "Turnierbaum für Instanz {Id} generiert: {Knoten} Knoten über {Runden} Runden.",
-            turnierInstanzId, knotenProRunde.Sum(k => k.Count), knotenProRunde.Count);
+            turnierInstanzId, plan.AlleKnoten.Count(), plan.Ebenen.Count);
 
+        return baum;
+    }
+
+    /// <summary>Zwei Schritte, weil die Fremdschlüssel zwischen Eltern- und Kindknoten in beide Richtungen zeigen:
+    /// erst alle Knoten ohne Verweise (dabei entstehen die IDs), dann die Verweise und der Wurzelknoten.</summary>
+    private async Task<TurnierBaum> PlanSpeichernAsync(int turnierInstanzId, TurnierBaumPlan plan, CancellationToken ct)
+    {
+        var baum = new TurnierBaum { TurnierInstanzId = turnierInstanzId };
+        await baumRepository.HinzufuegenAsync(baum, ct);
+
+        var knotenJePlanKnoten = plan.AlleKnoten.ToDictionary(
+            p => p, p => new TurnierBaumKnoten { TurnierBaumId = baum.Id, SpielId = p.SpielId, Runde = p.Runde });
+        var alleKnoten = plan.AlleKnoten.Select(p => knotenJePlanKnoten[p]).ToList();
+        await baumRepository.KnotenSpeichernAsync(alleKnoten, ct);
+
+        int? KnotenId(PlanKnoten? planKnoten) => planKnoten is null ? null : knotenJePlanKnoten[planKnoten].Id;
+        foreach (var (planKnoten, knoten) in knotenJePlanKnoten)
+        {
+            knoten.ElternKnotenId      = KnotenId(planKnoten.Eltern);
+            knoten.LinkerKindKnotenId  = KnotenId(planKnoten.Links);
+            knoten.RechterKindKnotenId = KnotenId(planKnoten.Rechts);
+        }
+        baum.WurzelKnotenId = KnotenId(plan.Wurzel);
+
+        await baumRepository.VerknuepfungenAktualisierenAsync(baum, alleKnoten, ct);
         return baum;
     }
 
