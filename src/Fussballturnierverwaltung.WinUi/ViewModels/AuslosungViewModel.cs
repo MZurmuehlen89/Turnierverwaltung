@@ -36,14 +36,14 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// Muster aus #297. Bewusst auf Turniere mit Status ≠ <see cref="TurnierStatus.Vorlage"/> beschränkt (siehe
 /// <see cref="KannNeu"/>) — anders als Vorbelegung zieht die echte Auslosung primär gegen reale Mannschaften.
 /// </summary>
-public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
+public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen,
+    ILostopfArbeitsbereichKontext
 {
     private readonly AuslosungService _auslosungService;
     private readonly TurnierInstanzService _instanzService;
     private readonly MannschaftService _mannschaftService;
     private readonly SpielplanService _spielplanService;
     private readonly TurnierBaumService _baumService;
-    private readonly RanglisteService _ranglisteService;
     private readonly VerbandsQuoteService _verbandsQuoteService;
     private readonly LandesQuoteService _landesQuoteService;
     private readonly UebergangsregelService _uebergangsregelService;
@@ -61,6 +61,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// Einstiegspunkten (Befehle, Auswahlwechsel, Regel-Schalter), nie in den Hilfsmethoden darunter — er ist
     /// nicht wiedereintrittsfähig. <see cref="InstanzSetzenAsync"/> läuft bereits unter dem Schutz des Aufrufers.</summary>
     public DbContextReentrancySchutz DbContextSchutz { get; set; } = new();
+
+    // ── Rückkanal des Lostopf-Arbeitsbereichs ───────────────────────────────────
+    Auslosung? ILostopfArbeitsbereichKontext.AktuellesDetail => _auslosungDetail;
+    Task ILostopfArbeitsbereichKontext.DetailNeuLadenAsync(int auslosungId) => LadeDetailAsync(auslosungId);
+    void ILostopfArbeitsbereichKontext.FehlerMelden(string? meldung) => Fehlermeldung = meldung;
 
     // ── Geteilter Instanz-Kontext (siehe Klassendoku) ────────────────────────────
     [ObservableProperty]
@@ -146,8 +151,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(ZeigtHinweis))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungAusfuehrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungZuruecksetzenCommand))]
-    [NotifyCanExecuteChangedFor(nameof(LostoepfeAutomatischBefuellenCommand))]
-    [NotifyCanExecuteChangedFor(nameof(AlleToepfeZuruecksetzenCommand))]
     private bool _detailAktiv;
 
     /// <summary>Platzhalter-Hinweistext ("Turnier und Runde wählen …") — nur solange weder Neu-Formular
@@ -156,8 +159,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AuslosungAusfuehrenCommand))]
-    [NotifyCanExecuteChangedFor(nameof(LostoepfeAutomatischBefuellenCommand))]
-    [NotifyCanExecuteChangedFor(nameof(AlleToepfeZuruecksetzenCommand))]
     private bool _istBearbeitbar;
 
     [ObservableProperty]
@@ -209,121 +210,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     [ObservableProperty] private string _auslosungKopfzeile = "";
 
-    // Beide Listen bleiben stabile Instanzen und werden nur abgeglichen (SammlungsAbgleich): eine neue
-    // ItemsSource ließ die Verfügbar-Liste nach jeder Zuweisung nach oben springen (#388).
-    public ObservableCollection<TeilnehmerAnzeige> VerfuegbareTeilnehmer { get; } = [];
-    public ObservableCollection<TeilnehmerAnzeige> VerfuegbareTeilnehmerGefiltert { get; } = [];
-
-    [ObservableProperty] private string _teilnehmerFilter = "";
-
-    partial void OnTeilnehmerFilterChanged(string value) => GefilterteTeilnehmerAbgleichen();
-
-    private static (int?, string) TeilnehmerSchluessel(TeilnehmerAnzeige t) =>
-        (t.MannschaftId, t.MannschaftId.HasValue ? "" : t.Name);
-
-    private void GefilterteTeilnehmerAbgleichen() =>
-        SammlungsAbgleich.Abgleichen(
-            VerfuegbareTeilnehmerGefiltert,
-            VerfuegbareTeilnehmer
-                .Where(t => string.IsNullOrWhiteSpace(TeilnehmerFilter)
-                            || t.Name.Contains(TeilnehmerFilter, StringComparison.OrdinalIgnoreCase))
-                .Where(t => _landFilter.LandId is null || t.LandId == _landFilter.LandId)
-                .ToList(),
-            TeilnehmerSchluessel);
-
-    // ── Länderfilter für verfügbare Teams (Issue #344) ──────────────────────────
-    // Stabile Optionsliste + eine kanonische Option je Land: WinUI3-ComboBoxen gleichen SelectedItem per
-    // Referenz ab und vertragen weder getauschte ItemsSource-Instanzen noch Replace-Notifications (#335/#347).
-    private static readonly TeilnehmerLandOption _alleLaender = new("Alle Länder", null);
-    private readonly Dictionary<int, TeilnehmerLandOption> _landOptionenJeLandId = [];
-
-    public ObservableCollection<TeilnehmerLandOption> LandFilterOptionen { get; } = [_alleLaender];
-
-    public bool ZeigeLandFilter => LandFilterOptionen.Count > 1;
-
-    private TeilnehmerLandOption _landFilter = _alleLaender;
-    public TeilnehmerLandOption? LandFilter
-    {
-        get => _landFilter;
-        set
-        {
-            // null schreibt die ComboBox beim Umbau ihrer Optionen zurück — nie ins Modell übernehmen (#347)
-            if (value is null || !SetProperty(ref _landFilter, value)) return;
-            GefilterteTeilnehmerAbgleichen();
-        }
-    }
-
-    /// <summary>Gleicht die Länderoptionen mit den aktuell verfügbaren Teams ab („Alle Länder“ + vorkommende
-    /// Länder alphabetisch). Reiner Merge (erst Überzählige entfernen, dann Fehlende einfügen) — die Restliste
-    /// ist stets eine Teilfolge der Zielliste, da beide gleich sortiert sind. Kommt das gewählte Land nicht mehr
-    /// vor (z.B. letztes Team in einen Topf gezogen), fällt der Filter auf „Alle Länder“ zurück.</summary>
-    private void LandFilterOptionenSynchronisieren()
-    {
-        var soll = VerfuegbareTeilnehmer
-            .Where(t => t.LandId.HasValue)
-            .GroupBy(t => t.LandId!.Value)
-            .Select(g => LandOptionFuer(g.Key, g.First().LandName))
-            .OrderBy(o => o.Anzeige)
-            .Prepend(_alleLaender)
-            .ToList();
-
-        if (!soll.Contains(_landFilter)) LandFilter = _alleLaender;
-
-        for (var i = LandFilterOptionen.Count - 1; i >= 0; i--)
-            if (!soll.Contains(LandFilterOptionen[i])) LandFilterOptionen.RemoveAt(i);
-        for (var i = 0; i < soll.Count; i++)
-            if (i >= LandFilterOptionen.Count || !ReferenceEquals(LandFilterOptionen[i], soll[i]))
-                LandFilterOptionen.Insert(i, soll[i]);
-
-        OnPropertyChanged(nameof(ZeigeLandFilter));
-    }
-
-    private TeilnehmerLandOption LandOptionFuer(int landId, string? landName)
-    {
-        if (!_landOptionenJeLandId.TryGetValue(landId, out var option))
-            _landOptionenJeLandId[landId] = option = new TeilnehmerLandOption(landName ?? $"Land {landId}", landId);
-        return option;
-    }
-
-    // Stabile Instanz, abgeglichen statt neu angelegt (#388) — sonst verlieren die Topf-Listen ihre Scrollposition.
-    public ObservableCollection<LostopfViewModel> Lostoepfe { get; } = [];
-
-    // ── Automatische Lostopf-Zuordnung via Rangliste (Issue #119) ────────────────
-    private static readonly RanglisteOption _keineRangliste = new("— Keine —", null);
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RanglisteOptionen))]
-    private ObservableCollection<Rangliste> _alleRanglisten = [];
-
-    [ObservableProperty] private RanglisteOption _ausgewaehlteRanglisteOption = _keineRangliste;
-
-    // Gecacht statt bei jedem Zugriff neu projiziert: die WinUI3-ComboBox gleicht SelectedItem per Referenz
-    // ab, eine programmatische Vorauswahl (Standard-Rangliste der Runde, #349) braucht daher dieselben
-    // Option-Instanzen, die auch als ItemsSource gebunden sind.
-    private IReadOnlyList<RanglisteOption> _ranglisteOptionen = [_keineRangliste];
-    // Auslosung, für die die Standard-Rangliste zuletzt vorausgewählt wurde — nur beim Wechsel der Auslosung
-    // neu vorauswählen, sonst überschriebe jedes Detail-Neuladen (z.B. nach dem Befüllen) eine Handauswahl.
-    private int? _ranglisteVorausgewaehltFuerAuslosungId;
-    public IReadOnlyList<RanglisteOption> RanglisteOptionen => _ranglisteOptionen;
-
-    partial void OnAlleRanglistenChanged(ObservableCollection<Rangliste> value) =>
-        _ranglisteOptionen = [_keineRangliste, .. value.Select(r => new RanglisteOption(r.Name, r))];
-
-    // Die TwoWay-Bindung nullt die Auswahl transient, wenn die ItemsSource ausgetauscht wird.
-    partial void OnAusgewaehlteRanglisteOptionChanged(RanglisteOption value)
-    {
-        if (value is null) AusgewaehlteRanglisteOption = _keineRangliste;
-    }
-
-    /// <summary>Wählt die neueste Rangliste der Standard-Quelle von <paramref name="runde"/> vor (#349).
-    /// Ohne Vorgabe bleibt die bisherige Auswahl stehen. Liefert die gewählte Rangliste oder <c>null</c>.</summary>
-    private Rangliste? StandardRanglisteVorauswaehlen(TurnierRunde? runde)
-    {
-        if (runde?.StandardRanglistenQuelleId is not int quelleId) return null;
-        var rangliste = LostopfVorbelegung.NeuesteRanglisteZurQuelle(AlleRanglisten, quelleId);
-        AusgewaehlteRanglisteOption = _ranglisteOptionen.FirstOrDefault(o => o.Wert == rangliste) ?? _keineRangliste;
-        return rangliste;
-    }
+    /// <summary>Verfügbar-Liste, Lostöpfe und deren Befüllung (Kind-ViewModel).</summary>
+    public LostopfArbeitsbereichViewModel Arbeitsbereich { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
@@ -361,26 +249,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// LadeDetailAsync geladene Endergebnis wird erst nach Animationsende (bzw. bei "Überspringen" sofort)
     /// sichtbar.</summary>
     public bool ZeigeErgebnis => IstAbgeschlossen && Ziehung.AnimationLaeuftNicht && !ZiehungInVorbereitung;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(TeamsStatusText))]
-    [NotifyPropertyChangedFor(nameof(TeamsVollstaendig))]
-    private int _teamsZugewiesen;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(TeamsStatusText))]
-    [NotifyPropertyChangedFor(nameof(TeamsVollstaendig))]
-    private int _teamsBenoetigt;
-
-    public bool TeamsVollstaendig => TeamsBenoetigt > 0 && TeamsZugewiesen == TeamsBenoetigt;
-
-    public string TeamsStatusText => TeamsBenoetigt == 0
-        ? $"{TeamsZugewiesen} Teams zugewiesen"
-        : TeamsZugewiesen == TeamsBenoetigt
-            ? $"✓  Alle {TeamsBenoetigt} Teams zugewiesen"
-            : TeamsZugewiesen > TeamsBenoetigt
-                ? $"⚠  {TeamsZugewiesen} Teams zugewiesen — {TeamsZugewiesen - TeamsBenoetigt} zu viel (Runde erwartet {TeamsBenoetigt})"
-                : $"{TeamsZugewiesen} / {TeamsBenoetigt} Teams zugewiesen — noch {TeamsBenoetigt - TeamsZugewiesen} fehlen";
 
     // ── Status ────────────────────────────────────────────────────────────────
     [ObservableProperty] private bool _istLadend;
@@ -456,8 +324,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 Header = "Töpfe",
                 Unteraktionen =
                 [
-                    new RibbonUnteraktion("Automatisch befüllen", LostoepfeAutomatischBefuellenCommand),
-                    new RibbonUnteraktion("Alle leeren", AlleToepfeZuruecksetzenCommand),
+                    new RibbonUnteraktion("Automatisch befüllen", Arbeitsbereich.LostoepfeAutomatischBefuellenCommand),
+                    new RibbonUnteraktion("Alle leeren", Arbeitsbereich.AlleToepfeZuruecksetzenCommand),
                 ],
                 IconGlyph = "",
             },
@@ -508,12 +376,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _mannschaftService = mannschaftService;
         _spielplanService = spielplanService;
         _baumService = baumService;
-        _ranglisteService = ranglisteService;
         _verbandsQuoteService = verbandsQuoteService;
         _landesQuoteService = landesQuoteService;
         _uebergangsregelService = uebergangsregelService;
         _dialogService = dialogService;
         _logger = logger;
+        Arbeitsbereich = new LostopfArbeitsbereichViewModel(this, auslosungService, ranglisteService, instanzService, dialogService);
         Ziehung.PropertyChanged += BeiZiehungAenderung;
     }
 
@@ -538,11 +406,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     /// <summary>Von <see cref="TurnierdurchfuehrungViewModel"/> einmalig beim Aktivieren geladen — analog
     /// <see cref="TurnierkopfViewModel.StammdatenLadenAsync"/>.</summary>
-    public async Task RanglistenLadenAsync()
-    {
-        var ranglisten = await _ranglisteService.AlleAbrufenAsync();
-        AlleRanglisten = new ObservableCollection<Rangliste>(ranglisten);
-    }
+    public Task RanglistenLadenAsync() => Arbeitsbereich.RanglistenLadenAsync();
 
     /// <summary>Vom Composite gesetzt, wenn sich die geteilte Instanzauswahl ändert (Precedent:
     /// <see cref="VorbelegungViewModel.InstanzSetzenAsync"/>).</summary>
@@ -557,11 +421,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         KeinTurnierGewaehlt = instanz is null;
         Auslosungen.Clear();
         InstanzRunden.Clear();
-        VerfuegbareTeilnehmer.Clear();
-        TeilnehmerFilter = "";
-        LandFilter = _alleLaender;
-        LandFilterOptionenSynchronisieren();
-        GefilterteTeilnehmerAbgleichen();
+        Arbeitsbereich.Leeren();
         DetailAktiv = false;
         NeuFormAktiv = false;
         AusgewaehlteAuslosung = null;
@@ -627,9 +487,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 {
                     await RanglistenLadenAsync();
                     await LadeDetailAsync(neu.Id);
-                    if (StandardRanglisteVorauswaehlen(_auslosungDetail?.TurnierRunde) is { } rangliste)
-                        await LostoepfeNachRanglisteBefuellenAsync(rangliste.Id);
-                    else
+                    if (!await Arbeitsbereich.NachStandardRanglisteBefuellenAsync())
                         Fehlermeldung = "Für die Standard-Rangliste dieser Runde wurde noch keine Rangliste importiert " +
                                         "(Ranglisten → Import). Lostöpfe bitte manuell befüllen.";
                 }
@@ -692,157 +550,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
 
-    // ── Workspace-Befehle ─────────────────────────────────────────────────────
-
-    /// <summary>Aufgerufen aus dem Drop-Handler des Codebehind (Drag&amp;Drop aus "Verfügbar" auf einen
-    /// Lostopf, Precedent: <see cref="Views.VorbelegungPage"/>).</summary>
-    public Task TeilnehmerZuTopfHinzufuegenAsync(int topfId, TeilnehmerAnzeige teilnehmer)
-        => TeilnehmerZuTopfHinzufuegenAsync(topfId, [teilnehmer]);
-
-    /// <summary>Mehrfachselektions-Variante (Issue #28-Muster aus dem WPF-Original: eine Liste statt eines
-    /// einzelnen Teilnehmers deckt Einzel- UND Mehrfachauswahl uniform ab) — aufgerufen aus dem
-    /// Rechtsklick-Kontextmenü sowie dem Mehrfach-Drag&amp;Drop im Codebehind. Ein gemeinsamer Reload am Ende
-    /// statt pro Teilnehmer, damit die UI nicht mehrfach kurz aufflackert.</summary>
-    public async Task TeilnehmerZuTopfHinzufuegenAsync(int topfId, IReadOnlyList<TeilnehmerAnzeige> teilnehmer)
-    {
-        using var schutz = await DbContextSchutz.BetretenAsync();
-        if (_auslosungDetail is null || teilnehmer.Count == 0) return;
-        Fehlermeldung = null;
-        try
-        {
-            foreach (var t in teilnehmer)
-            {
-                if (t.MannschaftId.HasValue)
-                    await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(_auslosungDetail.Id, topfId, t.MannschaftId.Value);
-                else
-                    await _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(_auslosungDetail.Id, topfId, t.Name);
-            }
-            await LadeDetailAsync(_auslosungDetail.Id);
-        }
-        catch (Exception ex) { Fehlermeldung = ex.Message; }
-    }
-
-    /// <summary>Rechtsklick-Kontextmenü in einem Lostopf: Eintrag/Einträge zurück in "Verfügbar".</summary>
-    public Task TeilnehmerAusTopfEntfernenAsync(int topfId, int eintragId)
-        => TeilnehmerAusTopfEntfernenAsync(topfId, [eintragId]);
-
-    /// <summary>Mehrfachselektions-Variante, siehe <see cref="TeilnehmerZuTopfHinzufuegenAsync(int, IReadOnlyList{TeilnehmerAnzeige})"/>.</summary>
-    public async Task TeilnehmerAusTopfEntfernenAsync(int topfId, IReadOnlyList<int> eintragIds)
-    {
-        using var schutz = await DbContextSchutz.BetretenAsync();
-        if (_auslosungDetail is null || eintragIds.Count == 0) return;
-        Fehlermeldung = null;
-        try
-        {
-            foreach (var eintragId in eintragIds)
-                await _auslosungService.EintragAusLostopfEntfernenAsync(_auslosungDetail.Id, topfId, eintragId);
-            await LadeDetailAsync(_auslosungDetail.Id);
-        }
-        catch (Exception ex) { Fehlermeldung = ex.Message; }
-    }
-
-    /// <summary>Drag&amp;Drop aus einem Lostopf in einen anderen (Codebehind, Precedent: Wpf
-    /// <c>AuslosungViewModel.TeilnehmerZuTopfVerschieben</c>) — <see cref="TeilnehmerZuTopfHinzufuegenAsync(int, IReadOnlyList{TeilnehmerAnzeige})"/>
-    /// allein reicht nicht: <c>MannschaftZuLostopfHinzufuegenAsync</c> lehnt eine bereits einem Lostopf
-    /// zugeordnete Mannschaft ab, der Quell-Lostopf muss also zuerst geleert werden.</summary>
-    public async Task TeilnehmerZuTopfVerschiebenAsync(IReadOnlyList<TeilnehmerAnzeige> teilnehmer, int? vonTopfId, int nachTopfId)
-    {
-        using var schutz = await DbContextSchutz.BetretenAsync();
-        if (_auslosungDetail is null || teilnehmer.Count == 0) return;
-        Fehlermeldung = null;
-        try
-        {
-            foreach (var t in teilnehmer)
-            {
-                if (vonTopfId.HasValue)
-                    await _auslosungService.EintragAusLostopfEntfernenAsync(_auslosungDetail.Id, vonTopfId.Value, t.EintragId);
-
-                if (t.MannschaftId.HasValue)
-                    await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(_auslosungDetail.Id, nachTopfId, t.MannschaftId.Value);
-                else
-                    await _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(_auslosungDetail.Id, nachTopfId, t.Name);
-            }
-            await LadeDetailAsync(_auslosungDetail.Id);
-        }
-        catch (Exception ex) { Fehlermeldung = ex.Message; }
-    }
-
-    /// <summary>
-    /// Verteilt die aktuell noch unzugeordneten Mannschaften (VerfuegbareTeilnehmer, Platzhalter
-    /// ausgenommen) anhand der ausgewählten Rangliste auf die Lostöpfe: die bestplatzierten Teams
-    /// zuerst in Topf 1, die nächsten in Topf 2 usw. Bereits manuell zugeordnete Teams bleiben
-    /// unangetastet — der Button ergänzt nur, was noch in "Verfügbar" steht. Teams ohne
-    /// Ranglisten-Eintrag werden ans Ende einsortiert (landen tendenziell im letzten Topf).
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(KannLostoepfeAutomatischBefuellen))]
-    private async Task LostoepfeAutomatischBefuellen()
-    {
-        using var schutz = await DbContextSchutz.BetretenAsync();
-        if (_auslosungDetail is null) return;
-        Fehlermeldung = null;
-
-        var ausgewaehlteRangliste = AusgewaehlteRanglisteOption.Wert;
-        if (ausgewaehlteRangliste is null)
-        {
-            Fehlermeldung = "Bitte zuerst eine Rangliste auswählen.";
-            return;
-        }
-
-        try { await LostoepfeNachRanglisteBefuellenAsync(ausgewaehlteRangliste.Id); }
-        catch (Exception ex) { Fehlermeldung = ex.Message; }
-    }
-
-    /// <summary>Kern von <see cref="LostoepfeAutomatischBefuellen"/>, auch beim Anlegen einer Auslosung mit
-    /// Standard-Rangliste genutzt (#349). Setzt ein geladenes Detail voraus. Den Titelverteidiger des Turniers
-    /// setzt sie in Topf 1, wenn die Runde das vorgibt (UEFA-Champions-League-Ligaphase).</summary>
-    private async Task LostoepfeNachRanglisteBefuellenAsync(int ranglisteId)
-    {
-        if (_auslosungDetail is null) return;
-        if (Lostoepfe.Count == 0)
-        {
-            Fehlermeldung = "Diese Auslosung hat keine Lostöpfe.";
-            return;
-        }
-
-        var rangliste = await _ranglisteService.FindenNachIdAsync(ranglisteId);
-        if (rangliste is null) return;
-
-        var rangProMannschaft = rangliste.Eintraege.ToDictionary(e => e.MannschaftId, e => e.Rang);
-
-        int? titelverteidigerId = null;
-        if (_auslosungDetail.TurnierRunde?.TitelverteidigerInTopf1 == true && _instanz is not null)
-            titelverteidigerId = (await _instanzService.FindenNachIdMitRundenAsync(_instanz.Id))?.TitelverteidigerId;
-
-        var teamsZuVerteilen = VerfuegbareTeilnehmer
-            .Where(t => t.MannschaftId.HasValue)
-            .OrderBy(t => t.MannschaftId == titelverteidigerId ? 0 : 1)
-            .ThenBy(t => rangProMannschaft.TryGetValue(t.MannschaftId!.Value, out var rang) ? rang : int.MaxValue)
-            .ThenBy(t => t.Name)
-            .Select(t => t.MannschaftId!.Value)
-            .ToList();
-
-        if (TeamsBenoetigt > 0)
-        {
-            int verbleibend = Math.Max(0, TeamsBenoetigt - TeamsZugewiesen);
-            teamsZuVerteilen = teamsZuVerteilen.Take(verbleibend).ToList();
-        }
-
-        if (teamsZuVerteilen.Count == 0)
-        {
-            Fehlermeldung = "Keine verfügbaren Mannschaften zum Zuordnen.";
-            return;
-        }
-
-        var toepfe = Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
-        var verteilung = LostopfVorbelegung.Verteilen(teamsZuVerteilen, rangProMannschaft, toepfe.Count, titelverteidigerId);
-        for (int topfIndex = 0; topfIndex < toepfe.Count; topfIndex++)
-        {
-            foreach (var mannschaftId in verteilung[topfIndex])
-                await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(_auslosungDetail.Id, toepfe[topfIndex].Id, mannschaftId);
-        }
-
-        await LadeDetailAsync(_auslosungDetail.Id);
-    }
+    // ── Durchführen und Zurücksetzen ──────────────────────────────────────────
 
     [RelayCommand(CanExecute = nameof(KannAuslosungAusfuehren))]
     private async Task AuslosungAusfuehren()
@@ -935,7 +643,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             if (matrizen is not null)
                 await Ziehung.LigaphasenZiehungAnimierenAsync(matrizen, manuell);
             else if (schritte is not null)
-                await Ziehung.ZiehungAnimierenAsync(schritte, Lostoepfe, manuell);
+                await Ziehung.ZiehungAnimierenAsync(schritte, Arbeitsbereich.Lostoepfe, manuell);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
         finally { ZiehungInVorbereitung = false; }
@@ -1032,38 +740,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         return (hinweis, mitErgebnis > 0 || folgeSchritte.Count > 0);
     }
 
-    [RelayCommand]
-    private async Task TopfLeeren(LostopfViewModel topf)
-    {
-        using var schutz = await DbContextSchutz.BetretenAsync();
-        if (_auslosungDetail is null) return;
-        Fehlermeldung = null;
-        try
-        {
-            await _auslosungService.LostopfLeerenAsync(_auslosungDetail.Id, topf.Id);
-            await LadeDetailAsync(_auslosungDetail.Id);
-        }
-        catch (Exception ex) { Fehlermeldung = ex.Message; }
-    }
-
-    [RelayCommand(CanExecute = nameof(KannAlleToepfeZuruecksetzen))]
-    private async Task AlleToepfeZuruecksetzen()
-    {
-        if (_auslosungDetail is null) return;
-        var bestaetigt = await _dialogService.BestaetigenAsync(
-            "Töpfe zurücksetzen", "Alle Töpfe leeren und alle Teams zurück in die Verfügbar-Liste?");
-        if (!bestaetigt) return;
-        Fehlermeldung = null;
-        using var schutz = await DbContextSchutz.BetretenAsync();
-        if (_auslosungDetail is null) return;
-        try
-        {
-            await _auslosungService.AlleToepfeZuruecksetzenAsync(_auslosungDetail.Id);
-            await LadeDetailAsync(_auslosungDetail.Id);
-        }
-        catch (Exception ex) { Fehlermeldung = ex.Message; }
-    }
-
     // ── Interne Hilfsmethoden ─────────────────────────────────────────────────
 
     partial void OnAusgewaehlteAuslosungChanged(Auslosung? value) => _ = BeiAuslosungAenderungAsync();
@@ -1129,80 +805,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             if (detail is null) return;
             _auslosungDetail = detail;
 
-            var aktuelleRunde = InstanzRunden.FirstOrDefault(r => r.Id == detail.TurnierRundeId);
-            var eingehendeRegeln = aktuelleRunde is not null
-                ? await _uebergangsregelService.AlleNachZielRundeIdAsync(aktuelleRunde.Id)
-                : [];
-
-            IReadOnlyList<TeilnehmerAnzeige> alleTeilnehmer;
-            if (eingehendeRegeln.Count > 0)
-            {
-                alleTeilnehmer = TeilnehmerPoolHilfsmittel.PlatzhalterAusRegelnGenerieren(eingehendeRegeln);
-            }
-            else
-            {
-                var vorherigeRunde = aktuelleRunde is not null
-                    ? TeilnehmerPoolHilfsmittel.VorgaengerrundeErmitteln(InstanzRunden, aktuelleRunde)
-                    : null;
-                if (vorherigeRunde is null)
-                {
-                    var teams = await _mannschaftService.AlleNachTurnierfilterAsync(
-                        _instanz?.VerbandId,
-                        _instanz?.LandId,
-                        _instanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
-                    alleTeilnehmer = teams.Select(TeilnehmerAnzeige.AusMannschaft).ToList();
-                }
-                else
-                {
-                    alleTeilnehmer = TeilnehmerPoolHilfsmittel.PlatzhalterOhneRegelnGenerieren(aktuelleRunde!, vorherigeRunde);
-                }
-            }
-
-            var assignedMannschaftIds = detail.Lostoepfe
-                .SelectMany(l => l.Eintraege)
-                .Where(e => e.MannschaftId.HasValue)
-                .Select(e => e.MannschaftId!.Value)
-                .ToHashSet();
-            var assignedPlatzhalter = detail.Lostoepfe
-                .SelectMany(l => l.Eintraege)
-                .Where(e => e.PlatzhalterName != null)
-                .Select(e => e.PlatzhalterName!)
-                .ToHashSet();
-
-            // Abgleich statt Neuanlage, damit Scrollposition und Auswahl erhalten bleiben (#388). Die
-            // Länderoptionen werden VOR der gefilterten Liste nachgezogen: fällt das gewählte Land weg,
-            // setzt LandFilterOptionenSynchronisieren den Filter zurück und die Liste wird nur einmal abgeglichen.
-            SammlungsAbgleich.Abgleichen(
-                VerfuegbareTeilnehmer,
-                alleTeilnehmer
-                    .Where(t => t.MannschaftId.HasValue
-                        ? !assignedMannschaftIds.Contains(t.MannschaftId.Value)
-                        : !assignedPlatzhalter.Contains(t.Name))
-                    .OrderBy(t => t.Name)
-                    .ToList(),
-                TeilnehmerSchluessel);
-            LandFilterOptionenSynchronisieren();
-            GefilterteTeilnehmerAbgleichen();
-
-            SammlungsAbgleich.Abgleichen(
-                Lostoepfe,
-                detail.Lostoepfe.Select(l => new LostopfViewModel
-                {
-                    Id          = l.Id,
-                    Name        = l.Name,
-                    Reihenfolge = l.Reihenfolge
-                }).ToList(),
-                l => l.Id,
-                (ist, soll) => ist.Name == soll.Name && ist.Reihenfolge == soll.Reihenfolge);
-            foreach (var topf in Lostoepfe)
-                SammlungsAbgleich.Abgleichen(
-                    topf.Teilnehmer,
-                    detail.Lostoepfe.First(l => l.Id == topf.Id).Eintraege
-                        .OrderBy(e => e.Id)
-                        .Select(TeilnehmerAnzeige.AusEintrag)
-                        .ToList(),
-                    t => t.EintragId);
-            AlleToepfeZuruecksetzenCommand.NotifyCanExecuteChanged();
+            Arbeitsbereich.Zeigen(detail, await TeilnehmerPoolErmittelnAsync(detail));
 
             await AktualisiereVerbandsQuotenAnzeigeAsync(detail);
             await AktualisiereLandesQuotenAnzeigeAsync(detail);
@@ -1287,9 +890,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                         TeilnehmerAnzeige.MannschaftsIcon(e.AuswaertsMannschaft))));
             }
 
-            TeamsZugewiesen       = detail.Lostoepfe.SelectMany(l => l.Eintraege).Count();
-            TeamsBenoetigt        = detail.TurnierRunde?.EingangsMannschaftsanzahl ?? 0;
-
             IstBearbeitbar        = detail.Status is not (AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen);
             IstAbgeschlossen      = detail.Status == AuslosungsStatus.Abgeschlossen;
             DetailName            = detail.Name;
@@ -1299,11 +899,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             // Fallstrick (Fund aus #300-Test: Auslosungsart erschien nach Anlage einer Auslosung leer).
             OnPropertyChanged(nameof(DetailAuslosungsart));
             DetailAnzahlLostoepfe = Math.Max(1, detail.Lostoepfe.Count);
-            if (_ranglisteVorausgewaehltFuerAuslosungId != detail.Id)
-            {
-                _ranglisteVorausgewaehltFuerAuslosungId = detail.Id;
-                StandardRanglisteVorauswaehlen(detail.TurnierRunde);
-            }
 
             AuslosungKopfzeile = $"{detail.Name}  ·  {detail.TurnierRunde.Name}  ·  " +
                                  $"{AuslosungAnzeigeTexte.AuslosungsartAnzeigeName(detail.Auslosungsart)}  ·  " +
@@ -1316,6 +911,40 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             _ladenAktiv = false;
             IstLadend   = false;
+        }
+    }
+
+    /// <summary>Alle Teilnehmer, die für die Runde der Auslosung in Frage kommen — Platzhalter aus den
+    /// eingehenden Übergangsregeln, sonst aus der Vorgängerrunde, in der ersten Runde die Mannschaften nach
+    /// dem Turnierfilter. Bereits einem Lostopf zugeordnete sind noch enthalten.</summary>
+    private async Task<IReadOnlyList<TeilnehmerAnzeige>> TeilnehmerPoolErmittelnAsync(Auslosung detail)
+    {
+        var aktuelleRunde = InstanzRunden.FirstOrDefault(r => r.Id == detail.TurnierRundeId);
+        var eingehendeRegeln = aktuelleRunde is not null
+            ? await _uebergangsregelService.AlleNachZielRundeIdAsync(aktuelleRunde.Id)
+            : [];
+
+        if (eingehendeRegeln.Count > 0)
+        {
+            return TeilnehmerPoolHilfsmittel.PlatzhalterAusRegelnGenerieren(eingehendeRegeln);
+        }
+        else
+        {
+            var vorherigeRunde = aktuelleRunde is not null
+                ? TeilnehmerPoolHilfsmittel.VorgaengerrundeErmitteln(InstanzRunden, aktuelleRunde)
+                : null;
+            if (vorherigeRunde is null)
+            {
+                var teams = await _mannschaftService.AlleNachTurnierfilterAsync(
+                    _instanz?.VerbandId,
+                    _instanz?.LandId,
+                    _instanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
+                return teams.Select(TeilnehmerAnzeige.AusMannschaft).ToList();
+            }
+            else
+            {
+                return TeilnehmerPoolHilfsmittel.PlatzhalterOhneRegelnGenerieren(aktuelleRunde!, vorherigeRunde);
+            }
         }
     }
 
@@ -1406,8 +1035,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private bool KannAuslosungAusfuehren()             => DetailAktiv && IstBearbeitbar;
     private bool KannAuslosungZuruecksetzen()           => DetailAktiv && IstAbgeschlossen && !Ziehung.AnimationLaeuft;
-    private bool KannLostoepfeAutomatischBefuellen()    => DetailAktiv && IstBearbeitbar;
-    private bool KannAlleToepfeZuruecksetzen()          => DetailAktiv && IstBearbeitbar && Lostoepfe.Any(l => l.Teilnehmer.Count > 0);
+
+    partial void OnDetailAktivChanged(bool value)    => Arbeitsbereich.BearbeitbarSetzen(DetailAktiv && IstBearbeitbar);
+    partial void OnIstBearbeitbarChanged(bool value) => Arbeitsbereich.BearbeitbarSetzen(DetailAktiv && IstBearbeitbar);
 
     partial void OnDetailNameChanged(string value)           { if (!_ladenAktiv) IstDetailDirty = true; }
     partial void OnDetailAuslosungsartChanged(Auslosungsart value)

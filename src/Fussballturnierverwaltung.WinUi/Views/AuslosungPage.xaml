@@ -683,12 +683,12 @@
                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,12"
                                 Visibility="{Binding IstAbgeschlossen, Converter={StaticResource InverseBoolToVisibility}}">
                         <TextBlock Text="Rangliste für Automatik:" VerticalAlignment="Center" FontSize="12" />
-                        <ComboBox ItemsSource="{Binding RanglisteOptionen}"
-                                  SelectedItem="{Binding AusgewaehlteRanglisteOption, Mode=TwoWay}"
+                        <ComboBox ItemsSource="{Binding Arbeitsbereich.RanglisteOptionen}"
+                                  SelectedItem="{Binding Arbeitsbereich.AusgewaehlteRanglisteOption, Mode=TwoWay}"
                                   DisplayMemberPath="Anzeige" Width="220" />
                     </StackPanel>
 
-                    <TextBlock Text="{Binding TeamsStatusText}" FontSize="12" Margin="0,0,0,12" />
+                    <TextBlock Text="{Binding Arbeitsbereich.TeamsStatusText}" FontSize="12" Margin="0,0,0,12" />
 
                     <!-- Verbandsquoten (Nutzerwunsch: direkt bei der Teams-zugewiesen-Anzeige, nicht erst
                          nach dem gesamten Zuweisungsbereich, damit Status und Quoten auf einen Blick sichtbar sind) -->
@@ -739,16 +739,16 @@
                         <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,*">
                             <TextBlock Grid.Row="0" Text="VERFÜGBAR" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,6" />
                             <TextBox Grid.Row="1" PlaceholderText="🔍  Filtern …"
-                                     Text="{Binding TeilnehmerFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Text="{Binding Arbeitsbereich.TeilnehmerFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      Margin="0,0,0,6" />
                             <!-- Länderfilter (#344), nur sichtbar, wenn der Pool Teams mit Land enthält -->
                             <ComboBox Grid.Row="2" HorizontalAlignment="Stretch" Margin="0,0,0,6"
-                                      ItemsSource="{Binding LandFilterOptionen}"
-                                      SelectedItem="{Binding LandFilter, Mode=TwoWay}"
+                                      ItemsSource="{Binding Arbeitsbereich.LandFilterOptionen}"
+                                      SelectedItem="{Binding Arbeitsbereich.LandFilter, Mode=TwoWay}"
                                       DisplayMemberPath="Anzeige"
-                                      Visibility="{Binding ZeigeLandFilter, Converter={StaticResource BoolToVisibility}}" />
+                                      Visibility="{Binding Arbeitsbereich.ZeigeLandFilter, Converter={StaticResource BoolToVisibility}}" />
                             <ListView Grid.Row="3" x:Name="VerfuegbarListView"
-                                      ItemsSource="{Binding VerfuegbareTeilnehmerGefiltert}"
+                                      ItemsSource="{Binding Arbeitsbereich.VerfuegbareTeilnehmerGefiltert}"
                                       SelectionMode="Extended"
                                       CanDragItems="True" CanReorderItems="False"
                                       DragItemsStarting="VerfuegbarListView_DragItemsStarting"
@@ -771,7 +771,7 @@
                         <!-- Lostöpfe -->
                         <ScrollViewer Grid.Column="2" Height="450"
                                       HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                            <ItemsControl ItemsSource="{Binding Lostoepfe}">
+                            <ItemsControl ItemsSource="{Binding Arbeitsbereich.Lostoepfe}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <StackPanel Orientation="Horizontal" />
@@ -785,7 +785,7 @@
                                                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
                                                     <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" />
                                                     <Button Grid.Column="1" Content="Leeren" FontSize="10" Padding="6,2"
-                                                            Command="{Binding ElementName=Root, Path=DataContext.TopfLeerenCommand}"
+                                                            Command="{Binding ElementName=Root, Path=DataContext.Arbeitsbereich.TopfLeerenCommand}"
                                                             CommandParameter="{Binding}" />
                                                 </Grid>
                                                 <ListView Grid.Row="1" AllowDrop="True" CanReorderItems="False"

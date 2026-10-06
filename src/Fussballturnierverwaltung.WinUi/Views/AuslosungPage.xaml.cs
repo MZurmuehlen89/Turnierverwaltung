@@ -61,10 +61,10 @@ public sealed partial class AuslosungPage : UserControl
         var viewModel = ViewModel;
         if (viewModel is null || sender is not ListView lv || lv.SelectedItem is not TeilnehmerAnzeige team) return;
 
-        var ersterTopf = viewModel.Lostoepfe.OrderBy(l => l.Reihenfolge).FirstOrDefault();
+        var ersterTopf = viewModel.Arbeitsbereich.Lostoepfe.OrderBy(l => l.Reihenfolge).FirstOrDefault();
         if (ersterTopf is null) return;
 
-        await viewModel.TeilnehmerZuTopfHinzufuegenAsync(ersterTopf.Id, team);
+        await viewModel.Arbeitsbereich.TeilnehmerZuTopfHinzufuegenAsync(ersterTopf.Id, team);
         e.Handled = true;
     }
 
@@ -77,14 +77,14 @@ public sealed partial class AuslosungPage : UserControl
         if (e.OriginalSource is not FrameworkElement { DataContext: TeilnehmerAnzeige team }) return;
 
         var ausgewaehlt = ZielAuswahlErmitteln(lv, team);
-        var toepfe = viewModel.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
+        var toepfe = viewModel.Arbeitsbereich.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
         if (toepfe.Count == 0) return;
 
         var flyout = new MenuFlyout();
         foreach (var topf in toepfe)
         {
             var item = new MenuFlyoutItem { Text = $"Zu '{topf.Name}' hinzufügen" };
-            item.Click += (_, _) => _ = viewModel.TeilnehmerZuTopfHinzufuegenAsync(topf.Id, ausgewaehlt);
+            item.Click += (_, _) => _ = viewModel.Arbeitsbereich.TeilnehmerZuTopfHinzufuegenAsync(topf.Id, ausgewaehlt);
             flyout.Items.Add(item);
         }
         flyout.ShowAt((FrameworkElement)e.OriginalSource);
@@ -112,7 +112,7 @@ public sealed partial class AuslosungPage : UserControl
         _pendingDrag = null;
         if (drag is null || drag.Value.QuellTopfId == topf.Id) return;
 
-        await viewModel.TeilnehmerZuTopfVerschiebenAsync(drag.Value.Teilnehmer, drag.Value.QuellTopfId, topf.Id);
+        await viewModel.Arbeitsbereich.TeilnehmerZuTopfVerschiebenAsync(drag.Value.Teilnehmer, drag.Value.QuellTopfId, topf.Id);
     }
 
     private void TopfListView_DragEnter(object sender, DragEventArgs e)
@@ -149,7 +149,7 @@ public sealed partial class AuslosungPage : UserControl
 
         var flyout = new MenuFlyout();
         var item = new MenuFlyoutItem { Text = $"{beschreibung} entfernen" };
-        item.Click += (_, _) => _ = viewModel.TeilnehmerAusTopfEntfernenAsync(topf.Id, ausgewaehlt.Select(t => t.EintragId).ToList());
+        item.Click += (_, _) => _ = viewModel.Arbeitsbereich.TeilnehmerAusTopfEntfernenAsync(topf.Id, ausgewaehlt.Select(t => t.EintragId).ToList());
         flyout.Items.Add(item);
         flyout.ShowAt((FrameworkElement)e.OriginalSource);
     }
