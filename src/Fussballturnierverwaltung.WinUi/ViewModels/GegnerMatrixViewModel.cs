@@ -9,12 +9,27 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// <see cref="AuslosungViewModel"/>, ohne Datenbankzugriff.</summary>
 public partial class GegnerMatrixViewModel : ObservableObject
 {
-    [ObservableProperty] private ObservableCollection<GegnerMatrixTopf> _matrizen = [];
-    [ObservableProperty] private ObservableCollection<FokusGegnerEintrag> _fokusGegner = [];
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ZeigeFokusGegner))]
+    private ObservableCollection<GegnerMatrixTopf> _matrizen = [];
+    private ObservableCollection<FokusGegnerEintrag> _fokusGegner = [];
     private GegnerMatrixZelle? _fokusTeam;
+
+    public ObservableCollection<GegnerMatrixTopf> Matrizen
+    {
+        get => _matrizen;
+        private set => SetProperty(ref _matrizen, value);
+    }
+
+    public ObservableCollection<FokusGegnerEintrag> FokusGegner
+    {
+        get => _fokusGegner;
+        private set => SetProperty(ref _fokusGegner, value);
+    }
+
+    public GegnerMatrixZelle? FokusTeam
+    {
+        get => _fokusTeam;
+        private set { if (SetProperty(ref _fokusTeam, value)) OnPropertyChanged(nameof(ZeigeFokusGegner)); }
+    }
 
     public bool ZeigeFokusGegner => FokusTeam is not null;
 
@@ -34,21 +49,28 @@ public partial class GegnerMatrixViewModel : ObservableObject
         if (zelle is { Schluessel: null }) return;   // leere Zelle — Fokus bleibt
         string? fokus = zelle?.Schluessel is { } s && s != FokusTeam?.Schluessel ? s : null;
 
-        GegnerMatrixZeile? fokusZeile = null;
-        foreach (var zeile in Matrizen.SelectMany(m => m.Zeilen))
+        HervorhebungSetzen(fokus);
+        var fokusZeile = fokus is null ? null : AlleZeilen.LastOrDefault(z => z.Team.Schluessel == fokus);
+        FokusTeam   = fokusZeile?.Team;
+        FokusGegner = fokusZeile is null ? [] : GegnerJeTopf(fokusZeile);
+    }
+
+    private IEnumerable<GegnerMatrixZeile> AlleZeilen => Matrizen.SelectMany(m => m.Zeilen);
+
+    private void HervorhebungSetzen(string? fokus)
+    {
+        foreach (var zeile in AlleZeilen)
         {
             zeile.IstHervorgehoben = fokus is not null && zeile.Team.Schluessel == fokus;
-            if (zeile.IstHervorgehoben) fokusZeile = zeile;
             foreach (var gegner in zeile.Gegner)
                 gegner.IstHervorgehoben = fokus is not null && gegner.Schluessel == fokus;
         }
-
-        FokusTeam = fokusZeile?.Team;
-        FokusGegner = fokusZeile is null
-            ? []
-            : new ObservableCollection<FokusGegnerEintrag>(Matrizen[0].Spalten
-                .Select((spalte, index) => (spalte, index))
-                .Where(x => x.index % 2 == 0)
-                .Select(x => new FokusGegnerEintrag(x.spalte.TopfName, fokusZeile.Gegner[x.index], fokusZeile.Gegner[x.index + 1])));
     }
+
+    /// <summary>Die Spalten liegen paarweise je Gegner-Topf vor (Heim, Auswärts) — daraus je Topf ein Eintrag.</summary>
+    private ObservableCollection<FokusGegnerEintrag> GegnerJeTopf(GegnerMatrixZeile zeile) =>
+        new(Matrizen[0].Spalten
+            .Select((spalte, index) => (spalte, index))
+            .Where(x => x.index % 2 == 0)
+            .Select(x => new FokusGegnerEintrag(x.spalte.TopfName, zeile.Gegner[x.index], zeile.Gegner[x.index + 1])));
 }
