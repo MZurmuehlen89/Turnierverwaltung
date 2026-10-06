@@ -36,6 +36,11 @@ public sealed partial class MainWindow : Window
 
         InitializeComponent();
 
+        // Titelleiste (#398). Taskleiste, Startmenü und Alt+Tab nehmen bei der paketierten App die
+        // Square44x44Logo-Dateien aus dem Manifest. Absoluter Pfad, weil das Arbeitsverzeichnis einer
+        // paketierten App nicht der Programmordner ist.
+        AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
+
         RootGrid.DataContext = ViewModel;
         RootGrid.Loaded += (_, _) => _dialogService.XamlRootSetzen(RootGrid.XamlRoot);
         _dialogService.FensterSetzen(this);

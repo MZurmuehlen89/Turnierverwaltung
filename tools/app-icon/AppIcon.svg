@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App-Icon der Turnierverwaltung (#398): Turnierbaum-Klammer, die in einen Fußball mündet.
+     Quelle für alle Dateien unter src/Fussballturnierverwaltung.WinUi/Assets – nach Änderungen erzeugen.py laufen lassen. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="rasen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#35A85A" />
+      <stop offset="1" stop-color="#1B6B38" />
+    </linearGradient>
+    <clipPath id="ballflaeche">
+      <circle cx="160" cy="128" r="62" />
+    </clipPath>
+  </defs>
+
+  <!-- Kachel -->
+  <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#rasen)" />
+
+  <!-- Turnierbaum: zwei Teilnehmer links, die Klammer führt zum Ball -->
+  <path d="M38 62 H76 V194 H38 M76 128 H104"
+        fill="none" stroke="#FFFFFF" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Ball -->
+  <circle cx="160" cy="128" r="62" fill="#FFFFFF" />
+  <g clip-path="url(#ballflaeche)" fill="#1F2A24" stroke="#1F2A24" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
+    <polygon points="160.0,109.0 178.1,122.1 171.2,143.4 148.8,143.4 141.9,122.1" />
+    <polygon points="160.0,86.0 140.0,71.5 147.7,48.0 172.3,48.0 180.0,71.5" />
+    <polygon points="199.9,115.0 207.6,91.5 232.3,91.5 239.9,115.0 219.9,129.5" />
+    <polygon points="184.7,162.0 209.4,162.0 217.0,185.5 197.0,200.0 177.1,185.5" />
+    <polygon points="135.3,162.0 142.9,185.5 123.0,200.0 103.0,185.5 110.6,162.0" />
+    <polygon points="120.1,115.0 100.1,129.5 80.1,115.0 87.7,91.5 112.4,91.5" />
+    <path d="M160.0 109.0 L160.0 86.0 M178.1 122.1 L199.9 115.0 M171.2 143.4 L184.7 162.0 M148.8 143.4 L135.3 162.0 M141.9 122.1 L120.1 115.0" fill="none" />
+  </g>
+  <circle cx="160" cy="128" r="62" fill="none" stroke="#1F2A24" stroke-width="5" />
+</svg>
