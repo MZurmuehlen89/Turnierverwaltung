@@ -23,7 +23,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// Auslosung/Spielplan/Simulation) — <see cref="TurnierTabKoordinator.NurVorlagenAnzeigen"/> bleibt hier
 /// daher dauerhaft auf dem Default <c>false</c>, ohne UI dafür.
 ///
-/// Drei Fach-Tabs: #300 (Auslosung), #301 (Spielplan &amp; Baum), #302 (Simulation).
+/// Vier Fach-Tabs: #300 (Auslosung), #301 (Spielplan &amp; Baum), #302 (Simulation), #327 (Statistik).
 /// </summary>
 public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen, IVerlassenBestaetigen
 {
@@ -33,6 +33,7 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
     public AuslosungViewModel AuslosungTab { get; }
     public SpielplanUndBaumViewModel SpielplanUndBaumTab { get; }
     public SimulationsViewModel SimulationTab { get; }
+    public StatistikViewModel StatistikTab { get; }
 
     public TurnierTabKoordinator TabKoordinator { get; }
 
@@ -42,6 +43,7 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         AuslosungViewModel auslosungTab,
         SpielplanUndBaumViewModel spielplanUndBaumTab,
         SimulationsViewModel simulationTab,
+        StatistikViewModel statistikTab,
         IDialogService dialogService,
         ILogger<TurnierdurchfuehrungViewModel> logger)
     {
@@ -50,8 +52,9 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         AuslosungTab = auslosungTab;
         SpielplanUndBaumTab = spielplanUndBaumTab;
         SimulationTab = simulationTab;
+        StatistikTab = statistikTab;
 
-        TabKoordinator = new TurnierTabKoordinator(service, [AuslosungTab, SpielplanUndBaumTab, SimulationTab], turnierAuswahlService);
+        TabKoordinator = new TurnierTabKoordinator(service, [AuslosungTab, SpielplanUndBaumTab, SimulationTab, StatistikTab], turnierAuswahlService);
 
         // Aktionen aller Reiter reihen sich hinter Turnier-/Reiterwechsel ein und umgekehrt (#413, #415).
         AuslosungTab.DbContextSchutz = TabKoordinator.DbContextSchutz;
@@ -135,6 +138,7 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
                 await AuslosungTab.InstanzSetzenAsync(instanz);
                 await SpielplanUndBaumTab.InstanzSetzenAsync(instanz);
                 await SimulationTab.InstanzSetzenAsync(instanz);
+                await StatistikTab.InstanzSetzenAsync(instanz, istAktiv: TabKoordinator.AktivesTab == StatistikTab);
             },
             ex =>
             {
@@ -148,6 +152,7 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
                     case AuslosungViewModel a: a.Fehlermeldung = ex.Message; break;
                     case SpielplanUndBaumViewModel s: s.SpielplanVm.Fehlermeldung = ex.Message; break;
                     case SimulationsViewModel sim: sim.Fehlermeldung = ex.Message; break;
+                    case StatistikViewModel stat: stat.Fehlermeldung = ex.Message; break;
                 }
             });
 

@@ -21,7 +21,7 @@
             </StackPanel>
         </Border>
 
-        <!-- ── Auslosung-, Spielplan & Baum- und Simulation-Tab ── -->
+        <!-- ── Auslosung-, Spielplan & Baum-, Simulation- und Statistik-Tab ── -->
         <Pivot Grid.Row="1" SelectedIndex="{Binding TabKoordinator.AktiverTabIndex, Mode=TwoWay}">
             <PivotItem Header="Auslosung">
                 <views:AuslosungPage DataContext="{Binding AuslosungTab}" />
@@ -31,6 +31,9 @@
             </PivotItem>
             <PivotItem Header="Simulation">
                 <views:SimulationsView DataContext="{Binding SimulationTab}" />
+            </PivotItem>
+            <PivotItem Header="Statistik">
+                <views:StatistikView DataContext="{Binding StatistikTab}" />
             </PivotItem>
         </Pivot>
     </Grid>

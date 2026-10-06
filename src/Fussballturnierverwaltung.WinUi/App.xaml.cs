@@ -7,6 +7,7 @@ using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
+using Fussballturnierverwaltung.Application.Statistiken;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
@@ -109,6 +110,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<LandesQuoteService>();
         builder.Services.AddScoped<AuslosungService>();
         builder.Services.AddScoped<TabellenService>();
+        builder.Services.AddScoped<StatistikService>();
         builder.Services.AddScoped<ISpielplanGenerator, RoundRobinGenerator>();
         builder.Services.AddScoped<ISpielplanGenerator, KoRundeGenerator>();
         builder.Services.AddScoped<ISpielplanGenerator, TopfLigaGenerator>();
@@ -141,6 +143,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<TurnierBaumViewModel>();
         builder.Services.AddTransient<SpielplanUndBaumViewModel>();
         builder.Services.AddTransient<SimulationsViewModel>();
+        builder.Services.AddTransient<StatistikViewModel>();
         builder.Services.AddTransient<TurnierdurchfuehrungViewModel>();
         builder.Services.AddTransient<RanglistenViewModel>();
         builder.Services.AddTransient<EinzelspielSimulationsViewModel>();
