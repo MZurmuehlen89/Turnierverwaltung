@@ -1,6 +1,7 @@
 using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using Microsoft.Extensions.Logging;
@@ -58,6 +59,9 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         {
             if (e.PropertyName == nameof(TurnierTabKoordinator.AusgewaehlteInstanz))
                 OnPropertyChanged(nameof(RundenTabAktiv));
+            // "Neu" legt an, was die Liste gerade zeigt (#382).
+            if (e.PropertyName == nameof(TurnierTabKoordinator.NurVorlagenAnzeigen))
+                TurnierkopfVm.StatusFuerNeueInstanz = TabKoordinator.NurVorlagenAnzeigen ? TurnierStatus.Vorlage : TurnierStatus.Geplant;
         };
 
         // Die ausgewählte Instanz wird direkt an alle Kind-ViewModels durchgereicht, NACHEINANDER (nicht per

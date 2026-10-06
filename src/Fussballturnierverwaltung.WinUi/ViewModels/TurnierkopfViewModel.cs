@@ -458,6 +458,11 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     public IReadOnlyList<TurnierStatusOption> StatusOptionen =>
         Enum.GetValues<TurnierStatus>().Select(s => new TurnierStatusOption(TurnierStatusZuTextConverter.StatusAnzeigeName(s), s)).ToList();
 
+    /// <summary>Vom Composite gesetzt: der Status, mit dem "Neu" das Formular vorbelegt — er folgt dem
+    /// Turniere/Vorlagen-Umschalter der Liste, sonst entstünde in der Vorlagen-Ansicht ein Turnier, das dort
+    /// nach dem Speichern gar nicht auftaucht (#382).</summary>
+    public TurnierStatus StatusFuerNeueInstanz { get; set; } = TurnierStatus.Geplant;
+
     /// <summary>Bei einer NEUEN, noch nicht gespeicherten Instanz ist die Statuswahl Teil der
     /// Erstellungs-Eingabe (kein Server-Aufruf möglich, es gibt noch keine Id) — bei einer bestehenden
     /// Instanz wirkt sie sofort über <see cref="TurnierInstanzService.StatusAendernAsync"/>, unabhängig
@@ -860,7 +865,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             StandardRegelwerk = _keinStandardRegelwerk;
             Titelverteidiger = _keinTitelverteidiger;
             TitelverteidigerOptionenSynchronisieren();
-            Status = StatusOptionen.First(o => o.Wert == TurnierStatus.Geplant);
+            Status = StatusOptionen.First(o => o.Wert == StatusFuerNeueInstanz);
             LogoDaten = null;
             QuotenZeilen = [];
             LandesQuotenZeilen = [];
