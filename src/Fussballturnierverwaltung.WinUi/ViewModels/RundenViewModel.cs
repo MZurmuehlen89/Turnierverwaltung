@@ -450,7 +450,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     {
         var optionen = AuslosungsRegelKompatibilitaet.AngeboteneRegeln
             .Select(art => new RegelVorgabeOption(
-                art, AuslosungsRegelKompatibilitaet.AnzeigeName(art), AuslosungViewModel.RegelBeschreibung(art)))
+                art, AuslosungsRegelKompatibilitaet.AnzeigeName(art), AuslosungAnzeigeTexte.RegelBeschreibung(art)))
             .ToList();
         foreach (var option in optionen)
             option.PropertyChanged += (_, e) =>
@@ -592,7 +592,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     /// nach einem ItemsSource-Wechsel nicht mehr und schrieb über TwoWay null zurück (NullReferenceException).</summary>
     private static readonly Dictionary<Auslosungsart, VorgegebeneAuslosungsartOption> _auslosungsartVorgabeOptionen =
         Enum.GetValues<Auslosungsart>().ToDictionary(
-            a => a, a => new VorgegebeneAuslosungsartOption(AuslosungViewModel.AuslosungsartAnzeigeName(a), a));
+            a => a, a => new VorgegebeneAuslosungsartOption(AuslosungAnzeigeTexte.AuslosungsartAnzeigeName(a), a));
 
     // Manuell wird nicht angeboten — das regelt die Checkbox "Paarung fest vorgegeben".
     private static IReadOnlyList<VorgegebeneAuslosungsartOption> AuslosungsartVorgabeOptionenFuer(Rundenart rundenart) =>

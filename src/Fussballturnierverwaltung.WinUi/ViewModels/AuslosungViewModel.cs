@@ -23,222 +23,6 @@ using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-// ── Darstellungstypen — 1:1 aus Wpf/ViewModels/AuslosungViewModel.cs portiert, ohne TV-Modus (#303-Backlog)
-// und ohne Auslosungsart.Manuell (bleibt beim bestehenden VorbelegungViewModel, #297) ──────────────────────
-
-public class LostopfViewModel : ObservableObject
-{
-    public int Id { get; init; }
-    public string Name { get; init; } = "";
-    public int Reihenfolge { get; init; }
-    public ObservableCollection<TeilnehmerAnzeige> Teilnehmer { get; init; } = [];
-}
-
-public record ErgebnisAnzeige(int PaarungsNummer, string HeimName, string AuswaertsName, bool IstFreilos,
-    byte[]? HeimWappen = null, byte[]? AuswaertsWappen = null);
-public record GruppenTeamAnzeige(string Name, byte[]? Wappen);
-public record GruppenErgebnisAnzeige(int GruppenNummer, string GruppenName, IReadOnlyList<GruppenTeamAnzeige> Teams);
-
-public class RegelViewModel : ObservableObject
-{
-    private readonly Func<bool, Task> _callback;
-    private bool _istAktiv;
-
-    public AuslosungsRegelArt Regelart { get; init; }
-    public string Anzeige { get; init; } = "";
-    public string Beschreibung { get; init; } = "";
-
-    /// <summary>Warum die Regel bei der aktuellen Auslosungsart/Rundenart nicht wirkt — dann ausgegraut (#331).</summary>
-    public string? SperrHinweis { get; set; }
-
-    /// <summary>Warum die Regel bei der aktuellen Auslosungsart ohnehin immer gilt — dann ausgegraut und angehakt.</summary>
-    public string? ImmerAktivHinweis { get; set; }
-
-    public bool IstAktiv
-    {
-        get => _istAktiv;
-        set { if (SetProperty(ref _istAktiv, value)) _ = _callback(value); }
-    }
-
-    /// <summary>Setzt den Zustand ohne Speicher-Callback — für bereits gespeicherte Nebenwirkungen (gegenseitiger
-    /// Ausschluss der Heimrecht-Regeln).</summary>
-    public void OhneSpeichernSetzen(bool aktiv) => SetProperty(ref _istAktiv, aktiv, nameof(IstAktiv));
-
-    public RegelViewModel(AuslosungsRegelArt art, string anzeige, string beschreibung, bool initial, Func<bool, Task> callback)
-    {
-        Regelart = art; Anzeige = anzeige; Beschreibung = beschreibung; _istAktiv = initial; _callback = callback;
-    }
-}
-
-public class VerbandsQuoteAnzeigeViewModel
-{
-    public string VerbandName { get; init; } = "";
-    public int Aktuell { get; init; }
-    public int Anzahl { get; init; }
-
-    public bool UeberAnzahl => Aktuell > Anzahl;
-    public bool UnterAnzahl => Aktuell < Anzahl;
-    public string AnzeigeText => $"{Aktuell} / {Anzahl}";
-}
-
-/// <summary>Live-Anzeige einer Landes-Quote im Auslosungseditor (Issue #189), analog
-/// <see cref="VerbandsQuoteAnzeigeViewModel"/>.</summary>
-public class LandesQuoteAnzeigeViewModel
-{
-    public string LandName { get; init; } = "";
-    public int Aktuell { get; init; }
-    public int Anzahl { get; init; }
-
-    public bool UeberAnzahl => Aktuell > Anzahl;
-    public bool UnterAnzahl => Aktuell < Anzahl;
-    public string AnzeigeText => $"{Aktuell} / {Anzahl}";
-}
-
-public record AuslosungsartOption(string Anzeige, Auslosungsart Wert);
-public record RanglisteOption(string Anzeige, Rangliste? Wert);
-public record TeilnehmerLandOption(string Anzeige, int? LandId);
-
-// ── TV-Modus: Live-Ziehungsanzeige (#303, Port aus Wpf/ViewModels/AuslosungViewModel.cs, Issue #5) ──
-// WinUI3 kennt kein Style.Triggers/DataTrigger (siehe WinUi/CLAUDE.md-Fallstricke) — das WPF-Original graut
-// gezogene/unbefüllte Slots per DataTrigger auf den Foreground aus, hier stattdessen direkt gebundene
-// *Opacity-Properties (Precedent: SpielberichtControl aus #302).
-
-public class AnimationsGruppenSlot : ObservableObject
-{
-    public int Position { get; init; }
-    private string _anzeige = "…";
-    public string Anzeige
-    {
-        get => _anzeige;
-        set { if (SetProperty(ref _anzeige, value)) { OnPropertyChanged(nameof(Befuellt)); OnPropertyChanged(nameof(BefuelltOpacity)); } }
-    }
-    public bool Befuellt => _anzeige != "…";
-    public double BefuelltOpacity => Befuellt ? 1.0 : 0.4;
-    private byte[]? _wappen;
-    public byte[]? Wappen { get => _wappen; set => SetProperty(ref _wappen, value); }
-    /// <summary>Fokus-Ansicht (#408): der gerade befüllte Platz ist hervorgehoben.</summary>
-    private bool _istNeu;
-    public bool IstNeu { get => _istNeu; set => SetProperty(ref _istNeu, value); }
-}
-
-public class AnimationsGruppe : ObservableObject
-{
-    public int GruppenNummer { get; init; }
-    public string GruppenName { get; init; } = "";
-    /// <summary>Gruppenbuchstabe für die Mini-Kachel der Fokus-Ansicht (#408).</summary>
-    public string Kurzname { get; init; } = "";
-    public ObservableCollection<AnimationsGruppenSlot> Slots { get; init; } = [];
-    /// <summary>Fokus-Ansicht (#408): Gruppe, in die das gerade gezogene Team kommt.</summary>
-    private bool _istZiel;
-    public bool IstZiel { get => _istZiel; set => SetProperty(ref _istZiel, value); }
-    public string FuellstandText => $"{Slots.Count(s => s.Befuellt)}/{Slots.Count}";
-    public void FuellstandAktualisieren() => OnPropertyChanged(nameof(FuellstandText));
-}
-
-public class AnimationsPaarung : ObservableObject
-{
-    public int PaarungsNr { get; init; }
-    public bool IstFreilos { get; init; }
-    private string _heim = "…";
-    public string Heim
-    {
-        get => _heim;
-        set { if (SetProperty(ref _heim, value)) { OnPropertyChanged(nameof(HeimBefuellt)); OnPropertyChanged(nameof(HeimBefuelltOpacity)); } }
-    }
-    public bool HeimBefuellt => _heim != "…";
-    public double HeimBefuelltOpacity => HeimBefuellt ? 1.0 : 0.4;
-    private byte[]? _heimWappen;
-    public byte[]? HeimWappen { get => _heimWappen; set => SetProperty(ref _heimWappen, value); }
-    private string _auswaerts = "…";
-    public string Auswaerts
-    {
-        get => _auswaerts;
-        set { if (SetProperty(ref _auswaerts, value)) { OnPropertyChanged(nameof(AuswaertsBefuellt)); OnPropertyChanged(nameof(AuswaertsBefuelltOpacity)); } }
-    }
-    public bool AuswaertsBefuellt => _auswaerts != "…";
-    public double AuswaertsBefuelltOpacity => AuswaertsBefuellt ? 1.0 : 0.4;
-    private byte[]? _auswaertsWappen;
-    public byte[]? AuswaertsWappen { get => _auswaertsWappen; set => SetProperty(ref _auswaertsWappen, value); }
-}
-
-/// <summary>Feste Anzahl Topf-Plätze für die TV-Modus-Anzeige: die Slots werden nie hinzugefügt oder
-/// entfernt, damit sich das Layout nicht verschiebt, sobald ein Topf leerer wird — nur Gezogen/Anzeige
-/// ändern sich pro Slot.</summary>
-public class AnimationsTopfSlot : ObservableObject
-{
-    public int EintragId { get; init; }
-    public string Name { get; init; } = "";
-    public byte[]? Wappen { get; init; }
-    private bool _gezogen;
-    public bool Gezogen
-    {
-        get => _gezogen;
-        set { if (SetProperty(ref _gezogen, value)) { OnPropertyChanged(nameof(Anzeige)); OnPropertyChanged(nameof(GezogenOpacity)); } }
-    }
-    public string Anzeige => Gezogen ? "…" : Name;
-    public double GezogenOpacity => Gezogen ? 0.4 : 1.0;
-}
-
-public class AnimationsTopf
-{
-    public int TopfId { get; init; }
-    public string Name { get; init; } = "";
-    public ObservableCollection<AnimationsTopfSlot> Slots { get; init; } = [];
-}
-
-// ── Gegner-Matrix der Ligaphase (#362) ─────────────────────────────────────
-// Vorbild: UEFA-TV-Grafik der CL-Ligaphasen-Auslosung — je Lostopf eine Matrix, Zeilen = Teams des Topfs,
-// Spalten = je Gegner-Topf ein Heim- und ein Auswärtsgegner. Hervorhebung als eigene Property je Zelle/Zeile
-// statt einer pro Fokus neu berechneten ItemsSource (siehe WinUi-Fallstricke, #284).
-
-public class GegnerMatrixZelle : ObservableObject
-{
-    /// <summary>Team-Schlüssel (MannschaftId bzw. Platzhaltername), null = leere Zelle.</summary>
-    public string? Schluessel { get; init; }
-    public string Name { get; init; } = "";
-    public string Kurzname { get; init; } = "";
-    public string? Land { get; init; }
-    public byte[]? Wappen { get; init; }
-    private bool _istHervorgehoben;
-    public bool IstHervorgehoben { get => _istHervorgehoben; set => SetProperty(ref _istHervorgehoben, value); }
-    /// <summary>TV-Modus (#364): noch nicht aufgedeckte Zellen zeigen "…" statt des Gegners.</summary>
-    private bool _istAufgedeckt = true;
-    public bool IstAufgedeckt { get => _istAufgedeckt; set => SetProperty(ref _istAufgedeckt, value); }
-}
-
-public class GegnerMatrixZeile : ObservableObject
-{
-    public GegnerMatrixZelle Team { get; init; } = new();
-    public IReadOnlyList<GegnerMatrixZelle> Gegner { get; init; } = [];
-    private bool _istHervorgehoben;
-    public bool IstHervorgehoben { get => _istHervorgehoben; set => SetProperty(ref _istHervorgehoben, value); }
-    /// <summary>TV-Modus (#364): noch nicht gezogene Teams erscheinen abgeblendet.</summary>
-    private bool _istGezogen = true;
-    public bool IstGezogen
-    {
-        get => _istGezogen;
-        set { if (SetProperty(ref _istGezogen, value)) OnPropertyChanged(nameof(TeamOpacity)); }
-    }
-    public double TeamOpacity => IstGezogen ? 1.0 : 0.45;
-    /// <summary>TV-Modus (#364): Haken vor dem Namen, sobald das Team während der Live-Ziehung gezogen wurde
-    /// (bleibt in der Ergebnisanzeige aus).</summary>
-    private bool _zeigeGezogenHaken;
-    public bool ZeigeGezogenHaken { get => _zeigeGezogenHaken; set => SetProperty(ref _zeigeGezogenHaken, value); }
-}
-
-public record GegnerMatrixSpalte(string TopfName, string Seite);
-
-public record GegnerMatrixTopf(string Name, IReadOnlyList<GegnerMatrixSpalte> Spalten, IReadOnlyList<GegnerMatrixZeile> Zeilen);
-
-public record FokusGegnerEintrag(string TopfName, GegnerMatrixZelle Heim, GegnerMatrixZelle Auswaerts);
-
-/// <summary>TV-Modus Ligaphase (#364): ein Gegner im Live-Banner — teilt die Matrix-Zelle, damit er genau dann
-/// erscheint, wenn die Zelle aufgedeckt wird. Bereits vorher feststehende Gegner werden abgeblendet gezeigt.</summary>
-public record AnimationsBannerGegner(string Kopf, GegnerMatrixZelle Zelle, bool IstNeu)
-{
-    public double Opacity => IstNeu ? 1.0 : 0.55;
-}
-
 /// <summary>
 /// "Auslosung"-Tab der Turnierdurchführung (#300, ersetzt den Platzhalter aus #299) — Master-Detail analog
 /// Wpf/ViewModels/AuslosungViewModel.cs: Auslosungsliste/Neu-Formular + Workspace (Lostöpfe, Teilnehmerfilter,
@@ -721,13 +505,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Enum.GetValues<Auslosungsart>()
             .Where(a => a != Auslosungsart.Manuell)
             .Where(a => rundenart is null || AuslosungsKompatibilitaet.IstKompatibel(rundenart.Value, a))
-            .Select(a => new AuslosungsartOption(AuslosungsartAnzeigeName(a), a))
+            .Select(a => new AuslosungsartOption(AuslosungAnzeigeTexte.AuslosungsartAnzeigeName(a), a))
             .ToList();
 
-    public string AuslosungsartHinweis         => AuslosungsartHinweisText(NeuAuslosungsart);
-    public string? AuslosungsartWarnung        => AuslosungsartWarnungText(NeuAuslosungsart, NeuRunde?.Rundenart);
-    public string DetailAuslosungsartHinweis   => AuslosungsartHinweisText(DetailAuslosungsart);
-    public string? DetailAuslosungsartWarnung  => AuslosungsartWarnungText(DetailAuslosungsart, _auslosungDetail?.TurnierRunde?.Rundenart);
+    public string AuslosungsartHinweis         => AuslosungAnzeigeTexte.AuslosungsartHinweisText(NeuAuslosungsart);
+    public string? AuslosungsartWarnung        => AuslosungAnzeigeTexte.AuslosungsartWarnungText(NeuAuslosungsart, NeuRunde?.Rundenart);
+    public string DetailAuslosungsartHinweis   => AuslosungAnzeigeTexte.AuslosungsartHinweisText(DetailAuslosungsart);
+    public string? DetailAuslosungsartWarnung  => AuslosungAnzeigeTexte.AuslosungsartWarnungText(DetailAuslosungsart, _auslosungDetail?.TurnierRunde?.Rundenart);
 
     /// <summary>Zufall/Benutzerdefiniert kennen keine Topf-Struktur und sind auf genau 1 Lostopf begrenzt (Issue #134).</summary>
     private static bool ErlaubtMehrereToepfe(Auslosungsart art) =>
@@ -735,47 +519,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public bool NeuAnzahlLostoepfeBearbeitbar    => ErlaubtMehrereToepfe(NeuAuslosungsart);
     public bool DetailAnzahlLostoepfeBearbeitbar => ErlaubtMehrereToepfe(DetailAuslosungsart);
-
-    private static string AuslosungsartHinweisText(Auslosungsart art) => art switch
-    {
-        Auslosungsart.Zufall =>
-            "Alle Teams werden zufällig gemischt und paarweise zugelost. Passt zu jeder Rundenart außer der TopfLiga. " +
-            "Kennt keine Topf-Struktur — auf 1 Lostopf begrenzt.",
-        Auslosungsart.NachSetzliste =>
-            "Gesetzte Teams (Topf 1) werden gleichmäßig auf Gruppen oder Paare verteilt, " +
-            "damit stärkere Teams erst in späteren Runden aufeinandertreffen. " +
-            "Typisch für Nationenturniere und nationale Pokal-Auslosungen.",
-        Auslosungsart.NachToepfen =>
-            "Teams werden manuell auf Töpfe verteilt und dann topfübergreifend zugelost — " +
-            "mindestens ein Lostopf ist erforderlich. " +
-            "Typisch für UEFA Europa League und internationale Pokal-Wettbewerbe.",
-        Auslosungsart.TopfZuordnung =>
-            "UCL-Ligaphase (ab 2024/25): Jedes Team erhält aus jedem Topf zwei Gegner — einen zu Hause, " +
-            "einen auswärts. Alle Töpfe müssen gleich groß sein (typisch 4 × 9 Teams). " +
-            "Ist 'Kein gleiches Land' aktiv, gilt zusätzlich: höchstens 2 Gegner aus demselben Land.",
-        Auslosungsart.GruppensiegerGegenGruppenzweite =>
-            "Gruppensieger werden den Zweitplatzierten einer anderen Gruppe zugelost, " +
-            "wobei Teams aus derselben Gruppe nicht aufeinandertreffen dürfen. " +
-            "Typisch für K.O.-Runden nach einer Gruppenphase (z. B. WM-Achtelfinale, UEFA-Playoff).",
-        Auslosungsart.Benutzerdefiniert =>
-            "Teams werden manuell den Losplätzen zugewiesen — keine automatische Verlosung. " +
-            "Für besondere Anforderungen oder wenn keine andere Methode passt. " +
-            "Kennt keine Topf-Struktur — auf 1 Lostopf begrenzt.",
-        _ => ""
-    };
-
-    private static string? AuslosungsartWarnungText(Auslosungsart art, Rundenart? rundenart) =>
-        (art, rundenart) switch
-        {
-            (Auslosungsart.NachSetzliste, Rundenart.SchweizerSystem) =>
-                "⚠  Im Schweizer System wird die Paarung automatisch anhand der Tabelle berechnet. " +
-                "Eine manuelle Setzlisten-Auslosung ist hier in der Regel nicht sinnvoll.",
-            (Auslosungsart.NachToepfen, Rundenart.Liga) or
-            (Auslosungsart.NachSetzliste, Rundenart.Liga) =>
-                "⚠  Liga besteht aus nur einer Gruppe — die Topf-/Setzlisten-Reihenfolge hat hier " +
-                "keine Auswirkung, alle Teams landen unabhängig davon in derselben Gruppe.",
-            _ => null
-        };
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
     public string RibbonTabTitel => "Auslosung";
@@ -1509,8 +1252,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 schritte.GroupBy(s => s.ZielNummer).OrderBy(g => g.Key).Select(g => new AnimationsGruppe
                 {
                     GruppenNummer = g.Key,
-                    GruppenName   = $"Gruppe {GruppenBuchstabe(g.Key)}",
-                    Kurzname      = GruppenBuchstabe(g.Key),
+                    GruppenName   = $"Gruppe {AuslosungAnzeigeTexte.GruppenBuchstabe(g.Key)}",
+                    Kurzname      = AuslosungAnzeigeTexte.GruppenBuchstabe(g.Key),
                     Slots         = new ObservableCollection<AnimationsGruppenSlot>(
                         Enumerable.Range(1, g.Count()).Select(p => new AnimationsGruppenSlot { Position = p }))
                 }));
@@ -1587,7 +1330,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     zielGruppe = AnimationGruppen.First(g => g.GruppenNummer == schritt.ZielNummer);
                     if (!eineGruppe)
                     {
-                        AnimationBannerZiel  = $"Gruppe {GruppenBuchstabe(schritt.ZielNummer)}";
+                        AnimationBannerZiel  = $"Gruppe {AuslosungAnzeigeTexte.GruppenBuchstabe(schritt.ZielNummer)}";
                         zielGruppe.IstZiel   = true;
                         AnimationFokusGruppe = zielGruppe;
                     }
@@ -2066,7 +1809,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 .Select(art =>
                 {
                     var vorh = detail.Regeln.FirstOrDefault(r => r.Regelart == art);
-                    return new RegelViewModel(art, RegelAnzeigeName(art), RegelBeschreibung(art), vorh?.IstAktiv ?? false,
+                    return new RegelViewModel(art, RegelAnzeigeName(art), AuslosungAnzeigeTexte.RegelBeschreibung(art), vorh?.IstAktiv ?? false,
                         async aktiv =>
                         {
                             using var schutz = await DbContextSchutz.BetretenAsync();
@@ -2118,7 +1861,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                         .OrderBy(g => g.Key)
                         .Select(g => new GruppenErgebnisAnzeige(
                             g.Key,
-                            $"Gruppe {GruppenBuchstabe(g.Key)}",
+                            $"Gruppe {AuslosungAnzeigeTexte.GruppenBuchstabe(g.Key)}",
                             g.Select(e => new GruppenTeamAnzeige(
                                     e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
                                     TeilnehmerAnzeige.MannschaftsIcon(e.HeimMannschaft)))
@@ -2157,8 +1900,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             }
 
             AuslosungKopfzeile = $"{detail.Name}  ·  {detail.TurnierRunde.Name}  ·  " +
-                                 $"{AuslosungsartAnzeigeName(detail.Auslosungsart)}  ·  " +
-                                 $"Status: {StatusAnzeigeName(detail.Status)}";
+                                 $"{AuslosungAnzeigeTexte.AuslosungsartAnzeigeName(detail.Auslosungsart)}  ·  " +
+                                 $"Status: {AuslosungAnzeigeTexte.StatusAnzeigeName(detail.Status)}";
             DetailAktiv    = true;
             IstDetailDirty = false;
             Fehlermeldung  = null;
@@ -2347,9 +2090,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     partial void OnDetailAnzahlLostoepfeChanged(int value)   { if (!_ladenAktiv) IstDetailDirty = true; }
 
-    private static string GruppenBuchstabe(int nr) =>
-        nr <= 26 ? ((char)('A' + nr - 1)).ToString() : $"G{nr}";
-
     // ── Gegner-Matrix der Ligaphase (#362) ────────────────────────────────────
 
     private static string? TeamSchluessel(int? mannschaftId, string? platzhalterName) =>
@@ -2444,54 +2184,5 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 .Select(x => new FokusGegnerEintrag(x.spalte.TopfName, fokusZeile.Gegner[x.index], fokusZeile.Gegner[x.index + 1])));
     }
 
-    // ── Anzeigetexte ──────────────────────────────────────────────────────────
-
-    public static string AuslosungsartAnzeigeName(Auslosungsart a) => a switch
-    {
-        Auslosungsart.Zufall                          => "Zufällig",
-        Auslosungsart.NachSetzliste                   => "Nach Setzliste",
-        Auslosungsart.NachToepfen                     => "Nach Töpfen",
-        Auslosungsart.TopfZuordnung                   => "Topf-Zuordnung (UCL)",
-        Auslosungsart.GruppensiegerGegenGruppenzweite => "Gruppensieger vs. Zweite",
-        Auslosungsart.Benutzerdefiniert               => "Benutzerdefiniert",
-        Auslosungsart.Manuell                         => "Manuell",
-        _                                             => a.ToString()
-    };
-
-    private static string StatusAnzeigeName(AuslosungsStatus s) => s switch
-    {
-        AuslosungsStatus.Vorbereitung  => "Vorbereitung",
-        AuslosungsStatus.Laufend       => "Laufend",
-        AuslosungsStatus.Abgeschlossen => "Abgeschlossen",
-        AuslosungsStatus.Abgebrochen   => "Abgebrochen",
-        _                              => s.ToString()
-    };
-
     private static string RegelAnzeigeName(AuslosungsRegelArt art) => AuslosungsRegelKompatibilitaet.AnzeigeName(art);
-
-    internal static string RegelBeschreibung(AuslosungsRegelArt art) => art switch
-    {
-        AuslosungsRegelArt.KeinGleichesLand =>
-            "Teams aus demselben Land dürfen nicht in dieselbe Gruppe oder gegeneinander gelost werden. " +
-            "Verhindert z. B. nationale Duelle in der Gruppenphase (typisch bei Nationenturnieren).",
-        AuslosungsRegelArt.KeineGleicheGruppe =>
-            "Teams, die in einer vorangegangenen Gruppenphase bereits in derselben Gruppe waren, " +
-            "dürfen nicht erneut aufeinandertreffen. Typisch für UCL/UEL K.O.-Runden nach der Gruppenphase.",
-        AuslosungsRegelArt.HeimrechtNachLos =>
-            "Das Heimrecht wird je Paarung ausgelost — bei Hin- und Rückspiel entscheidet das Los, " +
-            "wer zuerst zu Hause spielt.",
-        AuslosungsRegelArt.HeimrechtNachSetzliste =>
-            "Das besser eingestufte Team (höherer Topf, dann bessere Setzposition, dann besserer Gruppenplatz) " +
-            "hat Heimrecht — bei Hin- und Rückspiel im Rückspiel. Typisch für UEFA-Wettbewerbe, " +
-            "z. B. Gruppensieger im Nations-League-Viertelfinale.",
-        AuslosungsRegelArt.FreilosMoeglich =>
-            "Bei ungerader Teamanzahl erhält ein zufällig gezogenes Team ein Freilos und zieht " +
-            "kampflos in die nächste Runde ein. Ohne diese Regel schlägt die Auslosung fehl, " +
-            "wenn die Anzahl ungerade ist.",
-        AuslosungsRegelArt.Konfoederationsverteilung =>
-            "Die Teams eines Kontinentalverbands werden gleichmäßig auf die Gruppen verteilt: je Gruppe höchstens " +
-            "aufgerundet und mindestens abgerundet (Teams des Verbands ÷ Gruppenanzahl). Bei der FIFA-WM ergibt " +
-            "das höchstens ein Team je Konföderation und ein bis zwei aus Europa.",
-        _ => ""
-    };
 }

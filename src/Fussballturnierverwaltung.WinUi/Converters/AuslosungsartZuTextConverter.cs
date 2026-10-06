@@ -9,7 +9,7 @@ namespace Fussballturnierverwaltung.WinUi.Converters;
 public class AuslosungsartZuTextConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
-        => value is Auslosungsart a ? AuslosungViewModel.AuslosungsartAnzeigeName(a) : value?.ToString() ?? "";
+        => value is Auslosungsart a ? AuslosungAnzeigeTexte.AuslosungsartAnzeigeName(a) : value?.ToString() ?? "";
 
     public object ConvertBack(object value, Type targetType, object parameter, string language)
         => throw new NotSupportedException();
