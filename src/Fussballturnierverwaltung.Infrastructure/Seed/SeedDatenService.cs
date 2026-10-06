@@ -372,17 +372,24 @@ public class SeedDatenService
         }
     }
 
-    /// <summary>Issue #353: CL/EL/ECL ab 2024/25 haben ein eigenes Regelwerk mit der Rangfolge der Ligaphase.
-    /// <see cref="TurnierVorlagenNachruesten"/> ergänzt nur fehlende Vorlagen, bestehende behielten daher
-    /// "UEFA Clubwettbewerb Standard" (direkter Vergleich zuerst). Stellt nur Runden um, die noch auf genau
-    /// diesem alten Seed-Wert stehen und deren Seed-Gegenstück (Reihenfolge + Name) das Ligaphasen-Regelwerk
-    /// nutzt — ein vom Nutzer gewähltes anderes Regelwerk bleibt erhalten.</summary>
-    private async Task TurnierVorlagenLigaphaseRegelwerkNachruesten(CancellationToken ct)
+    /// <summary>Issue #353: CL/EL/ECL ab 2024/25 haben ein eigenes Regelwerk mit der Rangfolge der Ligaphase,
+    /// bestehende Vorlagen behielten "UEFA Clubwettbewerb Standard" (direkter Vergleich zuerst).</summary>
+    private Task TurnierVorlagenLigaphaseRegelwerkNachruesten(CancellationToken ct) =>
+        TurnierVorlagenRegelwerkUmstellen(
+            TurnierVorlagenSeedDaten.UEFA_CLUB_STANDARD, TurnierVorlagenSeedDaten.UEFA_LIGAPHASE,
+            "Vorlagen-Runden auf das Regelwerk der UEFA-Ligaphase umgestellt.", ct);
+
+    /// <summary><see cref="TurnierVorlagenNachruesten"/> ergänzt nur fehlende Vorlagen — wechselt der Seed das
+    /// Regelwerk einer Runde, behalten bestehende Vorlagen das alte. Stellt nur Runden um, die noch auf genau
+    /// diesem alten Seed-Wert stehen und deren Seed-Gegenstück (Reihenfolge + Name) das neue Regelwerk nutzt —
+    /// ein vom Nutzer gewähltes anderes Regelwerk bleibt erhalten.</summary>
+    private async Task TurnierVorlagenRegelwerkUmstellen(
+        string altesRegelwerk, string neuesRegelwerk, string protokollText, CancellationToken ct)
     {
         var regelwerkLookup = await _context.Regelwerke
             .ToDictionaryAsync(r => r.Name, r => r.Id, ct);
-        if (!regelwerkLookup.TryGetValue(TurnierVorlagenSeedDaten.UEFA_CLUB_STANDARD, out int altId)
-            || !regelwerkLookup.TryGetValue(TurnierVorlagenSeedDaten.UEFA_LIGAPHASE, out int neuId)) return;
+        if (!regelwerkLookup.TryGetValue(altesRegelwerk, out int altId)
+            || !regelwerkLookup.TryGetValue(neuesRegelwerk, out int neuId)) return;
 
         var sollVorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup).ToDictionary(Schluessel);
 
@@ -408,7 +415,7 @@ public class SeedDatenService
         if (aktualisiert > 0)
         {
             await _context.SaveChangesAsync(ct);
-            Protokollieren(aktualisiert, "Vorlagen-Runden auf das Regelwerk der UEFA-Ligaphase umgestellt.");
+            Protokollieren(aktualisiert, protokollText);
         }
     }
 
