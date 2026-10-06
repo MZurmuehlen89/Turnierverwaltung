@@ -342,4 +342,71 @@ public class TurnierBaumServiceTests
         runden.Select(r => r.RundenName).Should().Equal("Halbfinale", "Finale", "Spiel um Platz 3");
         runden.Select(r => r.IstSpielUmPlatzDrei).Should().Equal(false, false, true);
     }
+
+    // ── Issue #390: unveränderter Baum bleibt stehen ──────────────────────
+
+    [Fact]
+    public async Task GenerierenAsync_LaesstDenBaumStehen_WennNurEinErgebnisDazukommt()
+    {
+        await using var ctx = NeuerContext();
+        HalbfinalePlatzDreiFinaleAnlegen(ctx);
+        var (baumService, _) = ServiceFuer(ctx);
+        await baumService.GenerierenAsync(1);
+        var vorher = ctx.TurnierBaumKnotenMenge.Select(k => k.Id).OrderBy(id => id).ToList();
+        int baumIdVorher = ctx.TurnierBaeume.Single().Id;
+
+        ctx.Spiele.First(s => s.Id == 1).Status = SpielStatus.Abgeschlossen;
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+        {
+            Id = 1, SpielId = 1, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0,
+            EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = 1
+        });
+        ctx.SaveChanges();
+        await baumService.GenerierenAsync(1);
+
+        ctx.TurnierBaeume.Single().Id.Should().Be(baumIdVorher);
+        ctx.TurnierBaumKnotenMenge.Select(k => k.Id).OrderBy(id => id).Should().Equal(vorher);
+    }
+
+    [Fact]
+    public async Task GenerierenAsync_LaesstDenBaumStehen_AuchMitPlatzhalterKnoten()
+    {
+        await using var ctx = NeuerContext();
+        AchtelfinaleUndViertelfinaleAnlegen(ctx, out _, out _);
+        var (baumService, _) = ServiceFuer(ctx);
+        await baumService.GenerierenAsync(1);
+        var vorher = ctx.TurnierBaumKnotenMenge.Select(k => k.Id).OrderBy(id => id).ToList();
+
+        await baumService.GenerierenAsync(1);
+
+        vorher.Should().HaveCount(12, "8 Achtelfinal-Knoten und 4 Platzhalter für das Viertelfinale");
+        ctx.TurnierBaumKnotenMenge.Select(k => k.Id).OrderBy(id => id).Should().Equal(vorher);
+    }
+
+    [Fact]
+    public async Task GenerierenAsync_BautDenBaumNeu_WennEineRundeIhreSpieleBekommt()
+    {
+        await using var ctx = NeuerContext();
+        AchtelfinaleUndViertelfinaleAnlegen(ctx, out _, out int vfRundeId);
+        var (baumService, _) = ServiceFuer(ctx);
+        await baumService.GenerierenAsync(1);
+
+        for (int i = 1; i <= 4; i++)
+        {
+            ctx.Spiele.Add(new Spiel
+            {
+                Id = 100 + i, TurnierInstanzId = 1, TurnierRundeId = vfRundeId, Spielnummer = 100 + i,
+                HeimPlatzhalterName = $"Sieger AF {i * 2 - 1}", AuswaertsPlatzhalterName = $"Sieger AF {i * 2}",
+                Status = SpielStatus.Geplant
+            });
+        }
+        ctx.SaveChanges();
+        await baumService.GenerierenAsync(1);
+
+        ctx.TurnierBaeume.Should().ContainSingle();
+        var knoten = ctx.TurnierBaumKnotenMenge.ToList();
+        knoten.Should().HaveCount(12);
+        knoten.Where(k => k.Runde == 2).Select(k => k.SpielId).Should().BeEquivalentTo(new int?[] { 101, 102, 103, 104 });
+        knoten.Where(k => k.Runde == 1).Should().OnlyContain(k => k.ElternKnotenId != null);
+    }
 }

@@ -8,6 +8,9 @@ public interface ITurnierBaumRepository : IRepository<TurnierBaum>
     Task<TurnierBaum?> FindenNachInstanzAsync(int turnierInstanzId, CancellationToken ct = default);
     Task<TurnierBaum?> FindenNachInstanzMitKnotenAsync(int turnierInstanzId, CancellationToken ct = default);
 
+    /// <summary>Der Baum mit seinen Knoten, aber ohne deren Spiele — genügt, um den Aufbau zu vergleichen.</summary>
+    Task<TurnierBaum?> FindenNachInstanzMitAufbauAsync(int turnierInstanzId, CancellationToken ct = default);
+
     /// <summary>Persistiert alle Knoten und gibt sie mit gesetzten IDs zurück.</summary>
     Task KnotenSpeichernAsync(IEnumerable<TurnierBaumKnoten> knoten, CancellationToken ct = default);
 

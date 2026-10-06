@@ -4,6 +4,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
 namespace Fussballturnierverwaltung.Application.Turnierbaum;
 
@@ -19,10 +20,39 @@ public class TurnierBaumService(
         => baumRepository.FindenNachInstanzMitKnotenAsync(turnierInstanzId, ct);
 
     /// <summary>
-    /// Generiert (oder regeneriert) den Turnierbaum aus den K.-o.-Runden eines Turniers.
-    /// Nur Runden mit bereits erstellten Spielen werden als Knoten abgebildet.
+    /// Bringt den Turnierbaum auf den Stand der K.-o.-Runden eines Turniers: Runden mit Spielen bekommen einen
+    /// Knoten je Paarung, Runden ohne Spiele Platzhalter-Knoten.
     /// </summary>
     public async Task<TurnierBaum> GenerierenAsync(int turnierInstanzId, CancellationToken ct = default)
+    {
+        var uhr = Stopwatch.StartNew();
+        var plan = await PlanErmittelnAsync(turnierInstanzId, ct);
+
+        // #390: Der Baum hängt nur an den Spielen der K.-o.-Runden und deren Quellverknüpfungen, nicht an
+        // Ergebnissen oder eingetragenen Mannschaften. Die meisten Aufrufe (nach jedem Ergebnis, nach jeder
+        // Auslosung) ändern daran nichts — dann bleibt der gespeicherte Baum stehen, statt ihn mit sechs
+        // Speichervorgängen zu löschen und gleich wieder anzulegen.
+        var bestehend = await baumRepository.FindenNachInstanzMitAufbauAsync(turnierInstanzId, ct);
+        long laden = uhr.ElapsedMilliseconds;
+        if (bestehend is not null && plan.Entspricht(TurnierBaumPlan.AusBestand(bestehend)))
+        {
+            logger.LogInformation(
+                "Turnierbaum für Instanz {Id} unverändert: {Knoten} Knoten (Laden {Laden} ms).",
+                turnierInstanzId, bestehend.Knoten.Count, laden);
+            return bestehend;
+        }
+
+        if (bestehend is not null)
+            await baumRepository.LoeschenMitKnotenAsync(bestehend.Id, ct);
+        var baum = await PlanSpeichernAsync(turnierInstanzId, plan, ct);
+
+        logger.LogInformation(
+            "Turnierbaum für Instanz {Id} generiert: {Knoten} Knoten über {Runden} Runden (Laden {Laden} ms, Speichern {Speichern} ms).",
+            turnierInstanzId, plan.AlleKnoten.Count(), plan.Ebenen.Count, laden, uhr.ElapsedMilliseconds - laden);
+        return baum;
+    }
+
+    private async Task<TurnierBaumPlan> PlanErmittelnAsync(int turnierInstanzId, CancellationToken ct)
     {
         var instanz = await instanzRepository.FindenNachIdMitRundenAsync(turnierInstanzId, ct)
             ?? throw new InvalidOperationException($"TurnierInstanz {turnierInstanzId} nicht gefunden.");
@@ -53,18 +83,7 @@ public class TurnierBaumService(
             throw new InvalidOperationException(
                 "Noch keine Spiele für K.-o.-Runden vorhanden. Bitte zuerst Spielpläne generieren.");
 
-        // Bestehenden Baum löschen
-        var bestehend = await baumRepository.FindenNachInstanzAsync(turnierInstanzId, ct);
-        if (bestehend is not null)
-            await baumRepository.LoeschenMitKnotenAsync(bestehend.Id, ct);
-
-        var baum = await PlanSpeichernAsync(turnierInstanzId, plan, ct);
-
-        logger.LogInformation(
-            "Turnierbaum für Instanz {Id} generiert: {Knoten} Knoten über {Runden} Runden.",
-            turnierInstanzId, plan.AlleKnoten.Count(), plan.Ebenen.Count);
-
-        return baum;
+        return plan;
     }
 
     /// <summary>Zwei Schritte, weil die Fremdschlüssel zwischen Eltern- und Kindknoten in beide Richtungen zeigen:

@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
+using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 
@@ -24,6 +25,14 @@ public sealed class PlanKnoten(int runde, int? spielId)
     {
         Rechts = kind;
         kind.Eltern = this;
+    }
+
+    /// <summary>Übernimmt gespeicherte Verweise unverändert — auch solche, die nicht zueinander passen.</summary>
+    internal void Verweisen(PlanKnoten? eltern, PlanKnoten? links, PlanKnoten? rechts)
+    {
+        Eltern = eltern;
+        Links = links;
+        Rechts = rechts;
     }
 }
 
@@ -70,6 +79,42 @@ public sealed class TurnierBaumPlan
         var letzteEbene = ebenen[kindIndex ?? ebenen.Count - 1];
         return new TurnierBaumPlan(ebenen, letzteEbene.Count == 1 ? letzteEbene[0] : null);
     }
+
+    /// <summary>Liest einen gespeicherten Baum (mit geladenen Knoten) als Plan, um ihn mit einem neu berechneten
+    /// zu vergleichen.</summary>
+    public static TurnierBaumPlan AusBestand(TurnierBaum baum)
+    {
+        var planKnotenJeId = baum.Knoten.ToDictionary(k => k.Id, k => new PlanKnoten(k.Runde, k.SpielId));
+        PlanKnoten? PlanKnoten(int? id) => id is int i ? planKnotenJeId.GetValueOrDefault(i) : null;
+
+        foreach (var knoten in baum.Knoten)
+            planKnotenJeId[knoten.Id].Verweisen(
+                PlanKnoten(knoten.ElternKnotenId), PlanKnoten(knoten.LinkerKindKnotenId), PlanKnoten(knoten.RechterKindKnotenId));
+
+        var ebenen = planKnotenJeId.Values.GroupBy(k => k.Runde).OrderBy(g => g.Key).Select(g => g.ToList()).ToList();
+        return new TurnierBaumPlan(ebenen, PlanKnoten(baum.WurzelKnotenId));
+    }
+
+    /// <summary>Gleicher Aufbau: dieselben Spiele in denselben Runden mit denselben Verknüpfungen und derselben
+    /// Wurzel. Verglichen wird ohne Knoten-IDs — Platzhalter-Knoten ohne Spiel zählen über ihre Lage im Baum.</summary>
+    public bool Entspricht(TurnierBaumPlan anderer) =>
+        Signatur(Wurzel) == Signatur(anderer.Wurzel)
+        && KnotenSignaturen().SequenceEqual(anderer.KnotenSignaturen());
+
+    private List<string> KnotenSignaturen() =>
+        AlleKnoten.Select(k => $"{Signatur(k)}^{Signatur(k.Eltern)}").Order(StringComparer.Ordinal).ToList();
+
+    /// <summary>Der Knoten samt allem, was unter ihm hängt.</summary>
+    private static string Signatur(PlanKnoten? knoten) =>
+        knoten is null
+            ? "-"
+            : $"{knoten.Runde}:{knoten.SpielId}[{KindSignatur(knoten, knoten.Links)}|{KindSignatur(knoten, knoten.Rechts)}]";
+
+    /// <summary>Ein Kind liegt immer in einer früheren Runde. Alles andere stammt aus beschädigten Daten und wird
+    /// nicht weiterverfolgt (ein Kreis liefe sonst endlos) — ein berechneter Baum enthält so etwas nie, der
+    /// Vergleich fällt also ungleich aus.</summary>
+    private static string KindSignatur(PlanKnoten eltern, PlanKnoten? kind) =>
+        kind is not null && kind.Runde >= eltern.Runde ? "!" : Signatur(kind);
 
     /// <summary>Bei Hin-/Rückspiel steht ein Knoten je Paarung — er hängt am Hinspiel.</summary>
     private static List<Spiel> KnotenSpiele(TurnierRunde runde, IReadOnlyList<Spiel> spiele) =>

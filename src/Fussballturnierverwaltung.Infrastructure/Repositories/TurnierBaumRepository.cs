@@ -27,6 +27,11 @@ public class TurnierBaumRepository(TurnierverwaltungDbContext context)
                     .ThenInclude(s => s!.Ergebnis)
             .FirstOrDefaultAsync(b => b.TurnierInstanzId == turnierInstanzId, ct);
 
+    public async Task<TurnierBaum?> FindenNachInstanzMitAufbauAsync(int turnierInstanzId, CancellationToken ct = default)
+        => await Context.TurnierBaeume
+            .Include(b => b.Knoten)
+            .FirstOrDefaultAsync(b => b.TurnierInstanzId == turnierInstanzId, ct);
+
     public async Task KnotenSpeichernAsync(IEnumerable<TurnierBaumKnoten> knoten, CancellationToken ct = default)
     {
         await Context.TurnierBaumKnotenMenge.AddRangeAsync(knoten, ct);
