@@ -1101,17 +1101,27 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         var instanzId = AusgewaehlteInstanz.Id;
         Fehlermeldung = null;
 
-        if (Spiele.Count > 0)
-        {
-            var bestaetigt = await _dialogService.BestaetigenAsync(
-                "Spielplan neu generieren",
-                $"Die Runde '{AusgewaehlteRunde.Name}' hat bereits {Spiele.Count} Spiel(e). " +
-                "Soll der Spielplan gelöscht und neu generiert werden?");
-            if (!bestaetigt) return;
-        }
-
         try
         {
+            // Issue #433: vor Rückfrage und Löschen prüfen — ein ohne Auslosung automatisch generiertes Finale
+            // (#113) hat Spiele, aber keine abgeschlossene Auslosung; das Löschen davor nahm ihm das Spiel
+            // samt Ergebnis, ohne dass etwas neu generiert werden konnte.
+            var auslosung = await _auslosungService.FindenAbgeschlosseneNachRundeAsync(instanzId, rundeId);
+            if (auslosung is null)
+            {
+                Fehlermeldung = MeldungFehlendeAuslosung(AusgewaehlteRunde);
+                return;
+            }
+
+            if (Spiele.Count > 0)
+            {
+                var bestaetigt = await _dialogService.BestaetigenAsync(
+                    "Spielplan neu generieren",
+                    $"Die Runde '{AusgewaehlteRunde.Name}' hat bereits {Spiele.Count} Spiel(e). " +
+                    "Soll der Spielplan gelöscht und neu generiert werden?");
+                if (!bestaetigt) return;
+            }
+
             using var vorgang = _logger.Vorgang($"Spielplan neu generieren (Runde {rundeId})");
             if (Spiele.Count > 0)
                 // Issue #320-Folgefund: kaskadenlos löschen — LoeschenAsync würde selbst sofort wieder die
@@ -1119,13 +1129,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 // Auslosung erneut komplett neu generiert, bevor der folgende GenerierenAusAuslosungAsync-
                 // Aufruf noch einmal generiert — macht aus den erwarteten Spielen doppelt so viele.
                 await _spielplanService.RundenSpielplanOhneKaskadeLoeschenAsync(rundeId);
-            var auslosung = await _auslosungService.FindenAbgeschlosseneNachRundeAsync(instanzId, rundeId);
-            if (auslosung is null)
-            {
-                Fehlermeldung = "Für diese Runde wurde noch keine Auslosung abgeschlossen. " +
-                                "Bitte zuerst die Auslosung durchführen.";
-                return;
-            }
 
             await _spielplanService.GenerierenAusAuslosungAsync(rundeId, [.. auslosung.Ergebnisse]);
 
@@ -1148,6 +1151,15 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             Fehlermeldung = ex.Message;
         }
     }
+
+    /// <summary>Issue #433: fest vorgegebene Paarungen entstehen unter „Turniere“ im Reiter „Vorbelegung“ und
+    /// liegen erst nach dem Abschließen dort als abgeschlossene Auslosung vor — für solche Runden gibt es in
+    /// der Turnierdurchführung keine Auslosung, auf die die Meldung verweisen könnte.</summary>
+    private static string MeldungFehlendeAuslosung(TurnierRunde runde) => runde.PaarungFestVorgegeben
+        ? "Für diese Runde sind die fest vorgegebenen Paarungen noch nicht festgelegt. " +
+          "Bitte zuerst unter „Turniere“ im Reiter „Vorbelegung“ die Paarungen festlegen und abschließen."
+        : "Für diese Runde wurde noch keine Auslosung abgeschlossen. " +
+          "Bitte zuerst die Auslosung durchführen.";
 
     private bool KannNaechsteSchweizerRundeGenerieren() =>
         ZeigtSchweizerRundenSteuerung && Spiele.Count > 0 &&
