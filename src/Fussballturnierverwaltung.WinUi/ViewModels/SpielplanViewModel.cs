@@ -1109,7 +1109,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var auslosung = await _auslosungService.FindenAbgeschlosseneNachRundeAsync(instanzId, rundeId);
             if (auslosung is null)
             {
-                Fehlermeldung = MeldungFehlendeAuslosung(AusgewaehlteRunde);
+                Fehlermeldung = MeldungFehlendeAuslosung(AusgewaehlteRunde, Spiele.Count > 0);
                 return;
             }
 
@@ -1154,12 +1154,26 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     /// <summary>Issue #433: fest vorgegebene Paarungen entstehen unter „Turniere“ im Reiter „Vorbelegung“ und
     /// liegen erst nach dem Abschließen dort als abgeschlossene Auslosung vor — für solche Runden gibt es in
-    /// der Turnierdurchführung keine Auslosung, auf die die Meldung verweisen könnte.</summary>
-    private static string MeldungFehlendeAuslosung(TurnierRunde runde) => runde.PaarungFestVorgegeben
-        ? "Für diese Runde sind die fest vorgegebenen Paarungen noch nicht festgelegt. " +
-          "Bitte zuerst unter „Turniere“ im Reiter „Vorbelegung“ die Paarungen festlegen und abschließen."
-        : "Für diese Runde wurde noch keine Auslosung abgeschlossen. " +
-          "Bitte zuerst die Auslosung durchführen.";
+    /// der Turnierdurchführung keine Auslosung, auf die die Meldung verweisen könnte. Eine Runde mit zwei
+    /// Teilnehmern bekommt ihr Spiel ohne Auslosung automatisch (#113,
+    /// <c>FinaleAutomatischGenerierenWennBereitAsync</c>) — auch dort führt der Hinweis auf die Auslosung in
+    /// die Irre.</summary>
+    private static string MeldungFehlendeAuslosung(TurnierRunde runde, bool hatSpiele)
+    {
+        if (runde.PaarungFestVorgegeben)
+            return "Für diese Runde sind die fest vorgegebenen Paarungen noch nicht festgelegt. " +
+                   "Bitte zuerst unter „Turniere“ im Reiter „Vorbelegung“ die Paarungen festlegen und abschließen.";
+
+        if (runde.EingangsMannschaftsanzahl != 2)
+            return "Für diese Runde wurde noch keine Auslosung abgeschlossen. " +
+                   "Bitte zuerst die Auslosung durchführen.";
+
+        return hatSpiele
+            ? "Das Spiel dieser Runde wurde ohne Auslosung automatisch aus der vorherigen Runde angelegt. " +
+              "Ein Neugenerieren ist hier nicht nötig."
+            : "Diese Runde hat nur zwei Teilnehmer und braucht keine Auslosung: Das Spiel wird automatisch " +
+              "angelegt, sobald beide Teilnehmer aus der vorherigen Runde feststehen.";
+    }
 
     private bool KannNaechsteSchweizerRundeGenerieren() =>
         ZeigtSchweizerRundenSteuerung && Spiele.Count > 0 &&
