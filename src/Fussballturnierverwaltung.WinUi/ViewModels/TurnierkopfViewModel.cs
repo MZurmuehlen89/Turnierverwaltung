@@ -706,6 +706,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     /// beim Navigieren aufgerufen, bevor die Instanzauswahl das Formular erstmals befüllt.</summary>
     public async Task StammdatenLadenAsync()
     {
+        using var vorgang = _logger.Vorgang("Turnierkopf: Stammdaten laden");
         var verbaende = await _verbandService.AlleAbrufenAsync();
         VerbandOptionen = [_keinVerband, .. verbaende.Select(v => new VerbandOption(v.Name, v))];
         AlleVerbaende = verbaende;
@@ -713,7 +714,16 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         LandOptionen = [_keinLand, .. laender.OrderBy(l => l.Name).Select(l => new LandOption(l.Name, l))];
         AlleLaender = laender;
         Regelwerke = new ObservableCollection<Regelwerk>(await _regelwerkService.AlleAbrufenAsync());
-        var mannschaften = await _mannschaftService.AlleAbrufenMitLandAsync();
+        await MannschaftsauswahlLadenAsync();
+    }
+
+    /// <summary>Kandidaten für „Gastgeber“ und „Titelverteidiger“. Eigener Vorgang im Ablaufprotokoll (#419):
+    /// der Anteil der Mannschaftsabfrage am Öffnen der Seite ist nur so vom Rest der Stammdaten zu trennen.</summary>
+    private async Task MannschaftsauswahlLadenAsync()
+    {
+        IReadOnlyList<Mannschaft> mannschaften;
+        using (_logger.Vorgang("Turnierkopf: Mannschaften für Gastgeber/Titelverteidiger abfragen"))
+            mannschaften = await _mannschaftService.AlleAbrufenMitLandAsync();
         _alleGastgeberKandidaten = mannschaften.OrderBy(m => m.Name).ToList();
         GastgeberOptionenSynchronisieren();
         _titelverteidigerKandidaten = mannschaften

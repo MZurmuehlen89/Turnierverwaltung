@@ -141,7 +141,8 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
     public override async Task AktivierenAsync()
     {
         await TurnierkopfVm.StammdatenLadenAsync();
-        await TabKoordinator.AktivierenAsync();
+        using (_logger.Vorgang("Turniere: Turnierliste laden (Seite geöffnet)"))
+            await TabKoordinator.AktivierenAsync();
 
         // TabKoordinator.AktivierenAsync() löst den initialen Tab-Reload bewusst NICHT selbst über
         // AusgewaehlteInstanzGesetzt aus (siehe dortige Doku) — sonst gälte die Seite als "aktiv", bevor
