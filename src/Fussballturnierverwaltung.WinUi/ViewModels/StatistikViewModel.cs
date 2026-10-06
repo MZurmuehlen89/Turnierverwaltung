@@ -27,7 +27,12 @@ public partial class StatistikViewModel : ViewModelBase
         new(StatistikAuswertungsart.Gesamt, "Gesamt"),
         new(StatistikAuswertungsart.Heim, "Heim", GRUND_NEUTRALER_SPIELORT),
         new(StatistikAuswertungsart.Auswaerts, "Auswärts", GRUND_NEUTRALER_SPIELORT),
-        new(StatistikAuswertungsart.Form, "Form")
+        new(StatistikAuswertungsart.Form, "Form"),
+        new(StatistikAuswertungsart.Halbzeit, "Halbzeit"),
+        new(StatistikAuswertungsart.Serien, "Serien"),
+        new(StatistikAuswertungsart.Tore, "Tore und Zu-Null"),
+        new(StatistikAuswertungsart.Fairplay, "Fairplay"),
+        new(StatistikAuswertungsart.Verbaende, "Verbände")
     ];
 
     private StatistikAuswertung _ausgewaehlteAuswertung;

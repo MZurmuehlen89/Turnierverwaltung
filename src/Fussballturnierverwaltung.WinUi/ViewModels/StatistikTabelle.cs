@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Fussballturnierverwaltung.Application.Statistiken;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Microsoft.UI.Text;
 using Windows.UI.Text;
@@ -10,7 +11,12 @@ public enum StatistikAuswertungsart
     Gesamt,
     Heim,
     Auswaerts,
-    Form
+    Form,
+    Halbzeit,
+    Serien,
+    Tore,
+    Fairplay,
+    Verbaende
 }
 
 /// <summary>Eintrag der Auswertungsliste im Statistik-Reiter (#327). Eine nicht verfügbare Auswertung bleibt
@@ -35,7 +41,8 @@ public partial class StatistikAuswertung(StatistikAuswertungsart art, string tit
 public record StatistikTabelle(
     IReadOnlyList<StatistikSpalte> Spalten,
     IReadOnlyList<StatistikZeile> Zeilen,
-    double FormBreite = 0)
+    double FormBreite = 0,
+    string NamensTitel = "Mannschaft")
 {
     public bool HatZeilen => Zeilen.Count > 0;
 }
@@ -57,6 +64,18 @@ public record StatistikZeile(
     IReadOnlyList<FormKaestchen> Form,
     double FormBreite);
 
-/// <summary>Ein Spiel der Formreihe. Grün/Rot bleiben für Erfolg/Fehler reserviert — die Ausgänge unterscheiden
-/// sich über Buchstabe und Füllung: Sieg kräftig gefüllt, Unentschieden schwach, Niederlage nur umrandet.</summary>
-public record FormKaestchen(string Buchstabe, double Fuellung);
+/// <summary>Ein Spiel der Formreihe: Sieg grün, Unentschieden grau, Niederlage rot. Bewusste Ausnahme von der
+/// Regel, Grün/Rot nur für Erfolg/Fehler zu verwenden (Nutzerentscheidung in #327, reales Vorbild).</summary>
+public record FormKaestchen(SpielAusgang Ausgang)
+{
+    public string Buchstabe => Ausgang switch
+    {
+        SpielAusgang.Sieg          => "S",
+        SpielAusgang.Unentschieden => "U",
+        _                          => "N"
+    };
+
+    public bool IstSieg => Ausgang == SpielAusgang.Sieg;
+    public bool IstUnentschieden => Ausgang == SpielAusgang.Unentschieden;
+    public bool IstNiederlage => Ausgang == SpielAusgang.Niederlage;
+}
