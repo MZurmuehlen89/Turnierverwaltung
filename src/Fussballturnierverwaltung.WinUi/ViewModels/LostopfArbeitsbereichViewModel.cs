@@ -51,6 +51,8 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
         _ranglisteService = ranglisteService;
         _instanzService = instanzService;
         _dialogService = dialogService;
+        Filter = new TeilnehmerFilterViewModel(VerfuegbareTeilnehmer);
+        Filter.Geaendert += GefilterteTeilnehmerAbgleichen;
     }
 
     // Beide Listen bleiben stabile Instanzen und werden nur abgeglichen (SammlungsAbgleich): eine neue
@@ -58,9 +60,8 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     public ObservableCollection<TeilnehmerAnzeige> VerfuegbareTeilnehmer { get; } = [];
     public ObservableCollection<TeilnehmerAnzeige> VerfuegbareTeilnehmerGefiltert { get; } = [];
 
-    [ObservableProperty] private string _teilnehmerFilter = "";
-
-    partial void OnTeilnehmerFilterChanged(string value) => GefilterteTeilnehmerAbgleichen();
+    /// <summary>Text- und Länderfilter über der Verfügbar-Liste.</summary>
+    public TeilnehmerFilterViewModel Filter { get; }
 
     private static (int?, string) TeilnehmerSchluessel(TeilnehmerAnzeige t) =>
         (t.MannschaftId, t.MannschaftId.HasValue ? "" : t.Name);
@@ -68,66 +69,8 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     private void GefilterteTeilnehmerAbgleichen() =>
         SammlungsAbgleich.Abgleichen(
             VerfuegbareTeilnehmerGefiltert,
-            VerfuegbareTeilnehmer
-                .Where(t => string.IsNullOrWhiteSpace(TeilnehmerFilter)
-                            || t.Name.Contains(TeilnehmerFilter, StringComparison.OrdinalIgnoreCase))
-                .Where(t => _landFilter.LandId is null || t.LandId == _landFilter.LandId)
-                .ToList(),
+            VerfuegbareTeilnehmer.Where(Filter.Passt).ToList(),
             TeilnehmerSchluessel);
-
-    // ── Länderfilter für verfügbare Teams (Issue #344) ──────────────────────────
-    // Stabile Optionsliste + eine kanonische Option je Land: WinUI3-ComboBoxen gleichen SelectedItem per
-    // Referenz ab und vertragen weder getauschte ItemsSource-Instanzen noch Replace-Notifications (#335/#347).
-    private static readonly TeilnehmerLandOption _alleLaender = new("Alle Länder", null);
-    private readonly Dictionary<int, TeilnehmerLandOption> _landOptionenJeLandId = [];
-
-    public ObservableCollection<TeilnehmerLandOption> LandFilterOptionen { get; } = [_alleLaender];
-
-    public bool ZeigeLandFilter => LandFilterOptionen.Count > 1;
-
-    private TeilnehmerLandOption _landFilter = _alleLaender;
-    public TeilnehmerLandOption? LandFilter
-    {
-        get => _landFilter;
-        set
-        {
-            // null schreibt die ComboBox beim Umbau ihrer Optionen zurück — nie ins Modell übernehmen (#347)
-            if (value is null || !SetProperty(ref _landFilter, value)) return;
-            GefilterteTeilnehmerAbgleichen();
-        }
-    }
-
-    /// <summary>Gleicht die Länderoptionen mit den aktuell verfügbaren Teams ab („Alle Länder“ + vorkommende
-    /// Länder alphabetisch). Reiner Merge (erst Überzählige entfernen, dann Fehlende einfügen) — die Restliste
-    /// ist stets eine Teilfolge der Zielliste, da beide gleich sortiert sind. Kommt das gewählte Land nicht mehr
-    /// vor (z.B. letztes Team in einen Topf gezogen), fällt der Filter auf „Alle Länder“ zurück.</summary>
-    private void LandFilterOptionenSynchronisieren()
-    {
-        var soll = VerfuegbareTeilnehmer
-            .Where(t => t.LandId.HasValue)
-            .GroupBy(t => t.LandId!.Value)
-            .Select(g => LandOptionFuer(g.Key, g.First().LandName))
-            .OrderBy(o => o.Anzeige)
-            .Prepend(_alleLaender)
-            .ToList();
-
-        if (!soll.Contains(_landFilter)) LandFilter = _alleLaender;
-
-        for (var i = LandFilterOptionen.Count - 1; i >= 0; i--)
-            if (!soll.Contains(LandFilterOptionen[i])) LandFilterOptionen.RemoveAt(i);
-        for (var i = 0; i < soll.Count; i++)
-            if (i >= LandFilterOptionen.Count || !ReferenceEquals(LandFilterOptionen[i], soll[i]))
-                LandFilterOptionen.Insert(i, soll[i]);
-
-        OnPropertyChanged(nameof(ZeigeLandFilter));
-    }
-
-    private TeilnehmerLandOption LandOptionFuer(int landId, string? landName)
-    {
-        if (!_landOptionenJeLandId.TryGetValue(landId, out var option))
-            _landOptionenJeLandId[landId] = option = new TeilnehmerLandOption(landName ?? $"Land {landId}", landId);
-        return option;
-    }
 
     // Stabile Instanz, abgeglichen statt neu angelegt (#388) — sonst verlieren die Topf-Listen ihre Scrollposition.
     public ObservableCollection<LostopfViewModel> Lostoepfe { get; } = [];
@@ -211,9 +154,7 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     public void Leeren()
     {
         VerfuegbareTeilnehmer.Clear();
-        TeilnehmerFilter = "";
-        LandFilter = _alleLaender;
-        LandFilterOptionenSynchronisieren();
+        Filter.Zuruecksetzen();
         GefilterteTeilnehmerAbgleichen();
     }
 
@@ -254,7 +195,7 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
 
         // Die Länderoptionen werden VOR der gefilterten Liste nachgezogen: fällt das gewählte Land weg, setzt
         // LandFilterOptionenSynchronisieren den Filter zurück und die Liste wird nur einmal abgeglichen.
-        LandFilterOptionenSynchronisieren();
+        Filter.LandFilterOptionenSynchronisieren();
         GefilterteTeilnehmerAbgleichen();
     }
 
