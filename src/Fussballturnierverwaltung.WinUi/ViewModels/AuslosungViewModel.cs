@@ -626,7 +626,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 // auch VOR der Turnierbaum-Aktualisierung, die auf demselben DbContext weiterarbeitet.
                 matrizen = tvModus && IstGegnerMatrixergebnis ? GegnerMatrixBuilder.Aufbauen(detail) : null;
                 schritte = tvModus && matrizen is null
-                    ? ZiehungsReihenfolge.Aufbauen(detail.Lostoepfe, detail.Ergebnisse)
+                    ? ZiehungsReihenfolge.Aufbauen(detail.Lostoepfe, detail.Ergebnisse, Random.Shared)
                     : null;
 
                 IstLadend = true;
