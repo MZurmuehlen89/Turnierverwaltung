@@ -73,18 +73,16 @@ public static class GegnerMatrixPlan
     private static GegnerPlanZeile Zeile(LostopfEintrag eintrag, int topfAnzahl, SpieleJeGegnerTopf spiele)
     {
         var schluessel = TeamSchluessel(eintrag.MannschaftId, eintrag.PlatzhalterName) ?? "";
-        var gegner = new List<GegnerPlanPaar>();
-        for (int topf = 0; topf < topfAnzahl; topf++)
-        {
-            gegner.Add(new GegnerPlanPaar(
+        var gegnerJeTopf = Enumerable.Range(0, topfAnzahl)
+            .Select(topf => new GegnerPlanPaar(
                 spiele.Heim.TryGetValue((schluessel, topf), out var heimspiel)
                     ? new GegnerPlanTeam(heimspiel.AuswaertsMannschaft, heimspiel.AuswaertsPlatzhalterName)
                     : null,
                 spiele.Auswaerts.TryGetValue((schluessel, topf), out var auswaertsspiel)
                     ? new GegnerPlanTeam(auswaertsspiel.HeimMannschaft, auswaertsspiel.HeimPlatzhalterName)
-                    : null));
-        }
-        return new GegnerPlanZeile(new GegnerPlanTeam(eintrag.Mannschaft, eintrag.PlatzhalterName), gegner);
+                    : null))
+            .ToList();
+        return new GegnerPlanZeile(new GegnerPlanTeam(eintrag.Mannschaft, eintrag.PlatzhalterName), gegnerJeTopf);
     }
 
     internal static string? TeamSchluessel(int? mannschaftId, string? platzhalterName) =>
