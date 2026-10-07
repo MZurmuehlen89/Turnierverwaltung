@@ -1,13 +1,13 @@
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 
-namespace Fussballturnierverwaltung.WinUi.ViewModels;
+namespace Fussballturnierverwaltung.Application.Auslosungen;
 
 /// <summary>Ein einzelner Ziehungsschritt für den TV-Modus: eine Mannschaft aus einem Lostopf, die einem
 /// bereits feststehenden Ziel (Gruppe/Paarung) zugeordnet ist. Das Endergebnis steht durch AusfuehrenAsync
 /// schon fest (holistischer Zuordnungsalgorithmus) — hier wird nur die Reihenfolge/Dramaturgie der
 /// Enthüllung bestimmt.</summary>
 public sealed record ZiehungsSchritt(
-    TeilnehmerAnzeige Team, int TopfId, string TopfName, int ZielNummer,
+    LostopfEintrag Eintrag, int TopfId, string TopfName, int ZielNummer,
     bool IstGruppenmodus, bool? IstHeim, int? Position, bool IstFreilos);
 
 /// <summary>Legt fest, in welcher Reihenfolge der TV-Modus eine feststehende Auslosung enthüllt.</summary>
@@ -55,20 +55,19 @@ public static class ZiehungsReihenfolge
             var teamsGemischt = topf.Eintraege.OrderBy(_ => Random.Shared.Next()).ToList();
             foreach (var eintrag in teamsGemischt)
             {
-                var team = TeilnehmerAnzeige.AusEintrag(eintrag);
                 var treffer = ergebnisse.FirstOrDefault(e => PasstZuHeim(e, eintrag) || PasstZuAuswaerts(e, eintrag));
                 if (treffer is null) continue;
 
                 if (istGruppenmodus)
                 {
                     int position = positionProErgebnis[treffer];
-                    topfSchritte.Add(new ZiehungsSchritt(team, topf.Id, topf.Name, treffer.PaarungsNummer,
+                    topfSchritte.Add(new ZiehungsSchritt(eintrag, topf.Id, topf.Name, treffer.PaarungsNummer,
                         IstGruppenmodus: true, IstHeim: null, Position: position, IstFreilos: false));
                 }
                 else
                 {
                     bool istHeim = PasstZuHeim(treffer, eintrag);
-                    topfSchritte.Add(new ZiehungsSchritt(team, topf.Id, topf.Name, treffer.PaarungsNummer,
+                    topfSchritte.Add(new ZiehungsSchritt(eintrag, topf.Id, topf.Name, treffer.PaarungsNummer,
                         IstGruppenmodus: false, IstHeim: istHeim, Position: null, IstFreilos: treffer.IstFreilos));
                 }
             }

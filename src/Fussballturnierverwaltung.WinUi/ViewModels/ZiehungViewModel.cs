@@ -307,7 +307,7 @@ public partial class ZiehungViewModel : ObservableObject
     /// kommt — bei der Gruppenphase <c>null</c>.</summary>
     private AnimationsPaarung? TeamZiehen(ZiehungsSchritt schritt, AnimationsTopf? topf)
     {
-        var topfSlot = topf?.Slots.FirstOrDefault(s => s.EintragId == schritt.Team.EintragId);
+        var topfSlot = topf?.Slots.FirstOrDefault(s => s.EintragId == schritt.Eintrag.Id);
         if (topfSlot is not null) topfSlot.Gezogen = true;
 
         var paarung = schritt.IstGruppenmodus
@@ -315,7 +315,7 @@ public partial class ZiehungViewModel : ObservableObject
             : AnimationPaarungen.First(p => p.PaarungsNr == schritt.ZielNummer);
         if (paarung is not null) AnimationFokusPaarung = paarung;
 
-        AnimationBannerMannschaft = schritt.Team.Name;
+        AnimationBannerMannschaft = TeilnehmerAnzeige.AusEintrag(schritt.Eintrag).Name;
         AnimationBannerTopf       = schritt.TopfName;
         AnimationBannerZiel       = null;
         AnimationBannerSlot       = null;
@@ -339,15 +339,16 @@ public partial class ZiehungViewModel : ObservableObject
     {
         AnimationBannerZiel = $"Paarung {schritt.ZielNummer}";
         AnimationBannerSlot = schritt.IstFreilos ? "Freilos" : (schritt.IstHeim == true ? "Heim" : "Auswärts");
+        var team = TeilnehmerAnzeige.AusEintrag(schritt.Eintrag);
         if (schritt.IstFreilos || schritt.IstHeim == true)
         {
-            paarung.Heim       = schritt.Team.Name;
-            paarung.HeimWappen = schritt.Team.Wappen;
+            paarung.Heim       = team.Name;
+            paarung.HeimWappen = team.Wappen;
         }
         else
         {
-            paarung.Auswaerts       = schritt.Team.Name;
-            paarung.AuswaertsWappen = schritt.Team.Wappen;
+            paarung.Auswaerts       = team.Name;
+            paarung.AuswaertsWappen = team.Wappen;
         }
     }
 
@@ -355,8 +356,9 @@ public partial class ZiehungViewModel : ObservableObject
     {
         AnimationBannerPosition = $"Position {schritt.Position}";
         var slot = zielGruppe.Slots[schritt.Position!.Value - 1];
-        slot.Anzeige = schritt.Team.Name;
-        slot.Wappen  = schritt.Team.Wappen;
+        var team = TeilnehmerAnzeige.AusEintrag(schritt.Eintrag);
+        slot.Anzeige = team.Name;
+        slot.Wappen  = team.Wappen;
         slot.IstNeu  = true;
         zielGruppe.FuellstandAktualisieren();
         return slot;
