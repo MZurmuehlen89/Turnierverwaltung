@@ -273,7 +273,7 @@ public class AuslosungService(
             validator.Validieren(auslosung, alleEintraege, verbandsQuoten, landesQuoten));
 
         var (regeln, gruppeJeMannschaft) = await RegelnErmittelnAsync(auslosung, alleRunden, ct);
-        var ergebnisse = Losverfahren.Ausloesen(auslosung, regeln, gruppeJeMannschaft);
+        var ergebnisse = Losverfahren.Ausloesen(auslosung, regeln, gruppeJeMannschaft, Random.Shared);
         await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);
 
         logger.LogInformation("Auslosung '{Name}' durchgeführt: {Anzahl} Paarungen.", auslosung.Name, ergebnisse.Count);
