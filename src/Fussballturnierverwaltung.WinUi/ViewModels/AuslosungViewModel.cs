@@ -235,6 +235,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// <summary>Wie das Ergebnis nach dem Auslosen erscheint: sofort oder als TV-Ziehung.</summary>
     private enum ZiehungsArt { Keine, Automatisch, Manuell }
 
+    /// <summary>Was nach dem Auslosen als TV-Ziehung gezeigt wird: die Gegner-Matrizen der Ligaphase oder die
+    /// Schritte einer Gruppen-/K.-o.-Ziehung — ohne TV-Modus keines von beiden.</summary>
+    private sealed record ZiehungsVorlage(ObservableCollection<GegnerMatrixTopf>? Matrizen, List<ZiehungsSchritt>? Schritte)
+    {
+        public static readonly ZiehungsVorlage Keine = new(null, null);
+    }
+
     /// <summary>Live-Anzeige der TV-Ziehung (Kind-ViewModel, ohne Datenbankzugriff).</summary>
     public ZiehungViewModel Ziehung { get; } = new();
 
@@ -578,77 +585,96 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task AuslosungDurchfuehrenAsync(ZiehungsArt ziehungsArt)
     {
-        bool tvModus = ziehungsArt != ZiehungsArt.Keine;
-        bool manuell = ziehungsArt == ZiehungsArt.Manuell;
         Fehlermeldung = null;
-        int auslosungId;
-        ObservableCollection<GegnerMatrixTopf>? matrizen;
-        List<ZiehungsSchritt>? schritte;
         try
         {
+            int auslosungId;
+            ZiehungsVorlage? vorlage;
             // Nur der Datenbankteil läuft unter dem Schutz (#413) — die Ziehung danach ist reine Anzeige und
             // wartet im manuellen TV-Modus beliebig lange auf Klicks.
             using (await DbContextSchutz.BetretenAsync())
             {
                 if (_auslosungDetail is null) return;
                 auslosungId = _auslosungDetail.Id;
-                if (!await ErgebnisVerlustBestaetigtAsync(_auslosungDetail.TurnierRundeId)) return;
-
-                // Erst ab hier messen — die Wartezeit auf die Rückfrage gehört nicht zur Dauer der Aktion.
-                using var vorgang = _logger.Vorgang($"Auslosung durchführen (Auslosung {auslosungId})");
-
-                // Das Ergebnis steht ab AusfuehrenAsync fest und wird von LadeDetailAsync geladen — im TV-Modus
-                // bleibt es bis zum Start der Ziehung verborgen, siehe ZeigeErgebnis. Der Service ersetzt dabei
-                // auch den Spielplan der Runde und zieht die Folgerunden nach (#414) — VOR der Ziehung (#406): die
-                // enthüllt nur noch und darf jederzeit enden (siehe ZiehungBeenden).
-                ZiehungInVorbereitung = tvModus;
-                Exception? fehler = null;
-                try { await _auslosungService.AusfuehrenAsync(auslosungId); }
-                catch (Exception ex) { fehler = ex; }
-
-                // Auch nach einem Fehler neu laden: scheitert erst die Spielplan-Generierung, ist die Auslosung
-                // bereits abgeschlossen — die Anzeige zeigte sonst weiter den Stand davor.
-                await LadeDetailAsync(auslosungId);
-                if (fehler is not null)
-                {
-                    Fehlermeldung = fehler.Message;
-                    return;
-                }
-                if (_auslosungDetail is not { } detail || detail.Id != auslosungId) return;
-
-                // Ziehungsdaten bewusst direkt NACH dem Reload aus dessen Stand bauen (nicht aus einem vor
-                // AusfuehrenAsync genommenen Lostöpfe-Snapshot + dem separaten Rückgabewert von AusfuehrenAsync):
-                // ViewModel und AuslosungService teilen denselben DbContext-Scope, ein Snapshot kann durch
-                // EF-Change-Tracking/Identity-Resolution zwischen zwei Aufrufen verändert werden. Direkt nach dem
-                // Reload stammen Lostöpfe UND Ergebnisse garantiert aus demselben, aktuellen Snapshot — exakt die
-                // Daten, die danach auch als "echtes" Ergebnis angezeigt werden (Fund aus #303-Test: TV-Modus-
-                // Endanzeige wich bei Gruppenphase nach vorherigem Zurücksetzen vom echten Ergebnis ab). Deshalb
-                // auch VOR der Turnierbaum-Aktualisierung, die auf demselben DbContext weiterarbeitet.
-                matrizen = tvModus && IstGegnerMatrixergebnis ? GegnerMatrixBuilder.Aufbauen(detail) : null;
-                schritte = tvModus && matrizen is null
-                    ? ZiehungsReihenfolge.Aufbauen(detail.Lostoepfe, detail.Ergebnisse, Random.Shared)
-                    : null;
-
-                IstLadend = true;
-                try
-                {
-                    using (_logger.Vorgang($"Auslosung: Turnierbaum aktualisieren (Instanz {detail.TurnierInstanzId})"))
-                        await TurnierBaumAktualisierenAsync(detail.TurnierInstanzId);
-                    await AktualisiereSeitenlisteAsync();
-                }
-                finally { IstLadend = false; }
+                vorlage = await AuslosenUndNeuLadenAsync(_auslosungDetail, tvModus: ziehungsArt != ZiehungsArt.Keine);
             }
+            if (vorlage is null) return;
 
             // Zwischenzeitlich verlassen (Turnier-/Reiter-/Auslosungswechsel) — dann gibt es nichts mehr zu zeigen.
             if (!DetailAktiv || _auslosungDetail?.Id != auslosungId) return;
 
-            if (matrizen is not null)
-                await Ziehung.LigaphasenZiehungAnimierenAsync(matrizen, manuell);
-            else if (schritte is not null)
-                await Ziehung.ZiehungAnimierenAsync(schritte, Arbeitsbereich.Lostoepfe, manuell);
+            await ZiehungZeigenAsync(vorlage, manuell: ziehungsArt == ZiehungsArt.Manuell);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
         finally { ZiehungInVorbereitung = false; }
+    }
+
+    /// <summary>Datenbankteil des Auslosens — läuft unter dem Schutz des Aufrufers. Liefert, was danach als
+    /// TV-Ziehung zu zeigen ist, und <c>null</c>, wenn nicht ausgelost wurde (Rückfrage verneint, Fehler) oder
+    /// das Detail inzwischen ein anderes ist.</summary>
+    private async Task<ZiehungsVorlage?> AuslosenUndNeuLadenAsync(Auslosung auszulosen, bool tvModus)
+    {
+        int auslosungId = auszulosen.Id;
+        if (!await ErgebnisVerlustBestaetigtAsync(auszulosen.TurnierRundeId)) return null;
+
+        // Erst ab hier messen — die Wartezeit auf die Rückfrage gehört nicht zur Dauer der Aktion.
+        using var vorgang = _logger.Vorgang($"Auslosung durchführen (Auslosung {auslosungId})");
+
+        // Das Ergebnis steht ab AusfuehrenAsync fest und wird von LadeDetailAsync geladen — im TV-Modus
+        // bleibt es bis zum Start der Ziehung verborgen, siehe ZeigeErgebnis. Der Service ersetzt dabei
+        // auch den Spielplan der Runde und zieht die Folgerunden nach (#414) — VOR der Ziehung (#406): die
+        // enthüllt nur noch und darf jederzeit enden (siehe ZiehungBeenden).
+        ZiehungInVorbereitung = tvModus;
+        Exception? fehler = null;
+        try { await _auslosungService.AusfuehrenAsync(auslosungId); }
+        catch (Exception ex) { fehler = ex; }
+
+        // Auch nach einem Fehler neu laden: scheitert erst die Spielplan-Generierung, ist die Auslosung
+        // bereits abgeschlossen — die Anzeige zeigte sonst weiter den Stand davor.
+        await LadeDetailAsync(auslosungId);
+        if (fehler is not null)
+        {
+            Fehlermeldung = fehler.Message;
+            return null;
+        }
+        if (_auslosungDetail is not { } detail || detail.Id != auslosungId) return null;
+
+        // Ziehungsdaten bewusst direkt NACH dem Reload aus dessen Stand bauen (nicht aus einem vor
+        // AusfuehrenAsync genommenen Lostöpfe-Snapshot + dem separaten Rückgabewert von AusfuehrenAsync):
+        // ViewModel und AuslosungService teilen denselben DbContext-Scope, ein Snapshot kann durch
+        // EF-Change-Tracking/Identity-Resolution zwischen zwei Aufrufen verändert werden. Direkt nach dem
+        // Reload stammen Lostöpfe UND Ergebnisse garantiert aus demselben, aktuellen Snapshot — exakt die
+        // Daten, die danach auch als "echtes" Ergebnis angezeigt werden (Fund aus #303-Test: TV-Modus-
+        // Endanzeige wich bei Gruppenphase nach vorherigem Zurücksetzen vom echten Ergebnis ab). Deshalb
+        // auch VOR der Turnierbaum-Aktualisierung, die auf demselben DbContext weiterarbeitet.
+        var vorlage = tvModus ? ZiehungsVorlageAus(detail) : ZiehungsVorlage.Keine;
+        await TurnierbaumUndSeitenlisteAktualisierenAsync(detail.TurnierInstanzId);
+        return vorlage;
+    }
+
+    private ZiehungsVorlage ZiehungsVorlageAus(Auslosung detail) =>
+        IstGegnerMatrixergebnis
+            ? new(GegnerMatrixBuilder.Aufbauen(detail), null)
+            : new(null, ZiehungsReihenfolge.Aufbauen(detail.Lostoepfe, detail.Ergebnisse, Random.Shared));
+
+    private async Task TurnierbaumUndSeitenlisteAktualisierenAsync(int turnierInstanzId)
+    {
+        IstLadend = true;
+        try
+        {
+            using (_logger.Vorgang($"Auslosung: Turnierbaum aktualisieren (Instanz {turnierInstanzId})"))
+                await TurnierBaumAktualisierenAsync(turnierInstanzId);
+            await AktualisiereSeitenlisteAsync();
+        }
+        finally { IstLadend = false; }
+    }
+
+    private async Task ZiehungZeigenAsync(ZiehungsVorlage vorlage, bool manuell)
+    {
+        if (vorlage.Matrizen is not null)
+            await Ziehung.LigaphasenZiehungAnimierenAsync(vorlage.Matrizen, manuell);
+        else if (vorlage.Schritte is not null)
+            await Ziehung.ZiehungAnimierenAsync(vorlage.Schritte, Arbeitsbereich.Lostoepfe, manuell);
     }
 
     /// <summary>Die Auslosung ersetzt den Spielplan ihrer Runde ohne Rückfrage — wer auslost, will den Spielplan
@@ -757,14 +783,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // und lädt NICHT neu — DetailAktiv bliebe fälschlich false (Fokusverlust, Fund aus #318-Nachtest).
         if (_seitenlisteAktualisierungAktiv) return;
 
-        // Andere Auslosung während der TV-Ziehung angeklickt (#406): bei "Nein" die Auswahl zurückstellen —
-        // unter demselben Guard, damit diese Zuweisung hier nicht erneut ankommt.
-        if (Ziehung.AnimationLaeuft && AusgewaehlteAuslosung?.Id != _auslosungDetail?.Id
-            && !await ZiehungBeendenNachRueckfrageAsync())
+        if (!await AuswahlwechselErlaubtAsync())
         {
-            _seitenlisteAktualisierungAktiv = true;
-            try { AusgewaehlteAuslosung = Auslosungen.FirstOrDefault(a => a.Id == _auslosungDetail?.Id); }
-            finally { _seitenlisteAktualisierungAktiv = false; }
+            AuswahlZurueckstellen();
             return;
         }
 
@@ -779,11 +800,31 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (DetailAktiv && _auslosungDetail?.Id == AusgewaehlteAuslosung.Id) return;
 
         Ziehung.Beenden();
-        int auslosungId = AusgewaehlteAuslosung.Id;
+        await AusgewaehltesDetailLadenAsync(AusgewaehlteAuslosung.Id);
+    }
 
-        // Läuft als Fire-and-Forget: hinter einer laufenden Aktion oder einem Turnierwechsel einreihen und
-        // Fehler anzeigen statt verschlucken (#413). Nach dem Warten zählt der dann aktuelle Stand — die
-        // Auswahl kann weitergewandert oder das Detail inzwischen von der Aktion selbst geladen sein.
+    /// <summary>Andere Auslosung während der TV-Ziehung angeklickt (#406): erst nach Rückfrage wechseln.</summary>
+    private async Task<bool> AuswahlwechselErlaubtAsync()
+    {
+        if (!Ziehung.AnimationLaeuft || AusgewaehlteAuslosung?.Id == _auslosungDetail?.Id) return true;
+        return await ZiehungBeendenNachRueckfrageAsync();
+    }
+
+    /// <summary>Stellt die Auswahl auf die gezeigte Auslosung zurück — unter dem Guard der Seitenliste, damit
+    /// diese Zuweisung nicht erneut als Auswahlwechsel ankommt.</summary>
+    private void AuswahlZurueckstellen()
+    {
+        _seitenlisteAktualisierungAktiv = true;
+        try { AusgewaehlteAuslosung = Auslosungen.FirstOrDefault(a => a.Id == _auslosungDetail?.Id); }
+        finally { _seitenlisteAktualisierungAktiv = false; }
+    }
+
+    /// <summary>Einstiegspunkt des Auswahlwechsels (Fire-and-Forget): reiht sich hinter einer laufenden Aktion
+    /// oder einem Turnierwechsel ein und zeigt Fehler an, statt sie zu verschlucken (#413). Nach dem Warten
+    /// zählt der dann aktuelle Stand — die Auswahl kann weitergewandert oder das Detail inzwischen von der
+    /// Aktion selbst geladen sein.</summary>
+    private async Task AusgewaehltesDetailLadenAsync(int auslosungId)
+    {
         using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteAuslosung?.Id != auslosungId) return;
         if (DetailAktiv && _auslosungDetail?.Id == auslosungId) return;
