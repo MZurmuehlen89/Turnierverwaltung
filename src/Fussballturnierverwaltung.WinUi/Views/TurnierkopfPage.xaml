@@ -153,13 +153,13 @@
                 </Grid>
 
                 <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,8"
-                          IsExpanded="{Binding TitelGastgeberOffen, Mode=TwoWay}"
-                          Header="{Binding TitelGastgeberKopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
+                          IsExpanded="{Binding TitelGastgeber.Offen, Mode=TwoWay}"
+                          Header="{Binding TitelGastgeber.Kopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
                     <Grid ColumnDefinitions="*,24,*">
                         <StackPanel HorizontalAlignment="Stretch">
                             <TextBlock Text="Titelverteidiger" FontSize="12" Margin="0,0,0,3" />
-                            <ComboBox ItemsSource="{Binding TitelverteidigerOptionenGefiltert}"
-                                      SelectedItem="{Binding Titelverteidiger, Mode=TwoWay}"
+                            <ComboBox ItemsSource="{Binding TitelGastgeber.TitelverteidigerOptionenGefiltert}"
+                                      SelectedItem="{Binding TitelGastgeber.Titelverteidiger, Mode=TwoWay}"
                                       DisplayMemberPath="Anzeige" IsTextSearchEnabled="True"
                                       HorizontalAlignment="Stretch" Margin="0,0,0,6" />
                             <TextBlock Text="Optional, vorgefiltert nach dem Auslosungsfilter. Kommt bei Runden mit „Titelverteidiger in Topf 1“ unabhängig vom Ranglistenplatz in Topf 1."
@@ -169,22 +169,22 @@
                         <!-- Issue #352 -->
                         <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
                             <TextBlock Text="Gastgeber" FontSize="12" Margin="0,0,0,3" />
-                            <ItemsRepeater ItemsSource="{Binding GastgeberZeilen}">
+                            <ItemsRepeater ItemsSource="{Binding TitelGastgeber.GastgeberZeilen}">
                                 <ItemsRepeater.ItemTemplate>
                                     <DataTemplate>
                                         <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
-                                            <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.GastgeberKandidaten}"
+                                            <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.TitelGastgeber.GastgeberKandidaten}"
                                                       SelectedItem="{Binding Mannschaft, Mode=TwoWay}"
                                                       DisplayMemberPath="Name" IsTextSearchEnabled="True"
                                                       HorizontalAlignment="Stretch" Margin="0,0,8,0" />
                                             <Button Grid.Column="1" Content="✕"
-                                                    Command="{Binding ElementName=Root, Path=DataContext.GastgeberEntfernenCommand}"
+                                                    Command="{Binding ElementName=Root, Path=DataContext.TitelGastgeber.GastgeberEntfernenCommand}"
                                                     CommandParameter="{Binding}" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsRepeater.ItemTemplate>
                             </ItemsRepeater>
-                            <Button Content="Gastgeber hinzufügen" Command="{Binding GastgeberHinzufuegenCommand}"
+                            <Button Content="Gastgeber hinzufügen" Command="{Binding TitelGastgeber.GastgeberHinzufuegenCommand}"
                                     HorizontalAlignment="Left" Margin="0,0,0,6" />
                             <TextBlock Text="Optional. Gastgeber behalten in Runden mit neutralem Spielort ihren Heimvorteil (z. B. Ausrichter einer WM/EM oder der Verein, in dessen Stadion das Finale stattfindet)."
                                        FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
