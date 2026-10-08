@@ -34,6 +34,9 @@ public partial class TitelGastgeberViewModel : ObservableObject
     private int _populiertGerade;
     private Auslosungsfilter _filter = Auslosungsfilter.Keiner;
 
+    // Alle Mannschaften nach Name sortiert — Grundlage beider Auswahllisten.
+    private IReadOnlyList<MannschaftAuswahl> _alleMannschaften = [];
+
     private static readonly TitelverteidigerOption _keinTitelverteidiger = new("— keiner —", null);
 
     /// <summary>Der Nutzer hat den Titelverteidiger oder die Gastgeber geändert — oder ein Filterwechsel hat
@@ -49,7 +52,7 @@ public partial class TitelGastgeberViewModel : ObservableObject
     [ObservableProperty] private TitelverteidigerOption _titelverteidiger = _keinTitelverteidiger;
     public ObservableCollection<TitelverteidigerOption> TitelverteidigerOptionenGefiltert { get; } = [_keinTitelverteidiger];
 
-    // Alle Mannschaften nach Name sortiert, je Mannschaft genau eine Option (Referenzabgleich der ComboBox).
+    // Je Mannschaft genau eine Option (Referenzabgleich der ComboBox), Reihenfolge wie _alleMannschaften.
     private IReadOnlyList<(TitelverteidigerOption Option, MannschaftAuswahl Mannschaft)> _titelverteidigerKandidaten = [];
 
     public int? TitelverteidigerId => Titelverteidiger?.Wert;
@@ -95,6 +98,8 @@ public partial class TitelGastgeberViewModel : ObservableObject
         _populiertGerade++;
         try
         {
+            // Erst die Liste abgleichen, dann die Auswahl setzen — eine Auswahl, die die ComboBox in ihrer
+            // Liste nicht findet, schreibt sie als null zurück.
             var titelverteidiger = TitelverteidigerOptionFuer(mannschaftId);
             TitelverteidigerOptionenSynchronisieren(titelverteidiger);
             Titelverteidiger = titelverteidiger;
@@ -114,8 +119,6 @@ public partial class TitelGastgeberViewModel : ObservableObject
     public ObservableCollection<GastgeberZeile> GastgeberZeilen { get; } = [];
     public ObservableCollection<MannschaftAuswahl> GastgeberKandidaten { get; } = [];
 
-    // Alle Mannschaften nach Name sortiert.
-    private IReadOnlyList<MannschaftAuswahl> _alleGastgeberKandidaten = [];
 
     [RelayCommand]
     private void GastgeberHinzufuegen() => GastgeberZeilen.Add(new GastgeberZeile());
@@ -123,25 +126,24 @@ public partial class TitelGastgeberViewModel : ObservableObject
     [RelayCommand]
     private void GastgeberEntfernen(GastgeberZeile zeile) => GastgeberZeilen.Remove(zeile);
 
-    private void GastgeberZeilenAbonnieren()
+    private void GastgeberZeilenBeobachten()
     {
         GastgeberZeilen.CollectionChanged += (_, e) =>
         {
             if (e.NewItems is not null)
-                foreach (GastgeberZeile z in e.NewItems)
-                    z.PropertyChanged += (_, _) =>
-                    {
-                        OnPropertyChanged(nameof(Kopf));
-                        if (_populiertGerade > 0) return;
-                        Geaendert?.Invoke();
-                        // Eine zuvor nur wegen der Auswahl enthaltene Mannschaft fällt wieder heraus.
-                        SammlungsAbgleich.Verzoegert(() => GastgeberOptionenSynchronisieren());
-                    };
-            OnPropertyChanged(nameof(Kopf));
-            if (_populiertGerade > 0) return;
-            Geaendert?.Invoke();
-            SammlungsAbgleich.Verzoegert(() => GastgeberOptionenSynchronisieren());
+                foreach (GastgeberZeile zeile in e.NewItems)
+                    zeile.PropertyChanged += (_, _) => GastgeberAenderungMelden();
+            GastgeberAenderungMelden();
         };
+    }
+
+    private void GastgeberAenderungMelden()
+    {
+        OnPropertyChanged(nameof(Kopf));
+        if (_populiertGerade > 0) return;
+        Geaendert?.Invoke();
+        // Eine zuvor nur wegen der Auswahl enthaltene Mannschaft fällt wieder heraus.
+        SammlungsAbgleich.Verzoegert(() => GastgeberOptionenSynchronisieren());
     }
 
     /// <summary>Befüllt die Gastgeber beim Laden eines Turniers; meldet keine Änderung.</summary>
@@ -151,8 +153,9 @@ public partial class TitelGastgeberViewModel : ObservableObject
         _populiertGerade++;
         try
         {
-            var gastgeber = _alleGastgeberKandidaten.Where(m => mannschaftIds.Contains(m.Id)).ToList();
+            var gastgeber = _alleMannschaften.Where(m => mannschaftIds.Contains(m.Id)).ToList();
             GastgeberZeilen.Clear();
+            // Erst die Liste abgleichen, dann die Zeilen anlegen (siehe TitelverteidigerSetzen).
             GastgeberOptionenSynchronisieren(gastgeber);
             foreach (var m in gastgeber)
                 GastgeberZeilen.Add(new GastgeberZeile { Mannschaft = m });
@@ -167,9 +170,9 @@ public partial class TitelGastgeberViewModel : ObservableObject
     /// <paramref name="zusaetzlich"/>, bevor sie gesetzt werden) bleiben immer enthalten.</summary>
     private void GastgeberOptionenSynchronisieren(IReadOnlyCollection<MannschaftAuswahl>? zusaetzlich = null)
     {
-        var gewaehlt = GastgeberZeilen.Select(z => z.Mannschaft).OfType<MannschaftAuswahl>().ToHashSet();
+        var gewaehlt = GewaehlteGastgeber().ToHashSet();
         if (zusaetzlich is not null) gewaehlt.UnionWith(zusaetzlich);
-        IReadOnlyList<MannschaftAuswahl> soll = _alleGastgeberKandidaten
+        IReadOnlyList<MannschaftAuswahl> soll = _alleMannschaften
             .Where(m => gewaehlt.Contains(m) || _filter.Passt(m))
             .ToList();
         SammlungsAbgleich.TeilfolgeAbgleichen(GastgeberKandidaten, soll);
@@ -185,11 +188,11 @@ public partial class TitelGastgeberViewModel : ObservableObject
         GastgeberOptionenSynchronisieren();
     }
 
-    public List<int> GastgeberIds() => GastgeberZeilen
-        .Where(z => z.Mannschaft is not null)
-        .Select(z => z.Mannschaft!.Id)
-        .Distinct()
-        .ToList();
+    public List<int> GastgeberIds() => GewaehlteGastgeber().Select(m => m.Id).Distinct().ToList();
+
+    // Zeilen ohne gewählte Mannschaft zählen nicht.
+    private IEnumerable<MannschaftAuswahl> GewaehlteGastgeber() =>
+        GastgeberZeilen.Select(z => z.Mannschaft).OfType<MannschaftAuswahl>();
 
     // ── Aufklappbarer Bereich (Issue #399) ────────────────────────────────────
     [ObservableProperty] private bool _offen;
@@ -198,13 +201,26 @@ public partial class TitelGastgeberViewModel : ObservableObject
     {
         get
         {
-            var teile = new List<string>();
-            if (Titelverteidiger?.Wert is not null) teile.Add($"Titelverteidiger: {Titelverteidiger.Anzeige}");
-            var gastgeber = GastgeberZeilen.Select(z => z.Mannschaft).OfType<MannschaftAuswahl>().Distinct().ToList();
-            if (gastgeber.Count is > 0 and <= 3) teile.Add($"Gastgeber: {string.Join(", ", gastgeber.Select(m => m.Name))}");
-            else if (gastgeber.Count > 3) teile.Add($"Gastgeber: {gastgeber.Count}");
-            return new("TITELVERTEIDIGER & GASTGEBER", teile.Count > 0 ? string.Join(" · ", teile) : "nicht festgelegt");
+            string?[] teile =
+            [
+                Titelverteidiger?.Wert is not null ? $"Titelverteidiger: {Titelverteidiger.Anzeige}" : null,
+                GastgeberKopfTeil()
+            ];
+            var zusammenfassung = string.Join(" · ", teile.OfType<string>());
+            return new("TITELVERTEIDIGER & GASTGEBER", zusammenfassung.Length > 0 ? zusammenfassung : "nicht festgelegt");
         }
+    }
+
+    // Bis zu drei Gastgeber stehen mit Namen in der Kopfzeile, darüber nur ihre Anzahl.
+    private string? GastgeberKopfTeil()
+    {
+        var gastgeber = GewaehlteGastgeber().Distinct().ToList();
+        return gastgeber.Count switch
+        {
+            0    => null,
+            <= 3 => $"Gastgeber: {string.Join(", ", gastgeber.Select(m => m.Name))}",
+            _    => $"Gastgeber: {gastgeber.Count}"
+        };
     }
 
     public void AufklappzustandSetzen() => Offen = Titelverteidiger?.Wert is not null || GastgeberZeilen.Count > 0;
@@ -213,7 +229,7 @@ public partial class TitelGastgeberViewModel : ObservableObject
     {
         _mannschaftService = mannschaftService;
         _logger = logger;
-        GastgeberZeilenAbonnieren();
+        GastgeberZeilenBeobachten();
     }
 
     /// <summary>Kandidaten für „Gastgeber“ und „Titelverteidiger“. Eigener Vorgang im Ablaufprotokoll (#419):
@@ -223,9 +239,9 @@ public partial class TitelGastgeberViewModel : ObservableObject
         IReadOnlyList<MannschaftAuswahl> mannschaften;
         using (_logger.Vorgang("Turnierkopf: Mannschaften für Gastgeber/Titelverteidiger abfragen"))
             mannschaften = await _mannschaftService.AlleAlsAuswahlAbrufenAsync();
-        _alleGastgeberKandidaten = mannschaften.OrderBy(m => m.Name).ToList();
+        _alleMannschaften = mannschaften.OrderBy(m => m.Name).ToList();
         GastgeberOptionenSynchronisieren();
-        _titelverteidigerKandidaten = _alleGastgeberKandidaten
+        _titelverteidigerKandidaten = _alleMannschaften
             .Select(m => (new TitelverteidigerOption(m.Name, m.Id), m))
             .ToList();
         TitelverteidigerOptionenSynchronisieren();
