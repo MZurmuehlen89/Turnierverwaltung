@@ -31,8 +31,8 @@ public sealed record RegelKontext(
     // Paarweise Regeln. Die Konföderationsverteilung zählt je Gruppe und passt nicht in dieses Schema — sie
     // wirkt nur in der Gruppenauslosung (GruppenAuslosung).
     internal bool Verbietet(TeilnehmerSlot a, TeilnehmerSlot b) =>
-        (KeinGleichesLand && a.LandId.HasValue && a.LandId == b.LandId) ||
-        (KeineGleicheGruppe && a.Gruppe is not null && a.Gruppe == b.Gruppe);
+        PaarungsRegeln.VerletzteRegel(
+            KeinGleichesLand, KeineGleicheGruppe, new(a.LandId, a.Gruppe), new(b.LandId, b.Gruppe)) is not null;
 
     public string EinschraenkungenText =>
         string.Join(", ", new[]

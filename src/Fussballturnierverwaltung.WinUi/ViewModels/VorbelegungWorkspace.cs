@@ -403,24 +403,24 @@ public partial class VorbelegungWorkspace : ObservableObject
     private bool RegelAktiv(AuslosungsRegelArt art) =>
         _auslosung?.Regeln.Any(r => r.IstAktiv && r.Regelart == art) == true;
 
-    // Prüft „Kein gleiches Land“ und „Keine gleiche Gruppe“ (#331) — die Gruppen-Herkunft steckt im
-    // Platzhalternamen („1. Gruppe A“), echte Mannschaften gibt es hier nur in der ersten Runde ohne Vorgänger.
-    private string? RegelVerletzung(TeilnehmerAnzeige neuTeam, TeilnehmerAnzeige anderes, string beziehung)
-    {
-        if (RegelAktiv(AuslosungsRegelArt.KeinGleichesLand) &&
-            neuTeam.LandId.HasValue && neuTeam.LandId == anderes.LandId)
-            return $"Regel 'Kein gleiches Land': '{neuTeam.Name}' und '{anderes.Name}' " +
-                   $"sind aus demselben Land und dürfen nicht {beziehung}.";
+    // Die Gruppen-Herkunft steckt im Platzhalternamen („1. Gruppe A“), echte Mannschaften gibt es hier nur in
+    // der ersten Runde ohne Vorgänger.
+    private static RegelHerkunft HerkunftVon(TeilnehmerAnzeige team) =>
+        new(team.LandId, GruppenHerkunft.AusPlatzhalter(team.Name)?.Gruppe);
 
-        if (RegelAktiv(AuslosungsRegelArt.KeineGleicheGruppe) &&
-            GruppenHerkunft.AusPlatzhalter(neuTeam.Name) is { } herkunftNeu &&
-            GruppenHerkunft.AusPlatzhalter(anderes.Name) is { } herkunftAnderes &&
-            herkunftNeu.Gruppe == herkunftAnderes.Gruppe)
-            return $"Regel 'Keine gleiche Gruppe': '{neuTeam.Name}' und '{anderes.Name}' " +
-                   $"waren in derselben Gruppe und dürfen nicht {beziehung}.";
-
-        return null;
-    }
+    private string? RegelVerletzung(TeilnehmerAnzeige neuTeam, TeilnehmerAnzeige anderes, string beziehung) =>
+        PaarungsRegeln.VerletzteRegel(
+            RegelAktiv(AuslosungsRegelArt.KeinGleichesLand), RegelAktiv(AuslosungsRegelArt.KeineGleicheGruppe),
+            HerkunftVon(neuTeam), HerkunftVon(anderes)) switch
+        {
+            AuslosungsRegelArt.KeinGleichesLand =>
+                $"Regel 'Kein gleiches Land': '{neuTeam.Name}' und '{anderes.Name}' " +
+                $"sind aus demselben Land und dürfen nicht {beziehung}.",
+            AuslosungsRegelArt.KeineGleicheGruppe =>
+                $"Regel 'Keine gleiche Gruppe': '{neuTeam.Name}' und '{anderes.Name}' " +
+                $"waren in derselben Gruppe und dürfen nicht {beziehung}.",
+            _ => null
+        };
 
     private bool HatRegelVerletzung(TeilnehmerAnzeige neuTeam, int paarungsNr, bool istHeim, out string? fehler)
     {
