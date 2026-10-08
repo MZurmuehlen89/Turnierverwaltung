@@ -812,100 +812,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             await AktualisiereVerbandsQuotenAnzeigeAsync(detail);
             await AktualisiereLandesQuotenAnzeigeAsync(detail);
+            RegelnAufbauen(detail, auslosungId);
+            ErgebnisZeigen(detail);
+            KopfdatenZeigen(detail);
 
-            var regelRunde = InstanzRunden.FirstOrDefault(r => r.Id == detail.TurnierRundeId) ?? detail.TurnierRunde;
-            _regelRundenart = regelRunde?.Rundenart;
-            _regelFolgtAufGruppenphase = regelRunde is not null && InstanzRunden.Any(r =>
-                r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge < regelRunde.Reihenfolge);
-
-            Regeln = new ObservableCollection<RegelViewModel>(
-                AuslosungsRegelKompatibilitaet.AngeboteneRegeln
-                .Select(art =>
-                {
-                    var vorh = detail.Regeln.FirstOrDefault(r => r.Regelart == art);
-                    return new RegelViewModel(art, AuslosungsRegelKompatibilitaet.AnzeigeName(art), AuslosungAnzeigeTexte.RegelBeschreibung(art), vorh?.IstAktiv ?? false,
-                        async aktiv =>
-                        {
-                            using var schutz = await DbContextSchutz.BetretenAsync();
-                            try
-                            {
-                                if (aktiv)
-                                {
-                                    // Nacheinander statt parallel speichern — ein DbContext verträgt keine zwei
-                                    // gleichzeitigen Operationen.
-                                    foreach (var andere in Regeln.Where(r =>
-                                                 r.IstAktiv && AuslosungsRegelKompatibilitaet.SchliessenSichAus(art, r.Regelart)).ToList())
-                                    {
-                                        andere.OhneSpeichernSetzen(false);
-                                        await _auslosungService.RegelDeaktivierenAsync(auslosungId, andere.Regelart);
-                                    }
-                                    await _auslosungService.RegelHinzufuegenOderAktivierenAsync(auslosungId, art, AuslosungsRegelKompatibilitaet.AnzeigeName(art));
-                                }
-                                else await _auslosungService.RegelDeaktivierenAsync(auslosungId, art);
-                            }
-                            catch (Exception ex) { Fehlermeldung = ex.Message; }
-                        });
-                }));
-            AktualisiereRegelSperren(detail.Auslosungsart);
-
-            bool istGruppe = detail.Ergebnisse.Any() &&
-                detail.Ergebnisse.All(e => !e.IstFreilos &&
-                    e.AuswaertsMannschaftId == null &&
-                    e.AuswaertsPlatzhalterName == null);
-
-            IstGruppenergebnis = istGruppe;
-
-            // Ligaphase: Ergebnis als Gegner-Matrix je Topf statt flacher Paarungsliste (#362).
-            bool istMatrix = !istGruppe && detail.Ergebnisse.Any() &&
-                detail.Auslosungsart == Auslosungsart.TopfZuordnung && detail.Lostoepfe.Count >= 2;
-            IstGegnerMatrixergebnis = istMatrix;
-            GegnerMatrix.Zeigen(istMatrix ? GegnerMatrixBuilder.Aufbauen(detail) : []);
-
-            if (istGruppe)
-            {
-                // Team-Reihenfolge innerhalb der Gruppe bewusst NICHT alphabetisch sortiert: sie muss mit
-                // der tatsächlich gespeicherten Reihenfolge übereinstimmen, aus der
-                // SpielplanService.GenerierenAusAuslosungAsync den Spielplan generiert (dort ohne eigene
-                // Sortierung, ebenfalls direkt aus der PaarungsNummer-Gruppierung) — siehe #303-Diskussion.
-                GruppenErgebnisse = new ObservableCollection<GruppenErgebnisAnzeige>(
-                    detail.Ergebnisse
-                        .GroupBy(e => e.PaarungsNummer)
-                        .OrderBy(g => g.Key)
-                        .Select(g => new GruppenErgebnisAnzeige(
-                            g.Key,
-                            $"Gruppe {GruppenHerkunft.Buchstabe(g.Key)}",
-                            g.Select(e => new GruppenTeamAnzeige(
-                                    e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
-                                    TeilnehmerAnzeige.MannschaftsIcon(e.HeimMannschaft)))
-                             .ToList())));
-                ErgebnisseAnzeige = [];
-            }
-            else
-            {
-                GruppenErgebnisse = [];
-                ErgebnisseAnzeige = new ObservableCollection<ErgebnisAnzeige>(
-                    detail.Ergebnisse.Select(e => new ErgebnisAnzeige(
-                        e.PaarungsNummer,
-                        e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
-                        e.AuswaertsMannschaft?.Name ?? e.AuswaertsPlatzhalterName ?? "?",
-                        e.IstFreilos,
-                        TeilnehmerAnzeige.MannschaftsIcon(e.HeimMannschaft),
-                        TeilnehmerAnzeige.MannschaftsIcon(e.AuswaertsMannschaft))));
-            }
-
-            IstBearbeitbar        = detail.Status is not (AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen);
-            IstAbgeschlossen      = detail.Status == AuslosungsStatus.Abgeschlossen;
-            DetailName            = detail.Name;
-            DetailAuslosungsart   = detail.Auslosungsart;
-            DetailAuslosungsartOptionen = AuslosungsartOptionenFuer(detail.TurnierRunde?.Rundenart);
-            // Siehe OnNeuRundeChanged — erzwungene Nachbenachrichtigung gegen den WinUI3-ComboBox-Reset-
-            // Fallstrick (Fund aus #300-Test: Auslosungsart erschien nach Anlage einer Auslosung leer).
-            OnPropertyChanged(nameof(DetailAuslosungsart));
-            DetailAnzahlLostoepfe = Math.Max(1, detail.Lostoepfe.Count);
-
-            AuslosungKopfzeile = $"{detail.Name}  ·  {detail.TurnierRunde.Name}  ·  " +
-                                 $"{AuslosungAnzeigeTexte.AuslosungsartAnzeigeName(detail.Auslosungsart)}  ·  " +
-                                 $"Status: {AuslosungAnzeigeTexte.StatusAnzeigeName(detail.Status)}";
             DetailAktiv    = true;
             IstDetailDirty = false;
             Fehlermeldung  = null;
@@ -915,6 +825,109 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             _ladenAktiv = false;
             IstLadend   = false;
         }
+    }
+
+    private void RegelnAufbauen(Auslosung detail, int auslosungId)
+    {
+        var regelRunde = InstanzRunden.FirstOrDefault(r => r.Id == detail.TurnierRundeId) ?? detail.TurnierRunde;
+        _regelRundenart = regelRunde?.Rundenart;
+        _regelFolgtAufGruppenphase = regelRunde is not null && InstanzRunden.Any(r =>
+            r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge < regelRunde.Reihenfolge);
+
+        Regeln = new ObservableCollection<RegelViewModel>(
+            AuslosungsRegelKompatibilitaet.AngeboteneRegeln
+            .Select(art =>
+            {
+                var vorh = detail.Regeln.FirstOrDefault(r => r.Regelart == art);
+                return new RegelViewModel(art, AuslosungsRegelKompatibilitaet.AnzeigeName(art), AuslosungAnzeigeTexte.RegelBeschreibung(art), vorh?.IstAktiv ?? false,
+                    async aktiv =>
+                    {
+                        using var schutz = await DbContextSchutz.BetretenAsync();
+                        try
+                        {
+                            if (aktiv)
+                            {
+                                // Nacheinander statt parallel speichern — ein DbContext verträgt keine zwei
+                                // gleichzeitigen Operationen.
+                                foreach (var andere in Regeln.Where(r =>
+                                             r.IstAktiv && AuslosungsRegelKompatibilitaet.SchliessenSichAus(art, r.Regelart)).ToList())
+                                {
+                                    andere.OhneSpeichernSetzen(false);
+                                    await _auslosungService.RegelDeaktivierenAsync(auslosungId, andere.Regelart);
+                                }
+                                await _auslosungService.RegelHinzufuegenOderAktivierenAsync(auslosungId, art, AuslosungsRegelKompatibilitaet.AnzeigeName(art));
+                            }
+                            else await _auslosungService.RegelDeaktivierenAsync(auslosungId, art);
+                        }
+                        catch (Exception ex) { Fehlermeldung = ex.Message; }
+                    });
+            }));
+        AktualisiereRegelSperren(detail.Auslosungsart);
+    }
+
+    private void ErgebnisZeigen(Auslosung detail)
+    {
+        bool istGruppe = detail.Ergebnisse.Any() &&
+            detail.Ergebnisse.All(e => !e.IstFreilos &&
+                e.AuswaertsMannschaftId == null &&
+                e.AuswaertsPlatzhalterName == null);
+
+        IstGruppenergebnis = istGruppe;
+
+        // Ligaphase: Ergebnis als Gegner-Matrix je Topf statt flacher Paarungsliste (#362).
+        bool istMatrix = !istGruppe && detail.Ergebnisse.Any() &&
+            detail.Auslosungsart == Auslosungsart.TopfZuordnung && detail.Lostoepfe.Count >= 2;
+        IstGegnerMatrixergebnis = istMatrix;
+        GegnerMatrix.Zeigen(istMatrix ? GegnerMatrixBuilder.Aufbauen(detail) : []);
+
+        if (istGruppe)
+        {
+            // Team-Reihenfolge innerhalb der Gruppe bewusst NICHT alphabetisch sortiert: sie muss mit
+            // der tatsächlich gespeicherten Reihenfolge übereinstimmen, aus der
+            // SpielplanService.GenerierenAusAuslosungAsync den Spielplan generiert (dort ohne eigene
+            // Sortierung, ebenfalls direkt aus der PaarungsNummer-Gruppierung) — siehe #303-Diskussion.
+            GruppenErgebnisse = new ObservableCollection<GruppenErgebnisAnzeige>(
+                detail.Ergebnisse
+                    .GroupBy(e => e.PaarungsNummer)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new GruppenErgebnisAnzeige(
+                        g.Key,
+                        $"Gruppe {GruppenHerkunft.Buchstabe(g.Key)}",
+                        g.Select(e => new GruppenTeamAnzeige(
+                                e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
+                                TeilnehmerAnzeige.MannschaftsIcon(e.HeimMannschaft)))
+                         .ToList())));
+            ErgebnisseAnzeige = [];
+        }
+        else
+        {
+            GruppenErgebnisse = [];
+            ErgebnisseAnzeige = new ObservableCollection<ErgebnisAnzeige>(
+                detail.Ergebnisse.Select(e => new ErgebnisAnzeige(
+                    e.PaarungsNummer,
+                    e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
+                    e.AuswaertsMannschaft?.Name ?? e.AuswaertsPlatzhalterName ?? "?",
+                    e.IstFreilos,
+                    TeilnehmerAnzeige.MannschaftsIcon(e.HeimMannschaft),
+                    TeilnehmerAnzeige.MannschaftsIcon(e.AuswaertsMannschaft))));
+        }
+    }
+
+    private void KopfdatenZeigen(Auslosung detail)
+    {
+        IstBearbeitbar        = detail.Status is not (AuslosungsStatus.Abgeschlossen or AuslosungsStatus.Abgebrochen);
+        IstAbgeschlossen      = detail.Status == AuslosungsStatus.Abgeschlossen;
+        DetailName            = detail.Name;
+        DetailAuslosungsart   = detail.Auslosungsart;
+        DetailAuslosungsartOptionen = AuslosungsartOptionenFuer(detail.TurnierRunde?.Rundenart);
+        // Siehe OnNeuRundeChanged — erzwungene Nachbenachrichtigung gegen den WinUI3-ComboBox-Reset-
+        // Fallstrick (Fund aus #300-Test: Auslosungsart erschien nach Anlage einer Auslosung leer).
+        OnPropertyChanged(nameof(DetailAuslosungsart));
+        DetailAnzahlLostoepfe = Math.Max(1, detail.Lostoepfe.Count);
+
+        AuslosungKopfzeile = $"{detail.Name}  ·  {detail.TurnierRunde.Name}  ·  " +
+                             $"{AuslosungAnzeigeTexte.AuslosungsartAnzeigeName(detail.Auslosungsart)}  ·  " +
+                             $"Status: {AuslosungAnzeigeTexte.StatusAnzeigeName(detail.Status)}";
     }
 
     /// <summary>Alle Teilnehmer, die für die Runde der Auslosung in Frage kommen — Platzhalter aus den
