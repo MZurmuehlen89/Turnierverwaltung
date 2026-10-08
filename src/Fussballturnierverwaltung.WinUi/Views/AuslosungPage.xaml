@@ -12,6 +12,13 @@
 
         <!-- Gegner-Matrix (#362): Zelle mit Wappen + Kurzname, anklickbar für den Team-Fokus. Hervorhebung als
              Primary-Tint mit Akzentrahmen (keine Signalfarben), gebunden an die eigene IstHervorgehoben-Property. -->
+        <DataTemplate x:Key="QuoteZeileTemplate">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" />
+                <TextBlock Grid.Column="1" Text="{Binding AnzeigeText}" FontSize="12" />
+            </Grid>
+        </DataTemplate>
+
         <DataTemplate x:Key="GegnerMatrixZelleTemplate">
             <Button Width="116" Height="30" Padding="4,0" Margin="0,0,2,0"
                     Background="Transparent" BorderThickness="0"
@@ -692,33 +699,17 @@
 
                     <!-- Verbandsquoten (Nutzerwunsch: direkt bei der Teams-zugewiesen-Anzeige, nicht erst
                          nach dem gesamten Zuweisungsbereich, damit Status und Quoten auf einen Blick sichtbar sind) -->
-                    <StackPanel Visibility="{Binding Quoten.ZeigeVerbandsQuoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
+                    <StackPanel Visibility="{Binding Quoten.ZeigeVerbandsquoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
                         <TextBlock Text="VERBAND-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
-                        <ItemsRepeater ItemsSource="{Binding Quoten.VerbandsQuotenAnzeige}">
-                            <ItemsRepeater.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
-                                        <TextBlock Grid.Column="0" Text="{Binding VerbandName}" FontSize="12" />
-                                        <TextBlock Grid.Column="1" Text="{Binding AnzeigeText}" FontSize="12" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsRepeater.ItemTemplate>
-                        </ItemsRepeater>
+                        <ItemsRepeater ItemsSource="{Binding Quoten.Verbandsquoten}"
+                                       ItemTemplate="{StaticResource QuoteZeileTemplate}" />
                     </StackPanel>
 
                     <!-- Landesquoten -->
-                    <StackPanel Visibility="{Binding Quoten.ZeigeLandesQuoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
+                    <StackPanel Visibility="{Binding Quoten.ZeigeLandesquoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
                         <TextBlock Text="LANDES-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
-                        <ItemsRepeater ItemsSource="{Binding Quoten.LandesQuotenAnzeige}">
-                            <ItemsRepeater.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
-                                        <TextBlock Grid.Column="0" Text="{Binding LandName}" FontSize="12" />
-                                        <TextBlock Grid.Column="1" Text="{Binding AnzeigeText}" FontSize="12" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsRepeater.ItemTemplate>
-                        </ItemsRepeater>
+                        <ItemsRepeater ItemsSource="{Binding Quoten.Landesquoten}"
+                                       ItemTemplate="{StaticResource QuoteZeileTemplate}" />
                     </StackPanel>
 
                     <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"

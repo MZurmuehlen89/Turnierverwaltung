@@ -51,29 +51,8 @@ public class RegelViewModel : ObservableObject
     }
 }
 
-public class VerbandsQuoteAnzeigeViewModel
-{
-    public string VerbandName { get; init; } = "";
-    public int Aktuell { get; init; }
-    public int Anzahl { get; init; }
-
-    public bool UeberAnzahl => Aktuell > Anzahl;
-    public bool UnterAnzahl => Aktuell < Anzahl;
-    public string AnzeigeText => $"{Aktuell} / {Anzahl}";
-}
-
-/// <summary>Live-Anzeige einer Landes-Quote im Auslosungseditor (Issue #189), analog
-/// <see cref="VerbandsQuoteAnzeigeViewModel"/>.</summary>
-public class LandesQuoteAnzeigeViewModel
-{
-    public string LandName { get; init; } = "";
-    public int Aktuell { get; init; }
-    public int Anzahl { get; init; }
-
-    public bool UeberAnzahl => Aktuell > Anzahl;
-    public bool UnterAnzahl => Aktuell < Anzahl;
-    public string AnzeigeText => $"{Aktuell} / {Anzahl}";
-}
+/// <summary>Zeile der Quoten-Spalte im Auslosungseditor — für Verbands- wie Landesquoten (#189, #423).</summary>
+public record QuoteAnzeige(string Name, string AnzeigeText);
 
 public record AuslosungsartOption(string Anzeige, Auslosungsart Wert);
 public record RanglisteOption(string Anzeige, Rangliste? Wert);
