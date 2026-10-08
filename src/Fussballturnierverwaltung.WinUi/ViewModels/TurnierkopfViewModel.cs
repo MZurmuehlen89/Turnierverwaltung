@@ -160,9 +160,9 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     private void StatusAuswahlZuruecksetzen()
     {
         if (AktuelleInstanz is null) return;
-        _populiertGerade++;
+        BefuellenBeginnen();
         try { Status = StatusOptionen.First(o => o.Wert == AktuelleInstanz.Status); }
-        finally { _populiertGerade--; }
+        finally { BefuellenBeenden(); }
     }
 
     /// <summary>Vom Composite gesetzte Rückfrage vor jeder Aktion, die <see cref="InstanzGeaendert"/> auslöst —
@@ -276,86 +276,105 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         await TitelGastgeber.LadenAsync();
     }
 
-    /// <summary>Vom Composite gesetzt, wenn sich die geteilte Instanzauswahl ändert. Der Guard
-    /// (<see cref="_populiertGerade"/>) umspannt die gesamte Methode inkl. der nachfolgenden
+    /// <summary>Vom Composite gesetzt, wenn sich die geteilte Instanzauswahl ändert. Der Lade-Schutz
+    /// (<see cref="BefuellenBeginnen"/>) umspannt die gesamte Methode inkl. der nachfolgenden
     /// async-Ladeschritte, damit während des Ladens ausgelöste Zwischen-Änderungen nicht fälschlich
-    /// IsDirty setzen. Verband-/Landfilter werden über <see cref="AuslosungsfilterViewModel.Setzen"/> atomar
-    /// gesetzt (siehe dort) statt sequenziell — sequenzielle Zuweisung führte zu sporadisch leeren
-    /// Feldern beim Wechsel zwischen Turniervorlagen.</summary>
+    /// IsDirty setzen.</summary>
     public async Task InstanzSetzenAsync(TurnierInstanz? instanz)
     {
         using var vorgang = _logger.Vorgang($"Turnierkopf: Turnier setzen (Instanz {instanz?.Id})");
         var instanzGewechselt = AktuelleInstanz?.Id != instanz?.Id || IstNeuModus;
         AktuelleInstanz = instanz;
-        _populiertGerade++;
-        Filter.ReaktionenAussetzen();
+        BefuellenBeginnen();
         try
         {
-            if (instanz is null)
-            {
-                FormularAktiv = false;
-                IstNeuModus = false;
-                Name = Beschreibung = Variante = SaisonOderJahr = ZielMannschaftsanzahl = Startdatum = Enddatum = "";
-                Kategorie = TurnierKategorie.Benutzerdefiniert;
-                Filter.Setzen(null, null, MannschaftsartFilter.Alle);
-                StandardRegelwerk = _keinStandardRegelwerk;
-                TitelGastgeber.TitelverteidigerSetzen(Filter.Wert, null);
-                Status = StatusOptionen.First(o => o.Wert == TurnierStatus.Geplant);
-                LogoDaten = null;
-                Quoten.Leeren();
-                TitelGastgeber.GastgeberSetzen(Filter.Wert, []);
-            }
-            else
-            {
-                FormularAktiv = true;
-                IstNeuModus = false;
-                Name = instanz.Name;
-                Beschreibung = instanz.Beschreibung;
-                Variante = instanz.Variante;
-                SaisonOderJahr = instanz.SaisonOderJahr;
-                ZielMannschaftsanzahl = instanz.ZielMannschaftsanzahl?.ToString() ?? "";
-                Kategorie = instanz.Kategorie;
-                Startdatum = instanz.Startdatum?.Year.ToString() ?? "";
-                Enddatum = instanz.Enddatum?.Year.ToString() ?? "";
-                Filter.Setzen(instanz.VerbandId, instanz.LandId, instanz.MannschaftsartFilter);
-                StandardRegelwerk = StandardRegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.StandardRegelwerkId) ?? _keinStandardRegelwerk;
-                TitelGastgeber.TitelverteidigerSetzen(Filter.Wert, instanz.TitelverteidigerId);
-                Status = StatusOptionen.First(o => o.Wert == instanz.Status);
-                LogoDaten = instanz.Logo;
-            }
-            IsDirty = false;
-            Fehlermeldung = null;
-
-            AktualisiereFormularFehler();
-
-            if (instanz is null)
-            {
-                AufklappzustandSetzen();
-                return;
-            }
-
-            IstLadend = true;
-            try
-            {
-                var detail = await _service.FindenNachIdMitRundenAsync(instanz.Id);
-                var ersteRundeEingang = detail?.Runden.OrderBy(r => r.Reihenfolge).FirstOrDefault()?.EingangsMannschaftsanzahl;
-                TitelGastgeber.GastgeberSetzen(Filter.Wert, detail?.Gastgeber.Select(g => g.MannschaftId).ToList() ?? []);
-                await Quoten.LadenAsync(instanz.Id, ersteRundeEingang);
-            }
-            catch (Exception ex)
-            {
-                Fehlermeldung = ex.Message;
-            }
-            finally
-            {
-                IstLadend = false;
-                if (instanzGewechselt) AufklappzustandSetzen();
-            }
+            FormularZeigen(instanz);
+            if (instanz is null) AufklappzustandSetzen();
+            else await DetailLadenAsync(instanz, instanzGewechselt);
         }
         finally
         {
-            Filter.ReaktionenFortsetzen();
-            _populiertGerade--;
+            BefuellenBeenden();
+        }
+    }
+
+    /// <summary>Während das Formular befüllt wird, gilt nichts als Nutzeränderung — auch der Auslosungsfilter
+    /// reagiert so lange nicht auf Rückschreibungen seiner ComboBoxen.</summary>
+    private void BefuellenBeginnen()
+    {
+        _populiertGerade++;
+        Filter.ReaktionenAussetzen();
+    }
+
+    private void BefuellenBeenden()
+    {
+        Filter.ReaktionenFortsetzen();
+        _populiertGerade--;
+    }
+
+    // Alles, was ohne Datenbankzugriff feststeht.
+    private void FormularZeigen(TurnierInstanz? instanz)
+    {
+        FormularAktiv = instanz is not null;
+        IstNeuModus = false;
+        if (instanz is null) FormularLeeren(TurnierStatus.Geplant);
+        else FormularBefuellen(instanz);
+        IsDirty = false;
+        Fehlermeldung = null;
+        AktualisiereFormularFehler();
+    }
+
+    private void FormularLeeren(TurnierStatus status)
+    {
+        Name = Beschreibung = Variante = SaisonOderJahr = ZielMannschaftsanzahl = Startdatum = Enddatum = "";
+        Kategorie = TurnierKategorie.Benutzerdefiniert;
+        Filter.Setzen(null, null, MannschaftsartFilter.Alle);
+        StandardRegelwerk = _keinStandardRegelwerk;
+        TitelGastgeber.TitelverteidigerSetzen(Filter.Wert, null);
+        Status = StatusOptionen.First(o => o.Wert == status);
+        LogoDaten = null;
+        Quoten.Leeren();
+        TitelGastgeber.GastgeberSetzen(Filter.Wert, []);
+    }
+
+    // Verband und Land setzt der Filter atomar (siehe AuslosungsfilterViewModel.AuslosungsfilterSetzen) —
+    // sequenzielle Zuweisung führte zu sporadisch leeren Feldern beim Wechsel zwischen Turniervorlagen.
+    private void FormularBefuellen(TurnierInstanz instanz)
+    {
+        Name = instanz.Name;
+        Beschreibung = instanz.Beschreibung;
+        Variante = instanz.Variante;
+        SaisonOderJahr = instanz.SaisonOderJahr;
+        ZielMannschaftsanzahl = instanz.ZielMannschaftsanzahl?.ToString() ?? "";
+        Kategorie = instanz.Kategorie;
+        Startdatum = instanz.Startdatum?.Year.ToString() ?? "";
+        Enddatum = instanz.Enddatum?.Year.ToString() ?? "";
+        Filter.Setzen(instanz.VerbandId, instanz.LandId, instanz.MannschaftsartFilter);
+        StandardRegelwerk = StandardRegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.StandardRegelwerkId) ?? _keinStandardRegelwerk;
+        TitelGastgeber.TitelverteidigerSetzen(Filter.Wert, instanz.TitelverteidigerId);
+        Status = StatusOptionen.First(o => o.Wert == instanz.Status);
+        LogoDaten = instanz.Logo;
+    }
+
+    // Gastgeber, Quoten und die Eingangskapazität der ersten Runde stehen nicht in der Turnierliste.
+    private async Task DetailLadenAsync(TurnierInstanz instanz, bool aufklappzustandSetzen)
+    {
+        IstLadend = true;
+        try
+        {
+            var detail = await _service.FindenNachIdMitRundenAsync(instanz.Id);
+            var ersteRundeEingang = detail?.Runden.OrderBy(r => r.Reihenfolge).FirstOrDefault()?.EingangsMannschaftsanzahl;
+            TitelGastgeber.GastgeberSetzen(Filter.Wert, detail?.Gastgeber.Select(g => g.MannschaftId).ToList() ?? []);
+            await Quoten.LadenAsync(instanz.Id, ersteRundeEingang);
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
+        finally
+        {
+            IstLadend = false;
+            if (aufklappzustandSetzen) AufklappzustandSetzen();
         }
     }
 
@@ -364,29 +383,19 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     [RelayCommand]
     private void Neu()
     {
-        _populiertGerade++;
-        Filter.ReaktionenAussetzen();
+        BefuellenBeginnen();
         try
         {
             AktuelleInstanz = null;
             FormularAktiv = true;
             IstNeuModus = true;
-            Name = Beschreibung = Variante = SaisonOderJahr = ZielMannschaftsanzahl = Startdatum = Enddatum = "";
-            Kategorie = TurnierKategorie.Benutzerdefiniert;
-            Filter.Setzen(null, null, MannschaftsartFilter.Alle);
-            StandardRegelwerk = _keinStandardRegelwerk;
-            TitelGastgeber.TitelverteidigerSetzen(Filter.Wert, null);
-            Status = StatusOptionen.First(o => o.Wert == StatusFuerNeueInstanz);
-            LogoDaten = null;
-            Quoten.Leeren();
-            TitelGastgeber.GastgeberSetzen(Filter.Wert, []);
+            FormularLeeren(StatusFuerNeueInstanz);
             Fehlermeldung = null;
             AufklappzustandSetzen();
         }
         finally
         {
-            Filter.ReaktionenFortsetzen();
-            _populiertGerade--;
+            BefuellenBeenden();
         }
         IsDirty = true;
         AktualisiereFormularFehler();
