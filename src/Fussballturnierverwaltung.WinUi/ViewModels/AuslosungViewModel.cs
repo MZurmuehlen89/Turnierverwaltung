@@ -42,8 +42,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly VerbandService _verbandService;
     private readonly SpielplanService _spielplanService;
     private readonly TurnierBaumService _baumService;
-    private readonly VerbandsQuoteService _verbandsQuoteService;
-    private readonly LandesQuoteService _landesQuoteService;
     private readonly UebergangsregelService _uebergangsregelService;
     private readonly IDialogService _dialogService;
     private readonly ILogger<AuslosungViewModel> _logger;
@@ -212,21 +210,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// <summary>Verfügbar-Liste, Lostöpfe und deren Befüllung (Kind-ViewModel).</summary>
     public LostopfArbeitsbereichViewModel Arbeitsbereich { get; }
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
-    private ObservableCollection<RegelViewModel> _regeln = [];
+    /// <summary>Regel-Schalter des Ribbon-Flyouts "Auslosungs-Regeln" (Kind-ViewModel, nicht an XAML gebunden).</summary>
+    private readonly AuslosungsRegelnViewModel _regeln;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ZeigeVerbandsQuoten))]
-    private ObservableCollection<VerbandsQuoteAnzeigeViewModel> _verbandsQuotenAnzeige = [];
-
-    public bool ZeigeVerbandsQuoten => VerbandsQuotenAnzeige.Count > 0;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ZeigeLandesQuoten))]
-    private ObservableCollection<LandesQuoteAnzeigeViewModel> _landesQuotenAnzeige = [];
-
-    public bool ZeigeLandesQuoten => LandesQuotenAnzeige.Count > 0;
+    /// <summary>Verbands- und Landesquoten neben den Lostöpfen (Kind-ViewModel).</summary>
+    public QuotenAnzeigeViewModel Quoten { get; }
 
     [ObservableProperty] private ObservableCollection<ErgebnisAnzeige> _ergebnisseAnzeige = [];
     [ObservableProperty] private ObservableCollection<GruppenErgebnisAnzeige> _gruppenErgebnisse = [];
@@ -338,14 +326,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             new RibbonAktion
             {
                 Header = "Auslosungs-Regeln",
-                ToggleUnterpunkte = Regeln
-                    .Select(r => new RibbonToggleAktion(
-                        r.Anzeige, r.ImmerAktivHinweis is not null || r.IstAktiv, aktiv => r.IstAktiv = aktiv,
-                        r.Beschreibung,
-                        SperrHinweis: r.ImmerAktivHinweis ?? r.SperrHinweis,
-                        // Die Heimrecht-Regeln schließen sich aus: Anhaken der einen hakt die andere ab (#331).
-                        ExklusivGruppe: IstHeimrechtRegel(r.Regelart) ? "Heimrecht" : null))
-                    .ToList(),
+                ToggleUnterpunkte = _regeln.RibbonSchalter(),
                 IconGlyph = "",
             },
         ],
@@ -384,12 +365,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _verbandService = verbandService;
         _spielplanService = spielplanService;
         _baumService = baumService;
-        _verbandsQuoteService = verbandsQuoteService;
-        _landesQuoteService = landesQuoteService;
         _uebergangsregelService = uebergangsregelService;
         _dialogService = dialogService;
         _logger = logger;
         Arbeitsbereich = new LostopfArbeitsbereichViewModel(this, auslosungService, ranglisteService, instanzService, dialogService);
+        _regeln = new AuslosungsRegelnViewModel(auslosungService, () => DbContextSchutz, meldung => Fehlermeldung = meldung);
+        _regeln.Geaendert += () => OnPropertyChanged(nameof(RibbonZusatzGruppen));
+        Quoten = new QuotenAnzeigeViewModel(verbandsQuoteService, landesQuoteService);
         Ziehung.PropertyChanged += BeiZiehungAenderung;
     }
 
@@ -855,9 +837,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             Arbeitsbereich.Zeigen(detail, await TeilnehmerPoolErmittelnAsync(detail),
                 _instanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
 
-            await AktualisiereVerbandsQuotenAnzeigeAsync(detail);
-            await AktualisiereLandesQuotenAnzeigeAsync(detail);
-            RegelnAufbauen(detail);
+            await Quoten.ZeigenAsync(detail, _instanz, InstanzRunden);
+            _regeln.Zeigen(detail, InstanzRunden);
             ErgebnisZeigen(detail);
             KopfdatenZeigen(detail);
 
@@ -870,56 +851,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             _ladenAktiv = false;
             IstLadend   = false;
         }
-    }
-
-    private void RegelnAufbauen(Auslosung detail)
-    {
-        RegelRundeMerken(detail);
-        Regeln = new ObservableCollection<RegelViewModel>(
-            AuslosungsRegelKompatibilitaet.AngeboteneRegeln.Select(art => RegelSchalterErstellen(detail, art)));
-        AktualisiereRegelSperren(detail.Auslosungsart);
-    }
-
-    /// <summary>Hält fest, was <see cref="AktualisiereRegelSperren"/> über die Runde wissen muss — auch dann,
-    /// wenn später nur die Auslosungsart im Detail wechselt.</summary>
-    private void RegelRundeMerken(Auslosung detail)
-    {
-        var regelRunde = InstanzRunden.FirstOrDefault(r => r.Id == detail.TurnierRundeId) ?? detail.TurnierRunde;
-        _regelRundenart = regelRunde?.Rundenart;
-        _regelFolgtAufGruppenphase = regelRunde is not null && InstanzRunden.Any(r =>
-            r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge < regelRunde.Reihenfolge);
-    }
-
-    private RegelViewModel RegelSchalterErstellen(Auslosung detail, AuslosungsRegelArt art)
-    {
-        bool istAktiv = detail.Regeln.FirstOrDefault(r => r.Regelart == art)?.IstAktiv ?? false;
-        return new RegelViewModel(
-            art, AuslosungsRegelKompatibilitaet.AnzeigeName(art), AuslosungAnzeigeTexte.RegelBeschreibung(art), istAktiv,
-            aktiv => RegelSpeichernAsync(detail.Id, art, aktiv));
-    }
-
-    /// <summary>Einstiegspunkt des Regel-Schalters — betritt deshalb selbst den Schutz (#413).</summary>
-    private async Task RegelSpeichernAsync(int auslosungId, AuslosungsRegelArt art, bool aktiv)
-    {
-        using var schutz = await DbContextSchutz.BetretenAsync();
-        try
-        {
-            if (aktiv) await RegelAktivierenAsync(auslosungId, art);
-            else await _auslosungService.RegelDeaktivierenAsync(auslosungId, art);
-        }
-        catch (Exception ex) { Fehlermeldung = ex.Message; }
-    }
-
-    private async Task RegelAktivierenAsync(int auslosungId, AuslosungsRegelArt art)
-    {
-        // Nacheinander statt parallel speichern — ein DbContext verträgt keine zwei gleichzeitigen Operationen.
-        foreach (var andere in Regeln.Where(r =>
-                     r.IstAktiv && AuslosungsRegelKompatibilitaet.SchliessenSichAus(art, r.Regelart)).ToList())
-        {
-            andere.OhneSpeichernSetzen(false);
-            await _auslosungService.RegelDeaktivierenAsync(auslosungId, andere.Regelart);
-        }
-        await _auslosungService.RegelHinzufuegenOderAktivierenAsync(auslosungId, art, AuslosungsRegelKompatibilitaet.AnzeigeName(art));
     }
 
     private void ErgebnisZeigen(Auslosung detail)
@@ -1120,85 +1051,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     partial void OnDetailAuslosungsartChanged(Auslosungsart value)
     {
         if (!_ladenAktiv) IstDetailDirty = true;
-        AktualisiereRegelSperren(value);
+        _regeln.SperrenAktualisieren(value);
 
         if (!DetailAnzahlLostoepfeBearbeitbar)
             DetailAnzahlLostoepfe = 1;
-    }
-
-    private Rundenart? _regelRundenart;
-    private bool _regelFolgtAufGruppenphase;
-
-    // Unpassende Regeln bleiben sichtbar, werden aber ausgegraut und begründet (#331) — Quelle ist dieselbe Matrix,
-    // nach der auch der AuslosungService entscheidet, welche Regeln er anwendet.
-    private void AktualisiereRegelSperren(Auslosungsart art)
-    {
-        foreach (var regel in Regeln)
-        {
-            regel.ImmerAktivHinweis = AuslosungsRegelKompatibilitaet.ImmerAktivGrund(regel.Regelart, art);
-            regel.SperrHinweis = AuslosungsRegelKompatibilitaet.SperrGrund(
-                regel.Regelart, art, _regelRundenart, _regelFolgtAufGruppenphase);
-        }
-        OnPropertyChanged(nameof(RibbonZusatzGruppen));
-    }
-
-    private static bool IstHeimrechtRegel(AuslosungsRegelArt art) =>
-        art is AuslosungsRegelArt.HeimrechtNachLos or AuslosungsRegelArt.HeimrechtNachSetzliste;
-
-    private async Task AktualisiereVerbandsQuotenAnzeigeAsync(Auslosung detail)
-    {
-        if (_instanz is null) { VerbandsQuotenAnzeige = []; return; }
-
-        // Verbandsquoten gelten laut Domänen-Annahme nur für die initiale Turnierrunde (Zulassung),
-        // nicht kumulativ für Folgerunden mit eigenem Losvorgang — siehe [[project_verbandsquote_scope]].
-        bool istErsteRunde = InstanzRunden.Count > 0 && InstanzRunden[0].Id == detail.TurnierRundeId;
-        if (!istErsteRunde) { VerbandsQuotenAnzeige = []; return; }
-
-        var quoten = await _verbandsQuoteService.AlleNachTurnierInstanzIdAsync(_instanz.Id);
-        if (quoten.Count == 0) { VerbandsQuotenAnzeige = []; return; }
-
-        var anzahlProVerband = detail.Lostoepfe
-            .SelectMany(l => l.Eintraege)
-            .Where(e => e.Mannschaft?.Land is not null)
-            .GroupBy(e => e.Mannschaft!.Land!.VerbandId)
-            .ToDictionary(g => g.Key, g => g.Count());
-
-        VerbandsQuotenAnzeige = new ObservableCollection<VerbandsQuoteAnzeigeViewModel>(
-            quoten.Select(q => new VerbandsQuoteAnzeigeViewModel
-            {
-                VerbandName = q.Verband?.Name ?? $"Verband {q.VerbandId}",
-                Aktuell     = anzahlProVerband.GetValueOrDefault(q.VerbandId),
-                Anzahl      = q.Anzahl
-            }));
-    }
-
-    /// <summary>Landes-Quoten-Pendant zu <see cref="AktualisiereVerbandsQuotenAnzeigeAsync"/> (Issue #189)
-    /// — dieselbe "nur erste Runde"-Domänenregel, zusätzlich nur für Vereinswettbewerbe sichtbar
-    /// (Landesquoten sind bei Nationalmannschaften trivial, siehe TurnierkopfViewModel.LandesQuotenSichtbar).
-    /// Gruppierung über Mannschaft.LandId direkt statt der Verband-Indirektion über Land.VerbandId.</summary>
-    private async Task AktualisiereLandesQuotenAnzeigeAsync(Auslosung detail)
-    {
-        if (_instanz is null || _instanz.MannschaftsartFilter != MannschaftsartFilter.Verein) { LandesQuotenAnzeige = []; return; }
-
-        bool istErsteRunde = InstanzRunden.Count > 0 && InstanzRunden[0].Id == detail.TurnierRundeId;
-        if (!istErsteRunde) { LandesQuotenAnzeige = []; return; }
-
-        var quoten = await _landesQuoteService.AlleNachTurnierInstanzIdAsync(_instanz.Id);
-        if (quoten.Count == 0) { LandesQuotenAnzeige = []; return; }
-
-        var anzahlProLand = detail.Lostoepfe
-            .SelectMany(l => l.Eintraege)
-            .Where(e => e.Mannschaft is not null)
-            .GroupBy(e => e.Mannschaft!.LandId)
-            .ToDictionary(g => g.Key, g => g.Count());
-
-        LandesQuotenAnzeige = new ObservableCollection<LandesQuoteAnzeigeViewModel>(
-            quoten.Select(q => new LandesQuoteAnzeigeViewModel
-            {
-                LandName = q.Land?.Name ?? $"Land {q.LandId}",
-                Aktuell  = anzahlProLand.GetValueOrDefault(q.LandId),
-                Anzahl   = q.Anzahl
-            }));
     }
 
     partial void OnDetailAnzahlLostoepfeChanged(int value)   { if (!_ladenAktiv) IstDetailDirty = true; }

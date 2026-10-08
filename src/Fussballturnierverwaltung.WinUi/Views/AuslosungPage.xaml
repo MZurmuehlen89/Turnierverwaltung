@@ -692,9 +692,9 @@
 
                     <!-- Verbandsquoten (Nutzerwunsch: direkt bei der Teams-zugewiesen-Anzeige, nicht erst
                          nach dem gesamten Zuweisungsbereich, damit Status und Quoten auf einen Blick sichtbar sind) -->
-                    <StackPanel Visibility="{Binding ZeigeVerbandsQuoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
+                    <StackPanel Visibility="{Binding Quoten.ZeigeVerbandsQuoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
                         <TextBlock Text="VERBAND-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
-                        <ItemsRepeater ItemsSource="{Binding VerbandsQuotenAnzeige}">
+                        <ItemsRepeater ItemsSource="{Binding Quoten.VerbandsQuotenAnzeige}">
                             <ItemsRepeater.ItemTemplate>
                                 <DataTemplate>
                                     <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
@@ -707,9 +707,9 @@
                     </StackPanel>
 
                     <!-- Landesquoten -->
-                    <StackPanel Visibility="{Binding ZeigeLandesQuoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
+                    <StackPanel Visibility="{Binding Quoten.ZeigeLandesQuoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
                         <TextBlock Text="LANDES-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
-                        <ItemsRepeater ItemsSource="{Binding LandesQuotenAnzeige}">
+                        <ItemsRepeater ItemsSource="{Binding Quoten.LandesQuotenAnzeige}">
                             <ItemsRepeater.ItemTemplate>
                                 <DataTemplate>
                                     <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
