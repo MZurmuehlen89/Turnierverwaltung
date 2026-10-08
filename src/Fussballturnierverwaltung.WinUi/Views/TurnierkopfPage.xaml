@@ -134,20 +134,20 @@
                 <Grid Margin="0,0,0,16" ColumnDefinitions="*,16,*,16,*">
                     <StackPanel HorizontalAlignment="Stretch">
                         <TextBlock Text="Verband" FontSize="12" Margin="0,0,0,3" />
-                        <ComboBox ItemsSource="{Binding VerbandOptionenGefiltert}"
-                                  SelectedItem="{Binding VerbandFilter, Mode=TwoWay}"
+                        <ComboBox ItemsSource="{Binding Filter.VerbandOptionenGefiltert}"
+                                  SelectedItem="{Binding Filter.VerbandFilter, Mode=TwoWay}"
                                   DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
                     </StackPanel>
                     <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
                         <TextBlock Text="Land" FontSize="12" Margin="0,0,0,3" />
-                        <ComboBox ItemsSource="{Binding LandOptionenGefiltert}"
-                                  SelectedItem="{Binding LandFilter, Mode=TwoWay}"
+                        <ComboBox ItemsSource="{Binding Filter.LandOptionenGefiltert}"
+                                  SelectedItem="{Binding Filter.LandFilter, Mode=TwoWay}"
                                   DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
                     </StackPanel>
                     <StackPanel Grid.Column="4" HorizontalAlignment="Stretch">
                         <TextBlock Text="Mannschaftsart" FontSize="12" Margin="0,0,0,3" />
-                        <ComboBox ItemsSource="{Binding TeamfilterOptionen}"
-                                  SelectedItem="{Binding TeamFilter, Mode=TwoWay}"
+                        <ComboBox ItemsSource="{Binding Filter.TeamfilterOptionen}"
+                                  SelectedItem="{Binding Filter.TeamFilter, Mode=TwoWay}"
                                   DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
                     </StackPanel>
                 </Grid>

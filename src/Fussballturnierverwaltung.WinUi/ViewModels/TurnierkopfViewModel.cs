@@ -22,9 +22,6 @@ using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-public record VerbandOption(string Anzeige, Verband? Wert);
-public record LandOption(string Anzeige, Land? Wert);
-public record TeamfilterOption(string Anzeige, MannschaftsartFilter Wert);
 public record TurnierStatusOption(string Anzeige, TurnierStatus Wert);
 
 /// <summary>Kopfzeile eines aufklappbaren Turnierkopf-Bereichs (Issue #399): Titel plus Kurzfassung des
@@ -42,17 +39,12 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     private readonly TurnierInstanzService _service;
     private readonly TurnierValidator _validator;
     private readonly IDialogService _dialogService;
-    private readonly VerbandService _verbandService;
-    private readonly LandService _landService;
     private readonly RegelwerkService _regelwerkService;
     private readonly TurnierKlonService _klonService;
     private readonly ILogger<TurnierkopfViewModel> _logger;
     private int _populiertGerade;
 
-    private static readonly VerbandOption _keinVerband = new("— Kein Filter —", null);
-    private static readonly LandOption _keinLand = new("— Kein Filter —", null);
     private static readonly RegelwerkOption _keinStandardRegelwerk = new("— Kein Standard —", null);
-    private static readonly TeamfilterOption _alleMannschaften = new("Alle Mannschaften", MannschaftsartFilter.Alle);
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
@@ -98,108 +90,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     public IEnumerable<TurnierKategorie> KategorieOptionen => Enum.GetValues<TurnierKategorie>();
 
     // ── Auslosungsfilter (Verband/Land/Mannschaftsart) ───────────────────────
-    [ObservableProperty] private IReadOnlyList<VerbandOption> _verbandOptionen = [];
-    [ObservableProperty]
-    private VerbandOption _verbandFilter = _keinVerband;
-    [ObservableProperty] private IReadOnlyList<LandOption> _landOptionen = [];
-    [ObservableProperty]
-    private LandOption _landFilter = _keinLand;
-    [ObservableProperty]
-    private TeamfilterOption _teamFilter = _alleMannschaften;
-
-    // Beide Filter schränken sich gegenseitig ein (Issue #211-Muster aus dem WPF-Original): FIFA ist die
-    // Ausnahme, kein Land ist ihr direkt zugeordnet, als Filter bedeutet sie "weltweit".
-    //
-    // Stabile Collection-Instanzen statt berechneten Properties, die bei jedem Zugriff ein neues Array
-    // liefern: Eine ComboBox, deren ItemsSource bei jeder Filteränderung eine komplett NEUE Listen-Instanz
-    // zugewiesen bekommt, setzt ihr TwoWay-gebundenes SelectedItem in WinUI transient auf null zurück (der
-    // reine null-Reassert-Guard in OnVerbandFilterChanged/OnLandFilterChanged reichte dagegen NICHT aus —
-    // Fund #335, Land-Feld blieb beim direkten Setzen des Verband-Filters per ComboBox trotzdem leer;
-    // siehe auch der projektweite Fallstrick "pro Fokus/Auswahl neu berechnete ItemsSource" im WinUi-
-    // CLAUDE.md). <see cref="LandOptionenGefiltertSynchronisieren"/>/<see cref="VerbandOptionenGefiltertSynchronisieren"/>
-    // aktualisieren den Inhalt dieser EINEN Instanz inkrementell (Index-Diff statt Clear+Add), die
-    // ItemsSource-Referenz selbst wird nie ausgetauscht.
-    public ObservableCollection<LandOption> LandOptionenGefiltert { get; } = [];
-    public ObservableCollection<VerbandOption> VerbandOptionenGefiltert { get; } = [];
-
-    partial void OnVerbandOptionenChanged(IReadOnlyList<VerbandOption> value) => VerbandOptionenGefiltertSynchronisieren();
-    partial void OnLandOptionenChanged(IReadOnlyList<LandOption> value) => LandOptionenGefiltertSynchronisieren();
-
-    private void LandOptionenGefiltertSynchronisieren()
-    {
-        IReadOnlyList<LandOption> soll = VerbandFilter?.Wert is null || IstFifa(VerbandFilter.Wert)
-            ? LandOptionen
-            : [_keinLand, .. LandOptionen.Where(o => o.Wert?.VerbandId == VerbandFilter.Wert.Id)];
-        SammlungsAbgleich.TeilfolgeAbgleichen(LandOptionenGefiltert, soll);
-    }
-
-    private void VerbandOptionenGefiltertSynchronisieren()
-    {
-        IReadOnlyList<VerbandOption> soll = LandFilter?.Wert is null
-            ? VerbandOptionen
-            : [_keinVerband, .. VerbandOptionen.Where(o => o.Wert?.Id == LandFilter.Wert.VerbandId || IstFifa(o.Wert))];
-        SammlungsAbgleich.TeilfolgeAbgleichen(VerbandOptionenGefiltert, soll);
-    }
-
-    private static bool IstFifa(Verband? v) => v?.Kurzname == "FIFA";
-
-    /// <summary>Setzt Verband- und Landfilter atomar statt sequenziell. Bei sequenzieller Zuweisung
-    /// (erst VerbandFilter, dann LandFilter) sieht der Zwischenzustand kurzzeitig den neuen Verband mit dem
-    /// noch alten Land — <see cref="OnVerbandFilterChanged"/> könnte das Land dann fälschlich als
-    /// inkompatibel zurücksetzen, bevor die eigentlich korrekte nachfolgende Land-Zuweisung überhaupt
-    /// passiert ist (Fund: Verband-/Land-Feld blieb beim Wechsel zwischen Turniervorlagen sporadisch
-    /// falsch). Direktzugriff auf die Backing-Fields umgeht die generierten Setter (und damit
-    /// On[Verband|Land]FilterChanged) bewusst, damit beide Werte VOR jeder Change-Reaktion feststehen.</summary>
-    private void AuslosungsfilterSetzen(VerbandOption verband, LandOption land)
-    {
-        var verbandGeaendert = VerbandFilter != verband;
-        var landGeaendert = LandFilter != land;
-        if (!verbandGeaendert && !landGeaendert) return;
-
-#pragma warning disable MVVMTK0034
-        _verbandFilter = verband;
-        _landFilter = land;
-#pragma warning restore MVVMTK0034
-
-        if (verbandGeaendert) LandOptionenGefiltertSynchronisieren();
-        if (landGeaendert) VerbandOptionenGefiltertSynchronisieren();
-
-        OnPropertyChanged(nameof(VerbandFilter));
-        OnPropertyChanged(nameof(LandFilter));
-    }
-
-    partial void OnVerbandFilterChanged(VerbandOption value)
-    {
-        // WinUI kann ComboBox.SelectedItem transient auf null zurückschreiben (TwoWay-Binding) — Fund aus
-        // #297-Test: NullReferenceException beim Setzen des Verbands, obwohl der Property-Typ
-        // nicht-nullable ist. Explizit auf "Kein Filter" zurücksetzen statt nur früh zurückzukehren, sonst
-        // bleibt das Backing-Field null und spätere Lesezugriffe (VerbandsQuotenSichtbar, Speichern, …)
-        // crashen ebenfalls.
-        if (_populiertGerade > 0) return;
-        if (value is null) { VerbandFilter = _keinVerband; return; }
-        if (value.Wert is not null && !IstFifa(value.Wert)
-            && LandFilter?.Wert is not null && LandFilter.Wert.VerbandId != value.Wert.Id)
-            LandFilter = _keinLand;
-        SammlungsAbgleich.Verzoegert(LandOptionenGefiltertSynchronisieren);
-        SammlungsAbgleich.Verzoegert(TitelGastgeberFilterAnwenden);
-    }
-
-    partial void OnLandFilterChanged(LandOption value)
-    {
-        // Siehe OnVerbandFilterChanged.
-        if (_populiertGerade > 0) return;
-        if (value is null) { LandFilter = _keinLand; return; }
-        if (value.Wert is not null && VerbandFilter?.Wert is not null && !IstFifa(VerbandFilter.Wert)
-            && VerbandFilter.Wert.Id != value.Wert.VerbandId)
-            VerbandFilter = _keinVerband;
-        SammlungsAbgleich.Verzoegert(VerbandOptionenGefiltertSynchronisieren);
-        SammlungsAbgleich.Verzoegert(TitelGastgeberFilterAnwenden);
-    }
-
-    public IReadOnlyList<TeamfilterOption> TeamfilterOptionen =>
-        [_alleMannschaften,
-         new("Nur Vereine", MannschaftsartFilter.Verein),
-         new("Nur Nationalmannschaften", MannschaftsartFilter.Nationalmannschaft)];
+    public AuslosungsfilterViewModel Filter { get; }
 
     // ── Standard-Regelwerk ────────────────────────────────────────────────────
     [ObservableProperty]
@@ -214,19 +105,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     // ── Titelverteidiger & Gastgeber (Issue #349/#352) ───────────────────────
     public TitelGastgeberViewModel TitelGastgeber { get; }
 
-    partial void OnTeamFilterChanged(TeamfilterOption value)
-    {
-        if (_populiertGerade > 0 || value is null) return;
-        SammlungsAbgleich.Verzoegert(TitelGastgeberFilterAnwenden);
-    }
-
     // Der Filter wird erst beim Ausführen gelesen — bis der verzögerte Abgleich läuft, kann er sich noch ändern.
-    private void TitelGastgeberFilterAnwenden() => TitelGastgeber.FilterAnwenden(AktuellerFilter());
-
-    private Auslosungsfilter AktuellerFilter() => new(
-        IstFifa(VerbandFilter?.Wert) ? null : VerbandFilter?.Wert?.Id,
-        LandFilter?.Wert?.Id,
-        TeamFilter?.Wert ?? MannschaftsartFilter.Alle);
+    private void TitelGastgeberFilterAnwenden() => TitelGastgeber.FilterAnwenden(Filter.Wert);
 
     // ── Status-Anzeige/-Auswahl ───────────────────────────────────────────────
     [ObservableProperty] private TurnierStatusOption _status = new(TurnierStatusZuTextConverter.StatusAnzeigeName(TurnierStatus.Geplant), TurnierStatus.Geplant);
@@ -308,8 +188,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     // nie etwas Sinnvolles ausdrücken (Issue #154). FIFA-Ausnahme (Issue #211): "weltweit" lässt wieder alle
     // Kontinentalverbände zu. Nur für bereits gespeicherte Instanzen sichtbar (Quoten brauchen eine Id).
     private bool VerbandsQuotenSichtbar => FormularAktiv && !IstNeuModus
-        && (VerbandFilter?.Wert is null || IstFifa(VerbandFilter.Wert))
-        && LandFilter?.Wert is null;
+        && Filter.Wert is { VerbandId: null, LandId: null };
 
     // Landesquote ist unabhängig vom Verbandsfilter sichtbar (orthogonal zur Verband-Quote, nicht
     // exklusiv) — reales Vorbild Klub-WM hat Konföderations-Slots (Verband-Quote) UND eine Landes-Quote
@@ -317,7 +196,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     // Nur für Vereinswettbewerbe sinnvoll (bei Nationalmannschaften ist "max. 1 Team/Land" ohnehin
     // trivial) und nur für bereits gespeicherte Instanzen (Quoten brauchen eine Id).
     private bool LandesQuotenSichtbar => FormularAktiv && !IstNeuModus
-        && TeamFilter?.Wert == MannschaftsartFilter.Verein;
+        && Filter.Wert.Art == MannschaftsartFilter.Verein;
 
     // ── Aufklappbare Bereiche (Issue #399) ────────────────────────────────────
     // Titelverteidiger + Gastgeber und die Quoten sind selten genutzt und liegen deshalb in aufklappbaren
@@ -332,8 +211,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     private static readonly HashSet<string> _formFelder =
     [
         nameof(Name), nameof(Beschreibung), nameof(Variante), nameof(SaisonOderJahr), nameof(ZielMannschaftsanzahl),
-        nameof(Kategorie), nameof(Startdatum), nameof(Enddatum), nameof(LogoDaten),
-        nameof(VerbandFilter), nameof(LandFilter), nameof(TeamFilter), nameof(StandardRegelwerk)
+        nameof(Kategorie), nameof(Startdatum), nameof(Enddatum), nameof(LogoDaten), nameof(StandardRegelwerk)
     ];
 
     /// <summary>Feuert nach erfolgreichem Speichern (mit der neuen/aktualisierten Instanz), Statuswechsel
@@ -356,19 +234,25 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     public TurnierkopfViewModel(
         TurnierInstanzService service, TurnierValidator validator, IDialogService dialogService,
-        VerbandService verbandService, LandService landService, RegelwerkService regelwerkService,
-        TurnierKlonService klonService,
-        TitelGastgeberViewModel titelGastgeber, TurnierQuotenViewModel quoten,
+        RegelwerkService regelwerkService, TurnierKlonService klonService,
+        AuslosungsfilterViewModel filter, TitelGastgeberViewModel titelGastgeber, TurnierQuotenViewModel quoten,
         ILogger<TurnierkopfViewModel> logger)
     {
         _logger = logger;
         _service = service;
         _validator = validator;
         _dialogService = dialogService;
-        _verbandService = verbandService;
-        _landService = landService;
         _regelwerkService = regelwerkService;
         _klonService = klonService;
+        Filter = filter;
+        Filter.Geaendert += () =>
+        {
+            Quoten.SichtbarkeitSetzen(VerbandsQuotenSichtbar, LandesQuotenSichtbar);
+            if (_populiertGerade > 0) return;
+            IsDirty = true;
+            AktualisiereFormularFehler();
+            SammlungsAbgleich.Verzoegert(TitelGastgeberFilterAnwenden);
+        };
         Quoten = quoten;
         Quoten.Geaendert += () => { if (_populiertGerade == 0) IsDirty = true; };
         TitelGastgeber = titelGastgeber;
@@ -385,15 +269,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     public async Task StammdatenLadenAsync()
     {
         using var vorgang = _logger.Vorgang("Turnierkopf: Stammdaten laden");
-        IReadOnlyList<Verband> verbaende;
-        using (_logger.Vorgang("Turnierkopf: Verbände abfragen"))
-            verbaende = await _verbandService.AlleAbrufenAsync();
-        VerbandOptionen = [_keinVerband, .. verbaende.Select(v => new VerbandOption(v.Name, v))];
-        IReadOnlyList<Land> laender;
-        using (_logger.Vorgang("Turnierkopf: Länder abfragen"))
-            laender = await _landService.AlleAbrufenAsync();
-        LandOptionen = [_keinLand, .. laender.OrderBy(l => l.Name).Select(l => new LandOption(l.Name, l))];
-        Quoten.StammdatenSetzen(verbaende, laender);
+        await Filter.StammdatenLadenAsync();
+        Quoten.StammdatenSetzen(Filter.Verbaende, Filter.Laender);
         using (_logger.Vorgang("Turnierkopf: Regelwerke abfragen"))
             Regelwerke = new ObservableCollection<Regelwerk>(await _regelwerkService.AlleAbrufenAsync());
         await TitelGastgeber.LadenAsync();
@@ -402,7 +279,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     /// <summary>Vom Composite gesetzt, wenn sich die geteilte Instanzauswahl ändert. Der Guard
     /// (<see cref="_populiertGerade"/>) umspannt die gesamte Methode inkl. der nachfolgenden
     /// async-Ladeschritte, damit während des Ladens ausgelöste Zwischen-Änderungen nicht fälschlich
-    /// IsDirty setzen. Verband-/Landfilter werden über <see cref="AuslosungsfilterSetzen"/> atomar
+    /// IsDirty setzen. Verband-/Landfilter werden über <see cref="AuslosungsfilterViewModel.Setzen"/> atomar
     /// gesetzt (siehe dort) statt sequenziell — sequenzielle Zuweisung führte zu sporadisch leeren
     /// Feldern beim Wechsel zwischen Turniervorlagen.</summary>
     public async Task InstanzSetzenAsync(TurnierInstanz? instanz)
@@ -411,6 +288,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         var instanzGewechselt = AktuelleInstanz?.Id != instanz?.Id || IstNeuModus;
         AktuelleInstanz = instanz;
         _populiertGerade++;
+        Filter.ReaktionenAussetzen();
         try
         {
             if (instanz is null)
@@ -419,14 +297,13 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 IstNeuModus = false;
                 Name = Beschreibung = Variante = SaisonOderJahr = ZielMannschaftsanzahl = Startdatum = Enddatum = "";
                 Kategorie = TurnierKategorie.Benutzerdefiniert;
-                AuslosungsfilterSetzen(_keinVerband, _keinLand);
-                TeamFilter = _alleMannschaften;
+                Filter.Setzen(null, null, MannschaftsartFilter.Alle);
                 StandardRegelwerk = _keinStandardRegelwerk;
-                TitelGastgeber.TitelverteidigerSetzen(AktuellerFilter(), null);
+                TitelGastgeber.TitelverteidigerSetzen(Filter.Wert, null);
                 Status = StatusOptionen.First(o => o.Wert == TurnierStatus.Geplant);
                 LogoDaten = null;
                 Quoten.Leeren();
-                TitelGastgeber.GastgeberSetzen(AktuellerFilter(), []);
+                TitelGastgeber.GastgeberSetzen(Filter.Wert, []);
             }
             else
             {
@@ -440,12 +317,9 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 Kategorie = instanz.Kategorie;
                 Startdatum = instanz.Startdatum?.Year.ToString() ?? "";
                 Enddatum = instanz.Enddatum?.Year.ToString() ?? "";
-                AuslosungsfilterSetzen(
-                    VerbandOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.VerbandId) ?? _keinVerband,
-                    LandOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.LandId) ?? _keinLand);
-                TeamFilter = TeamfilterOptionen.FirstOrDefault(o => o.Wert == instanz.MannschaftsartFilter) ?? _alleMannschaften;
+                Filter.Setzen(instanz.VerbandId, instanz.LandId, instanz.MannschaftsartFilter);
                 StandardRegelwerk = StandardRegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.StandardRegelwerkId) ?? _keinStandardRegelwerk;
-                TitelGastgeber.TitelverteidigerSetzen(AktuellerFilter(), instanz.TitelverteidigerId);
+                TitelGastgeber.TitelverteidigerSetzen(Filter.Wert, instanz.TitelverteidigerId);
                 Status = StatusOptionen.First(o => o.Wert == instanz.Status);
                 LogoDaten = instanz.Logo;
             }
@@ -465,7 +339,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             {
                 var detail = await _service.FindenNachIdMitRundenAsync(instanz.Id);
                 var ersteRundeEingang = detail?.Runden.OrderBy(r => r.Reihenfolge).FirstOrDefault()?.EingangsMannschaftsanzahl;
-                TitelGastgeber.GastgeberSetzen(AktuellerFilter(), detail?.Gastgeber.Select(g => g.MannschaftId).ToList() ?? []);
+                TitelGastgeber.GastgeberSetzen(Filter.Wert, detail?.Gastgeber.Select(g => g.MannschaftId).ToList() ?? []);
                 await Quoten.LadenAsync(instanz.Id, ersteRundeEingang);
             }
             catch (Exception ex)
@@ -480,6 +354,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         }
         finally
         {
+            Filter.ReaktionenFortsetzen();
             _populiertGerade--;
         }
     }
@@ -490,6 +365,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     private void Neu()
     {
         _populiertGerade++;
+        Filter.ReaktionenAussetzen();
         try
         {
             AktuelleInstanz = null;
@@ -497,19 +373,19 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             IstNeuModus = true;
             Name = Beschreibung = Variante = SaisonOderJahr = ZielMannschaftsanzahl = Startdatum = Enddatum = "";
             Kategorie = TurnierKategorie.Benutzerdefiniert;
-            AuslosungsfilterSetzen(_keinVerband, _keinLand);
-            TeamFilter = _alleMannschaften;
+            Filter.Setzen(null, null, MannschaftsartFilter.Alle);
             StandardRegelwerk = _keinStandardRegelwerk;
-            TitelGastgeber.TitelverteidigerSetzen(AktuellerFilter(), null);
+            TitelGastgeber.TitelverteidigerSetzen(Filter.Wert, null);
             Status = StatusOptionen.First(o => o.Wert == StatusFuerNeueInstanz);
             LogoDaten = null;
             Quoten.Leeren();
-            TitelGastgeber.GastgeberSetzen(AktuellerFilter(), []);
+            TitelGastgeber.GastgeberSetzen(Filter.Wert, []);
             Fehlermeldung = null;
             AufklappzustandSetzen();
         }
         finally
         {
+            Filter.ReaktionenFortsetzen();
             _populiertGerade--;
         }
         IsDirty = true;
@@ -554,8 +430,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             var zielAnzahl = ParseZielAnzahl(ZielMannschaftsanzahl);
             var startdatum = ParseJahr(Startdatum);
             var enddatum = ParseJahr(Enddatum);
-            var verbandId = VerbandFilter.Wert?.Id;
-            var landId = LandFilter.Wert?.Id;
+            var verbandId = Filter.VerbandId;
+            var landId = Filter.LandId;
             var standardRwId = StandardRegelwerk.Wert?.Id;
 
             TurnierInstanz ergebnis;
@@ -564,7 +440,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 var eingabe = new TurnierInstanzErstellenEingabe(
                     Name: Name, Beschreibung: Beschreibung, SaisonOderJahr: SaisonOderJahr, Kategorie: Kategorie,
                     ZielMannschaftsanzahl: zielAnzahl, Startdatum: startdatum, Enddatum: enddatum, Status: Status.Wert,
-                    VerbandId: verbandId, LandId: landId, MannschaftsartFilter: TeamFilter.Wert,
+                    VerbandId: verbandId, LandId: landId, MannschaftsartFilter: Filter.Mannschaftsart,
                     StandardRegelwerkId: standardRwId, Logo: LogoDaten, TitelverteidigerId: TitelGastgeber.TitelverteidigerId,
                     Variante: Variante, GastgeberIds: TitelGastgeber.GastgeberIds());
                 ergebnis = await _service.ErstellenAsync(eingabe);
@@ -578,7 +454,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
                 var eingabe = new TurnierInstanzVollAktualisierenEingabe(
                     Name: Name, Beschreibung: Beschreibung, SaisonOderJahr: SaisonOderJahr, Kategorie: Kategorie,
                     ZielMannschaftsanzahl: zielAnzahl, Startdatum: startdatum, Enddatum: enddatum, Status: AktuelleInstanz.Status,
-                    VerbandId: verbandId, LandId: landId, MannschaftsartFilter: TeamFilter.Wert,
+                    VerbandId: verbandId, LandId: landId, MannschaftsartFilter: Filter.Mannschaftsart,
                     StandardRegelwerkId: standardRwId, Logo: LogoDaten, TitelverteidigerId: TitelGastgeber.TitelverteidigerId,
                     Variante: Variante, GastgeberIds: TitelGastgeber.GastgeberIds());
                 await _service.VollAktualisierenAsync(id, eingabe);
@@ -668,7 +544,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         base.OnPropertyChanged(e);
         switch (e.PropertyName)
         {
-            case nameof(FormularAktiv) or nameof(IstNeuModus) or nameof(VerbandFilter) or nameof(LandFilter) or nameof(TeamFilter):
+            case nameof(FormularAktiv) or nameof(IstNeuModus):
                 Quoten.SichtbarkeitSetzen(VerbandsQuotenSichtbar, LandesQuotenSichtbar);
                 break;
         }
