@@ -574,14 +574,9 @@ public partial class VorbelegungWorkspace : ObservableObject
             "Spielplan der Runde, diese Ergebnisse gehen dabei verloren. Trotzdem abschließen?");
     }
 
-    /// <summary>Aktualisiert den Turnierbaum nach jeder Spielplan-Änderung automatisch (Issue #320-
-    /// Folgefund: der Nutzer soll den Baum nie manuell neu generieren müssen). Für Turniere ganz ohne
-    /// K.o.-Runden wirft <see cref="TurnierBaumService.GenerierenAsync"/>, was hier bewusst geschluckt wird
-    /// (analog SpielplanViewModel.TurnierBaumAktualisierenAsync).</summary>
     private async Task TurnierBaumAktualisierenAsync()
     {
         using var vorgang = _logger.Vorgang($"Vorbelegung: Turnierbaum aktualisieren (Instanz {_instanz.Id})");
-        try { await _baumService.GenerierenAsync(_instanz.Id); }
-        catch { /* TurnierBaum-Rebuild ist optional — nie Fehler an den Benutzer weitergeben */ }
+        await _baumService.NachSpielplanAenderungAktualisierenAsync(_instanz.Id);
     }
 }

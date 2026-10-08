@@ -52,6 +52,16 @@ public class TurnierBaumService(
         return baum;
     }
 
+    /// <summary>Zieht den Turnierbaum nach einer Spielplanänderung nach — der Nutzer soll den Baum nie von Hand
+    /// neu erzeugen müssen, auch den ersten nicht (#320-Folgefund). Fehler werden bewusst geschluckt: der Baum ist
+    /// Beiwerk der eigentlichen Aktion, und für Turniere ganz ohne K.-o.-Runden wirft
+    /// <see cref="GenerierenAsync"/>.</summary>
+    public async Task NachSpielplanAenderungAktualisierenAsync(int turnierInstanzId)
+    {
+        try { await GenerierenAsync(turnierInstanzId); }
+        catch { /* TurnierBaum-Rebuild ist optional — nie Fehler an den Benutzer weitergeben */ }
+    }
+
     private async Task<TurnierBaumPlan> PlanErmittelnAsync(int turnierInstanzId, CancellationToken ct)
     {
         var instanz = await instanzRepository.FindenNachIdMitRundenAsync(turnierInstanzId, ct)

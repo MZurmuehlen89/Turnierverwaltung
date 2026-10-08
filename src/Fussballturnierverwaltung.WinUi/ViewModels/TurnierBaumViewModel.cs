@@ -434,7 +434,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 
     // Ribbon-Standardaktionen bewusst komplett ausgeblendet (#311): "Baum generieren"/"Sieger
     // fortschreiben"/"Baum löschen" waren toter Code — beide Vorgänge laufen bereits automatisch nach
-    // jeder Ergebnisänderung (SpielplanViewModel.TurnierBaumAktualisierenAsync), "Baum löschen" ist
+    // jeder Ergebnisänderung (TurnierBaumService.NachSpielplanAenderungAktualisierenAsync), "Baum löschen" ist
     // ebenfalls überflüssig, da der Baum beim nächsten Ergebnis ohnehin neu generiert wird.
     public string RibbonTabTitel => "Turnierbaum";
     public ICommand? NeuBefehl => null;

@@ -634,7 +634,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // #317: Guard umschließt Spiele.Clear()/Add() bis zum Ende der davon abhängigen Folge-Abfragen,
         // nicht nur die AusgewaehlteSpiel-Zuweisung — eine WinUI-ComboBox kann SelectionChanged bei
         // ItemsSource.Clear() über die DispatcherQueue VERZÖGERT statt synchron auslösen. Feuert der
-        // Callback erst während TurnierBaumAktualisierenAsync/BeiSpielAenderungAsync, entsteht sonst ein
+        // Callback erst während der Turnierbaum-Aktualisierung/BeiSpielAenderungAsync, entsteht sonst ein
         // ungeschützter Parallelzugriff auf denselben DbContext ("second operation"-Exception, #317).
         _spielWechselUnterdrueckt++;
         try
@@ -648,7 +648,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             AusgewaehlteSpiel = spielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == spielId) : null;
 
-            await TurnierBaumAktualisierenAsync(runde.TurnierInstanzId);
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(runde.TurnierInstanzId);
         }
         finally
         {
@@ -1144,7 +1144,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
-            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
         }
         catch (Exception ex)
         {
@@ -1204,7 +1204,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             }
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
             OnPropertyChanged(nameof(FokusSpiele));
-            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
         }
         catch (Exception ex)
         {
@@ -1294,7 +1294,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             OnPropertyChanged(nameof(FokusSpiele));
 
             AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
-            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
         }
         catch (Exception ex)
         {
@@ -1311,21 +1311,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             ? $"\n\nZusätzlich werden dadurch {vorschau.GesamtBetroffeneSpiele} Ergebnis(se) in Folgerunden " +
               "zurückgesetzt, deren Paarungen davon abhängen."
             : "";
-    }
-
-    /// <summary>Generiert/aktualisiert den Turnierbaum nach jeder Ergebnisänderung — anders als das WPF-
-    /// Original (das hier nur einen bereits existierenden Baum aktualisierte, sodass der erste Baum
-    /// weiterhin manuell über "Baum generieren" angestoßen werden musste) ruft dieser WinUi-Port
-    /// <see cref="TurnierBaumService.GenerierenAsync"/> IMMER auf, auch für den allerersten Baum
-    /// (Nutzerwunsch: manuelles Generieren soll nicht mehr nötig sein). Für Turniere ganz ohne K.o.-Runden
-    /// wirft GenerierenAsync vermutlich, was der bestehende catch-Block wie bisher schluckt.</summary>
-    private async Task TurnierBaumAktualisierenAsync(int turnierInstanzId)
-    {
-        try
-        {
-            await _baumService.GenerierenAsync(turnierInstanzId);
-        }
-        catch { /* TurnierBaum-Rebuild ist optional — nie Fehler an den Benutzer weitergeben */ }
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
@@ -1778,7 +1763,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
-            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
         catch (Exception ex)
         {
@@ -1892,7 +1877,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             MehrfachAusgewaehlteSpiele = [];
-            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
         catch (Exception ex)
         {
@@ -1928,7 +1913,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
-            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
         catch (Exception ex)
         {
@@ -1971,7 +1956,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
-            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
         catch (Exception ex)
         {
@@ -2015,7 +2000,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             await SpielAuswahlWiederherstellenAsync(spielId);
-            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
         catch (Exception ex)
         {
@@ -2059,7 +2044,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             await SpielAuswahlWiederherstellenAsync(spielId);
-            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
         catch (Exception ex)
         {
@@ -2100,7 +2085,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
             MehrfachAusgewaehlteSpiele = [];
-            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
         catch (Exception ex)
         {
@@ -2154,7 +2139,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(FokusSpiele));
             AusgewaehlteSpiel = null;
-            await TurnierBaumAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
         catch (Exception ex)
         {

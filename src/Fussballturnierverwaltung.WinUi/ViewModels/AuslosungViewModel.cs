@@ -384,16 +384,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         AuslosungZuruecksetzenCommand.NotifyCanExecuteChanged();
     }
 
-    /// <summary>Aktualisiert den Turnierbaum nach jeder Spielplan-Änderung automatisch (Issue #320-
-    /// Folgefund: der Nutzer soll den Baum nie manuell neu generieren müssen). Für Turniere ganz ohne
-    /// K.o.-Runden wirft <see cref="TurnierBaumService.GenerierenAsync"/>, was hier bewusst geschluckt wird
-    /// (analog SpielplanViewModel.TurnierBaumAktualisierenAsync).</summary>
-    private async Task TurnierBaumAktualisierenAsync(int turnierInstanzId)
-    {
-        try { await _baumService.GenerierenAsync(turnierInstanzId); }
-        catch { /* TurnierBaum-Rebuild ist optional — nie Fehler an den Benutzer weitergeben */ }
-    }
-
     /// <summary>Von <see cref="TurnierdurchfuehrungViewModel"/> einmalig beim Aktivieren geladen — analog
     /// <see cref="TurnierkopfViewModel.StammdatenLadenAsync"/>.</summary>
     public Task RanglistenLadenAsync() => Arbeitsbereich.RanglistenLadenAsync();
@@ -645,7 +635,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         try
         {
             using (_logger.Vorgang($"Auslosung: Turnierbaum aktualisieren (Instanz {turnierInstanzId})"))
-                await TurnierBaumAktualisierenAsync(turnierInstanzId);
+                await _baumService.NachSpielplanAenderungAktualisierenAsync(turnierInstanzId);
             await AktualisiereSeitenlisteAsync();
         }
         finally { IstLadend = false; }
@@ -710,7 +700,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             // Erst ab hier messen — die Wartezeit auf die Rückfrage gehört nicht zur Dauer der Aktion.
             using var vorgang = _logger.Vorgang($"Auslosung zurücksetzen (Auslosung {detail.Id})");
             await _auslosungService.ZuruecksetzenAsync(detail.Id);
-            await TurnierBaumAktualisierenAsync(detail.TurnierInstanzId);
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(detail.TurnierInstanzId);
             await LadeDetailAsync(detail.Id);
             await AktualisiereSeitenlisteAsync();
         }
