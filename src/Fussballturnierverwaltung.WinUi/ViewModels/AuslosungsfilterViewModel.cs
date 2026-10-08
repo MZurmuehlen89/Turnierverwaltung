@@ -34,17 +34,16 @@ public partial class AuslosungsfilterViewModel : ObservableObject
     /// <see cref="Setzen"/>.</summary>
     public event Action? Geaendert;
 
-    [ObservableProperty] private IReadOnlyList<VerbandOption> _verbandOptionen = [];
-    [ObservableProperty]
-    private VerbandOption _verbandFilter = _keinVerband;
-    [ObservableProperty] private IReadOnlyList<LandOption> _landOptionen = [];
-    [ObservableProperty]
-    private LandOption _landFilter = _keinLand;
-    [ObservableProperty]
-    private TeamfilterOption _teamFilter = _alleMannschaften;
+    [ObservableProperty] private VerbandOption _verbandFilter = _keinVerband;
+    [ObservableProperty] private LandOption _landFilter = _keinLand;
+    [ObservableProperty] private TeamfilterOption _teamFilter = _alleMannschaften;
 
+    // Stammdaten, einmal je Seitenaufruf geladen; die Optionslisten sind die feste, sortierte Grundlage der
+    // gefilterten Auswahllisten.
     public IReadOnlyList<Verband> Verbaende { get; private set; } = [];
     public IReadOnlyList<Land> Laender { get; private set; } = [];
+    private IReadOnlyList<VerbandOption> _verbandOptionen = [];
+    private IReadOnlyList<LandOption> _landOptionen = [];
 
     /// <summary>Der Filter als Wert, FIFA als "weltweit" aufgelöst.</summary>
     public Auslosungsfilter Wert => new(
@@ -67,27 +66,24 @@ public partial class AuslosungsfilterViewModel : ObservableObject
     // Fund #335, Land-Feld blieb beim direkten Setzen des Verband-Filters per ComboBox trotzdem leer;
     // siehe auch der projektweite Fallstrick "pro Fokus/Auswahl neu berechnete ItemsSource" im WinUi-
     // CLAUDE.md). <see cref="LandOptionenGefiltertSynchronisieren"/>/<see cref="VerbandOptionenGefiltertSynchronisieren"/>
-    // aktualisieren den Inhalt dieser EINEN Instanz inkrementell (Index-Diff statt Clear+Add), die
+    // aktualisieren den Inhalt dieser EINEN Instanz inkrementell (SammlungsAbgleich.TeilfolgeAbgleichen), die
     // ItemsSource-Referenz selbst wird nie ausgetauscht.
     public ObservableCollection<LandOption> LandOptionenGefiltert { get; } = [];
     public ObservableCollection<VerbandOption> VerbandOptionenGefiltert { get; } = [];
 
-    partial void OnVerbandOptionenChanged(IReadOnlyList<VerbandOption> value) => VerbandOptionenGefiltertSynchronisieren();
-    partial void OnLandOptionenChanged(IReadOnlyList<LandOption> value) => LandOptionenGefiltertSynchronisieren();
-
     private void LandOptionenGefiltertSynchronisieren()
     {
         IReadOnlyList<LandOption> soll = VerbandFilter?.Wert is null || IstFifa(VerbandFilter.Wert)
-            ? LandOptionen
-            : [_keinLand, .. LandOptionen.Where(o => o.Wert?.VerbandId == VerbandFilter.Wert.Id)];
+            ? _landOptionen
+            : [_keinLand, .. _landOptionen.Where(o => o.Wert?.VerbandId == VerbandFilter.Wert.Id)];
         SammlungsAbgleich.TeilfolgeAbgleichen(LandOptionenGefiltert, soll);
     }
 
     private void VerbandOptionenGefiltertSynchronisieren()
     {
         IReadOnlyList<VerbandOption> soll = LandFilter?.Wert is null
-            ? VerbandOptionen
-            : [_keinVerband, .. VerbandOptionen.Where(o => o.Wert?.Id == LandFilter.Wert.VerbandId || IstFifa(o.Wert))];
+            ? _verbandOptionen
+            : [_keinVerband, .. _verbandOptionen.Where(o => o.Wert?.Id == LandFilter.Wert.VerbandId || IstFifa(o.Wert))];
         SammlungsAbgleich.TeilfolgeAbgleichen(VerbandOptionenGefiltert, soll);
     }
 
@@ -161,10 +157,12 @@ public partial class AuslosungsfilterViewModel : ObservableObject
     {
         using (_logger.Vorgang("Turnierkopf: Verbände abfragen"))
             Verbaende = await _verbandService.AlleAbrufenAsync();
-        VerbandOptionen = [_keinVerband, .. Verbaende.Select(v => new VerbandOption(v.Name, v))];
+        _verbandOptionen = [_keinVerband, .. Verbaende.Select(v => new VerbandOption(v.Name, v))];
+        VerbandOptionenGefiltertSynchronisieren();
         using (_logger.Vorgang("Turnierkopf: Länder abfragen"))
             Laender = await _landService.AlleAbrufenAsync();
-        LandOptionen = [_keinLand, .. Laender.OrderBy(l => l.Name).Select(l => new LandOption(l.Name, l))];
+        _landOptionen = [_keinLand, .. Laender.OrderBy(l => l.Name).Select(l => new LandOption(l.Name, l))];
+        LandOptionenGefiltertSynchronisieren();
     }
 
     /// <summary>Solange das Eltern-ViewModel ein Turnier lädt, bleiben Rückschreibungen der ComboBoxen ohne
@@ -174,12 +172,12 @@ public partial class AuslosungsfilterViewModel : ObservableObject
 
     public void ReaktionenFortsetzen() => _reaktionenAusgesetzt--;
 
-    /// <summary>Befüllt den Filter beim Laden eines Turniers.</summary>
+    /// <summary>Befüllt den Filter beim Laden eines Turniers; <c>null</c> steht für „Kein Filter“.</summary>
     public void Setzen(int? verbandId, int? landId, MannschaftsartFilter mannschaftsart)
     {
         AuslosungsfilterSetzen(
-            VerbandOptionen.FirstOrDefault(o => o.Wert?.Id == verbandId) ?? _keinVerband,
-            LandOptionen.FirstOrDefault(o => o.Wert?.Id == landId) ?? _keinLand);
+            _verbandOptionen.FirstOrDefault(o => o.Wert?.Id == verbandId) ?? _keinVerband,
+            _landOptionen.FirstOrDefault(o => o.Wert?.Id == landId) ?? _keinLand);
         TeamFilter = TeamfilterOptionen.FirstOrDefault(o => o.Wert == mannschaftsart) ?? _alleMannschaften;
     }
 
