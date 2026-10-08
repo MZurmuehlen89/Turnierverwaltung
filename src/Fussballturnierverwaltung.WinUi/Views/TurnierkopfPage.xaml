@@ -193,62 +193,62 @@
                 </Expander>
 
                 <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                          Visibility="{Binding QuotenSichtbar, Converter={StaticResource BoolToVisibility}}"
-                          IsExpanded="{Binding QuotenOffen, Mode=TwoWay}"
-                          Header="{Binding QuotenKopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
+                          Visibility="{Binding Quoten.QuotenSichtbar, Converter={StaticResource BoolToVisibility}}"
+                          IsExpanded="{Binding Quoten.QuotenOffen, Mode=TwoWay}"
+                          Header="{Binding Quoten.QuotenKopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
                     <Grid ColumnDefinitions="*,24,*" RowDefinitions="Auto,Auto">
                         <TextBlock Grid.ColumnSpan="3"
-                                   Visibility="{Binding KapazitaetsHinweisSichtbar, Converter={StaticResource BoolToVisibility}}"
+                                   Visibility="{Binding Quoten.KapazitaetsHinweisSichtbar, Converter={StaticResource BoolToVisibility}}"
                                    FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,10">
                             <Run Text="Die Summe der Quoten darf die Eingangskapazität der ersten Runde (" />
-                            <Run Text="{Binding ErsteRundeEingang}" />
+                            <Run Text="{Binding Quoten.ErsteRundeEingang}" />
                             <Run Text=") nicht übersteigen." />
                         </TextBlock>
 
                         <StackPanel Grid.Row="1" HorizontalAlignment="Stretch"
-                                    Visibility="{Binding VerbandsQuotenSichtbar, Converter={StaticResource BoolToVisibility}}">
+                                    Visibility="{Binding Quoten.VerbandsQuotenSichtbar, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="Verband-Quoten" FontSize="12" Margin="0,0,0,3" />
-                            <ItemsRepeater ItemsSource="{Binding QuotenZeilen}">
+                            <ItemsRepeater ItemsSource="{Binding Quoten.QuotenZeilen}">
                                 <ItemsRepeater.ItemTemplate>
                                     <DataTemplate>
                                         <Grid ColumnDefinitions="*,90,Auto" Margin="0,0,0,6">
-                                            <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.AlleVerbaende}"
+                                            <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.Quoten.AlleVerbaende}"
                                                       SelectedItem="{Binding Verband, Mode=TwoWay}"
                                                       DisplayMemberPath="Name" HorizontalAlignment="Stretch" />
                                             <NumberBox Grid.Column="1" Value="{Binding Anzahl, Mode=TwoWay}"
                                                        Minimum="1" SpinButtonPlacementMode="Inline" Margin="8,0,8,0" />
                                             <Button Grid.Column="2" Content="✕"
-                                                    Command="{Binding ElementName=Root, Path=DataContext.VerbandsQuoteEntfernenCommand}"
+                                                    Command="{Binding ElementName=Root, Path=DataContext.Quoten.VerbandsQuoteEntfernenCommand}"
                                                     CommandParameter="{Binding}" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsRepeater.ItemTemplate>
                             </ItemsRepeater>
-                            <Button Content="Verband hinzufügen" Command="{Binding VerbandsQuoteHinzufuegenCommand}"
+                            <Button Content="Verband hinzufügen" Command="{Binding Quoten.VerbandsQuoteHinzufuegenCommand}"
                                     HorizontalAlignment="Left" />
                         </StackPanel>
 
                         <!-- Ohne Verband-Quoten rückt die Landes-Quote in die linke Spalte. -->
-                        <StackPanel Grid.Row="1" Grid.Column="{Binding LandesQuotenSpalte}" HorizontalAlignment="Stretch"
-                                    Visibility="{Binding LandesQuotenSichtbar, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Grid.Row="1" Grid.Column="{Binding Quoten.LandesQuotenSpalte}" HorizontalAlignment="Stretch"
+                                    Visibility="{Binding Quoten.LandesQuotenSichtbar, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="Landes-Quoten" FontSize="12" Margin="0,0,0,3" />
-                            <ItemsRepeater ItemsSource="{Binding LandesQuotenZeilen}">
+                            <ItemsRepeater ItemsSource="{Binding Quoten.LandesQuotenZeilen}">
                                 <ItemsRepeater.ItemTemplate>
                                     <DataTemplate>
                                         <Grid ColumnDefinitions="*,90,Auto" Margin="0,0,0,6">
-                                            <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.AlleLaender}"
+                                            <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.Quoten.AlleLaender}"
                                                       SelectedItem="{Binding Land, Mode=TwoWay}"
                                                       DisplayMemberPath="Name" HorizontalAlignment="Stretch" />
                                             <NumberBox Grid.Column="1" Value="{Binding Anzahl, Mode=TwoWay}"
                                                        Minimum="1" SpinButtonPlacementMode="Inline" Margin="8,0,8,0" />
                                             <Button Grid.Column="2" Content="✕"
-                                                    Command="{Binding ElementName=Root, Path=DataContext.LandesQuoteEntfernenCommand}"
+                                                    Command="{Binding ElementName=Root, Path=DataContext.Quoten.LandesQuoteEntfernenCommand}"
                                                     CommandParameter="{Binding}" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsRepeater.ItemTemplate>
                             </ItemsRepeater>
-                            <Button Content="Land hinzufügen" Command="{Binding LandesQuoteHinzufuegenCommand}"
+                            <Button Content="Land hinzufügen" Command="{Binding Quoten.LandesQuoteHinzufuegenCommand}"
                                     HorizontalAlignment="Left" />
                         </StackPanel>
                     </Grid>

@@ -135,6 +135,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<MannschaftenViewModel>();
         builder.Services.AddTransient<LaenderUndVerbaendeViewModel>();
         builder.Services.AddTransient<RegelwerkeViewModel>();
+        builder.Services.AddTransient<TurnierQuotenViewModel>();
         builder.Services.AddTransient<TurnierkopfViewModel>();
         builder.Services.AddTransient<VorbelegungViewModel>();
         builder.Services.AddTransient<TurnierlisteViewModel>();
