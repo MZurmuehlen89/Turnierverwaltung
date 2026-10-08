@@ -42,53 +42,26 @@ public partial class TurnierQuotenViewModel : ObservableObject
     private readonly VerbandsQuoteValidator _verbandsQuoteValidator;
     private readonly LandesQuoteService _landesQuoteService;
     private readonly LandesQuoteValidator _landesQuoteValidator;
-    private int _populiertGerade;
 
-    /// <summary>Der Nutzer hat eine Quoten-Zeile hinzugefügt, entfernt oder geändert.</summary>
+    /// <summary>Der Nutzer hat eine Quoten-Zeile hinzugefügt, entfernt oder geändert. Laden und Leeren melden
+    /// nichts.</summary>
     public event Action? Geaendert;
 
     // ── Verband-Quoten (Issue #161/#154, hier #297) ──────────────────────────
-    [ObservableProperty] private ObservableCollection<VerbandsQuoteZeile> _quotenZeilen = [];
-    [ObservableProperty] private IReadOnlyList<Verband> _alleVerbaende = [];
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(KapazitaetsHinweisSichtbar))]
-    private int? _ersteRundeEingang;
-
-    public bool KapazitaetsHinweisSichtbar => ErsteRundeEingang.HasValue;
-
-    [ObservableProperty] private bool _verbandsQuotenSichtbar;
+    public ObservableCollection<VerbandsQuoteZeile> VerbandsQuotenZeilen { get; private set => SetProperty(ref field, value); } = [];
+    public IReadOnlyList<Verband> AlleVerbaende { get; private set => SetProperty(ref field, value); } = [];
+    public bool VerbandsQuotenSichtbar { get; private set => SetProperty(ref field, value); }
 
     [RelayCommand]
-    private void VerbandsQuoteHinzufuegen() => QuotenZeilen.Add(new VerbandsQuoteZeile());
+    private void VerbandsQuoteHinzufuegen() => VerbandsQuotenZeilen.Add(new VerbandsQuoteZeile());
 
     [RelayCommand]
-    private void VerbandsQuoteEntfernen(VerbandsQuoteZeile zeile) => QuotenZeilen.Remove(zeile);
-
-    private void QuotenZeilenAbonnieren()
-    {
-        QuotenZeilen.CollectionChanged += (_, e) =>
-        {
-            if (e.NewItems is not null)
-                foreach (VerbandsQuoteZeile z in e.NewItems)
-                    z.PropertyChanged += OnQuotenZeileGeaendert;
-            OnPropertyChanged(nameof(QuotenKopf));
-            if (_populiertGerade == 0) Geaendert?.Invoke();
-        };
-        foreach (var z in QuotenZeilen) z.PropertyChanged += OnQuotenZeileGeaendert;
-    }
-
-    private void OnQuotenZeileGeaendert(object? sender, PropertyChangedEventArgs e)
-    {
-        OnPropertyChanged(nameof(QuotenKopf));
-        if (_populiertGerade == 0) Geaendert?.Invoke();
-    }
+    private void VerbandsQuoteEntfernen(VerbandsQuoteZeile zeile) => VerbandsQuotenZeilen.Remove(zeile);
 
     // ── Landes-Quoten (Issue #189) ────────────────────────────────────────────
-    [ObservableProperty] private ObservableCollection<LandesQuoteZeile> _landesQuotenZeilen = [];
-    [ObservableProperty] private IReadOnlyList<Land> _alleLaender = [];
-
-    [ObservableProperty] private bool _landesQuotenSichtbar;
+    public ObservableCollection<LandesQuoteZeile> LandesQuotenZeilen { get; private set => SetProperty(ref field, value); } = [];
+    public IReadOnlyList<Land> AlleLaender { get; private set => SetProperty(ref field, value); } = [];
+    public bool LandesQuotenSichtbar { get; private set => SetProperty(ref field, value); }
 
     [RelayCommand]
     private void LandesQuoteHinzufuegen() => LandesQuotenZeilen.Add(new LandesQuoteZeile());
@@ -96,49 +69,36 @@ public partial class TurnierQuotenViewModel : ObservableObject
     [RelayCommand]
     private void LandesQuoteEntfernen(LandesQuoteZeile zeile) => LandesQuotenZeilen.Remove(zeile);
 
-    private void LandesQuotenZeilenAbonnieren()
-    {
-        LandesQuotenZeilen.CollectionChanged += (_, e) =>
-        {
-            if (e.NewItems is not null)
-                foreach (LandesQuoteZeile z in e.NewItems)
-                    z.PropertyChanged += OnLandesQuoteZeileGeaendert;
-            OnPropertyChanged(nameof(QuotenKopf));
-            if (_populiertGerade == 0) Geaendert?.Invoke();
-        };
-        foreach (var z in LandesQuotenZeilen) z.PropertyChanged += OnLandesQuoteZeileGeaendert;
-    }
+    // ── Eingangskapazität der ersten Runde ────────────────────────────────────
+    // Obergrenze für die Summe je Quotenart; ohne Runden gibt es keine.
+    public int? ErsteRundeEingang { get; private set => SetProperty(ref field, value); }
 
-    private void OnLandesQuoteZeileGeaendert(object? sender, PropertyChangedEventArgs e)
-    {
-        OnPropertyChanged(nameof(QuotenKopf));
-        if (_populiertGerade == 0) Geaendert?.Invoke();
-    }
+    public bool KapazitaetsHinweisSichtbar => ErsteRundeEingang.HasValue;
 
     // ── Aufklappbarer Bereich (Issue #399) ────────────────────────────────────
-    [ObservableProperty] private bool _quotenOffen;
+    [ObservableProperty] private bool _offen;
 
-    public bool QuotenSichtbar => VerbandsQuotenSichtbar || LandesQuotenSichtbar;
+    public bool Sichtbar => VerbandsQuotenSichtbar || LandesQuotenSichtbar;
 
     // Ohne Verband-Quoten rückt die Landes-Quote in die linke Spalte.
     public int LandesQuotenSpalte => VerbandsQuotenSichtbar ? 2 : 0;
 
-    public AbschnittKopf QuotenKopf
+    public AbschnittKopf Kopf
     {
         get
         {
-            var teile = new List<string>();
-            var verband = QuotenZeilen.Where(z => z.Verband is not null).ToList();
-            if (VerbandsQuotenSichtbar && verband.Count > 0)
-                teile.Add($"Verband: {verband.Count} (Summe {verband.Sum(z => z.Anzahl)})");
-            var land = LandesQuotenZeilen.Where(z => z.Land is not null).ToList();
-            if (LandesQuotenSichtbar && land.Count > 0)
-                teile.Add($"Land: {land.Count} (Summe {land.Sum(z => z.Anzahl)})");
-            return new("QUOTEN", teile.Count > 0 ? string.Join(" · ", teile) : "nicht festgelegt");
+            string?[] teile =
+            [
+                VerbandsQuotenSichtbar ? KopfTeil("Verband", VerbandsQuotenEingaben().Select(q => q.Anzahl).ToList()) : null,
+                LandesQuotenSichtbar ? KopfTeil("Land", LandesQuotenEingaben().Select(q => q.Anzahl).ToList()) : null
+            ];
+            var zusammenfassung = string.Join(" · ", teile.OfType<string>());
+            return new("QUOTEN", zusammenfassung.Length > 0 ? zusammenfassung : "nicht festgelegt");
         }
     }
 
-    public void AufklappzustandSetzen() => QuotenOffen = QuotenZeilen.Count > 0 || LandesQuotenZeilen.Count > 0;
+    private static string? KopfTeil(string quotenart, IReadOnlyList<int> anzahlen) =>
+        anzahlen.Count > 0 ? $"{quotenart}: {anzahlen.Count} (Summe {anzahlen.Sum()})" : null;
 
     public TurnierQuotenViewModel(
         VerbandsQuoteService verbandsQuoteService, VerbandsQuoteValidator verbandsQuoteValidator,
@@ -148,8 +108,7 @@ public partial class TurnierQuotenViewModel : ObservableObject
         _verbandsQuoteValidator = verbandsQuoteValidator;
         _landesQuoteService = landesQuoteService;
         _landesQuoteValidator = landesQuoteValidator;
-        QuotenZeilenAbonnieren();
-        LandesQuotenZeilenAbonnieren();
+        Leeren();
     }
 
     public void StammdatenSetzen(IReadOnlyList<Verband> verbaende, IReadOnlyList<Land> laender)
@@ -164,69 +123,36 @@ public partial class TurnierQuotenViewModel : ObservableObject
         LandesQuotenSichtbar = landesQuoten;
     }
 
+    public void AufklappzustandSetzen() => Offen = VerbandsQuotenZeilen.Count > 0 || LandesQuotenZeilen.Count > 0;
+
     public void Leeren()
     {
-        QuotenZeilen = [];
-        LandesQuotenZeilen = [];
+        VerbandsQuotenZeilen = Beobachtet<VerbandsQuoteZeile>([]);
+        LandesQuotenZeilen = Beobachtet<LandesQuoteZeile>([]);
         ErsteRundeEingang = null;
     }
 
     public async Task LadenAsync(int turnierInstanzId, int? ersteRundeEingang)
     {
         ErsteRundeEingang = ersteRundeEingang;
-        await QuotenLadenAsync(turnierInstanzId);
-        await LandesQuotenLadenAsync(turnierInstanzId);
-    }
-
-    private async Task QuotenLadenAsync(int turnierInstanzId)
-    {
-        var quoten = await _verbandsQuoteService.AlleNachTurnierInstanzIdAsync(turnierInstanzId);
-        _populiertGerade++;
-        try
-        {
-            QuotenZeilen = new ObservableCollection<VerbandsQuoteZeile>(
-                quoten.Select(q => new VerbandsQuoteZeile { Verband = q.Verband, Anzahl = q.Anzahl }));
-        }
-        finally
-        {
-            _populiertGerade--;
-        }
-        QuotenZeilenAbonnieren();
-    }
-
-    private async Task LandesQuotenLadenAsync(int turnierInstanzId)
-    {
-        var quoten = await _landesQuoteService.AlleNachTurnierInstanzIdAsync(turnierInstanzId);
-        _populiertGerade++;
-        try
-        {
-            LandesQuotenZeilen = new ObservableCollection<LandesQuoteZeile>(
-                quoten.Select(q => new LandesQuoteZeile { Land = q.Land, Anzahl = q.Anzahl }));
-        }
-        finally
-        {
-            _populiertGerade--;
-        }
-        LandesQuotenZeilenAbonnieren();
+        var verbandsQuoten = await _verbandsQuoteService.AlleNachTurnierInstanzIdAsync(turnierInstanzId);
+        VerbandsQuotenZeilen = Beobachtet(
+            verbandsQuoten.Select(q => new VerbandsQuoteZeile { Verband = q.Verband, Anzahl = q.Anzahl }));
+        var landesQuoten = await _landesQuoteService.AlleNachTurnierInstanzIdAsync(turnierInstanzId);
+        LandesQuotenZeilen = Beobachtet(
+            landesQuoten.Select(q => new LandesQuoteZeile { Land = q.Land, Anzahl = q.Anzahl }));
     }
 
     /// <summary>Wandelt die Zeilen in Eingaben um und prüft sie; wirft <see cref="ValidationException"/>, bevor
     /// irgendetwas gespeichert ist.</summary>
     public TurnierQuotenEingaben GepruefteEingaben()
     {
-        var quotenZeilen = QuotenZeilen
-            .Where(z => z.Verband is not null)
-            .Select(z => new VerbandsQuoteZeileEingabe(z.Verband!.Id, z.Anzahl))
-            .ToList();
-        ValidationException.WerfenWennUngueltig(_verbandsQuoteValidator.Validieren(quotenZeilen, ErsteRundeEingang));
-
-        var landesQuotenZeilen = LandesQuotenZeilen
-            .Where(z => z.Land is not null)
-            .Select(z => new LandesQuoteZeileEingabe(z.Land!.Id, z.Anzahl))
-            .ToList();
-        ValidationException.WerfenWennUngueltig(_landesQuoteValidator.Validieren(landesQuotenZeilen, ErsteRundeEingang));
-
-        return new(quotenZeilen, landesQuotenZeilen, ErsteRundeEingang);
+        var eingaben = new TurnierQuotenEingaben(VerbandsQuotenEingaben(), LandesQuotenEingaben(), ErsteRundeEingang);
+        ValidationException.WerfenWennUngueltig(
+            _verbandsQuoteValidator.Validieren(eingaben.VerbandsQuoten, eingaben.EingangsKapazitaet));
+        ValidationException.WerfenWennUngueltig(
+            _landesQuoteValidator.Validieren(eingaben.LandesQuoten, eingaben.EingangsKapazitaet));
+        return eingaben;
     }
 
     public async Task ErsetzenAsync(int turnierInstanzId, TurnierQuotenEingaben eingaben)
@@ -235,18 +161,57 @@ public partial class TurnierQuotenViewModel : ObservableObject
         await _landesQuoteService.QuotenErsetzenAsync(turnierInstanzId, eingaben.LandesQuoten, eingaben.EingangsKapazitaet);
     }
 
+    // Zeilen ohne gewählten Verband bzw. ohne gewähltes Land zählen nicht und werden nicht gespeichert.
+    private List<VerbandsQuoteZeileEingabe> VerbandsQuotenEingaben() => VerbandsQuotenZeilen
+        .Where(z => z.Verband is not null)
+        .Select(z => new VerbandsQuoteZeileEingabe(z.Verband!.Id, z.Anzahl))
+        .ToList();
+
+    private List<LandesQuoteZeileEingabe> LandesQuotenEingaben() => LandesQuotenZeilen
+        .Where(z => z.Land is not null)
+        .Select(z => new LandesQuoteZeileEingabe(z.Land!.Id, z.Anzahl))
+        .ToList();
+
+    /// <summary>Neue Zeilenliste, deren Änderungen (Zeile dazu oder weg, Wert einer Zeile) die Kopfzeile
+    /// auffrischen und als Nutzeränderung gemeldet werden. Befüllt wird vor dem Abonnieren — der Inhalt, mit dem
+    /// die Liste entsteht, meldet deshalb nichts.</summary>
+    private ObservableCollection<TZeile> Beobachtet<TZeile>(IEnumerable<TZeile> zeilen) where TZeile : INotifyPropertyChanged
+    {
+        var liste = new ObservableCollection<TZeile>(zeilen);
+        foreach (var zeile in liste) zeile.PropertyChanged += OnZeileGeaendert;
+        liste.CollectionChanged += (_, e) =>
+        {
+            if (e.NewItems is not null)
+                foreach (INotifyPropertyChanged zeile in e.NewItems)
+                    zeile.PropertyChanged += OnZeileGeaendert;
+            ZeilenAenderungMelden();
+        };
+        return liste;
+    }
+
+    private void OnZeileGeaendert(object? sender, PropertyChangedEventArgs e) => ZeilenAenderungMelden();
+
+    private void ZeilenAenderungMelden()
+    {
+        OnPropertyChanged(nameof(Kopf));
+        Geaendert?.Invoke();
+    }
+
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
         switch (e.PropertyName)
         {
-            case nameof(QuotenZeilen) or nameof(LandesQuotenZeilen):
-                OnPropertyChanged(nameof(QuotenKopf));
+            case nameof(VerbandsQuotenZeilen) or nameof(LandesQuotenZeilen):
+                OnPropertyChanged(nameof(Kopf));
                 break;
             case nameof(VerbandsQuotenSichtbar) or nameof(LandesQuotenSichtbar):
-                OnPropertyChanged(nameof(QuotenSichtbar));
+                OnPropertyChanged(nameof(Sichtbar));
                 OnPropertyChanged(nameof(LandesQuotenSpalte));
-                OnPropertyChanged(nameof(QuotenKopf));
+                OnPropertyChanged(nameof(Kopf));
+                break;
+            case nameof(ErsteRundeEingang):
+                OnPropertyChanged(nameof(KapazitaetsHinweisSichtbar));
                 break;
         }
     }

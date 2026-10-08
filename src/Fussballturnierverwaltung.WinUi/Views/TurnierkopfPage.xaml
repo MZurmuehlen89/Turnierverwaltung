@@ -193,9 +193,9 @@
                 </Expander>
 
                 <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                          Visibility="{Binding Quoten.QuotenSichtbar, Converter={StaticResource BoolToVisibility}}"
-                          IsExpanded="{Binding Quoten.QuotenOffen, Mode=TwoWay}"
-                          Header="{Binding Quoten.QuotenKopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
+                          Visibility="{Binding Quoten.Sichtbar, Converter={StaticResource BoolToVisibility}}"
+                          IsExpanded="{Binding Quoten.Offen, Mode=TwoWay}"
+                          Header="{Binding Quoten.Kopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
                     <Grid ColumnDefinitions="*,24,*" RowDefinitions="Auto,Auto">
                         <TextBlock Grid.ColumnSpan="3"
                                    Visibility="{Binding Quoten.KapazitaetsHinweisSichtbar, Converter={StaticResource BoolToVisibility}}"
@@ -208,7 +208,7 @@
                         <StackPanel Grid.Row="1" HorizontalAlignment="Stretch"
                                     Visibility="{Binding Quoten.VerbandsQuotenSichtbar, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="Verband-Quoten" FontSize="12" Margin="0,0,0,3" />
-                            <ItemsRepeater ItemsSource="{Binding Quoten.QuotenZeilen}">
+                            <ItemsRepeater ItemsSource="{Binding Quoten.VerbandsQuotenZeilen}">
                                 <ItemsRepeater.ItemTemplate>
                                     <DataTemplate>
                                         <Grid ColumnDefinitions="*,90,Auto" Margin="0,0,0,6">
