@@ -72,33 +72,11 @@ public class AuslosungService(
         return auslosung;
     }
 
-    public async Task LostopfHinzufuegenAsync(int auslosungId, string name, CancellationToken ct = default)
-    {
-        var auslosung = await LadenOderFehler(auslosungId, ct);
-        PruefeNichtAbgeschlossen(auslosung);
-
-        var naechsteReihenfolge = auslosung.Lostoepfe.Any()
-            ? auslosung.Lostoepfe.Max(l => l.Reihenfolge) + 1
-            : 1;
-
-        auslosung.Lostoepfe.Add(new Lostopf
-        {
-            AuslosungId = auslosungId,
-            Name        = name.Trim(),
-            Reihenfolge = naechsteReihenfolge
-        });
-        await repository.AktualisierenAsync(auslosung, ct);
-    }
-
     public async Task MannschaftZuLostopfHinzufuegenAsync(
         int auslosungId, int lostopfId, int mannschaftId, int? setzPosition = null,
         CancellationToken ct = default)
     {
-        var auslosung = await LadenOderFehler(auslosungId, ct);
-        PruefeNichtAbgeschlossen(auslosung);
-
-        var lostopf = auslosung.Lostoepfe.FirstOrDefault(l => l.Id == lostopfId)
-            ?? throw new InvalidOperationException($"Lostopf {lostopfId} nicht gefunden.");
+        var (auslosung, lostopf) = await BearbeitbareMitLostopfLadenAsync(auslosungId, lostopfId, ct);
 
         if (auslosung.Lostoepfe.SelectMany(l => l.Eintraege).Any(e => e.MannschaftId == mannschaftId))
             throw new InvalidOperationException("Diese Mannschaft ist bereits in einem Lostopf vorhanden.");
@@ -115,11 +93,7 @@ public class AuslosungService(
     public async Task PlatzhalterZuLostopfHinzufuegenAsync(
         int auslosungId, int lostopfId, string platzhalterName, CancellationToken ct = default)
     {
-        var auslosung = await LadenOderFehler(auslosungId, ct);
-        PruefeNichtAbgeschlossen(auslosung);
-
-        var lostopf = auslosung.Lostoepfe.FirstOrDefault(l => l.Id == lostopfId)
-            ?? throw new InvalidOperationException($"Lostopf {lostopfId} nicht gefunden.");
+        var (auslosung, lostopf) = await BearbeitbareMitLostopfLadenAsync(auslosungId, lostopfId, ct);
 
         var name = platzhalterName.Trim();
 
@@ -134,48 +108,10 @@ public class AuslosungService(
         await repository.AktualisierenAsync(auslosung, ct);
     }
 
-    public async Task MannschaftAusLostopfEntfernenAsync(
-        int auslosungId, int lostopfId, int mannschaftId, CancellationToken ct = default)
-    {
-        var auslosung = await LadenOderFehler(auslosungId, ct);
-        PruefeNichtAbgeschlossen(auslosung);
-
-        var lostopf = auslosung.Lostoepfe.FirstOrDefault(l => l.Id == lostopfId)
-            ?? throw new InvalidOperationException($"Lostopf {lostopfId} nicht gefunden.");
-
-        var eintrag = lostopf.Eintraege.FirstOrDefault(e => e.MannschaftId == mannschaftId);
-        if (eintrag is not null)
-        {
-            lostopf.Eintraege.Remove(eintrag);
-            await repository.AktualisierenAsync(auslosung, ct);
-        }
-    }
-
-    public async Task PlatzhalterAusLostopfEntfernenAsync(
-        int auslosungId, int lostopfId, string platzhalterName, CancellationToken ct = default)
-    {
-        var auslosung = await LadenOderFehler(auslosungId, ct);
-        PruefeNichtAbgeschlossen(auslosung);
-
-        var lostopf = auslosung.Lostoepfe.FirstOrDefault(l => l.Id == lostopfId)
-            ?? throw new InvalidOperationException($"Lostopf {lostopfId} nicht gefunden.");
-
-        var eintrag = lostopf.Eintraege.FirstOrDefault(e => e.PlatzhalterName == platzhalterName.Trim());
-        if (eintrag is not null)
-        {
-            lostopf.Eintraege.Remove(eintrag);
-            await repository.AktualisierenAsync(auslosung, ct);
-        }
-    }
-
     public async Task EintragAusLostopfEntfernenAsync(
         int auslosungId, int lostopfId, int eintragId, CancellationToken ct = default)
     {
-        var auslosung = await LadenOderFehler(auslosungId, ct);
-        PruefeNichtAbgeschlossen(auslosung);
-
-        var lostopf = auslosung.Lostoepfe.FirstOrDefault(l => l.Id == lostopfId)
-            ?? throw new InvalidOperationException($"Lostopf {lostopfId} nicht gefunden.");
+        var (auslosung, lostopf) = await BearbeitbareMitLostopfLadenAsync(auslosungId, lostopfId, ct);
 
         var eintrag = lostopf.Eintraege.FirstOrDefault(e => e.Id == eintragId);
         if (eintrag is not null)
@@ -187,11 +123,7 @@ public class AuslosungService(
 
     public async Task LostopfLeerenAsync(int auslosungId, int lostopfId, CancellationToken ct = default)
     {
-        var auslosung = await LadenOderFehler(auslosungId, ct);
-        PruefeNichtAbgeschlossen(auslosung);
-
-        var lostopf = auslosung.Lostoepfe.FirstOrDefault(l => l.Id == lostopfId)
-            ?? throw new InvalidOperationException($"Lostopf {lostopfId} nicht gefunden.");
+        var (auslosung, lostopf) = await BearbeitbareMitLostopfLadenAsync(auslosungId, lostopfId, ct);
 
         lostopf.Eintraege.Clear();
         await repository.AktualisierenAsync(auslosung, ct);
@@ -199,8 +131,7 @@ public class AuslosungService(
 
     public async Task AlleToepfeZuruecksetzenAsync(int auslosungId, CancellationToken ct = default)
     {
-        var auslosung = await LadenOderFehler(auslosungId, ct);
-        PruefeNichtAbgeschlossen(auslosung);
+        var auslosung = await BearbeitbareLadenAsync(auslosungId, ct);
 
         foreach (var lostopf in auslosung.Lostoepfe)
             lostopf.Eintraege.Clear();
@@ -210,8 +141,7 @@ public class AuslosungService(
     public async Task RegelHinzufuegenOderAktivierenAsync(
         int auslosungId, AuslosungsRegelArt regelart, string beschreibung, CancellationToken ct = default)
     {
-        var auslosung = await LadenOderFehler(auslosungId, ct);
-        PruefeNichtAbgeschlossen(auslosung);
+        var auslosung = await BearbeitbareLadenAsync(auslosungId, ct);
 
         var vorhanden = auslosung.Regeln.FirstOrDefault(r => r.Regelart == regelart);
         if (vorhanden is not null)
@@ -335,8 +265,7 @@ public class AuslosungService(
         if (anzahl < 1)
             throw new InvalidOperationException("Mindestens 1 Lostopf ist erforderlich.");
 
-        var auslosung = await LadenOderFehler(auslosungId, ct);
-        PruefeNichtAbgeschlossen(auslosung);
+        var auslosung = await BearbeitbareLadenAsync(auslosungId, ct);
 
         var sortiert = auslosung.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
 
@@ -367,8 +296,7 @@ public class AuslosungService(
 
     public async Task BearbeitenAsync(int auslosungId, string name, Auslosungsart auslosungsart, CancellationToken ct = default)
     {
-        var auslosung = await repository.FindenNachIdAsync(auslosungId, ct)
-            ?? throw new InvalidOperationException($"Auslosung {auslosungId} nicht gefunden.");
+        var auslosung = await OhneDetailsLadenOderFehler(auslosungId, ct);
         if (auslosung.Status == AuslosungsStatus.Abgeschlossen)
             throw new InvalidOperationException("Eine abgeschlossene Auslosung kann nicht bearbeitet werden. Bitte zuerst zurücksetzen.");
         auslosung.Name         = name.Trim();
@@ -383,47 +311,58 @@ public class AuslosungService(
 
     public async Task ZuruecksetzenAsync(int auslosungId, CancellationToken ct = default)
     {
-        var auslosung = await repository.FindenNachIdAsync(auslosungId, ct)
-            ?? throw new InvalidOperationException($"Auslosung {auslosungId} nicht gefunden.");
+        var auslosung = await OhneDetailsLadenOderFehler(auslosungId, ct);
 
         await repository.ErgebnisseLoeschenUndZuruecksetzenAsync(auslosungId, ct);
-
-        // Issue #320: ein aus dieser Auslosung bereits generierter Spielplan wird beim Zurücksetzen
-        // konsistent mitgelöscht — sonst bleibt er beim erneuten Abschließen/Ausführen als Karteileiche
-        // stehen und summiert sich mit dem neu generierten Spielplan zu doppelten Partien.
-        await platzhalterKaskadeService.RundenSpielplanOhneKaskadeLoeschenAsync(auslosung.TurnierRundeId, ct);
         logger.LogInformation("Auslosung {Id} zurückgesetzt.", auslosungId);
 
-        // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf dieser jetzt
-        // zurückgesetzten Auslosung basieren — ohne die Kaskade blieben sie fälschlich stehen (#306).
-        await platzhalterKaskadeService.KaskadeAusloesenAsync(auslosung.TurnierInstanzId, ct);
+        await SpielplanUndFolgerundenBereinigenAsync(auslosung, ct);
     }
 
     public async Task LoeschenAsync(int auslosungId, CancellationToken ct = default)
     {
-        var auslosung = await repository.FindenNachIdAsync(auslosungId, ct)
-            ?? throw new InvalidOperationException($"Auslosung {auslosungId} nicht gefunden.");
+        var auslosung = await OhneDetailsLadenOderFehler(auslosungId, ct);
         await repository.LoeschenAsync(auslosung, ct);
-
-        // Issue #320: wie in ZuruecksetzenAsync — ein aus dieser Auslosung bereits generierter
-        // Spielplan wird mitgelöscht, sonst bleibt er als Karteileiche stehen und summiert sich bei
-        // einer neu erstellten Auslosung derselben Runde zu doppelten Partien.
-        await platzhalterKaskadeService.RundenSpielplanOhneKaskadeLoeschenAsync(auslosung.TurnierRundeId, ct);
         logger.LogInformation("Auslosung {Id} gelöscht.", auslosungId);
 
-        // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf dieser jetzt
-        // gelöschten Auslosung basieren — ohne die Kaskade blieben sie fälschlich stehen (#306).
+        await SpielplanUndFolgerundenBereinigenAsync(auslosung, ct);
+    }
+
+    // Nach dem Zurücksetzen oder Löschen einer Auslosung: Ein aus ihr bereits generierter Spielplan wird
+    // mitgelöscht — sonst bleibt er als Karteileiche stehen und summiert sich mit dem nächsten generierten
+    // Spielplan der Runde zu doppelten Partien (#320). Folgerunden können bereits aufgelöste Platzhalter
+    // enthalten, die auf dieser Auslosung basieren — ohne die Kaskade blieben sie fälschlich stehen (#306).
+    private async Task SpielplanUndFolgerundenBereinigenAsync(Auslosung auslosung, CancellationToken ct)
+    {
+        await platzhalterKaskadeService.RundenSpielplanOhneKaskadeLoeschenAsync(auslosung.TurnierRundeId, ct);
         await platzhalterKaskadeService.KaskadeAusloesenAsync(auslosung.TurnierInstanzId, ct);
     }
+
+    // ── Laden ─────────────────────────────────────────────────────────────────
 
     private async Task<Auslosung> LadenOderFehler(int auslosungId, CancellationToken ct)
         => await repository.FindenNachIdMitDetailsAsync(auslosungId, ct)
            ?? throw new InvalidOperationException($"Auslosung {auslosungId} nicht gefunden.");
 
-    private static void PruefeNichtAbgeschlossen(Auslosung auslosung)
+    private async Task<Auslosung> OhneDetailsLadenOderFehler(int auslosungId, CancellationToken ct)
+        => await repository.FindenNachIdAsync(auslosungId, ct)
+           ?? throw new InvalidOperationException($"Auslosung {auslosungId} nicht gefunden.");
+
+    private async Task<Auslosung> BearbeitbareLadenAsync(int auslosungId, CancellationToken ct)
     {
+        var auslosung = await LadenOderFehler(auslosungId, ct);
         if (auslosung.Status == AuslosungsStatus.Abgeschlossen)
             throw new InvalidOperationException("Eine abgeschlossene Auslosung kann nicht geändert werden. Bitte zuerst zurücksetzen.");
+        return auslosung;
+    }
+
+    private async Task<(Auslosung Auslosung, Lostopf Lostopf)> BearbeitbareMitLostopfLadenAsync(
+        int auslosungId, int lostopfId, CancellationToken ct)
+    {
+        var auslosung = await BearbeitbareLadenAsync(auslosungId, ct);
+        var lostopf   = auslosung.Lostoepfe.FirstOrDefault(l => l.Id == lostopfId)
+            ?? throw new InvalidOperationException($"Lostopf {lostopfId} nicht gefunden.");
+        return (auslosung, lostopf);
     }
 
     // ── Manuelle Auslosung ─────────────────────────────────────────────────────
