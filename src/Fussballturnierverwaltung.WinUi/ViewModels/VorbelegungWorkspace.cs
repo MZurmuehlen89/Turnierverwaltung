@@ -185,48 +185,29 @@ public partial class VorbelegungWorkspace : ObservableObject
             IstAbgeschlossen = _auslosung?.Status == AuslosungsStatus.Abgeschlossen;
 
             var eingehendeRegeln = await _uebergangsregelService.AlleNachZielRundeIdAsync(Runde.Id);
-            IReadOnlyList<TeilnehmerAnzeige> alleTeilnehmer;
-            bool hatVorgaenger;
-            if (eingehendeRegeln.Count > 0)
-            {
-                alleTeilnehmer = TeilnehmerPoolHilfsmittel.PlatzhalterAusRegelnGenerieren(
-                    eingehendeRegeln, Kombinationstabelle.AusJson(Runde.KombinationstabelleJson));
-                hatVorgaenger = true;
-            }
-            else
-            {
-                var vorherigeRunde = TeilnehmerPoolHilfsmittel.VorgaengerrundeErmitteln(_instanzRunden, Runde);
-                if (vorherigeRunde is null)
-                {
-                    // Issue #297: "echte Auslosung mit Mannschaften nur bei Status != Vorlage" — eine
-                    // Vorlage hat noch keine echten Teilnehmer, generische Platzhalter statt einer fachlich
-                    // unpassenden echten Mannschaftsliste.
-                    if (_instanz.Status == TurnierStatus.Vorlage)
-                    {
-                        alleTeilnehmer = Enumerable.Range(1, Runde.EingangsMannschaftsanzahl)
-                            .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"Team {i}")).ToList();
-                    }
-                    else
-                    {
-                        var teams = await _mannschaftService.AlleNachTurnierfilterAsync(
-                            _instanz.VerbandId, _instanz.LandId, _instanz.MannschaftsartFilter);
-                        alleTeilnehmer = teams.Select(TeilnehmerAnzeige.AusMannschaft).ToList();
-                    }
-                    hatVorgaenger = false;
-                }
-                else
-                {
-                    alleTeilnehmer = TeilnehmerPoolHilfsmittel.PlatzhalterOhneRegelnGenerieren(Runde, vorherigeRunde);
-                    hatVorgaenger = true;
-                }
-            }
+            var platzhalter = TeilnehmerPoolHilfsmittel.PlatzhalterAusVorrunden(
+                _instanzRunden, Runde, eingehendeRegeln, Kombinationstabelle.AusJson(Runde.KombinationstabelleJson));
+            var alleTeilnehmer = platzhalter ?? await TeilnehmerOhneVorgaengerAsync();
 
-            int teamAnzahl = hatVorgaenger ? alleTeilnehmer.Count : Runde.EingangsMannschaftsanzahl;
-            TeamsBenoetigt = teamAnzahl;
-            SlotsAufbauen(alleTeilnehmer, teamAnzahl);
+            TeamsBenoetigt = platzhalter?.Count ?? Runde.EingangsMannschaftsanzahl;
+            SlotsAufbauen(alleTeilnehmer, TeamsBenoetigt);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
         finally { IstLadend = false; }
+    }
+
+    /// <summary>Teilnehmer einer Runde ohne Vorgänger. Issue #297: "echte Auslosung mit Mannschaften nur bei
+    /// Status != Vorlage" — eine Vorlage hat noch keine echten Teilnehmer, daher generische Platzhalter statt einer
+    /// fachlich unpassenden echten Mannschaftsliste.</summary>
+    private async Task<IReadOnlyList<TeilnehmerAnzeige>> TeilnehmerOhneVorgaengerAsync()
+    {
+        if (_instanz.Status == TurnierStatus.Vorlage)
+            return Enumerable.Range(1, Runde.EingangsMannschaftsanzahl)
+                .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"Team {i}")).ToList();
+
+        var teams = await _mannschaftService.AlleNachTurnierfilterAsync(
+            _instanz.VerbandId, _instanz.LandId, _instanz.MannschaftsartFilter);
+        return teams.Select(TeilnehmerAnzeige.AusMannschaft).ToList();
     }
 
     private void SlotsAufbauen(IReadOnlyList<TeilnehmerAnzeige> alleTeilnehmer, int teamAnzahl)

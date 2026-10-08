@@ -7,9 +7,24 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 /// <summary>Teilnehmer-/Platzhalter-Ermittlung für den Team-Pool einer Runde (Issue #297) — 1:1 aus
 /// Wpf/ViewModels/TeilnehmerPoolHilfsmittel.cs portiert (reine Domain-Konsumenten-Logik ohne WPF-Bezug),
-/// gemeinsam genutzt von <see cref="VorbelegungViewModel"/> für Vorlage- und Turnier-Status.</summary>
+/// gemeinsam genutzt von Vorbelegung (<see cref="VorbelegungWorkspace"/>) und Auslosung
+/// (<see cref="AuslosungViewModel"/>).</summary>
 public static class TeilnehmerPoolHilfsmittel
 {
+    /// <summary>Der Platzhalter-Pool einer Runde, die auf andere Runden folgt: aus ihren eingehenden
+    /// Übergangsregeln, ohne solche aus der unmittelbar vorangehenden Runde. <c>null</c> für eine Runde ohne
+    /// Vorgänger — dort stehen keine Platzhalter, sondern die Teilnehmer des Turniers zur Wahl, und die liefert
+    /// der Aufrufer. <paramref name="eingehendeRegeln"/> muss mit geladener QuellRunde-Navigation kommen.</summary>
+    public static IReadOnlyList<TeilnehmerAnzeige>? PlatzhalterAusVorrunden(
+        IReadOnlyList<TurnierRunde> instanzRunden, TurnierRunde runde,
+        IReadOnlyList<Uebergangsregel> eingehendeRegeln, Kombinationstabelle? kombinationstabelle = null)
+    {
+        if (eingehendeRegeln.Count > 0) return PlatzhalterAusRegelnGenerieren(eingehendeRegeln, kombinationstabelle);
+
+        var vorherigeRunde = VorgaengerrundeErmitteln(instanzRunden, runde);
+        return vorherigeRunde is null ? null : PlatzhalterOhneRegelnGenerieren(runde, vorherigeRunde);
+    }
+
     /// <summary>Ermittelt die unmittelbar vorangehende Runde in der Liste (Issue #198): Finale und
     /// SpielUmPlatzDrei sind stets parallele Geschwisterrunden desselben Halbfinales, nicht sequenziell
     /// verkettet, und werden deshalb ausgeschlossen.</summary>

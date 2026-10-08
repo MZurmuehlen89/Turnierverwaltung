@@ -906,13 +906,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (aktuelleRunde is null) return await MannschaftenNachTurnierfilterAsync();
 
         var eingehendeRegeln = await _uebergangsregelService.AlleNachZielRundeIdAsync(aktuelleRunde.Id);
-        if (eingehendeRegeln.Count > 0)
-            return TeilnehmerPoolHilfsmittel.PlatzhalterAusRegelnGenerieren(eingehendeRegeln);
-
-        var vorherigeRunde = TeilnehmerPoolHilfsmittel.VorgaengerrundeErmitteln(InstanzRunden, aktuelleRunde);
-        if (vorherigeRunde is null) return await MannschaftenNachTurnierfilterAsync();
-
-        return TeilnehmerPoolHilfsmittel.PlatzhalterOhneRegelnGenerieren(aktuelleRunde, vorherigeRunde);
+        return TeilnehmerPoolHilfsmittel.PlatzhalterAusVorrunden(InstanzRunden, aktuelleRunde, eingehendeRegeln)
+               ?? await MannschaftenNachTurnierfilterAsync();
     }
 
     private async Task<IReadOnlyList<TeilnehmerAnzeige>> MannschaftenNachTurnierfilterAsync()
