@@ -649,21 +649,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             await Ziehung.ZiehungAnimierenAsync(vorlage.Schritte, Arbeitsbereich.Lostoepfe, manuell);
     }
 
-    /// <summary>Die Auslosung ersetzt den Spielplan ihrer Runde ohne Rückfrage — wer auslost, will den Spielplan
-    /// dazu. Nachgefragt wird nur, wenn dabei bereits eingetragene Ergebnisse verloren gingen (z.B. ein
-    /// automatisch generiertes und schon gespieltes Finale), und dann VOR dem Auslosen: ein "Nein" danach
-    /// hinterließe eine abgeschlossene Auslosung mit einem Spielplan, der nicht zu ihr passt.</summary>
-    private async Task<bool> ErgebnisVerlustBestaetigtAsync(int rundeId)
-    {
-        var vorhandeneSpiele = await _spielplanService.SpielplanAbrufenAsync(rundeId);
-        int mitErgebnis = vorhandeneSpiele.Count(s => s.Ergebnis is not null);
-        if (mitErgebnis == 0) return true;
-
-        return await _dialogService.BestaetigenAsync(
-            "Auslosung durchführen",
-            $"Die Runde hat bereits {mitErgebnis} Spiel(e) mit eingetragenem Ergebnis. Die Auslosung ersetzt den " +
-            "Spielplan der Runde, diese Ergebnisse gehen dabei verloren. Trotzdem auslosen?");
-    }
+    private Task<bool> ErgebnisVerlustBestaetigtAsync(int rundeId) =>
+        SpielplanErsetzenRueckfrage.ErgebnisVerlustBestaetigtAsync(
+            _spielplanService, _dialogService, rundeId, "Auslosung durchführen", "Die Auslosung", "auslosen");
 
     /// <summary>Rückfrage, bevor eine laufende TV-Ziehung verlassen wird (Menüpunkt, Reiter, Turnierwahl, andere
     /// Auslosung, "Neu") — bei "Ja" endet die Ziehung sofort. Ohne laufende Ziehung synchron <c>true</c>.</summary>

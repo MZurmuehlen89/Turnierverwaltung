@@ -558,21 +558,9 @@ public partial class VorbelegungWorkspace : ObservableObject
     private bool KannAbschliessen() => IstBearbeitbar && BelegungVollstaendig;
     private bool KannZuruecksetzen() => IstAbgeschlossen;
 
-    /// <summary>Das Abschließen ersetzt den Spielplan der Runde ohne Rückfrage — wer die Paarungen abschließt,
-    /// will den Spielplan dazu (gleiche Regel wie <c>AuslosungViewModel</c>). Nachgefragt wird nur, wenn dabei
-    /// bereits eingetragene Ergebnisse verloren gingen, und dann VOR dem Abschließen: ein "Nein" danach
-    /// hinterließe abgeschlossene Paarungen mit einem Spielplan, der nicht zu ihnen passt.</summary>
-    private async Task<bool> ErgebnisVerlustBestaetigtAsync()
-    {
-        var vorhandeneSpiele = await _spielplanService.SpielplanAbrufenAsync(Runde.Id);
-        int mitErgebnis = vorhandeneSpiele.Count(s => s.Ergebnis is not null);
-        if (mitErgebnis == 0) return true;
-
-        return await _dialogService.BestaetigenAsync(
-            "Paarung abschließen",
-            $"Die Runde hat bereits {mitErgebnis} Spiel(e) mit eingetragenem Ergebnis. Das Abschließen ersetzt den " +
-            "Spielplan der Runde, diese Ergebnisse gehen dabei verloren. Trotzdem abschließen?");
-    }
+    private Task<bool> ErgebnisVerlustBestaetigtAsync() =>
+        SpielplanErsetzenRueckfrage.ErgebnisVerlustBestaetigtAsync(
+            _spielplanService, _dialogService, Runde.Id, "Paarung abschließen", "Das Abschließen", "abschließen");
 
     private async Task TurnierBaumAktualisierenAsync()
     {
