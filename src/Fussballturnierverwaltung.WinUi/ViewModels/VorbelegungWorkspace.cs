@@ -11,12 +11,8 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
-using Fussballturnierverwaltung.WinUi.Navigation;
-using Fussballturnierverwaltung.WinUi.Ribbon;
 using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
@@ -212,78 +208,65 @@ public partial class VorbelegungWorkspace : ObservableObject
 
     private void SlotsAufbauen(IReadOnlyList<TeilnehmerAnzeige> alleTeilnehmer, int teamAnzahl)
     {
+        RasterAnlegen(teamAnzahl);
+        if (IstAbgeschlossen && _auslosung is not null)
+            AbgeschlosseneBelegungZeigen(_auslosung);
+        else
+            VerfuegbareTeilnehmerZeigen(alleTeilnehmer);
+        AktualisiereTeamsZugewiesen();
+    }
+
+    private void RasterAnlegen(int teamAnzahl)
+    {
         if (IstGruppenModus)
         {
-            if (Runde.Rundenart == Rundenart.Gruppenphase)
-            {
-                int gruppenAnzahl = Runde.GruppenAnzahl ?? 1;
-                int slotsProGruppe = teamAnzahl > 0 && gruppenAnzahl > 0 ? teamAnzahl / gruppenAnzahl : 4;
-                Gruppen = new ObservableCollection<ManuelleGruppe>(
-                    Enumerable.Range(1, gruppenAnzahl).Select(gNr => new ManuelleGruppe
-                    {
-                        GruppenNr   = gNr,
-                        GruppenName = $"Gruppe {GruppenHerkunft.Buchstabe(gNr)}",
-                        Slots       = new ObservableCollection<ManuellerGruppenSlot>(
-                            Enumerable.Range(1, slotsProGruppe).Select(sNr => new ManuellerGruppenSlot
-                            {
-                                GruppenNr = gNr,
-                                SlotNr    = sNr
-                            }))
-                    }));
-            }
-            else
-            {
-                int slotAnzahl = Math.Max(teamAnzahl, 1);
-                Gruppen = new ObservableCollection<ManuelleGruppe>(
-                [
-                    new ManuelleGruppe
-                    {
-                        GruppenNr   = 1,
-                        GruppenName = "Teilnehmer",
-                        Slots       = new ObservableCollection<ManuellerGruppenSlot>(
-                            Enumerable.Range(1, slotAnzahl).Select(sNr => new ManuellerGruppenSlot
-                            {
-                                GruppenNr = 1,
-                                SlotNr    = sNr
-                            }))
-                    }
-                ]);
-            }
+            Gruppen = new ObservableCollection<ManuelleGruppe>(
+                VorbelegungsRaster.Gruppen(Runde.Rundenart, Runde.GruppenAnzahl, teamAnzahl).Select(LeereGruppe));
             KoPaarungen = [];
         }
         else
         {
-            int paarAnzahl = teamAnzahl > 0 ? (int)Math.Ceiling(teamAnzahl / 2.0) : 1;
             KoPaarungen = new ObservableCollection<ManuelleKoPaarungAnzeige>(
-                Enumerable.Range(1, paarAnzahl).Select(nr => new ManuelleKoPaarungAnzeige(
-                    nr,
-                    new ManuellerKoSlot { PaarungsNr = nr, IstHeim = true },
-                    new ManuellerKoSlot { PaarungsNr = nr, IstHeim = false })));
+                Enumerable.Range(1, VorbelegungsRaster.PaarungsAnzahl(teamAnzahl)).Select(LeerePaarung));
             Gruppen = [];
         }
+    }
 
-        if (IstAbgeschlossen && _auslosung is not null)
-        {
-            SlotsAusErgebnissenBefuellen(_auslosung.Ergebnisse);
-            _ausgangsRang = [];
-            SammlungsAbgleich.Abgleichen(VerfuegbareTeilnehmer, [], TeilnehmerSchluessel);
-        }
-        else
-        {
-            // Platzhalter (z.B. "Platz 9 (Ligaphase)" … "Platz 24 (Ligaphase)") kommen aus den Generatoren
-            // in TeilnehmerPoolHilfsmittel bereits in der richtigen (numerischen) Reihenfolge — ein
-            // Alphabet-Sort nach Name reißt sie auseinander ("Platz 10" vor "Platz 9", Fund aus #297-Test).
-            // Nur echte Mannschaftslisten (Erste-Runde-ohne-Vorgänger-Fall) profitieren vom Alphabet-Sort.
-            var sortiert = alleTeilnehmer.All(t => t.IstPlatzhalter)
-                ? alleTeilnehmer.ToList()
-                : alleTeilnehmer.OrderBy(t => t.Name).ToList();
-            _ausgangsRang = sortiert
-                .Select((t, i) => (Schluessel: TeilnehmerSchluessel(t), Rang: i))
-                .GroupBy(x => x.Schluessel)
-                .ToDictionary(g => g.Key, g => g.First().Rang);
-            SammlungsAbgleich.Abgleichen(VerfuegbareTeilnehmer, sortiert, TeilnehmerSchluessel);
-        }
-        AktualisiereTeamsZugewiesen();
+    private static ManuelleGruppe LeereGruppe(RasterGruppe gruppe) => new()
+    {
+        GruppenNr   = gruppe.GruppenNr,
+        GruppenName = gruppe.Name,
+        Slots       = new ObservableCollection<ManuellerGruppenSlot>(
+            Enumerable.Range(1, gruppe.PlatzAnzahl)
+                .Select(platz => new ManuellerGruppenSlot { GruppenNr = gruppe.GruppenNr, SlotNr = platz }))
+    };
+
+    private static ManuelleKoPaarungAnzeige LeerePaarung(int paarungsNr) => new(
+        paarungsNr,
+        new ManuellerKoSlot { PaarungsNr = paarungsNr, IstHeim = true },
+        new ManuellerKoSlot { PaarungsNr = paarungsNr, IstHeim = false });
+
+    private void AbgeschlosseneBelegungZeigen(Auslosung auslosung)
+    {
+        SlotsAusErgebnissenBefuellen(auslosung.Ergebnisse);
+        _ausgangsRang = [];
+        SammlungsAbgleich.Abgleichen(VerfuegbareTeilnehmer, [], TeilnehmerSchluessel);
+    }
+
+    private void VerfuegbareTeilnehmerZeigen(IReadOnlyList<TeilnehmerAnzeige> alleTeilnehmer)
+    {
+        // Platzhalter (z.B. "Platz 9 (Ligaphase)" … "Platz 24 (Ligaphase)") kommen aus den Generatoren
+        // in TeilnehmerPoolHilfsmittel bereits in der richtigen (numerischen) Reihenfolge — ein
+        // Alphabet-Sort nach Name reißt sie auseinander ("Platz 10" vor "Platz 9", Fund aus #297-Test).
+        // Nur echte Mannschaftslisten (Erste-Runde-ohne-Vorgänger-Fall) profitieren vom Alphabet-Sort.
+        var sortiert = alleTeilnehmer.All(t => t.IstPlatzhalter)
+            ? alleTeilnehmer.ToList()
+            : alleTeilnehmer.OrderBy(t => t.Name).ToList();
+        _ausgangsRang = sortiert
+            .Select((t, i) => (Schluessel: TeilnehmerSchluessel(t), Rang: i))
+            .GroupBy(x => x.Schluessel)
+            .ToDictionary(g => g.Key, g => g.First().Rang);
+        SammlungsAbgleich.Abgleichen(VerfuegbareTeilnehmer, sortiert, TeilnehmerSchluessel);
     }
 
     private void SlotsAusErgebnissenBefuellen(IEnumerable<AuslosungsErgebnis> ergebnisse)
@@ -454,49 +437,7 @@ public partial class VorbelegungWorkspace : ObservableObject
         ManuellesFehler = null;
         try
         {
-            List<ManuellePaarungEingabe> paarungen;
-            if (IstGruppenModus)
-            {
-                var alleSlots = Gruppen
-                    .SelectMany(g => g.Slots.Select(s => (g.GruppenNr, s)))
-                    .Where(x => !x.s.IstLeer)
-                    .ToList();
-                if (alleSlots.Count == 0)
-                {
-                    ManuellesFehler = "Bitte mindestens eine Zuweisung vornehmen.";
-                    return;
-                }
-                var leereSlots = Gruppen.Sum(g => g.Slots.Count(s => s.IstLeer));
-                if (leereSlots > 0)
-                {
-                    ManuellesFehler = $"Es sind noch {leereSlots} Gruppenplatz/-plätze unbesetzt. " +
-                                      "Bitte alle Plätze befüllen, bevor die Paarung abgeschlossen wird.";
-                    return;
-                }
-                paarungen = alleSlots.Select(x => new ManuellePaarungEingabe(
-                    HeimMannschaftId:         x.s.Team!.MannschaftId,
-                    HeimPlatzhalterName:      x.s.Team!.MannschaftId is null ? x.s.Team!.Name : null,
-                    AuswaertsMannschaftId:    null,
-                    AuswaertsPlatzhalterName: null,
-                    PaarungsNummer:           x.GruppenNr
-                )).ToList();
-            }
-            else
-            {
-                var allePaarungen = KoPaarungen.Where(p => !p.HeimSlot.IstLeer).ToList();
-                if (allePaarungen.Count == 0)
-                {
-                    ManuellesFehler = "Bitte mindestens eine Paarung befüllen.";
-                    return;
-                }
-                paarungen = allePaarungen.Select(p => new ManuellePaarungEingabe(
-                    HeimMannschaftId:         p.HeimSlot.Team!.MannschaftId,
-                    HeimPlatzhalterName:      p.HeimSlot.Team!.MannschaftId is null ? p.HeimSlot.Team!.Name : null,
-                    AuswaertsMannschaftId:    p.AuswaertsSlot.Team?.MannschaftId,
-                    AuswaertsPlatzhalterName: p.AuswaertsSlot.Team?.MannschaftId is null ? p.AuswaertsSlot.Team?.Name : null,
-                    PaarungsNummer:           p.PaarungsNr
-                )).ToList();
-            }
+            var paarungen = PaarungsEingaben();
 
             // Schon die Rückfrage liest den Spielplan — der Schutz gilt ab hier bis nach dem Neuladen (#416).
             using var schutz = await _dbContextSchutz.BetretenAsync();
@@ -517,6 +458,21 @@ public partial class VorbelegungWorkspace : ObservableObject
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
     }
+
+    /// <summary>Die Belegung als Eingabe für den Dienst. Lücken gibt es hier nicht mehr — der Befehl ist erst bei
+    /// <see cref="BelegungVollstaendig"/> freigegeben; eine K.-o.-Paarung ohne Heimteam ist dann ganz leer.</summary>
+    private List<ManuellePaarungEingabe> PaarungsEingaben() => IstGruppenModus
+        ? Gruppen.SelectMany(g => g.Slots)
+            .Where(s => !s.IstLeer)
+            .Select(s => ManuellePaarungEingabe.FuerGruppenplatz(s.GruppenNr, s.Team!.MannschaftId, s.Team.Name))
+            .ToList()
+        : KoPaarungen
+            .Where(p => !p.HeimSlot.IstLeer)
+            .Select(p => ManuellePaarungEingabe.FuerPaarung(
+                p.PaarungsNr,
+                (p.HeimSlot.Team!.MannschaftId, p.HeimSlot.Team.Name),
+                p.AuswaertsSlot.Team is { } gast ? (gast.MannschaftId, gast.Name) : null))
+            .ToList();
 
     [RelayCommand(CanExecute = nameof(KannZuruecksetzen))]
     private async Task Zuruecksetzen()

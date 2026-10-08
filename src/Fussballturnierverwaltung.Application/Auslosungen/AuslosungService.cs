@@ -422,4 +422,19 @@ public record ManuellePaarungEingabe(
     string? HeimPlatzhalterName,
     int? AuswaertsMannschaftId,
     string? AuswaertsPlatzhalterName,
-    int? PaarungsNummer = null);
+    int? PaarungsNummer = null)
+{
+    // Ein Teilnehmer ohne Mannschaft wird über seinen Namen als Platzhalter eingetragen.
+
+    /// <summary>Ein besetzter Gruppenplatz: der Teilnehmer steht auf der Heimseite, die Paarungsnummer ist die
+    /// Nummer seiner Gruppe.</summary>
+    public static ManuellePaarungEingabe FuerGruppenplatz(int gruppenNr, int? mannschaftId, string name) =>
+        new(mannschaftId, mannschaftId is null ? name : null, null, null, gruppenNr);
+
+    /// <summary>Eine K.-o.-Paarung; ohne <paramref name="auswaerts"/> bleibt der Auswärtsplatz frei (Freilos).</summary>
+    public static ManuellePaarungEingabe FuerPaarung(
+        int paarungsNr, (int? MannschaftId, string Name) heim, (int? MannschaftId, string Name)? auswaerts) =>
+        new(heim.MannschaftId, heim.MannschaftId is null ? heim.Name : null,
+            auswaerts?.MannschaftId, auswaerts is { } gast && gast.MannschaftId is null ? gast.Name : null,
+            paarungsNr);
+}
