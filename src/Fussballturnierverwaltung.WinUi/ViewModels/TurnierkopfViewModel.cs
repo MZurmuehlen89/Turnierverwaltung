@@ -1,12 +1,10 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Diagnose;
-using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
-using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Converters;
@@ -29,11 +27,12 @@ public record TurnierStatusOption(string Anzeige, TurnierStatus Wert);
 public record AbschnittKopf(string Titel, string Zusammenfassung);
 
 /// <summary>"Turnierkopf"-Tab von <see cref="TurnierlisteViewModel"/> (Issue #297) — Basisdaten,
-/// Auslosungsfilter (Verband/Land/Mannschaftsart), Standard-Regelwerk, Status-Anzeige/-Auswahl und
-/// Verband-Quoten einer <see cref="TurnierInstanz"/> (Vorlage- oder Turnier-Status identisch behandelt).
-/// Runden/Übergangsregeln/Vorbelegung liegen in den separaten Tabs. Struktur analog WPF-Original
-/// <c>TurnierInstanzViewModel</c>, hier auf ein reines Formular-ViewModel zugeschnitten (die Instanzliste
-/// samt Status-Filter lebt in <see cref="TurnierTabKoordinator"/>).</summary>
+/// Standard-Regelwerk, Status-Anzeige/-Auswahl und die Befehle Neu/Speichern/Abbrechen/Löschen einer
+/// <see cref="TurnierInstanz"/> (Vorlage- oder Turnier-Status identisch behandelt). Auslosungsfilter,
+/// Titelverteidiger/Gastgeber und Quoten liegen in den Kind-ViewModels <see cref="Filter"/>,
+/// <see cref="TitelGastgeber"/> und <see cref="Quoten"/> (#434); dieses ViewModel befüllt sie, hört auf ihre
+/// Änderungen und entscheidet, was aus einem Filterwechsel folgt. Runden/Übergangsregeln/Vorbelegung liegen
+/// in den separaten Tabs, die Instanzliste samt Status-Filter in <see cref="TurnierTabKoordinator"/>.</summary>
 public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly TurnierInstanzService _service;
@@ -104,6 +103,16 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
     // ── Titelverteidiger & Gastgeber (Issue #349/#352) ───────────────────────
     public TitelGastgeberViewModel TitelGastgeber { get; }
+
+    // Feuert auch, wenn ein Turnier geladen wird: die Sichtbarkeit der Quoten folgt dem Filter immer, alles
+    // Weitere nur einer Änderung durch den Nutzer.
+    private void OnFilterGeaendert()
+    {
+        QuotenSichtbarkeitMelden();
+        if (_populiertGerade > 0) return;
+        AenderungMerken();
+        SammlungsAbgleich.Verzoegert(TitelGastgeberFilterAnwenden);
+    }
 
     // Der Filter wird erst beim Ausführen gelesen — bis der verzögerte Abgleich läuft, kann er sich noch ändern.
     private void TitelGastgeberFilterAnwenden() => TitelGastgeber.FilterAnwenden(Filter.Wert);
@@ -198,6 +207,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     private bool LandesQuotenSichtbar => FormularAktiv && !IstNeuModus
         && Filter.Wert.Art == MannschaftsartFilter.Verein;
 
+    private void QuotenSichtbarkeitMelden() => Quoten.SichtbarkeitSetzen(VerbandsQuotenSichtbar, LandesQuotenSichtbar);
+
     // ── Aufklappbare Bereiche (Issue #399) ────────────────────────────────────
     // Titelverteidiger + Gastgeber und die Quoten sind selten genutzt und liegen deshalb in aufklappbaren
     // Bereichen. Aufgeklappt wird beim Turnierwechsel, wenn der Bereich Werte enthält; danach bleibt der
@@ -245,23 +256,11 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         _regelwerkService = regelwerkService;
         _klonService = klonService;
         Filter = filter;
-        Filter.Geaendert += () =>
-        {
-            Quoten.SichtbarkeitSetzen(VerbandsQuotenSichtbar, LandesQuotenSichtbar);
-            if (_populiertGerade > 0) return;
-            IsDirty = true;
-            AktualisiereFormularFehler();
-            SammlungsAbgleich.Verzoegert(TitelGastgeberFilterAnwenden);
-        };
+        Filter.Geaendert += OnFilterGeaendert;
         Quoten = quoten;
-        Quoten.Geaendert += () => { if (_populiertGerade == 0) IsDirty = true; };
+        Quoten.Geaendert += AenderungMerken;
         TitelGastgeber = titelGastgeber;
-        TitelGastgeber.Geaendert += () =>
-        {
-            if (_populiertGerade > 0) return;
-            IsDirty = true;
-            AktualisiereFormularFehler();
-        };
+        TitelGastgeber.Geaendert += AenderungMerken;
     }
 
     /// <summary>Lädt Verbände/Länder/Regelwerke einmalig — vom Composite (<see cref="TurnierlisteViewModel"/>)
@@ -436,53 +435,46 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         try
         {
             using var vorgang = _logger.Vorgang($"Turnierkopf: speichern (Instanz {AktuelleInstanz?.Id})");
-            var zielAnzahl = ParseZielAnzahl(ZielMannschaftsanzahl);
-            var startdatum = ParseJahr(Startdatum);
-            var enddatum = ParseJahr(Enddatum);
-            var verbandId = Filter.VerbandId;
-            var landId = Filter.LandId;
-            var standardRwId = StandardRegelwerk.Wert?.Id;
-
-            TurnierInstanz ergebnis;
-            if (IstNeuModus)
-            {
-                var eingabe = new TurnierInstanzErstellenEingabe(
-                    Name: Name, Beschreibung: Beschreibung, SaisonOderJahr: SaisonOderJahr, Kategorie: Kategorie,
-                    ZielMannschaftsanzahl: zielAnzahl, Startdatum: startdatum, Enddatum: enddatum, Status: Status.Wert,
-                    VerbandId: verbandId, LandId: landId, MannschaftsartFilter: Filter.Mannschaftsart,
-                    StandardRegelwerkId: standardRwId, Logo: LogoDaten, TitelverteidigerId: TitelGastgeber.TitelverteidigerId,
-                    Variante: Variante, GastgeberIds: TitelGastgeber.GastgeberIds());
-                ergebnis = await _service.ErstellenAsync(eingabe);
-            }
-            else if (AktuelleInstanz is not null)
-            {
-                var id = AktuelleInstanz.Id;
-
-                var quoten = Quoten.GepruefteEingaben();
-
-                var eingabe = new TurnierInstanzVollAktualisierenEingabe(
-                    Name: Name, Beschreibung: Beschreibung, SaisonOderJahr: SaisonOderJahr, Kategorie: Kategorie,
-                    ZielMannschaftsanzahl: zielAnzahl, Startdatum: startdatum, Enddatum: enddatum, Status: AktuelleInstanz.Status,
-                    VerbandId: verbandId, LandId: landId, MannschaftsartFilter: Filter.Mannschaftsart,
-                    StandardRegelwerkId: standardRwId, Logo: LogoDaten, TitelverteidigerId: TitelGastgeber.TitelverteidigerId,
-                    Variante: Variante, GastgeberIds: TitelGastgeber.GastgeberIds());
-                await _service.VollAktualisierenAsync(id, eingabe);
-                await Quoten.ErsetzenAsync(id, quoten);
-
-                ergebnis = AktuelleInstanz;
-            }
-            else
-            {
-                return;
-            }
+            var gespeichert = IstNeuModus ? await ErstellenAsync() : await AktualisierenAsync();
+            if (gespeichert is null) return;
 
             IsDirty = false;
-            InstanzGeaendert?.Invoke(ergebnis);
+            InstanzGeaendert?.Invoke(gespeichert);
         }
         catch (Exception ex)
         {
             Fehlermeldung = ex.Message;
         }
+    }
+
+    // Quoten kommen erst nach dem ersten Speichern dazu — sie brauchen die Id des Turniers.
+    private Task<TurnierInstanz> ErstellenAsync() => _service.ErstellenAsync(new TurnierInstanzErstellenEingabe(
+        Name: Name, Beschreibung: Beschreibung, SaisonOderJahr: SaisonOderJahr, Kategorie: Kategorie,
+        ZielMannschaftsanzahl: ParseZielAnzahl(ZielMannschaftsanzahl), Startdatum: ParseJahr(Startdatum),
+        Enddatum: ParseJahr(Enddatum), Status: Status.Wert,
+        VerbandId: Filter.VerbandId, LandId: Filter.LandId, MannschaftsartFilter: Filter.Mannschaftsart,
+        StandardRegelwerkId: StandardRegelwerk.Wert?.Id, Logo: LogoDaten,
+        TitelverteidigerId: TitelGastgeber.TitelverteidigerId, Variante: Variante,
+        GastgeberIds: TitelGastgeber.GastgeberIds()));
+
+    private async Task<TurnierInstanz?> AktualisierenAsync()
+    {
+        if (AktuelleInstanz is not { } instanz) return null;
+
+        // Erst alles prüfen, dann speichern: ungültige Quoten lassen auch die Basisdaten ungespeichert.
+        var quoten = Quoten.GepruefteEingaben();
+        // Der Status ändert sich nur über die Statusauswahl (StatusAendernAsync), nicht über „Speichern“.
+        var eingabe = new TurnierInstanzVollAktualisierenEingabe(
+            Name: Name, Beschreibung: Beschreibung, SaisonOderJahr: SaisonOderJahr, Kategorie: Kategorie,
+            ZielMannschaftsanzahl: ParseZielAnzahl(ZielMannschaftsanzahl), Startdatum: ParseJahr(Startdatum),
+            Enddatum: ParseJahr(Enddatum), Status: instanz.Status,
+            VerbandId: Filter.VerbandId, LandId: Filter.LandId, MannschaftsartFilter: Filter.Mannschaftsart,
+            StandardRegelwerkId: StandardRegelwerk.Wert?.Id, Logo: LogoDaten,
+            TitelverteidigerId: TitelGastgeber.TitelverteidigerId, Variante: Variante,
+            GastgeberIds: TitelGastgeber.GastgeberIds());
+        await _service.VollAktualisierenAsync(instanz.Id, eingabe);
+        await Quoten.ErsetzenAsync(instanz.Id, quoten);
+        return instanz;
     }
 
     [RelayCommand(CanExecute = nameof(KannAbbrechen))]
@@ -526,24 +518,15 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         if (!FormularAktiv) { FormularFehler = []; return; }
 
         var fehler = new List<string>();
-
-        int? zielAnzahl = null;
-        var zielText = ZielMannschaftsanzahl.Trim();
-        if (!string.IsNullOrEmpty(zielText))
-        {
-            if (int.TryParse(zielText, out var anzahl) && anzahl >= 2)
-                zielAnzahl = anzahl;
-            else
-                fehler.Add("Mannschaftsanzahl muss eine Zahl ≥ 2 sein.");
-        }
-
+        if (!string.IsNullOrWhiteSpace(ZielMannschaftsanzahl) && ParseZielAnzahl(ZielMannschaftsanzahl) is null)
+            fehler.Add("Mannschaftsanzahl muss eine Zahl ≥ 2 sein.");
         if (!string.IsNullOrWhiteSpace(Startdatum) && ParseJahr(Startdatum) is null)
             fehler.Add("Startjahr muss eine Jahreszahl zwischen 1800 und 2100 sein.");
         if (!string.IsNullOrWhiteSpace(Enddatum) && ParseJahr(Enddatum) is null)
             fehler.Add("Endjahr muss eine Jahreszahl zwischen 1800 und 2100 sein.");
 
         fehler.AddRange(_validator.BasisdatenValidieren(
-            Name, SaisonOderJahr, zielAnzahl, ParseJahr(Startdatum), ParseJahr(Enddatum), LogoDaten).Fehler);
+            Name, SaisonOderJahr, ParseZielAnzahl(ZielMannschaftsanzahl), ParseJahr(Startdatum), ParseJahr(Enddatum), LogoDaten).Fehler);
 
         FormularFehler = fehler;
     }
@@ -551,17 +534,17 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        switch (e.PropertyName)
-        {
-            case nameof(FormularAktiv) or nameof(IstNeuModus):
-                Quoten.SichtbarkeitSetzen(VerbandsQuotenSichtbar, LandesQuotenSichtbar);
-                break;
-        }
-        if (_populiertGerade == 0 && _formFelder.Contains(e.PropertyName!))
-        {
-            IsDirty = true;
-            AktualisiereFormularFehler();
-        }
+        if (e.PropertyName is nameof(FormularAktiv) or nameof(IstNeuModus)) QuotenSichtbarkeitMelden();
+        if (_formFelder.Contains(e.PropertyName!)) AenderungMerken();
+    }
+
+    /// <summary>Der Nutzer hat im Formular etwas geändert — in einem eigenen Feld oder in einem der Bereiche.
+    /// Während das Formular befüllt wird, zählt nichts als Änderung.</summary>
+    private void AenderungMerken()
+    {
+        if (_populiertGerade > 0) return;
+        IsDirty = true;
+        AktualisiereFormularFehler();
     }
 
     private bool KannSpeichern() => FormularAktiv && IsDirty && !HatFormularFehler;
