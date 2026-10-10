@@ -26,43 +26,78 @@ public partial class RundenTabellenViewModel : ObservableObject
 {
     private readonly TabellenService _tabellenService;
     private readonly UebergangsregelService _uebergangsregelService;
+    private readonly RelayCommand<TabellenAnsicht?> _ligaAnsichtWaehlenBefehl;
+    private TurnierRunde? _fokusRunde;
 
     /// <summary>Neue Fehlermeldung des Tabellenladens; <c>null</c> räumt die bisherige ab.</summary>
     public event Action<string?>? FehlerGemeldet;
 
-    // ── Gruppenphase-/Liga-Darstellung ─────────────────────────────────────────
+    /// <summary>Gemeinsamer Schutz der Turnierdurchführung (#415): Das Umschalten von Tabellen-Spieltag und
+    /// Liga-Ansicht lädt die Tabelle neu und darf dabei weder eine laufende Spielplan-Aktion noch einen
+    /// Turnier-/Reiterwechsel treffen.</summary>
+    public DbContextReentrancySchutz DbContextSchutz { get; set; } = new();
+
+    public RundenTabellenViewModel(TabellenService tabellenService, UebergangsregelService uebergangsregelService)
+    {
+        _tabellenService = tabellenService;
+        _uebergangsregelService = uebergangsregelService;
+
+        _ligaAnsichtWaehlenBefehl = new RelayCommand<TabellenAnsicht?>(a => AusgewaehlteLigaAnsicht = a ?? TabellenAnsicht.Gesamt);
+    }
+
+    // ── Fokussierte Runde ─────────────────────────────────────────────────────
+
+    /// <summary>Stellt die Anzeige auf die Runde um und lädt ihre Tabellen; bei einer K.-o.-Runde (oder
+    /// <c>null</c>) zeigt dieses ViewModel nichts.</summary>
+    public async Task FokusRundeSetzenAsync(TurnierRunde? runde)
+    {
+        FokusWechseln(runde);
+        AnzeigeartSetzen(runde?.Rundenart);
+        if (ZeigtTabelle) await SpieltageUndTabelleLadenAsync(runde!.Id);
+    }
+
+    // Spieltag und Ansicht gehören zur bisherigen Runde und fallen auf den Standard zurück. Solange das läuft,
+    // ist keine Runde fokussiert — sonst lüde jeder der beiden Änderungs-Haken die Tabelle der alten Runde neu.
+    private void FokusWechseln(TurnierRunde? runde)
+    {
+        if (runde?.Id != _fokusRunde?.Id) FokussierteGruppenNummer = null;
+
+        _fokusRunde = null;
+        TabellenBisSpieltag = null;
+        AusgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
+        VerfuegbareSpieltage = [];
+        _fokusRunde = runde;
+        OnPropertyChanged(nameof(ZeigtHinRueckrundenTabs));
+    }
+
+    private void AnzeigeartSetzen(Rundenart? rundenart)
+    {
+        ZeigtGruppenphase = rundenart == Rundenart.Gruppenphase;
+        ZeigtLigaTabelle = rundenart is Rundenart.Liga or Rundenart.TopfLiga or Rundenart.SchweizerSystem;
+        ZeigtBuchholzSpalte = rundenart == Rundenart.SchweizerSystem;
+    }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ZeigtTabelle))]
     private bool _zeigtGruppenphase;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ZeigtTabelle))]
     private bool _zeigtLigaTabelle;
+
+    /// <summary>Die fokussierte Runde hat Tabellen — der Turnierbaum tritt dafür zurück.</summary>
+    public bool ZeigtTabelle => ZeigtGruppenphase || ZeigtLigaTabelle;
 
     [ObservableProperty]
     private bool _zeigtBuchholzSpalte;
+
+    // ── Tabellen ──────────────────────────────────────────────────────────────
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatGruppenTabellenAnzeige))]
     [NotifyPropertyChangedFor(nameof(AnzeigeGruppenTabellen))]
     private ObservableCollection<GruppenTabelle> _gruppenTabellenAnzeige = [];
     public bool HatGruppenTabellenAnzeige => GruppenTabellenAnzeige.Count > 0;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HatLigaTabelleAnzeige))]
-    private ObservableCollection<TabellenEintrag> _ligaTabelleAnzeige = [];
-    public bool HatLigaTabelleAnzeige => LigaTabelleAnzeige.Count > 0;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HatUebergreifendeRangfolgenAnzeige))]
-    private ObservableCollection<UebergreifendeRangfolgeAnzeige> _uebergreifendeRangfolgenAnzeige = [];
-    public bool HatUebergreifendeRangfolgenAnzeige => UebergreifendeRangfolgenAnzeige.Count > 0;
-
-    /// <summary>Legende der Tabellenzonen der fokussierten Runde (Issue #358) — leer, wenn die Runde keine
-    /// ausgehenden Übergangsregeln hat oder eine Teilansicht (Heim, Hinrunde …) gezeigt wird.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HatZonenLegende))]
-    private IReadOnlyList<ZonenLegendenEintrag> _zonenLegende = [];
-    public bool HatZonenLegende => ZonenLegende.Count > 0;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnzeigeGruppenTabellen))]
@@ -75,9 +110,24 @@ public partial class RundenTabellenViewModel : ObservableObject
 
     public void FokussiereGruppe(int? gruppenNummer) => FokussierteGruppenNummer = gruppenNummer;
 
-    // ── Tabellenstand-Snapshot "Bis Spieltag" ────────────────────────────────
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatUebergreifendeRangfolgenAnzeige))]
+    private ObservableCollection<UebergreifendeRangfolgeAnzeige> _uebergreifendeRangfolgenAnzeige = [];
+    public bool HatUebergreifendeRangfolgenAnzeige => UebergreifendeRangfolgenAnzeige.Count > 0;
 
-    private TurnierRunde? _fokusRunde;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatLigaTabelleAnzeige))]
+    private ObservableCollection<TabellenEintrag> _ligaTabelleAnzeige = [];
+    public bool HatLigaTabelleAnzeige => LigaTabelleAnzeige.Count > 0;
+
+    /// <summary>Legende der Tabellenzonen der fokussierten Runde (Issue #358) — leer, wenn die Runde keine
+    /// ausgehenden Übergangsregeln hat oder eine Teilansicht (Heim, Hinrunde …) gezeigt wird.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatZonenLegende))]
+    private IReadOnlyList<ZonenLegendenEintrag> _zonenLegende = [];
+    public bool HatZonenLegende => ZonenLegende.Count > 0;
+
+    // ── Stand „bis Spieltag“ und Liga-Ansicht ─────────────────────────────────
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TabellenSpieltagOptionen))]
@@ -98,7 +148,7 @@ public partial class RundenTabellenViewModel : ObservableObject
     partial void OnTabellenBisSpieltagChanged(int? value)
     {
         OnPropertyChanged(nameof(TabellenBisSpieltagAuswahl));
-        if (_fokusRunde is not null) TabelleNeuLadenMitSchutz();
+        TabelleNeuLadenMitSchutz();
     }
 
     public void ZeigeAktuellenStand() => TabellenBisSpieltag = null;
@@ -106,55 +156,17 @@ public partial class RundenTabellenViewModel : ObservableObject
     [ObservableProperty] private TabellenAnsicht _ausgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
     public bool ZeigtHinRueckrundenTabs => _fokusRunde?.MitRueckspiel == true;
     public ICommand LigaAnsichtWaehlenBefehl => _ligaAnsichtWaehlenBefehl;
-    private readonly RelayCommand<TabellenAnsicht?> _ligaAnsichtWaehlenBefehl;
 
-    partial void OnAusgewaehlteLigaAnsichtChanged(TabellenAnsicht value)
+    partial void OnAusgewaehlteLigaAnsichtChanged(TabellenAnsicht value) => TabelleNeuLadenMitSchutz();
+
+    // ── Laden ─────────────────────────────────────────────────────────────────
+
+    private async Task SpieltageUndTabelleLadenAsync(int rundeId)
     {
-        if (_fokusRunde is not null) TabelleNeuLadenMitSchutz();
-    }
-
-    /// <summary>Gemeinsamer Schutz der Turnierdurchführung (#415): Das Umschalten von Tabellen-Spieltag und
-    /// Liga-Ansicht lädt die Tabelle neu und darf dabei weder eine laufende Spielplan-Aktion noch einen
-    /// Turnier-/Reiterwechsel treffen.</summary>
-    public DbContextReentrancySchutz DbContextSchutz { get; set; } = new();
-
-    public RundenTabellenViewModel(TabellenService tabellenService, UebergangsregelService uebergangsregelService)
-    {
-        _tabellenService = tabellenService;
-        _uebergangsregelService = uebergangsregelService;
-
-        _ligaAnsichtWaehlenBefehl = new RelayCommand<TabellenAnsicht?>(a => AusgewaehlteLigaAnsicht = a ?? TabellenAnsicht.Gesamt);
-    }
-
-    /// <summary>Stellt die Anzeige auf die Runde um und lädt ihre Tabellen; bei einer K.-o.-Runde (oder
-    /// <c>null</c>) zeigt dieses ViewModel nichts.</summary>
-    public async Task FokusRundeSetzenAsync(TurnierRunde? runde)
-    {
-        bool istEchterRundenwechsel = runde?.Id != _fokusRunde?.Id;
-        if (istEchterRundenwechsel)
-            FokussierteGruppenNummer = null;
-
-        _fokusRunde = null;
-        TabellenBisSpieltag = null;
-        AusgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
-        VerfuegbareSpieltage = [];
-        _fokusRunde = runde;
-        OnPropertyChanged(nameof(ZeigtHinRueckrundenTabs));
-
-        var rundenart = runde?.Rundenart;
-        bool istGruppenphase = rundenart == Rundenart.Gruppenphase;
-        bool istLigaArtig = rundenart is Rundenart.Liga or Rundenart.TopfLiga or Rundenart.SchweizerSystem;
-
-        ZeigtGruppenphase = istGruppenphase;
-        ZeigtLigaTabelle = istLigaArtig;
-        ZeigtBuchholzSpalte = rundenart == Rundenart.SchweizerSystem;
-
-        if (!istGruppenphase && !istLigaArtig) return;
-
         FehlerGemeldet?.Invoke(null);
         try
         {
-            var verfuegbareSpieltage = await _tabellenService.VerfuegbareSpieltageAsync(runde!.Id);
+            var verfuegbareSpieltage = await _tabellenService.VerfuegbareSpieltageAsync(rundeId);
             VerfuegbareSpieltage = new ObservableCollection<int>(verfuegbareSpieltage);
 
             await TabelleNeuLadenAsync();
@@ -165,45 +177,57 @@ public partial class RundenTabellenViewModel : ObservableObject
         }
     }
 
-    private void TabelleNeuLadenMitSchutz() =>
+    private void TabelleNeuLadenMitSchutz()
+    {
+        if (_fokusRunde is null) return;
         _ = DbContextSchutz.AusfuehrenAsync(TabelleNeuLadenAsync, ex => FehlerGemeldet?.Invoke(ex.Message));
+    }
 
     private async Task TabelleNeuLadenAsync()
     {
-        if (_fokusRunde is null) return;
+        if (_fokusRunde is not { } runde) return;
         FehlerGemeldet?.Invoke(null);
         try
         {
-            // Issue #358: Zonen allein aus den ausgehenden Übergangsregeln. Der Sicher-Punkt gilt nur für den
-            // aktuellen Stand — bei einem historischen Spieltag passen die möglichen Ränge nicht zur Tabelle.
-            var regeln = await _uebergangsregelService.AlleNachQuellRundeIdAsync(_fokusRunde.Id);
+            // Issue #358: Zonen allein aus den ausgehenden Übergangsregeln.
+            var regeln = await _uebergangsregelService.AlleNachQuellRundeIdAsync(runde.Id);
             var zonen = TabellenZonen.AusRegeln(regeln);
-            bool mitSicherheit = TabellenBisSpieltag is null;
 
             if (ZeigtGruppenphase)
-            {
-                var tabellen = await _tabellenService.GruppenTabellenBerechnenAsync(_fokusRunde.Id, TabellenBisSpieltag);
-                foreach (var gruppe in tabellen)
-                    TabellenZonen.Zuweisen(gruppe.Tabelle, zonen, gruppe.GruppenNummer, mitSicherheit);
-                GruppenTabellenAnzeige = new ObservableCollection<GruppenTabelle>(tabellen);
-                await UebergreifendeRangfolgenLadenAsync(regeln, zonen);
-                ZonenLegende = TabellenZonen.Legende(zonen);
-            }
+                await GruppenTabellenLadenAsync(runde.Id, regeln, zonen);
             else if (ZeigtLigaTabelle)
-            {
-                // Heim-/Auswärts- und Halbserien-Tabellen sind keine Wertung für das Weiterkommen - ohne Zonen.
-                if (AusgewaehlteLigaAnsicht != TabellenAnsicht.Gesamt) zonen = [];
-
-                var tabelle = await _tabellenService.TabelleBerechnenAsync(_fokusRunde.Id, AusgewaehlteLigaAnsicht, TabellenBisSpieltag);
-                TabellenZonen.Zuweisen(tabelle, zonen, gruppenNummer: null, mitSicherheit);
-                LigaTabelleAnzeige = new ObservableCollection<TabellenEintrag>(tabelle);
-                ZonenLegende = TabellenZonen.Legende(zonen);
-            }
+                await LigaTabelleLadenAsync(runde.Id, zonen);
         }
         catch (Exception ex)
         {
             FehlerGemeldet?.Invoke(ex.Message);
         }
+    }
+
+    // Issue #358: Der Sicher-Punkt gilt nur für den aktuellen Stand — bei einem historischen Spieltag passen die
+    // möglichen Ränge nicht zur Tabelle.
+    private bool MitSicherPunkt => TabellenBisSpieltag is null;
+
+    private async Task GruppenTabellenLadenAsync(
+        int rundeId, IReadOnlyList<Uebergangsregel> regeln, IReadOnlyList<TabellenZone> zonen)
+    {
+        var tabellen = await _tabellenService.GruppenTabellenBerechnenAsync(rundeId, TabellenBisSpieltag);
+        foreach (var gruppe in tabellen)
+            TabellenZonen.Zuweisen(gruppe.Tabelle, zonen, gruppe.GruppenNummer, MitSicherPunkt);
+        GruppenTabellenAnzeige = new ObservableCollection<GruppenTabelle>(tabellen);
+        await UebergreifendeRangfolgenLadenAsync(regeln, zonen);
+        ZonenLegende = TabellenZonen.Legende(zonen);
+    }
+
+    private async Task LigaTabelleLadenAsync(int rundeId, IReadOnlyList<TabellenZone> zonen)
+    {
+        // Heim-/Auswärts- und Halbserien-Tabellen sind keine Wertung für das Weiterkommen - ohne Zonen.
+        if (AusgewaehlteLigaAnsicht != TabellenAnsicht.Gesamt) zonen = [];
+
+        var tabelle = await _tabellenService.TabelleBerechnenAsync(rundeId, AusgewaehlteLigaAnsicht, TabellenBisSpieltag);
+        TabellenZonen.Zuweisen(tabelle, zonen, gruppenNummer: null, MitSicherPunkt);
+        LigaTabelleAnzeige = new ObservableCollection<TabellenEintrag>(tabelle);
+        ZonenLegende = TabellenZonen.Legende(zonen);
     }
 
     private async Task UebergreifendeRangfolgenLadenAsync(

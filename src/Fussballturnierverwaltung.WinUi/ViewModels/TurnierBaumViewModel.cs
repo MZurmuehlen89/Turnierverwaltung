@@ -1,7 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Spiele;
-using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
@@ -76,6 +75,7 @@ public class BracketRundenkopf
 /// "Turnierbaum"-Bereich des #301-Composite (<see cref="SpielplanUndBaumViewModel"/>) — 1:1 aus
 /// Wpf/ViewModels/TurnierBaumViewModel.cs portiert. Verbindungslinien-Zeichnung selbst lebt im
 /// Code-Behind der View (Canvas-Overlay, siehe TurnierBaumView.xaml.cs), analog zum WPF-Original.
+/// Die Tabellen einer fokussierten Gruppen- oder Ligarunde zeigt das Kind-ViewModel <see cref="Tabellen"/> (#438).
 /// #262-Fix (lange Mannschaftsnamen in Tabellenkarten): die Gruppentabellen-/Liga-Tabelle-Karten in
 /// der View bekommen ausreichend Breite ohne TextTrimming — die Bracket-Karten selbst behalten die
 /// feste 240px-Breite mit Trimming (Zwangslage durch Canvas.Top-Positionierung, keine #262-Stelle).
@@ -249,7 +249,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 
     public RundenTabellenViewModel Tabellen { get; }
 
-    public bool ZeigtBracket => !Tabellen.ZeigtGruppenphase && !Tabellen.ZeigtLigaTabelle;
+    public bool ZeigtBracket => !Tabellen.ZeigtTabelle;
     public bool ZeigtBracketInhalt => ZeigtBracket && HatBaum;
 
     // Ribbon-Standardaktionen bewusst komplett ausgeblendet (#311): "Baum generieren"/"Sieger
@@ -281,11 +281,9 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         Tabellen.FehlerGemeldet += meldung => Fehlermeldung = meldung;
         Tabellen.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is nameof(RundenTabellenViewModel.ZeigtGruppenphase) or nameof(RundenTabellenViewModel.ZeigtLigaTabelle))
-            {
-                OnPropertyChanged(nameof(ZeigtBracket));
-                OnPropertyChanged(nameof(ZeigtBracketInhalt));
-            }
+            if (e.PropertyName != nameof(RundenTabellenViewModel.ZeigtTabelle)) return;
+            OnPropertyChanged(nameof(ZeigtBracket));
+            OnPropertyChanged(nameof(ZeigtBracketInhalt));
         };
 
         _abbrechenBefehl = new RelayCommand(() => { }, () => false);
