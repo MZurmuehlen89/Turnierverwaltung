@@ -41,6 +41,18 @@ public static class SpielErgebnisFormatierer
         return $"{regulaerKlammer}{marker}";
     }
 
+    /// <summary>Reines Kürzel der Entscheidung ohne Spielstand, für die kompakte Karte der Turnierbaum-Gesamtübersicht
+    /// (Issue #238). Leer bei Entscheidung nach Toren.</summary>
+    public static string EntscheidungKuerzel(EntscheidungArt art) => art switch
+    {
+        EntscheidungArt.Verlaengerung     => "n.V.",
+        EntscheidungArt.Elfmeterschiessen => "i.E.",
+        EntscheidungArt.Auswaertstorregel => "A.T.",
+        EntscheidungArt.GoldenGoal        => "G.G.",
+        EntscheidungArt.SilverGoal        => "S.G.",
+        _                                 => ""
+    };
+
     /// <summary>
     /// Kurzform der Entscheidung einer Hin-/Rückspiel-Paarung aus Sicht des Rückspiels (Issue #340) — anders
     /// als <see cref="DetailText"/> ohne Regulärzeit-Klammer, da die im Gesamtkontext nichts aussagt.

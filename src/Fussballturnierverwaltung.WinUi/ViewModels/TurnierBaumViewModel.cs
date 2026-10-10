@@ -373,23 +373,9 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         bool istFest = runden.Skip(1).Any(r => r.Knoten.Any(k =>
             k.Spiel is not null && (k.Spiel.HeimPlatzhalterName is not null || k.Spiel.AuswaertsPlatzhalterName is not null)));
 
-        var posMap = new Dictionary<int, double>();
-        double blaetter = 0;
+        var layout = RundenbaumLayout.Berechnen(runden);
 
-        // Issue #385: Das Spiel um Platz 3 steht hinter dem Finale, gehört aber nicht zur Baumkette.
-        var wurzel = runden.LastOrDefault(r => !r.IstSpielUmPlatzDrei)?.Knoten.FirstOrDefault();
-        if (wurzel != null)
-            AssignierePositionen(wurzel, alleKnoten, posMap, ref blaetter, effLinks, effRechts);
-
-        // Knoten ohne Weg zur Wurzel (Direkteinsteiger, Spiel um Platz 3) in jeder Runde anhängen, nicht nur in
-        // der ersten — sonst fehlen sie in der Anzeige.
-        foreach (var k in runden.SelectMany(r => r.Knoten).Where(k => !posMap.ContainsKey(k.Id)))
-        {
-            posMap[k.Id] = blaetter * UNIT + UNIT / 2;
-            blaetter++;
-        }
-
-        CanvasHoehe = Math.Max(1, blaetter) * UNIT + GAP_V;
+        CanvasHoehe = Math.Max(1, layout.ZeilenAnzahl) * UNIT + GAP_V;
         CanvasBreite = runden.Count * ROUND_W - GAP_H;
 
         RundenKoepfe.Clear();
@@ -398,14 +384,14 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             {
                 X = ri * ROUND_W,
                 Breite = NODE_W,
-                Name = runden[ri].RundenName ?? RundenAnzeigeName(runden[ri].Knoten.Count)
+                Name = runden[ri].RundenName ?? RundenBezeichnung.RundenAnzeigeName(runden[ri].Knoten.Count)
             });
 
         Knoten.Clear();
         for (int ri = 0; ri < runden.Count; ri++)
         {
             var runde = runden[ri];
-            string kuerzel = RundenKuerzelAusName(runde.RundenName) ?? RundenKuerzel(runde.Knoten.Count);
+            string kuerzel = RundenBezeichnung.RundenKuerzelAusName(runde.RundenName) ?? RundenBezeichnung.RundenKuerzel(runde.Knoten.Count);
             double x = ri * ROUND_W;
 
             int? turnierRundeId = runde.Knoten
@@ -419,7 +405,8 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             for (int pos = 0; pos < geordnet.Count; pos++)
             {
                 var k = geordnet[pos];
-                if (!posMap.TryGetValue(k.Id, out var centerY)) continue;
+                if (!layout.ZeileJeKnoten.TryGetValue(k.Id, out var zeile)) continue;
+                double centerY = zeile * UNIT;
                 string label = istFest
                     ? (runde.Knoten.Count == 1 ? kuerzel.TrimEnd('-') : $"{kuerzel}{pos + 1}")
                     : "";
@@ -468,37 +455,6 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         GesamtbaumNeuBerechnet?.Invoke(this, EventArgs.Empty);
     }
 
-    private static void AssignierePositionen(
-        TurnierBaumKnoten knoten,
-        Dictionary<int, TurnierBaumKnoten> alle,
-        Dictionary<int, double> posMap,
-        ref double blaetter,
-        Dictionary<int, int?> effLinks,
-        Dictionary<int, int?> effRechts)
-    {
-        if (posMap.ContainsKey(knoten.Id)) return;
-
-        int? lId = effLinks.GetValueOrDefault(knoten.Id);
-        int? rId = effRechts.GetValueOrDefault(knoten.Id);
-
-        if (!lId.HasValue && !rId.HasValue)
-        {
-            posMap[knoten.Id] = blaetter * UNIT + UNIT / 2;
-            blaetter++;
-            return;
-        }
-
-        if (lId.HasValue && alle.TryGetValue(lId.Value, out var links))
-            AssignierePositionen(links, alle, posMap, ref blaetter, effLinks, effRechts);
-
-        if (rId.HasValue && alle.TryGetValue(rId.Value, out var rechts))
-            AssignierePositionen(rechts, alle, posMap, ref blaetter, effLinks, effRechts);
-
-        double cy1 = lId.HasValue && posMap.TryGetValue(lId.Value, out var v1) ? v1 : 0;
-        double cy2 = rId.HasValue && posMap.TryGetValue(rId.Value, out var v2) ? v2 : cy1;
-        posMap[knoten.Id] = (cy1 + cy2) / 2.0;
-    }
-
     private static BracketKnotenAnzeige BaueKnotenAnzeige(TurnierBaumKnoten k, Spiel? rueckspiel, double x, double y,
         int rundenIndex, string label, int? linkerKindKnotenId, int? rechterKindKnotenId, int? turnierRundeId = null)
     {
@@ -520,7 +476,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         string auswaertsScore = hatE ? e!.AuswaertsToreGesamt.ToString() : "";
         int? siegerId = e?.SiegerMannschaftId;
         string paarungsText = "";
-        string entscheidungKurz = hatE ? EntscheidungKuerzel(e!.EntscheidungArt) : "";
+        string entscheidungKurz = hatE ? SpielErgebnisFormatierer.EntscheidungKuerzel(e!.EntscheidungArt) : "";
 
         // Issue #340: Hin-/Rückspiel-Paarung — Gesamtergebnis beider Spiele, Sieger aus dem Rückspiel (das
         // Hinspiel-Ergebnis trägt nur den Sieger des Einzelspiels). Ohne Rückspiel-Ergebnis steht der Stand
@@ -531,7 +487,7 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             paarungsText = SpielErgebnisFormatierer.PaarungsEinzelergebnisse(e!, re);
             detail = re is not null ? SpielErgebnisFormatierer.PaarungsEntscheidung(re) : "";
             siegerId = re?.SiegerMannschaftId;
-            entscheidungKurz = re is not null ? EntscheidungKuerzel(re.EntscheidungArt) : "";
+            entscheidungKurz = re is not null ? SpielErgebnisFormatierer.EntscheidungKuerzel(re.EntscheidungArt) : "";
             if (re is not null)
             {
                 var (teamA, teamB) = HinRueckspielWertung.GesamtTore(e!, re);
@@ -567,62 +523,4 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         };
     }
 
-    private static string EntscheidungKuerzel(EntscheidungArt art) => art switch
-    {
-        EntscheidungArt.Verlaengerung     => "n.V.",
-        EntscheidungArt.Elfmeterschiessen => "i.E.",
-        EntscheidungArt.Auswaertstorregel => "A.T.",
-        EntscheidungArt.GoldenGoal        => "G.G.",
-        EntscheidungArt.SilverGoal        => "S.G.",
-        _                                 => ""
-    };
-
-    /// <summary>Kürzel der Knoten-Labels aus dem echten Rundennamen (Issue #365), z.B. "Playoff-Runde" → "PO",
-    /// "Achtelfinale" → "AF". Unbekannte Namen: Anfangsbuchstaben der Wörter. <c>null</c> ohne Namen — dann greift
-    /// der Rückfall über die Spielanzahl.</summary>
-    private static string? RundenKuerzelAusName(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name)) return null;
-
-        string normiert = name.Trim().ToLowerInvariant();
-        string? bekannt = normiert switch
-        {
-            "finale" => "F",
-            "halbfinale" => "HF",
-            "viertelfinale" => "VF",
-            "achtelfinale" => "AF",
-            "sechzehntelfinale" => "L32-",
-            _ when normiert.Contains("playoff") || normiert.Contains("play-off") => "PO",
-            _ => null
-        };
-        if (bekannt is not null) return bekannt;
-
-        string initialen = string.Concat(name
-            .Split([' ', '-', '.'], StringSplitOptions.RemoveEmptyEntries)
-            .Select(w => char.ToUpperInvariant(w[0])));
-        if (initialen.Length == 0) return null;
-        return char.IsDigit(initialen[^1]) ? initialen + "-" : initialen;
-    }
-
-    private static string RundenAnzeigeName(int anzahl) => anzahl switch
-    {
-        1 => "Finale",
-        2 => "Halbfinale",
-        4 => "Viertelfinale",
-        8 => "Achtelfinale",
-        16 => "Letzte 32",
-        32 => "Letzte 64",
-        _ => $"{anzahl} Spiele"
-    };
-
-    private static string RundenKuerzel(int anzahl) => anzahl switch
-    {
-        1 => "F",
-        2 => "HF",
-        4 => "VF",
-        8 => "AF",
-        16 => "L32-",
-        32 => "L64-",
-        _ => $"R{anzahl}-"
-    };
 }
