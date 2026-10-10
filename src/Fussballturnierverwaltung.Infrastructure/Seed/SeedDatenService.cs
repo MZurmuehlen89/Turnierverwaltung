@@ -11,13 +11,11 @@ public class SeedDatenService
     private readonly TurnierverwaltungDbContext _context;
     private readonly ILogger<SeedDatenService> _logger;
     private readonly List<SeedProtokollEintrag> _protokoll = [];
-    private readonly TurnierVorlagenNachruestung _vorlagen;
 
     public SeedDatenService(TurnierverwaltungDbContext context, ILogger<SeedDatenService> logger)
     {
         _context = context;
         _logger = logger;
-        _vorlagen = new TurnierVorlagenNachruestung(context, Protokollieren);
     }
 
     /// <summary>Erst-Seed bei leerer Datenbank, sonst fehlende Stammdaten nachrüsten. Liefert je Schritt, der
@@ -44,7 +42,8 @@ public class SeedDatenService
         await RegelwerkeNachruesten(cancellationToken);
         // Vor den Vorlagen: nachgerüstete Vorlagen verweisen auf Ranglisten-Quellen (Issue #349).
         await RanglistenQuellenNachruesten(cancellationToken);
-        await _vorlagen.AusfuehrenAsync(cancellationToken);
+        var vorlagen = await TurnierVorlagenNachruestung.LadenAsync(_context, Protokollieren, cancellationToken);
+        await vorlagen.AusfuehrenAsync(cancellationToken);
 
         return [.. _protokoll];
     }
@@ -346,7 +345,7 @@ public class SeedDatenService
         var regelwerkLookup = regelwerkeDefinitionen.ToDictionary(
             t => t.Regelwerk.Name, t => t.Regelwerk.Id);
         await RanglistenQuellenNachruesten(cancellationToken);
-        var quellenLookup = await _vorlagen.RanglistenQuellenLookupAsync(cancellationToken);
+        var quellenLookup = await TurnierVorlagenNachruestung.RanglistenQuellenIdsAsync(_context, cancellationToken);
         var vorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup, verbaendeLookup, laenderLookup, quellenLookup);
         _context.TurnierInstanzen.AddRange(vorlagen);
         await _context.SaveChangesAsync(cancellationToken);

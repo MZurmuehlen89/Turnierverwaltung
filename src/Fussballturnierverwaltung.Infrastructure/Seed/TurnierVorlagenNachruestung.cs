@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 using Microsoft.EntityFrameworkCore;
@@ -6,200 +7,281 @@ using Microsoft.EntityFrameworkCore;
 namespace Fussballturnierverwaltung.Infrastructure.Seed;
 
 /// <summary>Zieht bestehende Turniervorlagen auf neue Seed-Stände nach (Issue #440: aus
-/// <see cref="SeedDatenService"/> herausgelöst, weil dieser Teil mit jedem Vorlagen-Issue wächst).</summary>
+/// <see cref="SeedDatenService"/> herausgelöst, weil dieser Teil mit jedem Vorlagen-Issue wächst). Ein Objekt
+/// gilt für genau einen Lauf: Vorlagen und Seed-Stand werden einmal geladen, alle Schritte arbeiten auf denselben
+/// Objekten und sehen damit die Änderungen der vorherigen. Jeder Schritt ändert nur, was noch einem bekannten
+/// alten Seed-Stand entspricht — was der Nutzer an einer Vorlage angepasst hat, bleibt erhalten.</summary>
 internal sealed class TurnierVorlagenNachruestung
 {
+    // Seed-Stand der WM-24-Vorlage vor #350 (damals als "1982–1994" geführt).
+    private const string ALTE_BESCHREIBUNG_WM24 = "6 Dreiergruppen + Achtelfinale-Runde → K.-o.";
+    private static readonly DateOnly _altesEnddatumWm24 = new(1994, 12, 31);
+
+    // Seed-Stand der EM-Vorlage mit 8 Teams vor #375 (damals als "1960–1992" geführt).
+    private static readonly DateOnly _altesStartdatumEm8 = new(1960, 1, 1);
+    private static readonly (string Name, Rundenart Rundenart)[] _alteRundenEm8 =
+    [
+        ("Gruppenphase",     Rundenart.Gruppenphase),
+        ("Halbfinale",       Rundenart.KoRunde),
+        ("Spiel um Platz 3", Rundenart.SpielUmPlatzDrei),
+        ("Finale",           Rundenart.Finale),
+    ];
+
     private readonly TurnierverwaltungDbContext _context;
     private readonly Action<int, string> _protokollieren;
+    private readonly IReadOnlyDictionary<string, int> _regelwerkIds;
+    private readonly List<TurnierInstanz> _vorlagen;
+    private readonly Dictionary<(string Name, string Variante), TurnierInstanz> _seedStand;
+    // Eigene Objekte neben dem Vergleichsstand: was hiervon fehlt, wird gespeichert und gehört danach zum Bestand.
+    private readonly List<TurnierInstanz> _seedVorlagenZumAnlegen;
 
-    public TurnierVorlagenNachruestung(TurnierverwaltungDbContext context, Action<int, string> protokollieren)
+    private TurnierVorlagenNachruestung(
+        TurnierverwaltungDbContext context, Action<int, string> protokollieren,
+        IReadOnlyDictionary<string, int> regelwerkIds, List<TurnierInstanz> vorlagen,
+        List<TurnierInstanz> seedStand, List<TurnierInstanz> seedVorlagenZumAnlegen)
     {
         _context = context;
         _protokollieren = protokollieren;
+        _regelwerkIds = regelwerkIds;
+        _vorlagen = vorlagen;
+        _seedStand = seedStand.ToDictionary(Schluessel);
+        _seedVorlagenZumAnlegen = seedVorlagenZumAnlegen;
     }
 
-    public async Task AusfuehrenAsync(CancellationToken cancellationToken)
+    /// <summary>Verlangt, dass Regelwerke, Verbände, Länder und Ranglisten-Quellen schon nachgerüstet sind — die
+    /// Vorlagen aus dem Seed verweisen darauf.</summary>
+    public static async Task<TurnierVorlagenNachruestung> LadenAsync(
+        TurnierverwaltungDbContext context, Action<int, string> protokollieren, CancellationToken ct)
     {
-        await TurnierVorlagenUmbenennen(cancellationToken);
-        await TurnierVorlagenNachruesten(cancellationToken);
-        await TurnierVorlagenFilterNachruesten(cancellationToken);
-        await TurnierVorlagenRundenartNachruesten(cancellationToken);
-        await TurnierVorlagenLigaphaseRegelwerkNachruesten(cancellationToken);
-        await TurnierVorlagenCopaRegelwerkNachruesten(cancellationToken);
-        // Vor dem Regelwerk: die Umstellung ordnet Runden über Reihenfolge + Name zu (Issue #375).
-        await TurnierVorlageEm8SpielUmPlatzDreiEntfernen(cancellationToken);
-        await TurnierVorlagenEm8RegelwerkNachruesten(cancellationToken);
-        await TurnierVorlagenBeschreibungNachruesten(cancellationToken);
-        await TurnierVorlagenStrukturNachruesten(cancellationToken);
-        await TurnierVorlagenFesteKoBaeumeNachruesten(cancellationToken);
+        var regelwerkIds = await context.Regelwerke.ToDictionaryAsync(r => r.Name, r => r.Id, ct);
+        var verbandIds = await context.Verbaende.ToDictionaryAsync(v => v.Kurzname, v => v.Id, ct);
+        var landIds = await context.Laender.ToDictionaryAsync(l => l.FifaCode, l => l.Id, ct);
+        var quellenIds = await RanglistenQuellenIdsAsync(context, ct);
+        List<TurnierInstanz> SeedVorlagen() =>
+            TurnierVorlagenSeedDaten.Erstellen(regelwerkIds, verbandIds, landIds, quellenIds);
+
+        // Issue #294: Vorlagen sind TurnierInstanz-Zeilen mit Status Vorlage — der Status gehört zur Identität,
+        // damit ein echtes Turnier mit zufällig gleichem Namen nicht als "bereits vorhanden" zählt.
+        var vorlagen = await context.TurnierInstanzen
+            .Include(i => i.Runden)
+            .Include(i => i.Auslosungen)
+            .Where(i => i.Status == TurnierStatus.Vorlage)
+            .ToListAsync(ct);
+
+        return new(context, protokollieren, regelwerkIds, vorlagen, SeedVorlagen(), SeedVorlagen());
     }
 
-    private void Protokollieren(int anzahl, string text) => _protokollieren(anzahl, text);
+    public async Task AusfuehrenAsync(CancellationToken ct)
+    {
+        // Vor dem Ergänzen: sonst entstünde unter dem neuen Namen + Variante ein Duplikat (Issue #350/#367).
+        await SpeichernUndProtokollieren(Umbenennen(), "Turniervorlagen umbenannt.", ct);
+        await SpeichernUndProtokollieren(FehlendeErgaenzen(), "neue Turniervorlagen nachgerüstet.", ct);
+        await SpeichernUndProtokollieren(
+            FilterErgaenzen(), "Turniervorlagen um Verband-/Land-/Mannschaftsartfilter ergänzt.", ct);
+        await SpeichernUndProtokollieren(
+            SchweizerLigaphaseAufTopfLigaKorrigieren(), "Vorlagen-Runden von SchweizerSystem auf TopfLiga korrigiert.", ct);
+        await SpeichernUndProtokollieren(
+            LigaphaseRegelwerkUmstellen(), "Vorlagen-Runden auf das Regelwerk der UEFA-Ligaphase umgestellt.", ct);
+        await SpeichernUndProtokollieren(
+            CopaRegelwerkUmstellen(), "Vorlagen-Runden der Copa América auf direktes Elfmeterschießen umgestellt.", ct);
+        // Vor dem Regelwerk: die Umstellung ordnet Runden über Reihenfolge + Name zu (Issue #375).
+        await SpeichernUndProtokollieren(
+            await Em8SpielUmPlatzDreiEntfernenAsync(ct),
+            "Spiel um Platz 3 aus der Vorlage „UEFA EM · 8 Teams · 1984–1992“ entfernt.", ct);
+        await SpeichernUndProtokollieren(
+            Em8RegelwerkUmstellen(),
+            "Vorlagen-Runden der EM mit 8 Teams auf das 2-Punkte-Regelwerk mit Verlängerung + Elfmeterschießen umgestellt.", ct);
+        await SpeichernUndProtokollieren(
+            BeschreibungenAktualisieren(), "Beschreibungen von Turniervorlagen aktualisiert.", ct);
+        await SpeichernUndProtokollieren(
+            await StrukturErgaenzenAsync(ct), "Struktur-Ergänzungen an Turniervorlagen nachgerüstet.", ct);
+        await SpeichernUndProtokollieren(FesteKoBaeumeErgaenzen(), "Turniervorlagen um festen K.-o.-Baum ergänzt.", ct);
+    }
+
+    // Quellennamen sind nicht eindeutig erzwungen (frei anlegbar im Quellen-Dialog) — bei Dubletten gilt die älteste.
+    internal static async Task<Dictionary<string, int>> RanglistenQuellenIdsAsync(
+        TurnierverwaltungDbContext context, CancellationToken ct) =>
+        (await context.RanglistenQuellen.Select(q => new { q.Name, q.Id }).ToListAsync(ct))
+            .GroupBy(q => q.Name)
+            .ToDictionary(g => g.Key, g => g.Min(q => q.Id));
+
+    // ── Gemeinsame Bausteine ───────────────────────────────────────────────────
 
     // Issue #367: Vorlagen sind über Name + Variante identifiziert (mehrere "FIFA WM" mit verschiedener Variante).
     private static (string Name, string Variante) Schluessel(TurnierInstanz vorlage) => (vorlage.Name, vorlage.Variante);
 
-    /// <summary>Issue #294: seit der Vorlage/Instanz-Vereinheitlichung sind Vorlagen ganz normale
-    /// <see cref="Domain.Entitaeten.Turniere.TurnierInstanz"/>-Zeilen mit
-    /// <see cref="Domain.Enums.TurnierStatus.Vorlage"/> — Name **und** Status bilden die Identität, damit
-    /// ein echtes Turnier mit zufällig gleichem Namen nicht fälschlich als "bereits vorhanden" zählt.
-    /// Ersetzt die vormals drei getrennten Methoden (Vorlagen/Runden/Runden-Regelwerke), da eine neue
-    /// Vorlage jetzt als vollständiger Objektgraph (inkl. Runden + Übergangsregeln) in einem Zug eingefügt wird.</summary>
-    private async Task TurnierVorlagenNachruesten(CancellationToken ct)
+    private bool IstVorhanden((string Name, string Variante) schluessel) =>
+        _vorlagen.Any(v => Schluessel(v) == schluessel);
+
+    /// <summary>Bestands-Vorlagen, die es im Seed gibt, je mit ihrem Seed-Stand — vom Nutzer angelegte Vorlagen
+    /// bleiben außen vor.</summary>
+    private IEnumerable<(TurnierInstanz Vorlage, TurnierInstanz Soll)> MitSeedStand()
     {
-        var vorhandeneSchluessel = (await _context.TurnierInstanzen
-            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
-            .Select(v => new { v.Name, v.Variante })
-            .ToListAsync(ct))
-            .Select(v => (v.Name, v.Variante))
-            .ToHashSet();
-
-        var regelwerkLookup = await _context.Regelwerke
-            .ToDictionaryAsync(r => r.Name, r => r.Id, ct);
-        var verbandLookup = await _context.Verbaende
-            .ToDictionaryAsync(v => v.Kurzname, v => v.Id, ct);
-        var landLookup = await _context.Laender
-            .ToDictionaryAsync(l => l.FifaCode, l => l.Id, ct);
-
-        var alleVorlagen = TurnierVorlagenSeedDaten.Erstellen(
-            regelwerkLookup, verbandLookup, landLookup, await RanglistenQuellenLookupAsync(ct));
-        int hinzugefuegt = 0;
-
-        foreach (var vorlage in alleVorlagen)
-        {
-            if (vorhandeneSchluessel.Contains(Schluessel(vorlage))) continue;
-            _context.TurnierInstanzen.Add(vorlage);
-            hinzugefuegt++;
-        }
-
-        if (hinzugefuegt > 0)
-        {
-            await _context.SaveChangesAsync(ct);
-            Protokollieren(hinzugefuegt, "neue Turniervorlagen nachgerüstet.");
-        }
+        foreach (var vorlage in _vorlagen)
+            if (_seedStand.TryGetValue(Schluessel(vorlage), out var soll)) yield return (vorlage, soll);
     }
 
-    /// <summary>Issue #189-Vorarbeit: VerbandId/LandId/MannschaftsartFilter wurden nachträglich zu
-    /// TurnierInstanz hinzugefügt und beim ursprünglichen Vorlagen-Seed nicht rückwirkend gepflegt. Trägt
-    /// sie bei bereits vorhandenen Vorlagen nach — nur wo das Feld noch auf dem technischen Default steht,
-    /// damit eine eventuell schon manuell in der UI vorgenommene Anpassung nicht überschrieben wird.</summary>
-    private async Task TurnierVorlagenFilterNachruesten(CancellationToken ct)
+    private async Task SpeichernUndProtokollieren(int anzahl, string text, CancellationToken ct)
     {
-        var verbandLookup = await _context.Verbaende
-            .ToDictionaryAsync(v => v.Kurzname, v => v.Id, ct);
-        var landLookup = await _context.Laender
-            .ToDictionaryAsync(l => l.FifaCode, l => l.Id, ct);
-        var sollFilter = TurnierVorlagenSeedDaten.FilterNachVorlagenSchluessel(verbandLookup, landLookup);
+        if (anzahl == 0) return;
+        await _context.SaveChangesAsync(ct);
+        _protokollieren(anzahl, text);
+    }
 
-        var vorhandeneVorlagen = await _context.TurnierInstanzen
-            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
-            .ToListAsync(ct);
+    // ── Umbenennen und Ergänzen ────────────────────────────────────────────────
 
-        int aktualisiert = 0;
-        foreach (var vorlage in vorhandeneVorlagen)
+    /// <summary>Issue #350/#367/#375: benennt Bestands-Vorlagen um, deren Name oder Variante sich im Seed geändert
+    /// hat — nur, solange unter dem neuen Namen + Variante noch keine Vorlage existiert.</summary>
+    private int Umbenennen()
+    {
+        int umbenannt = KlammerzusaetzeInVarianteVerschieben();
+        umbenannt += VariantenUmstellen();
+        return umbenannt;
+    }
+
+    // Seit #367 steht der Klammerzusatz des Namens im Feld Variante. Beschreibung und Daten ziehen nur mit, wenn
+    // sie noch dem alten Seed-Stand entsprechen.
+    private int KlammerzusaetzeInVarianteVerschieben()
+    {
+        int umbenannt = 0;
+        foreach (var (alterName, neu) in TurnierVorlagenSeedDaten.UmbenennungenNachAltemNamen)
         {
-            if (!sollFilter.TryGetValue(Schluessel(vorlage), out var soll)) continue;
+            var vorlage = _vorlagen.FirstOrDefault(v => v.Name == alterName);
+            if (vorlage is null || IstVorhanden(neu)) continue;
+
+            var soll = _seedStand[neu];
+            vorlage.Name = neu.Name;
+            vorlage.Variante = neu.Variante;
+            if (vorlage.Beschreibung == ALTE_BESCHREIBUNG_WM24) vorlage.Beschreibung = soll.Beschreibung;
+            if (vorlage.Enddatum == _altesEnddatumWm24) vorlage.Enddatum = soll.Enddatum;
+            if (vorlage.Startdatum == _altesStartdatumEm8) vorlage.Startdatum = soll.Startdatum;
+            umbenannt++;
+        }
+        return umbenannt;
+    }
+
+    // Issue #375: Vorlagen, die schon Name + Variante tragen und nur eine neue Variante bekommen.
+    private int VariantenUmstellen()
+    {
+        int umbenannt = 0;
+        foreach (var (alt, neueVariante) in TurnierVorlagenSeedDaten.VariantenUmbenennungen)
+        {
+            var neu = (alt.Name, neueVariante);
+            var vorlage = _vorlagen.FirstOrDefault(v => Schluessel(v) == alt);
+            if (vorlage is null || IstVorhanden(neu)) continue;
+
+            vorlage.Variante = neueVariante;
+            if (vorlage.Startdatum == _altesStartdatumEm8) vorlage.Startdatum = _seedStand[neu].Startdatum;
+            umbenannt++;
+        }
+        return umbenannt;
+    }
+
+    /// <summary>Legt Seed-Vorlagen, die im Bestand fehlen, als vollständigen Objektgraph an (Runden,
+    /// Übergangsregeln, feste Paarungen).</summary>
+    private int FehlendeErgaenzen()
+    {
+        var fehlende = _seedVorlagenZumAnlegen.Where(v => !IstVorhanden(Schluessel(v))).ToList();
+        _context.TurnierInstanzen.AddRange(fehlende);
+        _vorlagen.AddRange(fehlende);
+        return fehlende.Count;
+    }
+
+    /// <summary>Issue #189-Vorarbeit: VerbandId/LandId/MannschaftsartFilter kamen nachträglich zu TurnierInstanz
+    /// hinzu. Trägt sie nur nach, wo alle drei noch auf dem technischen Default stehen.</summary>
+    private int FilterErgaenzen()
+    {
+        int ergaenzt = 0;
+        foreach (var (vorlage, soll) in MitSeedStand())
+        {
             if (vorlage.VerbandId is not null || vorlage.LandId is not null
-                || vorlage.MannschaftsartFilter != Domain.Enums.MannschaftsartFilter.Alle) continue;
+                || vorlage.MannschaftsartFilter != MannschaftsartFilter.Alle) continue;
 
             vorlage.VerbandId = soll.VerbandId;
             vorlage.LandId = soll.LandId;
             vorlage.MannschaftsartFilter = soll.MannschaftsartFilter;
-            aktualisiert++;
+            ergaenzt++;
         }
-
-        if (aktualisiert > 0)
-        {
-            await _context.SaveChangesAsync(ct);
-            Protokollieren(aktualisiert, "Turniervorlagen um Verband-/Land-/Mannschaftsartfilter ergänzt.");
-        }
+        return ergaenzt;
     }
 
+    // ── Rundenart und Regelwerk ────────────────────────────────────────────────
+
     /// <summary>Issue #343: der #328-Fix (CL/EL/ECL-Ligaphase TopfLiga statt SchweizerSystem) änderte nur die
-    /// Seed-Daten — <see cref="TurnierVorlagenNachruesten"/> ergänzt ausschließlich fehlende Vorlagen, bestehende
-    /// Datenbanken behielten daher die falsche Rundenart. Korrigiert gezielt nur diesen bekannten Altwert (Runde
-    /// derselben Reihenfolge und desselben Namens steht noch auf SchweizerSystem, Seed sagt TopfLiga), damit
-    /// manuelle Anpassungen an Vorlagen nicht überschrieben werden.</summary>
-    private async Task TurnierVorlagenRundenartNachruesten(CancellationToken ct)
+    /// Seed-Daten, bestehende Datenbanken behielten die falsche Rundenart. Korrigiert nur diesen bekannten
+    /// Altwert.</summary>
+    private int SchweizerLigaphaseAufTopfLigaKorrigieren()
     {
-        var regelwerkLookup = await _context.Regelwerke
-            .ToDictionaryAsync(r => r.Name, r => r.Id, ct);
-        var verbandLookup = await _context.Verbaende
-            .ToDictionaryAsync(v => v.Kurzname, v => v.Id, ct);
-        var landLookup = await _context.Laender
-            .ToDictionaryAsync(l => l.FifaCode, l => l.Id, ct);
-        var sollVorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup, verbandLookup, landLookup)
-            .ToDictionary(Schluessel);
-
-        var vorhandeneVorlagen = await _context.TurnierInstanzen
-            .Include(i => i.Runden)
-            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
-            .ToListAsync(ct);
-
-        int aktualisiert = 0;
-        foreach (var vorlage in vorhandeneVorlagen)
+        int korrigiert = 0;
+        foreach (var (vorlage, soll) in MitSeedStand())
         {
-            if (!sollVorlagen.TryGetValue(Schluessel(vorlage), out var soll)) continue;
-            foreach (var runde in vorlage.Runden.Where(r => r.Rundenart == Domain.Enums.Rundenart.SchweizerSystem))
+            foreach (var runde in vorlage.Runden.Where(r => r.Rundenart == Rundenart.SchweizerSystem))
             {
-                var sollRunde = soll.Runden.FirstOrDefault(r => r.Reihenfolge == runde.Reihenfolge && r.Name == runde.Name);
-                if (sollRunde?.Rundenart != Domain.Enums.Rundenart.TopfLiga) continue;
+                if (SeedVorlagenAbgleich.Gegenstueck(soll, runde)?.Rundenart != Rundenart.TopfLiga) continue;
 
-                runde.Rundenart = Domain.Enums.Rundenart.TopfLiga;
+                runde.Rundenart = Rundenart.TopfLiga;
                 runde.KonfigurationJson = null; // AnzahlSpieltage ist nur für SchweizerSystem relevant
-                aktualisiert++;
+                korrigiert++;
             }
         }
-
-        if (aktualisiert > 0)
-        {
-            await _context.SaveChangesAsync(ct);
-            Protokollieren(aktualisiert, "Vorlagen-Runden von SchweizerSystem auf TopfLiga korrigiert.");
-        }
+        return korrigiert;
     }
 
     /// <summary>Issue #353: CL/EL/ECL ab 2024/25 haben ein eigenes Regelwerk mit der Rangfolge der Ligaphase,
     /// bestehende Vorlagen behielten "UEFA Clubwettbewerb Standard" (direkter Vergleich zuerst).</summary>
-    private Task TurnierVorlagenLigaphaseRegelwerkNachruesten(CancellationToken ct) =>
-        TurnierVorlagenRegelwerkUmstellen(
-            TurnierVorlagenSeedDaten.UEFA_CLUB_STANDARD, TurnierVorlagenSeedDaten.UEFA_LIGAPHASE,
-            "Vorlagen-Runden auf das Regelwerk der UEFA-Ligaphase umgestellt.", ct);
+    private int LigaphaseRegelwerkUmstellen() =>
+        RegelwerkUmstellen(TurnierVorlagenSeedDaten.UEFA_CLUB_STANDARD, TurnierVorlagenSeedDaten.UEFA_LIGAPHASE);
 
     /// <summary>Issue #374: die Copa América spielt Viertelfinale, Halbfinale und Spiel um Platz 3 ohne
     /// Verlängerung, bestehende Vorlagen behielten dort das FIFA-Regelwerk (Verlängerung + Elfmeterschießen).</summary>
-    private Task TurnierVorlagenCopaRegelwerkNachruesten(CancellationToken ct) =>
-        TurnierVorlagenRegelwerkUmstellen(
-            TurnierVorlagenSeedDaten.FIFA_STANDARD_MODERN, TurnierVorlagenSeedDaten.COPA_DIREKTES_ELFMETERSCHIESSEN,
-            "Vorlagen-Runden der Copa América auf direktes Elfmeterschießen umgestellt.", ct);
+    private int CopaRegelwerkUmstellen() =>
+        RegelwerkUmstellen(
+            TurnierVorlagenSeedDaten.FIFA_STANDARD_MODERN, TurnierVorlagenSeedDaten.COPA_DIREKTES_ELFMETERSCHIESSEN);
 
     /// <summary>Issue #375: die EM-Endrunden 1984–1992 liefen mit zwei Punkten je Sieg, Verlängerung und
     /// Elfmeterschießen — die frühere Sammelvorlage stand auf Wiederholungsspiel + Los.</summary>
-    private Task TurnierVorlagenEm8RegelwerkNachruesten(CancellationToken ct) =>
-        TurnierVorlagenRegelwerkUmstellen(
-            TurnierVorlagenSeedDaten.HISTORISCH_WIEDERHOLUNGSSPIEL_LOS, TurnierVorlagenSeedDaten.FIFA_HISTORISCH_2_PUNKTE,
-            "Vorlagen-Runden der EM mit 8 Teams auf das 2-Punkte-Regelwerk mit Verlängerung + Elfmeterschießen umgestellt.", ct);
+    private int Em8RegelwerkUmstellen() =>
+        RegelwerkUmstellen(
+            TurnierVorlagenSeedDaten.HISTORISCH_WIEDERHOLUNGSSPIEL_LOS, TurnierVorlagenSeedDaten.FIFA_HISTORISCH_2_PUNKTE);
+
+    /// <summary>Stellt nur Runden um, die noch auf genau dem alten Seed-Regelwerk stehen und deren Gegenstück im
+    /// Seed das neue nutzt.</summary>
+    private int RegelwerkUmstellen(string altesRegelwerk, string neuesRegelwerk)
+    {
+        if (!_regelwerkIds.TryGetValue(altesRegelwerk, out int altId)
+            || !_regelwerkIds.TryGetValue(neuesRegelwerk, out int neuId)) return 0;
+
+        int umgestellt = 0;
+        foreach (var (vorlage, soll) in MitSeedStand())
+        {
+            foreach (var runde in vorlage.Runden.Where(r => r.RegelwerkId == altId))
+            {
+                if (SeedVorlagenAbgleich.Gegenstueck(soll, runde)?.RegelwerkId != neuId) continue;
+
+                runde.RegelwerkId = neuId;
+                umgestellt++;
+            }
+        }
+        return umgestellt;
+    }
 
     /// <summary>Issue #375: die frühere Sammelvorlage „8 Teams · 1960–1992“ hatte ein Spiel um Platz 3, das es
     /// im Format 1984–1992 nicht mehr gab. Entfernt die Runde samt ihrer festen Paarung und rückt das Finale
     /// nach — nur, solange die Runden noch dem alten Seed-Stand entsprechen und keine Übergangsregel an der
-    /// Runde hängt; eine vom Nutzer umgebaute Vorlage bleibt unangetastet.</summary>
-    private async Task TurnierVorlageEm8SpielUmPlatzDreiEntfernen(CancellationToken ct)
+    /// Runde hängt.</summary>
+    private async Task<int> Em8SpielUmPlatzDreiEntfernenAsync(CancellationToken ct)
     {
-        var vorlage = await _context.TurnierInstanzen
-            .Include(i => i.Runden)
-            .Include(i => i.Auslosungen)
-            .FirstOrDefaultAsync(i => i.Status == Domain.Enums.TurnierStatus.Vorlage
-                                   && i.Name == "UEFA EM"
-                                   && i.Variante == TurnierVorlagenSeedDaten.EM_8_TEAMS_1984_BIS_1992, ct);
-        if (vorlage is null) return;
+        var vorlage = _vorlagen.FirstOrDefault(
+            v => Schluessel(v) == ("UEFA EM", TurnierVorlagenSeedDaten.EM_8_TEAMS_1984_BIS_1992));
+        if (vorlage is null) return 0;
 
         var runden = vorlage.Runden.OrderBy(r => r.Reihenfolge).ToList();
-        if (!runden.Select(r => (r.Name, r.Rundenart)).SequenceEqual(_alteRundenEm8)) return;
+        if (!runden.Select(r => (r.Name, r.Rundenart)).SequenceEqual(_alteRundenEm8)) return 0;
 
         var platzDrei = runden[2];
         var finale = runden[3];
         if (await _context.Uebergangsregeln.AnyAsync(u => u.QuellRundeId == platzDrei.Id || u.ZielRundeId == platzDrei.Id, ct))
-            return;
+            return 0;
 
         // Auslosung → Runde ist NoAction, daher zuerst die Auslosung; das Finale rückt erst nach dem Löschen
         // nach, weil (TurnierInstanzId, Reihenfolge) eindeutig ist.
@@ -208,287 +290,73 @@ internal sealed class TurnierVorlagenNachruestung
         await _context.SaveChangesAsync(ct);
 
         finale.Reihenfolge = platzDrei.Reihenfolge;
-        await _context.SaveChangesAsync(ct);
-        Protokollieren(1, "Spiel um Platz 3 aus der Vorlage „UEFA EM · 8 Teams · 1984–1992“ entfernt.");
+        return 1;
     }
 
-    // Runden der EM-Sammelvorlage „8 Teams · 1960–1992“ vor #375.
-    private static readonly (string Name, Domain.Enums.Rundenart Rundenart)[] _alteRundenEm8 =
-    [
-        ("Gruppenphase",     Domain.Enums.Rundenart.Gruppenphase),
-        ("Halbfinale",       Domain.Enums.Rundenart.KoRunde),
-        ("Spiel um Platz 3", Domain.Enums.Rundenart.SpielUmPlatzDrei),
-        ("Finale",           Domain.Enums.Rundenart.Finale),
-    ];
+    // ── Beschreibung und Struktur ──────────────────────────────────────────────
 
-    /// <summary>Issue #374: zieht die Beschreibung bestehender Vorlagen auf den Seed-Stand nach — nur, solange
-    /// sie noch wörtlich dem alten Seed-Text entspricht, eine vom Nutzer geänderte Beschreibung bleibt erhalten.</summary>
-    private async Task TurnierVorlagenBeschreibungNachruesten(CancellationToken ct)
+    /// <summary>Issue #374: zieht die Beschreibung auf den Seed-Stand nach — nur, solange sie noch wörtlich dem
+    /// alten Seed-Text entspricht.</summary>
+    private int BeschreibungenAktualisieren()
     {
-        var sollVorlagen = TurnierVorlagenSeedDaten.Erstellen().ToDictionary(Schluessel);
-        var vorhandeneVorlagen = await _context.TurnierInstanzen
-            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
-            .ToListAsync(ct);
-
         int aktualisiert = 0;
-        foreach (var vorlage in vorhandeneVorlagen)
+        foreach (var (vorlage, soll) in MitSeedStand())
         {
             if (!TurnierVorlagenSeedDaten.AlteBeschreibungen.TryGetValue(Schluessel(vorlage), out string? alt)
                 || vorlage.Beschreibung != alt) continue;
 
-            vorlage.Beschreibung = sollVorlagen[Schluessel(vorlage)].Beschreibung;
+            vorlage.Beschreibung = soll.Beschreibung;
             aktualisiert++;
         }
-
-        if (aktualisiert > 0)
-        {
-            await _context.SaveChangesAsync(ct);
-            Protokollieren(aktualisiert, "Beschreibungen von Turniervorlagen aktualisiert.");
-        }
-    }
-
-    /// <summary><see cref="TurnierVorlagenNachruesten"/> ergänzt nur fehlende Vorlagen — wechselt der Seed das
-    /// Regelwerk einer Runde, behalten bestehende Vorlagen das alte. Stellt nur Runden um, die noch auf genau
-    /// diesem alten Seed-Wert stehen und deren Seed-Gegenstück (Reihenfolge + Name) das neue Regelwerk nutzt —
-    /// ein vom Nutzer gewähltes anderes Regelwerk bleibt erhalten.</summary>
-    private async Task TurnierVorlagenRegelwerkUmstellen(
-        string altesRegelwerk, string neuesRegelwerk, string protokollText, CancellationToken ct)
-    {
-        var regelwerkLookup = await _context.Regelwerke
-            .ToDictionaryAsync(r => r.Name, r => r.Id, ct);
-        if (!regelwerkLookup.TryGetValue(altesRegelwerk, out int altId)
-            || !regelwerkLookup.TryGetValue(neuesRegelwerk, out int neuId)) return;
-
-        var sollVorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup).ToDictionary(Schluessel);
-
-        var vorhandeneVorlagen = await _context.TurnierInstanzen
-            .Include(i => i.Runden)
-            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
-            .ToListAsync(ct);
-
-        int aktualisiert = 0;
-        foreach (var vorlage in vorhandeneVorlagen)
-        {
-            if (!sollVorlagen.TryGetValue(Schluessel(vorlage), out var soll)) continue;
-            foreach (var runde in vorlage.Runden.Where(r => r.RegelwerkId == altId))
-            {
-                var sollRunde = soll.Runden.FirstOrDefault(r => r.Reihenfolge == runde.Reihenfolge && r.Name == runde.Name);
-                if (sollRunde?.RegelwerkId != neuId) continue;
-
-                runde.RegelwerkId = neuId;
-                aktualisiert++;
-            }
-        }
-
-        if (aktualisiert > 0)
-        {
-            await _context.SaveChangesAsync(ct);
-            Protokollieren(aktualisiert, protokollText);
-        }
-    }
-
-    // Seed-Stand der WM-24-Vorlage vor #350 (damals als "1982–1994" geführt).
-    private const string ALTE_BESCHREIBUNG_WM24 = "6 Dreiergruppen + Achtelfinale-Runde → K.-o.";
-
-    // Seed-Stand der EM-Vorlage mit 8 Teams vor #375 (damals als "1960–1992" geführt).
-    private static readonly DateOnly _altesStartdatumEm8 = new(1960, 1, 1);
-
-    /// <summary>Issue #350/#367: benennt Bestands-Vorlagen um, deren Seed-Name sich geändert hat (seit #367 inkl.
-    /// Verschiebung des Klammerzusatzes in <see cref="TurnierInstanz.Variante"/>) — muss vor
-    /// <see cref="TurnierVorlagenNachruesten"/> laufen, sonst entstünde unter dem neuen Schlüssel ein Duplikat. Nur,
-    /// solange unter dem neuen Namen + Variante noch keine Vorlage existiert. Beschreibung/Enddatum werden nur mitgezogen,
-    /// wenn sie noch dem alten Seed-Stand entsprechen (keine manuelle Anpassung überschreiben).</summary>
-    private async Task TurnierVorlagenUmbenennen(CancellationToken ct)
-    {
-        var vorlagen = await _context.TurnierInstanzen
-            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
-            .ToListAsync(ct);
-        var sollNachSchluessel = TurnierVorlagenSeedDaten.Erstellen().ToDictionary(Schluessel);
-
-        int umbenannt = 0;
-        foreach (var (alterName, neu) in TurnierVorlagenSeedDaten.UmbenennungenNachAltemNamen)
-        {
-            var alt = vorlagen.FirstOrDefault(v => v.Name == alterName);
-            if (alt is null || vorlagen.Any(v => Schluessel(v) == neu)) continue;
-
-            var soll = sollNachSchluessel[neu];
-            alt.Name = neu.Name;
-            alt.Variante = neu.Variante;
-            if (alt.Beschreibung == ALTE_BESCHREIBUNG_WM24) alt.Beschreibung = soll.Beschreibung;
-            if (alt.Enddatum == new DateOnly(1994, 12, 31)) alt.Enddatum = soll.Enddatum;
-            if (alt.Startdatum == _altesStartdatumEm8) alt.Startdatum = soll.Startdatum;
-            umbenannt++;
-        }
-
-        // Issue #375: Vorlagen, die schon Name + Variante tragen und nur eine neue Variante bekommen.
-        foreach (var (alt, neueVariante) in TurnierVorlagenSeedDaten.VariantenUmbenennungen)
-        {
-            var neu = (alt.Name, neueVariante);
-            var vorlage = vorlagen.FirstOrDefault(v => Schluessel(v) == alt);
-            if (vorlage is null || vorlagen.Any(v => Schluessel(v) == neu)) continue;
-
-            vorlage.Variante = neueVariante;
-            if (vorlage.Startdatum == _altesStartdatumEm8) vorlage.Startdatum = sollNachSchluessel[neu].Startdatum;
-            umbenannt++;
-        }
-
-        if (umbenannt > 0)
-        {
-            await _context.SaveChangesAsync(ct);
-            Protokollieren(umbenannt, "Turniervorlagen umbenannt.");
-        }
+        return aktualisiert;
     }
 
     /// <summary>Issue #350: ältere Seed-Stände legten Gruppenphasen ohne <c>GruppenAnzahl</c> und Vorlagen mit
     /// besten Gruppendritten (EM 24) ohne Übergangsregeln an — solche Vorlagen scheiterten beim Speichern am
-    /// TurnierValidator bzw. konnten die Dritten nicht weiterleiten. Ergänzt ausschließlich fehlende Werte:
-    /// <c>GruppenAnzahl</c> nur, wo sie leer ist; Übergangsregeln nur bei Vorlagen ganz ohne Regeln, deren
-    /// beteiligte Runden noch dem Seed entsprechen; <c>EingangUeberUebergangsregeln</c> nur bei Runden mit
-    /// tatsächlich eingehenden Regeln (fehlte auch beim Achtelfinale von CL/EL/ECL ab 2024/25).</summary>
-    private async Task TurnierVorlagenStrukturNachruesten(CancellationToken ct)
+    /// TurnierValidator bzw. konnten die Dritten nicht weiterleiten. Die Reihenfolge zählt: die Übergangsregeln
+    /// setzen die Gruppenanzahl voraus, der Eingang über Übergangsregeln die Regeln.</summary>
+    private async Task<int> StrukturErgaenzenAsync(CancellationToken ct)
     {
-        var sollVorlagen = TurnierVorlagenSeedDaten.Erstellen().ToDictionary(Schluessel);
+        var uebergangsregeln = await UebergangsregelnDerVorlagenAsync(ct);
 
-        var vorhandeneVorlagen = await _context.TurnierInstanzen
-            .Include(i => i.Runden)
-            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
-            .ToListAsync(ct);
-        var rundenIds = vorhandeneVorlagen.SelectMany(v => v.Runden).Select(r => r.Id).ToList();
-        var vorhandeneRegeln = await _context.Uebergangsregeln
-            .Where(u => rundenIds.Contains(u.QuellRundeId))
-            .ToListAsync(ct);
-
-        int aktualisiert = 0;
-        foreach (var vorlage in vorhandeneVorlagen)
+        int ergaenzt = 0;
+        foreach (var (vorlage, soll) in MitSeedStand())
         {
-            if (!sollVorlagen.TryGetValue(Schluessel(vorlage), out var soll)) continue;
-
-            TurnierRunde? Zuordnen(TurnierRunde sollRunde) =>
-                vorlage.Runden.FirstOrDefault(r => r.Reihenfolge == sollRunde.Reihenfolge && r.Name == sollRunde.Name);
-
-            foreach (var sollRunde in soll.Runden.Where(r => r.GruppenAnzahl is not null))
-            {
-                var runde = Zuordnen(sollRunde);
-                if (runde is null || runde.GruppenAnzahl is not null || runde.Rundenart != sollRunde.Rundenart) continue;
-                runde.GruppenAnzahl = sollRunde.GruppenAnzahl;
-                aktualisiert++;
-            }
-
-            var eigeneRundenIds = vorlage.Runden.Select(r => r.Id).ToHashSet();
-            var sollRegeln = soll.Runden.SelectMany(r => r.Uebergangsregeln).ToList();
-            if (sollRegeln.Count > 0 && !vorhandeneRegeln.Any(u => eigeneRundenIds.Contains(u.QuellRundeId)))
-            {
-                var zuordnung = sollRegeln
-                    .SelectMany(u => new[] { u.QuellRunde, u.ZielRunde })
-                    .Distinct()
-                    .ToDictionary(r => r, Zuordnen);
-                bool passt = zuordnung.All(z => z.Value is not null
-                    && z.Value.Rundenart == z.Key.Rundenart
-                    && z.Value.EingangsMannschaftsanzahl == z.Key.EingangsMannschaftsanzahl
-                    && z.Value.AusgangsMannschaftsanzahl == z.Key.AusgangsMannschaftsanzahl
-                    && z.Value.GruppenAnzahl == z.Key.GruppenAnzahl);
-                if (passt)
-                {
-                    foreach (var sollRegel in sollRegeln)
-                    {
-                        var regel = new Uebergangsregel
-                        {
-                            QuellRundeId   = zuordnung[sollRegel.QuellRunde]!.Id,
-                            ZielRundeId    = zuordnung[sollRegel.ZielRunde]!.Id,
-                            GruppeIndex    = sollRegel.GruppeIndex,
-                            PlatzierungVon = sollRegel.PlatzierungVon,
-                            PlatzierungBis = sollRegel.PlatzierungBis,
-                            AnzahlBeste    = sollRegel.AnzahlBeste,
-                        };
-                        _context.Uebergangsregeln.Add(regel);
-                        vorhandeneRegeln.Add(regel);
-                    }
-                    aktualisiert++;
-                }
-            }
-
-            foreach (var sollRunde in soll.Runden.Where(r => r.EingangUeberUebergangsregeln))
-            {
-                var runde = Zuordnen(sollRunde);
-                if (runde is null || runde.EingangUeberUebergangsregeln) continue;
-                if (!vorhandeneRegeln.Any(u => u.ZielRundeId == runde.Id)) continue;
-                runde.EingangUeberUebergangsregeln = true;
-                aktualisiert++;
-            }
+            ergaenzt += SeedVorlagenAbgleich.GruppenAnzahlErgaenzen(vorlage, soll);
+            ergaenzt += UebergangsregelnErgaenzen(vorlage, soll, uebergangsregeln);
+            ergaenzt += SeedVorlagenAbgleich.EingangUeberUebergangsregelnSetzen(vorlage, soll, uebergangsregeln);
         }
-
-        if (aktualisiert > 0)
-        {
-            await _context.SaveChangesAsync(ct);
-            Protokollieren(aktualisiert, "Struktur-Ergänzungen an Turniervorlagen nachgerüstet.");
-        }
+        return ergaenzt;
     }
 
-    /// <summary>Issue #372: trägt den realen festen K.-o.-Baum (Vorbelegung + ggf. Kombinationstabelle) bei
-    /// bestehenden Vorlagen nach. Nur, wenn ALLE betroffenen Runden noch dem Seed entsprechen (Reihenfolge,
-    /// Name, Rundenart, Eingangsanzahl) und keine davon schon eine Auslosung hat — eine manuell angelegte
-    /// Vorbelegung wird nie überschrieben, ein halb nachgerüsteter Baum entsteht nie.</summary>
-    private async Task TurnierVorlagenFesteKoBaeumeNachruesten(CancellationToken ct)
+    private Task<List<Uebergangsregel>> UebergangsregelnDerVorlagenAsync(CancellationToken ct)
     {
-        var sollVorlagen = TurnierVorlagenSeedDaten.Erstellen()
-            .Where(v => v.Auslosungen.Count > 0)
-            .ToDictionary(Schluessel);
-
-        var vorhandeneVorlagen = await _context.TurnierInstanzen
-            .Include(i => i.Runden)
-            .Include(i => i.Auslosungen)
-            .Where(i => i.Status == Domain.Enums.TurnierStatus.Vorlage)
-            .ToListAsync(ct);
-
-        int aktualisiert = 0;
-        foreach (var vorlage in vorhandeneVorlagen)
-        {
-            if (!sollVorlagen.TryGetValue(Schluessel(vorlage), out var soll)) continue;
-
-            var zuordnung = soll.Auslosungen.ToDictionary(
-                a => a,
-                a => vorlage.Runden.FirstOrDefault(r =>
-                    r.Reihenfolge == a.TurnierRunde.Reihenfolge
-                    && r.Name == a.TurnierRunde.Name
-                    && r.Rundenart == a.TurnierRunde.Rundenart
-                    && r.EingangsMannschaftsanzahl == a.TurnierRunde.EingangsMannschaftsanzahl));
-            if (zuordnung.Values.Any(r => r is null)) continue;
-            if (zuordnung.Values.Any(r => vorlage.Auslosungen.Any(a => a.TurnierRundeId == r!.Id))) continue;
-
-            foreach (var (sollAuslosung, runde) in zuordnung)
-            {
-                runde!.PaarungFestVorgegeben = true;
-                runde.KombinationstabelleJson ??= sollAuslosung.TurnierRunde.KombinationstabelleJson;
-                var auslosung = new Domain.Entitaeten.Auslosungen.Auslosung
-                {
-                    TurnierInstanzId = vorlage.Id,
-                    TurnierRundeId   = runde.Id,
-                    Name             = sollAuslosung.Name,
-                    Auslosungsart    = sollAuslosung.Auslosungsart,
-                    Status           = sollAuslosung.Status,
-                };
-                foreach (var e in sollAuslosung.Ergebnisse)
-                    auslosung.Ergebnisse.Add(new Domain.Entitaeten.Auslosungen.AuslosungsErgebnis
-                    {
-                        PaarungsNummer           = e.PaarungsNummer,
-                        HeimPlatzhalterName      = e.HeimPlatzhalterName,
-                        AuswaertsPlatzhalterName = e.AuswaertsPlatzhalterName,
-                    });
-                _context.Auslosungen.Add(auslosung);
-            }
-            aktualisiert++;
-        }
-
-        if (aktualisiert > 0)
-        {
-            await _context.SaveChangesAsync(ct);
-            Protokollieren(aktualisiert, "Turniervorlagen um festen K.-o.-Baum ergänzt.");
-        }
+        var rundenIds = _vorlagen.SelectMany(v => v.Runden).Select(r => r.Id).ToList();
+        return _context.Uebergangsregeln.Where(u => rundenIds.Contains(u.QuellRundeId)).ToListAsync(ct);
     }
 
-    // Quellennamen sind nicht eindeutig erzwungen (frei anlegbar im Quellen-Dialog) — bei Dubletten gilt die älteste.
-    public async Task<Dictionary<string, int>> RanglistenQuellenLookupAsync(CancellationToken ct) =>
-        (await _context.RanglistenQuellen.Select(q => new { q.Name, q.Id }).ToListAsync(ct))
-            .GroupBy(q => q.Name)
-            .ToDictionary(g => g.Key, g => g.Min(q => q.Id));
+    // Zählt die Vorlage, nicht ihre Regeln; die neuen Regeln kommen zu den vorhandenen, damit der Eingang über
+    // Übergangsregeln sie schon vor dem Speichern sieht.
+    private int UebergangsregelnErgaenzen(TurnierInstanz vorlage, TurnierInstanz soll, List<Uebergangsregel> vorhandeneRegeln)
+    {
+        var neueRegeln = SeedVorlagenAbgleich.FehlendeUebergangsregeln(vorlage, soll, vorhandeneRegeln);
+        _context.Uebergangsregeln.AddRange(neueRegeln);
+        vorhandeneRegeln.AddRange(neueRegeln);
+        return neueRegeln.Count > 0 ? 1 : 0;
+    }
+
+    /// <summary>Issue #372: trägt den realen festen K.-o.-Baum (Vorbelegung + ggf. Kombinationstabelle) nach.</summary>
+    private int FesteKoBaeumeErgaenzen()
+    {
+        int ergaenzt = 0;
+        foreach (var (vorlage, soll) in MitSeedStand())
+        {
+            var vorbelegungen = SeedVorlagenAbgleich.FestenKoBaumUebertragen(vorlage, soll);
+            if (vorbelegungen.Count == 0) continue;
+
+            _context.Auslosungen.AddRange(vorbelegungen);
+            ergaenzt++;
+        }
+        return ergaenzt;
+    }
 }

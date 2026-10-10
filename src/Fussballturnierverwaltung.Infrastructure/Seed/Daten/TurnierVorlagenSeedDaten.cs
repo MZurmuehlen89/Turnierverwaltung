@@ -237,7 +237,7 @@ public static class TurnierVorlagenSeedDaten
 
     // Issue #375: die frühere Vorlage "UEFA EM · 8 Teams · 1960–1992" fasste drei verschiedene Formate zusammen.
     // Die Bestands-Zeile wird zur Vorlage 1984–1992 (ihrem Aufbau am nächsten, siehe
-    // TurnierVorlagenNachruestung.TurnierVorlageEm8SpielUmPlatzDreiEntfernen), die Formate 1960–1976 und 1980 kommen neu hinzu.
+    // TurnierVorlagenNachruestung.Em8SpielUmPlatzDreiEntfernenAsync), die Formate 1960–1976 und 1980 kommen neu hinzu.
     public const string EM_8_TEAMS_1984_BIS_1992 = "8 Teams · 1984–1992";
 
     // Vorlagen, deren Variante sich seit #367 geändert hat (Name + alte Variante → neue Variante).
@@ -246,12 +246,6 @@ public static class TurnierVorlagenSeedDaten
     {
         [("UEFA EM", "8 Teams · 1960–1992")] = EM_8_TEAMS_1984_BIS_1992,
     };
-
-    // Für Nachrüstung bestehender DBs: (Name, Variante) → Soll-Filterwerte (VerbandId, LandId, MannschaftsartFilter)
-    public static Dictionary<(string Name, string Variante), (int? VerbandId, int? LandId, MannschaftsartFilter MannschaftsartFilter)> FilterNachVorlagenSchluessel(
-        IReadOnlyDictionary<string, int>? verbandLookup = null, IReadOnlyDictionary<string, int>? landLookup = null)
-        => Erstellen(verbandLookup: verbandLookup, landLookup: landLookup)
-            .ToDictionary(v => (v.Name, v.Variante), v => (v.VerbandId, v.LandId, v.MannschaftsartFilter));
 
     // ── Weltmeisterschaften ────────────────────────────────────────────────────
 
@@ -782,7 +776,7 @@ public static class TurnierVorlagenSeedDaten
             VerbandId = VId(verband, "UEFA"),
         };
         // Rangfolge der Ligaphase ohne direkten Vergleich (Issue #353). Bestehende Datenbanken:
-        // TurnierVorlagenNachruestung.TurnierVorlagenLigaphaseRegelwerkNachruesten.
+        // TurnierVorlagenNachruestung.LigaphaseRegelwerkUmstellen.
         int? rId = RwId(rw, UEFA_LIGAPHASE);
 
         // Vorgegebene Auslosungsarten (Issue #347): Ligaphase per Topf-Zuordnung (je 2 Gegner aus jedem Topf),
