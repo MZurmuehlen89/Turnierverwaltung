@@ -17,9 +17,9 @@ using System.Windows.Input;
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 /// <summary>"Runden"-Tab von <see cref="TurnierlisteViewModel"/> (Issue #297) — Rundenliste + Rundenformular
-/// (Name/Rundenart/Eingang/Ausgang/GruppenAnzahl/MitRueckspiel/AuswaertstorRegelAktiv/Regelwerk/PaarungFest-
-/// Vorgegeben) + Übergangsregeln der gewählten Runde (<see cref="UebergangsregelEditor"/>, Issue #348 — vorher
-/// eigener Reiter, dadurch Reiterwechsel für abhängige Optionen wie "Paarung fest vorgegeben"). Alleiniger
+/// (<see cref="Formular"/>, #435) + Übergangsregeln der gewählten Runde (<see cref="UebergangsregelEditor"/>,
+/// Issue #348 — vorher eigener Reiter, dadurch Reiterwechsel für abhängige Optionen wie "Paarung fest
+/// vorgegeben"); beide Bereiche sind Kind-ViewModels und schreiben in die Daten dieses ViewModels. Alleiniger
 /// DATENHALTER für Runden UND Übergangsregeln (<see cref="AlleUebergaenge"/>) — der Editor liest/schreibt die
 /// Daten über die öffentlichen Methoden/Property unten, statt eigene Kopien zu halten — EIN "Speichern"
 /// committet Runden UND Übergangsregeln gemeinsam über
@@ -106,6 +106,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     /// <summary>Rundenformular der gewählten Runde (#435).</summary>
     public RundenFormularViewModel Formular { get; }
 
+    // Einmal je Auswahl bestimmt: die Runden davor ändern sich nicht, solange diese Runde gewählt ist.
     private bool FolgtAufGruppenphase(RundeZeile? zeile) =>
         zeile is not null && Runden.TakeWhile(z => z != zeile).Any(z => z.Rundenart == Rundenart.Gruppenphase);
 
