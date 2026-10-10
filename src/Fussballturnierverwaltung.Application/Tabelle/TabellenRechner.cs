@@ -6,7 +6,7 @@ using Fussballturnierverwaltung.Domain.Enums;
 namespace Fussballturnierverwaltung.Application.Tabelle;
 
 /// <summary>Rechnet Tabellen aus Spielen, ohne Datenbankzugriff: Statistik je Team, Sortierung nach den
-/// Ranking-Regeln und die Aufteilung der Spiele einer Gruppenphase auf ihre Gruppen. Das Laden von Runde,
+/// Ranking-Regeln. Die Gruppen einer Gruppenphase bildet <see cref="GruppenRechner"/>, das Laden von Runde,
 /// Regelwerk und Spielen übernimmt <see cref="TabellenService"/> (#439).</summary>
 public static class TabellenRechner
 {
@@ -31,6 +31,50 @@ public static class TabellenRechner
         var eintraege = teams.Select(kv => EintragAus(kv.Value, stats[kv.Key])).ToList();
         SortierenUndRangZuweisen(eintraege, rankingRegeln, new Wertung(stats, abgeschlossene, punkteRegel));
         return eintraege;
+    }
+
+    /// <summary>Tabelle einer <see cref="TabellenAnsicht"/>: Hin- und Rückrunde werten nur die Spiele ihrer
+    /// Hälfte, Heim- und Auswärtstabelle je Team nur die eine Seite.</summary>
+    public static IReadOnlyList<TabellenEintrag> TabelleDerAnsichtBerechnen(
+        IReadOnlyList<Spiel> spiele, TabellenAnsicht ansicht, PunkteRegel punkteRegel, IReadOnlyList<RankingRegel> rankingRegeln)
+    {
+        spiele = ansicht switch
+        {
+            TabellenAnsicht.Hinrunde   => spiele.Where(s => !s.IstRueckspiel).ToList(),
+            TabellenAnsicht.Rueckrunde => spiele.Where(s => s.IstRueckspiel).ToList(),
+            _                          => spiele
+        };
+
+        bool? nurHeimspiele = ansicht switch
+        {
+            TabellenAnsicht.Heimtabelle      => true,
+            TabellenAnsicht.Auswaertstabelle => false,
+            _                                => null
+        };
+
+        return TabelleBerechnen(spiele, punkteRegel, rankingRegeln, nurHeimspiele);
+    }
+
+    /// <summary>Die Spiele bis einschließlich <paramref name="bisSpieltag"/> - der Stand nach diesem Spieltag;
+    /// ohne Angabe alle Spiele.</summary>
+    public static IReadOnlyList<Spiel> BisSpieltag(IReadOnlyList<Spiel> spiele, int? bisSpieltag) =>
+        bisSpieltag is null ? spiele : spiele.Where(s => s.Spieltag is { } sp && sp <= bisSpieltag).ToList();
+
+    /// <summary>Die Spieltage, für die ein historischer Tabellenstand sinnvoll ist: 1 bis zum
+    /// letzten Spieltag mit mindestens einem eingetragenen Ergebnis (auch bei nur teilweise
+    /// simuliertem Spieltag). Leer, wenn noch kein Ergebnis vorliegt — verhindert, dass der
+    /// Tabellenstand-Snapshot auf komplett unsimulierte, zukünftige Spieltage zeigen kann.</summary>
+    public static IReadOnlyList<int> SpieltageMitErgebnis(IEnumerable<Spiel> spiele)
+    {
+        int letzterMitErgebnis = spiele
+            .Where(s => s.Status == SpielStatus.Abgeschlossen && s.Spieltag.HasValue)
+            .Select(s => s.Spieltag!.Value)
+            .DefaultIfEmpty()
+            .Max();
+
+        return letzterMitErgebnis > 0
+            ? Enumerable.Range(1, letzterMitErgebnis).ToList()
+            : [];
     }
 
     /// <summary>Die Spiele, die in eine Tabelle eingehen: abgeschlossen und mit Ergebnis.</summary>
@@ -275,90 +319,4 @@ public static class TabellenRechner
                  or RankingRegelArt.DirekterVergleichTordifferenz
                  or RankingRegelArt.DirekterVergleichErzielteTore
                  or RankingRegelArt.DirekterVergleichAuswaertstore;
-
-    // ── Gruppen einer Gruppenphase ────────────────────────────────────────
-
-    /// <summary>Gruppen einer Gruppenphase mit ihren Spielen. Seit Issue #397 aus der gespeicherten
-    /// <see cref="Spiel.GruppenNummer"/> — auch mit noch offenen Platzhaltern vollständig und mit der
-    /// ausgelosten Nummer. Rückfall für vor #397 generierte Spiele: Rekonstruktion aus den Paarungen.</summary>
-    public static List<(int Nummer, IReadOnlyList<Spiel> Spiele)> GruppenErmitteln(IReadOnlyList<Spiel> alleSpiele)
-    {
-        if (alleSpiele.All(s => s.GruppenNummer.HasValue))
-            return [.. alleSpiele
-                .GroupBy(s => s.GruppenNummer!.Value)
-                .OrderBy(g => g.Key)
-                .Select(g => (g.Key, (IReadOnlyList<Spiel>)[.. g]))];
-
-        return [.. GruppenAusSpielenAbleiten(alleSpiele).Select((gruppenTeamIds, index) =>
-        {
-            var teamIds = gruppenTeamIds.ToHashSet();
-            return (index + 1, (IReadOnlyList<Spiel>)[.. alleSpiele
-                .Where(s => s.HeimMannschaftId.HasValue && teamIds.Contains(s.HeimMannschaftId.Value))]);
-        })];
-    }
-
-    /// <summary>Alle bereits feststehenden Teams einer Gruppe — auch solche, die bisher nur gegen noch offene
-    /// Platzhalter angesetzt sind und daher in keinem Spiel mit zwei bekannten Teams vorkommen.</summary>
-    public static IReadOnlyList<Mannschaft> AufgeloesteTeilnehmer(IEnumerable<Spiel> spiele) =>
-        [.. spiele
-            .SelectMany(s => new[] { s.HeimMannschaft, s.AuswaertsMannschaft })
-            .Where(m => m is not null)
-            .Select(m => m!)
-            .DistinctBy(m => m.Id)];
-
-    /// <summary>Die Platzhalternamen der noch nicht aufgelösten Plätze einer Gruppe, in Spielreihenfolge.</summary>
-    public static IReadOnlyList<string> OffenePlaetze(IEnumerable<Spiel> spiele) =>
-        [.. spiele
-            .OrderBy(s => s.Spielnummer)
-            .SelectMany(s => new[]
-            {
-                s.HeimMannschaftId is null ? s.HeimPlatzhalterName : null,
-                s.AuswaertsMannschaftId is null ? s.AuswaertsPlatzhalterName : null
-            })
-            .Where(n => !string.IsNullOrWhiteSpace(n))
-            .Select(n => n!)
-            .Distinct(StringComparer.OrdinalIgnoreCase)];
-
-    /// <summary>
-    /// Rekonstruiert Gruppen aus Spielpaarungen via Union-Find.
-    /// Reihenfolge der Gruppen entspricht der Generierungsreihenfolge (kleinste Spielnummer zuerst).
-    /// </summary>
-    private static IReadOnlyList<IReadOnlyList<int>> GruppenAusSpielenAbleiten(IEnumerable<Spiel> spiele)
-    {
-        var spieleListe = spiele
-            .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
-            .ToList();
-
-        var parent = new Dictionary<int, int>();
-
-        int Find(int x)
-        {
-            if (!parent.ContainsKey(x)) parent[x] = x;
-            if (parent[x] != x) parent[x] = Find(parent[x]);
-            return parent[x];
-        }
-
-        void Union(int x, int y)
-        {
-            var rx = Find(x); var ry = Find(y);
-            if (rx != ry) parent[rx] = ry;
-        }
-
-        foreach (var s in spieleListe)
-            Union(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value);
-
-        // Gruppierungsreihenfolge anhand erster Spielnummer sicherstellen
-        var teamErsteSpielnr = new Dictionary<int, int>();
-        foreach (var s in spieleListe.OrderBy(s => s.Spielnummer))
-        {
-            teamErsteSpielnr.TryAdd(s.HeimMannschaftId!.Value, s.Spielnummer);
-            teamErsteSpielnr.TryAdd(s.AuswaertsMannschaftId!.Value, s.Spielnummer);
-        }
-
-        return parent.Keys
-            .GroupBy(id => Find(id))
-            .OrderBy(g => g.Min(id => teamErsteSpielnr.GetValueOrDefault(id, int.MaxValue)))
-            .Select(g => (IReadOnlyList<int>)g.OrderBy(id => id).ToList())
-            .ToList();
-    }
 }

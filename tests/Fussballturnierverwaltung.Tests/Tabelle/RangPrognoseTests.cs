@@ -209,4 +209,34 @@ public class RangPrognoseTests
             Team(einPlatz, id).SicherPositioniert.Should().BeFalse();
         }
     }
+
+    [Fact]
+    public void GruppenRaengeSetzen_MitOffenemPlatz_LaesstStatusUndRaengeOffen()
+    {
+        // Issue #397: die Spiele des noch unbekannten Teilnehmers fehlen in der Rechnung.
+        Spiel[] spiele = [Spiel(1, 2, 2, 0), Spiel(2, 3, 1, 0), Spiel(3, 1, 0, 1)];
+        var gruppe = new GruppenTabelle(1, TabellenRechner.TabelleBerechnen(spiele, _dreiPunkte, []))
+        {
+            OffenePlaetze = ["Sieger Playoff A"]
+        };
+
+        RangPrognose.GruppenRaengeSetzen(gruppe, spiele, 2, _dreiPunkte, []);
+
+        gruppe.Tabelle.Should().OnlyContain(e =>
+            e.Qualifikationsstatus == Qualifikationsstatus.Offen && !e.SicherPositioniert && e.BesterRang == null);
+    }
+
+    [Theory]
+    [InlineData(8, 16, 2)]    // acht Gruppen, 16 Direktqualifikanten
+    [InlineData(6, 12, 2)]    // EM: die besten Dritten zählen nicht zu den Direktqualifikanten
+    [InlineData(4, 4, 1)]
+    [InlineData(4, 2, 1)]     // mindestens ein Platz
+    [InlineData(null, 16, 2)] // ohne Gruppenanzahl
+    public void QualifiziertePlaetzeJeGruppe_VerteiltDieDirektqualifikantenAufDieGruppen(
+        int? gruppenAnzahl, int direktqualifikanten, int erwartet)
+    {
+        var runde = new TurnierRunde { GruppenAnzahl = gruppenAnzahl, AusgangsMannschaftsanzahl = direktqualifikanten };
+
+        RangPrognose.QualifiziertePlaetzeJeGruppe(runde).Should().Be(erwartet);
+    }
 }

@@ -25,7 +25,7 @@ public static class RangPrognose
     /// Bleibt aus, solange der Rest der Runde unbekannt ist (noch unaufgelöste Platzhalter-Spiele, Schweizer
     /// System ohne Spieltag-Anzahl).</summary>
     public static void LigaRaengeSetzen(
-        IReadOnlyList<TabellenEintrag> tabelle, TurnierRunde? runde, IReadOnlyList<Spiel> alleSpiele, PunkteRegel punkteRegel)
+        IReadOnlyList<TabellenEintrag> tabelle, TurnierRunde runde, IReadOnlyList<Spiel> alleSpiele, PunkteRegel punkteRegel)
     {
         var verbleibend = VerbleibendeSpieleProTeam(runde, alleSpiele, tabelle);
         if (verbleibend is null) return;
@@ -72,7 +72,7 @@ public static class RangPrognose
     /// Spielen (<see cref="RundenKonfiguration.AnzahlSpieltage"/> − höchster generierter Spieltag) weitere hinzu
     /// (je Spieltag höchstens ein Spiel pro Team; ein Freilos wird dabei konservativ wie ein Spiel gezählt).</summary>
     private static Dictionary<int, int>? VerbleibendeSpieleProTeam(
-        TurnierRunde? runde, IReadOnlyList<Spiel> alleSpiele, IReadOnlyList<TabellenEintrag> tabelle)
+        TurnierRunde runde, IReadOnlyList<Spiel> alleSpiele, IReadOnlyList<TabellenEintrag> tabelle)
     {
         if (alleSpiele.Any(s => s.HeimMannschaftId is null || s.AuswaertsMannschaftId is null)) return null;
 
@@ -81,7 +81,7 @@ public static class RangPrognose
             e => e.Mannschaft.Id,
             e => offen.Count(s => s.HeimMannschaftId == e.Mannschaft.Id || s.AuswaertsMannschaftId == e.Mannschaft.Id));
 
-        if (runde?.Rundenart == Rundenart.SchweizerSystem)
+        if (runde.Rundenart == Rundenart.SchweizerSystem)
         {
             if (RundenKonfiguration.AusJson(runde.KonfigurationJson).AnzahlSpieltage is not { } anzahlSpieltage) return null;
             int generiert = alleSpiele.Select(s => s.Spieltag ?? 0).DefaultIfEmpty().Max();
@@ -96,7 +96,8 @@ public static class RangPrognose
     /// <summary>Setzt je Team der Gruppe besten und schlechtesten Rang, daraus den
     /// <see cref="TabellenEintrag.Qualifikationsstatus"/> für <paramref name="qualifiziertePlaetze"/> Plätze und
     /// <see cref="TabellenEintrag.SicherPositioniert"/> (Issue #202 - ob der exakte Rang durch kein Ergebnis der
-    /// verbleibenden Spiele mehr verändert werden kann). Ohne offene Spiele ist jeder Rang final.</summary>
+    /// verbleibenden Spiele mehr verändert werden kann). Ohne offene Spiele ist jeder Rang final. Bleibt aus,
+    /// solange ein Platz der Gruppe noch nicht aufgelöst ist.</summary>
     public static void GruppenRaengeSetzen(
         GruppenTabelle gruppe,
         IReadOnlyList<Spiel> gruppenSpiele,
@@ -104,6 +105,10 @@ public static class RangPrognose
         PunkteRegel punkteRegel,
         IReadOnlyList<RankingRegel> rankingRegeln)
     {
+        // Issue #397: Solange ein Platz der Gruppe noch nicht aufgelöst ist, fehlen dessen Spiele in der
+        // Status-Berechnung (Gegner unbekannt) — kein Rang darf dann als sicher gelten.
+        if (gruppe.OffenePlaetze.Count > 0) return;
+
         var stand = new GruppenStand(
             TabellenRechner.MitErgebnis(gruppenSpiele),
             [.. gruppenSpiele.Where(s => s.Status != SpielStatus.Abgeschlossen
@@ -128,6 +133,13 @@ public static class RangPrognose
             eintrag.SchlechtesterRang = worstRang;
         }
     }
+
+    /// <summary>Plätze je Gruppe, die weiterkommen: die Direktqualifikanten der Runde gleichmäßig auf ihre
+    /// Gruppen verteilt, mindestens einer; ohne Gruppenanzahl zwei.</summary>
+    public static int QualifiziertePlaetzeJeGruppe(TurnierRunde runde) =>
+        runde.GruppenAnzahl is > 0
+            ? Math.Max(1, runde.AusgangsMannschaftsanzahl / runde.GruppenAnzahl.Value)
+            : 2;
 
     /// <summary>Was über eine Gruppe feststeht (Spiele mit Ergebnis) und was noch aussteht (offene Spiele mit
     /// zwei bekannten Teams), samt den Regeln, nach denen daraus eine Tabelle wird.</summary>

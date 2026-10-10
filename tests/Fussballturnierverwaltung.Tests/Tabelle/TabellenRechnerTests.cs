@@ -143,7 +143,7 @@ public class TabellenRechnerTests
         Spiel[] spiele = [Spiel(1, 2, 1, 0), Angesetzt(_teams[3], null)];
 
         var tabelle = TabellenRechner.TabelleBerechnen(
-            spiele, _dreiPunkte, [], teilnehmer: TabellenRechner.AufgeloesteTeilnehmer(spiele));
+            spiele, _dreiPunkte, [], teilnehmer: GruppenRechner.AufgeloesteTeilnehmer(spiele));
 
         tabelle.Should().HaveCount(3);
         var ohneSpiel = tabelle.Single(e => e.Mannschaft.Id == 3);
@@ -169,7 +169,7 @@ public class TabellenRechnerTests
         var offenerPlatz = Angesetzt(_teams[3], null, gruppe: 1);
         Spiel[] spiele = [Spiel(5, 6, gruppe: 2), Spiel(1, 2, gruppe: 1), offenerPlatz];
 
-        var gruppen = TabellenRechner.GruppenErmitteln(spiele);
+        var gruppen = GruppenRechner.GruppenErmitteln(spiele);
 
         gruppen.Select(g => g.Nummer).Should().Equal(1, 2);
         gruppen[0].Spiele.Should().HaveCount(2).And.Contain(offenerPlatz);
@@ -183,7 +183,7 @@ public class TabellenRechnerTests
         // früheren ersten Spiel kommt zuerst.
         Spiel[] spiele = [Spiel(5, 6), Spiel(1, 2), Spiel(6, 7), Spiel(2, 3), Spiel(7, 5), Spiel(3, 1)];
 
-        var gruppen = TabellenRechner.GruppenErmitteln(spiele);
+        var gruppen = GruppenRechner.GruppenErmitteln(spiele);
 
         gruppen.Select(g => g.Nummer).Should().Equal(1, 2);
         gruppen[0].Spiele.Select(s => s.HeimMannschaftId).Should().BeEquivalentTo(new int?[] { 5, 6, 7 });
@@ -201,13 +201,58 @@ public class TabellenRechnerTests
         drittes.HeimPlatzhalterName = "sieger playoff a";
         drittes.AuswaertsPlatzhalterName = "Sieger Playoff B";
 
-        TabellenRechner.OffenePlaetze([drittes, zweites, erstes])
+        GruppenRechner.OffenePlaetze([drittes, zweites, erstes])
             .Should().Equal("Sieger Playoff B", "Sieger Playoff A");
     }
 
     [Fact]
     public void OffenePlaetze_OhnePlatzhalter_IstLeer()
     {
-        TabellenRechner.OffenePlaetze([Spiel(1, 2), Spiel(2, 1, 1, 0)]).Should().BeEmpty();
+        GruppenRechner.OffenePlaetze([Spiel(1, 2), Spiel(2, 1, 1, 0)]).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void GruppenTabelleBerechnen_BisSpieltag_BegrenztNurDieGewertetenSpiele()
+    {
+        var spaeter = Spiel(3, 1, 4, 0, gruppe: 1);
+        spaeter.Spieltag = 2;
+        var frueher = Spiel(1, 2, 1, 0, gruppe: 1);
+        frueher.Spieltag = 1;
+
+        var gruppe = GruppenRechner.GruppenTabelleBerechnen(1, [frueher, spaeter], bisSpieltag: 1, _dreiPunkte, []);
+
+        gruppe.Tabelle.Should().HaveCount(3, "Team 3 steht als Teilnehmer der Gruppe auch ohne gewertetes Spiel in der Tabelle");
+        Reihenfolge(gruppe.Tabelle)[0].Should().Be(1);
+        gruppe.Tabelle.Single(e => e.Mannschaft.Id == 3).Spiele.Should().Be(0);
+    }
+
+    // ── Spieltage ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public void BisSpieltag_OhneAngabe_LiefertAlleSpiele_SonstNurDieBisDahin()
+    {
+        var erster = Spiel(1, 2, 1, 0);
+        erster.Spieltag = 1;
+        var zweiter = Spiel(2, 1, 1, 0);
+        zweiter.Spieltag = 2;
+        var ohneSpieltag = Spiel(3, 4, 1, 0);
+        Spiel[] spiele = [erster, zweiter, ohneSpieltag];
+
+        TabellenRechner.BisSpieltag(spiele, null).Should().Equal(spiele);
+        TabellenRechner.BisSpieltag(spiele, 1).Should().Equal(erster);
+    }
+
+    [Fact]
+    public void SpieltageMitErgebnis_ReichtBisZumLetztenSpieltagMitErgebnis()
+    {
+        var erster = Spiel(1, 2, 1, 0);
+        erster.Spieltag = 1;
+        var dritter = Spiel(3, 4, 1, 0);
+        dritter.Spieltag = 3;
+        var vierterOffen = Spiel(2, 1);
+        vierterOffen.Spieltag = 4;
+
+        TabellenRechner.SpieltageMitErgebnis([erster, dritter, vierterOffen]).Should().Equal(1, 2, 3);
+        TabellenRechner.SpieltageMitErgebnis([vierterOffen]).Should().BeEmpty();
     }
 }
