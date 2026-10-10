@@ -64,7 +64,7 @@
                 </StackPanel>
 
                 <Grid Visibility="{Binding ZeigeWorkspace, Converter={StaticResource BoolToVisibility}}"
-                      Margin="16" DataContext="{Binding Workspace}"
+                      Margin="16" DataContext="{Binding Workspace.Belegung}"
                       RowDefinitions="Auto,Auto,*" ColumnDefinitions="220,12,*">
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"

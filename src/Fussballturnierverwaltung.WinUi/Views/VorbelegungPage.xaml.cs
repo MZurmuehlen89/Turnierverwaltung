@@ -13,7 +13,7 @@ namespace Fussballturnierverwaltung.WinUi.Views;
 /// "Paarungen"-Tab) — analog WPF-Original <c>PaarungsfestlegungView.xaml.cs</c>, adaptiert auf die
 /// WinUI3-Drag&amp;Drop-APIs (<see cref="DataPackage"/> statt <c>DataObject</c>). Anders als der entfallene
 /// "Paarungen"-Tab wird hier ein <see cref="TeilnehmerAnzeige"/>-Objekt gezogen (Name als Text-Payload,
-/// Ziel löst per Namens-Lookup gegen <see cref="VorbelegungWorkspace.VerfuegbareTeilnehmer"/> auf) statt
+/// Ziel löst per Namens-Lookup gegen <see cref="Platzbelegung.VerfuegbareTeilnehmer"/> auf) statt
 /// eines reinen Platzhalter-Strings.</summary>
 public sealed partial class VorbelegungPage : UserControl
 {
@@ -23,7 +23,7 @@ public sealed partial class VorbelegungPage : UserControl
     }
 
     private VorbelegungViewModel? ViewModel => DataContext as VorbelegungViewModel;
-    private VorbelegungWorkspace? Workspace => ViewModel?.Workspace;
+    private Platzbelegung? Belegung => ViewModel?.Workspace?.Belegung;
 
     // ── Drag starten (aus "Verfügbar") ───────────────────────────────────────
 
@@ -38,20 +38,20 @@ public sealed partial class VorbelegungPage : UserControl
 
     private void VerfuegbarListView_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
-        var workspace = Workspace;
-        if (workspace is null || sender is not ListView lv || lv.SelectedItem is not TeilnehmerAnzeige team) return;
+        var belegung = Belegung;
+        if (belegung is null || sender is not ListView lv || lv.SelectedItem is not TeilnehmerAnzeige team) return;
 
-        if (workspace.IstKoModus)
+        if (belegung.IstKoModus)
         {
-            var slot = workspace.NaechsterFreierKoSlot();
+            var slot = belegung.NaechsterFreierKoSlot();
             if (slot is null) return;
-            workspace.TeamInKoSlotPlatzieren(team, slot);
+            belegung.TeamInKoSlotPlatzieren(team, slot);
         }
         else
         {
-            var slot = workspace.NaechsterFreierGruppenSlot();
+            var slot = belegung.NaechsterFreierGruppenSlot();
             if (slot is null) return;
-            workspace.TeamInGruppenSlotPlatzieren(team, slot);
+            belegung.TeamInGruppenSlotPlatzieren(team, slot);
         }
         e.Handled = true;
     }
@@ -73,20 +73,20 @@ public sealed partial class VorbelegungPage : UserControl
         // zurück, und falls in dieser Lücke die Slot-Collections neu aufgebaut werden (z.B. durch einen
         // Rundenwechsel), zeigt fe.DataContext danach auf ein verwaistes Slot-Objekt.
         if (sender is not FrameworkElement fe) return;
-        var workspace = Workspace;
-        if (workspace is null) return;
+        var belegung = Belegung;
+        if (belegung is null) return;
 
         var name = await e.DataView.GetTextAsync();
-        var team = workspace.VerfuegbareTeilnehmer.FirstOrDefault(t => t.Name == name);
+        var team = belegung.VerfuegbareTeilnehmer.FirstOrDefault(t => t.Name == name);
         if (team is null) return;
 
         switch (fe.DataContext)
         {
             case ManuellerKoSlot koSlot:
-                workspace.TeamInKoSlotPlatzieren(team, koSlot);
+                belegung.TeamInKoSlotPlatzieren(team, koSlot);
                 break;
             case ManuellerGruppenSlot gruppenSlot:
-                workspace.TeamInGruppenSlotPlatzieren(team, gruppenSlot);
+                belegung.TeamInGruppenSlotPlatzieren(team, gruppenSlot);
                 break;
         }
     }
@@ -107,16 +107,16 @@ public sealed partial class VorbelegungPage : UserControl
 
     private void Slot_RightTapped(object sender, RightTappedRoutedEventArgs e)
     {
-        var workspace = Workspace;
-        if (workspace is null || sender is not FrameworkElement fe) return;
+        var belegung = Belegung;
+        if (belegung is null || sender is not FrameworkElement fe) return;
 
         switch (fe.DataContext)
         {
             case ManuellerKoSlot { IstLeer: false } koSlot:
-                ZeigeEntfernenFlyout(fe, koSlot.AnzeigeName, () => workspace.TeamAusKoSlotEntfernen(koSlot));
+                ZeigeEntfernenFlyout(fe, koSlot.AnzeigeName, () => belegung.TeamAusKoSlotEntfernen(koSlot));
                 break;
             case ManuellerGruppenSlot { IstLeer: false } gruppenSlot:
-                ZeigeEntfernenFlyout(fe, gruppenSlot.AnzeigeName, () => workspace.TeamAusGruppenSlotEntfernen(gruppenSlot));
+                ZeigeEntfernenFlyout(fe, gruppenSlot.AnzeigeName, () => belegung.TeamAusGruppenSlotEntfernen(gruppenSlot));
                 break;
         }
     }

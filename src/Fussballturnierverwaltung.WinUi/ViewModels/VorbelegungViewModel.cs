@@ -201,7 +201,7 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
 
         return await _dialogService.BestaetigenAsync(
             "Vorbelegung verwerfen",
-            $"Für '{workspace.Runde.Name}' sind bereits {workspace.TeamsZugewiesen} Team(s) platziert, die Paarung " +
+            $"Für '{workspace.Runde.Name}' sind bereits {workspace.Belegung.TeamsZugewiesen} Team(s) platziert, die Paarung " +
             "ist aber noch nicht abgeschlossen. Die Vorbelegung geht dabei verloren. Wirklich fortfahren?");
     }
 
