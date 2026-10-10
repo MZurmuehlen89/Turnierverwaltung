@@ -37,7 +37,7 @@ public class TabellenService(
             _                                => null
         };
 
-        var tabelle = TabellenRechner.TabelleAusSpielenBerechnen(spiele, punkteRegel, rankingRegeln, nurHeimspiele);
+        var tabelle = TabellenRechner.TabelleBerechnen(spiele, punkteRegel, rankingRegeln, nurHeimspiele);
 
         // Issue #358: mögliche Ränge nur für den aktuellen Gesamtstand — Teilansichten und historische
         // Spieltage sind keine Wertung, aus der sich ein Weiterkommen ableiten ließe.
@@ -64,7 +64,7 @@ public class TabellenService(
         var (punkteRegel, rankingRegeln, alleSpiele) = await LadeTabellenDatenAsync(turnierRundeId, ct);
         if (!alleSpiele.Any()) return [];
 
-        var tabelle = TabellenRechner.TabelleAusSpielenBerechnen(alleSpiele, punkteRegel, rankingRegeln);
+        var tabelle = TabellenRechner.TabelleBerechnen(alleSpiele, punkteRegel, rankingRegeln);
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct);
         RangSchrankenSetzen(tabelle, runde, alleSpiele, punkteRegel);
         foreach (var eintrag in tabelle)
@@ -147,7 +147,7 @@ public class TabellenService(
         var result = TabellenRechner.GruppenErmitteln(alleSpiele).Select(g =>
         {
             var gruppenSpieleGefiltert = SpieleBisSpieltagFiltern(g.Spiele, bisSpieltag);
-            var tabelle = TabellenRechner.TabelleAusSpielenBerechnen(
+            var tabelle = TabellenRechner.TabelleBerechnen(
                 gruppenSpieleGefiltert, punkteRegel, rankingRegeln, teilnehmer: TabellenRechner.AufgeloesteTeilnehmer(g.Spiele));
             return (Gruppe: new GruppenTabelle(g.Nummer, tabelle) { OffenePlaetze = TabellenRechner.OffenePlaetze(g.Spiele) },
                     g.Spiele);
@@ -174,12 +174,12 @@ public class TabellenService(
         var (punkteRegel, rankingRegeln, alleSpiele) = await LadeTabellenDatenAsync(turnierRundeId, ct);
         if (!alleSpiele.Any()) return [];
 
-        // Gesamttabelle über ALLE Teams der Runde - liefert korrekte Team-Stats (BerechneSpielerStats filtert
+        // Gesamttabelle über ALLE Teams der Runde - liefert korrekte Team-Stats (die Statistik filtert
         // ohnehin je Team auf dessen eigene Spiele) und die richtige Sortierreihenfolge in einem Aufwasch.
-        var gesamtTabelle = TabellenRechner.TabelleAusSpielenBerechnen(alleSpiele, punkteRegel, rankingRegeln);
+        var gesamtTabelle = TabellenRechner.TabelleBerechnen(alleSpiele, punkteRegel, rankingRegeln);
 
         var kandidatenIds = TabellenRechner.GruppenErmitteln(alleSpiele)
-            .Select(g => TabellenRechner.TabelleAusSpielenBerechnen(g.Spiele, punkteRegel, rankingRegeln)
+            .Select(g => TabellenRechner.TabelleBerechnen(g.Spiele, punkteRegel, rankingRegeln)
                 .FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id)
             .Where(id => id.HasValue).Select(id => id!.Value).ToHashSet();
 
@@ -343,7 +343,7 @@ public class TabellenService(
                 });
             }
 
-            var tabelle = TabellenRechner.TabelleAusSpielenBerechnen(
+            var tabelle = TabellenRechner.TabelleBerechnen(
                 [..abgeschlossen, ..eigeneErgebnisse, ..fremdeErgebnisse], punkteRegel, rankingRegeln);
             int rang = tabelle.FirstOrDefault(e => e.Mannschaft.Id == teamId)?.Rang ?? int.MaxValue;
 
