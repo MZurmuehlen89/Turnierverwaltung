@@ -110,6 +110,35 @@ public static class ZiehungsReihenfolge
             .ThenBy(s => s.IstFreilos || s.IstHeim == true ? 0 : 1)
             .ToList();
 
+    // ── Zwischenstand ─────────────────────────────────────────────────────────
+
+    /// <summary>Nach so vielen fertigen Paarungen zeigt die Ziehung einer K.-o.-Runde die Gesamtübersicht.</summary>
+    public const int PAARUNGEN_JE_ZWISCHENSTAND = 8;
+
+    /// <summary>Titel der Gesamtübersicht, die der TV-Modus nach dem Schritt <paramref name="index"/> einschiebt
+    /// (#408) — <c>null</c>, wenn dort keine fällig ist. Fällig ist sie bei der Gruppenphase nach jedem geleerten
+    /// Topf, bei Paarungen nach je <see cref="PAARUNGEN_JE_ZWISCHENSTAND"/> fertigen; nach dem letzten Schritt nie,
+    /// dort folgt direkt das Ergebnis.</summary>
+    public static string? ZwischenstandNach(IReadOnlyList<ZiehungsSchritt> schritte, int index)
+    {
+        if (index >= schritte.Count - 1) return null;
+
+        var (schritt, naechster) = (schritte[index], schritte[index + 1]);
+        if (schritt.IstGruppenmodus)
+            return naechster.TopfId != schritt.TopfId ? $"{schritt.TopfName} komplett" : null;
+
+        if (naechster.ZielNummer == schritt.ZielNummer) return null;
+
+        int fertig = FertigePaarungen(schritte, index);
+        return fertig % PAARUNGEN_JE_ZWISCHENSTAND == 0
+            ? $"{fertig} von {schritte.Select(s => s.ZielNummer).Distinct().Count()} Paarungen gezogen"
+            : null;
+    }
+
+    /// <summary>Eine Paarung ist fertig, sobald der nächste Schritt zu einer anderen gehört.</summary>
+    private static int FertigePaarungen(IReadOnlyList<ZiehungsSchritt> schritte, int bisIndex) =>
+        Enumerable.Range(0, bisIndex + 1).Count(i => schritte[i + 1].ZielNummer != schritte[i].ZielNummer);
+
     // ── Zuordnung Eintrag → Ergebnis ──────────────────────────────────────────
 
     /// <summary>Die Einträge eines Topfs in zufälliger Reihenfolge, jeweils mit dem Ergebnis, in dem sie

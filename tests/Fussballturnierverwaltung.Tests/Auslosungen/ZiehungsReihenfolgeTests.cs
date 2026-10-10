@@ -146,6 +146,78 @@ public class ZiehungsReihenfolgeTests
             s.ZielNummer == 2 && s.Eintrag.MannschaftId == 3 && s.IstFreilos && s.IstHeim == true && !s.IstGruppenmodus);
     }
 
+    // ── Zwischenstand ─────────────────────────────────────────────────────────
+
+    /// <summary>Die Indizes, nach denen ein Zwischenstand fällig ist, mit ihrem Titel.</summary>
+    private static List<(int Index, string Titel)> Zwischenstaende(List<ZiehungsSchritt> schritte) =>
+        Enumerable.Range(0, schritte.Count)
+            .Select(i => (Index: i, Titel: ZiehungsReihenfolge.ZwischenstandNach(schritte, i)))
+            .Where(x => x.Titel is not null)
+            .Select(x => (x.Index, x.Titel!))
+            .ToList();
+
+    /// <summary>K.-o.-Runde mit <paramref name="paarungen"/> Paarungen, davon die ersten <paramref name="freilose"/>
+    /// als Freilos.</summary>
+    private static List<ZiehungsSchritt> PaarungsSchritte(int paarungen, int freilose = 0)
+    {
+        var nummern = Enumerable.Range(1, paarungen).ToList();
+        var toepfe = new List<Lostopf>
+        {
+            Topf(1, nummern.ToArray()),
+            Topf(2, nummern.Skip(freilose).Select(n => 100 + n).ToArray()),
+        };
+        var ergebnisse = nummern
+            .Select(n => n <= freilose
+                ? new AuslosungsErgebnis { PaarungsNummer = n, HeimMannschaftId = n, IstFreilos = true }
+                : Paarung(n, n, 100 + n))
+            .ToList();
+        return ZiehungsReihenfolge.Aufbauen(toepfe, ergebnisse, new Random(3));
+    }
+
+    [Fact]
+    public void Zwischenstand_Gruppenphase_NachJedemGeleertenTopfAusserDemLetzten()
+    {
+        var (toepfe, ergebnisse) = GruppenAuslosung();
+        var schritte = ZiehungsReihenfolge.Aufbauen(toepfe, ergebnisse, new Random(1));
+
+        Zwischenstaende(schritte).Should().Equal((7, "Topf 1 komplett"));
+    }
+
+    [Fact]
+    public void Zwischenstand_Paarungen_NachJeAchtFertigenPaarungen()
+    {
+        var schritte = PaarungsSchritte(paarungen: 17);
+
+        Zwischenstaende(schritte).Should().Equal(
+            (15, "8 von 17 Paarungen gezogen"),
+            (31, "16 von 17 Paarungen gezogen"));
+    }
+
+    [Fact]
+    public void Zwischenstand_Paarungen_NichtNachDerLetztenPaarung()
+    {
+        var schritte = PaarungsSchritte(paarungen: 16);
+
+        Zwischenstaende(schritte).Should().Equal((15, "8 von 16 Paarungen gezogen"));
+    }
+
+    [Fact]
+    public void Zwischenstand_Paarungen_FreilosZaehltAlsFertigePaarung()
+    {
+        // Sieben Freilose (je ein Schritt), danach vollständige Paarungen (je zwei Schritte)
+        var schritte = PaarungsSchritte(paarungen: 10, freilose: 7);
+
+        Zwischenstaende(schritte).Should().Equal((8, "8 von 10 Paarungen gezogen"));
+    }
+
+    [Fact]
+    public void Zwischenstand_EinzigerSchritt_IstNieFaellig()
+    {
+        var schritte = PaarungsSchritte(paarungen: 1, freilose: 1);
+
+        Zwischenstaende(schritte).Should().BeEmpty();
+    }
+
     // ── Allgemein ─────────────────────────────────────────────────────────────
 
     [Fact]

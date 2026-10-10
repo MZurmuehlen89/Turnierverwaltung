@@ -10,19 +10,16 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// leerer wird), dann das Ziel (Gruppe/Paarung), bei der Gruppenphase zusätzlich die Position. Gruppen und Paarungen
 /// werden vorab mit der vollen Anzahl leerer Plätze ("…") aufgebaut und danach Platz für Platz befüllt. Gezeigt wird
 /// die Fokus-Ansicht (aktueller Topf plus Zielgruppe bzw. aktuelle Paarung); nach jedem geleerten Topf bzw. nach je
-/// <see cref="PAARUNGEN_JE_UEBERSICHT"/> Paarungen folgt als eigener Schritt die Gesamtübersicht. Das geladene
+/// <see cref="ZiehungsReihenfolge.PAARUNGEN_JE_ZWISCHENSTAND"/> Paarungen folgt als eigener Schritt die Gesamtübersicht. Das geladene
 /// Endergebnis bleibt unberührt — es wird erst nach der Ziehung sichtbar, siehe
 /// <see cref="AuslosungViewModel.ZeigeErgebnis"/>.</summary>
 internal sealed class GruppenKoZiehungsAblauf(
     ZiehungViewModel anzeige, List<ZiehungsSchritt> schritte, IEnumerable<LostopfViewModel> lostoepfe)
 {
-    private const int PAARUNGEN_JE_UEBERSICHT = 8;
-
     /// <summary>Eine Liga hat nur eine Gruppe: sie bleibt durchgehend im Fokus, der Schritt "Ziel" entfällt.</summary>
     private bool _eineGruppe;
     private AnimationsGruppe? _zielGruppe;
     private AnimationsGruppenSlot? _neuerSlot;
-    private int _fertigePaarungen;
 
     public Task AbspielenAsync(bool manuell) =>
         schritte.Count == 0
@@ -190,28 +187,13 @@ internal sealed class GruppenKoZiehungsAblauf(
 
     // ── Zwischen zwei Schritten ───────────────────────────────────────────────
 
-    /// <summary>Kurze Pause; nach jedem geleerten Topf bzw. nach je <see cref="PAARUNGEN_JE_UEBERSICHT"/> fertigen
-    /// Paarungen zusätzlich die Gesamtübersicht.</summary>
+    /// <summary>Kurze Pause; ist nach dem Schritt ein Zwischenstand fällig, zusätzlich die Gesamtübersicht.</summary>
     private async Task UebergangAbspielenAsync(int index)
     {
         await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Pause);
 
-        if (UebersichtTitel(schritte[index], schritte[index + 1]) is { } titel)
+        if (ZiehungsReihenfolge.ZwischenstandNach(schritte, index) is { } titel)
             await anzeige.ZwischenstandZeigenAsync(
                 titel, schritte[index].IstGruppenmodus ? "Zwischenstand aller Gruppen" : "Zwischenstand aller Paarungen");
-    }
-
-    /// <summary>Titel der Gesamtübersicht nach <paramref name="schritt"/> — <c>null</c>, wenn keine fällig ist.</summary>
-    private string? UebersichtTitel(ZiehungsSchritt schritt, ZiehungsSchritt naechster)
-    {
-        if (schritt.IstGruppenmodus)
-            return naechster.TopfId != schritt.TopfId ? $"{schritt.TopfName} komplett" : null;
-
-        if (naechster.ZielNummer == schritt.ZielNummer) return null;
-
-        _fertigePaarungen++;
-        return _fertigePaarungen % PAARUNGEN_JE_UEBERSICHT == 0
-            ? $"{_fertigePaarungen} von {anzeige.AnimationPaarungen.Count} Paarungen gezogen"
-            : null;
     }
 }
