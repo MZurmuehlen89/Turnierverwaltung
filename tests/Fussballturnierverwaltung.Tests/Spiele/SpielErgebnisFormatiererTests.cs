@@ -25,6 +25,20 @@ public class SpielErgebnisFormatiererTests
         text.Should().Be("A.T.");
     }
 
+    // ── EntscheidungKuerzel (#438) ───────────────────────────────────────────
+
+    [Theory]
+    [InlineData(EntscheidungArt.RegulaereSpielzeit, "")]
+    [InlineData(EntscheidungArt.Verlaengerung, "n.V.")]
+    [InlineData(EntscheidungArt.Elfmeterschiessen, "i.E.")]
+    [InlineData(EntscheidungArt.Auswaertstorregel, "A.T.")]
+    [InlineData(EntscheidungArt.GoldenGoal, "G.G.")]
+    [InlineData(EntscheidungArt.SilverGoal, "S.G.")]
+    public void EntscheidungKuerzel_JeEntscheidungsart(EntscheidungArt art, string erwartet)
+    {
+        SpielErgebnisFormatierer.EntscheidungKuerzel(art).Should().Be(erwartet);
+    }
+
     // ── HalbzeitKlammer (Issue #104) ─────────────────────────────────────────
 
     [Fact]
