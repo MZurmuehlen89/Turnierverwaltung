@@ -239,25 +239,7 @@ public partial class RundenTabellenViewModel : ObservableObject
             var rangfolge = await _tabellenService.UebergreifendeRangfolgeBerechnenAsync(regel.QuellRundeId, regel.PlatzierungVon);
             var qualifikanten = await _uebergangsregelService.QualifikantenErmittelnAsync(regel.Id);
 
-            // Issue #358: Hier fällt die Entscheidung über das Weiterkommen — die Plätze der Besten tragen die
-            // Farbe der Zielrunde, der Punkt folgt, sobald die Qualifikanten feststehen.
-            var zielFarbe = TabellenZonen.ZielFarbe(zonen, regel.ZielRundeId);
-            foreach (var eintrag in rangfolge)
-                eintrag.ZonenFarbe = eintrag.Rang <= regel.AnzahlBeste ? zielFarbe : null;
-
-            if (qualifikanten.Values.All(v => v.HasValue))
-            {
-                var qualifizierteIds = qualifikanten.Values.Select(v => v!.Value).ToHashSet();
-                foreach (var eintrag in rangfolge)
-                {
-                    bool qualifiziert = qualifizierteIds.Contains(eintrag.Mannschaft.Id);
-                    eintrag.Qualifikationsstatus = qualifiziert
-                        ? Qualifikationsstatus.SicherQualifiziert
-                        : Qualifikationsstatus.SicherAusgeschieden;
-                    eintrag.SicherPositioniert = true;
-                    eintrag.PunktFarbe = qualifiziert ? zielFarbe : ZonenFarbe.Rot;
-                }
-            }
+            TabellenZonen.BesteZuweisen(rangfolge, zonen, regel.ZielRundeId, regel.AnzahlBeste!.Value, qualifikanten.Values);
 
             anzeigen.Add(new UebergreifendeRangfolgeAnzeige
             {

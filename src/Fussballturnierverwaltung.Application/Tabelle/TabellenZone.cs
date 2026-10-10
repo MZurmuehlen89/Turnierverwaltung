@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Tabelle;
 
@@ -87,6 +88,35 @@ public static class TabellenZonen
             if (moeglich.Count != 1 || moeglich[0].UnterVorbehalt) continue;
 
             eintrag.PunktFarbe = moeglich[0].Farbe ?? ZonenFarbe.Rot;
+        }
+    }
+
+    /// <summary>Markiert die gruppenübergreifende Rangfolge einer Regel „die n Besten“: Die Plätze der Besten
+    /// tragen die Farbe der Zielrunde. Stehen alle Qualifikanten fest (<paramref name="qualifikanten"/> ohne
+    /// <c>null</c>), bekommt jeder Eintrag Status und Punkt — Zielfarbe für Qualifizierte,
+    /// <see cref="ZonenFarbe.Rot"/> für Ausgeschiedene.</summary>
+    public static void BesteZuweisen(
+        IReadOnlyList<TabellenEintrag> rangfolge, IReadOnlyList<TabellenZone> zonen, int zielRundeId, int anzahlBeste,
+        IEnumerable<int?> qualifikanten)
+    {
+        // Issue #358: Hier fällt die Entscheidung über das Weiterkommen — die Plätze der Besten tragen die
+        // Farbe der Zielrunde, der Punkt folgt, sobald die Qualifikanten feststehen.
+        var zielFarbe = ZielFarbe(zonen, zielRundeId);
+        foreach (var eintrag in rangfolge)
+            eintrag.ZonenFarbe = eintrag.Rang <= anzahlBeste ? zielFarbe : null;
+
+        if (qualifikanten.All(v => v.HasValue))
+        {
+            var qualifizierteIds = qualifikanten.Select(v => v!.Value).ToHashSet();
+            foreach (var eintrag in rangfolge)
+            {
+                bool qualifiziert = qualifizierteIds.Contains(eintrag.Mannschaft.Id);
+                eintrag.Qualifikationsstatus = qualifiziert
+                    ? Qualifikationsstatus.SicherQualifiziert
+                    : Qualifikationsstatus.SicherAusgeschieden;
+                eintrag.SicherPositioniert = true;
+                eintrag.PunktFarbe = qualifiziert ? zielFarbe : ZonenFarbe.Rot;
+            }
         }
     }
 
