@@ -234,22 +234,28 @@ public partial class RundenTabellenViewModel : ObservableObject
         IReadOnlyList<Uebergangsregel> ausgehendeRegeln, IReadOnlyList<TabellenZone> zonen)
     {
         var anzeigen = new List<UebergreifendeRangfolgeAnzeige>();
-        foreach (var regel in ausgehendeRegeln.Where(r => r.AnzahlBeste is not null))
+        foreach (var regel in ausgehendeRegeln)
         {
-            var rangfolge = await _tabellenService.UebergreifendeRangfolgeBerechnenAsync(regel.QuellRundeId, regel.PlatzierungVon);
-            var qualifikanten = await _uebergangsregelService.QualifikantenErmittelnAsync(regel.Id);
-
-            TabellenZonen.BesteZuweisen(rangfolge, zonen, regel.ZielRundeId, regel.AnzahlBeste!.Value, qualifikanten.Values);
-
-            anzeigen.Add(new UebergreifendeRangfolgeAnzeige
-            {
-                Platzierung = regel.PlatzierungVon,
-                AnzahlBeste = regel.AnzahlBeste!.Value,
-                ZielRundeName = regel.ZielRunde.Name,
-                Rangfolge = rangfolge
-            });
+            if (regel.AnzahlBeste is { } anzahlBeste)
+                anzeigen.Add(await RangfolgeDerBestenLadenAsync(regel, anzahlBeste, zonen));
         }
 
         UebergreifendeRangfolgenAnzeige = new ObservableCollection<UebergreifendeRangfolgeAnzeige>(anzeigen);
+    }
+
+    private async Task<UebergreifendeRangfolgeAnzeige> RangfolgeDerBestenLadenAsync(
+        Uebergangsregel regel, int anzahlBeste, IReadOnlyList<TabellenZone> zonen)
+    {
+        var rangfolge = await _tabellenService.UebergreifendeRangfolgeBerechnenAsync(regel.QuellRundeId, regel.PlatzierungVon);
+        var qualifikanten = await _uebergangsregelService.QualifikantenErmittelnAsync(regel.Id);
+        TabellenZonen.BesteZuweisen(rangfolge, zonen, regel.ZielRundeId, anzahlBeste, qualifikanten.Values);
+
+        return new UebergreifendeRangfolgeAnzeige
+        {
+            Platzierung = regel.PlatzierungVon,
+            AnzahlBeste = anzahlBeste,
+            ZielRundeName = regel.ZielRunde.Name,
+            Rangfolge = rangfolge
+        };
     }
 }

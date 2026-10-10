@@ -102,21 +102,30 @@ public static class TabellenZonen
         // Issue #358: Hier fällt die Entscheidung über das Weiterkommen — die Plätze der Besten tragen die
         // Farbe der Zielrunde, der Punkt folgt, sobald die Qualifikanten feststehen.
         var zielFarbe = ZielFarbe(zonen, zielRundeId);
+        PlaetzeDerBestenFaerben(rangfolge, anzahlBeste, zielFarbe);
+
+        var feststehende = qualifikanten.ToList();
+        if (feststehende.All(id => id.HasValue))
+            EntscheidungMarkieren(rangfolge, [.. feststehende.Select(id => id!.Value)], zielFarbe);
+    }
+
+    private static void PlaetzeDerBestenFaerben(IEnumerable<TabellenEintrag> rangfolge, int anzahlBeste, ZonenFarbe zielFarbe)
+    {
         foreach (var eintrag in rangfolge)
             eintrag.ZonenFarbe = eintrag.Rang <= anzahlBeste ? zielFarbe : null;
+    }
 
-        if (qualifikanten.All(v => v.HasValue))
+    private static void EntscheidungMarkieren(
+        IEnumerable<TabellenEintrag> rangfolge, HashSet<int> qualifizierteMannschaftIds, ZonenFarbe zielFarbe)
+    {
+        foreach (var eintrag in rangfolge)
         {
-            var qualifizierteIds = qualifikanten.Select(v => v!.Value).ToHashSet();
-            foreach (var eintrag in rangfolge)
-            {
-                bool qualifiziert = qualifizierteIds.Contains(eintrag.Mannschaft.Id);
-                eintrag.Qualifikationsstatus = qualifiziert
-                    ? Qualifikationsstatus.SicherQualifiziert
-                    : Qualifikationsstatus.SicherAusgeschieden;
-                eintrag.SicherPositioniert = true;
-                eintrag.PunktFarbe = qualifiziert ? zielFarbe : ZonenFarbe.Rot;
-            }
+            bool qualifiziert = qualifizierteMannschaftIds.Contains(eintrag.Mannschaft.Id);
+            eintrag.Qualifikationsstatus = qualifiziert
+                ? Qualifikationsstatus.SicherQualifiziert
+                : Qualifikationsstatus.SicherAusgeschieden;
+            eintrag.SicherPositioniert = true;
+            eintrag.PunktFarbe = qualifiziert ? zielFarbe : ZonenFarbe.Rot;
         }
     }
 
