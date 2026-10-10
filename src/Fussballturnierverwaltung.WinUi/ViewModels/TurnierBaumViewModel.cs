@@ -122,21 +122,25 @@ public partial class TurnierBaumViewModel : ViewModelBase
 
     // ── Rundenweise Navigation (Issue #108/#244) ───────────────────────────────
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LinkeSpalteKnoten))]
-    [NotifyPropertyChangedFor(nameof(RechteSpalteKnoten))]
-    [NotifyPropertyChangedFor(nameof(LinkeSpalteName))]
-    [NotifyPropertyChangedFor(nameof(RechteSpalteName))]
-    [NotifyPropertyChangedFor(nameof(ZeigtZweiteSpalte))]
-    [NotifyPropertyChangedFor(nameof(HatVorherigeRunde))]
-    [NotifyPropertyChangedFor(nameof(HatNaechsteRunde))]
-    [NotifyPropertyChangedFor(nameof(VorherigeRundeName))]
-    [NotifyPropertyChangedFor(nameof(NaechsteRundeName))]
-    private int _aktuellerRundenIndex;
+    // Das Fenster zeigt die Runde AktuellerRundenIndex und — wenn es eine gibt — die folgende.
+    [ObservableProperty] private int _aktuellerRundenIndex;
 
-    partial void OnAktuellerRundenIndexChanged(int value)
+    partial void OnAktuellerRundenIndexChanged(int value) => RundenFensterGeaendert();
+
+    // Alles, was vom Fenster abhängt. Ändert sich das Fenster oder sein Inhalt (anderer Index, andere Knoten,
+    // andere Runden), meldet RundenFensterGeaendert diese Eigenschaften — die einzige Stelle dafür.
+    private static readonly string[] FENSTER_EIGENSCHAFTEN =
+    [
+        nameof(LinkeSpalteKnoten), nameof(RechteSpalteKnoten), nameof(LinkeSpalteName), nameof(RechteSpalteName),
+        nameof(ZeigtZweiteSpalte), nameof(HatVorherigeRunde), nameof(HatNaechsteRunde),
+        nameof(VorherigeRundeName), nameof(NaechsteRundeName)
+    ];
+
+    private void RundenFensterGeaendert()
     {
         AktualisiereFensterPositionen();
+        foreach (string eigenschaft in FENSTER_EIGENSCHAFTEN)
+            OnPropertyChanged(eigenschaft);
         _vorherigeRundeBefehl.NotifyCanExecuteChanged();
         _naechsteRundeBefehl.NotifyCanExecuteChanged();
     }
@@ -195,34 +199,22 @@ public partial class TurnierBaumViewModel : ViewModelBase
     private readonly RelayCommand _vorherigeRundeBefehl;
     private readonly RelayCommand _naechsteRundeBefehl;
 
+    // Der Inhalt des Fensters ist neu, auch wenn der Index schon 0 war — dann meldet die Zuweisung nichts.
     private void RundenNavigationZuruecksetzen()
     {
-        AktuellerRundenIndex = 0;
-        AktualisiereFensterPositionen();
-        OnPropertyChanged(nameof(AktuellerRundenIndex));
-        OnPropertyChanged(nameof(LinkeSpalteKnoten));
-        OnPropertyChanged(nameof(RechteSpalteKnoten));
-        OnPropertyChanged(nameof(LinkeSpalteName));
-        OnPropertyChanged(nameof(RechteSpalteName));
-        OnPropertyChanged(nameof(ZeigtZweiteSpalte));
-        OnPropertyChanged(nameof(HatVorherigeRunde));
-        OnPropertyChanged(nameof(HatNaechsteRunde));
-        OnPropertyChanged(nameof(VorherigeRundeName));
-        OnPropertyChanged(nameof(NaechsteRundeName));
-        _vorherigeRundeBefehl.NotifyCanExecuteChanged();
-        _naechsteRundeBefehl.NotifyCanExecuteChanged();
+        if (AktuellerRundenIndex != 0)
+            AktuellerRundenIndex = 0;
+        else
+            RundenFensterGeaendert();
     }
 
+    // Nach einem Ergebnis bleibt das Fenster stehen; nur wenn es über die letzte Runde hinausragt, rückt es zurück.
     private void RundenNavigationAktualisieren()
     {
         if (AktuellerRundenIndex > MaxFensterStartIndex)
-        {
             AktuellerRundenIndex = MaxFensterStartIndex;
-            return;
-        }
-        AktualisiereFensterPositionen();
-        OnPropertyChanged(nameof(LinkeSpalteKnoten));
-        OnPropertyChanged(nameof(RechteSpalteKnoten));
+        else
+            RundenFensterGeaendert();
     }
 
     // ── Tabellen der fokussierten Runde ────────────────────────────────────────
