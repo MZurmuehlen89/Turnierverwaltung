@@ -73,17 +73,17 @@
 
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding TeamsStatusText}" FontSize="12" Margin="0,0,0,8" />
                     <Border Grid.Row="1" Grid.Column="2" HorizontalAlignment="Left"
-                            Visibility="{Binding ManuellesFehler, Converter={StaticResource NullToCollapsed}}"
+                            Visibility="{Binding Regelmeldung, Converter={StaticResource NullToCollapsed}}"
                             Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
                             CornerRadius="4" Padding="8,4" Margin="0,0,0,8">
-                        <TextBlock Text="{Binding ManuellesFehler}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                        <TextBlock Text="{Binding Regelmeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                    FontSize="11" TextWrapping="Wrap" />
                     </Border>
 
                     <!-- Verfügbare Teilnehmer (Drag-Quelle) -->
                     <Grid Grid.Row="2" Grid.Column="0" RowDefinitions="Auto,Auto,*">
                         <TextBlock Grid.Row="0" Text="VERFÜGBAR" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
-                        <TextBox Grid.Row="1" Text="{Binding TeilnehmerFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox Grid.Row="1" Text="{Binding Filter.TeilnehmerFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  PlaceholderText="🔍  Filtern …" Margin="0,0,0,8" />
                         <ListView Grid.Row="2"
                                   ItemsSource="{Binding VerfuegbareTeilnehmerGefiltert}"

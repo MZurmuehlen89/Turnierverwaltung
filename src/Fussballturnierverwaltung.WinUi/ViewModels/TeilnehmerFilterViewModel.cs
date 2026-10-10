@@ -10,7 +10,8 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// Pool Mannschaften mehrerer Verbände enthält (Nationalmannschaften weltweit, Klub-WM), das Land bei
 /// Vereinsturnieren über mehrere Länder — beide zusammen bei weltweiten Vereinsturnieren, keiner bei Platzhaltern.
 /// Kind-ViewModel von <see cref="LostopfArbeitsbereichViewModel"/>, das über <see cref="Geaendert"/> erfährt,
-/// wann es seine gefilterte Liste neu abgleichen muss.</summary>
+/// wann es seine gefilterte Liste neu abgleichen muss. Die <see cref="Platzbelegung"/> der Vorbelegung nutzt nur
+/// den Freitext: ohne <see cref="OptionenAbgleichen"/> bleiben beide Auswahlfilter leer und lassen alles durch.</summary>
 public partial class TeilnehmerFilterViewModel : ObservableObject
 {
     private readonly IReadOnlyCollection<TeilnehmerAnzeige> _verfuegbareTeilnehmer;

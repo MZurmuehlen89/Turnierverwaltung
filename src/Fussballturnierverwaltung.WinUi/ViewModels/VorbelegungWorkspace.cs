@@ -92,7 +92,7 @@ public partial class VorbelegungWorkspace : ObservableObject
         _instanz = instanz;
         Runde = runde;
         _instanzRunden = instanzRunden;
-        Belegung = new Platzbelegung(runde, RegelAktiv);
+        Belegung = new Platzbelegung(runde.Rundenart, runde.GruppenAnzahl, RegelAktiv);
         Belegung.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(Platzbelegung.BelegungVollstaendig)) AbschliessenCommand.NotifyCanExecuteChanged();
@@ -113,7 +113,7 @@ public partial class VorbelegungWorkspace : ObservableObject
         using var vorgang = _logger.Vorgang($"Vorbelegung: Runde laden (Runde {Runde.Id})");
         IstLadend = true;
         Fehlermeldung = null;
-        Belegung.ManuellesFehler = null;
+        Belegung.RegelmeldungLoeschen();
         try
         {
             var alle = await _auslosungService.AlleNachInstanzAbrufenAsync(_instanz.Id);
@@ -125,10 +125,12 @@ public partial class VorbelegungWorkspace : ObservableObject
             var eingehendeRegeln = await _uebergangsregelService.AlleNachZielRundeIdAsync(Runde.Id);
             var platzhalter = TeilnehmerPoolHilfsmittel.PlatzhalterAusVorrunden(
                 _instanzRunden, Runde, eingehendeRegeln, Kombinationstabelle.AusJson(Runde.KombinationstabelleJson));
-            var alleTeilnehmer = platzhalter ?? await TeilnehmerOhneVorgaengerAsync();
+            var teamsBenoetigt = platzhalter?.Count ?? Runde.EingangsMannschaftsanzahl;
 
-            Belegung.SlotsAufbauen(
-                alleTeilnehmer, platzhalter?.Count ?? Runde.EingangsMannschaftsanzahl, IstAbgeschlossen ? _auslosung : null);
+            if (_auslosung is { Status: AuslosungsStatus.Abgeschlossen } abgeschlossene)
+                Belegung.AbgeschlossenAufbauen(abgeschlossene.Ergebnisse, teamsBenoetigt);
+            else
+                Belegung.LeerAufbauen(platzhalter ?? await TeilnehmerOhneVorgaengerAsync(), teamsBenoetigt);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
         finally { IstLadend = false; }
@@ -157,10 +159,10 @@ public partial class VorbelegungWorkspace : ObservableObject
     private async Task Abschliessen()
     {
         Fehlermeldung = null;
-        Belegung.ManuellesFehler = null;
+        Belegung.RegelmeldungLoeschen();
         try
         {
-            var paarungen = Belegung.PaarungsEingaben();
+            var paarungen = Belegung.AlsPaarungsEingaben();
 
             // Schon die Rückfrage liest den Spielplan — der Schutz gilt ab hier bis nach dem Neuladen (#416).
             using var schutz = await _dbContextSchutz.BetretenAsync();

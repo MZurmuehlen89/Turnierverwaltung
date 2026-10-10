@@ -13,7 +13,7 @@ namespace Fussballturnierverwaltung.WinUi.Views;
 /// "Paarungen"-Tab) — analog WPF-Original <c>PaarungsfestlegungView.xaml.cs</c>, adaptiert auf die
 /// WinUI3-Drag&amp;Drop-APIs (<see cref="DataPackage"/> statt <c>DataObject</c>). Anders als der entfallene
 /// "Paarungen"-Tab wird hier ein <see cref="TeilnehmerAnzeige"/>-Objekt gezogen (Name als Text-Payload,
-/// Ziel löst per Namens-Lookup gegen <see cref="Platzbelegung.VerfuegbareTeilnehmer"/> auf) statt
+/// Ziel löst per Namens-Lookup gegen <see cref="Platzbelegung.VerfuegbarerTeilnehmer"/> auf) statt
 /// eines reinen Platzhalter-Strings.</summary>
 public sealed partial class VorbelegungPage : UserControl
 {
@@ -41,18 +41,8 @@ public sealed partial class VorbelegungPage : UserControl
         var belegung = Belegung;
         if (belegung is null || sender is not ListView lv || lv.SelectedItem is not TeilnehmerAnzeige team) return;
 
-        if (belegung.IstKoModus)
-        {
-            var slot = belegung.NaechsterFreierKoSlot();
-            if (slot is null) return;
-            belegung.TeamInKoSlotPlatzieren(team, slot);
-        }
-        else
-        {
-            var slot = belegung.NaechsterFreierGruppenSlot();
-            if (slot is null) return;
-            belegung.TeamInGruppenSlotPlatzieren(team, slot);
-        }
+        if (belegung.NaechsterFreierPlatz() is not { } platz) return;
+        belegung.Platzieren(team, platz);
         e.Handled = true;
     }
 
@@ -77,18 +67,10 @@ public sealed partial class VorbelegungPage : UserControl
         if (belegung is null) return;
 
         var name = await e.DataView.GetTextAsync();
-        var team = belegung.VerfuegbareTeilnehmer.FirstOrDefault(t => t.Name == name);
+        var team = belegung.VerfuegbarerTeilnehmer(name);
         if (team is null) return;
 
-        switch (fe.DataContext)
-        {
-            case ManuellerKoSlot koSlot:
-                belegung.TeamInKoSlotPlatzieren(team, koSlot);
-                break;
-            case ManuellerGruppenSlot gruppenSlot:
-                belegung.TeamInGruppenSlotPlatzieren(team, gruppenSlot);
-                break;
-        }
+        if (fe.DataContext is VorbelegungsPlatz platz) belegung.Platzieren(team, platz);
     }
 
     private void Slot_DragEnter(object sender, DragEventArgs e)
@@ -110,15 +92,8 @@ public sealed partial class VorbelegungPage : UserControl
         var belegung = Belegung;
         if (belegung is null || sender is not FrameworkElement fe) return;
 
-        switch (fe.DataContext)
-        {
-            case ManuellerKoSlot { IstLeer: false } koSlot:
-                ZeigeEntfernenFlyout(fe, koSlot.AnzeigeName, () => belegung.TeamAusKoSlotEntfernen(koSlot));
-                break;
-            case ManuellerGruppenSlot { IstLeer: false } gruppenSlot:
-                ZeigeEntfernenFlyout(fe, gruppenSlot.AnzeigeName, () => belegung.TeamAusGruppenSlotEntfernen(gruppenSlot));
-                break;
-        }
+        if (fe.DataContext is VorbelegungsPlatz { IstLeer: false } platz)
+            ZeigeEntfernenFlyout(fe, platz.AnzeigeName, () => belegung.Entfernen(platz));
     }
 
     private static void ZeigeEntfernenFlyout(FrameworkElement anker, string name, Action entfernen)

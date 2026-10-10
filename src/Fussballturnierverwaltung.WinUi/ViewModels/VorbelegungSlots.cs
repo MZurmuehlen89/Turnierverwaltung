@@ -1,15 +1,14 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using System.Collections.ObjectModel;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-// ── Anzeigetypen für die Slot-Grids — 1:1 aus Wpf/ViewModels/ManuellePaarungWorkspaceViewModel.cs portiert ──
+// ── Anzeigetypen für das Platzraster der Vorbelegung ────────────────────────
 
-public class ManuellerKoSlot : ObservableObject
+/// <summary>Ein Platz im Raster — in einer Gruppe oder als Heim- bzw. Auswärtsplatz einer Paarung. Besetzt und
+/// geleert wird er über die <see cref="Platzbelegung"/>, die dabei die verfügbaren Teilnehmer nachführt.</summary>
+public class VorbelegungsPlatz : ObservableObject
 {
     private TeilnehmerAnzeige? _team;
-    public int PaarungsNr { get; init; }
-    public bool IstHeim { get; init; }
 
     public TeilnehmerAnzeige? Team
     {
@@ -35,41 +34,6 @@ public class ManuellerKoSlot : ObservableObject
     }
 }
 
-public record ManuelleKoPaarungAnzeige(int PaarungsNr, ManuellerKoSlot HeimSlot, ManuellerKoSlot AuswaertsSlot);
+public record ManuelleKoPaarungAnzeige(int PaarungsNr, VorbelegungsPlatz HeimSlot, VorbelegungsPlatz AuswaertsSlot);
 
-public class ManuellerGruppenSlot : ObservableObject
-{
-    private TeilnehmerAnzeige? _team;
-    public int GruppenNr { get; init; }
-    public int SlotNr { get; init; }
-
-    public TeilnehmerAnzeige? Team
-    {
-        get => _team;
-        private set
-        {
-            if (SetProperty(ref _team, value))
-            {
-                OnPropertyChanged(nameof(IstLeer));
-                OnPropertyChanged(nameof(AnzeigeName));
-            }
-        }
-    }
-    public bool IstLeer => Team is null;
-    public string AnzeigeName => Team?.Name ?? "…";
-
-    public void Besetzen(TeilnehmerAnzeige team) => Team = team;
-    public TeilnehmerAnzeige? Leeren()
-    {
-        var team = Team;
-        Team = null;
-        return team;
-    }
-}
-
-public class ManuelleGruppe : ObservableObject
-{
-    public int GruppenNr { get; init; }
-    public string GruppenName { get; init; } = "";
-    public ObservableCollection<ManuellerGruppenSlot> Slots { get; init; } = [];
-}
+public record ManuelleGruppe(int GruppenNr, string GruppenName, IReadOnlyList<VorbelegungsPlatz> Slots);

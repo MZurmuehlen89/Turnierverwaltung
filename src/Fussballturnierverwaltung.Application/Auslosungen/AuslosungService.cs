@@ -390,8 +390,7 @@ public class AuslosungService(
         // Liga und SchweizerSystem teilen sich dieselbe "flache Teilnehmerliste ohne Paarung"-Semantik
         // wie Gruppenphase (siehe Losverfahren.Ausloesen sowie RundenEditorViewModel.IstLiga,
         // Issue #251-Folgefund) — ein einzelnes Team pro Zeile ist dort ebenfalls die Norm.
-        bool istGruppenmodus = auslosung.TurnierRunde?.Rundenart
-            is Rundenart.Gruppenphase or Rundenart.Liga or Rundenart.SchweizerSystem;
+        bool istGruppenmodus = auslosung.TurnierRunde is { } runde && VorbelegungsRaster.HatGruppen(runde.Rundenart);
 
         var ergebnisse = paarungen.Select((p, i) => new AuslosungsErgebnis
         {

@@ -6,6 +6,17 @@ namespace Fussballturnierverwaltung.Tests.Auslosungen;
 
 public class VorbelegungsRasterTests
 {
+    // ── Gruppen oder Paarungen ────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(Rundenart.Gruppenphase, true)]
+    [InlineData(Rundenart.Liga, true)]
+    [InlineData(Rundenart.SchweizerSystem, true)]
+    [InlineData(Rundenart.KoRunde, false)]
+    [InlineData(Rundenart.TopfLiga, false)]
+    public void HatGruppen_GiltFuerGruppenphaseLigaUndSchweizerSystem(Rundenart rundenart, bool erwartet) =>
+        VorbelegungsRaster.HatGruppen(rundenart).Should().Be(erwartet);
+
     // ── Gruppen ───────────────────────────────────────────────────────────────
 
     [Fact]
@@ -56,4 +67,42 @@ public class VorbelegungsRasterTests
     [InlineData(0, 1)] // Teilnehmerzahl unbekannt
     public void PaarungsAnzahl_IstDieHaelfteAufgerundet(int teamAnzahl, int erwartet) =>
         VorbelegungsRaster.PaarungsAnzahl(teamAnzahl).Should().Be(erwartet);
+
+    // ── Vollständigkeit ───────────────────────────────────────────────────────
+
+    [Fact]
+    public void GruppenVollstaendig_AllePlaetzeBesetzt_IstVollstaendig() =>
+        VorbelegungsRaster.GruppenVollstaendig([true, true, true]).Should().BeTrue();
+
+    [Fact]
+    public void GruppenVollstaendig_EinPlatzFrei_IstUnvollstaendig() =>
+        VorbelegungsRaster.GruppenVollstaendig([true, false, true]).Should().BeFalse();
+
+    [Fact]
+    public void GruppenVollstaendig_OhnePlaetze_IstUnvollstaendig() =>
+        VorbelegungsRaster.GruppenVollstaendig([]).Should().BeFalse();
+
+    [Fact]
+    public void PaarungenVollstaendig_AlleErwartetenTeamsPlatziert_IstVollstaendig() =>
+        VorbelegungsRaster.PaarungenVollstaendig([(true, true), (true, true)], teamsBenoetigt: 4).Should().BeTrue();
+
+    [Fact]
+    public void PaarungenVollstaendig_TeamFehlt_IstUnvollstaendig() =>
+        VorbelegungsRaster.PaarungenVollstaendig([(true, true), (true, false)], teamsBenoetigt: 4).Should().BeFalse();
+
+    [Fact]
+    public void PaarungenVollstaendig_NichtsPlatziert_IstUnvollstaendig() =>
+        VorbelegungsRaster.PaarungenVollstaendig([(false, false)], teamsBenoetigt: 0).Should().BeFalse();
+
+    [Fact]
+    public void PaarungenVollstaendig_FreilosAufDemHeimplatz_IstVollstaendig() =>
+        VorbelegungsRaster.PaarungenVollstaendig([(true, true), (true, false)], teamsBenoetigt: 3).Should().BeTrue();
+
+    [Fact]
+    public void PaarungenVollstaendig_EinzelnesTeamAufDemAuswaertsplatz_IstUnvollstaendig() =>
+        VorbelegungsRaster.PaarungenVollstaendig([(true, true), (false, true)], teamsBenoetigt: 3).Should().BeFalse();
+
+    [Fact]
+    public void PaarungenVollstaendig_OhneBekannteTeilnehmerzahl_ReichtEinePaarungMitHeimteam() =>
+        VorbelegungsRaster.PaarungenVollstaendig([(true, false)], teamsBenoetigt: 0).Should().BeTrue();
 }

@@ -9,6 +9,11 @@ public record RasterGruppe(int GruppenNr, string Name, int PlatzAnzahl);
 /// Gruppen mit Plätzen oder Paarungen mit Heim- und Auswärtsplatz. Zustandslos.</summary>
 public static class VorbelegungsRaster
 {
+    /// <summary>Ob die Teilnehmer der Runde Gruppen zugeordnet werden (ein Team je Platz) statt paarweise
+    /// gegeneinander gesetzt — Liga und Schweizer System teilen die flache Teilnehmerliste der Gruppenphase.</summary>
+    public static bool HatGruppen(Rundenart rundenart) =>
+        rundenart is Rundenart.Gruppenphase or Rundenart.Liga or Rundenart.SchweizerSystem;
+
     /// <summary>Die Gruppen einer Runde, deren Teilnehmer Gruppen zugeordnet werden. Eine Gruppenphase verteilt
     /// die Teilnehmer gleichmäßig auf ihre Gruppen (ohne bekannte Teilnehmerzahl vier Plätze je Gruppe); Liga und
     /// Schweizer System haben eine einzige Gruppe mit einem Platz je Teilnehmer.</summary>
@@ -28,4 +33,20 @@ public static class VorbelegungsRaster
     /// Auswärtsplatz frei (Freilos), ohne bekannte Teilnehmerzahl eine Paarung.</summary>
     public static int PaarungsAnzahl(int teamAnzahl) =>
         teamAnzahl > 0 ? (int)Math.Ceiling(teamAnzahl / 2.0) : 1;
+
+    /// <summary>Ob in einer Runde mit Gruppen nichts mehr fehlt: jeder Platz ist besetzt.</summary>
+    public static bool GruppenVollstaendig(IReadOnlyCollection<bool> platzBesetzt) =>
+        platzBesetzt.Count > 0 && platzBesetzt.All(besetzt => besetzt);
+
+    /// <summary>Ob in einer Runde mit Paarungen nichts mehr fehlt: alle erwarteten Teams sind platziert (ohne
+    /// bekannte Teilnehmerzahl mindestens eines) und keine Paarung hat nur ein Auswärtsteam — ein einzelnes Team
+    /// (Freilos bei ungerader Anzahl) steht auf dem Heimplatz.</summary>
+    public static bool PaarungenVollstaendig(
+        IReadOnlyCollection<(bool HeimBesetzt, bool AuswaertsBesetzt)> paarungen, int teamsBenoetigt)
+    {
+        int zugewiesen = paarungen.Sum(p => (p.HeimBesetzt ? 1 : 0) + (p.AuswaertsBesetzt ? 1 : 0));
+        return zugewiesen > 0
+            && (teamsBenoetigt == 0 || zugewiesen == teamsBenoetigt)
+            && paarungen.All(p => p.HeimBesetzt || !p.AuswaertsBesetzt);
+    }
 }
