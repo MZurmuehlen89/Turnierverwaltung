@@ -18,7 +18,7 @@ public class TabellenService(
     public async Task<IReadOnlyList<TabellenEintrag>> TabelleBerechnenAsync(
         int turnierRundeId, TabellenAnsicht ansicht = TabellenAnsicht.Gesamt, int? bisSpieltag = null, CancellationToken ct = default)
     {
-        var (punkteRegel, rankingRegeln, alleSpiele) = await LadeTabellenDatenAsync(turnierRundeId, ct);
+        var (runde, punkteRegel, rankingRegeln, alleSpiele) = await TabellenDatenLadenAsync(turnierRundeId, ct);
         if (!alleSpiele.Any()) return [];
 
         var spiele = SpieleBisSpieltagFiltern(alleSpiele, bisSpieltag);
@@ -42,10 +42,7 @@ public class TabellenService(
         // Issue #358: mögliche Ränge nur für den aktuellen Gesamtstand — Teilansichten und historische
         // Spieltage sind keine Wertung, aus der sich ein Weiterkommen ableiten ließe.
         if (ansicht == TabellenAnsicht.Gesamt && bisSpieltag is null)
-        {
-            var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct);
             RangPrognose.LigaRaengeSetzen(tabelle, runde, alleSpiele, punkteRegel);
-        }
         return tabelle;
     }
 
@@ -55,11 +52,10 @@ public class TabellenService(
     public async Task<IReadOnlyList<TabellenEintrag>> LigaTabelleMitSicherheitBerechnenAsync(
         int turnierRundeId, CancellationToken ct = default)
     {
-        var (punkteRegel, rankingRegeln, alleSpiele) = await LadeTabellenDatenAsync(turnierRundeId, ct);
+        var (runde, punkteRegel, rankingRegeln, alleSpiele) = await TabellenDatenLadenAsync(turnierRundeId, ct);
         if (!alleSpiele.Any()) return [];
 
         var tabelle = TabellenRechner.TabelleBerechnen(alleSpiele, punkteRegel, rankingRegeln);
-        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct);
         RangPrognose.LigaRaengeSetzen(tabelle, runde, alleSpiele, punkteRegel);
         RangPrognose.SicherPositionierteMarkieren(tabelle);
         return tabelle;
@@ -72,11 +68,10 @@ public class TabellenService(
     public async Task<IReadOnlyList<GruppenTabelle>> GruppenTabellenBerechnenAsync(
         int turnierRundeId, int? bisSpieltag = null, CancellationToken ct = default)
     {
-        var (punkteRegel, rankingRegeln, alleSpiele) = await LadeTabellenDatenAsync(turnierRundeId, ct);
+        var (runde, punkteRegel, rankingRegeln, alleSpiele) = await TabellenDatenLadenAsync(turnierRundeId, ct);
         if (!alleSpiele.Any()) return [];
 
-        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct);
-        int qualPlaetze = runde is { GruppenAnzahl: > 0 }
+        int qualPlaetze = runde.GruppenAnzahl is > 0
             ? Math.Max(1, runde.AusgangsMannschaftsanzahl / runde.GruppenAnzahl.Value)
             : 2;
 
@@ -107,7 +102,7 @@ public class TabellenService(
     public async Task<IReadOnlyList<TabellenEintrag>> UebergreifendeRangfolgeBerechnenAsync(
         int turnierRundeId, int platzierung, CancellationToken ct = default)
     {
-        var (punkteRegel, rankingRegeln, alleSpiele) = await LadeTabellenDatenAsync(turnierRundeId, ct);
+        var (_, punkteRegel, rankingRegeln, alleSpiele) = await TabellenDatenLadenAsync(turnierRundeId, ct);
         if (!alleSpiele.Any()) return [];
 
         // Gesamttabelle über ALLE Teams der Runde - liefert korrekte Team-Stats (die Statistik filtert
@@ -145,10 +140,13 @@ public class TabellenService(
             : [];
     }
 
-    // ── Interne Lade- und Berechnungsmethoden ────────────────────────────
+    // ── Laden ─────────────────────────────────────────────────────────────
 
-    private async Task<(PunkteRegel, List<RankingRegel>, IReadOnlyList<Spiel>)> LadeTabellenDatenAsync(
-        int turnierRundeId, CancellationToken ct)
+    /// <summary>Alles, woraus die Tabellen einer Runde gerechnet werden - je Aufruf einmal geladen (#439).</summary>
+    private sealed record TabellenDaten(
+        TurnierRunde Runde, PunkteRegel PunkteRegel, IReadOnlyList<RankingRegel> RankingRegeln, IReadOnlyList<Spiel> Spiele);
+
+    private async Task<TabellenDaten> TabellenDatenLadenAsync(int turnierRundeId, CancellationToken ct)
     {
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Runde {turnierRundeId} nicht gefunden.");
@@ -171,6 +169,6 @@ public class TabellenService(
             .Select(e => e.RankingRegel)
             .ToList() ?? [];
 
-        return (punkteRegel, rankingRegeln, alleSpiele);
+        return new TabellenDaten(runde, punkteRegel, rankingRegeln, alleSpiele);
     }
 }
