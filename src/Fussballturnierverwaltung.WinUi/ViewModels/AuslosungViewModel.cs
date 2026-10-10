@@ -644,9 +644,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task ZiehungZeigenAsync(ZiehungsVorlage vorlage, bool manuell)
     {
         if (vorlage.Matrizen is not null)
-            await Ziehung.LigaphasenZiehungAnimierenAsync(vorlage.Matrizen, manuell);
+            await new LigaphasenZiehungsAblauf(Ziehung).AbspielenAsync(vorlage.Matrizen, manuell);
         else if (vorlage.Schritte is not null)
-            await Ziehung.ZiehungAnimierenAsync(vorlage.Schritte, Arbeitsbereich.Lostoepfe, manuell);
+            await new GruppenKoZiehungsAblauf(Ziehung).AbspielenAsync(vorlage.Schritte, Arbeitsbereich.Lostoepfe, manuell);
     }
 
     private Task<bool> ErgebnisVerlustBestaetigtAsync(int rundeId) =>
