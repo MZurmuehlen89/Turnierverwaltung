@@ -2,6 +2,7 @@ using FluentAssertions;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Tests.Tabelle;
 
@@ -116,6 +117,72 @@ public class TabellenZonenTests
         historisch.PunktFarbe.Should().BeNull();
         ohneRegeln.ZonenFarbe.Should().BeNull();
         ohneRegeln.PunktFarbe.Should().BeNull("eine Runde ohne Übergangsregeln kennt kein Ausscheiden");
+    }
+
+    // ── Rangfolge der Besten (#438) ───────────────────────────────────────────
+
+    // Drei Gruppendritte, der beste kommt weiter.
+    private static List<TabellenEintrag> DritteRangfolge() => [Eintrag(1), Eintrag(2), Eintrag(3)];
+
+    [Fact]
+    public void BesteZuweisen_PlaetzeDerBestenTragenDieFarbeDerZielrunde()
+    {
+        var rangfolge = DritteRangfolge();
+
+        TabellenZonen.BesteZuweisen(rangfolge, GruppenZonenMitBestenDritten(), _achtelfinale.Id, anzahlBeste: 1, [null]);
+
+        rangfolge.Select(e => e.ZonenFarbe).Should().Equal(ZonenFarbe.Gruen, null, null);
+    }
+
+    [Fact]
+    public void BesteZuweisen_SolangeEinQualifikantOffenIstKeinStatusUndKeinPunkt()
+    {
+        var rangfolge = DritteRangfolge();
+
+        TabellenZonen.BesteZuweisen(rangfolge, GruppenZonenMitBestenDritten(), _achtelfinale.Id, anzahlBeste: 2, [1, null]);
+
+        rangfolge.Should().OnlyContain(e =>
+            e.Qualifikationsstatus == Qualifikationsstatus.Offen && !e.SicherPositioniert && e.PunktFarbe == null);
+    }
+
+    [Fact]
+    public void BesteZuweisen_StehenAlleQualifikantenFestBekommtJederStatusUndPunkt()
+    {
+        var rangfolge = DritteRangfolge();
+
+        TabellenZonen.BesteZuweisen(rangfolge, GruppenZonenMitBestenDritten(), _achtelfinale.Id, anzahlBeste: 1, [1]);
+
+        rangfolge.Select(e => (e.Qualifikationsstatus, e.PunktFarbe)).Should().Equal(
+            (Qualifikationsstatus.SicherQualifiziert, ZonenFarbe.Gruen),
+            (Qualifikationsstatus.SicherAusgeschieden, ZonenFarbe.Rot),
+            (Qualifikationsstatus.SicherAusgeschieden, ZonenFarbe.Rot));
+        rangfolge.Should().OnlyContain(e => e.SicherPositioniert);
+    }
+
+    [Fact]
+    public void BesteZuweisen_StatusFolgtDenQualifikantenNichtDemRang()
+    {
+        // Der Qualifikant steht fest, die Rangfolge zeigt ihn aber (noch) nicht auf einem Platz der Besten.
+        var rangfolge = DritteRangfolge();
+
+        TabellenZonen.BesteZuweisen(rangfolge, GruppenZonenMitBestenDritten(), _achtelfinale.Id, anzahlBeste: 1, [2]);
+
+        rangfolge.Select(e => e.Qualifikationsstatus).Should().Equal(
+            Qualifikationsstatus.SicherAusgeschieden, Qualifikationsstatus.SicherQualifiziert, Qualifikationsstatus.SicherAusgeschieden);
+        rangfolge.Select(e => e.ZonenFarbe).Should().Equal(ZonenFarbe.Gruen, null, null);
+    }
+
+    [Fact]
+    public void BesteZuweisen_OhneDirekteZoneDerZielrundeGruen()
+    {
+        // Nur die besten Dritten führen in die Playoff-Runde — es gibt keine direkte Zone, deren Farbe gälte.
+        var zonen = TabellenZonen.AusRegeln([Regel(_achtelfinale, null, 1, 2), Regel(_playoff, null, 3, 3, anzahlBeste: 1)]);
+        var rangfolge = DritteRangfolge();
+
+        TabellenZonen.BesteZuweisen(rangfolge, zonen, _playoff.Id, anzahlBeste: 1, [1]);
+
+        rangfolge[0].ZonenFarbe.Should().Be(ZonenFarbe.Gruen);
+        rangfolge[0].PunktFarbe.Should().Be(ZonenFarbe.Gruen);
     }
 
     [Fact]
