@@ -44,20 +44,14 @@ public class TabellenService(
         if (ansicht == TabellenAnsicht.Gesamt && bisSpieltag is null)
         {
             var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct);
-            RangPrognose.RangSchrankenSetzen(tabelle, runde, alleSpiele, punkteRegel);
+            RangPrognose.LigaRaengeSetzen(tabelle, runde, alleSpiele, punkteRegel);
         }
         return tabelle;
     }
 
     /// <summary>Berechnet die Gesamttabelle einer Liga-/TopfLiga-/Schweizer-System-Runde inkl.
-    /// <see cref="TabellenEintrag.SicherPositioniert"/> (Issue #343, Liga-Gegenstück zu #202). Anders als bei
-    /// <see cref="GruppenTabellenBerechnenAsync"/> wird nicht jede Ergebniskombination der offenen Spiele
-    /// durchgerechnet (6^n ist bei z. B. 18 offenen Spielen je Ligaphasen-Spieltag nicht berechenbar), sondern
-    /// konservativ über Punkte-Schranken: bester Rang = 1 + Anzahl Teams, die selbst im schlechtesten Fall mehr
-    /// Punkte haben als das Team im besten Fall; schlechtester Rang = 1 + Anzahl Teams, die im besten Fall
-    /// mindestens so viele Punkte erreichen können wie das Team im schlechtesten Fall (Punktgleichheit zählt
-    /// als "kann vorbeiziehen", da Tiebreaker bei offenen Spielen nicht vorhersagbar sind). Sicher ⇔ beide
-    /// gleich. Kann einen tatsächlich schon feststehenden Rang übersehen, meldet aber nie fälschlich "sicher".</summary>
+    /// <see cref="TabellenEintrag.SicherPositioniert"/> (Issue #343) - sicher ist ein Rang, wenn bester und
+    /// schlechtester möglicher Rang ihm gleich sind (siehe <see cref="RangPrognose.LigaRaengeSetzen"/>).</summary>
     public async Task<IReadOnlyList<TabellenEintrag>> LigaTabelleMitSicherheitBerechnenAsync(
         int turnierRundeId, CancellationToken ct = default)
     {
@@ -66,9 +60,8 @@ public class TabellenService(
 
         var tabelle = TabellenRechner.TabelleBerechnen(alleSpiele, punkteRegel, rankingRegeln);
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct);
-        RangPrognose.RangSchrankenSetzen(tabelle, runde, alleSpiele, punkteRegel);
-        foreach (var eintrag in tabelle)
-            eintrag.SicherPositioniert = eintrag.BesterRang == eintrag.Rang && eintrag.SchlechtesterRang == eintrag.Rang;
+        RangPrognose.LigaRaengeSetzen(tabelle, runde, alleSpiele, punkteRegel);
+        RangPrognose.SicherPositionierteMarkieren(tabelle);
         return tabelle;
     }
 
@@ -101,7 +94,7 @@ public class TabellenService(
             // Issue #397: Solange ein Platz der Gruppe noch nicht aufgelöst ist, fehlen dessen Spiele in der
             // Status-Berechnung (Gegner unbekannt) — kein Rang darf dann als sicher gelten.
             if (gruppe.OffenePlaetze.Count > 0) continue;
-            RangPrognose.QualifikationsstatusSetzen(gruppe, spiele, qualPlaetze, punkteRegel, rankingRegeln);
+            RangPrognose.GruppenRaengeSetzen(gruppe, spiele, qualPlaetze, punkteRegel, rankingRegeln);
         }
 
         return result.Select(r => r.Gruppe).ToList();

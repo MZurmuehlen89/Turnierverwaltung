@@ -34,8 +34,9 @@ public static class TabellenRechner
     }
 
     /// <summary>Die Spiele, die in eine Tabelle eingehen: abgeschlossen und mit Ergebnis.</summary>
-    public static IReadOnlyList<Spiel> MitErgebnis(IEnumerable<Spiel> spiele) =>
-        [.. spiele.Where(s => s.Status == SpielStatus.Abgeschlossen && s.Ergebnis is not null)];
+    public static IReadOnlyList<Spiel> MitErgebnis(IEnumerable<Spiel> spiele) => [.. spiele.Where(HatErgebnis)];
+
+    public static bool HatErgebnis(Spiel spiel) => spiel.Status == SpielStatus.Abgeschlossen && spiel.Ergebnis is not null;
 
     private static Dictionary<int, Mannschaft> TeamsSammeln(IReadOnlyList<Spiel> spiele, IReadOnlyList<Mannschaft>? teilnehmer)
     {

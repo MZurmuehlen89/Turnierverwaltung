@@ -1,20 +1,30 @@
-using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
-using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Tabelle;
 
+/// <summary>Sagt voraus, was aus dem Tabellenstand noch werden kann: bester und schlechtester Rang je Team und
+/// daraus, ob Rang oder Weiterkommen schon feststehen. Ohne Datenbankzugriff, die Tabellen selbst rechnet
+/// <see cref="TabellenRechner"/> (#439).</summary>
 public static class RangPrognose
 {
+    // ── Liga: Schranken über die Punkte ───────────────────────────────────
+
     /// <summary>Setzt <see cref="TabellenEintrag.BesterRang"/>/<see cref="TabellenEintrag.SchlechtesterRang"/>
-    /// einer Liga-Tabelle über die Punkte-Schranken (siehe <see cref="LigaTabelleMitSicherheitBerechnenAsync"/>).
+    /// einer Liga-Tabelle (Issue #343, Liga-Gegenstück zu #202). Anders als in der Gruppe
+    /// (<see cref="GruppenRaengeSetzen"/>) wird nicht jede Ergebniskombination der offenen Spiele durchgerechnet
+    /// (6^n ist bei z. B. 18 offenen Spielen je Ligaphasen-Spieltag nicht berechenbar), sondern konservativ über
+    /// Punkte-Schranken: bester Rang = 1 + Anzahl Teams, die selbst im schlechtesten Fall mehr Punkte haben als
+    /// das Team im besten Fall; schlechtester Rang = 1 + Anzahl Teams, die im besten Fall mindestens so viele
+    /// Punkte erreichen können wie das Team im schlechtesten Fall (Punktgleichheit zählt als "kann vorbeiziehen",
+    /// da Tiebreaker bei offenen Spielen nicht vorhersagbar sind). Kann einen tatsächlich schon feststehenden
+    /// Rang übersehen, meldet aber nie fälschlich einen zu engen Bereich.
     /// Bleibt aus, solange der Rest der Runde unbekannt ist (noch unaufgelöste Platzhalter-Spiele, Schweizer
     /// System ohne Spieltag-Anzahl).</summary>
-    public static void RangSchrankenSetzen(
+    public static void LigaRaengeSetzen(
         IReadOnlyList<TabellenEintrag> tabelle, TurnierRunde? runde, IReadOnlyList<Spiel> alleSpiele, PunkteRegel punkteRegel)
     {
         var verbleibend = VerbleibendeSpieleProTeam(runde, alleSpiele, tabelle);
@@ -27,6 +37,20 @@ public static class RangPrognose
             return;
         }
 
+        PunkteSchrankenAnwenden(tabelle, verbleibend, punkteRegel);
+    }
+
+    /// <summary>Markiert die Einträge, deren Rang nach <see cref="LigaRaengeSetzen"/> feststeht: bester und
+    /// schlechtester Rang sind gleich dem aktuellen.</summary>
+    public static void SicherPositionierteMarkieren(IReadOnlyList<TabellenEintrag> tabelle)
+    {
+        foreach (var eintrag in tabelle)
+            eintrag.SicherPositioniert = eintrag.BesterRang == eintrag.Rang && eintrag.SchlechtesterRang == eintrag.Rang;
+    }
+
+    private static void PunkteSchrankenAnwenden(
+        IReadOnlyList<TabellenEintrag> tabelle, Dictionary<int, int> verbleibend, PunkteRegel punkteRegel)
+    {
         int maxProSpiel = Math.Max(punkteRegel.PunkteFuerSieg, Math.Max(punkteRegel.PunkteFuerUnentschieden, punkteRegel.PunkteFuerNiederlage));
         int minProSpiel = Math.Min(punkteRegel.PunkteFuerSieg, Math.Min(punkteRegel.PunkteFuerUnentschieden, punkteRegel.PunkteFuerNiederlage));
         var schranken = tabelle.ToDictionary(
@@ -52,7 +76,7 @@ public static class RangPrognose
     {
         if (alleSpiele.Any(s => s.HeimMannschaftId is null || s.AuswaertsMannschaftId is null)) return null;
 
-        var offen = alleSpiele.Where(s => s.Status != SpielStatus.Abgeschlossen || s.Ergebnis is null).ToList();
+        var offen = alleSpiele.Where(s => !TabellenRechner.HatErgebnis(s)).ToList();
         var ergebnis = tabelle.ToDictionary(
             e => e.Mannschaft.Id,
             e => offen.Count(s => s.HeimMannschaftId == e.Mannschaft.Id || s.AuswaertsMannschaftId == e.Mannschaft.Id));
@@ -67,44 +91,32 @@ public static class RangPrognose
         return ergebnis;
     }
 
-    // ── Qualifikationsstatus ──────────────────────────────────────────────
+    // ── Gruppe: alle Ergebniskombinationen der offenen Spiele ─────────────
 
-    public static void QualifikationsstatusSetzen(
+    /// <summary>Setzt je Team der Gruppe besten und schlechtesten Rang, daraus den
+    /// <see cref="TabellenEintrag.Qualifikationsstatus"/> für <paramref name="qualifiziertePlaetze"/> Plätze und
+    /// <see cref="TabellenEintrag.SicherPositioniert"/> (Issue #202 - ob der exakte Rang durch kein Ergebnis der
+    /// verbleibenden Spiele mehr verändert werden kann). Ohne offene Spiele ist jeder Rang final.</summary>
+    public static void GruppenRaengeSetzen(
         GruppenTabelle gruppe,
         IReadOnlyList<Spiel> gruppenSpiele,
         int qualifiziertePlaetze,
         PunkteRegel punkteRegel,
-        List<RankingRegel> rankingRegeln)
+        IReadOnlyList<RankingRegel> rankingRegeln)
     {
-        var abgeschlossen = gruppenSpiele
-            .Where(s => s.Status == SpielStatus.Abgeschlossen && s.Ergebnis is not null)
-            .ToList();
-        var offen = gruppenSpiele
-            .Where(s => s.Status != SpielStatus.Abgeschlossen
-                     && s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
-            .ToList();
-
-        if (!offen.Any())
-        {
-            foreach (var e in gruppe.Tabelle)
-            {
-                e.Qualifikationsstatus = e.Rang <= qualifiziertePlaetze
-                    ? Qualifikationsstatus.SicherQualifiziert
-                    : Qualifikationsstatus.SicherAusgeschieden;
-                e.SicherPositioniert = true; // keine offenen Spiele mehr - jeder Rang ist final
-                e.BesterRang = e.SchlechtesterRang = e.Rang;
-            }
-            return;
-        }
+        var stand = new GruppenStand(
+            TabellenRechner.MitErgebnis(gruppenSpiele),
+            [.. gruppenSpiele.Where(s => s.Status != SpielStatus.Abgeschlossen
+                                      && s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)],
+            punkteRegel,
+            rankingRegeln);
 
         foreach (var eintrag in gruppe.Tabelle)
         {
             int teamId = eintrag.Mannschaft.Id;
-
-            int bestRang = ExtremRangErmitteln(
-                abgeschlossen, offen, teamId, punkteRegel, rankingRegeln, teamGewinntAlles: true, bestenfalls: true);
-            int worstRang = ExtremRangErmitteln(
-                abgeschlossen, offen, teamId, punkteRegel, rankingRegeln, teamGewinntAlles: false, bestenfalls: false);
+            var (bestRang, worstRang) = stand.Offen.Count == 0
+                ? (eintrag.Rang, eintrag.Rang)
+                : (ExtremRangErmitteln(stand, teamId, bestenfalls: true), ExtremRangErmitteln(stand, teamId, bestenfalls: false));
 
             eintrag.Qualifikationsstatus = bestRang > qualifiziertePlaetze
                 ? Qualifikationsstatus.SicherAusgeschieden
@@ -117,10 +129,18 @@ public static class RangPrognose
         }
     }
 
+    /// <summary>Was über eine Gruppe feststeht (Spiele mit Ergebnis) und was noch aussteht (offene Spiele mit
+    /// zwei bekannten Teams), samt den Regeln, nach denen daraus eine Tabelle wird.</summary>
+    private sealed record GruppenStand(
+        IReadOnlyList<Spiel> Abgeschlossen,
+        IReadOnlyList<Spiel> Offen,
+        PunkteRegel PunkteRegel,
+        IReadOnlyList<RankingRegel> RankingRegeln);
+
     /// <summary>Ermittelt den best- bzw. schlechtestmöglichen Rang von <paramref name="teamId"/>: die eigenen offenen
-    /// Spiele sind gemäß <paramref name="teamGewinntAlles"/> fixiert und werden mit einem extremen statt einem
-    /// knappen Ergebnis simuliert - für das eigene Spiel gibt es nur zwei Beteiligte (das Team und den Gegner),
-    /// ein extremeres Ergebnis wirkt daher immer eindeutig in dieselbe Richtung (nie schwächer).
+    /// Spiele sind fixiert - bestenfalls gewinnt das Team alle, schlechtestenfalls verliert es alle - und werden mit
+    /// einem extremen statt einem knappen Ergebnis simuliert - für das eigene Spiel gibt es nur zwei Beteiligte (das
+    /// Team und den Gegner), ein extremeres Ergebnis wirkt daher immer eindeutig in dieselbe Richtung (nie schwächer).
     ///
     /// Für alle fremden offenen Spiele (die <paramref name="teamId"/> nicht betreffen) wird per Brute-Force jede
     /// Kombination aus Ausgang (Heim-/Auswärtssieg/Unentschieden) UND Tordifferenz (knapp/extrem) durchgerechnet -
@@ -129,51 +149,30 @@ public static class RangPrognose
     /// schadet Y kaum, ein extremer Sieg zertrümmert Ys Tordifferenz. Ob das für <paramref name="teamId"/> gut oder
     /// schlecht ist, hängt davon ab, ob teamId gerade mit X oder mit Y um einen Platz konkurriert - das kann bei
     /// jedem Aufruf anders liegen, ein pauschal "immer knapp" oder "immer extrem" für fremde Spiele ist daher in
-    /// keine Richtung sicher korrekt (beide wurden ausprobiert und haben je einen der beiden unten stehenden Tests
-    /// zum Scheitern gebracht). Unentschieden ist ein eigenständiger, nicht auf einen "Sieger" reduzierbarer
+    /// keine Richtung sicher korrekt (beide wurden ausprobiert und haben je einen der beiden Tests dazu zum
+    /// Scheitern gebracht). Unentschieden ist ein eigenständiger, nicht auf einen "Sieger" reduzierbarer
     /// Ausgang und fehlte ursprünglich komplett in der Brute-Force (nur 4 Sieg-Varianten) - dadurch konnte ein Team
     /// fälschlich als SicherPositioniert gelten, obwohl erst ein Unentschieden im fremden Spiel diesen Rang absichert
     /// oder gefährdet hätte (Fund aus manuellem #206-Test: Rang 2 einer Gruppe wurde vorschnell aufgelöst, obwohl
     /// nur ein Sieg in beide Richtungen, nicht aber ein Unentschieden im offenen Fremdspiel geprüft wurde).
     /// (AD: Issue #201/#202/#205/#206, Funde aus manuellem Test).</summary>
-    private static int ExtremRangErmitteln(
-        List<Spiel> abgeschlossen, List<Spiel> offen, int teamId,
-        PunkteRegel punkteRegel, List<RankingRegel> rankingRegeln,
-        bool teamGewinntAlles, bool bestenfalls)
+    private static int ExtremRangErmitteln(GruppenStand stand, int teamId, bool bestenfalls)
     {
-        var eigene = offen.Where(s => s.HeimMannschaftId == teamId || s.AuswaertsMannschaftId == teamId).ToList();
-        var fremde = offen.Where(s => s.HeimMannschaftId != teamId && s.AuswaertsMannschaftId != teamId).ToList();
-
-        var eigeneErgebnisse = eigene
-            .Select(s => SpielMitSimuliertemErgebnis(
-                s, heimSiegt: s.HeimMannschaftId == teamId ? teamGewinntAlles : !teamGewinntAlles, ExtremesTorergebnis))
+        var eigeneErgebnisse = stand.Offen
+            .Where(s => s.HeimMannschaftId == teamId || s.AuswaertsMannschaftId == teamId)
+            .Select(s => EigenesSpielEntschieden(s, teamId, teamGewinnt: bestenfalls))
             .ToList();
+        var fremde = stand.Offen.Where(s => s.HeimMannschaftId != teamId && s.AuswaertsMannschaftId != teamId).ToList();
 
         int extremRang = bestenfalls ? int.MaxValue : int.MinValue;
         // long: bei einer Fünfergruppe mit Rückspiel (12 fremde offene Spiele) passt 6^12 nicht mehr in int.
-        long kombinationen = (long)Math.Pow(_fremdSpielVariantenAnzahl, fremde.Count);
+        long kombinationen = (long)Math.Pow(_fremdSpielVarianten.Length, fremde.Count);
 
         for (long kombi = 0; kombi < kombinationen; kombi++)
         {
-            var fremdeErgebnisse = new List<Spiel>(fremde.Count);
-            long rest = kombi;
-            foreach (var s in fremde)
-            {
-                int variante = (int)(rest % _fremdSpielVariantenAnzahl);
-                rest /= _fremdSpielVariantenAnzahl;
-                fremdeErgebnisse.Add(variante switch
-                {
-                    0 => SpielMitSimuliertemErgebnis(s, heimSiegt: true,  KnappesTorergebnis),
-                    1 => SpielMitSimuliertemErgebnis(s, heimSiegt: true,  ExtremesTorergebnis),
-                    2 => SpielMitSimuliertemErgebnis(s, heimSiegt: false, KnappesTorergebnis),
-                    3 => SpielMitSimuliertemErgebnis(s, heimSiegt: false, ExtremesTorergebnis),
-                    4 => SpielMitUnentschieden(s, UnentschiedenKnapp),
-                    _ => SpielMitUnentschieden(s, UnentschiedenExtrem)
-                });
-            }
-
             var tabelle = TabellenRechner.TabelleBerechnen(
-                [..abgeschlossen, ..eigeneErgebnisse, ..fremdeErgebnisse], punkteRegel, rankingRegeln);
+                [..stand.Abgeschlossen, ..eigeneErgebnisse, ..FremdeErgebnisse(fremde, kombi)],
+                stand.PunkteRegel, stand.RankingRegeln);
             int rang = tabelle.FirstOrDefault(e => e.Mannschaft.Id == teamId)?.Rang ?? int.MaxValue;
 
             extremRang = bestenfalls ? Math.Min(extremRang, rang) : Math.Max(extremRang, rang);
@@ -188,31 +187,45 @@ public static class RangPrognose
         return extremRang;
     }
 
-    // 6 Varianten pro fremdem Spiel: Heim-/Auswärtssieg × knapp/extrem, plus Unentschieden × knapp/extrem.
-    private const int _fremdSpielVariantenAnzahl = 6;
-
-    private const int KnappesTorergebnis    = 1;
-    private const int ExtremesTorergebnis   = 1000;
-    private const int UnentschiedenKnapp    = 0;
-    private const int UnentschiedenExtrem   = 500;
-
-    private static Spiel SpielMitSimuliertemErgebnis(Spiel original, bool heimSiegt, int torergebnis) => new()
+    private static Spiel EigenesSpielEntschieden(Spiel spiel, int teamId, bool teamGewinnt)
     {
-        Spielnummer           = original.Spielnummer,
-        HeimMannschaftId      = original.HeimMannschaftId,
-        HeimMannschaft        = original.HeimMannschaft,
-        AuswaertsMannschaftId = original.AuswaertsMannschaftId,
-        AuswaertsMannschaft   = original.AuswaertsMannschaft,
-        Status                = SpielStatus.Abgeschlossen,
-        Ergebnis = new SpielErgebnis
+        bool heimSiegt = spiel.HeimMannschaftId == teamId ? teamGewinnt : !teamGewinnt;
+        return heimSiegt
+            ? SpielMitErgebnis(spiel, EXTREMES_TORERGEBNIS, 0)
+            : SpielMitErgebnis(spiel, 0, EXTREMES_TORERGEBNIS);
+    }
+
+    /// <summary>Die Fremdspiele mit den Ergebnissen der Kombination Nummer <paramref name="kombi"/>: deren
+    /// Stellen zur Basis der Varianten-Anzahl wählen je Spiel eine Variante.</summary>
+    private static List<Spiel> FremdeErgebnisse(List<Spiel> fremde, long kombi)
+    {
+        var ergebnisse = new List<Spiel>(fremde.Count);
+        long rest = kombi;
+        foreach (var s in fremde)
         {
-            HeimToreRegulaer      = heimSiegt ? torergebnis : 0,
-            AuswaertsToreRegulaer = heimSiegt ? 0 : torergebnis,
-            EntscheidungArt       = EntscheidungArt.RegulaereSpielzeit
+            var (heimTore, auswaertsTore) = _fremdSpielVarianten[rest % _fremdSpielVarianten.Length];
+            rest /= _fremdSpielVarianten.Length;
+            ergebnisse.Add(SpielMitErgebnis(s, heimTore, auswaertsTore));
         }
-    };
+        return ergebnisse;
+    }
 
-    private static Spiel SpielMitUnentschieden(Spiel original, int tore) => new()
+    private const int KNAPPES_TORERGEBNIS  = 1;
+    private const int EXTREMES_TORERGEBNIS = 1000;
+    private const int UNENTSCHIEDEN_EXTREM = 500;
+
+    // 6 Varianten pro fremdem Spiel: Heim-/Auswärtssieg × knapp/extrem, plus Unentschieden × knapp/extrem.
+    private static readonly (int HeimTore, int AuswaertsTore)[] _fremdSpielVarianten =
+    [
+        (KNAPPES_TORERGEBNIS, 0),
+        (EXTREMES_TORERGEBNIS, 0),
+        (0, KNAPPES_TORERGEBNIS),
+        (0, EXTREMES_TORERGEBNIS),
+        (0, 0),
+        (UNENTSCHIEDEN_EXTREM, UNENTSCHIEDEN_EXTREM)
+    ];
+
+    private static Spiel SpielMitErgebnis(Spiel original, int heimTore, int auswaertsTore) => new()
     {
         Spielnummer           = original.Spielnummer,
         HeimMannschaftId      = original.HeimMannschaftId,
@@ -222,8 +235,8 @@ public static class RangPrognose
         Status                = SpielStatus.Abgeschlossen,
         Ergebnis = new SpielErgebnis
         {
-            HeimToreRegulaer      = tore,
-            AuswaertsToreRegulaer = tore,
+            HeimToreRegulaer      = heimTore,
+            AuswaertsToreRegulaer = auswaertsTore,
             EntscheidungArt       = EntscheidungArt.RegulaereSpielzeit
         }
     };
