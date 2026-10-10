@@ -8,7 +8,9 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// <summary>TV-Modus: schrittweise Live-Ziehung einer bereits feststehenden Auslosung (#303, Issue #5) — Banner,
 /// Fokus-Ansicht und Gesamtübersicht für Gruppenphase/K.-o.-Runde (#408) sowie Gegner-Matrix der Ligaphase (#364).
 /// Reine Anzeige ohne Datenbankzugriff: Auslosung und Spielplan stehen vor dem Start fest, die Ziehung enthüllt nur
-/// noch und darf jederzeit enden. Kind-ViewModel von <see cref="AuslosungViewModel"/>.</summary>
+/// noch und darf jederzeit enden. Hält den gebundenen Zustand, das Warten und den Abbruch; was wann erscheint,
+/// bestimmen <see cref="GruppenKoZiehungsAblauf"/> und <see cref="LigaphasenZiehungsAblauf"/>. Kind-ViewModel von
+/// <see cref="AuslosungViewModel"/>.</summary>
 public partial class ZiehungViewModel : ObservableObject
 {
     [ObservableProperty]
@@ -71,9 +73,9 @@ public partial class ZiehungViewModel : ObservableObject
     /// <summary>Beschriftung der linken Banner-Pille — während der Übersicht und der Topf-Vorstellung steht dort
     /// kein Mannschaftsname.</summary>
     [ObservableProperty] private string _animationBannerKopf = BANNER_KOPF_MANNSCHAFT;
-    internal const string BANNER_KOPF_MANNSCHAFT    = "MANNSCHAFT";
-    internal const string BANNER_KOPF_ZWISCHENSTAND = "ZWISCHENSTAND";
-    internal const string BANNER_KOPF_TOPF          = "NÄCHSTER TOPF";
+    private const string BANNER_KOPF_MANNSCHAFT    = "MANNSCHAFT";
+    private const string BANNER_KOPF_ZWISCHENSTAND = "ZWISCHENSTAND";
+    private const string BANNER_KOPF_TOPF          = "NÄCHSTER TOPF";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnimationZeigeBannerGegner))]
@@ -100,31 +102,54 @@ public partial class ZiehungViewModel : ObservableObject
     public bool AnimationLaeuftNicht => !AnimationLaeuft;
     public string AnimationFortschrittText => $"{AnimationSchrittIndex} / {AnimationSchrittGesamt}";
 
-    private bool _animationUeberspringen;
+    private CancellationTokenSource _abbruch = new();
     private TaskCompletionSource _weiterSignal = new();
 
     /// <summary>Manuelle Ziehung: jeder Schritt wartet auf "Weiter" statt auf eine Verzögerung.</summary>
     private bool _manuell;
 
-    internal bool Ueberspringen => _animationUeberspringen;
-    internal Task WeiterSignal  => _weiterSignal.Task;
-    internal bool Manuell       => _manuell;
-
     /// <summary>Beendet eine laufende TV-Ziehung wie "Rest sofort anzeigen" — die Ziehung ist reine Anzeige,
     /// Auslosung und Spielplan stehen schon vorher fest. Die Nutzerwege fragen vorher nach (siehe
     /// <see cref="AuslosungViewModel.ZiehungBeendenNachRueckfrageAsync"/>); die Aufrufe ohne Rückfrage sind das Netz darunter,
     /// damit die Reste einer wartenden Ziehung nie ein danach geöffnetes Detail überlagern (#406). Der Zustand
-    /// wird hier sofort zurückgesetzt statt erst im finally der Ziehung, damit das nicht davon abhängt, wann
-    /// deren Fortsetzung läuft.</summary>
+    /// wird hier sofort zurückgesetzt statt erst im finally von <see cref="AbspielenAsync"/>, damit das nicht davon
+    /// abhängt, wann die Fortsetzung des abgebrochenen Ablaufs läuft.</summary>
     public void Beenden()
     {
         if (!AnimationLaeuft) return;
-        _animationUeberspringen = true;
-        _weiterSignal.TrySetResult();
+        _abbruch.Cancel();
         AnimationsZustandZuruecksetzen();
     }
 
-    internal void AnimationsZustandZuruecksetzen()
+    [RelayCommand(CanExecute = nameof(AnimationWartetAufWeiter))]
+    private void AnimationWeiter() => _weiterSignal.TrySetResult();
+
+    [RelayCommand(CanExecute = nameof(AnimationLaeuft))]
+    private void AnimationUeberspringen() => _abbruch.Cancel();
+
+    // ── Rahmen einer Ziehung ──────────────────────────────────────────────────
+
+    /// <summary>Zeigt die Ziehung an, spielt <paramref name="ablauf"/> ab und räumt danach auf. Endet die Ziehung
+    /// vorzeitig ("Rest sofort anzeigen", <see cref="Beenden"/>), bricht das Warten des Ablaufs mit einer
+    /// <see cref="OperationCanceledException"/> ab — der Ablauf selbst braucht dafür keine Abbruchpunkte.</summary>
+    internal async Task AbspielenAsync(int schrittGesamt, bool manuell, Func<Task> ablauf)
+    {
+        Starten(schrittGesamt, manuell);
+        try { await ablauf(); }
+        catch (OperationCanceledException) { }
+        finally { AnimationsZustandZuruecksetzen(); }
+    }
+
+    private void Starten(int schrittGesamt, bool manuell)
+    {
+        _manuell               = manuell;
+        _abbruch               = new CancellationTokenSource();
+        AnimationLaeuft        = true;
+        AnimationSchrittGesamt = schrittGesamt;
+        AnimationSchrittIndex  = 0;
+    }
+
+    private void AnimationsZustandZuruecksetzen()
     {
         AnimationLaeuft           = false;
         AnimationWartetAufWeiter  = false;
@@ -143,26 +168,44 @@ public partial class ZiehungViewModel : ObservableObject
         AnimationZeigeUebersicht  = false;
     }
 
-    [RelayCommand(CanExecute = nameof(AnimationWartetAufWeiter))]
-    private void AnimationWeiter() => _weiterSignal.TrySetResult();
+    // ── Warten ────────────────────────────────────────────────────────────────
 
-    [RelayCommand(CanExecute = nameof(AnimationLaeuft))]
-    private void AnimationUeberspringen()
+    /// <summary>Wartet auf den nächsten Schritt: bei der manuellen Ziehung auf "Weiter", sonst
+    /// <paramref name="verzoegerung"/> lang.</summary>
+    internal async Task WarteAufSchrittAsync(TimeSpan verzoegerung)
     {
-        _animationUeberspringen = true;
-        _weiterSignal.TrySetResult();
+        if (!_manuell)
+        {
+            await VerzoegernAsync(verzoegerung);
+            return;
+        }
+
+        _weiterSignal = new TaskCompletionSource();
+        AnimationWartetAufWeiter = true;
+        await _weiterSignal.Task.WaitAsync(_abbruch.Token);
+        AnimationWartetAufWeiter = false;
     }
 
-    // ── Gemeinsamer Ablauf ────────────────────────────────────────────────────
+    /// <summary>Wartet <paramref name="dauer"/> lang — auch bei der manuellen Ziehung ohne "Weiter".</summary>
+    internal Task VerzoegernAsync(TimeSpan dauer) => Task.Delay(dauer, _abbruch.Token);
 
-    internal void ZiehungStarten(int schrittGesamt, bool manuell)
+    // ── Banner ────────────────────────────────────────────────────────────────
+
+    /// <summary>Stellt einen Topf vor, bevor daraus gezogen wird.</summary>
+    internal void BannerTopfZeigen(string topfName, string? inhalt)
     {
-        _manuell                = manuell;
-        _animationUeberspringen = false;
-        _weiterSignal           = new TaskCompletionSource();
-        AnimationLaeuft         = true;
-        AnimationSchrittGesamt  = schrittGesamt;
-        AnimationSchrittIndex   = 0;
+        AnimationBannerKopf       = BANNER_KOPF_TOPF;
+        AnimationBannerMannschaft = topfName;
+        AnimationBannerTopf       = inhalt;
+    }
+
+    /// <summary>Zeigt die gezogene Mannschaft — Ziel, Seite und Position folgen mit den nächsten Schritten.</summary>
+    internal void BannerMannschaftZeigen(string name, string topfName)
+    {
+        BannerLeeren();
+        AnimationBannerKopf       = BANNER_KOPF_MANNSCHAFT;
+        AnimationBannerMannschaft = name;
+        AnimationBannerTopf       = topfName;
     }
 
     internal void BannerLeeren()
@@ -186,22 +229,5 @@ public partial class ZiehungViewModel : ObservableObject
         AnimationBannerMannschaft = null;
         AnimationBannerTopf       = null;
         AnimationZeigeUebersicht  = false;
-    }
-
-    internal async Task WarteAufSchrittAsync(TimeSpan verzoegerung)
-    {
-        if (_animationUeberspringen) return;
-
-        if (_manuell)
-        {
-            AnimationWartetAufWeiter = true;
-            await _weiterSignal.Task;
-        }
-        else
-        {
-            await Task.WhenAny(Task.Delay(verzoegerung), _weiterSignal.Task);
-        }
-        AnimationWartetAufWeiter = false;
-        _weiterSignal = new TaskCompletionSource();
     }
 }

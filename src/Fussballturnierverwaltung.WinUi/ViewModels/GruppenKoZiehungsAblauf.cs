@@ -3,196 +3,180 @@ using System.Collections.ObjectModel;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-/// <summary>TV-Ziehung einer Gruppenphase oder K.-o.-Runde: spielt die feststehenden Ziehungsschritte auf der
-/// Anzeige des <see cref="ZiehungViewModel"/> ab (#408).</summary>
-internal sealed class GruppenKoZiehungsAblauf(ZiehungViewModel anzeige)
+/// <summary>TV-Ziehung einer Gruppenphase oder K.-o.-Runde (#408, Vorbild UEFA-Gruppenauslosung bzw. DFB-Pokal):
+/// spielt die feststehenden Ziehungsschritte nacheinander auf der Anzeige des <see cref="ZiehungViewModel"/> ab.
+/// Pro Schritt erscheint zunächst die gezogene Mannschaft (in der Topf-Anzeige als "gezogen" markiert — die Slots
+/// bleiben zahlenmäßig fix, nur ihr Inhalt wechselt zu "…", damit sich das Layout nicht verschiebt, sobald ein Topf
+/// leerer wird), dann das Ziel (Gruppe/Paarung), bei der Gruppenphase zusätzlich die Position. Gruppen und Paarungen
+/// werden vorab mit der vollen Anzahl leerer Plätze ("…") aufgebaut und danach Platz für Platz befüllt. Gezeigt wird
+/// die Fokus-Ansicht (aktueller Topf plus Zielgruppe bzw. aktuelle Paarung); nach jedem geleerten Topf bzw. nach je
+/// <see cref="PAARUNGEN_JE_UEBERSICHT"/> Paarungen folgt als eigener Schritt die Gesamtübersicht. Das geladene
+/// Endergebnis bleibt unberührt — es wird erst nach der Ziehung sichtbar, siehe
+/// <see cref="AuslosungViewModel.ZeigeErgebnis"/>.</summary>
+internal sealed class GruppenKoZiehungsAblauf(
+    ZiehungViewModel anzeige, List<ZiehungsSchritt> schritte, IEnumerable<LostopfViewModel> lostoepfe)
 {
     private const int PAARUNGEN_JE_UEBERSICHT = 8;
 
-    /// <summary>Spielt die Ziehungsschritte nacheinander im UI ab: pro Schritt wird zunächst die gezogene
-    /// Mannschaft angezeigt (dabei in der Topf-Anzeige als "gezogen" markiert — die Slots bleiben
-    /// zahlenmäßig fix, nur ihr Inhalt wechselt zu "…", damit sich das Layout nicht verschiebt, sobald ein
-    /// Topf leerer wird), dann das Ziel (Gruppe/Paarung), bei Gruppenphase zusätzlich die Position — je nach
-    /// Ziehungsart entweder automatisch mit Verzögerung oder wartend auf einen "Weiter"-Klick.
-    /// AnimationGruppen/AnimationPaarungen werden vorab mit der vollen Anzahl leerer Plätze ("…") aufgebaut
-    /// (nicht erst bei der ersten Zuweisung sichtbar) und danach Slot für Slot befüllt. Das bereits von
-    /// LadeDetailAsync geladene Endergebnis wird während der Animation nicht verändert — es wird einfach
-    /// erst nach Animationsende (bzw. bei "Überspringen" sofort) sichtbar, siehe <see cref="AuslosungViewModel.ZeigeErgebnis"/>.
-    /// Gezeigt wird die Fokus-Ansicht (aktueller Topf plus Zielgruppe bzw. aktuelle Paarung); nach jedem
-    /// geleerten Topf bzw. nach je <see cref="PAARUNGEN_JE_UEBERSICHT"/> Paarungen folgt als eigener Schritt
-    /// die Gesamtübersicht (#408).</summary>
-    public async Task AbspielenAsync(
-        List<ZiehungsSchritt> schritte, IEnumerable<LostopfViewModel> lostoepfe, bool manuell)
+    /// <summary>Eine Liga hat nur eine Gruppe: sie bleibt durchgehend im Fokus, der Schritt "Ziel" entfällt.</summary>
+    private bool _eineGruppe;
+    private AnimationsGruppe? _zielGruppe;
+    private AnimationsGruppenSlot? _neuerSlot;
+    private int _fertigePaarungen;
+
+    public Task AbspielenAsync(bool manuell) =>
+        schritte.Count == 0
+            ? Task.CompletedTask
+            : anzeige.AbspielenAsync(schritte.Count, manuell, SchritteAbspielenAsync);
+
+    private async Task SchritteAbspielenAsync()
     {
-        if (schritte.Count == 0) return;
-
-        anzeige.ZiehungStarten(schritte.Count, manuell);
-        ListenAnzeigeAufbauen(schritte, lostoepfe);
-
-        // Eine Liga hat nur eine Gruppe: sie bleibt durchgehend im Fokus, der Schritt "Ziel" entfällt.
-        bool eineGruppe = anzeige.AnimationGruppen.Count == 1;
-        if (eineGruppe) anzeige.AnimationFokusGruppe = anzeige.AnimationGruppen[0];
-
-        AnimationsGruppe? zielGruppe = null;
-        AnimationsGruppenSlot? neuerSlot = null;
-        int fertigePaarungen = 0;
-
-        try
+        ListenAnzeigeAufbauen();
+        for (int index = 0; index < schritte.Count; index++)
         {
-            for (int i = 0; i < schritte.Count; i++)
-            {
-                if (anzeige.Ueberspringen) break;
-                var schritt = schritte[i];
-                anzeige.AnimationSchrittIndex = i + 1;
-
-                VorigenSchrittAbschliessen(zielGruppe, neuerSlot, eineGruppe);
-                zielGruppe = null;
-                neuerSlot  = null;
-
-                var topf = anzeige.AnimationToepfe.FirstOrDefault(t => t.TopfId == schritt.TopfId);
-                anzeige.AnimationFokusTopf = topf;
-
-                // 0) Neuer Topf (Gruppenphase): erst den vollen Topf zeigen, dann daraus ziehen
-                if (schritt.IstGruppenmodus && (i == 0 || schritte[i - 1].TopfId != schritt.TopfId))
-                {
-                    TopfVorstellen(schritt, topf);
-                    await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Aufdeck);
-                    anzeige.AnimationBannerKopf = ZiehungViewModel.BANNER_KOPF_MANNSCHAFT;
-                    if (anzeige.Ueberspringen) break;
-                }
-
-                // 1) Team ziehen — Fokus auf seinen Topf; die Zielgruppe ist noch offen, die Paarung steht
-                //    dagegen schon fest (es wird Paarung für Paarung gezogen)
-                var paarung = TeamZiehen(schritt, topf);
-                await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Schritt);
-                if (anzeige.Ueberspringen) break;
-
-                // 2) Ziel — die Gruppe erscheint im Fokus, in der Paarung wird das Team sofort eingetragen
-                if (schritt.IstGruppenmodus) zielGruppe = ZielGruppeZeigen(schritt, eineGruppe);
-                else TeamInPaarungEintragen(schritt, paarung!);
-                if (!eineGruppe)
-                {
-                    await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Schritt);
-                    if (anzeige.Ueberspringen) break;
-                }
-
-                // 3) Position — das Team erscheint gleichzeitig auf seinem Platz in der Gruppe
-                if (schritt.IstGruppenmodus)
-                {
-                    neuerSlot = PositionBesetzen(schritt, zielGruppe!);
-                    await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Schritt);
-                    if (anzeige.Ueberspringen) break;
-                }
-
-                anzeige.BannerLeeren();
-                if (i == schritte.Count - 1) break;
-
-                await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Pausen);
-                if (anzeige.Ueberspringen) break;
-
-                // 4) Gesamtübersicht: nach jedem geleerten Topf bzw. nach je acht fertigen Paarungen (nach dem
-                //    letzten Schritt folgt direkt die Ergebnisanzeige)
-                bool paarungFertig = !schritt.IstGruppenmodus && schritte[i + 1].ZielNummer != schritt.ZielNummer;
-                if (paarungFertig) fertigePaarungen++;
-                if (UebersichtTitel(schritt, schritte[i + 1], paarungFertig, fertigePaarungen) is { } titel)
-                {
-                    await anzeige.ZwischenstandZeigenAsync(
-                        titel, schritt.IstGruppenmodus ? "Zwischenstand aller Gruppen" : "Zwischenstand aller Paarungen");
-                    if (anzeige.Ueberspringen) break;
-                }
-            }
+            await SchrittAbspielenAsync(index);
+            // Nach dem letzten Schritt folgt direkt die Ergebnisanzeige
+            if (index < schritte.Count - 1) await UebergangAbspielenAsync(index);
         }
-        finally { anzeige.AnimationsZustandZuruecksetzen(); }
     }
+
+    // ── Anzeige aufbauen ──────────────────────────────────────────────────────
 
     /// <summary>Töpfe und Ziele (Gruppen bzw. Paarungen) mit der vollen Anzahl noch leerer Plätze.</summary>
-    private void ListenAnzeigeAufbauen(List<ZiehungsSchritt> schritte, IEnumerable<LostopfViewModel> lostoepfe)
+    private void ListenAnzeigeAufbauen()
     {
         anzeige.AnimationToepfe = new ObservableCollection<AnimationsTopf>(
-            lostoepfe.OrderBy(l => l.Reihenfolge).Select(l => new AnimationsTopf
-            {
-                TopfId = l.Id,
-                Name   = l.Name,
-                Slots  = new ObservableCollection<AnimationsTopfSlot>(
-                    l.Teilnehmer.Select(t => new AnimationsTopfSlot { EintragId = t.EintragId, Name = t.Name, Wappen = t.Wappen }))
-            }));
+            lostoepfe.OrderBy(l => l.Reihenfolge).Select(TopfAnzeige));
 
         var schritteJeZiel = schritte.GroupBy(s => s.ZielNummer).OrderBy(g => g.Key);
-        if (schritte[0].IstGruppenmodus)
-        {
-            anzeige.AnimationGruppen = new ObservableCollection<AnimationsGruppe>(schritteJeZiel.Select(g => new AnimationsGruppe
-            {
-                GruppenNummer = g.Key,
-                GruppenName   = $"Gruppe {GruppenHerkunft.Buchstabe(g.Key)}",
-                Kurzname      = GruppenHerkunft.Buchstabe(g.Key),
-                Slots         = new ObservableCollection<AnimationsGruppenSlot>(
-                    Enumerable.Range(1, g.Count()).Select(p => new AnimationsGruppenSlot { Position = p }))
-            }));
-            anzeige.AnimationPaarungen = [];
-        }
-        else
-        {
-            anzeige.AnimationPaarungen = new ObservableCollection<AnimationsPaarung>(schritteJeZiel.Select(g => new AnimationsPaarung
-            {
-                PaarungsNr = g.Key,
-                IstFreilos = g.First().IstFreilos
-            }));
-            anzeige.AnimationGruppen = [];
-        }
+        anzeige.AnimationGruppen = schritte[0].IstGruppenmodus
+            ? new ObservableCollection<AnimationsGruppe>(schritteJeZiel.Select(g => GruppenAnzeige(g.Key, g.Count())))
+            : [];
+        anzeige.AnimationPaarungen = schritte[0].IstGruppenmodus
+            ? []
+            : new ObservableCollection<AnimationsPaarung>(
+                schritteJeZiel.Select(g => new AnimationsPaarung { PaarungsNr = g.Key, IstFreilos = g.First().IstFreilos }));
+
+        _eineGruppe = anzeige.AnimationGruppen.Count == 1;
+        if (_eineGruppe) anzeige.AnimationFokusGruppe = anzeige.AnimationGruppen[0];
     }
 
-    private void VorigenSchrittAbschliessen(AnimationsGruppe? zielGruppe, AnimationsGruppenSlot? neuerSlot, bool eineGruppe)
+    private static AnimationsTopf TopfAnzeige(LostopfViewModel lostopf) => new()
     {
-        if (zielGruppe is not null) zielGruppe.IstZiel = false;
-        if (neuerSlot is not null) neuerSlot.IstNeu = false;
-        if (!eineGruppe) anzeige.AnimationFokusGruppe = null;
-    }
+        TopfId = lostopf.Id,
+        Name   = lostopf.Name,
+        Slots  = new ObservableCollection<AnimationsTopfSlot>(lostopf.Teilnehmer.Select(
+            t => new AnimationsTopfSlot { EintragId = t.EintragId, Name = t.Name, Wappen = t.Wappen }))
+    };
 
-    private void TopfVorstellen(ZiehungsSchritt schritt, AnimationsTopf? topf)
+    private static AnimationsGruppe GruppenAnzeige(int nummer, int plaetze) => new()
     {
-        anzeige.AnimationBannerKopf       = ZiehungViewModel.BANNER_KOPF_TOPF;
-        anzeige.AnimationBannerMannschaft = schritt.TopfName;
-        anzeige.AnimationBannerTopf       = topf is null ? null : $"{topf.Slots.Count} Teams";
+        GruppenNummer = nummer,
+        GruppenName   = $"Gruppe {GruppenHerkunft.Buchstabe(nummer)}",
+        Kurzname      = GruppenHerkunft.Buchstabe(nummer),
+        Slots         = new ObservableCollection<AnimationsGruppenSlot>(
+            Enumerable.Range(1, plaetze).Select(p => new AnimationsGruppenSlot { Position = p }))
+    };
+
+    // ── Ein Schritt ───────────────────────────────────────────────────────────
+
+    private async Task SchrittAbspielenAsync(int index)
+    {
+        var schritt = schritte[index];
+        anzeige.AnimationSchrittIndex = index + 1;
+        VorigenSchrittAbschliessen();
+
+        var topf = anzeige.AnimationToepfe.FirstOrDefault(t => t.TopfId == schritt.TopfId);
+        anzeige.AnimationFokusTopf = topf;
+
+        if (schritt.IstGruppenmodus) await InGruppeZiehenAsync(schritt, topf, BeginntTopf(index));
+        else await InPaarungZiehenAsync(schritt, topf);
+
+        anzeige.BannerLeeren();
     }
 
-    /// <summary>Markiert das Team im Topf als gezogen und zeigt es im Banner. Liefert die Paarung, in die es
-    /// kommt — bei der Gruppenphase <c>null</c>.</summary>
-    private AnimationsPaarung? TeamZiehen(ZiehungsSchritt schritt, AnimationsTopf? topf)
+    private void VorigenSchrittAbschliessen()
+    {
+        if (_zielGruppe is not null) _zielGruppe.IstZiel = false;
+        if (_neuerSlot is not null) _neuerSlot.IstNeu = false;
+        if (!_eineGruppe) anzeige.AnimationFokusGruppe = null;
+        _zielGruppe = null;
+        _neuerSlot  = null;
+    }
+
+    private bool BeginntTopf(int index) => index == 0 || schritte[index - 1].TopfId != schritte[index].TopfId;
+
+    /// <summary>Gruppenphase: Topf vorstellen (nur vor seinem ersten Team), Team ziehen, Zielgruppe zeigen, Position
+    /// besetzen — die Zielgruppe ist beim Ziehen noch offen.</summary>
+    private async Task InGruppeZiehenAsync(ZiehungsSchritt schritt, AnimationsTopf? topf, bool beginntTopf)
+    {
+        if (beginntTopf) await TopfVorstellenAsync(schritt, topf);
+        await TeamZiehenAsync(schritt, topf);
+        await ZielGruppeZeigenAsync(schritt);
+        await PositionBesetzenAsync(schritt);
+    }
+
+    /// <summary>K.-o.-Runde: die Paarung steht schon beim Ziehen fest (es wird Paarung für Paarung gezogen), das Team
+    /// wird nach dem Ziehen sofort eingetragen.</summary>
+    private async Task InPaarungZiehenAsync(ZiehungsSchritt schritt, AnimationsTopf? topf)
+    {
+        var paarung = anzeige.AnimationPaarungen.First(p => p.PaarungsNr == schritt.ZielNummer);
+        anzeige.AnimationFokusPaarung = paarung;
+
+        await TeamZiehenAsync(schritt, topf);
+        TeamInPaarungEintragen(schritt, paarung);
+        await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Schritt);
+    }
+
+    /// <summary>Erst den vollen Topf zeigen, dann daraus ziehen.</summary>
+    private async Task TopfVorstellenAsync(ZiehungsSchritt schritt, AnimationsTopf? topf)
+    {
+        anzeige.BannerTopfZeigen(schritt.TopfName, topf is null ? null : $"{topf.Slots.Count} Teams");
+        await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Aufdecken);
+    }
+
+    /// <summary>Markiert das Team im Topf als gezogen und zeigt es im Banner.</summary>
+    private async Task TeamZiehenAsync(ZiehungsSchritt schritt, AnimationsTopf? topf)
     {
         var topfSlot = topf?.Slots.FirstOrDefault(s => s.EintragId == schritt.Eintrag.Id);
         if (topfSlot is not null) topfSlot.Gezogen = true;
 
-        var paarung = schritt.IstGruppenmodus
-            ? null
-            : anzeige.AnimationPaarungen.First(p => p.PaarungsNr == schritt.ZielNummer);
-        if (paarung is not null) anzeige.AnimationFokusPaarung = paarung;
-
-        anzeige.AnimationBannerMannschaft = TeilnehmerAnzeige.AusEintrag(schritt.Eintrag).Name;
-        anzeige.AnimationBannerTopf       = schritt.TopfName;
-        anzeige.AnimationBannerZiel       = null;
-        anzeige.AnimationBannerSlot       = null;
-        anzeige.AnimationBannerPosition   = null;
-        return paarung;
+        anzeige.BannerMannschaftZeigen(TeilnehmerAnzeige.AusEintrag(schritt.Eintrag).Name, schritt.TopfName);
+        await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Schritt);
     }
 
-    private AnimationsGruppe ZielGruppeZeigen(ZiehungsSchritt schritt, bool eineGruppe)
+    private async Task ZielGruppeZeigenAsync(ZiehungsSchritt schritt)
     {
-        var zielGruppe = anzeige.AnimationGruppen.First(g => g.GruppenNummer == schritt.ZielNummer);
-        if (!eineGruppe)
-        {
-            anzeige.AnimationBannerZiel  = $"Gruppe {GruppenHerkunft.Buchstabe(schritt.ZielNummer)}";
-            zielGruppe.IstZiel   = true;
-            anzeige.AnimationFokusGruppe = zielGruppe;
-        }
-        return zielGruppe;
+        _zielGruppe = anzeige.AnimationGruppen.First(g => g.GruppenNummer == schritt.ZielNummer);
+        if (_eineGruppe) return;
+
+        anzeige.AnimationBannerZiel  = _zielGruppe.GruppenName;
+        _zielGruppe.IstZiel          = true;
+        anzeige.AnimationFokusGruppe = _zielGruppe;
+        await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Schritt);
+    }
+
+    /// <summary>Das Team erscheint gleichzeitig mit der Position auf seinem Platz in der Gruppe.</summary>
+    private async Task PositionBesetzenAsync(ZiehungsSchritt schritt)
+    {
+        anzeige.AnimationBannerPosition = $"Position {schritt.Position}";
+        var team = TeilnehmerAnzeige.AusEintrag(schritt.Eintrag);
+        _neuerSlot = _zielGruppe!.Slots[schritt.Position!.Value - 1];
+        _neuerSlot.Anzeige = team.Name;
+        _neuerSlot.Wappen  = team.Wappen;
+        _neuerSlot.IstNeu  = true;
+        _zielGruppe.FuellstandAktualisieren();
+        await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Schritt);
     }
 
     private void TeamInPaarungEintragen(ZiehungsSchritt schritt, AnimationsPaarung paarung)
     {
+        bool heim = schritt.IstFreilos || schritt.IstHeim == true;
         anzeige.AnimationBannerZiel = $"Paarung {schritt.ZielNummer}";
-        anzeige.AnimationBannerSlot = schritt.IstFreilos ? "Freilos" : (schritt.IstHeim == true ? "Heim" : "Auswärts");
+        anzeige.AnimationBannerSlot = schritt.IstFreilos ? "Freilos" : (heim ? "Heim" : "Auswärts");
+
         var team = TeilnehmerAnzeige.AusEintrag(schritt.Eintrag);
-        if (schritt.IstFreilos || schritt.IstHeim == true)
+        if (heim)
         {
             paarung.Heim       = team.Name;
             paarung.HeimWappen = team.Wappen;
@@ -204,26 +188,30 @@ internal sealed class GruppenKoZiehungsAblauf(ZiehungViewModel anzeige)
         }
     }
 
-    private AnimationsGruppenSlot PositionBesetzen(ZiehungsSchritt schritt, AnimationsGruppe zielGruppe)
+    // ── Zwischen zwei Schritten ───────────────────────────────────────────────
+
+    /// <summary>Kurze Pause; nach jedem geleerten Topf bzw. nach je <see cref="PAARUNGEN_JE_UEBERSICHT"/> fertigen
+    /// Paarungen zusätzlich die Gesamtübersicht.</summary>
+    private async Task UebergangAbspielenAsync(int index)
     {
-        anzeige.AnimationBannerPosition = $"Position {schritt.Position}";
-        var slot = zielGruppe.Slots[schritt.Position!.Value - 1];
-        var team = TeilnehmerAnzeige.AusEintrag(schritt.Eintrag);
-        slot.Anzeige = team.Name;
-        slot.Wappen  = team.Wappen;
-        slot.IstNeu  = true;
-        zielGruppe.FuellstandAktualisieren();
-        return slot;
+        await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Pause);
+
+        if (UebersichtTitel(schritte[index], schritte[index + 1]) is { } titel)
+            await anzeige.ZwischenstandZeigenAsync(
+                titel, schritte[index].IstGruppenmodus ? "Zwischenstand aller Gruppen" : "Zwischenstand aller Paarungen");
     }
 
     /// <summary>Titel der Gesamtübersicht nach <paramref name="schritt"/> — <c>null</c>, wenn keine fällig ist.</summary>
-    private string? UebersichtTitel(ZiehungsSchritt schritt, ZiehungsSchritt naechster, bool paarungFertig, int fertigePaarungen)
+    private string? UebersichtTitel(ZiehungsSchritt schritt, ZiehungsSchritt naechster)
     {
         if (schritt.IstGruppenmodus)
             return naechster.TopfId != schritt.TopfId ? $"{schritt.TopfName} komplett" : null;
 
-        return paarungFertig && fertigePaarungen % PAARUNGEN_JE_UEBERSICHT == 0
-            ? $"{fertigePaarungen} von {anzeige.AnimationPaarungen.Count} Paarungen gezogen"
+        if (naechster.ZielNummer == schritt.ZielNummer) return null;
+
+        _fertigePaarungen++;
+        return _fertigePaarungen % PAARUNGEN_JE_UEBERSICHT == 0
+            ? $"{_fertigePaarungen} von {anzeige.AnimationPaarungen.Count} Paarungen gezogen"
             : null;
     }
 }
