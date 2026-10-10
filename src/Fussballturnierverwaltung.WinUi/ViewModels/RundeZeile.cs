@@ -11,6 +11,8 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 public partial class RundeZeile : ObservableObject
 {
     public static readonly RegelwerkOption KeinRegelwerk = new("— Turnierstandard —", null);
+    public static readonly VorgegebeneAuslosungsartOption KeineAuslosungsartVorgabe = new("— frei wählbar —", null);
+    public static readonly RanglistenQuelleOption KeineRanglistenQuelle = new("— keine —", null);
 
     public int? Id { get; set; }
 
@@ -42,7 +44,4 @@ public partial class RundeZeile : ObservableObject
     [NotifyPropertyChangedFor(nameof(HatUnstimmigkeit))]
     private string? _unstimmigkeitText;
     public bool HatUnstimmigkeit => UnstimmigkeitText is not null;
-
-    public static readonly VorgegebeneAuslosungsartOption KeineAuslosungsartVorgabe = new("— frei wählbar —", null);
-    public static readonly RanglistenQuelleOption KeineRanglistenQuelle = new("— keine —", null);
 }
