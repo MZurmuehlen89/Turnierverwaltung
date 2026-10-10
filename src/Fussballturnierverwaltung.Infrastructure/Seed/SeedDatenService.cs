@@ -213,35 +213,15 @@ public class SeedDatenService
         var setLookup = await _context.RankingRegelSets
             .ToDictionaryAsync(s => s.Name, s => s.Id, ct);
 
-        var alleDefinitionen = RegelwerkeSeedDaten.RegelwerkeErstellen(setLookup);
-        int hinzugefuegt = 0;
+        var neue = RegelwerkeSeedDaten.RegelwerkeErstellen(setLookup)
+            .Where(r => !vorhandeneNamen.Contains(r.Name))
+            .ToList();
 
-        foreach (var (regelwerk, sieg, unentschieden, niederlage, verfahren) in alleDefinitionen)
+        if (neue.Count > 0)
         {
-            if (vorhandeneNamen.Contains(regelwerk.Name)) continue;
-
-            regelwerk.PunkteRegeln.Add(new Domain.Entitaeten.Regelwerke.PunkteRegel
-            {
-                PunkteFuerSieg          = sieg,
-                PunkteFuerUnentschieden = unentschieden,
-                PunkteFuerNiederlage    = niederlage
-            });
-            for (int i = 0; i < verfahren.Length; i++)
-            {
-                regelwerk.Entscheidungsverfahren.Add(new Domain.Entitaeten.Regelwerke.EntscheidungsVerfahren
-                {
-                    Reihenfolge  = i + 1,
-                    VerfahrenArt = verfahren[i]
-                });
-            }
-            _context.Regelwerke.Add(regelwerk);
-            hinzugefuegt++;
-        }
-
-        if (hinzugefuegt > 0)
-        {
+            _context.Regelwerke.AddRange(neue);
             await _context.SaveChangesAsync(ct);
-            Protokollieren(hinzugefuegt, "Regelwerke nachgerüstet.");
+            Protokollieren(neue.Count, "Regelwerke nachgerüstet.");
         }
     }
 
@@ -319,31 +299,13 @@ public class SeedDatenService
         Protokollieren(sets.Count, "RankingRegelSets mit Einträgen angelegt.");
 
         // 6. Regelwerke (mit PunkteRegeln + EntscheidungsVerfahren)
-        var regelwerkeDefinitionen = RegelwerkeSeedDaten.RegelwerkeErstellen(setLookup);
-        foreach (var (regelwerk, sieg, unentschieden, niederlage, verfahren) in regelwerkeDefinitionen)
-        {
-            regelwerk.PunkteRegeln.Add(new Domain.Entitaeten.Regelwerke.PunkteRegel
-            {
-                PunkteFuerSieg          = sieg,
-                PunkteFuerUnentschieden = unentschieden,
-                PunkteFuerNiederlage    = niederlage
-            });
-            for (int i = 0; i < verfahren.Length; i++)
-            {
-                regelwerk.Entscheidungsverfahren.Add(new Domain.Entitaeten.Regelwerke.EntscheidungsVerfahren
-                {
-                    Reihenfolge  = i + 1,
-                    VerfahrenArt = verfahren[i]
-                });
-            }
-            _context.Regelwerke.Add(regelwerk);
-        }
+        var regelwerke = RegelwerkeSeedDaten.RegelwerkeErstellen(setLookup);
+        _context.Regelwerke.AddRange(regelwerke);
         await _context.SaveChangesAsync(cancellationToken);
-        Protokollieren(regelwerkeDefinitionen.Count, "Regelwerke angelegt.");
+        Protokollieren(regelwerke.Count, "Regelwerke angelegt.");
 
         // 7. Turniervorlagen (TurnierInstanz mit Status=Vorlage, mit Regelwerk-Lookup für ihre Runden)
-        var regelwerkLookup = regelwerkeDefinitionen.ToDictionary(
-            t => t.Regelwerk.Name, t => t.Regelwerk.Id);
+        var regelwerkLookup = regelwerke.ToDictionary(r => r.Name, r => r.Id);
         await RanglistenQuellenNachruesten(cancellationToken);
         var quellenLookup = await TurnierVorlagenNachruestung.RanglistenQuellenIdsAsync(_context, cancellationToken);
         var vorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup, verbaendeLookup, laenderLookup, quellenLookup);

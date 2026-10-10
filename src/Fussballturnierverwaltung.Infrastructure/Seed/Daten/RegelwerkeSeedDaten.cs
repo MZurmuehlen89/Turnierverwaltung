@@ -90,8 +90,33 @@ public static class RegelwerkeSeedDaten
 
     // --- Regelwerke ---
 
-    public static List<(Regelwerk Regelwerk, int Sieg, int Unentschieden, int Niederlage, VerfahrenArt[] Verfahren)>
-        RegelwerkeErstellen(IReadOnlyDictionary<string, int> rankingRegelSetLookup) =>
+    /// <summary>Die Regelwerke samt Punkteregel und Entscheidungsverfahren (in der Reihenfolge ihrer Anwendung).</summary>
+    public static List<Regelwerk> RegelwerkeErstellen(IReadOnlyDictionary<string, int> rankingRegelSetLookup) =>
+        [.. Definitionen(rankingRegelSetLookup).Select(MitPunkteregelUndVerfahren)];
+
+    private static Regelwerk MitPunkteregelUndVerfahren(
+        (Regelwerk Regelwerk, int Sieg, int Unentschieden, int Niederlage, VerfahrenArt[] Verfahren) definition)
+    {
+        var (regelwerk, sieg, unentschieden, niederlage, verfahren) = definition;
+        regelwerk.PunkteRegeln.Add(new PunkteRegel
+        {
+            PunkteFuerSieg          = sieg,
+            PunkteFuerUnentschieden = unentschieden,
+            PunkteFuerNiederlage    = niederlage
+        });
+        for (int i = 0; i < verfahren.Length; i++)
+        {
+            regelwerk.Entscheidungsverfahren.Add(new EntscheidungsVerfahren
+            {
+                Reihenfolge  = i + 1,
+                VerfahrenArt = verfahren[i]
+            });
+        }
+        return regelwerk;
+    }
+
+    private static List<(Regelwerk Regelwerk, int Sieg, int Unentschieden, int Niederlage, VerfahrenArt[] Verfahren)>
+        Definitionen(IReadOnlyDictionary<string, int> rankingRegelSetLookup) =>
     [
         (
             new Regelwerk
