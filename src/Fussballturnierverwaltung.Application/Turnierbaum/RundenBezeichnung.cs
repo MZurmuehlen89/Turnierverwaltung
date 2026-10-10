@@ -1,12 +1,33 @@
 namespace Fussballturnierverwaltung.Application.Turnierbaum;
 
-/// <summary>Namen und Kürzel der Runden im Turnierbaum (#438, aus <c>TurnierBaumViewModel</c> herausgelöst).</summary>
+/// <summary>Namen, Kürzel und Knoten-Labels der Runden im Turnierbaum (#438, aus <c>TurnierBaumViewModel</c>
+/// herausgelöst). Maßgeblich ist der Name der Turnierrunde; fehlt er, greift der Rückfall über die Spielanzahl.</summary>
 public static class RundenBezeichnung
 {
-    /// <summary>Kürzel der Knoten-Labels aus dem echten Rundennamen (Issue #365), z.B. "Playoff-Runde" → "PO",
-    /// "Achtelfinale" → "AF". Unbekannte Namen: Anfangsbuchstaben der Wörter. <c>null</c> ohne Namen — dann greift
-    /// der Rückfall über die Spielanzahl.</summary>
-    public static string? RundenKuerzelAusName(string? name)
+    public static string Name(BracketRunde runde) => runde.RundenName ?? NameAusSpielanzahl(runde.Knoten.Count);
+
+    /// <summary>Kürzel der Runde, z.B. "AF". Endet es auf "-" (z.B. "L32-"), trennt der Strich das Kürzel von der
+    /// Nummer im Knoten-Label ("L32-1").</summary>
+    public static string Kuerzel(BracketRunde runde) =>
+        KuerzelAusName(runde.RundenName) ?? KuerzelAusSpielanzahl(runde.Knoten.Count);
+
+    /// <summary>Label des Knotens an <paramref name="position"/> (ab 0, in Spielreihenfolge), z.B. "AF3"; die
+    /// Runde mit nur einem Spiel trägt das Kürzel allein ("F").</summary>
+    public static string KnotenLabel(BracketRunde runde, int position)
+    {
+        string kuerzel = Kuerzel(runde);
+        return runde.Knoten.Count == 1 ? kuerzel.TrimEnd('-') : $"{kuerzel}{position + 1}";
+    }
+
+    /// <summary>Die Paarungen stehen fest vor: Eine spätere Runde nennt Platzhalter statt Mannschaften. Nur dann
+    /// tragen die Knoten Labels.</summary>
+    public static bool HatFestePaarungen(IReadOnlyList<BracketRunde> runden) =>
+        runden.Skip(1).Any(r => r.Knoten.Any(k =>
+            k.Spiel is not null && (k.Spiel.HeimPlatzhalterName is not null || k.Spiel.AuswaertsPlatzhalterName is not null)));
+
+    /// <summary>Kürzel aus dem echten Rundennamen (Issue #365), z.B. "Playoff-Runde" → "PO", "Achtelfinale" → "AF".
+    /// Unbekannte Namen: Anfangsbuchstaben der Wörter. <c>null</c> ohne Namen.</summary>
+    private static string? KuerzelAusName(string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return null;
 
@@ -30,7 +51,7 @@ public static class RundenBezeichnung
         return char.IsDigit(initialen[^1]) ? initialen + "-" : initialen;
     }
 
-    public static string RundenAnzeigeName(int anzahl) => anzahl switch
+    private static string NameAusSpielanzahl(int anzahl) => anzahl switch
     {
         1 => "Finale",
         2 => "Halbfinale",
@@ -41,7 +62,7 @@ public static class RundenBezeichnung
         _ => $"{anzahl} Spiele"
     };
 
-    public static string RundenKuerzel(int anzahl) => anzahl switch
+    private static string KuerzelAusSpielanzahl(int anzahl) => anzahl switch
     {
         1 => "F",
         2 => "HF",

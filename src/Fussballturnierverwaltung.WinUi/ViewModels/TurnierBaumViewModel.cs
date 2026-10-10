@@ -1,12 +1,10 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
-using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using Microsoft.UI.Text;
 using System.Collections.ObjectModel;
@@ -365,56 +363,12 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 
     private void BerechneBracket(IReadOnlyList<BracketRunde> runden, bool rundenNavigationZuruecksetzen)
     {
-        var alleKnoten = runden.SelectMany(r => r.Knoten).ToDictionary(k => k.Id);
-
-        var effLinks = alleKnoten.ToDictionary(kv => kv.Key, kv => kv.Value.LinkerKindKnotenId);
-        var effRechts = alleKnoten.ToDictionary(kv => kv.Key, kv => kv.Value.RechterKindKnotenId);
-
-        bool istFest = runden.Skip(1).Any(r => r.Knoten.Any(k =>
-            k.Spiel is not null && (k.Spiel.HeimPlatzhalterName is not null || k.Spiel.AuswaertsPlatzhalterName is not null)));
-
         var layout = RundenbaumLayout.Berechnen(runden);
-
         CanvasHoehe = Math.Max(1, layout.ZeilenAnzahl) * UNIT + GAP_V;
         CanvasBreite = runden.Count * ROUND_W - GAP_H;
 
-        RundenKoepfe.Clear();
-        for (int ri = 0; ri < runden.Count; ri++)
-            RundenKoepfe.Add(new BracketRundenkopf
-            {
-                X = ri * ROUND_W,
-                Breite = NODE_W,
-                Name = runden[ri].RundenName ?? RundenBezeichnung.RundenAnzeigeName(runden[ri].Knoten.Count)
-            });
-
-        Knoten.Clear();
-        for (int ri = 0; ri < runden.Count; ri++)
-        {
-            var runde = runden[ri];
-            string kuerzel = RundenBezeichnung.RundenKuerzelAusName(runde.RundenName) ?? RundenBezeichnung.RundenKuerzel(runde.Knoten.Count);
-            double x = ri * ROUND_W;
-
-            int? turnierRundeId = runde.Knoten
-                .Select(k => k.Spiel?.TurnierRundeId)
-                .FirstOrDefault(id => id.HasValue);
-
-            var geordnet = runde.Knoten
-                .OrderBy(k => k.Spiel?.Spielnummer ?? int.MaxValue)
-                .ToList();
-
-            for (int pos = 0; pos < geordnet.Count; pos++)
-            {
-                var k = geordnet[pos];
-                if (!layout.ZeileJeKnoten.TryGetValue(k.Id, out var zeile)) continue;
-                double centerY = zeile * UNIT;
-                string label = istFest
-                    ? (runde.Knoten.Count == 1 ? kuerzel.TrimEnd('-') : $"{kuerzel}{pos + 1}")
-                    : "";
-                var rueckspiel = k.SpielId is int spielId ? runde.RueckspielJeHinspielId.GetValueOrDefault(spielId) : null;
-                Knoten.Add(BaueKnotenAnzeige(k, rueckspiel, x, centerY - NODE_H / 2, ri, label,
-                    effLinks.GetValueOrDefault(k.Id), effRechts.GetValueOrDefault(k.Id), turnierRundeId));
-            }
-        }
+        RundenKoepfeAufbauen(runden);
+        KnotenAufbauen(runden, layout);
 
         if (rundenNavigationZuruecksetzen)
             RundenNavigationZuruecksetzen();
@@ -422,6 +376,48 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             RundenNavigationAktualisieren();
 
         BerechneGesamtbaum(runden);
+    }
+
+    private void RundenKoepfeAufbauen(IReadOnlyList<BracketRunde> runden)
+    {
+        RundenKoepfe.Clear();
+        for (int ri = 0; ri < runden.Count; ri++)
+            RundenKoepfe.Add(new BracketRundenkopf { X = ri * ROUND_W, Breite = NODE_W, Name = RundenBezeichnung.Name(runden[ri]) });
+    }
+
+    private void KnotenAufbauen(IReadOnlyList<BracketRunde> runden, RundenbaumLayoutErgebnis layout)
+    {
+        bool mitLabels = RundenBezeichnung.HatFestePaarungen(runden);
+
+        Knoten.Clear();
+        for (int ri = 0; ri < runden.Count; ri++)
+        {
+            foreach (var anzeige in KnotenDerRunde(runden[ri], ri, layout, mitLabels))
+                Knoten.Add(anzeige);
+        }
+    }
+
+    private static IEnumerable<BracketKnotenAnzeige> KnotenDerRunde(
+        BracketRunde runde, int rundenIndex, RundenbaumLayoutErgebnis layout, bool mitLabels)
+    {
+        int? turnierRundeId = runde.Knoten
+            .Select(k => k.Spiel?.TurnierRundeId)
+            .FirstOrDefault(id => id.HasValue);
+
+        var geordnet = runde.Knoten
+            .OrderBy(k => k.Spiel?.Spielnummer ?? int.MaxValue)
+            .ToList();
+
+        for (int pos = 0; pos < geordnet.Count; pos++)
+        {
+            var k = geordnet[pos];
+            if (!layout.ZeileJeKnoten.TryGetValue(k.Id, out var zeile)) continue;
+
+            string label = mitLabels ? RundenBezeichnung.KnotenLabel(runde, pos) : "";
+            var rueckspiel = k.SpielId is int spielId ? runde.RueckspielJeHinspielId.GetValueOrDefault(spielId) : null;
+            yield return BaueKnotenAnzeige(
+                k, rueckspiel, rundenIndex * ROUND_W, zeile * UNIT - NODE_H / 2, rundenIndex, label, turnierRundeId);
+        }
     }
 
     /// <summary>Pixelpositionen der Gesamtübersicht (Issue #238) aus dem gespiegelten Raster von
@@ -456,46 +452,25 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     }
 
     private static BracketKnotenAnzeige BaueKnotenAnzeige(TurnierBaumKnoten k, Spiel? rueckspiel, double x, double y,
-        int rundenIndex, string label, int? linkerKindKnotenId, int? rechterKindKnotenId, int? turnierRundeId = null)
+        int rundenIndex, string label, int? turnierRundeId)
     {
-        if (k.Spiel is null)
-            return new BracketKnotenAnzeige { Id = k.Id, X = x, Y = y, RundenIndex = rundenIndex, TurnierRundeId = turnierRundeId, LinkerKindKnotenId = linkerKindKnotenId, RechterKindKnotenId = rechterKindKnotenId, IstFreilos = true, Label = label, HeimName = "–", AuswaertsName = "–" };
-
-        var s = k.Spiel;
-        var e = s.Ergebnis;
-        bool hatE = e is not null;
-
-        string detail = hatE
-            ? SpielErgebnisFormatierer.DetailText(
-                e!.EntscheidungArt,
-                e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
-                e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
-                e.HeimElfmetertore, e.AuswaertsElfmetertore)
-            : "";
-        string heimScore      = hatE ? e!.HeimToreGesamt.ToString()      : "";
-        string auswaertsScore = hatE ? e!.AuswaertsToreGesamt.ToString() : "";
-        int? siegerId = e?.SiegerMannschaftId;
-        string paarungsText = "";
-        string entscheidungKurz = hatE ? SpielErgebnisFormatierer.EntscheidungKuerzel(e!.EntscheidungArt) : "";
-
-        // Issue #340: Hin-/Rückspiel-Paarung — Gesamtergebnis beider Spiele, Sieger aus dem Rückspiel (das
-        // Hinspiel-Ergebnis trägt nur den Sieger des Einzelspiels). Ohne Rückspiel-Ergebnis steht der Stand
-        // nach dem Hinspiel ohne Sieger-Markierung.
-        if (rueckspiel is not null && hatE)
-        {
-            var re = rueckspiel.Ergebnis;
-            paarungsText = SpielErgebnisFormatierer.PaarungsEinzelergebnisse(e!, re);
-            detail = re is not null ? SpielErgebnisFormatierer.PaarungsEntscheidung(re) : "";
-            siegerId = re?.SiegerMannschaftId;
-            entscheidungKurz = re is not null ? SpielErgebnisFormatierer.EntscheidungKuerzel(re.EntscheidungArt) : "";
-            if (re is not null)
+        if (k.Spiel is not { } s)
+            return new BracketKnotenAnzeige
             {
-                var (teamA, teamB) = HinRueckspielWertung.GesamtTore(e!, re);
-                heimScore      = teamA.ToString();
-                auswaertsScore = teamB.ToString();
-            }
-        }
+                Id = k.Id,
+                X = x,
+                Y = y,
+                RundenIndex = rundenIndex,
+                TurnierRundeId = turnierRundeId,
+                LinkerKindKnotenId = k.LinkerKindKnotenId,
+                RechterKindKnotenId = k.RechterKindKnotenId,
+                IstFreilos = true,
+                Label = label,
+                HeimName = "–",
+                AuswaertsName = "–"
+            };
 
+        var ergebnis = KnotenErgebnis.Fuer(s, rueckspiel);
         return new BracketKnotenAnzeige
         {
             Id = k.Id,
@@ -503,24 +478,23 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
             Y = y,
             RundenIndex = rundenIndex,
             TurnierRundeId = turnierRundeId ?? s.TurnierRundeId,
-            LinkerKindKnotenId = linkerKindKnotenId,
-            RechterKindKnotenId = rechterKindKnotenId,
+            LinkerKindKnotenId = k.LinkerKindKnotenId,
+            RechterKindKnotenId = k.RechterKindKnotenId,
             IstFreilos = false,
             Label = label,
             HeimName = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "—",
             AuswaertsName = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "—",
             HeimWappen = TeilnehmerAnzeige.MannschaftsIcon(s.HeimMannschaft),
             AuswaertsWappen = TeilnehmerAnzeige.MannschaftsIcon(s.AuswaertsMannschaft),
-            HatErgebnis = hatE,
-            HeimScore = heimScore,
-            AuswaertsScore = auswaertsScore,
-            ErgebnisDetail = detail,
-            PaarungsText = paarungsText,
-            HeimIstSieger = siegerId is not null && siegerId == s.HeimMannschaftId,
-            AuswaertsIstSieger = siegerId is not null && siegerId == s.AuswaertsMannschaftId,
+            HatErgebnis = ergebnis.HatErgebnis,
+            HeimScore = ergebnis.HeimScore,
+            AuswaertsScore = ergebnis.AuswaertsScore,
+            ErgebnisDetail = ergebnis.Detail,
+            PaarungsText = ergebnis.PaarungsText,
+            HeimIstSieger = ergebnis.IstSieger(s.HeimMannschaftId),
+            AuswaertsIstSieger = ergebnis.IstSieger(s.AuswaertsMannschaftId),
             Datum = s.Datum?.ToString("ddd, dd.MM.yy", CultureInfo.GetCultureInfo("de-DE")) ?? "",
-            EntscheidungKurz = entscheidungKurz
+            EntscheidungKurz = ergebnis.EntscheidungKurz
         };
     }
-
 }
