@@ -110,11 +110,19 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     private bool FolgtAufGruppenphase(RundeZeile? zeile) =>
         zeile is not null && Runden.TakeWhile(z => z != zeile).Any(z => z.Rundenart == Rundenart.Gruppenphase);
 
-    private void FormularGeaendert()
+    /// <summary>Der Nutzer hat Runden oder Übergangsregeln geändert.</summary>
+    private void AenderungMerken()
     {
         IsDirty = true;
+        PruefenUndMelden();
+    }
+
+    /// <summary>Zieht nach, was aus Runden und Übergangsregeln abgeleitet ist: Validierungsfehler,
+    /// Unstimmigkeits-Hinweise und die Regelanzeige des Editors (auch Name/Ausgang einer Runde betreffen sie).</summary>
+    private void PruefenUndMelden()
+    {
         AktualisiereRundenFehler();
-        UebergaengeGeaendertMelden(); // Name/Ausgang betreffen Regelanzeige und Unstimmigkeits-Hinweis
+        UebergaengeGeaendertMelden();
     }
 
     /// <summary>Feste Paarungen (Vorbelegung, Issue #277/#297) ergeben nur für eine Runde mit mindestens
@@ -164,7 +172,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         _turnierValidator = turnierValidator;
         _uebergangsregelValidator = uebergangsregelValidator;
         Formular = formular;
-        Formular.Geaendert += FormularGeaendert;
+        Formular.Geaendert += AenderungMerken;
         UebergangsregelEditor = new UebergangsregelEditorViewModel(this);
     }
 
@@ -176,8 +184,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     public async Task InstanzSetzenAsync(TurnierInstanz? instanz)
     {
         using var vorgang = _logger.Vorgang($"Runden: Turnier setzen (Instanz {instanz?.Id})");
-        var vorherAusgewaehlteId = AusgewaehlteRunde?.Id;
-        var vorherAusgewaehlterIndex = AusgewaehlteRunde is not null ? Runden.IndexOf(AusgewaehlteRunde) : -1;
+        var auswahl = AuswahlMerken();
 
         AktuelleInstanz = instanz;
         var meineId = instanz?.Id ?? -1;
@@ -193,56 +200,15 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         try
         {
             await Formular.StammdatenSicherstellenAsync();
-
             var mitRunden = await _service.FindenNachIdMitRundenAsync(instanz.Id);
             var alleRegeln = await _uebergangsregelService.AlleNachTurnierInstanzIdAsync(instanz.Id);
             if (_ladevorgangLaufendFuer != meineId) return;
 
-            var runden = (mitRunden?.Runden ?? []).OrderBy(r => r.Reihenfolge).ToList();
-            var zeilen = runden.Select(RundeZuZeile).ToList();
-            var zeileNachId = runden.Zip(zeilen, (r, z) => (r.Id, z)).ToDictionary(p => p.Id, p => p.z);
+            var zeileNachId = RundenUebernehmen(mitRunden?.Runden ?? []);
+            UebergaengeUebernehmen(alleRegeln, zeileNachId);
+            AuswahlWiederherstellen(auswahl);
 
-            RundenZuruecksetzen(zeilen);
-
-            _populiertGerade++;
-            try
-            {
-                var regelnGueltig = alleRegeln.Where(r => zeileNachId.ContainsKey(r.QuellRundeId) && zeileNachId.ContainsKey(r.ZielRundeId));
-
-                foreach (var gruppe in regelnGueltig.GroupBy(r => (r.QuellRundeId, r.ZielRundeId)))
-                {
-                    var quellZeile = zeileNachId[gruppe.Key.QuellRundeId];
-                    var zielZeile = zeileNachId[gruppe.Key.ZielRundeId];
-                    var blockZeilen = gruppe.OrderBy(r => r.GruppeIndex ?? 0).Select(r => new UebergangsregelZeile
-                    {
-                        GruppeIndex = r.GruppeIndex,
-                        PlatzierungVon = r.PlatzierungVon,
-                        PlatzierungBis = r.PlatzierungBis,
-                        AnzahlBeste = r.AnzahlBeste
-                    });
-                    var block = UebergangsregelBlock.AusBestehendenZeilenErstellen(quellZeile, zielZeile, blockZeilen);
-                    VerdrahteBlock(block);
-                    _alleUebergaenge.Add(block);
-                }
-            }
-            finally
-            {
-                _populiertGerade--;
-            }
-
-            // Id-Fallback greift nur bei Abbrechen (kein DB-Schreibzugriff, alte Ids bleiben gültig) — nach
-            // Speichern hat RundenUndUebergaengeErsetzenAsync ALLE Runden per Löschen+Neuanlegen ersetzt,
-            // auch unveränderte bekommen dabei eine neue Id. Der Id-Treffer schlägt dann für JEDE Runde
-            // fehl — deshalb per Listenposition weitersuchen, statt nur beim Fehlen einer alten Id.
-            RundeZeile? wiederhergestellt = vorherAusgewaehlteId is int id
-                ? Runden.FirstOrDefault(z => z.Id == id)
-                : null;
-            if (wiederhergestellt is null && vorherAusgewaehlterIndex >= 0 && vorherAusgewaehlterIndex < Runden.Count)
-                wiederhergestellt = Runden[vorherAusgewaehlterIndex];
-            AusgewaehlteRunde = wiederhergestellt;
-
-            AktualisiereRundenFehler();
-            UebergaengeGeaendertMelden();
+            PruefenUndMelden();
             IsDirty = false;
         }
         catch (Exception ex)
@@ -252,6 +218,63 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         finally
         {
             IstLadend = false;
+        }
+    }
+
+    private (int? Id, int Index) AuswahlMerken() =>
+        (AusgewaehlteRunde?.Id, AusgewaehlteRunde is not null ? Runden.IndexOf(AusgewaehlteRunde) : -1);
+
+    // Id-Treffer gibt es nur nach Abbrechen (kein DB-Schreibzugriff, alte Ids bleiben gültig) — nach Speichern
+    // hat RundenUndUebergaengeErsetzenAsync ALLE Runden per Löschen+Neuanlegen ersetzt, auch unveränderte
+    // bekommen dabei eine neue Id. Der Id-Treffer schlägt dann für JEDE Runde fehl — deshalb per Listenposition
+    // weitersuchen, statt nur beim Fehlen einer alten Id.
+    private void AuswahlWiederherstellen((int? Id, int Index) vorher)
+    {
+        RundeZeile? wiederhergestellt = vorher.Id is int id
+            ? Runden.FirstOrDefault(z => z.Id == id)
+            : null;
+        if (wiederhergestellt is null && vorher.Index >= 0 && vorher.Index < Runden.Count)
+            wiederhergestellt = Runden[vorher.Index];
+        AusgewaehlteRunde = wiederhergestellt;
+    }
+
+    /// <summary>Ersetzt die Rundenliste durch die geladenen Runden und liefert die Zeile je Runden-Id.</summary>
+    private Dictionary<int, RundeZeile> RundenUebernehmen(IEnumerable<TurnierRunde> geladen)
+    {
+        var runden = geladen.OrderBy(r => r.Reihenfolge).ToList();
+        var zeilen = runden.Select(RundeZuZeile).ToList();
+        RundenZuruecksetzen(zeilen);
+        return runden.Zip(zeilen, (r, z) => (r.Id, z)).ToDictionary(p => p.Id, p => p.z);
+    }
+
+    /// <summary>Baut je Quelle/Ziel-Paar einen Übergangsregel-Block auf; Regeln, deren Runde es nicht (mehr)
+    /// gibt, bleiben weg.</summary>
+    private void UebergaengeUebernehmen(IEnumerable<Uebergangsregel> alleRegeln, Dictionary<int, RundeZeile> zeileNachId)
+    {
+        _populiertGerade++;
+        try
+        {
+            var regelnGueltig = alleRegeln.Where(r => zeileNachId.ContainsKey(r.QuellRundeId) && zeileNachId.ContainsKey(r.ZielRundeId));
+
+            foreach (var gruppe in regelnGueltig.GroupBy(r => (r.QuellRundeId, r.ZielRundeId)))
+            {
+                var quellZeile = zeileNachId[gruppe.Key.QuellRundeId];
+                var zielZeile = zeileNachId[gruppe.Key.ZielRundeId];
+                var blockZeilen = gruppe.OrderBy(r => r.GruppeIndex ?? 0).Select(r => new UebergangsregelZeile
+                {
+                    GruppeIndex = r.GruppeIndex,
+                    PlatzierungVon = r.PlatzierungVon,
+                    PlatzierungBis = r.PlatzierungBis,
+                    AnzahlBeste = r.AnzahlBeste
+                });
+                var block = UebergangsregelBlock.AusBestehendenZeilenErstellen(quellZeile, zielZeile, blockZeilen);
+                VerdrahteBlock(block);
+                _alleUebergaenge.Add(block);
+            }
+        }
+        finally
+        {
+            _populiertGerade--;
         }
     }
 
@@ -292,8 +315,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         {
             _populiertGerade--;
         }
-        AktualisiereRundenFehler();
-        UebergaengeGeaendertMelden();
+        PruefenUndMelden();
     }
 
     // ── Runden-Befehle ────────────────────────────────────────────────────────
@@ -306,9 +328,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         var zeile = new RundeZeile { Name = $"Runde {Runden.Count + 1}", EingangsMannschaftsanzahl = eingang, AusgangsMannschaftsanzahl = eingang };
         Runden.Add(zeile);
         AusgewaehlteRunde = zeile;
-        IsDirty = true;
-        AktualisiereRundenFehler();
-        UebergaengeGeaendertMelden();
+        AenderungMerken();
     }
     private bool KannNeueRunde() => HatInstanz;
 
@@ -324,9 +344,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         _alleUebergaenge.RemoveAll(b => b.QuellRunde == entfernt || b.ZielRunde == entfernt);
 
         AusgewaehlteRunde = Runden.Count > 0 ? Runden[Math.Max(0, idx - 1)] : null;
-        AktualisiereRundenFehler();
-        IsDirty = true;
-        UebergaengeGeaendertMelden();
+        AenderungMerken();
     }
     private bool KannRundeEntfernen() => AusgewaehlteRunde is not null;
 
@@ -336,17 +354,13 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     {
         VerdrahteBlock(block);
         _alleUebergaenge.Add(block);
-        IsDirty = true;
-        AktualisiereRundenFehler();
-        UebergaengeGeaendertMelden();
+        AenderungMerken();
     }
 
     public void UebergangEntfernen(UebergangsregelBlock block)
     {
         _alleUebergaenge.Remove(block);
-        IsDirty = true;
-        AktualisiereRundenFehler();
-        UebergaengeGeaendertMelden();
+        AenderungMerken();
     }
 
     private void VerdrahteBlock(UebergangsregelBlock block)
@@ -354,8 +368,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         block.Geaendert += () =>
         {
             if (_populiertGerade == 0) IsDirty = true;
-            AktualisiereRundenFehler();
-            UebergaengeGeaendertMelden();
+            PruefenUndMelden();
         };
     }
 
