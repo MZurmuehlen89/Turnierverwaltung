@@ -3,9 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Spielplan;
-using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turnierbaum;
-using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -23,7 +21,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// 1:1 aus Wpf/ViewModels/ManuellePaarungWorkspaceViewModel.cs portiert und arbeitet direkt gegen
 /// <see cref="Domain.Entitaeten.Spiele.Spiel"/>/<see cref="Auslosung"/> statt gegen die mit #294 entfallene
 /// <c>VorlagenPaarung</c>-Entität — funktioniert für Vorlage- UND Turnier-Status identisch (der einzige
-/// Status-abhängige Punkt ist die Teilnehmerpool-Quelle in <see cref="LadenAsync"/>: eine Vorlage hat noch
+/// Status-abhängige Punkt ist die Teilnehmerpool-Quelle in <see cref="VorbelegungsTeilnehmerpool"/>: eine Vorlage hat noch
 /// keine echten Teilnehmer, daher generische Platzhalter statt echter Mannschaften für die erste Runde ohne
 /// eingehende Übergangsregeln). Kein DB-Schreibzugriff vor "Abschließen" — die <see cref="Auslosung"/>-Entität
 /// wird erst dabei lazy angelegt.
@@ -31,16 +29,13 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 public partial class VorbelegungWorkspace : ObservableObject
 {
     private readonly AuslosungService _auslosungService;
-    private readonly MannschaftService _mannschaftService;
     private readonly SpielplanService _spielplanService;
     private readonly TurnierBaumService _baumService;
-    private readonly UebergangsregelService _uebergangsregelService;
     private readonly IDialogService _dialogService;
     private readonly ILogger _logger;
     private readonly DbContextReentrancySchutz _dbContextSchutz;
-
-    private readonly TurnierInstanz _instanz;
-    private readonly IReadOnlyList<TurnierRunde> _instanzRunden;
+    private readonly VorbelegungsTeilnehmerpool _teilnehmerpool;
+    private readonly int _instanzId;
 
     /// <summary>Bereits vorhandene Manuell-Auslosung dieser Runde (inkl. Ergebnisse/Regeln), oder null,
     /// solange noch nichts abgeschlossen wurde — dann existiert noch keine <see cref="Auslosung"/>-Zeile.</summary>
@@ -68,30 +63,29 @@ public partial class VorbelegungWorkspace : ObservableObject
 
     public bool HatUngespeicherteAenderungen => !IstAbgeschlossen && Belegung.TeamsZugewiesen > 0;
 
+    // Neun Abhängigkeiten statt der angestrebten fünf (#445): Abschließen und Zurücksetzen brauchen Auslosung,
+    // Spielplan-Rückfrage (mit Dialog) und Turnierbaum in einem Ablauf unter einem Schutz — sie in ein
+    // Parameter-Objekt zu packen, würde nur die Zahl verstecken.
     public VorbelegungWorkspace(
         AuslosungService auslosungService,
-        MannschaftService mannschaftService,
         SpielplanService spielplanService,
         TurnierBaumService baumService,
-        UebergangsregelService uebergangsregelService,
         IDialogService dialogService,
         ILogger logger,
         DbContextReentrancySchutz dbContextSchutz,
-        TurnierInstanz instanz,
-        TurnierRunde runde,
-        IReadOnlyList<TurnierRunde> instanzRunden)
+        VorbelegungsTeilnehmerpool teilnehmerpool,
+        int instanzId,
+        TurnierRunde runde)
     {
         _logger = logger;
         _dbContextSchutz = dbContextSchutz;
         _auslosungService = auslosungService;
-        _mannschaftService = mannschaftService;
         _spielplanService = spielplanService;
         _baumService = baumService;
-        _uebergangsregelService = uebergangsregelService;
         _dialogService = dialogService;
-        _instanz = instanz;
+        _teilnehmerpool = teilnehmerpool;
+        _instanzId = instanzId;
         Runde = runde;
-        _instanzRunden = instanzRunden;
         Belegung = new Platzbelegung(runde.Rundenart, runde.GruppenAnzahl, RegelAktiv);
         Belegung.PropertyChanged += (_, e) =>
         {
@@ -116,38 +110,23 @@ public partial class VorbelegungWorkspace : ObservableObject
         Belegung.RegelmeldungLoeschen();
         try
         {
-            var alle = await _auslosungService.AlleNachInstanzAbrufenAsync(_instanz.Id);
+            var alle = await _auslosungService.AlleNachInstanzAbrufenAsync(_instanzId);
             var bestehende = alle.FirstOrDefault(a => a.TurnierRundeId == Runde.Id);
             _auslosung = bestehende is not null ? await _auslosungService.FindenNachIdAsync(bestehende.Id) : null;
 
             IstAbgeschlossen = _auslosung?.Status == AuslosungsStatus.Abgeschlossen;
 
-            var eingehendeRegeln = await _uebergangsregelService.AlleNachZielRundeIdAsync(Runde.Id);
-            var platzhalter = TeilnehmerPoolHilfsmittel.PlatzhalterAusVorrunden(
-                _instanzRunden, Runde, eingehendeRegeln, Kombinationstabelle.AusJson(Runde.KombinationstabelleJson));
+            var platzhalter = await _teilnehmerpool.PlatzhalterAusVorrundenAsync(Runde);
             var teamsBenoetigt = platzhalter?.Count ?? Runde.EingangsMannschaftsanzahl;
 
             if (_auslosung is { Status: AuslosungsStatus.Abgeschlossen } abgeschlossene)
                 Belegung.AbgeschlossenAufbauen(abgeschlossene.Ergebnisse, teamsBenoetigt);
             else
-                Belegung.LeerAufbauen(platzhalter ?? await TeilnehmerOhneVorgaengerAsync(), teamsBenoetigt);
+                Belegung.LeerAufbauen(
+                    platzhalter ?? await _teilnehmerpool.TeilnehmerOhneVorgaengerAsync(Runde), teamsBenoetigt);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
         finally { IstLadend = false; }
-    }
-
-    /// <summary>Teilnehmer einer Runde ohne Vorgänger. Issue #297: "echte Auslosung mit Mannschaften nur bei
-    /// Status != Vorlage" — eine Vorlage hat noch keine echten Teilnehmer, daher generische Platzhalter statt einer
-    /// fachlich unpassenden echten Mannschaftsliste.</summary>
-    private async Task<IReadOnlyList<TeilnehmerAnzeige>> TeilnehmerOhneVorgaengerAsync()
-    {
-        if (_instanz.Status == TurnierStatus.Vorlage)
-            return Enumerable.Range(1, Runde.EingangsMannschaftsanzahl)
-                .Select(i => TeilnehmerAnzeige.AusPlatzhalter($"Team {i}")).ToList();
-
-        var teams = await _mannschaftService.AlleNachTurnierfilterAsync(
-            _instanz.VerbandId, _instanz.LandId, _instanz.MannschaftsartFilter);
-        return teams.Select(TeilnehmerAnzeige.AusMannschaft).ToList();
     }
 
     private bool RegelAktiv(AuslosungsRegelArt art) =>
@@ -172,7 +151,7 @@ public partial class VorbelegungWorkspace : ObservableObject
             using var vorgang = _logger.Vorgang($"Vorbelegung: Paarung abschließen (Runde {Runde.Id}, {paarungen.Count} Einträge)");
 
             _auslosung ??= await _auslosungService.ErstellenAsync(new AuslosungErstellenEingabe(
-                _instanz.Id, Runde.Id, Runde.Name, Auslosungsart.Manuell, IstAutomatisch: false));
+                _instanzId, Runde.Id, Runde.Name, Auslosungsart.Manuell, IstAutomatisch: false));
 
             // Der Service ersetzt dabei auch den Spielplan der Runde und zieht die Folgerunden nach (#411).
             using (_logger.Vorgang($"Vorbelegung: Paarungen speichern, Spielplan generieren (Auslosung {_auslosung.Id})"))
@@ -211,7 +190,7 @@ public partial class VorbelegungWorkspace : ObservableObject
 
     private async Task TurnierBaumAktualisierenAsync()
     {
-        using var vorgang = _logger.Vorgang($"Vorbelegung: Turnierbaum aktualisieren (Instanz {_instanz.Id})");
-        await _baumService.NachSpielplanAenderungAktualisierenAsync(_instanz.Id);
+        using var vorgang = _logger.Vorgang($"Vorbelegung: Turnierbaum aktualisieren (Instanz {_instanzId})");
+        await _baumService.NachSpielplanAenderungAktualisierenAsync(_instanzId);
     }
 }

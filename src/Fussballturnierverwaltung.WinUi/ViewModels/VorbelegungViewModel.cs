@@ -48,6 +48,7 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
 
     private TurnierInstanz? _instanz;
     private IReadOnlyList<TurnierRunde> _instanzRunden = [];
+    private VorbelegungsTeilnehmerpool? _teilnehmerpool;
 
     [ObservableProperty] private bool _istLadend;
     [ObservableProperty] private string? _fehlermeldung;
@@ -139,6 +140,7 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
         {
             _instanz = null;
             _instanzRunden = [];
+            _teilnehmerpool = null;
             Runden = [];
             HatUeberhauptRunden = false;
             return;
@@ -157,6 +159,7 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
             }
 
             _instanzRunden = _instanz.Runden.OrderBy(r => r.Reihenfolge).ToList();
+            _teilnehmerpool = new VorbelegungsTeilnehmerpool(_mannschaftService, _uebergangsregelService, _instanz, _instanzRunden);
             HatUeberhauptRunden = _instanzRunden.Count > 0;
             var auslosungen = await _auslosungService.AlleNachInstanzAbrufenAsync(_instanz.Id);
 
@@ -225,15 +228,15 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
         if (Workspace is not null)
             Workspace.Geaendert -= OnWorkspaceGeaendert;
 
-        if (newValue is null || !newValue.IstEditierbarHier || _instanz is null)
+        if (newValue is null || !newValue.IstEditierbarHier || _instanz is null || _teilnehmerpool is null)
         {
             Workspace = null;
             return;
         }
 
         var workspace = new VorbelegungWorkspace(
-            _auslosungService, _mannschaftService, _spielplanService, _baumService, _uebergangsregelService, _dialogService,
-            _logger, DbContextSchutz, _instanz, newValue.Runde, _instanzRunden);
+            _auslosungService, _spielplanService, _baumService, _dialogService,
+            _logger, DbContextSchutz, _teilnehmerpool, _instanz.Id, newValue.Runde);
         workspace.Geaendert += OnWorkspaceGeaendert;
         Workspace = workspace;
         _ = workspace.GeschuetztLadenAsync();
