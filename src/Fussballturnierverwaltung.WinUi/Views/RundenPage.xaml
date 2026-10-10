@@ -143,14 +143,14 @@
                         <TextBlock Text="RUNDENDETAILS" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
 
                         <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
-                        <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox Text="{Binding Formular.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                         <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
                             <StackPanel HorizontalAlignment="Stretch">
                                 <TextBlock Text="Rundenart" FontSize="12" Margin="0,0,0,3" />
-                                <ComboBox ItemsSource="{Binding RundenartOptionen}"
-                                          SelectedItem="{Binding RundenartAuswahl, Mode=TwoWay}"
+                                <ComboBox ItemsSource="{Binding Formular.RundenartOptionen}"
+                                          SelectedItem="{Binding Formular.RundenartAuswahl, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch">
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate>
@@ -160,12 +160,12 @@
                                 </ComboBox>
                             </StackPanel>
                             <StackPanel Grid.Column="2" HorizontalAlignment="Stretch"
-                                        Visibility="{Binding IstGruppenphase, Converter={StaticResource BoolToVisibility}}">
+                                        Visibility="{Binding Formular.IstGruppenphase, Converter={StaticResource BoolToVisibility}}">
                                 <TextBlock Text="Gruppenanzahl" FontSize="12" Margin="0,0,0,3" />
-                                <TextBox Text="{Binding GruppenAnzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
+                                <TextBox Text="{Binding Formular.GruppenAnzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
                                          HorizontalAlignment="Stretch" />
-                                <ItemsRepeater ItemsSource="{Binding GruppenAnzahlVorschlaege}" Margin="0,4,0,0"
-                                               Visibility="{Binding HatGruppenAnzahlVorschlaege, Converter={StaticResource BoolToVisibility}}">
+                                <ItemsRepeater ItemsSource="{Binding Formular.GruppenAnzahlVorschlaege}" Margin="0,4,0,0"
+                                               Visibility="{Binding Formular.HatGruppenAnzahlVorschlaege, Converter={StaticResource BoolToVisibility}}">
                                     <ItemsRepeater.Layout>
                                         <UniformGridLayout Orientation="Horizontal" MinRowSpacing="4" MinColumnSpacing="4"
                                                             ItemsJustification="Start" />
@@ -173,19 +173,19 @@
                                     <ItemsRepeater.ItemTemplate>
                                         <DataTemplate>
                                             <Button Content="{Binding Anzeige}"
-                                                    Command="{Binding ElementName=Root, Path=DataContext.GruppenAnzahlVorschlagWaehlenCommand}"
+                                                    Command="{Binding ElementName=Root, Path=DataContext.Formular.GruppenAnzahlVorschlagWaehlenCommand}"
                                                     CommandParameter="{Binding}" FontSize="11" Padding="8,3" />
                                         </DataTemplate>
                                     </ItemsRepeater.ItemTemplate>
                                 </ItemsRepeater>
                             </StackPanel>
                             <StackPanel Grid.Column="2" HorizontalAlignment="Stretch"
-                                        Visibility="{Binding IstSchweizerSystem, Converter={StaticResource BoolToVisibility}}">
+                                        Visibility="{Binding Formular.IstSchweizerSystem, Converter={StaticResource BoolToVisibility}}">
                                 <TextBlock Text="Anzahl Spieltage" FontSize="12" Margin="0,0,0,3" />
-                                <TextBox Text="{Binding AnzahlSpieltage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
+                                <TextBox Text="{Binding Formular.AnzahlSpieltage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
                                          HorizontalAlignment="Stretch" />
                                 <TextBlock FontSize="11" Opacity="0.6" Margin="0,3,0,0">
-                                    <Run Text="Vorschlag: " /><Run Text="{Binding AnzahlSpieltageVorschlag}" />
+                                    <Run Text="Vorschlag: " /><Run Text="{Binding Formular.AnzahlSpieltageVorschlag}" />
                                 </TextBlock>
                             </StackPanel>
                         </Grid>
@@ -193,12 +193,12 @@
                         <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
                             <StackPanel HorizontalAlignment="Stretch">
                                 <TextBlock Text="Eingang (Mannschaften)" FontSize="12" Margin="0,0,0,3" />
-                                <TextBox Text="{Binding EingangsMannschaftsanzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                <TextBox Text="{Binding Formular.EingangsMannschaftsanzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                          HorizontalAlignment="Stretch" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
                                 <TextBlock Text="Ausgang (Mannschaften)" FontSize="12" Margin="0,0,0,3" />
-                                <TextBox Text="{Binding AusgangsMannschaftsanzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                <TextBox Text="{Binding Formular.AusgangsMannschaftsanzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                          HorizontalAlignment="Stretch" />
                             </StackPanel>
                         </Grid>
@@ -206,14 +206,14 @@
                         <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
                             <StackPanel HorizontalAlignment="Stretch">
                                 <TextBlock Text="Regelwerk" FontSize="12" Margin="0,0,0,3" />
-                                <ComboBox ItemsSource="{Binding RegelwerkOptionen}"
-                                          SelectedItem="{Binding Regelwerk, Mode=TwoWay}"
+                                <ComboBox ItemsSource="{Binding Formular.RegelwerkOptionen}"
+                                          SelectedItem="{Binding Formular.Regelwerk, Mode=TwoWay}"
                                           DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
                                 <TextBlock Text="Auslosungsart (Vorgabe)" FontSize="12" Margin="0,0,0,3" />
-                                <ComboBox ItemsSource="{Binding VorgegebeneAuslosungsartOptionen}"
-                                          SelectedItem="{Binding VorgegebeneAuslosungsart, Mode=TwoWay}"
+                                <ComboBox ItemsSource="{Binding Formular.VorgegebeneAuslosungsartOptionen}"
+                                          SelectedItem="{Binding Formular.VorgegebeneAuslosungsart, Mode=TwoWay}"
                                           DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
                                 <TextBlock Text="Wird beim Anlegen der Auslosung vorausgewählt und bleibt dort änderbar."
                                            FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0" />
@@ -222,9 +222,9 @@
 
                         <!-- Issue #356: nur Regeln, die bei Rundenart und Auslosungsart dieser Runde wirken können -->
                         <StackPanel Margin="0,0,0,12"
-                                    Visibility="{Binding HatRegelVorgabeOptionen, Converter={StaticResource BoolToVisibility}}">
+                                    Visibility="{Binding Formular.HatRegelVorgabeOptionen, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="Auslosungsregeln (Vorgabe)" FontSize="12" Margin="0,0,0,3" />
-                            <ItemsControl ItemsSource="{Binding RegelVorgabeOptionen}">
+                            <ItemsControl ItemsSource="{Binding Formular.RegelVorgabeOptionen}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <CheckBox Content="{Binding Anzeige}" IsChecked="{Binding IstAktiv, Mode=TwoWay}"
@@ -240,15 +240,15 @@
                         <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
                             <StackPanel HorizontalAlignment="Stretch">
                                 <TextBlock Text="Standard-Rangliste (Lostöpfe)" FontSize="12" Margin="0,0,0,3" />
-                                <ComboBox ItemsSource="{Binding RanglistenQuelleOptionen}"
-                                          SelectedItem="{Binding StandardRanglistenQuelle, Mode=TwoWay}"
+                                <ComboBox ItemsSource="{Binding Formular.RanglistenQuelleOptionen}"
+                                          SelectedItem="{Binding Formular.StandardRanglistenQuelle, Mode=TwoWay}"
                                           DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
                                 <TextBlock Text="Beim Anlegen der Auslosung werden die Lostöpfe nach der neuesten importierten Rangliste dieser Quelle befüllt."
                                            FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" VerticalAlignment="Bottom">
-                                <CheckBox Content="Titelverteidiger in Topf 1" IsChecked="{Binding TitelverteidigerInTopf1, Mode=TwoWay}"
-                                          IsEnabled="{Binding TitelverteidigerInTopf1Aktivierbar}" Margin="0,0,0,4" />
+                                <CheckBox Content="Titelverteidiger in Topf 1" IsChecked="{Binding Formular.TitelverteidigerInTopf1, Mode=TwoWay}"
+                                          IsEnabled="{Binding Formular.TitelverteidigerInTopf1Aktivierbar}" Margin="0,0,0,4" />
                                 <TextBlock Text="Unabhängig vom Ranglistenplatz (Titelverteidiger im Turnierkopf hinterlegen)."
                                            FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="28,0,0,0" />
                             </StackPanel>
@@ -256,26 +256,26 @@
 
                         <Grid Margin="0,0,0,8" ColumnDefinitions="*,16,*">
                             <StackPanel>
-                                <CheckBox Content="Mit Rückspiel" IsChecked="{Binding MitRueckspiel, Mode=TwoWay}" Margin="0,0,0,4" />
-                                <CheckBox Content="Auswärtstorregel aktiv" IsChecked="{Binding AuswaertstorRegelAktiv, Mode=TwoWay}"
-                                          IsEnabled="{Binding AuswaertstorAktivierbar}" Margin="16,0,0,4" />
+                                <CheckBox Content="Mit Rückspiel" IsChecked="{Binding Formular.MitRueckspiel, Mode=TwoWay}" Margin="0,0,0,4" />
+                                <CheckBox Content="Auswärtstorregel aktiv" IsChecked="{Binding Formular.AuswaertstorRegelAktiv, Mode=TwoWay}"
+                                          IsEnabled="{Binding Formular.AuswaertstorAktivierbar}" Margin="16,0,0,4" />
                                 <!-- Issue #352 -->
-                                <CheckBox Content="Neutraler Spielort" IsChecked="{Binding NeutralerSpielort, Mode=TwoWay}" Margin="0,8,0,4" />
+                                <CheckBox Content="Neutraler Spielort" IsChecked="{Binding Formular.NeutralerSpielort, Mode=TwoWay}" Margin="0,8,0,4" />
                                 <TextBlock Text="Kein Heimvorteil in der Simulation, außer für Gastgeber des Turniers (im Turnierkopf hinterlegen)."
                                            FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="28,0,0,0" />
                                 <!-- Issue #360 -->
                                 <Grid Margin="0,12,0,0" ColumnDefinitions="*,48">
-                                    <Slider Header="Überraschungsfaktor" Value="{Binding Ueberraschungsfaktor, Mode=TwoWay}"
+                                    <Slider Header="Überraschungsfaktor" Value="{Binding Formular.Ueberraschungsfaktor, Mode=TwoWay}"
                                             Minimum="0" Maximum="100" StepFrequency="5" TickFrequency="10" TickPlacement="Outside" />
                                     <TextBlock Grid.Column="1" FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,10">
-                                        <Run Text="{Binding Ueberraschungsfaktor}" /><Run Text=" %" />
+                                        <Run Text="{Binding Formular.Ueberraschungsfaktor}" /><Run Text=" %" />
                                     </TextBlock>
                                 </Grid>
                                 <TextBlock Text="Dämpft in der Simulation den Einfluss der Stärkeunterschiede – „Pokal hat eigene Gesetze“. 0 % = normal, 100 % = Stärke egal."
                                            FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
                             </StackPanel>
                             <StackPanel Grid.Column="2">
-                                <CheckBox Content="Paarung fest vorgegeben" IsChecked="{Binding PaarungFestVorgegeben, Mode=TwoWay}"
+                                <CheckBox Content="Paarung fest vorgegeben" IsChecked="{Binding Formular.PaarungFestVorgegeben, Mode=TwoWay}"
                                           IsEnabled="{Binding PaarungFestVorgegebenVerfuegbar}" Margin="0,0,0,4" />
                                 <TextBlock Text="Erst verfügbar, sobald die Runde eine eingehende Übergangsregel hat (siehe unten)."
                                            Visibility="{Binding PaarungFestVorgegebenVerfuegbar, Converter={StaticResource InverseBoolToVisibility}}"

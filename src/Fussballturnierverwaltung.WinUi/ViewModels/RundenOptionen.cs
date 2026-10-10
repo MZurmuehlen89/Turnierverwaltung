@@ -16,7 +16,7 @@ public record GruppenAnzahlVorschlag(int GruppenAnzahl, int Gruppengroesse)
 
 /// <summary>Option der "Standard-Rangliste"-ComboBox im Rundenformular (Issue #349), <see cref="Wert"/> = Id der
 /// Ranglisten-Quelle oder null. Wie <see cref="VorgegebeneAuslosungsartOption"/> nur über
-/// <c>RundenViewModel.RanglistenQuelleOptionFuer</c> beziehen (Referenzabgleich der ComboBox).</summary>
+/// <c>RundenFormularViewModel.RanglistenQuelleOptionFuer</c> beziehen (Referenzabgleich der ComboBox).</summary>
 public record RanglistenQuelleOption(string Anzeige, int? Wert);
 
 /// <summary>Ankreuzbare Auslosungsregel im Rundenformular (Issue #356). Die Liste dieser Optionen bleibt über alle
@@ -36,6 +36,6 @@ public partial class RegelVorgabeOption(AuslosungsRegelArt regelart, string anze
 }
 
 /// <summary>Option der "Auslosungsart (Vorgabe)"-ComboBox im Rundenformular (Issue #347), <see cref="Wert"/> = null
-/// steht für "frei wählbar". Instanzen nur über <c>RundenViewModel.AuslosungsartVorgabeOptionFuer</c> beziehen —
+/// steht für "frei wählbar". Instanzen nur über <c>RundenFormularViewModel.AuslosungsartVorgabeOptionFuer</c> beziehen —
 /// die ComboBox vergleicht <c>SelectedItem</c> per Referenz, Record-Gleichheit hilft dort nicht.</summary>
 public record VorgegebeneAuslosungsartOption(string Anzeige, Auslosungsart? Wert);

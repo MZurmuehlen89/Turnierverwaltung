@@ -35,7 +35,7 @@ public partial class RundeZeile : ObservableObject
     // Issue #372: im Editor nicht bearbeitbar (stammt aus dem Seed), wird beim Speichern unverändert durchgereicht.
     public string? KombinationstabelleJson { get; set; }
 
-    // Issue #356: reiner Datenträger — angezeigt und geändert wird über RundenViewModel.RegelVorgabeOptionen.
+    // Issue #356: reiner Datenträger — angezeigt und geändert wird über RundenFormularViewModel.RegelVorgabeOptionen.
     public IReadOnlyList<AuslosungsRegelArt> VorgegebeneAuslosungsregeln { get; set; } = [];
 
     /// <summary>Reine Anzeige in der Rundenliste (#187, seit #348 im Runden-Reiter): gesetzt, wenn die ausgehenden

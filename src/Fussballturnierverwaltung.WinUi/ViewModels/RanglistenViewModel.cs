@@ -109,7 +109,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     private VerbandFilterOption _mannschaftVerbandFilter = _allesVerband;
 
     // WinUI-ComboBox schreibt beim Laden bzw. beim Tausch der ItemsSource null über TwoWay zurück
-    // (siehe RundenViewModel.RundenartAuswahl, #377). Deshalb bindet sie an diese Nullable-Hülle:
+    // (siehe RundenFormularViewModel.RundenartAuswahl, #377). Deshalb bindet sie an diese Nullable-Hülle:
     // null wird verworfen und die Anzeige danach wiederhergestellt.
     public VerbandFilterOption? MannschaftVerbandFilterAuswahl
     {

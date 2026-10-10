@@ -78,7 +78,7 @@ editor) and a form is populated before its ComboBoxes finish loading (log: `Sele
 `Rundenart.Liga`) and is indistinguishable from a real choice — the record silently changes. Bind enum ComboBoxes
 to a nullable wrapper property that ignores `null` and re-raises `PropertyChanged` on a low-priority
 `DispatcherQueue` tick; option-record ComboBoxes likewise restore their value from the backing record instead of
-keeping `null` (see `RundenViewModel.RundenartAuswahl`).
+keeping `null` (see `RundenFormularViewModel.RundenartAuswahl`).
 
 **`CheckBox`/`ToggleButton`-derived controls reserve significant content space even with no `Content` set** —
 their `ButtonBase` ancestry defaults to a `MinWidth` around 120px that applies to the whole control regardless

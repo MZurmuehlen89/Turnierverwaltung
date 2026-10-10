@@ -128,6 +128,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
 
         // RundenViewModel ist Datenhalter für Runden und Übergangsregeln (Issue #297/#348) — Scoped, damit
         // TurnierlisteViewModel innerhalb derselben Navigations-Scope dieselbe Instanz erhält.
+        builder.Services.AddTransient<RundenFormularViewModel>();
         builder.Services.AddScoped<RundenViewModel>();
 
         // ViewModels (Transient = neuer Scope bei jeder Navigation)
