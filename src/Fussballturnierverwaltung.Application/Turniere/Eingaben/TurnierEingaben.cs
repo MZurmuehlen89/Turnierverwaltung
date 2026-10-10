@@ -65,7 +65,18 @@ public record TurnierRundeEingabe(
     bool TitelverteidigerInTopf1 = false,
     bool NeutralerSpielort = false,
     int Ueberraschungsfaktor = 0,
-    IReadOnlyList<AuslosungsRegelArt>? VorgegebeneAuslosungsregeln = null);
+    IReadOnlyList<AuslosungsRegelArt>? VorgegebeneAuslosungsregeln = null)
+{
+    /// <summary>Lässt weg, was bei dieser Runde nichts bewirkt, im Formular aber stehen geblieben sein kann:
+    /// die Spieltag-Konfiguration außerhalb des Schweizer Systems, die Gruppenanzahl außerhalb der Gruppenphase
+    /// und „Titelverteidiger in Topf 1“ ohne Standard-Rangliste.</summary>
+    public TurnierRundeEingabe OhneUnwirksameAngaben() => this with
+    {
+        KonfigurationJson = Rundenart == Rundenart.SchweizerSystem ? KonfigurationJson : null,
+        GruppenAnzahl = Rundenart == Rundenart.Gruppenphase ? GruppenAnzahl : null,
+        TitelverteidigerInTopf1 = StandardRanglistenQuelleId is not null && TitelverteidigerInTopf1
+    };
+}
 
 public record RegelwerkErstellenEingabe(
     string Name,

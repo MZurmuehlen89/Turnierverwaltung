@@ -56,22 +56,12 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         UebergaengeGeaendert?.Invoke();
     }
 
-    /// <summary>Prüft, ob die Summe ALLER ausgehenden Übergangsregeln einer Runde (über ggf. mehrere
-    /// unabhängige Regeln zu verschiedenen Zielrunden hinweg) tatsächlich deren Ausgangsanzahl ergibt (Issue
-    /// #187). Nur relevant, wenn überhaupt ausgehende Regeln existieren.</summary>
-    private string? UnstimmigkeitErmitteln(RundeZeile runde)
-    {
-        var ausgehende = _alleUebergaenge.Where(b => b.QuellRunde == runde).ToList();
-        if (ausgehende.Count == 0) return null;
-
-        var summe = ausgehende.SelectMany(b => b.Zeilen).Sum(z => z.AnzahlBeste ?? (z.PlatzierungBis - z.PlatzierungVon + 1));
-        var erwartet = runde.AusgangsMannschaftsanzahl;
-
-        if (summe == erwartet) return null;
-        return summe < erwartet
-            ? $"Übergangsregeln decken nur {summe} von {erwartet} Plätzen ab."
-            : $"Übergangsregeln decken {summe} von {erwartet} Plätzen ab — mehr als erwartet.";
-    }
+    private string? UnstimmigkeitErmitteln(RundeZeile runde) => UebergangsAbdeckung.Unstimmigkeit(
+        runde.AusgangsMannschaftsanzahl,
+        _alleUebergaenge
+            .Where(b => b.QuellRunde == runde)
+            .Select(b => b.Zeilen.Sum(z => UebergangsAbdeckung.Plaetze(z.PlatzierungVon, z.PlatzierungBis, z.AnzahlBeste)))
+            .ToList());
 
     /// <summary>Übergangsregel-Bereich im Runden-Detail (Issue #348).</summary>
     public UebergangsregelEditorViewModel UebergangsregelEditor { get; }
@@ -392,18 +382,17 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         RegelwerkId: z.Regelwerk.Wert?.Id,
         MitRueckspiel: z.MitRueckspiel,
         AuswaertstorRegelAktiv: z.AuswaertstorRegelAktiv,
-        KonfigurationJson: z.Rundenart == Rundenart.SchweizerSystem
-            ? new RundenKonfiguration(z.AnzahlSpieltage).ZuJson() : null,
-        GruppenAnzahl: z.Rundenart == Rundenart.Gruppenphase ? z.GruppenAnzahl : null,
+        KonfigurationJson: new RundenKonfiguration(z.AnzahlSpieltage).ZuJson(),
+        GruppenAnzahl: z.GruppenAnzahl,
         EingangUeberUebergangsregeln: AlleUebergaenge.Any(b => b.ZielRunde == z),
         PaarungFestVorgegeben: z.PaarungFestVorgegeben,
         VorgegebeneAuslosungsart: z.VorgegebeneAuslosungsart.Wert,
         KombinationstabelleJson: z.KombinationstabelleJson,
         StandardRanglistenQuelleId: z.StandardRanglistenQuelle.Wert,
-        TitelverteidigerInTopf1: z.StandardRanglistenQuelle.Wert is not null && z.TitelverteidigerInTopf1,
+        TitelverteidigerInTopf1: z.TitelverteidigerInTopf1,
         NeutralerSpielort: z.NeutralerSpielort,
         Ueberraschungsfaktor: z.Ueberraschungsfaktor,
-        VorgegebeneAuslosungsregeln: z.VorgegebeneAuslosungsregeln)).ToList();
+        VorgegebeneAuslosungsregeln: z.VorgegebeneAuslosungsregeln).OhneUnwirksameAngaben()).ToList();
 
     public List<UebergangsregelPositionsEingabe> UebergangsregelnZuEingaben() => _alleUebergaenge
         .Where(b => b.QuellRunde is not null && b.ZielRunde is not null && b.QuellRunde != b.ZielRunde)
