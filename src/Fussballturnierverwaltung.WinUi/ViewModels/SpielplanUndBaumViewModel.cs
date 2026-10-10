@@ -145,8 +145,7 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
     public ICommand? AbbrechenBefehl => SpielplanVm.AbbrechenBefehl;
     public ICommand? LoeschenBefehl => SpielplanVm.LoeschenBefehl;
 
-    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
-        [.. SpielplanVm.RibbonZusatzGruppen, .. TurnierBaumVm.RibbonZusatzGruppen];
+    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen => SpielplanVm.RibbonZusatzGruppen;
 
     public bool HatUngespeicherteAenderungen => SpielplanVm.HatUngespeicherteAenderungen;
 }
