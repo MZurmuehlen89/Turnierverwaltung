@@ -1,4 +1,3 @@
-using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 using Microsoft.EntityFrameworkCore;
@@ -18,21 +17,14 @@ public class SeedDatenService
         _logger = logger;
     }
 
-    /// <summary>Erst-Seed bei leerer Datenbank, sonst fehlende Stammdaten nachrüsten. Liefert je Schritt, der
-    /// tatsächlich etwas angelegt/ergänzt hat, einen Protokolleintrag (leer = alles vollständig, Issue #370).</summary>
+    /// <summary>Ergänzt fehlende Stammdaten und Vorlagen, ohne Vorhandenes zu überschreiben — bei leerer Datenbank
+    /// den ganzen Seed. Liefert je Schritt, der tatsächlich etwas angelegt/ergänzt hat, einen Protokolleintrag
+    /// (leer = alles vollständig, Issue #370).</summary>
     public async Task<IReadOnlyList<SeedProtokollEintrag>> InitialisierenAsync(CancellationToken cancellationToken = default)
     {
         _protokoll.Clear();
 
-        if (!await _context.Verbaende.AnyAsync(cancellationToken))
-        {
-            await ErstSeedAsync(cancellationToken);
-        }
-        else
-        {
-            _logger.LogInformation("Seed-Daten bereits vorhanden – Basis-Seed übersprungen.");
-        }
-
+        await VerbaendeAnlegenWennLeer(cancellationToken);
         await LaenderNachruesten(cancellationToken);
         await BildmaterialNachruesten(cancellationToken);
         await MannschaftenNachruesten(cancellationToken);
@@ -76,7 +68,7 @@ public class SeedDatenService
 
     /// <summary>Issue #233: befüllt Flagge/Logo bei bereits vorhandenen Länder-/Verbands-Datensätzen ohne
     /// Bild nachträglich (Nachrüsten-Pattern, analog zu <see cref="LaenderNachruesten"/>) — betrifft sowohl
-    /// frisch angelegte Datensätze aus <see cref="ErstSeedAsync"/> als auch ältere Datenbanken ohne Bildspalten.</summary>
+    /// gerade erst angelegte Datensätze als auch ältere Datenbanken ohne Bildspalten.</summary>
     private async Task BildmaterialNachruesten(CancellationToken ct)
     {
         var verbaendeOhneLogo = await _context.Verbaende.Where(v => v.Logo == null).ToListAsync(ct);
@@ -243,76 +235,16 @@ public class SeedDatenService
         }
     }
 
-    private async Task ErstSeedAsync(CancellationToken cancellationToken)
+    /// <summary>Die Verbände sind der Anker des Seeds: nur eine Datenbank ganz ohne Verbände bekommt sie angelegt.
+    /// Alles Weitere hängt an ihnen und kommt aus den Nachrüst-Schritten — bei einer leeren Datenbank vollständig
+    /// (Issue #440: die frühere Erst-Befüllung legte dasselbe ein zweites Mal aus).</summary>
+    private async Task VerbaendeAnlegenWennLeer(CancellationToken ct)
     {
-        _logger.LogInformation("Seed-Daten werden angelegt...");
+        if (await _context.Verbaende.AnyAsync(ct)) return;
 
-        // 1. Verbände
         var verbaende = VerbaendeSeedDaten.Erstellen();
         _context.Verbaende.AddRange(verbaende);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _context.SaveChangesAsync(ct);
         Protokollieren(verbaende.Count, "Verbände angelegt.");
-
-        // 2. Länder (mit VerbandId-Lookup nach SaveChanges, da IDs erst dann gesetzt sind)
-        var verbaendeLookup = verbaende.ToDictionary(v => v.Kurzname, v => v.Id);
-        var laender = LaenderSeedDaten.Erstellen(verbaendeLookup);
-        _context.Laender.AddRange(laender);
-        await _context.SaveChangesAsync(cancellationToken);
-        Protokollieren(laender.Count, "Länder angelegt.");
-
-        // 3. Mannschaften
-        var laenderLookup = laender.ToDictionary(l => l.FifaCode, l => l.Id);
-        var nationalmannschaften = NationalmannschaftenSeedDaten.Erstellen(laender, laenderLookup);
-        var vereinsmannschaften  = VereinsmannschaftenSeedDaten.Erstellen(laenderLookup);
-
-        _context.Mannschaften.AddRange(nationalmannschaften);
-        _context.Mannschaften.AddRange(vereinsmannschaften);
-        await _context.SaveChangesAsync(cancellationToken);
-
-        Protokollieren(nationalmannschaften.Count, "Nationalmannschaften angelegt.");
-        Protokollieren(vereinsmannschaften.Count, "Vereinsmannschaften angelegt.");
-
-        // 4. RankingRegeln
-        var rankingRegeln = RegelwerkeSeedDaten.RankingRegelnErstellen();
-        _context.RankingRegeln.AddRange(rankingRegeln);
-        await _context.SaveChangesAsync(cancellationToken);
-        Protokollieren(rankingRegeln.Count, "RankingRegeln angelegt.");
-
-        // 5. RankingRegelSets + Eintraege
-        var (sets, eintraegeDefinitionen) = RegelwerkeSeedDaten.RankingRegelSetsErstellen();
-        _context.RankingRegelSets.AddRange(sets);
-        await _context.SaveChangesAsync(cancellationToken);
-
-        var setLookup   = sets.ToDictionary(s => s.Name, s => s.Id);
-        var regelLookup = rankingRegeln.ToDictionary(r => r.Regelart, r => r.Id);
-
-        foreach (var (setName, reihenfolge, regelart) in eintraegeDefinitionen)
-        {
-            _context.RankingRegelSetEintraege.Add(new Domain.Entitaeten.Regelwerke.RankingRegelSetEintrag
-            {
-                RankingRegelSetId = setLookup[setName],
-                RankingRegelId    = regelLookup[regelart],
-                Reihenfolge       = reihenfolge
-            });
-        }
-        await _context.SaveChangesAsync(cancellationToken);
-        Protokollieren(sets.Count, "RankingRegelSets mit Einträgen angelegt.");
-
-        // 6. Regelwerke (mit PunkteRegeln + EntscheidungsVerfahren)
-        var regelwerke = RegelwerkeSeedDaten.RegelwerkeErstellen(setLookup);
-        _context.Regelwerke.AddRange(regelwerke);
-        await _context.SaveChangesAsync(cancellationToken);
-        Protokollieren(regelwerke.Count, "Regelwerke angelegt.");
-
-        // 7. Turniervorlagen (TurnierInstanz mit Status=Vorlage, mit Regelwerk-Lookup für ihre Runden)
-        var regelwerkLookup = regelwerke.ToDictionary(r => r.Name, r => r.Id);
-        await RanglistenQuellenNachruesten(cancellationToken);
-        var quellenLookup = await TurnierVorlagenNachruestung.RanglistenQuellenIdsAsync(_context, cancellationToken);
-        var vorlagen = TurnierVorlagenSeedDaten.Erstellen(regelwerkLookup, verbaendeLookup, laenderLookup, quellenLookup);
-        _context.TurnierInstanzen.AddRange(vorlagen);
-        await _context.SaveChangesAsync(cancellationToken);
-        Protokollieren(vorlagen.Count, "Turniervorlagen angelegt.");
-
-        _logger.LogInformation("Seed-Daten erfolgreich abgeschlossen.");
     }
 }

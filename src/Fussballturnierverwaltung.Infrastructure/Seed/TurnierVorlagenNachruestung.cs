@@ -99,7 +99,7 @@ internal sealed class TurnierVorlagenNachruestung
     }
 
     // Quellennamen sind nicht eindeutig erzwungen (frei anlegbar im Quellen-Dialog) — bei Dubletten gilt die älteste.
-    internal static async Task<Dictionary<string, int>> RanglistenQuellenIdsAsync(
+    private static async Task<Dictionary<string, int>> RanglistenQuellenIdsAsync(
         TurnierverwaltungDbContext context, CancellationToken ct) =>
         (await context.RanglistenQuellen.Select(q => new { q.Name, q.Id }).ToListAsync(ct))
             .GroupBy(q => q.Name)

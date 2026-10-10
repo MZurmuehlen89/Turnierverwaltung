@@ -18,4 +18,4 @@ dotnet ef migrations add <Name> \
   --startup-project src/Fussballturnierverwaltung.WinUi
 ```
 
-On every startup the WinUi app calls `DatenbankWartungService.PruefenUndErgaenzenAsync()` (`Wartung/`): `MigrateAsync()` (creates the DB / applies pending migrations), then `SeedDatenService.InitialisierenAsync()` (Erst-Seed on an empty DB, otherwise non-destructive Nachrüsten of missing Stammdaten). The same flow is available manually on the "Datenbankwartung" page (#370). EF Core 10 makes `MigrateAsync` throw on model changes without a migration — always add the migration before starting the app.
+On every startup the WinUi app calls `DatenbankWartungService.PruefenUndErgaenzenAsync()` (`Wartung/`): `MigrateAsync()` (creates the DB / applies pending migrations), then `SeedDatenService.InitialisierenAsync()` (non-destructive Nachrüsten of missing Stammdaten and Vorlagen — on an empty DB that is the whole seed; only the Verbände are created up front). The same flow is available manually on the "Datenbankwartung" page (#370). EF Core 10 makes `MigrateAsync` throw on model changes without a migration — always add the migration before starting the app.
