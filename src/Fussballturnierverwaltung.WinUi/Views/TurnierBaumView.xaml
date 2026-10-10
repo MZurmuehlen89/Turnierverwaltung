@@ -132,7 +132,7 @@
                     <TextBlock Grid.Column="4" Text="{Binding Tordifferenz}" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="5" Text="{Binding Punkte}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="6" Text="{Binding Buchholz}" FontSize="12" Opacity="0.7" HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Visibility="{Binding DataContext.ZeigtBuchholzSpalte, ElementName=Root, Converter={StaticResource BoolToVisibility}}" />
+                               Visibility="{Binding DataContext.Tabellen.ZeigtBuchholzSpalte, ElementName=Root, Converter={StaticResource BoolToVisibility}}" />
                 </Grid>
             </Grid>
         </DataTemplate>
@@ -276,23 +276,23 @@
             </Grid>
 
             <!-- ── Gruppenphase-Ansicht ── -->
-            <Grid RowDefinitions="Auto,*" Visibility="{Binding ZeigtGruppenphase, Converter={StaticResource BoolToVisibility}}">
+            <Grid RowDefinitions="Auto,*" Visibility="{Binding Tabellen.ZeigtGruppenphase, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Padding="16,8" Spacing="6"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
-                            Visibility="{Binding HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}">
+                            Visibility="{Binding Tabellen.HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}">
                     <TextBlock Text="Tabellenstand:" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
-                    <ComboBox ItemsSource="{Binding TabellenSpieltagOptionen}"
-                              SelectedItem="{Binding TabellenBisSpieltagAuswahl, Mode=TwoWay}" FontSize="11" MinWidth="90" />
+                    <ComboBox ItemsSource="{Binding Tabellen.TabellenSpieltagOptionen}"
+                              SelectedItem="{Binding Tabellen.TabellenBisSpieltagAuswahl, Mode=TwoWay}" FontSize="11" MinWidth="90" />
                 </StackPanel>
 
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16">
                     <StackPanel>
                         <TextBlock Text="Noch keine Gruppenzuordnung — Gruppen erscheinen nach der Auslosung/Spielplan-Generierung."
                                    Opacity="0.6" FontSize="13" HorizontalAlignment="Center" Margin="16,48" TextWrapping="Wrap" TextAlignment="Center"
-                                   Visibility="{Binding HatGruppenTabellenAnzeige, Converter={StaticResource InverseBoolToVisibility}}" />
+                                   Visibility="{Binding Tabellen.HatGruppenTabellenAnzeige, Converter={StaticResource InverseBoolToVisibility}}" />
 
-                        <ItemsControl ItemsSource="{Binding AnzeigeGruppenTabellen}"
-                                      Visibility="{Binding HatGruppenTabellenAnzeige, Converter={StaticResource BoolToVisibility}}">
+                        <ItemsControl ItemsSource="{Binding Tabellen.AnzeigeGruppenTabellen}"
+                                      Visibility="{Binding Tabellen.HatGruppenTabellenAnzeige, Converter={StaticResource BoolToVisibility}}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <ItemsWrapGrid Orientation="Horizontal" />
@@ -337,8 +337,8 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <ItemsControl ItemsSource="{Binding UebergreifendeRangfolgenAnzeige}"
-                                      Visibility="{Binding HatUebergreifendeRangfolgenAnzeige, Converter={StaticResource BoolToVisibility}}"
+                        <ItemsControl ItemsSource="{Binding Tabellen.UebergreifendeRangfolgenAnzeige}"
+                                      Visibility="{Binding Tabellen.HatUebergreifendeRangfolgenAnzeige, Converter={StaticResource BoolToVisibility}}"
                                       Margin="0,12,0,0">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -366,8 +366,8 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <ItemsControl ItemsSource="{Binding ZonenLegende}" ItemTemplate="{StaticResource ZonenLegendeTemplate}"
-                                      Visibility="{Binding HatZonenLegende, Converter={StaticResource BoolToVisibility}}"
+                        <ItemsControl ItemsSource="{Binding Tabellen.ZonenLegende}" ItemTemplate="{StaticResource ZonenLegendeTemplate}"
+                                      Visibility="{Binding Tabellen.HatZonenLegende, Converter={StaticResource BoolToVisibility}}"
                                       Margin="0,4,0,0">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -380,36 +380,36 @@
             </Grid>
 
             <!-- ── Liga-/TopfLiga-/SchweizerSystem-Gesamttabelle ── -->
-            <Grid RowDefinitions="Auto,*" Visibility="{Binding ZeigtLigaTabelle, Converter={StaticResource BoolToVisibility}}">
+            <Grid RowDefinitions="Auto,*" Visibility="{Binding Tabellen.ZeigtLigaTabelle, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Padding="16,8" Spacing="6"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
-                    <Button Content="Gesamt" Command="{Binding LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Gesamt}" FontSize="11" Padding="10,3" />
-                    <Button Content="Hinrunde" Command="{Binding LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Hinrunde}" FontSize="11" Padding="10,3"
-                            Visibility="{Binding ZeigtHinRueckrundenTabs, Converter={StaticResource BoolToVisibility}}" />
-                    <Button Content="Rückrunde" Command="{Binding LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Rueckrunde}" FontSize="11" Padding="10,3"
-                            Visibility="{Binding ZeigtHinRueckrundenTabs, Converter={StaticResource BoolToVisibility}}" />
-                    <Button Content="Heim" Command="{Binding LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Heimtabelle}" FontSize="11" Padding="10,3" />
-                    <Button Content="Auswärts" Command="{Binding LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Auswaertstabelle}" FontSize="11" Padding="10,3" />
+                    <Button Content="Gesamt" Command="{Binding Tabellen.LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Gesamt}" FontSize="11" Padding="10,3" />
+                    <Button Content="Hinrunde" Command="{Binding Tabellen.LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Hinrunde}" FontSize="11" Padding="10,3"
+                            Visibility="{Binding Tabellen.ZeigtHinRueckrundenTabs, Converter={StaticResource BoolToVisibility}}" />
+                    <Button Content="Rückrunde" Command="{Binding Tabellen.LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Rueckrunde}" FontSize="11" Padding="10,3"
+                            Visibility="{Binding Tabellen.ZeigtHinRueckrundenTabs, Converter={StaticResource BoolToVisibility}}" />
+                    <Button Content="Heim" Command="{Binding Tabellen.LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Heimtabelle}" FontSize="11" Padding="10,3" />
+                    <Button Content="Auswärts" Command="{Binding Tabellen.LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Auswaertstabelle}" FontSize="11" Padding="10,3" />
                     <TextBlock Text="Tabellenstand:" FontSize="11" Opacity="0.6" VerticalAlignment="Center" Margin="12,0,0,0"
-                               Visibility="{Binding HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}" />
-                    <ComboBox ItemsSource="{Binding TabellenSpieltagOptionen}"
-                              SelectedItem="{Binding TabellenBisSpieltagAuswahl, Mode=TwoWay}" FontSize="11" MinWidth="90"
-                              Visibility="{Binding HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}" />
+                               Visibility="{Binding Tabellen.HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}" />
+                    <ComboBox ItemsSource="{Binding Tabellen.TabellenSpieltagOptionen}"
+                              SelectedItem="{Binding Tabellen.TabellenBisSpieltagAuswahl, Mode=TwoWay}" FontSize="11" MinWidth="90"
+                              Visibility="{Binding Tabellen.HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}" />
                 </StackPanel>
 
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16">
                     <Grid>
                         <TextBlock Text="Noch kein Spielplan generiert. Die Tabelle erscheint, sobald Spiele vorhanden sind."
                                    Opacity="0.6" FontSize="13" HorizontalAlignment="Center" Margin="16,48" TextWrapping="Wrap" TextAlignment="Center"
-                                   Visibility="{Binding HatLigaTabelleAnzeige, Converter={StaticResource InverseBoolToVisibility}}" />
+                                   Visibility="{Binding Tabellen.HatLigaTabelleAnzeige, Converter={StaticResource InverseBoolToVisibility}}" />
 
                         <StackPanel VerticalAlignment="Top" Spacing="8"
-                                    Visibility="{Binding HatLigaTabelleAnzeige, Converter={StaticResource BoolToVisibility}}">
+                                    Visibility="{Binding Tabellen.HatLigaTabelleAnzeige, Converter={StaticResource BoolToVisibility}}">
                             <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
-                                <ItemsControl ItemsSource="{Binding LigaTabelleAnzeige}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
+                                <ItemsControl ItemsSource="{Binding Tabellen.LigaTabelleAnzeige}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
                             </Border>
-                            <ItemsControl ItemsSource="{Binding ZonenLegende}" ItemTemplate="{StaticResource ZonenLegendeTemplate}"
-                                          Visibility="{Binding HatZonenLegende, Converter={StaticResource BoolToVisibility}}">
+                            <ItemsControl ItemsSource="{Binding Tabellen.ZonenLegende}" ItemTemplate="{StaticResource ZonenLegendeTemplate}"
+                                          Visibility="{Binding Tabellen.HatZonenLegende, Converter={StaticResource BoolToVisibility}}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <ItemsWrapGrid Orientation="Horizontal" />

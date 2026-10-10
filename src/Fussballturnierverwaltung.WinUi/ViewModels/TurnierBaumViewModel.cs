@@ -72,14 +72,6 @@ public class BracketRundenkopf
     public string Name { get; init; } = "";
 }
 
-public class UebergreifendeRangfolgeAnzeige
-{
-    public int Platzierung { get; init; }
-    public int AnzahlBeste { get; init; }
-    public string ZielRundeName { get; init; } = "";
-    public IReadOnlyList<TabellenEintrag> Rangfolge { get; init; } = [];
-}
-
 /// <summary>
 /// "Turnierbaum"-Bereich des #301-Composite (<see cref="SpielplanUndBaumViewModel"/>) — 1:1 aus
 /// Wpf/ViewModels/TurnierBaumViewModel.cs portiert. Verbindungslinien-Zeichnung selbst lebt im
@@ -91,8 +83,6 @@ public class UebergreifendeRangfolgeAnzeige
 public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 {
     private readonly TurnierBaumService _baumService;
-    private readonly TabellenService _tabellenService;
-    private readonly UebergangsregelService _uebergangsregelService;
 
     private const double NODE_W = 240.0;
     private const double NODE_H = 148.0;
@@ -255,182 +245,12 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         OnPropertyChanged(nameof(RechteSpalteKnoten));
     }
 
-    // ── Gruppenphase-/Liga-Darstellung ─────────────────────────────────────────
+    // ── Tabellen der fokussierten Runde ────────────────────────────────────────
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ZeigtBracket))]
-    [NotifyPropertyChangedFor(nameof(ZeigtBracketInhalt))]
-    private bool _zeigtGruppenphase;
+    public RundenTabellenViewModel Tabellen { get; }
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ZeigtBracket))]
-    [NotifyPropertyChangedFor(nameof(ZeigtBracketInhalt))]
-    private bool _zeigtLigaTabelle;
-
-    [ObservableProperty]
-    private bool _zeigtBuchholzSpalte;
-
-    public bool ZeigtBracket => !ZeigtGruppenphase && !ZeigtLigaTabelle;
+    public bool ZeigtBracket => !Tabellen.ZeigtGruppenphase && !Tabellen.ZeigtLigaTabelle;
     public bool ZeigtBracketInhalt => ZeigtBracket && HatBaum;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HatGruppenTabellenAnzeige))]
-    [NotifyPropertyChangedFor(nameof(AnzeigeGruppenTabellen))]
-    private ObservableCollection<GruppenTabelle> _gruppenTabellenAnzeige = [];
-    public bool HatGruppenTabellenAnzeige => GruppenTabellenAnzeige.Count > 0;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HatLigaTabelleAnzeige))]
-    private ObservableCollection<TabellenEintrag> _ligaTabelleAnzeige = [];
-    public bool HatLigaTabelleAnzeige => LigaTabelleAnzeige.Count > 0;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HatUebergreifendeRangfolgenAnzeige))]
-    private ObservableCollection<UebergreifendeRangfolgeAnzeige> _uebergreifendeRangfolgenAnzeige = [];
-    public bool HatUebergreifendeRangfolgenAnzeige => UebergreifendeRangfolgenAnzeige.Count > 0;
-
-    /// <summary>Legende der Tabellenzonen der fokussierten Runde (Issue #358) — leer, wenn die Runde keine
-    /// ausgehenden Übergangsregeln hat oder eine Teilansicht (Heim, Hinrunde …) gezeigt wird.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HatZonenLegende))]
-    private IReadOnlyList<ZonenLegendenEintrag> _zonenLegende = [];
-    public bool HatZonenLegende => ZonenLegende.Count > 0;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(AnzeigeGruppenTabellen))]
-    private int? _fokussierteGruppenNummer;
-
-    public IReadOnlyList<GruppenTabelle> AnzeigeGruppenTabellen =>
-        FokussierteGruppenNummer is { } nr
-            ? GruppenTabellenAnzeige.Where(g => g.GruppenNummer == nr).ToList()
-            : GruppenTabellenAnzeige;
-
-    public void FokussiereGruppe(int? gruppenNummer) => FokussierteGruppenNummer = gruppenNummer;
-
-    // ── Tabellenstand-Snapshot "Bis Spieltag" ────────────────────────────────
-
-    private TurnierRunde? _fokusRunde;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(TabellenSpieltagOptionen))]
-    [NotifyPropertyChangedFor(nameof(HatVerfuegbareSpieltage))]
-    private ObservableCollection<int> _verfuegbareSpieltage = [];
-
-    public IReadOnlyList<int> TabellenSpieltagOptionen => new[] { 0 }.Concat(VerfuegbareSpieltage).ToList();
-    public bool HatVerfuegbareSpieltage => VerfuegbareSpieltage.Count > 0;
-
-    [ObservableProperty] private int? _tabellenBisSpieltag;
-
-    public int TabellenBisSpieltagAuswahl
-    {
-        get => TabellenBisSpieltag ?? 0;
-        set => TabellenBisSpieltag = value == 0 ? null : value;
-    }
-
-    partial void OnTabellenBisSpieltagChanged(int? value)
-    {
-        OnPropertyChanged(nameof(TabellenBisSpieltagAuswahl));
-        if (_fokusRunde is not null) TabelleNeuLadenMitSchutz();
-    }
-
-    public void ZeigeAktuellenStand() => TabellenBisSpieltag = null;
-
-    [ObservableProperty] private TabellenAnsicht _ausgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
-    public bool ZeigtHinRueckrundenTabs => _fokusRunde?.MitRueckspiel == true;
-    public ICommand LigaAnsichtWaehlenBefehl => _ligaAnsichtWaehlenBefehl;
-    private readonly RelayCommand<TabellenAnsicht?> _ligaAnsichtWaehlenBefehl;
-
-    partial void OnAusgewaehlteLigaAnsichtChanged(TabellenAnsicht value)
-    {
-        if (_fokusRunde is not null) TabelleNeuLadenMitSchutz();
-    }
-
-    /// <summary>Gemeinsamer Schutz der Turnierdurchführung (#415): Das Umschalten von Tabellen-Spieltag und
-    /// Liga-Ansicht lädt die Tabelle neu und darf dabei weder eine laufende Spielplan-Aktion noch einen
-    /// Turnier-/Reiterwechsel treffen.</summary>
-    public DbContextReentrancySchutz DbContextSchutz { get; set; } = new();
-
-    private void TabelleNeuLadenMitSchutz() =>
-        _ = DbContextSchutz.AusfuehrenAsync(TabelleNeuLadenAsync, ex => Fehlermeldung = ex.Message);
-
-    private async Task TabelleNeuLadenAsync()
-    {
-        if (_fokusRunde is null) return;
-        Fehlermeldung = null;
-        try
-        {
-            // Issue #358: Zonen allein aus den ausgehenden Übergangsregeln. Der Sicher-Punkt gilt nur für den
-            // aktuellen Stand — bei einem historischen Spieltag passen die möglichen Ränge nicht zur Tabelle.
-            var regeln = await _uebergangsregelService.AlleNachQuellRundeIdAsync(_fokusRunde.Id);
-            var zonen = TabellenZonen.AusRegeln(regeln);
-            bool mitSicherheit = TabellenBisSpieltag is null;
-
-            if (ZeigtGruppenphase)
-            {
-                var tabellen = await _tabellenService.GruppenTabellenBerechnenAsync(_fokusRunde.Id, TabellenBisSpieltag);
-                foreach (var gruppe in tabellen)
-                    TabellenZonen.Zuweisen(gruppe.Tabelle, zonen, gruppe.GruppenNummer, mitSicherheit);
-                GruppenTabellenAnzeige = new ObservableCollection<GruppenTabelle>(tabellen);
-                await UebergreifendeRangfolgenLadenAsync(regeln, zonen);
-                ZonenLegende = TabellenZonen.Legende(zonen);
-            }
-            else if (ZeigtLigaTabelle)
-            {
-                // Heim-/Auswärts- und Halbserien-Tabellen sind keine Wertung für das Weiterkommen - ohne Zonen.
-                if (AusgewaehlteLigaAnsicht != TabellenAnsicht.Gesamt) zonen = [];
-
-                var tabelle = await _tabellenService.TabelleBerechnenAsync(_fokusRunde.Id, AusgewaehlteLigaAnsicht, TabellenBisSpieltag);
-                TabellenZonen.Zuweisen(tabelle, zonen, gruppenNummer: null, mitSicherheit);
-                LigaTabelleAnzeige = new ObservableCollection<TabellenEintrag>(tabelle);
-                ZonenLegende = TabellenZonen.Legende(zonen);
-            }
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-        }
-    }
-
-    private async Task UebergreifendeRangfolgenLadenAsync(
-        IReadOnlyList<Uebergangsregel> ausgehendeRegeln, IReadOnlyList<TabellenZone> zonen)
-    {
-        var anzeigen = new List<UebergreifendeRangfolgeAnzeige>();
-        foreach (var regel in ausgehendeRegeln.Where(r => r.AnzahlBeste is not null))
-        {
-            var rangfolge = await _tabellenService.UebergreifendeRangfolgeBerechnenAsync(regel.QuellRundeId, regel.PlatzierungVon);
-            var qualifikanten = await _uebergangsregelService.QualifikantenErmittelnAsync(regel.Id);
-
-            // Issue #358: Hier fällt die Entscheidung über das Weiterkommen — die Plätze der Besten tragen die
-            // Farbe der Zielrunde, der Punkt folgt, sobald die Qualifikanten feststehen.
-            var zielFarbe = TabellenZonen.ZielFarbe(zonen, regel.ZielRundeId);
-            foreach (var eintrag in rangfolge)
-                eintrag.ZonenFarbe = eintrag.Rang <= regel.AnzahlBeste ? zielFarbe : null;
-
-            if (qualifikanten.Values.All(v => v.HasValue))
-            {
-                var qualifizierteIds = qualifikanten.Values.Select(v => v!.Value).ToHashSet();
-                foreach (var eintrag in rangfolge)
-                {
-                    bool qualifiziert = qualifizierteIds.Contains(eintrag.Mannschaft.Id);
-                    eintrag.Qualifikationsstatus = qualifiziert
-                        ? Qualifikationsstatus.SicherQualifiziert
-                        : Qualifikationsstatus.SicherAusgeschieden;
-                    eintrag.SicherPositioniert = true;
-                    eintrag.PunktFarbe = qualifiziert ? zielFarbe : ZonenFarbe.Rot;
-                }
-            }
-
-            anzeigen.Add(new UebergreifendeRangfolgeAnzeige
-            {
-                Platzierung = regel.PlatzierungVon,
-                AnzahlBeste = regel.AnzahlBeste!.Value,
-                ZielRundeName = regel.ZielRunde.Name,
-                Rangfolge = rangfolge
-            });
-        }
-
-        UebergreifendeRangfolgenAnzeige = new ObservableCollection<UebergreifendeRangfolgeAnzeige>(anzeigen);
-    }
 
     // Ribbon-Standardaktionen bewusst komplett ausgeblendet (#311): "Baum generieren"/"Sieger
     // fortschreiben"/"Baum löschen" waren toter Code — beide Vorgänge laufen bereits automatisch nach
@@ -454,11 +274,19 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
     private readonly RelayCommand<BracketKnotenAnzeige> _knotenAngeklicktBefehl;
     private readonly RelayCommand<GruppenTabelle> _gruppeAngeklicktBefehl;
 
-    public TurnierBaumViewModel(TurnierBaumService baumService, TabellenService tabellenService, UebergangsregelService uebergangsregelService)
+    public TurnierBaumViewModel(TurnierBaumService baumService, RundenTabellenViewModel tabellen)
     {
         _baumService = baumService;
-        _tabellenService = tabellenService;
-        _uebergangsregelService = uebergangsregelService;
+        Tabellen = tabellen;
+        Tabellen.FehlerGemeldet += meldung => Fehlermeldung = meldung;
+        Tabellen.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(RundenTabellenViewModel.ZeigtGruppenphase) or nameof(RundenTabellenViewModel.ZeigtLigaTabelle))
+            {
+                OnPropertyChanged(nameof(ZeigtBracket));
+                OnPropertyChanged(nameof(ZeigtBracketInhalt));
+            }
+        };
 
         _abbrechenBefehl = new RelayCommand(() => { }, () => false);
         _knotenAngeklicktBefehl = new RelayCommand<BracketKnotenAnzeige>(k =>
@@ -471,7 +299,6 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
         });
         _gruppeAngeklicktBefehl = new RelayCommand<GruppenTabelle>(
             g => { if (g is not null) GruppeAngeklickt?.Invoke(this, g.GruppenNummer); });
-        _ligaAnsichtWaehlenBefehl = new RelayCommand<TabellenAnsicht?>(a => AusgewaehlteLigaAnsicht = a ?? TabellenAnsicht.Gesamt);
         _vorherigeRundeBefehl = new RelayCommand(() => AktuellerRundenIndex--, () => HatVorherigeRunde);
         _naechsteRundeBefehl = new RelayCommand(() => AktuellerRundenIndex++, () => HatNaechsteRunde);
         GesamtansichtZeigenBefehl = new RelayCommand(() => IstGesamtansicht = true);
@@ -488,43 +315,8 @@ public partial class TurnierBaumViewModel : ViewModelBase, IRibbonAware
 
     public async Task AktualisiereFokusRundeAsync(TurnierRunde? runde)
     {
-        bool istEchterRundenwechsel = runde?.Id != _fokusRunde?.Id;
-        if (istEchterRundenwechsel)
-            FokussierteGruppenNummer = null;
-
-        _fokusRunde = null;
-        TabellenBisSpieltag = null;
-        AusgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
-        VerfuegbareSpieltage = [];
-        _fokusRunde = runde;
-        OnPropertyChanged(nameof(ZeigtHinRueckrundenTabs));
-
-        var rundenart = runde?.Rundenart;
-        bool istGruppenphase = rundenart == Rundenart.Gruppenphase;
-        bool istLigaArtig = rundenart is Rundenart.Liga or Rundenart.TopfLiga or Rundenart.SchweizerSystem;
-
-        ZeigtGruppenphase = istGruppenphase;
-        ZeigtLigaTabelle = istLigaArtig;
-        ZeigtBuchholzSpalte = rundenart == Rundenart.SchweizerSystem;
-
-        if (!istGruppenphase && !istLigaArtig)
-        {
-            if (HatBaum) await AktualisiereBracketErgebnisseAsync();
-            return;
-        }
-
-        Fehlermeldung = null;
-        try
-        {
-            var verfuegbareSpieltage = await _tabellenService.VerfuegbareSpieltageAsync(runde!.Id);
-            VerfuegbareSpieltage = new ObservableCollection<int>(verfuegbareSpieltage);
-
-            await TabelleNeuLadenAsync();
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-        }
+        await Tabellen.FokusRundeSetzenAsync(runde);
+        if (ZeigtBracket && HatBaum) await AktualisiereBracketErgebnisseAsync();
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e) => base.OnPropertyChanged(e);

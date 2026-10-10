@@ -101,7 +101,7 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
         SpielplanVm.AusfuehrlicheSimulationAngefordert += (sender, vorauswahl) =>
             AusfuehrlicheSimulationAngefordert?.Invoke(sender, vorauswahl);
 
-        SpielplanVm.SpieltagNavigiert = TurnierBaumVm.ZeigeAktuellenStand;
+        SpielplanVm.SpieltagNavigiert = TurnierBaumVm.Tabellen.ZeigeAktuellenStand;
         SpielplanVm.SpielstandGeaendertAsync = FortschrittAktualisierenAsync;
         SpielplanVm.RundeGeaendertAsync = TurnierBaumVm.AktualisiereFokusRundeAsync;
     }
@@ -118,7 +118,7 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
     private void AktualisiereGruppenFokus()
     {
         int? ziel = SpielplanVm.AusgewaehlteGruppe?.GruppenNummer ?? SpielplanVm.AusgewaehlteSpiel?.GruppeNummer;
-        TurnierBaumVm.FokussiereGruppe(ziel);
+        TurnierBaumVm.Tabellen.FokussiereGruppe(ziel);
     }
 
     private async Task FortschrittAktualisierenAsync()
