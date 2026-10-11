@@ -180,7 +180,7 @@ public class SpielplanService(
         // nach jeder Generierung nachziehen — idempotent, unabhängig davon, in welcher Reihenfolge Runden
         // erzeugt werden.
         using (logger.Vorgang($"Quellverknüpfung nach Generierung (Instanz {runde.TurnierInstanzId})"))
-            await quellverknuepfung.SpielQuellenAlleTransitionsVerknuepfenAsync(runde.TurnierInstanzId, ct);
+            await quellverknuepfung.AlleRundenVerknuepfenAsync(runde.TurnierInstanzId, ct);
 
         // Issue #346-Folgefund: bereits feststehende Teilnehmer sofort eintragen — sonst zeigte eine neu
         // generierte Runde nach bereits entschiedener Vorrunde wieder reine Platzhalter, bis irgendwo das
@@ -750,7 +750,7 @@ public class SpielplanService(
 
     private async Task<int> PlatzhalterAlleRundenAufloesenOhneZwischenspeicherAsync(int turnierInstanzId, CancellationToken ct)
     {
-        await quellverknuepfung.SpielQuellenAlleTransitionsVerknuepfenAsync(turnierInstanzId, ct);
+        await quellverknuepfung.AlleRundenVerknuepfenAsync(turnierInstanzId, ct);
 
         var runden = await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
         int gesamt = 0;

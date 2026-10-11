@@ -6,17 +6,18 @@ using System.Diagnostics;
 
 namespace Fussballturnierverwaltung.Application.Spielplan;
 
+/// <summary>K.o.-Quellverknüpfung (Issue #241): hält an jedem Spiel einer K.o.-Runde fest, welches Vorrundenspiel
+/// seine Seiten als Sieger oder Verlierer speist. Ersetzt das frühere, ausschließlich in
+/// <c>TurnierBaumService.VerkuepfenPerPlatzhalter</c> lebende Erraten aus Text — die ID steht direkt am
+/// <see cref="Spiel"/>, damit Platzhalter-Auflösung und Turnierbaum dieselbe robuste Quelle nutzen.</summary>
 public class KoQuellverknuepfung(
     ITurnierRundeRepository rundeRepository,
     ISpielRepository spielRepository,
     ILogger<KoQuellverknuepfung> logger)
 {
-    /// <summary>Löst für alle K.o.-artigen Runden (K.o.-Runde/Finale/Spiel um Platz 3) einer Turnierinstanz
-    /// die K.o.-zu-K.o.-Quellverknüpfungen auf. Ersetzt das frühere, ausschließlich in
-    /// <c>TurnierBaumService.VerkuepfenPerPlatzhalter</c> lebende Erraten aus Text — die ID wird jetzt
-    /// direkt auf <see cref="Spiel"/> persistiert, damit sowohl die Platzhalter-Auflösung als auch der
-    /// Turnierbaum dieselbe robuste Quelle nutzen können. Idempotent und günstig.</summary>
-    public async Task SpielQuellenAlleTransitionsVerknuepfenAsync(int turnierInstanzId, CancellationToken ct = default)
+    /// <summary>Verknüpft alle K.o.-artigen Runden (K.o.-Runde/Finale/Spiel um Platz 3) einer Turnierinstanz.
+    /// Idempotent und günstig: bereits verknüpfte Seiten werden übersprungen.</summary>
+    public async Task AlleRundenVerknuepfenAsync(int turnierInstanzId, CancellationToken ct = default)
     {
         var alleRunden = await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
         var koRunden = alleRunden
@@ -24,80 +25,85 @@ public class KoQuellverknuepfung(
             .OrderBy(r => r.Reihenfolge);
 
         foreach (var zielRunde in koRunden)
-            await SpielQuellenVerknuepfenAsync(zielRunde, alleRunden, ct);
+            await RundeVerknuepfenAsync(new Zielrunde(zielRunde, alleRunden), ct);
     }
 
-    /// <summary>Ermittelt für eine K.o.-Zielrunde, welches Vorrundenspiel (Sieger/Verlierer) jeden noch
-    /// nicht ID-verknüpften Platzhalter-Slot speist, und persistiert das Ergebnis auf
-    /// <see cref="Spiel.HeimQuellSpielId"/>/<see cref="Spiel.AuswaertsQuellSpielId"/>. Arbeitet pro Slot
-    /// unabhängig — anders als das frühere <c>TurnierBaumService.VerkuepfenPerPlatzhalter</c>, das einen
-    /// gesamten Rundenübergang fälschlich als "erledigt" markierte, sobald irgendein Spiel per Text
-    /// zugeordnet werden konnte. Idempotent: bereits verknüpfte Seiten werden übersprungen.</summary>
-    public async Task SpielQuellenVerknuepfenAsync(
-        TurnierRunde zielRunde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct = default)
+    /// <summary>Die Runde, deren Spiele gerade verknüpft werden, samt den dafür schon geladenen Quellrunden.</summary>
+    private sealed record Zielrunde(TurnierRunde Runde, IReadOnlyList<TurnierRunde> AlleRunden)
     {
-        var zielSpiele = await spielRepository.AlleNachRundeAsync(zielRunde.Id, ct);
-        if (zielSpiele.Count == 0) return;
+        public Dictionary<int, List<Spiel>> EntscheidungsspieleJeQuellrunde { get; } = [];
+    }
 
-        var quellSpieleProRunde = new Dictionary<int, List<Spiel>>();
-
-        async Task<List<Spiel>> QuellSpieleAsync(TurnierRunde quellRunde)
-        {
-            if (quellSpieleProRunde.TryGetValue(quellRunde.Id, out var cached)) return cached;
-            // Issue #346: "Sieger <Runde> N" meint die N-te Paarung — bei Hin-/Rückspiel deren Rückspiel,
-            // das die Gesamtwertung trägt.
-            var liste = KoPaarungen.EntscheidungsspieleJePaarung(await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct));
-            quellSpieleProRunde[quellRunde.Id] = liste;
-            return liste;
-        }
-
-        // Bracket-Slot-Position ist ab Erzeugung der Runde stabil — bewusst NICHT wie im Regex-/
-        // Uebergangsregel-Pfad (RangAufloesenAsync) auf bereits aufgelöste Spiele gefiltert.
-        async Task<(int SpielId, SpielQuellErgebnisTyp Typ)?> QuelleAufloesenAsync(string? platzhalterName)
-        {
-            if (string.IsNullOrWhiteSpace(platzhalterName)) return null;
-            if (PlatzhalterNamen.KoSpielErkennen(platzhalterName) is not { } bezug) return null;
-
-            var quellRunde = PlatzhalterNamen.KoQuellrunde(bezug, zielRunde, alleRunden);
-            if (quellRunde is null) return null;
-
-            var quellSpiele = await QuellSpieleAsync(quellRunde);
-            if (bezug.SpielNummer < 1 || bezug.SpielNummer > quellSpiele.Count) return null;
-
-            return (quellSpiele[bezug.SpielNummer - 1].Id,
-                bezug.Verlierer ? SpielQuellErgebnisTyp.Verlierer : SpielQuellErgebnisTyp.Sieger);
-        }
+    /// <summary>Arbeitet je Seite unabhängig — anders als das frühere
+    /// <c>TurnierBaumService.VerkuepfenPerPlatzhalter</c>, das einen gesamten Rundenübergang fälschlich als
+    /// "erledigt" markierte, sobald irgendein Spiel per Text zugeordnet werden konnte.</summary>
+    private async Task RundeVerknuepfenAsync(Zielrunde ziel, CancellationToken ct)
+    {
+        var zielSpiele = await spielRepository.AlleNachRundeAsync(ziel.Runde.Id, ct);
 
         var geaenderteSpiele = new List<Spiel>();
         foreach (var spiel in zielSpiele)
-        {
-            bool geaendert = false;
-
-            if (spiel.HeimQuellSpielId is null &&
-                await QuelleAufloesenAsync(spiel.HeimPlatzhalterName) is { } heimQuelle)
-            {
-                spiel.HeimQuellSpielId  = heimQuelle.SpielId;
-                spiel.HeimQuellErgebnis = heimQuelle.Typ;
-                geaendert = true;
-            }
-
-            if (spiel.AuswaertsQuellSpielId is null &&
-                await QuelleAufloesenAsync(spiel.AuswaertsPlatzhalterName) is { } auswaertsQuelle)
-            {
-                spiel.AuswaertsQuellSpielId  = auswaertsQuelle.SpielId;
-                spiel.AuswaertsQuellErgebnis = auswaertsQuelle.Typ;
-                geaendert = true;
-            }
-
-            if (geaendert) geaenderteSpiele.Add(spiel);
-        }
-
+            if (await SeitenVerknuepfenAsync(spiel, ziel, ct)) geaenderteSpiele.Add(spiel);
         if (geaenderteSpiele.Count == 0) return;
 
         var uhr = Stopwatch.StartNew();
         await spielRepository.AktualisierenMehrfachAsync(geaenderteSpiele, ct);
         logger.LogInformation(
             "Quellverknüpfung in Runde '{Runde}': {Anzahl} Spiel(e) verknüpft (Speichern {Speichern} ms).",
-            zielRunde.Name, geaenderteSpiele.Count, uhr.ElapsedMilliseconds);
+            ziel.Runde.Name, geaenderteSpiele.Count, uhr.ElapsedMilliseconds);
+    }
+
+    /// <summary>Trägt die Quelle jeder noch nicht verknüpften Seite am Spiel ein und meldet, ob sich etwas
+    /// geändert hat.</summary>
+    private async Task<bool> SeitenVerknuepfenAsync(Spiel spiel, Zielrunde ziel, CancellationToken ct)
+    {
+        bool geaendert = false;
+
+        if (spiel.HeimQuellSpielId is null &&
+            await QuelleAsync(spiel.HeimPlatzhalterName, ziel, ct) is { } heimQuelle)
+        {
+            spiel.HeimQuellSpielId  = heimQuelle.SpielId;
+            spiel.HeimQuellErgebnis = heimQuelle.Typ;
+            geaendert = true;
+        }
+
+        if (spiel.AuswaertsQuellSpielId is null &&
+            await QuelleAsync(spiel.AuswaertsPlatzhalterName, ziel, ct) is { } auswaertsQuelle)
+        {
+            spiel.AuswaertsQuellSpielId  = auswaertsQuelle.SpielId;
+            spiel.AuswaertsQuellErgebnis = auswaertsQuelle.Typ;
+            geaendert = true;
+        }
+
+        return geaendert;
+    }
+
+    // Die Position im Tableau ist ab Erzeugung der Runde stabil — bewusst NICHT wie bei der Auflösung über
+    // Platzierungen (PlatzhalterAufloesung) auf bereits mit Mannschaften besetzte Spiele gefiltert.
+    private async Task<(int SpielId, SpielQuellErgebnisTyp Typ)?> QuelleAsync(
+        string? platzhalterName, Zielrunde ziel, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(platzhalterName)) return null;
+        if (PlatzhalterNamen.KoSpielErkennen(platzhalterName) is not { } bezug) return null;
+
+        var quellRunde = PlatzhalterNamen.KoQuellrunde(bezug, ziel.Runde, ziel.AlleRunden);
+        if (quellRunde is null) return null;
+
+        var quellSpiele = await EntscheidungsspieleAsync(quellRunde, ziel, ct);
+        if (bezug.SpielNummer < 1 || bezug.SpielNummer > quellSpiele.Count) return null;
+
+        return (quellSpiele[bezug.SpielNummer - 1].Id,
+            bezug.Verlierer ? SpielQuellErgebnisTyp.Verlierer : SpielQuellErgebnisTyp.Sieger);
+    }
+
+    /// <summary>Issue #346: "Sieger &lt;Runde&gt; N" meint die N-te Paarung — bei Hin-/Rückspiel deren Rückspiel,
+    /// das die Gesamtwertung trägt.</summary>
+    private async Task<List<Spiel>> EntscheidungsspieleAsync(TurnierRunde quellRunde, Zielrunde ziel, CancellationToken ct)
+    {
+        if (ziel.EntscheidungsspieleJeQuellrunde.TryGetValue(quellRunde.Id, out var gemerkt)) return gemerkt;
+
+        var spiele = KoPaarungen.EntscheidungsspieleJePaarung(await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct));
+        ziel.EntscheidungsspieleJeQuellrunde[quellRunde.Id] = spiele;
+        return spiele;
     }
 }

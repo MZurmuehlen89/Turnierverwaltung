@@ -70,7 +70,7 @@ public class TurnierBaumService(
 
         // Issue #241: Quellverknüpfungen defensiv nachziehen, bevor die Spiele unten geladen werden —
         // deckt auch Alt-Turniere ab, die seit der Migration noch nicht neu generiert wurden.
-        await quellverknuepfung.SpielQuellenAlleTransitionsVerknuepfenAsync(turnierInstanzId, ct);
+        await quellverknuepfung.AlleRundenVerknuepfenAsync(turnierInstanzId, ct);
 
         // Alle K.-o.-Runden in Reihenfolge
         var koRunden = instanz.Runden
