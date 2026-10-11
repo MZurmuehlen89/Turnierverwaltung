@@ -13,6 +13,10 @@ public record TurnierStatusOption(string Anzeige, TurnierStatus Wert);
 /// der Wechsel, springt die Auswahl auf den gespeicherten Status zurück.</summary>
 public partial class TurnierStatusViewModel : ObservableObject
 {
+    // Feste Instanzen: Die ComboBox gleicht SelectedItem per Referenz ab (#347).
+    private static readonly IReadOnlyList<TurnierStatusOption> _optionen =
+        Enum.GetValues<TurnierStatus>().Select(s => new TurnierStatusOption(TurnierStatusZuTextConverter.StatusAnzeigeName(s), s)).ToList();
+
     private readonly Func<TurnierStatus, Task<bool>> _wechseln;
     private int _reaktionenAusgesetzt;
     private bool _istEingabe;
@@ -21,10 +25,9 @@ public partial class TurnierStatusViewModel : ObservableObject
     /// <summary>Der Nutzer hat den Status eines neuen Turniers gewählt.</summary>
     public event Action? EingabeGeaendert;
 
-    [ObservableProperty] private TurnierStatusOption _auswahl = new(TurnierStatusZuTextConverter.StatusAnzeigeName(TurnierStatus.Geplant), TurnierStatus.Geplant);
+    [ObservableProperty] private TurnierStatusOption _auswahl = Option(TurnierStatus.Geplant);
 
-    public IReadOnlyList<TurnierStatusOption> Optionen =>
-        Enum.GetValues<TurnierStatus>().Select(s => new TurnierStatusOption(TurnierStatusZuTextConverter.StatusAnzeigeName(s), s)).ToList();
+    public IReadOnlyList<TurnierStatusOption> Optionen => _optionen;
 
     public TurnierStatus Wert => Auswahl.Wert;
 
@@ -65,12 +68,19 @@ public partial class TurnierStatusViewModel : ObservableObject
 
     public void ReaktionenFortsetzen() => _reaktionenAusgesetzt--;
 
-    partial void OnAuswahlChanged(TurnierStatusOption value)
+    partial void OnAuswahlChanged(TurnierStatusOption? oldValue, TurnierStatusOption newValue)
     {
         if (_reaktionenAusgesetzt > 0) return;
+        // WinUI kann ComboBox.SelectedItem transient auf null zurückschreiben, obwohl der Typ nicht-nullable ist
+        // (siehe AuslosungsfilterViewModel.OnVerbandFilterChanged) — null ist nie eine Nutzerauswahl.
+        if (newValue is null)
+        {
+            if (oldValue is not null) AuswahlSetzen(oldValue.Wert);
+            return;
+        }
         if (_istEingabe) { EingabeGeaendert?.Invoke(); return; }
-        if (_gespeicherterStatus is { } gespeichert && value.Wert != gespeichert)
-            _ = WechselnAsync(value.Wert);
+        if (_gespeicherterStatus is { } gespeichert && newValue.Wert != gespeichert)
+            _ = WechselnAsync(newValue.Wert);
     }
 
     private async Task WechselnAsync(TurnierStatus neuerStatus)
@@ -87,7 +97,9 @@ public partial class TurnierStatusViewModel : ObservableObject
     private void AuswahlSetzen(TurnierStatus status)
     {
         ReaktionenAussetzen();
-        try { Auswahl = Optionen.First(o => o.Wert == status); }
+        try { Auswahl = Option(status); }
         finally { ReaktionenFortsetzen(); }
     }
+
+    private static TurnierStatusOption Option(TurnierStatus status) => _optionen.First(o => o.Wert == status);
 }
