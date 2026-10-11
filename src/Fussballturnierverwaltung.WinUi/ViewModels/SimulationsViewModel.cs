@@ -597,42 +597,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
     private void SpieleHinzufuegen(IReadOnlyList<Spiel> spiele)
     {
-        var paarungsNummern = SpielZeilenMapper.PaarungsNummern(spiele);
-        foreach (var s in spiele)
-            Spiele.Add(MapSpielZeile(s, paarungsNummern[s.Id]));
-    }
-
-    private SpielZeile MapSpielZeile(Spiel s, int paarungsNummer)
-    {
-        string text   = "-:-";
-        string detail = "";
-
-        if (s.Ergebnis is { } e)
-        {
-            text = $"{e.HeimToreGesamt}:{e.AuswaertsToreGesamt}";
-            detail = SpielErgebnisFormatierer.DetailText(
-                e.EntscheidungArt,
-                e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
-                e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
-                e.HeimElfmetertore, e.AuswaertsElfmetertore);
-        }
-
-        return new SpielZeile
-        {
-            Id             = s.Id,
-            Spielnummer    = s.Spielnummer,
-            Spieltag       = s.Spieltag,
-            KoLabel        = SpielZeilenMapper.KoPositionsLabel(s, AusgewaehlteRunde, paarungsNummer),
-            HeimName       = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "?",
-            AuswaertsName  = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "?",
-            HeimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(s.HeimMannschaft),
-            AuswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(s.AuswaertsMannschaft),
-            Status         = s.Status,
-            HatErgebnis    = s.Ergebnis is not null,
-            ErgebnisText   = text,
-            ErgebnisDetail = detail,
-            IstRueckspiel  = s.IstRueckspiel,
-            IstPlatzhalterSpiel = !s.HeimMannschaftId.HasValue || !s.AuswaertsMannschaftId.HasValue,
-        };
+        foreach (var zeile in SpielZeilenMapper.Zeilen(spiele, AusgewaehlteRunde))
+            Spiele.Add(zeile);
     }
 }

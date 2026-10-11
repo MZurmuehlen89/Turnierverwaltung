@@ -1,65 +1,60 @@
 using Fussballturnierverwaltung.Application.Spiele;
+using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
-using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
+/// <summary>Baut aus den Spielen einer Runde die Zeilen der Spiellisten (Spielplan und Spielauswahl der
+/// Simulation).</summary>
 internal static class SpielZeilenMapper
 {
-    /// <summary>Paarungsnummer (1-basiert) je Spiel-ID: Hinspiele bzw. Einzelspiele in Spielnummer-Reihenfolge,
-    /// ein Rückspiel übernimmt die Nummer seines Hinspiels (Issue #346) — unabhängig von der Listenposition,
-    /// die bei nach Spieltag sortierter Liste Hin- und Rückspiel nicht nebeneinander führt.</summary>
-    internal static IReadOnlyDictionary<int, int> PaarungsNummern(IEnumerable<Spiel> spiele)
+    /// <summary>Zeilen in der gelieferten Reihenfolge.</summary>
+    public static List<SpielZeile> Zeilen(IReadOnlyList<Spiel> spiele, TurnierRunde? runde)
     {
-        var liste = spiele.ToList();
-        var nummern = liste.Where(s => !s.IstRueckspiel)
-            .OrderBy(s => s.Spielnummer)
-            .Select((s, i) => (s.Id, Nr: i + 1))
-            .ToDictionary(x => x.Id, x => x.Nr);
-        foreach (var rueck in liste.Where(s => s.IstRueckspiel).OrderBy(s => s.Spielnummer))
-            nummern[rueck.Id] = rueck.HinspielId is int hinId && nummern.TryGetValue(hinId, out var nr)
-                ? nr
-                : nummern.Count + 1;
-        return nummern;
+        var paarungsNummern = KoPaarungen.PaarungsNummern(spiele);
+        return spiele.Select(s => Zeile(s, runde, paarungsNummern[s.Id])).ToList();
     }
 
-    internal static SpielZeile MapSpielZeile(
+    /// <summary>Zeilen des Spielplans: mit Gruppe und Platzhalter-Vorschau, K.-o.-Runden mit Hin-/Rückspiel
+    /// nach Paarung statt nach Spielnummer — Hin- und Rückspiel stehen direkt untereinander, unter dem
+    /// Rückspiel das Gesamtergebnis (Issue #340, Vorbild kicker.de-Paarungsansicht).</summary>
+    public static List<SpielZeile> SpielplanZeilen(
+        IReadOnlyList<Spiel> spiele, TurnierRunde? runde,
+        IReadOnlyDictionary<int, int> teamGruppeMap,
+        IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)> vorschau)
+    {
+        var paarungsNummern = KoPaarungen.PaarungsNummern(spiele);
+        bool nachPaarung = runde is not null && runde.MitRueckspiel && HinRueckspielWertung.IstKoRunde(runde);
+        var reihenfolge = nachPaarung
+            ? spiele.OrderBy(s => paarungsNummern[s.Id]).ThenBy(s => s.IstRueckspiel).ToList()
+            : spiele;
+        var hinspielErgebnisse = spiele
+            .Where(s => !s.IstRueckspiel && s.Ergebnis is not null)
+            .ToDictionary(s => s.Id, s => s.Ergebnis!);
+
+        var zeilen = new List<SpielZeile>(spiele.Count);
+        int? letztePaarung = null;
+        foreach (var s in reihenfolge)
+        {
+            int paarung = paarungsNummern[s.Id];
+            bool paarungsStart = nachPaarung && letztePaarung is not null && paarung != letztePaarung;
+            letztePaarung = paarung;
+
+            var hinspielErgebnis = nachPaarung && s.IstRueckspiel && s.HinspielId is int hinId
+                ? hinspielErgebnisse.GetValueOrDefault(hinId)
+                : null;
+            zeilen.Add(Zeile(s, runde, paarung, teamGruppeMap, vorschau, hinspielErgebnis, paarungsStart));
+        }
+        return zeilen;
+    }
+
+    private static SpielZeile Zeile(
         Spiel s, TurnierRunde? runde, int paarungsNummer,
         IReadOnlyDictionary<int, int>? teamGruppeMap = null,
         IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)>? vorschau = null,
         SpielErgebnis? hinspielErgebnis = null, bool istPaarungsStart = false)
     {
-        string text = "-:-";
-        string detail = "";
-        string gesamt = "";
-
-        if (s.Ergebnis is { } e)
-        {
-            text = $"{e.HeimToreGesamt}:{e.AuswaertsToreGesamt}";
-            detail = SpielErgebnisFormatierer.DetailText(
-                e.EntscheidungArt,
-                e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
-                e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
-                e.HeimElfmetertore, e.AuswaertsElfmetertore);
-
-            if (detail.Length == 0)
-                detail = SpielErgebnisFormatierer.HalbzeitKlammer(
-                    e.EntscheidungArt, e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
-                    e.HalbzeitHeimTore, e.HalbzeitAuswaertsTore);
-
-            // Issue #340: unter dem Rückspiel eine eigene Zeile mit dem Gesamtergebnis der Paarung.
-            if (hinspielErgebnis is not null)
-                gesamt = SpielErgebnisFormatierer.RueckspielGesamtText(hinspielErgebnis, e);
-        }
-
-        // #397: gespeicherte Gruppe zuerst — die Team→Gruppe-Map ist nur noch Rückfall für Altdaten und kennt
-        // Spiele mit Platzhalter-Heimteam nicht.
-        int? gruppeNummer = s.GruppenNummer;
-        if (gruppeNummer is null && teamGruppeMap is not null && s.HeimMannschaftId.HasValue
-            && teamGruppeMap.TryGetValue(s.HeimMannschaftId.Value, out var gr))
-            gruppeNummer = gr;
-
         (string? Heim, string? Auswaerts) vor = default;
         vorschau?.TryGetValue(s.Id, out vor);
         string? heimVorschau = s.HeimMannschaftId is null ? vor.Heim : null;
@@ -70,7 +65,7 @@ internal static class SpielZeilenMapper
             Id = s.Id,
             Spielnummer = s.Spielnummer,
             Spieltag = s.Spieltag,
-            KoLabel = KoPositionsLabel(s, runde, paarungsNummer),
+            KoLabel = KoSpielLabel.Fuer(s, runde, paarungsNummer),
             HeimName = s.HeimMannschaft?.Name ?? (heimVorschau is not null ? $"({heimVorschau})" : null)
                        ?? s.HeimPlatzhalterName ?? "?",
             AuswaertsName = s.AuswaertsMannschaft?.Name ?? (auswaertsVorschau is not null ? $"({auswaertsVorschau})" : null)
@@ -79,46 +74,46 @@ internal static class SpielZeilenMapper
             AuswaertsWappen = TeilnehmerAnzeige.MannschaftsIcon(s.AuswaertsMannschaft),
             Status = s.Status,
             HatErgebnis = s.Ergebnis is not null,
-            ErgebnisText = text,
-            ErgebnisDetail = detail,
-            GesamtText = gesamt,
+            ErgebnisText = s.Ergebnis is { } e ? $"{e.HeimToreGesamt}:{e.AuswaertsToreGesamt}" : "-:-",
+            ErgebnisDetail = ErgebnisDetail(s.Ergebnis),
+            // Issue #340: unter dem Rückspiel eine eigene Zeile mit dem Gesamtergebnis der Paarung.
+            GesamtText = s.Ergebnis is not null && hinspielErgebnis is not null
+                ? SpielErgebnisFormatierer.RueckspielGesamtText(hinspielErgebnis, s.Ergebnis)
+                : "",
             IstRueckspiel = s.IstRueckspiel,
             HinspielId = s.HinspielId,
             IstPlatzhalterSpiel = !s.HeimMannschaftId.HasValue || !s.AuswaertsMannschaftId.HasValue,
             HeimIstVorschau = heimVorschau is not null,
             AuswaertsIstVorschau = auswaertsVorschau is not null,
-            GruppeNummer = gruppeNummer,
+            GruppeNummer = GruppenNummer(s, teamGruppeMap),
             IstPaarungsStart = istPaarungsStart
         };
     }
 
-    internal static string? KoPositionsLabel(Spiel s, TurnierRunde? runde, int paarungsNummer)
+    /// <summary>Zusatz zum Ergebnis: wie es entschieden wurde (n.V., i.E.), sonst der Halbzeitstand.</summary>
+    private static string ErgebnisDetail(SpielErgebnis? ergebnis)
     {
-        if (runde is null) return null;
-        bool mitRueck = runde.MitRueckspiel;
-        return runde.Rundenart switch
-        {
-            Rundenart.Finale => FormatKoLabel("Finale", paarungsNummer, mitRueck, s.IstRueckspiel),
-            Rundenart.SpielUmPlatzDrei => FormatKoLabel("3. Platz", paarungsNummer, mitRueck, s.IstRueckspiel),
-            Rundenart.KoRunde => KoKuerzel(runde.EingangsMannschaftsanzahl) is { } k
-                                          ? FormatKoLabel(k, paarungsNummer, mitRueck, s.IstRueckspiel) : null,
-            _ => null
-        };
+        if (ergebnis is not { } e) return "";
+
+        string detail = SpielErgebnisFormatierer.DetailText(
+            e.EntscheidungArt,
+            e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
+            e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
+            e.HeimElfmetertore, e.AuswaertsElfmetertore);
+
+        return detail.Length > 0
+            ? detail
+            : SpielErgebnisFormatierer.HalbzeitKlammer(
+                e.EntscheidungArt, e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
+                e.HalbzeitHeimTore, e.HalbzeitAuswaertsTore);
     }
 
-    private static string FormatKoLabel(string kuerzel, int paarungsNummer, bool mitRueckspiel, bool istRueckspiel) =>
-        mitRueckspiel
-            ? $"{kuerzel} {paarungsNummer} {(istRueckspiel ? "R" : "H")}"
-            : $"{kuerzel} {paarungsNummer}";
-
-    internal static string? KoKuerzel(int eingangTeams) => eingangTeams switch
-    {
-        4 => "HF",
-        8 => "VF",
-        16 => "AF",
-        32 => "R16",
-        64 => "R32",
-        128 => "R64",
-        _ => eingangTeams > 2 ? $"R{eingangTeams / 2}" : null
-    };
+    // #397: gespeicherte Gruppe zuerst — die Team→Gruppe-Map ist nur noch Rückfall für Altdaten und kennt
+    // Spiele mit Platzhalter-Heimteam nicht.
+    private static int? GruppenNummer(Spiel s, IReadOnlyDictionary<int, int>? teamGruppeMap) =>
+        s.GruppenNummer
+        ?? (teamGruppeMap is not null && s.HeimMannschaftId is int heimId
+            && teamGruppeMap.TryGetValue(heimId, out var gruppe)
+                ? (int?)gruppe
+                : null);
 }

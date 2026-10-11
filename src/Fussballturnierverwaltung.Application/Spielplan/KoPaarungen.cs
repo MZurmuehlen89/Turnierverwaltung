@@ -23,6 +23,23 @@ public static class KoPaarungen
             .ToList();
     }
 
+    /// <summary>Paarungsnummer (1-basiert) je Spiel-ID: Hinspiele bzw. Einzelspiele in Spielnummer-Reihenfolge,
+    /// ein Rückspiel übernimmt die Nummer seines Hinspiels (Issue #346) — unabhängig von der Listenposition,
+    /// die bei nach Spieltag sortierter Liste Hin- und Rückspiel nicht nebeneinander führt.</summary>
+    public static IReadOnlyDictionary<int, int> PaarungsNummern(IEnumerable<Spiel> spiele)
+    {
+        var liste = spiele.ToList();
+        var nummern = liste.Where(s => !s.IstRueckspiel)
+            .OrderBy(s => s.Spielnummer)
+            .Select((s, i) => (s.Id, Nr: i + 1))
+            .ToDictionary(x => x.Id, x => x.Nr);
+        foreach (var rueck in liste.Where(s => s.IstRueckspiel).OrderBy(s => s.Spielnummer))
+            nummern[rueck.Id] = rueck.HinspielId is int hinId && nummern.TryGetValue(hinId, out var nr)
+                ? nr
+                : nummern.Count + 1;
+        return nummern;
+    }
+
     /// <summary>Liefert je nach <paramref name="platzierung"/> (1 = Sieger, 2 = Verlierer) die Mannschafts-ID
     /// aus einem entschiedenen K.o.-Spiel, oder <c>null</c> falls noch kein Ergebnis vorliegt.</summary>
     public static int? SiegerOderVerliererId(Spiel spiel, int platzierung)

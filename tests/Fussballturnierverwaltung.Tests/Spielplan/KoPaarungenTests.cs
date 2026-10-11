@@ -82,4 +82,31 @@ public class KoPaarungenTests
     [Fact]
     public void SiegerOderVerliererId_AnderePlatzierung_IstNull() =>
         KoPaarungen.SiegerOderVerliererId(Entschieden(10, 11, siegerId: 10), platzierung: 3).Should().BeNull();
+
+    [Fact]
+    public void PaarungsNummern_Einzelspiele_ZaehltNachSpielnummerUnabhaengigVonDerListenposition()
+    {
+        var ergebnis = KoPaarungen.PaarungsNummern([Hinspiel(7, 3), Hinspiel(5, 1), Hinspiel(6, 2)]);
+
+        ergebnis.Should().Equal(new Dictionary<int, int> { [5] = 1, [6] = 2, [7] = 3 });
+    }
+
+    [Fact]
+    public void PaarungsNummern_Rueckspiel_UebernimmtDieNummerSeinesHinspiels()
+    {
+        var ergebnis = KoPaarungen.PaarungsNummern(
+            [Hinspiel(1, 1), Hinspiel(2, 2), Rueckspiel(3, 3, hinspielId: 2), Rueckspiel(4, 4, hinspielId: 1)]);
+
+        ergebnis[3].Should().Be(2);
+        ergebnis[4].Should().Be(1);
+    }
+
+    [Fact]
+    public void PaarungsNummern_RueckspielOhneBekanntesHinspiel_BekommtEineEigeneNummerDahinter()
+    {
+        var ergebnis = KoPaarungen.PaarungsNummern(
+            [Hinspiel(1, 1), Rueckspiel(2, 2, hinspielId: null), Rueckspiel(3, 3, hinspielId: 99)]);
+
+        ergebnis.Should().Equal(new Dictionary<int, int> { [1] = 1, [2] = 2, [3] = 3 });
+    }
 }

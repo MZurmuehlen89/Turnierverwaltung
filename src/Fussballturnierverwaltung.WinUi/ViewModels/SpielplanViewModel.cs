@@ -1313,31 +1313,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private void SpieleHinzufuegen(IReadOnlyList<Spiel> spiele, TurnierRunde? runde)
     {
-        var paarungsNummern = SpielZeilenMapper.PaarungsNummern(spiele);
-
-        // Issue #340: K.-o.-Runden mit Hin-/Rückspiel nach Paarung statt nach Spielnummer — Hin- und
-        // Rückspiel stehen direkt untereinander (Vorbild kicker.de-Paarungsansicht).
-        bool nachPaarung = runde is not null && runde.MitRueckspiel && HinRueckspielWertung.IstKoRunde(runde);
-        var reihenfolge = nachPaarung
-            ? spiele.OrderBy(s => paarungsNummern[s.Id]).ThenBy(s => s.IstRueckspiel).ToList()
-            : spiele;
-        var hinspielErgebnisse = spiele
-            .Where(s => !s.IstRueckspiel && s.Ergebnis is not null)
-            .ToDictionary(s => s.Id, s => s.Ergebnis!);
-
-        int? letztePaarung = null;
-        foreach (var s in reihenfolge)
-        {
-            int paarung = paarungsNummern[s.Id];
-            bool paarungsStart = nachPaarung && letztePaarung is not null && paarung != letztePaarung;
-            letztePaarung = paarung;
-
-            var hinspielErgebnis = nachPaarung && s.IstRueckspiel && s.HinspielId is int hinId
-                ? hinspielErgebnisse.GetValueOrDefault(hinId)
-                : null;
-            Spiele.Add(SpielZeilenMapper.MapSpielZeile(s, runde, paarung, _teamGruppeMap, _platzhalterVorschau,
-                hinspielErgebnis, paarungsStart));
-        }
+        foreach (var zeile in SpielZeilenMapper.SpielplanZeilen(spiele, runde, _teamGruppeMap, _platzhalterVorschau))
+            Spiele.Add(zeile);
 
         FokusSpieltageAbgleichen();
     }
