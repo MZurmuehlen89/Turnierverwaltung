@@ -98,8 +98,8 @@
                     </StackPanel>
                     <StackPanel Grid.Column="4" HorizontalAlignment="Stretch">
                         <TextBlock Text="Status" FontSize="12" Margin="0,0,0,3" />
-                        <ComboBox ItemsSource="{Binding StatusOptionen}"
-                                  SelectedItem="{Binding Status, Mode=TwoWay}"
+                        <ComboBox ItemsSource="{Binding Status.Optionen}"
+                                  SelectedItem="{Binding Status.Auswahl, Mode=TwoWay}"
                                   DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
                     </StackPanel>
                 </Grid>

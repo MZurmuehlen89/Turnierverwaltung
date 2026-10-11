@@ -7,7 +7,6 @@ using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
-using Fussballturnierverwaltung.WinUi.Converters;
 using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
@@ -20,18 +19,16 @@ using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-public record TurnierStatusOption(string Anzeige, TurnierStatus Wert);
-
 /// <summary>Kopfzeile eines aufklappbaren Turnierkopf-Bereichs (Issue #399): Titel plus Kurzfassung des
 /// Inhalts, damit auch zugeklappt erkennbar bleibt, ob etwas festgelegt ist.</summary>
 public record AbschnittKopf(string Titel, string Zusammenfassung);
 
 /// <summary>"Turnierkopf"-Tab von <see cref="TurnierlisteViewModel"/> (Issue #297) — Basisdaten,
-/// Standard-Regelwerk, Status-Anzeige/-Auswahl und die Befehle Neu/Speichern/Abbrechen/Löschen einer
+/// Standard-Regelwerk, Statuswechsel und die Befehle Neu/Speichern/Abbrechen/Löschen einer
 /// <see cref="TurnierInstanz"/> (Vorlage- oder Turnier-Status identisch behandelt). Auslosungsfilter,
-/// Titelverteidiger/Gastgeber und Quoten liegen in den Kind-ViewModels <see cref="Filter"/>,
-/// <see cref="TitelGastgeber"/> und <see cref="Quoten"/> (#434); dieses ViewModel befüllt sie, hört auf ihre
-/// Änderungen und entscheidet, was aus einem Filterwechsel folgt. Runden/Übergangsregeln/Vorbelegung liegen
+/// Titelverteidiger/Gastgeber, Quoten und die Statusauswahl liegen in den Kind-ViewModels <see cref="Filter"/>,
+/// <see cref="TitelGastgeber"/>, <see cref="Quoten"/> (#434) und <see cref="Status"/> (#448); dieses ViewModel
+/// befüllt sie, hört auf ihre Änderungen und entscheidet, was aus einem Filterwechsel folgt. Runden/Übergangsregeln/Vorbelegung liegen
 /// in den separaten Tabs, die Instanzliste samt Status-Filter in <see cref="TurnierTabKoordinator"/>.</summary>
 public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
@@ -118,60 +115,36 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     private void TitelGastgeberFilterAnwenden() => TitelGastgeber.FilterAnwenden(Filter.Wert);
 
     // ── Status-Anzeige/-Auswahl ───────────────────────────────────────────────
-    [ObservableProperty] private TurnierStatusOption _status = new(TurnierStatusZuTextConverter.StatusAnzeigeName(TurnierStatus.Geplant), TurnierStatus.Geplant);
-
-    public IReadOnlyList<TurnierStatusOption> StatusOptionen =>
-        Enum.GetValues<TurnierStatus>().Select(s => new TurnierStatusOption(TurnierStatusZuTextConverter.StatusAnzeigeName(s), s)).ToList();
+    public TurnierStatusViewModel Status { get; }
 
     /// <summary>Vom Composite gesetzt: der Status, mit dem "Neu" das Formular vorbelegt — er folgt dem
     /// Turniere/Vorlagen-Umschalter der Liste, sonst entstünde in der Vorlagen-Ansicht ein Turnier, das dort
     /// nach dem Speichern gar nicht auftaucht (#382).</summary>
     public TurnierStatus StatusFuerNeueInstanz { get; set; } = TurnierStatus.Geplant;
 
-    /// <summary>Bei einer NEUEN, noch nicht gespeicherten Instanz ist die Statuswahl Teil der
-    /// Erstellungs-Eingabe (kein Server-Aufruf möglich, es gibt noch keine Id) — bei einer bestehenden
-    /// Instanz wirkt sie sofort über <see cref="TurnierInstanzService.StatusAendernAsync"/>, unabhängig
-    /// vom Formular-Dirty-Status der Basisdaten (Issue #297: "Status-Anzeige/-Auswahl").</summary>
-    partial void OnStatusChanged(TurnierStatusOption value)
-    {
-        if (_populiertGerade > 0) return;
-        if (IstNeuModus) { IsDirty = true; return; }
-        if (AktuelleInstanz is not null && value.Wert != AktuelleInstanz.Status)
-            _ = StatusAendernAsync(value.Wert);
-    }
-
-    private async Task StatusAendernAsync(TurnierStatus neuerStatus)
+    /// <summary>Von <see cref="Status"/> aufgerufen, wenn der Nutzer bei einem bestehenden Turnier einen anderen
+    /// Status wählt. <c>false</c>, wenn es beim bisherigen Status bleibt (abgelehnt oder gescheitert).</summary>
+    private async Task<bool> StatusWechselnAsync(TurnierStatus neuerStatus)
     {
         // Die Instanz vor dem Warten festhalten: bis der Schutz frei ist, kann ein Turnierwechsel
         // AktuelleInstanz bereits umgesetzt haben.
-        if (AktuelleInstanz is not { } instanz) return;
+        if (AktuelleInstanz is not { } instanz) return false;
         Fehlermeldung = null;
         try
         {
-            if (!await AenderungBestaetigtAsync())
-            {
-                StatusAuswahlZuruecksetzen();
-                return;
-            }
+            if (!await AenderungBestaetigtAsync()) return false;
 
             using var schutz = await DbContextSchutz.BetretenAsync();
             using var vorgang = _logger.Vorgang($"Turnierkopf: Status ändern (Instanz {instanz.Id}, {neuerStatus})");
             await _service.StatusAendernAsync(instanz.Id, neuerStatus);
             InstanzGeaendert?.Invoke(instanz);
+            return true;
         }
         catch (Exception ex)
         {
             Fehlermeldung = ex.Message;
-            StatusAuswahlZuruecksetzen();
+            return false;
         }
-    }
-
-    private void StatusAuswahlZuruecksetzen()
-    {
-        if (AktuelleInstanz is null) return;
-        BefuellenBeginnen();
-        try { Status = StatusOptionen.First(o => o.Wert == AktuelleInstanz.Status); }
-        finally { BefuellenBeenden(); }
     }
 
     /// <summary>Vom Composite gesetzte Rückfrage vor jeder Aktion, die <see cref="InstanzGeaendert"/> auslöst —
@@ -261,6 +234,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         Quoten.Geaendert += AenderungMerken;
         TitelGastgeber = titelGastgeber;
         TitelGastgeber.Geaendert += AenderungMerken;
+        Status = new TurnierStatusViewModel(StatusWechselnAsync);
+        Status.EingabeGeaendert += AenderungMerken;
     }
 
     /// <summary>Lädt Verbände/Länder/Regelwerke einmalig — vom Composite (<see cref="TurnierlisteViewModel"/>)
@@ -298,15 +273,17 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     }
 
     /// <summary>Während das Formular befüllt wird, gilt nichts als Nutzeränderung — auch der Auslosungsfilter
-    /// reagiert so lange nicht auf Rückschreibungen seiner ComboBoxen.</summary>
+    /// und die Statusauswahl reagieren so lange nicht auf Rückschreibungen ihrer ComboBoxen.</summary>
     private void BefuellenBeginnen()
     {
         _populiertGerade++;
         Filter.ReaktionenAussetzen();
+        Status.ReaktionenAussetzen();
     }
 
     private void BefuellenBeenden()
     {
+        Status.ReaktionenFortsetzen();
         Filter.ReaktionenFortsetzen();
         _populiertGerade--;
     }
@@ -316,21 +293,24 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     {
         FormularAktiv = instanz is not null;
         IstNeuModus = false;
-        if (instanz is null) FormularLeeren(TurnierStatus.Geplant);
+        if (instanz is null)
+        {
+            FormularLeeren();
+            Status.Leeren();
+        }
         else FormularBefuellen(instanz);
         IsDirty = false;
         Fehlermeldung = null;
         AktualisiereFormularFehler();
     }
 
-    private void FormularLeeren(TurnierStatus status)
+    private void FormularLeeren()
     {
         Name = Beschreibung = Variante = SaisonOderJahr = ZielMannschaftsanzahl = Startdatum = Enddatum = "";
         Kategorie = TurnierKategorie.Benutzerdefiniert;
         Filter.Setzen(null, null, MannschaftsartFilter.Alle);
         StandardRegelwerk = _keinStandardRegelwerk;
         TitelGastgeber.TitelverteidigerSetzen(Filter.Wert, null);
-        Status = StatusOptionen.First(o => o.Wert == status);
         LogoDaten = null;
         Quoten.Leeren();
         TitelGastgeber.GastgeberSetzen(Filter.Wert, []);
@@ -351,7 +331,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         Filter.Setzen(instanz.VerbandId, instanz.LandId, instanz.MannschaftsartFilter);
         StandardRegelwerk = StandardRegelwerkOptionen.FirstOrDefault(o => o.Wert?.Id == instanz.StandardRegelwerkId) ?? _keinStandardRegelwerk;
         TitelGastgeber.TitelverteidigerSetzen(Filter.Wert, instanz.TitelverteidigerId);
-        Status = StatusOptionen.First(o => o.Wert == instanz.Status);
+        Status.GespeichertenSetzen(instanz.Status);
         LogoDaten = instanz.Logo;
     }
 
@@ -388,7 +368,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             AktuelleInstanz = null;
             FormularAktiv = true;
             IstNeuModus = true;
-            FormularLeeren(StatusFuerNeueInstanz);
+            FormularLeeren();
+            Status.AlsEingabeSetzen(StatusFuerNeueInstanz);
             Fehlermeldung = null;
             AufklappzustandSetzen();
         }
@@ -463,7 +444,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
 
         // Erst alles prüfen, dann speichern: ungültige Quoten lassen auch die Basisdaten ungespeichert.
         var quoten = Quoten.GepruefteEingaben();
-        // Der Status ändert sich nur über die Statusauswahl (StatusAendernAsync), nicht über „Speichern“.
+        // Der Status ändert sich nur über die Statusauswahl (StatusWechselnAsync), nicht über „Speichern“.
         var eingabe = new TurnierInstanzVollAktualisierenEingabe(
             Name: Name, Beschreibung: Beschreibung, SaisonOderJahr: SaisonOderJahr, Kategorie: Kategorie,
             ZielMannschaftsanzahl: ParseZielAnzahl(ZielMannschaftsanzahl), Startdatum: ParseJahr(Startdatum),
