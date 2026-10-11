@@ -136,13 +136,13 @@
                                 </TextBlock>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
-                                        Visibility="{Binding HatMehrereSpieltage, Converter={StaticResource BoolToVisibility}}">
-                                <Button Content="&#x2039;" Command="{Binding FokusVorigerSpieltag}" FontSize="16" Padding="10,0,10,2"
+                                        Visibility="{Binding Fokus.HatMehrereSpieltage, Converter={StaticResource BoolToVisibility}}">
+                                <Button Content="&#x2039;" Command="{Binding Fokus.FokusVorigerSpieltag}" FontSize="16" Padding="10,0,10,2"
                                         ToolTipService.ToolTip="Voriger Spieltag" />
-                                <ComboBox ItemsSource="{Binding SpieltagOptionen}" DisplayMemberPath="Anzeige"
-                                          SelectedItem="{Binding AusgewaehlteSpieltagOption, Mode=TwoWay}"
+                                <ComboBox ItemsSource="{Binding Fokus.SpieltagOptionen}" DisplayMemberPath="Anzeige"
+                                          SelectedItem="{Binding Fokus.AusgewaehlteSpieltagOption, Mode=TwoWay}"
                                           MinWidth="150" FontWeight="SemiBold" />
-                                <Button Content="&#x203A;" Command="{Binding FokusNaechsterSpieltag}" FontSize="16" Padding="10,0,10,2"
+                                <Button Content="&#x203A;" Command="{Binding Fokus.FokusNaechsterSpieltag}" FontSize="16" Padding="10,0,10,2"
                                         ToolTipService.ToolTip="Nächster Spieltag" />
                             </StackPanel>
                         </Grid>
@@ -156,7 +156,7 @@
                             <TextBlock Grid.Column="5" Text="Status" Style="{StaticResource SpielKopfzeileTextStyle}" />
                         </Grid>
                         <ListView Grid.Row="2" x:Name="FokusSpielListView"
-                                  ItemsSource="{Binding FokusSpiele}" SelectedItem="{Binding AusgewaehlteSpiel, Mode=TwoWay}"
+                                  ItemsSource="{Binding Fokus.FokusSpiele}" SelectedItem="{Binding AusgewaehlteSpiel, Mode=TwoWay}"
                                   SelectionMode="Extended" SelectionChanged="SpielListView_SelectionChanged">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
