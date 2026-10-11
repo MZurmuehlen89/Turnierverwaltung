@@ -96,7 +96,7 @@ public class SpielplanService(
         {
             case Rundenart.Gruppenphase:
             {
-                var gruppen = GruppenSlotsAusAuslosung(ergebnisse);
+                var gruppen = GruppenSpielplan.GruppenSlotsAusAuslosung(ergebnisse);
 
                 if (gruppen.Count > 0 && gruppen.All(g => g.All(s => s.MannschaftId.HasValue)))
                 {
@@ -465,102 +465,6 @@ public class SpielplanService(
 
     // ── Platzhalter-Gruppenphase (Berger-Plan über Slots, Issue #395) ─────
 
-    /// <summary>Ein Teilnehmerplatz einer Gruppe: feste Mannschaft oder (noch) Platzhalter.</summary>
-    private readonly record struct GruppenSlot(int? MannschaftId, string? PlatzhalterName);
-
-    /// <summary>Ein geplantes Gruppenspiel in Spielnummer-Reihenfolge; <see cref="HinspielIndex"/> zeigt bei
-    /// Rückspielen auf den Listenindex des zugehörigen Hinspiels.</summary>
-    private sealed record GeplantesGruppenSpiel(
-        GruppenSlot Heim, GruppenSlot Auswaerts, int GruppenNummer, int Spieltag, bool IstRueckspiel, int? HinspielIndex);
-
-    /// <summary>Gruppen-Auslosungen speichern einen Eintrag pro Team (nur Heim-Seite, PaarungsNummer =
-    /// Gruppe). Innerhalb der Gruppe nach Id sortiert, damit Generierung und Kaskade unabhängig von der
-    /// Ladereihenfolge denselben Plan bauen.</summary>
-    private static List<IReadOnlyList<GruppenSlot>> GruppenSlotsAusAuslosung(IEnumerable<AuslosungsErgebnis> ergebnisse) =>
-        [.. ergebnisse
-            .GroupBy(e => e.PaarungsNummer)
-            .OrderBy(g => g.Key)
-            .Select(g => (IReadOnlyList<GruppenSlot>)[.. g
-                .OrderBy(e => e.Id)
-                .Select(e => new GruppenSlot(e.HeimMannschaftId, e.HeimPlatzhalterName))])];
-
-    /// <summary>Reine Funktion: Berger-Round-Robin je Gruppe, sortiert nach Spieltag und Gruppe — exakt die
-    /// Reihenfolge, in der <see cref="GenerierenAusGruppenMitPlatzhalternAsync"/> die Spielnummern vergibt.
-    /// Die Kaskade baut damit den Soll-Spielplan nach und vergleicht Spiel mit Spiel (#395).</summary>
-    private static List<GeplantesGruppenSpiel> GruppenSpielplanPlanen(
-        IReadOnlyList<IReadOnlyList<GruppenSlot>> gruppen, bool mitRueckspiel)
-    {
-        var geplant = new List<(int GruppenIndex, int Spieltag, int Nr, GruppenSlot Heim, GruppenSlot Auswaerts, int? HinspielNr)>();
-        int nr = 0;
-
-        for (int gi = 0; gi < gruppen.Count; gi++)
-        {
-            var slots = gruppen[gi].Select(s => (GruppenSlot?)s).ToList();
-            if (slots.Count < 2) continue;
-            if (slots.Count % 2 == 1) slots.Add(null);
-
-            int gesamt    = slots.Count;
-            int spieltage = gesamt - 1;
-            var kreis     = Enumerable.Range(1, gesamt - 1).ToArray();
-            var hinspiele = new List<(int Spieltag, int Nr, GruppenSlot Heim, GruppenSlot Auswaerts)>();
-
-            void Hinzufuegen(GruppenSlot? heim, GruppenSlot? ausw, int spieltag)
-            {
-                if (heim is null || ausw is null) return;
-                hinspiele.Add((spieltag, nr, heim.Value, ausw.Value));
-                geplant.Add((gi, spieltag, nr++, heim.Value, ausw.Value, null));
-            }
-
-            for (int spieltag = 0; spieltag < spieltage; spieltag++)
-            {
-                if (spieltag % 2 == 0) Hinzufuegen(slots[0], slots[kreis[^1]], spieltag + 1);
-                else                   Hinzufuegen(slots[kreis[^1]], slots[0], spieltag + 1);
-
-                for (int i = 0; i < (gesamt - 2) / 2; i++)
-                    Hinzufuegen(slots[kreis[i]], slots[kreis[gesamt - 3 - i]], spieltag + 1);
-
-                var letzter = kreis[^1];
-                for (int k = gesamt - 2; k > 0; k--) kreis[k] = kreis[k - 1];
-                kreis[0] = letzter;
-            }
-
-            if (mitRueckspiel)
-            {
-                foreach (var h in hinspiele)
-                    geplant.Add((gi, h.Spieltag + spieltage, nr++, h.Auswaerts, h.Heim, h.Nr));
-            }
-        }
-
-        var sortiert = geplant
-            .OrderBy(x => x.Spieltag)
-            .ThenBy(x => x.GruppenIndex)
-            .ThenBy(x => x.Nr)
-            .ToList();
-        var indexJeNr = sortiert.Select((x, i) => (x.Nr, i)).ToDictionary(x => x.Nr, x => x.i);
-
-        return [.. sortiert.Select(x => new GeplantesGruppenSpiel(
-            x.Heim, x.Auswaerts, x.GruppenIndex + 1, x.Spieltag, x.HinspielNr.HasValue,
-            x.HinspielNr is int hinNr ? indexJeNr[hinNr] : null))];
-    }
-
-    /// <summary>Plausibilitätsprüfung vor dem Spiel-zu-Spiel-Vergleich der Kaskade: gleiche Anzahl, gleiche
-    /// Hin-/Rückspiel-Lage, feste Teams an derselben Stelle und noch offene Platzhalter mit demselben Namen.
-    /// Bereits aufgelöste Platzhalter-Seiten sind nicht prüfbar (der Name wird beim Auflösen entfernt).</summary>
-    private static bool PasstZuGruppenPlan(IReadOnlyList<GeplantesGruppenSpiel> geplant, IReadOnlyList<Spiel> spiele)
-    {
-        if (geplant.Count != spiele.Count) return false;
-
-        static bool SeitePasst(GruppenSlot soll, int? mannschaftId, string? platzhalterName) =>
-            soll.MannschaftId is int festId
-                ? mannschaftId == festId
-                : mannschaftId.HasValue || string.Equals(platzhalterName, soll.PlatzhalterName ?? "?", StringComparison.OrdinalIgnoreCase);
-
-        return geplant.Zip(spiele).All(x =>
-            x.First.IstRueckspiel == x.Second.IstRueckspiel &&
-            SeitePasst(x.First.Heim, x.Second.HeimMannschaftId, x.Second.HeimPlatzhalterName) &&
-            SeitePasst(x.First.Auswaerts, x.Second.AuswaertsMannschaftId, x.Second.AuswaertsPlatzhalterName));
-    }
-
     private async Task GenerierenAusGruppenMitPlatzhalternAsync(
         int turnierRundeId,
         IReadOnlyList<IReadOnlyList<GruppenSlot>> gruppen,
@@ -570,7 +474,7 @@ public class SpielplanService(
             ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
 
         int startNr = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
-        var plan    = GruppenSpielplanPlanen(gruppen, runde.MitRueckspiel);
+        var plan    = GruppenSpielplan.GruppenSpielplanPlanen(gruppen, runde.MitRueckspiel);
 
         var alleSpiele = plan.Select((g, i) => new Spiel
         {
@@ -890,7 +794,7 @@ public class SpielplanService(
             if (quellSpieleProRunde.TryGetValue(quellRunde.Id, out var cached)) return cached;
             // Issue #346: "Sieger <Runde> N" meint die N-te Paarung — bei Hin-/Rückspiel deren Rückspiel,
             // das die Gesamtwertung trägt.
-            var liste = EntscheidungsspieleJePaarung(await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct));
+            var liste = KoPaarungen.EntscheidungsspieleJePaarung(await spielRepository.AlleNachRundeAsync(quellRunde.Id, ct));
             quellSpieleProRunde[quellRunde.Id] = liste;
             return liste;
         }
@@ -902,10 +806,10 @@ public class SpielplanService(
             if (string.IsNullOrWhiteSpace(platzhalterName)) return null;
 
             bool verlierer = false;
-            var match = _koSiegerRx.Match(platzhalterName);
+            var match = PlatzhalterNamen.KoSiegerRx.Match(platzhalterName);
             if (!match.Success)
             {
-                match = _koVerliererRx.Match(platzhalterName);
+                match = PlatzhalterNamen.KoVerliererRx.Match(platzhalterName);
                 verlierer = true;
             }
             if (!match.Success || !int.TryParse(match.Groups[2].Value, out int spielNr)) return null;
@@ -913,7 +817,7 @@ public class SpielplanService(
             var arten = verlierer
                 ? new[] { Rundenart.KoRunde }
                 : new[] { Rundenart.KoRunde, Rundenart.Finale };
-            var quellRunde = NaechstgelegeneKoQuellrunde(match.Groups[1].Value, arten, zielRunde, alleRunden);
+            var quellRunde = PlatzhalterNamen.NaechstgelegeneKoQuellrunde(match.Groups[1].Value, arten, zielRunde, alleRunden);
             if (quellRunde is null) return null;
 
             var quellSpiele = await QuellSpieleAsync(quellRunde);
@@ -969,7 +873,7 @@ public class SpielplanService(
         }
         if (quellSpiel is null) return null;
 
-        return SiegerOderVerliererId(quellSpiel, typ == SpielQuellErgebnisTyp.Sieger ? 1 : 2);
+        return KoPaarungen.SiegerOderVerliererId(quellSpiel, typ == SpielQuellErgebnisTyp.Sieger ? 1 : 2);
     }
 
     // ── Tabellen-Zwischenspeicher je Auflösungsdurchlauf (Issue #386) ──────
@@ -1136,9 +1040,9 @@ public class SpielplanService(
             // Berger-Plan wie bei der Generierung nachbauen und Spiel für Spiel vergleichen.
             if (runde.Rundenart == Rundenart.Gruppenphase)
             {
-                var geplant = GruppenSpielplanPlanen(GruppenSlotsAusAuslosung(auslosung.Ergebnisse), runde.MitRueckspiel);
+                var geplant = GruppenSpielplan.GruppenSpielplanPlanen(GruppenSpielplan.GruppenSlotsAusAuslosung(auslosung.Ergebnisse), runde.MitRueckspiel);
                 var spieleNachNummer = alleRundenSpiele.OrderBy(s => s.Spielnummer).ToList();
-                if (!PasstZuGruppenPlan(geplant, spieleNachNummer))
+                if (!GruppenSpielplan.PasstZuGruppenPlan(geplant, spieleNachNummer))
                 {
                     // Unbekannte Struktur (z.B. vor #395 ohne Platzhalter generierte gemischte Gruppe) — lieber
                     // nicht anfassen als falsche Spiele zurücksetzen.
@@ -1168,7 +1072,7 @@ public class SpielplanService(
             // verrutscht die Zuordnung ab der zweiten Paarung.
             bool paarweise = runde.MitRueckspiel &&
                 runde.Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
-            var rueckspielJeHinspiel = paarweise ? RueckspielJeHinspiel(alleRundenSpiele) : [];
+            var rueckspielJeHinspiel = paarweise ? KoPaarungen.RueckspielJeHinspiel(alleRundenSpiele) : [];
             var aktuelleSpiele = alleRundenSpiele
                 .Where(s => !paarweise || !s.IstRueckspiel)
                 .OrderBy(s => s.Spielnummer)
@@ -1426,21 +1330,12 @@ public class SpielplanService(
 
     // ── Platzhalter-Auflösungslogik ───────────────────────────────────────
 
-    private static readonly Regex _gruppenSiegerRx     = new(@"^Sieger Gruppe ([A-Z0-9]+)$",   RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex _gruppenRangRx       = new(@"^(\d+)\. Gruppe ([A-Z0-9]+)$",  RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex _bestePlatzierungRx  = new(@"^(\d+)\. bester (\d+)\. Platz$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    // Issue #368: Rundenname beliebig (auch mit Leerzeichen/Bindestrich, z.B. "Playoff-Runde", "1. Runde") —
-    // gierig bis zur letzten Zahl, die immer die Spielnummer ist. "Sieger Gruppe A" fängt Pattern 1 vorher ab.
-    private static readonly Regex _koSiegerRx          = new(@"^Sieger (.+) (\d+)$",    RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex _koVerliererRx       = new(@"^Verlierer (.+) (\d+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex _tabellenPlatzRx     = new(@"^Platz (\d+) \((.+)\)$",            RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
     private async Task<int?> PlatzhalterNameAufloessenAsync(
         string name, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
         IReadOnlySet<int>? ignorierteSpielIds = null, bool nurSicherPositioniert = true)
     {
         // Pattern 1: "Sieger Gruppe A" → Rang 1 der Gruppe A
-        var m = _gruppenSiegerRx.Match(name);
+        var m = PlatzhalterNamen.GruppenSiegerRx.Match(name);
         if (m.Success)
             return await GruppenrangAufloessenAsync(m.Groups[1].Value, 1, runde, alleRunden, ct, ignorierteSpielIds, nurSicherPositioniert);
 
@@ -1449,28 +1344,28 @@ public class SpielplanService(
             return await KombinationsPlatzAufloesenAsync(name, kombinationsPlatzierung, runde, alleRunden, ct, ignorierteSpielIds);
 
         // Pattern 2: "2. Gruppe A" → Rang 2 der Gruppe A
-        m = _gruppenRangRx.Match(name);
+        m = PlatzhalterNamen.GruppenRangRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[1].Value, out int rang))
             return await GruppenrangAufloessenAsync(m.Groups[2].Value, rang, runde, alleRunden, ct, ignorierteSpielIds, nurSicherPositioniert);
 
         // Pattern 3: "2. bester 3. Platz" → gruppenübergreifende Rangfolge-Regel (Issue #213)
-        m = _bestePlatzierungRx.Match(name);
+        m = PlatzhalterNamen.BestePlatzierungRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[1].Value, out int bestenRang) && int.TryParse(m.Groups[2].Value, out int platzierung))
             return await BestePlatzierungAufloessenAsync(bestenRang, platzierung, runde, alleRunden, ct, ignorierteSpielIds);
 
         // Pattern 4: "Sieger VF 1" → Sieger des 1. Spiels im Viertelfinale
-        m = _koSiegerRx.Match(name);
+        m = PlatzhalterNamen.KoSiegerRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[2].Value, out int spielNr))
             return await KoSiegerAufloessenAsync(m.Groups[1].Value, spielNr, runde, alleRunden, ct, ignorierteSpielIds);
 
         // Pattern 5: "Verlierer HF 1" → Verlierer des 1. Spiels im Halbfinale
-        m = _koVerliererRx.Match(name);
+        m = PlatzhalterNamen.KoVerliererRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[2].Value, out spielNr))
             return await KoVerliererAufloessenAsync(m.Groups[1].Value, spielNr, runde, alleRunden, ct, ignorierteSpielIds);
 
         // Pattern 6: "Platz 3 (Ligaphase)" → Tabellenrang 3 der Liga-/TopfLiga-/Schweizer-Runde "Ligaphase"
         // (Format aus PlatzhalterHilfsmittel, Issue #343)
-        m = _tabellenPlatzRx.Match(name);
+        m = PlatzhalterNamen.TabellenPlatzRx.Match(name);
         if (m.Success && int.TryParse(m.Groups[1].Value, out int platz))
         {
             var quellRunde = alleRunden
@@ -1574,22 +1469,11 @@ public class SpielplanService(
         return rang <= rangfolge.Count ? rangfolge[rang - 1].Mannschaft.Id : null;
     }
 
-    private static int? KuerzelZuEingangsteams(string kuerzel) => kuerzel.ToUpperInvariant() switch
-    {
-        "HF"      => 4,
-        "VF"      => 8,
-        "AF"      => 16,
-        "FINALE"  => 2,
-        _ when kuerzel.StartsWith("R", StringComparison.OrdinalIgnoreCase)
-              && int.TryParse(kuerzel[1..], out int n) => n * 2,
-        _         => null
-    };
-
     private async Task<int?> KoSiegerAufloessenAsync(
         string kuerzel, int spielNummer, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
         IReadOnlySet<int>? ignorierteSpielIds = null)
     {
-        var koRunde = NaechstgelegeneKoQuellrunde(kuerzel, [Rundenart.KoRunde, Rundenart.Finale], runde, alleRunden);
+        var koRunde = PlatzhalterNamen.NaechstgelegeneKoQuellrunde(kuerzel, [Rundenart.KoRunde, Rundenart.Finale], runde, alleRunden);
         if (koRunde is null) return null;
 
         return await RangAufloesenAsync(koRunde, spielNummer, 1, ct, ignorierteSpielIds);
@@ -1599,41 +1483,10 @@ public class SpielplanService(
         string kuerzel, int spielNummer, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
         IReadOnlySet<int>? ignorierteSpielIds = null)
     {
-        var koRunde = NaechstgelegeneKoQuellrunde(kuerzel, [Rundenart.KoRunde], runde, alleRunden);
+        var koRunde = PlatzhalterNamen.NaechstgelegeneKoQuellrunde(kuerzel, [Rundenart.KoRunde], runde, alleRunden);
         if (koRunde is null) return null;
 
         return await RangAufloesenAsync(koRunde, spielNummer, 2, ct, ignorierteSpielIds);
-    }
-
-    /// <summary>Findet die nächstgelegene VORHERGEHENDE K.o.-Runde, auf die sich ein Platzhaltertext wie
-    /// "Sieger Halbfinale 1" bezieht. Zuerst per EXAKTEM Rundennamen (Fund: <see cref="TeilnehmerPoolHilfsmittel"/>
-    /// — bzw. deren WPF-Pendant — erzeugt diesen Text immer aus dem echten Rundennamen, nie aus einer Kurzform;
-    /// keine der mitgelieferten Turniervorlagen benennt ihre Runden "VF"/"HF"/"AF", wodurch die Kürzel-Tabelle
-    /// unten in der Praxis nie traf und K.o.-Platzhalter nach der ersten K.o.-Runde nie automatisch aufgelöst
-    /// wurden — Nutzerfund: "Sieger/Verlierer"-Übergänge zwischen zwei K.o.-Runden funktionierten nie, weder
-    /// einzeln noch simuliert, weder produktiv noch in der Vorschau). Fällt nur mangels Namenstreffer auf die
-    /// alte Kürzel-zu-Eingangsteams-Tabelle zurück (z.B. "VF" → 8) — deckt Turniere ab, deren Runden tatsächlich
-    /// so kurz benannt sind, und hält die bestehenden Tests unverändert grün. Bei mehreren K.o.-Zweigen gleicher
-    /// Größe/gleichen Namens im selben Turnier ist das die per <see cref="TurnierRunde.Reihenfolge"/> nächste,
-    /// nicht immer die erste.</summary>
-    private static TurnierRunde? NaechstgelegeneKoQuellrunde(
-        string kuerzel, IReadOnlyList<Rundenart> arten, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden)
-    {
-        var kandidaten = alleRunden.Where(r => arten.Contains(r.Rundenart) && r.Reihenfolge < runde.Reihenfolge);
-
-        var perName = kandidaten
-            .Where(r => string.Equals(r.Name, kuerzel, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(r => r.Reihenfolge)
-            .FirstOrDefault();
-        if (perName is not null) return perName;
-
-        int? eingangTeams = KuerzelZuEingangsteams(kuerzel);
-        if (eingangTeams is null) return null;
-
-        return kandidaten
-            .Where(r => r.EingangsMannschaftsanzahl == eingangTeams.Value)
-            .OrderByDescending(r => r.Reihenfolge)
-            .FirstOrDefault();
     }
 
     // ── Regelbasierte Auflösung (Issue #130) ──────────────────────────────
@@ -1750,7 +1603,7 @@ public class SpielplanService(
                 // Issue #346: gezählt wird je Paarung (Hinspiel); entschieden wird bei Hin-/Rückspiel im
                 // Rückspiel, das den Gesamtsieger trägt.
                 var alleSpiele = await RundenSpieleAsync(quellRunde.Id, ct);
-                var rueckspielJeHinspiel = RueckspielJeHinspiel(alleSpiele);
+                var rueckspielJeHinspiel = KoPaarungen.RueckspielJeHinspiel(alleSpiele);
                 var paarungen = alleSpiele
                     .Where(s => !s.IstRueckspiel && s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
                     .OrderBy(s => s.Spielnummer)
@@ -1763,45 +1616,12 @@ public class SpielplanService(
                     (ignorierteSpielIds.Contains(hinspiel.Id) || ignorierteSpielIds.Contains(spiel.Id)))
                     return null;
 
-                return SiegerOderVerliererId(spiel, platzierung);
+                return KoPaarungen.SiegerOderVerliererId(spiel, platzierung);
             }
 
             default:
                 return null;
         }
-    }
-
-    private static Dictionary<int, Spiel> RueckspielJeHinspiel(IEnumerable<Spiel> spiele) =>
-        spiele.Where(s => s.IstRueckspiel && s.HinspielId.HasValue)
-            .GroupBy(s => s.HinspielId!.Value)
-            .ToDictionary(g => g.Key, g => g.First());
-
-    /// <summary>Das entscheidende Spiel jeder Paarung einer K.o.-Runde in Paarungsreihenfolge (Issue #346):
-    /// bei Hin-/Rückspiel das Rückspiel (trägt den Gesamtsieger), sonst das Einzelspiel. Ein Hinspiel ohne
-    /// zugehöriges Rückspiel (Altbestand vor #346) steht für sich selbst.</summary>
-    private static List<Spiel> EntscheidungsspieleJePaarung(IReadOnlyList<Spiel> spiele)
-    {
-        var rueckspielJeHinspiel = RueckspielJeHinspiel(spiele);
-        return spiele
-            .Where(s => !s.IstRueckspiel)
-            .OrderBy(s => s.Spielnummer)
-            .Select(h => rueckspielJeHinspiel.GetValueOrDefault(h.Id) ?? h)
-            .ToList();
-    }
-
-    /// <summary>Liefert je nach <paramref name="platzierung"/> (1 = Sieger, 2 = Verlierer) die Mannschafts-ID
-    /// aus einem entschiedenen K.o.-Spiel, oder <c>null</c> falls noch kein Ergebnis vorliegt.</summary>
-    private static int? SiegerOderVerliererId(Spiel spiel, int platzierung)
-    {
-        var sieger = spiel.Ergebnis?.SiegerMannschaftId;
-        if (sieger is null) return null;
-
-        return platzierung switch
-        {
-            1 => sieger,
-            2 => sieger == spiel.HeimMannschaftId ? spiel.AuswaertsMannschaftId : spiel.HeimMannschaftId,
-            _ => null
-        };
     }
 
     private async Task SpeichernAsync(SpielplanErgebnis ergebnis, CancellationToken ct)
