@@ -116,14 +116,14 @@ public static class GesamtbaumLayout
             positionen.Add(new GesamtbaumPosition(k.Id, mitte, mitteZeile, GesamtbaumSeite.Mitte));
             mitteZeile += 1;
         }
-        beschriftungen.Add(new GesamtbaumBeschriftung(mitte, RundenName(baumRunden[letzte]),
+        beschriftungen.Add(new GesamtbaumBeschriftung(mitte, RundenBezeichnung.Name(baumRunden[letzte]),
             hoehe / 2 - (baumRunden[letzte].Knoten.Count - 1) / 2.0));
 
         double untersteZeile = mitteZeile - 1;
         foreach (var p3 in platzDreiRunden)
         {
             double p3Zeile = untersteZeile + PLATZ_DREI_ABSTAND;
-            beschriftungen.Add(new GesamtbaumBeschriftung(mitte, RundenName(p3), p3Zeile));
+            beschriftungen.Add(new GesamtbaumBeschriftung(mitte, RundenBezeichnung.Name(p3), p3Zeile));
             foreach (var k in p3.Knoten)
             {
                 positionen.Add(new GesamtbaumPosition(k.Id, mitte, p3Zeile, GesamtbaumSeite.Mitte));
@@ -134,7 +134,7 @@ public static class GesamtbaumLayout
 
         for (int ri = 0; ri < letzte; ri++)
         {
-            string name = RundenName(baumRunden[ri]);
+            string name = RundenBezeichnung.Name(baumRunden[ri]);
             beschriftungen.Add(new GesamtbaumBeschriftung(ri, name));
             beschriftungen.Add(new GesamtbaumBeschriftung(spaltenAnzahl - 1 - ri, name));
         }
@@ -182,13 +182,4 @@ public static class GesamtbaumLayout
         double z2 = rechts is not null ? zeile[rechts.Id] : z1;
         zeile[knoten.Id] = (z1 + z2) / 2;
     }
-
-    private static string RundenName(BracketRunde runde) => runde.RundenName ?? runde.Knoten.Count switch
-    {
-        1 => "Finale",
-        2 => "Halbfinale",
-        4 => "Viertelfinale",
-        8 => "Achtelfinale",
-        _ => $"{runde.Knoten.Count} Spiele"
-    };
 }

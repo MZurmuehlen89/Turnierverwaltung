@@ -19,7 +19,7 @@ public class GesamtbaumLayoutTests
         return k;
     }
 
-    private static BracketRunde Runde(int nummer, string name, IEnumerable<TurnierBaumKnoten> knoten, bool platzDrei = false) =>
+    private static BracketRunde Runde(int nummer, string? name, IEnumerable<TurnierBaumKnoten> knoten, bool platzDrei = false) =>
         new(nummer, knoten.ToList(), new Dictionary<int, Spiel>(), name, platzDrei);
 
     /// <summary>Vollständiger binärer K.o.-Baum mit <paramref name="ebenen"/> Runden, erste Runde zuerst.</summary>
@@ -141,5 +141,18 @@ public class GesamtbaumLayoutTests
 
         e.SpaltenAnzahl.Should().Be(1);
         Pos(e, f).Should().Be(new GesamtbaumPosition(f.Id, 0, 0.5, GesamtbaumSeite.Mitte));
+    }
+
+    [Fact]
+    public void RundenOhneNamen_HeissenWieInDerRundenweisenAnsicht()
+    {
+        var b = VollerBaum(6); // 32, 16, 8, 4, 2, 1
+        var runden = b.Select((knoten, i) => Runde(i + 1, null, knoten)).ToList();
+
+        var e = GesamtbaumLayout.Berechnen(runden);
+
+        e.Beschriftungen.Select(x => x.Name).Distinct().Should().BeEquivalentTo(runden.Select(RundenBezeichnung.Name));
+        e.Beschriftungen.Where(x => x.Name == "Letzte 64").Select(x => x.Spalte).Should().BeEquivalentTo([0, 10]);
+        e.Beschriftungen.Where(x => x.Name == "Letzte 32").Select(x => x.Spalte).Should().BeEquivalentTo([1, 9]);
     }
 }
