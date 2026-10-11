@@ -111,7 +111,9 @@ New code and every refactoring follow this fixed selection from Clean Code Devel
 | **Automated unit tests** (yellow) | Logic that becomes pure/stateless through a split gets tests — as far as the test project can reach it (it does not reference `WinUi`). |
 
 **Thresholds** (project convention, not part of CCD) at which a split must be considered — and the reason stated
-if it is not done: method > ~40 lines, class > ~400 lines, more than ~5 constructor dependencies.
+if it is not done: method > ~40 lines, class > ~400 lines, more than ~5 constructor dependencies. These are
+guidelines, not limits: what decides is whether the class is one coherent responsibility. A class above the
+threshold that belongs together stays together; a split that only serves the line count is not made.
 
 **Deliberate deviations:**
 
