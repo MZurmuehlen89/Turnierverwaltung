@@ -25,15 +25,8 @@ public class UebergangsregelServiceTests
     private static UebergangsregelService ServiceFuer(TurnierverwaltungDbContext ctx)
     {
         var rundeRepo = new TurnierRundeRepository(ctx);
-        var spielRepo = new SpielRepository(ctx);
-        var mannschaftRepo = new MannschaftRepository(ctx);
-        var baumRepo = new TurnierBaumRepository(ctx);
         var uebergangsregelRepo = new UebergangsregelRepository(ctx);
-        var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator()]);
-        var spielplanService = new SpielplanService(
-            rundeRepo, spielRepo, mannschaftRepo, baumRepo, uebergangsregelRepo,
-            factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
-            new AuslosungRepository(ctx), NullLogger<SpielplanService>.Instance);
+        var spielplanService = new SpielplanDienste(ctx).Spielplan;
 
         return new UebergangsregelService(
             uebergangsregelRepo, rundeRepo, new UebergangsregelValidator(),

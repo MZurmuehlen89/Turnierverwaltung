@@ -12,6 +12,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Repositories;
+using Fussballturnierverwaltung.Tests.Spielplan;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -26,19 +27,7 @@ public class SpielErgebnisServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 
-    private static SpielplanService SpielplanServiceFuer(TurnierverwaltungDbContext ctx)
-    {
-        var rundeRepo = new TurnierRundeRepository(ctx);
-        var spielRepo = new SpielRepository(ctx);
-        var mannschaftRepo = new MannschaftRepository(ctx);
-        var baumRepo = new TurnierBaumRepository(ctx);
-        var uebergangsregelRepo = new UebergangsregelRepository(ctx);
-        var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator()]);
-        return new SpielplanService(
-            rundeRepo, spielRepo, mannschaftRepo, baumRepo, uebergangsregelRepo,
-            factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
-            new AuslosungRepository(ctx), NullLogger<SpielplanService>.Instance);
-    }
+    private static SpielplanService SpielplanServiceFuer(TurnierverwaltungDbContext ctx) => new SpielplanDienste(ctx).Spielplan;
 
     private static SpielErgebnisService ServiceFuer(TurnierverwaltungDbContext ctx) =>
         new(new SpielRepository(ctx),

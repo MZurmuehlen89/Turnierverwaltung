@@ -11,6 +11,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Repositories;
+using Fussballturnierverwaltung.Tests.Spielplan;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -27,16 +28,9 @@ public class TurnierBaumServiceTests
 
     private static (TurnierBaumService Baum, SpielplanService Spielplan) ServiceFuer(TurnierverwaltungDbContext ctx)
     {
-        var rundeRepo = new TurnierRundeRepository(ctx);
         var spielRepo = new SpielRepository(ctx);
-        var mannschaftRepo = new MannschaftRepository(ctx);
         var baumRepo = new TurnierBaumRepository(ctx);
-        var uebergangsregelRepo = new UebergangsregelRepository(ctx);
-        var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator()]);
-        var spielplanService = new SpielplanService(
-            rundeRepo, spielRepo, mannschaftRepo, baumRepo, uebergangsregelRepo,
-            factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
-            new AuslosungRepository(ctx), NullLogger<SpielplanService>.Instance);
+        var spielplanService = new SpielplanDienste(ctx).Spielplan;
         var instanzRepo = new TurnierInstanzRepository(ctx);
         var baumService = new TurnierBaumService(
             baumRepo, instanzRepo, spielRepo, spielplanService, NullLogger<TurnierBaumService>.Instance);

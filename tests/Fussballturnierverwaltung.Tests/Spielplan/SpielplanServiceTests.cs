@@ -25,19 +25,7 @@ public class SpielplanServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 
-    private static SpielplanService ServiceFuer(TurnierverwaltungDbContext ctx)
-    {
-        var rundeRepo = new TurnierRundeRepository(ctx);
-        var spielRepo = new SpielRepository(ctx);
-        var mannschaftRepo = new MannschaftRepository(ctx);
-        var baumRepo = new TurnierBaumRepository(ctx);
-        var uebergangsregelRepo = new UebergangsregelRepository(ctx);
-        var factory = new SpielplanGeneratorFactory([new KoRundeGenerator(), new RoundRobinGenerator(), new SchweizerSystemGenerator()]);
-        return new SpielplanService(
-            rundeRepo, spielRepo, mannschaftRepo, baumRepo, uebergangsregelRepo,
-            factory, new TurnierValidator(), new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
-            new AuslosungRepository(ctx), NullLogger<SpielplanService>.Instance);
-    }
+    private static SpielplanService ServiceFuer(TurnierverwaltungDbContext ctx) => new SpielplanDienste(ctx).Spielplan;
 
     /// <summary>Legt Regelwerk (mit Entscheidungsverfahren, für KO/Finale Pflicht), Halbfinale- und Finale-Runde
     /// sowie 4 Mannschaften an. Halbfinale-Spiele werden NICHT angelegt (Aufgabe der einzelnen Tests).</summary>
