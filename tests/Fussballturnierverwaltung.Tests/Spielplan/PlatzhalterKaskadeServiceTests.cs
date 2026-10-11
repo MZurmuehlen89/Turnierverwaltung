@@ -381,6 +381,27 @@ public class PlatzhalterKaskadeServiceTests
         koSpielNachher.AuswaertsPlatzhalterName.Should().Be("2. Gruppe B");
     }
 
+    [Fact]
+    public async Task RundenSpielplanAusAuslosungErsetzen_GenerierungScheitert_KaskadeLaeuftTrotzdem()
+    {
+        // Issue #458: Der alte Spielplan ist zu diesem Zeitpunkt schon gelöscht — die Folgerunde darf auch dann
+        // nicht auf dessen Teilnehmern stehen bleiben, wenn aus der Auslosung kein neuer entsteht (#306).
+        await using var ctx = NeuerContext();
+        GruppenphaseUndKoSetupAnlegen(ctx, out int gruppenphaseRundeId, out int koRundeId);
+        var auslosung = await AuslosungMitPlatzhalternAnlegen(
+            ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"));
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await dienste.Aufloesung.RundeAufloesenAsync(koRundeId);
+
+        var ersetzen = () => dienste.Kaskade.RundenSpielplanAusAuslosungErsetzenAsync(gruppenphaseRundeId, []);
+
+        await ersetzen.Should().ThrowAsync<InvalidOperationException>();
+        var koSpiel = ctx.Spiele.First(s => s.TurnierRundeId == koRundeId);
+        koSpiel.HeimMannschaftId.Should().BeNull("die Gruppenphase hat keine Spiele mehr");
+        koSpiel.HeimPlatzhalterName.Should().Be("Sieger Gruppe A");
+    }
+
     // ── Tests: K.o.-Runden mit Hin-/Rückspiel und Platzhaltern (Issue #346) ─
 
     [Fact]

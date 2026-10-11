@@ -83,9 +83,10 @@ public class SpielplanService(
     /// <summary>
     /// Generiert den Spielplan einer Runde direkt aus den Ergebnissen einer abgeschlossenen Auslosung -
     /// wählt je nach Rundenart automatisch die passende Generierungsmethode (Gruppenphase, TopfLiga,
-    /// SchweizerSystem, oder direkte/Platzhalter-Paarungen für Liga/KO-Runden). Gemeinsam genutzt vom
-    /// manuellen "Neu generieren"-Befehl (SpielplanViewModel) und der automatischen Generierung direkt
-    /// nach Auslosungs-Abschluss (Issue #19, AuslosungViewModel).
+    /// SchweizerSystem, oder direkte/Platzhalter-Paarungen für Liga/KO-Runden). Aufgerufen über
+    /// <see cref="PlatzhalterKaskadeService.RundenSpielplanAusAuslosungErsetzenAsync"/> — vom manuellen
+    /// "Neu generieren"-Befehl im Spielplan und beim Abschließen einer Auslosung (Issue #19) — sowie von der
+    /// Kaskade selbst, wenn sie eine Folgerunde neu generiert.
     /// </summary>
     public async Task GenerierenAusAuslosungAsync(
         int turnierRundeId, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct = default)

@@ -845,18 +845,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             }
 
             using var vorgang = _logger.Vorgang($"Spielplan neu generieren (Runde {rundeId})");
-            if (Spiele.Count > 0)
-                // Issue #320-Folgefund: kaskadenlos löschen — LoeschenAsync würde selbst sofort wieder die
-                // Kaskade auslösen, die bei einer Platzhalter-K.o.-Runde mit weiterhin abgeschlossener
-                // Auslosung erneut komplett neu generiert, bevor der folgende GenerierenAusAuslosungAsync-
-                // Aufruf noch einmal generiert — macht aus den erwarteten Spielen doppelt so viele.
-                await _spielplanService.RundenSpielplanOhneKaskadeLoeschenAsync(rundeId);
-
-            await _spielplanService.GenerierenAusAuslosungAsync(rundeId, [.. auslosung.Ergebnisse]);
-
-            // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf den alten (jetzt
-            // ersetzten) Spielplan verwiesen haben (#306) — ohne die Kaskade blieben sie fälschlich stehen.
-            await _kaskade.KaskadeAusloesenAsync(instanzId);
+            // Löschen, Generieren und die eine Kaskade danach (#320, #306) stehen im Dienst — derselbe Ablauf
+            // wie beim Abschließen einer Auslosung.
+            await _kaskade.RundenSpielplanAusAuslosungErsetzenAsync(rundeId, [.. auslosung.Ergebnisse]);
 
             await SpieleNeuLadenAsync(rundeId);
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
