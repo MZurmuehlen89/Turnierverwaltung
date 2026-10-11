@@ -207,7 +207,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         var spiele = await _spielService.AlleNachRundeAsync(AusgewaehlteRunde.Id);
         Spiele.Clear();
         SpieleHinzufuegen(spiele, AusgewaehlteRunde);
-        Fokus.FokusSpieleMelden();
+        Fokus.SpieleMelden();
     }
 
     // ── Simulation ────────────────────────────────────────────────────────────
@@ -431,8 +431,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _naechsteSchweizerRundeBefehl = new AsyncRelayCommand(NaechsteSchweizerRundeGenerierenAsync, KannNaechsteSchweizerRundeGenerieren);
         Fokus.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is not (nameof(SpieltagFokusViewModel.FokusAlleAktiv)
-                or nameof(SpieltagFokusViewModel.FokusAktiverSpieltag))) return;
+            if (e.PropertyName != nameof(SpieltagFokusViewModel.GewaehlterSpieltag)) return;
             OnPropertyChanged(nameof(SpieltagSimulierenMenuText));
             OnPropertyChanged(nameof(SpieltagZuruecksetzenMenuText));
             OnPropertyChanged(nameof(RibbonZusatzGruppen));
@@ -480,7 +479,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             SpieleHinzufuegen(neueSpiele, runde);
-            Fokus.FokusSpieleMelden();
+            Fokus.SpieleMelden();
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
 
             AusgewaehlteSpiel = spielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == spielId) : null;
@@ -518,7 +517,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 break;
             case nameof(AusgewaehlteGruppe):
                 BeiGruppeFokusAenderung();
-                Fokus.FokusSpieleMelden();
+                Fokus.SpieleMelden();
                 break;
         }
     }
@@ -691,7 +690,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Fehlermeldung = null;
         Formular.ErlaubteVerfahrenSetzen([]);
         AusgewaehlteGruppe = null;
-        Fokus.SpieltagAuswahlFreigeben();
+        Fokus.AuswahlFreigeben();
         FokusSpieltageAbgleichen();
         GruppenTabellen.Clear();
         _teamGruppeMap = [];
@@ -900,7 +899,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             Spiele.Clear();
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
-            Fokus.FokusSpieleMelden();
+            Fokus.SpieleMelden();
             AusgewaehlteSpiel = null;
             await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
         }
@@ -957,7 +956,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             // Issue #363: direkt den gerade generierten Spieltag zeigen.
             if (AusgewaehlteGruppe is null) Fokus.LetztenSpieltagZeigen();
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
-            Fokus.FokusSpieleMelden();
+            Fokus.SpieleMelden();
             await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
         }
         catch (Exception ex)
@@ -998,7 +997,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
                 Spiele.Clear();
                 SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
-                Fokus.FokusSpieleMelden();
+                Fokus.SpieleMelden();
             }
             finally
             {
@@ -1045,7 +1044,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
-            Fokus.FokusSpieleMelden();
+            Fokus.SpieleMelden();
 
             AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
             await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
@@ -1125,8 +1124,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// einer Runde mit Spieltagen (Issue #363).</summary>
     private void FokusSpieltageAbgleichen()
     {
-        Fokus.FokusSpieltageAbgleichen(
-            SpieltagRelevanteSpiele() ?? [], nachGruppe: AusgewaehlteGruppe is null && IstGruppenphase);
+        Fokus.Abgleichen(
+            SpieltagRelevanteSpiele() ?? [], nachGruppeGegliedert: AusgewaehlteGruppe is null && IstGruppenphase);
         _spieltagSimulierenBefehl.NotifyCanExecuteChanged();
         _spieltagZuruecksetzenBefehl.NotifyCanExecuteChanged();
     }
@@ -1137,8 +1136,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             : null);
 
     private int? EffektiverSpieltag =>
-        ZeigeFokusListe && !Fokus.FokusAlleAktiv
-            ? Fokus.FokusAktiverSpieltag
+        ZeigeFokusListe && Fokus.GewaehlterSpieltag is { } spieltag
+            ? spieltag
             : AusgewaehlteSpiel?.Spieltag;
 
     // ── Simulation: CanExecute ─────────────────────────────────────────────────
@@ -1220,7 +1219,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
-            Fokus.FokusSpieleMelden();
+            Fokus.SpieleMelden();
             AusgewaehlteSpiel = null;
             await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
@@ -1254,7 +1253,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
-            Fokus.FokusSpieleMelden();
+            Fokus.SpieleMelden();
             await SpielAuswahlWiederherstellenAsync(spielId);
         }
         catch (Exception ex)
@@ -1296,7 +1295,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
-            Fokus.FokusSpieleMelden();
+            Fokus.SpieleMelden();
             await SpielAuswahlWiederherstellenAsync(spielId);
         }
         catch (Exception ex)
@@ -1333,7 +1332,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
-            Fokus.FokusSpieleMelden();
+            Fokus.SpieleMelden();
             AusgewaehlteSpiel = null;
             MehrfachAusgewaehlteSpiele = [];
             await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
@@ -1370,7 +1369,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
-            Fokus.FokusSpieleMelden();
+            Fokus.SpieleMelden();
             AusgewaehlteSpiel = null;
             await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
@@ -1413,7 +1412,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
-            Fokus.FokusSpieleMelden();
+            Fokus.SpieleMelden();
             AusgewaehlteSpiel = null;
             await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
@@ -1457,7 +1456,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
-            Fokus.FokusSpieleMelden();
+            Fokus.SpieleMelden();
             await SpielAuswahlWiederherstellenAsync(spielId);
             await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
@@ -1501,7 +1500,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
-            Fokus.FokusSpieleMelden();
+            Fokus.SpieleMelden();
             await SpielAuswahlWiederherstellenAsync(spielId);
             await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
@@ -1541,7 +1540,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
-            Fokus.FokusSpieleMelden();
+            Fokus.SpieleMelden();
             AusgewaehlteSpiel = null;
             MehrfachAusgewaehlteSpiele = [];
             await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
@@ -1596,7 +1595,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
             Spiele.Clear();
             SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
-            Fokus.FokusSpieleMelden();
+            Fokus.SpieleMelden();
             AusgewaehlteSpiel = null;
             await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde!.TurnierInstanzId);
         }
