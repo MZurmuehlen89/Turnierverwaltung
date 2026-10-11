@@ -10,8 +10,8 @@ namespace Fussballturnierverwaltung.Application.Spiele;
 public class SpielErgebnisService(
     ISpielRepository spielRepository,
     SpielErgebnisValidator validator,
-    SpielplanService spielplanService,
     PlatzhalterAufloesung aufloesung,
+    IPlatzhalterKaskadeService kaskade,
     ILogger<SpielErgebnisService> logger)
 {
     public Task<IReadOnlyList<Spiel>> AlleNachRundeAsync(int turnierRundeId, CancellationToken ct = default)
@@ -184,7 +184,7 @@ public class SpielErgebnisService(
     /// Prüft nach jedem Ergebnis-Reset (einzeln oder Batch, gleich über welchen Aufrufer — WPF oder
     /// Konsole), ob automatisch generierte Folgerunden-Inhalte zurückgenommen oder neu generiert werden
     /// müssen. Zentral hier statt an jeder Aufrufstelle (Issue #125) — betrifft dadurch automatisch auch
-    /// die Konsole, die dieselben Methoden nutzt. Delegiert an <see cref="SpielplanService.KaskadeAusloesenAsync"/>,
+    /// die Konsole, die dieselben Methoden nutzt. Delegiert an <see cref="IPlatzhalterKaskadeService.KaskadeAusloesenAsync"/>,
     /// das denselben zentralen Trigger auch für <see cref="Auslosungen.AuslosungService"/> bereitstellt
     /// (Issue #306).
     /// </summary>
@@ -192,7 +192,7 @@ public class SpielErgebnisService(
     {
         var instanzIds = await spielRepository.TurnierInstanzIdsAsync(spielIds, ct);
         foreach (var instanzId in instanzIds)
-            await spielplanService.KaskadeAusloesenAsync(instanzId, ct);
+            await kaskade.KaskadeAusloesenAsync(instanzId, ct);
     }
 
     // Bestimmt Sieger und EndgültigeEntscheidungsArt.

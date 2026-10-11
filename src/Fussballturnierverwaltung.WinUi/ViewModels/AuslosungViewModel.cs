@@ -41,6 +41,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly MannschaftService _mannschaftService;
     private readonly VerbandService _verbandService;
     private readonly SpielplanService _spielplanService;
+    private readonly PlatzhalterKaskadeService _kaskade;
     private readonly TurnierBaumService _baumService;
     private readonly UebergangsregelService _uebergangsregelService;
     private readonly IDialogService _dialogService;
@@ -351,6 +352,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         MannschaftService mannschaftService,
         VerbandService verbandService,
         SpielplanService spielplanService,
+        PlatzhalterKaskadeService kaskade,
         TurnierBaumService baumService,
         RanglisteService ranglisteService,
         VerbandsQuoteService verbandsQuoteService,
@@ -364,6 +366,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _mannschaftService = mannschaftService;
         _verbandService = verbandService;
         _spielplanService = spielplanService;
+        _kaskade = kaskade;
         _baumService = baumService;
         _uebergangsregelService = uebergangsregelService;
         _dialogService = dialogService;
@@ -712,7 +715,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         // Vorschau wie vor "Ergebnisse zurücksetzen" im Spielplan (#389): alle Spiele der Runde gelten als
         // entfernt. Neu zu generierende leere Runden zählen nicht — dort geht nichts verloren.
-        var plan = await _spielplanService.PlatzhalterKaskadePlanenAsync(
+        var plan = await _kaskade.PlatzhalterKaskadePlanenAsync(
             turnierInstanzId, spiele.Select(s => s.Id).ToHashSet());
         var folgeSchritte = plan.Schritte.OfType<KaskadenSpielSchritt>().Where(s => s.RundeId != rundeId).ToList();
         if (folgeSchritte.Count > 0)

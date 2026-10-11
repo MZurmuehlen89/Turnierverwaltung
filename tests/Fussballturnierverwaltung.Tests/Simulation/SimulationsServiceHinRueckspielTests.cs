@@ -35,7 +35,7 @@ public class SimulationsServiceHinRueckspielTests
         var instanzRepo = new TurnierInstanzRepository(ctx);
         var dienste = new SpielplanDienste(ctx);
         var ergebnisService = new SpielErgebnisService(
-            spielRepo, new SpielErgebnisValidator(), dienste.Spielplan, dienste.Aufloesung, NullLogger<SpielErgebnisService>.Instance);
+            spielRepo, new SpielErgebnisValidator(), dienste.Aufloesung, dienste.Kaskade, NullLogger<SpielErgebnisService>.Instance);
         var baumService = new TurnierBaumService(
             new TurnierBaumRepository(ctx), instanzRepo, spielRepo, dienste.Aufloesung, dienste.Quellverknuepfung,
             NullLogger<TurnierBaumService>.Instance);

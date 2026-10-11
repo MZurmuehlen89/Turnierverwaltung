@@ -16,6 +16,7 @@ internal sealed class SpielplanDienste
         var rundeRepo = new TurnierRundeRepository(ctx);
         var spielRepo = new SpielRepository(ctx);
         var mannschaftRepo = new MannschaftRepository(ctx);
+        var auslosungRepo = new AuslosungRepository(ctx);
         var tabellen  = new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx));
         var generatoren = new SpielplanGeneratorFactory(
             [new KoRundeGenerator(), new RoundRobinGenerator(), new TopfLigaGenerator(), new SchweizerSystemGenerator()]);
@@ -28,11 +29,15 @@ internal sealed class SpielplanDienste
         Spielplan = new SpielplanService(
             rundeRepo, spielRepo, mannschaftRepo, new TurnierBaumRepository(ctx),
             new UebergangsregelRepository(ctx), generatoren, new TurnierValidator(),
-            tabellen, zwischenspeicher, Quellverknuepfung, Aufloesung,
-            new AuslosungRepository(ctx), NullLogger<SpielplanService>.Instance);
+            tabellen, Quellverknuepfung, Aufloesung,
+            auslosungRepo, NullLogger<SpielplanService>.Instance);
+        Kaskade = new PlatzhalterKaskadeService(
+            rundeRepo, spielRepo, auslosungRepo, zwischenspeicher, Aufloesung, Spielplan,
+            NullLogger<PlatzhalterKaskadeService>.Instance);
     }
 
     public SpielplanService Spielplan { get; }
     public KoQuellverknuepfung Quellverknuepfung { get; }
     public PlatzhalterAufloesung Aufloesung { get; }
+    public PlatzhalterKaskadeService Kaskade { get; }
 }

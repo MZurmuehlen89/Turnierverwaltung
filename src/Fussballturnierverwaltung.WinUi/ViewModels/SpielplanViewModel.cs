@@ -93,6 +93,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly SpielErgebnisService _spielService;
     private readonly SpielplanService _spielplanService;
     private readonly PlatzhalterAufloesung _platzhalterAufloesung;
+    private readonly PlatzhalterKaskadeService _kaskade;
     private readonly AuslosungService _auslosungService;
     private readonly TurnierBaumService _baumService;
     private readonly RegelwerkService _regelwerkService;
@@ -556,6 +557,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         SpielErgebnisService spielService,
         SpielplanService spielplanService,
         PlatzhalterAufloesung platzhalterAufloesung,
+        PlatzhalterKaskadeService kaskade,
         AuslosungService auslosungService,
         TurnierBaumService baumService,
         RegelwerkService regelwerkService,
@@ -568,6 +570,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _spielService = spielService;
         _spielplanService = spielplanService;
         _platzhalterAufloesung = platzhalterAufloesung;
+        _kaskade = kaskade;
         _auslosungService = auslosungService;
         _baumService = baumService;
         _regelwerkService = regelwerkService;
@@ -1137,7 +1140,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             // Folgerunden können bereits aufgelöste Platzhalter enthalten, die auf den alten (jetzt
             // ersetzten) Spielplan verwiesen haben (#306) — ohne die Kaskade blieben sie fälschlich stehen.
-            await _spielplanService.KaskadeAusloesenAsync(instanzId);
+            await _kaskade.KaskadeAusloesenAsync(instanzId);
 
             await TabellenNeuLadenAsync(rundeId);
 
@@ -1309,7 +1312,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         if (AusgewaehlteInstanz is null || spielIds.Count == 0) return "";
         using var vorgang = _logger.Vorgang($"Spielplan: Kaskaden-Vorschau ({spielIds.Count} Spiele)");
-        var vorschau = await _spielplanService.PlatzhalterKaskadePlanenAsync(AusgewaehlteInstanz.Id, spielIds.ToHashSet());
+        var vorschau = await _kaskade.PlatzhalterKaskadePlanenAsync(AusgewaehlteInstanz.Id, spielIds.ToHashSet());
         return vorschau.HatAuswirkungen
             ? $"\n\nZusätzlich werden dadurch {vorschau.GesamtBetroffeneSpiele} Ergebnis(se) in Folgerunden " +
               "zurückgesetzt, deren Paarungen davon abhängen."

@@ -31,7 +31,7 @@ public class SpielErgebnisServiceTests
     {
         var dienste = new SpielplanDienste(ctx);
         return new SpielErgebnisService(
-            new SpielRepository(ctx), new SpielErgebnisValidator(), dienste.Spielplan, dienste.Aufloesung,
+            new SpielRepository(ctx), new SpielErgebnisValidator(), dienste.Aufloesung, dienste.Kaskade,
             NullLogger<SpielErgebnisService>.Instance);
     }
 
