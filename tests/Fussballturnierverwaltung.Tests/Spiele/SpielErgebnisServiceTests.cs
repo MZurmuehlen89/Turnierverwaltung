@@ -589,7 +589,7 @@ public class SpielErgebnisServiceTests
         var dienste = new SpielplanDienste(ctx);
         await dienste.Spielplan.GenerierenAusAuslosungAsync(
             finaleRundeId, [.. ctx.AuslosungsErgebnisse.Where(e => e.AuslosungId == auslosung.Id)]);
-        await dienste.Aufloesung.PlatzhalterAufloesenAsync(finaleRundeId);
+        await dienste.Aufloesung.RundeAufloesenAsync(finaleRundeId);
 
         var finaleSpielVorher = ctx.Spiele.First(s => s.TurnierRundeId == finaleRundeId);
         finaleSpielVorher.HeimMannschaftId.Should().Be(10, "Vorbedingung: Sieger HF 1 = Team A");
@@ -764,7 +764,7 @@ public class SpielErgebnisServiceTests
         await ctx.SaveChangesAsync();
         await dienste.Spielplan.GenerierenAusAuslosungAsync(
             hf.Id, [.. ctx.AuslosungsErgebnisse.Where(e => e.AuslosungId == auslosung.Id)]);
-        await dienste.Aufloesung.PlatzhalterAufloesenAsync(hf.Id);
+        await dienste.Aufloesung.RundeAufloesenAsync(hf.Id);
 
         var hfSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == hf.Id).OrderBy(s => s.Spielnummer).ToList();
         hfSpiele.Should().HaveCount(2);

@@ -385,7 +385,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task AktualisierePlatzhalterVorschauAsync()
     {
         _platzhalterVorschau = VorschauAktiv && AusgewaehlteRunde is not null
-            ? await _platzhalterAufloesung.PlatzhalterVorschauAsync(AusgewaehlteRunde.Id)
+            ? await _platzhalterAufloesung.VorschauAsync(AusgewaehlteRunde.Id)
             : new Dictionary<int, (string?, string?)>();
 
         if (AusgewaehlteRunde is null) return;

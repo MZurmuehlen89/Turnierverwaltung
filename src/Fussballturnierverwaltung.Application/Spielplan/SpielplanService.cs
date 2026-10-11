@@ -187,7 +187,7 @@ public class SpielplanService(
         // generierte Runde nach bereits entschiedener Vorrunde wieder reine Platzhalter, bis irgendwo das
         // nächste Ergebnis die Auflösung anstieß (alle Aufrufer: Spielplan, Auslosung, Vorbelegung, Kaskade).
         using (logger.Vorgang($"Platzhalter auflösen nach Generierung (Runde {turnierRundeId})"))
-            await aufloesung.PlatzhalterAufloesenAsync(turnierRundeId, ct);
+            await aufloesung.RundeAufloesenAsync(turnierRundeId, ct);
     }
 
     /// <summary>
@@ -678,7 +678,7 @@ public class SpielplanService(
 
             async Task<int?> SlotAufloesenAsync(GruppenSlot slot) =>
                 slot.MannschaftId ?? (slot.PlatzhalterName is { } name
-                    ? await aufloesung.PlatzhalterNameAufloessenAsync(name, runde, alleRunden, ct, ignoriert)
+                    ? await aufloesung.NameAufloesenAsync(name, runde, alleRunden, ignoriert, ct)
                     : null);
 
             // Issue #346: in K.o.-Runden mit Rückspiel gehört zu jedem Auslosungs-Eintrag ein Hinspiel plus
@@ -700,10 +700,10 @@ public class SpielplanService(
                 var spiel   = aktuelleSpiele[i];
 
                 var sollHeim = eintrag.HeimPlatzhalterName is { } heimName
-                    ? await aufloesung.PlatzhalterNameAufloessenAsync(heimName, runde, alleRunden, ct, ignoriert)
+                    ? await aufloesung.NameAufloesenAsync(heimName, runde, alleRunden, ignoriert, ct)
                     : eintrag.HeimMannschaftId;
                 var sollAusw = eintrag.AuswaertsPlatzhalterName is { } auswName
-                    ? await aufloesung.PlatzhalterNameAufloessenAsync(auswName, runde, alleRunden, ct, ignoriert)
+                    ? await aufloesung.NameAufloesenAsync(auswName, runde, alleRunden, ignoriert, ct)
                     : eintrag.AuswaertsMannschaftId;
 
                 SpielPruefen(spiel, sollHeim, sollAusw, eintrag.HeimPlatzhalterName, eintrag.AuswaertsPlatzhalterName);
@@ -910,7 +910,7 @@ public class SpielplanService(
     /// <summary>Fallback für Turniere ohne explizite <see cref="Uebergangsregel"/>n: sucht die nächstgelegene
     /// einbeinige K.-o.-Vorrunde mit zwei Ausgangsteams und ermittelt deren beide Qualifikanten (Issue #113) —
     /// bei <paramref name="ziel"/> = <see cref="Rundenart.SpielUmPlatzDrei"/> die Verlierer statt der Sieger
-    /// (Issue #199, analog zur Platzierung=2-Auflösung im K.o.-Zweig von RangAufloesenAsync).</summary>
+    /// (Issue #199, analog zur Platzierung=2-Auflösung in der K.o.-Auflösung von PlatzhalterAufloesung).</summary>
     private async Task<(List<int>? Teilnehmer, string Beschreibung)> QualifikantenAusFinaleHeuristikAsync(
         TurnierRunde ziel, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
     {

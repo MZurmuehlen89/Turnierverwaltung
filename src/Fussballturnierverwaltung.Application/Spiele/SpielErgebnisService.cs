@@ -131,7 +131,7 @@ public class SpielErgebnisService(
     /// mehrere unabhängige Gruppen enthalten (z.B. Gruppenphase mit GruppenAnzahl &gt; 1) — eine bereits
     /// fertige Gruppe soll sofort auflösen, auch wenn eine andere Gruppe derselben Runde noch offen ist.
     /// Eine frühere Version prüfte hier "ist die GESAMTE Runde abgeschlossen" und verpasste dadurch genau
-    /// diesen Fall (Fund beim manuellen #206-Test). <see cref="SpielplanService.PlatzhalterAufloesenAsync"/>
+    /// diesen Fall (Fund beim manuellen #206-Test). <see cref="PlatzhalterAufloesung.RundeAufloesenAsync"/>
     /// ist für Runden ohne offene Platzhalter-Spiele bereits günstig (früher Return), daher ist der
     /// Verzicht auf die Vorprüfung unkritisch. Auch von <see cref="Simulation.SimulationsService"/>
     /// genutzt, da simulierte Ergebnisse den Spielrepository-Zugriff direkt nutzen und nicht über
@@ -142,7 +142,7 @@ public class SpielErgebnisService(
         var spiel = await spielRepository.FindenNachIdMitErgebnisAsync(spielId, ct);
         if (spiel is null) return;
 
-        await aufloesung.PlatzhalterAlleRundenAufloesenAsync(spiel.TurnierInstanzId, ct);
+        await aufloesung.AlleRundenAufloesenAsync(spiel.TurnierInstanzId, ct);
     }
 
     public async Task ErgebnisLoeschenAsync(int spielId, CancellationToken ct = default)
