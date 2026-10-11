@@ -569,28 +569,18 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (Formular.IsDirty && Formular.RundeId is { } vorherigeRundeId && vorherigeRundeId != neueRundeId)
         {
             var vorherigeSpielId = Formular.SpielId;
+            TurnierRunde? VorherigeRunde() => Runden.FirstOrDefault(r => r.Id == vorherigeRundeId);
 
             var antwort = await _dialogService.UngespeicherteAenderungenAbfragenAsync();
+            bool wechseln = await AntwortUmsetzenAsync(antwort, async () =>
+                vorherigeSpielId is not { } spielId ||
+                VorherigeRunde() is { } vorherigeRunde &&
+                await ErgebnisSpeichernAsync(spielId, vorherigeRunde, danachNeuLaden: false));
 
-            if (antwort == UngespeichertAntwort.Abbrechen)
+            if (!wechseln)
             {
-                RundeStillSetzen(Runden.FirstOrDefault(r => r.Id == vorherigeRundeId));
+                RundeStillSetzen(VorherigeRunde());
                 return;
-            }
-
-            if (antwort == UngespeichertAntwort.Speichern && vorherigeSpielId is { } spielId)
-            {
-                var vorherigeRunde = Runden.FirstOrDefault(r => r.Id == vorherigeRundeId);
-                bool gespeichert;
-                using (await DbContextSchutz.BetretenAsync())
-                    gespeichert = vorherigeRunde is not null &&
-                        await ErgebnisSpeichernAsync(spielId, vorherigeRunde, danachNeuLaden: false);
-
-                if (!gespeichert)
-                {
-                    RundeStillSetzen(vorherigeRunde);
-                    return;
-                }
             }
 
             Formular.AenderungenVergessen();
@@ -604,6 +594,19 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         await DbContextSchutz.AusfuehrenAsync(
             BeiRundeAenderungAsync, ex => Fehlermeldung = ex.Message,
             istNochAktuell: () => AusgewaehlteRunde?.Id == neueRundeId);
+    }
+
+    /// <summary>Setzt die Antwort auf die Ungespeichert-Abfrage um und liefert, ob der Wechsel weitergeht:
+    /// „Abbrechen“ nein, „Verwerfen“ ja, „Speichern“ je nach <paramref name="speichern"/> — das läuft im
+    /// <see cref="DbContextSchutz"/>. Was bei „nein“ zurückgenommen und danach geladen wird, entscheidet der
+    /// Aufrufer.</summary>
+    private async Task<bool> AntwortUmsetzenAsync(UngespeichertAntwort antwort, Func<Task<bool>> speichern)
+    {
+        if (antwort == UngespeichertAntwort.Abbrechen) return false;
+        if (antwort != UngespeichertAntwort.Speichern) return true;
+
+        using (await DbContextSchutz.BetretenAsync())
+            return await speichern();
     }
 
     private async Task BeiRundeAenderungAsync()
@@ -696,34 +699,26 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var antwort = await _dialogService.UngespeicherteAenderungenAbfragenAsync();
 
+            // Die Unterdrückung reicht vom Speichern bis zum Setzen der Auswahl: das Neuladen nach dem Speichern
+            // baut die Liste neu auf und nullt dabei die Auswahl.
             using (_spielWechsel.Betreten())
             {
-                if (antwort == UngespeichertAntwort.Abbrechen)
+                // Ein gescheitertes Speichern hält den Spielwechsel nicht auf (#461).
+                bool wechseln = await AntwortUmsetzenAsync(antwort, async () =>
                 {
-                    AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == vorherigeSpielId);
-                    return;
-                }
+                    if (AusgewaehlteRunde is { } runde && runde.Id == vorherigeRundeId)
+                        await ErgebnisSpeichernAsync(vorherigeSpielId, runde, danachNeuLaden: true);
+                    return true;
+                });
 
-                if (antwort == UngespeichertAntwort.Speichern)
-                {
-                    using (await DbContextSchutz.BetretenAsync())
-                    {
-                        if (AusgewaehlteRunde is { } runde && runde.Id == vorherigeRundeId)
-                            await ErgebnisSpeichernAsync(vorherigeSpielId, runde, danachNeuLaden: true);
-                    }
-                }
-
-                AusgewaehlteSpiel = neuesSpielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == neuesSpielId) : null;
+                int? zielSpielId = wechseln ? neuesSpielId : vorherigeSpielId;
+                AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == zielSpielId);
+                if (!wechseln) return;
             }
-
-            // #338: siehe Kommentar in RundeWechselAsync — schützt gegen zwei echte, schnell
-            // aufeinanderfolgende Spiel-Auswahländerungen; istNochAktuell verwirft veraltete Zwischenauswahlen.
-            await DbContextSchutz.AusfuehrenAsync(
-                BeiSpielAenderungAsync, ex => Fehlermeldung = ex.Message,
-                istNochAktuell: () => AusgewaehlteSpiel?.Id == neuesSpielId);
-            return;
         }
 
+        // #338: siehe Kommentar in RundeWechselAsync — schützt gegen zwei echte, schnell
+        // aufeinanderfolgende Spiel-Auswahländerungen; istNochAktuell verwirft veraltete Zwischenauswahlen.
         await DbContextSchutz.AusfuehrenAsync(
             BeiSpielAenderungAsync, ex => Fehlermeldung = ex.Message,
             istNochAktuell: () => AusgewaehlteSpiel?.Id == neuesSpielId);
