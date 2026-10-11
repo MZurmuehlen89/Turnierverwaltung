@@ -597,7 +597,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
     private void SpieleHinzufuegen(IReadOnlyList<Spiel> spiele)
     {
-        var paarungsNummern = SpielplanViewModel.PaarungsNummern(spiele);
+        var paarungsNummern = SpielZeilenMapper.PaarungsNummern(spiele);
         foreach (var s in spiele)
             Spiele.Add(MapSpielZeile(s, paarungsNummern[s.Id]));
     }
@@ -622,7 +622,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             Id             = s.Id,
             Spielnummer    = s.Spielnummer,
             Spieltag       = s.Spieltag,
-            KoLabel        = SpielplanViewModel.KoPositionsLabel(s, AusgewaehlteRunde, paarungsNummer),
+            KoLabel        = SpielZeilenMapper.KoPositionsLabel(s, AusgewaehlteRunde, paarungsNummer),
             HeimName       = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "?",
             AuswaertsName  = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "?",
             HeimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(s.HeimMannschaft),
