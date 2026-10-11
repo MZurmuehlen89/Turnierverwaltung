@@ -51,8 +51,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)> _platzhalterVorschau =
         new Dictionary<int, (string?, string?)>();
 
-    private int _spielWechselUnterdrueckt;
-    private int _rundeWechselUnterdrueckt;
+    private readonly WechselUnterdrueckung _spielWechsel = new();
+    private readonly WechselUnterdrueckung _rundeWechsel = new();
 
     /// <summary>Reiht alle Datenbankzugriffe dieses Reiters hintereinander: Runde-/Spiel-Wechsel (#338), die
     /// Aktionen (Simulieren, Zurücksetzen, Speichern …) und — über den vom
@@ -61,7 +61,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// Laden nach einem Runden-, Reiter- oder Turnierwechsel und brach dabei selbst mittendrin ab. Nicht
     /// wiedereintrittsfähig — <see cref="InstanzSetzenAsync"/> läuft bereits unter dem Schutz und darf nichts
     /// abwarten, das ihn betritt (die selbstverursachte Reentrancy decken
-    /// _rundeWechselUnterdrueckt/_spielWechselUnterdrueckt ab).</summary>
+    /// _rundeWechsel/_spielWechsel ab).</summary>
     public DbContextReentrancySchutz DbContextSchutz { get; set; } = new();
 
     IReadOnlyList<SpielZeile> ISpielmengenKontext.Spiele => Spiele;
@@ -441,8 +441,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // ItemsSource.Clear() über die DispatcherQueue VERZÖGERT statt synchron auslösen. Feuert der
         // Callback erst während der Turnierbaum-Aktualisierung/BeiSpielAenderungAsync, entsteht sonst ein
         // ungeschützter Parallelzugriff auf denselben DbContext ("second operation"-Exception, #317).
-        _spielWechselUnterdrueckt++;
-        try
+        using (_spielWechsel.Betreten())
         {
             await SpieleNeuLadenAsync(rundeId);
             OnPropertyChanged(nameof(HatPlatzhalterSpiele));
@@ -450,10 +449,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             AusgewaehlteSpiel = spielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == spielId) : null;
 
             await _baumService.NachSpielplanAenderungAktualisierenAsync(runde.TurnierInstanzId);
-        }
-        finally
-        {
-            _spielWechselUnterdrueckt--;
         }
 
         await BeiSpielAenderungAsync();
@@ -507,68 +502,67 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // DispatcherQueue VERZÖGERT statt synchron auslösen. Feuert der Callback erst während einer der
         // nachfolgenden Abfragen, entsteht sonst ein ungeschützter Parallelzugriff auf denselben
         // DbContext ("second operation"-Exception, bislang nur per Retry im Composite abgefangen, #317).
-        _rundeWechselUnterdrueckt++;
-        try
-        {
-            if (instanz is null)
-            {
-                Runden.Clear();
-                await RundeUndSpielZuruecksetzenAsync();
-                return;
-            }
+        using var unterdrueckung = _rundeWechsel.Betreten();
 
+        if (instanz is null)
+        {
             Runden.Clear();
-            foreach (var r in instanz.Runden.OrderBy(r => r.Reihenfolge))
-                Runden.Add(r);
-
-            // Reiner Tab-Wechsel ohne echten Instanzwechsel (#307): dieselbe Runde existiert nach dem
-            // Neuladen noch — Auswahl anhand der Id wiederherstellen statt sie zu verlieren. Bei echtem
-            // Instanzwechsel findet sich die alte Runden-Id nicht mehr (Ids sind global eindeutig), dann
-            // greift der volle Reset wie zuvor.
-            var wiederhergestellteRunde = vorherigeRundeId.HasValue
-                ? Runden.FirstOrDefault(r => r.Id == vorherigeRundeId)
-                : null;
-
-            if (wiederhergestellteRunde is null)
-            {
-                await RundeUndSpielZuruecksetzenAsync();
-                return;
-            }
-
-            AusgewaehlteRunde = wiederhergestellteRunde;
-
-            // Spiele/Tabellen frisch laden (externe Änderungen aus anderen Tabs sichtbar machen), aber
-            // Spiel-Auswahl anhand ihrer Id wiederherstellen statt hart zurückzusetzen (Precedent:
-            // SpiellisteAktualisierenAsync, bereits genau dieses Muster für AktivierenAsync).
-            await SpiellisteAktualisierenAsync();
+            await RundeUndSpielZuruecksetzenAsync();
+            return;
         }
-        finally
+
+        Runden.Clear();
+        foreach (var r in instanz.Runden.OrderBy(r => r.Reihenfolge))
+            Runden.Add(r);
+
+        // Reiner Tab-Wechsel ohne echten Instanzwechsel (#307): dieselbe Runde existiert nach dem
+        // Neuladen noch — Auswahl anhand der Id wiederherstellen statt sie zu verlieren. Bei echtem
+        // Instanzwechsel findet sich die alte Runden-Id nicht mehr (Ids sind global eindeutig), dann
+        // greift der volle Reset wie zuvor.
+        var wiederhergestellteRunde = vorherigeRundeId.HasValue
+            ? Runden.FirstOrDefault(r => r.Id == vorherigeRundeId)
+            : null;
+
+        if (wiederhergestellteRunde is null)
         {
-            _rundeWechselUnterdrueckt--;
+            await RundeUndSpielZuruecksetzenAsync();
+            return;
         }
+
+        AusgewaehlteRunde = wiederhergestellteRunde;
+
+        // Spiele/Tabellen frisch laden (externe Änderungen aus anderen Tabs sichtbar machen), aber
+        // Spiel-Auswahl anhand ihrer Id wiederherstellen statt hart zurückzusetzen (Precedent:
+        // SpiellisteAktualisierenAsync, bereits genau dieses Muster für AktivierenAsync).
+        await SpiellisteAktualisierenAsync();
     }
 
     private async Task RundeUndSpielZuruecksetzenAsync()
     {
         Spiele.Clear();
         AusgewaehlteSpiel = null;
-
-        _rundeWechselUnterdrueckt++;
-        try
-        {
-            AusgewaehlteRunde = null;
-        }
-        finally
-        {
-            _rundeWechselUnterdrueckt--;
-        }
+        RundeStillSetzen(null);
 
         await BeiRundeAenderungAsync();
     }
 
+    /// <summary>Setzt die Rundenauswahl, ohne den Rundenwechsel (Abfrage, Laden) auszulösen.</summary>
+    private void RundeStillSetzen(TurnierRunde? runde)
+    {
+        using (_rundeWechsel.Betreten())
+            AusgewaehlteRunde = runde;
+    }
+
+    /// <summary>Setzt die Spielauswahl, ohne den Spielwechsel (Abfrage, Laden) auszulösen.</summary>
+    private void SpielStillSetzen(SpielZeile? spiel)
+    {
+        using (_spielWechsel.Betreten())
+            AusgewaehlteSpiel = spiel;
+    }
+
     private async Task RundeWechselAsync()
     {
-        if (_rundeWechselUnterdrueckt > 0) return;
+        if (_rundeWechsel.IstAktiv) return;
 
         var neueRundeId = AusgewaehlteRunde?.Id;
 
@@ -580,15 +574,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             if (antwort == UngespeichertAntwort.Abbrechen)
             {
-                _rundeWechselUnterdrueckt++;
-                try
-                {
-                    AusgewaehlteRunde = Runden.FirstOrDefault(r => r.Id == vorherigeRundeId);
-                }
-                finally
-                {
-                    _rundeWechselUnterdrueckt--;
-                }
+                RundeStillSetzen(Runden.FirstOrDefault(r => r.Id == vorherigeRundeId));
                 return;
             }
 
@@ -602,15 +588,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
                 if (!gespeichert)
                 {
-                    _rundeWechselUnterdrueckt++;
-                    try
-                    {
-                        AusgewaehlteRunde = vorherigeRunde;
-                    }
-                    finally
-                    {
-                        _rundeWechselUnterdrueckt--;
-                    }
+                    RundeStillSetzen(vorherigeRunde);
                     return;
                 }
             }
@@ -724,7 +702,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task SpielWechselAsync()
     {
-        if (_spielWechselUnterdrueckt > 0) return;
+        if (_spielWechsel.IstAktiv) return;
 
         var neuesSpielId = AusgewaehlteSpiel?.Id;
 
@@ -735,8 +713,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             var antwort = await _dialogService.UngespeicherteAenderungenAbfragenAsync();
 
-            _spielWechselUnterdrueckt++;
-            try
+            using (_spielWechsel.Betreten())
             {
                 if (antwort == UngespeichertAntwort.Abbrechen)
                 {
@@ -751,10 +728,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 }
 
                 AusgewaehlteSpiel = neuesSpielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == neuesSpielId) : null;
-            }
-            finally
-            {
-                _spielWechselUnterdrueckt--;
             }
 
             // #338: siehe Kommentar in RundeWechselAsync — schützt gegen zwei echte, schnell
@@ -800,15 +773,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task SpielAuswahlWiederherstellenAsync(int? spielId)
     {
-        _spielWechselUnterdrueckt++;
-        try
-        {
-            AusgewaehlteSpiel = spielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == spielId) : null;
-        }
-        finally
-        {
-            _spielWechselUnterdrueckt--;
-        }
+        SpielStillSetzen(spielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == spielId) : null);
         await BeiSpielAenderungAsync();
     }
 
@@ -935,15 +900,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             // GruppenTabellenLadenAsync als auch FokusSpiele geben der Fokus-Liste (Gruppenfilter/Spieltag) eine
             // neue ItemsSource, die deren SelectedItem nullt — das löste trotz gerade laufendem Speichern die
             // Ungespeichert-Abfrage aus (Issue #345).
-            _spielWechselUnterdrueckt++;
-            try
-            {
+            using (_spielWechsel.Betreten())
                 await SpieleNeuLadenAsync(rundeId);
-            }
-            finally
-            {
-                _spielWechselUnterdrueckt--;
-            }
 
             return true;
         }
