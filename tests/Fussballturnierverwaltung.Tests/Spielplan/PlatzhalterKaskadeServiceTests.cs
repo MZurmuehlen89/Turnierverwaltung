@@ -350,13 +350,13 @@ public class PlatzhalterKaskadeServiceTests
     // ── Tests: gespeicherte Gruppennummer (Issue #397) ──────────────────────
 
     [Fact]
-    public async Task RundenSpielplanLoeschen_SetztStaleFolgerundenPlatzhalterZurueck_WennQuellrundeNeuGeneriertWird()
+    public async Task Kaskade_SetztStaleFolgerundenPlatzhalterZurueck_WennQuellrundenSpielplanGeloeschtWird()
     {
-        // Regressionstest für Issue #306: Beim Reset+Redo einer Auslosung (z.B. Gruppenphase) löscht die
-        // aufrufende UI-Schicht den alten Spielplan der Quellrunde (LoeschenAsync) vor der Neugenerierung.
-        // Genau in diesem Moment wird "Sieger Gruppe A" unauflösbar — eine bereits aufgelöste Folgerunde
-        // (hier: Halbfinale) muss dadurch automatisch auf Platzhaltertext zurückgesetzt werden, statt die
-        // alten, jetzt ungültigen Mannschafts-IDs zu behalten.
+        // Regressionstest für Issue #306: Beim Zurücksetzen einer Auslosung (z.B. Gruppenphase) wird der alte
+        // Spielplan der Quellrunde gelöscht und danach die Kaskade ausgelöst. Genau in diesem Moment wird
+        // "Sieger Gruppe A" unauflösbar — eine bereits aufgelöste Folgerunde (hier: Halbfinale) muss dadurch
+        // automatisch auf Platzhaltertext zurückgesetzt werden, statt die alten, jetzt ungültigen
+        // Mannschafts-IDs zu behalten.
         await using var ctx = NeuerContext();
         GruppenphaseUndKoSetupAnlegen(ctx, out int gruppenphaseRundeId, out int koRundeId);
         var auslosung = await AuslosungMitPlatzhalternAnlegen(
@@ -369,8 +369,8 @@ public class PlatzhalterKaskadeServiceTests
         koSpielVorher.HeimMannschaftId.Should().Be(1, "Vorbedingung: Sieger Gruppe A = Team A");
         koSpielVorher.AuswaertsMannschaftId.Should().Be(4, "Vorbedingung: 2. Gruppe B = Team D");
 
-        // Auslosung-Redo: die UI löscht den bestehenden Gruppenphase-Spielplan vor der Neugenerierung.
-        await dienste.Kaskade.RundenSpielplanLoeschenAsync(gruppenphaseRundeId);
+        var gruppenphase = await dienste.Spielplan.RundenSpielplanOhneKaskadeLoeschenAsync(gruppenphaseRundeId);
+        await dienste.Kaskade.KaskadeAusloesenAsync(gruppenphase.TurnierInstanzId);
 
         var koSpielNachher = ctx.Spiele.First(s => s.TurnierRundeId == koRundeId);
         koSpielNachher.HeimMannschaftId.Should().BeNull(

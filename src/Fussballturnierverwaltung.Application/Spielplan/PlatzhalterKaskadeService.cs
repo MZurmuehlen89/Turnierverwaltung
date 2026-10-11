@@ -254,15 +254,6 @@ public class PlatzhalterKaskadeService(
         await finaleAutomatik.AbgleichenAsync(turnierInstanzId, ct);
     }
 
-    /// <summary>Löscht den Spielplan einer Runde und zieht die Folgerunden nach (Issue #306): sie können dadurch
-    /// veraltet sein, z.B. wenn "Sieger Gruppe A" durch den Verlust der Gruppenphase-Spiele nicht mehr auflösbar
-    /// ist, ein zuvor aufgelöster Platzhalter einer Folgerunde aber noch die alte Mannschaft zeigt.</summary>
-    public async Task RundenSpielplanLoeschenAsync(int turnierRundeId, CancellationToken ct = default)
-    {
-        var runde = await spielplanService.RundenSpielplanOhneKaskadeLoeschenAsync(turnierRundeId, ct);
-        await KaskadeAusloesenAsync(runde.TurnierInstanzId, ct);
-    }
-
     public Task RundenSpielplanOhneKaskadeLoeschenAsync(int turnierRundeId, CancellationToken ct = default)
         => spielplanService.RundenSpielplanOhneKaskadeLoeschenAsync(turnierRundeId, ct);
 
