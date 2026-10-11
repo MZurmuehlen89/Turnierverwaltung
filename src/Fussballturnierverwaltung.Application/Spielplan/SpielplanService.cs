@@ -191,7 +191,7 @@ public class SpielplanService(
     /// <summary>
     /// Generiert den Spielplan für eine TopfLiga-Runde direkt aus den Auslosungspaarungen.
     /// </summary>
-    public async Task<SpielplanErgebnis> GenerierenAusPaarungenAsync(
+    private async Task<SpielplanErgebnis> GenerierenAusPaarungenAsync(
         int turnierRundeId,
         IReadOnlyList<(int HeimId, int AuswaertsId)> paarungen,
         CancellationToken ct = default)
@@ -221,7 +221,7 @@ public class SpielplanService(
     /// <paramref name="sortierteMannschaftIds"/> enthält alle teilnehmenden Teams sortiert nach
     /// aktuellem Tabellenstand (Rang 1 zuerst). Für Runde 1 gibt die Reihenfolge das Seeding vor.
     /// </summary>
-    public async Task<SpielplanErgebnis> SchweizerRundeGenerierenAsync(
+    private async Task<SpielplanErgebnis> SchweizerRundeGenerierenAsync(
         int turnierRundeId,
         IReadOnlyList<int> sortierteMannschaftIds,
         CancellationToken ct = default)
@@ -330,22 +330,13 @@ public class SpielplanService(
     public Task<IReadOnlyList<Spiel>> SpielplanAbrufenAsync(int turnierRundeId, CancellationToken ct = default)
         => spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
 
-    /// <summary>Issue #320: löscht einen ggf. bereits generierten Spielplan einer Runde, ohne selbst die
-    /// Platzhalter-Kaskade auszulösen — für <see cref="Auslosungen.AuslosungService.ZuruecksetzenAsync"/>,
-    /// das im Anschluss ohnehin <see cref="PlatzhalterKaskadeService.KaskadeAusloesenAsync"/> für die ganze Instanz aufruft. Nutzt
-    /// dieselbe kaskadenlose Löschung wie <see cref="FinaleAutomatik.FinaleAutomatischGenerierenWennBereitAsync"/> (siehe
-    /// <see cref="LoeschenOhneKaskadeAsync"/>). Ein Aufruf ohne existierenden Spielplan ist ein No-Op
-    /// (<see cref="ISpielRepository.AlleNachRundeLoeschenAsync"/> auf 0 Zeilen).</summary>
-    public async Task RundenSpielplanOhneKaskadeLoeschenAsync(int turnierRundeId, CancellationToken ct = default)
-        => await LoeschenOhneKaskadeAsync(turnierRundeId, ct);
-
-    /// <summary>Kern von <see cref="PlatzhalterKaskadeService.LoeschenAsync"/> ohne den Issue-#306-Kaskaden-Trigger — für den internen
-    /// Aufruf aus <see cref="FinaleAutomatik.FinaleAutomatischGenerierenWennBereitAsync"/>, der selbst bereits Teil der
-    /// Kaskade ist: würde dieser Aufruf ebenfalls die volle Kaskade auslösen, riefe er
-    /// <see cref="FinaleAutomatik.FinaleAutomatischGenerierenWennBereitAsync"/> reentrant erneut auf, bevor der äußere Aufruf
-    /// seine eigene <see cref="GenerierenAsync(int,IReadOnlyList{int},CancellationToken)"/>-Zeile erreicht —
-    /// mit doppelt generiertem Spiel als Folge (beim manuellen #306-Test gefunden).</summary>
-    public async Task<TurnierRunde> LoeschenOhneKaskadeAsync(int turnierRundeId, CancellationToken ct)
+    /// <summary>Löscht den Spielplan einer Runde, ohne die Platzhalter-Kaskade auszulösen — für Aufrufer, die
+    /// selbst Teil der Kaskade sind oder sie im Anschluss ohnehin auslösen. Issue #320: ohne diesen Aufruf blieb
+    /// ein aus einer zurückgesetzten Auslosung bereits generierter Spielplan als Karteileiche stehen. Issue #306:
+    /// würde die <see cref="FinaleAutomatik"/> hier die volle Kaskade auslösen, riefe sie sich reentrant selbst
+    /// auf, bevor sie ihr Spiel generiert hat — mit doppelt generiertem Spiel als Folge. Ein Aufruf ohne
+    /// existierenden Spielplan ändert nichts.</summary>
+    public async Task<TurnierRunde> RundenSpielplanOhneKaskadeLoeschenAsync(int turnierRundeId, CancellationToken ct = default)
     {
         var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
@@ -359,7 +350,7 @@ public class SpielplanService(
     /// Generiert den Spielplan für eine Gruppenphase gruppenweise.
     /// Jede Gruppe bekommt einen eigenen Round-Robin-Spielplan.
     /// </summary>
-    public async Task GenerierenAusGruppenAsync(
+    private async Task GenerierenAusGruppenAsync(
         int turnierRundeId,
         IReadOnlyList<IReadOnlyList<int>> gruppen,
         CancellationToken ct = default)
@@ -494,14 +485,11 @@ public class SpielplanService(
             IstRueckspiel            = istRueckspiel,
         };
 
-    public Task<IReadOnlyList<Spiel>> AlleSpieleFuerInstanzAsync(int turnierInstanzId, CancellationToken ct = default)
-        => spielRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
-
     /// <summary>
     /// Erstellt Platzhalter-Spiele für eine KO-Runde direkt aus den Auslosungspaarungen.
     /// MannschaftIds bleiben null; Platzhalternamen (z.B. "Sieger Gruppe A") werden gespeichert.
     /// </summary>
-    public async Task<int> GenerierenAusPlatzhalterPaarungenAsync(
+    private async Task<int> GenerierenAusPlatzhalterPaarungenAsync(
         int turnierRundeId,
         IReadOnlyList<(string Heim, string Auswaerts)> paarungen,
         CancellationToken ct = default)

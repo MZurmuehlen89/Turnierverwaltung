@@ -287,7 +287,7 @@ public class PlatzhalterAufloesung(
     }
 
     /// <summary>Löst "N. bester X. Platz" auf (Issue #213): sucht die nächstgelegene vorhergehende
-    /// Gruppenphase-Runde, prüft dasselbe konservative All-or-nothing-Gate wie <see cref="UebergangsregelBesteNAufloesenAsync"/>
+    /// Gruppenphase-Runde, prüft dasselbe konservative All-or-nothing-Gate wie <see cref="BesteNAufloesenAsync"/>
     /// (alle Spiele der Gruppenphase abgeschlossen), und liefert das N-te Team der über
     /// <see cref="TabellenService.UebergreifendeRangfolgeBerechnenAsync"/> ermittelten Cross-Group-Rangfolge an
     /// Platzierung X. Funktioniert bewusst auch ohne konfigurierte <see cref="Uebergangsregel"/>
@@ -353,7 +353,7 @@ public class PlatzhalterAufloesung(
     {
         if (regel.AnzahlBeste is not null)
         {
-            var beste = await UebergangsregelBesteNAufloesenAsync(regel, ct);
+            var beste = await BesteNAufloesenAsync(regel, ct);
             return beste.Select((teamId, i) => (Rang: i + 1, TeamId: teamId))
                 .ToDictionary(x => x.Rang, x => x.TeamId);
         }
@@ -370,7 +370,7 @@ public class PlatzhalterAufloesung(
     /// Bewusst konservatives Gate: löst erst auf, sobald ALLE Spiele der Quellrunde (alle Gruppen) abgeschlossen
     /// sind — kein Extremrang-artiger Optimistic-Preview wie bei #202/#206, das wäre eine kombinatorische
     /// Erweiterung über Gruppengrenzen hinweg und würde den Aufwand dieses Features deutlich sprengen.</summary>
-    public async Task<IReadOnlyList<int?>> UebergangsregelBesteNAufloesenAsync(Uebergangsregel regel, CancellationToken ct = default)
+    private async Task<IReadOnlyList<int?>> BesteNAufloesenAsync(Uebergangsregel regel, CancellationToken ct)
     {
         int n = regel.AnzahlBeste!.Value;
         if (await HatOffeneBesetzteSpieleAsync(regel.QuellRundeId, ct)) return [.. Enumerable.Repeat((int?)null, n)];

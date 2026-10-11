@@ -1,11 +1,17 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Diagnose;
+using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace Fussballturnierverwaltung.Application.Spielplan;
 
+/// <summary>
+/// Automatische Generierung ohne Auslosung (Issue #113): hält Zielrunden mit genau zwei Eingangsmannschaften
+/// synchron mit dem Stand ihrer(n) Quellrunde(n) — ohne dass für die Zielrunde eine eigene Auslosung durchlaufen
+/// werden muss (bei nur zwei möglichen Teilnehmern gibt es ohnehin keinen Freiheitsgrad, wer gegen wen antritt).
+/// </summary>
 public class FinaleAutomatik(
     ITurnierRundeRepository rundeRepository,
     IUebergangsregelRepository uebergangsregelRepository,
@@ -16,12 +22,9 @@ public class FinaleAutomatik(
     ILogger<FinaleAutomatik> logger)
 {
     /// <summary>
-    /// Hält Zielrunden mit genau zwei Eingangsmannschaften synchron mit dem Stand ihrer(n) Quellrunde(n) — ohne
-    /// dass für die Zielrunde eine eigene Auslosung durchlaufen werden muss (bei nur zwei möglichen Teilnehmern
-    /// gibt es ohnehin keinen Freiheitsgrad, wer gegen wen antritt). Generiert das Spiel sobald die Quellrunde(n)
-    /// vollständig entschieden sind, und entfernt/ersetzt ein noch nicht gespieltes Spiel wieder, falls sich der
-    /// Quellrunden-Stand nachträglich ändert (Ergebnis zurückgesetzt oder neu simuliert). Eine bereits gespielte
-    /// Zielrunde (mit Ergebnis) wird nie automatisch verändert.
+    /// Generiert das Spiel, sobald die Quellrunde(n) vollständig entschieden sind, und entfernt/ersetzt ein noch
+    /// nicht gespieltes Spiel wieder, falls sich der Quellrunden-Stand nachträglich ändert (Ergebnis zurückgesetzt
+    /// oder neu simuliert). Eine bereits gespielte Zielrunde (mit Ergebnis) wird nie automatisch verändert.
     /// Zwei Wege werden unterstützt: (1) explizite <see cref="Uebergangsregel"/>n, die zusammen genau zwei
     /// Qualifikanten für die Zielrunde liefern (Issue #29/#130); (2) als Fallback für Turniere ohne solche Regeln
     /// die ursprüngliche Heuristik aus Issue #113 (nächstgelegene einbeinige K.-o.-Vorrunde mit zwei Ausgangsteams).
@@ -31,68 +34,71 @@ public class FinaleAutomatik(
     /// da die Zielrunde vor der automatischen Generierung noch keine Spiele hat und der reguläre
     /// "Platzhalter aktualisieren"-Button dafür nicht sichtbar/erreichbar ist.
     /// </summary>
-    public async Task FinaleAutomatischGenerierenWennBereitAsync(int turnierInstanzId, CancellationToken ct = default)
+    public async Task AbgleichenAsync(int turnierInstanzId, CancellationToken ct = default)
     {
         using var vorgang = logger.Vorgang($"Finale-Generierung prüfen (Instanz {turnierInstanzId})");
 
         var alleRunden = await rundeRepository.AlleNachInstanzAsync(turnierInstanzId, ct);
         var alleRegeln = await uebergangsregelRepository.AlleNachTurnierInstanzIdAsync(turnierInstanzId, ct);
 
-        var zielRunden = alleRunden
-            .Where(r => r.EingangsMannschaftsanzahl == 2)
-            .ToList();
+        foreach (var ziel in alleRunden.Where(r => r.EingangsMannschaftsanzahl == 2).ToList())
+            await ZielrundeAbgleichenAsync(ziel, alleRunden, alleRegeln, ct);
+    }
 
-        foreach (var ziel in zielRunden)
+    private async Task ZielrundeAbgleichenAsync(
+        TurnierRunde ziel, IReadOnlyList<TurnierRunde> alleRunden, IReadOnlyList<Uebergangsregel> alleRegeln,
+        CancellationToken ct)
+    {
+        // Zielrunden mit eigener Auslosung gehören ausschließlich der breiteren #88-Kaskade
+        // (PlatzhalterKaskadeService) — sonst würde diese Heuristik eine gerade frisch aus der Auslosung
+        // regenerierte Platzhalter-Paarung sofort wieder entfernen, da sie den Auslosung-Zustand nicht kennt
+        // (nur Ergebnis-Vorhandensein prüft).
+        if (await auslosungRepository.FindenAbgeschlosseneNachRundeAsync(ziel.TurnierInstanzId, ziel.Id, ct) is not null)
+            return;
+
+        var zielSpiele = await spielRepository.AlleNachRundeAsync(ziel.Id, ct);
+
+        // Bereits gespielt oder unerwartete Struktur (z.B. mehr als ein Spiel) - nie automatisch anfassen.
+        if (zielSpiele.Count > 1 || zielSpiele.Any(s => s.Ergebnis is not null))
+            return;
+
+        var regelnFuerZiel = alleRegeln.Where(r => r.ZielRundeId == ziel.Id).ToList();
+        var (sollTeilnehmer, quelleBeschreibung) = regelnFuerZiel.Count > 0
+            ? await QualifikantenAusRegelnAsync(regelnFuerZiel, ct)
+            : await QualifikantenAusFinaleHeuristikAsync(ziel, alleRunden, ct);
+
+        if (zielSpiele.Count == 0)
         {
-            // Zielrunden mit eigener Auslosung gehören ausschließlich der breiteren #88-Kaskade
-            // (PlatzhalterKaskadePlanenAsync/-AusfuehrenAsync) — sonst würde diese Heuristik eine gerade
-            // frisch aus der Auslosung regenerierte Platzhalter-Paarung sofort wieder entfernen, da sie
-            // Auslosung-Zustand nicht kennt (nur Ergebnis-Vorhandensein prüft).
-            if (await auslosungRepository.FindenAbgeschlosseneNachRundeAsync(turnierInstanzId, ziel.Id, ct) is not null)
-                continue;
-
-            var zielSpiele = await spielRepository.AlleNachRundeAsync(ziel.Id, ct);
-
-            // Bereits gespielt oder unerwartete Struktur (z.B. mehr als ein Spiel) - nie automatisch anfassen.
-            if (zielSpiele.Count > 1 || zielSpiele.Any(s => s.Ergebnis is not null))
-                continue;
-
-            var regelnFuerZiel = alleRegeln.Where(r => r.ZielRundeId == ziel.Id).ToList();
-            var (sollTeilnehmer, quelleBeschreibung) = regelnFuerZiel.Count > 0
-                ? await QualifikantenAusRegelnAsync(regelnFuerZiel, ct)
-                : await QualifikantenAusFinaleHeuristikAsync(ziel, alleRunden, ct);
-
-            if (zielSpiele.Count == 0)
-            {
-                if (sollTeilnehmer is null) continue; // Quellrunde(n) noch nicht (vollständig) entschieden
-                await spielplanService.GenerierenAsync(ziel.Id, sollTeilnehmer, ct);
-                logger.LogInformation(
-                    "Runde '{Runde}' automatisch ohne Auslosung generiert (Teilnehmer aus {Quelle}).",
-                    ziel.Name, quelleBeschreibung);
-                continue;
-            }
-
-            // Genau ein noch nicht gespieltes Spiel vorhanden - prüfen ob es noch zum Quellrunden-Stand passt.
-            var aktuellesSpiel = zielSpiele[0];
-            var aktuelleTeilnehmer = new[] { aktuellesSpiel.HeimMannschaftId, aktuellesSpiel.AuswaertsMannschaftId }
-                .Where(id => id.HasValue).Select(id => id!.Value).ToHashSet();
-            bool stimmtUeberein = sollTeilnehmer is not null
-                && aktuelleTeilnehmer.SetEquals(sollTeilnehmer);
-            if (stimmtUeberein) continue; // bereits korrekt
-
-            await spielplanService.LoeschenOhneKaskadeAsync(ziel.Id, ct);
+            if (sollTeilnehmer is null) return; // Quellrunde(n) noch nicht (vollständig) entschieden
+            await spielplanService.GenerierenAsync(ziel.Id, sollTeilnehmer, ct);
             logger.LogInformation(
-                "Automatisch generiertes, noch nicht gespieltes Spiel in Runde '{Runde}' entfernt " +
-                "(Quellrunden-Stand hat sich geändert).", ziel.Name);
-
-            if (sollTeilnehmer is not null)
-            {
-                await spielplanService.GenerierenAsync(ziel.Id, sollTeilnehmer, ct);
-                logger.LogInformation(
-                    "Runde '{Runde}' automatisch neu generiert (Teilnehmer aus {Quelle}).",
-                    ziel.Name, quelleBeschreibung);
-            }
+                "Runde '{Runde}' automatisch ohne Auslosung generiert (Teilnehmer aus {Quelle}).",
+                ziel.Name, quelleBeschreibung);
+            return;
         }
+
+        // Genau ein noch nicht gespieltes Spiel vorhanden - prüfen ob es noch zum Quellrunden-Stand passt.
+        if (BestreitenGenau(zielSpiele[0], sollTeilnehmer)) return;
+
+        await spielplanService.RundenSpielplanOhneKaskadeLoeschenAsync(ziel.Id, ct);
+        logger.LogInformation(
+            "Automatisch generiertes, noch nicht gespieltes Spiel in Runde '{Runde}' entfernt " +
+            "(Quellrunden-Stand hat sich geändert).", ziel.Name);
+
+        if (sollTeilnehmer is null) return;
+        await spielplanService.GenerierenAsync(ziel.Id, sollTeilnehmer, ct);
+        logger.LogInformation(
+            "Runde '{Runde}' automatisch neu generiert (Teilnehmer aus {Quelle}).",
+            ziel.Name, quelleBeschreibung);
+    }
+
+    private static bool BestreitenGenau(Spiel spiel, IReadOnlyCollection<int>? sollTeilnehmer)
+    {
+        if (sollTeilnehmer is null) return false;
+
+        var aktuelleTeilnehmer = new[] { spiel.HeimMannschaftId, spiel.AuswaertsMannschaftId }
+            .Where(id => id.HasValue).Select(id => id!.Value).ToHashSet();
+        return aktuelleTeilnehmer.SetEquals(sollTeilnehmer);
     }
 
     /// <summary>Ermittelt die beiden Qualifikanten für eine Zielrunde aus expliziten <see cref="Uebergangsregel"/>n.
@@ -103,20 +109,9 @@ public class FinaleAutomatik(
         var teilnehmer = new List<int>();
         foreach (var regel in regeln)
         {
-            if (regel.AnzahlBeste is not null)
-            {
-                var beste = await aufloesung.UebergangsregelBesteNAufloesenAsync(regel, ct);
-                if (beste.Any(t => t is null)) return (null, "");
-                teilnehmer.AddRange(beste.Select(t => t!.Value));
-                continue;
-            }
-
-            for (int platz = regel.PlatzierungVon; platz <= regel.PlatzierungBis; platz++)
-            {
-                var teamId = await aufloesung.UebergangsregelPlatzAufloesenAsync(regel, platz, ct);
-                if (teamId is null) return (null, "");
-                teilnehmer.Add(teamId.Value);
-            }
+            var qualifikanten = await aufloesung.UebergangsregelQualifikantenAsync(regel, ct);
+            if (qualifikanten.Values.Any(teamId => teamId is null)) return (null, "");
+            teilnehmer.AddRange(qualifikanten.OrderBy(q => q.Key).Select(q => q.Value!.Value));
         }
 
         var beschreibung = string.Join(", ", regeln.Select(r => $"'{r.QuellRunde.Name}'").Distinct());
@@ -126,7 +121,7 @@ public class FinaleAutomatik(
     /// <summary>Fallback für Turniere ohne explizite <see cref="Uebergangsregel"/>n: sucht die nächstgelegene
     /// einbeinige K.-o.-Vorrunde mit zwei Ausgangsteams und ermittelt deren beide Qualifikanten (Issue #113) —
     /// bei <paramref name="ziel"/> = <see cref="Rundenart.SpielUmPlatzDrei"/> die Verlierer statt der Sieger
-    /// (Issue #199, analog zur Platzierung=2-Auflösung in der K.o.-Auflösung von PlatzhalterAufloesung).</summary>
+    /// (Issue #199).</summary>
     private async Task<(List<int>? Teilnehmer, string Beschreibung)> QualifikantenAusFinaleHeuristikAsync(
         TurnierRunde ziel, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
     {
@@ -144,12 +139,10 @@ public class FinaleAutomatik(
         if (vorRundenSpiele.Count == 0 || vorRundenSpiele.Any(s => s.Ergebnis?.SiegerMannschaftId is null))
             return (null, $"'{vorRunde.Name}'"); // noch nicht (vollständig) entschieden
 
-        bool verlierer = ziel.Rundenart == Rundenart.SpielUmPlatzDrei;
+        int platzierung = ziel.Rundenart == Rundenart.SpielUmPlatzDrei ? 2 : 1;
         var qualifikanten = vorRundenSpiele
             .OrderBy(s => s.Spielnummer)
-            .Select(s => verlierer
-                ? (s.Ergebnis!.SiegerMannschaftId == s.HeimMannschaftId ? s.AuswaertsMannschaftId : s.HeimMannschaftId)
-                : s.Ergebnis!.SiegerMannschaftId)
+            .Select(s => KoPaarungen.SiegerOderVerliererId(s, platzierung))
             .Where(id => id.HasValue)
             .Select(id => id!.Value)
             .Distinct()

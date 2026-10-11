@@ -75,7 +75,7 @@ public class SpielRepository(TurnierverwaltungDbContext context)
         // die Referenz zuerst verlieren — sonst schlägt das folgende Löschen mit einer SQL-FK-Verletzung
         // fehl (verifiziert an einem Alt-Turnier mit bereits generiertem, dieselben Spiele referenzierendem
         // Turnierbaum/Folgespielen; TurnierBaumKnoten.SpielId wird bereits separat von
-        // SpielplanService.LoeschenOhneKaskadeAsync vor diesem Aufruf genullt).
+        // SpielplanService.RundenSpielplanOhneKaskadeLoeschenAsync vor diesem Aufruf genullt).
         var abhaengigeSpiele = await Context.Spiele
             .Where(s => (s.HeimQuellSpielId != null && spielIds.Contains(s.HeimQuellSpielId.Value)) ||
                         (s.AuswaertsQuellSpielId != null && spielIds.Contains(s.AuswaertsQuellSpielId.Value)))

@@ -715,7 +715,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         // Vorschau wie vor "Ergebnisse zurücksetzen" im Spielplan (#389): alle Spiele der Runde gelten als
         // entfernt. Neu zu generierende leere Runden zählen nicht — dort geht nichts verloren.
-        var plan = await _kaskade.PlatzhalterKaskadePlanenAsync(
+        var plan = await _kaskade.PlanenAsync(
             turnierInstanzId, spiele.Select(s => s.Id).ToHashSet());
         var folgeSchritte = plan.Schritte.OfType<KaskadenSpielSchritt>().Where(s => s.RundeId != rundeId).ToList();
         if (folgeSchritte.Count > 0)

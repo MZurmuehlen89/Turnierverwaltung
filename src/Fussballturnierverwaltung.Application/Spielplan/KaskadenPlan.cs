@@ -21,8 +21,8 @@ public record KaskadenSpielSchritt(
 public record KaskadenRundeNeuGenerierenSchritt(int RundeId, string RundeName) : KaskadenSchritt(RundeId, RundeName);
 
 /// <summary>Vorab berechnete Auswirkung eines Ergebnis-Rücksetzens auf Folgerunden (Issue #88) — von
-/// <see cref="PlatzhalterKaskadeService.PlatzhalterKaskadePlanenAsync"/> als reine Leseoperation ermittelt, von
-/// <see cref="PlatzhalterKaskadeService.PlatzhalterKaskadeAusfuehrenAsync"/> tatsächlich angewendet.</summary>
+/// <see cref="PlatzhalterKaskadeService.PlanenAsync"/> als reine Leseoperation ermittelt, von
+/// <see cref="PlatzhalterKaskadeService.AusfuehrenAsync"/> tatsächlich angewendet.</summary>
 public record KaskadenPlan(IReadOnlyList<KaskadenSchritt> Schritte)
 {
     /// <summary>Anzahl der Ergebnisse, die durch die Kaskade tatsächlich verloren gehen — Grundlage für

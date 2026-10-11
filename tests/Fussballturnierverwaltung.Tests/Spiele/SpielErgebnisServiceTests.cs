@@ -553,7 +553,7 @@ public class SpielErgebnisServiceTests
         KaskadeSetupAnlegen(ctx, out _, out int finaleRundeId);
 
         // Vorbedingung: Finale wurde automatisch generiert, weil das Halbfinale entschieden ist
-        await new SpielplanDienste(ctx).Finale.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await new SpielplanDienste(ctx).Finale.AbgleichenAsync(1);
         ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).Should().HaveCount(1,
             "Vorbedingung: Finale wurde automatisch generiert");
 
@@ -780,7 +780,7 @@ public class SpielErgebnisServiceTests
         ctx.SpielErgebnisse.Add(new SpielErgebnis
             { Id = 101, SpielId = hf2Id, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = 34 });
         await ctx.SaveChangesAsync();
-        await dienste.Finale.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await dienste.Finale.AbgleichenAsync(1);
 
         var finaleVorher = ctx.Spiele.Where(s => s.TurnierRundeId == finale.Id).ToList();
         finaleVorher.Should().HaveCount(1, "Vorbedingung: Finale wurde automatisch aus Team30/Team34 generiert");
