@@ -584,7 +584,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 bool gespeichert;
                 using (await DbContextSchutz.BetretenAsync())
                     gespeichert = vorherigeRunde is not null &&
-                        await ErgebnisSpeichernBeiRundenwechselAsync(spielId, vorherigeRunde);
+                        await ErgebnisSpeichernAsync(spielId, vorherigeRunde, danachNeuLaden: false);
 
                 if (!gespeichert)
                 {
@@ -604,23 +604,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         await DbContextSchutz.AusfuehrenAsync(
             BeiRundeAenderungAsync, ex => Fehlermeldung = ex.Message,
             istNochAktuell: () => AusgewaehlteRunde?.Id == neueRundeId);
-    }
-
-    private async Task<bool> ErgebnisSpeichernBeiRundenwechselAsync(int spielId, TurnierRunde runde)
-    {
-        Fehlermeldung = null;
-        try
-        {
-            using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis speichern bei Rundenwechsel (Spiel {spielId})");
-            await _spielService.ErgebnisErfassenAsync(spielId, Formular.AlsEingabe());
-            await _finaleAutomatik.AbgleichenAsync(runde.TurnierInstanzId);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-            return false;
-        }
     }
 
     private async Task BeiRundeAenderungAsync()
@@ -724,7 +707,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 if (antwort == UngespeichertAntwort.Speichern)
                 {
                     using (await DbContextSchutz.BetretenAsync())
-                        await ErgebnisSpeichernAsync(vorherigeSpielId, vorherigeRundeId);
+                    {
+                        if (AusgewaehlteRunde is { } runde && runde.Id == vorherigeRundeId)
+                            await ErgebnisSpeichernAsync(vorherigeSpielId, runde, danachNeuLaden: true);
+                    }
                 }
 
                 AusgewaehlteSpiel = neuesSpielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == neuesSpielId) : null;
@@ -882,26 +868,31 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (AusgewaehlteSpiel is null || AusgewaehlteRunde is null) return;
         var spielId = AusgewaehlteSpiel.Id;
 
-        if (await ErgebnisSpeichernAsync(spielId, AusgewaehlteRunde.Id))
+        if (await ErgebnisSpeichernAsync(spielId, AusgewaehlteRunde, danachNeuLaden: true))
             AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
     }
 
-    private async Task<bool> ErgebnisSpeichernAsync(int spielId, int rundeId)
+    /// <summary>Speichert das Formular als Ergebnis des Spiels; läuft im bereits betretenen
+    /// <see cref="DbContextSchutz"/>.</summary>
+    /// <param name="danachNeuLaden">Tabellen und Spiele der Runde danach frisch laden — nur, wenn
+    /// <paramref name="runde"/> die ausgewählte bleibt. Beim Rundenwechsel lädt die neue Runde ohnehin.</param>
+    private async Task<bool> ErgebnisSpeichernAsync(int spielId, TurnierRunde runde, bool danachNeuLaden)
     {
-        if (AusgewaehlteRunde is null || AusgewaehlteRunde.Id != rundeId) return false;
         Fehlermeldung = null;
         try
         {
             using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis speichern (Spiel {spielId})");
             await _spielService.ErgebnisErfassenAsync(spielId, Formular.AlsEingabe());
-            await _finaleAutomatik.AbgleichenAsync(AusgewaehlteRunde.TurnierInstanzId);
+            await _finaleAutomatik.AbgleichenAsync(runde.TurnierInstanzId);
 
-            // Das gesamte Neuladen läuft im Schutz: sowohl das Neusetzen von AusgewaehlteGruppe in
+            if (!danachNeuLaden) return true;
+
+            // Das gesamte Neuladen läuft unterdrückt: sowohl das Neusetzen von AusgewaehlteGruppe in
             // GruppenTabellenLadenAsync als auch FokusSpiele geben der Fokus-Liste (Gruppenfilter/Spieltag) eine
             // neue ItemsSource, die deren SelectedItem nullt — das löste trotz gerade laufendem Speichern die
             // Ungespeichert-Abfrage aus (Issue #345).
             using (_spielWechsel.Betreten())
-                await SpieleNeuLadenAsync(rundeId);
+                await SpieleNeuLadenAsync(runde.Id);
 
             return true;
         }
