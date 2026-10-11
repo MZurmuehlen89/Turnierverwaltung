@@ -92,6 +92,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 {
     private readonly SpielErgebnisService _spielService;
     private readonly SpielplanService _spielplanService;
+    private readonly PlatzhalterAufloesung _platzhalterAufloesung;
     private readonly AuslosungService _auslosungService;
     private readonly TurnierBaumService _baumService;
     private readonly RegelwerkService _regelwerkService;
@@ -384,7 +385,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task AktualisierePlatzhalterVorschauAsync()
     {
         _platzhalterVorschau = VorschauAktiv && AusgewaehlteRunde is not null
-            ? await _spielplanService.PlatzhalterVorschauAsync(AusgewaehlteRunde.Id)
+            ? await _platzhalterAufloesung.PlatzhalterVorschauAsync(AusgewaehlteRunde.Id)
             : new Dictionary<int, (string?, string?)>();
 
         if (AusgewaehlteRunde is null) return;
@@ -554,6 +555,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public SpielplanViewModel(
         SpielErgebnisService spielService,
         SpielplanService spielplanService,
+        PlatzhalterAufloesung platzhalterAufloesung,
         AuslosungService auslosungService,
         TurnierBaumService baumService,
         RegelwerkService regelwerkService,
@@ -565,6 +567,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         _spielService = spielService;
         _spielplanService = spielplanService;
+        _platzhalterAufloesung = platzhalterAufloesung;
         _auslosungService = auslosungService;
         _baumService = baumService;
         _regelwerkService = regelwerkService;

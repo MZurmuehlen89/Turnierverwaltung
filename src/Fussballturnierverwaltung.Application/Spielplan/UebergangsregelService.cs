@@ -9,7 +9,7 @@ public class UebergangsregelService(
     IUebergangsregelRepository repository,
     ITurnierRundeRepository rundeRepository,
     UebergangsregelValidator validator,
-    SpielplanService spielplanService,
+    PlatzhalterAufloesung aufloesung,
     ILogger<UebergangsregelService> logger)
 {
     public Task<IReadOnlyList<Uebergangsregel>> AlleNachQuellRundeIdAsync(int quellRundeId, CancellationToken ct = default)
@@ -170,7 +170,7 @@ public class UebergangsregelService(
         var regel = await repository.FindenNachIdMitRundenAsync(uebergangsregelId, ct)
             ?? throw new InvalidOperationException($"Übergangsregel mit ID {uebergangsregelId} nicht gefunden.");
 
-        return await spielplanService.UebergangsregelQualifikantenAsync(regel, ct);
+        return await aufloesung.UebergangsregelQualifikantenAsync(regel, ct);
     }
 
     private async Task<TurnierRunde> QuellRundeLadenAsync(int quellRundeId, CancellationToken ct)

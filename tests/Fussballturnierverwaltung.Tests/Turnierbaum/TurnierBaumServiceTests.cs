@@ -33,7 +33,7 @@ public class TurnierBaumServiceTests
         var dienste = new SpielplanDienste(ctx);
         var instanzRepo = new TurnierInstanzRepository(ctx);
         var baumService = new TurnierBaumService(
-            baumRepo, instanzRepo, spielRepo, dienste.Spielplan, dienste.Quellverknuepfung,
+            baumRepo, instanzRepo, spielRepo, dienste.Aufloesung, dienste.Quellverknuepfung,
             NullLogger<TurnierBaumService>.Instance);
         return (baumService, dienste.Spielplan);
     }

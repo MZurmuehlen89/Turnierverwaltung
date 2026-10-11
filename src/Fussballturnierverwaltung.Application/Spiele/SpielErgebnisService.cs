@@ -11,6 +11,7 @@ public class SpielErgebnisService(
     ISpielRepository spielRepository,
     SpielErgebnisValidator validator,
     SpielplanService spielplanService,
+    PlatzhalterAufloesung aufloesung,
     ILogger<SpielErgebnisService> logger)
 {
     public Task<IReadOnlyList<Spiel>> AlleNachRundeAsync(int turnierRundeId, CancellationToken ct = default)
@@ -141,7 +142,7 @@ public class SpielErgebnisService(
         var spiel = await spielRepository.FindenNachIdMitErgebnisAsync(spielId, ct);
         if (spiel is null) return;
 
-        await spielplanService.PlatzhalterAlleRundenAufloesenAsync(spiel.TurnierInstanzId, ct);
+        await aufloesung.PlatzhalterAlleRundenAufloesenAsync(spiel.TurnierInstanzId, ct);
     }
 
     public async Task ErgebnisLoeschenAsync(int spielId, CancellationToken ct = default)

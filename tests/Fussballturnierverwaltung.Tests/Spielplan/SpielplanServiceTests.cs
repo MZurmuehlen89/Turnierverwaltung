@@ -25,8 +25,6 @@ public class SpielplanServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 
-    private static SpielplanService ServiceFuer(TurnierverwaltungDbContext ctx) => new SpielplanDienste(ctx).Spielplan;
-
     /// <summary>Legt Regelwerk (mit Entscheidungsverfahren, für KO/Finale Pflicht), Halbfinale- und Finale-Runde
     /// sowie 4 Mannschaften an. Halbfinale-Spiele werden NICHT angelegt (Aufgabe der einzelnen Tests).</summary>
     private static void GrundSetupAnlegen(
@@ -98,9 +96,9 @@ public class SpielplanServiceTests
         GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
         HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
         HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         var finaleSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).ToList();
         finaleSpiele.Should().HaveCount(1);
@@ -115,9 +113,9 @@ public class SpielplanServiceTests
         GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
         HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
         HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: null);
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).Should().BeEmpty();
     }
@@ -136,9 +134,9 @@ public class SpielplanServiceTests
             Spielnummer = 1, HeimMannschaftId = 1, AuswaertsMannschaftId = 3, Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).Should().HaveCount(1,
             "es darf kein zweites Finalspiel automatisch hinzugefügt werden");
@@ -151,9 +149,9 @@ public class SpielplanServiceTests
         GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId, hfMitRueckspiel: true);
         HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
         HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).Should().BeEmpty(
             "Aggregat-Sieger-Ermittlung über zwei Spielbeine ist bewusst nicht Teil dieser Phase");
@@ -166,8 +164,8 @@ public class SpielplanServiceTests
         GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
         HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
         HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
-        var service = ServiceFuer(ctx);
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
         ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).Should().HaveCount(1, "Vorbedingung: Finale wurde generiert");
 
         // Ergebnis eines Halbfinalspiels zurückgesetzt (z.B. "Ergebnis löschen")
@@ -177,7 +175,7 @@ public class SpielplanServiceTests
         spiel2.Status = SpielStatus.Geplant;
         ctx.SaveChanges();
 
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).Should().BeEmpty(
             "das noch nicht gespielte Finale muss entfernt werden, wenn das Halbfinale nicht mehr entschieden ist");
@@ -190,8 +188,8 @@ public class SpielplanServiceTests
         GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
         HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
         HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
-        var service = ServiceFuer(ctx);
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         // Halbfinale neu simuliert - diesmal gewinnen Team B und Team D statt Team A und Team C
         var erg1 = ctx.SpielErgebnisse.First(e => e.SpielId == 1);
@@ -200,7 +198,7 @@ public class SpielplanServiceTests
         erg2.SiegerMannschaftId = 4; erg2.HeimToreRegulaer = 0; erg2.AuswaertsToreRegulaer = 1;
         ctx.SaveChanges();
 
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         var finaleSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).ToList();
         finaleSpiele.Should().HaveCount(1);
@@ -215,8 +213,8 @@ public class SpielplanServiceTests
         GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
         HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
         HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
-        var service = ServiceFuer(ctx);
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         // Finale wurde bereits gespielt
         var finaleSpielId = ctx.Spiele.First(s => s.TurnierRundeId == finaleRundeId).Id;
@@ -234,7 +232,7 @@ public class SpielplanServiceTests
         erg2.SiegerMannschaftId = 4;
         ctx.SaveChanges();
 
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         var finaleSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).ToList();
         finaleSpiele.Should().HaveCount(1, "ein bereits gespieltes Finale darf nie automatisch verändert werden");
@@ -263,9 +261,9 @@ public class SpielplanServiceTests
         ctx.SaveChanges();
         HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
         HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         var finaleSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).ToList();
         finaleSpiele.Should().HaveCount(1);
@@ -313,9 +311,9 @@ public class SpielplanServiceTests
             new() { PaarungsNummer = 3, HeimMannschaftId = 3 },
             new() { PaarungsNummer = 4, HeimMannschaftId = 4 },
         };
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.GenerierenAusAuslosungAsync(rundeId, ergebnisse);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(rundeId, ergebnisse);
 
         var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId).ToList();
         spiele.Should().NotBeEmpty("bei 4 Teams muss ein Round-Robin-Spielplan entstehen");
@@ -353,9 +351,9 @@ public class SpielplanServiceTests
             new() { PaarungsNummer = 2, HeimMannschaftId = 3 },
             new() { PaarungsNummer = 2, HeimMannschaftId = 4 },
         };
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.GenerierenAusAuslosungAsync(runde.Id, ergebnisse);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(runde.Id, ergebnisse);
 
         var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == runde.Id).ToList();
         spiele.Should().NotBeEmpty();
@@ -377,9 +375,9 @@ public class SpielplanServiceTests
             new() { PaarungsNummer = 1, HeimPlatzhalterName = "Sieger Gruppe A", AuswaertsPlatzhalterName = "2. Gruppe B" },
             new() { PaarungsNummer = 2, HeimPlatzhalterName = "Sieger Gruppe B", AuswaertsPlatzhalterName = "2. Gruppe A" },
         };
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.GenerierenAusAuslosungAsync(hfRundeId, ergebnisse);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(hfRundeId, ergebnisse);
 
         var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == hfRundeId).ToList();
         spiele.Should().HaveCount(2);
@@ -451,9 +449,9 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var anzahl = await service.PlatzhalterAufloesenAsync(koRundeId);
+        var anzahl = await dienste.Aufloesung.PlatzhalterAufloesenAsync(koRundeId);
 
         anzahl.Should().Be(1);
         var spiel = ctx.Spiele.First(s => s.Id == 10);
@@ -519,9 +517,9 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var anzahl = await service.PlatzhalterAufloesenAsync(ko.Id);
+        var anzahl = await dienste.Aufloesung.PlatzhalterAufloesenAsync(ko.Id);
 
         anzahl.Should().Be(1, "das Spiel wurde teilweise aufgelöst und zählt als Fortschritt");
         var spiel = ctx.Spiele.AsNoTracking().First(s => s.Id == 10);
@@ -537,7 +535,7 @@ public class SpielplanServiceTests
             { Id = 2, SpielId = 2, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
         await ctx.SaveChangesAsync();
 
-        var anzahlNachher = await service.PlatzhalterAufloesenAsync(ko.Id);
+        var anzahlNachher = await dienste.Aufloesung.PlatzhalterAufloesenAsync(ko.Id);
 
         anzahlNachher.Should().Be(1, "die zweite, nachziehende Auflösung zählt erneut als Fortschritt");
         var spielNachher = ctx.Spiele.AsNoTracking().First(s => s.Id == 10);
@@ -612,16 +610,16 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         await ctx.SaveChangesAsync();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var regulaer = await service.PlatzhalterAufloesenAsync(ko.Id);
+        var regulaer = await dienste.Aufloesung.PlatzhalterAufloesenAsync(ko.Id);
         regulaer.Should().Be(1, "nur die Auswaerts-Seite (Sieger Gruppe A, sicher positioniert) darf regulär aufgelöst werden");
         var spielNachRegulaer = ctx.Spiele.AsNoTracking().First(s => s.Id == 10);
         spielNachRegulaer.HeimMannschaftId.Should().BeNull(
             "Rang 2 ist noch nicht SicherPositioniert, die reguläre Auflösung darf diese Seite nicht schreiben");
         spielNachRegulaer.AuswaertsMannschaftId.Should().Be(3, "Team C ist uneinholbar Erster und darf regulär aufgelöst werden");
 
-        var vorschau = await service.PlatzhalterVorschauAsync(ko.Id);
+        var vorschau = await dienste.Aufloesung.PlatzhalterVorschauAsync(ko.Id);
 
         vorschau.Should().ContainKey(10);
         vorschau[10].Heim.Should().Be("Team A", "Team A führt Rang 2 aktuell, auch wenn das noch nicht sicher ist");
@@ -692,9 +690,9 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var anzahlVorher = await service.PlatzhalterAufloesenAsync(ko.Id);
+        var anzahlVorher = await dienste.Aufloesung.PlatzhalterAufloesenAsync(ko.Id);
 
         anzahlVorher.Should().Be(0, "wer Gruppenerster wird, entscheidet erst das noch offene Duell A vs. B");
         ctx.Spiele.First(s => s.Id == 10).HeimMannschaftId.Should().BeNull();
@@ -705,7 +703,7 @@ public class SpielplanServiceTests
             { Id = 3, SpielId = 3, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
         await ctx.SaveChangesAsync();
 
-        var anzahlNachher = await service.PlatzhalterAufloesenAsync(ko.Id);
+        var anzahlNachher = await dienste.Aufloesung.PlatzhalterAufloesenAsync(ko.Id);
 
         anzahlNachher.Should().Be(1);
         ctx.Spiele.First(s => s.Id == 10).HeimMannschaftId.Should().Be(1, "Sieger Gruppe A = Team A");
@@ -800,7 +798,7 @@ public class SpielplanServiceTests
             HeimPlatzhalterName = "1. Gruppe A", AuswaertsMannschaftId = arsenal, Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
         var tabellenService = new TabellenService(new TurnierRundeRepository(ctx), new SpielRepository(ctx), new RegelwerkRepository(ctx));
 
         var gruppen = await tabellenService.GruppenTabellenBerechnenAsync(gruppenphase.Id);
@@ -811,7 +809,7 @@ public class SpielplanServiceTests
         polenEintrag.SicherPositioniert.Should().BeTrue(
             "PSG kann mit maximal 6 Punkten Polens 9 Punkte nicht mehr einholen - unabhängig von der Tordifferenz");
 
-        var anzahl = await service.PlatzhalterAufloesenAsync(halbfinale.Id);
+        var anzahl = await dienste.Aufloesung.PlatzhalterAufloesenAsync(halbfinale.Id);
 
         anzahl.Should().Be(1, "Polen ist bereits als Gruppenerster fixiert und sollte übernommen werden");
         ctx.Spiele.First(s => s.Id == 10).HeimMannschaftId.Should().Be(polen, "1. Gruppe A = Polen");
@@ -831,9 +829,9 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var anzahl = await service.PlatzhalterAufloesenAsync(finaleRundeId);
+        var anzahl = await dienste.Aufloesung.PlatzhalterAufloesenAsync(finaleRundeId);
 
         anzahl.Should().Be(1);
         var spiel = ctx.Spiele.First(s => s.Id == 20);
@@ -863,9 +861,9 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var anzahl = await service.PlatzhalterAufloesenAsync(finaleRundeId);
+        var anzahl = await dienste.Aufloesung.PlatzhalterAufloesenAsync(finaleRundeId);
 
         anzahl.Should().Be(1);
         var spiel = ctx.Spiele.First(s => s.Id == 20);
@@ -892,9 +890,9 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var anzahl = await service.PlatzhalterAufloesenAsync(finaleRundeId);
+        var anzahl = await dienste.Aufloesung.PlatzhalterAufloesenAsync(finaleRundeId);
 
         anzahl.Should().Be(1);
         var spiel = ctx.Spiele.First(s => s.Id == 20);
@@ -922,9 +920,9 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await new SpielplanDienste(ctx).Quellverknuepfung.AlleRundenVerknuepfenAsync(1);
+        await dienste.Quellverknuepfung.AlleRundenVerknuepfenAsync(1);
 
         var finale = ctx.Spiele.First(s => s.Id == 20);
         finale.HeimQuellSpielId.Should().Be(2);
@@ -947,10 +945,10 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
         // Verknüpfung ist rein strukturell (Text-basiert) und braucht kein Ergebnis der HF-Spiele.
-        await new SpielplanDienste(ctx).Quellverknuepfung.AlleRundenVerknuepfenAsync(1);
+        await dienste.Quellverknuepfung.AlleRundenVerknuepfenAsync(1);
 
         var finale = ctx.Spiele.First(s => s.Id == 20);
         finale.HeimQuellSpielId.Should().Be(1);
@@ -976,9 +974,9 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var anzahl = await service.PlatzhalterAufloesenAsync(finaleRundeId);
+        var anzahl = await dienste.Aufloesung.PlatzhalterAufloesenAsync(finaleRundeId);
 
         anzahl.Should().Be(1);
         var spiel = ctx.Spiele.First(s => s.Id == 20);
@@ -999,9 +997,9 @@ public class SpielplanServiceTests
             QuellRundeId = gruppenphaseRundeId, QuellRunde = gruppenphase, ZielRundeId = koRundeId,
             GruppeIndex = 1, PlatzierungVon = 1, PlatzierungBis = 2
         };
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var qualifikanten = await service.UebergangsregelQualifikantenAsync(regel);
+        var qualifikanten = await dienste.Aufloesung.UebergangsregelQualifikantenAsync(regel);
 
         qualifikanten[1].Should().Be(1); // Platz 1 Gruppe A = Team A
         qualifikanten[2].Should().Be(2); // Platz 2 Gruppe A = Team B
@@ -1034,9 +1032,9 @@ public class SpielplanServiceTests
             QuellRundeId = ligaRundeId, QuellRunde = ligaRunde, ZielRundeId = 999,
             GruppeIndex = null, PlatzierungVon = 1, PlatzierungBis = 1
         };
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var platz1 = await service.UebergangsregelPlatzAufloesenAsync(regel, 1);
+        var platz1 = await dienste.Aufloesung.UebergangsregelPlatzAufloesenAsync(regel, 1);
 
         platz1.Should().Be(1); // Team A: 3 Punkte, Tordifferenz +3 → Rang 1
     }
@@ -1094,9 +1092,9 @@ public class SpielplanServiceTests
             QuellRundeId = ligaphaseRundeId, QuellRunde = ligaphaseRunde, ZielRundeId = 999,
             GruppeIndex = null, PlatzierungVon = 1, PlatzierungBis = 1
         };
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var platz1 = await service.UebergangsregelPlatzAufloesenAsync(regel, 1);
+        var platz1 = await dienste.Aufloesung.UebergangsregelPlatzAufloesenAsync(regel, 1);
 
         platz1.Should().Be(1); // Team A: 3 Punkte, Tordifferenz +3 → Rang 1
     }
@@ -1131,8 +1129,8 @@ public class SpielplanServiceTests
         await using var ctx = NeuerContext();
         SchweizerSystemGrundSetupAnlegen(ctx, out int rundeId); // 4 Teams
         var auslosung = await SchweizerAuslosungAnlegen(ctx, rundeId, (1, 2), (3, 4));
-        var service = ServiceFuer(ctx);
-        await service.GenerierenAusAuslosungAsync(rundeId, [.. auslosung.Ergebnisse]);
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(rundeId, [.. auslosung.Ergebnisse]);
 
         var spieltag1 = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId).ToList();
         spieltag1.Should().HaveCount(2);
@@ -1147,7 +1145,7 @@ public class SpielplanServiceTests
         }
         await ctx.SaveChangesAsync();
 
-        await service.SchweizerNaechsteRundeGenerierenAsync(rundeId);
+        await dienste.Spielplan.SchweizerNaechsteRundeGenerierenAsync(rundeId);
 
         var alleSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId).ToList();
         alleSpiele.Should().HaveCount(4);
@@ -1182,8 +1180,8 @@ public class SpielplanServiceTests
         int rundeId = runde.Id;
 
         var auslosung = await SchweizerAuslosungAnlegen(ctx, rundeId, (1, 2), (3, 4), (5, null));
-        var service = ServiceFuer(ctx);
-        await service.GenerierenAusAuslosungAsync(rundeId, [.. auslosung.Ergebnisse]);
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(rundeId, [.. auslosung.Ergebnisse]);
 
         var spieltag1 = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId).ToList();
         spieltag1.Should().HaveCount(2, "bei 5 Teams sitzt eines aus, ohne eigenen Spiel-Datensatz");
@@ -1201,7 +1199,7 @@ public class SpielplanServiceTests
         }
         await ctx.SaveChangesAsync();
 
-        await service.SchweizerNaechsteRundeGenerierenAsync(rundeId);
+        await dienste.Spielplan.SchweizerNaechsteRundeGenerierenAsync(rundeId);
 
         var spieltag2 = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId && s.Spieltag == 2).ToList();
         spieltag2.Should().HaveCount(2);
@@ -1226,10 +1224,10 @@ public class SpielplanServiceTests
             QuellRundeId = hfRundeId, QuellRunde = hfRunde, ZielRundeId = finaleRundeId,
             GruppeIndex = 1, PlatzierungVon = 2, PlatzierungBis = 2
         };
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var sieger = await service.UebergangsregelPlatzAufloesenAsync(regelSieger, 1);
-        var verlierer = await service.UebergangsregelPlatzAufloesenAsync(regelVerlierer, 2);
+        var sieger = await dienste.Aufloesung.UebergangsregelPlatzAufloesenAsync(regelSieger, 1);
+        var verlierer = await dienste.Aufloesung.UebergangsregelPlatzAufloesenAsync(regelVerlierer, 2);
 
         sieger.Should().Be(1);
         verlierer.Should().Be(2);
@@ -1247,9 +1245,9 @@ public class SpielplanServiceTests
             QuellRundeId = hfRundeId, QuellRunde = hfRunde, ZielRundeId = finaleRundeId,
             GruppeIndex = 1, PlatzierungVon = 1, PlatzierungBis = 1
         };
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var sieger = await service.UebergangsregelPlatzAufloesenAsync(regel, 1);
+        var sieger = await dienste.Aufloesung.UebergangsregelPlatzAufloesenAsync(regel, 1);
 
         sieger.Should().BeNull();
     }
@@ -1320,9 +1318,9 @@ public class SpielplanServiceTests
         ctx.SpielErgebnisse.Add(new SpielErgebnis
             { Id = 2, SpielId = 2, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = 3 });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         var zielSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == zielRundeId).ToList();
         zielSpiele.Should().HaveCount(1);
@@ -1348,9 +1346,9 @@ public class SpielplanServiceTests
             HeimMannschaftId = 3, AuswaertsMannschaftId = 4, Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         ctx.Spiele.Where(s => s.TurnierRundeId == zielRundeId).Should().BeEmpty();
     }
@@ -1428,9 +1426,9 @@ public class SpielplanServiceTests
         AnzahlBesteSetupAnlegen(ctx, out int gruppenphaseId, out int zielRundeId);
         AnzahlBesteSpieleHinzufuegen(ctx, gruppenphaseId);
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         var zielSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == zielRundeId).ToList();
         zielSpiele.Should().HaveCount(1);
@@ -1450,9 +1448,9 @@ public class SpielplanServiceTests
         spiel6.Status = SpielStatus.Geplant;
         ctx.SpielErgebnisse.Remove(ctx.SpielErgebnisse.First(e => e.SpielId == 6));
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
         ctx.Spiele.Where(s => s.TurnierRundeId == zielRundeId).Should().BeEmpty();
     }
@@ -1505,9 +1503,9 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var anzahl = await service.PlatzhalterAufloesenAsync(zielRundeId);
+        var anzahl = await dienste.Aufloesung.PlatzhalterAufloesenAsync(zielRundeId);
 
         anzahl.Should().Be(1);
         var spiel = ctx.Spiele.First(s => s.Id == 10);
@@ -1533,9 +1531,9 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var anzahl = await service.PlatzhalterAufloesenAsync(zielRundeId);
+        var anzahl = await dienste.Aufloesung.PlatzhalterAufloesenAsync(zielRundeId);
 
         anzahl.Should().Be(0);
         var spiel = ctx.Spiele.First(s => s.Id == 10);
@@ -1557,9 +1555,9 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var anzahl = await service.PlatzhalterAufloesenAsync(zielRundeId);
+        var anzahl = await dienste.Aufloesung.PlatzhalterAufloesenAsync(zielRundeId);
 
         anzahl.Should().Be(1, "die Heim-Seite ist auflösbar, unabhängig von der nicht auflösbaren Auswärts-Seite (Issue #206)");
         var spiel = ctx.Spiele.First(s => s.Id == 10);
@@ -1580,9 +1578,9 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var anzahl = await service.PlatzhalterAufloesenAsync(zielRundeId);
+        var anzahl = await dienste.Aufloesung.PlatzhalterAufloesenAsync(zielRundeId);
 
         anzahl.Should().Be(1);
         var spiel = ctx.Spiele.First(s => s.Id == 10);
@@ -1621,9 +1619,9 @@ public class SpielplanServiceTests
         AnzahlBesteSpieleHinzufuegen(ctx, gruppenphaseId);
         KombinationstabelleSetzen(ctx, zielRundeId);
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var anzahl = await service.PlatzhalterAufloesenAsync(zielRundeId);
+        var anzahl = await dienste.Aufloesung.PlatzhalterAufloesenAsync(zielRundeId);
 
         anzahl.Should().Be(1);
         var spiel = ctx.Spiele.First(s => s.Id == 10);
@@ -1643,9 +1641,9 @@ public class SpielplanServiceTests
         spiel6.Status = SpielStatus.Geplant;
         ctx.SpielErgebnisse.Remove(ctx.SpielErgebnisse.First(e => e.SpielId == 6));
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var anzahl = await service.PlatzhalterAufloesenAsync(zielRundeId);
+        var anzahl = await dienste.Aufloesung.PlatzhalterAufloesenAsync(zielRundeId);
 
         anzahl.Should().Be(0);
         var spiel = ctx.Spiele.First(s => s.Id == 10);
@@ -1662,9 +1660,9 @@ public class SpielplanServiceTests
         KombinationstabelleSetzen(ctx, zielRundeId);
         ctx.TurnierRunden.First(r => r.Id == zielRundeId).KombinationstabelleJson = null;
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var anzahl = await service.PlatzhalterAufloesenAsync(zielRundeId);
+        var anzahl = await dienste.Aufloesung.PlatzhalterAufloesenAsync(zielRundeId);
 
         anzahl.Should().Be(0);
     }
@@ -1701,9 +1699,9 @@ public class SpielplanServiceTests
         GruppenphaseUndKoSetupAnlegen(ctx, out _, out int koRundeId);
         var auslosung = await AuslosungMitPlatzhalternAnlegen(
             ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"));
-        var service = ServiceFuer(ctx);
-        await service.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
-        await service.PlatzhalterAufloesenAsync(koRundeId);
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await dienste.Aufloesung.PlatzhalterAufloesenAsync(koRundeId);
 
         var koSpielVorher = ctx.Spiele.First(s => s.TurnierRundeId == koRundeId);
         koSpielVorher.HeimMannschaftId.Should().Be(1, "Vorbedingung: Sieger Gruppe A = Team A");
@@ -1714,7 +1712,7 @@ public class SpielplanServiceTests
         gruppenErgebnis.AuswaertsToreRegulaer = 1;
         await ctx.SaveChangesAsync();
 
-        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        var plan = await dienste.Spielplan.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
 
         plan.HatAuswirkungen.Should().BeTrue();
         plan.Schritte.Should().ContainSingle(s => s.RundeId == koRundeId);
@@ -1727,17 +1725,17 @@ public class SpielplanServiceTests
         GruppenphaseUndKoSetupAnlegen(ctx, out _, out int koRundeId);
         var auslosung = await AuslosungMitPlatzhalternAnlegen(
             ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"));
-        var service = ServiceFuer(ctx);
-        await service.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
-        await service.PlatzhalterAufloesenAsync(koRundeId);
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await dienste.Aufloesung.PlatzhalterAufloesenAsync(koRundeId);
 
         var gruppenErgebnis = ctx.SpielErgebnisse.First(e => e.SpielId == 1);
         gruppenErgebnis.HeimToreRegulaer = 0;
         gruppenErgebnis.AuswaertsToreRegulaer = 1;
         await ctx.SaveChangesAsync();
 
-        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
-        await service.PlatzhalterKaskadeAusfuehrenAsync(plan);
+        var plan = await dienste.Spielplan.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        await dienste.Spielplan.PlatzhalterKaskadeAusfuehrenAsync(plan);
 
         var koSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId).ToList();
         koSpiele.Should().HaveCount(1);
@@ -1754,10 +1752,10 @@ public class SpielplanServiceTests
         GruppenphaseUndKoSetupAnlegen(ctx, out _, out int koRundeId);
         var auslosung = await AuslosungMitPlatzhalternAnlegen(
             ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"));
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.RundenSpielplanAusAuslosungErsetzenAsync(koRundeId, [.. auslosung.Ergebnisse]);
-        await service.RundenSpielplanAusAuslosungErsetzenAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await dienste.Spielplan.RundenSpielplanAusAuslosungErsetzenAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await dienste.Spielplan.RundenSpielplanAusAuslosungErsetzenAsync(koRundeId, [.. auslosung.Ergebnisse]);
 
         var koSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId).ToList();
         koSpiele.Should().HaveCount(1);
@@ -1774,9 +1772,9 @@ public class SpielplanServiceTests
         HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
         var auslosung = await AuslosungMitPlatzhalternAnlegen(
             ctx, finaleRundeId, ("Sieger HF 1", "Sieger HF 2"));
-        var service = ServiceFuer(ctx);
-        await service.GenerierenAusAuslosungAsync(finaleRundeId, [.. auslosung.Ergebnisse]);
-        await service.PlatzhalterAufloesenAsync(finaleRundeId);
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(finaleRundeId, [.. auslosung.Ergebnisse]);
+        await dienste.Aufloesung.PlatzhalterAufloesenAsync(finaleRundeId);
 
         var finaleSpielId = ctx.Spiele.First(s => s.TurnierRundeId == finaleRundeId).Id;
         ctx.Spiele.First(s => s.Id == finaleSpielId).Status = SpielStatus.Abgeschlossen;
@@ -1795,7 +1793,7 @@ public class SpielplanServiceTests
         hf1.AuswaertsToreRegulaer = 1;
         await ctx.SaveChangesAsync();
 
-        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        var plan = await dienste.Spielplan.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
 
         plan.HatAuswirkungen.Should().BeTrue();
         var schritt = plan.Schritte.Should().ContainSingle(s => s.RundeId == finaleRundeId).Subject
@@ -1804,7 +1802,7 @@ public class SpielplanServiceTests
         schritt.HatteErgebnis.Should().BeTrue(
             "das bereits erfasste Finale-Ergebnis basiert auf einer jetzt ungültigen Halbfinale-Paarung");
 
-        await service.PlatzhalterKaskadeAusfuehrenAsync(plan);
+        await dienste.Spielplan.PlatzhalterKaskadeAusfuehrenAsync(plan);
 
         var finaleSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == finaleRundeId).ToList();
         finaleSpiele.Should().HaveCount(1);
@@ -1862,9 +1860,9 @@ public class SpielplanServiceTests
             ctx, hf.Id,
             ("Sieger Gruppe 1", "2. Gruppe 2"),   // HF1: Team1 vs Team4
             ("Sieger Gruppe 3", "2. Gruppe 4"));  // HF2: Team5 vs Team8
-        var service = ServiceFuer(ctx);
-        await service.GenerierenAusAuslosungAsync(hf.Id, [.. auslosung.Ergebnisse]);
-        await service.PlatzhalterAufloesenAsync(hf.Id);
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(hf.Id, [.. auslosung.Ergebnisse]);
+        await dienste.Aufloesung.PlatzhalterAufloesenAsync(hf.Id);
 
         var hfSpieleVorher = ctx.Spiele.Where(s => s.TurnierRundeId == hf.Id).OrderBy(s => s.Spielnummer).ToList();
         hfSpieleVorher.Should().HaveCount(2);
@@ -1892,11 +1890,11 @@ public class SpielplanServiceTests
         gruppe1Ergebnis.AuswaertsToreRegulaer = 1;
         await ctx.SaveChangesAsync();
 
-        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        var plan = await dienste.Spielplan.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
         var spielSchritt = plan.Schritte.Should().ContainSingle().Subject.Should().BeOfType<KaskadenSpielSchritt>().Subject;
         spielSchritt.SpielId.Should().Be(hf1Id, "nur HF1 hängt von Gruppe 1 ab");
 
-        await service.PlatzhalterKaskadeAusfuehrenAsync(plan);
+        await dienste.Spielplan.PlatzhalterKaskadeAusfuehrenAsync(plan);
 
         var hf1 = ctx.Spiele.First(s => s.Id == hf1Id);
         hf1.HeimMannschaftId.Should().Be(2, "Sieger Gruppe 1 ist jetzt Team 2");
@@ -1918,11 +1916,11 @@ public class SpielplanServiceTests
         GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
         HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
         HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
         // Erzeugt das Finale automatisch OHNE Auslosung (Issue #113/#125-Mechanismus)
-        await service.FinaleAutomatischGenerierenWennBereitAsync(1);
+        await dienste.Spielplan.FinaleAutomatischGenerierenWennBereitAsync(1);
 
-        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        var plan = await dienste.Spielplan.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
 
         plan.HatAuswirkungen.Should().BeFalse(
             "die Finale-Runde wurde ohne Auslosung generiert — Issue #88 deckt nur Auslosungs-basierte Runden ab");
@@ -1935,19 +1933,19 @@ public class SpielplanServiceTests
         GruppenphaseUndKoSetupAnlegen(ctx, out _, out int koRundeId);
         var auslosung = await AuslosungMitPlatzhalternAnlegen(
             ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"));
-        var service = ServiceFuer(ctx);
-        await service.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
-        await service.PlatzhalterAufloesenAsync(koRundeId);
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await dienste.Aufloesung.PlatzhalterAufloesenAsync(koRundeId);
 
         var gruppenErgebnis = ctx.SpielErgebnisse.First(e => e.SpielId == 1);
         gruppenErgebnis.HeimToreRegulaer = 0;
         gruppenErgebnis.AuswaertsToreRegulaer = 1;
         await ctx.SaveChangesAsync();
 
-        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
-        await service.PlatzhalterKaskadeAusfuehrenAsync(plan);
+        var plan = await dienste.Spielplan.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        await dienste.Spielplan.PlatzhalterKaskadeAusfuehrenAsync(plan);
 
-        var planNachAusfuehrung = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        var planNachAusfuehrung = await dienste.Spielplan.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
 
         planNachAusfuehrung.HatAuswirkungen.Should().BeFalse();
     }
@@ -2018,8 +2016,8 @@ public class SpielplanServiceTests
             });
         await ctx.SaveChangesAsync();
 
-        var service = ServiceFuer(ctx);
-        await service.GenerierenAusAuslosungAsync(2, [.. ctx.AuslosungsErgebnisse]);
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(2, [.. ctx.AuslosungsErgebnisse]);
         return 2;
     }
 
@@ -2031,14 +2029,14 @@ public class SpielplanServiceTests
         await using var ctx = NeuerContext();
         int gruppeId = await QualiUndPlatzhalterGruppeAnlegen(ctx, mitRueckspiel: false,
             (null, "Sieger Quali 1"), (null, "Sieger Quali 2"), (null, "Sieger Quali 3"), (null, "Sieger Quali 4"));
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
         var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == gruppeId).ToList();
         spiele.Should().HaveCount(6);
         spiele.Should().OnlyContain(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue,
             "die Quali ist entschieden, alle Platzhalter sind beim Generieren aufgelöst worden");
 
-        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        var plan = await dienste.Spielplan.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
 
         plan.HatAuswirkungen.Should().BeFalse("an der Quali hat sich nichts geändert");
     }
@@ -2049,7 +2047,7 @@ public class SpielplanServiceTests
         await using var ctx = NeuerContext();
         int gruppeId = await QualiUndPlatzhalterGruppeAnlegen(ctx, mitRueckspiel: false,
             (null, "Sieger Quali 1"), (null, "Sieger Quali 2"), (null, "Sieger Quali 3"), (null, "Sieger Quali 4"));
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
         // Alle Gruppenspiele ausgetragen
         foreach (var s in ctx.Spiele.Where(s => s.TurnierRundeId == gruppeId).ToList())
@@ -2070,7 +2068,7 @@ public class SpielplanServiceTests
         quali1.SiegerMannschaftId = 2;
         await ctx.SaveChangesAsync();
 
-        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        var plan = await dienste.Spielplan.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
         var betroffen = ctx.Spiele
             .Where(s => s.TurnierRundeId == gruppeId && (s.HeimMannschaftId == 1 || s.AuswaertsMannschaftId == 1))
             .Select(s => s.Id).ToList();
@@ -2078,7 +2076,7 @@ public class SpielplanServiceTests
         plan.Schritte.OfType<KaskadenSpielSchritt>().Select(s => s.SpielId)
             .Should().BeEquivalentTo(betroffen, "nur die drei Spiele von „Sieger Quali 1“ hängen an Quali-Spiel 1");
 
-        await service.PlatzhalterKaskadeAusfuehrenAsync(plan);
+        await dienste.Spielplan.PlatzhalterKaskadeAusfuehrenAsync(plan);
 
         var gruppenSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == gruppeId).ToList();
         gruppenSpiele.Should().NotContain(s => s.HeimMannschaftId == 1 || s.AuswaertsMannschaftId == 1);
@@ -2096,14 +2094,14 @@ public class SpielplanServiceTests
         await using var ctx = NeuerContext();
         int gruppeId = await QualiUndPlatzhalterGruppeAnlegen(ctx, mitRueckspiel: false,
             (9, null), (10, null), (null, "Sieger Quali 1"), (null, "Sieger Quali 2"));
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
         var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == gruppeId).ToList();
         spiele.Should().HaveCount(6, "Vierergruppe mit Hinrunde = 6 Spiele");
         var teams = spiele.SelectMany(s => new[] { s.HeimMannschaftId, s.AuswaertsMannschaftId }).Distinct();
         teams.Should().BeEquivalentTo(new int?[] { 9, 10, 1, 3 });
 
-        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        var plan = await dienste.Spielplan.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
         plan.HatAuswirkungen.Should().BeFalse();
     }
 
@@ -2113,7 +2111,7 @@ public class SpielplanServiceTests
         await using var ctx = NeuerContext();
         int gruppeId = await QualiUndPlatzhalterGruppeAnlegen(ctx, mitRueckspiel: true,
             (null, "Sieger Quali 1"), (null, "Sieger Quali 2"), (null, "Sieger Quali 3"));
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
         var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == gruppeId).ToList();
         spiele.Should().HaveCount(6);
@@ -2123,7 +2121,7 @@ public class SpielplanServiceTests
             (rueck.HeimMannschaftId, rueck.AuswaertsMannschaftId).Should().Be((hin.AuswaertsMannschaftId, hin.HeimMannschaftId));
         }
 
-        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        var plan = await dienste.Spielplan.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
         plan.HatAuswirkungen.Should().BeFalse();
     }
 
@@ -2211,16 +2209,16 @@ public class SpielplanServiceTests
         GruppenphaseUndKoSetupAnlegen(ctx, out int gruppenphaseRundeId, out int koRundeId);
         var auslosung = await AuslosungMitPlatzhalternAnlegen(
             ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"));
-        var service = ServiceFuer(ctx);
-        await service.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
-        await service.PlatzhalterAufloesenAsync(koRundeId);
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await dienste.Aufloesung.PlatzhalterAufloesenAsync(koRundeId);
 
         var koSpielVorher = ctx.Spiele.First(s => s.TurnierRundeId == koRundeId);
         koSpielVorher.HeimMannschaftId.Should().Be(1, "Vorbedingung: Sieger Gruppe A = Team A");
         koSpielVorher.AuswaertsMannschaftId.Should().Be(4, "Vorbedingung: 2. Gruppe B = Team D");
 
         // Auslosung-Redo: die UI löscht den bestehenden Gruppenphase-Spielplan vor der Neugenerierung.
-        await service.LoeschenAsync(gruppenphaseRundeId);
+        await dienste.Spielplan.LoeschenAsync(gruppenphaseRundeId);
 
         var koSpielNachher = ctx.Spiele.First(s => s.TurnierRundeId == koRundeId);
         koSpielNachher.HeimMannschaftId.Should().BeNull(
@@ -2310,9 +2308,9 @@ public class SpielplanServiceTests
         LigaMitFolgeKoRundeAnlegen(ctx, out _, out int koRundeId, ligaRundenart);
         ZweiSpieltageMitUneinholbaremTabellenfuehrer(ctx);
         LetztenSpieltagSpielen(ctx);
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.PlatzhalterAufloesenAsync(koRundeId);
+        await dienste.Aufloesung.PlatzhalterAufloesenAsync(koRundeId);
 
         var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId).OrderBy(s => s.Id).ToList();
         (spiele[0].HeimMannschaftId, spiele[0].AuswaertsMannschaftId).Should().Be((1, 3), "Platz 1 = A, Platz 4 = C");
@@ -2325,9 +2323,9 @@ public class SpielplanServiceTests
         await using var ctx = NeuerContext();
         LigaMitFolgeKoRundeAnlegen(ctx, out _, out int koRundeId);
         ZweiSpieltageMitUneinholbaremTabellenfuehrer(ctx);
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.PlatzhalterAufloesenAsync(koRundeId);
+        await dienste.Aufloesung.PlatzhalterAufloesenAsync(koRundeId);
 
         var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId).OrderBy(s => s.Id).ToList();
         spiele[0].HeimMannschaftId.Should().Be(1, "A kann mit 6 Punkten von niemandem mehr eingeholt werden");
@@ -2343,10 +2341,10 @@ public class SpielplanServiceTests
         LigaMitFolgeKoRundeAnlegen(ctx, out _, out int koRundeId);
         LigaErgebnisSetzen(ctx, 1, 2, 0); // A–B
         LigaErgebnisSetzen(ctx, 2, 1, 0); // C–D
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var aufgeloest = await service.PlatzhalterAufloesenAsync(koRundeId);
-        var vorschau = await service.PlatzhalterVorschauAsync(koRundeId);
+        var aufgeloest = await dienste.Aufloesung.PlatzhalterAufloesenAsync(koRundeId);
+        var vorschau = await dienste.Aufloesung.PlatzhalterVorschauAsync(koRundeId);
 
         aufgeloest.Should().Be(0, "nach einem Spieltag ist noch kein Tabellenplatz gesichert");
         ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId)
@@ -2362,9 +2360,9 @@ public class SpielplanServiceTests
         LigaMitFolgeKoRundeAnlegen(ctx, out _, out int koRundeId, Rundenart.SchweizerSystem);
         ZweiSpieltageMitUneinholbaremTabellenfuehrer(ctx);
         LetztenSpieltagSpielen(ctx);
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        var aufgeloest = await service.PlatzhalterAufloesenAsync(koRundeId);
+        var aufgeloest = await dienste.Aufloesung.PlatzhalterAufloesenAsync(koRundeId);
 
         aufgeloest.Should().Be(0,
             "ohne AnzahlSpieltage ist unbekannt, ob noch Schweizer Spieltage folgen — kein Rang gilt als gesichert");
@@ -2379,9 +2377,9 @@ public class SpielplanServiceTests
         ctx.SaveChanges();
         ZweiSpieltageMitUneinholbaremTabellenfuehrer(ctx);
         LetztenSpieltagSpielen(ctx);
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.PlatzhalterAufloesenAsync(koRundeId);
+        await dienste.Aufloesung.PlatzhalterAufloesenAsync(koRundeId);
 
         ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId)
             .Should().OnlyContain(s => s.HeimMannschaftId != null && s.AuswaertsMannschaftId != null);
@@ -2396,9 +2394,9 @@ public class SpielplanServiceTests
         ctx.SaveChanges();
         ZweiSpieltageMitUneinholbaremTabellenfuehrer(ctx);
         LetztenSpieltagSpielen(ctx);
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.PlatzhalterAufloesenAsync(koRundeId);
+        await dienste.Aufloesung.PlatzhalterAufloesenAsync(koRundeId);
 
         // Spieltag 4 ist noch nicht generiert: A (9, max. 12) bleibt uneinholbar vor B (max. 7), alle anderen
         // Plätze sind noch offen.
@@ -2452,9 +2450,9 @@ public class SpielplanServiceTests
             new() { PaarungsNummer = 1, HeimPlatzhalterName = "Sieger Gruppe A", AuswaertsPlatzhalterName = "2. Gruppe B" },
             new() { PaarungsNummer = 2, HeimPlatzhalterName = "Sieger Gruppe B", AuswaertsPlatzhalterName = "2. Gruppe A" },
         };
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.GenerierenAusAuslosungAsync(hfRundeId, ergebnisse);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(hfRundeId, ergebnisse);
 
         var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == hfRundeId).OrderBy(s => s.Spielnummer).ToList();
         spiele.Should().HaveCount(4, "je Paarung Hin- und Rückspiel");
@@ -2484,9 +2482,9 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.PlatzhalterAufloesenAsync(finaleRundeId);
+        await dienste.Aufloesung.PlatzhalterAufloesenAsync(finaleRundeId);
 
         var finale = ctx.Spiele.First(s => s.Id == 20);
         // Früher: "Sieger Halbfinale 1" = Hinspiel-Sieger B, "Sieger Halbfinale 2" = Rückspiel der 1. Paarung.
@@ -2507,10 +2505,10 @@ public class SpielplanServiceTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await new SpielplanDienste(ctx).Quellverknuepfung.AlleRundenVerknuepfenAsync(1);
-        await service.PlatzhalterAufloesenAsync(finaleRundeId);
+        await dienste.Quellverknuepfung.AlleRundenVerknuepfenAsync(1);
+        await dienste.Aufloesung.PlatzhalterAufloesenAsync(finaleRundeId);
 
         var finale = ctx.Spiele.First(s => s.Id == 20);
         finale.HeimQuellSpielId.Should().Be(2, "das Rückspiel der 1. Paarung trägt den Gesamtsieger");
@@ -2528,9 +2526,9 @@ public class SpielplanServiceTests
         ctx.SaveChanges();
         var auslosung = await AuslosungMitPlatzhalternAnlegen(
             ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"), ("Sieger Gruppe B", "2. Gruppe A"));
-        var service = ServiceFuer(ctx);
-        await service.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
-        await service.PlatzhalterAufloesenAsync(koRundeId);
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await dienste.Aufloesung.PlatzhalterAufloesenAsync(koRundeId);
 
         // Gruppenspiel neu entschieden: Team B gewinnt Gruppe A statt Team A
         var gruppenErgebnis = ctx.SpielErgebnisse.First(e => e.SpielId == 1);
@@ -2538,9 +2536,9 @@ public class SpielplanServiceTests
         gruppenErgebnis.AuswaertsToreRegulaer = 1;
         await ctx.SaveChangesAsync();
 
-        var plan = await service.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
+        var plan = await dienste.Spielplan.PlatzhalterKaskadePlanenAsync(1, new HashSet<int>());
         plan.Schritte.Should().HaveCount(4, "Hin- und Rückspiel beider Paarungen sind betroffen");
-        await service.PlatzhalterKaskadeAusfuehrenAsync(plan);
+        await dienste.Spielplan.PlatzhalterKaskadeAusfuehrenAsync(plan);
 
         var teams = ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId).OrderBy(s => s.Spielnummer)
             .Select(s => new { s.HeimMannschaftId, s.AuswaertsMannschaftId }).ToList();
@@ -2562,9 +2560,9 @@ public class SpielplanServiceTests
         ctx.SaveChanges();
         var auslosung = await AuslosungMitPlatzhalternAnlegen(
             ctx, koRundeId, ("Sieger Gruppe A", "2. Gruppe B"), ("Sieger Gruppe B", "2. Gruppe A"));
-        var service = ServiceFuer(ctx);
+        var dienste = new SpielplanDienste(ctx);
 
-        await service.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(koRundeId, [.. auslosung.Ergebnisse]);
 
         var teams = ctx.Spiele.Where(s => s.TurnierRundeId == koRundeId).OrderBy(s => s.Spielnummer)
             .Select(s => new { s.HeimMannschaftId, s.AuswaertsMannschaftId }).ToList();

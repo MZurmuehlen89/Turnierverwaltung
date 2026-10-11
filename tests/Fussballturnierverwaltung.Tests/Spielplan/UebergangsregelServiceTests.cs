@@ -26,11 +26,11 @@ public class UebergangsregelServiceTests
     {
         var rundeRepo = new TurnierRundeRepository(ctx);
         var uebergangsregelRepo = new UebergangsregelRepository(ctx);
-        var spielplanService = new SpielplanDienste(ctx).Spielplan;
+        var aufloesung = new SpielplanDienste(ctx).Aufloesung;
 
         return new UebergangsregelService(
             uebergangsregelRepo, rundeRepo, new UebergangsregelValidator(),
-            spielplanService, NullLogger<UebergangsregelService>.Instance);
+            aufloesung, NullLogger<UebergangsregelService>.Instance);
     }
 
     private static void GrundSetupAnlegen(TurnierverwaltungDbContext ctx, out int gruppenphaseRundeId, out int koRundeId)
