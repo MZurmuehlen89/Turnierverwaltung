@@ -15,13 +15,14 @@ internal sealed class SpielplanDienste
     {
         var rundeRepo = new TurnierRundeRepository(ctx);
         var spielRepo = new SpielRepository(ctx);
+        var tabellen  = new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx));
         var generatoren = new SpielplanGeneratorFactory(
             [new KoRundeGenerator(), new RoundRobinGenerator(), new TopfLigaGenerator(), new SchweizerSystemGenerator()]);
 
         Spielplan = new SpielplanService(
             rundeRepo, spielRepo, new MannschaftRepository(ctx), new TurnierBaumRepository(ctx),
             new UebergangsregelRepository(ctx), generatoren, new TurnierValidator(),
-            new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx)),
+            tabellen, new TabellenZwischenspeicher(tabellen, spielRepo),
             new AuslosungRepository(ctx), NullLogger<SpielplanService>.Instance);
     }
 
