@@ -96,7 +96,7 @@ public class SpielplanService(
         {
             case Rundenart.Gruppenphase:
             {
-                var gruppen = GruppenSpielplan.GruppenSlotsAusAuslosung(ergebnisse);
+                var gruppen = GruppenSpielplan.AusAuslosung(ergebnisse);
 
                 if (gruppen.Count > 0 && gruppen.All(g => g.All(s => s.MannschaftId.HasValue)))
                 {
@@ -474,7 +474,7 @@ public class SpielplanService(
             ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
 
         int startNr = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
-        var plan    = GruppenSpielplan.GruppenSpielplanPlanen(gruppen, runde.MitRueckspiel);
+        var plan    = GruppenSpielplan.Planen(gruppen, runde.MitRueckspiel);
 
         var alleSpiele = plan.Select((g, i) => new Spiel
         {
@@ -804,26 +804,16 @@ public class SpielplanService(
         async Task<(int SpielId, SpielQuellErgebnisTyp Typ)?> QuelleAufloesenAsync(string? platzhalterName)
         {
             if (string.IsNullOrWhiteSpace(platzhalterName)) return null;
+            if (PlatzhalterNamen.KoSpielErkennen(platzhalterName) is not { } bezug) return null;
 
-            bool verlierer = false;
-            var match = PlatzhalterNamen.KoSiegerRx.Match(platzhalterName);
-            if (!match.Success)
-            {
-                match = PlatzhalterNamen.KoVerliererRx.Match(platzhalterName);
-                verlierer = true;
-            }
-            if (!match.Success || !int.TryParse(match.Groups[2].Value, out int spielNr)) return null;
-
-            var arten = verlierer
-                ? new[] { Rundenart.KoRunde }
-                : new[] { Rundenart.KoRunde, Rundenart.Finale };
-            var quellRunde = PlatzhalterNamen.NaechstgelegeneKoQuellrunde(match.Groups[1].Value, arten, zielRunde, alleRunden);
+            var quellRunde = PlatzhalterNamen.KoQuellrunde(bezug, zielRunde, alleRunden);
             if (quellRunde is null) return null;
 
             var quellSpiele = await QuellSpieleAsync(quellRunde);
-            if (spielNr < 1 || spielNr > quellSpiele.Count) return null;
+            if (bezug.SpielNummer < 1 || bezug.SpielNummer > quellSpiele.Count) return null;
 
-            return (quellSpiele[spielNr - 1].Id, verlierer ? SpielQuellErgebnisTyp.Verlierer : SpielQuellErgebnisTyp.Sieger);
+            return (quellSpiele[bezug.SpielNummer - 1].Id,
+                bezug.Verlierer ? SpielQuellErgebnisTyp.Verlierer : SpielQuellErgebnisTyp.Sieger);
         }
 
         var geaenderteSpiele = new List<Spiel>();
@@ -1040,9 +1030,9 @@ public class SpielplanService(
             // Berger-Plan wie bei der Generierung nachbauen und Spiel für Spiel vergleichen.
             if (runde.Rundenart == Rundenart.Gruppenphase)
             {
-                var geplant = GruppenSpielplan.GruppenSpielplanPlanen(GruppenSpielplan.GruppenSlotsAusAuslosung(auslosung.Ergebnisse), runde.MitRueckspiel);
+                var geplant = GruppenSpielplan.Planen(GruppenSpielplan.AusAuslosung(auslosung.Ergebnisse), runde.MitRueckspiel);
                 var spieleNachNummer = alleRundenSpiele.OrderBy(s => s.Spielnummer).ToList();
-                if (!GruppenSpielplan.PasstZuGruppenPlan(geplant, spieleNachNummer))
+                if (!GruppenSpielplan.PasstZu(geplant, spieleNachNummer))
                 {
                     // Unbekannte Struktur (z.B. vor #395 ohne Platzhalter generierte gemischte Gruppe) — lieber
                     // nicht anfassen als falsche Spiele zurücksetzen.
@@ -1332,52 +1322,33 @@ public class SpielplanService(
 
     private async Task<int?> PlatzhalterNameAufloessenAsync(
         string name, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
-        IReadOnlySet<int>? ignorierteSpielIds = null, bool nurSicherPositioniert = true)
-    {
-        // Pattern 1: "Sieger Gruppe A" → Rang 1 der Gruppe A
-        var m = PlatzhalterNamen.GruppenSiegerRx.Match(name);
-        if (m.Success)
-            return await GruppenrangAufloessenAsync(m.Groups[1].Value, 1, runde, alleRunden, ct, ignorierteSpielIds, nurSicherPositioniert);
-
-        // Pattern 1a: "3. Gruppe A/D/E/F" → Gruppendritter laut Kombinationstabelle der Runde (Issue #372)
-        if (Kombinationstabelle.IstPlatz(name, out int kombinationsPlatzierung))
-            return await KombinationsPlatzAufloesenAsync(name, kombinationsPlatzierung, runde, alleRunden, ct, ignorierteSpielIds);
-
-        // Pattern 2: "2. Gruppe A" → Rang 2 der Gruppe A
-        m = PlatzhalterNamen.GruppenRangRx.Match(name);
-        if (m.Success && int.TryParse(m.Groups[1].Value, out int rang))
-            return await GruppenrangAufloessenAsync(m.Groups[2].Value, rang, runde, alleRunden, ct, ignorierteSpielIds, nurSicherPositioniert);
-
-        // Pattern 3: "2. bester 3. Platz" → gruppenübergreifende Rangfolge-Regel (Issue #213)
-        m = PlatzhalterNamen.BestePlatzierungRx.Match(name);
-        if (m.Success && int.TryParse(m.Groups[1].Value, out int bestenRang) && int.TryParse(m.Groups[2].Value, out int platzierung))
-            return await BestePlatzierungAufloessenAsync(bestenRang, platzierung, runde, alleRunden, ct, ignorierteSpielIds);
-
-        // Pattern 4: "Sieger VF 1" → Sieger des 1. Spiels im Viertelfinale
-        m = PlatzhalterNamen.KoSiegerRx.Match(name);
-        if (m.Success && int.TryParse(m.Groups[2].Value, out int spielNr))
-            return await KoSiegerAufloessenAsync(m.Groups[1].Value, spielNr, runde, alleRunden, ct, ignorierteSpielIds);
-
-        // Pattern 5: "Verlierer HF 1" → Verlierer des 1. Spiels im Halbfinale
-        m = PlatzhalterNamen.KoVerliererRx.Match(name);
-        if (m.Success && int.TryParse(m.Groups[2].Value, out spielNr))
-            return await KoVerliererAufloessenAsync(m.Groups[1].Value, spielNr, runde, alleRunden, ct, ignorierteSpielIds);
-
-        // Pattern 6: "Platz 3 (Ligaphase)" → Tabellenrang 3 der Liga-/TopfLiga-/Schweizer-Runde "Ligaphase"
-        // (Format aus PlatzhalterHilfsmittel, Issue #343)
-        m = PlatzhalterNamen.TabellenPlatzRx.Match(name);
-        if (m.Success && int.TryParse(m.Groups[1].Value, out int platz))
+        IReadOnlySet<int>? ignorierteSpielIds = null, bool nurSicherPositioniert = true) =>
+        PlatzhalterNamen.Erkennen(name) switch
         {
-            var quellRunde = alleRunden
-                .Where(r => r.Reihenfolge < runde.Reihenfolge
-                         && string.Equals(r.Name, m.Groups[2].Value, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(r => r.Reihenfolge)
-                .FirstOrDefault();
-            if (quellRunde is null) return null;
-            return await RangAufloesenAsync(quellRunde, null, platz, ct, ignorierteSpielIds, nurSicherPositioniert);
-        }
+            PlatzhalterBezug.GruppenRang g => await GruppenrangAufloessenAsync(
+                g.GruppenKennung, g.Rang, runde, alleRunden, ct, ignorierteSpielIds, nurSicherPositioniert),
+            PlatzhalterBezug.KombinationsPlatz k => await KombinationsPlatzAufloesenAsync(
+                name, k.Platzierung, runde, alleRunden, ct, ignorierteSpielIds),
+            PlatzhalterBezug.BestePlatzierung b => await BestePlatzierungAufloessenAsync(
+                b.Rang, b.Platzierung, runde, alleRunden, ct, ignorierteSpielIds),
+            PlatzhalterBezug.KoSpiel k => await KoSpielAufloesenAsync(k, runde, alleRunden, ct, ignorierteSpielIds),
+            PlatzhalterBezug.TabellenPlatz t => await TabellenPlatzAufloesenAsync(
+                t, runde, alleRunden, ct, ignorierteSpielIds, nurSicherPositioniert),
+            _ => null,
+        };
 
-        return null;
+    private async Task<int?> TabellenPlatzAufloesenAsync(
+        PlatzhalterBezug.TabellenPlatz bezug, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
+        IReadOnlySet<int>? ignorierteSpielIds, bool nurSicherPositioniert)
+    {
+        var quellRunde = alleRunden
+            .Where(r => r.Reihenfolge < runde.Reihenfolge
+                     && string.Equals(r.Name, bezug.RundenName, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(r => r.Reihenfolge)
+            .FirstOrDefault();
+        if (quellRunde is null) return null;
+
+        return await RangAufloesenAsync(quellRunde, null, bezug.Platz, ct, ignorierteSpielIds, nurSicherPositioniert);
     }
 
     private async Task<int?> GruppenrangAufloessenAsync(
@@ -1469,24 +1440,14 @@ public class SpielplanService(
         return rang <= rangfolge.Count ? rangfolge[rang - 1].Mannschaft.Id : null;
     }
 
-    private async Task<int?> KoSiegerAufloessenAsync(
-        string kuerzel, int spielNummer, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
-        IReadOnlySet<int>? ignorierteSpielIds = null)
+    private async Task<int?> KoSpielAufloesenAsync(
+        PlatzhalterBezug.KoSpiel bezug, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
+        IReadOnlySet<int>? ignorierteSpielIds)
     {
-        var koRunde = PlatzhalterNamen.NaechstgelegeneKoQuellrunde(kuerzel, [Rundenart.KoRunde, Rundenart.Finale], runde, alleRunden);
+        var koRunde = PlatzhalterNamen.KoQuellrunde(bezug, runde, alleRunden);
         if (koRunde is null) return null;
 
-        return await RangAufloesenAsync(koRunde, spielNummer, 1, ct, ignorierteSpielIds);
-    }
-
-    private async Task<int?> KoVerliererAufloessenAsync(
-        string kuerzel, int spielNummer, TurnierRunde runde, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct,
-        IReadOnlySet<int>? ignorierteSpielIds = null)
-    {
-        var koRunde = PlatzhalterNamen.NaechstgelegeneKoQuellrunde(kuerzel, [Rundenart.KoRunde], runde, alleRunden);
-        if (koRunde is null) return null;
-
-        return await RangAufloesenAsync(koRunde, spielNummer, 2, ct, ignorierteSpielIds);
+        return await RangAufloesenAsync(koRunde, bezug.SpielNummer, bezug.Verlierer ? 2 : 1, ct, ignorierteSpielIds);
     }
 
     // ── Regelbasierte Auflösung (Issue #130) ──────────────────────────────

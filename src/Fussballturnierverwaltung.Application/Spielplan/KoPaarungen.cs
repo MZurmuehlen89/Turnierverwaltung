@@ -2,6 +2,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 
 namespace Fussballturnierverwaltung.Application.Spielplan;
 
+/// <summary>Paarungen einer K.o.-Runde aus ihren Spielen lesen — ohne Datenbank.</summary>
 public static class KoPaarungen
 {
     public static Dictionary<int, Spiel> RueckspielJeHinspiel(IEnumerable<Spiel> spiele) =>

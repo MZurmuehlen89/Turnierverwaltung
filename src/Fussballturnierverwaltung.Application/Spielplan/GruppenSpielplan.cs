@@ -11,12 +11,14 @@ public readonly record struct GruppenSlot(int? MannschaftId, string? Platzhalter
 public sealed record GeplantesGruppenSpiel(
     GruppenSlot Heim, GruppenSlot Auswaerts, int GruppenNummer, int Spieltag, bool IstRueckspiel, int? HinspielIndex);
 
+/// <summary>Spielplan einer Gruppenphase über Teilnehmerplätze statt Mannschaften, damit auch Gruppen mit noch
+/// offenen Platzhaltern einen Spielplan bekommen (Issue #395) — ohne Datenbank.</summary>
 public static class GruppenSpielplan
 {
     /// <summary>Gruppen-Auslosungen speichern einen Eintrag pro Team (nur Heim-Seite, PaarungsNummer =
     /// Gruppe). Innerhalb der Gruppe nach Id sortiert, damit Generierung und Kaskade unabhängig von der
     /// Ladereihenfolge denselben Plan bauen.</summary>
-    public static List<IReadOnlyList<GruppenSlot>> GruppenSlotsAusAuslosung(IEnumerable<AuslosungsErgebnis> ergebnisse) =>
+    public static List<IReadOnlyList<GruppenSlot>> AusAuslosung(IEnumerable<AuslosungsErgebnis> ergebnisse) =>
         [.. ergebnisse
             .GroupBy(e => e.PaarungsNummer)
             .OrderBy(g => g.Key)
@@ -25,53 +27,68 @@ public static class GruppenSpielplan
                 .Select(e => new GruppenSlot(e.HeimMannschaftId, e.HeimPlatzhalterName))])];
 
     /// <summary>Reine Funktion: Berger-Round-Robin je Gruppe, sortiert nach Spieltag und Gruppe — exakt die
-    /// Reihenfolge, in der <see cref="SpielplanService.GenerierenAusGruppenMitPlatzhalternAsync"/> die Spielnummern vergibt.
-    /// Die Kaskade baut damit den Soll-Spielplan nach und vergleicht Spiel mit Spiel (#395).</summary>
-    public static List<GeplantesGruppenSpiel> GruppenSpielplanPlanen(
+    /// Reihenfolge, in der die Generierung die Spielnummern vergibt. Die Kaskade baut damit den Soll-Spielplan
+    /// nach und vergleicht Spiel mit Spiel (#395).</summary>
+    public static List<GeplantesGruppenSpiel> Planen(
         IReadOnlyList<IReadOnlyList<GruppenSlot>> gruppen, bool mitRueckspiel)
     {
-        var geplant = new List<(int GruppenIndex, int Spieltag, int Nr, GruppenSlot Heim, GruppenSlot Auswaerts, int? HinspielNr)>();
-        int nr = 0;
-
+        var paarungen = new List<Paarung>();
         for (int gi = 0; gi < gruppen.Count; gi++)
+            paarungen.AddRange(GruppePlanen(gruppen[gi], gi, mitRueckspiel, ersteNr: paarungen.Count));
+
+        return InSpielnummerReihenfolge(paarungen);
+    }
+
+    /// <summary>Eine Paarung vor der Sortierung; <see cref="Nr"/> ist die laufende Nummer in Planungsreihenfolge,
+    /// über die ein Rückspiel sein Hinspiel benennt.</summary>
+    private readonly record struct Paarung(
+        int GruppenIndex, int Spieltag, int Nr, GruppenSlot Heim, GruppenSlot Auswaerts, int? HinspielNr);
+
+    private static List<Paarung> GruppePlanen(
+        IReadOnlyList<GruppenSlot> gruppe, int gruppenIndex, bool mitRueckspiel, int ersteNr)
+    {
+        var plaetze = gruppe.Select(s => (GruppenSlot?)s).ToList();
+        if (plaetze.Count < 2) return [];
+        if (plaetze.Count % 2 == 1) plaetze.Add(null); // Freilos
+
+        int spieltage = plaetze.Count - 1;
+        var hinspiele = BergerPaarungen(plaetze)
+            .Select((p, i) => new Paarung(gruppenIndex, p.Spieltag, ersteNr + i, p.Heim, p.Auswaerts, null))
+            .ToList();
+        if (!mitRueckspiel) return hinspiele;
+
+        var rueckspiele = hinspiele.Select((h, i) => new Paarung(
+            gruppenIndex, h.Spieltag + spieltage, ersteNr + hinspiele.Count + i, h.Auswaerts, h.Heim, h.Nr));
+        return [.. hinspiele, .. rueckspiele];
+    }
+
+    /// <summary>Berger-Tabelle: Platz 0 steht fest, die übrigen rücken je Spieltag einen Platz weiter; der feste
+    /// Platz wechselt je Spieltag das Heimrecht. Paarungen mit dem Freilos (<c>null</c>) entfallen.</summary>
+    private static IEnumerable<(int Spieltag, GruppenSlot Heim, GruppenSlot Auswaerts)> BergerPaarungen(
+        IReadOnlyList<GruppenSlot?> plaetze)
+    {
+        int gesamt = plaetze.Count;
+        var kreis  = Enumerable.Range(1, gesamt - 1).ToArray();
+
+        for (int spieltag = 1; spieltag < gesamt; spieltag++)
         {
-            var slots = gruppen[gi].Select(s => (GruppenSlot?)s).ToList();
-            if (slots.Count < 2) continue;
-            if (slots.Count % 2 == 1) slots.Add(null);
-
-            int gesamt    = slots.Count;
-            int spieltage = gesamt - 1;
-            var kreis     = Enumerable.Range(1, gesamt - 1).ToArray();
-            var hinspiele = new List<(int Spieltag, int Nr, GruppenSlot Heim, GruppenSlot Auswaerts)>();
-
-            void Hinzufuegen(GruppenSlot? heim, GruppenSlot? ausw, int spieltag)
+            var paare = new List<(GruppenSlot? Heim, GruppenSlot? Auswaerts)>
             {
-                if (heim is null || ausw is null) return;
-                hinspiele.Add((spieltag, nr, heim.Value, ausw.Value));
-                geplant.Add((gi, spieltag, nr++, heim.Value, ausw.Value, null));
-            }
+                spieltag % 2 == 1 ? (plaetze[0], plaetze[kreis[^1]]) : (plaetze[kreis[^1]], plaetze[0]),
+            };
+            for (int i = 0; i < (gesamt - 2) / 2; i++)
+                paare.Add((plaetze[kreis[i]], plaetze[kreis[gesamt - 3 - i]]));
 
-            for (int spieltag = 0; spieltag < spieltage; spieltag++)
-            {
-                if (spieltag % 2 == 0) Hinzufuegen(slots[0], slots[kreis[^1]], spieltag + 1);
-                else                   Hinzufuegen(slots[kreis[^1]], slots[0], spieltag + 1);
+            foreach (var (heim, auswaerts) in paare)
+                if (heim is { } h && auswaerts is { } a) yield return (spieltag, h, a);
 
-                for (int i = 0; i < (gesamt - 2) / 2; i++)
-                    Hinzufuegen(slots[kreis[i]], slots[kreis[gesamt - 3 - i]], spieltag + 1);
-
-                var letzter = kreis[^1];
-                for (int k = gesamt - 2; k > 0; k--) kreis[k] = kreis[k - 1];
-                kreis[0] = letzter;
-            }
-
-            if (mitRueckspiel)
-            {
-                foreach (var h in hinspiele)
-                    geplant.Add((gi, h.Spieltag + spieltage, nr++, h.Auswaerts, h.Heim, h.Nr));
-            }
+            kreis = [kreis[^1], .. kreis[..^1]];
         }
+    }
 
-        var sortiert = geplant
+    private static List<GeplantesGruppenSpiel> InSpielnummerReihenfolge(IReadOnlyList<Paarung> paarungen)
+    {
+        var sortiert = paarungen
             .OrderBy(x => x.Spieltag)
             .ThenBy(x => x.GruppenIndex)
             .ThenBy(x => x.Nr)
@@ -86,7 +103,7 @@ public static class GruppenSpielplan
     /// <summary>Plausibilitätsprüfung vor dem Spiel-zu-Spiel-Vergleich der Kaskade: gleiche Anzahl, gleiche
     /// Hin-/Rückspiel-Lage, feste Teams an derselben Stelle und noch offene Platzhalter mit demselben Namen.
     /// Bereits aufgelöste Platzhalter-Seiten sind nicht prüfbar (der Name wird beim Auflösen entfernt).</summary>
-    public static bool PasstZuGruppenPlan(IReadOnlyList<GeplantesGruppenSpiel> geplant, IReadOnlyList<Spiel> spiele)
+    public static bool PasstZu(IReadOnlyList<GeplantesGruppenSpiel> geplant, IReadOnlyList<Spiel> spiele)
     {
         if (geplant.Count != spiele.Count) return false;
 
