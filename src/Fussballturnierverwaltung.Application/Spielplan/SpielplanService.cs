@@ -598,7 +598,7 @@ public class SpielplanService(
     /// nach den realen Teams und aktualisiert die Spiele. Gibt die Anzahl aufgelöster Spiele zurück.
     /// </summary>
     public Task<int> PlatzhalterAufloesenAsync(int turnierRundeId, CancellationToken ct = default)
-        => zwischenspeicher.MitTabellenZwischenspeicherAsync(() => PlatzhalterAufloesenOhneZwischenspeicherAsync(turnierRundeId, ct));
+        => zwischenspeicher.DurchlaufAsync(() => PlatzhalterAufloesenOhneZwischenspeicherAsync(turnierRundeId, ct));
 
     private async Task<int> PlatzhalterAufloesenOhneZwischenspeicherAsync(int turnierRundeId, CancellationToken ct)
     {
@@ -665,7 +665,7 @@ public class SpielplanService(
         if (korrekturen.Count > 0)
         {
             await spielRepository.PlatzhalterKorrigierenAsync(korrekturen, ct);
-            zwischenspeicher.TabellenZwischenspeicherVerwerfen(turnierRundeId);
+            zwischenspeicher.Verwerfen(turnierRundeId);
         }
         long speichernMs = uhr.ElapsedMilliseconds - ladenMs - aufloesenMs;
 
@@ -684,7 +684,7 @@ public class SpielplanService(
     /// zugewiesene Seiten liefern keinen Vorschau-Wert (null).</summary>
     public Task<IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)>> PlatzhalterVorschauAsync(
         int turnierRundeId, CancellationToken ct = default)
-        => zwischenspeicher.MitTabellenZwischenspeicherAsync(() => PlatzhalterVorschauOhneZwischenspeicherAsync(turnierRundeId, ct));
+        => zwischenspeicher.DurchlaufAsync(() => PlatzhalterVorschauOhneZwischenspeicherAsync(turnierRundeId, ct));
 
     private async Task<IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)>> PlatzhalterVorschauOhneZwischenspeicherAsync(
         int turnierRundeId, CancellationToken ct)
@@ -745,7 +745,7 @@ public class SpielplanService(
     /// <see cref="PlatzhalterAufloesenAsync"/> selbst kehrt dafür sofort zurück (früher Return bei
     /// <c>platzhalterSpiele.Count == 0</c>). Gibt die Gesamtanzahl neu aufgelöster Spiele zurück.</summary>
     public Task<int> PlatzhalterAlleRundenAufloesenAsync(int turnierInstanzId, CancellationToken ct = default)
-        => zwischenspeicher.MitTabellenZwischenspeicherAsync(() => PlatzhalterAlleRundenAufloesenOhneZwischenspeicherAsync(turnierInstanzId, ct));
+        => zwischenspeicher.DurchlaufAsync(() => PlatzhalterAlleRundenAufloesenOhneZwischenspeicherAsync(turnierInstanzId, ct));
 
     private async Task<int> PlatzhalterAlleRundenAufloesenOhneZwischenspeicherAsync(int turnierInstanzId, CancellationToken ct)
     {
@@ -882,7 +882,7 @@ public class SpielplanService(
     /// </summary>
     public Task<KaskadenPlan> PlatzhalterKaskadePlanenAsync(
         int turnierInstanzId, IReadOnlySet<int> zusaetzlichIgnorierteSpielIds, CancellationToken ct = default)
-        => zwischenspeicher.MitTabellenZwischenspeicherAsync(() => PlatzhalterKaskadePlanenOhneZwischenspeicherAsync(turnierInstanzId, zusaetzlichIgnorierteSpielIds, ct));
+        => zwischenspeicher.DurchlaufAsync(() => PlatzhalterKaskadePlanenOhneZwischenspeicherAsync(turnierInstanzId, zusaetzlichIgnorierteSpielIds, ct));
 
     private async Task<KaskadenPlan> PlatzhalterKaskadePlanenOhneZwischenspeicherAsync(
         int turnierInstanzId, IReadOnlySet<int> zusaetzlichIgnorierteSpielIds, CancellationToken ct)
@@ -908,7 +908,6 @@ public class SpielplanService(
             if (platzhalterEintraege.Count == 0) continue;
 
             var alleRundenSpiele = await zwischenspeicher.RundenSpieleAsync(runde.Id, ct);
-            zwischenspeicher.SpielSchluesselMerken(runde.Id, alleRundenSpiele);
 
             // Eine Auslosung-basierte Platzhalter-Runde ohne ein einziges Spiel muss komplett neu
             // generiert werden — z.B. wenn die enge #125-Logik (FinaleAutomatischGenerierenWennBereitAsync)
