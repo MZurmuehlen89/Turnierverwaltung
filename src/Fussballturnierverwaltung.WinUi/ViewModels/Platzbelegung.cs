@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -217,7 +218,7 @@ public class Platzbelegung : ObservableObject
     private static TeilnehmerAnzeige TeamAnzeige(int? mannschaftId, Mannschaft? mannschaft, string? platzhalterName) =>
         mannschaftId.HasValue
             ? new TeilnehmerAnzeige(mannschaftId, mannschaft?.Name ?? "?", mannschaft?.Land?.Kurzname,
-                LandId: mannschaft?.LandId, Wappen: TeilnehmerAnzeige.MannschaftsIcon(mannschaft))
+                LandId: mannschaft?.LandId, Wappen: MannschaftsIcon.Fuer(mannschaft))
             : TeilnehmerAnzeige.AusPlatzhalter(platzhalterName ?? "?");
 
     // ── Platzieren und Entfernen (Ziehen, Doppeltipp und Rechtsklick im Code-Behind) ──────────────

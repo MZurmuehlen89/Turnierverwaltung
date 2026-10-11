@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Application.Simulation;
+using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using System.Collections.ObjectModel;
@@ -104,8 +105,8 @@ internal static class SimulationsProtokollHelfer
 
         return new SpielKopf(
             kontext,
-            heimName, MannschaftsIcon(heim), Untertitel(heim, auswaerts, verbandKurzname), Kuerzel(heim, heimName),
-            auswaertsName, MannschaftsIcon(auswaerts), Untertitel(auswaerts, heim, verbandKurzname), Kuerzel(auswaerts, auswaertsName),
+            heimName, MannschaftsIcon.Fuer(heim), Untertitel(heim, auswaerts, verbandKurzname), Kuerzel(heim, heimName),
+            auswaertsName, MannschaftsIcon.Fuer(auswaerts), Untertitel(auswaerts, heim, verbandKurzname), Kuerzel(auswaerts, auswaertsName),
             score, entscheidung, ZwischenstandText(e));
     }
 
@@ -116,8 +117,8 @@ internal static class SimulationsProtokollHelfer
         Mannschaft heim, Mannschaft auswaerts, string score, string zusatz,
         Func<Mannschaft, string?> verbandKurzname) =>
         new("Gesamt",
-            heim.Name, MannschaftsIcon(heim), Untertitel(heim, auswaerts, verbandKurzname), Kuerzel(heim, heim.Name),
-            auswaerts.Name, MannschaftsIcon(auswaerts), Untertitel(auswaerts, heim, verbandKurzname), Kuerzel(auswaerts, auswaerts.Name),
+            heim.Name, MannschaftsIcon.Fuer(heim), Untertitel(heim, auswaerts, verbandKurzname), Kuerzel(heim, heim.Name),
+            auswaerts.Name, MannschaftsIcon.Fuer(auswaerts), Untertitel(auswaerts, heim, verbandKurzname), Kuerzel(auswaerts, auswaerts.Name),
             score, zusatz, null);
 
     // Zwischenstände ("HZ 1:0 · 90' 1:1 · n.V. 2:1"). Der Halbzeitstand fehlt bei manuell eingegebenen
@@ -155,13 +156,6 @@ internal static class SimulationsProtokollHelfer
         string name = mannschaft?.Name ?? ersatzName;
         return name[..Math.Min(3, name.Length)].ToUpperInvariant();
     }
-
-    // Issue #232, analog #229/#230: Nationalmannschaften zeigen die Landesflagge statt des
-    // Mannschafts-Wappens, das eigene Wappen bleibt in der DB erhalten.
-    public static byte[]? MannschaftsIcon(Mannschaft? mannschaft)
-        => mannschaft?.Mannschaftsart == Mannschaftsart.Nationalmannschaft
-            ? mannschaft.Land?.Flagge
-            : mannschaft?.Wappen;
 
     // Baut die Ereigniszeitleiste inkl. Abschnittstrenner (Halbzeit, 90 Minuten,
     // Halbzeit/Ende Verlängerung, Elfmeterschießen) für die übergebene Ziel-Collection auf.

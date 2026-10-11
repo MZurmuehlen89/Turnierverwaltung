@@ -6,7 +6,6 @@ using Fussballturnierverwaltung.Application.Ranglisten.Import;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
-using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
@@ -29,9 +28,7 @@ public partial class RanglistenEintragZeile : ObservableObject
     [ObservableProperty] private int _rang;
     [ObservableProperty] private int? _punkte;
 
-    public byte[]? Wappen => Mannschaft.Mannschaftsart == Mannschaftsart.Nationalmannschaft
-        ? Mannschaft.Land?.Flagge
-        : Mannschaft.Wappen;
+    public byte[]? Wappen => MannschaftsIcon.Fuer(Mannschaft);
 }
 
 public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen

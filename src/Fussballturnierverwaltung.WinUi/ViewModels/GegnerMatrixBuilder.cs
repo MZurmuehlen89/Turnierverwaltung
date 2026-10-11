@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using System.Collections.ObjectModel;
 
@@ -43,7 +44,7 @@ public static class GegnerMatrixBuilder
             Name       = name,
             Kurzname   = string.IsNullOrWhiteSpace(team.Mannschaft?.Kurzname) ? name : team.Mannschaft.Kurzname,
             Land       = team.Mannschaft?.Land?.Name,
-            Wappen     = TeilnehmerAnzeige.MannschaftsIcon(team.Mannschaft),
+            Wappen     = MannschaftsIcon.Fuer(team.Mannschaft),
         };
     }
 }

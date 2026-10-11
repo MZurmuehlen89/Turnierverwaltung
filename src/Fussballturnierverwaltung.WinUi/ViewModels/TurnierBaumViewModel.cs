@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
@@ -425,8 +426,8 @@ public partial class TurnierBaumViewModel : ViewModelBase
             Label = label,
             HeimName = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "—",
             AuswaertsName = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "—",
-            HeimWappen = TeilnehmerAnzeige.MannschaftsIcon(s.HeimMannschaft),
-            AuswaertsWappen = TeilnehmerAnzeige.MannschaftsIcon(s.AuswaertsMannschaft),
+            HeimWappen = MannschaftsIcon.Fuer(s.HeimMannschaft),
+            AuswaertsWappen = MannschaftsIcon.Fuer(s.AuswaertsMannschaft),
             HatErgebnis = ergebnis.HatErgebnis,
             HeimScore = ergebnis.HeimScore,
             AuswaertsScore = ergebnis.AuswaertsScore,

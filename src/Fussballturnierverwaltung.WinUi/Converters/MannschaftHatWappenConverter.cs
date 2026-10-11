@@ -1,5 +1,5 @@
+using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
-using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
 
@@ -10,7 +10,7 @@ namespace Fussballturnierverwaltung.WinUi.Converters;
 public class MannschaftHatWappenConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
-        => TeilnehmerAnzeige.MannschaftsIcon(value as Mannschaft) is { Length: > 0 }
+        => MannschaftsIcon.Fuer(value as Mannschaft) is { Length: > 0 }
             ? Visibility.Visible
             : Visibility.Collapsed;
 

@@ -312,8 +312,8 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         try
         {
             var erg = _simulationsService.EinzelspielSimulieren(heim, auswaerts, verfahren, SimulationsModus.AusfuehrlicheSimulation);
-            byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(heim);
-            byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(auswaerts);
+            byte[]? heimWappen      = MannschaftsIcon.Fuer(heim);
+            byte[]? auswaertsWappen = MannschaftsIcon.Fuer(auswaerts);
             ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
             ProtokollKopf = SimulationsProtokollHelfer.SpielKopfErstellen(
                 null, heim, heim.Name, auswaerts, auswaerts.Name, erg, VerbandKurzname);
@@ -405,8 +405,8 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         HinspielHeimToreEingabe      = erg.HeimToreRegulaer;
         HinspielAuswaertsToreEingabe = erg.AuswaertsToreRegulaer;
 
-        byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(heim);
-        byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(auswaerts);
+        byte[]? heimWappen      = MannschaftsIcon.Fuer(heim);
+        byte[]? auswaertsWappen = MannschaftsIcon.Fuer(auswaerts);
         string score = $"{erg.HeimToreRegulaer}:{erg.AuswaertsToreRegulaer}"; // Hinspiel kennt keine Verlängerung
 
         ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name} (Hin & Rück)";
@@ -510,8 +510,8 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                 _                                 => "nach 180 Minuten"
             };
 
-            byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(heim);
-            byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(auswaerts);
+            byte[]? heimWappen      = MannschaftsIcon.Fuer(heim);
+            byte[]? auswaertsWappen = MannschaftsIcon.Fuer(auswaerts);
             GesamtKopf = SimulationsProtokollHelfer.GesamtKopfErstellen(
                 heim, auswaerts, $"{heimGesamt}:{auswaertsGesamt}", gesamtZusatz, VerbandKurzname);
             SiegerText = sieger is null ? "Unentschieden" : $"Sieger: {sieger}";

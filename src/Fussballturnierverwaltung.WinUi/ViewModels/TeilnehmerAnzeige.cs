@@ -1,6 +1,6 @@
+using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
-using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
@@ -19,7 +19,7 @@ public record TeilnehmerAnzeige(int? MannschaftId, string Name, string? Kuerzel,
     public bool IstPlatzhalter => !MannschaftId.HasValue;
 
     public static TeilnehmerAnzeige AusMannschaft(Mannschaft m) =>
-        new(m.Id, m.Name, m.Land?.Kurzname, LandId: m.LandId, Wappen: MannschaftsIcon(m), LandName: m.Land?.Name,
+        new(m.Id, m.Name, m.Land?.Kurzname, LandId: m.LandId, Wappen: MannschaftsIcon.Fuer(m), LandName: m.Land?.Name,
             VerbandId: m.Land?.VerbandId);
 
     public static TeilnehmerAnzeige AusPlatzhalter(string name) =>
@@ -27,13 +27,6 @@ public record TeilnehmerAnzeige(int? MannschaftId, string Name, string? Kuerzel,
 
     public static TeilnehmerAnzeige AusEintrag(LostopfEintrag e) =>
         e.MannschaftId.HasValue
-            ? new(e.MannschaftId, e.Mannschaft?.Name ?? "?", e.Mannschaft?.Land?.Kurzname, e.Id, e.Mannschaft?.LandId, MannschaftsIcon(e.Mannschaft))
+            ? new(e.MannschaftId, e.Mannschaft?.Name ?? "?", e.Mannschaft?.Land?.Kurzname, e.Id, e.Mannschaft?.LandId, MannschaftsIcon.Fuer(e.Mannschaft))
             : new(null, e.PlatzhalterName ?? "?", null, e.Id);
-
-    // Issue #230, analog #229: Nationalmannschaften zeigen die Landesflagge statt des
-    // Mannschafts-Wappens, das eigene Wappen bleibt in der DB erhalten.
-    public static byte[]? MannschaftsIcon(Mannschaft? mannschaft)
-        => mannschaft?.Mannschaftsart == Mannschaftsart.Nationalmannschaft
-            ? mannschaft.Land?.Flagge
-            : mannschaft?.Wappen;
 }

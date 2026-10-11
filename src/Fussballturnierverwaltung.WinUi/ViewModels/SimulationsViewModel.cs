@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
+using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -540,8 +541,8 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
         if (spiel.Ergebnis is { } e)
         {
-            byte[]? heimWappen      = SimulationsProtokollHelfer.MannschaftsIcon(spiel.HeimMannschaft);
-            byte[]? auswaertsWappen = SimulationsProtokollHelfer.MannschaftsIcon(spiel.AuswaertsMannschaft);
+            byte[]? heimWappen      = MannschaftsIcon.Fuer(spiel.HeimMannschaft);
+            byte[]? auswaertsWappen = MannschaftsIcon.Fuer(spiel.AuswaertsMannschaft);
 
             // Kontextzeile wie bei kicker ("Champions League 2025/26, Finale") plus Hin-/Rückspiel-Kennung
             string bein = spiel.IstRueckspiel ? ", Rückspiel" : spiel.TurnierRunde?.MitRueckspiel == true ? ", Hinspiel" : "";

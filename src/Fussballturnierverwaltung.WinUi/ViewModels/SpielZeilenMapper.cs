@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spielplan;
+using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 
@@ -70,8 +71,8 @@ internal static class SpielZeilenMapper
                        ?? s.HeimPlatzhalterName ?? "?",
             AuswaertsName = s.AuswaertsMannschaft?.Name ?? (auswaertsVorschau is not null ? $"({auswaertsVorschau})" : null)
                        ?? s.AuswaertsPlatzhalterName ?? "?",
-            HeimWappen = TeilnehmerAnzeige.MannschaftsIcon(s.HeimMannschaft),
-            AuswaertsWappen = TeilnehmerAnzeige.MannschaftsIcon(s.AuswaertsMannschaft),
+            HeimWappen = MannschaftsIcon.Fuer(s.HeimMannschaft),
+            AuswaertsWappen = MannschaftsIcon.Fuer(s.AuswaertsMannschaft),
             Status = s.Status,
             HatErgebnis = s.Ergebnis is not null,
             ErgebnisText = s.Ergebnis is { } e ? $"{e.HeimToreGesamt}:{e.AuswaertsToreGesamt}" : "-:-",

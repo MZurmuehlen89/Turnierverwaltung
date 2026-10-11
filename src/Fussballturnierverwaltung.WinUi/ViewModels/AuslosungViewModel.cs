@@ -871,7 +871,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 $"Gruppe {GruppenHerkunft.Buchstabe(g.Key)}",
                 g.Select(e => new GruppenTeamAnzeige(
                         e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
-                        TeilnehmerAnzeige.MannschaftsIcon(e.HeimMannschaft)))
+                        MannschaftsIcon.Fuer(e.HeimMannschaft)))
                  .ToList())));
 
     private static ObservableCollection<ErgebnisAnzeige> PaarungsErgebnisseAus(Auslosung detail) =>
@@ -880,8 +880,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
             e.AuswaertsMannschaft?.Name ?? e.AuswaertsPlatzhalterName ?? "?",
             e.IstFreilos,
-            TeilnehmerAnzeige.MannschaftsIcon(e.HeimMannschaft),
-            TeilnehmerAnzeige.MannschaftsIcon(e.AuswaertsMannschaft))));
+            MannschaftsIcon.Fuer(e.HeimMannschaft),
+            MannschaftsIcon.Fuer(e.AuswaertsMannschaft))));
 
     private void KopfdatenZeigen(Auslosung detail)
     {
