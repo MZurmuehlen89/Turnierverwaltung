@@ -47,19 +47,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly IDialogService _dialogService;
     private readonly ILogger<SpielplanViewModel> _logger;
 
-    private int _populiertGerade;
     private Dictionary<int, int> _teamGruppeMap = [];
-    private readonly List<VerfahrenArt> _erlaubteVerfahren = [];
     private IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)> _platzhalterVorschau =
         new Dictionary<int, (string?, string?)>();
 
-    private int? _formularSpielId;
-
-    // Issue #346: K.-o.-Paarung mit Hin- und Rückspiel — im Hinspiel gibt es kein Entscheidungsverfahren,
-    // im Rückspiel nur bei ausgeglichenem Gesamtergebnis (Hinspiel-Tore aus Sicht des Hinspiels).
-    private bool _formularIstKoHinspiel;
-    private (int Heim, int Auswaerts)? _formularHinspielTore;
-    private int? _formularRundeId;
     private int _spielWechselUnterdrueckt;
     private int _rundeWechselUnterdrueckt;
 
@@ -72,20 +63,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// abwarten, das ihn betritt (die selbstverursachte Reentrancy decken
     /// _rundeWechselUnterdrueckt/_spielWechselUnterdrueckt ab).</summary>
     public DbContextReentrancySchutz DbContextSchutz { get; set; } = new();
-
-    private static readonly HashSet<string> _formFelder =
-    [
-        nameof(HeimToreRegulaer), nameof(AuswaertsToreRegulaer),
-        nameof(HeimToreVerlaengerung), nameof(AuswaertsToreVerlaengerung),
-        nameof(HeimElfmetertore), nameof(AuswaertsElfmetertore),
-        nameof(HeimHalbzeitTore), nameof(AuswaertsHalbzeitTore)
-    ];
-
-    private static readonly HashSet<string> _scoreFelder =
-    [
-        nameof(HeimToreRegulaer), nameof(AuswaertsToreRegulaer),
-        nameof(HeimToreVerlaengerung), nameof(AuswaertsToreVerlaengerung),
-    ];
 
     // ── linke Spalte ──────────────────────────────────────────────────────────
 
@@ -256,64 +233,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     // ── Ergebnis-Formular ─────────────────────────────────────────────────────
 
     [ObservableProperty] private bool _formAktiv;
-    [ObservableProperty] private bool _isDirty;
     [ObservableProperty] private string? _fehlermeldung;
 
-    public bool HatUngespeicherteAenderungen => FormAktiv && IsDirty;
-
-    [ObservableProperty] private string _formHeimName = "";
-    [ObservableProperty] private string _formAuswaertsName = "";
-    [ObservableProperty] private string _formSpielInfo = "";
-    [ObservableProperty] private bool _formHatErgebnis;
-
-    [ObservableProperty] private string _heimToreRegulaer = "0";
-    [ObservableProperty] private string _auswaertsToreRegulaer = "0";
-
-    [ObservableProperty] private EntscheidungArt _ausgewaehlteEntscheidungArt = EntscheidungArt.RegulaereSpielzeit;
-
-    [ObservableProperty] private string _heimToreVerlaengerung = "";
-    [ObservableProperty] private string _auswaertsToreVerlaengerung = "";
-    [ObservableProperty] private string _heimElfmetertore = "";
-    [ObservableProperty] private string _auswaertsElfmetertore = "";
-    [ObservableProperty] private string _heimHalbzeitTore = "";
-    [ObservableProperty] private string _auswaertsHalbzeitTore = "";
+    public bool HatUngespeicherteAenderungen => FormAktiv && Formular.IsDirty;
+    public ErgebnisFormularViewModel Formular { get; } = new();
 
     public bool IstKoRunde => AusgewaehlteRunde?.Rundenart is
         Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
-
-    private bool HatVerlaengerungsVerfahren =>
-        _erlaubteVerfahren.Any(v => v is VerfahrenArt.VerlaengerungKlassisch or VerfahrenArt.GoldenGoal or VerfahrenArt.SilverGoal);
-
-    private bool HatElfmeterVerfahren => _erlaubteVerfahren.Any(v => v == VerfahrenArt.Elfmeterschiessen);
-
-    public bool VerlaengerungAktiv =>
-        IstKoRunde && HatVerlaengerungsVerfahren && EntscheidungsverfahrenNoetig();
-
-    public bool ElfmeterAktiv
-    {
-        get
-        {
-            if (!IstKoRunde || !HatElfmeterVerfahren) return false;
-            if (!EntscheidungsverfahrenNoetig()) return false;
-            if (!HatVerlaengerungsVerfahren) return true;
-            return VerlaengerungToreDifferenz() == 0;
-        }
-    }
-
-    /// <summary>Tordifferenz (Heim minus Auswärts) allein der in der Verlängerung gefallenen Tore, oder
-    /// <c>null</c>, solange der Stand nach Verlängerung nicht vollständig eingegeben ist. Die Felder enthalten
-    /// den Spielstand inklusive regulärer Spielzeit — entscheidend ist aber nur, was IN der Verlängerung
-    /// fällt: beim Einzelspiel identisch mit dem Vergleich der Spielstände, im K.-o.-Rückspiel mit
-    /// ausgeglichenem Gesamtergebnis nicht (reguläre Spielzeit z.B. 3:2, Issue #346).</summary>
-    private int? VerlaengerungToreDifferenz()
-    {
-        if (ParseIntNullable(HeimToreVerlaengerung) is not { } heimV ||
-            ParseIntNullable(AuswaertsToreVerlaengerung) is not { } ausV ||
-            ParseIntNullable(HeimToreRegulaer) is not { } heimReg ||
-            ParseIntNullable(AuswaertsToreRegulaer) is not { } ausReg) return null;
-
-        return (heimV - heimReg) - (ausV - ausReg);
-    }
 
     // ── Platzhalter-Vorschau (Issue #208, sichtbarer Toggle-Zustand #325) ────────────────────────────────
     // RibbonAktion.IstAktiv steuert das AppBarToggleButton-Rendering in MainWindow.xaml.cs
@@ -527,8 +453,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _logger = logger;
 
         _neuBefehl = new AsyncRelayCommand(SpielplanNeuGenerierenAsync, () => HatRunde);
-        _speichernBefehl = new AsyncRelayCommand(SpeichernAsync, () => FormAktiv && IsDirty);
-        _abbrechenBefehl = new RelayCommand(FormZuruecksetzen, () => FormAktiv && IsDirty);
+        _speichernBefehl = new AsyncRelayCommand(SpeichernAsync, () => FormAktiv && Formular.IsDirty);
+        _abbrechenBefehl = new RelayCommand(FormZuruecksetzen, () => FormAktiv && Formular.IsDirty);
         _loeschenBefehl = new AsyncRelayCommand(ErgebnisLoeschenAsync, CanErgebnisLoeschen);
 
         _zurueckZurUebersichtBefehl = new RelayCommand(() => AusgewaehlteGruppe = null, () => AusgewaehlteGruppe is not null);
@@ -561,6 +487,12 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _spielverlaufAnsehenBefehl = new RelayCommand(SpielverlaufAnsehen, CanSpielverlaufAnsehen);
 
         _naechsteSchweizerRundeBefehl = new AsyncRelayCommand(NaechsteSchweizerRundeGenerierenAsync, KannNaechsteSchweizerRundeGenerieren);
+        Formular.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(ErgebnisFormularViewModel.IsDirty)) return;
+            _speichernBefehl.NotifyCanExecuteChanged();
+            _abbrechenBefehl.NotifyCanExecuteChanged();
+        };
         Spiele.CollectionChanged += (_, __) =>
         {
             SchweizerAnzeigeAktualisieren();
@@ -572,7 +504,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public override async Task AktivierenAsync()
     {
-        if (AusgewaehlteRunde is null || (FormAktiv && IsDirty)) return;
+        if (AusgewaehlteRunde is null || (FormAktiv && Formular.IsDirty)) return;
         await SpiellisteAktualisierenAsync();
     }
 
@@ -643,19 +575,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 _spieltagZuruecksetzenBefehl.NotifyCanExecuteChanged();
                 SpieltagNavigiert?.Invoke();
                 break;
-        }
-
-        if (_populiertGerade == 0 && e.PropertyName is not null)
-        {
-            if (_scoreFelder.Contains(e.PropertyName))
-                EntscheidungNeuBerechnen();
-
-            if (_formFelder.Contains(e.PropertyName))
-            {
-                IsDirty = true;
-                _speichernBefehl.NotifyCanExecuteChanged();
-                _abbrechenBefehl.NotifyCanExecuteChanged();
-            }
         }
     }
 
@@ -744,9 +663,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         var neueRundeId = AusgewaehlteRunde?.Id;
 
-        if (IsDirty && _formularRundeId is { } vorherigeRundeId && vorherigeRundeId != neueRundeId)
+        if (Formular.IsDirty && Formular.RundeId is { } vorherigeRundeId && vorherigeRundeId != neueRundeId)
         {
-            var vorherigeSpielId = _formularSpielId;
+            var vorherigeSpielId = Formular.SpielId;
 
             var antwort = await _dialogService.UngespeicherteAenderungenAbfragenAsync();
 
@@ -787,7 +706,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 }
             }
 
-            IsDirty = false;
+            Formular.IsDirty = false;
         }
 
         // #338: zwei echte, schnell aufeinanderfolgende Runde-Auswahländerungen (z.B. Pfeiltasten in der
@@ -806,7 +725,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         try
         {
             using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis speichern bei Rundenwechsel (Spiel {spielId})");
-            await _spielService.ErgebnisErfassenAsync(spielId, BaueEingabe());
+            await _spielService.ErgebnisErfassenAsync(spielId, Formular.BaueEingabe());
             await _finaleAutomatik.AbgleichenAsync(runde.TurnierInstanzId);
             return true;
         }
@@ -825,7 +744,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         AusgewaehlteSpiel = null;
         FormAktiv = false;
         Fehlermeldung = null;
-        _erlaubteVerfahren.Clear();
+        Formular.ErlaubteVerfahrenSetzen([]);
         AusgewaehlteGruppe = null;
         _spieltagAuswahlFestgelegt = false;
         FokusSpieltageAbgleichen();
@@ -851,10 +770,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         var regelwerkId = AusgewaehlteRunde.RegelwerkId ?? AusgewaehlteInstanz?.StandardRegelwerkId;
         var regelwerk = regelwerkId is { } rid ? await _regelwerkService.FindenNachIdAsync(rid) : null;
 
-        foreach (var v in regelwerk?.Entscheidungsverfahren
-                     .OrderBy(v => v.Reihenfolge)
-                     .Select(v => v.VerfahrenArt) ?? [])
-            _erlaubteVerfahren.Add(v);
+        Formular.ErlaubteVerfahrenSetzen(regelwerk?.Entscheidungsverfahren
+            .OrderBy(v => v.Reihenfolge)
+            .Select(v => v.VerfahrenArt) ?? []);
 
         AktualisiereBefehle();
     }
@@ -901,10 +819,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         var neuesSpielId = AusgewaehlteSpiel?.Id;
 
-        if (IsDirty && _formularSpielId is { } vorherigeSpielId &&
-            _formularRundeId == AusgewaehlteRunde?.Id && vorherigeSpielId != neuesSpielId)
+        if (Formular.IsDirty && Formular.SpielId is { } vorherigeSpielId &&
+            Formular.RundeId == AusgewaehlteRunde?.Id && vorherigeSpielId != neuesSpielId)
         {
-            var vorherigeRundeId = _formularRundeId!.Value;
+            var vorherigeRundeId = Formular.RundeId!.Value;
 
             var antwort = await _dialogService.UngespeicherteAenderungenAbfragenAsync();
 
@@ -956,19 +874,18 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (spiel is null) return;
 
         bool koMitRueckspiel = IstKoRunde && AusgewaehlteRunde?.MitRueckspiel == true;
-        _formularIstKoHinspiel = koMitRueckspiel && !spiel.IstRueckspiel;
-        _formularHinspielTore  = null;
+        (int Heim, int Auswaerts)? hinspielTore = null;
         if (koMitRueckspiel && spiel.IstRueckspiel && spiel.HinspielId is int hinspielId &&
             (await _spielService.FindenNachIdAsync(hinspielId))?.Ergebnis is { } hinErgebnis)
         {
-            _formularHinspielTore = (
+            hinspielTore = (
                 HinRueckspielWertung.HinspielTore(hinErgebnis, heim: true),
                 HinRueckspielWertung.HinspielTore(hinErgebnis, heim: false));
         }
 
-        FormularAusFuellenMit(spiel);
-        OnPropertyChanged(nameof(VerlaengerungAktiv));
-        OnPropertyChanged(nameof(ElfmeterAktiv));
+        Formular.FormularAusFuellenMit(
+            spiel, AusgewaehlteRunde, RundenHinweis, koMitRueckspiel && !spiel.IstRueckspiel, hinspielTore);
+        AktualisiereBefehle();
         FormAktiv = true;
         AktualisiereBefehle();
     }
@@ -985,61 +902,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             _spielWechselUnterdrueckt--;
         }
         await BeiSpielAenderungAsync();
-    }
-
-    // ── Formular befüllen ─────────────────────────────────────────────────────
-
-    private void FormularAusFuellenMit(Spiel spiel)
-    {
-        _formularSpielId = spiel.Id;
-        _formularRundeId = AusgewaehlteRunde?.Id;
-
-        _populiertGerade++;
-        try
-        {
-            FormHeimName = spiel.HeimMannschaft?.Name ?? spiel.HeimPlatzhalterName ?? "";
-            FormAuswaertsName = spiel.AuswaertsMannschaft?.Name ?? spiel.AuswaertsPlatzhalterName ?? "";
-            FormSpielInfo = (spiel.Spieltag.HasValue
-                ? $"Spieltag {spiel.Spieltag} · Spiel #{spiel.Spielnummer}"
-                : $"Spiel #{spiel.Spielnummer}") + RundenHinweis;
-            FormHatErgebnis = spiel.Ergebnis is not null;
-
-            if (spiel.Ergebnis is { } e)
-            {
-                HeimToreRegulaer = e.HeimToreRegulaer.ToString();
-                AuswaertsToreRegulaer = e.AuswaertsToreRegulaer.ToString();
-                AusgewaehlteEntscheidungArt = e.EntscheidungArt;
-                HeimToreVerlaengerung = e.HeimToreVerlaengerung.HasValue
-                    ? (e.HeimToreRegulaer + e.HeimToreVerlaengerung.Value).ToString() : "";
-                AuswaertsToreVerlaengerung = e.AuswaertsToreVerlaengerung.HasValue
-                    ? (e.AuswaertsToreRegulaer + e.AuswaertsToreVerlaengerung.Value).ToString() : "";
-                HeimElfmetertore = e.HeimElfmetertore?.ToString() ?? "";
-                AuswaertsElfmetertore = e.AuswaertsElfmetertore?.ToString() ?? "";
-                HeimHalbzeitTore = e.HalbzeitHeimTore?.ToString() ?? "";
-                AuswaertsHalbzeitTore = e.HalbzeitAuswaertsTore?.ToString() ?? "";
-            }
-            else
-            {
-                HeimToreRegulaer = "";
-                AuswaertsToreRegulaer = "";
-                AusgewaehlteEntscheidungArt = EntscheidungArt.RegulaereSpielzeit;
-                HeimToreVerlaengerung = "";
-                AuswaertsToreVerlaengerung = "";
-                HeimElfmetertore = "";
-                AuswaertsElfmetertore = "";
-                HeimHalbzeitTore = "";
-                AuswaertsHalbzeitTore = "";
-            }
-        }
-        finally
-        {
-            _populiertGerade--;
-        }
-
-        OnPropertyChanged(nameof(VerlaengerungAktiv));
-        OnPropertyChanged(nameof(ElfmeterAktiv));
-        IsDirty = false;
-        AktualisiereBefehle();
     }
 
     // ── Ribbon-Aktionen ───────────────────────────────────────────────────────
@@ -1181,7 +1043,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         try
         {
             using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis speichern (Spiel {spielId})");
-            await _spielService.ErgebnisErfassenAsync(spielId, BaueEingabe());
+            await _spielService.ErgebnisErfassenAsync(spielId, Formular.BaueEingabe());
             await _finaleAutomatik.AbgleichenAsync(AusgewaehlteRunde.TurnierInstanzId);
 
             // Das gesamte Neuladen läuft im Schutz: sowohl das Neusetzen von AusgewaehlteGruppe in
@@ -1221,7 +1083,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task ErgebnisEinzelLoeschenAsync()
     {
         using var schutz = await DbContextSchutz.BetretenAsync();
-        if (AusgewaehlteSpiel is null || !FormHatErgebnis || AusgewaehlteRunde is null) return;
+        if (AusgewaehlteSpiel is null || !Formular.FormHatErgebnis || AusgewaehlteRunde is null) return;
 
         var spielId = AusgewaehlteSpiel.Id;
         var rundeId = AusgewaehlteRunde.Id;
@@ -1267,26 +1129,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
 
-    private ErgebnisErfassenEingabe BaueEingabe()
-    {
-        int heimRegulaer = ParseInt(HeimToreRegulaer);
-        int auswaertsRegulaer = ParseInt(AuswaertsToreRegulaer);
-
-        int? heimVerlaengerungDelta = ParseIntNullable(HeimToreVerlaengerung) is { } hv ? hv - heimRegulaer : null;
-        int? auswaertsVerlaengerungDelta = ParseIntNullable(AuswaertsToreVerlaengerung) is { } av ? av - auswaertsRegulaer : null;
-
-        return new(
-            heimRegulaer,
-            auswaertsRegulaer,
-            AusgewaehlteEntscheidungArt,
-            heimVerlaengerungDelta,
-            auswaertsVerlaengerungDelta,
-            ParseIntNullable(HeimElfmetertore),
-            ParseIntNullable(AuswaertsElfmetertore),
-            ParseIntNullable(HeimHalbzeitTore),
-            ParseIntNullable(AuswaertsHalbzeitTore));
-    }
-
     private void AktualisiereBefehle()
     {
         _neuBefehl.NotifyCanExecuteChanged();
@@ -1317,72 +1159,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             Spiele.Add(zeile);
 
         FokusSpieltageAbgleichen();
-    }
-
-    private static int ParseInt(string s) => int.TryParse(s, out var v) ? v : 0;
-    private static int? ParseIntNullable(string s) => string.IsNullOrWhiteSpace(s) ? null : int.TryParse(s, out var v) ? v : null;
-
-    private void EntscheidungNeuBerechnen()
-    {
-        AusgewaehlteEntscheidungArt = BerechneEntscheidungArt();
-        OnPropertyChanged(nameof(VerlaengerungAktiv));
-        OnPropertyChanged(nameof(ElfmeterAktiv));
-    }
-
-    /// <summary>Ob nach der regulären Spielzeit ein Entscheidungsverfahren fällig ist: im Einzelspiel bei
-    /// Remis, im K.-o.-Hinspiel nie, im K.-o.-Rückspiel bei ausgeglichenem Gesamtergebnis (Issue #346).</summary>
-    private bool EntscheidungsverfahrenNoetig()
-    {
-        if (ParseIntNullable(HeimToreRegulaer) is not { } heimReg ||
-            ParseIntNullable(AuswaertsToreRegulaer) is not { } ausReg) return false;
-
-        if (_formularIstKoHinspiel) return false;
-
-        if (_formularHinspielTore is { } hin)
-            return HinRueckspielWertung.EntscheidungsverfahrenNoetig(
-                hin.Heim, hin.Auswaerts, heimReg, ausReg, AusgewaehlteRunde?.AuswaertstorRegelAktiv == true);
-
-        return heimReg == ausReg;
-    }
-
-    private EntscheidungArt BerechneEntscheidungArt()
-    {
-        if (!IstKoRunde || !EntscheidungsverfahrenNoetig()) return EntscheidungArt.RegulaereSpielzeit;
-
-        bool hatVerl = HatVerlaengerungsVerfahren;
-        bool hatElf = HatElfmeterVerfahren;
-
-        if (hatVerl)
-        {
-            if (VerlaengerungToreDifferenz() is { } differenz)
-            {
-                if (differenz != 0)
-                {
-                    var vart = _erlaubteVerfahren.First(v =>
-                        v is VerfahrenArt.VerlaengerungKlassisch or VerfahrenArt.GoldenGoal or VerfahrenArt.SilverGoal);
-                    return vart switch
-                    {
-                        VerfahrenArt.GoldenGoal => EntscheidungArt.GoldenGoal,
-                        VerfahrenArt.SilverGoal => EntscheidungArt.SilverGoal,
-                        _ => EntscheidungArt.Verlaengerung,
-                    };
-                }
-                if (hatElf) return EntscheidungArt.Elfmeterschiessen;
-            }
-
-            var vartPending = _erlaubteVerfahren.First(v =>
-                v is VerfahrenArt.VerlaengerungKlassisch or VerfahrenArt.GoldenGoal or VerfahrenArt.SilverGoal);
-            return vartPending switch
-            {
-                VerfahrenArt.GoldenGoal => EntscheidungArt.GoldenGoal,
-                VerfahrenArt.SilverGoal => EntscheidungArt.SilverGoal,
-                _ => EntscheidungArt.Verlaengerung,
-            };
-        }
-
-        if (hatElf) return EntscheidungArt.Elfmeterschiessen;
-
-        return EntscheidungArt.RegulaereSpielzeit;
     }
 
     private void FokusEinSpieltag_Vorig()
@@ -1553,7 +1329,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private bool CanErgebnisLoeschen() =>
         !IstSimulierend
         && (MehrfachAusgewaehlteSpiele.Count > 1 && MehrfachAusgewaehlteSpiele.Any(s => s.HatErgebnis)
-            || FormAktiv && FormHatErgebnis);
+            || FormAktiv && Formular.FormHatErgebnis);
 
     // ── Simulation: Aktionen ───────────────────────────────────────────────────
 

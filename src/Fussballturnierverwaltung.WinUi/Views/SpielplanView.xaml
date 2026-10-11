@@ -203,11 +203,11 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="16,14">
 
-                    <TextBlock Text="{Binding FormSpielInfo}" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
+                    <TextBlock Text="{Binding Formular.FormSpielInfo}" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
                     <TextBlock FontSize="15" FontWeight="Bold" Margin="0,0,0,16" TextWrapping="Wrap">
-                        <Run Text="{Binding FormHeimName}" />
+                        <Run Text="{Binding Formular.FormHeimName}" />
                         <Run Text=" vs. " />
-                        <Run Text="{Binding FormAuswaertsName}" />
+                        <Run Text="{Binding Formular.FormAuswaertsName}" />
                     </TextBlock>
 
                     <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
@@ -219,47 +219,47 @@
 
                     <TextBlock Text="REGULÄRE SPIELZEIT" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="0,0,0,6" />
                     <Grid ColumnDefinitions="*,20,*" Margin="0,0,0,12">
-                        <TextBox Grid.Column="0" x:Name="ErstesFormularFeld" Text="{Binding HeimToreRegulaer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox Grid.Column="0" x:Name="ErstesFormularFeld" Text="{Binding Formular.HeimToreRegulaer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  FontSize="18" FontWeight="Bold" TextAlignment="Center" />
                         <TextBlock Grid.Column="1" Text=":" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        <TextBox Grid.Column="2" Text="{Binding AuswaertsToreRegulaer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox Grid.Column="2" Text="{Binding Formular.AuswaertsToreRegulaer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  FontSize="18" FontWeight="Bold" TextAlignment="Center" />
                     </Grid>
 
                     <TextBlock Text="HALBZEITSTAND (OPTIONAL)" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="0,0,0,6" />
                     <Grid ColumnDefinitions="*,20,*" Margin="0,0,0,12">
-                        <TextBox Grid.Column="0" Text="{Binding HeimHalbzeitTore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox Grid.Column="0" Text="{Binding Formular.HeimHalbzeitTore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  FontSize="16" FontWeight="Bold" TextAlignment="Center" />
                         <TextBlock Grid.Column="1" Text=":" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        <TextBox Grid.Column="2" Text="{Binding AuswaertsHalbzeitTore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox Grid.Column="2" Text="{Binding Formular.AuswaertsHalbzeitTore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  FontSize="16" FontWeight="Bold" TextAlignment="Center" />
                     </Grid>
 
-                    <StackPanel Visibility="{Binding VerlaengerungAktiv, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel Visibility="{Binding Formular.VerlaengerungAktiv, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="ERGEBNIS NACH VERLÄNGERUNG" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="0,0,0,6" />
                         <Grid ColumnDefinitions="*,20,*" Margin="0,0,0,12">
-                            <TextBox Grid.Column="0" Text="{Binding HeimToreVerlaengerung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox Grid.Column="0" Text="{Binding Formular.HeimToreVerlaengerung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      FontSize="16" FontWeight="Bold" TextAlignment="Center" />
                             <TextBlock Grid.Column="1" Text=":" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="2" Text="{Binding AuswaertsToreVerlaengerung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox Grid.Column="2" Text="{Binding Formular.AuswaertsToreVerlaengerung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      FontSize="16" FontWeight="Bold" TextAlignment="Center" />
                         </Grid>
                     </StackPanel>
 
-                    <StackPanel Visibility="{Binding ElfmeterAktiv, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel Visibility="{Binding Formular.ElfmeterAktiv, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="ELFMETER" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="0,0,0,6" />
                         <Grid ColumnDefinitions="*,20,*" Margin="0,0,0,12">
-                            <TextBox Grid.Column="0" Text="{Binding HeimElfmetertore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox Grid.Column="0" Text="{Binding Formular.HeimElfmetertore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      FontSize="16" FontWeight="Bold" TextAlignment="Center" />
                             <TextBlock Grid.Column="1" Text=":" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="2" Text="{Binding AuswaertsElfmetertore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox Grid.Column="2" Text="{Binding Formular.AuswaertsElfmetertore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      FontSize="16" FontWeight="Bold" TextAlignment="Center" />
                         </Grid>
                     </StackPanel>
 
                     <Border BorderBrush="{ThemeResource SystemFillColorCautionBrush}" BorderThickness="1"
                             CornerRadius="4" Padding="10,7" Margin="0,0,0,12"
-                            Visibility="{Binding FormHatErgebnis, Converter={StaticResource BoolToVisibility}}">
+                            Visibility="{Binding Formular.FormHatErgebnis, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="Dieses Spiel hat bereits ein Ergebnis. Zum Neu-Simulieren zuerst über 'Löschen' zurücksetzen."
                                    FontSize="12" TextWrapping="Wrap" />
                     </Border>
