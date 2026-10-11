@@ -203,11 +203,11 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="16,14">
 
-                    <TextBlock Text="{Binding Formular.FormSpielInfo}" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
+                    <TextBlock Text="{Binding Formular.SpielInfo}" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,8" />
                     <TextBlock FontSize="15" FontWeight="Bold" Margin="0,0,0,16" TextWrapping="Wrap">
-                        <Run Text="{Binding Formular.FormHeimName}" />
+                        <Run Text="{Binding Formular.HeimName}" />
                         <Run Text=" vs. " />
-                        <Run Text="{Binding Formular.FormAuswaertsName}" />
+                        <Run Text="{Binding Formular.AuswaertsName}" />
                     </TextBlock>
 
                     <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
@@ -259,7 +259,7 @@
 
                     <Border BorderBrush="{ThemeResource SystemFillColorCautionBrush}" BorderThickness="1"
                             CornerRadius="4" Padding="10,7" Margin="0,0,0,12"
-                            Visibility="{Binding Formular.FormHatErgebnis, Converter={StaticResource BoolToVisibility}}">
+                            Visibility="{Binding Formular.HatErgebnis, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="Dieses Spiel hat bereits ein Ergebnis. Zum Neu-Simulieren zuerst über 'Löschen' zurücksetzen."
                                    FontSize="12" TextWrapping="Wrap" />
                     </Border>

@@ -189,7 +189,7 @@ internal static class SimulationsProtokollHelfer
 
         // Verlaengerung fand statt, sobald die Verlaengerungs-Torfelder gesetzt sind — unabhaengig
         // von der finalen EntscheidungArt (auch bei Elfmeterschiessen ging dem immer eine
-        // vollstaendige Verlaengerung voraus, siehe BerechneEntscheidungArt in SpielplanViewModel).
+        // vollstaendige Verlaengerung voraus, siehe ErgebnisEntscheidung.Art).
         bool hatVerlaengerung = heimToreVerlaengerung.HasValue && auswaertsToreVerlaengerung.HasValue;
         bool hatElfmeter      = entscheidungArt == EntscheidungArt.Elfmeterschiessen;
 

@@ -706,7 +706,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 }
             }
 
-            Formular.IsDirty = false;
+            Formular.AenderungenVergessen();
         }
 
         // #338: zwei echte, schnell aufeinanderfolgende Runde-Auswahländerungen (z.B. Pfeiltasten in der
@@ -725,7 +725,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         try
         {
             using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis speichern bei Rundenwechsel (Spiel {spielId})");
-            await _spielService.ErgebnisErfassenAsync(spielId, Formular.BaueEingabe());
+            await _spielService.ErgebnisErfassenAsync(spielId, Formular.AlsEingabe());
             await _finaleAutomatik.AbgleichenAsync(runde.TurnierInstanzId);
             return true;
         }
@@ -873,21 +873,20 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         var spiel = await _spielService.FindenNachIdAsync(AusgewaehlteSpiel.Id);
         if (spiel is null) return;
 
-        bool koMitRueckspiel = IstKoRunde && AusgewaehlteRunde?.MitRueckspiel == true;
-        (int Heim, int Auswaerts)? hinspielTore = null;
-        if (koMitRueckspiel && spiel.IstRueckspiel && spiel.HinspielId is int hinspielId &&
-            (await _spielService.FindenNachIdAsync(hinspielId))?.Ergebnis is { } hinErgebnis)
-        {
-            hinspielTore = (
-                HinRueckspielWertung.HinspielTore(hinErgebnis, heim: true),
-                HinRueckspielWertung.HinspielTore(hinErgebnis, heim: false));
-        }
-
-        Formular.FormularAusFuellenMit(
-            spiel, AusgewaehlteRunde, RundenHinweis, koMitRueckspiel && !spiel.IstRueckspiel, hinspielTore);
-        AktualisiereBefehle();
+        Formular.AusFuellenMit(spiel, AusgewaehlteRunde, RundenHinweis, await HinspielToreAsync(spiel));
         FormAktiv = true;
         AktualisiereBefehle();
+    }
+
+    /// <summary>Tore des Hinspiels (aus dessen Sicht) zu einem K.-o.-Rückspiel, sofern das Hinspiel schon ein
+    /// Ergebnis hat (Issue #346).</summary>
+    private async Task<(int Heim, int Auswaerts)?> HinspielToreAsync(Spiel spiel)
+    {
+        if (!IstKoMitRueckspiel || !spiel.IstRueckspiel || spiel.HinspielId is not int hinspielId) return null;
+        if ((await _spielService.FindenNachIdAsync(hinspielId))?.Ergebnis is not { } hinspiel) return null;
+
+        return (HinRueckspielWertung.HinspielTore(hinspiel, heim: true),
+                HinRueckspielWertung.HinspielTore(hinspiel, heim: false));
     }
 
     private async Task SpielAuswahlWiederherstellenAsync(int? spielId)
@@ -1043,7 +1042,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         try
         {
             using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis speichern (Spiel {spielId})");
-            await _spielService.ErgebnisErfassenAsync(spielId, Formular.BaueEingabe());
+            await _spielService.ErgebnisErfassenAsync(spielId, Formular.AlsEingabe());
             await _finaleAutomatik.AbgleichenAsync(AusgewaehlteRunde.TurnierInstanzId);
 
             // Das gesamte Neuladen läuft im Schutz: sowohl das Neusetzen von AusgewaehlteGruppe in
@@ -1083,7 +1082,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task ErgebnisEinzelLoeschenAsync()
     {
         using var schutz = await DbContextSchutz.BetretenAsync();
-        if (AusgewaehlteSpiel is null || !Formular.FormHatErgebnis || AusgewaehlteRunde is null) return;
+        if (AusgewaehlteSpiel is null || !Formular.HatErgebnis || AusgewaehlteRunde is null) return;
 
         var spielId = AusgewaehlteSpiel.Id;
         var rundeId = AusgewaehlteRunde.Id;
@@ -1329,7 +1328,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private bool CanErgebnisLoeschen() =>
         !IstSimulierend
         && (MehrfachAusgewaehlteSpiele.Count > 1 && MehrfachAusgewaehlteSpiele.Any(s => s.HatErgebnis)
-            || FormAktiv && Formular.FormHatErgebnis);
+            || FormAktiv && Formular.HatErgebnis);
 
     // ── Simulation: Aktionen ───────────────────────────────────────────────────
 
