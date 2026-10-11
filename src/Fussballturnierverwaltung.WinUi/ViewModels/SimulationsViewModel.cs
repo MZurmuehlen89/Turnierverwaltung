@@ -36,7 +36,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     private readonly ILogger<SimulationsViewModel> _logger;
 
     private TurnierInstanz? _instanz;
-    private int _ladeUnterdrueckt;
+    private readonly WechselUnterdrueckung _ladeUnterdrueckung = new();
 
     /// <summary>Reiht Runde-/Spiel-Wechsel (#338), die beiden Aktionen und — über den vom
     /// <see cref="TurnierdurchfuehrungViewModel"/> gesetzten gemeinsamen Schutz — auch Turnier-/Reiterwechsel
@@ -189,15 +189,10 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         // BeiInstanzAenderungAsync, entsteht sonst ein ungeschützter Parallelzugriff auf denselben
         // DbContext ("second operation"-Exception trotz augenscheinlich striktem Single-Thread-Ablauf,
         // siehe #317 — dort ausschließlich per Retry im Composite-ViewModel abgefangen).
-        _ladeUnterdrueckt++;
-        try
+        using (_ladeUnterdrueckung.Betreten())
         {
             AusgewaehlteInstanz = instanz;
             await BeiInstanzAenderungAsync();
-        }
-        finally
-        {
-            _ladeUnterdrueckt--;
         }
     }
 
@@ -207,7 +202,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     {
         base.OnPropertyChanged(e);
 
-        if (_ladeUnterdrueckt > 0) return;
+        if (_ladeUnterdrueckung.IstAktiv) return;
 
         switch (e.PropertyName)
         {
@@ -245,7 +240,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         // Runden.Clear() erst NACH der Abfrage (nicht davor, Precedent: SpielplanViewModel) — sonst nullt
         // die ComboBox-Bindung AusgewaehlteRunde bereits beim Clear(), und ein Retry nach #317 (
         // "second operation"-Exception) findet beim neuen Versuch keine vorherigeRundeId mehr vor (#308).
-        // Der komplette Methodenkörper läuft jetzt ohnehin innerhalb des _ladeUnterdrueckt-Fensters, das
+        // Der komplette Methodenkörper läuft jetzt ohnehin innerhalb des _ladeUnterdrueckung-Fensters, das
         // InstanzSetzenAsync um diesen Aufruf legt (#317-Nachbesserung) — Clear() darf ein verzögertes
         // SelectionChanged also auch dann nicht mehr auf einen ungeschützten Fire-and-Forget-Zugriff
         // treffen lassen, wenn dieses Timing-Fenster größer als erwartet ausfällt.
@@ -276,32 +271,30 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             return;
         }
 
-        _ladeUnterdrueckt++;
-        try
-        {
-            AusgewaehlteRunde = wiederhergestellteRunde;
-        }
-        finally
-        {
-            _ladeUnterdrueckt--;
-        }
+        RundeStillSetzen(wiederhergestellteRunde);
 
         await SpiellisteAktualisierenAsync();
     }
 
     private async Task RundeUndSpielZuruecksetzenAsync()
     {
-        _ladeUnterdrueckt++;
-        try
-        {
-            AusgewaehlteRunde = null;
-        }
-        finally
-        {
-            _ladeUnterdrueckt--;
-        }
+        RundeStillSetzen(null);
 
         await BeiRundeAenderungAsync();
+    }
+
+    /// <summary>Setzt die Rundenauswahl, ohne das Laden der Runde auszulösen.</summary>
+    private void RundeStillSetzen(TurnierRunde? runde)
+    {
+        using (_ladeUnterdrueckung.Betreten())
+            AusgewaehlteRunde = runde;
+    }
+
+    /// <summary>Setzt die Spielauswahl, ohne das Laden des Protokolls auszulösen — der Aufrufer lädt selbst.</summary>
+    private void SpielStillSetzen(SpielZeile? spiel)
+    {
+        using (_ladeUnterdrueckung.Betreten())
+            AusgewaehlteSpiel = spiel;
     }
 
     private async Task BeiRundeAenderungAsync()
@@ -327,15 +320,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         Spiele.Clear();
         SpieleHinzufuegen(liste);
 
-        _ladeUnterdrueckt++;
-        try
-        {
-            AusgewaehlteSpiel = spielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == spielId) : null;
-        }
-        finally
-        {
-            _ladeUnterdrueckt--;
-        }
+        SpielStillSetzen(spielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == spielId) : null);
 
         await BeiSpielAuswahlAsync();
         AktualisiereBefehle();
@@ -344,7 +329,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     // Wird beim manuellen Auswaehlen eines Spiels (Breadcrumb-Combobox) ausgeloest — laedt das
     // bestehende Protokoll bei bereits abgeschlossenen Spielen, sonst wird die Vorschau-Karte
     // gezeigt (ZeigeVorschauKarte). Bei programmatischen Neuzuweisungen (Simulieren/Ueberschreiben/
-    // Zuruecksetzen/Vorauswahl) wird das per _ladeUnterdrueckt unterdrueckt, da diese Pfade das
+    // Zuruecksetzen/Vorauswahl) wird das per _ladeUnterdrueckung unterdrueckt, da diese Pfade das
     // Protokoll bereits selbst sequenziell laden.
     private async Task BeiSpielAuswahlAsync()
     {
@@ -393,15 +378,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             await _simulationsService.SpielSimulierenAsync(
                 spielId, SimulationsModus.AusfuehrlicheSimulation, ueberschreiben: ueberschreiben);
 
-            if (rundeId.HasValue)
-            {
-                var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId.Value);
-                Spiele.Clear();
-                SpieleHinzufuegen(neueSpiele);
-                _ladeUnterdrueckt++;
-                AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
-                _ladeUnterdrueckt--;
-            }
+            if (rundeId.HasValue) await SpieleNeuLadenAsync(rundeId.Value, spielId);
 
             await LadeProtokollAsync(spielId);
         }
@@ -429,15 +406,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             using var vorgang = _logger.Vorgang($"Simulation: Ergebnis zurücksetzen (Spiel {spielId})");
             await _spielService.ErgebnisLoeschenAsync(spielId);
 
-            if (rundeId.HasValue)
-            {
-                var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId.Value);
-                Spiele.Clear();
-                SpieleHinzufuegen(neueSpiele);
-                _ladeUnterdrueckt++;
-                AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
-                _ladeUnterdrueckt--;
-            }
+            if (rundeId.HasValue) await SpieleNeuLadenAsync(rundeId.Value, spielId);
 
             LeerProtokoll();
         }
@@ -450,6 +419,16 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             IstLadend = false;
             AktualisiereBefehle();
         }
+    }
+
+    /// <summary>Spiele der Runde frisch aus der Datenbank, das bearbeitete Spiel bleibt gewählt; das Protokoll
+    /// dazu setzt der Aufrufer.</summary>
+    private async Task SpieleNeuLadenAsync(int rundeId, int spielId)
+    {
+        var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+        Spiele.Clear();
+        SpieleHinzufuegen(neueSpiele);
+        SpielStillSetzen(Spiele.FirstOrDefault(s => s.Id == spielId));
     }
 
     // ── Vorauswahl: auto-laden und simulieren ─────────────────────────────────
@@ -487,38 +466,32 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     // brauchen ihre eigene, ungebremste OnPropertyChanged-Reaktion.
     private async Task<SpielZeile?> VorauswahlDatenLadenAsync(TurnierInstanz instanz, VorausgewaehlteSimulation v)
     {
-        _ladeUnterdrueckt++;
-        try
-        {
-            _instanz = instanz;
-            AusgewaehlteInstanz = instanz;
+        using var unterdrueckung = _ladeUnterdrueckung.Betreten();
 
-            var instanzMitRunden = await _instanzService.FindenNachIdMitRundenAsync(v.InstanzId);
-            if (instanzMitRunden is null) return null;
+        _instanz = instanz;
+        AusgewaehlteInstanz = instanz;
 
-            Runden.Clear();
-            foreach (var r in instanzMitRunden.Runden.OrderBy(r => r.Reihenfolge))
-                Runden.Add(r);
+        var instanzMitRunden = await _instanzService.FindenNachIdMitRundenAsync(v.InstanzId);
+        if (instanzMitRunden is null) return null;
 
-            var runde = Runden.FirstOrDefault(r => r.Id == v.RundeId);
-            if (runde is null) return null;
+        Runden.Clear();
+        foreach (var r in instanzMitRunden.Runden.OrderBy(r => r.Reihenfolge))
+            Runden.Add(r);
 
-            AusgewaehlteRunde = runde;
+        var runde = Runden.FirstOrDefault(r => r.Id == v.RundeId);
+        if (runde is null) return null;
 
-            var liste = await _spielService.AlleNachRundeAsync(v.RundeId);
-            Spiele.Clear();
-            SpieleHinzufuegen(liste);
+        AusgewaehlteRunde = runde;
 
-            var spiel = Spiele.FirstOrDefault(s => s.Id == v.SpielId);
-            if (spiel is not null)
-                AusgewaehlteSpiel = spiel;
+        var liste = await _spielService.AlleNachRundeAsync(v.RundeId);
+        Spiele.Clear();
+        SpieleHinzufuegen(liste);
 
-            return spiel;
-        }
-        finally
-        {
-            _ladeUnterdrueckt--;
-        }
+        var spiel = Spiele.FirstOrDefault(s => s.Id == v.SpielId);
+        if (spiel is not null)
+            AusgewaehlteSpiel = spiel;
+
+        return spiel;
     }
 
     // ── Protokoll ─────────────────────────────────────────────────────────────
