@@ -32,11 +32,12 @@ public class SimulationsServiceSpielortTests
     {
         var spielRepo = new SpielRepository(ctx);
         var instanzRepo = new TurnierInstanzRepository(ctx);
-        var spielplanService = new SpielplanDienste(ctx).Spielplan;
+        var dienste = new SpielplanDienste(ctx);
         var ergebnisService = new SpielErgebnisService(
-            spielRepo, new SpielErgebnisValidator(), spielplanService, NullLogger<SpielErgebnisService>.Instance);
+            spielRepo, new SpielErgebnisValidator(), dienste.Spielplan, NullLogger<SpielErgebnisService>.Instance);
         var baumService = new TurnierBaumService(
-            new TurnierBaumRepository(ctx), instanzRepo, spielRepo, spielplanService, NullLogger<TurnierBaumService>.Instance);
+            new TurnierBaumRepository(ctx), instanzRepo, spielRepo, dienste.Spielplan, dienste.Quellverknuepfung,
+            NullLogger<TurnierBaumService>.Instance);
         return new SimulationsService(
             spielRepo, instanzRepo, ergebnisService, baumService,
             new SimulationsLaufRepository(ctx), NullLogger<SimulationsService>.Instance);

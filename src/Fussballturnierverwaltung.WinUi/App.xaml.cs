@@ -117,6 +117,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<ISpielplanGenerator, SchweizerSystemGenerator>();
         builder.Services.AddScoped<SpielplanGeneratorFactory>();
         builder.Services.AddScoped<TabellenZwischenspeicher>();
+        builder.Services.AddScoped<KoQuellverknuepfung>();
         builder.Services.AddScoped<SpielplanService>();
         builder.Services.AddScoped<IPlatzhalterKaskadeService>(sp => sp.GetRequiredService<SpielplanService>());
         builder.Services.AddScoped<SpielErgebnisService>();

@@ -924,7 +924,7 @@ public class SpielplanServiceTests
         ctx.SaveChanges();
         var service = ServiceFuer(ctx);
 
-        await service.SpielQuellenAlleTransitionsVerknuepfenAsync(1);
+        await new SpielplanDienste(ctx).Quellverknuepfung.SpielQuellenAlleTransitionsVerknuepfenAsync(1);
 
         var finale = ctx.Spiele.First(s => s.Id == 20);
         finale.HeimQuellSpielId.Should().Be(2);
@@ -950,7 +950,7 @@ public class SpielplanServiceTests
         var service = ServiceFuer(ctx);
 
         // Verknüpfung ist rein strukturell (Text-basiert) und braucht kein Ergebnis der HF-Spiele.
-        await service.SpielQuellenAlleTransitionsVerknuepfenAsync(1);
+        await new SpielplanDienste(ctx).Quellverknuepfung.SpielQuellenAlleTransitionsVerknuepfenAsync(1);
 
         var finale = ctx.Spiele.First(s => s.Id == 20);
         finale.HeimQuellSpielId.Should().Be(1);
@@ -2509,7 +2509,7 @@ public class SpielplanServiceTests
         ctx.SaveChanges();
         var service = ServiceFuer(ctx);
 
-        await service.SpielQuellenAlleTransitionsVerknuepfenAsync(1);
+        await new SpielplanDienste(ctx).Quellverknuepfung.SpielQuellenAlleTransitionsVerknuepfenAsync(1);
         await service.PlatzhalterAufloesenAsync(finaleRundeId);
 
         var finale = ctx.Spiele.First(s => s.Id == 20);

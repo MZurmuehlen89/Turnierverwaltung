@@ -19,12 +19,14 @@ internal sealed class SpielplanDienste
         var generatoren = new SpielplanGeneratorFactory(
             [new KoRundeGenerator(), new RoundRobinGenerator(), new TopfLigaGenerator(), new SchweizerSystemGenerator()]);
 
+        Quellverknuepfung = new KoQuellverknuepfung(rundeRepo, spielRepo, NullLogger<KoQuellverknuepfung>.Instance);
         Spielplan = new SpielplanService(
             rundeRepo, spielRepo, new MannschaftRepository(ctx), new TurnierBaumRepository(ctx),
             new UebergangsregelRepository(ctx), generatoren, new TurnierValidator(),
-            tabellen, new TabellenZwischenspeicher(tabellen, spielRepo),
+            tabellen, new TabellenZwischenspeicher(tabellen, spielRepo), Quellverknuepfung,
             new AuslosungRepository(ctx), NullLogger<SpielplanService>.Instance);
     }
 
     public SpielplanService Spielplan { get; }
+    public KoQuellverknuepfung Quellverknuepfung { get; }
 }

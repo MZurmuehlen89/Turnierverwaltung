@@ -30,11 +30,12 @@ public class TurnierBaumServiceTests
     {
         var spielRepo = new SpielRepository(ctx);
         var baumRepo = new TurnierBaumRepository(ctx);
-        var spielplanService = new SpielplanDienste(ctx).Spielplan;
+        var dienste = new SpielplanDienste(ctx);
         var instanzRepo = new TurnierInstanzRepository(ctx);
         var baumService = new TurnierBaumService(
-            baumRepo, instanzRepo, spielRepo, spielplanService, NullLogger<TurnierBaumService>.Instance);
-        return (baumService, spielplanService);
+            baumRepo, instanzRepo, spielRepo, dienste.Spielplan, dienste.Quellverknuepfung,
+            NullLogger<TurnierBaumService>.Instance);
+        return (baumService, dienste.Spielplan);
     }
 
     /// <summary>Legt Regelwerk, TurnierInstanz, 16 Mannschaften sowie Achtelfinale (8 Spiele, alle mit
