@@ -94,6 +94,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly SpielplanService _spielplanService;
     private readonly PlatzhalterAufloesung _platzhalterAufloesung;
     private readonly PlatzhalterKaskadeService _kaskade;
+    private readonly FinaleAutomatik _finaleAutomatik;
     private readonly AuslosungService _auslosungService;
     private readonly TurnierBaumService _baumService;
     private readonly RegelwerkService _regelwerkService;
@@ -558,6 +559,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         SpielplanService spielplanService,
         PlatzhalterAufloesung platzhalterAufloesung,
         PlatzhalterKaskadeService kaskade,
+        FinaleAutomatik finaleAutomatik,
         AuslosungService auslosungService,
         TurnierBaumService baumService,
         RegelwerkService regelwerkService,
@@ -571,6 +573,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _spielplanService = spielplanService;
         _platzhalterAufloesung = platzhalterAufloesung;
         _kaskade = kaskade;
+        _finaleAutomatik = finaleAutomatik;
         _auslosungService = auslosungService;
         _baumService = baumService;
         _regelwerkService = regelwerkService;
@@ -861,7 +864,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis speichern bei Rundenwechsel (Spiel {spielId})");
             await _spielService.ErgebnisErfassenAsync(spielId, BaueEingabe());
-            await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(runde.TurnierInstanzId);
+            await _finaleAutomatik.FinaleAutomatischGenerierenWennBereitAsync(runde.TurnierInstanzId);
             return true;
         }
         catch (Exception ex)
@@ -1236,7 +1239,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis speichern (Spiel {spielId})");
             await _spielService.ErgebnisErfassenAsync(spielId, BaueEingabe());
-            await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
+            await _finaleAutomatik.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
 
             // Das gesamte Neuladen läuft im Schutz: sowohl das Neusetzen von AusgewaehlteGruppe in
             // GruppenTabellenLadenAsync als auch FokusSpiele geben der Fokus-Liste (Gruppenfilter/Spieltag) eine
@@ -1760,7 +1763,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             using var vorgang = _logger.Vorgang($"Spielplan: Runde simulieren (Runde {rundeId})");
             await _simulationsService.RundeSimulierenAsync(rundeId, SimulationsModus.AusfuehrlicheSimulation);
-            await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
+            await _finaleAutomatik.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
 
             await TabellenNeuLadenAsync(rundeId);
 
@@ -1873,7 +1876,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             using var vorgang = _logger.Vorgang($"Spielplan: Auswahl simulieren ({spielIds.Count} Spiele)");
             await _simulationsService.SpieleSimulierenAsync(spielIds, SimulationsModus.AusfuehrlicheSimulation);
-            await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
+            await _finaleAutomatik.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
 
             await TabellenNeuLadenAsync(rundeId);
 
@@ -1910,7 +1913,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             using var vorgang = _logger.Vorgang($"Spielplan: Rundenhälfte simulieren (Runde {rundeId})");
             await _simulationsService.RundenHaelfteSimulierenAsync(rundeId, istRueckrunde, SimulationsModus.AusfuehrlicheSimulation);
-            await _spielplanService.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
+            await _finaleAutomatik.FinaleAutomatischGenerierenWennBereitAsync(AusgewaehlteRunde.TurnierInstanzId);
 
             await TabellenNeuLadenAsync(rundeId);
 

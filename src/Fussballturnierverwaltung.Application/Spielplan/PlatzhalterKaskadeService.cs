@@ -15,6 +15,7 @@ public class PlatzhalterKaskadeService(
     TabellenZwischenspeicher zwischenspeicher,
     PlatzhalterAufloesung aufloesung,
     SpielplanService spielplanService,
+    FinaleAutomatik finaleAutomatik,
     ILogger<PlatzhalterKaskadeService> logger) : IPlatzhalterKaskadeService
 {
     /// <summary>
@@ -200,7 +201,7 @@ public class PlatzhalterKaskadeService(
 
     /// <summary>Kombiniert Rückwärts-Kaskade (<see cref="PlatzhalterKaskadePlanenAsync"/>/
     /// <see cref="PlatzhalterKaskadeAusfuehrenAsync"/>, Issue #88) und automatische Finale-Generierung
-    /// (<see cref="SpielplanService.FinaleAutomatischGenerierenWennBereitAsync"/>, Issue #113) zu einem einzigen Aufruf.
+    /// (<see cref="FinaleAutomatik.FinaleAutomatischGenerierenWennBereitAsync"/>, Issue #113) zu einem einzigen Aufruf.
     /// Zentraler Trigger-Punkt für jede Stelle, die den Stand einer Turnierinstanz nachträglich ändert und
     /// dadurch Folgerunden ungültig machen kann — bisher nur <see cref="Spiele.SpielErgebnisService"/>
     /// (Ergebnis-Löschen), jetzt auch <see cref="Auslosungen.AuslosungService"/> (Auslosung ausführen/
@@ -209,12 +210,12 @@ public class PlatzhalterKaskadeService(
     {
         using var vorgang = logger.Vorgang($"Kaskade (Instanz {turnierInstanzId})");
 
-        await spielplanService.FinaleAutomatischGenerierenWennBereitAsync(turnierInstanzId, ct);
+        await finaleAutomatik.FinaleAutomatischGenerierenWennBereitAsync(turnierInstanzId, ct);
 
         var plan = await PlatzhalterKaskadePlanenAsync(turnierInstanzId, new HashSet<int>(), ct);
         await PlatzhalterKaskadeAusfuehrenAsync(plan, ct);
 
-        await spielplanService.FinaleAutomatischGenerierenWennBereitAsync(turnierInstanzId, ct);
+        await finaleAutomatik.FinaleAutomatischGenerierenWennBereitAsync(turnierInstanzId, ct);
     }
 
     public async Task LoeschenAsync(int turnierRundeId, CancellationToken ct = default)
