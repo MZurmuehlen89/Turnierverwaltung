@@ -47,8 +47,10 @@ public partial class TurnierQuotenViewModel : ObservableObject
     /// nichts.</summary>
     public event Action? Geaendert;
 
+    private bool _befuelltGerade;
+
     // ── Verband-Quoten (Issue #161/#154, hier #297) ──────────────────────────
-    public ObservableCollection<VerbandsQuoteZeile> VerbandsQuotenZeilen { get; private set => SetProperty(ref field, value); } = [];
+    public ObservableCollection<VerbandsQuoteZeile> VerbandsQuotenZeilen { get; } = [];
     public IReadOnlyList<Verband> AlleVerbaende { get; private set => SetProperty(ref field, value); } = [];
     public bool VerbandsQuotenSichtbar { get; private set => SetProperty(ref field, value); }
 
@@ -59,7 +61,7 @@ public partial class TurnierQuotenViewModel : ObservableObject
     private void VerbandsQuoteEntfernen(VerbandsQuoteZeile zeile) => VerbandsQuotenZeilen.Remove(zeile);
 
     // ── Landes-Quoten (Issue #189) ────────────────────────────────────────────
-    public ObservableCollection<LandesQuoteZeile> LandesQuotenZeilen { get; private set => SetProperty(ref field, value); } = [];
+    public ObservableCollection<LandesQuoteZeile> LandesQuotenZeilen { get; } = [];
     public IReadOnlyList<Land> AlleLaender { get; private set => SetProperty(ref field, value); } = [];
     public bool LandesQuotenSichtbar { get; private set => SetProperty(ref field, value); }
 
@@ -108,7 +110,8 @@ public partial class TurnierQuotenViewModel : ObservableObject
         _verbandsQuoteValidator = verbandsQuoteValidator;
         _landesQuoteService = landesQuoteService;
         _landesQuoteValidator = landesQuoteValidator;
-        Leeren();
+        Beobachten(VerbandsQuotenZeilen);
+        Beobachten(LandesQuotenZeilen);
     }
 
     public void StammdatenSetzen(IReadOnlyList<Verband> verbaende, IReadOnlyList<Land> laender)
@@ -127,8 +130,8 @@ public partial class TurnierQuotenViewModel : ObservableObject
 
     public void Leeren()
     {
-        VerbandsQuotenZeilen = Beobachtet<VerbandsQuoteZeile>([]);
-        LandesQuotenZeilen = Beobachtet<LandesQuoteZeile>([]);
+        Befuellen(VerbandsQuotenZeilen, []);
+        Befuellen(LandesQuotenZeilen, []);
         ErsteRundeEingang = null;
     }
 
@@ -136,10 +139,10 @@ public partial class TurnierQuotenViewModel : ObservableObject
     {
         ErsteRundeEingang = ersteRundeEingang;
         var verbandsQuoten = await _verbandsQuoteService.AlleNachTurnierInstanzIdAsync(turnierInstanzId);
-        VerbandsQuotenZeilen = Beobachtet(
+        Befuellen(VerbandsQuotenZeilen,
             verbandsQuoten.Select(q => new VerbandsQuoteZeile { Verband = q.Verband, Anzahl = q.Anzahl }));
         var landesQuoten = await _landesQuoteService.AlleNachTurnierInstanzIdAsync(turnierInstanzId);
-        LandesQuotenZeilen = Beobachtet(
+        Befuellen(LandesQuotenZeilen,
             landesQuoten.Select(q => new LandesQuoteZeile { Land = q.Land, Anzahl = q.Anzahl }));
     }
 
@@ -172,13 +175,10 @@ public partial class TurnierQuotenViewModel : ObservableObject
         .Select(z => new LandesQuoteZeileEingabe(z.Land!.Id, z.Anzahl))
         .ToList();
 
-    /// <summary>Neue Zeilenliste, deren Änderungen (Zeile dazu oder weg, Wert einer Zeile) die Kopfzeile
-    /// auffrischen und als Nutzeränderung gemeldet werden. Befüllt wird vor dem Abonnieren — der Inhalt, mit dem
-    /// die Liste entsteht, meldet deshalb nichts.</summary>
-    private ObservableCollection<TZeile> Beobachtet<TZeile>(IEnumerable<TZeile> zeilen) where TZeile : INotifyPropertyChanged
+    /// <summary>Änderungen an der Zeilenliste (Zeile dazu oder weg, Wert einer Zeile) frischen die Kopfzeile auf
+    /// und werden als Nutzeränderung gemeldet.</summary>
+    private void Beobachten<TZeile>(ObservableCollection<TZeile> liste) where TZeile : INotifyPropertyChanged
     {
-        var liste = new ObservableCollection<TZeile>(zeilen);
-        foreach (var zeile in liste) zeile.PropertyChanged += OnZeileGeaendert;
         liste.CollectionChanged += (_, e) =>
         {
             if (e.NewItems is not null)
@@ -186,7 +186,22 @@ public partial class TurnierQuotenViewModel : ObservableObject
                     zeile.PropertyChanged += OnZeileGeaendert;
             ZeilenAenderungMelden();
         };
-        return liste;
+    }
+
+    /// <summary>Ersetzt den Inhalt einer Zeilenliste beim Laden oder Leeren; die Kopfzeile frischt auf, eine
+    /// Nutzeränderung wird nicht gemeldet.</summary>
+    private void Befuellen<TZeile>(ObservableCollection<TZeile> liste, IEnumerable<TZeile> zeilen)
+    {
+        _befuelltGerade = true;
+        try
+        {
+            liste.Clear();
+            foreach (var zeile in zeilen) liste.Add(zeile);
+        }
+        finally
+        {
+            _befuelltGerade = false;
+        }
     }
 
     private void OnZeileGeaendert(object? sender, PropertyChangedEventArgs e) => ZeilenAenderungMelden();
@@ -194,6 +209,7 @@ public partial class TurnierQuotenViewModel : ObservableObject
     private void ZeilenAenderungMelden()
     {
         OnPropertyChanged(nameof(Kopf));
+        if (_befuelltGerade) return;
         Geaendert?.Invoke();
     }
 
@@ -202,9 +218,6 @@ public partial class TurnierQuotenViewModel : ObservableObject
         base.OnPropertyChanged(e);
         switch (e.PropertyName)
         {
-            case nameof(VerbandsQuotenZeilen) or nameof(LandesQuotenZeilen):
-                OnPropertyChanged(nameof(Kopf));
-                break;
             case nameof(VerbandsQuotenSichtbar) or nameof(LandesQuotenSichtbar):
                 OnPropertyChanged(nameof(Sichtbar));
                 OnPropertyChanged(nameof(LandesQuotenSpalte));

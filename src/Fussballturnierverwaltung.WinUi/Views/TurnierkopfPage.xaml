@@ -208,8 +208,11 @@
                         <StackPanel Grid.Row="1" HorizontalAlignment="Stretch"
                                     Visibility="{Binding Quoten.VerbandsQuotenSichtbar, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="Verband-Quoten" FontSize="12" Margin="0,0,0,3" />
-                            <ItemsRepeater ItemsSource="{Binding Quoten.VerbandsQuotenZeilen}">
-                                <ItemsRepeater.ItemTemplate>
+                            <!-- ItemsControl statt ItemsRepeater (#446): leert und befüllt „Abbrechen“ die Liste in
+                                 einem Zug, ändert der ItemsRepeater seine Höhe erst nachträglich und die Spalte misst
+                                 nicht neu — die letzte Zeile war abgeschnitten oder es blieb eine Leerzeile. -->
+                            <ItemsControl ItemsSource="{Binding Quoten.VerbandsQuotenZeilen}">
+                                <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Grid ColumnDefinitions="*,90,Auto" Margin="0,0,0,6">
                                             <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.Quoten.AlleVerbaende}"
@@ -222,8 +225,8 @@
                                                     CommandParameter="{Binding}" />
                                         </Grid>
                                     </DataTemplate>
-                                </ItemsRepeater.ItemTemplate>
-                            </ItemsRepeater>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                             <Button Content="Verband hinzufügen" Command="{Binding Quoten.VerbandsQuoteHinzufuegenCommand}"
                                     HorizontalAlignment="Left" />
                         </StackPanel>
@@ -232,8 +235,8 @@
                         <StackPanel Grid.Row="1" Grid.Column="{Binding Quoten.LandesQuotenSpalte}" HorizontalAlignment="Stretch"
                                     Visibility="{Binding Quoten.LandesQuotenSichtbar, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="Landes-Quoten" FontSize="12" Margin="0,0,0,3" />
-                            <ItemsRepeater ItemsSource="{Binding Quoten.LandesQuotenZeilen}">
-                                <ItemsRepeater.ItemTemplate>
+                            <ItemsControl ItemsSource="{Binding Quoten.LandesQuotenZeilen}">
+                                <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Grid ColumnDefinitions="*,90,Auto" Margin="0,0,0,6">
                                             <ComboBox Grid.Column="0" ItemsSource="{Binding ElementName=Root, Path=DataContext.Quoten.AlleLaender}"
@@ -246,8 +249,8 @@
                                                     CommandParameter="{Binding}" />
                                         </Grid>
                                     </DataTemplate>
-                                </ItemsRepeater.ItemTemplate>
-                            </ItemsRepeater>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                             <Button Content="Land hinzufügen" Command="{Binding Quoten.LandesQuoteHinzufuegenCommand}"
                                     HorizontalAlignment="Left" />
                         </StackPanel>
