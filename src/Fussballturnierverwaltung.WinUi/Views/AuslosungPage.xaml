@@ -711,20 +711,29 @@
 
                     <TextBlock Text="{Binding Arbeitsbereich.TeamsStatusText}" FontSize="12" Margin="0,0,0,12" />
 
-                    <!-- Verbandsquoten (Nutzerwunsch: direkt bei der Teams-zugewiesen-Anzeige, nicht erst
-                         nach dem gesamten Zuweisungsbereich, damit Status und Quoten auf einen Blick sichtbar sind) -->
-                    <StackPanel Visibility="{Binding Quoten.ZeigeVerbandsquoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
-                        <TextBlock Text="VERBAND-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
-                        <ItemsRepeater ItemsSource="{Binding Quoten.Verbandsquoten}"
-                                       ItemTemplate="{StaticResource QuoteZeileTemplate}" />
-                    </StackPanel>
+                    <!-- Quoten nur zur Topfzuordnung (#441): ab dem Auslosen – Live-Ziehung wie Ergebnis – verborgen,
+                         gleiche Bedingung wie der Töpfe/Teilnehmer-Workspace darunter. Gleiche Spalten wie dort, damit
+                         die Quoten so breit sind wie die Verfügbar-Liste – über die volle Seitenbreite standen Name
+                         und Stand zu weit auseinander -->
+                    <Grid Visibility="{Binding IstAbgeschlossen, Converter={StaticResource InverseBoolToVisibility}}"
+                          ColumnDefinitions="2.4*,16,7*">
+                        <StackPanel Grid.Column="0">
+                            <!-- Verbandsquoten (Nutzerwunsch: direkt bei der Teams-zugewiesen-Anzeige, nicht erst
+                                 nach dem gesamten Zuweisungsbereich, damit Status und Quoten auf einen Blick sichtbar sind) -->
+                            <StackPanel Visibility="{Binding Quoten.ZeigeVerbandsquoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
+                                <TextBlock Text="VERBAND-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
+                                <ItemsRepeater ItemsSource="{Binding Quoten.Verbandsquoten}"
+                                               ItemTemplate="{StaticResource QuoteZeileTemplate}" />
+                            </StackPanel>
 
-                    <!-- Landesquoten -->
-                    <StackPanel Visibility="{Binding Quoten.ZeigeLandesquoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
-                        <TextBlock Text="LANDES-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
-                        <ItemsRepeater ItemsSource="{Binding Quoten.Landesquoten}"
-                                       ItemTemplate="{StaticResource QuoteZeileTemplate}" />
-                    </StackPanel>
+                            <!-- Landesquoten -->
+                            <StackPanel Visibility="{Binding Quoten.ZeigeLandesquoten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
+                                <TextBlock Text="LANDES-QUOTEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
+                                <ItemsRepeater ItemsSource="{Binding Quoten.Landesquoten}"
+                                               ItemTemplate="{StaticResource QuoteZeileTemplate}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
 
                     <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
                             Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
