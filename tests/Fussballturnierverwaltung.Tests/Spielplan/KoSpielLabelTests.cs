@@ -8,25 +8,29 @@ namespace Fussballturnierverwaltung.Tests.Spielplan;
 
 public class KoSpielLabelTests
 {
-    private static TurnierRunde Runde(Rundenart art, int eingang = 0, bool mitRueckspiel = false) =>
-        new() { Rundenart = art, EingangsMannschaftsanzahl = eingang, MitRueckspiel = mitRueckspiel };
+    private static TurnierRunde Runde(Rundenart art, int eingang = 0, bool mitRueckspiel = false, string name = "") =>
+        new() { Rundenart = art, Name = name, EingangsMannschaftsanzahl = eingang, MitRueckspiel = mitRueckspiel };
+
+    // #455: dieselben Kürzel wie im Turnierbaum — die Teilnehmerzahl (16) spräche für "AF", der Name geht vor.
+    [Theory]
+    [InlineData("Playoff-Runde", "PO 1")]
+    [InlineData("Achtelfinale", "AF 1")]
+    [InlineData("Sechzehntelfinale", "L32 1")]
+    [InlineData("Zwischenrunde", "Z 1")]
+    [InlineData("Runde 2", "R2 1")]
+    public void Fuer_KoRunde_KuerzelAusDemRundennamen(string name, string erwartet) =>
+        KoSpielLabel.Fuer(new Spiel(), Runde(Rundenart.KoRunde, eingang: 16, name: name), paarungsNummer: 1)
+            .Should().Be(erwartet);
 
     [Theory]
-    [InlineData(4, "HF")]
-    [InlineData(8, "VF")]
-    [InlineData(16, "AF")]
-    [InlineData(32, "R16")]
-    [InlineData(64, "R32")]
-    [InlineData(128, "R64")]
-    [InlineData(24, "R12")]
-    public void Kuerzel_RichtetSichNachDerTeilnehmerzahl(int eingang, string erwartet) =>
-        KoSpielLabel.Kuerzel(eingang).Should().Be(erwartet);
-
-    [Theory]
-    [InlineData(2)]
-    [InlineData(0)]
-    public void Kuerzel_HoechstensZweiTeilnehmer_IstNull(int eingang) =>
-        KoSpielLabel.Kuerzel(eingang).Should().BeNull();
+    [InlineData(4, "HF 1")]
+    [InlineData(8, "VF 1")]
+    [InlineData(16, "AF 1")]
+    [InlineData(32, "L32 1")]
+    [InlineData(64, "L64 1")]
+    [InlineData(24, "R12 1")]
+    public void Fuer_KoRundeOhneNamen_KuerzelAusDerTeilnehmerzahl(int eingang, string erwartet) =>
+        KoSpielLabel.Fuer(new Spiel(), Runde(Rundenart.KoRunde, eingang), paarungsNummer: 1).Should().Be(erwartet);
 
     [Fact]
     public void Fuer_KoRunde_VerbindetKuerzelUndPaarungsnummer() =>
@@ -55,9 +59,12 @@ public class KoSpielLabelTests
     public void Fuer_RundeOhneKoPaarungen_IstNull(Rundenart art) =>
         KoSpielLabel.Fuer(new Spiel(), Runde(art, eingang: 16), paarungsNummer: 1).Should().BeNull();
 
-    [Fact]
-    public void Fuer_KoRundeMitZweiTeilnehmern_IstNull() =>
-        KoSpielLabel.Fuer(new Spiel(), Runde(Rundenart.KoRunde, eingang: 2), paarungsNummer: 1).Should().BeNull();
+    [Theory]
+    [InlineData(2)]
+    [InlineData(0)]
+    public void Fuer_KoRundeMitHoechstensZweiTeilnehmern_IstNull(int eingang) =>
+        KoSpielLabel.Fuer(new Spiel(), Runde(Rundenart.KoRunde, eingang, name: "Finale"), paarungsNummer: 1)
+            .Should().BeNull();
 
     [Fact]
     public void Fuer_OhneRunde_IstNull() =>

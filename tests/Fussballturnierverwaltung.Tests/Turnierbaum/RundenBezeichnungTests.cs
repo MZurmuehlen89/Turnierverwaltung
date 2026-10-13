@@ -66,6 +66,14 @@ public class RundenBezeichnungTests
     }
 
     [Theory]
+    [InlineData("Playoff-Runde", 8, "PO")]
+    [InlineData(null, 16, "L32-")]
+    public void Kuerzel_OhneTurnierbaumAusNameUndSpielanzahl(string? name, int anzahlSpiele, string erwartet)
+    {
+        RundenBezeichnung.Kuerzel(name, anzahlSpiele).Should().Be(erwartet);
+    }
+
+    [Theory]
     [InlineData("Achtelfinale", 8, 2, "AF3")]
     [InlineData("Sechzehntelfinale", 16, 0, "L32-1")]
     [InlineData("Runde 2", 4, 3, "R2-4")]

@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -5,8 +6,8 @@ using Fussballturnierverwaltung.Domain.Enums;
 namespace Fussballturnierverwaltung.Application.Spielplan;
 
 /// <summary>Kurzbezeichnung eines K.-o.-Spiels in den Spiellisten, z.B. "VF 3" oder "AF 2 R" — ohne Datenbank.
-/// Die Kürzel richten sich nach der Teilnehmerzahl der Runde; der Turnierbaum beschriftet seine Knoten
-/// dagegen nach dem Rundennamen (<c>RundenBezeichnung</c>).</summary>
+/// Das Kürzel einer K.-o.-Runde ist dasselbe wie im Turnierbaum (<see cref="RundenBezeichnung"/>, #455): eine
+/// Runde heißt überall gleich.</summary>
 public static class KoSpielLabel
 {
     /// <summary>Label des Spiels aus Rundenkürzel und Paarungsnummer, bei Hin-/Rückspiel mit "H"/"R";
@@ -19,7 +20,7 @@ public static class KoSpielLabel
         {
             Rundenart.Finale => "Finale",
             Rundenart.SpielUmPlatzDrei => "3. Platz",
-            Rundenart.KoRunde => Kuerzel(runde.EingangsMannschaftsanzahl),
+            Rundenart.KoRunde => Kuerzel(runde),
             _ => null
         };
         if (kuerzel is null) return null;
@@ -29,14 +30,9 @@ public static class KoSpielLabel
             : $"{kuerzel} {paarungsNummer}";
     }
 
-    public static string? Kuerzel(int eingangsMannschaftsanzahl) => eingangsMannschaftsanzahl switch
-    {
-        4 => "HF",
-        8 => "VF",
-        16 => "AF",
-        32 => "R16",
-        64 => "R32",
-        128 => "R64",
-        _ => eingangsMannschaftsanzahl > 2 ? $"R{eingangsMannschaftsanzahl / 2}" : null
-    };
+    // Der Trennstrich mancher Kürzel ("L32-") gehört zum Knoten-Label des Turnierbaums ("L32-1"); hier trennt
+    // das Leerzeichen vor der Paarungsnummer.
+    private static string? Kuerzel(TurnierRunde runde) => runde.EingangsMannschaftsanzahl > 2
+        ? RundenBezeichnung.Kuerzel(runde.Name, runde.EingangsMannschaftsanzahl / 2).TrimEnd('-')
+        : null;
 }

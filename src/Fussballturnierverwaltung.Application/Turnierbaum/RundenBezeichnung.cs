@@ -8,8 +8,12 @@ public static class RundenBezeichnung
 
     /// <summary>Kürzel der Runde, z.B. "AF". Endet es auf "-" (z.B. "L32-"), trennt der Strich das Kürzel von der
     /// Nummer im Knoten-Label ("L32-1").</summary>
-    public static string Kuerzel(BracketRunde runde) =>
-        KuerzelAusName(runde.RundenName) ?? KuerzelAusSpielanzahl(runde.Knoten.Count);
+    public static string Kuerzel(BracketRunde runde) => Kuerzel(runde.RundenName, runde.Knoten.Count);
+
+    /// <summary>Dasselbe Kürzel ohne Turnierbaum, für die Spiellisten (#455): aus dem Namen der Turnierrunde,
+    /// ohne verwertbaren Namen aus der Anzahl ihrer Paarungen.</summary>
+    public static string Kuerzel(string? rundenName, int anzahlSpiele) =>
+        KuerzelAusName(rundenName) ?? KuerzelAusSpielanzahl(anzahlSpiele);
 
     /// <summary>Label des Knotens an <paramref name="position"/> (ab 0, in Spielreihenfolge), z.B. "AF3"; die
     /// Runde mit nur einem Spiel trägt das Kürzel allein ("F").</summary>
