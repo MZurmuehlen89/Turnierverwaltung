@@ -235,7 +235,8 @@ public class Platzbelegung : ObservableObject
     public void RegelmeldungLoeschen() => Regelmeldung = null;
 
     /// <summary>Setzt einen verfügbaren Teilnehmer auf den Platz — außer eine aktive Regel verbietet es, dann
-    /// steht der Grund in <see cref="Regelmeldung"/>.</summary>
+    /// steht der Grund in <see cref="Regelmeldung"/>. Ein Team, das dort schon steht, wird ersetzt und ist
+    /// wieder verfügbar.</summary>
     public void Platzieren(TeilnehmerAnzeige team, VorbelegungsPlatz platz)
     {
         Regelmeldung = null;
@@ -245,6 +246,9 @@ public class Platzbelegung : ObservableObject
         if (Regelmeldung is not null) return;
 
         _verfuegbareTeilnehmer.Remove(team);
+        // Erst zurücklegen, dann besetzen: Besetzen überschreibt, das bisherige Team wäre sonst weder platziert
+        // noch verfügbar (#454).
+        if (platz.Leeren() is { } verdraengt) ZurueckZuVerfuegbar(verdraengt);
         platz.Besetzen(team);
         BelegungGeaendert();
     }
@@ -264,7 +268,7 @@ public class Platzbelegung : ObservableObject
     {
         var (mitspieler, beziehung) = MitspielerVon(platz);
         return mitspieler
-            .Where(m => !m.IstLeer)
+            .Where(m => m != platz && !m.IstLeer) // das Team auf dem Zielplatz wird ersetzt, nicht Mitspieler (#454)
             .Select(m => RegelVerletzung(team, m.Team!, beziehung))
             .FirstOrDefault(meldung => meldung is not null);
     }
