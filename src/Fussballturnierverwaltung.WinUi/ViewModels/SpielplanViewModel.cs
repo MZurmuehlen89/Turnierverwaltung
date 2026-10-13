@@ -703,13 +703,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             // baut die Liste neu auf und nullt dabei die Auswahl.
             using (_spielWechsel.Betreten())
             {
-                // Ein gescheitertes Speichern hält den Spielwechsel nicht auf (#461).
+                // Ein gescheitertes Speichern hält den Spielwechsel auf wie beim Rundenwechsel: die Auswahl geht
+                // zurück auf das vorherige Spiel, Eingabe und Fehlermeldung bleiben stehen (#461).
                 bool wechseln = await AntwortUmsetzenAsync(antwort, async () =>
-                {
-                    if (AusgewaehlteRunde is { } runde && runde.Id == vorherigeRundeId)
-                        await ErgebnisSpeichernAsync(vorherigeSpielId, runde, danachNeuLaden: true);
-                    return true;
-                });
+                    AusgewaehlteRunde is not { } runde || runde.Id != vorherigeRundeId ||
+                    await ErgebnisSpeichernAsync(vorherigeSpielId, runde, danachNeuLaden: true));
 
                 int? zielSpielId = wechseln ? neuesSpielId : vorherigeSpielId;
                 AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == zielSpielId);
