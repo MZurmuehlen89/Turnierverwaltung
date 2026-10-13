@@ -52,8 +52,8 @@ public partial class AuslosungsfilterViewModel : ObservableObject
         TeamFilter?.Wert ?? MannschaftsartFilter.Alle);
 
     // Was gespeichert wird — der gewählte Verband bleibt dabei auch als FIFA erhalten.
-    public int? VerbandId => VerbandFilter.Wert?.Id;
-    public int? LandId => LandFilter.Wert?.Id;
+    public int? VerbandId => VerbandFilter?.Wert?.Id;
+    public int? LandId => LandFilter?.Wert?.Id;
     public MannschaftsartFilter Mannschaftsart => TeamFilter.Wert;
 
     // Beide Filter schränken sich gegenseitig ein (Issue #211-Muster aus dem WPF-Original): FIFA ist die
@@ -71,21 +71,19 @@ public partial class AuslosungsfilterViewModel : ObservableObject
     public ObservableCollection<LandOption> LandOptionenGefiltert { get; } = [];
     public ObservableCollection<VerbandOption> VerbandOptionenGefiltert { get; } = [];
 
-    private void LandOptionenGefiltertSynchronisieren()
-    {
-        IReadOnlyList<LandOption> soll = VerbandFilter?.Wert is null || IstFifa(VerbandFilter.Wert)
-            ? _landOptionen
-            : [_keinLand, .. _landOptionen.Where(o => o.Wert?.VerbandId == VerbandFilter.Wert.Id)];
-        SammlungsAbgleich.TeilfolgeAbgleichen(LandOptionenGefiltert, soll);
-    }
+    private void LandOptionenGefiltertSynchronisieren() =>
+        SammlungsAbgleich.TeilfolgeAbgleichen(LandOptionenGefiltert, LandOptionenSoll());
 
-    private void VerbandOptionenGefiltertSynchronisieren()
-    {
-        IReadOnlyList<VerbandOption> soll = LandFilter?.Wert is null
-            ? _verbandOptionen
-            : [_keinVerband, .. _verbandOptionen.Where(o => o.Wert?.Id == LandFilter.Wert.VerbandId || IstFifa(o.Wert))];
-        SammlungsAbgleich.TeilfolgeAbgleichen(VerbandOptionenGefiltert, soll);
-    }
+    private void VerbandOptionenGefiltertSynchronisieren() =>
+        SammlungsAbgleich.TeilfolgeAbgleichen(VerbandOptionenGefiltert, VerbandOptionenSoll());
+
+    private IReadOnlyList<LandOption> LandOptionenSoll() => VerbandFilter?.Wert is null || IstFifa(VerbandFilter.Wert)
+        ? _landOptionen
+        : [_keinLand, .. _landOptionen.Where(o => o.Wert?.VerbandId == VerbandFilter.Wert.Id)];
+
+    private IReadOnlyList<VerbandOption> VerbandOptionenSoll() => LandFilter?.Wert is null
+        ? _verbandOptionen
+        : [_keinVerband, .. _verbandOptionen.Where(o => o.Wert?.Id == LandFilter.Wert.VerbandId || IstFifa(o.Wert))];
 
     private static bool IstFifa(Verband? v) => v?.Kurzname == "FIFA";
 
@@ -95,23 +93,32 @@ public partial class AuslosungsfilterViewModel : ObservableObject
     /// inkompatibel zurücksetzen, bevor die eigentlich korrekte nachfolgende Land-Zuweisung überhaupt
     /// passiert ist (Fund: Verband-/Land-Feld blieb beim Wechsel zwischen Turniervorlagen sporadisch
     /// falsch). Direktzugriff auf die Backing-Fields umgeht die generierten Setter (und damit
-    /// On[Verband|Land]FilterChanged) bewusst, damit beide Werte VOR jeder Change-Reaktion feststehen.</summary>
+    /// On[Verband|Land]FilterChanged) bewusst, damit beide Werte VOR jeder Change-Reaktion feststehen.
+    ///
+    /// Die Listen werden in zwei Schritten abgeglichen, die Meldung dazwischen: erst ergänzen, was den neuen
+    /// Werten fehlt, dann die ComboBoxen umstellen, dann entfernen, was nicht mehr passt. Entfernt der Abgleich
+    /// einen Eintrag, den seine ComboBox noch als Auswahl zeigt, schreibt sie <c>null</c> zurück — hier bei
+    /// ausgesetzten Reaktionen, also ohne Korrektur: per Log belegt blieb „Land“ nach „Abbrechen“ leer, wenn
+    /// zuvor Verband und Land geändert waren (#447).</summary>
     private void AuslosungsfilterSetzen(VerbandOption verband, LandOption land)
     {
-        var verbandGeaendert = VerbandFilter != verband;
-        var landGeaendert = LandFilter != land;
-        if (!verbandGeaendert && !landGeaendert) return;
+        if (VerbandFilter == verband && LandFilter == land) return;
 
 #pragma warning disable MVVMTK0034
         _verbandFilter = verband;
         _landFilter = land;
 #pragma warning restore MVVMTK0034
 
-        if (verbandGeaendert) LandOptionenGefiltertSynchronisieren();
-        if (landGeaendert) VerbandOptionenGefiltertSynchronisieren();
+        var landSoll = LandOptionenSoll();
+        var verbandSoll = VerbandOptionenSoll();
+        SammlungsAbgleich.TeilfolgeErgaenzen(LandOptionenGefiltert, _landOptionen, landSoll);
+        SammlungsAbgleich.TeilfolgeErgaenzen(VerbandOptionenGefiltert, _verbandOptionen, verbandSoll);
 
         OnPropertyChanged(nameof(VerbandFilter));
         OnPropertyChanged(nameof(LandFilter));
+
+        SammlungsAbgleich.TeilfolgeAbgleichen(LandOptionenGefiltert, landSoll);
+        SammlungsAbgleich.TeilfolgeAbgleichen(VerbandOptionenGefiltert, verbandSoll);
     }
 
     partial void OnVerbandFilterChanged(VerbandOption value)

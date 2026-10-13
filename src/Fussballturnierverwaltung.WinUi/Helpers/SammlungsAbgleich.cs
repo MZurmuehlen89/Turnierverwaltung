@@ -82,6 +82,18 @@ internal static class SammlungsAbgleich
         }
     }
 
+    /// <summary>Erster Teil eines <see cref="TeilfolgeAbgleichen"/> in zwei Schritten: fügt nur ein, was
+    /// <paramref name="ziel"/> aus <paramref name="soll"/> noch fehlt, und entfernt nichts. So kann eine
+    /// ComboBox zwischen den Schritten auf einen neuen Eintrag umgestellt werden, bevor ihr bisheriger
+    /// verschwindet (#447). <paramref name="alle"/> ist die feste, sortierte Basisliste, aus der beide
+    /// stammen — sie gibt die Reihenfolge vor.</summary>
+    public static void TeilfolgeErgaenzen<T>(ObservableCollection<T> ziel, IReadOnlyList<T> alle, IReadOnlyList<T> soll)
+    {
+        var enthalten = new HashSet<T>(ziel);
+        enthalten.UnionWith(soll);
+        TeilfolgeAbgleichen(ziel, alle.Where(enthalten.Contains).ToList());
+    }
+
     /// <summary>Verschiebt einen Listenabgleich auf den nächsten Dispatcher-Tick statt ihn synchron aus einem
     /// ComboBox-Change-Handler heraus auszuführen. Fund #335: Wird die ItemsSource der EINEN ComboBox verändert,
     /// während der native WinUI-XAML-Kern noch mitten in der Verarbeitung des SelectionChanged der ANDEREN
