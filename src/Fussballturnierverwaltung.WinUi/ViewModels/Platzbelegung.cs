@@ -19,7 +19,7 @@ public class Platzbelegung : ObservableObject
 
     // Bei jedem Zug gefragt statt beim Aufbau übergeben: die Regeln hängen an der Auslosung der Runde, und die legt
     // der Workspace erst beim Abschließen an.
-    private readonly Func<AuslosungsRegelArt, bool> _regelAktiv;
+    private readonly Func<AuslosungsRegelArt, bool> _regelWirkt;
 
     private readonly ObservableCollection<TeilnehmerAnzeige> _verfuegbareTeilnehmer = [];
 
@@ -27,11 +27,11 @@ public class Platzbelegung : ObservableObject
     /// (Platzhalter stehen bewusst nicht alphabetisch).</summary>
     private Ausgangsreihenfolge<(int?, string)> _ausgangsreihenfolge = new([]);
 
-    public Platzbelegung(Rundenart rundenart, int? gruppenAnzahl, Func<AuslosungsRegelArt, bool> regelAktiv)
+    public Platzbelegung(Rundenart rundenart, int? gruppenAnzahl, Func<AuslosungsRegelArt, bool> regelWirkt)
     {
         _rundenart = rundenart;
         _gruppenAnzahl = gruppenAnzahl;
-        _regelAktiv = regelAktiv;
+        _regelWirkt = regelWirkt;
         Filter = new TeilnehmerFilterViewModel(_verfuegbareTeilnehmer);
         Filter.Geaendert += GefilterteTeilnehmerAbgleichen;
         _verfuegbareTeilnehmer.CollectionChanged += (_, _) => GefilterteTeilnehmerAbgleichen();
@@ -286,7 +286,7 @@ public class Platzbelegung : ObservableObject
 
     private string? RegelVerletzung(TeilnehmerAnzeige neuTeam, TeilnehmerAnzeige anderes, string beziehung) =>
         PaarungsRegeln.VerletzteRegel(
-            _regelAktiv(AuslosungsRegelArt.KeinGleichesLand), _regelAktiv(AuslosungsRegelArt.KeineGleicheGruppe),
+            _regelWirkt(AuslosungsRegelArt.KeinGleichesLand), _regelWirkt(AuslosungsRegelArt.KeineGleicheGruppe),
             HerkunftVon(neuTeam), HerkunftVon(anderes)) switch
         {
             AuslosungsRegelArt.KeinGleichesLand =>

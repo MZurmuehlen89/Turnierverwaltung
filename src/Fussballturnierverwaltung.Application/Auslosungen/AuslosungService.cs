@@ -223,13 +223,8 @@ public class AuslosungService(
     private async Task<(RegelKontext Regeln, IReadOnlyDictionary<int, string> GruppeJeMannschaft)> RegelnErmittelnAsync(
         Auslosung auslosung, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
     {
-        var art       = auslosung.Auslosungsart;
-        var rundenart = auslosung.TurnierRunde?.Rundenart;
-
-        // folgtAufGruppenphase: true — ohne vorangegangene Gruppenphase fehlt ohnehin jede Gruppen-Herkunft,
-        // „Keine gleiche Gruppe“ läuft dann ins Leere statt die Auslosung zu stören.
-        bool Wirkt(AuslosungsRegelArt regel) => AuslosungsRegelKompatibilitaet.Wirkt(
-            regel, HatAktiveRegel(auslosung, regel), art, rundenart, folgtAufGruppenphase: true);
+        bool Wirkt(AuslosungsRegelArt regel) =>
+            AuslosungsRegelKompatibilitaet.Wirkt(regel, auslosung, auslosung.TurnierRunde?.Rundenart);
 
         var regeln = new RegelKontext(
             Wirkt(AuslosungsRegelArt.KeinGleichesLand),
@@ -411,9 +406,6 @@ public class AuslosungService(
         // Folgerunden (#306). Getrennt entstand der Spielplan einer Platzhalter-Runde zweimal (#411).
         await platzhalterKaskadeService.RundenSpielplanAusAuslosungErsetzenAsync(auslosung.TurnierRundeId, ergebnisse, ct);
     }
-
-    private static bool HatAktiveRegel(Auslosung auslosung, AuslosungsRegelArt art)
-        => auslosung.Regeln.Any(r => r.IstAktiv && r.Regelart == art);
 }
 
 public record ManuellePaarungEingabe(

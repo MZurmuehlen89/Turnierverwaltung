@@ -86,7 +86,7 @@ public partial class VorbelegungWorkspace : ObservableObject
         _teilnehmerpool = teilnehmerpool;
         _instanzId = instanzId;
         Runde = runde;
-        Belegung = new Platzbelegung(runde.Rundenart, runde.GruppenAnzahl, RegelAktiv);
+        Belegung = new Platzbelegung(runde.Rundenart, runde.GruppenAnzahl, RegelWirkt);
         Belegung.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(Platzbelegung.BelegungVollstaendig)) AbschliessenCommand.NotifyCanExecuteChanged();
@@ -129,8 +129,10 @@ public partial class VorbelegungWorkspace : ObservableObject
         finally { IstLadend = false; }
     }
 
-    private bool RegelAktiv(AuslosungsRegelArt art) =>
-        _auslosung?.Regeln.Any(r => r.IstAktiv && r.Regelart == art) == true;
+    // Dieselbe Entscheidung wie beim Losen (#443): eine aktive Regel, die bei dieser Runde nicht wirkt, lehnt auch
+    // hier kein Platzieren ab. Ohne Auslosung gilt keine — sie entsteht erst beim ersten Abschließen.
+    private bool RegelWirkt(AuslosungsRegelArt art) =>
+        _auslosung is not null && AuslosungsRegelKompatibilitaet.Wirkt(art, _auslosung, Runde.Rundenart);
 
     // ── Abschließen / Zurücksetzen ───────────────────────────────────────────
 

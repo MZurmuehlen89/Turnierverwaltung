@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Tests.Auslosungen;
@@ -55,6 +56,22 @@ public class AuslosungsRegelKompatibilitaetTests
                 AuslosungsRegelArt.FreilosMoeglich, istAktiv: true, Auslosungsart.NachToepfen,
                 Rundenart.KoRunde, folgtAufGruppenphase: true)
             .Should().BeFalse();
+
+    // Vorbelegung von Hand (#443): dieselbe Entscheidung wie beim Losen, auch für eine Manuell-Auslosung.
+    [Theory]
+    [InlineData(Rundenart.KoRunde,         true,  true)]
+    [InlineData(Rundenart.Gruppenphase,    true,  true)]
+    [InlineData(Rundenart.Liga,            true,  false)]
+    [InlineData(Rundenart.SchweizerSystem, true,  false)]
+    [InlineData(Rundenart.KoRunde,         false, false)]
+    public void RegelDerAuslosung_WirktNurAktivUndBeiPassenderRunde(Rundenart rundenart, bool istAktiv, bool erwartet)
+    {
+        var auslosung = new Auslosung { Auslosungsart = Auslosungsart.Manuell };
+        auslosung.Regeln.Add(new AuslosungsRegel { Regelart = AuslosungsRegelArt.KeinGleichesLand, IstAktiv = istAktiv });
+
+        AuslosungsRegelKompatibilitaet.Wirkt(AuslosungsRegelArt.KeinGleichesLand, auslosung, rundenart).Should().Be(erwartet);
+        AuslosungsRegelKompatibilitaet.Wirkt(AuslosungsRegelArt.KeineGleicheGruppe, auslosung, rundenart).Should().BeFalse();
+    }
 
     [Fact]
     public void HeimrechtRegeln_SchliessenSichGegenseitigAus()

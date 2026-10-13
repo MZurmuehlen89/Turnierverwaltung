@@ -9,7 +9,8 @@ public readonly record struct RegelHerkunft(int? LandId, string? Gruppe);
 
 /// <summary>Die Regeln, die zwei Teilnehmer als Gegner oder in derselben Gruppe ausschließen: „Kein gleiches
 /// Land“ und „Keine gleiche Gruppe“ (#331). Gemeinsam genutzt von den Losverfahren (<see cref="RegelKontext"/>)
-/// und der Vorbelegung von Hand. Ob eine Regel bei einer Runde überhaupt wirkt, entscheidet der Aufrufer.</summary>
+/// und der Vorbelegung von Hand. Ob eine Regel bei einer Runde überhaupt wirkt, entscheidet für beide
+/// <see cref="AuslosungsRegelKompatibilitaet"/>.</summary>
 public static class PaarungsRegeln
 {
     /// <summary>Die Regel, gegen die die beiden Teilnehmer zusammen verstoßen, oder <c>null</c>. Ein Teilnehmer

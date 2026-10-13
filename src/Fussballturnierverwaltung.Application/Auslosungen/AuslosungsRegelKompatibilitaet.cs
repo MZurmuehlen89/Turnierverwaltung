@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Auslosungen;
@@ -150,4 +151,13 @@ public static class AuslosungsRegelKompatibilitaet
         if (ImmerAktivGrund(regel, art) is not null) return true;
         return istAktiv && SperrGrund(regel, art, rundenart, folgtAufGruppenphase) is null;
     }
+
+    /// <summary>Ob die Regel bei dieser Auslosung angewendet wird — die eine Entscheidung für Losverfahren,
+    /// Prüfung vor dem Losen und Vorbelegung von Hand (#443). Die Rundenart kommt vom Aufrufer, weil nicht jeder
+    /// die Runde an der Auslosung mitgeladen hat.</summary>
+    // folgtAufGruppenphase: true — ohne vorangegangene Gruppenphase fehlt ohnehin jede Gruppen-Herkunft,
+    // „Keine gleiche Gruppe“ läuft dann ins Leere statt die Auslosung zu stören.
+    public static bool Wirkt(AuslosungsRegelArt regel, Auslosung auslosung, Rundenart? rundenart) => Wirkt(
+        regel, auslosung.Regeln.Any(r => r.IstAktiv && r.Regelart == regel), auslosung.Auslosungsart, rundenart,
+        folgtAufGruppenphase: true);
 }

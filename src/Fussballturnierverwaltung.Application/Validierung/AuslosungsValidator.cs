@@ -130,8 +130,7 @@ public class AuslosungsValidator
         {
             // Nur ein tatsächlich wirksames Freilos erlaubt ein Team weniger (#331: bei Töpfen/Setzliste gesperrt).
             bool freilosMoeglich = AuslosungsRegelKompatibilitaet.Wirkt(
-                AuslosungsRegelArt.FreilosMoeglich, aktiveRegelnVorab.Contains(AuslosungsRegelArt.FreilosMoeglich),
-                auslosung.Auslosungsart, auslosung.TurnierRunde?.Rundenart, folgtAufGruppenphase: true);
+                AuslosungsRegelArt.FreilosMoeglich, auslosung, auslosung.TurnierRunde?.Rundenart);
             int min = freilosMoeglich ? benoetigte.Value - 1 : benoetigte.Value;
             if (alleEintraege.Count < min)
                 fehler.Add($"Die Runde erwartet {benoetigte} Teams" +
