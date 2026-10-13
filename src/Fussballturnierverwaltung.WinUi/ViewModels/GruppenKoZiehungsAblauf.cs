@@ -7,7 +7,8 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// spielt die feststehenden Ziehungsschritte nacheinander auf der Anzeige des <see cref="ZiehungViewModel"/> ab.
 /// Pro Schritt erscheint zunächst die gezogene Mannschaft (in der Topf-Anzeige als "gezogen" markiert — die Slots
 /// bleiben zahlenmäßig fix, nur ihr Inhalt wechselt zu "…", damit sich das Layout nicht verschiebt, sobald ein Topf
-/// leerer wird), dann das Ziel (Gruppe/Paarung), bei der Gruppenphase zusätzlich die Position. Gruppen und Paarungen
+/// leerer wird), bei der Gruppenphase danach die Zielgruppe und die Position; bei der K.-o.-Runde steht das Team mit
+/// dem Ziehen in seiner Paarung. Gruppen und Paarungen
 /// werden vorab mit der vollen Anzahl leerer Plätze ("…") aufgebaut und danach Platz für Platz befüllt. Gezeigt wird
 /// die Fokus-Ansicht (aktueller Topf plus Zielgruppe bzw. aktuelle Paarung); nach jedem geleerten Topf bzw. nach je
 /// <see cref="ZiehungsReihenfolge.PAARUNGEN_JE_ZWISCHENSTAND"/> Paarungen folgt als eigener Schritt die Gesamtübersicht. Das geladene
@@ -114,13 +115,16 @@ internal sealed class GruppenKoZiehungsAblauf(
     }
 
     /// <summary>K.-o.-Runde: die Paarung steht schon beim Ziehen fest (es wird Paarung für Paarung gezogen), das Team
-    /// wird nach dem Ziehen sofort eingetragen.</summary>
+    /// erscheint mit dem Ziehen auf seiner Seite der Paarungskarte. Ein Banner mit Paarung und Heim/Auswärts gibt es
+    /// dafür nicht — die Karte zeigt beides (#442). Nur das Freilos wird als eigener Schritt angesagt, dort fehlt die
+    /// zweite Mannschaft, an der es abzulesen wäre.</summary>
     private async Task InPaarungZiehenAsync(ZiehungsSchritt schritt, AnimationsTopf? topf)
     {
         var paarung = anzeige.AnimationPaarungen.First(p => p.PaarungsNr == schritt.ZielNummer);
         anzeige.AnimationFokusPaarung = paarung;
 
-        await TeamZiehenAsync(schritt, topf);
+        TeamAlsGezogenZeigen(schritt, topf);
+        if (schritt.IstFreilos) await FreilosAnsagenAsync(schritt);
         TeamInPaarungEintragen(schritt, paarung);
         await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Schritt);
     }
@@ -132,14 +136,27 @@ internal sealed class GruppenKoZiehungsAblauf(
         await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Aufdecken);
     }
 
-    /// <summary>Markiert das Team im Topf als gezogen und zeigt es im Banner.</summary>
     private async Task TeamZiehenAsync(ZiehungsSchritt schritt, AnimationsTopf? topf)
+    {
+        TeamAlsGezogenZeigen(schritt, topf);
+        await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Schritt);
+    }
+
+    /// <summary>Markiert das Team im Topf als gezogen und zeigt es im Banner.</summary>
+    private void TeamAlsGezogenZeigen(ZiehungsSchritt schritt, AnimationsTopf? topf)
     {
         var topfSlot = topf?.Slots.FirstOrDefault(s => s.EintragId == schritt.Eintrag.Id);
         if (topfSlot is not null) topfSlot.Gezogen = true;
 
         anzeige.BannerMannschaftZeigen(TeilnehmerAnzeige.AusEintrag(schritt.Eintrag).Name, schritt.TopfName);
+    }
+
+    /// <summary>Erst die gezogene Mannschaft allein, dann das Ziel mit dem Hinweis "Freilos".</summary>
+    private async Task FreilosAnsagenAsync(ZiehungsSchritt schritt)
+    {
         await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Schritt);
+        anzeige.AnimationBannerZiel = $"Paarung {schritt.ZielNummer}";
+        anzeige.AnimationBannerSlot = "Freilos";
     }
 
     private async Task ZielGruppeZeigenAsync(ZiehungsSchritt schritt)
@@ -168,12 +185,8 @@ internal sealed class GruppenKoZiehungsAblauf(
 
     private void TeamInPaarungEintragen(ZiehungsSchritt schritt, AnimationsPaarung paarung)
     {
-        bool heim = schritt.IstFreilos || schritt.IstHeim == true;
-        anzeige.AnimationBannerZiel = $"Paarung {schritt.ZielNummer}";
-        anzeige.AnimationBannerSlot = schritt.IstFreilos ? "Freilos" : (heim ? "Heim" : "Auswärts");
-
         var team = TeilnehmerAnzeige.AusEintrag(schritt.Eintrag);
-        if (heim)
+        if (schritt.IstFreilos || schritt.IstHeim == true)
         {
             paarung.Heim       = team.Name;
             paarung.HeimWappen = team.Wappen;
@@ -187,13 +200,26 @@ internal sealed class GruppenKoZiehungsAblauf(
 
     // ── Zwischen zwei Schritten ───────────────────────────────────────────────
 
-    /// <summary>Kurze Pause; ist nach dem Schritt ein Zwischenstand fällig, zusätzlich die Gesamtübersicht.</summary>
+    /// <summary>Pause; ist nach dem Schritt ein Zwischenstand fällig, zusätzlich die Gesamtübersicht.</summary>
     private async Task UebergangAbspielenAsync(int index)
     {
-        await anzeige.WarteAufSchrittAsync(ZiehungsTempo.Pause);
+        await PauseAsync(index);
 
         if (ZiehungsReihenfolge.ZwischenstandNach(schritte, index) is { } titel)
             await anzeige.ZwischenstandZeigenAsync(
                 titel, schritte[index].IstGruppenmodus ? "Zwischenstand aller Gruppen" : "Zwischenstand aller Paarungen");
     }
+
+    /// <summary>Nach einer vollständigen Paarung leert sich mit dem Banner auch die Paarungskarte, und die Pause
+    /// dauert so lang wie die Anzeige einer gezogenen Mannschaft — eine Pause ohne Fokus, bevor die nächste Paarung
+    /// beginnt (#442). Sonst nur die kurze Pause.</summary>
+    private async Task PauseAsync(int index)
+    {
+        bool paarungFertig = PaarungFertig(index);
+        if (paarungFertig) anzeige.AnimationFokusPaarung = null;
+        await anzeige.WarteAufSchrittAsync(paarungFertig ? ZiehungsTempo.Schritt : ZiehungsTempo.Pause);
+    }
+
+    private bool PaarungFertig(int index) =>
+        !schritte[index].IstGruppenmodus && schritte[index + 1].ZielNummer != schritte[index].ZielNummer;
 }

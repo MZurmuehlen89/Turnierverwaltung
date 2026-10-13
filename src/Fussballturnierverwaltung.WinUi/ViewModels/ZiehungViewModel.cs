@@ -199,7 +199,8 @@ public partial class ZiehungViewModel : ObservableObject
         AnimationBannerTopf       = inhalt;
     }
 
-    /// <summary>Zeigt die gezogene Mannschaft — Ziel, Seite und Position folgen mit den nächsten Schritten.</summary>
+    /// <summary>Zeigt die gezogene Mannschaft — Ziel und Position folgen, wo es sie gibt, mit den nächsten
+    /// Schritten.</summary>
     internal void BannerMannschaftZeigen(string name, string topfName)
     {
         BannerLeeren();

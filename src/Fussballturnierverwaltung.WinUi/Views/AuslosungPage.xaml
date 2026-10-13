@@ -516,9 +516,23 @@
 
                         <!-- Fokus K.-o.-Runde: aktuelle Paarung groß, darunter die Lostöpfe -->
                         <StackPanel Visibility="{Binding Ziehung.AnimationIstPaarungsmodus, Converter={StaticResource BoolToVisibility}}">
-                            <ContentControl Content="{Binding Ziehung.AnimationFokusPaarung}"
-                                            ContentTemplate="{StaticResource TvFokusPaarungTemplate}"
-                                            HorizontalContentAlignment="Stretch" MaxWidth="900" Margin="0,0,0,12" />
+                            <Grid MaxWidth="900" Margin="0,0,0,12">
+                                <!-- Pause nach einer vollständigen Paarung (#442): leerer Rahmen in der Größe der Karte,
+                                     damit die Lostöpfe darunter nicht springen — der unsichtbare Inhalt bildet die
+                                     Höhe von TvFokusPaarungTemplate nach -->
+                                <Border BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="2"
+                                        CornerRadius="6" Padding="20,12"
+                                        Visibility="{Binding Ziehung.AnimationFokusPaarung, Converter={StaticResource NullToVisible}}">
+                                    <StackPanel Opacity="0">
+                                        <TextBlock Text="Paarung" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                        <Grid Height="40" />
+                                    </StackPanel>
+                                </Border>
+                                <ContentControl Content="{Binding Ziehung.AnimationFokusPaarung}"
+                                                ContentTemplate="{StaticResource TvFokusPaarungTemplate}"
+                                                HorizontalContentAlignment="Stretch"
+                                                Visibility="{Binding Ziehung.AnimationFokusPaarung, Converter={StaticResource NullToCollapsed}}" />
+                            </Grid>
                             <ItemsControl ItemsSource="{Binding Ziehung.AnimationToepfe}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
