@@ -46,10 +46,23 @@ public class KoSpielLabelTests
             .Should().Be(erwartet);
 
     [Theory]
-    [InlineData(Rundenart.Finale, "Finale 1")]
-    [InlineData(Rundenart.SpielUmPlatzDrei, "3. Platz 1")]
-    public void Fuer_FinaleUndSpielUmPlatzDrei_TragenIhrenNamen(Rundenart art, string erwartet) =>
-        KoSpielLabel.Fuer(new Spiel(), Runde(art, eingang: 2), paarungsNummer: 1).Should().Be(erwartet);
+    [InlineData(Rundenart.Finale, "Finale", "F")]
+    [InlineData(Rundenart.Finale, "", "F")]
+    [InlineData(Rundenart.SpielUmPlatzDrei, "Spiel um Platz 3", "P3")]
+    [InlineData(Rundenart.SpielUmPlatzDrei, "", "P3")]
+    [InlineData(Rundenart.SpielUmPlatzDrei, "Kleines Finale", "KF")]
+    [InlineData(Rundenart.KoRunde, "Endspiel", "E")]
+    public void Fuer_RundeMitEinerPaarung_TraegtDasKuerzelOhneNummer(Rundenart art, string name, string erwartet) =>
+        KoSpielLabel.Fuer(new Spiel(), Runde(art, eingang: 2, name: name), paarungsNummer: 1).Should().Be(erwartet);
+
+    [Theory]
+    [InlineData(false, "F H")]
+    [InlineData(true, "F R")]
+    public void Fuer_FinaleMitRueckspiel_KennzeichnetHinUndRueckspiel(bool istRueckspiel, string erwartet) =>
+        KoSpielLabel.Fuer(
+                new Spiel { IstRueckspiel = istRueckspiel },
+                Runde(Rundenart.Finale, eingang: 2, mitRueckspiel: true, name: "Finale"), paarungsNummer: 1)
+            .Should().Be(erwartet);
 
     [Theory]
     [InlineData(Rundenart.Liga)]
@@ -60,9 +73,9 @@ public class KoSpielLabelTests
         KoSpielLabel.Fuer(new Spiel(), Runde(art, eingang: 16), paarungsNummer: 1).Should().BeNull();
 
     [Theory]
-    [InlineData(2)]
+    [InlineData(1)]
     [InlineData(0)]
-    public void Fuer_KoRundeMitHoechstensZweiTeilnehmern_IstNull(int eingang) =>
+    public void Fuer_KoRundeOhnePaarung_IstNull(int eingang) =>
         KoSpielLabel.Fuer(new Spiel(), Runde(Rundenart.KoRunde, eingang, name: "Finale"), paarungsNummer: 1)
             .Should().BeNull();
 

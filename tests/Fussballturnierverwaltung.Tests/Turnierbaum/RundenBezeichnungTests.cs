@@ -39,6 +39,8 @@ public class RundenBezeichnungTests
     [InlineData("Viertelfinale", "VF")]
     [InlineData(" achtelfinale ", "AF")]
     [InlineData("Sechzehntelfinale", "L32-")]
+    [InlineData("Spiel um Platz 3", "P3")]
+    [InlineData("Spiel um Platz drei", "P3")]
     [InlineData("Playoff-Runde", "PO")]
     [InlineData("Play-off", "PO")]
     [InlineData("Zwischenrunde", "Z")]
@@ -68,9 +70,16 @@ public class RundenBezeichnungTests
     [Theory]
     [InlineData("Playoff-Runde", 8, "PO")]
     [InlineData(null, 16, "L32-")]
+    [InlineData(null, 1, "F")]
     public void Kuerzel_OhneTurnierbaumAusNameUndSpielanzahl(string? name, int anzahlSpiele, string erwartet)
     {
         RundenBezeichnung.Kuerzel(name, anzahlSpiele).Should().Be(erwartet);
+    }
+
+    [Fact]
+    public void Kuerzel_SpielUmPlatzDreiOhneNamen_HeisstNichtWieDasFinale()
+    {
+        RundenBezeichnung.Kuerzel(null, 1, istSpielUmPlatzDrei: true).Should().Be("P3");
     }
 
     [Theory]

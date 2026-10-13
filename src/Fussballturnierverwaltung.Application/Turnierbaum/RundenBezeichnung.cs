@@ -4,16 +4,20 @@ namespace Fussballturnierverwaltung.Application.Turnierbaum;
 /// herausgelöst). Maßgeblich ist der Name der Turnierrunde; fehlt er, greift der Rückfall über die Spielanzahl.</summary>
 public static class RundenBezeichnung
 {
+    private const string KUERZEL_PLATZ_DREI = "P3";
+
     public static string Name(BracketRunde runde) => runde.RundenName ?? NameAusSpielanzahl(runde.Knoten.Count);
 
     /// <summary>Kürzel der Runde, z.B. "AF". Endet es auf "-" (z.B. "L32-"), trennt der Strich das Kürzel von der
     /// Nummer im Knoten-Label ("L32-1").</summary>
-    public static string Kuerzel(BracketRunde runde) => Kuerzel(runde.RundenName, runde.Knoten.Count);
+    public static string Kuerzel(BracketRunde runde) =>
+        Kuerzel(runde.RundenName, runde.Knoten.Count, runde.IstSpielUmPlatzDrei);
 
     /// <summary>Dasselbe Kürzel ohne Turnierbaum, für die Spiellisten (#455): aus dem Namen der Turnierrunde,
-    /// ohne verwertbaren Namen aus der Anzahl ihrer Paarungen.</summary>
-    public static string Kuerzel(string? rundenName, int anzahlSpiele) =>
-        KuerzelAusName(rundenName) ?? KuerzelAusSpielanzahl(anzahlSpiele);
+    /// ohne verwertbaren Namen aus der Anzahl ihrer Paarungen — das Spiel um Platz 3 hat wie das Finale nur
+    /// eine und hieße sonst "F".</summary>
+    public static string Kuerzel(string? rundenName, int anzahlSpiele, bool istSpielUmPlatzDrei = false) =>
+        KuerzelAusName(rundenName) ?? (istSpielUmPlatzDrei ? KUERZEL_PLATZ_DREI : KuerzelAusSpielanzahl(anzahlSpiele));
 
     /// <summary>Label des Knotens an <paramref name="position"/> (ab 0, in Spielreihenfolge), z.B. "AF3"; die
     /// Runde mit nur einem Spiel trägt das Kürzel allein ("F").</summary>
@@ -43,6 +47,7 @@ public static class RundenBezeichnung
             "viertelfinale" => "VF",
             "achtelfinale" => "AF",
             "sechzehntelfinale" => "L32-",
+            _ when normiert.Contains("platz 3") || normiert.Contains("platz drei") => KUERZEL_PLATZ_DREI,
             _ when normiert.Contains("playoff") || normiert.Contains("play-off") => "PO",
             _ => null
         };
