@@ -245,6 +245,14 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// sichtbar.</summary>
     public bool ZeigeErgebnis => IstAbgeschlossen && Ziehung.AnimationLaeuftNicht && !ZiehungInVorbereitung;
 
+    /// <summary>Die Gegner-Matrix baut sich erst mit dem Einblenden des Ergebnisses auf (#428) — hier zentral,
+    /// weil <see cref="ZeigeErgebnis"/> von drei Stellen aus wechselt.</summary>
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName == nameof(ZeigeErgebnis)) GegnerMatrix.SichtbarSetzen(ZeigeErgebnis);
+    }
+
     // ── Status ────────────────────────────────────────────────────────────────
     [ObservableProperty] private bool _istLadend;
     [ObservableProperty] private string? _fehlermeldung;
