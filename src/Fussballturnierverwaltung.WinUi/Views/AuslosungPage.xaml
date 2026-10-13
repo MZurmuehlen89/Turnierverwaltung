@@ -10,8 +10,6 @@
     <UserControl.Resources>
         <conv:AuslosungsartZuTextConverter x:Key="AuslosungsartZuText" />
 
-        <!-- Gegner-Matrix (#362): Zelle mit Wappen + Kurzname, anklickbar für den Team-Fokus. Hervorhebung als
-             Primary-Tint mit Akzentrahmen (keine Signalfarben), gebunden an die eigene IstHervorgehoben-Property. -->
         <DataTemplate x:Key="QuoteZeileTemplate">
             <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
                 <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" />
@@ -19,33 +17,28 @@
             </Grid>
         </DataTemplate>
 
+        <SolidColorBrush x:Key="MatrixZelleHervorhebungBrush" Color="{ThemeResource SystemAccentColor}" Opacity="0.25" />
+
+        <!-- Gegner-Matrix (#362): Zelle mit Wappen + Kurzname, anklickbar für den Team-Fokus. Hervorhebung als
+             Primary-Tint mit Akzentrahmen (keine Signalfarben), gebunden an die eigene IstHervorgehoben-Property.
+             KlickFlaeche statt Button und so wenige Elemente wie möglich (#428): die Zelle steht in der Ligaphase
+             288-mal da. Das Wappen ist an IstAufgedeckt gebunden, nicht an sein Vorhandensein — aufgedeckt hält es
+             seinen Platz auch ohne Bild (Namen fluchten), verdeckt rückt das "…" an den linken Rand. -->
         <DataTemplate x:Key="GegnerMatrixZelleTemplate">
-            <Button Width="116" Height="30" Padding="4,0" Margin="0,0,2,0"
-                    Background="Transparent" BorderThickness="0"
-                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
-                    ToolTipService.ToolTip="{Binding Name}"
-                    Command="{Binding DataContext.GegnerMatrix.TeamFokussierenCommand, ElementName=Root}"
-                    CommandParameter="{Binding}">
-                <Grid>
-                    <Border CornerRadius="3" Margin="-4,0" BorderThickness="1"
-                            BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
-                            Visibility="{Binding IstHervorgehoben, Converter={StaticResource BoolToVisibility}}">
-                        <Border.Background>
-                            <SolidColorBrush Color="{ThemeResource SystemAccentColor}" Opacity="0.25" />
-                        </Border.Background>
-                    </Border>
-                    <TextBlock Text="…" FontSize="12" Opacity="0.4" VerticalAlignment="Center"
-                               Visibility="{Binding IstAufgedeckt, Converter={StaticResource InverseBoolToVisibility}}" />
-                    <Grid ColumnDefinitions="18,6,*"
-                          Visibility="{Binding IstAufgedeckt, Converter={StaticResource BoolToVisibility}}">
-                        <Image Grid.Column="0" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                               Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
-                               Stretch="Uniform" Width="18" Height="18" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="2" Text="{Binding Kurzname}" FontSize="12"
-                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                    </Grid>
-                </Grid>
-            </Button>
+            <local:KlickFlaeche Width="116" Height="30" Padding="3,0" Margin="0,0,2,0"
+                                ColumnDefinitions="Auto,*" CornerRadius="3" BorderThickness="1"
+                                IstHervorgehoben="{Binding IstHervorgehoben}"
+                                HervorhebungHintergrund="{StaticResource MatrixZelleHervorhebungBrush}"
+                                HervorhebungRahmen="{ThemeResource AccentFillColorDefaultBrush}"
+                                ZeigerHintergrund="{ThemeResource ButtonBackgroundPointerOver}"
+                                ToolTipService.ToolTip="{Binding Name}"
+                                Tapped="MatrixZelle_Tapped">
+                <Image Grid.Column="0" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                       Visibility="{Binding IstAufgedeckt, Converter={StaticResource BoolToVisibility}}"
+                       Stretch="Uniform" Width="18" Height="18" Margin="0,0,6,0" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Anzeige}" Opacity="{Binding AnzeigeOpacity}" FontSize="12"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            </local:KlickFlaeche>
         </DataTemplate>
 
         <!-- Gruppenkarten nebeneinander in gleichmäßigen Zeilen, höchstens vier je Zeile (#407) -->
@@ -248,24 +241,21 @@
                                         </Border.Background>
                                     </Border>
                                     <StackPanel Orientation="Horizontal">
-                                        <Button Width="200" Height="30" Padding="4,0"
-                                                Background="Transparent" BorderThickness="0"
-                                                HorizontalContentAlignment="Stretch"
-                                                ToolTipService.ToolTip="{Binding Team.Land}"
-                                                Opacity="{Binding TeamOpacity}"
-                                                Command="{Binding DataContext.GegnerMatrix.TeamFokussierenCommand, ElementName=Root}"
-                                                CommandParameter="{Binding Team}">
-                                            <Grid ColumnDefinitions="Auto,20,8,*">
-                                                <TextBlock Grid.Column="0" Text="✓" FontSize="12" FontWeight="Bold" Margin="0,0,6,0"
-                                                           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center"
-                                                           Visibility="{Binding ZeigeGezogenHaken, Converter={StaticResource BoolToVisibility}}" />
-                                                <Image Grid.Column="1" Source="{Binding Team.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                                       Visibility="{Binding Team.Wappen, Converter={StaticResource NullToCollapsed}}"
-                                                       Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="3" Text="{Binding Team.Name}" FontSize="12" FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                            </Grid>
-                                        </Button>
+                                        <local:KlickFlaeche Width="200" Height="30" Padding="4,0" CornerRadius="3"
+                                                            ColumnDefinitions="Auto,20,8,*"
+                                                            ZeigerHintergrund="{ThemeResource ButtonBackgroundPointerOver}"
+                                                            ToolTipService.ToolTip="{Binding Team.Land}"
+                                                            Opacity="{Binding TeamOpacity}"
+                                                            Tapped="MatrixTeam_Tapped">
+                                            <TextBlock Grid.Column="0" Text="✓" FontSize="12" FontWeight="Bold" Margin="0,0,6,0"
+                                                       Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center"
+                                                       Visibility="{Binding ZeigeGezogenHaken, Converter={StaticResource BoolToVisibility}}" />
+                                            <Image Grid.Column="1" Source="{Binding Team.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                   Visibility="{Binding Team.Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                   Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Team.Name}" FontSize="12" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        </local:KlickFlaeche>
                                         <ItemsControl ItemsSource="{Binding Gegner}"
                                                       ItemTemplate="{StaticResource GegnerMatrixZelleTemplate}">
                                             <ItemsControl.ItemsPanel>

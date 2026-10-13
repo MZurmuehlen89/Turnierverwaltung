@@ -25,6 +25,16 @@ public sealed partial class AuslosungPage : UserControl
 
     private AuslosungViewModel? ViewModel => DataContext as AuslosungViewModel;
 
+    // ── Gegner-Matrix: Team-Fokus per Klick ──────────────────────────────────
+    // Im Code-Behind statt als Befehlsbindung je Zelle (#428): die Zellen sind KlickFlaechen ohne Command, und
+    // eine ElementName-Bindung auf die Seite je Zelle entfällt.
+
+    private void MatrixZelle_Tapped(object sender, TappedRoutedEventArgs e) =>
+        ViewModel?.GegnerMatrix.TeamFokussierenCommand.Execute((sender as FrameworkElement)?.DataContext as GegnerMatrixZelle);
+
+    private void MatrixTeam_Tapped(object sender, TappedRoutedEventArgs e) =>
+        ViewModel?.GegnerMatrix.TeamFokussierenCommand.Execute(((sender as FrameworkElement)?.DataContext as GegnerMatrixZeile)?.Team);
+
     // Quelle des laufenden Drags (Precedent: Wpf AuslosungView-Feld _pendingDrag) — die tatsächlichen
     // Teilnehmer + Quell-Lostopf-Id kommen aus diesem Feld statt aus dem DataPackage-Text: Teams, die
     // bereits in einem Lostopf liegen, lassen sich per Namen nicht mehr über VerfuegbareTeilnehmer

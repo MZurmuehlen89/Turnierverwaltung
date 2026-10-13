@@ -19,7 +19,19 @@ public class GegnerMatrixZelle : ObservableObject
     public bool IstHervorgehoben { get => _istHervorgehoben; set => SetProperty(ref _istHervorgehoben, value); }
     /// <summary>TV-Modus (#364): noch nicht aufgedeckte Zellen zeigen "…" statt des Gegners.</summary>
     private bool _istAufgedeckt = true;
-    public bool IstAufgedeckt { get => _istAufgedeckt; set => SetProperty(ref _istAufgedeckt, value); }
+    public bool IstAufgedeckt
+    {
+        get => _istAufgedeckt;
+        set
+        {
+            if (!SetProperty(ref _istAufgedeckt, value)) return;
+            OnPropertyChanged(nameof(Anzeige));
+            OnPropertyChanged(nameof(AnzeigeOpacity));
+        }
+    }
+    /// <summary>Text der Matrix-Zelle — ein Textfeld für beide Zustände statt zweier umgeschalteter (#428).</summary>
+    public string Anzeige => IstAufgedeckt ? Kurzname : "…";
+    public double AnzeigeOpacity => IstAufgedeckt ? 1.0 : 0.4;
 }
 
 public class GegnerMatrixZeile : ObservableObject
