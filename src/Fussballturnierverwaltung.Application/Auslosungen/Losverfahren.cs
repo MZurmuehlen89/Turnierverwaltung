@@ -71,6 +71,9 @@ public static class Losverfahren
     private static List<AuslosungsErgebnis> GruppenVerteilen(
         Auslosung auslosung, List<List<TeilnehmerSlot>> toepfe, RegelKontext regeln, Random zufall)
     {
+        if (auslosung.TurnierRunde?.Rundenart == Rundenart.Liga)
+            return LigaAusloesen(toepfe, zufall);
+
         int gruppenAnzahl = GruppenAnzahlOderFehler(auslosung);
         return auslosung.Auslosungsart switch
         {
@@ -80,37 +83,26 @@ public static class Losverfahren
         };
     }
 
-    private static int GruppenAnzahlOderFehler(Auslosung auslosung)
-    {
-        if (auslosung.TurnierRunde?.Rundenart == Rundenart.Liga) return 1;
-        return auslosung.TurnierRunde?.GruppenAnzahl
+    private static int GruppenAnzahlOderFehler(Auslosung auslosung) =>
+        auslosung.TurnierRunde?.GruppenAnzahl
             ?? throw new InvalidOperationException(
                 "Gruppenphase-Auslosung: Die Runde hat keine Gruppenanzahl definiert.");
-    }
+
+    // Liga: alle Teams bilden eine Gruppe, gelost wird nur die Reihenfolge darin — sie ist die Schlüsselzahl, aus
+    // der der Spielplan entsteht (Berger-Schema, reihenfolgeabhängig). Ohne Mischen ergab jede Auslosung dieselbe
+    // Reihenfolge und damit denselben Spielplan (#474). Töpfe, Setzliste und Regeln wirken in der Liga nicht.
+    private static List<AuslosungsErgebnis> LigaAusloesen(List<List<TeilnehmerSlot>> toepfe, Random zufall) =>
+        GruppenZuErgebnisse([toepfe.SelectMany(t => t).OrderBy(_ => zufall.Next()).ToList()]);
 
     // Jeder Topf wird vollständig auf die Gruppen verteilt, bevor der nächste drankommt.
     private static List<AuslosungsErgebnis> GruppenphaseNachToepfenAusloesen(
-        List<List<TeilnehmerSlot>> toepfe, int gruppenAnzahl, RegelKontext regeln, Random zufall)
-    {
-        // Liga: nur eine Gruppe — alle Teams aller Töpfe landen darin, keine Verteilung nötig.
-        // Die generische Verteilung setzt genau ein Team pro Topf und Gruppe voraus
-        // und würde hier alle bis auf ein Team je Topf verwerfen.
-        if (gruppenAnzahl == 1)
-            return GruppenZuErgebnisse([toepfe.SelectMany(t => t).ToList()]);
-
-        return GruppenAusloesen([], toepfe, gruppenAnzahl, regeln, zufall);
-    }
+        List<List<TeilnehmerSlot>> toepfe, int gruppenAnzahl, RegelKontext regeln, Random zufall) =>
+        GruppenAusloesen([], toepfe, gruppenAnzahl, regeln, zufall);
 
     // Gesetzte Teams (mit Setzposition) führen je eine Gruppe an, die übrigen werden topfweise verteilt.
     private static List<AuslosungsErgebnis> GruppenphaseNachSetzlisteAusloesen(
         List<List<TeilnehmerSlot>> toepfe, int gruppenAnzahl, RegelKontext regeln, Random zufall)
     {
-        // Liga: nur eine Gruppe — die Setzliste hat keinen Verteilungseffekt,
-        // alle Teams (gesetzt wie ungesetzt) landen in der einen Gruppe. Die
-        // Take(gruppenAnzahl) unten würde sonst alle bis auf ein gesetztes Team verwerfen.
-        if (gruppenAnzahl == 1)
-            return GruppenZuErgebnisse([toepfe.SelectMany(t => t).ToList()]);
-
         var gesetzte = toepfe
             .SelectMany(t => t)
             .Where(s => s.SetzPosition.HasValue)

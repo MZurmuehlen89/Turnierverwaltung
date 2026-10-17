@@ -264,17 +264,32 @@ public class LosverfahrenTests
     }
 
     [Theory]
+    [InlineData(Auslosungsart.Zufall)]
     [InlineData(Auslosungsart.NachToepfen)]
     [InlineData(Auslosungsart.NachSetzliste)]
-    public void Liga_AlleMannschaftenInEinerGruppe_InTopfReihenfolge(Auslosungsart auslosungsart)
+    public void Liga_AlleMannschaftenGenauEinmalInEinerGruppe(Auslosungsart auslosungsart)
     {
         var auslosung = AchtTeams(Rundenart.Liga, auslosungsart, gruppenAnzahl: null);
 
         AlleZiehungen(auslosung, Regeln()).Should().AllSatisfy(ziehung =>
         {
-            ziehung.Should().OnlyContain(e => e.PaarungsNummer == 1);
-            HeimIds(ziehung).Should().Equal(Enumerable.Range(1, 8));
+            ziehung.Should().OnlyContain(e => e.PaarungsNummer == 1 && e.AuswaertsMannschaftId == null && !e.IstFreilos);
+            HeimIds(ziehung).Should().BeEquivalentTo(Enumerable.Range(1, 8));
         });
+    }
+
+    // Die Reihenfolge ist die Schlüsselzahl, aus der der Spielplan entsteht — sie muss gelost sein (#474).
+    [Theory]
+    [InlineData(Auslosungsart.Zufall)]
+    [InlineData(Auslosungsart.NachToepfen)]
+    [InlineData(Auslosungsart.NachSetzliste)]
+    public void Liga_ReihenfolgeWirdGelost_GleicherStartwertGleicheReihenfolge(Auslosungsart auslosungsart)
+    {
+        var ersterLauf  = AlleZiehungen(AchtTeams(Rundenart.Liga, auslosungsart, null), Regeln()).Select(Kurzform).ToList();
+        var zweiterLauf = AlleZiehungen(AchtTeams(Rundenart.Liga, auslosungsart, null), Regeln()).Select(Kurzform).ToList();
+
+        zweiterLauf.Should().Equal(ersterLauf, "der Zufall kommt allein aus dem übergebenen Generator");
+        ersterLauf.Distinct().Should().HaveCountGreaterThan(1, "verschiedene Startwerte müssen verschieden auslosen");
     }
 
     [Fact]
