@@ -9,7 +9,7 @@ namespace Fussballturnierverwaltung.Application.Turniere;
 /// <summary>Klont eine TurnierInstanz strukturell (Issue #294, löst #46 "Turnier klonen") — seit der
 /// Vorlage/Instanz-Vereinheitlichung ist "Instanz aus Vorlage erzeugen" derselbe Vorgang wie "Turnier für
 /// eine neue Saison duplizieren": beides ist ein reiner Kopiervorgang ohne persistente Rückreferenz auf
-/// die Quelle. Kopiert Kopf-Felder, Runden, Übergangsregeln, Verbands- und Landesquoten sowie fest vorgegebene
+/// die Quelle. Kopiert Kopf-Felder, Runden mit Tabellenbereichen (Issue #420), Übergangsregeln, Verbands- und Landesquoten sowie fest vorgegebene
 /// Platzhalter-Paarungen (Issue #372) — NIE Spiele, echte Auslosungen oder SimulationsLaeufe, auch nicht von einer bereits gespielten Quelle (eine Vorlage ist ein
 /// Musterturnier ohne Teams/Ergebnisse, ein Klon startet immer bei null). Titelverteidiger und Gastgeber (Issue #352) sind saisonspezifisch und
 /// werden ebenfalls nicht kopiert.</summary>
@@ -69,7 +69,11 @@ public class TurnierKlonService(
                 VorgegebeneAuslosungsregeln = [.. runde.VorgegebeneAuslosungsregeln],
                 KombinationstabelleJson   = runde.KombinationstabelleJson,
                 StandardRanglistenQuelleId = runde.StandardRanglistenQuelleId,
-                TitelverteidigerInTopf1   = runde.TitelverteidigerInTopf1
+                TitelverteidigerInTopf1   = runde.TitelverteidigerInTopf1,
+                TabellenBereiche          = [.. runde.TabellenBereiche.Select(b => new TabellenBereich
+                {
+                    PlatzVon = b.PlatzVon, PlatzBis = b.PlatzBis, Art = b.Art, Bezeichnung = b.Bezeichnung
+                })]
             };
             neu.Runden.Add(neueRunde);
             rundenNachQuellId[runde.Id] = neueRunde;

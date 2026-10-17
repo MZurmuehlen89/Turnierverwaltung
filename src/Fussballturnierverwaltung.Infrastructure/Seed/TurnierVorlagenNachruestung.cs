@@ -64,6 +64,7 @@ internal sealed class TurnierVorlagenNachruestung
         // damit ein echtes Turnier mit zufällig gleichem Namen nicht als "bereits vorhanden" zählt.
         var vorlagen = await context.TurnierInstanzen
             .Include(i => i.Runden)
+                .ThenInclude(r => r.TabellenBereiche)
             .Include(i => i.Auslosungen)
             .Where(i => i.Status == TurnierStatus.Vorlage)
             .ToListAsync(ct);
@@ -96,6 +97,8 @@ internal sealed class TurnierVorlagenNachruestung
         await SpeichernUndProtokollieren(
             await StrukturErgaenzenAsync(ct), "Struktur-Ergänzungen an Turniervorlagen nachgerüstet.", ct);
         await SpeichernUndProtokollieren(FesteKoBaeumeErgaenzen(), "Turniervorlagen um festen K.-o.-Baum ergänzt.", ct);
+        await SpeichernUndProtokollieren(
+            TabellenBereicheErgaenzen(), "Turniervorlagen um Tabellenbereiche (Europapokal, Relegation, Abstieg) ergänzt.", ct);
     }
 
     // Quellennamen sind nicht eindeutig erzwungen (frei anlegbar im Quellen-Dialog) — bei Dubletten gilt die älteste.
@@ -355,6 +358,22 @@ internal sealed class TurnierVorlagenNachruestung
             if (vorbelegungen.Count == 0) continue;
 
             _context.Auslosungen.AddRange(vorbelegungen);
+            ergaenzt++;
+        }
+        return ergaenzt;
+    }
+
+    /// <summary>Issue #420: Tabellenbereiche der Liga-Vorlagen und der Nations League — nur in Runden, die noch
+    /// keine Bereiche haben und dem Seed entsprechen.</summary>
+    private int TabellenBereicheErgaenzen()
+    {
+        int ergaenzt = 0;
+        foreach (var (vorlage, soll) in MitSeedStand())
+        {
+            var bereiche = SeedVorlagenAbgleich.FehlendeTabellenBereiche(vorlage, soll);
+            if (bereiche.Count == 0) continue;
+
+            _context.TabellenBereiche.AddRange(bereiche);
             ergaenzt++;
         }
         return ergaenzt;

@@ -42,12 +42,12 @@ public static class TurnierVorlagenSeedDaten
             UefaConferenceLeague36Teams(regelwerkLookup, verbandLookup, ranglistenQuelleLookup),
             DfbPokal64Teams(regelwerkLookup, verbandLookup, landLookup),
             FaCup64Teams(regelwerkLookup, verbandLookup, landLookup),
-            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Bundesliga",     "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ),
-            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "2. Bundesliga",  "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ),
-            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Premier League", "20 Teams",  "ENG", 20, LIGA_TORDIFFERENZ),
-            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "La Liga",        "20 Teams",  "ESP", 20, LIGA_DIREKTER_VERGLEICH),
-            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Serie A",        "20 Teams",  "ITA", 20, LIGA_DIREKTER_VERGLEICH),
-            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Ligue 1",        "18 Teams",  "FRA", 18, LIGA_TORDIFFERENZ),
+            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Bundesliga",     "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ,       BUNDESLIGA_BEREICHE),
+            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "2. Bundesliga",  "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ,       ZWEITE_BUNDESLIGA_BEREICHE),
+            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Premier League", "20 Teams",  "ENG", 20, LIGA_TORDIFFERENZ,       ZWANZIGER_LIGA_BEREICHE),
+            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "La Liga",        "20 Teams",  "ESP", 20, LIGA_DIREKTER_VERGLEICH, ZWANZIGER_LIGA_BEREICHE),
+            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Serie A",        "20 Teams",  "ITA", 20, LIGA_DIREKTER_VERGLEICH, ZWANZIGER_LIGA_BEREICHE),
+            NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Ligue 1",        "18 Teams",  "FRA", 18, LIGA_TORDIFFERENZ,       LIGUE_1_BEREICHE),
             MiniTurnier8Teams(regelwerkLookup),
             MiniTurnier4Teams(regelwerkLookup),
             FreiesTurnier(),
@@ -521,7 +521,9 @@ public static class TurnierVorlagenSeedDaten
     // ── Weitere Nationalmannschaftsturniere (Issue #350) ───────────────────────
 
     // Liga A seit 2024/25: Gruppen mit Hin-/Rückspiel, Viertelfinale (Gruppensieger gegen Gruppenzweite,
-    // Hin-/Rückspiel), Final Four als Einzelspiele. Ligen B–D mit Auf-/Abstieg sind turnierübergreifend (#177).
+    // Hin-/Rückspiel), Final Four als Einzelspiele. Ligen B–D mit Auf-/Abstieg sind turnierübergreifend (#177);
+    // Gruppendritte (Relegation gegen Liga B) und -vierte (Abstieg) stehen als Tabellenbereiche in der Gruppenphase
+    // (Issue #420).
     private static TurnierInstanz UefaNationsLeagueLigaA(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband)
     {
         var v = new TurnierInstanz
@@ -538,7 +540,13 @@ public static class TurnierVorlagenSeedDaten
             VerbandId = VId(verband, "UEFA"),
         };
         int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
-        v.Runden.Add(Runde(1, "Gruppenphase",     Rundenart.Gruppenphase,     16, 8, gruppen: 4, mitRueckspiel: true, regelwerkId: rId));
+        var gruppenphase = Runde(1, "Gruppenphase", Rundenart.Gruppenphase, 16, 8, gruppen: 4, mitRueckspiel: true, regelwerkId: rId);
+        TabellenBereicheSetzen(gruppenphase,
+        [
+            (3, 3, TabellenBereichArt.Relegation, "Relegation gegen Liga B"),
+            (4, 4, TabellenBereichArt.Abstieg, "Abstieg in Liga B"),
+        ]);
+        v.Runden.Add(gruppenphase);
         v.Runden.Add(Runde(2, "Viertelfinale",    Rundenart.KoRunde,           8, 4, mitRueckspiel: true, regelwerkId: rId,
                            auslosungsart: Auslosungsart.GruppensiegerGegenGruppenzweite));
         v.Runden.Add(Runde(3, "Halbfinale",       Rundenart.KoRunde,           4, 2, regelwerkId: rId));
@@ -894,11 +902,50 @@ public static class TurnierVorlagenSeedDaten
 
     // ── Nationale Ligen (Issue #350) ───────────────────────────────────────────
 
-    // Doppelrunde jeder gegen jeden; Ausgang 1 = Meister. Relegation/Auf-/Abstieg sind turnierübergreifend
-    // (#175/#177) und daher nicht Teil der Vorlage.
+    // Tabellenbereiche (Issue #420) nach dem Reglement 2025/26. Europapokal-Plätze laut UEFA-Zugangsliste
+    // 2024–27 für die Verbandsplätze 1–4 (ENG, ITA, ESP, GER) bzw. 5 (FRA); Zusatzplätze über die Europapokal-
+    // Leistung (EPS) und Pokalsieger wechseln je Saison und bleiben außen vor.
+    private static readonly (int Von, int Bis, TabellenBereichArt Art, string Bezeichnung)[] BUNDESLIGA_BEREICHE =
+    [
+        (1, 4, TabellenBereichArt.Weiterkommen, "Champions League"),
+        (5, 5, TabellenBereichArt.Weiterkommen, "Europa League"),
+        (6, 6, TabellenBereichArt.Weiterkommen, "Conference League"),
+        (16, 16, TabellenBereichArt.Relegation, "Relegation"),
+        (17, 18, TabellenBereichArt.Abstieg, "Abstieg"),
+    ];
+
+    private static readonly (int Von, int Bis, TabellenBereichArt Art, string Bezeichnung)[] ZWEITE_BUNDESLIGA_BEREICHE =
+    [
+        (1, 2, TabellenBereichArt.Weiterkommen, "Aufstieg"),
+        (3, 3, TabellenBereichArt.Relegation, "Relegation (Aufstieg)"),
+        (16, 16, TabellenBereichArt.Relegation, "Relegation (Abstieg)"),
+        (17, 18, TabellenBereichArt.Abstieg, "Abstieg"),
+    ];
+
+    private static readonly (int Von, int Bis, TabellenBereichArt Art, string Bezeichnung)[] ZWANZIGER_LIGA_BEREICHE =
+    [
+        (1, 4, TabellenBereichArt.Weiterkommen, "Champions League"),
+        (5, 5, TabellenBereichArt.Weiterkommen, "Europa League"),
+        (6, 6, TabellenBereichArt.Weiterkommen, "Conference League"),
+        (18, 20, TabellenBereichArt.Abstieg, "Abstieg"),
+    ];
+
+    private static readonly (int Von, int Bis, TabellenBereichArt Art, string Bezeichnung)[] LIGUE_1_BEREICHE =
+    [
+        (1, 3, TabellenBereichArt.Weiterkommen, "Champions League"),
+        (4, 4, TabellenBereichArt.Weiterkommen, "Champions-League-Qualifikation"),
+        (5, 5, TabellenBereichArt.Weiterkommen, "Europa League"),
+        (6, 6, TabellenBereichArt.Weiterkommen, "Conference League"),
+        (16, 16, TabellenBereichArt.Relegation, "Relegation"),
+        (17, 18, TabellenBereichArt.Abstieg, "Abstieg"),
+    ];
+
+    // Doppelrunde jeder gegen jeden; Ausgang 1 = Meister. Europapokal-Plätze, Relegation und Auf-/Abstieg führen
+    // in andere Turniere bzw. die Folgesaison (#177/#379) und stehen deshalb als Tabellenbereiche in der Runde.
     private static TurnierInstanz NationaleLiga(
         IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? land,
-        string name, string variante, string fifaCode, int teams, string regelwerkName)
+        string name, string variante, string fifaCode, int teams, string regelwerkName,
+        (int Von, int Bis, TabellenBereichArt Art, string Bezeichnung)[] bereiche)
     {
         var v = new TurnierInstanz
         {
@@ -912,8 +959,17 @@ public static class TurnierVorlagenSeedDaten
             LandId = LId(land, fifaCode),
             VerbandId = VId(verband, "UEFA"),
         };
-        v.Runden.Add(Runde(1, "Saison", Rundenart.Liga, teams, 1, mitRueckspiel: true, regelwerkId: RwId(rw, regelwerkName)));
+        var saison = Runde(1, "Saison", Rundenart.Liga, teams, 1, mitRueckspiel: true, regelwerkId: RwId(rw, regelwerkName));
+        TabellenBereicheSetzen(saison, bereiche);
+        v.Runden.Add(saison);
         return v;
+    }
+
+    private static void TabellenBereicheSetzen(
+        TurnierRunde runde, (int Von, int Bis, TabellenBereichArt Art, string Bezeichnung)[] bereiche)
+    {
+        foreach (var (von, bis, art, bezeichnung) in bereiche)
+            runde.TabellenBereiche.Add(new TabellenBereich { PlatzVon = von, PlatzBis = bis, Art = art, Bezeichnung = bezeichnung });
     }
 
     // ── Kleine Turniere ────────────────────────────────────────────────────────

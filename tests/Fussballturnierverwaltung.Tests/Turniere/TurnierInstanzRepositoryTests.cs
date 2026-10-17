@@ -131,4 +131,45 @@ public class TurnierInstanzRepositoryTests
         ergebnis[0].Id.Should().Be(ersteRundeId);
         (await ctx.TurnierRunden.Where(r => r.TurnierInstanzId == instanzId).ToListAsync()).Should().ContainSingle();
     }
+
+    // ── Tabellenbereiche (#420) ───────────────────────────────────────────────
+
+    private static TurnierRunde Liga(int instanzId, params (int Von, int Bis, string Bezeichnung)[] bereiche) => new()
+    {
+        TurnierInstanzId = instanzId, Name = "Saison", Reihenfolge = 1, Rundenart = Rundenart.Liga,
+        EingangsMannschaftsanzahl = 18, AusgangsMannschaftsanzahl = 1,
+        TabellenBereiche = [.. bereiche.Select(b => new TabellenBereich
+            { PlatzVon = b.Von, PlatzBis = b.Bis, Art = TabellenBereichArt.Weiterkommen, Bezeichnung = b.Bezeichnung })]
+    };
+
+    [Fact]
+    public async Task RundenErsetzenAsync_GleichtTabellenbereicheDerBestehendenRundeAb()
+    {
+        using var ctx = NeuerContext();
+        var instanzId = await InstanzAnlegenAsync(ctx);
+        var repo = new TurnierInstanzRepository(ctx);
+        await repo.RundenErsetzenAsync(instanzId, [Liga(instanzId, (1, 4, "CL"), (5, 5, "EL"), (17, 18, "Abstieg"))]);
+        var ersterBereichId = ctx.TabellenBereiche.Single(b => b.Bezeichnung == "CL").Id;
+
+        await repo.RundenErsetzenAsync(instanzId, [Liga(instanzId, (1, 3, "Champions League"), (6, 6, "Conference League"))]);
+
+        var bereiche = ctx.TabellenBereiche.OrderBy(b => b.PlatzVon).ToList();
+        bereiche.Select(b => (b.PlatzVon, b.PlatzBis, b.Bezeichnung)).Should().Equal(
+            (1, 3, "Champions League"), (6, 6, "Conference League"));
+        bereiche[0].Id.Should().Be(ersterBereichId);
+    }
+
+    [Fact]
+    public async Task RundenErsetzenAsync_ErgaenztTabellenbereicheEinerBisherBereichslosenRunde()
+    {
+        using var ctx = NeuerContext();
+        var instanzId = await InstanzAnlegenAsync(ctx);
+        var repo = new TurnierInstanzRepository(ctx);
+        await repo.RundenErsetzenAsync(instanzId, [Liga(instanzId)]);
+
+        await repo.RundenErsetzenAsync(instanzId, [Liga(instanzId, (17, 18, "Abstieg"))]);
+
+        var geladen = await repo.FindenNachIdMitRundenAsync(instanzId);
+        geladen!.Runden.Single().TabellenBereiche.Should().ContainSingle(b => b.Bezeichnung == "Abstieg");
+    }
 }

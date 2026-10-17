@@ -64,6 +64,8 @@ public class TurnierValidator
 
             if (r.Rundenart == Rundenart.Gruppenphase && (r.GruppenAnzahl == null || r.GruppenAnzahl < 2))
                 fehler.Add($"Runde '{r.Name}': Gruppenphase erfordert mindestens 2 Gruppen (GruppenAnzahl war: {r.GruppenAnzahl ?? 0}).");
+
+            fehler.AddRange(TabellenBereicheValidieren(r));
         }
 
         // Rundenübergänge: Ausgang[i] muss Eingang[i+1] sein
@@ -92,6 +94,34 @@ public class TurnierValidator
             fehler.Add($"Das Finale ('{finale.Name}') muss genau 1 Sieger liefern (AusgangsMannschaftsanzahl war: {finale.AusgangsMannschaftsanzahl}).");
 
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+    }
+
+    /// <summary>Prüft die Tabellenbereiche einer Runde (Issue #420): Bezeichnung, Platz von–bis innerhalb der
+    /// Tabellengröße (bei der Gruppenphase die größte Gruppe), keine Überschneidung. Auch für die Live-Prüfung im
+    /// Formular.</summary>
+    public static IEnumerable<string> TabellenBereicheValidieren(TurnierRundeEingabe r)
+    {
+        var bereiche = (r.TabellenBereiche ?? []).OrderBy(b => b.PlatzVon).ToList();
+        int tabellengroesse = r.Rundenart == Rundenart.Gruppenphase && r.GruppenAnzahl is > 0 and var gruppen
+            ? (r.EingangsMannschaftsanzahl + gruppen - 1) / gruppen
+            : r.EingangsMannschaftsanzahl;
+
+        foreach (var b in bereiche)
+        {
+            string name = string.IsNullOrWhiteSpace(b.Bezeichnung) ? $"Platz {b.PlatzVon}–{b.PlatzBis}" : b.Bezeichnung.Trim();
+            if (string.IsNullOrWhiteSpace(b.Bezeichnung))
+                yield return $"Runde '{r.Name}': Tabellenbereich {name} braucht eine Bezeichnung.";
+            if (b.PlatzVon < 1 || b.PlatzBis < b.PlatzVon || b.PlatzBis > tabellengroesse)
+                yield return $"Runde '{r.Name}': Tabellenbereich „{name}“ muss zwischen Platz 1 und {tabellengroesse} " +
+                             $"liegen, „von“ höchstens „bis“ (war: {b.PlatzVon}–{b.PlatzBis}).";
+        }
+
+        for (int i = 1; i < bereiche.Count; i++)
+        {
+            if (bereiche[i].PlatzVon <= bereiche[i - 1].PlatzBis)
+                yield return $"Runde '{r.Name}': Tabellenbereiche „{bereiche[i - 1].Bezeichnung.Trim()}“ und " +
+                             $"„{bereiche[i].Bezeichnung.Trim()}“ überschneiden sich.";
+        }
     }
 
     /// <summary>Finale und Spiel um Platz 3 speisen sich strukturell immer aus derselben Vorrunde

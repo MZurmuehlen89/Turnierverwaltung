@@ -84,6 +84,30 @@ public static class SeedVorlagenAbgleich
         return gesetzt;
     }
 
+    // ── Tabellenbereiche (Issue #420) ──────────────────────────────────────────
+
+    /// <summary>Die Tabellenbereiche des Seeds für Runden ganz ohne Bereiche, die noch dem Seed entsprechen
+    /// (<c>TabellenBereiche</c> der Bestands-Runden muss geladen sein).</summary>
+    public static List<TabellenBereich> FehlendeTabellenBereiche(TurnierInstanz vorlage, TurnierInstanz soll)
+    {
+        List<TabellenBereich> fehlende = [];
+        foreach (var sollRunde in soll.Runden.Where(r => r.TabellenBereiche.Count > 0))
+        {
+            var runde = Gegenstueck(vorlage, sollRunde);
+            if (!HatAufbauWie(runde, sollRunde) || runde!.TabellenBereiche.Count > 0) continue;
+
+            fehlende.AddRange(sollRunde.TabellenBereiche.Select(b => new TabellenBereich
+            {
+                TurnierRundeId = runde.Id,
+                PlatzVon       = b.PlatzVon,
+                PlatzBis       = b.PlatzBis,
+                Art            = b.Art,
+                Bezeichnung    = b.Bezeichnung,
+            }));
+        }
+        return fehlende;
+    }
+
     // ── Fester K.-o.-Baum (Issue #372) ─────────────────────────────────────────
 
     /// <summary>Überträgt den festen K.-o.-Baum des Seeds: markiert die Runden als fest vorgegeben (samt

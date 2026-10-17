@@ -876,6 +876,38 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.ToTable("LandesQuoten", (string)null);
                 });
 
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TabellenBereich", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Art")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Bezeichnung")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("PlatzBis")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PlatzVon")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TurnierRundeId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TurnierRundeId");
+
+                    b.ToTable("TabellenBereiche", (string)null);
+                });
+
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierGastgeber", b =>
                 {
                     b.Property<int>("Id")
@@ -1503,6 +1535,17 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("TurnierInstanz");
                 });
 
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TabellenBereich", b =>
+                {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierRunde", "TurnierRunde")
+                        .WithMany("TabellenBereiche")
+                        .HasForeignKey("TurnierRundeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TurnierRunde");
+                });
+
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierGastgeber", b =>
                 {
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Mannschaft", "Mannschaft")
@@ -1689,6 +1732,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierRunde", b =>
                 {
                     b.Navigation("Spiele");
+
+                    b.Navigation("TabellenBereiche");
 
                     b.Navigation("Uebergangsregeln");
                 });

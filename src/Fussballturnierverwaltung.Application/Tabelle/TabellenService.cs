@@ -13,6 +13,15 @@ public class TabellenService(
     ISpielRepository spielRepository,
     IRegelwerkRepository regelwerkRepository)
 {
+    /// <summary>Zonen der Runde aus ihren ausgehenden Übergangsregeln (<c>ZielRunde</c> geladen) und ihren
+    /// Tabellenbereichen (Issue #420).</summary>
+    public async Task<IReadOnlyList<TabellenZone>> ZonenErmittelnAsync(
+        int turnierRundeId, IEnumerable<Uebergangsregel> ausgehendeRegeln, CancellationToken ct = default)
+    {
+        var bereiche = await rundeRepository.TabellenBereicheAsync(turnierRundeId, ct);
+        return TabellenZonen.Ermitteln(ausgehendeRegeln, bereiche);
+    }
+
     /// <summary>Berechnet die Tabelle einer Liga- oder Gruppenphase-Runde. Mit <paramref name="bisSpieltag"/> wird der
     /// historische Stand nach diesem Spieltag berechnet statt des aktuellen Stands.</summary>
     public async Task<IReadOnlyList<TabellenEintrag>> TabelleBerechnenAsync(

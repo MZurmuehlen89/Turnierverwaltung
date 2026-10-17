@@ -19,6 +19,8 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
         => await Context.TurnierInstanzen
             .Include(ti => ti.Runden.OrderBy(r => r.Reihenfolge))
                 .ThenInclude(r => r.Regelwerk)
+            .Include(ti => ti.Runden)
+                .ThenInclude(r => r.TabellenBereiche)
             .Include(ti => ti.StandardRegelwerk)
             .Include(ti => ti.Gastgeber)
             .AsSplitQuery()
@@ -36,6 +38,8 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
         => await Context.TurnierInstanzen
             .Include(ti => ti.Runden.OrderBy(r => r.Reihenfolge))
                 .ThenInclude(r => r.Uebergangsregeln)
+            .Include(ti => ti.Runden)
+                .ThenInclude(r => r.TabellenBereiche)
             .Include(ti => ti.VerbandsQuoten)
             .Include(ti => ti.LandesQuoten)
             .Include(ti => ti.Auslosungen)
@@ -69,6 +73,7 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
     public async Task<IReadOnlyList<TurnierRunde>> RundenErsetzenAsync(int instanzId, IReadOnlyList<TurnierRunde> neueRunden, CancellationToken ct = default)
     {
         var alte = await Context.TurnierRunden
+            .Include(r => r.TabellenBereiche)
             .Where(r => r.TurnierInstanzId == instanzId)
             .OrderBy(r => r.Reihenfolge)
             .ToListAsync(ct);
@@ -98,6 +103,7 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             alt.KombinationstabelleJson   = neu.KombinationstabelleJson;
             alt.StandardRanglistenQuelleId = neu.StandardRanglistenQuelleId;
             alt.TitelverteidigerInTopf1   = neu.TitelverteidigerInTopf1;
+            TabellenBereicheAbgleichen(alt, neu);
         }
 
         // Add rounds if the new list is longer
@@ -133,6 +139,26 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
         for (int i = 0; i < neueRunden.Count; i++)
             ergebnis.Add(i < alte.Count ? alte[i] : neueRunden[i]);
         return ergebnis;
+    }
+
+    // Issue #420: positionsgleich wie die Runden selbst — bestehende Bereiche werden überschrieben, überzählige
+    // entfernt (Kaskade über die Pflicht-Beziehung), fehlende ergänzt.
+    private void TabellenBereicheAbgleichen(TurnierRunde alt, TurnierRunde neu)
+    {
+        var alteBereiche = alt.TabellenBereiche.OrderBy(b => b.PlatzVon).ThenBy(b => b.Id).ToList();
+        var neueBereiche = neu.TabellenBereiche.ToList();
+
+        for (int i = 0; i < Math.Min(alteBereiche.Count, neueBereiche.Count); i++)
+        {
+            alteBereiche[i].PlatzVon    = neueBereiche[i].PlatzVon;
+            alteBereiche[i].PlatzBis    = neueBereiche[i].PlatzBis;
+            alteBereiche[i].Art         = neueBereiche[i].Art;
+            alteBereiche[i].Bezeichnung = neueBereiche[i].Bezeichnung;
+        }
+
+        Context.TabellenBereiche.RemoveRange(alteBereiche.Skip(neueBereiche.Count));
+        foreach (var bereich in neueBereiche.Skip(alteBereiche.Count))
+            alt.TabellenBereiche.Add(bereich);
     }
 
     // Löscht in der richtigen Reihenfolge:

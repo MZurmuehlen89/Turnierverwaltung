@@ -35,6 +35,7 @@ public class TurnierverwaltungDbContext : DbContext
     public DbSet<VerbandsQuote> VerbandsQuoten => Set<VerbandsQuote>();
     public DbSet<LandesQuote> LandesQuoten => Set<LandesQuote>();
     public DbSet<TurnierGastgeber> TurnierGastgeber => Set<TurnierGastgeber>();
+    public DbSet<TabellenBereich> TabellenBereiche => Set<TabellenBereich>();
 
     // Spiele
     public DbSet<Spiel> Spiele => Set<Spiel>();

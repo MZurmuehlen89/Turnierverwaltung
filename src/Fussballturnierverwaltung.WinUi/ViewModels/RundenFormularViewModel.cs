@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Ranglisten;
+using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -31,7 +32,11 @@ public partial class RundenFormularViewModel : ObservableObject
     {
         _regelwerkService = regelwerkService;
         _ranglistenQuelleService = ranglistenQuelleService;
+        TabellenBereiche.Geaendert += () => Geaendert?.Invoke();
     }
+
+    /// <summary>Tabellenbereiche der gezeigten Runde (Issue #420), nur bei Runden mit Tabelle sichtbar.</summary>
+    public TabellenBereicheViewModel TabellenBereiche { get; } = new();
 
     /// <summary>Zeigt die Runde im Formular (<c>null</c> leert es).</summary>
     public void Zeigen(RundeZeile? zeile, bool folgtAufGruppenphase)
@@ -39,6 +44,7 @@ public partial class RundenFormularViewModel : ObservableObject
         _zeile = zeile;
         _folgtAufGruppenphase = folgtAufGruppenphase;
         OhneRueckschreiben(() => FelderAusZeile(zeile));
+        TabellenBereiche.Zeigen(zeile);
     }
 
     /// <summary>Änderungen innerhalb von <paramref name="aktion"/> stammen nicht vom Nutzer: nichts davon wird in
@@ -73,6 +79,7 @@ public partial class RundenFormularViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IstSchweizerSystem))]
     [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
     [NotifyPropertyChangedFor(nameof(RundenartAuswahl))]
+    [NotifyPropertyChangedFor(nameof(HatTabelle))]
     private Rundenart _rundenart = Rundenart.Liga;
 
     [ObservableProperty]
@@ -158,6 +165,7 @@ public partial class RundenFormularViewModel : ObservableObject
 
     public bool IstGruppenphase => Rundenart == Rundenart.Gruppenphase;
     public bool IstSchweizerSystem => Rundenart == Rundenart.SchweizerSystem;
+    public bool HatTabelle => TabellenZonen.HatTabelle(Rundenart);
 
     /// <summary>Die Auswärtstorregel ergibt nur bei Hin-/Rückspiel-Aggregaten in K.o.-Rundenarten Sinn
     /// (AD-001) — analog WPF-Original <c>RundenEditorViewModel.AuswaertstorAktivierbar</c>.</summary>

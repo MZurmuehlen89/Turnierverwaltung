@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Turniere.Eingaben;
@@ -65,15 +66,17 @@ public record TurnierRundeEingabe(
     bool TitelverteidigerInTopf1 = false,
     bool NeutralerSpielort = false,
     int Ueberraschungsfaktor = 0,
-    IReadOnlyList<AuslosungsRegelArt>? VorgegebeneAuslosungsregeln = null)
+    IReadOnlyList<AuslosungsRegelArt>? VorgegebeneAuslosungsregeln = null,
+    IReadOnlyList<TabellenBereichEingabe>? TabellenBereiche = null)
 {
     /// <summary>Lässt weg, was bei dieser Runde nichts bewirkt, im Formular aber stehen geblieben sein kann:
-    /// die Spieltag-Konfiguration außerhalb des Schweizer Systems, die Gruppenanzahl außerhalb der Gruppenphase
-    /// und „Titelverteidiger in Topf 1“ ohne Standard-Rangliste.</summary>
+    /// die Spieltag-Konfiguration außerhalb des Schweizer Systems, die Gruppenanzahl außerhalb der Gruppenphase,
+    /// Tabellenbereiche bei Runden ohne Tabelle und „Titelverteidiger in Topf 1“ ohne Standard-Rangliste.</summary>
     public TurnierRundeEingabe OhneUnwirksameAngaben() => this with
     {
         KonfigurationJson = Rundenart == Rundenart.SchweizerSystem ? KonfigurationJson : null,
         GruppenAnzahl = Rundenart == Rundenart.Gruppenphase ? GruppenAnzahl : null,
+        TabellenBereiche = TabellenZonen.HatTabelle(Rundenart) ? TabellenBereiche : null,
         TitelverteidigerInTopf1 = StandardRanglistenQuelleId is not null && TitelverteidigerInTopf1
     };
 }
@@ -99,3 +102,6 @@ public record RegelwerkAktualisierenEingabe(
     int PunkteFuerUnentschieden,
     int PunkteFuerNiederlage,
     IReadOnlyList<VerfahrenArt> EntscheidungsVerfahrenReihenfolge);
+
+/// <summary>Ein Tabellenbereich einer Runde im Formular (Issue #420).</summary>
+public record TabellenBereichEingabe(int PlatzVon, int PlatzBis, TabellenBereichArt Art, string Bezeichnung);

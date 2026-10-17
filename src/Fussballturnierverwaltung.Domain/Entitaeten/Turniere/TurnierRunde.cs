@@ -70,4 +70,7 @@ public class TurnierRunde : BasisEntitaet
 
     // Übergangsregeln, die aus dieser Runde in eine (ggf. andere) Zielrunde führen.
     public ICollection<Uebergangsregel> Uebergangsregeln { get; set; } = new List<Uebergangsregel>();
+
+    // Tabellenbereiche ohne Folgerunde im Turnier (Issue #420), z. B. Europapokal-Plätze und Abstieg einer Liga.
+    public ICollection<TabellenBereich> TabellenBereiche { get; set; } = new List<TabellenBereich>();
 }

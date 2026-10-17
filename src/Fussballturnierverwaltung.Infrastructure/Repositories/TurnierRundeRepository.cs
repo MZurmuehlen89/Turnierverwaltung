@@ -26,4 +26,11 @@ public class TurnierRundeRepository(TurnierverwaltungDbContext context)
             .Where(r => r.TurnierInstanzId == turnierInstanzId)
             .OrderBy(r => r.Reihenfolge)
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<TabellenBereich>> TabellenBereicheAsync(int turnierRundeId, CancellationToken ct = default)
+        => await Context.TabellenBereiche
+            .AsNoTracking()
+            .Where(b => b.TurnierRundeId == turnierRundeId)
+            .OrderBy(b => b.PlatzVon)
+            .ToListAsync(ct);
 }

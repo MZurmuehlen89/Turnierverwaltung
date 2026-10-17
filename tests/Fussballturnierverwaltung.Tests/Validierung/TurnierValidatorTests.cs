@@ -334,4 +334,46 @@ public class TurnierValidatorTests
 
         _validator.RundenValidieren(runden).IstGueltig.Should().Be(gueltig);
     }
+
+    // ── Tabellenbereiche (#420) ───────────────────────────────────────────────
+
+    private static TurnierRundeEingabe LigaMitBereichen(params TabellenBereichEingabe[] bereiche) =>
+        Runde("Saison", Rundenart.Liga, eingang: 18, ausgang: 1) with { TabellenBereiche = bereiche };
+
+    private static TabellenBereichEingabe Bereich(int von, int bis, string bezeichnung = "Bereich") =>
+        new(von, bis, TabellenBereichArt.Weiterkommen, bezeichnung);
+
+    [Fact]
+    public void TabellenBereiche_GueltigeBereicheMitLueckeImMittelfeld_SindGueltig() =>
+        TurnierValidator.TabellenBereicheValidieren(LigaMitBereichen(Bereich(1, 4), Bereich(5, 5), Bereich(17, 18)))
+            .Should().BeEmpty();
+
+    [Fact]
+    public void TabellenBereiche_UeberschneidungIstUngueltig() =>
+        TurnierValidator.TabellenBereicheValidieren(LigaMitBereichen(Bereich(1, 4, "CL"), Bereich(4, 5, "EL")))
+            .Should().ContainSingle().Which.Should().Contain("überschneiden sich");
+
+    [Theory]
+    [InlineData(0, 2)]
+    [InlineData(5, 4)]
+    [InlineData(17, 19)]
+    public void TabellenBereiche_PlatzAusserhalbDerTabelleOderVertauschtIstUngueltig(int von, int bis) =>
+        TurnierValidator.TabellenBereicheValidieren(LigaMitBereichen(Bereich(von, bis))).Should().ContainSingle();
+
+    [Fact]
+    public void TabellenBereiche_OhneBezeichnungIstUngueltig() =>
+        TurnierValidator.TabellenBereicheValidieren(LigaMitBereichen(Bereich(1, 1, " "))).Should().ContainSingle();
+
+    [Fact]
+    public void TabellenBereiche_GruppenphaseGiltDieGroesseEinerGruppe()
+    {
+        var gruppenphase = Runde("Gruppenphase", Rundenart.Gruppenphase, eingang: 16, ausgang: 8, gruppenAnzahl: 4)
+            with { TabellenBereiche = [Bereich(4, 4), Bereich(5, 5, "zu weit")] };
+
+        TurnierValidator.TabellenBereicheValidieren(gruppenphase).Should().ContainSingle().Which.Should().Contain("zu weit");
+    }
+
+    [Fact]
+    public void TabellenBereiche_FehlerBlockierenDieRundenvalidierung() =>
+        _validator.RundenValidieren([LigaMitBereichen(Bereich(1, 19))]).IstGueltig.Should().BeFalse();
 }

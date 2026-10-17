@@ -287,7 +287,9 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         StandardRanglistenQuelle = Formular.RanglistenQuelleOptionFuer(r.StandardRanglistenQuelleId),
         TitelverteidigerInTopf1 = r.TitelverteidigerInTopf1,
         KombinationstabelleJson = r.KombinationstabelleJson,
-        VorgegebeneAuslosungsregeln = [.. r.VorgegebeneAuslosungsregeln]
+        VorgegebeneAuslosungsregeln = [.. r.VorgegebeneAuslosungsregeln],
+        TabellenBereiche = [.. r.TabellenBereiche.OrderBy(b => b.PlatzVon)
+            .Select(b => new TabellenBereichEingabe(b.PlatzVon, b.PlatzBis, b.Art, b.Bezeichnung))]
     };
 
     private void RundenZuruecksetzen(IEnumerable<RundeZeile> runden)
@@ -392,7 +394,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         TitelverteidigerInTopf1: z.TitelverteidigerInTopf1,
         NeutralerSpielort: z.NeutralerSpielort,
         Ueberraschungsfaktor: z.Ueberraschungsfaktor,
-        VorgegebeneAuslosungsregeln: z.VorgegebeneAuslosungsregeln).OhneUnwirksameAngaben()).ToList();
+        VorgegebeneAuslosungsregeln: z.VorgegebeneAuslosungsregeln,
+        TabellenBereiche: z.TabellenBereiche).OhneUnwirksameAngaben()).ToList();
 
     public List<UebergangsregelPositionsEingabe> UebergangsregelnZuEingaben() => _alleUebergaenge
         .Where(b => b.QuellRunde is not null && b.ZielRunde is not null && b.QuellRunde != b.ZielRunde)

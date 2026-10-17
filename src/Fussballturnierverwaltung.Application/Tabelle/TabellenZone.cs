@@ -16,13 +16,17 @@ public enum ZonenFarbe
     Rot
 }
 
-/// <summary>Platzierungsbereich einer Tabelle, der in eine Zielrunde führt (Issue #358). Bei
-/// <see cref="AnzahlBeste"/> kommen nur die Besten dieses Platzes über alle Gruppen hinweg weiter — der Platz
-/// allein sichert das Weiterkommen dann nicht.</summary>
+/// <summary>Platzierungsbereich einer Tabelle mit eigener Farbe (Issue #358): entweder aus einer Übergangsregel
+/// (<see cref="ZielRundeId"/> gesetzt) oder aus einem Tabellenbereich der Runde ohne Folgerunde im Turnier
+/// (Issue #420, <see cref="ZielRundeId"/> <c>null</c>). <see cref="Bezeichnung"/> ist der Name der Zielrunde bzw.
+/// des Bereichs. Bei <see cref="AnzahlBeste"/> kommen nur die Besten dieses Platzes über alle Gruppen hinweg
+/// weiter — der Platz allein sichert das Weiterkommen dann nicht.</summary>
 public sealed record TabellenZone(
-    int? GruppeIndex, int PlatzVon, int PlatzBis, int ZielRundeId, string ZielRundeName, ZonenFarbe Farbe, int? AnzahlBeste = null)
+    int? GruppeIndex, int PlatzVon, int PlatzBis, int? ZielRundeId, string Bezeichnung, ZonenFarbe Farbe, int? AnzahlBeste = null)
 {
     public bool UnterVorbehalt => AnzahlBeste is not null;
+
+    public bool AusRegel => ZielRundeId is not null;
 
     public bool Umfasst(int? gruppenNummer, int rang) =>
         (GruppeIndex is null || GruppeIndex == gruppenNummer) && rang >= PlatzVon && rang <= PlatzBis;
@@ -56,6 +60,36 @@ public static class TabellenZonen
                 r.AnzahlBeste))];
     }
 
+    /// <summary>Rundenarten, die eine Tabelle haben — nur bei ihnen gibt es Zonen und Tabellenbereiche.</summary>
+    public static bool HatTabelle(Rundenart rundenart) =>
+        rundenart is Rundenart.Liga or Rundenart.Gruppenphase or Rundenart.TopfLiga or Rundenart.SchweizerSystem;
+
+    /// <summary>Alle Zonen einer Runde (Issue #420): die aus den ausgehenden Übergangsregeln
+    /// (<see cref="AusRegeln"/>) und die aus den Tabellenbereichen. Weiterkommen-Bereiche bekommen der Reihe nach
+    /// die Qualifikationsfarben, die die Regeln noch nicht belegen, Relegation Amber, Abstieg Rot. Deckt eine
+    /// Regel einen Platz ab, gilt dort ihre Zone (siehe <see cref="Zuweisen"/>).</summary>
+    public static IReadOnlyList<TabellenZone> Ermitteln(
+        IEnumerable<Uebergangsregel> ausgehendeRegeln, IEnumerable<TabellenBereich> tabellenBereiche)
+    {
+        var regelZonen = AusRegeln(ausgehendeRegeln);
+        int belegteFarben = regelZonen.Where(z => !z.UnterVorbehalt).Select(z => z.ZielRundeId).Distinct().Count();
+
+        var bereichZonen = new List<TabellenZone>();
+        int weiterkommen = 0;
+        foreach (var bereich in tabellenBereiche.OrderBy(b => b.PlatzVon))
+        {
+            var farbe = bereich.Art switch
+            {
+                TabellenBereichArt.Relegation => ZonenFarbe.Amber,
+                TabellenBereichArt.Abstieg => ZonenFarbe.Rot,
+                _ => QUALIFIKATIONS_FARBEN[(belegteFarben + weiterkommen++) % QUALIFIKATIONS_FARBEN.Length]
+            };
+            bereichZonen.Add(new TabellenZone(null, bereich.PlatzVon, bereich.PlatzBis, null, bereich.Bezeichnung, farbe));
+        }
+
+        return [.. regelZonen.Concat(bereichZonen).OrderBy(z => z.PlatzVon).ThenBy(z => !z.AusRegel)];
+    }
+
     /// <summary>Farbe, in der das tatsächliche Erreichen der Zielrunde einer Vorbehalts-Zone markiert wird: die
     /// Farbe der direkten Zone derselben Zielrunde.</summary>
     public static ZonenFarbe ZielFarbe(IReadOnlyList<TabellenZone> zonen, int zielRundeId) =>
@@ -64,13 +98,18 @@ public static class TabellenZonen
     /// <summary>Setzt je Eintrag die Zonenfarbe des aktuellen Rangs und — mit <paramref name="mitSicherheit"/> —
     /// die Punktfarbe, sobald die Zone feststeht: alle noch möglichen Ränge
     /// (<see cref="TabellenEintrag.BesterRang"/> bis <see cref="TabellenEintrag.SchlechtesterRang"/>) führen in
-    /// dieselbe Zielrunde (Zonenfarbe) bzw. in keine (<see cref="ZonenFarbe.Rot"/>). Ein sicherer Platz in einer
-    /// Zone unter Vorbehalt bekommt keinen Punkt, weil das Weiterkommen dort erst der Vergleich über alle Gruppen
-    /// entscheidet.</summary>
+    /// dieselbe Zone (Zonenfarbe) bzw. in keine. Keine Zone heißt nur bei Runden mit Übergangsregeln
+    /// „ausgeschieden“ (<see cref="ZonenFarbe.Rot"/>); bei Runden allein mit Tabellenbereichen ist es das Mittelfeld
+    /// und bekommt keinen Punkt (Issue #420). Ein sicherer Platz in einer Zone unter Vorbehalt bekommt keinen Punkt,
+    /// weil das Weiterkommen dort erst der Vergleich über alle Gruppen entscheidet. Deckt eine Regel einen Platz ab,
+    /// geht ihre Zone dem Tabellenbereich vor.</summary>
     public static void Zuweisen(
         IEnumerable<TabellenEintrag> tabelle, IReadOnlyList<TabellenZone> zonen, int? gruppenNummer, bool mitSicherheit)
     {
-        TabellenZone? Zone(int rang) => zonen.FirstOrDefault(z => z.Umfasst(gruppenNummer, rang));
+        TabellenZone? Zone(int rang) =>
+            zonen.FirstOrDefault(z => z.AusRegel && z.Umfasst(gruppenNummer, rang))
+            ?? zonen.FirstOrDefault(z => !z.AusRegel && z.Umfasst(gruppenNummer, rang));
+        bool ohneZoneAusgeschieden = zonen.Any(z => z.AusRegel);
 
         foreach (var eintrag in tabelle)
         {
@@ -82,10 +121,11 @@ public static class TabellenZonen
 
             var moeglich = Enumerable.Range(bester, Math.Max(1, schlechtester - bester + 1))
                 .Select(Zone)
-                .Select(z => (z?.ZielRundeId, UnterVorbehalt: z?.UnterVorbehalt ?? false, z?.Farbe))
+                .Select(z => (z?.ZielRundeId, z?.Bezeichnung, UnterVorbehalt: z?.UnterVorbehalt ?? false, z?.Farbe))
                 .Distinct()
                 .ToList();
             if (moeglich.Count != 1 || moeglich[0].UnterVorbehalt) continue;
+            if (moeglich[0].Farbe is null && !ohneZoneAusgeschieden) continue;
 
             eintrag.PunktFarbe = moeglich[0].Farbe ?? ZonenFarbe.Rot;
         }
@@ -137,9 +177,9 @@ public static class TabellenZonen
     private static string LegendenText(TabellenZone zone)
     {
         string platz = zone.PlatzVon == zone.PlatzBis ? $"Platz {zone.PlatzVon}" : $"Platz {zone.PlatzVon}–{zone.PlatzBis}";
-        if (!zone.UnterVorbehalt) return $"{platz} → {zone.ZielRundeName}";
+        if (!zone.UnterVorbehalt) return $"{platz} → {zone.Bezeichnung}";
         return zone.AnzahlBeste == 1
-            ? $"{platz} → {zone.ZielRundeName} (nur der beste)"
-            : $"{platz} → {zone.ZielRundeName} (nur die {zone.AnzahlBeste} besten)";
+            ? $"{platz} → {zone.Bezeichnung} (nur der beste)"
+            : $"{platz} → {zone.Bezeichnung} (nur die {zone.AnzahlBeste} besten)";
     }
 }

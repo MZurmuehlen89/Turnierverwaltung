@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 
@@ -37,6 +38,9 @@ public partial class RundeZeile : ObservableObject
 
     // Issue #356: reiner Datenträger — angezeigt und geändert wird über RundenFormularViewModel.RegelVorgabeOptionen.
     public IReadOnlyList<AuslosungsRegelArt> VorgegebeneAuslosungsregeln { get; set; } = [];
+
+    // Issue #420: reiner Datenträger — angezeigt und geändert über RundenFormularViewModel.TabellenBereiche.
+    public IReadOnlyList<TabellenBereichEingabe> TabellenBereiche { get; set; } = [];
 
     /// <summary>Reine Anzeige in der Rundenliste (#187, seit #348 im Runden-Reiter): gesetzt, wenn die ausgehenden
     /// Übergangsregeln nicht zur Ausgangsanzahl passen — berechnet von <c>RundenViewModel</c>, nie gespeichert.</summary>

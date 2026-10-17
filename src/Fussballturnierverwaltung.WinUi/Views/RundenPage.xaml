@@ -283,6 +283,38 @@
                             </StackPanel>
                         </Grid>
 
+                        <!-- ── Tabellenbereiche (#420): Plätze ohne Folgerunde im Turnier, nur bei Runden mit Tabelle ── -->
+                        <StackPanel Margin="0,12,0,0" DataContext="{Binding Formular.TabellenBereiche}"
+                                    Visibility="{Binding ElementName=Root, Path=DataContext.Formular.HatTabelle, Converter={StaticResource BoolToVisibility}}">
+                            <Grid Margin="0,0,0,4" ColumnDefinitions="*,Auto">
+                                <TextBlock Text="TABELLENBEREICHE" FontWeight="SemiBold" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Content="+ Neu" FontSize="11" Command="{Binding HinzufuegenCommand}" />
+                            </Grid>
+                            <TextBlock Text="Plätze ohne Folgerunde in diesem Turnier, z. B. Europapokal, Relegation, Abstieg – als farbige Zonen in der Tabelle. Plätze mit Übergangsregel zeigen deren Zone."
+                                       FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,6" />
+                            <ItemsControl ItemsSource="{Binding Zeilen}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,4" ColumnSpacing="6" ColumnDefinitions="56,Auto,56,140,*,Auto">
+                                            <TextBox Text="{Binding PlatzVon, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     ToolTipService.ToolTip="Platz von" />
+                                            <TextBlock Grid.Column="1" Text="–" VerticalAlignment="Center" />
+                                            <TextBox Grid.Column="2" Text="{Binding PlatzBis, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     ToolTipService.ToolTip="Platz bis" />
+                                            <ComboBox Grid.Column="3" ItemsSource="{Binding ArtOptionen}"
+                                                      SelectedItem="{Binding Art, Mode=TwoWay}"
+                                                      DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
+                                            <TextBox Grid.Column="4" Text="{Binding Bezeichnung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     PlaceholderText="Bezeichnung, z. B. Champions League" />
+                                            <Button Grid.Column="5" Content="✕" FontSize="11" ToolTipService.ToolTip="Bereich entfernen"
+                                                    Command="{Binding ElementName=Root, Path=DataContext.Formular.TabellenBereiche.EntfernenCommand}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
                         <!-- ── Übergangsregeln der gewählten Runde (#348): links Eingehend/Ausgehend, rechts EIN
                              stabiles Regelformular (Populier-/Zurückschreib-Muster, keine editierbaren Karten —
                              siehe #284-Datenkorruption). ── -->

@@ -120,6 +120,43 @@ public class SeedVorlagenAbgleichTests
         bestand.Runden.Should().OnlyContain(r => !r.PaarungFestVorgegeben);
     }
 
+    // ── Tabellenbereiche (#420) ───────────────────────────────────────────────
+
+    [Fact]
+    public void FehlendeTabellenBereiche_VorlageOhneBereiche_LiefertDieBereicheDesSeedsFuerDieRundeDesBestands()
+    {
+        var (bestand, soll) = BestandUndSoll("Bundesliga", "18 Teams");
+        bestand.Runden.Single().TabellenBereiche.Clear();
+
+        var bereiche = SeedVorlagenAbgleich.FehlendeTabellenBereiche(bestand, soll);
+
+        bereiche.Should().OnlyContain(b => b.TurnierRundeId == bestand.Runden.Single().Id);
+        bereiche.Select(b => (b.PlatzVon, b.PlatzBis, b.Art, b.Bezeichnung)).Should().Equal(
+            soll.Runden.Single().TabellenBereiche.Select(b => (b.PlatzVon, b.PlatzBis, b.Art, b.Bezeichnung)));
+    }
+
+    [Fact]
+    public void FehlendeTabellenBereiche_RundeMitEigenenBereichen_BleibtLeer()
+    {
+        var (bestand, soll) = BestandUndSoll("Bundesliga", "18 Teams");
+        var saison = bestand.Runden.Single();
+        saison.TabellenBereiche.Clear();
+        saison.TabellenBereiche.Add(new TabellenBereich { PlatzVon = 1, PlatzBis = 1, Art = TabellenBereichArt.Weiterkommen, Bezeichnung = "Meister" });
+
+        SeedVorlagenAbgleich.FehlendeTabellenBereiche(bestand, soll).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void FehlendeTabellenBereiche_UmgebauteRunde_BleibtLeer()
+    {
+        var (bestand, soll) = BestandUndSoll("Bundesliga", "18 Teams");
+        var saison = bestand.Runden.Single();
+        saison.TabellenBereiche.Clear();
+        saison.EingangsMannschaftsanzahl = 20;
+
+        SeedVorlagenAbgleich.FehlendeTabellenBereiche(bestand, soll).Should().BeEmpty();
+    }
+
     // ── Aufbau ─────────────────────────────────────────────────────────────────
 
     private static (TurnierInstanz Bestand, TurnierInstanz Soll) Em24() => BestandUndSoll("UEFA EM", "24 Teams · 2016+");

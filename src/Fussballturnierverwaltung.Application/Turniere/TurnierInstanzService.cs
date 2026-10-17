@@ -114,31 +114,7 @@ public class TurnierInstanzService(
             instanz.Gastgeber.Add(new TurnierGastgeber { MannschaftId = gastgeberId });
 
         for (int i = 0; i < rundenEingaben.Count; i++)
-        {
-            var re = rundenEingaben[i];
-            instanz.Runden.Add(new TurnierRunde
-            {
-                Name                       = re.Name.Trim(),
-                Reihenfolge                = i + 1,
-                Rundenart                  = re.Rundenart,
-                EingangsMannschaftsanzahl  = re.EingangsMannschaftsanzahl,
-                AusgangsMannschaftsanzahl  = re.AusgangsMannschaftsanzahl,
-                GruppenAnzahl              = re.GruppenAnzahl,
-                RegelwerkId                = re.RegelwerkId,
-                MitRueckspiel              = re.MitRueckspiel,
-                AuswaertstorRegelAktiv     = re.AuswaertstorRegelAktiv,
-                NeutralerSpielort          = re.NeutralerSpielort,
-                Ueberraschungsfaktor       = re.Ueberraschungsfaktor,
-                KonfigurationJson          = re.KonfigurationJson,
-                EingangUeberUebergangsregeln = re.EingangUeberUebergangsregeln,
-                PaarungFestVorgegeben      = re.PaarungFestVorgegeben,
-                VorgegebeneAuslosungsart   = re.VorgegebeneAuslosungsart,
-                VorgegebeneAuslosungsregeln = [.. re.VorgegebeneAuslosungsregeln ?? []],
-                KombinationstabelleJson    = re.KombinationstabelleJson,
-                StandardRanglistenQuelleId = re.StandardRanglistenQuelleId,
-                TitelverteidigerInTopf1    = re.TitelverteidigerInTopf1
-            });
-        }
+            instanz.Runden.Add(RundeAusEingabe(rundenEingaben[i], i + 1));
 
         await repository.HinzufuegenAsync(instanz, ct);
         logger.LogInformation("TurnierInstanz '{Name}' ({Saison}) mit {Runden} Runde(n) angelegt.",
@@ -201,29 +177,7 @@ public class TurnierInstanzService(
     {
         ValidationException.WerfenWennUngueltig(validator.RundenValidieren(eingaben));
 
-        var neueRunden = eingaben.Select((e, i) => new TurnierRunde
-        {
-            TurnierInstanzId          = id,
-            Name                      = e.Name.Trim(),
-            Reihenfolge               = i + 1,
-            Rundenart                 = e.Rundenart,
-            EingangsMannschaftsanzahl = e.EingangsMannschaftsanzahl,
-            AusgangsMannschaftsanzahl = e.AusgangsMannschaftsanzahl,
-            GruppenAnzahl             = e.GruppenAnzahl,
-            RegelwerkId               = e.RegelwerkId,
-            MitRueckspiel             = e.MitRueckspiel,
-            AuswaertstorRegelAktiv    = e.AuswaertstorRegelAktiv,
-            NeutralerSpielort         = e.NeutralerSpielort,
-            Ueberraschungsfaktor      = e.Ueberraschungsfaktor,
-            KonfigurationJson         = e.KonfigurationJson,
-            EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
-            PaarungFestVorgegeben     = e.PaarungFestVorgegeben,
-            VorgegebeneAuslosungsart  = e.VorgegebeneAuslosungsart,
-            VorgegebeneAuslosungsregeln = [.. e.VorgegebeneAuslosungsregeln ?? []],
-            KombinationstabelleJson   = e.KombinationstabelleJson,
-            StandardRanglistenQuelleId = e.StandardRanglistenQuelleId,
-            TitelverteidigerInTopf1    = e.TitelverteidigerInTopf1
-        }).ToList();
+        var neueRunden = eingaben.Select((e, i) => RundeAusEingabe(e, i + 1, id)).ToList();
 
         var ergebnis = await repository.RundenErsetzenAsync(id, neueRunden, ct);
         logger.LogInformation("TurnierInstanz {Id}: {Anzahl} Runde(n) ersetzt.", id, neueRunden.Count);
@@ -242,29 +196,7 @@ public class TurnierInstanzService(
     {
         ValidationException.WerfenWennUngueltig(validator.RundenValidieren(rundenEingaben));
 
-        var neueRunden = rundenEingaben.Select((e, i) => new TurnierRunde
-        {
-            TurnierInstanzId          = id,
-            Name                      = e.Name.Trim(),
-            Reihenfolge               = i + 1,
-            Rundenart                 = e.Rundenart,
-            EingangsMannschaftsanzahl = e.EingangsMannschaftsanzahl,
-            AusgangsMannschaftsanzahl = e.AusgangsMannschaftsanzahl,
-            GruppenAnzahl             = e.GruppenAnzahl,
-            RegelwerkId               = e.RegelwerkId,
-            MitRueckspiel             = e.MitRueckspiel,
-            AuswaertstorRegelAktiv    = e.AuswaertstorRegelAktiv,
-            NeutralerSpielort         = e.NeutralerSpielort,
-            Ueberraschungsfaktor      = e.Ueberraschungsfaktor,
-            KonfigurationJson         = e.KonfigurationJson,
-            EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
-            PaarungFestVorgegeben     = e.PaarungFestVorgegeben,
-            VorgegebeneAuslosungsart  = e.VorgegebeneAuslosungsart,
-            VorgegebeneAuslosungsregeln = [.. e.VorgegebeneAuslosungsregeln ?? []],
-            KombinationstabelleJson   = e.KombinationstabelleJson,
-            StandardRanglistenQuelleId = e.StandardRanglistenQuelleId,
-            TitelverteidigerInTopf1    = e.TitelverteidigerInTopf1
-        }).ToList();
+        var neueRunden = rundenEingaben.Select((e, i) => RundeAusEingabe(e, i + 1, id)).ToList();
 
         var runden = await repository.RundenErsetzenAsync(id, neueRunden, ct);
         await uebergangsregelService.AlleErsetzenAsync(runden, uebergangsregelEingaben, ct);
@@ -274,6 +206,38 @@ public class TurnierInstanzService(
             id, runden.Count, uebergangsregelEingaben.Count);
         return runden;
     }
+
+    // turnierInstanzId bleibt beim Anlegen einer neuen Instanz 0 — EF setzt ihn über die Navigation.
+    private static TurnierRunde RundeAusEingabe(TurnierRundeEingabe e, int reihenfolge, int turnierInstanzId = 0) => new()
+    {
+        TurnierInstanzId             = turnierInstanzId,
+        Name                         = e.Name.Trim(),
+        Reihenfolge                  = reihenfolge,
+        Rundenart                    = e.Rundenart,
+        EingangsMannschaftsanzahl    = e.EingangsMannschaftsanzahl,
+        AusgangsMannschaftsanzahl    = e.AusgangsMannschaftsanzahl,
+        GruppenAnzahl                = e.GruppenAnzahl,
+        RegelwerkId                  = e.RegelwerkId,
+        MitRueckspiel                = e.MitRueckspiel,
+        AuswaertstorRegelAktiv       = e.AuswaertstorRegelAktiv,
+        NeutralerSpielort            = e.NeutralerSpielort,
+        Ueberraschungsfaktor         = e.Ueberraschungsfaktor,
+        KonfigurationJson            = e.KonfigurationJson,
+        EingangUeberUebergangsregeln = e.EingangUeberUebergangsregeln,
+        PaarungFestVorgegeben        = e.PaarungFestVorgegeben,
+        VorgegebeneAuslosungsart     = e.VorgegebeneAuslosungsart,
+        VorgegebeneAuslosungsregeln  = [.. e.VorgegebeneAuslosungsregeln ?? []],
+        KombinationstabelleJson      = e.KombinationstabelleJson,
+        StandardRanglistenQuelleId   = e.StandardRanglistenQuelleId,
+        TitelverteidigerInTopf1      = e.TitelverteidigerInTopf1,
+        TabellenBereiche             = [.. (e.TabellenBereiche ?? []).OrderBy(b => b.PlatzVon).Select(b => new TabellenBereich
+        {
+            PlatzVon    = b.PlatzVon,
+            PlatzBis    = b.PlatzBis,
+            Art         = b.Art,
+            Bezeichnung = b.Bezeichnung.Trim()
+        })]
+    };
 
     public async Task StatusAendernAsync(int id, TurnierStatus neuerStatus, CancellationToken ct = default)
     {

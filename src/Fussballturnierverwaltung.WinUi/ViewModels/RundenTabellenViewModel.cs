@@ -189,9 +189,9 @@ public partial class RundenTabellenViewModel : ObservableObject
         FehlerGemeldet?.Invoke(null);
         try
         {
-            // Issue #358: Zonen allein aus den ausgehenden Übergangsregeln.
+            // Issue #358/#420: Zonen aus den ausgehenden Übergangsregeln und den Tabellenbereichen der Runde.
             var regeln = await _uebergangsregelService.AlleNachQuellRundeIdAsync(runde.Id);
-            var zonen = TabellenZonen.AusRegeln(regeln);
+            var zonen = await _tabellenService.ZonenErmittelnAsync(runde.Id, regeln);
 
             if (ZeigtGruppenphase)
                 await GruppenTabellenLadenAsync(runde.Id, regeln, zonen);

@@ -40,7 +40,8 @@ public class TurnierKlonServiceTests
             Id = 1, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 1,
             Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2, RegelwerkId = 1,
             VorgegebeneAuslosungsart = Auslosungsart.NachToepfen,
-            StandardRanglistenQuelleId = 7, TitelverteidigerInTopf1 = true, NeutralerSpielort = true
+            StandardRanglistenQuelleId = 7, TitelverteidigerInTopf1 = true, NeutralerSpielort = true,
+            TabellenBereiche = [new TabellenBereich { PlatzVon = 2, PlatzBis = 2, Art = TabellenBereichArt.Relegation, Bezeichnung = "Relegation" }]
         };
         var finale = new TurnierRunde
         {
@@ -110,6 +111,20 @@ public class TurnierKlonServiceTests
         klon.Runden.Should().HaveCount(2);
         klon.Runden.Should().OnlyContain(r => r.TurnierInstanzId == klon.Id);
         klon.Runden.Select(r => r.Id).Should().NotIntersectWith(new[] { 1, 2 });
+    }
+
+    [Fact]
+    public async Task KlonenAsync_KopiertTabellenbereicheJeRunde()
+    {
+        using var ctx = NeuerContext();
+        var quellId = await QuelleAnlegenAsync(ctx);
+        var service = ServiceFuer(ctx);
+
+        var klon = await service.KlonenAsync(quellId, "EM 2028", "2028", TurnierStatus.Geplant);
+
+        var bereich = klon.Runden.Single(r => r.Name == "Halbfinale").TabellenBereiche.Should().ContainSingle().Subject;
+        (bereich.PlatzVon, bereich.Art, bereich.Bezeichnung).Should().Be((2, TabellenBereichArt.Relegation, "Relegation"));
+        ctx.TabellenBereiche.Count().Should().Be(2, "das Original behält seinen Bereich");
     }
 
     [Fact]

@@ -43,6 +43,22 @@ public class TurnierRundeEingabeTests
     public void OhneUnwirksameAngaben_OhneStandardRangliste_VerwirftTitelverteidigerInTopf1() =>
         Eingabe(Rundenart.Liga).OhneUnwirksameAngaben().TitelverteidigerInTopf1.Should().BeFalse();
 
+    private static readonly TabellenBereichEingabe[] _bereiche = [new(17, 18, TabellenBereichArt.Abstieg, "Abstieg")];
+
+    [Theory]
+    [InlineData(Rundenart.Liga)]
+    [InlineData(Rundenart.Gruppenphase)]
+    [InlineData(Rundenart.TopfLiga)]
+    [InlineData(Rundenart.SchweizerSystem)]
+    public void OhneUnwirksameAngaben_RundeMitTabelle_BehaeltDieTabellenbereiche(Rundenart rundenart) =>
+        (Eingabe(rundenart) with { TabellenBereiche = _bereiche }).OhneUnwirksameAngaben().TabellenBereiche.Should().Equal(_bereiche);
+
+    [Theory]
+    [InlineData(Rundenart.KoRunde)]
+    [InlineData(Rundenart.Finale)]
+    public void OhneUnwirksameAngaben_RundeOhneTabelle_VerwirftDieTabellenbereiche(Rundenart rundenart) =>
+        (Eingabe(rundenart) with { TabellenBereiche = _bereiche }).OhneUnwirksameAngaben().TabellenBereiche.Should().BeNull();
+
     [Fact]
     public void OhneUnwirksameAngaben_LaesstAlleAnderenAngabenUnveraendert()
     {
