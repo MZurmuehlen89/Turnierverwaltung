@@ -12,14 +12,18 @@ internal record TeilnehmerSlot(
     int? VerbandId = null)
 {
     public static TeilnehmerSlot AusEintrag(
-        LostopfEintrag e, int topfRang, IReadOnlyDictionary<int, string> gruppeJeMannschaft)
+        LostopfEintrag e, int topfRang, IReadOnlyDictionary<int, string> gruppeJeMannschaft, Qualifikanten qualifikanten)
     {
         if (e.MannschaftId is { } id)
             return new(id, e.Mannschaft?.LandId, null, topfRang, e.SetzPosition,
                 gruppeJeMannschaft.GetValueOrDefault(id), VerbandId: e.Mannschaft?.Land?.VerbandId);
 
+        // Ein Platzhalter bleibt Platzhalter (Kaskade, Gruppen-Herkunft) — Land und Verband kommen von der
+        // Mannschaft, die schon sicher dahinter steht (#483).
         var herkunft = GruppenHerkunft.AusPlatzhalter(e.PlatzhalterName);
-        return new(null, null, e.PlatzhalterName, topfRang, e.SetzPosition, herkunft?.Gruppe, herkunft?.Platz);
+        var qualifikant = qualifikanten.Fuer(e.PlatzhalterName);
+        return new(null, qualifikant?.LandId, e.PlatzhalterName, topfRang, e.SetzPosition, herkunft?.Gruppe, herkunft?.Platz,
+            qualifikant?.Land?.VerbandId);
     }
 }
 
@@ -52,11 +56,12 @@ public static class Losverfahren
     /// <param name="gruppeJeMannschaft">Gruppe („A“, „B“ …) je Mannschafts-Id aus der vorangegangenen Gruppenphase —
     /// nur für „Keine gleiche Gruppe“ nötig, sonst leer.</param>
     public static List<AuslosungsErgebnis> Ausloesen(
-        Auslosung auslosung, RegelKontext regeln, IReadOnlyDictionary<int, string> gruppeJeMannschaft, Random zufall)
+        Auslosung auslosung, RegelKontext regeln, IReadOnlyDictionary<int, string> gruppeJeMannschaft, Random zufall,
+        Qualifikanten? qualifikanten = null)
     {
         var toepfe = auslosung.Lostoepfe
             .OrderBy(l => l.Reihenfolge)
-            .Select((l, rang) => l.Eintraege.Select(e => TeilnehmerSlot.AusEintrag(e, rang, gruppeJeMannschaft)).ToList())
+            .Select((l, rang) => l.Eintraege.Select(e => TeilnehmerSlot.AusEintrag(e, rang, gruppeJeMannschaft, qualifikanten ?? Qualifikanten.Keine)).ToList())
             .ToList();
 
         // Gruppenphase und Liga ordnen die Teilnehmer Gruppen zu (Liga = eine Gruppe), alle anderen Rundenarten

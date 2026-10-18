@@ -29,7 +29,8 @@ public partial class TeilnehmerFilterViewModel : ObservableObject
 
     public bool Passt(TeilnehmerAnzeige t) =>
         (string.IsNullOrWhiteSpace(TeilnehmerFilter)
-         || t.Name.Contains(TeilnehmerFilter, StringComparison.OrdinalIgnoreCase))
+         || t.Name.Contains(TeilnehmerFilter, StringComparison.OrdinalIgnoreCase)
+         || t.QualifikantName?.Contains(TeilnehmerFilter, StringComparison.OrdinalIgnoreCase) == true)
         && (_verbandFilter.VerbandId is null || t.VerbandId == _verbandFilter.VerbandId)
         && (_landFilter.LandId is null || t.LandId == _landFilter.LandId);
 

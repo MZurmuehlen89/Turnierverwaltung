@@ -13,9 +13,11 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// die Fokus-Ansicht (aktueller Topf plus Zielgruppe bzw. aktuelle Paarung); nach jedem geleerten Topf bzw. nach je
 /// <see cref="ZiehungsReihenfolge.PAARUNGEN_JE_ZWISCHENSTAND"/> Paarungen folgt als eigener Schritt die Gesamtübersicht. Das geladene
 /// Endergebnis bleibt unberührt — es wird erst nach der Ziehung sichtbar, siehe
-/// <see cref="AuslosungViewModel.ZeigeErgebnis"/>.</summary>
+/// <see cref="AuslosungViewModel.ZeigeErgebnis"/>. Platzhalter erscheinen mit der Mannschaft, die sie schon sicher
+/// besetzt (<paramref name="qualifikanten"/>, #483).</summary>
 internal sealed class GruppenKoZiehungsAblauf(
-    ZiehungViewModel anzeige, List<ZiehungsSchritt> schritte, IEnumerable<LostopfViewModel> lostoepfe)
+    ZiehungViewModel anzeige, List<ZiehungsSchritt> schritte, IEnumerable<LostopfViewModel> lostoepfe,
+    Qualifikanten qualifikanten)
 {
     /// <summary>Eine Liga hat nur eine Gruppe: sie bleibt durchgehend im Fokus, der Schritt "Ziel" entfällt.</summary>
     private bool _eineGruppe;
@@ -64,7 +66,7 @@ internal sealed class GruppenKoZiehungsAblauf(
         TopfId = lostopf.Id,
         Name   = lostopf.Name,
         Slots  = new ObservableCollection<AnimationsTopfSlot>(lostopf.Teilnehmer.Select(
-            t => new AnimationsTopfSlot { EintragId = t.EintragId, Name = t.Name, Wappen = t.Wappen }))
+            t => new AnimationsTopfSlot { EintragId = t.EintragId, Name = t.AnzeigeName, Wappen = t.Wappen }))
     };
 
     private static AnimationsGruppe GruppenAnzeige(int nummer, int plaetze) => new()
@@ -148,7 +150,7 @@ internal sealed class GruppenKoZiehungsAblauf(
         var topfSlot = topf?.Slots.FirstOrDefault(s => s.EintragId == schritt.Eintrag.Id);
         if (topfSlot is not null) topfSlot.Gezogen = true;
 
-        anzeige.BannerMannschaftZeigen(TeilnehmerAnzeige.AusEintrag(schritt.Eintrag).Name, schritt.TopfName);
+        anzeige.BannerMannschaftZeigen(TeilnehmerAnzeige.AusEintrag(schritt.Eintrag, qualifikanten).AnzeigeName, schritt.TopfName);
     }
 
     /// <summary>Erst die gezogene Mannschaft allein, dann das Ziel mit dem Hinweis "Freilos".</summary>
@@ -174,9 +176,9 @@ internal sealed class GruppenKoZiehungsAblauf(
     private async Task PositionBesetzenAsync(ZiehungsSchritt schritt)
     {
         anzeige.AnimationBannerPosition = $"Position {schritt.Position}";
-        var team = TeilnehmerAnzeige.AusEintrag(schritt.Eintrag);
+        var team = TeilnehmerAnzeige.AusEintrag(schritt.Eintrag, qualifikanten);
         _neuerSlot = _zielGruppe!.Slots[schritt.Position!.Value - 1];
-        _neuerSlot.Anzeige = team.Name;
+        _neuerSlot.Anzeige = team.AnzeigeName;
         _neuerSlot.Wappen  = team.Wappen;
         _neuerSlot.IstNeu  = true;
         _zielGruppe.FuellstandAktualisieren();
@@ -185,15 +187,15 @@ internal sealed class GruppenKoZiehungsAblauf(
 
     private void TeamInPaarungEintragen(ZiehungsSchritt schritt, AnimationsPaarung paarung)
     {
-        var team = TeilnehmerAnzeige.AusEintrag(schritt.Eintrag);
+        var team = TeilnehmerAnzeige.AusEintrag(schritt.Eintrag, qualifikanten);
         if (schritt.IstFreilos || schritt.IstHeim == true)
         {
-            paarung.Heim       = team.Name;
+            paarung.Heim       = team.AnzeigeName;
             paarung.HeimWappen = team.Wappen;
         }
         else
         {
-            paarung.Auswaerts       = team.Name;
+            paarung.Auswaerts       = team.AnzeigeName;
             paarung.AuswaertsWappen = team.Wappen;
         }
     }

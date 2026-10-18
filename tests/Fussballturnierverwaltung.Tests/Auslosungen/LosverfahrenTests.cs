@@ -189,6 +189,43 @@ public class LosverfahrenTests
             .Select(Kurzform).Distinct().Should().Equal("1:1. Gruppe A-2. Gruppe B | 2:Sieger Gruppe B-2. Gruppe A");
     }
 
+    [Fact]
+    public void Zufall_KeinGleichesLand_MitPlatzhaltern_PrueftDasLandIhrerQualifikanten()
+    {
+        // #483: Platz 1 und 2 der Liga sind beide aus Land 1 — als Platzhalter dürfen sie nicht gepaart werden, und
+        // im Ergebnis bleiben die Platzhalter stehen (Kaskade und Spielplan hängen an ihnen).
+        var landJePlatz = new Dictionary<int, int> { [1] = 1, [2] = 1, [3] = 2, [4] = 3 };
+        var auslosung = NeueAuslosung(Rundenart.KoRunde, Auslosungsart.Zufall,
+            [Topf(1, [.. landJePlatz.Keys.Select(platz => new LostopfEintrag { Id = platz, PlatzhalterName = $"Platz {platz} (Liga)" })])]);
+        var qualifikanten = new Qualifikanten(
+            landJePlatz.ToDictionary(p => $"Platz {p.Key} (Liga)", p => Team(p.Key, landId: p.Value)), AnzahlOffen: 0);
+
+        var ziehungen = Enumerable.Range(1, STARTWERTE)
+            .Select(startwert => Losverfahren.Ausloesen(
+                auslosung, Regeln(keinGleichesLand: true), _ohneGruppen, new Random(startwert), qualifikanten))
+            .ToList();
+
+        ziehungen.Should().AllSatisfy(ziehung =>
+        {
+            ziehung.Should().AllSatisfy(e => e.HeimMannschaftId.Should().BeNull());
+            ziehung.Should().NotContain(e =>
+                new[] { e.HeimPlatzhalterName, e.AuswaertsPlatzhalterName }.Order().SequenceEqual(new[] { "Platz 1 (Liga)", "Platz 2 (Liga)" }));
+        });
+    }
+
+    [Fact]
+    public void Zufall_KeinGleichesLand_OffenerPlatzhalter_HatKeinLand()
+    {
+        // Ohne aufgelöste Mannschaft gibt es kein Land, gegen das die Regel prüfen könnte — wie vor #483.
+        var auslosung = NeueAuslosung(Rundenart.KoRunde, Auslosungsart.Zufall,
+            [Topf(1, [.. Enumerable.Range(1, 2).Select(platz => new LostopfEintrag { Id = platz, PlatzhalterName = $"Platz {platz} (Liga)" })])]);
+
+        var ausloesen = () => Losverfahren.Ausloesen(
+            auslosung, Regeln(keinGleichesLand: true), _ohneGruppen, new Random(1), Qualifikanten.Keine);
+
+        ausloesen.Should().NotThrow();
+    }
+
     // ── Nach Setzliste ────────────────────────────────────────────────────────
 
     [Fact]

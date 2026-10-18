@@ -13,8 +13,9 @@ public static class GegnerMatrixBuilder
     private const string LEERE_ZELLE = "–";
 
     /// <summary>Je Lostopf eine Matrix: Zeilen = Teams des Topfs, Spalten = je Gegner-Topf Heim- und
-    /// Auswärtsgegner — jede Zelle ist eine eigene Instanz, damit die Hervorhebung pro Vorkommen gesetzt wird.</summary>
-    public static ObservableCollection<GegnerMatrixTopf> Aufbauen(Auslosung detail)
+    /// Auswärtsgegner — jede Zelle ist eine eigene Instanz, damit die Hervorhebung pro Vorkommen gesetzt wird.
+    /// Ein Platzhalter erscheint mit der Mannschaft, die ihn schon sicher besetzt (<paramref name="qualifikanten"/>, #483).</summary>
+    public static ObservableCollection<GegnerMatrixTopf> Aufbauen(Auslosung detail, Qualifikanten qualifikanten)
     {
         var plan = GegnerMatrixPlan.Aufbauen(detail);
         var spalten = plan
@@ -24,27 +25,30 @@ public static class GegnerMatrixBuilder
         return new ObservableCollection<GegnerMatrixTopf>(plan.Select(topf => new GegnerMatrixTopf(
             topf.Name,
             spalten,
-            topf.Zeilen.Select(Zeile).ToList())));
+            topf.Zeilen.Select(z => Zeile(z, qualifikanten)).ToList())));
     }
 
-    private static GegnerMatrixZeile Zeile(GegnerPlanZeile zeile) => new()
+    private static GegnerMatrixZeile Zeile(GegnerPlanZeile zeile, Qualifikanten qualifikanten) => new()
     {
-        Team   = Zelle(zeile.Team),
-        Gegner = zeile.GegnerJeTopf.SelectMany(g => new[] { Zelle(g.Heim), Zelle(g.Auswaerts) }).ToList(),
+        Team   = Zelle(zeile.Team, qualifikanten),
+        Gegner = zeile.GegnerJeTopf
+            .SelectMany(g => new[] { Zelle(g.Heim, qualifikanten), Zelle(g.Auswaerts, qualifikanten) })
+            .ToList(),
     };
 
-    private static GegnerMatrixZelle Zelle(GegnerPlanTeam? team)
+    private static GegnerMatrixZelle Zelle(GegnerPlanTeam? team, Qualifikanten qualifikanten)
     {
         if (team is null) return new GegnerMatrixZelle { Kurzname = LEERE_ZELLE };
 
-        var name = team.Mannschaft?.Name ?? team.PlatzhalterName ?? "?";
+        var mannschaft = team.Mannschaft ?? qualifikanten.Fuer(team.PlatzhalterName);
+        var name = mannschaft?.Name ?? team.PlatzhalterName ?? "?";
         return new GegnerMatrixZelle
         {
             Schluessel = team.Schluessel,
             Name       = name,
-            Kurzname   = string.IsNullOrWhiteSpace(team.Mannschaft?.Kurzname) ? name : team.Mannschaft.Kurzname,
-            Land       = team.Mannschaft?.Land?.Name,
-            Wappen     = MannschaftsIcon.Fuer(team.Mannschaft),
+            Kurzname   = string.IsNullOrWhiteSpace(mannschaft?.Kurzname) ? name : mannschaft.Kurzname,
+            Land       = mannschaft?.Land?.Name,
+            Wappen     = MannschaftsIcon.Fuer(mannschaft),
         };
     }
 }

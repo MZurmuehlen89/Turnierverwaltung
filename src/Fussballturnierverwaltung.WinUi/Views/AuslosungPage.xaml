@@ -324,7 +324,10 @@
                     <TextBlock Text="Runde" FontSize="12" Margin="0,0,0,3" />
                     <ComboBox ItemsSource="{Binding NeuRundenOptionen}"
                               SelectedItem="{Binding NeuRunde, Mode=TwoWay}"
-                              DisplayMemberPath="Name" HorizontalAlignment="Stretch" Margin="0,0,0,12" />
+                              DisplayMemberPath="Name" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
+                    <TextBlock Text="{Binding NeuRundenHinweis}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,6"
+                               Visibility="{Binding NeuRundenHinweis, Converter={StaticResource NullToCollapsed}}" />
+                    <Border Height="6" />
 
                     <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
                     <TextBox Text="{Binding NeuName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -771,7 +774,10 @@
                                             <Image Grid.Column="0" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
                                                    Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                                <Run Text="{Binding AnzeigeName}" /><Run Text="{Binding HerkunftZusatz}" FontSize="11"
+                                                                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            </TextBlock>
                                         </Grid>
                                     </DataTemplate>
                                 </ListView.ItemTemplate>
@@ -814,8 +820,11 @@
                                                                 <Image Grid.Column="0" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                                        Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
                                                                        Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
-                                                                <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center"
-                                                                           TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Grid.Column="2" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                                           ToolTipService.ToolTip="{Binding Name}">
+                                                                    <Run Text="{Binding AnzeigeName}" /><Run Text="{Binding HerkunftZusatz}" FontSize="11"
+                                                                                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                                </TextBlock>
                                                             </Grid>
                                                         </DataTemplate>
                                                     </ListView.ItemTemplate>

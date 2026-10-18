@@ -8,6 +8,7 @@ using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
@@ -47,6 +48,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private TurnierInstanz? _instanz;
     private Auslosung? _auslosungDetail;
+
+    /// <summary>Die Mannschaften hinter den Platzhaltern der gezeigten Auslosung (#483) — für Anzeige, Ziehung und die
+    /// Land-/Verbandsregeln beim Auslosen.</summary>
+    private Qualifikanten _qualifikanten = Qualifikanten.Keine;
     private bool _ladenAktiv;
     private bool _seitenlisteAktualisierungAktiv;
 
@@ -81,9 +86,21 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// mit bereits vorhandener Auslosung (auch einer im Vorbelegung-Tab abgeschlossenen, hier unsichtbaren
     /// Manuell-Auslosung — siehe <see cref="_belegteRundenIds"/>) werden ebenfalls ausgeblendet: sonst könnte
     /// eine zweite Auslosung für dieselbe Runde angelegt werden, was den Vorbelegung-Tab beim
-    /// ToDictionary(a => a.TurnierRundeId)-Aufbau mit einer ArgumentException abstürzen lässt (Issue #320).</summary>
+    /// ToDictionary(a => a.TurnierRundeId)-Aufbau mit einer ArgumentException abstürzen lässt (Issue #320).
+    /// Eine Folgerunde, deren Qualifikanten noch nicht alle feststehen, fehlt ebenfalls (#483) — siehe
+    /// <see cref="NeuRundenHinweis"/>.</summary>
     public IEnumerable<TurnierRunde> NeuRundenOptionen =>
+        AuslosungsKandidaten().Where(r => !_nichtAuslosbareRundenIds.Contains(r.Id));
+
+    private IEnumerable<TurnierRunde> AuslosungsKandidaten() =>
         InstanzRunden.Where(r => !r.PaarungFestVorgegeben && !_belegteRundenIds.Contains(r.Id));
+
+    /// <summary>Runden, deren Qualifikanten beim Öffnen des Neu-Formulars noch nicht alle feststanden (#483).</summary>
+    private HashSet<int> _nichtAuslosbareRundenIds = [];
+
+    /// <summary>Welche Runden im Neu-Formular fehlen, weil ihre Qualifikanten noch nicht feststehen — <c>null</c>,
+    /// wenn keine.</summary>
+    [ObservableProperty] private string? _neuRundenHinweis;
 
     /// <summary>TurnierRundeId aller Auslosungen der Instanz — inkl. der hier absichtlich ausgeblendeten
     /// Auslosungsart.Manuell (siehe <see cref="LadeAuslosungenGefiltertAsync"/>), damit
@@ -401,6 +418,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Ziehung.Beenden();
         _instanz = instanz;
         _teilnehmerpool.Zuruecksetzen();
+        _qualifikanten = Qualifikanten.Keine;
         // Eine hinter diesem Wechsel wartende Aktion darf nicht mehr auf dem bisherigen Detail arbeiten (#413).
         _auslosungDetail = null;
         KeinTurnierGewaehlt = instanz is null;
@@ -429,6 +447,17 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task Neu()
     {
         if (!await ZiehungBeendenNachRueckfrageAsync()) return;
+        Fehlermeldung = null;
+        using (await DbContextSchutz.BetretenAsync())
+        {
+            try { await AuslosbareRundenErmittelnAsync(); }
+            catch (Exception ex)
+            {
+                Fehlermeldung = ex.Message;
+                return;
+            }
+        }
+
         NeuFormAktiv        = true;
         DetailAktiv         = false;
         _autoNeuName        = "";
@@ -439,7 +468,27 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // Explizit statt nur über OnNeuRundeChanged: bleibt die vorausgewählte Runde dieselbe wie beim letzten
         // Mal, feuert der Hook nicht, und die Vorgabe der Runde (Issue #347) ginge durch den Reset oben verloren.
         NeuAuslosungsart    = StartAuslosungsartFuer(NeuRunde, NeuAuslosungsart);
-        Fehlermeldung       = null;
+    }
+
+    /// <summary>Eine Folgerunde wird erst ausgelost, wenn alle ihre Qualifikanten feststehen (#483) — wie im realen
+    /// Ablauf, in dem die Achtelfinal-Auslosung auf die Gruppenphase folgt. Läuft unter dem Schutz des Aufrufers.</summary>
+    private async Task AuslosbareRundenErmittelnAsync()
+    {
+        using var vorgang = _logger.Vorgang($"Auslosung: auslosbare Runden ermitteln (Instanz {_instanz?.Id})");
+
+        var nichtAuslosbar = new List<(TurnierRunde Runde, QualifikantenStand Stand)>();
+        foreach (var runde in AuslosungsKandidaten().ToList())
+        {
+            var stand = await _teilnehmerpool.QualifikantenStandAsync(runde, InstanzRunden);
+            if (!stand.AlleFest) nichtAuslosbar.Add((runde, stand));
+        }
+
+        _nichtAuslosbareRundenIds = nichtAuslosbar.Select(n => n.Runde.Id).ToHashSet();
+        NeuRundenHinweis = nichtAuslosbar.Count == 0
+            ? null
+            : "Noch nicht auslosbar, weil nicht alle Qualifikanten feststehen:" +
+              string.Concat(nichtAuslosbar.Select(n => $"\n•  {n.Runde.Name} – {n.Stand.Offen} von {n.Stand.Gesamt} offen"));
+        OnPropertyChanged(nameof(NeuRundenOptionen));
     }
 
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
@@ -602,7 +651,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // enthüllt nur noch und darf jederzeit enden (siehe ZiehungBeenden).
         ZiehungInVorbereitung = tvModus;
         Exception? fehler = null;
-        try { await _auslosungService.AusfuehrenAsync(auslosungId); }
+        try { await _auslosungService.AusfuehrenAsync(auslosungId, _qualifikanten); }
         catch (Exception ex) { fehler = ex; }
 
         // Auch nach einem Fehler neu laden: scheitert erst die Spielplan-Generierung, ist die Auslosung
@@ -630,7 +679,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private ZiehungsVorlage ZiehungsVorlageAus(Auslosung detail) =>
         IstGegnerMatrixergebnis
-            ? new(GegnerMatrixBuilder.Aufbauen(detail), null)
+            ? new(GegnerMatrixBuilder.Aufbauen(detail, _qualifikanten), null)
             : new(null, ZiehungsReihenfolge.Aufbauen(detail.Lostoepfe, detail.Ergebnisse, Random.Shared));
 
     private async Task TurnierbaumUndSeitenlisteAktualisierenAsync(int turnierInstanzId)
@@ -650,7 +699,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (vorlage.Matrizen is not null)
             await new LigaphasenZiehungsAblauf(Ziehung, vorlage.Matrizen).AbspielenAsync(manuell);
         else if (vorlage.Schritte is not null)
-            await new GruppenKoZiehungsAblauf(Ziehung, vorlage.Schritte, Arbeitsbereich.Lostoepfe).AbspielenAsync(manuell);
+            await new GruppenKoZiehungsAblauf(Ziehung, vorlage.Schritte, Arbeitsbereich.Lostoepfe, _qualifikanten)
+                .AbspielenAsync(manuell);
     }
 
     private Task<bool> ErgebnisVerlustBestaetigtAsync(int rundeId) =>
@@ -816,8 +866,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             if (detail is null) return;
             _auslosungDetail = detail;
 
-            Arbeitsbereich.Zeigen(detail, await _teilnehmerpool.ErmittelnAsync(detail, _instanz, InstanzRunden),
-                _instanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
+            AuslosungsTeilnehmer teilnehmer;
+            using (_logger.Vorgang($"Auslosung: Teilnehmer ermitteln, Platzhalter auflösen (Auslosung {auslosungId})"))
+                teilnehmer = await _teilnehmerpool.ErmittelnAsync(detail, _instanz, InstanzRunden);
+            _qualifikanten = teilnehmer.Qualifikanten;
+            Arbeitsbereich.Zeigen(detail, teilnehmer, _instanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
 
             await Quoten.ZeigenAsync(detail, _instanz, InstanzRunden);
             _regeln.Zeigen(detail, InstanzRunden);
@@ -842,9 +895,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         IstGruppenergebnis = istGruppe;
         IstGegnerMatrixergebnis = istMatrix;
-        GegnerMatrix.Zeigen(istMatrix ? GegnerMatrixBuilder.Aufbauen(detail) : []);
-        GruppenErgebnisse = istGruppe ? GruppenErgebnisseAus(detail) : [];
-        ErgebnisseAnzeige = istGruppe ? [] : PaarungsErgebnisseAus(detail);
+        GegnerMatrix.Zeigen(istMatrix ? GegnerMatrixBuilder.Aufbauen(detail, _qualifikanten) : []);
+        GruppenErgebnisse = istGruppe ? GruppenErgebnisseAus(detail, _qualifikanten) : [];
+        ErgebnisseAnzeige = istGruppe ? [] : PaarungsErgebnisseAus(detail, _qualifikanten);
     }
 
     /// <summary>Eine Gruppenauslosung speichert je Mannschaft eine Zeile ohne Gegner.</summary>
@@ -863,26 +916,36 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     // gespeicherten Reihenfolge übereinstimmen, aus der SpielplanService.GenerierenAusAuslosungAsync den Spielplan
     // generiert (dort ohne eigene Sortierung, ebenfalls direkt aus der PaarungsNummer-Gruppierung) — siehe
     // #303-Diskussion.
-    private static ObservableCollection<GruppenErgebnisAnzeige> GruppenErgebnisseAus(Auslosung detail) =>
+    private static ObservableCollection<GruppenErgebnisAnzeige> GruppenErgebnisseAus(Auslosung detail, Qualifikanten q) =>
         new(detail.Ergebnisse
             .GroupBy(e => e.PaarungsNummer)
             .OrderBy(g => g.Key)
             .Select(g => new GruppenErgebnisAnzeige(
                 g.Key,
                 $"Gruppe {GruppenHerkunft.Buchstabe(g.Key)}",
-                g.Select(e => new GruppenTeamAnzeige(
-                        e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
-                        MannschaftsIcon.Fuer(e.HeimMannschaft)))
+                g.Select(e => GruppenTeam(SpielendeMannschaft(e.HeimMannschaft, e.HeimPlatzhalterName, q), e.HeimPlatzhalterName))
                  .ToList())));
 
-    private static ObservableCollection<ErgebnisAnzeige> PaarungsErgebnisseAus(Auslosung detail) =>
-        new(detail.Ergebnisse.Select(e => new ErgebnisAnzeige(
-            e.PaarungsNummer,
-            e.HeimMannschaft?.Name ?? e.HeimPlatzhalterName ?? "?",
-            e.AuswaertsMannschaft?.Name ?? e.AuswaertsPlatzhalterName ?? "?",
-            e.IstFreilos,
-            MannschaftsIcon.Fuer(e.HeimMannschaft),
-            MannschaftsIcon.Fuer(e.AuswaertsMannschaft))));
+    private static GruppenTeamAnzeige GruppenTeam(Mannschaft? mannschaft, string? platzhalterName) =>
+        new(mannschaft?.Name ?? platzhalterName ?? "?", MannschaftsIcon.Fuer(mannschaft));
+
+    private static ObservableCollection<ErgebnisAnzeige> PaarungsErgebnisseAus(Auslosung detail, Qualifikanten q) =>
+        new(detail.Ergebnisse.Select(e =>
+        {
+            var heim      = SpielendeMannschaft(e.HeimMannschaft, e.HeimPlatzhalterName, q);
+            var auswaerts = SpielendeMannschaft(e.AuswaertsMannschaft, e.AuswaertsPlatzhalterName, q);
+            return new ErgebnisAnzeige(
+                e.PaarungsNummer,
+                heim?.Name ?? e.HeimPlatzhalterName ?? "?",
+                auswaerts?.Name ?? e.AuswaertsPlatzhalterName ?? "?",
+                e.IstFreilos,
+                MannschaftsIcon.Fuer(heim),
+                MannschaftsIcon.Fuer(auswaerts));
+        }));
+
+    /// <summary>Die eigene Mannschaft eines Ergebnisplatzes oder die hinter seinem Platzhalter (#483).</summary>
+    private static Mannschaft? SpielendeMannschaft(Mannschaft? eigene, string? platzhalterName, Qualifikanten q) =>
+        eigene ?? q.Fuer(platzhalterName);
 
     private void KopfdatenZeigen(Auslosung detail)
     {

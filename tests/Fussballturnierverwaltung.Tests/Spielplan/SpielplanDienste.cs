@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -38,6 +39,7 @@ internal sealed class SpielplanDienste
         Kaskade = new PlatzhalterKaskadeService(
             rundeRepo, spielRepo, auslosungRepo, zwischenspeicher, Aufloesung, Spielplan, Finale,
             NullLogger<PlatzhalterKaskadeService>.Instance);
+        Qualifikanten = new QualifikantenAufloesung(Aufloesung, zwischenspeicher, rundeRepo, mannschaftRepo);
     }
 
     public SpielplanService Spielplan { get; }
@@ -45,4 +47,5 @@ internal sealed class SpielplanDienste
     public PlatzhalterAufloesung Aufloesung { get; }
     public FinaleAutomatik Finale { get; }
     public PlatzhalterKaskadeService Kaskade { get; }
+    public QualifikantenAufloesung Qualifikanten { get; }
 }

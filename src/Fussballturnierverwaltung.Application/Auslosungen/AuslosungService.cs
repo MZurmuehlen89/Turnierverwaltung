@@ -171,8 +171,11 @@ public class AuslosungService(
 
     /// <summary>Führt die Auslosung durch und ersetzt den Spielplan der Runde durch den daraus generierten —
     /// vorhandene Spiele samt Ergebnissen gehen dabei verloren, eine Rückfrage dazu ist Sache des Aufrufers.
-    /// Scheitert die Generierung, bleibt die Auslosung abgeschlossen und die Ausnahme geht an den Aufrufer.</summary>
-    public async Task<IReadOnlyList<AuslosungsErgebnis>> AusfuehrenAsync(int auslosungId, CancellationToken ct = default)
+    /// Scheitert die Generierung, bleibt die Auslosung abgeschlossen und die Ausnahme geht an den Aufrufer.
+    /// <paramref name="qualifikanten"/>: die Mannschaften hinter den Platzhaltern der Lostöpfe (#483) — mit ihnen
+    /// wirken Land- und Verbandsregeln auch auf Platzhalter. Der Aufrufer hat sie für die Anzeige schon aufgelöst.</summary>
+    public async Task<IReadOnlyList<AuslosungsErgebnis>> AusfuehrenAsync(
+        int auslosungId, Qualifikanten? qualifikanten = null, CancellationToken ct = default)
     {
         var auslosung = await LadenOderFehler(auslosungId, ct);
 
@@ -203,7 +206,7 @@ public class AuslosungService(
             validator.Validieren(auslosung, alleEintraege, verbandsQuoten, landesQuoten));
 
         var (regeln, gruppeJeMannschaft) = await RegelnErmittelnAsync(auslosung, alleRunden, ct);
-        var ergebnisse = Losverfahren.Ausloesen(auslosung, regeln, gruppeJeMannschaft, Random.Shared);
+        var ergebnisse = Losverfahren.Ausloesen(auslosung, regeln, gruppeJeMannschaft, Random.Shared, qualifikanten);
         await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);
 
         logger.LogInformation("Auslosung '{Name}' durchgeführt: {Anzahl} Paarungen.", auslosung.Name, ergebnisse.Count);

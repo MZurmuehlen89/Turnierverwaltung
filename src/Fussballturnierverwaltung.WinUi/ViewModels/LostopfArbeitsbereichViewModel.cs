@@ -67,11 +67,20 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     private static (int?, string) TeilnehmerSchluessel(TeilnehmerAnzeige t) =>
         (t.MannschaftId, t.MannschaftId.HasValue ? "" : t.Name);
 
+    // Ein Platzhalter behält seinen Schlüssel, wenn die Mannschaft dahinter feststeht oder wieder offen ist (#483) —
+    // ohne diesen Vergleich bliebe der alte Eintrag stehen.
+    private static bool GleicherQualifikant(TeilnehmerAnzeige ist, TeilnehmerAnzeige soll) =>
+        ist.QualifikantId == soll.QualifikantId;
+
+    /// <summary>Die Mannschaften hinter den Platzhaltern der gezeigten Auslosung.</summary>
+    private Qualifikanten _qualifikanten = Qualifikanten.Keine;
+
     private void GefilterteTeilnehmerAbgleichen() =>
         SammlungsAbgleich.Abgleichen(
             VerfuegbareTeilnehmerGefiltert,
             VerfuegbareTeilnehmer.Where(Filter.Passt).ToList(),
-            TeilnehmerSchluessel);
+            TeilnehmerSchluessel,
+            GleicherQualifikant);
 
     // Stabile Instanz, abgeglichen statt neu angelegt (#388) — sonst verlieren die Topf-Listen ihre Scrollposition.
     public ObservableCollection<LostopfViewModel> Lostoepfe { get; } = [];
@@ -162,9 +171,10 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     /// <summary>Gleicht Verfügbar-Liste und Lostöpfe mit dem geladenen Stand von <paramref name="detail"/> ab;
     /// <paramref name="alleTeilnehmer"/> sind alle für die Runde in Frage kommenden Teams,
     /// <paramref name="mannschaftsart"/> ist die Vorgabe aus dem Turnierkopf (bestimmt die angebotenen Filter).</summary>
-    public void Zeigen(Auslosung detail, IReadOnlyList<TeilnehmerAnzeige> alleTeilnehmer, MannschaftsartFilter mannschaftsart)
+    public void Zeigen(Auslosung detail, AuslosungsTeilnehmer alleTeilnehmer, MannschaftsartFilter mannschaftsart)
     {
-        VerfuegbareAbgleichen(detail, alleTeilnehmer, mannschaftsart);
+        _qualifikanten = alleTeilnehmer.Qualifikanten;
+        VerfuegbareAbgleichen(detail, alleTeilnehmer.Teilnehmer, mannschaftsart);
         LostoepfeAbgleichen(detail);
 
         TeamsZugewiesen = detail.Lostoepfe.SelectMany(l => l.Eintraege).Count();
@@ -192,9 +202,10 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
                 .Where(t => t.MannschaftId.HasValue
                     ? !zugeordneteMannschaftIds.Contains(t.MannschaftId.Value)
                     : !zugeordnetePlatzhalter.Contains(t.Name))
-                .OrderBy(t => t.Name)
+                .OrderBy(t => t.AnzeigeName)
                 .ToList(),
-            TeilnehmerSchluessel);
+            TeilnehmerSchluessel,
+            GleicherQualifikant);
 
         // Die Filteroptionen werden VOR der gefilterten Liste nachgezogen: fällt die gewählte Option weg, steht
         // der Filter schon wieder auf „Alle“, wenn die Liste abgeglichen wird.
@@ -219,9 +230,10 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
                 topf.Teilnehmer,
                 detail.Lostoepfe.First(l => l.Id == topf.Id).Eintraege
                     .OrderBy(e => e.Id)
-                    .Select(TeilnehmerAnzeige.AusEintrag)
+                    .Select(e => TeilnehmerAnzeige.AusEintrag(e, _qualifikanten))
                     .ToList(),
-                t => t.EintragId);
+                t => t.EintragId,
+                GleicherQualifikant);
         AlleToepfeZuruecksetzenCommand.NotifyCanExecuteChanged();
     }
 
@@ -324,7 +336,7 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     // ── Töpfe nach Rangliste befüllen (#119) ──────────────────────────────────
 
     /// <summary>
-    /// Verteilt die aktuell noch unzugeordneten Mannschaften (VerfuegbareTeilnehmer, Platzhalter
+    /// Verteilt die aktuell noch unzugeordneten Mannschaften (VerfuegbareTeilnehmer, noch offene Platzhalter
     /// ausgenommen) anhand der ausgewählten Rangliste auf die Lostöpfe: die bestplatzierten Teams
     /// zuerst in Topf 1, die nächsten in Topf 2 usw. Bereits manuell zugeordnete Teams bleiben
     /// unangetastet — der Button ergänzt nur, was noch in "Verfügbar" steht. Teams ohne
@@ -374,11 +386,13 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
         }
 
         var toepfe = Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
-        var verteilung = LostopfVorbelegung.Verteilen(teamsZuVerteilen, rangProMannschaft, toepfe.Count, titelverteidigerId);
+        var teilnehmerJeMannschaft = teamsZuVerteilen.ToDictionary(t => t.SpielendeMannschaftId!.Value);
+        var verteilung = LostopfVorbelegung.Verteilen(
+            [.. teamsZuVerteilen.Select(t => t.SpielendeMannschaftId!.Value)], rangProMannschaft, toepfe.Count, titelverteidigerId);
         for (int topfIndex = 0; topfIndex < toepfe.Count; topfIndex++)
         {
             foreach (var mannschaftId in verteilung[topfIndex])
-                await _auslosungService.MannschaftZuLostopfHinzufuegenAsync(detail.Id, toepfe[topfIndex].Id, mannschaftId);
+                await InTopfLegenAsync(detail.Id, toepfe[topfIndex].Id, teilnehmerJeMannschaft[mannschaftId]);
         }
 
         await _kontext.DetailNeuLadenAsync(detail.Id);
@@ -390,15 +404,15 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
             : null;
 
     /// <summary>Noch verfügbare Mannschaften in Setzreihenfolge (Titelverteidiger, dann Rang, dann Name) — höchstens
-    /// so viele, wie der Runde noch fehlen.</summary>
-    private List<int> TeamsZuVerteilen(Dictionary<int, int> rangProMannschaft, int? titelverteidigerId)
+    /// so viele, wie der Runde noch fehlen. Ein Platzhalter zählt mit der Mannschaft, die ihn sicher besetzt (#483),
+    /// und kommt als Platzhalter in den Topf.</summary>
+    private List<TeilnehmerAnzeige> TeamsZuVerteilen(Dictionary<int, int> rangProMannschaft, int? titelverteidigerId)
     {
         var teams = VerfuegbareTeilnehmer
-            .Where(t => t.MannschaftId.HasValue)
-            .OrderBy(t => t.MannschaftId == titelverteidigerId ? 0 : 1)
-            .ThenBy(t => rangProMannschaft.TryGetValue(t.MannschaftId!.Value, out var rang) ? rang : int.MaxValue)
-            .ThenBy(t => t.Name)
-            .Select(t => t.MannschaftId!.Value);
+            .Where(t => t.SpielendeMannschaftId.HasValue)
+            .OrderBy(t => t.SpielendeMannschaftId == titelverteidigerId ? 0 : 1)
+            .ThenBy(t => rangProMannschaft.TryGetValue(t.SpielendeMannschaftId!.Value, out var rang) ? rang : int.MaxValue)
+            .ThenBy(t => t.AnzeigeName);
 
         return TeamsBenoetigt > 0
             ? teams.Take(Math.Max(0, TeamsBenoetigt - TeamsZugewiesen)).ToList()
