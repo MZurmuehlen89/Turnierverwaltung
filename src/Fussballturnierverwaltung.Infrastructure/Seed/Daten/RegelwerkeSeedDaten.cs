@@ -29,6 +29,8 @@ public static class RegelwerkeSeedDaten
         // Issue #354: Auswärtskriterien über alle Spiele
         new() { Name = "Auswärtstore",                       Beschreibung = "Anzahl erzielter Auswärtstore",          Regelart = RankingRegelArt.AuswaertsToreGesamt,             Sortierrichtung = Sortierrichtung.Absteigend },
         new() { Name = "Auswärtssiege",                      Beschreibung = "Anzahl Auswärtssiege",                   Regelart = RankingRegelArt.AuswaertsSiege,                  Sortierrichtung = Sortierrichtung.Absteigend },
+        // Issue #354: Platz in der Standard-Rangliste der Runde — der bessere (kleinere) Platz gewinnt
+        new() { Name = "Koeffizient (Rangliste)",            Beschreibung = "Platz in der Standard-Rangliste",        Regelart = RankingRegelArt.Koeffizient,                     Sortierrichtung = Sortierrichtung.Aufsteigend },
     ];
 
     // --- RankingRegelSets ---
@@ -70,8 +72,9 @@ public static class RegelwerkeSeedDaten
             ("UEFA Standard", 8, RankingRegelArt.FairplayWertung),
             ("UEFA Standard", 9, RankingRegelArt.Losentscheid),
 
-            // UEFA Ligaphase (Issue #353, Reihenfolge laut Reglement der UEFA-Klubwettbewerbe ab 2024/25). Der
-            // Klub-Koeffizient als letztes Kriterium ist bis #354 durch den Losentscheid vertreten.
+            // UEFA Ligaphase (Issue #353, Reihenfolge laut Reglement der UEFA-Klubwettbewerbe ab 2024/25). Letztes
+            // Kriterium ist der Klub-Koeffizient (#354); das Los entscheidet nur noch zwischen Klubs ohne Eintrag in
+            // der Rangliste. Bestehende Datenbanken: SeedDatenService.LigaphaseKoeffizientNachruesten.
             (UEFA_LIGAPHASE_SET, 1, RankingRegelArt.Punkte),
             (UEFA_LIGAPHASE_SET, 2, RankingRegelArt.Tordifferenz),
             (UEFA_LIGAPHASE_SET, 3, RankingRegelArt.ErzielteTore),
@@ -82,7 +85,8 @@ public static class RegelwerkeSeedDaten
             (UEFA_LIGAPHASE_SET, 8, RankingRegelArt.GegnerTordifferenz),
             (UEFA_LIGAPHASE_SET, 9, RankingRegelArt.GegnerErzielteTore),
             (UEFA_LIGAPHASE_SET, 10, RankingRegelArt.FairplayWertung),
-            (UEFA_LIGAPHASE_SET, 11, RankingRegelArt.Losentscheid),
+            (UEFA_LIGAPHASE_SET, 11, RankingRegelArt.Koeffizient),
+            (UEFA_LIGAPHASE_SET, 12, RankingRegelArt.Losentscheid),
         };
 
         return (sets, eintraege);

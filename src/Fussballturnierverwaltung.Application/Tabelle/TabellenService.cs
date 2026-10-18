@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
@@ -11,7 +12,8 @@ namespace Fussballturnierverwaltung.Application.Tabelle;
 public class TabellenService(
     ITurnierRundeRepository rundeRepository,
     ISpielRepository spielRepository,
-    IRegelwerkRepository regelwerkRepository)
+    IRegelwerkRepository regelwerkRepository,
+    IRanglisteRepository ranglisteRepository)
 {
     /// <summary>Zonen der Runde aus ihren ausgehenden Übergangsregeln (<c>ZielRunde</c> geladen) und ihren
     /// Tabellenbereichen (Issue #420).</summary>
@@ -29,7 +31,8 @@ public class TabellenService(
     {
         var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
         var tabelle = TabellenRechner.TabelleDerAnsichtBerechnen(
-            TabellenRechner.BisSpieltag(daten.Spiele, bisSpieltag), ansicht, daten.PunkteRegel, daten.RankingRegeln);
+            TabellenRechner.BisSpieltag(daten.Spiele, bisSpieltag), ansicht, daten.PunkteRegel, daten.RankingRegeln,
+            daten.RanglistenPlaetze);
 
         // Issue #358: mögliche Ränge nur für den aktuellen Gesamtstand — Teilansichten und historische
         // Spieltage sind keine Wertung, aus der sich ein Weiterkommen ableiten ließe.
@@ -45,7 +48,8 @@ public class TabellenService(
         int turnierRundeId, CancellationToken ct = default)
     {
         var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
-        var tabelle = TabellenRechner.TabelleBerechnen(daten.Spiele, daten.PunkteRegel, daten.RankingRegeln);
+        var tabelle = TabellenRechner.TabelleBerechnen(
+            daten.Spiele, daten.PunkteRegel, daten.RankingRegeln, ranglistenPlaetze: daten.RanglistenPlaetze);
         RangPrognose.LigaRaengeSetzen(tabelle, daten.Runde, daten.Spiele, daten.PunkteRegel);
         RangPrognose.SicherPositionierteMarkieren(tabelle);
         return tabelle;
@@ -64,8 +68,9 @@ public class TabellenService(
         return [.. GruppenRechner.GruppenErmitteln(daten.Spiele).Select(g =>
         {
             var gruppe = GruppenRechner.GruppenTabelleBerechnen(
-                g.Nummer, g.Spiele, bisSpieltag, daten.PunkteRegel, daten.RankingRegeln);
-            RangPrognose.GruppenRaengeSetzen(gruppe, g.Spiele, qualifiziertePlaetze, daten.PunkteRegel, daten.RankingRegeln);
+                g.Nummer, g.Spiele, bisSpieltag, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze);
+            RangPrognose.GruppenRaengeSetzen(
+                gruppe, g.Spiele, qualifiziertePlaetze, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze);
             return gruppe;
         })];
     }
@@ -76,7 +81,8 @@ public class TabellenService(
         int turnierRundeId, int platzierung, CancellationToken ct = default)
     {
         var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
-        return GruppenRechner.UebergreifendeRangfolgeBerechnen(daten.Spiele, platzierung, daten.PunkteRegel, daten.RankingRegeln);
+        return GruppenRechner.UebergreifendeRangfolgeBerechnen(
+            daten.Spiele, platzierung, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze);
     }
 
     /// <summary>Liefert die Spieltage, für die ein historischer Tabellenstand sinnvoll ist
@@ -88,7 +94,8 @@ public class TabellenService(
 
     /// <summary>Alles, woraus die Tabellen einer Runde gerechnet werden - je Aufruf einmal geladen (#439).</summary>
     private sealed record TabellenDaten(
-        TurnierRunde Runde, PunkteRegel PunkteRegel, IReadOnlyList<RankingRegel> RankingRegeln, IReadOnlyList<Spiel> Spiele);
+        TurnierRunde Runde, PunkteRegel PunkteRegel, IReadOnlyList<RankingRegel> RankingRegeln, IReadOnlyList<Spiel> Spiele,
+        IReadOnlyDictionary<int, int>? RanglistenPlaetze);
 
     private async Task<TabellenDaten> TabellenDatenLadenAsync(int turnierRundeId, CancellationToken ct)
     {
@@ -113,6 +120,18 @@ public class TabellenService(
             .Select(e => e.RankingRegel)
             .ToList() ?? [];
 
-        return new TabellenDaten(runde, punkteRegel, rankingRegeln, alleSpiele);
+        var ranglistenPlaetze = await RanglistenPlaetzeLadenAsync(runde, rankingRegeln, ct);
+        return new TabellenDaten(runde, punkteRegel, rankingRegeln, alleSpiele, ranglistenPlaetze);
+    }
+
+    /// <summary>Plätze der Standard-Rangliste der Runde für das Kriterium <see cref="RankingRegelArt.Koeffizient"/>
+    /// (Issue #354) — dieselbe Rangliste, nach der die Lostöpfe gebildet werden. Nur geladen, wenn das Regelset das
+    /// Kriterium nutzt und die Runde eine Standard-Rangliste hat; sonst <c>null</c>.</summary>
+    private async Task<IReadOnlyDictionary<int, int>?> RanglistenPlaetzeLadenAsync(
+        TurnierRunde runde, IReadOnlyList<RankingRegel> rankingRegeln, CancellationToken ct)
+    {
+        if (runde.StandardRanglistenQuelleId is not int quelleId) return null;
+        if (!rankingRegeln.Any(r => r.Regelart == RankingRegelArt.Koeffizient)) return null;
+        return await ranglisteRepository.PlaetzeDerNeuestenZurQuelleAsync(quelleId, ct);
     }
 }

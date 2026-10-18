@@ -383,7 +383,7 @@ public class PlatzhalterAufloesungTests
         });
         ctx.SaveChanges();
         var dienste = new SpielplanDienste(ctx);
-        var tabellenService = new TabellenService(new TurnierRundeRepository(ctx), new SpielRepository(ctx), new RegelwerkRepository(ctx));
+        var tabellenService = new TabellenService(new TurnierRundeRepository(ctx), new SpielRepository(ctx), new RegelwerkRepository(ctx), new RanglisteRepository(ctx));
 
         var gruppen = await tabellenService.GruppenTabellenBerechnenAsync(gruppenphase.Id);
         var polenEintrag = gruppen[0].Tabelle.First(e => e.Mannschaft.Id == polen);

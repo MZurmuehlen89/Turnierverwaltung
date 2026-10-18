@@ -22,5 +22,8 @@ public enum RankingRegelArt
 
     // Issue #354: Auswärtskriterien über alle Spiele (nicht nur im direkten Vergleich)
     AuswaertsToreGesamt,
-    AuswaertsSiege
+    AuswaertsSiege,
+
+    // Issue #354: Platz in der Standard-Rangliste der Runde (UEFA-Klub-Koeffizient, FIFA-Weltrangliste)
+    Koeffizient
 }

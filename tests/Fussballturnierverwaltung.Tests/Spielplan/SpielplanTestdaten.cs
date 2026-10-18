@@ -465,7 +465,7 @@ internal static class SpielplanTestdaten
         ]);
 
     internal static TabellenService TabellenServiceFuer(TurnierverwaltungDbContext ctx) =>
-        new(new TurnierRundeRepository(ctx), new SpielRepository(ctx), new RegelwerkRepository(ctx));
+        new(new TurnierRundeRepository(ctx), new SpielRepository(ctx), new RegelwerkRepository(ctx), new RanglisteRepository(ctx));
 
     /// <summary>Ligaphase (4 Teams, Einfachrunde, 3 Spieltage) + Halbfinale mit Platzhaltern
     /// "Platz 1/4 (Ligaphase)" und "Platz 2/3 (Ligaphase)". Spieltag 1: A–B, C–D; 2: A–C, B–D; 3: A–D, B–C.</summary>

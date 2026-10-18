@@ -47,7 +47,9 @@ public class TabellenRechnerTests
         [.. arten.Select(art => new RankingRegel
         {
             Regelart = art,
-            Sortierrichtung = art == RankingRegelArt.Losentscheid ? Sortierrichtung.Aufsteigend : Sortierrichtung.Absteigend
+            Sortierrichtung = art is RankingRegelArt.Losentscheid or RankingRegelArt.Koeffizient
+                ? Sortierrichtung.Aufsteigend
+                : Sortierrichtung.Absteigend
         })];
 
     private static int[] Reihenfolge(IReadOnlyList<TabellenEintrag> tabelle) =>
@@ -107,6 +109,30 @@ public class TabellenRechnerTests
     {
         var tabelle = TabellenRechner.TabelleBerechnen(
             [Spiel(3, 1, 1, 1), Spiel(2, 4, 1, 1)], _dreiPunkte, Regeln(RankingRegelArt.Punkte, RankingRegelArt.Losentscheid));
+
+        Reihenfolge(tabelle).Should().Equal(1, 2, 3, 4);
+    }
+
+    [Fact]
+    public void TabelleBerechnen_Koeffizient_OrdnetGleichstaendeNachRanglistenplatz_TeamsOhneEintragHinten()
+    {
+        // Alle vier Teams punkt- und torgleich; Team 1 fehlt in der Rangliste.
+        var plaetze = new Dictionary<int, int> { [4] = 1, [2] = 5, [3] = 9 };
+
+        var tabelle = TabellenRechner.TabelleBerechnen(
+            [Spiel(1, 2, 1, 1), Spiel(3, 4, 1, 1)], _dreiPunkte,
+            Regeln(RankingRegelArt.Punkte, RankingRegelArt.Koeffizient, RankingRegelArt.Losentscheid),
+            ranglistenPlaetze: plaetze);
+
+        Reihenfolge(tabelle).Should().Equal(4, 2, 3, 1);
+    }
+
+    [Fact]
+    public void TabelleBerechnen_KoeffizientOhneRangliste_UeberlaesstDieEntscheidungDemNaechstenKriterium()
+    {
+        var tabelle = TabellenRechner.TabelleBerechnen(
+            [Spiel(4, 3, 1, 1), Spiel(2, 1, 1, 1)], _dreiPunkte,
+            Regeln(RankingRegelArt.Punkte, RankingRegelArt.Koeffizient, RankingRegelArt.Losentscheid));
 
         Reihenfolge(tabelle).Should().Equal(1, 2, 3, 4);
     }

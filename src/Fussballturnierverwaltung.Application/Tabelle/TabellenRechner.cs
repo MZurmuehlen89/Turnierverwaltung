@@ -14,10 +14,13 @@ public static class TabellenRechner
 
     /// <summary>Tabelle aus den Spielen mit Ergebnis. Mit <paramref name="nurHeimspiele"/> zählt je Team nur die
     /// Heim- (<c>true</c>) bzw. nur die Auswärtsseite (<c>false</c>). <paramref name="teilnehmer"/> nennt Teams,
-    /// die auch ohne Spiel gegen einen bereits bekannten Gegner in der Tabelle stehen sollen.</summary>
+    /// die auch ohne Spiel gegen einen bereits bekannten Gegner in der Tabelle stehen sollen.
+    /// <paramref name="ranglistenPlaetze"/> (Mannschaft → Platz) braucht nur das Kriterium
+    /// <see cref="RankingRegelArt.Koeffizient"/>; ohne Angabe entscheidet es nichts.</summary>
     public static IReadOnlyList<TabellenEintrag> TabelleBerechnen(
         IReadOnlyList<Spiel> spiele, PunkteRegel punkteRegel, IReadOnlyList<RankingRegel> rankingRegeln,
-        bool? nurHeimspiele = null, IReadOnlyList<Mannschaft>? teilnehmer = null)
+        bool? nurHeimspiele = null, IReadOnlyList<Mannschaft>? teilnehmer = null,
+        IReadOnlyDictionary<int, int>? ranglistenPlaetze = null)
     {
         var teams = TeamsSammeln(spiele, teilnehmer);
         if (teams.Count == 0) return [];
@@ -29,14 +32,15 @@ public static class TabellenRechner
         GegnerSummenErgaenzen(stats, abgeschlossene);
 
         var eintraege = teams.Select(kv => EintragAus(kv.Value, stats[kv.Key])).ToList();
-        SortierenUndRangZuweisen(eintraege, rankingRegeln, new Wertung(stats, abgeschlossene, punkteRegel));
+        SortierenUndRangZuweisen(eintraege, rankingRegeln, new Wertung(stats, abgeschlossene, punkteRegel, ranglistenPlaetze));
         return eintraege;
     }
 
     /// <summary>Tabelle einer <see cref="TabellenAnsicht"/>: Hin- und Rückrunde werten nur die Spiele ihrer
     /// Hälfte, Heim- und Auswärtstabelle je Team nur die eine Seite.</summary>
     public static IReadOnlyList<TabellenEintrag> TabelleDerAnsichtBerechnen(
-        IReadOnlyList<Spiel> spiele, TabellenAnsicht ansicht, PunkteRegel punkteRegel, IReadOnlyList<RankingRegel> rankingRegeln)
+        IReadOnlyList<Spiel> spiele, TabellenAnsicht ansicht, PunkteRegel punkteRegel, IReadOnlyList<RankingRegel> rankingRegeln,
+        IReadOnlyDictionary<int, int>? ranglistenPlaetze = null)
     {
         spiele = ansicht switch
         {
@@ -52,7 +56,7 @@ public static class TabellenRechner
             _                                => null
         };
 
-        return TabelleBerechnen(spiele, punkteRegel, rankingRegeln, nurHeimspiele);
+        return TabelleBerechnen(spiele, punkteRegel, rankingRegeln, nurHeimspiele, ranglistenPlaetze: ranglistenPlaetze);
     }
 
     /// <summary>Die Spiele bis einschließlich <paramref name="bisSpieltag"/> - der Stand nach diesem Spieltag;
@@ -225,9 +229,11 @@ public static class TabellenRechner
     // ── Sortierung ────────────────────────────────────────────────────────
 
     /// <summary>Woran zwei Teams gemessen werden: ihre Statistik, für den direkten Vergleich die Spiele mit
-    /// Ergebnis und die Punkteregel, nach der diese Duelle gewertet werden.</summary>
+    /// Ergebnis und die Punkteregel, nach der diese Duelle gewertet werden, für den Koeffizienten die Plätze in der
+    /// Standard-Rangliste der Runde.</summary>
     private sealed record Wertung(
-        IReadOnlyDictionary<int, RohStats> Stats, IReadOnlyList<Spiel> Abgeschlossene, PunkteRegel PunkteRegel);
+        IReadOnlyDictionary<int, RohStats> Stats, IReadOnlyList<Spiel> Abgeschlossene, PunkteRegel PunkteRegel,
+        IReadOnlyDictionary<int, int>? RanglistenPlaetze);
 
     private static void SortierenUndRangZuweisen(
         List<TabellenEintrag> eintraege, IReadOnlyList<RankingRegel> regeln, Wertung wertung)
@@ -273,7 +279,20 @@ public static class TabellenRechner
         // Stabiler Tiebreaker: nach Team-ID (reproduzierbar)
         if (regelart == RankingRegelArt.Losentscheid) return xId.CompareTo(yId);
 
+        if (regelart == RankingRegelArt.Koeffizient) return NachRanglistenplatzVergleichen(xId, yId, wertung.RanglistenPlaetze);
+
         return VergleichenNachRegelart(regelart, wertung.Stats[xId], wertung.Stats[yId]);
+    }
+
+    /// <summary>Vergleicht den Platz in der Standard-Rangliste der Runde (Issue #354, z. B. UEFA-Klub-Koeffizient als
+    /// letztes Kriterium der Ligaphase). Ein Team ohne Eintrag steht hinter jedem mit Eintrag; ohne Rangliste
+    /// entscheidet das Kriterium nichts, wie der direkte Vergleich ohne Duell.</summary>
+    private static int NachRanglistenplatzVergleichen(int xId, int yId, IReadOnlyDictionary<int, int>? plaetze)
+    {
+        if (plaetze is null || plaetze.Count == 0) return 0;
+        return Platz(xId).CompareTo(Platz(yId));
+
+        int Platz(int id) => plaetze.TryGetValue(id, out int platz) ? platz : int.MaxValue;
     }
 
     /// <summary>Vergleicht nur über die direkten Duelle zwischen x und y. Bei Heim-/Auswaertstabelle wird hier

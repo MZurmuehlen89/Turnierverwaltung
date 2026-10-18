@@ -19,7 +19,7 @@ internal sealed class SpielplanDienste
         var mannschaftRepo = new MannschaftRepository(ctx);
         var auslosungRepo = new AuslosungRepository(ctx);
         var uebergangsregelRepo = new UebergangsregelRepository(ctx);
-        var tabellen  = new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx));
+        var tabellen  = new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx), new RanglisteRepository(ctx));
         var generatoren = new SpielplanGeneratorFactory(
             [new KoRundeGenerator(), new RoundRobinGenerator(), new TopfLigaGenerator(), new SchweizerSystemGenerator()]);
 

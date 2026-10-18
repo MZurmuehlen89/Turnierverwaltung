@@ -249,7 +249,8 @@ public class SeedDatenServiceTests
         regelarten.Should().ContainInOrder(
             RankingRegelArt.Punkte, RankingRegelArt.Tordifferenz, RankingRegelArt.ErzielteTore,
             RankingRegelArt.AuswaertsToreGesamt, RankingRegelArt.Siege, RankingRegelArt.AuswaertsSiege,
-            RankingRegelArt.GegnerPunkte, RankingRegelArt.GegnerTordifferenz, RankingRegelArt.GegnerErzielteTore);
+            RankingRegelArt.GegnerPunkte, RankingRegelArt.GegnerTordifferenz, RankingRegelArt.GegnerErzielteTore,
+            RankingRegelArt.FairplayWertung, RankingRegelArt.Koeffizient, RankingRegelArt.Losentscheid);
         regelarten.Should().NotContain(RankingRegelArt.DirekterVergleichPunkte, "in der Ligaphase spielt nicht jeder gegen jeden");
 
         var klassisch = await RegelartenDerRundeAsync(ctx, CL_VORLAGE, "32 Teams · ohne Auswärtstorregel · 2021–2024", "Gruppenphase");
@@ -302,6 +303,45 @@ public class SeedDatenServiceTests
                 r.Name == "Ligaphase" && r.TurnierInstanz.Name == "UEFA Europa League" && r.TurnierInstanz.Status == TurnierStatus.Vorlage);
             elLigaphase.RegelwerkId.Should().Be(fifaId, "ein manuell gewähltes Regelwerk bleibt erhalten");
             (await ctx.RankingRegelSets.CountAsync(s => s.Name == RegelwerkeSeedDaten.UEFA_LIGAPHASE_SET)).Should().Be(1);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InitialisierenAsync_SetztKoeffizientInUnveraendertesLigaphasenSetVorDenLosentscheid(bool vomNutzerGeaendert)
+    {
+        var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+            // Stand vor #354: Losentscheid an Stelle 11, keine Koeffizient-Regel.
+            var set = await ctx.RankingRegelSets.Include(s => s.Eintraege).ThenInclude(e => e.RankingRegel)
+                .SingleAsync(s => s.Name == RegelwerkeSeedDaten.UEFA_LIGAPHASE_SET);
+            var koeffizient = set.Eintraege.Single(e => e.RankingRegel.Regelart == RankingRegelArt.Koeffizient);
+            ctx.RankingRegelSetEintraege.Remove(koeffizient);
+            if (vomNutzerGeaendert)
+                ctx.RankingRegelSetEintraege.Remove(set.Eintraege.Single(e => e.RankingRegel.Regelart == RankingRegelArt.FairplayWertung));
+            await ctx.SaveChangesAsync();
+            set.Eintraege.Single(e => e.RankingRegel.Regelart == RankingRegelArt.Losentscheid).Reihenfolge = 11;
+            await ctx.SaveChangesAsync();
+            ctx.RankingRegeln.Remove(await ctx.RankingRegeln.SingleAsync(r => r.Regelart == RankingRegelArt.Koeffizient));
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+            var regelarten = await RegelartenDerRundeAsync(ctx, CL_VORLAGE, VARIANTE_36, "Ligaphase");
+            if (vomNutzerGeaendert)
+                regelarten.Should().NotContain(RankingRegelArt.Koeffizient, "eine geänderte Zusammenstellung bleibt erhalten");
+            else
+                regelarten.TakeLast(3).Should().Equal(
+                    RankingRegelArt.FairplayWertung, RankingRegelArt.Koeffizient, RankingRegelArt.Losentscheid);
         }
     }
 

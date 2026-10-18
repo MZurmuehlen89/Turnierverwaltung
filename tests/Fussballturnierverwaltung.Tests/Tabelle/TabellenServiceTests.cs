@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Tabelle;
+using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
@@ -24,7 +25,8 @@ public class TabellenServiceTests
     private static TabellenService ServiceFuer(TurnierverwaltungDbContext ctx) =>
         new(new TurnierRundeRepository(ctx),
             new SpielRepository(ctx),
-            new RegelwerkRepository(ctx));
+            new RegelwerkRepository(ctx),
+            new RanglisteRepository(ctx));
 
     // Legt Regelwerk + PunkteRegel + TurnierRunde an (ohne RankingRegelSet).
     private static void GrundSetupAnlegen(
@@ -1090,5 +1092,56 @@ public class TabellenServiceTests
             e.SicherPositioniert.Should().BeFalse();
             e.Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen);
         });
+    }
+
+    // ── Koeffizient (Issue #354) ──────────────────────────────────────────
+
+    [Theory]
+    [InlineData(true,  new[] { 3, 1, 2, 4 })]
+    [InlineData(false, new[] { 1, 2, 3, 4 })]
+    public async Task Koeffizient_EntscheidetNachDerNeuestenRanglisteDerStandardQuelle(
+        bool mitStandardRangliste, int[] erwarteteReihenfolge)
+    {
+        await using var ctx = NeuerContext();
+        var regeln = new[]
+        {
+            new RankingRegel { Id = 1, Regelart = RankingRegelArt.Punkte,       Sortierrichtung = Sortierrichtung.Absteigend },
+            new RankingRegel { Id = 2, Regelart = RankingRegelArt.Koeffizient,  Sortierrichtung = Sortierrichtung.Aufsteigend },
+            new RankingRegel { Id = 3, Regelart = RankingRegelArt.Losentscheid, Sortierrichtung = Sortierrichtung.Aufsteigend },
+        };
+        ctx.RankingRegelSets.Add(new RankingRegelSet { Id = 1, Name = "Ligaphase" });
+        ctx.RankingRegeln.AddRange(regeln);
+        ctx.RankingRegelSetEintraege.AddRange(regeln.Select((r, i) => new RankingRegelSetEintrag
+            { Id = i + 1, RankingRegelSetId = 1, RankingRegelId = r.Id, Reihenfolge = i + 1 }));
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Ligaphase", RankingRegelSetId = 1 });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.RanglistenQuellen.Add(new RanglistenQuelle { Id = 1, Name = "Klub-Koeffizient", Url = "https://example.org" });
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Ligaphase", Rundenart = Rundenart.TopfLiga, RegelwerkId = 1, Reihenfolge = 1,
+            StandardRanglistenQuelleId = mitStandardRangliste ? 1 : null
+        });
+        ctx.Mannschaften.AddRange(Enumerable.Range(1, 4).Select(id =>
+            new Mannschaft { Id = id, Name = $"Team {id}", Kurzname = $"T{id}", LandId = 1 }));
+        // Die ältere Rangliste derselben Quelle darf nicht zählen; in der neuesten fehlen Team 2 und 4.
+        ctx.Ranglisten.AddRange(
+            RanglisteMit(1, new DateOnly(2025, 6, 1), (1, 1), (2, 2), (3, 3), (4, 4)),
+            RanglisteMit(2, new DateOnly(2026, 6, 1), (3, 1), (1, 2)));
+        ctx.SaveChanges();
+
+        // Alle vier Teams punkt- und torgleich.
+        SpielHinzufuegen(ctx, 1, 1, heimId: 1, auswaertsId: 2, heimTore: 1, auswaertsTore: 1);
+        SpielHinzufuegen(ctx, 2, 1, heimId: 3, auswaertsId: 4, heimTore: 1, auswaertsTore: 1);
+
+        var tabelle = await ServiceFuer(ctx).TabelleBerechnenAsync(1);
+
+        tabelle.OrderBy(e => e.Rang).Select(e => e.Mannschaft.Id).Should().Equal(erwarteteReihenfolge);
+
+        static Rangliste RanglisteMit(int id, DateOnly datum, params (int MannschaftId, int Rang)[] plaetze) => new()
+        {
+            Id = id, Name = $"Koeffizient {datum.Year}", Datum = datum, Quelle = "Test", RanglistenQuelleId = 1,
+            Eintraege = [.. plaetze.Select(p => new RanglistenEintrag { MannschaftId = p.MannschaftId, Rang = p.Rang })]
+        };
     }
 }

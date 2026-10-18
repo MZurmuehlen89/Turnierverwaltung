@@ -25,6 +25,27 @@ public class RanglisteRepository(TurnierverwaltungDbContext context)
             .AsSplitQuery()
             .FirstOrDefaultAsync(r => r.Id == id, ct);
 
+    public async Task<IReadOnlyDictionary<int, int>> PlaetzeDerNeuestenZurQuelleAsync(int quelleId, CancellationToken ct = default)
+    {
+        var ranglisteId = await Context.Ranglisten
+            .Where(r => r.RanglistenQuelleId == quelleId)
+            .OrderByDescending(r => r.Datum)
+            .ThenByDescending(r => r.Id)
+            .Select(r => (int?)r.Id)
+            .FirstOrDefaultAsync(ct);
+        if (ranglisteId is null) return new Dictionary<int, int>();
+
+        var eintraege = await Context.RanglistenEintraege
+            .Where(e => e.RanglisteId == ranglisteId)
+            .Select(e => new { e.MannschaftId, e.Rang })
+            .ToListAsync(ct);
+
+        // Steht eine Mannschaft doppelt in der Liste, gilt ihr bester Platz.
+        return eintraege
+            .GroupBy(e => e.MannschaftId)
+            .ToDictionary(g => g.Key, g => g.Min(e => e.Rang));
+    }
+
     public Task SpeichernAenderungenAsync(CancellationToken ct = default)
         => Context.SaveChangesAsync(ct);
 }

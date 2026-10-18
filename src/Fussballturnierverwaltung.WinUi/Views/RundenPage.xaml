@@ -239,11 +239,11 @@
 
                         <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
                             <StackPanel HorizontalAlignment="Stretch">
-                                <TextBlock Text="Standard-Rangliste (Lostöpfe)" FontSize="12" Margin="0,0,0,3" />
+                                <TextBlock Text="Standard-Rangliste (Lostöpfe, Koeffizient)" FontSize="12" Margin="0,0,0,3" />
                                 <ComboBox ItemsSource="{Binding Formular.RanglistenQuelleOptionen}"
                                           SelectedItem="{Binding Formular.StandardRanglistenQuelle, Mode=TwoWay}"
                                           DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
-                                <TextBlock Text="Beim Anlegen der Auslosung werden die Lostöpfe nach der neuesten importierten Rangliste dieser Quelle befüllt."
+                                <TextBlock Text="Beim Anlegen der Auslosung werden die Lostöpfe nach der neuesten importierten Rangliste dieser Quelle befüllt. Nach derselben Rangliste entscheidet das Rangfolge-Kriterium „Koeffizient (Rangliste)“."
                                            FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" VerticalAlignment="Bottom">

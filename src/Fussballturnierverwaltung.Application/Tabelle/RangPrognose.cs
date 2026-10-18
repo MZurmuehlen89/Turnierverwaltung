@@ -103,7 +103,8 @@ public static class RangPrognose
         IReadOnlyList<Spiel> gruppenSpiele,
         int qualifiziertePlaetze,
         PunkteRegel punkteRegel,
-        IReadOnlyList<RankingRegel> rankingRegeln)
+        IReadOnlyList<RankingRegel> rankingRegeln,
+        IReadOnlyDictionary<int, int>? ranglistenPlaetze = null)
     {
         // Issue #397: Solange ein Platz der Gruppe noch nicht aufgelöst ist, fehlen dessen Spiele in der
         // Status-Berechnung (Gegner unbekannt) — kein Rang darf dann als sicher gelten.
@@ -114,7 +115,8 @@ public static class RangPrognose
             [.. gruppenSpiele.Where(s => s.Status != SpielStatus.Abgeschlossen
                                       && s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)],
             punkteRegel,
-            rankingRegeln);
+            rankingRegeln,
+            ranglistenPlaetze);
 
         foreach (var eintrag in gruppe.Tabelle)
         {
@@ -147,7 +149,8 @@ public static class RangPrognose
         IReadOnlyList<Spiel> Abgeschlossen,
         IReadOnlyList<Spiel> Offen,
         PunkteRegel PunkteRegel,
-        IReadOnlyList<RankingRegel> RankingRegeln);
+        IReadOnlyList<RankingRegel> RankingRegeln,
+        IReadOnlyDictionary<int, int>? RanglistenPlaetze);
 
     /// <summary>Ermittelt den best- bzw. schlechtestmöglichen Rang von <paramref name="teamId"/>: die eigenen offenen
     /// Spiele sind fixiert - bestenfalls gewinnt das Team alle, schlechtestenfalls verliert es alle - und werden mit
@@ -184,7 +187,7 @@ public static class RangPrognose
         {
             var tabelle = TabellenRechner.TabelleBerechnen(
                 [..stand.Abgeschlossen, ..eigeneErgebnisse, ..FremdeErgebnisse(fremde, kombi)],
-                stand.PunkteRegel, stand.RankingRegeln);
+                stand.PunkteRegel, stand.RankingRegeln, ranglistenPlaetze: stand.RanglistenPlaetze);
             int rang = tabelle.FirstOrDefault(e => e.Mannschaft.Id == teamId)?.Rang ?? int.MaxValue;
 
             extremRang = bestenfalls ? Math.Min(extremRang, rang) : Math.Max(extremRang, rang);

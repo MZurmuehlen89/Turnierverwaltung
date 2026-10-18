@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,7 @@ public class SeedDatenService
         await MannschaftsBildmaterialNachruesten(cancellationToken);
         // Vor den Regelwerken: nachgerüstete Regelwerke verweisen auf RankingRegelSets (Issue #353).
         await RankingRegelnNachruesten(cancellationToken);
+        await LigaphaseKoeffizientNachruesten(cancellationToken);
         await RegelwerkeNachruesten(cancellationToken);
         // Vor den Vorlagen: nachgerüstete Vorlagen verweisen auf Ranglisten-Quellen (Issue #349).
         await RanglistenQuellenNachruesten(cancellationToken);
@@ -196,6 +198,48 @@ public class SeedDatenService
         }
         await _context.SaveChangesAsync(ct);
         Protokollieren(neueSets.Count, "RankingRegelSets nachgerüstet.");
+    }
+
+    // Seed-Stand des Regelsets „UEFA Ligaphase (ab 2024/25)“ vor #354: der Losentscheid vertrat den Klub-Koeffizienten.
+    private static readonly RankingRegelArt[] _ligaphaseVorKoeffizient =
+    [
+        RankingRegelArt.Punkte, RankingRegelArt.Tordifferenz, RankingRegelArt.ErzielteTore,
+        RankingRegelArt.AuswaertsToreGesamt, RankingRegelArt.Siege, RankingRegelArt.AuswaertsSiege,
+        RankingRegelArt.GegnerPunkte, RankingRegelArt.GegnerTordifferenz, RankingRegelArt.GegnerErzielteTore,
+        RankingRegelArt.FairplayWertung, RankingRegelArt.Losentscheid
+    ];
+
+    /// <summary>Issue #354: setzt im Regelset der UEFA-Ligaphase den Klub-Koeffizienten vor den Losentscheid — nur,
+    /// solange das Set noch genau dem Seed-Stand vor #354 entspricht; eine vom Nutzer geänderte Zusammenstellung
+    /// bleibt erhalten. Der letzte Eintrag wechselt auf den Koeffizienten und das Los kommt dahinter, damit keine
+    /// Reihenfolge verschoben werden muss (eindeutiger Index auf Set + Reihenfolge).</summary>
+    private async Task LigaphaseKoeffizientNachruesten(CancellationToken ct)
+    {
+        var set = await _context.RankingRegelSets
+            .Include(s => s.Eintraege).ThenInclude(e => e.RankingRegel)
+            .FirstOrDefaultAsync(s => s.Name == RegelwerkeSeedDaten.UEFA_LIGAPHASE_SET, ct);
+        if (set is null) return;
+
+        var eintraege = set.Eintraege.OrderBy(e => e.Reihenfolge).ToList();
+        if (!eintraege.Select(e => e.RankingRegel.Regelart).SequenceEqual(_ligaphaseVorKoeffizient)) return;
+
+        // Regeln sind nicht eindeutig je Regelart erzwungen — bei Dubletten gilt die älteste (wie RankingRegelnNachruesten).
+        var koeffizient = await _context.RankingRegeln
+            .Where(r => r.Regelart == RankingRegelArt.Koeffizient)
+            .OrderBy(r => r.Id)
+            .FirstOrDefaultAsync(ct);
+        if (koeffizient is null) return;
+
+        var letzter = eintraege[^1];
+        set.Eintraege.Add(new Domain.Entitaeten.Regelwerke.RankingRegelSetEintrag
+        {
+            RankingRegel = letzter.RankingRegel,
+            Reihenfolge  = letzter.Reihenfolge + 1
+        });
+        letzter.RankingRegel = koeffizient;
+
+        await _context.SaveChangesAsync(ct);
+        Protokollieren(1, "Regelset der UEFA-Ligaphase um den Klub-Koeffizienten ergänzt.");
     }
 
     private async Task RegelwerkeNachruesten(CancellationToken ct)
