@@ -91,7 +91,8 @@ public class TurnierVorlagenAuslosungsregelnTests
                     r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge < runde.Reihenfolge);
                 foreach (var regel in runde.VorgegebeneAuslosungsregeln)
                     AuslosungsRegelKompatibilitaet
-                        .AlsVorgabeMoeglich(regel, runde.Rundenart, runde.VorgegebeneAuslosungsart, folgtAufGruppenphase)
+                        .AlsVorgabeMoeglich(regel, runde.Rundenart, runde.VorgegebeneAuslosungsart, folgtAufGruppenphase,
+                            runde.PaarungFestVorgegeben)
                         .Should().BeTrue($"{vorlage.Name} ({vorlage.Variante}), {runde.Name}: {regel}");
             }
         }

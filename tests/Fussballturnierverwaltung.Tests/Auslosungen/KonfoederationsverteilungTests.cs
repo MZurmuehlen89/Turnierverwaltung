@@ -299,17 +299,27 @@ public class KonfoederationsverteilungTests
     public void AlsVorgabeMoeglich_RichtetSichNachRundenartUndVorgegebenerAuslosungsart()
     {
         AuslosungsRegelKompatibilitaet.AlsVorgabeMoeglich(
-            AuslosungsRegelArt.Konfoederationsverteilung, Rundenart.Gruppenphase, null, false).Should().BeTrue();
+            AuslosungsRegelArt.Konfoederationsverteilung, Rundenart.Gruppenphase, null, false, false).Should().BeTrue();
         AuslosungsRegelKompatibilitaet.AlsVorgabeMoeglich(
-            AuslosungsRegelArt.Konfoederationsverteilung, Rundenart.KoRunde, null, true).Should().BeFalse();
+            AuslosungsRegelArt.Konfoederationsverteilung, Rundenart.KoRunde, null, true, false).Should().BeFalse();
         AuslosungsRegelKompatibilitaet.AlsVorgabeMoeglich(
-            AuslosungsRegelArt.HeimrechtNachLos, Rundenart.KoRunde, null, false).Should().BeTrue();
+            AuslosungsRegelArt.HeimrechtNachLos, Rundenart.KoRunde, null, false, false).Should().BeTrue();
         AuslosungsRegelKompatibilitaet.AlsVorgabeMoeglich(
-            AuslosungsRegelArt.HeimrechtNachLos, Rundenart.KoRunde, Auslosungsart.TopfZuordnung, false)
+            AuslosungsRegelArt.HeimrechtNachLos, Rundenart.KoRunde, Auslosungsart.TopfZuordnung, false, false)
             .Should().BeFalse("die Topf-Zuordnung verteilt das Heimrecht selbst");
         AuslosungsRegelKompatibilitaet.AlsVorgabeMoeglich(
-            AuslosungsRegelArt.KeineGleicheGruppe, Rundenart.KoRunde, null, folgtAufGruppenphase: false).Should().BeFalse();
+            AuslosungsRegelArt.KeineGleicheGruppe, Rundenart.KoRunde, null, folgtAufGruppenphase: false, paarungFestVorgegeben: false).Should().BeFalse();
         AuslosungsRegelKompatibilitaet.AlsVorgabeMoeglich(
-            AuslosungsRegelArt.KeinGleichesLand, Rundenart.Liga, null, false).Should().BeFalse();
+            AuslosungsRegelArt.KeinGleichesLand, Rundenart.Liga, null, false, false).Should().BeFalse();
     }
+
+    // #463: Eine fest vorgegebene Runde paart Platzhalter in der Vorbelegung — dort wirkt keine Regel.
+    [Theory]
+    [InlineData(AuslosungsRegelArt.KeinGleichesLand)]
+    [InlineData(AuslosungsRegelArt.KeineGleicheGruppe)]
+    [InlineData(AuslosungsRegelArt.HeimrechtNachLos)]
+    public void AlsVorgabeMoeglich_BeiFestVorgegebenerPaarung_Nie(AuslosungsRegelArt regel) =>
+        AuslosungsRegelKompatibilitaet.AlsVorgabeMoeglich(
+                regel, Rundenart.KoRunde, null, folgtAufGruppenphase: true, paarungFestVorgegeben: true)
+            .Should().BeFalse();
 }

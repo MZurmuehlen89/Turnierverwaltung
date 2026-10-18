@@ -38,10 +38,15 @@ public static class AuslosungsRegelKompatibilitaet
     /// <summary>Ob eine Vorlage die Regel für eine Runde vorgeben kann (Issue #356): bei der vorgegebenen
     /// Auslosungsart bzw. — ohne Vorgabe — bei mindestens einer zur Rundenart passenden Auslosungsart muss sie
     /// wirken können. Manuell zählt nicht mit (das regelt „Paarung fest vorgegeben“), ebenso wenig eine
-    /// Auslosungsart, bei der die Regel ohnehin immer gilt.</summary>
+    /// Auslosungsart, bei der die Regel ohnehin immer gilt.
+    /// <paramref name="paarungFestVorgegeben"/>: Eine solche Runde wird nicht ausgelost, ihre Paarungen zwischen
+    /// Platzhaltern stehen in der Vorbelegung fest — dort wirkt keine Regel, also gibt es nichts vorzugeben (#463).</summary>
     public static bool AlsVorgabeMoeglich(
-        AuslosungsRegelArt regel, Rundenart rundenart, Auslosungsart? vorgegebeneArt, bool folgtAufGruppenphase)
+        AuslosungsRegelArt regel, Rundenart rundenart, Auslosungsart? vorgegebeneArt, bool folgtAufGruppenphase,
+        bool paarungFestVorgegeben)
     {
+        if (paarungFestVorgegeben) return false;
+
         IEnumerable<Auslosungsart> arten = vorgegebeneArt is { } vorgabe
             ? [vorgabe]
             : Enum.GetValues<Auslosungsart>()
@@ -152,8 +157,8 @@ public static class AuslosungsRegelKompatibilitaet
         return istAktiv && SperrGrund(regel, art, rundenart, folgtAufGruppenphase) is null;
     }
 
-    /// <summary>Ob die Regel bei dieser Auslosung angewendet wird — die eine Entscheidung für Losverfahren,
-    /// Prüfung vor dem Losen und Vorbelegung von Hand (#443). Die Rundenart kommt vom Aufrufer, weil nicht jeder
+    /// <summary>Ob die Regel bei dieser Auslosung angewendet wird — die eine Entscheidung für Losverfahren
+    /// und Prüfung vor dem Losen (#443; die Vorbelegung prüft seit #463 keine Regeln mehr). Die Rundenart kommt vom Aufrufer, weil nicht jeder
     /// die Runde an der Auslosung mitgeladen hat.</summary>
     // folgtAufGruppenphase: true — ohne vorangegangene Gruppenphase fehlt ohnehin jede Gruppen-Herkunft,
     // „Keine gleiche Gruppe“ läuft dann ins Leere statt die Auslosung zu stören.

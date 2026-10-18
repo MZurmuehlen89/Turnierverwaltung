@@ -271,6 +271,12 @@ public partial class RundenFormularViewModel : ObservableObject
         OnPropertyChanged(nameof(VorgegebeneAuslosungsart));
     }
 
+    partial void OnPaarungFestVorgegebenChanged(bool value)
+    {
+        if (_populiertGerade > 0) return;
+        RegelVorgabenAnRundePassen();
+    }
+
     partial void OnVorgegebeneAuslosungsartChanged(VorgegebeneAuslosungsartOption value)
     {
         if (_populiertGerade > 0) return;
@@ -304,7 +310,7 @@ public partial class RundenFormularViewModel : ObservableObject
 
     private bool RegelVorgabeMoeglich(AuslosungsRegelArt regel) =>
         _zeile is not null && AuslosungsRegelKompatibilitaet.AlsVorgabeMoeglich(
-            regel, Rundenart, VorgegebeneAuslosungsart?.Wert, _folgtAufGruppenphase);
+            regel, Rundenart, VorgegebeneAuslosungsart?.Wert, _folgtAufGruppenphase, PaarungFestVorgegeben);
 
     /// <summary>Formular befüllen: Verfügbarkeit und Häkchen aus der gewählten Runde übernehmen.</summary>
     private void RegelVorgabenAusZeile(RundeZeile? zeile)

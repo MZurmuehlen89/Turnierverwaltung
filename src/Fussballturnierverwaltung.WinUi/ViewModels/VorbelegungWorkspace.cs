@@ -86,7 +86,10 @@ public partial class VorbelegungWorkspace : ObservableObject
         _teilnehmerpool = teilnehmerpool;
         _instanzId = instanzId;
         Runde = runde;
-        Belegung = new Platzbelegung(runde.Rundenart, runde.GruppenAnzahl, RegelWirkt);
+        // Keine Regelprüfung (#463): hier werden Platzhalter gepaart ("1. Gruppe A"), die kein Land und meist keine
+        // eindeutige Gruppe haben, und die Paarungen bilden ein Reglement ab. Die Prüfung in der Platzbelegung
+        // bleibt für die manuelle Auslosung mit echten Mannschaften (#482).
+        Belegung = new Platzbelegung(runde.Rundenart, runde.GruppenAnzahl, regelWirkt: _ => false);
         Belegung.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(Platzbelegung.BelegungVollstaendig)) AbschliessenCommand.NotifyCanExecuteChanged();
@@ -128,11 +131,6 @@ public partial class VorbelegungWorkspace : ObservableObject
         catch (Exception ex) { Fehlermeldung = ex.Message; }
         finally { IstLadend = false; }
     }
-
-    // Dieselbe Entscheidung wie beim Losen (#443): eine aktive Regel, die bei dieser Runde nicht wirkt, lehnt auch
-    // hier kein Platzieren ab. Ohne Auslosung gilt keine — sie entsteht erst beim ersten Abschließen.
-    private bool RegelWirkt(AuslosungsRegelArt art) =>
-        _auslosung is not null && AuslosungsRegelKompatibilitaet.Wirkt(art, _auslosung, Runde.Rundenart);
 
     // ── Abschließen / Zurücksetzen ───────────────────────────────────────────
 
