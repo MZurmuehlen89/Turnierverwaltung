@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Seed;
 using Microsoft.EntityFrameworkCore;
@@ -28,8 +29,7 @@ public class SeedProtokollTests
             "RankingRegelSets nachgerüstet.",
             "Regelwerke nachgerüstet.",
             "Ranglisten-Quellen nachgerüstet.",
-            "neue Turniervorlagen nachgerüstet.",
-            FILTER_ERGAENZT);
+            "neue Turniervorlagen nachgerüstet.");
         protokoll.Should().OnlyContain(e => e.Anzahl > 0);
     }
 
@@ -37,15 +37,45 @@ public class SeedProtokollTests
     public async Task InitialisierenAsync_VollstaendigeDatenbank_LegtNichtsMehrAn()
     {
         var optionen = NeueDatenbank();
-        await using (var ctx = new TurnierverwaltungDbContext(optionen))
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        await ErsterLaufAsync(optionen);
 
         await using var zweiterLauf = new TurnierverwaltungDbContext(optionen);
         var protokoll = await new SeedDatenService(zweiterLauf, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
 
-        // Ist-Stand, kein Soll: die Filter-Ergänzung zählt die drei Vorlagen ohne Filter (Mini-Turniere, Freies
-        // Turnier) bei jedem Lauf mit, obwohl sich an ihnen nichts ändert.
-        protokoll.Select(e => (e.Anzahl, e.Text)).Should().Equal((3, FILTER_ERGAENZT));
+        protokoll.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task InitialisierenAsync_BestandsVorlageOhneFilter_TraegtFilterAusSeedNach()
+    {
+        var optionen = NeueDatenbank();
+        await ErsterLaufAsync(optionen);
+        int vorlageId;
+        (int? VerbandId, int? LandId, MannschaftsartFilter Art) soll;
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            var vorlage = await ctx.TurnierInstanzen.FirstAsync(i => i.Status == TurnierStatus.Vorlage
+                && (i.VerbandId != null || i.LandId != null || i.MannschaftsartFilter != MannschaftsartFilter.Alle));
+            vorlageId = vorlage.Id;
+            soll = (vorlage.VerbandId, vorlage.LandId, vorlage.MannschaftsartFilter);
+            vorlage.VerbandId = null;
+            vorlage.LandId = null;
+            vorlage.MannschaftsartFilter = MannschaftsartFilter.Alle;
+            await ctx.SaveChangesAsync();
+        }
+
+        await using var zweiterLauf = new TurnierverwaltungDbContext(optionen);
+        var protokoll = await new SeedDatenService(zweiterLauf, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+        protokoll.Select(e => (e.Anzahl, e.Text)).Should().Equal((1, FILTER_ERGAENZT));
+        var nachgetragen = await zweiterLauf.TurnierInstanzen.SingleAsync(i => i.Id == vorlageId);
+        (nachgetragen.VerbandId, nachgetragen.LandId, nachgetragen.MannschaftsartFilter).Should().Be(soll);
+    }
+
+    private static async Task ErsterLaufAsync(DbContextOptions<TurnierverwaltungDbContext> optionen)
+    {
+        await using var ctx = new TurnierverwaltungDbContext(optionen);
+        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
     }
 
     private static DbContextOptions<TurnierverwaltungDbContext> NeueDatenbank() =>

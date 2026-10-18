@@ -197,8 +197,8 @@ internal sealed class TurnierVorlagenNachruestung
         int ergaenzt = 0;
         foreach (var (vorlage, soll) in MitSeedStand())
         {
-            if (vorlage.VerbandId is not null || vorlage.LandId is not null
-                || vorlage.MannschaftsartFilter != MannschaftsartFilter.Alle) continue;
+            // Issue #452: Vorlagen ohne Filter im Seed (Mini-Turniere, Freies Turnier) haben nichts nachzutragen.
+            if (HatFilter(vorlage) || !HatFilter(soll)) continue;
 
             vorlage.VerbandId = soll.VerbandId;
             vorlage.LandId = soll.LandId;
@@ -207,6 +207,10 @@ internal sealed class TurnierVorlagenNachruestung
         }
         return ergaenzt;
     }
+
+    private static bool HatFilter(TurnierInstanz vorlage) =>
+        vorlage.VerbandId is not null || vorlage.LandId is not null
+        || vorlage.MannschaftsartFilter != MannschaftsartFilter.Alle;
 
     // ── Rundenart und Regelwerk ────────────────────────────────────────────────
 
