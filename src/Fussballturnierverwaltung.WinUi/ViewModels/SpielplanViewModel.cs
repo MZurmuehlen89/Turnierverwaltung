@@ -9,6 +9,7 @@ using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -763,44 +764,54 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         using var schutz = await DbContextSchutz.BetretenAsync();
         if (AusgewaehlteRunde is null || AusgewaehlteInstanz is null) return;
 
-        var rundeId = AusgewaehlteRunde.Id;
-        var instanzId = AusgewaehlteInstanz.Id;
+        var runde = AusgewaehlteRunde;
         Fehlermeldung = null;
 
+        var auslosung = await AuslosungFuerNeuGenerierungAsync(runde, AusgewaehlteInstanz.Id);
+        if (auslosung is null) return;
+
+        using var vorgang = _logger.Vorgang($"Spielplan neu generieren (Runde {runde.Id})");
+        await AendernUndNeuLadenAsync(
+            // Löschen, Generieren und die eine Kaskade danach (#320, #306) stehen im Dienst — derselbe Ablauf
+            // wie beim Abschließen einer Auslosung.
+            () => _kaskade.RundenSpielplanAusAuslosungErsetzenAsync(runde.Id, [.. auslosung.Ergebnisse]),
+            async () =>
+            {
+                await SpieleNeuLadenAsync(runde.Id);
+                OnPropertyChanged(nameof(HatPlatzhalterSpiele));
+                AusgewaehlteSpiel = null;
+                await _baumService.NachSpielplanAenderungAktualisierenAsync(runde.TurnierInstanzId);
+            });
+    }
+
+    /// <summary>Die abgeschlossene Auslosung, aus der die Runde neu generiert wird — nach Rückfrage, wenn sie
+    /// schon Spiele hat. <c>null</c>, wenn nicht generiert wird: abgebrochen oder Fehlermeldung gesetzt.</summary>
+    private async Task<Auslosung?> AuslosungFuerNeuGenerierungAsync(TurnierRunde runde, int instanzId)
+    {
         try
         {
             // Issue #433: vor Rückfrage und Löschen prüfen — ein ohne Auslosung automatisch generiertes Finale
             // (#113) hat Spiele, aber keine abgeschlossene Auslosung; das Löschen davor nahm ihm das Spiel
             // samt Ergebnis, ohne dass etwas neu generiert werden konnte.
-            var auslosung = await _auslosungService.FindenAbgeschlosseneNachRundeAsync(instanzId, rundeId);
+            var auslosung = await _auslosungService.FindenAbgeschlosseneNachRundeAsync(instanzId, runde.Id);
             if (auslosung is null)
             {
-                Fehlermeldung = MeldungFehlendeAuslosung(AusgewaehlteRunde, Spiele.Count > 0);
-                return;
+                Fehlermeldung = MeldungFehlendeAuslosung(runde, Spiele.Count > 0);
+                return null;
             }
 
-            if (Spiele.Count > 0)
-            {
-                var bestaetigt = await _dialogService.BestaetigenAsync(
-                    "Spielplan neu generieren",
-                    $"Die Runde '{AusgewaehlteRunde.Name}' hat bereits {Spiele.Count} Spiel(e). " +
-                    "Soll der Spielplan gelöscht und neu generiert werden?");
-                if (!bestaetigt) return;
-            }
+            if (Spiele.Count == 0) return auslosung;
 
-            using var vorgang = _logger.Vorgang($"Spielplan neu generieren (Runde {rundeId})");
-            // Löschen, Generieren und die eine Kaskade danach (#320, #306) stehen im Dienst — derselbe Ablauf
-            // wie beim Abschließen einer Auslosung.
-            await _kaskade.RundenSpielplanAusAuslosungErsetzenAsync(rundeId, [.. auslosung.Ergebnisse]);
-
-            await SpieleNeuLadenAsync(rundeId);
-            OnPropertyChanged(nameof(HatPlatzhalterSpiele));
-            AusgewaehlteSpiel = null;
-            await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
+            var bestaetigt = await _dialogService.BestaetigenAsync(
+                "Spielplan neu generieren",
+                $"Die Runde '{runde.Name}' hat bereits {Spiele.Count} Spiel(e). " +
+                "Soll der Spielplan gelöscht und neu generiert werden?");
+            return bestaetigt ? auslosung : null;
         }
         catch (Exception ex)
         {
             Fehlermeldung = ex.Message;
+            return null;
         }
     }
 
@@ -834,25 +845,21 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task NaechsteSchweizerRundeGenerierenAsync()
     {
         using var schutz = await DbContextSchutz.BetretenAsync();
-        if (AusgewaehlteRunde is null) return;
-        var rundeId = AusgewaehlteRunde.Id;
+        if (AusgewaehlteRunde is not { } runde) return;
         Fehlermeldung = null;
-        try
-        {
-            using var vorgang = _logger.Vorgang($"Spielplan: nächste Schweizer Runde generieren (Runde {rundeId})");
-            await _spielplanService.SchweizerNaechsteRundeGenerierenAsync(rundeId);
 
-            await SpieleNeuLadenAsync(rundeId);
+        using var vorgang = _logger.Vorgang($"Spielplan: nächste Schweizer Runde generieren (Runde {runde.Id})");
+        bool generiert = await AendernUndNeuLadenAsync(
+            () => _spielplanService.SchweizerNaechsteRundeGenerierenAsync(runde.Id),
+            async () =>
+            {
+                await SpieleNeuLadenAsync(runde.Id);
+                OnPropertyChanged(nameof(HatPlatzhalterSpiele));
+                await _baumService.NachSpielplanAenderungAktualisierenAsync(runde.TurnierInstanzId);
+            });
 
-            // Issue #363: direkt den gerade generierten Spieltag zeigen.
-            if (AusgewaehlteGruppe is null) Fokus.LetztenSpieltagZeigen();
-            OnPropertyChanged(nameof(HatPlatzhalterSpiele));
-            await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-        }
+        // Issue #363: direkt den gerade generierten Spieltag zeigen.
+        if (generiert && AusgewaehlteGruppe is null) Fokus.LetztenSpieltagZeigen();
     }
 
     private async Task SpeichernAsync()
@@ -916,21 +923,18 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             "Ergebnis löschen", $"Ergebnis von Spiel #{spielnummer} wirklich löschen?{kaskadenHinweis}");
         if (!bestaetigt) return;
 
+        var instanzId = AusgewaehlteRunde.TurnierInstanzId;
         Fehlermeldung = null;
-        try
-        {
-            using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis löschen (Spiel {spielId})");
-            await _spielService.ErgebnisLoeschenAsync(spielId);
 
-            await SpieleNeuLadenAsync(rundeId);
-
-            AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
-            await _baumService.NachSpielplanAenderungAktualisierenAsync(AusgewaehlteRunde.TurnierInstanzId);
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-        }
+        using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis löschen (Spiel {spielId})");
+        await AendernUndNeuLadenAsync(
+            () => _spielService.ErgebnisLoeschenAsync(spielId),
+            async () =>
+            {
+                await SpieleNeuLadenAsync(rundeId);
+                AusgewaehlteSpiel = Spiele.FirstOrDefault(s => s.Id == spielId);
+                await _baumService.NachSpielplanAenderungAktualisierenAsync(instanzId);
+            });
     }
 
     private async Task<string> KaskadenHinweisAsync(IReadOnlyList<int> spielIds)
@@ -1024,22 +1028,56 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         try
         {
             using var vorgang = _logger.Vorgang(vorgangsName);
-            await aktion();
-            if (finaleAbgleichen) await _finaleAutomatik.AbgleichenAsync(runde.TurnierInstanzId);
-
-            await SpieleNeuLadenAsync(runde.Id);
-            await SpielAuswahlSetzenAsync(auswahlDanach, spielId);
-            if (baumNachziehen) await _baumService.NachSpielplanAenderungAktualisierenAsync(runde.TurnierInstanzId);
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
+            await AendernUndNeuLadenAsync(
+                async () =>
+                {
+                    await aktion();
+                    if (finaleAbgleichen) await _finaleAutomatik.AbgleichenAsync(runde.TurnierInstanzId);
+                },
+                async () =>
+                {
+                    await SpieleNeuLadenAsync(runde.Id);
+                    await SpielAuswahlSetzenAsync(auswahlDanach, spielId);
+                    if (baumNachziehen)
+                        await _baumService.NachSpielplanAenderungAktualisierenAsync(runde.TurnierInstanzId);
+                });
         }
         finally
         {
             IstSimulierend = false;
             AktualisiereBefehle();
         }
+    }
+
+    /// <summary>Führt eine ändernde Aktion aus und zeigt danach in jedem Fall den Stand der Datenbank, auch wenn
+    /// die Aktion wirft: Die Dienste speichern ohne gemeinsame Transaktion in mehreren Schritten (erst löschen,
+    /// dann generieren; Ergebnisse je Spiel, dann die Kaskade). Ein Fehler mittendrin hinterlässt schon
+    /// gespeicherte Änderungen — ohne Neuladen zeigte die Liste etwa Spiele, die es nicht mehr gibt (#460).
+    /// Die Fehlermeldung der Aktion bleibt stehen.</summary>
+    /// <returns>Ob die Aktion ohne Fehler durchlief.</returns>
+    private async Task<bool> AendernUndNeuLadenAsync(Func<Task> aenderung, Func<Task> neuLaden)
+    {
+        bool erfolgreich = true;
+        try
+        {
+            await aenderung();
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+            erfolgreich = false;
+        }
+
+        try
+        {
+            await neuLaden();
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung ??= ex.Message;
+        }
+
+        return erfolgreich;
     }
 
     private async Task SpielAuswahlSetzenAsync(AuswahlDanach auswahlDanach, int? bisherigesSpielId)
