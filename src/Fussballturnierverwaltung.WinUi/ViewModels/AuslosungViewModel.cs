@@ -38,17 +38,14 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 {
     private readonly AuslosungService _auslosungService;
     private readonly TurnierInstanzService _instanzService;
-    private readonly MannschaftService _mannschaftService;
-    private readonly VerbandService _verbandService;
     private readonly SpielplanService _spielplanService;
     private readonly PlatzhalterKaskadeService _kaskade;
     private readonly TurnierBaumService _baumService;
-    private readonly UebergangsregelService _uebergangsregelService;
+    private readonly AuslosungsTeilnehmerpool _teilnehmerpool;
     private readonly IDialogService _dialogService;
     private readonly ILogger<AuslosungViewModel> _logger;
 
     private TurnierInstanz? _instanz;
-    private IReadOnlyDictionary<int, string>? _verbandKurznamen;
     private Auslosung? _auslosungDetail;
     private bool _ladenAktiv;
     private bool _seitenlisteAktualisierungAktiv;
@@ -357,26 +354,22 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public AuslosungViewModel(
         AuslosungService auslosungService,
         TurnierInstanzService instanzService,
-        MannschaftService mannschaftService,
-        VerbandService verbandService,
         SpielplanService spielplanService,
         PlatzhalterKaskadeService kaskade,
         TurnierBaumService baumService,
         RanglisteService ranglisteService,
         VerbandsQuoteService verbandsQuoteService,
         LandesQuoteService landesQuoteService,
-        UebergangsregelService uebergangsregelService,
+        AuslosungsTeilnehmerpool teilnehmerpool,
         IDialogService dialogService,
         ILogger<AuslosungViewModel> logger)
     {
         _auslosungService = auslosungService;
         _instanzService = instanzService;
-        _mannschaftService = mannschaftService;
-        _verbandService = verbandService;
         _spielplanService = spielplanService;
         _kaskade = kaskade;
         _baumService = baumService;
-        _uebergangsregelService = uebergangsregelService;
+        _teilnehmerpool = teilnehmerpool;
         _dialogService = dialogService;
         _logger = logger;
         Arbeitsbereich = new LostopfArbeitsbereichViewModel(this, auslosungService, ranglisteService, instanzService, dialogService);
@@ -407,7 +400,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         Ziehung.Beenden();
         _instanz = instanz;
-        _verbandKurznamen = null;
+        _teilnehmerpool.Zuruecksetzen();
         // Eine hinter diesem Wechsel wartende Aktion darf nicht mehr auf dem bisherigen Detail arbeiten (#413).
         _auslosungDetail = null;
         KeinTurnierGewaehlt = instanz is null;
@@ -823,7 +816,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             if (detail is null) return;
             _auslosungDetail = detail;
 
-            Arbeitsbereich.Zeigen(detail, await TeilnehmerPoolErmittelnAsync(detail),
+            Arbeitsbereich.Zeigen(detail, await _teilnehmerpool.ErmittelnAsync(detail, _instanz, InstanzRunden),
                 _instanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
 
             await Quoten.ZeigenAsync(detail, _instanz, InstanzRunden);
@@ -907,38 +900,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                              $"{AuslosungAnzeigeTexte.AuslosungsartAnzeigeName(detail.Auslosungsart)}  ·  " +
                              $"Status: {AuslosungAnzeigeTexte.StatusAnzeigeName(detail.Status)}";
     }
-
-    /// <summary>Alle Teilnehmer, die für die Runde der Auslosung in Frage kommen — Platzhalter aus den
-    /// eingehenden Übergangsregeln, sonst aus der Vorgängerrunde, in der ersten Runde die Mannschaften nach
-    /// dem Turnierfilter. Bereits einem Lostopf zugeordnete sind noch enthalten.</summary>
-    private async Task<IReadOnlyList<TeilnehmerAnzeige>> TeilnehmerPoolErmittelnAsync(Auslosung detail)
-    {
-        var aktuelleRunde = InstanzRunden.FirstOrDefault(r => r.Id == detail.TurnierRundeId);
-        if (aktuelleRunde is null) return await MannschaftenNachTurnierfilterAsync();
-
-        var eingehendeRegeln = await _uebergangsregelService.AlleNachZielRundeIdAsync(aktuelleRunde.Id);
-        return TeilnehmerPoolHilfsmittel.PlatzhalterAusVorrunden(InstanzRunden, aktuelleRunde, eingehendeRegeln)
-               ?? await MannschaftenNachTurnierfilterAsync();
-    }
-
-    private async Task<IReadOnlyList<TeilnehmerAnzeige>> MannschaftenNachTurnierfilterAsync()
-    {
-        var teams = await _mannschaftService.AlleNachTurnierfilterAsync(
-            _instanz?.VerbandId,
-            _instanz?.LandId,
-            _instanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
-        var verbandKurznamen = await VerbandKurznamenAsync();
-        return teams
-            .Select(TeilnehmerAnzeige.AusMannschaft)
-            .Select(t => t with { VerbandName = verbandKurznamen.GetValueOrDefault(t.VerbandId ?? 0) })
-            .ToList();
-    }
-
-    /// <summary>Kurznamen der Verbände für den Verbandsfilter der verfügbaren Teams (#421). Je Turnier einmal
-    /// geladen: der Teilnehmer-Pool wird nach jeder Topf-Änderung neu ermittelt, und die Mannschaftsabfrage lädt
-    /// den Verband bewusst nicht mit (sein Logo käme sonst in jeder Mannschaftszeile mit).</summary>
-    private async Task<IReadOnlyDictionary<int, string>> VerbandKurznamenAsync() =>
-        _verbandKurznamen ??= (await _verbandService.AlleAbrufenAsync()).ToDictionary(v => v.Id, v => v.Kurzname);
 
     private async Task AktualisiereSeitenlisteAsync()
     {
