@@ -16,6 +16,9 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 public record RankingSetOption(string Anzeige, RankingRegelSet? Wert);
 
+/// <summary>Ein Kriterium des gewählten Ranking-Regelsets in der Reihenfolge, in der es die Tabelle entscheidet (#354).</summary>
+public record RangfolgeKriterium(string Nummer, string Name, string Beschreibung);
+
 public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly RegelwerkService _service;
@@ -87,7 +90,10 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
     [NotifyPropertyChangedFor(nameof(RankingSetOptionen))]
     private ObservableCollection<RankingRegelSet> _rankingRegelSets = [];
 
-    [ObservableProperty] private RankingSetOption _ausgewaehltesRankingSet = _keinRankingSet;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RangfolgeKriterien))]
+    [NotifyPropertyChangedFor(nameof(HatKeinRankingSet))]
+    private RankingSetOption _ausgewaehltesRankingSet = _keinRankingSet;
 
     // ── Berechnete Listen ─────────────────────────────────────────────────────
     public IEnumerable<Regelwerk> RegelwerkeGefiltert => Regelwerke
@@ -104,6 +110,16 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
 
     public IReadOnlyList<RankingSetOption> RankingSetOptionen =>
         [_keinRankingSet, .. RankingRegelSets.Select(s => new RankingSetOption(s.Name, s))];
+
+    // Nur zur Anzeige (#354): bisher zeigte die Seite nur den Namen des Sets, nicht, wonach es sortiert. Die Sets
+    // kommen samt Einträgen und Regeln aus AlleRankingRegelSetsAbrufenAsync. Null-sicher, weil eine ComboBox beim
+    // ersten Laden null zurückschreiben kann.
+    public IReadOnlyList<RangfolgeKriterium> RangfolgeKriterien =>
+        [.. (AusgewaehltesRankingSet?.Wert?.Eintraege ?? [])
+            .OrderBy(e => e.Reihenfolge)
+            .Select((e, i) => new RangfolgeKriterium($"{i + 1}.", e.RankingRegel.Name, e.RankingRegel.Beschreibung))];
+
+    public bool HatKeinRankingSet => AusgewaehltesRankingSet?.Wert is null;
 
     private static readonly HashSet<string> _formFelder =
     [
