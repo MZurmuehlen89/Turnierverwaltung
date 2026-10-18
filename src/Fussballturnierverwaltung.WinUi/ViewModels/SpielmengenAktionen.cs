@@ -38,10 +38,12 @@ public interface ISpielmengenKontext
     /// <summary>Hinweis für die Rückfrage, falls das Zurücksetzen Ergebnisse in Folgerunden mitnimmt.</summary>
     Task<string> KaskadenHinweisAsync(IReadOnlyList<int> spielIds);
 
-    /// <summary>Führt <paramref name="aktion"/> aus und zeigt danach den neuen Stand der Runde. Läuft im bereits
-    /// betretenen <see cref="DbContextSchutz"/>.</summary>
+    /// <summary>Führt <paramref name="aktion"/> aus und zeigt danach den neuen Stand der Runde samt Turnierbaum.
+    /// Läuft im bereits betretenen <see cref="DbContextSchutz"/>.</summary>
+    /// <param name="finaleAbgleichen">Danach die Finale-Automatik (#113) abgleichen — nach dem Zurücksetzen nicht
+    /// nötig, dort gleicht die Kaskade des Ergebnis-Service sie selbst ab.</param>
     Task SpielmengeBearbeitenAsync(
-        string vorgangsName, Func<Task> aktion, AuswahlDanach auswahlDanach, bool finaleAbgleichen, bool baumNachziehen);
+        string vorgangsName, Func<Task> aktion, AuswahlDanach auswahlDanach, bool finaleAbgleichen);
 }
 
 /// <summary>Simulieren und Zurücksetzen auf den Ebenen Runde, Hin-/Rückrunde, Gruppe, Spieltag und Auswahl
@@ -154,8 +156,8 @@ public sealed class SpielmengenAktionen
     private bool CanRueckrundeZuruecksetzen() => KannZuruecksetzen(RundenHaelfteSpiele(istRueckrunde: true));
 
     // ── Simulation: Aktionen ───────────────────────────────────────────────────
-    // Gruppe und Spieltag gleichen danach weder die Finale-Automatik ab noch ziehen sie den Turnierbaum nach —
-    // so seit Issue #14, beim Zusammenführen (#402) unverändert übernommen.
+    // Jede Ebene gleicht danach die Finale-Automatik ab: deren Teilnehmer können aus Tabellenplätzen einer Liga
+    // oder Gruppe stammen, die schon der letzte Spieltag oder die letzte Gruppe festlegt (#457).
 
     private async Task RundeSimulierenAsync()
     {
@@ -165,7 +167,7 @@ public sealed class SpielmengenAktionen
         await _kontext.SpielmengeBearbeitenAsync(
             $"Spielplan: Runde simulieren (Runde {runde.Id})",
             () => _simulationsService.RundeSimulierenAsync(runde.Id, SIMULATIONS_MODUS),
-            AuswahlDanach.Aufheben, finaleAbgleichen: true, baumNachziehen: true);
+            AuswahlDanach.Aufheben, finaleAbgleichen: true);
     }
 
     private Task HinrundeSimulierenAsync() => RundenHaelfteSimulierenAsync(istRueckrunde: false);
@@ -179,7 +181,7 @@ public sealed class SpielmengenAktionen
         await _kontext.SpielmengeBearbeitenAsync(
             $"Spielplan: Rundenhälfte simulieren (Runde {runde.Id})",
             () => _simulationsService.RundenHaelfteSimulierenAsync(runde.Id, istRueckrunde, SIMULATIONS_MODUS),
-            AuswahlDanach.Aufheben, finaleAbgleichen: true, baumNachziehen: true);
+            AuswahlDanach.Aufheben, finaleAbgleichen: true);
     }
 
     private async Task GruppeSimulierenAsync()
@@ -191,7 +193,7 @@ public sealed class SpielmengenAktionen
         await _kontext.SpielmengeBearbeitenAsync(
             $"Spielplan: Gruppe simulieren (Runde {runde.Id})",
             () => _simulationsService.GruppeSimulierenAsync(runde.Id, teamIds, SIMULATIONS_MODUS),
-            AuswahlDanach.Wiederherstellen, finaleAbgleichen: false, baumNachziehen: false);
+            AuswahlDanach.Wiederherstellen, finaleAbgleichen: true);
     }
 
     private async Task SpieltagSimulierenAsync()
@@ -205,7 +207,7 @@ public sealed class SpielmengenAktionen
             () => teamIds is not null
                 ? _simulationsService.SpieltagInGruppeSimulierenAsync(runde.Id, spieltag, teamIds, SIMULATIONS_MODUS)
                 : _simulationsService.SpieltageSimulierenAsync(runde.Id, spieltag, SIMULATIONS_MODUS),
-            AuswahlDanach.Wiederherstellen, finaleAbgleichen: false, baumNachziehen: false);
+            AuswahlDanach.Wiederherstellen, finaleAbgleichen: true);
     }
 
     private async Task AuswahlSimulierenAsync()
@@ -218,7 +220,7 @@ public sealed class SpielmengenAktionen
         await _kontext.SpielmengeBearbeitenAsync(
             $"Spielplan: Auswahl simulieren ({spielIds.Count} Spiele)",
             () => _simulationsService.SpieleSimulierenAsync(spielIds, SIMULATIONS_MODUS),
-            AuswahlDanach.MitMehrfachauswahlAufheben, finaleAbgleichen: true, baumNachziehen: true);
+            AuswahlDanach.MitMehrfachauswahlAufheben, finaleAbgleichen: true);
     }
 
     // ── Ergebnis-Reset: Aktionen (Issue #123) ────────────────────────────────
@@ -287,6 +289,6 @@ public sealed class SpielmengenAktionen
         await _kontext.SpielmengeBearbeitenAsync(
             $"Spielplan: {ebene} zurücksetzen ({spielIds.Count} Ergebnisse)",
             () => _spielService.MehrereErgebnisseLoeschenAsync(spielIds),
-            auswahlDanach, finaleAbgleichen: false, baumNachziehen: true);
+            auswahlDanach, finaleAbgleichen: false);
     }
 }

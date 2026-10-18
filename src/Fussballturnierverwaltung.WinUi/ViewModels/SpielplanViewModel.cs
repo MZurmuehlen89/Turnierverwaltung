@@ -1019,7 +1019,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// <summary>Führt eine Aktion auf mehreren Spielen der Runde aus und zeigt danach den neuen Stand. Läuft im
     /// bereits betretenen <see cref="DbContextSchutz"/>.</summary>
     async Task ISpielmengenKontext.SpielmengeBearbeitenAsync(
-        string vorgangsName, Func<Task> aktion, AuswahlDanach auswahlDanach, bool finaleAbgleichen, bool baumNachziehen)
+        string vorgangsName, Func<Task> aktion, AuswahlDanach auswahlDanach, bool finaleAbgleichen)
     {
         if (AusgewaehlteRunde is not { } runde) return;
         int? spielId = AusgewaehlteSpiel?.Id;
@@ -1038,8 +1038,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 {
                     await SpieleNeuLadenAsync(runde.Id);
                     await SpielAuswahlSetzenAsync(auswahlDanach, spielId);
-                    if (baumNachziehen)
-                        await _baumService.NachSpielplanAenderungAktualisierenAsync(runde.TurnierInstanzId);
+                    await _baumService.NachSpielplanAenderungAktualisierenAsync(runde.TurnierInstanzId);
                 });
         }
         finally
