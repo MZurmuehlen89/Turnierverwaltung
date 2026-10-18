@@ -6,36 +6,12 @@
 # 10-Anfragen/Minute-Limit fuer unidentifizierte Clients. NICHT erhoehen ohne triftigen Grund,
 # NICHT mehrere Instanzen parallel starten (Etikette verlangt serielle Anfragen).
 import urllib.request, urllib.parse, json, re, time, os, sys, csv
+from wikipedia_api import HEADERS, api_get, get_content, get_thumb_url, download_binary
 
 SLEEP_SECONDS = 6.5
-HEADERS = {"User-Agent": "Turnierverwaltung-SeedBot/1.0 (privates Hobbyprojekt, siehe github.com/MZurmuehlen89/Turnierverwaltung; kontakt via GitHub Issue)"}
 OUT_DIR = "svg_national"
 LOG_FILE = "national_log.csv"
 os.makedirs(OUT_DIR, exist_ok=True)
-
-def api_get(url, retries=5):
-    req = urllib.request.Request(url, headers=HEADERS)
-    for attempt in range(retries):
-        try:
-            with urllib.request.urlopen(req, timeout=15) as r:
-                return json.load(r)
-        except urllib.error.HTTPError as e:
-            if e.code == 429 and attempt < retries - 1:
-                wait = int(e.headers.get("Retry-After", 10 * (attempt + 1)))
-                time.sleep(wait)
-                continue
-            raise
-
-def get_content(title):
-    url = f"https://en.wikipedia.org/w/api.php?action=query&titles={urllib.parse.quote(title)}&prop=revisions&rvprop=content&rvslots=main&format=json&redirects=1"
-    data = api_get(url)
-    pages = data.get("query", {}).get("pages", {})
-    for pid, page in pages.items():
-        if pid == "-1":
-            return None
-        rev = page.get("revisions", [{}])[0]
-        return rev.get("slots", {}).get("main", {}).get("*", "")
-    return None
 
 def extract_badge(content):
     m = re.search(r"\|\s*Badge\s*=\s*\[?\[?(?:File:)?([^\|\]\n]+\.(?:svg|png|SVG|PNG))", content)
@@ -44,34 +20,6 @@ def extract_badge(content):
 def extract_trigramme(content):
     m = re.search(r"\|\s*FIFA[ _]?Trigramme\s*=\s*([A-Za-z]{2,4})", content)
     return m.group(1).strip().upper() if m else None
-
-def get_thumb_url(filename, width=128):
-    url = f"https://en.wikipedia.org/w/api.php?action=query&titles={urllib.parse.quote('File:' + filename)}&prop=imageinfo&iiprop=url&iiurlwidth={width}&format=json"
-    data = api_get(url)
-    pages = data.get("query", {}).get("pages", {})
-    for pid, page in pages.items():
-        info_list = page.get("imageinfo")
-        if not info_list:
-            continue
-        info = info_list[0]
-        return info.get("thumburl") or info.get("url")
-    return None
-
-def download_binary(url, out_path, retries=5):
-    req = urllib.request.Request(url, headers=HEADERS)
-    for attempt in range(retries):
-        try:
-            with urllib.request.urlopen(req, timeout=20) as r:
-                content = r.read()
-            with open(out_path, "wb") as f:
-                f.write(content)
-            return len(content)
-        except urllib.error.HTTPError as e:
-            if e.code == 429 and attempt < retries - 1:
-                wait = int(e.headers.get("Retry-After", 10 * (attempt + 1)))
-                time.sleep(wait)
-                continue
-            raise
 
 # Laender, deren Wikipedia-Artikel vom generischen "X national football team"-
 # Muster abweichen (bekannte Sonderfaelle, z.B. "soccer" statt "football" im

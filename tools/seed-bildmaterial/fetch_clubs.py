@@ -6,36 +6,12 @@
 # 10-Anfragen/Minute-Limit fuer unidentifizierte Clients. NICHT erhoehen ohne triftigen Grund,
 # NICHT mehrere Instanzen parallel starten (Etikette verlangt serielle Anfragen).
 import urllib.request, urllib.parse, json, re, time, os, sys, csv
+from wikipedia_api import HEADERS, api_get, get_content, get_thumb_url, download_binary
 
 SLEEP_SECONDS = 6.5
-HEADERS = {"User-Agent": "Turnierverwaltung-SeedBot/1.0 (privates Hobbyprojekt, siehe github.com/MZurmuehlen89/Turnierverwaltung; kontakt via GitHub Issue)"}
 OUT_DIR = "svg_clubs"
 LOG_FILE = "clubs_log.csv"
 os.makedirs(OUT_DIR, exist_ok=True)
-
-def api_get(url, retries=6):
-    req = urllib.request.Request(url, headers=HEADERS)
-    for attempt in range(retries):
-        try:
-            with urllib.request.urlopen(req, timeout=15) as r:
-                return json.load(r)
-        except urllib.error.HTTPError as e:
-            if e.code == 429 and attempt < retries - 1:
-                wait = int(e.headers.get("Retry-After", 15 * (attempt + 1)))
-                time.sleep(wait)
-                continue
-            raise
-
-def get_content(title):
-    url = f"https://en.wikipedia.org/w/api.php?action=query&titles={urllib.parse.quote(title)}&prop=revisions&rvprop=content&rvslots=main&format=json&redirects=1"
-    data = api_get(url)
-    pages = data.get("query", {}).get("pages", {})
-    for pid, page in pages.items():
-        if pid == "-1":
-            return None
-        rev = page.get("revisions", [{}])[0]
-        return rev.get("slots", {}).get("main", {}).get("*", "")
-    return None
 
 def search_title(query):
     url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(query)}&format=json&srlimit=1"
@@ -48,37 +24,6 @@ def extract_club_image(content):
         return None
     m = re.search(r"\|\s*(?:image|current)\s*=\s*\[?\[?(?:File:)?([^\|\]\n]+\.(?:svg|png|SVG|PNG))", content)
     return m.group(1).strip() if m else None
-
-def get_thumb_url(filename, width=128):
-    # Manche Commons-Dateinamen stehen im Wikitext bereits Prozent-kodiert
-    # (z.B. Umlaute/Akzente) - ohne unquote wuerde quote() sie doppelt kodieren.
-    filename = urllib.parse.unquote(filename)
-    url = f"https://en.wikipedia.org/w/api.php?action=query&titles={urllib.parse.quote('File:' + filename)}&prop=imageinfo&iiprop=url&iiurlwidth={width}&format=json"
-    data = api_get(url)
-    pages = data.get("query", {}).get("pages", {})
-    for pid, page in pages.items():
-        info_list = page.get("imageinfo")
-        if not info_list:
-            continue
-        info = info_list[0]
-        return info.get("thumburl") or info.get("url")
-    return None
-
-def download_binary(url, out_path, retries=6):
-    req = urllib.request.Request(url, headers=HEADERS)
-    for attempt in range(retries):
-        try:
-            with urllib.request.urlopen(req, timeout=20) as r:
-                content = r.read()
-            with open(out_path, "wb") as f:
-                f.write(content)
-            return len(content)
-        except urllib.error.HTTPError as e:
-            if e.code == 429 and attempt < retries - 1:
-                wait = int(e.headers.get("Retry-After", 15 * (attempt + 1)))
-                time.sleep(wait)
-                continue
-            raise
 
 # Deutsche Namen aus vereine.tsv, die auf en.wikipedia unter einem anderen
 # Titel liegen bzw. deren Volltextsuche auf Fehltreffer (Spielerseiten etc.) lief.
