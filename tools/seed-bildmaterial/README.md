@@ -14,11 +14,22 @@ Resource eingebunden wird.
 | Nationalmannschafts-Wappen | ✅ 197/209 abgeschlossen (12 dauerhaft ohne Wikipedia-Badge) | ed0cc09, (dieser Commit) |
 | Vereinswappen | ✅ 224/224 abgeschlossen | (dieser Commit) |
 | Vereinswappen Nachtrag #351 (GER 3. Liga/Regionalliga, ENG Championship/League One) | ✅ 76/76 (`python fetch_clubs.py 224 300`) | (#351-Commit) |
+| Turnierlogos #481 (ein Logo je Wettbewerb der Seed-Vorlagen) | ✅ siehe `turnierlogos_log.csv` | (#481-Commit) |
 
 Damit ist Issue #233 inhaltlich vollständig — die verbleibenden 12 Nationalmannschaften haben laut
 Stichprobe (z. B. Panama) ein schlicht leeres `Badge`-Feld in der Wikipedia-Infobox, keine
 Skript-Limitierung. Nachtrag nur noch manuell möglich (Verbands-Website o. Ä.), kein Automatisierungs-
 Kandidat mehr.
+
+## Turnierlogos (#481)
+
+`python fetch_turnierlogos.py` holt je Wettbewerb das Logo aus der Infobox des englischen Wikipedia-Artikels
+nach `raw_turnierlogos/` (Code = Dateiname, muss zu `TurnierLogoNachruestung` in `Infrastructure/Seed`
+passen). Danach `cd svgtool && dotnet run -- ../raw_turnierlogos ../png_turnierlogos 128` und die PNGs nach
+`src/Fussballturnierverwaltung.Infrastructure/Seed/Bildmaterial/Turnierlogos/` kopieren. Zeigt die Infobox
+kein Logo (z. B. nur den Pokal), steht in `LOGO_OVERRIDES` der Dateiname des Logos.
+
+Die Wikipedia-Zugriffe aller Skripte liegen in `wikipedia_api.py`.
 
 ## Wichtig: Rate-Limit
 

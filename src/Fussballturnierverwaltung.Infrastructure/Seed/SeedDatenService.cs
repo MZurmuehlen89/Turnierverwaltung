@@ -36,6 +36,8 @@ public class SeedDatenService
         await RanglistenQuellenNachruesten(cancellationToken);
         var vorlagen = await TurnierVorlagenNachruestung.LadenAsync(_context, Protokollieren, cancellationToken);
         await vorlagen.AusfuehrenAsync(cancellationToken);
+        // Nach den Vorlagen: auch gerade erst angelegte Vorlagen bekommen hier ihr Logo (Issue #481).
+        await TurnierLogoNachruestung.AusfuehrenAsync(_context, Protokollieren, cancellationToken);
 
         return [.. _protokoll];
     }

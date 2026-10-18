@@ -29,7 +29,8 @@ public class SeedProtokollTests
             "RankingRegelSets nachgerüstet.",
             "Regelwerke nachgerüstet.",
             "Ranglisten-Quellen nachgerüstet.",
-            "neue Turniervorlagen nachgerüstet.");
+            "neue Turniervorlagen nachgerüstet.",
+            "Turniervorlagen um ihr Turnierlogo ergänzt.");
         protokoll.Should().OnlyContain(e => e.Anzahl > 0);
     }
 
