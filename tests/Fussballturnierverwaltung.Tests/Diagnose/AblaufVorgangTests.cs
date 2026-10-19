@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Diagnose;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fussballturnierverwaltung.Tests.Diagnose;
 
@@ -59,5 +60,19 @@ public class AblaufVorgangTests
         vorgang.Dispose();
 
         logger.Zeilen.Should().HaveCount(2);
+    }
+
+    // Beginnen Vorgänge auf mehreren Threads gleichzeitig, darf das Beschreiben der offenen Vorgänge nicht scheitern:
+    // OrderBy kopierte das Dictionary früher über ICollection.CopyTo (erst Anzahl lesen, dann kopieren) und brach
+    // bei gleichzeitigem Einfügen mit ArgumentException ab — sporadisch in parallelen Testläufen, möglich auch in der App.
+    [Fact]
+    public void Vorgang_GleichzeitigAufVielenThreads_WirftNicht()
+    {
+        var parallel = () => Parallel.For(0, 200_000, new ParallelOptions { MaxDegreeOfParallelism = 8 }, i =>
+        {
+            using var _ = NullLogger.Instance.Vorgang("Test-Vorgang D");
+        });
+
+        parallel.Should().NotThrow();
     }
 }

@@ -52,8 +52,11 @@ public static class AblaufVorgang
     }
 
     /// <summary>Die gerade offenen Vorgänge in Startreihenfolge, je mit bisheriger Dauer; leer, wenn keiner läuft.</summary>
+    // ToArray ist der atomare Schnappschuss des ConcurrentDictionary. Direkt sortiert, kopierte LINQ über
+    // ICollection.CopyTo (Anzahl lesen, dann kopieren) und brach bei gleichzeitigem Einfügen ab.
     public static string OffeneBeschreiben() =>
         string.Join("; ", _offen
+            .ToArray()
             .OrderBy(kv => kv.Key)
             .Select(kv => $"{kv.Value.Beschreibung} (seit {kv.Value.Dauer.ElapsedMilliseconds} ms)"));
 }
