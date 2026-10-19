@@ -29,6 +29,7 @@ public class SeedProtokollTests
             "RankingRegelSets nachgerüstet.",
             "Regelwerke nachgerüstet.",
             "Ranglisten-Quellen nachgerüstet.",
+            "Rangliste „Ligapyramide Deutschland 2025/26“ nachgerüstet.",
             "neue Turniervorlagen nachgerüstet.",
             "Turniervorlagen um ihr Turnierlogo ergänzt.");
         protokoll.Should().OnlyContain(e => e.Anzahl > 0);
