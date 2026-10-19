@@ -19,26 +19,10 @@
         <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,*"
               BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
             <TextBlock Grid.Row="0" Text="MANNSCHAFT" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="12,10,8,4" />
-            <AutoSuggestBox Grid.Row="1" x:Name="MannschaftsAuswahl" Margin="8,0,8,4"
-                            PlaceholderText="Alle Mannschaften" QueryIcon="Find" UpdateTextOnSelect="False"
-                            Text="{Binding Mannschaftsfilter.SuchText, Mode=TwoWay}"
-                            ItemsSource="{Binding Mannschaftsfilter.Vorschlaege}"
-                            ToolTipService.ToolTip="Alle Spiele einer Mannschaft über alle Runden anzeigen"
-                            TextChanged="MannschaftsAuswahl_TextChanged"
-                            QuerySubmitted="MannschaftsAuswahl_QuerySubmitted"
-                            GotFocus="MannschaftsAuswahl_GotFocus"
-                            LostFocus="MannschaftsAuswahl_LostFocus">
-                <AutoSuggestBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                   Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
-                                   Width="16" Height="16" Stretch="Uniform" />
-                            <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DataTemplate>
-                </AutoSuggestBox.ItemTemplate>
-            </AutoSuggestBox>
+            <views:MannschaftsAuswahlBox Grid.Row="1" Margin="8,0,8,4" DataContext="{Binding Mannschaftsfilter}"
+                                         PlaceholderText="Alle Mannschaften"
+                                         ToolTipService.ToolTip="Alle Spiele einer Mannschaft über alle Runden anzeigen"
+                                         Bestaetigt="MannschaftsAuswahl_Bestaetigt" />
             <TextBlock Grid.Row="2" Text="RUNDEN" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="12,10,8,4" />
             <ListView Grid.Row="3" ItemsSource="{Binding Runden}"
                       SelectedItem="{Binding RundenlistenAuswahl, Mode=TwoWay}" SelectionMode="Single">

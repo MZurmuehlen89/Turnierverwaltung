@@ -1,0 +1,80 @@
+using Fussballturnierverwaltung.WinUi.ViewModels;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+
+namespace Fussballturnierverwaltung.WinUi.Views;
+
+/// <summary>Auswahlbox für eine Mannschaft des Turniers mit Suche beim Tippen (#479). Der DataContext ist ein
+/// <see cref="MannschaftsfilterViewModel"/>. Nach einer bestätigten Wahl meldet die Box <see cref="Bestaetigt"/> —
+/// die Ansicht setzt dann den Fokus woandershin, sonst klappt die Vorschlagsliste beim nächsten Tastendruck wieder
+/// auf.</summary>
+public sealed partial class MannschaftsAuswahlBox : UserControl
+{
+    public static readonly DependencyProperty PlaceholderTextProperty = DependencyProperty.Register(
+        nameof(PlaceholderText), typeof(string), typeof(MannschaftsAuswahlBox),
+        new PropertyMetadata("", (d, e) => ((MannschaftsAuswahlBox)d).Box.PlaceholderText = (string)e.NewValue));
+
+    public string PlaceholderText
+    {
+        get => (string)GetValue(PlaceholderTextProperty);
+        set => SetValue(PlaceholderTextProperty, value);
+    }
+
+    public event EventHandler? Bestaetigt;
+
+    public MannschaftsAuswahlBox()
+    {
+        InitializeComponent();
+    }
+
+    private MannschaftsfilterViewModel? Filter => DataContext as MannschaftsfilterViewModel;
+
+    private void Box_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        // Übernimmt der Spielplan eine Wahl, setzt er den Text der Box neu — dann liegt der Fokus schon woanders, die
+        // Box meldet die Änderung aber trotzdem als Eingabe und klappt ihre Liste wieder auf. Eingabe ist nur, was in
+        // der fokussierten Box geschieht.
+        if (!BoxHatFokus())
+        {
+            sender.IsSuggestionListOpen = false;
+            return;
+        }
+        if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput)
+            Filter?.Suchen(sender.Text);
+    }
+
+    private bool BoxHatFokus()
+    {
+        if (XamlRoot is null) return false;
+        for (var element = FocusManager.GetFocusedElement(XamlRoot) as DependencyObject; element is not null;
+             element = VisualTreeHelper.GetParent(element))
+        {
+            if (ReferenceEquals(element, Box)) return true;
+        }
+        return false;
+    }
+
+    private void Box_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        if (Filter is not { } filter) return;
+        _ = filter.BestaetigenAsync(args.ChosenSuggestion as MannschaftsOption);
+        Bestaetigt?.Invoke(this, EventArgs.Empty);
+    }
+
+    // Wie eine Auswahlbox: beim Hineinklicken alle Mannschaften zeigen.
+    private void Box_GotFocus(object sender, RoutedEventArgs e)
+    {
+        if (Filter is not { } filter) return;
+        filter.AlleVorschlaegeZeigen();
+        Box.IsSuggestionListOpen = true;
+    }
+
+    private void Box_LostFocus(object sender, RoutedEventArgs e)
+    {
+        // Ein Klick in die offene Vorschlagsliste nimmt der Box kurz den Fokus — das ist keine verlassene Eingabe.
+        if (Box.IsSuggestionListOpen) return;
+        _ = Filter?.FokusVerlorenAsync();
+    }
+}

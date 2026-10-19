@@ -144,51 +144,9 @@ public sealed partial class SpielplanView : UserControl
     // ── Mannschaftsauswahl (#479) ────────────────────────────────────────────
     // Die Box fragt nur an; ob die Wahl gilt (Ungespeichert-Abfrage), entscheidet der Spielplan.
 
-    private void MannschaftsAuswahl_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    // Fokus in die Liste: sonst klappt die Vorschlagsliste beim nächsten Tastendruck wieder auf.
+    private void MannschaftsAuswahl_Bestaetigt(object? sender, EventArgs e)
     {
-        // Übernimmt der Spielplan eine Wahl, setzt er den Text der Box neu — dann liegt der Fokus schon woanders, die
-        // Box meldet die Änderung aber trotzdem als Eingabe und klappt ihre Liste wieder auf. Eingabe ist nur, was in
-        // der fokussierten Box geschieht.
-        if (!BoxHatFokus())
-        {
-            sender.IsSuggestionListOpen = false;
-            return;
-        }
-        if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput && DataContext is SpielplanViewModel vm)
-            vm.Mannschaftsfilter.Suchen(sender.Text);
-    }
-
-    private bool BoxHatFokus()
-    {
-        if (XamlRoot is null) return false;
-        for (var element = FocusManager.GetFocusedElement(XamlRoot) as DependencyObject; element is not null;
-             element = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(element))
-        {
-            if (ReferenceEquals(element, MannschaftsAuswahl)) return true;
-        }
-        return false;
-    }
-
-    private void MannschaftsAuswahl_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
-    {
-        if (DataContext is not SpielplanViewModel vm) return;
-        _ = vm.Mannschaftsfilter.BestaetigenAsync(args.ChosenSuggestion as MannschaftsOption);
-        // Fokus in die Liste: sonst klappt die Vorschlagsliste beim nächsten Tastendruck wieder auf.
-        SichtbareListe(vm).Focus(FocusState.Programmatic);
-    }
-
-    // Wie eine Auswahlbox: beim Hineinklicken alle Mannschaften zeigen.
-    private void MannschaftsAuswahl_GotFocus(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is not SpielplanViewModel vm) return;
-        vm.Mannschaftsfilter.AlleVorschlaegeZeigen();
-        MannschaftsAuswahl.IsSuggestionListOpen = true;
-    }
-
-    private void MannschaftsAuswahl_LostFocus(object sender, RoutedEventArgs e)
-    {
-        // Ein Klick in die offene Vorschlagsliste nimmt der Box kurz den Fokus — das ist keine verlassene Eingabe.
-        if (MannschaftsAuswahl.IsSuggestionListOpen) return;
-        if (DataContext is SpielplanViewModel vm) _ = vm.Mannschaftsfilter.FokusVerlorenAsync();
+        if (DataContext is SpielplanViewModel vm) SichtbareListe(vm).Focus(FocusState.Programmatic);
     }
 }
