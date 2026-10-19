@@ -199,7 +199,9 @@ public class SimulationsService(
         }
 
         int simuliert = await MehrereSimulierenAsync(
-            offene.OrderBy(s => s.IstRueckspiel).ThenBy(s => s.Spielnummer).Select(s => s.Id), rng, ct);
+            // #479: frühere Runden zuerst — die Auswahl der Mannschaftsansicht reicht über mehrere Runden.
+            offene.OrderBy(s => s.TurnierRunde.Reihenfolge).ThenBy(s => s.IstRueckspiel).ThenBy(s => s.Spielnummer)
+                .Select(s => s.Id), rng, ct);
 
         logger.LogInformation("Auswahl: {Anz} Spiel(e) simuliert.", simuliert);
         return simuliert;

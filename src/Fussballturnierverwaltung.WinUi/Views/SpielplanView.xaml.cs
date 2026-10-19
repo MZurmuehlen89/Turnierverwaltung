@@ -8,7 +8,7 @@ namespace Fussballturnierverwaltung.WinUi.Views;
 
 /// <summary>"Spielplan"-Teil des #301-Composite. ListView.SelectedItems ist nicht direkt bindbar —
 /// Mehrfachauswahl (Issue #124) wird hier abgegriffen und ins ViewModel gespiegelt (Precedent:
-/// Wpf/Views/SpielplanView.xaml.cs). Beide Listen (Gesamt/Fokus) teilen sich denselben Handler.</summary>
+/// Wpf/Views/SpielplanView.xaml.cs). Alle drei Listen (Gesamt/Fokus/Mannschaft) teilen sich denselben Handler.</summary>
 public sealed partial class SpielplanView : UserControl
 {
     public SpielplanView()
@@ -19,6 +19,7 @@ public sealed partial class SpielplanView : UserControl
         // behandelt markieren — ein XAML-KeyDown-Handler käme dann gar nicht mehr an (Issue #345).
         SpielListView.AddHandler(KeyDownEvent, new KeyEventHandler(SpielListView_KeyDown), true);
         FokusSpielListView.AddHandler(KeyDownEvent, new KeyEventHandler(SpielListView_KeyDown), true);
+        MannschaftsSpielListView.AddHandler(KeyDownEvent, new KeyEventHandler(SpielListView_KeyDown), true);
         ErgebnisFormular.AddHandler(KeyDownEvent, new KeyEventHandler(ErgebnisFormular_KeyDown), true);
 
         // Strg+S speichert das Ergebnis-Formular (WPF-KeyBinding auf der SpielplanView, Issue #345).
@@ -60,7 +61,7 @@ public sealed partial class SpielplanView : UserControl
     {
         if (e.Key != VirtualKey.Escape || DataContext is not SpielplanViewModel vm) return;
 
-        var zielListView = vm.ZeigeFokusListe ? FokusSpielListView : SpielListView;
+        var zielListView = SichtbareListe(vm);
         zielListView.SelectedItems.Clear();
         zielListView.Focus(FocusState.Keyboard);
         e.Handled = true;
@@ -75,7 +76,63 @@ public sealed partial class SpielplanView : UserControl
         e.Handled = true;
         if (DataContext is not SpielplanViewModel vm || !vm.SpeichernBefehl.CanExecute(null)) return;
 
-        (vm.ZeigeFokusListe ? FokusSpielListView : SpielListView).Focus(FocusState.Programmatic);
+        SichtbareListe(vm).Focus(FocusState.Programmatic);
         vm.SpeichernBefehl.Execute(null);
+    }
+
+    private ListView SichtbareListe(SpielplanViewModel vm) =>
+        vm.IstMannschaftsansicht ? MannschaftsSpielListView
+        : vm.ZeigeFokusListe ? FokusSpielListView
+        : SpielListView;
+
+    // ── Mannschaftsauswahl (#479) ────────────────────────────────────────────
+    // Die Box fragt nur an; ob die Wahl gilt (Ungespeichert-Abfrage), entscheidet der Spielplan.
+
+    private void MannschaftsAuswahl_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        // Übernimmt der Spielplan eine Wahl, setzt er den Text der Box neu — dann liegt der Fokus schon woanders, die
+        // Box meldet die Änderung aber trotzdem als Eingabe und klappt ihre Liste wieder auf. Eingabe ist nur, was in
+        // der fokussierten Box geschieht.
+        if (!BoxHatFokus())
+        {
+            sender.IsSuggestionListOpen = false;
+            return;
+        }
+        if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput && DataContext is SpielplanViewModel vm)
+            vm.Mannschaftsfilter.Suchen(sender.Text);
+    }
+
+    private bool BoxHatFokus()
+    {
+        if (XamlRoot is null) return false;
+        for (var element = FocusManager.GetFocusedElement(XamlRoot) as DependencyObject; element is not null;
+             element = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(element))
+        {
+            if (ReferenceEquals(element, MannschaftsAuswahl)) return true;
+        }
+        return false;
+    }
+
+    private void MannschaftsAuswahl_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        if (DataContext is not SpielplanViewModel vm) return;
+        _ = vm.Mannschaftsfilter.BestaetigenAsync(args.ChosenSuggestion as MannschaftsOption);
+        // Fokus in die Liste: sonst klappt die Vorschlagsliste beim nächsten Tastendruck wieder auf.
+        SichtbareListe(vm).Focus(FocusState.Programmatic);
+    }
+
+    // Wie eine Auswahlbox: beim Hineinklicken alle Mannschaften zeigen.
+    private void MannschaftsAuswahl_GotFocus(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not SpielplanViewModel vm) return;
+        vm.Mannschaftsfilter.AlleVorschlaegeZeigen();
+        MannschaftsAuswahl.IsSuggestionListOpen = true;
+    }
+
+    private void MannschaftsAuswahl_LostFocus(object sender, RoutedEventArgs e)
+    {
+        // Ein Klick in die offene Vorschlagsliste nimmt der Box kurz den Fokus — das ist keine verlassene Eingabe.
+        if (MannschaftsAuswahl.IsSuggestionListOpen) return;
+        if (DataContext is SpielplanViewModel vm) _ = vm.Mannschaftsfilter.FokusVerlorenAsync();
     }
 }

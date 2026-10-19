@@ -32,7 +32,9 @@
 
                         <Grid Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}"
                               ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
-                            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="12,10,8,4" Spacing="8">
+                            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="12,10,8,4" Spacing="8"
+                                        Background="Transparent"
+                                        views:MannschaftsKontextmenue.MannschaftId="{Binding HeimMannschaftId}">
                                 <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                        Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
                                        Width="18" Height="18" Stretch="Uniform" />
@@ -44,7 +46,9 @@
                             <Rectangle Grid.Row="1" Grid.Column="0" Height="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Margin="12,4,0,4" />
                             <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ErgebnisDetail}" FontSize="9" Opacity="0.6" HorizontalAlignment="Center" Margin="8,0,12,0" />
 
-                            <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Margin="12,4,8,10" Spacing="8">
+                            <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Margin="12,4,8,10" Spacing="8"
+                                        Background="Transparent"
+                                        views:MannschaftsKontextmenue.MannschaftId="{Binding AuswaertsMannschaftId}">
                                 <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                        Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
                                        Width="18" Height="18" Stretch="Uniform" />
@@ -81,7 +85,8 @@
                                Width="16" Height="16" Stretch="Uniform" />
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HeimName}" FontSize="12"
                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                                   FontWeight="{Binding HeimSchrift}" />
+                                   FontWeight="{Binding HeimSchrift}"
+                                   views:MannschaftsKontextmenue.MannschaftId="{Binding HeimMannschaftId}" />
                         <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding HeimScore}" FontSize="13" FontWeight="Bold"
                                    VerticalAlignment="Center" />
 
@@ -91,7 +96,8 @@
                                Width="16" Height="16" Stretch="Uniform" />
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AuswaertsName}" FontSize="12"
                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                                   FontWeight="{Binding AuswaertsSchrift}" />
+                                   FontWeight="{Binding AuswaertsSchrift}"
+                                   views:MannschaftsKontextmenue.MannschaftId="{Binding AuswaertsMannschaftId}" />
                         <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding AuswaertsScore}" FontSize="13" FontWeight="Bold"
                                    VerticalAlignment="Center" />
 
@@ -119,7 +125,9 @@
                         <views:ZonenMarke Farbe="{Binding PunktFarbe}" Width="6" Height="6" CornerRadius="3" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding Rang}" FontSize="12" FontWeight="SemiBold" Opacity="0.7" VerticalAlignment="Center" />
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"
+                                Background="Transparent"
+                                views:MannschaftsKontextmenue.MannschaftId="{Binding Mannschaft.Id}">
                         <Image Source="{Binding Mannschaft, Converter={StaticResource MannschaftZuWappen}}"
                                Visibility="{Binding Mannschaft, Converter={StaticResource MannschaftHatWappen}}"
                                Width="16" Height="16" Stretch="Uniform" />

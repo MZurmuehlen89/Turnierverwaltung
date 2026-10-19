@@ -32,13 +32,17 @@ public interface ISpielmengenKontext
     int? EffektiverSpieltag { get; }
 
     bool HatHinUndRueckspiel { get; }
+
+    /// <summary>Die Liste zeigt die Spiele einer Mannschaft über alle Runden (#479) — Runde, Hin-/Rückrunde,
+    /// Gruppe und Spieltag gibt es dann nicht, nur die Auswahl.</summary>
+    bool IstMannschaftsansicht { get; }
     bool IstKoMitRueckspiel { get; }
     bool IstSimulierend { get; }
 
     /// <summary>Hinweis für die Rückfrage, falls das Zurücksetzen Ergebnisse in Folgerunden mitnimmt.</summary>
     Task<string> KaskadenHinweisAsync(IReadOnlyList<int> spielIds);
 
-    /// <summary>Führt <paramref name="aktion"/> aus und zeigt danach den neuen Stand der Runde samt Turnierbaum.
+    /// <summary>Führt <paramref name="aktion"/> aus und zeigt danach den neuen Stand der Liste samt Turnierbaum.
     /// Läuft im bereits betretenen <see cref="DbContextSchutz"/>.</summary>
     /// <param name="finaleAbgleichen">Danach die Finale-Automatik (#113) abgleichen — nach dem Zurücksetzen nicht
     /// nötig, dort gleicht die Kaskade des Ergebnis-Service sie selbst ab.</param>
@@ -107,19 +111,28 @@ public sealed class SpielmengenAktionen
     public static bool IstSimulierbar(SpielZeile s) => s.Status != SpielStatus.Abgeschlossen && !s.IstPlatzhalterSpiel;
 
     // ── Spielmengen der Ebenen (Runde, Hin-/Rückrunde, Gruppe, Spieltag) ───────
-    // null = die Ebene gibt es gerade nicht.
+    // null = die Ebene gibt es gerade nicht. In der Mannschaftsansicht (#479) gibt es keine davon: sie träfen
+    // Spiele, die gerade nicht in der Liste stehen.
 
-    private IEnumerable<SpielZeile>? RundenSpiele() => _kontext.AusgewaehlteRunde is not null ? _kontext.Spiele : null;
+    /// <summary>Begründung für die gesperrten Ebenen im Ribbon, solange die Mannschaftsansicht aktiv ist.</summary>
+    public const string SPERR_HINWEIS_MANNSCHAFTSANSICHT = "nur ohne Mannschaftsfilter";
+
+    private bool IstRundenansicht => !_kontext.IstMannschaftsansicht;
+
+    private IEnumerable<SpielZeile>? RundenSpiele() =>
+        IstRundenansicht && _kontext.AusgewaehlteRunde is not null ? _kontext.Spiele : null;
 
     private IEnumerable<SpielZeile>? RundenHaelfteSpiele(bool istRueckrunde) =>
-        _kontext.HatHinUndRueckspiel ? _kontext.Spiele.Where(s => s.IstRueckspiel == istRueckrunde) : null;
+        IstRundenansicht && _kontext.HatHinUndRueckspiel ? _kontext.Spiele.Where(s => s.IstRueckspiel == istRueckrunde) : null;
 
     private IEnumerable<SpielZeile>? GruppenSpiele() =>
-        _kontext.EffektiveGruppe is { } gruppe ? _kontext.Spiele.Where(s => s.GruppeNummer == gruppe.GruppenNummer) : null;
+        IstRundenansicht && _kontext.EffektiveGruppe is { } gruppe
+            ? _kontext.Spiele.Where(s => s.GruppeNummer == gruppe.GruppenNummer)
+            : null;
 
     private IEnumerable<SpielZeile>? SpieltagSpiele()
     {
-        if (_kontext.EffektiverSpieltag is not { } spieltag) return null;
+        if (!IstRundenansicht || _kontext.EffektiverSpieltag is not { } spieltag) return null;
         return _kontext.AusgewaehlteGruppe is { } gruppe
             ? _kontext.Spiele.Where(s => s.GruppeNummer == gruppe.GruppenNummer && s.Spieltag == spieltag)
             : _kontext.Spiele.Where(s => s.Spieltag == spieltag);
@@ -213,7 +226,7 @@ public sealed class SpielmengenAktionen
     private async Task AuswahlSimulierenAsync()
     {
         using var schutz = await _kontext.DbContextSchutz.BetretenAsync();
-        if (_kontext.AusgewaehlteRunde is null) return;
+        // Ohne Runde: die Auswahl der Mannschaftsansicht reicht über mehrere Runden (#479).
         var spielIds = _kontext.MehrfachAusgewaehlteSpiele.Where(IstSimulierbar).Select(s => s.Id).ToList();
         if (spielIds.Count == 0) return;
 
@@ -277,7 +290,7 @@ public sealed class SpielmengenAktionen
         AuswahlDanach auswahlDanach)
     {
         using var schutz = await _kontext.DbContextSchutz.BetretenAsync();
-        if (_kontext.AusgewaehlteRunde is null || spieleDerEbene() is not { } spiele) return;
+        if (spieleDerEbene() is not { } spiele) return;
         var spielIds = spiele.Where(s => s.HatErgebnis).Select(s => s.Id).ToList();
         if (spielIds.Count == 0) return;
         var kaskadenHinweis = await _kontext.KaskadenHinweisAsync(spielIds);

@@ -89,6 +89,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyPropertyChangedFor(nameof(IstKoMitRueckspiel))]
     [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
     [NotifyPropertyChangedFor(nameof(RundenHinweis))]
+    [NotifyPropertyChangedFor(nameof(RundenlistenAuswahl))]
+    [NotifyPropertyChangedFor(nameof(ZeigtSpielliste))]
+    [NotifyPropertyChangedFor(nameof(ZeigtGesamtliste))]
+    [NotifyPropertyChangedFor(nameof(KopfzeilenTitel))]
+    [NotifyPropertyChangedFor(nameof(KopfzeilenHinweis))]
     private TurnierRunde? _ausgewaehlteRunde;
 
     /// <summary>Issue #352/#360: Zusatz in der Spiellisten-Kopfzeile und im Ergebnisformular.</summary>
@@ -122,6 +127,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IstGefiltertAufGruppe))]
     [NotifyPropertyChangedFor(nameof(ZeigeFokusListe))]
+    [NotifyPropertyChangedFor(nameof(ZeigtGesamtliste))]
     [NotifyPropertyChangedFor(nameof(SpieltagSimulierenMenuText))]
     [NotifyPropertyChangedFor(nameof(SpieltagZuruecksetzenMenuText))]
     [NotifyPropertyChangedFor(nameof(RibbonZusatzGruppen))]
@@ -129,7 +135,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public bool IstGefiltertAufGruppe => AusgewaehlteGruppe is not null;
 
-    public bool ZeigeFokusListe => AusgewaehlteGruppe is not null || IstSpieltagRunde;
+    public bool ZeigeFokusListe => !IstMannschaftsansicht && (AusgewaehlteGruppe is not null || IstSpieltagRunde);
 
     // ── Schweizer-Rundensteuerung (Issue #329 Teil E) ────────────────────────────
     // "Nächste Runde generieren" ist bewusst ein eigener Inline-Button in der Spielliste-Kopfzeile statt im
@@ -140,7 +146,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     // Mechanismen (PlatzhalterAutomatischAufloesenAsync) die Übergangsregeln der Folgerunde ganz normal auf,
     // exakt wie bei Liga-Runden heute schon.
 
-    public bool ZeigtSchweizerRundenSteuerung => AusgewaehlteRunde?.Rundenart == Rundenart.SchweizerSystem;
+    public bool ZeigtSchweizerRundenSteuerung =>
+        !IstMannschaftsansicht && AusgewaehlteRunde?.Rundenart == Rundenart.SchweizerSystem;
 
     private int SchweizerAktuellerSpieltag =>
         Spiele.Where(s => s.Spieltag.HasValue).Select(s => s.Spieltag!.Value).DefaultIfEmpty(0).Max();
@@ -170,6 +177,167 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly RelayCommand _zurueckZurUebersichtBefehl;
 
     public ICommand ZurueckZurUebersichtBefehl => _zurueckZurUebersichtBefehl;
+
+    // ── Mannschaftsansicht (#479) ─────────────────────────────────────────────
+    // Ist eine Mannschaft gewählt, zeigt die Liste ihre Spiele über alle Runden; Rundenauswahl und Spieltag-
+    // Blättern treten zurück. AusgewaehlteRunde folgt dann still dem gewählten Spiel — Formular (Regelwerk,
+    // Hinspiel), Tabelle und Turnierbaum arbeiten so unverändert mit der Runde des Spiels. Die Rundenliste zeigt
+    // in dieser Zeit keine Auswahl (RundenlistenAuswahl): ein Klick auf eine Runde beendet den Filter.
+
+    public MannschaftsfilterViewModel Mannschaftsfilter { get; } = new();
+
+    public bool IstMannschaftsansicht => Mannschaftsfilter.Gewaehlt is not null;
+
+    /// <summary>Die Runde, zu der „Alle Mannschaften“ zurückkehrt, wenn in der Mannschaftsansicht kein Spiel
+    /// gewählt ist.</summary>
+    private TurnierRunde? _rundeVorMannschaftsansicht;
+
+    public bool ZeigtSpielliste => HatRunde || IstMannschaftsansicht;
+    public bool ZeigtGesamtliste => !ZeigeFokusListe && !IstMannschaftsansicht;
+    public bool ZeigtKeineMannschaftsSpiele => IstMannschaftsansicht && Spiele.Count == 0;
+    public string KopfzeilenTitel => Mannschaftsfilter.Gewaehlt?.Name ?? AusgewaehlteRunde?.Name ?? "";
+    public string KopfzeilenHinweis => IstMannschaftsansicht ? "" : RundenHinweis;
+
+    /// <summary>Auswahl der Rundenliste — in der Mannschaftsansicht keine; eine dort angeklickte Runde beendet den
+    /// Filter und zeigt die Runde.</summary>
+    public TurnierRunde? RundenlistenAuswahl
+    {
+        get => IstMannschaftsansicht ? null : AusgewaehlteRunde;
+        set
+        {
+            if (!IstMannschaftsansicht) AusgewaehlteRunde = value;
+            else if (value is not null) _ = RundeZeigenAsync(value);
+        }
+    }
+
+    /// <summary>Kontextmenü „Alle Spiele des Teams anzeigen“ (Spielliste, Gruppentabelle, Turnierbaum).</summary>
+    public Task MannschaftsSpieleZeigenAsync(int mannschaftId) => Mannschaftsfilter.WaehlenNachIdAsync(mannschaftId);
+
+    /// <summary>Zeigt eine Runde — aus der Mannschaftsansicht heraus beendet das den Filter.</summary>
+    public Task RundeZeigenAsync(TurnierRunde runde)
+    {
+        if (IstMannschaftsansicht) return AnsichtWechselnAsync(null, runde);
+
+        AusgewaehlteRunde = runde;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Setzt den Gruppenfilter — aus der Mannschaftsansicht heraus erst zurück in die Runde, die der
+    /// Turnierbaum gerade zeigt (die des gewählten Spiels, sonst die vor dem Filter).</summary>
+    public async Task GruppeZeigenAsync(int gruppenNummer)
+    {
+        if (IstMannschaftsansicht && (AusgewaehlteRunde ?? _rundeVorMannschaftsansicht) is { } runde)
+            await AnsichtWechselnAsync(null, runde);
+        if (IstMannschaftsansicht) return;
+
+        if (GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppenNummer) is { } gruppe)
+            AusgewaehlteGruppe = gruppe;
+    }
+
+    /// <summary>Wechselt zwischen Runden- und Mannschaftsansicht bzw. zu einer anderen Mannschaft, nach der
+    /// Ungespeichert-Abfrage. <paramref name="zielRunde"/>: die Runde, die „Alle Mannschaften“ zeigt.</summary>
+    private async Task AnsichtWechselnAsync(MannschaftsOption? mannschaft, TurnierRunde? zielRunde)
+    {
+        if (!await UngespeichertesKlaerenAsync())
+        {
+            Mannschaftsfilter.Anzeigen(Mannschaftsfilter.Gewaehlt);
+            OnPropertyChanged(nameof(RundenlistenAuswahl));
+            return;
+        }
+
+        if (!IstMannschaftsansicht && mannschaft is not null) _rundeVorMannschaftsansicht = AusgewaehlteRunde;
+        Mannschaftsfilter.Anzeigen(mannschaft);
+        MannschaftsansichtGeaendert();
+
+        if (mannschaft is null)
+        {
+            _rundeVorMannschaftsansicht = null;
+            RundeStillSetzen(zielRunde);
+            OnPropertyChanged(nameof(RundenlistenAuswahl));
+            await DbContextSchutz.AusfuehrenAsync(BeiRundeAenderungAsync, ex => Fehlermeldung = ex.Message);
+        }
+        else
+        {
+            await DbContextSchutz.AusfuehrenAsync(MannschaftsansichtLadenAsync, ex => Fehlermeldung = ex.Message);
+        }
+    }
+
+    private void MannschaftsansichtGeaendert()
+    {
+        OnPropertyChanged(nameof(IstMannschaftsansicht));
+        OnPropertyChanged(nameof(ZeigtSpielliste));
+        OnPropertyChanged(nameof(ZeigeFokusListe));
+        OnPropertyChanged(nameof(ZeigtGesamtliste));
+        OnPropertyChanged(nameof(ZeigtKeineMannschaftsSpiele));
+        OnPropertyChanged(nameof(ZeigtSchweizerRundenSteuerung));
+        OnPropertyChanged(nameof(KopfzeilenTitel));
+        OnPropertyChanged(nameof(KopfzeilenHinweis));
+        OnPropertyChanged(nameof(RundenlistenAuswahl));
+        OnPropertyChanged(nameof(RibbonZusatzGruppen));
+        AktualisiereBefehle();
+    }
+
+    private async Task MannschaftsansichtLadenAsync()
+    {
+        using var vorgang = _logger.Vorgang(
+            $"Spielplan: Spiele der Mannschaft laden (Mannschaft {Mannschaftsfilter.Gewaehlt?.Id})");
+
+        FormAktiv = false;
+        Fehlermeldung = null;
+        Formular.ErlaubteVerfahrenSetzen([]);
+        AusgewaehlteGruppe = null;
+        Fokus.AuswahlFreigeben();
+        GruppenTabellen.Clear();
+        _teamGruppeMap = [];
+        _platzhalterVorschau = new Dictionary<int, (string?, string?)>();
+        MehrfachAusgewaehlteSpiele = [];
+
+        // Wie in SpiellisteAktualisierenAsync (#317): das Leeren der Liste kann SelectionChanged verzögert auslösen.
+        using (_spielWechsel.Betreten())
+        {
+            AusgewaehlteSpiel = null;
+            RundeStillSetzen(null);
+            await MannschaftsSpieleLadenAsync();
+        }
+
+        FokusSpieltageAbgleichen();
+        AktualisiereBefehle();
+    }
+
+    /// <summary>Die Spiele der gewählten Mannschaft frisch aus der Datenbank; die Spiel-Auswahl setzt der
+    /// Aufrufer.</summary>
+    private async Task MannschaftsSpieleLadenAsync()
+    {
+        if (AusgewaehlteInstanz is not { } instanz || Mannschaftsfilter.Gewaehlt is not { } mannschaft) return;
+
+        var spiele = await _spielService.AlleNachMannschaftAsync(instanz.Id, mannschaft.Id);
+        Spiele.Clear();
+        foreach (var zeile in SpielZeilenMapper.MannschaftsZeilen(spiele))
+            Spiele.Add(zeile);
+        OnPropertyChanged(nameof(HatPlatzhalterSpiele));
+    }
+
+    /// <summary>Mannschaftsansicht: die Runde des gewählten Spiels wird still zur ausgewählten Runde — mit deren
+    /// Entscheidungsverfahren für das Formular, Tabellen und Turnierbaum.</summary>
+    private async Task KontextRundeSetzenAsync(int rundeId)
+    {
+        if (AusgewaehlteRunde?.Id == rundeId) return;
+
+        RundeStillSetzen(Runden.FirstOrDefault(r => r.Id == rundeId));
+        GruppenTabellen.Clear();
+        _teamGruppeMap = [];
+        if (AusgewaehlteRunde is not { } runde) return;
+
+        await TabellenNeuLadenAsync(runde.Id);
+        await ErlaubteVerfahrenLadenAsync(runde);
+    }
+
+    private async Task TeilnehmerLadenAsync()
+    {
+        Mannschaftsfilter.TeilnehmerSetzen(AusgewaehlteInstanz is { } instanz
+            ? await _spielService.MannschaftenNachInstanzAsync(instanz.Id)
+            : []);
+    }
 
     // ── Spielliste ────────────────────────────────────────────────────────────
 
@@ -206,6 +374,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task AktualisierePlatzhalterVorschauAsync()
     {
+        if (IstMannschaftsansicht) return;
+
         _platzhalterVorschau = VorschauAktiv && AusgewaehlteRunde is not null
             ? await _platzhalterAufloesung.VorschauAsync(AusgewaehlteRunde.Id)
             : new Dictionary<int, (string?, string?)>();
@@ -294,11 +464,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     IconGlyph = "",
                     Unteraktionen =
                     [
-                        new RibbonUnteraktion("Runde", Mengen.RundeSimulierenBefehl),
-                        new RibbonUnteraktion(HinrundeMenuText, Mengen.HinrundeSimulierenBefehl),
-                        new RibbonUnteraktion(RueckrundeMenuText, Mengen.RueckrundeSimulierenBefehl),
-                        new RibbonUnteraktion("Gruppe", Mengen.GruppeSimulierenBefehl),
-                        new RibbonUnteraktion(SpieltagSimulierenMenuText, Mengen.SpieltagSimulierenBefehl),
+                        Ebene("Runde", Mengen.RundeSimulierenBefehl),
+                        Ebene(HinrundeMenuText, Mengen.HinrundeSimulierenBefehl),
+                        Ebene(RueckrundeMenuText, Mengen.RueckrundeSimulierenBefehl),
+                        Ebene("Gruppe", Mengen.GruppeSimulierenBefehl),
+                        Ebene(SpieltagSimulierenMenuText, Mengen.SpieltagSimulierenBefehl),
                         new RibbonUnteraktion(AuswahlSimulierenMenuText, Mengen.AuswahlSimulierenBefehl),
                     ],
                 },
@@ -308,11 +478,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                     IconGlyph = "",
                     Unteraktionen =
                     [
-                        new RibbonUnteraktion("Runde", Mengen.RundeZuruecksetzenBefehl),
-                        new RibbonUnteraktion(HinrundeMenuText, Mengen.HinrundeZuruecksetzenBefehl),
-                        new RibbonUnteraktion(RueckrundeMenuText, Mengen.RueckrundeZuruecksetzenBefehl),
-                        new RibbonUnteraktion("Gruppe", Mengen.GruppeZuruecksetzenBefehl),
-                        new RibbonUnteraktion(SpieltagZuruecksetzenMenuText, Mengen.SpieltagZuruecksetzenBefehl),
+                        Ebene("Runde", Mengen.RundeZuruecksetzenBefehl),
+                        Ebene(HinrundeMenuText, Mengen.HinrundeZuruecksetzenBefehl),
+                        Ebene(RueckrundeMenuText, Mengen.RueckrundeZuruecksetzenBefehl),
+                        Ebene("Gruppe", Mengen.GruppeZuruecksetzenBefehl),
+                        Ebene(SpieltagZuruecksetzenMenuText, Mengen.SpieltagZuruecksetzenBefehl),
                     ],
                 },
                 new RibbonAktion
@@ -348,6 +518,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public ICommand NaechsteSchweizerRundeBefehl => _naechsteSchweizerRundeBefehl;
 
+    /// <summary>Menüpunkt einer Spielmengen-Ebene — in der Mannschaftsansicht gesperrt mit Begründung (#479).</summary>
+    private RibbonUnteraktion Ebene(string header, ICommand befehl) => new(
+        header, befehl,
+        SperrHinweis: IstMannschaftsansicht ? SpielmengenAktionen.SPERR_HINWEIS_MANNSCHAFTSANSICHT : null);
+
     // ── Konstruktor ───────────────────────────────────────────────────────────
 
     public SpielplanViewModel(
@@ -378,7 +553,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _dialogService = dialogService;
         _logger = logger;
 
-        _neuBefehl = new AsyncRelayCommand(SpielplanNeuGenerierenAsync, () => HatRunde);
+        _neuBefehl = new AsyncRelayCommand(SpielplanNeuGenerierenAsync, () => HatRunde && !IstMannschaftsansicht);
         _speichernBefehl = new AsyncRelayCommand(SpeichernAsync, () => FormAktiv && Formular.IsDirty);
         _abbrechenBefehl = new RelayCommand(FormZuruecksetzen, () => FormAktiv && Formular.IsDirty);
         _loeschenBefehl = new AsyncRelayCommand(ErgebnisLoeschenAsync, CanErgebnisLoeschen);
@@ -394,7 +569,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             VorschauAktiv = !VorschauAktiv;
             _vorschauUmschaltenBefehl!.NotifyCanExecuteChanged();
             _ = DbContextSchutz.AusfuehrenAsync(AktualisierePlatzhalterVorschauAsync, ex => Fehlermeldung = ex.Message);
-        }, () => HatPlatzhalterSpiele || VorschauAktiv);
+        }, () => !IstMannschaftsansicht && (HatPlatzhalterSpiele || VorschauAktiv));
 
         _ausfuehrlichSimulierenBefehl = new RelayCommand(AusfuehrlichSimulieren, CanAusfuehrlichSimulieren);
         _spielverlaufAnsehenBefehl = new RelayCommand(SpielverlaufAnsehen, CanSpielverlaufAnsehen);
@@ -415,8 +590,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             _speichernBefehl.NotifyCanExecuteChanged();
             _abbrechenBefehl.NotifyCanExecuteChanged();
         };
+        Mannschaftsfilter.WahlAngefordert = mannschaft =>
+            AnsichtWechselnAsync(mannschaft, AusgewaehlteRunde ?? _rundeVorMannschaftsansicht);
         Spiele.CollectionChanged += (_, __) =>
         {
+            OnPropertyChanged(nameof(ZeigtKeineMannschaftsSpiele));
             SchweizerAnzeigeAktualisieren();
             _vorschauUmschaltenBefehl.NotifyCanExecuteChanged();
         };
@@ -426,16 +604,15 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public override async Task AktivierenAsync()
     {
-        if (AusgewaehlteRunde is null || (FormAktiv && Formular.IsDirty)) return;
+        if (!ZeigtSpielliste || (FormAktiv && Formular.IsDirty)) return;
         await SpiellisteAktualisierenAsync();
     }
 
     private async Task SpiellisteAktualisierenAsync()
     {
-        if (AusgewaehlteRunde is null) return;
-        int rundeId = AusgewaehlteRunde.Id;
+        if (AusgewaehlteInstanz is not { } instanz || !ZeigtSpielliste) return;
+        int? rundeId = AusgewaehlteRunde?.Id;
         int? spielId = AusgewaehlteSpiel?.Id;
-        var runde = AusgewaehlteRunde;
 
         // #317: Guard umschließt Spiele.Clear()/Add() bis zum Ende der davon abhängigen Folge-Abfragen,
         // nicht nur die AusgewaehlteSpiel-Zuweisung — eine WinUI-ComboBox kann SelectionChanged bei
@@ -449,7 +626,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             AusgewaehlteSpiel = spielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == spielId) : null;
 
-            await _baumService.NachSpielplanAenderungAktualisierenAsync(runde.TurnierInstanzId);
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(instanz.Id);
         }
 
         await BeiSpielAenderungAsync();
@@ -485,6 +662,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     // ── Selektions-Handler ────────────────────────────────────────────────────
 
+    private int? _geladeneInstanzId;
+
     private async Task BeiInstanzAenderungAsync()
     {
         using var vorgang = _logger.Vorgang($"Spielplan: Turnier setzen (Instanz {AusgewaehlteInstanz?.Id})");
@@ -505,6 +684,18 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // DbContext ("second operation"-Exception, bislang nur per Retry im Composite abgefangen, #317).
         using var unterdrueckung = _rundeWechsel.Betreten();
 
+        await TeilnehmerLadenAsync();
+
+        // Mannschaftsansicht (#479): bleibt beim reinen Reiterwechsel, endet beim Turnierwechsel.
+        bool istTurnierwechsel = instanz?.Id != _geladeneInstanzId;
+        _geladeneInstanzId = instanz?.Id;
+        if (IstMannschaftsansicht && istTurnierwechsel)
+        {
+            Mannschaftsfilter.Anzeigen(null);
+            _rundeVorMannschaftsansicht = null;
+            MannschaftsansichtGeaendert();
+        }
+
         if (instanz is null)
         {
             Runden.Clear();
@@ -515,6 +706,16 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Runden.Clear();
         foreach (var r in instanz.Runden.OrderBy(r => r.Reihenfolge))
             Runden.Add(r);
+
+        if (IstMannschaftsansicht)
+        {
+            AusgewaehlteRunde = vorherigeRundeId.HasValue ? Runden.FirstOrDefault(r => r.Id == vorherigeRundeId) : null;
+            _rundeVorMannschaftsansicht = _rundeVorMannschaftsansicht is { } vorher
+                ? Runden.FirstOrDefault(r => r.Id == vorher.Id)
+                : null;
+            await SpiellisteAktualisierenAsync();
+            return;
+        }
 
         // Reiner Tab-Wechsel ohne echten Instanzwechsel (#307): dieselbe Runde existiert nach dem
         // Neuladen noch — Auswahl anhand der Id wiederherstellen statt sie zu verlieren. Bei echtem
@@ -567,24 +768,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         var neueRundeId = AusgewaehlteRunde?.Id;
 
-        if (Formular.IsDirty && Formular.RundeId is { } vorherigeRundeId && vorherigeRundeId != neueRundeId)
+        if (Formular.RundeId is { } vorherigeRundeId && vorherigeRundeId != neueRundeId &&
+            !await UngespeichertesKlaerenAsync())
         {
-            var vorherigeSpielId = Formular.SpielId;
-            TurnierRunde? VorherigeRunde() => Runden.FirstOrDefault(r => r.Id == vorherigeRundeId);
-
-            var antwort = await _dialogService.UngespeicherteAenderungenAbfragenAsync();
-            bool wechseln = await AntwortUmsetzenAsync(antwort, async () =>
-                vorherigeSpielId is not { } spielId ||
-                VorherigeRunde() is { } vorherigeRunde &&
-                await ErgebnisSpeichernAsync(spielId, vorherigeRunde, danachNeuLaden: false));
-
-            if (!wechseln)
-            {
-                RundeStillSetzen(VorherigeRunde());
-                return;
-            }
-
-            Formular.AenderungenVergessen();
+            RundeStillSetzen(Runden.FirstOrDefault(r => r.Id == vorherigeRundeId));
+            return;
         }
 
         // #338: zwei echte, schnell aufeinanderfolgende Runde-Auswahländerungen (z.B. Pfeiltasten in der
@@ -595,6 +783,24 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         await DbContextSchutz.AusfuehrenAsync(
             BeiRundeAenderungAsync, ex => Fehlermeldung = ex.Message,
             istNochAktuell: () => AusgewaehlteRunde?.Id == neueRundeId);
+    }
+
+    /// <summary>Fragt bei ungespeicherter Eingabe im Formular nach, bevor die Liste wechselt (Runde, Mannschaft):
+    /// <c>true</c> = weiter, die Eingabe ist gespeichert oder verworfen; ohne Eingabe ohne Rückfrage.</summary>
+    private async Task<bool> UngespeichertesKlaerenAsync()
+    {
+        if (!Formular.IsDirty) return true;
+
+        var spielId = Formular.SpielId;
+        var rundeId = Formular.RundeId;
+        var antwort = await _dialogService.UngespeicherteAenderungenAbfragenAsync();
+        bool weiter = await AntwortUmsetzenAsync(antwort, async () =>
+            spielId is not { } id ||
+            Runden.FirstOrDefault(r => r.Id == rundeId) is { } runde &&
+            await ErgebnisSpeichernAsync(id, runde, danachNeuLaden: false));
+
+        if (weiter) Formular.AenderungenVergessen();
+        return weiter;
     }
 
     /// <summary>Setzt die Antwort auf die Ungespeichert-Abfrage um und liefert, ob der Wechsel weitergeht:
@@ -641,14 +847,19 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         OnPropertyChanged(nameof(HatPlatzhalterSpiele));
         if (VorschauAktiv) await AktualisierePlatzhalterVorschauAsync();
 
-        var regelwerkId = AusgewaehlteRunde.RegelwerkId ?? AusgewaehlteInstanz?.StandardRegelwerkId;
+        await ErlaubteVerfahrenLadenAsync(AusgewaehlteRunde);
+
+        AktualisiereBefehle();
+    }
+
+    private async Task ErlaubteVerfahrenLadenAsync(TurnierRunde runde)
+    {
+        var regelwerkId = runde.RegelwerkId ?? AusgewaehlteInstanz?.StandardRegelwerkId;
         var regelwerk = regelwerkId is { } rid ? await _regelwerkService.FindenNachIdAsync(rid) : null;
 
         Formular.ErlaubteVerfahrenSetzen(regelwerk?.Entscheidungsverfahren
             .OrderBy(v => v.Reihenfolge)
             .Select(v => v.VerfahrenArt) ?? []);
-
-        AktualisiereBefehle();
     }
 
     private async Task GruppenTabellenLadenAsync(int rundeId)
@@ -731,6 +942,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         AktualisiereBefehle();
 
         if (AusgewaehlteSpiel is null) return;
+        if (IstMannschaftsansicht) await KontextRundeSetzenAsync(AusgewaehlteSpiel.RundeId);
 
         var spiel = await _spielService.FindenNachIdAsync(AusgewaehlteSpiel.Id);
         if (spiel is null) return;
@@ -781,6 +993,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 OnPropertyChanged(nameof(HatPlatzhalterSpiele));
                 AusgewaehlteSpiel = null;
                 await _baumService.NachSpielplanAenderungAktualisierenAsync(runde.TurnierInstanzId);
+                await TeilnehmerLadenAsync();
             });
     }
 
@@ -959,6 +1172,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Mengen.BefehleMelden();
         _ausfuehrlichSimulierenBefehl.NotifyCanExecuteChanged();
         _spielverlaufAnsehenBefehl.NotifyCanExecuteChanged();
+        _vorschauUmschaltenBefehl.NotifyCanExecuteChanged();
         SchweizerAnzeigeAktualisieren();
     }
 
@@ -986,7 +1200,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     }
 
     private IReadOnlyList<SpielZeile>? SpieltagRelevanteSpiele() =>
-        AusgewaehlteGruppe is { } gruppe ? Spiele.Where(s => s.GruppeNummer == gruppe.GruppenNummer).ToList()
+        IstMannschaftsansicht ? null
+        : AusgewaehlteGruppe is { } gruppe ? Spiele.Where(s => s.GruppeNummer == gruppe.GruppenNummer).ToList()
         : IstSpieltagRunde ? Spiele.ToList()
         : null;
 
@@ -1021,7 +1236,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     async Task ISpielmengenKontext.SpielmengeBearbeitenAsync(
         string vorgangsName, Func<Task> aktion, AuswahlDanach auswahlDanach, bool finaleAbgleichen)
     {
-        if (AusgewaehlteRunde is not { } runde) return;
+        // Instanz statt Runde: die Auswahl der Mannschaftsansicht reicht über mehrere Runden (#479).
+        if (AusgewaehlteInstanz is not { } instanz) return;
+        int? rundeId = AusgewaehlteRunde?.Id;
         int? spielId = AusgewaehlteSpiel?.Id;
         Fehlermeldung = null;
         IstSimulierend = true;
@@ -1032,13 +1249,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 async () =>
                 {
                     await aktion();
-                    if (finaleAbgleichen) await _finaleAutomatik.AbgleichenAsync(runde.TurnierInstanzId);
+                    if (finaleAbgleichen) await _finaleAutomatik.AbgleichenAsync(instanz.Id);
                 },
                 async () =>
                 {
-                    await SpieleNeuLadenAsync(runde.Id);
+                    await SpieleNeuLadenAsync(rundeId);
                     await SpielAuswahlSetzenAsync(auswahlDanach, spielId);
-                    await _baumService.NachSpielplanAenderungAktualisierenAsync(runde.TurnierInstanzId);
+                    await _baumService.NachSpielplanAenderungAktualisierenAsync(instanz.Id);
                 });
         }
         finally
@@ -1092,12 +1309,22 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             MehrfachAusgewaehlteSpiele = [];
     }
 
-    /// <summary>Tabellen und Spiele der Runde frisch aus der Datenbank; die Spiel-Auswahl setzt der Aufrufer.</summary>
-    private async Task SpieleNeuLadenAsync(int rundeId)
+    /// <summary>Tabellen und Spiele der Runde frisch aus der Datenbank — in der Mannschaftsansicht die Spiele der
+    /// Mannschaft, <paramref name="rundeId"/> ist dort die Runde des gewählten Spiels (ohne Spiel <c>null</c>).
+    /// Die Spiel-Auswahl setzt der Aufrufer.</summary>
+    private async Task SpieleNeuLadenAsync(int? rundeId)
     {
-        await TabellenNeuLadenAsync(rundeId);
+        if (rundeId is int id) await TabellenNeuLadenAsync(id);
+        else if (SpielstandGeaendertAsync is not null) await SpielstandGeaendertAsync();
 
-        var neueSpiele = await _spielService.AlleNachRundeAsync(rundeId);
+        if (IstMannschaftsansicht)
+        {
+            await MannschaftsSpieleLadenAsync();
+            return;
+        }
+        if (rundeId is not int rid) return;
+
+        var neueSpiele = await _spielService.AlleNachRundeAsync(rid);
         Spiele.Clear();
         SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
         Fokus.SpieleMelden();

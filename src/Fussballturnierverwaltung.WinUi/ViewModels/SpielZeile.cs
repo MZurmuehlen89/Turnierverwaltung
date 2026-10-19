@@ -38,6 +38,17 @@ public partial class SpielZeile : ObservableObject
     public bool HeimIstVorschau { get; init; }
     public bool AuswaertsIstVorschau { get; init; }
     public int? GruppeNummer { get; init; }
+
+    // ── Mannschaftsansicht (#479): Spiele einer Mannschaft über alle Runden ──────────────────────
+    public int RundeId { get; init; }
+    public int? HeimMannschaftId { get; init; }
+    public int? AuswaertsMannschaftId { get; init; }
+    /// <summary>Runde samt Gruppe, z.B. „Gruppenphase · Gr.1“ — nur in der Mannschaftsansicht gesetzt.</summary>
+    public string RundeAnzeige { get; init; } = "";
+    /// <summary>Eine noch offene Seite (Platzhalter) wird blasser gezeigt.</summary>
+    public double HeimDeckkraft => HeimMannschaftId is null ? 0.6 : 1.0;
+    public double AuswaertsDeckkraft => AuswaertsMannschaftId is null ? 0.6 : 1.0;
+    public string MannschaftsStatusAnzeige => IstPlatzhalterSpiel ? "Gegner offen" : StatusAnzeige;
     /// <summary>Erste Zeile einer Hin-/Rückspiel-Paarung nach der ersten (Issue #340) — bekommt Abstand nach oben,
     /// damit Paarungen wie in der kicker-Paarungsansicht als Block erkennbar sind.</summary>
     public bool IstPaarungsStart { get; init; }

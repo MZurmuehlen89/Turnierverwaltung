@@ -159,7 +159,9 @@ public sealed partial class MainWindow : Window
         var flyout = new MenuFlyout();
         foreach (var unteraktion in unteraktionen)
         {
-            var item = new MenuFlyoutItem { Text = unteraktion.Header, Command = unteraktion.Befehl };
+            var item = unteraktion.SperrHinweis is { Length: > 0 } sperrHinweis
+                ? new MenuFlyoutItem { Text = $"{unteraktion.Header} ({sperrHinweis})", IsEnabled = false }
+                : new MenuFlyoutItem { Text = unteraktion.Header, Command = unteraktion.Befehl };
             item.Click += (_, _) => Ablaufprotokoll.Bedienung(unteraktion.Header);
             if (unteraktion.IconGlyph is not null)
                 item.Icon = new FontIcon { Glyph = unteraktion.IconGlyph };

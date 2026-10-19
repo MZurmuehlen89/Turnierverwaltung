@@ -14,7 +14,8 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// <see cref="TurnierdurchfuehrungViewModel"/> über <see cref="InstanzSetzenAsync"/> (Precedent:
 /// <see cref="AuslosungViewModel.InstanzSetzenAsync"/>, gleiches Muster aus #300).
 /// </summary>
-public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
+public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen,
+    IMannschaftsSpieleAnzeige
 {
     private readonly TurnierInstanzService _instanzService;
 
@@ -67,15 +68,10 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
         {
             var runde = SpielplanVm.Runden.FirstOrDefault(r => r.Id == rundeId);
             if (runde is not null)
-                SpielplanVm.AusgewaehlteRunde = runde;
+                _ = SpielplanVm.RundeZeigenAsync(runde);
         };
 
-        TurnierBaumVm.GruppeAngeklickt += (_, gruppenNummer) =>
-        {
-            var gruppe = SpielplanVm.GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppenNummer);
-            if (gruppe is not null)
-                SpielplanVm.AusgewaehlteGruppe = gruppe;
-        };
+        TurnierBaumVm.GruppeAngeklickt += (_, gruppenNummer) => _ = SpielplanVm.GruppeZeigenAsync(gruppenNummer);
 
         TurnierBaumVm.PropertyChanged += (_, e) =>
         {
@@ -113,6 +109,14 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
         AnsichtGeaendert();
         await TurnierBaumVm.InstanzSetzenAsync(instanz);
         await FortschrittAktualisierenAsync();
+    }
+
+    /// <summary>Kontextmenü „Alle Spiele des Teams anzeigen“ (#479) — die Gesamtübersicht des Baums verdeckt den
+    /// Spielplan und tritt deshalb zurück.</summary>
+    public Task MannschaftsSpieleAnzeigenAsync(int mannschaftId)
+    {
+        TurnierBaumVm.IstGesamtansicht = false;
+        return SpielplanVm.MannschaftsSpieleZeigenAsync(mannschaftId);
     }
 
     private void AktualisiereGruppenFokus()

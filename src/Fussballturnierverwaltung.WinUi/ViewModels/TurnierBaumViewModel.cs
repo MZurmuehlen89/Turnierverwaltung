@@ -34,6 +34,9 @@ public class BracketKnotenAnzeige
     public string AuswaertsName { get; init; } = "";
     public byte[]? HeimWappen { get; init; }
     public byte[]? AuswaertsWappen { get; init; }
+    /// <summary>Für das Kontextmenü „Alle Spiele des Teams anzeigen“ (#479); <c>null</c> bei offenem Platzhalter.</summary>
+    public int? HeimMannschaftId { get; init; }
+    public int? AuswaertsMannschaftId { get; init; }
     public bool HeimIstSieger { get; init; }
     public bool AuswaertsIstSieger { get; init; }
     public FontWeight HeimSchrift => HeimIstSieger ? FontWeights.Bold : FontWeights.Normal;
@@ -428,6 +431,8 @@ public partial class TurnierBaumViewModel : ViewModelBase
             AuswaertsName = s.AuswaertsMannschaft?.Name ?? s.AuswaertsPlatzhalterName ?? "—",
             HeimWappen = MannschaftsIcon.Fuer(s.HeimMannschaft),
             AuswaertsWappen = MannschaftsIcon.Fuer(s.AuswaertsMannschaft),
+            HeimMannschaftId = s.HeimMannschaftId,
+            AuswaertsMannschaftId = s.AuswaertsMannschaftId,
             HatErgebnis = ergebnis.HatErgebnis,
             HeimScore = ergebnis.HeimScore,
             AuswaertsScore = ergebnis.AuswaertsScore,

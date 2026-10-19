@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +34,31 @@ public class SpielRepository(TurnierverwaltungDbContext context)
             .OrderBy(s => s.TurnierRunde.Reihenfolge)
             .ThenBy(s => s.Spieltag)
             .ThenBy(s => s.Spielnummer)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Spiel>> AlleNachMannschaftAsync(
+        int turnierInstanzId, int mannschaftId, CancellationToken ct = default)
+        => await Context.Spiele
+            .Include(s => s.HeimMannschaft)
+                .ThenInclude(m => m!.Land)
+            .Include(s => s.AuswaertsMannschaft)
+                .ThenInclude(m => m!.Land)
+            .Include(s => s.Ergebnis)
+            .Include(s => s.TurnierRunde)
+            .Where(s => s.TurnierInstanzId == turnierInstanzId
+                        && (s.HeimMannschaftId == mannschaftId || s.AuswaertsMannschaftId == mannschaftId))
+            .OrderBy(s => s.TurnierRunde.Reihenfolge)
+            .ThenBy(s => s.Spieltag)
+            .ThenBy(s => s.Spielnummer)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Mannschaft>> MannschaftenNachInstanzAsync(
+        int turnierInstanzId, CancellationToken ct = default)
+        => await Context.Mannschaften
+            .Include(m => m.Land)
+            .Where(m => Context.Spiele.Any(s => s.TurnierInstanzId == turnierInstanzId
+                                                && (s.HeimMannschaftId == m.Id || s.AuswaertsMannschaftId == m.Id)))
+            .OrderBy(m => m.Name)
             .ToListAsync(ct);
 
     public async Task<int> HoechsteSpielNummerAsync(int turnierInstanzId, CancellationToken ct = default)

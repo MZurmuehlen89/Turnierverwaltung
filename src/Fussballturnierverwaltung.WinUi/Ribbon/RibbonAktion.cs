@@ -34,8 +34,11 @@ public sealed class RibbonAktion
 }
 
 /// <summary>Ein Menüpunkt in einem <see cref="RibbonAktion.Unteraktionen"/>-Flyout — im Unterschied zu
-/// <see cref="RibbonToggleAktion"/> keine Checkbox, sondern eine sofort ausgeführte Aktion.</summary>
-public sealed record RibbonUnteraktion(string Header, ICommand Befehl, string? IconGlyph = null);
+/// <see cref="RibbonToggleAktion"/> keine Checkbox, sondern eine sofort ausgeführte Aktion.
+/// <paramref name="SperrHinweis"/>: gesetzt = Menüpunkt ausgegraut, der Hinweis steht in Klammern dahinter (#479) —
+/// ein Tooltip erschiene an einem gesperrten Menüpunkt nicht.</summary>
+public sealed record RibbonUnteraktion(
+    string Header, ICommand Befehl, string? IconGlyph = null, string? SperrHinweis = null);
 
 /// <summary>Ein an-/abschaltbarer Menüpunkt in einem <see cref="RibbonAktion.ToggleUnterpunkte"/>-Flyout.
 /// Bewusst ohne Binding-Mechanismus (kein <see cref="Microsoft.UI.Xaml.Data.Binding"/>-Objekt wie im

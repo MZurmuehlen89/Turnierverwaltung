@@ -2,6 +2,7 @@ using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Spiele.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
@@ -16,6 +17,13 @@ public class SpielErgebnisService(
 {
     public Task<IReadOnlyList<Spiel>> AlleNachRundeAsync(int turnierRundeId, CancellationToken ct = default)
         => spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
+
+    public Task<IReadOnlyList<Spiel>> AlleNachMannschaftAsync(
+        int turnierInstanzId, int mannschaftId, CancellationToken ct = default)
+        => spielRepository.AlleNachMannschaftAsync(turnierInstanzId, mannschaftId, ct);
+
+    public Task<IReadOnlyList<Mannschaft>> MannschaftenNachInstanzAsync(int turnierInstanzId, CancellationToken ct = default)
+        => spielRepository.MannschaftenNachInstanzAsync(turnierInstanzId, ct);
 
     public Task<Spiel?> FindenNachIdAsync(int spielId, CancellationToken ct = default)
         => spielRepository.FindenNachIdMitErgebnisAsync(spielId, ct);

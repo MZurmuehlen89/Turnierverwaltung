@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 
 namespace Fussballturnierverwaltung.Application.Spielplan;
 
@@ -7,6 +8,14 @@ public interface ISpielRepository : IRepository<Spiel>
 {
     Task<IReadOnlyList<Spiel>> AlleNachRundeAsync(int turnierRundeId, CancellationToken ct = default);
     Task<IReadOnlyList<Spiel>> AlleNachInstanzAsync(int turnierInstanzId, CancellationToken ct = default);
+
+    /// <summary>Alle Spiele eines Turniers, in denen die Mannschaft als Heim- oder Auswärtsteam feststeht — samt
+    /// Runde, in Turnierreihenfolge (Runde, Spieltag, Spielnummer). Platzhalter, die sicher auf sie verweisen, sind
+    /// nach jedem Ergebnis bereits aufgelöst und deshalb enthalten (#479).</summary>
+    Task<IReadOnlyList<Spiel>> AlleNachMannschaftAsync(int turnierInstanzId, int mannschaftId, CancellationToken ct = default);
+
+    /// <summary>Die Mannschaften, die in mindestens einem Spiel des Turniers feststehen, nach Name (#479).</summary>
+    Task<IReadOnlyList<Mannschaft>> MannschaftenNachInstanzAsync(int turnierInstanzId, CancellationToken ct = default);
     Task<int> HoechsteSpielNummerAsync(int turnierInstanzId, CancellationToken ct = default);
 
     /// <summary>
