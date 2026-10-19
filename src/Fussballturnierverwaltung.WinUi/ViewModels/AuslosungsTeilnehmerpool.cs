@@ -73,6 +73,8 @@ public class AuslosungsTeilnehmerpool(
         TurnierRunde runde, IReadOnlyList<TurnierRunde> instanzRunden)
     {
         var eingehendeRegeln = await uebergangsregelService.AlleNachZielRundeIdAsync(runde.Id);
+        // Ohne Kombinationstabelle: in einer gelosten Runde stehen die besten Dritten als Rangfolge zur Wahl, ihre
+        // festen Baumplätze gelten nur bei fest vorgegebener Paarung in der Vorbelegung (#444).
         return TeilnehmerPoolHilfsmittel.PlatzhalterAusVorrunden(instanzRunden, runde, eingehendeRegeln);
     }
 

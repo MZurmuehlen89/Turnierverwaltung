@@ -39,7 +39,10 @@ public static class TeilnehmerPoolHilfsmittel
     /// einer Zielrunde — unterstützt mehrere unabhängige Quellrunden gleichzeitig. <paramref name="eingehendeRegeln"/>
     /// muss mit geladener QuellRunde-Navigation kommen und wird als nicht leer vorausgesetzt. Mit
     /// <paramref name="kombinationstabelle"/> der Zielrunde (Issue #372) werden die besten Gruppendritten als deren
-    /// feste Baumplätze ("3. Gruppe A/D/E/F") statt als Rangfolge ("1. bester 3. Platz") angeboten.</summary>
+    /// feste Baumplätze ("3. Gruppe A/D/E/F") statt als Rangfolge ("1. bester 3. Platz") angeboten. Nur die
+    /// Vorbelegung reicht die Tabelle durch, die Auslosung bewusst nicht (#444): Nach realem Vorbild (EM, WM 2026,
+    /// Copa América) werden die Dritten nicht gelost, ihr Baumplatz folgt aus der Tabelle; in einer gelosten Runde
+    /// hätten die festen Plätze keine Bedeutung. Beide Namensformen löst die Platzhalter-Auflösung auf.</summary>
     public static IReadOnlyList<TeilnehmerAnzeige> PlatzhalterAusRegelnGenerieren(
         IReadOnlyList<Uebergangsregel> eingehendeRegeln, Kombinationstabelle? kombinationstabelle = null) =>
         eingehendeRegeln
