@@ -204,12 +204,12 @@ public class AuslosungsRegelnTests
     // HEIMRECHT FÜR UNTERKLASSIGE (#393)
     // ══════════════════════════════════════════════════════════════════════════
 
-    // Ligapyramide aus Quelle 9: Ids 1–4 Bundesliga (Klasse 1), Ids 5–8 Regionalliga (Klasse 4), Profigrenze 2.
+    // Ligapyramide als Standard-Rangliste 7: Ids 1–4 Bundesliga (Klasse 1), Ids 5–8 Regionalliga (Klasse 4).
     private void PyramideAnlegen(int? profigrenze)
     {
         _ranglisten.Speichern(new Rangliste
         {
-            Id = 1, Name = "Ligapyramide", RanglistenQuelleId = 9, ProfigrenzeSpielklasse = profigrenze,
+            Id = 7, Name = "Ligapyramide", ProfigrenzeSpielklasse = profigrenze,
             Abschnitte =
             [
                 new RanglistenAbschnitt { Name = "Bundesliga", Spielklasse = 1, BisPlatz = 4 },
@@ -219,7 +219,7 @@ public class AuslosungsRegelnTests
         });
         _runden.Speichern(new TurnierRunde
         {
-            Id = 1, Name = "1. Runde", Rundenart = Rundenart.KoRunde, RegelwerkId = 1, StandardRanglistenQuelleId = 9
+            Id = 1, Name = "1. Runde", Rundenart = Rundenart.KoRunde, RegelwerkId = 1, StandardRanglisteId = 7
         });
     }
 

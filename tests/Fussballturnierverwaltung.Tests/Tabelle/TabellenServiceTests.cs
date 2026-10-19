@@ -1099,7 +1099,7 @@ public class TabellenServiceTests
     [Theory]
     [InlineData(true,  new[] { 3, 1, 2, 4 })]
     [InlineData(false, new[] { 1, 2, 3, 4 })]
-    public async Task Koeffizient_EntscheidetNachDerNeuestenRanglisteDerStandardQuelle(
+    public async Task Koeffizient_EntscheidetNachDerStandardRangliste(
         bool mitStandardRangliste, int[] erwarteteReihenfolge)
     {
         await using var ctx = NeuerContext();
@@ -1120,11 +1120,11 @@ public class TabellenServiceTests
         ctx.TurnierRunden.Add(new TurnierRunde
         {
             Id = 1, TurnierInstanzId = 1, Name = "Ligaphase", Rundenart = Rundenart.TopfLiga, RegelwerkId = 1, Reihenfolge = 1,
-            StandardRanglistenQuelleId = mitStandardRangliste ? 1 : null
+            StandardRanglisteId = mitStandardRangliste ? 2 : null
         });
         ctx.Mannschaften.AddRange(Enumerable.Range(1, 4).Select(id =>
             new Mannschaft { Id = id, Name = $"Team {id}", Kurzname = $"T{id}", LandId = 1 }));
-        // Die ältere Rangliste derselben Quelle darf nicht zählen; in der neuesten fehlen Team 2 und 4.
+        // Nur die Standard-Rangliste der Runde zählt, nicht die andere derselben Quelle; in ihr fehlen Team 2 und 4.
         ctx.Ranglisten.AddRange(
             RanglisteMit(1, new DateOnly(2025, 6, 1), (1, 1), (2, 2), (3, 3), (4, 4)),
             RanglisteMit(2, new DateOnly(2026, 6, 1), (3, 1), (1, 2)));

@@ -40,7 +40,7 @@ public class TurnierKlonServiceTests
             Id = 1, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 1,
             Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2, RegelwerkId = 1,
             VorgegebeneAuslosungsart = Auslosungsart.NachToepfen,
-            StandardRanglistenQuelleId = 7, TitelverteidigerInTopf1 = true, NeutralerSpielort = true,
+            StandardRanglisteId = 7, TitelverteidigerInTopf1 = true, NeutralerSpielort = true,
             TabellenBereiche = [new TabellenBereich { PlatzVon = 2, PlatzBis = 2, Art = TabellenBereichArt.Relegation, Bezeichnung = "Relegation" }]
         };
         var finale = new TurnierRunde
@@ -150,10 +150,10 @@ public class TurnierKlonServiceTests
         var klon = await service.KlonenAsync(quellId, "EM 2028", "2028", TurnierStatus.Geplant);
 
         var halbfinale = klon.Runden.Single(r => r.Name == "Halbfinale");
-        halbfinale.StandardRanglistenQuelleId.Should().Be(7);
+        halbfinale.StandardRanglisteId.Should().Be(7);
         halbfinale.TitelverteidigerInTopf1.Should().BeTrue();
         halbfinale.NeutralerSpielort.Should().BeTrue();
-        klon.Runden.Single(r => r.Name == "Finale").StandardRanglistenQuelleId.Should().BeNull();
+        klon.Runden.Single(r => r.Name == "Finale").StandardRanglisteId.Should().BeNull();
         klon.Runden.Single(r => r.Name == "Finale").NeutralerSpielort.Should().BeFalse();
     }
 

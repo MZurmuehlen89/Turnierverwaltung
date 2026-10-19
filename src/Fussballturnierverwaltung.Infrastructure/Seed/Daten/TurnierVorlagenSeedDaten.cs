@@ -14,7 +14,7 @@ public static class TurnierVorlagenSeedDaten
         IReadOnlyDictionary<string, int>? regelwerkLookup = null,
         IReadOnlyDictionary<string, int>? verbandLookup = null,
         IReadOnlyDictionary<string, int>? landLookup = null,
-        IReadOnlyDictionary<string, int>? ranglistenQuelleLookup = null)
+        IReadOnlyDictionary<string, int>? ranglisteJeQuelleLookup = null)
     {
         List<TurnierInstanz> vorlagen =
         [
@@ -37,9 +37,9 @@ public static class TurnierVorlagenSeedDaten
             ConcacafGoldCup16Teams(regelwerkLookup, verbandLookup),
             UefaChampionsLeague32TeamsKlassisch(regelwerkLookup, verbandLookup),
             UefaChampionsLeague32TeamsModern(regelwerkLookup, verbandLookup),
-            UefaChampionsLeague36TeamsModern(regelwerkLookup, verbandLookup, ranglistenQuelleLookup),
-            UefaEuropaLeague36Teams(regelwerkLookup, verbandLookup, ranglistenQuelleLookup),
-            UefaConferenceLeague36Teams(regelwerkLookup, verbandLookup, ranglistenQuelleLookup),
+            UefaChampionsLeague36TeamsModern(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
+            UefaEuropaLeague36Teams(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
+            UefaConferenceLeague36Teams(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
             DfbPokal64Teams(regelwerkLookup, verbandLookup, landLookup),
             FaCup64Teams(regelwerkLookup, verbandLookup, landLookup),
             NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Bundesliga",     "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ,       BUNDESLIGA_BEREICHE),
@@ -791,8 +791,9 @@ public static class TurnierVorlagenSeedDaten
         // Playoff und Achtelfinale nach Töpfen (besser Platzierte gegen schlechter Platzierte bzw. Platz 1–8
         // gegen Playoff-Sieger), danach Zufall. Bestehende Datenbanken: Migration AuslosungsartVorgabeJeRunde.
         var liga          = Runde(1, "Ligaphase",       Rundenart.TopfLiga,        36, 24, regelwerkId: rId, auslosungsart: Auslosungsart.TopfZuordnung);
-        // Töpfe der Ligaphase nach Klub-Koeffizient (Issue #349). Bestehende Datenbanken: Migration StandardRanglisteJeRunde.
-        liga.StandardRanglistenQuelleId = RqId(quelle, RanglistenQuellenSeedDaten.UEFA_KLUB_KOEFFIZIENT);
+        // Töpfe der Ligaphase nach Klub-Koeffizient (Issue #349): die neueste aus dieser Quelle importierte Rangliste;
+        // ohne Import bleibt die Ligaphase ohne Standard-Rangliste (seit #393 verweist die Runde auf eine Rangliste).
+        liga.StandardRanglisteId = RqId(quelle, RanglistenQuellenSeedDaten.UEFA_KLUB_KOEFFIZIENT);
         liga.TitelverteidigerInTopf1    = titelverteidigerInTopf1;
         var playoff       = Runde(2, "Playoff-Runde",   Rundenart.KoRunde,         16,  8, mitRueckspiel: true, regelwerkId: rId, auslosungsart: Auslosungsart.NachToepfen);
         var achtelfinale  = Runde(3, "Achtelfinale",    Rundenart.KoRunde,         16,  8, mitRueckspiel: true, regelwerkId: rId, auslosungsart: Auslosungsart.NachToepfen);
@@ -1032,7 +1033,7 @@ public static class TurnierVorlagenSeedDaten
     private static int? LId(IReadOnlyDictionary<string, int>? lookup, string fifaCode)
         => lookup is not null && lookup.TryGetValue(fifaCode, out var id) ? id : null;
 
-    // Ranglisten-Quellen-Lookup nach Name (Issue #349).
+    // Neueste Rangliste je Ranglisten-Quellenname (Issue #349, seit #393 Rangliste statt Quelle).
     private static int? RqId(IReadOnlyDictionary<string, int>? lookup, string name)
         => lookup is not null && lookup.TryGetValue(name, out var id) ? id : null;
 

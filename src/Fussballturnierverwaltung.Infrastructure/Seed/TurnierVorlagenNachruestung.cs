@@ -56,9 +56,9 @@ internal sealed class TurnierVorlagenNachruestung
         var regelwerkIds = await context.Regelwerke.ToDictionaryAsync(r => r.Name, r => r.Id, ct);
         var verbandIds = await context.Verbaende.ToDictionaryAsync(v => v.Kurzname, v => v.Id, ct);
         var landIds = await context.Laender.ToDictionaryAsync(l => l.FifaCode, l => l.Id, ct);
-        var quellenIds = await RanglistenQuellenIdsAsync(context, ct);
+        var ranglisteJeQuelle = await NeuesteRanglisteJeQuelleAsync(context, ct);
         List<TurnierInstanz> SeedVorlagen() =>
-            TurnierVorlagenSeedDaten.Erstellen(regelwerkIds, verbandIds, landIds, quellenIds);
+            TurnierVorlagenSeedDaten.Erstellen(regelwerkIds, verbandIds, landIds, ranglisteJeQuelle);
 
         // Issue #294: Vorlagen sind TurnierInstanz-Zeilen mit Status Vorlage — der Status gehört zur Identität,
         // damit ein echtes Turnier mit zufällig gleichem Namen nicht als "bereits vorhanden" zählt.
@@ -101,12 +101,17 @@ internal sealed class TurnierVorlagenNachruestung
             TabellenBereicheErgaenzen(), "Turniervorlagen um Tabellenbereiche (Europapokal, Relegation, Abstieg) ergänzt.", ct);
     }
 
-    // Quellennamen sind nicht eindeutig erzwungen (frei anlegbar im Quellen-Dialog) — bei Dubletten gilt die älteste.
-    private static async Task<Dictionary<string, int>> RanglistenQuellenIdsAsync(
+    // Je Quellenname die neueste daraus importierte Rangliste (nach Datum, bei Gleichstand die zuletzt angelegte) —
+    // Vorlagen verweisen seit #393 auf eine Rangliste. Quellennamen sind nicht eindeutig erzwungen, Dubletten
+    // zählen zusammen.
+    private static async Task<Dictionary<string, int>> NeuesteRanglisteJeQuelleAsync(
         TurnierverwaltungDbContext context, CancellationToken ct) =>
-        (await context.RanglistenQuellen.Select(q => new { q.Name, q.Id }).ToListAsync(ct))
-            .GroupBy(q => q.Name)
-            .ToDictionary(g => g.Key, g => g.Min(q => q.Id));
+        (await context.Ranglisten
+            .Where(r => r.RanglistenQuelle != null)
+            .Select(r => new { Quelle = r.RanglistenQuelle!.Name, r.Id, r.Datum })
+            .ToListAsync(ct))
+            .GroupBy(r => r.Quelle)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Datum).ThenByDescending(r => r.Id).First().Id);
 
     // ── Gemeinsame Bausteine ───────────────────────────────────────────────────
 

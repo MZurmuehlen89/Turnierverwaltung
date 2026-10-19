@@ -40,9 +40,9 @@ public class TurnierRundeKonfiguration : IEntityTypeConfiguration<TurnierRunde>
 
         builder.Property(r => r.TitelverteidigerInTopf1).IsRequired().HasDefaultValue(false);
 
-        builder.HasOne(r => r.StandardRanglistenQuelle)
+        builder.HasOne(r => r.StandardRangliste)
             .WithMany()
-            .HasForeignKey(r => r.StandardRanglistenQuelleId)
+            .HasForeignKey(r => r.StandardRanglisteId)
             .OnDelete(DeleteBehavior.SetNull)
             .IsRequired(false);
 

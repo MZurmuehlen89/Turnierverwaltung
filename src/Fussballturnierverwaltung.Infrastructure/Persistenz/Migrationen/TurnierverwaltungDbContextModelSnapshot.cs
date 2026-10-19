@@ -1095,7 +1095,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("Rundenart")
                         .HasColumnType("int");
 
-                    b.Property<int?>("StandardRanglistenQuelleId")
+                    b.Property<int?>("StandardRanglisteId")
                         .HasColumnType("int");
 
                     b.Property<bool>("TitelverteidigerInTopf1")
@@ -1122,7 +1122,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     b.HasIndex("RegelwerkId");
 
-                    b.HasIndex("StandardRanglistenQuelleId");
+                    b.HasIndex("StandardRanglisteId");
 
                     b.HasIndex("TurnierInstanzId", "Reihenfolge")
                         .IsUnique();
@@ -1647,9 +1647,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasForeignKey("RegelwerkId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenQuelle", "StandardRanglistenQuelle")
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.Rangliste", "StandardRangliste")
                         .WithMany()
-                        .HasForeignKey("StandardRanglistenQuelleId")
+                        .HasForeignKey("StandardRanglisteId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierInstanz", "TurnierInstanz")
@@ -1660,7 +1660,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     b.Navigation("Regelwerk");
 
-                    b.Navigation("StandardRanglistenQuelle");
+                    b.Navigation("StandardRangliste");
 
                     b.Navigation("TurnierInstanz");
                 });

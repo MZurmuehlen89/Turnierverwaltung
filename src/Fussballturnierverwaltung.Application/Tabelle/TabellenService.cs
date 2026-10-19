@@ -130,8 +130,8 @@ public class TabellenService(
     private async Task<IReadOnlyDictionary<int, int>?> RanglistenPlaetzeLadenAsync(
         TurnierRunde runde, IReadOnlyList<RankingRegel> rankingRegeln, CancellationToken ct)
     {
-        if (runde.StandardRanglistenQuelleId is not int quelleId) return null;
+        if (runde.StandardRanglisteId is not int ranglisteId) return null;
         if (!rankingRegeln.Any(r => r.Regelart == RankingRegelArt.Koeffizient)) return null;
-        return await ranglisteRepository.PlaetzeDerNeuestenZurQuelleAsync(quelleId, ct);
+        return await ranglisteRepository.PlaetzeAsync(ranglisteId, ct);
     }
 }

@@ -74,38 +74,4 @@ public class LostopfVorbelegungTests
 
         toepfe.Select(t => t.Count).Should().Equal(3, 2, 2, 2);
     }
-
-    [Fact]
-    public void NeuesteRanglisteZurQuelle_WaehltJuengstesDatumDerQuelle()
-    {
-        var ranglisten = new[]
-        {
-            new Rangliste { Id = 1, RanglistenQuelleId = 8, Datum = new DateOnly(2025, 7, 1) },
-            new Rangliste { Id = 2, RanglistenQuelleId = 8, Datum = new DateOnly(2026, 7, 1) },
-            new Rangliste { Id = 3, RanglistenQuelleId = 9, Datum = new DateOnly(2027, 1, 1) },
-            new Rangliste { Id = 4, RanglistenQuelleId = null, Datum = new DateOnly(2028, 1, 1) },
-        };
-
-        LostopfVorbelegung.NeuesteRanglisteZurQuelle(ranglisten, 8)!.Id.Should().Be(2);
-    }
-
-    [Fact]
-    public void NeuesteRanglisteZurQuelle_GleichesDatum_ZuletztAngelegteGewinnt()
-    {
-        var ranglisten = new[]
-        {
-            new Rangliste { Id = 5, RanglistenQuelleId = 8, Datum = new DateOnly(2026, 7, 1) },
-            new Rangliste { Id = 6, RanglistenQuelleId = 8, Datum = new DateOnly(2026, 7, 1) },
-        };
-
-        LostopfVorbelegung.NeuesteRanglisteZurQuelle(ranglisten, 8)!.Id.Should().Be(6);
-    }
-
-    [Fact]
-    public void NeuesteRanglisteZurQuelle_NochNichtsImportiert_LiefertNull()
-    {
-        var ranglisten = new[] { new Rangliste { Id = 1, RanglistenQuelleId = 9 } };
-
-        LostopfVorbelegung.NeuesteRanglisteZurQuelle(ranglisten, 8).Should().BeNull();
-    }
 }

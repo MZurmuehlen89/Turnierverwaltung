@@ -25,11 +25,8 @@ public class RanglisteRepository(TurnierverwaltungDbContext context)
             .AsSplitQuery()
             .FirstOrDefaultAsync(r => r.Id == id, ct);
 
-    public async Task<IReadOnlyDictionary<int, int>> PlaetzeDerNeuestenZurQuelleAsync(int quelleId, CancellationToken ct = default)
+    public async Task<IReadOnlyDictionary<int, int>> PlaetzeAsync(int ranglisteId, CancellationToken ct = default)
     {
-        var ranglisteId = await NeuesteIdZurQuelleAsync(quelleId, ct);
-        if (ranglisteId is null) return new Dictionary<int, int>();
-
         var eintraege = await Context.RanglistenEintraege
             .Where(e => e.RanglisteId == ranglisteId)
             .Select(e => new { e.MannschaftId, e.Rang })
@@ -41,27 +38,13 @@ public class RanglisteRepository(TurnierverwaltungDbContext context)
             .ToDictionary(g => g.Key, g => g.Min(e => e.Rang));
     }
 
-    public async Task<Rangliste?> NeuesteZurQuelleMitAbschnittenAsync(int quelleId, CancellationToken ct = default)
-    {
-        var ranglisteId = await NeuesteIdZurQuelleAsync(quelleId, ct);
-        if (ranglisteId is null) return null;
-
-        return await Context.Ranglisten
+    public Task<Rangliste?> MitAbschnittenAsync(int ranglisteId, CancellationToken ct = default) =>
+        Context.Ranglisten
             .AsNoTracking()
             .Include(r => r.Eintraege)
             .Include(r => r.Abschnitte)
             .AsSplitQuery()
             .FirstOrDefaultAsync(r => r.Id == ranglisteId, ct);
-    }
-
-    // Neueste nach Datum, bei Gleichstand die zuletzt angelegte — wie LostopfVorbelegung.NeuesteRanglisteZurQuelle.
-    private Task<int?> NeuesteIdZurQuelleAsync(int quelleId, CancellationToken ct) =>
-        Context.Ranglisten
-            .Where(r => r.RanglistenQuelleId == quelleId)
-            .OrderByDescending(r => r.Datum)
-            .ThenByDescending(r => r.Id)
-            .Select(r => (int?)r.Id)
-            .FirstOrDefaultAsync(ct);
 
     public Task SpeichernAenderungenAsync(CancellationToken ct = default)
         => Context.SaveChangesAsync(ct);

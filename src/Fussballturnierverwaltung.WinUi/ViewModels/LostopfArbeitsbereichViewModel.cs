@@ -112,12 +112,12 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
         if (value is null) AusgewaehlteRanglisteOption = _keineRangliste;
     }
 
-    /// <summary>Wählt die neueste Rangliste der Standard-Quelle von <paramref name="runde"/> vor (#349).
+    /// <summary>Wählt die Standard-Rangliste von <paramref name="runde"/> vor (#349, seit #393 ein direkter Verweis).
     /// Ohne Vorgabe bleibt die bisherige Auswahl stehen. Liefert die gewählte Rangliste oder <c>null</c>.</summary>
     private Rangliste? StandardRanglisteVorauswaehlen(TurnierRunde? runde)
     {
-        if (runde?.StandardRanglistenQuelleId is not int quelleId) return null;
-        var rangliste = LostopfVorbelegung.NeuesteRanglisteZurQuelle(AlleRanglisten, quelleId);
+        if (runde?.StandardRanglisteId is not int ranglisteId) return null;
+        var rangliste = AlleRanglisten.FirstOrDefault(r => r.Id == ranglisteId);
         AusgewaehlteRanglisteOption = _ranglisteOptionen.FirstOrDefault(o => o.Wert == rangliste) ?? _keineRangliste;
         return rangliste;
     }
@@ -238,7 +238,7 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     }
 
     /// <summary>Befüllt die Töpfe nach der Standard-Rangliste der Runde (#349). Läuft unter dem Schutz des
-    /// Aufrufers. Liefert <c>false</c>, wenn für die Standard-Quelle noch keine Rangliste importiert ist.</summary>
+    /// Aufrufers. Liefert <c>false</c>, wenn die Runde keine Standard-Rangliste hat oder sie nicht mehr existiert.</summary>
     public async Task<bool> NachStandardRanglisteBefuellenAsync()
     {
         if (StandardRanglisteVorauswaehlen(_kontext.AktuellesDetail?.TurnierRunde) is not { } rangliste) return false;

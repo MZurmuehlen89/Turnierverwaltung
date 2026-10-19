@@ -228,7 +228,7 @@ public class TurnierInstanzService(
         VorgegebeneAuslosungsart     = e.VorgegebeneAuslosungsart,
         VorgegebeneAuslosungsregeln  = [.. e.VorgegebeneAuslosungsregeln ?? []],
         KombinationstabelleJson      = e.KombinationstabelleJson,
-        StandardRanglistenQuelleId   = e.StandardRanglistenQuelleId,
+        StandardRanglisteId   = e.StandardRanglisteId,
         TitelverteidigerInTopf1      = e.TitelverteidigerInTopf1,
         TabellenBereiche             = [.. (e.TabellenBereiche ?? []).OrderBy(b => b.PlatzVon).Select(b => new TabellenBereich
         {

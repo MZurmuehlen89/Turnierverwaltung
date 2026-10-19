@@ -51,11 +51,12 @@ public class TurnierRunde : BasisEntitaet
     // bereits aktiv, dort weiter abwählbar. Leer = keine Vorgabe.
     public List<AuslosungsRegelArt> VorgegebeneAuslosungsregeln { get; set; } = [];
 
-    // Standard-Rangliste für die Lostopf-Vorbelegung (Issue #349): verweist auf eine Ranglisten-Quelle statt
-    // auf eine konkrete Rangliste, damit Vorlagen sie vorgeben können und stets die neueste importierte
-    // Rangliste dieser Quelle greift (z.B. UEFA-Klub-Koeffizient). null = keine Vorbelegung.
-    public int? StandardRanglistenQuelleId { get; set; }
-    public RanglistenQuelle? StandardRanglistenQuelle { get; set; }
+    // Standard-Rangliste der Runde (Issue #349): Lostopf-Vorbelegung, Kriterium Koeffizient (#354) und
+    // Spielklassen für „Heimrecht für Unterklassige“ (#393). Verweist direkt auf eine gespeicherte Rangliste —
+    // die Ranglisten-Quelle dient nur dem Aktualisieren per Import (#393, vorher Verweis auf die Quelle).
+    // null = keine Standard-Rangliste.
+    public int? StandardRanglisteId { get; set; }
+    public Rangliste? StandardRangliste { get; set; }
 
     // Titelverteidiger (TurnierInstanz.Titelverteidiger) unabhängig vom Ranglistenplatz in Topf 1 setzen —
     // UEFA-Champions-League-Ligaphase ab 2024/25 (Issue #349). Nur wirksam mit Standard-Rangliste.

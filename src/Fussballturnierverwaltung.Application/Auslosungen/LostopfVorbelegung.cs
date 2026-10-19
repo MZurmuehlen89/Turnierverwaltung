@@ -10,15 +10,6 @@ namespace Fussballturnierverwaltung.Application.Auslosungen;
 /// </summary>
 public static class LostopfVorbelegung
 {
-    /// <summary>Neueste Rangliste (nach Datum, bei Gleichstand zuletzt angelegte) aus der Quelle
-    /// <paramref name="quelleId"/>, oder <c>null</c>, wenn aus dieser Quelle noch nichts importiert wurde.</summary>
-    public static Rangliste? NeuesteRanglisteZurQuelle(IEnumerable<Rangliste> ranglisten, int quelleId) =>
-        ranglisten
-            .Where(r => r.RanglistenQuelleId == quelleId)
-            .OrderByDescending(r => r.Datum)
-            .ThenByDescending(r => r.Id)
-            .FirstOrDefault();
-
     /// <summary>
     /// Verteilt <paramref name="mannschaftIds"/> auf <paramref name="topfAnzahl"/> Töpfe: sortiert nach
     /// Ranglistenplatz, Teams ohne Eintrag hinten (in der übergebenen Reihenfolge). Ein übergebener

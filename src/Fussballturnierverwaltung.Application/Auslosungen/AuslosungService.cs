@@ -240,7 +240,7 @@ public class AuslosungService(
             Wirkt(AuslosungsRegelArt.Konfoederationsverteilung),
             auslosung.TurnierRunde?.MitRueckspiel ?? false,
             Wirkt(AuslosungsRegelArt.HeimrechtFuerUnterklassige)
-                ? await SpielklassenLadenAsync(auslosung.TurnierRunde?.StandardRanglistenQuelleId, ct)
+                ? await SpielklassenLadenAsync(auslosung.TurnierRunde?.StandardRanglisteId, ct)
                 : null);
 
         var gruppeJeMannschaft = new Dictionary<int, string>();
@@ -263,10 +263,10 @@ public class AuslosungService(
         return (regeln, gruppeJeMannschaft);
     }
 
-    // Spielklassen aus der neuesten Rangliste der Standard-Quelle der Runde (#393) — dieselbe Rangliste wie für die
-    // Lostöpfe (#349). Ohne Quelle oder Rangliste kennt kein Team seine Klasse, dann entscheidet überall das Los.
-    private async Task<Spielklassen> SpielklassenLadenAsync(int? quelleId, CancellationToken ct) =>
-        quelleId is int id && await ranglisteRepository.NeuesteZurQuelleMitAbschnittenAsync(id, ct) is { } rangliste
+    // Spielklassen aus der Standard-Rangliste der Runde (#393) — dieselbe Rangliste wie für die Lostöpfe (#349).
+    // Ohne Standard-Rangliste kennt kein Team seine Klasse, dann entscheidet überall das Los.
+    private async Task<Spielklassen> SpielklassenLadenAsync(int? ranglisteId, CancellationToken ct) =>
+        ranglisteId is int id && await ranglisteRepository.MitAbschnittenAsync(id, ct) is { } rangliste
             ? Spielklassen.Aus(rangliste)
             : Spielklassen.Keine;
 

@@ -62,7 +62,7 @@ public record TurnierRundeEingabe(
     bool PaarungFestVorgegeben = false,
     Auslosungsart? VorgegebeneAuslosungsart = null,
     string? KombinationstabelleJson = null,
-    int? StandardRanglistenQuelleId = null,
+    int? StandardRanglisteId = null,
     bool TitelverteidigerInTopf1 = false,
     bool NeutralerSpielort = false,
     int Ueberraschungsfaktor = 0,
@@ -77,7 +77,7 @@ public record TurnierRundeEingabe(
         KonfigurationJson = Rundenart == Rundenart.SchweizerSystem ? KonfigurationJson : null,
         GruppenAnzahl = Rundenart == Rundenart.Gruppenphase ? GruppenAnzahl : null,
         TabellenBereiche = TabellenZonen.HatTabelle(Rundenart) ? TabellenBereiche : null,
-        TitelverteidigerInTopf1 = StandardRanglistenQuelleId is not null && TitelverteidigerInTopf1
+        TitelverteidigerInTopf1 = StandardRanglisteId is not null && TitelverteidigerInTopf1
     };
 }
 

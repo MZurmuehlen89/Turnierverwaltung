@@ -13,6 +13,10 @@ public class RanglisteService(
     public Task<IReadOnlyList<Rangliste>> AlleAbrufenAsync(CancellationToken ct = default)
         => repository.AlleFindenMitEintraegenAsync(ct);
 
+    /// <summary>Alle Ranglisten ohne Einträge — für Auswahllisten (Standard-Rangliste einer Runde, #393).</summary>
+    public Task<IReadOnlyList<Rangliste>> AlleOhneEintraegeAbrufenAsync(CancellationToken ct = default)
+        => repository.AlleFindenAsync(ct);
+
     public Task<Rangliste?> FindenNachIdAsync(int id, CancellationToken ct = default)
         => repository.FindenNachIdMitEintraegenAsync(id, ct);
 

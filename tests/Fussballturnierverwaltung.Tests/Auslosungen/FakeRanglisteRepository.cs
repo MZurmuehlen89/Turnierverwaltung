@@ -3,7 +3,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 
 namespace Fussballturnierverwaltung.Tests.Auslosungen;
 
-/// <summary>In-memory stub für IRanglisteRepository — für die Auslosung zählt nur die neueste Rangliste einer Quelle
+/// <summary>In-memory stub für IRanglisteRepository — für die Auslosung zählt nur die Standard-Rangliste der Runde
 /// (Spielklassen, #393).</summary>
 public class FakeRanglisteRepository : IRanglisteRepository
 {
@@ -29,16 +29,12 @@ public class FakeRanglisteRepository : IRanglisteRepository
 
     public Task<Rangliste?> FindenNachIdMitEintraegenAsync(int id, CancellationToken ct = default) => FindenNachIdAsync(id, ct);
 
-    public Task<IReadOnlyDictionary<int, int>> PlaetzeDerNeuestenZurQuelleAsync(int quelleId, CancellationToken ct = default) =>
+    public Task<IReadOnlyDictionary<int, int>> PlaetzeAsync(int ranglisteId, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyDictionary<int, int>>(
-            NeuesteZurQuelle(quelleId)?.Eintraege.ToDictionary(e => e.MannschaftId, e => e.Rang) ?? []);
+            _ranglisten.FirstOrDefault(r => r.Id == ranglisteId)?.Eintraege.ToDictionary(e => e.MannschaftId, e => e.Rang) ?? []);
 
-    public Task<Rangliste?> NeuesteZurQuelleMitAbschnittenAsync(int quelleId, CancellationToken ct = default) =>
-        Task.FromResult(NeuesteZurQuelle(quelleId));
+    public Task<Rangliste?> MitAbschnittenAsync(int ranglisteId, CancellationToken ct = default) =>
+        FindenNachIdAsync(ranglisteId, ct);
 
     public Task SpeichernAenderungenAsync(CancellationToken ct = default) => Task.CompletedTask;
-
-    private Rangliste? NeuesteZurQuelle(int quelleId) =>
-        _ranglisten.Where(r => r.RanglistenQuelleId == quelleId)
-            .OrderByDescending(r => r.Datum).ThenByDescending(r => r.Id).FirstOrDefault();
 }

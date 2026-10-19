@@ -13,7 +13,7 @@ public partial class RundeZeile : ObservableObject
 {
     public static readonly RegelwerkOption KeinRegelwerk = new("— Turnierstandard —", null);
     public static readonly VorgegebeneAuslosungsartOption KeineAuslosungsartVorgabe = new("— frei wählbar —", null);
-    public static readonly RanglistenQuelleOption KeineRanglistenQuelle = new("— keine —", null);
+    public static readonly StandardRanglisteOption KeineStandardRangliste = new("— keine —", null);
 
     public int? Id { get; set; }
 
@@ -30,7 +30,7 @@ public partial class RundeZeile : ObservableObject
     [ObservableProperty] private RegelwerkOption _regelwerk = KeinRegelwerk;
     [ObservableProperty] private bool _paarungFestVorgegeben;
     [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = KeineAuslosungsartVorgabe;
-    [ObservableProperty] private RanglistenQuelleOption _standardRanglistenQuelle = KeineRanglistenQuelle;
+    [ObservableProperty] private StandardRanglisteOption _standardRangliste = KeineStandardRangliste;
     [ObservableProperty] private bool _titelverteidigerInTopf1;
 
     // Issue #372: im Editor nicht bearbeitbar (stammt aus dem Seed), wird beim Speichern unverändert durchgereicht.

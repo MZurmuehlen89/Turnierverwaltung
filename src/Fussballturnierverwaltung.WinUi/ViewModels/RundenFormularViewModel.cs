@@ -18,7 +18,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 public partial class RundenFormularViewModel : ObservableObject
 {
     private readonly RegelwerkService _regelwerkService;
-    private readonly RanglistenQuelleService _ranglistenQuelleService;
+    private readonly RanglisteService _ranglisteService;
     private int _populiertGerade;
 
     // Die gezeigte Runde und ob vor ihr eine Gruppenphase liegt (bestimmt, welche Auslosungsregeln wirken können).
@@ -28,10 +28,10 @@ public partial class RundenFormularViewModel : ObservableObject
     /// <summary>Der Nutzer hat ein Feld der gezeigten Runde geändert; die Zeile trägt den neuen Wert bereits.</summary>
     public event Action? Geaendert;
 
-    public RundenFormularViewModel(RegelwerkService regelwerkService, RanglistenQuelleService ranglistenQuelleService)
+    public RundenFormularViewModel(RegelwerkService regelwerkService, RanglisteService ranglisteService)
     {
         _regelwerkService = regelwerkService;
-        _ranglistenQuelleService = ranglistenQuelleService;
+        _ranglisteService = ranglisteService;
         TabellenBereiche.Geaendert += () => Geaendert?.Invoke();
     }
 
@@ -68,7 +68,7 @@ public partial class RundenFormularViewModel : ObservableObject
         nameof(GruppenAnzahl), nameof(AnzahlSpieltage), nameof(MitRueckspiel), nameof(AuswaertstorRegelAktiv), nameof(NeutralerSpielort),
         nameof(Ueberraschungsfaktor),
         nameof(Regelwerk), nameof(PaarungFestVorgegeben), nameof(VorgegebeneAuslosungsart),
-        nameof(StandardRanglistenQuelle), nameof(TitelverteidigerInTopf1)
+        nameof(StandardRangliste), nameof(TitelverteidigerInTopf1)
     ];
 
     [ObservableProperty] private string _name = "";
@@ -105,7 +105,7 @@ public partial class RundenFormularViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TitelverteidigerInTopf1Aktivierbar))]
-    private RanglistenQuelleOption _standardRanglistenQuelle = RundeZeile.KeineRanglistenQuelle;
+    private StandardRanglisteOption _standardRangliste = RundeZeile.KeineStandardRangliste;
 
     [ObservableProperty] private bool _titelverteidigerInTopf1;
 
@@ -124,7 +124,7 @@ public partial class RundenFormularViewModel : ObservableObject
         Regelwerk = zeile?.Regelwerk ?? RundeZeile.KeinRegelwerk;
         PaarungFestVorgegeben = zeile?.PaarungFestVorgegeben ?? false;
         VorgegebeneAuslosungsart = zeile?.VorgegebeneAuslosungsart ?? RundeZeile.KeineAuslosungsartVorgabe;
-        StandardRanglistenQuelle = zeile?.StandardRanglistenQuelle ?? RundeZeile.KeineRanglistenQuelle;
+        StandardRangliste = zeile?.StandardRangliste ?? RundeZeile.KeineStandardRangliste;
         TitelverteidigerInTopf1 = zeile?.TitelverteidigerInTopf1 ?? false;
         RegelVorgabenAusZeile(zeile);
     }
@@ -146,8 +146,8 @@ public partial class RundenFormularViewModel : ObservableObject
         // null kommt nur transient aus der ComboBox (Auswahl beim ItemsSource-Wechsel nicht gefunden) — nie übernehmen.
         if (VorgegebeneAuslosungsart is not null)
             zeile.VorgegebeneAuslosungsart = VorgegebeneAuslosungsart;
-        if (StandardRanglistenQuelle is not null)
-            zeile.StandardRanglistenQuelle = StandardRanglistenQuelle;
+        if (StandardRangliste is not null)
+            zeile.StandardRangliste = StandardRangliste;
         zeile.TitelverteidigerInTopf1 = TitelverteidigerInTopf1;
     }
 
@@ -172,7 +172,7 @@ public partial class RundenFormularViewModel : ObservableObject
     public bool IstKoRundenart => Rundenart is Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei;
     public bool AuswaertstorAktivierbar => MitRueckspiel && IstKoRundenart;
 
-    public bool TitelverteidigerInTopf1Aktivierbar => StandardRanglistenQuelle?.Wert is not null;
+    public bool TitelverteidigerInTopf1Aktivierbar => StandardRangliste?.Wert is not null;
 
     /// <summary>Fachlicher Standard-Vorschlag ceil(log2(n)) für <see cref="AnzahlSpieltage"/> (Issue #329 Teil D) —
     /// nur eine Anzeige-Hilfe, <see cref="AnzahlSpieltage"/> bleibt frei editierbar.</summary>
@@ -363,22 +363,22 @@ public partial class RundenFormularViewModel : ObservableObject
         Geaendert?.Invoke();
     }
 
-    // ── Standard-Rangliste für die Lostopf-Vorbelegung (Issue #349) ──────────
+    // ── Standard-Rangliste: Lostöpfe, Koeffizient, Spielklasse (Issue #349/#354/#393) ──
 
-    partial void OnStandardRanglistenQuelleChanged(RanglistenQuelleOption value)
+    partial void OnStandardRanglisteChanged(StandardRanglisteOption value)
     {
         if (_populiertGerade > 0) return;
 
         // Siehe RundenartAuswahl: null kommt nur transient aus der ComboBox und ist keine Nutzerauswahl.
-        if (value is null) AusZeileWiederherstellen(zeile => StandardRanglistenQuelle ??= zeile.StandardRanglistenQuelle);
+        if (value is null) AusZeileWiederherstellen(zeile => StandardRangliste ??= zeile.StandardRangliste);
         // Ohne Standard-Rangliste gibt es keine automatische Topfbildung, in die der Titelverteidiger käme.
         else if (value.Wert is null) TitelverteidigerInTopf1 = false;
     }
 
-    /// <summary>Genau eine Option je Quelle (Referenzabgleich der ComboBox). Eine nicht (mehr) bekannte Quelle
-    /// erscheint als "keine".</summary>
-    public RanglistenQuelleOption RanglistenQuelleOptionFuer(int? quelleId) =>
-        RanglistenQuelleOptionen.FirstOrDefault(o => o.Wert == quelleId && quelleId is not null) ?? RundeZeile.KeineRanglistenQuelle;
+    /// <summary>Genau eine Option je Rangliste (Referenzabgleich der ComboBox). Eine nicht (mehr) bekannte
+    /// Rangliste erscheint als "keine".</summary>
+    public StandardRanglisteOption StandardRanglisteOptionFuer(int? ranglisteId) =>
+        StandardRanglistenOptionen.FirstOrDefault(o => o.Wert == ranglisteId && ranglisteId is not null) ?? RundeZeile.KeineStandardRangliste;
 
     // ── Auswahllisten aus den Stammdaten ──────────────────────────────────────
 
@@ -392,22 +392,23 @@ public partial class RundenFormularViewModel : ObservableObject
         [RundeZeile.KeinRegelwerk, .. Regelwerke.Select(r => new RegelwerkOption(r.Name, r))];
 
     /// <summary>Einmal beim ersten Laden befüllt (analog <see cref="Regelwerke"/>), danach stabil — siehe
-    /// <see cref="RanglistenQuelleOptionFuer"/>.</summary>
+    /// <see cref="StandardRanglisteOptionFuer"/>.</summary>
     [ObservableProperty]
-    private IReadOnlyList<RanglistenQuelleOption> _ranglistenQuelleOptionen = [RundeZeile.KeineRanglistenQuelle];
+    private IReadOnlyList<StandardRanglisteOption> _standardRanglistenOptionen = [RundeZeile.KeineStandardRangliste];
 
     /// <summary>Lädt die Auswahllisten für Regelwerk und Standard-Rangliste, sofern noch nicht geschehen.</summary>
     public async Task StammdatenSicherstellenAsync()
     {
         if (Regelwerke.Count == 0)
             Regelwerke = new ObservableCollection<Regelwerk>(await _regelwerkService.AlleAbrufenAsync());
-        if (RanglistenQuelleOptionen.Count == 1)
-            RanglistenQuelleOptionen =
+        if (StandardRanglistenOptionen.Count == 1)
+            StandardRanglistenOptionen =
             [
-                RundeZeile.KeineRanglistenQuelle,
-                .. (await _ranglistenQuelleService.AlleAbrufenAsync())
-                    .OrderBy(q => q.Name)
-                    .Select(q => new RanglistenQuelleOption(q.Name, q.Id))
+                RundeZeile.KeineStandardRangliste,
+                .. (await _ranglisteService.AlleOhneEintraegeAbrufenAsync())
+                    .OrderBy(r => r.Name)
+                    .ThenByDescending(r => r.Datum)
+                    .Select(r => new StandardRanglisteOption($"{r.Name} ({r.Datum:dd.MM.yyyy})", r.Id))
             ];
     }
 

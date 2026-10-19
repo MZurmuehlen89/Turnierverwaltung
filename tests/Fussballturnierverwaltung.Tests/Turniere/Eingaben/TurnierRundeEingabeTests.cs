@@ -11,7 +11,7 @@ public class TurnierRundeEingabeTests
     private static TurnierRundeEingabe Eingabe(Rundenart rundenart, int? ranglistenQuelleId = null) => new(
         "Runde", rundenart, EingangsMannschaftsanzahl: 16, AusgangsMannschaftsanzahl: 8, RegelwerkId: null,
         KonfigurationJson: KONFIGURATION, GruppenAnzahl: 4,
-        StandardRanglistenQuelleId: ranglistenQuelleId, TitelverteidigerInTopf1: true);
+        StandardRanglisteId: ranglistenQuelleId, TitelverteidigerInTopf1: true);
 
     [Fact]
     public void OhneUnwirksameAngaben_SchweizerSystem_BehaeltDieSpieltagKonfiguration() =>

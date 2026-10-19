@@ -509,7 +509,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
                 await _auslosungService.LostoepfeSynchronisierenAsync(neu.Id, Math.Max(1, NeuAnzahlLostoepfe));
 
-                var standardQuelleId = NeuRunde.StandardRanglistenQuelleId;
+                var standardRanglisteId = NeuRunde.StandardRanglisteId;
                 NeuFormAktiv = false;
 
                 Auslosungen = await LadeAuslosungenGefiltertAsync(_instanz.Id);
@@ -517,13 +517,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 // Standard-Rangliste der Runde (#349): Detail hier sequenziell laden und befüllen, BEVOR die
                 // Auswahl gesetzt wird — deren Change-Hook lädt fire-and-forget und liefe sonst parallel auf
                 // demselben DbContext (Reentrancy, siehe #317/#338). Danach greift dort der Gleiche-Id-Guard.
-                if (standardQuelleId is not null)
+                if (standardRanglisteId is not null)
                 {
                     await RanglistenLadenAsync();
                     await LadeDetailAsync(neu.Id);
                     if (!await Arbeitsbereich.NachStandardRanglisteBefuellenAsync())
-                        Fehlermeldung = "Für die Standard-Rangliste dieser Runde wurde noch keine Rangliste importiert " +
-                                        "(Ranglisten → Import). Lostöpfe bitte manuell befüllen.";
+                        Fehlermeldung = "Die Standard-Rangliste dieser Runde wurde nicht gefunden. " +
+                                        "Lostöpfe bitte manuell befüllen.";
                 }
 
                 AusgewaehlteAuslosung = Auslosungen.FirstOrDefault(a => a.Id == neu.Id);

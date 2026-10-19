@@ -68,7 +68,7 @@ public class TurnierKlonService(
                 VorgegebeneAuslosungsart  = runde.VorgegebeneAuslosungsart,
                 VorgegebeneAuslosungsregeln = [.. runde.VorgegebeneAuslosungsregeln],
                 KombinationstabelleJson   = runde.KombinationstabelleJson,
-                StandardRanglistenQuelleId = runde.StandardRanglistenQuelleId,
+                StandardRanglisteId = runde.StandardRanglisteId,
                 TitelverteidigerInTopf1   = runde.TitelverteidigerInTopf1,
                 TabellenBereiche          = [.. runde.TabellenBereiche.Select(b => new TabellenBereich
                 {
