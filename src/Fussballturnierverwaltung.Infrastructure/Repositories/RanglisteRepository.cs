@@ -27,12 +27,7 @@ public class RanglisteRepository(TurnierverwaltungDbContext context)
 
     public async Task<IReadOnlyDictionary<int, int>> PlaetzeDerNeuestenZurQuelleAsync(int quelleId, CancellationToken ct = default)
     {
-        var ranglisteId = await Context.Ranglisten
-            .Where(r => r.RanglistenQuelleId == quelleId)
-            .OrderByDescending(r => r.Datum)
-            .ThenByDescending(r => r.Id)
-            .Select(r => (int?)r.Id)
-            .FirstOrDefaultAsync(ct);
+        var ranglisteId = await NeuesteIdZurQuelleAsync(quelleId, ct);
         if (ranglisteId is null) return new Dictionary<int, int>();
 
         var eintraege = await Context.RanglistenEintraege
@@ -45,6 +40,28 @@ public class RanglisteRepository(TurnierverwaltungDbContext context)
             .GroupBy(e => e.MannschaftId)
             .ToDictionary(g => g.Key, g => g.Min(e => e.Rang));
     }
+
+    public async Task<Rangliste?> NeuesteZurQuelleMitAbschnittenAsync(int quelleId, CancellationToken ct = default)
+    {
+        var ranglisteId = await NeuesteIdZurQuelleAsync(quelleId, ct);
+        if (ranglisteId is null) return null;
+
+        return await Context.Ranglisten
+            .AsNoTracking()
+            .Include(r => r.Eintraege)
+            .Include(r => r.Abschnitte)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(r => r.Id == ranglisteId, ct);
+    }
+
+    // Neueste nach Datum, bei Gleichstand die zuletzt angelegte — wie LostopfVorbelegung.NeuesteRanglisteZurQuelle.
+    private Task<int?> NeuesteIdZurQuelleAsync(int quelleId, CancellationToken ct) =>
+        Context.Ranglisten
+            .Where(r => r.RanglistenQuelleId == quelleId)
+            .OrderByDescending(r => r.Datum)
+            .ThenByDescending(r => r.Id)
+            .Select(r => (int?)r.Id)
+            .FirstOrDefaultAsync(ct);
 
     public Task SpeichernAenderungenAsync(CancellationToken ct = default)
         => Context.SaveChangesAsync(ct);

@@ -1,4 +1,5 @@
-﻿using Fussballturnierverwaltung.Application.Spielplan;
+﻿using Fussballturnierverwaltung.Application.Ranglisten;
+using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
@@ -24,6 +25,7 @@ public class AuslosungService(
     ITurnierRundeRepository rundeRepository,
     AuslosungsValidator validator,
     IPlatzhalterKaskadeService platzhalterKaskadeService,
+    IRanglisteRepository ranglisteRepository,
     ILogger<AuslosungService> logger)
 {
     public Task<IReadOnlyList<Auslosung>> AlleNachInstanzAbrufenAsync(int turnierInstanzId, CancellationToken ct = default)
@@ -236,7 +238,10 @@ public class AuslosungService(
             Wirkt(AuslosungsRegelArt.HeimrechtNachSetzliste),
             Wirkt(AuslosungsRegelArt.FreilosMoeglich),
             Wirkt(AuslosungsRegelArt.Konfoederationsverteilung),
-            auslosung.TurnierRunde?.MitRueckspiel ?? false);
+            auslosung.TurnierRunde?.MitRueckspiel ?? false,
+            Wirkt(AuslosungsRegelArt.HeimrechtFuerUnterklassige)
+                ? await SpielklassenLadenAsync(auslosung.TurnierRunde?.StandardRanglistenQuelleId, ct)
+                : null);
 
         var gruppeJeMannschaft = new Dictionary<int, string>();
         if (!regeln.KeineGleicheGruppe ||
@@ -257,6 +262,13 @@ public class AuslosungService(
 
         return (regeln, gruppeJeMannschaft);
     }
+
+    // Spielklassen aus der neuesten Rangliste der Standard-Quelle der Runde (#393) — dieselbe Rangliste wie für die
+    // Lostöpfe (#349). Ohne Quelle oder Rangliste kennt kein Team seine Klasse, dann entscheidet überall das Los.
+    private async Task<Spielklassen> SpielklassenLadenAsync(int? quelleId, CancellationToken ct) =>
+        quelleId is int id && await ranglisteRepository.NeuesteZurQuelleMitAbschnittenAsync(id, ct) is { } rangliste
+            ? Spielklassen.Aus(rangliste)
+            : Spielklassen.Keine;
 
     public async Task LostoepfeSynchronisierenAsync(int auslosungId, int anzahl, CancellationToken ct = default)
     {

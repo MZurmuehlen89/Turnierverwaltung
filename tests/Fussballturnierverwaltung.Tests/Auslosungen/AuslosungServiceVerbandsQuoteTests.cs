@@ -54,7 +54,7 @@ public class AuslosungServiceVerbandsQuoteTests
 
         var service = new AuslosungService(
             auslosungRepo, verbandsQuoteRepo, new FakeLandesQuoteRepository(), rundeRepo, new AuslosungsValidator(),
-            new FakePlatzhalterKaskadeService(), NullLogger<AuslosungService>.Instance);
+            new FakePlatzhalterKaskadeService(), new FakeRanglisteRepository(), NullLogger<AuslosungService>.Instance);
 
         return (service, auslosungRepo, auslosung);
     }

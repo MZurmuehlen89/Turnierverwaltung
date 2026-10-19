@@ -20,6 +20,7 @@ public static class AuslosungsRegelKompatibilitaet
         AuslosungsRegelArt.KeineGleicheGruppe,
         AuslosungsRegelArt.HeimrechtNachLos,
         AuslosungsRegelArt.HeimrechtNachSetzliste,
+        AuslosungsRegelArt.HeimrechtFuerUnterklassige,
         AuslosungsRegelArt.FreilosMoeglich,
         AuslosungsRegelArt.Konfoederationsverteilung,
     ];
@@ -30,6 +31,7 @@ public static class AuslosungsRegelKompatibilitaet
         AuslosungsRegelArt.KeineGleicheGruppe        => "Keine gleiche Gruppe",
         AuslosungsRegelArt.HeimrechtNachLos          => "Heimrecht nach Los",
         AuslosungsRegelArt.HeimrechtNachSetzliste    => "Heimrecht nach Setzliste",
+        AuslosungsRegelArt.HeimrechtFuerUnterklassige => "Heimrecht für Unterklassige",
         AuslosungsRegelArt.FreilosMoeglich           => "Freilos möglich",
         AuslosungsRegelArt.Konfoederationsverteilung => "Konföderationsverteilung",
         _                                            => regel.ToString()
@@ -59,8 +61,10 @@ public static class AuslosungsRegelKompatibilitaet
     public static bool SchliessenSichAus(AuslosungsRegelArt a, AuslosungsRegelArt b) =>
         a != b && IstHeimrechtRegel(a) && IstHeimrechtRegel(b);
 
-    private static bool IstHeimrechtRegel(AuslosungsRegelArt art) =>
-        art is AuslosungsRegelArt.HeimrechtNachLos or AuslosungsRegelArt.HeimrechtNachSetzliste;
+    /// <summary>Ob die Regel das Heimrecht festlegt — von diesen Regeln wirkt höchstens eine.</summary>
+    public static bool IstHeimrechtRegel(AuslosungsRegelArt art) =>
+        art is AuslosungsRegelArt.HeimrechtNachLos or AuslosungsRegelArt.HeimrechtNachSetzliste
+            or AuslosungsRegelArt.HeimrechtFuerUnterklassige;
 
     /// <summary>Liefert den Grund, warum die Regel bei der Auslosungsart <paramref name="art"/> in einer Runde der
     /// Rundenart <paramref name="rundenart"/> keine Wirkung hätte, oder <c>null</c>, wenn sie wirkt.
@@ -93,6 +97,7 @@ public static class AuslosungsRegelKompatibilitaet
 
             case AuslosungsRegelArt.HeimrechtNachLos:
             case AuslosungsRegelArt.HeimrechtNachSetzliste:
+            case AuslosungsRegelArt.HeimrechtFuerUnterklassige:
                 if (art == Auslosungsart.Manuell)
                     return "Bei der manuellen Auslosung legst du das Heimrecht beim Zuweisen selbst fest " +
                            "(Heim- oder Auswärts-Platz).";

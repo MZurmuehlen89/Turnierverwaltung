@@ -27,7 +27,7 @@ public class AuslosungAlgorithmusTests
         _kaskade = new FakePlatzhalterKaskadeService();
         _service = new AuslosungService(
             _repo, new FakeVerbandsQuoteRepository(), new FakeLandesQuoteRepository(), new FakeTurnierRundeRepository(), new AuslosungsValidator(),
-            _kaskade, NullLogger<AuslosungService>.Instance);
+            _kaskade, new FakeRanglisteRepository(), NullLogger<AuslosungService>.Instance);
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────

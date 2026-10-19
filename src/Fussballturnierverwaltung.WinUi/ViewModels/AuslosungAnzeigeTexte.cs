@@ -42,6 +42,11 @@ public static class AuslosungAnzeigeTexte
             "Das besser eingestufte Team (höherer Topf, dann bessere Setzposition, dann besserer Gruppenplatz) " +
             "hat Heimrecht — bei Hin- und Rückspiel im Rückspiel. Typisch für UEFA-Wettbewerbe, " +
             "z. B. Gruppensieger im Nations-League-Viertelfinale.",
+        AuslosungsRegelArt.HeimrechtFuerUnterklassige =>
+            "Das Team der tieferen Spielklasse hat Heimrecht — bei Hin- und Rückspiel im Rückspiel. Die Spielklasse " +
+            "kommt aus den Abschnitten der Standard-Rangliste der Runde (Ligapyramide); hat sie eine Profigrenze, " +
+            "gilt das nur gegen Teams bis zu dieser Klasse (DFB-Pokal), sonst strikt Klasse gegen Klasse " +
+            "(Copa del Rey). Gleiche Klasse oder Team ohne Klasse: Das Los entscheidet.",
         AuslosungsRegelArt.FreilosMoeglich =>
             "Bei ungerader Teamanzahl erhält ein zufällig gezogenes Team ein Freilos und zieht " +
             "kampflos in die nächste Runde ein. Ohne diese Regel schlägt die Auslosung fehl, " +

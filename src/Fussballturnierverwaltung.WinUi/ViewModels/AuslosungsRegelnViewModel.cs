@@ -101,9 +101,6 @@ public class AuslosungsRegelnViewModel
                 r.Beschreibung,
                 SperrHinweis: r.ImmerAktivHinweis ?? r.SperrHinweis,
                 // Die Heimrecht-Regeln schließen sich aus: Anhaken der einen hakt die andere ab (#331).
-                ExklusivGruppe: IstHeimrechtRegel(r.Regelart) ? "Heimrecht" : null))
+                ExklusivGruppe: AuslosungsRegelKompatibilitaet.IstHeimrechtRegel(r.Regelart) ? "Heimrecht" : null))
             .ToList();
-
-    private static bool IstHeimrechtRegel(AuslosungsRegelArt art) =>
-        art is AuslosungsRegelArt.HeimrechtNachLos or AuslosungsRegelArt.HeimrechtNachSetzliste;
 }

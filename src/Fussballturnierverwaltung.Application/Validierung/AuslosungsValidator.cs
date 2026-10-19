@@ -199,9 +199,11 @@ public class AuslosungsValidator
         // aus, #331), die Prüfung bleibt als Absicherung für Altdaten.
         var aktiveRegeln = aktiveRegelnVorab;
 
-        if (aktiveRegeln.Contains(AuslosungsRegelArt.HeimrechtNachLos) &&
-            aktiveRegeln.Contains(AuslosungsRegelArt.HeimrechtNachSetzliste))
-            fehler.Add("Regelkonflikt: 'HeimrechtNachLos' und 'HeimrechtNachSetzliste' schließen sich gegenseitig aus.");
+        var heimrechtRegeln = aktiveRegeln.Where(AuslosungsRegelKompatibilitaet.IstHeimrechtRegel).Distinct().ToList();
+        if (heimrechtRegeln.Count > 1)
+            fehler.Add("Regelkonflikt: " +
+                       string.Join(", ", heimrechtRegeln.Select(r => $"'{AuslosungsRegelKompatibilitaet.AnzeigeName(r)}'")) +
+                       " legen alle das Heimrecht fest und schließen sich gegenseitig aus.");
 
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }

@@ -6,11 +6,15 @@ namespace Fussballturnierverwaltung.Application.Auslosungen;
 // TopfRang: 0 = erster Topf. Gruppe/Gruppenplatz: Herkunft aus einer vorangegangenen Gruppenphase — aus dem
 // Platzhalternamen („1. Gruppe A“) oder bei echten Mannschaften aus deren Gruppen-Auslosung (#331).
 // VerbandId: Kontinentalverband des Landes — nur bei echten Mannschaften bekannt (#356).
+// QualifikantId: die Mannschaft, die schon sicher hinter einem Platzhalter steht (#483).
 internal record TeilnehmerSlot(
     int? MannschaftId, int? LandId, string? PlatzhalterName,
     int TopfRang = 0, int? SetzPosition = null, string? Gruppe = null, int? Gruppenplatz = null,
-    int? VerbandId = null)
+    int? VerbandId = null, int? QualifikantId = null)
 {
+    /// <summary>Die Mannschaft, die tatsächlich spielt — selbst gelost oder hinter dem Platzhalter.</summary>
+    public int? SpielendeMannschaftId => MannschaftId ?? QualifikantId;
+
     public static TeilnehmerSlot AusEintrag(
         LostopfEintrag e, int topfRang, IReadOnlyDictionary<int, string> gruppeJeMannschaft, Qualifikanten qualifikanten)
     {
@@ -23,14 +27,15 @@ internal record TeilnehmerSlot(
         var herkunft = GruppenHerkunft.AusPlatzhalter(e.PlatzhalterName);
         var qualifikant = qualifikanten.Fuer(e.PlatzhalterName);
         return new(null, qualifikant?.LandId, e.PlatzhalterName, topfRang, e.SetzPosition, herkunft?.Gruppe, herkunft?.Platz,
-            qualifikant?.Land?.VerbandId);
+            qualifikant?.Land?.VerbandId, qualifikant?.Id);
     }
 }
 
 /// <summary>Die bei dieser Auslosung tatsächlich wirksamen Regeln (siehe <see cref="AuslosungsRegelKompatibilitaet"/>).</summary>
 public sealed record RegelKontext(
     bool KeinGleichesLand, bool KeineGleicheGruppe, bool HeimrechtNachLos, bool HeimrechtNachSetzliste,
-    bool FreilosMoeglich, bool Konfoederationsverteilung, bool MitRueckspiel)
+    bool FreilosMoeglich, bool Konfoederationsverteilung, bool MitRueckspiel,
+    Spielklassen? HeimrechtFuerUnterklassige = null)
 {
     // Paarweise Regeln. Die Konföderationsverteilung zählt je Gruppe und passt nicht in dieses Schema — sie
     // wirkt nur in der Gruppenauslosung (GruppenAuslosung).
@@ -352,16 +357,27 @@ public static class Losverfahren
     // Heimrecht nach Setzliste (#331): das besser eingestufte Team hat Heimrecht — bei Hin- und Rückspiel im
     // Rückspiel (UEFA-Praxis, z. B. Gruppensieger im Nations-League-Viertelfinale). Das Rückspiel entsteht
     // gespiegelt aus dem Hinspiel, der Bessere steht hier also auswärts.
+    // Heimrecht für Unterklassige (#393): das Team der tieferen Spielklasse hat Heimrecht, bei Hin- und Rückspiel
+    // ebenso im Rückspiel; sonst entscheidet das Los.
     private static (TeilnehmerSlot Heim, TeilnehmerSlot Auswaerts) HeimrechtFestlegen(
         TeilnehmerSlot a, TeilnehmerSlot b, RegelKontext regeln, Random zufall)
     {
+        if (regeln.HeimrechtFuerUnterklassige is { } spielklassen)
+        {
+            if (spielklassen.HatHeimrechtGegen(a.SpielendeMannschaftId, b.SpielendeMannschaftId))
+                return MitHeimrecht(a, b, regeln.MitRueckspiel);
+            if (spielklassen.HatHeimrechtGegen(b.SpielendeMannschaftId, a.SpielendeMannschaftId))
+                return MitHeimrecht(b, a, regeln.MitRueckspiel);
+            return zufall.Next(2) == 0 ? (b, a) : (a, b);
+        }
+
         if (regeln.HeimrechtNachSetzliste)
         {
             int vergleich = Rangfolge(a, b);
             if (vergleich != 0)
             {
                 var (besser, schlechter) = vergleich < 0 ? (a, b) : (b, a);
-                return regeln.MitRueckspiel ? (schlechter, besser) : (besser, schlechter);
+                return MitHeimrecht(besser, schlechter, regeln.MitRueckspiel);
             }
         }
 
@@ -369,6 +385,11 @@ public static class Losverfahren
             return (b, a);
         return (a, b);
     }
+
+    // Heimrecht heißt bei Hin- und Rückspiel: das Rückspiel zu Hause — gelost wird das Hinspiel.
+    private static (TeilnehmerSlot Heim, TeilnehmerSlot Auswaerts) MitHeimrecht(
+        TeilnehmerSlot mitHeimrecht, TeilnehmerSlot gegner, bool mitRueckspiel) =>
+        mitRueckspiel ? (gegner, mitHeimrecht) : (mitHeimrecht, gegner);
 
     // Kleiner = besser: höherer Topf, dann bessere Setzposition, dann besserer Gruppenplatz.
     private static int Rangfolge(TeilnehmerSlot a, TeilnehmerSlot b)

@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using static Fussballturnierverwaltung.Tests.Auslosungen.AuslosungTestdaten;
 
@@ -18,9 +19,10 @@ public class LosverfahrenTests
 
     private static RegelKontext Regeln(
         bool keinGleichesLand = false, bool keineGleicheGruppe = false, bool heimrechtNachLos = false,
-        bool heimrechtNachSetzliste = false, bool freilosMoeglich = false, bool mitRueckspiel = false) =>
+        bool heimrechtNachSetzliste = false, bool freilosMoeglich = false, bool mitRueckspiel = false,
+        Spielklassen? heimrechtFuerUnterklassige = null) =>
         new(keinGleichesLand, keineGleicheGruppe, heimrechtNachLos, heimrechtNachSetzliste, freilosMoeglich,
-            Konfoederationsverteilung: false, mitRueckspiel);
+            Konfoederationsverteilung: false, mitRueckspiel, heimrechtFuerUnterklassige);
 
     private static List<AuslosungsErgebnis> Ausloesen(
         Auslosung auslosung, RegelKontext regeln, int startwert, IReadOnlyDictionary<int, string>? gruppeJeMannschaft = null) =>
@@ -278,6 +280,55 @@ public class LosverfahrenTests
 
         AlleZiehungen(ZweiToepfeJeDrei(), regeln).Should().AllSatisfy(ziehung =>
             AuswaertsIds(ziehung).Should().BeEquivalentTo([1, 2, 3]));
+    }
+
+    // ── Heimrecht für Unterklassige (#393) ───────────────────────────────────
+
+    // Topf 1 (Ids 1–3) Klasse 1, Topf 2 (Ids 4–6) Klasse 3; Profigrenze 2 wie im DFB-Pokal.
+    private static readonly Spielklassen _profisGegenAmateure = new(
+        new Dictionary<int, int> { [1] = 1, [2] = 1, [3] = 1, [4] = 3, [5] = 3, [6] = 3 }, Profigrenze: 2);
+
+    [Fact]
+    public void HeimrechtFuerUnterklassige_AmateurSpieltZuHause()
+    {
+        var regeln = Regeln(heimrechtFuerUnterklassige: _profisGegenAmateure);
+
+        AlleZiehungen(ZweiToepfeJeDrei(), regeln).Should().AllSatisfy(ziehung =>
+            HeimIds(ziehung).Should().BeEquivalentTo([4, 5, 6]));
+    }
+
+    [Fact]
+    public void HeimrechtFuerUnterklassige_MitRueckspiel_AmateurImHinspielAuswaerts()
+    {
+        var regeln = Regeln(heimrechtFuerUnterklassige: _profisGegenAmateure, mitRueckspiel: true);
+
+        AlleZiehungen(ZweiToepfeJeDrei(), regeln).Should().AllSatisfy(ziehung =>
+            AuswaertsIds(ziehung).Should().BeEquivalentTo([4, 5, 6]));
+    }
+
+    [Fact]
+    public void HeimrechtFuerUnterklassige_OhneSpielklassen_EntscheidetDasLos()
+    {
+        var heimIds = AlleZiehungen(ZweiToepfeJeDrei(), Regeln(heimrechtFuerUnterklassige: Spielklassen.Keine))
+            .SelectMany(HeimIds).ToList();
+
+        heimIds.Should().Contain(id => id <= 3).And.Contain(id => id >= 4);
+    }
+
+    [Fact]
+    public void HeimrechtFuerUnterklassige_Platzhalter_NimmtDieKlasseDerMannschaftDahinter()
+    {
+        // Ein Topf mit zwei Platzhaltern: hinter „Sieger A“ steht ein Profi (Id 1), hinter „Sieger B“ ein Amateur (Id 4).
+        var auslosung = NeueAuslosung(Rundenart.KoRunde, Auslosungsart.Zufall,
+            [Topf(1, new LostopfEintrag { Id = 1, PlatzhalterName = "Sieger A" }, new LostopfEintrag { Id = 2, PlatzhalterName = "Sieger B" })]);
+        var qualifikanten = new Qualifikanten(
+            new Dictionary<string, Mannschaft> { ["Sieger A"] = Team(1), ["Sieger B"] = Team(4) }, AnzahlOffen: 0);
+
+        Enumerable.Range(1, STARTWERTE)
+            .Select(startwert => Losverfahren.Ausloesen(
+                auslosung, Regeln(heimrechtFuerUnterklassige: _profisGegenAmateure), _ohneGruppen, new Random(startwert),
+                qualifikanten))
+            .Should().AllSatisfy(ziehung => ziehung.Single().HeimPlatzhalterName.Should().Be("Sieger B"));
     }
 
     // ── Gruppenphase und Liga ─────────────────────────────────────────────────

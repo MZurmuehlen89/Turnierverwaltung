@@ -2,6 +2,7 @@ using FluentAssertions;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
+using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -21,13 +22,14 @@ public class AuslosungsRegelnTests
 
     private readonly FakeAuslosungRepository _repo = new();
     private readonly FakeTurnierRundeRepository _runden = new();
+    private readonly FakeRanglisteRepository _ranglisten = new();
     private readonly AuslosungService _service;
 
     public AuslosungsRegelnTests()
     {
         _service = new AuslosungService(
             _repo, new FakeVerbandsQuoteRepository(), new FakeLandesQuoteRepository(), _runden, new AuslosungsValidator(),
-            new FakePlatzhalterKaskadeService(), NullLogger<AuslosungService>.Instance);
+            new FakePlatzhalterKaskadeService(), _ranglisten, NullLogger<AuslosungService>.Instance);
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
@@ -196,6 +198,61 @@ public class AuslosungsRegelnTests
             [Regel(AuslosungsRegelArt.HeimrechtNachSetzliste)]);
 
         ergebnisse.Should().AllSatisfy(e => e.HeimMannschaftId.Should().BeLessThanOrEqualTo(4));
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // HEIMRECHT FÜR UNTERKLASSIGE (#393)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    // Ligapyramide aus Quelle 9: Ids 1–4 Bundesliga (Klasse 1), Ids 5–8 Regionalliga (Klasse 4), Profigrenze 2.
+    private void PyramideAnlegen(int? profigrenze)
+    {
+        _ranglisten.Speichern(new Rangliste
+        {
+            Id = 1, Name = "Ligapyramide", RanglistenQuelleId = 9, ProfigrenzeSpielklasse = profigrenze,
+            Abschnitte =
+            [
+                new RanglistenAbschnitt { Name = "Bundesliga", Spielklasse = 1, BisPlatz = 4 },
+                new RanglistenAbschnitt { Name = "Regionalliga", Spielklasse = 4, BisPlatz = 8 }
+            ],
+            Eintraege = [.. Enumerable.Range(1, 8).Select(i => new RanglistenEintrag { MannschaftId = i, Rang = i })]
+        });
+        _runden.Speichern(new TurnierRunde
+        {
+            Id = 1, Name = "1. Runde", Rundenart = Rundenart.KoRunde, RegelwerkId = 1, StandardRanglistenQuelleId = 9
+        });
+    }
+
+    [Fact]
+    public async Task HeimrechtFuerUnterklassige_SpielklasseAusStandardRangliste_RegionalligistSpieltZuHause()
+    {
+        PyramideAnlegen(profigrenze: 2);
+
+        for (int i = 0; i < WIEDERHOLUNGEN; i++)
+        {
+            var ergebnisse = await Ausfuehren(Rundenart.KoRunde, Auslosungsart.NachToepfen,
+                [Topf(1, [.. Enumerable.Range(1, 4).Select(id => Eintrag(Team(id)))]),
+                 Topf(2, [.. Enumerable.Range(5, 4).Select(id => Eintrag(Team(id)))])],
+                [Regel(AuslosungsRegelArt.HeimrechtFuerUnterklassige)]);
+
+            ergebnisse.Should().AllSatisfy(e => e.HeimMannschaftId.Should().BeGreaterThanOrEqualTo(5));
+        }
+    }
+
+    [Fact]
+    public async Task HeimrechtFuerUnterklassige_RundeOhneStandardRangliste_EntscheidetDasLos()
+    {
+        var heimIds = new List<int>();
+        for (int i = 0; i < WIEDERHOLUNGEN; i++)
+        {
+            var ergebnisse = await Ausfuehren(Rundenart.KoRunde, Auslosungsart.NachToepfen,
+                [Topf(1, [.. Enumerable.Range(1, 4).Select(id => Eintrag(Team(id)))]),
+                 Topf(2, [.. Enumerable.Range(5, 4).Select(id => Eintrag(Team(id)))])],
+                [Regel(AuslosungsRegelArt.HeimrechtFuerUnterklassige)]);
+            heimIds.AddRange(ergebnisse.Select(e => e.HeimMannschaftId!.Value));
+        }
+
+        heimIds.Should().Contain(id => id <= 4).And.Contain(id => id >= 5);
     }
 
     [Fact]

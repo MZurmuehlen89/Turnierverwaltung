@@ -80,11 +80,29 @@ public class AuslosungsRegelKompatibilitaetTests
             AuslosungsRegelArt.HeimrechtNachLos, AuslosungsRegelArt.HeimrechtNachSetzliste).Should().BeTrue();
         AuslosungsRegelKompatibilitaet.SchliessenSichAus(
             AuslosungsRegelArt.HeimrechtNachLos, AuslosungsRegelArt.KeinGleichesLand).Should().BeFalse();
+        AuslosungsRegelKompatibilitaet.SchliessenSichAus(
+            AuslosungsRegelArt.HeimrechtFuerUnterklassige, AuslosungsRegelArt.HeimrechtNachLos).Should().BeTrue();
+        AuslosungsRegelKompatibilitaet.SchliessenSichAus(
+            AuslosungsRegelArt.HeimrechtFuerUnterklassige, AuslosungsRegelArt.HeimrechtNachSetzliste).Should().BeTrue();
     }
+
+    [Theory]
+    [InlineData(Auslosungsart.Manuell,       Rundenart.KoRunde)]
+    [InlineData(Auslosungsart.Zufall,        Rundenart.Gruppenphase)]
+    [InlineData(Auslosungsart.TopfZuordnung, Rundenart.TopfLiga)]
+    public void HeimrechtFuerUnterklassige_GesperrtWieDieAnderenHeimrechtRegeln(Auslosungsart art, Rundenart rundenart) =>
+        AuslosungsRegelKompatibilitaet.SperrGrund(AuslosungsRegelArt.HeimrechtFuerUnterklassige, art, rundenart, false)
+            .Should().NotBeNull();
+
+    [Fact]
+    public void HeimrechtFuerUnterklassige_WirktImEinzelspielPokal() =>
+        AuslosungsRegelKompatibilitaet.SperrGrund(
+            AuslosungsRegelArt.HeimrechtFuerUnterklassige, Auslosungsart.Zufall, Rundenart.KoRunde, false)
+            .Should().BeNull();
 
     [Fact]
     public void AngeboteneRegeln_EnthaltenKeineEntfallenenRegeln() =>
-        AuslosungsRegelKompatibilitaet.AngeboteneRegeln.Should().HaveCount(6)
+        AuslosungsRegelKompatibilitaet.AngeboteneRegeln.Should().HaveCount(7)
             .And.OnlyContain(r => AuslosungsRegelKompatibilitaet.SperrGrund(r, Auslosungsart.Zufall, Rundenart.KoRunde, true)
                                   != "Diese Regel wird nicht mehr unterstützt.");
 
