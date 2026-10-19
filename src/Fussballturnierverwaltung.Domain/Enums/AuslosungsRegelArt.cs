@@ -15,5 +15,8 @@ public enum AuslosungsRegelArt
     [Obsolete("Entfallen mit #331 — war nie konfigurierbar.")]
     ManuelleEinschraenkung,
     // Issue #356: Teams eines Kontinentalverbands gleichmäßig auf die Gruppen verteilen (FIFA-WM seit 1994).
-    Konfoederationsverteilung
+    Konfoederationsverteilung,
+    // Issue #393: das Team der tieferen Spielklasse hat Heimrecht (DFB-Pokal, Copa del Rey). Die Spielklasse kommt
+    // aus den Abschnitten der Standard-Rangliste der Runde.
+    HeimrechtFuerUnterklassige
 }

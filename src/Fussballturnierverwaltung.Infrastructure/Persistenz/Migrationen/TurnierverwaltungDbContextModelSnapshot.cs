@@ -219,6 +219,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int?>("ProfigrenzeSpielklasse")
+                        .HasColumnType("int");
+
                     b.Property<string>("Quelle")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -232,6 +235,36 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.HasIndex("RanglistenQuelleId");
 
                     b.ToTable("Ranglisten", (string)null);
+                });
+
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenAbschnitt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BisPlatz")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("RanglisteId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Spielklasse")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RanglisteId", "BisPlatz")
+                        .IsUnique();
+
+                    b.ToTable("RanglistenAbschnitte", (string)null);
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenEintrag", b =>
@@ -1266,6 +1299,17 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Navigation("RanglistenQuelle");
                 });
 
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenAbschnitt", b =>
+                {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.Rangliste", "Rangliste")
+                        .WithMany("Abschnitte")
+                        .HasForeignKey("RanglisteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Rangliste");
+                });
+
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenEintrag", b =>
                 {
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Mannschaft", "Mannschaft")
@@ -1675,6 +1719,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.Rangliste", b =>
                 {
+                    b.Navigation("Abschnitte");
+
                     b.Navigation("Eintraege");
                 });
 

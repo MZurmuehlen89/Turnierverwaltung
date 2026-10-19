@@ -59,6 +59,7 @@ public class TurnierverwaltungDbContext : DbContext
     // Ranglisten
     public DbSet<Rangliste> Ranglisten => Set<Rangliste>();
     public DbSet<RanglistenEintrag> RanglistenEintraege => Set<RanglistenEintrag>();
+    public DbSet<RanglistenAbschnitt> RanglistenAbschnitte => Set<RanglistenAbschnitt>();
     public DbSet<RanglistenQuelle> RanglistenQuellen => Set<RanglistenQuelle>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
