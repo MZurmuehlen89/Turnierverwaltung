@@ -65,11 +65,14 @@ public class TurnierVorlagenAuslosungsregelnTests
     }
 
     [Fact]
-    public void NationalePokale_HeimrechtNachLosAusserAnNeutralemOrt()
+    public void NationalePokale_HeimrechtJeReglement_AusserAnNeutralemOrt()
     {
-        Runde("DFB-Pokal", "64 Teams", "1. Runde").VorgegebeneAuslosungsregeln.Should().Equal(AuslosungsRegelArt.HeimrechtNachLos);
-        Runde("DFB-Pokal", "64 Teams", "Halbfinale").VorgegebeneAuslosungsregeln.Should().Equal(AuslosungsRegelArt.HeimrechtNachLos);
+        // DFB-Pokal (#393): Unterklassige haben bis einschließlich Halbfinale Heimrecht gegen Profiklubs.
+        Runde("DFB-Pokal", "64 Teams", "1. Runde").VorgegebeneAuslosungsregeln.Should().Equal(AuslosungsRegelArt.HeimrechtFuerUnterklassige);
+        Runde("DFB-Pokal", "64 Teams", "Halbfinale").VorgegebeneAuslosungsregeln.Should().Equal(AuslosungsRegelArt.HeimrechtFuerUnterklassige);
         Runde("DFB-Pokal", "64 Teams", "Finale").VorgegebeneAuslosungsregeln.Should().BeEmpty();
+
+        // FA Cup: der zuerst Gezogene spielt zu Hause, auch gegen Unterklassige.
 
         const string faCup = "64 Teams · ab 3. Hauptrunde";
         Runde("FA Cup", faCup, "3. Runde").VorgegebeneAuslosungsregeln.Should().Equal(AuslosungsRegelArt.HeimrechtNachLos);

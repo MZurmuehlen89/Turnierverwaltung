@@ -57,8 +57,9 @@ internal sealed class TurnierVorlagenNachruestung
         var verbandIds = await context.Verbaende.ToDictionaryAsync(v => v.Kurzname, v => v.Id, ct);
         var landIds = await context.Laender.ToDictionaryAsync(l => l.FifaCode, l => l.Id, ct);
         var ranglisteJeQuelle = await NeuesteRanglisteJeQuelleAsync(context, ct);
+        var ranglisteJeName = await NeuesteRanglisteJeNameAsync(context, ct);
         List<TurnierInstanz> SeedVorlagen() =>
-            TurnierVorlagenSeedDaten.Erstellen(regelwerkIds, verbandIds, landIds, ranglisteJeQuelle);
+            TurnierVorlagenSeedDaten.Erstellen(regelwerkIds, verbandIds, landIds, ranglisteJeQuelle, ranglisteJeName);
 
         // Issue #294: Vorlagen sind TurnierInstanz-Zeilen mit Status Vorlage — der Status gehört zur Identität,
         // damit ein echtes Turnier mit zufällig gleichem Namen nicht als "bereits vorhanden" zählt.
@@ -99,6 +100,10 @@ internal sealed class TurnierVorlagenNachruestung
         await SpeichernUndProtokollieren(FesteKoBaeumeErgaenzen(), "Turniervorlagen um festen K.-o.-Baum ergänzt.", ct);
         await SpeichernUndProtokollieren(
             TabellenBereicheErgaenzen(), "Turniervorlagen um Tabellenbereiche (Europapokal, Relegation, Abstieg) ergänzt.", ct);
+        await SpeichernUndProtokollieren(
+            StandardRanglistenErgaenzen(), "Vorlagen-Runden um ihre Standard-Rangliste ergänzt.", ct);
+        await SpeichernUndProtokollieren(
+            UnterklassigenHeimrechtUebernehmen(), "Vorlagen-Runden auf „Heimrecht für Unterklassige“ umgestellt.", ct);
     }
 
     // Je Quellenname die neueste daraus importierte Rangliste (nach Datum, bei Gleichstand die zuletzt angelegte) —
@@ -111,6 +116,13 @@ internal sealed class TurnierVorlagenNachruestung
             .Select(r => new { Quelle = r.RanglistenQuelle!.Name, r.Id, r.Datum })
             .ToListAsync(ct))
             .GroupBy(r => r.Quelle)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Datum).ThenByDescending(r => r.Id).First().Id);
+
+    // Je Ranglistenname die neueste Rangliste — Ranglistennamen sind nicht eindeutig erzwungen (Issue #393).
+    private static async Task<Dictionary<string, int>> NeuesteRanglisteJeNameAsync(
+        TurnierverwaltungDbContext context, CancellationToken ct) =>
+        (await context.Ranglisten.Select(r => new { r.Name, r.Id, r.Datum }).ToListAsync(ct))
+            .GroupBy(r => r.Name)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Datum).ThenByDescending(r => r.Id).First().Id);
 
     // ── Gemeinsame Bausteine ───────────────────────────────────────────────────
@@ -371,6 +383,15 @@ internal sealed class TurnierVorlagenNachruestung
         }
         return ergaenzt;
     }
+
+    /// <summary>Issue #393: Standard-Rangliste dort, wo der Seed eine vorgibt und die Vorlage noch keine hat.</summary>
+    private int StandardRanglistenErgaenzen() =>
+        MitSeedStand().Sum(paar => SeedVorlagenAbgleich.StandardRanglisteErgaenzen(paar.Vorlage, paar.Soll));
+
+    /// <summary>Issue #393: DFB-Pokal-Runden von „Heimrecht nach Los“ auf „Heimrecht für Unterklassige“ — nur, wo
+    /// die Vorgabe noch dem alten Seed-Stand entspricht.</summary>
+    private int UnterklassigenHeimrechtUebernehmen() =>
+        MitSeedStand().Sum(paar => SeedVorlagenAbgleich.UnterklassigenHeimrechtUebernehmen(paar.Vorlage, paar.Soll));
 
     /// <summary>Issue #420: Tabellenbereiche der Liga-Vorlagen und der Nations League — nur in Runden, die noch
     /// keine Bereiche haben und dem Seed entsprechen.</summary>

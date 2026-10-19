@@ -14,7 +14,8 @@ public static class TurnierVorlagenSeedDaten
         IReadOnlyDictionary<string, int>? regelwerkLookup = null,
         IReadOnlyDictionary<string, int>? verbandLookup = null,
         IReadOnlyDictionary<string, int>? landLookup = null,
-        IReadOnlyDictionary<string, int>? ranglisteJeQuelleLookup = null)
+        IReadOnlyDictionary<string, int>? ranglisteJeQuelleLookup = null,
+        IReadOnlyDictionary<string, int>? ranglisteLookup = null)
     {
         List<TurnierInstanz> vorlagen =
         [
@@ -40,7 +41,7 @@ public static class TurnierVorlagenSeedDaten
             UefaChampionsLeague36TeamsModern(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
             UefaEuropaLeague36Teams(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
             UefaConferenceLeague36Teams(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
-            DfbPokal64Teams(regelwerkLookup, verbandLookup, landLookup),
+            DfbPokal64Teams(regelwerkLookup, verbandLookup, landLookup, ranglisteLookup),
             FaCup64Teams(regelwerkLookup, verbandLookup, landLookup),
             NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Bundesliga",     "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ,       BUNDESLIGA_BEREICHE),
             NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "2. Bundesliga",  "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ,       ZWEITE_BUNDESLIGA_BEREICHE),
@@ -107,9 +108,15 @@ public static class TurnierVorlagenSeedDaten
             case "UEFA Nations League Liga A" when runde.Name == "Viertelfinale":
                 return [AuslosungsRegelArt.HeimrechtNachSetzliste];
 
-            // Nationale Pokale: wer zuerst gezogen wird, spielt zu Hause — außer an neutralem Ort (Finale, im
-            // FA Cup auch das Halbfinale).
-            case "DFB-Pokal" or "FA Cup" when !runde.NeutralerSpielort:
+            // DFB-Pokal (#393): Vereine unterhalb der 2. Bundesliga haben gegen Erst- und Zweitligisten Heimrecht, bis
+            // einschließlich Halbfinale; sonst der zuerst Gezogene (= Los). Die Spielklasse kommt aus der
+            // Ligapyramide als Standard-Rangliste der Runde. Finale an neutralem Ort.
+            case "DFB-Pokal" when !runde.NeutralerSpielort:
+                return [AuslosungsRegelArt.HeimrechtFuerUnterklassige];
+
+            // FA Cup: der zuerst Gezogene spielt zu Hause, auch gegen Unterklassige — außer an neutralem Ort
+            // (Halbfinale und Finale in Wembley).
+            case "FA Cup" when !runde.NeutralerSpielort:
                 return [AuslosungsRegelArt.HeimrechtNachLos];
 
             default:
@@ -845,7 +852,8 @@ public static class TurnierVorlagenSeedDaten
     // ── Nationale Vereinspokale ────────────────────────────────────────────────
 
     private static TurnierInstanz DfbPokal64Teams(
-        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? land)
+        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? land,
+        IReadOnlyDictionary<string, int>? rangliste)
     {
         var v = new TurnierInstanz
         {
@@ -869,6 +877,11 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(4, "Viertelfinale",     Rundenart.KoRunde,           8,  4, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Halbfinale",        Rundenart.KoRunde,           4,  2, regelwerkId: rId));
         v.Runden.Add(Runde(6, "Finale",            Rundenart.Finale,            2,  1, regelwerkId: rId));
+
+        // Spielklassen für „Heimrecht für Unterklassige“ (#393) bis einschließlich Halbfinale; das Finale ist neutral.
+        int? pyramide = RlId(rangliste, LigapyramidenSeedDaten.RANGLISTE);
+        foreach (var runde in v.Runden.Where(r => r.Rundenart == Rundenart.KoRunde))
+            runde.StandardRanglisteId = pyramide;
         return v;
     }
 
@@ -1035,6 +1048,10 @@ public static class TurnierVorlagenSeedDaten
 
     // Neueste Rangliste je Ranglisten-Quellenname (Issue #349, seit #393 Rangliste statt Quelle).
     private static int? RqId(IReadOnlyDictionary<string, int>? lookup, string name)
+        => lookup is not null && lookup.TryGetValue(name, out var id) ? id : null;
+
+    // Rangliste nach Name, etwa die geseedete Ligapyramide (Issue #393).
+    private static int? RlId(IReadOnlyDictionary<string, int>? lookup, string name)
         => lookup is not null && lookup.TryGetValue(name, out var id) ? id : null;
 
     private static TurnierRunde Runde(

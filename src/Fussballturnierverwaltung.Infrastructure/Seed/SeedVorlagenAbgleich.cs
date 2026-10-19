@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Infrastructure.Seed;
 
@@ -12,6 +13,42 @@ public static class SeedVorlagenAbgleich
     /// <summary>Die Runde der anderen Seite (Bestand ↔ Seed) mit derselben Reihenfolge und demselben Namen.</summary>
     public static TurnierRunde? Gegenstueck(TurnierInstanz vorlage, TurnierRunde runde) =>
         vorlage.Runden.FirstOrDefault(r => r.Reihenfolge == runde.Reihenfolge && r.Name == runde.Name);
+
+    // ── Standard-Rangliste und Heimrecht für Unterklassige (Issue #393) ────────
+
+    /// <summary>Trägt die Standard-Rangliste des Seeds nach, wo die Runde noch keine hat. Liefert die Zahl der
+    /// ergänzten Runden.</summary>
+    public static int StandardRanglisteErgaenzen(TurnierInstanz vorlage, TurnierInstanz soll)
+    {
+        int ergaenzt = 0;
+        foreach (var sollRunde in soll.Runden.Where(r => r.StandardRanglisteId is not null))
+        {
+            var runde = Gegenstueck(vorlage, sollRunde);
+            if (runde is null || runde.StandardRanglisteId is not null || runde.Rundenart != sollRunde.Rundenart) continue;
+
+            runde.StandardRanglisteId = sollRunde.StandardRanglisteId;
+            ergaenzt++;
+        }
+        return ergaenzt;
+    }
+
+    /// <summary>Stellt die Vorgabe „Heimrecht nach Los“ auf „Heimrecht für Unterklassige“ um, wo der Seed die neue
+    /// Regel vorgibt — nur, solange die Runde genau die alte Vorgabe trägt. Liefert die Zahl der umgestellten Runden.</summary>
+    public static int UnterklassigenHeimrechtUebernehmen(TurnierInstanz vorlage, TurnierInstanz soll)
+    {
+        int umgestellt = 0;
+        foreach (var sollRunde in soll.Runden.Where(r =>
+                     r.VorgegebeneAuslosungsregeln.Contains(AuslosungsRegelArt.HeimrechtFuerUnterklassige)))
+        {
+            var runde = Gegenstueck(vorlage, sollRunde);
+            if (runde is null || !runde.VorgegebeneAuslosungsregeln.SequenceEqual([AuslosungsRegelArt.HeimrechtNachLos]))
+                continue;
+
+            runde.VorgegebeneAuslosungsregeln = [.. sollRunde.VorgegebeneAuslosungsregeln];
+            umgestellt++;
+        }
+        return umgestellt;
+    }
 
     // ── Struktur (Issue #350) ──────────────────────────────────────────────────
 
