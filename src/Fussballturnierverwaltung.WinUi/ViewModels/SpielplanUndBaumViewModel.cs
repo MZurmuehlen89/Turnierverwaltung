@@ -15,7 +15,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// <see cref="AuslosungViewModel.InstanzSetzenAsync"/>, gleiches Muster aus #300).
 /// </summary>
 public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen,
-    IMannschaftsSpieleAnzeige
+    IMannschaftsSpieleAnzeige, ISpielAnzeige
 {
     private readonly TurnierInstanzService _instanzService;
 
@@ -117,6 +117,22 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
     {
         TurnierBaumVm.IstGesamtansicht = false;
         return SpielplanVm.MannschaftsSpieleZeigenAsync(mannschaftId);
+    }
+
+    /// <summary>Kontextmenü einer Turnierbaum-Karte „Im Spielplan zeigen“ (#62) — die Gesamtübersicht tritt dafür
+    /// zurück.</summary>
+    public Task SpielZeigenAsync(int rundeId, int spielId)
+    {
+        TurnierBaumVm.IstGesamtansicht = false;
+        return SpielplanVm.SpielZeigenAsync(rundeId, spielId);
+    }
+
+    /// <summary>Kontextmenü einer Turnierbaum-Karte „Ausführlich simulieren“/„Spielverlauf ansehen“ (#62).</summary>
+    public void SimulationOeffnen(int rundeId, int spielId, bool nurAnzeigen)
+    {
+        if (_instanz is null) return;
+        AusfuehrlicheSimulationAngefordert?.Invoke(
+            this, new VorausgewaehlteSimulation(_instanz.Id, rundeId, spielId, nurAnzeigen));
     }
 
     private void AktualisiereGruppenFokus()

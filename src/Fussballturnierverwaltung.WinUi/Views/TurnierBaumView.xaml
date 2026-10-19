@@ -15,6 +15,7 @@
         <DataTemplate x:Key="BracketKartenTemplate" x:DataType="vm:BracketKnotenAnzeige">
             <Button Command="{Binding DataContext.KnotenAngeklicktBefehl, ElementName=Root}"
                     CommandParameter="{Binding}"
+                    views:SpielKontextmenue.Karte="{Binding}"
                     Padding="0" Width="240" HorizontalContentAlignment="Stretch">
                 <Border BorderThickness="1" CornerRadius="6" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{Binding HatErgebnis, Converter={StaticResource BoolToVisibility}}">
@@ -32,9 +33,7 @@
 
                         <Grid Visibility="{Binding IstFreilos, Converter={StaticResource InverseBoolToVisibility}}"
                               ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
-                            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="12,10,8,4" Spacing="8"
-                                        Background="Transparent"
-                                        views:MannschaftsKontextmenue.MannschaftId="{Binding HeimMannschaftId}">
+                            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="12,10,8,4" Spacing="8">
                                 <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                        Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
                                        Width="18" Height="18" Stretch="Uniform" />
@@ -46,9 +45,7 @@
                             <Rectangle Grid.Row="1" Grid.Column="0" Height="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Margin="12,4,0,4" />
                             <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ErgebnisDetail}" FontSize="9" Opacity="0.6" HorizontalAlignment="Center" Margin="8,0,12,0" />
 
-                            <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Margin="12,4,8,10" Spacing="8"
-                                        Background="Transparent"
-                                        views:MannschaftsKontextmenue.MannschaftId="{Binding AuswaertsMannschaftId}">
+                            <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Margin="12,4,8,10" Spacing="8">
                                 <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                        Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
                                        Width="18" Height="18" Stretch="Uniform" />
@@ -85,8 +82,7 @@
                                Width="16" Height="16" Stretch="Uniform" />
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding HeimName}" FontSize="12"
                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                                   FontWeight="{Binding HeimSchrift}"
-                                   views:MannschaftsKontextmenue.MannschaftId="{Binding HeimMannschaftId}" />
+                                   FontWeight="{Binding HeimSchrift}" />
                         <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding HeimScore}" FontSize="13" FontWeight="Bold"
                                    VerticalAlignment="Center" />
 
@@ -96,8 +92,7 @@
                                Width="16" Height="16" Stretch="Uniform" />
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AuswaertsName}" FontSize="12"
                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                                   FontWeight="{Binding AuswaertsSchrift}"
-                                   views:MannschaftsKontextmenue.MannschaftId="{Binding AuswaertsMannschaftId}" />
+                                   FontWeight="{Binding AuswaertsSchrift}" />
                         <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding AuswaertsScore}" FontSize="13" FontWeight="Bold"
                                    VerticalAlignment="Center" />
 

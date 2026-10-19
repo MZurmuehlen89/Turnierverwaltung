@@ -80,6 +80,12 @@ public partial class SpieltagFokusViewModel : ObservableObject
     /// <summary>Der nächste Abgleich beginnt wieder beim Start-Spieltag (Rundenwechsel).</summary>
     public void AuswahlFreigeben() => _auswahlFestgelegt = false;
 
+    /// <summary>Zeigt den Spieltag eines Spiels, falls gerade ein anderer gezeigt wird (Sprung zu einem Spiel, #62).</summary>
+    public void SpieltagZeigen(int? spieltag)
+    {
+        if (!_alleAktiv && spieltag is { } st && st != _aktiverSpieltag && _spieltage.Contains(st)) Zeigen(st);
+    }
+
     public void LetztenSpieltagZeigen()
     {
         if (_spieltage.Count > 0) Zeigen(_spieltage[^1]);

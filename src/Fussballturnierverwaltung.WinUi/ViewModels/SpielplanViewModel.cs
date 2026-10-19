@@ -213,6 +213,46 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// <summary>Kontextmenü „Alle Spiele des Teams anzeigen“ (Spielliste, Gruppentabelle, Turnierbaum).</summary>
     public Task MannschaftsSpieleZeigenAsync(int mannschaftId) => Mannschaftsfilter.WaehlenNachIdAsync(mannschaftId);
 
+    // ── Spiel zeigen (Kontextmenü, #62) ───────────────────────────────────────
+
+    /// <summary>Die Ansicht soll das gewählte Spiel in der Liste zeigen und den Cursor ins erste Torfeld setzen.</summary>
+    public event EventHandler? ErgebnisEingabeAngefordert;
+
+    /// <summary>Wählt ein Spiel aus und bittet um den Cursor im Ergebnisformular („Ergebnis eingeben“ in der Spielliste,
+    /// „Im Spielplan zeigen“ im Turnierbaum). Steht das Spiel nicht in der Liste, wechselt sie erst zu seiner Runde —
+    /// aus der Mannschaftsansicht heraus endet dabei der Filter. Ungespeicherte Eingaben klärt die übliche Rückfrage.</summary>
+    public async Task SpielZeigenAsync(int rundeId, int spielId)
+    {
+        if (AusgewaehlteSpiel?.Id != spielId && !await SpielWaehlenAsync(rundeId, spielId)) return;
+
+        // Der Spielwechsel lädt das Formular im selben Schutz — erst danach gibt es ein Torfeld.
+        using (await DbContextSchutz.BetretenAsync()) { }
+        ErgebnisEingabeAngefordert?.Invoke(this, EventArgs.Empty);
+    }
+
+    private async Task<bool> SpielWaehlenAsync(int rundeId, int spielId)
+    {
+        if (!Spiele.Any(s => s.Id == spielId))
+        {
+            if (Runden.FirstOrDefault(r => r.Id == rundeId) is not { } runde) return false;
+            await AnsichtWechselnAsync(null, runde);
+            if (IstMannschaftsansicht || AusgewaehlteRunde?.Id != rundeId) return false;
+        }
+
+        if (!await UngespeichertesKlaerenAsync() || Spiele.FirstOrDefault(s => s.Id == spielId) is not { } zeile)
+            return false;
+
+        // Gruppenfilter und Spieltag geben der Fokus-Liste neue Zeilen, die deren Auswahl nullen (#345).
+        using (_spielWechsel.Betreten())
+        {
+            if (AusgewaehlteGruppe is { } gruppe && gruppe.GruppenNummer != zeile.GruppeNummer) AusgewaehlteGruppe = null;
+            Fokus.SpieltagZeigen(zeile.Spieltag);
+            AusgewaehlteSpiel = zeile;
+        }
+        await DbContextSchutz.AusfuehrenAsync(BeiSpielAenderungAsync, ex => Fehlermeldung = ex.Message);
+        return true;
+    }
+
     /// <summary>Zeigt eine Runde — aus der Mannschaftsansicht heraus beendet das den Filter.</summary>
     public Task RundeZeigenAsync(TurnierRunde runde)
     {
@@ -234,7 +274,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             AusgewaehlteGruppe = gruppe;
     }
 
-    /// <summary>Wechselt zwischen Runden- und Mannschaftsansicht bzw. zu einer anderen Mannschaft, nach der
+    /// <summary>Wechselt zwischen Runden- und Mannschaftsansicht bzw. zu einer anderen Mannschaft — oder, mit
+    /// <paramref name="mannschaft"/> <c>null</c> aus der Rundenansicht, zu einer anderen Runde (#62) —, nach der
     /// Ungespeichert-Abfrage. <paramref name="zielRunde"/>: die Runde, die „Alle Mannschaften“ zeigt.</summary>
     private async Task AnsichtWechselnAsync(MannschaftsOption? mannschaft, TurnierRunde? zielRunde)
     {
@@ -517,6 +558,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly AsyncRelayCommand _naechsteSchweizerRundeBefehl;
 
     public ICommand NaechsteSchweizerRundeBefehl => _naechsteSchweizerRundeBefehl;
+    public ICommand AusfuehrlichSimulierenBefehl => _ausfuehrlichSimulierenBefehl;
+    public ICommand SpielverlaufAnsehenBefehl => _spielverlaufAnsehenBefehl;
 
     /// <summary>Menüpunkt einer Spielmengen-Ebene — in der Mannschaftsansicht gesperrt mit Begründung (#479).</summary>
     private RibbonUnteraktion Ebene(string header, ICommand befehl) => new(

@@ -108,15 +108,15 @@
                         </Grid>
                         <ListView Grid.Row="1" x:Name="SpielListView"
                                   ItemsSource="{Binding Spiele}" SelectedItem="{Binding AusgewaehlteSpiel, Mode=TwoWay}"
-                                  SelectionMode="Extended" SelectionChanged="SpielListView_SelectionChanged">
+                                  SelectionMode="Extended" SelectionChanged="SpielListView_SelectionChanged"
+                                  ContextRequested="SpielListView_ContextRequested">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
                                     <Grid ColumnDefinitions="46,40,40,*,110,*,90" RowDefinitions="Auto,Auto" Padding="8,4" Margin="{Binding PaarungsAbstand}">
                                         <TextBlock Grid.Column="0" Text="{Binding SpieltagAnzeige}" FontSize="12" Opacity="0.6" />
                                         <TextBlock Grid.Column="1" Text="{Binding Spielnummer}" FontSize="12" Opacity="0.6" />
                                         <TextBlock Grid.Column="2" Text="{Binding GruppeAnzeige}" FontSize="11" Opacity="0.6" />
-                                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="5"
-                                                    views:MannschaftsKontextmenue.MannschaftId="{Binding HeimMannschaftId}">
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="5">
                                             <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
                                                    Width="16" Height="16" Stretch="Uniform" />
@@ -127,8 +127,7 @@
                                             <TextBlock Text="{Binding ErgebnisText}" FontSize="14" FontWeight="Bold" FontFamily="Consolas" />
                                             <TextBlock Text="{Binding ErgebnisDetail}" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
                                         </StackPanel>
-                                        <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="5"
-                                                    views:MannschaftsKontextmenue.MannschaftId="{Binding AuswaertsMannschaftId}">
+                                        <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="5">
                                             <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
                                                    Width="16" Height="16" Stretch="Uniform" />
@@ -181,7 +180,8 @@
                         </Grid>
                         <ListView Grid.Row="2" x:Name="FokusSpielListView"
                                   ItemsSource="{Binding Fokus.Spiele}" SelectedItem="{Binding AusgewaehlteSpiel, Mode=TwoWay}"
-                                  SelectionMode="Extended" SelectionChanged="SpielListView_SelectionChanged">
+                                  SelectionMode="Extended" SelectionChanged="SpielListView_SelectionChanged"
+                                  ContextRequested="SpielListView_ContextRequested">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
                                     <Grid ColumnDefinitions="46,40,*,110,*,90" RowDefinitions="Auto,Auto" Padding="8,4">
@@ -191,8 +191,7 @@
                                                    Visibility="{Binding HatGruppenKopf, Converter={StaticResource BoolToVisibility}}" />
                                         <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding SpieltagAnzeige}" FontSize="12" Opacity="0.6" />
                                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Spielnummer}" FontSize="12" Opacity="0.6" />
-                                        <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Spacing="5"
-                                                    views:MannschaftsKontextmenue.MannschaftId="{Binding HeimMannschaftId}">
+                                        <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Spacing="5">
                                             <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
                                                    Width="16" Height="16" Stretch="Uniform" />
@@ -203,8 +202,7 @@
                                             <TextBlock Text="{Binding ErgebnisText}" FontSize="14" FontWeight="Bold" FontFamily="Consolas" />
                                             <TextBlock Text="{Binding ErgebnisDetail}" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
                                         </StackPanel>
-                                        <StackPanel Grid.Row="1" Grid.Column="4" Orientation="Horizontal" Spacing="5"
-                                                    views:MannschaftsKontextmenue.MannschaftId="{Binding AuswaertsMannschaftId}">
+                                        <StackPanel Grid.Row="1" Grid.Column="4" Orientation="Horizontal" Spacing="5">
                                             <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
                                                    Width="16" Height="16" Stretch="Uniform" />
@@ -235,7 +233,8 @@
                                    Visibility="{Binding ZeigtKeineMannschaftsSpiele, Converter={StaticResource BoolToVisibility}}" />
                         <ListView Grid.Row="1" x:Name="MannschaftsSpielListView"
                                   ItemsSource="{Binding Spiele}" SelectedItem="{Binding AusgewaehlteSpiel, Mode=TwoWay}"
-                                  SelectionMode="Extended" SelectionChanged="SpielListView_SelectionChanged">
+                                  SelectionMode="Extended" SelectionChanged="SpielListView_SelectionChanged"
+                                  ContextRequested="SpielListView_ContextRequested">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
                                     <Grid ColumnDefinitions="2*,66,40,3*,110,3*,90" RowDefinitions="Auto,Auto" Padding="8,4">
@@ -243,8 +242,7 @@
                                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="1" Text="{Binding SpieltagAnzeige}" FontSize="12" Opacity="0.6" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="2" Text="{Binding Spielnummer}" FontSize="12" Opacity="0.6" VerticalAlignment="Center" />
-                                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="5" Opacity="{Binding HeimDeckkraft}"
-                                                    views:MannschaftsKontextmenue.MannschaftId="{Binding HeimMannschaftId}">
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="5" Opacity="{Binding HeimDeckkraft}">
                                             <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
                                                    Width="16" Height="16" Stretch="Uniform" />
@@ -255,8 +253,7 @@
                                             <TextBlock Text="{Binding ErgebnisText}" FontSize="14" FontWeight="Bold" FontFamily="Consolas" />
                                             <TextBlock Text="{Binding ErgebnisDetail}" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
                                         </StackPanel>
-                                        <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="5" Opacity="{Binding AuswaertsDeckkraft}"
-                                                    views:MannschaftsKontextmenue.MannschaftId="{Binding AuswaertsMannschaftId}">
+                                        <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="5" Opacity="{Binding AuswaertsDeckkraft}">
                                             <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
                                                    Width="16" Height="16" Stretch="Uniform" />

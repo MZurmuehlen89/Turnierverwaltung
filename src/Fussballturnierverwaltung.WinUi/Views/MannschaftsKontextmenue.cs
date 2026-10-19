@@ -11,7 +11,8 @@ namespace Fussballturnierverwaltung.WinUi.Views;
 /// anzeigen“ (Wert: die Mannschafts-Id als <c>int</c>). Ausgeführt wird es vom nächsten
 /// <see cref="IMannschaftsSpieleAnzeige"/> im DataContext eines übergeordneten Elements — die Gruppentabelle und der
 /// Turnierbaum haben selbst einen anderen DataContext als der Spielplan. Ohne Mannschaft (offener Platzhalter, <c>null</c>) gibt es kein Menü. Weitere Einträge (#324) kommen
-/// hier hinzu.</summary>
+/// hier hinzu. Spielzeilen und Baumkarten haben stattdessen das Spielmenü (<see cref="SpielKontextmenue"/>, #62) mit
+/// denselben Einträgen für beide Mannschaften.</summary>
 public static class MannschaftsKontextmenue
 {
     public const string ALLE_SPIELE_TEXT = "Alle Spiele des Teams anzeigen";
@@ -34,7 +35,8 @@ public static class MannschaftsKontextmenue
         var alleSpiele = new MenuFlyoutItem { Text = ALLE_SPIELE_TEXT, Icon = new SymbolIcon(Symbol.List) };
         alleSpiele.Click += (_, _) =>
         {
-            if (GetMannschaftId(element) is not int mannschaftId || AnzeigeFinden(element) is not { } anzeige) return;
+            if (GetMannschaftId(element) is not int mannschaftId ||
+                ZielFinden<IMannschaftsSpieleAnzeige>(element) is not { } anzeige) return;
             Ablaufprotokoll.Bedienung(ALLE_SPIELE_TEXT);
             _ = anzeige.MannschaftsSpieleAnzeigenAsync(mannschaftId);
         };
@@ -44,11 +46,13 @@ public static class MannschaftsKontextmenue
         return menue;
     }
 
-    private static IMannschaftsSpieleAnzeige? AnzeigeFinden(DependencyObject? element)
+    /// <summary>Das nächste <typeparamref name="T"/> im DataContext von <paramref name="element"/> oder einem
+    /// übergeordneten Element — auch für die Spielmenüs des Turnierbaums (<see cref="SpielKontextmenue"/>, #62).</summary>
+    public static T? ZielFinden<T>(DependencyObject? element) where T : class
     {
         for (; element is not null; element = VisualTreeHelper.GetParent(element))
-            if (element is FrameworkElement { DataContext: IMannschaftsSpieleAnzeige anzeige })
-                return anzeige;
+            if (element is FrameworkElement { DataContext: T ziel })
+                return ziel;
         return null;
     }
 }

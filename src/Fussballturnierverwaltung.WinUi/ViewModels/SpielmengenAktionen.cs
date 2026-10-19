@@ -88,6 +88,7 @@ public sealed class SpielmengenAktionen
             new(RueckrundeZuruecksetzenAsync, CanRueckrundeZuruecksetzen),
             new(GruppeZuruecksetzenAsync, CanGruppeZuruecksetzen),
             new(SpieltagZuruecksetzenAsync, CanSpieltagZuruecksetzen),
+            new(SpielSimulierenAsync, CanSpielSimulieren),
         ];
     }
 
@@ -102,6 +103,9 @@ public sealed class SpielmengenAktionen
     public ICommand RueckrundeZuruecksetzenBefehl => _befehle[8];
     public ICommand GruppeZuruecksetzenBefehl => _befehle[9];
     public ICommand SpieltagZuruecksetzenBefehl => _befehle[10];
+
+    /// <summary>Das eine gewählte Spiel schnell simulieren (Kontextmenü der Spielliste, #62).</summary>
+    public ICommand SpielSimulierenBefehl => _befehle[11];
 
     public void BefehleMelden()
     {
@@ -158,6 +162,9 @@ public sealed class SpielmengenAktionen
     private bool CanAuswahlSimulieren() =>
         !_kontext.IstSimulierend && _kontext.MehrfachAusgewaehlteSpiele.Count > 1
         && _kontext.MehrfachAusgewaehlteSpiele.Any(IstSimulierbar);
+
+    private bool CanSpielSimulieren() =>
+        !_kontext.IstSimulierend && _kontext.MehrfachAusgewaehlteSpiele is [var spiel] && IstSimulierbar(spiel);
 
     private bool HinspielAbgeschlossen(SpielZeile rueckspiel) =>
         rueckspiel.HinspielId is int hinId && _kontext.Spiele.Any(h => h.Id == hinId && h.HatErgebnis);
@@ -234,6 +241,17 @@ public sealed class SpielmengenAktionen
             $"Spielplan: Auswahl simulieren ({spielIds.Count} Spiele)",
             () => _simulationsService.SpieleSimulierenAsync(spielIds, SIMULATIONS_MODUS),
             AuswahlDanach.MitMehrfachauswahlAufheben, finaleAbgleichen: true);
+    }
+
+    private async Task SpielSimulierenAsync()
+    {
+        using var schutz = await _kontext.DbContextSchutz.BetretenAsync();
+        if (_kontext.MehrfachAusgewaehlteSpiele is not [var spiel] || !IstSimulierbar(spiel)) return;
+
+        await _kontext.SpielmengeBearbeitenAsync(
+            $"Spielplan: Spiel simulieren (Spiel {spiel.Id})",
+            () => _simulationsService.SpieleSimulierenAsync([spiel.Id], SIMULATIONS_MODUS),
+            AuswahlDanach.Wiederherstellen, finaleAbgleichen: true);
     }
 
     // ── Ergebnis-Reset: Aktionen (Issue #123) ────────────────────────────────

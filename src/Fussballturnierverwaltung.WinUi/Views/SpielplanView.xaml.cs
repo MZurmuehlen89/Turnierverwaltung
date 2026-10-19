@@ -26,7 +26,16 @@ public sealed partial class SpielplanView : UserControl
         var speichern = new KeyboardAccelerator { Key = VirtualKey.S, Modifiers = VirtualKeyModifiers.Control };
         speichern.Invoked += Speichern_Invoked;
         KeyboardAccelerators.Add(speichern);
+
+        DataContextChanged += (_, e) =>
+        {
+            if (_vm is not null) _vm.ErgebnisEingabeAngefordert -= ErgebnisEingabeAngefordert;
+            _vm = e.NewValue as SpielplanViewModel;
+            if (_vm is not null) _vm.ErgebnisEingabeAngefordert += ErgebnisEingabeAngefordert;
+        };
     }
+
+    private SpielplanViewModel? _vm;
 
     private void SpielListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -78,6 +87,53 @@ public sealed partial class SpielplanView : UserControl
 
         SichtbareListe(vm).Focus(FocusState.Programmatic);
         vm.SpeichernBefehl.Execute(null);
+    }
+
+    // ── Kontextmenü (#62) ────────────────────────────────────────────────────
+
+    // Rechtsklick (oder Menütaste) wählt die Zeile aus wie ein Linksklick — liegt sie schon in einer Mehrfachauswahl,
+    // gilt das Menü der ganzen Auswahl. Wechselt die Auswahl bei ungespeicherter Eingabe, kommt erst die Rückfrage;
+    // das Menü öffnet dann der nächste Rechtsklick (zwei Dialoge zugleich verträgt WinUI nicht).
+    private void SpielListView_ContextRequested(UIElement sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not ListView { DataContext: SpielplanViewModel vm } listView ||
+            ZeileFinden(e.OriginalSource as DependencyObject, listView) is not { } zeile) return;
+        e.Handled = true;
+
+        if (!listView.SelectedItems.Contains(zeile))
+        {
+            bool rueckfrage = vm.HatUngespeicherteAenderungen;
+            listView.SelectedItem = zeile;
+            if (rueckfrage) return;
+        }
+
+        var menue = SpielKontextmenue.ZeilenMenue(vm, zeile, listView.SelectedItems.OfType<SpielZeile>().ToList());
+        if (e.TryGetPosition(listView, out var punkt))
+            menue.ShowAt(listView, new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = punkt });
+        else if (listView.ContainerFromItem(zeile) is FrameworkElement container)
+            menue.ShowAt(container);
+    }
+
+    private static SpielZeile? ZeileFinden(DependencyObject? element, ListView listView)
+    {
+        for (; element is not null && !ReferenceEquals(element, listView);
+             element = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(element))
+        {
+            if (element is FrameworkElement { DataContext: SpielZeile zeile }) return zeile;
+        }
+        return null;
+    }
+
+    // „Ergebnis eingeben“ (Spielliste) bzw. „Im Spielplan zeigen“ (Turnierbaum): das Spiel in der Liste zeigen und den
+    // Cursor ins erste Torfeld. Erst nach dem Schließen des Menüs — es gibt den Fokus beim Schließen an die Liste zurück.
+    private void ErgebnisEingabeAngefordert(object? sender, EventArgs e)
+    {
+        if (_vm is not { AusgewaehlteSpiel: { } spiel } vm) return;
+        SichtbareListe(vm).ScrollIntoView(spiel);
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            if (vm.FormAktiv) ErstesFormularFeld.Focus(FocusState.Programmatic);
+        });
     }
 
     private ListView SichtbareListe(SpielplanViewModel vm) =>

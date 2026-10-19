@@ -37,6 +37,13 @@ public class BracketKnotenAnzeige
     /// <summary>Für das Kontextmenü „Alle Spiele des Teams anzeigen“ (#479); <c>null</c> bei offenem Platzhalter.</summary>
     public int? HeimMannschaftId { get; init; }
     public int? AuswaertsMannschaftId { get; init; }
+    /// <summary>Die Spiele der Karte für ihr Kontextmenü (#62): bei Hin-/Rückspiel beide, beim Freilos keins.</summary>
+    public int? SpielId { get; init; }
+    public int? RueckspielId { get; init; }
+    public bool SpielHatErgebnis { get; init; }
+    public bool RueckspielHatErgebnis { get; init; }
+    /// <summary>Mindestens ein Gegner steht noch nicht fest — simulieren lässt sich das Spiel dann nicht.</summary>
+    public bool IstPlatzhalterSpiel { get; init; }
     public bool HeimIstSieger { get; init; }
     public bool AuswaertsIstSieger { get; init; }
     public FontWeight HeimSchrift => HeimIstSieger ? FontWeights.Bold : FontWeights.Normal;
@@ -433,6 +440,11 @@ public partial class TurnierBaumViewModel : ViewModelBase
             AuswaertsWappen = MannschaftsIcon.Fuer(s.AuswaertsMannschaft),
             HeimMannschaftId = s.HeimMannschaftId,
             AuswaertsMannschaftId = s.AuswaertsMannschaftId,
+            SpielId = s.Id,
+            RueckspielId = rueckspiel?.Id,
+            SpielHatErgebnis = s.Ergebnis is not null,
+            RueckspielHatErgebnis = rueckspiel?.Ergebnis is not null,
+            IstPlatzhalterSpiel = s.HeimMannschaftId is null || s.AuswaertsMannschaftId is null,
             HatErgebnis = ergebnis.HatErgebnis,
             HeimScore = ergebnis.HeimScore,
             AuswaertsScore = ergebnis.AuswaertsScore,

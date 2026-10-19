@@ -161,6 +161,7 @@ public sealed partial class TurnierBaumView : UserControl
                 VerticalContentAlignment = VerticalAlignment.Stretch,
                 Command = _vm.KnotenAngeklicktBefehl, CommandParameter = k
             };
+            SpielKontextmenue.SetKarte(karte, k);
             Canvas.SetLeft(karte, k.GesamtX);
             Canvas.SetTop(karte, Strecken(k.GesamtY + h / 2) - h / 2);
             GesamtCanvas.Children.Add(karte);
