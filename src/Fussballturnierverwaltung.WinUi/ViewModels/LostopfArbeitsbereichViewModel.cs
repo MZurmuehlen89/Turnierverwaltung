@@ -377,40 +377,52 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
         if (rangliste is null) return;
 
         var rangProMannschaft = rangliste.Eintraege.ToDictionary(e => e.MannschaftId, e => e.Rang);
-        var titelverteidigerId = await TitelverteidigerFuerTopf1Async(detail);
-        var teamsZuVerteilen = TeamsZuVerteilen(rangProMannschaft, titelverteidigerId);
+        var vorabInTopf1 = await VorabInTopf1Async(detail);
+        var teamsZuVerteilen = TeamsZuVerteilen(rangProMannschaft, vorabInTopf1);
         if (teamsZuVerteilen.Count == 0)
         {
             _kontext.FehlerMelden("Keine verfügbaren Mannschaften zum Zuordnen.");
             return;
         }
 
+        // Gruppenköpfe, die das Programm schon in Topf 1 gelegt hat (#487), zählen bei der Aufteilung mit — sonst
+        // bekäme Topf 1 ein Team zu viel. Sie selbst werden nicht noch einmal eingelegt.
         var toepfe = Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
+        var schonInTopf1 = detail.Lostoepfe.OrderBy(l => l.Reihenfolge).First().Eintraege
+            .Where(e => e.MannschaftId is { } id && vorabInTopf1.Contains(id))
+            .Select(e => e.MannschaftId!.Value);
         var teilnehmerJeMannschaft = teamsZuVerteilen.ToDictionary(t => t.SpielendeMannschaftId!.Value);
         var verteilung = LostopfVorbelegung.Verteilen(
-            [.. teamsZuVerteilen.Select(t => t.SpielendeMannschaftId!.Value)], rangProMannschaft, toepfe.Count, titelverteidigerId);
+            [.. schonInTopf1, .. teilnehmerJeMannschaft.Keys], rangProMannschaft, toepfe.Count, vorabInTopf1);
         for (int topfIndex = 0; topfIndex < toepfe.Count; topfIndex++)
         {
             foreach (var mannschaftId in verteilung[topfIndex])
-                await InTopfLegenAsync(detail.Id, toepfe[topfIndex].Id, teilnehmerJeMannschaft[mannschaftId]);
+                if (teilnehmerJeMannschaft.TryGetValue(mannschaftId, out var teilnehmer))
+                    await InTopfLegenAsync(detail.Id, toepfe[topfIndex].Id, teilnehmer);
         }
 
         await _kontext.DetailNeuLadenAsync(detail.Id);
     }
 
-    private async Task<int?> TitelverteidigerFuerTopf1Async(Auslosung detail) =>
-        detail.TurnierRunde?.TitelverteidigerInTopf1 == true
-            ? (await _instanzService.FindenNachIdMitRundenAsync(detail.TurnierInstanzId))?.TitelverteidigerId
-            : null;
+    // Titelverteidiger (#349) und feste Gruppenköpfe (#487) kommen vorab in Topf 1.
+    private async Task<IReadOnlyList<int>> VorabInTopf1Async(Auslosung detail)
+    {
+        if (detail.TurnierRunde is not { } runde) return [];
+        var instanz = await _instanzService.FindenNachIdMitRundenAsync(detail.TurnierInstanzId);
+        return instanz is null
+            ? []
+            : Gruppenkoepfe.VorabInTopf1(
+                runde, [.. instanz.Gastgeber.OrderBy(g => g.Id).Select(g => g.MannschaftId)], instanz.TitelverteidigerId);
+    }
 
-    /// <summary>Noch verfügbare Mannschaften in Setzreihenfolge (Titelverteidiger, dann Rang, dann Name) — höchstens
+    /// <summary>Noch verfügbare Mannschaften in Setzreihenfolge (vorab für Topf 1, dann Rang, dann Name) — höchstens
     /// so viele, wie der Runde noch fehlen. Ein Platzhalter zählt mit der Mannschaft, die ihn sicher besetzt (#483),
     /// und kommt als Platzhalter in den Topf.</summary>
-    private List<TeilnehmerAnzeige> TeamsZuVerteilen(Dictionary<int, int> rangProMannschaft, int? titelverteidigerId)
+    private List<TeilnehmerAnzeige> TeamsZuVerteilen(Dictionary<int, int> rangProMannschaft, IReadOnlyList<int> vorabInTopf1)
     {
         var teams = VerfuegbareTeilnehmer
             .Where(t => t.SpielendeMannschaftId.HasValue)
-            .OrderBy(t => t.SpielendeMannschaftId == titelverteidigerId ? 0 : 1)
+            .OrderBy(t => vorabInTopf1.Contains(t.SpielendeMannschaftId!.Value) ? 0 : 1)
             .ThenBy(t => rangProMannschaft.TryGetValue(t.SpielendeMannschaftId!.Value, out var rang) ? rang : int.MaxValue)
             .ThenBy(t => t.AnzeigeName);
 

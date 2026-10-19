@@ -33,6 +33,20 @@ public class TurnierValidatorTests
         _validator.RundenValidieren(runden).IstGueltig.Should().BeTrue();
     }
 
+    // Feste Gruppenköpfe (#487): nur Gruppen, die es gibt, und keine Gruppe doppelt vergeben.
+    [Theory]
+    [InlineData(new[] { 1, 9 }, null, "*Gruppe, die es bei 8 Gruppen nicht gibt*")]
+    [InlineData(new[] { 1 }, 1, "*Gruppe A*zugleich*")]
+    public void Gruppenkoepfe_Widerspruch_IstUngueltig(int[] gastgeber, int? titelverteidiger, string fehler)
+    {
+        var runde = Runde("Gruppenphase", Rundenart.Gruppenphase, eingang: 32, ausgang: 16, gruppenAnzahl: 8) with
+        {
+            GastgeberGruppen = gastgeber, TitelverteidigerGruppe = titelverteidiger
+        };
+
+        _validator.RundenValidieren([runde]).Fehler.Should().ContainMatch(fehler);
+    }
+
     [Fact]
     public void RundenUebergang_FalscheAnzahl_IstUngueltig()
     {

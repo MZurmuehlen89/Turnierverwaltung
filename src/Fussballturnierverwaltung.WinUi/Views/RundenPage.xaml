@@ -234,6 +234,29 @@
                             </StackPanel>
                         </Grid>
 
+                        <!-- Issue #487: feste Gruppenköpfe. Sichtbarkeit am äußeren Element, der eigene DataContext innen -->
+                        <StackPanel Margin="0,0,0,12" Visibility="{Binding Formular.IstGruppenphase, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel DataContext="{Binding Formular.Gruppenkoepfe}">
+                                <Grid ColumnDefinitions="*,16,*">
+                                    <StackPanel>
+                                        <TextBlock Text="Gastgeber als Gruppenköpfe (Gruppen)" FontSize="12" Margin="0,0,0,3" />
+                                        <TextBox Text="{Binding GastgeberText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 PlaceholderText="z. B. A oder A, B, D" HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Titelverteidiger als Gruppenkopf (Gruppe)" FontSize="12" Margin="0,0,0,3" />
+                                        <TextBox Text="{Binding TitelverteidigerText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 PlaceholderText="z. B. A" HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Text="Führen diese Gruppen auf Position 1 an und kommen beim automatischen Befüllen in Topf 1. Mehrere Gastgeber in der Reihenfolge der Gastgeberliste des Turniers. Leer = kein fester Gruppenkopf."
+                                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                <TextBlock Text="{Binding Fehler}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"
+                                           Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                           Visibility="{Binding Fehler, Converter={StaticResource NullToCollapsed}}" />
+                            </StackPanel>
+                        </StackPanel>
+
                         <!-- Issue #356: nur Regeln, die bei Rundenart und Auslosungsart dieser Runde wirken können -->
                         <StackPanel Margin="0,0,0,12"
                                     Visibility="{Binding Formular.HatRegelVorgabeOptionen, Converter={StaticResource BoolToVisibility}}">

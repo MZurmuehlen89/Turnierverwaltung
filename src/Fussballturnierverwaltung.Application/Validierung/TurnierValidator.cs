@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Application.Abstraktionen;
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -64,6 +65,9 @@ public class TurnierValidator
 
             if (r.Rundenart == Rundenart.Gruppenphase && (r.GruppenAnzahl == null || r.GruppenAnzahl < 2))
                 fehler.Add($"Runde '{r.Name}': Gruppenphase erfordert mindestens 2 Gruppen (GruppenAnzahl war: {r.GruppenAnzahl ?? 0}).");
+
+            if (Gruppenkoepfe.Widerspruch(r.GastgeberGruppen ?? [], r.TitelverteidigerGruppe, r.GruppenAnzahl) is { } kopfFehler)
+                fehler.Add($"Runde '{r.Name}': {kopfFehler}");
 
             fehler.AddRange(TabellenBereicheValidieren(r));
         }

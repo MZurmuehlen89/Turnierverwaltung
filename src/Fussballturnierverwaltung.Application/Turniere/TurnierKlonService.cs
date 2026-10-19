@@ -68,6 +68,8 @@ public class TurnierKlonService(
                 VorgegebeneAuslosungsart  = runde.VorgegebeneAuslosungsart,
                 VorgegebeneAuslosungsregeln = [.. runde.VorgegebeneAuslosungsregeln],
                 VorgegebeneGruppenposition = runde.VorgegebeneGruppenposition,
+                GastgeberGruppen = [.. runde.GastgeberGruppen],
+                TitelverteidigerGruppe = runde.TitelverteidigerGruppe,
                 KombinationstabelleJson   = runde.KombinationstabelleJson,
                 StandardRanglisteId = runde.StandardRanglisteId,
                 TitelverteidigerInTopf1   = runde.TitelverteidigerInTopf1,

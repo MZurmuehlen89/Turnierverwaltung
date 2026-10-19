@@ -139,6 +139,7 @@ public class AuslosungService(
 
         foreach (var lostopf in auslosung.Lostoepfe)
             lostopf.Eintraege.Clear();
+        await GruppenkoepfeEinlegenAsync(auslosung, ct);
         await repository.AktualisierenAsync(auslosung, ct);
     }
 
@@ -189,6 +190,12 @@ public class AuslosungService(
         if (auslosung.Status == AuslosungsStatus.Abgeschlossen)
             throw new InvalidOperationException("Auslosung wurde bereits durchgeführt. Bitte zuerst zurücksetzen.");
 
+        // Ein Gastgeber, der erst nach dem Anlegen der Töpfe eingetragen wurde, kommt spätestens hier hinein (#487).
+        var gruppenkoepfe = await GruppenkoepfeEinlegenAsync(auslosung, ct);
+        if (gruppenkoepfe.OhnePlatz.Count > 0)
+            throw new InvalidOperationException(OhnePlatzMeldung(gruppenkoepfe.OhnePlatz));
+        if (gruppenkoepfe.Geaendert) await repository.AktualisierenAsync(auslosung, ct);
+
         var alleEintraege = auslosung.Lostoepfe
             .SelectMany(l => l.Eintraege)
             .ToList();
@@ -210,7 +217,8 @@ public class AuslosungService(
             validator.Validieren(auslosung, alleEintraege, verbandsQuoten, landesQuoten));
 
         var (regeln, gruppeJeMannschaft) = await RegelnErmittelnAsync(auslosung, alleRunden, ct);
-        var ergebnisse = Losverfahren.Ausloesen(auslosung, regeln, gruppeJeMannschaft, Random.Shared, qualifikanten);
+        var ergebnisse = Losverfahren.Ausloesen(
+            auslosung, regeln, gruppeJeMannschaft, Random.Shared, qualifikanten, gruppenkoepfe.Koepfe);
         await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);
 
         logger.LogInformation("Auslosung '{Name}' durchgeführt: {Anzahl} Paarungen.", auslosung.Name, ergebnisse.Count);
@@ -302,6 +310,7 @@ public class AuslosungService(
             auslosung.Lostoepfe.Remove(topf);
         }
 
+        await GruppenkoepfeEinlegenAsync(auslosung, ct);
         await repository.AktualisierenAsync(auslosung, ct);
         logger.LogInformation("Auslosung {Id}: Lostöpfe auf {Anzahl} synchronisiert.", auslosungId, anzahl);
     }
@@ -355,6 +364,30 @@ public class AuslosungService(
     }
 
     // ── Laden ─────────────────────────────────────────────────────────────────
+
+    // Gastgeber und Titelverteidiger als feste Gruppenköpfe (#487), nur in der Gruppenphase.
+    /// <summary>Gastgeber und Titelverteidiger mit fester Gruppe (#487) gehören in jede Gruppenauslosung: das Programm
+    /// legt die fehlenden selbst in Topf 1, statt sich darauf zu verlassen, dass jemand sie von Hand hineinlegt. Sind
+    /// die Töpfe schon voll, nennt es die übrigen in <c>OhnePlatz</c>. Speichert nicht — das übernimmt der Aufrufer.</summary>
+    private async Task<(IReadOnlyDictionary<int, int> Koepfe, bool Geaendert, IReadOnlyList<string> OhnePlatz)>
+        GruppenkoepfeEinlegenAsync(Auslosung auslosung, CancellationToken ct)
+    {
+        if (auslosung.TurnierRunde is not { Rundenart: Rundenart.Gruppenphase } runde ||
+            runde.GastgeberGruppen.Count == 0 && runde.TitelverteidigerGruppe is null)
+            return (new Dictionary<int, int>(), false, []);
+
+        var kandidaten = await repository.GruppenkopfKandidatenAsync(auslosung.TurnierInstanzId, ct);
+        var koepfe     = Gruppenkoepfe.Bestimmen(runde, kandidaten.GastgeberIds, kandidaten.TitelverteidigerId);
+        var (geaendert, ohnePlatz) = Gruppenkoepfe.Einlegen(koepfe, auslosung.Lostoepfe, runde.EingangsMannschaftsanzahl);
+        return (koepfe, geaendert, [.. ohnePlatz.Select(id => kandidaten.Namen.GetValueOrDefault(id, $"Mannschaft {id}"))]);
+    }
+
+    private static string OhnePlatzMeldung(IReadOnlyList<string> ohnePlatz) =>
+        (ohnePlatz.Count == 1
+            ? $"{ohnePlatz[0]} führt als Gastgeber bzw. Titelverteidiger eine Gruppe fest an und gehört"
+            : $"{string.Join(", ", ohnePlatz)} führen als Gastgeber bzw. Titelverteidiger je eine Gruppe fest an und gehören") +
+        " in die Lostöpfe, die sind aber schon voll. Bitte ein Team herausnehmen – der Gruppenkopf kommt dann beim " +
+        "Auslosen von selbst in Topf 1.";
 
     private async Task<Auslosung> LadenOderFehler(int auslosungId, CancellationToken ct)
         => await repository.FindenNachIdMitDetailsAsync(auslosungId, ct)

@@ -42,6 +42,10 @@ public partial class RundeZeile : ObservableObject
     // Issue #475: reiner Datenträger — angezeigt und geändert über RundenFormularViewModel.VorgegebeneGruppenposition.
     public Gruppenposition VorgegebeneGruppenposition { get; set; }
 
+    // Issue #487: reine Datenträger — angezeigt und geändert über RundenFormularViewModel.Gruppenkoepfe.
+    public IReadOnlyList<int> GastgeberGruppen { get; set; } = [];
+    public int? TitelverteidigerGruppe { get; set; }
+
     // Issue #420: reiner Datenträger — angezeigt und geändert über RundenFormularViewModel.TabellenBereiche.
     public IReadOnlyList<TabellenBereichEingabe> TabellenBereiche { get; set; } = [];
 

@@ -1066,6 +1066,10 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("EingangsMannschaftsanzahl")
                         .HasColumnType("int");
 
+                    b.PrimitiveCollection<string>("GastgeberGruppen")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int?>("GruppenAnzahl")
                         .HasColumnType("int");
 
@@ -1101,6 +1105,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasColumnType("int");
 
                     b.Property<int?>("StandardRanglisteId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TitelverteidigerGruppe")
                         .HasColumnType("int");
 
                     b.Property<bool>("TitelverteidigerInTopf1")

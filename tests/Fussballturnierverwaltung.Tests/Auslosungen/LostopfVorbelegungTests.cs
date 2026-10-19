@@ -27,7 +27,7 @@ public class LostopfVorbelegungTests
     {
         var ids = Enumerable.Range(1, 36).ToList();
 
-        var toepfe = LostopfVorbelegung.Verteilen(ids, RangGleichId(ids), 4, titelverteidigerId: 20);
+        var toepfe = LostopfVorbelegung.Verteilen(ids, RangGleichId(ids), 4, vorabInTopf1: [20]);
 
         toepfe[0].Should().Equal(20, 1, 2, 3, 4, 5, 6, 7, 8);
         toepfe[1].Should().StartWith(9).And.NotContain(20);
@@ -38,7 +38,7 @@ public class LostopfVorbelegungTests
     {
         var ids = Enumerable.Range(1, 36).ToList();
 
-        var toepfe = LostopfVorbelegung.Verteilen(ids, RangGleichId(ids), 4, titelverteidigerId: 5);
+        var toepfe = LostopfVorbelegung.Verteilen(ids, RangGleichId(ids), 4, vorabInTopf1: [5]);
 
         toepfe[0].Should().BeEquivalentTo(Enumerable.Range(1, 9));
     }
@@ -48,7 +48,7 @@ public class LostopfVorbelegungTests
     {
         var ids = Enumerable.Range(1, 8).ToList();
 
-        var toepfe = LostopfVorbelegung.Verteilen(ids, RangGleichId(ids), 2, titelverteidigerId: 99);
+        var toepfe = LostopfVorbelegung.Verteilen(ids, RangGleichId(ids), 2, vorabInTopf1: [99]);
 
         toepfe[0].Should().Equal(1, 2, 3, 4);
         toepfe[1].Should().Equal(5, 6, 7, 8);

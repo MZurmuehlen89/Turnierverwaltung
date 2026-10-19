@@ -39,6 +39,12 @@ public class FakeAuslosungRepository : IAuslosungRepository
     public Task<IReadOnlyList<Auslosung>> AlleNachInstanzAsync(int turnierInstanzId, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<Auslosung>>([]);
 
+    /// <summary>Gastgeber und Titelverteidiger, die der Service als feste Gruppenköpfe abfragt (#487).</summary>
+    public GruppenkopfKandidaten Kandidaten { get; set; } = GruppenkopfKandidaten.Keine;
+
+    public Task<GruppenkopfKandidaten> GruppenkopfKandidatenAsync(int turnierInstanzId, CancellationToken ct = default) =>
+        Task.FromResult(Kandidaten);
+
     public Task<Auslosung?> FindenNachIdMitDetailsAsync(int id, CancellationToken ct = default) =>
         Task.FromResult(_store.GetValueOrDefault(id));
 

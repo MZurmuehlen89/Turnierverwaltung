@@ -26,6 +26,9 @@ public class TurnierRundeKonfiguration : IEntityTypeConfiguration<TurnierRunde>
         builder.Property(r => r.EingangUeberUebergangsregeln).IsRequired().HasDefaultValue(false);
         builder.Property(r => r.VorgegebeneAuslosungsart).IsRequired(false);
         builder.Property(r => r.VorgegebeneGruppenposition).IsRequired().HasDefaultValue(Gruppenposition.NachTopf);
+        // Gruppennummern als JSON-Array, z. B. [1,2,4] für A, B, D (#487).
+        builder.PrimitiveCollection(r => r.GastgeberGruppen).IsRequired();
+        builder.Property(r => r.TitelverteidigerGruppe).IsRequired(false);
         // Liste von Enum-Werten als JSON-Array in einer Spalte, z. B. [0,8] (#356).
         builder.PrimitiveCollection(r => r.VorgegebeneAuslosungsregeln).IsRequired();
 

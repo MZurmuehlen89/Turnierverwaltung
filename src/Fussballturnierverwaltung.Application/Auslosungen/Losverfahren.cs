@@ -60,9 +60,11 @@ public static class Losverfahren
     /// <param name="regeln">Die wirksamen Regeln der Auslosung.</param>
     /// <param name="gruppeJeMannschaft">Gruppe („A“, „B“ …) je Mannschafts-Id aus der vorangegangenen Gruppenphase —
     /// nur für „Keine gleiche Gruppe“ nötig, sonst leer.</param>
+    /// <param name="gruppenkoepfe">Feste Gruppe (ab 0) je Mannschafts-Id — Gastgeber und Titelverteidiger, siehe
+    /// <see cref="Gruppenkoepfe"/>. Wirkt nur in der Gruppenphase.</param>
     public static List<AuslosungsErgebnis> Ausloesen(
         Auslosung auslosung, RegelKontext regeln, IReadOnlyDictionary<int, string> gruppeJeMannschaft, Random zufall,
-        Qualifikanten? qualifikanten = null)
+        Qualifikanten? qualifikanten = null, IReadOnlyDictionary<int, int>? gruppenkoepfe = null)
     {
         var toepfe = auslosung.Lostoepfe
             .OrderBy(l => l.Reihenfolge)
@@ -72,27 +74,36 @@ public static class Losverfahren
         // Gruppenphase und Liga ordnen die Teilnehmer Gruppen zu (Liga = eine Gruppe), alle anderen Rundenarten
         // bilden Paarungen.
         return auslosung.TurnierRunde?.Rundenart is Rundenart.Gruppenphase or Rundenart.Liga
-            ? GruppenVerteilen(auslosung, toepfe, regeln, zufall)
+            ? GruppenVerteilen(auslosung, toepfe, regeln, gruppenkoepfe ?? new Dictionary<int, int>(), zufall)
             : PaarungenBilden(auslosung.Auslosungsart, toepfe, regeln, zufall);
     }
 
     // ── Gruppenphase und Liga (Ergebnis: je Teilnehmer eine Gruppe) ───────────
 
     private static List<AuslosungsErgebnis> GruppenVerteilen(
-        Auslosung auslosung, List<List<TeilnehmerSlot>> toepfe, RegelKontext regeln, Random zufall)
+        Auslosung auslosung, List<List<TeilnehmerSlot>> toepfe, RegelKontext regeln,
+        IReadOnlyDictionary<int, int> gruppenkoepfe, Random zufall)
     {
         if (auslosung.TurnierRunde?.Rundenart == Rundenart.Liga)
             return LigaAusloesen(toepfe, zufall);
 
         int gruppenAnzahl = GruppenAnzahlOderFehler(auslosung);
         var position      = GruppenpositionKompatibilitaet.Wirksam(auslosung.Auslosungsart, auslosung.Gruppenposition);
+        var kopfGruppe    = KopfGruppe(gruppenkoepfe, gruppenAnzahl);
         return auslosung.Auslosungsart switch
         {
-            Auslosungsart.NachToepfen   => GruppenphaseNachToepfenAusloesen(toepfe, gruppenAnzahl, position, regeln, zufall),
-            Auslosungsart.NachSetzliste => GruppenphaseNachSetzlisteAusloesen(toepfe, gruppenAnzahl, position, regeln, zufall),
-            _                           => GruppenAusloesen([toepfe.SelectMany(t => t).ToList()], KeineGesetzten, gruppenAnzahl, position, regeln, zufall)
+            Auslosungsart.NachSetzliste => GruppenphaseNachSetzlisteAusloesen(toepfe, kopfGruppe, gruppenAnzahl, position, regeln, zufall),
+            Auslosungsart.NachToepfen   => GruppenAusloesen(toepfe, kopfGruppe, gruppenAnzahl, position, regeln, zufall),
+            _                           => GruppenAusloesen([toepfe.SelectMany(t => t).ToList()], kopfGruppe, gruppenAnzahl, position, regeln, zufall)
         };
     }
+
+    // Gastgeber und Titelverteidiger als feste Gruppenköpfe (#487) — auch hinter einem Platzhalter, sobald sie ihn
+    // sicher besetzen. Eine Gruppe jenseits der Gruppenanzahl bleibt wirkungslos.
+    private static Func<TeilnehmerSlot, int?> KopfGruppe(IReadOnlyDictionary<int, int> gruppenkoepfe, int gruppenAnzahl) =>
+        slot => slot.SpielendeMannschaftId is { } id && gruppenkoepfe.TryGetValue(id, out var g) && g < gruppenAnzahl
+            ? g
+            : null;
 
     private static int GruppenAnzahlOderFehler(Auslosung auslosung) =>
         auslosung.TurnierRunde?.GruppenAnzahl
@@ -105,32 +116,25 @@ public static class Losverfahren
     private static List<AuslosungsErgebnis> LigaAusloesen(List<List<TeilnehmerSlot>> toepfe, Random zufall) =>
         GruppenZuErgebnisse([toepfe.SelectMany(t => t).OrderBy(_ => zufall.Next()).ToList()]);
 
-    // Jeder Topf wird vollständig auf die Gruppen verteilt, bevor der nächste drankommt.
-    private static List<AuslosungsErgebnis> GruppenphaseNachToepfenAusloesen(
-        List<List<TeilnehmerSlot>> toepfe, int gruppenAnzahl, Gruppenposition position, RegelKontext regeln,
-        Random zufall) =>
-        GruppenAusloesen(toepfe, KeineGesetzten, gruppenAnzahl, position, regeln, zufall);
-
-    // Gesetzte Teams (mit Setzposition) führen je eine Gruppe an: Setzposition 1 Gruppe A, 2 Gruppe B … Sie bleiben
-    // Teil ihres Topfs, alle übrigen werden topfweise verteilt (siehe Issue #5-Diskussion, #488).
+    // Gesetzte Teams (mit Setzposition) führen je eine der Gruppen an, die kein fester Gruppenkopf (#487) belegt: in
+    // Setzreihenfolge auf die erste freie Gruppe. Sie bleiben Teil ihres Topfs, alle übrigen werden topfweise
+    // verteilt (siehe Issue #5-Diskussion, #488).
     private static List<AuslosungsErgebnis> GruppenphaseNachSetzlisteAusloesen(
-        List<List<TeilnehmerSlot>> toepfe, int gruppenAnzahl, Gruppenposition position, RegelKontext regeln,
-        Random zufall)
+        List<List<TeilnehmerSlot>> toepfe, Func<TeilnehmerSlot, int?> kopfGruppe, int gruppenAnzahl,
+        Gruppenposition position, RegelKontext regeln, Random zufall)
     {
-        var gruppeJeGesetztem = toepfe
-            .SelectMany(t => t)
-            .Where(s => s.SetzPosition.HasValue)
+        var alle         = toepfe.SelectMany(t => t).ToList();
+        var freieGruppen = Enumerable.Range(0, gruppenAnzahl).Except(alle.Select(kopfGruppe).OfType<int>());
+        var gruppeJeGesetztem = alle
+            .Where(s => s.SetzPosition.HasValue && kopfGruppe(s) is null)
             .OrderBy(s => s.SetzPosition)
-            .Take(gruppenAnzahl)
-            .Select((slot, gruppe) => (slot, gruppe))
-            .ToDictionary(x => x.slot, x => x.gruppe, ReferenceEqualityComparer.Instance);
+            .Zip(freieGruppen)
+            .ToDictionary(x => x.First, x => x.Second, ReferenceEqualityComparer.Instance);
 
         return GruppenAusloesen(
-            toepfe, slot => gruppeJeGesetztem.TryGetValue(slot, out var g) ? g : null, gruppenAnzahl, position,
-            regeln, zufall);
+            toepfe, slot => kopfGruppe(slot) ?? (gruppeJeGesetztem.TryGetValue(slot, out var g) ? g : null),
+            gruppenAnzahl, position, regeln, zufall);
     }
-
-    private static int? KeineGesetzten(TeilnehmerSlot _) => null;
 
     // Die Töpfe werden nacheinander gezogen, Gesetzte führen ihre Gruppe an und zählen in ihrem Topf mit (#488) —
     // Ablauf und Regelprüfung siehe GruppenAuslosung (#356). Die Position in der Gruppe legt danach

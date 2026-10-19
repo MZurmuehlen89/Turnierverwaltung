@@ -55,6 +55,12 @@ public class TurnierRunde : BasisEntitaet
     // dort weiter änderbar. Nur bei Gruppenphase wirksam.
     public Gruppenposition VorgegebeneGruppenposition { get; set; }
 
+    // Feste Gruppenköpfe der Gruppenphase (Issue #487), Gruppen ab 1 (A = 1): die Gastgeber führen diese Gruppen in
+    // der Reihenfolge der Gastgeberliste an (WM 2026: A, B, D), der Titelverteidiger seine eigene. Leer bzw. null =
+    // kein fester Gruppenkopf.
+    public List<int> GastgeberGruppen { get; set; } = [];
+    public int? TitelverteidigerGruppe { get; set; }
+
     // Standard-Rangliste der Runde (Issue #349): Lostopf-Vorbelegung, Kriterium Koeffizient (#354) und
     // Spielklassen für „Heimrecht für Unterklassige“ (#393). Verweist direkt auf eine gespeicherte Rangliste —
     // die Ranglisten-Quelle dient nur dem Aktualisieren per Import (#393, vorher Verweis auf die Quelle).

@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +34,24 @@ public class AuslosungRepository(TurnierverwaltungDbContext context)
                     .ThenInclude(m => m!.Land)
             .AsSplitQuery()
             .FirstOrDefaultAsync(a => a.Id == id, ct);
+
+    public async Task<GruppenkopfKandidaten> GruppenkopfKandidatenAsync(int turnierInstanzId, CancellationToken ct = default)
+    {
+        var gastgeberIds = await Context.TurnierGastgeber
+            .Where(g => g.TurnierInstanzId == turnierInstanzId)
+            .OrderBy(g => g.Id)
+            .Select(g => g.MannschaftId)
+            .ToListAsync(ct);
+        var titelverteidigerId = await Context.TurnierInstanzen
+            .Where(i => i.Id == turnierInstanzId)
+            .Select(i => i.TitelverteidigerId)
+            .FirstOrDefaultAsync(ct);
+        var ids = titelverteidigerId is { } tv ? [.. gastgeberIds, tv] : gastgeberIds;
+        var namen = await Context.Mannschaften
+            .Where(m => ids.Contains(m.Id))
+            .ToDictionaryAsync(m => m.Id, m => m.Name, ct);
+        return new GruppenkopfKandidaten(gastgeberIds, titelverteidigerId, namen);
+    }
 
     public async Task<Auslosung?> FindenAbgeschlosseneNachRundeAsync(
         int turnierInstanzId, int turnierRundeId, CancellationToken ct = default)

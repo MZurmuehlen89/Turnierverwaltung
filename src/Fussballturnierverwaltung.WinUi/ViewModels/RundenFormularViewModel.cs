@@ -34,6 +34,7 @@ public partial class RundenFormularViewModel : ObservableObject
         _ranglisteService = ranglisteService;
         TabellenBereiche.Geaendert += () => Geaendert?.Invoke();
         VorgegebeneGruppenposition.Geaendert += GruppenpositionGeaendert;
+        Gruppenkoepfe.Geaendert += GruppenkoepfeGeaendert;
     }
 
     /// <summary>Tabellenbereiche der gezeigten Runde (Issue #420), nur bei Runden mit Tabelle sichtbar.</summary>
@@ -41,6 +42,9 @@ public partial class RundenFormularViewModel : ObservableObject
 
     /// <summary>Vorgegebene Position in der Gruppe (Issue #475), nur bei Gruppenphase wählbar.</summary>
     public GruppenpositionAuswahl VorgegebeneGruppenposition { get; } = new();
+
+    /// <summary>Feste Gruppenköpfe für Gastgeber und Titelverteidiger (Issue #487), nur bei Gruppenphase sichtbar.</summary>
+    public GruppenkoepfeVorgabe Gruppenkoepfe { get; } = new();
 
     /// <summary>Zeigt die Runde im Formular (<c>null</c> leert es).</summary>
     public void Zeigen(RundeZeile? zeile, bool folgtAufGruppenphase)
@@ -133,6 +137,7 @@ public partial class RundenFormularViewModel : ObservableObject
         RegelVorgabenAusZeile(zeile);
         VorgegebeneGruppenposition.Zeigen(
             zeile?.VorgegebeneGruppenposition ?? Gruppenposition.NachTopf, Rundenart, AuslosungsartFuerGruppenposition);
+        Gruppenkoepfe.Zeigen(zeile?.GastgeberGruppen ?? [], zeile?.TitelverteidigerGruppe, GruppenAnzahl);
     }
 
     private void FelderInZeile(RundeZeile zeile)
@@ -303,6 +308,16 @@ public partial class RundenFormularViewModel : ObservableObject
 
     private void GruppenpositionSperreAktualisieren() =>
         VorgegebeneGruppenposition.SperreAktualisieren(Rundenart, AuslosungsartFuerGruppenposition);
+
+    partial void OnGruppenAnzahlChanged(int? value) => Gruppenkoepfe.GruppenAnzahlSetzen(value);
+
+    private void GruppenkoepfeGeaendert()
+    {
+        if (_populiertGerade > 0 || _zeile is null) return;
+        _zeile.GastgeberGruppen       = Gruppenkoepfe.GastgeberGruppen;
+        _zeile.TitelverteidigerGruppe = Gruppenkoepfe.TitelverteidigerGruppe;
+        Geaendert?.Invoke();
+    }
 
     private void GruppenpositionGeaendert()
     {

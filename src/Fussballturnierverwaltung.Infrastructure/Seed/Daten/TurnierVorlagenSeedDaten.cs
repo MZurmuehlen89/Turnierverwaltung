@@ -59,6 +59,7 @@ public static class TurnierVorlagenSeedDaten
             UeberraschungsfaktorSetzen(vorlage);
             AuslosungsregelnSetzen(vorlage);
             GruppenpositionSetzen(vorlage);
+            GruppenkoepfeSetzen(vorlage);
         }
         return vorlagen;
     }
@@ -154,6 +155,39 @@ public static class TurnierVorlagenSeedDaten
         if (!GruppenpositionJeVorlage.TryGetValue((vorlage.Name, vorlage.Variante), out var position)) return;
         foreach (var runde in vorlage.Runden.Where(r => r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge == 1))
             runde.VorgegebeneGruppenposition = position;
+    }
+
+    // ── Feste Gruppenköpfe (Issue #487) ────────────────────────────────────────
+
+    // Gruppen (A = 1) der Gastgeber und des Titelverteidigers in der Gruppenphase, nach der neuesten Ausgabe der
+    // Vorlage. Ist der Titelverteidiger zugleich Gastgeber, zählt die Gastgeber-Gruppe. Bestehende Datenbanken:
+    // Migration Gruppenkoepfe — dort dieselbe Zuordnung als SQL, bei Änderungen hier mitziehen.
+    public static IReadOnlyDictionary<(string Name, string Variante), (int[] Gastgeber, int? Titelverteidiger)> GruppenkoepfeJeVorlage { get; } =
+        new Dictionary<(string, string), (int[], int?)>
+        {
+            [("FIFA WM", "48 Teams · ab 2026")]           = ([1, 2, 4], null), // Mexiko A1, Kanada B1, USA D1
+            [("FIFA WM", "32 Teams · 1998–2022")]         = ([1], null),       // Katar A1
+            [("FIFA WM", "24 Teams · 1986–1994")]         = ([1], 3),          // USA A1, Deutschland C1
+            [("FIFA WM", "24 Teams · 1982")]              = ([5], 3),          // Spanien Gruppe 5, Argentinien Gruppe 3
+            [("UEFA EM", "24 Teams · 2016+")]             = ([1], null),       // Deutschland A1
+            [("UEFA EM", "16 Teams · 1996–2012")]         = ([1, 4], null),    // Polen A1, Ukraine D1
+            [("UEFA EM", EM_8_TEAMS_1984_BIS_1992)]       = ([1], 2),          // Schweden Gruppe 1, Niederlande Gruppe 2
+            [("UEFA EM", "8 Teams · 1980")]               = ([2], 1),          // Italien Gruppe 2, ČSSR Gruppe 1
+            [("Copa América", "16 Teams · 2016/2024")]    = ([3], 1),          // USA C1, Argentinien A1
+            [("Copa América", "12 Teams · 1993–2019")]    = ([1], null),       // Brasilien A1
+            [("CONCACAF Gold Cup", "16 Teams · ab 2021")] = ([], 1),           // Mexiko A1
+            [("Afrika-Cup", "24 Teams · ab 2019")]        = ([1], null),       // Marokko A1
+            [("AFC Asian Cup", "24 Teams · ab 2019")]     = ([1], null),       // Katar A1
+        };
+
+    private static void GruppenkoepfeSetzen(TurnierInstanz vorlage)
+    {
+        if (!GruppenkoepfeJeVorlage.TryGetValue((vorlage.Name, vorlage.Variante), out var koepfe)) return;
+        foreach (var runde in vorlage.Runden.Where(r => r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge == 1))
+        {
+            runde.GastgeberGruppen       = [.. koepfe.Gastgeber];
+            runde.TitelverteidigerGruppe = koepfe.Titelverteidiger;
+        }
     }
 
     // ── Neutraler Spielort (Issue #352) ────────────────────────────────────────

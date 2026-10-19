@@ -68,7 +68,9 @@ public record TurnierRundeEingabe(
     int Ueberraschungsfaktor = 0,
     IReadOnlyList<AuslosungsRegelArt>? VorgegebeneAuslosungsregeln = null,
     IReadOnlyList<TabellenBereichEingabe>? TabellenBereiche = null,
-    Gruppenposition VorgegebeneGruppenposition = Gruppenposition.NachTopf)
+    Gruppenposition VorgegebeneGruppenposition = Gruppenposition.NachTopf,
+    IReadOnlyList<int>? GastgeberGruppen = null,
+    int? TitelverteidigerGruppe = null)
 {
     /// <summary>Lässt weg, was bei dieser Runde nichts bewirkt, im Formular aber stehen geblieben sein kann:
     /// die Spieltag-Konfiguration außerhalb des Schweizer Systems, die Gruppenanzahl außerhalb der Gruppenphase,
@@ -78,6 +80,8 @@ public record TurnierRundeEingabe(
         KonfigurationJson = Rundenart == Rundenart.SchweizerSystem ? KonfigurationJson : null,
         GruppenAnzahl = Rundenart == Rundenart.Gruppenphase ? GruppenAnzahl : null,
         VorgegebeneGruppenposition = Rundenart == Rundenart.Gruppenphase ? VorgegebeneGruppenposition : Gruppenposition.NachTopf,
+        GastgeberGruppen = Rundenart == Rundenart.Gruppenphase ? GastgeberGruppen : null,
+        TitelverteidigerGruppe = Rundenart == Rundenart.Gruppenphase ? TitelverteidigerGruppe : null,
         TabellenBereiche = TabellenZonen.HatTabelle(Rundenart) ? TabellenBereiche : null,
         TitelverteidigerInTopf1 = StandardRanglisteId is not null && TitelverteidigerInTopf1
     };

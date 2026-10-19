@@ -4,10 +4,22 @@ using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Auslosungen;
 
+/// <summary>Gastgeber (in Reihenfolge der Gastgeberliste) und Titelverteidiger eines Turniers samt ihren Namen — die
+/// Namen braucht die Meldung, wenn ein Gruppenkopf keinen Platz mehr in den Lostöpfen findet (#487).</summary>
+public sealed record GruppenkopfKandidaten(
+    IReadOnlyList<int> GastgeberIds, int? TitelverteidigerId, IReadOnlyDictionary<int, string> Namen)
+{
+    public static GruppenkopfKandidaten Keine { get; } = new([], null, new Dictionary<int, string>());
+}
+
 public interface IAuslosungRepository : IRepository<Auslosung>
 {
     Task<IReadOnlyList<Auslosung>> AlleNachInstanzAsync(int turnierInstanzId, CancellationToken ct = default);
     Task<Auslosung?> FindenNachIdMitDetailsAsync(int id, CancellationToken ct = default);
+
+    /// <summary>Gastgeber (in Reihenfolge der Gastgeberliste) und Titelverteidiger des Turniers — für die festen
+    /// Gruppenköpfe (#487).</summary>
+    Task<GruppenkopfKandidaten> GruppenkopfKandidatenAsync(int turnierInstanzId, CancellationToken ct = default);
 
     /// <summary>Findet die zuletzt abgeschlossene Auslosung einer Runde (mit vollen Details). Als
     /// Repository-Methode statt in <see cref="AuslosungService"/> implementiert, damit
