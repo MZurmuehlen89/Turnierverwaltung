@@ -288,6 +288,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         TitelverteidigerInTopf1 = r.TitelverteidigerInTopf1,
         KombinationstabelleJson = r.KombinationstabelleJson,
         VorgegebeneAuslosungsregeln = [.. r.VorgegebeneAuslosungsregeln],
+        VorgegebeneGruppenposition = r.VorgegebeneGruppenposition,
         TabellenBereiche = [.. r.TabellenBereiche.OrderBy(b => b.PlatzVon)
             .Select(b => new TabellenBereichEingabe(b.PlatzVon, b.PlatzBis, b.Art, b.Bezeichnung))]
     };
@@ -395,7 +396,8 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         NeutralerSpielort: z.NeutralerSpielort,
         Ueberraschungsfaktor: z.Ueberraschungsfaktor,
         VorgegebeneAuslosungsregeln: z.VorgegebeneAuslosungsregeln,
-        TabellenBereiche: z.TabellenBereiche).OhneUnwirksameAngaben()).ToList();
+        TabellenBereiche: z.TabellenBereiche,
+        VorgegebeneGruppenposition: z.VorgegebeneGruppenposition).OhneUnwirksameAngaben()).ToList();
 
     public List<UebergangsregelPositionsEingabe> UebergangsregelnZuEingaben() => _alleUebergaenge
         .Where(b => b.QuellRunde is not null && b.ZielRunde is not null && b.QuellRunde != b.ZielRunde)

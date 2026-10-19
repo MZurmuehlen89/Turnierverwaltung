@@ -46,20 +46,22 @@ public class AuslosungService(
                 "Für diese Runde existiert bereits eine Auslosung. Bitte zuerst die bestehende Auslosung " +
                 "löschen (oder im Vorbelegung-Tab zurücksetzen), bevor eine neue angelegt wird.");
 
+        // Von der Vorlage vorgegeben (Gruppenposition #475, Regeln #356) und von Beginn an aktiv, bleibt änderbar.
+        var runde = await rundeRepository.FindenNachIdAsync(eingabe.TurnierRundeId, ct);
         var auslosung = new Auslosung
         {
             TurnierInstanzId = eingabe.TurnierInstanzId,
             TurnierRundeId   = eingabe.TurnierRundeId,
             Name             = eingabe.Name.Trim(),
             Auslosungsart    = eingabe.Auslosungsart,
+            Gruppenposition  = runde?.VorgegebeneGruppenposition ?? Gruppenposition.NachTopf,
             IstAutomatisch   = eingabe.IstAutomatisch,
             Datum            = eingabe.Datum,
             Status           = AuslosungsStatus.Vorbereitung
         };
 
-        // Von der Vorlage vorgegebene Regeln (#356) sind von Beginn an aktiv und bleiben abwählbar. Ob eine Regel
-        // bei der gewählten Auslosungsart tatsächlich wirkt, entscheidet weiterhin AuslosungsRegelKompatibilitaet.
-        var runde = await rundeRepository.FindenNachIdAsync(eingabe.TurnierRundeId, ct);
+        // Ob eine vorgegebene Regel bei der gewählten Auslosungsart tatsächlich wirkt, entscheidet weiterhin
+        // AuslosungsRegelKompatibilitaet.
         foreach (var regelart in runde?.VorgegebeneAuslosungsregeln.Distinct() ?? [])
             auslosung.Regeln.Add(new AuslosungsRegel
             {
@@ -304,15 +306,19 @@ public class AuslosungService(
         logger.LogInformation("Auslosung {Id}: Lostöpfe auf {Anzahl} synchronisiert.", auslosungId, anzahl);
     }
 
-    public async Task BearbeitenAsync(int auslosungId, string name, Auslosungsart auslosungsart, CancellationToken ct = default)
+    public async Task BearbeitenAsync(
+        int auslosungId, string name, Auslosungsart auslosungsart, Gruppenposition gruppenposition,
+        CancellationToken ct = default)
     {
         var auslosung = await OhneDetailsLadenOderFehler(auslosungId, ct);
         if (auslosung.Status == AuslosungsStatus.Abgeschlossen)
             throw new InvalidOperationException("Eine abgeschlossene Auslosung kann nicht bearbeitet werden. Bitte zuerst zurücksetzen.");
-        auslosung.Name         = name.Trim();
-        auslosung.Auslosungsart = auslosungsart;
+        auslosung.Name            = name.Trim();
+        auslosung.Auslosungsart   = auslosungsart;
+        auslosung.Gruppenposition = gruppenposition;
         await repository.AktualisierenAsync(auslosung, ct);
-        logger.LogInformation("Auslosung {Id}: Name='{Name}', Art={Art} aktualisiert.", auslosungId, auslosung.Name, auslosungsart);
+        logger.LogInformation("Auslosung {Id}: Name='{Name}', Art={Art}, Gruppenposition={Position} aktualisiert.",
+            auslosungId, auslosung.Name, auslosungsart, gruppenposition);
     }
 
     public Task<Auslosung?> FindenAbgeschlosseneNachRundeAsync(

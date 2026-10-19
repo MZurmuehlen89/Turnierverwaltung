@@ -36,6 +36,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<DateOnly?>("Datum")
                         .HasColumnType("date");
 
+                    b.Property<int>("Gruppenposition")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<bool>("IstAutomatisch")
                         .HasColumnType("bit");
 
@@ -1117,6 +1122,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.PrimitiveCollection<string>("VorgegebeneAuslosungsregeln")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("VorgegebeneGruppenposition")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.HasKey("Id");
 

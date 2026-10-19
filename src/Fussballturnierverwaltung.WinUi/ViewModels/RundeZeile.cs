@@ -39,6 +39,9 @@ public partial class RundeZeile : ObservableObject
     // Issue #356: reiner Datenträger — angezeigt und geändert wird über RundenFormularViewModel.RegelVorgabeOptionen.
     public IReadOnlyList<AuslosungsRegelArt> VorgegebeneAuslosungsregeln { get; set; } = [];
 
+    // Issue #475: reiner Datenträger — angezeigt und geändert über RundenFormularViewModel.VorgegebeneGruppenposition.
+    public Gruppenposition VorgegebeneGruppenposition { get; set; }
+
     // Issue #420: reiner Datenträger — angezeigt und geändert über RundenFormularViewModel.TabellenBereiche.
     public IReadOnlyList<TabellenBereichEingabe> TabellenBereiche { get; set; } = [];
 

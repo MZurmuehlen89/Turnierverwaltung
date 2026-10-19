@@ -227,6 +227,7 @@ public class TurnierInstanzService(
         PaarungFestVorgegeben        = e.PaarungFestVorgegeben,
         VorgegebeneAuslosungsart     = e.VorgegebeneAuslosungsart,
         VorgegebeneAuslosungsregeln  = [.. e.VorgegebeneAuslosungsregeln ?? []],
+        VorgegebeneGruppenposition   = e.VorgegebeneGruppenposition,
         KombinationstabelleJson      = e.KombinationstabelleJson,
         StandardRanglisteId   = e.StandardRanglisteId,
         TitelverteidigerInTopf1      = e.TitelverteidigerInTopf1,

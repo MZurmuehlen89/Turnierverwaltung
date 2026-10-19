@@ -58,6 +58,7 @@ public static class TurnierVorlagenSeedDaten
             NeutraleSpielorteSetzen(vorlage);
             UeberraschungsfaktorSetzen(vorlage);
             AuslosungsregelnSetzen(vorlage);
+            GruppenpositionSetzen(vorlage);
         }
         return vorlagen;
     }
@@ -122,6 +123,37 @@ public static class TurnierVorlagenSeedDaten
             default:
                 return [];
         }
+    }
+
+    // ── Position in der Gruppe (Issue #475) ────────────────────────────────────
+
+    // Nach der neuesten Ausgabe der Vorlage. Fehlt sie hier, gilt „Nach Topf“ — belegt bei Copa América 2024 und
+    // Afrika-Cup 2025, nicht belegbar bei WM 1934–1994, EM mit 8 Teams und Asian Cup. Bestehende Datenbanken:
+    // Migration Gruppenposition — dort dieselbe Zuordnung als SQL, bei Änderungen hier mitziehen.
+    public static IReadOnlyDictionary<(string Name, string Variante), Gruppenposition> GruppenpositionJeVorlage { get; } =
+        new Dictionary<(string, string), Gruppenposition>
+        {
+            // Topf 1 auf Position 1, die übrigen per Positionskugel (WM 2022, EM 2012, Copa 2019, Gold Cup 2025,
+            // Klub-WM 2025). Die WM 2026 legt die Positionen 2–4 nach festem Schema je Gruppe fest — angenähert.
+            [("FIFA WM", "48 Teams · ab 2026")]           = Gruppenposition.Topf1Fest,
+            [("FIFA WM", "32 Teams · 1998–2022")]         = Gruppenposition.Topf1Fest,
+            [("UEFA EM", "16 Teams · 1996–2012")]         = Gruppenposition.Topf1Fest,
+            [("Copa América", "12 Teams · 1993–2019")]    = Gruppenposition.Topf1Fest,
+            [("CONCACAF Gold Cup", "16 Teams · ab 2021")] = Gruppenposition.Topf1Fest,
+            [("FIFA Klub-WM", "32 Teams · ab 2025")]      = Gruppenposition.Topf1Fest,
+            // Alle Positionen gelost (EM 2024; Gastgeber über die Setzliste fest auf A1). CL und Nations League:
+            // der Spielplan entsteht erst nach der Auslosung, ohne Bindung an den Topf.
+            [("UEFA EM", "24 Teams · 2016+")]                                          = Gruppenposition.AlleGelost,
+            [("UEFA Champions League", "32 Teams · mit Auswärtstorregel · 2003–2021")] = Gruppenposition.AlleGelost,
+            [("UEFA Champions League", "32 Teams · ohne Auswärtstorregel · 2021–2024")] = Gruppenposition.AlleGelost,
+            [("UEFA Nations League Liga A", "16 Teams · ab 2024/25")]                  = Gruppenposition.AlleGelost,
+        };
+
+    private static void GruppenpositionSetzen(TurnierInstanz vorlage)
+    {
+        if (!GruppenpositionJeVorlage.TryGetValue((vorlage.Name, vorlage.Variante), out var position)) return;
+        foreach (var runde in vorlage.Runden.Where(r => r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge == 1))
+            runde.VorgegebeneGruppenposition = position;
     }
 
     // ── Neutraler Spielort (Issue #352) ────────────────────────────────────────

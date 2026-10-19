@@ -33,10 +33,14 @@ public partial class RundenFormularViewModel : ObservableObject
         _regelwerkService = regelwerkService;
         _ranglisteService = ranglisteService;
         TabellenBereiche.Geaendert += () => Geaendert?.Invoke();
+        VorgegebeneGruppenposition.Geaendert += GruppenpositionGeaendert;
     }
 
     /// <summary>Tabellenbereiche der gezeigten Runde (Issue #420), nur bei Runden mit Tabelle sichtbar.</summary>
     public TabellenBereicheViewModel TabellenBereiche { get; } = new();
+
+    /// <summary>Vorgegebene Position in der Gruppe (Issue #475), nur bei Gruppenphase wählbar.</summary>
+    public GruppenpositionAuswahl VorgegebeneGruppenposition { get; } = new();
 
     /// <summary>Zeigt die Runde im Formular (<c>null</c> leert es).</summary>
     public void Zeigen(RundeZeile? zeile, bool folgtAufGruppenphase)
@@ -127,6 +131,8 @@ public partial class RundenFormularViewModel : ObservableObject
         StandardRangliste = zeile?.StandardRangliste ?? RundeZeile.KeineStandardRangliste;
         TitelverteidigerInTopf1 = zeile?.TitelverteidigerInTopf1 ?? false;
         RegelVorgabenAusZeile(zeile);
+        VorgegebeneGruppenposition.Zeigen(
+            zeile?.VorgegebeneGruppenposition ?? Gruppenposition.NachTopf, Rundenart, AuslosungsartFuerGruppenposition);
     }
 
     private void FelderInZeile(RundeZeile zeile)
@@ -196,6 +202,7 @@ public partial class RundenFormularViewModel : ObservableObject
     {
         // Vor dem Populier-Guard: die Optionsliste muss auch beim Befüllen des Formulars zur Rundenart passen.
         AuslosungsartVorgabeAnRundenartPassen(value);
+        GruppenpositionSperreAktualisieren();
 
         if (_populiertGerade > 0) return;
         RegelVorgabenAnRundePassen();
@@ -273,17 +280,35 @@ public partial class RundenFormularViewModel : ObservableObject
 
     partial void OnPaarungFestVorgegebenChanged(bool value)
     {
+        GruppenpositionSperreAktualisieren();
         if (_populiertGerade > 0) return;
         RegelVorgabenAnRundePassen();
     }
 
     partial void OnVorgegebeneAuslosungsartChanged(VorgegebeneAuslosungsartOption value)
     {
+        GruppenpositionSperreAktualisieren();
         if (_populiertGerade > 0) return;
 
         // Siehe RundenartAuswahl: null ist nie eine Nutzerauswahl; die Rundenzeile hält weiter den richtigen Wert.
         if (value is null) AusZeileWiederherstellen(zeile => VorgegebeneAuslosungsart ??= zeile.VorgegebeneAuslosungsart);
         else RegelVorgabenAnRundePassen();
+    }
+
+    // ── Gruppenposition als Vorgabe (Issue #475) ─────────────────────────────
+
+    // „Paarung fest vorgegeben“ heißt: die Runde wird manuell belegt, nicht ausgelost.
+    private Auslosungsart? AuslosungsartFuerGruppenposition =>
+        PaarungFestVorgegeben ? Auslosungsart.Manuell : VorgegebeneAuslosungsart?.Wert;
+
+    private void GruppenpositionSperreAktualisieren() =>
+        VorgegebeneGruppenposition.SperreAktualisieren(Rundenart, AuslosungsartFuerGruppenposition);
+
+    private void GruppenpositionGeaendert()
+    {
+        if (_populiertGerade > 0 || _zeile is null) return;
+        _zeile.VorgegebeneGruppenposition = VorgegebeneGruppenposition.Wert;
+        Geaendert?.Invoke();
     }
 
     // ── Auslosungsregeln als Vorgabe (Issue #356) ────────────────────────────

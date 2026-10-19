@@ -51,6 +51,10 @@ public class TurnierRunde : BasisEntitaet
     // bereits aktiv, dort weiter abwählbar. Leer = keine Vorgabe.
     public List<AuslosungsRegelArt> VorgegebeneAuslosungsregeln { get; set; } = [];
 
+    // Von der Vorlage vorgegebene Gruppenposition (Issue #475) — Startwert einer neuen Auslosung dieser Runde,
+    // dort weiter änderbar. Nur bei Gruppenphase wirksam.
+    public Gruppenposition VorgegebeneGruppenposition { get; set; }
+
     // Standard-Rangliste der Runde (Issue #349): Lostopf-Vorbelegung, Kriterium Koeffizient (#354) und
     // Spielklassen für „Heimrecht für Unterklassige“ (#393). Verweist direkt auf eine gespeicherte Rangliste —
     // die Ranglisten-Quelle dient nur dem Aktualisieren per Import (#393, vorher Verweis auf die Quelle).

@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
+using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -12,6 +13,7 @@ public class AuslosungKonfiguration : IEntityTypeConfiguration<Auslosung>
         builder.HasKey(a => a.Id);
         builder.Property(a => a.Name).IsRequired().HasMaxLength(200);
         builder.Property(a => a.Auslosungsart).IsRequired();
+        builder.Property(a => a.Gruppenposition).IsRequired().HasDefaultValue(Gruppenposition.NachTopf);
         builder.Property(a => a.Status).IsRequired();
         builder.Property(a => a.IstAutomatisch).IsRequired();
         builder.Property(a => a.Datum).HasColumnType("date");

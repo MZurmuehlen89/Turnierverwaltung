@@ -85,11 +85,12 @@ public static class Losverfahren
             return LigaAusloesen(toepfe, zufall);
 
         int gruppenAnzahl = GruppenAnzahlOderFehler(auslosung);
+        var position      = GruppenpositionKompatibilitaet.Wirksam(auslosung.Auslosungsart, auslosung.Gruppenposition);
         return auslosung.Auslosungsart switch
         {
-            Auslosungsart.NachToepfen   => GruppenphaseNachToepfenAusloesen(toepfe, gruppenAnzahl, regeln, zufall),
-            Auslosungsart.NachSetzliste => GruppenphaseNachSetzlisteAusloesen(toepfe, gruppenAnzahl, regeln, zufall),
-            _                           => GruppenAusloesen([], [toepfe.SelectMany(t => t).ToList()], gruppenAnzahl, regeln, zufall)
+            Auslosungsart.NachToepfen   => GruppenphaseNachToepfenAusloesen(toepfe, gruppenAnzahl, position, regeln, zufall),
+            Auslosungsart.NachSetzliste => GruppenphaseNachSetzlisteAusloesen(toepfe, gruppenAnzahl, position, regeln, zufall),
+            _                           => GruppenAusloesen([], [toepfe.SelectMany(t => t).ToList()], gruppenAnzahl, position, regeln, zufall)
         };
     }
 
@@ -106,12 +107,14 @@ public static class Losverfahren
 
     // Jeder Topf wird vollständig auf die Gruppen verteilt, bevor der nächste drankommt.
     private static List<AuslosungsErgebnis> GruppenphaseNachToepfenAusloesen(
-        List<List<TeilnehmerSlot>> toepfe, int gruppenAnzahl, RegelKontext regeln, Random zufall) =>
-        GruppenAusloesen([], toepfe, gruppenAnzahl, regeln, zufall);
+        List<List<TeilnehmerSlot>> toepfe, int gruppenAnzahl, Gruppenposition position, RegelKontext regeln,
+        Random zufall) =>
+        GruppenAusloesen([], toepfe, gruppenAnzahl, position, regeln, zufall);
 
     // Gesetzte Teams (mit Setzposition) führen je eine Gruppe an, die übrigen werden topfweise verteilt.
     private static List<AuslosungsErgebnis> GruppenphaseNachSetzlisteAusloesen(
-        List<List<TeilnehmerSlot>> toepfe, int gruppenAnzahl, RegelKontext regeln, Random zufall)
+        List<List<TeilnehmerSlot>> toepfe, int gruppenAnzahl, Gruppenposition position, RegelKontext regeln,
+        Random zufall)
     {
         var gesetzte = toepfe
             .SelectMany(t => t)
@@ -123,14 +126,15 @@ public static class Losverfahren
         // Ungesetzte Teams werden topfweise verteilt (ein Topf wird komplett auf die Gruppen aufgeteilt, bevor der
         // nächste Topf drankommt) — analog zu GruppenphaseNachToepfenAusloesen (siehe Issue #5-Diskussion).
         return GruppenAusloesen(
-            gesetzte, toepfe.Select(t => t.Where(s => !s.SetzPosition.HasValue).ToList()), gruppenAnzahl, regeln, zufall);
+            gesetzte, toepfe.Select(t => t.Where(s => !s.SetzPosition.HasValue).ToList()), gruppenAnzahl, position,
+            regeln, zufall);
     }
 
     // Gesetzte Teams führen je eine Gruppe an, die Töpfe werden danach nacheinander gezogen — Ablauf und
-    // Regelprüfung siehe GruppenAuslosung (#356).
+    // Regelprüfung siehe GruppenAuslosung (#356). Die Position in der Gruppe legt danach PositionenFestlegen fest.
     private static List<AuslosungsErgebnis> GruppenAusloesen(
         IReadOnlyList<TeilnehmerSlot> gesetzte, IEnumerable<IReadOnlyList<TeilnehmerSlot>> toepfe,
-        int gruppenAnzahl, RegelKontext regeln, Random zufall)
+        int gruppenAnzahl, Gruppenposition position, RegelKontext regeln, Random zufall)
     {
         var slots       = new List<TeilnehmerSlot>(gesetzte);
         var topfIndizes = new List<IReadOnlyList<int>>();
@@ -151,11 +155,24 @@ public static class Losverfahren
                 $"Keine gültige Gruppenauslosung gefunden. Die Einschränkungen ({regeln.EinschraenkungenText}) " +
                 "können mit den gewählten Mannschaften nicht erfüllt werden.");
 
-        var gruppen = Enumerable.Range(0, gruppenAnzahl).Select(_ => new List<TeilnehmerSlot>()).ToList();
+        var gruppen = Enumerable.Range(0, gruppenAnzahl).Select(_ => new List<int>()).ToList();
         for (int i = 0; i < slots.Count; i++)
-            gruppen[gruppeJeSlot[i]].Add(slots[i]);
-        return GruppenZuErgebnisse(gruppen);
+            gruppen[gruppeJeSlot[i]].Add(i);
+
+        bool IstFest(int i) => i < gesetzte.Count || position switch
+        {
+            Gruppenposition.NachTopf  => true,
+            Gruppenposition.Topf1Fest => slots[i].TopfRang == 0,
+            _                         => false
+        };
+        return GruppenZuErgebnisse(
+            [.. gruppen.Select(g => PositionenFestlegen(g, IstFest, zufall).Select(i => slots[i]).ToList())]);
     }
+
+    // Position in der Gruppe (#475): feste Teams behalten ihre Reihenfolge (Gesetzte, dann Topf für Topf) und
+    // stehen vorn, die übrigen werden dahinter gelost. Die Reihenfolge bestimmt den Spielplan der Gruppe.
+    private static IEnumerable<int> PositionenFestlegen(List<int> gruppe, Func<int, bool> istFest, Random zufall) =>
+        gruppe.Where(istFest).Concat(gruppe.Where(i => !istFest(i)).OrderBy(_ => zufall.Next()));
 
     // Je Teilnehmer ein Ergebnis ohne Gegner, die Paarungsnummer ist die Gruppe (ab 1).
     private static List<AuslosungsErgebnis> GruppenZuErgebnisse(List<List<TeilnehmerSlot>> gruppen) =>

@@ -67,6 +67,7 @@ public class TurnierKlonService(
                 PaarungFestVorgegeben     = runde.PaarungFestVorgegeben,
                 VorgegebeneAuslosungsart  = runde.VorgegebeneAuslosungsart,
                 VorgegebeneAuslosungsregeln = [.. runde.VorgegebeneAuslosungsregeln],
+                VorgegebeneGruppenposition = runde.VorgegebeneGruppenposition,
                 KombinationstabelleJson   = runde.KombinationstabelleJson,
                 StandardRanglisteId = runde.StandardRanglisteId,
                 TitelverteidigerInTopf1   = runde.TitelverteidigerInTopf1,
@@ -131,6 +132,7 @@ public class TurnierKlonService(
             TurnierRunde   = zielRunde,
             Name           = quelle.Name,
             Auslosungsart  = quelle.Auslosungsart,
+            Gruppenposition = quelle.Gruppenposition,
             Status         = quelle.Status,
             IstAutomatisch = quelle.IstAutomatisch
         };

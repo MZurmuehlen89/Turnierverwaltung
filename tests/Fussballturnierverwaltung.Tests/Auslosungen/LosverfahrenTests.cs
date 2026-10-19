@@ -351,6 +351,90 @@ public class LosverfahrenTests
         });
     }
 
+    // ── Position in der Gruppe (#475) ─────────────────────────────────────────
+
+    // Drei Gruppen, drei Töpfe: Topf 1 = 1–3, Topf 2 = 4–6, Topf 3 = 7–9.
+    private static Auslosung DreiToepfeDreiGruppen(Gruppenposition position, Auslosungsart art = Auslosungsart.NachToepfen)
+    {
+        var auslosung = NeueAuslosung(Rundenart.Gruppenphase, art,
+            [TopfMitTeams(1, ersteId: 1, anzahl: 3), TopfMitTeams(2, ersteId: 4, anzahl: 3), TopfMitTeams(3, ersteId: 7, anzahl: 3)],
+            gruppenAnzahl: 3);
+        auslosung.Gruppenposition = position;
+        return auslosung;
+    }
+
+    /// <summary>Der Topf (1–3) je Position, Gruppe für Gruppe — z. B. „1,2,3|1,3,2|…“.</summary>
+    private static List<List<int>> TopfJePosition(List<AuslosungsErgebnis> ziehung) =>
+        [.. ziehung.GroupBy(e => e.PaarungsNummer).Select(g => HeimIds(g).Select(id => (id - 1) / 3 + 1).ToList())];
+
+    [Fact]
+    public void Gruppenposition_NachTopf_PositionEntsprichtDemTopf()
+    {
+        AlleZiehungen(DreiToepfeDreiGruppen(Gruppenposition.NachTopf), Regeln()).Should().AllSatisfy(ziehung =>
+            TopfJePosition(ziehung).Should().AllSatisfy(gruppe => gruppe.Should().Equal(1, 2, 3)));
+    }
+
+    [Fact]
+    public void Gruppenposition_Topf1Fest_Topf1AufPosition1_UebrigeGelost()
+    {
+        var ziehungen = AlleZiehungen(DreiToepfeDreiGruppen(Gruppenposition.Topf1Fest), Regeln());
+
+        ziehungen.SelectMany(TopfJePosition).Should().AllSatisfy(gruppe => gruppe[0].Should().Be(1));
+        ziehungen.SelectMany(TopfJePosition).Select(g => g[1]).Distinct().Should().BeEquivalentTo([2, 3],
+            "Position 2 ist nicht an Topf 2 gebunden");
+    }
+
+    [Fact]
+    public void Gruppenposition_AlleGelost_AuchTopf1NichtFestAufPosition1()
+    {
+        var ziehungen = AlleZiehungen(DreiToepfeDreiGruppen(Gruppenposition.AlleGelost), Regeln());
+
+        ziehungen.SelectMany(TopfJePosition).Select(g => g[0]).Distinct().Should().BeEquivalentTo([1, 2, 3]);
+        ziehungen.Should().AllSatisfy(ziehung =>
+            TopfJePosition(ziehung).Should().AllSatisfy(gruppe => gruppe.Should().BeEquivalentTo([1, 2, 3],
+                "die Gruppenzuordnung bleibt eine Mannschaft je Topf")));
+    }
+
+    // Gesetzte (z. B. der Gastgeber auf A1) bleiben bei jeder Variante auf Position 1 ihrer Gruppe.
+    [Fact]
+    public void Gruppenposition_AlleGelost_NachSetzliste_GesetzteBleibenAufPosition1()
+    {
+        var auslosung = NeueAuslosung(Rundenart.Gruppenphase, Auslosungsart.NachSetzliste,
+            [Topf(1, Eintrag(Team(1), setzPosition: 1), Eintrag(Team(2)), Eintrag(Team(3))),
+             TopfMitTeams(2, ersteId: 4, anzahl: 3), TopfMitTeams(3, ersteId: 7, anzahl: 3)],
+            gruppenAnzahl: 3);
+        auslosung.Gruppenposition = Gruppenposition.AlleGelost;
+
+        var ziehungen = AlleZiehungen(auslosung, Regeln());
+
+        ziehungen.Should().AllSatisfy(ziehung =>
+            HeimIds(ziehung.Where(e => e.PaarungsNummer == 1)).First().Should().Be(1, "der Gesetzte führt Gruppe A an"));
+        ziehungen.SelectMany(z => z.Where(e => e.PaarungsNummer > 1).GroupBy(e => e.PaarungsNummer))
+            .Select(g => HeimIds(g).First()).Should().Contain(id => id > 3, "die übrigen Positionen sind gelost");
+    }
+
+    // Ohne Töpfe gibt es keine Bindung an einen Topf — die Position wird unabhängig von der Auswahl gelost.
+    [Fact]
+    public void Gruppenposition_Zufall_ImmerGelost()
+    {
+        var ziehungen = AlleZiehungen(DreiToepfeDreiGruppen(Gruppenposition.NachTopf, Auslosungsart.Zufall), Regeln());
+
+        ziehungen.SelectMany(TopfJePosition).Select(g => string.Join(",", g)).Distinct()
+            .Should().HaveCountGreaterThan(1);
+    }
+
+    [Theory]
+    [InlineData(Gruppenposition.Topf1Fest)]
+    [InlineData(Gruppenposition.AlleGelost)]
+    public void Gruppenposition_GleicherStartwert_GleicheReihenfolge(Gruppenposition position)
+    {
+        var ersterLauf  = AlleZiehungen(DreiToepfeDreiGruppen(position), Regeln()).Select(Kurzform).ToList();
+        var zweiterLauf = AlleZiehungen(DreiToepfeDreiGruppen(position), Regeln()).Select(Kurzform).ToList();
+
+        zweiterLauf.Should().Equal(ersterLauf);
+        ersterLauf.Distinct().Should().HaveCountGreaterThan(1);
+    }
+
     [Theory]
     [InlineData(Auslosungsart.Zufall)]
     [InlineData(Auslosungsart.NachToepfen)]

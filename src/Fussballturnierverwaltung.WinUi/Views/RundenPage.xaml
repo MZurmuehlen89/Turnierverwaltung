@@ -220,6 +220,20 @@
                             </StackPanel>
                         </Grid>
 
+                        <!-- Issue #475: Position in der Gruppe, nur bei Gruppenphase wählbar -->
+                        <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
+                            <StackPanel Grid.Column="2" HorizontalAlignment="Stretch" DataContext="{Binding Formular.VorgegebeneGruppenposition}">
+                                <TextBlock Text="Position in der Gruppe (Vorgabe)" FontSize="12" Margin="0,0,0,3" />
+                                <ComboBox ItemsSource="{Binding Optionen}"
+                                          SelectedItem="{Binding Ausgewaehlt, Mode=TwoWay}"
+                                          DisplayMemberPath="Anzeige"
+                                          IsEnabled="{Binding IstWaehlbar}"
+                                          HorizontalAlignment="Stretch" />
+                                <TextBlock Text="{Binding SperrGrund}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0"
+                                           Visibility="{Binding SperrGrund, Converter={StaticResource NullToCollapsed}}" />
+                            </StackPanel>
+                        </Grid>
+
                         <!-- Issue #356: nur Regeln, die bei Rundenart und Auslosungsart dieser Runde wirken können -->
                         <StackPanel Margin="0,0,0,12"
                                     Visibility="{Binding Formular.HatRegelVorgabeOptionen, Converter={StaticResource BoolToVisibility}}">

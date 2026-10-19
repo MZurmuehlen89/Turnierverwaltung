@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -24,6 +25,7 @@ public class TurnierRundeKonfiguration : IEntityTypeConfiguration<TurnierRunde>
         builder.Property(r => r.KombinationstabelleJson).HasColumnType("nvarchar(max)");
         builder.Property(r => r.EingangUeberUebergangsregeln).IsRequired().HasDefaultValue(false);
         builder.Property(r => r.VorgegebeneAuslosungsart).IsRequired(false);
+        builder.Property(r => r.VorgegebeneGruppenposition).IsRequired().HasDefaultValue(Gruppenposition.NachTopf);
         // Liste von Enum-Werten als JSON-Array in einer Spalte, z. B. [0,8] (#356).
         builder.PrimitiveCollection(r => r.VorgegebeneAuslosungsregeln).IsRequired();
 

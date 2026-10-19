@@ -40,6 +40,7 @@ public class TurnierKlonServiceTests
             Id = 1, TurnierInstanzId = 1, Name = "Halbfinale", Reihenfolge = 1,
             Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2, RegelwerkId = 1,
             VorgegebeneAuslosungsart = Auslosungsart.NachToepfen,
+            VorgegebeneGruppenposition = Gruppenposition.AlleGelost,
             StandardRanglisteId = 7, TitelverteidigerInTopf1 = true, NeutralerSpielort = true,
             TabellenBereiche = [new TabellenBereich { PlatzVon = 2, PlatzBis = 2, Art = TabellenBereichArt.Relegation, Bezeichnung = "Relegation" }]
         };
@@ -138,6 +139,19 @@ public class TurnierKlonServiceTests
 
         klon.Runden.Single(r => r.Name == "Halbfinale").VorgegebeneAuslosungsart.Should().Be(Auslosungsart.NachToepfen);
         klon.Runden.Single(r => r.Name == "Finale").VorgegebeneAuslosungsart.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task KlonenAsync_UebernimmtVorgegebeneGruppenpositionJeRunde()
+    {
+        using var ctx = NeuerContext();
+        var quellId = await QuelleAnlegenAsync(ctx);
+        var service = ServiceFuer(ctx);
+
+        var klon = await service.KlonenAsync(quellId, "EM 2028", "2028", TurnierStatus.Geplant);
+
+        klon.Runden.Single(r => r.Name == "Halbfinale").VorgegebeneGruppenposition.Should().Be(Gruppenposition.AlleGelost);
+        klon.Runden.Single(r => r.Name == "Finale").VorgegebeneGruppenposition.Should().Be(Gruppenposition.NachTopf);
     }
 
     [Fact]

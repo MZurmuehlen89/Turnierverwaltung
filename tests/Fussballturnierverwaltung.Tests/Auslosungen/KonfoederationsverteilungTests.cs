@@ -261,6 +261,21 @@ public class KonfoederationsverteilungTests
     }
 
     [Fact]
+    public async Task Erstellen_UebernimmtDieVorgegebeneGruppenpositionDerRunde()
+    {
+        _runden.Speichern(new TurnierRunde
+        {
+            Id = 7, TurnierInstanzId = 5, Rundenart = Rundenart.Gruppenphase, GruppenAnzahl = 8,
+            VorgegebeneGruppenposition = Gruppenposition.Topf1Fest
+        });
+
+        var auslosung = await _service.ErstellenAsync(
+            new AuslosungErstellenEingabe(5, 7, "Gruppenphase", Auslosungsart.NachToepfen, IstAutomatisch: false));
+
+        auslosung.Gruppenposition.Should().Be(Gruppenposition.Topf1Fest);
+    }
+
+    [Fact]
     public async Task Erstellen_OhneVorgabe_LegtKeineRegelnAn()
     {
         _runden.Speichern(new TurnierRunde { Id = 7, TurnierInstanzId = 5, Rundenart = Rundenart.KoRunde });

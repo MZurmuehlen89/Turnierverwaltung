@@ -193,6 +193,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         set { if (value is not null) DetailAuslosungsart = value.Wert; }
     }
 
+    /// <summary>Position in der Gruppe (#475), nur in der Gruppenphase wählbar.</summary>
+    public GruppenpositionAuswahl DetailGruppenposition { get; } = new();
+
     [ObservableProperty] private string _detailName = "";
     [ObservableProperty] private int _detailAnzahlLostoepfe = 1;
 
@@ -394,6 +397,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _regeln.Geaendert += () => OnPropertyChanged(nameof(RibbonZusatzGruppen));
         Quoten = new QuotenAnzeigeViewModel(verbandsQuoteService, landesQuoteService);
         Ziehung.PropertyChanged += BeiZiehungAenderung;
+        DetailGruppenposition.Geaendert += () => { if (!_ladenAktiv) IstDetailDirty = true; };
     }
 
     /// <summary>Beginn und Ende der TV-Ziehung wirken auf Ergebnisanzeige, Ribbon-Gruppe und "Zurücksetzen".</summary>
@@ -534,7 +538,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             try
             {
-                await _auslosungService.BearbeitenAsync(_auslosungDetail.Id, DetailName, DetailAuslosungsart);
+                await _auslosungService.BearbeitenAsync(
+                    _auslosungDetail.Id, DetailName, DetailAuslosungsart, DetailGruppenposition.Wert);
                 await _auslosungService.LostoepfeSynchronisierenAsync(_auslosungDetail.Id, DetailAnzahlLostoepfe);
                 await LadeDetailAsync(_auslosungDetail.Id);
                 await AktualisiereSeitenlisteAsync();
@@ -957,6 +962,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // Siehe OnNeuRundeChanged — erzwungene Nachbenachrichtigung gegen den WinUI3-ComboBox-Reset-
         // Fallstrick (Fund aus #300-Test: Auslosungsart erschien nach Anlage einer Auslosung leer).
         OnPropertyChanged(nameof(DetailAuslosungsart));
+        DetailGruppenposition.Zeigen(detail.Gruppenposition, detail.TurnierRunde?.Rundenart, detail.Auslosungsart);
         DetailAnzahlLostoepfe = Math.Max(1, detail.Lostoepfe.Count);
 
         AuslosungKopfzeile = $"{detail.Name}  ·  {detail.TurnierRunde.Name}  ·  " +
@@ -1060,6 +1066,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         if (!_ladenAktiv) IstDetailDirty = true;
         _regeln.SperrenAktualisieren(value);
+        DetailGruppenposition.SperreAktualisieren(_auslosungDetail?.TurnierRunde?.Rundenart, value);
 
         if (!DetailAnzahlLostoepfeBearbeitbar)
             DetailAnzahlLostoepfe = 1;
