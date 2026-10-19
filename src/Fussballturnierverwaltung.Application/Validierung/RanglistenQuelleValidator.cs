@@ -12,10 +12,8 @@ public class RanglistenQuelleValidator
         if (string.IsNullOrWhiteSpace(eingabe.Name))
             fehler.Add("Name darf nicht leer sein.");
 
-        if (string.IsNullOrWhiteSpace(eingabe.Url))
-            fehler.Add("URL darf nicht leer sein.");
-        else if (!Uri.TryCreate(eingabe.Url, UriKind.Absolute, out var uri)
-                 || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        // Leere URL = von Hand gepflegte Quelle (#393).
+        if (!string.IsNullOrWhiteSpace(eingabe.Url) && !IstHttpAdresse(eingabe.Url))
             fehler.Add("URL muss eine gültige http(s)-Adresse sein.");
 
         if (eingabe.TabellenIndex < 0)
@@ -32,6 +30,9 @@ public class RanglistenQuelleValidator
 
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }
+
+    private static bool IstHttpAdresse(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
 
     public ValidationErgebnis Validieren(RanglistenQuelleAktualisierenEingabe eingabe)
     {

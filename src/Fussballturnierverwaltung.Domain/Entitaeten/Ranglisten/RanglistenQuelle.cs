@@ -9,4 +9,8 @@ public class RanglistenQuelle : BasisEntitaet
     public int MannschaftSpalte { get; set; }
     public int? PunkteSpalte { get; set; }
     public bool KopfzeileUeberspringen { get; set; } = true;
+
+    // Ohne URL ist die Quelle von Hand gepflegt (Issue #393, z. B. eine Ligapyramide): Der Import bietet sie nicht
+    // an, ihre Ranglisten werden im Ranglisten-Editor zugeordnet.
+    public bool IstImportierbar => !string.IsNullOrWhiteSpace(Url);
 }

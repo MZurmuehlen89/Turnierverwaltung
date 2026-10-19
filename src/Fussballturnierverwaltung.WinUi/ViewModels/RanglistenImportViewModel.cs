@@ -180,7 +180,9 @@ public partial class RanglistenImportViewModel(
         IstLadend = true;
         try
         {
-            Quellen = new ObservableCollection<RanglistenQuelle>(await quelleService.AlleAbrufenAsync());
+            // Von Hand gepflegte Quellen (ohne URL, #393) lassen sich nicht importieren.
+            Quellen = new ObservableCollection<RanglistenQuelle>(
+                (await quelleService.AlleAbrufenAsync()).Where(q => q.IstImportierbar));
             AusgewaehlteQuelle = Quellen.FirstOrDefault();
             VorhandeneRanglisten = new ObservableCollection<Rangliste>(await ranglisteService.AlleAbrufenAsync());
             _laender = (await landService.AlleAbrufenAsync()).OrderBy(l => l.Name).ToList();

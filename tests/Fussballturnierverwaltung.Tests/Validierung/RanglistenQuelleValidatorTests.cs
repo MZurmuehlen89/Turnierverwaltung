@@ -31,11 +31,12 @@ public class RanglistenQuelleValidatorTests
         _validator.Validieren(eingabe).IstUngueltig.Should().BeTrue();
     }
 
+    // Leere URL = von Hand gepflegte Quelle, etwa eine Ligapyramide (#393).
     [Fact]
-    public void LeereUrl_IstUngueltig()
+    public void LeereUrl_IstGueltig()
     {
         var ergebnis = _validator.Validieren(GueltigeEingabe(url: ""));
-        ergebnis.IstUngueltig.Should().BeTrue();
+        ergebnis.IstGueltig.Should().BeTrue();
     }
 
     [Fact]
