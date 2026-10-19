@@ -59,7 +59,8 @@ internal sealed class GruppenAuslosung
     }
 
     /// <summary>Setzt einen Teilnehmer vorab fest in eine Gruppe (Gruppenkopf laut Setzliste) — ohne Regelprüfung,
-    /// die Setzliste gibt der Nutzer vor.</summary>
+    /// die Setzliste gibt der Nutzer vor. Er bleibt Teil seines Topfs und belegt dort in der ersten Ziehung seine
+    /// Gruppe, sonst erhielte sie ein weiteres Team desselben Topfs (#488).</summary>
     public void Setzen(int teilnehmer, int gruppe) => Zuordnen(teilnehmer, gruppe);
 
     /// <summary>Lost die Töpfe nacheinander aus; aus einem Topf erhält jede Gruppe höchstens ein Team je Durchgang
@@ -70,13 +71,25 @@ internal sealed class GruppenAuslosung
         var topfListe = toepfe.ToList();
         for (int ziehung = 0; ziehung < MAX_ZIEHUNGEN; ziehung++)
         {
-            _ziehungen = [.. topfListe.SelectMany(topf => topf.OrderBy(_ => _zufall.Next()).Chunk(_gruppenAnzahl))];
-            _belegt    = [.. _ziehungen.Select(_ => new bool[_gruppenAnzahl])];
+            _ziehungen = [.. topfListe.SelectMany(topf => topf.Where(IstGesetzt)
+                .Concat(topf.Where(t => !IstGesetzt(t)).OrderBy(_ => _zufall.Next()))
+                .Chunk(_gruppenAnzahl))];
+            _belegt    = [.. _ziehungen.Select(GesetzteBelegen)];
             _schritte  = 0;
             if (Suchen(0, 0)) return [.. _gruppe];
             if (_schritte <= MAX_SUCHSCHRITTE) return null; // vollständig durchsucht — wirklich nicht erfüllbar
         }
         return null;
+    }
+
+    private bool IstGesetzt(int teilnehmer) => _gruppe[teilnehmer] >= 0;
+
+    private bool[] GesetzteBelegen(int[] ziehung)
+    {
+        var belegt = new bool[_gruppenAnzahl];
+        foreach (int teilnehmer in ziehung.Where(IstGesetzt))
+            belegt[_gruppe[teilnehmer]] = true;
+        return belegt;
     }
 
     private bool Suchen(int ziehung, int position)
@@ -86,6 +99,7 @@ internal sealed class GruppenAuslosung
         if (++_schritte > MAX_SUCHSCHRITTE) return false;
 
         int teilnehmer = _ziehungen[ziehung][position];
+        if (IstGesetzt(teilnehmer)) return Suchen(ziehung, position + 1);
         for (int g = 0; g < _gruppenAnzahl; g++)
         {
             if (_belegt[ziehung][g] || !Zulaessig(teilnehmer, g)) continue;
@@ -139,10 +153,11 @@ internal sealed class GruppenAuslosung
         if (!MindestanzahlErreichbar(ziehung, position)) return false;
 
         // Jedes noch nicht gezogene Team braucht eine eigene zulässige Gruppe — im laufenden Topf unter den dort
-        // noch freien Gruppen, in jedem späteren Topf unter allen (spätere Zuordnungen machen es nur enger).
+        // noch freien Gruppen, in jedem späteren Topf unter allen, die dort kein Gesetzter belegt (spätere
+        // Zuordnungen machen es nur enger).
         if (!Zuordenbar(_ziehungen[ziehung].AsSpan(position), _belegt[ziehung])) return false;
         for (int z = ziehung + 1; z < _ziehungen.Length; z++)
-            if (!Zuordenbar(_ziehungen[z], belegt: null)) return false;
+            if (!Zuordenbar(_ziehungen[z], _belegt[z])) return false;
         return true;
     }
 
@@ -175,20 +190,20 @@ internal sealed class GruppenAuslosung
     }
 
     // Bipartite Zuordnung Teams → Gruppen (Erweiterungspfade): gibt es für jedes Team eine eigene zulässige Gruppe?
-    private bool Zuordenbar(ReadOnlySpan<int> teams, bool[]? belegt)
+    private bool Zuordenbar(ReadOnlySpan<int> teams, bool[] belegt)
     {
         if (teams.Length == 0) return true;
 
         var teamJeGruppe = new int[_gruppenAnzahl];
         Array.Fill(teamJeGruppe, -1);
         var besucht = new bool[_gruppenAnzahl];
-        var kandidaten = teams.ToArray();
+        var kandidaten = teams.ToArray().Where(t => !IstGesetzt(t)).ToArray();
 
         bool Erweitern(int team)
         {
             for (int g = 0; g < _gruppenAnzahl; g++)
             {
-                if (besucht[g] || belegt?[g] == true || !Zulaessig(team, g)) continue;
+                if (besucht[g] || belegt[g] || !Zulaessig(team, g)) continue;
                 besucht[g] = true;
                 if (teamJeGruppe[g] < 0 || Erweitern(teamJeGruppe[g]))
                 {

@@ -90,7 +90,7 @@ public static class Losverfahren
         {
             Auslosungsart.NachToepfen   => GruppenphaseNachToepfenAusloesen(toepfe, gruppenAnzahl, position, regeln, zufall),
             Auslosungsart.NachSetzliste => GruppenphaseNachSetzlisteAusloesen(toepfe, gruppenAnzahl, position, regeln, zufall),
-            _                           => GruppenAusloesen([], [toepfe.SelectMany(t => t).ToList()], gruppenAnzahl, position, regeln, zufall)
+            _                           => GruppenAusloesen([toepfe.SelectMany(t => t).ToList()], KeineGesetzten, gruppenAnzahl, position, regeln, zufall)
         };
     }
 
@@ -109,34 +109,37 @@ public static class Losverfahren
     private static List<AuslosungsErgebnis> GruppenphaseNachToepfenAusloesen(
         List<List<TeilnehmerSlot>> toepfe, int gruppenAnzahl, Gruppenposition position, RegelKontext regeln,
         Random zufall) =>
-        GruppenAusloesen([], toepfe, gruppenAnzahl, position, regeln, zufall);
+        GruppenAusloesen(toepfe, KeineGesetzten, gruppenAnzahl, position, regeln, zufall);
 
-    // Gesetzte Teams (mit Setzposition) führen je eine Gruppe an, die übrigen werden topfweise verteilt.
+    // Gesetzte Teams (mit Setzposition) führen je eine Gruppe an: Setzposition 1 Gruppe A, 2 Gruppe B … Sie bleiben
+    // Teil ihres Topfs, alle übrigen werden topfweise verteilt (siehe Issue #5-Diskussion, #488).
     private static List<AuslosungsErgebnis> GruppenphaseNachSetzlisteAusloesen(
         List<List<TeilnehmerSlot>> toepfe, int gruppenAnzahl, Gruppenposition position, RegelKontext regeln,
         Random zufall)
     {
-        var gesetzte = toepfe
+        var gruppeJeGesetztem = toepfe
             .SelectMany(t => t)
             .Where(s => s.SetzPosition.HasValue)
             .OrderBy(s => s.SetzPosition)
             .Take(gruppenAnzahl)
-            .ToList();
+            .Select((slot, gruppe) => (slot, gruppe))
+            .ToDictionary(x => x.slot, x => x.gruppe, ReferenceEqualityComparer.Instance);
 
-        // Ungesetzte Teams werden topfweise verteilt (ein Topf wird komplett auf die Gruppen aufgeteilt, bevor der
-        // nächste Topf drankommt) — analog zu GruppenphaseNachToepfenAusloesen (siehe Issue #5-Diskussion).
         return GruppenAusloesen(
-            gesetzte, toepfe.Select(t => t.Where(s => !s.SetzPosition.HasValue).ToList()), gruppenAnzahl, position,
+            toepfe, slot => gruppeJeGesetztem.TryGetValue(slot, out var g) ? g : null, gruppenAnzahl, position,
             regeln, zufall);
     }
 
-    // Gesetzte Teams führen je eine Gruppe an, die Töpfe werden danach nacheinander gezogen — Ablauf und
-    // Regelprüfung siehe GruppenAuslosung (#356). Die Position in der Gruppe legt danach PositionenFestlegen fest.
+    private static int? KeineGesetzten(TeilnehmerSlot _) => null;
+
+    // Die Töpfe werden nacheinander gezogen, Gesetzte führen ihre Gruppe an und zählen in ihrem Topf mit (#488) —
+    // Ablauf und Regelprüfung siehe GruppenAuslosung (#356). Die Position in der Gruppe legt danach
+    // PositionenFestlegen fest.
     private static List<AuslosungsErgebnis> GruppenAusloesen(
-        IReadOnlyList<TeilnehmerSlot> gesetzte, IEnumerable<IReadOnlyList<TeilnehmerSlot>> toepfe,
+        IEnumerable<IReadOnlyList<TeilnehmerSlot>> toepfe, Func<TeilnehmerSlot, int?> gesetzteGruppe,
         int gruppenAnzahl, Gruppenposition position, RegelKontext regeln, Random zufall)
     {
-        var slots       = new List<TeilnehmerSlot>(gesetzte);
+        var slots       = new List<TeilnehmerSlot>();
         var topfIndizes = new List<IReadOnlyList<int>>();
         foreach (var topf in toepfe)
         {
@@ -147,8 +150,13 @@ public static class Losverfahren
         var auslosung = new GruppenAuslosung(
             gruppenAnzahl, [.. slots.Select(s => s.VerbandId)], regeln.Konfoederationsverteilung,
             (a, b) => regeln.Verbietet(slots[a], slots[b]), zufall);
-        for (int i = 0; i < gesetzte.Count; i++)
-            auslosung.Setzen(i, i);
+        var gesetzt = new bool[slots.Count];
+        for (int i = 0; i < slots.Count; i++)
+        {
+            if (gesetzteGruppe(slots[i]) is not { } gruppe) continue;
+            auslosung.Setzen(i, gruppe);
+            gesetzt[i] = true;
+        }
 
         var gruppeJeSlot = auslosung.Verteilen(topfIndizes)
             ?? throw new InvalidOperationException(
@@ -159,20 +167,26 @@ public static class Losverfahren
         for (int i = 0; i < slots.Count; i++)
             gruppen[gruppeJeSlot[i]].Add(i);
 
-        bool IstFest(int i) => i < gesetzte.Count || position switch
+        bool IstFest(int i) => position switch
         {
             Gruppenposition.NachTopf  => true,
             Gruppenposition.Topf1Fest => slots[i].TopfRang == 0,
             _                         => false
         };
         return GruppenZuErgebnisse(
-            [.. gruppen.Select(g => PositionenFestlegen(g, IstFest, zufall).Select(i => slots[i]).ToList())]);
+            [.. gruppen.Select(g => PositionenFestlegen(g, i => gesetzt[i], IstFest, zufall).Select(i => slots[i]).ToList())]);
     }
 
-    // Position in der Gruppe (#475): feste Teams behalten ihre Reihenfolge (Gesetzte, dann Topf für Topf) und
-    // stehen vorn, die übrigen werden dahinter gelost. Die Reihenfolge bestimmt den Spielplan der Gruppe.
-    private static IEnumerable<int> PositionenFestlegen(List<int> gruppe, Func<int, bool> istFest, Random zufall) =>
-        gruppe.Where(istFest).Concat(gruppe.Where(i => !istFest(i)).OrderBy(_ => zufall.Next()));
+    // Position in der Gruppe (#475): der Gesetzte steht auf Position 1, danach die festen Teams in Topf-Reihenfolge,
+    // die übrigen werden dahinter gelost. Die Reihenfolge bestimmt den Spielplan der Gruppe.
+    private static IEnumerable<int> PositionenFestlegen(
+        List<int> gruppe, Func<int, bool> istGesetzt, Func<int, bool> istFest, Random zufall)
+    {
+        var ungesetzt = gruppe.Where(i => !istGesetzt(i)).ToList();
+        return gruppe.Where(istGesetzt)
+            .Concat(ungesetzt.Where(istFest))
+            .Concat(ungesetzt.Where(i => !istFest(i)).OrderBy(_ => zufall.Next()));
+    }
 
     // Je Teilnehmer ein Ergebnis ohne Gegner, die Paarungsnummer ist die Gruppe (ab 1).
     private static List<AuslosungsErgebnis> GruppenZuErgebnisse(List<List<TeilnehmerSlot>> gruppen) =>

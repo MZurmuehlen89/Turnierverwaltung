@@ -413,6 +413,27 @@ public class LosverfahrenTests
             .Select(g => HeimIds(g).First()).Should().Contain(id => id > 3, "die übrigen Positionen sind gelost");
     }
 
+    // Ein Gesetzter zählt in seinem Topf mit: seine Gruppe erhält kein weiteres Team desselben Topfs (#488, EM 2024:
+    // Gastgeber gesetzt, die übrigen Topf-1-Teams ungesetzt).
+    [Theory]
+    [InlineData(Gruppenposition.NachTopf)]
+    [InlineData(Gruppenposition.Topf1Fest)]
+    [InlineData(Gruppenposition.AlleGelost)]
+    public void NachSetzliste_GesetzterInTopf_GruppenGleichGross_JeGruppeEinTeamJeTopf(Gruppenposition position)
+    {
+        var auslosung = NeueAuslosung(Rundenart.Gruppenphase, Auslosungsart.NachSetzliste,
+            [Topf(1, Eintrag(Team(2)), Eintrag(Team(1), setzPosition: 1), Eintrag(Team(3))),
+             TopfMitTeams(2, ersteId: 4, anzahl: 3), TopfMitTeams(3, ersteId: 7, anzahl: 3)],
+            gruppenAnzahl: 3);
+        auslosung.Gruppenposition = position;
+
+        AlleZiehungen(auslosung, Regeln()).Should().AllSatisfy(ziehung =>
+        {
+            HeimIds(ziehung.Where(e => e.PaarungsNummer == 1)).First().Should().Be(1, "der Gesetzte führt Gruppe A an");
+            TopfJePosition(ziehung).Should().AllSatisfy(gruppe => gruppe.Should().BeEquivalentTo([1, 2, 3]));
+        });
+    }
+
     // Ohne Töpfe gibt es keine Bindung an einen Topf — die Position wird unabhängig von der Auswahl gelost.
     [Fact]
     public void Gruppenposition_Zufall_ImmerGelost()
