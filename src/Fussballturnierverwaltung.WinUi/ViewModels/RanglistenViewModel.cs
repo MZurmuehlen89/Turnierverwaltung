@@ -81,6 +81,17 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     [ObservableProperty] private string _datum = "";
     [ObservableProperty] private string _quelle = "";
 
+    // Profigrenze (Spielklasse) der Ligapyramide für „Heimrecht für Unterklassige“ (#393). NumberBox liefert double,
+    // leer = NaN = keine Grenze (strikt Klasse gegen Klasse).
+    [ObservableProperty] private double _profigrenze = double.NaN;
+
+    // Abschnitte nur zur Ansicht — gepflegt werden sie mit dem neuen Ranglisten-Editor (#477), bis dahin per Seed.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatAbschnitte))]
+    private IReadOnlyList<AbschnittsZeile> _abschnitte = [];
+
+    public bool HatAbschnitte => Abschnitte.Count > 0;
+
     // ── Einträge ──────────────────────────────────────────────────────────────
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(VerfuegbareMannschaftenGefiltert))]
@@ -175,7 +186,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
         .Where(m => string.IsNullOrWhiteSpace(MannschaftSuchbegriff)
             || m.Name.Contains(MannschaftSuchbegriff, StringComparison.OrdinalIgnoreCase));
 
-    private static readonly HashSet<string> _formFelder = [nameof(Name), nameof(Datum), nameof(Quelle)];
+    private static readonly HashSet<string> _formFelder = [nameof(Name), nameof(Datum), nameof(Quelle), nameof(Profigrenze)];
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
     public string RibbonTabTitel => "Ranglisten";
@@ -247,6 +258,8 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
                 FormularAktiv = false;
                 IstNeuModus = false;
                 Name = Quelle = "";
+                Profigrenze = double.NaN;
+                Abschnitte = [];
                 Datum = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd");
                 Eintraege = [];
             }
@@ -257,6 +270,8 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
                 Name = rangliste.Name;
                 Datum = rangliste.Datum.ToString("yyyy-MM-dd");
                 Quelle = rangliste.Quelle;
+                Profigrenze = rangliste.ProfigrenzeSpielklasse ?? double.NaN;
+                Abschnitte = AbschnittsUebersicht.Fuer(rangliste);
                 Eintraege = new ObservableCollection<RanglistenEintragZeile>(
                     rangliste.Eintraege.OrderBy(e => e.Rang).Select(e => new RanglistenEintragZeile
                     {
@@ -313,6 +328,8 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             FormularAktiv = true;
             IstNeuModus = true;
             Name = Quelle = "";
+            Profigrenze = double.NaN;
+            Abschnitte = [];
             Datum = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd");
             Eintraege = [];
             NeueMannschaft = null;
@@ -341,7 +358,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             Rangliste? gespeichert;
             if (IstNeuModus)
             {
-                var eingabe = new RanglisteErstellenEingabe(Name, datum, Quelle, eintraege);
+                var eingabe = new RanglisteErstellenEingabe(Name, datum, Quelle, eintraege, ProfigrenzeSpielklasse: ProfigrenzeOderNull());
                 var neu = await _service.ErstellenAsync(eingabe);
                 await LadenAsync();
                 gespeichert = Ranglisten.FirstOrDefault(r => r.Id == neu.Id);
@@ -349,7 +366,8 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             else if (Ausgewaehltes is not null)
             {
                 var id = Ausgewaehltes.Id;
-                var eingabe = new RanglisteAktualisierenEingabe(Name, datum, Quelle, eintraege);
+                var eingabe = new RanglisteAktualisierenEingabe(
+                    Name, datum, Quelle, eintraege, ProfigrenzeSpielklasse: ProfigrenzeOderNull());
                 await _service.AktualisierenAsync(id, eingabe);
                 await LadenAsync();
                 gespeichert = Ranglisten.FirstOrDefault(r => r.Id == id);
@@ -484,6 +502,8 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     private bool KannEintragHoch() => AusgewaehlterEintrag is not null && Eintraege.IndexOf(AusgewaehlterEintrag) > 0;
     private bool KannEintragRunter() => AusgewaehlterEintrag is not null
         && Eintraege.IndexOf(AusgewaehlterEintrag) < Eintraege.Count - 1;
+
+    private int? ProfigrenzeOderNull() => double.IsNaN(Profigrenze) ? null : (int)Math.Round(Profigrenze);
 
     private static DateOnly ParseDatum(string text)
         => DateOnly.TryParse(text.Trim(), out var datum) ? datum : DateOnly.FromDateTime(DateTime.Today);

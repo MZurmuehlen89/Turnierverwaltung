@@ -95,4 +95,12 @@ public class RanglisteValidatorTests
             new RanglistenEintragEingabe(2, 2, null)
         ])).IstGueltig.Should().BeTrue();
     }
+
+    // Profigrenze der Ligapyramide (#393): leer erlaubt, sonst mindestens Spielklasse 1.
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData(1, true)]
+    [InlineData(0, false)]
+    public void Profigrenze_LeerOderMindestensEins(int? profigrenze, bool gueltig) =>
+        _validator.Validieren(GueltigeEingabe() with { ProfigrenzeSpielklasse = profigrenze }).IstGueltig.Should().Be(gueltig);
 }

@@ -7,11 +7,13 @@ public record RanglisteErstellenEingabe(
     DateOnly Datum,
     string Quelle,
     IReadOnlyList<RanglistenEintragEingabe> Eintraege,
-    int? RanglistenQuelleId = null);
+    int? RanglistenQuelleId = null,
+    int? ProfigrenzeSpielklasse = null);
 
 public record RanglisteAktualisierenEingabe(
     string Name,
     DateOnly Datum,
     string Quelle,
     IReadOnlyList<RanglistenEintragEingabe> Eintraege,
-    int? RanglistenQuelleId = null);
+    int? RanglistenQuelleId = null,
+    int? ProfigrenzeSpielklasse = null);

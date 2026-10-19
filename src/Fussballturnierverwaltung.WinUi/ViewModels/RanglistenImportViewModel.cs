@@ -270,7 +270,9 @@ public partial class RanglistenImportViewModel(
                     $"Alle bisherigen Einträge von '{ZielRangliste.Name}' werden ersetzt. Fortfahren?");
                 if (!bestaetigt) return;
 
-                var eingabe = new RanglisteAktualisierenEingabe(Name, datum, QuelleText, eintraege, _vorschauQuelleId);
+                // Die Profigrenze gehört zur Rangliste, nicht zum Import — sie bleibt (#393).
+                var eingabe = new RanglisteAktualisierenEingabe(
+                    Name, datum, QuelleText, eintraege, _vorschauQuelleId, ZielRangliste.ProfigrenzeSpielklasse);
                 await ranglisteService.AktualisierenAsync(ZielRangliste.Id, eingabe);
             }
 

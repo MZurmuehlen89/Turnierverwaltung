@@ -28,12 +28,16 @@ public class RanglisteValidator
         if (eingabe.Eintraege.Any(e => e.Punkte is < 0))
             fehler.Add("Punkte dürfen nicht negativ sein.");
 
+        if (eingabe.ProfigrenzeSpielklasse is < 1)
+            fehler.Add("Die Profigrenze muss mindestens Spielklasse 1 sein.");
+
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }
 
     public ValidationErgebnis Validieren(RanglisteAktualisierenEingabe eingabe)
     {
-        var erstellen = new RanglisteErstellenEingabe(eingabe.Name, eingabe.Datum, eingabe.Quelle, eingabe.Eintraege);
+        var erstellen = new RanglisteErstellenEingabe(
+            eingabe.Name, eingabe.Datum, eingabe.Quelle, eingabe.Eintraege, ProfigrenzeSpielklasse: eingabe.ProfigrenzeSpielklasse);
         return Validieren(erstellen);
     }
 }
