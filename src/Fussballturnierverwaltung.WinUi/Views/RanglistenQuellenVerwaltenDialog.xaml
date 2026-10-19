@@ -68,8 +68,6 @@
                             <TextBox Text="{Binding Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <Button Grid.Column="2" Content="Webseite prüfen" Command="{Binding WebseitePruefenCommand}" />
                         </Grid>
-                        <TextBlock Text="Ohne URL ist die Quelle von Hand gepflegt (etwa eine Ligapyramide): Sie wird nicht importiert, ihre Ranglisten ordnest du im Ranglisten-Editor zu."
-                                   FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
 
                         <TextBlock Text="Seite wird geladen…" Opacity="0.6" Margin="0,4,0,0"
                                    Visibility="{Binding IstPruefend, Converter={StaticResource BoolToVisibility}}" />

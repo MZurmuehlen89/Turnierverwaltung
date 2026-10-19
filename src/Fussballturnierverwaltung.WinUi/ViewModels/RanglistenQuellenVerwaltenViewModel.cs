@@ -282,11 +282,24 @@ public partial class RanglistenQuellenVerwaltenViewModel : ObservableObject
     private async Task Speichern()
     {
         Fehlermeldung = null;
-        var eingabe = EingabeAusFormular();
-        if (eingabe is null) return;
+        if (AusgewaehlteTabelle is null)
+        {
+            Fehlermeldung = "Bitte zuerst die Webseite prüfen und eine Tabelle auswählen.";
+            return;
+        }
+        if (AusgewaehlteMannschaftSpalte is null || AusgewaehlteMannschaftSpalte.SpaltenIndex is null)
+        {
+            Fehlermeldung = "Bitte die Team-/Land-Spalte auswählen.";
+            return;
+        }
 
         try
         {
+            var eingabe = new RanglistenQuelleErstellenEingabe(
+                Name, Url, AusgewaehlteTabelle.Vorschau.Index, null,
+                AusgewaehlteMannschaftSpalte.SpaltenIndex.Value,
+                AusgewaehltePunkteSpalte?.SpaltenIndex,
+                KopfzeileUeberspringen);
 
             if (_bearbeitet is null)
             {
@@ -311,30 +324,7 @@ public partial class RanglistenQuellenVerwaltenViewModel : ObservableObject
         }
     }
 
-    // Ohne URL eine von Hand gepflegte Quelle (#393): Tabelle und Spalten entfallen.
-    private RanglistenQuelleErstellenEingabe? EingabeAusFormular()
-    {
-        if (string.IsNullOrWhiteSpace(Url))
-            return new RanglistenQuelleErstellenEingabe(Name, "", 0, null, 0, null, KopfzeileUeberspringen);
-
-        if (AusgewaehlteTabelle is null)
-        {
-            Fehlermeldung = "Bitte zuerst die Webseite prüfen und eine Tabelle auswählen.";
-            return null;
-        }
-        if (AusgewaehlteMannschaftSpalte is null || AusgewaehlteMannschaftSpalte.SpaltenIndex is null)
-        {
-            Fehlermeldung = "Bitte die Team-/Land-Spalte auswählen.";
-            return null;
-        }
-        return new RanglistenQuelleErstellenEingabe(
-            Name, Url, AusgewaehlteTabelle.Vorschau.Index, null,
-            AusgewaehlteMannschaftSpalte.SpaltenIndex.Value,
-            AusgewaehltePunkteSpalte?.SpaltenIndex,
-            KopfzeileUeberspringen);
-    }
-
     private bool KannLoeschen() => Ausgewaehlte is not null;
     private bool KannAbbrechen() => FormularAktiv;
-    private bool KannSpeichern() => FormularAktiv && !string.IsNullOrWhiteSpace(Name);
+    private bool KannSpeichern() => FormularAktiv && !string.IsNullOrWhiteSpace(Name) && !string.IsNullOrWhiteSpace(Url);
 }

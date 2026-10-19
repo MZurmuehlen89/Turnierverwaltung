@@ -43,7 +43,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     private int _populiertGerade;
 
     private static readonly VerbandFilterOption _allesVerband = new("— Alle —", null);
-    private static readonly RanglistenQuelleOption _keineQuelle = new("— keine —", null);
 
     // ── Liste ─────────────────────────────────────────────────────────────────
     [ObservableProperty]
@@ -82,27 +81,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     [ObservableProperty] private string _datum = "";
     [ObservableProperty] private string _quelle = "";
 
-    // Ranglisten-Quelle, zu der die Rangliste gehört (#393): Runden mit dieser Quelle als Standard-Rangliste nehmen
-    // ihre neueste Rangliste. Der Import setzt sie selbst; hier lässt sie sich auch für von Hand gepflegte Ranglisten
-    // wählen (etwa eine Ligapyramide aus einer Quelle ohne URL).
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(QuelleZuordnungAuswahl))]
-    private RanglistenQuelleOption _quelleZuordnung = _keineQuelle;
-
-    [ObservableProperty]
-    private IReadOnlyList<RanglistenQuelleOption> _quellenOptionen = [_keineQuelle];
-
-    // Nullable-Hülle gegen den ComboBox-Reset beim Laden (wie MannschaftVerbandFilterAuswahl).
-    public RanglistenQuelleOption? QuelleZuordnungAuswahl
-    {
-        get => QuelleZuordnung;
-        set
-        {
-            if (value is not null) QuelleZuordnung = value;
-            else NachComboBoxResetWiederherstellen(nameof(QuelleZuordnungAuswahl));
-        }
-    }
-
     // ── Einträge ──────────────────────────────────────────────────────────────
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(VerfuegbareMannschaftenGefiltert))]
@@ -136,14 +114,14 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
         set
         {
             if (value is not null) MannschaftVerbandFilter = value;
-            else NachComboBoxResetWiederherstellen(nameof(MannschaftVerbandFilterAuswahl));
+            else NachComboBoxResetWiederherstellen();
         }
     }
 
-    private void NachComboBoxResetWiederherstellen(string eigenschaft) =>
+    private void NachComboBoxResetWiederherstellen() =>
         Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread()?.TryEnqueue(
             Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-            () => OnPropertyChanged(eigenschaft));
+            () => OnPropertyChanged(nameof(MannschaftVerbandFilterAuswahl)));
 
     // Kanonische Options-Instanzen: die ComboBox gleicht SelectedItem per Referenz ab (#347),
     // daher nur bei geänderter Verbandsliste neu aufbauen und die Auswahl auf die neue Instanz umhängen.
@@ -197,7 +175,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
         .Where(m => string.IsNullOrWhiteSpace(MannschaftSuchbegriff)
             || m.Name.Contains(MannschaftSuchbegriff, StringComparison.OrdinalIgnoreCase));
 
-    private static readonly HashSet<string> _formFelder = [nameof(Name), nameof(Datum), nameof(Quelle), nameof(QuelleZuordnung)];
+    private static readonly HashSet<string> _formFelder = [nameof(Name), nameof(Datum), nameof(Quelle)];
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
     public string RibbonTabTitel => "Ranglisten";
@@ -247,8 +225,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             var ranglisten   = await _service.AlleAbrufenAsync();
             var mannschaften = await _mannschaftService.AlleAbrufenMitLandAsync();
             var verbaende    = await _verbandService.AlleAbrufenAsync();
-            var quellen      = await _quelleService.AlleAbrufenAsync();
-            QuellenOptionenSetzen(quellen);
             Ranglisten       = new ObservableCollection<Rangliste>(ranglisten);
             AlleMannschaften = new ObservableCollection<Mannschaft>(mannschaften);
             AlleVerbaende    = new ObservableCollection<Verband>(verbaende.OrderBy(v => v.Name));
@@ -258,18 +234,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             IstLadend = false;
         }
     }
-
-    // Kanonische Instanzen (Referenzabgleich der ComboBox, #347); die Auswahl wandert auf die neue Instanz mit.
-    private void QuellenOptionenSetzen(IEnumerable<RanglistenQuelle> quellen)
-    {
-        QuellenOptionen = [_keineQuelle, .. quellen.OrderBy(q => q.Name).Select(q => new RanglistenQuelleOption(q.Name, q.Id))];
-        _populiertGerade++;
-        try { QuelleZuordnung = QuelleOptionFuer(QuelleZuordnung.Wert); }
-        finally { _populiertGerade--; }
-    }
-
-    private RanglistenQuelleOption QuelleOptionFuer(int? quelleId) =>
-        QuellenOptionen.FirstOrDefault(o => o.Wert is not null && o.Wert == quelleId) ?? _keineQuelle;
 
     partial void OnAusgewaehltesChanged(Rangliste? value) => FormularAusFuellenMit(value);
 
@@ -283,7 +247,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
                 FormularAktiv = false;
                 IstNeuModus = false;
                 Name = Quelle = "";
-                QuelleZuordnung = _keineQuelle;
                 Datum = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd");
                 Eintraege = [];
             }
@@ -294,7 +257,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
                 Name = rangliste.Name;
                 Datum = rangliste.Datum.ToString("yyyy-MM-dd");
                 Quelle = rangliste.Quelle;
-                QuelleZuordnung = QuelleOptionFuer(rangliste.RanglistenQuelleId);
                 Eintraege = new ObservableCollection<RanglistenEintragZeile>(
                     rangliste.Eintraege.OrderBy(e => e.Rang).Select(e => new RanglistenEintragZeile
                     {
@@ -351,7 +313,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             FormularAktiv = true;
             IstNeuModus = true;
             Name = Quelle = "";
-            QuelleZuordnung = _keineQuelle;
             Datum = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd");
             Eintraege = [];
             NeueMannschaft = null;
@@ -380,7 +341,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             Rangliste? gespeichert;
             if (IstNeuModus)
             {
-                var eingabe = new RanglisteErstellenEingabe(Name, datum, Quelle, eintraege, QuelleZuordnung.Wert);
+                var eingabe = new RanglisteErstellenEingabe(Name, datum, Quelle, eintraege);
                 var neu = await _service.ErstellenAsync(eingabe);
                 await LadenAsync();
                 gespeichert = Ranglisten.FirstOrDefault(r => r.Id == neu.Id);
@@ -388,7 +349,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             else if (Ausgewaehltes is not null)
             {
                 var id = Ausgewaehltes.Id;
-                var eingabe = new RanglisteAktualisierenEingabe(Name, datum, Quelle, eintraege, QuelleZuordnung.Wert);
+                var eingabe = new RanglisteAktualisierenEingabe(Name, datum, Quelle, eintraege);
                 await _service.AktualisierenAsync(id, eingabe);
                 await LadenAsync();
                 gespeichert = Ranglisten.FirstOrDefault(r => r.Id == id);
@@ -456,8 +417,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     {
         var dialog = new RanglistenQuellenVerwaltenDialog(_quelleService, _dialogService);
         await _dialogService.AnzeigenAsync(dialog);
-        // Neue, umbenannte oder gelöschte Quellen sofort in der Auswahl des Formulars.
-        QuellenOptionenSetzen(await _quelleService.AlleAbrufenAsync());
     }
 
     // ── Eintrag-Befehle ───────────────────────────────────────────────────────

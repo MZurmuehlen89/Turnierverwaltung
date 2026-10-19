@@ -53,9 +53,9 @@ public class RanglisteService(
         rangliste.Name   = eingabe.Name.Trim();
         rangliste.Datum  = eingabe.Datum;
         rangliste.Quelle = eingabe.Quelle.Trim();
-        // Import und Editor geben die Quelle immer mit — null heißt „keine Quelle“ (#393, vorher ließ der Editor sie
-        // unverändert, weil er sie nicht kannte, #349).
-        rangliste.RanglistenQuelleId = eingabe.RanglistenQuelleId;
+        // Nur ein Import (mit Quelle) setzt die Verknüpfung neu; manuelles Bearbeiten lässt sie stehen (#349).
+        if (eingabe.RanglistenQuelleId is int quelleId)
+            rangliste.RanglistenQuelleId = quelleId;
 
         rangliste.Eintraege.Clear();
         foreach (var e in eingabe.Eintraege)
