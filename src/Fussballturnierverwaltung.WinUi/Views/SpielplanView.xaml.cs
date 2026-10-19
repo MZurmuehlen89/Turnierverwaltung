@@ -107,7 +107,8 @@ public sealed partial class SpielplanView : UserControl
             if (rueckfrage) return;
         }
 
-        var menue = SpielKontextmenue.ZeilenMenue(vm, zeile, listView.SelectedItems.OfType<SpielZeile>().ToList());
+        var menue = SpielKontextmenue.ZeilenMenue(vm, MannschaftsKontextmenue.ZielFinden<IMannschaftsAnzeige>(listView),
+            zeile, listView.SelectedItems.OfType<SpielZeile>().ToList());
         if (e.TryGetPosition(listView, out var punkt))
             menue.ShowAt(listView, new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = punkt });
         else if (listView.ContainerFromItem(zeile) is FrameworkElement container)

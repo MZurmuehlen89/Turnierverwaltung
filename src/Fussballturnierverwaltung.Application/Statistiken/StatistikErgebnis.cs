@@ -32,8 +32,11 @@ public record MannschaftsSpiel(
     int? HalbzeitGegentore,
     int GelbeKarten,
     int RoteKarten,
-    PunkteRegel PunkteRegel)
+    PunkteRegel PunkteRegel,
+    Spiel Spiel)
 {
+    public Mannschaft Gegner => IstHeim ? Spiel.AuswaertsMannschaft! : Spiel.HeimMannschaft!;
+
     public SpielAusgang Ausgang => AusgangAus(Tore, Gegentore);
 
     public SpielAusgang? HalbzeitAusgang
@@ -100,6 +103,13 @@ public record FairplayEintrag(Mannschaft Mannschaft, int Spiele, int GelbeKarten
 
 /// <summary>Gemeinsame Bilanz aller Mannschaften eines Verbands (Nationalmannschaften) bzw. Landes (Vereine).</summary>
 public record VerbandEintrag(string Name, int Mannschaften, Bilanz Bilanz);
+
+/// <summary>Tore und Gegentore einer Mannschaft in einem Spielabschnitt (#324).</summary>
+public record Torabschnitt(string Bezeichnung, int Tore, int Gegentore);
+
+/// <summary>Tore nach Spielabschnitt (#324). Nur Spiele mit Spielverlauf zählen (<paramref name="SpieleMitVerlauf"/>
+/// von <paramref name="Spiele"/>) — Torminuten gibt es nur bei ausführlicher Simulation.</summary>
+public record TorabschnittAuswertung(IReadOnlyList<Torabschnitt> Abschnitte, int SpieleMitVerlauf, int Spiele);
 
 public record DirektvergleichErgebnis(
     Mannschaft MannschaftA,

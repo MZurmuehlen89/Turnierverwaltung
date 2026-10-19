@@ -3,6 +3,8 @@
     x:Class="Fussballturnierverwaltung.WinUi.Views.StatistikView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:stat="using:Fussballturnierverwaltung.Application.Statistiken"
+    xmlns:views="using:Fussballturnierverwaltung.WinUi.Views"
     xmlns:vm="using:Fussballturnierverwaltung.WinUi.ViewModels">
 
     <UserControl.Resources>
@@ -10,6 +12,27 @@
         <ItemsPanelTemplate x:Key="ZellenReihe">
             <StackPanel Orientation="Horizontal" />
         </ItemsPanelTemplate>
+
+        <Style x:Key="KartenRahmen" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="MaxWidth" Value="820" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+
+        <Style x:Key="KartenTitel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="12,10,12,6" />
+        </Style>
+
+        <Style x:Key="KartenHinweis" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Opacity" Value="0.7" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="12,6,12,10" />
+        </Style>
 
         <DataTemplate x:Key="SpaltenkopfTemplate" x:DataType="vm:StatistikSpalte">
             <TextBlock Text="{Binding Titel}" Width="{Binding Breite}" FontSize="11" FontWeight="SemiBold" Opacity="0.6"
@@ -57,6 +80,17 @@
             </Grid>
         </DataTemplate>
 
+        <!-- Ranglistenzeile: Klick öffnet die Seite der Mannschaft, Rechtsklick das Mannschaftsmenü (#324). Zeilen ohne
+             Mannschaft (Verbände) bleiben ohne Aktion. -->
+        <DataTemplate x:Key="RanglistenZeileTemplate" x:DataType="vm:StatistikZeile">
+            <views:KlickFlaeche ZeigerHintergrund="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                Tapped="RanglistenZeile_Tapped"
+                                views:MannschaftsKontextmenue.MannschaftId="{Binding Mannschaft.Id}">
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ZeilenTemplate}"
+                                HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch" IsTabStop="False" />
+            </views:KlickFlaeche>
+        </DataTemplate>
+
         <!-- Nicht verfügbare Auswertung: ausgegraut, der Grund steht darunter. -->
         <DataTemplate x:Key="AuswertungTemplate" x:DataType="vm:StatistikAuswertung">
             <StackPanel Padding="0,6" Opacity="{Binding Deckkraft}">
@@ -66,19 +100,81 @@
             </StackPanel>
         </DataTemplate>
 
+        <!-- ── Bereich „Mannschaft“ (#324) ── -->
+
+        <DataTemplate x:Key="KennzahlTemplate" x:DataType="vm:Kennzahl">
+            <Grid ColumnDefinitions="*,90,130" Padding="12,5"
+                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0"
+                  ToolTipService.ToolTip="{Binding Erlaeuterung}">
+                <TextBlock Grid.Column="0" Text="{Binding Bezeichnung}" FontSize="12" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Wert}" FontSize="12" FontWeight="SemiBold"
+                           TextAlignment="Right" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding PlatzText}" FontSize="12" Opacity="0.7"
+                           TextAlignment="Right" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="KennzahlBlockTemplate" x:DataType="vm:KennzahlBlock">
+            <Border Style="{StaticResource KartenRahmen}" Margin="0,0,0,12">
+                <StackPanel MinWidth="520">
+                    <TextBlock Text="{Binding Titel}" Style="{StaticResource KartenTitel}" />
+                    <ItemsControl ItemsSource="{Binding Kennzahlen}" ItemTemplate="{StaticResource KennzahlTemplate}" />
+                    <TextBlock Text="{Binding Hinweis}" Style="{StaticResource KartenHinweis}"
+                               Visibility="{Binding HatHinweis, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="TorabschnittTemplate" x:DataType="stat:Torabschnitt">
+            <Grid ColumnDefinitions="*,90,130" Padding="12,5"
+                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+                <TextBlock Grid.Column="0" Text="{Binding Bezeichnung}" FontSize="12" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Tore}" FontSize="12" FontWeight="SemiBold"
+                           TextAlignment="Right" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding Gegentore}" FontSize="12"
+                           TextAlignment="Right" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="MannschaftsSpielTemplate" x:DataType="vm:MannschaftsSpielZeile">
+            <Grid ColumnDefinitions="30,*,24,*,Auto" ColumnSpacing="8" Padding="12,5"
+                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+                <ContentControl Grid.Column="0" Content="{Binding Ausgang}" ContentTemplate="{StaticResource FormKaestchenTemplate}"
+                                VerticalAlignment="Center" IsTabStop="False" />
+                <TextBlock Grid.Column="1" Text="{Binding Runde}" FontSize="12" Opacity="0.8" TextWrapping="WrapWholeWords"
+                           VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding Ort}" FontSize="11" Opacity="0.6" TextAlignment="Center"
+                           VerticalAlignment="Center" ToolTipService.ToolTip="H = Heim, A = Auswärts, N = neutraler Platz" />
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                            Background="Transparent"
+                            views:MannschaftsKontextmenue.MannschaftId="{Binding Gegner.Id}">
+                    <Image Source="{Binding Gegner, Converter={StaticResource MannschaftZuWappen}}"
+                           Visibility="{Binding Gegner, Converter={StaticResource MannschaftHatWappen}}"
+                           Width="16" Height="16" Stretch="Uniform" />
+                    <TextBlock Text="{Binding Gegner.Name}" FontSize="12" TextWrapping="WrapWholeWords" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Ergebnis}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Detail}" FontSize="11" Opacity="0.7" VerticalAlignment="Center"
+                               Visibility="{Binding HatDetail, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
     </UserControl.Resources>
 
     <Grid ColumnDefinitions="220,*">
 
         <!-- ── Auswertungen ── -->
         <Border Grid.Column="0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
-            <ListView ItemsSource="{Binding Auswertungen}"
+            <ListView x:Name="AuswertungsListe"
+                      ItemsSource="{Binding Auswertungen}"
                       SelectedItem="{Binding AusgewaehlteAuswertung, Mode=TwoWay}"
                       ItemTemplate="{StaticResource AuswertungTemplate}"
                       SelectionMode="Single" Padding="4,8" />
         </Border>
 
-        <!-- ── Rangliste ── -->
+        <!-- ── Rangliste bzw. Mannschaft ── -->
         <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*">
 
             <Border Grid.Row="0" Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
@@ -97,8 +193,8 @@
                                Margin="16,48" TextWrapping="Wrap" TextAlignment="Center"
                                Visibility="{Binding Hinweis, Converter={StaticResource NullToCollapsed}}" />
 
-                    <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8"
-                            MaxWidth="820" HorizontalAlignment="Left" VerticalAlignment="Top"
+                    <!-- Rangliste -->
+                    <Border Style="{StaticResource KartenRahmen}" VerticalAlignment="Top"
                             Visibility="{Binding Tabelle, Converter={StaticResource NullToCollapsed}}">
                         <StackPanel MinWidth="520">
                             <Grid ColumnDefinitions="36,*,Auto,Auto" Padding="8,7"
@@ -113,9 +209,95 @@
                                               ItemTemplate="{StaticResource SpaltenkopfTemplate}"
                                               ItemsPanel="{StaticResource ZellenReihe}" />
                             </Grid>
-                            <ItemsControl ItemsSource="{Binding Tabelle.Zeilen}" ItemTemplate="{StaticResource ZeilenTemplate}" />
+                            <ItemsControl ItemsSource="{Binding Tabelle.Zeilen}" ItemTemplate="{StaticResource RanglistenZeileTemplate}" />
                         </StackPanel>
                     </Border>
+
+                    <!-- Mannschaft (#324) -->
+                    <StackPanel DataContext="{Binding Mannschaft}" Spacing="0" VerticalAlignment="Top"
+                                Visibility="{Binding DataContext.IstMannschaftsbereich, ElementName=AuswertungsListe, Converter={StaticResource BoolToVisibility}}">
+
+                        <views:MannschaftsAuswahlBox DataContext="{Binding Auswahl}" Width="320" HorizontalAlignment="Left"
+                                                     Margin="0,0,0,12" PlaceholderText="Mannschaft suchen …"
+                                                     Bestaetigt="MannschaftsAuswahl_Bestaetigt" />
+
+                        <TextBlock Text="{Binding Hinweis}" Opacity="0.6" FontSize="13" Margin="0,24" TextWrapping="Wrap"
+                                   Visibility="{Binding Hinweis, Converter={StaticResource NullToCollapsed}}" />
+
+                        <StackPanel DataContext="{Binding Seite}"
+                                    Visibility="{Binding DataContext.Seite, ElementName=MannschaftsBereichAnker, Converter={StaticResource NullToCollapsed}}">
+
+                            <!-- Kopf -->
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Margin="0,0,0,12" MaxWidth="820"
+                                  HorizontalAlignment="Left" MinWidth="520">
+                                <Image Grid.Column="0" Source="{Binding Mannschaft, Converter={StaticResource MannschaftZuWappen}}"
+                                       Visibility="{Binding Mannschaft, Converter={StaticResource MannschaftHatWappen}}"
+                                       Width="36" Height="36" Stretch="Uniform" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Mannschaft.Name}" FontSize="20" FontWeight="SemiBold" TextWrapping="WrapWholeWords" />
+                                    <TextBlock Text="{Binding Untertitel}" FontSize="12" Opacity="0.7" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2">
+                                    <TextBlock Text="Letzte Spiele" FontSize="11" FontWeight="SemiBold" Opacity="0.6"
+                                               HorizontalAlignment="Right"
+                                               ToolTipService.ToolTip="Älteste links, das jüngste Spiel rechts" />
+                                    <ItemsControl ItemsSource="{Binding Form}" ItemTemplate="{StaticResource FormKaestchenTemplate}"
+                                                  ItemsPanel="{StaticResource ZellenReihe}" HorizontalAlignment="Right" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Bilanz: Platz in der Rangliste Gesamt/Heim/Auswärts -->
+                            <Border Style="{StaticResource KartenRahmen}" Margin="0,0,0,12">
+                                <StackPanel MinWidth="520">
+                                    <TextBlock Text="Bilanz" Style="{StaticResource KartenTitel}" />
+                                    <Grid ColumnDefinitions="36,*,Auto" Padding="8,7"
+                                          BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,1">
+                                        <TextBlock Grid.Column="0" Text="Platz" FontSize="11" FontWeight="SemiBold" Opacity="0.6"
+                                                   HorizontalAlignment="Center"
+                                                   ToolTipService.ToolTip="Platz in der Rangliste Gesamt, Heim bzw. Auswärts" />
+                                        <ItemsControl Grid.Column="2" ItemsSource="{Binding Bilanz.Spalten}"
+                                                      ItemTemplate="{StaticResource SpaltenkopfTemplate}"
+                                                      ItemsPanel="{StaticResource ZellenReihe}" />
+                                    </Grid>
+                                    <ItemsControl ItemsSource="{Binding Bilanz.Zeilen}" ItemTemplate="{StaticResource ZeilenTemplate}" />
+                                </StackPanel>
+                            </Border>
+
+                            <ItemsControl ItemsSource="{Binding Bloecke}" ItemTemplate="{StaticResource KennzahlBlockTemplate}" />
+
+                            <!-- Tore nach Spielabschnitt -->
+                            <Border Style="{StaticResource KartenRahmen}" Margin="0,0,0,12">
+                                <StackPanel MinWidth="520">
+                                    <TextBlock Text="Tore nach Spielabschnitt" Style="{StaticResource KartenTitel}" />
+                                    <Grid ColumnDefinitions="*,90,130" Padding="12,5"
+                                          Visibility="{Binding HatTorabschnitte, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Grid.Column="1" Text="Tore" FontSize="11" FontWeight="SemiBold" Opacity="0.6" TextAlignment="Right" />
+                                        <TextBlock Grid.Column="2" Text="Gegentore" FontSize="11" FontWeight="SemiBold" Opacity="0.6" TextAlignment="Right" />
+                                    </Grid>
+                                    <ItemsControl ItemsSource="{Binding Torabschnitte}" ItemTemplate="{StaticResource TorabschnittTemplate}" />
+                                    <TextBlock Text="{Binding TorabschnittHinweis}" Style="{StaticResource KartenHinweis}"
+                                               Visibility="{Binding HatTorabschnittHinweis, Converter={StaticResource BoolToVisibility}}" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Spiele -->
+                            <Border Style="{StaticResource KartenRahmen}" Margin="0,0,0,12">
+                                <StackPanel MinWidth="520">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="Spiele im Turnier" Style="{StaticResource KartenTitel}" />
+                                        <HyperlinkButton Grid.Column="1" Content="Alle Spiele im Spielplan zeigen" FontSize="12"
+                                                         Margin="0,4,8,0"
+                                                         Command="{Binding DataContext.AlleSpieleZeigenCommand, ElementName=MannschaftsBereichAnker}"
+                                                         ToolTipService.ToolTip="Wechselt in „Spielplan &amp; Baum“ – dort auch die noch offenen Spiele" />
+                                    </Grid>
+                                    <ItemsControl ItemsSource="{Binding Spiele}" ItemTemplate="{StaticResource MannschaftsSpielTemplate}" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Hält den DataContext des Bereichs (MannschaftsStatistikViewModel) für Bindungen innerhalb der Seite. -->
+                        <Border x:Name="MannschaftsBereichAnker" Visibility="Collapsed" />
+                    </StackPanel>
                 </Grid>
             </ScrollViewer>
         </Grid>

@@ -122,7 +122,8 @@ public static class StatistikBerechnung
             istHeim ? ergebnis.HalbzeitAuswaertsTore : ergebnis.HalbzeitHeimTore,
             spiel.Ereignisse.Count(e => e.MannschaftId == mannschaft.Id && e.EreignisArt == EreignisArt.GelbeKarte),
             spiel.Ereignisse.Count(e => e.MannschaftId == mannschaft.Id && e.EreignisArt == EreignisArt.RoteKarte),
-            punkteRegel);
+            punkteRegel,
+            spiel);
     }
 
     private static bool PasstZuFilter(MannschaftsSpiel spiel, SpielortFilter filter) => filter switch

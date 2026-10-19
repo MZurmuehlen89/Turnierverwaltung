@@ -100,6 +100,21 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
             SimulationTab.Vorauswahl = vorauswahl;
             TabKoordinator.AktiverTabIndex = Array.IndexOf(TabKoordinator.Tabs, SimulationTab);
         };
+
+        // #324: „Statistik anzeigen“ im Spielplan wechselt in den Statistik-Reiter — wie oben Vorauswahl vor dem
+        // Wechsel, der folgende Ladedurchlauf lädt die Spiele und wählt die Mannschaft. Umgekehrt zeigt „Alle Spiele“
+        // aus der Statistik die Mannschaftsansicht des Spielplans; die Wahl reiht sich über den DbContext-Schutz
+        // hinter den Ladedurchlauf des Reiterwechsels ein.
+        SpielplanUndBaumTab.MannschaftsStatistikAngefordert += (_, mannschaftId) =>
+        {
+            StatistikTab.MannschaftVorauswaehlen(mannschaftId);
+            TabKoordinator.AktiverTabIndex = Array.IndexOf(TabKoordinator.Tabs, StatistikTab);
+        };
+        StatistikTab.MannschaftsSpieleAngefordert += (_, mannschaftId) =>
+        {
+            TabKoordinator.AktiverTabIndex = Array.IndexOf(TabKoordinator.Tabs, SpielplanUndBaumTab);
+            _ = SpielplanUndBaumTab.MannschaftsSpieleAnzeigenAsync(mannschaftId);
+        };
     }
 
     /// <summary>Öffnet den Turnier-Auswahl-Dialog (Precedent: WPF <c>TurnierAuswahlDialog</c>) — Auswahl

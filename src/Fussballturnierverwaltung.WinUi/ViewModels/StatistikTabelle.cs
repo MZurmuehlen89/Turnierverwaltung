@@ -8,6 +8,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 public enum StatistikAuswertungsart
 {
+    Mannschaft,
     Gesamt,
     Heim,
     Auswaerts,

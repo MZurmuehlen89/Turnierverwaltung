@@ -27,6 +27,28 @@ public sealed partial class MannschaftsAuswahlBox : UserControl
     public MannschaftsAuswahlBox()
     {
         InitializeComponent();
+
+        // handledEventsToo: das Textfeld der Box behandelt den Mausklick selbst.
+        Box.AddHandler(PointerPressedEvent, new PointerEventHandler(Box_PointerPressed), true);
+        Box.GettingFocus += (_, args) =>
+        {
+            if (args.FocusState == FocusState.Keyboard) _nutzerGesteuert = true;
+        };
+        Box.LosingFocus += (_, args) => _fokusInVorschlaegen = IstInVorschlagsliste(args.NewFocusedElement);
+        Box.RegisterPropertyChangedCallback(AutoSuggestBox.IsSuggestionListOpenProperty, (_, _) => SelbstAufklappenVerhindern());
+    }
+
+    // Die Liste gehört nur offen, wenn der Nutzer die Box selbst ansteuert (Klick hinein, Tab-Taste, Tippen). Die
+    // AutoSuggestBox klappt sie aber schon von sich aus auf, sobald sie mit Vorschlägen den Fokus bekommt — und den
+    // verteilt WinUI auch selbst: beim Klick in eine freie Fläche an das erste fokussierbare Element darunter, und
+    // verschwindet das fokussierte Element (Reiterwechsel per Link), an das erste Element der neuen Ansicht
+    // (Log-Diagnose #324).
+    private bool _nutzerGesteuert;
+    private bool _fokusInVorschlaegen;
+
+    private void SelbstAufklappenVerhindern()
+    {
+        if (Box.IsSuggestionListOpen && !_nutzerGesteuert) Box.IsSuggestionListOpen = false;
     }
 
     private MannschaftsfilterViewModel? Filter => DataContext as MannschaftsfilterViewModel;
@@ -41,8 +63,9 @@ public sealed partial class MannschaftsAuswahlBox : UserControl
             sender.IsSuggestionListOpen = false;
             return;
         }
-        if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput)
-            Filter?.Suchen(sender.Text);
+        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
+        _nutzerGesteuert = true;
+        Filter?.Suchen(sender.Text);
     }
 
     private bool BoxHatFokus()
@@ -63,8 +86,20 @@ public sealed partial class MannschaftsAuswahlBox : UserControl
         Bestaetigt?.Invoke(this, EventArgs.Empty);
     }
 
-    // Wie eine Auswahlbox: beim Hineinklicken alle Mannschaften zeigen.
+    // Wie eine Auswahlbox: beim Hineinklicken bzw. Hineintabben alle Mannschaften zeigen. Der Mausklick kommt erst
+    // nach dem Fokuswechsel an — ein Selbst-Aufklappen davor ist schon wieder zu, hier geht die Liste gewollt auf.
+    private void Box_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        _nutzerGesteuert = true;
+        AlleVorschlaegeAufklappen();
+    }
+
     private void Box_GotFocus(object sender, RoutedEventArgs e)
+    {
+        if (_nutzerGesteuert) AlleVorschlaegeAufklappen();
+    }
+
+    private void AlleVorschlaegeAufklappen()
     {
         if (Filter is not { } filter) return;
         filter.AlleVorschlaegeZeigen();
@@ -74,7 +109,19 @@ public sealed partial class MannschaftsAuswahlBox : UserControl
     private void Box_LostFocus(object sender, RoutedEventArgs e)
     {
         // Ein Klick in die offene Vorschlagsliste nimmt der Box kurz den Fokus — das ist keine verlassene Eingabe.
-        if (Box.IsSuggestionListOpen) return;
+        // Jeder andere Fokusverlust schließt die Liste (sie wurde von Hand geöffnet und schließt nicht von selbst).
+        if (_fokusInVorschlaegen) return;
+        _nutzerGesteuert = false;
+        Box.IsSuggestionListOpen = false;
         _ = Filter?.FokusVerlorenAsync();
+    }
+
+    // Die Vorschlagsliste ist das Vorlagenteil „SuggestionsList“ der AutoSuggestBox; sie liegt in einem Popup, also
+    // nicht unter der Box im Elementbaum.
+    private static bool IstInVorschlagsliste(DependencyObject? element)
+    {
+        for (; element is not null; element = VisualTreeHelper.GetParent(element))
+            if (element is FrameworkElement { Name: "SuggestionsList" }) return true;
+        return false;
     }
 }

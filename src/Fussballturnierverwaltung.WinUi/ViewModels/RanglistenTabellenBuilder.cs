@@ -29,7 +29,7 @@ public static class RanglistenTabellenBuilder
     // ── Tabellen je Auswertung ────────────────────────────────────────────
 
     private static StatistikTabelle BilanzTabelle(IReadOnlyList<BilanzEintrag> rangliste) => new(
-        _bilanzSpalten,
+        BilanzSpalten,
         Zeilen(rangliste, e => e.Mannschaft, e => BilanzZellen(e.Bilanz)));
 
     private static StatistikTabelle FormTabelle(IReadOnlyList<FormEintrag> rangliste)
@@ -47,7 +47,7 @@ public static class RanglistenTabellenBuilder
 
     private static StatistikTabelle HalbzeitTabelle(IReadOnlyList<HalbzeitEintrag> rangliste) => new(
         [
-            .. _bilanzSpalten.Select(s => s.Titel == "Tore" ? s with { Erlaeuterung = "Tore : Gegentore zur Pause" } : s),
+            .. BilanzSpalten.Select(s => s.Titel == "Tore" ? s with { Erlaeuterung = "Tore : Gegentore zur Pause" } : s),
             new("Gedreht", "Rückstand zur Pause, am Ende gewonnen", BREIT),
             new("Verspielt", "Führung zur Pause, am Ende verloren", BREIT)
         ],
@@ -103,14 +103,14 @@ public static class RanglistenTabellenBuilder
         ]));
 
     private static StatistikTabelle VerbaendeTabelle(IReadOnlyList<VerbandEintrag> rangliste) => new(
-        [new("Teams", "Mannschaften im Turnier", BREIT), .. _bilanzSpalten],
+        [new("Teams", "Mannschaften im Turnier", BREIT), .. BilanzSpalten],
         [.. rangliste.Select((e, index) => new StatistikZeile(
             index + 1, e.Name, null, [Zahl(e.Mannschaften, breite: BREIT), .. BilanzZellen(e.Bilanz)], [], 0))],
         NamensTitel: "Verband / Land");
 
     // ── Bausteine ─────────────────────────────────────────────────────────
 
-    private static readonly IReadOnlyList<StatistikSpalte> _bilanzSpalten =
+    internal static readonly IReadOnlyList<StatistikSpalte> BilanzSpalten =
     [
         new("Sp", "Spiele", SCHMAL),
         new("S", "Siege", SCHMAL),
@@ -121,7 +121,7 @@ public static class RanglistenTabellenBuilder
         new("Pkt", "Punkte nach dem Regelwerk der jeweiligen Runde", SCHMAL)
     ];
 
-    private static IReadOnlyList<StatistikZelle> BilanzZellen(Bilanz bilanz) =>
+    internal static IReadOnlyList<StatistikZelle> BilanzZellen(Bilanz bilanz) =>
     [
         Zahl(bilanz.Spiele),
         Zahl(bilanz.Siege),

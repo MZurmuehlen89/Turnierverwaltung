@@ -15,10 +15,12 @@ public sealed record MannschaftsOption(int Id, string Name, byte[]? Wappen)
     public override string ToString() => Name;
 }
 
-/// <summary>Auswahlbox „Mannschaft“ des Spielplans (#479): Suche beim Tippen über die Teilnehmer des Turniers,
-/// „Alle Mannschaften“ als Standard. Die Box fragt eine Wahl nur an (<see cref="WahlAngefordert"/>) — ob sie gilt,
-/// entscheidet der Spielplan (z.B. nach der Ungespeichert-Abfrage) und zeigt sie mit <see cref="Anzeigen"/>.</summary>
-public partial class MannschaftsfilterViewModel : ObservableObject
+/// <summary>Auswahlbox „Mannschaft“ (#479) mit Suche beim Tippen über die Teilnehmer des Turniers. Im Spielplan steht
+/// „Alle Mannschaften“ als Standard vorn; die Statistik (#324) wählt immer eine Mannschaft und verzichtet darauf
+/// (<c>mitAlleOption: false</c>). Die Box fragt eine Wahl nur an (<see cref="WahlAngefordert"/>) — ob sie gilt,
+/// entscheidet der Besitzer (der Spielplan z.B. nach der Ungespeichert-Abfrage) und zeigt sie mit
+/// <see cref="Anzeigen"/>.</summary>
+public partial class MannschaftsfilterViewModel(bool mitAlleOption = true) : ObservableObject
 {
     private IReadOnlyList<Mannschaft> _teilnehmer = [];
 
@@ -41,6 +43,10 @@ public partial class MannschaftsfilterViewModel : ObservableObject
 
     public bool IstTeilnehmer(int mannschaftId) => _teilnehmer.Any(m => m.Id == mannschaftId);
 
+    /// <summary>Der Eintrag einer Mannschaft; <c>null</c>, wenn sie nicht zu den Teilnehmern gehört.</summary>
+    public MannschaftsOption? OptionFuer(int mannschaftId)
+        => _teilnehmer.FirstOrDefault(m => m.Id == mannschaftId) is { } mannschaft ? Option(mannschaft) : null;
+
     /// <summary>Eingabe in der Box: Vorschläge neu filtern.</summary>
     public void Suchen(string eingabe)
     {
@@ -51,10 +57,12 @@ public partial class MannschaftsfilterViewModel : ObservableObject
     /// <summary>Box bekommt den Fokus: alle Vorschläge, damit die Liste wie bei einer Auswahlbox aufklappt.</summary>
     public void AlleVorschlaegeZeigen() => VorschlaegeSetzen("");
 
-    /// <summary>Eingabe bestätigt: der gewählte Vorschlag, sonst der erste Treffer; leere Eingabe = alle.</summary>
+    /// <summary>Eingabe bestätigt: der gewählte Vorschlag, sonst der erste Treffer; leere Eingabe = alle (ohne
+    /// „Alle Mannschaften“ bleibt die bisherige Wahl).</summary>
     public Task BestaetigenAsync(MannschaftsOption? vorschlag)
     {
-        var ziel = vorschlag ?? (SuchText.Trim().Length == 0 ? MannschaftsOption.Alle : Vorschlaege.FirstOrDefault());
+        var ziel = vorschlag ?? (SuchText.Trim().Length > 0 ? Vorschlaege.FirstOrDefault()
+                                 : mitAlleOption ? MannschaftsOption.Alle : null);
         if (ziel is null)
         {
             EingabeVerwerfen();
@@ -68,16 +76,14 @@ public partial class MannschaftsfilterViewModel : ObservableObject
     public Task FokusVerlorenAsync()
     {
         if (_wahlLaeuft) return Task.CompletedTask;
-        if (SuchText.Trim().Length == 0 && Gewaehlt is not null) return WaehlenAsync(null);
+        if (mitAlleOption && SuchText.Trim().Length == 0 && Gewaehlt is not null) return WaehlenAsync(null);
         EingabeVerwerfen();
         return Task.CompletedTask;
     }
 
     /// <summary>Wahl von außen, z.B. aus dem Kontextmenü „Alle Spiele des Teams anzeigen“.</summary>
     public Task WaehlenNachIdAsync(int mannschaftId) =>
-        _teilnehmer.FirstOrDefault(m => m.Id == mannschaftId) is { } mannschaft
-            ? WaehlenAsync(Option(mannschaft))
-            : Task.CompletedTask;
+        OptionFuer(mannschaftId) is { } option ? WaehlenAsync(option) : Task.CompletedTask;
 
     // Solange eine Wahl läuft (z.B. offene Ungespeichert-Abfrage), zählt keine weitere — zwei Abfragen gleichzeitig
     // gingen nicht (ein ContentDialog je Fenster).
@@ -116,7 +122,7 @@ public partial class MannschaftsfilterViewModel : ObservableObject
     private void VorschlaegeSetzen(string eingabe)
     {
         Vorschlaege.Clear();
-        if (eingabe.Trim().Length == 0) Vorschlaege.Add(MannschaftsOption.Alle);
+        if (mitAlleOption && eingabe.Trim().Length == 0) Vorschlaege.Add(MannschaftsOption.Alle);
         foreach (var mannschaft in MannschaftsSuche.Treffer(_teilnehmer, eingabe))
             Vorschlaege.Add(Option(mannschaft));
     }

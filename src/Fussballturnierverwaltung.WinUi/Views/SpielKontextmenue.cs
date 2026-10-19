@@ -19,8 +19,10 @@ public static class SpielKontextmenue
 
     /// <summary>Menü der Spielliste für <paramref name="auswahl"/> (die gewählten Zeilen, darunter die angeklickte
     /// <paramref name="zeile"/>). Die Einträge führen die Befehle des Spielplans aus, die auf der Auswahl arbeiten — sie
-    /// werden aktiv, sobald das Formular des Spiels geladen ist.</summary>
-    public static MenuFlyout ZeilenMenue(SpielplanViewModel vm, SpielZeile zeile, IReadOnlyList<SpielZeile> auswahl)
+    /// werden aktiv, sobald das Formular des Spiels geladen ist. Die Mannschaftseinträge führt
+    /// <paramref name="mannschaftsZiel"/> aus.</summary>
+    public static MenuFlyout ZeilenMenue(
+        SpielplanViewModel vm, IMannschaftsAnzeige? mannschaftsZiel, SpielZeile zeile, IReadOnlyList<SpielZeile> auswahl)
     {
         var menue = new MenuFlyout();
         if (auswahl.Count > 1)
@@ -40,11 +42,11 @@ public static class SpielKontextmenue
         menue.Items.Add(Eintrag("Spielverlauf ansehen", Symbol.Clock, grundOhneErgebnis, vm.SpielverlaufAnsehenBefehl));
         menue.Items.Add(Eintrag("Ergebnis löschen", Symbol.Delete, grundOhneErgebnis, vm.LoeschenBefehl));
 
-        // In der Mannschaftsansicht nur der Gegner — die Spiele der gewählten Mannschaft stehen schon da.
+        // „Alle Spiele“ in der Mannschaftsansicht nur für den Gegner — die der gewählten Mannschaft stehen schon da.
         int? gezeigt = vm.Mannschaftsfilter.Gewaehlt?.Id;
-        MannschaftsEintraege(menue, vm.MannschaftsSpieleZeigenAsync,
-            (zeile.HeimMannschaftId is { } heim && heim != gezeigt ? heim : null, zeile.HeimName),
-            (zeile.AuswaertsMannschaftId is { } aus && aus != gezeigt ? aus : null, zeile.AuswaertsName));
+        MannschaftsEintraege(menue, mannschaftsZiel,
+            (zeile.HeimMannschaftId, zeile.HeimName, zeile.HeimMannschaftId != gezeigt),
+            (zeile.AuswaertsMannschaftId, zeile.AuswaertsName, zeile.AuswaertsMannschaftId != gezeigt));
         return menue;
     }
 
@@ -95,10 +97,8 @@ public static class SpielKontextmenue
                 menue.Items.Add(eintrag);
         }
 
-        MannschaftsEintraege(menue,
-            id => MannschaftsKontextmenue.ZielFinden<IMannschaftsSpieleAnzeige>(anker)?.MannschaftsSpieleAnzeigenAsync(id)
-                  ?? Task.CompletedTask,
-            (karte.HeimMannschaftId, karte.HeimName), (karte.AuswaertsMannschaftId, karte.AuswaertsName));
+        MannschaftsEintraege(menue, MannschaftsKontextmenue.ZielFinden<IMannschaftsAnzeige>(anker),
+            (karte.HeimMannschaftId, karte.HeimName, true), (karte.AuswaertsMannschaftId, karte.AuswaertsName, true));
         return menue;
     }
 
@@ -124,41 +124,51 @@ public static class SpielKontextmenue
 
     // ── Gemeinsame Bausteine ──────────────────────────────────────────────────
 
-    /// <summary>Trennstrich und „Alle Spiele von …“ für jede feststehende Mannschaft.</summary>
+    /// <summary>Trennstrich, dann je feststehender Mannschaft „Alle Spiele von …“ (wo <c>AlleSpiele</c>) und
+    /// „Statistik von …“ (#324).</summary>
     private static void MannschaftsEintraege(
-        MenuFlyout menue, Func<int, Task> alleSpieleZeigen, params (int? Id, string Name)[] mannschaften)
+        MenuFlyout menue, IMannschaftsAnzeige? ziel, params (int? Id, string Name, bool AlleSpiele)[] mannschaften)
     {
         var vorhandene = mannschaften.Where(m => m.Id is not null).ToList();
-        if (vorhandene.Count == 0) return;
+        if (ziel is null || vorhandene.Count == 0) return;
 
         menue.Items.Add(new MenuFlyoutSeparator());
-        foreach (var (id, name) in vorhandene)
-            menue.Items.Add(Eintrag($"Alle Spiele von {name}", Symbol.List, null,
-                () => _ = alleSpieleZeigen(id!.Value)));
+        foreach (var (id, name, alleSpiele) in vorhandene)
+        {
+            int mannschaftId = id!.Value;
+            if (alleSpiele)
+                menue.Items.Add(Eintrag($"Alle Spiele von {name}", new SymbolIcon(Symbol.List), null,
+                    () => _ = ziel.MannschaftsSpieleAnzeigenAsync(mannschaftId)));
+            menue.Items.Add(Eintrag($"Statistik von {name}", MannschaftsKontextmenue.StatistikIcon(), null,
+                () => ziel.MannschaftsStatistikAnzeigen(mannschaftId)));
+        }
     }
 
     /// <summary>Eintrag mit Befehl — die Freigabe folgt dem Befehl, solange kein <paramref name="sperrGrund"/>
     /// vorliegt.</summary>
     private static MenuFlyoutItem Eintrag(string text, Symbol symbol, string? sperrGrund, ICommand befehl)
     {
-        var eintrag = GesperrtOder(text, symbol, sperrGrund);
+        var eintrag = GesperrtOder(text, new SymbolIcon(symbol), sperrGrund);
         if (sperrGrund is null) eintrag.Command = befehl;
         return eintrag;
     }
 
     private static MenuFlyoutItem Eintrag(string text, Symbol symbol, string? sperrGrund, Action aktion)
+        => Eintrag(text, new SymbolIcon(symbol), sperrGrund, aktion);
+
+    private static MenuFlyoutItem Eintrag(string text, IconElement icon, string? sperrGrund, Action aktion)
     {
-        var eintrag = GesperrtOder(text, symbol, sperrGrund);
+        var eintrag = GesperrtOder(text, icon, sperrGrund);
         if (sperrGrund is null) eintrag.Click += (_, _) => aktion();
         return eintrag;
     }
 
-    private static MenuFlyoutItem GesperrtOder(string text, Symbol symbol, string? sperrGrund)
+    private static MenuFlyoutItem GesperrtOder(string text, IconElement icon, string? sperrGrund)
     {
         var eintrag = sperrGrund is null
             ? new MenuFlyoutItem { Text = text }
             : new MenuFlyoutItem { Text = $"{text} ({sperrGrund})", IsEnabled = false };
-        eintrag.Icon = new SymbolIcon(symbol);
+        eintrag.Icon = icon;
         eintrag.Click += (_, _) => Ablaufprotokoll.Bedienung(text);
         return eintrag;
     }

@@ -15,7 +15,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// <see cref="AuslosungViewModel.InstanzSetzenAsync"/>, gleiches Muster aus #300).
 /// </summary>
 public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen,
-    IMannschaftsSpieleAnzeige, ISpielAnzeige
+    IMannschaftsAnzeige, ISpielAnzeige
 {
     private readonly TurnierInstanzService _instanzService;
 
@@ -118,6 +118,12 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
         TurnierBaumVm.IstGesamtansicht = false;
         return SpielplanVm.MannschaftsSpieleZeigenAsync(mannschaftId);
     }
+
+    /// <summary>Kontextmenü „Statistik anzeigen“ (#324) — nur durchgereicht, den Wechsel in den Statistik-Reiter
+    /// übernimmt <see cref="TurnierdurchfuehrungViewModel"/>.</summary>
+    public void MannschaftsStatistikAnzeigen(int mannschaftId) => MannschaftsStatistikAngefordert?.Invoke(this, mannschaftId);
+
+    public event EventHandler<int>? MannschaftsStatistikAngefordert;
 
     /// <summary>Kontextmenü einer Turnierbaum-Karte „Im Spielplan zeigen“ (#62) — die Gesamtübersicht tritt dafür
     /// zurück.</summary>
