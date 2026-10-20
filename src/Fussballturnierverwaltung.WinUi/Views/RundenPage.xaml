@@ -99,8 +99,6 @@
 
             <!-- ── Spalte 0: Rundenliste (inkl. Unstimmigkeits-Hinweis, #348 aus dem früheren Übergänge-Reiter) ── -->
             <Grid Grid.Column="0" RowDefinitions="Auto,*">
-                <ProgressBar Grid.Row="0" IsIndeterminate="True" Height="2"
-                             Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
                 <ListView Grid.Row="1"
                           ItemsSource="{Binding Runden}"
                           SelectedItem="{Binding AusgewaehlteRunde, Mode=TwoWay}"

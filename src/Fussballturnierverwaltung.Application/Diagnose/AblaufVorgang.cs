@@ -8,12 +8,14 @@ namespace Fussballturnierverwaltung.Application.Diagnose;
 /// über die gerade offenen Vorgänge. Zweck ist die Aufklärung sporadischer Überlappungen (DbContext-Kollision
 /// "second operation") — dort fehlte bisher, welcher Vorgang den Kontext gerade belegte und wer ihn gestartet
 /// hat. Die Liste der offenen Vorgänge wird unabhängig vom Log-Schalter geführt, damit die Kollisionsdiagnose
-/// sie auch bei abgeschaltetem Protokoll ausgeben kann.</summary>
+/// sie auch bei abgeschaltetem Protokoll ausgeben kann. Seit #323 speist sie auch die zentrale Ladeanzeige
+/// (<see cref="Geaendert"/>, <see cref="Offene"/>).</summary>
 public static class AblaufVorgang
 {
-    private sealed class Eintrag(string beschreibung)
+    private sealed class Eintrag(string beschreibung, string? anzeige)
     {
         public string Beschreibung { get; } = beschreibung;
+        public string? Anzeige { get; } = anzeige;
         public Stopwatch Dauer { get; } = Stopwatch.StartNew();
     }
 
@@ -27,19 +29,25 @@ public static class AblaufVorgang
             _beendet = true;
             _offen.TryRemove(id, out _);
             logger.LogInformation("Ende:   {Vorgang} ({Dauer} ms)", eintrag.Beschreibung, eintrag.Dauer.ElapsedMilliseconds);
+            Geaendert?.Invoke();
         }
     }
 
     private static readonly ConcurrentDictionary<long, Eintrag> _offen = new();
     private static long _naechsteId;
 
+    /// <summary>Ein Vorgang hat begonnen oder geendet. Kann auf jedem Thread feuern.</summary>
+    public static event Action? Geaendert;
+
     /// <summary>Beginnt einen Vorgang; das Ende wird beim Dispose protokolliert (<c>using</c>), auch wenn der
     /// Vorgang mit einer Ausnahme abbricht.</summary>
-    public static IDisposable Vorgang(this ILogger logger, string beschreibung)
+    /// <param name="anzeige">Text für die Ladeanzeige, wenn der Vorgang länger dauert (z.B. "Runde wird
+    /// simuliert …"); nur für Vorgänge, die der Nutzer auslöst und die nicht in einem anderen laufen.</param>
+    public static IDisposable Vorgang(this ILogger logger, string beschreibung, string? anzeige = null)
     {
         // Was beim Beginn schon läuft, steht direkt in der Zeile — eine Überlappung ist so ohne Suchen sichtbar.
         string laeuftBereits = OffeneBeschreiben();
-        var eintrag = new Eintrag(beschreibung);
+        var eintrag = new Eintrag(beschreibung, anzeige);
         long id = Interlocked.Increment(ref _naechsteId);
         _offen[id] = eintrag;
 
@@ -48,6 +56,7 @@ public static class AblaufVorgang
         else
             logger.LogInformation("Beginn: {Vorgang} — läuft bereits: {Offen}", beschreibung, laeuftBereits);
 
+        Geaendert?.Invoke();
         return new Abschluss(logger, id, eintrag);
     }
 
@@ -59,4 +68,14 @@ public static class AblaufVorgang
             .ToArray()
             .OrderBy(kv => kv.Key)
             .Select(kv => $"{kv.Value.Beschreibung} (seit {kv.Value.Dauer.ElapsedMilliseconds} ms)"));
+
+    /// <summary>Die gerade offenen Vorgänge in Startreihenfolge, für die Ladeanzeige.</summary>
+    public static IReadOnlyList<OffenerVorgang> Offene() =>
+        [.. _offen
+            .ToArray()
+            .OrderBy(kv => kv.Key)
+            .Select(kv => new OffenerVorgang(kv.Value.Dauer.Elapsed, kv.Value.Anzeige))];
 }
+
+/// <summary>Schnappschuss eines offenen Vorgangs: bisherige Dauer und optionaler Anzeigetext.</summary>
+public sealed record OffenerVorgang(TimeSpan Dauer, string? Anzeige);

@@ -374,7 +374,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         LeerProtokoll();
         try
         {
-            using var vorgang = _logger.Vorgang($"Simulation: Turnierspiel simulieren (Spiel {spielId})");
+            using var vorgang = _logger.Vorgang($"Simulation: Turnierspiel simulieren (Spiel {spielId})", "Spiel wird simuliert …");
             await _simulationsService.SpielSimulierenAsync(
                 spielId, SimulationsModus.AusfuehrlicheSimulation, ueberschreiben: ueberschreiben);
 
@@ -403,7 +403,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         IstLadend     = true;
         try
         {
-            using var vorgang = _logger.Vorgang($"Simulation: Ergebnis zurücksetzen (Spiel {spielId})");
+            using var vorgang = _logger.Vorgang($"Simulation: Ergebnis zurücksetzen (Spiel {spielId})", "Ergebnis wird zurückgesetzt …");
             await _spielService.ErgebnisLoeschenAsync(spielId);
 
             if (rundeId.HasValue) await SpieleNeuLadenAsync(rundeId.Value, spielId);

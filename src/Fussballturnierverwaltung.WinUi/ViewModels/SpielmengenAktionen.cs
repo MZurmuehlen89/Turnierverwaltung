@@ -47,7 +47,7 @@ public interface ISpielmengenKontext
     /// <param name="finaleAbgleichen">Danach die Finale-Automatik (#113) abgleichen — nach dem Zurücksetzen nicht
     /// nötig, dort gleicht die Kaskade des Ergebnis-Service sie selbst ab.</param>
     Task SpielmengeBearbeitenAsync(
-        string vorgangsName, Func<Task> aktion, AuswahlDanach auswahlDanach, bool finaleAbgleichen);
+        string vorgangsName, string anzeige, Func<Task> aktion, AuswahlDanach auswahlDanach, bool finaleAbgleichen);
 }
 
 /// <summary>Simulieren und Zurücksetzen auf den Ebenen Runde, Hin-/Rückrunde, Gruppe, Spieltag und Auswahl
@@ -186,6 +186,7 @@ public sealed class SpielmengenAktionen
 
         await _kontext.SpielmengeBearbeitenAsync(
             $"Spielplan: Runde simulieren (Runde {runde.Id})",
+            "Runde wird simuliert …",
             () => _simulationsService.RundeSimulierenAsync(runde.Id, SIMULATIONS_MODUS),
             AuswahlDanach.Aufheben, finaleAbgleichen: true);
     }
@@ -200,6 +201,7 @@ public sealed class SpielmengenAktionen
 
         await _kontext.SpielmengeBearbeitenAsync(
             $"Spielplan: Rundenhälfte simulieren (Runde {runde.Id})",
+            "Rundenhälfte wird simuliert …",
             () => _simulationsService.RundenHaelfteSimulierenAsync(runde.Id, istRueckrunde, SIMULATIONS_MODUS),
             AuswahlDanach.Aufheben, finaleAbgleichen: true);
     }
@@ -212,6 +214,7 @@ public sealed class SpielmengenAktionen
 
         await _kontext.SpielmengeBearbeitenAsync(
             $"Spielplan: Gruppe simulieren (Runde {runde.Id})",
+            "Gruppe wird simuliert …",
             () => _simulationsService.GruppeSimulierenAsync(runde.Id, teamIds, SIMULATIONS_MODUS),
             AuswahlDanach.Wiederherstellen, finaleAbgleichen: true);
     }
@@ -224,6 +227,7 @@ public sealed class SpielmengenAktionen
 
         await _kontext.SpielmengeBearbeitenAsync(
             $"Spielplan: Spieltag simulieren (Runde {runde.Id}, Spieltag {spieltag})",
+            "Spieltag wird simuliert …",
             () => teamIds is not null
                 ? _simulationsService.SpieltagInGruppeSimulierenAsync(runde.Id, spieltag, teamIds, SIMULATIONS_MODUS)
                 : _simulationsService.SpieltageSimulierenAsync(runde.Id, spieltag, SIMULATIONS_MODUS),
@@ -239,6 +243,7 @@ public sealed class SpielmengenAktionen
 
         await _kontext.SpielmengeBearbeitenAsync(
             $"Spielplan: Auswahl simulieren ({spielIds.Count} Spiele)",
+            "Auswahl wird simuliert …",
             () => _simulationsService.SpieleSimulierenAsync(spielIds, SIMULATIONS_MODUS),
             AuswahlDanach.MitMehrfachauswahlAufheben, finaleAbgleichen: true);
     }
@@ -250,6 +255,7 @@ public sealed class SpielmengenAktionen
 
         await _kontext.SpielmengeBearbeitenAsync(
             $"Spielplan: Spiel simulieren (Spiel {spiel.Id})",
+            "Spiel wird simuliert …",
             () => _simulationsService.SpieleSimulierenAsync([spiel.Id], SIMULATIONS_MODUS),
             AuswahlDanach.Wiederherstellen, finaleAbgleichen: true);
     }
@@ -319,6 +325,7 @@ public sealed class SpielmengenAktionen
 
         await _kontext.SpielmengeBearbeitenAsync(
             $"Spielplan: {ebene} zurücksetzen ({spielIds.Count} Ergebnisse)",
+            "Ergebnisse werden zurückgesetzt …",
             () => _spielService.MehrereErgebnisseLoeschenAsync(spielIds),
             auswahlDanach, finaleAbgleichen: false);
     }

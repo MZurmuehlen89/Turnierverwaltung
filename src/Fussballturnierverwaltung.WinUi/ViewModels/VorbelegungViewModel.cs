@@ -51,7 +51,6 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
     private IReadOnlyList<TurnierRunde> _instanzRunden = [];
     private VorbelegungsTeilnehmerpool? _teilnehmerpool;
 
-    [ObservableProperty] private bool _istLadend;
     [ObservableProperty] private string? _fehlermeldung;
 
     [ObservableProperty]
@@ -147,7 +146,6 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
             return;
         }
 
-        IstLadend = true;
         Fehlermeldung = null;
         try
         {
@@ -180,7 +178,6 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
                 sichtbareRunden.Select(r => EintragErstellen(r, auslosungNachRundeId.GetValueOrDefault(r.Id))));
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
-        finally { IstLadend = false; }
     }
 
     private static RundenVorbelegungsEintrag EintragErstellen(TurnierRunde runde, Auslosung? auslosung) => new()
@@ -243,17 +240,16 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
         _ = workspace.GeschuetztLadenAsync();
     }
 
-    /// <summary>Mit dem Workspace gehen auch seine Meldung und sein Ladezustand — er kann noch laden, während
+    /// <summary>Mit dem Workspace geht auch seine Meldung — er kann noch laden, während
     /// schon die nächste Runde gewählt ist, und meldete sonst in die Anzeige einer anderen Runde hinein.</summary>
     private void WorkspaceAbhaengen(VorbelegungWorkspace workspace)
     {
         workspace.Geaendert -= OnWorkspaceGeaendert;
         workspace.PropertyChanged -= OnWorkspacePropertyChanged;
         Fehlermeldung = null;
-        IstLadend = false;
     }
 
-    /// <summary>Die Seite hat eine Fehlerzeile und einen Ladebalken, beide an diesem ViewModel — der Workspace
+    /// <summary>Die Seite hat eine Fehlerzeile an diesem ViewModel — der Workspace
     /// selbst ist an keiner Stelle der Oberfläche gebunden (der Arbeitsbereich bindet an seine
     /// <see cref="VorbelegungWorkspace.Belegung"/>). Ohne die Weitergabe blieb ein gescheitertes Laden,
     /// Abschließen oder Zurücksetzen ohne jeden Hinweis (#453).</summary>
@@ -261,7 +257,6 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
     {
         if (sender is not VorbelegungWorkspace workspace) return;
         if (e.PropertyName == nameof(VorbelegungWorkspace.Fehlermeldung)) Fehlermeldung = workspace.Fehlermeldung;
-        else if (e.PropertyName == nameof(VorbelegungWorkspace.IstLadend)) IstLadend = workspace.IstLadend;
     }
 
     /// <summary>Nach Abschließen/Zurücksetzen im Workspace: nur den Status der aktuell ausgewählten

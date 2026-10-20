@@ -46,7 +46,6 @@ public partial class VorbelegungWorkspace : ObservableObject
     /// <summary>Raster, verfügbare Teilnehmer und Platzieren von Hand — ohne Datenbank.</summary>
     public Platzbelegung Belegung { get; }
 
-    [ObservableProperty] private bool _istLadend;
     [ObservableProperty] private string? _fehlermeldung;
 
     [ObservableProperty]
@@ -107,8 +106,7 @@ public partial class VorbelegungWorkspace : ObservableObject
 
     private async Task LadenAsync()
     {
-        using var vorgang = _logger.Vorgang($"Vorbelegung: Runde laden (Runde {Runde.Id})");
-        IstLadend = true;
+        using var vorgang = _logger.Vorgang($"Vorbelegung: Runde laden (Runde {Runde.Id})", "Runde wird geladen …");
         Fehlermeldung = null;
         Belegung.RegelmeldungLoeschen();
         try
@@ -129,7 +127,6 @@ public partial class VorbelegungWorkspace : ObservableObject
                     platzhalter ?? await _teilnehmerpool.TeilnehmerOhneVorgaengerAsync(Runde), teamsBenoetigt);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
-        finally { IstLadend = false; }
     }
 
     // ── Abschließen / Zurücksetzen ───────────────────────────────────────────
@@ -148,7 +145,7 @@ public partial class VorbelegungWorkspace : ObservableObject
             if (!await ErgebnisVerlustBestaetigtAsync()) return;
 
             // Erst ab hier messen — die Rückfrage davor wartet auf den Nutzer.
-            using var vorgang = _logger.Vorgang($"Vorbelegung: Paarung abschließen (Runde {Runde.Id}, {paarungen.Count} Einträge)");
+            using var vorgang = _logger.Vorgang($"Vorbelegung: Paarung abschließen (Runde {Runde.Id}, {paarungen.Count} Einträge)", "Paarungen werden gespeichert …");
 
             _auslosung ??= await _auslosungService.ErstellenAsync(new AuslosungErstellenEingabe(
                 _instanzId, Runde.Id, Runde.Name, Auslosungsart.Manuell, IstAutomatisch: false));
@@ -171,7 +168,7 @@ public partial class VorbelegungWorkspace : ObservableObject
         try
         {
             using var schutz = await _dbContextSchutz.BetretenAsync();
-            using var vorgang = _logger.Vorgang($"Vorbelegung: zurücksetzen (Runde {Runde.Id}, Auslosung {_auslosung.Id})");
+            using var vorgang = _logger.Vorgang($"Vorbelegung: zurücksetzen (Runde {Runde.Id}, Auslosung {_auslosung.Id})", "Vorbelegung wird zurückgesetzt …");
             using (_logger.Vorgang($"Vorbelegung: Auslosung zurücksetzen (Auslosung {_auslosung.Id})"))
                 await _auslosungService.ZuruecksetzenAsync(_auslosung.Id);
             await TurnierBaumAktualisierenAsync();

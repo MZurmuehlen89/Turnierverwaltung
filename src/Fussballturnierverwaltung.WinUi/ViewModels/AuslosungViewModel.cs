@@ -271,7 +271,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     }
 
     // ── Status ────────────────────────────────────────────────────────────────
-    [ObservableProperty] private bool _istLadend;
     [ObservableProperty] private string? _fehlermeldung;
 
     // ── Berechnete Eigenschaften ─────────────────────────────────────────────
@@ -434,15 +433,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         AusgewaehlteAuslosung = null;
         if (instanz is null) return;
 
-        IstLadend = true;
-        try
-        {
-            Auslosungen = await LadeAuslosungenGefiltertAsync(instanz.Id);
-            var detail = await _instanzService.FindenNachIdMitRundenAsync(instanz.Id);
-            if (detail is not null)
-                InstanzRunden = new ObservableCollection<TurnierRunde>(detail.Runden.OrderBy(r => r.Reihenfolge));
-        }
-        finally { IstLadend = false; }
+        Auslosungen = await LadeAuslosungenGefiltertAsync(instanz.Id);
+        var detail = await _instanzService.FindenNachIdMitRundenAsync(instanz.Id);
+        if (detail is not null)
+            InstanzRunden = new ObservableCollection<TurnierRunde>(detail.Runden.OrderBy(r => r.Reihenfolge));
     }
 
     // ── Ribbon-Befehle ────────────────────────────────────────────────────────
@@ -648,7 +642,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (!await ErgebnisVerlustBestaetigtAsync(auszulosen.TurnierRundeId)) return null;
 
         // Erst ab hier messen — die Wartezeit auf die Rückfrage gehört nicht zur Dauer der Aktion.
-        using var vorgang = _logger.Vorgang($"Auslosung durchführen (Auslosung {auslosungId})");
+        using var vorgang = _logger.Vorgang($"Auslosung durchführen (Auslosung {auslosungId})", "Auslosung wird durchgeführt …");
 
         // Das Ergebnis steht ab AusfuehrenAsync fest und wird von LadeDetailAsync geladen — im TV-Modus
         // bleibt es bis zum Start der Ziehung verborgen, siehe ZeigeErgebnis. Der Service ersetzt dabei
@@ -689,14 +683,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task TurnierbaumUndSeitenlisteAktualisierenAsync(int turnierInstanzId)
     {
-        IstLadend = true;
-        try
-        {
-            using (_logger.Vorgang($"Auslosung: Turnierbaum aktualisieren (Instanz {turnierInstanzId})"))
-                await _baumService.NachSpielplanAenderungAktualisierenAsync(turnierInstanzId);
-            await AktualisiereSeitenlisteAsync();
-        }
-        finally { IstLadend = false; }
+        using (_logger.Vorgang($"Auslosung: Turnierbaum aktualisieren (Instanz {turnierInstanzId})"))
+            await _baumService.NachSpielplanAenderungAktualisierenAsync(turnierInstanzId);
+        await AktualisiereSeitenlisteAsync();
     }
 
     private async Task ZiehungZeigenAsync(ZiehungsVorlage vorlage, bool manuell)
@@ -745,7 +734,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 return;
 
             // Erst ab hier messen — die Wartezeit auf die Rückfrage gehört nicht zur Dauer der Aktion.
-            using var vorgang = _logger.Vorgang($"Auslosung zurücksetzen (Auslosung {detail.Id})");
+            using var vorgang = _logger.Vorgang($"Auslosung zurücksetzen (Auslosung {detail.Id})", "Auslosung wird zurückgesetzt …");
             await _auslosungService.ZuruecksetzenAsync(detail.Id);
             await _baumService.NachSpielplanAenderungAktualisierenAsync(detail.TurnierInstanzId);
             await LadeDetailAsync(detail.Id);
@@ -861,10 +850,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// Auslosungsart aktualisiert die Regel-Sperren), und "geändert" wird zuletzt zurückgenommen.</summary>
     private async Task LadeDetailAsync(int auslosungId)
     {
-        using var vorgang = _logger.Vorgang($"Auslosung laden (Auslosung {auslosungId})");
+        using var vorgang = _logger.Vorgang($"Auslosung laden (Auslosung {auslosungId})", "Auslosung wird geladen …");
 
-        IstLadend    = true;
-        _ladenAktiv  = true;
+        _ladenAktiv = true;
         try
         {
             var detail = await _auslosungService.FindenNachIdAsync(auslosungId);
@@ -889,7 +877,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         finally
         {
             _ladenAktiv = false;
-            IstLadend   = false;
         }
     }
 

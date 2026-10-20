@@ -91,7 +91,7 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         TurnierkopfVm.InstanzGeaendert += instanz => _ = TabKoordinator.SequenziellMitDbContextSchutzAsync(
             async () =>
             {
-                using var vorgang = _logger.Vorgang($"Turniere: Turnierliste neu laden (Instanz {instanz?.Id}, nach Änderung im Turnierkopf)");
+                using var vorgang = _logger.Vorgang($"Turniere: Turnierliste neu laden (Instanz {instanz?.Id}, nach Änderung im Turnierkopf)", "Turnierliste wird aktualisiert …");
                 await TabKoordinator.InstanzenNeuLadenAsync(instanz?.Id);
             },
             ex =>
@@ -107,7 +107,7 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         RundenVm.RundenGespeichert += instanz => _ = TabKoordinator.SequenziellMitDbContextSchutzAsync(
             async () =>
             {
-                using var vorgang = _logger.Vorgang($"Turniere: Vorbelegung neu laden (Instanz {instanz.Id}, nach Speichern der Runden)");
+                using var vorgang = _logger.Vorgang($"Turniere: Vorbelegung neu laden (Instanz {instanz.Id}, nach Speichern der Runden)", "Vorbelegung wird geladen …");
                 await VorbelegungVm.InstanzSetzenAsync(instanz);
             },
             ex =>
@@ -121,7 +121,7 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
         TabKoordinator.SequenziellMitDbContextSchutzAsync(
             async () =>
             {
-                using var vorgang = _logger.Vorgang($"Turniere: alle Reiter laden (Instanz {instanz?.Id}, {ausloeser})");
+                using var vorgang = _logger.Vorgang($"Turniere: alle Reiter laden (Instanz {instanz?.Id}, {ausloeser})", "Turnier wird geladen …");
                 await TurnierkopfVm.InstanzSetzenAsync(instanz);
                 await RundenVm.InstanzSetzenAsync(instanz);
                 await VorbelegungVm.InstanzSetzenAsync(instanz);
@@ -141,7 +141,7 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
     public override async Task AktivierenAsync()
     {
         await TurnierkopfVm.StammdatenLadenAsync();
-        using (_logger.Vorgang("Turniere: Turnierliste laden (Seite geöffnet)"))
+        using (_logger.Vorgang("Turniere: Turnierliste laden (Seite geöffnet)", "Turniere werden geladen …"))
             await TabKoordinator.AktivierenAsync();
 
         // TabKoordinator.AktivierenAsync() löst den initialen Tab-Reload bewusst NICHT selbst über

@@ -168,6 +168,19 @@
                             Content="{Binding AktuellesViewModel}"
                             ContentTemplateSelector="{StaticResource ViewLocator}"
                             HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+
+            <!-- Zentrale Ladeanzeige (#323): liegt über dem Inhalt, damit beim Ein-/Ausblenden nichts springt,
+                 und nimmt keine Klicks an — der Inhalt bleibt bedienbar. -->
+            <StackPanel Grid.Column="2" VerticalAlignment="Top" IsHitTestVisible="False">
+                <ProgressBar IsIndeterminate="True" Height="2"
+                             Visibility="{x:Bind Ladeanzeige.BalkenSichtbar, Mode=OneWay}" />
+                <Border HorizontalAlignment="Right" Margin="0,6,16,0" Padding="10,4" CornerRadius="4"
+                        Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                        Visibility="{x:Bind Ladeanzeige.TextSichtbar, Mode=OneWay}">
+                    <TextBlock Text="{x:Bind Ladeanzeige.Text, Mode=OneWay}" FontSize="12" />
+                </Border>
+            </StackPanel>
         </Grid>
     </Grid>
 </Window>

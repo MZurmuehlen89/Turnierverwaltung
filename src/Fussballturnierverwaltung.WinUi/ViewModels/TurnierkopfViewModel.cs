@@ -62,7 +62,6 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
     private bool _istNeuModus;
 
-    [ObservableProperty] private bool _istLadend;
     [ObservableProperty] private string? _fehlermeldung;
 
     [ObservableProperty]
@@ -135,7 +134,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
             if (!await AenderungBestaetigtAsync()) return false;
 
             using var schutz = await DbContextSchutz.BetretenAsync();
-            using var vorgang = _logger.Vorgang($"Turnierkopf: Status ändern (Instanz {instanz.Id}, {neuerStatus})");
+            using var vorgang = _logger.Vorgang($"Turnierkopf: Status ändern (Instanz {instanz.Id}, {neuerStatus})", "Status wird geändert …");
             await _service.StatusAendernAsync(instanz.Id, neuerStatus);
             InstanzGeaendert?.Invoke(instanz);
             return true;
@@ -242,7 +241,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     /// beim Navigieren aufgerufen, bevor die Instanzauswahl das Formular erstmals befüllt.</summary>
     public async Task StammdatenLadenAsync()
     {
-        using var vorgang = _logger.Vorgang("Turnierkopf: Stammdaten laden");
+        using var vorgang = _logger.Vorgang("Turnierkopf: Stammdaten laden", "Stammdaten werden geladen …");
         await Filter.StammdatenLadenAsync();
         Quoten.StammdatenSetzen(Filter.Verbaende, Filter.Laender);
         using (_logger.Vorgang("Turnierkopf: Regelwerke abfragen"))
@@ -338,7 +337,6 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     // Gastgeber, Quoten und die Eingangskapazität der ersten Runde stehen nicht in der Turnierliste.
     private async Task DetailLadenAsync(TurnierInstanz instanz, bool aufklappzustandSetzen)
     {
-        IstLadend = true;
         try
         {
             var detail = await _service.FindenNachIdMitRundenAsync(instanz.Id);
@@ -352,7 +350,6 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         }
         finally
         {
-            IstLadend = false;
             if (aufklappzustandSetzen) AufklappzustandSetzen();
         }
     }
@@ -415,7 +412,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         Fehlermeldung = null;
         try
         {
-            using var vorgang = _logger.Vorgang($"Turnierkopf: speichern (Instanz {AktuelleInstanz?.Id})");
+            using var vorgang = _logger.Vorgang($"Turnierkopf: speichern (Instanz {AktuelleInstanz?.Id})", "Turnier wird gespeichert …");
             var gespeichert = IstNeuModus ? await ErstellenAsync() : await AktualisierenAsync();
             if (gespeichert is null) return;
 
@@ -463,7 +460,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     {
         using var schutz = await DbContextSchutz.BetretenAsync();
         if (!KannAbbrechen()) return;
-        using var vorgang = _logger.Vorgang($"Turnierkopf: abbrechen (Instanz {AktuelleInstanz?.Id})");
+        using var vorgang = _logger.Vorgang($"Turnierkopf: abbrechen (Instanz {AktuelleInstanz?.Id})", "Änderungen werden verworfen …");
         await InstanzSetzenAsync(IstNeuModus ? null : AktuelleInstanz);
     }
 
@@ -482,7 +479,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         Fehlermeldung = null;
         try
         {
-            using var vorgang = _logger.Vorgang($"Turnierkopf: Turnier löschen (Instanz {instanz.Id})");
+            using var vorgang = _logger.Vorgang($"Turnierkopf: Turnier löschen (Instanz {instanz.Id})", "Turnier wird gelöscht …");
             await _service.LoeschenAsync(instanz.Id);
             InstanzGeaendert?.Invoke(null);
         }

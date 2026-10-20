@@ -149,7 +149,7 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         TabKoordinator.SequenziellMitDbContextSchutzAsync(
             async () =>
             {
-                using var vorgang = _logger.Vorgang($"Turnierdurchführung: alle Reiter laden (Instanz {instanz?.Id}, {ausloeser})");
+                using var vorgang = _logger.Vorgang($"Turnierdurchführung: alle Reiter laden (Instanz {instanz?.Id}, {ausloeser})", "Turnier wird geladen …");
                 await AuslosungTab.InstanzSetzenAsync(instanz);
                 await SpielplanUndBaumTab.InstanzSetzenAsync(instanz);
                 await SimulationTab.InstanzSetzenAsync(instanz);

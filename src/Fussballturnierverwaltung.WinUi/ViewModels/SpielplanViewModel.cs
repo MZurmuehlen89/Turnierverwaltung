@@ -321,7 +321,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task MannschaftsansichtLadenAsync()
     {
         using var vorgang = _logger.Vorgang(
-            $"Spielplan: Spiele der Mannschaft laden (Mannschaft {Mannschaftsfilter.Gewaehlt?.Id})");
+            $"Spielplan: Spiele der Mannschaft laden (Mannschaft {Mannschaftsfilter.Gewaehlt?.Id})",
+            "Spiele der Mannschaft werden geladen …");
 
         FormAktiv = false;
         Fehlermeldung = null;
@@ -861,7 +862,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task BeiRundeAenderungAsync()
     {
-        using var vorgang = _logger.Vorgang($"Spielplan: Runde laden (Runde {AusgewaehlteRunde?.Id})");
+        using var vorgang = _logger.Vorgang($"Spielplan: Runde laden (Runde {AusgewaehlteRunde?.Id})", "Runde wird geladen …");
 
         Spiele.Clear();
         AusgewaehlteSpiel = null;
@@ -1025,7 +1026,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         var auslosung = await AuslosungFuerNeuGenerierungAsync(runde, AusgewaehlteInstanz.Id);
         if (auslosung is null) return;
 
-        using var vorgang = _logger.Vorgang($"Spielplan neu generieren (Runde {runde.Id})");
+        using var vorgang = _logger.Vorgang($"Spielplan neu generieren (Runde {runde.Id})", "Spielplan wird neu generiert …");
         await AendernUndNeuLadenAsync(
             // Löschen, Generieren und die eine Kaskade danach (#320, #306) stehen im Dienst — derselbe Ablauf
             // wie beim Abschließen einer Auslosung.
@@ -1104,7 +1105,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (AusgewaehlteRunde is not { } runde) return;
         Fehlermeldung = null;
 
-        using var vorgang = _logger.Vorgang($"Spielplan: nächste Schweizer Runde generieren (Runde {runde.Id})");
+        using var vorgang = _logger.Vorgang($"Spielplan: nächste Schweizer Runde generieren (Runde {runde.Id})", "Nächste Runde wird generiert …");
         bool generiert = await AendernUndNeuLadenAsync(
             () => _spielplanService.SchweizerNaechsteRundeGenerierenAsync(runde.Id),
             async () =>
@@ -1137,7 +1138,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Fehlermeldung = null;
         try
         {
-            using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis speichern (Spiel {spielId})");
+            using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis speichern (Spiel {spielId})", "Ergebnis wird gespeichert …");
             await _spielService.ErgebnisErfassenAsync(spielId, Formular.AlsEingabe());
             await _finaleAutomatik.AbgleichenAsync(runde.TurnierInstanzId);
 
@@ -1182,7 +1183,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         var instanzId = AusgewaehlteRunde.TurnierInstanzId;
         Fehlermeldung = null;
 
-        using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis löschen (Spiel {spielId})");
+        using var vorgang = _logger.Vorgang($"Spielplan: Ergebnis löschen (Spiel {spielId})", "Ergebnis wird gelöscht …");
         await AendernUndNeuLadenAsync(
             () => _spielService.ErgebnisLoeschenAsync(spielId),
             async () =>
@@ -1277,7 +1278,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// <summary>Führt eine Aktion auf mehreren Spielen der Runde aus und zeigt danach den neuen Stand. Läuft im
     /// bereits betretenen <see cref="DbContextSchutz"/>.</summary>
     async Task ISpielmengenKontext.SpielmengeBearbeitenAsync(
-        string vorgangsName, Func<Task> aktion, AuswahlDanach auswahlDanach, bool finaleAbgleichen)
+        string vorgangsName, string anzeige, Func<Task> aktion, AuswahlDanach auswahlDanach, bool finaleAbgleichen)
     {
         // Instanz statt Runde: die Auswahl der Mannschaftsansicht reicht über mehrere Runden (#479).
         if (AusgewaehlteInstanz is not { } instanz) return;
@@ -1287,7 +1288,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IstSimulierend = true;
         try
         {
-            using var vorgang = _logger.Vorgang(vorgangsName);
+            using var vorgang = _logger.Vorgang(vorgangsName, anzeige);
             await AendernUndNeuLadenAsync(
                 async () =>
                 {

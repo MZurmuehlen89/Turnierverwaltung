@@ -128,8 +128,6 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     [NotifyCanExecuteChangedFor(nameof(AbbrechenCommand))]
     private bool _isDirty;
 
-    [ObservableProperty] private bool _istLadend;
-
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ZeigeMeldungsSpalte))]
     private string? _fehlermeldung;
@@ -186,7 +184,6 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
             return;
         }
 
-        IstLadend = true;
         try
         {
             await Formular.StammdatenSicherstellenAsync();
@@ -204,10 +201,6 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         catch (Exception ex)
         {
             Fehlermeldung = ex.Message;
-        }
-        finally
-        {
-            IstLadend = false;
         }
     }
 
@@ -465,7 +458,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         Fehlermeldung = null;
         try
         {
-            using var vorgang = _logger.Vorgang($"Runden: speichern (Instanz {instanz.Id}, {Runden.Count} Runden)");
+            using var vorgang = _logger.Vorgang($"Runden: speichern (Instanz {instanz.Id}, {Runden.Count} Runden)", "Runden werden gespeichert …");
             using (_logger.Vorgang($"Runden: Runden und Übergangsregeln ersetzen (Instanz {instanz.Id})"))
                 await _service.RundenUndUebergaengeErsetzenAsync(
                     instanz.Id, RundenZuEingaben(), UebergangsregelnZuEingaben());
@@ -484,7 +477,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     {
         using var schutz = await DbContextSchutz.BetretenAsync();
         if (!KannAbbrechen()) return;
-        using var vorgang = _logger.Vorgang($"Runden: abbrechen (Instanz {AktuelleInstanz?.Id})");
+        using var vorgang = _logger.Vorgang($"Runden: abbrechen (Instanz {AktuelleInstanz?.Id})", "Änderungen werden verworfen …");
         await InstanzSetzenAsync(AktuelleInstanz);
     }
     private bool KannAbbrechen() => HatInstanz && IsDirty;

@@ -28,11 +28,14 @@ public sealed partial class MainWindow : Window
 
     public MainViewModel ViewModel { get; }
 
+    public LadeanzeigeViewModel Ladeanzeige { get; }
+
     public MainWindow(MainViewModel viewModel, ThemeService themeService, IDialogService dialogService)
     {
         ViewModel = viewModel;
         _themeService = themeService;
         _dialogService = dialogService;
+        Ladeanzeige = new LadeanzeigeViewModel(DispatcherQueue);
 
         InitializeComponent();
 

@@ -307,10 +307,6 @@
         <!-- ── Spalte 2: Neu-Formular / Detail-Workspace ── -->
         <Grid Grid.Column="2">
 
-            <ProgressRing IsActive="{Binding IstLadend}"
-                          Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}"
-                          Width="24" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12" />
-
             <TextBlock Text="Turnier und Runde wählen, dann &quot;Neu&quot; klicken"
                        Opacity="0.4" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"
                        Visibility="{Binding ZeigtHinweis, Converter={StaticResource BoolToVisibility}}" />

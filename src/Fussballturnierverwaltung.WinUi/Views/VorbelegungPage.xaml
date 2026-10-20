@@ -9,8 +9,6 @@
         <!-- ── Spalte 0: Runden mit fester Paarung ── -->
         <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*">
             <TextBlock Grid.Row="0" Text="RUNDEN MIT FESTER PAARUNG" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="12,12,12,8" />
-            <ProgressBar Grid.Row="1" IsIndeterminate="True" Height="2"
-                         Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
             <ListView Grid.Row="2"
                       ItemsSource="{Binding Runden}"
                       SelectedItem="{Binding AusgewaehlteRunde, Mode=TwoWay}"
