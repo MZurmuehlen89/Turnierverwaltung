@@ -104,6 +104,7 @@
                     <Border Height="12" />
 
                     <!-- EINTRÄGE -->
+                    <StackPanel DataContext="{Binding Eintragsliste}">
                     <TextBlock Text="{Binding EintraegeUeberschrift}" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,4" />
                     <TextBlock Text="Rang ergibt sich aus der Reihenfolge (per Hoch/Runter anpassbar). Punkte sind optional und rein informativ (z.B. FIFA-Punkte) — für Sortierung/Lostopf-Zuordnung zählt nur der Rang."
                                FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,8" />
@@ -165,6 +166,7 @@
                             </StackPanel>
                         </StackPanel>
                     </Border>
+                    </StackPanel>
 
                 </StackPanel>
             </ScrollViewer>

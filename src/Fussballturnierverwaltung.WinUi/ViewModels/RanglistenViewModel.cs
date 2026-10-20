@@ -17,20 +17,6 @@ using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-// ViewModel-Zeile für die Einträge-ListView; jede Eigenschaft ist observable, damit
-// Inline-Editing (Punkte) sofort den Dirty-Zustand der Rangliste setzt. Rang wird NICHT
-// manuell editiert, sondern aus der Position in der Eintraege-Liste abgeleitet (siehe
-// RanglistenViewModel.AktualisiereRaenge) — Reihenfolge per Hoch/Runter-Buttons, analog
-// zum bestehenden Verfahren-Muster in RegelwerkeViewModel.
-public partial class RanglistenEintragZeile : ObservableObject
-{
-    [ObservableProperty] private Mannschaft _mannschaft = null!;
-    [ObservableProperty] private int _rang;
-    [ObservableProperty] private int? _punkte;
-
-    public byte[]? Wappen => MannschaftsIcon.Fuer(Mannschaft);
-}
-
 public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly RanglisteService _service;
@@ -41,8 +27,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     private readonly LandService _landService;
     private readonly IDialogService _dialogService;
     private int _populiertGerade;
-
-    private static readonly VerbandFilterOption _allesVerband = new("— Alle —", null);
 
     // ── Liste ─────────────────────────────────────────────────────────────────
     [ObservableProperty]
@@ -93,76 +77,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     public bool HatAbschnitte => Abschnitte.Count > 0;
 
     // ── Einträge ──────────────────────────────────────────────────────────────
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(VerfuegbareMannschaftenGefiltert))]
-    private ObservableCollection<RanglistenEintragZeile> _eintraege = [];
-
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(EintragEntfernenCommand))]
-    [NotifyCanExecuteChangedFor(nameof(EintragHochCommand))]
-    [NotifyCanExecuteChangedFor(nameof(EintragRunterCommand))]
-    private RanglistenEintragZeile? _ausgewaehlterEintrag;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(VerfuegbareMannschaftenGefiltert))]
-    private ObservableCollection<Mannschaft> _alleMannschaften = [];
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(VerbandFilterOptionen))]
-    private ObservableCollection<Verband> _alleVerbaende = [];
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(VerfuegbareMannschaftenGefiltert))]
-    [NotifyPropertyChangedFor(nameof(MannschaftVerbandFilterAuswahl))]
-    private VerbandFilterOption _mannschaftVerbandFilter = _allesVerband;
-
-    // WinUI-ComboBox schreibt beim Laden bzw. beim Tausch der ItemsSource null über TwoWay zurück
-    // (siehe RundenFormularViewModel.RundenartAuswahl, #377). Deshalb bindet sie an diese Nullable-Hülle:
-    // null wird verworfen und die Anzeige danach wiederhergestellt.
-    public VerbandFilterOption? MannschaftVerbandFilterAuswahl
-    {
-        get => MannschaftVerbandFilter;
-        set
-        {
-            if (value is not null) MannschaftVerbandFilter = value;
-            else NachComboBoxResetWiederherstellen();
-        }
-    }
-
-    private void NachComboBoxResetWiederherstellen() =>
-        Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread()?.TryEnqueue(
-            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-            () => OnPropertyChanged(nameof(MannschaftVerbandFilterAuswahl)));
-
-    // Kanonische Options-Instanzen: die ComboBox gleicht SelectedItem per Referenz ab (#347),
-    // daher nur bei geänderter Verbandsliste neu aufbauen und die Auswahl auf die neue Instanz umhängen.
-    private IReadOnlyList<VerbandFilterOption> _verbandFilterOptionen = [_allesVerband];
-
-    partial void OnAlleVerbaendeChanged(ObservableCollection<Verband> value)
-    {
-        _verbandFilterOptionen = [_allesVerband, .. value.Select(v => new VerbandFilterOption(v.Name, v))];
-        MannschaftVerbandFilter = _verbandFilterOptionen
-            .FirstOrDefault(o => o.Wert?.Id == MannschaftVerbandFilter.Wert?.Id) ?? _allesVerband;
-    }
-
-    partial void OnEintraegeChanged(ObservableCollection<RanglistenEintragZeile>? oldValue,
-        ObservableCollection<RanglistenEintragZeile> newValue)
-    {
-        if (oldValue is not null) oldValue.CollectionChanged -= EintraegeGeaendert;
-        newValue.CollectionChanged += EintraegeGeaendert;
-        OnPropertyChanged(nameof(EintraegeUeberschrift));
-    }
-
-    private void EintraegeGeaendert(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) =>
-        OnPropertyChanged(nameof(EintraegeUeberschrift));
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(VerfuegbareMannschaftenGefiltert))]
-    private string _mannschaftSuchbegriff = "";
-
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(EintragHinzufuegenCommand))]
-    private Mannschaft? _neueMannschaft;
+    public RanglistenEintraegeViewModel Eintragsliste { get; } = new();
 
     // ── Berechnete Listen ─────────────────────────────────────────────────────
     public IEnumerable<Rangliste> RanglistenGefiltert => Ranglisten
@@ -173,18 +88,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     public string AnzahlText => DatensatzAnzahl.Text(
         RanglistenGefiltert.Count(), Ranglisten.Count, !string.IsNullOrWhiteSpace(Suchbegriff),
         "Rangliste", "Ranglisten");
-
-    // Einträge werden per Add/Remove bearbeitet (nicht neu zugewiesen) — daher folgt die Überschrift
-    // CollectionChanged, siehe OnEintraegeChanged.
-    public string EintraegeUeberschrift => $"EINTRÄGE ({Eintraege.Count})";
-
-    public IReadOnlyList<VerbandFilterOption> VerbandFilterOptionen => _verbandFilterOptionen;
-
-    public IEnumerable<Mannschaft> VerfuegbareMannschaftenGefiltert => AlleMannschaften
-        .Where(m => Eintraege.All(e => e.Mannschaft.Id != m.Id))
-        .Where(m => MannschaftVerbandFilter.Wert is null || m.Land?.VerbandId == MannschaftVerbandFilter.Wert.Id)
-        .Where(m => string.IsNullOrWhiteSpace(MannschaftSuchbegriff)
-            || m.Name.Contains(MannschaftSuchbegriff, StringComparison.OrdinalIgnoreCase));
 
     private static readonly HashSet<string> _formFelder = [nameof(Name), nameof(Datum), nameof(Quelle), nameof(Profigrenze)];
 
@@ -223,6 +126,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
         _quelleService = quelleService;
         _landService = landService;
         _dialogService = dialogService;
+        Eintragsliste.Geaendert += (_, _) => { if (_populiertGerade == 0) IsDirty = true; };
     }
 
     public override async Task AktivierenAsync() => await LadenAsync();
@@ -235,9 +139,8 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             var ranglisten   = await _service.AlleAbrufenAsync();
             var mannschaften = await _mannschaftService.AlleAbrufenMitLandAsync();
             var verbaende    = await _verbandService.AlleAbrufenAsync();
-            Ranglisten       = new ObservableCollection<Rangliste>(ranglisten);
-            AlleMannschaften = new ObservableCollection<Mannschaft>(mannschaften);
-            AlleVerbaende    = new ObservableCollection<Verband>(verbaende.OrderBy(v => v.Name));
+            Ranglisten = new ObservableCollection<Rangliste>(ranglisten);
+            Eintragsliste.StammdatenSetzen(mannschaften, verbaende);
         }
         finally
         {
@@ -260,7 +163,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
                 Profigrenze = double.NaN;
                 Abschnitte = [];
                 Datum = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd");
-                Eintraege = [];
+                Eintragsliste.Laden([]);
             }
             else
             {
@@ -271,19 +174,14 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
                 Quelle = rangliste.Quelle;
                 Profigrenze = rangliste.ProfigrenzeSpielklasse ?? double.NaN;
                 Abschnitte = AbschnittsUebersicht.Fuer(rangliste);
-                Eintraege = new ObservableCollection<RanglistenEintragZeile>(
+                Eintragsliste.Laden(
                     rangliste.Eintraege.OrderBy(e => e.Rang).Select(e => new RanglistenEintragZeile
                     {
                         Mannschaft = e.Mannschaft,
                         Rang       = e.Rang,
                         Punkte     = e.Punkte
                     }));
-                AbonniereEintraegeAenderungen();
-                AktualisiereRaenge();
             }
-            NeueMannschaft = null;
-            MannschaftSuchbegriff = "";
-            MannschaftVerbandFilter = _allesVerband;
             IsDirty = false;
             Fehlermeldung = null;
         }
@@ -291,28 +189,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
         {
             _populiertGerade--;
         }
-    }
-
-    // Setzt IsDirty wenn Punkte inline editiert werden
-    private void AbonniereEintraegeAenderungen()
-    {
-        foreach (var zeile in Eintraege)
-            zeile.PropertyChanged += OnEintragGeaendert;
-    }
-
-    private void OnEintragGeaendert(object? sender, PropertyChangedEventArgs e)
-    {
-        if (_populiertGerade == 0)
-            IsDirty = true;
-    }
-
-    // Rang ergibt sich immer aus der Position in der Liste (1-basiert) — keine
-    // manuelle Eingabe, keine Lücken/Duplikate möglich.
-    private void AktualisiereRaenge()
-    {
-        for (int i = 0; i < Eintraege.Count; i++)
-            Eintraege[i].Rang = i + 1;
-        OnPropertyChanged(nameof(VerfuegbareMannschaftenGefiltert));
     }
 
     // ── Ribbon-Befehle ────────────────────────────────────────────────────────
@@ -330,10 +206,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             Profigrenze = double.NaN;
             Abschnitte = [];
             Datum = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd");
-            Eintraege = [];
-            NeueMannschaft = null;
-            MannschaftSuchbegriff = "";
-            MannschaftVerbandFilter = _allesVerband;
+            Eintragsliste.Laden([]);
             Fehlermeldung = null;
         }
         finally
@@ -350,7 +223,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
         try
         {
             var datum = ParseDatum(Datum);
-            var eintraege = Eintraege
+            var eintraege = Eintragsliste.Eintraege
                 .Select(z => new RanglistenEintragEingabe(z.Mannschaft.Id, z.Rang, z.Punkte))
                 .ToList();
 
@@ -429,53 +302,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             await LadenAsync();
     }
 
-    // ── Eintrag-Befehle ───────────────────────────────────────────────────────
-
-    [RelayCommand(CanExecute = nameof(KannEintragHinzufuegen))]
-    private void EintragHinzufuegen()
-    {
-        if (NeueMannschaft is null) return;
-        var neu = new RanglistenEintragZeile { Mannschaft = NeueMannschaft, Rang = Eintraege.Count + 1 };
-        neu.PropertyChanged += OnEintragGeaendert;
-        Eintraege.Add(neu);
-        AusgewaehlterEintrag = neu;
-        NeueMannschaft = null;
-        AktualisiereRaenge();
-        if (_populiertGerade == 0) IsDirty = true;
-    }
-
-    [RelayCommand(CanExecute = nameof(KannEintragEntfernen))]
-    private void EintragEntfernen()
-    {
-        if (AusgewaehlterEintrag is null) return;
-        Eintraege.Remove(AusgewaehlterEintrag);
-        AusgewaehlterEintrag = null;
-        AktualisiereRaenge();
-        if (_populiertGerade == 0) IsDirty = true;
-    }
-
-    [RelayCommand(CanExecute = nameof(KannEintragHoch))]
-    private void EintragHoch()
-    {
-        if (AusgewaehlterEintrag is null) return;
-        var idx = Eintraege.IndexOf(AusgewaehlterEintrag);
-        if (idx <= 0) return;
-        Eintraege.Move(idx, idx - 1);
-        AktualisiereRaenge();
-        if (_populiertGerade == 0) IsDirty = true;
-    }
-
-    [RelayCommand(CanExecute = nameof(KannEintragRunter))]
-    private void EintragRunter()
-    {
-        if (AusgewaehlterEintrag is null) return;
-        var idx = Eintraege.IndexOf(AusgewaehlterEintrag);
-        if (idx < 0 || idx >= Eintraege.Count - 1) return;
-        Eintraege.Move(idx, idx + 1);
-        AktualisiereRaenge();
-        if (_populiertGerade == 0) IsDirty = true;
-    }
-
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
@@ -489,11 +315,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
 
     public bool HatUngespeicherteAenderungen => FormularAktiv && IsDirty;
     private bool KannLoeschen() => Ausgewaehltes is not null && !IstNeuModus;
-    private bool KannEintragHinzufuegen() => NeueMannschaft is not null;
-    private bool KannEintragEntfernen() => AusgewaehlterEintrag is not null;
-    private bool KannEintragHoch() => AusgewaehlterEintrag is not null && Eintraege.IndexOf(AusgewaehlterEintrag) > 0;
-    private bool KannEintragRunter() => AusgewaehlterEintrag is not null
-        && Eintraege.IndexOf(AusgewaehlterEintrag) < Eintraege.Count - 1;
 
     private int? ProfigrenzeOderNull() => double.IsNaN(Profigrenze) ? null : (int)Math.Round(Profigrenze);
 
