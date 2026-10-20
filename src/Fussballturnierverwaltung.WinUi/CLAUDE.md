@@ -55,12 +55,12 @@ already open throws. This blocks any WPF-Window-dialog pattern that nests a chil
 dialog (found while porting Ranglisten-Import in #285, which in WPF opens a "Quellen verwalten" child window
 from inside the import window, and a "Mannschaft schnell anlegen" child window from inside an unresolved
 import row). Two independent workarounds used there: (1) merge a parent-dialog + child-dialog pair into one
-ContentDialog with an app-wide list+form layout instead of two windows (`RanglistenQuellenVerwaltenDialog`);
+ContentDialog with an app-wide list+form layout instead of two windows (formerly `RanglistenQuellenVerwaltenDialog`, since #477 the „Quellen“ tab `RanglistenQuellenPage` — a page tab avoids the problem entirely);
 (2) replace a child dialog with an inline expanding form directly in the triggering row/element instead of a
 popup (`UnaufgeloesteZeileZuordnung.NeuAnlegenAktiv` in `RanglistenImportDialog`). A `ViewModel`-owned
 `ContentDialog` also has no `XamlRoot` of its own — `IDialogService.AnzeigenAsync(ContentDialog)` sets it
 centrally (mirrors the WPF original, where the ViewModel directly opens the `Window`; see
-`RanglistenViewModel.ImportAusInternet`/`QuellenVerwalten`).
+`RanglistenViewModel.ImportAusInternet`).
 
 **`Flyout.Content` sizing is fought over by two containers**: the System-provided `FlyoutPresenter` that wraps
 whatever you assign to `Flyout.Content` has its own default `MaxWidth` and its own internal scroll handling,

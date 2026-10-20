@@ -200,7 +200,7 @@ public class RanglistenHtmlAuswerterTests
         var ergebnis = _auswerter.TabellenErmitteln(html);
 
         ergebnis[0].ZeilenAnzahl.Should().Be(20);
-        ergebnis[0].VorschauZeilen.Should().HaveCountLessThanOrEqualTo(5);
+        ergebnis[0].VorschauZeilen.Should().HaveCount(11, "Kopfzeile + 10 Datenzeilen (#477)");
     }
 
     // Ausschnitt der echten Seite kassiesa.net/uefa/data/method5/trank2026.html (Stand 28.09.2026): Rang und

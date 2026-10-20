@@ -8,7 +8,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Ranglisten;
 
 public class RanglistenHtmlAuswerter : IRanglistenHtmlAuswerter
 {
-    private const int MaxVorschauZeilen = 5;
+    // Kopfzeile + 10 Datenzeilen für die Vorschau im Reiter „Quellen“ (#477).
+    private const int MaxVorschauZeilen = 11;
 
     private static readonly Regex FussnotenMarker = new(@"\[\w+\]", RegexOptions.Compiled);
     private static readonly Regex Whitespace = new(@"\s+", RegexOptions.Compiled);

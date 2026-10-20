@@ -202,8 +202,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             Header = "Import",
             Aktionen =
             [
-                new RibbonAktion { Header = "Aus dem Internet importieren", Befehl = ImportAusInternetCommand, IconGlyph = "" },
-                new RibbonAktion { Header = "Import-Quellen verwalten", Befehl = QuellenVerwaltenCommand, IconGlyph = "" }
+                new RibbonAktion { Header = "Aus dem Internet importieren", Befehl = ImportAusInternetCommand, IconGlyph = "" }
             ]
         }
     ];
@@ -428,13 +427,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
         await _dialogService.AnzeigenAsync(dialog);
         if (dialog.ImportAbgeschlossen)
             await LadenAsync();
-    }
-
-    [RelayCommand]
-    private async Task QuellenVerwalten()
-    {
-        var dialog = new RanglistenQuellenVerwaltenDialog(_quelleService, _dialogService);
-        await _dialogService.AnzeigenAsync(dialog);
     }
 
     // ── Eintrag-Befehle ───────────────────────────────────────────────────────

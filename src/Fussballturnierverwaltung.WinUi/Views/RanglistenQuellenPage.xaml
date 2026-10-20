@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="Fussballturnierverwaltung.WinUi.Views.RanglistenQuellenPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Reiter „Quellen“ der Ranglisten-Seite (#477, vorher Dialog, #291). Spaltenaufteilung wie der Reiter
+         „Ranglisten“: Liste | Formular | Meldungsspalte. -->
+    <Grid ColumnDefinitions="2.4*,1,5.7*,1,1.9*">
+
+        <!-- ── Liste ── -->
+        <ListView Grid.Column="0"
+                  ItemsSource="{Binding Quellen}"
+                  SelectedItem="{Binding Ausgewaehlte, Mode=TwoWay}"
+                  SelectionMode="Single">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Padding="0,4">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                        <TextBlock Text="{Binding Url}" FontSize="11" Opacity="0.6" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <Rectangle Grid.Column="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Width="1" />
+
+        <!-- ── Formular ── -->
+        <StackPanel Grid.Column="2"
+                    Visibility="{Binding FormularAktiv, Converter={StaticResource InverseBoolToVisibility}}"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.4">
+            <TextBlock Text="🌐" FontSize="48" HorizontalAlignment="Center" />
+            <TextBlock Text="Quelle auswählen oder" FontSize="14" HorizontalAlignment="Center" Margin="0,12,0,4" />
+            <TextBlock Text="&quot;Neu&quot; in der Befehlsleiste klicken" FontSize="14" HorizontalAlignment="Center" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Column="2"
+                      Visibility="{Binding FormularAktiv, Converter={StaticResource BoolToVisibility}}"
+                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="28,20,28,28">
+
+                <TextBlock Text="GRUNDDATEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
+
+                <Grid ColumnDefinitions="*,16,2*" Margin="0,0,0,4">
+                    <StackPanel>
+                        <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
+                        <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="URL" FontSize="12" Margin="0,0,0,3" />
+                        <Grid ColumnDefinitions="*,8,Auto">
+                            <TextBox Text="{Binding Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <Button Grid.Column="2" Content="Webseite prüfen" Command="{Binding WebseitePruefenCommand}" />
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+
+                <ProgressBar IsIndeterminate="True" Height="2" Margin="0,4,0,0"
+                             Visibility="{Binding IstPruefend, Converter={StaticResource BoolToVisibility}}" />
+
+                <TextBlock Text="{Binding GespeicherteZuordnungText}" FontSize="11" Opacity="0.6" TextWrapping="Wrap"
+                           Margin="0,8,0,0"
+                           Visibility="{Binding GespeicherteZuordnungText, Converter={StaticResource NullToCollapsed}}" />
+
+                <!-- ── Zuordnung (nach „Webseite prüfen“) ── -->
+                <StackPanel Visibility="{Binding TabellenGefunden, Converter={StaticResource BoolToVisibility}}"
+                            Margin="0,24,0,0">
+                    <TextBlock Text="ZUORDNUNG" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
+
+                    <TextBlock Text="Tabelle" FontSize="12" Margin="0,0,0,3" />
+                    <ComboBox ItemsSource="{Binding TabellenOptionen}"
+                              SelectedItem="{Binding AusgewaehlteTabelleAuswahl, Mode=TwoWay}"
+                              DisplayMemberPath="Beschreibung" HorizontalAlignment="Stretch" Margin="0,0,0,12" />
+
+                    <Grid ColumnDefinitions="*,16,*" Margin="0,0,0,8"
+                          Visibility="{Binding TabelleGewaehlt, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="Mannschaftsspalte" FontSize="12" Margin="0,0,0,3" />
+                            <ComboBox ItemsSource="{Binding MannschaftSpaltenOptionen}"
+                                      SelectedItem="{Binding AusgewaehlteMannschaftSpalteAuswahl, Mode=TwoWay}"
+                                      DisplayMemberPath="Beschreibung" HorizontalAlignment="Stretch" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Punktespalte (optional)" FontSize="12" Margin="0,0,0,3" />
+                            <ComboBox ItemsSource="{Binding PunkteSpaltenOptionen}"
+                                      SelectedItem="{Binding AusgewaehltePunkteSpalteAuswahl, Mode=TwoWay}"
+                                      DisplayMemberPath="Beschreibung" HorizontalAlignment="Stretch" />
+                        </StackPanel>
+                    </Grid>
+
+                    <CheckBox Content="Erste Zeile ist Kopfzeile (überspringen)"
+                              IsChecked="{Binding KopfzeileUeberspringen, Mode=TwoWay}"
+                              Visibility="{Binding TabelleGewaehlt, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+
+                <!-- ── Vorschau: zugeordnete Spalten hervorgehoben, übersprungene Kopfzeile abgeblendet ── -->
+                <StackPanel Visibility="{Binding Vorschau, Converter={StaticResource NullToCollapsed}}" Margin="0,24,0,0">
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+                        <TextBlock Text="VORSCHAU" FontWeight="SemiBold" FontSize="11" Opacity="0.6" />
+                        <TextBlock Text="{Binding Vorschau.Hinweis}" FontSize="11" Opacity="0.6" />
+                    </StackPanel>
+                    <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                                      HorizontalScrollMode="Enabled" VerticalScrollMode="Disabled">
+                            <StackPanel Padding="0,0,0,4">
+                                <ItemsControl ItemsSource="{Binding Vorschau.Kopf}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Width="150">
+                                                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0.15"
+                                                        Visibility="{Binding IstZugeordnet, Converter={StaticResource BoolToVisibility}}" />
+                                                <TextBlock Text="{Binding Text}" FontSize="11" FontWeight="SemiBold" Opacity="0.7"
+                                                           Padding="8,6" TextTrimming="CharacterEllipsis" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Rectangle Fill="{ThemeResource CardStrokeColorDefaultBrush}" Height="1" />
+                                <ItemsControl ItemsSource="{Binding Vorschau.Zeilen}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <ItemsControl ItemsSource="{Binding Zellen}"
+                                                          Opacity="{Binding Deckkraft}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Width="150">
+                                                            <Border Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0.15"
+                                                                    Visibility="{Binding IstZugeordnet, Converter={StaticResource BoolToVisibility}}" />
+                                                            <TextBlock Text="{Binding Text}" FontSize="12" Padding="8,3"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       ToolTipService.ToolTip="{Binding Text}" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Rectangle Grid.Column="3" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Width="1" />
+
+        <!-- ── Meldungsspalte ── -->
+        <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="12,20,12,12" Spacing="6">
+                <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
+                        Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                        CornerRadius="4" Padding="8,6">
+                    <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                               FontSize="11" TextWrapping="Wrap" />
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
