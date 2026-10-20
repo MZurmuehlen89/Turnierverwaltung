@@ -66,29 +66,8 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     [ObservableProperty] private DateTimeOffset? _datum = DateTimeOffset.Now.Date;
     [ObservableProperty] private string _quelle = "";
 
-    // Profigrenze (Spielklasse) der Ligapyramide für „Heimrecht für Unterklassige“ (#393). NumberBox liefert double,
-    // leer = NaN = keine Grenze (strikt Klasse gegen Klasse).
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LigapyramideKopf))]
-    private double _profigrenze = double.NaN;
-
-    // Abschnitte nur zur Ansicht — gepflegt werden sie mit dem neuen Ranglisten-Editor (#477), bis dahin per Seed.
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HatAbschnitte))]
-    [NotifyPropertyChangedFor(nameof(LigapyramideKopf))]
-    private IReadOnlyList<AbschnittsZeile> _abschnitte = [];
-
-    public bool HatAbschnitte => Abschnitte.Count > 0;
-
-    // Aufklappbarer Bereich „Ligapyramide“ (#477): zugeklappt bei jedem Ranglistenwechsel, die Eintragsliste ist die
-    // Hauptfläche; die Kopfzeile fasst zusammen, was festgelegt ist.
-    [ObservableProperty] private bool _ligapyramideOffen;
-
-    public AbschnittKopf LigapyramideKopf => AbschnittKopf.Aus("LIGAPYRAMIDE",
-    [
-        HatAbschnitte ? $"{Abschnitte.Count} Abschnitte" : null,
-        double.IsNaN(Profigrenze) ? null : $"Profigrenze Spielklasse {(int)Math.Round(Profigrenze)}"
-    ], "keine Abschnitte");
+    // ── Ligapyramide ──────────────────────────────────────────────────────────
+    public LigapyramideViewModel Ligapyramide { get; } = new();
 
     // ── Einträge ──────────────────────────────────────────────────────────────
     public RanglistenEintraegeViewModel Eintragsliste { get; } = new();
@@ -103,7 +82,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
         RanglistenGefiltert.Count(), Ranglisten.Count, !string.IsNullOrWhiteSpace(Suchbegriff),
         "Rangliste", "Ranglisten");
 
-    private static readonly HashSet<string> _formFelder = [nameof(Name), nameof(Datum), nameof(Quelle), nameof(Profigrenze)];
+    private static readonly HashSet<string> _formFelder = [nameof(Name), nameof(Datum), nameof(Quelle)];
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
     public string RibbonTabTitel => "Ranglisten";
@@ -141,6 +120,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
         _landService = landService;
         _dialogService = dialogService;
         Eintragsliste.Geaendert += (_, _) => { if (_populiertGerade == 0) IsDirty = true; };
+        Ligapyramide.Geaendert += (_, _) => { if (_populiertGerade == 0) IsDirty = true; };
     }
 
     public override async Task AktivierenAsync() => await LadenAsync();
@@ -174,8 +154,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
                 FormularAktiv = false;
                 IstNeuModus = false;
                 Name = Quelle = "";
-                Profigrenze = double.NaN;
-                Abschnitte = [];
+                Ligapyramide.Laden(null);
                 Datum = DateTimeOffset.Now.Date;
                 Eintragsliste.Laden([], []);
             }
@@ -186,8 +165,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
                 Name = rangliste.Name;
                 Datum = new DateTimeOffset(rangliste.Datum.ToDateTime(TimeOnly.MinValue));
                 Quelle = rangliste.Quelle;
-                Profigrenze = rangliste.ProfigrenzeSpielklasse ?? double.NaN;
-                Abschnitte = AbschnittsUebersicht.Fuer(rangliste);
+                Ligapyramide.Laden(rangliste);
                 Eintragsliste.Laden(
                     rangliste.Eintraege.OrderBy(e => e.Rang).Select(e => new RanglistenEintragZeile
                     {
@@ -195,9 +173,8 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
                         Rang       = e.Rang,
                         Punkte     = e.Punkte
                     }),
-                    Abschnitte);
+                    Ligapyramide.Abschnitte);
             }
-            LigapyramideOffen = false;
             IsDirty = false;
             Fehlermeldung = null;
         }
@@ -219,11 +196,9 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             FormularAktiv = true;
             IstNeuModus = true;
             Name = Quelle = "";
-            Profigrenze = double.NaN;
-            Abschnitte = [];
+            Ligapyramide.Laden(null);
             Datum = DateTimeOffset.Now.Date;
             Eintragsliste.Laden([], []);
-            LigapyramideOffen = false;
             Fehlermeldung = null;
         }
         finally
@@ -247,7 +222,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             Rangliste? gespeichert;
             if (IstNeuModus)
             {
-                var eingabe = new RanglisteErstellenEingabe(Name, datum, Quelle, eintraege, ProfigrenzeSpielklasse: ProfigrenzeOderNull());
+                var eingabe = new RanglisteErstellenEingabe(Name, datum, Quelle, eintraege, ProfigrenzeSpielklasse: Ligapyramide.ProfigrenzeOderNull());
                 var neu = await _service.ErstellenAsync(eingabe);
                 await LadenAsync();
                 gespeichert = Ranglisten.FirstOrDefault(r => r.Id == neu.Id);
@@ -256,7 +231,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             {
                 var id = Ausgewaehltes.Id;
                 var eingabe = new RanglisteAktualisierenEingabe(
-                    Name, datum, Quelle, eintraege, ProfigrenzeSpielklasse: ProfigrenzeOderNull());
+                    Name, datum, Quelle, eintraege, ProfigrenzeSpielklasse: Ligapyramide.ProfigrenzeOderNull());
                 await _service.AktualisierenAsync(id, eingabe);
                 await LadenAsync();
                 gespeichert = Ranglisten.FirstOrDefault(r => r.Id == id);
@@ -332,6 +307,4 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
 
     public bool HatUngespeicherteAenderungen => FormularAktiv && IsDirty;
     private bool KannLoeschen() => Ausgewaehltes is not null && !IstNeuModus;
-
-    private int? ProfigrenzeOderNull() => double.IsNaN(Profigrenze) ? null : (int)Math.Round(Profigrenze);
 }

@@ -87,9 +87,10 @@
                 </Grid>
 
                 <!-- ── Ligapyramide (aufklappbar, #393) ── -->
-                <Expander Grid.Row="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,16"
-                          IsExpanded="{Binding LigapyramideOffen, Mode=TwoWay}"
-                          Header="{Binding LigapyramideKopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
+                <Expander Grid.Row="2" DataContext="{Binding Ligapyramide}"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,16"
+                          IsExpanded="{Binding Offen, Mode=TwoWay}"
+                          Header="{Binding Kopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
                     <StackPanel>
                         <TextBlock Text="Profigrenze (Spielklasse)" FontSize="12" Margin="0,0,0,3" />
                         <NumberBox Value="{Binding Profigrenze, Mode=TwoWay}"
