@@ -42,6 +42,7 @@ public class RanglisteService(
                 Punkte       = e.Punkte
             });
         }
+        AbschnitteAbgleichen(rangliste, eingabe.Abschnitte ?? []);
 
         await repository.HinzufuegenAsync(rangliste, ct);
         logger.LogInformation("Rangliste '{Name}' angelegt (ID {Id}).", rangliste.Name, rangliste.Id);
@@ -75,8 +76,34 @@ public class RanglisteService(
             });
         }
 
+        // Der Import gibt keine Abschnitte mit — sie bleiben dann stehen (#477).
+        if (eingabe.Abschnitte is { } abschnitte)
+            AbschnitteAbgleichen(rangliste, abschnitte);
+
         await repository.SpeichernAenderungenAsync(ct);
         logger.LogInformation("Rangliste '{Name}' (ID {Id}) aktualisiert.", rangliste.Name, rangliste.Id);
+    }
+
+    // Schlüssel-Abgleich statt Löschen und Neuanlegen: bestehende Abschnitte werden geändert, fehlende entfernt,
+    // neue (ohne Id) angelegt.
+    private static void AbschnitteAbgleichen(Rangliste rangliste, IReadOnlyList<RanglistenAbschnittEingabe> eingaben)
+    {
+        var behalten = eingaben.Where(e => e.Id is not null).Select(e => e.Id!.Value).ToHashSet();
+        foreach (var entfernt in rangliste.Abschnitte.Where(a => !behalten.Contains(a.Id)).ToList())
+            rangliste.Abschnitte.Remove(entfernt);
+
+        foreach (var eingabe in eingaben)
+        {
+            var abschnitt = eingabe.Id is int id ? rangliste.Abschnitte.FirstOrDefault(a => a.Id == id) : null;
+            if (abschnitt is null)
+            {
+                abschnitt = new RanglistenAbschnitt();
+                rangliste.Abschnitte.Add(abschnitt);
+            }
+            abschnitt.Name = eingabe.Name.Trim();
+            abschnitt.Spielklasse = eingabe.Spielklasse;
+            abschnitt.BisPlatz = eingabe.BisPlatz;
+        }
     }
 
     public async Task LoeschenAsync(int id, CancellationToken ct = default)

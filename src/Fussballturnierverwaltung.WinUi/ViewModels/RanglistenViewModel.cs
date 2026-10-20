@@ -120,7 +120,13 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
         _landService = landService;
         _dialogService = dialogService;
         Eintragsliste.Geaendert += (_, _) => { if (_populiertGerade == 0) IsDirty = true; };
-        Ligapyramide.Geaendert += (_, _) => { if (_populiertGerade == 0) IsDirty = true; };
+        Ligapyramide.Geaendert += (_, _) =>
+        {
+            if (_populiertGerade == 0) IsDirty = true;
+            SpeichernCommand.NotifyCanExecuteChanged();
+        };
+        Ligapyramide.AbschnitteGeaendert += (_, _) => Eintragsliste.AbschnitteSetzen(Ligapyramide.Uebersicht());
+        Eintragsliste.Eintraege.CollectionChanged += (_, _) => Ligapyramide.EintragsAnzahlSetzen(Eintragsliste.Eintraege.Count);
     }
 
     public override async Task AktivierenAsync() => await LadenAsync();
@@ -173,7 +179,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
                         Rang       = e.Rang,
                         Punkte     = e.Punkte
                     }),
-                    Ligapyramide.Abschnitte);
+                    Ligapyramide.Uebersicht());
             }
             IsDirty = false;
             Fehlermeldung = null;
@@ -222,7 +228,8 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             Rangliste? gespeichert;
             if (IstNeuModus)
             {
-                var eingabe = new RanglisteErstellenEingabe(Name, datum, Quelle, eintraege, ProfigrenzeSpielklasse: Ligapyramide.ProfigrenzeOderNull());
+                var eingabe = new RanglisteErstellenEingabe(Name, datum, Quelle, eintraege,
+                    ProfigrenzeSpielklasse: Ligapyramide.ProfigrenzeOderNull(), Abschnitte: Ligapyramide.Eingaben());
                 var neu = await _service.ErstellenAsync(eingabe);
                 await LadenAsync();
                 gespeichert = Ranglisten.FirstOrDefault(r => r.Id == neu.Id);
@@ -231,7 +238,8 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             {
                 var id = Ausgewaehltes.Id;
                 var eingabe = new RanglisteAktualisierenEingabe(
-                    Name, datum, Quelle, eintraege, ProfigrenzeSpielklasse: Ligapyramide.ProfigrenzeOderNull());
+                    Name, datum, Quelle, eintraege, ProfigrenzeSpielklasse: Ligapyramide.ProfigrenzeOderNull(),
+                    Abschnitte: Ligapyramide.Eingaben());
                 await _service.AktualisierenAsync(id, eingabe);
                 await LadenAsync();
                 gespeichert = Ranglisten.FirstOrDefault(r => r.Id == id);
@@ -302,7 +310,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             IsDirty = true;
     }
 
-    private bool KannSpeichern() => FormularAktiv && IsDirty;
+    private bool KannSpeichern() => FormularAktiv && IsDirty && Ligapyramide.Fehler.Count == 0;
     private bool KannAbbrechen() => FormularAktiv && IsDirty;
 
     public bool HatUngespeicherteAenderungen => FormularAktiv && IsDirty;

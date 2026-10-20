@@ -23,6 +23,7 @@ public class RanglisteRepository(TurnierverwaltungDbContext context)
             .Include(r => r.Eintraege.OrderBy(e => e.Rang))
                 .ThenInclude(e => e.Mannschaft)
                     .ThenInclude(m => m.Land)
+            .Include(r => r.Abschnitte)
             .AsSplitQuery()
             .FirstOrDefaultAsync(r => r.Id == id, ct);
 

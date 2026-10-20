@@ -152,6 +152,13 @@ public partial class RanglistenEintraegeViewModel : ObservableObject
         }
     }
 
+    /// <summary>Geänderte Abschnitte der Ligapyramide: nur die Trennbänder nachziehen, keine Änderung der Liste.</summary>
+    public void AbschnitteSetzen(IReadOnlyList<AbschnittsZeile> abschnitte)
+    {
+        _abschnitte = abschnitte;
+        AktualisiereRaenge();
+    }
+
     // Meldet Inline-Änderungen (Punkte) als Änderung der Rangliste.
     private void OnEintragGeaendert(object? sender, PropertyChangedEventArgs e)
     {
