@@ -2,7 +2,8 @@
 <UserControl
     x:Class="Fussballturnierverwaltung.WinUi.Views.RanglistenPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:views="using:Fussballturnierverwaltung.WinUi.Views">
 
     <!-- Spaltenaufteilung wie Reiter „Quellen“ (#477): Liste | Formular | Meldungsspalte -->
     <Grid ColumnDefinitions="2.4*,1,5.7*,1,1.9*">
@@ -28,7 +29,7 @@
                         <StackPanel Padding="0,4">
                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="{Binding Datum}" FontSize="10" Opacity="0.6" />
+                                <TextBlock Text="{Binding Datum, Converter={StaticResource DatumZuText}}" FontSize="10" Opacity="0.6" />
                                 <TextBlock FontSize="10" Opacity="0.6">
                                     <Run Text="{Binding Eintraege.Count}" /><Run Text=" Einträge" />
                                 </TextBlock>
@@ -47,7 +48,9 @@
 
         <Rectangle Grid.Column="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Width="1" />
 
-        <!-- ── Formular ── -->
+        <!-- ── Formular (#477): Grunddaten und Ligapyramide oben fest, darunter die Eintragsliste als Hauptfläche ──
+             Kein äußerer ScrollViewer: nur die Liste scrollt, die Werkzeugleiste darüber bleibt stehen (und die
+             ListView virtualisiert, auch bei Hunderten Einträgen). -->
         <Grid Grid.Column="2">
 
             <StackPanel Visibility="{Binding FormularAktiv, Converter={StaticResource InverseBoolToVisibility}}"
@@ -57,119 +60,150 @@
                 <TextBlock Text="&quot;Neu&quot; in der Befehlsleiste klicken" FontSize="14" HorizontalAlignment="Center" />
             </StackPanel>
 
-            <ScrollViewer Visibility="{Binding FormularAktiv, Converter={StaticResource BoolToVisibility}}"
-                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Margin="28,20,28,28" HorizontalAlignment="Stretch">
+            <Grid Visibility="{Binding FormularAktiv, Converter={StaticResource BoolToVisibility}}"
+                  RowDefinitions="Auto,Auto,Auto,*" Margin="28,20,28,16">
 
-                    <!-- BASISDATEN -->
-                    <TextBlock Text="BASISDATEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
+                <!-- ── Grunddaten ── -->
+                <TextBlock Text="GRUNDDATEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
 
-                    <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
-                    <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             HorizontalAlignment="Stretch" Margin="0,0,0,12" />
+                <Grid Grid.Row="1" ColumnDefinitions="*,16,Auto" RowDefinitions="Auto,12,Auto" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
+                        <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                    <!-- Deutsches Format und deutscher Kalender (Monatsnamen, Woche ab Montag) unabhängig von der
+                         Systemsprache. -->
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Datum" FontSize="12" Margin="0,0,0,3" />
+                        <CalendarDatePicker Date="{Binding Datum, Mode=TwoWay}" Width="160"
+                                            Language="de-DE" FirstDayOfWeek="Monday"
+                                            DateFormat="{}{day.integer(2)}.{month.integer(2)}.{year.full}"
+                                            PlaceholderText="TT.MM.JJJJ" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="2" Grid.ColumnSpan="3">
+                        <TextBlock Text="Quelle" FontSize="12" Margin="0,0,0,3" />
+                        <TextBox Text="{Binding Quelle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                </Grid>
 
-                    <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
-                        <StackPanel HorizontalAlignment="Stretch">
-                            <TextBlock Text="Datum (JJJJ-MM-TT)" FontSize="12" Margin="0,0,0,3" />
-                            <TextBox Text="{Binding Datum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     HorizontalAlignment="Stretch" />
+                <!-- ── Ligapyramide (aufklappbar, #393) ── -->
+                <Expander Grid.Row="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,16"
+                          IsExpanded="{Binding LigapyramideOffen, Mode=TwoWay}"
+                          Header="{Binding LigapyramideKopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
+                    <StackPanel>
+                        <TextBlock Text="Profigrenze (Spielklasse)" FontSize="12" Margin="0,0,0,3" />
+                        <NumberBox Value="{Binding Profigrenze, Mode=TwoWay}"
+                                   Minimum="1" SmallChange="1" SpinButtonPlacementMode="Compact"
+                                   PlaceholderText="keine" HorizontalAlignment="Left" Width="160" />
+                        <TextBlock Text="Für „Heimrecht für Unterklassige“: Ein Team unterhalb dieser Spielklasse hat gegen ein Team bis zu ihr Heimrecht (DFB-Pokal: 2). Leer = strikt die tiefere Klasse (Copa del Rey). Wirkt nur mit Liga-Abschnitten."
+                                   FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,4,0,12" />
+
+                        <StackPanel Visibility="{Binding HatAbschnitte, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Abschnitte" FontSize="12" Margin="0,0,0,3" />
+                            <ItemsControl ItemsSource="{Binding Abschnitte}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Anzeige}" FontSize="12" Margin="0,1" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="Nur zur Ansicht – die Abschnitte lassen sich derzeit noch nicht bearbeiten."
+                                       FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,4,0,0" />
                         </StackPanel>
-                        <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
-                            <TextBlock Text="Quelle" FontSize="12" Margin="0,0,0,3" />
-                            <TextBox Text="{Binding Quelle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                </Expander>
+
+                <!-- ── Einträge ── -->
+                <Grid Grid.Row="3" DataContext="{Binding Eintragsliste}" RowDefinitions="Auto,Auto,Auto,*">
+
+                    <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,8">
+                        <TextBlock Text="{Binding EintraegeUeberschrift}" FontWeight="SemiBold" FontSize="11" Opacity="0.6"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding MarkierungText}" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Hinzufügen: hinter dem letzten markierten Eintrag, sonst am Ende -->
+                    <Grid Grid.Row="1" ColumnDefinitions="*,8,200" Margin="0,0,0,8">
+                        <views:MannschaftsAuswahlBox DataContext="{Binding Hinzufuegen}"
+                                                     PlaceholderText="Mannschaft hinzufügen …" />
+                        <ComboBox Grid.Column="2" ItemsSource="{Binding VerbandFilterOptionen}"
+                                  SelectedItem="{Binding MannschaftVerbandFilterAuswahl, Mode=TwoWay}"
+                                  DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch"
+                                  ToolTipService.ToolTip="Auswahl zum Hinzufügen auf einen Verband beschränken" />
+                    </Grid>
+
+                    <!-- Aktionen für die markierten Einträge (Strg/Umschalt + Klick markiert mehrere) und Suche -->
+                    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Button Command="{Binding EintraegeHochCommand}" ToolTipService.ToolTip="Markierte einen Platz nach oben">
+                                <FontIcon Glyph="&#xE70E;" FontSize="14" />
+                            </Button>
+                            <Button Command="{Binding EintraegeRunterCommand}" ToolTipService.ToolTip="Markierte einen Platz nach unten">
+                                <FontIcon Glyph="&#xE70D;" FontSize="14" />
+                            </Button>
+                            <NumberBox Value="{Binding ZielRang, Mode=TwoWay}" Minimum="1" PlaceholderText="Rang"
+                                       Width="90" Margin="12,0,0,0"
+                                       ToolTipService.ToolTip="Zielrang für die markierten Einträge" />
+                            <Button Content="Auf Rang verschieben" Command="{Binding AufRangVerschiebenCommand}" />
+                            <Button Content="Entfernen" Command="{Binding EintraegeEntfernenCommand}" Margin="12,0,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="kein Treffer" FontSize="11" Opacity="0.6" VerticalAlignment="Center"
+                                       Visibility="{Binding SucheOhneTreffer, Converter={StaticResource BoolToVisibility}}" />
+                            <TextBox Text="{Binding SuchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     PlaceholderText="🔍  In Liste suchen …" Width="220"
+                                     KeyDown="Suche_KeyDown"
+                                     ToolTipService.ToolTip="Springt zum Treffer; Enter = nächster Treffer" />
                         </StackPanel>
                     </Grid>
 
-                    <!-- LIGAPYRAMIDE (#393): Profigrenze pflegbar, Abschnitte nur zur Ansicht -->
-                    <TextBlock Text="Profigrenze (Spielklasse)" FontSize="12" Margin="0,0,0,3" />
-                    <NumberBox Value="{Binding Profigrenze, Mode=TwoWay}"
-                               Minimum="1" SmallChange="1" SpinButtonPlacementMode="Compact"
-                               PlaceholderText="keine" HorizontalAlignment="Left" Width="160" />
-                    <TextBlock Text="Für „Heimrecht für Unterklassige“: Ein Team unterhalb dieser Spielklasse hat gegen ein Team bis zu ihr Heimrecht (DFB-Pokal: 2). Leer = strikt die tiefere Klasse (Copa del Rey). Wirkt nur mit Liga-Abschnitten."
-                               FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,4,0,12" />
-
-                    <StackPanel Visibility="{Binding HatAbschnitte, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,12">
-                        <TextBlock Text="LIGA-ABSCHNITTE" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,4" />
-                        <ItemsControl ItemsSource="{Binding Abschnitte}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Anzeige}" FontSize="12" Margin="0,1" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock Text="Nur zur Ansicht – die Abschnitte lassen sich derzeit noch nicht bearbeiten."
-                                   FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,4,0,0" />
-                    </StackPanel>
-                    <Border Height="12" />
-
-                    <!-- EINTRÄGE -->
-                    <StackPanel DataContext="{Binding Eintragsliste}">
-                    <TextBlock Text="{Binding EintraegeUeberschrift}" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,4" />
-                    <TextBlock Text="Rang ergibt sich aus der Reihenfolge (per Hoch/Runter anpassbar). Punkte sind optional und rein informativ (z.B. FIFA-Punkte) — für Sortierung/Lostopf-Zuordnung zählt nur der Rang."
-                               FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,8" />
-
-                    <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                            CornerRadius="4" Padding="8" Margin="0,0,0,24">
-                        <StackPanel Spacing="6">
-
-                            <Grid Padding="4,0" ColumnDefinitions="44,28,*,80">
+                    <Border Grid.Row="3" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                            CornerRadius="4">
+                        <Grid RowDefinitions="Auto,*">
+                            <Grid Padding="16,6" ColumnDefinitions="44,28,*,80"
+                                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
                                 <TextBlock Grid.Column="0" Text="Rang" FontSize="11" FontWeight="SemiBold" Opacity="0.6" />
                                 <TextBlock Grid.Column="2" Text="Mannschaft" FontSize="11" FontWeight="SemiBold" Opacity="0.6" />
-                                <TextBlock Grid.Column="3" Text="Punkte" FontSize="11" FontWeight="SemiBold" Opacity="0.6" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="3" Text="Punkte" FontSize="11" FontWeight="SemiBold" Opacity="0.6"
+                                           HorizontalAlignment="Right" />
                             </Grid>
 
-                            <ListView ItemsSource="{Binding Eintraege}"
-                                      SelectedItem="{Binding AusgewaehlterEintrag, Mode=TwoWay}"
-                                      Height="220" SelectionMode="Single">
+                            <ListView x:Name="EintraegeListe" Grid.Row="1"
+                                      ItemsSource="{Binding Eintraege}"
+                                      SelectionMode="Extended"
+                                      CanReorderItems="True" AllowDrop="True"
+                                      SelectionChanged="EintraegeListe_SelectionChanged">
                                 <ListView.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid Padding="0,2" ColumnDefinitions="44,28,*,80">
-                                            <TextBlock Grid.Column="0" Text="{Binding Rang}" VerticalAlignment="Center" />
-                                            <Grid Grid.Column="1" Width="20" Height="20">
-                                                <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                                       Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
-                                                       Stretch="Uniform" />
-                                                <TextBlock Text="🏳" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                           Opacity="0.35"
-                                                           Visibility="{Binding Wappen, Converter={StaticResource NullToVisible}}" />
+                                        <StackPanel>
+                                            <!-- Abschnittsgrenze der Ligapyramide -->
+                                            <TextBlock Text="{Binding AbschnittBeginn}" FontSize="11" FontWeight="SemiBold"
+                                                       Opacity="0.6" Margin="0,6,0,2"
+                                                       Visibility="{Binding AbschnittBeginn, Converter={StaticResource NullToCollapsed}}" />
+                                            <Grid Padding="0,2" ColumnDefinitions="44,28,*,80">
+                                                <TextBlock Grid.Column="0" Text="{Binding Rang}" VerticalAlignment="Center" />
+                                                <Grid Grid.Column="1" Width="20" Height="20">
+                                                    <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                                           Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
+                                                           Stretch="Uniform" />
+                                                    <TextBlock Text="🏳" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Opacity="0.35"
+                                                               Visibility="{Binding Wappen, Converter={StaticResource NullToVisible}}" />
+                                                </Grid>
+                                                <TextBlock Grid.Column="2" Text="{Binding Mannschaft.Name}" VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBox Grid.Column="3" Text="{Binding Punkte, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
+                                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Right"
+                                                         ToolTipService.ToolTip="Optionaler Zusatzwert (z.B. FIFA-Punkte). Rein informativ." />
                                             </Grid>
-                                            <TextBlock Grid.Column="2" Text="{Binding Mannschaft.Name}" VerticalAlignment="Center"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <TextBox Grid.Column="3" Text="{Binding Punkte, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
-                                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Right"
-                                                     ToolTipService.ToolTip="Optionaler Zusatzwert (z.B. FIFA-Punkte). Rein informativ." />
-                                        </Grid>
+                                        </StackPanel>
                                     </DataTemplate>
                                 </ListView.ItemTemplate>
                             </ListView>
-
-                            <!-- Team-Auswahl: Suchfeld + Verband-Filter, dann Auswahl -->
-                            <Grid ColumnDefinitions="*,8,*">
-                                <TextBox Grid.Column="0" Text="{Binding MannschaftSuchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                         PlaceholderText="🔍  Suche…" />
-                                <ComboBox Grid.Column="2" ItemsSource="{Binding VerbandFilterOptionen}"
-                                          SelectedItem="{Binding MannschaftVerbandFilterAuswahl, Mode=TwoWay}"
-                                          DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
-                            </Grid>
-                            <Grid ColumnDefinitions="*,8,Auto">
-                                <ComboBox ItemsSource="{Binding VerfuegbareMannschaftenGefiltert}"
-                                          SelectedItem="{Binding NeueMannschaft, Mode=TwoWay}"
-                                          DisplayMemberPath="Name" HorizontalAlignment="Stretch" />
-                                <Button Grid.Column="2" Content="Hinzufügen" Command="{Binding EintragHinzufuegenCommand}" />
-                            </Grid>
-
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4">
-                                <Button Content="↑" Command="{Binding EintragHochCommand}" ToolTipService.ToolTip="Nach oben" />
-                                <Button Content="↓" Command="{Binding EintragRunterCommand}" ToolTipService.ToolTip="Nach unten" />
-                                <Button Content="Entfernen" Command="{Binding EintragEntfernenCommand}" />
-                            </StackPanel>
-                        </StackPanel>
+                        </Grid>
                     </Border>
-                    </StackPanel>
-
-                </StackPanel>
-            </ScrollViewer>
+                </Grid>
+            </Grid>
         </Grid>
 
         <Rectangle Grid.Column="3" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Width="1" />
@@ -183,6 +217,9 @@
                     <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                FontSize="11" TextWrapping="Wrap" />
                 </Border>
+                <TextBlock Visibility="{Binding FormularAktiv, Converter={StaticResource BoolToVisibility}}"
+                           Text="Der Rang ergibt sich aus der Reihenfolge. Punkte sind optional und rein informativ (z. B. FIFA-Punkte) – für Sortierung und Lostöpfe zählt nur der Rang."
+                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
             </StackPanel>
         </ScrollViewer>
     </Grid>
