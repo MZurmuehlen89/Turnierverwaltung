@@ -24,7 +24,17 @@ public partial class TabellenBereicheViewModel : ObservableObject
         Zeilen.Clear();
         foreach (var bereich in zeile?.TabellenBereiche ?? [])
             Zeilen.Add(NeueZeile(bereich));
+        Offen = Zeilen.Count > 0;
+        OnPropertyChanged(nameof(Kopf));
     }
+
+    // ── Aufklappbarer Bereich (Issue #476) ────────────────────────────────────
+    [ObservableProperty] private bool _offen;
+
+    // Bis zu drei Bereiche stehen ausgeschrieben in der Kopfzeile, darüber nur ihre Anzahl.
+    public AbschnittKopf Kopf => AbschnittKopf.Aus("TABELLENBEREICHE",
+        Zeilen.Count <= 3 ? Zeilen.Select(z => z.Kurzfassung) : [$"{Zeilen.Count} Bereiche"],
+        "keine");
 
     [RelayCommand]
     private void Hinzufuegen()
@@ -56,6 +66,7 @@ public partial class TabellenBereicheViewModel : ObservableObject
     private void InZeileSchreiben()
     {
         if (_zeile is null) return;
+        OnPropertyChanged(nameof(Kopf));
         // Auch die Wiederherstellung nach dem ComboBox-Reset meldet eine Änderung — ohne neuen Wert keine Meldung.
         List<TabellenBereichEingabe> bereiche = [.. Zeilen.Select(z => z.ZuEingabe())];
         if (bereiche.SequenceEqual(_zeile.TabellenBereiche)) return;
@@ -109,6 +120,11 @@ public partial class TabellenBereichZeile : ObservableObject
     }
 
     public TabellenBereichEingabe ZuEingabe() => new(PlatzVon, PlatzBis, _art.Wert, Bezeichnung);
+
+    /// <summary>Für die Kopfzeile des Bereichs: „1–4 Champions League“, ohne Bezeichnung die Art.</summary>
+    public string Kurzfassung =>
+        $"{(PlatzVon == PlatzBis ? $"{PlatzVon}" : $"{PlatzVon}–{PlatzBis}")} " +
+        $"{(string.IsNullOrWhiteSpace(Bezeichnung) ? _art.Anzeige : Bezeichnung.Trim())}";
 }
 
 /// <summary>Option der Art-ComboBox eines Tabellenbereichs — feste Instanzen, weil die ComboBox per Referenz

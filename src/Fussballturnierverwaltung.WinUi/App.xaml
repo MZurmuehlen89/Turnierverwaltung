@@ -44,6 +44,18 @@
             <conv:NullableIntZuTextConverter x:Key="NullableIntZuText" />
             <conv:MannschaftZuWappenConverter x:Key="MannschaftZuWappen" />
             <conv:MannschaftHatWappenConverter x:Key="MannschaftHatWappen" />
+
+            <!-- Kopfzeile der aufklappbaren Bereiche (Turnierkopf #399, Runden #476): Titel plus Kurzfassung des
+                 Inhalts, damit auch zugeklappt erkennbar bleibt, ob etwas festgelegt ist. Header + HeaderTemplate
+                 statt ContentPresenter im Header (siehe #341). -->
+            <DataTemplate x:Key="AbschnittKopfVorlage">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <TextBlock Text="{Binding Titel}" FontWeight="SemiBold" FontSize="11" Opacity="0.6"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Zusammenfassung}" FontSize="12" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

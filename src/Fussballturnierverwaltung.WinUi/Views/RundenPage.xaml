@@ -95,7 +95,7 @@
 
         <ContentControl Grid.Row="1" IsEnabled="{Binding RundenBearbeitbar}" IsTabStop="False"
                         HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-        <Grid ColumnDefinitions="260,1,3*,1,1.4*">
+        <Grid ColumnDefinitions="260,1,3*,1,1*">
 
             <!-- ── Spalte 0: Rundenliste (inkl. Unstimmigkeits-Hinweis, #348 aus dem früheren Übergänge-Reiter) ── -->
             <Grid Grid.Column="0" RowDefinitions="Auto,*">
@@ -125,7 +125,8 @@
 
             <Rectangle Grid.Column="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Width="1" />
 
-            <!-- ── Spalte 2: Rundenformular (oben) + Übergangsregeln der Runde (unten, #348) ── -->
+            <!-- ── Spalte 2: Rundendetails (#476): Grunddaten und Spielmodus fest, Auslosung, Tabellenbereiche und
+                 Übergänge (#348) aufklappbar ── -->
             <Grid Grid.Column="2">
                 <StackPanel Visibility="{Binding FormularSichtbar, Converter={StaticResource InverseBoolToVisibility}}"
                             VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.4">
@@ -138,14 +139,16 @@
                               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="28,20,28,28" HorizontalAlignment="Stretch">
 
-                        <TextBlock Text="RUNDENDETAILS" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
+                        <!-- ── Grunddaten ──────────────────────────────────────────────── -->
+                        <TextBlock Text="GRUNDDATEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
 
-                        <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
-                        <TextBox Text="{Binding Formular.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 HorizontalAlignment="Stretch" Margin="0,0,0,12" />
-
-                        <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
+                        <Grid Margin="0,0,0,12" ColumnDefinitions="2*,16,*">
                             <StackPanel HorizontalAlignment="Stretch">
+                                <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
+                                <TextBox Text="{Binding Formular.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         HorizontalAlignment="Stretch" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
                                 <TextBlock Text="Rundenart" FontSize="12" Margin="0,0,0,3" />
                                 <ComboBox ItemsSource="{Binding Formular.RundenartOptionen}"
                                           SelectedItem="{Binding Formular.RundenartAuswahl, Mode=TwoWay}"
@@ -157,38 +160,9 @@
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
                             </StackPanel>
-                            <StackPanel Grid.Column="2" HorizontalAlignment="Stretch"
-                                        Visibility="{Binding Formular.IstGruppenphase, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="Gruppenanzahl" FontSize="12" Margin="0,0,0,3" />
-                                <TextBox Text="{Binding Formular.GruppenAnzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
-                                         HorizontalAlignment="Stretch" />
-                                <ItemsRepeater ItemsSource="{Binding Formular.GruppenAnzahlVorschlaege}" Margin="0,4,0,0"
-                                               Visibility="{Binding Formular.HatGruppenAnzahlVorschlaege, Converter={StaticResource BoolToVisibility}}">
-                                    <ItemsRepeater.Layout>
-                                        <UniformGridLayout Orientation="Horizontal" MinRowSpacing="4" MinColumnSpacing="4"
-                                                            ItemsJustification="Start" />
-                                    </ItemsRepeater.Layout>
-                                    <ItemsRepeater.ItemTemplate>
-                                        <DataTemplate>
-                                            <Button Content="{Binding Anzeige}"
-                                                    Command="{Binding ElementName=Root, Path=DataContext.Formular.GruppenAnzahlVorschlagWaehlenCommand}"
-                                                    CommandParameter="{Binding}" FontSize="11" Padding="8,3" />
-                                        </DataTemplate>
-                                    </ItemsRepeater.ItemTemplate>
-                                </ItemsRepeater>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" HorizontalAlignment="Stretch"
-                                        Visibility="{Binding Formular.IstSchweizerSystem, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="Anzahl Spieltage" FontSize="12" Margin="0,0,0,3" />
-                                <TextBox Text="{Binding Formular.AnzahlSpieltage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
-                                         HorizontalAlignment="Stretch" />
-                                <TextBlock FontSize="11" Opacity="0.6" Margin="0,3,0,0">
-                                    <Run Text="Vorschlag: " /><Run Text="{Binding Formular.AnzahlSpieltageVorschlag}" />
-                                </TextBlock>
-                            </StackPanel>
                         </Grid>
 
-                        <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
+                        <Grid Margin="0,0,0,24" ColumnDefinitions="*,16,*,16,*">
                             <StackPanel HorizontalAlignment="Stretch">
                                 <TextBlock Text="Eingang (Mannschaften)" FontSize="12" Margin="0,0,0,3" />
                                 <TextBox Text="{Binding Formular.EingangsMannschaftsanzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -199,105 +173,41 @@
                                 <TextBox Text="{Binding Formular.AusgangsMannschaftsanzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                          HorizontalAlignment="Stretch" />
                             </StackPanel>
+                            <StackPanel Grid.Column="4" HorizontalAlignment="Stretch"
+                                        Visibility="{Binding Formular.IstGruppenphase, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Gruppenanzahl" FontSize="12" Margin="0,0,0,3" />
+                                <!-- #476: Vorschläge als Menü neben dem Feld statt als Knopfreihe darunter – die Zeile bleibt
+                                     bei jeder Rundenart gleich hoch, nichts springt beim Wechsel -->
+                                <Grid ColumnDefinitions="*,8,Auto">
+                                    <TextBox Text="{Binding Formular.GruppenAnzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
+                                             HorizontalAlignment="Stretch" />
+                                    <DropDownButton Grid.Column="2" Content="Vorschläge"
+                                                    IsEnabled="{Binding Formular.HatGruppenAnzahlVorschlaege}"
+                                                    ToolTipService.ToolTip="Gruppenanzahl × Gruppengröße, die zum Eingang passen">
+                                        <DropDownButton.Flyout>
+                                            <MenuFlyout Placement="BottomEdgeAlignedRight" Opening="GruppenAnzahlVorschlaege_Opening" />
+                                        </DropDownButton.Flyout>
+                                    </DropDownButton>
+                                </Grid>
+                            </StackPanel>
+                            <StackPanel Grid.Column="4" HorizontalAlignment="Stretch"
+                                        Visibility="{Binding Formular.IstSchweizerSystem, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Anzahl Spieltage" FontSize="12" Margin="0,0,0,3" />
+                                <TextBox Text="{Binding Formular.AnzahlSpieltage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
+                                         PlaceholderText="{Binding Formular.AnzahlSpieltagePlatzhalter}"
+                                         HorizontalAlignment="Stretch" />
+                            </StackPanel>
                         </Grid>
 
-                        <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
+                        <!-- ── Spielmodus ──────────────────────────────────────────────── -->
+                        <TextBlock Text="SPIELMODUS" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
+
+                        <Grid Margin="0,0,0,24" ColumnDefinitions="*,16,*">
                             <StackPanel HorizontalAlignment="Stretch">
                                 <TextBlock Text="Regelwerk" FontSize="12" Margin="0,0,0,3" />
                                 <ComboBox ItemsSource="{Binding Formular.RegelwerkOptionen}"
                                           SelectedItem="{Binding Formular.Regelwerk, Mode=TwoWay}"
                                           DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
-                                <TextBlock Text="Auslosungsart (Vorgabe)" FontSize="12" Margin="0,0,0,3" />
-                                <ComboBox ItemsSource="{Binding Formular.VorgegebeneAuslosungsartOptionen}"
-                                          SelectedItem="{Binding Formular.VorgegebeneAuslosungsart, Mode=TwoWay}"
-                                          DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
-                                <TextBlock Text="Wird beim Anlegen der Auslosung vorausgewählt und bleibt dort änderbar."
-                                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0" />
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Issue #475: Position in der Gruppe, nur bei Gruppenphase wählbar -->
-                        <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
-                            <StackPanel Grid.Column="2" HorizontalAlignment="Stretch" DataContext="{Binding Formular.VorgegebeneGruppenposition}">
-                                <TextBlock Text="Position in der Gruppe (Vorgabe)" FontSize="12" Margin="0,0,0,3" />
-                                <ComboBox ItemsSource="{Binding Optionen}"
-                                          SelectedItem="{Binding Ausgewaehlt, Mode=TwoWay}"
-                                          DisplayMemberPath="Anzeige"
-                                          IsEnabled="{Binding IstWaehlbar}"
-                                          HorizontalAlignment="Stretch" />
-                                <TextBlock Text="{Binding SperrGrund}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0"
-                                           Visibility="{Binding SperrGrund, Converter={StaticResource NullToCollapsed}}" />
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Issue #487: feste Gruppenköpfe. Sichtbarkeit am äußeren Element, der eigene DataContext innen -->
-                        <StackPanel Margin="0,0,0,12" Visibility="{Binding Formular.IstGruppenphase, Converter={StaticResource BoolToVisibility}}">
-                            <StackPanel DataContext="{Binding Formular.Gruppenkoepfe}">
-                                <Grid ColumnDefinitions="*,16,*">
-                                    <StackPanel>
-                                        <TextBlock Text="Gastgeber als Gruppenköpfe (Gruppen)" FontSize="12" Margin="0,0,0,3" />
-                                        <TextBox Text="{Binding GastgeberText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                 PlaceholderText="z. B. A oder A, B, D" HorizontalAlignment="Stretch" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Titelverteidiger als Gruppenkopf (Gruppe)" FontSize="12" Margin="0,0,0,3" />
-                                        <TextBox Text="{Binding TitelverteidigerText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                 PlaceholderText="z. B. A" HorizontalAlignment="Stretch" />
-                                    </StackPanel>
-                                </Grid>
-                                <TextBlock Text="Führen diese Gruppen auf Position 1 an und kommen beim automatischen Befüllen in Topf 1. Mehrere Gastgeber in der Reihenfolge der Gastgeberliste des Turniers. Leer = kein fester Gruppenkopf."
-                                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0" />
-                                <TextBlock Text="{Binding Fehler}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"
-                                           Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                           Visibility="{Binding Fehler, Converter={StaticResource NullToCollapsed}}" />
-                            </StackPanel>
-                        </StackPanel>
-
-                        <!-- Issue #356: nur Regeln, die bei Rundenart und Auslosungsart dieser Runde wirken können -->
-                        <StackPanel Margin="0,0,0,12"
-                                    Visibility="{Binding Formular.HatRegelVorgabeOptionen, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Auslosungsregeln (Vorgabe)" FontSize="12" Margin="0,0,0,3" />
-                            <ItemsControl ItemsSource="{Binding Formular.RegelVorgabeOptionen}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <CheckBox Content="{Binding Anzeige}" IsChecked="{Binding IstAktiv, Mode=TwoWay}"
-                                                  ToolTipService.ToolTip="{Binding Beschreibung}"
-                                                  Visibility="{Binding IstVerfuegbar, Converter={StaticResource BoolToVisibility}}" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock Text="Sind beim Anlegen der Auslosung bereits aktiv und bleiben dort abwählbar."
-                                       FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0" />
-                        </StackPanel>
-
-                        <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
-                            <StackPanel HorizontalAlignment="Stretch">
-                                <TextBlock Text="Standard-Rangliste (Lostöpfe, Koeffizient, Spielklasse)" FontSize="12" Margin="0,0,0,3" />
-                                <ComboBox ItemsSource="{Binding Formular.StandardRanglistenOptionen}"
-                                          SelectedItem="{Binding Formular.StandardRangliste, Mode=TwoWay}"
-                                          DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
-                                <TextBlock Text="Beim Anlegen der Auslosung werden die Lostöpfe nach dieser Rangliste befüllt. Nach derselben Rangliste entscheiden das Rangfolge-Kriterium „Koeffizient (Rangliste)“ und – über ihre Abschnitte – „Heimrecht für Unterklassige“."
-                                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" VerticalAlignment="Bottom">
-                                <CheckBox Content="Titelverteidiger in Topf 1" IsChecked="{Binding Formular.TitelverteidigerInTopf1, Mode=TwoWay}"
-                                          IsEnabled="{Binding Formular.TitelverteidigerInTopf1Aktivierbar}" Margin="0,0,0,4" />
-                                <TextBlock Text="Unabhängig vom Ranglistenplatz (Titelverteidiger im Turnierkopf hinterlegen)."
-                                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="28,0,0,0" />
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,8" ColumnDefinitions="*,16,*">
-                            <StackPanel>
-                                <CheckBox Content="Mit Rückspiel" IsChecked="{Binding Formular.MitRueckspiel, Mode=TwoWay}" Margin="0,0,0,4" />
-                                <CheckBox Content="Auswärtstorregel aktiv" IsChecked="{Binding Formular.AuswaertstorRegelAktiv, Mode=TwoWay}"
-                                          IsEnabled="{Binding Formular.AuswaertstorAktivierbar}" Margin="16,0,0,4" />
-                                <!-- Issue #352 -->
-                                <CheckBox Content="Neutraler Spielort" IsChecked="{Binding Formular.NeutralerSpielort, Mode=TwoWay}" Margin="0,8,0,4" />
-                                <TextBlock Text="Kein Heimvorteil in der Simulation, außer für Gastgeber des Turniers (im Turnierkopf hinterlegen)."
-                                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="28,0,0,0" />
                                 <!-- Issue #360 -->
                                 <Grid Margin="0,12,0,0" ColumnDefinitions="*,48">
                                     <Slider Header="Überraschungsfaktor" Value="{Binding Formular.Ueberraschungsfaktor, Mode=TwoWay}"
@@ -309,112 +219,218 @@
                                 <TextBlock Text="Dämpft in der Simulation den Einfluss der Stärkeunterschiede – „Pokal hat eigene Gesetze“. 0 % = normal, 100 % = Stärke egal."
                                            FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
                             </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <CheckBox Content="Paarung fest vorgegeben" IsChecked="{Binding Formular.PaarungFestVorgegeben, Mode=TwoWay}"
-                                          IsEnabled="{Binding PaarungFestVorgegebenVerfuegbar}" Margin="0,0,0,4" />
-                                <TextBlock Text="Erst verfügbar, sobald die Runde eine eingehende Übergangsregel hat (siehe unten)."
-                                           Visibility="{Binding PaarungFestVorgegebenVerfuegbar, Converter={StaticResource InverseBoolToVisibility}}"
+                            <StackPanel Grid.Column="2" Margin="0,22,0,0">
+                                <CheckBox Content="Mit Rückspiel" IsChecked="{Binding Formular.MitRueckspiel, Mode=TwoWay}" Margin="0,0,0,4" />
+                                <!-- Nur bei K.o.-Rundenarten (AD-001); ohne Rückspiel ausgegraut, weil direkt davon abhängig -->
+                                <CheckBox Content="Auswärtstorregel aktiv" IsChecked="{Binding Formular.AuswaertstorRegelAktiv, Mode=TwoWay}"
+                                          IsEnabled="{Binding Formular.AuswaertstorAktivierbar}" Margin="16,0,0,4"
+                                          Visibility="{Binding Formular.IstKoRundenart, Converter={StaticResource BoolToVisibility}}" />
+                                <!-- Issue #352 -->
+                                <CheckBox Content="Neutraler Spielort" IsChecked="{Binding Formular.NeutralerSpielort, Mode=TwoWay}" Margin="0,8,0,4" />
+                                <TextBlock Text="Kein Heimvorteil in der Simulation, außer für Gastgeber des Turniers (im Turnierkopf hinterlegen)."
                                            FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="28,0,0,0" />
                             </StackPanel>
                         </Grid>
 
-                        <!-- ── Tabellenbereiche (#420): Plätze ohne Folgerunde im Turnier, nur bei Runden mit Tabelle ── -->
-                        <StackPanel Margin="0,12,0,0" DataContext="{Binding Formular.TabellenBereiche}"
-                                    Visibility="{Binding ElementName=Root, Path=DataContext.Formular.HatTabelle, Converter={StaticResource BoolToVisibility}}">
-                            <Grid Margin="0,0,0,4" ColumnDefinitions="*,Auto">
-                                <TextBlock Text="TABELLENBEREICHE" FontWeight="SemiBold" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
-                                <Button Grid.Column="1" Content="+ Neu" FontSize="11" Command="{Binding HinzufuegenCommand}" />
-                            </Grid>
-                            <TextBlock Text="Plätze ohne Folgerunde in diesem Turnier, z. B. Europapokal, Relegation, Abstieg – als farbige Zonen in der Tabelle. Plätze mit Übergangsregel zeigen deren Zone."
-                                       FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,6" />
-                            <ItemsControl ItemsSource="{Binding Zeilen}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="0,0,0,4" ColumnSpacing="6" ColumnDefinitions="56,Auto,56,140,*,Auto">
-                                            <TextBox Text="{Binding PlatzVon, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                     ToolTipService.ToolTip="Platz von" />
-                                            <TextBlock Grid.Column="1" Text="–" VerticalAlignment="Center" />
-                                            <TextBox Grid.Column="2" Text="{Binding PlatzBis, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                     ToolTipService.ToolTip="Platz bis" />
-                                            <ComboBox Grid.Column="3" ItemsSource="{Binding ArtOptionen}"
-                                                      SelectedItem="{Binding Art, Mode=TwoWay}"
-                                                      DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
-                                            <TextBox Grid.Column="4" Text="{Binding Bezeichnung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                     PlaceholderText="Bezeichnung, z. B. Champions League" />
-                                            <Button Grid.Column="5" Content="✕" FontSize="11" ToolTipService.ToolTip="Bereich entfernen"
-                                                    Command="{Binding ElementName=Root, Path=DataContext.Formular.TabellenBereiche.EntfernenCommand}"
-                                                    CommandParameter="{Binding}" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
+                        <!-- ── Auslosung (aufklappbar) ─────────────────────────────────── -->
+                        <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,8"
+                                  IsExpanded="{Binding Formular.AuslosungOffen, Mode=TwoWay}"
+                                  Header="{Binding Formular.AuslosungKopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
+                            <StackPanel>
+                                <!-- Steht oben, weil es die Auslosung ersetzt (Vorbelegung, #277/#297) -->
+                                <CheckBox Content="Paarung fest vorgegeben" IsChecked="{Binding Formular.PaarungFestVorgegeben, Mode=TwoWay}"
+                                          IsEnabled="{Binding PaarungFestVorgegebenVerfuegbar}" Margin="0,0,0,4" />
+                                <TextBlock Text="Erst verfügbar, sobald die Runde eine eingehende Übergangsregel hat (siehe Übergänge)."
+                                           Visibility="{Binding PaarungFestVorgegebenVerfuegbar, Converter={StaticResource InverseBoolToVisibility}}"
+                                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="28,0,0,0" />
 
-                        <!-- ── Übergangsregeln der gewählten Runde (#348): links Eingehend/Ausgehend, rechts EIN
-                             stabiles Regelformular (Populier-/Zurückschreib-Muster, keine editierbaren Karten —
-                             siehe #284-Datenkorruption). ── -->
-                        <Rectangle Fill="{ThemeResource CardStrokeColorDefaultBrush}" Height="1" Margin="0,12,0,16" />
-
-                        <Grid DataContext="{Binding UebergangsregelEditor}" ColumnDefinitions="*,16,1.5*">
-
-                            <StackPanel Grid.Column="0">
-                                <Grid Margin="0,0,0,8" ColumnDefinitions="*,Auto">
-                                    <TextBlock Text="EINGEHENDE REGELN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
-                                    <Button Grid.Column="1" Content="+ Neu" FontSize="11" Command="{Binding NeueEingehendeRegelCommand}" />
-                                </Grid>
-                                <ItemsControl ItemsSource="{Binding EingehendeRegeln}" ItemTemplate="{StaticResource RegelZeileTemplate}" />
-
-                                <Grid Margin="0,16,0,8" ColumnDefinitions="*,Auto">
-                                    <TextBlock Text="AUSGEHENDE REGELN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
-                                    <Button Grid.Column="1" Content="+ Neu" FontSize="11" Command="{Binding NeueAusgehendeRegelCommand}" />
-                                </Grid>
-                                <ItemsControl ItemsSource="{Binding AusgehendeRegeln}" ItemTemplate="{StaticResource RegelZeileTemplate}" />
-                            </StackPanel>
-
-                            <Border Grid.Column="2" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                                    CornerRadius="4" Padding="12" VerticalAlignment="Top">
-                                <Grid>
-                                    <TextBlock Text="Regel links auswählen oder &quot;+ Neu&quot; klicken" FontSize="12" Opacity="0.5"
-                                               TextWrapping="Wrap" HorizontalAlignment="Center" Margin="0,8"
-                                               Visibility="{Binding ZeigeRegelformular, Converter={StaticResource InverseBoolToVisibility}}" />
-
-                                    <StackPanel Visibility="{Binding ZeigeRegelformular, Converter={StaticResource BoolToVisibility}}">
-                                        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
-                                            <TextBlock Text="ÜBERGANGSREGEL" FontWeight="SemiBold" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
-                                            <Button Grid.Column="1" Content="Schließen" FontSize="11" Command="{Binding RegelFormularSchliessenCommand}" />
-                                        </Grid>
-
-                                        <TextBlock Text="Von (Quelle)" FontSize="12" Margin="0,0,0,3" />
-                                        <ComboBox ItemsSource="{Binding Runden}"
-                                                  SelectedItem="{Binding RegelQuelle, Mode=TwoWay}"
-                                                  DisplayMemberPath="Name" HorizontalAlignment="Stretch" Margin="0,0,0,12" />
-
-                                        <TextBlock Text="Nach (Ziel)" FontSize="12" Margin="0,0,0,3" />
-                                        <ComboBox ItemsSource="{Binding Runden}"
-                                                  SelectedItem="{Binding RegelZiel, Mode=TwoWay}"
-                                                  DisplayMemberPath="Name" HorizontalAlignment="Stretch" Margin="0,0,0,16" />
-
-                                        <ItemsControl ItemsSource="{Binding NormaleZeilen}" ItemTemplate="{StaticResource ZeileGruppenphaseTemplate}"
-                                                      Visibility="{Binding RegelIstGruppenphase, Converter={StaticResource BoolToVisibility}}" />
-                                        <ItemsControl ItemsSource="{Binding NormaleZeilen}" ItemTemplate="{StaticResource ZeileKoSonderfallTemplate}"
-                                                      Visibility="{Binding RegelIstKoSonderfall, Converter={StaticResource BoolToVisibility}}" />
-                                        <ItemsControl ItemsSource="{Binding NormaleZeilen}" ItemTemplate="{StaticResource ZeileLigaTemplate}"
-                                                      Visibility="{Binding RegelIstLiga, Converter={StaticResource BoolToVisibility}}" />
-
-                                        <StackPanel Margin="0,12,0,0" Visibility="{Binding RegelIstGruppenphase, Converter={StaticResource BoolToVisibility}}">
-                                            <Rectangle Fill="{ThemeResource CardStrokeColorDefaultBrush}" Height="1" Margin="0,0,0,8" />
-                                            <TextBlock Text="GRUPPENÜBERGREIFEND" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,6" />
-                                            <ItemsControl ItemsSource="{Binding GruppenuebergreifendeZeilen}" ItemTemplate="{StaticResource ZeileGruppenuebergreifendTemplate}" />
-                                            <Button Content="+ Gruppenübergreifende Regel" FontSize="11" Padding="8,4" Margin="0,6,0,0"
-                                                    HorizontalAlignment="Left" Command="{Binding NeueGruppenuebergreifendeZeileCommand}" />
+                                <Grid Margin="0,12,0,12" ColumnDefinitions="*,16,*">
+                                    <StackPanel HorizontalAlignment="Stretch">
+                                        <TextBlock Text="Auslosungsart (Vorgabe)" FontSize="12" Margin="0,0,0,3" />
+                                        <ComboBox ItemsSource="{Binding Formular.VorgegebeneAuslosungsartOptionen}"
+                                                  SelectedItem="{Binding Formular.VorgegebeneAuslosungsart, Mode=TwoWay}"
+                                                  DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Wird beim Anlegen der Auslosung vorausgewählt und bleibt dort änderbar."
+                                                   FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                    <!-- Issue #475: nur bei Gruppenphase. Sichtbarkeit am äußeren Element, der eigene DataContext innen -->
+                                    <StackPanel Grid.Column="2" HorizontalAlignment="Stretch"
+                                                Visibility="{Binding Formular.IstGruppenphase, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel DataContext="{Binding Formular.VorgegebeneGruppenposition}">
+                                            <TextBlock Text="Position in der Gruppe (Vorgabe)" FontSize="12" Margin="0,0,0,3" />
+                                            <ComboBox ItemsSource="{Binding Optionen}"
+                                                      SelectedItem="{Binding Ausgewaehlt, Mode=TwoWay}"
+                                                      DisplayMemberPath="Anzeige"
+                                                      IsEnabled="{Binding IstWaehlbar}"
+                                                      HorizontalAlignment="Stretch" />
+                                            <TextBlock Text="{Binding SperrGrund}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0"
+                                                       Visibility="{Binding SperrGrund, Converter={StaticResource NullToCollapsed}}" />
                                         </StackPanel>
-
-                                        <Button Content="Regel löschen" Command="{Binding RegelLoeschenCommand}" Margin="0,16,0,0"
-                                                HorizontalAlignment="Stretch" />
                                     </StackPanel>
                                 </Grid>
-                            </Border>
-                        </Grid>
+
+                                <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
+                                    <StackPanel HorizontalAlignment="Stretch">
+                                        <TextBlock Text="Standard-Rangliste (Lostöpfe, Koeffizient, Spielklasse)" FontSize="12" Margin="0,0,0,3" />
+                                        <ComboBox ItemsSource="{Binding Formular.StandardRanglistenOptionen}"
+                                                  SelectedItem="{Binding Formular.StandardRangliste, Mode=TwoWay}"
+                                                  DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Beim Anlegen der Auslosung werden die Lostöpfe nach dieser Rangliste befüllt. Nach derselben Rangliste entscheiden das Rangfolge-Kriterium „Koeffizient (Rangliste)“ und – über ihre Abschnitte – „Heimrecht für Unterklassige“."
+                                                   FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Margin="0,22,0,0">
+                                        <CheckBox Content="Titelverteidiger in Topf 1" IsChecked="{Binding Formular.TitelverteidigerInTopf1, Mode=TwoWay}"
+                                                  IsEnabled="{Binding Formular.TitelverteidigerInTopf1Aktivierbar}" Margin="0,0,0,4" />
+                                        <TextBlock Text="Unabhängig vom Ranglistenplatz (Titelverteidiger im Turnierkopf hinterlegen)."
+                                                   FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="28,0,0,0" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Issue #487: feste Gruppenköpfe. Sichtbarkeit am äußeren Element, der eigene DataContext innen -->
+                                <StackPanel Margin="0,0,0,12" Visibility="{Binding Formular.IstGruppenphase, Converter={StaticResource BoolToVisibility}}">
+                                    <StackPanel DataContext="{Binding Formular.Gruppenkoepfe}">
+                                        <Grid ColumnDefinitions="*,16,*">
+                                            <StackPanel>
+                                                <TextBlock Text="Gastgeber als Gruppenköpfe (Gruppen)" FontSize="12" Margin="0,0,0,3" />
+                                                <TextBox Text="{Binding GastgeberText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         PlaceholderText="z. B. A oder A, B, D" HorizontalAlignment="Stretch" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Titelverteidiger als Gruppenkopf (Gruppe)" FontSize="12" Margin="0,0,0,3" />
+                                                <TextBox Text="{Binding TitelverteidigerText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         PlaceholderText="z. B. A" HorizontalAlignment="Stretch" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <TextBlock Text="Führen diese Gruppen auf Position 1 an und kommen beim automatischen Befüllen in Topf 1. Mehrere Gastgeber in der Reihenfolge der Gastgeberliste des Turniers. Leer = kein fester Gruppenkopf."
+                                                   FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                        <TextBlock Text="{Binding Fehler}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"
+                                                   Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                   Visibility="{Binding Fehler, Converter={StaticResource NullToCollapsed}}" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Issue #356: nur Regeln, die bei Rundenart und Auslosungsart dieser Runde wirken können -->
+                                <StackPanel Visibility="{Binding Formular.HatRegelVorgabeOptionen, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="Auslosungsregeln (Vorgabe)" FontSize="12" Margin="0,0,0,3" />
+                                    <ItemsControl ItemsSource="{Binding Formular.RegelVorgabeOptionen}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox Content="{Binding Anzeige}" IsChecked="{Binding IstAktiv, Mode=TwoWay}"
+                                                          ToolTipService.ToolTip="{Binding Beschreibung}"
+                                                          Visibility="{Binding IstVerfuegbar, Converter={StaticResource BoolToVisibility}}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="Sind beim Anlegen der Auslosung bereits aktiv und bleiben dort abwählbar."
+                                               FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Expander>
+
+                        <!-- ── Tabellenbereiche (#420, aufklappbar): Plätze ohne Folgerunde, nur bei Runden mit Tabelle ── -->
+                        <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,8"
+                                  DataContext="{Binding Formular.TabellenBereiche}"
+                                  Visibility="{Binding ElementName=Root, Path=DataContext.Formular.HatTabelle, Converter={StaticResource BoolToVisibility}}"
+                                  IsExpanded="{Binding Offen, Mode=TwoWay}"
+                                  Header="{Binding Kopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,6" ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="Plätze ohne Folgerunde in diesem Turnier, z. B. Europapokal, Relegation, Abstieg – als farbige Zonen in der Tabelle. Plätze mit Übergangsregel zeigen deren Zone."
+                                               FontSize="11" Opacity="0.6" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                    <Button Grid.Column="1" Content="+ Neu" FontSize="11" Command="{Binding HinzufuegenCommand}" />
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding Zeilen}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,4" ColumnSpacing="6" ColumnDefinitions="56,Auto,56,140,*,Auto">
+                                                <TextBox Text="{Binding PlatzVon, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         ToolTipService.ToolTip="Platz von" />
+                                                <TextBlock Grid.Column="1" Text="–" VerticalAlignment="Center" />
+                                                <TextBox Grid.Column="2" Text="{Binding PlatzBis, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         ToolTipService.ToolTip="Platz bis" />
+                                                <ComboBox Grid.Column="3" ItemsSource="{Binding ArtOptionen}"
+                                                          SelectedItem="{Binding Art, Mode=TwoWay}"
+                                                          DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
+                                                <TextBox Grid.Column="4" Text="{Binding Bezeichnung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         PlaceholderText="Bezeichnung, z. B. Champions League" />
+                                                <Button Grid.Column="5" Content="✕" FontSize="11" ToolTipService.ToolTip="Bereich entfernen"
+                                                        Command="{Binding ElementName=Root, Path=DataContext.Formular.TabellenBereiche.EntfernenCommand}"
+                                                        CommandParameter="{Binding}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Expander>
+
+                        <!-- ── Übergänge (#348, aufklappbar): links Eingehend/Ausgehend, rechts EIN stabiles
+                             Regelformular (Populier-/Zurückschreib-Muster, keine editierbaren Karten — siehe
+                             #284-Datenkorruption). ── -->
+                        <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                  DataContext="{Binding UebergangsregelEditor}"
+                                  IsExpanded="{Binding Offen, Mode=TwoWay}"
+                                  Header="{Binding Kopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
+                            <Grid ColumnDefinitions="*,16,1.5*">
+
+                                <StackPanel Grid.Column="0">
+                                    <Grid Margin="0,0,0,8" ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="EINGEHENDE REGELN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
+                                        <Button Grid.Column="1" Content="+ Neu" FontSize="11" Command="{Binding NeueEingehendeRegelCommand}" />
+                                    </Grid>
+                                    <ItemsControl ItemsSource="{Binding EingehendeRegeln}" ItemTemplate="{StaticResource RegelZeileTemplate}" />
+
+                                    <Grid Margin="0,16,0,8" ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="AUSGEHENDE REGELN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
+                                        <Button Grid.Column="1" Content="+ Neu" FontSize="11" Command="{Binding NeueAusgehendeRegelCommand}" />
+                                    </Grid>
+                                    <ItemsControl ItemsSource="{Binding AusgehendeRegeln}" ItemTemplate="{StaticResource RegelZeileTemplate}" />
+                                </StackPanel>
+
+                                <Border Grid.Column="2" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                        CornerRadius="4" Padding="12" VerticalAlignment="Top">
+                                    <Grid>
+                                        <TextBlock Text="Regel links auswählen oder &quot;+ Neu&quot; klicken" FontSize="12" Opacity="0.5"
+                                                   TextWrapping="Wrap" HorizontalAlignment="Center" Margin="0,8"
+                                                   Visibility="{Binding ZeigeRegelformular, Converter={StaticResource InverseBoolToVisibility}}" />
+
+                                        <StackPanel Visibility="{Binding ZeigeRegelformular, Converter={StaticResource BoolToVisibility}}">
+                                            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                                                <TextBlock Text="ÜBERGANGSREGEL" FontWeight="SemiBold" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
+                                                <Button Grid.Column="1" Content="Schließen" FontSize="11" Command="{Binding RegelFormularSchliessenCommand}" />
+                                            </Grid>
+
+                                            <TextBlock Text="Von (Quelle)" FontSize="12" Margin="0,0,0,3" />
+                                            <ComboBox ItemsSource="{Binding Runden}"
+                                                      SelectedItem="{Binding RegelQuelle, Mode=TwoWay}"
+                                                      DisplayMemberPath="Name" HorizontalAlignment="Stretch" Margin="0,0,0,12" />
+
+                                            <TextBlock Text="Nach (Ziel)" FontSize="12" Margin="0,0,0,3" />
+                                            <ComboBox ItemsSource="{Binding Runden}"
+                                                      SelectedItem="{Binding RegelZiel, Mode=TwoWay}"
+                                                      DisplayMemberPath="Name" HorizontalAlignment="Stretch" Margin="0,0,0,16" />
+
+                                            <ItemsControl ItemsSource="{Binding NormaleZeilen}" ItemTemplate="{StaticResource ZeileGruppenphaseTemplate}"
+                                                          Visibility="{Binding RegelIstGruppenphase, Converter={StaticResource BoolToVisibility}}" />
+                                            <ItemsControl ItemsSource="{Binding NormaleZeilen}" ItemTemplate="{StaticResource ZeileKoSonderfallTemplate}"
+                                                          Visibility="{Binding RegelIstKoSonderfall, Converter={StaticResource BoolToVisibility}}" />
+                                            <ItemsControl ItemsSource="{Binding NormaleZeilen}" ItemTemplate="{StaticResource ZeileLigaTemplate}"
+                                                          Visibility="{Binding RegelIstLiga, Converter={StaticResource BoolToVisibility}}" />
+
+                                            <StackPanel Margin="0,12,0,0" Visibility="{Binding RegelIstGruppenphase, Converter={StaticResource BoolToVisibility}}">
+                                                <Rectangle Fill="{ThemeResource CardStrokeColorDefaultBrush}" Height="1" Margin="0,0,0,8" />
+                                                <TextBlock Text="GRUPPENÜBERGREIFEND" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,6" />
+                                                <ItemsControl ItemsSource="{Binding GruppenuebergreifendeZeilen}" ItemTemplate="{StaticResource ZeileGruppenuebergreifendTemplate}" />
+                                                <Button Content="+ Gruppenübergreifende Regel" FontSize="11" Padding="8,4" Margin="0,6,0,0"
+                                                        HorizontalAlignment="Left" Command="{Binding NeueGruppenuebergreifendeZeileCommand}" />
+                                            </StackPanel>
+
+                                            <Button Content="Regel löschen" Command="{Binding RegelLoeschenCommand}" Margin="0,16,0,0"
+                                                    HorizontalAlignment="Stretch" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Expander>
                     </StackPanel>
                 </ScrollViewer>
             </Grid>

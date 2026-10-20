@@ -31,6 +31,7 @@ public partial class UebergangsregelEditorViewModel : ObservableObject
                 NeueEingehendeRegelCommand.NotifyCanExecuteChanged();
                 NeueAusgehendeRegelCommand.NotifyCanExecuteChanged();
                 AktualisiereRegelListen();
+                Offen = EingehendeRegeln.Count + AusgehendeRegeln.Count > 0;
                 break;
             case nameof(RundenViewModel.Runden):
                 // RundenZuruecksetzen weist bei jedem Instanz-/Vorlagenwechsel eine NEUE Collection-Instanz zu —
@@ -58,12 +59,35 @@ public partial class UebergangsregelEditorViewModel : ObservableObject
         AusgehendeRegeln.Clear();
 
         var ausgewaehlt = _rundenVm.AusgewaehlteRunde;
-        if (ausgewaehlt is null) return;
+        if (ausgewaehlt is not null)
+        {
+            foreach (var b in _rundenVm.AlleUebergaenge.Where(b => b.ZielRunde == ausgewaehlt))
+                EingehendeRegeln.Add(b);
+            foreach (var b in _rundenVm.AlleUebergaenge.Where(b => b.QuellRunde == ausgewaehlt))
+                AusgehendeRegeln.Add(b);
+        }
+        OnPropertyChanged(nameof(Kopf));
+    }
 
-        foreach (var b in _rundenVm.AlleUebergaenge.Where(b => b.ZielRunde == ausgewaehlt))
-            EingehendeRegeln.Add(b);
-        foreach (var b in _rundenVm.AlleUebergaenge.Where(b => b.QuellRunde == ausgewaehlt))
-            AusgehendeRegeln.Add(b);
+    // ── Aufklappbarer Bereich (Issue #476) ────────────────────────────────────
+    [ObservableProperty] private bool _offen;
+
+    public AbschnittKopf Kopf => AbschnittKopf.Aus("ÜBERGÄNGE",
+    [
+        KopfTeil("von", EingehendeRegeln.Select(b => b.QuellRunde?.Name)),
+        KopfTeil("nach", AusgehendeRegeln.Select(b => b.ZielRunde?.Name))
+    ], "keine");
+
+    // Bis zu drei Runden stehen mit Namen in der Kopfzeile, darüber nur ihre Anzahl.
+    private static string? KopfTeil(string richtung, IEnumerable<string?> rundenNamen)
+    {
+        var namen = rundenNamen.Select(n => string.IsNullOrWhiteSpace(n) ? "?" : n).ToList();
+        return namen.Count switch
+        {
+            0    => null,
+            <= 3 => $"{richtung} {string.Join(", ", namen)}",
+            _    => $"{richtung} {namen.Count} Runden"
+        };
     }
 
     // ── Regelformular ─────────────────────────────────────────────────────────

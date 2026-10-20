@@ -53,6 +53,38 @@ public partial class RundenFormularViewModel : ObservableObject
         _folgtAufGruppenphase = folgtAufGruppenphase;
         OhneRueckschreiben(() => FelderAusZeile(zeile));
         TabellenBereiche.Zeigen(zeile);
+        AuslosungOffen = AuslosungKopfTeile().Any(t => t is not null);
+        OnPropertyChanged(nameof(AuslosungKopf));
+    }
+
+    // ── Aufklappbarer Bereich „Auslosung“ (Issue #476) ───────────────────────
+    // Bleibt im Formular, weil er nur dessen Felder zusammenfasst — eine eigene Klasse müsste sie alle durchreichen.
+
+    private static readonly HashSet<string> AuslosungFelder =
+    [
+        nameof(Rundenart), nameof(PaarungFestVorgegeben), nameof(VorgegebeneAuslosungsart),
+        nameof(StandardRangliste), nameof(TitelverteidigerInTopf1)
+    ];
+
+    [ObservableProperty] private bool _auslosungOffen;
+
+    public AbschnittKopf AuslosungKopf => AbschnittKopf.Aus("AUSLOSUNG", AuslosungKopfTeile(), "keine Vorgaben");
+
+    private IEnumerable<string?> AuslosungKopfTeile()
+    {
+        int regeln = RegelVorgabeOptionen.Count(o => o.IstAktiv);
+        return
+        [
+            PaarungFestVorgegeben ? "Paarung fest vorgegeben" : null,
+            VorgegebeneAuslosungsart?.Wert is not null ? VorgegebeneAuslosungsart.Anzeige : null,
+            StandardRangliste?.Wert is not null ? StandardRangliste.Anzeige : null,
+            TitelverteidigerInTopf1 ? "Titelverteidiger in Topf 1" : null,
+            IstGruppenphase && VorgegebeneGruppenposition.Wert != Gruppenposition.NachTopf
+                ? VorgegebeneGruppenposition.Ausgewaehlt?.Anzeige : null,
+            IstGruppenphase && (Gruppenkoepfe.GastgeberGruppen.Count > 0 || Gruppenkoepfe.TitelverteidigerGruppe is not null)
+                ? "feste Gruppenköpfe" : null,
+            regeln switch { 0 => null, 1 => "1 Auslosungsregel", _ => $"{regeln} Auslosungsregeln" }
+        ];
     }
 
     /// <summary>Änderungen innerhalb von <paramref name="aktion"/> stammen nicht vom Nutzer: nichts davon wird in
@@ -91,7 +123,7 @@ public partial class RundenFormularViewModel : ObservableObject
     private Rundenart _rundenart = Rundenart.Liga;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(AnzahlSpieltageVorschlag))]
+    [NotifyPropertyChangedFor(nameof(AnzahlSpieltagePlatzhalter))]
     [NotifyPropertyChangedFor(nameof(GruppenAnzahlVorschlaege))]
     [NotifyPropertyChangedFor(nameof(HatGruppenAnzahlVorschlaege))]
     private int _eingangsMannschaftsanzahl = 8;
@@ -165,6 +197,8 @@ public partial class RundenFormularViewModel : ObservableObject
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
+        if (e.PropertyName is not null && AuslosungFelder.Contains(e.PropertyName))
+            OnPropertyChanged(nameof(AuslosungKopf));
         if (_populiertGerade > 0 || e.PropertyName is null || _zeile is null) return;
         if (!FormFelder.Contains(e.PropertyName)) return;
 
@@ -188,6 +222,8 @@ public partial class RundenFormularViewModel : ObservableObject
     /// <summary>Fachlicher Standard-Vorschlag ceil(log2(n)) für <see cref="AnzahlSpieltage"/> (Issue #329 Teil D) —
     /// nur eine Anzeige-Hilfe, <see cref="AnzahlSpieltage"/> bleibt frei editierbar.</summary>
     public int AnzahlSpieltageVorschlag => RundenKonfiguration.VorschlagAnzahlSpieltage(EingangsMannschaftsanzahl);
+
+    public string AnzahlSpieltagePlatzhalter => $"Vorschlag: {AnzahlSpieltageVorschlag}";
 
     /// <summary>Gruppenanzahl/Gruppengröße-Kombinationen zur Auswahl statt blinder Eingabe (Issue #215) —
     /// nur bei Gruppenphase relevant, aus den Teilern von <see cref="EingangsMannschaftsanzahl"/> abgeleitet.</summary>
@@ -313,6 +349,7 @@ public partial class RundenFormularViewModel : ObservableObject
 
     private void GruppenkoepfeGeaendert()
     {
+        OnPropertyChanged(nameof(AuslosungKopf));
         if (_populiertGerade > 0 || _zeile is null) return;
         _zeile.GastgeberGruppen       = Gruppenkoepfe.GastgeberGruppen;
         _zeile.TitelverteidigerGruppe = Gruppenkoepfe.TitelverteidigerGruppe;
@@ -321,6 +358,7 @@ public partial class RundenFormularViewModel : ObservableObject
 
     private void GruppenpositionGeaendert()
     {
+        OnPropertyChanged(nameof(AuslosungKopf));
         if (_populiertGerade > 0 || _zeile is null) return;
         _zeile.VorgegebeneGruppenposition = VorgegebeneGruppenposition.Wert;
         Geaendert?.Invoke();
@@ -343,7 +381,9 @@ public partial class RundenFormularViewModel : ObservableObject
         foreach (var option in optionen)
             option.PropertyChanged += (_, e) =>
             {
-                if (e.PropertyName == nameof(RegelVorgabeOption.IstAktiv)) RegelVorgabeGeaendert(option);
+                if (e.PropertyName != nameof(RegelVorgabeOption.IstAktiv)) return;
+                RegelVorgabeGeaendert(option);
+                OnPropertyChanged(nameof(AuslosungKopf));
             };
         return optionen;
     }

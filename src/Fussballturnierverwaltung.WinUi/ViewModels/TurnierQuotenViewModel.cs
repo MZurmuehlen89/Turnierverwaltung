@@ -85,19 +85,11 @@ public partial class TurnierQuotenViewModel : ObservableObject
     // Ohne Verband-Quoten rückt die Landes-Quote in die linke Spalte.
     public int LandesQuotenSpalte => VerbandsQuotenSichtbar ? 2 : 0;
 
-    public AbschnittKopf Kopf
-    {
-        get
-        {
-            string?[] teile =
-            [
-                VerbandsQuotenSichtbar ? KopfTeil("Verband", VerbandsQuotenEingaben().Select(q => q.Anzahl).ToList()) : null,
-                LandesQuotenSichtbar ? KopfTeil("Land", LandesQuotenEingaben().Select(q => q.Anzahl).ToList()) : null
-            ];
-            var zusammenfassung = string.Join(" · ", teile.OfType<string>());
-            return new("QUOTEN", zusammenfassung.Length > 0 ? zusammenfassung : "nicht festgelegt");
-        }
-    }
+    public AbschnittKopf Kopf => AbschnittKopf.Aus("QUOTEN",
+    [
+        VerbandsQuotenSichtbar ? KopfTeil("Verband", VerbandsQuotenEingaben().Select(q => q.Anzahl).ToList()) : null,
+        LandesQuotenSichtbar ? KopfTeil("Land", LandesQuotenEingaben().Select(q => q.Anzahl).ToList()) : null
+    ]);
 
     private static string? KopfTeil(string quotenart, IReadOnlyList<int> anzahlen) =>
         anzahlen.Count > 0 ? $"{quotenart}: {anzahlen.Count} (Summe {anzahlen.Sum()})" : null;

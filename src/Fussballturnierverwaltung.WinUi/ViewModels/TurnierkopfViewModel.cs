@@ -19,10 +19,6 @@ using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-/// <summary>Kopfzeile eines aufklappbaren Turnierkopf-Bereichs (Issue #399): Titel plus Kurzfassung des
-/// Inhalts, damit auch zugeklappt erkennbar bleibt, ob etwas festgelegt ist.</summary>
-public record AbschnittKopf(string Titel, string Zusammenfassung);
-
 /// <summary>"Turnierkopf"-Tab von <see cref="TurnierlisteViewModel"/> (Issue #297) — Basisdaten,
 /// Standard-Regelwerk, Statuswechsel und die Befehle Neu/Speichern/Abbrechen/Löschen einer
 /// <see cref="TurnierInstanz"/> (Vorlage- oder Turnier-Status identisch behandelt). Auslosungsfilter,

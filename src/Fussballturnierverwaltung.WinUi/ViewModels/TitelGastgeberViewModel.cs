@@ -197,19 +197,11 @@ public partial class TitelGastgeberViewModel : ObservableObject
     // ── Aufklappbarer Bereich (Issue #399) ────────────────────────────────────
     [ObservableProperty] private bool _offen;
 
-    public AbschnittKopf Kopf
-    {
-        get
-        {
-            string?[] teile =
-            [
-                Titelverteidiger?.Wert is not null ? $"Titelverteidiger: {Titelverteidiger.Anzeige}" : null,
-                GastgeberKopfTeil()
-            ];
-            var zusammenfassung = string.Join(" · ", teile.OfType<string>());
-            return new("TITELVERTEIDIGER & GASTGEBER", zusammenfassung.Length > 0 ? zusammenfassung : "nicht festgelegt");
-        }
-    }
+    public AbschnittKopf Kopf => AbschnittKopf.Aus("TITELVERTEIDIGER & GASTGEBER",
+    [
+        Titelverteidiger?.Wert is not null ? $"Titelverteidiger: {Titelverteidiger.Anzeige}" : null,
+        GastgeberKopfTeil()
+    ]);
 
     // Bis zu drei Gastgeber stehen mit Namen in der Kopfzeile, darüber nur ihre Anzahl.
     private string? GastgeberKopfTeil()

@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
@@ -9,6 +10,24 @@ public sealed partial class RundenPage : UserControl
     public RundenPage()
     {
         InitializeComponent();
+    }
+
+    /// <summary>MenuFlyout kennt kein ItemsSource — die Gruppenanzahl-Vorschläge werden deshalb bei jedem Öffnen
+    /// aus dem aktuellen Eingang neu eingetragen (#476).</summary>
+    private void GruppenAnzahlVorschlaege_Opening(object sender, object e)
+    {
+        var menue = (MenuFlyout)sender;
+        menue.Items.Clear();
+        if (DataContext is not RundenViewModel vm) return;
+        foreach (var vorschlag in vm.Formular.GruppenAnzahlVorschlaege)
+        {
+            menue.Items.Add(new MenuFlyoutItem
+            {
+                Text = vorschlag.Anzeige,
+                Command = vm.Formular.GruppenAnzahlVorschlagWaehlenCommand,
+                CommandParameter = vorschlag,
+            });
+        }
     }
 }
 
