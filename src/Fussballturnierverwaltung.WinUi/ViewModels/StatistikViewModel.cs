@@ -8,7 +8,8 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 /// <summary>
 /// "Statistik"-Reiter der Turnierdurchführung (#327): links die Liste der Auswertungen, rechts die Rangliste
-/// über alle Mannschaften des Turniers bzw. im Bereich „Mannschaft“ (#324) die Seite einer einzelnen Mannschaft
+/// über alle Mannschaften des Turniers, im Bereich „Turnier“ (#432) Kennzahlen und Bestwerte des ganzen Turniers
+/// (<see cref="TurnierSeite"/>) bzw. im Bereich „Mannschaft“ (#324) die Seite einer einzelnen Mannschaft
 /// (<see cref="Mannschaft"/>). Der Reiter liest nur — er hat keine eigenen Aktionen und deshalb keinen Ribbon-Bereich.
 /// Die Instanz kommt wie bei den anderen Reitern über <see cref="InstanzSetzenAsync"/>.
 /// </summary>
@@ -26,6 +27,7 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
 
     public IReadOnlyList<StatistikAuswertung> Auswertungen { get; } =
     [
+        new(StatistikAuswertungsart.Turnier, "Turnier"),
         new(StatistikAuswertungsart.Mannschaft, "Mannschaft"),
         new(StatistikAuswertungsart.Gesamt, "Gesamt"),
         new(StatistikAuswertungsart.Heim, "Heim", GRUND_NEUTRALER_SPIELORT),
@@ -50,13 +52,19 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
         {
             if (value is null || !SetProperty(ref _ausgewaehlteAuswertung, value)) return;
             OnPropertyChanged(nameof(IstMannschaftsbereich));
+            OnPropertyChanged(nameof(IstTurnierbereich));
             TabelleAktualisieren();
         }
     }
 
     public bool IstMannschaftsbereich => AusgewaehlteAuswertung.Art == StatistikAuswertungsart.Mannschaft;
+    public bool IstTurnierbereich => AusgewaehlteAuswertung.Art == StatistikAuswertungsart.Turnier;
+
+    // Ranglisten zeigen eine Tabelle, die beiden Bereiche eine eigene Seite.
+    private bool IstBereich => IstMannschaftsbereich || IstTurnierbereich;
 
     [ObservableProperty] private StatistikTabelle? _tabelle;
+    [ObservableProperty] private TurnierSeite? _turnierSeite;
     [ObservableProperty] private string? _hinweis;
     [ObservableProperty] private string? _fehlermeldung;
 
@@ -68,7 +76,7 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
     {
         _service = service;
         _logger = logger;
-        _ausgewaehlteAuswertung = Auswertungen[1];
+        _ausgewaehlteAuswertung = Auswertung(StatistikAuswertungsart.Gesamt);
         Mannschaft.AlleSpieleAngefordert += (_, mannschaftId) => MannschaftsSpieleAngefordert?.Invoke(this, mannschaftId);
     }
 
@@ -95,7 +103,7 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
     /// Mannschaft folgt, sobald der anschließende Reiterwechsel die Spiele geladen hat.</summary>
     public void MannschaftVorauswaehlen(int mannschaftId)
     {
-        AusgewaehlteAuswertung = Auswertungen[0];
+        AusgewaehlteAuswertung = Auswertung(StatistikAuswertungsart.Mannschaft);
         _vorauswahlMannschaftId = mannschaftId;
     }
 
@@ -103,7 +111,7 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
 
     public void MannschaftsStatistikAnzeigen(int mannschaftId)
     {
-        AusgewaehlteAuswertung = Auswertungen[0];
+        AusgewaehlteAuswertung = Auswertung(StatistikAuswertungsart.Mannschaft);
         Mannschaft.Zeigen(mannschaftId);
     }
 
@@ -126,6 +134,7 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
             auswertung.IstVerfuegbar = hatHeimUndAuswaerts;
 
         MannschaftUebernehmen(spiele, turnierGewechselt);
+        TurnierSeite = spiele.Count > 0 ? TurnierSeitenBuilder.Erstellen(spiele) : null;
         TabelleAktualisieren();
     }
 
@@ -142,7 +151,7 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
 
     private void TabelleAktualisieren()
     {
-        var tabelle = _geladeneInstanzId is null || IstMannschaftsbereich || !AusgewaehlteAuswertung.IstVerfuegbar
+        var tabelle = _geladeneInstanzId is null || IstBereich || !AusgewaehlteAuswertung.IstVerfuegbar
             ? null
             : RanglistenTabellenBuilder.Erstellen(AusgewaehlteAuswertung.Art, _spiele);
 
@@ -154,7 +163,9 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
     {
         if (_geladeneInstanzId is null) return null;
         if (!AusgewaehlteAuswertung.IstVerfuegbar) return AusgewaehlteAuswertung.Hinweis;
-        if (IstMannschaftsbereich) return _spiele.Count == 0 ? HINWEIS_KEINE_SPIELE : null;
+        if (IstBereich) return _spiele.Count == 0 ? HINWEIS_KEINE_SPIELE : null;
         return tabelle is { HatZeilen: true } ? null : HINWEIS_KEINE_SPIELE;
     }
+
+    private StatistikAuswertung Auswertung(StatistikAuswertungsart art) => Auswertungen.First(a => a.Art == art);
 }

@@ -4,13 +4,21 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-/// <summary>Ein Wert der Mannschaftsseite mit seinem Platz unter allen Mannschaften des Turniers (<c>null</c>, wo ein
-/// Platz nichts aussagt, z.B. bei der Zahl der Spiele).</summary>
-public record Kennzahl(string Bezeichnung, string Wert, string? PlatzText, string? Erlaeuterung = null);
+/// <summary>Ein Wert mit einer Angabe daneben: auf der Mannschaftsseite der Platz unter allen Mannschaften des Turniers
+/// (<c>null</c>, wo ein Platz nichts aussagt, z.B. bei der Zahl der Spiele), auf der Turnierseite der Anteil.</summary>
+public record Kennzahl(string Bezeichnung, string Wert, string? Zusatz, string? Erlaeuterung = null);
 
-public record KennzahlBlock(string Titel, IReadOnlyList<Kennzahl> Kennzahlen, string? Hinweis = null)
+/// <param name="WertTitel">Spaltenkopf über den Werten; ohne ihn (und <paramref name="ZusatzTitel"/>) hat der Block
+/// keine Kopfzeile.</param>
+public record KennzahlBlock(
+    string Titel,
+    IReadOnlyList<Kennzahl> Kennzahlen,
+    string? Hinweis = null,
+    string? WertTitel = null,
+    string? ZusatzTitel = null)
 {
     public bool HatHinweis => Hinweis is not null;
+    public bool HatSpaltenkoepfe => WertTitel is not null || ZusatzTitel is not null;
 }
 
 /// <summary>Ein Spiel der Mannschaft aus ihrer Sicht: Ergebnis eigene Tore zuerst, „H“/„A“/„N“ für Heim, Auswärts,
@@ -167,7 +175,7 @@ public static class MannschaftsSeitenBuilder
         ]);
     }
 
-    private static string? TorabschnittHinweis(TorabschnittAuswertung auswertung)
+    internal static string? TorabschnittHinweis(TorabschnittAuswertung auswertung)
     {
         if (auswertung.SpieleMitVerlauf == 0)
             return "Keine Torminuten vorhanden – sie entstehen nur bei ausführlicher Simulation.";
@@ -202,7 +210,7 @@ public static class MannschaftsSeitenBuilder
 
     /// <summary>Wie die Spalte „Runde“ der Mannschaftsansicht im Spielplan (#479): Runde, Gruppe, bei K.-o.-Paarungen
     /// Hin-/Rückspiel, sonst der Spieltag.</summary>
-    private static string RundenText(MannschaftsSpiel spiel)
+    internal static string RundenText(MannschaftsSpiel spiel)
     {
         var s = spiel.Spiel;
         var teile = new List<string> { s.TurnierRunde.Name };

@@ -109,7 +109,7 @@
                 <TextBlock Grid.Column="0" Text="{Binding Bezeichnung}" FontSize="12" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" Text="{Binding Wert}" FontSize="12" FontWeight="SemiBold"
                            TextAlignment="Right" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="{Binding PlatzText}" FontSize="12" Opacity="0.7"
+                <TextBlock Grid.Column="2" Text="{Binding Zusatz}" FontSize="12" Opacity="0.7"
                            TextAlignment="Right" VerticalAlignment="Center" />
             </Grid>
         </DataTemplate>
@@ -118,6 +118,11 @@
             <Border Style="{StaticResource KartenRahmen}" Margin="0,0,0,12">
                 <StackPanel MinWidth="520">
                     <TextBlock Text="{Binding Titel}" Style="{StaticResource KartenTitel}" />
+                    <Grid ColumnDefinitions="*,90,130" Padding="12,0,12,5"
+                          Visibility="{Binding HatSpaltenkoepfe, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Grid.Column="1" Text="{Binding WertTitel}" FontSize="11" FontWeight="SemiBold" Opacity="0.6" TextAlignment="Right" />
+                        <TextBlock Grid.Column="2" Text="{Binding ZusatzTitel}" FontSize="11" FontWeight="SemiBold" Opacity="0.6" TextAlignment="Right" />
+                    </Grid>
                     <ItemsControl ItemsSource="{Binding Kennzahlen}" ItemTemplate="{StaticResource KennzahlTemplate}" />
                     <TextBlock Text="{Binding Hinweis}" Style="{StaticResource KartenHinweis}"
                                Visibility="{Binding HatHinweis, Converter={StaticResource BoolToVisibility}}" />
@@ -159,6 +164,67 @@
                                Visibility="{Binding HatDetail, Converter={StaticResource BoolToVisibility}}" />
                 </StackPanel>
             </Grid>
+        </DataTemplate>
+
+        <!-- ── Bereich „Turnier“ (#432) ── -->
+
+        <DataTemplate x:Key="KachelTemplate" x:DataType="vm:Kachel">
+            <Border Style="{StaticResource KartenRahmen}" Width="160" Padding="14,10"
+                    ToolTipService.ToolTip="{Binding Erlaeuterung}">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="{Binding Bezeichnung}" FontSize="12" Opacity="0.7" />
+                    <TextBlock Text="{Binding Wert}" FontSize="24" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- Mannschaftsnamen mit Mannschaftsmenü wie auf der Mannschaftsseite; Heim rechtsbündig zum Ergebnis hin. -->
+        <DataTemplate x:Key="TurnierSpielZeileTemplate" x:DataType="vm:TurnierSpielZeile">
+            <Grid ColumnDefinitions="140,*,Auto,*,90" ColumnSpacing="8" Padding="12,5"
+                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+                <TextBlock Grid.Column="0" Text="{Binding Runde}" FontSize="12" Opacity="0.8" TextWrapping="WrapWholeWords"
+                           VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right"
+                            VerticalAlignment="Center" Background="Transparent"
+                            views:MannschaftsKontextmenue.MannschaftId="{Binding Heim.Id}">
+                    <TextBlock Text="{Binding Heim.Name}" FontSize="12" TextWrapping="WrapWholeWords" TextAlignment="Right"
+                               VerticalAlignment="Center" />
+                    <Image Source="{Binding Heim, Converter={StaticResource MannschaftZuWappen}}"
+                           Visibility="{Binding Heim, Converter={StaticResource MannschaftHatWappen}}"
+                           Width="16" Height="16" Stretch="Uniform" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" MinWidth="44">
+                    <TextBlock Text="{Binding Ergebnis}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding Detail}" FontSize="10" Opacity="0.7" HorizontalAlignment="Center"
+                               Visibility="{Binding HatDetail, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                            Background="Transparent"
+                            views:MannschaftsKontextmenue.MannschaftId="{Binding Auswaerts.Id}">
+                    <Image Source="{Binding Auswaerts, Converter={StaticResource MannschaftZuWappen}}"
+                           Visibility="{Binding Auswaerts, Converter={StaticResource MannschaftHatWappen}}"
+                           Width="16" Height="16" Stretch="Uniform" />
+                    <TextBlock Text="{Binding Auswaerts.Name}" FontSize="12" TextWrapping="WrapWholeWords" VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Grid.Column="4" Text="{Binding Wert}" FontSize="12" FontWeight="SemiBold" TextAlignment="Right"
+                           VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="SpielListeTemplate" x:DataType="vm:SpielListe">
+            <Border Style="{StaticResource KartenRahmen}" Margin="0,0,0,12">
+                <StackPanel MinWidth="520">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{Binding Titel}" Style="{StaticResource KartenTitel}" />
+                        <TextBlock Grid.Column="1" Text="{Binding WertTitel}" FontSize="11" FontWeight="SemiBold" Opacity="0.6"
+                                   VerticalAlignment="Bottom" Margin="0,0,12,6"
+                                   Visibility="{Binding HatZeilen, Converter={StaticResource BoolToVisibility}}" />
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding Zeilen}" ItemTemplate="{StaticResource TurnierSpielZeileTemplate}" />
+                    <TextBlock Text="{Binding Hinweis}" Style="{StaticResource KartenHinweis}"
+                               Visibility="{Binding HatHinweis, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+            </Border>
         </DataTemplate>
 
     </UserControl.Resources>
@@ -212,6 +278,21 @@
                             <ItemsControl ItemsSource="{Binding Tabelle.Zeilen}" ItemTemplate="{StaticResource RanglistenZeileTemplate}" />
                         </StackPanel>
                     </Border>
+
+                    <!-- Turnier (#432) -->
+                    <StackPanel DataContext="{Binding TurnierSeite}" VerticalAlignment="Top"
+                                Visibility="{Binding DataContext.IstTurnierbereich, ElementName=AuswertungsListe, Converter={StaticResource BoolToVisibility}}">
+                        <ItemsControl ItemsSource="{Binding Kacheln}" ItemTemplate="{StaticResource KachelTemplate}" Margin="0,0,0,12">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="12" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <ItemsControl ItemsSource="{Binding Verteilungen}" ItemTemplate="{StaticResource KennzahlBlockTemplate}" />
+                        <ItemsControl ItemsSource="{Binding Spiellisten}" ItemTemplate="{StaticResource SpielListeTemplate}" />
+                        <ItemsControl ItemsSource="{Binding Weitere}" ItemTemplate="{StaticResource KennzahlBlockTemplate}" />
+                    </StackPanel>
 
                     <!-- Mannschaft (#324) -->
                     <StackPanel DataContext="{Binding Mannschaft}" Spacing="0" VerticalAlignment="Top"

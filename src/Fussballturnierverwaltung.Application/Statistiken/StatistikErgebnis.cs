@@ -1,6 +1,7 @@
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
+using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Statistiken;
 
@@ -110,6 +111,27 @@ public record Torabschnitt(string Bezeichnung, int Tore, int Gegentore);
 /// <summary>Tore nach Spielabschnitt (#324). Nur Spiele mit Spielverlauf zählen (<paramref name="SpieleMitVerlauf"/>
 /// von <paramref name="Spiele"/>) — Torminuten gibt es nur bei ausführlicher Simulation.</summary>
 public record TorabschnittAuswertung(IReadOnlyList<Torabschnitt> Abschnitte, int SpieleMitVerlauf, int Spiele);
+
+// ── Bereich „Turnier“ (#432) ──────────────────────────────────────────
+
+public record RundenTore(string Runde, int Spiele, int Tore)
+{
+    public double ToreProSpiel => Spiele > 0 ? (double)Tore / Spiele : 0;
+}
+
+/// <summary><paramref name="NeutraleSpiele"/> fehlen in der Verteilung — auf neutralem Platz gibt es kein Heimrecht.</summary>
+public record Ausgangsverteilung(int Heimsiege, int Unentschieden, int Auswaertssiege, int NeutraleSpiele)
+{
+    public int SpieleMitHeimrecht => Heimsiege + Unentschieden + Auswaertssiege;
+}
+
+public record EntscheidungsAnzahl(EntscheidungArt Art, int Anzahl);
+
+public record ErgebnisHaeufigkeit(int ToreSieger, int ToreVerlierer, int Anzahl);
+
+/// <param name="Sieger">Das Spiel aus Sicht der siegreichen, schwächer bewerteten Mannschaft.</param>
+/// <param name="RatingAbstand">Um so viel war der Gegner im Gesamtrating stärker.</param>
+public record Ueberraschung(MannschaftsSpiel Sieger, decimal RatingAbstand);
 
 public record DirektvergleichErgebnis(
     Mannschaft MannschaftA,
