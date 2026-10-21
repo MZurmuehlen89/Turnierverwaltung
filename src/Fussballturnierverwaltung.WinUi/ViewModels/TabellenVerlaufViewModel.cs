@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -47,6 +48,10 @@ public partial class TabellenVerlaufViewModel : ObservableObject
         Tabellen = tabellen;
         Tabellen.FehlerGemeldet += meldung => FehlerGemeldet?.Invoke(meldung);
         Tabellen.GruppeAngeklickt += GruppeWaehlen;
+        Tabellen.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(RundenTabellenViewModel.TabellenBisSpieltag)) OnPropertyChanged(nameof(TabellenTitel));
+        };
     }
 
     // ── Runde ─────────────────────────────────────────────────────────────
@@ -107,8 +112,7 @@ public partial class TabellenVerlaufViewModel : ObservableObject
                 return;
             }
             if (!SetProperty(ref _ausgewaehlteGruppe, value)) return;
-            OnPropertyChanged(nameof(Verlauf));
-            OnPropertyChanged(nameof(Hinweis));
+            VerlaufGewechselt();
         }
     }
 
@@ -116,7 +120,21 @@ public partial class TabellenVerlaufViewModel : ObservableObject
     public TabellenVerlauf? Verlauf =>
         Verlaeufe.FirstOrDefault(v => v.GruppenNummer == AusgewaehlteGruppe?.Nummer) ?? Verlaeufe.FirstOrDefault();
 
+    public bool HatVerlauf => Verlauf is { HatSpieltage: true };
+
+    public string TabellenTitel => Tabellen.TabellenBisSpieltag is int spieltag
+        ? $"Tabelle nach dem {spieltag}. Spieltag"
+        : "Tabelle – aktueller Stand";
+
     public string? Hinweis => _geladen && Verlauf is not { HatSpieltage: true } ? HINWEIS_KEINE_ERGEBNISSE : null;
+
+    private void VerlaufGewechselt()
+    {
+        OnPropertyChanged(nameof(Verlauf));
+        OnPropertyChanged(nameof(HatVerlauf));
+        OnPropertyChanged(nameof(Hinweis));
+        Hervorhebungen = VerlaufHervorhebungen.Abgleichen(Hervorhebungen, Verlauf);
+    }
 
     private void AuswahlSpaeterMelden(string eigenschaft) =>
         Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread()?.TryEnqueue(
@@ -124,6 +142,32 @@ public partial class TabellenVerlaufViewModel : ObservableObject
 
     private void GruppeWaehlen(int gruppenNummer) =>
         AusgewaehlteGruppe = Gruppen.FirstOrDefault(g => g.Nummer == gruppenNummer) ?? AusgewaehlteGruppe;
+
+    // ── Hervorhebung und Spieltag (Klicks in der Kurve) ────────────────────
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatHervorhebungen))]
+    private IReadOnlyList<VerlaufHervorhebung> _hervorhebungen = [];
+
+    public bool HatHervorhebungen => Hervorhebungen.Count > 0;
+
+    /// <summary>Klick auf eine Linie: Mannschaft hervorheben bzw. wieder grau stellen.</summary>
+    public void MannschaftUmschalten(int mannschaftId)
+    {
+        if (Verlauf?.Mannschaften.FirstOrDefault(m => m.Mannschaft.Id == mannschaftId) is not { } mannschaft) return;
+        Hervorhebungen = VerlaufHervorhebungen.Umschalten(Hervorhebungen, mannschaftId, mannschaft.Mannschaft.Name);
+    }
+
+    [RelayCommand]
+    private void HervorhebungEntfernen(VerlaufHervorhebung? hervorhebung)
+    {
+        if (hervorhebung is not null) MannschaftUmschalten(hervorhebung.MannschaftId);
+    }
+
+    /// <summary>Klick auf einen Spieltag: darunter die Tabellen nach diesem Spieltag; ein zweiter Klick auf denselben
+    /// kehrt zum aktuellen Stand zurück.</summary>
+    public void SpieltagWaehlen(int spieltag) =>
+        Tabellen.TabellenBisSpieltag = Tabellen.TabellenBisSpieltag == spieltag ? null : spieltag;
 
     // ── Laden ─────────────────────────────────────────────────────────────
 
@@ -162,7 +206,7 @@ public partial class TabellenVerlaufViewModel : ObservableObject
             Verlaeufe = runde is null ? [] : await _tabellenService.VerlaeufeBerechnenAsync(runde.Id);
             _ausgewaehlteGruppe = Gruppen.FirstOrDefault(g => g.Nummer == _ausgewaehlteGruppe?.Nummer) ?? Gruppen.FirstOrDefault();
             OnPropertyChanged(nameof(AusgewaehlteGruppe));
-            OnPropertyChanged(nameof(Verlauf));
+            VerlaufGewechselt();
             await Tabellen.FokusRundeSetzenAsync(runde);
         }
         catch (Exception ex)

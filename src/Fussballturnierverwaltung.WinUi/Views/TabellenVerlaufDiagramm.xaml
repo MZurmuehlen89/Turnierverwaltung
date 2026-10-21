@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Tabellenplatz-Verlauf (#480): Platz 1 oben, Spieltage von links nach rechts. Alle Mannschaften grau, die
+     hervorgehobenen farbig mit Namen am Linienende; Zonen als zurückhaltende Bänder. Gezeichnet im Code-Behind aus
+     der Geometrie von VerlaufDiagrammRechner. -->
+<UserControl
+    x:Class="Fussballturnierverwaltung.WinUi.Views.TabellenVerlaufDiagramm"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid>
+        <!-- Farbquellen: ThemeResource löst hier nach dem Theme des Elements auf (#340); der Code-Behind liest die
+             Fill-Brushes, statt sie aus Application.Current.Resources zu holen (dort immer die Hell-Variante). -->
+        <Rectangle x:Name="TextPrimaer" Visibility="Collapsed" Fill="{ThemeResource TextFillColorPrimaryBrush}" />
+        <Rectangle x:Name="TextSekundaer" Visibility="Collapsed" Fill="{ThemeResource TextFillColorSecondaryBrush}" />
+        <Rectangle x:Name="LinieGrau" Visibility="Collapsed" Fill="{ThemeResource TextFillColorTertiaryBrush}" />
+        <Rectangle x:Name="Hintergrund" Visibility="Collapsed" Fill="{ThemeResource ApplicationPageBackgroundThemeBrush}" />
+        <Rectangle x:Name="Raster" Visibility="Collapsed" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+        <Rectangle x:Name="Auswahl" Visibility="Collapsed" Fill="{ThemeResource SubtleFillColorSecondaryBrush}" />
+
+        <ScrollViewer HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled">
+            <Canvas x:Name="Flaeche" HorizontalAlignment="Left"
+                    AutomationProperties.Name="Verlauf des Tabellenplatzes über die Spieltage" />
+        </ScrollViewer>
+    </Grid>
+</UserControl>

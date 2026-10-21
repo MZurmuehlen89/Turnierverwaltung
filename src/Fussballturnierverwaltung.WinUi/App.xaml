@@ -13,7 +13,10 @@
 
             <!-- Tabellenzonen (Issue #358): vier Qualifikationsfarben, Amber = unter Vorbehalt/Relegation,
                  Rot = ausgeschieden/Abstieg. Schlüssel = "ZonenFarbe" + ZonenFarbe-Enumwert + "Brush", aufgelöst
-                 von Views/ZonenMarke nach dem Theme des Elements. -->
+                 von Views/ZonenMarke nach dem Theme des Elements.
+                 Tabellenverlauf (#480): drei Linienfarben der hervorgehobenen Mannschaften, Schlüssel "VerlaufFarbe" +
+                 Nummer + "Brush" — Hell/Dunkel getrennt gewählt und gegen den Seitenhintergrund geprüft (dataviz-Validator:
+                 alle Paare unterscheidbar, auch bei Farbfehlsichtigkeit). -->
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="ZonenFarbeGruenBrush" Color="#1E9E57" />
@@ -22,6 +25,9 @@
                     <SolidColorBrush x:Key="ZonenFarbeViolettBrush" Color="#7E57C2" />
                     <SolidColorBrush x:Key="ZonenFarbeAmberBrush" Color="#E09B00" />
                     <SolidColorBrush x:Key="ZonenFarbeRotBrush" Color="#D13438" />
+                    <SolidColorBrush x:Key="VerlaufFarbe1Brush" Color="#2A78D6" />
+                    <SolidColorBrush x:Key="VerlaufFarbe2Brush" Color="#EB6834" />
+                    <SolidColorBrush x:Key="VerlaufFarbe3Brush" Color="#1BAF7A" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="ZonenFarbeGruenBrush" Color="#4CC38A" />
@@ -30,6 +36,9 @@
                     <SolidColorBrush x:Key="ZonenFarbeViolettBrush" Color="#B39DDB" />
                     <SolidColorBrush x:Key="ZonenFarbeAmberBrush" Color="#F2B93B" />
                     <SolidColorBrush x:Key="ZonenFarbeRotBrush" Color="#F1707B" />
+                    <SolidColorBrush x:Key="VerlaufFarbe1Brush" Color="#3987E5" />
+                    <SolidColorBrush x:Key="VerlaufFarbe2Brush" Color="#D95926" />
+                    <SolidColorBrush x:Key="VerlaufFarbe3Brush" Color="#199E70" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 

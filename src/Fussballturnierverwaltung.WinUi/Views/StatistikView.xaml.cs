@@ -23,6 +23,21 @@ public sealed partial class StatistikView : UserControl
         vm.MannschaftsStatistikAnzeigen(mannschaft.Id);
     }
 
+    // Klicks in der Kurve des Tabellenverlaufs (#480).
+    private void Diagramm_MannschaftGeklickt(object? sender, int mannschaftId)
+    {
+        if (DataContext is not StatistikViewModel vm) return;
+        Ablaufprotokoll.Bedienung($"Statistik: Tabellenverlauf Linie {mannschaftId}");
+        vm.TabellenVerlauf.MannschaftUmschalten(mannschaftId);
+    }
+
+    private void Diagramm_SpieltagGeklickt(object? sender, int spieltag)
+    {
+        if (DataContext is not StatistikViewModel vm) return;
+        Ablaufprotokoll.Bedienung($"Statistik: Tabellenverlauf Spieltag {spieltag}");
+        vm.TabellenVerlauf.SpieltagWaehlen(spieltag);
+    }
+
     // Fokus aus der Box: sonst klappt die Vorschlagsliste beim nächsten Tastendruck wieder auf.
     private void MannschaftsAuswahl_Bestaetigt(object? sender, EventArgs e)
         => AuswertungsListe.Focus(FocusState.Programmatic);

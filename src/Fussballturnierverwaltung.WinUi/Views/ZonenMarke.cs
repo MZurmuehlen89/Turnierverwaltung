@@ -1,7 +1,6 @@
 using Fussballturnierverwaltung.Application.Tabelle;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
 
 namespace Fussballturnierverwaltung.WinUi.Views;
 
@@ -39,11 +38,6 @@ public sealed class ZonenMarke : Grid
             return;
         }
 
-        string theme = ActualTheme == ElementTheme.Dark ? "Dark" : "Light";
-        Background = Microsoft.UI.Xaml.Application.Current.Resources.ThemeDictionaries.TryGetValue(theme, out var eintraege)
-                     && eintraege is ResourceDictionary themeFarben
-                     && themeFarben.TryGetValue($"ZonenFarbe{farbe}Brush", out var brush)
-            ? brush as Brush
-            : null;
+        Background = ThemeFarben.Brush(this, $"ZonenFarbe{farbe}Brush");
     }
 }

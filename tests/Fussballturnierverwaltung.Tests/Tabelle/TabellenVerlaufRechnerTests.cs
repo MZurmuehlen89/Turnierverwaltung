@@ -125,4 +125,22 @@ public class TabellenVerlaufRechnerTests
         verlauf.HatSpieltage.Should().BeFalse();
         verlauf.Mannschaften.Should().BeEmpty();
     }
+
+    [Fact]
+    public void Beschreibung_AusSichtDerMannschaftEigeneToreZuerst()
+    {
+        var verlauf = Verlauf(Spiel(1, 1, 2, 3, 1), Spiel(2, 2, 1));
+
+        PunkteVon(verlauf, 2)[0].Beschreibung(2).Should().Be(
+            "1. Spieltag: Platz 2 · 0 Punkte aus 1 Spiel\n1:3 gegen Team 1 (A)");
+    }
+
+    [Fact]
+    public void Beschreibung_SpielfreiUndAusstehend()
+    {
+        var verlauf = Verlauf(Spiel(1, 1, 2, 1, 0), Spiel(1, 3, 4), Spiel(2, 5, 1, 0, 0));
+
+        PunkteVon(verlauf, 5)[0].Beschreibung(5).Should().EndWith("\nspielfrei");
+        PunkteVon(verlauf, 3)[0].Beschreibung(3).Should().EndWith("\nSpiel gegen Team 4 (H) ausstehend");
+    }
 }

@@ -106,9 +106,7 @@ public static class TabellenZonen
     public static void Zuweisen(
         IEnumerable<TabellenEintrag> tabelle, IReadOnlyList<TabellenZone> zonen, int? gruppenNummer, bool mitSicherheit)
     {
-        TabellenZone? Zone(int rang) =>
-            zonen.FirstOrDefault(z => z.AusRegel && z.Umfasst(gruppenNummer, rang))
-            ?? zonen.FirstOrDefault(z => !z.AusRegel && z.Umfasst(gruppenNummer, rang));
+        TabellenZone? Zone(int rang) => ZoneFuer(zonen, gruppenNummer, rang);
         bool ohneZoneAusgeschieden = zonen.Any(z => z.AusRegel);
 
         foreach (var eintrag in tabelle)
@@ -130,6 +128,11 @@ public static class TabellenZonen
             eintrag.PunktFarbe = moeglich[0].Farbe ?? ZonenFarbe.Rot;
         }
     }
+
+    /// <summary>Die Zone eines Rangs; deckt eine Regel den Platz ab, geht ihre Zone dem Tabellenbereich vor.</summary>
+    public static TabellenZone? ZoneFuer(IReadOnlyList<TabellenZone> zonen, int? gruppenNummer, int rang) =>
+        zonen.FirstOrDefault(z => z.AusRegel && z.Umfasst(gruppenNummer, rang))
+        ?? zonen.FirstOrDefault(z => !z.AusRegel && z.Umfasst(gruppenNummer, rang));
 
     /// <summary>Markiert die gruppenübergreifende Rangfolge einer Regel „die n Besten“: Die Plätze der Besten
     /// tragen die Farbe der Zielrunde. Stehen alle Qualifikanten fest (<paramref name="qualifikanten"/> ohne

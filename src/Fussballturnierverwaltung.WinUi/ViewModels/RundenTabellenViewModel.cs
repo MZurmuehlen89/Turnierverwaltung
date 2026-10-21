@@ -66,6 +66,7 @@ public partial class RundenTabellenViewModel : ObservableObject
         TabellenBisSpieltag = null;
         AusgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
         VerfuegbareSpieltage = [];
+        Zonen = [];
         _fokusRunde = runde;
         OnPropertyChanged(nameof(ZeigtHinRueckrundenTabs));
     }
@@ -136,6 +137,10 @@ public partial class RundenTabellenViewModel : ObservableObject
     private IReadOnlyList<ZonenLegendenEintrag> _zonenLegende = [];
     public bool HatZonenLegende => ZonenLegende.Count > 0;
 
+    /// <summary>Alle Zonen der fokussierten Runde — auch dann, wenn eine Teilansicht sie in der Tabelle ausblendet
+    /// (für die Bänder im Tabellenverlauf, #480).</summary>
+    [ObservableProperty] private IReadOnlyList<TabellenZone> _zonen = [];
+
     // ── Stand „bis Spieltag“ und Liga-Ansicht ─────────────────────────────────
 
     [ObservableProperty]
@@ -201,6 +206,7 @@ public partial class RundenTabellenViewModel : ObservableObject
             // Issue #358/#420: Zonen aus den ausgehenden Übergangsregeln und den Tabellenbereichen der Runde.
             var regeln = await _uebergangsregelService.AlleNachQuellRundeIdAsync(runde.Id);
             var zonen = await _tabellenService.ZonenErmittelnAsync(runde.Id, regeln);
+            Zonen = zonen;
 
             if (ZeigtGruppenphase)
                 await GruppenTabellenLadenAsync(runde.Id, regeln, zonen);

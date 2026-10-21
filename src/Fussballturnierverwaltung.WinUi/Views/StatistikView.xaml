@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:stat="using:Fussballturnierverwaltung.Application.Statistiken"
+    xmlns:tabelle="using:Fussballturnierverwaltung.Application.Tabelle"
     xmlns:views="using:Fussballturnierverwaltung.WinUi.Views"
     xmlns:vm="using:Fussballturnierverwaltung.WinUi.ViewModels">
 
@@ -380,7 +381,8 @@
                         <Border x:Name="MannschaftsBereichAnker" Visibility="Collapsed" />
                     </StackPanel>
 
-                    <!-- Tabellenverlauf (#480): Runde und Gruppe wählen, darunter die Tabellen der Runde. -->
+                    <!-- Tabellenverlauf (#480): Runde und Gruppe wählen, darunter die Kurve und die Tabellen der Runde zum
+                         in der Kurve gewählten Spieltag. -->
                     <StackPanel DataContext="{Binding TabellenVerlauf}" Spacing="12" VerticalAlignment="Top"
                                 Visibility="{Binding DataContext.IstTabellenverlaufsbereich, ElementName=AuswertungsListe, Converter={StaticResource BoolToVisibility}}">
 
@@ -416,7 +418,45 @@
                         <TextBlock Text="{Binding Hinweis}" Opacity="0.6" FontSize="13" TextWrapping="Wrap"
                                    Visibility="{Binding Hinweis, Converter={StaticResource NullToCollapsed}}" />
 
+                        <StackPanel Spacing="8" Visibility="{Binding HatVerlauf, Converter={StaticResource BoolToVisibility}}">
+                            <!-- Legende: hervorgehobene Mannschaften, Klick nimmt sie wieder heraus. -->
+                            <ItemsControl ItemsSource="{Binding Hervorhebungen}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="8" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="tabelle:VerlaufHervorhebung">
+                                        <Button Command="{Binding DataContext.HervorhebungEntfernenCommand, ElementName=TabellenVerlaufAnker}"
+                                                CommandParameter="{Binding}" Padding="8,3"
+                                                ToolTipService.ToolTip="Hervorhebung aufheben">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <views:VerlaufFarbMarke Farbe="{Binding Farbe}" Width="10" Height="10" CornerRadius="5"
+                                                                        VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" />
+                                                <FontIcon Glyph="&#xE711;" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBlock FontSize="11" Opacity="0.7" TextWrapping="Wrap"
+                                       Text="Klick auf eine Linie hebt die Mannschaft hervor (bis zu drei), Klick auf einen Spieltag zeigt darunter die Tabelle nach diesem Spieltag." />
+
+                            <views:TabellenVerlaufDiagramm Verlauf="{Binding Verlauf}" Zonen="{Binding Tabellen.Zonen}"
+                                                           Hervorhebungen="{Binding Hervorhebungen}"
+                                                           AusgewaehlterSpieltag="{Binding Tabellen.TabellenBisSpieltag}"
+                                                           MannschaftGeklickt="Diagramm_MannschaftGeklickt"
+                                                           SpieltagGeklickt="Diagramm_SpieltagGeklickt" />
+                        </StackPanel>
+
+                        <TextBlock Text="{Binding TabellenTitel}" FontSize="14" FontWeight="SemiBold" Margin="0,8,0,0" />
                         <views:RundenTabellenAnzeige DataContext="{Binding Tabellen}" />
+
+                        <!-- Hält den DataContext des Bereichs (TabellenVerlaufViewModel) für Bindungen in Vorlagen. -->
+                        <Border x:Name="TabellenVerlaufAnker" Visibility="Collapsed" />
                     </StackPanel>
                 </Grid>
             </ScrollViewer>
