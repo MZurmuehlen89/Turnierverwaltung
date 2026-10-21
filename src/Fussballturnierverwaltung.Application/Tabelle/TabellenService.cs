@@ -76,13 +76,27 @@ public class TabellenService(
     }
 
     /// <summary>Berechnet die Rangfolge der Kandidaten an einer festen Platzierung (z.B. "Platz 3") über alle
-    /// Gruppen der Quellrunde hinweg (siehe <see cref="GruppenRechner.UebergreifendeRangfolgeBerechnen"/>).</summary>
+    /// Gruppen der Quellrunde hinweg (siehe <see cref="GruppenRechner.UebergreifendeRangfolgeBerechnen"/>). Mit
+    /// <paramref name="bisSpieltag"/> zum selben historischen Stand wie die Gruppentabellen.</summary>
     public async Task<IReadOnlyList<TabellenEintrag>> UebergreifendeRangfolgeBerechnenAsync(
-        int turnierRundeId, int platzierung, CancellationToken ct = default)
+        int turnierRundeId, int platzierung, int? bisSpieltag = null, CancellationToken ct = default)
     {
         var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
         return GruppenRechner.UebergreifendeRangfolgeBerechnen(
-            daten.Spiele, platzierung, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze);
+            daten.Spiele, platzierung, bisSpieltag, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze);
+    }
+
+    /// <summary>Tabellenplatz-Verlauf über die Spieltage (#480): bei einer Gruppenphase je Gruppe einer, sonst einer
+    /// für die ganze Runde (siehe <see cref="TabellenVerlaufRechner"/>).</summary>
+    public async Task<IReadOnlyList<TabellenVerlauf>> VerlaeufeBerechnenAsync(int turnierRundeId, CancellationToken ct = default)
+    {
+        var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
+        if (daten.Runde.Rundenart != Rundenart.Gruppenphase)
+            return [TabellenVerlaufRechner.Berechnen(
+                gruppenNummer: null, daten.Spiele, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze)];
+
+        return [.. GruppenRechner.GruppenErmitteln(daten.Spiele).Select(g => TabellenVerlaufRechner.Berechnen(
+            g.Nummer, g.Spiele, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze))];
     }
 
     /// <summary>Liefert die Spieltage, für die ein historischer Tabellenstand sinnvoll ist

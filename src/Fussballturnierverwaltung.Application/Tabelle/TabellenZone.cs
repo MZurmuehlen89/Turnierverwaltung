@@ -141,16 +141,19 @@ public static class TabellenZonen
     {
         // Issue #358: Hier fällt die Entscheidung über das Weiterkommen — die Plätze der Besten tragen die
         // Farbe der Zielrunde, der Punkt folgt, sobald die Qualifikanten feststehen.
-        var zielFarbe = ZielFarbe(zonen, zielRundeId);
-        PlaetzeDerBestenFaerben(rangfolge, anzahlBeste, zielFarbe);
+        BesteFaerben(rangfolge, zonen, zielRundeId, anzahlBeste);
 
         var feststehende = qualifikanten.ToList();
         if (feststehende.All(id => id.HasValue))
-            EntscheidungMarkieren(rangfolge, [.. feststehende.Select(id => id!.Value)], zielFarbe);
+            EntscheidungMarkieren(rangfolge, [.. feststehende.Select(id => id!.Value)], ZielFarbe(zonen, zielRundeId));
     }
 
-    private static void PlaetzeDerBestenFaerben(IEnumerable<TabellenEintrag> rangfolge, int anzahlBeste, ZonenFarbe zielFarbe)
+    /// <summary>Nur die Farbe der Plätze der Besten, ohne Status und Punkt — für einen historischen Stand, an dem
+    /// noch niemand qualifiziert ist (#480).</summary>
+    public static void BesteFaerben(
+        IEnumerable<TabellenEintrag> rangfolge, IReadOnlyList<TabellenZone> zonen, int zielRundeId, int anzahlBeste)
     {
+        var zielFarbe = ZielFarbe(zonen, zielRundeId);
         foreach (var eintrag in rangfolge)
             eintrag.ZonenFarbe = eintrag.Rang <= anzahlBeste ? zielFarbe : null;
     }

@@ -1144,4 +1144,73 @@ public class TabellenServiceTests
             Eintraege = [.. plaetze.Select(p => new RanglistenEintrag { MannschaftId = p.MannschaftId, Rang = p.Rang })]
         };
     }
+
+    // ── Stand nach Spieltag in der Gruppenphase und Verlauf (Issue #480) ────
+
+    // Zwei Gruppen (1/2/3 und 4/5/6). Spieltag 1: 1-2 3:0, 4-5 1:0 (Team 3 und 6 spielfrei);
+    // Spieltag 2: 2-3 5:0, 5-6 0:0.
+    private static async Task<TabellenService> ZweiGruppenMitZweiSpieltagenAsync(TurnierverwaltungDbContext ctx)
+    {
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase", Rundenart = Rundenart.Gruppenphase,
+            RegelwerkId = 1, Reihenfolge = 1, GruppenAnzahl = 2, AusgangsMannschaftsanzahl = 6
+        });
+        for (int i = 1; i <= 6; i++)
+            ctx.Mannschaften.Add(new Mannschaft { Id = i, Name = $"Team {i}", Kurzname = $"T{i}", LandId = 1 });
+        await ctx.SaveChangesAsync();
+
+        SpielHinzufuegen(ctx, 1, 1, heimId: 1, auswaertsId: 2, heimTore: 3, auswaertsTore: 0, siegerMannschaftId: 1, spieltag: 1);
+        SpielHinzufuegen(ctx, 2, 1, heimId: 4, auswaertsId: 5, heimTore: 1, auswaertsTore: 0, siegerMannschaftId: 4, spieltag: 1);
+        SpielHinzufuegen(ctx, 3, 1, heimId: 2, auswaertsId: 3, heimTore: 5, auswaertsTore: 0, siegerMannschaftId: 2, spieltag: 2);
+        SpielHinzufuegen(ctx, 4, 1, heimId: 5, auswaertsId: 6, heimTore: 0, auswaertsTore: 0, spieltag: 2);
+        return ServiceFuer(ctx);
+    }
+
+    [Fact]
+    public async Task UebergreifendeRangfolgeBerechnenAsync_BisSpieltag_RechnetDieGruppenZumSelbenStand()
+    {
+        // Nach Spieltag 1 sind die Dritten Team 2 (TD -3) und Team 5 (TD -1) — die spielfreien Teams 3 und 6
+        // stehen mit 0:0 davor, wie in den Gruppentabellen. Aktuell sind es Team 3 (0 Punkte) und Team 5 (1 Punkt).
+        await using var ctx = NeuerContext();
+        var service = await ZweiGruppenMitZweiSpieltagenAsync(ctx);
+
+        var nachSpieltag1 = await service.UebergreifendeRangfolgeBerechnenAsync(1, platzierung: 3, bisSpieltag: 1);
+        var aktuell = await service.UebergreifendeRangfolgeBerechnenAsync(1, platzierung: 3);
+
+        nachSpieltag1.Select(e => e.Mannschaft.Id).Should().Equal(5, 2);
+        nachSpieltag1.Single(e => e.Mannschaft.Id == 2).Spiele.Should().Be(1, "nur Spieltag 1 zählt");
+        aktuell.Select(e => e.Mannschaft.Id).Should().Equal(5, 3);
+    }
+
+    [Fact]
+    public async Task VerlaeufeBerechnenAsync_Gruppenphase_JeGruppeEinVerlauf()
+    {
+        await using var ctx = NeuerContext();
+        var service = await ZweiGruppenMitZweiSpieltagenAsync(ctx);
+
+        var verlaeufe = await service.VerlaeufeBerechnenAsync(1);
+
+        verlaeufe.Select(v => v.GruppenNummer).Should().Equal(1, 2);
+        verlaeufe[0].Mannschaften.Select(m => m.Mannschaft.Id).Should().BeEquivalentTo([1, 2, 3]);
+        verlaeufe[0].Mannschaften.Single(m => m.Mannschaft.Id == 3).Punkte.Select(p => p.Platz).Should().Equal(2, 3);
+    }
+
+    [Fact]
+    public async Task VerlaeufeBerechnenAsync_Liga_EinVerlaufOhneGruppe()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int rundeId);
+        SpielHinzufuegen(ctx, 1, rundeId, 1, 2, 2, 0, siegerMannschaftId: 1, spieltag: 1);
+        SpielHinzufuegen(ctx, 2, rundeId, 2, 1, 1, 0, siegerMannschaftId: 2, spieltag: 2);
+        var service = ServiceFuer(ctx);
+
+        var verlauf = (await service.VerlaeufeBerechnenAsync(rundeId)).Should().ContainSingle().Subject;
+
+        verlauf.GruppenNummer.Should().BeNull();
+        verlauf.Mannschaften.Single(m => m.Mannschaft.Id == 2).Punkte.Select(p => p.Platz).Should().Equal(2, 2);
+    }
 }

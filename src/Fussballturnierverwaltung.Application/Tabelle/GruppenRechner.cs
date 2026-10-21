@@ -43,19 +43,22 @@ public static class GruppenRechner
     /// <summary>Rangfolge der Kandidaten an einer festen Platzierung (z.B. "Platz 3") über alle Gruppen hinweg,
     /// sortiert nach denselben Ranking-Regeln wie innerhalb einer Gruppe (Issue #184).
     /// "Direkter Vergleich"-Kriterien liefern zwischen Teams aus verschiedenen Gruppen naturgemäß keinen Treffer
-    /// (kein gemeinsames Spiel) und fallen automatisch auf das nächste Kriterium durch - kein Sonderfall nötig.</summary>
+    /// (kein gemeinsames Spiel) und fallen automatisch auf das nächste Kriterium durch - kein Sonderfall nötig.
+    /// Die Kandidaten kommen aus denselben Gruppentabellen wie in <see cref="GruppenTabelleBerechnen"/> - gleiche
+    /// Teilnehmer, gleicher Stand <paramref name="bisSpieltag"/> (#480, vorher #449).</summary>
     public static IReadOnlyList<TabellenEintrag> UebergreifendeRangfolgeBerechnen(
-        IReadOnlyList<Spiel> alleSpiele, int platzierung, PunkteRegel punkteRegel, IReadOnlyList<RankingRegel> rankingRegeln,
-        IReadOnlyDictionary<int, int>? ranglistenPlaetze = null)
+        IReadOnlyList<Spiel> alleSpiele, int platzierung, int? bisSpieltag, PunkteRegel punkteRegel,
+        IReadOnlyList<RankingRegel> rankingRegeln, IReadOnlyDictionary<int, int>? ranglistenPlaetze = null)
     {
         // Gesamttabelle über ALLE Teams der Runde - liefert korrekte Team-Stats (die Statistik filtert
         // ohnehin je Team auf dessen eigene Spiele) und die richtige Sortierreihenfolge in einem Aufwasch.
         var gesamtTabelle = TabellenRechner.TabelleBerechnen(
-            alleSpiele, punkteRegel, rankingRegeln, ranglistenPlaetze: ranglistenPlaetze);
+            TabellenRechner.BisSpieltag(alleSpiele, bisSpieltag), punkteRegel, rankingRegeln,
+            teilnehmer: AufgeloesteTeilnehmer(alleSpiele), ranglistenPlaetze: ranglistenPlaetze);
 
         var kandidatenIds = GruppenErmitteln(alleSpiele)
-            .Select(g => TabellenRechner.TabelleBerechnen(g.Spiele, punkteRegel, rankingRegeln, ranglistenPlaetze: ranglistenPlaetze)
-                .FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id)
+            .Select(g => GruppenTabelleBerechnen(g.Nummer, g.Spiele, bisSpieltag, punkteRegel, rankingRegeln, ranglistenPlaetze)
+                .Tabelle.FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id)
             .Where(id => id.HasValue).Select(id => id!.Value).ToHashSet();
 
         var ergebnis = gesamtTabelle.Where(e => kandidatenIds.Contains(e.Mannschaft.Id)).ToList();

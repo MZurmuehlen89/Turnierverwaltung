@@ -266,7 +266,7 @@ public class PlatzhalterAufloesung(
         if (spiele.Count == 0 || spiele.Any(s => s.Status != SpielStatus.Abgeschlossen))
             return null;
 
-        var rangfolge = await tabellenService.UebergreifendeRangfolgeBerechnenAsync(gruppenphase.Id, bezug.Platzierung, ct);
+        var rangfolge = await tabellenService.UebergreifendeRangfolgeBerechnenAsync(gruppenphase.Id, bezug.Platzierung, ct: ct);
         if (rangfolge.Count < tabelle.AnzahlBeste) return null;
         var besteIds = rangfolge.Take(tabelle.AnzahlBeste).Select(e => e.Mannschaft.Id).ToHashSet();
 
@@ -301,7 +301,7 @@ public class PlatzhalterAufloesung(
         if (await zwischenspeicher.EnthaeltIgnoriertesSpielAsync(gruppenphase.Id, sicht.IgnorierteSpielIds, ct)) return null;
         if (await HatOffeneBesetzteSpieleAsync(gruppenphase.Id, ct)) return null;
 
-        var rangfolge = await tabellenService.UebergreifendeRangfolgeBerechnenAsync(gruppenphase.Id, bezug.Platzierung, ct);
+        var rangfolge = await tabellenService.UebergreifendeRangfolgeBerechnenAsync(gruppenphase.Id, bezug.Platzierung, ct: ct);
         return bezug.Rang <= rangfolge.Count ? rangfolge[bezug.Rang - 1].Mannschaft.Id : null;
     }
 
@@ -375,7 +375,7 @@ public class PlatzhalterAufloesung(
         int n = regel.AnzahlBeste!.Value;
         if (await HatOffeneBesetzteSpieleAsync(regel.QuellRundeId, ct)) return [.. Enumerable.Repeat((int?)null, n)];
 
-        var rangfolge = await tabellenService.UebergreifendeRangfolgeBerechnenAsync(regel.QuellRundeId, regel.PlatzierungVon, ct);
+        var rangfolge = await tabellenService.UebergreifendeRangfolgeBerechnenAsync(regel.QuellRundeId, regel.PlatzierungVon, ct: ct);
         return Enumerable.Range(0, n)
             .Select(i => i < rangfolge.Count ? (int?)rangfolge[i].Mannschaft.Id : null)
             .ToList();

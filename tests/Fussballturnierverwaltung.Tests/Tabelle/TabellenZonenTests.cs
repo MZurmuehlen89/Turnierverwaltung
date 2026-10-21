@@ -288,4 +288,17 @@ public class TabellenZonenTests
 
         eintrag.PunktFarbe.Should().BeNull();
     }
+
+    [Fact]
+    public void BesteFaerben_FaerbtNurOhneStatusUndPunkt()
+    {
+        // #480: historischer Stand — noch niemand ist qualifiziert, es zählt nur die Farbe der Plätze der Besten.
+        var rangfolge = DritteRangfolge();
+
+        TabellenZonen.BesteFaerben(rangfolge, GruppenZonenMitBestenDritten(), _achtelfinale.Id, anzahlBeste: 1);
+
+        rangfolge.Select(e => e.ZonenFarbe).Should().Equal(ZonenFarbe.Gruen, null, null);
+        rangfolge.Should().OnlyContain(e =>
+            e.Qualifikationsstatus == Qualifikationsstatus.Offen && !e.SicherPositioniert && e.PunktFarbe == null);
+    }
 }
