@@ -56,6 +56,37 @@
                 <TextBlock Text="{Binding Text}" FontSize="11" Opacity="0.75" VerticalAlignment="Center" />
             </StackPanel>
         </DataTemplate>
+
+        <!-- Inhalt einer Gruppenkarte: Kopf, Tabelle und noch offene Plätze — für die schmale Karte und die breite
+             Einzelansicht (#480). -->
+        <DataTemplate x:Key="GruppenTabelleInhaltTemplate" x:DataType="tabelle:GruppenTabelle">
+            <StackPanel>
+                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="8,8,0,0" Padding="12,8">
+                    <TextBlock Foreground="White" FontWeight="Bold" FontSize="13">
+                        <Run Text="Gruppe " /><Run Text="{Binding GruppenNummer}" />
+                    </TextBlock>
+                </Border>
+                <ItemsControl ItemsSource="{Binding Tabelle}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
+                <!-- #397: noch nicht aufgelöste Plätze als eigene Zeile, damit die Gruppe vollständig wirkt -->
+                <ItemsControl ItemsSource="{Binding OffenePlaetze}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid ColumnDefinitions="36,*,26,50,34,30,34" Padding="7,4,4,4" Opacity="0.6">
+                                <TextBlock Grid.Column="0" Text="–" FontSize="12"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{Binding}" FontSize="12" FontStyle="Italic"
+                                           TextWrapping="WrapWholeWords" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="3" Text="0:0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="4" Text="0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="5" Text="0" FontSize="12" FontWeight="Bold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid x:Name="Wurzel">
@@ -68,8 +99,9 @@
                                Opacity="0.6" FontSize="13" HorizontalAlignment="Center" Margin="16,48" TextWrapping="Wrap" TextAlignment="Center"
                                Visibility="{Binding HatGruppenTabellenAnzeige, Converter={StaticResource InverseBoolToVisibility}}" />
 
+                    <!-- Alle Gruppen als Karten nebeneinander; ein Klick wählt die Gruppe. -->
                     <ItemsControl ItemsSource="{Binding AnzeigeGruppenTabellen}"
-                                  Visibility="{Binding HatGruppenTabellenAnzeige, Converter={StaticResource BoolToVisibility}}">
+                                  Visibility="{Binding ZeigtGruppenKarten, Converter={StaticResource BoolToVisibility}}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <ItemsWrapGrid Orientation="Horizontal" />
@@ -82,34 +114,23 @@
                                     <!-- #262-Fix: 340px statt der ursprünglich zu schmalen 290px-Karte, Team-Spalte
                                          oben zusätzlich mit WrapWholeWords statt Ellipsis. -->
                                     <Border Width="340" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
-                                        <StackPanel>
-                                            <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="8,8,0,0" Padding="12,8">
-                                                <TextBlock Foreground="White" FontWeight="Bold" FontSize="13">
-                                                    <Run Text="Gruppe " /><Run Text="{Binding GruppenNummer}" />
-                                                </TextBlock>
-                                            </Border>
-                                            <ItemsControl ItemsSource="{Binding Tabelle}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
-                                            <!-- #397: noch nicht aufgelöste Plätze als eigene Zeile, damit die Gruppe vollständig wirkt -->
-                                            <ItemsControl ItemsSource="{Binding OffenePlaetze}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Grid ColumnDefinitions="36,*,26,50,34,30,34" Padding="7,4,4,4" Opacity="0.6">
-                                                            <TextBlock Grid.Column="0" Text="–" FontSize="12"
-                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                            <TextBlock Grid.Column="1" Text="{Binding}" FontSize="12" FontStyle="Italic"
-                                                                       TextWrapping="WrapWholeWords" VerticalAlignment="Center" />
-                                                            <TextBlock Grid.Column="2" Text="0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                            <TextBlock Grid.Column="3" Text="0:0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                            <TextBlock Grid.Column="4" Text="0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                            <TextBlock Grid.Column="5" Text="0" FontSize="12" FontWeight="Bold"
-                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
+                                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource GruppenTabelleInhaltTemplate}"
+                                                        HorizontalContentAlignment="Stretch" IsTabStop="False" />
                                     </Border>
                                 </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Nur eine Gruppe gewählt: volle Breite wie die Ligatabelle (#480). -->
+                    <ItemsControl ItemsSource="{Binding AnzeigeGruppenTabellen}"
+                                  Visibility="{Binding ZeigtEinzelneGruppe, Converter={StaticResource BoolToVisibility}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="tabelle:GruppenTabelle">
+                                <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Margin="0,0,0,12">
+                                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource GruppenTabelleInhaltTemplate}"
+                                                    HorizontalContentAlignment="Stretch" IsTabStop="False" />
+                                </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

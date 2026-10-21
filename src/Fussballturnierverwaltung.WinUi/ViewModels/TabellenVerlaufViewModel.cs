@@ -29,6 +29,7 @@ public partial class TabellenVerlaufViewModel : ObservableObject
     private readonly TabellenService _tabellenService;
     private bool _veraltet = true;
     private bool _geladen;
+    private (IReadOnlyList<int> MannschaftIds, int? Spieltag)? _vorauswahl;
 
     public RundenTabellenViewModel Tabellen { get; }
 
@@ -138,6 +139,7 @@ public partial class TabellenVerlaufViewModel : ObservableObject
         OnPropertyChanged(nameof(HatVerlauf));
         OnPropertyChanged(nameof(Hinweis));
         Hervorhebungen = VerlaufHervorhebungen.Abgleichen(Hervorhebungen, Verlauf);
+        Tabellen.FokussiereGruppe(AusgewaehlteGruppe?.Nummer);
     }
 
     private void AuswahlSpaeterMelden(string eigenschaft) =>
@@ -197,11 +199,23 @@ public partial class TabellenVerlaufViewModel : ObservableObject
     /// gewählte Runde bleibt, solange es sie noch gibt. Geladen wird beim nächsten <see cref="AnzeigenAsync"/>.</summary>
     public void InstanzSetzen(TurnierInstanz? instanz)
     {
-        Runden = instanz is null
-            ? []
-            : [.. instanz.Runden.Where(r => TabellenZonen.HatTabelle(r.Rundenart)).OrderBy(r => r.Reihenfolge)];
+        Runden = RundenMitTabelle(instanz);
         _ausgewaehlteRunde = Runden.FirstOrDefault(r => r.Id == _ausgewaehlteRunde?.Id) ?? Runden.FirstOrDefault();
         OnPropertyChanged(nameof(AusgewaehlteRunde));
+        _veraltet = true;
+    }
+
+    /// <summary>Die Runden eines Turniers, die eine Tabelle haben, in Turnierreihenfolge.</summary>
+    public static IReadOnlyList<TurnierRunde> RundenMitTabelle(TurnierInstanz? instanz) =>
+        instanz is null ? [] : [.. instanz.Runden.Where(r => TabellenZonen.HatTabelle(r.Rundenart)).OrderBy(r => r.Reihenfolge)];
+
+    /// <summary>Sprung von der Mannschaftsseite (#480): Runde wählen und beim nächsten Laden die Gruppe der ersten
+    /// Mannschaft, die Mannschaften als Hervorhebung und ggf. den Spieltag übernehmen.</summary>
+    public void Vorauswaehlen(int rundeId, IReadOnlyList<int> mannschaftIds, int? spieltag)
+    {
+        _ausgewaehlteRunde = Runden.FirstOrDefault(r => r.Id == rundeId) ?? _ausgewaehlteRunde;
+        OnPropertyChanged(nameof(AusgewaehlteRunde));
+        _vorauswahl = (mannschaftIds, spieltag);
         _veraltet = true;
     }
 
@@ -225,11 +239,17 @@ public partial class TabellenVerlaufViewModel : ObservableObject
         try
         {
             var runde = AusgewaehlteRunde;
+            var vorauswahl = _vorauswahl;
+            _vorauswahl = null;
             Verlaeufe = runde is null ? [] : await _tabellenService.VerlaeufeBerechnenAsync(runde.Id);
-            _ausgewaehlteGruppe = Gruppen.FirstOrDefault(g => g.Nummer == _ausgewaehlteGruppe?.Nummer) ?? Gruppen.FirstOrDefault();
+            int? gruppe = vorauswahl is { } v ? GruppeVon(v.MannschaftIds.FirstOrDefault()) : _ausgewaehlteGruppe?.Nummer;
+            _ausgewaehlteGruppe = Gruppen.FirstOrDefault(g => g.Nummer == gruppe) ?? Gruppen.FirstOrDefault();
             OnPropertyChanged(nameof(AusgewaehlteGruppe));
             VerlaufGewechselt();
+            if (vorauswahl is { } hervorheben) HervorhebungenSetzen(hervorheben.MannschaftIds);
             await Tabellen.FokusRundeSetzenAsync(runde);
+            Tabellen.FokussiereGruppe(AusgewaehlteGruppe?.Nummer); // der Rundenwechsel hebt den Gruppenfilter auf
+            if (vorauswahl?.Spieltag is int spieltag) Tabellen.SpieltagZeigen(spieltag);
         }
         catch (Exception ex)
         {
@@ -240,5 +260,15 @@ public partial class TabellenVerlaufViewModel : ObservableObject
             _geladen = true;
             OnPropertyChanged(nameof(Hinweis));
         }
+    }
+
+    private int? GruppeVon(int mannschaftId) =>
+        Verlaeufe.FirstOrDefault(v => v.Mannschaften.Any(m => m.Mannschaft.Id == mannschaftId))?.GruppenNummer;
+
+    private void HervorhebungenSetzen(IReadOnlyList<int> mannschaftIds)
+    {
+        Hervorhebungen = [];
+        foreach (int id in mannschaftIds.Distinct()) MannschaftUmschalten(id);
+        if (!HatHervorhebungen) Hervorhebungen = VerlaufHervorhebungen.Abgleichen([], Verlauf);
     }
 }

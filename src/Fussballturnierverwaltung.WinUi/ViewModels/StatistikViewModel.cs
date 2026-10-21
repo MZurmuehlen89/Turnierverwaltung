@@ -47,6 +47,9 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
 
     public TabellenVerlaufViewModel TabellenVerlauf { get; }
 
+    /// <summary>Block „Tabellenplatz-Verlauf“ der Mannschaftsseite (#480).</summary>
+    public MannschaftsVerlaufViewModel MannschaftsVerlauf { get; }
+
     private StatistikAuswertung _ausgewaehlteAuswertung;
 
     // Die ListView schreibt beim Auf- und Abbau der Ansicht vorübergehend null zurück — die Auswahl bleibt dann.
@@ -60,7 +63,8 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
             OnPropertyChanged(nameof(IstTurnierbereich));
             OnPropertyChanged(nameof(IstTabellenverlaufsbereich));
             TabelleAktualisieren();
-            if (IstTabellenverlaufsbereich && AusgewaehlteAuswertung.IstVerfuegbar) TabellenVerlauf.Anzeigen();
+            if (IstTabellenverlaufsbereich) TabellenVerlauf.Anzeigen();
+            MannschaftsVerlaufAktualisieren();
         }
     }
 
@@ -83,12 +87,19 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
     public event EventHandler<int>? MannschaftsSpieleAngefordert;
 
     public StatistikViewModel(
-        StatistikService service, TabellenVerlaufViewModel tabellenVerlauf, ILogger<StatistikViewModel> logger)
+        StatistikService service, TabellenVerlaufViewModel tabellenVerlauf, MannschaftsVerlaufViewModel mannschaftsVerlauf,
+        ILogger<StatistikViewModel> logger)
     {
         _service = service;
         _logger = logger;
         TabellenVerlauf = tabellenVerlauf;
         TabellenVerlauf.FehlerGemeldet += meldung => Fehlermeldung = meldung;
+        MannschaftsVerlauf = mannschaftsVerlauf;
+        MannschaftsVerlauf.FehlerGemeldet += meldung => Fehlermeldung = meldung;
+        Mannschaft.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MannschaftsStatistikViewModel.Seite)) MannschaftsVerlaufAktualisieren();
+        };
         _ausgewaehlteAuswertung = Auswertung(StatistikAuswertungsart.Gesamt);
         Mannschaft.AlleSpieleAngefordert += (_, mannschaftId) => MannschaftsSpieleAngefordert?.Invoke(this, mannschaftId);
     }
@@ -103,22 +114,37 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
 
         if (instanz is null || (!istAktiv && instanz.Id != _geladeneInstanzId))
         {
-            TabellenVerlaufUebernehmen(null);
+            TabellenRundenUebernehmen(null);
             SpieleUebernehmen([], instanzId: null);
             return;
         }
         if (!istAktiv) return;
 
         using var vorgang = _logger.Vorgang($"Statistik: Turnier setzen (Instanz {instanz.Id})");
-        TabellenVerlaufUebernehmen(instanz);
+        TabellenRundenUebernehmen(instanz);
         SpieleUebernehmen(await _service.MannschaftsSpieleLadenAsync(instanz.Id), instanz.Id);
         if (IstTabellenverlaufsbereich) await TabellenVerlauf.AnzeigenAsync();
     }
 
-    // Vor den Spielen, damit die Verfügbarkeit steht, wenn die Anzeige danach aktualisiert wird.
-    private void TabellenVerlaufUebernehmen(TurnierInstanz? instanz)
+    /// <summary>Kurve auf der Mannschaftsseite angeklickt (#480): in den Tabellenverlauf derselben Runde, mit den
+    /// Mannschaften hervorgehoben und ggf. der Tabelle nach dem Spieltag.</summary>
+    public void TabellenVerlaufOeffnen(int rundeId, IReadOnlyList<int> mannschaftIds, int? spieltag)
+    {
+        TabellenVerlauf.Vorauswaehlen(rundeId, mannschaftIds, spieltag);
+        AusgewaehlteAuswertung = Auswertung(StatistikAuswertungsart.Tabellenverlauf);
+    }
+
+    // Lädt nur, solange die Mannschaftsseite zu sehen ist; der Wechsel dorthin lädt nach.
+    private void MannschaftsVerlaufAktualisieren()
+    {
+        if (IstMannschaftsbereich) MannschaftsVerlauf.Zeigen(Mannschaft.Seite?.Mannschaft.Id);
+    }
+
+    // Vor den Spielen, damit Verfügbarkeit und Runden stehen, wenn die Anzeige danach aktualisiert wird.
+    private void TabellenRundenUebernehmen(TurnierInstanz? instanz)
     {
         TabellenVerlauf.InstanzSetzen(instanz);
+        MannschaftsVerlauf.InstanzSetzen(instanz);
         Auswertung(StatistikAuswertungsart.Tabellenverlauf).IstVerfuegbar = instanz is null || TabellenVerlauf.HatRunden;
         OnPropertyChanged(nameof(IstTabellenverlaufsbereich));
     }

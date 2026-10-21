@@ -97,12 +97,22 @@ public partial class RundenTabellenViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatGruppenTabellenAnzeige))]
     [NotifyPropertyChangedFor(nameof(AnzeigeGruppenTabellen))]
+    [NotifyPropertyChangedFor(nameof(ZeigtGruppenKarten))]
+    [NotifyPropertyChangedFor(nameof(ZeigtEinzelneGruppe))]
     private ObservableCollection<GruppenTabelle> _gruppenTabellenAnzeige = [];
     public bool HatGruppenTabellenAnzeige => GruppenTabellenAnzeige.Count > 0;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AnzeigeGruppenTabellen))]
+    [NotifyPropertyChangedFor(nameof(ZeigtGruppenKarten))]
+    [NotifyPropertyChangedFor(nameof(ZeigtEinzelneGruppe))]
     private int? _fokussierteGruppenNummer;
+
+    /// <summary>Alle Gruppen als Karten nebeneinander.</summary>
+    public bool ZeigtGruppenKarten => HatGruppenTabellenAnzeige && FokussierteGruppenNummer is null;
+
+    /// <summary>Nur eine Gruppe ist zu sehen — sie bekommt die volle Breite wie die Ligatabelle (#480).</summary>
+    public bool ZeigtEinzelneGruppe => HatGruppenTabellenAnzeige && FokussierteGruppenNummer is not null;
 
     public IReadOnlyList<GruppenTabelle> AnzeigeGruppenTabellen =>
         FokussierteGruppenNummer is { } nr

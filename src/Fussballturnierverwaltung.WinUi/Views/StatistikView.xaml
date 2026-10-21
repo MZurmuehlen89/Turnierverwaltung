@@ -345,6 +345,30 @@
                                 </StackPanel>
                             </Border>
 
+                            <!-- Tabellenplatz-Verlauf je Runde mit Tabelle (#480); ein Klick öffnet den Tabellenverlauf. -->
+                            <ItemsControl ItemsSource="{Binding DataContext.MannschaftsVerlauf.Bloecke, ElementName=AuswertungsListe}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:MannschaftsVerlaufBlock">
+                                        <Border Style="{StaticResource KartenRahmen}" Margin="0,0,0,12">
+                                            <StackPanel MinWidth="520">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBlock Style="{StaticResource KartenTitel}">
+                                                        <Run Text="Tabellenplatz · " /><Run Text="{Binding Titel}" />
+                                                    </TextBlock>
+                                                    <HyperlinkButton Grid.Column="1" Content="Im Tabellenverlauf öffnen" FontSize="12"
+                                                                     Margin="0,4,8,0" Click="VerlaufOeffnen_Click"
+                                                                     ToolTipService.ToolTip="Mit allen Mannschaften und der Tabelle zu jedem Spieltag" />
+                                                </Grid>
+                                                <views:TabellenVerlaufDiagramm Verlauf="{Binding Verlauf}" Zonen="{Binding Zonen}"
+                                                                               Hervorhebungen="{Binding Hervorhebung}" Margin="4,0,8,8"
+                                                                               MannschaftGeklickt="BlockDiagramm_MannschaftGeklickt"
+                                                                               SpieltagGeklickt="BlockDiagramm_SpieltagGeklickt" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
                             <ItemsControl ItemsSource="{Binding Bloecke}" ItemTemplate="{StaticResource KennzahlBlockTemplate}" />
 
                             <!-- Tore nach Spielabschnitt -->
