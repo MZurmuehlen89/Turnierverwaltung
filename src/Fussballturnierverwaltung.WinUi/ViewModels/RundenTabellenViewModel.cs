@@ -17,9 +17,10 @@ public class UebergreifendeRangfolgeAnzeige
     public IReadOnlyList<TabellenEintrag> Rangfolge { get; init; } = [];
 }
 
-/// <summary>Tabellen der fokussierten Runde im „Turnierbaum“-Bereich (#438): Gruppen- und Ligatabellen,
-/// Tabellenzonen, Stand „bis Spieltag“, Heim-/Auswärts-/Halbserienansicht und die gruppenübergreifende Rangfolge
-/// der Besten. Kind-ViewModel von <see cref="TurnierBaumViewModel"/> — Einstieg ist
+/// <summary>Tabellen der fokussierten Runde (#438): Gruppen- und Ligatabellen, Tabellenzonen,
+/// Heim-/Auswärts-/Halbserienansicht und die gruppenübergreifende Rangfolge der Besten. Kind-ViewModel von
+/// <see cref="TurnierBaumViewModel"/> (immer aktueller Stand) und von <see cref="TabellenVerlaufViewModel"/> (auch der
+/// Stand nach einem Spieltag, <see cref="SpieltagZeigen"/>, #480) — Einstieg ist
 /// <see cref="FokusRundeSetzenAsync"/>; Fehler meldet es über <see cref="FehlerGemeldet"/>, die Anzeige liegt
 /// beim Eltern-ViewModel.</summary>
 public partial class RundenTabellenViewModel : ObservableObject
@@ -32,7 +33,7 @@ public partial class RundenTabellenViewModel : ObservableObject
     /// <summary>Neue Fehlermeldung des Tabellenladens; <c>null</c> räumt die bisherige ab.</summary>
     public event Action<string?>? FehlerGemeldet;
 
-    /// <summary>Gemeinsamer Schutz der Turnierdurchführung (#415): Das Umschalten von Tabellen-Spieltag und
+    /// <summary>Gemeinsamer Schutz der Turnierdurchführung (#415): Das Umschalten von Spieltag und
     /// Liga-Ansicht lädt die Tabelle neu und darf dabei weder eine laufende Spielplan-Aktion noch einen
     /// Turnier-/Reiterwechsel treffen.</summary>
     public DbContextReentrancySchutz DbContextSchutz { get; set; } = new();
@@ -53,7 +54,7 @@ public partial class RundenTabellenViewModel : ObservableObject
     {
         FokusWechseln(runde);
         AnzeigeartSetzen(runde?.Rundenart);
-        if (ZeigtTabelle) await SpieltageUndTabelleLadenAsync(runde!.Id);
+        if (ZeigtTabelle) await TabelleLadenAsync();
     }
 
     // Spieltag und Ansicht gehören zur bisherigen Runde und fallen auf den Standard zurück. Solange das läuft,
@@ -63,9 +64,8 @@ public partial class RundenTabellenViewModel : ObservableObject
         if (runde?.Id != _fokusRunde?.Id) FokussierteGruppenNummer = null;
 
         _fokusRunde = null;
-        TabellenBisSpieltag = null;
+        SpieltagZeigen(null);
         AusgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
-        VerfuegbareSpieltage = [];
         Zonen = [];
         _fokusRunde = runde;
         OnPropertyChanged(nameof(ZeigtHinRueckrundenTabs));
@@ -141,31 +141,21 @@ public partial class RundenTabellenViewModel : ObservableObject
     /// (für die Bänder im Tabellenverlauf, #480).</summary>
     [ObservableProperty] private IReadOnlyList<TabellenZone> _zonen = [];
 
-    // ── Stand „bis Spieltag“ und Liga-Ansicht ─────────────────────────────────
+    // ── Stand nach Spieltag und Liga-Ansicht ──────────────────────────────────
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(TabellenSpieltagOptionen))]
-    [NotifyPropertyChangedFor(nameof(HatVerfuegbareSpieltage))]
-    private ObservableCollection<int> _verfuegbareSpieltage = [];
+    private int? _bisSpieltag;
 
-    public IReadOnlyList<int> TabellenSpieltagOptionen => new[] { 0 }.Concat(VerfuegbareSpieltage).ToList();
-    public bool HatVerfuegbareSpieltage => VerfuegbareSpieltage.Count > 0;
+    /// <summary>Gezeigter Stand: nach diesem Spieltag, <c>null</c> = aktueller Stand.</summary>
+    public int? BisSpieltag => _bisSpieltag;
 
-    [ObservableProperty] private int? _tabellenBisSpieltag;
-
-    public int TabellenBisSpieltagAuswahl
+    /// <summary>Zeigt die Tabellen nach dem Spieltag bzw. mit <c>null</c> den aktuellen Stand (#480).</summary>
+    public void SpieltagZeigen(int? spieltag)
     {
-        get => TabellenBisSpieltag ?? 0;
-        set => TabellenBisSpieltag = value == 0 ? null : value;
-    }
-
-    partial void OnTabellenBisSpieltagChanged(int? value)
-    {
-        OnPropertyChanged(nameof(TabellenBisSpieltagAuswahl));
+        if (_bisSpieltag == spieltag) return;
+        _bisSpieltag = spieltag;
+        OnPropertyChanged(nameof(BisSpieltag));
         TabelleNeuLadenMitSchutz();
     }
-
-    public void ZeigeAktuellenStand() => TabellenBisSpieltag = null;
 
     [ObservableProperty] private TabellenAnsicht _ausgewaehlteLigaAnsicht = TabellenAnsicht.Gesamt;
     public bool ZeigtHinRueckrundenTabs => _fokusRunde?.MitRueckspiel == true;
@@ -175,29 +165,13 @@ public partial class RundenTabellenViewModel : ObservableObject
 
     // ── Laden ─────────────────────────────────────────────────────────────────
 
-    private async Task SpieltageUndTabelleLadenAsync(int rundeId)
-    {
-        FehlerGemeldet?.Invoke(null);
-        try
-        {
-            var verfuegbareSpieltage = await _tabellenService.VerfuegbareSpieltageAsync(rundeId);
-            VerfuegbareSpieltage = new ObservableCollection<int>(verfuegbareSpieltage);
-
-            await TabelleNeuLadenAsync();
-        }
-        catch (Exception ex)
-        {
-            FehlerGemeldet?.Invoke(ex.Message);
-        }
-    }
-
     private void TabelleNeuLadenMitSchutz()
     {
         if (_fokusRunde is null) return;
-        _ = DbContextSchutz.AusfuehrenAsync(TabelleNeuLadenAsync, ex => FehlerGemeldet?.Invoke(ex.Message));
+        _ = DbContextSchutz.AusfuehrenAsync(TabelleLadenAsync, ex => FehlerGemeldet?.Invoke(ex.Message));
     }
 
-    private async Task TabelleNeuLadenAsync()
+    private async Task TabelleLadenAsync()
     {
         if (_fokusRunde is not { } runde) return;
         FehlerGemeldet?.Invoke(null);
@@ -221,12 +195,12 @@ public partial class RundenTabellenViewModel : ObservableObject
 
     // Issue #358: Der Sicher-Punkt gilt nur für den aktuellen Stand — bei einem historischen Spieltag passen die
     // möglichen Ränge nicht zur Tabelle.
-    private bool MitSicherPunkt => TabellenBisSpieltag is null;
+    private bool MitSicherPunkt => _bisSpieltag is null;
 
     private async Task GruppenTabellenLadenAsync(
         int rundeId, IReadOnlyList<Uebergangsregel> regeln, IReadOnlyList<TabellenZone> zonen)
     {
-        var tabellen = await _tabellenService.GruppenTabellenBerechnenAsync(rundeId, TabellenBisSpieltag);
+        var tabellen = await _tabellenService.GruppenTabellenBerechnenAsync(rundeId, _bisSpieltag);
         foreach (var gruppe in tabellen)
             TabellenZonen.Zuweisen(gruppe.Tabelle, zonen, gruppe.GruppenNummer, MitSicherPunkt);
         GruppenTabellenAnzeige = new ObservableCollection<GruppenTabelle>(tabellen);
@@ -239,7 +213,7 @@ public partial class RundenTabellenViewModel : ObservableObject
         // Heim-/Auswärts- und Halbserien-Tabellen sind keine Wertung für das Weiterkommen - ohne Zonen.
         if (AusgewaehlteLigaAnsicht != TabellenAnsicht.Gesamt) zonen = [];
 
-        var tabelle = await _tabellenService.TabelleBerechnenAsync(rundeId, AusgewaehlteLigaAnsicht, TabellenBisSpieltag);
+        var tabelle = await _tabellenService.TabelleBerechnenAsync(rundeId, AusgewaehlteLigaAnsicht, _bisSpieltag);
         TabellenZonen.Zuweisen(tabelle, zonen, gruppenNummer: null, MitSicherPunkt);
         LigaTabelleAnzeige = new ObservableCollection<TabellenEintrag>(tabelle);
         ZonenLegende = TabellenZonen.Legende(zonen);
@@ -261,9 +235,9 @@ public partial class RundenTabellenViewModel : ObservableObject
     private async Task<UebergreifendeRangfolgeAnzeige> RangfolgeDerBestenLadenAsync(
         Uebergangsregel regel, int anzahlBeste, IReadOnlyList<TabellenZone> zonen)
     {
-        var rangfolge = await _tabellenService.UebergreifendeRangfolgeBerechnenAsync(regel.QuellRundeId, regel.PlatzierungVon);
-        var qualifikanten = await _uebergangsregelService.QualifikantenErmittelnAsync(regel.Id);
-        TabellenZonen.BesteZuweisen(rangfolge, zonen, regel.ZielRundeId, anzahlBeste, qualifikanten.Values);
+        var rangfolge = await _tabellenService.UebergreifendeRangfolgeBerechnenAsync(
+            regel.QuellRundeId, regel.PlatzierungVon, _bisSpieltag);
+        await BesteMarkierenAsync(rangfolge, regel, anzahlBeste, zonen);
 
         return new UebergreifendeRangfolgeAnzeige
         {
@@ -272,5 +246,18 @@ public partial class RundenTabellenViewModel : ObservableObject
             ZielRundeName = regel.ZielRunde.Name,
             Rangfolge = rangfolge
         };
+    }
+
+    // Beim Stand nach einem Spieltag ist noch niemand qualifiziert — dann nur die Farbe der Plätze der Besten (#480).
+    private async Task BesteMarkierenAsync(
+        IReadOnlyList<TabellenEintrag> rangfolge, Uebergangsregel regel, int anzahlBeste, IReadOnlyList<TabellenZone> zonen)
+    {
+        if (_bisSpieltag is not null)
+        {
+            TabellenZonen.BesteFaerben(rangfolge, zonen, regel.ZielRundeId, anzahlBeste);
+            return;
+        }
+        var qualifikanten = await _uebergangsregelService.QualifikantenErmittelnAsync(regel.Id);
+        TabellenZonen.BesteZuweisen(rangfolge, zonen, regel.ZielRundeId, anzahlBeste, qualifikanten.Values);
     }
 }

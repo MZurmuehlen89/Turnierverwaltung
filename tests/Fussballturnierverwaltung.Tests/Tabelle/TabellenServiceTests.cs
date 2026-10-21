@@ -528,9 +528,9 @@ public class TabellenServiceTests
         var teamA = gruppen[0].Tabelle.First(e => e.Mannschaft.Id == 1);
         teamA.Spiele.Should().Be(1, "nur Spieltag 1 fliesst in den Snapshot ein");
         teamA.Punkte.Should().Be(3);
+        teamA.Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen, "historischer Stand ohne Status (#480)");
+        teamA.BesterRang.Should().BeNull();
     }
-
-    // ── VerfuegbareSpieltageAsync (Issue #141) ──────────────────────────────
 
     [Fact]
     public async Task GruppenTabellenBerechnenAsync_WorstCaseNutztDefiniertesRankingRegelSetStattPunkte()
@@ -812,20 +812,6 @@ public class TabellenServiceTests
         teamD.SicherPositioniert.Should().BeFalse("ob D Rang 3 oder Rang 4 wird, entscheidet erst das offene Duell gegen C");
     }
 
-    [Fact]
-    public async Task VerfuegbareSpieltageAsync_OhneErgebnisse_GibtLeereListe()
-    {
-        await using var ctx = NeuerContext();
-        GrundSetupAnlegen(ctx, out int rundeId);
-        SpielHinzufuegen(ctx, 1, rundeId, heimId: 1, auswaertsId: 2,
-            heimTore: null, auswaertsTore: null, spieltag: 1);
-        var service = ServiceFuer(ctx);
-
-        var spieltage = await service.VerfuegbareSpieltageAsync(rundeId);
-
-        spieltage.Should().BeEmpty("noch kein Ergebnis eingetragen");
-    }
-
     // ── Qualifikationsstatus: Worst-Case muss alle Ausgänge fremder Spiele prüfen (Issue #201) ─────
 
     [Fact]
@@ -930,25 +916,6 @@ public class TabellenServiceTests
             "ein Unentschieden im fremden Spiel D-B haelt Team A auf Rang 2, ein Sieg von D oder B verdraengt es auf Rang 3");
         teamA.Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen,
             "Team A kann sowohl noch auf Rang 2 qualifizieren (bei Unentschieden) als auch auf Rang 3 ausscheiden (bei Sieg)");
-    }
-
-    [Fact]
-    public async Task VerfuegbareSpieltageAsync_BegrenztAufLetztenSpieltagMitErgebnis()
-    {
-        await using var ctx = NeuerContext();
-        GrundSetupAnlegen(ctx, out int rundeId);
-        // Spieltag 1+2 mit Ergebnis, Spieltag 3 noch offen (nur teilweise simulierter Spielplan)
-        SpielHinzufuegen(ctx, 1, rundeId, heimId: 1, auswaertsId: 2,
-            heimTore: 2, auswaertsTore: 0, siegerMannschaftId: 1, spieltag: 1);
-        SpielHinzufuegen(ctx, 2, rundeId, heimId: 2, auswaertsId: 1,
-            heimTore: 1, auswaertsTore: 1, spieltag: 2);
-        SpielHinzufuegen(ctx, 3, rundeId, heimId: 1, auswaertsId: 2,
-            heimTore: null, auswaertsTore: null, spieltag: 3);
-        var service = ServiceFuer(ctx);
-
-        var spieltage = await service.VerfuegbareSpieltageAsync(rundeId);
-
-        spieltage.Should().Equal([1, 2], "Spieltag 3 hat noch kein Ergebnis und darf nicht waehlbar sein");
     }
 
     // ── UebergreifendeRangfolgeBerechnenAsync (Issue #184) ──────────────────

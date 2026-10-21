@@ -97,7 +97,6 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
         SpielplanVm.AusfuehrlicheSimulationAngefordert += (sender, vorauswahl) =>
             AusfuehrlicheSimulationAngefordert?.Invoke(sender, vorauswahl);
 
-        SpielplanVm.SpieltagNavigiert = TurnierBaumVm.Tabellen.ZeigeAktuellenStand;
         SpielplanVm.SpielstandGeaendertAsync = FortschrittAktualisierenAsync;
         SpielplanVm.RundeGeaendertAsync = TurnierBaumVm.AktualisiereFokusRundeAsync;
     }

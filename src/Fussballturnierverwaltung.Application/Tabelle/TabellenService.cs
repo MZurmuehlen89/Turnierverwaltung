@@ -57,8 +57,8 @@ public class TabellenService(
 
     /// <summary>Berechnet je eine Tabelle pro Gruppe inkl. Qualifikationsstatus und <see cref="TabellenEintrag.SicherPositioniert"/>
     /// (siehe <see cref="RangPrognose.GruppenRaengeSetzen"/>). Mit <paramref name="bisSpieltag"/> wird der historische
-    /// Tabellenstand nach diesem Spieltag berechnet; die Qualifikationsstatus-Berechnung bezieht sich dabei weiterhin auf
-    /// den vollständigen (aktuellen) Datenstand.</summary>
+    /// Tabellenstand nach diesem Spieltag berechnet — ohne Qualifikationsstatus und mögliche Ränge, die nur zum
+    /// aktuellen Stand passen (#480, wie bei <see cref="TabelleBerechnenAsync"/>).</summary>
     public async Task<IReadOnlyList<GruppenTabelle>> GruppenTabellenBerechnenAsync(
         int turnierRundeId, int? bisSpieltag = null, CancellationToken ct = default)
     {
@@ -69,8 +69,9 @@ public class TabellenService(
         {
             var gruppe = GruppenRechner.GruppenTabelleBerechnen(
                 g.Nummer, g.Spiele, bisSpieltag, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze);
-            RangPrognose.GruppenRaengeSetzen(
-                gruppe, g.Spiele, qualifiziertePlaetze, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze);
+            if (bisSpieltag is null)
+                RangPrognose.GruppenRaengeSetzen(
+                    gruppe, g.Spiele, qualifiziertePlaetze, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze);
             return gruppe;
         })];
     }
@@ -98,11 +99,6 @@ public class TabellenService(
         return [.. GruppenRechner.GruppenErmitteln(daten.Spiele).Select(g => TabellenVerlaufRechner.Berechnen(
             g.Nummer, g.Spiele, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze))];
     }
-
-    /// <summary>Liefert die Spieltage, für die ein historischer Tabellenstand sinnvoll ist
-    /// (siehe <see cref="TabellenRechner.SpieltageMitErgebnis"/>).</summary>
-    public async Task<IReadOnlyList<int>> VerfuegbareSpieltageAsync(int turnierRundeId, CancellationToken ct = default) =>
-        TabellenRechner.SpieltageMitErgebnis(await spielRepository.AlleNachRundeAsync(turnierRundeId, ct));
 
     // ── Laden ─────────────────────────────────────────────────────────────
 

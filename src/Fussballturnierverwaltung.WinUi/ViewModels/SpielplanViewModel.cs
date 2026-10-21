@@ -626,7 +626,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             OnPropertyChanged(nameof(SpieltagZuruecksetzenMenuText));
             OnPropertyChanged(nameof(RibbonZusatzGruppen));
             Mengen.BefehleMelden();
-            SpieltagNavigiert?.Invoke();
         };
         Formular.PropertyChanged += (_, e) =>
         {
@@ -940,7 +939,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public Func<Task>? SpielstandGeaendertAsync { get; set; }
     public Func<TurnierRunde?, Task>? RundeGeaendertAsync { get; set; }
-    public Action? SpieltagNavigiert { get; set; }
 
     private async Task SpielWechselAsync()
     {

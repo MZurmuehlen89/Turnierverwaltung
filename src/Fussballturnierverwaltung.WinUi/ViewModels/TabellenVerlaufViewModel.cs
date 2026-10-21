@@ -6,6 +6,12 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
+/// <summary>Eintrag der Auswahl „Tabelle“: Stand nach einem Spieltag bzw. der aktuelle (<c>null</c>).</summary>
+public sealed record TabellenStandOption(int? Spieltag)
+{
+    public string Text => Spieltag is int spieltag ? $"nach dem {spieltag}. Spieltag" : "aktueller Stand";
+}
+
 /// <summary>Eintrag der Gruppenleiste im Tabellenverlauf.</summary>
 public sealed record VerlaufGruppe(int Nummer)
 {
@@ -50,7 +56,7 @@ public partial class TabellenVerlaufViewModel : ObservableObject
         Tabellen.GruppeAngeklickt += GruppeWaehlen;
         Tabellen.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(RundenTabellenViewModel.TabellenBisSpieltag)) OnPropertyChanged(nameof(TabellenTitel));
+            if (e.PropertyName == nameof(RundenTabellenViewModel.BisSpieltag)) OnPropertyChanged(nameof(AusgewaehlteTabellenStandOption));
         };
     }
 
@@ -91,6 +97,7 @@ public partial class TabellenVerlaufViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HatGruppen))]
     [NotifyPropertyChangedFor(nameof(Verlauf))]
     [NotifyPropertyChangedFor(nameof(Hinweis))]
+    [NotifyPropertyChangedFor(nameof(TabellenStandOptionen))]
     private IReadOnlyList<TabellenVerlauf> _verlaeufe = [];
 
     public IReadOnlyList<VerlaufGruppe> Gruppen =>
@@ -122,9 +129,6 @@ public partial class TabellenVerlaufViewModel : ObservableObject
 
     public bool HatVerlauf => Verlauf is { HatSpieltage: true };
 
-    public string TabellenTitel => Tabellen.TabellenBisSpieltag is int spieltag
-        ? $"Tabelle nach dem {spieltag}. Spieltag"
-        : "Tabelle – aktueller Stand";
 
     public string? Hinweis => _geladen && Verlauf is not { HatSpieltage: true } ? HINWEIS_KEINE_ERGEBNISSE : null;
 
@@ -166,8 +170,26 @@ public partial class TabellenVerlaufViewModel : ObservableObject
 
     /// <summary>Klick auf einen Spieltag: darunter die Tabellen nach diesem Spieltag; ein zweiter Klick auf denselben
     /// kehrt zum aktuellen Stand zurück.</summary>
-    public void SpieltagWaehlen(int spieltag) =>
-        Tabellen.TabellenBisSpieltag = Tabellen.TabellenBisSpieltag == spieltag ? null : spieltag;
+    public void SpieltagWaehlen(int spieltag) => Tabellen.SpieltagZeigen(Tabellen.BisSpieltag == spieltag ? null : spieltag);
+
+    /// <summary>Aktueller Stand und die Spieltage mit Ergebnis der Runde (über alle Gruppen).</summary>
+    public IReadOnlyList<TabellenStandOption> TabellenStandOptionen =>
+        [new(null), .. Verlaeufe.SelectMany(v => v.Spieltage).Distinct().Order().Select(s => new TabellenStandOption(s))];
+
+    // Die ComboBox schreibt beim Austausch ihrer Einträge vorübergehend null zurück (#377).
+    public TabellenStandOption? AusgewaehlteTabellenStandOption
+    {
+        get => new(Tabellen.BisSpieltag);
+        set
+        {
+            if (value is null)
+            {
+                AuswahlSpaeterMelden(nameof(AusgewaehlteTabellenStandOption));
+                return;
+            }
+            Tabellen.SpieltagZeigen(value.Spieltag);
+        }
+    }
 
     // ── Laden ─────────────────────────────────────────────────────────────
 
