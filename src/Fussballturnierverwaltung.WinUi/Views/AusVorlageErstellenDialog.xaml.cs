@@ -16,7 +16,7 @@ public sealed partial class AusVorlageErstellenDialog : ContentDialog
         Loaded += async (_, _) => await ViewModel.LadenAsync();
     }
 
-    // Analog RanglistenImportDialog: Dialog bleibt bei Fehlern offen (z.B. Validierungsfehler aus
+    // Dialog bleibt bei Fehlern offen (z.B. Validierungsfehler aus
     // TurnierKlonService), daher Deferral statt einfachem Command-Binding auf den Primary-Button.
     private async void ContentDialog_PrimaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {

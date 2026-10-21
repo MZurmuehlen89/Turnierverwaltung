@@ -45,7 +45,7 @@ public partial class AusVorlageErstellenViewModel : ObservableObject
 
     /// <summary>Plain-bool-Pendant zu <see cref="ErstellenCommand"/>s CanExecute — <c>IRelayCommand</c> hat
     /// keine bindbare CanExecute-Property (nur eine Methode), <c>ContentDialog.IsPrimaryButtonEnabled</c>
-    /// braucht daher diesen eigenen, mitgeführten Wert (analog <c>RanglistenImportDialog.VorschauVorhanden</c>).</summary>
+    /// braucht daher diesen eigenen, mitgeführten Wert.</summary>
     public bool KannErstellen =>
         AusgewaehlteVorlage is not null && !string.IsNullOrWhiteSpace(Name) && !string.IsNullOrWhiteSpace(SaisonOderJahr);
 

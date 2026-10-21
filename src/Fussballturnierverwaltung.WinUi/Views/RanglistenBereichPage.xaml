@@ -10,6 +10,9 @@
         <PivotItem Header="Ranglisten">
             <views:RanglistenPage DataContext="{Binding Ranglisten}" />
         </PivotItem>
+        <PivotItem Header="Import">
+            <views:RanglistenImportPage DataContext="{Binding Import}" />
+        </PivotItem>
         <PivotItem Header="Quellen">
             <views:RanglistenQuellenPage DataContext="{Binding Quellen}" />
         </PivotItem>

@@ -57,10 +57,10 @@ from inside the import window, and a "Mannschaft schnell anlegen" child window f
 import row). Two independent workarounds used there: (1) merge a parent-dialog + child-dialog pair into one
 ContentDialog with an app-wide list+form layout instead of two windows (formerly `RanglistenQuellenVerwaltenDialog`, since #477 the „Quellen“ tab `RanglistenQuellenPage` — a page tab avoids the problem entirely);
 (2) replace a child dialog with an inline expanding form directly in the triggering row/element instead of a
-popup (`UnaufgeloesteZeileZuordnung.NeuAnlegenAktiv` in `RanglistenImportDialog`). A `ViewModel`-owned
+popup (`RanglistenImportZeileZuordnung.NeuAnlegenAktiv`, kept when the import dialog became the „Import“ tab `RanglistenImportPage` in #477). A `ViewModel`-owned
 `ContentDialog` also has no `XamlRoot` of its own — `IDialogService.AnzeigenAsync(ContentDialog)` sets it
 centrally (mirrors the WPF original, where the ViewModel directly opens the `Window`; see
-`RanglistenViewModel.ImportAusInternet`).
+`TurnierkopfViewModel.AusVorlageErstellenAsync`).
 
 **`Flyout.Content` sizing is fought over by two containers**: the System-provided `FlyoutPresenter` that wraps
 whatever you assign to `Flyout.Content` has its own default `MaxWidth` and its own internal scroll handling,

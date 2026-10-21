@@ -2,7 +2,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Ranglisten.Eingaben;
-using Fussballturnierverwaltung.Application.Ranglisten.Import;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
@@ -10,7 +9,6 @@ using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
-using Fussballturnierverwaltung.WinUi.Views;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -22,9 +20,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     private readonly RanglisteService _service;
     private readonly MannschaftService _mannschaftService;
     private readonly VerbandService _verbandService;
-    private readonly RanglistenImportService _importService;
-    private readonly RanglistenQuelleService _quelleService;
-    private readonly LandService _landService;
     private readonly IDialogService _dialogService;
     private int _populiertGerade;
 
@@ -39,6 +34,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AusQuelleAktualisierenCommand))]
     private Rangliste? _ausgewaehltes;
 
     // ── Formular-Zustand ──────────────────────────────────────────────────────
@@ -55,6 +51,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AusQuelleAktualisierenCommand))]
     private bool _istNeuModus;
 
     [ObservableProperty] private bool _istLadend;
@@ -98,7 +95,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             Header = "Import",
             Aktionen =
             [
-                new RibbonAktion { Header = "Aus dem Internet importieren", Befehl = ImportAusInternetCommand, IconGlyph = "" }
+                new RibbonAktion { Header = "Aus Quelle aktualisieren", Befehl = AusQuelleAktualisierenCommand, IconGlyph = "" }
             ]
         }
     ];
@@ -107,17 +104,11 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
         RanglisteService service,
         MannschaftService mannschaftService,
         VerbandService verbandService,
-        RanglistenImportService importService,
-        RanglistenQuelleService quelleService,
-        LandService landService,
         IDialogService dialogService)
     {
         _service = service;
         _mannschaftService = mannschaftService;
         _verbandService = verbandService;
-        _importService = importService;
-        _quelleService = quelleService;
-        _landService = landService;
         _dialogService = dialogService;
         Eintragsliste.Geaendert += (_, _) => { if (_populiertGerade == 0) IsDirty = true; };
         Ligapyramide.Geaendert += (_, _) =>
@@ -288,18 +279,36 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
         }
     }
 
-    // ── Import (Issue #120/#285) ──────────────────────────────────────────────
-    // ViewModels erzeugen die ContentDialogs direkt (analog zum WPF-Original, das hier direkt ein
-    // Window öffnet statt über View-Code-Behind) — IDialogService.AnzeigenAsync übernimmt nur das
-    // Setzen des XamlRoot, den das ViewModel selbst nicht kennt.
+    // ── Import (#477) ─────────────────────────────────────────────────────────
 
-    [RelayCommand]
-    private async Task ImportAusInternet()
+    /// <summary>Der Reiter „Import“ soll diese Rangliste aus ihrer Quelle neu abrufen.</summary>
+    public event EventHandler<Rangliste>? AusQuelleAktualisierenAngefordert;
+
+    [RelayCommand(CanExecute = nameof(KannAusQuelleAktualisieren))]
+    private void AusQuelleAktualisieren()
     {
-        var dialog = new RanglistenImportDialog(_importService, _quelleService, _service, _mannschaftService, _landService, _dialogService);
-        await _dialogService.AnzeigenAsync(dialog);
-        if (dialog.ImportAbgeschlossen)
+        if (Ausgewaehltes is not null)
+            AusQuelleAktualisierenAngefordert?.Invoke(this, Ausgewaehltes);
+    }
+
+    private bool KannAusQuelleAktualisieren() => Ausgewaehltes?.RanglistenQuelleId is not null && !IstNeuModus;
+
+    /// <summary>Lädt die Liste neu und zeigt die Rangliste mit dieser Id (nach einem Import).</summary>
+    public async Task AnzeigenAsync(int ranglisteId)
+    {
+        Fehlermeldung = null;
+        try
+        {
             await LadenAsync();
+            var rangliste = Ranglisten.FirstOrDefault(r => r.Id == ranglisteId);
+            // Explizit nachfüllen: Identity Resolution liefert dieselbe Instanz, die Zuweisung allein liefe dann ins Leere.
+            Ausgewaehltes = rangliste;
+            FormularAusFuellenMit(rangliste);
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
