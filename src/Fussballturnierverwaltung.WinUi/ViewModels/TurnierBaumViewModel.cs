@@ -238,19 +238,18 @@ public partial class TurnierBaumViewModel : ViewModelBase
     // ── Klick auf eine Karte ──────────────────────────────────────────────────
 
     public ICommand KnotenAngeklicktBefehl => _knotenAngeklicktBefehl;
-    public ICommand GruppeAngeklicktBefehl => _gruppeAngeklicktBefehl;
 
     public event EventHandler<int>? RundeAngeklickt;
     public event EventHandler<int>? GruppeAngeklickt;
 
     private readonly RelayCommand<BracketKnotenAnzeige> _knotenAngeklicktBefehl;
-    private readonly RelayCommand<GruppenTabelle> _gruppeAngeklicktBefehl;
 
     public TurnierBaumViewModel(TurnierBaumService baumService, RundenTabellenViewModel tabellen)
     {
         _baumService = baumService;
         Tabellen = tabellen;
         Tabellen.FehlerGemeldet += meldung => Fehlermeldung = meldung;
+        Tabellen.GruppeAngeklickt += gruppenNummer => GruppeAngeklickt?.Invoke(this, gruppenNummer);
         Tabellen.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName != nameof(RundenTabellenViewModel.ZeigtTabelle)) return;
@@ -266,8 +265,6 @@ public partial class TurnierBaumViewModel : ViewModelBase
             IstGesamtansicht = false;
             RundeAngeklickt?.Invoke(this, rundeId);
         });
-        _gruppeAngeklicktBefehl = new RelayCommand<GruppenTabelle>(
-            g => { if (g is not null) GruppeAngeklickt?.Invoke(this, g.GruppenNummer); });
         _vorherigeRundeBefehl = new RelayCommand(() => AktuellerRundenIndex--, () => HatVorherigeRunde);
         _naechsteRundeBefehl = new RelayCommand(() => AktuellerRundenIndex++, () => HatNaechsteRunde);
         GesamtansichtZeigenBefehl = new RelayCommand(() => IstGesamtansicht = true);

@@ -8,8 +8,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Fussballturnierverwaltung.WinUi.ViewModels"
     xmlns:views="using:Fussballturnierverwaltung.WinUi.Views"
-    xmlns:tabelle="using:Fussballturnierverwaltung.Application.Tabelle"
-    x:Name="Steuerelement">
+    xmlns:tabelle="using:Fussballturnierverwaltung.Application.Tabelle">
 
     <UserControl.Resources>
 
@@ -17,7 +16,7 @@
              mehr auf der Team-Spalte — Karte ist breit genug (siehe Karten-Border unten), Name darf
              ggf. umbrechen statt abgeschnitten zu werden. -->
         <!-- Buchholz-Spalte (Schweizer System, Issue #329 Teil C) nur sichtbar, wenn die fokussierte
-             Runde SchweizerSystem ist (TurnierBaumViewModel.ZeigtBuchholzSpalte) - dieselbe Vorlage wird
+             Runde SchweizerSystem ist (RundenTabellenViewModel.ZeigtBuchholzSpalte) - dieselbe Vorlage wird
              auch für Gruppenphase-/Rangfolge-Karten verwendet, wo Buchholz nicht zutrifft. -->
         <!-- Tabellenzonen (Issue #358): Balken am linken Rand in der Farbe der Zone des aktuellen Rangs, Punkt
              vor dem Rang, sobald Weiterkommen bzw. Ausscheiden feststeht. Beide Flächen behalten ohne Farbe
@@ -86,7 +85,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="tabelle:GruppenTabelle">
-                                <Button Command="{Binding GruppeAngeklicktBefehl, ElementName=Steuerelement}"
+                                <Button Command="{Binding DataContext.GruppeAnklickenCommand, ElementName=Wurzel}"
                                         CommandParameter="{Binding}" Padding="0" Margin="0,0,12,12">
                                     <!-- #262-Fix: 340px statt der ursprünglich zu schmalen 290px-Karte, Team-Spalte
                                          oben zusätzlich mit WrapWholeWords statt Ellipsis. -->

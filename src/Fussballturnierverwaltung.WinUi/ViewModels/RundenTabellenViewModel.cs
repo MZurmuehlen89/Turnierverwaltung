@@ -110,6 +110,15 @@ public partial class RundenTabellenViewModel : ObservableObject
 
     public void FokussiereGruppe(int? gruppenNummer) => FokussierteGruppenNummer = gruppenNummer;
 
+    /// <summary>Klick auf eine Gruppenkarte (Gruppennummer) — was daraus folgt, entscheidet der Besitzer.</summary>
+    public event Action<int>? GruppeAngeklickt;
+
+    [RelayCommand]
+    private void GruppeAnklicken(GruppenTabelle? gruppe)
+    {
+        if (gruppe is not null) GruppeAngeklickt?.Invoke(gruppe.GruppenNummer);
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatUebergreifendeRangfolgenAnzeige))]
     private ObservableCollection<UebergreifendeRangfolgeAnzeige> _uebergreifendeRangfolgenAnzeige = [];

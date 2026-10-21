@@ -235,8 +235,7 @@
             </Grid>
 
             <!-- ── Tabellen der fokussierten Gruppen-/Ligarunde (#480: eigenes Steuerelement, auch in der Statistik) ── -->
-            <views:RundenTabellenAnzeige DataContext="{Binding Tabellen}"
-                                         GruppeAngeklicktBefehl="{Binding DataContext.GruppeAngeklicktBefehl, ElementName=Root}" />
+            <views:RundenTabellenAnzeige DataContext="{Binding Tabellen}" />
 
         </Grid>
     </Grid>
