@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Tabellen einer Gruppen- oder Ligarunde (#480): Gruppentabellen samt Rangfolge der Besten bzw. Ligatabelle mit
+     Ansichten, jeweils mit Zonenlegende. DataContext ist ein RundenTabellenViewModel — in „Spielplan & Baum“ und in
+     der Statistik („Tabellenverlauf“). -->
+<UserControl
+    x:Class="Fussballturnierverwaltung.WinUi.Views.RundenTabellenAnzeige"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Fussballturnierverwaltung.WinUi.ViewModels"
+    xmlns:views="using:Fussballturnierverwaltung.WinUi.Views"
+    xmlns:tabelle="using:Fussballturnierverwaltung.Application.Tabelle"
+    x:Name="Steuerelement">
+
+    <UserControl.Resources>
+
+        <!-- Tabellenzeile für Gruppen-/Rangfolge-Karten. #262-Fix: keine feste schmale Breite/Trimming
+             mehr auf der Team-Spalte — Karte ist breit genug (siehe Karten-Border unten), Name darf
+             ggf. umbrechen statt abgeschnitten zu werden. -->
+        <!-- Buchholz-Spalte (Schweizer System, Issue #329 Teil C) nur sichtbar, wenn die fokussierte
+             Runde SchweizerSystem ist (TurnierBaumViewModel.ZeigtBuchholzSpalte) - dieselbe Vorlage wird
+             auch für Gruppenphase-/Rangfolge-Karten verwendet, wo Buchholz nicht zutrifft. -->
+        <!-- Tabellenzonen (Issue #358): Balken am linken Rand in der Farbe der Zone des aktuellen Rangs, Punkt
+             vor dem Rang, sobald Weiterkommen bzw. Ausscheiden feststeht. Beide Flächen behalten ohne Farbe
+             ihre Größe, damit die Spalten aller Zeilen fluchten. -->
+        <DataTemplate x:Key="TabellenEintragZeileTemplate" x:DataType="tabelle:TabellenEintrag">
+            <Grid ColumnDefinitions="Auto,*">
+                <views:ZonenMarke Grid.Column="0" Farbe="{Binding ZonenFarbe}" Width="4" CornerRadius="2" Margin="3,2,0,2" />
+                <Grid Grid.Column="1" ColumnDefinitions="36,*,26,50,34,30,34" Padding="0,4,4,4">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <views:ZonenMarke Farbe="{Binding PunktFarbe}" Width="6" Height="6" CornerRadius="3" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Rang}" FontSize="12" FontWeight="SemiBold" Opacity="0.7" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"
+                                Background="Transparent"
+                                views:MannschaftsKontextmenue.MannschaftId="{Binding Mannschaft.Id}">
+                        <Image Source="{Binding Mannschaft, Converter={StaticResource MannschaftZuWappen}}"
+                               Visibility="{Binding Mannschaft, Converter={StaticResource MannschaftHatWappen}}"
+                               Width="16" Height="16" Stretch="Uniform" />
+                        <TextBlock Text="{Binding Mannschaft.Name}" FontSize="12" TextWrapping="WrapWholeWords" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" Text="{Binding Spiele}" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Run Text="{Binding Tore}" /><Run Text=":" /><Run Text="{Binding Gegentore}" />
+                    </TextBlock>
+                    <TextBlock Grid.Column="4" Text="{Binding Tordifferenz}" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="5" Text="{Binding Punkte}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="6" Text="{Binding Buchholz}" FontSize="12" Opacity="0.7" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{Binding DataContext.ZeigtBuchholzSpalte, ElementName=Wurzel, Converter={StaticResource BoolToVisibility}}" />
+                </Grid>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Legende der Tabellenzonen (Issue #358) — ein Eintrag je Zone: Farbfläche + „Platz 1–2 → Achtelfinale“. -->
+        <DataTemplate x:Key="ZonenLegendeTemplate" x:DataType="tabelle:ZonenLegendenEintrag">
+            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,4">
+                <views:ZonenMarke Farbe="{Binding Farbe}" Width="10" Height="10" CornerRadius="2" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Text}" FontSize="11" Opacity="0.75" VerticalAlignment="Center" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid x:Name="Wurzel">
+
+        <!-- ── Gruppenphase-Ansicht ── -->
+        <Grid RowDefinitions="Auto,*" Visibility="{Binding ZeigtGruppenphase, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Padding="16,8" Spacing="6"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
+                        Visibility="{Binding HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="Tabellenstand:" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
+                <ComboBox ItemsSource="{Binding TabellenSpieltagOptionen}"
+                          SelectedItem="{Binding TabellenBisSpieltagAuswahl, Mode=TwoWay}" FontSize="11" MinWidth="90" />
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16">
+                <StackPanel>
+                    <TextBlock Text="Noch keine Gruppenzuordnung — Gruppen erscheinen nach der Auslosung/Spielplan-Generierung."
+                               Opacity="0.6" FontSize="13" HorizontalAlignment="Center" Margin="16,48" TextWrapping="Wrap" TextAlignment="Center"
+                               Visibility="{Binding HatGruppenTabellenAnzeige, Converter={StaticResource InverseBoolToVisibility}}" />
+
+                    <ItemsControl ItemsSource="{Binding AnzeigeGruppenTabellen}"
+                                  Visibility="{Binding HatGruppenTabellenAnzeige, Converter={StaticResource BoolToVisibility}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ItemsWrapGrid Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="tabelle:GruppenTabelle">
+                                <Button Command="{Binding GruppeAngeklicktBefehl, ElementName=Steuerelement}"
+                                        CommandParameter="{Binding}" Padding="0" Margin="0,0,12,12">
+                                    <!-- #262-Fix: 340px statt der ursprünglich zu schmalen 290px-Karte, Team-Spalte
+                                         oben zusätzlich mit WrapWholeWords statt Ellipsis. -->
+                                    <Border Width="340" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                                        <StackPanel>
+                                            <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="8,8,0,0" Padding="12,8">
+                                                <TextBlock Foreground="White" FontWeight="Bold" FontSize="13">
+                                                    <Run Text="Gruppe " /><Run Text="{Binding GruppenNummer}" />
+                                                </TextBlock>
+                                            </Border>
+                                            <ItemsControl ItemsSource="{Binding Tabelle}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
+                                            <!-- #397: noch nicht aufgelöste Plätze als eigene Zeile, damit die Gruppe vollständig wirkt -->
+                                            <ItemsControl ItemsSource="{Binding OffenePlaetze}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid ColumnDefinitions="36,*,26,50,34,30,34" Padding="7,4,4,4" Opacity="0.6">
+                                                            <TextBlock Grid.Column="0" Text="–" FontSize="12"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            <TextBlock Grid.Column="1" Text="{Binding}" FontSize="12" FontStyle="Italic"
+                                                                       TextWrapping="WrapWholeWords" VerticalAlignment="Center" />
+                                                            <TextBlock Grid.Column="2" Text="0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            <TextBlock Grid.Column="3" Text="0:0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            <TextBlock Grid.Column="4" Text="0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            <TextBlock Grid.Column="5" Text="0" FontSize="12" FontWeight="Bold"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <ItemsControl ItemsSource="{Binding UebergreifendeRangfolgenAnzeige}"
+                                  Visibility="{Binding HatUebergreifendeRangfolgenAnzeige, Converter={StaticResource BoolToVisibility}}"
+                                  Margin="0,12,0,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ItemsWrapGrid Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:UebergreifendeRangfolgeAnzeige">
+                                <Border Width="340" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Margin="0,0,12,12">
+                                    <StackPanel>
+                                        <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="8,8,0,0" Padding="12,8">
+                                            <StackPanel>
+                                                <TextBlock Foreground="White" FontWeight="Bold" FontSize="13">
+                                                    <Run Text="Platz " /><Run Text="{Binding Platzierung}" /><Run Text=" gruppenübergreifend" />
+                                                </TextBlock>
+                                                <TextBlock Foreground="White" FontSize="10" Opacity="0.85">
+                                                    <Run Text="beste " /><Run Text="{Binding AnzahlBeste}" /><Run Text=" → " /><Run Text="{Binding ZielRundeName}" />
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Border>
+                                        <ItemsControl ItemsSource="{Binding Rangfolge}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <ItemsControl ItemsSource="{Binding ZonenLegende}" ItemTemplate="{StaticResource ZonenLegendeTemplate}"
+                                  Visibility="{Binding HatZonenLegende, Converter={StaticResource BoolToVisibility}}"
+                                  Margin="0,4,0,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ItemsWrapGrid Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- ── Liga-/TopfLiga-/SchweizerSystem-Gesamttabelle ── -->
+        <Grid RowDefinitions="Auto,*" Visibility="{Binding ZeigtLigaTabelle, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Padding="16,8" Spacing="6"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                <Button Content="Gesamt" Command="{Binding LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Gesamt}" FontSize="11" Padding="10,3" />
+                <Button Content="Hinrunde" Command="{Binding LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Hinrunde}" FontSize="11" Padding="10,3"
+                        Visibility="{Binding ZeigtHinRueckrundenTabs, Converter={StaticResource BoolToVisibility}}" />
+                <Button Content="Rückrunde" Command="{Binding LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Rueckrunde}" FontSize="11" Padding="10,3"
+                        Visibility="{Binding ZeigtHinRueckrundenTabs, Converter={StaticResource BoolToVisibility}}" />
+                <Button Content="Heim" Command="{Binding LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Heimtabelle}" FontSize="11" Padding="10,3" />
+                <Button Content="Auswärts" Command="{Binding LigaAnsichtWaehlenBefehl}" CommandParameter="{x:Bind tabelle:TabellenAnsicht.Auswaertstabelle}" FontSize="11" Padding="10,3" />
+                <TextBlock Text="Tabellenstand:" FontSize="11" Opacity="0.6" VerticalAlignment="Center" Margin="12,0,0,0"
+                           Visibility="{Binding HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}" />
+                <ComboBox ItemsSource="{Binding TabellenSpieltagOptionen}"
+                          SelectedItem="{Binding TabellenBisSpieltagAuswahl, Mode=TwoWay}" FontSize="11" MinWidth="90"
+                          Visibility="{Binding HatVerfuegbareSpieltage, Converter={StaticResource BoolToVisibility}}" />
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16">
+                <Grid>
+                    <TextBlock Text="Noch kein Spielplan generiert. Die Tabelle erscheint, sobald Spiele vorhanden sind."
+                               Opacity="0.6" FontSize="13" HorizontalAlignment="Center" Margin="16,48" TextWrapping="Wrap" TextAlignment="Center"
+                               Visibility="{Binding HatLigaTabelleAnzeige, Converter={StaticResource InverseBoolToVisibility}}" />
+
+                    <StackPanel VerticalAlignment="Top" Spacing="8"
+                                Visibility="{Binding HatLigaTabelleAnzeige, Converter={StaticResource BoolToVisibility}}">
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                            <ItemsControl ItemsSource="{Binding LigaTabelleAnzeige}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding ZonenLegende}" ItemTemplate="{StaticResource ZonenLegendeTemplate}"
+                                      Visibility="{Binding HatZonenLegende, Converter={StaticResource BoolToVisibility}}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ItemsWrapGrid Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
+        </Grid>
+
+    </Grid>
+</UserControl>
