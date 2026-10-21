@@ -10,6 +10,7 @@ public enum StatistikAuswertungsart
 {
     Turnier,
     Mannschaft,
+    Tabellenverlauf,
     Gesamt,
     Heim,
     Auswaerts,

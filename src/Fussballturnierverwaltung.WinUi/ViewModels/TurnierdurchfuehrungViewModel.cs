@@ -61,6 +61,7 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
         SpielplanUndBaumTab.SpielplanVm.DbContextSchutz = TabKoordinator.DbContextSchutz;
         SpielplanUndBaumTab.TurnierBaumVm.Tabellen.DbContextSchutz = TabKoordinator.DbContextSchutz;
         SimulationTab.DbContextSchutz = TabKoordinator.DbContextSchutz;
+        StatistikTab.TabellenVerlauf.DbContextSchutz = TabKoordinator.DbContextSchutz;
 
         // Alle drei Tabs SEQUENZIELL innerhalb EINES Fire-and-Forget-Aufrufs statt eigenständiger
         // (Testfund: paralleles Fire-and-Forget mit DB-Zugriff auf denselben scoped DbContext löste eine

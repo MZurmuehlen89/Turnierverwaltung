@@ -379,6 +379,45 @@
                         <!-- Hält den DataContext des Bereichs (MannschaftsStatistikViewModel) für Bindungen innerhalb der Seite. -->
                         <Border x:Name="MannschaftsBereichAnker" Visibility="Collapsed" />
                     </StackPanel>
+
+                    <!-- Tabellenverlauf (#480): Runde und Gruppe wählen, darunter die Tabellen der Runde. -->
+                    <StackPanel DataContext="{Binding TabellenVerlauf}" Spacing="12" VerticalAlignment="Top"
+                                Visibility="{Binding DataContext.IstTabellenverlaufsbereich, ElementName=AuswertungsListe, Converter={StaticResource BoolToVisibility}}">
+
+                        <StackPanel Orientation="Horizontal" Spacing="24">
+                            <ComboBox Header="Runde" ItemsSource="{Binding Runden}" DisplayMemberPath="Name"
+                                      SelectedItem="{Binding AusgewaehlteRunde, Mode=TwoWay}" MinWidth="220"
+                                      Visibility="{Binding HatMehrereRunden, Converter={StaticResource BoolToVisibility}}" />
+                            <StackPanel Spacing="4" Visibility="{Binding HatGruppen, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Gruppe" />
+                                <ListView ItemsSource="{Binding Gruppen}" SelectedItem="{Binding AusgewaehlteGruppe, Mode=TwoWay}"
+                                          SelectionMode="Single" ScrollViewer.HorizontalScrollMode="Disabled">
+                                    <ListView.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <ItemsStackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ListView.ItemsPanel>
+                                    <ListView.ItemContainerStyle>
+                                        <Style TargetType="ListViewItem">
+                                            <Setter Property="MinWidth" Value="36" />
+                                            <Setter Property="Padding" Value="10,0" />
+                                            <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                        </Style>
+                                    </ListView.ItemContainerStyle>
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:VerlaufGruppe">
+                                            <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <TextBlock Text="{Binding Hinweis}" Opacity="0.6" FontSize="13" TextWrapping="Wrap"
+                                   Visibility="{Binding Hinweis, Converter={StaticResource NullToCollapsed}}" />
+
+                        <views:RundenTabellenAnzeige DataContext="{Binding Tabellen}" />
+                    </StackPanel>
                 </Grid>
             </ScrollViewer>
         </Grid>

@@ -10,12 +10,14 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// "Statistik"-Reiter der Turnierdurchführung (#327): links die Liste der Auswertungen, rechts die Rangliste
 /// über alle Mannschaften des Turniers, im Bereich „Turnier“ (#432) Kennzahlen und Bestwerte des ganzen Turniers
 /// (<see cref="TurnierSeite"/>) bzw. im Bereich „Mannschaft“ (#324) die Seite einer einzelnen Mannschaft
-/// (<see cref="Mannschaft"/>). Der Reiter liest nur — er hat keine eigenen Aktionen und deshalb keinen Ribbon-Bereich.
+/// (<see cref="Mannschaft"/>), im Bereich „Tabellenverlauf“ (#480) Platzverlauf und Tabellen einer Runde zu einem
+/// wählbaren Spieltag (<see cref="TabellenVerlauf"/>). Der Reiter liest nur — er hat keine eigenen Aktionen und deshalb keinen Ribbon-Bereich.
 /// Die Instanz kommt wie bei den anderen Reitern über <see cref="InstanzSetzenAsync"/>.
 /// </summary>
 public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
 {
     private const string GRUND_NEUTRALER_SPIELORT = "Alle Spiele fanden auf neutralem Platz statt.";
+    private const string GRUND_KEINE_TABELLE = "Das Turnier hat keine Runde mit Tabelle (Liga oder Gruppenphase).";
     private const string HINWEIS_KEINE_SPIELE = "Noch keine abgeschlossenen Spiele. Die Statistik erscheint, sobald Ergebnisse vorliegen.";
 
     private readonly StatistikService _service;
@@ -29,6 +31,7 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
     [
         new(StatistikAuswertungsart.Turnier, "Turnier"),
         new(StatistikAuswertungsart.Mannschaft, "Mannschaft"),
+        new(StatistikAuswertungsart.Tabellenverlauf, "Tabellenverlauf", GRUND_KEINE_TABELLE),
         new(StatistikAuswertungsart.Gesamt, "Gesamt"),
         new(StatistikAuswertungsart.Heim, "Heim", GRUND_NEUTRALER_SPIELORT),
         new(StatistikAuswertungsart.Auswaerts, "Auswärts", GRUND_NEUTRALER_SPIELORT),
@@ -42,6 +45,8 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
 
     public MannschaftsStatistikViewModel Mannschaft { get; } = new();
 
+    public TabellenVerlaufViewModel TabellenVerlauf { get; }
+
     private StatistikAuswertung _ausgewaehlteAuswertung;
 
     // Die ListView schreibt beim Auf- und Abbau der Ansicht vorübergehend null zurück — die Auswahl bleibt dann.
@@ -53,15 +58,20 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
             if (value is null || !SetProperty(ref _ausgewaehlteAuswertung, value)) return;
             OnPropertyChanged(nameof(IstMannschaftsbereich));
             OnPropertyChanged(nameof(IstTurnierbereich));
+            OnPropertyChanged(nameof(IstTabellenverlaufsbereich));
             TabelleAktualisieren();
+            if (IstTabellenverlaufsbereich && AusgewaehlteAuswertung.IstVerfuegbar) TabellenVerlauf.Anzeigen();
         }
     }
 
     public bool IstMannschaftsbereich => AusgewaehlteAuswertung.Art == StatistikAuswertungsart.Mannschaft;
     public bool IstTurnierbereich => AusgewaehlteAuswertung.Art == StatistikAuswertungsart.Turnier;
 
-    // Ranglisten zeigen eine Tabelle, die beiden Bereiche eine eigene Seite.
-    private bool IstBereich => IstMannschaftsbereich || IstTurnierbereich;
+    public bool IstTabellenverlaufsbereich =>
+        AusgewaehlteAuswertung is { Art: StatistikAuswertungsart.Tabellenverlauf, IstVerfuegbar: true };
+
+    // Ranglisten zeigen eine Tabelle, die Bereiche eine eigene Seite.
+    private bool IstBereich => IstMannschaftsbereich || IstTurnierbereich || IstTabellenverlaufsbereich;
 
     [ObservableProperty] private StatistikTabelle? _tabelle;
     [ObservableProperty] private TurnierSeite? _turnierSeite;
@@ -72,10 +82,13 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
     /// Turnierdurchführung.</summary>
     public event EventHandler<int>? MannschaftsSpieleAngefordert;
 
-    public StatistikViewModel(StatistikService service, ILogger<StatistikViewModel> logger)
+    public StatistikViewModel(
+        StatistikService service, TabellenVerlaufViewModel tabellenVerlauf, ILogger<StatistikViewModel> logger)
     {
         _service = service;
         _logger = logger;
+        TabellenVerlauf = tabellenVerlauf;
+        TabellenVerlauf.FehlerGemeldet += meldung => Fehlermeldung = meldung;
         _ausgewaehlteAuswertung = Auswertung(StatistikAuswertungsart.Gesamt);
         Mannschaft.AlleSpieleAngefordert += (_, mannschaftId) => MannschaftsSpieleAngefordert?.Invoke(this, mannschaftId);
     }
@@ -90,13 +103,24 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
 
         if (instanz is null || (!istAktiv && instanz.Id != _geladeneInstanzId))
         {
+            TabellenVerlaufUebernehmen(null);
             SpieleUebernehmen([], instanzId: null);
             return;
         }
         if (!istAktiv) return;
 
         using var vorgang = _logger.Vorgang($"Statistik: Turnier setzen (Instanz {instanz.Id})");
+        TabellenVerlaufUebernehmen(instanz);
         SpieleUebernehmen(await _service.MannschaftsSpieleLadenAsync(instanz.Id), instanz.Id);
+        if (IstTabellenverlaufsbereich) await TabellenVerlauf.AnzeigenAsync();
+    }
+
+    // Vor den Spielen, damit die Verfügbarkeit steht, wenn die Anzeige danach aktualisiert wird.
+    private void TabellenVerlaufUebernehmen(TurnierInstanz? instanz)
+    {
+        TabellenVerlauf.InstanzSetzen(instanz);
+        Auswertung(StatistikAuswertungsart.Tabellenverlauf).IstVerfuegbar = instanz is null || TabellenVerlauf.HatRunden;
+        OnPropertyChanged(nameof(IstTabellenverlaufsbereich));
     }
 
     /// <summary>Kontextmenü „Statistik anzeigen“ aus einem anderen Reiter (#324): Bereich „Mannschaft“ wählen; die
@@ -163,6 +187,7 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
     {
         if (_geladeneInstanzId is null) return null;
         if (!AusgewaehlteAuswertung.IstVerfuegbar) return AusgewaehlteAuswertung.Hinweis;
+        if (IstTabellenverlaufsbereich) return null;
         if (IstBereich) return _spiele.Count == 0 ? HINWEIS_KEINE_SPIELE : null;
         return tabelle is { HatZeilen: true } ? null : HINWEIS_KEINE_SPIELE;
     }
