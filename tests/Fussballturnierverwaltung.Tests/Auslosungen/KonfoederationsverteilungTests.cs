@@ -304,7 +304,6 @@ public class KonfoederationsverteilungTests
     [InlineData(Auslosungsart.NachToepfen, Rundenart.Finale)]
     [InlineData(Auslosungsart.TopfZuordnung, Rundenart.TopfLiga)]
     [InlineData(Auslosungsart.Zufall, Rundenart.Liga)]
-    [InlineData(Auslosungsart.Manuell, Rundenart.Gruppenphase)]
     public void Matrix_AusserhalbDerGruppenauslosungGesperrtMitBegruendung(Auslosungsart art, Rundenart rundenart) =>
         AuslosungsRegelKompatibilitaet.SperrGrund(
                 AuslosungsRegelArt.Konfoederationsverteilung, art, rundenart, folgtAufGruppenphase: true)

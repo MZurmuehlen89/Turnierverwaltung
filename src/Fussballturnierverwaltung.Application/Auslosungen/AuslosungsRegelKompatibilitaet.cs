@@ -98,21 +98,20 @@ public static class AuslosungsRegelKompatibilitaet
             case AuslosungsRegelArt.HeimrechtNachLos:
             case AuslosungsRegelArt.HeimrechtNachSetzliste:
             case AuslosungsRegelArt.HeimrechtFuerUnterklassige:
-                if (art == Auslosungsart.Manuell)
-                    return "Bei der manuellen Auslosung legst du das Heimrecht beim Zuweisen selbst fest " +
-                           "(Heim- oder Auswärts-Platz).";
                 if (rundenart == Rundenart.Gruppenphase)
                     return "In der Gruppenphase werden Teams nur Gruppen zugeordnet — das Heimrecht ergibt sich " +
                            "aus dem Spielplan der Gruppe.";
                 if (art == Auslosungsart.TopfZuordnung)
                     return "Die Topf-Zuordnung verteilt Heim- und Auswärtsspiele selbst (je Topf ein Heim- und " +
                            "ein Auswärtsgegner).";
+                // Bei der Ziehung von Hand spielt das zuerst gezogene Team zu Hause (DFB-Pokal, #482); die beiden
+                // anderen Heimrecht-Regeln gehen dem vor.
+                if (art == Auslosungsart.Manuell && regel == AuslosungsRegelArt.HeimrechtNachLos)
+                    return "Bei der Ziehung von Hand ist die Ziehung selbst das Los — das zuerst gezogene Team " +
+                           "spielt zu Hause.";
                 return null;
 
             case AuslosungsRegelArt.FreilosMoeglich:
-                if (art == Auslosungsart.Manuell)
-                    return "Bei der manuellen Auslosung vergibst du ein Freilos, indem du den Gegner-Platz " +
-                           "einer Paarung leer lässt.";
                 if (rundenart == Rundenart.Gruppenphase)
                     return "In der Gruppenphase gibt es kein Freilos — alle Teams werden auf die Gruppen verteilt.";
                 return art switch
@@ -131,9 +130,6 @@ public static class AuslosungsRegelKompatibilitaet
                 if (rundenart != Rundenart.Gruppenphase)
                     return "Die Konföderationsverteilung regelt die Verteilung auf Gruppen — in dieser Runde " +
                            "werden keine Gruppen ausgelost.";
-                if (art == Auslosungsart.Manuell)
-                    return "Bei der manuellen Auslosung werden Platzhalter statt Mannschaften zugewiesen — deren " +
-                           "Kontinentalverband steht noch nicht fest.";
                 return null;
 
             default:

@@ -83,6 +83,10 @@ public static class AuslosungAnzeigeTexte
             "Teams werden manuell den Losplätzen zugewiesen — keine automatische Verlosung. " +
             "Für besondere Anforderungen oder wenn keine andere Methode passt. " +
             "Kennt keine Topf-Struktur — auf 1 Lostopf begrenzt.",
+        Auslosungsart.Manuell =>
+            "Ziehung von Hand: Du ziehst Team für Team selbst, das Programm sagt den nächsten Schritt an und lässt " +
+            "nur Ziele zu, mit denen die Auslosung regelkonform aufgeht — z. B. zum Nachstellen einer realen " +
+            "Auslosung. Das zuerst gezogene Team einer Paarung spielt zu Hause.",
         _ => ""
     };
 

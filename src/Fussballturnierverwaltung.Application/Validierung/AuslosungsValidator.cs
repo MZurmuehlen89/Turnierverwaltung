@@ -146,7 +146,8 @@ public class AuslosungsValidator
         // separat gepflegter Regeln, dieselbe Quelle wie das Ausblenden in der WPF-ComboBox).
         var rundenart = auslosung.TurnierRunde?.Rundenart;
         if (rundenart.HasValue &&
-            AuslosungsKompatibilitaet.InkompatibilitaetsGrund(rundenart.Value, auslosung.Auslosungsart) is { } grund)
+            AuslosungsKompatibilitaet.InkompatibilitaetsGrund(
+                rundenart.Value, auslosung.Auslosungsart, auslosung.TurnierRunde!.PaarungFestVorgegeben) is { } grund)
             fehler.Add(grund);
 
         // Paarungsmodus (nicht Gruppenphase): 'Nach Töpfen' und 'Gruppensieger vs. Zweite' losen die

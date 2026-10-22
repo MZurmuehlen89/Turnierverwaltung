@@ -18,6 +18,11 @@ public class AuslosungsRegelKompatibilitaetTests
     [InlineData(AuslosungsRegelArt.HeimrechtNachLos,       Auslosungsart.NachToepfen,   Rundenart.KoRunde)]
     [InlineData(AuslosungsRegelArt.HeimrechtNachSetzliste, Auslosungsart.NachSetzliste, Rundenart.KoRunde)]
     [InlineData(AuslosungsRegelArt.FreilosMoeglich,        Auslosungsart.Zufall,        Rundenart.KoRunde)]
+    // Ziehung von Hand (#482): Heimrecht-Regeln außer „nach Los“, Freilos und Konföderationsverteilung wirken.
+    [InlineData(AuslosungsRegelArt.HeimrechtNachSetzliste,     Auslosungsart.Manuell,   Rundenart.KoRunde)]
+    [InlineData(AuslosungsRegelArt.HeimrechtFuerUnterklassige, Auslosungsart.Manuell,   Rundenart.KoRunde)]
+    [InlineData(AuslosungsRegelArt.FreilosMoeglich,            Auslosungsart.Manuell,   Rundenart.KoRunde)]
+    [InlineData(AuslosungsRegelArt.Konfoederationsverteilung,  Auslosungsart.Manuell,   Rundenart.Gruppenphase)]
     public void PassendeKombination_IstNichtGesperrt(AuslosungsRegelArt regel, Auslosungsart art, Rundenart rundenart) =>
         AuslosungsRegelKompatibilitaet.SperrGrund(regel, art, rundenart, folgtAufGruppenphase: true).Should().BeNull();
 
@@ -30,6 +35,7 @@ public class AuslosungsRegelKompatibilitaetTests
     [InlineData(AuslosungsRegelArt.FreilosMoeglich,        Auslosungsart.NachToepfen,   Rundenart.KoRunde)]
     [InlineData(AuslosungsRegelArt.FreilosMoeglich,        Auslosungsart.NachSetzliste, Rundenart.KoRunde)]
     [InlineData(AuslosungsRegelArt.FreilosMoeglich,        Auslosungsart.Zufall,        Rundenart.Gruppenphase)]
+    [InlineData(AuslosungsRegelArt.FreilosMoeglich,        Auslosungsart.Manuell,       Rundenart.Gruppenphase)]
     public void UnpassendeKombination_IstGesperrtMitBegruendung(AuslosungsRegelArt regel, Auslosungsart art, Rundenart rundenart) =>
         AuslosungsRegelKompatibilitaet.SperrGrund(regel, art, rundenart, folgtAufGruppenphase: true).Should().NotBeNullOrWhiteSpace();
 
@@ -87,7 +93,7 @@ public class AuslosungsRegelKompatibilitaetTests
     }
 
     [Theory]
-    [InlineData(Auslosungsart.Manuell,       Rundenart.KoRunde)]
+    [InlineData(Auslosungsart.Manuell,       Rundenart.Gruppenphase)]
     [InlineData(Auslosungsart.Zufall,        Rundenart.Gruppenphase)]
     [InlineData(Auslosungsart.TopfZuordnung, Rundenart.TopfLiga)]
     public void HeimrechtFuerUnterklassige_GesperrtWieDieAnderenHeimrechtRegeln(Auslosungsart art, Rundenart rundenart) =>

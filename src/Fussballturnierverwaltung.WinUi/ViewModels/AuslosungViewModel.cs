@@ -25,8 +25,9 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// "Auslosung"-Tab der Turnierdurchführung (#300) — Master-Detail: Auslosungsliste/Neu-Formular + Workspace
 /// (Lostöpfe, Teilnehmerfilter, Verbandsquoten-Spalte, Regeln, Ranglisten-Automatik), Durchführen und
 /// Zurücksetzen. Die TV-Ziehung liegt in <see cref="ZiehungViewModel"/>, die Gegner-Matrix der Ligaphase in
-/// <see cref="GegnerMatrixViewModel"/> (#401). Bewusst OHNE <see cref="Auslosungsart.Manuell"/> (bleibt beim
-/// <see cref="VorbelegungViewModel"/>, #297 — keine Dopplung).
+/// <see cref="GegnerMatrixViewModel"/> (#401). Runden mit „Paarung fest vorgegeben“ legt der
+/// <see cref="VorbelegungViewModel"/> fest (#297); hier lost der Anwender bei <see cref="Auslosungsart.Manuell"/>
+/// selbst (#482).
 ///
 /// Anders als das WPF-Original hält dieses ViewModel KEINE eigene Instanzliste/-auswahl — die geteilte
 /// Instanzauswahl kommt von <see cref="TurnierdurchfuehrungViewModel"/> über <see cref="InstanzSetzenAsync"/>
@@ -84,7 +85,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     /// <summary>Runden mit PaarungFestVorgegeben=true werden im Vorbelegung-Tab verwaltet, nicht hier. Runden
     /// mit bereits vorhandener Auslosung (auch einer im Vorbelegung-Tab abgeschlossenen, hier unsichtbaren
-    /// Manuell-Auslosung — siehe <see cref="_belegteRundenIds"/>) werden ebenfalls ausgeblendet: sonst könnte
+    /// Vorbelegung — siehe <see cref="_belegteRundenIds"/>) werden ebenfalls ausgeblendet: sonst könnte
     /// eine zweite Auslosung für dieselbe Runde angelegt werden, was den Vorbelegung-Tab beim
     /// ToDictionary(a => a.TurnierRundeId)-Aufbau mit einer ArgumentException abstürzen lässt (Issue #320).
     /// Eine Folgerunde, deren Qualifikanten noch nicht alle feststehen, fehlt ebenfalls (#483) — siehe
@@ -103,7 +104,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty] private string? _neuRundenHinweis;
 
     /// <summary>TurnierRundeId aller Auslosungen der Instanz — inkl. der hier absichtlich ausgeblendeten
-    /// Auslosungsart.Manuell (siehe <see cref="LadeAuslosungenGefiltertAsync"/>), damit
+    /// Vorbelegungen (siehe <see cref="LadeAuslosungenGefiltertAsync"/>), damit
     /// <see cref="NeuRundenOptionen"/> auch solche Runden zuverlässig ausschließt (Issue #320).</summary>
     private HashSet<int> _belegteRundenIds = [];
 
@@ -274,11 +275,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty] private string? _fehlermeldung;
 
     // ── Berechnete Eigenschaften ─────────────────────────────────────────────
-    // Auslosungsart.Manuell wird hier nicht angeboten — die Paarungsfestlegung für Runden mit von vornherein
-    // feststehenden Paarungen lebt im Vorbelegung-Tab (VorbelegungViewModel/VorbelegungWorkspace, #297).
+    // „Manuell“ ist hier die Ziehung von Hand (#482); die Runden mit „Paarung fest vorgegeben“ erscheinen hier nicht.
     private static IReadOnlyList<AuslosungsartOption> AuslosungsartOptionenFuer(Rundenart? rundenart) =>
         Enum.GetValues<Auslosungsart>()
-            .Where(a => a != Auslosungsart.Manuell)
             .Where(a => rundenart is null || AuslosungsKompatibilitaet.IstKompatibel(rundenart.Value, a))
             .Select(a => new AuslosungsartOption(AuslosungAnzeigeTexte.AuslosungsartAnzeigeName(a), a))
             .ToList();
@@ -975,18 +974,19 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         finally { _seitenlisteAktualisierungAktiv = false; }
     }
 
-    /// <summary>Auslosungsart.Manuell wird hier nicht angezeigt — deren Paarungsfestlegung
-    /// lebt ausschließlich im Vorbelegung-Tab.</summary>
+    /// <summary>Die Vorbelegungen (Runden mit „Paarung fest vorgegeben“) werden hier nicht angezeigt — sie leben
+    /// ausschließlich im Vorbelegung-Tab.</summary>
     private async Task<ObservableCollection<Auslosung>> LadeAuslosungenGefiltertAsync(int turnierInstanzId)
     {
         var auslosungen = await _auslosungService.AlleNachInstanzAbrufenAsync(turnierInstanzId);
 
-        // Issue #320: _belegteRundenIds bewusst aus der UNGEFILTERTEN Liste (inkl. Manuell) befüllen —
-        // NeuRundenOptionen muss auch Runden mit einer hier unsichtbaren Manuell-Auslosung ausblenden.
+        // Issue #320: _belegteRundenIds bewusst aus der UNGEFILTERTEN Liste (inkl. Vorbelegungen) befüllen —
+        // NeuRundenOptionen muss auch Runden mit einer hier unsichtbaren Vorbelegung ausblenden.
         _belegteRundenIds = auslosungen.Select(a => a.TurnierRundeId).ToHashSet();
         OnPropertyChanged(nameof(NeuRundenOptionen));
 
-        return new ObservableCollection<Auslosung>(auslosungen.Where(a => a.Auslosungsart != Auslosungsart.Manuell));
+        return new ObservableCollection<Auslosung>(
+            auslosungen.Where(a => !VorbelegungsZustaendigkeit.GehoertZurVorbelegung(a)));
     }
 
     partial void OnNeuRundeChanged(TurnierRunde? value)

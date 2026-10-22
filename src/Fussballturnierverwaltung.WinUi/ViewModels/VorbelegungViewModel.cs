@@ -170,9 +170,9 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
                 .GroupBy(a => a.TurnierRundeId)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.Auslosungsart == Auslosungsart.Manuell).First());
 
-            var sichtbareRunden = _instanzRunden.Where(r =>
-                r.PaarungFestVorgegeben ||
-                auslosungNachRundeId.GetValueOrDefault(r.Id)?.Auslosungsart == Auslosungsart.Manuell);
+            // Nur der Haken trennt Vorbelegung und Durchführung (#482): eine Manuell-Auslosung einer Runde ohne
+            // Haken ist eine Ziehung von Hand der Durchführung (auch der Altfall „Haken nachträglich entfernt“, #320).
+            var sichtbareRunden = _instanzRunden.Where(r => r.PaarungFestVorgegeben);
 
             Runden = new ObservableCollection<RundenVorbelegungsEintrag>(
                 sichtbareRunden.Select(r => EintragErstellen(r, auslosungNachRundeId.GetValueOrDefault(r.Id))));
