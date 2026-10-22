@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
@@ -6,6 +7,12 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// Regeln. Auch vom Runden-Editor und vom <c>AuslosungsartZuTextConverter</c> genutzt.</summary>
 public static class AuslosungAnzeigeTexte
 {
+    /// <summary>ComboBox-Optionen der zur Rundenart passenden Auslosungsarten (siehe <see cref="AuslosungsartVorgabe"/>).</summary>
+    public static IReadOnlyList<AuslosungsartOption> AuslosungsartOptionen(Rundenart? rundenart) =>
+        AuslosungsartVorgabe.KompatibleArten(rundenart)
+            .Select(a => new AuslosungsartOption(AuslosungsartAnzeigeName(a), a))
+            .ToList();
+
     public static string AuslosungsartAnzeigeName(Auslosungsart a) => a switch
     {
         Auslosungsart.Zufall                          => "Zufällig",

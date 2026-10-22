@@ -12,10 +12,21 @@ public partial class NeueAuslosungViewModel : ObservableObject
 {
     /// <summary>Runden ohne „Paarung fest vorgegeben“, ohne vorhandene Auslosung und mit feststehenden Qualifikanten
     /// (#320, #483) — siehe <see cref="AuslosungViewModel"/>.</summary>
-    [ObservableProperty] private IReadOnlyList<TurnierRunde> _rundenOptionen = [];
+    public IReadOnlyList<TurnierRunde> RundenOptionen
+    {
+        get => _rundenOptionen;
+        private set => SetProperty(ref _rundenOptionen, value);
+    }
 
     /// <summary>Welche Runden fehlen, weil ihre Qualifikanten noch nicht feststehen — <c>null</c>, wenn keine.</summary>
-    [ObservableProperty] private string? _rundenHinweis;
+    public string? RundenHinweis
+    {
+        get => _rundenHinweis;
+        private set => SetProperty(ref _rundenHinweis, value);
+    }
+
+    private IReadOnlyList<TurnierRunde> _rundenOptionen = [];
+    private string? _rundenHinweis;
 
     [ObservableProperty] private string _name = "";
 
@@ -59,7 +70,14 @@ public partial class NeueAuslosungViewModel : ObservableObject
     public string AuslosungsartHinweis  => AuslosungAnzeigeTexte.AuslosungsartHinweisText(Auslosungsart);
     public string? AuslosungsartWarnung => AuslosungAnzeigeTexte.AuslosungsartWarnungText(Auslosungsart, Runde?.Rundenart);
 
-    public bool AnzahlLostoepfeBearbeitbar => AuslosungViewModel.ErlaubtMehrereToepfe(Auslosungsart);
+    public bool AnzahlLostoepfeBearbeitbar => AuslosungsartVorgabe.ErlaubtMehrereToepfe(Auslosungsart);
+
+    /// <summary>Anzahl der anzulegenden Lostöpfe — mindestens einer.</summary>
+    public int Lostoepfe => Math.Max(1, AnzahlLostoepfe);
+
+    /// <summary>Was angelegt wird; ohne eingegebenen Namen heißt die Auslosung wie die Runde.</summary>
+    public AuslosungErstellenEingabe Eingabe(int turnierInstanzId, TurnierRunde runde) =>
+        new(turnierInstanzId, runde.Id, string.IsNullOrWhiteSpace(Name) ? runde.Name : Name.Trim(), Auslosungsart, false);
 
     public void Oeffnen(IReadOnlyList<TurnierRunde> rundenOptionen, string? rundenHinweis)
     {
@@ -72,7 +90,7 @@ public partial class NeueAuslosungViewModel : ObservableObject
         Runde           = RundenOptionen.FirstOrDefault();
         // Explizit statt nur über OnRundeChanged: bleibt die vorausgewählte Runde dieselbe wie beim letzten
         // Mal, feuert der Hook nicht, und die Vorgabe der Runde (Issue #347) ginge durch den Reset oben verloren.
-        Auslosungsart   = StartAuslosungsartFuer(Runde, Auslosungsart);
+        Auslosungsart   = AuslosungsartVorgabe.StartFuer(Runde, Auslosungsart);
     }
 
     partial void OnRundeChanged(TurnierRunde? value)
@@ -81,9 +99,9 @@ public partial class NeueAuslosungViewModel : ObservableObject
         // mehr kompatibel ist), DANACH die Optionsliste (ItemsSource) neu setzen — minimiert das Zeitfenster,
         // in dem die ComboBox eine ItemsSource ohne passenden Eintrag zur aktuellen Auswahl hätte (siehe
         // Doku bei AuslosungsartOptionen).
-        Auslosungsart = StartAuslosungsartFuer(value, Auslosungsart);
+        Auslosungsart = AuslosungsartVorgabe.StartFuer(value, Auslosungsart);
 
-        AuslosungsartOptionen = AuslosungViewModel.AuslosungsartOptionenFuer(value?.Rundenart);
+        AuslosungsartOptionen = AuslosungAnzeigeTexte.AuslosungsartOptionen(value?.Rundenart);
         // Erzwungene Nachbenachrichtigung: falls WinUI die ComboBox-Auswahl beim ItemsSource-Wechsel
         // transient zurücksetzt und der anschließende Vergleich zufällig denselben Enum-Wert ergibt,
         // unterdrückt CommunityToolkits Gleichheitsprüfung die Benachrichtigung — die ComboBox bliebe dann
@@ -98,25 +116,6 @@ public partial class NeueAuslosungViewModel : ObservableObject
         }
     }
 
-    partial void OnAuslosungsartChanged(Auslosungsart value)
-    {
-        if (!AnzahlLostoepfeBearbeitbar)
-            AnzahlLostoepfe = 1;
-        // Topf-Zuordnung braucht mindestens 2 gleich große Töpfe — 4 entspricht der UCL-Ligaphase (Issue #347).
-        else if (value == Auslosungsart.TopfZuordnung && AnzahlLostoepfe < 2)
-            AnzahlLostoepfe = 4;
-    }
-
-    /// <summary>Auslosungsart, mit der das Formular für <paramref name="runde"/> startet (Issue #347):
-    /// zuerst die von der Vorlage vorgegebene Art der Runde, sonst die bisherige Auswahl, solange sie zur
-    /// Rundenart passt, sonst die erste kompatible Art (z.B. Topf-Zuordnung bei einer TopfLiga).</summary>
-    private static Auslosungsart StartAuslosungsartFuer(TurnierRunde? runde, Auslosungsart bisher)
-    {
-        if (runde is null) return bisher;
-        if (runde.VorgegebeneAuslosungsart is { } vorgabe && AuslosungsKompatibilitaet.IstKompatibel(runde.Rundenart, vorgabe))
-            return vorgabe;
-        if (AuslosungsKompatibilitaet.IstKompatibel(runde.Rundenart, bisher))
-            return bisher;
-        return AuslosungViewModel.AuslosungsartOptionenFuer(runde.Rundenart).Select(o => o.Wert).DefaultIfEmpty(Auslosungsart.Zufall).First();
-    }
+    partial void OnAuslosungsartChanged(Auslosungsart value) =>
+        AnzahlLostoepfe = AuslosungsartVorgabe.LostoepfeNachWechsel(value, AnzahlLostoepfe);
 }

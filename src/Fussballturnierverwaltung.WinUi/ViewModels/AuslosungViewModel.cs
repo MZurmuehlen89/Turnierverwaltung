@@ -217,21 +217,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty] private string? _fehlermeldung;
 
     // ── Berechnete Eigenschaften ─────────────────────────────────────────────
-    // „Manuell“ ist hier die Ziehung von Hand (#482); die Runden mit „Paarung fest vorgegeben“ erscheinen hier nicht.
-    internal static IReadOnlyList<AuslosungsartOption> AuslosungsartOptionenFuer(Rundenart? rundenart) =>
-        Enum.GetValues<Auslosungsart>()
-            .Where(a => rundenart is null || AuslosungsKompatibilitaet.IstKompatibel(rundenart.Value, a))
-            .Select(a => new AuslosungsartOption(AuslosungAnzeigeTexte.AuslosungsartAnzeigeName(a), a))
-            .ToList();
-
     public string DetailAuslosungsartHinweis   => AuslosungAnzeigeTexte.AuslosungsartHinweisText(DetailAuslosungsart);
     public string? DetailAuslosungsartWarnung  => AuslosungAnzeigeTexte.AuslosungsartWarnungText(DetailAuslosungsart, _auslosungDetail?.TurnierRunde?.Rundenart);
 
-    /// <summary>Zufall/Benutzerdefiniert kennen keine Topf-Struktur und sind auf genau 1 Lostopf begrenzt (Issue #134).</summary>
-    internal static bool ErlaubtMehrereToepfe(Auslosungsart art) =>
-        art is not (Auslosungsart.Zufall or Auslosungsart.Benutzerdefiniert);
-
-    public bool DetailAnzahlLostoepfeBearbeitbar => ErlaubtMehrereToepfe(DetailAuslosungsart);
+    public bool DetailAnzahlLostoepfeBearbeitbar => AuslosungsartVorgabe.ErlaubtMehrereToepfe(DetailAuslosungsart);
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
     public string RibbonTabTitel => "Auslosung";
@@ -457,13 +446,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             if (_instanz is null || NeuFormular.Runde is not { } runde) return;
             try
             {
-                var name    = string.IsNullOrWhiteSpace(NeuFormular.Name) ? runde.Name : NeuFormular.Name.Trim();
-                var eingabe = new AuslosungErstellenEingabe(
-                    _instanz.Id, runde.Id, name,
-                    NeuFormular.Auslosungsart, false);
-                var neu = await _auslosungService.ErstellenAsync(eingabe);
+                var neu = await _auslosungService.ErstellenAsync(NeuFormular.Eingabe(_instanz.Id, runde));
 
-                await _auslosungService.LostoepfeSynchronisierenAsync(neu.Id, Math.Max(1, NeuFormular.AnzahlLostoepfe));
+                await _auslosungService.LostoepfeSynchronisierenAsync(neu.Id, NeuFormular.Lostoepfe);
 
                 var standardRanglisteId = runde.StandardRanglisteId;
                 NeuFormAktiv = false;
@@ -906,7 +891,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         IstAbgeschlossen      = detail.Status == AuslosungsStatus.Abgeschlossen;
         DetailName            = detail.Name;
         DetailAuslosungsart   = detail.Auslosungsart;
-        DetailAuslosungsartOptionen = AuslosungsartOptionenFuer(detail.TurnierRunde?.Rundenart);
+        DetailAuslosungsartOptionen = AuslosungAnzeigeTexte.AuslosungsartOptionen(detail.TurnierRunde?.Rundenart);
         // Siehe NeueAuslosungViewModel.OnRundeChanged — erzwungene Nachbenachrichtigung gegen den WinUI3-ComboBox-Reset-
         // Fallstrick (Fund aus #300-Test: Auslosungsart erschien nach Anlage einer Auslosung leer).
         OnPropertyChanged(nameof(DetailAuslosungsart));
