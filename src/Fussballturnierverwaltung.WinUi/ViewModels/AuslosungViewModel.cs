@@ -39,7 +39,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly AuslosungService _auslosungService;
     private readonly TurnierInstanzService _instanzService;
     private readonly SpielplanService _spielplanService;
-    private readonly PlatzhalterKaskadeService _kaskade;
+    private readonly SpielplanVerlustVorschau _verlustVorschau;
     private readonly TurnierBaumService _baumService;
     private readonly AuslosungsTeilnehmerpool _teilnehmerpool;
     private readonly IDialogService _dialogService;
@@ -383,7 +383,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         AuslosungService auslosungService,
         TurnierInstanzService instanzService,
         SpielplanService spielplanService,
-        PlatzhalterKaskadeService kaskade,
+        SpielplanVerlustVorschau verlustVorschau,
         TurnierBaumService baumService,
         RanglisteService ranglisteService,
         VerbandsQuoteService verbandsQuoteService,
@@ -395,7 +395,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _auslosungService = auslosungService;
         _instanzService = instanzService;
         _spielplanService = spielplanService;
-        _kaskade = kaskade;
+        _verlustVorschau = verlustVorschau;
         _baumService = baumService;
         _teilnehmerpool = teilnehmerpool;
         _dialogService = dialogService;
@@ -580,7 +580,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         try
         {
             // Löschen nimmt wie das Zurücksetzen den Spielplan der Runde mit (#320) — die Rückfrage nennt ihn (#405).
-            var verlust = await SpielplanVerlustAsync(auslosung.TurnierInstanzId, auslosung.TurnierRundeId);
+            var verlust = await _verlustVorschau.ErmittelnAsync(auslosung.TurnierInstanzId, auslosung.TurnierRundeId);
             var bestaetigt = await _dialogService.BestaetigenAsync(
                 "Auslosung löschen", $"Soll '{auslosung.Name}' wirklich gelöscht werden?{verlust.Hinweis}");
             if (!bestaetigt) return;
@@ -832,7 +832,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             // zurückgesetzt bleibt ohne Dialog.
             (string Hinweis, bool DatenBetroffen) verlust;
             using (_logger.Vorgang($"Auslosung zurücksetzen: Vorschau (Auslosung {detail.Id})"))
-                verlust = await SpielplanVerlustAsync(detail.TurnierInstanzId, detail.TurnierRundeId);
+                verlust = await _verlustVorschau.ErmittelnAsync(detail.TurnierInstanzId, detail.TurnierRundeId);
             if (verlust.DatenBetroffen && !await _dialogService.BestaetigenAsync(
                     "Auslosung zurücksetzen",
                     $"Soll '{detail.Name}' wirklich zurückgesetzt werden?{verlust.Hinweis}"))
@@ -846,39 +846,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             await AktualisiereSeitenlisteAsync();
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
-    }
-
-    /// <summary>Was beim Zurücksetzen/Löschen einer Auslosung außer dem Auslosungsergebnis verloren geht (#405):
-    /// der Spielplan der Runde samt eingetragener Ergebnisse (#320) und über die Kaskade bereits aufgelöste
-    /// Paarungen in Folgerunden (#306). <c>Hinweis</c> ist der an die Rückfrage anzuhängende Text (leer ohne
-    /// Spielplan), <c>DatenBetroffen</c> gilt bei eingetragenen Ergebnissen oder betroffenen Folgerunden.</summary>
-    private async Task<(string Hinweis, bool DatenBetroffen)> SpielplanVerlustAsync(int turnierInstanzId, int rundeId)
-    {
-        var spiele = await _spielplanService.SpielplanAbrufenAsync(rundeId);
-        if (spiele.Count == 0) return ("", false);
-
-        int mitErgebnis = spiele.Count(s => s.Ergebnis is not null);
-        var hinweis = mitErgebnis > 0
-            ? $"\n\nDer Spielplan der Runde wird mitgelöscht: {spiele.Count} Spiel(e), davon {mitErgebnis} mit " +
-              "eingetragenem Ergebnis."
-            : $"\n\nDer Spielplan der Runde wird mitgelöscht: {spiele.Count} Spiel(e), noch ohne Ergebnis.";
-
-        // Vorschau wie vor "Ergebnisse zurücksetzen" im Spielplan (#389): alle Spiele der Runde gelten als
-        // entfernt. Neu zu generierende leere Runden zählen nicht — dort geht nichts verloren.
-        var plan = await _kaskade.PlanenAsync(
-            turnierInstanzId, spiele.Select(s => s.Id).ToHashSet());
-        var folgeSchritte = plan.Schritte.OfType<KaskadenSpielSchritt>().Where(s => s.RundeId != rundeId).ToList();
-        if (folgeSchritte.Count > 0)
-        {
-            var runden = string.Join(", ", folgeSchritte.Select(s => s.RundeName).Distinct());
-            int folgeErgebnisse = folgeSchritte.Count(s => s.HatteErgebnis);
-            hinweis += folgeErgebnisse > 0
-                ? $"\n\nZusätzlich werden {folgeErgebnisse} Ergebnis(se) in Folgerunden zurückgesetzt, deren " +
-                  $"Paarungen davon abhängen ({runden})."
-                : $"\n\nZusätzlich werden bereits feststehende Paarungen in Folgerunden zurückgesetzt ({runden}).";
-        }
-
-        return (hinweis, mitErgebnis > 0 || folgeSchritte.Count > 0);
     }
 
     // ── Interne Hilfsmethoden ─────────────────────────────────────────────────
