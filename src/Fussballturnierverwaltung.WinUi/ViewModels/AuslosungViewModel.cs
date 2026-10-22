@@ -830,7 +830,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             // Rückfrage nur, wenn tatsächlich Daten betroffen sind (#405) — frisch ausgelost und sofort
             // zurückgesetzt bleibt ohne Dialog.
-            (string Hinweis, bool DatenBetroffen) verlust;
+            SpielplanVerlust verlust;
             using (_logger.Vorgang($"Auslosung zurücksetzen: Vorschau (Auslosung {detail.Id})"))
                 verlust = await _verlustVorschau.ErmittelnAsync(detail.TurnierInstanzId, detail.TurnierRundeId);
             if (verlust.DatenBetroffen && !await _dialogService.BestaetigenAsync(
