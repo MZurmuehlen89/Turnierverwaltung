@@ -67,6 +67,8 @@ internal sealed class GruppenZiehung : IZiehungsAblauf
 
     public IReadOnlyList<ZiehungsPaarung> Paarungen => [];
 
+    public int? AktuellesTeam => _offen;
+
     public IReadOnlyList<ManuellePaarungEingabe> Ergebnis() =>
     [
         .. Enumerable.Range(0, _gruppenAnzahl)
@@ -109,7 +111,8 @@ internal sealed class GruppenZiehung : IZiehungsAblauf
             $"{Name(team)} kommt in {GruppenName(gruppe)} – ziehe die Position",
             [.. Enumerable.Range(1, _plaetzeJeGruppe).Select(p => new ZiehungsOption(p, belegt.Contains(p)
                 ? $"Position {p} ist in {GruppenName(gruppe)} schon vergeben."
-                : null))]);
+                : null))],
+            gruppe + 1);
     }
 
     // ── Züge ──────────────────────────────────────────────────────────────────

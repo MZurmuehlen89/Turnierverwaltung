@@ -661,8 +661,13 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- Editierbare Basisdaten (nur solange nicht abgeschlossen) -->
-                    <StackPanel Visibility="{Binding IstBearbeitbar, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
+                    <!-- Ziehung von Hand (#482) — Wrapper trägt die Sichtbarkeit, weil das Control einen eigenen DataContext hat -->
+                    <Border Visibility="{Binding HandZiehung.Laeuft, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
+                        <local:HandZiehungAnzeige DataContext="{Binding HandZiehung}" />
+                    </Border>
+
+                    <!-- Editierbare Basisdaten (nur solange nicht abgeschlossen und nicht von Hand gezogen wird) -->
+                    <StackPanel Visibility="{Binding ZeigeBasisdaten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
                         <Grid ColumnDefinitions="*,16,*,16,Auto">
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
@@ -704,7 +709,7 @@
 
                     <!-- Ranglisten-Automatik (Befüllen-Button lebt im Menü, "Auslosung"-Gruppe) -->
                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,12"
-                                Visibility="{Binding IstAbgeschlossen, Converter={StaticResource InverseBoolToVisibility}}">
+                                Visibility="{Binding ZeigeVorbereitung, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="Rangliste für Automatik:" VerticalAlignment="Center" FontSize="12" />
                         <ComboBox ItemsSource="{Binding Arbeitsbereich.RanglisteOptionen}"
                                   SelectedItem="{Binding Arbeitsbereich.AusgewaehlteRanglisteOption, Mode=TwoWay}"
@@ -717,7 +722,7 @@
                          gleiche Bedingung wie der Töpfe/Teilnehmer-Workspace darunter. Gleiche Spalten wie dort, damit
                          die Quoten so breit sind wie die Verfügbar-Liste – über die volle Seitenbreite standen Name
                          und Stand zu weit auseinander -->
-                    <Grid Visibility="{Binding IstAbgeschlossen, Converter={StaticResource InverseBoolToVisibility}}"
+                    <Grid Visibility="{Binding ZeigeVorbereitung, Converter={StaticResource BoolToVisibility}}"
                           ColumnDefinitions="2.4*,16,7*">
                         <StackPanel Grid.Column="0">
                             <!-- Verbandsquoten (Nutzerwunsch: direkt bei der Teams-zugewiesen-Anzeige, nicht erst
@@ -748,7 +753,7 @@
                     <!-- ── Töpfe/Teilnehmer-Workspace (vor Abschluss) ── -->
                     <!-- Verfügbar-Spalte auf 80% der ursprünglichen Breite gestutzt (Nutzerwunsch: mehr
                          Platz für die Lostöpfe) -->
-                    <Grid Visibility="{Binding IstAbgeschlossen, Converter={StaticResource InverseBoolToVisibility}}"
+                    <Grid Visibility="{Binding ZeigeVorbereitung, Converter={StaticResource BoolToVisibility}}"
                           ColumnDefinitions="2.4*,16,7*" Margin="0,0,0,16">
 
                         <!-- Verfügbare Teilnehmer -->

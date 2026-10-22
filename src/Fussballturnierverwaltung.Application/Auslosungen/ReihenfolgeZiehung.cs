@@ -14,6 +14,8 @@ internal sealed class ReihenfolgeZiehung(ZiehungsKontext kontext) : IZiehungsAbl
 
     public IReadOnlyList<ZiehungsPaarung> Paarungen => [];
 
+    public int? AktuellesTeam => null;
+
     public bool? IstLoesbar() => true;
 
     public ZiehungsAnsage AnsageErmitteln()

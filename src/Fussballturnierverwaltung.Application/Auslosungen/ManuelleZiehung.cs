@@ -19,8 +19,10 @@ public sealed record ZiehungsOption(int Wert, string? SperrGrund)
     public bool IstFrei => SperrGrund is null;
 }
 
-/// <summary>Die Ansage des Moderators: was jetzt dran ist und woraus gewählt werden darf.</summary>
-public sealed record ZiehungsAnsage(ZiehungsSchrittArt Art, string Text, IReadOnlyList<ZiehungsOption> Optionen)
+/// <summary>Die Ansage des Moderators: was jetzt dran ist und woraus gewählt werden darf. Beim Positions-Zug nennt
+/// <see cref="Gruppe"/> (ab 1) die Gruppe, deren Positionen die Optionen sind.</summary>
+public sealed record ZiehungsAnsage(
+    ZiehungsSchrittArt Art, string Text, IReadOnlyList<ZiehungsOption> Optionen, int? Gruppe = null)
 {
     public static ZiehungsAnsage Fertig { get; } =
         new(ZiehungsSchrittArt.Fertig, "Alle Teams sind gezogen – die Auslosung kann abgeschlossen werden.", []);
@@ -39,6 +41,7 @@ internal interface IZiehungsAblauf
 {
     ZiehungsAnsage AnsageErmitteln();
     void Anwenden(int wert);
+    int? AktuellesTeam { get; }
     bool? IstLoesbar();
     IReadOnlyList<ZiehungsGruppe> Gruppen { get; }
     IReadOnlyList<ZiehungsPaarung> Paarungen { get; }
@@ -111,6 +114,9 @@ public sealed class ManuelleZiehung
 
     public IReadOnlyList<ZiehungsGruppe> Gruppen => _ablauf.Gruppen;
     public IReadOnlyList<ZiehungsPaarung> Paarungen => _ablauf.Paarungen;
+
+    /// <summary>Das gezogene Team, dessen Gruppe, Position oder Gegner noch aussteht.</summary>
+    public int? AktuellesTeam => _ablauf.AktuellesTeam;
     public ZiehungsAnsage Ansage => _ansage ??= _ablauf.AnsageErmitteln();
     public bool IstFertig => Ansage.Art == ZiehungsSchrittArt.Fertig;
     public bool IstBegonnen => _zuege.Count > 0;

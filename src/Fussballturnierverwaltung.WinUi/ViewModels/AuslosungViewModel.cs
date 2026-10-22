@@ -172,6 +172,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AuslosungAusfuehrenCommand))]
+    [NotifyPropertyChangedFor(nameof(ZeigeBasisdaten))]
     private bool _istBearbeitbar;
 
     [ObservableProperty]
@@ -208,6 +209,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IstPaarungsergebnis))]
     [NotifyPropertyChangedFor(nameof(ZeigeErgebnis))]
+    [NotifyPropertyChangedFor(nameof(ZeigeVorbereitung))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungZuruecksetzenCommand))]
     private bool _istAbgeschlossen;
 
@@ -251,6 +253,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     /// <summary>Live-Anzeige der TV-Ziehung (Kind-ViewModel, ohne Datenbankzugriff).</summary>
     public ZiehungViewModel Ziehung { get; } = new();
+
+    /// <summary>Ziehung von Hand bei der Auslosungsart „Manuell“ (#482, Kind-ViewModel, ohne Datenbankzugriff).</summary>
+    public HandZiehungViewModel HandZiehung { get; } = new();
+
+    /// <summary>Lostöpfe, Quoten und Basisdaten nur vor dem Auslosen — und nicht, während von Hand gezogen wird.</summary>
+    public bool ZeigeVorbereitung => !IstAbgeschlossen && !HandZiehung.Laeuft;
+    public bool ZeigeBasisdaten   => IstBearbeitbar && !HandZiehung.Laeuft;
 
     /// <summary>Zwischen dem Auslosen und dem Start der TV-Ziehung (Spielplan-Generierung, #406) — hält das
     /// schon geladene Ergebnis verborgen, damit es nicht vor der Ziehung aufblitzt.</summary>
@@ -304,25 +313,17 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     // Zwei Plätze (#400): vorn je nach Phase die Vorbereitung oder — während der laufenden TV-Ziehung — die
     // Live-Steuerung, dahinter immer die Ziehung. Der Tausch statt einer zusätzlichen dritten Gruppe hält die
     // Leiste ruhig: die Ziehungs-Buttons bleiben stehen, Vorbereitung ist während der Ziehung ohnehin nutzlos.
+    // Die Ziehung von Hand ist selbst die Ziehung — bei „Manuell“ entfällt der TV-Modus (#482).
     public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
     [
-        Ziehung.AnimationLaeuft ? LiveSteuerungGruppe() : VorbereitungGruppe(),
+        Ziehung.AnimationLaeuft ? LiveSteuerungGruppe() : HandZiehung.Laeuft ? HandZiehungGruppe() : VorbereitungGruppe(),
         new RibbonGruppe
         {
             Header = "Ziehung",
             Aktionen =
             [
                 new RibbonAktion { Header = "Auslosung durchführen", Befehl = AuslosungAusfuehrenCommand, IconGlyph = "" },
-                new RibbonAktion
-                {
-                    Header = "TV-Modus",
-                    Unteraktionen =
-                    [
-                        new RibbonUnteraktion("Mit TV-Modus", AuslosungMitTvModusAusfuehrenCommand),
-                        new RibbonUnteraktion("Mit TV-Modus manuell", AuslosungMitTvModusManuellAusfuehrenCommand),
-                    ],
-                    IconGlyph = "",
-                },
+                .. (IstHandZiehungsart ? Array.Empty<RibbonAktion>() : [TvModusAktion()]),
                 // Bewusst am Gruppenende statt direkt neben "Auslosung durchführen" — beide sind zwar nie zugleich
                 // aktiv (bearbeitbar vs. abgeschlossen), sollen aber auch optisch nicht nebeneinander liegen.
                 new RibbonAktion { Header = "Zurücksetzen", Befehl = AuslosungZuruecksetzenCommand, IconGlyph = "" },
@@ -355,6 +356,31 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             },
         ],
     };
+
+    private RibbonAktion TvModusAktion() => new()
+    {
+        Header = "TV-Modus",
+        Unteraktionen =
+        [
+            new RibbonUnteraktion("Mit TV-Modus", AuslosungMitTvModusAusfuehrenCommand),
+            new RibbonUnteraktion("Mit TV-Modus manuell", AuslosungMitTvModusManuellAusfuehrenCommand),
+        ],
+        IconGlyph = "",
+    };
+
+    /// <summary>Steuerung der Ziehung von Hand (#482) — tritt wie die Live-Steuerung an die Stelle der Vorbereitung.</summary>
+    private RibbonGruppe HandZiehungGruppe() => new()
+    {
+        Header = "Ziehung von Hand",
+        Aktionen =
+        [
+            new RibbonAktion { Header = "Letzten Zug zurücknehmen", Befehl = HandZiehung.ZuruecknehmenCommand, IconGlyph = "" },
+            new RibbonAktion { Header = "Ziehung abbrechen", Befehl = HandZiehungAbbrechenCommand, IconGlyph = "" },
+            new RibbonAktion { Header = "Auslosung abschließen", Befehl = HandZiehungAbschliessenCommand, IconGlyph = "" },
+        ],
+    };
+
+    private bool IstHandZiehungsart => _auslosungDetail?.Auslosungsart == Auslosungsart.Manuell;
 
     /// <summary>Direkte Buttons statt Flyout (#364): während der Live-Ziehung ständig gebraucht. Beide stehen in
     /// beiden TV-Modi da, damit die Leiste gleich bleibt — "Weiter" ist in der automatischen Ziehung lediglich
@@ -395,6 +421,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _regeln.Geaendert += () => OnPropertyChanged(nameof(RibbonZusatzGruppen));
         Quoten = new QuotenAnzeigeViewModel(verbandsQuoteService, landesQuoteService);
         Ziehung.PropertyChanged += BeiZiehungAenderung;
+        HandZiehung.PropertyChanged += BeiHandZiehungAenderung;
         DetailGruppenposition.Geaendert += () => { if (!_ladenAktiv) IstDetailDirty = true; };
     }
 
@@ -418,6 +445,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         using var vorgang = _logger.Vorgang($"Auslosung: Turnier setzen (Instanz {instanz?.Id})");
 
         Ziehung.Beenden();
+        HandZiehung.Beenden();
         _instanz = instanz;
         _teilnehmerpool.Zuruecksetzen();
         _qualifikanten = Qualifikanten.Keine;
@@ -573,6 +601,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 "Auslosung löschen", $"Soll '{auslosung.Name}' wirklich gelöscht werden?{verlust.Hinweis}");
             if (!bestaetigt) return;
             Ziehung.Beenden();
+            HandZiehung.Beenden();
 
             await _auslosungService.LoeschenAsync(auslosung.Id);
             Auslosungen = await LadeAuslosungenGefiltertAsync(_instanz.Id);
@@ -608,6 +637,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private async Task AuslosungDurchfuehrenAsync(ZiehungsArt ziehungsArt)
     {
+        if (IstHandZiehungsart)
+        {
+            await HandZiehungStartenAsync();
+            return;
+        }
         Fehlermeldung = null;
         try
         {
@@ -696,6 +730,93 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 .AbspielenAsync(manuell);
     }
 
+    // ── Ziehung von Hand (#482) ───────────────────────────────────────────────
+    // Wie beim Losen: Rückfrage zum Spielplan, dann die Vorbereitung des Service (Gruppenköpfe, Prüfung, Regeln) —
+    // gespeichert wird erst beim Abschließen, Abbrechen verwirft nur.
+
+    private async Task HandZiehungStartenAsync()
+    {
+        Fehlermeldung = null;
+        using var schutz = await DbContextSchutz.BetretenAsync();
+        if (_auslosungDetail is not { } detail) return;
+        try
+        {
+            if (!await ErgebnisVerlustBestaetigtAsync(detail.TurnierRundeId)) return;
+            using var vorgang = _logger.Vorgang($"Ziehung von Hand starten (Auslosung {detail.Id})", "Ziehung wird vorbereitet …");
+            var ziehung = await _auslosungService.ZiehungStartenAsync(detail.Id, _qualifikanten);
+            HandZiehung.Starten(detail.Id, ziehung, _qualifikanten);
+        }
+        catch (Exception ex) { Fehlermeldung = ex.Message; }
+    }
+
+    [RelayCommand(CanExecute = nameof(KannHandZiehungAbschliessen))]
+    private async Task HandZiehungAbschliessen()
+    {
+        using var schutz = await DbContextSchutz.BetretenAsync();
+        if (HandZiehung.AuslosungId is not { } auslosungId || !HandZiehung.IstFertig) return;
+        Fehlermeldung = null;
+        using var vorgang = _logger.Vorgang($"Ziehung von Hand abschließen (Auslosung {auslosungId})", "Auslosung wird gespeichert …");
+
+        Exception? fehler = null;
+        try { await _auslosungService.ManuelleErgebnisseAbschliessenAsync(auslosungId, HandZiehung.Ergebnis()); }
+        catch (Exception ex) { fehler = ex; }
+
+        // Wie beim Losen auch nach einem Fehler neu laden: scheitert erst der Spielplan, ist die Auslosung schon
+        // abgeschlossen — dann ist auch die Ziehung vorbei.
+        try
+        {
+            await LadeDetailAsync(auslosungId);
+            if (IstAbgeschlossen) HandZiehung.Beenden();
+            if (fehler is not null)
+            {
+                Fehlermeldung = fehler.Message;
+                return;
+            }
+            if (_auslosungDetail is { } detail) await TurnierbaumUndSeitenlisteAktualisierenAsync(detail.TurnierInstanzId);
+        }
+        catch (Exception ex) { Fehlermeldung = ex.Message; }
+    }
+
+    [RelayCommand(CanExecute = nameof(KannHandZiehungAbbrechen))]
+    private async Task HandZiehungAbbrechen()
+    {
+        if (!await HandZiehungVerwerfenBestaetigtAsync()) return;
+
+        // Beim Start kann ein Gastgeber in Topf 1 gekommen sein (#487) — die Lostöpfe zeigen dann den neuen Stand.
+        using var schutz = await DbContextSchutz.BetretenAsync();
+        if (_auslosungDetail is not { } detail) return;
+        try { await LadeDetailAsync(detail.Id); }
+        catch (Exception ex) { Fehlermeldung = ex.Message; }
+    }
+
+    /// <summary>Rückfrage, bevor eine begonnene Ziehung von Hand verloren geht; bei „Ja“ endet sie. Vor dem ersten
+    /// Zug endet sie ohne Rückfrage — es geht nichts verloren.</summary>
+    private async Task<bool> HandZiehungVerwerfenBestaetigtAsync()
+    {
+        if (HandZiehung.IstBegonnen && !await _dialogService.BestaetigenAsync(
+                "Ziehung von Hand verwerfen",
+                "Die Ziehung ist noch nicht abgeschlossen – die bisher gezogenen Teams gehen verloren. Wirklich fortfahren?"))
+            return false;
+        HandZiehung.Beenden();
+        return true;
+    }
+
+    private bool KannHandZiehungAbschliessen() => HandZiehung.IstFertig;
+    private bool KannHandZiehungAbbrechen()    => HandZiehung.Laeuft;
+
+    private void BeiHandZiehungAenderung(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(HandZiehungViewModel.IstFertig))
+            HandZiehungAbschliessenCommand.NotifyCanExecuteChanged();
+        if (e.PropertyName != nameof(HandZiehungViewModel.Laeuft)) return;
+
+        OnPropertyChanged(nameof(ZeigeVorbereitung));
+        OnPropertyChanged(nameof(ZeigeBasisdaten));
+        OnPropertyChanged(nameof(RibbonZusatzGruppen));
+        HandZiehungAbbrechenCommand.NotifyCanExecuteChanged();
+        AuslosungAusfuehrenCommand.NotifyCanExecuteChanged();
+    }
+
     private Task<bool> ErgebnisVerlustBestaetigtAsync(int rundeId) =>
         SpielplanErsetzenRueckfrage.ErgebnisVerlustBestaetigtAsync(
             _spielplanService, _dialogService, rundeId, "Auslosung durchführen", "Die Auslosung", "auslosen");
@@ -704,6 +825,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// Auslosung, "Neu") — bei "Ja" endet die Ziehung sofort. Ohne laufende Ziehung synchron <c>true</c>.</summary>
     public async Task<bool> ZiehungBeendenNachRueckfrageAsync()
     {
+        if (HandZiehung.Laeuft) return await HandZiehungVerwerfenBestaetigtAsync();
         if (!Ziehung.AnimationLaeuft) return true;
 
         var bestaetigt = await _dialogService.BestaetigenAsync(
@@ -797,7 +919,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
 
         NeuFormAktiv = false;
-        if (AusgewaehlteAuslosung is null) { Ziehung.Beenden(); DetailAktiv = false; return; }
+        if (AusgewaehlteAuslosung is null) { Ziehung.Beenden(); HandZiehung.Beenden(); DetailAktiv = false; return; }
 
         // AktualisiereSeitenlisteAsync() weist AusgewaehlteAuslosung nach einem Reload der Seitenliste
         // erneut zu (neue Objektinstanz, gleiche Id) — das würde hier ohne diesen Guard einen bereits
@@ -807,13 +929,14 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (DetailAktiv && _auslosungDetail?.Id == AusgewaehlteAuslosung.Id) return;
 
         Ziehung.Beenden();
+        HandZiehung.Beenden();
         await AusgewaehltesDetailLadenAsync(AusgewaehlteAuslosung.Id);
     }
 
     /// <summary>Andere Auslosung während der TV-Ziehung angeklickt (#406): erst nach Rückfrage wechseln.</summary>
     private async Task<bool> AuswahlwechselErlaubtAsync()
     {
-        if (!Ziehung.AnimationLaeuft || AusgewaehlteAuslosung?.Id == _auslosungDetail?.Id) return true;
+        if (!Ziehung.AnimationLaeuft && !HandZiehung.Laeuft || AusgewaehlteAuslosung?.Id == _auslosungDetail?.Id) return true;
         return await ZiehungBeendenNachRueckfrageAsync();
     }
 
@@ -951,6 +1074,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         DetailGruppenposition.Zeigen(detail.Gruppenposition, detail.TurnierRunde?.Rundenart, detail.Auslosungsart);
         DetailAnzahlLostoepfe = Math.Max(1, detail.Lostoepfe.Count);
 
+        // Bei „Manuell“ ohne TV-Modus (#482).
+        OnPropertyChanged(nameof(RibbonZusatzGruppen));
+
         AuslosungKopfzeile = $"{detail.Name}  ·  {detail.TurnierRunde.Name}  ·  " +
                              $"{AuslosungAnzeigeTexte.AuslosungsartAnzeigeName(detail.Auslosungsart)}  ·  " +
                              $"Status: {AuslosungAnzeigeTexte.StatusAnzeigeName(detail.Status)}";
@@ -1042,7 +1168,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public bool HatUngespeicherteAenderungen => NeuFormAktiv || IstDetailDirty;
     private bool KannLoeschen()  => AusgewaehlteAuslosung is not null && !NeuFormAktiv;
 
-    private bool KannAuslosungAusfuehren()             => DetailAktiv && IstBearbeitbar;
+    private bool KannAuslosungAusfuehren()             => DetailAktiv && IstBearbeitbar && !HandZiehung.Laeuft;
     private bool KannAuslosungZuruecksetzen()           => DetailAktiv && IstAbgeschlossen && !Ziehung.AnimationLaeuft;
 
     partial void OnDetailAktivChanged(bool value)    => Arbeitsbereich.BearbeitbarSetzen(DetailAktiv && IstBearbeitbar);

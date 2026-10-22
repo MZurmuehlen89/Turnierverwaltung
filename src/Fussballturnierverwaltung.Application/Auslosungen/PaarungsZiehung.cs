@@ -49,6 +49,8 @@ internal sealed class PaarungsZiehung : IZiehungsAblauf
 
     public IReadOnlyList<ZiehungsGruppe> Gruppen => [];
 
+    public int? AktuellesTeam => _offen;
+
     public IReadOnlyList<ZiehungsPaarung> Paarungen =>
     [
         .. _paare.Select((p, i) => p.Zweiter is { } zweiter
