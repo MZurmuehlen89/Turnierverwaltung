@@ -4,10 +4,6 @@ Gilt zusätzlich zur Root-`CLAUDE.md` bei Arbeit an diesem Projekt.
 
 ## WinUi Patterns
 
-The WinUI 3 project (`Fussballturnierverwaltung.WinUi`) is the target of the ongoing WPF-to-WinUI3 migration
-(#279). Its own `Navigation`/`Ribbon` types are deliberate independent copies of the WPF originals (both
-startup projects must stay independent) — same names, same shape, but no shared assembly.
-
 **`ViewModelTemplateSelector`** (`src/Fussballturnierverwaltung.WinUi/ViewModelTemplateSelector.cs`) is the
 WinUI3 equivalent of the WPF `MainWindow.xaml` implicit `DataType`-`DataTemplate`s: `x:Bind` is strongly typed
 and cannot map `MainViewModel.AktuellesViewModel` (`ViewModelBase`) to the concrete View at compile time, and
@@ -15,8 +11,7 @@ WinUI 3 does not reliably resolve implicit `DataTemplate`s for a bare `ContentCo
 a new Fach-View therefore means: add a `case` to `SelectTemplateCore` + a `DataTemplate` property on the
 selector, declare the `DataTemplate` as a resource in `MainWindow.xaml`, and wire the property via
 `{StaticResource ...}` on `ViewModelTemplateSelector` in `MainWindow.xaml` — omitting this compiles fine and
-navigates without error, but the content area silently stays blank (analogous silent-failure risk to the WPF
-`DataTemplate`-omission pitfall in "Adding a new feature" in the root `CLAUDE.md`).
+navigates without error, but the content area silently stays blank.
 
 **`IDialogService`** replaces WPF's `MessageBox.Show` (not available in WinUI 3). It holds the `XamlRoot` set
 by `MainWindow` at startup and shows a `ContentDialog` — `NavigationService.DarfWegnavigierenAsync` depends on
