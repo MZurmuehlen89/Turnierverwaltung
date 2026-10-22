@@ -83,6 +83,30 @@ public class AuslosungServiceGruppenkoepfeTests
         _repo.GespeicherteErgebnisse.Should().BeNull();
     }
 
+    // Ziehung von Hand (#482): dieselbe Vorbereitung wie beim Losen — der Gastgeber steht vor dem ersten Zug in B.
+    [Fact]
+    public async Task ZiehungStarten_GastgeberFehlt_StehtVorabInSeinerGruppe()
+    {
+        var auslosung = Gruppenauslosung(TopfMitTeams(1, 1, 2), TopfMitTeams(2, 4, 3), TopfMitTeams(3, 7, 3));
+        auslosung.Auslosungsart = Auslosungsart.Manuell;
+
+        var ziehung = await _service.ZiehungStartenAsync(auslosung.Id);
+
+        var gastgeber = ziehung.Teilnehmer.Single(t => t.Eintrag.MannschaftId == GASTGEBER).Index;
+        ziehung.Gruppen[1].Plaetze[0].Should().Be(gastgeber);
+        _repo.GespeicherteErgebnisse.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ZiehungStarten_NurBeiManuell()
+    {
+        var auslosung = Gruppenauslosung(TopfMitTeams(1, 1, 3), TopfMitTeams(2, 4, 3), TopfMitTeams(3, 7, 2));
+
+        var starten = () => _service.ZiehungStartenAsync(auslosung.Id);
+
+        await starten.Should().ThrowAsync<InvalidOperationException>().WithMessage("*nur bei der Auslosungsart „Manuell“*");
+    }
+
     [Fact]
     public async Task KeineGruppenkoepfeVorgegeben_ToepfeBleibenLeer()
     {

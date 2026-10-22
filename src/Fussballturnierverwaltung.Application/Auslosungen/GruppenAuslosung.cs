@@ -66,7 +66,16 @@ internal sealed class GruppenAuslosung
     /// <summary>Lost die Töpfe nacheinander aus; aus einem Topf erhält jede Gruppe höchstens ein Team je Durchgang
     /// (ein Topf mit mehr Teams als Gruppen wird in mehreren Durchgängen verteilt). Liefert die Gruppe (ab 0) je
     /// Teilnehmer-Index oder <c>null</c>, wenn die Regeln mit diesen Teilnehmern nicht erfüllbar sind.</summary>
-    public int[]? Verteilen(IEnumerable<IReadOnlyList<int>> toepfe)
+    public int[]? Verteilen(IEnumerable<IReadOnlyList<int>> toepfe) =>
+        VerteilungSuchen(toepfe) == true ? [.. _gruppe] : null;
+
+    /// <summary>Ob sich die Auslosung ab dem gesetzten Zwischenstand regelkonform beenden lässt (Vorausschau der
+    /// Ziehung von Hand, #482): <c>null</c>, wenn die Suche an ihrer Grenze endete, ohne das zu klären. Die Gesetzten
+    /// stehen in jedem Topf vorn und in der Reihenfolge, in der sie gezogen wurden — so fallen sie in dieselben
+    /// Durchgänge wie bei der Ziehung.</summary>
+    public bool? Loesbar(IEnumerable<IReadOnlyList<int>> toepfe) => VerteilungSuchen(toepfe);
+
+    private bool? VerteilungSuchen(IEnumerable<IReadOnlyList<int>> toepfe)
     {
         var topfListe = toepfe.ToList();
         for (int ziehung = 0; ziehung < MAX_ZIEHUNGEN; ziehung++)
@@ -76,8 +85,8 @@ internal sealed class GruppenAuslosung
                 .Chunk(_gruppenAnzahl))];
             _belegt    = [.. _ziehungen.Select(GesetzteBelegen)];
             _schritte  = 0;
-            if (Suchen(0, 0)) return [.. _gruppe];
-            if (_schritte <= MAX_SUCHSCHRITTE) return null; // vollständig durchsucht — wirklich nicht erfüllbar
+            if (Suchen(0, 0)) return true;
+            if (_schritte <= MAX_SUCHSCHRITTE) return false; // vollständig durchsucht — wirklich nicht erfüllbar
         }
         return null;
     }

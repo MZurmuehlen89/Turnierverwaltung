@@ -394,8 +394,9 @@ public static class Losverfahren
     // gespiegelt aus dem Hinspiel, der Bessere steht hier also auswärts.
     // Heimrecht für Unterklassige (#393): das Team der tieferen Spielklasse hat Heimrecht, bei Hin- und Rückspiel
     // ebenso im Rückspiel; sonst entscheidet das Los.
-    private static (TeilnehmerSlot Heim, TeilnehmerSlot Auswaerts) HeimrechtFestlegen(
-        TeilnehmerSlot a, TeilnehmerSlot b, RegelKontext regeln, Random zufall)
+    // Ohne zufall (Ziehung von Hand, #482) ersetzt die Ziehung das Los: a, das zuerst gezogene Team, spielt zu Hause.
+    internal static (TeilnehmerSlot Heim, TeilnehmerSlot Auswaerts) HeimrechtFestlegen(
+        TeilnehmerSlot a, TeilnehmerSlot b, RegelKontext regeln, Random? zufall)
     {
         if (regeln.HeimrechtFuerUnterklassige is { } spielklassen)
         {
@@ -403,7 +404,7 @@ public static class Losverfahren
                 return MitHeimrecht(a, b, regeln.MitRueckspiel);
             if (spielklassen.HatHeimrechtGegen(b.SpielendeMannschaftId, a.SpielendeMannschaftId))
                 return MitHeimrecht(b, a, regeln.MitRueckspiel);
-            return zufall.Next(2) == 0 ? (b, a) : (a, b);
+            return zufall?.Next(2) == 0 ? (b, a) : (a, b);
         }
 
         if (regeln.HeimrechtNachSetzliste)
@@ -416,7 +417,7 @@ public static class Losverfahren
             }
         }
 
-        if (regeln.HeimrechtNachLos && zufall.Next(2) == 0)
+        if (regeln.HeimrechtNachLos && zufall?.Next(2) == 0)
             return (b, a);
         return (a, b);
     }

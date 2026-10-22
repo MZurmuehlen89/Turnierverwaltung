@@ -185,8 +185,43 @@ public class AuslosungService(
         var auslosung = await LadenOderFehler(auslosungId, ct);
 
         if (auslosung.Auslosungsart == Auslosungsart.Manuell)
-            throw new InvalidOperationException("Für manuelle Auslosungen bitte den Befehl 'ManuelleErgebnisseAbschliessenAsync' verwenden.");
+            throw new InvalidOperationException("Für manuelle Auslosungen bitte die Ziehung von Hand verwenden (ZiehungStartenAsync).");
 
+        var (regeln, gruppeJeMannschaft, gruppenkoepfe) = await VorbereitenAsync(auslosung, ct);
+        var ergebnisse = Losverfahren.Ausloesen(
+            auslosung, regeln, gruppeJeMannschaft, Random.Shared, qualifikanten, gruppenkoepfe);
+        await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);
+
+        logger.LogInformation("Auslosung '{Name}' durchgeführt: {Anzahl} Paarungen.", auslosung.Name, ergebnisse.Count);
+
+        // Wer auslost, will den Spielplan dazu (#19) — in einem Zug mit der Kaskade für die Folgerunden, die aus
+        // einer früheren Durchführung aufgelöste Platzhalter enthalten können (Redo-Fall, #306). Getrennt
+        // entstand der Spielplan einer Platzhalter-Runde zweimal: einmal durch die Kaskade hier, einmal durch
+        // den Aufrufer (#414, wie #411 bei der manuellen Auslosung).
+        await platzhalterKaskadeService.RundenSpielplanAusAuslosungErsetzenAsync(auslosung.TurnierRundeId, ergebnisse, ct);
+
+        return ergebnisse;
+    }
+
+    /// <summary>Beginnt die Ziehung von Hand einer manuellen Auslosung (#482) — mit denselben Vorbereitungen und
+    /// Prüfungen wie <see cref="AusfuehrenAsync"/>. Gespeichert wird erst das Ergebnis über
+    /// <see cref="ManuelleErgebnisseAbschliessenAsync"/>.</summary>
+    public async Task<ManuelleZiehung> ZiehungStartenAsync(
+        int auslosungId, Qualifikanten? qualifikanten = null, CancellationToken ct = default)
+    {
+        var auslosung = await LadenOderFehler(auslosungId, ct);
+        if (auslosung.Auslosungsart != Auslosungsart.Manuell)
+            throw new InvalidOperationException("Die Ziehung von Hand gibt es nur bei der Auslosungsart „Manuell“.");
+
+        var (regeln, gruppeJeMannschaft, gruppenkoepfe) = await VorbereitenAsync(auslosung, ct);
+        return ManuelleZiehung.Starten(
+            auslosung, regeln, gruppeJeMannschaft, qualifikanten ?? Qualifikanten.Keine, gruppenkoepfe);
+    }
+
+    // Was vor jedem Losen geschieht: Gruppenköpfe einlegen, Auslosung prüfen, wirksame Regeln ermitteln.
+    private async Task<(RegelKontext Regeln, IReadOnlyDictionary<int, string> GruppeJeMannschaft,
+        IReadOnlyDictionary<int, int> Gruppenkoepfe)> VorbereitenAsync(Auslosung auslosung, CancellationToken ct)
+    {
         if (auslosung.Status == AuslosungsStatus.Abgeschlossen)
             throw new InvalidOperationException("Auslosung wurde bereits durchgeführt. Bitte zuerst zurücksetzen.");
 
@@ -217,19 +252,7 @@ public class AuslosungService(
             validator.Validieren(auslosung, alleEintraege, verbandsQuoten, landesQuoten));
 
         var (regeln, gruppeJeMannschaft) = await RegelnErmittelnAsync(auslosung, alleRunden, ct);
-        var ergebnisse = Losverfahren.Ausloesen(
-            auslosung, regeln, gruppeJeMannschaft, Random.Shared, qualifikanten, gruppenkoepfe.Koepfe);
-        await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);
-
-        logger.LogInformation("Auslosung '{Name}' durchgeführt: {Anzahl} Paarungen.", auslosung.Name, ergebnisse.Count);
-
-        // Wer auslost, will den Spielplan dazu (#19) — in einem Zug mit der Kaskade für die Folgerunden, die aus
-        // einer früheren Durchführung aufgelöste Platzhalter enthalten können (Redo-Fall, #306). Getrennt
-        // entstand der Spielplan einer Platzhalter-Runde zweimal: einmal durch die Kaskade hier, einmal durch
-        // den Aufrufer (#414, wie #411 bei der manuellen Auslosung).
-        await platzhalterKaskadeService.RundenSpielplanAusAuslosungErsetzenAsync(auslosung.TurnierRundeId, ergebnisse, ct);
-
-        return ergebnisse;
+        return (regeln, gruppeJeMannschaft, gruppenkoepfe.Koepfe);
     }
 
     // Die wirksamen Regeln (#331) und — nur wenn „Keine gleiche Gruppe“ wirkt und echte Mannschaften in den Töpfen
