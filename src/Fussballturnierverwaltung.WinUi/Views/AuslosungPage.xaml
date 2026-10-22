@@ -318,30 +318,30 @@
                     <TextBlock Text="Neue Auslosung" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,16" />
 
                     <TextBlock Text="Runde" FontSize="12" Margin="0,0,0,3" />
-                    <ComboBox ItemsSource="{Binding NeuRundenOptionen}"
-                              SelectedItem="{Binding NeuRunde, Mode=TwoWay}"
+                    <ComboBox ItemsSource="{Binding NeuFormular.RundenOptionen}"
+                              SelectedItem="{Binding NeuFormular.Runde, Mode=TwoWay}"
                               DisplayMemberPath="Name" HorizontalAlignment="Stretch" Margin="0,0,0,6" />
-                    <TextBlock Text="{Binding NeuRundenHinweis}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,6"
-                               Visibility="{Binding NeuRundenHinweis, Converter={StaticResource NullToCollapsed}}" />
+                    <TextBlock Text="{Binding NeuFormular.RundenHinweis}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,6"
+                               Visibility="{Binding NeuFormular.RundenHinweis, Converter={StaticResource NullToCollapsed}}" />
                     <Border Height="6" />
 
                     <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
-                    <TextBox Text="{Binding NeuName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox Text="{Binding NeuFormular.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                     <TextBlock Text="Auslosungsart" FontSize="12" Margin="0,0,0,3" />
-                    <ComboBox ItemsSource="{Binding NeuAuslosungsartOptionen}"
-                              SelectedItem="{Binding NeuAuslosungsartAusgewaehlt, Mode=TwoWay}"
+                    <ComboBox ItemsSource="{Binding NeuFormular.AuslosungsartOptionen}"
+                              SelectedItem="{Binding NeuFormular.AuslosungsartAusgewaehlt, Mode=TwoWay}"
                               DisplayMemberPath="Anzeige"
                               HorizontalAlignment="Stretch" Margin="0,0,0,6" />
-                    <TextBlock Text="{Binding AuslosungsartHinweis}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,6" />
-                    <TextBlock Text="{Binding AuslosungsartWarnung}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"
+                    <TextBlock Text="{Binding NeuFormular.AuslosungsartHinweis}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,6" />
+                    <TextBlock Text="{Binding NeuFormular.AuslosungsartWarnung}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"
                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                               Visibility="{Binding AuslosungsartWarnung, Converter={StaticResource NullToCollapsed}}" />
+                               Visibility="{Binding NeuFormular.AuslosungsartWarnung, Converter={StaticResource NullToCollapsed}}" />
 
                     <TextBlock Text="Anzahl Lostöpfe" FontSize="12" Margin="0,0,0,3" />
-                    <NumberBox Value="{Binding NeuAnzahlLostoepfe, Mode=TwoWay}"
-                               IsEnabled="{Binding NeuAnzahlLostoepfeBearbeitbar}"
+                    <NumberBox Value="{Binding NeuFormular.AnzahlLostoepfe, Mode=TwoWay}"
+                               IsEnabled="{Binding NeuFormular.AnzahlLostoepfeBearbeitbar}"
                                Minimum="1" SpinButtonPlacementMode="Inline" HorizontalAlignment="Left" Margin="0,0,0,16" />
 
                     <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"

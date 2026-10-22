@@ -77,9 +77,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
     private Auslosung? _ausgewaehlteAuslosung;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(NeuRundenOptionen))]
-    private ObservableCollection<TurnierRunde> _instanzRunden = [];
+    [ObservableProperty] private ObservableCollection<TurnierRunde> _instanzRunden = [];
 
     /// <summary>Runden mit PaarungFestVorgegeben=true werden im Vorbelegung-Tab verwaltet, nicht hier. Runden
     /// mit bereits vorhandener Auslosung (auch einer im Vorbelegung-Tab abgeschlossenen, hier unsichtbaren
@@ -87,23 +85,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// eine zweite Auslosung für dieselbe Runde angelegt werden, was den Vorbelegung-Tab beim
     /// ToDictionary(a => a.TurnierRundeId)-Aufbau mit einer ArgumentException abstürzen lässt (Issue #320).
     /// Eine Folgerunde, deren Qualifikanten noch nicht alle feststehen, fehlt ebenfalls (#483) — siehe
-    /// <see cref="NeuRundenHinweis"/>.</summary>
-    public IEnumerable<TurnierRunde> NeuRundenOptionen =>
-        AuslosungsKandidaten().Where(r => !_nichtAuslosbareRundenIds.Contains(r.Id));
-
+    /// <see cref="AuslosbareRundenErmittelnAsync"/>.</summary>
     private IEnumerable<TurnierRunde> AuslosungsKandidaten() =>
         InstanzRunden.Where(r => !r.PaarungFestVorgegeben && !_belegteRundenIds.Contains(r.Id));
 
-    /// <summary>Runden, deren Qualifikanten beim Öffnen des Neu-Formulars noch nicht alle feststanden (#483).</summary>
-    private HashSet<int> _nichtAuslosbareRundenIds = [];
-
-    /// <summary>Welche Runden im Neu-Formular fehlen, weil ihre Qualifikanten noch nicht feststehen — <c>null</c>,
-    /// wenn keine.</summary>
-    [ObservableProperty] private string? _neuRundenHinweis;
-
     /// <summary>TurnierRundeId aller Auslosungen der Instanz — inkl. der hier absichtlich ausgeblendeten
     /// Vorbelegungen (siehe <see cref="LadeAuslosungenGefiltertAsync"/>), damit
-    /// <see cref="NeuRundenOptionen"/> auch solche Runden zuverlässig ausschließt (Issue #320).</summary>
+    /// <see cref="AuslosungsKandidaten"/> auch solche Runden zuverlässig ausschließt (Issue #320).</summary>
     private HashSet<int> _belegteRundenIds = [];
 
     // ── Neue-Auslosung-Formular ────────────────────────────────────────────────
@@ -115,47 +103,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
     private bool _neuFormAktiv;
 
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
-    private string _neuName = "";
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(AuslosungsartHinweis))]
-    [NotifyPropertyChangedFor(nameof(AuslosungsartWarnung))]
-    [NotifyPropertyChangedFor(nameof(NeuAnzahlLostoepfeBearbeitbar))]
-    [NotifyPropertyChangedFor(nameof(NeuAuslosungsartAusgewaehlt))]
-    private Auslosungsart _neuAuslosungsart = Auslosungsart.Zufall;
-
-    /// <summary>Wrapper für die ComboBox-Bindung: <c>SelectedItem</c> statt <c>SelectedValue</c>/
-    /// <c>SelectedValuePath</c> — Letzteres zeigte in #300-Tests wiederholt einen WinUI3-Fallstrick (Auswahl
-    /// erschien nach Reload/Sichtbarkeitswechsel leer, obwohl der zugrunde liegende Wert korrekt war), auch
-    /// nach gezielter Nachbenachrichtigung. <c>SelectedItem</c> gegen den Options-Record (Werte-Gleichheit
-    /// dank <c>record</c>) ist der im Rest der App bereits bewährte, robustere Mechanismus.</summary>
-    public AuslosungsartOption? NeuAuslosungsartAusgewaehlt
-    {
-        get => NeuAuslosungsartOptionen.FirstOrDefault(o => o.Wert == NeuAuslosungsart);
-        set { if (value is not null) NeuAuslosungsart = value.Wert; }
-    }
-
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
-    [NotifyPropertyChangedFor(nameof(AuslosungsartHinweis))]
-    [NotifyPropertyChangedFor(nameof(AuslosungsartWarnung))]
-    private TurnierRunde? _neuRunde;
-
-    /// <summary>Gecachte Optionsliste statt einer bei jedem Binding-Zugriff neu berechneten Liste — eine
-    /// dauerhaft neue Listeninstanz pro Lesezugriff ist ein bekannter WinUI3-ComboBox-Fallstrick
-    /// (siehe WinUi/CLAUDE.md, "ItemsSource pro Fokus neu berechnet"): kombiniert mit
-    /// <c>SelectedValuePath</c> kann das zu einem transienten Reset führen, der die eigentlich korrekte
-    /// Auswahl visuell verwaist zurücklässt (Fund aus #300-Test — "Auslosungsart erscheint leer trotz
-    /// vorheriger Auswahl"). Wird explizit in <see cref="OnNeuRundeChanged"/> aktualisiert.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(NeuAuslosungsartAusgewaehlt))]
-    private IReadOnlyList<AuslosungsartOption> _neuAuslosungsartOptionen = [];
-
-    private string _autoNeuName = "";
-
-    [ObservableProperty] private int _neuAnzahlLostoepfe = 1;
+    /// <summary>Felder des Neu-Formulars (Kind-ViewModel, #496).</summary>
+    public NeueAuslosungViewModel NeuFormular { get; } = new();
 
     // ── Auslosung-Detail ──────────────────────────────────────────────────────
     [ObservableProperty]
@@ -181,12 +130,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [NotifyCanExecuteChangedFor(nameof(AuslosungAusfuehrenCommand))]
     private Auslosungsart _detailAuslosungsart;
 
-    /// <summary>Gecacht, siehe <see cref="NeuAuslosungsartOptionen"/> — aktualisiert in <see cref="LadeDetailAsync"/>.</summary>
+    /// <summary>Gecacht, siehe <see cref="NeueAuslosungViewModel.AuslosungsartOptionen"/> — aktualisiert in <see cref="LadeDetailAsync"/>.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DetailAuslosungsartAusgewaehlt))]
     private IReadOnlyList<AuslosungsartOption> _detailAuslosungsartOptionen = [];
 
-    /// <summary>Wrapper für die ComboBox-Bindung, siehe <see cref="NeuAuslosungsartAusgewaehlt"/>.</summary>
+    /// <summary>Wrapper für die ComboBox-Bindung, siehe <see cref="NeueAuslosungViewModel.AuslosungsartAusgewaehlt"/>.</summary>
     public AuslosungsartOption? DetailAuslosungsartAusgewaehlt
     {
         get => DetailAuslosungsartOptionen.FirstOrDefault(o => o.Wert == DetailAuslosungsart);
@@ -269,22 +218,19 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     // ── Berechnete Eigenschaften ─────────────────────────────────────────────
     // „Manuell“ ist hier die Ziehung von Hand (#482); die Runden mit „Paarung fest vorgegeben“ erscheinen hier nicht.
-    private static IReadOnlyList<AuslosungsartOption> AuslosungsartOptionenFuer(Rundenart? rundenart) =>
+    internal static IReadOnlyList<AuslosungsartOption> AuslosungsartOptionenFuer(Rundenart? rundenart) =>
         Enum.GetValues<Auslosungsart>()
             .Where(a => rundenart is null || AuslosungsKompatibilitaet.IstKompatibel(rundenart.Value, a))
             .Select(a => new AuslosungsartOption(AuslosungAnzeigeTexte.AuslosungsartAnzeigeName(a), a))
             .ToList();
 
-    public string AuslosungsartHinweis         => AuslosungAnzeigeTexte.AuslosungsartHinweisText(NeuAuslosungsart);
-    public string? AuslosungsartWarnung        => AuslosungAnzeigeTexte.AuslosungsartWarnungText(NeuAuslosungsart, NeuRunde?.Rundenart);
     public string DetailAuslosungsartHinweis   => AuslosungAnzeigeTexte.AuslosungsartHinweisText(DetailAuslosungsart);
     public string? DetailAuslosungsartWarnung  => AuslosungAnzeigeTexte.AuslosungsartWarnungText(DetailAuslosungsart, _auslosungDetail?.TurnierRunde?.Rundenart);
 
     /// <summary>Zufall/Benutzerdefiniert kennen keine Topf-Struktur und sind auf genau 1 Lostopf begrenzt (Issue #134).</summary>
-    private static bool ErlaubtMehrereToepfe(Auslosungsart art) =>
+    internal static bool ErlaubtMehrereToepfe(Auslosungsart art) =>
         art is not (Auslosungsart.Zufall or Auslosungsart.Benutzerdefiniert);
 
-    public bool NeuAnzahlLostoepfeBearbeitbar    => ErlaubtMehrereToepfe(NeuAuslosungsart);
     public bool DetailAnzahlLostoepfeBearbeitbar => ErlaubtMehrereToepfe(DetailAuslosungsart);
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
@@ -406,6 +352,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Quoten = new QuotenAnzeigeViewModel(verbandsQuoteService, landesQuoteService);
         Ziehung.PropertyChanged += BeiZiehungAenderung;
         HandZiehung.PropertyChanged += BeiHandZiehungAenderung;
+        NeuFormular.PropertyChanged += BeiNeuFormularAenderung;
         DetailGruppenposition.Geaendert += () => { if (!_ladenAktiv) IstDetailDirty = true; };
     }
 
@@ -416,6 +363,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         OnPropertyChanged(nameof(ZeigeErgebnis));
         OnPropertyChanged(nameof(RibbonZusatzGruppen));
         AuslosungZuruecksetzenCommand.NotifyCanExecuteChanged();
+    }
+
+    private void BeiNeuFormularAenderung(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(NeueAuslosungViewModel.Runde) or nameof(NeueAuslosungViewModel.Name))
+            SpeichernCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>Von <see cref="TurnierdurchfuehrungViewModel"/> einmalig beim Aktivieren geladen — analog
@@ -457,9 +410,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         if (!await ZiehungBeendenNachRueckfrageAsync()) return;
         Fehlermeldung = null;
+        (IReadOnlyList<TurnierRunde> Runden, string? Hinweis) auslosbar;
         using (await DbContextSchutz.BetretenAsync())
         {
-            try { await AuslosbareRundenErmittelnAsync(); }
+            try { auslosbar = await AuslosbareRundenErmittelnAsync(); }
             catch (Exception ex)
             {
                 Fehlermeldung = ex.Message;
@@ -469,19 +423,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         NeuFormAktiv        = true;
         DetailAktiv         = false;
-        _autoNeuName        = "";
-        NeuName             = "";
-        NeuAnzahlLostoepfe  = 1;
-        NeuAuslosungsart    = Auslosungsart.Zufall;
-        NeuRunde            = NeuRundenOptionen.FirstOrDefault();
-        // Explizit statt nur über OnNeuRundeChanged: bleibt die vorausgewählte Runde dieselbe wie beim letzten
-        // Mal, feuert der Hook nicht, und die Vorgabe der Runde (Issue #347) ginge durch den Reset oben verloren.
-        NeuAuslosungsart    = StartAuslosungsartFuer(NeuRunde, NeuAuslosungsart);
+        NeuFormular.Oeffnen(auslosbar.Runden, auslosbar.Hinweis);
     }
 
     /// <summary>Eine Folgerunde wird erst ausgelost, wenn alle ihre Qualifikanten feststehen (#483) — wie im realen
     /// Ablauf, in dem die Achtelfinal-Auslosung auf die Gruppenphase folgt. Läuft unter dem Schutz des Aufrufers.</summary>
-    private async Task AuslosbareRundenErmittelnAsync()
+    private async Task<(IReadOnlyList<TurnierRunde> Runden, string? Hinweis)> AuslosbareRundenErmittelnAsync()
     {
         using var vorgang = _logger.Vorgang($"Auslosung: auslosbare Runden ermitteln (Instanz {_instanz?.Id})");
 
@@ -492,12 +439,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             if (!stand.AlleFest) nichtAuslosbar.Add((runde, stand));
         }
 
-        _nichtAuslosbareRundenIds = nichtAuslosbar.Select(n => n.Runde.Id).ToHashSet();
-        NeuRundenHinweis = nichtAuslosbar.Count == 0
+        var nichtAuslosbareIds = nichtAuslosbar.Select(n => n.Runde.Id).ToHashSet();
+        var hinweis = nichtAuslosbar.Count == 0
             ? null
             : "Noch nicht auslosbar, weil nicht alle Qualifikanten feststehen:" +
               string.Concat(nichtAuslosbar.Select(n => $"\n•  {n.Runde.Name} – {n.Stand.Offen} von {n.Stand.Gesamt} offen"));
-        OnPropertyChanged(nameof(NeuRundenOptionen));
+        return (AuslosungsKandidaten().Where(r => !nichtAuslosbareIds.Contains(r.Id)).ToList(), hinweis);
     }
 
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
@@ -507,18 +454,18 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         using var schutz = await DbContextSchutz.BetretenAsync();
         if (NeuFormAktiv)
         {
-            if (_instanz is null || NeuRunde is null) return;
+            if (_instanz is null || NeuFormular.Runde is not { } runde) return;
             try
             {
-                var name    = string.IsNullOrWhiteSpace(NeuName) ? NeuRunde.Name : NeuName.Trim();
+                var name    = string.IsNullOrWhiteSpace(NeuFormular.Name) ? runde.Name : NeuFormular.Name.Trim();
                 var eingabe = new AuslosungErstellenEingabe(
-                    _instanz.Id, NeuRunde.Id, name,
-                    NeuAuslosungsart, false);
+                    _instanz.Id, runde.Id, name,
+                    NeuFormular.Auslosungsart, false);
                 var neu = await _auslosungService.ErstellenAsync(eingabe);
 
-                await _auslosungService.LostoepfeSynchronisierenAsync(neu.Id, Math.Max(1, NeuAnzahlLostoepfe));
+                await _auslosungService.LostoepfeSynchronisierenAsync(neu.Id, Math.Max(1, NeuFormular.AnzahlLostoepfe));
 
-                var standardRanglisteId = NeuRunde.StandardRanglisteId;
+                var standardRanglisteId = runde.StandardRanglisteId;
                 NeuFormAktiv = false;
 
                 Auslosungen = await LadeAuslosungenGefiltertAsync(_instanz.Id);
@@ -960,7 +907,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         DetailName            = detail.Name;
         DetailAuslosungsart   = detail.Auslosungsart;
         DetailAuslosungsartOptionen = AuslosungsartOptionenFuer(detail.TurnierRunde?.Rundenart);
-        // Siehe OnNeuRundeChanged — erzwungene Nachbenachrichtigung gegen den WinUI3-ComboBox-Reset-
+        // Siehe NeueAuslosungViewModel.OnRundeChanged — erzwungene Nachbenachrichtigung gegen den WinUI3-ComboBox-Reset-
         // Fallstrick (Fund aus #300-Test: Auslosungsart erschien nach Anlage einer Auslosung leer).
         OnPropertyChanged(nameof(DetailAuslosungsart));
         DetailGruppenposition.Zeigen(detail.Gruppenposition, detail.TurnierRunde?.Rundenart, detail.Auslosungsart);
@@ -999,61 +946,15 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         var auslosungen = await _auslosungService.AlleNachInstanzAbrufenAsync(turnierInstanzId);
 
         // Issue #320: _belegteRundenIds bewusst aus der UNGEFILTERTEN Liste (inkl. Vorbelegungen) befüllen —
-        // NeuRundenOptionen muss auch Runden mit einer hier unsichtbaren Vorbelegung ausblenden.
+        // das Neu-Formular muss auch Runden mit einer hier unsichtbaren Vorbelegung ausblenden.
         _belegteRundenIds = auslosungen.Select(a => a.TurnierRundeId).ToHashSet();
-        OnPropertyChanged(nameof(NeuRundenOptionen));
 
         return new ObservableCollection<Auslosung>(
             auslosungen.Where(a => !VorbelegungsZustaendigkeit.GehoertZurVorbelegung(a)));
     }
 
-    partial void OnNeuRundeChanged(TurnierRunde? value)
-    {
-        // Reihenfolge bewusst: erst den Zielwert festlegen (falls die aktuelle Art in der neuen Runde nicht
-        // mehr kompatibel ist), DANACH die Optionsliste (ItemsSource) neu setzen — minimiert das Zeitfenster,
-        // in dem die ComboBox eine ItemsSource ohne passenden Eintrag zur aktuellen Auswahl hätte (siehe
-        // Klassendoku bei NeuAuslosungsartOptionen).
-        NeuAuslosungsart = StartAuslosungsartFuer(value, NeuAuslosungsart);
-
-        NeuAuslosungsartOptionen = AuslosungsartOptionenFuer(value?.Rundenart);
-        // Erzwungene Nachbenachrichtigung: falls WinUI die ComboBox-Auswahl beim ItemsSource-Wechsel
-        // transient zurücksetzt und der anschließende Vergleich zufällig denselben Enum-Wert ergibt,
-        // unterdrückt CommunityToolkits Gleichheitsprüfung die Benachrichtigung — die ComboBox bliebe dann
-        // visuell leer, obwohl NeuAuslosungsart korrekt ist (Fund aus #300-Test).
-        OnPropertyChanged(nameof(NeuAuslosungsart));
-
-        if (value is null) return;
-        if (string.IsNullOrWhiteSpace(NeuName) || NeuName == _autoNeuName)
-        {
-            _autoNeuName = value.Name;
-            NeuName      = value.Name;
-        }
-    }
-
-    partial void OnNeuAuslosungsartChanged(Auslosungsart value)
-    {
-        if (!NeuAnzahlLostoepfeBearbeitbar)
-            NeuAnzahlLostoepfe = 1;
-        // Topf-Zuordnung braucht mindestens 2 gleich große Töpfe — 4 entspricht der UCL-Ligaphase (Issue #347).
-        else if (value == Auslosungsart.TopfZuordnung && NeuAnzahlLostoepfe < 2)
-            NeuAnzahlLostoepfe = 4;
-    }
-
-    /// <summary>Auslosungsart, mit der das Neu-Formular für <paramref name="runde"/> startet (Issue #347):
-    /// zuerst die von der Vorlage vorgegebene Art der Runde, sonst die bisherige Auswahl, solange sie zur
-    /// Rundenart passt, sonst die erste kompatible Art (z.B. Topf-Zuordnung bei einer TopfLiga).</summary>
-    private static Auslosungsart StartAuslosungsartFuer(TurnierRunde? runde, Auslosungsart bisher)
-    {
-        if (runde is null) return bisher;
-        if (runde.VorgegebeneAuslosungsart is { } vorgabe && AuslosungsKompatibilitaet.IstKompatibel(runde.Rundenart, vorgabe))
-            return vorgabe;
-        if (AuslosungsKompatibilitaet.IstKompatibel(runde.Rundenart, bisher))
-            return bisher;
-        return AuslosungsartOptionenFuer(runde.Rundenart).Select(o => o.Wert).DefaultIfEmpty(Auslosungsart.Zufall).First();
-    }
-
     private bool KannNeu()       => !NeuFormAktiv && _instanz is not null && _instanz.Status != TurnierStatus.Vorlage;
-    private bool KannSpeichern() => (NeuFormAktiv && NeuRunde is not null)
+    private bool KannSpeichern() => (NeuFormAktiv && NeuFormular.Runde is not null)
                                  || (IstDetailDirty && IstBearbeitbar);
     private bool KannAbbrechen() => NeuFormAktiv || IstDetailDirty;
 

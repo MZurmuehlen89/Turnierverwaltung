@@ -310,7 +310,7 @@ public partial class RundenFormularViewModel : ObservableObject
     public static VorgegebeneAuslosungsartOption AuslosungsartVorgabeOptionFuer(Auslosungsart? art) =>
         art is { } a ? _auslosungsartVorgabeOptionen[a] : RundeZeile.KeineAuslosungsartVorgabe;
 
-    // Erst den Zielwert, dann die ItemsSource setzen (siehe AuslosungViewModel.OnNeuRundeChanged).
+    // Erst den Zielwert, dann die ItemsSource setzen (siehe NeueAuslosungViewModel.OnRundeChanged).
     private void AuslosungsartVorgabeAnRundenartPassen(Rundenart rundenart)
     {
         if (VorgegebeneAuslosungsart?.Wert is { } vorgabe && !AuslosungsKompatibilitaet.IstKompatibel(rundenart, vorgabe))
