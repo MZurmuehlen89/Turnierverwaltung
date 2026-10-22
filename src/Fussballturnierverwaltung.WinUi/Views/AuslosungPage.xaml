@@ -856,8 +856,8 @@
                         <TextBlock Text="ERGEBNIS" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,8" />
 
                         <!-- Gruppenergebnis -->
-                        <ItemsControl Visibility="{Binding IstGruppenergebnis, Converter={StaticResource BoolToVisibility}}"
-                                      ItemsSource="{Binding GruppenErgebnisse}"
+                        <ItemsControl Visibility="{Binding Ergebnis.IstGruppenergebnis, Converter={StaticResource BoolToVisibility}}"
+                                      ItemsSource="{Binding Ergebnis.GruppenErgebnisse}"
                                       ItemsPanel="{StaticResource GruppenRasterPanel}"
                                       Margin="0,0,0,8">
                             <ItemsControl.ItemTemplate>
@@ -888,25 +888,25 @@
 
                         <!-- Ligaphase: Gegner-Matrix je Topf (#362, Vorbild UEFA-TV-Grafik) — kein Spieltag, der gehört
                              in den Spielplan-Reiter -->
-                        <StackPanel Visibility="{Binding IstGegnerMatrixergebnis, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Visibility="{Binding Ergebnis.IstGegnerMatrixergebnis, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="Team anklicken, um es in allen Töpfen hervorzuheben und seine Gegner anzuzeigen."
                                        FontSize="12" Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,8" />
 
                             <!-- Gegnerliste des fokussierten Teams -->
-                            <Border Visibility="{Binding GegnerMatrix.ZeigeFokusGegner, Converter={StaticResource BoolToVisibility}}"
+                            <Border Visibility="{Binding Ergebnis.GegnerMatrix.ZeigeFokusGegner, Converter={StaticResource BoolToVisibility}}"
                                     BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="1"
                                     CornerRadius="4" Padding="10" Margin="0,0,0,12" HorizontalAlignment="Left">
                                 <StackPanel>
                                     <Grid ColumnDefinitions="Auto,8,*,Auto" Margin="0,0,0,8">
-                                        <Image Grid.Column="0" Source="{Binding GegnerMatrix.FokusTeam.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
-                                               Visibility="{Binding GegnerMatrix.FokusTeam.Wappen, Converter={StaticResource NullToCollapsed}}"
+                                        <Image Grid.Column="0" Source="{Binding Ergebnis.GegnerMatrix.FokusTeam.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                                               Visibility="{Binding Ergebnis.GegnerMatrix.FokusTeam.Wappen, Converter={StaticResource NullToCollapsed}}"
                                                Stretch="Uniform" Width="24" Height="24" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="2" FontWeight="SemiBold" VerticalAlignment="Center">
-                                            <Run Text="Gegner von " /><Run Text="{Binding GegnerMatrix.FokusTeam.Name}" />
+                                            <Run Text="Gegner von " /><Run Text="{Binding Ergebnis.GegnerMatrix.FokusTeam.Name}" />
                                         </TextBlock>
                                         <Button Grid.Column="3" Content="✕" FontSize="11" Padding="6,3"
                                                 ToolTipService.ToolTip="Fokus aufheben"
-                                                Command="{Binding GegnerMatrix.TeamFokussierenCommand}" />
+                                                Command="{Binding Ergebnis.GegnerMatrix.TeamFokussierenCommand}" />
                                     </Grid>
                                     <!-- Feste Spaltenbreiten: der Rahmen ist links ausgerichtet und passt sich dem Inhalt an —
                                          *-Spalten würden dann je Zeile einzeln nach Inhalt bemessen (Auswärts-Spalte verrutschte). -->
@@ -918,7 +918,7 @@
                                             <TextBlock Grid.Column="3" Text="Auswärts" FontSize="11" FontWeight="SemiBold" />
                                         </Grid>
                                     </Border>
-                                    <ItemsControl ItemsSource="{Binding GegnerMatrix.FokusGegner}">
+                                    <ItemsControl ItemsSource="{Binding Ergebnis.GegnerMatrix.FokusGegner}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
@@ -940,13 +940,13 @@
                             <!-- Eine Matrix je Topf: Zeilen = Teams des Topfs, Spalten = je Gegner-Topf Heim/Auswärts -->
                             <ScrollViewer HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Enabled"
                                           VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
-                                <ItemsControl ItemsSource="{Binding GegnerMatrix.Matrizen}" ItemTemplate="{StaticResource GegnerMatrixTemplate}" />
+                                <ItemsControl ItemsSource="{Binding Ergebnis.GegnerMatrix.Matrizen}" ItemTemplate="{StaticResource GegnerMatrixTemplate}" />
                             </ScrollViewer>
                         </StackPanel>
 
                         <!-- Paarungsergebnis -->
-                        <local:PaarungsSpaltenControl Visibility="{Binding IstPaarungsergebnis, Converter={StaticResource BoolToVisibility}}"
-                                                      Paarungen="{Binding ErgebnisseAnzeige}"
+                        <local:PaarungsSpaltenControl Visibility="{Binding Ergebnis.IstPaarungsergebnis, Converter={StaticResource BoolToVisibility}}"
+                                                      Paarungen="{Binding Ergebnis.ErgebnisseAnzeige}"
                                                       ZeilenJeSpalte="16"
                                                       PaarungTemplate="{StaticResource PaarungsErgebnisTemplate}" />
                     </StackPanel>

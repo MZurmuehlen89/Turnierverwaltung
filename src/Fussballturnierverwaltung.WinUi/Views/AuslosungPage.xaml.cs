@@ -30,10 +30,10 @@ public sealed partial class AuslosungPage : UserControl
     // eine ElementName-Bindung auf die Seite je Zelle entfällt.
 
     private void MatrixZelle_Tapped(object sender, TappedRoutedEventArgs e) =>
-        ViewModel?.GegnerMatrix.TeamFokussierenCommand.Execute((sender as FrameworkElement)?.DataContext as GegnerMatrixZelle);
+        ViewModel?.Ergebnis.GegnerMatrix.TeamFokussierenCommand.Execute((sender as FrameworkElement)?.DataContext as GegnerMatrixZelle);
 
     private void MatrixTeam_Tapped(object sender, TappedRoutedEventArgs e) =>
-        ViewModel?.GegnerMatrix.TeamFokussierenCommand.Execute(((sender as FrameworkElement)?.DataContext as GegnerMatrixZeile)?.Team);
+        ViewModel?.Ergebnis.GegnerMatrix.TeamFokussierenCommand.Execute(((sender as FrameworkElement)?.DataContext as GegnerMatrixZeile)?.Team);
 
     // Quelle des laufenden Drags (Precedent: Wpf AuslosungView-Feld _pendingDrag) — die tatsächlichen
     // Teilnehmer + Quell-Lostopf-Id kommen aus diesem Feld statt aus dem DataPackage-Text: Teams, die

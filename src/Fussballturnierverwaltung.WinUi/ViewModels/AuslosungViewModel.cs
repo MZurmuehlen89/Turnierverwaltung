@@ -207,24 +207,13 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private bool _istDetailDirty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IstPaarungsergebnis))]
     [NotifyPropertyChangedFor(nameof(ZeigeErgebnis))]
     [NotifyPropertyChangedFor(nameof(ZeigeVorbereitung))]
     [NotifyCanExecuteChangedFor(nameof(AuslosungZuruecksetzenCommand))]
     private bool _istAbgeschlossen;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IstPaarungsergebnis))]
-    private bool _istGruppenergebnis;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IstPaarungsergebnis))]
-    private bool _istGegnerMatrixergebnis;
-
-    public bool IstPaarungsergebnis => IstAbgeschlossen && !IstGruppenergebnis && !IstGegnerMatrixergebnis;
-
-    /// <summary>Gegner-Matrix der Ligaphase samt Team-Fokus (#362).</summary>
-    public GegnerMatrixViewModel GegnerMatrix { get; } = new();
+    /// <summary>Ergebnis der abgeschlossenen Auslosung (Kind-ViewModel, #496).</summary>
+    public AuslosungsErgebnisViewModel Ergebnis { get; } = new();
 
     [ObservableProperty] private string _auslosungKopfzeile = "";
 
@@ -236,9 +225,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     /// <summary>Verbands- und Landesquoten neben den Lostöpfen (Kind-ViewModel).</summary>
     public QuotenAnzeigeViewModel Quoten { get; }
-
-    [ObservableProperty] private ObservableCollection<ErgebnisAnzeige> _ergebnisseAnzeige = [];
-    [ObservableProperty] private ObservableCollection<GruppenErgebnisAnzeige> _gruppenErgebnisse = [];
 
     // ── TV-Modus: Schrittweise Ziehungsanimation (#303, Issue #5) ────────────────
     /// <summary>Wie das Ergebnis nach dem Auslosen erscheint: sofort oder als TV-Ziehung.</summary>
@@ -277,7 +263,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.PropertyName == nameof(ZeigeErgebnis)) GegnerMatrix.SichtbarSetzen(ZeigeErgebnis);
+        if (e.PropertyName == nameof(ZeigeErgebnis)) Ergebnis.GegnerMatrix.SichtbarSetzen(ZeigeErgebnis);
     }
 
     // ── Status ────────────────────────────────────────────────────────────────
@@ -710,7 +696,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     }
 
     private ZiehungsVorlage ZiehungsVorlageAus(Auslosung detail) =>
-        IstGegnerMatrixergebnis
+        Ergebnis.IstGegnerMatrixergebnis
             ? new(GegnerMatrixBuilder.Aufbauen(detail, _qualifikanten), null)
             : new(null, ZiehungsReihenfolge.Aufbauen(detail.Lostoepfe, detail.Ergebnisse, Random.Shared));
 
@@ -989,7 +975,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
             await Quoten.ZeigenAsync(detail, _instanz, InstanzRunden);
             _regeln.Zeigen(detail, InstanzRunden);
-            ErgebnisZeigen(detail);
+            Ergebnis.Zeigen(detail, _qualifikanten);
             KopfdatenZeigen(detail);
 
             DetailAktiv    = true;
@@ -1001,65 +987,6 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             _ladenAktiv = false;
         }
     }
-
-    private void ErgebnisZeigen(Auslosung detail)
-    {
-        bool istGruppe = IstGruppenergebnisVon(detail);
-        bool istMatrix = !istGruppe && IstGegnerMatrixergebnisVon(detail);
-
-        IstGruppenergebnis = istGruppe;
-        IstGegnerMatrixergebnis = istMatrix;
-        GegnerMatrix.Zeigen(istMatrix ? GegnerMatrixBuilder.Aufbauen(detail, _qualifikanten) : []);
-        GruppenErgebnisse = istGruppe ? GruppenErgebnisseAus(detail, _qualifikanten) : [];
-        ErgebnisseAnzeige = istGruppe ? [] : PaarungsErgebnisseAus(detail, _qualifikanten);
-    }
-
-    /// <summary>Eine Gruppenauslosung speichert je Mannschaft eine Zeile ohne Gegner.</summary>
-    private static bool IstGruppenergebnisVon(Auslosung detail) =>
-        detail.Ergebnisse.Any() &&
-        detail.Ergebnisse.All(e => !e.IstFreilos &&
-            e.AuswaertsMannschaftId == null &&
-            e.AuswaertsPlatzhalterName == null);
-
-    /// <summary>Ligaphase: Ergebnis als Gegner-Matrix je Topf statt flacher Paarungsliste (#362).</summary>
-    private static bool IstGegnerMatrixergebnisVon(Auslosung detail) =>
-        detail.Ergebnisse.Any() &&
-        detail.Auslosungsart == Auslosungsart.TopfZuordnung && detail.Lostoepfe.Count >= 2;
-
-    // Team-Reihenfolge innerhalb der Gruppe bewusst NICHT alphabetisch sortiert: sie muss mit der tatsächlich
-    // gespeicherten Reihenfolge übereinstimmen, aus der SpielplanService.GenerierenAusAuslosungAsync den Spielplan
-    // generiert (dort ohne eigene Sortierung, ebenfalls direkt aus der PaarungsNummer-Gruppierung) — siehe
-    // #303-Diskussion.
-    private static ObservableCollection<GruppenErgebnisAnzeige> GruppenErgebnisseAus(Auslosung detail, Qualifikanten q) =>
-        new(detail.Ergebnisse
-            .GroupBy(e => e.PaarungsNummer)
-            .OrderBy(g => g.Key)
-            .Select(g => new GruppenErgebnisAnzeige(
-                g.Key,
-                $"Gruppe {GruppenHerkunft.Buchstabe(g.Key)}",
-                g.Select(e => GruppenTeam(SpielendeMannschaft(e.HeimMannschaft, e.HeimPlatzhalterName, q), e.HeimPlatzhalterName))
-                 .ToList())));
-
-    private static GruppenTeamAnzeige GruppenTeam(Mannschaft? mannschaft, string? platzhalterName) =>
-        new(mannschaft?.Name ?? platzhalterName ?? "?", MannschaftsIcon.Fuer(mannschaft));
-
-    private static ObservableCollection<ErgebnisAnzeige> PaarungsErgebnisseAus(Auslosung detail, Qualifikanten q) =>
-        new(detail.Ergebnisse.Select(e =>
-        {
-            var heim      = SpielendeMannschaft(e.HeimMannschaft, e.HeimPlatzhalterName, q);
-            var auswaerts = SpielendeMannschaft(e.AuswaertsMannschaft, e.AuswaertsPlatzhalterName, q);
-            return new ErgebnisAnzeige(
-                e.PaarungsNummer,
-                heim?.Name ?? e.HeimPlatzhalterName ?? "?",
-                auswaerts?.Name ?? e.AuswaertsPlatzhalterName ?? "?",
-                e.IstFreilos,
-                MannschaftsIcon.Fuer(heim),
-                MannschaftsIcon.Fuer(auswaerts));
-        }));
-
-    /// <summary>Die eigene Mannschaft eines Ergebnisplatzes oder die hinter seinem Platzhalter (#483).</summary>
-    private static Mannschaft? SpielendeMannschaft(Mannschaft? eigene, string? platzhalterName, Qualifikanten q) =>
-        eigene ?? q.Fuer(platzhalterName);
 
     private void KopfdatenZeigen(Auslosung detail)
     {
