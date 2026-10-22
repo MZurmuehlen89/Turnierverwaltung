@@ -39,7 +39,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly SpielplanService _spielplanService;
     private readonly PlatzhalterKaskadeService _kaskade;
     private readonly FinaleAutomatik _finaleAutomatik;
-    private readonly AuslosungService _auslosungService;
+    private readonly NeuGenerierungsRueckfrage _neuGenerierung;
     private readonly TurnierBaumService _baumService;
     private readonly SpielplanRundenKontext _kontext;
     private readonly TurnierInstanzService _instanzService;
@@ -548,7 +548,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         SpiellistenQuelle quelle,
         PlatzhalterKaskadeService kaskade,
         FinaleAutomatik finaleAutomatik,
-        AuslosungService auslosungService,
+        NeuGenerierungsRueckfrage neuGenerierung,
         TurnierBaumService baumService,
         SpielplanRundenKontext kontext,
         SimulationsService simulationsService,
@@ -561,7 +561,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _quelle = quelle;
         _kaskade = kaskade;
         _finaleAutomatik = finaleAutomatik;
-        _auslosungService = auslosungService;
+        _neuGenerierung = neuGenerierung;
         _baumService = baumService;
         _kontext = kontext;
         _instanzService = instanzService;
@@ -969,7 +969,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         var runde = AusgewaehlteRunde;
         Fehlermeldung = null;
 
-        var auslosung = await AuslosungFuerNeuGenerierungAsync(runde, AusgewaehlteInstanz.Id);
+        var auslosung = await _neuGenerierung.AuslosungFuerNeuGenerierungAsync(
+            runde, AusgewaehlteInstanz.Id, Spiele.Count, fehler => Fehlermeldung = fehler);
         if (auslosung is null) return;
 
         using var vorgang = _logger.Vorgang($"Spielplan neu generieren (Runde {runde.Id})", "Spielplan wird neu generiert …");
@@ -984,60 +985,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 await _baumService.NachSpielplanAenderungAktualisierenAsync(runde.TurnierInstanzId);
                 await TeilnehmerLadenAsync();
             });
-    }
-
-    /// <summary>Die abgeschlossene Auslosung, aus der die Runde neu generiert wird — nach Rückfrage, wenn sie
-    /// schon Spiele hat. <c>null</c>, wenn nicht generiert wird: abgebrochen oder Fehlermeldung gesetzt.</summary>
-    private async Task<Auslosung?> AuslosungFuerNeuGenerierungAsync(TurnierRunde runde, int instanzId)
-    {
-        try
-        {
-            // Issue #433: vor Rückfrage und Löschen prüfen — ein ohne Auslosung automatisch generiertes Finale
-            // (#113) hat Spiele, aber keine abgeschlossene Auslosung; das Löschen davor nahm ihm das Spiel
-            // samt Ergebnis, ohne dass etwas neu generiert werden konnte.
-            var auslosung = await _auslosungService.FindenAbgeschlosseneNachRundeAsync(instanzId, runde.Id);
-            if (auslosung is null)
-            {
-                Fehlermeldung = MeldungFehlendeAuslosung(runde, Spiele.Count > 0);
-                return null;
-            }
-
-            if (Spiele.Count == 0) return auslosung;
-
-            var bestaetigt = await _dialogService.BestaetigenAsync(
-                "Spielplan neu generieren",
-                $"Die Runde '{runde.Name}' hat bereits {Spiele.Count} Spiel(e). " +
-                "Soll der Spielplan gelöscht und neu generiert werden?");
-            return bestaetigt ? auslosung : null;
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-            return null;
-        }
-    }
-
-    /// <summary>Issue #433: fest vorgegebene Paarungen entstehen unter „Turniere“ im Reiter „Vorbelegung“ und
-    /// liegen erst nach dem Abschließen dort als abgeschlossene Auslosung vor — für solche Runden gibt es in
-    /// der Turnierdurchführung keine Auslosung, auf die die Meldung verweisen könnte. Eine Runde mit zwei
-    /// Teilnehmern bekommt ihr Spiel ohne Auslosung automatisch (#113,
-    /// <c>FinaleAutomatik.AbgleichenAsync</c>) — auch dort führt der Hinweis auf die Auslosung in
-    /// die Irre.</summary>
-    private static string MeldungFehlendeAuslosung(TurnierRunde runde, bool hatSpiele)
-    {
-        if (runde.PaarungFestVorgegeben)
-            return "Für diese Runde sind die fest vorgegebenen Paarungen noch nicht festgelegt. " +
-                   "Bitte zuerst unter „Turniere“ im Reiter „Vorbelegung“ die Paarungen festlegen und abschließen.";
-
-        if (runde.EingangsMannschaftsanzahl != 2)
-            return "Für diese Runde wurde noch keine Auslosung abgeschlossen. " +
-                   "Bitte zuerst die Auslosung durchführen.";
-
-        return hatSpiele
-            ? "Das Spiel dieser Runde wurde ohne Auslosung automatisch aus der vorherigen Runde angelegt. " +
-              "Ein Neugenerieren ist hier nicht nötig."
-            : "Diese Runde hat nur zwei Teilnehmer und braucht keine Auslosung: Das Spiel wird automatisch " +
-              "angelegt, sobald beide Teilnehmer aus der vorherigen Runde feststehen.";
     }
 
     private bool KannNaechsteSchweizerRundeGenerieren() =>

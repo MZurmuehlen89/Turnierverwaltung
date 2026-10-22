@@ -152,6 +152,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<AuslosungsTeilnehmerpool>();
         builder.Services.AddTransient<SpielplanRundenKontext>();
         builder.Services.AddTransient<SpiellistenQuelle>();
+        builder.Services.AddTransient<NeuGenerierungsRueckfrage>();
         builder.Services.AddTransient<SpielplanViewModel>();
         builder.Services.AddTransient<RundenTabellenViewModel>();
         builder.Services.AddTransient<TurnierBaumViewModel>();
