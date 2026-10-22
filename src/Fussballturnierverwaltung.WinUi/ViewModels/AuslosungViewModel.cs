@@ -4,11 +4,9 @@ using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Spielplan;
-using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
-using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
@@ -263,7 +261,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.PropertyName == nameof(ZeigeErgebnis)) Ergebnis.GegnerMatrix.SichtbarSetzen(ZeigeErgebnis);
+        if (e.PropertyName == nameof(ZeigeErgebnis)) Ergebnis.SichtbarSetzen(ZeigeErgebnis);
     }
 
     // ── Status ────────────────────────────────────────────────────────────────
