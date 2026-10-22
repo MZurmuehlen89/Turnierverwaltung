@@ -42,13 +42,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly FinaleAutomatik _finaleAutomatik;
     private readonly AuslosungService _auslosungService;
     private readonly TurnierBaumService _baumService;
-    private readonly RegelwerkService _regelwerkService;
-    private readonly TabellenService _tabellenService;
+    private readonly SpielplanRundenKontext _kontext;
     private readonly TurnierInstanzService _instanzService;
     private readonly IDialogService _dialogService;
     private readonly ILogger<SpielplanViewModel> _logger;
 
-    private Dictionary<int, int> _teamGruppeMap = [];
     private IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)> _platzhalterVorschau =
         new Dictionary<int, (string?, string?)>();
 
@@ -119,8 +117,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private bool HatHinUndRueckspiel => IstLigaMitRueckspiel || IstKoMitRueckspiel;
     private string HinrundeMenuText => IstKoMitRueckspiel ? "Hinspiele" : "Hinrunde";
     private string RueckrundeMenuText => IstKoMitRueckspiel ? "Rückspiele" : "Rückrunde";
-
-    public ObservableCollection<GruppenTabelle> GruppenTabellen { get; } = [];
 
     // ── Gruppen-/Spieltag-Fokus ───────────────────────────────────────────────
 
@@ -270,7 +266,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             await AnsichtWechselnAsync(null, runde);
         if (IstMannschaftsansicht) return;
 
-        if (GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppenNummer) is { } gruppe)
+        if (_kontext.GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppenNummer) is { } gruppe)
             AusgewaehlteGruppe = gruppe;
     }
 
@@ -329,8 +325,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Formular.ErlaubteVerfahrenSetzen([]);
         AusgewaehlteGruppe = null;
         Fokus.AuswahlFreigeben();
-        GruppenTabellen.Clear();
-        _teamGruppeMap = [];
+        _kontext.GruppenTabellen.Clear();
+        _kontext.TeamGruppeMap = [];
         _platzhalterVorschau = new Dictionary<int, (string?, string?)>();
         MehrfachAusgewaehlteSpiele = [];
 
@@ -366,8 +362,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (AusgewaehlteRunde?.Id == rundeId) return;
 
         RundeStillSetzen(Runden.FirstOrDefault(r => r.Id == rundeId));
-        GruppenTabellen.Clear();
-        _teamGruppeMap = [];
+        _kontext.GruppenTabellen.Clear();
+        _kontext.TeamGruppeMap = [];
         if (AusgewaehlteRunde is not { } runde) return;
 
         await TabellenNeuLadenAsync(runde.Id);
@@ -577,8 +573,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         FinaleAutomatik finaleAutomatik,
         AuslosungService auslosungService,
         TurnierBaumService baumService,
-        RegelwerkService regelwerkService,
-        TabellenService tabellenService,
+        SpielplanRundenKontext kontext,
         SimulationsService simulationsService,
         TurnierInstanzService instanzService,
         IDialogService dialogService,
@@ -591,8 +586,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _finaleAutomatik = finaleAutomatik;
         _auslosungService = auslosungService;
         _baumService = baumService;
-        _regelwerkService = regelwerkService;
-        _tabellenService = tabellenService;
+        _kontext = kontext;
         _instanzService = instanzService;
         _dialogService = dialogService;
         _logger = logger;
@@ -871,8 +865,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         AusgewaehlteGruppe = null;
         Fokus.AuswahlFreigeben();
         FokusSpieltageAbgleichen();
-        GruppenTabellen.Clear();
-        _teamGruppeMap = [];
+        _kontext.GruppenTabellen.Clear();
+        _kontext.TeamGruppeMap = [];
         _platzhalterVorschau = new Dictionary<int, (string?, string?)>();
         AktualisiereBefehle();
 
@@ -895,34 +889,16 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         AktualisiereBefehle();
     }
 
-    private async Task ErlaubteVerfahrenLadenAsync(TurnierRunde runde)
-    {
-        var regelwerkId = runde.RegelwerkId ?? AusgewaehlteInstanz?.StandardRegelwerkId;
-        var regelwerk = regelwerkId is { } rid ? await _regelwerkService.FindenNachIdAsync(rid) : null;
-
-        Formular.ErlaubteVerfahrenSetzen(regelwerk?.Entscheidungsverfahren
-            .OrderBy(v => v.Reihenfolge)
-            .Select(v => v.VerfahrenArt) ?? []);
-    }
+    private async Task ErlaubteVerfahrenLadenAsync(TurnierRunde runde) =>
+        Formular.ErlaubteVerfahrenSetzen(
+            await _kontext.ErlaubteVerfahrenAsync(runde, AusgewaehlteInstanz?.StandardRegelwerkId));
 
     private async Task GruppenTabellenLadenAsync(int rundeId)
     {
-        GruppenTabellen.Clear();
-        _teamGruppeMap = [];
-        try
-        {
-            var tabellen = await _tabellenService.GruppenTabellenBerechnenAsync(rundeId);
-            foreach (var gt in tabellen)
-            {
-                GruppenTabellen.Add(gt);
-                foreach (var te in gt.Tabelle)
-                    _teamGruppeMap[te.Mannschaft.Id] = gt.GruppenNummer;
-            }
-        }
-        catch { /* Gruppenstand konnte nicht berechnet werden — kein Fehler */ }
+        await _kontext.GruppenTabellenLadenAsync(rundeId);
 
         if (AusgewaehlteGruppe is { } aktuelleGruppe)
-            AusgewaehlteGruppe = GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == aktuelleGruppe.GruppenNummer);
+            AusgewaehlteGruppe = _kontext.GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == aktuelleGruppe.GruppenNummer);
     }
 
     private async Task TabellenNeuLadenAsync(int rundeId)
@@ -1220,7 +1196,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private void SpieleHinzufuegen(IReadOnlyList<Spiel> spiele, TurnierRunde? runde)
     {
-        foreach (var zeile in SpielZeilenMapper.SpielplanZeilen(spiele, runde, _teamGruppeMap, _platzhalterVorschau))
+        foreach (var zeile in SpielZeilenMapper.SpielplanZeilen(spiele, runde, _kontext.TeamGruppeMap, _platzhalterVorschau))
             Spiele.Add(zeile);
 
         FokusSpieltageAbgleichen();
@@ -1258,7 +1234,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private GruppenTabelle? EffektiveGruppe =>
         AusgewaehlteGruppe ?? (AusgewaehlteSpiel?.GruppeNummer is { } gn
-            ? GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gn)
+            ? _kontext.GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gn)
             : null);
 
     private int? EffektiverSpieltag =>
