@@ -210,7 +210,7 @@ public static class Losverfahren
         auslosungsart switch
         {
             Auslosungsart.NachToepfen or
-            Auslosungsart.GruppensiegerGegenGruppenzweite => NachToepfenAusloesen(toepfe, regeln, zufall),
+            Auslosungsart.GruppensiegerGegenGruppenzweite => TopfPaareAusloesen(toepfe, regeln, zufall),
             Auslosungsart.NachSetzliste                   => NachSetzlisteAusloesen(toepfe, regeln, zufall),
             Auslosungsart.TopfZuordnung                   => TopfZuordnungAusloesen(toepfe, regeln, zufall),
             _                                             => ZufaelligAusloesen(toepfe, regeln, zufall)
@@ -235,16 +235,39 @@ public static class Losverfahren
         return ergebnisse;
     }
 
-    // Topf 1 gegen Topf 2, Topf 3 gegen Topf 4 … — ein überzähliger letzter Topf bleibt ohne Paarung.
-    private static List<AuslosungsErgebnis> NachToepfenAusloesen(
-        List<List<TeilnehmerSlot>> toepfe, RegelKontext regeln, Random zufall) =>
-        PaareZuErgebnissen(
-            Enumerable.Range(0, toepfe.Count / 2)
-                .SelectMany(i => ZweiTopfPaaren(toepfe[2 * i], toepfe[2 * i + 1], regeln, zufall)),
-            regeln, zufall);
+    // Topf 1 gegen Topf 2, Topf 3 gegen Topf 4 …, bis der kleinere Topf leer ist; die übrigen Teams werden
+    // untereinander gelost — wie im DFB-Pokal (#495, siehe TopfPaarStruktur). Bis dahin fiel der Überhang
+    // stillschweigend aus der Runde. Die Regeln gelten in beiden Phasen, die Suche löst beide gemeinsam: ein
+    // ungünstiger Überhang macht die Auslosung nicht unlösbar, wenn eine andere Verteilung aufgeht.
+    private static List<AuslosungsErgebnis> TopfPaareAusloesen(
+        List<List<TeilnehmerSlot>> toepfe, RegelKontext regeln, Random zufall)
+    {
+        var slots      = toepfe.SelectMany(t => t).ToList();
+        var topfJeTeam = toepfe.SelectMany((topf, i) => topf.Select(_ => i)).ToList();
+        var struktur   = new TopfPaarStruktur([.. toepfe.Select(t => t.Count)], topfJeTeam);
+        TopfPaarStruktur.UngeradeAnzahlPruefen(slots.Count, regeln);
 
-    // Gesetzte (nach Setzposition) gegen Ungesetzte — dieselbe Zwei-Topf-Paarung wie „Nach Töpfen“, damit auch
-    // hier alle Einschränkungen und Heimrecht-Regeln greifen (bis #331 ignorierte „Nach Setzliste“ sie alle).
+        var suche = PaarungsSuche.Finden(
+            [.. Enumerable.Range(0, slots.Count)],
+            (x, y) => struktur.DuerfenSichTreffen(x, y) && !regeln.Verbietet(slots[x], slots[y]),
+            freilose: slots.Count % 2, struktur.ImUeberhang, zufall);
+        if (suche.Loesbar != true) throw KeineGueltigeAuslosung(regeln);
+
+        // Erst die Paarungen der Topfpaare in Topf-Reihenfolge (das Team des vorderen Topfs zuerst, wie bisher fürs
+        // Heimrecht), dann der Überhang in gelöster Reihenfolge, zuletzt das Freilos.
+        var paare = suche.Paare
+            .Select(p => struktur.UeberKreuz(p.Team, p.Gegner) && p.Gegner < p.Team ? (p.Gegner, p.Team) : p)
+            .OrderBy(p => struktur.UeberKreuz(p.Item1, p.Item2) ? p.Item1 : int.MaxValue)
+            .Select(p => (slots[p.Item1], slots[p.Item2]));
+        var ergebnisse = PaareZuErgebnissen(paare, regeln, zufall);
+        foreach (int team in suche.Freilose)
+            ergebnisse.Add(Freilos(ergebnisse.Count + 1, slots[team]));
+        return ergebnisse;
+    }
+
+    // Gesetzte (nach Setzposition) gegen Ungesetzte — dieselbe Topfpaar-Auslosung wie „Nach Töpfen“, damit auch
+    // hier alle Einschränkungen und Heimrecht-Regeln greifen (bis #331 ignorierte „Nach Setzliste“ sie alle) und
+    // die übrigen Teams der größeren Seite untereinander gelost werden, statt herauszufallen (#495).
     private static List<AuslosungsErgebnis> NachSetzlisteAusloesen(
         List<List<TeilnehmerSlot>> toepfe, RegelKontext regeln, Random zufall)
     {
@@ -252,7 +275,7 @@ public static class Losverfahren
         var gesetzte   = alle.Where(s => s.SetzPosition.HasValue).OrderBy(s => s.SetzPosition).ToList();
         var ungesetzte = alle.Where(s => !s.SetzPosition.HasValue).ToList();
 
-        return PaareZuErgebnissen(ZweiTopfPaaren(gesetzte, ungesetzte, regeln, zufall), regeln, zufall);
+        return TopfPaareAusloesen([gesetzte, ungesetzte], regeln, zufall);
     }
 
     // ── TopfZuordnung (UCL-Ligaphase) ─────────────────────────────────────────
@@ -338,37 +361,6 @@ public static class Losverfahren
         }
 
         if (Suchen()) return paare;
-        throw KeineGueltigeAuslosung(regeln);
-    }
-
-    // Paart topf1[i] mit je einem anderen Team aus topf2 (bei ungleicher Größe nur die ersten Min(n1, n2)).
-    private static List<(TeilnehmerSlot, TeilnehmerSlot)> ZweiTopfPaaren(
-        List<TeilnehmerSlot> topf1, List<TeilnehmerSlot> topf2, RegelKontext regeln, Random zufall)
-    {
-        var kandidaten = topf2.OrderBy(_ => zufall.Next()).ToList();
-        int anzahl     = Math.Min(topf1.Count, kandidaten.Count);
-        var zuordnung  = new int[anzahl];
-        var vergeben   = new bool[kandidaten.Count];
-        int schritte   = 0;
-
-        bool Suchen(int i)
-        {
-            if (i == anzahl) return true;
-            if (++schritte > MAX_SUCHSCHRITTE) return false;
-
-            for (int j = 0; j < kandidaten.Count; j++)
-            {
-                if (vergeben[j] || regeln.Verbietet(topf1[i], kandidaten[j])) continue;
-                vergeben[j] = true;
-                zuordnung[i] = j;
-                if (Suchen(i + 1)) return true;
-                vergeben[j] = false;
-            }
-            return false;
-        }
-
-        if (Suchen(0))
-            return Enumerable.Range(0, anzahl).Select(i => (topf1[i], kandidaten[zuordnung[i]])).ToList();
         throw KeineGueltigeAuslosung(regeln);
     }
 

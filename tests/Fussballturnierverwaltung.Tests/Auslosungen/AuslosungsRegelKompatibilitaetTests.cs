@@ -18,6 +18,9 @@ public class AuslosungsRegelKompatibilitaetTests
     [InlineData(AuslosungsRegelArt.HeimrechtNachLos,       Auslosungsart.NachToepfen,   Rundenart.KoRunde)]
     [InlineData(AuslosungsRegelArt.HeimrechtNachSetzliste, Auslosungsart.NachSetzliste, Rundenart.KoRunde)]
     [InlineData(AuslosungsRegelArt.FreilosMoeglich,        Auslosungsart.Zufall,        Rundenart.KoRunde)]
+    // „Nach Töpfen“ und „Nach Setzliste“ losen den Überhang untereinander, bei ungerader Zahl mit Freilos (#495).
+    [InlineData(AuslosungsRegelArt.FreilosMoeglich,        Auslosungsart.NachToepfen,   Rundenart.KoRunde)]
+    [InlineData(AuslosungsRegelArt.FreilosMoeglich,        Auslosungsart.NachSetzliste, Rundenart.KoRunde)]
     // Ziehung von Hand (#482): Heimrecht-Regeln außer „nach Los“, Freilos und Konföderationsverteilung wirken.
     [InlineData(AuslosungsRegelArt.HeimrechtNachSetzliste,     Auslosungsart.Manuell,   Rundenart.KoRunde)]
     [InlineData(AuslosungsRegelArt.HeimrechtFuerUnterklassige, Auslosungsart.Manuell,   Rundenart.KoRunde)]
@@ -32,8 +35,6 @@ public class AuslosungsRegelKompatibilitaetTests
     [InlineData(AuslosungsRegelArt.HeimrechtNachLos,       Auslosungsart.Manuell,       Rundenart.KoRunde)]
     [InlineData(AuslosungsRegelArt.HeimrechtNachLos,       Auslosungsart.Zufall,        Rundenart.Gruppenphase)]
     [InlineData(AuslosungsRegelArt.HeimrechtNachSetzliste, Auslosungsart.TopfZuordnung, Rundenart.TopfLiga)]
-    [InlineData(AuslosungsRegelArt.FreilosMoeglich,        Auslosungsart.NachToepfen,   Rundenart.KoRunde)]
-    [InlineData(AuslosungsRegelArt.FreilosMoeglich,        Auslosungsart.NachSetzliste, Rundenart.KoRunde)]
     [InlineData(AuslosungsRegelArt.FreilosMoeglich,        Auslosungsart.Zufall,        Rundenart.Gruppenphase)]
     [InlineData(AuslosungsRegelArt.FreilosMoeglich,        Auslosungsart.Manuell,       Rundenart.Gruppenphase)]
     public void UnpassendeKombination_IstGesperrtMitBegruendung(AuslosungsRegelArt regel, Auslosungsart art, Rundenart rundenart) =>
@@ -59,8 +60,8 @@ public class AuslosungsRegelKompatibilitaetTests
     [Fact]
     public void GesperrteRegel_WirktNicht_AuchWennAktiv() =>
         AuslosungsRegelKompatibilitaet.Wirkt(
-                AuslosungsRegelArt.FreilosMoeglich, istAktiv: true, Auslosungsart.NachToepfen,
-                Rundenart.KoRunde, folgtAufGruppenphase: true)
+                AuslosungsRegelArt.FreilosMoeglich, istAktiv: true, Auslosungsart.TopfZuordnung,
+                Rundenart.TopfLiga, folgtAufGruppenphase: true)
             .Should().BeFalse();
 
     // Vorbelegung von Hand (#443): dieselbe Entscheidung wie beim Losen, auch für eine Manuell-Auslosung.

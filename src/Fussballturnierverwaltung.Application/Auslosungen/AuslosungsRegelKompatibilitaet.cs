@@ -114,13 +114,10 @@ public static class AuslosungsRegelKompatibilitaet
             case AuslosungsRegelArt.FreilosMoeglich:
                 if (rundenart == Rundenart.Gruppenphase)
                     return "In der Gruppenphase gibt es kein Freilos — alle Teams werden auf die Gruppen verteilt.";
+                // „Nach Töpfen“ und „Nach Setzliste“ losen den Überhang ungleich großer Töpfe bzw. Seiten
+                // untereinander, bei ungerader Gesamtzahl bleibt dort ein Team für das Freilos (#495).
                 return art switch
                 {
-                    Auslosungsart.NachToepfen or Auslosungsart.GruppensiegerGegenGruppenzweite =>
-                        "Die Töpfe werden paarweise gegeneinander gelost — ein Freilos ist dabei nicht vorgesehen.",
-                    Auslosungsart.NachSetzliste =>
-                        "Bei 'Nach Setzliste' spielt jedes gesetzte gegen ein ungesetztes Team — ein Freilos " +
-                        "ist dabei nicht vorgesehen.",
                     Auslosungsart.TopfZuordnung =>
                         "Die Topf-Zuordnung erfordert gleich große Töpfe — ein Freilos ist nicht vorgesehen.",
                     _ => null

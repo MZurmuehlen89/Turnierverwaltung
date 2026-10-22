@@ -152,17 +152,20 @@ public class LosverfahrenTests
     // ── Nach Töpfen ───────────────────────────────────────────────────────────
 
     [Fact]
-    public void NachToepfen_PaartTopf1MitTopf2UndTopf3MitTopf4_UeberzaehligerTopfBleibtAussenVor()
+    // Ein überzähliger letzter Topf wird untereinander gelost wie der Überhang ungleich großer Töpfe (#495) — bis
+    // dahin blieb er außen vor. Die Oberfläche lässt eine ungerade Topfanzahl ohnehin nicht zu (AuslosungsValidator).
+    public void NachToepfen_PaartTopf1MitTopf2UndTopf3MitTopf4_UeberzaehligerTopfUntereinander()
     {
         var auslosung = NeueAuslosung(Rundenart.KoRunde, Auslosungsart.NachToepfen,
             [.. Enumerable.Range(1, 5).Select(topf => TopfMitTeams(topf, ersteId: 2 * topf - 1, anzahl: 2))]);
 
         AlleZiehungen(auslosung, Regeln()).Should().AllSatisfy(ziehung =>
         {
-            ziehung.Select(e => e.PaarungsNummer).Should().Equal(1, 2, 3, 4);
-            HeimIds(ziehung).Should().Equal([1, 2, 5, 6], "ohne Heimrecht-Regel steht der ungerade Topf in Topf-Reihenfolge daheim");
+            ziehung.Select(e => e.PaarungsNummer).Should().Equal(1, 2, 3, 4, 5);
+            HeimIds(ziehung.Take(4)).Should().Equal([1, 2, 5, 6], "ohne Heimrecht-Regel steht der vordere Topf in Topf-Reihenfolge daheim");
             AuswaertsIds(ziehung.Take(2)).Should().BeEquivalentTo([3, 4]);
-            AuswaertsIds(ziehung.Skip(2)).Should().BeEquivalentTo([7, 8]);
+            AuswaertsIds(ziehung.Skip(2).Take(2)).Should().BeEquivalentTo([7, 8]);
+            HeimIds(ziehung.Skip(4)).Concat(AuswaertsIds(ziehung.Skip(4))).Should().BeEquivalentTo([9, 10]);
         });
     }
 

@@ -66,10 +66,12 @@ public static class AuslosungAnzeigeTexte
         Auslosungsart.NachSetzliste =>
             "Gesetzte Teams (Topf 1) werden gleichmäßig auf Gruppen oder Paare verteilt, " +
             "damit stärkere Teams erst in späteren Runden aufeinandertreffen. " +
+            "Gibt es in K.-o.-Runden mehr Gesetzte als Ungesetzte (oder umgekehrt), werden die übrigen untereinander gelost. " +
             "Typisch für Nationenturniere und nationale Pokal-Auslosungen.",
         Auslosungsart.NachToepfen =>
             "Teams werden manuell auf Töpfe verteilt und dann topfübergreifend zugelost — " +
-            "mindestens ein Lostopf ist erforderlich. " +
+            "mindestens ein Lostopf ist erforderlich. In K.-o.-Runden wird Topf 1 gegen Topf 2 gelost (3 gegen 4 …), " +
+            "bis der kleinere Topf leer ist; die übrigen Teams werden untereinander gelost (wie im DFB-Pokal). " +
             "Typisch für UEFA Europa League und internationale Pokal-Wettbewerbe.",
         Auslosungsart.TopfZuordnung =>
             "UCL-Ligaphase (ab 2024/25): Jedes Team erhält aus jedem Topf zwei Gegner — einen zu Hause, " +

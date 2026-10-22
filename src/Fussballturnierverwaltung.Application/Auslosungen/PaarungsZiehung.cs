@@ -1,11 +1,9 @@
 namespace Fussballturnierverwaltung.Application.Auslosungen;
 
 /// <summary>
-/// Ziehung von Hand für K.-o.-Runden (#482): erst ein Team, dann sein Gegner. Topf 1 wird gegen Topf 2 gezogen, Topf 3
-/// gegen Topf 4 …, bis einer der beiden leer ist; die übrigen Teams der größeren Töpfe und eines überzähligen letzten
-/// Topfs werden danach untereinander gezogen — wie im DFB-Pokal ab der 2. Runde, wenn Amateur- und Profitopf
-/// ungleich groß sind. Mit nur einem Topf ist das die ganze Ziehung. Bei ungerader Teamzahl bekommt das zuletzt
-/// übrige Team das Freilos.
+/// Ziehung von Hand für K.-o.-Runden (#482): erst ein Team, dann sein Gegner — Topfpaar für Topfpaar, danach der
+/// Überhang untereinander (<see cref="TopfPaarStruktur"/>). Bei ungerader Teamzahl bekommt das zuletzt übrige Team das
+/// Freilos.
 /// <para>Heimrecht: das zuerst gezogene Team spielt zu Hause, außer „Heimrecht für Unterklassige“ oder „nach
 /// Setzliste“ sagen anderes (<see cref="Losverfahren.HeimrechtFestlegen"/>).</para>
 /// <para>Wählbar sind nur Gegner, mit denen sich die übrigen Teams noch regelkonform paaren lassen
@@ -14,34 +12,19 @@ namespace Fussballturnierverwaltung.Application.Auslosungen;
 internal sealed class PaarungsZiehung : IZiehungsAblauf
 {
     private readonly ZiehungsKontext _kontext;
-    private readonly IReadOnlyList<(int A, int B)> _topfPaare;
-    private readonly bool[] _imUeberhang;   // darf in der Schlussphase untereinander gezogen werden
+    private readonly TopfPaarStruktur _struktur;
     private readonly bool[] _gezogen;
     private readonly List<(int Erster, int? Zweiter, bool IstFreilos)> _paare = [];
     private int? _offen;
 
     public PaarungsZiehung(ZiehungsKontext kontext)
     {
-        _kontext   = kontext;
-        int anzahl = kontext.Toepfe.Count;
-        _topfPaare = [.. Enumerable.Range(0, anzahl / 2).Select(i => (2 * i, 2 * i + 1))];
-        _gezogen   = new bool[kontext.Teilnehmer.Count];
+        _kontext  = kontext;
+        _struktur = new TopfPaarStruktur(
+            [.. kontext.Toepfe.Select(t => t.Teilnehmer.Count)], [.. kontext.Teilnehmer.Select(t => t.TopfIndex)]);
+        _gezogen  = new bool[kontext.Teilnehmer.Count];
 
-        // Im Überhang: der größere Topf eines Paars und ein überzähliger letzter Topf (bei nur einem Topf: alle).
-        var ueberhangToepfe = new HashSet<int>();
-        foreach (var (a, b) in _topfPaare)
-        {
-            int na = kontext.Toepfe[a].Teilnehmer.Count, nb = kontext.Toepfe[b].Teilnehmer.Count;
-            if (na > nb) ueberhangToepfe.Add(a);
-            if (nb > na) ueberhangToepfe.Add(b);
-        }
-        if (anzahl % 2 == 1) ueberhangToepfe.Add(anzahl - 1);
-        _imUeberhang = [.. kontext.Teilnehmer.Select(t => ueberhangToepfe.Contains(t.TopfIndex))];
-
-        if (kontext.Teilnehmer.Count % 2 == 1 && !kontext.Regeln.FreilosMoeglich)
-            throw new InvalidOperationException(
-                $"Die Lostöpfe enthalten {kontext.Teilnehmer.Count} Teams — bei ungerader Anzahl bliebe ein Team ohne " +
-                "Gegner. Bitte die Regel „Freilos möglich“ aktivieren oder die Teams anpassen.");
+        TopfPaarStruktur.UngeradeAnzahlPruefen(kontext.Teilnehmer.Count, kontext.Regeln);
         FreilosVergeben();
     }
 
@@ -76,7 +59,7 @@ internal sealed class PaarungsZiehung : IZiehungsAblauf
         return AktuellesTopfPaar() is var (a, b)
             ? TeamAnsage($"Ziehe ein Team aus {_kontext.Toepfe[a].Name}", Offene(a),
                 pruefen: OffeneAnzahl(a) > OffeneAnzahl(b))
-            : TeamAnsage(_topfPaare.Count == 0
+            : TeamAnsage(_struktur.TopfPaare.Count == 0
                     ? $"Ziehe ein Team aus {_kontext.Toepfe[0].Name}"
                     : "Die übrigen Teams werden untereinander gezogen – ziehe ein Team",
                 Offene(), pruefen: Offene().Count() % 2 == 1);
@@ -157,16 +140,11 @@ internal sealed class PaarungsZiehung : IZiehungsAblauf
     {
         var rest = Offene().Where(t => t != a && t != b && t != _offen).ToList();
         int freilose = rest.Count % 2 == 1 && _kontext.Regeln.FreilosMoeglich ? 1 : 0;
-        return PaarungsSuche.Loesbar(rest, DuerfenSichTreffen, freilose, t => _imUeberhang[t]);
+        return PaarungsSuche.Finden(rest, DuerfenSichTreffen, freilose, _struktur.ImUeberhang).Loesbar;
     }
 
-    // Aus demselben Topfpaar nur über Kreuz, untereinander nur im Überhang — und keine Regel dagegen.
-    private bool DuerfenSichTreffen(int x, int y)
-    {
-        int tx = _kontext.Teilnehmer[x].TopfIndex, ty = _kontext.Teilnehmer[y].TopfIndex;
-        bool ueberKreuz = tx != ty && tx / 2 == ty / 2 && tx / 2 < _topfPaare.Count;
-        return (ueberKreuz || _imUeberhang[x] && _imUeberhang[y]) && _kontext.RegelVerstoss(x, y) is null;
-    }
+    private bool DuerfenSichTreffen(int x, int y) =>
+        _struktur.DuerfenSichTreffen(x, y) && _kontext.RegelVerstoss(x, y) is null;
 
     // ── Hilfen ────────────────────────────────────────────────────────────────
 
@@ -174,7 +152,7 @@ internal sealed class PaarungsZiehung : IZiehungsAblauf
     /// Topf mit) — <c>null</c> in der Schlussphase.</summary>
     private (int A, int B)? AktuellesTopfPaar()
     {
-        foreach (var (a, b) in _topfPaare)
+        foreach (var (a, b) in _struktur.TopfPaare)
             if (OffeneAnzahl(b) > 0 && (OffeneAnzahl(a) > 0 || _offen is { } t && _kontext.Teilnehmer[t].TopfIndex == a))
                 return (a, b);
         return null;
@@ -190,18 +168,27 @@ internal sealed class PaarungsZiehung : IZiehungsAblauf
 }
 
 /// <summary>Sucht eine vollständige Paarung der Teams (Tiefensuche, das Team mit den wenigsten Gegnern zuerst) —
-/// höchstens <c>freilose</c> Teams dürfen ohne Gegner bleiben, und nur solche, die <c>darfFreilos</c> zulässt.</summary>
+/// höchstens <c>freilose</c> Teams dürfen ohne Gegner bleiben, und nur solche, die <c>darfFreilos</c> zulässt. Mit
+/// <c>zufall</c> werden Teams und Gegner vorab gemischt, die gefundene Paarung ist dann eine Auslosung (#495).</summary>
 internal static class PaarungsSuche
 {
     // Obergrenze wie im Losverfahren: eine unerfüllbare Kombination bricht so zuverlässig ab. Endet die Suche an der
-    // Grenze, ist nichts bewiesen (null) — die Ziehung wertet das als lösbar.
+    // Grenze, ist nichts bewiesen (Loesbar = null) — die Ziehung von Hand wertet das als lösbar.
     private const int MAX_SUCHSCHRITTE = 200_000;
 
-    public static bool? Loesbar(
-        IReadOnlyList<int> teams, Func<int, int, bool> duerfenSichTreffen, int freilose, Func<int, bool> darfFreilos)
+    /// <param name="Loesbar"><c>true</c> mit Paaren und Freilos-Teams, <c>false</c> bewiesen unlösbar, <c>null</c>
+    /// an der Suchgrenze abgebrochen.</param>
+    public sealed record Ergebnis(bool? Loesbar, IReadOnlyList<(int Team, int Gegner)> Paare, IReadOnlyList<int> Freilose);
+
+    public static Ergebnis Finden(
+        IReadOnlyList<int> teams, Func<int, int, bool> duerfenSichTreffen, int freilose, Func<int, bool> darfFreilos,
+        Random? zufall = null)
     {
-        var offen = new HashSet<int>(teams);
-        int schritte = 0;
+        var reihenfolge = zufall is null ? teams : [.. teams.OrderBy(_ => zufall.Next())];
+        var offen       = new HashSet<int>(teams);
+        var paare       = new List<(int, int)>();
+        var ohneGegner  = new List<int>();
+        int schritte    = 0;
 
         bool? Suchen(int freiloseUebrig)
         {
@@ -209,29 +196,35 @@ internal static class PaarungsSuche
             if (++schritte > MAX_SUCHSCHRITTE) return null;
 
             // Das Team mit den wenigsten möglichen Gegnern zuerst — Sackgassen zeigen sich so am frühesten.
-            int team = offen.MinBy(t => offen.Count(g => g != t && duerfenSichTreffen(t, g)));
-            var gegner = offen.Where(g => g != team && duerfenSichTreffen(team, g)).ToList();
+            var offeneTeams = reihenfolge.Where(offen.Contains).ToList();
+            int team   = offeneTeams.MinBy(t => offeneTeams.Count(g => g != t && duerfenSichTreffen(t, g)));
+            var gegner = offeneTeams.Where(g => g != team && duerfenSichTreffen(team, g)).ToList();
             bool unklar = false;
 
             offen.Remove(team);
             foreach (int g in gegner)
             {
                 offen.Remove(g);
+                paare.Add((team, g));
                 var ergebnis = Suchen(freiloseUebrig);
+                if (ergebnis == true) return true;
+                paare.RemoveAt(paare.Count - 1);
                 offen.Add(g);
-                if (ergebnis == true) { offen.Add(team); return true; }
                 unklar |= ergebnis is null;
             }
             if (freiloseUebrig > 0 && darfFreilos(team))
             {
+                ohneGegner.Add(team);
                 var ergebnis = Suchen(freiloseUebrig - 1);
-                if (ergebnis == true) { offen.Add(team); return true; }
+                if (ergebnis == true) return true;
+                ohneGegner.RemoveAt(ohneGegner.Count - 1);
                 unklar |= ergebnis is null;
             }
             offen.Add(team);
             return unklar ? null : false;
         }
 
-        return Suchen(freilose);
+        var loesbar = Suchen(freilose);
+        return loesbar == true ? new(true, paare, ohneGegner) : new(loesbar, [], []);
     }
 }

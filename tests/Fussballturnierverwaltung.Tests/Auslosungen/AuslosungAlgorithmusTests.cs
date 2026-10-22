@@ -307,6 +307,76 @@ public class AuslosungAlgorithmusTests
         });
     }
 
+    // DFB-Pokal-Prinzip (#495): Topf 1 gegen Topf 2, bis der kleinere leer ist, der Überhang untereinander.
+    [Fact]
+    public async Task KoRunde_NachToepfen_UngleicheToepfe_UeberhangWirdUntereinanderGelost()
+    {
+        var topf1 = Topf(1, 1, Enumerable.Range(1, 6).Select(i => Eintrag(Team(i))).ToArray());
+        var topf2 = Topf(2, 2, Enumerable.Range(7, 2).Select(i => Eintrag(Team(i))).ToArray());
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4);
+        AlleTeamIds(ergebnisse).Should().BeEquivalentTo(Enumerable.Range(1, 8));
+        bool AusTopf2(int? id) => id >= 7;
+        ergebnisse.Count(e => AusTopf2(e.HeimMannschaftId) != AusTopf2(e.AuswaertsMannschaftId))
+            .Should().Be(2, "beide Topf-2-Teams spielen gegen Topf 1");
+        ergebnisse.Count(e => AusTopf2(e.HeimMannschaftId) && AusTopf2(e.AuswaertsMannschaftId)).Should().Be(0);
+        ergebnisse.Take(2).Should().AllSatisfy(e =>
+            (AusTopf2(e.HeimMannschaftId) || AusTopf2(e.AuswaertsMannschaftId)).Should().BeTrue(
+                "die topfübergreifenden Paarungen stehen vor dem Überhang"));
+    }
+
+    [Fact]
+    public async Task KoRunde_NachToepfen_UngeradeAnzahlMitFreilos_FreilosAusDemUeberhang()
+    {
+        var topf1 = Topf(1, 1, Enumerable.Range(1, 5).Select(i => Eintrag(Team(i))).ToArray());
+        var topf2 = Topf(2, 2, Enumerable.Range(6, 2).Select(i => Eintrag(Team(i))).ToArray());
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2],
+            regeln: [Regel(AuslosungsRegelArt.FreilosMoeglich)]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4);
+        ergebnisse.Should().ContainSingle(e => e.IstFreilos)
+            .Which.HeimMannschaftId.Should().BeLessThanOrEqualTo(5, "nur der größere Topf hat einen Überhang");
+        AlleTeamIds(ergebnisse).Should().BeEquivalentTo(Enumerable.Range(1, 7));
+    }
+
+    [Fact]
+    public async Task KoRunde_NachToepfen_UngeradeAnzahlOhneFreilos_WirftMitHinweis()
+    {
+        var topf1 = Topf(1, 1, Enumerable.Range(1, 5).Select(i => Eintrag(Team(i))).ToArray());
+        var topf2 = Topf(2, 2, Enumerable.Range(6, 2).Select(i => Eintrag(Team(i))).ToArray());
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2]);
+
+        var aktion = Ausfuehren;
+
+        await aktion.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Freilos möglich*");
+    }
+
+    // Kein gleiches Land in beiden Phasen gemeinsam (#495): Bleiben 1+2 (beide Land 1) im Überhang, ginge er nicht
+    // auf — die Suche muss Topf 2 so verteilen, dass je ein Team aus Land 1 und Land 2 übrig bleibt.
+    [Fact]
+    public async Task KoRunde_NachToepfen_KeinGleichesLand_UeberhangBleibtLoesbar()
+    {
+        for (int i = 0; i < 30; i++)
+        {
+            var topf1 = Topf(1, 1, Eintrag(TeamMitLand(1, 1)), Eintrag(TeamMitLand(2, 1)),
+                                   Eintrag(TeamMitLand(3, 2)), Eintrag(TeamMitLand(4, 2)));
+            var topf2 = Topf(2, 2, Eintrag(TeamMitLand(5, 3)), Eintrag(TeamMitLand(6, 3)));
+            AuslosungMit(Rundenart.KoRunde, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2],
+                regeln: [Regel(AuslosungsRegelArt.KeinGleichesLand)]);
+
+            var ergebnisse = await Ausfuehren();
+
+            ergebnisse.Should().HaveCount(3);
+            ergebnisse.Should().NotContain(e =>
+                (e.HeimMannschaftId <= 2) == (e.AuswaertsMannschaftId <= 2) && e.AuswaertsMannschaftId <= 4);
+        }
+    }
+
     [Fact]
     public async Task KoRunde_NachSetzliste_GesetzteVsUngesetzte()
     {
@@ -325,6 +395,23 @@ public class AuslosungAlgorithmusTests
             gesetzteIds.Contains(e.HeimMannschaftId!.Value).Should().BeTrue("Heim = Gesetzter");
             ungesetzteIds.Contains(e.AuswaertsMannschaftId!.Value).Should().BeTrue("Auswaerts = Ungesetzter");
         });
+    }
+
+    // Mehr Ungesetzte als Gesetzte (#495): die übrigen Ungesetzten werden untereinander gelost statt herauszufallen.
+    [Fact]
+    public async Task KoRunde_NachSetzliste_UngleicheSeiten_UeberhangWirdUntereinanderGelost()
+    {
+        var gesetzte   = Enumerable.Range(1, 2).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
+        var ungesetzte = Enumerable.Range(3, 6).Select(i => Eintrag(Team(i))).ToArray();
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.NachSetzliste, lostoepfe: [Topf(1, 1, [.. gesetzte, .. ungesetzte])]);
+
+        var ergebnisse = await Ausfuehren();
+
+        ergebnisse.Should().HaveCount(4);
+        AlleTeamIds(ergebnisse).Should().BeEquivalentTo(Enumerable.Range(1, 8));
+        ergebnisse.Take(2).Select(e => e.HeimMannschaftId).Should().Equal([1, 2], "die Gesetzten in Setzreihenfolge vorn");
+        ergebnisse.Skip(2).Should().AllSatisfy(e =>
+            new[] { e.HeimMannschaftId, e.AuswaertsMannschaftId }.Should().AllSatisfy(id => id.Should().BeGreaterThan(2)));
     }
 
     [Fact]
