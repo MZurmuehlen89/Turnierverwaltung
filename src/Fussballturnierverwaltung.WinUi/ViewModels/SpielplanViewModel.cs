@@ -332,24 +332,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         {
             AusgewaehlteSpiel = null;
             RundeStillSetzen(null);
-            await MannschaftsSpieleLadenAsync();
+            await ListeLadenAsync();
         }
 
-        FokusSpieltageAbgleichen();
         AktualisiereBefehle();
-    }
-
-    /// <summary>Die Spiele der gewählten Mannschaft frisch aus der Datenbank; die Spiel-Auswahl setzt der
-    /// Aufrufer.</summary>
-    private async Task MannschaftsSpieleLadenAsync()
-    {
-        if (AusgewaehlteInstanz is not { } instanz || Mannschaftsfilter.Gewaehlt is not { } mannschaft) return;
-
-        var zeilen = await _quelle.MannschaftsZeilenAsync(instanz.Id, mannschaft.Id);
-        Spiele.Clear();
-        foreach (var zeile in zeilen)
-            Spiele.Add(zeile);
-        OnPropertyChanged(nameof(HatPlatzhalterSpiele));
     }
 
     /// <summary>Mannschaftsansicht: die Runde des gewählten Spiels wird still zur ausgewählten Runde — mit deren
@@ -413,11 +399,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (VorschauAktiv && AusgewaehlteRunde is not null) await _quelle.VorschauLadenAsync(AusgewaehlteRunde.Id);
         else _quelle.VorschauVerwerfen();
 
-        if (AusgewaehlteRunde is null) return;
-        var zeilen = await _quelle.RundenZeilenAsync(AusgewaehlteRunde.Id, AusgewaehlteRunde, _kontext.TeamGruppen);
-        Spiele.Clear();
-        SpieleHinzufuegen(zeilen);
-        Fokus.SpieleMelden();
+        await ListeLadenAsync();
     }
 
     // ── Simulation ────────────────────────────────────────────────────────────
@@ -654,7 +636,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         using (_spielWechsel.Betreten())
         {
             await SpieleNeuLadenAsync(rundeId);
-            OnPropertyChanged(nameof(HatPlatzhalterSpiele));
 
             AusgewaehlteSpiel = spielId.HasValue ? Spiele.FirstOrDefault(s => s.Id == spielId) : null;
 
@@ -872,11 +853,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         await TabellenNeuLadenAsync(AusgewaehlteRunde.Id);
 
-        var liste = await _quelle.RundenZeilenAsync(AusgewaehlteRunde.Id, AusgewaehlteRunde, _kontext.TeamGruppen);
-        SpieleHinzufuegen(liste);
-
-        OnPropertyChanged(nameof(HatPlatzhalterSpiele));
-        if (VorschauAktiv) await AktualisierePlatzhalterVorschauAsync();
+        if (VorschauAktiv) await _quelle.VorschauLadenAsync(AusgewaehlteRunde.Id);
+        await ListeLadenAsync();
 
         await ErlaubteVerfahrenLadenAsync(AusgewaehlteRunde);
 
@@ -1002,7 +980,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             async () =>
             {
                 await SpieleNeuLadenAsync(runde.Id);
-                OnPropertyChanged(nameof(HatPlatzhalterSpiele));
                 AusgewaehlteSpiel = null;
                 await _baumService.NachSpielplanAenderungAktualisierenAsync(runde.TurnierInstanzId);
                 await TeilnehmerLadenAsync();
@@ -1079,7 +1056,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             async () =>
             {
                 await SpieleNeuLadenAsync(runde.Id);
-                OnPropertyChanged(nameof(HatPlatzhalterSpiele));
                 await _baumService.NachSpielplanAenderungAktualisierenAsync(runde.TurnierInstanzId);
             });
 
@@ -1186,14 +1162,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _spielverlaufAnsehenBefehl.NotifyCanExecuteChanged();
         _vorschauUmschaltenBefehl.NotifyCanExecuteChanged();
         SchweizerAnzeigeAktualisieren();
-    }
-
-    private void SpieleHinzufuegen(IReadOnlyList<SpielZeile> zeilen)
-    {
-        foreach (var zeile in zeilen)
-            Spiele.Add(zeile);
-
-        FokusSpieltageAbgleichen();
     }
 
     private int? _vorherigeFokusGruppenNummer;
@@ -1327,16 +1295,22 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (rundeId is int id) await TabellenNeuLadenAsync(id);
         else if (SpielstandGeaendertAsync is not null) await SpielstandGeaendertAsync();
 
-        if (IstMannschaftsansicht)
-        {
-            await MannschaftsSpieleLadenAsync();
-            return;
-        }
-        if (rundeId is not int rid) return;
+        await ListeLadenAsync();
+    }
 
-        var neueSpiele = await _quelle.RundenZeilenAsync(rid, AusgewaehlteRunde, _kontext.TeamGruppen);
+    /// <summary>Füllt die Liste neu aus der <see cref="SpiellistenQuelle"/> — ohne Mannschaft und Runde bleibt sie,
+    /// wie sie ist. Die Spiel-Auswahl setzt der Aufrufer.</summary>
+    private async Task ListeLadenAsync()
+    {
+        if (AusgewaehlteInstanz is not { } instanz ||
+            await _quelle.ZeilenAsync(instanz.Id, Mannschaftsfilter.Gewaehlt?.Id, AusgewaehlteRunde, _kontext.TeamGruppen)
+                is not { } zeilen)
+            return;
+
         Spiele.Clear();
-        SpieleHinzufuegen(neueSpiele);
-        Fokus.SpieleMelden();
+        foreach (var zeile in zeilen)
+            Spiele.Add(zeile);
+        OnPropertyChanged(nameof(HatPlatzhalterSpiele));
+        FokusSpieltageAbgleichen();
     }
 }
