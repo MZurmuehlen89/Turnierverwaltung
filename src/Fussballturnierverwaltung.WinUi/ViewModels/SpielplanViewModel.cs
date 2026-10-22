@@ -37,7 +37,6 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 {
     private readonly SpielErgebnisService _spielService;
     private readonly SpielplanService _spielplanService;
-    private readonly PlatzhalterAufloesung _platzhalterAufloesung;
     private readonly PlatzhalterKaskadeService _kaskade;
     private readonly FinaleAutomatik _finaleAutomatik;
     private readonly AuslosungService _auslosungService;
@@ -47,8 +46,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly IDialogService _dialogService;
     private readonly ILogger<SpielplanViewModel> _logger;
 
-    private IReadOnlyDictionary<int, (string? Heim, string? Auswaerts)> _platzhalterVorschau =
-        new Dictionary<int, (string?, string?)>();
+    private readonly SpiellistenQuelle _quelle;
 
     private readonly WechselUnterdrueckung _spielWechsel = new();
     private readonly WechselUnterdrueckung _rundeWechsel = new();
@@ -326,7 +324,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         AusgewaehlteGruppe = null;
         Fokus.AuswahlFreigeben();
         _kontext.Leeren();
-        _platzhalterVorschau = new Dictionary<int, (string?, string?)>();
+        _quelle.VorschauVerwerfen();
         MehrfachAusgewaehlteSpiele = [];
 
         // Wie in SpiellisteAktualisierenAsync (#317): das Leeren der Liste kann SelectionChanged verzögert auslösen.
@@ -347,9 +345,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         if (AusgewaehlteInstanz is not { } instanz || Mannschaftsfilter.Gewaehlt is not { } mannschaft) return;
 
-        var spiele = await _spielService.AlleNachMannschaftAsync(instanz.Id, mannschaft.Id);
+        var zeilen = await _quelle.MannschaftsZeilenAsync(instanz.Id, mannschaft.Id);
         Spiele.Clear();
-        foreach (var zeile in SpielZeilenMapper.MannschaftsZeilen(spiele))
+        foreach (var zeile in zeilen)
             Spiele.Add(zeile);
         OnPropertyChanged(nameof(HatPlatzhalterSpiele));
     }
@@ -412,14 +410,13 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         if (IstMannschaftsansicht) return;
 
-        _platzhalterVorschau = VorschauAktiv && AusgewaehlteRunde is not null
-            ? await _platzhalterAufloesung.VorschauAsync(AusgewaehlteRunde.Id)
-            : new Dictionary<int, (string?, string?)>();
+        if (VorschauAktiv && AusgewaehlteRunde is not null) await _quelle.VorschauLadenAsync(AusgewaehlteRunde.Id);
+        else _quelle.VorschauVerwerfen();
 
         if (AusgewaehlteRunde is null) return;
-        var spiele = await _spielService.AlleNachRundeAsync(AusgewaehlteRunde.Id);
+        var zeilen = await _quelle.RundenZeilenAsync(AusgewaehlteRunde.Id, AusgewaehlteRunde, _kontext.TeamGruppen);
         Spiele.Clear();
-        SpieleHinzufuegen(spiele, AusgewaehlteRunde);
+        SpieleHinzufuegen(zeilen);
         Fokus.SpieleMelden();
     }
 
@@ -566,7 +563,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public SpielplanViewModel(
         SpielErgebnisService spielService,
         SpielplanService spielplanService,
-        PlatzhalterAufloesung platzhalterAufloesung,
+        SpiellistenQuelle quelle,
         PlatzhalterKaskadeService kaskade,
         FinaleAutomatik finaleAutomatik,
         AuslosungService auslosungService,
@@ -579,7 +576,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     {
         _spielService = spielService;
         _spielplanService = spielplanService;
-        _platzhalterAufloesung = platzhalterAufloesung;
+        _quelle = quelle;
         _kaskade = kaskade;
         _finaleAutomatik = finaleAutomatik;
         _auslosungService = auslosungService;
@@ -864,7 +861,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Fokus.AuswahlFreigeben();
         FokusSpieltageAbgleichen();
         _kontext.Leeren();
-        _platzhalterVorschau = new Dictionary<int, (string?, string?)>();
+        _quelle.VorschauVerwerfen();
         AktualisiereBefehle();
 
         if (AusgewaehlteRunde is null)
@@ -875,8 +872,8 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         await TabellenNeuLadenAsync(AusgewaehlteRunde.Id);
 
-        var liste = await _spielService.AlleNachRundeAsync(AusgewaehlteRunde.Id);
-        SpieleHinzufuegen(liste, AusgewaehlteRunde);
+        var liste = await _quelle.RundenZeilenAsync(AusgewaehlteRunde.Id, AusgewaehlteRunde, _kontext.TeamGruppen);
+        SpieleHinzufuegen(liste);
 
         OnPropertyChanged(nameof(HatPlatzhalterSpiele));
         if (VorschauAktiv) await AktualisierePlatzhalterVorschauAsync();
@@ -1191,9 +1188,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         SchweizerAnzeigeAktualisieren();
     }
 
-    private void SpieleHinzufuegen(IReadOnlyList<Spiel> spiele, TurnierRunde? runde)
+    private void SpieleHinzufuegen(IReadOnlyList<SpielZeile> zeilen)
     {
-        foreach (var zeile in SpielZeilenMapper.SpielplanZeilen(spiele, runde, _kontext.TeamGruppen, _platzhalterVorschau))
+        foreach (var zeile in zeilen)
             Spiele.Add(zeile);
 
         FokusSpieltageAbgleichen();
@@ -1337,9 +1334,9 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         }
         if (rundeId is not int rid) return;
 
-        var neueSpiele = await _spielService.AlleNachRundeAsync(rid);
+        var neueSpiele = await _quelle.RundenZeilenAsync(rid, AusgewaehlteRunde, _kontext.TeamGruppen);
         Spiele.Clear();
-        SpieleHinzufuegen(neueSpiele, AusgewaehlteRunde);
+        SpieleHinzufuegen(neueSpiele);
         Fokus.SpieleMelden();
     }
 }
