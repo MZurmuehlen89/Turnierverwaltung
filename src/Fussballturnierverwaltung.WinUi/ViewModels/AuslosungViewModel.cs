@@ -598,19 +598,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         // auch den Spielplan der Runde und zieht die Folgerunden nach (#414) — VOR der Ziehung (#406): die
         // enthüllt nur noch und darf jederzeit enden (siehe ZiehungBeenden).
         ZiehungInVorbereitung = tvModus;
-        Exception? fehler = null;
-        try { await _auslosungService.AusfuehrenAsync(auslosungId, _qualifikanten); }
-        catch (Exception ex) { fehler = ex; }
-
-        // Auch nach einem Fehler neu laden: scheitert erst die Spielplan-Generierung, ist die Auslosung
-        // bereits abgeschlossen — die Anzeige zeigte sonst weiter den Stand davor.
-        await LadeDetailAsync(auslosungId);
-        if (fehler is not null)
-        {
-            Fehlermeldung = fehler.Message;
+        if (await AbschliessenUndNeuLadenAsync(auslosungId,
+                () => _auslosungService.AusfuehrenAsync(auslosungId, _qualifikanten)) is not { } detail)
             return null;
-        }
-        if (_auslosungDetail is not { } detail || detail.Id != auslosungId) return null;
 
         // Ziehungsdaten bewusst direkt NACH dem Reload aus dessen Stand bauen (nicht aus einem vor
         // AusfuehrenAsync genommenen Lostöpfe-Snapshot + dem separaten Rückgabewert von AusfuehrenAsync):
@@ -673,24 +663,34 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Fehlermeldung = null;
         using var vorgang = _logger.Vorgang($"Ziehung von Hand abschließen (Auslosung {auslosungId})", "Auslosung wird gespeichert …");
 
-        Exception? fehler = null;
-        try { await _auslosungService.ManuelleErgebnisseAbschliessenAsync(auslosungId, HandZiehung.Ergebnis()); }
-        catch (Exception ex) { fehler = ex; }
-
-        // Wie beim Losen auch nach einem Fehler neu laden: scheitert erst der Spielplan, ist die Auslosung schon
-        // abgeschlossen — dann ist auch die Ziehung vorbei.
         try
         {
-            await LadeDetailAsync(auslosungId);
+            var detail = await AbschliessenUndNeuLadenAsync(auslosungId,
+                () => _auslosungService.ManuelleErgebnisseAbschliessenAsync(auslosungId, HandZiehung.Ergebnis()));
+            // Auch nach einem Fehler: ist die Auslosung schon abgeschlossen, ist auch die Ziehung vorbei.
             if (IstAbgeschlossen) HandZiehung.Beenden();
-            if (fehler is not null)
-            {
-                Fehlermeldung = fehler.Message;
-                return;
-            }
-            if (_auslosungDetail is { } detail) await TurnierbaumUndSeitenlisteAktualisierenAsync(detail.TurnierInstanzId);
+            if (detail is not null) await TurnierbaumUndSeitenlisteAktualisierenAsync(detail.TurnierInstanzId);
         }
         catch (Exception ex) { Fehlermeldung = ex.Message; }
+    }
+
+    /// <summary>Führt die abschließende Aktion aus (Auslosen, Ziehung von Hand speichern) und lädt das Detail auch
+    /// nach einem Fehler neu: scheitert erst die Spielplan-Generierung, ist die Auslosung bereits abgeschlossen —
+    /// die Anzeige zeigte sonst weiter den Stand davor. Liefert das neu geladene Detail, oder <c>null</c> nach
+    /// einem Fehler (steht dann in <see cref="Fehlermeldung"/>) bzw. wenn das Detail nicht mehr diese Auslosung ist.</summary>
+    private async Task<Auslosung?> AbschliessenUndNeuLadenAsync(int auslosungId, Func<Task> aktion)
+    {
+        Exception? fehler = null;
+        try { await aktion(); }
+        catch (Exception ex) { fehler = ex; }
+
+        await LadeDetailAsync(auslosungId);
+        if (fehler is not null)
+        {
+            Fehlermeldung = fehler.Message;
+            return null;
+        }
+        return _auslosungDetail is { } detail && detail.Id == auslosungId ? detail : null;
     }
 
     [RelayCommand(CanExecute = nameof(KannHandZiehungAbbrechen))]
