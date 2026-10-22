@@ -266,7 +266,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
             await AnsichtWechselnAsync(null, runde);
         if (IstMannschaftsansicht) return;
 
-        if (_kontext.GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppenNummer) is { } gruppe)
+        if (_kontext.Gruppe(gruppenNummer) is { } gruppe)
             AusgewaehlteGruppe = gruppe;
     }
 
@@ -325,8 +325,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Formular.ErlaubteVerfahrenSetzen([]);
         AusgewaehlteGruppe = null;
         Fokus.AuswahlFreigeben();
-        _kontext.GruppenTabellen.Clear();
-        _kontext.TeamGruppeMap = [];
+        _kontext.Leeren();
         _platzhalterVorschau = new Dictionary<int, (string?, string?)>();
         MehrfachAusgewaehlteSpiele = [];
 
@@ -362,8 +361,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (AusgewaehlteRunde?.Id == rundeId) return;
 
         RundeStillSetzen(Runden.FirstOrDefault(r => r.Id == rundeId));
-        _kontext.GruppenTabellen.Clear();
-        _kontext.TeamGruppeMap = [];
+        _kontext.Leeren();
         if (AusgewaehlteRunde is not { } runde) return;
 
         await TabellenNeuLadenAsync(runde.Id);
@@ -865,8 +863,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         AusgewaehlteGruppe = null;
         Fokus.AuswahlFreigeben();
         FokusSpieltageAbgleichen();
-        _kontext.GruppenTabellen.Clear();
-        _kontext.TeamGruppeMap = [];
+        _kontext.Leeren();
         _platzhalterVorschau = new Dictionary<int, (string?, string?)>();
         AktualisiereBefehle();
 
@@ -898,7 +895,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         await _kontext.GruppenTabellenLadenAsync(rundeId);
 
         if (AusgewaehlteGruppe is { } aktuelleGruppe)
-            AusgewaehlteGruppe = _kontext.GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == aktuelleGruppe.GruppenNummer);
+            AusgewaehlteGruppe = _kontext.Gruppe(aktuelleGruppe.GruppenNummer);
     }
 
     private async Task TabellenNeuLadenAsync(int rundeId)
@@ -1196,7 +1193,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     private void SpieleHinzufuegen(IReadOnlyList<Spiel> spiele, TurnierRunde? runde)
     {
-        foreach (var zeile in SpielZeilenMapper.SpielplanZeilen(spiele, runde, _kontext.TeamGruppeMap, _platzhalterVorschau))
+        foreach (var zeile in SpielZeilenMapper.SpielplanZeilen(spiele, runde, _kontext.TeamGruppen, _platzhalterVorschau))
             Spiele.Add(zeile);
 
         FokusSpieltageAbgleichen();
@@ -1233,9 +1230,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     }
 
     private GruppenTabelle? EffektiveGruppe =>
-        AusgewaehlteGruppe ?? (AusgewaehlteSpiel?.GruppeNummer is { } gn
-            ? _kontext.GruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gn)
-            : null);
+        AusgewaehlteGruppe ?? (AusgewaehlteSpiel?.GruppeNummer is { } gn ? _kontext.Gruppe(gn) : null);
 
     private int? EffektiverSpieltag =>
         ZeigeFokusListe && Fokus.GewaehlterSpieltag is { } spieltag

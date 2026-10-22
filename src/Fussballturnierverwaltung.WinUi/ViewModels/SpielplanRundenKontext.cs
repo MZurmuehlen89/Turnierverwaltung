@@ -2,36 +2,49 @@ using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
-using System.Collections.ObjectModel;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 /// <summary>Runden-Kontext des Spielplans (#490, aus <see cref="SpielplanViewModel"/> herausgelöst):
 /// Gruppentabellen, Team→Gruppe-Zuordnung und erlaubte Entscheidungsverfahren der Runde, mit der Formular und
-/// Spielzeilen arbeiten.</summary>
+/// Spielzeilen arbeiten — in der Rundenansicht die gewählte Runde, in der Mannschaftsansicht die Runde des
+/// gewählten Spiels. Welche Runde das ist, entscheidet der Spielplan.</summary>
 public sealed class SpielplanRundenKontext(TabellenService tabellenService, RegelwerkService regelwerkService)
 {
-    public ObservableCollection<GruppenTabelle> GruppenTabellen { get; } = [];
+    private readonly List<GruppenTabelle> _gruppenTabellen = [];
+    private readonly Dictionary<int, int> _teamGruppen = [];
 
-    public Dictionary<int, int> TeamGruppeMap { get; set; } = [];
+    public IReadOnlyList<GruppenTabelle> GruppenTabellen => _gruppenTabellen;
+
+    /// <summary>Mannschafts-Id → Gruppennummer der geladenen Gruppentabellen.</summary>
+    public IReadOnlyDictionary<int, int> TeamGruppen => _teamGruppen;
+
+    public GruppenTabelle? Gruppe(int gruppenNummer) =>
+        _gruppenTabellen.FirstOrDefault(g => g.GruppenNummer == gruppenNummer);
+
+    public void Leeren()
+    {
+        _gruppenTabellen.Clear();
+        _teamGruppen.Clear();
+    }
 
     public async Task GruppenTabellenLadenAsync(int rundeId)
     {
-        GruppenTabellen.Clear();
-        TeamGruppeMap = [];
+        Leeren();
         try
         {
             var tabellen = await tabellenService.GruppenTabellenBerechnenAsync(rundeId);
             foreach (var gt in tabellen)
             {
-                GruppenTabellen.Add(gt);
+                _gruppenTabellen.Add(gt);
                 foreach (var te in gt.Tabelle)
-                    TeamGruppeMap[te.Mannschaft.Id] = gt.GruppenNummer;
+                    _teamGruppen[te.Mannschaft.Id] = gt.GruppenNummer;
             }
         }
         catch { /* Gruppenstand konnte nicht berechnet werden — kein Fehler */ }
     }
 
+    /// <summary>Die Entscheidungsverfahren aus dem Regelwerk der Runde, ohne eigenes das des Turniers.</summary>
     public async Task<IEnumerable<VerfahrenArt>> ErlaubteVerfahrenAsync(TurnierRunde runde, int? standardRegelwerkId)
     {
         var regelwerkId = runde.RegelwerkId ?? standardRegelwerkId;
