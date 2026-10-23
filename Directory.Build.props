@@ -1,0 +1,36 @@
+<Project>
+
+  <!-- Statische Codeanalyse für alle Projekte unter src/ und tests/ (#498). Schweregrade in .globalconfig,
+       Schwellwerte der Sonar-Regeln in build/SonarLint.xml. Die Hilfswerkzeuge unter tools/ bleiben außen vor. -->
+  <PropertyGroup Condition="!$(MSBuildProjectDirectory.Contains('\tools\'))">
+    <AnalyseAktiv>true</AnalyseAktiv>
+    <!-- Befunde je Projekt als SARIF unter analyse/ (nicht eingecheckt), Auswertung siehe CLAUDE.md -->
+    <ErrorLog>$(MSBuildThisFileDirectory)analyse\$(MSBuildProjectName).sarif,version=2.1</ErrorLog>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(AnalyseAktiv)' == 'true'">
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.35.0.4138" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+    <PackageReference Include="Roslynator.Analyzers" Version="5.0.1" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)build\SonarLint.xml" Link="Properties\SonarLint.xml" Visible="false" />
+  </ItemGroup>
+
+  <!-- Der Compiler legt den Zielordner für ErrorLog nicht selbst an -->
+  <Target Name="AnalyseOrdnerAnlegen" BeforeTargets="CoreCompile" Condition="'$(AnalyseAktiv)' == 'true'">
+    <MakeDir Directories="$(MSBuildThisFileDirectory)analyse" />
+  </Target>
+
+  <!-- WinUi: der XAML-Vorlauf (SDK-Target XamlPreCompile) ruft den Compiler ohne Analyzer, aber mit demselben
+       ErrorLog auf und würde die SARIF-Datei beim inkrementellen Build mit einer leeren Analyse überschreiben -->
+  <Target Name="AnalyseErrorLogVorXamlAusblenden" BeforeTargets="XamlPreCompile" Condition="'$(AnalyseAktiv)' == 'true'">
+    <PropertyGroup>
+      <_AnalyseErrorLog>$(ErrorLog)</_AnalyseErrorLog>
+      <ErrorLog></ErrorLog>
+    </PropertyGroup>
+  </Target>
+  <Target Name="AnalyseErrorLogNachXamlZurueck" AfterTargets="XamlPreCompile" Condition="'$(AnalyseAktiv)' == 'true'">
+    <PropertyGroup>
+      <ErrorLog>$(_AnalyseErrorLog)</ErrorLog>
+    </PropertyGroup>
+  </Target>
+
+</Project>

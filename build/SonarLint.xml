@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Schwellwerte der Sonar-Komplexitätsregeln, angelehnt an die Clean-Code-Schwellen in CLAUDE.md (#498).
+     Die Regeln selbst werden in .globalconfig eingeschaltet. -->
+<AnalysisInput>
+  <Settings>
+    <!-- EF-Migrationen sind generierter Code; Sonar wertet generated_code aus .editorconfig nicht aus -->
+    <Setting>
+      <Key>sonar.exclusions</Key>
+      <Value>**/Persistenz/Migrationen/**</Value>
+    </Setting>
+  </Settings>
+  <Rules>
+    <Rule>
+      <Key>S3776</Key>
+      <Parameters>
+        <Parameter><Key>threshold</Key><Value>15</Value></Parameter>
+        <Parameter><Key>propertyThreshold</Key><Value>3</Value></Parameter>
+      </Parameters>
+    </Rule>
+    <Rule>
+      <Key>S138</Key>
+      <Parameters>
+        <Parameter><Key>max</Key><Value>40</Value></Parameter>
+      </Parameters>
+    </Rule>
+    <Rule>
+      <Key>S107</Key>
+      <Parameters>
+        <Parameter><Key>max</Key><Value>5</Value></Parameter>
+      </Parameters>
+    </Rule>
+    <Rule>
+      <Key>S1067</Key>
+      <Parameters>
+        <Parameter><Key>max</Key><Value>3</Value></Parameter>
+      </Parameters>
+    </Rule>
+    <Rule>
+      <Key>S1200</Key>
+      <Parameters>
+        <Parameter><Key>max</Key><Value>30</Value></Parameter>
+      </Parameters>
+    </Rule>
+    <Rule>
+      <Key>S104</Key>
+      <Parameters>
+        <Parameter><Key>maximumFileLocThreshold</Key><Value>400</Value></Parameter>
+      </Parameters>
+    </Rule>
+  </Rules>
+</AnalysisInput>

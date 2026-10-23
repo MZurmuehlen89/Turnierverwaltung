@@ -21,7 +21,7 @@ it instead of calling a static dialog API directly.
 CommunityToolkit.Mvvm 8.4 recommends partial properties for WinRT/AOT scenarios (warning `MVVMTK0045`): in this
 project's WinUI3 setup, a `partial` property with `[ObservableProperty]` fails to compile (`CS9248`, generator
 does not produce the implementation part) — root cause not identified, and not worth chasing since
-`PublishTrimmed`/AOT is not used here. The `MVVMTK0045` warning is expected and intentionally left unresolved.
+`PublishTrimmed`/AOT is not used here. The `MVVMTK0045` warning is expected and switched off in `.globalconfig` (#498).
 
 **CommandBar has no `ItemsSource` binding** for `PrimaryCommands`/`SecondaryCommands` (unlike WPF's
 `fluent:RibbonGroupBox`, which binds children declaratively). `IRibbonAware.RibbonZusatzGruppen` is therefore

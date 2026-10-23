@@ -480,3 +480,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# SARIF-Befunde der statischen Codeanalyse (#498)
+analyse/

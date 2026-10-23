@@ -85,3 +85,15 @@ indent_size = 4
 [*.{csproj,json}]
 indent_style = space
 indent_size = 2
+
+# ── Statische Codeanalyse: Abweichungen je Pfad (#498, Regeln in .globalconfig) ─────
+
+# EF-Migrationen sind generierter Code (lange Up/Down-Methoden, auskommentierte SQL-Zeilen)
+[src/Fussballturnierverwaltung.Infrastructure/Persistenz/Migrationen/**.cs]
+generated_code = true
+
+[tests/**.cs]
+# Tests rufen bewusst die synchronen Varianten der InMemory-Abfragen auf
+dotnet_diagnostic.S6966.severity = none
+# Testdaten-Helfer bauen Objekte mit vielen Feldern in einem Aufruf
+dotnet_diagnostic.S107.severity = suggestion

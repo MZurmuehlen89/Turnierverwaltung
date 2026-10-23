@@ -85,6 +85,34 @@ threshold that belongs together stays together; a split that only serves the lin
 **Refactoring procedure:** two commits per cut — first move the code unchanged, then clean up inside the new
 class — so a behaviour change can be traced to one of the two. No behaviour change in either.
 
+## Static Analysis
+
+`SonarAnalyzer.CSharp` and `Roslynator.Analyzers` run on every build of the projects under `src/` and `tests/`
+(#498) — never as errors, the build does not fail on findings.
+
+| File | Purpose |
+|---|---|
+| `Directory.Build.props` | adds both packages, writes one SARIF file per project to `analyse/` (git-ignored) |
+| `.globalconfig` | severities: which rules are on, off or downgraded to `suggestion`, each with its reason |
+| `build/SonarLint.xml` | Sonar thresholds (rule parameters cannot be set in `.globalconfig`) and the exclusion of EF migrations |
+| `.editorconfig` (last section) | path-specific deviations for `tests/` and the migrations |
+
+**Warnings are the Clean Code thresholds above**: S3776 (cognitive complexity > 15), S138 (method > 40 lines),
+S107 (more than 5 parameters). When an issue touches a flagged method, consider the split as described under
+Clean Code — the warning is a prompt, not a mandate. Everything else that stays on is either a likely bug or
+cheap to fix; fix new findings instead of suppressing them. A deliberate exception gets a scoped
+`#pragma warning disable/restore` with the reason on the same line (example: S2234 where home and away are
+swapped on purpose for the second leg).
+
+**Evaluation**: after a build, `pwsh build/Analyse-Auswerten.ps1` counts warnings per rule; `-MitHinweisen`
+includes `suggestion` findings, `-Regel S3776,S138` lists the locations.
+
+**Pitfalls** (both handled in the config, keep them in mind when changing it):
+- Sonar ignores `generated_code = true` from `.editorconfig` — exclusions go into `sonar.exclusions` in `build/SonarLint.xml`.
+- The WinUi XAML pre-compile pass (`XamlPreCompile`) runs the compiler without analyzers but with the same
+  `ErrorLog`; `Directory.Build.props` blanks the `ErrorLog` around that target, otherwise an incremental build
+  overwrites the WinUi SARIF file with an empty analysis.
+
 ## Important Domain Concepts
 
 **`TurnierRunde.AuswaertstorRegelAktiv`** is a Boolean flag active only when `MitRueckspiel = true`. The away-goals rule is evaluated *before* `EntscheidungsVerfahren` when checking aggregate scores (AD-001).

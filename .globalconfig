@@ -1,0 +1,54 @@
+is_global = true
+
+# Statische Codeanalyse (#498): SonarAnalyzer.CSharp + Roslynator, eingebunden über Directory.Build.props.
+# Nichts bricht den Build ab – höchstens "warning". Schwellwerte der Sonar-Regeln stehen in build/SonarLint.xml,
+# Abweichungen für Tests und Migrationen in .editorconfig.
+
+# ── Komplexität und Länge (im NuGet-Paket standardmäßig aus) ────────────────────────
+# Warnung = die Clean-Code-Schwellen aus CLAUDE.md: wer die Stelle anfasst, prüft einen Schnitt
+# Cognitive Complexity > 15
+dotnet_diagnostic.S3776.severity = warning
+# Methode > 40 Zeilen
+dotnet_diagnostic.S138.severity = warning
+# mehr als 5 Parameter (auch Konstruktor-Abhängigkeiten)
+dotnet_diagnostic.S107.severity = warning
+# Hinweis = nur im Editor und im SARIF sichtbar
+# Ausdruck mit mehr als 3 Operatoren && / || / ?:
+dotnet_diagnostic.S1067.severity = suggestion
+# Klasse hängt von mehr als 30 Typen ab
+dotnet_diagnostic.S1200.severity = suggestion
+# Datei > 400 Codezeilen
+dotnet_diagnostic.S104.severity = suggestion
+
+# ── Rauschen aus ────────────────────────────────────────────────────────────────────
+# Klammern um einzeilige if/foreach – Projektstil erlaubt einzeilige Zweige
+dotnet_diagnostic.RCS1001.severity = none
+# dito für if/else-Ketten
+dotnet_diagnostic.RCS1003.severity = none
+# zusätzliche Klammern in gemischten Ausdrücken
+dotnet_diagnostic.RCS1123.severity = none
+# Regex-Timeout – nur feste Muster auf eigene, kurze Texte
+dotnet_diagnostic.S6444.severity = none
+# "kryptografisch sicherer Zufall" – Random dient Simulation/Auslosung, Seed muss reproduzierbar sein
+dotnet_diagnostic.S2245.severity = none
+# [Obsolete]-Enumwerte bleiben dauerhaft, weil der Wert als int gespeichert ist
+dotnet_diagnostic.S1133.severity = none
+# Siehe src/Fussballturnierverwaltung.WinUi/CLAUDE.md: [ObservableProperty] bleibt auf Feldern, AOT/Trimming wird
+# nicht genutzt – die Warnung (über 400 Stück) ist erwartet und würde alle anderen Warnungen verdecken
+dotnet_diagnostic.MVVMTK0045.severity = none
+
+# ── Auf Hinweis herabgestuft: Stilfragen, kein Fehlerrisiko ─────────────────────────
+# "kann static sein" – doppelt zu CA1822
+dotnet_diagnostic.S2325.severity = suggestion
+# verschachtelte ?:-Ausdrücke
+dotnet_diagnostic.S3358.severity = suggestion
+# Schleife durch LINQ ersetzen
+dotnet_diagnostic.S3267.severity = suggestion
+# Indexzugriff statt First()/Last()
+dotnet_diagnostic.S6608.severity = suggestion
+# Eigenschaft kopiert Collection – bei gebundenen Anzeige-Listen gewollt
+dotnet_diagnostic.S2365.severity = suggestion
+# explizites Array an params-Parameter
+dotnet_diagnostic.S3878.severity = suggestion
+# gestapelte foreach-Schleifen ohne eigene Klammern sind Projektstil; irreführende Einzeiler fängt S2681
+dotnet_diagnostic.S3973.severity = suggestion
