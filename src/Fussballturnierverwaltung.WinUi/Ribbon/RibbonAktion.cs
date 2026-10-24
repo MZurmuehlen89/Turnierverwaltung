@@ -7,6 +7,10 @@ public sealed class RibbonAktion
     public required string Header { get; init; }
     public ICommand? Befehl { get; init; }
 
+    /// <summary>Kennung für GUI-Tests (#522), Schema <c>Befehlsleiste.Aktion</c> – nur dort gesetzt, wo ein Test
+    /// den Knopf braucht.</summary>
+    public string? AutomationId { get; init; }
+
     /// <summary>Segoe Fluent Icons Glyph (z.B. "" für Add) für den AppBarButton.</summary>
     public string? IconGlyph { get; init; }
 
@@ -38,7 +42,7 @@ public sealed class RibbonAktion
 /// <paramref name="SperrHinweis"/>: gesetzt = Menüpunkt ausgegraut, der Hinweis steht in Klammern dahinter (#479) —
 /// ein Tooltip erschiene an einem gesperrten Menüpunkt nicht.</summary>
 public sealed record RibbonUnteraktion(
-    string Header, ICommand Befehl, string? IconGlyph = null, string? SperrHinweis = null);
+    string Header, ICommand Befehl, string? IconGlyph = null, string? SperrHinweis = null, string? AutomationId = null);
 
 /// <summary>Ein an-/abschaltbarer Menüpunkt in einem <see cref="RibbonAktion.ToggleUnterpunkte"/>-Flyout.
 /// Bewusst ohne Binding-Mechanismus (kein <see cref="Microsoft.UI.Xaml.Data.Binding"/>-Objekt wie im

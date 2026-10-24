@@ -243,7 +243,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             Header = "Ziehung",
             Aktionen =
             [
-                new RibbonAktion { Header = "Auslosung durchführen", Befehl = AuslosungAusfuehrenCommand, IconGlyph = "" },
+                new RibbonAktion { Header = "Auslosung durchführen", AutomationId = "Befehlsleiste.AuslosungDurchfuehren", Befehl = AuslosungAusfuehrenCommand, IconGlyph = "" },
                 .. (IstHandZiehungsart ? Array.Empty<RibbonAktion>() : [TvModusAktion()]),
                 // Bewusst am Gruppenende statt direkt neben "Auslosung durchführen" — beide sind zwar nie zugleich
                 // aktiv (bearbeitbar vs. abgeschlossen), sollen aber auch optisch nicht nebeneinander liegen.
@@ -262,9 +262,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             new RibbonAktion
             {
                 Header = "Töpfe",
+                AutomationId = "Befehlsleiste.Toepfe",
                 Unteraktionen =
                 [
-                    new RibbonUnteraktion("Automatisch befüllen", Arbeitsbereich.LostoepfeAutomatischBefuellenCommand),
+                    new RibbonUnteraktion("Automatisch befüllen", Arbeitsbereich.LostoepfeAutomatischBefuellenCommand,
+                        AutomationId: "Befehlsleiste.ToepfeAutomatischBefuellen"),
                     new RibbonUnteraktion("Alle leeren", Arbeitsbereich.AlleToepfeZuruecksetzenCommand),
                 ],
                 IconGlyph = "",
@@ -281,10 +283,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private RibbonAktion TvModusAktion() => new()
     {
         Header = "TV-Modus",
+        AutomationId = "Befehlsleiste.TvModus",
         Unteraktionen =
         [
             new RibbonUnteraktion("Mit TV-Modus", AuslosungMitTvModusAusfuehrenCommand),
-            new RibbonUnteraktion("Mit TV-Modus manuell", AuslosungMitTvModusManuellAusfuehrenCommand),
+            new RibbonUnteraktion("Mit TV-Modus manuell", AuslosungMitTvModusManuellAusfuehrenCommand,
+                AutomationId: "Befehlsleiste.TvModusManuell"),
         ],
         IconGlyph = "",
     };
@@ -297,7 +301,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         [
             new RibbonAktion { Header = "Letzten Zug zurücknehmen", Befehl = HandZiehung.ZuruecknehmenCommand, IconGlyph = "" },
             new RibbonAktion { Header = "Ziehung abbrechen", Befehl = HandZiehungAbbrechenCommand, IconGlyph = "" },
-            new RibbonAktion { Header = "Auslosung abschließen", Befehl = HandZiehungAbschliessenCommand, IconGlyph = "" },
+            new RibbonAktion { Header = "Auslosung abschließen", AutomationId = "Befehlsleiste.AuslosungAbschliessen", Befehl = HandZiehungAbschliessenCommand, IconGlyph = "" },
         ],
     };
 
@@ -311,8 +315,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Header = "Live-Steuerung",
         Aktionen =
         [
-            new RibbonAktion { Header = "Weiter", Befehl = Ziehung.AnimationWeiterCommand, IconGlyph = "" },
-            new RibbonAktion { Header = "Rest sofort anzeigen", Befehl = Ziehung.AnimationUeberspringenCommand, IconGlyph = "" },
+            new RibbonAktion { Header = "Weiter", AutomationId = "Befehlsleiste.ZiehungWeiter", Befehl = Ziehung.AnimationWeiterCommand, IconGlyph = "" },
+            new RibbonAktion { Header = "Rest sofort anzeigen", AutomationId = "Befehlsleiste.ZiehungRestAnzeigen", Befehl = Ziehung.AnimationUeberspringenCommand, IconGlyph = "" },
         ],
     };
 

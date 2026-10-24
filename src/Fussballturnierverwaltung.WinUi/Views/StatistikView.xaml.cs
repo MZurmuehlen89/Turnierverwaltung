@@ -2,7 +2,6 @@ using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
 
 namespace Fussballturnierverwaltung.WinUi.Views;
 
@@ -15,7 +14,7 @@ public sealed partial class StatistikView : UserControl
 
     // Klick auf eine Ranglistenzeile öffnet die Seite der Mannschaft (#324) — im Code-Behind, weil die Zeile eine
     // KlickFlaeche ohne Command ist (#428).
-    private void RanglistenZeile_Tapped(object sender, TappedRoutedEventArgs e)
+    private void RanglistenZeile_Ausgeloest(object? sender, KlickFlaecheAusgeloestEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: StatistikZeile { Mannschaft: { } mannschaft } } ||
             DataContext is not StatistikViewModel vm) return;

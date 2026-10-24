@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <UserControl
     x:Class="Fussballturnierverwaltung.WinUi.Views.SpielplanView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -24,7 +24,7 @@
                                          ToolTipService.ToolTip="Alle Spiele einer Mannschaft über alle Runden anzeigen"
                                          Bestaetigt="MannschaftsAuswahl_Bestaetigt" />
             <TextBlock Grid.Row="2" Text="RUNDEN" Style="{StaticResource SpielKopfzeileTextStyle}" Margin="12,10,8,4" />
-            <ListView Grid.Row="3" ItemsSource="{Binding Runden}"
+            <ListView Grid.Row="3" ItemsSource="{Binding Runden}" AutomationProperties.AutomationId="Spielplan.Runden"
                       SelectedItem="{Binding RundenlistenAuswahl, Mode=TwoWay}" SelectionMode="Single">
                 <ListView.ItemTemplate>
                     <DataTemplate>
@@ -83,7 +83,7 @@
                             <TextBlock Grid.Column="5" Text="Auswärts" Style="{StaticResource SpielKopfzeileTextStyle}" />
                             <TextBlock Grid.Column="6" Text="Status" Style="{StaticResource SpielKopfzeileTextStyle}" />
                         </Grid>
-                        <ListView Grid.Row="1" x:Name="SpielListView"
+                        <ListView Grid.Row="1" x:Name="SpielListView" AutomationProperties.AutomationId="Spielplan.Spiele"
                                   ItemsSource="{Binding Spiele}" SelectedItem="{Binding AusgewaehlteSpiel, Mode=TwoWay}"
                                   SelectionMode="Extended" SelectionChanged="SpielListView_SelectionChanged"
                                   ContextRequested="SpielListView_ContextRequested">
@@ -97,21 +97,21 @@
                                             <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
                                                    Width="16" Height="16" Stretch="Uniform" />
-                                            <TextBlock Text="{Binding HeimName}" FontSize="13" FontWeight="SemiBold"
+                                            <TextBlock Text="{Binding HeimName}" AutomationProperties.AutomationId="Spiel.Heim" FontSize="13" FontWeight="SemiBold"
                                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
-                                            <TextBlock Text="{Binding ErgebnisText}" FontSize="14" FontWeight="Bold" FontFamily="Consolas" />
-                                            <TextBlock Text="{Binding ErgebnisDetail}" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding ErgebnisText}" AutomationProperties.AutomationId="Spiel.Ergebnis" FontSize="14" FontWeight="Bold" FontFamily="Consolas" />
+                                            <TextBlock Text="{Binding ErgebnisDetail}" AutomationProperties.AutomationId="Spiel.ErgebnisZusatz" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="5">
                                             <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
                                                    Width="16" Height="16" Stretch="Uniform" />
-                                            <TextBlock Text="{Binding AuswaertsName}" FontSize="13"
+                                            <TextBlock Text="{Binding AuswaertsName}" AutomationProperties.AutomationId="Spiel.Auswaerts" FontSize="13"
                                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         </StackPanel>
-                                        <TextBlock Grid.Column="6" Text="{Binding StatusAnzeige}" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="6" Text="{Binding StatusAnzeige}" AutomationProperties.AutomationId="Spiel.Status" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />
                                         <!-- Issue #340: Gesamtergebnis unter dem K.-o.-Rückspiel, zentriert unter der Ergebnis-Spalte. -->
                                         <TextBlock Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="3" Text="{Binding GesamtText}"
                                                    FontSize="11" Opacity="0.7" HorizontalAlignment="Center" Margin="0,2,0,0"
@@ -155,7 +155,7 @@
                             <TextBlock Grid.Column="4" Text="Auswärts" Style="{StaticResource SpielKopfzeileTextStyle}" />
                             <TextBlock Grid.Column="5" Text="Status" Style="{StaticResource SpielKopfzeileTextStyle}" />
                         </Grid>
-                        <ListView Grid.Row="2" x:Name="FokusSpielListView"
+                        <ListView Grid.Row="2" x:Name="FokusSpielListView" AutomationProperties.AutomationId="Spielplan.Spiele"
                                   ItemsSource="{Binding Fokus.Spiele}" SelectedItem="{Binding AusgewaehlteSpiel, Mode=TwoWay}"
                                   SelectionMode="Extended" SelectionChanged="SpielListView_SelectionChanged"
                                   ContextRequested="SpielListView_ContextRequested">
@@ -172,21 +172,21 @@
                                             <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
                                                    Width="16" Height="16" Stretch="Uniform" />
-                                            <TextBlock Text="{Binding HeimName}" FontSize="13" FontWeight="SemiBold"
+                                            <TextBlock Text="{Binding HeimName}" AutomationProperties.AutomationId="Spiel.Heim" FontSize="13" FontWeight="SemiBold"
                                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         </StackPanel>
                                         <StackPanel Grid.Row="1" Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
-                                            <TextBlock Text="{Binding ErgebnisText}" FontSize="14" FontWeight="Bold" FontFamily="Consolas" />
-                                            <TextBlock Text="{Binding ErgebnisDetail}" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding ErgebnisText}" AutomationProperties.AutomationId="Spiel.Ergebnis" FontSize="14" FontWeight="Bold" FontFamily="Consolas" />
+                                            <TextBlock Text="{Binding ErgebnisDetail}" AutomationProperties.AutomationId="Spiel.ErgebnisZusatz" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
                                         </StackPanel>
                                         <StackPanel Grid.Row="1" Grid.Column="4" Orientation="Horizontal" Spacing="5">
                                             <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
                                                    Width="16" Height="16" Stretch="Uniform" />
-                                            <TextBlock Text="{Binding AuswaertsName}" FontSize="13"
+                                            <TextBlock Text="{Binding AuswaertsName}" AutomationProperties.AutomationId="Spiel.Auswaerts" FontSize="13"
                                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         </StackPanel>
-                                        <TextBlock Grid.Row="1" Grid.Column="5" Text="{Binding StatusAnzeige}" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Row="1" Grid.Column="5" Text="{Binding StatusAnzeige}" AutomationProperties.AutomationId="Spiel.Status" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
@@ -208,7 +208,7 @@
                         <TextBlock Grid.Row="1" Text="Für diese Mannschaft gibt es im Turnier noch keine Spiele."
                                    Opacity="0.5" FontSize="13" HorizontalAlignment="Center" Margin="0,24,0,0"
                                    Visibility="{Binding ZeigtKeineMannschaftsSpiele, Converter={StaticResource BoolToVisibility}}" />
-                        <ListView Grid.Row="1" x:Name="MannschaftsSpielListView"
+                        <ListView Grid.Row="1" x:Name="MannschaftsSpielListView" AutomationProperties.AutomationId="Spielplan.Spiele"
                                   ItemsSource="{Binding Spiele}" SelectedItem="{Binding AusgewaehlteSpiel, Mode=TwoWay}"
                                   SelectionMode="Extended" SelectionChanged="SpielListView_SelectionChanged"
                                   ContextRequested="SpielListView_ContextRequested">
@@ -223,18 +223,18 @@
                                             <Image Source="{Binding HeimWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding HeimWappen, Converter={StaticResource NullToCollapsed}}"
                                                    Width="16" Height="16" Stretch="Uniform" />
-                                            <TextBlock Text="{Binding HeimName}" FontSize="13" FontWeight="SemiBold"
+                                            <TextBlock Text="{Binding HeimName}" AutomationProperties.AutomationId="Spiel.Heim" FontSize="13" FontWeight="SemiBold"
                                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
-                                            <TextBlock Text="{Binding ErgebnisText}" FontSize="14" FontWeight="Bold" FontFamily="Consolas" />
-                                            <TextBlock Text="{Binding ErgebnisDetail}" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding ErgebnisText}" AutomationProperties.AutomationId="Spiel.Ergebnis" FontSize="14" FontWeight="Bold" FontFamily="Consolas" />
+                                            <TextBlock Text="{Binding ErgebnisDetail}" AutomationProperties.AutomationId="Spiel.ErgebnisZusatz" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="5" Opacity="{Binding AuswaertsDeckkraft}">
                                             <Image Source="{Binding AuswaertsWappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToCollapsed}}"
                                                    Width="16" Height="16" Stretch="Uniform" />
-                                            <TextBlock Text="{Binding AuswaertsName}" FontSize="13"
+                                            <TextBlock Text="{Binding AuswaertsName}" AutomationProperties.AutomationId="Spiel.Auswaerts" FontSize="13"
                                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         </StackPanel>
                                         <TextBlock Grid.Column="6" Text="{Binding MannschaftsStatusAnzeige}" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />

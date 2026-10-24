@@ -209,7 +209,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     /// (echtes Turnier oder weitere Vorlage), löst nebenbei #46. Als Unterpunkt im "Neu"-Flyout statt
     /// eigener Ribbon-Gruppe (Nutzerwunsch aus #297-Test).</summary>
     public IReadOnlyList<RibbonAktion> NeuUnterpunkte =>
-        [new RibbonAktion { Header = "Aus Vorlage erstellen", Befehl = AusVorlageErstellenCommand, IconGlyph = "" }];
+        [new RibbonAktion { Header = "Aus Vorlage erstellen", AutomationId = "Befehlsleiste.AusVorlageErstellen", Befehl = AusVorlageErstellenCommand, IconGlyph = "" }];
 
     public TurnierkopfViewModel(
         TurnierInstanzService service, TurnierValidator validator, IDialogService dialogService,

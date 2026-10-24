@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <Window
     x:Class="Fussballturnierverwaltung.WinUi.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -103,18 +103,18 @@
                                    FontWeight="Bold" VerticalAlignment="Center" Margin="12,0,16,0"
                                    Visibility="{x:Bind ViewModel.HatRibbonBereich, Mode=OneWay}" />
                     </AppBarElementContainer>
-                    <AppBarButton x:Name="NeuButton" Icon="Add" Label="Neu" Command="{x:Bind ViewModel.RibbonNeuBefehl, Mode=OneWay}"
+                    <AppBarButton x:Name="NeuButton" Icon="Add" Label="Neu" AutomationProperties.AutomationId="Befehlsleiste.Neu" Command="{x:Bind ViewModel.RibbonNeuBefehl, Mode=OneWay}"
                                   Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
                     <!-- Zusatzpunkte zu "Neu" (z.B. "Aus Vorlage erstellen", Issue #297-Nachzug) werden hier
                          als eigenständige Buttons eingefügt — siehe MainWindow.xaml.cs,
                          NeuUnterpunkteAktualisieren. Kein Flyout/Split-Button (Nutzerwunsch: sieht "nicht
                          schön" aus), stattdessen einfach ein weiterer sichtbarer Button direkt neben "Neu". -->
-                    <AppBarButton Icon="Save" Label="Speichern" Command="{x:Bind ViewModel.RibbonSpeichernBefehl, Mode=OneWay}"
+                    <AppBarButton Icon="Save" Label="Speichern" AutomationProperties.AutomationId="Befehlsleiste.Speichern" Command="{x:Bind ViewModel.RibbonSpeichernBefehl, Mode=OneWay}"
                                   Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
-                    <AppBarButton Icon="Undo" Label="Abbrechen" Command="{x:Bind ViewModel.RibbonAbbrechenBefehl, Mode=OneWay}"
+                    <AppBarButton Icon="Undo" Label="Abbrechen" AutomationProperties.AutomationId="Befehlsleiste.Abbrechen" Command="{x:Bind ViewModel.RibbonAbbrechenBefehl, Mode=OneWay}"
                                   Visibility="{x:Bind ViewModel.HatStandardAktionen, Mode=OneWay}" />
                     <AppBarSeparator Visibility="{x:Bind ViewModel.HatLoeschenAktion, Mode=OneWay}" />
-                    <AppBarButton Icon="Delete" Label="Löschen" Command="{x:Bind ViewModel.RibbonLoeschenBefehl, Mode=OneWay}"
+                    <AppBarButton Icon="Delete" Label="Löschen" AutomationProperties.AutomationId="Befehlsleiste.Loeschen" Command="{x:Bind ViewModel.RibbonLoeschenBefehl, Mode=OneWay}"
                                   Visibility="{x:Bind ViewModel.HatLoeschenAktion, Mode=OneWay}" />
                     <!-- Dynamische RibbonZusatzGruppen werden hier angehängt — siehe MainWindow.xaml.cs,
                          RibbonZusatzGruppenAktualisieren. -->

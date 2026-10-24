@@ -14,7 +14,7 @@
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <TextBlock Text="Turnier:" VerticalAlignment="Center" Opacity="0.6" />
-                <Button Command="{Binding TurnierWaehlenCommand}">
+                <Button Command="{Binding TurnierWaehlenCommand}" AutomationProperties.AutomationId="Turnierdurchfuehrung.Turnier">
                     <TextBlock Text="{Binding TabKoordinator.AusgewaehlteInstanz.Name, TargetNullValue='Kein Turnier gewählt', FallbackValue='Kein Turnier gewählt'}"
                                MaxWidth="320" TextTrimming="CharacterEllipsis" />
                 </Button>

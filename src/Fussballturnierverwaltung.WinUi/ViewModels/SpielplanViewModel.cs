@@ -477,10 +477,11 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 new RibbonAktion
                 {
                     Header = "Simulieren",
+                    AutomationId = "Befehlsleiste.Simulieren",
                     IconGlyph = "",
                     Unteraktionen =
                     [
-                        Ebene("Runde", Mengen.RundeSimulierenBefehl),
+                        Ebene("Runde", Mengen.RundeSimulierenBefehl, "Befehlsleiste.SimulierenRunde"),
                         Ebene(HinrundeMenuText, Mengen.HinrundeSimulierenBefehl),
                         Ebene(RueckrundeMenuText, Mengen.RueckrundeSimulierenBefehl),
                         Ebene("Gruppe", Mengen.GruppeSimulierenBefehl),
@@ -537,9 +538,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public ICommand SpielverlaufAnsehenBefehl => _spielverlaufAnsehenBefehl;
 
     /// <summary>Menüpunkt einer Spielmengen-Ebene — in der Mannschaftsansicht gesperrt mit Begründung (#479).</summary>
-    private RibbonUnteraktion Ebene(string header, ICommand befehl) => new(
+    private RibbonUnteraktion Ebene(string header, ICommand befehl, string? automationId = null) => new(
         header, befehl,
-        SperrHinweis: IstMannschaftsansicht ? SpielmengenAktionen.SPERR_HINWEIS_MANNSCHAFTSANSICHT : null);
+        SperrHinweis: IstMannschaftsansicht ? SpielmengenAktionen.SPERR_HINWEIS_MANNSCHAFTSANSICHT : null,
+        AutomationId: automationId);
 
     // ── Konstruktor ───────────────────────────────────────────────────────────
 

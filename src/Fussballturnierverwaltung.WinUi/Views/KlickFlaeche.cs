@@ -1,5 +1,6 @@
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 
@@ -9,7 +10,10 @@ namespace Fussballturnierverwaltung.WinUi.Views;
 /// vielen Zellen (Gegner-Matrix der Ligaphase: 324 Stück), in denen je Button rund fünf zusätzliche Elemente
 /// den Aufbau der Anzeige auf mehrere Sekunden trieben. Hinterlegt sich unter dem Mauszeiger und trägt die
 /// Hervorhebung selbst als Hintergrund und Rahmen, statt dafür ein eigenes Element zu brauchen. Der Klick kommt
-/// über <c>Tapped</c>; Tastaturfokus und Gedrückt-Zustand eines Buttons gibt es nicht.</summary>
+/// über <c>Tapped</c>; Tastaturfokus und Gedrückt-Zustand eines Buttons gibt es nicht.
+/// <para>#522: Handler hängen an <see cref="Ausgeloest"/> statt an <c>Tapped</c> – das feuert beim Tippen und über
+/// das Invoke-Muster von UI Automation (GUI-Tests, Screenreader). Der Automation-Peer entsteht erst, wenn ein
+/// UIA-Client fragt, und kostet beim normalen Aufbau nichts.</para></summary>
 public sealed class KlickFlaeche : Grid
 {
     public static readonly DependencyProperty IstHervorgehobenProperty = DependencyProperty.Register(
@@ -36,8 +40,22 @@ public sealed class KlickFlaeche : Grid
         PointerExited += (_, _) => ZeigerSetzen(false);
         PointerCanceled += (_, _) => ZeigerSetzen(false);
         PointerCaptureLost += (_, _) => ZeigerSetzen(false);
+        Tapped += (_, e) => e.Handled = Ausloesen();
         Anwenden();
     }
+
+    /// <summary>Klick per Zeiger oder UI Automation. Setzt ein Handler <see cref="KlickFlaecheAusgeloestEventArgs.Handled"/>,
+    /// endet ein Tippen hier und erreicht keine umgebende KlickFlaeche.</summary>
+    public event EventHandler<KlickFlaecheAusgeloestEventArgs>? Ausgeloest;
+
+    internal bool Ausloesen()
+    {
+        var args = new KlickFlaecheAusgeloestEventArgs();
+        Ausgeloest?.Invoke(this, args);
+        return args.Handled;
+    }
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new KlickFlaecheAutomationPeer(this);
 
     public bool IstHervorgehoben
     {
@@ -82,4 +100,9 @@ public sealed class KlickFlaeche : Grid
                    : durchsichtig;
         BorderBrush = IstHervorgehoben ? HervorhebungRahmen ?? durchsichtig : durchsichtig;
     }
+}
+
+public sealed class KlickFlaecheAusgeloestEventArgs : EventArgs
+{
+    public bool Handled { get; set; }
 }

@@ -37,11 +37,13 @@
 
         <DataTemplate x:Key="SpaltenkopfTemplate" x:DataType="vm:StatistikSpalte">
             <TextBlock Text="{Binding Titel}" Width="{Binding Breite}" FontSize="11" FontWeight="SemiBold" Opacity="0.6"
+                       AutomationProperties.AutomationId="Statistik.Spaltenkopf"
                        TextAlignment="Center" ToolTipService.ToolTip="{Binding Erlaeuterung}" />
         </DataTemplate>
 
         <DataTemplate x:Key="ZellenTemplate" x:DataType="vm:StatistikZelle">
             <TextBlock Text="{Binding Text}" Width="{Binding Breite}" FontSize="12" FontWeight="{Binding Schriftstaerke}"
+                       AutomationProperties.AutomationId="Statistik.Zelle"
                        TextAlignment="Center" VerticalAlignment="Center" />
         </DataTemplate>
 
@@ -65,12 +67,14 @@
             <Grid ColumnDefinitions="36,*,Auto,Auto" Padding="8,5"
                   BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
                 <TextBlock Grid.Column="0" Text="{Binding Rang}" FontSize="12" FontWeight="SemiBold" Opacity="0.7"
+                           AutomationProperties.AutomationId="Statistik.Rang"
                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                     <Image Source="{Binding Mannschaft, Converter={StaticResource MannschaftZuWappen}}"
                            Visibility="{Binding Mannschaft, Converter={StaticResource MannschaftHatWappen}}"
                            Width="16" Height="16" Stretch="Uniform" />
-                    <TextBlock Text="{Binding Name}" FontSize="12" TextWrapping="WrapWholeWords" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Name}" FontSize="12" TextWrapping="WrapWholeWords" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="Statistik.Mannschaft" />
                 </StackPanel>
                 <ItemsControl Grid.Column="2" ItemsSource="{Binding Form}" Width="{Binding FormBreite}"
                               ItemTemplate="{StaticResource FormKaestchenTemplate}" ItemsPanel="{StaticResource ZellenReihe}"
@@ -85,7 +89,9 @@
              Mannschaft (Verbände) bleiben ohne Aktion. -->
         <DataTemplate x:Key="RanglistenZeileTemplate" x:DataType="vm:StatistikZeile">
             <views:KlickFlaeche ZeigerHintergrund="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                Tapped="RanglistenZeile_Tapped"
+                                Ausgeloest="RanglistenZeile_Ausgeloest"
+                                AutomationProperties.AutomationId="Statistik.Zeile"
+                                AutomationProperties.Name="{Binding Name}"
                                 views:MannschaftsKontextmenue.MannschaftId="{Binding Mannschaft.Id}">
                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ZeilenTemplate}"
                                 HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch" IsTabStop="False" />

@@ -4,6 +4,7 @@ using Fussballturnierverwaltung.WinUi.Ribbon;
 using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using System.ComponentModel;
 
@@ -130,12 +131,14 @@ public sealed partial class MainWindow : Window
                 IsChecked = istAktiv, Command = aktion.Befehl
             };
             toggleButton.Click += (_, _) => Ablaufprotokoll.Bedienung(aktion.Header);
+            KennungSetzen(toggleButton, aktion.AutomationId);
             if (aktion.IconGlyph is not null)
                 toggleButton.Icon = new FontIcon { Glyph = aktion.IconGlyph };
             return toggleButton;
         }
 
         var button = new AppBarButton { Label = aktion.Header, Width = BreiteFuerLabel(aktion.Header) };
+        KennungSetzen(button, aktion.AutomationId);
         if (aktion.IconGlyph is not null)
             button.Icon = new FontIcon { Glyph = aktion.IconGlyph };
 
@@ -157,6 +160,12 @@ public sealed partial class MainWindow : Window
     /// <summary>Flyout für <see cref="RibbonAktion.Unteraktionen"/> — jeder Menüpunkt führt sofort seinen
     /// Befehl aus und schließt das Flyout (Standardverhalten von <see cref="MenuFlyoutItem"/>), anders als
     /// <see cref="ToggleFlyoutErstellen"/>, das offen bleibt, solange mehrere Umschalter gesetzt werden.</summary>
+    private static void KennungSetzen(DependencyObject element, string? automationId)
+    {
+        if (automationId is not null)
+            AutomationProperties.SetAutomationId(element, automationId);
+    }
+
     private static MenuFlyout AktionsFlyoutErstellen(IReadOnlyList<RibbonUnteraktion> unteraktionen)
     {
         var flyout = new MenuFlyout();
@@ -166,6 +175,7 @@ public sealed partial class MainWindow : Window
                 ? new MenuFlyoutItem { Text = $"{unteraktion.Header} ({sperrHinweis})", IsEnabled = false }
                 : new MenuFlyoutItem { Text = unteraktion.Header, Command = unteraktion.Befehl };
             item.Click += (_, _) => Ablaufprotokoll.Bedienung(unteraktion.Header);
+            KennungSetzen(item, unteraktion.AutomationId);
             if (unteraktion.IconGlyph is not null)
                 item.Icon = new FontIcon { Glyph = unteraktion.IconGlyph };
             flyout.Items.Add(item);

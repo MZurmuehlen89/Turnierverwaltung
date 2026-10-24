@@ -29,10 +29,10 @@ public sealed partial class AuslosungPage : UserControl
     // Im Code-Behind statt als Befehlsbindung je Zelle (#428): die Zellen sind KlickFlaechen ohne Command, und
     // eine ElementName-Bindung auf die Seite je Zelle entfällt.
 
-    private void MatrixZelle_Tapped(object sender, TappedRoutedEventArgs e) =>
+    private void MatrixZelle_Ausgeloest(object? sender, KlickFlaecheAusgeloestEventArgs e) =>
         ViewModel?.Ergebnis.GegnerMatrix.TeamFokussierenCommand.Execute((sender as FrameworkElement)?.DataContext as GegnerMatrixZelle);
 
-    private void MatrixTeam_Tapped(object sender, TappedRoutedEventArgs e) =>
+    private void MatrixTeam_Ausgeloest(object? sender, KlickFlaecheAusgeloestEventArgs e) =>
         ViewModel?.Ergebnis.GegnerMatrix.TeamFokussierenCommand.Execute(((sender as FrameworkElement)?.DataContext as GegnerMatrixZeile)?.Team);
 
     // Quelle des laufenden Drags (Precedent: Wpf AuslosungView-Feld _pendingDrag) — die tatsächlichen

@@ -1,7 +1,6 @@
 using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
 
 namespace Fussballturnierverwaltung.WinUi.Views;
 
@@ -15,17 +14,17 @@ public sealed partial class HandZiehungAnzeige : UserControl
         InitializeComponent();
     }
 
-    private void Team_Tapped(object sender, TappedRoutedEventArgs e) =>
+    private void Team_Ausgeloest(object? sender, KlickFlaecheAusgeloestEventArgs e) =>
         Waehlen(((sender as FrameworkElement)?.DataContext as HandZiehungTeam)?.Wahl, e);
 
     // Ein Platz liegt in seiner Gruppe — ein gewählter Platz soll die Gruppe nicht mitwählen.
-    private void Platz_Tapped(object sender, TappedRoutedEventArgs e) =>
+    private void Platz_Ausgeloest(object? sender, KlickFlaecheAusgeloestEventArgs e) =>
         Waehlen(((sender as FrameworkElement)?.DataContext as HandZiehungPlatz)?.Wahl, e);
 
-    private void Gruppe_Tapped(object sender, TappedRoutedEventArgs e) =>
+    private void Gruppe_Ausgeloest(object? sender, KlickFlaecheAusgeloestEventArgs e) =>
         Waehlen(((sender as FrameworkElement)?.DataContext as HandZiehungGruppe)?.Wahl, e);
 
-    private static void Waehlen(HandZiehungWahl? wahl, TappedRoutedEventArgs e)
+    private static void Waehlen(HandZiehungWahl? wahl, KlickFlaecheAusgeloestEventArgs e)
     {
         if (wahl is not { IstWaehlbar: true }) return;
         e.Handled = true;
