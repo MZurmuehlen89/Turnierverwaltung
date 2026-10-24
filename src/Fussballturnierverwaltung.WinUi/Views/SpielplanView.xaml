@@ -140,6 +140,7 @@
                                 <Button Content="&#x2039;" Command="{Binding Fokus.VorigerSpieltagBefehl}" FontSize="16" Padding="10,0,10,2"
                                         ToolTipService.ToolTip="Voriger Spieltag" />
                                 <ComboBox ItemsSource="{Binding Fokus.Optionen}" DisplayMemberPath="Anzeige"
+                                          AutomationProperties.AutomationId="Spielplan.Spieltag"
                                           SelectedItem="{Binding Fokus.AusgewaehlteOption, Mode=TwoWay}"
                                           MinWidth="150" FontWeight="SemiBold" />
                                 <Button Content="&#x203A;" Command="{Binding Fokus.NaechsterSpieltagBefehl}" FontSize="16" Padding="10,0,10,2"

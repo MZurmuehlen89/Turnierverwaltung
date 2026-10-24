@@ -240,7 +240,7 @@
 
         <!-- ── Auswertungen ── -->
         <Border Grid.Column="0" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
-            <ListView x:Name="AuswertungsListe"
+            <ListView x:Name="AuswertungsListe" AutomationProperties.AutomationId="Statistik.Auswertungen"
                       ItemsSource="{Binding Auswertungen}"
                       SelectedItem="{Binding AusgewaehlteAuswertung, Mode=TwoWay}"
                       ItemTemplate="{StaticResource AuswertungTemplate}"
