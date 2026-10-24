@@ -17,7 +17,7 @@ public sealed class Hauptfenster(Window fenster)
 
     /// <summary>Titel der aktuellen Seite – als Name der Befehlsleiste, weil der sichtbare Titel auf Seiten ohne
     /// Ribbon-Bereich ausgeblendet ist und dann im UIA-Baum fehlt.</summary>
-    public string Seitentitel => Befehlsleiste.Name;
+    public string Seitentitel => Befehlsleiste.NameOrEmpty();
 
     public string Ladezustand => Befehlsleiste.ItemStatus();
 
@@ -31,6 +31,18 @@ public sealed class Hauptfenster(Window fenster)
         WarteBisGeladen(bereich.Titel);
     }
 
+    public TurnierlisteSeite TurniereOeffnen()
+    {
+        Oeffnen(Bereich.Turniere);
+        return new TurnierlisteSeite(fenster, this);
+    }
+
+    public TurnierdurchfuehrungSeite TurnierdurchfuehrungOeffnen()
+    {
+        Oeffnen(Bereich.Turnierdurchfuehrung);
+        return new TurnierdurchfuehrungSeite(fenster, this);
+    }
+
     /// <summary>Geladen heißt: Der erwartete Seitentitel steht da und kein Vorgang läuft mehr – und zwar für eine
     /// kurze Ruhezeit am Stück.</summary>
     public void WarteBisGeladen(string seitentitel) =>
@@ -39,4 +51,8 @@ public sealed class Hauptfenster(Window fenster)
             _ruhezeit,
             _ladezeit,
             $"Seite '{seitentitel}' geladen (Seitentitel und Ladezustand '{BEREIT}')");
+
+    /// <summary>Wartet, bis nach einer Aktion innerhalb einer Seite kein Vorgang mehr läuft.</summary>
+    public void WarteBisRuhig() =>
+        Wait.UntilStable(() => Ladezustand == BEREIT, _ruhezeit, _ladezeit, $"Ladezustand '{BEREIT}'");
 }
