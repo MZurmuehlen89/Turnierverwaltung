@@ -13,7 +13,7 @@ public sealed class Dialog
     private Dialog(AutomationElement element) => Element = element;
 
     public AutomationElement Element { get; }
-    public string Title => Element.Name;
+    public string Title => Element.NameOrEmpty();
 
     public static IReadOnlyList<Dialog> FindOpen(Window window) =>
         [.. window

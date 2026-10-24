@@ -54,6 +54,28 @@ public class WaitTests
     }
 
     [Fact]
+    public void UntilHasValue_LiefertDenErstenVorhandenenWert()
+    {
+        int versuche = 0;
+
+        var ergebnis = Wait.UntilHasValue(() => ++versuche < 2 ? null : (int?)(versuche * 10), TimeSpan.FromSeconds(5), "Zahl");
+
+        ergebnis.Should().Be(20);
+    }
+
+    [Fact]
+    public void Within_ErfuellteBedingung_LiefertTrue()
+    {
+        Wait.Within(() => true, _kurz).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Within_Zeitueberschreitung_LiefertFalseStattZuWerfen()
+    {
+        Wait.Within(() => false, _kurz).Should().BeFalse();
+    }
+
+    [Fact]
     public void UntilStable_BedingungHaeltLangGenug_KehrtZurueck()
     {
         var dauer = Stopwatch.StartNew();

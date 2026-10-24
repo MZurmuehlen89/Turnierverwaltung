@@ -28,9 +28,30 @@ public static class Wait
         }
     }
 
+    /// <summary>Like <see cref="UntilFound{T}"/> for value types: returns the first result that has a value.</summary>
+    public static T UntilHasValue<T>(Func<T?> probe, TimeSpan timeout, string description) where T : struct =>
+        UntilFound(() => probe() is { } value ? new Box<T>(value) : null, timeout, description).Value;
+
+    private sealed record Box<T>(T Value);
+
     /// <summary>Waits until <paramref name="condition"/> is true.</summary>
     public static void Until(Func<bool> condition, TimeSpan timeout, string description) =>
         UntilFound(() => condition() ? _fulfilled : null, timeout, description);
+
+    /// <summary>Like <see cref="Until"/>, but reports a timeout as <c>false</c> — for checks where "nothing
+    /// happened" is a normal outcome, e.g. a click the application ignores.</summary>
+    public static bool Within(Func<bool> condition, TimeSpan timeout)
+    {
+        try
+        {
+            Until(condition, timeout, "condition");
+            return true;
+        }
+        catch (WaitTimeoutException)
+        {
+            return false;
+        }
+    }
 
     /// <summary>Waits until <paramref name="condition"/> has been true without interruption for
     /// <paramref name="stableFor"/> — for states that flicker, e.g. a busy flag between two loading steps.</summary>

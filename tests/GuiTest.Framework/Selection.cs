@@ -15,7 +15,7 @@ public static class Selection
         try
         {
             var item = Wait.UntilFound(
-                () => comboBox.Items.FirstOrDefault(i => ItemMatcher.Matches(i.Name, DisplayedTexts(i), texts)),
+                () => comboBox.Items.FirstOrDefault(i => ItemMatcher.Matches(i.NameOrEmpty(), DisplayedTexts(i), texts)),
                 Wait.DefaultTimeout,
                 $"combo box entry '{string.Join(" | ", texts)}'");
             item.Select();
@@ -32,39 +32,57 @@ public static class Selection
 
     /// <summary>Opens the flyout of <paramref name="openerId"/> (a button with a menu) and invokes the menu item
     /// <paramref name="itemId"/>. Menu flyouts live in a popup directly below the window, so the item is searched
-    /// from the window, not from the button.</summary>
+    /// from the window, not from the button. A flyout that is still closing swallows the next opening, so this
+    /// waits until no menu is open and opens again as long as the item does not show up.</summary>
     public static void InvokeMenuItem(this Window window, string openerId, string itemId)
     {
-        window.FindById(openerId).Activate();
-        window.FindById(itemId).Activate();
+        Wait.Until(() => !IsMenuOpen(window), Wait.DefaultTimeout, "previous menu flyout closed");
+        var item = Wait.UntilFound(
+            () =>
+            {
+                var found = window.TryFindById(itemId);
+                if (found is null && !IsMenuOpen(window))
+                    window.FindById(openerId).Activate();
+                return found;
+            },
+            Wait.DefaultTimeout,
+            $"menu item '{itemId}' of '{openerId}'");
+        item.Activate();
     }
 
-    /// <summary>All entries of a list, including those a virtualizing list has not created yet: the ItemContainer
-    /// pattern enumerates every item, and each one is realized before it is returned.</summary>
-    public static IReadOnlyList<AutomationElement> AllItems(this AutomationElement list)
+    private static bool IsMenuOpen(Window window) =>
+        window.FindFirstDescendant(cf => cf.ByClassName("MenuFlyout")) is not null;
+
+    /// <summary>Reads every entry of a list, including those a virtualizing list has not created yet: the
+    /// ItemContainer pattern enumerates every item, each one is realized and read right away — realizing later
+    /// items lets the list recycle earlier ones, whose elements then become invalid. Entries for which
+    /// <paramref name="read"/> returns null are skipped.</summary>
+    public static IReadOnlyList<T> ReadAllItems<T>(this AutomationElement list, Func<AutomationElement, T?> read)
+        where T : class
     {
         if (!list.Patterns.ItemContainer.TryGetPattern(out var container))
-            return list.FindAllChildren(cf => cf.ByControlType(ControlType.ListItem));
+            return [.. list.FindAllChildren(cf => cf.ByControlType(ControlType.ListItem)).Select(read).OfType<T>()];
 
-        var items = new List<AutomationElement>();
+        var results = new List<T>();
         for (var item = container.FindItemByProperty(null, null, null);
              item is not null;
              item = container.FindItemByProperty(item, null, null))
         {
             if (item.Patterns.VirtualizedItem.TryGetPattern(out var virtualized))
                 virtualized.Realize();
-            items.Add(item);
+            if (read(item) is { } result)
+                results.Add(result);
         }
-        return items;
+        return results;
     }
 
     /// <summary>The texts an element displays, in tree order.</summary>
     public static IReadOnlyList<string> DisplayedTexts(this AutomationElement element) =>
-        [.. element.FindAllDescendants(cf => cf.ByControlType(ControlType.Text)).Select(t => t.Name)];
+        [.. element.FindAllDescendants(cf => cf.ByControlType(ControlType.Text)).Select(t => t.NameOrEmpty())];
 
     /// <summary>The name of the first descendant with <paramref name="automationId"/>, empty if there is none.</summary>
     public static string TextOf(this AutomationElement element, string automationId) =>
-        element.TryFindById(automationId)?.Name ?? string.Empty;
+        element.TryFindById(automationId)?.NameOrEmpty() ?? string.Empty;
 
     /// <summary>All descendants with <paramref name="automationId"/>, in tree order — e.g. the rows of a table.</summary>
     public static IReadOnlyList<AutomationElement> FindAllById(this AutomationElement root, string automationId) =>

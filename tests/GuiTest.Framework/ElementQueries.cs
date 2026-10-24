@@ -26,15 +26,24 @@ public static class ElementQueries
             $"{controlType} named '{name}'");
 
     /// <summary>Triggers the element's primary action through its UIA pattern (no mouse movement): invoke,
-    /// select or toggle, in this order. Falls back to a mouse click for elements without such a pattern.</summary>
+    /// select or toggle, in this order. Falls back to a mouse click for elements without such a pattern. Waits until
+    /// the element is enabled first: buttons bound to commands are briefly disabled while their CanExecute is being
+    /// re-evaluated, and invoking a disabled element fails (ElementNotEnabledException, seen in #522).</summary>
     public static void Activate(this AutomationElement element)
     {
+        Wait.Until(() => element.IsEnabled, Wait.DefaultTimeout, $"'{element.NameOrEmpty()}' enabled");
         var patterns = element.Patterns;
         if (patterns.Invoke.TryGetPattern(out var invoke)) invoke.Invoke();
         else if (patterns.SelectionItem.TryGetPattern(out var selection)) selection.Select();
         else if (patterns.Toggle.TryGetPattern(out var toggle)) toggle.Toggle();
         else element.Click();
     }
+
+    /// <summary>The element's UIA name, empty if it has none. Prefer this over <c>Name</c>: an element showing an
+    /// empty text (a WinUI <c>TextBlock</c> with <c>Text=""</c>) reports its name as not supported, and <c>Name</c>
+    /// throws (verified #522).</summary>
+    public static string NameOrEmpty(this AutomationElement element) =>
+        element.Properties.Name.ValueOrDefault ?? string.Empty;
 
     /// <summary>The UIA ItemStatus property, which applications can use to publish state for tests and screen
     /// readers (e.g. busy/ready).</summary>
