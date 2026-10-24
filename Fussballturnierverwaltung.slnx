@@ -10,5 +10,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Fussballturnierverwaltung.Tests/Fussballturnierverwaltung.Tests.csproj" />
+    <Project Path="tests/GuiTest.Framework/GuiTest.Framework.csproj" />
+    <Project Path="tests/GuiTest.Framework.Tests/GuiTest.Framework.Tests.csproj" />
   </Folder>
 </Solution>
