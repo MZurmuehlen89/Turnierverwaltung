@@ -2,6 +2,7 @@ using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Repositories;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -21,7 +22,7 @@ internal sealed class SpielplanDienste
         var uebergangsregelRepo = new UebergangsregelRepository(ctx);
         var tabellen  = new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx), new RanglisteRepository(ctx));
         var generatoren = new SpielplanGeneratorFactory(
-            [new KoRundeGenerator(), new RoundRobinGenerator(), new TopfLigaGenerator(), new SchweizerSystemGenerator()]);
+            [new KoRundeGenerator(), new RoundRobinGenerator(), new TopfLigaGenerator(new Zufallsquelle()), new SchweizerSystemGenerator()]);
 
         Quellverknuepfung = new KoQuellverknuepfung(rundeRepo, spielRepo, NullLogger<KoQuellverknuepfung>.Instance);
         var zwischenspeicher = new TabellenZwischenspeicher(tabellen, spielRepo);

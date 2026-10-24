@@ -6,6 +6,7 @@ using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -43,6 +44,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private readonly TurnierBaumService _baumService;
     private readonly AuslosungsTeilnehmerpool _teilnehmerpool;
     private readonly IDialogService _dialogService;
+    private readonly Zufallsquelle _zufallsquelle;
     private readonly ILogger<AuslosungViewModel> _logger;
 
     private TurnierInstanz? _instanz;
@@ -325,6 +327,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         LandesQuoteService landesQuoteService,
         AuslosungsTeilnehmerpool teilnehmerpool,
         IDialogService dialogService,
+        Zufallsquelle zufallsquelle,
         ILogger<AuslosungViewModel> logger)
     {
         _auslosungService = auslosungService;
@@ -334,6 +337,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _baumService = baumService;
         _teilnehmerpool = teilnehmerpool;
         _dialogService = dialogService;
+        _zufallsquelle = zufallsquelle;
         _logger = logger;
         Arbeitsbereich = new LostopfArbeitsbereichViewModel(this, auslosungService, ranglisteService, instanzService, dialogService);
         _regeln = new AuslosungsRegelnViewModel(auslosungService, () => DbContextSchutz, meldung => Fehlermeldung = meldung);
@@ -618,7 +622,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private ZiehungsVorlage ZiehungsVorlageAus(Auslosung detail) =>
         Ergebnis.IstGegnerMatrixergebnis
             ? new(GegnerMatrixBuilder.Aufbauen(detail, _qualifikanten), null)
-            : new(null, ZiehungsReihenfolge.Aufbauen(detail.Lostoepfe, detail.Ergebnisse, Random.Shared));
+            : new(null, ZiehungsReihenfolge.Aufbauen(detail.Lostoepfe, detail.Ergebnisse, _zufallsquelle.Erzeugen()));
 
     private async Task TurnierbaumUndSeitenlisteAktualisierenAsync(int turnierInstanzId)
     {
@@ -630,7 +634,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private async Task ZiehungZeigenAsync(ZiehungsVorlage vorlage, bool manuell)
     {
         if (vorlage.Matrizen is not null)
-            await new LigaphasenZiehungsAblauf(Ziehung, vorlage.Matrizen).AbspielenAsync(manuell);
+            await new LigaphasenZiehungsAblauf(Ziehung, vorlage.Matrizen, _zufallsquelle.Erzeugen()).AbspielenAsync(manuell);
         else if (vorlage.Schritte is not null)
             await new GruppenKoZiehungsAblauf(Ziehung, vorlage.Schritte, Arbeitsbereich.Lostoepfe, _qualifikanten)
                 .AbspielenAsync(manuell);

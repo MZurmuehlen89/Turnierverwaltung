@@ -1,4 +1,5 @@
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
+using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Spielplan;
@@ -9,7 +10,7 @@ namespace Fussballturnierverwaltung.Application.Spielplan;
 /// <see cref="SpieltagZerlegung"/> exakt auf so viele Spieltage verteilt, wie jedes Team Spiele hat
 /// (UCL: 8 Spieltage à 18 Spiele), inkl. ausgeglichenem Heim-/Auswärtsrhythmus (Issue #347).
 /// </summary>
-public class TopfLigaGenerator : ISpielplanGenerator
+public class TopfLigaGenerator(Zufallsquelle zufallsquelle) : ISpielplanGenerator
 {
     public IReadOnlyList<Rundenart> UnterstützteRundenarten => [Rundenart.TopfLiga];
 
@@ -23,7 +24,7 @@ public class TopfLigaGenerator : ISpielplanGenerator
         if (!paarungen.Any())
             throw new InvalidOperationException("Keine Paarungen vorhanden.");
 
-        var spieltagJePaarung = SpieltagZerlegung.Zerlegen(paarungen, Random.Shared)
+        var spieltagJePaarung = SpieltagZerlegung.Zerlegen(paarungen, zufallsquelle.Erzeugen())
             ?? throw new InvalidOperationException(
                 "Die ausgelosten Paarungen lassen sich nicht konfliktfrei auf die Spieltage verteilen. " +
                 "Bitte Auslosung wiederholen.");

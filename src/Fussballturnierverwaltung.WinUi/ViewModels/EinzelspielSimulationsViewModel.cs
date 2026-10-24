@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -35,6 +36,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     private readonly MannschaftService  _mannschaftService;
     private readonly RegelwerkService   _regelwerkService;
     private readonly VerbandService     _verbandService;
+    private readonly Zufallsquelle      _zufallsquelle;
 
     [ObservableProperty] private ObservableCollection<Mannschaft> _alleMannschaften = [];
     [ObservableProperty] private ObservableCollection<Regelwerk>  _alleRegelwerke   = [];
@@ -232,12 +234,14 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         SimulationsService simulationsService,
         MannschaftService  mannschaftService,
         RegelwerkService   regelwerkService,
-        VerbandService     verbandService)
+        VerbandService     verbandService,
+        Zufallsquelle      zufallsquelle)
     {
         _simulationsService = simulationsService;
         _mannschaftService  = mannschaftService;
         _regelwerkService    = regelwerkService;
         _verbandService      = verbandService;
+        _zufallsquelle       = zufallsquelle;
 
         EinzelspielFreiBefehl      = new AsyncRelayCommand(EinzelspielFreiSimulierenAsync, () => EinzelspielKannSimuliert && !EinzelspielMitRueckspiel);
         HinspielSimulierenBefehl   = new AsyncRelayCommand(HinspielSimulierenAsync, () => EinzelspielKannSimuliert);
@@ -457,7 +461,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
         try
         {
-            var rng = new Random();
+            var rng = _zufallsquelle.Erzeugen();
 #pragma warning disable S2234 // Rückspiel: Heim und Auswärts bewusst getauscht
             var erg2 = _simulationsService.EinzelspielSimulieren(auswaerts, heim, [], SimulationsModus.AusfuehrlicheSimulation, rng);
 

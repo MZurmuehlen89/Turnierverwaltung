@@ -5,6 +5,7 @@ using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
@@ -41,7 +42,7 @@ public class SimulationsServiceHinRueckspielTests
             NullLogger<TurnierBaumService>.Instance);
         return new SimulationsService(
             spielRepo, instanzRepo, ergebnisService, baumService,
-            new SimulationsLaufRepository(ctx), NullLogger<SimulationsService>.Instance);
+            new SimulationsLaufRepository(ctx), new Zufallsquelle(), NullLogger<SimulationsService>.Instance);
     }
 
     /// <summary>K.-o.-Runde mit Rückspiel und Elfmeterschießen als einzigem Entscheidungsverfahren;

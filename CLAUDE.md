@@ -125,6 +125,8 @@ includes `suggestion` findings, `-Regel S3776,S138` lists the locations.
 
 **`SimulationsEngine`** is stateless (pure static methods). It uses the Knuth algorithm for Poisson draws. Pass a seeded `Random` instance for reproducible results. The seed is recorded in `SimulationsLauf.ZufallsSeed`.
 
+**`Zufallsquelle`** (Application/Zufall, singleton) is the only source of randomness for draws, fixtures and simulation (#519): get a `Random` per operation via `Erzeugen()`, never use `Random.Shared` or `new Random()` directly (exception: `GruppenZiehung`'s deliberately fixed `new Random(0)`). The configuration value `Zufall:Seed` (environment variable `Zufall__Seed`) fixes the seed for GUI tests — every operation then starts with the same sequence; the app logs a warning at startup when it is set.
+
 **`TurnierBaumKnoten`** has circular self-references — deleting/saving trees needs a multi-phase save; see `src/Fussballturnierverwaltung.Infrastructure/CLAUDE.md`.
 
 ## Testing

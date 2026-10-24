@@ -9,7 +9,8 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// Zellen bei den Gegnern (Heim gegen X ⇒ bei X "Auswärts"), sodass später gezogene Teams bereits vorbelegte Zellen
 /// haben. Während eines Topfs ist nur dessen Matrix sichtbar; nach jedem Topf (außer dem letzten) folgt einmal die
 /// Übersicht aller Matrizen.</summary>
-internal sealed class LigaphasenZiehungsAblauf(ZiehungViewModel anzeige, ObservableCollection<GegnerMatrixTopf> matrizen)
+internal sealed class LigaphasenZiehungsAblauf(
+    ZiehungViewModel anzeige, ObservableCollection<GegnerMatrixTopf> matrizen, Random zufall)
 {
     /// <summary>Zeile je Team-Schlüssel, um die gespiegelte Zelle beim Gegner zu finden.</summary>
     private readonly Dictionary<string, GegnerMatrixZeile> _zeileJeTeam = matrizen
@@ -62,7 +63,7 @@ internal sealed class LigaphasenZiehungsAblauf(ZiehungViewModel anzeige, Observa
         anzeige.AnimationFokusKopf       = TopfKopf(matrix, matrix.Zeilen.Count);
 
         int nochImTopf = matrix.Zeilen.Count;
-        foreach (var zeile in matrix.Zeilen.OrderBy(_ => Random.Shared.Next()).ToList())
+        foreach (var zeile in matrix.Zeilen.OrderBy(_ => zufall.Next()).ToList())
         {
             anzeige.AnimationSchrittIndex++;
             nochImTopf--;

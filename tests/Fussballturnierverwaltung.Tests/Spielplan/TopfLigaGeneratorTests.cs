@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Spielplan;
+using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -8,7 +9,7 @@ namespace Fussballturnierverwaltung.Tests.Spielplan;
 
 public class TopfLigaGeneratorTests
 {
-    private readonly TopfLigaGenerator _generator = new();
+    private readonly TopfLigaGenerator _generator = new(new Zufallsquelle());
 
     private static TurnierRunde TestRunde() =>
         new() { Id = 1, TurnierInstanzId = 1, Name = "Ligaphase", Rundenart = Rundenart.TopfLiga };

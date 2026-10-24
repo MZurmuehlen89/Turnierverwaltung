@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -21,7 +22,7 @@ public class AuslosungServiceLostopfTests
     {
         _service = new AuslosungService(
             _repo, new FakeVerbandsQuoteRepository(), new FakeLandesQuoteRepository(), new FakeTurnierRundeRepository(),
-            new AuslosungsValidator(), _kaskade, new FakeRanglisteRepository(), NullLogger<AuslosungService>.Instance);
+            new AuslosungsValidator(), _kaskade, new FakeRanglisteRepository(), new Zufallsquelle(), NullLogger<AuslosungService>.Instance);
 
         // Topf 1: Mannschaften 1 und 2, Topf 2: Mannschaften 3 und 4
         _auslosung = NeueAuslosung(Rundenart.KoRunde, Auslosungsart.NachToepfen, [TopfMitTeams(1, 1, 2), TopfMitTeams(2, 3, 2)]);

@@ -12,6 +12,7 @@ using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Infrastructure.Erweiterungen;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Wartung;
@@ -19,6 +20,7 @@ using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.ViewModels;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.UI.Xaml;
@@ -79,6 +81,9 @@ public partial class App : global::Microsoft.UI.Xaml.Application
                 retainedFileCountLimit: 7,
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}"));
         builder.Services.AddInfrastruktur(builder.Configuration);
+
+        // Fester Seed nur für GUI-Tests (#519, #494), sonst bleibt Zufall wie bisher
+        var zufallsquelle = new Zufallsquelle(builder.Configuration.GetValue<int?>("Zufall:Seed"));
 
         // Validatoren & Services (Mannschaften, #281; Länder & Verbände, #282; Regelwerke, #283;
         // Turniere/Vorlagen vereinheitlicht, #297)
@@ -173,12 +178,15 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         // disposed und ein Scoped-Service die Auswahl beim Menüwechsel sofort verlieren würde.
         builder.Services.AddSingleton<AusgewaehlteTurnierInstanzService>();
         builder.Services.AddSingleton<EinstellungenService>();
+        builder.Services.AddSingleton(zufallsquelle);
         builder.Services.AddSingleton<ThemeService>();
         builder.Services.AddSingleton<IDialogService, DialogService>();
         builder.Services.AddSingleton<INavigationService, NavigationService>();
         builder.Services.AddSingleton<MainViewModel>();
 
         _host = builder.Build();
+        if (zufallsquelle.FesterSeed is { } seed)
+            Log.Warning("Fester Zufalls-Seed {Seed} aktiv (Zufall:Seed): Auslosungen und Simulationen wiederholen sich.", seed);
         _host.Services.GetRequiredService<DbZugriffsDiagnose>().KollisionenUeberwachen();
 
         if (!await DatenbankVorbereitenAsync()) return;

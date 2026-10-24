@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -22,7 +23,7 @@ public class AuslosungServiceGruppenkoepfeTests
         _service = new AuslosungService(
             _repo, new FakeVerbandsQuoteRepository(), new FakeLandesQuoteRepository(), new FakeTurnierRundeRepository(),
             new AuslosungsValidator(), new FakePlatzhalterKaskadeService(), new FakeRanglisteRepository(),
-            NullLogger<AuslosungService>.Instance);
+            new Zufallsquelle(), NullLogger<AuslosungService>.Instance);
         _repo.Kandidaten = new GruppenkopfKandidaten([GASTGEBER], null, new Dictionary<int, string> { [GASTGEBER] = "Luxemburg" });
     }
 

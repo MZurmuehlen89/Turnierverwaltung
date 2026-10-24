@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -54,7 +55,7 @@ public class AuslosungServiceVerbandsQuoteTests
 
         var service = new AuslosungService(
             auslosungRepo, verbandsQuoteRepo, new FakeLandesQuoteRepository(), rundeRepo, new AuslosungsValidator(),
-            new FakePlatzhalterKaskadeService(), new FakeRanglisteRepository(), NullLogger<AuslosungService>.Instance);
+            new FakePlatzhalterKaskadeService(), new FakeRanglisteRepository(), new Zufallsquelle(), NullLogger<AuslosungService>.Instance);
 
         return (service, auslosungRepo, auslosung);
     }

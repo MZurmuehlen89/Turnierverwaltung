@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -27,7 +28,7 @@ public class KonfoederationsverteilungTests
     {
         _service = new AuslosungService(
             _repo, new FakeVerbandsQuoteRepository(), new FakeLandesQuoteRepository(), _runden, new AuslosungsValidator(),
-            new FakePlatzhalterKaskadeService(), new FakeRanglisteRepository(), NullLogger<AuslosungService>.Instance);
+            new FakePlatzhalterKaskadeService(), new FakeRanglisteRepository(), new Zufallsquelle(), NullLogger<AuslosungService>.Instance);
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────

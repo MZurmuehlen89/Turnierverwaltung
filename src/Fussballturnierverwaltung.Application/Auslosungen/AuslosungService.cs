@@ -2,6 +2,7 @@
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -26,6 +27,7 @@ public class AuslosungService(
     AuslosungsValidator validator,
     IPlatzhalterKaskadeService platzhalterKaskadeService,
     IRanglisteRepository ranglisteRepository,
+    Zufallsquelle zufallsquelle,
     ILogger<AuslosungService> logger)
 {
     public Task<IReadOnlyList<Auslosung>> AlleNachInstanzAbrufenAsync(int turnierInstanzId, CancellationToken ct = default)
@@ -189,7 +191,7 @@ public class AuslosungService(
 
         var (regeln, gruppeJeMannschaft, gruppenkoepfe) = await VorbereitenAsync(auslosung, ct);
         var ergebnisse = Losverfahren.Ausloesen(
-            auslosung, regeln, gruppeJeMannschaft, Random.Shared, qualifikanten, gruppenkoepfe);
+            auslosung, regeln, gruppeJeMannschaft, zufallsquelle.Erzeugen(), qualifikanten, gruppenkoepfe);
         await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);
 
         logger.LogInformation("Auslosung '{Name}' durchgeführt: {Anzahl} Paarungen.", auslosung.Name, ergebnisse.Count);

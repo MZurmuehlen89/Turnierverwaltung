@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -27,7 +28,7 @@ public class AuslosungAlgorithmusTests
         _kaskade = new FakePlatzhalterKaskadeService();
         _service = new AuslosungService(
             _repo, new FakeVerbandsQuoteRepository(), new FakeLandesQuoteRepository(), new FakeTurnierRundeRepository(), new AuslosungsValidator(),
-            _kaskade, new FakeRanglisteRepository(), NullLogger<AuslosungService>.Instance);
+            _kaskade, new FakeRanglisteRepository(), new Zufallsquelle(), NullLogger<AuslosungService>.Instance);
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────

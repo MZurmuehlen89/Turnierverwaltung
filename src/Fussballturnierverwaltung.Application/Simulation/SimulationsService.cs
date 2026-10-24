@@ -3,6 +3,7 @@ using Fussballturnierverwaltung.Application.Spiele.Eingaben;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Simulation;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
@@ -18,6 +19,7 @@ public class SimulationsService(
     SpielErgebnisService ergebnisService,
     TurnierBaumService turnierBaumService,
     ISimulationsLaufRepository laufRepository,
+    Zufallsquelle zufallsquelle,
     ILogger<SimulationsService> logger)
 {
     public Task<IReadOnlyList<SimulationsLauf>> LaeufeAbrufenAsync(
@@ -33,7 +35,7 @@ public class SimulationsService(
         SimulationsModus modus,
         Random? rng = null)
     {
-        rng ??= new Random();
+        rng ??= zufallsquelle.Erzeugen();
         bool ausfuehrlich = modus == SimulationsModus.AusfuehrlicheSimulation;
         var ergebnis = SimulationsEngine.Simulieren(heim, auswaerts, verfahren, ausfuehrlich, rng);
         logger.LogDebug("Einzelspiel: {Heim} {H}:{G} {Gast}",
@@ -51,7 +53,7 @@ public class SimulationsService(
         CancellationToken ct = default,
         bool ueberschreiben = false)
     {
-        var ergebnis = await SimulierenUndSpeichernAsync(spielId, rng ?? new Random(), ct, ueberschreiben);
+        var ergebnis = await SimulierenUndSpeichernAsync(spielId, rng ?? zufallsquelle.Erzeugen(), ct, ueberschreiben);
 
         // Issue #90: Vorwärts-Auflösung der Folgerunden-Platzhalter — hier für das eine Spiel, bei
         // Massensimulationen einmal je Block (siehe MehrereSimulierenAsync).
@@ -187,7 +189,7 @@ public class SimulationsService(
         int? seed = null,
         CancellationToken ct = default)
     {
-        var rng = seed.HasValue ? new Random(seed.Value) : new Random();
+        var rng = new Random(seed ?? zufallsquelle.SeedZiehen());
 
         // Issue #346: Hinspiele vor Rückspielen — ein K.-o.-Rückspiel braucht das Hinspiel-Ergebnis.
         var offene = new List<Spiel>();
@@ -227,7 +229,7 @@ public class SimulationsService(
 
         if (!offene.Any()) return 0;
 
-        var rng = seed.HasValue ? new Random(seed.Value) : new Random();
+        var rng = new Random(seed ?? zufallsquelle.SeedZiehen());
         int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
 
         logger.LogInformation("Spieltag {Tag} (Runde {Id}): {Anz} Spiel(e) simuliert.",
@@ -257,7 +259,7 @@ public class SimulationsService(
 
         if (!offene.Any()) return 0;
 
-        var rng = seed.HasValue ? new Random(seed.Value) : new Random();
+        var rng = new Random(seed ?? zufallsquelle.SeedZiehen());
         int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
 
         logger.LogInformation("Gruppe (Runde {Id}): {Anz} Spiel(e) simuliert.", turnierRundeId, simuliert);
@@ -287,7 +289,7 @@ public class SimulationsService(
 
         if (!offene.Any()) return 0;
 
-        var rng = seed.HasValue ? new Random(seed.Value) : new Random();
+        var rng = new Random(seed ?? zufallsquelle.SeedZiehen());
         int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
 
         logger.LogInformation("Spieltag {Tag} (Gruppe, Runde {Id}): {Anz} Spiel(e) simuliert.",
@@ -330,7 +332,7 @@ public class SimulationsService(
             }
         }
 
-        var rng = seed.HasValue ? new Random(seed.Value) : new Random();
+        var rng = new Random(seed ?? zufallsquelle.SeedZiehen());
         int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
 
         logger.LogInformation("{Haelfte} (Runde {Id}): {Anz} Spiel(e) simuliert.",
@@ -358,7 +360,7 @@ public class SimulationsService(
 
         if (!offene.Any()) return 0;
 
-        var rng = seed.HasValue ? new Random(seed.Value) : new Random();
+        var rng = new Random(seed ?? zufallsquelle.SeedZiehen());
         int simuliert = await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
 
         logger.LogInformation("Runde {Id}: {Anz} Spiel(e) simuliert.", turnierRundeId, simuliert);
@@ -378,7 +380,7 @@ public class SimulationsService(
         int? seed = null,
         CancellationToken ct = default)
     {
-        int tatsaecklicherSeed = seed ?? new Random().Next();
+        int tatsaecklicherSeed = seed ?? zufallsquelle.SeedZiehen();
         var rng = new Random(tatsaecklicherSeed);
 
         var lauf = new SimulationsLauf
