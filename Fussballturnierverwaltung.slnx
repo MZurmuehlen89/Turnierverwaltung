@@ -12,5 +12,6 @@
     <Project Path="tests/Fussballturnierverwaltung.Tests/Fussballturnierverwaltung.Tests.csproj" />
     <Project Path="tests/GuiTest.Framework/GuiTest.Framework.csproj" />
     <Project Path="tests/GuiTest.Framework.Tests/GuiTest.Framework.Tests.csproj" />
+    <Project Path="tests/Fussballturnierverwaltung.GuiTests/Fussballturnierverwaltung.GuiTests.csproj" />
   </Folder>
 </Solution>

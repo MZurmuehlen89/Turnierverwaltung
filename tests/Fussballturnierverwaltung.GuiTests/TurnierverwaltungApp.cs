@@ -35,18 +35,20 @@ public sealed class TurnierverwaltungApp : IDisposable
 
     public Hauptfenster Hauptfenster { get; }
 
-    /// <summary>Aus dem Dispose der Testklasse aufzurufen: Ist der Test fehlgeschlagen, hängt es Bildschirmfoto
-    /// und Log-Ende an das Testergebnis und legt das Foto zusätzlich im Lauf-Ordner ab.</summary>
+    /// <summary>Aus dem Dispose der Testklasse aufzurufen: Ist der Test fehlgeschlagen, legt es Bildschirmfoto und
+    /// Log-Ende im Lauf-Ordner ab und hängt beides an das Testergebnis (Anhänge erscheinen nur in Ergebnisdateien).</summary>
     public void BeiFehlschlagBelegeSichern()
     {
         var kontext = TestContext.Current;
         if (kontext.TestState?.Result != TestResult.Failed || _sitzung.HasExited) return;
 
         Directory.CreateDirectory(_belegOrdner);
-        var foto = Path.Combine(_belegOrdner, $"{DateiName(kontext.Test?.TestDisplayName)}.png");
-        _sitzung.CaptureScreenshot(foto);
-        kontext.AddAttachment("Bildschirmfoto", File.ReadAllBytes(foto), "image/png");
-        kontext.AddAttachment("App-Log (Ende)", LogTail.Read(NeuestesLog(), LOG_ZEILEN_BEI_FEHLSCHLAG));
+        var basis = Path.Combine(_belegOrdner, DateiName(kontext.Test?.TestDisplayName));
+        _sitzung.CaptureScreenshot($"{basis}.png");
+        var log = LogTail.Read(NeuestesLog(), LOG_ZEILEN_BEI_FEHLSCHLAG);
+        File.WriteAllText($"{basis}.log.txt", log);
+        kontext.AddAttachment("Bildschirmfoto", File.ReadAllBytes($"{basis}.png"), "image/png");
+        kontext.AddAttachment("App-Log (Ende)", log);
     }
 
     public void Dispose() => _sitzung.Dispose();

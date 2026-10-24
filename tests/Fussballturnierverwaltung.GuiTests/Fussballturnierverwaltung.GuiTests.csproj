@@ -10,6 +10,11 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+    <!-- Nicht im normalen "dotnet test" und Test-Explorer: Unter der Microsoft Testing Platform reicht
+         IsTestProject allein nicht, erst ohne IsTestingPlatformApplication überspringt "dotnet test" das Projekt.
+         Gestartet wird es per "dotnet run" (xunit-eigener Runner) aus dem Startskript -->
+    <IsTestProject>false</IsTestProject>
+    <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
   </PropertyGroup>
 
   <ItemGroup>
@@ -31,6 +36,14 @@
 
   <ItemGroup>
     <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Repo-Wurzel beim Bauen festhalten: die Testausgabe kann außerhalb des Repos liegen (artifacts-Pfad) -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>RepoWurzel</_Parameter1>
+      <_Parameter2>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..'))</_Parameter2>
+    </AssemblyAttribute>
   </ItemGroup>
 
 </Project>

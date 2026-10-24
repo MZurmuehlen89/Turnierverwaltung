@@ -65,6 +65,9 @@ dotnet test
 
 # Tests mit Code Coverage (Ergebnis unter TestResults\)
 dotnet test --project tests/Fussballturnierverwaltung.Tests --coverage --coverage-output-format cobertura
+
+# GUI-Tests (steuern die echte App, eigene Test-DB; Maus und Tastatur währenddessen nicht benutzen)
+pwsh build/GuiTests-Ausfuehren.ps1
 ```
 
 ## Version 1 – Umfang

@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace Fussballturnierverwaltung.GuiTests;
 
 /// <summary>Woher die GUI-Tests App und Datenbankserver nehmen. Standard ist die von
@@ -11,7 +13,11 @@ internal static class GuiTestUmgebung
     /// <summary>Fester Zufalls-Seed der App (#519): Auslosungen und Simulationen sind damit in jedem Lauf gleich.</summary>
     public const string ZUFALLS_SEED = "4711";
 
-    public static string RepoWurzel { get; } = RepoWurzelSuchen();
+    /// <summary>Beim Bauen festgehalten (AssemblyMetadata im csproj), weil die Testausgabe außerhalb des Repos
+    /// liegen kann.</summary>
+    public static string RepoWurzel { get; } =
+        typeof(GuiTestUmgebung).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Single(a => a.Key == "RepoWurzel").Value!;
 
     public static string ArtefaktOrdner => Path.Combine(RepoWurzel, "artifacts", "guitest");
 
@@ -23,14 +29,4 @@ internal static class GuiTestUmgebung
 
     public static string SqlServer =>
         Environment.GetEnvironmentVariable(SERVER_VARIABLE) is { Length: > 0 } server ? server : ".";
-
-    private static string RepoWurzelSuchen()
-    {
-        for (var ordner = new DirectoryInfo(AppContext.BaseDirectory); ordner is not null; ordner = ordner.Parent)
-        {
-            if (File.Exists(Path.Combine(ordner.FullName, "Fussballturnierverwaltung.slnx")))
-                return ordner.FullName;
-        }
-        throw new InvalidOperationException($"Repository-Wurzel oberhalb von {AppContext.BaseDirectory} nicht gefunden.");
-    }
 }
