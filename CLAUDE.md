@@ -24,6 +24,8 @@ Note: Console, WPF, and an Avalonia feasibility spike previously existed alongsi
 
 **DI registration** lives in the WinUi startup (see `src/Fussballturnierverwaltung.WinUi/CLAUDE.md`) and `InfrastrukturErweiterungen.cs` (Infrastructure). All services are `Scoped` except `EinstellungenService` which is `Singleton` (reads/writes a JSON file, holds no DbContext).
 
+**Data folder**: settings (`einstellungen.json`) and logs (`logs\`) live under `%APPDATA%\Turnierverwaltung`. The environment variable `TURNIERVERWALTUNG_DATENPFAD` redirects that folder (meant for automated GUI tests, #518/#494). Always get these paths from `Datenpfade` (Application/Einstellungen), never build them from `SpecialFolder.ApplicationData` yourself.
+
 ## WinUi Patterns
 
 See `src/Fussballturnierverwaltung.WinUi/CLAUDE.md` (ViewModelTemplateSelector/IDialogService/ObservableProperty-Fallstrick/CommandBar/Theme-Fallstricke) — loaded automatically once a file in that project is touched.

@@ -53,9 +53,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
     {
         try
         {
-            var pfad = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Turnierverwaltung", "logs", "crash-diagnose.log");
+            var pfad = Path.Combine(Datenpfade.Logs, "crash-diagnose.log");
             Directory.CreateDirectory(Path.GetDirectoryName(pfad)!);
             File.AppendAllText(pfad,
                 $"{DateTimeOffset.Now:O} [{quelle}]{Environment.NewLine}{ex}{Environment.NewLine}{Environment.NewLine}");
@@ -65,9 +63,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
-        var logPfad = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Turnierverwaltung", "logs", "turnierverwaltung-.log");
+        var logPfad = Path.Combine(Datenpfade.Logs, "turnierverwaltung-.log");
 
         // Vor dem Host: Serilog braucht den Schalter schon beim Aufbau (#413).
         var ablaufprotokoll = new Ablaufprotokoll(new EinstellungenService());
@@ -210,8 +206,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         {
             Log.Error(ex, "Datenbank konnte beim Start nicht vorbereitet werden.");
             var (server, datenbank) = wartung.Verbindungsziel();
-            var logOrdner = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Turnierverwaltung", "logs");
+            var logOrdner = Datenpfade.Logs;
             NativeMeldung.FehlerAnzeigen(
                 "Turnierverwaltung – Datenbankfehler",
                 $"Die Datenbank konnte nicht geöffnet oder eingerichtet werden.\n\n"
