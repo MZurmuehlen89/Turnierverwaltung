@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
+using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
@@ -24,6 +25,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
 {
     private readonly MannschaftService _mannschaftService;
     private readonly LandService _landService;
+    private readonly MannschaftValidator _validator;
     private readonly IDialogService _dialogService;
     private int _populiertGerade;
 
@@ -62,6 +64,12 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
 
     [ObservableProperty] private bool _istLadend;
     [ObservableProperty] private string? _fehlermeldung;
+
+    /// <summary>Live-Prüfung des Formulars mit demselben Validator wie beim Speichern (#523). Blockiert Speichern,
+    /// solange sie Fehler enthält.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    private IReadOnlyList<string> _formularFehler = [];
 
     // ── Formular-Felder ──────────────────────────────────────────────────────
     [ObservableProperty] private string _name = "";
@@ -176,10 +184,13 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
     public ICommand AbbrechenBefehl => AbbrechenCommand;
     public ICommand LoeschenBefehl => LoeschenCommand;
 
-    public MannschaftenViewModel(MannschaftService mannschaftService, LandService landService, IDialogService dialogService)
+    public MannschaftenViewModel(
+        MannschaftService mannschaftService, LandService landService, MannschaftValidator validator,
+        IDialogService dialogService)
     {
         _mannschaftService = mannschaftService;
         _landService = landService;
+        _validator = validator;
         _dialogService = dialogService;
     }
 
@@ -264,6 +275,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
         {
             _populiertGerade--;
         }
+        AktualisiereFormularFehler();
     }
 
     // ── Ribbon-Befehle ────────────────────────────────────────────────────────
@@ -291,6 +303,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
             _populiertGerade--;
         }
         IsDirty = true;
+        AktualisiereFormularFehler();
     }
 
     [RelayCommand]
@@ -311,24 +324,14 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
         {
             if (IstNeuModus)
             {
-                var eingabe = new MannschaftErstellenEingabe(
-                    Name, Kurzname, AusgewaehlteArt,
-                    AusgewaehltesLand?.Id ?? 0,
-                    OffensivRating, MittelfeldRating, DefensivRating,
-                    Heimstaerke, Auswaertsstaerke, WappenDaten);
-                var neu = await _mannschaftService.ErstellenAsync(eingabe);
+                var neu = await _mannschaftService.ErstellenAsync(ErstellenEingabe());
                 await LadenAsync();
                 Ausgewaehlte = Mannschaften.FirstOrDefault(m => m.Id == neu.Id);
             }
             else if (Ausgewaehlte is not null)
             {
                 var id = Ausgewaehlte.Id;
-                var eingabe = new MannschaftAktualisierenEingabe(
-                    Name, Kurzname,
-                    AusgewaehltesLand?.Id ?? 0,
-                    OffensivRating, MittelfeldRating, DefensivRating,
-                    Heimstaerke, Auswaertsstaerke, WappenDaten);
-                await _mannschaftService.AktualisierenAsync(id, eingabe);
+                await _mannschaftService.AktualisierenAsync(id, AktualisierenEingabe());
                 await LadenAsync();
                 Ausgewaehlte = Mannschaften.FirstOrDefault(m => m.Id == id);
             }
@@ -377,15 +380,42 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
         FilterMinRating = 0;
     }
 
+    // ── Validierung ───────────────────────────────────────────────────────────
+
+    private MannschaftErstellenEingabe ErstellenEingabe() => new(
+        Name, Kurzname, AusgewaehlteArt,
+        AusgewaehltesLand?.Id ?? 0,
+        OffensivRating, MittelfeldRating, DefensivRating,
+        Heimstaerke, Auswaertsstaerke, WappenDaten);
+
+    private MannschaftAktualisierenEingabe AktualisierenEingabe() => new(
+        Name, Kurzname,
+        AusgewaehltesLand?.Id ?? 0,
+        OffensivRating, MittelfeldRating, DefensivRating,
+        Heimstaerke, Auswaertsstaerke, WappenDaten);
+
+    private void AktualisiereFormularFehler()
+    {
+        if (!FormularAktiv) { FormularFehler = []; return; }
+
+        var ergebnis = IstNeuModus
+            ? _validator.Validieren(ErstellenEingabe())
+            : _validator.Validieren(AktualisierenEingabe());
+        FormularFehler = ergebnis.Fehler;
+    }
+
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
         if (e.PropertyName == nameof(MannschaftenGefiltert)) OnPropertyChanged(nameof(AnzahlText));
         if (_populiertGerade == 0 && _formFelder.Contains(e.PropertyName!))
+        {
             IsDirty = true;
+            AktualisiereFormularFehler();
+        }
     }
 
-    private bool KannSpeichern() => FormularAktiv && IsDirty;
+    private bool KannSpeichern() => FormularAktiv && IsDirty && FormularFehler.Count == 0;
     private bool KannAbbrechen() => FormularAktiv && IsDirty;
 
     public bool HatUngespeicherteAenderungen => FormularAktiv && IsDirty;

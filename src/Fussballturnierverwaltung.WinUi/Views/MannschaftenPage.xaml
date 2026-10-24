@@ -14,7 +14,8 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
 
-                    <TextBox Text="{Binding Suchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox AutomationProperties.AutomationId="Mannschaften.Suche"
+                             Text="{Binding Suchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              PlaceholderText="🔍  Suchen …" Width="180" />
 
                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -72,6 +73,7 @@
                 </Grid>
 
                 <ListView Grid.Row="1"
+                          AutomationProperties.AutomationId="Mannschaften.Liste"
                           ItemsSource="{Binding MannschaftenGefiltert}"
                           SelectedItem="{Binding Ausgewaehlte, Mode=TwoWay}"
                           SelectionMode="Single">
@@ -86,11 +88,14 @@
                                                Opacity="0.4"
                                                Visibility="{Binding Wappen, Converter={StaticResource NullToVisible}}" />
                                 </Grid>
-                                <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="2" Text="{Binding Kurzname}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" AutomationProperties.AutomationId="Mannschaften.ListeName"
+                                           Text="{Binding Name}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" AutomationProperties.AutomationId="Mannschaften.ListeKurzname"
+                                           Text="{Binding Kurzname}" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="3" Text="{Binding Land.Name}" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="4" Text="{Binding Mannschaftsart}" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="5" Text="{Binding OffensivRating}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                <TextBlock Grid.Column="5" AutomationProperties.AutomationId="Mannschaften.ListeOffensiv"
+                                           Text="{Binding OffensivRating}" HorizontalAlignment="Right" VerticalAlignment="Center"
                                            Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
                                 <TextBlock Grid.Column="6" Text="{Binding MittelfeldRating}" HorizontalAlignment="Right" VerticalAlignment="Center"
                                            Foreground="{ThemeResource SystemFillColorCautionBrush}" />
@@ -161,13 +166,15 @@
                     </Grid>
 
                     <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
-                    <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox AutomationProperties.AutomationId="Mannschaften.Name"
+                             Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                     <Grid Margin="0,0,0,12" ColumnDefinitions="120,16,*">
                         <StackPanel HorizontalAlignment="Stretch">
                             <TextBlock Text="Kurzname" FontSize="12" Margin="0,0,0,3" />
-                            <TextBox Text="{Binding Kurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox AutomationProperties.AutomationId="Mannschaften.Kurzname"
+                                     Text="{Binding Kurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      HorizontalAlignment="Stretch" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
@@ -194,7 +201,8 @@
 
                     <Grid Margin="0,0,0,8" ColumnDefinitions="110,*,36">
                         <TextBlock Text="Offensiv" VerticalAlignment="Center" FontSize="13" />
-                        <Slider Grid.Column="1" Value="{Binding OffensivRating, Mode=TwoWay}" Minimum="1" Maximum="99" VerticalAlignment="Center" />
+                        <Slider Grid.Column="1" AutomationProperties.AutomationId="Mannschaften.Offensiv"
+                                Value="{Binding OffensivRating, Mode=TwoWay}" Minimum="1" Maximum="99" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="2" Text="{Binding OffensivRating}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
                     </Grid>
                     <Grid Margin="0,0,0,8" ColumnDefinitions="110,*,36">
@@ -219,14 +227,34 @@
                         <Slider Grid.Column="1" Value="{Binding Auswaertsstaerke, Mode=TwoWay}" Minimum="1" Maximum="99" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="2" Text="{Binding Auswaertsstaerke}" FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
                     </Grid>
+                </StackPanel>
+            </ScrollViewer>
 
+            <!-- Meldungsspalte wie im Turnierkopf (#367): Speicherfehler und die Live-Prüfung des Formulars (#523) -->
+            <ScrollViewer Grid.Column="1"
+                          Visibility="{Binding FormularAktiv, Converter={StaticResource BoolToVisibility}}"
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="0,20,12,12">
                     <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
                             Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
-                            CornerRadius="4" Padding="10,8">
-                        <TextBlock Text="{Binding Fehlermeldung}"
+                            CornerRadius="4" Padding="8,6" Margin="0,0,0,6">
+                        <TextBlock AutomationProperties.AutomationId="Mannschaften.Fehlermeldung"
+                                   Text="{Binding Fehlermeldung}"
                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                   FontSize="12" TextWrapping="Wrap" />
+                                   FontSize="11" TextWrapping="Wrap" />
                     </Border>
+                    <ItemsControl ItemsSource="{Binding FormularFehler}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                                        CornerRadius="4" Padding="8,6" Margin="0,0,0,6">
+                                    <TextBlock AutomationProperties.AutomationId="Mannschaften.Fehler"
+                                               Text="{Binding}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                               FontSize="11" TextWrapping="Wrap" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
