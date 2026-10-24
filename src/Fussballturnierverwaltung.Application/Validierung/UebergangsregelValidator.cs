@@ -100,6 +100,27 @@ public class UebergangsregelValidator
     {
         var fehler = new List<string>();
 
+        RegelfelderPruefen(runden, regeln, fehler);
+
+        // Gültige Referenzen vorausgesetzt für die folgenden Prüfungen (sonst schon oben gemeldet).
+        var gueltigeRegeln = regeln
+            .Where(r => r.QuellReihenfolge >= 1 && r.QuellReihenfolge <= runden.Count &&
+                        r.ZielReihenfolge >= 1 && r.ZielReihenfolge <= runden.Count)
+            .ToList();
+
+        DuplikatePruefen(runden, gueltigeRegeln, fehler);
+
+        if (HatZyklus(gueltigeRegeln))
+            fehler.Add("Die Übergangsregeln enthalten einen zyklischen Übergang.");
+
+        EingehendeSummenPruefen(runden, gueltigeRegeln, fehler);
+        AusgehendeSummenPruefen(runden, gueltigeRegeln, fehler);
+
+        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+    }
+
+    private static void RegelfelderPruefen(IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> regeln, List<string> fehler)
+    {
         foreach (var regel in regeln)
         {
             if (regel.QuellReihenfolge < 1 || regel.QuellReihenfolge > runden.Count ||
@@ -114,13 +135,10 @@ public class UebergangsregelValidator
                 regel.QuellReihenfolge == regel.ZielReihenfolge, quelle,
                 regel.GruppeIndex, regel.PlatzierungVon, regel.PlatzierungBis, regel.AnzahlBeste));
         }
+    }
 
-        // Gültige Referenzen vorausgesetzt für die folgenden Prüfungen (sonst schon oben gemeldet).
-        var gueltigeRegeln = regeln
-            .Where(r => r.QuellReihenfolge >= 1 && r.QuellReihenfolge <= runden.Count &&
-                        r.ZielReihenfolge >= 1 && r.ZielReihenfolge <= runden.Count)
-            .ToList();
-
+    private static void DuplikatePruefen(IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> gueltigeRegeln, List<string> fehler)
+    {
         // Gruppiert zusätzlich nach ZielReihenfolge: derselbe Gruppenindex/dieselbe Spielnummer darf mehrfach
         // auftreten, wenn er/sie (mit unterschiedlicher Platzierung) auf getrennte Zielrunden verteilt wird
         // — der K.o.-Split-Sonderfall (Sieger UND Verlierer eines Spiels in zwei Zielrunden, Issue #334).
@@ -138,10 +156,10 @@ public class UebergangsregelValidator
                      .Where(g => g.Count() > 1))
             fehler.Add($"Gruppenübergreifende Rangfolge-Regel für Platzierung {dup.Key.PlatzierungVon} ist für Runde " +
                        $"'{runden[dup.Key.QuellReihenfolge - 1].Name}' mehrfach vergeben.");
+    }
 
-        if (HatZyklus(gueltigeRegeln))
-            fehler.Add("Die Übergangsregeln enthalten einen zyklischen Übergang.");
-
+    private static void EingehendeSummenPruefen(IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> gueltigeRegeln, List<string> fehler)
+    {
         // Eingehend: eine Runde ganz ohne eingehende Übergangsregeln gilt als eigenständiger Startpunkt
         // (z.B. mehrere parallele Gruppenphasen/Ligen ohne gemeinsame Vorrunde) und wird hier bewusst nicht
         // verlangt. Hat eine Runde aber MINDESTENS eine eingehende Regel, muss deren Summe exakt der
@@ -158,7 +176,10 @@ public class UebergangsregelValidator
                 fehler.Add($"Übergangsregeln für '{ziel.Name}' liefern zusammen {summe} Mannschaften, " +
                            $"erwartet werden aber {ziel.EingangsMannschaftsanzahl}.");
         }
+    }
 
+    private static void AusgehendeSummenPruefen(IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> gueltigeRegeln, List<string> fehler)
+    {
         // Ausgehend: eine Runde darf terminal sein (keine ausgehenden Regeln, z.B. Finale) — hat sie aber
         // mindestens eine, muss die Summe exakt der Ausgangsmannschaftszahl entsprechen, unabhängig davon,
         // in wie viele Zielrunden sie sich aufteilt (z.B. Sieger→Finale, Verlierer→Spiel um Platz 3).
@@ -174,8 +195,6 @@ public class UebergangsregelValidator
                 fehler.Add($"Ausgehende Übergangsregeln von '{quelle.Name}' verteilen zusammen {summe} Mannschaften, " +
                            $"erwartet werden aber {quelle.AusgangsMannschaftsanzahl}.");
         }
-
-        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }
 
     /// <summary>Rundenart-spezifische Feldprüfungen einer einzelnen Eingabe (Gruppenindex/Spielnummer-Bereich,
