@@ -17,8 +17,12 @@ public class AuslosungsValidatorTests
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
 
-    private static TurnierRunde Runde(Rundenart art, int? gruppenAnzahl = null) =>
-        new() { Id = 1, Name = art.ToString(), Rundenart = art, GruppenAnzahl = gruppenAnzahl };
+    private static TurnierRunde Runde(Rundenart art, int? gruppenAnzahl = null, int eingangsAnzahl = 0) =>
+        new()
+        {
+            Id = 1, Name = art.ToString(), Rundenart = art, GruppenAnzahl = gruppenAnzahl,
+            EingangsMannschaftsanzahl = eingangsAnzahl
+        };
 
     private static Mannschaft Team(int id) => new() { Id = id, Name = $"Team {id}" };
 
@@ -36,12 +40,13 @@ public class AuslosungsValidatorTests
         Auslosungsart auslosungsart,
         int? gruppenAnzahl = null,
         IEnumerable<Lostopf>? lostoepfe = null,
-        IEnumerable<AuslosungsRegel>? regeln = null)
+        IEnumerable<AuslosungsRegel>? regeln = null,
+        int eingangsAnzahl = 0)
     {
         var a = new Auslosung
         {
             Id            = 1,
-            TurnierRunde  = Runde(rundenart, gruppenAnzahl),
+            TurnierRunde  = Runde(rundenart, gruppenAnzahl, eingangsAnzahl),
             Auslosungsart = auslosungsart,
             Status        = AuslosungsStatus.Vorbereitung
         };
@@ -550,6 +555,134 @@ public class AuslosungsValidatorTests
 
         ergebnis.IstUngueltig.Should().BeTrue();
         ergebnis.Fehler.Should().ContainMatch("*schließen sich gegenseitig aus*");
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // LÜCKEN VOR DER ZERLEGUNG (#499) — exakte Meldungen
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void PlatzhalterInMehrerenToepfen_WirdAbgelehnt()
+    {
+        var topf1 = Topf(1, 1, Eintrag(1), new LostopfEintrag { Id = 20, PlatzhalterName = "Sieger A" });
+        var topf2 = Topf(2, 2, Eintrag(2), new LostopfEintrag { Id = 21, PlatzhalterName = "Sieger A" });
+        var a     = Auslosung(Rundenart.KoRunde, Auslosungsart.NachToepfen, lostoepfe: [topf1, topf2]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.Fehler.Should().Equal("Platzhalter 'Sieger A' ist in mehreren Lostöpfen vorhanden.");
+    }
+
+    [Fact]
+    public void Rundenerwartung_ZuWenigTeams_OhneFreilos_WirdAbgelehnt()
+    {
+        var topf = Topf(1, 1, Enumerable.Range(1, 6).Select(Eintrag).ToArray());
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf], eingangsAnzahl: 8);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.Fehler.Should().Equal("Die Runde erwartet 8 Teams, aber es sind erst 6 zugewiesen.");
+    }
+
+    [Fact]
+    public void Rundenerwartung_MitFreilos_EinTeamWenigerIstGueltig()
+    {
+        var topf = Topf(1, 1, Enumerable.Range(1, 7).Select(Eintrag).ToArray());
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf],
+                             regeln: [Regel(AuslosungsRegelArt.FreilosMoeglich)], eingangsAnzahl: 8);
+
+        _validator.Validieren(a, AlleEintraege(a)).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Rundenerwartung_MitFreilos_ZweiTeamsWenigerWirdAbgelehnt()
+    {
+        var topf = Topf(1, 1, Enumerable.Range(1, 6).Select(Eintrag).ToArray());
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf],
+                             regeln: [Regel(AuslosungsRegelArt.FreilosMoeglich)], eingangsAnzahl: 8);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.Fehler.Should().Equal(
+            "Die Runde erwartet 8 Teams (oder mindestens 7 mit Freilos), aber es sind erst 6 zugewiesen.");
+    }
+
+    [Fact]
+    public void Rundenerwartung_ZuVieleTeams_WirdAbgelehnt()
+    {
+        var topf = Topf(1, 1, Enumerable.Range(1, 10).Select(Eintrag).ToArray());
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf], eingangsAnzahl: 8);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.Fehler.Should().Equal("Die Runde erwartet 8 Teams, aber es sind 10 zugewiesen (2 zu viel).");
+    }
+
+    [Fact]
+    public void Gruppenphase_NurEineGruppe_WirdAbgelehnt()
+    {
+        var topf = Topf(1, 1, Enumerable.Range(1, 4).Select(Eintrag).ToArray());
+        var a    = Auslosung(Rundenart.Gruppenphase, Auslosungsart.Zufall, gruppenAnzahl: 1, lostoepfe: [topf]);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.Fehler.Should().Equal(
+            "Gruppenphase: Die Runde benötigt eine definierte Gruppenanzahl (mindestens 2).");
+    }
+
+    [Fact]
+    public void Liga_TopfZuordnung_ToepfeMitZweiTeams_IstGueltig()
+    {
+        // Die Mindestgröße 3 je Topf gilt nicht für Liga/Gruppenphase (#347).
+        var topf1 = Topf(1, 1, Eintrag(1), Eintrag(2));
+        var topf2 = Topf(2, 2, Eintrag(3), Eintrag(4));
+        var a     = Auslosung(Rundenart.Liga, Auslosungsart.TopfZuordnung, lostoepfe: [topf1, topf2]);
+
+        _validator.Validieren(a, AlleEintraege(a)).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void MehrereFehler_KommenInDerReihenfolgeDerPruefschritte()
+    {
+        // Ein Topf leer, ein Team doppelt, zu viele Teams für die Runde, Heimrecht-Konflikt.
+        var team1 = Eintrag(1);
+        var topf1 = Topf(1, 1, team1, Eintrag(2), Eintrag(3));
+        var topf2 = Topf(2, 2, new LostopfEintrag { Id = 10, MannschaftId = 1, Mannschaft = Team(1) }, Eintrag(4));
+        var topf3 = Topf(3, 3);
+        var a     = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf1, topf2, topf3],
+                              regeln: [Regel(AuslosungsRegelArt.HeimrechtNachLos), Regel(AuslosungsRegelArt.HeimrechtNachSetzliste)],
+                              eingangsAnzahl: 4);
+
+        var ergebnis = _validator.Validieren(a, AlleEintraege(a));
+
+        ergebnis.Fehler.Should().Equal(
+            "Lostopf 'Topf 3' ist leer.",
+            "Mannschaft 'Team 1' ist in mehreren Lostöpfen vorhanden.",
+            "Auslosungsart 'Zufällig' erfordert genau 1 Lostopf (keine Topf-Struktur). Bitte zusammenführen oder Auslosungsart wechseln.",
+            "Die Runde erwartet 4 Teams, aber es sind 5 zugewiesen (1 zu viel).",
+            "Regelkonflikt: 'Heimrecht nach Los', 'Heimrecht nach Setzliste' legen alle das Heimrecht fest und schließen sich gegenseitig aus.");
+    }
+
+    [Fact]
+    public void PaarungValidieren_GleichesLandBeiAktiverRegel_WirdAbgelehnt()
+    {
+        var kandidat = new Mannschaft { Id = 1, Name = "Team 1", LandId = 7 };
+        var gewaehlt = new Mannschaft { Id = 2, Name = "Team 2", LandId = 7 };
+
+        var ergebnis = _validator.PaarungValidieren(kandidat, gewaehlt, [Regel(AuslosungsRegelArt.KeinGleichesLand)]);
+
+        ergebnis.Fehler.Should().Equal(
+            "Regel 'KeinGleichesLand': 'Team 1' und 'Team 2' sind aus demselben Land und dürfen nicht gepaart werden.");
+    }
+
+    [Fact]
+    public void PaarungValidieren_OhneRegelOderOhneErstesTeam_IstGueltig()
+    {
+        var kandidat = new Mannschaft { Id = 1, Name = "Team 1", LandId = 7 };
+        var gewaehlt = new Mannschaft { Id = 2, Name = "Team 2", LandId = 7 };
+
+        _validator.PaarungValidieren(kandidat, gewaehlt, []).IstGueltig.Should().BeTrue();
+        _validator.PaarungValidieren(kandidat, null, [Regel(AuslosungsRegelArt.KeinGleichesLand)]).IstGueltig.Should().BeTrue();
     }
 
     // ══════════════════════════════════════════════════════════════════════════
