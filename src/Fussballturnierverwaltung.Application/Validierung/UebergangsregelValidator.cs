@@ -28,8 +28,8 @@ public class UebergangsregelValidator
 
         var summe = alleRegeln
             .Where(r => r.ZielRundeId == eingabe.ZielRundeId && r.Id != bearbeiteteRegelId)
-            .Sum(r => r.AnzahlBeste ?? (r.PlatzierungBis - r.PlatzierungVon + 1))
-            + (eingabe.AnzahlBeste ?? (eingabe.PlatzierungBis - eingabe.PlatzierungVon + 1));
+            .Sum(r => MannschaftsAnzahl(r.AnzahlBeste, r.PlatzierungVon, r.PlatzierungBis))
+            + MannschaftsAnzahl(eingabe.AnzahlBeste, eingabe.PlatzierungVon, eingabe.PlatzierungBis);
 
         if (summe > zielRunde.EingangsMannschaftsanzahl)
             fehler.Add($"Übergangsregeln für '{zielRunde.Name}' liefern zusammen {summe} Mannschaften, " +
@@ -81,8 +81,8 @@ public class UebergangsregelValidator
 
         var summeAndererBloecke = alleRegeln
             .Where(r => r.ZielRundeId == zielRunde.Id && r.QuellRundeId != quellRunde.Id)
-            .Sum(r => r.AnzahlBeste ?? (r.PlatzierungBis - r.PlatzierungVon + 1));
-        var summe = summeAndererBloecke + eingaben.Sum(e => e.AnzahlBeste ?? (e.PlatzierungBis - e.PlatzierungVon + 1));
+            .Sum(r => MannschaftsAnzahl(r.AnzahlBeste, r.PlatzierungVon, r.PlatzierungBis));
+        var summe = summeAndererBloecke + eingaben.Sum(e => MannschaftsAnzahl(e.AnzahlBeste, e.PlatzierungVon, e.PlatzierungBis));
 
         if (summe > zielRunde.EingangsMannschaftsanzahl)
             fehler.Add($"Übergangsregeln für '{zielRunde.Name}' liefern zusammen {summe} Mannschaften, " +
@@ -98,46 +98,37 @@ public class UebergangsregelValidator
     /// haben und daher per 1-basierter Reihenfolge referenziert werden (siehe <see cref="UebergangsregelPositionsEingabe"/>).</summary>
     public ValidationErgebnis Validieren(IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> regeln)
     {
-        var fehler = new List<string>();
+        // Gültige Referenzen vorausgesetzt für alle Prüfungen nach den Regelfeldern (sonst dort schon gemeldet).
+        var gueltigeRegeln = regeln.Where(r => ReferenziertVorhandeneRunden(r, runden.Count)).ToList();
 
-        RegelfelderPruefen(runden, regeln, fehler);
+        string[] fehler =
+        [
+            .. RegelfelderPruefen(runden, regeln),
+            .. DuplikatePruefen(runden, gueltigeRegeln),
+            .. ZyklusPruefen(gueltigeRegeln),
+            .. EingehendeSummenPruefen(runden, gueltigeRegeln),
+            .. AusgehendeSummenPruefen(runden, gueltigeRegeln),
+        ];
 
-        // Gültige Referenzen vorausgesetzt für die folgenden Prüfungen (sonst schon oben gemeldet).
-        var gueltigeRegeln = regeln
-            .Where(r => r.QuellReihenfolge >= 1 && r.QuellReihenfolge <= runden.Count &&
-                        r.ZielReihenfolge >= 1 && r.ZielReihenfolge <= runden.Count)
-            .ToList();
-
-        DuplikatePruefen(runden, gueltigeRegeln, fehler);
-
-        if (HatZyklus(gueltigeRegeln))
-            fehler.Add("Die Übergangsregeln enthalten einen zyklischen Übergang.");
-
-        EingehendeSummenPruefen(runden, gueltigeRegeln, fehler);
-        AusgehendeSummenPruefen(runden, gueltigeRegeln, fehler);
-
-        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+        return fehler.Length == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern(fehler);
     }
 
-    private static void RegelfelderPruefen(IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> regeln, List<string> fehler)
-    {
-        foreach (var regel in regeln)
-        {
-            if (regel.QuellReihenfolge < 1 || regel.QuellReihenfolge > runden.Count ||
-                regel.ZielReihenfolge < 1 || regel.ZielReihenfolge > runden.Count)
-            {
-                fehler.Add("Übergangsregel referenziert eine nicht vorhandene Runde.");
-                continue;
-            }
+    // ── Ganzgraph: Prüfschritte ─────────────────────────────────────────────
 
-            var quelle = runden[regel.QuellReihenfolge - 1];
-            fehler.AddRange(UebergangsregelFeldValidierung.FeldFehlerErmitteln(
-                regel.QuellReihenfolge == regel.ZielReihenfolge, quelle,
-                regel.GruppeIndex, regel.PlatzierungVon, regel.PlatzierungBis, regel.AnzahlBeste));
-        }
-    }
+    private static bool ReferenziertVorhandeneRunden(UebergangsregelPositionsEingabe regel, int rundenAnzahl) =>
+        regel.QuellReihenfolge >= 1 && regel.QuellReihenfolge <= rundenAnzahl &&
+        regel.ZielReihenfolge >= 1 && regel.ZielReihenfolge <= rundenAnzahl;
 
-    private static void DuplikatePruefen(IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> gueltigeRegeln, List<string> fehler)
+    private static IEnumerable<string> RegelfelderPruefen(
+        IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> regeln) =>
+        regeln.SelectMany(regel => ReferenziertVorhandeneRunden(regel, runden.Count)
+            ? UebergangsregelFeldValidierung.FeldFehlerErmitteln(
+                regel.QuellReihenfolge == regel.ZielReihenfolge, runden[regel.QuellReihenfolge - 1],
+                regel.GruppeIndex, regel.PlatzierungVon, regel.PlatzierungBis, regel.AnzahlBeste)
+            : ["Übergangsregel referenziert eine nicht vorhandene Runde."]);
+
+    private static IEnumerable<string> DuplikatePruefen(
+        IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> gueltigeRegeln)
     {
         // Gruppiert zusätzlich nach ZielReihenfolge: derselbe Gruppenindex/dieselbe Spielnummer darf mehrfach
         // auftreten, wenn er/sie (mit unterschiedlicher Platzierung) auf getrennte Zielrunden verteilt wird
@@ -147,55 +138,66 @@ public class UebergangsregelValidator
                      .Where(r => r.GruppeIndex is not null)
                      .GroupBy(r => (r.QuellReihenfolge, r.GruppeIndex, r.ZielReihenfolge))
                      .Where(g => g.Count() > 1))
-            fehler.Add($"Gruppenindex/Spielnummer {dup.Key.GruppeIndex} ist für Runde " +
-                       $"'{runden[dup.Key.QuellReihenfolge - 1].Name}' mehrfach vergeben.");
+            yield return $"Gruppenindex/Spielnummer {dup.Key.GruppeIndex} ist für Runde " +
+                         $"'{runden[dup.Key.QuellReihenfolge - 1].Name}' mehrfach vergeben.";
 
         foreach (var dup in gueltigeRegeln
                      .Where(r => r.AnzahlBeste is not null)
                      .GroupBy(r => (r.QuellReihenfolge, r.PlatzierungVon))
                      .Where(g => g.Count() > 1))
-            fehler.Add($"Gruppenübergreifende Rangfolge-Regel für Platzierung {dup.Key.PlatzierungVon} ist für Runde " +
-                       $"'{runden[dup.Key.QuellReihenfolge - 1].Name}' mehrfach vergeben.");
+            yield return $"Gruppenübergreifende Rangfolge-Regel für Platzierung {dup.Key.PlatzierungVon} ist für Runde " +
+                         $"'{runden[dup.Key.QuellReihenfolge - 1].Name}' mehrfach vergeben.";
     }
 
-    private static void EingehendeSummenPruefen(IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> gueltigeRegeln, List<string> fehler)
+    private static IEnumerable<string> ZyklusPruefen(IReadOnlyList<UebergangsregelPositionsEingabe> gueltigeRegeln)
     {
-        // Eingehend: eine Runde ganz ohne eingehende Übergangsregeln gilt als eigenständiger Startpunkt
-        // (z.B. mehrere parallele Gruppenphasen/Ligen ohne gemeinsame Vorrunde) und wird hier bewusst nicht
-        // verlangt. Hat eine Runde aber MINDESTENS eine eingehende Regel, muss deren Summe exakt der
-        // Eingangsmannschaftszahl entsprechen, unabhängig davon, aus wie vielen Quellrunden sie sich zusammensetzt.
-        var eingehendNachZiel = gueltigeRegeln.ToLookup(r => r.ZielReihenfolge);
+        if (HatZyklus(gueltigeRegeln))
+            yield return "Die Übergangsregeln enthalten einen zyklischen Übergang.";
+    }
+
+    /// <summary>Eine Runde ganz ohne eingehende Übergangsregeln gilt als eigenständiger Startpunkt (z.B. mehrere
+    /// parallele Gruppenphasen/Ligen ohne gemeinsame Vorrunde) und wird bewusst nicht verlangt. Hat eine Runde aber
+    /// MINDESTENS eine eingehende Regel, muss deren Summe exakt der Eingangsmannschaftszahl entsprechen, unabhängig
+    /// davon, aus wie vielen Quellrunden sie sich zusammensetzt.</summary>
+    private static IEnumerable<string> EingehendeSummenPruefen(
+        IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> gueltigeRegeln) =>
+        SummenJeRundePruefen(runden, gueltigeRegeln.ToLookup(r => r.ZielReihenfolge),
+            r => r.EingangsMannschaftsanzahl,
+            (ziel, summe) => $"Übergangsregeln für '{ziel.Name}' liefern zusammen {summe} Mannschaften, " +
+                             $"erwartet werden aber {ziel.EingangsMannschaftsanzahl}.");
+
+    /// <summary>Eine Runde darf terminal sein (keine ausgehenden Regeln, z.B. Finale) — hat sie aber mindestens eine,
+    /// muss die Summe exakt der Ausgangsmannschaftszahl entsprechen, unabhängig davon, in wie viele Zielrunden sie
+    /// sich aufteilt (z.B. Sieger→Finale, Verlierer→Spiel um Platz 3).</summary>
+    private static IEnumerable<string> AusgehendeSummenPruefen(
+        IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> gueltigeRegeln) =>
+        SummenJeRundePruefen(runden, gueltigeRegeln.ToLookup(r => r.QuellReihenfolge),
+            r => r.AusgangsMannschaftsanzahl,
+            (quelle, summe) => $"Ausgehende Übergangsregeln von '{quelle.Name}' verteilen zusammen {summe} Mannschaften, " +
+                               $"erwartet werden aber {quelle.AusgangsMannschaftsanzahl}.");
+
+    /// <summary>Für jede Runde mit mindestens einer Regel (Schlüssel = 1-basierte Reihenfolge): die Summe der
+    /// Mannschaften muss genau der Sollanzahl entsprechen.</summary>
+    private static IEnumerable<string> SummenJeRundePruefen(
+        IReadOnlyList<TurnierRunde> runden,
+        ILookup<int, UebergangsregelPositionsEingabe> regelnJeRunde,
+        Func<TurnierRunde, int> sollAnzahl,
+        Func<TurnierRunde, int, string> meldung)
+    {
         for (var i = 0; i < runden.Count; i++)
         {
-            var regelnDiesesZiels = eingehendNachZiel[i + 1].ToList();
-            if (regelnDiesesZiels.Count == 0) continue;
+            if (!regelnJeRunde.Contains(i + 1)) continue;
 
-            var ziel = runden[i];
-            var summe = regelnDiesesZiels.Sum(r => r.AnzahlBeste ?? (r.PlatzierungBis - r.PlatzierungVon + 1));
-            if (summe != ziel.EingangsMannschaftsanzahl)
-                fehler.Add($"Übergangsregeln für '{ziel.Name}' liefern zusammen {summe} Mannschaften, " +
-                           $"erwartet werden aber {ziel.EingangsMannschaftsanzahl}.");
+            var summe = regelnJeRunde[i + 1].Sum(r => MannschaftsAnzahl(r.AnzahlBeste, r.PlatzierungVon, r.PlatzierungBis));
+            if (summe != sollAnzahl(runden[i]))
+                yield return meldung(runden[i], summe);
         }
     }
 
-    private static void AusgehendeSummenPruefen(IReadOnlyList<TurnierRunde> runden, IReadOnlyList<UebergangsregelPositionsEingabe> gueltigeRegeln, List<string> fehler)
-    {
-        // Ausgehend: eine Runde darf terminal sein (keine ausgehenden Regeln, z.B. Finale) — hat sie aber
-        // mindestens eine, muss die Summe exakt der Ausgangsmannschaftszahl entsprechen, unabhängig davon,
-        // in wie viele Zielrunden sie sich aufteilt (z.B. Sieger→Finale, Verlierer→Spiel um Platz 3).
-        var ausgehendNachQuelle = gueltigeRegeln.ToLookup(r => r.QuellReihenfolge);
-        for (var i = 0; i < runden.Count; i++)
-        {
-            var regelnDieserQuelle = ausgehendNachQuelle[i + 1].ToList();
-            if (regelnDieserQuelle.Count == 0) continue;
-
-            var quelle = runden[i];
-            var summe = regelnDieserQuelle.Sum(r => r.AnzahlBeste ?? (r.PlatzierungBis - r.PlatzierungVon + 1));
-            if (summe != quelle.AusgangsMannschaftsanzahl)
-                fehler.Add($"Ausgehende Übergangsregeln von '{quelle.Name}' verteilen zusammen {summe} Mannschaften, " +
-                           $"erwartet werden aber {quelle.AusgangsMannschaftsanzahl}.");
-        }
-    }
+    /// <summary>Mannschaften, die eine Regel weitergibt: die besten n bei einer gruppenübergreifenden Rangfolge-Regel,
+    /// sonst jede Platzierung von–bis.</summary>
+    private static int MannschaftsAnzahl(int? anzahlBeste, int platzierungVon, int platzierungBis) =>
+        anzahlBeste ?? (platzierungBis - platzierungVon + 1);
 
     /// <summary>Rundenart-spezifische Feldprüfungen einer einzelnen Eingabe (Gruppenindex/Spielnummer-Bereich,
     /// Platzierungsbereich innerhalb der Quellrunde). Wird sowohl von der Einzel- als auch der Block-Validierung genutzt.</summary>
