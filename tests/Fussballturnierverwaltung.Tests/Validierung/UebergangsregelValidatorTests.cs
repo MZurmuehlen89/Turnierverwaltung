@@ -684,6 +684,57 @@ public class UebergangsregelValidatorTests
         ergebnis.Fehler.Should().ContainMatch("*3*2*");
     }
 
+    // ── Ganzgraph: Lücken vor der Zerlegung (#499) — exakte Meldungen ──────
+
+    [Fact]
+    public void Ganzgraph_UngueltigeReferenz_WirdGemeldetUndBeiDenSummenIgnoriert()
+    {
+        var runden = new[] { GanzgraphLiga(eingangsMannschaftsanzahl: 8), GanzgraphZiel(eingangsMannschaftsanzahl: 4) };
+        var regeln = new[]
+        {
+            new UebergangsregelPositionsEingabe(1, 5, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 1),
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 4)
+        };
+
+        _validator.Validieren(runden, regeln).Fehler.Should().Equal(
+            "Übergangsregel referenziert eine nicht vorhandene Runde.",
+            "Ausgehende Übergangsregeln von 'Liga' verteilen zusammen 4 Mannschaften, erwartet werden aber 8.");
+    }
+
+    [Fact]
+    public void Ganzgraph_Duplikate_MeldenGruppenindexVorRangfolgeRegel()
+    {
+        var runden = new[] { GanzgraphGruppenphase(gruppenAnzahl: 2, eingangsMannschaftsanzahl: 8, ausgangsMannschaftsanzahl: 4), GanzgraphZiel(eingangsMannschaftsanzahl: 4) };
+        var regeln = new[]
+        {
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1),
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 2, PlatzierungBis: 2),
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 1),
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 3, AnzahlBeste: 1)
+        };
+
+        _validator.Validieren(runden, regeln).Fehler.Should().Equal(
+            "Gruppenindex/Spielnummer 1 ist für Runde 'Gruppenphase' mehrfach vergeben.",
+            "Gruppenübergreifende Rangfolge-Regel für Platzierung 3 ist für Runde 'Gruppenphase' mehrfach vergeben.");
+    }
+
+    [Fact]
+    public void Ganzgraph_ZyklusUndSummen_KommenInFesterReihenfolge()
+    {
+        var runden = new[] { GanzgraphLiga(eingangsMannschaftsanzahl: 4), GanzgraphLiga(eingangsMannschaftsanzahl: 4), GanzgraphZiel(eingangsMannschaftsanzahl: 4) };
+        var regeln = new[]
+        {
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 4),
+            new UebergangsregelPositionsEingabe(2, 1, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 4),
+            new UebergangsregelPositionsEingabe(1, 3, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 2)
+        };
+
+        _validator.Validieren(runden, regeln).Fehler.Should().Equal(
+            "Die Übergangsregeln enthalten einen zyklischen Übergang.",
+            "Übergangsregeln für 'Finale' liefern zusammen 2 Mannschaften, erwartet werden aber 4.",
+            "Ausgehende Übergangsregeln von 'Liga' verteilen zusammen 6 Mannschaften, erwartet werden aber 4.");
+    }
+
     // ── Feldprüfungen: Lücken vor der Zerlegung (#499) — exakte Meldungen ──
 
     private IReadOnlyList<string> FeldFehler(TurnierRunde quelle, int? gruppeIndex, int von, int bis, int? anzahlBeste = null) =>
