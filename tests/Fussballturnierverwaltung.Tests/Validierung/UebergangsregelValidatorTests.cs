@@ -683,4 +683,54 @@ public class UebergangsregelValidatorTests
         ergebnis.IstUngueltig.Should().BeTrue();
         ergebnis.Fehler.Should().ContainMatch("*3*2*");
     }
+
+    // ── Feldprüfungen: Lücken vor der Zerlegung (#499) — exakte Meldungen ──
+
+    private IReadOnlyList<string> FeldFehler(TurnierRunde quelle, int? gruppeIndex, int von, int bis, int? anzahlBeste = null) =>
+        _validator.Validieren(
+            new UebergangsregelEingabe(QuellRundeId: 1, ZielRundeId: 2, gruppeIndex, von, bis, anzahlBeste),
+            quelle, Ziel(eingangsMannschaftsanzahl: 8), _keineRegeln).Fehler;
+
+    [Fact]
+    public void Feld_PlatzierungVonUndBisUngueltig_MeldetBeides() =>
+        FeldFehler(Liga(), gruppeIndex: null, von: 0, bis: -1).Should().Equal(
+            "PlatzierungVon muss mindestens 1 sein.",
+            "PlatzierungBis darf nicht kleiner als PlatzierungVon sein.");
+
+    [Fact]
+    public void Feld_NichtUnterstuetzteRundenart_IstUngueltig()
+    {
+        var sonderrunde = new TurnierRunde { Id = 1, Name = "Sonder", Rundenart = Rundenart.Sonderrunde, EingangsMannschaftsanzahl = 8 };
+
+        FeldFehler(sonderrunde, gruppeIndex: null, von: 1, bis: 1).Should().Equal(
+            "Rundenart 'Sonderrunde' wird als Quellrunde für Übergangsregeln nicht unterstützt.");
+    }
+
+    [Fact]
+    public void Feld_GruppenphaseOhneGruppenanzahl_MeldetBereichBisNull() =>
+        FeldFehler(Gruppenphase(gruppenAnzahl: null), gruppeIndex: 1, von: 1, bis: 1).Should().Equal(
+            "Gruppenindex 1 ist außerhalb des gültigen Bereichs (1–0) der Quellrunde 'Gruppenphase'.");
+
+    [Fact]
+    public void Feld_KoSpielnummerAusserhalbBereich_IstUngueltig() =>
+        FeldFehler(KoRunde(eingangsMannschaftsanzahl: 16), gruppeIndex: 9, von: 1, bis: 1).Should().Equal(
+            "Spielnummer 9 ist außerhalb des gültigen Bereichs (1–8) der Quellrunde 'Sechzehntelfinale'.");
+
+    [Fact]
+    public void Feld_AnzahlBesteKleinerEins_IstUngueltig() =>
+        FeldFehler(Gruppenphase(gruppenAnzahl: 4, eingangsMannschaftsanzahl: 16), gruppeIndex: null, von: 3, bis: 3, anzahlBeste: 0)
+            .Should().Equal("AnzahlBeste muss mindestens 1 sein.");
+
+    [Fact]
+    public void Feld_AnzahlBestePlatzierungUeberGruppengroesse_IstUngueltig() =>
+        FeldFehler(Gruppenphase(gruppenAnzahl: 4, eingangsMannschaftsanzahl: 16), gruppeIndex: null, von: 5, bis: 5, anzahlBeste: 2)
+            .Should().Equal("Platzierung 5 übersteigt die Gruppengröße (4) der Quellrunde 'Gruppenphase'.");
+
+    [Fact]
+    public void Feld_AnzahlBesteBeiLigaMitAllenFehlern_KommtInFesterReihenfolge() =>
+        FeldFehler(Liga(), gruppeIndex: 1, von: 1, bis: 2, anzahlBeste: 3).Should().Equal(
+            "Eine gruppenübergreifende Rangfolge-Regel ist nur für eine Gruppenphase als Quellrunde möglich.",
+            "Eine gruppenübergreifende Rangfolge-Regel darf keinen Gruppenindex angeben.",
+            "Eine gruppenübergreifende Rangfolge-Regel gilt für genau eine Platzierung (PlatzierungVon muss PlatzierungBis entsprechen).",
+            "AnzahlBeste (3) übersteigt die Gruppenanzahl (0) der Quellrunde 'Liga-Phase'.");
 }
