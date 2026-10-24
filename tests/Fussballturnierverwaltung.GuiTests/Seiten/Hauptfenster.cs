@@ -7,7 +7,6 @@ namespace Fussballturnierverwaltung.GuiTests.Seiten;
 /// <c>MainWindow.xaml</c> (#521), damit die Tests fachlich lesbar bleiben.</summary>
 public sealed class Hauptfenster(Window fenster)
 {
-    private const string SEITENTITEL = "Hauptfenster.Seitentitel";
     private const string BEFEHLSLEISTE = "Hauptfenster.Befehlsleiste";
     private const string BEREIT = "Bereit";
 
@@ -16,11 +15,15 @@ public sealed class Hauptfenster(Window fenster)
     // Zwischen zwei Ladeschritten kann der Zustand kurz auf „Bereit“ springen
     private static readonly TimeSpan _ruhezeit = TimeSpan.FromMilliseconds(300);
 
-    public string Seitentitel => fenster.TryFindById(SEITENTITEL)?.Name ?? string.Empty;
+    /// <summary>Titel der aktuellen Seite – als Name der Befehlsleiste, weil der sichtbare Titel auf Seiten ohne
+    /// Ribbon-Bereich ausgeblendet ist und dann im UIA-Baum fehlt.</summary>
+    public string Seitentitel => Befehlsleiste.Name;
 
-    public string Ladezustand => fenster.FindById(BEFEHLSLEISTE).ItemStatus();
+    public string Ladezustand => Befehlsleiste.ItemStatus();
 
     public IReadOnlyList<Dialog> OffeneDialoge => Dialog.FindOpen(fenster);
+
+    private AutomationElement Befehlsleiste => fenster.FindById(BEFEHLSLEISTE);
 
     public void Oeffnen(Bereich bereich)
     {

@@ -93,7 +93,10 @@ with the test scenarios; there is no big-bang pass over all views.
   `NavigationsEintrag`).
 - Only elements with an automation peer appear in the UIA tree: controls and `TextBlock` yes, `Grid`,
   `StackPanel`, `UserControl` roots no — an ID on those is invisible to tests.
-- `Hauptfenster.Befehlsleiste` carries the load state as `AutomationProperties.ItemStatus` (`Bereit` /
-  `Beschaeftigt`, `LadeanzeigeViewModel.Ladezustand`) without the 300 ms delay of the visible bar; tests wait on it.
+- `Hauptfenster.Befehlsleiste` carries the current page title as its UIA name (`MainViewModel.RibbonTabTitel` — the
+  visible title is collapsed on pages without ribbon area and then missing from the tree) and the load state as
+  `AutomationProperties.ItemStatus` (`Bereit` / `Beschaeftigt`, `LadeanzeigeViewModel.Ladezustand`) without the
+  300 ms delay of the visible bar; tests wait on both.
+- Collapsed elements (`Visibility="Collapsed"`) are not in the UIA tree at all — never hang a test signal on them.
 - `ListView` items report their data object's `ToString()` as UIA name, `ItemsControl` rows are flat text — both
   need explicit names/containers once a test addresses them (findings in #520).
