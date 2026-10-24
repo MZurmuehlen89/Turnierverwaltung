@@ -390,4 +390,52 @@ public class TurnierValidatorTests
     [Fact]
     public void TabellenBereiche_FehlerBlockierenDieRundenvalidierung() =>
         _validator.RundenValidieren([LigaMitBereichen(Bereich(1, 19))]).IstGueltig.Should().BeFalse();
+
+    // ── Lücken vor der Zerlegung (#499) — exakte Meldungen ─────────────────
+
+    [Fact]
+    public void RundeOhneNamen_IstUngueltig() =>
+        _validator.RundenValidieren([Runde(" ", Rundenart.Liga, eingang: 4, ausgang: 4)])
+            .Fehler.Should().Equal("Runde muss einen Namen haben.");
+
+    [Fact]
+    public void ZuKleineAnzahlen_MeldenEingangUndAusgang() =>
+        _validator.RundenValidieren([Runde("Liga", Rundenart.Liga, eingang: 1, ausgang: 0)])
+            .Fehler.Should().Equal(
+                "Runde 'Liga': EingangsMannschaftsanzahl muss mindestens 2 betragen (war: 1).",
+                "Runde 'Liga': AusgangsMannschaftsanzahl muss mindestens 1 betragen.");
+
+    [Fact]
+    public void Gruppenphase_AusgangNichtKleinerAlsEingang_IstUngueltig() =>
+        _validator.RundenValidieren([Runde("GP", Rundenart.Gruppenphase, eingang: 8, ausgang: 8, gruppenAnzahl: 2)])
+            .Fehler.Should().Equal("Runde 'GP': Ausgangsteams (8) müssen kleiner als Eingangsteams (8) sein.");
+
+    [Fact]
+    public void Liga_AusgangGleichEingang_IstGueltig() =>
+        _validator.RundenValidieren([Runde("Liga", Rundenart.Liga, eingang: 18, ausgang: 18)])
+            .IstGueltig.Should().BeTrue();
+
+    [Fact]
+    public void Gruppenphase_OhneGruppenanzahl_IstUngueltig() =>
+        _validator.RundenValidieren([Runde("GP", Rundenart.Gruppenphase, eingang: 8, ausgang: 4)])
+            .Fehler.Should().Equal("Runde 'GP': Gruppenphase erfordert mindestens 2 Gruppen (GruppenAnzahl war: 0).");
+
+    [Fact]
+    public void MehrereFehler_KommenInDerReihenfolgeDerPruefschritte()
+    {
+        var runden = new[]
+        {
+            Runde("VF", Rundenart.KoRunde, eingang: 7, ausgang: 4, auswaerts: true) with { Ueberraschungsfaktor = 120 },
+            Runde("HF", Rundenart.KoRunde, eingang: 6, ausgang: 3),
+            Runde("Finale", Rundenart.Finale, eingang: 2, ausgang: 2),
+        };
+
+        _validator.RundenValidieren(runden).Fehler.Should().Equal(
+            "Runde 'VF': K.-o.-Rundenarten benötigen eine gerade Eingangsmannschaftsanzahl (war: 7).",
+            "Runde 'VF': Auswärtstorregel ist aktiv, obwohl keine Hin- und Rückspiele gespielt werden.",
+            "Runde 'VF': Überraschungsfaktor muss zwischen 0 und 100 % liegen (war: 120).",
+            "Runde 2 ('HF') erwartet 6 Mannschaften, Runde 1 ('VF') liefert aber 4.",
+            "Runde 3 ('Finale') erwartet 2 Mannschaften, Runde 2 ('HF') liefert aber 3.",
+            "Das Finale ('Finale') muss genau 1 Sieger liefern (AusgangsMannschaftsanzahl war: 2).");
+    }
 }
