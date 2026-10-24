@@ -31,6 +31,12 @@ public sealed class Hauptfenster(Window fenster)
         WarteBisGeladen(bereich.Titel);
     }
 
+    public MannschaftenSeite MannschaftenOeffnen()
+    {
+        Oeffnen(Bereich.Mannschaften);
+        return new MannschaftenSeite(fenster, this);
+    }
+
     public TurnierlisteSeite TurniereOeffnen()
     {
         Oeffnen(Bereich.Turniere);
