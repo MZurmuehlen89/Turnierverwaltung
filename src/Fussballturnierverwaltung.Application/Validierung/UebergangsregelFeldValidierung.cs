@@ -17,6 +17,43 @@ internal static class UebergangsregelFeldValidierung
     {
         var fehler = new List<string>();
 
+        AllgemeineFehler(quellGleichZiel, platzierungVon, platzierungBis, fehler);
+
+        if (anzahlBeste is not null)
+        {
+            AnzahlBesteFehler(quellRundenart, quellName, quellEingangsMannschaftsanzahl, quellGruppenAnzahl,
+                gruppeIndex, platzierungVon, platzierungBis, anzahlBeste, fehler);
+            return fehler;
+        }
+
+        switch (quellRundenart)
+        {
+            case Rundenart.Gruppenphase:
+                GruppenphaseFehler(quellName, quellEingangsMannschaftsanzahl, quellGruppenAnzahl, gruppeIndex, platzierungBis, fehler);
+                break;
+
+            case Rundenart.Liga:
+            case Rundenart.TopfLiga:
+            case Rundenart.SchweizerSystem:
+                LigaFehler(quellName, quellEingangsMannschaftsanzahl, gruppeIndex, platzierungBis, fehler);
+                break;
+
+            case Rundenart.KoRunde:
+            case Rundenart.Finale:
+            case Rundenart.SpielUmPlatzDrei:
+                KoFehler(quellName, quellEingangsMannschaftsanzahl, gruppeIndex, platzierungBis, fehler);
+                break;
+
+            default:
+                fehler.Add($"Rundenart '{quellRundenart}' wird als Quellrunde für Übergangsregeln nicht unterstützt.");
+                break;
+        }
+
+        return fehler;
+    }
+
+    private static void AllgemeineFehler(bool quellGleichZiel, int platzierungVon, int platzierungBis, List<string> fehler)
+    {
         if (quellGleichZiel)
             fehler.Add("Quell- und Zielrunde dürfen nicht identisch sein.");
 
@@ -25,9 +62,12 @@ internal static class UebergangsregelFeldValidierung
 
         if (platzierungBis < platzierungVon)
             fehler.Add("PlatzierungBis darf nicht kleiner als PlatzierungVon sein.");
+    }
 
-        if (anzahlBeste is not null)
-        {
+    private static void AnzahlBesteFehler(
+        Rundenart quellRundenart, string quellName, int quellEingangsMannschaftsanzahl, int? quellGruppenAnzahl,
+        int? gruppeIndex, int platzierungVon, int platzierungBis, int? anzahlBeste, List<string> fehler)
+    {
             if (quellRundenart != Rundenart.Gruppenphase)
                 fehler.Add("Eine gruppenübergreifende Rangfolge-Regel ist nur für eine Gruppenphase als Quellrunde möglich.");
             if (gruppeIndex is not null)
@@ -43,13 +83,12 @@ internal static class UebergangsregelFeldValidierung
                 platzierungBis > quellEingangsMannschaftsanzahl / quellGruppenAnzahl.Value)
                 fehler.Add($"Platzierung {platzierungBis} übersteigt die Gruppengröße " +
                            $"({quellEingangsMannschaftsanzahl / quellGruppenAnzahl.Value}) der Quellrunde '{quellName}'.");
+    }
 
-            return fehler;
-        }
-
-        switch (quellRundenart)
-        {
-            case Rundenart.Gruppenphase:
+    private static void GruppenphaseFehler(
+        string quellName, int quellEingangsMannschaftsanzahl, int? quellGruppenAnzahl,
+        int? gruppeIndex, int platzierungBis, List<string> fehler)
+    {
                 if (gruppeIndex is null)
                     fehler.Add("Für eine Gruppenphase als Quellrunde muss ein Gruppenindex angegeben werden.");
                 else if (quellGruppenAnzahl is not > 0 || gruppeIndex < 1 || gruppeIndex > quellGruppenAnzahl)
@@ -58,21 +97,21 @@ internal static class UebergangsregelFeldValidierung
                 else if (platzierungBis > quellEingangsMannschaftsanzahl / quellGruppenAnzahl.Value)
                     fehler.Add($"Platzierung {platzierungBis} übersteigt die Gruppengröße " +
                                $"({quellEingangsMannschaftsanzahl / quellGruppenAnzahl.Value}) der Quellrunde '{quellName}'.");
-                break;
+    }
 
-            case Rundenart.Liga:
-            case Rundenart.TopfLiga:
-            case Rundenart.SchweizerSystem:
+    private static void LigaFehler(
+        string quellName, int quellEingangsMannschaftsanzahl, int? gruppeIndex, int platzierungBis, List<string> fehler)
+    {
                 if (gruppeIndex is not null)
                     fehler.Add("Für eine Liga-Runde als Quellrunde darf kein Gruppenindex angegeben werden.");
                 if (platzierungBis > quellEingangsMannschaftsanzahl)
                     fehler.Add($"Platzierung {platzierungBis} übersteigt die Teilnehmerzahl " +
                                $"({quellEingangsMannschaftsanzahl}) der Quellrunde '{quellName}'.");
-                break;
+    }
 
-            case Rundenart.KoRunde:
-            case Rundenart.Finale:
-            case Rundenart.SpielUmPlatzDrei:
+    private static void KoFehler(
+        string quellName, int quellEingangsMannschaftsanzahl, int? gruppeIndex, int platzierungBis, List<string> fehler)
+    {
                 if (gruppeIndex is null)
                     fehler.Add("Für eine K.-o.-Runde als Quellrunde muss die Spielnummer (als Gruppenindex) angegeben werden.");
                 else if (gruppeIndex < 1 || gruppeIndex > quellEingangsMannschaftsanzahl / 2)
@@ -80,14 +119,6 @@ internal static class UebergangsregelFeldValidierung
                                $"(1–{quellEingangsMannschaftsanzahl / 2}) der Quellrunde '{quellName}'.");
                 if (platzierungBis > 2)
                     fehler.Add("Eine K.-o.-Runde als Quellrunde liefert je Spiel nur Sieger (Platzierung 1) und Verlierer (Platzierung 2).");
-                break;
-
-            default:
-                fehler.Add($"Rundenart '{quellRundenart}' wird als Quellrunde für Übergangsregeln nicht unterstützt.");
-                break;
-        }
-
-        return fehler;
     }
 
     /// <summary>Prüft per DFS ausgehend von der vorgeschlagenen Zielrunde, ob die Quellrunde über die
