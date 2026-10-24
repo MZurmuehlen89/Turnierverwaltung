@@ -27,8 +27,8 @@ public sealed class Dialog
             timeout ?? Wait.DefaultTimeout,
             $"dialog '{title}'");
 
-    public void Confirm() => Element.FindById("PrimaryButton").Activate();
-    public void Close() => Element.FindById("CloseButton").Activate();
+    public void Confirm() => Element.ActivateById("PrimaryButton");
+    public void Close() => Element.ActivateById("CloseButton");
 
     private static bool HasDialogButton(AutomationElement popup) =>
         _buttonIds.Any(id => popup.TryFindById(id) is not null);

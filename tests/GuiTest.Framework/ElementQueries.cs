@@ -1,5 +1,7 @@
+using System.ComponentModel;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
+using FlaUI.Core.Exceptions;
 
 namespace GuiTest.Framework;
 
@@ -32,6 +34,36 @@ public static class ElementQueries
     public static void Activate(this AutomationElement element)
     {
         Wait.Until(() => element.IsEnabled, Wait.DefaultTimeout, $"'{element.NameOrEmpty()}' enabled");
+        PrimaryAction(element);
+    }
+
+    /// <summary>Like <see cref="Activate"/>, but looks the element up afresh on every attempt. Applications replace
+    /// elements at any time — a toolbar may rebuild all its buttons shortly after its actions changed (#522) — so an
+    /// element found a moment ago can be gone when it is invoked. That surfaces as an unsupported property, a COM
+    /// error or a Win32Exception; such an attempt is repeated with a fresh lookup. Prefer this for anything that
+    /// has an AutomationId.</summary>
+    public static void ActivateById(this AutomationElement root, string automationId, TimeSpan? timeout = null) =>
+        Wait.Until(() => TryActivate(root.TryFindById(automationId)), timeout ?? Wait.DefaultTimeout,
+            $"'{automationId}' activated");
+
+    private static bool TryActivate(AutomationElement? element)
+    {
+        if (element is null) return false;
+        try
+        {
+            if (!element.IsEnabled) return false;
+            PrimaryAction(element);
+            return true;
+        }
+        catch (Exception e) when (e is PropertyNotSupportedException or Win32Exception or ElementNotEnabledException)
+        {
+            // Replaced or disabled in the meantime — the next attempt looks it up again
+            return false;
+        }
+    }
+
+    private static void PrimaryAction(AutomationElement element)
+    {
         var patterns = element.Patterns;
         if (patterns.Invoke.TryGetPattern(out var invoke)) invoke.Invoke();
         else if (patterns.SelectionItem.TryGetPattern(out var selection)) selection.Select();

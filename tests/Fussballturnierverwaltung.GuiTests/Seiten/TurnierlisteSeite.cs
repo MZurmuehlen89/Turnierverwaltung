@@ -13,7 +13,7 @@ public sealed class TurnierlisteSeite(Window fenster, Hauptfenster hauptfenster)
     /// nach der Saison, weil die Saison den vorgeschlagenen Namen überschreibt.</summary>
     public void AusVorlageErstellen(string vorlage, string variante, string saison, string name)
     {
-        fenster.FindById("Befehlsleiste.AusVorlageErstellen").Activate();
+        fenster.ActivateById("Befehlsleiste.AusVorlageErstellen");
         var dialog = Dialog.WaitFor(fenster, DIALOGTITEL);
         dialog.Element.FindById("AusVorlage.Vorlage").AsComboBox().SelectItem(vorlage, variante);
         dialog.Element.FindById("AusVorlage.Saison").Patterns.Value.Pattern.SetValue(saison);

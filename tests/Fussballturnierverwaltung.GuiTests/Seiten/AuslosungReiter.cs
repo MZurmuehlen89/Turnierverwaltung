@@ -1,4 +1,4 @@
-using FlaUI.Core.AutomationElements;
+﻿using FlaUI.Core.AutomationElements;
 using GuiTest.Framework;
 
 namespace Fussballturnierverwaltung.GuiTests.Seiten;
@@ -29,11 +29,11 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
     /// <summary>Legt für <paramref name="runde"/> eine Auslosung an und speichert sie.</summary>
     public void Anlegen(string runde, string? auslosungsart = null)
     {
-        fenster.FindById("Befehlsleiste.Neu").Activate();
+        fenster.ActivateById("Befehlsleiste.Neu");
         fenster.FindById("Auslosung.Runde").AsComboBox().SelectItem(runde);
         if (auslosungsart is not null)
             fenster.FindById("Auslosung.Art").AsComboBox().SelectItem(auslosungsart);
-        fenster.FindById("Befehlsleiste.Speichern").Activate();
+        fenster.ActivateById("Befehlsleiste.Speichern");
 
         Wait.Until(() => Runde == runde && Status == "Vorbereitung", Wait.DefaultTimeout,
             $"Auslosung für '{runde}' gespeichert");
@@ -55,7 +55,7 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
 
     public void Durchfuehren()
     {
-        fenster.FindById("Befehlsleiste.AuslosungDurchfuehren").Activate();
+        fenster.ActivateById("Befehlsleiste.AuslosungDurchfuehren");
         WarteBisAbgeschlossen();
     }
 
@@ -77,8 +77,8 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
         {
             Wait.Until(() => ZiehungsErgebnis().Count > 0 || WeiterBereit() is not null, _schrittZeit,
                 "Ergebnis der TV-Ziehung oder „Weiter“ aktiv");
-            if (WeiterBereit() is not { } weiter) return schritte;
-            weiter.Activate();
+            if (WeiterBereit() is null) return schritte;
+            fenster.ActivateById("Befehlsleiste.ZiehungWeiter", _schrittZeit);
         }
         throw new InvalidOperationException($"TV-Ziehung nach {MAX_ZIEHUNGSSCHRITTE} Schritten nicht beendet.");
     }
@@ -113,7 +113,7 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
     /// <summary>Startet bei einer Auslosung der Art „Manuell“ die Ziehung von Hand.</summary>
     public void HandZiehungStarten()
     {
-        fenster.FindById("Befehlsleiste.AuslosungDurchfuehren").Activate();
+        fenster.ActivateById("Befehlsleiste.AuslosungDurchfuehren");
         Wait.Until(() => HandAnsage.Length > 0, Wait.DefaultTimeout, "Ansage der Ziehung von Hand");
     }
 
@@ -135,7 +135,7 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
 
     public void HandZiehungAbschliessen()
     {
-        fenster.FindById("Befehlsleiste.AuslosungAbschliessen").Activate();
+        fenster.ActivateById("Befehlsleiste.AuslosungAbschliessen");
         WarteBisAbgeschlossen();
     }
 

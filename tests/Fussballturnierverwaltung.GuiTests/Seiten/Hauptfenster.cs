@@ -27,7 +27,7 @@ public sealed class Hauptfenster(Window fenster)
 
     public void Oeffnen(Bereich bereich)
     {
-        fenster.FindById(bereich.AutomationId).Activate();
+        fenster.ActivateById(bereich.AutomationId);
         WarteBisGeladen(bereich.Titel);
     }
 

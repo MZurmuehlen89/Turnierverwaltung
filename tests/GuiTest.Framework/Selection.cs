@@ -37,17 +37,17 @@ public static class Selection
     public static void InvokeMenuItem(this Window window, string openerId, string itemId)
     {
         Wait.Until(() => !IsMenuOpen(window), Wait.DefaultTimeout, "previous menu flyout closed");
-        var item = Wait.UntilFound(
+        Wait.UntilFound(
             () =>
             {
                 var found = window.TryFindById(itemId);
                 if (found is null && !IsMenuOpen(window))
-                    window.FindById(openerId).Activate();
+                    window.ActivateById(openerId);
                 return found;
             },
             Wait.DefaultTimeout,
             $"menu item '{itemId}' of '{openerId}'");
-        item.Activate();
+        window.ActivateById(itemId);
     }
 
     private static bool IsMenuOpen(Window window) =>
