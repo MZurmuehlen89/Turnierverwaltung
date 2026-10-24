@@ -1,0 +1,42 @@
+using Microsoft.Data.SqlClient;
+
+namespace Fussballturnierverwaltung.GuiTests;
+
+/// <summary>Eine eigene Datenbank je Testlauf (Assembly-Fixture). Angelegt wird sie von der App selbst beim ersten
+/// Start, samt Migrationen und Seed (#370, rund 9 s); hier werden nur Name und Lauf-Ordner vergeben und am Ende
+/// wird die Datenbank wieder gelöscht. Die echte Datenbank des Nutzers wird nie berührt.</summary>
+public sealed class TestDatenbank : IAsyncDisposable
+{
+    public TestDatenbank()
+    {
+        Name = $"Fussballturnierverwaltung_GuiTest_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N")[..6]}";
+        LaufOrdner = Path.Combine(GuiTestUmgebung.ArtefaktOrdner, "laeufe", Name);
+        Directory.CreateDirectory(LaufOrdner);
+    }
+
+    public string Name { get; }
+
+    /// <summary>Ablage dieses Laufs: Datenpfad der App (Einstellungen, Logs) und Belege fehlgeschlagener Tests.</summary>
+    public string LaufOrdner { get; }
+
+    public string Verbindung => Verbindungstext(Name);
+
+    public async ValueTask DisposeAsync()
+    {
+        await using var verbindung = new SqlConnection(Verbindungstext("master"));
+        await verbindung.OpenAsync();
+        await using var befehl = verbindung.CreateCommand();
+        // Name wird oben selbst erzeugt (nur Buchstaben, Ziffern, Unterstriche) – keine Fremdeingabe im SQL
+        befehl.CommandText = $"""
+            IF DB_ID(N'{Name}') IS NOT NULL
+            BEGIN
+                ALTER DATABASE [{Name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+                DROP DATABASE [{Name}];
+            END
+            """;
+        await befehl.ExecuteNonQueryAsync();
+    }
+
+    private static string Verbindungstext(string datenbank) =>
+        $"Server={GuiTestUmgebung.SqlServer};Database={datenbank};Trusted_Connection=True;TrustServerCertificate=True;";
+}
