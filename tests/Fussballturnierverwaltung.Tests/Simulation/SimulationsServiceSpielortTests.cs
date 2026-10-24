@@ -1,10 +1,5 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Simulation;
-using Fussballturnierverwaltung.Application.Spiele;
-using Fussballturnierverwaltung.Application.Spielplan;
-using Fussballturnierverwaltung.Application.Tabelle;
-using Fussballturnierverwaltung.Application.Turnierbaum;
-using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
@@ -12,10 +7,6 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
-using Fussballturnierverwaltung.Infrastructure.Repositories;
-using Fussballturnierverwaltung.Tests.Spielplan;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fussballturnierverwaltung.Tests.Simulation;
 
@@ -23,26 +14,6 @@ namespace Fussballturnierverwaltung.Tests.Simulation;
 public class SimulationsServiceSpielortTests
 {
     private const int SPIELE = 300;
-
-    private static TurnierverwaltungDbContext NeuerContext() =>
-        new(new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options);
-
-    private static SimulationsService ServiceFuer(TurnierverwaltungDbContext ctx)
-    {
-        var spielRepo = new SpielRepository(ctx);
-        var instanzRepo = new TurnierInstanzRepository(ctx);
-        var dienste = new SpielplanDienste(ctx);
-        var ergebnisService = new SpielErgebnisService(
-            spielRepo, new SpielErgebnisValidator(), dienste.Aufloesung, dienste.Kaskade, NullLogger<SpielErgebnisService>.Instance);
-        var baumService = new TurnierBaumService(
-            new TurnierBaumRepository(ctx), instanzRepo, spielRepo, dienste.Aufloesung, dienste.Quellverknuepfung,
-            NullLogger<TurnierBaumService>.Instance);
-        return new SimulationsService(
-            spielRepo, instanzRepo, ergebnisService, baumService,
-            new SimulationsLaufRepository(ctx), new Zufallsquelle(), NullLogger<SimulationsService>.Instance);
-    }
 
     /// <summary>Eine Runde mit <see cref="SPIELE"/> Partien gleich starker Teams mit großem Abstand zwischen
     /// Heim- und Auswärtsstärke; optional sind alle Auswärtsteams Gastgeber des Turniers.</summary>
@@ -81,10 +52,10 @@ public class SimulationsServiceSpielortTests
 
     private static async Task<(int HeimTore, int GastTore)> RundeSimulierenAsync(bool neutral, bool gastIstGastgeber)
     {
-        await using var ctx = NeuerContext();
+        await using var ctx = SimulationsDienste.NeuerContext();
         SetupAnlegen(ctx, neutral, gastIstGastgeber);
 
-        await ServiceFuer(ctx).RundeSimulierenAsync(1, SimulationsModus.SchnellSimulation, seed: 352);
+        await SimulationsDienste.Service(ctx, new Zufallsquelle()).RundeSimulierenAsync(1, SimulationsModus.SchnellSimulation, seed: 352);
 
         var ergebnisse = ctx.SpielErgebnisse.ToList();
         ergebnisse.Should().HaveCount(SPIELE);

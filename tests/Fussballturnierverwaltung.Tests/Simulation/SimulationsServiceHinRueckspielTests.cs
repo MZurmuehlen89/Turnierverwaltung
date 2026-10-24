@@ -1,10 +1,5 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Simulation;
-using Fussballturnierverwaltung.Application.Spiele;
-using Fussballturnierverwaltung.Application.Spielplan;
-using Fussballturnierverwaltung.Application.Tabelle;
-using Fussballturnierverwaltung.Application.Turnierbaum;
-using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
@@ -12,10 +7,7 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
-using Fussballturnierverwaltung.Infrastructure.Repositories;
-using Fussballturnierverwaltung.Tests.Spielplan;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fussballturnierverwaltung.Tests.Simulation;
 
@@ -24,26 +16,6 @@ namespace Fussballturnierverwaltung.Tests.Simulation;
 public class SimulationsServiceHinRueckspielTests
 {
     private const int PAARUNGEN = 30;
-
-    private static TurnierverwaltungDbContext NeuerContext() =>
-        new(new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options);
-
-    private static SimulationsService ServiceFuer(TurnierverwaltungDbContext ctx)
-    {
-        var spielRepo = new SpielRepository(ctx);
-        var instanzRepo = new TurnierInstanzRepository(ctx);
-        var dienste = new SpielplanDienste(ctx);
-        var ergebnisService = new SpielErgebnisService(
-            spielRepo, new SpielErgebnisValidator(), dienste.Aufloesung, dienste.Kaskade, NullLogger<SpielErgebnisService>.Instance);
-        var baumService = new TurnierBaumService(
-            new TurnierBaumRepository(ctx), instanzRepo, spielRepo, dienste.Aufloesung, dienste.Quellverknuepfung,
-            NullLogger<TurnierBaumService>.Instance);
-        return new SimulationsService(
-            spielRepo, instanzRepo, ergebnisService, baumService,
-            new SimulationsLaufRepository(ctx), new Zufallsquelle(), NullLogger<SimulationsService>.Instance);
-    }
 
     /// <summary>K.-o.-Runde mit Rückspiel und Elfmeterschießen als einzigem Entscheidungsverfahren;
     /// <see cref="PAARUNGEN"/> Paarungen gleich starker Teams (viele ausgeglichene Gesamtergebnisse).</summary>
@@ -90,9 +62,9 @@ public class SimulationsServiceHinRueckspielTests
     [Fact]
     public async Task RundeSimulierenAsync_HinspielOhneVerfahren_RueckspielEntscheidetGesamtergebnis()
     {
-        await using var ctx = NeuerContext();
+        await using var ctx = SimulationsDienste.NeuerContext();
         SetupAnlegen(ctx);
-        var service = ServiceFuer(ctx);
+        var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
 
         await service.RundeSimulierenAsync(1, SimulationsModus.SchnellSimulation, seed: 346);
 
@@ -133,7 +105,7 @@ public class SimulationsServiceHinRueckspielTests
     [Fact]
     public async Task RundeSimulierenAsync_LoestFolgerundenPlatzhalterNachDemBlockAuf()
     {
-        await using var ctx = NeuerContext();
+        await using var ctx = SimulationsDienste.NeuerContext();
         SetupAnlegen(ctx);
         ctx.TurnierRunden.Add(new TurnierRunde
         {
@@ -147,7 +119,7 @@ public class SimulationsServiceHinRueckspielTests
             Status = SpielStatus.Geplant
         });
         ctx.SaveChanges();
-        var service = ServiceFuer(ctx);
+        var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
 
         await service.RundeSimulierenAsync(1, SimulationsModus.SchnellSimulation, seed: 386);
 
@@ -164,9 +136,9 @@ public class SimulationsServiceHinRueckspielTests
     [Fact]
     public async Task RundenHaelfteSimulierenAsync_Hinspiele_SimuliertNurHinspiele()
     {
-        await using var ctx = NeuerContext();
+        await using var ctx = SimulationsDienste.NeuerContext();
         SetupAnlegen(ctx);
-        var service = ServiceFuer(ctx);
+        var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
 
         int anzahl = await service.RundenHaelfteSimulierenAsync(1, istRueckrunde: false, SimulationsModus.SchnellSimulation, seed: 387);
 
@@ -179,9 +151,9 @@ public class SimulationsServiceHinRueckspielTests
     [Fact]
     public async Task RundenHaelfteSimulierenAsync_Rueckspiele_UeberspringtRueckspieleMitOffenemHinspiel()
     {
-        await using var ctx = NeuerContext();
+        await using var ctx = SimulationsDienste.NeuerContext();
         SetupAnlegen(ctx);
-        var service = ServiceFuer(ctx);
+        var service = SimulationsDienste.Service(ctx, new Zufallsquelle());
         // Nur das Hinspiel der ersten Paarung ist gespielt.
         await service.SpielSimulierenAsync(1, SimulationsModus.SchnellSimulation, new Random(387));
 
