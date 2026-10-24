@@ -65,10 +65,10 @@ public partial class MainViewModel : ObservableObject
             Titel = "Stammdaten",
             Eintraege =
             [
-                EintragErstellen("Mannschaften",      () => _navigation.NavigiereZuAsync<MannschaftenViewModel>()),
-                EintragErstellen("Länder & Verbände", () => _navigation.NavigiereZuAsync<LaenderUndVerbaendeViewModel>()),
-                EintragErstellen("Regelwerke",        () => _navigation.NavigiereZuAsync<RegelwerkeViewModel>()),
-                EintragErstellen("Ranglisten",        () => _navigation.NavigiereZuAsync<RanglistenBereichViewModel>()),
+                EintragErstellen("Mannschaften",           "Mannschaften",           () => _navigation.NavigiereZuAsync<MannschaftenViewModel>()),
+                EintragErstellen("Länder & Verbände",      "LaenderUndVerbaende",    () => _navigation.NavigiereZuAsync<LaenderUndVerbaendeViewModel>()),
+                EintragErstellen("Regelwerke",             "Regelwerke",             () => _navigation.NavigiereZuAsync<RegelwerkeViewModel>()),
+                EintragErstellen("Ranglisten",             "Ranglisten",             () => _navigation.NavigiereZuAsync<RanglistenBereichViewModel>()),
             ]
         });
 
@@ -77,8 +77,8 @@ public partial class MainViewModel : ObservableObject
             Titel = "Turniere",
             Eintraege =
             [
-                EintragErstellen("Turniere",            () => _navigation.NavigiereZuAsync<TurnierlisteViewModel>()),
-                EintragErstellen("Turnierdurchführung", () => _navigation.NavigiereZuAsync<TurnierdurchfuehrungViewModel>()),
+                EintragErstellen("Turniere",               "Turniere",               () => _navigation.NavigiereZuAsync<TurnierlisteViewModel>()),
+                EintragErstellen("Turnierdurchführung",    "Turnierdurchfuehrung",   () => _navigation.NavigiereZuAsync<TurnierdurchfuehrungViewModel>()),
             ]
         });
 
@@ -87,7 +87,7 @@ public partial class MainViewModel : ObservableObject
             Titel = "Einzelspiel",
             Eintraege =
             [
-                EintragErstellen("Einzelspiel-Simulation", () => _navigation.NavigiereZuAsync<EinzelspielSimulationsViewModel>()),
+                EintragErstellen("Einzelspiel-Simulation", "EinzelspielSimulation", () => _navigation.NavigiereZuAsync<EinzelspielSimulationsViewModel>()),
             ]
         });
 
@@ -96,7 +96,7 @@ public partial class MainViewModel : ObservableObject
             Titel = "Import / Export",
             Eintraege =
             [
-                EintragErstellen("Import / Export", () => _navigation.NavigiereZuAsync<ImportExportViewModel>()),
+                EintragErstellen("Import / Export",        "ImportExport",           () => _navigation.NavigiereZuAsync<ImportExportViewModel>()),
             ]
         });
 
@@ -105,7 +105,7 @@ public partial class MainViewModel : ObservableObject
             Titel = "Wartung",
             Eintraege =
             [
-                EintragErstellen("Datenbankwartung", () => _navigation.NavigiereZuAsync<DatenbankwartungViewModel>()),
+                EintragErstellen("Datenbankwartung",       "Datenbankwartung",       () => _navigation.NavigiereZuAsync<DatenbankwartungViewModel>()),
             ]
         });
     }
@@ -142,6 +142,6 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private NavigationsEintrag EintragErstellen(string titel, Func<Task> aktion)
-        => new() { Titel = titel, Befehl = new AsyncRelayCommand(aktion) };
+    private NavigationsEintrag EintragErstellen(string titel, string ziel, Func<Task> aktion)
+        => new() { Titel = titel, AutomationId = $"Navigation.{ziel}", Befehl = new AsyncRelayCommand(aktion) };
 }

@@ -81,3 +81,19 @@ of column/grid sizing around it. Prefer setting the label/description as the con
 `StackPanel` with `TextBlock`s works and stays clickable as part of the toggle) over placing it in a sibling
 cell next to an empty-`Content` `CheckBox` — the latter reserves the ~120px gap no matter how the grid column
 is computed (#310).
+
+## AutomationIds für GUI-Tests (#494, #521)
+
+Elements a GUI test needs get an **explicit** `AutomationProperties.AutomationId` in the schema `View.Element`
+(German, PascalCase, no umlauts: `Auslosung.Durchfuehren`, `Navigation.Turnierdurchfuehrung`). Never rely on the
+AutomationId WinUI derives from `x:Name` — `x:Name` cannot contain a dot and changes with refactorings. IDs grow
+with the test scenarios; there is no big-bang pass over all views.
+
+- In `DataTemplate`s bind the ID (`AutomationProperties.AutomationId="{x:Bind AutomationId}"`, see
+  `NavigationsEintrag`).
+- Only elements with an automation peer appear in the UIA tree: controls and `TextBlock` yes, `Grid`,
+  `StackPanel`, `UserControl` roots no — an ID on those is invisible to tests.
+- `Hauptfenster.Befehlsleiste` carries the load state as `AutomationProperties.ItemStatus` (`Bereit` /
+  `Beschaeftigt`, `LadeanzeigeViewModel.Ladezustand`) without the 300 ms delay of the visible bar; tests wait on it.
+- `ListView` items report their data object's `ToString()` as UIA name, `ItemsControl` rows are flat text — both
+  need explicit names/containers once a test addresses them (findings in #520).

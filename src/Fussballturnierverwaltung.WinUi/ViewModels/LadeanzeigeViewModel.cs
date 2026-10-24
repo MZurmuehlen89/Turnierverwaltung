@@ -19,6 +19,13 @@ public sealed partial class LadeanzeigeViewModel : ObservableObject
 
     [ObservableProperty] private bool _balkenSichtbar;
 
+    /// <summary>Unverzögerter Zustand für UI Automation (#521): „Beschaeftigt“, solange ein Vorgang offen ist –
+    /// anders als der Balken schon ab der ersten Millisekunde, damit GUI-Tests verlässlich auf das Ende warten.</summary>
+    [ObservableProperty] private string _ladezustand = LADEZUSTAND_BEREIT;
+
+    public const string LADEZUSTAND_BEREIT = "Bereit";
+    public const string LADEZUSTAND_BESCHAEFTIGT = "Beschaeftigt";
+
     public bool TextSichtbar => Text is not null;
 
     /// <summary>Auf dem UI-Thread anzulegen — dessen DispatcherQueue nimmt die Ereignisse entgegen, die auf
@@ -40,6 +47,7 @@ public sealed partial class LadeanzeigeViewModel : ObservableObject
         var stand = LadeanzeigeStand.Ermitteln(offene);
         BalkenSichtbar = stand.BalkenSichtbar;
         Text = stand.Text;
+        Ladezustand = offene.Count == 0 ? LADEZUSTAND_BEREIT : LADEZUSTAND_BESCHAEFTIGT;
 
         if (offene.Count == 0) _timer.Stop();
         else if (!_timer.IsRunning) _timer.Start();

@@ -6,6 +6,9 @@ public class NavigationsEintrag
 {
     public required string Titel { get; init; }
     public required ICommand Befehl { get; init; }
+
+    /// <summary>Kennung für automatisierte GUI-Tests (#521), Schema <c>Navigation.Ziel</c>.</summary>
+    public required string AutomationId { get; init; }
 }
 
 public class NavigationsGruppe

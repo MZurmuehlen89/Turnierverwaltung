@@ -77,7 +77,11 @@
              RibbonZusatzGruppen, siehe MainWindow.xaml.cs) laufen daher über CommandBar.Content (das
              fensterseitig links verankert ist); PrimaryCommands enthält dadurch nur noch den App-weiten
              Dark-Mode-Toggle, der so automatisch ganz rechts landet. -->
-        <CommandBar x:Name="HauptCommandBar" Grid.Row="0" DefaultLabelPosition="Right">
+        <!-- AutomationId/ItemStatus für GUI-Tests (#521): Die Befehlsleiste ist immer im UIA-Baum, darum trägt sie den
+             unverzögerten Ladezustand (Bereit/Beschaeftigt) – der sichtbare Balken erscheint erst nach 300 ms. -->
+        <CommandBar x:Name="HauptCommandBar" Grid.Row="0" DefaultLabelPosition="Right"
+                    AutomationProperties.AutomationId="Hauptfenster.Befehlsleiste"
+                    AutomationProperties.ItemStatus="{x:Bind Ladeanzeige.Ladezustand, Mode=OneWay}">
             <CommandBar.Content>
                 <!-- Verschachtelte CommandBar statt StackPanel (#301-Testfund): ein AppBarButton, der nicht
                      Teil der PrimaryCommands/SecondaryCommands-Auflistung EINER CommandBar ist, ignoriert
@@ -94,6 +98,7 @@
                             IsDynamicOverflowEnabled="True">
                     <AppBarElementContainer>
                         <TextBlock Text="{x:Bind ViewModel.RibbonTabTitel, Mode=OneWay}"
+                                   AutomationProperties.AutomationId="Hauptfenster.Seitentitel"
                                    FontWeight="Bold" VerticalAlignment="Center" Margin="12,0,16,0"
                                    Visibility="{x:Bind ViewModel.HatRibbonBereich, Mode=OneWay}" />
                     </AppBarElementContainer>
@@ -146,6 +151,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="nav:NavigationsEintrag">
                                                 <Button Content="{x:Bind Titel}" Command="{x:Bind Befehl}"
+                                                        AutomationProperties.AutomationId="{x:Bind AutomationId}"
                                                         Background="Transparent" BorderThickness="0"
                                                         HorizontalAlignment="Stretch"
                                                         HorizontalContentAlignment="Left"
