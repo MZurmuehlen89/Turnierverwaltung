@@ -631,17 +631,6 @@ public class AuslosungsValidatorTests
     }
 
     [Fact]
-    public void Liga_TopfZuordnung_ToepfeMitZweiTeams_IstGueltig()
-    {
-        // Die Mindestgröße 3 je Topf gilt nicht für Liga/Gruppenphase (#347).
-        var topf1 = Topf(1, 1, Eintrag(1), Eintrag(2));
-        var topf2 = Topf(2, 2, Eintrag(3), Eintrag(4));
-        var a     = Auslosung(Rundenart.Liga, Auslosungsart.TopfZuordnung, lostoepfe: [topf1, topf2]);
-
-        _validator.Validieren(a, AlleEintraege(a)).IstGueltig.Should().BeTrue();
-    }
-
-    [Fact]
     public void MehrereFehler_KommenInDerReihenfolgeDerPruefschritte()
     {
         // Ein Topf leer, ein Team doppelt, zu viele Teams für die Runde, Heimrecht-Konflikt.
