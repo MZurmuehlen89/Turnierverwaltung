@@ -9,257 +9,267 @@ namespace Fussballturnierverwaltung.Application.Validierung;
 
 public class AuslosungsValidator
 {
-    /// <summary>Validiert eine Auslosung vor dem Start. Vollständige Lösbarkeitsanalyse kommt in Schritt 11.</summary>
+    /// <summary>Validiert eine Auslosung vor dem Start. Die Prüfschritte melden ihre Fehler in fester Reihenfolge.</summary>
     public ValidationErgebnis Validieren(
         Auslosung auslosung,
         IReadOnlyList<LostopfEintrag> alleEintraege,
         IReadOnlyList<VerbandsQuote>? verbandsQuoten = null,
         IReadOnlyList<LandesQuote>? landesQuoten = null)
     {
-        var fehler = new List<string>();
         var lostoepfe = auslosung.Lostoepfe.ToList();
         var rundenart = auslosung.TurnierRunde?.Rundenart;
 
-        TeilnehmerzahlPruefen(alleEintraege, fehler);
-        VerbandsQuotenPruefen(alleEintraege, verbandsQuoten, fehler);
-        LandesQuotenPruefen(alleEintraege, landesQuoten, fehler);
-        LostoepfePruefen(auslosung, lostoepfe, alleEintraege, fehler);
-        TopfZuordnungPruefen(auslosung, lostoepfe, fehler);
-        EineUrnePruefen(auslosung, lostoepfe, fehler);
-        RundenerwartungPruefen(auslosung, alleEintraege, fehler);
-        RundenartKompatibilitaetPruefen(auslosung, rundenart, fehler);
-        TopfPaarePruefen(auslosung, lostoepfe, rundenart, fehler);
-        GruppenphasePruefen(auslosung, lostoepfe, alleEintraege, rundenart, fehler);
-        RegelkonfliktePruefen(auslosung, fehler);
+        string[] fehler =
+        [
+            .. TeilnehmerzahlPruefen(alleEintraege),
+            .. VerbandsQuotenPruefen(alleEintraege, verbandsQuoten),
+            .. LandesQuotenPruefen(alleEintraege, landesQuoten),
+            .. LostoepfePruefen(auslosung, lostoepfe, alleEintraege),
+            .. TopfZuordnungPruefen(auslosung, lostoepfe, rundenart),
+            .. EineUrnePruefen(auslosung, lostoepfe),
+            .. RundenerwartungPruefen(auslosung, alleEintraege, rundenart),
+            .. RundenartKompatibilitaetPruefen(auslosung),
+            .. TopfPaarePruefen(auslosung, lostoepfe, rundenart),
+            .. GruppenphasePruefen(auslosung, lostoepfe, alleEintraege, rundenart),
+            .. RegelkonfliktePruefen(auslosung),
+        ];
 
-        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+        return fehler.Length == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern(fehler);
     }
 
-    private static void TeilnehmerzahlPruefen(IReadOnlyList<LostopfEintrag> alleEintraege, List<string> fehler)
+    private static IEnumerable<string> TeilnehmerzahlPruefen(IReadOnlyList<LostopfEintrag> alleEintraege)
     {
-        if (!alleEintraege.Any())
-            fehler.Add("Keine Teilnehmer für die Auslosung vorhanden.");
+        if (alleEintraege.Count == 0)
+            yield return "Keine Teilnehmer für die Auslosung vorhanden.";
         else if (alleEintraege.Count < 2)
-            fehler.Add($"Mindestens 2 Teilnehmer werden benötigt (vorhanden: {alleEintraege.Count}).");
+            yield return $"Mindestens 2 Teilnehmer werden benötigt (vorhanden: {alleEintraege.Count}).";
     }
 
-    private static void VerbandsQuotenPruefen(
-        IReadOnlyList<LostopfEintrag> alleEintraege, IReadOnlyList<VerbandsQuote>? verbandsQuoten, List<string> fehler)
+    // ── Quoten ──────────────────────────────────────────────────────────────
+
+    // Verband-Quoten (Issue #146/#27, feste Anzahl seit #154): unabhängig von Auslosungsart/Lostopf-Struktur —
+    // prüft nur die Gesamtzusammensetzung der zugewiesenen Teams gegen die konfigurierte Anzahl je Verband.
+    private static IEnumerable<string> VerbandsQuotenPruefen(
+        IReadOnlyList<LostopfEintrag> alleEintraege, IReadOnlyList<VerbandsQuote>? verbandsQuoten) =>
+        QuotenPruefen(
+            verbandsQuoten,
+            alleEintraege.Where(e => e.Mannschaft?.Land is not null).Select(e => e.Mannschaft!.Land.VerbandId),
+            q => q.VerbandId,
+            q => q.Anzahl,
+            q => $"Verband-Quote '{q.Verband?.Name ?? $"Verband {q.VerbandId}"}'");
+
+    // Landes-Quoten (Issue #189): wie die Verband-Quoten, aber auf Land statt Kontinentalverband skaliert —
+    // relevant für Vereinswettbewerbe mit gesetztem Verbandsfilter (dort ist die Verband-Quote immer trivial).
+    private static IEnumerable<string> LandesQuotenPruefen(
+        IReadOnlyList<LostopfEintrag> alleEintraege, IReadOnlyList<LandesQuote>? landesQuoten) =>
+        QuotenPruefen(
+            landesQuoten,
+            alleEintraege.Where(e => e.Mannschaft is not null).Select(e => e.Mannschaft!.LandId),
+            q => q.LandId,
+            q => q.Anzahl,
+            q => $"Landes-Quote '{q.Land?.Name ?? $"Land {q.LandId}"}'");
+
+    /// <summary>Jede Quote verlangt genau ihre Anzahl Teams mit dem Schlüssel (Verband bzw. Land).</summary>
+    private static IEnumerable<string> QuotenPruefen<TQuote>(
+        IReadOnlyList<TQuote>? quoten,
+        IEnumerable<int> zugewieseneSchluessel,
+        Func<TQuote, int> schluessel,
+        Func<TQuote, int> sollAnzahl,
+        Func<TQuote, string> bezeichnung)
     {
-        // Verband-Quoten (Issue #146/#27, feste Anzahl seit #154): unabhängig von Auslosungsart/Lostopf-Struktur —
-        // prüft nur die Gesamtzusammensetzung der zugewiesenen Teams gegen die konfigurierte Anzahl je Verband.
-        if (verbandsQuoten is { Count: > 0 })
+        if (quoten is not { Count: > 0 })
+            yield break;
+
+        var anzahlProSchluessel = zugewieseneSchluessel.GroupBy(s => s).ToDictionary(g => g.Key, g => g.Count());
+
+        foreach (var quote in quoten)
         {
-            var anzahlProVerband = alleEintraege
-                .Where(e => e.Mannschaft?.Land is not null)
-                .GroupBy(e => e.Mannschaft!.Land.VerbandId)
-                .ToDictionary(g => g.Key, g => g.Count());
-
-            foreach (var quote in verbandsQuoten)
-            {
-                var anzahl = anzahlProVerband.GetValueOrDefault(quote.VerbandId);
-                var verbandName = quote.Verband?.Name ?? $"Verband {quote.VerbandId}";
-
-                if (anzahl != quote.Anzahl)
-                    fehler.Add($"Verband-Quote '{verbandName}': genau {quote.Anzahl} Team(s) erforderlich, " +
-                               $"aber {anzahl} zugewiesen.");
-            }
+            var anzahl = anzahlProSchluessel.GetValueOrDefault(schluessel(quote));
+            if (anzahl != sollAnzahl(quote))
+                yield return $"{bezeichnung(quote)}: genau {sollAnzahl(quote)} Team(s) erforderlich, " +
+                             $"aber {anzahl} zugewiesen.";
         }
     }
 
-    private static void LandesQuotenPruefen(
-        IReadOnlyList<LostopfEintrag> alleEintraege, IReadOnlyList<LandesQuote>? landesQuoten, List<string> fehler)
+    // ── Lostopf-Struktur ────────────────────────────────────────────────────
+
+    private static IEnumerable<string> LostoepfePruefen(
+        Auslosung auslosung, List<Lostopf> lostoepfe, IReadOnlyList<LostopfEintrag> alleEintraege)
     {
-        // Landes-Quoten (Issue #189): analog Verband-Quoten oben, aber auf Land statt Kontinentalverband
-        // skaliert — relevant für Vereinswettbewerbe mit gesetztem Verbandsfilter (dort ist die
-        // Verband-Quote immer trivial, siehe oben). Mannschaft.LandId ist ein direktes Scalar-Feld,
-        // keine Indirektion über Land.VerbandId nötig.
-        if (landesQuoten is { Count: > 0 })
-        {
-            var anzahlProLand = alleEintraege
-                .Where(e => e.Mannschaft is not null)
-                .GroupBy(e => e.Mannschaft!.LandId)
-                .ToDictionary(g => g.Key, g => g.Count());
-
-            foreach (var quote in landesQuoten)
-            {
-                var anzahl = anzahlProLand.GetValueOrDefault(quote.LandId);
-                var landName = quote.Land?.Name ?? $"Land {quote.LandId}";
-
-                if (anzahl != quote.Anzahl)
-                    fehler.Add($"Landes-Quote '{landName}': genau {quote.Anzahl} Team(s) erforderlich, " +
-                               $"aber {anzahl} zugewiesen.");
-            }
-        }
-    }
-
-    private static void LostoepfePruefen(
-        Auslosung auslosung, List<Lostopf> lostoepfe, IReadOnlyList<LostopfEintrag> alleEintraege, List<string> fehler)
-    {
-        // Lostöpfe prüfen
-        if (!lostoepfe.Any())
+        if (lostoepfe.Count == 0)
         {
             if (auslosung.Auslosungsart == Auslosungsart.NachToepfen)
-                fehler.Add("Auslosungsart 'NachToepfen' erfordert mindestens einen Lostopf.");
+                yield return "Auslosungsart 'NachToepfen' erfordert mindestens einen Lostopf.";
+            yield break;
         }
-        else
+
+        foreach (var topf in lostoepfe.Where(t => t.Eintraege.Count == 0))
+            yield return $"Lostopf '{topf.Name}' ist leer.";
+
+        // Keine Mannschaft und kein Platzhalter darf in mehreren Töpfen sein
+        var doppelteMannschaften = alleEintraege
+            .Where(e => e.MannschaftId.HasValue)
+            .GroupBy(e => e.MannschaftId)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key);
+        foreach (var id in doppelteMannschaften)
         {
-            foreach (var topf in lostoepfe.Where(t => !t.Eintraege.Any()))
-                fehler.Add($"Lostopf '{topf.Name}' ist leer.");
-
-            // Keine Mannschaft darf in mehreren Töpfen sein
-            var doppelteMannschaften = alleEintraege
-                .Where(e => e.MannschaftId.HasValue)
-                .GroupBy(e => e.MannschaftId)
-                .Where(g => g.Count() > 1)
-                .Select(g => g.Key);
-            foreach (var id in doppelteMannschaften)
-            {
-                var name = alleEintraege.FirstOrDefault(e => e.MannschaftId == id)?.Mannschaft?.Name ?? id.ToString();
-                fehler.Add($"Mannschaft '{name}' ist in mehreren Lostöpfen vorhanden.");
-            }
-
-            // Kein Platzhalter darf doppelt vorkommen
-            var doppeltePlatzhalter = alleEintraege
-                .Where(e => e.PlatzhalterName != null)
-                .GroupBy(e => e.PlatzhalterName)
-                .Where(g => g.Count() > 1)
-                .Select(g => g.Key);
-            foreach (var name in doppeltePlatzhalter)
-                fehler.Add($"Platzhalter '{name}' ist in mehreren Lostöpfen vorhanden.");
+            var name = alleEintraege.FirstOrDefault(e => e.MannschaftId == id)?.Mannschaft?.Name ?? id.ToString();
+            yield return $"Mannschaft '{name}' ist in mehreren Lostöpfen vorhanden.";
         }
+
+        var doppeltePlatzhalter = alleEintraege
+            .Where(e => e.PlatzhalterName != null)
+            .GroupBy(e => e.PlatzhalterName)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key);
+        foreach (var name in doppeltePlatzhalter)
+            yield return $"Platzhalter '{name}' ist in mehreren Lostöpfen vorhanden.";
     }
 
-    private static void TopfZuordnungPruefen(Auslosung auslosung, List<Lostopf> lostoepfe, List<string> fehler)
+    /// <summary>TopfZuordnung: mindestens 2 gleich große Töpfe.</summary>
+    private static IEnumerable<string> TopfZuordnungPruefen(
+        Auslosung auslosung, List<Lostopf> lostoepfe, Rundenart? rundenart)
     {
-        // TopfZuordnung: gleich große Töpfe, mindestens 2 Töpfe
-        if (auslosung.Auslosungsart == Auslosungsart.TopfZuordnung)
-        {
-            if (lostoepfe.Count < 2)
-                fehler.Add("TopfZuordnung erfordert mindestens 2 Lostöpfe.");
+        if (auslosung.Auslosungsart != Auslosungsart.TopfZuordnung)
+            yield break;
 
-            var topfGroessen = lostoepfe.Where(t => t.Eintraege.Any()).Select(t => t.Eintraege.Count).Distinct().ToList();
-            if (topfGroessen.Count > 1)
-                fehler.Add("TopfZuordnung erfordert gleich große Lostöpfe " +
-                           $"(gefunden: {string.Join(", ", topfGroessen.Select(g => $"{g} Teams"))}).");
+        if (lostoepfe.Count < 2)
+            yield return "TopfZuordnung erfordert mindestens 2 Lostöpfe.";
 
-            // Issue #347: jedes Team erhält aus dem eigenen Topf einen Heim- und einen anderen Auswärtsgegner —
-            // bei nur 2 Teams wäre das zweimal dieselbe Paarung (Liga/Gruppenphase verteilen nur auf Gruppen).
-            if (auslosung.TurnierRunde?.Rundenart is not (Rundenart.Liga or Rundenart.Gruppenphase) &&
-                topfGroessen.Any(g => g < 3))
-                fehler.Add("TopfZuordnung erfordert mindestens 3 Teams je Lostopf.");
-        }
+        var topfGroessen = lostoepfe.Where(t => t.Eintraege.Count > 0).Select(t => t.Eintraege.Count).Distinct().ToList();
+        if (topfGroessen.Count > 1)
+            yield return "TopfZuordnung erfordert gleich große Lostöpfe " +
+                         $"(gefunden: {string.Join(", ", topfGroessen.Select(g => $"{g} Teams"))}).";
+
+        // Issue #347: jedes Team erhält aus dem eigenen Topf einen Heim- und einen anderen Auswärtsgegner —
+        // bei nur 2 Teams wäre das zweimal dieselbe Paarung (Liga/Gruppenphase verteilen nur auf Gruppen).
+        if (rundenart is not (Rundenart.Liga or Rundenart.Gruppenphase) && topfGroessen.Any(g => g < 3))
+            yield return "TopfZuordnung erfordert mindestens 3 Teams je Lostopf.";
     }
 
-    private static void EineUrnePruefen(Auslosung auslosung, List<Lostopf> lostoepfe, List<string> fehler)
+    /// <summary>Zufall/Benutzerdefiniert: höchstens 1 Lostopf (keine Topf-Struktur, eine Urne).</summary>
+    private static IEnumerable<string> EineUrnePruefen(Auslosung auslosung, List<Lostopf> lostoepfe)
     {
-        // Zufall/Benutzerdefiniert: höchstens 1 Lostopf (keine Topf-Struktur, eine Urne)
-        if (auslosung.Auslosungsart is Auslosungsart.Zufall or Auslosungsart.Benutzerdefiniert &&
-            lostoepfe.Count > 1)
-            fehler.Add($"Auslosungsart '{(auslosung.Auslosungsart == Auslosungsart.Zufall ? "Zufällig" : "Benutzerdefiniert")}' " +
-                       "erfordert genau 1 Lostopf (keine Topf-Struktur). Bitte zusammenführen oder Auslosungsart wechseln.");
+        if (auslosung.Auslosungsart is not (Auslosungsart.Zufall or Auslosungsart.Benutzerdefiniert) ||
+            lostoepfe.Count <= 1)
+            yield break;
+
+        var artName = auslosung.Auslosungsart == Auslosungsart.Zufall ? "Zufällig" : "Benutzerdefiniert";
+        yield return $"Auslosungsart '{artName}' erfordert genau 1 Lostopf (keine Topf-Struktur). " +
+                     "Bitte zusammenführen oder Auslosungsart wechseln.";
     }
 
-    private static void RundenerwartungPruefen(
-        Auslosung auslosung, IReadOnlyList<LostopfEintrag> alleEintraege, List<string> fehler)
+    // ── Runde ───────────────────────────────────────────────────────────────
+
+    /// <summary>Gesamtanzahl der zugewiesenen Teams gegen die Eingangsanzahl der Runde.</summary>
+    private static IEnumerable<string> RundenerwartungPruefen(
+        Auslosung auslosung, IReadOnlyList<LostopfEintrag> alleEintraege, Rundenart? rundenart)
     {
-        // Gesamtanzahl gegen Rundenerwartung prüfen
-        var benoetigte = auslosung.TurnierRunde?.EingangsMannschaftsanzahl;
-        if (benoetigte is > 0)
-        {
-            // Nur ein tatsächlich wirksames Freilos erlaubt ein Team weniger (#331: bei Töpfen/Setzliste gesperrt).
-            bool freilosMoeglich = AuslosungsRegelKompatibilitaet.Wirkt(
-                AuslosungsRegelArt.FreilosMoeglich, auslosung, auslosung.TurnierRunde?.Rundenart);
-            int min = freilosMoeglich ? benoetigte.Value - 1 : benoetigte.Value;
-            if (alleEintraege.Count < min)
-                fehler.Add($"Die Runde erwartet {benoetigte} Teams" +
-                           (freilosMoeglich ? $" (oder mindestens {min} mit Freilos)" : "") +
-                           $", aber es sind erst {alleEintraege.Count} zugewiesen.");
-            else if (alleEintraege.Count > benoetigte.Value)
-                fehler.Add($"Die Runde erwartet {benoetigte} Teams, " +
-                           $"aber es sind {alleEintraege.Count} zugewiesen " +
-                           $"({alleEintraege.Count - benoetigte.Value} zu viel).");
-        }
+        if (auslosung.TurnierRunde?.EingangsMannschaftsanzahl is not (> 0 and var benoetigte))
+            yield break;
+
+        // Nur ein tatsächlich wirksames Freilos erlaubt ein Team weniger (#331: bei Töpfen/Setzliste gesperrt).
+        bool freilosMoeglich = AuslosungsRegelKompatibilitaet.Wirkt(
+            AuslosungsRegelArt.FreilosMoeglich, auslosung, rundenart);
+        int min = freilosMoeglich ? benoetigte - 1 : benoetigte;
+
+        if (alleEintraege.Count < min)
+            yield return $"Die Runde erwartet {benoetigte} Teams" +
+                         (freilosMoeglich ? $" (oder mindestens {min} mit Freilos)" : "") +
+                         $", aber es sind erst {alleEintraege.Count} zugewiesen.";
+        else if (alleEintraege.Count > benoetigte)
+            yield return $"Die Runde erwartet {benoetigte} Teams, " +
+                         $"aber es sind {alleEintraege.Count} zugewiesen " +
+                         $"({alleEintraege.Count - benoetigte} zu viel).";
     }
 
-    private static void RundenartKompatibilitaetPruefen(Auslosung auslosung, Rundenart? rundenart, List<string> fehler)
+    /// <summary>Auslosungsart und Rundenart auf Kompatibilität prüfen (Issue #94: zentrale Matrix statt separat
+    /// gepflegter Regeln, dieselbe Quelle wie das Ausblenden in der Auswahl).</summary>
+    private static IEnumerable<string> RundenartKompatibilitaetPruefen(Auslosung auslosung)
     {
-        // Auslosungsart und Rundenart auf Kompatibilität prüfen (Issue #94: zentrale Matrix statt
-        // separat gepflegter Regeln, dieselbe Quelle wie das Ausblenden in der WPF-ComboBox).
-        if (rundenart.HasValue &&
+        if (auslosung.TurnierRunde is { } runde &&
             AuslosungsKompatibilitaet.InkompatibilitaetsGrund(
-                rundenart.Value, auslosung.Auslosungsart, auslosung.TurnierRunde!.PaarungFestVorgegeben) is { } grund)
-            fehler.Add(grund);
+                runde.Rundenart, auslosung.Auslosungsart, runde.PaarungFestVorgegeben) is { } grund)
+            yield return grund;
     }
 
-    private static void TopfPaarePruefen(
-        Auslosung auslosung, List<Lostopf> lostoepfe, Rundenart? rundenart, List<string> fehler)
+    /// <summary>Paarungsmodus (nicht Gruppenphase): 'Nach Töpfen' und 'Gruppensieger vs. Zweite' losen die
+    /// Lostöpfe im Duell Topf 1↔2, Topf 3↔4 usw. gegeneinander aus. Weniger als 2 Töpfe liefert keine einzige
+    /// Paarung, eine ungerade Anzahl lässt den letzten Topf stillschweigend unverlost.</summary>
+    private static IEnumerable<string> TopfPaarePruefen(
+        Auslosung auslosung, List<Lostopf> lostoepfe, Rundenart? rundenart)
     {
-        // Paarungsmodus (nicht Gruppenphase): 'Nach Töpfen' und 'Gruppensieger vs. Zweite' losen die
-        // Lostöpfe im Duell Topf 1↔2, Topf 3↔4 usw. gegeneinander aus. Weniger als 2 Töpfe liefert
-        // keine einzige Paarung, eine ungerade Anzahl lässt den letzten Topf stillschweigend unverlost.
         bool istPaarungsmodusMitTopfPaaren =
             auslosung.Auslosungsart == Auslosungsart.GruppensiegerGegenGruppenzweite ||
             (auslosung.Auslosungsart == Auslosungsart.NachToepfen && rundenart != Rundenart.Gruppenphase);
-        if (istPaarungsmodusMitTopfPaaren)
-        {
-            var artName = auslosung.Auslosungsart == Auslosungsart.NachToepfen
-                ? "Nach Töpfen" : "Gruppensieger vs. Zweite";
-            if (lostoepfe.Count < 2)
-                fehler.Add($"Auslosungsart '{artName}' erfordert mindestens 2 Lostöpfe " +
-                           "(je zwei Töpfe werden gegeneinander gelost).");
-            else if (lostoepfe.Count % 2 != 0)
-                fehler.Add($"Auslosungsart '{artName}' erfordert eine gerade Anzahl Lostöpfe " +
-                           $"(gefunden: {lostoepfe.Count}) — sonst bleibt der letzte Topf unverlost.");
-        }
+        if (!istPaarungsmodusMitTopfPaaren)
+            yield break;
+
+        var artName = auslosung.Auslosungsart == Auslosungsart.NachToepfen
+            ? "Nach Töpfen" : "Gruppensieger vs. Zweite";
+        if (lostoepfe.Count < 2)
+            yield return $"Auslosungsart '{artName}' erfordert mindestens 2 Lostöpfe " +
+                         "(je zwei Töpfe werden gegeneinander gelost).";
+        else if (lostoepfe.Count % 2 != 0)
+            yield return $"Auslosungsart '{artName}' erfordert eine gerade Anzahl Lostöpfe " +
+                         $"(gefunden: {lostoepfe.Count}) — sonst bleibt der letzte Topf unverlost.";
     }
 
-    private static void GruppenphasePruefen(
+    // ── Gruppenphase ────────────────────────────────────────────────────────
+
+    /// <summary>Gruppenphase: Gruppenanzahl, gleichmäßige Verteilung und bei 'Nach Töpfen' die Topfgröße.</summary>
+    private static IEnumerable<string> GruppenphasePruefen(
         Auslosung auslosung, List<Lostopf> lostoepfe, IReadOnlyList<LostopfEintrag> alleEintraege,
-        Rundenart? rundenart, List<string> fehler)
+        Rundenart? rundenart)
     {
-        // Gruppenphase: GruppenAnzahl und Teilnehmerzahl prüfen
-        if (rundenart == Rundenart.Gruppenphase)
-        {
-            var gruppenAnzahl = auslosung.TurnierRunde?.GruppenAnzahl;
-            if (!gruppenAnzahl.HasValue || gruppenAnzahl.Value < 2)
-            {
-                fehler.Add("Gruppenphase: Die Runde benötigt eine definierte Gruppenanzahl (mindestens 2).");
-            }
-            else
-            {
-                if (alleEintraege.Count % gruppenAnzahl.Value != 0)
-                    fehler.Add($"Gruppenphase: {alleEintraege.Count} Teams können nicht gleichmäßig auf " +
-                               $"{gruppenAnzahl.Value} Gruppen verteilt werden " +
-                               $"({alleEintraege.Count % gruppenAnzahl.Value} Team(s) übrig).");
+        if (rundenart != Rundenart.Gruppenphase)
+            yield break;
 
-                if (auslosung.Auslosungsart == Auslosungsart.NachToepfen && lostoepfe.Any())
-                {
-                    var falscheToepfe = lostoepfe
-                        .Where(t => t.Eintraege.Count != gruppenAnzahl.Value)
-                        .Select(t => $"'{t.Name}' ({t.Eintraege.Count})")
-                        .ToList();
-                    if (falscheToepfe.Any())
-                        fehler.Add($"Gruppenphase mit 'Nach Töpfen': Jeder Topf muss genau {gruppenAnzahl.Value} Team(s) enthalten " +
-                                   $"(je eines pro Gruppe). Abweichung bei: {string.Join(", ", falscheToepfe)}.");
-                }
-            }
+        if (auslosung.TurnierRunde?.GruppenAnzahl is not (>= 2 and var gruppenAnzahl))
+        {
+            yield return "Gruppenphase: Die Runde benötigt eine definierte Gruppenanzahl (mindestens 2).";
+            yield break;
         }
+
+        if (alleEintraege.Count % gruppenAnzahl != 0)
+            yield return $"Gruppenphase: {alleEintraege.Count} Teams können nicht gleichmäßig auf " +
+                         $"{gruppenAnzahl} Gruppen verteilt werden " +
+                         $"({alleEintraege.Count % gruppenAnzahl} Team(s) übrig).";
+
+        if (auslosung.Auslosungsart == Auslosungsart.NachToepfen)
+            foreach (var meldung in GruppentoepfePruefen(lostoepfe, gruppenAnzahl))
+                yield return meldung;
     }
 
-    private static void RegelkonfliktePruefen(Auslosung auslosung, List<string> fehler)
+    /// <summary>Gruppenphase mit 'Nach Töpfen': jeder Topf liefert genau ein Team je Gruppe.</summary>
+    private static IEnumerable<string> GruppentoepfePruefen(List<Lostopf> lostoepfe, int gruppenAnzahl)
     {
-        var aktiveRegelnVorab = auslosung.Regeln.Where(r => r.IstAktiv).Select(r => r.Regelart).ToList();
+        var falscheToepfe = lostoepfe
+            .Where(t => t.Eintraege.Count != gruppenAnzahl)
+            .Select(t => $"'{t.Name}' ({t.Eintraege.Count})")
+            .ToList();
+        if (falscheToepfe.Count > 0)
+            yield return $"Gruppenphase mit 'Nach Töpfen': Jeder Topf muss genau {gruppenAnzahl} Team(s) enthalten " +
+                         $"(je eines pro Gruppe). Abweichung bei: {string.Join(", ", falscheToepfe)}.";
+    }
 
-        // Regel-Konflikte prüfen — die Oberfläche verhindert das bereits (Häkchen schließen sich gegenseitig
-        // aus, #331), die Prüfung bleibt als Absicherung für Altdaten.
-        var aktiveRegeln = aktiveRegelnVorab;
+    // ── Regeln ──────────────────────────────────────────────────────────────
 
-        var heimrechtRegeln = aktiveRegeln.Where(AuslosungsRegelKompatibilitaet.IstHeimrechtRegel).Distinct().ToList();
+    /// <summary>Regel-Konflikte — die Oberfläche verhindert das bereits (Häkchen schließen sich gegenseitig aus,
+    /// #331), die Prüfung bleibt als Absicherung für Altdaten.</summary>
+    private static IEnumerable<string> RegelkonfliktePruefen(Auslosung auslosung)
+    {
+        var heimrechtRegeln = auslosung.Regeln
+            .Where(r => r.IstAktiv)
+            .Select(r => r.Regelart)
+            .Where(AuslosungsRegelKompatibilitaet.IstHeimrechtRegel)
+            .Distinct()
+            .ToList();
         if (heimrechtRegeln.Count > 1)
-            fehler.Add("Regelkonflikt: " +
-                       string.Join(", ", heimrechtRegeln.Select(r => $"'{AuslosungsRegelKompatibilitaet.AnzeigeName(r)}'")) +
-                       " legen alle das Heimrecht fest und schließen sich gegenseitig aus.");
+            yield return "Regelkonflikt: " +
+                         string.Join(", ", heimrechtRegeln.Select(r => $"'{AuslosungsRegelKompatibilitaet.AnzeigeName(r)}'")) +
+                         " legen alle das Heimrecht fest und schließen sich gegenseitig aus.";
     }
 
     /// <summary>Prüft ob ein Pairing-Schritt bei manueller Auslosung gültig ist.</summary>
@@ -268,15 +278,16 @@ public class AuslosungsValidator
         Mannschaft? bisherGewaehlt,
         IReadOnlyList<AuslosungsRegel> aktiveRegeln)
     {
-        var fehler = new List<string>();
-
         if (bisherGewaehlt is null) return ValidationErgebnis.Ok();
 
-        if (aktiveRegeln.Any(r => r.IstAktiv && r.Regelart == AuslosungsRegelArt.KeinGleichesLand) &&
-            kandidat.LandId == bisherGewaehlt.LandId)
-            fehler.Add($"Regel 'KeinGleichesLand': '{kandidat.Name}' und '{bisherGewaehlt.Name}' " +
-                       "sind aus demselben Land und dürfen nicht gepaart werden.");
+        bool gleichesLandVerboten =
+            aktiveRegeln.Any(r => r.IstAktiv && r.Regelart == AuslosungsRegelArt.KeinGleichesLand) &&
+            kandidat.LandId == bisherGewaehlt.LandId;
 
-        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+        return gleichesLandVerboten
+            ? ValidationErgebnis.MitFehlern(
+                $"Regel 'KeinGleichesLand': '{kandidat.Name}' und '{bisherGewaehlt.Name}' " +
+                "sind aus demselben Land und dürfen nicht gepaart werden.")
+            : ValidationErgebnis.Ok();
     }
 }
