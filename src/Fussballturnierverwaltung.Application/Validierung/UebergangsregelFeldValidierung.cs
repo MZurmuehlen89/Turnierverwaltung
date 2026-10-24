@@ -1,125 +1,106 @@
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Validierung;
 
-/// <summary>Rundenart-spezifische Feld- und Zyklusprüfungen für Übergangsregeln, unabhängig davon, ob sie
-/// gegen echte <see cref="Fussballturnierverwaltung.Domain.Entitaeten.Turniere.TurnierRunde"/>n
-/// (<see cref="UebergangsregelValidator"/>) oder gegen Vorlagen-Runden
-/// (<see cref="VorlagenUebergangsregelValidator"/>, Issue #166-Folgefix) geprüft werden — beide haben
-/// dieselbe Bedeutung von Rundenart/Eingangsanzahl/Gruppenanzahl/Gruppenindex, nur die Identität der
-/// Quell-/Zielrunde unterscheidet sich (reale Id vs. Vorlagen-Reihenfolge).</summary>
+/// <summary>Rundenart-spezifische Feld- und Zyklusprüfungen für Übergangsregeln, gemeinsam für die Einzel- und
+/// Block-Prüfung (Runden über ihre Id) und die Ganzgraph-Prüfung (Runden über ihre Reihenfolge, Issue #294) in
+/// <see cref="UebergangsregelValidator"/> — nur die Identität der Quell-/Zielrunde unterscheidet sich.</summary>
 internal static class UebergangsregelFeldValidierung
 {
+#pragma warning disable S107 // die Regelfelder kommen aus zwei verschiedenen Eingabetypen (Id- bzw. Reihenfolge-basiert); ein gemeinsames Parameterobjekt nur für diesen Aufruf brächte keinen Gewinn (#499)
     public static IEnumerable<string> FeldFehlerErmitteln(
-        bool quellGleichZiel,
-        Rundenart quellRundenart, string quellName, int quellEingangsMannschaftsanzahl, int? quellGruppenAnzahl,
+        bool quellGleichZiel, TurnierRunde quelle,
         int? gruppeIndex, int platzierungVon, int platzierungBis, int? anzahlBeste = null)
+#pragma warning restore S107
     {
-        var fehler = new List<string>();
+        IEnumerable<string> rundenartFehler = anzahlBeste is not null
+            ? AnzahlBesteFehler(quelle, gruppeIndex, platzierungVon, platzierungBis, anzahlBeste.Value)
+            : quelle.Rundenart switch
+            {
+                Rundenart.Gruppenphase => GruppenphaseFehler(quelle, gruppeIndex, platzierungBis),
+                Rundenart.Liga or Rundenart.TopfLiga or Rundenart.SchweizerSystem
+                    => LigaFehler(quelle, gruppeIndex, platzierungBis),
+                Rundenart.KoRunde or Rundenart.Finale or Rundenart.SpielUmPlatzDrei
+                    => KoFehler(quelle, gruppeIndex, platzierungBis),
+                _ => [$"Rundenart '{quelle.Rundenart}' wird als Quellrunde für Übergangsregeln nicht unterstützt."]
+            };
 
-        AllgemeineFehler(quellGleichZiel, platzierungVon, platzierungBis, fehler);
-
-        if (anzahlBeste is not null)
-        {
-            AnzahlBesteFehler(quellRundenart, quellName, quellEingangsMannschaftsanzahl, quellGruppenAnzahl,
-                gruppeIndex, platzierungVon, platzierungBis, anzahlBeste, fehler);
-            return fehler;
-        }
-
-        switch (quellRundenart)
-        {
-            case Rundenart.Gruppenphase:
-                GruppenphaseFehler(quellName, quellEingangsMannschaftsanzahl, quellGruppenAnzahl, gruppeIndex, platzierungBis, fehler);
-                break;
-
-            case Rundenart.Liga:
-            case Rundenart.TopfLiga:
-            case Rundenart.SchweizerSystem:
-                LigaFehler(quellName, quellEingangsMannschaftsanzahl, gruppeIndex, platzierungBis, fehler);
-                break;
-
-            case Rundenart.KoRunde:
-            case Rundenart.Finale:
-            case Rundenart.SpielUmPlatzDrei:
-                KoFehler(quellName, quellEingangsMannschaftsanzahl, gruppeIndex, platzierungBis, fehler);
-                break;
-
-            default:
-                fehler.Add($"Rundenart '{quellRundenart}' wird als Quellrunde für Übergangsregeln nicht unterstützt.");
-                break;
-        }
-
-        return fehler;
+        return [.. AllgemeineFehler(quellGleichZiel, platzierungVon, platzierungBis), .. rundenartFehler];
     }
 
-    private static void AllgemeineFehler(bool quellGleichZiel, int platzierungVon, int platzierungBis, List<string> fehler)
+    private static IEnumerable<string> AllgemeineFehler(bool quellGleichZiel, int platzierungVon, int platzierungBis)
     {
         if (quellGleichZiel)
-            fehler.Add("Quell- und Zielrunde dürfen nicht identisch sein.");
+            yield return "Quell- und Zielrunde dürfen nicht identisch sein.";
 
         if (platzierungVon < 1)
-            fehler.Add("PlatzierungVon muss mindestens 1 sein.");
+            yield return "PlatzierungVon muss mindestens 1 sein.";
 
         if (platzierungBis < platzierungVon)
-            fehler.Add("PlatzierungBis darf nicht kleiner als PlatzierungVon sein.");
+            yield return "PlatzierungBis darf nicht kleiner als PlatzierungVon sein.";
     }
 
-    private static void AnzahlBesteFehler(
-        Rundenart quellRundenart, string quellName, int quellEingangsMannschaftsanzahl, int? quellGruppenAnzahl,
-        int? gruppeIndex, int platzierungVon, int platzierungBis, int? anzahlBeste, List<string> fehler)
+    /// <summary>Gruppenübergreifende Rangfolge-Regel ("die besten n Gruppendritten"): nur aus einer Gruppenphase,
+    /// ohne Gruppenindex, für genau eine Platzierung, höchstens so viele wie Gruppen.</summary>
+    private static IEnumerable<string> AnzahlBesteFehler(
+        TurnierRunde quelle, int? gruppeIndex, int platzierungVon, int platzierungBis, int anzahlBeste)
     {
-            if (quellRundenart != Rundenart.Gruppenphase)
-                fehler.Add("Eine gruppenübergreifende Rangfolge-Regel ist nur für eine Gruppenphase als Quellrunde möglich.");
-            if (gruppeIndex is not null)
-                fehler.Add("Eine gruppenübergreifende Rangfolge-Regel darf keinen Gruppenindex angeben.");
-            if (platzierungVon != platzierungBis)
-                fehler.Add("Eine gruppenübergreifende Rangfolge-Regel gilt für genau eine Platzierung (PlatzierungVon muss PlatzierungBis entsprechen).");
-            if (anzahlBeste < 1)
-                fehler.Add("AnzahlBeste muss mindestens 1 sein.");
-            else if (quellGruppenAnzahl is not > 0 || anzahlBeste > quellGruppenAnzahl)
-                fehler.Add($"AnzahlBeste ({anzahlBeste}) übersteigt die Gruppenanzahl ({quellGruppenAnzahl ?? 0}) der Quellrunde '{quellName}'.");
+        if (quelle.Rundenart != Rundenart.Gruppenphase)
+            yield return "Eine gruppenübergreifende Rangfolge-Regel ist nur für eine Gruppenphase als Quellrunde möglich.";
+        if (gruppeIndex is not null)
+            yield return "Eine gruppenübergreifende Rangfolge-Regel darf keinen Gruppenindex angeben.";
+        if (platzierungVon != platzierungBis)
+            yield return "Eine gruppenübergreifende Rangfolge-Regel gilt für genau eine Platzierung (PlatzierungVon muss PlatzierungBis entsprechen).";
 
-            if (quellRundenart == Rundenart.Gruppenphase && quellGruppenAnzahl is > 0 &&
-                platzierungBis > quellEingangsMannschaftsanzahl / quellGruppenAnzahl.Value)
-                fehler.Add($"Platzierung {platzierungBis} übersteigt die Gruppengröße " +
-                           $"({quellEingangsMannschaftsanzahl / quellGruppenAnzahl.Value}) der Quellrunde '{quellName}'.");
+        if (anzahlBeste < 1)
+            yield return "AnzahlBeste muss mindestens 1 sein.";
+        else if (quelle.GruppenAnzahl is not > 0 || anzahlBeste > quelle.GruppenAnzahl)
+            yield return $"AnzahlBeste ({anzahlBeste}) übersteigt die Gruppenanzahl ({quelle.GruppenAnzahl ?? 0}) der Quellrunde '{quelle.Name}'.";
+
+        if (quelle.Rundenart == Rundenart.Gruppenphase && Gruppengroesse(quelle) is { } groesse && platzierungBis > groesse)
+            yield return GruppengroesseUeberschritten(quelle, platzierungBis, groesse);
     }
 
-    private static void GruppenphaseFehler(
-        string quellName, int quellEingangsMannschaftsanzahl, int? quellGruppenAnzahl,
-        int? gruppeIndex, int platzierungBis, List<string> fehler)
+    private static IEnumerable<string> GruppenphaseFehler(TurnierRunde quelle, int? gruppeIndex, int platzierungBis)
     {
-                if (gruppeIndex is null)
-                    fehler.Add("Für eine Gruppenphase als Quellrunde muss ein Gruppenindex angegeben werden.");
-                else if (quellGruppenAnzahl is not > 0 || gruppeIndex < 1 || gruppeIndex > quellGruppenAnzahl)
-                    fehler.Add($"Gruppenindex {gruppeIndex} ist außerhalb des gültigen Bereichs " +
-                               $"(1–{quellGruppenAnzahl ?? 0}) der Quellrunde '{quellName}'.");
-                else if (platzierungBis > quellEingangsMannschaftsanzahl / quellGruppenAnzahl.Value)
-                    fehler.Add($"Platzierung {platzierungBis} übersteigt die Gruppengröße " +
-                               $"({quellEingangsMannschaftsanzahl / quellGruppenAnzahl.Value}) der Quellrunde '{quellName}'.");
+        if (gruppeIndex is null)
+            yield return "Für eine Gruppenphase als Quellrunde muss ein Gruppenindex angegeben werden.";
+        else if (Gruppengroesse(quelle) is not { } groesse || gruppeIndex < 1 || gruppeIndex > quelle.GruppenAnzahl)
+            yield return $"Gruppenindex {gruppeIndex} ist außerhalb des gültigen Bereichs " +
+                         $"(1–{quelle.GruppenAnzahl ?? 0}) der Quellrunde '{quelle.Name}'.";
+        else if (platzierungBis > groesse)
+            yield return GruppengroesseUeberschritten(quelle, platzierungBis, groesse);
     }
 
-    private static void LigaFehler(
-        string quellName, int quellEingangsMannschaftsanzahl, int? gruppeIndex, int platzierungBis, List<string> fehler)
+    private static IEnumerable<string> LigaFehler(TurnierRunde quelle, int? gruppeIndex, int platzierungBis)
     {
-                if (gruppeIndex is not null)
-                    fehler.Add("Für eine Liga-Runde als Quellrunde darf kein Gruppenindex angegeben werden.");
-                if (platzierungBis > quellEingangsMannschaftsanzahl)
-                    fehler.Add($"Platzierung {platzierungBis} übersteigt die Teilnehmerzahl " +
-                               $"({quellEingangsMannschaftsanzahl}) der Quellrunde '{quellName}'.");
+        if (gruppeIndex is not null)
+            yield return "Für eine Liga-Runde als Quellrunde darf kein Gruppenindex angegeben werden.";
+        if (platzierungBis > quelle.EingangsMannschaftsanzahl)
+            yield return $"Platzierung {platzierungBis} übersteigt die Teilnehmerzahl " +
+                         $"({quelle.EingangsMannschaftsanzahl}) der Quellrunde '{quelle.Name}'.";
     }
 
-    private static void KoFehler(
-        string quellName, int quellEingangsMannschaftsanzahl, int? gruppeIndex, int platzierungBis, List<string> fehler)
+    /// <summary>K.-o.-Quellrunde: der Gruppenindex ist die Spielnummer, Platzierung 1 = Sieger, 2 = Verlierer.</summary>
+    private static IEnumerable<string> KoFehler(TurnierRunde quelle, int? gruppeIndex, int platzierungBis)
     {
-                if (gruppeIndex is null)
-                    fehler.Add("Für eine K.-o.-Runde als Quellrunde muss die Spielnummer (als Gruppenindex) angegeben werden.");
-                else if (gruppeIndex < 1 || gruppeIndex > quellEingangsMannschaftsanzahl / 2)
-                    fehler.Add($"Spielnummer {gruppeIndex} ist außerhalb des gültigen Bereichs " +
-                               $"(1–{quellEingangsMannschaftsanzahl / 2}) der Quellrunde '{quellName}'.");
-                if (platzierungBis > 2)
-                    fehler.Add("Eine K.-o.-Runde als Quellrunde liefert je Spiel nur Sieger (Platzierung 1) und Verlierer (Platzierung 2).");
+        int spiele = quelle.EingangsMannschaftsanzahl / 2;
+        if (gruppeIndex is null)
+            yield return "Für eine K.-o.-Runde als Quellrunde muss die Spielnummer (als Gruppenindex) angegeben werden.";
+        else if (gruppeIndex < 1 || gruppeIndex > spiele)
+            yield return $"Spielnummer {gruppeIndex} ist außerhalb des gültigen Bereichs " +
+                         $"(1–{spiele}) der Quellrunde '{quelle.Name}'.";
+        if (platzierungBis > 2)
+            yield return "Eine K.-o.-Runde als Quellrunde liefert je Spiel nur Sieger (Platzierung 1) und Verlierer (Platzierung 2).";
     }
+
+    /// <summary>Teams je Gruppe, <c>null</c> ohne gültige Gruppenanzahl.</summary>
+    private static int? Gruppengroesse(TurnierRunde quelle) =>
+        quelle.GruppenAnzahl is > 0 and var gruppen ? quelle.EingangsMannschaftsanzahl / gruppen : null;
+
+    private static string GruppengroesseUeberschritten(TurnierRunde quelle, int platzierungBis, int groesse) =>
+        $"Platzierung {platzierungBis} übersteigt die Gruppengröße ({groesse}) der Quellrunde '{quelle.Name}'.";
 
     /// <summary>Prüft per DFS ausgehend von der vorgeschlagenen Zielrunde, ob die Quellrunde über die
     /// übergebenen Kanten wieder erreichbar ist — dann würde die neue Kante einen Zyklus schließen.</summary>

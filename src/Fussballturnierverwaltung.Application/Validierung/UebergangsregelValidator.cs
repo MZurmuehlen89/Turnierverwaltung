@@ -111,8 +111,7 @@ public class UebergangsregelValidator
 
             var quelle = runden[regel.QuellReihenfolge - 1];
             fehler.AddRange(UebergangsregelFeldValidierung.FeldFehlerErmitteln(
-                regel.QuellReihenfolge == regel.ZielReihenfolge,
-                quelle.Rundenart, quelle.Name, quelle.EingangsMannschaftsanzahl, quelle.GruppenAnzahl,
+                regel.QuellReihenfolge == regel.ZielReihenfolge, quelle,
                 regel.GruppeIndex, regel.PlatzierungVon, regel.PlatzierungBis, regel.AnzahlBeste));
         }
 
@@ -183,8 +182,7 @@ public class UebergangsregelValidator
     /// Platzierungsbereich innerhalb der Quellrunde). Wird sowohl von der Einzel- als auch der Block-Validierung genutzt.</summary>
     private static IEnumerable<string> FeldFehlerErmitteln(UebergangsregelEingabe eingabe, TurnierRunde quellRunde)
         => UebergangsregelFeldValidierung.FeldFehlerErmitteln(
-            eingabe.QuellRundeId == eingabe.ZielRundeId,
-            quellRunde.Rundenart, quellRunde.Name, quellRunde.EingangsMannschaftsanzahl, quellRunde.GruppenAnzahl,
+            eingabe.QuellRundeId == eingabe.ZielRundeId, quellRunde,
             eingabe.GruppeIndex, eingabe.PlatzierungVon, eingabe.PlatzierungBis, eingabe.AnzahlBeste);
 
     private static bool HatZyklus(IReadOnlyList<UebergangsregelPositionsEingabe> regeln)
