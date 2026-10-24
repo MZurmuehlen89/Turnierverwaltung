@@ -44,16 +44,25 @@ public sealed class AppSession : IDisposable
                 $"Application under test not found: {options.ExecutablePath} — build it before running the GUI tests.",
                 options.ExecutablePath);
 
+        // Eigene Ausgabe-Pipes statt geerbter: sonst hält eine hängengebliebene App die Konsole des Testlaufs offen
         var start = new ProcessStartInfo(options.ExecutablePath)
         {
             UseShellExecute = false,
             WorkingDirectory = Path.GetDirectoryName(options.ExecutablePath),
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
         };
         foreach (var (name, value) in options.Environment)
             start.Environment[name] = value;
 
         var process = Process.Start(start)
             ?? throw new InvalidOperationException($"Could not start {options.ExecutablePath}.");
+        process.OutputDataReceived += (_, _) => { };
+        process.ErrorDataReceived += (_, _) => { };
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        int processId = process.Id;
         var automation = new UIA3Automation();
         try
         {
@@ -63,8 +72,8 @@ public sealed class AppSession : IDisposable
         catch
         {
             automation.Dispose();
-            Kill(process);
             process.Dispose();
+            Kill(processId);
             throw;
         }
     }
@@ -92,12 +101,14 @@ public sealed class AppSession : IDisposable
         }
 
         if (!_process.WaitForExit(_options.ShutdownTimeout))
-            Kill(_process);
+            Kill(_process.Id);
     }
 
     private static Window WaitForMainWindow(Process process, UIA3Automation automation, TimeSpan timeout)
     {
-        var application = FlaUI.Core.Application.Attach(process);
+        // Attach per id, not with our Process object: FlaUI's GetMainWindow leaves a passed-in Process unusable
+        // ("No process is associated with this object") while the window does not exist yet (verified #521)
+        var application = FlaUI.Core.Application.Attach(process.Id);
         return Wait.UntilFound(
             () =>
             {
@@ -111,10 +122,19 @@ public sealed class AppSession : IDisposable
             "main window of the application under test");
     }
 
-    private static void Kill(Process process)
+    /// <summary>Ends the application by process id. Never throws, so it cannot hide the exception that made the
+    /// caller clean up.</summary>
+    private static void Kill(int processId)
     {
-        if (process.HasExited) return;
-        process.Kill(entireProcessTree: true);
-        process.WaitForExit();
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            process.Kill(entireProcessTree: true);
+            process.WaitForExit();
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            // Already exited (ArgumentException: no such process) or exiting right now
+        }
     }
 }
