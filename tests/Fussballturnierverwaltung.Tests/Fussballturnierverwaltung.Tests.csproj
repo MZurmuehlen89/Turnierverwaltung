@@ -12,13 +12,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="10.1.0" />
     <PackageReference Include="FluentAssertions" Version="8.11.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.13" />
+    <!-- Code Coverage unter MTP (coverlet läuft dort nicht), Aufruf siehe tests/…/CLAUDE.md (#497) -->
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
+    <!-- Microsoft.NET.Test.Sdk und xunit.runner.visualstudio laut xunit-Doku vorerst behalten: sie halten den
+         VSTest-Weg für ältere Test-Explorer offen (#497) -->
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
-    <!-- Variante ohne Microsoft Testing Platform: hält "dotnet test" und coverlet auf dem bisherigen VSTest-Weg,
-         den xunit.v3 4.x mit dem .NET-10-SDK sonst ablehnt (#493) -->
-    <PackageReference Include="xunit.v3.mtp-off" Version="4.0.2" />
+    <!-- Läuft auf der Microsoft Testing Platform, Runner repo-weit über global.json festgelegt (#497) -->
+    <PackageReference Include="xunit.v3" Version="4.0.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1" />
   </ItemGroup>
 

@@ -60,8 +60,11 @@ dotnet ef database update --project src/Fussballturnierverwaltung.Infrastructure
 # Anwendung starten
 dotnet run --project src/Fussballturnierverwaltung.WinUi
 
-# Tests ausführen
+# Tests ausführen (Microsoft Testing Platform, festgelegt in global.json)
 dotnet test
+
+# Tests mit Code Coverage (Ergebnis unter TestResults\)
+dotnet test --project tests/Fussballturnierverwaltung.Tests --coverage --coverage-output-format cobertura
 ```
 
 ## Version 1 – Umfang
