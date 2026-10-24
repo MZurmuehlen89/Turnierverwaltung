@@ -45,6 +45,7 @@ public class AblaufVorgangTests
         using (logger.Vorgang("Test-Vorgang B1"))
         using (logger.Vorgang("Test-Vorgang B2"))
         {
+            // nur Beginn und Ende der verschachtelten Vorgänge werden geprüft
         }
 
         logger.Zeilen[1].Should().StartWith("Beginn: Test-Vorgang B2 — läuft bereits:").And.Contain("Test-Vorgang B1");

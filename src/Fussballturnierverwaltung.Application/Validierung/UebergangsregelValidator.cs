@@ -20,7 +20,7 @@ public class UebergangsregelValidator
         int? bearbeiteteRegelId = null)
     {
         var kanten = alleRegeln.Where(r => r.Id != bearbeiteteRegelId).ToList();
-        var fehler = new List<string>(FeldFehlerErmitteln(eingabe, quellRunde, zielRunde));
+        var fehler = new List<string>(FeldFehlerErmitteln(eingabe, quellRunde));
 
         if (UebergangsregelFeldValidierung.WuerdeZyklusSchliessen(
                 eingabe.QuellRundeId, eingabe.ZielRundeId, kanten.Select(r => (r.QuellRundeId, r.ZielRundeId))))
@@ -56,7 +56,7 @@ public class UebergangsregelValidator
             fehler.Add("Ein Übergangsregel-Block muss mindestens eine Zeile enthalten.");
 
         foreach (var eingabe in eingaben)
-            fehler.AddRange(FeldFehlerErmitteln(eingabe, quellRunde, zielRunde));
+            fehler.AddRange(FeldFehlerErmitteln(eingabe, quellRunde));
 
         var duplikate = eingaben
             .Where(e => e.GruppeIndex is not null)
@@ -91,13 +91,6 @@ public class UebergangsregelValidator
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }
 
-    /// <summary>Rundenart-spezifische Feldprüfungen einer einzelnen Eingabe (Gruppenindex/Spielnummer-Bereich,
-    /// Platzierungsbereich innerhalb der Quellrunde). Wird sowohl von der Einzel- als auch der Block-Validierung genutzt.</summary>
-    private static IEnumerable<string> FeldFehlerErmitteln(UebergangsregelEingabe eingabe, TurnierRunde quellRunde, TurnierRunde zielRunde)
-        => UebergangsregelFeldValidierung.FeldFehlerErmitteln(
-            eingabe.QuellRundeId == eingabe.ZielRundeId,
-            quellRunde.Rundenart, quellRunde.Name, quellRunde.EingangsMannschaftsanzahl, quellRunde.GruppenAnzahl,
-            eingabe.GruppeIndex, eingabe.PlatzierungVon, eingabe.PlatzierungBis, eingabe.AnzahlBeste);
 
     /// <summary>Ganzgraph-Validierung (Issue #294, Nachfolger von <c>VorlagenUebergangsregelValidator.Validieren</c>):
     /// validiert alle Runden + alle Übergangsregeln als beabsichtigten Endzustand in einem Zug (Zyklus-Check,
@@ -185,6 +178,14 @@ public class UebergangsregelValidator
 
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }
+
+    /// <summary>Rundenart-spezifische Feldprüfungen einer einzelnen Eingabe (Gruppenindex/Spielnummer-Bereich,
+    /// Platzierungsbereich innerhalb der Quellrunde). Wird sowohl von der Einzel- als auch der Block-Validierung genutzt.</summary>
+    private static IEnumerable<string> FeldFehlerErmitteln(UebergangsregelEingabe eingabe, TurnierRunde quellRunde)
+        => UebergangsregelFeldValidierung.FeldFehlerErmitteln(
+            eingabe.QuellRundeId == eingabe.ZielRundeId,
+            quellRunde.Rundenart, quellRunde.Name, quellRunde.EingangsMannschaftsanzahl, quellRunde.GruppenAnzahl,
+            eingabe.GruppeIndex, eingabe.PlatzierungVon, eingabe.PlatzierungBis, eingabe.AnzahlBeste);
 
     private static bool HatZyklus(IReadOnlyList<UebergangsregelPositionsEingabe> regeln)
     {

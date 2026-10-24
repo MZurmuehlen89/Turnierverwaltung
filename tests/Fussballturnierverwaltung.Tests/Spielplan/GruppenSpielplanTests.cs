@@ -54,7 +54,7 @@ public class GruppenSpielplanTests
             spieltag.SelectMany(s => new[] { s.Heim.MannschaftId, s.Auswaerts.MannschaftId })
                 .Should().BeEquivalentTo(new int?[] { 1, 2, 3, 4 });
         plan.Select(s => (Math.Min(s.Heim.MannschaftId!.Value, s.Auswaerts.MannschaftId!.Value),
-                          Math.Max(s.Heim.MannschaftId!.Value, s.Auswaerts.MannschaftId!.Value)))
+                          Math.Max(s.Heim.MannschaftId.Value, s.Auswaerts.MannschaftId.Value)))
             .Should().OnlyHaveUniqueItems();
         plan.Should().OnlyContain(s => !s.IstRueckspiel && s.HinspielIndex == null && s.GruppenNummer == 1);
     }

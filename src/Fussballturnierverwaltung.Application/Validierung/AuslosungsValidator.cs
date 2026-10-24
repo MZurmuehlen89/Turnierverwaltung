@@ -29,7 +29,7 @@ public class AuslosungsValidator
         {
             var anzahlProVerband = alleEintraege
                 .Where(e => e.Mannschaft?.Land is not null)
-                .GroupBy(e => e.Mannschaft!.Land!.VerbandId)
+                .GroupBy(e => e.Mannschaft!.Land.VerbandId)
                 .ToDictionary(g => g.Key, g => g.Count());
 
             foreach (var quote in verbandsQuoten)

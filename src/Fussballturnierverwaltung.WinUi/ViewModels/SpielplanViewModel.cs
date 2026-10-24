@@ -218,7 +218,10 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (AusgewaehlteSpiel?.Id != spielId && !await SpielWaehlenAsync(rundeId, spielId)) return;
 
         // Der Spielwechsel lädt das Formular im selben Schutz — erst danach gibt es ein Torfeld.
-        using (await DbContextSchutz.BetretenAsync()) { }
+        using (await DbContextSchutz.BetretenAsync())
+        {
+            // nur warten, bis der Spielwechsel den Schutz wieder freigibt
+        }
         ErgebnisEingabeAngefordert?.Invoke(this, EventArgs.Empty);
     }
 

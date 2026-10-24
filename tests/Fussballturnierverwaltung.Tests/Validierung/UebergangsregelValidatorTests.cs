@@ -396,6 +396,7 @@ public class UebergangsregelValidatorTests
         EingangsMannschaftsanzahl = eingangsMannschaftsanzahl, AusgangsMannschaftsanzahl = eingangsMannschaftsanzahl / 2
     };
 
+    // Deckt auch ab, dass die Zielrunde als terminale Runde keine ausgehenden Regeln braucht
     [Fact]
     public void Ganzgraph_GueltigeGruppenphaseRegel_IstGueltig()
     {
@@ -527,19 +528,6 @@ public class UebergangsregelValidatorTests
 
         ergebnis.IstUngueltig.Should().BeTrue();
         ergebnis.Fehler.Should().ContainMatch("*Gruppenphase*");
-    }
-
-    [Fact]
-    public void Ganzgraph_TerminaleRundeOhneAusgehendeRegeln_IstGueltig()
-    {
-        var runden = new[] { GanzgraphGruppenphase(gruppenAnzahl: 2, eingangsMannschaftsanzahl: 8, ausgangsMannschaftsanzahl: 2), GanzgraphZiel(eingangsMannschaftsanzahl: 2) };
-        var regeln = new[]
-        {
-            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 1, PlatzierungVon: 1, PlatzierungBis: 1),
-            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: 2, PlatzierungVon: 1, PlatzierungBis: 1)
-        };
-
-        _validator.Validieren(runden, regeln).IstGueltig.Should().BeTrue();
     }
 
     [Fact]

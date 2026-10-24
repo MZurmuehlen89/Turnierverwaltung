@@ -5,7 +5,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 
 public static class VereinsmannschaftenSeedDaten
 {
-    private record E(string Name, string Kurz, string Land, int Off, int Mid, int Def, int Heim, int Ausw);
+    private sealed record E(string Name, string Kurz, string Land, int Off, int Mid, int Def, int Heim, int Ausw);
 
     private static readonly E[] Eintraege =
     [

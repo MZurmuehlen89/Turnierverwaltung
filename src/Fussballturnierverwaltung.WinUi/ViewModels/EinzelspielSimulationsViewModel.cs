@@ -458,6 +458,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         try
         {
             var rng = new Random();
+#pragma warning disable S2234 // Rückspiel: Heim und Auswärts bewusst getauscht
             var erg2 = _simulationsService.EinzelspielSimulieren(auswaerts, heim, [], SimulationsModus.AusfuehrlicheSimulation, rng);
 
             int heimGesamtRegulaer      = erg1.HeimToreRegulaer      + erg2.AuswaertsToreRegulaer;
@@ -530,6 +531,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                 SimulationsProtokollHelfer.SpielKopfErstellen(
                     "Rückspiel", auswaerts, auswaerts.Name, heim, heim.Name, erg2, VerbandKurzname),
                 RueckspielEreignisse);
+#pragma warning restore S2234
 
             // Rückspiel steht fest → aufgeklappt, Hinspiel klappt automatisch ein (Nutzer-Vorgabe #248).
             HinspielOffen   = false;

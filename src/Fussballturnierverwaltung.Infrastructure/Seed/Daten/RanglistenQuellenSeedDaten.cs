@@ -14,7 +14,7 @@ public static class RanglistenQuellenSeedDaten
     /// ab 2024/25 (Issue #349). Die Migration StandardRanglisteJeRunde legt sie mit denselben Werten an.</summary>
     public const string UEFA_KLUB_KOEFFIZIENT = "UEFA-Klub-Koeffizient (Kassies)";
 
-    private record E(string Name, string Url, int TabellenIndex, int MannschaftSpalte, int PunkteSpalte);
+    private sealed record E(string Name, string Url, int TabellenIndex, int MannschaftSpalte, int PunkteSpalte);
 
     private static readonly E[] Eintraege =
     [

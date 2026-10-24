@@ -9,7 +9,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 /// </summary>
 public static class NationalmannschaftenSeedDaten
 {
-    private record E(string Code, int Off, int Mid, int Def, int Heim, int Ausw);
+    private sealed record E(string Code, int Off, int Mid, int Def, int Heim, int Ausw);
 
     private static readonly E[] Eintraege =
     [

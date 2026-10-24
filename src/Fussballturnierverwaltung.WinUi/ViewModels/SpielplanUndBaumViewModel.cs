@@ -64,14 +64,14 @@ public partial class SpielplanUndBaumViewModel : ViewModelBase, IRibbonAware, IH
         SpielplanVm = spielplanVm;
         TurnierBaumVm = turnierBaumVm;
 
-        TurnierBaumVm.RundeAngeklickt += (_, rundeId) =>
+        TurnierBaumVm.RundeAngeklickt += (sender, rundeId) =>
         {
             var runde = SpielplanVm.Runden.FirstOrDefault(r => r.Id == rundeId);
             if (runde is not null)
                 _ = SpielplanVm.RundeZeigenAsync(runde);
         };
 
-        TurnierBaumVm.GruppeAngeklickt += (_, gruppenNummer) => _ = SpielplanVm.GruppeZeigenAsync(gruppenNummer);
+        TurnierBaumVm.GruppeAngeklickt += (sender, gruppenNummer) => _ = SpielplanVm.GruppeZeigenAsync(gruppenNummer);
 
         TurnierBaumVm.PropertyChanged += (_, e) =>
         {

@@ -152,7 +152,7 @@ public sealed partial class TabellenVerlaufDiagramm : UserControl
     private void GraueLinieZeichnen(VerlaufDiagrammLinie linie, TabellenVerlauf verlauf)
     {
         Hinzufuegen(Polylinie(linie, LinieGrau.Fill, LINIE_GRAU), 0, 0);
-        Trefferflaeche(linie, $"{Name(verlauf, linie.MannschaftId)} – klicken zum Hervorheben");
+        Trefferflaeche(linie, $"{MannschaftsName(verlauf, linie.MannschaftId)} – klicken zum Hervorheben");
     }
 
     private void HervorgehobeneLinieZeichnen(VerlaufDiagrammLinie linie, VerlaufHervorhebung hervorhebung, TabellenVerlauf verlauf)
@@ -237,7 +237,7 @@ public sealed partial class TabellenVerlaufDiagramm : UserControl
         TextTrimming = TextTrimming.CharacterEllipsis, IsHitTestVisible = false
     };
 
-    private static string Name(TabellenVerlauf verlauf, int mannschaftId) =>
+    private static string MannschaftsName(TabellenVerlauf verlauf, int mannschaftId) =>
         verlauf.Mannschaften.First(m => m.Mannschaft.Id == mannschaftId).Mannschaft.Name;
 
     private void Hinzufuegen(UIElement element, double links, double oben)

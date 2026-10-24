@@ -221,7 +221,6 @@ public class TurnierBaumService(
         if (ohneEltern.Count == knoten.Count) return knoten;
 
         // Rekonstruiere Reihenfolge via Eltern-Kind-Beziehung
-        var elternIds = knoten.Select(k => k.ElternKnotenId).Distinct().ToList();
         var ergebnis = new List<TurnierBaumKnoten>();
 
         // Sortiere nach (ElternKnotenId, ob linkes Kind)

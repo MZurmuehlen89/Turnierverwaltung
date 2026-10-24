@@ -136,13 +136,17 @@ public partial class ZiehungViewModel : ObservableObject
     {
         Starten(schrittGesamt, manuell);
         try { await ablauf(); }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+            // Vorzeitiges Ende ("Rest sofort anzeigen", Beenden) ist ein regulärer Ausgang, kein Fehler
+        }
         finally { AnimationsZustandZuruecksetzen(); }
     }
 
     private void Starten(int schrittGesamt, bool manuell)
     {
         _manuell               = manuell;
+        _abbruch.Dispose();
         _abbruch               = new CancellationTokenSource();
         AnimationLaeuft        = true;
         AnimationSchrittGesamt = schrittGesamt;

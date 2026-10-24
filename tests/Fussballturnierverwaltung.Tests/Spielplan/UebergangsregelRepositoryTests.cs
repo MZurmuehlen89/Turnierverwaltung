@@ -55,7 +55,7 @@ public class UebergangsregelRepositoryTests
         var gefunden = await repo.FindenNachIdAsync(regel.Id);
 
         gefunden.Should().NotBeNull();
-        gefunden!.PlatzierungVon.Should().Be(1);
+        gefunden.PlatzierungVon.Should().Be(1);
         gefunden.PlatzierungBis.Should().Be(8);
     }
 
@@ -163,7 +163,7 @@ public class UebergangsregelRepositoryTests
         var geladen = await repo.FindenNachIdMitRundenAsync(regel.Id);
 
         geladen.Should().NotBeNull();
-        geladen!.QuellRunde.Should().NotBeNull();
+        geladen.QuellRunde.Should().NotBeNull();
         geladen.ZielRunde.Should().NotBeNull();
     }
 

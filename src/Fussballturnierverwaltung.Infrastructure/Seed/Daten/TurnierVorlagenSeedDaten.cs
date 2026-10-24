@@ -1192,7 +1192,7 @@ public static class TurnierVorlagenSeedDaten
     /// die Verlierer bzw. Sieger des Halbfinals. Muss nach dem Anlegen aller Runden aufgerufen werden.</summary>
     private static void FesterKoBaum(TurnierInstanz v, Kombinationstabelle? tabelle, params string[] ersteRunde)
     {
-        var koRunden = v.Runden.OrderBy(r => r.Reihenfolge).Where(r => r.Rundenart != Rundenart.Gruppenphase).ToList();
+        var koRunden = v.Runden.Where(r => r.Rundenart != Rundenart.Gruppenphase).OrderBy(r => r.Reihenfolge).ToList();
         var erste = koRunden.First(r => r.Rundenart == Rundenart.KoRunde);
         erste.KombinationstabelleJson = tabelle?.ZuJson();
         FestePaarungen(v, erste, ersteRunde.Select(p => p.Split('-')).Select(t => (GruppenPlatz(t[0]), GruppenPlatz(t[1]))));

@@ -34,17 +34,10 @@ public class SchweizerSystemGeneratorTests
     [InlineData(6, 3)]
     [InlineData(8, 4)]
     [InlineData(2, 1)]
-    public void AnzahlSpiele_IstHalbTeamanzahl(int teamAnzahl, int erwarteteSpiele)
-    {
-        var ergebnis = _generator.Generieren(Kontext(Teams(teamAnzahl)));
-        ergebnis.Spiele.Should().HaveCount(erwarteteSpiele);
-    }
-
-    [Theory]
-    [InlineData(3, 1)]   // 3 → 2 aktiv + 1 Freilos → 1 Spiel
+    [InlineData(3, 1)]   // ungerade: 3 → 2 aktiv + 1 Freilos → 1 Spiel
     [InlineData(5, 2)]   // 5 → 4 aktiv + 1 Freilos → 2 Spiele
     [InlineData(7, 3)]
-    public void UngeeradeTeamAnzahl_EinTeamSitztAus(int teamAnzahl, int erwarteteSpiele)
+    public void AnzahlSpiele_IstHalbeTeamanzahl_UngeradeSitztEinTeamAus(int teamAnzahl, int erwarteteSpiele)
     {
         var ergebnis = _generator.Generieren(Kontext(Teams(teamAnzahl)));
         ergebnis.Spiele.Should().HaveCount(erwarteteSpiele);
@@ -105,7 +98,7 @@ public class SchweizerSystemGeneratorTests
             foreach (var s in ergebnis.Spiele)
             {
                 var key = (Math.Min(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value),
-                           Math.Max(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value));
+                           Math.Max(s.HeimMannschaftId.Value, s.AuswaertsMannschaftId.Value));
                 gespielt.Should().NotContain(key, $"Runde {runde}: Rematch entdeckt");
                 gespielt.Add(key);
             }

@@ -57,8 +57,10 @@ public static class GruppenSpielplan
             .ToList();
         if (!mitRueckspiel) return hinspiele;
 
+#pragma warning disable S2234 // Rückspiel: Heim und Auswärts bewusst getauscht
         var rueckspiele = hinspiele.Select((h, i) => new Paarung(
             gruppenIndex, h.Spieltag + spieltage, ersteNr + hinspiele.Count + i, h.Auswaerts, h.Heim, h.Nr));
+#pragma warning restore S2234
         return [.. hinspiele, .. rueckspiele];
     }
 

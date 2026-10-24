@@ -88,7 +88,7 @@ public class TurnierBaumServiceTests
     public async Task GenerierenAsync_VerknuepftAlleReferenziertenSlots_BeiGemischterEbeneMitDirekteinstieg()
     {
         await using var ctx = NeuerContext();
-        AchtelfinaleUndViertelfinaleAnlegen(ctx, out int afRundeId, out int vfRundeId);
+        AchtelfinaleUndViertelfinaleAnlegen(ctx, out _, out int vfRundeId);
 
         // 3 der 4 Viertelfinale-Spiele beziehen sich per Platzhalter auf konkrete Achtelfinale-Spiele
         // (6 von 8 AF-Spielen referenziert), das vierte ist ein Direkteinstieg (2 real bekannte Teams,
@@ -112,7 +112,7 @@ public class TurnierBaumServiceTests
         var geladen = await baumService.AbrufenAsync(1);
 
         geladen.Should().NotBeNull();
-        var afKnoten = geladen!.Knoten.Where(k => k.Runde == 1).OrderBy(k => k.Spiel!.Spielnummer).ToList();
+        var afKnoten = geladen.Knoten.Where(k => k.Runde == 1).OrderBy(k => k.Spiel!.Spielnummer).ToList();
         var vfKnoten = geladen.Knoten.Where(k => k.Runde == 2).OrderBy(k => k.Spiel!.Spielnummer).ToList();
 
         afKnoten.Should().HaveCount(8);
@@ -143,7 +143,7 @@ public class TurnierBaumServiceTests
     public async Task GenerierenAsync_NutztSequentiellenFallback_WennKeineQuellIdsVorhanden()
     {
         await using var ctx = NeuerContext();
-        AchtelfinaleUndViertelfinaleAnlegen(ctx, out int afRundeId, out int vfRundeId);
+        AchtelfinaleUndViertelfinaleAnlegen(ctx, out _, out int vfRundeId);
 
         // Alt-Daten-Szenario: Viertelfinale-Spiele ohne jegliche Platzhalter-Historie (z.B. Turnier vor
         // der #241-Migration), alle Slots bereits mit realen Teams befüllt.
@@ -176,7 +176,7 @@ public class TurnierBaumServiceTests
     public async Task SiegerFortsteiernAsync_PropagiertSiegerAutomatischUeberIdVerknuepfung()
     {
         await using var ctx = NeuerContext();
-        AchtelfinaleUndViertelfinaleAnlegen(ctx, out int afRundeId, out int vfRundeId);
+        AchtelfinaleUndViertelfinaleAnlegen(ctx, out _, out int vfRundeId);
 
         ctx.Spiele.Add(new Spiel
         {

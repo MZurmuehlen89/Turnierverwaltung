@@ -44,7 +44,9 @@ public sealed partial class PaarungsSpaltenControl : UserControl
         InitializeComponent();
         SizeChanged += (_, e) =>
         {
+#pragma warning disable S1244 // jede Breitenänderung zählt, auch eine sehr kleine
             if (e.PreviousSize.Width != e.NewSize.Width) Aufbauen(erzwingen: false);
+#pragma warning restore S1244
         };
     }
 

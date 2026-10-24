@@ -300,7 +300,7 @@ public class AuslosungAlgorithmusTests
         {
             bool heimT1ausT1_aausT2 = topf1Ids.Contains(e.HeimMannschaftId!.Value)
                                    && topf2Ids.Contains(e.AuswaertsMannschaftId!.Value);
-            bool heimT1ausT2_aausT1 = topf2Ids.Contains(e.HeimMannschaftId!.Value)
+            bool heimT1ausT2_aausT1 = topf2Ids.Contains(e.HeimMannschaftId.Value)
                                    && topf1Ids.Contains(e.AuswaertsMannschaftId!.Value);
             (heimT1ausT1_aausT2 || heimT1ausT2_aausT1)
                 .Should().BeTrue("jede Paarung verbindet je ein Team aus Topf 1 und Topf 2");
@@ -764,7 +764,7 @@ public class AuslosungAlgorithmusTests
 
         ergebnisse.Should().HaveCount(12);
         ergebnisse.Select(e => (Math.Min(e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value),
-                                Math.Max(e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value)))
+                                Math.Max(e.HeimMannschaftId.Value, e.AuswaertsMannschaftId.Value)))
             .Should().OnlyHaveUniqueItems("kein Gegner zweimal");
     }
 
@@ -857,7 +857,7 @@ public class AuslosungAlgorithmusTests
 
         ergebnisse.Should().HaveCount(12);
         ergebnisse.Select(e => (Math.Min(e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value),
-                                Math.Max(e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value)))
+                                Math.Max(e.HeimMannschaftId.Value, e.AuswaertsMannschaftId.Value)))
             .Should().OnlyHaveUniqueItems("kein Gegner zweimal");
     }
 
@@ -913,7 +913,7 @@ public class AuslosungAlgorithmusTests
         ergebnisse.Should().AllSatisfy(e =>
         {
             bool kreuzPaarung = (topf1Ids.Contains(e.HeimMannschaftId!.Value) && topf2Ids.Contains(e.AuswaertsMannschaftId!.Value))
-                             || (topf2Ids.Contains(e.HeimMannschaftId!.Value) && topf1Ids.Contains(e.AuswaertsMannschaftId!.Value));
+                             || (topf2Ids.Contains(e.HeimMannschaftId.Value) && topf1Ids.Contains(e.AuswaertsMannschaftId!.Value));
             kreuzPaarung.Should().BeTrue();
         });
     }
@@ -930,7 +930,7 @@ public class AuslosungAlgorithmusTests
 
         ergebnisse.Should().HaveCount(12);
         ergebnisse.Select(e => (Math.Min(e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value),
-                                Math.Max(e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value)))
+                                Math.Max(e.HeimMannschaftId.Value, e.AuswaertsMannschaftId.Value)))
             .Should().OnlyHaveUniqueItems("kein Gegner zweimal");
     }
 
@@ -1077,7 +1077,7 @@ public class AuslosungAlgorithmusTests
         await _service.ManuelleErgebnisseAbschliessenAsync(_repo.Aktuelle!.Id, paarungen);
 
         _repo.GespeicherteErgebnisse.Should().NotBeNull();
-        _repo.GespeicherteErgebnisse!.Should().AllSatisfy(e =>
+        _repo.GespeicherteErgebnisse.Should().AllSatisfy(e =>
         {
             e.IstFreilos.Should().BeFalse();
             e.AuswaertsMannschaftId.Should().BeNull();

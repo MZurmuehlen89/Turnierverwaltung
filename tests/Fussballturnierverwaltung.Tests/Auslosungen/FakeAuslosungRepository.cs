@@ -28,8 +28,7 @@ public class FakeAuslosungRepository : IAuslosungRepository
     public Task HinzufuegenAsync(Auslosung e, CancellationToken ct = default)
     { _store[e.Id] = e; return Task.CompletedTask; }
 
-    public Task AktualisierenAsync(Auslosung e, CancellationToken ct = default)
-    { _store[e.Id] = e; return Task.CompletedTask; }
+    public Task AktualisierenAsync(Auslosung e, CancellationToken ct = default) => HinzufuegenAsync(e, ct);
 
     public Task LoeschenAsync(Auslosung e, CancellationToken ct = default)
     { _store.Remove(e.Id); return Task.CompletedTask; }

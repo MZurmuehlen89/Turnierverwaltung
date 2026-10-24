@@ -235,14 +235,14 @@ public class PlatzhalterKaskadeServiceTests
         hf2.AuswaertsMannschaftId.Should().Be(8);
         var hf2Ergebnis = ctx.SpielErgebnisse.FirstOrDefault(e => e.SpielId == hf2Id);
         hf2Ergebnis.Should().NotBeNull("das gültige HF2-Ergebnis darf nicht angefasst werden");
-        hf2Ergebnis!.HeimToreRegulaer.Should().Be(3);
+        hf2Ergebnis.HeimToreRegulaer.Should().Be(3);
     }
 
     [Fact]
     public async Task Planen_KeineAuswirkung_WennRundeOhneAuslosungGeneriertWurde()
     {
         await using var ctx = NeuerContext();
-        GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
+        GrundSetupAnlegen(ctx, out int hfRundeId, out _);
         HalbfinalSpielAnlegen(ctx, 1, hfRundeId, heimId: 1, auswaertsId: 2, siegerMannschaftId: 1);
         HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
         var dienste = new SpielplanDienste(ctx);

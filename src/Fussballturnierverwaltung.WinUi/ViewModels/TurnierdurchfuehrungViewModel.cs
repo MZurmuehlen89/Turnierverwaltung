@@ -112,7 +112,7 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
             StatistikTab.MannschaftVorauswaehlen(mannschaftId);
             TabKoordinator.AktiverTabIndex = Array.IndexOf(TabKoordinator.Tabs, StatistikTab);
         };
-        StatistikTab.MannschaftsSpieleAngefordert += (_, mannschaftId) =>
+        StatistikTab.MannschaftsSpieleAngefordert += (sender, mannschaftId) =>
         {
             TabKoordinator.AktiverTabIndex = Array.IndexOf(TabKoordinator.Tabs, SpielplanUndBaumTab);
             _ = SpielplanUndBaumTab.MannschaftsSpieleAnzeigenAsync(mannschaftId);

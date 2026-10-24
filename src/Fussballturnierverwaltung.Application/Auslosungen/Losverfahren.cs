@@ -356,7 +356,9 @@ public static class Losverfahren
                 paare.RemoveAt(paare.Count - 1);
                 vergeben[j] = false;
             }
+#pragma warning disable S4143 // Backtracking: die Belegung wird nach erfolgloser Suche bewusst zurückgenommen
             vergeben[erster] = false;
+#pragma warning restore S4143
             return false;
         }
 

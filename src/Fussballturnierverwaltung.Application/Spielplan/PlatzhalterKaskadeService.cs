@@ -153,7 +153,9 @@ public class PlatzhalterKaskadeService(
 
             // Rückspiel mit vertauschten Rollen
             if (rueckspielJeHinspiel.GetValueOrDefault(spiel.Id) is { } rueckspiel)
+#pragma warning disable S2234 // Rückspiel: Heim und Auswärts bewusst getauscht
                 SpielPruefen(rueckspiel, runde, sollAuswaerts, sollHeim, eintrag.AuswaertsPlatzhalterName, eintrag.HeimPlatzhalterName, planung);
+#pragma warning restore S2234
         }
     }
 

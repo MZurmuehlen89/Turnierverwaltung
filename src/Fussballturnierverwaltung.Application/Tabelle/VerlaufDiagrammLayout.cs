@@ -104,14 +104,17 @@ public static class VerlaufDiagrammRechner
         IReadOnlyList<TabellenZone> zonen, int? gruppenNummer, int plaetze, double plotOben, double zeile)
     {
         var baender = new List<ZonenBand>();
+        int letzterPlatz = 0;
         for (int platz = 1; platz <= plaetze; platz++)
         {
             if (TabellenZonen.ZoneFuer(zonen, gruppenNummer, platz)?.Farbe is not { } farbe) continue;
             double oben = plotOben + (platz - 1) * zeile, unten = oben + zeile;
-            if (baender.Count > 0 && baender[^1].Farbe == farbe && baender[^1].Unten == oben)
+            // Anschluss über die Platznummer statt über gleiche Kanten – double-Summen müssen nicht exakt übereinstimmen
+            if (baender.Count > 0 && baender[^1].Farbe == farbe && letzterPlatz == platz - 1)
                 baender[^1] = baender[^1] with { Unten = unten };
             else
                 baender.Add(new ZonenBand(oben, unten, farbe));
+            letzterPlatz = platz;
         }
         return baender;
     }

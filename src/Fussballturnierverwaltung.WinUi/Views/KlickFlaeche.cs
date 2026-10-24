@@ -26,6 +26,7 @@ public sealed class KlickFlaeche : Grid
 
     // Ohne Hintergrund nähme die Fläche zwischen ihren Kindern keine Zeigerereignisse an.
     private static SolidColorBrush? _durchsichtig;
+    private static SolidColorBrush Durchsichtig() => _durchsichtig ??= new SolidColorBrush(Colors.Transparent);
 
     private bool _zeigerDarueber;
 
@@ -75,7 +76,7 @@ public sealed class KlickFlaeche : Grid
 
     private void Anwenden()
     {
-        var durchsichtig = _durchsichtig ??= new SolidColorBrush(Colors.Transparent);
+        var durchsichtig = Durchsichtig();
         Background = IstHervorgehoben ? HervorhebungHintergrund ?? durchsichtig
                    : _zeigerDarueber ? ZeigerHintergrund ?? durchsichtig
                    : durchsichtig;

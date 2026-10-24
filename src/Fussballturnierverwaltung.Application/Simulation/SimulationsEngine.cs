@@ -29,7 +29,7 @@ public static class SimulationsEngine
 
         // Ereignisse für Regulärzeit
         var ereignisse = ausfuehrlich
-            ? EreignisseGenerieren(heim, auswaerts, heimTore, gastTore, rng, 1, 90)
+            ? EreignisseGenerieren(heimTore, gastTore, rng, 1, 90)
             : [];
 
         // Entscheidungsverfahren bei Gleichstand
@@ -187,7 +187,7 @@ public static class SimulationsEngine
                 int hv = ZiehePoisson(hL, rng);
                 int gv = ZiehePoisson(gL, rng);
                 var extras = ausfuehrlich
-                    ? EreignisseGenerieren(heim, auswaerts, hv, gv, rng, 91, 120)
+                    ? EreignisseGenerieren(hv, gv, rng, 91, 120)
                     : (IReadOnlyList<SimuliertesEreignis>)[];
                 return (hv - gv, EntscheidungArt.Verlaengerung, hv, gv, null, null, extras);
             }
@@ -203,8 +203,12 @@ public static class SimulationsEngine
                 {
                     bool h = rng.NextDouble() < hProbPerMin;
                     bool g = rng.NextDouble() < gProbPerMin;
-                    if (h) { hv++; if (ausfuehrlich) extras.Add(new(min, EreignisArt.GoldenGoal, true, "Golden Goal")); break; }
-                    if (g) { gv++; if (ausfuehrlich) extras.Add(new(min, EreignisArt.GoldenGoal, false, "Golden Goal")); break; }
+                    if (h || g)
+                    {
+                        if (h) hv++; else gv++;
+                        if (ausfuehrlich) extras.Add(new(min, EreignisArt.GoldenGoal, h, "Golden Goal"));
+                        break;
+                    }
                 }
                 return (hv - gv, EntscheidungArt.GoldenGoal, hv, gv, null, null, extras);
             }
@@ -219,7 +223,7 @@ public static class SimulationsEngine
                 int hv1 = ZiehePoisson(hL15, rng);
                 int gv1 = ZiehePoisson(gL15, rng);
                 var extras = ausfuehrlich
-                    ? EreignisseGenerieren(heim, auswaerts, hv1, gv1, rng, 91, 105)
+                    ? EreignisseGenerieren(hv1, gv1, rng, 91, 105)
                     : (IReadOnlyList<SimuliertesEreignis>)[];
 
                 int hv = hv1, gv = gv1;
@@ -228,7 +232,7 @@ public static class SimulationsEngine
                     int hv2 = ZiehePoisson(hL15, rng);
                     int gv2 = ZiehePoisson(gL15, rng);
                     if (ausfuehrlich)
-                        extras = [.. extras, .. EreignisseGenerieren(heim, auswaerts, hv2, gv2, rng, 106, 120)];
+                        extras = [.. extras, .. EreignisseGenerieren(hv2, gv2, rng, 106, 120)];
                     hv += hv2;
                     gv += gv2;
                 }
@@ -318,7 +322,6 @@ public static class SimulationsEngine
     // ── Ausführliche Ereignisse ───────────────────────────────────────────
 
     private static IReadOnlyList<SimuliertesEreignis> EreignisseGenerieren(
-        Mannschaft heim, Mannschaft auswaerts,
         int heimTore, int gastTore,
         Random rng, int vonMinute, int bisMinute)
     {

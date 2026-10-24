@@ -105,8 +105,8 @@ public sealed class DbZugriffsDiagnose(ILogger<DbZugriffsDiagnose> logger)
 
         if (abfrage.Dauer.ElapsedMilliseconds > LANGSAM_AB_MS)
             logger.LogWarning(
-                "Langsame DB-Abfrage: {Dauer} ms — {Sql}{NewLine}Aufrufer:{NewLine}{Aufrufer}",
-                abfrage.Dauer.ElapsedMilliseconds, abfrage.Sql, Environment.NewLine, Environment.NewLine, abfrage.Aufrufer);
+                "Langsame DB-Abfrage: {Dauer} ms — {Sql}\nAufrufer:\n{Aufrufer}",
+                abfrage.Dauer.ElapsedMilliseconds, abfrage.Sql, abfrage.Aufrufer);
     }
 
     // ── Speichern ───────────────────────────────────────────────────────────
@@ -212,10 +212,9 @@ public sealed class DbZugriffsDiagnose(ILogger<DbZugriffsDiagnose> logger)
         if (offeneVorgaenge.Length == 0) offeneVorgaenge = "(keine)";
 
         logger.LogError(
-            "DbContext-Kollision (second operation).{NewLine}Gescheiterter Aufrufer:{NewLine}{Aufrufer}{NewLine}" +
-            "Laufende Abfragen:{NewLine}{BelegtDurch}{NewLine}Offene Vorgänge: {OffeneVorgaenge}",
-            Environment.NewLine, Environment.NewLine, AppAufrufer(), Environment.NewLine, Environment.NewLine, belegtDurch,
-            Environment.NewLine, offeneVorgaenge);
+            "DbContext-Kollision (second operation).\nGescheiterter Aufrufer:\n{Aufrufer}\n" +
+            "Laufende Abfragen:\n{BelegtDurch}\nOffene Vorgänge: {OffeneVorgaenge}",
+            AppAufrufer(), belegtDurch, offeneVorgaenge);
     }
 
     // ── Hilfsmittel ─────────────────────────────────────────────────────────

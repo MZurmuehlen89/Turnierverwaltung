@@ -140,7 +140,7 @@ public class SpielErgebnisServiceTests
 
         var erg = await ErgebnisFuer(ctx, 1);
         erg.Should().NotBeNull();
-        erg!.SiegerMannschaftId.Should().Be(1);
+        erg.SiegerMannschaftId.Should().Be(1);
         erg.HeimToreRegulaer.Should().Be(2);
         erg.AuswaertsToreRegulaer.Should().Be(1);
     }
@@ -570,7 +570,7 @@ public class SpielErgebnisServiceTests
     public async Task ErgebnisLoeschenAsync_LoestPlatzhalterKaskadeAus_RegeneriertUeberAuslosungAufgeloesteFolgerunde()
     {
         await using var ctx = NeuerContext();
-        KaskadeSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
+        KaskadeSetupAnlegen(ctx, out _, out int finaleRundeId);
 
         var auslosung = new Auslosung
         {
@@ -615,7 +615,7 @@ public class SpielErgebnisServiceTests
     public async Task ErgebnisErfassenAsync_RundeWirdKomplett_LoestPlatzhalterFolgerundeAutomatischAuf()
     {
         await using var ctx = NeuerContext();
-        KaskadeSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
+        KaskadeSetupAnlegen(ctx, out _, out int finaleRundeId);
 
         var auslosung = new Auslosung
         {

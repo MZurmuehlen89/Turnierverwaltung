@@ -30,7 +30,7 @@ public class AuslosungServiceGruppenkoepfeTests
     private Auslosung Gruppenauslosung(params Lostopf[] toepfe)
     {
         var auslosung = NeueAuslosung(Rundenart.Gruppenphase, Auslosungsart.NachToepfen, toepfe, gruppenAnzahl: 3);
-        auslosung.TurnierRunde!.GastgeberGruppen = [2];
+        auslosung.TurnierRunde.GastgeberGruppen = [2];
         auslosung.TurnierRunde.EingangsMannschaftsanzahl = 9;
         _repo.Speichern(auslosung);
         return auslosung;
@@ -111,7 +111,7 @@ public class AuslosungServiceGruppenkoepfeTests
     public async Task KeineGruppenkoepfeVorgegeben_ToepfeBleibenLeer()
     {
         var auslosung = Gruppenauslosung();
-        auslosung.TurnierRunde!.GastgeberGruppen = [];
+        auslosung.TurnierRunde.GastgeberGruppen = [];
 
         await _service.LostoepfeSynchronisierenAsync(auslosung.Id, 3);
 

@@ -65,8 +65,6 @@ public sealed partial class TurnierBaumView : UserControl
 
     // ── Gesamtübersicht (Issue #238) ──────────────────────────────────────────
 
-    private bool _einpassenAusstehend;
-
     /// <summary>Vertikale Streckung der Kartenabstände (≥ 1): Ein breiter Baum wird beim Einpassen auf die
     /// Fensterbreite verkleinert und bliebe sonst ein flaches Band in der Mitte — die Zeilenabstände wachsen deshalb,
     /// bis der Baum auch die Höhe ausfüllt. Die Karten selbst behalten ihre Größe.</summary>
@@ -172,7 +170,6 @@ public sealed partial class TurnierBaumView : UserControl
 
     private void EinpassenAnfordern()
     {
-        _einpassenAusstehend = true;
         // Die ScrollViewer-Größe steht erst nach dem nächsten Layout-Durchlauf fest (z. B. direkt nach dem
         // Umschalten aus Collapsed) — SizeChanged oder dieser Nachlauf übernimmt das Einpassen.
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, Einpassen);
@@ -183,8 +180,6 @@ public sealed partial class TurnierBaumView : UserControl
         if (_vm is null || GesamtScroll.ViewportWidth <= 0 || GesamtScroll.ViewportHeight <= 0
             || _vm.GesamtBreite <= 0 || _vm.GesamtHoehe <= 0)
             return;
-
-        _einpassenAusstehend = false;
 
         // Zoom richtet sich nach der Breite; die bei diesem Zoom sichtbare Höhe füllen die gestreckten Abstände.
         const double kopf = TurnierBaumViewModel.GESAMT_KOPF_H;

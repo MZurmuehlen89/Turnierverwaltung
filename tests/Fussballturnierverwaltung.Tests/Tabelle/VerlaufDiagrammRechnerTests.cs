@@ -46,7 +46,7 @@ public class VerlaufDiagrammRechnerTests
     {
         var spalten = VerlaufDiagrammRechner.Berechnen(Liga(4, 5), [], breite: 800).Spalten;
 
-        spalten.Zip(spalten.Skip(1)).Should().OnlyContain(paar => paar.First.Rechts == paar.Second.Links);
+        spalten.Zip(spalten.Skip(1)).Should().OnlyContain(paar => Math.Abs(paar.First.Rechts - paar.Second.Links) < 1e-9);
     }
 
     [Fact]

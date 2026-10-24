@@ -248,7 +248,7 @@ public class SpielplanService(
         var bereitsGespielt = echteSpiele
             .Select(s => (
                 TeamAId: Math.Min(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value),
-                TeamBId: Math.Max(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value)))
+                TeamBId: Math.Max(s.HeimMannschaftId.Value, s.AuswaertsMannschaftId.Value)))
             .Distinct()
             .ToList<(int TeamAId, int TeamBId)>();
 

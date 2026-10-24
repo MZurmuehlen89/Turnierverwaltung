@@ -402,9 +402,6 @@ public class AuslosungsValidatorTests
     [Fact]
     public void NachToepfen_OhneToepfe_WirdAbgelehnt()
     {
-        var topf = Topf(1, 1, Eintrag(1), Eintrag(2));
-        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.NachToepfen, lostoepfe: [topf]);
-
         // NachToepfen benötigt mindestens 2 Töpfe (paarweise)
         // 1 Topf → NachToepfenAusloesen iteriert paarweise und liefert 0 Ergebnisse,
         // aber Validator prüft "mindestens einen Lostopf" — kein Fehler für 1 Topf allein.

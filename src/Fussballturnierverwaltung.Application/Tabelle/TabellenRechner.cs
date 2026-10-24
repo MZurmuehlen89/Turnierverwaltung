@@ -153,7 +153,7 @@ public static class TabellenRechner
             else
                 niederlagen++;
 
-            fairplay += FairplayWertung(s, teamId);
+            fairplay += FairplayPunkteImSpiel(s, teamId);
         }
 
         int punkte = siege * punkteRegel.PunkteFuerSieg
@@ -168,7 +168,7 @@ public static class TabellenRechner
 
     /// <summary>Fairplay-Wertung eines Teams in einem Spiel: -(GelbeKarte * 1 + RoteKarte * 3) - der höhere Wert
     /// ist der bessere, die Regel sortiert daher absteigend.</summary>
-    private static int FairplayWertung(Spiel spiel, int teamId) =>
+    private static int FairplayPunkteImSpiel(Spiel spiel, int teamId) =>
         -spiel.Ereignisse
             .Where(e => e.MannschaftId == teamId)
             .Sum(e => e.EreignisArt switch
@@ -211,7 +211,7 @@ public static class TabellenRechner
             (summe.Punkte + gegner.Punkte, summe.Tordifferenz + gegner.Tore - gegner.Gegentore, summe.Tore + gegner.Tore);
     }
 
-    private record RohStats(
+    private sealed record RohStats(
         int Spiele,
         int Siege,
         int Unentschieden,

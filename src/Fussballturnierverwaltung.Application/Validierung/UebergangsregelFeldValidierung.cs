@@ -55,7 +55,7 @@ internal static class UebergangsregelFeldValidierung
                 else if (quellGruppenAnzahl is not > 0 || gruppeIndex < 1 || gruppeIndex > quellGruppenAnzahl)
                     fehler.Add($"Gruppenindex {gruppeIndex} ist außerhalb des gültigen Bereichs " +
                                $"(1–{quellGruppenAnzahl ?? 0}) der Quellrunde '{quellName}'.");
-                else if (platzierungBis > quellEingangsMannschaftsanzahl / quellGruppenAnzahl!.Value)
+                else if (platzierungBis > quellEingangsMannschaftsanzahl / quellGruppenAnzahl.Value)
                     fehler.Add($"Platzierung {platzierungBis} übersteigt die Gruppengröße " +
                                $"({quellEingangsMannschaftsanzahl / quellGruppenAnzahl.Value}) der Quellrunde '{quellName}'.");
                 break;

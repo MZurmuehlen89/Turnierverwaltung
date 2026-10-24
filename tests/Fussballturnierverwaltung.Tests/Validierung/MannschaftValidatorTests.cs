@@ -46,7 +46,7 @@ public class MannschaftValidatorTests
         var eingabe = new MannschaftErstellenEingabe("", "GER", Mannschaftsart.Nationalmannschaft, 1, 80, 80, 80, 80, 75);
         var ergebnis = _validator.Validieren(eingabe);
         ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().Contain(f => f.ToLower().Contains("name") && f.ToLower().Contains("leer"));
+        ergebnis.Fehler.Should().Contain(f => f.Contains("name", StringComparison.OrdinalIgnoreCase) && f.Contains("leer", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

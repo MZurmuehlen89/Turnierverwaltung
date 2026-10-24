@@ -26,8 +26,8 @@ public class RegelViewModel : ObservableObject
     private bool _istAktiv;
 
     public AuslosungsRegelArt Regelart { get; init; }
-    public string Anzeige { get; init; } = "";
-    public string Beschreibung { get; init; } = "";
+    public string Anzeige { get; init; }
+    public string Beschreibung { get; init; }
 
     /// <summary>Warum die Regel bei der aktuellen Auslosungsart/Rundenart nicht wirkt — dann ausgegraut (#331).</summary>
     public string? SperrHinweis { get; set; }
