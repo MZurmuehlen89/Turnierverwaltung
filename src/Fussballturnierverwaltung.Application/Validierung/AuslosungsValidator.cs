@@ -17,12 +17,35 @@ public class AuslosungsValidator
         IReadOnlyList<LandesQuote>? landesQuoten = null)
     {
         var fehler = new List<string>();
+        var lostoepfe = auslosung.Lostoepfe.ToList();
+        var rundenart = auslosung.TurnierRunde?.Rundenart;
 
+        TeilnehmerzahlPruefen(alleEintraege, fehler);
+        VerbandsQuotenPruefen(alleEintraege, verbandsQuoten, fehler);
+        LandesQuotenPruefen(alleEintraege, landesQuoten, fehler);
+        LostoepfePruefen(auslosung, lostoepfe, alleEintraege, fehler);
+        TopfZuordnungPruefen(auslosung, lostoepfe, fehler);
+        EineUrnePruefen(auslosung, lostoepfe, fehler);
+        RundenerwartungPruefen(auslosung, alleEintraege, fehler);
+        RundenartKompatibilitaetPruefen(auslosung, rundenart, fehler);
+        TopfPaarePruefen(auslosung, lostoepfe, rundenart, fehler);
+        GruppenphasePruefen(auslosung, lostoepfe, alleEintraege, rundenart, fehler);
+        RegelkonfliktePruefen(auslosung, fehler);
+
+        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+    }
+
+    private static void TeilnehmerzahlPruefen(IReadOnlyList<LostopfEintrag> alleEintraege, List<string> fehler)
+    {
         if (!alleEintraege.Any())
             fehler.Add("Keine Teilnehmer für die Auslosung vorhanden.");
         else if (alleEintraege.Count < 2)
             fehler.Add($"Mindestens 2 Teilnehmer werden benötigt (vorhanden: {alleEintraege.Count}).");
+    }
 
+    private static void VerbandsQuotenPruefen(
+        IReadOnlyList<LostopfEintrag> alleEintraege, IReadOnlyList<VerbandsQuote>? verbandsQuoten, List<string> fehler)
+    {
         // Verband-Quoten (Issue #146/#27, feste Anzahl seit #154): unabhängig von Auslosungsart/Lostopf-Struktur —
         // prüft nur die Gesamtzusammensetzung der zugewiesenen Teams gegen die konfigurierte Anzahl je Verband.
         if (verbandsQuoten is { Count: > 0 })
@@ -42,7 +65,11 @@ public class AuslosungsValidator
                                $"aber {anzahl} zugewiesen.");
             }
         }
+    }
 
+    private static void LandesQuotenPruefen(
+        IReadOnlyList<LostopfEintrag> alleEintraege, IReadOnlyList<LandesQuote>? landesQuoten, List<string> fehler)
+    {
         // Landes-Quoten (Issue #189): analog Verband-Quoten oben, aber auf Land statt Kontinentalverband
         // skaliert — relevant für Vereinswettbewerbe mit gesetztem Verbandsfilter (dort ist die
         // Verband-Quote immer trivial, siehe oben). Mannschaft.LandId ist ein direktes Scalar-Feld,
@@ -64,9 +91,12 @@ public class AuslosungsValidator
                                $"aber {anzahl} zugewiesen.");
             }
         }
+    }
 
+    private static void LostoepfePruefen(
+        Auslosung auslosung, List<Lostopf> lostoepfe, IReadOnlyList<LostopfEintrag> alleEintraege, List<string> fehler)
+    {
         // Lostöpfe prüfen
-        var lostoepfe = auslosung.Lostoepfe.ToList();
         if (!lostoepfe.Any())
         {
             if (auslosung.Auslosungsart == Auslosungsart.NachToepfen)
@@ -98,7 +128,10 @@ public class AuslosungsValidator
             foreach (var name in doppeltePlatzhalter)
                 fehler.Add($"Platzhalter '{name}' ist in mehreren Lostöpfen vorhanden.");
         }
+    }
 
+    private static void TopfZuordnungPruefen(Auslosung auslosung, List<Lostopf> lostoepfe, List<string> fehler)
+    {
         // TopfZuordnung: gleich große Töpfe, mindestens 2 Töpfe
         if (auslosung.Auslosungsart == Auslosungsart.TopfZuordnung)
         {
@@ -116,15 +149,21 @@ public class AuslosungsValidator
                 topfGroessen.Any(g => g < 3))
                 fehler.Add("TopfZuordnung erfordert mindestens 3 Teams je Lostopf.");
         }
+    }
 
+    private static void EineUrnePruefen(Auslosung auslosung, List<Lostopf> lostoepfe, List<string> fehler)
+    {
         // Zufall/Benutzerdefiniert: höchstens 1 Lostopf (keine Topf-Struktur, eine Urne)
         if (auslosung.Auslosungsart is Auslosungsart.Zufall or Auslosungsart.Benutzerdefiniert &&
             lostoepfe.Count > 1)
             fehler.Add($"Auslosungsart '{(auslosung.Auslosungsart == Auslosungsart.Zufall ? "Zufällig" : "Benutzerdefiniert")}' " +
                        "erfordert genau 1 Lostopf (keine Topf-Struktur). Bitte zusammenführen oder Auslosungsart wechseln.");
+    }
 
+    private static void RundenerwartungPruefen(
+        Auslosung auslosung, IReadOnlyList<LostopfEintrag> alleEintraege, List<string> fehler)
+    {
         // Gesamtanzahl gegen Rundenerwartung prüfen
-        var aktiveRegelnVorab = auslosung.Regeln.Where(r => r.IstAktiv).Select(r => r.Regelart).ToList();
         var benoetigte = auslosung.TurnierRunde?.EingangsMannschaftsanzahl;
         if (benoetigte is > 0)
         {
@@ -141,15 +180,21 @@ public class AuslosungsValidator
                            $"aber es sind {alleEintraege.Count} zugewiesen " +
                            $"({alleEintraege.Count - benoetigte.Value} zu viel).");
         }
+    }
 
+    private static void RundenartKompatibilitaetPruefen(Auslosung auslosung, Rundenart? rundenart, List<string> fehler)
+    {
         // Auslosungsart und Rundenart auf Kompatibilität prüfen (Issue #94: zentrale Matrix statt
         // separat gepflegter Regeln, dieselbe Quelle wie das Ausblenden in der WPF-ComboBox).
-        var rundenart = auslosung.TurnierRunde?.Rundenart;
         if (rundenart.HasValue &&
             AuslosungsKompatibilitaet.InkompatibilitaetsGrund(
                 rundenart.Value, auslosung.Auslosungsart, auslosung.TurnierRunde!.PaarungFestVorgegeben) is { } grund)
             fehler.Add(grund);
+    }
 
+    private static void TopfPaarePruefen(
+        Auslosung auslosung, List<Lostopf> lostoepfe, Rundenart? rundenart, List<string> fehler)
+    {
         // Paarungsmodus (nicht Gruppenphase): 'Nach Töpfen' und 'Gruppensieger vs. Zweite' losen die
         // Lostöpfe im Duell Topf 1↔2, Topf 3↔4 usw. gegeneinander aus. Weniger als 2 Töpfe liefert
         // keine einzige Paarung, eine ungerade Anzahl lässt den letzten Topf stillschweigend unverlost.
@@ -167,7 +212,12 @@ public class AuslosungsValidator
                 fehler.Add($"Auslosungsart '{artName}' erfordert eine gerade Anzahl Lostöpfe " +
                            $"(gefunden: {lostoepfe.Count}) — sonst bleibt der letzte Topf unverlost.");
         }
+    }
 
+    private static void GruppenphasePruefen(
+        Auslosung auslosung, List<Lostopf> lostoepfe, IReadOnlyList<LostopfEintrag> alleEintraege,
+        Rundenart? rundenart, List<string> fehler)
+    {
         // Gruppenphase: GruppenAnzahl und Teilnehmerzahl prüfen
         if (rundenart == Rundenart.Gruppenphase)
         {
@@ -195,6 +245,11 @@ public class AuslosungsValidator
                 }
             }
         }
+    }
+
+    private static void RegelkonfliktePruefen(Auslosung auslosung, List<string> fehler)
+    {
+        var aktiveRegelnVorab = auslosung.Regeln.Where(r => r.IstAktiv).Select(r => r.Regelart).ToList();
 
         // Regel-Konflikte prüfen — die Oberfläche verhindert das bereits (Häkchen schließen sich gegenseitig
         // aus, #331), die Prüfung bleibt als Absicherung für Altdaten.
@@ -205,8 +260,6 @@ public class AuslosungsValidator
             fehler.Add("Regelkonflikt: " +
                        string.Join(", ", heimrechtRegeln.Select(r => $"'{AuslosungsRegelKompatibilitaet.AnzeigeName(r)}'")) +
                        " legen alle das Heimrecht fest und schließen sich gegenseitig aus.");
-
-        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }
 
     /// <summary>Prüft ob ein Pairing-Schritt bei manueller Auslosung gültig ist.</summary>
