@@ -224,7 +224,7 @@ public class GruppenSpielplanTests
 
         var generiert = new RoundRobinGenerator().Generieren(new SpielplanKontext(runde, teams, 1)).Spiele
             .OrderBy(s => s.Spielnummer)
-            .Select(s => ((int?)s.Spieltag, s.HeimMannschaftId, s.AuswaertsMannschaftId));
+            .Select(s => (s.Spieltag, s.HeimMannschaftId, s.AuswaertsMannschaftId));
         var geplant = GruppenSpielplan.Planen([FesteGruppe(ids)], mitRueckspiel)
             .Select(g => ((int?)g.Spieltag, g.Heim.MannschaftId, g.Auswaerts.MannschaftId));
 

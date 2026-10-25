@@ -47,16 +47,14 @@ public static class GruppenSpielplan
     private static List<Paarung> GruppePlanen(
         IReadOnlyList<GruppenSlot> gruppe, int gruppenIndex, bool mitRueckspiel, int ersteNr)
     {
-        var plaetze = gruppe.Select(s => (GruppenSlot?)s).ToList();
-        if (plaetze.Count < 2) return [];
-        if (plaetze.Count % 2 == 1) plaetze.Add(null); // Freilos
+        if (gruppe.Count < 2) return [];
 
-        int spieltage = plaetze.Count - 1;
-        var hinspiele = BergerTabelle.BergerPaarungen(plaetze)
-            .Select((p, i) => new Paarung(gruppenIndex, p.Spieltag, ersteNr + i, p.Heim, p.Auswaerts, null))
+        var hinspiele = BergerTabelle.Paarungen(gruppe.Count)
+            .Select((p, i) => new Paarung(gruppenIndex, p.Spieltag, ersteNr + i, gruppe[p.Heim], gruppe[p.Gast], null))
             .ToList();
         if (!mitRueckspiel) return hinspiele;
 
+        int spieltage = BergerTabelle.Spieltage(gruppe.Count);
 #pragma warning disable S2234 // Rückspiel: Heim und Auswärts bewusst getauscht
         var rueckspiele = hinspiele.Select((h, i) => new Paarung(
             gruppenIndex, h.Spieltag + spieltage, ersteNr + hinspiele.Count + i, h.Auswaerts, h.Heim, h.Nr));
