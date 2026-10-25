@@ -97,7 +97,7 @@ internal sealed class TurnierVorlagenNachruestung
             BeschreibungenAktualisieren(), "Beschreibungen von Turniervorlagen aktualisiert.", ct);
         await SpeichernUndProtokollieren(
             await StrukturErgaenzenAsync(ct), "Struktur-Ergänzungen an Turniervorlagen nachgerüstet.", ct);
-        await SpeichernUndProtokollieren(FesteKoBaeumeErgaenzen(), "Turniervorlagen um festen K.-o.-Baum ergänzt.", ct);
+        await SpeichernUndProtokollieren(FesteVorbelegungenErgaenzen(), "Turniervorlagen um festen K.-o.-Baum ergänzt.", ct);
         await SpeichernUndProtokollieren(
             TabellenBereicheErgaenzen(), "Turniervorlagen um Tabellenbereiche (Europapokal, Relegation, Abstieg) ergänzt.", ct);
         await SpeichernUndProtokollieren(
@@ -370,12 +370,12 @@ internal sealed class TurnierVorlagenNachruestung
     }
 
     /// <summary>Issue #372: trägt den realen festen K.-o.-Baum (Vorbelegung + ggf. Kombinationstabelle) nach.</summary>
-    private int FesteKoBaeumeErgaenzen()
+    private int FesteVorbelegungenErgaenzen()
     {
         int ergaenzt = 0;
         foreach (var (vorlage, soll) in MitSeedStand())
         {
-            var vorbelegungen = SeedVorlagenAbgleich.FestenKoBaumUebertragen(vorlage, soll);
+            var vorbelegungen = SeedVorlagenAbgleich.FesteVorbelegungenUebertragen(vorlage, soll);
             if (vorbelegungen.Count == 0) continue;
 
             _context.Auslosungen.AddRange(vorbelegungen);

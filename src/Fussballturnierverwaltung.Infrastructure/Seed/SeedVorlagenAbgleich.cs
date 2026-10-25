@@ -151,7 +151,7 @@ public static class SeedVorlagenAbgleich
     /// Kombinationstabelle, wo noch keine steht) und liefert ihre Vorbelegungen. Nur, wenn ALLE betroffenen Runden
     /// noch dem Seed entsprechen und keine davon schon eine Auslosung hat, sonst leer und ohne Änderung — eine
     /// manuell angelegte Vorbelegung wird nie überschrieben, ein halb nachgerüsteter Baum entsteht nie.</summary>
-    public static List<Auslosung> FestenKoBaumUebertragen(TurnierInstanz vorlage, TurnierInstanz soll)
+    public static List<Auslosung> FesteVorbelegungenUebertragen(TurnierInstanz vorlage, TurnierInstanz soll)
     {
         var zuordnung = soll.Auslosungen.ToDictionary(a => a, a => RundeFuerFestenBaum(vorlage, a.TurnierRunde));
         if (zuordnung.Values.Any(r => r is null)) return [];

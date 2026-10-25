@@ -85,11 +85,11 @@ public class SeedVorlagenAbgleichTests
     // ── Fester K.-o.-Baum ──────────────────────────────────────────────────────
 
     [Fact]
-    public void FestenKoBaumUebertragen_UnveraenderteVorlage_LiefertVorbelegungenUndMarkiertDieRunden()
+    public void FesteVorbelegungenUebertragen_UnveraenderteVorlage_LiefertVorbelegungenUndMarkiertDieRunden()
     {
         var (bestand, soll) = Wm48OhneFestenBaum();
 
-        var vorbelegungen = SeedVorlagenAbgleich.FestenKoBaumUebertragen(bestand, soll);
+        var vorbelegungen = SeedVorlagenAbgleich.FesteVorbelegungenUebertragen(bestand, soll);
 
         vorbelegungen.Should().HaveCount(soll.Auslosungen.Count).And.NotBeEmpty();
         vorbelegungen.Should().OnlyContain(a => a.TurnierInstanzId == VORLAGE_ID && a.Ergebnisse.Count > 0);
@@ -99,23 +99,23 @@ public class SeedVorlagenAbgleichTests
     }
 
     [Fact]
-    public void FestenKoBaumUebertragen_EineBetroffeneRundeUmgebaut_AendertNichts()
+    public void FesteVorbelegungenUebertragen_EineBetroffeneRundeUmgebaut_AendertNichts()
     {
         var (bestand, soll) = Wm48OhneFestenBaum();
         bestand.Runden.Single(r => r.Name == "Achtelfinale").EingangsMannschaftsanzahl = 8;
 
-        SeedVorlagenAbgleich.FestenKoBaumUebertragen(bestand, soll).Should().BeEmpty();
+        SeedVorlagenAbgleich.FesteVorbelegungenUebertragen(bestand, soll).Should().BeEmpty();
 
         bestand.Runden.Should().OnlyContain(r => !r.PaarungFestVorgegeben && r.KombinationstabelleJson == null);
     }
 
     [Fact]
-    public void FestenKoBaumUebertragen_BetroffeneRundeHatSchonEineAuslosung_AendertNichts()
+    public void FesteVorbelegungenUebertragen_BetroffeneRundeHatSchonEineAuslosung_AendertNichts()
     {
         var (bestand, soll) = Wm48OhneFestenBaum();
         bestand.Auslosungen.Add(new Auslosung { TurnierRundeId = bestand.Runden.Single(r => r.Name == "Achtelfinale").Id });
 
-        SeedVorlagenAbgleich.FestenKoBaumUebertragen(bestand, soll).Should().BeEmpty();
+        SeedVorlagenAbgleich.FesteVorbelegungenUebertragen(bestand, soll).Should().BeEmpty();
 
         bestand.Runden.Should().OnlyContain(r => !r.PaarungFestVorgegeben);
     }
