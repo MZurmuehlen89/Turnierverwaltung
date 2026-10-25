@@ -38,8 +38,7 @@ public class SpielplanService(
         IReadOnlyList<int> mannschaftIds,
         CancellationToken ct = default)
     {
-        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
-            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+        var runde = await RundeLadenAsync(turnierRundeId, ct);
 
         if (mannschaftIds.Count != runde.EingangsMannschaftsanzahl)
             throw new InvalidOperationException(
@@ -91,8 +90,7 @@ public class SpielplanService(
     public async Task GenerierenAusAuslosungAsync(
         int turnierRundeId, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct = default)
     {
-        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
-            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+        var runde = await RundeLadenAsync(turnierRundeId, ct);
 
         switch (runde.Rundenart)
         {
@@ -197,8 +195,7 @@ public class SpielplanService(
         IReadOnlyList<(int HeimId, int AuswaertsId)> paarungen,
         CancellationToken ct = default)
     {
-        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
-            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+        var runde = await RundeLadenAsync(turnierRundeId, ct);
 
         var alleIds      = paarungen.SelectMany(p => new[] { p.HeimId, p.AuswaertsId }).Distinct().ToList();
         var mannschaften = await mannschaftRepository.FindenNachIdsAsync(alleIds, ct);
@@ -227,8 +224,7 @@ public class SpielplanService(
         IReadOnlyList<int> sortierteMannschaftIds,
         CancellationToken ct = default)
     {
-        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
-            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+        var runde = await RundeLadenAsync(turnierRundeId, ct);
 
         if (sortierteMannschaftIds.Count < 2)
             throw new InvalidOperationException(
@@ -305,8 +301,7 @@ public class SpielplanService(
     /// Rückgriff würde es nach seinem ersten Freilos nie wieder eingeplant.</summary>
     public async Task<SpielplanErgebnis> SchweizerNaechsteRundeGenerierenAsync(int turnierRundeId, CancellationToken ct = default)
     {
-        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
-            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+        var runde = await RundeLadenAsync(turnierRundeId, ct);
 
         var auslosung = await auslosungRepository.FindenAbgeschlosseneNachRundeAsync(runde.TurnierInstanzId, turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Für Runde '{runde.Name}' wurde noch keine Auslosung abgeschlossen.");
@@ -339,8 +334,7 @@ public class SpielplanService(
     /// existierenden Spielplan ändert nichts.</summary>
     public async Task<TurnierRunde> RundenSpielplanOhneKaskadeLoeschenAsync(int turnierRundeId, CancellationToken ct = default)
     {
-        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
-            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+        var runde = await RundeLadenAsync(turnierRundeId, ct);
         await turnierBaumRepository.SpielIdsNullSetzenAsync(turnierRundeId, ct);
         await spielRepository.AlleNachRundeLoeschenAsync(turnierRundeId, ct);
         logger.LogInformation("Spielplan für Runde '{Runde}' gelöscht.", runde.Name);
@@ -356,8 +350,7 @@ public class SpielplanService(
         IReadOnlyList<IReadOnlyList<int>> gruppen,
         CancellationToken ct = default)
     {
-        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
-            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+        var runde = await RundeLadenAsync(turnierRundeId, ct);
 
         var alleIds      = gruppen.SelectMany(g => g).Distinct().ToList();
         var mannschaften = await mannschaftRepository.FindenNachIdsAsync(alleIds, ct);
@@ -397,25 +390,10 @@ public class SpielplanService(
             .ToList();
 
         if (alleSpiele.Count > 0)
-        {
-            if (hinRueckspielPaare.Count == 0)
-            {
-                await spielRepository.HinzufuegenMehrfachAsync(alleSpiele, ct);
-            }
-            else
-            {
-                // Zwei-Phasen-Speicherung: Hinspiele zuerst (EF Core vergibt IDs), dann
-                // HinspielId auf die Rückspiele setzen, bevor diese gespeichert werden.
-                var hinspiele = hinRueckspielPaare.Select(p => p.Hinspiel).ToList();
-                await spielRepository.HinzufuegenMehrfachAsync(hinspiele, ct);
-
-                foreach (var (hin, rueck) in hinRueckspielPaare)
-                    rueck.HinspielId = hin.Id;
-
-                var rueckspiele = hinRueckspielPaare.Select(p => p.Rueckspiel).ToList();
-                await spielRepository.HinzufuegenMehrfachAsync(rueckspiele, ct);
-            }
-        }
+            await SpielplanSpeicherung.HinUndRueckspieleSpeichernAsync(
+                spielRepository,
+                hinRueckspielPaare.Count == 0 ? alleSpiele : [.. hinRueckspielPaare.Select(p => p.Hinspiel)],
+                hinRueckspielPaare, ct);
 
         logger.LogInformation(
             "Gruppenphase-Spielplan für Runde '{Runde}' generiert: {Gruppen} Gruppen, {Spiele} Spiele.",
@@ -429,8 +407,7 @@ public class SpielplanService(
         IReadOnlyList<IReadOnlyList<GruppenSlot>> gruppen,
         CancellationToken ct = default)
     {
-        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
-            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+        var runde = await RundeLadenAsync(turnierRundeId, ct);
 
         int startNr = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
         var plan    = GruppenSpielplan.Planen(gruppen, runde.MitRueckspiel);
@@ -451,21 +428,14 @@ public class SpielplanService(
             IstRueckspiel            = g.IstRueckspiel,
         }).ToList();
 
-        // Zwei-Phasen-Speicherung wie GenerierenAusGruppenAsync: Rückspiele erhalten die HinspielId ihres
-        // bereits gespeicherten Hinspiels.
-        var hinspiele = alleSpiele.Where(s => !s.IstRueckspiel).ToList();
-        if (hinspiele.Count > 0)
-            await spielRepository.HinzufuegenMehrfachAsync(hinspiele, ct);
-
-        var rueckspiele = new List<Spiel>();
-        for (int i = 0; i < plan.Count; i++)
-        {
-            if (plan[i].HinspielIndex is not int hinIdx) continue;
-            alleSpiele[i].HinspielId = alleSpiele[hinIdx].Id;
-            rueckspiele.Add(alleSpiele[i]);
-        }
-        if (rueckspiele.Count > 0)
-            await spielRepository.HinzufuegenMehrfachAsync(rueckspiele, ct);
+        // Der Plan ist nie leer: Gruppen mit weniger als zwei Plätzen weist GenerierenAusAuslosungAsync vorher ab
+        var rueckspiele = plan
+            .Select((geplant, i) => (geplant.HinspielIndex, Index: i))
+            .Where(x => x.HinspielIndex.HasValue)
+            .Select(x => (Hinspiel: alleSpiele[x.HinspielIndex!.Value], Rueckspiel: alleSpiele[x.Index]))
+            .ToList();
+        await SpielplanSpeicherung.HinUndRueckspieleSpeichernAsync(
+            spielRepository, [.. alleSpiele.Where(s => !s.IstRueckspiel)], rueckspiele, ct);
 
         logger.LogInformation(
             "Platzhalter-Gruppenphase für Runde '{Runde}' generiert: {Gruppen} Gruppen, {Spiele} Spiele.",
@@ -495,8 +465,7 @@ public class SpielplanService(
         IReadOnlyList<(string Heim, string Auswaerts)> paarungen,
         CancellationToken ct = default)
     {
-        var runde = await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
-            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+        var runde = await RundeLadenAsync(turnierRundeId, ct);
 
         int spielNr = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
 
@@ -515,30 +484,22 @@ public class SpielplanService(
                 IstRueckspiel            = false,
             }).ToList();
 
-            await spielRepository.HinzufuegenMehrfachAsync(spiele, ct);
+            await SpielplanSpeicherung.HinUndRueckspieleSpeichernAsync(spielRepository, spiele, [], ct);
         }
         else
         {
             // Issue #346: je Paarung Hin- und gespiegeltes Rückspiel — erst alle Hinspiele, dann alle Rückspiele
-            // nummeriert (so, wie sie ausgetragen werden; wie im KoRundeGenerator). Zweiphasig gespeichert (wie
-            // SpeichernAsync), damit die Rückspiele die HinspielId ihres bereits gespeicherten Hinspiels erhalten.
+            // nummeriert (so, wie sie ausgetragen werden; wie im KoRundeGenerator).
             var hinspiele = paarungen
                 .Select((p, i) => PlatzhalterSpiel(runde, p.Heim, p.Auswaerts, spielNr + i, spieltag: 1))
                 .ToList();
-            await spielRepository.HinzufuegenMehrfachAsync(hinspiele, ct);
-
             var rueckspiele = hinspiele
-                .Select(h =>
-                {
-                    var rueck = PlatzhalterSpiel(runde, h.AuswaertsPlatzhalterName!, h.HeimPlatzhalterName!,
-                        h.Spielnummer + hinspiele.Count, spieltag: 2, istRueckspiel: true);
-                    rueck.HinspielId = h.Id;
-                    return rueck;
-                })
+                .Select(h => (Hinspiel: h, Rueckspiel: PlatzhalterSpiel(runde, h.AuswaertsPlatzhalterName!,
+                    h.HeimPlatzhalterName!, h.Spielnummer + hinspiele.Count, spieltag: 2, istRueckspiel: true)))
                 .ToList();
-            await spielRepository.HinzufuegenMehrfachAsync(rueckspiele, ct);
+            await SpielplanSpeicherung.HinUndRueckspieleSpeichernAsync(spielRepository, hinspiele, rueckspiele, ct);
 
-            spiele = [.. hinspiele, .. rueckspiele];
+            spiele = [.. hinspiele, .. rueckspiele.Select(r => r.Rueckspiel)];
         }
 
         logger.LogInformation(
@@ -547,4 +508,8 @@ public class SpielplanService(
 
         return spiele.Count;
     }
+
+    private async Task<TurnierRunde> RundeLadenAsync(int turnierRundeId, CancellationToken ct) =>
+        await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
+            ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
 }
