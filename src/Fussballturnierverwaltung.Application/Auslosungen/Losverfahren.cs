@@ -297,7 +297,7 @@ public static class Losverfahren
             .Ausloesen()
             ?? throw new InvalidOperationException(
                 "Keine gültige Topf-Zuordnung gefunden: Die Einschränkungen (kein gleiches Land, höchstens " +
-                $"{LigaphasenAuslosung.MAX_GEGNER_JE_LAND} Gegner aus demselben Land, konfliktfreie Spieltage) " +
+                $"{LigaphasenBelegung.MAX_GEGNER_JE_LAND} Gegner aus demselben Land, konfliktfreie Spieltage) " +
                 "sind mit dieser Topf-Besetzung nicht erfüllbar.");
 
         return paarungen
