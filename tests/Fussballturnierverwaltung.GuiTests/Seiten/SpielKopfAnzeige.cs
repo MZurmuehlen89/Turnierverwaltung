@@ -5,9 +5,11 @@ namespace Fussballturnierverwaltung.GuiTests.Seiten;
 /// <summary>Ein Spielkopf, wie ihn die Einzelspiel-Simulation zeigt (#536). <see cref="Score"/> ist der große Stand in
 /// der Box – nach Elfmeterschießen der Elfmeterstand –, <see cref="Entscheidung"/> der Hinweis darunter („im
 /// Elfmeterschießen“, im Gesamtkopf „nach 180 Minuten“ usw.), <see cref="Zwischenstaende"/> der Streifen
-/// („HZ 1:0 · 90' 1:1 · n.V. 2:1“). Leere Felder sind leere Texte.</summary>
+/// („HZ 1:0 · 90' 1:1 · n.V. 2:1“), die Untertitel stehen unter den Teamnamen (Liga, Land oder Verband, #384). Leere
+/// Felder sind leere Texte.</summary>
 public sealed partial record SpielKopfAnzeige(
-    string Heim, string Auswaerts, string Score, string Entscheidung = "", string Zwischenstaende = "")
+    string Heim, string Auswaerts, string Score, string Entscheidung = "", string Zwischenstaende = "",
+    string HeimUntertitel = "", string AuswaertsUntertitel = "")
 {
     public bool ImElfmeterschiessen => Entscheidung.StartsWith("im Elfmeterschießen", StringComparison.Ordinal);
 

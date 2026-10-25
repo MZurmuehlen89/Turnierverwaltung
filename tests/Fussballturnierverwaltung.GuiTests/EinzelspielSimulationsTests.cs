@@ -35,6 +35,24 @@ public sealed class EinzelspielSimulationsTests(TurnierverwaltungApp app) : ICla
         _seite.Fehlermeldung.Should().BeEmpty();
     }
 
+    /// <summary>Der Untertitel unter dem Teamnamen folgt dem Kontext der Begegnung (#341, #384): Vereine desselben Landes
+    /// zeigen ihre Liga aus der Ligapyramide, Vereine desselben Kontinentalverbands das Land, Vereine verschiedener
+    /// Verbände Verband und Land, Nationalmannschaften den Verband.</summary>
+    [Theory]
+    [InlineData("Bayern München", "Schalke 04", "Bundesliga", "2. Bundesliga")]
+    [InlineData("Bayern München", "Real Madrid", "Deutschland", "Spanien")]
+    [InlineData("Bayern München", "Flamengo", "UEFA · Deutschland", "CONMEBOL · Brasilien")]
+    [InlineData(HEIM, AUSWAERTS, "UEFA", "UEFA")]
+    public void Einzelspiel_UntertitelFolgtDemKontextDerBegegnung(
+        string heim, string auswaerts, string heimUntertitel, string auswaertsUntertitel)
+    {
+        _seite.MannschaftenWaehlen(heim, auswaerts);
+
+        var kopf = _seite.EinzelspielSimulieren();
+
+        (kopf.HeimUntertitel, kopf.AuswaertsUntertitel).Should().Be((heimUntertitel, auswaertsUntertitel));
+    }
+
     /// <summary>Damit eine falsch zusammengezählte Summe auffällt, darf kein Spiel nach 90 Minuten unentschieden enden:
     /// Das Hinspiel kommt darum von Hand (3:1), und als Gegner dient ein deutlich schwächeres Team – der nächste, falls
     /// das Rückspiel doch unentschieden endet.</summary>

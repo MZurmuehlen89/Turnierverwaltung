@@ -115,5 +115,7 @@ public sealed class EinzelspielSeite(Window fenster)
                 container.TextOf("SpielKopf.AuswaertsName"),
                 container.TextOf("SpielKopf.Score"),
                 container.TextOf("SpielKopf.Entscheidung"),
-                container.TextOf("SpielKopf.Zwischenstaende"));
+                container.TextOf("SpielKopf.Zwischenstaende"),
+                container.TextOf("SpielKopf.HeimUntertitel"),
+                container.TextOf("SpielKopf.AuswaertsUntertitel"));
 }
