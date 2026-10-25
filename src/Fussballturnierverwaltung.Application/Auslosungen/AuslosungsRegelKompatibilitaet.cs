@@ -71,88 +71,66 @@ public static class AuslosungsRegelKompatibilitaet
     /// <paramref name="folgtAufGruppenphase"/>: ob vor dieser Runde eine Gruppenphase liegt — nur dann gibt es
     /// frühere Gruppen, die „Keine gleiche Gruppe“ auswerten könnte.</summary>
     public static string? SperrGrund(
-        AuslosungsRegelArt regel, Auslosungsart art, Rundenart? rundenart, bool folgtAufGruppenphase)
-    {
-        if (rundenart == Rundenart.Liga)
-            return "In einer Liga spielt jeder gegen jeden — es gibt weder Gruppen noch ausgeloste Paarungen, " +
-                   "auf die diese Regel wirken könnte.";
-
-        if (rundenart == Rundenart.SchweizerSystem)
-            return "Beim Schweizer System bildet der Spielplan-Generator die Paarungen selbst — die Auslosung legt " +
-                   "nur die Startreihenfolge fest.";
-
-        if (ImmerAktivGrund(regel, art) is not null)
-            return null;
-
-        switch (regel)
+        AuslosungsRegelArt regel, Auslosungsart art, Rundenart? rundenart, bool folgtAufGruppenphase) =>
+        RundenartSperrGrund(rundenart) ?? (ImmerAktivGrund(regel, art) is not null ? null : regel switch
         {
-            case AuslosungsRegelArt.KeinGleichesLand:
-                return null;
+            AuslosungsRegelArt.KeinGleichesLand          => null,
+            AuslosungsRegelArt.KeineGleicheGruppe        => GleicheGruppeSperrGrund(folgtAufGruppenphase),
+            AuslosungsRegelArt.HeimrechtNachLos or
+            AuslosungsRegelArt.HeimrechtNachSetzliste or
+            AuslosungsRegelArt.HeimrechtFuerUnterklassige => HeimrechtSperrGrund(regel, art, rundenart),
+            AuslosungsRegelArt.FreilosMoeglich           => FreilosSperrGrund(art, rundenart),
+            AuslosungsRegelArt.Konfoederationsverteilung => KonfoederationSperrGrund(rundenart),
+            _                                            => "Diese Regel wird nicht mehr unterstützt."
+        });
 
-            case AuslosungsRegelArt.KeineGleicheGruppe:
-                return GleicheGruppeSperrGrund(folgtAufGruppenphase);
-
-            case AuslosungsRegelArt.HeimrechtNachLos:
-            case AuslosungsRegelArt.HeimrechtNachSetzliste:
-            case AuslosungsRegelArt.HeimrechtFuerUnterklassige:
-                return HeimrechtSperrGrund(regel, art, rundenart);
-
-            case AuslosungsRegelArt.FreilosMoeglich:
-                return FreilosSperrGrund(art, rundenart);
-
-            case AuslosungsRegelArt.Konfoederationsverteilung:
-                return KonfoederationSperrGrund(rundenart);
-
-            default:
-                return "Diese Regel wird nicht mehr unterstützt.";
-        }
-    }
-
-    private static string? GleicheGruppeSperrGrund(bool folgtAufGruppenphase)
+    // Liga und Schweizer System sperren jede Regel — auch eine, die bei der Auslosungsart sonst immer gilt.
+    private static string? RundenartSperrGrund(Rundenart? rundenart) => rundenart switch
     {
-                if (!folgtAufGruppenphase)
-                    return "Diese Runde folgt auf keine Gruppenphase — es gibt keine früheren Gruppen, " +
-                           "deren Teams sich erneut begegnen könnten.";
-                return null;
-    }
+        Rundenart.Liga =>
+            "In einer Liga spielt jeder gegen jeden — es gibt weder Gruppen noch ausgeloste Paarungen, " +
+            "auf die diese Regel wirken könnte.",
+        Rundenart.SchweizerSystem =>
+            "Beim Schweizer System bildet der Spielplan-Generator die Paarungen selbst — die Auslosung legt " +
+            "nur die Startreihenfolge fest.",
+        _ => null
+    };
+
+    private static string? GleicheGruppeSperrGrund(bool folgtAufGruppenphase) => folgtAufGruppenphase
+        ? null
+        : "Diese Runde folgt auf keine Gruppenphase — es gibt keine früheren Gruppen, deren Teams sich erneut " +
+          "begegnen könnten.";
 
     private static string? HeimrechtSperrGrund(AuslosungsRegelArt regel, Auslosungsart art, Rundenart? rundenart)
     {
-                if (rundenart == Rundenart.Gruppenphase)
-                    return "In der Gruppenphase werden Teams nur Gruppen zugeordnet — das Heimrecht ergibt sich " +
-                           "aus dem Spielplan der Gruppe.";
-                if (art == Auslosungsart.TopfZuordnung)
-                    return "Die Topf-Zuordnung verteilt Heim- und Auswärtsspiele selbst (je Topf ein Heim- und " +
-                           "ein Auswärtsgegner).";
-                // Bei der Ziehung von Hand spielt das zuerst gezogene Team zu Hause (DFB-Pokal, #482); die beiden
-                // anderen Heimrecht-Regeln gehen dem vor.
-                if (art == Auslosungsart.Manuell && regel == AuslosungsRegelArt.HeimrechtNachLos)
-                    return "Bei der Ziehung von Hand ist die Ziehung selbst das Los — das zuerst gezogene Team " +
-                           "spielt zu Hause.";
-                return null;
+        if (rundenart == Rundenart.Gruppenphase)
+            return "In der Gruppenphase werden Teams nur Gruppen zugeordnet — das Heimrecht ergibt sich aus dem " +
+                   "Spielplan der Gruppe.";
+        if (art == Auslosungsart.TopfZuordnung)
+            return "Die Topf-Zuordnung verteilt Heim- und Auswärtsspiele selbst (je Topf ein Heim- und ein " +
+                   "Auswärtsgegner).";
+        // Bei der Ziehung von Hand spielt das zuerst gezogene Team zu Hause (DFB-Pokal, #482); die beiden anderen
+        // Heimrecht-Regeln gehen dem vor.
+        if (art == Auslosungsart.Manuell && regel == AuslosungsRegelArt.HeimrechtNachLos)
+            return "Bei der Ziehung von Hand ist die Ziehung selbst das Los — das zuerst gezogene Team spielt zu Hause.";
+        return null;
     }
 
+    // „Nach Töpfen“ und „Nach Setzliste“ losen den Überhang ungleich großer Töpfe bzw. Seiten untereinander, bei
+    // ungerader Gesamtzahl bleibt dort ein Team für das Freilos (#495).
     private static string? FreilosSperrGrund(Auslosungsart art, Rundenart? rundenart)
     {
-                if (rundenart == Rundenart.Gruppenphase)
-                    return "In der Gruppenphase gibt es kein Freilos — alle Teams werden auf die Gruppen verteilt.";
-                // „Nach Töpfen“ und „Nach Setzliste“ losen den Überhang ungleich großer Töpfe bzw. Seiten
-                // untereinander, bei ungerader Gesamtzahl bleibt dort ein Team für das Freilos (#495).
-                return art switch
-                {
-                    Auslosungsart.TopfZuordnung =>
-                        "Die Topf-Zuordnung erfordert gleich große Töpfe — ein Freilos ist nicht vorgesehen.",
-                    _ => null
-                };
+        if (rundenart == Rundenart.Gruppenphase)
+            return "In der Gruppenphase gibt es kein Freilos — alle Teams werden auf die Gruppen verteilt.";
+        if (art == Auslosungsart.TopfZuordnung)
+            return "Die Topf-Zuordnung erfordert gleich große Töpfe — ein Freilos ist nicht vorgesehen.";
+        return null;
     }
 
-    private static string? KonfoederationSperrGrund(Rundenart? rundenart)
-    {
-                if (rundenart != Rundenart.Gruppenphase)
-                    return "Die Konföderationsverteilung regelt die Verteilung auf Gruppen — in dieser Runde " +
-                           "werden keine Gruppen ausgelost.";
-                return null;
-    }
+    private static string? KonfoederationSperrGrund(Rundenart? rundenart) => rundenart == Rundenart.Gruppenphase
+        ? null
+        : "Die Konföderationsverteilung regelt die Verteilung auf Gruppen — in dieser Runde werden keine Gruppen " +
+          "ausgelost.";
 
     /// <summary>Liefert den Grund, warum die Regel bei dieser Auslosungsart unabhängig vom Häkchen immer gilt,
     /// oder <c>null</c>. Beispiel: bei „Gruppensieger vs. Zweite“ trifft ein Gruppensieger real nie auf den
