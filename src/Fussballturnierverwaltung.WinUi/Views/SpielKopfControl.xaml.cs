@@ -1,3 +1,4 @@
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 
 namespace Fussballturnierverwaltung.WinUi.Views;
@@ -10,4 +11,9 @@ public sealed partial class SpielKopfControl : UserControl
     {
         InitializeComponent();
     }
+
+    // #536: Ein UserControl hat von sich aus keinen Automation-Peer, seine Texte hingen dann flach am nächsten
+    // Vorfahren. Mit eigenem Peer bleibt jeder Kopf ein eigener Knoten im UIA-Baum, und die GUI-Tests können
+    // Hinspiel-, Rückspiel- und Gesamtkopf getrennt lesen (AutomationId an der Verwendungsstelle).
+    protected override AutomationPeer OnCreateAutomationPeer() => new FrameworkElementAutomationPeer(this);
 }

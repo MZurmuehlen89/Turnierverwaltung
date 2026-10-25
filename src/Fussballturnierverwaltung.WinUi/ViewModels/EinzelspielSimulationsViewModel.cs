@@ -207,12 +207,14 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                     {
                         Header = "Hinspiel simulieren",
                         Befehl = HinspielSimulierenBefehl,
+                        AutomationId = "Befehlsleiste.HinspielSimulieren",
                         IconGlyph = "",
                     },
                     new RibbonAktion
                     {
                         Header = "Rückspiel simulieren",
                         Befehl = RueckspielSimulierenBefehl,
+                        AutomationId = "Befehlsleiste.RueckspielSimulieren",
                         IconGlyph = "",
                     },
                 ]
@@ -222,6 +224,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
                     {
                         Header = "Einzelspiel simulieren",
                         Befehl = EinzelspielFreiBefehl,
+                        AutomationId = "Befehlsleiste.EinzelspielSimulieren",
                         IconGlyph = "",
                     },
                 ],

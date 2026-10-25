@@ -168,37 +168,37 @@
 
                 <TextBlock Text="HEIMTEAM" FontSize="10" FontWeight="Bold" Opacity="0.6" Margin="0,4,0,4" />
                 <Grid ColumnDefinitions="*,8,*" Margin="0,0,0,4">
-                    <TextBox Grid.Column="0" Text="{Binding HeimSuchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox Grid.Column="0" AutomationProperties.AutomationId="Einzelspiel.HeimSuche" Text="{Binding HeimSuchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              PlaceholderText="🔍  Suche…" FontSize="12" />
                     <ComboBox Grid.Column="2" ItemsSource="{Binding VerbandFilterOptionen}"
                               SelectedItem="{Binding HeimVerbandFilter, Mode=TwoWay}"
                               DisplayMemberPath="Anzeige" FontSize="12" HorizontalAlignment="Stretch" />
                 </Grid>
-                <ComboBox ItemsSource="{Binding HeimMannschaftenGefiltert}"
+                <ComboBox ItemsSource="{Binding HeimMannschaftenGefiltert}" AutomationProperties.AutomationId="Einzelspiel.Heim"
                           SelectedItem="{Binding EinzelspielHeim, Mode=TwoWay}"
                           ItemTemplate="{StaticResource MannschaftMitWappenTemplate}"
                           FontSize="13" HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                 <TextBlock Text="AUSWÄRTSTEAM" FontSize="10" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,4" />
                 <Grid ColumnDefinitions="*,8,*" Margin="0,0,0,4">
-                    <TextBox Grid.Column="0" Text="{Binding AuswaertsSuchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox Grid.Column="0" AutomationProperties.AutomationId="Einzelspiel.AuswaertsSuche" Text="{Binding AuswaertsSuchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              PlaceholderText="🔍  Suche…" FontSize="12" />
                     <ComboBox Grid.Column="2" ItemsSource="{Binding VerbandFilterOptionen}"
                               SelectedItem="{Binding AuswaertsVerbandFilter, Mode=TwoWay}"
                               DisplayMemberPath="Anzeige" FontSize="12" HorizontalAlignment="Stretch" />
                 </Grid>
-                <ComboBox ItemsSource="{Binding AuswaertsMannschaftenGefiltert}"
+                <ComboBox ItemsSource="{Binding AuswaertsMannschaftenGefiltert}" AutomationProperties.AutomationId="Einzelspiel.Auswaerts"
                           SelectedItem="{Binding EinzelspielAuswaerts, Mode=TwoWay}"
                           ItemTemplate="{StaticResource MannschaftMitWappenTemplate}"
                           FontSize="13" HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                 <TextBlock Text="REGELWERK (OPTIONAL)" FontSize="10" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,4" />
-                <ComboBox ItemsSource="{Binding AlleRegelwerke}"
+                <ComboBox ItemsSource="{Binding AlleRegelwerke}" AutomationProperties.AutomationId="Einzelspiel.Regelwerk"
                           SelectedItem="{Binding EinzelspielRegelwerk, Mode=TwoWay}"
                           DisplayMemberPath="Name" FontSize="13" HorizontalAlignment="Stretch" />
                 <TextBlock Text="Leer = kein Tiebreaker" FontSize="10" Opacity="0.6" Margin="0,2,0,0" />
 
-                <CheckBox Content="Mit Rückspiel" IsChecked="{Binding EinzelspielMitRueckspiel, Mode=TwoWay}"
+                <CheckBox Content="Mit Rückspiel" AutomationProperties.AutomationId="Einzelspiel.MitRueckspiel" IsChecked="{Binding EinzelspielMitRueckspiel, Mode=TwoWay}"
                           FontSize="13" Margin="0,14,0,0" />
 
                 <!-- #248: manuelle Hinspiel-Eingabe — dauerhaft sichtbar (nicht nur vor der ersten
@@ -209,14 +209,14 @@
                     <Rectangle Height="1" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Margin="0,14,0,14" />
                     <TextBlock Text="HINSPIEL-ERGEBNIS" FontSize="10" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,10" />
                     <Grid ColumnDefinitions="*,16,*" Margin="0,0,0,10">
-                        <NumberBox Grid.Column="0" Header="{Binding EinzelspielHeim.Name}"
+                        <NumberBox Grid.Column="0" AutomationProperties.AutomationId="Einzelspiel.HinspielHeimTore" Header="{Binding EinzelspielHeim.Name}"
                                    Value="{Binding HinspielHeimToreEingabe, Mode=TwoWay}"
                                    Minimum="0" SpinButtonPlacementMode="Compact" />
-                        <NumberBox Grid.Column="2" Header="{Binding EinzelspielAuswaerts.Name}"
+                        <NumberBox Grid.Column="2" AutomationProperties.AutomationId="Einzelspiel.HinspielAuswaertsTore" Header="{Binding EinzelspielAuswaerts.Name}"
                                    Value="{Binding HinspielAuswaertsToreEingabe, Mode=TwoWay}"
                                    Minimum="0" SpinButtonPlacementMode="Compact" />
                     </Grid>
-                    <Button Content="Übernehmen" Command="{Binding HinspielUebernehmenBefehl}"
+                    <Button Content="Übernehmen" AutomationProperties.AutomationId="Einzelspiel.HinspielUebernehmen" Command="{Binding HinspielUebernehmenBefehl}"
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
                 </StackPanel>
 
@@ -242,7 +242,7 @@
             <Border Grid.Row="1" Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
                     CornerRadius="4" Padding="10,7" Margin="16,10,16,0"
                     Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                <TextBlock Text="{Binding Fehlermeldung}" AutomationProperties.AutomationId="Einzelspiel.Fehlermeldung" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                            FontSize="12" TextWrapping="Wrap" />
             </Border>
 
@@ -264,7 +264,8 @@
                               Visibility="{Binding HatHinspielErgebnis, Converter={StaticResource BoolToVisibility}}">
                     <StackPanel Margin="16,12,16,16" Spacing="10">
 
-                        <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                        <Expander AutomationProperties.AutomationId="Einzelspiel.Hinspiel"
+                                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                   IsExpanded="{Binding HinspielOffen, Mode=TwoWay}"
                                   Header="{Binding HinspielAnsicht}" HeaderTemplate="{StaticResource BeinKopfVorlage}">
                             <StackPanel Visibility="{Binding HatHinspielEreignisse, Converter={StaticResource BoolToVisibility}}"
@@ -281,7 +282,8 @@
                                        Opacity="0.5" FontSize="13" />
                         </Border>
 
-                        <Expander Visibility="{Binding HatRueckspielErgebnis, Converter={StaticResource BoolToVisibility}}"
+                        <Expander AutomationProperties.AutomationId="Einzelspiel.Rueckspiel"
+                                  Visibility="{Binding HatRueckspielErgebnis, Converter={StaticResource BoolToVisibility}}"
                                   HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                   IsExpanded="{Binding RueckspielOffen, Mode=TwoWay}"
                                   Header="{Binding RueckspielAnsicht}" HeaderTemplate="{StaticResource BeinKopfVorlage}">
@@ -299,14 +301,15 @@
                                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                                 CornerRadius="4" Padding="20,14,52,14">
-                            <views:SpielKopfControl DataContext="{Binding GesamtKopf}" />
+                            <views:SpielKopfControl AutomationProperties.AutomationId="Einzelspiel.Gesamt" DataContext="{Binding GesamtKopf}" />
                         </Border>
 
                         <Border Visibility="{Binding SiegerText, Converter={StaticResource NullToCollapsed}}"
                                 Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
                                 BorderBrush="{ThemeResource SystemFillColorSuccessBrush}" BorderThickness="1"
                                 CornerRadius="4" Padding="10,8" HorizontalAlignment="Center">
-                            <TextBlock FontSize="13" FontWeight="Bold" Foreground="{ThemeResource SystemFillColorSuccessBrush}">
+                            <TextBlock AutomationProperties.AutomationId="Einzelspiel.Sieger"
+                                       FontSize="13" FontWeight="Bold" Foreground="{ThemeResource SystemFillColorSuccessBrush}">
                                 <Run Text="{Binding SiegerText}" />
                             </TextBlock>
                         </Border>

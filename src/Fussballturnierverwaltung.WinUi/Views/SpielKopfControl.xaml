@@ -11,7 +11,7 @@
 
     <Grid ColumnDefinitions="*,Auto,*" RowDefinitions="Auto,*" ColumnSpacing="16">
 
-        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Text="{Binding Kontext}"
+        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Text="{Binding Kontext}" AutomationProperties.AutomationId="SpielKopf.Kontext"
                    FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center"
                    TextWrapping="Wrap" Margin="0,0,0,6"
                    Visibility="{Binding HatKontext, Converter={StaticResource BoolToVisibility}}" />
@@ -25,7 +25,7 @@
                 <TextBlock Text="🏳" FontSize="40" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.35"
                            Visibility="{Binding HeimWappen, Converter={StaticResource NullToVisible}}" />
             </Grid>
-            <TextBlock Text="{Binding HeimName}" FontSize="20" FontWeight="Bold"
+            <TextBlock Text="{Binding HeimName}" AutomationProperties.AutomationId="SpielKopf.HeimName" FontSize="20" FontWeight="Bold"
                        HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
             <TextBlock Text="{Binding HeimUntertitel}" FontSize="11" Opacity="0.6" HorizontalAlignment="Center"
                        Visibility="{Binding HatHeimUntertitel, Converter={StaticResource BoolToVisibility}}" />
@@ -37,14 +37,14 @@
                 Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
             <StackPanel>
                 <StackPanel Padding="14,6,14,6">
-                    <TextBlock Text="{Binding Score}" FontSize="30" FontWeight="Bold" FontFamily="Consolas"
+                    <TextBlock Text="{Binding Score}" AutomationProperties.AutomationId="SpielKopf.Score" FontSize="30" FontWeight="Bold" FontFamily="Consolas"
                                HorizontalAlignment="Center" />
-                    <TextBlock Text="{Binding Entscheidung}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center"
+                    <TextBlock Text="{Binding Entscheidung}" AutomationProperties.AutomationId="SpielKopf.Entscheidung" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center"
                                Visibility="{Binding HatEntscheidung, Converter={StaticResource BoolToVisibility}}" />
                 </StackPanel>
                 <Border Background="{ThemeResource ControlFillColorSecondaryBrush}" Padding="10,3" CornerRadius="0,0,4,4"
                         Visibility="{Binding HatZwischenstaende, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="{Binding Zwischenstaende}" FontSize="11" Opacity="0.8" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding Zwischenstaende}" AutomationProperties.AutomationId="SpielKopf.Zwischenstaende" FontSize="11" Opacity="0.8" HorizontalAlignment="Center" />
                 </Border>
             </StackPanel>
         </Border>
@@ -58,7 +58,7 @@
                 <TextBlock Text="🏳" FontSize="40" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.35"
                            Visibility="{Binding AuswaertsWappen, Converter={StaticResource NullToVisible}}" />
             </Grid>
-            <TextBlock Text="{Binding AuswaertsName}" FontSize="20" FontWeight="Bold"
+            <TextBlock Text="{Binding AuswaertsName}" AutomationProperties.AutomationId="SpielKopf.AuswaertsName" FontSize="20" FontWeight="Bold"
                        HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
             <TextBlock Text="{Binding AuswaertsUntertitel}" FontSize="11" Opacity="0.6" HorizontalAlignment="Center"
                        Visibility="{Binding HatAuswaertsUntertitel, Converter={StaticResource BoolToVisibility}}" />
