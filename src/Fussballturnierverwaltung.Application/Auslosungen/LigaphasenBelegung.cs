@@ -43,32 +43,39 @@ internal sealed class LigaphasenBelegung
                 _heimGegner[t, p] = _gastgeber[t, p] = -1;
     }
 
-    public int TeamAnzahl => _teamAnzahl;
+    /// <summary>Die festgelegten Paarungen (Heim, Gast) in der Reihenfolge, in der sie gesetzt wurden.</summary>
+    public IReadOnlyList<(int Heim, int Gast)> Paarungen => _paarungen;
 
     public int TopfAnzahl => _topfAnzahl;
 
     public IReadOnlyList<int> TeamsImTopf(int topf) => _teamsJeTopf[topf];
 
-    /// <summary>Die festgelegten Paarungen (Heim, Gast) in der Reihenfolge, in der sie gesetzt wurden.</summary>
-    public IReadOnlyList<(int Heim, int Gast)> Paarungen => _paarungen;
-
-    /// <summary>Ob das Team aus dem Topf noch einen Gast (<paramref name="heim"/>) bzw. Gastgeber braucht.</summary>
-    public bool IstOffen(int team, int topf, bool heim) => (heim ? _heimGegner[team, topf] : _gastgeber[team, topf]) < 0;
-
-    public List<int> Kandidaten(int team, int gegnerTopf, bool heim)
+    /// <summary>Die Plätze eines Teams: je Topf erst der Gast, den es empfängt, dann der Gastgeber, bei dem es spielt.</summary>
+    public IEnumerable<Platz> PlaetzeVon(int team)
     {
-        var kandidaten = new List<int>();
-        foreach (int u in _teamsJeTopf[gegnerTopf])
-            if (IstKandidat(team, u, heim)) kandidaten.Add(u);
-        return kandidaten;
+        for (int topf = 0; topf < _topfAnzahl; topf++)
+        {
+            yield return new Platz(team, topf, Heim: true);
+            yield return new Platz(team, topf, Heim: false);
+        }
     }
 
+    /// <summary>Alle noch offenen Plätze, Team für Team in der Reihenfolge von <see cref="PlaetzeVon"/>.</summary>
+    public IEnumerable<Platz> OffenePlaetze() =>
+        Enumerable.Range(0, _teamAnzahl).SelectMany(PlaetzeVon).Where(IstOffen);
+
+    public bool IstOffen(Platz platz) =>
+        (platz.Heim ? _heimGegner[platz.Team, platz.Topf] : _gastgeber[platz.Team, platz.Topf]) < 0;
+
+    public List<int> Kandidaten(Platz platz) =>
+        [.. _teamsJeTopf[platz.Topf].Where(u => IstKandidat(platz.Team, u, platz.Heim))];
+
     // Zählt nur bis zur bisher kleinsten Anzahl — mehr interessiert die Auswahl "wenigste Möglichkeiten" nicht.
-    public int KandidatenZaehlen(int team, int gegnerTopf, bool heim, int abbruchBei)
+    public int KandidatenZaehlen(Platz platz, int abbruchBei)
     {
         int anzahl = 0;
-        foreach (int u in _teamsJeTopf[gegnerTopf])
-            if (IstKandidat(team, u, heim) && ++anzahl >= abbruchBei) break;
+        foreach (int u in _teamsJeTopf[platz.Topf])
+            if (IstKandidat(platz.Team, u, platz.Heim) && ++anzahl >= abbruchBei) break;
         return anzahl;
     }
 
@@ -90,8 +97,9 @@ internal sealed class LigaphasenBelegung
             && (landA < 0 || _gegnerJeLand[b, landA] < MAX_GEGNER_JE_LAND);
     }
 
-    public void Setzen(int heim, int gast)
+    public void Setzen((int Heim, int Gast) paarung)
     {
+        var (heim, gast) = paarung;
         _heimGegner[heim, _topf[gast]] = gast;
         _gastgeber[gast, _topf[heim]]  = heim;
         _gepaart[heim, gast] = _gepaart[gast, heim] = true;
@@ -99,8 +107,9 @@ internal sealed class LigaphasenBelegung
         LandZaehlen(heim, gast, +1);
     }
 
-    public void Entfernen(int heim, int gast)
+    public void Entfernen((int Heim, int Gast) paarung)
     {
+        var (heim, gast) = paarung;
         _heimGegner[heim, _topf[gast]] = -1;
         _gastgeber[gast, _topf[heim]]  = -1;
         _gepaart[heim, gast] = _gepaart[gast, heim] = false;
@@ -114,4 +123,12 @@ internal sealed class LigaphasenBelegung
         if (_landIndex[b] >= 0) _gegnerJeLand[a, _landIndex[b]] += delta;
         if (_landIndex[a] >= 0) _gegnerJeLand[b, _landIndex[a]] += delta;
     }
+}
+
+/// <summary>Ein Platz in der Ligaphase: der Gegner aus <paramref name="Topf"/>, den <paramref name="Team"/> empfängt
+/// (<paramref name="Heim"/>) bzw. bei dem es auswärts spielt.</summary>
+internal readonly record struct Platz(int Team, int Topf, bool Heim)
+{
+    /// <summary>Die Paarung (Heim, Gast), die entsteht, wenn <paramref name="gegner"/> diesen Platz füllt.</summary>
+    public (int Heim, int Gast) MitGegner(int gegner) => Heim ? (Team, gegner) : (gegner, Team);
 }

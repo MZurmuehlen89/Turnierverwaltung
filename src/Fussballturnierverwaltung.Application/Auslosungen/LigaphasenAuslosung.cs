@@ -46,46 +46,45 @@ internal sealed class LigaphasenAuslosung
     /// Ziehungsreihenfolge, oder <c>null</c>, wenn keine gültige Auslosung gefunden wurde.</summary>
     public List<(int Heim, int Gast)>? Ausloesen()
     {
-        bool machbar = false;
-        for (int versuch = 0; versuch < MAX_VERSUCHE_STARTPRUEFUNG && !machbar; versuch++)
-            machbar = Vervollstaendigbar(MAX_KNOTEN_STARTPRUEFUNG);
-        if (!machbar) return null;
+        if (!StartPruefen()) return null;
 
         for (int topf = 0; topf < _belegung.TopfAnzahl; topf++)
-        {
-            var gezogeneTeams = _belegung.TeamsImTopf(topf).OrderBy(_ => _zufall.Next());
-            foreach (int team in gezogeneTeams)
-            {
-                for (int gegnerTopf = 0; gegnerTopf < _belegung.TopfAnzahl; gegnerTopf++)
-                {
-                    if (_belegung.IstOffen(team, gegnerTopf, heim: true))  GegnerZiehen(team, gegnerTopf, heim: true);
-                    if (_belegung.IstOffen(team, gegnerTopf, heim: false)) GegnerZiehen(team, gegnerTopf, heim: false);
-                }
-            }
-        }
+            foreach (int team in Gemischt(_belegung.TeamsImTopf(topf)))
+                TeamZiehen(team);
 
         return [.. _belegung.Paarungen];
     }
 
-    private void GegnerZiehen(int team, int gegnerTopf, bool heim)
+    private bool StartPruefen()
     {
-        foreach (int gegner in _belegung.Kandidaten(team, gegnerTopf, heim).OrderBy(_ => _zufall.Next()))
-        {
-            var (h, g) = heim ? (team, gegner) : (gegner, team);
-            if (_letzteLoesung.Contains((h, g)))
-            {
-                _belegung.Setzen(h, g);
-                return;
-            }
+        for (int versuch = 0; versuch < MAX_VERSUCHE_STARTPRUEFUNG; versuch++)
+            if (Vervollstaendigbar(MAX_KNOTEN_STARTPRUEFUNG)) return true;
+        return false;
+    }
 
-            _belegung.Setzen(h, g);
-            if (Vervollstaendigbar(MAX_KNOTEN_KANDIDATENPRUEFUNG)) return;
-            _belegung.Entfernen(h, g);
+    // Die noch offenen Gegner des gezogenen Teams, Topf für Topf — Plätze, die schon beim Ziehen eines früheren
+    // Teams besetzt wurden, entfallen.
+    private void TeamZiehen(int team)
+    {
+        foreach (var platz in _belegung.PlaetzeVon(team))
+            if (_belegung.IstOffen(platz)) GegnerZiehen(platz);
+    }
+
+    private void GegnerZiehen(Platz platz)
+    {
+        foreach (int gegner in Gemischt(_belegung.Kandidaten(platz)))
+        {
+            var paarung = platz.MitGegner(gegner);
+            _belegung.Setzen(paarung);
+            if (_letzteLoesung.Contains(paarung) || Vervollstaendigbar(MAX_KNOTEN_KANDIDATENPRUEFUNG)) return;
+            _belegung.Entfernen(paarung);
         }
 
         // Unerreichbar: die letzte gefundene Lösung liefert für jeden offenen Platz einen zulässigen Gegner
         throw new InvalidOperationException("Interner Fehler in der Ligaphasen-Auslosung: kein zulässiger Gegner.");
     }
+
+    private IEnumerable<int> Gemischt(IEnumerable<int> teams) => teams.OrderBy(_ => _zufall.Next());
 
     // ── Vorausschau ─────────────────────────────────────────────────────────
 
@@ -101,37 +100,34 @@ internal sealed class LigaphasenAuslosung
     private bool Suchen()
     {
         if (++_knoten > _maxKnoten) return false;
+        if (EngsterPlatz() is not var (platz, anzahl)) return VollstaendigeLoesungPruefen();
+        if (anzahl == 0) return false;
 
-        int bestesTeam = -1, besterTopf = -1, wenigste = int.MaxValue;
-        bool besterHeim = false;
-
-        for (int t = 0; t < _belegung.TeamAnzahl; t++)
+        foreach (int gegner in Gemischt(_belegung.Kandidaten(platz)))
         {
-            for (int p = 0; p < _belegung.TopfAnzahl; p++)
-            {
-                for (int richtung = 0; richtung < 2; richtung++)
-                {
-                    bool heim = richtung == 0;
-                    if (!_belegung.IstOffen(t, p, heim)) continue;
-                    int anzahl = _belegung.KandidatenZaehlen(t, p, heim, wenigste);
-                    if (anzahl == 0) return false;
-                    if (anzahl < wenigste) (bestesTeam, besterTopf, besterHeim, wenigste) = (t, p, heim, anzahl);
-                }
-            }
-        }
-
-        if (bestesTeam < 0) return VollstaendigeLoesungPruefen();
-
-        foreach (int gegner in _belegung.Kandidaten(bestesTeam, besterTopf, besterHeim).OrderBy(_ => _zufall.Next()))
-        {
-            var (h, g) = besterHeim ? (bestesTeam, gegner) : (gegner, bestesTeam);
-            _belegung.Setzen(h, g);
+            var paarung = platz.MitGegner(gegner);
+            _belegung.Setzen(paarung);
             bool erfolg = Suchen();
-            _belegung.Entfernen(h, g);
+            _belegung.Entfernen(paarung);
             if (erfolg) return true;
             if (_knoten > _maxKnoten) return false;
         }
         return false;
+    }
+
+    /// <summary>Der offene Platz mit den wenigsten zulässigen Gegnern — bei einer Sackgasse der erste Platz ohne
+    /// Gegner (Anzahl 0), <c>null</c>, wenn alle Plätze besetzt sind.</summary>
+    private (Platz Platz, int Anzahl)? EngsterPlatz()
+    {
+        (Platz Platz, int Anzahl)? engster = null;
+        foreach (var platz in _belegung.OffenePlaetze())
+        {
+            int wenigste = engster?.Anzahl ?? int.MaxValue;
+            int anzahl   = _belegung.KandidatenZaehlen(platz, wenigste);
+            if (anzahl == 0) return (platz, 0);
+            if (anzahl < wenigste) engster = (platz, anzahl);
+        }
+        return engster;
     }
 
     private bool VollstaendigeLoesungPruefen()
