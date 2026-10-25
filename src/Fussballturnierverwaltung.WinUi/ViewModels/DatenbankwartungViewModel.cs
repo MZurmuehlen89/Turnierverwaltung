@@ -66,7 +66,10 @@ public partial class DatenbankwartungViewModel : ViewModelBase, IRibbonAware
             Header = "Datenbank",
             Aktionen =
             [
-                new RibbonAktion { Header = "Prüfen / ergänzen", Befehl = PruefenBefehl, IconGlyph = "" },
+                new RibbonAktion
+                {
+                    Header = "Prüfen / ergänzen", AutomationId = "Befehlsleiste.PruefenErgaenzen", Befehl = PruefenBefehl, IconGlyph = ""
+                },
             ]
         }
     ];

@@ -27,7 +27,8 @@
                     BorderBrush="{ThemeResource SystemFillColorCriticalBrush}" BorderThickness="1"
                     CornerRadius="4" Padding="12,8" Margin="0,0,0,16"
                     Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                <TextBlock AutomationProperties.AutomationId="Datenbankwartung.Fehlermeldung"
+                           Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                            FontSize="13" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
             </Border>
 
@@ -41,9 +42,11 @@
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Server" FontSize="13" Opacity="0.7" />
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Server}" FontSize="13" IsTextSelectionEnabled="True" />
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Datenbank" FontSize="13" Opacity="0.7" />
-                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Datenbank}" FontSize="13" IsTextSelectionEnabled="True" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" AutomationProperties.AutomationId="Datenbankwartung.Datenbank"
+                                   Text="{Binding Datenbank}" FontSize="13" IsTextSelectionEnabled="True" />
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Migrationen" FontSize="13" Opacity="0.7" />
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding MigrationsStand}" FontSize="13" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" AutomationProperties.AutomationId="Datenbankwartung.Migrationen"
+                                   Text="{Binding MigrationsStand}" FontSize="13" />
                     </Grid>
                 </StackPanel>
             </Border>
@@ -73,11 +76,13 @@
                     Visibility="{Binding LetztePruefung, Converter={StaticResource NullToCollapsed}}">
                 <StackPanel>
                     <TextBlock Text="PROTOKOLL" FontSize="11" FontWeight="Bold" Opacity="0.6" Margin="0,0,0,4" />
-                    <TextBlock Text="{Binding LetztePruefung}" FontSize="12" Opacity="0.7" Margin="0,0,0,10" />
+                    <TextBlock AutomationProperties.AutomationId="Datenbankwartung.LetztePruefung"
+                               Text="{Binding LetztePruefung}" FontSize="12" Opacity="0.7" Margin="0,0,0,10" />
                     <ItemsControl ItemsSource="{Binding ProtokollZeilen}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding}" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,4" />
+                                <TextBlock AutomationProperties.AutomationId="Datenbankwartung.ProtokollZeile"
+                                           Text="{Binding}" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,4" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
