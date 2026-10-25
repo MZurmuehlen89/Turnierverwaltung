@@ -71,14 +71,14 @@ internal static class SimulationsProtokollHelfer
 {
     // ── Spielkopf (Issue #341) ────────────────────────────────────────────────
 
-    /// <summary>Baut den Spielkopf aus einem Ergebnis. <paramref name="verbandKurzname"/> liefert den
-    /// Kontinentalverband einer Mannschaft (die Aufrufer laden Verbände unterschiedlich).</summary>
+    /// <summary>Baut den Spielkopf aus einem Ergebnis; <paramref name="untertitel"/> liefert Verband und Liga für die
+    /// Untertitel (#384).</summary>
     public static SpielKopf SpielKopfErstellen(
         string? kontext,
         Mannschaft? heim, string heimName,
         Mannschaft? auswaerts, string auswaertsName,
         SimulationsErgebnis e,
-        Func<Mannschaft, string?> verbandKurzname)
+        UntertitelQuellen untertitel)
     {
         // Wie bei kicker: nach Elfmeterschießen steht der Elfmeterstand groß in der Box, das Ergebnis
         // nach Verlängerung wandert in die Zwischenstände.
@@ -105,8 +105,8 @@ internal static class SimulationsProtokollHelfer
 
         return new SpielKopf(
             kontext,
-            heimName, MannschaftsIcon.Fuer(heim), SpielKopfUntertitel.Fuer(heim, auswaerts, verbandKurzname), Kuerzel(heim, heimName),
-            auswaertsName, MannschaftsIcon.Fuer(auswaerts), SpielKopfUntertitel.Fuer(auswaerts, heim, verbandKurzname), Kuerzel(auswaerts, auswaertsName),
+            heimName, MannschaftsIcon.Fuer(heim), SpielKopfUntertitel.Fuer(heim, auswaerts, untertitel), Kuerzel(heim, heimName),
+            auswaertsName, MannschaftsIcon.Fuer(auswaerts), SpielKopfUntertitel.Fuer(auswaerts, heim, untertitel), Kuerzel(auswaerts, auswaertsName),
             score, entscheidung, ZwischenstandText(e));
     }
 
@@ -115,10 +115,10 @@ internal static class SimulationsProtokollHelfer
     /// ohne Zwischenstands-Streifen, die Einzelergebnisse stehen in den Karten darüber.</summary>
     public static SpielKopf GesamtKopfErstellen(
         Mannschaft heim, Mannschaft auswaerts, string score, string zusatz,
-        Func<Mannschaft, string?> verbandKurzname) =>
+        UntertitelQuellen untertitel) =>
         new("Gesamt",
-            heim.Name, MannschaftsIcon.Fuer(heim), SpielKopfUntertitel.Fuer(heim, auswaerts, verbandKurzname), Kuerzel(heim, heim.Name),
-            auswaerts.Name, MannschaftsIcon.Fuer(auswaerts), SpielKopfUntertitel.Fuer(auswaerts, heim, verbandKurzname), Kuerzel(auswaerts, auswaerts.Name),
+            heim.Name, MannschaftsIcon.Fuer(heim), SpielKopfUntertitel.Fuer(heim, auswaerts, untertitel), Kuerzel(heim, heim.Name),
+            auswaerts.Name, MannschaftsIcon.Fuer(auswaerts), SpielKopfUntertitel.Fuer(auswaerts, heim, untertitel), Kuerzel(auswaerts, auswaerts.Name),
             score, zusatz, null);
 
     // Zwischenstände ("HZ 1:0 · 90' 1:1 · n.V. 2:1"). Der Halbzeitstand fehlt bei manuell eingegebenen

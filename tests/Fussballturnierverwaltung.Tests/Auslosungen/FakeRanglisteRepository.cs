@@ -36,5 +36,8 @@ public class FakeRanglisteRepository : IRanglisteRepository
     public Task<Rangliste?> MitAbschnittenAsync(int ranglisteId, CancellationToken ct = default) =>
         FindenNachIdAsync(ranglisteId, ct);
 
+    public Task<IReadOnlyList<Rangliste>> LigapyramidenAsync(CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<Rangliste>>([.. _ranglisten.Where(r => r.Abschnitte.Count > 0)]);
+
     public Task SpeichernAenderungenAsync(CancellationToken ct = default) => Task.CompletedTask;
 }

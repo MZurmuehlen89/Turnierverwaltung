@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
@@ -37,6 +38,10 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
     private readonly RegelwerkService   _regelwerkService;
     private readonly VerbandService     _verbandService;
     private readonly Zufallsquelle      _zufallsquelle;
+    private readonly RanglisteService   _ranglisteService;
+
+    // Verband und Liga für die Untertitel im Spielkopf (#341, #384); die Liga kommt beim Aktivieren dazu.
+    private UntertitelQuellen _untertitel;
 
     [ObservableProperty] private ObservableCollection<Mannschaft> _alleMannschaften = [];
     [ObservableProperty] private ObservableCollection<Regelwerk>  _alleRegelwerke   = [];
@@ -238,13 +243,16 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         MannschaftService  mannschaftService,
         RegelwerkService   regelwerkService,
         VerbandService     verbandService,
-        Zufallsquelle      zufallsquelle)
+        Zufallsquelle      zufallsquelle,
+        RanglisteService   ranglisteService)
     {
         _simulationsService = simulationsService;
         _mannschaftService  = mannschaftService;
         _regelwerkService    = regelwerkService;
         _verbandService      = verbandService;
         _zufallsquelle       = zufallsquelle;
+        _ranglisteService    = ranglisteService;
+        _untertitel          = new UntertitelQuellen(VerbandKurzname, Ligazugehoerigkeit.Keine);
 
         EinzelspielFreiBefehl      = new AsyncRelayCommand(EinzelspielFreiSimulierenAsync, () => EinzelspielKannSimuliert && !EinzelspielMitRueckspiel);
         HinspielSimulierenBefehl   = new AsyncRelayCommand(HinspielSimulierenAsync, () => EinzelspielKannSimuliert);
@@ -259,6 +267,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
         var mannschaftsListe = await _mannschaftService.AlleAbrufenMitLandAsync();
         var regelwerkListe   = await _regelwerkService.AlleAbrufenAsync();
         var verbandListe     = await _verbandService.AlleAbrufenAsync();
+        _untertitel = _untertitel with { Ligazugehoerigkeit = await _ranglisteService.LigazugehoerigkeitAbrufenAsync() };
 
         AlleMannschaften.Clear();
         foreach (var m in mannschaftsListe.OrderBy(m => m.Name)) AlleMannschaften.Add(m);
@@ -323,7 +332,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             byte[]? auswaertsWappen = MannschaftsIcon.Fuer(auswaerts);
             ProtokollSpielInfo = $"{heim.Name} vs. {auswaerts.Name}";
             ProtokollKopf = SimulationsProtokollHelfer.SpielKopfErstellen(
-                null, heim, heim.Name, auswaerts, auswaerts.Name, erg, VerbandKurzname);
+                null, heim, heim.Name, auswaerts, auswaerts.Name, erg, _untertitel);
 
             SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
                 ProtokollEreignisse,
@@ -429,10 +438,10 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
         HinspielAnsicht = new SpielBeinAnsicht(
             SimulationsProtokollHelfer.SpielKopfErstellen(
-                "Hinspiel", heim, heim.Name, auswaerts, auswaerts.Name, erg, VerbandKurzname),
+                "Hinspiel", heim, heim.Name, auswaerts, auswaerts.Name, erg, _untertitel),
             HinspielEreignisse);
         GesamtKopf = SimulationsProtokollHelfer.GesamtKopfErstellen(
-            heim, auswaerts, score, "Ergebnis nach Hinspiel", VerbandKurzname);
+            heim, auswaerts, score, "Ergebnis nach Hinspiel", _untertitel);
 
         // Hinspiel steht fest → aufgeklappt; ein vorheriges Rückspiel ist jetzt ungültig → eingeklappt.
         HinspielOffen   = true;
@@ -521,7 +530,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
             byte[]? heimWappen      = MannschaftsIcon.Fuer(heim);
             byte[]? auswaertsWappen = MannschaftsIcon.Fuer(auswaerts);
             GesamtKopf = SimulationsProtokollHelfer.GesamtKopfErstellen(
-                heim, auswaerts, $"{heimGesamt}:{auswaertsGesamt}", gesamtZusatz, VerbandKurzname);
+                heim, auswaerts, $"{heimGesamt}:{auswaertsGesamt}", gesamtZusatz, _untertitel);
             SiegerText = sieger is null ? "Unentschieden" : $"Sieger: {sieger}";
 
             RueckspielEreignisse.Clear();
@@ -536,7 +545,7 @@ public partial class EinzelspielSimulationsViewModel : ViewModelBase, IRibbonAwa
 
             RueckspielAnsicht = new SpielBeinAnsicht(
                 SimulationsProtokollHelfer.SpielKopfErstellen(
-                    "Rückspiel", auswaerts, auswaerts.Name, heim, heim.Name, erg2, VerbandKurzname),
+                    "Rückspiel", auswaerts, auswaerts.Name, heim, heim.Name, erg2, _untertitel),
                 RueckspielEreignisse);
 #pragma warning restore S2234
 

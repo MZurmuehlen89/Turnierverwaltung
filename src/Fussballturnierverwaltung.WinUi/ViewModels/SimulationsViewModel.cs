@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Diagnose;
+using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Stammdaten;
@@ -33,6 +34,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
     private readonly SpielErgebnisService _spielService;
     private readonly TurnierInstanzService _instanzService;
     private readonly IDialogService       _dialogService;
+    private readonly RanglisteService     _ranglisteService;
     private readonly ILogger<SimulationsViewModel> _logger;
 
     private TurnierInstanz? _instanz;
@@ -151,12 +153,14 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
         SpielErgebnisService  spielService,
         TurnierInstanzService instanzService,
         IDialogService         dialogService,
+        RanglisteService       ranglisteService,
         ILogger<SimulationsViewModel> logger)
     {
         _simulationsService = simulationsService;
         _spielService       = spielService;
         _instanzService     = instanzService;
         _dialogService      = dialogService;
+        _ranglisteService   = ranglisteService;
         _logger             = logger;
 
         TurnierSpielSimulierenBefehl = new AsyncRelayCommand(TurnierSpielSimulierenMitSchutzAsync, () => KannTurnierSpielSimulieren);
@@ -532,9 +536,10 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
                 (e.EntscheidungArt is EntscheidungArt.Losentscheid or EntscheidungArt.Muenzwurf) && e.SiegerMannschaftId is int siegerId
                     ? siegerId == spiel.HeimMannschaftId
                     : null);
+            var untertitel = new UntertitelQuellen(
+                m => m.Land?.Verband?.Kurzname, await _ranglisteService.LigazugehoerigkeitAbrufenAsync());
             ProtokollKopf = SimulationsProtokollHelfer.SpielKopfErstellen(
-                kontext, spiel.HeimMannschaft, heim, spiel.AuswaertsMannschaft, auswaerts, ergebnis,
-                m => m.Land?.Verband?.Kurzname);
+                kontext, spiel.HeimMannschaft, heim, spiel.AuswaertsMannschaft, auswaerts, ergebnis, untertitel);
 
             SimulationsProtokollHelfer.ZeitleisteHinzufuegen(
                 ProtokollEreignisse,
