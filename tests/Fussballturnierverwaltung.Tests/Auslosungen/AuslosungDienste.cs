@@ -21,9 +21,10 @@ internal static class AuslosungDienste
         Zufallsquelle? zufallsquelle = null)
     {
         runden ??= new FakeTurnierRundeRepository();
+        var pruefung = new AuslosungsPruefung(
+            verbandsQuoten ?? new FakeVerbandsQuoteRepository(), new FakeLandesQuoteRepository(), new AuslosungsValidator());
         var vorbereitung = new AuslosungsVorbereitung(
-            repository, verbandsQuoten ?? new FakeVerbandsQuoteRepository(), new FakeLandesQuoteRepository(), runden,
-            new AuslosungsValidator(), ranglisten ?? new FakeRanglisteRepository());
+            repository, runden, pruefung, ranglisten ?? new FakeRanglisteRepository());
         return new AuslosungService(
             repository, runden, vorbereitung, kaskade ?? new FakePlatzhalterKaskadeService(),
             zufallsquelle ?? new Zufallsquelle(), NullLogger<AuslosungService>.Instance);

@@ -1,11 +1,6 @@
-﻿using Fussballturnierverwaltung.Application.Ranglisten;
-using Fussballturnierverwaltung.Application.Spielplan;
-using Fussballturnierverwaltung.Application.Turniere;
-using Fussballturnierverwaltung.Application.Validierung;
+﻿using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
-using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
-using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
@@ -19,6 +14,7 @@ public record AuslosungErstellenEingabe(
     bool IstAutomatisch,
     DateOnly? Datum = null);
 
+#pragma warning disable S107 // eine Verantwortung (Auslosungen anlegen, pflegen, losen, zurücknehmen); weniger nur durch Aufteilen der von sechs ViewModels genutzten Schnittstelle (#502)
 public class AuslosungService(
     IAuslosungRepository repository,
     ITurnierRundeRepository rundeRepository,
@@ -26,6 +22,7 @@ public class AuslosungService(
     IPlatzhalterKaskadeService platzhalterKaskadeService,
     Zufallsquelle zufallsquelle,
     ILogger<AuslosungService> logger)
+#pragma warning restore S107
 {
     public Task<IReadOnlyList<Auslosung>> AlleNachInstanzAbrufenAsync(int turnierInstanzId, CancellationToken ct = default)
         => repository.AlleNachInstanzAsync(turnierInstanzId, ct);

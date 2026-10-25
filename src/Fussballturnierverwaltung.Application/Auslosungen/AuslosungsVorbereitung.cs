@@ -1,13 +1,8 @@
 ﻿using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Spielplan;
-using Fussballturnierverwaltung.Application.Turniere;
-using Fussballturnierverwaltung.Application.Validierung;
-using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
-using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
-using Microsoft.Extensions.Logging;
 
 namespace Fussballturnierverwaltung.Application.Auslosungen;
 
@@ -15,46 +10,31 @@ namespace Fussballturnierverwaltung.Application.Auslosungen;
 /// prüfen, wirksame Regeln ermitteln.</summary>
 public class AuslosungsVorbereitung(
     IAuslosungRepository repository,
-    IVerbandsQuoteRepository verbandsQuoteRepository,
-    ILandesQuoteRepository landesQuoteRepository,
     ITurnierRundeRepository rundeRepository,
-    AuslosungsValidator validator,
+    AuslosungsPruefung pruefung,
     IRanglisteRepository ranglisteRepository)
 {
-    // Was vor jedem Losen geschieht: Gruppenköpfe einlegen, Auslosung prüfen, wirksame Regeln ermitteln.
     public async Task<LosVorbereitung> VorbereitenAsync(Auslosung auslosung, CancellationToken ct)
     {
         if (auslosung.Status == AuslosungsStatus.Abgeschlossen)
             throw new InvalidOperationException("Auslosung wurde bereits durchgeführt. Bitte zuerst zurücksetzen.");
 
-        // Ein Gastgeber, der erst nach dem Anlegen der Töpfe eingetragen wurde, kommt spätestens hier hinein (#487).
+        var gruppenkoepfe = await GruppenkoepfeSicherstellenAsync(auslosung, ct);
+        var alleRunden    = await rundeRepository.AlleNachInstanzAsync(auslosung.TurnierInstanzId, ct);
+        await pruefung.PruefenAsync(auslosung, alleRunden, ct);
+
+        var (regeln, gruppeJeMannschaft) = await RegelnErmittelnAsync(auslosung, alleRunden, ct);
+        return new LosVorbereitung(regeln, gruppeJeMannschaft, gruppenkoepfe);
+    }
+
+    // Ein Gastgeber, der erst nach dem Anlegen der Töpfe eingetragen wurde, kommt spätestens hier hinein (#487).
+    private async Task<IReadOnlyDictionary<int, int>> GruppenkoepfeSicherstellenAsync(Auslosung auslosung, CancellationToken ct)
+    {
         var gruppenkoepfe = await GruppenkoepfeEinlegenAsync(auslosung, ct);
         if (gruppenkoepfe.OhnePlatz.Count > 0)
             throw new InvalidOperationException(OhnePlatzMeldung(gruppenkoepfe.OhnePlatz));
         if (gruppenkoepfe.Geaendert) await repository.AktualisierenAsync(auslosung, ct);
-
-        var alleEintraege = auslosung.Lostoepfe
-            .SelectMany(l => l.Eintraege)
-            .ToList();
-
-        // Verbandsquoten gelten laut bestätigter Domänen-Annahme nur für die initiale Turnierrunde
-        // (Zulassung/erste Auslosung), nicht kumulativ für Folgerunden mit eigenem Losvorgang (z.B. eine
-        // separate K.o.-Auslosung nach der Gruppenphase) — siehe [[project_verbandsquote_scope]].
-        IReadOnlyList<VerbandsQuote>? verbandsQuoten = null;
-        IReadOnlyList<LandesQuote>? landesQuoten = null;
-        var alleRunden = await rundeRepository.AlleNachInstanzAsync(auslosung.TurnierInstanzId, ct);
-        var ersteRunde = alleRunden.OrderBy(r => r.Reihenfolge).FirstOrDefault();
-        if (ersteRunde is not null && ersteRunde.Id == auslosung.TurnierRundeId)
-        {
-            verbandsQuoten = await verbandsQuoteRepository.AlleNachTurnierInstanzIdAsync(auslosung.TurnierInstanzId, ct);
-            landesQuoten = await landesQuoteRepository.AlleNachTurnierInstanzIdAsync(auslosung.TurnierInstanzId, ct);
-        }
-
-        ValidationException.WerfenWennUngueltig(
-            validator.Validieren(auslosung, alleEintraege, verbandsQuoten, landesQuoten));
-
-        var (regeln, gruppeJeMannschaft) = await RegelnErmittelnAsync(auslosung, alleRunden, ct);
-        return new LosVorbereitung(regeln, gruppeJeMannschaft, gruppenkoepfe.Koepfe);
+        return gruppenkoepfe.Koepfe;
     }
 
     // Die wirksamen Regeln (#331) und — nur wenn „Keine gleiche Gruppe“ wirkt und echte Mannschaften in den Töpfen
@@ -105,7 +85,6 @@ public class AuslosungsVorbereitung(
             ? Spielklassen.Aus(rangliste)
             : Spielklassen.Keine;
 
-    // Gastgeber und Titelverteidiger als feste Gruppenköpfe (#487), nur in der Gruppenphase.
     /// <summary>Gastgeber und Titelverteidiger mit fester Gruppe (#487) gehören in jede Gruppenauslosung: das Programm
     /// legt die fehlenden selbst in Topf 1, statt sich darauf zu verlassen, dass jemand sie von Hand hineinlegt. Sind
     /// die Töpfe schon voll, nennt es die übrigen in <c>OhnePlatz</c>. Speichert nicht — das übernimmt der Aufrufer.</summary>

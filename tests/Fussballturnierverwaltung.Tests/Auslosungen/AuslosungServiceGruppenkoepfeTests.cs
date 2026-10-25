@@ -1,10 +1,7 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Auslosungen;
-using Fussballturnierverwaltung.Application.Validierung;
-using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Enums;
-using Microsoft.Extensions.Logging.Abstractions;
 using static Fussballturnierverwaltung.Tests.Auslosungen.AuslosungTestdaten;
 
 namespace Fussballturnierverwaltung.Tests.Auslosungen;
