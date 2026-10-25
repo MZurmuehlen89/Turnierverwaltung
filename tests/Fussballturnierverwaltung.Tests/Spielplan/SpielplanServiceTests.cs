@@ -347,4 +347,57 @@ public class SpielplanServiceTests
             new { HeimMannschaftId = (int?)4, AuswaertsMannschaftId = (int?)1 },
             new { HeimMannschaftId = (int?)2, AuswaertsMannschaftId = (int?)3 });
     }
+
+    // ── Tests: Hin- und Rückspiele mit festen Teams speichern (#504) ─────────
+
+    [Fact]
+    public async Task GenerierenAusAuslosungAsync_LigaMitRueckspiel_VerknuepftJedesRueckspielMitSeinemHinspiel()
+    {
+        await using var ctx = NeuerContext();
+        LigaGrundSetupAnlegen(ctx, out int rundeId);
+        ctx.TurnierRunden.Single(r => r.Id == rundeId).MitRueckspiel = true;
+        ctx.SaveChanges();
+        var ergebnisse = Enumerable.Range(1, 4)
+            .Select(id => new AuslosungsErgebnis { PaarungsNummer = id, HeimMannschaftId = id }).ToList();
+
+        await new SpielplanDienste(ctx).Spielplan.GenerierenAusAuslosungAsync(rundeId, ergebnisse);
+
+        RueckspieleVerknuepftPruefen(ctx.Spiele.Where(s => s.TurnierRundeId == rundeId).ToList(), erwarteteSpiele: 12);
+    }
+
+    [Fact]
+    public async Task GenerierenAusAuslosungAsync_GruppenMitFestenTeamsUndRueckspiel_VerknuepftJedesRueckspielMitSeinemHinspiel()
+    {
+        await using var ctx = NeuerContext();
+        LigaGrundSetupAnlegen(ctx, out int rundeId);
+        var runde = ctx.TurnierRunden.Single(r => r.Id == rundeId);
+        (runde.Rundenart, runde.GruppenAnzahl, runde.MitRueckspiel) = (Rundenart.Gruppenphase, 2, true);
+        ctx.SaveChanges();
+        var ergebnisse = new List<AuslosungsErgebnis>
+        {
+            new() { PaarungsNummer = 1, HeimMannschaftId = 1 },
+            new() { PaarungsNummer = 1, HeimMannschaftId = 2 },
+            new() { PaarungsNummer = 2, HeimMannschaftId = 3 },
+            new() { PaarungsNummer = 2, HeimMannschaftId = 4 },
+        };
+
+        await new SpielplanDienste(ctx).Spielplan.GenerierenAusAuslosungAsync(rundeId, ergebnisse);
+
+        RueckspieleVerknuepftPruefen(ctx.Spiele.Where(s => s.TurnierRundeId == rundeId).ToList(), erwarteteSpiele: 4);
+    }
+
+    /// <summary>Jedes Hinspiel hat genau ein Rückspiel, das auf es verweist und Heim und Gast tauscht.</summary>
+    private static void RueckspieleVerknuepftPruefen(IReadOnlyList<Spiel> spiele, int erwarteteSpiele)
+    {
+        spiele.Should().HaveCount(erwarteteSpiele);
+        var hinspiele   = spiele.Where(s => !s.IstRueckspiel).ToList();
+        var rueckspiele = spiele.Where(s => s.IstRueckspiel).ToList();
+        hinspiele.Should().HaveCount(erwarteteSpiele / 2).And.OnlyContain(s => s.HinspielId == null);
+        rueckspiele.Select(s => s.HinspielId).Should().BeEquivalentTo(hinspiele.Select(s => (int?)s.Id));
+        foreach (var rueck in rueckspiele)
+        {
+            var hin = hinspiele.Single(s => s.Id == rueck.HinspielId);
+            (rueck.HeimMannschaftId, rueck.AuswaertsMannschaftId).Should().Be((hin.AuswaertsMannschaftId, hin.HeimMannschaftId));
+        }
+    }
 }
