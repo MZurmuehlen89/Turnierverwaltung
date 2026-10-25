@@ -71,7 +71,7 @@ public class SpielplanService(
         var kontext   = new SpielplanKontext(runde, geordnet, startNr);
         var ergebnis  = generator.Generieren(kontext);
 
-        await SpeichernAsync(ergebnis, ct);
+        await SpielplanSpeicherung.ErgebnisSpeichernAsync(spielRepository, ergebnis, ct);
 
         logger.LogInformation(
             "Spielplan für Runde '{Runde}' generiert: {Anzahl} Spiele.",
@@ -208,7 +208,7 @@ public class SpielplanService(
         var kontext   = new SpielplanKontext(runde, mannschaften, startNr, paarungen);
         var ergebnis  = generator.Generieren(kontext);
 
-        await SpeichernAsync(ergebnis, ct);
+        await SpielplanSpeicherung.ErgebnisSpeichernAsync(spielRepository, ergebnis, ct);
 
         logger.LogInformation(
             "TopfLiga-Spielplan für Runde '{Runde}' generiert: {Anzahl} Spiele.",
@@ -287,7 +287,7 @@ public class SpielplanService(
             HeimBilanz:      heimBilanz);
 
         var ergebnis = generator.Generieren(kontext);
-        await SpeichernAsync(ergebnis, ct);
+        await SpielplanSpeicherung.ErgebnisSpeichernAsync(spielRepository, ergebnis, ct);
 
         logger.LogInformation(
             "Schweizer Runde {Spieltag} für '{Runde}' generiert: {Anzahl} Spiele.",
@@ -546,29 +546,5 @@ public class SpielplanService(
             runde.Name, spiele.Count);
 
         return spiele.Count;
-    }
-
-    private async Task SpeichernAsync(SpielplanErgebnis ergebnis, CancellationToken ct)
-    {
-        if (!ergebnis.HatHinUndRueckspiele)
-        {
-            await spielRepository.HinzufuegenMehrfachAsync(ergebnis.Spiele, ct);
-            return;
-        }
-
-        // Schritt 1: Hinspiele speichern → EF Core setzt IDs
-        var hinspielIndizes = ergebnis.HinRueckspielPaare.Select(p => p.HinspielIndex).ToHashSet();
-        var hinspiele = ergebnis.Spiele
-            .Where((_, i) => hinspielIndizes.Contains(i)).ToList();
-        await spielRepository.HinzufuegenMehrfachAsync(hinspiele, ct);
-
-        // Schritt 2: HinspielId auf Rückspiele setzen und speichern
-        foreach (var (hinIdx, rueckIdx) in ergebnis.HinRueckspielPaare)
-            ergebnis.Spiele[rueckIdx].HinspielId = ergebnis.Spiele[hinIdx].Id;
-
-        var rueckspielIndizes = ergebnis.HinRueckspielPaare.Select(p => p.RueckspielIndex).ToHashSet();
-        var rueckspiele = ergebnis.Spiele
-            .Where((_, i) => rueckspielIndizes.Contains(i)).ToList();
-        await spielRepository.HinzufuegenMehrfachAsync(rueckspiele, ct);
     }
 }
