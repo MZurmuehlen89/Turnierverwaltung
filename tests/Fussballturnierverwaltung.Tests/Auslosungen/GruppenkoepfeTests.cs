@@ -134,7 +134,7 @@ public class GruppenkoepfeTests
             gruppenAnzahl: 3);
         auslosung.Gruppenposition = Gruppenposition.AlleGelost;
         return [.. Enumerable.Range(1, STARTWERTE).Select(s =>
-            Losverfahren.Ausloesen(auslosung, _ohneRegeln, new Dictionary<int, string>(), new Random(s), gruppenkoepfe: koepfe))];
+            Losverfahren.Ausloesen(auslosung, new LosVorbereitung(_ohneRegeln, new Dictionary<int, string>(), koepfe), new Random(s)))];
     }
 
     private static List<int> Gruppe(List<AuslosungsErgebnis> ziehung, int nummer) =>
@@ -174,8 +174,9 @@ public class GruppenkoepfeTests
 
         foreach (int s in Enumerable.Range(1, STARTWERTE))
         {
-            var ziehung = Losverfahren.Ausloesen(auslosung, _ohneRegeln, new Dictionary<int, string>(), new Random(s),
-                gruppenkoepfe: new Dictionary<int, int> { [3] = 1 });
+            var ziehung = Losverfahren.Ausloesen(
+                auslosung, new LosVorbereitung(_ohneRegeln, new Dictionary<int, string>(), new Dictionary<int, int> { [3] = 1 }),
+                new Random(s));
             Gruppe(ziehung, 1).First().Should().Be(1);
             Gruppe(ziehung, 2).First().Should().Be(3);
         }

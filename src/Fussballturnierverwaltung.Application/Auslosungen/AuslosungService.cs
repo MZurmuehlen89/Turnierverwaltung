@@ -189,9 +189,8 @@ public class AuslosungService(
         if (auslosung.Auslosungsart == Auslosungsart.Manuell)
             throw new InvalidOperationException("Für manuelle Auslosungen bitte die Ziehung von Hand verwenden (ZiehungStartenAsync).");
 
-        var (regeln, gruppeJeMannschaft, gruppenkoepfe) = await VorbereitenAsync(auslosung, ct);
-        var ergebnisse = Losverfahren.Ausloesen(
-            auslosung, regeln, gruppeJeMannschaft, zufallsquelle.Erzeugen(), qualifikanten, gruppenkoepfe);
+        var vorbereitung = await VorbereitenAsync(auslosung, ct);
+        var ergebnisse   = Losverfahren.Ausloesen(auslosung, vorbereitung, zufallsquelle.Erzeugen(), qualifikanten);
         await repository.ErgebnisseSetzenUndAbschliessenAsync(auslosungId, ergebnisse, ct);
 
         logger.LogInformation("Auslosung '{Name}' durchgeführt: {Anzahl} Paarungen.", auslosung.Name, ergebnisse.Count);
@@ -215,14 +214,12 @@ public class AuslosungService(
         if (auslosung.Auslosungsart != Auslosungsart.Manuell)
             throw new InvalidOperationException("Die Ziehung von Hand gibt es nur bei der Auslosungsart „Manuell“.");
 
-        var (regeln, gruppeJeMannschaft, gruppenkoepfe) = await VorbereitenAsync(auslosung, ct);
-        return ManuelleZiehung.Starten(
-            auslosung, regeln, gruppeJeMannschaft, qualifikanten ?? Qualifikanten.Keine, gruppenkoepfe);
+        var vorbereitung = await VorbereitenAsync(auslosung, ct);
+        return ManuelleZiehung.Starten(auslosung, vorbereitung, qualifikanten ?? Qualifikanten.Keine);
     }
 
     // Was vor jedem Losen geschieht: Gruppenköpfe einlegen, Auslosung prüfen, wirksame Regeln ermitteln.
-    private async Task<(RegelKontext Regeln, IReadOnlyDictionary<int, string> GruppeJeMannschaft,
-        IReadOnlyDictionary<int, int> Gruppenkoepfe)> VorbereitenAsync(Auslosung auslosung, CancellationToken ct)
+    private async Task<LosVorbereitung> VorbereitenAsync(Auslosung auslosung, CancellationToken ct)
     {
         if (auslosung.Status == AuslosungsStatus.Abgeschlossen)
             throw new InvalidOperationException("Auslosung wurde bereits durchgeführt. Bitte zuerst zurücksetzen.");
@@ -254,7 +251,7 @@ public class AuslosungService(
             validator.Validieren(auslosung, alleEintraege, verbandsQuoten, landesQuoten));
 
         var (regeln, gruppeJeMannschaft) = await RegelnErmittelnAsync(auslosung, alleRunden, ct);
-        return (regeln, gruppeJeMannschaft, gruppenkoepfe.Koepfe);
+        return new LosVorbereitung(regeln, gruppeJeMannschaft, gruppenkoepfe.Koepfe);
     }
 
     // Die wirksamen Regeln (#331) und — nur wenn „Keine gleiche Gruppe“ wirkt und echte Mannschaften in den Töpfen

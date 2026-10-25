@@ -23,7 +23,7 @@ public class PaarungsSucheTests
 
     private static string Ausloesen(Auslosungsart art, IEnumerable<Lostopf> toepfe, RegelKontext regeln, int startwert) =>
         Kurzform(Losverfahren.Ausloesen(
-            NeueAuslosung(Rundenart.KoRunde, art, toepfe), regeln, _ohneGruppen, new Random(startwert)));
+            NeueAuslosung(Rundenart.KoRunde, art, toepfe), new LosVorbereitung(regeln, _ohneGruppen, new Dictionary<int, int>()), new Random(startwert)));
 
     // 7 + 4 Teams wie in einer Pokalrunde: 4 Topfpaare, 3 Teams Überhang, eines davon bekommt das Freilos. Die Länder
     // wiederholen sich (Land = Id mod 3), damit „Kein gleiches Land“ die Suche zum Zurücknehmen zwingt.

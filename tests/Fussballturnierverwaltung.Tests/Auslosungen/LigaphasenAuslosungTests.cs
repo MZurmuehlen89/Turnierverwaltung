@@ -22,7 +22,7 @@ public class LigaphasenAuslosungTests
     private static List<AuslosungsErgebnis> Ausloesen(IEnumerable<Lostopf> toepfe, bool keinGleichesLand, int startwert) =>
         Losverfahren.Ausloesen(
             NeueAuslosung(Rundenart.TopfLiga, Auslosungsart.TopfZuordnung, toepfe),
-            Regeln(keinGleichesLand), _ohneGruppen, new Random(startwert));
+            new LosVorbereitung(Regeln(keinGleichesLand), _ohneGruppen, new Dictionary<int, int>()), new Random(startwert));
 
     private static string Kurzform(IEnumerable<AuslosungsErgebnis> ergebnisse) =>
         string.Join(" ", ergebnisse.Select(e => $"{e.HeimMannschaftId}-{e.AuswaertsMannschaftId}"));

@@ -57,25 +57,20 @@ public sealed record RegelKontext(
 /// festem Seed übergeben.</summary>
 public static class Losverfahren
 {
-    /// <param name="regeln">Die wirksamen Regeln der Auslosung.</param>
-    /// <param name="gruppeJeMannschaft">Gruppe („A“, „B“ …) je Mannschafts-Id aus der vorangegangenen Gruppenphase —
-    /// nur für „Keine gleiche Gruppe“ nötig, sonst leer.</param>
-    /// <param name="gruppenkoepfe">Feste Gruppe (ab 0) je Mannschafts-Id — Gastgeber und Titelverteidiger, siehe
-    /// <see cref="Gruppenkoepfe"/>. Wirkt nur in der Gruppenphase.</param>
     public static List<AuslosungsErgebnis> Ausloesen(
-        Auslosung auslosung, RegelKontext regeln, IReadOnlyDictionary<int, string> gruppeJeMannschaft, Random zufall,
-        Qualifikanten? qualifikanten = null, IReadOnlyDictionary<int, int>? gruppenkoepfe = null)
+        Auslosung auslosung, LosVorbereitung vorbereitung, Random zufall, Qualifikanten? qualifikanten = null)
     {
         var toepfe = auslosung.Lostoepfe
             .OrderBy(l => l.Reihenfolge)
-            .Select((l, rang) => l.Eintraege.Select(e => TeilnehmerSlot.AusEintrag(e, rang, gruppeJeMannschaft, qualifikanten ?? Qualifikanten.Keine)).ToList())
+            .Select((l, rang) => l.Eintraege.Select(e => TeilnehmerSlot.AusEintrag(
+                e, rang, vorbereitung.GruppeJeMannschaft, qualifikanten ?? Qualifikanten.Keine)).ToList())
             .ToList();
 
         // Gruppenphase und Liga ordnen die Teilnehmer Gruppen zu (Liga = eine Gruppe), alle anderen Rundenarten
         // bilden Paarungen.
         return auslosung.TurnierRunde?.Rundenart is Rundenart.Gruppenphase or Rundenart.Liga
-            ? GruppenVerteilen(auslosung, toepfe, regeln, gruppenkoepfe ?? new Dictionary<int, int>(), zufall)
-            : PaarungenBilden(auslosung.Auslosungsart, toepfe, regeln, zufall);
+            ? GruppenVerteilen(auslosung, toepfe, vorbereitung.Regeln, vorbereitung.Gruppenkoepfe, zufall)
+            : PaarungenBilden(auslosung.Auslosungsart, toepfe, vorbereitung.Regeln, zufall);
     }
 
     // ── Gruppenphase und Liga (Ergebnis: je Teilnehmer eine Gruppe) ───────────

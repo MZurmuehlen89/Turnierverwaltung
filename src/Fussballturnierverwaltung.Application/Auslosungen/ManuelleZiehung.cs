@@ -152,14 +152,10 @@ public sealed class ManuelleZiehung
 
     /// <summary>Beginnt die Ziehung mit den Lostöpfen der Auslosung. Wirft, wenn die Regeln mit diesen Teams nicht
     /// erfüllbar sind oder bei ungerader Teamzahl ohne Freilos ein Team ohne Gegner bliebe.</summary>
-    /// <param name="gruppeJeMannschaft">Gruppe je Mannschafts-Id aus der vorangegangenen Gruppenphase.</param>
-    /// <param name="gruppenkoepfe">Feste Gruppe (ab 0) je Mannschafts-Id, siehe <see cref="Gruppenkoepfe"/>.</param>
-    public static ManuelleZiehung Starten(
-        Auslosung auslosung, RegelKontext regeln, IReadOnlyDictionary<int, string> gruppeJeMannschaft,
-        Qualifikanten qualifikanten, IReadOnlyDictionary<int, int> gruppenkoepfe)
+    public static ManuelleZiehung Starten(Auslosung auslosung, LosVorbereitung vorbereitung, Qualifikanten qualifikanten)
     {
         var runde   = auslosung.TurnierRunde ?? throw new InvalidOperationException("Die Auslosung hat keine Runde.");
-        var kontext = KontextAufbauen(auslosung, regeln, gruppeJeMannschaft, qualifikanten);
+        var kontext = KontextAufbauen(auslosung, vorbereitung.Regeln, vorbereitung.GruppeJeMannschaft, qualifikanten);
         if (kontext.Teilnehmer.Count == 0)
             throw new InvalidOperationException("Die Lostöpfe sind leer — es gibt nichts zu ziehen.");
 
@@ -169,7 +165,7 @@ public sealed class ManuelleZiehung
                 kontext, runde.GruppenAnzahl ?? throw new InvalidOperationException(
                     "Gruppenphase-Auslosung: Die Runde hat keine Gruppenanzahl definiert."),
                 GruppenpositionKompatibilitaet.Wirksam(auslosung.Auslosungsart, auslosung.Gruppenposition),
-                gruppenkoepfe),
+                vorbereitung.Gruppenkoepfe),
             Rundenart.Liga or Rundenart.SchweizerSystem => () => new ReihenfolgeZiehung(kontext),
             Rundenart.TopfLiga => throw new InvalidOperationException(
                 AuslosungsKompatibilitaet.InkompatibilitaetsGrund(runde.Rundenart, Auslosungsart.Manuell)),
@@ -180,7 +176,7 @@ public sealed class ManuelleZiehung
             kontext.Teilnehmer, kontext.Toepfe, VorbelegungsRaster.HatGruppen(runde.Rundenart), neuerAblauf);
         if (ziehung._ablauf.IstLoesbar() == false)
             throw new InvalidOperationException(
-                $"Keine gültige Auslosung möglich. Die Einschränkungen ({regeln.EinschraenkungenText}) " +
+                $"Keine gültige Auslosung möglich. Die Einschränkungen ({vorbereitung.Regeln.EinschraenkungenText}) " +
                 "können mit den gewählten Mannschaften nicht erfüllt werden.");
         return ziehung;
     }

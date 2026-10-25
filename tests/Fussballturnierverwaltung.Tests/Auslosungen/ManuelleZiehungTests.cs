@@ -25,7 +25,8 @@ public class ManuelleZiehungTests
     {
         var auslosung = NeueAuslosung(rundenart, Auslosungsart.Manuell, toepfe, gruppenAnzahl);
         auslosung.Gruppenposition = position;
-        return ManuelleZiehung.Starten(auslosung, regeln, _keineGruppen, Qualifikanten.Keine, koepfe ?? _keineKoepfe);
+        return ManuelleZiehung.Starten(
+            auslosung, new LosVorbereitung(regeln, _keineGruppen, koepfe ?? _keineKoepfe), Qualifikanten.Keine);
     }
 
     private static int Idx(ManuelleZiehung z, int mannschaftId) =>

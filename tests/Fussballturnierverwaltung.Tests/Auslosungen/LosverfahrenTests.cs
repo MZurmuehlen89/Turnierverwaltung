@@ -14,6 +14,7 @@ public class LosverfahrenTests
     private const int STARTWERTE = 40;
 
     private static readonly IReadOnlyDictionary<int, string> _ohneGruppen = new Dictionary<int, string>();
+    private static readonly IReadOnlyDictionary<int, int> _ohneKoepfe = new Dictionary<int, int>();
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
 
@@ -26,7 +27,10 @@ public class LosverfahrenTests
 
     private static List<AuslosungsErgebnis> Ausloesen(
         Auslosung auslosung, RegelKontext regeln, int startwert, IReadOnlyDictionary<int, string>? gruppeJeMannschaft = null) =>
-        Losverfahren.Ausloesen(auslosung, regeln, gruppeJeMannschaft ?? _ohneGruppen, new Random(startwert));
+        Losverfahren.Ausloesen(auslosung, Vorbereitung(regeln, gruppeJeMannschaft), new Random(startwert));
+
+    private static LosVorbereitung Vorbereitung(RegelKontext regeln, IReadOnlyDictionary<int, string>? gruppeJeMannschaft = null) =>
+        new(regeln, gruppeJeMannschaft ?? _ohneGruppen, _ohneKoepfe);
 
     /// <summary>Alle Ziehungen der Startwerte 1 … <see cref="STARTWERTE"/>.</summary>
     private static List<List<AuslosungsErgebnis>> AlleZiehungen(
@@ -207,7 +211,7 @@ public class LosverfahrenTests
 
         var ziehungen = Enumerable.Range(1, STARTWERTE)
             .Select(startwert => Losverfahren.Ausloesen(
-                auslosung, Regeln(keinGleichesLand: true), _ohneGruppen, new Random(startwert), qualifikanten))
+                auslosung, Vorbereitung(Regeln(keinGleichesLand: true)), new Random(startwert), qualifikanten))
             .ToList();
 
         ziehungen.Should().AllSatisfy(ziehung =>
@@ -226,7 +230,7 @@ public class LosverfahrenTests
             [Topf(1, [.. Enumerable.Range(1, 2).Select(platz => new LostopfEintrag { Id = platz, PlatzhalterName = $"Platz {platz} (Liga)" })])]);
 
         var ausloesen = () => Losverfahren.Ausloesen(
-            auslosung, Regeln(keinGleichesLand: true), _ohneGruppen, new Random(1), Qualifikanten.Keine);
+            auslosung, Vorbereitung(Regeln(keinGleichesLand: true)), new Random(1), Qualifikanten.Keine);
 
         ausloesen.Should().NotThrow();
     }
@@ -329,7 +333,7 @@ public class LosverfahrenTests
 
         Enumerable.Range(1, STARTWERTE)
             .Select(startwert => Losverfahren.Ausloesen(
-                auslosung, Regeln(heimrechtFuerUnterklassige: _profisGegenAmateure), _ohneGruppen, new Random(startwert),
+                auslosung, Vorbereitung(Regeln(heimrechtFuerUnterklassige: _profisGegenAmateure)), new Random(startwert),
                 qualifikanten))
             .Should().AllSatisfy(ziehung => ziehung.Single().HeimPlatzhalterName.Should().Be("Sieger B"));
     }
