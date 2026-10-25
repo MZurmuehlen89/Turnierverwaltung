@@ -18,7 +18,7 @@ namespace Fussballturnierverwaltung.Application.Spielplan;
 /// </summary>
 public static class SpieltagZerlegung
 {
-    private const int MAX_KNOTEN_JE_VERSUCH = 50_000;
+    internal const int MAX_KNOTEN_JE_VERSUCH = 50_000;
 
     /// <summary>Liefert je Paarung (gleicher Index wie <paramref name="paarungen"/>) den Spieltag ab 1, oder
     /// <c>null</c>, wenn innerhalb von <paramref name="maxVersuche"/> Versuchen keine Verteilung gefunden wurde.
@@ -43,8 +43,8 @@ public static class SpieltagZerlegung
             // Rundläufe mit nur geraden Kreisen gibt es nicht bei jeder Paarungsmenge (z.B. ungerade Teamzahl) —
             // dann in der zweiten Hälfte der Versuche ohne Rhythmus-Garantie Spieltag für Spieltag verteilen.
             var spieltage = ausgeglichen && versuch < maxVersuche / 2
-                ? SpieltageAusRundlaeufen(kanten, teams.Count, rundlaeufe, zufall)
-                : SpieltageSchrittweise(kanten, teams.Count, zufall);
+                ? RundlaufZerlegung.SpieltageAusRundlaeufen(kanten, teams.Count, rundlaeufe, zufall)
+                : SchrittweiseZerlegung.SpieltageSchrittweise(kanten, teams.Count, zufall);
             if (spieltage is null) continue;
 
             var ergebnis = new int[kanten.Length];
@@ -56,192 +56,4 @@ public static class SpieltagZerlegung
 
         return null;
     }
-
-    // ── Ausgeglichener Plan: Rundläufe mit geraden Kreisen ──────────────────
-
-    private static List<List<int>>? SpieltageAusRundlaeufen((int Heim, int Gast)[] kanten, int teamAnzahl, int rundlaeufe, Random zufall)
-    {
-        // Heimspiel-Kanten je Team in zufälliger Reihenfolge — jeder Versuch durchsucht den Raum anders
-        var heimKanten = Enumerable.Range(0, teamAnzahl).Select(_ => new List<int>()).ToArray();
-        foreach (int k in Enumerable.Range(0, kanten.Length).OrderBy(_ => zufall.Next()))
-            heimKanten[kanten[k].Heim].Add(k);
-
-        var offen = new bool[kanten.Length];
-        Array.Fill(offen, true);
-        var gefunden = new List<int[]>();
-        int knoten = 0;
-
-        if (!RundlaufSuchen()) return null;
-
-        // Rundläufe in zufälliger Reihenfolge, je Rundlauf zufällig, welche Hälfte zuerst gespielt wird
-        var spieltage = new List<List<int>>();
-        foreach (var rundlauf in gefunden.OrderBy(_ => zufall.Next()))
-        {
-            var (erste, zweite) = InZweiSpieltageTeilen(rundlauf, kanten);
-            if (zufall.Next(2) == 0) (erste, zweite) = (zweite, erste);
-            spieltage.Add(erste);
-            spieltage.Add(zweite);
-        }
-        return spieltage;
-
-        bool RundlaufSuchen()
-        {
-            if (gefunden.Count == rundlaeufe) return true;
-
-            var kanteJeGastgeber = new int[teamAnzahl];
-            Array.Fill(kanteJeGastgeber, -1);
-            var gastBelegt = new bool[teamAnzahl];
-            return Zuweisen(0);
-
-            bool Zuweisen(int zugewiesen)
-            {
-                if (++knoten > MAX_KNOTEN_JE_VERSUCH) return false;
-
-                if (zugewiesen == teamAnzahl)
-                {
-                    if (!AlleKreiseGerade(kanteJeGastgeber, kanten)) return false;
-                    var rundlauf = (int[])kanteJeGastgeber.Clone();
-                    foreach (int k in rundlauf) offen[k] = false;
-                    gefunden.Add(rundlauf);
-                    if (RundlaufSuchen()) return true;
-                    gefunden.RemoveAt(gefunden.Count - 1);
-                    foreach (int k in rundlauf) offen[k] = true;
-                    return false;
-                }
-
-                // Gastgeber mit den wenigsten noch möglichen Gästen zuerst (Fail-First-Heuristik)
-                int gastgeber = -1, wenigste = int.MaxValue;
-                for (int t = 0; t < teamAnzahl; t++)
-                {
-                    if (kanteJeGastgeber[t] >= 0) continue;
-                    int optionen = heimKanten[t].Count(k => offen[k] && !gastBelegt[kanten[k].Gast]);
-                    if (optionen < wenigste) { wenigste = optionen; gastgeber = t; }
-                }
-                if (wenigste == 0) return false;
-
-                foreach (int k in heimKanten[gastgeber])
-                {
-                    int gast = kanten[k].Gast;
-                    if (!offen[k] || gastBelegt[gast]) continue;
-
-                    kanteJeGastgeber[gastgeber] = k;
-                    gastBelegt[gast] = true;
-                    if (Zuweisen(zugewiesen + 1)) return true;
-                    kanteJeGastgeber[gastgeber] = -1;
-                    gastBelegt[gast] = false;
-                    if (knoten > MAX_KNOTEN_JE_VERSUCH) return false;
-                }
-                return false;
-            }
-        }
-    }
-
-    private static bool AlleKreiseGerade(int[] kanteJeGastgeber, (int Heim, int Gast)[] kanten)
-    {
-        var besucht = new bool[kanteJeGastgeber.Length];
-        for (int start = 0; start < kanteJeGastgeber.Length; start++)
-        {
-            if (besucht[start]) continue;
-            int laenge = 0;
-            for (int t = start; !besucht[t]; t = kanten[kanteJeGastgeber[t]].Gast)
-            {
-                besucht[t] = true;
-                laenge++;
-            }
-            if (laenge % 2 != 0) return false;
-        }
-        return true;
-    }
-
-    // Kreis t0→t1→t2→…→t0 (ti empfängt ti+1): Kanten abwechselnd auf zwei Spieltage — jedes Team hat seine
-    // Heim-Kante (ti→ti+1) und seine Gast-Kante (ti-1→ti) dann an verschiedenen Spieltagen.
-    private static (List<int> Erste, List<int> Zweite) InZweiSpieltageTeilen(int[] kanteJeGastgeber, (int Heim, int Gast)[] kanten)
-    {
-        var erste   = new List<int>();
-        var zweite  = new List<int>();
-        var besucht = new bool[kanteJeGastgeber.Length];
-        for (int start = 0; start < kanteJeGastgeber.Length; start++)
-        {
-            bool gerade = true;
-            for (int t = start; !besucht[t]; t = kanten[kanteJeGastgeber[t]].Gast)
-            {
-                besucht[t] = true;
-                (gerade ? erste : zweite).Add(kanteJeGastgeber[t]);
-                gerade = !gerade;
-            }
-        }
-        return (erste, zweite);
-    }
-
-    // ── Sonstige Pläne: Spieltag für Spieltag ───────────────────────────────
-
-    private static List<List<int>>? SpieltageSchrittweise((int Heim, int Gast)[] kanten, int teamAnzahl, Random zufall)
-    {
-        var restGrad = new int[teamAnzahl];
-        foreach (var (a, b) in kanten) { restGrad[a]++; restGrad[b]++; }
-        int anzahlSpieltage = restGrad.Max();
-
-        var kantenJeTeam = Enumerable.Range(0, teamAnzahl).Select(_ => new List<int>()).ToArray();
-        foreach (int k in Enumerable.Range(0, kanten.Length).OrderBy(_ => zufall.Next()))
-        {
-            kantenJeTeam[kanten[k].Heim].Add(k);
-            kantenJeTeam[kanten[k].Gast].Add(k);
-        }
-
-        var offen = new bool[kanten.Length];
-        Array.Fill(offen, true);
-        var spieltage = new List<List<int>>();
-
-        for (int tag = 0; tag < anzahlSpieltage; tag++)
-        {
-            int verbleibend = anzahlSpieltage - tag;
-            // Pflicht: Teams, deren Restspiele genau die verbleibenden Spieltage füllen, müssen heute spielen
-            var pflicht  = Enumerable.Range(0, teamAnzahl).Where(t => restGrad[t] == verbleibend).ToList();
-            var belegt   = new bool[teamAnzahl];
-            var gewaehlt = new List<int>();
-            int knoten   = 0;
-
-            if (!PflichtTeamsPaaren()) return null;
-
-            foreach (int k in gewaehlt)
-            {
-                offen[k] = false;
-                restGrad[kanten[k].Heim]--;
-                restGrad[kanten[k].Gast]--;
-            }
-            spieltage.Add(gewaehlt);
-
-            bool PflichtTeamsPaaren()
-            {
-                if (++knoten > MAX_KNOTEN_JE_VERSUCH) return false;
-
-                int team = -1, wenigste = int.MaxValue;
-                foreach (int t in pflicht)
-                {
-                    if (belegt[t]) continue;
-                    int optionen = kantenJeTeam[t].Count(k => offen[k] && !belegt[Gegner(kanten[k], t)]);
-                    if (optionen < wenigste) { wenigste = optionen; team = t; }
-                }
-                if (team < 0) return true;
-                if (wenigste == 0) return false;
-
-                foreach (int k in kantenJeTeam[team])
-                {
-                    int gegner = Gegner(kanten[k], team);
-                    if (!offen[k] || belegt[gegner]) continue;
-
-                    belegt[team] = belegt[gegner] = true;
-                    gewaehlt.Add(k);
-                    if (PflichtTeamsPaaren()) return true;
-                    gewaehlt.RemoveAt(gewaehlt.Count - 1);
-                    belegt[team] = belegt[gegner] = false;
-                }
-                return false;
-            }
-        }
-
-        return spieltage;
-    }
-
-    private static int Gegner((int Heim, int Gast) kante, int team) => kante.Heim == team ? kante.Gast : kante.Heim;
 }
