@@ -423,6 +423,51 @@ public class PlatzhalterAufloesungTests
         spiel.AuswaertsMannschaftId.Should().Be(4); // Verlierer HF 2 = Team D
     }
 
+    // Issue #466 (WM 1982): Gruppenphase → fest besetzte Zwischenrunde → K.-o. „1. Gruppe A“ meint je Runde die
+    // nächstliegende Gruppenphase davor — in der Zwischenrunde die Vorrunde, in der K.-o.-Runde die Zwischenrunde.
+    [Fact]
+    public async Task RundeAufloesen_ZweiGruppenphasenHintereinander_GruppenrangBeziehtSichAufDieNaechsteDavor()
+    {
+        await using var ctx = NeuerContext();
+        GruppenphaseUndKoSetupAnlegen(ctx, out _, out int zwischenrundeId);
+        var zwischenrunde = ctx.TurnierRunden.Single(r => r.Id == zwischenrundeId);
+        zwischenrunde.Name = "Zwischenrunde";
+        zwischenrunde.Rundenart = Rundenart.Gruppenphase;
+        zwischenrunde.GruppenAnzahl = 1;
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 3, TurnierInstanzId = 1, Name = "Finale", Reihenfolge = 3, Rundenart = Rundenart.Finale,
+            EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1, RegelwerkId = 1
+        });
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 10, TurnierInstanzId = 1, TurnierRundeId = zwischenrundeId, Spielnummer = 10, GruppenNummer = 1,
+            HeimPlatzhalterName = "1. Gruppe A", AuswaertsPlatzhalterName = "1. Gruppe B", Status = SpielStatus.Geplant
+        });
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 20, TurnierInstanzId = 1, TurnierRundeId = 3, Spielnummer = 20,
+            HeimPlatzhalterName = "1. Gruppe A", AuswaertsPlatzhalterName = "2. Gruppe A", Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var dienste = new SpielplanDienste(ctx);
+
+        await dienste.Aufloesung.RundeAufloesenAsync(zwischenrundeId);
+        var zwischenrundenSpiel = ctx.Spiele.First(s => s.Id == 10);
+        zwischenrundenSpiel.HeimMannschaftId.Should().Be(1);      // Sieger Vorrundengruppe A = Team A
+        zwischenrundenSpiel.AuswaertsMannschaftId.Should().Be(3); // Sieger Vorrundengruppe B = Team C
+
+        zwischenrundenSpiel.Status = SpielStatus.Abgeschlossen;
+        ctx.SpielErgebnisse.Add(new SpielErgebnis
+            { Id = 10, SpielId = 10, HeimToreRegulaer = 0, AuswaertsToreRegulaer = 2, EntscheidungArt = EntscheidungArt.RegulaereSpielzeit });
+        ctx.SaveChanges();
+
+        await new SpielplanDienste(ctx).Aufloesung.RundeAufloesenAsync(3);
+        var finale = ctx.Spiele.First(s => s.Id == 20);
+        finale.HeimMannschaftId.Should().Be(3);      // Sieger der Zwischenrunde, nicht der Vorrunde
+        finale.AuswaertsMannschaftId.Should().Be(1);
+    }
+
     /// <summary>Regressionstest für einen Nutzerfund: keine mitgelieferte Turniervorlage benennt ihre K.o.-
     /// Runden mit einer Kurzform ("VF"/"HF"/"AF") — sie heißen immer ausgeschrieben ("Viertelfinale",
     /// "Halbfinale", ...). <see cref="TeilnehmerPoolHilfsmittel"/> (WinUi) bzw. dessen WPF-Pendant erzeugen

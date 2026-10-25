@@ -145,9 +145,9 @@ public static class SeedVorlagenAbgleich
         return fehlende;
     }
 
-    // ── Fester K.-o.-Baum (Issue #372) ─────────────────────────────────────────
+    // ── Feste Vorbelegungen (Issue #372, Gruppen #466) ─────────────────────────
 
-    /// <summary>Überträgt den festen K.-o.-Baum des Seeds: markiert die Runden als fest vorgegeben (samt
+    /// <summary>Überträgt die festen Vorbelegungen des Seeds (K.-o.-Baum, fest besetzte Gruppen): markiert die Runden als fest vorgegeben (samt
     /// Kombinationstabelle, wo noch keine steht) und liefert ihre Vorbelegungen. Nur, wenn ALLE betroffenen Runden
     /// noch dem Seed entsprechen und keine davon schon eine Auslosung hat, sonst leer und ohne Änderung — eine
     /// manuell angelegte Vorbelegung wird nie überschrieben, ein halb nachgerüsteter Baum entsteht nie.</summary>

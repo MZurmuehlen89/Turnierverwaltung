@@ -97,7 +97,7 @@ internal sealed class TurnierVorlagenNachruestung
             BeschreibungenAktualisieren(), "Beschreibungen von Turniervorlagen aktualisiert.", ct);
         await SpeichernUndProtokollieren(
             await StrukturErgaenzenAsync(ct), "Struktur-Ergänzungen an Turniervorlagen nachgerüstet.", ct);
-        await SpeichernUndProtokollieren(FesteVorbelegungenErgaenzen(), "Turniervorlagen um festen K.-o.-Baum ergänzt.", ct);
+        await SpeichernUndProtokollieren(FesteVorbelegungenErgaenzen(), "Turniervorlagen um feste Vorbelegungen ergänzt.", ct);
         await SpeichernUndProtokollieren(
             TabellenBereicheErgaenzen(), "Turniervorlagen um Tabellenbereiche (Europapokal, Relegation, Abstieg) ergänzt.", ct);
         await SpeichernUndProtokollieren(
@@ -369,7 +369,7 @@ internal sealed class TurnierVorlagenNachruestung
         return neueRegeln.Count > 0 ? 1 : 0;
     }
 
-    /// <summary>Issue #372: trägt den realen festen K.-o.-Baum (Vorbelegung + ggf. Kombinationstabelle) nach.</summary>
+    /// <summary>Issue #372/#466: trägt feste Vorbelegungen nach (K.-o.-Baum samt Kombinationstabelle, fest besetzte Gruppen).</summary>
     private int FesteVorbelegungenErgaenzen()
     {
         int ergaenzt = 0;

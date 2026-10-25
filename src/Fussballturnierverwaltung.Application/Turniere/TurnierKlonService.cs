@@ -138,7 +138,7 @@ public class TurnierKlonService(
             Status         = quelle.Status,
             IstAutomatisch = quelle.IstAutomatisch
         };
-        foreach (var e in quelle.Ergebnisse.OrderBy(e => e.PaarungsNummer))
+        foreach (var e in quelle.Ergebnisse.OrderBy(e => e.PaarungsNummer).ThenBy(e => e.Id))
         {
             kopie.Ergebnisse.Add(new AuslosungsErgebnis
             {

@@ -422,6 +422,11 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(5, "Finale",            Rundenart.Finale,           2,  1, regelwerkId: rId));
         GruppenUebergaenge(v, direktProGruppe: 2);
         GruppenUebergaenge(v, direktProGruppe: 1, quellReihenfolge: 2);
+        // Issue #466: Zwischenrunde und Halbfinale wurden nicht ausgelost (Gruppe 1–6 der Vorrunde = A–F). Die
+        // Platzhalter des Halbfinales beziehen sich auf die nächstliegende Gruppenphase davor, die Zwischenrunde.
+        FesteGruppen(v, v.Runden.Single(r => r.Reihenfolge == 2),
+            ["1A", "1C", "2F"], ["1B", "1D", "2E"], ["2A", "2C", "1F"], ["2B", "2D", "1E"]);
+        FesterKoBaum(v, tabelle: null, "1A-1C", "1B-1D");
         return v;
     }
 
@@ -1238,6 +1243,26 @@ public static class TurnierVorlagenSeedDaten
 
     private static void FestePaarungen(TurnierInstanz v, TurnierRunde runde, IEnumerable<(string Heim, string Auswaerts)> paarungen)
     {
+        var auslosung = FesteVorbelegung(v, runde);
+        int nr = 1;
+        foreach (var (heim, auswaerts) in paarungen)
+            auslosung.Ergebnisse.Add(new AuslosungsErgebnis
+                { PaarungsNummer = nr++, HeimPlatzhalterName = heim, AuswaertsPlatzhalterName = auswaerts });
+    }
+
+    /// <summary>Fest besetzte Gruppenphase (Issue #466): je Gruppe die Plätze in Kurznotation ("1A" = "1. Gruppe A").
+    /// Gruppen-Auslosungen speichern einen Eintrag je Team mit PaarungsNummer = Gruppe (siehe GruppenSpielplan).</summary>
+    private static void FesteGruppen(TurnierInstanz v, TurnierRunde runde, params string[][] gruppen)
+    {
+        var auslosung = FesteVorbelegung(v, runde);
+        for (int gruppe = 0; gruppe < gruppen.Length; gruppe++)
+            foreach (var platz in gruppen[gruppe])
+                auslosung.Ergebnisse.Add(new AuslosungsErgebnis
+                    { PaarungsNummer = gruppe + 1, HeimPlatzhalterName = GruppenPlatz(platz) });
+    }
+
+    private static Auslosung FesteVorbelegung(TurnierInstanz v, TurnierRunde runde)
+    {
         runde.PaarungFestVorgegeben = true;
         var auslosung = new Auslosung
         {
@@ -1247,11 +1272,8 @@ public static class TurnierVorlagenSeedDaten
             Auslosungsart  = Auslosungsart.Manuell,
             Status         = AuslosungsStatus.Abgeschlossen,
         };
-        int nr = 1;
-        foreach (var (heim, auswaerts) in paarungen)
-            auslosung.Ergebnisse.Add(new AuslosungsErgebnis
-                { PaarungsNummer = nr++, HeimPlatzhalterName = heim, AuswaertsPlatzhalterName = auswaerts });
         v.Auslosungen.Add(auslosung);
+        return auslosung;
     }
 
     // Gemeinsamer Aufbau der 24er-Turniere (EM 24, WM 1986–1994, Afrika-Cup, Asian Cup): 6 Vierergruppen,

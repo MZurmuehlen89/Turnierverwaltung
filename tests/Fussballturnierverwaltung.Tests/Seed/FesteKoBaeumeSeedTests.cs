@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
@@ -74,7 +75,8 @@ public class FesteKoBaeumeSeedTests
         foreach (var vorlage in vorlagen)
         {
             var runden = vorlage.Runden.OrderBy(r => r.Reihenfolge).ToList();
-            var gruppenphase = runden.Single(r => r.Rundenart == Rundenart.Gruppenphase);
+            // Die letzte Gruppenphase speist die K.-o.-Runden (bei der WM 1982 die Zwischenrunde, #466).
+            var gruppenphase = runden.Last(r => r.Rundenart == Rundenart.Gruppenphase);
             int gruppen = gruppenphase.GruppenAnzahl!.Value;
             var koRunden = runden.Where(r => r.Rundenart != Rundenart.Gruppenphase).ToList();
             koRunden.Should().OnlyContain(r => r.PaarungFestVorgegeben, vorlage.Name);
@@ -90,7 +92,7 @@ public class FesteKoBaeumeSeedTests
             }
 
             var erste = koRunden.First();
-            var plaetze = vorlage.Auslosungen.SelectMany(a => a.Ergebnisse)
+            var plaetze = vorlage.Auslosungen.Where(a => koRunden.Contains(a.TurnierRunde)).SelectMany(a => a.Ergebnisse)
                 .SelectMany(e => new[] { e.HeimPlatzhalterName!, e.AuswaertsPlatzhalterName! })
                 .Where(p => p.Contains(". Gruppe ")).ToList();
             int direkt = (gruppenphase.AusgangsMannschaftsanzahl - (Kombinationstabelle.AusJson(erste.KombinationstabelleJson)?.AnzahlBeste ?? 0)) / gruppen;
@@ -148,6 +150,69 @@ public class FesteKoBaeumeSeedTests
 
             var wm = await ctx.TurnierInstanzen.Include(i => i.Auslosungen).SingleAsync(i => i.Name == WM32 && i.Variante == WM32_VARIANTE);
             wm.Auslosungen.Should().ContainSingle("eine bereits vorhandene Vorbelegung verhindert die Nachrüstung");
+        }
+    }
+
+    // ── WM 1982: fest besetzte Zwischenrunde (#466) ──────────────────────────────
+
+    private const string WM82 = "FIFA WM";
+    private const string WM82_VARIANTE = "24 Teams · 1982";
+
+    [Fact]
+    public void Wm1982_ZwischenrundeUndHalbfinaleSindWieImReglementFestVorgegeben()
+    {
+        var vorlage = TurnierVorlagenSeedDaten.Erstellen().Single(v => v.Name == WM82 && v.Variante == WM82_VARIANTE);
+        var zwischenrunde = vorlage.Runden.Single(r => r.Name == "Zwischenrunde");
+        var halbfinale = vorlage.Runden.Single(r => r.Name == "Halbfinale");
+
+        zwischenrunde.PaarungFestVorgegeben.Should().BeTrue();
+        var gruppen = GruppenSpielplan.AusAuslosung(vorlage.Auslosungen.Single(a => a.TurnierRunde == zwischenrunde).Ergebnisse);
+        gruppen.Select(g => g.Select(s => s.PlatzhalterName).ToList()).Should().BeEquivalentTo(
+            new List<List<string>>
+            {
+                new() { "1. Gruppe A", "1. Gruppe C", "2. Gruppe F" },
+                new() { "1. Gruppe B", "1. Gruppe D", "2. Gruppe E" },
+                new() { "2. Gruppe A", "2. Gruppe C", "1. Gruppe F" },
+                new() { "2. Gruppe B", "2. Gruppe D", "1. Gruppe E" },
+            }, o => o.WithStrictOrdering());
+
+        halbfinale.PaarungFestVorgegeben.Should().BeTrue();
+        vorlage.Auslosungen.Single(a => a.TurnierRunde == halbfinale).Ergebnisse
+            .Select(e => (e.HeimPlatzhalterName, e.AuswaertsPlatzhalterName))
+            .Should().Equal(("1. Gruppe A", "1. Gruppe C"), ("1. Gruppe B", "1. Gruppe D"));
+        vorlage.Runden.Single(r => r.Name == "Gruppenphase").PaarungFestVorgegeben.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task InitialisierenAsync_RuestetFesteZwischenrundeDerWm1982Nach()
+    {
+        var optionen = new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            // Stand vor #466: keine Vorbelegung, kein Haken.
+            var vorlage = await ctx.TurnierInstanzen.Include(i => i.Runden).Include(i => i.Auslosungen)
+                .SingleAsync(i => i.Name == WM82 && i.Variante == WM82_VARIANTE && i.Status == TurnierStatus.Vorlage);
+            ctx.Auslosungen.RemoveRange(vorlage.Auslosungen.ToList());
+            foreach (var runde in vorlage.Runden) runde.PaarungFestVorgegeben = false;
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+            var wm = await ctx.TurnierInstanzen.Include(i => i.Runden).Include(i => i.Auslosungen).ThenInclude(a => a.Ergebnisse)
+                .SingleAsync(i => i.Name == WM82 && i.Variante == WM82_VARIANTE);
+            var zwischenrunde = wm.Runden.Single(r => r.Name == "Zwischenrunde");
+            zwischenrunde.PaarungFestVorgegeben.Should().BeTrue();
+            wm.Auslosungen.Should().HaveCount(4, "Zwischenrunde, Halbfinale, Spiel um Platz 3, Finale");
+            var ergebnisse = wm.Auslosungen.Single(a => a.TurnierRundeId == zwischenrunde.Id).Ergebnisse;
+            ergebnisse.Should().HaveCount(12);
+            ergebnisse.Where(e => e.PaarungsNummer == 3).Select(e => e.HeimPlatzhalterName)
+                .Should().BeEquivalentTo("2. Gruppe A", "2. Gruppe C", "1. Gruppe F");
         }
     }
 }
