@@ -86,86 +86,17 @@ public class SpielplanService(
 
         switch (runde.Rundenart)
         {
-            case Rundenart.Gruppenphase:
-            {
-                var gruppen = GruppenSpielplan.AusAuslosung(ergebnisse);
-
-                if (gruppen.Count > 0 && gruppen.All(g => g.All(s => s.MannschaftId.HasValue)))
-                {
-                    await GenerierenAusGruppenAsync(
-                        turnierRundeId,
-                        [.. gruppen.Select(g => (IReadOnlyList<int>)[.. g.Select(s => s.MannschaftId!.Value)])],
-                        ct);
-                }
-                else
-                {
-                    // Platzhalter-Gruppenphase, auch gemischt mit festen Teams (#395 — vorher fielen die
-                    // Platzhalter einer gemischten Gruppe hier stillschweigend weg): Berger-Round-Robin über Slots
-                    if (gruppen.Count == 0 || gruppen.All(g => g.Count < 2))
-                        throw new InvalidOperationException(ergebnisse.Any()
-                            ? "Keine gültigen Gruppen-Zuordnungen in der Auslosung gefunden."
-                            : "Die Auslosung hat keine Ergebnisse. Bitte die Auslosung zuerst durchführen.");
-
-                    await GenerierenAusGruppenMitPlatzhalternAsync(turnierRundeId, gruppen, ct);
-                }
-                break;
-            }
-
-            case Rundenart.TopfLiga:
-            {
-                var paarungen = ergebnisse
-                    .Where(e => e.HeimMannschaftId.HasValue && e.AuswaertsMannschaftId.HasValue)
-                    .OrderBy(e => e.PaarungsNummer)
-                    .Select(e => (e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value))
-                    .ToList<(int, int)>();
-                await GenerierenAusPaarungenAsync(turnierRundeId, paarungen, ct);
-                break;
-            }
-
-            case Rundenart.SchweizerSystem:
-            {
-                var sortiertIds = ergebnisse
-                    .OrderBy(e => e.PaarungsNummer)
-                    .SelectMany(e => new[] { e.HeimMannschaftId, e.AuswaertsMannschaftId })
-                    .Where(id => id.HasValue)
-                    .Select(id => id!.Value)
-                    .Distinct()
-                    .ToList();
-                await SchweizerRundeGenerierenAsync(turnierRundeId, sortiertIds, ct);
-                break;
-            }
-
-            default:
-            {
-                // Liga, KoRunde, Finale, SpielUmPlatzDrei, Sonderrunde
-                var alleErgebnisse = ergebnisse.OrderBy(e => e.PaarungsNummer).ToList();
-
-                bool nurPlatzhalter = alleErgebnisse.Any() &&
-                    alleErgebnisse.All(e => !e.HeimMannschaftId.HasValue && !e.AuswaertsMannschaftId.HasValue);
-
-                if (nurPlatzhalter)
-                {
-                    var paarungen = alleErgebnisse
-                        .Where(e => !e.IstFreilos)
-                        .OrderBy(e => e.PaarungsNummer)
-                        .Select(e => (Heim: e.HeimPlatzhalterName ?? "?", Auswaerts: e.AuswaertsPlatzhalterName ?? "?"))
-                        .ToList<(string Heim, string Auswaerts)>();
-                    await GenerierenAusPlatzhalterPaarungenAsync(turnierRundeId, paarungen, ct);
-                }
-                else
-                {
-                    var mannschaftIds = alleErgebnisse
-                        .SelectMany(e => new[] { e.HeimMannschaftId, e.AuswaertsMannschaftId })
-                        .Where(id => id.HasValue)
-                        .Select(id => id!.Value)
-                        .Distinct()
-                        .ToList();
-                    await GenerierenAsync(turnierRundeId, mannschaftIds, ct);
-                }
-                break;
-            }
+            case Rundenart.Gruppenphase:    await GruppenphaseGenerierenAsync(turnierRundeId, ergebnisse, ct); break;
+            case Rundenart.TopfLiga:        await TopfLigaGenerierenAsync(turnierRundeId, ergebnisse, ct); break;
+            case Rundenart.SchweizerSystem: await SchweizerSystemGenerierenAsync(turnierRundeId, ergebnisse, ct); break;
+            default:                        await PaarungenGenerierenAsync(turnierRundeId, ergebnisse, ct); break;
         }
 
+        await NachGenerierungVerknuepfenAsync(runde, turnierRundeId, ct);
+    }
+
+    private async Task NachGenerierungVerknuepfenAsync(TurnierRunde runde, int turnierRundeId, CancellationToken ct)
+    {
         // Issue #241: K.o.-Quellverknüpfungen (Sieger/Verlierer eines konkreten Vorrundenspiels) direkt
         // nach jeder Generierung nachziehen — idempotent, unabhängig davon, in welcher Reihenfolge Runden
         // erzeugt werden.
@@ -177,6 +108,81 @@ public class SpielplanService(
         // nächste Ergebnis die Auflösung anstieß (alle Aufrufer: Spielplan, Auslosung, Vorbelegung, Kaskade).
         using (logger.Vorgang($"Platzhalter auflösen nach Generierung (Runde {turnierRundeId})"))
             await aufloesung.RundeAufloesenAsync(turnierRundeId, ct);
+    }
+
+    private async Task GruppenphaseGenerierenAsync(int turnierRundeId, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct)
+    {
+        var gruppen = GruppenSpielplan.AusAuslosung(ergebnisse);
+
+        if (gruppen.Count > 0 && gruppen.All(g => g.All(s => s.MannschaftId.HasValue)))
+        {
+            await GenerierenAusGruppenAsync(
+                turnierRundeId,
+                [.. gruppen.Select(g => (IReadOnlyList<int>)[.. g.Select(s => s.MannschaftId!.Value)])],
+                ct);
+        }
+        else
+        {
+            // Platzhalter-Gruppenphase, auch gemischt mit festen Teams (#395 — vorher fielen die
+            // Platzhalter einer gemischten Gruppe hier stillschweigend weg): Berger-Round-Robin über Slots
+            if (gruppen.Count == 0 || gruppen.All(g => g.Count < 2))
+                throw new InvalidOperationException(ergebnisse.Any()
+                    ? "Keine gültigen Gruppen-Zuordnungen in der Auslosung gefunden."
+                    : "Die Auslosung hat keine Ergebnisse. Bitte die Auslosung zuerst durchführen.");
+
+            await GenerierenAusGruppenMitPlatzhalternAsync(turnierRundeId, gruppen, ct);
+        }
+    }
+
+    private async Task TopfLigaGenerierenAsync(int turnierRundeId, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct)
+    {
+        var paarungen = ergebnisse
+            .Where(e => e.HeimMannschaftId.HasValue && e.AuswaertsMannschaftId.HasValue)
+            .OrderBy(e => e.PaarungsNummer)
+            .Select(e => (e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value))
+            .ToList<(int, int)>();
+        await GenerierenAusPaarungenAsync(turnierRundeId, paarungen, ct);
+    }
+
+    private async Task SchweizerSystemGenerierenAsync(int turnierRundeId, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct)
+    {
+        var sortiertIds = ergebnisse
+            .OrderBy(e => e.PaarungsNummer)
+            .SelectMany(e => new[] { e.HeimMannschaftId, e.AuswaertsMannschaftId })
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+        await SchweizerRundeGenerierenAsync(turnierRundeId, sortiertIds, ct);
+    }
+
+    private async Task PaarungenGenerierenAsync(int turnierRundeId, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct)
+    {
+        // Liga, KoRunde, Finale, SpielUmPlatzDrei, Sonderrunde
+        var alleErgebnisse = ergebnisse.OrderBy(e => e.PaarungsNummer).ToList();
+
+        bool nurPlatzhalter = alleErgebnisse.Any() &&
+            alleErgebnisse.All(e => !e.HeimMannschaftId.HasValue && !e.AuswaertsMannschaftId.HasValue);
+
+        if (nurPlatzhalter)
+        {
+            var paarungen = alleErgebnisse
+                .Where(e => !e.IstFreilos)
+                .OrderBy(e => e.PaarungsNummer)
+                .Select(e => (Heim: e.HeimPlatzhalterName ?? "?", Auswaerts: e.AuswaertsPlatzhalterName ?? "?"))
+                .ToList<(string Heim, string Auswaerts)>();
+            await GenerierenAusPlatzhalterPaarungenAsync(turnierRundeId, paarungen, ct);
+        }
+        else
+        {
+            var mannschaftIds = alleErgebnisse
+                .SelectMany(e => new[] { e.HeimMannschaftId, e.AuswaertsMannschaftId })
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .Distinct()
+                .ToList();
+            await GenerierenAsync(turnierRundeId, mannschaftIds, ct);
+        }
     }
 
     /// <summary>
