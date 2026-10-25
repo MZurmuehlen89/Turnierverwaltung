@@ -49,6 +49,12 @@ public sealed class Hauptfenster(Window fenster)
         return new TurnierdurchfuehrungSeite(fenster, this);
     }
 
+    public EinzelspielSeite EinzelspielSimulationOeffnen()
+    {
+        Oeffnen(Bereich.EinzelspielSimulation);
+        return new EinzelspielSeite(fenster);
+    }
+
     /// <summary>Geladen heißt: Der erwartete Seitentitel steht da und kein Vorgang läuft mehr – und zwar für eine
     /// kurze Ruhezeit am Stück.</summary>
     public void WarteBisGeladen(string seitentitel) =>

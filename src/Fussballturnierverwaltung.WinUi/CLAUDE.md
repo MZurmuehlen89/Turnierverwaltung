@@ -92,7 +92,10 @@ with the test scenarios; there is no big-bang pass over all views.
 - In `DataTemplate`s bind the ID (`AutomationProperties.AutomationId="{x:Bind AutomationId}"`, see
   `NavigationsEintrag`).
 - Only elements with an automation peer appear in the UIA tree: controls and `TextBlock` yes, `Grid`,
-  `StackPanel`, `UserControl` roots no — an ID on those is invisible to tests.
+  `StackPanel`, `UserControl` roots no — an ID on those is invisible to tests. A `UserControl` that is used several
+  times on one page and must be read as a unit gets its own peer
+  (`OnCreateAutomationPeer() => new FrameworkElementAutomationPeer(this)`, see `SpielKopfControl`, #536); the ID then
+  goes on the usage site and the inner IDs are searched inside it.
 - `Hauptfenster.Befehlsleiste` carries the current page title as its UIA name (`MainViewModel.RibbonTabTitel` — the
   visible title is collapsed on pages without ribbon area and then missing from the tree) and the load state as
   `AutomationProperties.ItemStatus` (`Bereit` / `Beschaeftigt`, `LadeanzeigeViewModel.Ladezustand`) without the
