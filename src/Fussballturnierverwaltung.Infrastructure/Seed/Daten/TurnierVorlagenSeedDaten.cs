@@ -36,8 +36,8 @@ public static class TurnierVorlagenSeedDaten
             AfrikaCup24Teams(regelwerkLookup, verbandLookup),
             AfcAsianCup24Teams(regelwerkLookup, verbandLookup),
             ConcacafGoldCup16Teams(regelwerkLookup, verbandLookup),
-            UefaChampionsLeague32TeamsKlassisch(regelwerkLookup, verbandLookup),
-            UefaChampionsLeague32TeamsModern(regelwerkLookup, verbandLookup),
+            UefaChampionsLeague32TeamsKlassisch(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
+            UefaChampionsLeague32TeamsModern(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
             UefaChampionsLeague36TeamsModern(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
             UefaEuropaLeague36Teams(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
             UefaConferenceLeague36Teams(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
@@ -60,6 +60,7 @@ public static class TurnierVorlagenSeedDaten
             AuslosungsregelnSetzen(vorlage);
             GruppenpositionSetzen(vorlage);
             GruppenkoepfeSetzen(vorlage);
+            AuslosungsartSetzen(vorlage);
         }
         return vorlagen;
     }
@@ -188,6 +189,22 @@ public static class TurnierVorlagenSeedDaten
             runde.GastgeberGruppen       = [.. koepfe.Gastgeber];
             runde.TitelverteidigerGruppe = koepfe.Titelverteidiger;
         }
+    }
+
+    // ── Auslosungsart der Gruppenphase (Issue #471) ────────────────────────────
+
+    // Reale Gruppenphasen werden aus Lostöpfen gezogen. Als Regel statt Liste, damit neue Vorlagen die Vorgabe ohne
+    // eigenen Eintrag bekommen. Ausnahmen: das Mini-Turnier (kein reales Vorbild; das GUI-Szenario aus #522 lost mit
+    // der bisherigen Art) und spätere Gruppenphasen wie die Zwischenrunde der WM 1982, die fest besetzt wurde (#466).
+    // Bestehende Datenbanken: Migration AuslosungsartGruppenphaseNachToepfen — dort dieselbe Regel als SQL, bei
+    // Änderungen hier mitziehen.
+    private const string MINI_TURNIER = "Mini-Turnier";
+
+    private static void AuslosungsartSetzen(TurnierInstanz vorlage)
+    {
+        if (vorlage.Name == MINI_TURNIER) return;
+        foreach (var runde in vorlage.Runden.Where(r => r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge == 1))
+            runde.VorgegebeneAuslosungsart ??= Auslosungsart.NachToepfen;
     }
 
     // ── Neutraler Spielort (Issue #352) ────────────────────────────────────────
@@ -765,7 +782,8 @@ public static class TurnierVorlagenSeedDaten
 
     // ── UEFA Clubwettbewerbe ───────────────────────────────────────────────────
 
-    private static TurnierInstanz UefaChampionsLeague32TeamsKlassisch(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband)
+    private static TurnierInstanz UefaChampionsLeague32TeamsKlassisch(
+        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle)
     {
         var v = new TurnierInstanz
         {
@@ -781,7 +799,10 @@ public static class TurnierVorlagenSeedDaten
             VerbandId = VId(verband, "UEFA"),
         };
         int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
-        v.Runden.Add(Runde(1, "Gruppenphase",  Rundenart.Gruppenphase, 32, 16, gruppen: 8, regelwerkId: rId));
+        var gruppenphase = Runde(1, "Gruppenphase", Rundenart.Gruppenphase, 32, 16, gruppen: 8, regelwerkId: rId);
+        // Töpfe nach Klub-Koeffizient (Issue #471), wie die Ligaphase der 36er-Vorlagen.
+        gruppenphase.StandardRanglisteId = RqId(quelle, RanglistenQuellenSeedDaten.UEFA_KLUB_KOEFFIZIENT);
+        v.Runden.Add(gruppenphase);
         v.Runden.Add(Runde(2, "Achtelfinale",  Rundenart.KoRunde,      16,  8, auswaerts: true,  mitRueckspiel: true, regelwerkId: rId,
                            auslosungsart: Auslosungsart.GruppensiegerGegenGruppenzweite));
         v.Runden.Add(Runde(3, "Viertelfinale", Rundenart.KoRunde,       8,  4, auswaerts: true,  mitRueckspiel: true, regelwerkId: rId));
@@ -791,7 +812,8 @@ public static class TurnierVorlagenSeedDaten
         return v;
     }
 
-    private static TurnierInstanz UefaChampionsLeague32TeamsModern(IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband)
+    private static TurnierInstanz UefaChampionsLeague32TeamsModern(
+        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle)
     {
         var v = new TurnierInstanz
         {
@@ -807,7 +829,10 @@ public static class TurnierVorlagenSeedDaten
             VerbandId = VId(verband, "UEFA"),
         };
         int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
-        v.Runden.Add(Runde(1, "Gruppenphase",  Rundenart.Gruppenphase, 32, 16, gruppen: 8, regelwerkId: rId));
+        var gruppenphase = Runde(1, "Gruppenphase", Rundenart.Gruppenphase, 32, 16, gruppen: 8, regelwerkId: rId);
+        // Töpfe nach Klub-Koeffizient (Issue #471), wie die Ligaphase der 36er-Vorlagen.
+        gruppenphase.StandardRanglisteId = RqId(quelle, RanglistenQuellenSeedDaten.UEFA_KLUB_KOEFFIZIENT);
+        v.Runden.Add(gruppenphase);
         v.Runden.Add(Runde(2, "Achtelfinale",  Rundenart.KoRunde,      16,  8, mitRueckspiel: true, regelwerkId: rId,
                            auslosungsart: Auslosungsart.GruppensiegerGegenGruppenzweite));
         v.Runden.Add(Runde(3, "Viertelfinale", Rundenart.KoRunde,       8,  4, mitRueckspiel: true, regelwerkId: rId));
@@ -1059,7 +1084,7 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "Mini-Turnier",
+            Name = MINI_TURNIER,
             Variante = "8 Teams",
             Beschreibung = "2 Vierergruppen → Halbfinale → Finale + Spiel um Platz 3",
             ZielMannschaftsanzahl = 8,
@@ -1079,7 +1104,7 @@ public static class TurnierVorlagenSeedDaten
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
-            Name = "Mini-Turnier",
+            Name = MINI_TURNIER,
             Variante = "4 Teams",
             Beschreibung = "Liga-Runde oder direktes Halbfinale + Finale",
             ZielMannschaftsanzahl = 4,
