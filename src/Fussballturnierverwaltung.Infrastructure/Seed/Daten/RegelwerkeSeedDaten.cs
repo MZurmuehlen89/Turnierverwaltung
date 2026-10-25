@@ -249,5 +249,31 @@ public static class RegelwerkeSeedDaten
             Sieg: 2, Unentschieden: 1, Niederlage: 0,
             Verfahren: [VerfahrenArt.Elfmeterschiessen]
         ),
+        // Issue #465: WM 1958–1970 — im K.-o. nach der Verlängerung das Los (das Finale hat ein eigenes Regelwerk).
+        (
+            new Regelwerk
+            {
+                Name = TurnierVorlagenSeedDaten.WM_VERLAENGERUNG_LOS,
+                Beschreibung = "WM-Regelwerk 1958–1970: 2 Punkte für Sieg, im K.-o. Verlängerung, danach Losentscheid.",
+                GueltigVon = new DateOnly(1958, 1, 1),
+                GueltigBis = new DateOnly(1970, 12, 31),
+                RankingRegelSetId = rankingRegelSetLookup.GetValueOrDefault("FIFA Standard")
+            },
+            Sieg: 2, Unentschieden: 1, Niederlage: 0,
+            Verfahren: [VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Losentscheid]
+        ),
+        // Issue #465: WM 1934/1938 in allen K.-o.-Runden, WM 1958–1970 im Finale — nach der Verlängerung ein
+        // Wiederholungsspiel, erst danach das Los.
+        (
+            new Regelwerk
+            {
+                Name = TurnierVorlagenSeedDaten.HISTORISCH_VERLAENGERUNG_WIEDERHOLUNGSSPIEL_LOS,
+                Beschreibung = "Älteres Regelwerk: 2 Punkte für Sieg, bei Unentschieden Verlängerung, dann Wiederholungsspiel, dann Losentscheid.",
+                GueltigBis = new DateOnly(1970, 12, 31),
+                RankingRegelSetId = rankingRegelSetLookup.GetValueOrDefault("FIFA Standard")
+            },
+            Sieg: 2, Unentschieden: 1, Niederlage: 0,
+            Verfahren: [VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid]
+        ),
     ];
 }

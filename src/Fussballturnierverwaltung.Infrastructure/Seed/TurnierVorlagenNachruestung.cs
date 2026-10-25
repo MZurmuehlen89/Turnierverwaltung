@@ -19,6 +19,9 @@ internal sealed class TurnierVorlagenNachruestung
 
     // Seed-Stand der EM-Vorlage mit 8 Teams vor #375 (damals als "1960–1992" geführt).
     private static readonly DateOnly _altesStartdatumEm8 = new(1960, 1, 1);
+
+    // Seed-Stand der WM-Vorlage mit 16 Teams vor #465 (damals als "1934–1978" geführt).
+    private static readonly DateOnly _altesEnddatumWm16 = new(1978, 12, 31);
     private static readonly (string Name, Rundenart Rundenart)[] _alteRundenEm8 =
     [
         ("Gruppenphase",     Rundenart.Gruppenphase),
@@ -93,6 +96,9 @@ internal sealed class TurnierVorlagenNachruestung
         await SpeichernUndProtokollieren(
             Em8RegelwerkUmstellen(),
             "Vorlagen-Runden der EM mit 8 Teams auf das 2-Punkte-Regelwerk mit Verlängerung + Elfmeterschießen umgestellt.", ct);
+        await SpeichernUndProtokollieren(
+            Wm16RegelwerkUmstellen(),
+            "Vorlagen-Runden der WM 1934–1938 auf Verlängerung + Wiederholungsspiel + Los umgestellt.", ct);
         await SpeichernUndProtokollieren(
             BeschreibungenAktualisieren(), "Beschreibungen von Turniervorlagen aktualisiert.", ct);
         await SpeichernUndProtokollieren(
@@ -173,14 +179,20 @@ internal sealed class TurnierVorlagenNachruestung
             vorlage.Name = neu.Name;
             vorlage.Variante = neu.Variante;
             if (vorlage.Beschreibung == ALTE_BESCHREIBUNG_WM24) vorlage.Beschreibung = soll.Beschreibung;
-            if (vorlage.Enddatum == _altesEnddatumWm24) vorlage.Enddatum = soll.Enddatum;
-            if (vorlage.Startdatum == _altesStartdatumEm8) vorlage.Startdatum = soll.Startdatum;
+            AlteDatenNachziehen(vorlage, soll);
             umbenannt++;
         }
         return umbenannt;
     }
 
-    // Issue #375: Vorlagen, die schon Name + Variante tragen und nur eine neue Variante bekommen.
+    // Start- und Enddatum ziehen nur mit, solange sie noch einem bekannten alten Seed-Stand entsprechen.
+    private static void AlteDatenNachziehen(TurnierInstanz vorlage, TurnierInstanz soll)
+    {
+        if (vorlage.Enddatum == _altesEnddatumWm24 || vorlage.Enddatum == _altesEnddatumWm16) vorlage.Enddatum = soll.Enddatum;
+        if (vorlage.Startdatum == _altesStartdatumEm8) vorlage.Startdatum = soll.Startdatum;
+    }
+
+    // Issue #375/#465: Vorlagen, die schon Name + Variante tragen und nur eine neue Variante bekommen.
     private int VariantenUmstellen()
     {
         int umbenannt = 0;
@@ -191,7 +203,7 @@ internal sealed class TurnierVorlagenNachruestung
             if (vorlage is null || IstVorhanden(neu)) continue;
 
             vorlage.Variante = neueVariante;
-            if (vorlage.Startdatum == _altesStartdatumEm8) vorlage.Startdatum = _seedStand[neu].Startdatum;
+            AlteDatenNachziehen(vorlage, _seedStand[neu]);
             umbenannt++;
         }
         return umbenannt;
@@ -267,6 +279,13 @@ internal sealed class TurnierVorlagenNachruestung
     private int Em8RegelwerkUmstellen() =>
         RegelwerkUmstellen(
             TurnierVorlagenSeedDaten.HISTORISCH_WIEDERHOLUNGSSPIEL_LOS, TurnierVorlagenSeedDaten.FIFA_HISTORISCH_2_PUNKTE);
+
+    /// <summary>Issue #465: die WM 1934/1938 ging bei Unentschieden erst in die Verlängerung, dann ins
+    /// Wiederholungsspiel — die frühere Sammelvorlage „1934–1978“ stand auf Wiederholungsspiel + Los.</summary>
+    private int Wm16RegelwerkUmstellen() =>
+        RegelwerkUmstellen(
+            TurnierVorlagenSeedDaten.HISTORISCH_WIEDERHOLUNGSSPIEL_LOS,
+            TurnierVorlagenSeedDaten.HISTORISCH_VERLAENGERUNG_WIEDERHOLUNGSSPIEL_LOS);
 
     /// <summary>Stellt nur Runden um, die noch auf genau dem alten Seed-Regelwerk stehen und deren Gegenstück im
     /// Seed das neue nutzt.</summary>

@@ -25,7 +25,9 @@ public class TurnierVorlagenAuslosungsregelnTests
     [Theory]
     [InlineData("24 Teams · 1986–1994")]
     [InlineData("24 Teams · 1982")]
-    [InlineData("16 Teams · 1934–1978")]
+    [InlineData("16 Teams · 1974–1978")]
+    [InlineData("16 Teams · 1958–1970")]
+    [InlineData("16 Teams · 1934–1938")]
     public void FifaWm_AeltereVorlagen_OhneVorgabe(string variante) =>
         _vorlagen.Single(v => v.Name == "FIFA WM" && v.Variante == variante).Runden
             .Should().OnlyContain(r => r.VorgegebeneAuslosungsregeln.Count == 0);

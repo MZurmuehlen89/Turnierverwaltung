@@ -201,7 +201,8 @@ public class SeedDatenServiceTests
             vorlagen.Should().NotContain(v => v.Name.Contains('(') || v.Variante == "");
             vorlagen.Select(v => (v.Name, v.Variante)).Should().OnlyHaveUniqueItems();
             vorlagen.Where(v => v.Name == "FIFA WM").Select(v => v.Variante).Should().BeEquivalentTo(
-                "48 Teams · ab 2026", "32 Teams · 1998–2022", "24 Teams · 1982", "24 Teams · 1986–1994", "16 Teams · 1934–1978");
+                "48 Teams · ab 2026", "32 Teams · 1998–2022", "24 Teams · 1982", "24 Teams · 1986–1994",
+                "16 Teams · 1974–1978", "16 Teams · 1958–1970", TurnierVorlagenSeedDaten.WM_16_TEAMS_1934_BIS_1938);
         }
     }
 
@@ -501,7 +502,7 @@ public class SeedDatenServiceTests
             foreach (string runde in new[] { "Gruppenphase", "Halbfinale", "Finale" })
                 (await VerfahrenDerRundeAsync(ctx, EM_VORLAGE, TurnierVorlagenSeedDaten.EM_8_TEAMS_1984_BIS_1992, runde))
                     .Should().Equal(VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Elfmeterschiessen);
-            (await VerfahrenDerRundeAsync(ctx, "FIFA WM", "16 Teams · 1934–1978", "Finale"))
+            (await VerfahrenDerRundeAsync(ctx, "FIFA WM", TurnierVorlagenSeedDaten.WM_16_TEAMS_1934_BIS_1938, "Finale"))
                 .Should().Contain(VerfahrenArt.Wiederholungsspiel, "andere Vorlagen behalten ihr Regelwerk");
         }
     }

@@ -25,7 +25,7 @@ public class TurnierVorlagenAuslosungsartTests
                                      .Select(r => (Vorlage: $"{v.Name} · {v.Variante}", r.VorgegebeneAuslosungsart)))
             .ToList();
 
-        gruppenphasen.Should().HaveCount(17);
+        gruppenphasen.Should().HaveCount(19);
         gruppenphasen.Should().OnlyContain(g => g.VorgegebeneAuslosungsart == Auslosungsart.NachToepfen);
     }
 
@@ -34,10 +34,12 @@ public class TurnierVorlagenAuslosungsartTests
         _vorlagen.Where(v => v.Name == "Mini-Turnier").SelectMany(v => v.Runden)
             .Should().OnlyContain(r => r.VorgegebeneAuslosungsart == null);
 
-    // Die Zwischenrunde der WM 1982 wurde fest besetzt, nicht gelost (#466).
-    [Fact]
-    public void Wm1982_Zwischenrunde_OhneVorgabe() =>
-        Runde("FIFA WM", "24 Teams · 1982", 2).VorgegebeneAuslosungsart.Should().BeNull();
+    // Die Zwischenrunden der WM 1974–1982 wurden fest besetzt, nicht gelost (#466, #465).
+    [Theory]
+    [InlineData("24 Teams · 1982")]
+    [InlineData("16 Teams · 1974–1978")]
+    public void FesteZwischenrunde_OhneVorgabe(string variante) =>
+        Runde("FIFA WM", variante, 2).VorgegebeneAuslosungsart.Should().BeNull();
 
     // Andere Rundenarten behalten ihre eigene Vorgabe (Ligaphase: Topf-Zuordnung, #347).
     [Fact]

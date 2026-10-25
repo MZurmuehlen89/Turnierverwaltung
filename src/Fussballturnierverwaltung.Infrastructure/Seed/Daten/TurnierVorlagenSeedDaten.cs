@@ -23,7 +23,9 @@ public static class TurnierVorlagenSeedDaten
             FifaWm32Teams(regelwerkLookup),
             FifaWm24Teams1986Bis1994(regelwerkLookup),
             FifaWm24Teams1982(regelwerkLookup),
-            FifaWm16Teams(regelwerkLookup),
+            FifaWm16Teams1974Bis1978(regelwerkLookup),
+            FifaWm16Teams1958Bis1970(regelwerkLookup),
+            FifaWm16Teams1934Bis1938(regelwerkLookup),
             FifaKlubWm32Teams(regelwerkLookup),
             UefaEm24Teams(regelwerkLookup, verbandLookup),
             UefaEm16Teams(regelwerkLookup, verbandLookup),
@@ -170,6 +172,8 @@ public static class TurnierVorlagenSeedDaten
             [("FIFA WM", "32 Teams · 1998–2022")]         = ([1], null),       // Katar A1
             [("FIFA WM", "24 Teams · 1986–1994")]         = ([1], 3),          // USA A1, Deutschland C1
             [("FIFA WM", "24 Teams · 1982")]              = ([5], 3),          // Spanien Gruppe 5, Argentinien Gruppe 3
+            [("FIFA WM", "16 Teams · 1974–1978")]         = ([1], 2),          // Argentinien Gruppe 1, Deutschland Gruppe 2
+            [("FIFA WM", "16 Teams · 1958–1970")]         = ([1], 3),          // Mexiko Gruppe 1, England Gruppe 3
             [("UEFA EM", "24 Teams · 2016+")]             = ([1], null),       // Deutschland A1
             [("UEFA EM", "16 Teams · 1996–2012")]         = ([1, 4], null),    // Polen A1, Ukraine D1
             [("UEFA EM", EM_8_TEAMS_1984_BIS_1992)]       = ([1], 2),          // Schweden Gruppe 1, Niederlande Gruppe 2
@@ -271,7 +275,12 @@ public static class TurnierVorlagenSeedDaten
     public const string HISTORISCH_WIEDERHOLUNGSSPIEL_LOS = "Historisch: Wiederholungsspiel + Los";
     public const string EM_1980_DIREKTES_ELFMETERSCHIESSEN = "UEFA EM 1980 (direktes Elfmeterschießen)";
 
-    // Seed-Beschreibungen vor #374 (Copa América) und #375 (EM mit 8 Teams) — die Nachrüstung zieht die
+    // Regelwerk-Namen der frühen Weltmeisterschaften (Issue #465): 1958–1970 entschied im K.-o. nach der
+    // Verlängerung das Los, nur das Finale (und 1934/1938 jede K.-o.-Runde) wäre wiederholt worden.
+    public const string WM_VERLAENGERUNG_LOS = "FIFA WM 1958–1970 (Verlängerung + Los)";
+    public const string HISTORISCH_VERLAENGERUNG_WIEDERHOLUNGSSPIEL_LOS = "Historisch: Verlängerung + Wiederholungsspiel + Los";
+
+    // Seed-Beschreibungen vor #374 (Copa América), #375 (EM mit 8 Teams) und #465 (WM mit 16 Teams) — die Nachrüstung zieht die
     // Beschreibung nur mit, solange sie noch diesem Stand entspricht.
     public static IReadOnlyDictionary<(string Name, string Variante), string> AlteBeschreibungen { get; } =
         new Dictionary<(string Name, string Variante), string>
@@ -283,6 +292,7 @@ public static class TurnierVorlagenSeedDaten
             "Gruppenphase (3×4, Erste/Zweite + 2 beste Dritte) → Viertelfinale → Halbfinale → " +
             "Spiel um Platz 3 + Finale; 10 CONMEBOL-Teams + 2 Gäste, daher ohne Verbandsfilter",
         [("UEFA EM", EM_8_TEAMS_1984_BIS_1992)] = "Halbfinale → Finale + Spiel um Platz 3",
+        [("FIFA WM", WM_16_TEAMS_1934_BIS_1938)] = "Direktes K.-o. ab 16 Teams",
     };
 
     // Issue #350/#367: umbenannte Vorlagen (alter Name → neuer Name + Variante) — die Nachrüstung identifiziert
@@ -296,7 +306,7 @@ public static class TurnierVorlagenSeedDaten
         ["FIFA WM (32 Teams, 1998–2022)"]                                       = ("FIFA WM", "32 Teams · 1998–2022"),
         ["FIFA WM (24 Teams, 1982)"]                                            = ("FIFA WM", "24 Teams · 1982"),
         ["FIFA WM (24 Teams, 1986–1994)"]                                       = ("FIFA WM", "24 Teams · 1986–1994"),
-        ["FIFA WM (16 Teams, 1934–1978)"]                                       = ("FIFA WM", "16 Teams · 1934–1978"),
+        ["FIFA WM (16 Teams, 1934–1978)"]                                       = ("FIFA WM", WM_16_TEAMS_1934_BIS_1938),
         ["UEFA EM (24 Teams, 2016+)"]                                           = ("UEFA EM", "24 Teams · 2016+"),
         ["UEFA EM (16 Teams, 1996–2012)"]                                       = ("UEFA EM", "16 Teams · 1996–2012"),
         ["UEFA EM (8 Teams, 1960–1992)"]                                        = ("UEFA EM", EM_8_TEAMS_1984_BIS_1992),
@@ -330,11 +340,16 @@ public static class TurnierVorlagenSeedDaten
     // TurnierVorlagenNachruestung.Em8SpielUmPlatzDreiEntfernenAsync), die Formate 1960–1976 und 1980 kommen neu hinzu.
     public const string EM_8_TEAMS_1984_BIS_1992 = "8 Teams · 1984–1992";
 
+    // Issue #465: die frühere Vorlage "FIFA WM · 16 Teams · 1934–1978" bildete nur das reine K.-o. von 1934 und 1938
+    // ab. Die Bestands-Zeile wird zur Vorlage 1934–1938, die Formate 1958–1970 und 1974–1978 kommen neu hinzu.
+    public const string WM_16_TEAMS_1934_BIS_1938 = "16 Teams · 1934–1938";
+
     // Vorlagen, deren Variante sich seit #367 geändert hat (Name + alte Variante → neue Variante).
     public static IReadOnlyDictionary<(string Name, string Variante), string> VariantenUmbenennungen { get; } =
         new Dictionary<(string Name, string Variante), string>
     {
         [("UEFA EM", "8 Teams · 1960–1992")] = EM_8_TEAMS_1984_BIS_1992,
+        [("FIFA WM", "16 Teams · 1934–1978")] = WM_16_TEAMS_1934_BIS_1938,
     };
 
     // ── Weltmeisterschaften ────────────────────────────────────────────────────
@@ -452,26 +467,100 @@ public static class TurnierVorlagenSeedDaten
         return v;
     }
 
-    private static TurnierInstanz FifaWm16Teams(IReadOnlyDictionary<string, int>? rw)
+    // Issue #465: nur 1934 und 1938 wurde die WM ab 16 Teams im reinen K.-o. gespielt (1938 mit 15 Teams nach einem
+    // Rückzug). Unentschieden: Verlängerung, dann Wiederholungsspiel.
+    private static TurnierInstanz FifaWm16Teams1934Bis1938(IReadOnlyDictionary<string, int>? rw)
     {
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
             Name = "FIFA WM",
-            Variante = "16 Teams · 1934–1978",
-            Beschreibung = "Direktes K.-o. ab 16 Teams",
+            Variante = WM_16_TEAMS_1934_BIS_1938,
+            Beschreibung = "Direktes K.-o. ab Achtelfinale → Viertelfinale → Halbfinale → Spiel um Platz 3 + Finale; " +
+                           "bei Unentschieden Verlängerung, dann Wiederholungsspiel",
             ZielMannschaftsanzahl = 16,
             Kategorie = TurnierKategorie.Weltmeisterschaft,
             Startdatum = new DateOnly(1934, 1, 1),
-            Enddatum = new DateOnly(1978, 12, 31),
+            Enddatum = new DateOnly(1938, 12, 31),
             MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
         };
-        int? rId = RwId(rw, "Historisch: Wiederholungsspiel + Los");
+        int? rId = RwId(rw, HISTORISCH_VERLAENGERUNG_WIEDERHOLUNGSSPIEL_LOS);
         v.Runden.Add(Runde(1, "Achtelfinale",      Rundenart.KoRunde,          16,  8, regelwerkId: rId));
         v.Runden.Add(Runde(2, "Viertelfinale",     Rundenart.KoRunde,           8,  4, regelwerkId: rId));
         v.Runden.Add(Runde(3, "Halbfinale",        Rundenart.KoRunde,           4,  2, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Spiel um Platz 3",  Rundenart.SpielUmPlatzDrei,  2,  1, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Finale",            Rundenart.Finale,            2,  1, regelwerkId: rId));
+        return v;
+    }
+
+    // Issue #465: 1958–1970 fester Baum (belegt für 1966, 1958 passt zu den Ergebnissen): Viertelfinale über Kreuz, im
+    // Halbfinale treffen die Sieger aus 1A–2B und 1C–2D aufeinander. Im K.-o. nach der Verlängerung das Los, nur das
+    // Finale wäre wiederholt worden. Nicht abgebildet: 1954 mit eigenem Format (je Team nur zwei Gruppenspiele, #546)
+    // und das Entscheidungsspiel bei Punktgleichheit um Platz 2 von 1958 (#484).
+    private static TurnierInstanz FifaWm16Teams1958Bis1970(IReadOnlyDictionary<string, int>? rw)
+    {
+        var v = new TurnierInstanz
+        {
+            Status = TurnierStatus.Vorlage,
+            Name = "FIFA WM",
+            Variante = "16 Teams · 1958–1970",
+            Beschreibung = "Gruppenphase (4×4) → Viertelfinale (1A–2B, 1C–2D, 1B–2A, 1D–2C) → Halbfinale → " +
+                           "Spiel um Platz 3 + Finale; 2 Punkte je Sieg; im K.-o. nach der Verlängerung das Los, " +
+                           "im Finale ein Wiederholungsspiel",
+            ZielMannschaftsanzahl = 16,
+            Kategorie = TurnierKategorie.Weltmeisterschaft,
+            Startdatum = new DateOnly(1958, 1, 1),
+            Enddatum = new DateOnly(1970, 12, 31),
+            MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
+        };
+        int? rId = RwId(rw, WM_VERLAENGERUNG_LOS);
+        v.Runden.Add(Runde(1, "Gruppenphase",      Rundenart.Gruppenphase,     16,  8, gruppen: 4, regelwerkId: rId));
+        v.Runden.Add(Runde(2, "Viertelfinale",     Rundenart.KoRunde,           8,  4, regelwerkId: rId));
+        v.Runden.Add(Runde(3, "Halbfinale",        Rundenart.KoRunde,           4,  2, regelwerkId: rId));
+        v.Runden.Add(Runde(4, "Spiel um Platz 3",  Rundenart.SpielUmPlatzDrei,  2,  1, regelwerkId: rId));
+        v.Runden.Add(Runde(5, "Finale",            Rundenart.Finale,            2,  1,
+                           regelwerkId: RwId(rw, HISTORISCH_VERLAENGERUNG_WIEDERHOLUNGSSPIEL_LOS)));
+        GruppenUebergaenge(v, direktProGruppe: 2);
+        FesterKoBaum(v, tabelle: null, "1A-2B", "1C-2D", "1B-2A", "1D-2C");
+        return v;
+    }
+
+    // Issue #465: 1974 und 1978 bildeten die Gruppenersten und -zweiten zwei fest besetzte Zwischenrunden-Gruppen;
+    // deren Sieger spielten das Finale, die Zweiten um Platz 3 (kein Halbfinale). Die Platzhalter von Finale und Spiel
+    // um Platz 3 beziehen sich auf die Zwischenrunde (nächstliegende Gruppenphase davor, #466).
+    private static TurnierInstanz FifaWm16Teams1974Bis1978(IReadOnlyDictionary<string, int>? rw)
+    {
+        var v = new TurnierInstanz
+        {
+            Status = TurnierStatus.Vorlage,
+            Name = "FIFA WM",
+            Variante = "16 Teams · 1974–1978",
+            Beschreibung = "Gruppenphase (4×4) → Zwischenrunde (2 Vierergruppen: 1A/2B/1C/2D und 1B/2A/1D/2C) → " +
+                           "Gruppensieger im Finale, Gruppenzweite im Spiel um Platz 3 (kein Halbfinale); 2 Punkte je Sieg",
+            ZielMannschaftsanzahl = 16,
+            Kategorie = TurnierKategorie.Weltmeisterschaft,
+            Startdatum = new DateOnly(1974, 1, 1),
+            Enddatum = new DateOnly(1978, 12, 31),
+            MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft,
+        };
+        int? rId = RwId(rw, FIFA_HISTORISCH_2_PUNKTE);
+        var gruppenphase  = Runde(1, "Gruppenphase",     Rundenart.Gruppenphase,     16, 8, gruppen: 4, regelwerkId: rId);
+        var zwischenrunde = Runde(2, "Zwischenrunde",    Rundenart.Gruppenphase,      8, 4, gruppen: 2, regelwerkId: rId);
+        var platzDrei     = Runde(3, "Spiel um Platz 3", Rundenart.SpielUmPlatzDrei,  2, 1, regelwerkId: rId);
+        var finale        = Runde(4, "Finale",           Rundenart.Finale,            2, 1, regelwerkId: rId);
+        GruppenUebergaenge(gruppenphase, zwischenrunde, direktProGruppe: 2);
+        for (int gruppe = 1; gruppe <= 2; gruppe++)
+        {
+            Uebergang(zwischenrunde, finale,    gruppe, platzierungVon: 1, platzierungBis: 1);
+            Uebergang(zwischenrunde, platzDrei, gruppe, platzierungVon: 2, platzierungBis: 2);
+        }
+        v.Runden.Add(gruppenphase);
+        v.Runden.Add(zwischenrunde);
+        v.Runden.Add(platzDrei);
+        v.Runden.Add(finale);
+        FesteGruppen(v, zwischenrunde, ["1A", "2B", "1C", "2D"], ["1B", "2A", "1D", "2C"]);
+        FestePaarungen(v, platzDrei, [(GruppenPlatz("2A"), GruppenPlatz("2B"))]);
+        FestePaarungen(v, finale,    [(GruppenPlatz("1A"), GruppenPlatz("1B"))]);
         return v;
     }
 
