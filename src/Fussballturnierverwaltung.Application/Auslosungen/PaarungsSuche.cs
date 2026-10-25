@@ -17,47 +17,79 @@ internal static class PaarungsSuche
         IReadOnlyList<int> teams, Func<int, int, bool> duerfenSichTreffen, int freilose, Func<int, bool> darfFreilos,
         Random? zufall = null)
     {
-        var reihenfolge = zufall is null ? teams : [.. teams.OrderBy(_ => zufall.Next())];
-        var offen       = new HashSet<int>(teams);
-        var paare       = new List<(int, int)>();
-        var ohneGegner  = new List<int>();
-        int schritte    = 0;
+        var suche   = new Suche(zufall is null ? teams : [.. teams.OrderBy(_ => zufall.Next())], duerfenSichTreffen, darfFreilos);
+        var loesbar = suche.Suchen(freilose);
+        return loesbar == true ? new(true, suche.Paare, suche.Freilose) : new(loesbar, [], []);
+    }
 
-        bool? Suchen(int freiloseUebrig)
+    // Stand einer Suche: offene Teams, die bisher gebildeten Paare und Freilose. Jeder Versuch nimmt seine Belegung
+    // zurück, wenn der Rest nicht aufgeht — nur eine gefundene Lösung bleibt stehen.
+    private sealed class Suche(
+        IReadOnlyList<int> reihenfolge, Func<int, int, bool> duerfenSichTreffen, Func<int, bool> darfFreilos)
+    {
+        private readonly HashSet<int> _offen = [.. reihenfolge];
+        private readonly List<(int Team, int Gegner)> _paare = [];
+        private readonly List<int> _ohneGegner = [];
+        private int _schritte;
+
+        public IReadOnlyList<(int Team, int Gegner)> Paare => _paare;
+
+        public IReadOnlyList<int> Freilose => _ohneGegner;
+
+        public bool? Suchen(int freiloseUebrig)
         {
-            if (offen.Count == 0) return true;
-            if (++schritte > MAX_SUCHSCHRITTE) return null;
+            if (_offen.Count == 0) return true;
+            if (++_schritte > MAX_SUCHSCHRITTE) return null;
 
-            // Das Team mit den wenigsten möglichen Gegnern zuerst — Sackgassen zeigen sich so am frühesten.
-            var offeneTeams = reihenfolge.Where(offen.Contains).ToList();
-            int team   = offeneTeams.MinBy(t => offeneTeams.Count(g => g != t && duerfenSichTreffen(t, g)));
-            var gegner = offeneTeams.Where(g => g != team && duerfenSichTreffen(team, g)).ToList();
+            var (team, gegner) = EngstesTeam();
+            _offen.Remove(team);
+            var ergebnis = MitGegnerVersuchen(team, gegner, freiloseUebrig);
+            if (ergebnis != true && freiloseUebrig > 0 && darfFreilos(team))
+                ergebnis = Zusammenfassen(ergebnis, MitFreilosVersuchen(team, freiloseUebrig));
+            if (ergebnis != true) _offen.Add(team);
+            return ergebnis;
+        }
+
+        // Das Team mit den wenigsten möglichen Gegnern zuerst — Sackgassen zeigen sich so am frühesten.
+        private (int Team, List<int> Gegner) EngstesTeam()
+        {
+            var offeneTeams = reihenfolge.Where(_offen.Contains).ToList();
+            int team = offeneTeams.MinBy(t => offeneTeams.Count(g => g != t && duerfenSichTreffen(t, g)));
+            return (team, [.. offeneTeams.Where(g => g != team && duerfenSichTreffen(team, g))]);
+        }
+
+        // true beim ersten Gegner, mit dem der Rest aufgeht; null, wenn keiner aufging, aber eine Teilsuche an der
+        // Grenze abbrach.
+        private bool? MitGegnerVersuchen(int team, List<int> gegner, int freiloseUebrig)
+        {
             bool unklar = false;
-
-            offen.Remove(team);
             foreach (int g in gegner)
             {
-                offen.Remove(g);
-                paare.Add((team, g));
+                _offen.Remove(g);
+                _paare.Add((team, g));
                 var ergebnis = Suchen(freiloseUebrig);
                 if (ergebnis == true) return true;
-                paare.RemoveAt(paare.Count - 1);
-                offen.Add(g);
+                _paare.RemoveAt(_paare.Count - 1);
+                _offen.Add(g);
                 unklar |= ergebnis is null;
             }
-            if (freiloseUebrig > 0 && darfFreilos(team))
-            {
-                ohneGegner.Add(team);
-                var ergebnis = Suchen(freiloseUebrig - 1);
-                if (ergebnis == true) return true;
-                ohneGegner.RemoveAt(ohneGegner.Count - 1);
-                unklar |= ergebnis is null;
-            }
-            offen.Add(team);
             return unklar ? null : false;
         }
 
-        var loesbar = Suchen(freilose);
-        return loesbar == true ? new(true, paare, ohneGegner) : new(loesbar, [], []);
+        private bool? MitFreilosVersuchen(int team, int freiloseUebrig)
+        {
+            _ohneGegner.Add(team);
+            var ergebnis = Suchen(freiloseUebrig - 1);
+            if (ergebnis != true) _ohneGegner.RemoveAt(_ohneGegner.Count - 1);
+            return ergebnis;
+        }
+
+        // Gelöst, wenn ein Weg aufgeht; sonst unklar, wenn einer an der Grenze abbrach.
+        private static bool? Zusammenfassen(bool? a, bool? b) => (a, b) switch
+        {
+            (true, _) or (_, true) => true,
+            (null, _) or (_, null) => null,
+            _                      => false
+        };
     }
 }
