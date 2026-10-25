@@ -8,6 +8,7 @@ using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
@@ -54,14 +55,7 @@ public class SpielplanService(
                 turnierValidator.RundeUndRegelwerkKompatibel(rundeEingabe, runde.Regelwerk));
         }
 
-        var mannschaften = await mannschaftRepository.FindenNachIdsAsync(mannschaftIds, ct);
-
-        // Sicherstellen dass die ursprüngliche Reihenfolge der IDs erhalten bleibt (Auslosungsreihenfolge)
-        var geordnet = mannschaftIds
-            .Select(id => mannschaften.FirstOrDefault(m => m.Id == id))
-            .Where(m => m is not null)
-            .Select(m => m!)
-            .ToList();
+        var geordnet = await MannschaftenInReihenfolgeAsync(mannschaftIds, ct);
 
         int startNr   = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
         var generator = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
@@ -228,64 +222,25 @@ public class SpielplanService(
             throw new InvalidOperationException(
                 "Schweizer System benötigt mindestens 2 Mannschaften.");
 
-        var vorhandeneSpiele = await spielRepository.AlleNachRundeAsync(turnierRundeId, ct);
-
-        int naechsterSpieltag = vorhandeneSpiele.Count > 0
-            ? vorhandeneSpiele.Select(s => s.Spieltag ?? 0).Max() + 1
-            : 1;
-
-        // Normalize to (min, max) for order-independent rematch detection (Platzhalter-Spiele ignorieren)
-        var echteSpiele = vorhandeneSpiele
-            .Where(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
-            .ToList();
-
-        var bereitsGespielt = echteSpiele
-            .Select(s => (
-                TeamAId: Math.Min(s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value),
-                TeamBId: Math.Max(s.HeimMannschaftId.Value, s.AuswaertsMannschaftId.Value)))
-            .Distinct()
-            .ToList<(int TeamAId, int TeamBId)>();
-
-        // Freilos-Historie: es wird kein eigener Spiel-Datensatz für ein Freilos angelegt — ein Team, das
-        // an weniger Spieltagen teilgenommen hat als bisher stattgefunden haben, hat mindestens einmal
-        // ausgesetzt (jedes Team spielt pro Spieltag höchstens ein Spiel).
-        var spieltageGespielt = echteSpiele
-            .SelectMany(s => new[] { s.HeimMannschaftId!.Value, s.AuswaertsMannschaftId!.Value })
-            .GroupBy(id => id)
-            .ToDictionary(g => g.Key, g => g.Count());
-
-        var freilosHistorie = sortierteMannschaftIds
-            .Where(id => spieltageGespielt.GetValueOrDefault(id) < naechsterSpieltag - 1)
-            .ToHashSet();
-
-        // Heim-Bilanz für den Farbausgleich
-        var heimBilanz = echteSpiele
-            .GroupBy(s => s.HeimMannschaftId!.Value)
-            .ToDictionary(g => g.Key, g => g.Count());
-
-        var mannschaften = await mannschaftRepository.FindenNachIdsAsync(sortierteMannschaftIds, ct);
-        var geordnet = sortierteMannschaftIds
-            .Select(id => mannschaften.FirstOrDefault(m => m.Id == id))
-            .Where(m => m is not null)
-            .Select(m => m!)
-            .ToList();
+        var verlauf  = SchweizerVerlauf.AusSpielen(await spielRepository.AlleNachRundeAsync(turnierRundeId, ct), sortierteMannschaftIds);
+        var geordnet = await MannschaftenInReihenfolgeAsync(sortierteMannschaftIds, ct);
 
         int startNr   = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, turnierRundeId, runde.Reihenfolge, ct);
         var generator = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
         var kontext   = new SpielplanKontext(
             runde, geordnet, startNr,
             Paarungen:       null,
-            BereitsGespielt: bereitsGespielt,
-            Spieltag:        naechsterSpieltag,
-            FreilosHistorie: freilosHistorie,
-            HeimBilanz:      heimBilanz);
+            BereitsGespielt: verlauf.BereitsGespielt,
+            Spieltag:        verlauf.NaechsterSpieltag,
+            FreilosHistorie: verlauf.FreilosHistorie,
+            HeimBilanz:      verlauf.HeimBilanz);
 
         var ergebnis = generator.Generieren(kontext);
         await SpielplanSpeicherung.ErgebnisSpeichernAsync(spielRepository, ergebnis, ct);
 
         logger.LogInformation(
             "Schweizer Runde {Spieltag} für '{Runde}' generiert: {Anzahl} Spiele.",
-            naechsterSpieltag, runde.Name, ergebnis.Spiele.Count);
+            verlauf.NaechsterSpieltag, runde.Name, ergebnis.Spiele.Count);
 
         return ergebnis;
     }
@@ -479,4 +434,12 @@ public class SpielplanService(
     internal async Task<TurnierRunde> RundeLadenAsync(int turnierRundeId, CancellationToken ct) =>
         await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
+
+    /// <summary>Die Mannschaften in der Reihenfolge der Ids (Auslosungs- bzw. Tabellenreihenfolge); unbekannte Ids
+    /// entfallen.</summary>
+    private async Task<List<Mannschaft>> MannschaftenInReihenfolgeAsync(IReadOnlyList<int> ids, CancellationToken ct)
+    {
+        var mannschaften = await mannschaftRepository.FindenNachIdsAsync(ids, ct);
+        return [.. ids.Select(id => mannschaften.FirstOrDefault(m => m.Id == id)).OfType<Mannschaft>()];
+    }
 }

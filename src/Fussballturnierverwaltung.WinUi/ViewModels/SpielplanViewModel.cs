@@ -1002,7 +1002,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         using var vorgang = _logger.Vorgang($"Spielplan: nächste Schweizer Runde generieren (Runde {runde.Id})", "Nächste Runde wird generiert …");
         bool generiert = await AendernUndNeuLadenAsync(
-            () => _schweizerRundenfolge.SchweizerNaechsteRundeGenerierenAsync(runde.Id),
+            () => _schweizerRundenfolge.NaechsteRundeGenerierenAsync(runde.Id),
             async () =>
             {
                 await SpieleNeuLadenAsync(runde.Id);

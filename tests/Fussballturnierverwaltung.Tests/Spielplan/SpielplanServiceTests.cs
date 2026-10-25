@@ -110,7 +110,7 @@ public class SpielplanServiceTests
     // ── Tests: Schweizer-Rundenfolge über mehrere Spieltage (Issue #329 Teil E) ─
 
     [Fact]
-    public async Task SchweizerNaechsteRundeGenerierenAsync_GeneriertFolgeSpieltagAusAktuellerTabelle()
+    public async Task SchweizerRundenfolge_NaechsteRunde_GeneriertFolgeSpieltagAusAktuellerTabelle()
     {
         await using var ctx = NeuerContext();
         SchweizerSystemGrundSetupAnlegen(ctx, out int rundeId); // 4 Teams
@@ -131,7 +131,7 @@ public class SpielplanServiceTests
         }
         await ctx.SaveChangesAsync();
 
-        await dienste.Schweizer.SchweizerNaechsteRundeGenerierenAsync(rundeId);
+        await dienste.Schweizer.NaechsteRundeGenerierenAsync(rundeId);
 
         var alleSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId).ToList();
         alleSpiele.Should().HaveCount(4);
@@ -139,7 +139,7 @@ public class SpielplanServiceTests
     }
 
     [Fact]
-    public async Task SchweizerNaechsteRundeGenerierenAsync_FreilosTeamOhneVorherigesSpiel_WirdWiederEingeplant()
+    public async Task SchweizerRundenfolge_NaechsteRunde_FreilosTeamOhneVorherigesSpiel_WirdWiederEingeplant()
     {
         // Regressionstest: Team 5 sitzt Spieltag 1 aus (Freilos, kein Spiel-Datensatz) und hat zum Zeitpunkt
         // der Spieltag-2-Generierung noch KEIN gespieltes Spiel — TabellenService allein würde es daher aus
@@ -185,7 +185,7 @@ public class SpielplanServiceTests
         }
         await ctx.SaveChangesAsync();
 
-        await dienste.Schweizer.SchweizerNaechsteRundeGenerierenAsync(rundeId);
+        await dienste.Schweizer.NaechsteRundeGenerierenAsync(rundeId);
 
         var spieltag2 = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId && s.Spieltag == 2).ToList();
         spieltag2.Should().HaveCount(2);
