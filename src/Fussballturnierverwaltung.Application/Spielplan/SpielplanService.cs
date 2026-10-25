@@ -23,10 +23,8 @@ public class SpielplanService(
     ITurnierBaumRepository turnierBaumRepository,
     SpielplanGeneratorFactory generatorFactory,
     TurnierValidator turnierValidator,
-    TabellenService tabellenService,
     KoQuellverknuepfung quellverknuepfung,
     PlatzhalterAufloesung aufloesung,
-    IAuslosungRepository auslosungRepository,
     ILogger<SpielplanService> logger)
 {
     /// <summary>
@@ -219,7 +217,7 @@ public class SpielplanService(
     /// <paramref name="sortierteMannschaftIds"/> enthält alle teilnehmenden Teams sortiert nach
     /// aktuellem Tabellenstand (Rang 1 zuerst). Für Runde 1 gibt die Reihenfolge das Seeding vor.
     /// </summary>
-    private async Task<SpielplanErgebnis> SchweizerRundeGenerierenAsync(
+    internal async Task<SpielplanErgebnis> SchweizerRundeGenerierenAsync(
         int turnierRundeId,
         IReadOnlyList<int> sortierteMannschaftIds,
         CancellationToken ct = default)
@@ -290,37 +288,6 @@ public class SpielplanService(
             naechsterSpieltag, runde.Name, ergebnis.Spiele.Count);
 
         return ergebnis;
-    }
-
-    /// <summary>Generiert die nächste Schweizer Runde (Spieltag) direkt aus dem aktuellen Tabellenstand — die
-    /// GUI-Aufrufstelle für eine bereits laufende Schweizer-Rundenfolge ab Spieltag 2 (Issue #329 Teil E;
-    /// <see cref="SchweizerRundeGenerierenAsync"/> bleibt die davon genutzte, unveränderte Kernlogik). Die
-    /// vollständige Teamliste kommt bewusst aus der abgeschlossenen Auslosung statt ausschließlich aus
-    /// <see cref="TabellenService"/>: ein Team mit Freilos in Spieltag 1 hat zu diesem Zeitpunkt noch kein
-    /// gespieltes Spiel und fehlt daher in der aus gespielten Spielen aufgebauten Tabelle — ohne diesen
-    /// Rückgriff würde es nach seinem ersten Freilos nie wieder eingeplant.</summary>
-    public async Task<SpielplanErgebnis> SchweizerNaechsteRundeGenerierenAsync(int turnierRundeId, CancellationToken ct = default)
-    {
-        var runde = await RundeLadenAsync(turnierRundeId, ct);
-
-        var auslosung = await auslosungRepository.FindenAbgeschlosseneNachRundeAsync(runde.TurnierInstanzId, turnierRundeId, ct)
-            ?? throw new InvalidOperationException($"Für Runde '{runde.Name}' wurde noch keine Auslosung abgeschlossen.");
-
-        var rosterIds = auslosung.Ergebnisse
-            .SelectMany(e => new[] { e.HeimMannschaftId, e.AuswaertsMannschaftId })
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .Distinct()
-            .ToList();
-
-        var tabelle = await tabellenService.TabelleBerechnenAsync(turnierRundeId, ct: ct);
-        var rangNachTeamId = tabelle.ToDictionary(e => e.Mannschaft.Id, e => e.Rang);
-
-        var sortierteIds = rosterIds
-            .OrderBy(id => rangNachTeamId.TryGetValue(id, out var rang) ? rang : int.MaxValue)
-            .ToList();
-
-        return await SchweizerRundeGenerierenAsync(turnierRundeId, sortierteIds, ct);
     }
 
     public Task<IReadOnlyList<Spiel>> SpielplanAbrufenAsync(int turnierRundeId, CancellationToken ct = default)
@@ -509,7 +476,7 @@ public class SpielplanService(
         return spiele.Count;
     }
 
-    private async Task<TurnierRunde> RundeLadenAsync(int turnierRundeId, CancellationToken ct) =>
+    internal async Task<TurnierRunde> RundeLadenAsync(int turnierRundeId, CancellationToken ct) =>
         await rundeRepository.FindenNachIdMitRegelwerkAsync(turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Runde mit ID {turnierRundeId} nicht gefunden.");
 }

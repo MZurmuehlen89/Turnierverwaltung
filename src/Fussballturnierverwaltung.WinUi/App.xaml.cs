@@ -124,6 +124,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<PlatzhalterAufloesung>();
         builder.Services.AddScoped<QualifikantenAufloesung>();
         builder.Services.AddScoped<SpielplanService>();
+        builder.Services.AddScoped<SchweizerRundenfolge>();
         builder.Services.AddScoped<FinaleAutomatik>();
         builder.Services.AddScoped<PlatzhalterKaskadeService>();
         builder.Services.AddScoped<IPlatzhalterKaskadeService>(sp => sp.GetRequiredService<PlatzhalterKaskadeService>());

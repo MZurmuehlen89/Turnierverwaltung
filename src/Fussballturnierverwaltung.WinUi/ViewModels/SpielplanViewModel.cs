@@ -34,7 +34,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
     ISpielmengenKontext
 {
     private readonly SpielErgebnisService _spielService;
-    private readonly SpielplanService _spielplanService;
+    private readonly SchweizerRundenfolge _schweizerRundenfolge;
     private readonly PlatzhalterKaskadeService _kaskade;
     private readonly FinaleAutomatik _finaleAutomatik;
     private readonly NeuGenerierungsRueckfrage _neuGenerierung;
@@ -547,7 +547,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
     public SpielplanViewModel(
         SpielErgebnisService spielService,
-        SpielplanService spielplanService,
+        SchweizerRundenfolge schweizerRundenfolge,
         SpiellistenQuelle quelle,
         PlatzhalterKaskadeService kaskade,
         FinaleAutomatik finaleAutomatik,
@@ -560,7 +560,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
         ILogger<SpielplanViewModel> logger)
     {
         _spielService = spielService;
-        _spielplanService = spielplanService;
+        _schweizerRundenfolge = schweizerRundenfolge;
         _quelle = quelle;
         _kaskade = kaskade;
         _finaleAutomatik = finaleAutomatik;
@@ -1002,7 +1002,7 @@ public partial class SpielplanViewModel : ViewModelBase, IRibbonAware, IHatUnges
 
         using var vorgang = _logger.Vorgang($"Spielplan: nächste Schweizer Runde generieren (Runde {runde.Id})", "Nächste Runde wird generiert …");
         bool generiert = await AendernUndNeuLadenAsync(
-            () => _spielplanService.SchweizerNaechsteRundeGenerierenAsync(runde.Id),
+            () => _schweizerRundenfolge.SchweizerNaechsteRundeGenerierenAsync(runde.Id),
             async () =>
             {
                 await SpieleNeuLadenAsync(runde.Id);

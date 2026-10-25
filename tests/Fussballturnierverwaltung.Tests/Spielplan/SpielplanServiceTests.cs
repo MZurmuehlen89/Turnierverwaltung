@@ -131,7 +131,7 @@ public class SpielplanServiceTests
         }
         await ctx.SaveChangesAsync();
 
-        await dienste.Spielplan.SchweizerNaechsteRundeGenerierenAsync(rundeId);
+        await dienste.Schweizer.SchweizerNaechsteRundeGenerierenAsync(rundeId);
 
         var alleSpiele = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId).ToList();
         alleSpiele.Should().HaveCount(4);
@@ -185,7 +185,7 @@ public class SpielplanServiceTests
         }
         await ctx.SaveChangesAsync();
 
-        await dienste.Spielplan.SchweizerNaechsteRundeGenerierenAsync(rundeId);
+        await dienste.Schweizer.SchweizerNaechsteRundeGenerierenAsync(rundeId);
 
         var spieltag2 = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId && s.Spieltag == 2).ToList();
         spieltag2.Should().HaveCount(2);
