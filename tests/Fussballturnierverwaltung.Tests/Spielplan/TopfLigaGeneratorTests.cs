@@ -60,7 +60,7 @@ public class TopfLigaGeneratorTests
     /// <summary>UCL-artige Paarungen wie aus der Topf-Zuordnung: 4 Töpfe à 9 Teams, im Topf ein Kreis (je 1 Heim-
     /// und 1 Auswärtsgegner), zwischen zwei Töpfen zwei Permutationen (je 1 Heim- und 1 Auswärtsgegner) → 144 Spiele,
     /// jedes Team 8 verschiedene Gegner, 4 Heim-/4 Auswärtsspiele.</summary>
-    private static List<(int, int)> UclPaarungen(int seed)
+    internal static List<(int, int)> UclPaarungen(int seed)
     {
         var zufall = new Random(seed);
         var toepfe = Enumerable.Range(0, 4).Select(t => Enumerable.Range(t * 9 + 1, 9).ToList()).ToList();
