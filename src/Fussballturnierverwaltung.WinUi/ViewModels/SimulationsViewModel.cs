@@ -500,6 +500,16 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
 
     // ── Protokoll ─────────────────────────────────────────────────────────────
 
+    // Kontextzeile wie bei kicker ("Champions League 2025/26, Finale") plus Hin-/Rückspiel-Kennung
+    private static string KontextZeile(Spiel spiel)
+    {
+        string bein = spiel.IstRueckspiel ? ", Rückspiel" : spiel.TurnierRunde?.MitRueckspiel == true ? ", Hinspiel" : "";
+        string ort = spiel.TurnierRunde?.NeutralerSpielort == true ? " (neutraler Platz)" : "";
+        // Issue #360: macht nachvollziehbar, warum hier ein Außenseiter öfter gewinnt.
+        string ueberraschung = spiel.TurnierRunde?.Ueberraschungsfaktor is int f and > 0 ? $" · Überraschungsfaktor {f} %" : "";
+        return $"{spiel.TurnierInstanz?.Name}, {spiel.TurnierRunde?.Name}{bein}{ort}{ueberraschung}";
+    }
+
     private async Task LadeProtokollAsync(int spielId)
     {
         var spiel = await _spielService.FindenNachIdMitEreignissenAsync(spielId);
@@ -521,12 +531,7 @@ public partial class SimulationsViewModel : ViewModelBase, IRibbonAware
             byte[]? heimWappen      = MannschaftsIcon.Fuer(spiel.HeimMannschaft);
             byte[]? auswaertsWappen = MannschaftsIcon.Fuer(spiel.AuswaertsMannschaft);
 
-            // Kontextzeile wie bei kicker ("Champions League 2025/26, Finale") plus Hin-/Rückspiel-Kennung
-            string bein = spiel.IstRueckspiel ? ", Rückspiel" : spiel.TurnierRunde?.MitRueckspiel == true ? ", Hinspiel" : "";
-            string ort = spiel.TurnierRunde?.NeutralerSpielort == true ? " (neutraler Platz)" : "";
-            // Issue #360: macht nachvollziehbar, warum hier ein Außenseiter öfter gewinnt.
-            string ueberraschung = spiel.TurnierRunde?.Ueberraschungsfaktor is int f and > 0 ? $" · Überraschungsfaktor {f} %" : "";
-            string kontext = $"{spiel.TurnierInstanz?.Name}, {spiel.TurnierRunde?.Name}{bein}{ort}{ueberraschung}";
+            string kontext = KontextZeile(spiel);
             var ergebnis = new SimulationsErgebnis(
                 e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
                 e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
