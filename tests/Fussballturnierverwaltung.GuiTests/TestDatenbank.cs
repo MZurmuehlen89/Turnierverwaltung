@@ -21,6 +21,26 @@ public sealed class TestDatenbank : IAsyncDisposable
 
     public string Verbindung => Verbindungstext(Name);
 
+    /// <summary>Liest einen Einzelwert direkt aus der Test-Datenbank – für Zustände, die die Oberfläche nicht zeigt
+    /// (#538). Werte nur über Parameter, nie in den SQL-Text.</summary>
+    public async Task<T> WertLesenAsync<T>(string sql, params (string Name, object Wert)[] parameter)
+    {
+        await using var verbindung = new SqlConnection(Verbindung);
+        await verbindung.OpenAsync();
+        await using var befehl = Befehl(verbindung, sql, parameter);
+        return (T)Convert.ChangeType((await befehl.ExecuteScalarAsync())!, typeof(T));
+    }
+
+    /// <summary>Ändert die Test-Datenbank an der Oberfläche vorbei, etwa um einen fehlenden Seed-Eintrag
+    /// herzustellen (#538).</summary>
+    public async Task<int> AusfuehrenAsync(string sql, params (string Name, object Wert)[] parameter)
+    {
+        await using var verbindung = new SqlConnection(Verbindung);
+        await verbindung.OpenAsync();
+        await using var befehl = Befehl(verbindung, sql, parameter);
+        return await befehl.ExecuteNonQueryAsync();
+    }
+
     public async ValueTask DisposeAsync()
     {
         await using var verbindung = new SqlConnection(Verbindungstext("master"));
@@ -35,6 +55,15 @@ public sealed class TestDatenbank : IAsyncDisposable
             END
             """;
         await befehl.ExecuteNonQueryAsync();
+    }
+
+    private static SqlCommand Befehl(SqlConnection verbindung, string sql, (string Name, object Wert)[] parameter)
+    {
+        var befehl = verbindung.CreateCommand();
+        befehl.CommandText = sql;
+        foreach (var (name, wert) in parameter)
+            befehl.Parameters.AddWithValue(name, wert);
+        return befehl;
     }
 
     private static string Verbindungstext(string datenbank) =>

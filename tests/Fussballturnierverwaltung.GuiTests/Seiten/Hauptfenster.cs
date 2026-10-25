@@ -55,6 +55,12 @@ public sealed class Hauptfenster(Window fenster)
         return new EinzelspielSeite(fenster);
     }
 
+    public DatenbankwartungSeite DatenbankwartungOeffnen()
+    {
+        Oeffnen(Bereich.Datenbankwartung);
+        return new DatenbankwartungSeite(fenster);
+    }
+
     /// <summary>Geladen heißt: Der erwartete Seitentitel steht da und kein Vorgang läuft mehr – und zwar für eine
     /// kurze Ruhezeit am Stück.</summary>
     public void WarteBisGeladen(string seitentitel) =>
