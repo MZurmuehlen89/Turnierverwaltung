@@ -1,4 +1,4 @@
-using Fussballturnierverwaltung.Application.Simulation;
+﻿using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -105,8 +105,8 @@ internal static class SimulationsProtokollHelfer
 
         return new SpielKopf(
             kontext,
-            heimName, MannschaftsIcon.Fuer(heim), Untertitel(heim, auswaerts, verbandKurzname), Kuerzel(heim, heimName),
-            auswaertsName, MannschaftsIcon.Fuer(auswaerts), Untertitel(auswaerts, heim, verbandKurzname), Kuerzel(auswaerts, auswaertsName),
+            heimName, MannschaftsIcon.Fuer(heim), SpielKopfUntertitel.Fuer(heim, auswaerts, verbandKurzname), Kuerzel(heim, heimName),
+            auswaertsName, MannschaftsIcon.Fuer(auswaerts), SpielKopfUntertitel.Fuer(auswaerts, heim, verbandKurzname), Kuerzel(auswaerts, auswaertsName),
             score, entscheidung, ZwischenstandText(e));
     }
 
@@ -117,8 +117,8 @@ internal static class SimulationsProtokollHelfer
         Mannschaft heim, Mannschaft auswaerts, string score, string zusatz,
         Func<Mannschaft, string?> verbandKurzname) =>
         new("Gesamt",
-            heim.Name, MannschaftsIcon.Fuer(heim), Untertitel(heim, auswaerts, verbandKurzname), Kuerzel(heim, heim.Name),
-            auswaerts.Name, MannschaftsIcon.Fuer(auswaerts), Untertitel(auswaerts, heim, verbandKurzname), Kuerzel(auswaerts, auswaerts.Name),
+            heim.Name, MannschaftsIcon.Fuer(heim), SpielKopfUntertitel.Fuer(heim, auswaerts, verbandKurzname), Kuerzel(heim, heim.Name),
+            auswaerts.Name, MannschaftsIcon.Fuer(auswaerts), SpielKopfUntertitel.Fuer(auswaerts, heim, verbandKurzname), Kuerzel(auswaerts, auswaerts.Name),
             score, zusatz, null);
 
     // Zwischenstände ("HZ 1:0 · 90' 1:1 · n.V. 2:1"). Der Halbzeitstand fehlt bei manuell eingegebenen
@@ -134,18 +134,6 @@ internal static class SimulationsProtokollHelfer
         if (hatVerlaengerung)
             teile.Add($"n.V. {e.HeimToreRegulaer + e.HeimToreVerlaengerung}:{e.AuswaertsToreRegulaer + e.AuswaertsToreVerlaengerung}");
         return teile.Count > 0 ? string.Join(" · ", teile) : null;
-    }
-
-    // Untertitel je nach Kontext der Begegnung (Nutzer-Vorgabe #341): Nationalmannschaft → Kontinental-
-    // verband; Verein → Land, außer beide sind Vereine desselben Landes (dann nichtssagend → keiner;
-    // dort gehört künftig die Liga hin, siehe #384).
-    private static string? Untertitel(Mannschaft? mannschaft, Mannschaft? gegner, Func<Mannschaft, string?> verbandKurzname)
-    {
-        if (mannschaft is null) return null;
-        if (mannschaft.Mannschaftsart == Mannschaftsart.Nationalmannschaft)
-            return verbandKurzname(mannschaft);
-        bool nationalesVereinsduell = gegner is { Mannschaftsart: Mannschaftsart.Verein } && gegner.LandId == mannschaft.LandId;
-        return nationalesVereinsduell ? null : mannschaft.Land?.Name;
     }
 
     // Issue #341: Team-Kürzel am Zeitstrahl — Kurzname, sonst die ersten drei Buchstaben des Namens
