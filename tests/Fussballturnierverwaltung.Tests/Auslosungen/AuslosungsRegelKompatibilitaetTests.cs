@@ -113,6 +113,61 @@ public class AuslosungsRegelKompatibilitaetTests
             .And.OnlyContain(r => AuslosungsRegelKompatibilitaet.SperrGrund(r, Auslosungsart.Zufall, Rundenart.KoRunde, true)
                                   != "Diese Regel wird nicht mehr unterstützt.");
 
+    // ── Sperrgrund: genauer Text je Zweig (#502) ─────────────────────────────
+
+    private const string LIGA = "In einer Liga spielt jeder gegen jeden — es gibt weder Gruppen noch ausgeloste " +
+                                "Paarungen, auf die diese Regel wirken könnte.";
+    private const string SCHWEIZER = "Beim Schweizer System bildet der Spielplan-Generator die Paarungen selbst — die " +
+                                     "Auslosung legt nur die Startreihenfolge fest.";
+    private const string OHNE_GRUPPENPHASE = "Diese Runde folgt auf keine Gruppenphase — es gibt keine früheren " +
+                                             "Gruppen, deren Teams sich erneut begegnen könnten.";
+    private const string HEIMRECHT_GRUPPENPHASE = "In der Gruppenphase werden Teams nur Gruppen zugeordnet — das " +
+                                                  "Heimrecht ergibt sich aus dem Spielplan der Gruppe.";
+    private const string HEIMRECHT_TOPFZUORDNUNG = "Die Topf-Zuordnung verteilt Heim- und Auswärtsspiele selbst (je " +
+                                                   "Topf ein Heim- und ein Auswärtsgegner).";
+    private const string HEIMRECHT_HAND = "Bei der Ziehung von Hand ist die Ziehung selbst das Los — das zuerst " +
+                                          "gezogene Team spielt zu Hause.";
+    private const string FREILOS_GRUPPENPHASE = "In der Gruppenphase gibt es kein Freilos — alle Teams werden auf " +
+                                                "die Gruppen verteilt.";
+    private const string FREILOS_TOPFZUORDNUNG = "Die Topf-Zuordnung erfordert gleich große Töpfe — ein Freilos ist " +
+                                                 "nicht vorgesehen.";
+    private const string KONFOEDERATION = "Die Konföderationsverteilung regelt die Verteilung auf Gruppen — in dieser " +
+                                          "Runde werden keine Gruppen ausgelost.";
+    private const string NICHT_UNTERSTUETZT = "Diese Regel wird nicht mehr unterstützt.";
+
+    public static TheoryData<AuslosungsRegelArt, Auslosungsart, Rundenart?, bool, string?> SperrGruende() => new()
+    {
+        // Liga und Schweizer System sperren jede Regel, vor allem anderen — auch eine, die sonst immer gilt
+        { AuslosungsRegelArt.KeineGleicheGruppe, Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Liga, true, LIGA },
+        { AuslosungsRegelArt.FreilosMoeglich, Auslosungsart.TopfZuordnung, Rundenart.SchweizerSystem, true, SCHWEIZER },
+        // Immer aktiv geht jeder anderen Sperre vor
+        { AuslosungsRegelArt.KeineGleicheGruppe, Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.KoRunde, false, null },
+        // Je Regel die eigene Sperre — „Kein gleiches Land“ hat keine
+        { AuslosungsRegelArt.KeinGleichesLand, Auslosungsart.TopfZuordnung, Rundenart.Gruppenphase, false, null },
+        { AuslosungsRegelArt.KeineGleicheGruppe, Auslosungsart.Zufall, Rundenart.KoRunde, false, OHNE_GRUPPENPHASE },
+        { AuslosungsRegelArt.KeineGleicheGruppe, Auslosungsart.Zufall, Rundenart.KoRunde, true, null },
+        { AuslosungsRegelArt.HeimrechtFuerUnterklassige, Auslosungsart.TopfZuordnung, Rundenart.Gruppenphase, true, HEIMRECHT_GRUPPENPHASE },
+        { AuslosungsRegelArt.HeimrechtNachSetzliste, Auslosungsart.TopfZuordnung, Rundenart.KoRunde, true, HEIMRECHT_TOPFZUORDNUNG },
+        { AuslosungsRegelArt.HeimrechtNachLos, Auslosungsart.Manuell, null, true, HEIMRECHT_HAND },
+        { AuslosungsRegelArt.HeimrechtNachSetzliste, Auslosungsart.Manuell, Rundenart.KoRunde, true, null },
+        { AuslosungsRegelArt.HeimrechtNachLos, Auslosungsart.Zufall, null, true, null },
+        { AuslosungsRegelArt.FreilosMoeglich, Auslosungsart.TopfZuordnung, Rundenart.Gruppenphase, true, FREILOS_GRUPPENPHASE },
+        { AuslosungsRegelArt.FreilosMoeglich, Auslosungsart.TopfZuordnung, Rundenart.KoRunde, true, FREILOS_TOPFZUORDNUNG },
+        { AuslosungsRegelArt.FreilosMoeglich, Auslosungsart.Benutzerdefiniert, Rundenart.Finale, true, null },
+        { AuslosungsRegelArt.Konfoederationsverteilung, Auslosungsart.Zufall, null, true, KONFOEDERATION },
+        { AuslosungsRegelArt.Konfoederationsverteilung, Auslosungsart.Zufall, Rundenart.KoRunde, true, KONFOEDERATION },
+        { AuslosungsRegelArt.Konfoederationsverteilung, Auslosungsart.NachToepfen, Rundenart.Gruppenphase, false, null },
+#pragma warning disable CS0618 // entfallene Regel: genau ihr Sperrgrund wird geprüft
+        { AuslosungsRegelArt.GesetzteGegenUngesetzte, Auslosungsart.NachSetzliste, Rundenart.KoRunde, true, NICHT_UNTERSTUETZT },
+#pragma warning restore CS0618
+    };
+
+    [Theory]
+    [MemberData(nameof(SperrGruende))]
+    public void SperrGrund_GenauerTextJeZweig(
+        AuslosungsRegelArt regel, Auslosungsart art, Rundenart? rundenart, bool folgtAufGruppenphase, string? erwartet) =>
+        AuslosungsRegelKompatibilitaet.SperrGrund(regel, art, rundenart, folgtAufGruppenphase).Should().Be(erwartet);
+
     [Theory]
     [InlineData("1. Gruppe A", "A", 1)]
     [InlineData("2. Gruppe D", "D", 2)]
