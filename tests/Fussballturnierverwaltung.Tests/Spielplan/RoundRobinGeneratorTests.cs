@@ -181,4 +181,27 @@ public class RoundRobinGeneratorTests
             r.Spieltag.Should().BeGreaterThan(spieltageHinrunde,
                 "Rückrunden-Spieltage müssen um die Anzahl der Hinrunden-Spieltage versetzt sein"));
     }
+
+    // ── Exakte Spielfolge (#504) ────────────────────────────────────────────
+
+    /// <summary>Spielfolge in Spielnummer-Reihenfolge als "Spieltag:Heim-Gast" — hält die Berger-Tabelle samt Heimrecht
+    /// und Rückrunde exakt fest, damit ein Umbau keine Paarung, kein Heimrecht und keinen Spieltag verschiebt.</summary>
+    internal static string Kurzform(IEnumerable<(int? Spieltag, int? Heim, int? Gast)> spiele) =>
+        string.Join(" ", spiele.Select(s => $"{s.Spieltag}:{s.Heim}-{s.Gast}"));
+
+    [Theory]
+    [InlineData(2, false, "1:1-2")]
+    [InlineData(4, false, "1:1-4 1:2-3 2:3-1 2:4-2 3:1-2 3:3-4")]
+    [InlineData(5, false, "1:2-5 1:3-4 2:5-1 2:2-3 3:1-4 3:5-3 4:3-1 4:4-2 5:1-2 5:4-5")]
+    [InlineData(6, false, "1:1-6 1:2-5 1:3-4 2:5-1 2:6-4 2:2-3 3:1-4 3:5-3 3:6-2 4:3-1 4:4-2 4:5-6 5:1-2 5:3-6 5:4-5")]
+    [InlineData(3, true, "1:2-3 2:3-1 3:1-2 4:3-2 5:1-3 6:2-1")]
+    [InlineData(4, true, "1:1-4 1:2-3 2:3-1 2:4-2 3:1-2 3:3-4 4:4-1 4:3-2 5:1-3 5:2-4 6:2-1 6:4-3")]
+    public void Spielfolge_IstExaktFestgehalten(int teamAnzahl, bool mitRueckspiel, string erwartet)
+    {
+        var runde    = mitRueckspiel ? TestRundeMitRueckspiel() : TestRunde();
+        var ergebnis = _generator.Generieren(new SpielplanKontext(runde, Teams(teamAnzahl), 1));
+
+        Kurzform(ergebnis.Spiele.OrderBy(s => s.Spielnummer).Select(s => (s.Spieltag, s.HeimMannschaftId, s.AuswaertsMannschaftId)))
+            .Should().Be(erwartet);
+    }
 }

@@ -2,6 +2,9 @@ using FluentAssertions;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Tests.Spielplan;
 
@@ -194,5 +197,37 @@ public class GruppenSpielplanTests
         spiele[0].IstRueckspiel = true;
 
         GruppenSpielplan.PasstZu(plan, spiele).Should().BeFalse();
+    }
+
+    // ── Gleicher Berger-Plan wie der RoundRobinGenerator (#504) ─────────────
+
+    /// <summary>Gruppen mit festen Teams generiert der <see cref="RoundRobinGenerator"/>, Gruppen mit Platzhaltern
+    /// <see cref="GruppenSpielplan"/> — beide müssen dieselben Paarungen mit demselben Heimrecht an denselben
+    /// Spieltagen liefern.</summary>
+    [Theory]
+    [InlineData(2, false)]
+    [InlineData(3, false)]
+    [InlineData(4, false)]
+    [InlineData(5, false)]
+    [InlineData(6, false)]
+    [InlineData(7, true)]
+    [InlineData(8, true)]
+    public void Planen_EineGruppe_GleicheSpielfolgeWieRoundRobinGenerator(int teamAnzahl, bool mitRueckspiel)
+    {
+        var ids   = Enumerable.Range(1, teamAnzahl).ToArray();
+        var runde = new TurnierRunde
+        {
+            Id = 1, TurnierInstanzId = 1, Name = "Gruppenphase",
+            Rundenart = Rundenart.Gruppenphase, MitRueckspiel = mitRueckspiel,
+        };
+        var teams = ids.Select(id => new Mannschaft { Id = id, Name = $"Team {id}" }).ToList();
+
+        var generiert = new RoundRobinGenerator().Generieren(new SpielplanKontext(runde, teams, 1)).Spiele
+            .OrderBy(s => s.Spielnummer)
+            .Select(s => ((int?)s.Spieltag, s.HeimMannschaftId, s.AuswaertsMannschaftId));
+        var geplant = GruppenSpielplan.Planen([FesteGruppe(ids)], mitRueckspiel)
+            .Select(g => ((int?)g.Spieltag, g.Heim.MannschaftId, g.Auswaerts.MannschaftId));
+
+        RoundRobinGeneratorTests.Kurzform(geplant).Should().Be(RoundRobinGeneratorTests.Kurzform(generiert));
     }
 }
