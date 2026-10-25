@@ -53,9 +53,7 @@ public class AuslosungServiceVerbandsQuoteTests
         var rundeRepo = new FakeTurnierRundeRepository();
         rundeRepo.Speichern(alleRundenDerInstanz);
 
-        var service = new AuslosungService(
-            auslosungRepo, verbandsQuoteRepo, new FakeLandesQuoteRepository(), rundeRepo, new AuslosungsValidator(),
-            new FakePlatzhalterKaskadeService(), new FakeRanglisteRepository(), new Zufallsquelle(), NullLogger<AuslosungService>.Instance);
+        var service = AuslosungDienste.Service(auslosungRepo, verbandsQuoten: verbandsQuoteRepo, runden: rundeRepo);
 
         return (service, auslosungRepo, auslosung);
     }

@@ -28,9 +28,7 @@ public class AuslosungsRegelnTests
 
     public AuslosungsRegelnTests()
     {
-        _service = new AuslosungService(
-            _repo, new FakeVerbandsQuoteRepository(), new FakeLandesQuoteRepository(), _runden, new AuslosungsValidator(),
-            new FakePlatzhalterKaskadeService(), _ranglisten, new Zufallsquelle(), NullLogger<AuslosungService>.Instance);
+        _service = AuslosungDienste.Service(_repo, runden: _runden, ranglisten: _ranglisten);
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────

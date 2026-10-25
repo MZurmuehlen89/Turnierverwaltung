@@ -26,9 +26,7 @@ public class KonfoederationsverteilungTests
 
     public KonfoederationsverteilungTests()
     {
-        _service = new AuslosungService(
-            _repo, new FakeVerbandsQuoteRepository(), new FakeLandesQuoteRepository(), _runden, new AuslosungsValidator(),
-            new FakePlatzhalterKaskadeService(), new FakeRanglisteRepository(), new Zufallsquelle(), NullLogger<AuslosungService>.Instance);
+        _service = AuslosungDienste.Service(_repo, runden: _runden);
     }
 
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────

@@ -20,9 +20,7 @@ public class AuslosungServiceLostopfTests
 
     public AuslosungServiceLostopfTests()
     {
-        _service = new AuslosungService(
-            _repo, new FakeVerbandsQuoteRepository(), new FakeLandesQuoteRepository(), new FakeTurnierRundeRepository(),
-            new AuslosungsValidator(), _kaskade, new FakeRanglisteRepository(), new Zufallsquelle(), NullLogger<AuslosungService>.Instance);
+        _service = AuslosungDienste.Service(_repo, kaskade: _kaskade);
 
         // Topf 1: Mannschaften 1 und 2, Topf 2: Mannschaften 3 und 4
         _auslosung = NeueAuslosung(Rundenart.KoRunde, Auslosungsart.NachToepfen, [TopfMitTeams(1, 1, 2), TopfMitTeams(2, 3, 2)]);

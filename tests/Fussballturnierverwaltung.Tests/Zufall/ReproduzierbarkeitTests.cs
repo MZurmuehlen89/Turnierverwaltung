@@ -24,10 +24,7 @@ public class ReproduzierbarkeitTests
     private static async Task<List<(int? Heim, int? Auswaerts)>> KoAuslosungMitSeed(int seed)
     {
         var repo = new FakeAuslosungRepository();
-        var service = new AuslosungService(
-            repo, new FakeVerbandsQuoteRepository(), new FakeLandesQuoteRepository(), new FakeTurnierRundeRepository(),
-            new AuslosungsValidator(), new FakePlatzhalterKaskadeService(), new FakeRanglisteRepository(),
-            new Zufallsquelle(seed), NullLogger<AuslosungService>.Instance);
+        var service = AuslosungDienste.Service(repo, zufallsquelle: new Zufallsquelle(seed));
 
         var auslosung = new Auslosung
         {

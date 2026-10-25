@@ -20,10 +20,7 @@ public class AuslosungServiceGruppenkoepfeTests
 
     public AuslosungServiceGruppenkoepfeTests()
     {
-        _service = new AuslosungService(
-            _repo, new FakeVerbandsQuoteRepository(), new FakeLandesQuoteRepository(), new FakeTurnierRundeRepository(),
-            new AuslosungsValidator(), new FakePlatzhalterKaskadeService(), new FakeRanglisteRepository(),
-            new Zufallsquelle(), NullLogger<AuslosungService>.Instance);
+        _service = AuslosungDienste.Service(_repo);
         _repo.Kandidaten = new GruppenkopfKandidaten([GASTGEBER], null, new Dictionary<int, string> { [GASTGEBER] = "Luxemburg" });
     }
 
