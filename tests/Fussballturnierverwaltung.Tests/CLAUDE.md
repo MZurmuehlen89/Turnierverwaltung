@@ -36,3 +36,13 @@ xunit runner, e.g. `-class …`). The script builds an **unpackaged, self-contai
 - On failure, screenshot and log tail land in `artifacts/guitest/laeufe/<run>/fehlschlaege/`.
 - "Page loaded" = expected page title and `Hauptfenster.Befehlsleiste` ItemStatus `Bereit` stable for 300 ms — never
   `Sleep`. AutomationId convention: see `src/Fussballturnierverwaltung.WinUi/CLAUDE.md`.
+
+**How often to run** (user decision 25.10.2026 — every run blocks the user's mouse and keyboard):
+
+| Change | New/changed scenario | Full run |
+|---|---|---|
+| Normal case: own view, own AutomationIds, test only reads or uses unique test data | **2×** + counter-check | no |
+| Shared parts touched: framework/page objects, controls used in several places, main window/navigation/command bar, seed, startup path, DB schema | 1× | **1×** (counts as the scenario's second run) |
+| New test creates data other scenarios could see (one database per run) | 1× | **1×** |
+
+A single red run is investigated, not simply re-run.
