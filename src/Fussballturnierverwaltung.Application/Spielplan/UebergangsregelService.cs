@@ -40,16 +40,7 @@ public class UebergangsregelService(
         var alleRegeln = await repository.AlleFindenAsync(ct);
         ValidationException.WerfenWennUngueltig(validator.Validieren(eingabe, quellRunde, zielRunde, alleRegeln));
 
-        var regel = new Uebergangsregel
-        {
-            QuellRundeId    = eingabe.QuellRundeId,
-            ZielRundeId     = eingabe.ZielRundeId,
-            GruppeIndex     = eingabe.GruppeIndex,
-            PlatzierungVon  = eingabe.PlatzierungVon,
-            PlatzierungBis  = eingabe.PlatzierungBis,
-            AnzahlBeste     = eingabe.AnzahlBeste
-        };
-
+        var regel = NeueRegel(eingabe);
         await repository.HinzufuegenAsync(regel, ct);
         logger.LogInformation(
             "Übergangsregel angelegt: Runde '{QuellRunde}' → Runde '{ZielRunde}' (Platz {Von}-{Bis}).",
@@ -59,20 +50,16 @@ public class UebergangsregelService(
 
     public async Task AktualisierenAsync(int id, UebergangsregelEingabe eingabe, CancellationToken ct = default)
     {
-        var regel = await repository.FindenNachIdAsync(id, ct)
-            ?? throw new InvalidOperationException($"Übergangsregel mit ID {id} nicht gefunden.");
+        var regel = await RegelLadenAsync(id, ct);
 
         var quellRunde = await QuellRundeLadenAsync(eingabe.QuellRundeId, ct);
         var zielRunde = await ZielRundeLadenAsync(eingabe.ZielRundeId, ct);
         var alleRegeln = await repository.AlleFindenAsync(ct);
         ValidationException.WerfenWennUngueltig(validator.Validieren(eingabe, quellRunde, zielRunde, alleRegeln, bearbeiteteRegelId: id));
 
-        regel.QuellRundeId   = eingabe.QuellRundeId;
-        regel.ZielRundeId    = eingabe.ZielRundeId;
-        regel.GruppeIndex    = eingabe.GruppeIndex;
-        regel.PlatzierungVon = eingabe.PlatzierungVon;
-        regel.PlatzierungBis = eingabe.PlatzierungBis;
-        regel.AnzahlBeste    = eingabe.AnzahlBeste;
+        regel.QuellRundeId = eingabe.QuellRundeId;
+        regel.ZielRundeId  = eingabe.ZielRundeId;
+        PlatzierungUebernehmen(regel, eingabe);
 
         await repository.AktualisierenAsync(regel, ct);
         logger.LogInformation("Übergangsregel {Id} aktualisiert.", id);
@@ -96,47 +83,59 @@ public class UebergangsregelService(
             .ToList();
         ValidationException.WerfenWennUngueltig(validator.Validieren(eingaben, quellRunde, zielRunde, alleRegeln));
 
-        foreach (var id in zuLoeschendeIds)
-        {
-            var regel = await repository.FindenNachIdAsync(id, ct);
-            if (regel is not null)
-                await repository.LoeschenAsync(regel, ct);
-        }
+        await VorhandeneLoeschenAsync(zuLoeschendeIds, ct);
 
         var ergebnis = new List<Uebergangsregel>();
         foreach (var (zeile, eingabe) in zeilen.Zip(eingaben))
-        {
-            if (zeile.Id is null)
-            {
-                var regel = new Uebergangsregel
-                {
-                    QuellRundeId   = quellRundeId,
-                    ZielRundeId    = zielRundeId,
-                    GruppeIndex    = eingabe.GruppeIndex,
-                    PlatzierungVon = eingabe.PlatzierungVon,
-                    PlatzierungBis = eingabe.PlatzierungBis,
-                    AnzahlBeste    = eingabe.AnzahlBeste
-                };
-                await repository.HinzufuegenAsync(regel, ct);
-                ergebnis.Add(regel);
-            }
-            else
-            {
-                var regel = await repository.FindenNachIdAsync(zeile.Id.Value, ct)
-                    ?? throw new InvalidOperationException($"Übergangsregel mit ID {zeile.Id} nicht gefunden.");
-                regel.GruppeIndex    = eingabe.GruppeIndex;
-                regel.PlatzierungVon = eingabe.PlatzierungVon;
-                regel.PlatzierungBis = eingabe.PlatzierungBis;
-                regel.AnzahlBeste    = eingabe.AnzahlBeste;
-                await repository.AktualisierenAsync(regel, ct);
-                ergebnis.Add(regel);
-            }
-        }
+            ergebnis.Add(await ZeileSpeichernAsync(zeile.Id, eingabe, ct));
 
         logger.LogInformation(
             "Übergangsregel-Block '{QuellRunde}' → '{ZielRunde}' gespeichert ({Anzahl} Zeilen, {Geloescht} gelöscht).",
             quellRunde.Name, zielRunde.Name, zeilen.Count, zuLoeschendeIds.Count);
         return ergebnis;
+    }
+
+    /// <summary>Bereits gelöschte Regeln werden übergangen.</summary>
+    private async Task VorhandeneLoeschenAsync(IReadOnlyList<int> ids, CancellationToken ct)
+    {
+        foreach (var id in ids)
+        {
+            var regel = await repository.FindenNachIdAsync(id, ct);
+            if (regel is not null)
+                await repository.LoeschenAsync(regel, ct);
+        }
+    }
+
+    /// <summary>Eine Zeile ohne <paramref name="id"/> legt eine neue Regel an, sonst wird die bestehende aktualisiert.</summary>
+    private async Task<Uebergangsregel> ZeileSpeichernAsync(int? id, UebergangsregelEingabe eingabe, CancellationToken ct)
+    {
+        if (id is null)
+        {
+            var neu = NeueRegel(eingabe);
+            await repository.HinzufuegenAsync(neu, ct);
+            return neu;
+        }
+
+        var regel = await RegelLadenAsync(id.Value, ct);
+        PlatzierungUebernehmen(regel, eingabe);
+        await repository.AktualisierenAsync(regel, ct);
+        return regel;
+    }
+
+    private static Uebergangsregel NeueRegel(UebergangsregelEingabe eingabe)
+    {
+        var regel = new Uebergangsregel { QuellRundeId = eingabe.QuellRundeId, ZielRundeId = eingabe.ZielRundeId };
+        PlatzierungUebernehmen(regel, eingabe);
+        return regel;
+    }
+
+    /// <summary>Alles außer Quell- und Zielrunde.</summary>
+    private static void PlatzierungUebernehmen(Uebergangsregel regel, UebergangsregelEingabe eingabe)
+    {
+        regel.GruppeIndex    = eingabe.GruppeIndex;
+        regel.PlatzierungVon = eingabe.PlatzierungVon;
+        regel.PlatzierungBis = eingabe.PlatzierungBis;
+        regel.AnzahlBeste    = eingabe.AnzahlBeste;
     }
 
     /// <summary>Vollersatz-Semantik (Issue #294): ersetzt die kompletten Übergangsregeln über alle
@@ -157,8 +156,7 @@ public class UebergangsregelService(
 
     public async Task LoeschenAsync(int id, CancellationToken ct = default)
     {
-        var regel = await repository.FindenNachIdAsync(id, ct)
-            ?? throw new InvalidOperationException($"Übergangsregel mit ID {id} nicht gefunden.");
+        var regel = await RegelLadenAsync(id, ct);
         await repository.LoeschenAsync(regel, ct);
         logger.LogInformation("Übergangsregel {Id} gelöscht.", id);
     }
@@ -172,6 +170,10 @@ public class UebergangsregelService(
 
         return await aufloesung.UebergangsregelQualifikantenAsync(regel, ct);
     }
+
+    private async Task<Uebergangsregel> RegelLadenAsync(int id, CancellationToken ct)
+        => await repository.FindenNachIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"Übergangsregel mit ID {id} nicht gefunden.");
 
     private async Task<TurnierRunde> QuellRundeLadenAsync(int quellRundeId, CancellationToken ct)
         => await rundeRepository.FindenNachIdMitRegelwerkAsync(quellRundeId, ct)
