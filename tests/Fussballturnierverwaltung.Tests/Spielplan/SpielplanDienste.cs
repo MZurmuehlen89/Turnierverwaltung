@@ -31,7 +31,7 @@ internal sealed class SpielplanDienste
             NullLogger<PlatzhalterAufloesung>.Instance);
         Spielplan = new SpielplanService(
             rundeRepo, spielRepo, mannschaftRepo,
-            generatoren, new TurnierValidator(), Quellverknuepfung, Aufloesung,
+            generatoren, new TurnierValidator(), Aufloesung,
             NullLogger<SpielplanService>.Instance);
         Schweizer = new SchweizerRundenfolge(auslosungRepo, tabellen, Spielplan);
         Finale = new FinaleAutomatik(

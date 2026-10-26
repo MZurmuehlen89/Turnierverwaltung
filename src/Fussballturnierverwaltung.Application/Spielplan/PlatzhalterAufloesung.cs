@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turniere;
@@ -85,6 +86,23 @@ public class PlatzhalterAufloesung(
             offene.Ziel.Runde.Name, korrekturen.Count, offene.Spiele.Count, ladenMs, aufloesenMs, speichernMs);
 
         return korrekturen.Count;
+    }
+
+    /// <summary>Nach dem Generieren der Runde: Quellspiele aller Runden verknüpfen, dann die Platzhalter der
+    /// Runde auflösen.</summary>
+    public async Task NachGenerierungAufloesenAsync(TurnierRunde runde, CancellationToken ct = default)
+    {
+        // Issue #241: K.o.-Quellverknüpfungen (Sieger/Verlierer eines konkreten Vorrundenspiels) direkt
+        // nach jeder Generierung nachziehen — idempotent, unabhängig davon, in welcher Reihenfolge Runden
+        // erzeugt werden.
+        using (logger.Vorgang($"Quellverknüpfung nach Generierung (Instanz {runde.TurnierInstanzId})"))
+            await quellverknuepfung.AlleRundenVerknuepfenAsync(runde.TurnierInstanzId, ct);
+
+        // Issue #346-Folgefund: bereits feststehende Teilnehmer sofort eintragen — sonst zeigte eine neu
+        // generierte Runde nach bereits entschiedener Vorrunde wieder reine Platzhalter, bis irgendwo das
+        // nächste Ergebnis die Auflösung anstieß (alle Aufrufer: Spielplan, Auslosung, Vorbelegung, Kaskade).
+        using (logger.Vorgang($"Platzhalter auflösen nach Generierung (Runde {runde.Id})"))
+            await RundeAufloesenAsync(runde.Id, ct);
     }
 
     /// <summary>Löst die Platzhalter aller Runden der Turnierinstanz auf (Issue #90, Vorwärts-Gegenstück

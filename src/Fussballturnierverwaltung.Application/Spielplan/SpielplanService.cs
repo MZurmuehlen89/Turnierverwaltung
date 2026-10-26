@@ -1,7 +1,4 @@
-using Fussballturnierverwaltung.Application.Auslosungen;
-using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Stammdaten;
-using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -11,8 +8,6 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Microsoft.Extensions.Logging;
-using System.Diagnostics;
-using System.Text.RegularExpressions;
 
 namespace Fussballturnierverwaltung.Application.Spielplan;
 
@@ -22,7 +17,6 @@ public class SpielplanService(
     IMannschaftRepository mannschaftRepository,
     SpielplanGeneratorFactory generatorFactory,
     TurnierValidator turnierValidator,
-    KoQuellverknuepfung quellverknuepfung,
     PlatzhalterAufloesung aufloesung,
     ILogger<SpielplanService> logger)
 {
@@ -90,22 +84,7 @@ public class SpielplanService(
             _                         => PaarungenGenerierenAsync(turnierRundeId, ergebnisse, ct),
         });
 
-        await NachGenerierungVerknuepfenAsync(runde, turnierRundeId, ct);
-    }
-
-    private async Task NachGenerierungVerknuepfenAsync(TurnierRunde runde, int turnierRundeId, CancellationToken ct)
-    {
-        // Issue #241: K.o.-Quellverknüpfungen (Sieger/Verlierer eines konkreten Vorrundenspiels) direkt
-        // nach jeder Generierung nachziehen — idempotent, unabhängig davon, in welcher Reihenfolge Runden
-        // erzeugt werden.
-        using (logger.Vorgang($"Quellverknüpfung nach Generierung (Instanz {runde.TurnierInstanzId})"))
-            await quellverknuepfung.AlleRundenVerknuepfenAsync(runde.TurnierInstanzId, ct);
-
-        // Issue #346-Folgefund: bereits feststehende Teilnehmer sofort eintragen — sonst zeigte eine neu
-        // generierte Runde nach bereits entschiedener Vorrunde wieder reine Platzhalter, bis irgendwo das
-        // nächste Ergebnis die Auflösung anstieß (alle Aufrufer: Spielplan, Auslosung, Vorbelegung, Kaskade).
-        using (logger.Vorgang($"Platzhalter auflösen nach Generierung (Runde {turnierRundeId})"))
-            await aufloesung.RundeAufloesenAsync(turnierRundeId, ct);
+        await aufloesung.NachGenerierungAufloesenAsync(runde, ct);
     }
 
     private async Task GruppenphaseGenerierenAsync(int turnierRundeId, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct)
