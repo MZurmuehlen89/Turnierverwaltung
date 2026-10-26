@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Fussballturnierverwaltung.Application.Spielplan;
 
+#pragma warning disable S107 // eine Verantwortung (Spielplan einer Runde erzeugen und löschen): Runde, Spiele, Mannschaften, Generatoren, Regelwerksprüfung und Auflösung brauchen die Generierungswege; ein weiterer Schnitt diente nur der Zahl (#504)
 public class SpielplanService(
     ITurnierRundeRepository rundeRepository,
     ISpielRepository spielRepository,
@@ -19,6 +20,7 @@ public class SpielplanService(
     TurnierValidator turnierValidator,
     PlatzhalterAufloesung aufloesung,
     ILogger<SpielplanService> logger)
+#pragma warning restore S107
 {
     /// <summary>
     /// Generiert den Spielplan für eine Runde. Die Mannschafts-IDs bestimmen Reihenfolge und Paarungen
