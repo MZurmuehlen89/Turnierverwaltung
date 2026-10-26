@@ -198,7 +198,12 @@ public class UebergangsregelServiceTests
         var ergebnis = await service.BlockSpeichernAsync(
             gruppenphaseRundeId, koRundeId, zeilen, zuLoeschendeIds: [wirdGeloescht.Id]);
 
-        ergebnis.Should().HaveCount(2);
+        ergebnis.Select(r => (r.QuellRundeId, r.ZielRundeId, r.GruppeIndex, r.PlatzierungVon, r.PlatzierungBis, r.AnzahlBeste))
+            .Should().Equal(
+                (gruppenphaseRundeId, koRundeId, (int?)1, 1, 2, (int?)null),
+                (gruppenphaseRundeId, koRundeId, (int?)2, 1, 2, (int?)null));
+        ergebnis[0].Id.Should().Be(bleibt.Id, "eine Zeile mit Id aktualisiert die bestehende Regel");
+        ergebnis[1].Id.Should().NotBe(wirdGeloescht.Id);
         var gespeichert = await service.AlleNachQuellRundeIdAsync(gruppenphaseRundeId);
         gespeichert.Should().HaveCount(2);
         gespeichert.Should().Contain(r => r.Id == bleibt.Id && r.PlatzierungBis == 2);
