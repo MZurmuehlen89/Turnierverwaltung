@@ -325,6 +325,25 @@ public class TurnierBaumServiceTests
     }
 
     [Fact]
+    public async Task RundenSpielplanLoeschen_LoestNurDieKnotenDerRundeVonIhrenSpielen()
+    {
+        await using var ctx = NeuerContext();
+        HalbfinalePlatzDreiFinaleAnlegen(ctx);
+        var (baumService, spielplan) = ServiceFuer(ctx);
+        await baumService.GenerierenAsync(1);
+        // Wie in der App sind die Knoten beim Löschen nicht geladen — geladene Knoten würde EF selbst nullen
+        ctx.ChangeTracker.Clear();
+
+        await spielplan.RundenSpielplanOhneKaskadeLoeschenAsync(1);
+
+        var knoten = await ctx.TurnierBaumKnotenMenge.ToListAsync();
+        knoten.Where(k => k.Runde == 1).Should().HaveCount(2).And.OnlyContain(k => k.SpielId == null);
+        knoten.Single(k => k.Runde == 2).SpielId.Should().Be(3);
+        knoten.Single(k => k.Runde == 3).SpielId.Should().Be(4);
+        ctx.Spiele.Select(s => s.Id).Should().BeEquivalentTo([3, 4]);
+    }
+
+    [Fact]
     public async Task BracketLadenAsync_StelltSpielUmPlatzDreiHinterDasFinale()
     {
         await using var ctx = NeuerContext();
