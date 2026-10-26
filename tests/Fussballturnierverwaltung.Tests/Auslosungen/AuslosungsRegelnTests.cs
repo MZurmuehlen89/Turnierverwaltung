@@ -49,7 +49,7 @@ public class AuslosungsRegelnTests
     private async Task<IReadOnlyList<AuslosungsErgebnis>> Ausfuehren(
         Rundenart rundenart, Auslosungsart art, IEnumerable<Lostopf> toepfe,
         IEnumerable<AuslosungsRegel>? regeln = null, bool mitRueckspiel = false,
-        int rundeId = 1, int auslosungId = 1)
+        int rundeId = 1, int auslosungId = 1, Qualifikanten? qualifikanten = null)
     {
         var runde = _runden.FindenNachIdAsync(rundeId).Result
             ?? new TurnierRunde { Id = rundeId, Name = "Runde", Rundenart = rundenart, RegelwerkId = 1 };
@@ -64,7 +64,7 @@ public class AuslosungsRegelnTests
         foreach (var r in regeln ?? []) auslosung.Regeln.Add(r);
         _repo.Speichern(auslosung);
 
-        return await _service.AusfuehrenAsync(auslosungId);
+        return await _service.AusfuehrenAsync(auslosungId, qualifikanten);
     }
 
     private static string? Gruppe(string? platzhalter) => GruppenHerkunft.AusPlatzhalter(platzhalter)?.Gruppe;
@@ -136,6 +136,40 @@ public class AuslosungsRegelnTests
             ergebnisse.Should().AllSatisfy(e =>
                 ((e.HeimMannschaftId!.Value - 1) % 4).Should().NotBe((e.AuswaertsMannschaftId!.Value - 1) % 4,
                     "Teams aus derselben Gruppe dürfen sich nicht erneut begegnen"));
+        }
+    }
+
+    [Fact]
+    public async Task NachToepfen_KeineGleicheGruppe_BesteDritteNurAlsPlatzhalter_ErmitteltGruppeIhrerQualifikanten()
+    {
+        // #489: In den Töpfen liegen nur Platzhalter — die Gruppen-Auslosung muss trotzdem gelesen werden, weil die
+        // besten Dritten ihre Gruppe nicht im Namen tragen. Gruppenphase (Runde 10): Team 1 in A, 2 in B, 3 in C, 4 in D.
+        _runden.Speichern(
+            new TurnierRunde { Id = 10, TurnierInstanzId = INSTANZ_ID, Reihenfolge = 1, Rundenart = Rundenart.Gruppenphase, GruppenAnzahl = 4, RegelwerkId = 1 },
+            new TurnierRunde { Id = 11, TurnierInstanzId = INSTANZ_ID, Reihenfolge = 2, Rundenart = Rundenart.KoRunde, RegelwerkId = 1 });
+        var gruppenAuslosung = new Auslosung
+        {
+            Id = 99, TurnierInstanzId = INSTANZ_ID, TurnierRundeId = 10, Status = AuslosungsStatus.Abgeschlossen,
+            Auslosungsart = Auslosungsart.Zufall
+        };
+        for (int team = 1; team <= 4; team++)
+            gruppenAuslosung.Ergebnisse.Add(new AuslosungsErgebnis { PaarungsNummer = team, HeimMannschaftId = team });
+        _repo.Speichern(gruppenAuslosung);
+        // Bester Dritter n ist Team n, kommt also aus der n-ten Gruppe.
+        var qualifikanten = new Qualifikanten(
+            Enumerable.Range(1, 4).ToDictionary(n => $"{n}. bester 3. Platz", n => Team(n)), AnzahlOffen: 0);
+
+        for (int lauf = 0; lauf < WIEDERHOLUNGEN; lauf++)
+        {
+            var ergebnisse = await Ausfuehren(Rundenart.KoRunde, Auslosungsart.NachToepfen,
+                [Topf(1, [.. Gruppen("A", "D").Select((g, i) => Platzhalter(i + 1, $"1. Gruppe {g}"))]),
+                 Topf(2, [.. Enumerable.Range(1, 4).Select(n => Platzhalter(n + 10, $"{n}. bester 3. Platz"))])],
+                [Regel(AuslosungsRegelArt.KeineGleicheGruppe)], rundeId: 11, auslosungId: 100 + lauf, qualifikanten: qualifikanten);
+
+            ergebnisse.Should().HaveCount(4);
+            ergebnisse.Should().AllSatisfy(e =>
+                ((char)('A' + int.Parse(e.AuswaertsPlatzhalterName![..1]) - 1)).ToString()
+                    .Should().NotBe(Gruppe(e.HeimPlatzhalterName), "ein bester Dritter trifft nicht auf den Sieger seiner Gruppe"));
         }
     }
 

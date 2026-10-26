@@ -37,9 +37,7 @@ public class AuslosungsVorbereitung(
         return gruppenkoepfe.Koepfe;
     }
 
-    // Die wirksamen Regeln (#331) und — nur wenn „Keine gleiche Gruppe“ wirkt und echte Mannschaften in den Töpfen
-    // liegen — deren Gruppe aus der letzten vorangegangenen Gruppenphase. Platzhalter („1. Gruppe A“) tragen ihre
-    // Gruppe selbst im Namen.
+    // Die wirksamen Regeln (#331) und die Gruppe je Mannschaft aus der vorangegangenen Gruppenphase.
     private async Task<(RegelKontext Regeln, IReadOnlyDictionary<int, string> GruppeJeMannschaft)> RegelnErmittelnAsync(
         Auslosung auslosung, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
     {
@@ -58,16 +56,29 @@ public class AuslosungsVorbereitung(
                 ? await SpielklassenLadenAsync(auslosung.TurnierRunde?.StandardRanglisteId, ct)
                 : null);
 
+        var gruppeJeMannschaft = regeln.KeineGleicheGruppe
+            ? await GruppeJeMannschaftLadenAsync(auslosung, alleRunden, ct)
+            : new Dictionary<int, string>();
+        return (regeln, gruppeJeMannschaft);
+    }
+
+    // Gruppe je Mannschaft aus der letzten vorangegangenen Gruppenphase — nur nötig, wenn echte Mannschaften oder
+    // Platzhalter ohne Gruppe im Namen in den Töpfen liegen. Platzhalter wie „1. Gruppe A“ tragen ihre Gruppe selbst
+    // im Namen, die besten Dritten („1. bester 3. Platz“) bekommen sie über ihren feststehenden Qualifikanten (#489).
+    // Quelle ist die Gruppenauslosung: Eine Gruppenphase, die selbst aus Platzhaltern gelost wurde, kennt dort keine
+    // Mannschaften, ihre Qualifikanten bleiben dann ohne Gruppe.
+    private async Task<Dictionary<int, string>> GruppeJeMannschaftLadenAsync(
+        Auslosung auslosung, IReadOnlyList<TurnierRunde> alleRunden, CancellationToken ct)
+    {
         var gruppeJeMannschaft = new Dictionary<int, string>();
-        if (!regeln.KeineGleicheGruppe ||
-            !auslosung.Lostoepfe.SelectMany(l => l.Eintraege).Any(e => e.MannschaftId.HasValue))
-            return (regeln, gruppeJeMannschaft);
+        if (!auslosung.Lostoepfe.SelectMany(l => l.Eintraege).Any(BrauchtGruppeAusVorrunde))
+            return gruppeJeMannschaft;
 
         var aktuelleRunde = alleRunden.FirstOrDefault(r => r.Id == auslosung.TurnierRundeId);
         var gruppenphase  = aktuelleRunde is null ? null : alleRunden
             .Where(r => r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge < aktuelleRunde.Reihenfolge)
             .MaxBy(r => r.Reihenfolge);
-        if (gruppenphase is null) return (regeln, gruppeJeMannschaft);
+        if (gruppenphase is null) return gruppeJeMannschaft;
 
         var gruppenAuslosung = await repository.FindenAbgeschlosseneNachRundeAsync(
             auslosung.TurnierInstanzId, gruppenphase.Id, ct);
@@ -75,8 +86,11 @@ public class AuslosungsVorbereitung(
             if (e.HeimMannschaftId is { } id)
                 gruppeJeMannschaft[id] = GruppenHerkunft.Buchstabe(e.PaarungsNummer);
 
-        return (regeln, gruppeJeMannschaft);
+        return gruppeJeMannschaft;
     }
+
+    private static bool BrauchtGruppeAusVorrunde(LostopfEintrag eintrag) =>
+        eintrag.MannschaftId.HasValue || GruppenHerkunft.AusPlatzhalter(eintrag.PlatzhalterName) is null;
 
     // Spielklassen aus der Standard-Rangliste der Runde (#393) — dieselbe Rangliste wie für die Lostöpfe (#349).
     // Ohne Standard-Rangliste kennt kein Team seine Klasse, dann entscheidet überall das Los.

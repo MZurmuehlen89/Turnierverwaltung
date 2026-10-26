@@ -223,6 +223,30 @@ public class LosverfahrenTests
     }
 
     [Fact]
+    public void NachToepfen_KeineGleicheGruppe_BesteDritte_PrueftDieGruppeIhrerQualifikanten()
+    {
+        // #489: „1. bester 3. Platz“ trägt keine Gruppe im Namen — sie kommt vom Qualifikanten. Bester Dritter 1 kommt
+        // aus Gruppe A, bester Dritter 2 aus Gruppe B, also bleibt nur je die Paarung mit dem Sieger der anderen Gruppe.
+        var auslosung = NeueAuslosung(Rundenart.KoRunde, Auslosungsart.NachToepfen,
+        [
+            Topf(1, new LostopfEintrag { Id = 1, PlatzhalterName = "1. Gruppe A" }, new LostopfEintrag { Id = 2, PlatzhalterName = "1. Gruppe B" }),
+            Topf(2, new LostopfEintrag { Id = 3, PlatzhalterName = "1. bester 3. Platz" }, new LostopfEintrag { Id = 4, PlatzhalterName = "2. bester 3. Platz" }),
+        ]);
+        var qualifikanten = new Qualifikanten(
+            new Dictionary<string, Mannschaft> { ["1. bester 3. Platz"] = Team(30), ["2. bester 3. Platz"] = Team(31) }, AnzahlOffen: 0);
+        var gruppeJeMannschaft = new Dictionary<int, string> { [30] = "A", [31] = "B" };
+
+        var ziehungen = Enumerable.Range(1, STARTWERTE)
+            .Select(startwert => Losverfahren.Ausloesen(
+                auslosung, Vorbereitung(Regeln(keineGleicheGruppe: true), gruppeJeMannschaft), new Random(startwert), qualifikanten))
+            .ToList();
+
+        ziehungen.Select(z => string.Join(" | ", z.OrderBy(e => e.HeimPlatzhalterName)
+                .Select(e => $"{e.HeimPlatzhalterName}-{e.AuswaertsPlatzhalterName}")))
+            .Distinct().Should().Equal("1. Gruppe A-2. bester 3. Platz | 1. Gruppe B-1. bester 3. Platz");
+    }
+
+    [Fact]
     public void Zufall_KeinGleichesLand_OffenerPlatzhalter_HatKeinLand()
     {
         // Ohne aufgelöste Mannschaft gibt es kein Land, gegen das die Regel prüfen könnte — wie vor #483.
