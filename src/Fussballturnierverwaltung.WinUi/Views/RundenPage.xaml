@@ -197,6 +197,13 @@
                                          PlaceholderText="{Binding Formular.AnzahlSpieltagePlatzhalter}"
                                          HorizontalAlignment="Stretch" />
                             </StackPanel>
+                            <!-- #469: Hinweis als ToolTip, damit die Zeile bei jeder Rundenart gleich hoch bleibt (#476) -->
+                            <StackPanel Grid.Column="4" HorizontalAlignment="Stretch" Margin="0,22,0,0"
+                                        Visibility="{Binding Formular.IstTopfLiga, Converter={StaticResource BoolToVisibility}}">
+                                <CheckBox Content="Ein Gegner je Topf (Töpfe paarweise)" IsChecked="{Binding Formular.EinGegnerJeTopf, Mode=TwoWay}"
+                                          AutomationProperties.AutomationId="Runden.EinGegnerJeTopf"
+                                          ToolTipService.ToolTip="Wie in der Conference-League-Ligaphase: Die Töpfe 1/2, 3/4, … bilden Paare, aus jedem Paar ein Heim- und ein Auswärtsgegner. Ohne Haken: aus jedem Topf ein Heim- und ein Auswärtsgegner (Champions/Europa League)." />
+                            </StackPanel>
                         </Grid>
 
                         <!-- ── Spielmodus ──────────────────────────────────────────────── -->

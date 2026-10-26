@@ -32,6 +32,7 @@ public partial class RundeZeile : ObservableObject
     [ObservableProperty] private VorgegebeneAuslosungsartOption _vorgegebeneAuslosungsart = KeineAuslosungsartVorgabe;
     [ObservableProperty] private StandardRanglisteOption _standardRangliste = KeineStandardRangliste;
     [ObservableProperty] private bool _titelverteidigerInTopf1;
+    [ObservableProperty] private int _gegnerJeTopf = 2;
 
     // Issue #372: im Editor nicht bearbeitbar (stammt aus dem Seed), wird beim Speichern unverändert durchgereicht.
     public string? KombinationstabelleJson { get; set; }

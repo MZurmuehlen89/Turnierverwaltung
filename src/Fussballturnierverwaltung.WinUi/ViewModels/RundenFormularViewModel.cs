@@ -108,7 +108,7 @@ public partial class RundenFormularViewModel : ObservableObject
         nameof(GruppenAnzahl), nameof(AnzahlSpieltage), nameof(MitRueckspiel), nameof(AuswaertstorRegelAktiv), nameof(NeutralerSpielort),
         nameof(Ueberraschungsfaktor),
         nameof(Regelwerk), nameof(PaarungFestVorgegeben), nameof(VorgegebeneAuslosungsart),
-        nameof(StandardRangliste), nameof(TitelverteidigerInTopf1)
+        nameof(StandardRangliste), nameof(TitelverteidigerInTopf1), nameof(EinGegnerJeTopf)
     ];
 
     [ObservableProperty] private string _name = "";
@@ -120,6 +120,7 @@ public partial class RundenFormularViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
     [NotifyPropertyChangedFor(nameof(RundenartAuswahl))]
     [NotifyPropertyChangedFor(nameof(HatTabelle))]
+    [NotifyPropertyChangedFor(nameof(IstTopfLiga))]
     private Rundenart _rundenart = Rundenart.Liga;
 
     [ObservableProperty]
@@ -131,6 +132,9 @@ public partial class RundenFormularViewModel : ObservableObject
     [ObservableProperty] private int _ausgangsMannschaftsanzahl = 4;
     [ObservableProperty] private int? _gruppenAnzahl;
     [ObservableProperty] private int? _anzahlSpieltage;
+
+    // Issue #469: im Formular ein Schalter, in der Runde die Anzahl (1 oder 2).
+    [ObservableProperty] private bool _einGegnerJeTopf;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AuswaertstorAktivierbar))]
@@ -157,6 +161,7 @@ public partial class RundenFormularViewModel : ObservableObject
         AusgangsMannschaftsanzahl = zeile?.AusgangsMannschaftsanzahl ?? 4;
         GruppenAnzahl = zeile?.GruppenAnzahl;
         AnzahlSpieltage = zeile?.AnzahlSpieltage;
+        EinGegnerJeTopf = zeile?.GegnerJeTopf == 1;
         MitRueckspiel = zeile?.MitRueckspiel ?? false;
         AuswaertstorRegelAktiv = zeile?.AuswaertstorRegelAktiv ?? false;
         NeutralerSpielort = zeile?.NeutralerSpielort ?? false;
@@ -180,6 +185,7 @@ public partial class RundenFormularViewModel : ObservableObject
         zeile.AusgangsMannschaftsanzahl = AusgangsMannschaftsanzahl;
         zeile.GruppenAnzahl = GruppenAnzahl;
         zeile.AnzahlSpieltage = AnzahlSpieltage;
+        zeile.GegnerJeTopf = EinGegnerJeTopf ? 1 : 2;
         zeile.MitRueckspiel = MitRueckspiel;
         zeile.AuswaertstorRegelAktiv = AuswaertstorRegelAktiv;
         zeile.NeutralerSpielort = NeutralerSpielort;
@@ -210,6 +216,7 @@ public partial class RundenFormularViewModel : ObservableObject
 
     public bool IstGruppenphase => Rundenart == Rundenart.Gruppenphase;
     public bool IstSchweizerSystem => Rundenart == Rundenart.SchweizerSystem;
+    public bool IstTopfLiga => Rundenart == Rundenart.TopfLiga;
     public bool HatTabelle => TabellenZonen.HatTabelle(Rundenart);
 
     /// <summary>Die Auswärtstorregel ergibt nur bei Hin-/Rückspiel-Aggregaten in K.o.-Rundenarten Sinn
