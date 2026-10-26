@@ -116,7 +116,7 @@ public class PlatzhalterKaskadeService(
             var sollHeim      = heim.MannschaftId      ?? await SollAsync(heim.PlatzhalterName, runde, planung, ct);
             var sollAuswaerts = auswaerts.MannschaftId ?? await SollAsync(auswaerts.PlatzhalterName, runde, planung, ct);
 
-            SpielPruefen(spieleNachNummer[i], runde, sollHeim, sollAuswaerts, heim.PlatzhalterName, auswaerts.PlatzhalterName, planung);
+            SpielPruefen(spieleNachNummer[i], runde, new Soll(sollHeim, sollAuswaerts, heim.PlatzhalterName, auswaerts.PlatzhalterName), planung);
         }
     }
 
@@ -149,13 +149,12 @@ public class PlatzhalterKaskadeService(
                 ? await SollAsync(auswaertsName, runde, planung, ct)
                 : eintrag.AuswaertsMannschaftId;
 
-            SpielPruefen(spiel, runde, sollHeim, sollAuswaerts, eintrag.HeimPlatzhalterName, eintrag.AuswaertsPlatzhalterName, planung);
+            var soll = new Soll(sollHeim, sollAuswaerts, eintrag.HeimPlatzhalterName, eintrag.AuswaertsPlatzhalterName);
+            SpielPruefen(spiel, runde, soll, planung);
 
             // Rückspiel mit vertauschten Rollen
             if (rueckspielJeHinspiel.GetValueOrDefault(spiel.Id) is { } rueckspiel)
-#pragma warning disable S2234 // Rückspiel: Heim und Auswärts bewusst getauscht
-                SpielPruefen(rueckspiel, runde, sollAuswaerts, sollHeim, eintrag.AuswaertsPlatzhalterName, eintrag.HeimPlatzhalterName, planung);
-#pragma warning restore S2234
+                SpielPruefen(rueckspiel, runde, soll.Gespiegelt(), planung);
         }
     }
 
@@ -165,21 +164,29 @@ public class PlatzhalterKaskadeService(
             ? null
             : await aufloesung.NameAufloesenAsync(platzhalterName, runde, planung.AlleRunden, planung.Ignoriert, ct);
 
-    private static void SpielPruefen(
-        Spiel spiel, TurnierRunde runde, int? sollHeim, int? sollAuswaerts, string? heimName, string? auswaertsName,
-        Planung planung)
+    /// <summary>Welche Mannschaften nach dem geplanten Stand in einem Spiel stehen müssten, mit den
+    /// Platzhalternamen beider Seiten.</summary>
+    private sealed record Soll(int? Heim, int? Auswaerts, string? HeimName, string? AuswaertsName)
+    {
+        /// <summary>Das Soll des Rückspiels: Heim und Auswärts getauscht.</summary>
+#pragma warning disable S2234 // Rückspiel: Heim und Auswärts bewusst getauscht
+        public Soll Gespiegelt() => new(Auswaerts, Heim, AuswaertsName, HeimName);
+#pragma warning restore S2234
+    }
+
+    private static void SpielPruefen(Spiel spiel, TurnierRunde runde, Soll soll, Planung planung)
     {
         // Nur ein bereits konkret aufgelöster Slot, der nicht mehr zum neu ermittelten Soll-Wert
         // passt, ist ein Kaskaden-Fall — ein noch nie aufgelöster Platzhalter ist normales,
         // ausstehendes Auflösen und kein Rücksetz-Fall.
-        bool heimBetroffen      = spiel.HeimMannschaftId.HasValue && spiel.HeimMannschaftId != sollHeim;
-        bool auswaertsBetroffen = spiel.AuswaertsMannschaftId.HasValue && spiel.AuswaertsMannschaftId != sollAuswaerts;
+        bool heimBetroffen      = spiel.HeimMannschaftId.HasValue && spiel.HeimMannschaftId != soll.Heim;
+        bool auswaertsBetroffen = spiel.AuswaertsMannschaftId.HasValue && spiel.AuswaertsMannschaftId != soll.Auswaerts;
         if (!heimBetroffen && !auswaertsBetroffen) return;
 
         bool hatteErgebnis = spiel.Ergebnis is not null;
         planung.Schritte.Add(new KaskadenSpielSchritt(
             spiel.Id, runde.Id, runde.Name, hatteErgebnis,
-            sollHeim, sollAuswaerts, heimName, auswaertsName));
+            soll.Heim, soll.Auswaerts, soll.HeimName, soll.AuswaertsName));
 
         if (hatteErgebnis) planung.Ignoriert.Add(spiel.Id);
     }
