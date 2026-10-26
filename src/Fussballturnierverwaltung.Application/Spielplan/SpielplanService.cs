@@ -2,7 +2,6 @@ using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Tabelle;
-using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -21,7 +20,6 @@ public class SpielplanService(
     ITurnierRundeRepository rundeRepository,
     ISpielRepository spielRepository,
     IMannschaftRepository mannschaftRepository,
-    ITurnierBaumRepository turnierBaumRepository,
     SpielplanGeneratorFactory generatorFactory,
     TurnierValidator turnierValidator,
     KoQuellverknuepfung quellverknuepfung,
@@ -219,7 +217,6 @@ public class SpielplanService(
     public async Task<TurnierRunde> RundenSpielplanOhneKaskadeLoeschenAsync(int turnierRundeId, CancellationToken ct = default)
     {
         var runde = await RundeLadenAsync(turnierRundeId, ct);
-        await turnierBaumRepository.SpielIdsNullSetzenAsync(turnierRundeId, ct);
         await spielRepository.AlleNachRundeLoeschenAsync(turnierRundeId, ct);
         logger.LogInformation("Spielplan für Runde '{Runde}' gelöscht.", runde.Name);
         return runde;

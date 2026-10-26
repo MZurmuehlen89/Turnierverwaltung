@@ -96,12 +96,13 @@ public class SpielRepository(TurnierverwaltungDbContext context)
             .ToListAsync(ct)).ToHashSet();
         if (spielIds.Count == 0) return;
 
+        await BaumKnotenLoesenAsync(turnierRundeId, ct);
+
         // Issue #320-Folgefund: Folgerunden-Spiele, die per Übergangsregel über HeimQuellSpielId/
         // AuswaertsQuellSpielId (Self-Referencing FK, NoAction) auf eines dieser Spiele verweisen, müssen
         // die Referenz zuerst verlieren — sonst schlägt das folgende Löschen mit einer SQL-FK-Verletzung
         // fehl (verifiziert an einem Alt-Turnier mit bereits generiertem, dieselben Spiele referenzierendem
-        // Turnierbaum/Folgespielen; TurnierBaumKnoten.SpielId wird bereits separat von
-        // SpielplanService.RundenSpielplanOhneKaskadeLoeschenAsync vor diesem Aufruf genullt).
+        // Turnierbaum/Folgespielen).
         var abhaengigeSpiele = await Context.Spiele
             .Where(s => (s.HeimQuellSpielId != null && spielIds.Contains(s.HeimQuellSpielId.Value)) ||
                         (s.AuswaertsQuellSpielId != null && spielIds.Contains(s.AuswaertsQuellSpielId.Value)))
@@ -133,6 +134,23 @@ public class SpielRepository(TurnierverwaltungDbContext context)
         // müssen deshalb ausdrücklich aus dem Kontext (Stale-Bug, siehe #103).
         await Context.Spiele.Where(s => s.TurnierRundeId == turnierRundeId).ExecuteDeleteAsync(ct);
         AusKontextNehmen(spielIds);
+    }
+
+    /// <summary>Löst die Turnierbaum-Knoten von den Spielen der Runde (TurnierBaumKnoten.SpielId, FK NoAction),
+    /// damit diese gelöscht werden können.</summary>
+    private async Task BaumKnotenLoesenAsync(int turnierRundeId, CancellationToken ct)
+    {
+        // Bewusst kein ExecuteUpdateAsync (umgeht den Change-Tracker) - falls ein betroffener
+        // TurnierBaumKnoten im selben Scope bereits geladen/getrackt ist (z.B. durch die Turnierbaum-Aktualisierung
+        // im selben Request), würde die In-Memory-Instanz sonst nicht aktualisiert (Stale-Bug, siehe #103).
+        var knoten = await Context.TurnierBaumKnotenMenge
+            .Where(k => k.SpielId != null && k.Spiel!.TurnierRundeId == turnierRundeId)
+            .ToListAsync(ct);
+
+        foreach (var k in knoten)
+            k.SpielId = null;
+
+        await Context.SaveChangesAsync(ct);
     }
 
     /// <summary>Nimmt in der Datenbank bereits gelöschte Spiele samt Ergebnissen und Ereignissen aus dem

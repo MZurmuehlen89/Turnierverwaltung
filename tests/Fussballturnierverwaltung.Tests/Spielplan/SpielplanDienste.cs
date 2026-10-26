@@ -30,7 +30,7 @@ internal sealed class SpielplanDienste
             rundeRepo, spielRepo, mannschaftRepo, tabellen, zwischenspeicher, Quellverknuepfung,
             NullLogger<PlatzhalterAufloesung>.Instance);
         Spielplan = new SpielplanService(
-            rundeRepo, spielRepo, mannschaftRepo, new TurnierBaumRepository(ctx),
+            rundeRepo, spielRepo, mannschaftRepo,
             generatoren, new TurnierValidator(), Quellverknuepfung, Aufloesung,
             NullLogger<SpielplanService>.Instance);
         Schweizer = new SchweizerRundenfolge(auslosungRepo, tabellen, Spielplan);

@@ -25,6 +25,7 @@ public interface ISpielRepository : IRepository<Spiel>
     /// </summary>
     Task<int> NaechsteSpielNummerAsync(int turnierInstanzId, int turnierRundeId, int reihenfolge, CancellationToken ct = default);
     Task HinzufuegenMehrfachAsync(IEnumerable<Spiel> spiele, CancellationToken ct = default);
+    /// <summary>Löscht alle Spiele der Runde; Verweise von Turnierbaum-Knoten und Folgespielen auf sie entfallen.</summary>
     Task AlleNachRundeLoeschenAsync(int turnierRundeId, CancellationToken ct = default);
 
     Task<Spiel?> FindenNachIdMitErgebnisAsync(int id, CancellationToken ct = default);
