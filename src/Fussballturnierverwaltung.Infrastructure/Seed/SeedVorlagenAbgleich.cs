@@ -50,6 +50,22 @@ public static class SeedVorlagenAbgleich
         return umgestellt;
     }
 
+    /// <summary>Issue #469: übernimmt „ein Gegner je Topf“ aus dem Seed, wo die Runde noch auf dem Standard (2)
+    /// steht. Liefert die Zahl der umgestellten Runden.</summary>
+    public static int GegnerJeTopfUebernehmen(TurnierInstanz vorlage, TurnierInstanz soll)
+    {
+        int umgestellt = 0;
+        foreach (var sollRunde in soll.Runden.Where(r => r.GegnerJeTopf == 1))
+        {
+            var runde = Gegenstueck(vorlage, sollRunde);
+            if (runde is null || runde.GegnerJeTopf != 2 || runde.Rundenart != sollRunde.Rundenart) continue;
+
+            runde.GegnerJeTopf = sollRunde.GegnerJeTopf;
+            umgestellt++;
+        }
+        return umgestellt;
+    }
+
     // ── Struktur (Issue #350) ──────────────────────────────────────────────────
 
     /// <summary>Trägt die Gruppenanzahl nach, wo sie leer ist. Liefert die Zahl der ergänzten Runden.</summary>

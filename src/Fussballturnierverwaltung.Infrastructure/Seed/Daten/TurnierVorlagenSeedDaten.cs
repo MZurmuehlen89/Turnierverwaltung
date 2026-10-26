@@ -280,8 +280,8 @@ public static class TurnierVorlagenSeedDaten
     public const string WM_VERLAENGERUNG_LOS = "FIFA WM 1958–1970 (Verlängerung + Los)";
     public const string HISTORISCH_VERLAENGERUNG_WIEDERHOLUNGSSPIEL_LOS = "Historisch: Verlängerung + Wiederholungsspiel + Los";
 
-    // Seed-Beschreibungen vor #374 (Copa América), #375 (EM mit 8 Teams) und #465 (WM mit 16 Teams) — die Nachrüstung zieht die
-    // Beschreibung nur mit, solange sie noch diesem Stand entspricht.
+    // Seed-Beschreibungen vor #374 (Copa América), #375 (EM mit 8 Teams), #465 (WM mit 16 Teams) und #469 (Conference
+    // League) — die Nachrüstung zieht die Beschreibung nur mit, solange sie noch diesem Stand entspricht.
     public static IReadOnlyDictionary<(string Name, string Variante), string> AlteBeschreibungen { get; } =
         new Dictionary<(string Name, string Variante), string>
     {
@@ -293,6 +293,7 @@ public static class TurnierVorlagenSeedDaten
             "Spiel um Platz 3 + Finale; 10 CONMEBOL-Teams + 2 Gäste, daher ohne Verbandsfilter",
         [("UEFA EM", EM_8_TEAMS_1984_BIS_1992)] = "Halbfinale → Finale + Spiel um Platz 3",
         [("FIFA WM", WM_16_TEAMS_1934_BIS_1938)] = "Direktes K.-o. ab 16 Teams",
+        [("UEFA Conference League", "36 Teams · ab 2024/25")] = UefaLigaphaseBeschreibung("je 8 Gegner"),
     };
 
     // Issue #350/#367: umbenannte Vorlagen (alter Name → neuer Name + Variante) — die Nachrüstung identifiziert
@@ -942,15 +943,20 @@ public static class TurnierVorlagenSeedDaten
     // allein aus den neun koeffizientenstärksten Klubs (Issue #349).
     private static TurnierInstanz UefaChampionsLeague36TeamsModern(
         IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle) =>
-        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Champions League", "36 Teams · ab 2024/25", titelverteidigerInTopf1: true);
+        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Champions League", "36 Teams · ab 2024/25",
+            titelverteidigerInTopf1: true, gegnerJeTopf: 2);
 
     private static TurnierInstanz UefaEuropaLeague36Teams(
         IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle) =>
-        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Europa League", "36 Teams · ab 2024/25", titelverteidigerInTopf1: false);
+        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Europa League", "36 Teams · ab 2024/25",
+            titelverteidigerInTopf1: false, gegnerJeTopf: 2);
 
+    // Conference League: 6 Gegner aus 6 Töpfen à 6, die Töpfe 1/2, 3/4, 5/6 bilden Paare mit je einem Heim- und
+    // einem Auswärtsgegner (Issue #469). Bestehende Datenbanken: TurnierVorlagenNachruestung.GegnerJeTopfUebernehmen.
     private static TurnierInstanz UefaConferenceLeague36Teams(
         IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle) =>
-        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Conference League", "36 Teams · ab 2024/25", titelverteidigerInTopf1: false);
+        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Conference League", "36 Teams · ab 2024/25",
+            titelverteidigerInTopf1: false, gegnerJeTopf: 1);
 
     // Gemeinsame Struktur für CL/EL/ECL seit 2024/25 (Issue #25-Nachlieferung, freigegeben durch #29):
     // Ligaphase (36 Teams, je 8 Gegner statt voller Punktrunde) → Platz 1–8 direkt ins Achtelfinale,
@@ -959,16 +965,14 @@ public static class TurnierVorlagenSeedDaten
     // Übergangsregeln (statt linearer Eingangs-/Ausgangszahl) eingeführt wurden.
     private static TurnierInstanz UefaClubwettbewerbModern(
         IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle,
-        string name, string variante, bool titelverteidigerInTopf1)
+        string name, string variante, bool titelverteidigerInTopf1, int gegnerJeTopf)
     {
         var v = new TurnierInstanz
         {
             Status = TurnierStatus.Vorlage,
             Name = name,
             Variante = variante,
-            Beschreibung = "Ligaphase (36 Teams, je 8 Gegner) → Platz 1–8 direkt ins Achtelfinale, " +
-                           "Platz 9–24 in die Playoff-Runde (Hin-/Rückspiel) → Achtelfinale → Viertelfinale → " +
-                           "Halbfinale → Finale (Einzelspiel); keine Auswärtstorregel",
+            Beschreibung = UefaLigaphaseBeschreibung(gegnerJeTopf == 1 ? "je 6 Gegner aus 6 Töpfen" : "je 8 Gegner"),
             ZielMannschaftsanzahl = 36,
             Kategorie = TurnierKategorie.Vereinspokal,
             Startdatum = new DateOnly(2024, 1, 1),
@@ -979,7 +983,7 @@ public static class TurnierVorlagenSeedDaten
         // TurnierVorlagenNachruestung.LigaphaseRegelwerkUmstellen.
         int? rId = RwId(rw, UEFA_LIGAPHASE);
 
-        // Vorgegebene Auslosungsarten (Issue #347): Ligaphase per Topf-Zuordnung (je 2 Gegner aus jedem Topf),
+        // Vorgegebene Auslosungsarten (Issue #347): Ligaphase per Topf-Zuordnung (je 2 Gegner aus jedem Topf, ECL je 1),
         // Playoff und Achtelfinale nach Töpfen (besser Platzierte gegen schlechter Platzierte bzw. Platz 1–8
         // gegen Playoff-Sieger), danach Zufall. Bestehende Datenbanken: Migration AuslosungsartVorgabeJeRunde.
         var liga          = Runde(1, "Ligaphase",       Rundenart.TopfLiga,        36, 24, regelwerkId: rId, auslosungsart: Auslosungsart.TopfZuordnung);
@@ -987,6 +991,7 @@ public static class TurnierVorlagenSeedDaten
         // ohne Import bleibt die Ligaphase ohne Standard-Rangliste (seit #393 verweist die Runde auf eine Rangliste).
         liga.StandardRanglisteId = RqId(quelle, RanglistenQuellenSeedDaten.UEFA_KLUB_KOEFFIZIENT);
         liga.TitelverteidigerInTopf1    = titelverteidigerInTopf1;
+        liga.GegnerJeTopf               = gegnerJeTopf;
         var playoff       = Runde(2, "Playoff-Runde",   Rundenart.KoRunde,         16,  8, mitRueckspiel: true, regelwerkId: rId, auslosungsart: Auslosungsart.NachToepfen);
         var achtelfinale  = Runde(3, "Achtelfinale",    Rundenart.KoRunde,         16,  8, mitRueckspiel: true, regelwerkId: rId, auslosungsart: Auslosungsart.NachToepfen);
         var viertelfinale = Runde(4, "Viertelfinale",   Rundenart.KoRunde,          8,  4, mitRueckspiel: true, regelwerkId: rId, auslosungsart: Auslosungsart.Zufall);
@@ -1006,6 +1011,11 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(finale);
         return v;
     }
+
+    private static string UefaLigaphaseBeschreibung(string gegner) =>
+        $"Ligaphase (36 Teams, {gegner}) → Platz 1–8 direkt ins Achtelfinale, " +
+        "Platz 9–24 in die Playoff-Runde (Hin-/Rückspiel) → Achtelfinale → Viertelfinale → " +
+        "Halbfinale → Finale (Einzelspiel); keine Auswärtstorregel";
 
     // ── FIFA Klubwettbewerbe ───────────────────────────────────────────────────
 

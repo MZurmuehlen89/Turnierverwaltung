@@ -110,6 +110,8 @@ internal sealed class TurnierVorlagenNachruestung
             StandardRanglistenErgaenzen(), "Vorlagen-Runden um ihre Standard-Rangliste ergänzt.", ct);
         await SpeichernUndProtokollieren(
             UnterklassigenHeimrechtUebernehmen(), "Vorlagen-Runden auf „Heimrecht für Unterklassige“ umgestellt.", ct);
+        await SpeichernUndProtokollieren(
+            GegnerJeTopfUebernehmen(), "Ligaphasen von Vorlagen auf einen Gegner je Topf umgestellt.", ct);
     }
 
     // Je Quellenname die neueste daraus importierte Rangliste (nach Datum, bei Gleichstand die zuletzt angelegte) —
@@ -411,6 +413,10 @@ internal sealed class TurnierVorlagenNachruestung
     /// die Vorgabe noch dem alten Seed-Stand entspricht.</summary>
     private int UnterklassigenHeimrechtUebernehmen() =>
         MitSeedStand().Sum(paar => SeedVorlagenAbgleich.UnterklassigenHeimrechtUebernehmen(paar.Vorlage, paar.Soll));
+
+    /// <summary>Issue #469: die Conference League lost seit 2024/25 einen Gegner je Topf aus.</summary>
+    private int GegnerJeTopfUebernehmen() =>
+        MitSeedStand().Sum(paar => SeedVorlagenAbgleich.GegnerJeTopfUebernehmen(paar.Vorlage, paar.Soll));
 
     /// <summary>Issue #420: Tabellenbereiche der Liga-Vorlagen und der Nations League — nur in Runden, die noch
     /// keine Bereiche haben und dem Seed entsprechen.</summary>

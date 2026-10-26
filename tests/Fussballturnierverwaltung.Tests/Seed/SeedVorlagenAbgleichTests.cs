@@ -157,7 +157,33 @@ public class SeedVorlagenAbgleichTests
         SeedVorlagenAbgleich.FehlendeTabellenBereiche(bestand, soll).Should().BeEmpty();
     }
 
+    // ── Gegner je Topf (Issue #469) ────────────────────────────────────────────
+
+    [Fact]
+    public void GegnerJeTopfUebernehmen_ConferenceLeagueMitAltemStand_StelltLigaphaseUm()
+    {
+        var (bestand, soll) = BestandUndSoll("UEFA Conference League", "36 Teams · ab 2024/25");
+        Ligaphase(bestand).GegnerJeTopf = 2;
+
+        SeedVorlagenAbgleich.GegnerJeTopfUebernehmen(bestand, soll).Should().Be(1);
+
+        Ligaphase(bestand).GegnerJeTopf.Should().Be(1);
+    }
+
+    [Fact]
+    public void GegnerJeTopfUebernehmen_ChampionsLeague_BleibtBeiZweiGegnern()
+    {
+        var (bestand, soll) = BestandUndSoll("UEFA Champions League", "36 Teams · ab 2024/25");
+
+        SeedVorlagenAbgleich.GegnerJeTopfUebernehmen(bestand, soll).Should().Be(0);
+
+        Ligaphase(bestand).GegnerJeTopf.Should().Be(2);
+    }
+
     // ── Aufbau ─────────────────────────────────────────────────────────────────
+
+    private static TurnierRunde Ligaphase(TurnierInstanz vorlage) =>
+        vorlage.Runden.Single(r => r.Rundenart == Rundenart.TopfLiga);
 
     private static (TurnierInstanz Bestand, TurnierInstanz Soll) Em24() => BestandUndSoll("UEFA EM", "24 Teams · 2016+");
 
