@@ -63,7 +63,7 @@ public partial class RundenFormularViewModel : ObservableObject
     private static readonly HashSet<string> AuslosungFelder =
     [
         nameof(Rundenart), nameof(PaarungFestVorgegeben), nameof(VorgegebeneAuslosungsart),
-        nameof(StandardRangliste), nameof(TitelverteidigerInTopf1)
+        nameof(StandardRangliste), nameof(TitelverteidigerInTopf1), nameof(EinGegnerJeTopf)
     ];
 
     [ObservableProperty] private bool _auslosungOffen;
@@ -79,6 +79,7 @@ public partial class RundenFormularViewModel : ObservableObject
             VorgegebeneAuslosungsart?.Wert is not null ? VorgegebeneAuslosungsart.Anzeige : null,
             StandardRangliste?.Wert is not null ? StandardRangliste.Anzeige : null,
             TitelverteidigerInTopf1 ? "Titelverteidiger in Topf 1" : null,
+            IstTopfLiga && EinGegnerJeTopf ? "ein Gegner je Topf" : null,
             IstGruppenphase && VorgegebeneGruppenposition.Wert != Gruppenposition.NachTopf
                 ? VorgegebeneGruppenposition.Ausgewaehlt?.Anzeige : null,
             IstGruppenphase && (Gruppenkoepfe.GastgeberGruppen.Count > 0 || Gruppenkoepfe.TitelverteidigerGruppe is not null)
