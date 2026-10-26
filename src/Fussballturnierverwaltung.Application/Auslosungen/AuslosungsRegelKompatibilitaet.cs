@@ -107,8 +107,8 @@ public static class AuslosungsRegelKompatibilitaet
             return "In der Gruppenphase werden Teams nur Gruppen zugeordnet — das Heimrecht ergibt sich aus dem " +
                    "Spielplan der Gruppe.";
         if (art == Auslosungsart.TopfZuordnung)
-            return "Die Topf-Zuordnung verteilt Heim- und Auswärtsspiele selbst (je Topf ein Heim- und ein " +
-                   "Auswärtsgegner).";
+            return "Die Topf-Zuordnung verteilt Heim- und Auswärtsspiele selbst (je Topf bzw. Topf-Paar ein Heim- " +
+                   "und ein Auswärtsgegner).";
         // Bei der Ziehung von Hand spielt das zuerst gezogene Team zu Hause (DFB-Pokal, #482); die beiden anderen
         // Heimrecht-Regeln gehen dem vor.
         if (art == Auslosungsart.Manuell && regel == AuslosungsRegelArt.HeimrechtNachLos)

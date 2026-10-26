@@ -81,8 +81,10 @@ public static class AuslosungAnzeigeTexte
             "bis der kleinere Topf leer ist; die übrigen Teams werden untereinander gelost (wie im DFB-Pokal). " +
             "Typisch für UEFA Europa League und internationale Pokal-Wettbewerbe.",
         Auslosungsart.TopfZuordnung =>
-            "UCL-Ligaphase (ab 2024/25): Jedes Team erhält aus jedem Topf zwei Gegner — einen zu Hause, " +
-            "einen auswärts. Alle Töpfe müssen gleich groß sein (typisch 4 × 9 Teams). " +
+            "Ligaphase der UEFA-Klubwettbewerbe (ab 2024/25): Jedes Team erhält aus jedem Topf zwei Gegner — " +
+            "einen zu Hause, einen auswärts (Champions/Europa League, typisch 4 × 9 Teams). Mit „Ein Gegner je " +
+            "Topf“ in der Runde nur einen Gegner je Topf; die Töpfe 1/2, 3/4, … bilden Paare mit je einem Heim- " +
+            "und einem Auswärtsgegner (Conference League, 6 × 6 Teams). Alle Töpfe müssen gleich groß sein. " +
             "Ist 'Kein gleiches Land' aktiv, gilt zusätzlich: höchstens 2 Gegner aus demselben Land.",
         Auslosungsart.GruppensiegerGegenGruppenzweite =>
             "Gruppensieger werden den Zweitplatzierten einer anderen Gruppe zugelost, " +

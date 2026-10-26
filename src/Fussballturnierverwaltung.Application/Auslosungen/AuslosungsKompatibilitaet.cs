@@ -31,21 +31,21 @@ public static class AuslosungsKompatibilitaet
             "Verwenden Sie stattdessen 'Zufällig' oder 'Nach Töpfen'.",
 
         (Auslosungsart.TopfZuordnung, Rundenart.Gruppenphase) =>
-            "Auslosungsart 'Topf-Zuordnung' ist für die UCL-Ligaphase gedacht, " +
+            "Auslosungsart 'Topf-Zuordnung' ist für die Ligaphase der UEFA-Klubwettbewerbe gedacht, " +
             "nicht für eine klassische Gruppenphase. " +
             "Verwenden Sie 'Nach Töpfen' für eine topfbasierte Gruppenauslosung.",
 
         // Die Ziehung von Hand (#482) kennt je Team nur einen Gegner bzw. eine Gruppe, die Ligaphase braucht je
-        // Topf zwei Gegner. Die Vorbelegung einer TopfLiga bleibt erlaubt.
+        // Team 6 oder 8 Gegner (#469). Die Vorbelegung einer TopfLiga bleibt erlaubt.
         (Auslosungsart.Manuell, Rundenart.TopfLiga) when !paarungFestVorgegeben =>
-            "Eine TopfLiga (UCL-Ligaphase) lässt sich nicht von Hand ziehen — jedes Team braucht aus jedem Topf " +
-            "zwei Gegner. Verwenden Sie 'Topf-Zuordnung'.",
+            "Eine TopfLiga (Ligaphase) lässt sich nicht von Hand ziehen — jedes Team braucht Gegner aus allen " +
+            "Töpfen. Verwenden Sie 'Topf-Zuordnung'.",
 
-        // Issue #347: nur die Topf-Zuordnung liefert den Ligaphasen-Spielplan (jedes Team 2 Gegner je Topf);
+        // Issue #347: nur die Topf-Zuordnung liefert den Ligaphasen-Spielplan (jedes Team Gegner aus allen Töpfen);
         // jede andere Art erzeugt nur eine einzige Paarungsrunde.
         (not (Auslosungsart.TopfZuordnung or Auslosungsart.Manuell), Rundenart.TopfLiga) =>
-            "Eine TopfLiga (UCL-Ligaphase) wird ausschließlich per 'Topf-Zuordnung' ausgelost — " +
-            "nur so erhält jedes Team aus jedem Topf zwei Gegner.",
+            "Eine TopfLiga (Ligaphase) wird ausschließlich per 'Topf-Zuordnung' ausgelost — " +
+            "nur so erhält jedes Team Gegner aus allen Töpfen.",
 
         _ => null
     };

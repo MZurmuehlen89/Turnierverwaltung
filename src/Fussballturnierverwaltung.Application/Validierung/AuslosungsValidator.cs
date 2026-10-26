@@ -146,6 +146,11 @@ public class AuslosungsValidator
         // bei nur 2 Teams wäre das zweimal dieselbe Paarung (Liga/Gruppenphase verteilen nur auf Gruppen).
         if (rundenart is not (Rundenart.Liga or Rundenart.Gruppenphase) && topfGroessen.Any(g => g < 3))
             yield return "TopfZuordnung erfordert mindestens 3 Teams je Lostopf.";
+
+        // Issue #469: bei einem Gegner je Topf bilden die Töpfe 1/2, 3/4, … Paare.
+        if (rundenart == Rundenart.TopfLiga && auslosung.TurnierRunde?.GegnerJeTopf == 1 && lostoepfe.Count % 2 != 0)
+            yield return "Bei einem Gegner je Topf erfordert die TopfZuordnung eine gerade Anzahl Lostöpfe " +
+                         "(die Töpfe 1/2, 3/4, … bilden Paare).";
     }
 
     /// <summary>Zufall/Benutzerdefiniert: höchstens 1 Lostopf (keine Topf-Struktur, eine Urne).</summary>

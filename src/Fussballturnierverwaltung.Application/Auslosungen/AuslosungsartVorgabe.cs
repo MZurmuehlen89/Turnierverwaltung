@@ -31,11 +31,12 @@ public static class AuslosungsartVorgabe
         art is not (Auslosungsart.Zufall or Auslosungsart.Benutzerdefiniert);
 
     /// <summary>Anzahl Lostöpfe nach dem Wechsel auf <paramref name="art"/>: 1, wo nur ein Topf erlaubt ist;
-    /// die Topf-Zuordnung braucht mindestens 2 gleich große Töpfe — dann 4 wie in der UCL-Ligaphase (#347).</summary>
-    public static int LostoepfeNachWechsel(Auslosungsart art, int bisher)
+    /// die Topf-Zuordnung braucht mindestens 2 gleich große Töpfe — dann 4 wie in der UCL-Ligaphase (#347), bei
+    /// einem Gegner je Topf 6 wie in der UECL-Ligaphase (#469).</summary>
+    public static int LostoepfeNachWechsel(Auslosungsart art, int bisher, TurnierRunde? runde)
     {
         if (!ErlaubtMehrereToepfe(art)) return 1;
-        if (art == Auslosungsart.TopfZuordnung && bisher < 2) return 4;
+        if (art == Auslosungsart.TopfZuordnung && bisher < 2) return runde?.GegnerJeTopf == 1 ? 6 : 4;
         return bisher;
     }
 }

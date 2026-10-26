@@ -53,5 +53,16 @@ public class AuslosungsartVorgabeTests
     [InlineData(Auslosungsart.NachToepfen, 1, 1)]
     [InlineData(Auslosungsart.NachToepfen, 5, 5)]
     public void LostoepfeNachWechsel(Auslosungsart art, int bisher, int erwartet) =>
-        AuslosungsartVorgabe.LostoepfeNachWechsel(art, bisher).Should().Be(erwartet);
+        AuslosungsartVorgabe.LostoepfeNachWechsel(art, bisher, runde: null).Should().Be(erwartet);
+
+    [Theory]
+    [InlineData(2, 4)]
+    [InlineData(1, 6)]
+    public void LostoepfeNachWechsel_TopfZuordnung_RichtetSichNachGegnernJeTopf(int gegnerJeTopf, int erwartet)
+    {
+        var runde = Runde(Rundenart.TopfLiga);
+        runde.GegnerJeTopf = gegnerJeTopf;
+
+        AuslosungsartVorgabe.LostoepfeNachWechsel(Auslosungsart.TopfZuordnung, bisher: 1, runde).Should().Be(erwartet);
+    }
 }

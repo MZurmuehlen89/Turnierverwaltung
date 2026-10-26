@@ -231,6 +231,21 @@ public class AuslosungsValidatorTests
         ergebnis.Fehler.Should().ContainMatch("*mindestens 3 Teams*");
     }
 
+    [Theory]
+    [InlineData(2, 3, true)]
+    [InlineData(1, 3, false)]
+    [InlineData(1, 4, true)]
+    public void TopfLiga_TopfZuordnung_EinGegnerJeTopf_BrauchtGeradeTopfanzahl(int gegnerJeTopf, int topfAnzahl, bool gueltig)
+    {
+        // Issue #469: bei einem Gegner je Topf bilden die Töpfe Paare
+        var toepfe = Enumerable.Range(0, topfAnzahl)
+            .Select(t => Topf(t + 1, t + 1, Enumerable.Range(t * 4 + 1, 4).Select(Eintrag).ToArray()));
+        var a = Auslosung(Rundenart.TopfLiga, Auslosungsart.TopfZuordnung, lostoepfe: toepfe);
+        a.TurnierRunde!.GegnerJeTopf = gegnerJeTopf;
+
+        _validator.Validieren(a, AlleEintraege(a)).IstGueltig.Should().Be(gueltig);
+    }
+
     // ══════════════════════════════════════════════════════════════════════════
     // UNGÜLTIGE KOMBINATIONEN — Auslosungsart + Rundenart
     // ══════════════════════════════════════════════════════════════════════════
@@ -246,7 +261,7 @@ public class AuslosungsValidatorTests
         var ergebnis = _validator.Validieren(a, AlleEintraege(a));
 
         ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().ContainMatch("*UCL-Ligaphase*");
+        ergebnis.Fehler.Should().ContainMatch("*Ligaphase*");
     }
 
     [Fact]

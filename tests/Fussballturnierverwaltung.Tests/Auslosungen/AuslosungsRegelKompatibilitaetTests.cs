@@ -124,7 +124,7 @@ public class AuslosungsRegelKompatibilitaetTests
     private const string HEIMRECHT_GRUPPENPHASE = "In der Gruppenphase werden Teams nur Gruppen zugeordnet — das " +
                                                   "Heimrecht ergibt sich aus dem Spielplan der Gruppe.";
     private const string HEIMRECHT_TOPFZUORDNUNG = "Die Topf-Zuordnung verteilt Heim- und Auswärtsspiele selbst (je " +
-                                                   "Topf ein Heim- und ein Auswärtsgegner).";
+                                                   "Topf bzw. Topf-Paar ein Heim- und ein Auswärtsgegner).";
     private const string HEIMRECHT_HAND = "Bei der Ziehung von Hand ist die Ziehung selbst das Los — das zuerst " +
                                           "gezogene Team spielt zu Hause.";
     private const string FREILOS_GRUPPENPHASE = "In der Gruppenphase gibt es kein Freilos — alle Teams werden auf " +

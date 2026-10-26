@@ -117,5 +117,5 @@ public partial class NeueAuslosungViewModel : ObservableObject
     }
 
     partial void OnAuslosungsartChanged(Auslosungsart value) =>
-        AnzahlLostoepfe = AuslosungsartVorgabe.LostoepfeNachWechsel(value, AnzahlLostoepfe);
+        AnzahlLostoepfe = AuslosungsartVorgabe.LostoepfeNachWechsel(value, AnzahlLostoepfe, Runde);
 }
