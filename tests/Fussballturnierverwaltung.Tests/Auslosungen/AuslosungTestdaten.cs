@@ -25,7 +25,7 @@ internal static class AuslosungTestdaten
 
     public static Auslosung NeueAuslosung(
         Rundenart rundenart, Auslosungsart auslosungsart, IEnumerable<Lostopf> lostoepfe,
-        int? gruppenAnzahl = null)
+        int? gruppenAnzahl = null, int gegnerJeTopf = 2)
     {
         var auslosung = new Auslosung
         {
@@ -35,7 +35,7 @@ internal static class AuslosungTestdaten
             TurnierRunde     = new TurnierRunde
             {
                 Id = 7, Name = rundenart.ToString(), Rundenart = rundenart,
-                GruppenAnzahl = gruppenAnzahl, RegelwerkId = 1
+                GruppenAnzahl = gruppenAnzahl, RegelwerkId = 1, GegnerJeTopf = gegnerJeTopf
             },
             Auslosungsart = auslosungsart,
             Status        = AuslosungsStatus.Vorbereitung

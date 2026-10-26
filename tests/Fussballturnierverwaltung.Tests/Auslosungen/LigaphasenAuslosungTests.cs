@@ -19,9 +19,10 @@ public class LigaphasenAuslosungTests
         new(keinGleichesLand, KeineGleicheGruppe: false, HeimrechtNachLos: false, HeimrechtNachSetzliste: false,
             FreilosMoeglich: false, Konfoederationsverteilung: false, MitRueckspiel: false);
 
-    private static List<AuslosungsErgebnis> Ausloesen(IEnumerable<Lostopf> toepfe, bool keinGleichesLand, int startwert) =>
+    private static List<AuslosungsErgebnis> Ausloesen(
+        IEnumerable<Lostopf> toepfe, bool keinGleichesLand, int startwert, int gegnerJeTopf = 2) =>
         Losverfahren.Ausloesen(
-            NeueAuslosung(Rundenart.TopfLiga, Auslosungsart.TopfZuordnung, toepfe),
+            NeueAuslosung(Rundenart.TopfLiga, Auslosungsart.TopfZuordnung, toepfe, gegnerJeTopf: gegnerJeTopf),
             new LosVorbereitung(Regeln(keinGleichesLand), _ohneGruppen, new Dictionary<int, int>()), new Random(startwert));
 
     private static string Kurzform(IEnumerable<AuslosungsErgebnis> ergebnisse) =>
@@ -71,5 +72,34 @@ public class LigaphasenAuslosungTests
         ausloesen.Should().Throw<InvalidOperationException>().WithMessage(
             "Keine gültige Topf-Zuordnung gefunden: Die Einschränkungen (kein gleiches Land, höchstens 2 Gegner aus " +
             "demselben Land, konfliktfreie Spieltage) sind mit dieser Topf-Besetzung nicht erfüllbar.");
+    }
+
+    // ── UECL-Ligaphase: 6 Töpfe à 6, ein Gegner je Topf (#469) ───────────────
+
+    // Mit Ländern: je Topf ein Team aus jedem der Länder 100–102, der Rest mit eigenem Land.
+    private static List<Lostopf> UeclToepfe(bool mitLaendern) =>
+        [.. Enumerable.Range(0, 6).Select(t => Topf(t + 1,
+            [.. Enumerable.Range(t * 6 + 1, 6).Select(id => Eintrag(Team(id, mitLaendern ? UeclLandVon(id) : null)))]))];
+
+    private static int UeclLandVon(int id) => id % 6 < 3 ? 100 + id % 6 : id;
+
+    [Theory]
+    [InlineData(false, 1, "A9D6A08A8E03E081")]
+    [InlineData(true,  1, "EC9214A6860A6F0B")]
+    public void UeclLigaphase_ZiehungJeStartwertFest(bool keinGleichesLand, int startwert, string fingerabdruck)
+    {
+        var kurzform = Kurzform(Ausloesen(UeclToepfe(keinGleichesLand), keinGleichesLand, startwert, gegnerJeTopf: 1));
+
+        Fingerabdruck(kurzform).Should().Be(fingerabdruck);
+    }
+
+    [Fact]
+    public void EinGegnerJeTopf_UngeradeTopfanzahl_WirftFehler()
+    {
+        var ausloesen = () => Ausloesen(
+            [TopfMitTeams(1, ersteId: 1, anzahl: 4), TopfMitTeams(2, ersteId: 5, anzahl: 4), TopfMitTeams(3, ersteId: 9, anzahl: 4)],
+            keinGleichesLand: false, startwert: 1, gegnerJeTopf: 1);
+
+        ausloesen.Should().Throw<ArgumentException>().WithMessage("*gerade Anzahl Töpfe*");
     }
 }

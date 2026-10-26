@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -47,7 +48,8 @@ public class AuslosungAlgorithmusTests
 
     private Auslosung AuslosungMit(
         Rundenart rundenart, Auslosungsart auslosungsart, int? gruppenAnzahl = null,
-        IEnumerable<Lostopf>? lostoepfe = null, IEnumerable<AuslosungsRegel>? regeln = null)
+        IEnumerable<Lostopf>? lostoepfe = null, IEnumerable<AuslosungsRegel>? regeln = null,
+        int gegnerJeTopf = 2)
     {
         var a = new Auslosung
         {
@@ -55,7 +57,7 @@ public class AuslosungAlgorithmusTests
             TurnierRunde  = new TurnierRunde
             {
                 Id = 1, Name = rundenart.ToString(), Rundenart = rundenart,
-                GruppenAnzahl = gruppenAnzahl, RegelwerkId = 1
+                GruppenAnzahl = gruppenAnzahl, RegelwerkId = 1, GegnerJeTopf = gegnerJeTopf
             },
             Auslosungsart = auslosungsart,
             Status        = AuslosungsStatus.Vorbereitung
@@ -817,6 +819,48 @@ public class AuslosungAlgorithmusTests
                 gegnerLaender.GroupBy(l => l).Should().OnlyContain(g => g.Count() <= 2,
                     $"Team {team}: höchstens 2 Gegner aus demselben Land");
             }
+        }
+    }
+
+    // ── UECL-Ligaphase 6 × 6, ein Gegner je Topf (Issue #469) ────────────────
+
+    private static List<Lostopf> UeclToepfe(Func<int, Mannschaft> team) =>
+        [.. Enumerable.Range(0, 6).Select(t =>
+            Topf(t + 1, t + 1, Enumerable.Range(t * 6 + 1, 6).Select(i => Eintrag(team(i))).ToArray()))];
+
+    private static int UeclTopfVon(int teamId) => (teamId - 1) / 6;
+
+    [Fact]
+    public async Task TopfLiga_TopfZuordnung_UeclLigaphase_EinGegnerJeTopfJeTopfPaarHeimUndAuswaerts()
+    {
+        // Je Topf ein Team aus jedem der Länder 100–102, der Rest mit eigenem Land: die Länder-Regeln greifen mit.
+        static int LandVon(int id) => id % 6 < 3 ? 100 + id % 6 : id;
+        for (int durchlauf = 0; durchlauf < 10; durchlauf++)
+        {
+            AuslosungMit(Rundenart.TopfLiga, Auslosungsart.TopfZuordnung,
+                lostoepfe: UeclToepfe(i => TeamMitLand(i, LandVon(i))),
+                regeln: [Regel(AuslosungsRegelArt.KeinGleichesLand)], gegnerJeTopf: 1);
+            var ergebnisse = await Ausfuehren();
+
+            ergebnisse.Should().HaveCount(108);
+            foreach (int team in Enumerable.Range(1, 36))
+            {
+                var heim = ergebnisse.Where(e => e.HeimMannschaftId == team).Select(e => e.AuswaertsMannschaftId!.Value).ToList();
+                var gast = ergebnisse.Where(e => e.AuswaertsMannschaftId == team).Select(e => e.HeimMannschaftId!.Value).ToList();
+                var alle = heim.Concat(gast).ToList();
+
+                heim.Should().HaveCount(3, $"Team {team}: 3 Heimspiele");
+                gast.Should().HaveCount(3, $"Team {team}: 3 Auswärtsspiele");
+                alle.Should().OnlyHaveUniqueItems().And.NotContain(team);
+                alle.Select(UeclTopfVon).Should().BeEquivalentTo([0, 1, 2, 3, 4, 5], $"Team {team}: ein Gegner je Topf");
+                heim.Select(g => UeclTopfVon(g) / 2).Should().BeEquivalentTo([0, 1, 2], $"Team {team}: je Topf-Paar ein Heimgegner");
+                alle.Select(LandVon).Should().NotContain(LandVon(team), $"Team {team}: kein Gegner aus dem eigenen Land")
+                    .And.Subject.GroupBy(l => l).Should().OnlyContain(g => g.Count() <= 2, $"Team {team}: höchstens 2 je Land");
+            }
+
+            var spieltage = SpieltagZerlegung.Zerlegen(
+                [.. ergebnisse.Select(e => (e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value))], new Random(durchlauf));
+            spieltage.Should().NotBeNull().And.Subject.Max().Should().Be(6, "6 Spiele je Team = 6 Spieltage");
         }
     }
 

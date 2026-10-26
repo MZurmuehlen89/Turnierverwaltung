@@ -21,19 +21,20 @@ public static class Losverfahren
         // bilden Paarungen.
         return auslosung.TurnierRunde?.Rundenart is Rundenart.Gruppenphase or Rundenart.Liga
             ? GruppenLosverfahren.GruppenVerteilen(auslosung, toepfe, vorbereitung.Regeln, vorbereitung.Gruppenkoepfe, zufall)
-            : PaarungenBilden(auslosung.Auslosungsart, toepfe, vorbereitung.Regeln, zufall);
+            : PaarungenBilden(auslosung, toepfe, vorbereitung.Regeln, zufall);
     }
 
     // ── Paarungen ─────────────────────────────────────────────────────────────
 
     private static List<AuslosungsErgebnis> PaarungenBilden(
-        Auslosungsart auslosungsart, List<List<TeilnehmerSlot>> toepfe, RegelKontext regeln, Random zufall) =>
-        auslosungsart switch
+        Auslosung auslosung, List<List<TeilnehmerSlot>> toepfe, RegelKontext regeln, Random zufall) =>
+        auslosung.Auslosungsart switch
         {
             Auslosungsart.NachToepfen or
             Auslosungsart.GruppensiegerGegenGruppenzweite => TopfPaareAusloesen(toepfe, regeln, zufall),
             Auslosungsart.NachSetzliste                   => NachSetzlisteAusloesen(toepfe, regeln, zufall),
-            Auslosungsart.TopfZuordnung                   => TopfZuordnungAusloesen(toepfe, regeln, zufall),
+            Auslosungsart.TopfZuordnung                   => TopfZuordnungAusloesen(
+                                                 toepfe, auslosung.TurnierRunde?.GegnerJeTopf ?? 2, regeln, zufall),
             _                                             => ZufaelligAusloesen(toepfe, regeln, zufall)
         };
 
@@ -104,7 +105,7 @@ public static class Losverfahren
     // Die Länder-Regeln (kein gleiches Land, höchstens 2 Gegner aus demselben Land) sind fest an die Regel
     // "Kein gleiches Land" gekoppelt (Nutzerentscheidung Issue #347, keine eigene AuslosungsRegelArt).
     private static List<AuslosungsErgebnis> TopfZuordnungAusloesen(
-        List<List<TeilnehmerSlot>> lostoepfe, RegelKontext regeln, Random zufall)
+        List<List<TeilnehmerSlot>> lostoepfe, int gegnerJeTopf, RegelKontext regeln, Random zufall)
     {
         var keinGleichesLand = regeln.KeinGleichesLand;
         if (keinGleichesLand) LandverteilungPruefen(lostoepfe);
@@ -114,6 +115,7 @@ public static class Losverfahren
                 teilnehmer.Select(t => t.Topf).ToList(),
                 teilnehmer.Select(t => t.Slot.LandId).ToList(),
                 keinGleichesLand,
+                gegnerJeTopf,
                 zufall)
             .Ausloesen()
             ?? throw new InvalidOperationException(

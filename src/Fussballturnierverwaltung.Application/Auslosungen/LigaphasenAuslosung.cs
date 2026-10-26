@@ -4,14 +4,15 @@ namespace Fussballturnierverwaltung.Application.Auslosungen;
 
 /// <summary>
 /// Auslosung der UCL-Ligaphase (ab 2024/25) nach dem UEFA-Verfahren (Issue #347): Jedes Team erhält aus jedem
-/// Topf genau einen Heim- und einen Auswärtsgegner, nie zweimal denselben Gegner, bei aktiven Länder-Regeln
-/// keinen Gegner aus dem eigenen Land und höchstens <see cref="LigaphasenBelegung.MAX_GEGNER_JE_LAND"/> aus demselben Land.
+/// Topf genau einen Heim- und einen Auswärtsgegner — in der UECL aus jedem Topf-Paar (#469, siehe
+/// <see cref="LigaphasenBelegung"/>) —, nie zweimal denselben Gegner, bei aktiven Länder-Regeln keinen Gegner aus
+/// dem eigenen Land und höchstens <see cref="LigaphasenBelegung.MAX_GEGNER_JE_LAND"/> aus demselben Land.
 /// <para>Ablauf wie bei der offiziellen Auslosung (Software von AE Live): Topf für Topf wird ein Team nach dem
 /// anderen gezogen, dann werden seine noch offenen Gegner Topf für Topf zufällig bestimmt. Vor jeder Festlegung
 /// prüft eine Vorausschau (Backtracking-Suche), ob sich die Auslosung von dort aus noch vollständig und gültig
 /// beenden lässt — einschließlich der Verteilbarkeit auf die Spieltage (<see cref="SpieltagZerlegung"/>; ohne
-/// diese Prüfung gibt es regelkonforme Auslosungen, die sich nicht in 8 Spieltagen spielen lassen, vgl. Guyon et
-/// al., "Drawing and Scheduling the UEFA Champions League League Phase"). So kann sich die Auslosung nie
+/// diese Prüfung gibt es regelkonforme Auslosungen, die sich nicht in 8 bzw. 6 Spieltagen spielen lassen, vgl.
+/// Guyon et al., "Drawing and Scheduling the UEFA Champions League League Phase"). So kann sich die Auslosung nie
 /// festfahren.</para>
 /// </summary>
 internal sealed class LigaphasenAuslosung
@@ -36,9 +37,11 @@ internal sealed class LigaphasenAuslosung
 
     /// <param name="topfJeTeam">Topf-Index (ab 0) je Team-Index.</param>
     /// <param name="landJeTeam">Land je Team-Index (null = unbekannt, z.B. Platzhalter).</param>
-    public LigaphasenAuslosung(IReadOnlyList<int> topfJeTeam, IReadOnlyList<int?> landJeTeam, bool landRegeln, Random zufall)
+    /// <param name="gegnerJeTopf">1 oder 2, siehe <see cref="LigaphasenBelegung"/>.</param>
+    public LigaphasenAuslosung(
+        IReadOnlyList<int> topfJeTeam, IReadOnlyList<int?> landJeTeam, bool landRegeln, int gegnerJeTopf, Random zufall)
     {
-        _belegung = new LigaphasenBelegung(topfJeTeam, landJeTeam, landRegeln);
+        _belegung = new LigaphasenBelegung(topfJeTeam, landJeTeam, landRegeln, gegnerJeTopf);
         _zufall   = zufall;
     }
 
