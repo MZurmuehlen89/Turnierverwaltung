@@ -284,24 +284,29 @@ public class Platzbelegung : ObservableObject
         return ([], "");
     }
 
-    private string? RegelVerletzung(TeilnehmerAnzeige neuTeam, TeilnehmerAnzeige anderes, string beziehung) =>
-        PaarungsRegeln.VerletzteRegel(
+    private string? RegelVerletzung(TeilnehmerAnzeige neuTeam, TeilnehmerAnzeige anderes, string beziehung)
+    {
+        var (neu, andere) = (HerkunftVon(neuTeam), HerkunftVon(anderes));
+        return PaarungsRegeln.VerletzteRegel(
             _regelWirkt(AuslosungsRegelArt.KeinGleichesLand), _regelWirkt(AuslosungsRegelArt.KeineGleicheGruppe),
-            HerkunftVon(neuTeam), HerkunftVon(anderes)) switch
+            neu, andere) switch
         {
             AuslosungsRegelArt.KeinGleichesLand =>
                 $"Regel 'Kein gleiches Land': '{neuTeam.Name}' und '{anderes.Name}' " +
                 $"sind aus demselben Land und dürfen nicht {beziehung}.",
+            AuslosungsRegelArt.KeineGleicheGruppe when RegelHerkunft.NurMoeglich(neu, andere) =>
+                $"Regel 'Keine gleiche Gruppe': '{neuTeam.Name}' und '{anderes.Name}' " +
+                $"können aus derselben Gruppe kommen und dürfen nicht {beziehung}.",
             AuslosungsRegelArt.KeineGleicheGruppe =>
                 $"Regel 'Keine gleiche Gruppe': '{neuTeam.Name}' und '{anderes.Name}' " +
                 $"waren in derselben Gruppe und dürfen nicht {beziehung}.",
             _ => null
         };
+    }
 
-    // Die Gruppen-Herkunft steckt im Platzhalternamen („1. Gruppe A“), echte Mannschaften gibt es hier nur in
-    // der ersten Runde ohne Vorgänger.
-    private static RegelHerkunft HerkunftVon(TeilnehmerAnzeige team) =>
-        new(team.LandId, GruppenHerkunft.AusPlatzhalter(team.Name)?.Gruppe);
+    // Die Gruppen-Herkunft steckt im Platzhalternamen („1. Gruppe A“, bei einem Kombinationsplatz „3. Gruppe A/D/E/F“
+    // die möglichen Gruppen, #489), echte Mannschaften gibt es hier nur in der ersten Runde ohne Vorgänger.
+    private static RegelHerkunft HerkunftVon(TeilnehmerAnzeige team) => RegelHerkunft.AusPlatzhalter(team.LandId, team.Name);
 
     // ── Ergebnis ─────────────────────────────────────────────────────────────
 

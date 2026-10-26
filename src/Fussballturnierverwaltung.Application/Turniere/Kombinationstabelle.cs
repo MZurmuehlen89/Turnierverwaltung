@@ -50,6 +50,14 @@ public sealed record Kombinationstabelle(
         return m.Success;
     }
 
+    /// <summary>Die Gruppen, aus denen ein Kombinations-Platzhalter kommen kann ("3. Gruppe A/D/E/F" → A, D, E, F) —
+    /// <c>null</c> für jeden anderen Namen.</summary>
+    public static IReadOnlyList<string>? KandidatenGruppen(string? platzhalter)
+    {
+        var m = _platzRx.Match(platzhalter ?? "");
+        return m.Success ? m.Groups[2].Value.Split('/') : null;
+    }
+
     /// <summary>Gruppe, deren Dritter bei den qualifizierten Gruppen <paramref name="qualifizierteGruppen"/>
     /// den Platz <paramref name="platzhalter"/> einnimmt — null, wenn Platz oder Kombination nicht in der
     /// Tabelle stehen.</summary>

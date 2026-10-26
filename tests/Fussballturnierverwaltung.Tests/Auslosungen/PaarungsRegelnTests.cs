@@ -63,4 +63,39 @@ public class PaarungsRegelnTests
         BeideRegeln(ersterA, zweiterA).Should().Be(AuslosungsRegelArt.KeineGleicheGruppe);
         BeideRegeln(ersterA, zweiterB).Should().BeNull();
     }
+
+    // ── Kombinationsplätze (#489) ────────────────────────────────────────────
+
+    [Fact]
+    public void VerletzteRegel_KombinationsplatzMitDerGruppeDesGegners_MeldetKeineGleicheGruppe()
+    {
+        var ersterA = RegelHerkunft.AusPlatzhalter(null, "1. Gruppe A");
+        var dritterADEF = RegelHerkunft.AusPlatzhalter(null, "3. Gruppe A/D/E/F");
+
+        BeideRegeln(ersterA, dritterADEF).Should().Be(AuslosungsRegelArt.KeineGleicheGruppe);
+        BeideRegeln(dritterADEF, ersterA).Should().Be(AuslosungsRegelArt.KeineGleicheGruppe);
+        RegelHerkunft.NurMoeglich(ersterA, dritterADEF).Should().BeTrue();
+    }
+
+    [Fact]
+    public void VerletzteRegel_KombinationsplatzOhneDieGruppeDesGegners_MeldetNichts() =>
+        // EURO 2024, Achtelfinale: 1B gegen 3ADEF
+        BeideRegeln(RegelHerkunft.AusPlatzhalter(null, "1. Gruppe B"), RegelHerkunft.AusPlatzhalter(null, "3. Gruppe A/D/E/F"))
+            .Should().BeNull();
+
+    [Fact]
+    public void VerletzteRegel_ZweiKombinationsplaetze_MeldetNichts() =>
+        // Zwei verschiedene Dritte kommen nie aus derselben Gruppe.
+        BeideRegeln(RegelHerkunft.AusPlatzhalter(null, "3. Gruppe A/B/C"), RegelHerkunft.AusPlatzhalter(null, "3. Gruppe A/D/E"))
+            .Should().BeNull();
+
+    [Fact]
+    public void AusPlatzhalter_FesteGruppe_HatKeineKandidaten()
+    {
+        var ersterA = RegelHerkunft.AusPlatzhalter(null, "1. Gruppe A");
+
+        ersterA.Gruppe.Should().Be("A");
+        ersterA.KandidatenGruppen.Should().BeNull();
+        RegelHerkunft.NurMoeglich(ersterA, RegelHerkunft.AusPlatzhalter(null, "2. Gruppe A")).Should().BeFalse();
+    }
 }
