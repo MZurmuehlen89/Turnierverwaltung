@@ -25,18 +25,22 @@
              288-mal da. Das Wappen ist an IstAufgedeckt gebunden, nicht an sein Vorhandensein — aufgedeckt hält es
              seinen Platz auch ohne Bild (Namen fluchten), verdeckt rückt das "…" an den linken Rand. -->
         <DataTemplate x:Key="GegnerMatrixZelleTemplate">
-            <local:KlickFlaeche Width="116" Height="30" Padding="3,0" Margin="0,0,2,0"
-                                ColumnDefinitions="Auto,*" CornerRadius="3" BorderThickness="1"
+            <!-- Kompakte Matrix (#469): „H“/„A“ vor dem Gegner, breiterer Rand nach jedem Topf-Paar -->
+            <local:KlickFlaeche Width="116" Height="30" Padding="3,0" Margin="{Binding Rand}"
+                                ColumnDefinitions="Auto,Auto,*" CornerRadius="3" BorderThickness="1"
                                 IstHervorgehoben="{Binding IstHervorgehoben}"
                                 HervorhebungHintergrund="{StaticResource MatrixZelleHervorhebungBrush}"
                                 HervorhebungRahmen="{ThemeResource AccentFillColorDefaultBrush}"
                                 ZeigerHintergrund="{ThemeResource ButtonBackgroundPointerOver}"
                                 ToolTipService.ToolTip="{Binding Name}"
                                 Ausgeloest="MatrixZelle_Ausgeloest">
-                <Image Grid.Column="0" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                <TextBlock Grid.Column="0" Text="{Binding SeiteKurz}" FontSize="10" FontWeight="SemiBold" Opacity="0.6"
+                           Width="10" Margin="0,0,4,0" VerticalAlignment="Center"
+                           Visibility="{Binding SeiteKurz, Converter={StaticResource NullToCollapsed}}" />
+                <Image Grid.Column="1" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
                        Visibility="{Binding IstAufgedeckt, Converter={StaticResource BoolToVisibility}}"
                        Stretch="Uniform" Width="18" Height="18" Margin="0,0,6,0" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="1" Text="{Binding Anzeige}" Opacity="{Binding AnzeigeOpacity}" FontSize="12"
+                <TextBlock Grid.Column="2" Text="{Binding Anzeige}" Opacity="{Binding AnzeigeOpacity}" FontSize="12"
                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
             </local:KlickFlaeche>
         </DataTemplate>
@@ -220,7 +224,7 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <StackPanel Width="116" Margin="0,0,2,0" Padding="4,0">
+                                    <StackPanel Width="116" Margin="{Binding Rand}" Padding="4,0">
                                         <TextBlock Text="{Binding TopfName}" FontSize="11" FontWeight="SemiBold"
                                                    Opacity="0.7" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Text="{Binding Seite}" FontSize="11" Opacity="0.5" />
@@ -916,8 +920,8 @@
                                             Padding="0,0,0,4" Margin="0,0,0,2">
                                         <Grid ColumnDefinitions="90,280,16,280" Opacity="0.6">
                                             <TextBlock Grid.Column="0" Text="Topf" FontSize="11" FontWeight="SemiBold" />
-                                            <TextBlock Grid.Column="1" Text="Heim" FontSize="11" FontWeight="SemiBold" />
-                                            <TextBlock Grid.Column="3" Text="Auswärts" FontSize="11" FontWeight="SemiBold" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Ergebnis.GegnerMatrix.FokusKopfMitte}" FontSize="11" FontWeight="SemiBold" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Ergebnis.GegnerMatrix.FokusKopfRechts}" FontSize="11" FontWeight="SemiBold" />
                                         </Grid>
                                     </Border>
                                     <ItemsControl ItemsSource="{Binding Ergebnis.GegnerMatrix.FokusGegner}">
@@ -930,7 +934,11 @@
                                                         <ContentPresenter Grid.Column="1" Content="{Binding Heim}"
                                                                           ContentTemplate="{StaticResource FokusGegnerTemplate}" />
                                                         <ContentPresenter Grid.Column="3" Content="{Binding Auswaerts}"
-                                                                          ContentTemplate="{StaticResource FokusGegnerTemplate}" />
+                                                                          ContentTemplate="{StaticResource FokusGegnerTemplate}"
+                                                                          Visibility="{Binding HatSeite, Converter={StaticResource InverseBoolToVisibility}}" />
+                                                        <!-- Kompakte Matrix (#469): Spielort statt Auswärtsgegner -->
+                                                        <TextBlock Grid.Column="3" Text="{Binding Seite}" FontSize="12" VerticalAlignment="Center"
+                                                                   Visibility="{Binding HatSeite, Converter={StaticResource BoolToVisibility}}" />
                                                     </Grid>
                                                 </Border>
                                             </DataTemplate>

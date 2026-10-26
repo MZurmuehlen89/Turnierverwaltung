@@ -136,4 +136,28 @@ public class GegnerMatrixPlanTests
         Zeile(plan, 21).GegnerJeTopf[0].Auswaerts!.Schluessel.Should().Be("P:Sieger Play-off A");
         Zeile(plan, 21).Team.Schluessel.Should().Be("21");
     }
+
+    // ── Ein Gegner je Topf (#469) ─────────────────────────────────────────────
+
+    [Fact]
+    public void HatEinenGegnerJeTopf_ToepfePaarweise_Ja()
+    {
+        // Topf-Paar 1/2: jedes Team einen Gegner aus jedem Topf, einer davon zu Hause
+        var auslosung = Auslosung([Topf(1, 11, 12), Topf(2, 21, 22)],
+            Spiel(11, 12), Spiel(21, 11), Spiel(12, 22), Spiel(22, 21));
+
+        GegnerMatrixPlan.HatEinenGegnerJeTopf(GegnerMatrixPlan.Aufbauen(auslosung)).Should().BeTrue();
+    }
+
+    [Fact]
+    public void HatEinenGegnerJeTopf_HeimUndAuswaertsAusDemselbenTopf_Nein()
+    {
+        var auslosung = Auslosung([Topf(1, 11, 12, 13)], Spiel(11, 12), Spiel(13, 11), Spiel(12, 13));
+
+        GegnerMatrixPlan.HatEinenGegnerJeTopf(GegnerMatrixPlan.Aufbauen(auslosung)).Should().BeFalse();
+    }
+
+    [Fact]
+    public void HatEinenGegnerJeTopf_OhneTeams_Nein() =>
+        GegnerMatrixPlan.HatEinenGegnerJeTopf([]).Should().BeFalse();
 }

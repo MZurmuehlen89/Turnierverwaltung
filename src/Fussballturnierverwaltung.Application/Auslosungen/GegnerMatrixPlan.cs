@@ -43,6 +43,14 @@ public static class GegnerMatrixPlan
             .ToList();
     }
 
+    /// <summary>Ob jedes Team aus jedem Topf höchstens einen Gegner hat (UECL-Ligaphase, #469) — dann genügt der
+    /// Anzeige eine Spalte je Topf statt je Topf einer Heim- und einer Auswärtsspalte. Ohne Teams: nein.</summary>
+    public static bool HatEinenGegnerJeTopf(IReadOnlyList<GegnerPlanTopf> plan)
+    {
+        var paare = plan.SelectMany(t => t.Zeilen).SelectMany(z => z.GegnerJeTopf).ToList();
+        return paare.Count > 0 && paare.All(p => p.Heim is null || p.Auswaerts is null);
+    }
+
     private static Dictionary<string, int> TopfIndexJeTeam(IReadOnlyList<Lostopf> toepfe)
     {
         var topfJeTeam = new Dictionary<string, int>();

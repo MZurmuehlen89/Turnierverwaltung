@@ -119,7 +119,7 @@ internal sealed class LigaphasenZiehungsAblauf(
             .Select((zelle, index) => (zelle, index))
             .Where(x => x.zelle.Schluessel is not null)
             .Select(x => new AnimationsBannerGegner(
-                $"{matrix.Spalten[x.index].TopfName} · {matrix.Spalten[x.index].Seite}", x.zelle, !x.zelle.IstAufgedeckt)));
+                $"{matrix.Spalten[x.index].TopfName} · {x.zelle.Seite}", x.zelle, !x.zelle.IstAufgedeckt)));
 
     /// <summary>Deckt <paramref name="zelle"/> in der Zeile des gezogenen Teams auf und zugleich die gespiegelte
     /// Zelle in der Zeile des Gegners.</summary>

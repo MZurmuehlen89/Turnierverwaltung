@@ -40,12 +40,19 @@ public partial class GegnerMatrixViewModel : ObservableObject
 
     public bool ZeigeFokusGegner => FokusTeam is not null;
 
+    // Spaltenköpfe der Gegnerliste — die kompakte Matrix (#469) hat je Topf einen Gegner und dessen Spielort.
+    private bool IstKompakt => _alleMatrizen.Count > 0 && _alleMatrizen[0].IstKompakt;
+    public string FokusKopfMitte => IstKompakt ? "Gegner" : "Heim";
+    public string FokusKopfRechts => IstKompakt ? "Spielort" : "Auswärts";
+
     /// <summary>Zeigt <paramref name="matrizen"/> an und hebt einen bestehenden Team-Fokus auf.</summary>
     public void Zeigen(IReadOnlyList<GegnerMatrixTopf> matrizen)
     {
         _alleMatrizen = matrizen;
         FokusTeam     = null;
         FokusGegner   = [];
+        OnPropertyChanged(nameof(FokusKopfMitte));
+        OnPropertyChanged(nameof(FokusKopfRechts));
         AnzeigeNeuAufbauen();
     }
 
@@ -110,10 +117,17 @@ public partial class GegnerMatrixViewModel : ObservableObject
         }
     }
 
-    /// <summary>Die Spalten liegen paarweise je Gegner-Topf vor (Heim, Auswärts) — daraus je Topf ein Eintrag.</summary>
-    private ObservableCollection<FokusGegnerEintrag> GegnerJeTopf(GegnerMatrixZeile zeile) =>
-        new(_alleMatrizen[0].Spalten
-            .Select((spalte, index) => (spalte, index))
-            .Where(x => x.index % 2 == 0)
-            .Select(x => new FokusGegnerEintrag(x.spalte.TopfName, zeile.Gegner[x.index], zeile.Gegner[x.index + 1])));
+    /// <summary>Die Spalten liegen paarweise je Gegner-Topf vor (Heim, Auswärts) — daraus je Topf ein Eintrag; in
+    /// der kompakten Matrix (#469) je Topf eine Spalte mit dem einen Gegner.</summary>
+    private ObservableCollection<FokusGegnerEintrag> GegnerJeTopf(GegnerMatrixZeile zeile)
+    {
+        var spalten = _alleMatrizen[0].Spalten;
+        return IstKompakt
+            ? new(spalten.Select((spalte, index) =>
+                new FokusGegnerEintrag(spalte.TopfName, zeile.Gegner[index], new GegnerMatrixZelle(), zeile.Gegner[index].Seite)))
+            : new(spalten
+                .Select((spalte, index) => (spalte, index))
+                .Where(x => x.index % 2 == 0)
+                .Select(x => new FokusGegnerEintrag(x.spalte.TopfName, zeile.Gegner[x.index], zeile.Gegner[x.index + 1])));
+    }
 }
