@@ -11,6 +11,7 @@ namespace Fussballturnierverwaltung.Application.Spielplan;
 /// <summary>Kaskaden-Reset für Folgerunden (Issue #88): bringt Spiele, in die schon Mannschaften aus einer
 /// Vorrunde eingetragen wurden, wieder in Einklang mit deren aktuellem Stand — etwa nachdem dort ein Ergebnis
 /// gelöscht oder der Spielplan ersetzt wurde.</summary>
+#pragma warning disable S107 // eine Verantwortung (Kaskade planen, ausführen, auslösen); ein eigener Planer brächte 8 → 7 Parameter und dem SpielplanViewModel eine Abhängigkeit mehr (#504)
 public class PlatzhalterKaskadeService(
     ITurnierRundeRepository rundeRepository,
     ISpielRepository spielRepository,
@@ -20,6 +21,7 @@ public class PlatzhalterKaskadeService(
     SpielplanService spielplanService,
     FinaleAutomatik finaleAutomatik,
     ILogger<PlatzhalterKaskadeService> logger) : IPlatzhalterKaskadeService
+#pragma warning restore S107
 {
     // ── Planen ────────────────────────────────────────────────────────────
 

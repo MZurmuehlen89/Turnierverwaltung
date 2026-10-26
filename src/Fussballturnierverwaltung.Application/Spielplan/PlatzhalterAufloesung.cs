@@ -12,6 +12,7 @@ namespace Fussballturnierverwaltung.Application.Spielplan;
 
 /// <summary>Ermittelt, welche Mannschaft hinter einem Platzhalter wie "Sieger Gruppe A" oder hinter der
 /// Platzierung einer <see cref="Uebergangsregel"/> steht, und trägt sie in die Spiele ein, sobald sie feststeht.</summary>
+#pragma warning disable S107 // eine Verantwortung (Platzhalter auflösen: Runden, Namen, Übergangsregeln, Vorschau); alle Wege teilen Zielrunde, Sicht und Rangermittlung (#504)
 public class PlatzhalterAufloesung(
     ITurnierRundeRepository rundeRepository,
     ISpielRepository spielRepository,
@@ -20,6 +21,7 @@ public class PlatzhalterAufloesung(
     TabellenZwischenspeicher zwischenspeicher,
     KoQuellverknuepfung quellverknuepfung,
     ILogger<PlatzhalterAufloesung> logger)
+#pragma warning restore S107
 {
     /// <summary>Die Runde, deren Platzhalter aufgelöst werden — Quellrunden liegen immer davor.</summary>
     private sealed record Zielrunde(TurnierRunde Runde, IReadOnlyList<TurnierRunde> AlleRunden);

@@ -12,6 +12,7 @@ namespace Fussballturnierverwaltung.Application.Spielplan;
 /// synchron mit dem Stand ihrer(n) Quellrunde(n) — ohne dass für die Zielrunde eine eigene Auslosung durchlaufen
 /// werden muss (bei nur zwei möglichen Teilnehmern gibt es ohnehin keinen Freiheitsgrad, wer gegen wen antritt).
 /// </summary>
+#pragma warning disable S107 // eine Verantwortung (Zielrunden mit zwei Teilnehmern ohne Auslosung abgleichen); jede Abhängigkeit braucht der Abgleich (#504)
 public class FinaleAutomatik(
     ITurnierRundeRepository rundeRepository,
     IUebergangsregelRepository uebergangsregelRepository,
@@ -20,6 +21,7 @@ public class FinaleAutomatik(
     PlatzhalterAufloesung aufloesung,
     SpielplanService spielplanService,
     ILogger<FinaleAutomatik> logger)
+#pragma warning restore S107
 {
     /// <summary>
     /// Generiert das Spiel, sobald die Quellrunde(n) vollständig entschieden sind, und entfernt/ersetzt ein noch
