@@ -73,6 +73,7 @@ public class TurnierKlonService(
                 KombinationstabelleJson   = runde.KombinationstabelleJson,
                 StandardRanglisteId = runde.StandardRanglisteId,
                 TitelverteidigerInTopf1   = runde.TitelverteidigerInTopf1,
+                GegnerJeTopf              = runde.GegnerJeTopf,
                 TabellenBereiche          = [.. runde.TabellenBereiche.Select(b => new TabellenBereich
                 {
                     PlatzVon = b.PlatzVon, PlatzBis = b.PlatzBis, Art = b.Art, Bezeichnung = b.Bezeichnung

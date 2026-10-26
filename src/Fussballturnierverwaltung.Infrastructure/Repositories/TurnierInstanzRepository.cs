@@ -106,6 +106,7 @@ public class TurnierInstanzRepository(TurnierverwaltungDbContext context)
             alt.KombinationstabelleJson   = neu.KombinationstabelleJson;
             alt.StandardRanglisteId = neu.StandardRanglisteId;
             alt.TitelverteidigerInTopf1   = neu.TitelverteidigerInTopf1;
+            alt.GegnerJeTopf              = neu.GegnerJeTopf;
             TabellenBereicheAbgleichen(alt, neu);
         }
 

@@ -11,7 +11,7 @@ public class TurnierRundeEingabeTests
     private static TurnierRundeEingabe Eingabe(Rundenart rundenart, int? ranglistenQuelleId = null) => new(
         "Runde", rundenart, EingangsMannschaftsanzahl: 16, AusgangsMannschaftsanzahl: 8, RegelwerkId: null,
         KonfigurationJson: KONFIGURATION, GruppenAnzahl: 4,
-        StandardRanglisteId: ranglistenQuelleId, TitelverteidigerInTopf1: true);
+        StandardRanglisteId: ranglistenQuelleId, TitelverteidigerInTopf1: true, GegnerJeTopf: 1);
 
     [Fact]
     public void OhneUnwirksameAngaben_SchweizerSystem_BehaeltDieSpieltagKonfiguration() =>
@@ -43,6 +43,17 @@ public class TurnierRundeEingabeTests
     public void OhneUnwirksameAngaben_OhneStandardRangliste_VerwirftTitelverteidigerInTopf1() =>
         Eingabe(Rundenart.Liga).OhneUnwirksameAngaben().TitelverteidigerInTopf1.Should().BeFalse();
 
+    [Fact]
+    public void OhneUnwirksameAngaben_TopfLiga_BehaeltGegnerJeTopf() =>
+        Eingabe(Rundenart.TopfLiga).OhneUnwirksameAngaben().GegnerJeTopf.Should().Be(1);
+
+    [Theory]
+    [InlineData(Rundenart.Liga)]
+    [InlineData(Rundenart.Gruppenphase)]
+    [InlineData(Rundenart.KoRunde)]
+    public void OhneUnwirksameAngaben_AndereRundenart_SetztGegnerJeTopfZurueck(Rundenart rundenart) =>
+        Eingabe(rundenart).OhneUnwirksameAngaben().GegnerJeTopf.Should().Be(2);
+
     private static readonly TabellenBereichEingabe[] _bereiche = [new(17, 18, TabellenBereichArt.Abstieg, "Abstieg")];
 
     [Theory]
@@ -62,7 +73,7 @@ public class TurnierRundeEingabeTests
     [Fact]
     public void OhneUnwirksameAngaben_LaesstAlleAnderenAngabenUnveraendert()
     {
-        var eingabe = Eingabe(Rundenart.Gruppenphase, ranglistenQuelleId: 7) with { KonfigurationJson = null };
+        var eingabe = Eingabe(Rundenart.Gruppenphase, ranglistenQuelleId: 7) with { KonfigurationJson = null, GegnerJeTopf = 2 };
 
         eingabe.OhneUnwirksameAngaben().Should().Be(eingabe);
     }

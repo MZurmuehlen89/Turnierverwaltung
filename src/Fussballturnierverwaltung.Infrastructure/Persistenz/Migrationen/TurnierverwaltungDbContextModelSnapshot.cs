@@ -1070,6 +1070,11 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("GegnerJeTopf")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(2);
+
                     b.Property<int?>("GruppenAnzahl")
                         .HasColumnType("int");
 

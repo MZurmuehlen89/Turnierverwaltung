@@ -70,11 +70,12 @@ public record TurnierRundeEingabe(
     IReadOnlyList<TabellenBereichEingabe>? TabellenBereiche = null,
     Gruppenposition VorgegebeneGruppenposition = Gruppenposition.NachTopf,
     IReadOnlyList<int>? GastgeberGruppen = null,
-    int? TitelverteidigerGruppe = null)
+    int? TitelverteidigerGruppe = null,
+    int GegnerJeTopf = 2)
 {
     /// <summary>Lässt weg, was bei dieser Runde nichts bewirkt, im Formular aber stehen geblieben sein kann:
     /// die Spieltag-Konfiguration außerhalb des Schweizer Systems, die Gruppenanzahl außerhalb der Gruppenphase,
-    /// Tabellenbereiche bei Runden ohne Tabelle und „Titelverteidiger in Topf 1“ ohne Standard-Rangliste.</summary>
+    /// Tabellenbereiche bei Runden ohne Tabelle, „Titelverteidiger in Topf 1“ ohne Standard-Rangliste und „Gegner je Topf“ außerhalb der TopfLiga.</summary>
     public TurnierRundeEingabe OhneUnwirksameAngaben() => this with
     {
         KonfigurationJson = Rundenart == Rundenart.SchweizerSystem ? KonfigurationJson : null,
@@ -83,7 +84,8 @@ public record TurnierRundeEingabe(
         GastgeberGruppen = Rundenart == Rundenart.Gruppenphase ? GastgeberGruppen : null,
         TitelverteidigerGruppe = Rundenart == Rundenart.Gruppenphase ? TitelverteidigerGruppe : null,
         TabellenBereiche = TabellenZonen.HatTabelle(Rundenart) ? TabellenBereiche : null,
-        TitelverteidigerInTopf1 = StandardRanglisteId is not null && TitelverteidigerInTopf1
+        TitelverteidigerInTopf1 = StandardRanglisteId is not null && TitelverteidigerInTopf1,
+        GegnerJeTopf = Rundenart == Rundenart.TopfLiga ? GegnerJeTopf : 2
     };
 }
 

@@ -44,6 +44,7 @@ public class TurnierRundeKonfiguration : IEntityTypeConfiguration<TurnierRunde>
             .IsRequired(false);
 
         builder.Property(r => r.TitelverteidigerInTopf1).IsRequired().HasDefaultValue(false);
+        builder.Property(r => r.GegnerJeTopf).IsRequired().HasDefaultValue(2);
 
         builder.HasOne(r => r.StandardRangliste)
             .WithMany()

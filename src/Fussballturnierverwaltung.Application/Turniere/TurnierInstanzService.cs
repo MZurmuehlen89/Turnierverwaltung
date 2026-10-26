@@ -233,6 +233,7 @@ public class TurnierInstanzService(
         KombinationstabelleJson      = e.KombinationstabelleJson,
         StandardRanglisteId   = e.StandardRanglisteId,
         TitelverteidigerInTopf1      = e.TitelverteidigerInTopf1,
+        GegnerJeTopf                 = e.GegnerJeTopf,
         TabellenBereiche             = [.. (e.TabellenBereiche ?? []).OrderBy(b => b.PlatzVon).Select(b => new TabellenBereich
         {
             PlatzVon    = b.PlatzVon,

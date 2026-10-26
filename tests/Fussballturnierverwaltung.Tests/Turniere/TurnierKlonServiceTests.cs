@@ -41,7 +41,7 @@ public class TurnierKlonServiceTests
             Rundenart = Rundenart.KoRunde, EingangsMannschaftsanzahl = 4, AusgangsMannschaftsanzahl = 2, RegelwerkId = 1,
             VorgegebeneAuslosungsart = Auslosungsart.NachToepfen,
             VorgegebeneGruppenposition = Gruppenposition.AlleGelost,
-            StandardRanglisteId = 7, TitelverteidigerInTopf1 = true, NeutralerSpielort = true,
+            StandardRanglisteId = 7, TitelverteidigerInTopf1 = true, GegnerJeTopf = 1, NeutralerSpielort = true,
             TabellenBereiche = [new TabellenBereich { PlatzVon = 2, PlatzBis = 2, Art = TabellenBereichArt.Relegation, Bezeichnung = "Relegation" }]
         };
         var finale = new TurnierRunde
@@ -166,6 +166,7 @@ public class TurnierKlonServiceTests
         var halbfinale = klon.Runden.Single(r => r.Name == "Halbfinale");
         halbfinale.StandardRanglisteId.Should().Be(7);
         halbfinale.TitelverteidigerInTopf1.Should().BeTrue();
+        halbfinale.GegnerJeTopf.Should().Be(1);
         halbfinale.NeutralerSpielort.Should().BeTrue();
         klon.Runden.Single(r => r.Name == "Finale").StandardRanglisteId.Should().BeNull();
         klon.Runden.Single(r => r.Name == "Finale").NeutralerSpielort.Should().BeFalse();

@@ -72,6 +72,11 @@ public class TurnierRunde : BasisEntitaet
     // UEFA-Champions-League-Ligaphase ab 2024/25 (Issue #349). Nur wirksam mit Standard-Rangliste.
     public bool TitelverteidigerInTopf1 { get; set; }
 
+    // Gegner je Topf in einer TopfLiga (Issue #469): 2 = aus jedem Topf ein Heim- und ein Auswärtsgegner
+    // (UCL/UEL-Ligaphase ab 2024/25), 1 = aus jedem Topf ein Gegner, die Töpfe 1/2, 3/4, … bilden Paare mit je
+    // einem Heim- und einem Auswärtsgegner (UECL-Ligaphase). Nur bei Rundenart TopfLiga wirksam.
+    public int GegnerJeTopf { get; set; } = 2;
+
     // Kombinationstabelle für Platzhalter wie "3. Gruppe A/D/E/F" (Issue #372): welcher Gruppendritte auf
     // welchen Baumplatz kommt, hängt davon ab, aus welchen Gruppen die besten Dritten stammen (UEFA EURO/
     // FIFA-WM-Reglement). Typisierter Zugriff über Application.Turniere.Kombinationstabelle. null = keine.
