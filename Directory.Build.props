@@ -2,10 +2,11 @@
 
   <!-- Statische Codeanalyse für alle Projekte unter src/ und tests/ (#498). Schweregrade in .globalconfig,
        Schwellwerte der Sonar-Regeln in build/SonarLint.xml. Die Hilfswerkzeuge unter tools/ bleiben außen vor. -->
-  <PropertyGroup Condition="!$(MSBuildProjectDirectory.Contains('\tools\'))">
+  <!-- Pfade mit "/": die Unit-Tests werden in der CI auf Linux gebaut (#525) -->
+  <PropertyGroup Condition="!$(MSBuildProjectDirectory.Replace('\', '/').Contains('/tools/'))">
     <AnalyseAktiv>true</AnalyseAktiv>
     <!-- Befunde je Projekt als SARIF unter analyse/ (nicht eingecheckt), Auswertung siehe CLAUDE.md -->
-    <ErrorLog>$(MSBuildThisFileDirectory)analyse\$(MSBuildProjectName).sarif,version=2.1</ErrorLog>
+    <ErrorLog>$(MSBuildThisFileDirectory)analyse/$(MSBuildProjectName).sarif,version=2.1</ErrorLog>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(AnalyseAktiv)' == 'true'">
