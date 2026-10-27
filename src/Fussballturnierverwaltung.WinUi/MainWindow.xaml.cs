@@ -213,30 +213,7 @@ public sealed partial class MainWindow : Window
         var umschalterJeGruppe = new Dictionary<string, List<CheckBox>>();
         foreach (var toggle in toggles)
         {
-            var text = new StackPanel();
-            text.Children.Add(new TextBlock { Text = toggle.Header, FontSize = 13, TextWrapping = TextWrapping.Wrap });
-            if (toggle.Beschreibung is { Length: > 0 } beschreibung)
-                text.Children.Add(new TextBlock
-                {
-                    Text = beschreibung, FontSize = 11, Opacity = 0.6, TextWrapping = TextWrapping.Wrap
-                });
-            // Gesperrt: ausgegraut (IsEnabled = false dimmt den ganzen Content), der Hinweis erklärt warum (#331).
-            if (toggle.SperrHinweis is { Length: > 0 } sperrHinweis)
-                text.Children.Add(new TextBlock
-                {
-                    Text = sperrHinweis, FontSize = 11, FontStyle = Windows.UI.Text.FontStyle.Italic,
-                    TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0)
-                });
-
-            var umschalter = new CheckBox
-            {
-                IsChecked = toggle.IstAktiv, Content = text,
-                IsEnabled = toggle.SperrHinweis is null,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                VerticalContentAlignment = VerticalAlignment.Top
-            };
-            KennungSetzen(umschalter, toggle.AutomationId);
+            var umschalter = UmschalterErstellen(toggle);
 
             List<CheckBox>? gruppe = null;
             if (toggle.ExklusivGruppe is { } gruppenName)
@@ -271,6 +248,37 @@ public sealed partial class MainWindow : Window
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             }
         };
+    }
+
+    /// <summary>Ein Umschalter des Toggle-Flyouts: Checkbox mit Überschrift, Infotext und ggf. Sperrhinweis als
+    /// Content.</summary>
+    private static CheckBox UmschalterErstellen(RibbonToggleAktion toggle)
+    {
+        var text = new StackPanel();
+        text.Children.Add(new TextBlock { Text = toggle.Header, FontSize = 13, TextWrapping = TextWrapping.Wrap });
+        if (toggle.Beschreibung is { Length: > 0 } beschreibung)
+            text.Children.Add(new TextBlock
+            {
+                Text = beschreibung, FontSize = 11, Opacity = 0.6, TextWrapping = TextWrapping.Wrap
+            });
+        // Gesperrt: ausgegraut (IsEnabled = false dimmt den ganzen Content), der Hinweis erklärt warum (#331).
+        if (toggle.SperrHinweis is { Length: > 0 } sperrHinweis)
+            text.Children.Add(new TextBlock
+            {
+                Text = sperrHinweis, FontSize = 11, FontStyle = Windows.UI.Text.FontStyle.Italic,
+                TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0)
+            });
+
+        var umschalter = new CheckBox
+        {
+            IsChecked = toggle.IstAktiv, Content = text,
+            IsEnabled = toggle.SperrHinweis is null,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            VerticalContentAlignment = VerticalAlignment.Top
+        };
+        KennungSetzen(umschalter, toggle.AutomationId);
+        return umschalter;
     }
 
     // ── Button-Breite ────────────────────────
