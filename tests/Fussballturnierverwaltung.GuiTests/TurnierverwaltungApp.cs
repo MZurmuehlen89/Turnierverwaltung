@@ -59,6 +59,11 @@ public sealed class TurnierverwaltungApp : IDisposable
                 ? datei.FullName
                 : Path.Combine(_datenpfad, "logs");
 
+    // Ohne den Namensraum: Mit ihm überschritt der Belegpfad auf dem CI-Runner die 260 Zeichen, und das
+    // Bildschirmfoto scheiterte mit „A generic error occurred in GDI+“ (#537).
+    private static readonly string _namensraum = typeof(TurnierverwaltungApp).Namespace + ".";
+
     private static string DateiName(string? text) =>
-        string.Concat((text ?? "Test").Select(z => Path.GetInvalidFileNameChars().Contains(z) ? '_' : z));
+        string.Concat((text ?? "Test").Replace(_namensraum, "", StringComparison.Ordinal)
+            .Select(z => Path.GetInvalidFileNameChars().Contains(z) ? '_' : z));
 }
