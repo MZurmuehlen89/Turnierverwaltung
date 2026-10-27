@@ -67,6 +67,12 @@ public sealed class Hauptfenster(Window fenster)
         return new EinzelspielSeite(fenster);
     }
 
+    public ImportExportSeite ImportExportOeffnen()
+    {
+        Oeffnen(Bereich.ImportExport);
+        return new ImportExportSeite(fenster);
+    }
+
     public DatenbankwartungSeite DatenbankwartungOeffnen()
     {
         Oeffnen(Bereich.Datenbankwartung);

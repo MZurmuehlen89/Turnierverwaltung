@@ -27,7 +27,8 @@
                     BorderBrush="{ThemeResource SystemFillColorCriticalBrush}" BorderThickness="1"
                     CornerRadius="4" Padding="12,8" Margin="0,0,0,8"
                     Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}">
-                <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                <TextBlock AutomationProperties.AutomationId="ImportExport.Fehlermeldung"
+                           Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                            FontSize="13" TextWrapping="Wrap" />
             </Border>
 
@@ -45,7 +46,8 @@
                     BorderBrush="{ThemeResource SystemFillColorSuccessBrush}" BorderThickness="1"
                     CornerRadius="4" Padding="12,8" Margin="0,0,0,20"
                     Visibility="{Binding StatusMeldung, Converter={StaticResource NullToCollapsed}}">
-                <TextBlock Text="{Binding StatusMeldung}" Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                <TextBlock AutomationProperties.AutomationId="ImportExport.Status"
+                           Text="{Binding StatusMeldung}" Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                            FontSize="13" TextWrapping="Wrap" />
             </Border>
 
@@ -66,7 +68,8 @@
                                        FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4" />
                             <TextBlock FontSize="12" Opacity="0.7" TextWrapping="Wrap" Margin="0,0,0,10"
                                        Text="CSV-Datei mit Mannschaftsdaten einlesen (Name;Kurzname;Mannschaftsart;LandFifaCode;Ratings…)." />
-                            <Button Content="Datei auswählen und importieren…"
+                            <Button AutomationProperties.AutomationId="ImportExport.MannschaftenImportieren"
+                                    Content="Datei auswählen und importieren…"
                                     Command="{Binding NeuBefehl}"
                                     HorizontalAlignment="Left" Style="{StaticResource AccentButtonStyle}" />
                         </StackPanel>
@@ -91,7 +94,8 @@
                                        FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4" />
                             <TextBlock FontSize="12" Opacity="0.7" TextWrapping="Wrap" Margin="0,0,0,10"
                                        Text="Alle Mannschaften inkl. Ratings als CSV-Datei speichern." />
-                            <Button Content="Speicherort wählen und exportieren…"
+                            <Button AutomationProperties.AutomationId="ImportExport.MannschaftenExportieren"
+                                    Content="Speicherort wählen und exportieren…"
                                     Command="{Binding SpeichernBefehl}"
                                     HorizontalAlignment="Left" Style="{StaticResource AccentButtonStyle}" />
                         </StackPanel>
