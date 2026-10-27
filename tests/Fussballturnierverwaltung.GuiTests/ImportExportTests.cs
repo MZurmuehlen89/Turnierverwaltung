@@ -21,6 +21,7 @@ public sealed class ImportExportTests(TurnierverwaltungApp app) : IClassFixture<
         var importExport = app.Hauptfenster.ImportExportOeffnen();
         importExport.MannschaftenExportieren(_datei);
         importExport.Fehlermeldung.Should().BeEmpty();
+        importExport.Status.Should().Contain(_datei, "exportiert wird an den im Dialog eingegebenen Pfad");
         File.ReadAllText(_datei).Should().Contain(name, "die Datei enthält die neue Mannschaft");
 
         mannschaften = app.Hauptfenster.MannschaftenOeffnen();

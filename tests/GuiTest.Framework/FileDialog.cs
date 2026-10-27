@@ -1,5 +1,7 @@
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
+using FlaUI.Core.Input;
+using FlaUI.Core.WindowsAPI;
 
 namespace GuiTest.Framework;
 
@@ -7,8 +9,7 @@ namespace GuiTest.Framework;
 /// <c>FileOpenPicker</c>/<c>FileSavePicker</c>. It is a top-level window of class <c>#32770</c> owned by the
 /// application, so it is looked up as a child of the main window and, failing that, on the desktop by process id.
 /// Its controls are addressed by their fixed Win32 control ids instead of captions, which depend on the system
-/// language: <c>1001</c> is the file name edit of the save dialog, <c>1148</c> that of the open dialog, <c>1</c> the
-/// confirming button.</summary>
+/// language: <c>1001</c> is the file name edit of the save dialog, <c>1148</c> that of the open dialog.</summary>
 public sealed class FileDialog
 {
     private const string DIALOG_CLASS = "#32770";
@@ -41,9 +42,12 @@ public sealed class FileDialog
         {
             throw new InvalidOperationException(Describe(), e);
         }
-        fileName.Patterns.Value.Pattern.SetValue(path);
-        Element.FindFirstChild(cf => cf.ByAutomationId("1").And(cf.ByControlType(ControlType.Button)))
-            .Patterns.Invoke.Pattern.Invoke();
+        // Typed, not set through the Value pattern: the dialog ignores a value set that way and keeps its suggested
+        // name (verified #537 — the export landed in Documents\Mannschaften.csv).
+        fileName.Focus();
+        Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_A);
+        Keyboard.Type(path);
+        Keyboard.Type(VirtualKeyShort.RETURN);
         Wait.Until(() => Find(_owner) is null, Wait.DefaultTimeout, "file dialog closed");
     }
 
