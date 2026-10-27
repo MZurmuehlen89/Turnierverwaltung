@@ -117,8 +117,8 @@ includes `suggestion` findings, `-Regel S3776,S138` lists the locations.
 
 ## Dependency Updates (Dependabot, #542)
 
-`.github/dependabot.yml` checks NuGet (via `Fussballturnierverwaltung.slnx` + `Directory.Build.props`; `tools/` is not
-covered) and GitHub Actions every Monday 06:00. Minor/patch updates come grouped (`ef-core`, `microsoft-extensions`,
+`.github/dependabot.yml` checks NuGet (directories `/`, `/src/*`, `/tests/*` — via the `.slnx` alone Dependabot found
+only one project; `tools/` is not covered) and GitHub Actions every Monday 06:00. Minor/patch updates come grouped (`ef-core`, `microsoft-extensions`,
 `windows-sdk`, `analyzer`, `testpakete`, `uebrige`), major updates one PR each. Dependabot alerts and security
 updates are switched on in the repo settings — security fix PRs arrive any time. Every PR runs the unit tests (#525).
 

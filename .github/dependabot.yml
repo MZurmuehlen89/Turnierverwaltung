@@ -5,9 +5,13 @@ version: 2
 
 updates:
   - package-ecosystem: nuget
-    # Findet die Projekte über Fussballturnierverwaltung.slnx und Directory.Build.props (Analyzer).
-    # tools/ steht nicht in der Solution und wird bewusst nicht aktualisiert.
-    directory: /
+    # Projektverzeichnisse einzeln: über „/“ und die .slnx fand Dependabot im ersten Lauf nur das Testprojekt
+    # (EF Core InMemory auf 10.0.14, SqlServer/Design in Infrastructure blieben auf 10.0.13). „/“ bleibt für die
+    # Analyzer in Directory.Build.props. tools/ wird bewusst nicht aktualisiert.
+    directories:
+      - /
+      - /src/*
+      - /tests/*
     schedule:
       interval: weekly
       day: monday
