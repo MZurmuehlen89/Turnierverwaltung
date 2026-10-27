@@ -687,7 +687,7 @@
                             </StackPanel>
                             <StackPanel Grid.Column="4">
                                 <TextBlock Text="Lostöpfe" FontSize="12" Margin="0,0,0,3" />
-                                <NumberBox Value="{Binding DetailAnzahlLostoepfe, Mode=TwoWay}" AutomationProperties.AutomationId="Auslosung.Lostoepfe"
+                                <NumberBox Value="{Binding DetailAnzahlLostoepfe, Mode=TwoWay}"
                                            IsEnabled="{Binding DetailAnzahlLostoepfeBearbeitbar}"
                                            Minimum="1" SpinButtonPlacementMode="Inline" Width="120" />
                             </StackPanel>

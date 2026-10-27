@@ -29,14 +29,14 @@ public sealed class GruppensiegerGegenZweiteTests(TurnierverwaltungApp app, Test
         string rangliste = await TestRanglisten.NationenAnlegenAsync(datenbank, _nationen);
         var turnier = TurnierAnlegen();
 
-        AuslosungDurchfuehren(turnier, GRUPPENPHASE, lostoepfe: 4, rangliste: rangliste);
+        AuslosungDurchfuehren(turnier, GRUPPENPHASE, rangliste: rangliste);
         turnier.RundeSimulieren(GRUPPENPHASE, 48);
         var tabellen = turnier.Spielplan().GruppenTabellen();
 
-        AuslosungDurchfuehren(turnier, VIERTELFINALE, lostoepfe: 2);
+        AuslosungDurchfuehren(turnier, VIERTELFINALE);
         var viertelfinale = turnier.RundeSimulieren(VIERTELFINALE, 8);
 
-        AuslosungDurchfuehren(turnier, HALBFINALE, lostoepfe: 1, auslosungsart: "Zufällig");
+        AuslosungDurchfuehren(turnier, HALBFINALE, auslosungsart: "Zufällig");
         var halbfinale = turnier.SpieleDerRunde(HALBFINALE);
 
         GruppenVollstaendig(tabellen);
@@ -60,15 +60,14 @@ public sealed class GruppensiegerGegenZweiteTests(TurnierverwaltungApp app, Test
         return turnier;
     }
 
-    /// <summary>Ohne <paramref name="rangliste"/> bleibt die Rangliste der vorigen Auslosung gewählt.
-    /// <paramref name="lostoepfe"/> stellt der Test selbst ein: Die Auslosung startet mit einem Topf, auch wenn die
-    /// Vorlage „Nach Töpfen“ (Gruppenphase: 4) bzw. „Gruppensieger vs. Zweite“ (2) vorgibt (Bug #564).</summary>
-    private static void AuslosungDurchfuehren(TurnierdurchfuehrungSeite turnier, string runde, int lostoepfe,
-        string? auslosungsart = null, string? rangliste = null)
+    /// <summary>Die Topfanzahl stellt die App zur Art passend ein (#564). Ohne <paramref name="rangliste"/> bleibt die
+    /// Rangliste der vorigen Auslosung gewählt – die Töpfe des Viertelfinales füllen sich trotzdem nach Gruppenplatz
+    /// (#565).</summary>
+    private static void AuslosungDurchfuehren(
+        TurnierdurchfuehrungSeite turnier, string runde, string? auslosungsart = null, string? rangliste = null)
     {
         var auslosung = turnier.Auslosung();
         auslosung.Anlegen(runde, auslosungsart);
-        if (lostoepfe > 1) auslosung.LostoepfeSetzen(lostoepfe);
         if (rangliste is not null) auslosung.RanglisteWaehlen(rangliste);
         auslosung.ToepfeAutomatischBefuellen();
         auslosung.Durchfuehren();

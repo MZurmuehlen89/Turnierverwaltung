@@ -47,18 +47,6 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
         hauptfenster.WarteBisRuhig();
     }
 
-    /// <summary>Stellt die Zahl der Lostöpfe ein und speichert. Die Startzahl passt bisher nur bei der
-    /// Topf-Zuordnung zur Art, sonst ist es ein Topf (Bug #564).</summary>
-    public void LostoepfeSetzen(int anzahl)
-    {
-        // Eine NumberBox bietet kein Value-, sondern das RangeValue-Muster.
-        fenster.FindById("Auslosung.Lostoepfe").Patterns.RangeValue.Pattern.SetValue(anzahl);
-        fenster.ActivateById("Befehlsleiste.Speichern");
-        Wait.Until(() => !fenster.FindById("Befehlsleiste.Speichern").IsEnabled, Wait.DefaultTimeout,
-            $"{anzahl} Lostöpfe gespeichert");
-        hauptfenster.WarteBisRuhig();
-    }
-
     public void ToepfeAutomatischBefuellen()
     {
         fenster.InvokeMenuItem("Befehlsleiste.Toepfe", "Befehlsleiste.ToepfeAutomatischBefuellen");
