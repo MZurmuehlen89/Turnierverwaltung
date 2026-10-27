@@ -115,7 +115,7 @@
                 </Grid>
 
                 <TextBlock Text="Regelwerk-Standard" FontSize="12" Margin="0,0,0,3" />
-                <ComboBox ItemsSource="{Binding StandardRegelwerkOptionen}"
+                <ComboBox ItemsSource="{Binding StandardRegelwerkOptionen}" AutomationProperties.AutomationId="Turnierkopf.StandardRegelwerk"
                           SelectedItem="{Binding StandardRegelwerk, Mode=TwoWay}"
                           DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,24"
                           ToolTipService.ToolTip="Wird automatisch für neue Runden im Runden-Editor vorbelegt." />

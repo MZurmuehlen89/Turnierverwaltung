@@ -54,7 +54,7 @@ public sealed class TurnierVonHandTests(TurnierverwaltungApp app) : IClassFixtur
     {
         string name = EindeutigerName();
         var turniere = app.Hauptfenster.TurniereOeffnen();
-        turniere.Anlegen(name, "2027", TEAMS);
+        turniere.Anlegen(name, "2027", TEAMS, REGELWERK);
 
         var runden = turniere.Runden();
         runden.Anlegen(GRUPPENPHASE, "Gruppenphase", TEAMS, 4, gruppen: 2);
@@ -157,7 +157,7 @@ public sealed class TurnierVonHandTests(TurnierverwaltungApp app) : IClassFixtur
     {
         string name = EindeutigerName();
         var turniere = app.Hauptfenster.TurniereOeffnen();
-        turniere.Anlegen(name, "2027", TEAMS);
+        turniere.Anlegen(name, "2027", TEAMS, REGELWERK);
         var kopf = turniere.Kopf();
 
         kopf.Loeschen(bestaetigen: false);

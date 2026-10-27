@@ -27,14 +27,16 @@ public sealed class TurnierlisteSeite(Window fenster, Hauptfenster hauptfenster)
 
     private IReadOnlyList<string> KopfFehler => [.. fenster.FindAllById("Turnierkopf.Fehler").Select(f => f.NameOrEmpty())];
 
-    /// <summary>Legt im Turnierkopf ein Turnier ohne Vorlage an. Danach ist es in der Liste gewählt.</summary>
-    public void Anlegen(string name, string saison, int mannschaften)
+    /// <summary>Legt im Turnierkopf ein Turnier ohne Vorlage an. Danach ist es in der Liste gewählt. Das
+    /// Standard-Regelwerk gilt für alle Runden ohne eigenes; ohne Regelwerk lässt sich keine Runde spielen.</summary>
+    public void Anlegen(string name, string saison, int mannschaften, string standardRegelwerk)
     {
         var kopf = Kopf();
         kopf.Neu();
         kopf.WertSetzen("Name", name);
         kopf.WertSetzen("Saison", saison);
         kopf.WertSetzen("Mannschaftsanzahl", mannschaften.ToString());
+        kopf.Auswahl("StandardRegelwerk", standardRegelwerk);
         kopf.Speichern();
         Wait.Until(() => kopf.Wert("Name") == name && fenster.FindByName("Runden", FlaUI.Core.Definitions.ControlType.TabItem).IsEnabled,
             Wait.DefaultTimeout, $"'{name}' gespeichert und gewählt");

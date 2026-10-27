@@ -11,6 +11,8 @@ internal static class HandTurnier
     public const string HALBFINALE = "Halbfinale";
     public const string FINALE = "Finale";
 
+    public const string REGELWERK = "FIFA Standard Modern (3-Punkte)";
+
     public const int TEAMS = 8;
     public const int SPIELE_GRUPPENPHASE = 12;
     public const int SPIELE_GESAMT = 15;
@@ -25,7 +27,7 @@ internal static class HandTurnier
     public static TurnierlisteSeite RundenAufbauen(Hauptfenster hauptfenster, string name)
     {
         var turniere = hauptfenster.TurniereOeffnen();
-        turniere.Anlegen(name, "2027", TEAMS);
+        turniere.Anlegen(name, "2027", TEAMS, REGELWERK);
 
         var runden = turniere.Runden();
         runden.Anlegen(GRUPPENPHASE, "Gruppenphase", TEAMS, 4, gruppen: 2);
