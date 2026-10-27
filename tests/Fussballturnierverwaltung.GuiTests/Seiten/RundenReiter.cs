@@ -81,10 +81,23 @@ public sealed class RundenReiter(Window fenster, Hauptfenster hauptfenster)
     public void PaarungFestVorgeben()
     {
         Aufklappen("Runden.AuslosungBereich");
-        var haken = fenster.FindById("Runden.PaarungFestVorgegeben").AsCheckBox();
-        Wait.Until(() => haken.IsEnabled, Wait.DefaultTimeout, "„Paarung fest vorgegeben“ freigegeben");
+        Anhaken("Runden.PaarungFestVorgegeben");
+    }
+
+    /// <summary>Hakt bei der gewählten K.-o.-Runde „Mit Rückspiel“ an, mit <paramref name="auswaertstorregel"/> auch
+    /// „Auswärtstorregel aktiv“ (erst mit Rückspiel freigegeben).</summary>
+    public void MitRueckspiel(bool auswaertstorregel)
+    {
+        Anhaken("Runden.MitRueckspiel");
+        if (auswaertstorregel) Anhaken("Runden.AuswaertstorRegel");
+    }
+
+    private void Anhaken(string id)
+    {
+        var haken = fenster.FindById(id).AsCheckBox();
+        Wait.Until(() => haken.IsEnabled, Wait.DefaultTimeout, $"'{id}' freigegeben");
         if (haken.IsChecked != true) haken.Patterns.Toggle.Pattern.Toggle();
-        Wait.Until(() => haken.IsChecked == true, Wait.DefaultTimeout, "„Paarung fest vorgegeben“ angehakt");
+        Wait.Until(() => haken.IsChecked == true, Wait.DefaultTimeout, $"'{id}' angehakt");
     }
 
     /// <summary>Die Meldungen der Live-Prüfung, sobald eine davon <paramref name="enthaelt"/> enthält – sonst die

@@ -51,6 +51,68 @@ public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
                     zeile.TextOf("Spiel.Ergebnis"),
                     zeile.TextOf("Spiel.ErgebnisZusatz"),
                     zeile.TextOf("Spiel.Auswaerts"),
-                    zeile.TextOf("Spiel.Status")));
+                    zeile.TextOf("Spiel.Status"),
+                    zeile.TryFindById("Spiel.Kennung")?.NameOrEmpty() ?? string.Empty));
     }
+
+    /// <summary>Die Gruppentabellen der gewählten Runde, wie sie neben dem Spielplan stehen: Kopf („Gruppe 1“) →
+    /// Mannschaften in Tabellenreihenfolge. Gelesen wird in Baumreihenfolge; Rangfolgen über Gruppen hinweg (beste
+    /// Dritte) würden der letzten Gruppe zugeschlagen, darum nur für Runden ohne solche Rangfolge.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> GruppenTabellen()
+    {
+        var tabellen = new Dictionary<string, List<string>>();
+        List<string>? aktuelle = null;
+        foreach (var element in fenster.FindAllDescendants(cf =>
+                     cf.ByAutomationId("Tabelle.Gruppe").Or(cf.ByAutomationId("Tabelle.Mannschaft"))))
+        {
+            if (element.AutomationId == "Tabelle.Gruppe")
+                tabellen[element.NameOrEmpty()] = aktuelle = [];
+            else
+                aktuelle?.Add(element.NameOrEmpty());
+        }
+        return tabellen.ToDictionary(t => t.Key, t => (IReadOnlyList<string>)t.Value);
+    }
+
+    // ── Ergebnis von Hand ─────────────────────────────────────────────────────
+
+    /// <summary>Trägt das Ergebnis des Spiels <paramref name="heim"/> – <paramref name="auswaerts"/> der gewählten
+    /// Runde über das Ergebnisformular ein. <paramref name="nachVerlaengerung"/> ist der Stand nach Verlängerung
+    /// einschließlich der regulären Tore; Verlängerung und Elfmeterschießen blendet das Formular erst ein, wenn sie
+    /// fällig sind. Wartet, bis der Spielplan das Endergebnis zeigt.</summary>
+    public void ErgebnisEintragen(string heim, string auswaerts, (int Heim, int Auswaerts) regulaer,
+        (int Heim, int Auswaerts)? nachVerlaengerung = null, (int Heim, int Auswaerts)? elfmeter = null)
+    {
+        SpielWaehlen(heim, auswaerts);
+        ToreSetzen("Tore", regulaer);
+        if (nachVerlaengerung is { } verlaengerung) ToreSetzen("ToreVerlaengerung", verlaengerung);
+        if (elfmeter is { } elfmeterTore) ToreSetzen("Elfmetertore", elfmeterTore);
+        fenster.ActivateById("Befehlsleiste.Speichern");
+
+        var (endeHeim, endeAuswaerts) = nachVerlaengerung ?? regulaer;
+        Wait.Until(() => Spiel(heim, auswaerts)?.Ergebnis == $"{endeHeim}:{endeAuswaerts}", Wait.DefaultTimeout,
+            $"Ergebnis {endeHeim}:{endeAuswaerts} für {heim} – {auswaerts} im Spielplan");
+        hauptfenster.WarteBisRuhig();
+    }
+
+    private void SpielWaehlen(string heim, string auswaerts)
+    {
+        fenster.FindById("Spielplan.Spiele")
+            .ReadAllItems(z => z.TryFindById("Spiel.Heim") is not null && z.TextOf("Spiel.Heim") == heim
+                               && z.TextOf("Spiel.Auswaerts") == auswaerts ? z : null)
+            .Single()
+            .Activate();
+        Wait.Until(() => fenster.TryFindById("Ergebnis.HeimTore") is not null, Wait.DefaultTimeout,
+            $"Ergebnisformular für {heim} – {auswaerts}");
+    }
+
+    /// <summary>Setzt ein Torpaar des Formulars, die Felder „Ergebnis.Heim{feld}“ und „Ergebnis.Auswaerts{feld}“.
+    /// FindById wartet, bis ein gerade erst eingeblendetes Feld (Verlängerung, Elfmeter) im Baum steht.</summary>
+    private void ToreSetzen(string feld, (int Heim, int Auswaerts) tore)
+    {
+        fenster.FindById($"Ergebnis.Heim{feld}").Patterns.Value.Pattern.SetValue(tore.Heim.ToString());
+        fenster.FindById($"Ergebnis.Auswaerts{feld}").Patterns.Value.Pattern.SetValue(tore.Auswaerts.ToString());
+    }
+
+    private SpielZeile? Spiel(string heim, string auswaerts) =>
+        Spiele().SingleOrDefault(s => s.Heim == heim && s.Auswaerts == auswaerts);
 }

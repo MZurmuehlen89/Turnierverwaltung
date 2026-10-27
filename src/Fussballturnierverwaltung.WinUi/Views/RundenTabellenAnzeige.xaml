@@ -35,7 +35,7 @@
                         <Image Source="{Binding Mannschaft, Converter={StaticResource MannschaftZuWappen}}"
                                Visibility="{Binding Mannschaft, Converter={StaticResource MannschaftHatWappen}}"
                                Width="16" Height="16" Stretch="Uniform" />
-                        <TextBlock Text="{Binding Mannschaft.Name}" FontSize="12" TextWrapping="WrapWholeWords" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Mannschaft.Name}" AutomationProperties.AutomationId="Tabelle.Mannschaft" FontSize="12" TextWrapping="WrapWholeWords" VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock Grid.Column="2" Text="{Binding Spiele}" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="3" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -62,7 +62,7 @@
         <DataTemplate x:Key="GruppenTabelleInhaltTemplate" x:DataType="tabelle:GruppenTabelle">
             <StackPanel>
                 <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="8,8,0,0" Padding="12,8">
-                    <TextBlock Foreground="White" FontWeight="Bold" FontSize="13">
+                    <TextBlock Foreground="White" FontWeight="Bold" FontSize="13" AutomationProperties.AutomationId="Tabelle.Gruppe">
                         <Run Text="Gruppe " /><Run Text="{Binding GruppenNummer}" />
                     </TextBlock>
                 </Border>

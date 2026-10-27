@@ -224,9 +224,9 @@
                                            FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" Margin="0,22,0,0">
-                                <CheckBox Content="Mit Rückspiel" IsChecked="{Binding Formular.MitRueckspiel, Mode=TwoWay}" Margin="0,0,0,4" />
+                                <CheckBox Content="Mit Rückspiel" AutomationProperties.AutomationId="Runden.MitRueckspiel" IsChecked="{Binding Formular.MitRueckspiel, Mode=TwoWay}" Margin="0,0,0,4" />
                                 <!-- Nur bei K.o.-Rundenarten (AD-001); ohne Rückspiel ausgegraut, weil direkt davon abhängig -->
-                                <CheckBox Content="Auswärtstorregel aktiv" IsChecked="{Binding Formular.AuswaertstorRegelAktiv, Mode=TwoWay}"
+                                <CheckBox Content="Auswärtstorregel aktiv" AutomationProperties.AutomationId="Runden.AuswaertstorRegel" IsChecked="{Binding Formular.AuswaertstorRegelAktiv, Mode=TwoWay}"
                                           IsEnabled="{Binding Formular.AuswaertstorAktivierbar}" Margin="16,0,0,4"
                                           Visibility="{Binding Formular.IstKoRundenart, Converter={StaticResource BoolToVisibility}}" />
                                 <!-- Issue #352 -->

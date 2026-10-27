@@ -16,7 +16,7 @@ public sealed class TurnierAblaufTests(TurnierverwaltungApp app) : IClassFixture
         auslosung.Durchfuehren();
         var spiele = new Dictionary<string, IReadOnlyList<SpielZeile>>
         {
-            [GRUPPENPHASE] = RundeSimulieren(turnier, GRUPPENPHASE, SPIELE_GRUPPENPHASE),
+            [GRUPPENPHASE] = turnier.RundeSimulieren(GRUPPENPHASE, SPIELE_GRUPPENPHASE),
         };
         foreach (var (runde, anzahl) in KoRunden)
         {
@@ -24,7 +24,7 @@ public sealed class TurnierAblaufTests(TurnierverwaltungApp app) : IClassFixture
             koAuslosung.Anlegen(runde);
             koAuslosung.ToepfeAutomatischBefuellen();
             koAuslosung.Durchfuehren();
-            spiele[runde] = RundeSimulieren(turnier, runde, anzahl);
+            spiele[runde] = turnier.RundeSimulieren(runde, anzahl);
         }
 
         var fortschritt = turnier.Spielplan().Fortschritt;
@@ -39,14 +39,6 @@ public sealed class TurnierAblaufTests(TurnierverwaltungApp app) : IClassFixture
     }
 
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
-
-    private static IReadOnlyList<SpielZeile> RundeSimulieren(TurnierdurchfuehrungSeite turnier, string runde, int anzahl)
-    {
-        var spielplan = turnier.Spielplan();
-        spielplan.RundeWaehlen(runde);
-        spielplan.RundeSimulieren(anzahl);
-        return spielplan.Spiele();
-    }
 
     // ── Invarianten ───────────────────────────────────────────────────────────
 

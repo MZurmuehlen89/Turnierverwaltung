@@ -14,6 +14,22 @@ public sealed class TurnierdurchfuehrungSeite(Window fenster, Hauptfenster haupt
 
     public SpielplanReiter Spielplan() => Reiter("Spielplan & Baum", () => new SpielplanReiter(fenster, hauptfenster));
 
+    /// <summary>Simuliert <paramref name="runde"/> mit ihren <paramref name="anzahl"/> Spielen und liefert sie.</summary>
+    public IReadOnlyList<SpielZeile> RundeSimulieren(string runde, int anzahl)
+    {
+        var spielplan = Spielplan();
+        spielplan.RundeWaehlen(runde);
+        spielplan.RundeSimulieren(anzahl);
+        return spielplan.Spiele();
+    }
+
+    public IReadOnlyList<SpielZeile> SpieleDerRunde(string runde)
+    {
+        var spielplan = Spielplan();
+        spielplan.RundeWaehlen(runde);
+        return spielplan.Spiele();
+    }
+
     public StatistikReiter Statistik() => Reiter("Statistik", () => new StatistikReiter(fenster, hauptfenster));
 
     private T Reiter<T>(string kopf, Func<T> erzeugen)

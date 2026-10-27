@@ -98,10 +98,6 @@ public sealed class AuslosungsNebenwegeTests(TurnierverwaltungApp app, TestDaten
     private static readonly string[] _nationen =
         ["Spanien", "Argentinien", "Frankreich", "England", "Portugal", "Brasilien", "Marokko", "Belgien"];
 
-    private static IReadOnlyList<SpielZeile> GruppenphaseSpiele(TurnierdurchfuehrungSeite turnier)
-    {
-        var spielplan = turnier.Spielplan();
-        spielplan.RundeWaehlen(GRUPPENPHASE);
-        return spielplan.Spiele();
-    }
+    private static IReadOnlyList<SpielZeile> GruppenphaseSpiele(TurnierdurchfuehrungSeite turnier) =>
+        turnier.SpieleDerRunde(GRUPPENPHASE);
 }
