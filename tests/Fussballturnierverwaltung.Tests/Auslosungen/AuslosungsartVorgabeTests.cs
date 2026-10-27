@@ -88,8 +88,20 @@ public class AuslosungsartVorgabeTests
         AuslosungsartVorgabe.LostoepfeNachWechsel(Auslosungsart.NachToepfen, bisher: 1, runde).Should().Be(1);
     }
 
+    // Topf 1 ist die Setzliste (#563) — mit nur einem Topf wäre jedes Team gesetzt.
+    [Fact]
+    public void LostoepfeNachWechsel_NachSetzlisteInDerGruppenphase_EinTopfJeGruppenplatz()
+    {
+        var runde = Runde(Rundenart.Gruppenphase);
+        runde.EingangsMannschaftsanzahl = 16;
+        runde.GruppenAnzahl = 4;
+
+        AuslosungsartVorgabe.LostoepfeNachWechsel(Auslosungsart.NachSetzliste, bisher: 1, runde).Should().Be(4);
+    }
+
     [Theory]
     [InlineData(Auslosungsart.NachToepfen)]
+    [InlineData(Auslosungsart.NachSetzliste)]
     [InlineData(Auslosungsart.GruppensiegerGegenGruppenzweite)]
     public void LostoepfeNachWechsel_TopfPaareInDerKoRunde_ZweiToepfe(Auslosungsart art) =>
         AuslosungsartVorgabe.LostoepfeNachWechsel(art, bisher: 1, Runde(Rundenart.KoRunde)).Should().Be(2);

@@ -35,7 +35,8 @@ public static class AuslosungsartVorgabe
     /// Töpfe bleiben stehen. Die Topf-Zuordnung braucht 4 gleich große Töpfe wie die UCL-Ligaphase (#347), bei
     /// einem Gegner je Topf 6 wie die UECL-Ligaphase (#469); „Nach Töpfen“ in der Gruppenphase einen Topf je
     /// Gruppenplatz (Teams ÷ Gruppen), in der K.-o.-Runde wie „Gruppensieger vs. Zweite“ zwei, die gegeneinander
-    /// gelost werden (#564).</summary>
+    /// gelost werden (#564). „Nach Setzliste“ ebenso — Topf 1 ist dort die Setzliste (#563), mit nur einem Topf
+    /// wäre jedes Team gesetzt.</summary>
     public static int LostoepfeNachWechsel(Auslosungsart art, int bisher, TurnierRunde? runde)
     {
         if (!ErlaubtMehrereToepfe(art)) return 1;
@@ -43,9 +44,11 @@ public static class AuslosungsartVorgabe
         return (art, runde) switch
         {
             (Auslosungsart.TopfZuordnung, _) => runde?.GegnerJeTopf == 1 ? 6 : 4,
-            (Auslosungsart.NachToepfen, { Rundenart: Rundenart.Gruppenphase, GruppenAnzahl: > 0 and var gruppen })
+            (Auslosungsart.NachToepfen or Auslosungsart.NachSetzliste,
+                { Rundenart: Rundenart.Gruppenphase, GruppenAnzahl: > 0 and var gruppen })
                 when runde.EingangsMannschaftsanzahl >= 2 * gruppen => runde.EingangsMannschaftsanzahl / gruppen,
-            (Auslosungsart.NachToepfen or Auslosungsart.GruppensiegerGegenGruppenzweite, { Rundenart: Rundenart.KoRunde }) => 2,
+            (Auslosungsart.NachToepfen or Auslosungsart.NachSetzliste or Auslosungsart.GruppensiegerGegenGruppenzweite,
+                { Rundenart: Rundenart.KoRunde }) => 2,
             _ => bisher
         };
     }
