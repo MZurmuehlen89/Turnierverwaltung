@@ -56,7 +56,12 @@ xunit runner, e.g. `-class …`). The script builds an **unpackaged, self-contai
 - Each run gets its own database `Fussballturnierverwaltung_GuiTest_<timestamp>` (assembly fixture `TestDatenbank`;
   the app creates it with migrations and seed on first start, ~9 s, and the fixture drops it at the end), its own
   data path (#518) and the fixed random seed 4711 (#519). The user's database, settings and logs are never touched.
-- The app restarts per test class (class fixture `TurnierverwaltungApp`); tests do not run in parallel.
+- The app restarts per test class (class fixture `TurnierverwaltungApp`); tests do not run in parallel. A test that
+  aborts with half-done state the app asks about later (an unfinished Vorbelegung → „Vorbelegung verwerfen?“ on the
+  next save) leaves a modal dialog that breaks every later test of the same class, and UIA invokes past the dialog
+  can open a second one, which crashes the app. Scenarios that can leave such state get a class of their own (#531).
+- Drag & drop cannot be driven reliably over UIA. Use the app's alternatives with real mouse clicks instead
+  (`DoubleClick`/`RightClick` — the Vorbelegung places a team by double-click and removes it via a right-click menu, #531).
 - On failure, screenshot and log tail land in `artifacts/guitest/laeufe/<run>/fehlschlaege/`.
 - "Page loaded" = expected page title and `Hauptfenster.Befehlsleiste` ItemStatus `Bereit` stable for 300 ms — never
   `Sleep`. AutomationId convention: see `src/Fussballturnierverwaltung.WinUi/CLAUDE.md`.
