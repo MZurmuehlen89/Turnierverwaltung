@@ -1,8 +1,10 @@
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Fussballturnierverwaltung.WinUi.Navigation;
 
@@ -10,16 +12,19 @@ public class NavigationService : INavigationService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IDialogService _dialogService;
+    private readonly ILogger<NavigationService> _logger;
     private readonly SemaphoreSlim _navigationLock = new(1, 1);
     private IServiceScope? _aktiverScope;
 
     public ViewModelBase? AktuellesViewModel { get; private set; }
     public event EventHandler? AktuellesViewModelGeaendert;
 
-    public NavigationService(IServiceScopeFactory scopeFactory, IDialogService dialogService)
+    public NavigationService(IServiceScopeFactory scopeFactory, IDialogService dialogService,
+                             ILogger<NavigationService> logger)
     {
         _scopeFactory = scopeFactory;
         _dialogService = dialogService;
+        _logger = logger;
     }
 
     public async Task NavigiereZuAsync<TViewModel>(Action<TViewModel>? konfigurator = null) where TViewModel : ViewModelBase
@@ -42,6 +47,11 @@ public class NavigationService : INavigationService
             konfigurator?.Invoke(vm);
             AktuellesViewModel = vm;
             AktuellesViewModelGeaendert?.Invoke(this, EventArgs.Empty);
+
+            // Das Laden der Seite als Vorgang führen: Ladeanzeige und der Ladezustand für GUI-Tests („Bereit“)
+            // folgen nur offenen Vorgängen. Ohne ihn galt eine Seite als geladen, solange ihr AktivierenAsync
+            // Daten ohne eigenen Vorgang holte – auf dem langsameren CI-Runner griffen Tests dann zu früh zu (#525)
+            using var vorgang = _logger.Vorgang($"Seite öffnen: {typeof(TViewModel).Name}");
             await vm.AktivierenAsync();
         }
         finally
