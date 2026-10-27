@@ -21,7 +21,6 @@ updates:
       prefix: chore
       include: scope
     groups:
-      # Die erste passende Gruppe gewinnt – die Auffanggruppe „uebrige“ steht deshalb zuletzt
       # EF Core, Microsoft.Extensions und Pkcs kommen aus demselben .NET-Release und hängen voneinander ab: getrennt
       # scheiterte EF Core 10.0.14 an Logging.Abstractions 10.0.13 (NU1605, Downgrade) – deshalb eine Gruppe
       dotnet:
@@ -45,8 +44,24 @@ updates:
           - "Microsoft.NET.Test.Sdk"
           - "NetArchTest*"
         update-types: [minor, patch]
+      # Auffanggruppe: schließt die Muster der anderen Gruppen ausdrücklich aus – nur „zuletzt stehen“ reichte nicht,
+      # im ersten Lauf übernahm sie die dotnet-Gruppe (PR #556 „superseded by #557“)
       uebrige:
         patterns: ["*"]
+        exclude-patterns:
+          - "Microsoft.EntityFrameworkCore*"
+          - "Microsoft.Extensions*"
+          - "System.Security.Cryptography.Pkcs"
+          - "Microsoft.WindowsAppSDK"
+          - "Microsoft.Windows.SDK*"
+          - "SonarAnalyzer.CSharp"
+          - "Roslynator*"
+          - "xunit*"
+          - "FluentAssertions"
+          - "FlaUI*"
+          - "Microsoft.Testing*"
+          - "Microsoft.NET.Test.Sdk"
+          - "NetArchTest*"
         update-types: [minor, patch]
 
   - package-ecosystem: github-actions

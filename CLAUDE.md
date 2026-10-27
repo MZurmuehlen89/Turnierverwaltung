@@ -122,6 +122,13 @@ only one project; `tools/` is not covered) and GitHub Actions every Monday 06:00
 which depend on each other and must move together; `windows-sdk`, `analyzer`, `testpakete`, `uebrige`), major updates one PR each. Dependabot alerts and security
 updates are switched on in the repo settings — security fix PRs arrive any time. Every PR runs the unit tests (#525).
 
+**Dependabot does not update the WinUi project** (first run 27.10.2026: every other project was updated, WinUi with
+its `net10.0-windows10.0.26100.0`/Windows App SDK setup was skipped; the reason is only visible in the Dependabot log
+on GitHub). So when a PR raises EF Core/`Microsoft.Extensions` (or another package WinUi uses too), raise the same
+packages in `Fussballturnierverwaltung.WinUi.csproj` in the same step — the build does not catch the mismatch, NuGet
+silently resolves the higher transitive version. WinUi-only packages (Windows App SDK, CommunityToolkit, Serilog)
+need an occasional manual check (`dotnet list src/Fussballturnierverwaltung.WinUi package --outdated`).
+
 How PRs are handled (user decision 27.10.2026):
 - **Minor/patch groups:** Claude checks open Dependabot PRs (`gh pr list --author app/dependabot`) when asked or
   when starting an issue, and merges them itself once the unit tests are green. Groups that reach the UI
