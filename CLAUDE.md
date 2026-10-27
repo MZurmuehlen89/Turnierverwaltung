@@ -115,6 +115,22 @@ includes `suggestion` findings, `-Regel S3776,S138` lists the locations.
   `ErrorLog`; `Directory.Build.props` blanks the `ErrorLog` around that target, otherwise an incremental build
   overwrites the WinUi SARIF file with an empty analysis.
 
+## Dependency Updates (Dependabot, #542)
+
+`.github/dependabot.yml` checks NuGet (via `Fussballturnierverwaltung.slnx` + `Directory.Build.props`; `tools/` is not
+covered) and GitHub Actions every Monday 06:00. Minor/patch updates come grouped (`ef-core`, `microsoft-extensions`,
+`windows-sdk`, `analyzer`, `testpakete`, `uebrige`), major updates one PR each. Dependabot alerts and security
+updates are switched on in the repo settings — security fix PRs arrive any time. Every PR runs the unit tests (#525).
+
+How PRs are handled (user decision 27.10.2026):
+- **Minor/patch groups:** Claude checks open Dependabot PRs (`gh pr list --author app/dependabot`) when asked or
+  when starting an issue, and merges them itself once the unit tests are green. Groups that reach the UI
+  (`windows-sdk`, `testpakete` with FlaUI, `uebrige` with CommunityToolkit/Serilog) first get a GUI run in CI on the
+  PR branch (`gh workflow run gui-tests.yml --ref <pr-branch>`). GitHub Actions groups: merge when green.
+- **Major updates:** Claude reads the release notes/breaking changes, builds locally, runs unit and GUI tests (EF Core:
+  additionally migrations and the real database), and presents the result — **the user decides** on the merge.
+- After merging, pull `main` locally before continuing work.
+
 ## Important Domain Concepts
 
 **`TurnierRunde.AuswaertstorRegelAktiv`** is a Boolean flag active only when `MitRueckspiel = true`. The away-goals rule is evaluated *before* `EntscheidungsVerfahren` when checking aggregate scores (AD-001).

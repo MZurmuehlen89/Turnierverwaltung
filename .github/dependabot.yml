@@ -1,0 +1,58 @@
+# Dependabot (#542): hält NuGet-Pakete und GitHub-Actions-Versionen aktuell. Wöchentlich und gruppiert, damit es
+# wenige PRs gibt und das Actions-Budget geschont wird (jeder PR startet die Unit-Tests, #525). Minor- und
+# Patch-Updates landen in Gruppen, Major-Updates kommen einzeln, weil sie eigens geprüft werden (CLAUDE.md).
+version: 2
+
+updates:
+  - package-ecosystem: nuget
+    # Findet die Projekte über Fussballturnierverwaltung.slnx und Directory.Build.props (Analyzer).
+    # tools/ steht nicht in der Solution und wird bewusst nicht aktualisiert.
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # Die erste passende Gruppe gewinnt – die Auffanggruppe „uebrige“ steht deshalb zuletzt
+      ef-core:
+        patterns: ["Microsoft.EntityFrameworkCore*"]
+        update-types: [minor, patch]
+      microsoft-extensions:
+        patterns: ["Microsoft.Extensions*"]
+        update-types: [minor, patch]
+      windows-sdk:
+        patterns: ["Microsoft.WindowsAppSDK", "Microsoft.Windows.SDK*"]
+        update-types: [minor, patch]
+      analyzer:
+        patterns: ["SonarAnalyzer.CSharp", "Roslynator*"]
+        update-types: [minor, patch]
+      testpakete:
+        patterns:
+          - "xunit*"
+          - "FluentAssertions"
+          - "FlaUI*"
+          - "Microsoft.Testing*"
+          - "Microsoft.NET.Test.Sdk"
+          - "NetArchTest*"
+        update-types: [minor, patch]
+      uebrige:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      actions:
+        patterns: ["*"]
