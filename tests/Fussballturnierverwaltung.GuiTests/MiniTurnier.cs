@@ -11,10 +11,6 @@ internal static class MiniTurnier
     public const string VARIANTE = "8 Teams";
     public const string RANGLISTE = "Ligapyramide Deutschland 2025/26";
 
-    /// <summary>Nationalmannschaften aus drei Konföderationen: Die besten acht sind fünf UEFA-Teams, Argentinien und
-    /// Brasilien (CONMEBOL) sowie Marokko (CAF).</summary>
-    public const string FIFA_RANGLISTE = "FIFA-Weltrangliste (Herren)";
-
     public const string GRUPPENPHASE = "Gruppenphase";
     public const string HALBFINALE = "Halbfinale";
     public const string SPIEL_UM_PLATZ_DREI = "Spiel um Platz 3";

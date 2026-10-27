@@ -7,7 +7,8 @@ namespace Fussballturnierverwaltung.GuiTests;
 /// <summary>Nebenwege der Auslosung (#533): zurücksetzen und neu losen, bei der Ziehung von Hand den letzten Zug
 /// zurücknehmen und abbrechen, im TV-Modus den Rest sofort anzeigen, und eine Auslosungs-Regel, deren Wirkung im
 /// Spielplan sichtbar wird. Jeder Test legt sein eigenes Mini-Turnier an.</summary>
-public sealed class AuslosungsNebenwegeTests(TurnierverwaltungApp app) : IClassFixture<TurnierverwaltungApp>, IDisposable
+public sealed class AuslosungsNebenwegeTests(TurnierverwaltungApp app, TestDatenbank datenbank)
+    : IClassFixture<TurnierverwaltungApp>, IDisposable
 {
     /// <summary>Nach dem Zurücksetzen lässt sich neu losen, ohne dass Spiele doppelt im Spielplan stehen.</summary>
     [Fact]
@@ -71,11 +72,13 @@ public sealed class AuslosungsNebenwegeTests(TurnierverwaltungApp app) : IClassF
     }
 
     /// <summary>Mit der Konföderationsverteilung landen die beiden CONMEBOL-Teams in verschiedenen Gruppen – sie
-    /// spielen in der Gruppenphase also nie gegeneinander.</summary>
+    /// spielen in der Gruppenphase also nie gegeneinander. Eine Rangliste mit Nationalmannschaften bringt der Seed
+    /// nicht mit (die FIFA-Weltrangliste ist dort nur als Import-Quelle hinterlegt), darum legt der Test eine an.</summary>
     [Fact]
-    public void Konfoederationsverteilung_TrenntDieSuedamerikaner()
+    public async Task Konfoederationsverteilung_TrenntDieSuedamerikaner()
     {
-        var (turnier, auslosung) = GruppenauslosungVorbereiten(app.Hauptfenster, rangliste: FIFA_RANGLISTE);
+        string rangliste = await NationenRanglisteAnlegenAsync();
+        var (turnier, auslosung) = GruppenauslosungVorbereiten(app.Hauptfenster, rangliste: rangliste);
         auslosung.RegelSetzen("Konfoederationsverteilung", aktiv: true);
 
         auslosung.Durchfuehren();
@@ -89,6 +92,32 @@ public sealed class AuslosungsNebenwegeTests(TurnierverwaltungApp app) : IClassF
     }
 
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
+
+    /// <summary>Acht Nationalmannschaften aus drei Konföderationen: fünf UEFA-Teams, Argentinien und Brasilien
+    /// (CONMEBOL) sowie Marokko (CAF) – in dieser Reihenfolge, also je Topf zwei Teams.</summary>
+    private static readonly string[] _nationen =
+        ["Spanien", "Argentinien", "Frankreich", "England", "Portugal", "Brasilien", "Marokko", "Belgien"];
+
+    /// <summary>Legt eine Rangliste mit <see cref="_nationen"/> unter eindeutigem Namen an der Oberfläche vorbei an
+    /// und liefert ihren Namen.</summary>
+    private async Task<string> NationenRanglisteAnlegenAsync()
+    {
+        string name = $"GuiTest Nationen {Guid.NewGuid().ToString("N")[..8]}";
+        int id = await datenbank.WertLesenAsync<int>(
+            "INSERT INTO Ranglisten (Name, Datum, Quelle) OUTPUT INSERTED.Id VALUES (@name, '2026-01-01', N'GUI-Test #533')",
+            ("@name", name));
+        for (int rang = 1; rang <= _nationen.Length; rang++)
+        {
+            int eingefuegt = await datenbank.AusfuehrenAsync(
+                """
+                INSERT INTO RanglistenEintraege (RanglisteId, MannschaftId, Rang, Punkte)
+                SELECT @id, Id, @rang, 0 FROM Mannschaften WHERE Name = @mannschaft AND Mannschaftsart = 1 -- Nationalmannschaft
+                """,
+                ("@id", id), ("@rang", rang), ("@mannschaft", _nationen[rang - 1]));
+            eingefuegt.Should().Be(1, $"'{_nationen[rang - 1]}' gibt es im Seed genau einmal als Nationalmannschaft");
+        }
+        return name;
+    }
 
     private static IReadOnlyList<SpielZeile> GruppenphaseSpiele(TurnierdurchfuehrungSeite turnier)
     {
