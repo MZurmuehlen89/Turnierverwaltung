@@ -392,8 +392,12 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
             .Where(e => e.MannschaftId is { } id && vorabInTopf1.Contains(id))
             .Select(e => e.MannschaftId!.Value);
         var teilnehmerJeMannschaft = teamsZuVerteilen.ToDictionary(t => t.SpielendeMannschaftId!.Value);
+        var gruppenplatzProMannschaft = teamsZuVerteilen
+            .Where(t => Gruppenplatz(t).HasValue)
+            .ToDictionary(t => t.SpielendeMannschaftId!.Value, t => Gruppenplatz(t)!.Value);
         var verteilung = LostopfVorbelegung.Verteilen(
-            [.. schonInTopf1, .. teilnehmerJeMannschaft.Keys], rangProMannschaft, toepfe.Count, vorabInTopf1);
+            [.. schonInTopf1, .. teilnehmerJeMannschaft.Keys], rangProMannschaft, toepfe.Count, vorabInTopf1,
+            gruppenplatzProMannschaft);
         for (int topfIndex = 0; topfIndex < toepfe.Count; topfIndex++)
         {
             foreach (var mannschaftId in verteilung[topfIndex])
@@ -415,7 +419,7 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
                 runde, [.. instanz.Gastgeber.OrderBy(g => g.Id).Select(g => g.MannschaftId)], instanz.TitelverteidigerId);
     }
 
-    /// <summary>Noch verfügbare Mannschaften in Setzreihenfolge (vorab für Topf 1, dann Rang, dann Name) — höchstens
+    /// <summary>Noch verfügbare Mannschaften in Setzreihenfolge (vorab für Topf 1, dann Gruppenplatz, dann Rang, dann Name) — höchstens
     /// so viele, wie der Runde noch fehlen. Ein Platzhalter zählt mit der Mannschaft, die ihn sicher besetzt (#483),
     /// und kommt als Platzhalter in den Topf.</summary>
     private List<TeilnehmerAnzeige> TeamsZuVerteilen(Dictionary<int, int> rangProMannschaft, IReadOnlyList<int> vorabInTopf1)
@@ -423,6 +427,7 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
         var teams = VerfuegbareTeilnehmer
             .Where(t => t.SpielendeMannschaftId.HasValue)
             .OrderBy(t => vorabInTopf1.Contains(t.SpielendeMannschaftId!.Value) ? 0 : 1)
+            .ThenBy(t => Gruppenplatz(t) ?? int.MaxValue)
             .ThenBy(t => rangProMannschaft.TryGetValue(t.SpielendeMannschaftId!.Value, out var rang) ? rang : int.MaxValue)
             .ThenBy(t => t.AnzeigeName);
 
@@ -430,6 +435,10 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
             ? teams.Take(Math.Max(0, TeamsBenoetigt - TeamsZugewiesen)).ToList()
             : teams.ToList();
     }
+
+    /// <summary>Platz in der Gruppe, aus der ein Platzhalter stammt („2. Gruppe B“ → 2), sonst null (#565).</summary>
+    private static int? Gruppenplatz(TeilnehmerAnzeige teilnehmer) =>
+        teilnehmer.IstPlatzhalter ? GruppenHerkunft.AusPlatzhalter(teilnehmer.Name)?.Platz : null;
 
     private bool KannLostoepfeAutomatischBefuellen() => _bearbeitbar;
     private bool KannAlleToepfeZuruecksetzen()       => _bearbeitbar && Lostoepfe.Any(l => l.Teilnehmer.Count > 0);

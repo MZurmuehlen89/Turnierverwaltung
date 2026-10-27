@@ -15,20 +15,25 @@ public static class LostopfVorbelegung
     /// Ranglistenplatz, Teams ohne Eintrag hinten (in der übergebenen Reihenfolge). Die Teams aus
     /// <paramref name="vorabInTopf1"/> (Titelverteidiger, feste Gruppenköpfe #487) rücken unabhängig von ihrem Platz
     /// an die Spitze und verdrängen so die Letzten aus Topf 1 — steht eines ohnehin in Topf 1, rückt der
-    /// Nächstplatzierte nach. Topfgrößen sind fair verteilt (9 Teams auf 4 Töpfe = 3, 2, 2, 2 statt 3, 3, 3, 0).
+    /// Nächstplatzierte nach. Kommen Teams aus einer Gruppenphase, zählt vor dem Ranglistenplatz ihr Platz in der
+    /// Gruppe (<paramref name="gruppenplatzProMannschaft"/>, #565): Gruppensieger in Topf 1, Zweite in Topf 2 –
+    /// sonst lost „Gruppensieger vs. Zweite“ Sieger gegen Sieger. Teams ohne Gruppenplatz folgen danach.
+    /// Topfgrößen sind fair verteilt (9 Teams auf 4 Töpfe = 3, 2, 2, 2 statt 3, 3, 3, 0).
     /// </summary>
     /// <returns>Je Topf (in Topf-Reihenfolge) die Mannschafts-Ids.</returns>
     public static IReadOnlyList<IReadOnlyList<int>> Verteilen(
         IReadOnlyList<int> mannschaftIds,
         IReadOnlyDictionary<int, int> rangProMannschaft,
         int topfAnzahl,
-        IReadOnlyList<int>? vorabInTopf1 = null)
+        IReadOnlyList<int>? vorabInTopf1 = null,
+        IReadOnlyDictionary<int, int>? gruppenplatzProMannschaft = null)
     {
         if (topfAnzahl < 1) throw new ArgumentOutOfRangeException(nameof(topfAnzahl));
 
         var sortiert = mannschaftIds
             .Select((id, index) => (Id: id, Index: index))
             .OrderBy(t => vorabInTopf1?.Contains(t.Id) == true ? 0 : 1)
+            .ThenBy(t => gruppenplatzProMannschaft?.TryGetValue(t.Id, out var platz) == true ? platz : int.MaxValue)
             .ThenBy(t => rangProMannschaft.TryGetValue(t.Id, out var rang) ? rang : int.MaxValue)
             .ThenBy(t => t.Index)
             .Select(t => t.Id)

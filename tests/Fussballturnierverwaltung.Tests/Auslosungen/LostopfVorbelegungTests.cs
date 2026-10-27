@@ -65,6 +65,31 @@ public class LostopfVorbelegungTests
         toepfe[0].Should().Equal(1, 2, 3, 50, 40);
     }
 
+    /// <summary>#565: Die Gruppensieger sind in der Rangliste schlechter platziert als einige Zweite – trotzdem
+    /// kommen alle Sieger in Topf 1, innerhalb gleicher Plätze nach Rang.</summary>
+    [Fact]
+    public void Verteilen_MitGruppenplatz_SiegerVorZweitenUnabhaengigVomRang()
+    {
+        var ids = Enumerable.Range(1, 8).ToList();
+        var gruppenplatz = new Dictionary<int, int> { [8] = 1, [6] = 1, [5] = 1, [3] = 1, [1] = 2, [2] = 2, [4] = 2, [7] = 2 };
+
+        var toepfe = LostopfVorbelegung.Verteilen(ids, RangGleichId(ids), 2, gruppenplatzProMannschaft: gruppenplatz);
+
+        toepfe[0].Should().Equal(3, 5, 6, 8);
+        toepfe[1].Should().Equal(1, 2, 4, 7);
+    }
+
+    [Fact]
+    public void Verteilen_TeamsOhneGruppenplatz_FolgenNachDenPlatzierten()
+    {
+        var ids = Enumerable.Range(1, 4).ToList();
+        var gruppenplatz = new Dictionary<int, int> { [3] = 1, [4] = 2 };
+
+        var toepfe = LostopfVorbelegung.Verteilen(ids, RangGleichId(ids), 1, gruppenplatzProMannschaft: gruppenplatz);
+
+        toepfe[0].Should().Equal(3, 4, 1, 2);
+    }
+
     [Fact]
     public void Verteilen_NichtGlattTeilbar_VerteiltFairStattLetztenTopfLeerZuLassen()
     {
