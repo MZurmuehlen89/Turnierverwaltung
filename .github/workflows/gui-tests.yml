@@ -4,6 +4,11 @@ name: GUI-Tests
 
 on:
   workflow_dispatch:
+    inputs:
+      xunit_argumente:
+        description: 'Filter für den xunit-Runner, z. B. "-class Fussballturnierverwaltung.GuiTests.MannschaftsPflegeTests" (leer = alle)'
+        required: false
+        default: ''
 
 concurrency:
   group: gui-tests-${{ github.ref }}
@@ -55,10 +60,13 @@ jobs:
       - name: GUI-Tests
         env:
           TURNIERVERWALTUNG_GUITEST_SERVER: (localdb)\MSSQLLocalDB
-        run: >
-          ./build/GuiTests-Ausfuehren.ps1
-          -result-trx "$env:ERGEBNISSE\gui-tests.trx"
-          -result-markdown "$env:ERGEBNISSE\gui-tests.md"
+          # Über eine Umgebungsvariable statt direkt eingesetzt, damit die Eingabe nicht als Skriptcode läuft
+          XUNIT_ARGUMENTE: ${{ inputs.xunit_argumente }}
+        run: |
+          $filter = @($env:XUNIT_ARGUMENTE -split '\s+' | Where-Object { $_ })
+          ./build/GuiTests-Ausfuehren.ps1 @filter `
+              -result-trx "$env:ERGEBNISSE\gui-tests.trx" `
+              -result-markdown "$env:ERGEBNISSE\gui-tests.md"
 
       - name: Zusammenfassung
         if: always()

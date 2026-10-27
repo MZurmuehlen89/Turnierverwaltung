@@ -48,7 +48,11 @@ xunit runner, e.g. `-class …`). The script builds an **unpackaged, self-contai
 - "Page loaded" = expected page title and `Hauptfenster.Befehlsleiste` ItemStatus `Bereit` stable for 300 ms — never
   `Sleep`. AutomationId convention: see `src/Fussballturnierverwaltung.WinUi/CLAUDE.md`.
 
-**How often to run** (user decision 25.10.2026 — every run blocks the user's mouse and keyboard):
+**Where to run** (user decision 27.10.2026): GUI test runs go to **GitHub Actions by default** (see CI below) — they
+do not block the user's machine and need no prior announcement. Local runs (`build/GuiTests-Ausfuehren.ps1`) only
+when the user asks for one; those take over mouse and keyboard and must be announced first.
+
+**How often to run** (user decision 25.10.2026, applies to CI runs as well):
 
 | Change | New/changed scenario | Full run |
 |---|---|---|
@@ -72,6 +76,12 @@ A single red run is investigated, not simply re-run.
   `LANG=de_DE.UTF-8` and `TZ=Europe/Berlin` like the development machine.
 - Both jobs write TRX (artifact) and a Markdown summary (job summary) via xunit's own reporters
   (`--report-xunit-trx/-markdown` under MTP, `-result-trx/-result-markdown` for the GUI tests' in-process runner).
+- Running a GUI scenario in CI: push the work to a branch `ci/<issue>` (the unit tests run there automatically,
+  `main` stays untouched until everything is green), then
+  `gh workflow run gui-tests.yml --ref ci/<issue> -f xunit_argumente="-class Fussballturnierverwaltung.GuiTests.<Klasse>"`
+  (empty = full run), follow it with `gh run watch <id> --exit-status`, download evidence with
+  `gh run download <id> -n gui-tests-belege`. Runs on the same ref cancel each other (`concurrency`) — start the
+  second of two runs only after the first has finished.
 - GUI job: `TURNIERVERWALTUNG_GUITEST_SERVER=(localdb)\MSSQLLocalDB`; on failure `artifacts/guitest/laeufe/` is
   uploaded as artifact `gui-tests-belege` (screenshots, log tails, app log). The job logs the screen resolution and
   tries to raise it to 1920×1080.
