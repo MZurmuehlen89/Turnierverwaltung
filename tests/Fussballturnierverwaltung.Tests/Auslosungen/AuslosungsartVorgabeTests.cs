@@ -65,4 +65,37 @@ public class AuslosungsartVorgabeTests
 
         AuslosungsartVorgabe.LostoepfeNachWechsel(Auslosungsart.TopfZuordnung, bisher: 1, runde).Should().Be(erwartet);
     }
+
+    [Theory]
+    [InlineData(16, 4, 4)]
+    [InlineData(48, 12, 4)]
+    [InlineData(8, 2, 4)]
+    public void LostoepfeNachWechsel_NachToepfenInDerGruppenphase_EinTopfJeGruppenplatz(int teams, int gruppen, int erwartet)
+    {
+        var runde = Runde(Rundenart.Gruppenphase);
+        runde.EingangsMannschaftsanzahl = teams;
+        runde.GruppenAnzahl = gruppen;
+
+        AuslosungsartVorgabe.LostoepfeNachWechsel(Auslosungsart.NachToepfen, bisher: 1, runde).Should().Be(erwartet);
+    }
+
+    [Fact]
+    public void LostoepfeNachWechsel_NachToepfenInDerGruppenphaseOhneGruppen_BleibtBeimBisherigen()
+    {
+        var runde = Runde(Rundenart.Gruppenphase);
+        runde.EingangsMannschaftsanzahl = 16;
+
+        AuslosungsartVorgabe.LostoepfeNachWechsel(Auslosungsart.NachToepfen, bisher: 1, runde).Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData(Auslosungsart.NachToepfen)]
+    [InlineData(Auslosungsart.GruppensiegerGegenGruppenzweite)]
+    public void LostoepfeNachWechsel_TopfPaareInDerKoRunde_ZweiToepfe(Auslosungsart art) =>
+        AuslosungsartVorgabe.LostoepfeNachWechsel(art, bisher: 1, Runde(Rundenart.KoRunde)).Should().Be(2);
+
+    [Fact]
+    public void LostoepfeNachWechsel_MehrereGewaehlteToepfe_BleibenStehen() =>
+        AuslosungsartVorgabe.LostoepfeNachWechsel(Auslosungsart.GruppensiegerGegenGruppenzweite, bisher: 4, Runde(Rundenart.KoRunde))
+            .Should().Be(4);
 }

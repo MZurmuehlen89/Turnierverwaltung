@@ -30,13 +30,23 @@ public static class AuslosungsartVorgabe
     public static bool ErlaubtMehrereToepfe(Auslosungsart art) =>
         art is not (Auslosungsart.Zufall or Auslosungsart.Benutzerdefiniert);
 
-    /// <summary>Anzahl Lostöpfe nach dem Wechsel auf <paramref name="art"/>: 1, wo nur ein Topf erlaubt ist;
-    /// die Topf-Zuordnung braucht mindestens 2 gleich große Töpfe — dann 4 wie in der UCL-Ligaphase (#347), bei
-    /// einem Gegner je Topf 6 wie in der UECL-Ligaphase (#469).</summary>
+    /// <summary>Anzahl Lostöpfe nach dem Wechsel auf <paramref name="art"/>: 1, wo nur ein Topf erlaubt ist. Arten
+    /// mit Topf-Struktur bekommen statt eines einzelnen Topfs die Zahl, die sie brauchen; zwei oder mehr gewählte
+    /// Töpfe bleiben stehen. Die Topf-Zuordnung braucht 4 gleich große Töpfe wie die UCL-Ligaphase (#347), bei
+    /// einem Gegner je Topf 6 wie die UECL-Ligaphase (#469); „Nach Töpfen“ in der Gruppenphase einen Topf je
+    /// Gruppenplatz (Teams ÷ Gruppen), in der K.-o.-Runde wie „Gruppensieger vs. Zweite“ zwei, die gegeneinander
+    /// gelost werden (#564).</summary>
     public static int LostoepfeNachWechsel(Auslosungsart art, int bisher, TurnierRunde? runde)
     {
         if (!ErlaubtMehrereToepfe(art)) return 1;
-        if (art == Auslosungsart.TopfZuordnung && bisher < 2) return runde?.GegnerJeTopf == 1 ? 6 : 4;
-        return bisher;
+        if (bisher >= 2) return bisher;
+        return (art, runde) switch
+        {
+            (Auslosungsart.TopfZuordnung, _) => runde?.GegnerJeTopf == 1 ? 6 : 4,
+            (Auslosungsart.NachToepfen, { Rundenart: Rundenart.Gruppenphase, GruppenAnzahl: > 0 and var gruppen })
+                when runde.EingangsMannschaftsanzahl >= 2 * gruppen => runde.EingangsMannschaftsanzahl / gruppen,
+            (Auslosungsart.NachToepfen or Auslosungsart.GruppensiegerGegenGruppenzweite, { Rundenart: Rundenart.KoRunde }) => 2,
+            _ => bisher
+        };
     }
 }
