@@ -13,8 +13,8 @@ internal static class AuslosungTestdaten
     public static Mannschaft Team(int id, int? landId = null) =>
         new() { Id = id, Name = $"Team {id}", LandId = landId ?? id };
 
-    public static LostopfEintrag Eintrag(Mannschaft mannschaft, int? setzPosition = null) =>
-        new() { Id = mannschaft.Id, MannschaftId = mannschaft.Id, Mannschaft = mannschaft, SetzPosition = setzPosition };
+    public static LostopfEintrag Eintrag(Mannschaft mannschaft) =>
+        new() { Id = mannschaft.Id, MannschaftId = mannschaft.Id, Mannschaft = mannschaft };
 
     public static Lostopf Topf(int reihenfolge, params LostopfEintrag[] eintraege) =>
         new() { Id = reihenfolge, Reihenfolge = reihenfolge, Name = $"Topf {reihenfolge}", Eintraege = [.. eintraege] };

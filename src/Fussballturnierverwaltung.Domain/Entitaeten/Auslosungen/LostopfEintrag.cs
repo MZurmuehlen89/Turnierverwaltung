@@ -18,6 +18,4 @@ public class LostopfEintrag : BasisEntitaet
     public int? UebergangsregelId { get; set; }
     public Uebergangsregel? Uebergangsregel { get; set; }
     public int? Platzierung { get; set; }
-
-    public int? SetzPosition { get; set; }
 }

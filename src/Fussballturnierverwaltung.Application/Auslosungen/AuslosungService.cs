@@ -73,8 +73,7 @@ public class AuslosungService(
     }
 
     public async Task MannschaftZuLostopfHinzufuegenAsync(
-        int auslosungId, int lostopfId, int mannschaftId, int? setzPosition = null,
-        CancellationToken ct = default)
+        int auslosungId, int lostopfId, int mannschaftId, CancellationToken ct = default)
     {
         var (auslosung, lostopf) = await BearbeitbareMitLostopfLadenAsync(auslosungId, lostopfId, ct);
 
@@ -84,8 +83,7 @@ public class AuslosungService(
         lostopf.Eintraege.Add(new LostopfEintrag
         {
             LostopfId    = lostopfId,
-            MannschaftId = mannschaftId,
-            SetzPosition = setzPosition
+            MannschaftId = mannschaftId
         });
         await repository.AktualisierenAsync(auslosung, ct);
     }

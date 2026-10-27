@@ -71,9 +71,10 @@ public static class AuslosungAnzeigeTexte
             "Alle Teams werden zufällig gemischt und paarweise zugelost. Passt zu jeder Rundenart außer der TopfLiga. " +
             "Kennt keine Topf-Struktur — auf 1 Lostopf begrenzt.",
         Auslosungsart.NachSetzliste =>
-            "Gesetzte Teams (Topf 1) werden gleichmäßig auf Gruppen oder Paare verteilt, " +
-            "damit stärkere Teams erst in späteren Runden aufeinandertreffen. " +
-            "Gibt es in K.-o.-Runden mehr Gesetzte als Ungesetzte (oder umgekehrt), werden die übrigen untereinander gelost. " +
+            "Topf 1 ist die Setzliste, seine Reihenfolge die Setzreihenfolge. In der Gruppenphase führen die Gesetzten " +
+            "der Reihe nach Gruppe A, B, C … an (Gastgeber und Titelverteidiger behalten ihre Gruppe), die übrigen " +
+            "Töpfe werden gelost. In K.-o.-Runden trifft jeder Gesetzte auf ein Team aus den übrigen Töpfen; gibt es " +
+            "mehr Gesetzte als Ungesetzte (oder umgekehrt), werden die übrigen untereinander gelost. " +
             "Typisch für Nationenturniere und nationale Pokal-Auslosungen.",
         Auslosungsart.NachToepfen =>
             "Teams werden manuell auf Töpfe verteilt und dann topfübergreifend zugelost — " +

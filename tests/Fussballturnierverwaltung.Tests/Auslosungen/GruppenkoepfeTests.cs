@@ -163,12 +163,12 @@ public class GruppenkoepfeTests
             ziehung.GroupBy(e => e.PaarungsNummer).Should().OnlyContain(g => g.Count() == 3);
         });
 
-    // Gastgeber auf B, ein Team mit Setzposition 1 bekommt die erste freie Gruppe A.
+    // Gastgeber (Team 3) auf B, die übrigen Gesetzten aus Topf 1 füllen in Topf-Reihenfolge die freien Gruppen A und C.
     [Fact]
     public void Ausloesen_NachSetzliste_GesetzteFuellenDieFreienGruppen()
     {
         var auslosung = NeueAuslosung(Rundenart.Gruppenphase, Auslosungsart.NachSetzliste,
-            [Topf(1, Eintrag(Team(1), setzPosition: 1), Eintrag(Team(2)), Eintrag(Team(3))),
+            [Topf(1, Eintrag(Team(1)), Eintrag(Team(2)), Eintrag(Team(3))),
              TopfMitTeams(2, ersteId: 4, anzahl: 3), TopfMitTeams(3, ersteId: 7, anzahl: 3)],
             gruppenAnzahl: 3);
 
@@ -179,6 +179,7 @@ public class GruppenkoepfeTests
                 new Random(s));
             Gruppe(ziehung, 1).First().Should().Be(1);
             Gruppe(ziehung, 2).First().Should().Be(3);
+            Gruppe(ziehung, 3).First().Should().Be(2);
         }
     }
 }

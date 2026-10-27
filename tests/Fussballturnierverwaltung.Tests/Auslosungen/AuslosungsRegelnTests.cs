@@ -32,8 +32,8 @@ public class AuslosungsRegelnTests
 
     private static Mannschaft Team(int id, int? landId = null) => new() { Id = id, Name = $"Team {id}", LandId = landId ?? id };
 
-    private static LostopfEintrag Eintrag(Mannschaft m, int? setzPos = null) =>
-        new() { Id = m.Id, MannschaftId = m.Id, Mannschaft = m, SetzPosition = setzPos };
+    private static LostopfEintrag Eintrag(Mannschaft m) =>
+        new() { Id = m.Id, MannschaftId = m.Id, Mannschaft = m };
 
     private static LostopfEintrag Platzhalter(int id, string name) => new() { Id = id, PlatzhalterName = name };
 
@@ -285,6 +285,21 @@ public class AuslosungsRegelnTests
         heimIds.Should().Contain(id => id <= 4).And.Contain(id => id >= 5);
     }
 
+    // Topf 1 ist die Setzliste (#563): ohne Gruppenplatz hat das Team Heimrecht, das früher im Topf liegt.
+    [Fact]
+    public async Task HeimrechtNachSetzliste_EinTopf_FrueherImTopfHatHeimrecht()
+    {
+        for (int lauf = 0; lauf < WIEDERHOLUNGEN; lauf++)
+        {
+            var eintraege = Enumerable.Range(1, 8).Select(i => Eintrag(Team(i))).ToArray();
+
+            var ergebnisse = await Ausfuehren(Rundenart.KoRunde, Auslosungsart.Zufall, [Topf(1, eintraege)],
+                [Regel(AuslosungsRegelArt.HeimrechtNachSetzliste)]);
+
+            ergebnisse.Should().AllSatisfy(e => e.HeimMannschaftId.Should().BeLessThan(e.AuswaertsMannschaftId!.Value));
+        }
+    }
+
     [Fact]
     public async Task HeimrechtNachSetzliste_EinTopf_BessererGruppenplatzHatHeimrecht()
     {
@@ -309,11 +324,11 @@ public class AuslosungsRegelnTests
     [Fact]
     public async Task NachSetzliste_HeimrechtNachSetzliste_MitRueckspiel_GesetzterSpieltRueckspielZuHause()
     {
-        var gesetzte   = Enumerable.Range(1, 4).Select(i => Eintrag(Team(i), setzPos: i));
+        var gesetzte   = Enumerable.Range(1, 4).Select(i => Eintrag(Team(i)));
         var ungesetzte = Enumerable.Range(5, 4).Select(i => Eintrag(Team(i)));
 
         var ergebnisse = await Ausfuehren(Rundenart.KoRunde, Auslosungsart.NachSetzliste,
-            [Topf(1, [.. gesetzte, .. ungesetzte])],
+            [Topf(1, [.. gesetzte]), Topf(2, [.. ungesetzte])],
             [Regel(AuslosungsRegelArt.HeimrechtNachSetzliste)], mitRueckspiel: true);
 
         ergebnisse.Should().HaveCount(4);
@@ -330,11 +345,11 @@ public class AuslosungsRegelnTests
         for (int lauf = 0; lauf < WIEDERHOLUNGEN; lauf++)
         {
             // Gesetzte 1–3 aus Land 100, 200, 300; Ungesetzte 4–6 ebenfalls — nur die „Rotation“ ist gültig
-            var gesetzte   = new[] { Eintrag(Team(1, 100), 1), Eintrag(Team(2, 200), 2), Eintrag(Team(3, 300), 3) };
+            var gesetzte   = new[] { Eintrag(Team(1, 100)), Eintrag(Team(2, 200)), Eintrag(Team(3, 300)) };
             var ungesetzte = new[] { Eintrag(Team(4, 100)), Eintrag(Team(5, 200)), Eintrag(Team(6, 300)) };
 
             var ergebnisse = await Ausfuehren(Rundenart.KoRunde, Auslosungsart.NachSetzliste,
-                [Topf(1, [.. gesetzte, .. ungesetzte])], [Regel(AuslosungsRegelArt.KeinGleichesLand)]);
+                [Topf(1, gesetzte), Topf(2, ungesetzte)], [Regel(AuslosungsRegelArt.KeinGleichesLand)]);
 
             ergebnisse.Should().HaveCount(3);
             ergebnisse.Should().AllSatisfy(e =>

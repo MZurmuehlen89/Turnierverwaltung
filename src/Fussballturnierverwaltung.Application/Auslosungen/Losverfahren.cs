@@ -13,8 +13,8 @@ public static class Losverfahren
     {
         var toepfe = auslosung.Lostoepfe
             .OrderBy(l => l.Reihenfolge)
-            .Select((l, rang) => l.Eintraege.Select(e => TeilnehmerSlot.AusEintrag(
-                e, rang, vorbereitung.GruppeJeMannschaft, qualifikanten ?? Qualifikanten.Keine)).ToList())
+            .Select((l, rang) => TeilnehmerSlot.AusTopf(
+                l, rang, vorbereitung.GruppeJeMannschaft, qualifikanten ?? Qualifikanten.Keine).ToList())
             .ToList();
 
         // Gruppenphase und Liga ordnen die Teilnehmer Gruppen zu (Liga = eine Gruppe), alle anderen Rundenarten
@@ -87,7 +87,7 @@ public static class Losverfahren
         return ergebnisse;
     }
 
-    // Gesetzte (nach Setzposition) gegen Ungesetzte — dieselbe Topfpaar-Auslosung wie „Nach Töpfen“, damit auch
+    // Gesetzte (Topf 1, #563) gegen alle Übrigen — dieselbe Topfpaar-Auslosung wie „Nach Töpfen“, damit auch
     // hier alle Einschränkungen und Heimrecht-Regeln greifen (bis #331 ignorierte „Nach Setzliste“ sie alle) und
     // die übrigen Teams der größeren Seite untereinander gelost werden, statt herauszufallen (#495).
     private static List<AuslosungsErgebnis> NachSetzlisteAusloesen(
@@ -244,14 +244,16 @@ public static class Losverfahren
         TeilnehmerSlot mitHeimrecht, TeilnehmerSlot gegner, bool mitRueckspiel) =>
         mitRueckspiel ? (gegner, mitHeimrecht) : (mitHeimrecht, gegner);
 
-    // Kleiner = besser: höherer Topf, dann bessere Setzposition, dann besserer Gruppenplatz.
+    // Kleiner = besser: höherer Topf, dann besserer Gruppenplatz, dann frühere Setzposition. Die Setzposition ist
+    // nur die Reihenfolge in Topf 1 (#563) und entscheidet deshalb erst zuletzt — ein Gruppensieger bleibt besser
+    // als ein Zweiter, der zufällig vor ihm im Topf liegt.
     private static int Rangfolge(TeilnehmerSlot a, TeilnehmerSlot b)
     {
         int vergleich = a.TopfRang.CompareTo(b.TopfRang);
         if (vergleich != 0) return vergleich;
-        vergleich = (a.SetzPosition ?? int.MaxValue).CompareTo(b.SetzPosition ?? int.MaxValue);
+        vergleich = (a.Gruppenplatz ?? int.MaxValue).CompareTo(b.Gruppenplatz ?? int.MaxValue);
         if (vergleich != 0) return vergleich;
-        return (a.Gruppenplatz ?? int.MaxValue).CompareTo(b.Gruppenplatz ?? int.MaxValue);
+        return (a.SetzPosition ?? int.MaxValue).CompareTo(b.SetzPosition ?? int.MaxValue);
     }
 
     private static AuslosungsErgebnis Paarung(int nr, TeilnehmerSlot heim, TeilnehmerSlot auswaerts) =>

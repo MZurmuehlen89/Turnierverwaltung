@@ -33,8 +33,8 @@ public class AuslosungAlgorithmusTests
     private static Mannschaft Team(int id) => new() { Id = id, Name = $"Team {id}", LandId = id };
     private static Mannschaft TeamMitLand(int id, int landId) => new() { Id = id, Name = $"Team {id}", LandId = landId };
 
-    private static LostopfEintrag Eintrag(Mannschaft m, int? setzPos = null) =>
-        new() { Id = m.Id, MannschaftId = m.Id, Mannschaft = m, SetzPosition = setzPos };
+    private static LostopfEintrag Eintrag(Mannschaft m) =>
+        new() { Id = m.Id, MannschaftId = m.Id, Mannschaft = m };
 
     private static LostopfEintrag PlatzhalterEintrag(int id, string name) =>
         new() { Id = id, PlatzhalterName = name };
@@ -159,11 +159,10 @@ public class AuslosungAlgorithmusTests
     public async Task Gruppenphase_NachSetzliste_GesetztesTeamJeEinmalProGruppe()
     {
         // 4 gesetzte + 4 ungesetzte → 4 Gruppen à 2, jede mit genau 1 Gesetztem
-        var gesetzte   = Enumerable.Range(1, 4).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
+        var gesetzte   = Enumerable.Range(1, 4).Select(i => Eintrag(Team(i))).ToArray();
         var ungesetzte = Enumerable.Range(5, 4).Select(i => Eintrag(Team(i))).ToArray();
-        var topf       = Topf(1, 1, [.. gesetzte, .. ungesetzte]);
         AuslosungMit(Rundenart.Gruppenphase, Auslosungsart.NachSetzliste,
-                     gruppenAnzahl: 4, lostoepfe: [topf]);
+                     gruppenAnzahl: 4, lostoepfe: [Topf(1, 1, gesetzte), Topf(2, 2, ungesetzte)]);
 
         var ergebnisse = await Ausfuehren();
         var gruppen    = ergebnisse.GroupBy(e => e.PaarungsNummer).ToList();
@@ -182,7 +181,7 @@ public class AuslosungAlgorithmusTests
         // zusammengeworfen (GruppenBefuellen über alle ungesetzten Töpfe hinweg), wodurch eine
         // Gruppe z.B. 2 Teams aus Topf 2 bekommen konnte, während eine andere Gruppe noch leer
         // ausging. Jeder ungesetzte Topf muss weiterhin exakt 1 Team pro Gruppe beisteuern.
-        var gesetzte = Enumerable.Range(1, 4).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
+        var gesetzte = Enumerable.Range(1, 4).Select(i => Eintrag(Team(i))).ToArray();
         var topf1    = Topf(1, 1, gesetzte);
         var topf2    = Topf(2, 2, Enumerable.Range(5, 4).Select(i => Eintrag(Team(i))).ToArray());
         var topf3    = Topf(3, 3, Enumerable.Range(9, 4).Select(i => Eintrag(Team(i))).ToArray());
@@ -378,10 +377,10 @@ public class AuslosungAlgorithmusTests
     [Fact]
     public async Task KoRunde_NachSetzliste_GesetzteVsUngesetzte()
     {
-        var gesetzte   = Enumerable.Range(1, 4).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
+        var gesetzte   = Enumerable.Range(1, 4).Select(i => Eintrag(Team(i))).ToArray();
         var ungesetzte = Enumerable.Range(5, 4).Select(i => Eintrag(Team(i))).ToArray();
-        var topf       = Topf(1, 1, [.. gesetzte, .. ungesetzte]);
-        AuslosungMit(Rundenart.KoRunde, Auslosungsart.NachSetzliste, lostoepfe: [topf]);
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.NachSetzliste,
+                     lostoepfe: [Topf(1, 1, gesetzte), Topf(2, 2, ungesetzte)]);
 
         var ergebnisse = await Ausfuehren();
 
@@ -399,9 +398,9 @@ public class AuslosungAlgorithmusTests
     [Fact]
     public async Task KoRunde_NachSetzliste_UngleicheSeiten_UeberhangWirdUntereinanderGelost()
     {
-        var gesetzte   = Enumerable.Range(1, 2).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
+        var gesetzte   = Enumerable.Range(1, 2).Select(i => Eintrag(Team(i))).ToArray();
         var ungesetzte = Enumerable.Range(3, 6).Select(i => Eintrag(Team(i))).ToArray();
-        AuslosungMit(Rundenart.KoRunde, Auslosungsart.NachSetzliste, lostoepfe: [Topf(1, 1, [.. gesetzte, .. ungesetzte])]);
+        AuslosungMit(Rundenart.KoRunde, Auslosungsart.NachSetzliste, lostoepfe: [Topf(1, 1, gesetzte), Topf(2, 2, ungesetzte)]);
 
         var ergebnisse = await Ausfuehren();
 
@@ -568,7 +567,7 @@ public class AuslosungAlgorithmusTests
     [Fact]
     public async Task SchweizerSystem_NachSetzliste_ErzeugtPaarungen()
     {
-        var gesetzte   = Enumerable.Range(1, 4).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
+        var gesetzte   = Enumerable.Range(1, 4).Select(i => Eintrag(Team(i))).ToArray();
         var ungesetzte = Enumerable.Range(5, 4).Select(i => Eintrag(Team(i))).ToArray();
         var topf       = Topf(1, 1, [.. gesetzte, .. ungesetzte]);
         AuslosungMit(Rundenart.SchweizerSystem, Auslosungsart.NachSetzliste, lostoepfe: [topf]);
@@ -718,7 +717,7 @@ public class AuslosungAlgorithmusTests
     {
         // Regressionstest: GruppenphaseNachSetzlisteAusloesen nahm bei gruppenAnzahl=1 (Liga)
         // bisher per Take(gruppenAnzahl) nur ein gesetztes Team und verwarf die übrigen.
-        var gesetzte   = Enumerable.Range(1, 3).Select(i => Eintrag(Team(i), setzPos: i)).ToArray();
+        var gesetzte   = Enumerable.Range(1, 3).Select(i => Eintrag(Team(i))).ToArray();
         var ungesetzte = Enumerable.Range(4, 3).Select(i => Eintrag(Team(i))).ToArray();
         var topf       = Topf(1, 1, [.. gesetzte, .. ungesetzte]);
         AuslosungMit(Rundenart.Liga, Auslosungsart.NachSetzliste, lostoepfe: [topf]);
@@ -925,10 +924,10 @@ public class AuslosungAlgorithmusTests
     [Fact]
     public async Task Sonderrunde_NachSetzliste_GesetzteAlsHeim()
     {
-        var gesetzte   = new[] { Eintrag(Team(1), setzPos: 1), Eintrag(Team(2), setzPos: 2) };
+        var gesetzte   = new[] { Eintrag(Team(1)), Eintrag(Team(2)) };
         var ungesetzte = new[] { Eintrag(Team(3)), Eintrag(Team(4)) };
-        var topf       = Topf(1, 1, [.. gesetzte, .. ungesetzte]);
-        AuslosungMit(Rundenart.Sonderrunde, Auslosungsart.NachSetzliste, lostoepfe: [topf]);
+        AuslosungMit(Rundenart.Sonderrunde, Auslosungsart.NachSetzliste,
+                     lostoepfe: [Topf(1, 1, gesetzte), Topf(2, 2, ungesetzte)]);
 
         var ergebnisse = await Ausfuehren();
 
@@ -998,8 +997,8 @@ public class AuslosungAlgorithmusTests
     [Fact]
     public async Task Finale_NachSetzliste_EinePaarungGesetzterVsUngesetzter()
     {
-        var topf = Topf(1, 1, Eintrag(Team(1), setzPos: 1), Eintrag(Team(2)));
-        AuslosungMit(Rundenart.Finale, Auslosungsart.NachSetzliste, lostoepfe: [topf]);
+        AuslosungMit(Rundenart.Finale, Auslosungsart.NachSetzliste,
+                     lostoepfe: [Topf(1, 1, Eintrag(Team(1))), Topf(2, 2, Eintrag(Team(2)))]);
 
         var ergebnisse = await Ausfuehren();
 
@@ -1042,7 +1041,7 @@ public class AuslosungAlgorithmusTests
     [Fact]
     public async Task SpielUmPlatzDrei_NachSetzliste_EinePaarung()
     {
-        var topf = Topf(1, 1, Eintrag(Team(1), setzPos: 1), Eintrag(Team(2)));
+        var topf = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)));
         AuslosungMit(Rundenart.SpielUmPlatzDrei, Auslosungsart.NachSetzliste, lostoepfe: [topf]);
 
         var ergebnisse = await Ausfuehren();

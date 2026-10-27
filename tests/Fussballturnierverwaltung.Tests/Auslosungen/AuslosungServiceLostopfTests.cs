@@ -32,10 +32,9 @@ public class AuslosungServiceLostopfTests
     [Fact]
     public async Task MannschaftZuLostopfHinzufuegen_HaengtEintragAnDenTopf()
     {
-        await _service.MannschaftZuLostopfHinzufuegenAsync(_auslosung.Id, lostopfId: 2, mannschaftId: 5, setzPosition: 3);
+        await _service.MannschaftZuLostopfHinzufuegenAsync(_auslosung.Id, lostopfId: 2, mannschaftId: 5);
 
         MannschaftenInTopf(2).Should().Equal(3, 4, 5);
-        _auslosung.Lostoepfe.Single(l => l.Id == 2).Eintraege.Last().SetzPosition.Should().Be(3);
     }
 
     [Fact]

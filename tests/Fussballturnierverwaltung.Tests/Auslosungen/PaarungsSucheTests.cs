@@ -49,7 +49,8 @@ public class PaarungsSucheTests
     {
         var toepfe = new[]
         {
-            Topf(1, [.. Enumerable.Range(1, 8).Select(id => Eintrag(Team(id, landId: id % 2), setzPosition: id <= 3 ? id : null))])
+            Topf(1, [.. Enumerable.Range(1, 3).Select(id => Eintrag(Team(id, landId: id % 2)))]),
+            Topf(2, [.. Enumerable.Range(4, 5).Select(id => Eintrag(Team(id, landId: id % 2)))])
         };
 
         Ausloesen(Auslosungsart.NachSetzliste, toepfe, Regeln(keinGleichesLand: true), startwert).Should().Be(erwartet);

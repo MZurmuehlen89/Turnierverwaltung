@@ -57,7 +57,7 @@ public class LosverfahrenTests
         NeueAuslosung(
             rundenart, auslosungsart,
             [
-                Topf(1, [.. Enumerable.Range(1, 4).Select(id => Eintrag(Team(id), setzPosition: id))]),
+                Topf(1, [.. Enumerable.Range(1, 4).Select(id => Eintrag(Team(id)))]),
                 TopfMitTeams(2, ersteId: 5, anzahl: 4)
             ],
             gruppenAnzahl);
@@ -261,20 +261,39 @@ public class LosverfahrenTests
 
     // ── Nach Setzliste ────────────────────────────────────────────────────────
 
+    // Topf 1 ist die Setzliste (#563): die Gesetzten in Topf-Reihenfolge, jeder gegen ein Team aus irgendeinem der
+    // übrigen Töpfe. „Nach Töpfen“ lost hier dagegen Topf 1 gegen Topf 2 und den Rest untereinander — dort könnten
+    // zwei Gesetzte aufeinandertreffen.
     [Fact]
-    public void NachSetzliste_GesetzteInReihenfolgeDerSetzposition_GegenUngesetzte()
+    public void NachSetzliste_Topf1GesetztInTopfReihenfolge_GegenDieUebrigenToepfe()
     {
         var auslosung = NeueAuslosung(Rundenart.KoRunde, Auslosungsart.NachSetzliste,
             [
-                Topf(1, Eintrag(Team(11), setzPosition: 3), Eintrag(Team(12), setzPosition: 1), Eintrag(Team(4))),
-                Topf(2, Eintrag(Team(5)), Eintrag(Team(13), setzPosition: 2), Eintrag(Team(6)))
+                Topf(1, Eintrag(Team(11)), Eintrag(Team(12)), Eintrag(Team(13))),
+                Topf(2, Eintrag(Team(4))),
+                Topf(3, Eintrag(Team(5)), Eintrag(Team(6)))
             ]);
 
         AlleZiehungen(auslosung, Regeln()).Should().AllSatisfy(ziehung =>
         {
-            HeimIds(ziehung).Should().Equal(12, 13, 11);
+            HeimIds(ziehung).Should().Equal(11, 12, 13);
             AuswaertsIds(ziehung).Should().BeEquivalentTo([4, 5, 6]);
         });
+    }
+
+    [Fact]
+    public void NachToepfen_GleicheToepfe_GesetzteKoennenAufeinandertreffen()
+    {
+        var auslosung = NeueAuslosung(Rundenart.KoRunde, Auslosungsart.NachToepfen,
+            [
+                Topf(1, Eintrag(Team(11)), Eintrag(Team(12)), Eintrag(Team(13))),
+                Topf(2, Eintrag(Team(4))),
+                Topf(3, Eintrag(Team(5)), Eintrag(Team(6)))
+            ]);
+
+        AlleZiehungen(auslosung, Regeln()).Should().Contain(ziehung =>
+            ziehung.Any(e => e.HeimMannschaftId > 10 && e.AuswaertsMannschaftId > 10),
+            "zum Vergleich: ohne Setzliste ist Topf 1 nur gegen Topf 2 geschützt");
     }
 
     // ── Heimrecht ─────────────────────────────────────────────────────────────
@@ -426,12 +445,12 @@ public class LosverfahrenTests
                 "die Gruppenzuordnung bleibt eine Mannschaft je Topf")));
     }
 
-    // Gesetzte (z. B. der Gastgeber auf A1) bleiben bei jeder Variante auf Position 1 ihrer Gruppe.
+    // Gesetzte bleiben bei jeder Variante auf Position 1 ihrer Gruppe.
     [Fact]
     public void Gruppenposition_AlleGelost_NachSetzliste_GesetzteBleibenAufPosition1()
     {
         var auslosung = NeueAuslosung(Rundenart.Gruppenphase, Auslosungsart.NachSetzliste,
-            [Topf(1, Eintrag(Team(1), setzPosition: 1), Eintrag(Team(2)), Eintrag(Team(3))),
+            [Topf(1, Eintrag(Team(1)), Eintrag(Team(2)), Eintrag(Team(3))),
              TopfMitTeams(2, ersteId: 4, anzahl: 3), TopfMitTeams(3, ersteId: 7, anzahl: 3)],
             gruppenAnzahl: 3);
         auslosung.Gruppenposition = Gruppenposition.AlleGelost;
@@ -439,28 +458,30 @@ public class LosverfahrenTests
         var ziehungen = AlleZiehungen(auslosung, Regeln());
 
         ziehungen.Should().AllSatisfy(ziehung =>
-            HeimIds(ziehung.Where(e => e.PaarungsNummer == 1)).First().Should().Be(1, "der Gesetzte führt Gruppe A an"));
-        ziehungen.SelectMany(z => z.Where(e => e.PaarungsNummer > 1).GroupBy(e => e.PaarungsNummer))
-            .Select(g => HeimIds(g).First()).Should().Contain(id => id > 3, "die übrigen Positionen sind gelost");
+            ziehung.GroupBy(e => e.PaarungsNummer).Select(g => HeimIds(g).First())
+                .Should().Equal([1, 2, 3], "die Gesetzten führen ihre Gruppe an"));
+        ziehungen.SelectMany(z => z.GroupBy(e => e.PaarungsNummer)).Select(g => HeimIds(g).ElementAt(1))
+            .Should().Contain(id => id >= 7, "die übrigen Positionen sind gelost");
     }
 
-    // Ein Gesetzter zählt in seinem Topf mit: seine Gruppe erhält kein weiteres Team desselben Topfs (#488, EM 2024:
-    // Gastgeber gesetzt, die übrigen Topf-1-Teams ungesetzt).
+    // Topf 1 ist die Setzliste (#563): seine Teams führen der Reihe nach Gruppe A, B, C an — die Gruppe der
+    // Gesetzten wird nicht gelost, die übrigen Töpfe geben je Gruppe ein Team (#488).
     [Theory]
     [InlineData(Gruppenposition.NachTopf)]
     [InlineData(Gruppenposition.Topf1Fest)]
     [InlineData(Gruppenposition.AlleGelost)]
-    public void NachSetzliste_GesetzterInTopf_GruppenGleichGross_JeGruppeEinTeamJeTopf(Gruppenposition position)
+    public void NachSetzliste_Topf1InReihenfolgeAufDieGruppen_JeGruppeEinTeamJeTopf(Gruppenposition position)
     {
         var auslosung = NeueAuslosung(Rundenart.Gruppenphase, Auslosungsart.NachSetzliste,
-            [Topf(1, Eintrag(Team(2)), Eintrag(Team(1), setzPosition: 1), Eintrag(Team(3))),
+            [Topf(1, Eintrag(Team(2)), Eintrag(Team(1)), Eintrag(Team(3))),
              TopfMitTeams(2, ersteId: 4, anzahl: 3), TopfMitTeams(3, ersteId: 7, anzahl: 3)],
             gruppenAnzahl: 3);
         auslosung.Gruppenposition = position;
 
         AlleZiehungen(auslosung, Regeln()).Should().AllSatisfy(ziehung =>
         {
-            HeimIds(ziehung.Where(e => e.PaarungsNummer == 1)).First().Should().Be(1, "der Gesetzte führt Gruppe A an");
+            ziehung.GroupBy(e => e.PaarungsNummer).OrderBy(g => g.Key).Select(g => HeimIds(g).First())
+                .Should().Equal([1, 2, 3], "Gruppe A, B, C in Setzreihenfolge");
             TopfJePosition(ziehung).Should().AllSatisfy(gruppe => gruppe.Should().BeEquivalentTo([1, 2, 3]));
         });
     }

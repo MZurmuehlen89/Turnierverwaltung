@@ -191,13 +191,13 @@ public sealed class ManuelleZiehung
         foreach (var (lostopf, rang) in auslosung.Lostoepfe.OrderBy(l => l.Reihenfolge).Select((l, i) => (l, i)))
         {
             var indizes = new List<int>();
+            slots.AddRange(TeilnehmerSlot.AusTopf(lostopf, rang, gruppeJeMannschaft, qualifikanten));
             foreach (var eintrag in lostopf.Eintraege.OrderBy(e => e.Id))
             {
                 indizes.Add(teilnehmer.Count);
                 string name = eintrag.Mannschaft?.Name ?? qualifikanten.Fuer(eintrag.PlatzhalterName)?.Name
                               ?? eintrag.PlatzhalterName ?? "?";
                 teilnehmer.Add(new ZiehungsTeilnehmer(teilnehmer.Count, eintrag, rang, name));
-                slots.Add(TeilnehmerSlot.AusEintrag(eintrag, rang, gruppeJeMannschaft, qualifikanten));
             }
             toepfe.Add(new ZiehungsTopf(lostopf.Name, indizes));
         }

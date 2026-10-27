@@ -58,8 +58,9 @@ internal sealed class GruppenLosverfahren
     private static List<AuslosungsErgebnis> LigaAusloesen(List<List<TeilnehmerSlot>> toepfe, Random zufall) =>
         GruppenZuErgebnisse([toepfe.SelectMany(t => t).OrderBy(_ => zufall.Next()).ToList()]);
 
-    // Gesetzte Teams (mit Setzposition) führen je eine der Gruppen an, die kein fester Gruppenkopf (#487) belegt: in
-    // Setzreihenfolge auf die erste freie Gruppe. Sie bleiben Teil ihres Topfs, alle übrigen werden topfweise
+    // Gesetzte Teams (Topf 1, #563) führen je eine der Gruppen an, die kein fester Gruppenkopf (#487) belegt: in
+    // Setzreihenfolge auf die erste freie Gruppe — ihre Gruppe wird also nicht gelost. Hat Topf 1 mehr Teams als
+    // freie Gruppen, werden die übrigen wie bei „Nach Töpfen“ gezogen. Sie bleiben Teil ihres Topfs, alle übrigen werden topfweise
     // verteilt (siehe Issue #5-Diskussion, #488).
     private List<AuslosungsErgebnis> NachSetzlisteAusloesen(List<List<TeilnehmerSlot>> toepfe)
     {

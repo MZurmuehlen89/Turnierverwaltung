@@ -29,12 +29,12 @@ public class KonfoederationsverteilungTests
     // ── Hilfsmethoden ─────────────────────────────────────────────────────────
 
     // Jedes Team bekommt ein eigenes Land im angegebenen Verband.
-    private LostopfEintrag Team(int verbandId, int? landId = null, int? setzPos = null)
+    private LostopfEintrag Team(int verbandId, int? landId = null)
     {
         int id = _naechsteId++;
         var land = new Land { Id = landId ?? 1000 + id, VerbandId = verbandId };
         var m = new Mannschaft { Id = id, Name = $"Team {id}", LandId = land.Id, Land = land };
-        return new LostopfEintrag { Id = id, MannschaftId = id, Mannschaft = m, SetzPosition = setzPos };
+        return new LostopfEintrag { Id = id, MannschaftId = id, Mannschaft = m };
     }
 
     private LostopfEintrag Platzhalter(string name) => new() { Id = _naechsteId++, PlatzhalterName = name };
@@ -177,7 +177,7 @@ public class KonfoederationsverteilungTests
         // 4 gesetzte UEFA-Gruppenköpfe + 4 weitere UEFA-Teams und 8 andere auf 4 Gruppen → je Gruppe genau 2 UEFA
         for (int lauf = 0; lauf < WIEDERHOLUNGEN; lauf++)
         {
-            var gesetzte = Enumerable.Range(1, 4).Select(pos => Team(UEFA, setzPos: pos)).ToArray();
+            var gesetzte = Enumerable.Range(1, 4).Select(_ => Team(UEFA)).ToArray();
             var toepfe = new[]
             {
                 Topf(1, gesetzte),
