@@ -99,14 +99,14 @@
 
             <!-- ── Spalte 0: Rundenliste (inkl. Unstimmigkeits-Hinweis, #348 aus dem früheren Übergänge-Reiter) ── -->
             <Grid Grid.Column="0" RowDefinitions="Auto,*">
-                <ListView Grid.Row="1"
+                <ListView Grid.Row="1" AutomationProperties.AutomationId="Runden.Liste"
                           ItemsSource="{Binding Runden}"
                           SelectedItem="{Binding AusgewaehlteRunde, Mode=TwoWay}"
                           SelectionMode="Single">
                     <ListView.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Padding="0,4">
-                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" AutomationProperties.AutomationId="Runden.ListeName" />
                                 <TextBlock FontSize="11" Opacity="0.6">
                                     <Run Text="{Binding Rundenart, Converter={StaticResource RundenartZuText}}" />
                                     <Run Text=" · " />
@@ -146,11 +146,12 @@
                             <StackPanel HorizontalAlignment="Stretch">
                                 <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
                                 <TextBox Text="{Binding Formular.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.AutomationId="Runden.Name"
                                          HorizontalAlignment="Stretch" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
                                 <TextBlock Text="Rundenart" FontSize="12" Margin="0,0,0,3" />
-                                <ComboBox ItemsSource="{Binding Formular.RundenartOptionen}"
+                                <ComboBox ItemsSource="{Binding Formular.RundenartOptionen}" AutomationProperties.AutomationId="Runden.Rundenart"
                                           SelectedItem="{Binding Formular.RundenartAuswahl, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch">
                                     <ComboBox.ItemTemplate>
@@ -166,11 +167,13 @@
                             <StackPanel HorizontalAlignment="Stretch">
                                 <TextBlock Text="Eingang (Mannschaften)" FontSize="12" Margin="0,0,0,3" />
                                 <TextBox Text="{Binding Formular.EingangsMannschaftsanzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.AutomationId="Runden.Eingang"
                                          HorizontalAlignment="Stretch" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
                                 <TextBlock Text="Ausgang (Mannschaften)" FontSize="12" Margin="0,0,0,3" />
                                 <TextBox Text="{Binding Formular.AusgangsMannschaftsanzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.AutomationId="Runden.Ausgang"
                                          HorizontalAlignment="Stretch" />
                             </StackPanel>
                             <StackPanel Grid.Column="4" HorizontalAlignment="Stretch"
@@ -180,6 +183,7 @@
                                      bei jeder Rundenart gleich hoch, nichts springt beim Wechsel -->
                                 <Grid ColumnDefinitions="*,8,Auto">
                                     <TextBox Text="{Binding Formular.GruppenAnzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
+                                             AutomationProperties.AutomationId="Runden.Gruppen"
                                              HorizontalAlignment="Stretch" />
                                     <DropDownButton Grid.Column="2" Content="Vorschläge"
                                                     IsEnabled="{Binding Formular.HatGruppenAnzahlVorschlaege}"
@@ -234,11 +238,12 @@
 
                         <!-- ── Auslosung (aufklappbar) ─────────────────────────────────── -->
                         <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,8"
-                                  IsExpanded="{Binding Formular.AuslosungOffen, Mode=TwoWay}"
+                                  IsExpanded="{Binding Formular.AuslosungOffen, Mode=TwoWay}" AutomationProperties.AutomationId="Runden.AuslosungBereich"
                                   Header="{Binding Formular.AuslosungKopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
                             <StackPanel>
                                 <!-- Steht oben, weil es die Auslosung ersetzt (Vorbelegung, #277/#297) -->
                                 <CheckBox Content="Paarung fest vorgegeben" IsChecked="{Binding Formular.PaarungFestVorgegeben, Mode=TwoWay}"
+                                          AutomationProperties.AutomationId="Runden.PaarungFestVorgegeben"
                                           IsEnabled="{Binding PaarungFestVorgegebenVerfuegbar}" Margin="0,0,0,4" />
                                 <TextBlock Text="Erst verfügbar, sobald die Runde eine eingehende Übergangsregel hat (siehe Übergänge)."
                                            Visibility="{Binding PaarungFestVorgegebenVerfuegbar, Converter={StaticResource InverseBoolToVisibility}}"
@@ -375,7 +380,7 @@
                              Regelformular (Populier-/Zurückschreib-Muster, keine editierbaren Karten — siehe
                              #284-Datenkorruption). ── -->
                         <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                                  DataContext="{Binding UebergangsregelEditor}"
+                                  DataContext="{Binding UebergangsregelEditor}" AutomationProperties.AutomationId="Runden.UebergaengeBereich"
                                   IsExpanded="{Binding Offen, Mode=TwoWay}"
                                   Header="{Binding Kopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
                             <Grid ColumnDefinitions="*,16,1.5*">
@@ -389,7 +394,7 @@
 
                                     <Grid Margin="0,16,0,8" ColumnDefinitions="*,Auto">
                                         <TextBlock Text="AUSGEHENDE REGELN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
-                                        <Button Grid.Column="1" Content="+ Neu" FontSize="11" Command="{Binding NeueAusgehendeRegelCommand}" />
+                                        <Button Grid.Column="1" Content="+ Neu" FontSize="11" Command="{Binding NeueAusgehendeRegelCommand}" AutomationProperties.AutomationId="Runden.NeueAusgehendeRegel" />
                                     </Grid>
                                     <ItemsControl ItemsSource="{Binding AusgehendeRegeln}" ItemTemplate="{StaticResource RegelZeileTemplate}" />
                                 </StackPanel>
@@ -404,7 +409,7 @@
                                         <StackPanel Visibility="{Binding ZeigeRegelformular, Converter={StaticResource BoolToVisibility}}">
                                             <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
                                                 <TextBlock Text="ÜBERGANGSREGEL" FontWeight="SemiBold" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
-                                                <Button Grid.Column="1" Content="Schließen" FontSize="11" Command="{Binding RegelFormularSchliessenCommand}" />
+                                                <Button Grid.Column="1" Content="Schließen" FontSize="11" Command="{Binding RegelFormularSchliessenCommand}" AutomationProperties.AutomationId="Runden.RegelSchliessen" />
                                             </Grid>
 
                                             <TextBlock Text="Von (Quelle)" FontSize="12" Margin="0,0,0,3" />
@@ -414,7 +419,7 @@
 
                                             <TextBlock Text="Nach (Ziel)" FontSize="12" Margin="0,0,0,3" />
                                             <ComboBox ItemsSource="{Binding Runden}"
-                                                      SelectedItem="{Binding RegelZiel, Mode=TwoWay}"
+                                                      SelectedItem="{Binding RegelZiel, Mode=TwoWay}" AutomationProperties.AutomationId="Runden.RegelZiel"
                                                       DisplayMemberPath="Name" HorizontalAlignment="Stretch" Margin="0,0,0,16" />
 
                                             <ItemsControl ItemsSource="{Binding NormaleZeilen}" ItemTemplate="{StaticResource ZeileGruppenphaseTemplate}"
@@ -451,7 +456,7 @@
                     <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
                             Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
                             CornerRadius="4" Padding="8,6">
-                        <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                        <TextBlock Text="{Binding Fehlermeldung}" AutomationProperties.AutomationId="Runden.Fehlermeldung" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                    FontSize="11" TextWrapping="Wrap" />
                     </Border>
                     <ItemsControl ItemsSource="{Binding RundenFehler}">
@@ -459,7 +464,7 @@
                             <DataTemplate>
                                 <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
                                         CornerRadius="4" Padding="8,6" Margin="0,0,0,6">
-                                    <TextBlock Text="{Binding}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                    <TextBlock Text="{Binding}" AutomationProperties.AutomationId="Runden.Fehler" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                                FontSize="11" TextWrapping="Wrap" />
                                 </Border>
                             </DataTemplate>

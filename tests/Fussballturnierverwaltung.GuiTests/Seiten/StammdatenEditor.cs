@@ -6,9 +6,14 @@ namespace Fussballturnierverwaltung.GuiTests.Seiten;
 /// <summary>Was alle Stammdaten-Editoren gemeinsam haben (#530): links eine Liste mit Suchfeld, rechts das Formular,
 /// darüber die Befehlsleiste mit Neu, Speichern, Abbrechen und Löschen. Die AutomationIds folgen dem Schema
 /// <c>&lt;Präfix&gt;.Suche</c>, <c>.Liste</c>, <c>.ListeName</c>, <c>.Name</c> und <c>.Fehlermeldung</c>. Die Listen
-/// zeigen auch alle Einträge des Seeds, darum filtert jeder Zugriff erst per Suchfeld auf den eindeutigen Testnamen.</summary>
-public sealed class StammdatenEditor(Window fenster, Hauptfenster hauptfenster, string praefix, string loeschdialog)
+/// zeigen auch alle Einträge des Seeds, darum filtert jeder Zugriff erst per Suchfeld auf den eindeutigen Testnamen.
+/// <paramref name="listenPraefix"/> gilt für Suchfeld und Liste, wenn sie zu einer anderen View gehören als das
+/// Formular (Turniere: Liste in der Turnierliste, Formular im Turnierkopf).</summary>
+public sealed class StammdatenEditor(
+    Window fenster, Hauptfenster hauptfenster, string praefix, string loeschdialog, string? listenPraefix = null)
 {
+    private readonly string _listenPraefix = listenPraefix ?? praefix;
+
     public bool SpeichernFreigegeben => fenster.FindById("Befehlsleiste.Speichern").IsEnabled;
 
     /// <summary>Die Meldung unter dem Formular; leer, solange keine angezeigt wird.</summary>
@@ -37,7 +42,8 @@ public sealed class StammdatenEditor(Window fenster, Hauptfenster hauptfenster, 
         return Fehlermeldung;
     }
 
-    public void Suchen(string begriff) => WertSetzen("Suche", begriff);
+    public void Suchen(string begriff) =>
+        fenster.FindById($"{_listenPraefix}.Suche").Patterns.Value.Pattern.SetValue(begriff);
 
     /// <summary>Sucht nach <paramref name="name"/> und liest den Eintrag, sobald er in der Liste steht.</summary>
     public T Eintrag<T>(string name, Func<AutomationElement, T> lesen) where T : class
@@ -92,7 +98,7 @@ public sealed class StammdatenEditor(Window fenster, Hauptfenster hauptfenster, 
     public void Auswahl(string feld, string text) => fenster.FindById($"{praefix}.{feld}").AsComboBox().SelectItem(text);
 
     private T? Zeile<T>(string name, Func<AutomationElement, T> lesen) where T : class =>
-        fenster.FindById($"{praefix}.Liste")
-            .ReadAllItems(e => e.TextOf($"{praefix}.ListeName") == name ? lesen(e) : null)
+        fenster.FindById($"{_listenPraefix}.Liste")
+            .ReadAllItems(e => e.TextOf($"{_listenPraefix}.ListeName") == name ? lesen(e) : null)
             .FirstOrDefault();
 }

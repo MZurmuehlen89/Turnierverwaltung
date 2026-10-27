@@ -19,6 +19,7 @@
             <Border Grid.Row="0" Padding="8,6"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
                 <TextBox Text="{Binding TabKoordinator.Suchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.AutomationId="Turniere.Suche"
                          PlaceholderText="🔍  Suchen …" HorizontalAlignment="Stretch" />
             </Border>
 
@@ -28,14 +29,15 @@
 
             <Rectangle Grid.Row="2" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Height="1" />
 
-            <ListView Grid.Row="3"
+            <ListView Grid.Row="3" AutomationProperties.AutomationId="Turniere.Liste"
                       ItemsSource="{Binding TabKoordinator.InstanzenGefiltert}"
                       SelectedItem="{Binding TabKoordinator.AusgewaehlteInstanz, Mode=TwoWay}"
                       SelectionMode="Single">
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Padding="0,4">
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                       AutomationProperties.AutomationId="Turniere.ListeName" />
                             <!-- Issue #367: bei Vorlagen die Variante, sonst "Status · Saison" -->
                             <TextBlock Text="{Binding Converter={StaticResource TurnierInstanzZuUntertitel}}"
                                        FontSize="11" Opacity="0.6" />

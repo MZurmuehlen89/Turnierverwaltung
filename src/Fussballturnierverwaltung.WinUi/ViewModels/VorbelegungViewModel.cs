@@ -286,8 +286,8 @@ public partial class VorbelegungViewModel : ViewModelBase, IRibbonAware
                 Header = "Paarung",
                 Aktionen =
                 [
-                    new RibbonAktion { Header = "Paarung abschließen", Befehl = Workspace.AbschliessenCommand, IconGlyph = "" },
-                    new RibbonAktion { Header = "Zurücksetzen", Befehl = Workspace.ZuruecksetzenCommand, IconGlyph = "" },
+                    new RibbonAktion { Header = "Paarung abschließen", AutomationId = "Befehlsleiste.PaarungAbschliessen", Befehl = Workspace.AbschliessenCommand, IconGlyph = "" },
+                    new RibbonAktion { Header = "Zurücksetzen", AutomationId = "Befehlsleiste.VorbelegungZuruecksetzen", Befehl = Workspace.ZuruecksetzenCommand, IconGlyph = "" },
                 ],
             },
         ];
