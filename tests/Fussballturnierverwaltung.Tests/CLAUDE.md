@@ -10,6 +10,17 @@ No mocking framework is used — generators and validators are instantiated dire
 
 Die Tests der Spielplan-Dienste bauen ihre Dienste über `Spielplan/SpielplanDienste` (ein Objektgraph wie in der App) und ihre Turniere über `Spielplan/SpielplanTestdaten` auf.
 
+**Architecture tests** (`Architektur/`, #540, NetArchTest.eNhancedEdition): `SchichtabhaengigkeitenTests` enforce the
+dependency direction of the root `CLAUDE.md` (Domain without other layers, EF Core or `Microsoft.Extensions`;
+Application without Infrastructure and EF Core; nothing on WinUi, which the test project cannot load).
+`KonventionenTests` enforce placement and naming: repository interfaces in Application, classes in
+`Infrastructure.Repositories`; EF configurations end on `Konfiguration` under `Persistenz.Konfigurationen`; entities
+(`BasisEntitaet`) under `Domain.Entitaeten`, Domain enums in `Domain.Enums`; `…Validator` in `Application.Validierung`;
+interfaces start with `I`. A new rule goes through `Schichten.SollteErfuelltSein()` (fails on an empty selection, so a
+rename cannot silently disable it) and uses `Genau()`/`Darunter()` for namespaces — `ResideInNamespace` leaves open
+whether sub-namespaces count. A rule is only added when the codebase already follows it throughout; exceptions are
+named in the test, not defined away. A red test means: fix the code, not the rule — unless the rule itself changes.
+
 
 ## GUI tests (#494, #521)
 
