@@ -99,7 +99,10 @@ with the test scenarios; there is no big-bang pass over all views.
 - `Hauptfenster.Befehlsleiste` carries the current page title as its UIA name (`MainViewModel.RibbonTabTitel` — the
   visible title is collapsed on pages without ribbon area and then missing from the tree) and the load state as
   `AutomationProperties.ItemStatus` (`Bereit` / `Beschaeftigt`, `LadeanzeigeViewModel.Ladezustand`) without the
-  300 ms delay of the visible bar; tests wait on both.
+  300 ms delay of the visible bar; tests wait on both. The state only sees open `AblaufVorgang`s — data loaded
+  without one counts as `Bereit`. `NavigationService` therefore wraps every `AktivierenAsync` in a vorgang
+  („Seite öffnen: …“); without it, tests on the slower CI runner acted on half-loaded pages (#525). Data loaded
+  later (after a click, a selection) needs its own vorgang for the same reason.
 - Collapsed elements (`Visibility="Collapsed"`) are not in the UIA tree at all — never hang a test signal on them.
 - `ListView` items report their data object's `ToString()` as UIA name, `ItemsControl` rows are flat text — both
   need explicit names/containers once a test addresses them (findings in #520).
