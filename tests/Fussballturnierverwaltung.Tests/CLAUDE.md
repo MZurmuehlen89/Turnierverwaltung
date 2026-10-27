@@ -57,3 +57,21 @@ xunit runner, e.g. `-class …`). The script builds an **unpackaged, self-contai
 | New test creates data other scenarios could see (one database per run) | 1× | **1×** |
 
 A single red run is investigated, not simply re-run.
+
+## CI (GitHub Actions, #525)
+
+| Workflow | Runner | Trigger | Runs |
+|---|---|---|---|
+| `.github/workflows/unit-tests.yml` | `ubuntu-latest` | push to `main`/`ci/**`, pull request, manual; not for `*.md`-only changes | `Fussballturnierverwaltung.Tests` (incl. architecture tests) |
+| `.github/workflows/gui-tests.yml` | `windows-2025` | manual only (`gh workflow run gui-tests.yml --ref <branch>`) | `GuiTest.Framework.Tests` + GUI tests via `build/GuiTests-Ausfuehren.ps1` against LocalDB |
+
+- The repo is private and Windows minutes count double, hence Linux for every push and Windows only on demand
+  (budget in #525).
+- Because unit tests run on **Linux**, test code must not assume Windows: no fixed paths like `C:\…` (build them from
+  `Path.GetTempPath()`/`Path.Combine`), mind case-sensitive file names, use `/` in MSBuild paths. The job runs with
+  `LANG=de_DE.UTF-8` and `TZ=Europe/Berlin` like the development machine.
+- Both jobs write TRX (artifact) and a Markdown summary (job summary) via xunit's own reporters
+  (`--report-xunit-trx/-markdown` under MTP, `-result-trx/-result-markdown` for the GUI tests' in-process runner).
+- GUI job: `TURNIERVERWALTUNG_GUITEST_SERVER=(localdb)\MSSQLLocalDB`; on failure `artifacts/guitest/laeufe/` is
+  uploaded as artifact `gui-tests-belege` (screenshots, log tails, app log). The job logs the screen resolution and
+  tries to raise it to 1920×1080.

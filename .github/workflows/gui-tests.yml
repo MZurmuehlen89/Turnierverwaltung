@@ -1,0 +1,86 @@
+# GUI-Tests auf Knopfdruck (#525): Windows-Runner mit Desktop-Sitzung für UI Automation, SQL Server LocalDB statt
+# des lokalen SQL Servers. Nicht je Push, weil ein Lauf auf Windows doppelt zählende Minuten kostet (Budget im Issue).
+name: GUI-Tests
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: gui-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gui-tests:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      ERGEBNISSE: ${{ github.workspace }}\TestResults
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      # Virtualisierte Listen und das Layout hängen von der Fenstergröße ab: Auflösung festhalten und hochsetzen,
+      # soweit der Runner es zulässt (Standard sind 1024×768)
+      - name: Bildschirmauflösung
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms
+          "vorher: $([System.Windows.Forms.Screen]::PrimaryScreen.Bounds)"
+          try { Set-DisplayResolution -Width 1920 -Height 1080 -Force -ErrorAction Stop }
+          catch { "Auflösung nicht änderbar: $($_.Exception.Message)" }
+          "nachher: $([System.Windows.Forms.Screen]::PrimaryScreen.Bounds)"
+
+      - name: LocalDB starten
+        run: |
+          sqllocaldb start MSSQLLocalDB
+          sqllocaldb info MSSQLLocalDB
+
+      - name: Framework-Tests
+        run: >
+          dotnet test --project tests/GuiTest.Framework.Tests
+          --results-directory $env:ERGEBNISSE
+          --report-xunit-trx --report-xunit-trx-filename framework-tests.trx
+          --report-xunit-markdown --report-xunit-markdown-filename framework-tests.md
+
+      - name: GUI-Tests
+        env:
+          TURNIERVERWALTUNG_GUITEST_SERVER: (localdb)\MSSQLLocalDB
+        run: >
+          ./build/GuiTests-Ausfuehren.ps1
+          -result-trx "$env:ERGEBNISSE\gui-tests.trx"
+          -result-markdown "$env:ERGEBNISSE\gui-tests.md"
+
+      - name: Zusammenfassung
+        if: always()
+        run: |
+          foreach ($datei in 'framework-tests.md', 'gui-tests.md') {
+              $pfad = Join-Path $env:ERGEBNISSE $datei
+              if (Test-Path $pfad) { Get-Content $pfad | Add-Content $env:GITHUB_STEP_SUMMARY }
+          }
+
+      - name: Ergebnisse hochladen
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: gui-tests
+          path: TestResults/*.trx
+          if-no-files-found: ignore
+
+      # Bildschirmfotos, Log-Auszüge und App-Log fehlgeschlagener Tests (artifacts/guitest/laeufe/<Lauf>)
+      - name: Belege fehlgeschlagener Tests hochladen
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: gui-tests-belege
+          path: artifacts/guitest/laeufe/
+          if-no-files-found: ignore

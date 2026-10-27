@@ -1,0 +1,56 @@
+# Unit-Tests bei jedem Push und Pull Request (#525). Läuft auf Linux, weil Windows-Minuten doppelt zählen und das
+# Repo privat ist (Budgetrechnung im Issue). Domain, Application, Infrastructure und die Unit-Tests zielen auf net10.0;
+# die Projekte für Windows (WinUi, GUI-Tests) baut dieser Job nicht.
+name: Unit-Tests
+
+on:
+  push:
+    branches: [main, 'ci/**']
+    paths-ignore: ['**/*.md']
+  pull_request:
+    paths-ignore: ['**/*.md']
+  workflow_dispatch:
+
+concurrency:
+  group: unit-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      # Wie auf dem Entwicklungsrechner: deutsche Kultur und Zeitzone, damit Formatierungen gleich ausfallen
+      LANG: de_DE.UTF-8
+      TZ: Europe/Berlin
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Unit-Tests
+        run: >
+          dotnet test --project tests/Fussballturnierverwaltung.Tests -c Release
+          --results-directory TestResults
+          --report-xunit-trx --report-xunit-trx-filename unit-tests.trx
+          --report-xunit-markdown --report-xunit-markdown-filename unit-tests.md
+
+      - name: Zusammenfassung
+        if: always()
+        run: |
+          if [ -f TestResults/unit-tests.md ]; then cat TestResults/unit-tests.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Ergebnisse hochladen
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: unit-tests
+          path: TestResults/unit-tests.trx
+          if-no-files-found: ignore
