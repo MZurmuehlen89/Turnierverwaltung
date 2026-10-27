@@ -16,7 +16,8 @@
 
             <Border Grid.Row="0" Padding="8,6"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
-                <TextBox Text="{Binding Suchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                <TextBox AutomationProperties.AutomationId="Regelwerke.Suche"
+                         Text="{Binding Suchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          PlaceholderText="🔍  Suchen …" HorizontalAlignment="Stretch" />
             </Border>
 
@@ -24,13 +25,15 @@
                          Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
 
             <ListView Grid.Row="2"
+                      AutomationProperties.AutomationId="Regelwerke.Liste"
                       ItemsSource="{Binding RegelwerkeGefiltert}"
                       SelectedItem="{Binding Ausgewaehltes, Mode=TwoWay}"
                       SelectionMode="Single">
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Padding="0,4">
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                            <TextBlock AutomationProperties.AutomationId="Regelwerke.ListeName"
+                                       Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
                             <TextBlock FontSize="11" Opacity="0.6">
                                 <Run Text="S:" /><Run Text="{Binding PunkteRegeln[0].PunkteFuerSieg}" />
                                 <Run Text=" U:" /><Run Text="{Binding PunkteRegeln[0].PunkteFuerUnentschieden}" />
@@ -70,7 +73,8 @@
                     <TextBlock Text="BASISDATEN" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,12" />
 
                     <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
-                    <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox AutomationProperties.AutomationId="Regelwerke.Name"
+                             Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                     <TextBlock Text="Beschreibung" FontSize="12" Margin="0,0,0,3" />
@@ -81,12 +85,14 @@
                     <Grid Margin="0,0,0,24" ColumnDefinitions="*,16,*">
                         <StackPanel HorizontalAlignment="Stretch">
                             <TextBlock Text="Gültig von (Jahr)" FontSize="12" Margin="0,0,0,3" />
-                            <TextBox Text="{Binding GueltigVon, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox AutomationProperties.AutomationId="Regelwerke.GueltigVon"
+                                     Text="{Binding GueltigVon, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      HorizontalAlignment="Stretch" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
                             <TextBlock Text="Gültig bis (Jahr)" FontSize="12" Margin="0,0,0,3" />
-                            <TextBox Text="{Binding GueltigBis, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox AutomationProperties.AutomationId="Regelwerke.GueltigBis"
+                                     Text="{Binding GueltigBis, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      HorizontalAlignment="Stretch" />
                         </StackPanel>
                     </Grid>
@@ -96,21 +102,24 @@
 
                     <Grid Margin="0,0,0,8" ColumnDefinitions="110,*,36">
                         <TextBlock Text="Sieg" VerticalAlignment="Center" FontSize="13" />
-                        <Slider Grid.Column="1" Value="{Binding PunkteSieg, Mode=TwoWay}"
+                        <Slider Grid.Column="1" AutomationProperties.AutomationId="Regelwerke.PunkteSieg"
+                                Value="{Binding PunkteSieg, Mode=TwoWay}"
                                 Minimum="0" Maximum="10" StepFrequency="1" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="2" Text="{Binding PunkteSieg}"
                                    FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
                     </Grid>
                     <Grid Margin="0,0,0,8" ColumnDefinitions="110,*,36">
                         <TextBlock Text="Unentschieden" VerticalAlignment="Center" FontSize="13" />
-                        <Slider Grid.Column="1" Value="{Binding PunkteUnentschieden, Mode=TwoWay}"
+                        <Slider Grid.Column="1" AutomationProperties.AutomationId="Regelwerke.PunkteUnentschieden"
+                                Value="{Binding PunkteUnentschieden, Mode=TwoWay}"
                                 Minimum="0" Maximum="10" StepFrequency="1" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="2" Text="{Binding PunkteUnentschieden}"
                                    FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
                     </Grid>
                     <Grid Margin="0,0,0,24" ColumnDefinitions="110,*,36">
                         <TextBlock Text="Niederlage" VerticalAlignment="Center" FontSize="13" />
-                        <Slider Grid.Column="1" Value="{Binding PunkteNiederlage, Mode=TwoWay}"
+                        <Slider Grid.Column="1" AutomationProperties.AutomationId="Regelwerke.PunkteNiederlage"
+                                Value="{Binding PunkteNiederlage, Mode=TwoWay}"
                                 Minimum="0" Maximum="10" StepFrequency="1" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="2" Text="{Binding PunkteNiederlage}"
                                    FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
@@ -183,7 +192,8 @@
                     <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
                             Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
                             CornerRadius="4" Padding="10,8">
-                        <TextBlock Text="{Binding Fehlermeldung}"
+                        <TextBlock AutomationProperties.AutomationId="Regelwerke.Fehlermeldung"
+                                   Text="{Binding Fehlermeldung}"
                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                    FontSize="12" TextWrapping="Wrap" />
                     </Border>

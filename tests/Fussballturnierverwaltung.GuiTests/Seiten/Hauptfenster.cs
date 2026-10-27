@@ -37,6 +37,18 @@ public sealed class Hauptfenster(Window fenster)
         return new MannschaftenSeite(fenster, this);
     }
 
+    public LaenderUndVerbaendeSeite LaenderUndVerbaendeOeffnen()
+    {
+        Oeffnen(Bereich.LaenderUndVerbaende);
+        return new LaenderUndVerbaendeSeite(fenster, this);
+    }
+
+    public RegelwerkeSeite RegelwerkeOeffnen()
+    {
+        Oeffnen(Bereich.Regelwerke);
+        return new RegelwerkeSeite(fenster, this);
+    }
+
     public TurnierlisteSeite TurniereOeffnen()
     {
         Oeffnen(Bereich.Turniere);

@@ -16,7 +16,8 @@
                     <Border Grid.Row="0" Padding="8,6"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
-                            <TextBox Text="{Binding LandSuchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox AutomationProperties.AutomationId="Laender.Suche"
+                                     Text="{Binding LandSuchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      PlaceholderText="🔍  Suchen …" Width="180" />
 
                             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -41,6 +42,7 @@
                                  Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
 
                     <ListView Grid.Row="2"
+                              AutomationProperties.AutomationId="Laender.Liste"
                               ItemsSource="{Binding LaenderGefiltert}"
                               SelectedItem="{Binding AusgewaehltesLand, Mode=TwoWay}"
                               SelectionMode="Single">
@@ -56,13 +58,16 @@
                                                    Visibility="{Binding Flagge, Converter={StaticResource NullToVisible}}" />
                                     </Grid>
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock AutomationProperties.AutomationId="Laender.ListeName"
+                                                   Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
                                         <TextBlock Text="{Binding Kurzname}" FontSize="11" Opacity="0.6" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                        <TextBlock Text="{Binding FifaCode}" FontSize="11" Opacity="0.6"
+                                        <TextBlock AutomationProperties.AutomationId="Laender.ListeFifaCode"
+                                                   Text="{Binding FifaCode}" FontSize="11" Opacity="0.6"
                                                    FontFamily="Courier New" HorizontalAlignment="Right" />
-                                        <TextBlock Text="{Binding Verband.Kurzname}" FontSize="10" Opacity="0.6"
+                                        <TextBlock AutomationProperties.AutomationId="Laender.ListeVerband"
+                                                   Text="{Binding Verband.Kurzname}" FontSize="10" Opacity="0.6"
                                                    HorizontalAlignment="Right" />
                                     </StackPanel>
                                 </Grid>
@@ -119,18 +124,21 @@
                             </Grid>
 
                             <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
-                            <TextBox Text="{Binding LandName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox AutomationProperties.AutomationId="Laender.Name"
+                                     Text="{Binding LandName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                             <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,90">
                                 <StackPanel HorizontalAlignment="Stretch">
                                     <TextBlock Text="Kurzname" FontSize="12" Margin="0,0,0,3" />
-                                    <TextBox Text="{Binding LandKurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    <TextBox AutomationProperties.AutomationId="Laender.Kurzname"
+                                             Text="{Binding LandKurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                              HorizontalAlignment="Stretch" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Text="FIFA-Code" FontSize="12" Margin="0,0,0,3" />
-                                    <TextBox Text="{Binding LandFifaCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    <TextBox AutomationProperties.AutomationId="Laender.FifaCode"
+                                             Text="{Binding LandFifaCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                              MaxLength="3" CharacterCasing="Upper" HorizontalAlignment="Stretch" />
                                 </StackPanel>
                             </Grid>
@@ -144,7 +152,8 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
                                     <TextBlock Text="Verband" FontSize="12" Margin="0,0,0,3" />
-                                    <ComboBox ItemsSource="{Binding Verbaende}"
+                                    <ComboBox AutomationProperties.AutomationId="Laender.Verband"
+                                              ItemsSource="{Binding Verbaende}"
                                               SelectedItem="{Binding LandVerband, Mode=TwoWay}"
                                               DisplayMemberPath="Name" HorizontalAlignment="Stretch" />
                                 </StackPanel>
@@ -153,7 +162,8 @@
                             <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
                                     Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
                                     CornerRadius="4" Padding="10,8">
-                                <TextBlock Text="{Binding Fehlermeldung}"
+                                <TextBlock AutomationProperties.AutomationId="Laender.Fehlermeldung"
+                                           Text="{Binding Fehlermeldung}"
                                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                            FontSize="12" TextWrapping="Wrap" />
                             </Border>
@@ -173,7 +183,8 @@
                     <Border Grid.Row="0" Padding="8,6"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
-                            <TextBox Text="{Binding VerbandSuchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox AutomationProperties.AutomationId="Verbaende.Suche"
+                                     Text="{Binding VerbandSuchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      PlaceholderText="🔍  Suchen …" Width="180" />
                             <Button Content="↺ Zurücksetzen" Command="{Binding FilterZuruecksetzenCommand}" FontSize="11" />
                         </StackPanel>
@@ -183,6 +194,7 @@
                                  Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
 
                     <ListView Grid.Row="2"
+                              AutomationProperties.AutomationId="Verbaende.Liste"
                               ItemsSource="{Binding VerbaendeGefiltert}"
                               SelectedItem="{Binding AusgewaehlterVerband, Mode=TwoWay}"
                               SelectionMode="Single">
@@ -197,9 +209,11 @@
                                                    Opacity="0.4"
                                                    Visibility="{Binding Logo, Converter={StaticResource NullToVisible}}" />
                                     </Grid>
-                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                    <TextBlock Grid.Column="1" AutomationProperties.AutomationId="Verbaende.ListeName"
+                                               Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
                                                VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="2" Text="{Binding Kurzname}" FontSize="11" Opacity="0.6"
+                                    <TextBlock Grid.Column="2" AutomationProperties.AutomationId="Verbaende.ListeKurzname"
+                                               Text="{Binding Kurzname}" FontSize="11" Opacity="0.6"
                                                VerticalAlignment="Center" HorizontalAlignment="Right" />
                                 </Grid>
                             </DataTemplate>
@@ -252,17 +266,20 @@
                             </Grid>
 
                             <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
-                            <TextBox Text="{Binding VerbandName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox AutomationProperties.AutomationId="Verbaende.Name"
+                                     Text="{Binding VerbandName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                             <TextBlock Text="Kurzname" FontSize="12" Margin="0,0,0,3" />
-                            <TextBox Text="{Binding VerbandKurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox AutomationProperties.AutomationId="Verbaende.Kurzname"
+                                     Text="{Binding VerbandKurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      HorizontalAlignment="Stretch" Margin="0,0,0,24" />
 
                             <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
                                     Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
                                     CornerRadius="4" Padding="10,8">
-                                <TextBlock Text="{Binding Fehlermeldung}"
+                                <TextBlock AutomationProperties.AutomationId="Verbaende.Fehlermeldung"
+                                           Text="{Binding Fehlermeldung}"
                                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                            FontSize="12" TextWrapping="Wrap" />
                             </Border>
