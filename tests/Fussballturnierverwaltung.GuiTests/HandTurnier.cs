@@ -4,7 +4,11 @@ namespace Fussballturnierverwaltung.GuiTests;
 
 /// <summary>Testturnier, das ohne Vorlage von Hand aufgebaut wird (#531): Gruppenphase mit zwei Vierergruppen →
 /// Halbfinale mit fest vorgegebener Paarung → Finale, 15 Spiele. Die Übergangsregeln bringen je Gruppe die Plätze
-/// 1–2 ins Halbfinale und die beiden Halbfinalsieger ins Finale.</summary>
+/// 1–2 ins Halbfinale und die beiden Halbfinalsieger ins Finale.
+/// Die Szenarien sind auf vier Testklassen verteilt, jede mit eigener App-Sitzung: Bricht ein Test mitten in der
+/// Vorbelegung ab, fragt die App beim nächsten Speichern „Vorbelegung verwerfen?“, und dieser offene Dialog ließ in
+/// der Gegenprobe alle folgenden Tests derselben Sitzung scheitern – ein Fehlschlag soll nur seinen eigenen Test
+/// treffen.</summary>
 internal static class HandTurnier
 {
     public const string GRUPPENPHASE = "Gruppenphase";
