@@ -8,17 +8,21 @@ namespace GuiTest.Framework;
 public static class Selection
 {
     /// <summary>Selects the combo box entry that displays all <paramref name="texts"/> (exact match each), e.g. a
-    /// template shown as "Mini-Turnier" and "8 Teams".</summary>
+    /// template shown as "Mini-Turnier" and "8 Teams". A long drop-down virtualizes its entries: one far down the
+    /// list is not among the realized items until it has been realized through the ItemContainer pattern.</summary>
     public static void SelectItem(this ComboBox comboBox, params string[] texts)
     {
+        bool Matches(AutomationElement item) => ItemMatcher.Matches(item.NameOrEmpty(), DisplayedTexts(item), texts);
+
         comboBox.Expand();
         try
         {
             var item = Wait.UntilFound(
-                () => comboBox.Items.FirstOrDefault(i => ItemMatcher.Matches(i.NameOrEmpty(), DisplayedTexts(i), texts)),
+                () => comboBox.Items.FirstOrDefault(Matches)
+                      ?? comboBox.ReadAllItems(i => Matches(i) ? i : null).FirstOrDefault(),
                 Wait.DefaultTimeout,
                 $"combo box entry '{string.Join(" | ", texts)}'");
-            item.Select();
+            item.Patterns.SelectionItem.Pattern.Select();
         }
         finally
         {
