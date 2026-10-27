@@ -11,6 +11,10 @@ internal static class MiniTurnier
     public const string VARIANTE = "8 Teams";
     public const string RANGLISTE = "Ligapyramide Deutschland 2025/26";
 
+    /// <summary>Nationalmannschaften aus drei Konföderationen: Die besten acht sind fünf UEFA-Teams, Argentinien und
+    /// Brasilien (CONMEBOL) sowie Marokko (CAF).</summary>
+    public const string FIFA_RANGLISTE = "FIFA-Weltrangliste (Herren)";
+
     public const string GRUPPENPHASE = "Gruppenphase";
     public const string HALBFINALE = "Halbfinale";
     public const string SPIEL_UM_PLATZ_DREI = "Spiel um Platz 3";
@@ -26,9 +30,9 @@ internal static class MiniTurnier
         [(HALBFINALE, 2), (SPIEL_UM_PLATZ_DREI, 1), (FINALE, 1)];
 
     /// <summary>Legt ein neues Mini-Turnier unter eindeutigem Namen an, öffnet es in der Turnierdurchführung und
-    /// bereitet die Auslosung der Gruppenphase bis zu befüllten Töpfen vor.</summary>
+    /// bereitet die Auslosung der Gruppenphase bis zu befüllten Töpfen aus <paramref name="rangliste"/> vor.</summary>
     public static (TurnierdurchfuehrungSeite Turnier, AuslosungReiter Auslosung) GruppenauslosungVorbereiten(
-        Hauptfenster hauptfenster, string? auslosungsart = null)
+        Hauptfenster hauptfenster, string? auslosungsart = null, string rangliste = RANGLISTE)
     {
         string name = $"GuiTest {Guid.NewGuid().ToString("N")[..8]}";
         hauptfenster.TurniereOeffnen().AusVorlageErstellen(VORLAGE, VARIANTE, "2027", name);
@@ -40,7 +44,7 @@ internal static class MiniTurnier
 
         var auslosung = turnier.Auslosung();
         auslosung.Anlegen(GRUPPENPHASE, auslosungsart);
-        auslosung.RanglisteWaehlen(RANGLISTE);
+        auslosung.RanglisteWaehlen(rangliste);
         auslosung.ToepfeAutomatischBefuellen();
         return (turnier, auslosung);
     }

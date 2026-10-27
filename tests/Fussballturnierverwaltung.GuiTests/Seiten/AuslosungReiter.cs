@@ -8,6 +8,7 @@ namespace Fussballturnierverwaltung.GuiTests.Seiten;
 public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
 {
     public const string ABGESCHLOSSEN = "Abgeschlossen";
+    public const string VORBEREITUNG = "Vorbereitung";
 
     private static readonly TimeSpan _schrittZeit = TimeSpan.FromSeconds(5);
 
@@ -35,7 +36,7 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
             fenster.FindById("Auslosung.Art").AsComboBox().SelectItem(auslosungsart);
         fenster.ActivateById("Befehlsleiste.Speichern");
 
-        Wait.Until(() => Runde == runde && Status == "Vorbereitung", Wait.DefaultTimeout,
+        Wait.Until(() => Runde == runde && Status == VORBEREITUNG, Wait.DefaultTimeout,
             $"Auslosung für '{runde}' gespeichert");
         hauptfenster.WarteBisRuhig();
     }
@@ -57,6 +58,41 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
     {
         fenster.ActivateById("Befehlsleiste.AuslosungDurchfuehren");
         WarteBisAbgeschlossen();
+    }
+
+    /// <summary>Setzt die abgeschlossene Auslosung zurück. Eine Rückfrage kommt nur, wenn Daten betroffen sind (#405),
+    /// und wird dann bestätigt.</summary>
+    public void Zuruecksetzen()
+    {
+        fenster.ActivateById("Befehlsleiste.AuslosungZuruecksetzen");
+        Wait.Until(() =>
+        {
+            if (Dialog.FindOpen(fenster).FirstOrDefault(d => d.Title == "Auslosung zurücksetzen") is { } rueckfrage)
+                rueckfrage.Confirm();
+            return Status == VORBEREITUNG;
+        }, Wait.DefaultTimeout, $"Auslosung zurück auf '{VORBEREITUNG}'");
+        hauptfenster.WarteBisRuhig();
+    }
+
+    /// <summary>Schaltet eine Auslosungs-Regel über das Flyout der Befehlsleiste an oder aus. Die Umschalter sind
+    /// Checkboxen, deren Änderung nur ein echter Klick meldet (das Toggle-Muster löst kein Click-Ereignis aus),
+    /// darum hier mit der Maus. Die Änderung baut die Befehlsleiste neu auf, was das Flyout schließen kann; bleibt es
+    /// offen, schließt es Escape.</summary>
+    public void RegelSetzen(string regelart, bool aktiv)
+    {
+        string id = $"Befehlsleiste.Regel.{regelart}";
+        fenster.ActivateById("Befehlsleiste.AuslosungsRegeln");
+        var umschalter = fenster.FindById(id).AsCheckBox();
+        if (umschalter.IsChecked != aktiv)
+        {
+            umschalter.Click();
+            Wait.Until(() => fenster.TryFindById(id) is not { } offen || offen.AsCheckBox().IsChecked == aktiv,
+                Wait.DefaultTimeout, $"Regel '{regelart}' {(aktiv ? "an" : "aus")}");
+        }
+        if (fenster.TryFindById(id) is not null)
+            FlaUI.Core.Input.Keyboard.Type(FlaUI.Core.WindowsAPI.VirtualKeyShort.ESCAPE);
+        Wait.Until(() => fenster.TryFindById(id) is null, Wait.DefaultTimeout, "Regel-Flyout geschlossen");
+        hauptfenster.WarteBisRuhig();
     }
 
     // ── TV-Modus ──────────────────────────────────────────────────────────────
@@ -81,6 +117,13 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
             fenster.ActivateById("Befehlsleiste.ZiehungWeiter", _schrittZeit);
         }
         throw new InvalidOperationException($"TV-Ziehung nach {MAX_ZIEHUNGSSCHRITTE} Schritten nicht beendet.");
+    }
+
+    /// <summary>Überspringt den Rest der TV-Ziehung und wartet, bis das Ergebnis dasteht.</summary>
+    public void RestSofortAnzeigen()
+    {
+        fenster.ActivateById("Befehlsleiste.ZiehungRestAnzeigen");
+        Wait.Until(() => ZiehungsErgebnis().Count > 0, _schrittZeit, "Ergebnis der TV-Ziehung");
     }
 
     private AutomationElement? WeiterBereit() =>
@@ -131,6 +174,30 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
             HandSchrittAusfuehren();
         }
         return schritte;
+    }
+
+    /// <summary>Zieht genau einen Schritt (Team, Gruppe oder Platz).</summary>
+    public void HandEinenSchrittZiehen() => HandSchrittAusfuehren();
+
+    /// <summary>Nimmt den letzten Zug zurück und wartet, bis die Ansage <paramref name="erwarteteAnsage"/> lautet.</summary>
+    public void HandZugZuruecknehmen(string erwarteteAnsage)
+    {
+        fenster.ActivateById("Befehlsleiste.HandZiehungZuruecknehmen");
+        Wait.Until(() => HandAnsage == erwarteteAnsage, Wait.DefaultTimeout, $"Ansage „{erwarteteAnsage}“");
+    }
+
+    /// <summary>Bricht die Ziehung von Hand ab. Nach dem ersten Zug fragt die App nach; <paramref name="bestaetigen"/>
+    /// beantwortet diese Rückfrage.</summary>
+    public void HandZiehungAbbrechen(bool bestaetigen)
+    {
+        const string RUECKFRAGE = "Ziehung von Hand verwerfen";
+        fenster.ActivateById("Befehlsleiste.HandZiehungAbbrechen");
+        var dialog = Dialog.WaitFor(fenster, RUECKFRAGE);
+        if (bestaetigen) dialog.Confirm();
+        else dialog.Close();
+        Wait.Until(() => Dialog.FindOpen(fenster).All(d => d.Title != RUECKFRAGE), Wait.DefaultTimeout,
+            $"Dialog '{RUECKFRAGE}' geschlossen");
+        hauptfenster.WarteBisRuhig();
     }
 
     public void HandZiehungAbschliessen()

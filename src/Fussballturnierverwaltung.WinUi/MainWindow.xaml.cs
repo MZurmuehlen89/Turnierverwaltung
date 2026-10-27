@@ -236,6 +236,7 @@ public sealed partial class MainWindow : Window
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 VerticalContentAlignment = VerticalAlignment.Top
             };
+            KennungSetzen(umschalter, toggle.AutomationId);
 
             List<CheckBox>? gruppe = null;
             if (toggle.ExklusivGruppe is { } gruppenName)

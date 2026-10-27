@@ -247,7 +247,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 .. (IstHandZiehungsart ? Array.Empty<RibbonAktion>() : [TvModusAktion()]),
                 // Bewusst am Gruppenende statt direkt neben "Auslosung durchführen" — beide sind zwar nie zugleich
                 // aktiv (bearbeitbar vs. abgeschlossen), sollen aber auch optisch nicht nebeneinander liegen.
-                new RibbonAktion { Header = "Zurücksetzen", Befehl = AuslosungZuruecksetzenCommand, IconGlyph = "" },
+                new RibbonAktion { Header = "Zurücksetzen", AutomationId = "Befehlsleiste.AuslosungZuruecksetzen", Befehl = AuslosungZuruecksetzenCommand, IconGlyph = "" },
             ],
         },
     ];
@@ -274,6 +274,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             new RibbonAktion
             {
                 Header = "Auslosungs-Regeln",
+                AutomationId = "Befehlsleiste.AuslosungsRegeln",
                 ToggleUnterpunkte = _regeln.RibbonSchalter(),
                 IconGlyph = "",
             },
@@ -299,8 +300,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Header = "Ziehung von Hand",
         Aktionen =
         [
-            new RibbonAktion { Header = "Letzten Zug zurücknehmen", Befehl = HandZiehung.ZuruecknehmenCommand, IconGlyph = "" },
-            new RibbonAktion { Header = "Ziehung abbrechen", Befehl = HandZiehungAbbrechenCommand, IconGlyph = "" },
+            new RibbonAktion { Header = "Letzten Zug zurücknehmen", AutomationId = "Befehlsleiste.HandZiehungZuruecknehmen", Befehl = HandZiehung.ZuruecknehmenCommand, IconGlyph = "" },
+            new RibbonAktion { Header = "Ziehung abbrechen", AutomationId = "Befehlsleiste.HandZiehungAbbrechen", Befehl = HandZiehungAbbrechenCommand, IconGlyph = "" },
             new RibbonAktion { Header = "Auslosung abschließen", AutomationId = "Befehlsleiste.AuslosungAbschliessen", Befehl = HandZiehungAbschliessenCommand, IconGlyph = "" },
         ],
     };

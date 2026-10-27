@@ -50,7 +50,8 @@ public sealed record RibbonUnteraktion(
 /// cref="RibbonAktion.Befehl"/>, das ebenfalls kein deklaratives Binding braucht).
 /// <paramref name="SperrHinweis"/>: gesetzt = Umschalter ausgegraut, der Hinweis erklärt warum (#331).
 /// <paramref name="ExklusivGruppe"/>: Umschalter derselben Gruppe schließen sich aus — Anhaken hakt die anderen
-/// nur optisch ab, das Speichern der Nebenwirkung übernimmt <paramref name="Setzen"/>.</summary>
+/// nur optisch ab, das Speichern der Nebenwirkung übernimmt <paramref name="Setzen"/>.
+/// <paramref name="AutomationId"/>: Kennung des Umschalters für GUI-Tests (#533).</summary>
 public sealed record RibbonToggleAktion(
     string Header, bool IstAktiv, Action<bool> Setzen, string? Beschreibung = null,
-    string? SperrHinweis = null, string? ExklusivGruppe = null);
+    string? SperrHinweis = null, string? ExklusivGruppe = null, string? AutomationId = null);
