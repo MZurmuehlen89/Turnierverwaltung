@@ -51,7 +51,8 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
     /// Topf-Zuordnung zur Art, sonst ist es ein Topf (Bug #564).</summary>
     public void LostoepfeSetzen(int anzahl)
     {
-        fenster.FindById("Auslosung.Lostoepfe").Patterns.Value.Pattern.SetValue(anzahl.ToString());
+        // Eine NumberBox bietet kein Value-, sondern das RangeValue-Muster.
+        fenster.FindById("Auslosung.Lostoepfe").Patterns.RangeValue.Pattern.SetValue(anzahl);
         fenster.ActivateById("Befehlsleiste.Speichern");
         Wait.Until(() => !fenster.FindById("Befehlsleiste.Speichern").IsEnabled, Wait.DefaultTimeout,
             $"{anzahl} Lostöpfe gespeichert");
