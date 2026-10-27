@@ -89,7 +89,10 @@ public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
         fenster.ActivateById("Befehlsleiste.Speichern");
 
         var (endeHeim, endeAuswaerts) = nachVerlaengerung ?? regulaer;
-        Wait.Until(() => Spiel(heim, auswaerts)?.Ergebnis == $"{endeHeim}:{endeAuswaerts}", Wait.DefaultTimeout,
+        // Während die Liste nach dem Speichern neu lädt, kann eine Zeile kurz doppelt erscheinen – darum genau ein
+        // Treffer mit dem neuen Ergebnis abwarten, statt beim ersten Lesen zu scheitern.
+        Wait.Until(() => Spiele().Where(s => s.Heim == heim && s.Auswaerts == auswaerts).Select(s => s.Ergebnis).ToList()
+                is [var ergebnis] && ergebnis == $"{endeHeim}:{endeAuswaerts}", Wait.DefaultTimeout,
             $"Ergebnis {endeHeim}:{endeAuswaerts} für {heim} – {auswaerts} im Spielplan");
         hauptfenster.WarteBisRuhig();
     }
@@ -112,7 +115,4 @@ public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
         fenster.FindById($"Ergebnis.Heim{feld}").Patterns.Value.Pattern.SetValue(tore.Heim.ToString());
         fenster.FindById($"Ergebnis.Auswaerts{feld}").Patterns.Value.Pattern.SetValue(tore.Auswaerts.ToString());
     }
-
-    private SpielZeile? Spiel(string heim, string auswaerts) =>
-        Spiele().SingleOrDefault(s => s.Heim == heim && s.Auswaerts == auswaerts);
 }
