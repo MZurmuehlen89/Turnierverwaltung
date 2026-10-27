@@ -22,11 +22,13 @@ updates:
       include: scope
     groups:
       # Die erste passende Gruppe gewinnt – die Auffanggruppe „uebrige“ steht deshalb zuletzt
-      ef-core:
-        patterns: ["Microsoft.EntityFrameworkCore*"]
-        update-types: [minor, patch]
-      microsoft-extensions:
-        patterns: ["Microsoft.Extensions*"]
+      # EF Core, Microsoft.Extensions und Pkcs kommen aus demselben .NET-Release und hängen voneinander ab: getrennt
+      # scheiterte EF Core 10.0.14 an Logging.Abstractions 10.0.13 (NU1605, Downgrade) – deshalb eine Gruppe
+      dotnet:
+        patterns:
+          - "Microsoft.EntityFrameworkCore*"
+          - "Microsoft.Extensions*"
+          - "System.Security.Cryptography.Pkcs"
         update-types: [minor, patch]
       windows-sdk:
         patterns: ["Microsoft.WindowsAppSDK", "Microsoft.Windows.SDK*"]
