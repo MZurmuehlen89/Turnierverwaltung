@@ -22,6 +22,19 @@ whether sub-namespaces count. A rule is only added when the codebase already fol
 named in the test, not defined away. A red test means: fix the code, not the rule — unless the rule itself changes.
 
 
+**Mutation testing** (#541, Stryker.NET 5 as local tool in `.config/dotnet-tools.json`, `--test-runner mtp`):
+`pwsh build/Mutation-Ausfuehren.ps1` (`-Seit main` = only files changed since `main`, `-Mutieren "<glob>"` = own file
+selection, `-Nebenlaeufigkeit <n>`, `-Oeffnen`). Scope in `stryker-config.json` next to this file: Auslosungen,
+Spielplan, Tabelle, Simulation in Application, without `*Service` classes. Report:
+`artifacts/stryker/<timestamp>/reports/mutation-report.html` (+ `.json`).
+- Duration: ~2 min coverage capture of all tests per run, then ~3 s per mutant at default concurrency (half the
+  logical cores; on the 6-core dev laptop more parallelism gains only ~15–25 %). The full scope (~2800 mutants)
+  takes hours and loads the CPU — use `-Seit` for everyday work. Not run in CI (budget, #525).
+- Limit: conditions with pattern variables (`x is { } wert && …`) cannot be mutated without CS0165 (unassigned
+  variable); Stryker then drops *all* mutants of that method ("Safe Mode", status CompileError). Those methods stay
+  unchecked — code is not rewritten for this.
+- `Timeout` counts as detected (typically an endless loop after a statement mutation).
+
 ## GUI tests (#494, #521)
 
 Three more projects live under `tests/`:
