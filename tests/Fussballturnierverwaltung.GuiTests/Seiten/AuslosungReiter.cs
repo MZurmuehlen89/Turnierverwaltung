@@ -81,8 +81,19 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
     public void RegelSetzen(string regelart, bool aktiv)
     {
         string id = $"Befehlsleiste.Regel.{regelart}";
-        fenster.ActivateById("Befehlsleiste.AuslosungsRegeln");
-        var umschalter = fenster.FindById(id).AsCheckBox();
+        // Ein Neuaufbau der Befehlsleiste (etwa nach dem Befüllen der Töpfe) schließt ein gerade geöffnetes Flyout;
+        // darum erst auf Ruhe warten und dann öffnen, bis der Umschalter erscheint.
+        hauptfenster.WarteBisRuhig();
+        var umschalter = Wait.UntilFound(
+            () =>
+            {
+                var gefunden = fenster.TryFindById(id);
+                if (gefunden is null && !FlyoutOffen())
+                    fenster.ActivateById("Befehlsleiste.AuslosungsRegeln");
+                return gefunden;
+            },
+            Wait.DefaultTimeout,
+            $"Umschalter '{id}'").AsCheckBox();
         if (umschalter.IsChecked != aktiv)
         {
             umschalter.Click();
@@ -94,6 +105,8 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
         Wait.Until(() => fenster.TryFindById(id) is null, Wait.DefaultTimeout, "Regel-Flyout geschlossen");
         hauptfenster.WarteBisRuhig();
     }
+
+    private bool FlyoutOffen() => fenster.FindFirstDescendant(cf => cf.ByClassName("FlyoutPresenter")) is not null;
 
     // ── TV-Modus ──────────────────────────────────────────────────────────────
 
