@@ -20,7 +20,6 @@ public class RundenartZuTextConverter : IValueConverter
         Rundenart.TopfLiga         => "Topf-Liga (Swiss-Modell)",
         Rundenart.KoRunde          => "K.o.-Runde",
         Rundenart.SchweizerSystem  => "Schweizer System",
-        Rundenart.Sonderrunde      => "Sonderrunde",
         Rundenart.Finale           => "Finale",
         Rundenart.SpielUmPlatzDrei => "Spiel um Platz 3",
         _                          => r.ToString()

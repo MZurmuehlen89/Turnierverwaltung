@@ -341,7 +341,7 @@ public class AuslosungService(
 
         // Gruppenphase-Einträge haben nie ein Auswärtsteam (1 Team pro Zeile ist hier die Norm,
         // siehe Losverfahren.GruppenZuErgebnisse) — das ist kein Freilos. Freilos gilt nur im echten Paarungsmodus
-        // (KO/Sonderrunde/etc.), wenn bei ungerader Teamanzahl bewusst ein Slot ohne Gegner bleibt.
+        // (K.-o.-Runde, Finale, Spiel um Platz 3), wenn bei ungerader Teamanzahl bewusst ein Slot ohne Gegner bleibt.
         // Liga und SchweizerSystem teilen sich dieselbe "flache Teilnehmerliste ohne Paarung"-Semantik
         // wie Gruppenphase (siehe Losverfahren.Ausloesen sowie RundenEditorViewModel.IstLiga,
         // Issue #251-Folgefund) — ein einzelnes Team pro Zeile ist dort ebenfalls die Norm.

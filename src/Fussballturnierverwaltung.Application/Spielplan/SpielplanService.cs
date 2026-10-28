@@ -113,7 +113,7 @@ public class SpielplanService(
         }
     }
 
-    // Liga, K.-o.-Runde, Finale, Spiel um Platz 3, Sonderrunde: Platzhalter-Paarungen werden übernommen, feste
+    // Liga, K.-o.-Runde, Finale, Spiel um Platz 3: Platzhalter-Paarungen werden übernommen, feste
     // Teams paart der Generator in Paarungsreihenfolge
     private Task PaarungenGenerierenAsync(int turnierRundeId, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct) =>
         AuslosungsAuswertung.NurPlatzhalter(ergebnisse)

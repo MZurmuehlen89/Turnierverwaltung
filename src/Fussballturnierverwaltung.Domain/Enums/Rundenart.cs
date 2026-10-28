@@ -8,7 +8,7 @@ public enum Rundenart
     KoRunde           = 3,
     // 4 war KoRundeMitHinUndRueckspiel — migriert zu KoRunde + MitRueckspiel=true
     SchweizerSystem   = 5,
-    Sonderrunde       = 6,
+    // 6 war Sonderrunde — entfernt, Liga/Gruppenphase/K.-o.-Runde decken alle Fälle ab (#570)
     Finale            = 7,
     SpielUmPlatzDrei  = 8
 }

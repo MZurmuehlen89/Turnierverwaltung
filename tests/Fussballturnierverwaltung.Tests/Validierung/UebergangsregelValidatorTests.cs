@@ -751,10 +751,11 @@ public class UebergangsregelValidatorTests
     [Fact]
     public void Feld_NichtUnterstuetzteRundenart_IstUngueltig()
     {
-        var sonderrunde = new TurnierRunde { Id = 1, Name = "Sonder", Rundenart = Rundenart.Sonderrunde, EingangsMannschaftsanzahl = 8 };
+        // Kein definierter Wert fällt in den Default-Zweig; er bleibt als Schutz für künftige Rundenarten (#570)
+        var unbekannt = new TurnierRunde { Id = 1, Name = "Unbekannt", Rundenart = (Rundenart)99, EingangsMannschaftsanzahl = 8 };
 
-        FeldFehler(sonderrunde, gruppeIndex: null, von: 1, bis: 1).Should().Equal(
-            "Rundenart 'Sonderrunde' wird als Quellrunde für Übergangsregeln nicht unterstützt.");
+        FeldFehler(unbekannt, gruppeIndex: null, von: 1, bis: 1).Should().Equal(
+            "Rundenart '99' wird als Quellrunde für Übergangsregeln nicht unterstützt.");
     }
 
     [Fact]
