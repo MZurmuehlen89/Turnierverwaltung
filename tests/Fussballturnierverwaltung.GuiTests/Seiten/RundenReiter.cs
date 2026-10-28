@@ -45,6 +45,10 @@ public sealed class RundenReiter(Window fenster, Hauptfenster hauptfenster)
 
     public void AusgangSetzen(int ausgang) => WertSetzen("Ausgang", ausgang.ToString());
 
+    /// <summary>„Anzahl Spieltage“ einer Runde „Schweizer System“ – ausdrücklich gesetzt, damit ein Test nicht vom
+    /// Vorschlag des Formulars abhängt.</summary>
+    public void SpieltageSetzen(int spieltage) => WertSetzen("AnzahlSpieltage", spieltage.ToString());
+
     /// <summary>Wählt die Runde in der Liste und wartet, bis das Formular sie zeigt.</summary>
     public void Auswaehlen(string name)
     {

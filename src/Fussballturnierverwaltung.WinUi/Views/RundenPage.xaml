@@ -199,6 +199,7 @@
                                 <TextBlock Text="Anzahl Spieltage" FontSize="12" Margin="0,0,0,3" />
                                 <TextBox Text="{Binding Formular.AnzahlSpieltage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
                                          PlaceholderText="{Binding Formular.AnzahlSpieltagePlatzhalter}"
+                                         AutomationProperties.AutomationId="Runden.AnzahlSpieltage"
                                          HorizontalAlignment="Stretch" />
                             </StackPanel>
                         </Grid>

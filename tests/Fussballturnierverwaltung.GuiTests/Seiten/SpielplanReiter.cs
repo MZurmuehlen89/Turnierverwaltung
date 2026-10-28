@@ -75,6 +75,28 @@ public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
                     zeile.TextOf("Spiel.Status"),
                     zeile.TryFindById("Spiel.Kennung")?.NameOrEmpty() ?? string.Empty));
 
+    /// <summary>Die Tabelle einer Runde ohne Gruppen (Liga, Schweizer System), wie sie neben dem Spielplan steht:
+    /// die Mannschaften in Tabellenreihenfolge.</summary>
+    public IReadOnlyList<string> Tabelle() =>
+        [.. fenster.FindAllById("Tabelle.Mannschaft").Select(m => m.NameOrEmpty())];
+
+    // ── Schweizer System ──────────────────────────────────────────────────────
+
+    /// <summary>„Spieltag x von y“ in der Kopfzeile einer Runde „Schweizer System“.</summary>
+    public string SchweizerFortschritt => fenster.TextOf("Spielplan.SchweizerFortschritt");
+
+    public bool NaechsterSpieltagMoeglich => fenster.FindById("Spielplan.NaechsterSpieltag").IsEnabled;
+
+    /// <summary>Erzeugt den nächsten Spieltag einer Runde „Schweizer System“ und wartet, bis der Fortschritt ihn
+    /// zeigt.</summary>
+    public void NaechstenSpieltagGenerieren()
+    {
+        string vorher = SchweizerFortschritt;
+        fenster.ActivateById("Spielplan.NaechsterSpieltag");
+        Wait.Until(() => SchweizerFortschritt != vorher, Wait.DefaultTimeout, "nächster Spieltag generiert");
+        hauptfenster.WarteBisRuhig();
+    }
+
     /// <summary>Die Gruppentabellen der gewählten Runde, wie sie neben dem Spielplan stehen: Kopf („Gruppe 1“) →
     /// Mannschaften in Tabellenreihenfolge. Gelesen wird in Baumreihenfolge; Rangfolgen über Gruppen hinweg (beste
     /// Dritte) würden der letzten Gruppe zugeschlagen, darum nur für Runden ohne solche Rangfolge.</summary>
