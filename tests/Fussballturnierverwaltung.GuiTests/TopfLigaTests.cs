@@ -27,7 +27,9 @@ public sealed class TopfLigaTests(TurnierverwaltungApp app, TestDatenbank datenb
     [Theory]
     [InlineData("UEFA Champions League", 4, 2)]
     [InlineData("UEFA Conference League", 6, 1)]
-    public async Task Ligaphase_GegnerJeTopf_OhneGleichesLand_UndJedesTeamEinmalJeSpieltag(
+    // Kurzer Name: Mit den Theory-Parametern wird er Teil des Belegpfads, der auf dem CI-Runner sonst die 260 Zeichen
+    // überschreitet (wie in #537)
+    public async Task Ligaphase_HaeltDieRegelnEin(
         string vorlage, int toepfe, int gegnerJeTopf)
     {
         var (rangliste, vereine) = await TestRanglisten.VereineAnlegenAsync(datenbank, _laender);
