@@ -43,7 +43,28 @@ public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
             spieltag.AsComboBox().SelectItem(ALLE_SPIELTAGE);
             hauptfenster.WarteBisRuhig();
         }
-        return fenster.FindById("Spielplan.Spiele").ReadAllItems(zeile =>
+        return SichtbareSpiele();
+    }
+
+    /// <summary>Die Spiele der gewählten Runde, Spieltag für Spieltag über die Auswahl „n. Spieltag“ gelesen. Für
+    /// Runden mit vielen Spielen statt <see cref="Spiele"/>: Bei einigen hundert Zeilen recycelt die Liste ihre
+    /// Zeilen, und eine gerade erst wiederverwendete Zeile zeigt kurz noch Teile des vorigen Spiels (#560: 306
+    /// Bundesliga-Spiele, gelesen 27 Paare doppelt, die Datenbank korrekt). Ein Spieltag hat wenige Spiele.</summary>
+    public IReadOnlyList<SpielZeile> SpieleJeSpieltag(int spieltage)
+    {
+        var auswahl = fenster.FindById("Spielplan.Spieltag").AsComboBox();
+        var spiele = new List<SpielZeile>();
+        for (int spieltag = 1; spieltag <= spieltage; spieltag++)
+        {
+            auswahl.SelectItem($"{spieltag}. Spieltag");
+            hauptfenster.WarteBisRuhig();
+            spiele.AddRange(SichtbareSpiele());
+        }
+        return spiele;
+    }
+
+    private IReadOnlyList<SpielZeile> SichtbareSpiele() =>
+        fenster.FindById("Spielplan.Spiele").ReadAllItems(zeile =>
             zeile.TryFindById("Spiel.Heim") is null
                 ? null
                 : new SpielZeile(
@@ -53,7 +74,6 @@ public sealed class SpielplanReiter(Window fenster, Hauptfenster hauptfenster)
                     zeile.TextOf("Spiel.Auswaerts"),
                     zeile.TextOf("Spiel.Status"),
                     zeile.TryFindById("Spiel.Kennung")?.NameOrEmpty() ?? string.Empty));
-    }
 
     /// <summary>Die Gruppentabellen der gewählten Runde, wie sie neben dem Spielplan stehen: Kopf („Gruppe 1“) →
     /// Mannschaften in Tabellenreihenfolge. Gelesen wird in Baumreihenfolge; Rangfolgen über Gruppen hinweg (beste

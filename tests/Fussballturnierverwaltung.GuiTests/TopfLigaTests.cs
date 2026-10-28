@@ -37,9 +37,11 @@ public sealed class TopfLigaTests(TurnierverwaltungApp app, TestDatenbank datenb
         auslosung.RanglisteWaehlen(rangliste);
         auslosung.ToepfeAutomatischBefuellen();
         auslosung.Durchfuehren();
-        var spiele = turnier.SpieleDerRunde(LIGAPHASE);
-
         int gegner = toepfe * gegnerJeTopf;
+        var spielplan = turnier.Spielplan();
+        spielplan.RundeWaehlen(LIGAPHASE);
+        var spiele = spielplan.SpieleJeSpieltag(gegner);
+
         var teams = vereine.Select(v => v.Verein).ToHashSet();
         spiele.Should().HaveCount(TEAMS * gegner / 2);
         spiele.SelectMany(s => new[] { s.Heim, s.Auswaerts }).Distinct().Should().BeEquivalentTo(teams);

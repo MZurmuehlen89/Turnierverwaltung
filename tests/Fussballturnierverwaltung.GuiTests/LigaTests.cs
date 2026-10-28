@@ -25,7 +25,10 @@ public sealed class LigaTests(TurnierverwaltungApp app) : IClassFixture<Turnierv
         auslosung.ToepfeAutomatischBefuellen();
         auslosung.Durchfuehren();
 
-        var spiele = turnier.RundeSimulieren(SAISON, SPIELE);
+        var spielplan = turnier.Spielplan();
+        spielplan.RundeWaehlen(SAISON);
+        spielplan.RundeSimulieren(SPIELE);
+        var spiele = spielplan.SpieleJeSpieltag(SPIELTAGE);
         var statistik = turnier.Statistik();
         statistik.AuswertungWaehlen("Gesamt");
         var tabelle = statistik.Tabelle();
