@@ -68,25 +68,14 @@ public sealed class TurnierAblaufTests(TurnierverwaltungApp app) : IClassFixture
         return spiele[FINALE].Single().Sieger!;
     }
 
-    /// <summary>Gesamttabelle: 8 Teams, Halbfinalisten mit 5 Spielen, alle anderen mit 3; je Zeile S+U+N = Sp und
-    /// Pkt = 3·S + U; über alle Zeilen so viele Tore wie Gegentore.</summary>
+    /// <summary>Gesamttabelle: die 8 Teams, Halbfinalisten mit 5 Spielen, alle anderen mit 3.</summary>
     private static void GesamttabelleStimmig(
         IReadOnlyList<TabellenZeile> tabelle, Dictionary<string, IReadOnlyList<SpielZeile>> spiele)
     {
         tabelle.Should().HaveCount(TEAMS);
-        tabelle.Select(z => z.Mannschaft).Should().BeEquivalentTo(Teams(spiele[GRUPPENPHASE]));
-
         var halbfinalisten = Teams(spiele[HALBFINALE]);
-        foreach (var zeile in tabelle)
-        {
-            zeile.Zahl("Sp").Should().Be(halbfinalisten.Contains(zeile.Mannschaft) ? 5 : 3, zeile.Mannschaft);
-            (zeile.Zahl("S") + zeile.Zahl("U") + zeile.Zahl("N")).Should().Be(zeile.Zahl("Sp"), zeile.Mannschaft);
-            zeile.Zahl("Pkt").Should().Be(3 * zeile.Zahl("S") + zeile.Zahl("U"), zeile.Mannschaft);
-        }
-
-        var tore = tabelle.Select(z => Spielstand.Tore(z.Werte["Tore"])
-            ?? throw new InvalidOperationException($"Tore von {z.Mannschaft} nicht lesbar: {z.Werte["Tore"]}")).ToList();
-        tore.Sum(t => t.Heim).Should().Be(tore.Sum(t => t.Auswaerts), "jedes Tor ist ein Gegentor");
+        TabellenPruefung.Stimmig(tabelle,
+            Teams(spiele[GRUPPENPHASE]).ToDictionary(t => t, t => halbfinalisten.Contains(t) ? 5 : 3));
     }
 
     private static HashSet<string> Teams(IEnumerable<SpielZeile> spiele) =>

@@ -27,7 +27,7 @@ public sealed class GruppensiegerGegenZweiteTests(TurnierverwaltungApp app, Test
     public async Task Viertelfinale_PaartGruppensiegerMitZweitenUndDieSiegerKommenWeiter()
     {
         string rangliste = await TestRanglisten.NationenAnlegenAsync(datenbank, _nationen);
-        var turnier = TurnierAnlegen();
+        var turnier = app.Hauptfenster.TurnierAusVorlageAnlegen(VORLAGE, VARIANTE);
 
         AuslosungDurchfuehren(turnier, GRUPPENPHASE, rangliste: rangliste);
         turnier.RundeSimulieren(GRUPPENPHASE, 48);
@@ -50,15 +50,6 @@ public sealed class GruppensiegerGegenZweiteTests(TurnierverwaltungApp app, Test
     }
 
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
-
-    private TurnierdurchfuehrungSeite TurnierAnlegen()
-    {
-        string name = $"GuiTest {Guid.NewGuid().ToString("N")[..8]}";
-        app.Hauptfenster.TurniereOeffnen().AusVorlageErstellen(VORLAGE, VARIANTE, "2027", name);
-        var turnier = app.Hauptfenster.TurnierdurchfuehrungOeffnen();
-        turnier.GewaehltesTurnier.Should().Be(name);
-        return turnier;
-    }
 
     /// <summary>Die Topfanzahl stellt die App zur Art passend ein (#564). Ohne <paramref name="rangliste"/> bleibt die
     /// Rangliste der vorigen Auslosung gewählt – die Töpfe des Viertelfinales füllen sich trotzdem nach Gruppenplatz

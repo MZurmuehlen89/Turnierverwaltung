@@ -61,6 +61,20 @@ public sealed class Hauptfenster(Window fenster)
         return new TurnierdurchfuehrungSeite(fenster, this);
     }
 
+    /// <summary>Legt aus <paramref name="vorlage"/> ein Turnier unter eindeutigem Namen an und öffnet es in der
+    /// Turnierdurchführung.</summary>
+    public TurnierdurchfuehrungSeite TurnierAusVorlageAnlegen(string vorlage, string variante)
+    {
+        string name = $"GuiTest {Guid.NewGuid().ToString("N")[..8]}";
+        TurniereOeffnen().AusVorlageErstellen(vorlage, variante, "2027", name);
+
+        var turnier = TurnierdurchfuehrungOeffnen();
+        if (turnier.GewaehltesTurnier != name)
+            throw new InvalidOperationException(
+                $"Turnierdurchführung zeigt „{turnier.GewaehltesTurnier}“ statt des neuen Turniers „{name}“.");
+        return turnier;
+    }
+
     public EinzelspielSeite EinzelspielSimulationOeffnen()
     {
         Oeffnen(Bereich.EinzelspielSimulation);

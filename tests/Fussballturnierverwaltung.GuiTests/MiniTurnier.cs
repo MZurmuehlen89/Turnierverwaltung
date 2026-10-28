@@ -30,14 +30,7 @@ internal static class MiniTurnier
     public static (TurnierdurchfuehrungSeite Turnier, AuslosungReiter Auslosung) GruppenauslosungVorbereiten(
         Hauptfenster hauptfenster, string? auslosungsart = null, string rangliste = RANGLISTE)
     {
-        string name = $"GuiTest {Guid.NewGuid().ToString("N")[..8]}";
-        hauptfenster.TurniereOeffnen().AusVorlageErstellen(VORLAGE, VARIANTE, "2027", name);
-
-        var turnier = hauptfenster.TurnierdurchfuehrungOeffnen();
-        if (turnier.GewaehltesTurnier != name)
-            throw new InvalidOperationException(
-                $"Turnierdurchführung zeigt „{turnier.GewaehltesTurnier}“ statt des neuen Turniers „{name}“.");
-
+        var turnier = hauptfenster.TurnierAusVorlageAnlegen(VORLAGE, VARIANTE);
         var auslosung = turnier.Auslosung();
         auslosung.Anlegen(GRUPPENPHASE, auslosungsart);
         auslosung.RanglisteWaehlen(rangliste);

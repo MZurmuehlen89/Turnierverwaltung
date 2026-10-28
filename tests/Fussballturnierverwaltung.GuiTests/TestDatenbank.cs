@@ -31,6 +31,19 @@ public sealed class TestDatenbank : IAsyncDisposable
         return (T)Convert.ChangeType((await befehl.ExecuteScalarAsync())!, typeof(T));
     }
 
+    /// <summary>Liest die erste Spalte aller Zeilen als Text (#560).</summary>
+    public async Task<IReadOnlyList<string>> SpalteLesenAsync(string sql, params (string Name, object Wert)[] parameter)
+    {
+        await using var verbindung = new SqlConnection(Verbindung);
+        await verbindung.OpenAsync();
+        await using var befehl = Befehl(verbindung, sql, parameter);
+        await using var leser = await befehl.ExecuteReaderAsync();
+        var werte = new List<string>();
+        while (await leser.ReadAsync())
+            werte.Add(leser.GetString(0));
+        return werte;
+    }
+
     /// <summary>Ändert die Test-Datenbank an der Oberfläche vorbei, etwa um einen fehlenden Seed-Eintrag
     /// herzustellen (#538).</summary>
     public async Task<int> AusfuehrenAsync(string sql, params (string Name, object Wert)[] parameter)

@@ -27,7 +27,7 @@ public sealed class NachSetzlisteTests(TurnierverwaltungApp app, TestDatenbank d
     public async Task Gesetzte_FuehrenDieGruppenInReihenfolgeAn_UndTreffenImViertelfinaleNichtAufeinander()
     {
         string rangliste = await TestRanglisten.NationenAnlegenAsync(datenbank, _nationen);
-        var turnier = TurnierAnlegen();
+        var turnier = app.Hauptfenster.TurnierAusVorlageAnlegen(VORLAGE, VARIANTE);
 
         var gruppen = GruppenAuslosen(turnier, rangliste);
         turnier.RundeSimulieren(GRUPPENPHASE, 48);
@@ -46,15 +46,6 @@ public sealed class NachSetzlisteTests(TurnierverwaltungApp app, TestDatenbank d
     }
 
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
-
-    private TurnierdurchfuehrungSeite TurnierAnlegen()
-    {
-        string name = $"GuiTest {Guid.NewGuid().ToString("N")[..8]}";
-        app.Hauptfenster.TurniereOeffnen().AusVorlageErstellen(VORLAGE, VARIANTE, "2027", name);
-        var turnier = app.Hauptfenster.TurnierdurchfuehrungOeffnen();
-        turnier.GewaehltesTurnier.Should().Be(name);
-        return turnier;
-    }
 
     /// <summary>Lost die Gruppenphase über die TV-Ziehung aus — sie zeigt die Gruppen in der Reihenfolge A–D.</summary>
     private static IReadOnlyDictionary<string, IReadOnlyList<string>> GruppenAuslosen(
