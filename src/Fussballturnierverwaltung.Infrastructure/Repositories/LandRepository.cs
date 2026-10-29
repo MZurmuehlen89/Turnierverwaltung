@@ -20,6 +20,7 @@ public class LandRepository(TurnierverwaltungDbContext context)
     public override async Task<IReadOnlyList<Land>> AlleFindenAsync(CancellationToken ct = default)
         => await Context.Laender
             .Include(l => l.Verband)
+            .Include(l => l.Rangliste!).ThenInclude(r => r.Abschnitte)
             .OrderBy(l => l.Name)
             .ToListAsync(ct);
 }

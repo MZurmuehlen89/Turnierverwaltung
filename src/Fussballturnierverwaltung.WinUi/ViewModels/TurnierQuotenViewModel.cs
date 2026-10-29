@@ -4,6 +4,7 @@ using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
+using Fussballturnierverwaltung.WinUi.Helpers;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 
@@ -14,14 +15,6 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 public partial class VerbandsQuoteZeile : ObservableObject
 {
     [ObservableProperty] private Verband? _verband;
-    [ObservableProperty] private int _anzahl = 1;
-}
-
-/// <summary>Eine Landes-Quoten-Zeile im Turnierkopf (Issue #189) — lokaler UI-Zustand zwischen Laden und
-/// Speichern, 1:1 analog <see cref="VerbandsQuoteZeile"/>, aber auf Land statt Kontinentalverband.</summary>
-public partial class LandesQuoteZeile : ObservableObject
-{
-    [ObservableProperty] private Land? _land;
     [ObservableProperty] private int _anzahl = 1;
 }
 
@@ -49,6 +42,9 @@ public partial class TurnierQuotenViewModel : ObservableObject
 
     private bool _befuelltGerade;
 
+    // Läuft der Abgleich der Landes-Auswahl, lösen seine eigenen Änderungen keinen weiteren aus.
+    private bool _landesAbgleichLaeuft;
+
     // ── Verband-Quoten (Issue #161/#154, hier #297) ──────────────────────────
     public ObservableCollection<VerbandsQuoteZeile> VerbandsQuotenZeilen { get; } = [];
     public IReadOnlyList<Verband> AlleVerbaende { get; private set => SetProperty(ref field, value); } = [];
@@ -66,10 +62,18 @@ public partial class TurnierQuotenViewModel : ObservableObject
     public bool LandesQuotenSichtbar { get; private set => SetProperty(ref field, value); }
 
     [RelayCommand]
-    private void LandesQuoteHinzufuegen() => LandesQuotenZeilen.Add(new LandesQuoteZeile());
+    private void LandesQuoteHinzufuegen()
+    {
+        LandesQuotenZeilen.Add(new LandesQuoteZeile());
+        LandesAuswahlAbgleichen(null);
+    }
 
     [RelayCommand]
-    private void LandesQuoteEntfernen(LandesQuoteZeile zeile) => LandesQuotenZeilen.Remove(zeile);
+    private void LandesQuoteEntfernen(LandesQuoteZeile zeile)
+    {
+        LandesQuotenZeilen.Remove(zeile);
+        LandesAuswahlAbgleichen(null);
+    }
 
     // ── Eingangskapazität der ersten Runde ────────────────────────────────────
     // Obergrenze für die Summe je Quotenart; ohne Runden gibt es keine.
@@ -77,13 +81,18 @@ public partial class TurnierQuotenViewModel : ObservableObject
 
     public bool KapazitaetsHinweisSichtbar => ErsteRundeEingang.HasValue;
 
+    // Freie Plätze (#572): Eingang der ersten Runde ohne die Summe der Quoten; ohne Runden kein Hinweis.
+    public string? VerbandsFreiePlaetze => FreiePlaetze(VerbandsQuotenEingaben().Sum(q => q.Anzahl));
+    public string? LandesFreiePlaetze => FreiePlaetze(LandesQuotenEingaben().Sum(q => q.Anzahl));
+
+    private string? FreiePlaetze(int summe) => ErsteRundeEingang is { } eingang
+        ? (eingang - summe == 1 ? "1 freier Platz" : $"{eingang - summe} freie Plätze")
+        : null;
+
     // ── Aufklappbarer Bereich (Issue #399) ────────────────────────────────────
     [ObservableProperty] private bool _offen;
 
     public bool Sichtbar => VerbandsQuotenSichtbar || LandesQuotenSichtbar;
-
-    // Ohne Verband-Quoten rückt die Landes-Quote in die linke Spalte.
-    public int LandesQuotenSpalte => VerbandsQuotenSichtbar ? 2 : 0;
 
     public AbschnittKopf Kopf => AbschnittKopf.Aus("QUOTEN",
     [
@@ -103,13 +112,14 @@ public partial class TurnierQuotenViewModel : ObservableObject
         _landesQuoteService = landesQuoteService;
         _landesQuoteValidator = landesQuoteValidator;
         Beobachten(VerbandsQuotenZeilen);
-        Beobachten(LandesQuotenZeilen);
+        Beobachten(LandesQuotenZeilen, OnLandesZeileGeaendert);
     }
 
     public void StammdatenSetzen(IReadOnlyList<Verband> verbaende, IReadOnlyList<Land> laender)
     {
         AlleVerbaende = verbaende;
         AlleLaender = laender;
+        LandesAuswahlAbgleichen(null);
     }
 
     public void SichtbarkeitSetzen(bool verbandsQuoten, bool landesQuoten)
@@ -134,8 +144,14 @@ public partial class TurnierQuotenViewModel : ObservableObject
         Befuellen(VerbandsQuotenZeilen,
             verbandsQuoten.Select(q => new VerbandsQuoteZeile { Verband = q.Verband, Anzahl = q.Anzahl }));
         var landesQuoten = await _landesQuoteService.AlleNachTurnierInstanzIdAsync(turnierInstanzId);
-        Befuellen(LandesQuotenZeilen,
-            landesQuoten.Select(q => new LandesQuoteZeile { Land = q.Land, Anzahl = q.Anzahl }));
+        // Das Land aus AlleLaender (mit Rangliste), damit Spielklassen und Auswahllisten dieselbe Instanz sehen.
+        Befuellen(LandesQuotenZeilen, landesQuoten.Select(q =>
+        {
+            var zeile = new LandesQuoteZeile();
+            zeile.Uebernehmen(AlleLaender.FirstOrDefault(l => l.Id == q.LandId) ?? q.Land, q.Spielklasse, q.AbPlatz, q.Anzahl);
+            return zeile;
+        }));
+        LandesAuswahlAbgleichen(null);
     }
 
     /// <summary>Wandelt die Zeilen in Eingaben um und prüft sie; wirft <see cref="ValidationException"/>, bevor
@@ -162,20 +178,61 @@ public partial class TurnierQuotenViewModel : ObservableObject
         .Select(z => new VerbandsQuoteZeileEingabe(z.Verband!.Id, z.Anzahl))
         .ToList();
 
-    private List<LandesQuoteZeileEingabe> LandesQuotenEingaben() => LandesQuotenZeilen
-        .Where(z => z.Land is not null)
-        .Select(z => new LandesQuoteZeileEingabe(z.Land!.Id, z.Anzahl))
+    private List<LandesQuoteZeileEingabe> LandesQuotenEingaben() => AndereEingaben(null);
+
+    private List<LandesQuoteZeileEingabe> AndereEingaben(LandesQuoteZeile? ausser) => LandesQuotenZeilen
+        .Where(z => z != ausser)
+        .Select(z => z.AlsEingabe())
+        .OfType<LandesQuoteZeileEingabe>()
         .ToList();
+
+    // ── Landes-Auswahl (#572) ─────────────────────────────────────────────────
+
+    /// <summary>Land oder Spielklasse einer Zeile geändert: die übrigen Zeilen bieten danach andere Länder bzw.
+    /// „ganzes Land“ an. Läuft verzögert, denn die Änderung kommt aus dem SelectionChanged einer ComboBox (#335).</summary>
+    private void OnLandesZeileGeaendert(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_befuelltGerade || _landesAbgleichLaeuft || sender is not LandesQuoteZeile zeile)
+            return;
+        if (e.PropertyName == nameof(LandesQuoteZeile.Land))
+            SammlungsAbgleich.Verzoegert(() => LandesAuswahlAbgleichen(zeile));
+        else if (e.PropertyName == nameof(LandesQuoteZeile.Spielklasse))
+            SammlungsAbgleich.Verzoegert(() =>
+            {
+                zeile.StartplatzVorschlagen(AndereEingaben(zeile));
+                LandesAuswahlAbgleichen(null);
+            });
+    }
+
+    /// <summary>Gleicht alle Zeilen an; die Zeile mit neuem Land zuerst, damit die übrigen ihre neue Spielklasse sehen.</summary>
+    private void LandesAuswahlAbgleichen(LandesQuoteZeile? landGewechselt)
+    {
+        _landesAbgleichLaeuft = true;
+        try
+        {
+            landGewechselt?.AuswahlAbgleichen(AlleLaender, AndereEingaben(landGewechselt), landGewechselt: true);
+            foreach (var zeile in LandesQuotenZeilen.Where(z => z != landGewechselt))
+                zeile.AuswahlAbgleichen(AlleLaender, AndereEingaben(zeile), landGewechselt: false);
+        }
+        finally
+        {
+            _landesAbgleichLaeuft = false;
+        }
+    }
 
     /// <summary>Änderungen an der Zeilenliste (Zeile dazu oder weg, Wert einer Zeile) frischen die Kopfzeile auf
     /// und werden als Nutzeränderung gemeldet.</summary>
-    private void Beobachten<TZeile>(ObservableCollection<TZeile> liste) where TZeile : INotifyPropertyChanged
+    private void Beobachten<TZeile>(ObservableCollection<TZeile> liste, PropertyChangedEventHandler? zusaetzlich = null)
+        where TZeile : INotifyPropertyChanged
     {
         liste.CollectionChanged += (_, e) =>
         {
             if (e.NewItems is not null)
                 foreach (INotifyPropertyChanged zeile in e.NewItems)
+                {
                     zeile.PropertyChanged += OnZeileGeaendert;
+                    if (zusaetzlich is not null) zeile.PropertyChanged += zusaetzlich;
+                }
             ZeilenAenderungMelden();
         };
     }
@@ -201,6 +258,8 @@ public partial class TurnierQuotenViewModel : ObservableObject
     private void ZeilenAenderungMelden()
     {
         OnPropertyChanged(nameof(Kopf));
+        OnPropertyChanged(nameof(VerbandsFreiePlaetze));
+        OnPropertyChanged(nameof(LandesFreiePlaetze));
         if (_befuelltGerade) return;
         Geaendert?.Invoke();
     }
@@ -212,11 +271,12 @@ public partial class TurnierQuotenViewModel : ObservableObject
         {
             case nameof(VerbandsQuotenSichtbar) or nameof(LandesQuotenSichtbar):
                 OnPropertyChanged(nameof(Sichtbar));
-                OnPropertyChanged(nameof(LandesQuotenSpalte));
                 OnPropertyChanged(nameof(Kopf));
                 break;
             case nameof(ErsteRundeEingang):
                 OnPropertyChanged(nameof(KapazitaetsHinweisSichtbar));
+                OnPropertyChanged(nameof(VerbandsFreiePlaetze));
+                OnPropertyChanged(nameof(LandesFreiePlaetze));
                 break;
         }
     }
