@@ -13,6 +13,13 @@ public sealed class TurnierlisteSeite(Window fenster, Hauptfenster hauptfenster)
     public StammdatenEditor Kopf() => Reiter("Turnierkopf",
         () => new StammdatenEditor(fenster, hauptfenster, "Turnierkopf", "Turnier löschen", listenPraefix: "Turniere"));
 
+    /// <summary>Der Bereich „Quoten“ des Turnierkopfs (#572).</summary>
+    public QuotenBereich Quoten()
+    {
+        Kopf();
+        return new QuotenBereich(fenster);
+    }
+
     public RundenReiter Runden() => Reiter("Runden", () => new RundenReiter(fenster, hauptfenster));
 
     public VorbelegungReiter Vorbelegung() => Reiter("Vorbelegung", () => new VorbelegungReiter(fenster, hauptfenster));

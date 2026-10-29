@@ -184,7 +184,8 @@
                     </Grid>
                 </Expander>
 
-                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                <Expander AutomationProperties.AutomationId="Turnierkopf.Quoten"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                           Visibility="{Binding Quoten.Sichtbar, Converter={StaticResource BoolToVisibility}}"
                           IsExpanded="{Binding Quoten.Offen, Mode=TwoWay}"
                           Header="{Binding Quoten.Kopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
