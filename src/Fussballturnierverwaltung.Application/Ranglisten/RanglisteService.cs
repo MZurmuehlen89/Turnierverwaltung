@@ -19,7 +19,7 @@ public class RanglisteService(
 
     /// <summary>Liga je Verein aus den Ligapyramiden — Untertitel im Spielkopf bei nationalen Vereinsduellen (#384).</summary>
     public async Task<Ligazugehoerigkeit> LigazugehoerigkeitAbrufenAsync(CancellationToken ct = default)
-        => Ligazugehoerigkeit.Aus(await repository.LigapyramidenAsync(ct));
+        => Ligazugehoerigkeit.Aus(await repository.LigapyramidenDerLaenderAsync(ct));
 
     public Task<Rangliste?> FindenNachIdAsync(int id, CancellationToken ct = default)
         => repository.FindenNachIdMitEintraegenAsync(id, ct);

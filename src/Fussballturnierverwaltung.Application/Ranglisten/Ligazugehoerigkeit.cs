@@ -2,8 +2,8 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 
 namespace Fussballturnierverwaltung.Application.Ranglisten;
 
-/// <summary>Liga je Verein aus den Abschnitten der Ligapyramiden (Issue #384) — der Name des Abschnitts, in den der
-/// Ranglistenplatz fällt, z. B. „2. Bundesliga“. Zustandslos.</summary>
+/// <summary>Liga je Verein aus den Abschnitten der Ligapyramide seines Landes (Issue #384, #572) — der Name des
+/// Abschnitts, in den der Ranglistenplatz fällt, z. B. „2. Bundesliga“. Zustandslos.</summary>
 public sealed class Ligazugehoerigkeit
 {
     private readonly IReadOnlyDictionary<int, string> _jeMannschaft;
@@ -12,13 +12,13 @@ public sealed class Ligazugehoerigkeit
 
     public static Ligazugehoerigkeit Keine { get; } = new(new Dictionary<int, string>());
 
-    /// <summary>Liga je Mannschaft aus allen Ranglisten mit Abschnitten. Eine Rangliste hat nur einen Stand (#492, ohne
-    /// Saison-Logik); steht ein Verein dennoch in mehreren Pyramiden, gilt die neueste nach Datum. Innerhalb einer
+    /// <summary>Liga je Mannschaft aus den Ligapyramiden der Länder. Welche Pyramide für einen Verein gilt, entscheidet
+    /// der Verweis seines Landes (#572) – die Pyramiden enthalten nur die Einträge der eigenen Vereine. Innerhalb einer
     /// Pyramide gilt der beste Platz, Plätze hinter dem letzten Abschnitt bleiben ohne Liga.</summary>
-    public static Ligazugehoerigkeit Aus(IEnumerable<Rangliste> ranglisten)
+    public static Ligazugehoerigkeit Aus(IEnumerable<Rangliste> pyramidenDerLaender)
     {
         var jeMannschaft = new Dictionary<int, string>();
-        foreach (var pyramide in ranglisten.Where(r => r.Abschnitte.Count > 0).OrderByDescending(r => r.Datum))
+        foreach (var pyramide in pyramidenDerLaender.Where(r => r.Abschnitte.Count > 0))
             foreach (var eintrag in pyramide.Eintraege.GroupBy(e => e.MannschaftId).Select(g => g.MinBy(e => e.Rang)!))
                 if (pyramide.AbschnittFuer(eintrag.Rang) is { } abschnitt)
                     jeMannschaft.TryAdd(eintrag.MannschaftId, abschnitt.Name);

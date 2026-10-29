@@ -16,9 +16,9 @@ public interface IRanglisteRepository : IRepository<Rangliste>
     /// (Issue #393); <c>null</c>, wenn es sie nicht gibt.</summary>
     Task<Rangliste?> MitAbschnittenAsync(int ranglisteId, CancellationToken ct = default);
 
-    /// <summary>Alle Ranglisten mit Abschnitten (Ligapyramiden) samt Einträgen, ohne Mannschaften und ohne
-    /// Änderungsverfolgung (Issue #384).</summary>
-    Task<IReadOnlyList<Rangliste>> LigapyramidenAsync(CancellationToken ct = default);
+    /// <summary>Die Ligapyramiden, auf die ein Land verweist (#572), samt Abschnitten und den Einträgen der Vereine
+    /// genau dieses Landes, ohne Mannschaften und ohne Änderungsverfolgung (Issue #384).</summary>
+    Task<IReadOnlyList<Rangliste>> LigapyramidenDerLaenderAsync(CancellationToken ct = default);
 
     Task SpeichernAenderungenAsync(CancellationToken ct = default);
 }

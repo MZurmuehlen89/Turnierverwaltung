@@ -7,7 +7,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Seed;
 
 /// <summary>Issue #393: legt die Rangliste „Ligapyramide Deutschland 2025/26“ samt Abschnitten und Profigrenze an,
 /// sofern sie fehlt — bei neuen wie bei bestehenden Datenbanken. Sie hat keine Ranglisten-Quelle (von Hand gepflegt);
-/// Runden verweisen direkt auf sie. Eine vorhandene Rangliste gleichen Namens bleibt unangetastet.</summary>
+/// Runden verweisen direkt auf sie, Deutschland als Rangliste des Landes (#572). Eine vorhandene Rangliste gleichen
+/// Namens bleibt unangetastet.</summary>
 internal static class LigapyramideNachruestung
 {
     private const string LAND = "GER";
@@ -23,7 +24,11 @@ internal static class LigapyramideNachruestung
             .ToListAsync(ct);
         var idJeName = vereine.GroupBy(v => v.Name).ToDictionary(g => g.Key, g => g.Min(v => v.Id));
 
-        context.Ranglisten.Add(RanglisteErstellen(idJeName));
+        var rangliste = RanglisteErstellen(idJeName);
+        context.Ranglisten.Add(rangliste);
+        // #572: Deutschland verweist auf seine Pyramide – nur beim Anlegen, ein später entfernter Verweis bleibt weg.
+        if (await context.Laender.FirstOrDefaultAsync(l => l.FifaCode == LAND, ct) is { } deutschland)
+            deutschland.Rangliste = rangliste;
         await context.SaveChangesAsync(ct);
         protokollieren(1, "Rangliste „Ligapyramide Deutschland 2025/26“ nachgerüstet.");
     }

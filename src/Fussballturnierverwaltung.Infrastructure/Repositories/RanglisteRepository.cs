@@ -48,11 +48,11 @@ public class RanglisteRepository(TurnierverwaltungDbContext context)
             .AsSplitQuery()
             .FirstOrDefaultAsync(r => r.Id == ranglisteId, ct);
 
-    public async Task<IReadOnlyList<Rangliste>> LigapyramidenAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<Rangliste>> LigapyramidenDerLaenderAsync(CancellationToken ct = default)
         => await Context.Ranglisten
             .AsNoTracking()
-            .Where(r => r.Abschnitte.Any())
-            .Include(r => r.Eintraege)
+            .Where(r => r.Abschnitte.Any() && Context.Laender.Any(l => l.RanglisteId == r.Id))
+            .Include(r => r.Eintraege.Where(e => e.Mannschaft.Land.RanglisteId == e.RanglisteId))
             .Include(r => r.Abschnitte)
             .AsSplitQuery()
             .ToListAsync(ct);
