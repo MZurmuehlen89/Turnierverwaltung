@@ -6,12 +6,10 @@ namespace Fussballturnierverwaltung.GuiTests;
 
 /// <summary>Landes-Quoten als Kontingente im Turnierkopf (#572): Spielklasse und Startplatz aus der Ligapyramide des
 /// Landes (der Seed verknüpft Deutschland mit seiner Pyramide), Platzbereich in der Spalte „ergibt“, freie Plätze
-/// gegen den Eingang der ersten Runde. Jeder Test legt sein Turnier aus der Champions-League-Vorlage (Ligaphase mit
-/// 36 Teams, Vereine) unter eindeutigem Namen an; der Seed bleibt unverändert.</summary>
+/// gegen den Eingang der ersten Runde. Das Turnier kommt aus <see cref="KontingentTurnier"/>; der Seed bleibt
+/// unverändert.</summary>
 public sealed class KontingenteTests(TurnierverwaltungApp app) : IClassFixture<TurnierverwaltungApp>, IDisposable
 {
-    private const string VORLAGE = "UEFA Champions League";
-    private const string VARIANTE = "36 Teams · ab 2024/25";
     private const string GANZES_LAND = "— ganzes Land —";
     private const string BUNDESLIGA = "1 · Bundesliga";
 
@@ -54,6 +52,20 @@ public sealed class KontingenteTests(TurnierverwaltungApp app) : IClassFixture<T
         (quoten.Ergibt(0), quoten.Ergibt(1)).Should().Be(("Bundesliga, Plätze 1–4", "Bundesliga, Plätze 5–6"));
     }
 
+    public void Dispose() => app.BeiFehlschlagBelegeSichern();
+
+    private (TurnierlisteSeite Turniere, string Name) TurnierAnlegen() => KontingentTurnier.Anlegen(app);
+
+    private static void Abwarten(Func<bool> bedingung, string beschreibung) => KontingentTurnier.Abwarten(bedingung, beschreibung);
+}
+
+/// <summary>Land ohne Ligapyramide (#572). Eigene Klasse und damit eigene App-Sitzung: bricht ein Szenario mit
+/// ungespeicherten Quoten ab, fragt die App beim nächsten „Aus Vorlage erstellen“ nach und der zweite Dialog brachte
+/// sie zum Absturz (wie #531).</summary>
+public sealed class KontingentOhnePyramideTests(TurnierverwaltungApp app) : IClassFixture<TurnierverwaltungApp>, IDisposable
+{
+    private const string GANZES_LAND = "— ganzes Land —";
+
     /// <summary>Ein Land ohne Ligapyramide hat nur „ganzes Land“ und steht danach in keiner weiteren Zeile zur Wahl.</summary>
     [Fact]
     public void LandOhnePyramide_KeineSpielklasse_UndKeineZweiteZeile()
@@ -69,13 +81,22 @@ public sealed class KontingenteTests(TurnierverwaltungApp app) : IClassFixture<T
         quoten.LandHinzufuegen();
         quoten.LandAngeboten(1, "England").Should().BeFalse("England hat schon eine Quote für das ganze Land");
         quoten.LandAngeboten(1, "Deutschland").Should().BeTrue();
-
-        turniere.Kopf().Abbrechen();
     }
 
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
 
-    private (TurnierlisteSeite Turniere, string Name) TurnierAnlegen()
+    private (TurnierlisteSeite Turniere, string Name) TurnierAnlegen() => KontingentTurnier.Anlegen(app);
+
+    private static void Abwarten(Func<bool> bedingung, string beschreibung) => KontingentTurnier.Abwarten(bedingung, beschreibung);
+}
+
+/// <summary>Turnier aus der Champions-League-Vorlage (Ligaphase mit 36 Teams, Vereine) unter eindeutigem Namen.</summary>
+internal static class KontingentTurnier
+{
+    private const string VORLAGE = "UEFA Champions League";
+    private const string VARIANTE = "36 Teams · ab 2024/25";
+
+    public static (TurnierlisteSeite Turniere, string Name) Anlegen(TurnierverwaltungApp app)
     {
         string name = $"GuiTest {Guid.NewGuid().ToString("N")[..8]}";
         var turniere = app.Hauptfenster.TurniereOeffnen();
@@ -84,6 +105,6 @@ public sealed class KontingenteTests(TurnierverwaltungApp app) : IClassFixture<T
         return (turniere, name);
     }
 
-    private static void Abwarten(Func<bool> bedingung, string beschreibung) =>
+    public static void Abwarten(Func<bool> bedingung, string beschreibung) =>
         Wait.Until(bedingung, Wait.DefaultTimeout, beschreibung);
 }
