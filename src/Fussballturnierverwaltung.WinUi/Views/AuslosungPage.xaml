@@ -797,12 +797,12 @@
                                       DisplayMemberPath="Anzeige"
                                       Visibility="{Binding Arbeitsbereich.Filter.ZeigeVerbandFilter, Converter={StaticResource BoolToVisibility}}" />
                             <!-- Länderfilter (#344), nur bei Vereinsturnieren über mehrere Länder -->
-                            <ComboBox Grid.Row="3" HorizontalAlignment="Stretch" Margin="0,0,0,6"
+                            <ComboBox Grid.Row="3" HorizontalAlignment="Stretch" Margin="0,0,0,6" AutomationProperties.AutomationId="Auslosung.LandFilter"
                                       ItemsSource="{Binding Arbeitsbereich.Filter.LandFilterOptionen}"
                                       SelectedItem="{Binding Arbeitsbereich.Filter.LandFilter, Mode=TwoWay}"
                                       DisplayMemberPath="Anzeige"
                                       Visibility="{Binding Arbeitsbereich.Filter.ZeigeLandFilter, Converter={StaticResource BoolToVisibility}}" />
-                            <ListView Grid.Row="4" x:Name="VerfuegbarListView"
+                            <ListView Grid.Row="4" x:Name="VerfuegbarListView" AutomationProperties.AutomationId="Auslosung.Verfuegbar"
                                       ItemsSource="{Binding Arbeitsbereich.VerfuegbareTeilnehmerGefiltert}"
                                       SelectionMode="Extended"
                                       CanDragItems="True" CanReorderItems="False"
@@ -816,7 +816,8 @@
                                             <Image Grid.Column="0" Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                    Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
                                                    Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="2" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                            <TextBlock Grid.Column="2" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                       AutomationProperties.AutomationId="Auslosung.TeilnehmerName">
                                                 <Run Text="{Binding AnzeigeName}" /><Run Text="{Binding HerkunftZusatz}" FontSize="11"
                                                                                          Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                             </TextBlock>

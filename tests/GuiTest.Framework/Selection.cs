@@ -65,6 +65,11 @@ public static class Selection
         where T : class =>
         [.. RealizedItems(list).Select(read).OfType<T>()];
 
+    /// <summary>Reads the first <paramref name="count"/> entries of a list (fewer if it is shorter) and stops there —
+    /// for long virtualizing lists, where reading all of them returns recycled rows with stale content (#569).</summary>
+    public static IReadOnlyList<T> ReadFirstItems<T>(this AutomationElement list, int count, Func<AutomationElement, T> read) =>
+        [.. RealizedItems(list).Take(count).Select(read)];
+
     /// <summary>The first entry of a list for which <paramref name="matches"/> holds, realized if necessary; null if
     /// there is none. Stops at the match: realizing further items lets a virtualizing list recycle the found one,
     /// whose element then reports "not available" when it is used (#572).</summary>

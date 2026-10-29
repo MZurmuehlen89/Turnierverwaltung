@@ -54,6 +54,30 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
             "alle Teams den Töpfen zugewiesen");
     }
 
+    // ── Quoten und Verfügbar-Liste (#573) ─────────────────────────────────────
+
+    /// <summary>Der Hinweis auf Quotenplätze, die das Befüllen nicht besetzen konnte; leer, wenn keiner dasteht.</summary>
+    public string Fehlbestand => fenster.TryFindById("Auslosung.Fehlbestand")?.NameOrEmpty() ?? string.Empty;
+
+    /// <summary>Klickt die Quote <paramref name="name"/> (Land oder Verband) über „Verfügbar“ an.</summary>
+    public void QuoteAnklicken(string name)
+    {
+        Wait.UntilFound(
+                () => fenster.FindAllById("Auslosung.Quote").FirstOrDefault(q => q.NameOrEmpty() == name),
+                Wait.DefaultTimeout, $"Quote '{name}'")
+            .Activate();
+        hauptfenster.WarteBisRuhig();
+    }
+
+    /// <summary>Das im Länderfilter über „Verfügbar“ gewählte Land.</summary>
+    public string LandFilter =>
+        fenster.FindById("Auslosung.LandFilter").AsComboBox().SelectedItem?.DisplayedTexts().FirstOrDefault() ?? string.Empty;
+
+    /// <summary>Die ersten <paramref name="anzahl"/> Teams der Verfügbar-Liste — alle zu lesen ist bei mehreren hundert
+    /// Einträgen nicht verlässlich (#569).</summary>
+    public IReadOnlyList<string> VerfuegbarAnfang(int anzahl) =>
+        fenster.FindById("Auslosung.Verfuegbar").ReadFirstItems(anzahl, e => e.TextOf("Auslosung.TeilnehmerName"));
+
     public void Durchfuehren()
     {
         fenster.ActivateById("Befehlsleiste.AuslosungDurchfuehren");
