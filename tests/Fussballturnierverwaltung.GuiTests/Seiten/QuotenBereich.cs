@@ -30,7 +30,36 @@ public sealed class QuotenBereich(Window fenster)
         Wait.Until(() => Zeilen == vorher + 1, Wait.DefaultTimeout, "neue Landes-Quoten-Zeile");
     }
 
-    public void LandWaehlen(int zeile, string land) => Feld(LAND, zeile).AsComboBox().SelectItem(land);
+    // DIAGNOSE #572 (wird wieder entfernt)
+    public void LandWaehlen(int zeile, string land)
+    {
+        var auswahl = Feld(LAND, zeile).AsComboBox();
+        var protokoll = new List<string>
+        {
+            $"vorher: Offscreen={auswahl.IsOffscreen} Rect={auswahl.BoundingRectangle} Enabled={auswahl.IsEnabled}",
+        };
+        auswahl.Expand();
+        try
+        {
+            var realisiert = auswahl.Items;
+            protokoll.Add($"realisiert={realisiert.Length}: " + string.Join(", ", realisiert.Select(i => i.DisplayedTexts().FirstOrDefault())));
+            var treffer = realisiert.FirstOrDefault(i => i.DisplayedTexts().Contains(land));
+            protokoll.Add($"Treffer realisiert: {treffer is not null}");
+            treffer ??= auswahl.ReadAllItems(i => i.DisplayedTexts().Contains(land) ? i : null).FirstOrDefault();
+            protokoll.Add($"Treffer gesamt: {treffer is not null}, Offscreen={treffer?.IsOffscreen}");
+            Thread.Sleep(500);
+            protokoll.Add($"nach 500 ms: realisiert={auswahl.Items.Length}, State={auswahl.ExpandCollapseState}");
+            treffer!.Patterns.SelectionItem.Pattern.Select();
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("DIAGNOSE LandWaehlen:\n" + string.Join("\n", protokoll), ex);
+        }
+        finally
+        {
+            auswahl.Collapse();
+        }
+    }
 
     public void SpielklasseWaehlen(int zeile, string spielklasse) =>
         Feld(SPIELKLASSE, zeile).AsComboBox().SelectItem(spielklasse);
