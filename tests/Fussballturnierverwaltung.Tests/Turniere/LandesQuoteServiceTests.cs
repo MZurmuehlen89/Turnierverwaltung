@@ -2,6 +2,7 @@ using FluentAssertions;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
+using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
@@ -19,98 +20,29 @@ public class LandesQuoteServiceTests
             .Options);
 
     private static LandesQuoteService ServiceFuer(TurnierverwaltungDbContext ctx) =>
-        new(new LandesQuoteRepository(ctx), new LandesQuoteValidator(), NullLogger<LandesQuoteService>.Instance);
+        new(new LandesQuoteRepository(ctx), new LandRepository(ctx), new LandesQuoteValidator(),
+            NullLogger<LandesQuoteService>.Instance);
 
     private static void GrundSetupAnlegen(TurnierverwaltungDbContext ctx, out int turnierInstanzId, out int landId, out int zweitesLandId)
     {
         ctx.TurnierInstanzen.Add(new TurnierInstanz { Id = 1, Name = "Klub-WM", SaisonOderJahr = "2026" });
         ctx.Verbaende.Add(new Verband { Id = 1, Name = "UEFA", Kurzname = "UEFA" });
+        ctx.Ranglisten.Add(new Rangliste
+        {
+            Id = 1, Name = "Ligapyramide Deutschland",
+            Abschnitte =
+            [
+                new RanglistenAbschnitt { Name = "Bundesliga", Spielklasse = 1, BisPlatz = 18 },
+                new RanglistenAbschnitt { Name = "2. Bundesliga", Spielklasse = 2, BisPlatz = 36 },
+            ],
+        });
         ctx.Laender.AddRange(
-            new Land { Id = 1, Name = "Deutschland", Kurzname = "GER", FifaCode = "GER", VerbandId = 1 },
+            new Land { Id = 1, Name = "Deutschland", Kurzname = "GER", FifaCode = "GER", VerbandId = 1, RanglisteId = 1 },
             new Land { Id = 2, Name = "England", Kurzname = "ENG", FifaCode = "ENG", VerbandId = 1 });
         ctx.SaveChanges();
         turnierInstanzId = 1;
         landId = 1;
         zweitesLandId = 2;
-    }
-
-    [Fact]
-    public async Task ErstellenAsync_GueltigeEingabe_LegtQuoteAn()
-    {
-        await using var ctx = NeuerContext();
-        GrundSetupAnlegen(ctx, out int turnierInstanzId, out int landId, out _);
-        var service = ServiceFuer(ctx);
-
-        var quote = await service.ErstellenAsync(new LandesQuoteEingabe(turnierInstanzId, landId, Anzahl: 3));
-
-        quote.Id.Should().BeGreaterThan(0);
-        (await service.AlleNachTurnierInstanzIdAsync(turnierInstanzId)).Should().HaveCount(1);
-    }
-
-    [Fact]
-    public async Task ErstellenAsync_DuplikatLand_WirftValidationException()
-    {
-        await using var ctx = NeuerContext();
-        GrundSetupAnlegen(ctx, out int turnierInstanzId, out int landId, out _);
-        var service = ServiceFuer(ctx);
-        await service.ErstellenAsync(new LandesQuoteEingabe(turnierInstanzId, landId, Anzahl: 3));
-
-        var eingabe = new LandesQuoteEingabe(turnierInstanzId, landId, Anzahl: 4);
-
-        await Assert.ThrowsAsync<ValidationException>(() => service.ErstellenAsync(eingabe));
-    }
-
-    [Fact]
-    public async Task AktualisierenAsync_AendertAnzahl()
-    {
-        await using var ctx = NeuerContext();
-        GrundSetupAnlegen(ctx, out int turnierInstanzId, out int landId, out _);
-        var service = ServiceFuer(ctx);
-        var quote = await service.ErstellenAsync(new LandesQuoteEingabe(turnierInstanzId, landId, Anzahl: 3));
-
-        await service.AktualisierenAsync(quote.Id, new LandesQuoteEingabe(turnierInstanzId, landId, Anzahl: 2));
-
-        var quoten = await service.AlleNachTurnierInstanzIdAsync(turnierInstanzId);
-        quoten.Single().Anzahl.Should().Be(2);
-    }
-
-    [Fact]
-    public async Task AktualisierenAsync_EigeneQuote_WirdNichtAlsDuplikatAbgelehnt()
-    {
-        await using var ctx = NeuerContext();
-        GrundSetupAnlegen(ctx, out int turnierInstanzId, out int landId, out _);
-        var service = ServiceFuer(ctx);
-        var quote = await service.ErstellenAsync(new LandesQuoteEingabe(turnierInstanzId, landId, Anzahl: 3));
-
-        await service.AktualisierenAsync(quote.Id, new LandesQuoteEingabe(turnierInstanzId, landId, Anzahl: 4));
-
-        (await service.AlleNachTurnierInstanzIdAsync(turnierInstanzId)).Single().Anzahl.Should().Be(4);
-    }
-
-    [Fact]
-    public async Task LoeschenAsync_EntferntQuote()
-    {
-        await using var ctx = NeuerContext();
-        GrundSetupAnlegen(ctx, out int turnierInstanzId, out int landId, out _);
-        var service = ServiceFuer(ctx);
-        var quote = await service.ErstellenAsync(new LandesQuoteEingabe(turnierInstanzId, landId, Anzahl: 3));
-
-        await service.LoeschenAsync(quote.Id);
-
-        (await service.AlleNachTurnierInstanzIdAsync(turnierInstanzId)).Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task ZweiLaenderImSelbenTurnier_BeideAnlegbar()
-    {
-        await using var ctx = NeuerContext();
-        GrundSetupAnlegen(ctx, out int turnierInstanzId, out int landId, out int zweitesLandId);
-        var service = ServiceFuer(ctx);
-
-        await service.ErstellenAsync(new LandesQuoteEingabe(turnierInstanzId, landId, Anzahl: 3));
-        await service.ErstellenAsync(new LandesQuoteEingabe(turnierInstanzId, zweitesLandId, Anzahl: 4));
-
-        (await service.AlleNachTurnierInstanzIdAsync(turnierInstanzId)).Should().HaveCount(2);
     }
 
     // ── QuotenErsetzenAsync (WinUi-Turnierkopf-Grid, Issue #189) ───────────────────────────
@@ -181,5 +113,52 @@ public class LandesQuoteServiceTests
 
         await Assert.ThrowsAsync<ValidationException>(
             () => service.QuotenErsetzenAsync(turnierInstanzId, zeilen, eingangsKapazitaet: 16));
+    }
+
+    // ── Kontingente (#572) ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task QuotenErsetzenAsync_MehrereKontingenteEinesLandes_WerdenGespeichert()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int turnierInstanzId, out int landId, out _);
+        var service = ServiceFuer(ctx);
+
+        await service.QuotenErsetzenAsync(turnierInstanzId,
+        [
+            new LandesQuoteZeileEingabe(landId, Anzahl: 4, Spielklasse: 1, AbPlatz: 1),
+            new LandesQuoteZeileEingabe(landId, Anzahl: 18, Spielklasse: 2),
+        ]);
+
+        (await service.AlleNachTurnierInstanzIdAsync(turnierInstanzId))
+            .Select(q => (q.Spielklasse, q.AbPlatz, q.Anzahl))
+            .Should().BeEquivalentTo([((int?)1, (int?)1, 4), (2, 1, 18)]);
+    }
+
+    [Fact]
+    public async Task QuotenErsetzenAsync_GleichesKontingent_BehaeltDieZeileUndAendertDieAnzahl()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int turnierInstanzId, out int landId, out _);
+        var service = ServiceFuer(ctx);
+        var vorher = await service.QuotenErsetzenAsync(turnierInstanzId,
+            [new LandesQuoteZeileEingabe(landId, Anzahl: 4, Spielklasse: 1, AbPlatz: 5)]);
+
+        await service.QuotenErsetzenAsync(turnierInstanzId,
+            [new LandesQuoteZeileEingabe(landId, Anzahl: 2, Spielklasse: 1, AbPlatz: 5)]);
+
+        var quote = (await service.AlleNachTurnierInstanzIdAsync(turnierInstanzId)).Single();
+        (quote.Id, quote.Anzahl).Should().Be((vorher.Single().Id, 2));
+    }
+
+    [Fact]
+    public async Task QuotenErsetzenAsync_SpielklasseOhneLigapyramide_WirftValidationException()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int turnierInstanzId, out _, out int zweitesLandId);
+        var service = ServiceFuer(ctx);
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.QuotenErsetzenAsync(turnierInstanzId,
+            [new LandesQuoteZeileEingabe(zweitesLandId, Anzahl: 4, Spielklasse: 1)]));
     }
 }

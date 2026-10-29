@@ -146,7 +146,7 @@ public partial class TurnierQuotenViewModel : ObservableObject
         ValidationException.WerfenWennUngueltig(
             _verbandsQuoteValidator.Validieren(eingaben.VerbandsQuoten, eingaben.EingangsKapazitaet));
         ValidationException.WerfenWennUngueltig(
-            _landesQuoteValidator.Validieren(eingaben.LandesQuoten, eingaben.EingangsKapazitaet));
+            _landesQuoteValidator.Validieren(eingaben.LandesQuoten, AlleLaender, eingaben.EingangsKapazitaet));
         return eingaben;
     }
 

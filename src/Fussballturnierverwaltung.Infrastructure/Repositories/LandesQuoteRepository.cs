@@ -15,19 +15,20 @@ public class LandesQuoteRepository(TurnierverwaltungDbContext context)
             .OrderBy(q => q.Land.Name)
             .ToListAsync(ct);
 
-    /// <summary>Synchronisiert per Schlüssel-Diff statt Löschen+Neuanlegen, siehe VerbandsQuoteRepository.QuotenErsetzenAsync.</summary>
+    /// <summary>Synchronisiert per Schlüssel-Diff statt Löschen+Neuanlegen, siehe VerbandsQuoteRepository.QuotenErsetzenAsync.
+    /// Schlüssel ist das Kontingent (Land, Spielklasse, ab Platz), da ein Land mehrere Quoten haben kann (#572).</summary>
     public async Task<IReadOnlyList<LandesQuote>> QuotenErsetzenAsync(int turnierInstanzId, IReadOnlyList<LandesQuote> neueQuoten, CancellationToken ct = default)
     {
         var alte = await Context.LandesQuoten.Where(q => q.TurnierInstanzId == turnierInstanzId).ToListAsync(ct);
-        var alteNachLand = alte.ToDictionary(q => q.LandId);
+        var alteNachSchluessel = alte.ToDictionary(Schluessel);
 
         var ergebnis = new List<LandesQuote>(neueQuoten.Count);
-        var neueLandIds = new HashSet<int>();
+        var neueSchluessel = new HashSet<(int, int?, int?)>();
 
         foreach (var neu in neueQuoten)
         {
-            neueLandIds.Add(neu.LandId);
-            if (alteNachLand.TryGetValue(neu.LandId, out var bestehend))
+            neueSchluessel.Add(Schluessel(neu));
+            if (alteNachSchluessel.TryGetValue(Schluessel(neu), out var bestehend))
             {
                 bestehend.Anzahl = neu.Anzahl;
                 ergebnis.Add(bestehend);
@@ -39,10 +40,11 @@ public class LandesQuoteRepository(TurnierverwaltungDbContext context)
             }
         }
 
-        var entfernte = alte.Where(q => !neueLandIds.Contains(q.LandId)).ToList();
-        Context.LandesQuoten.RemoveRange(entfernte);
+        Context.LandesQuoten.RemoveRange(alte.Where(q => !neueSchluessel.Contains(Schluessel(q))));
 
         await Context.SaveChangesAsync(ct);
         return ergebnis;
     }
+
+    private static (int, int?, int?) Schluessel(LandesQuote quote) => (quote.LandId, quote.Spielklasse, quote.AbPlatz);
 }

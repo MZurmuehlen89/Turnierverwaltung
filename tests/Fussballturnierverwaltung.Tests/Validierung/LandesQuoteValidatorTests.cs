@@ -1,7 +1,8 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
-using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 
 namespace Fussballturnierverwaltung.Tests.Validierung;
 
@@ -9,129 +10,98 @@ public class LandesQuoteValidatorTests
 {
     private readonly LandesQuoteValidator _validator = new();
 
-    private static LandesQuote Bestehende(int id, int landId) =>
-        new() { Id = id, TurnierInstanzId = 1, LandId = landId, Anzahl = 5 };
-
-    [Fact]
-    public void GueltigeEingabe_IstGueltig()
-    {
-        var eingabe = new LandesQuoteEingabe(TurnierInstanzId: 1, LandId: 10, Anzahl: 8);
-
-        _validator.Validieren(eingabe, []).IstGueltig.Should().BeTrue();
-    }
-
-    [Fact]
-    public void AnzahlKleinerAls1_WirdAbgelehnt()
-    {
-        var eingabe = new LandesQuoteEingabe(1, 10, Anzahl: 0);
-
-        var ergebnis = _validator.Validieren(eingabe, []);
-
-        ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().ContainMatch("*mindestens 1*");
-    }
-
-    [Fact]
-    public void DuplikatLandImSelbenTurnier_WirdAbgelehnt()
-    {
-        var eingabe = new LandesQuoteEingabe(1, LandId: 10, Anzahl: 5);
-        var bestehende = new[] { Bestehende(1, landId: 10) };
-
-        var ergebnis = _validator.Validieren(eingabe, bestehende);
-
-        ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().ContainMatch("*existiert*bereits*");
-    }
-
-    [Fact]
-    public void BearbeitenDerEigenenQuote_WirdNichtAlsDuplikatErkannt()
-    {
-        var eingabe = new LandesQuoteEingabe(1, LandId: 10, Anzahl: 6);
-        var bestehende = new[] { Bestehende(1, landId: 10) };
-
-        _validator.Validieren(eingabe, bestehende, bearbeiteteId: 1).IstGueltig.Should().BeTrue();
-    }
-
-    // ── Listen-Überladung (WinUi-Turnierkopf-Grid, Issue #189) ─────────────────────────────
-
-    [Fact]
-    public void ZeilenListe_LeereListe_IstGueltig()
-    {
-        _validator.Validieren(Array.Empty<LandesQuoteZeileEingabe>()).IstGueltig.Should().BeTrue();
-    }
-
-    [Fact]
-    public void ZeilenListe_ZweiUnterschiedlicheLaender_SindGueltig()
-    {
-        var zeilen = new[]
+    // Land 10 mit Pyramide (Bundesliga 18 Plätze, 2. Bundesliga 18 Plätze), Land 20 ohne.
+    private static readonly Land[] _laender =
+    [
+        new()
         {
-            new LandesQuoteZeileEingabe(LandId: 10, Anzahl: 8),
-            new LandesQuoteZeileEingabe(LandId: 20, Anzahl: 4)
-        };
+            Id = 10, Name = "Deutschland",
+            Rangliste = new Rangliste
+            {
+                Abschnitte =
+                [
+                    new RanglistenAbschnitt { Name = "Bundesliga", Spielklasse = 1, BisPlatz = 18 },
+                    new RanglistenAbschnitt { Name = "2. Bundesliga", Spielklasse = 2, BisPlatz = 36 },
+                ],
+            },
+        },
+        new() { Id = 20, Name = "Malta" },
+    ];
 
-        _validator.Validieren(zeilen).IstGueltig.Should().BeTrue();
-    }
-
-    [Fact]
-    public void ZeilenListe_AnzahlKleinerAls1_WirdAbgelehnt()
-    {
-        var zeilen = new[] { new LandesQuoteZeileEingabe(LandId: 10, Anzahl: 0) };
-
-        var ergebnis = _validator.Validieren(zeilen);
-
-        ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().ContainMatch("*mindestens 1*");
-    }
+    private IReadOnlyList<string> Fehler(params LandesQuoteZeileEingabe[] zeilen) =>
+        _validator.Validieren(zeilen, _laender).Fehler;
 
     [Fact]
-    public void ZeilenListe_DuplikatLandInDerselbenListe_WirdAbgelehnt()
-    {
-        var zeilen = new[]
-        {
-            new LandesQuoteZeileEingabe(LandId: 10, Anzahl: 8),
-            new LandesQuoteZeileEingabe(LandId: 10, Anzahl: 4)
-        };
-
-        var ergebnis = _validator.Validieren(zeilen);
-
-        ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().ContainMatch("*Mehrere Quoten*");
-    }
-
-    // ── Kapazitäts-Summen-Check (Issue #189) ───────────────────────────────────────────────────
+    public void LeereListe_IstGueltig() => Fehler().Should().BeEmpty();
 
     [Fact]
-    public void ZeilenListe_SummeInnerhalbKapazitaet_IstGueltig()
-    {
-        var zeilen = new[]
-        {
-            new LandesQuoteZeileEingabe(LandId: 10, Anzahl: 8),
-            new LandesQuoteZeileEingabe(LandId: 20, Anzahl: 4)
-        };
-
-        _validator.Validieren(zeilen, eingangsKapazitaet: 16).IstGueltig.Should().BeTrue();
-    }
+    public void ZweiLaenderOhneSpielklasse_SindGueltig() =>
+        Fehler(new(LandId: 10, Anzahl: 8), new(LandId: 20, Anzahl: 4)).Should().BeEmpty();
 
     [Fact]
-    public void ZeilenListe_SummeUeberKapazitaet_WirdAbgelehnt()
-    {
-        var zeilen = new[]
-        {
-            new LandesQuoteZeileEingabe(LandId: 10, Anzahl: 8),
-            new LandesQuoteZeileEingabe(LandId: 20, Anzahl: 10)
-        };
-
-        var ergebnis = _validator.Validieren(zeilen, eingangsKapazitaet: 16);
-
-        ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().ContainMatch("*übersteigt die Eingangskapazität*");
-    }
+    public void AnzahlKleinerAls1_WirdAbgelehnt() =>
+        Fehler(new LandesQuoteZeileEingabe(LandId: 10, Anzahl: 0)).Should().ContainMatch("*mindestens 1*");
 
     [Fact]
-    public void ZeilenListe_OhneKapazitaetsangabe_SummeWirdNichtGeprueft()
-    {
-        var zeilen = new[] { new LandesQuoteZeileEingabe(LandId: 10, Anzahl: 1000) };
+    public void ZweiZeilenOhneSpielklasse_WerdenAbgelehnt() =>
+        Fehler(new(LandId: 10, Anzahl: 8), new(LandId: 10, Anzahl: 4))
+            .Should().ContainSingle().Which.Should().Match("Deutschland: Eine Quote ohne Spielklasse gilt für das ganze Land*");
 
-        _validator.Validieren(zeilen, eingangsKapazitaet: null).IstGueltig.Should().BeTrue();
-    }
+    [Fact]
+    public void ZeileOhneNebenZeileMitSpielklasse_WirdAbgelehnt() =>
+        Fehler(new(LandId: 10, Anzahl: 8), new(LandId: 10, Anzahl: 4, Spielklasse: 1))
+            .Should().ContainMatch("*ohne Spielklasse*");
+
+    // ── Kontingente (#572) ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void KontingenteInVerschiedenenBereichen_SindGueltig() =>
+        Fehler(
+            new(LandId: 10, Anzahl: 4, Spielklasse: 1, AbPlatz: 1),
+            new(LandId: 10, Anzahl: 2, Spielklasse: 1, AbPlatz: 5),
+            new(LandId: 10, Anzahl: 18, Spielklasse: 2))
+            .Should().BeEmpty();
+
+    [Fact]
+    public void UeberschneidendeKontingente_WerdenAbgelehnt() =>
+        Fehler(
+            new(LandId: 10, Anzahl: 4, Spielklasse: 1, AbPlatz: 1),
+            new(LandId: 10, Anzahl: 2, Spielklasse: 1, AbPlatz: 4))
+            .Should().ContainSingle().Which.Should().Be("Deutschland: Die Quoten in Spielklasse 1 überschneiden sich.");
+
+    [Fact]
+    public void AbPlatzFehlt_ZaehltAbPlatz1() =>
+        Fehler(
+            new(LandId: 10, Anzahl: 4, Spielklasse: 1),
+            new(LandId: 10, Anzahl: 2, Spielklasse: 1, AbPlatz: 1))
+            .Should().ContainMatch("*überschneiden sich*");
+
+    [Fact]
+    public void KontingentUeberDasEndeDerSpielklasse_WirdAbgelehnt() =>
+        Fehler(new LandesQuoteZeileEingabe(LandId: 10, Anzahl: 4, Spielklasse: 1, AbPlatz: 16))
+            .Should().ContainSingle().Which.Should().Be("Deutschland: 4 Team(s) ab Platz 16 passen nicht in Spielklasse 1.");
+
+    [Fact]
+    public void SpielklasseOhneLigapyramide_WirdAbgelehnt() =>
+        Fehler(new LandesQuoteZeileEingabe(LandId: 20, Anzahl: 2, Spielklasse: 1))
+            .Should().ContainSingle().Which.Should().Be("Malta hat keine Ligapyramide, eine Spielklasse lässt sich nicht wählen.");
+
+    [Fact]
+    public void AbPlatzOhneSpielklasse_WirdIgnoriert() =>
+        new LandesQuoteZeileEingabe(LandId: 10, Anzahl: 2, AbPlatz: 5).GespeicherterAbPlatz.Should().BeNull();
+
+    // ── Kapazitäts-Summen-Check (Issue #189) ───────────────────────────────────────────────
+
+    [Fact]
+    public void SummeInnerhalbKapazitaet_IstGueltig() =>
+        _validator.Validieren([new(10, 8), new(20, 4)], _laender, eingangsKapazitaet: 16).IstGueltig.Should().BeTrue();
+
+    [Fact]
+    public void SummeUeberKapazitaet_WirdAbgelehnt() =>
+        _validator.Validieren([new(10, 8), new(20, 10)], _laender, eingangsKapazitaet: 16)
+            .Fehler.Should().ContainMatch("*übersteigt die Eingangskapazität*");
+
+    [Fact]
+    public void OhneKapazitaetsangabe_SummeWirdNichtGeprueft() =>
+        _validator.Validieren([new(10, 1000)], _laender).IstGueltig.Should().BeTrue();
 }

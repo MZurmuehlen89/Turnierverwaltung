@@ -1,51 +1,79 @@
 using Fussballturnierverwaltung.Application.Abstraktionen;
+using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
-using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 
 namespace Fussballturnierverwaltung.Application.Validierung;
 
 public class LandesQuoteValidator
 {
-    /// <summary>Validiert eine Landes-Quote gegen die bestehenden Quoten desselben Turniers, analog
-    /// VerbandsQuoteValidator. <paramref name="bearbeiteteId"/> schließt die eigene Quote von der
-    /// Duplikat-Prüfung aus (Bearbeiten-Fall).</summary>
+    /// <summary>Validiert die Landes-Quoten-Zeilen eines Turniers auf einmal (Turnierkopf). Ein Land darf mehrere
+    /// Kontingente haben (#572), deren Platzbereiche in der Ligapyramide des Landes liegen und sich nicht
+    /// überschneiden; eine Zeile ohne Spielklasse steht für das ganze Land allein. <paramref name="laender"/> liefert
+    /// Namen und Ranglisten (mit Abschnitten) der Länder. <paramref name="eingangsKapazitaet"/> begrenzt optional die
+    /// Summe aller Zeilen (Eingang der ersten Turnierrunde).</summary>
     public ValidationErgebnis Validieren(
-        LandesQuoteEingabe eingabe,
-        IReadOnlyList<LandesQuote> bestehende,
-        int? bearbeiteteId = null)
+        IReadOnlyList<LandesQuoteZeileEingabe> zeilen, IReadOnlyList<Land> laender, int? eingangsKapazitaet = null)
     {
-        var fehler = new List<string>();
-
-        if (eingabe.Anzahl < 1)
-            fehler.Add("Die Anzahl muss mindestens 1 sein.");
-
-        bool duplikat = bestehende.Any(q => q.LandId == eingabe.LandId && q.Id != bearbeiteteId);
-        if (duplikat)
-            fehler.Add("Für dieses Land existiert in diesem Turnier bereits eine Quote.");
-
-        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+        var laenderNachId = laender.ToDictionary(l => l.Id);
+        string[] fehler =
+        [
+            .. zeilen.SelectMany(z => ZeilePruefen(z, laenderNachId.GetValueOrDefault(z.LandId))),
+            .. zeilen.GroupBy(z => z.LandId).SelectMany(g => LandPruefen(g.ToList(), Name(g.Key, laenderNachId))),
+            .. KapazitaetPruefen(zeilen, eingangsKapazitaet),
+        ];
+        return fehler.Length == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern(fehler);
     }
 
-    /// <summary>Validiert eine komplette Liste von Landes-Quoten-Zeilen auf einmal (WinUi-Turnierkopf-Grid),
-    /// analog VerbandsQuoteValidator. <paramref name="eingangsKapazitaet"/> begrenzt optional die Summe
-    /// aller Zeilen (Eingangskapazität der ersten Turnierrunde) — bei null entfällt dieser Check.</summary>
-    public ValidationErgebnis Validieren(IReadOnlyList<LandesQuoteZeileEingabe> zeilen, int? eingangsKapazitaet = null)
+    private static string Name(int landId, IReadOnlyDictionary<int, Land> laender) =>
+        laender.GetValueOrDefault(landId)?.Name ?? $"Land-Id {landId}";
+
+    private static IEnumerable<string> ZeilePruefen(LandesQuoteZeileEingabe zeile, Land? land)
     {
-        var fehler = new List<string>();
-        foreach (var z in zeilen)
+        if (zeile.Anzahl < 1)
         {
-            if (z.Anzahl < 1) fehler.Add("Die Anzahl muss mindestens 1 sein.");
+            yield return "Die Anzahl muss mindestens 1 sein.";
+            yield break;
         }
-        foreach (var dup in zeilen.GroupBy(z => z.LandId).Where(g => g.Count() > 1).Select(g => g.Key))
-            fehler.Add($"Mehrere Quoten für dasselbe Land in diesem Turnier (Land-Id {dup}).");
+        if (zeile.Spielklasse is not { } spielklasse)
+            yield break;
 
-        if (eingangsKapazitaet is { } kapazitaet)
+        var name = land?.Name ?? $"Land-Id {zeile.LandId}";
+        int abPlatz = zeile.GespeicherterAbPlatz!.Value;
+        if (land?.Rangliste is not { Abschnitte.Count: > 0 } pyramide)
+            yield return $"{name} hat keine Ligapyramide, eine Spielklasse lässt sich nicht wählen.";
+        else if (Kontingente.Bereich(pyramide, spielklasse, abPlatz, zeile.Anzahl) is null)
+            yield return $"{name}: {zeile.Anzahl} Team(s) ab Platz {abPlatz} passen nicht in Spielklasse {spielklasse}.";
+    }
+
+    /// <summary>Mehrere Zeilen eines Landes: alle mit Spielklasse, Bereiche je Spielklasse ohne Überschneidung.</summary>
+    private static IEnumerable<string> LandPruefen(IReadOnlyList<LandesQuoteZeileEingabe> zeilen, string name)
+    {
+        if (zeilen.Count < 2)
+            yield break;
+
+        if (zeilen.Any(z => z.Spielklasse is null))
         {
-            var summe = zeilen.Sum(z => z.Anzahl);
-            if (summe > kapazitaet)
-                fehler.Add($"Die Summe der Landes-Quoten ({summe}) übersteigt die Eingangskapazität der ersten Runde ({kapazitaet}).");
+            yield return $"{name}: Eine Quote ohne Spielklasse gilt für das ganze Land, weitere Quoten sind dann nicht möglich.";
+            yield break;
         }
 
-        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+        foreach (var klasse in zeilen.GroupBy(z => z.Spielklasse))
+        {
+            var bereiche = klasse
+                .Select(z => (Von: z.GespeicherterAbPlatz!.Value, z.Anzahl))
+                .Select(b => (b.Von, Bis: b.Von + b.Anzahl - 1))
+                .OrderBy(b => b.Von)
+                .ToList();
+            if (bereiche.Zip(bereiche.Skip(1)).Any(p => p.Second.Von <= p.First.Bis))
+                yield return $"{name}: Die Quoten in Spielklasse {klasse.Key} überschneiden sich.";
+        }
+    }
+
+    private static IEnumerable<string> KapazitaetPruefen(IReadOnlyList<LandesQuoteZeileEingabe> zeilen, int? eingangsKapazitaet)
+    {
+        var summe = zeilen.Sum(z => z.Anzahl);
+        if (eingangsKapazitaet is { } kapazitaet && summe > kapazitaet)
+            yield return $"Die Summe der Landes-Quoten ({summe}) übersteigt die Eingangskapazität der ersten Runde ({kapazitaet}).";
     }
 }
