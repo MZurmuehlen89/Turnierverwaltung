@@ -109,6 +109,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<UebergangsregelService>();
         builder.Services.AddScoped<VerbandsQuoteService>();
         builder.Services.AddScoped<LandesQuoteService>();
+        builder.Services.AddScoped<KontingentvorgabeService>();
         builder.Services.AddScoped<AuslosungsPruefung>();
         builder.Services.AddScoped<AuslosungsVorbereitung>();
         builder.Services.AddScoped<AuslosungService>();
