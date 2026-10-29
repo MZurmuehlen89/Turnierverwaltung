@@ -331,6 +331,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         VerbandsQuoteService verbandsQuoteService,
         LandesQuoteService landesQuoteService,
         AuslosungsTeilnehmerpool teilnehmerpool,
+        LostopfBefuellung befuellung,
         IDialogService dialogService,
         Zufallsquelle zufallsquelle,
         ILogger<AuslosungViewModel> logger)
@@ -344,7 +345,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _dialogService = dialogService;
         _zufallsquelle = zufallsquelle;
         _logger = logger;
-        Arbeitsbereich = new LostopfArbeitsbereichViewModel(this, auslosungService, ranglisteService, instanzService, dialogService);
+        Arbeitsbereich = new LostopfArbeitsbereichViewModel(this, auslosungService, ranglisteService, befuellung, dialogService);
         _regeln = new AuslosungsRegelnViewModel(auslosungService, () => DbContextSchutz, meldung => Fehlermeldung = meldung);
         _regeln.Geaendert += () => OnPropertyChanged(nameof(RibbonZusatzGruppen));
         Quoten = new QuotenAnzeigeViewModel(verbandsQuoteService, landesQuoteService);

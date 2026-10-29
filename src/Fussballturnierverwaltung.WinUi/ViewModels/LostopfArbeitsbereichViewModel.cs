@@ -2,7 +2,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Ranglisten;
-using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -36,7 +35,7 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     private readonly ILostopfArbeitsbereichKontext _kontext;
     private readonly AuslosungService _auslosungService;
     private readonly RanglisteService _ranglisteService;
-    private readonly TurnierInstanzService _instanzService;
+    private readonly LostopfBefuellung _befuellung;
     private readonly IDialogService _dialogService;
     private bool _bearbeitbar;
 
@@ -44,13 +43,13 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
         ILostopfArbeitsbereichKontext kontext,
         AuslosungService auslosungService,
         RanglisteService ranglisteService,
-        TurnierInstanzService instanzService,
+        LostopfBefuellung befuellung,
         IDialogService dialogService)
     {
         _kontext = kontext;
         _auslosungService = auslosungService;
         _ranglisteService = ranglisteService;
-        _instanzService = instanzService;
+        _befuellung = befuellung;
         _dialogService = dialogService;
         Filter = new TeilnehmerFilterViewModel(VerfuegbareTeilnehmer);
         Filter.Geaendert += GefilterteTeilnehmerAbgleichen;
@@ -263,7 +262,7 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
             : ToepfeAendernAsync(async detail =>
             {
                 foreach (var t in teilnehmer)
-                    await InTopfLegenAsync(detail.Id, topfId, t);
+                    await _auslosungService.InTopfLegenAsync(detail.Id, topfId, t);
             });
 
     /// <summary>Rechtsklick-Kontextmenü in einem Lostopf: Eintrag/Einträge zurück in "Verfügbar".</summary>
@@ -293,7 +292,7 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
                 {
                     if (vonTopfId.HasValue)
                         await _auslosungService.EintragAusLostopfEntfernenAsync(detail.Id, vonTopfId.Value, t.EintragId);
-                    await InTopfLegenAsync(detail.Id, nachTopfId, t);
+                    await _auslosungService.InTopfLegenAsync(detail.Id, nachTopfId, t);
                 }
             });
 
@@ -328,20 +327,9 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
         catch (Exception ex) { _kontext.FehlerMelden(ex.Message); }
     }
 
-    private Task InTopfLegenAsync(int auslosungId, int topfId, TeilnehmerAnzeige teilnehmer) =>
-        teilnehmer.MannschaftId.HasValue
-            ? _auslosungService.MannschaftZuLostopfHinzufuegenAsync(auslosungId, topfId, teilnehmer.MannschaftId.Value)
-            : _auslosungService.PlatzhalterZuLostopfHinzufuegenAsync(auslosungId, topfId, teilnehmer.Name);
-
     // ── Töpfe nach Rangliste befüllen (#119) ──────────────────────────────────
 
-    /// <summary>
-    /// Verteilt die aktuell noch unzugeordneten Mannschaften (VerfuegbareTeilnehmer, noch offene Platzhalter
-    /// ausgenommen) anhand der ausgewählten Rangliste auf die Lostöpfe: die bestplatzierten Teams
-    /// zuerst in Topf 1, die nächsten in Topf 2 usw. Bereits manuell zugeordnete Teams bleiben
-    /// unangetastet — der Button ergänzt nur, was noch in "Verfügbar" steht. Teams ohne
-    /// Ranglisten-Eintrag werden ans Ende einsortiert (landen tendenziell im letzten Topf).
-    /// </summary>
+    /// <summary>Befüllt die Töpfe nach der ausgewählten Rangliste, siehe <see cref="LostopfBefuellung"/>.</summary>
     [RelayCommand(CanExecute = nameof(KannLostoepfeAutomatischBefuellen))]
     private async Task LostoepfeAutomatischBefuellen()
     {
@@ -362,83 +350,17 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
 
     /// <summary>Kern von <see cref="LostoepfeAutomatischBefuellen"/>, auch beim Anlegen einer Auslosung mit
     /// Standard-Rangliste genutzt (#349). Setzt ein geladenes Detail voraus und läuft unter dem Schutz des
-    /// Aufrufers. Den Titelverteidiger des Turniers setzt sie in Topf 1, wenn die Runde das vorgibt
-    /// (UEFA-Champions-League-Ligaphase).</summary>
+    /// Aufrufers; die Befüllung selbst steckt in <see cref="LostopfBefuellung"/>.</summary>
     private async Task LostoepfeNachRanglisteBefuellenAsync(int ranglisteId)
     {
         if (_kontext.AktuellesDetail is not { } detail) return;
-        if (Lostoepfe.Count == 0)
+        if (await _befuellung.NachRanglisteBefuellenAsync(detail, ranglisteId, [.. VerfuegbareTeilnehmer]) is { } fehler)
         {
-            _kontext.FehlerMelden("Diese Auslosung hat keine Lostöpfe.");
+            _kontext.FehlerMelden(fehler);
             return;
         }
-
-        var rangliste = await _ranglisteService.FindenNachIdAsync(ranglisteId);
-        if (rangliste is null) return;
-
-        var rangProMannschaft = rangliste.Eintraege.ToDictionary(e => e.MannschaftId, e => e.Rang);
-        var vorabInTopf1 = await VorabInTopf1Async(detail);
-        var teamsZuVerteilen = TeamsZuVerteilen(rangProMannschaft, vorabInTopf1);
-        if (teamsZuVerteilen.Count == 0)
-        {
-            _kontext.FehlerMelden("Keine verfügbaren Mannschaften zum Zuordnen.");
-            return;
-        }
-
-        // Gruppenköpfe, die das Programm schon in Topf 1 gelegt hat (#487), zählen bei der Aufteilung mit — sonst
-        // bekäme Topf 1 ein Team zu viel. Sie selbst werden nicht noch einmal eingelegt.
-        var toepfe = Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
-        var schonInTopf1 = detail.Lostoepfe.OrderBy(l => l.Reihenfolge).First().Eintraege
-            .Where(e => e.MannschaftId is { } id && vorabInTopf1.Contains(id))
-            .Select(e => e.MannschaftId!.Value);
-        var teilnehmerJeMannschaft = teamsZuVerteilen.ToDictionary(t => t.SpielendeMannschaftId!.Value);
-        var gruppenplatzProMannschaft = teamsZuVerteilen
-            .Where(t => Gruppenplatz(t).HasValue)
-            .ToDictionary(t => t.SpielendeMannschaftId!.Value, t => Gruppenplatz(t)!.Value);
-        var verteilung = LostopfVorbelegung.Verteilen(
-            [.. schonInTopf1, .. teilnehmerJeMannschaft.Keys], rangProMannschaft, toepfe.Count, vorabInTopf1,
-            gruppenplatzProMannschaft);
-        for (int topfIndex = 0; topfIndex < toepfe.Count; topfIndex++)
-        {
-            foreach (var mannschaftId in verteilung[topfIndex])
-                if (teilnehmerJeMannschaft.TryGetValue(mannschaftId, out var teilnehmer))
-                    await InTopfLegenAsync(detail.Id, toepfe[topfIndex].Id, teilnehmer);
-        }
-
         await _kontext.DetailNeuLadenAsync(detail.Id);
     }
-
-    // Titelverteidiger (#349) und feste Gruppenköpfe (#487) kommen vorab in Topf 1.
-    private async Task<IReadOnlyList<int>> VorabInTopf1Async(Auslosung detail)
-    {
-        if (detail.TurnierRunde is not { } runde) return [];
-        var instanz = await _instanzService.FindenNachIdMitRundenAsync(detail.TurnierInstanzId);
-        return instanz is null
-            ? []
-            : Gruppenkoepfe.VorabInTopf1(
-                runde, [.. instanz.Gastgeber.OrderBy(g => g.Id).Select(g => g.MannschaftId)], instanz.TitelverteidigerId);
-    }
-
-    /// <summary>Noch verfügbare Mannschaften in Setzreihenfolge (vorab für Topf 1, dann Gruppenplatz, dann Rang, dann Name) — höchstens
-    /// so viele, wie der Runde noch fehlen. Ein Platzhalter zählt mit der Mannschaft, die ihn sicher besetzt (#483),
-    /// und kommt als Platzhalter in den Topf.</summary>
-    private List<TeilnehmerAnzeige> TeamsZuVerteilen(Dictionary<int, int> rangProMannschaft, IReadOnlyList<int> vorabInTopf1)
-    {
-        var teams = VerfuegbareTeilnehmer
-            .Where(t => t.SpielendeMannschaftId.HasValue)
-            .OrderBy(t => vorabInTopf1.Contains(t.SpielendeMannschaftId!.Value) ? 0 : 1)
-            .ThenBy(t => Gruppenplatz(t) ?? int.MaxValue)
-            .ThenBy(t => rangProMannschaft.TryGetValue(t.SpielendeMannschaftId!.Value, out var rang) ? rang : int.MaxValue)
-            .ThenBy(t => t.AnzeigeName);
-
-        return TeamsBenoetigt > 0
-            ? teams.Take(Math.Max(0, TeamsBenoetigt - TeamsZugewiesen)).ToList()
-            : teams.ToList();
-    }
-
-    /// <summary>Platz in der Gruppe, aus der ein Platzhalter stammt („2. Gruppe B“ → 2), sonst null (#565).</summary>
-    private static int? Gruppenplatz(TeilnehmerAnzeige teilnehmer) =>
-        teilnehmer.IstPlatzhalter ? GruppenHerkunft.AusPlatzhalter(teilnehmer.Name)?.Platz : null;
 
     private bool KannLostoepfeAutomatischBefuellen() => _bearbeitbar;
     private bool KannAlleToepfeZuruecksetzen()       => _bearbeitbar && Lostoepfe.Any(l => l.Teilnehmer.Count > 0);
