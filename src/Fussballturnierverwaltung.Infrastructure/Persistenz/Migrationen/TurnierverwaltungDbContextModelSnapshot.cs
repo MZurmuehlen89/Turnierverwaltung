@@ -730,6 +730,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int?>("RanglisteId")
+                        .HasColumnType("int");
+
                     b.Property<int>("VerbandId")
                         .HasColumnType("int");
 
@@ -737,6 +740,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     b.HasIndex("FifaCode")
                         .IsUnique();
+
+                    b.HasIndex("RanglisteId");
 
                     b.HasIndex("VerbandId");
 
@@ -813,10 +818,15 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int?>("RanglisteId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Kurzname")
                         .IsUnique();
+
+                    b.HasIndex("RanglisteId");
 
                     b.ToTable("Verbaende", (string)null);
                 });
@@ -893,10 +903,16 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AbPlatz")
+                        .HasColumnType("int");
+
                     b.Property<int>("Anzahl")
                         .HasColumnType("int");
 
                     b.Property<int>("LandId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Spielklasse")
                         .HasColumnType("int");
 
                     b.Property<int>("TurnierInstanzId")
@@ -1502,11 +1518,18 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Land", b =>
                 {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.Rangliste", "Rangliste")
+                        .WithMany()
+                        .HasForeignKey("RanglisteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Verband", "Verband")
                         .WithMany("Laender")
                         .HasForeignKey("VerbandId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Rangliste");
 
                     b.Navigation("Verband");
                 });
@@ -1520,6 +1543,16 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .IsRequired();
 
                     b.Navigation("Land");
+                });
+
+            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Verband", b =>
+                {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.Rangliste", "Rangliste")
+                        .WithMany()
+                        .HasForeignKey("RanglisteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Rangliste");
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum.TurnierBaum", b =>

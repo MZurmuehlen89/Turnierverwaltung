@@ -20,5 +20,10 @@ public class LandKonfiguration : IEntityTypeConfiguration<Land>
             .WithMany(v => v.Laender)
             .HasForeignKey(l => l.VerbandId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(l => l.Rangliste)
+            .WithMany()
+            .HasForeignKey(l => l.RanglisteId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

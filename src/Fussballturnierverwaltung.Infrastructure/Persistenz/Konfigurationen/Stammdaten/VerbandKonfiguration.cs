@@ -13,5 +13,10 @@ public class VerbandKonfiguration : IEntityTypeConfiguration<Verband>
         builder.Property(v => v.Name).IsRequired().HasMaxLength(200);
         builder.Property(v => v.Kurzname).IsRequired().HasMaxLength(20);
         builder.HasIndex(v => v.Kurzname).IsUnique();
+
+        builder.HasOne(v => v.Rangliste)
+            .WithMany()
+            .HasForeignKey(v => v.RanglisteId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

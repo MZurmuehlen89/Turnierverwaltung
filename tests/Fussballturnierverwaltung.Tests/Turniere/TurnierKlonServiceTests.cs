@@ -56,7 +56,7 @@ public class TurnierKlonServiceTests
         ctx.Uebergangsregeln.Add(new Uebergangsregel
             { QuellRundeId = halbfinale.Id, ZielRundeId = finale.Id, GruppeIndex = 1, PlatzierungVon = 1, PlatzierungBis = 1 });
         ctx.VerbandsQuoten.Add(new VerbandsQuote { TurnierInstanzId = 1, VerbandId = 1, Anzahl = 2 });
-        ctx.LandesQuoten.Add(new LandesQuote { TurnierInstanzId = 1, LandId = 1, Anzahl = 1 });
+        ctx.LandesQuoten.Add(new LandesQuote { TurnierInstanzId = 1, LandId = 1, Anzahl = 1, Spielklasse = 1, AbPlatz = 5 });
         ctx.Spiele.Add(new Spiel
         {
             TurnierInstanzId = 1, TurnierRundeId = finale.Id, Spielnummer = 1, Status = SpielStatus.Abgeschlossen
@@ -219,6 +219,8 @@ public class TurnierKlonServiceTests
         klon.LandesQuoten.Should().ContainSingle();
         klon.LandesQuoten.Single().LandId.Should().Be(1);
         klon.LandesQuoten.Single().Anzahl.Should().Be(1);
+        klon.LandesQuoten.Single().Spielklasse.Should().Be(1);
+        klon.LandesQuoten.Single().AbPlatz.Should().Be(5);
     }
 
     [Fact]

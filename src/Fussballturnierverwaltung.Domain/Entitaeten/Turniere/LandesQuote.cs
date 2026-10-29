@@ -11,4 +11,9 @@ public class LandesQuote : BasisEntitaet
     public Land Land { get; set; } = null!;
 
     public int Anzahl { get; set; }
+
+    // Kontingent (#572): Spielklasse und Startplatz innerhalb der Spielklasse in der Rangliste des Landes, z. B.
+    // Bundesliga ab Platz 5 → Plätze 5–6. Beide null = reine Anzahl ohne Herkunft.
+    public int? Spielklasse { get; set; }
+    public int? AbPlatz { get; set; }
 }

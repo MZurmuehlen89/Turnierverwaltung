@@ -101,7 +101,10 @@ public class TurnierKlonService(
             neu.VerbandsQuoten.Add(new VerbandsQuote { VerbandId = quote.VerbandId, Anzahl = quote.Anzahl });
 
         foreach (var quote in quelle.LandesQuoten)
-            neu.LandesQuoten.Add(new LandesQuote { LandId = quote.LandId, Anzahl = quote.Anzahl });
+            neu.LandesQuoten.Add(new LandesQuote
+            {
+                LandId = quote.LandId, Anzahl = quote.Anzahl, Spielklasse = quote.Spielklasse, AbPlatz = quote.AbPlatz
+            });
 
         foreach (var auslosung in quelle.Auslosungen.Where(IstFesteVorbelegung))
             neu.Auslosungen.Add(FesteVorbelegungKopieren(auslosung, neu, rundenNachQuellId[auslosung.TurnierRundeId]));
