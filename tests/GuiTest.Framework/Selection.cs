@@ -9,7 +9,8 @@ public static class Selection
 {
     /// <summary>Selects the combo box entry that displays all <paramref name="texts"/> (exact match each), e.g. a
     /// template shown as "Mini-Turnier" and "8 Teams". A long drop-down virtualizes its entries: one far down the
-    /// list is not among the realized items until it has been realized through the ItemContainer pattern.</summary>
+    /// list is not among the realized items until it has been realized through the ItemContainer pattern — and it
+    /// must be selected before any further item is realized, or the list recycles it (#572).</summary>
     public static void SelectItem(this ComboBox comboBox, params string[] texts)
     {
         bool Matches(AutomationElement item) => ItemMatcher.Matches(item.NameOrEmpty(), DisplayedTexts(item), texts);
@@ -18,8 +19,7 @@ public static class Selection
         try
         {
             var item = Wait.UntilFound(
-                () => comboBox.Items.FirstOrDefault(Matches)
-                      ?? comboBox.ReadAllItems(i => Matches(i) ? i : null).FirstOrDefault(),
+                () => comboBox.Items.FirstOrDefault(Matches) ?? comboBox.FindItem(Matches),
                 Wait.DefaultTimeout,
                 $"combo box entry '{string.Join(" | ", texts)}'");
             item.Patterns.SelectionItem.Pattern.Select();
@@ -62,22 +62,34 @@ public static class Selection
     /// items lets the list recycle earlier ones, whose elements then become invalid. Entries for which
     /// <paramref name="read"/> returns null are skipped.</summary>
     public static IReadOnlyList<T> ReadAllItems<T>(this AutomationElement list, Func<AutomationElement, T?> read)
-        where T : class
+        where T : class =>
+        [.. RealizedItems(list).Select(read).OfType<T>()];
+
+    /// <summary>The first entry of a list for which <paramref name="matches"/> holds, realized if necessary; null if
+    /// there is none. Stops at the match: realizing further items lets a virtualizing list recycle the found one,
+    /// whose element then reports "not available" when it is used (#572).</summary>
+    public static AutomationElement? FindItem(this AutomationElement list, Func<AutomationElement, bool> matches) =>
+        RealizedItems(list).FirstOrDefault(matches);
+
+    /// <summary>Every entry of a list, each realized just before it is handed out — lazily, so a caller that stops
+    /// early realizes nothing beyond.</summary>
+    private static IEnumerable<AutomationElement> RealizedItems(AutomationElement list)
     {
         if (!list.Patterns.ItemContainer.TryGetPattern(out var container))
-            return [.. list.FindAllChildren(cf => cf.ByControlType(ControlType.ListItem)).Select(read).OfType<T>()];
+        {
+            foreach (var child in list.FindAllChildren(cf => cf.ByControlType(ControlType.ListItem)))
+                yield return child;
+            yield break;
+        }
 
-        var results = new List<T>();
         for (var item = container.FindItemByProperty(null, null, null);
              item is not null;
              item = container.FindItemByProperty(item, null, null))
         {
             if (item.Patterns.VirtualizedItem.TryGetPattern(out var virtualized))
                 virtualized.Realize();
-            if (read(item) is { } result)
-                results.Add(result);
+            yield return item;
         }
-        return results;
     }
 
     /// <summary>The texts an element displays, in tree order.</summary>
