@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
@@ -16,15 +17,20 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 public record KontinentOption(string Anzeige, Kontinent? Wert);
 
+/// <summary>Auswahl der Rangliste eines Landes oder Verbands (#572); <see cref="Id"/> null = keine.</summary>
+public record RanglistenOption(string Anzeige, int? Id);
+
 public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly LandService _landService;
     private readonly VerbandService _verbandService;
+    private readonly RanglisteService _ranglisteService;
     private readonly IDialogService _dialogService;
     private int _populiertGerade;
 
     private static readonly VerbandFilterOption AllesVerband = new("— Alle —", null);
     private static readonly KontinentOption AllesKontinent = new("— Alle —", null);
+    private static readonly RanglistenOption KeineRangliste = new("— keine —", null);
 
     private static readonly IReadOnlyList<KontinentOption> _kontinentFormularOptionen =
         Enum.GetValues<Kontinent>()
@@ -73,6 +79,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     [ObservableProperty] private string _verbandName = "";
     [ObservableProperty] private string _verbandKurzname = "";
     [ObservableProperty] private byte[]? _verbandLogoDaten;
+    [ObservableProperty] private RanglistenOption? _verbandRangliste = KeineRangliste;
 
     // ── Länder ───────────────────────────────────────────────────────────────
     [ObservableProperty]
@@ -120,6 +127,10 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     [ObservableProperty] private KontinentOption _landKontinentOption = _kontinentFormularOptionen[0];
     [ObservableProperty] private Verband? _landVerband;
     [ObservableProperty] private byte[]? _landFlaggeDaten;
+    [ObservableProperty] private RanglistenOption? _landRangliste = KeineRangliste;
+
+    // Ranglisten zur Auswahl an Land und Verband (#572), „keine“ zuerst.
+    [ObservableProperty] private IReadOnlyList<RanglistenOption> _ranglistenOptionen = [KeineRangliste];
 
     // ── Berechnete Listen ─────────────────────────────────────────────────────
     public IEnumerable<Land> LaenderGefiltert => Laender
@@ -168,12 +179,12 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     private static readonly HashSet<string> _landFormFelder =
     [
         nameof(LandName), nameof(LandKurzname), nameof(LandFifaCode),
-        nameof(LandKontinentOption), nameof(LandVerband), nameof(LandFlaggeDaten)
+        nameof(LandKontinentOption), nameof(LandVerband), nameof(LandFlaggeDaten), nameof(LandRangliste)
     ];
 
     private static readonly HashSet<string> _verbandFormFelder =
     [
-        nameof(VerbandName), nameof(VerbandKurzname), nameof(VerbandLogoDaten)
+        nameof(VerbandName), nameof(VerbandKurzname), nameof(VerbandLogoDaten), nameof(VerbandRangliste)
     ];
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
@@ -183,10 +194,13 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     public ICommand? AbbrechenBefehl => AbbrechenCommand;
     public ICommand? LoeschenBefehl => LoeschenCommand;
 
-    public LaenderUndVerbaendeViewModel(LandService landService, VerbandService verbandService, IDialogService dialogService)
+    public LaenderUndVerbaendeViewModel(
+        LandService landService, VerbandService verbandService, RanglisteService ranglisteService,
+        IDialogService dialogService)
     {
         _landService = landService;
         _verbandService = verbandService;
+        _ranglisteService = ranglisteService;
         _dialogService = dialogService;
     }
 
@@ -199,6 +213,9 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         {
             var laender = await _landService.AlleAbrufenMitVerbandAsync();
             var verbaende = await _verbandService.AlleAbrufenAsync();
+            var ranglisten = await _ranglisteService.AlleOhneEintraegeAbrufenAsync();
+
+            RanglistenOptionen = [KeineRangliste, .. ranglisten.OrderBy(r => r.Name).Select(r => new RanglistenOption(r.Name, r.Id))];
 
             Laender = new ObservableCollection<Land>(laender.OrderBy(l => l.Name));
             Verbaende = new ObservableCollection<Verband>(verbaende.OrderBy(v => v.Name));
@@ -236,6 +253,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
                 LandKontinentOption = _kontinentFormularOptionen[0];
                 LandVerband = null;
                 LandFlaggeDaten = null;
+                LandRangliste = KeineRangliste;
             }
             else
             {
@@ -248,6 +266,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
                     .FirstOrDefault(k => k.Wert == land.Kontinent) ?? _kontinentFormularOptionen[0];
                 LandVerband = Verbaende.FirstOrDefault(v => v.Id == land.VerbandId);
                 LandFlaggeDaten = land.Flagge;
+                LandRangliste = RanglisteOptionFuer(land.RanglisteId);
             }
             LandIsDirty = false;
             Fehlermeldung = null;
@@ -257,6 +276,9 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
             _populiertGerade--;
         }
     }
+
+    private RanglistenOption RanglisteOptionFuer(int? ranglisteId) =>
+        RanglistenOptionen.FirstOrDefault(o => o.Id == ranglisteId) ?? KeineRangliste;
 
     private void VerbandFormularAusFuellenMit(Verband? verband)
     {
@@ -269,6 +291,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
                 VerbandIstNeuModus = false;
                 VerbandName = VerbandKurzname = "";
                 VerbandLogoDaten = null;
+                VerbandRangliste = KeineRangliste;
             }
             else
             {
@@ -277,6 +300,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
                 VerbandName = verband.Name;
                 VerbandKurzname = verband.Kurzname;
                 VerbandLogoDaten = verband.Logo;
+                VerbandRangliste = RanglisteOptionFuer(verband.RanglisteId);
             }
             VerbandIsDirty = false;
             Fehlermeldung = null;
@@ -308,6 +332,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
             LandKontinentOption = _kontinentFormularOptionen[0];
             LandVerband = Verbaende.FirstOrDefault();
             LandFlaggeDaten = null;
+            LandRangliste = KeineRangliste;
             Fehlermeldung = null;
         }
         finally
@@ -337,6 +362,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
             VerbandIstNeuModus = true;
             VerbandName = VerbandKurzname = "";
             VerbandLogoDaten = null;
+            VerbandRangliste = KeineRangliste;
             Fehlermeldung = null;
         }
         finally
@@ -373,7 +399,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
                 var eingabe = new LandErstellenEingabe(
                     LandName, LandKurzname, LandFifaCode,
                     LandKontinentOption.Wert ?? Kontinent.Europa,
-                    LandVerband?.Id ?? 0, LandFlaggeDaten);
+                    LandVerband?.Id ?? 0, LandFlaggeDaten, LandRangliste?.Id);
                 var neu = await _landService.ErstellenAsync(eingabe);
                 await LadenAsync();
                 AusgewaehltesLand = Laender.FirstOrDefault(l => l.Id == neu.Id);
@@ -384,7 +410,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
                 var eingabe = new LandAktualisierenEingabe(
                     LandName, LandKurzname, LandFifaCode,
                     LandKontinentOption.Wert ?? Kontinent.Europa,
-                    LandVerband?.Id ?? 0, LandFlaggeDaten);
+                    LandVerband?.Id ?? 0, LandFlaggeDaten, LandRangliste?.Id);
                 await _landService.AktualisierenAsync(id, eingabe);
                 await LadenAsync();
                 AusgewaehltesLand = Laender.FirstOrDefault(l => l.Id == id);
@@ -403,7 +429,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         {
             if (VerbandIstNeuModus)
             {
-                var eingabe = new VerbandErstellenEingabe(VerbandName, VerbandKurzname, VerbandLogoDaten);
+                var eingabe = new VerbandErstellenEingabe(VerbandName, VerbandKurzname, VerbandLogoDaten, VerbandRangliste?.Id);
                 var neu = await _verbandService.ErstellenAsync(eingabe);
                 await LadenAsync();
                 AusgewaehlterVerband = Verbaende.FirstOrDefault(v => v.Id == neu.Id);
@@ -411,7 +437,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
             else if (AusgewaehlterVerband is not null)
             {
                 var id = AusgewaehlterVerband.Id;
-                var eingabe = new VerbandAktualisierenEingabe(VerbandName, VerbandKurzname, VerbandLogoDaten);
+                var eingabe = new VerbandAktualisierenEingabe(VerbandName, VerbandKurzname, VerbandLogoDaten, VerbandRangliste?.Id);
                 await _verbandService.AktualisierenAsync(id, eingabe);
                 await LadenAsync();
                 AusgewaehlterVerband = Verbaende.FirstOrDefault(v => v.Id == id);

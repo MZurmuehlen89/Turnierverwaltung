@@ -143,7 +143,7 @@
                                 </StackPanel>
                             </Grid>
 
-                            <Grid Margin="0,0,0,24" ColumnDefinitions="*,16,*">
+                            <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,*">
                                 <StackPanel HorizontalAlignment="Stretch">
                                     <TextBlock Text="Kontinent" FontSize="12" Margin="0,0,0,3" />
                                     <ComboBox ItemsSource="{Binding KontinentFormularOptionen}"
@@ -158,6 +158,13 @@
                                               DisplayMemberPath="Name" HorizontalAlignment="Stretch" />
                                 </StackPanel>
                             </Grid>
+
+                            <!-- #572: in der Regel die Ligapyramide des Landes; liefert Spielklassen für Kontingente. -->
+                            <TextBlock Text="Rangliste" FontSize="12" Margin="0,0,0,3" />
+                            <ComboBox AutomationProperties.AutomationId="Laender.Rangliste"
+                                      ItemsSource="{Binding RanglistenOptionen}"
+                                      SelectedItem="{Binding LandRangliste, Mode=TwoWay}"
+                                      DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,24" />
 
                             <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
                                     Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
@@ -273,7 +280,14 @@
                             <TextBlock Text="Kurzname" FontSize="12" Margin="0,0,0,3" />
                             <TextBox AutomationProperties.AutomationId="Verbaende.Kurzname"
                                      Text="{Binding VerbandKurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     HorizontalAlignment="Stretch" Margin="0,0,0,24" />
+                                     HorizontalAlignment="Stretch" Margin="0,0,0,12" />
+
+                            <!-- #572: etwa die FIFA-Weltrangliste, gefiltert nach Verband. -->
+                            <TextBlock Text="Rangliste" FontSize="12" Margin="0,0,0,3" />
+                            <ComboBox AutomationProperties.AutomationId="Verbaende.Rangliste"
+                                      ItemsSource="{Binding RanglistenOptionen}"
+                                      SelectedItem="{Binding VerbandRangliste, Mode=TwoWay}"
+                                      DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,24" />
 
                             <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
                                     Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"

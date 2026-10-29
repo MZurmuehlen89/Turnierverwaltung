@@ -26,7 +26,8 @@ public class LandService(ILandRepository repository, LandValidator validator, IL
             FifaCode = eingabe.FifaCode.Trim().ToUpperInvariant(),
             Kontinent = eingabe.Kontinent,
             VerbandId = eingabe.VerbandId,
-            Flagge = eingabe.Flagge
+            Flagge = eingabe.Flagge,
+            RanglisteId = eingabe.RanglisteId
         };
         await repository.HinzufuegenAsync(land, ct);
         logger.LogInformation("Land '{Name}' angelegt (ID {Id}).", land.Name, land.Id);
@@ -44,6 +45,7 @@ public class LandService(ILandRepository repository, LandValidator validator, IL
         land.Kontinent = eingabe.Kontinent;
         land.VerbandId = eingabe.VerbandId;
         land.Flagge = eingabe.Flagge;
+        land.RanglisteId = eingabe.RanglisteId;
         await repository.AktualisierenAsync(land, ct);
     }
 
