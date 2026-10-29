@@ -49,36 +49,7 @@ public class TurnierKlonService(
         var rundenNachQuellId = new Dictionary<int, TurnierRunde>();
         foreach (var runde in quelle.Runden.OrderBy(r => r.Reihenfolge))
         {
-            var neueRunde = new TurnierRunde
-            {
-                Name                      = runde.Name,
-                Reihenfolge               = runde.Reihenfolge,
-                Rundenart                 = runde.Rundenart,
-                EingangsMannschaftsanzahl = runde.EingangsMannschaftsanzahl,
-                AusgangsMannschaftsanzahl = runde.AusgangsMannschaftsanzahl,
-                GruppenAnzahl             = runde.GruppenAnzahl,
-                RegelwerkId               = runde.RegelwerkId,
-                MitRueckspiel             = runde.MitRueckspiel,
-                AuswaertstorRegelAktiv    = runde.AuswaertstorRegelAktiv,
-                NeutralerSpielort         = runde.NeutralerSpielort,
-                Ueberraschungsfaktor      = runde.Ueberraschungsfaktor,
-                KonfigurationJson         = runde.KonfigurationJson,
-                EingangUeberUebergangsregeln = runde.EingangUeberUebergangsregeln,
-                PaarungFestVorgegeben     = runde.PaarungFestVorgegeben,
-                VorgegebeneAuslosungsart  = runde.VorgegebeneAuslosungsart,
-                VorgegebeneAuslosungsregeln = [.. runde.VorgegebeneAuslosungsregeln],
-                VorgegebeneGruppenposition = runde.VorgegebeneGruppenposition,
-                GastgeberGruppen = [.. runde.GastgeberGruppen],
-                TitelverteidigerGruppe = runde.TitelverteidigerGruppe,
-                KombinationstabelleJson   = runde.KombinationstabelleJson,
-                StandardRanglisteId = runde.StandardRanglisteId,
-                TitelverteidigerInTopf1   = runde.TitelverteidigerInTopf1,
-                GegnerJeTopf              = runde.GegnerJeTopf,
-                TabellenBereiche          = [.. runde.TabellenBereiche.Select(b => new TabellenBereich
-                {
-                    PlatzVon = b.PlatzVon, PlatzBis = b.PlatzBis, Art = b.Art, Bezeichnung = b.Bezeichnung
-                })]
-            };
+            var neueRunde = RundeKopieren(runde);
             neu.Runden.Add(neueRunde);
             rundenNachQuellId[runde.Id] = neueRunde;
         }
@@ -97,14 +68,7 @@ public class TurnierKlonService(
             });
         }
 
-        foreach (var quote in quelle.VerbandsQuoten)
-            neu.VerbandsQuoten.Add(new VerbandsQuote { VerbandId = quote.VerbandId, Anzahl = quote.Anzahl });
-
-        foreach (var quote in quelle.LandesQuoten)
-            neu.LandesQuoten.Add(new LandesQuote
-            {
-                LandId = quote.LandId, Anzahl = quote.Anzahl, Spielklasse = quote.Spielklasse, AbPlatz = quote.AbPlatz
-            });
+        QuotenKopieren(quelle, neu);
 
         foreach (var auslosung in quelle.Auslosungen.Where(IstFesteVorbelegung))
             neu.Auslosungen.Add(FesteVorbelegungKopieren(auslosung, neu, rundenNachQuellId[auslosung.TurnierRundeId]));
@@ -114,6 +78,50 @@ public class TurnierKlonService(
         return neu;
     }
 
+    private static TurnierRunde RundeKopieren(TurnierRunde runde) =>
+        new()
+        {
+            Name                      = runde.Name,
+            Reihenfolge               = runde.Reihenfolge,
+            Rundenart                 = runde.Rundenart,
+            EingangsMannschaftsanzahl = runde.EingangsMannschaftsanzahl,
+            AusgangsMannschaftsanzahl = runde.AusgangsMannschaftsanzahl,
+            GruppenAnzahl             = runde.GruppenAnzahl,
+            RegelwerkId               = runde.RegelwerkId,
+            MitRueckspiel             = runde.MitRueckspiel,
+            AuswaertstorRegelAktiv    = runde.AuswaertstorRegelAktiv,
+            NeutralerSpielort         = runde.NeutralerSpielort,
+            Ueberraschungsfaktor      = runde.Ueberraschungsfaktor,
+            KonfigurationJson         = runde.KonfigurationJson,
+            EingangUeberUebergangsregeln = runde.EingangUeberUebergangsregeln,
+            PaarungFestVorgegeben     = runde.PaarungFestVorgegeben,
+            VorgegebeneAuslosungsart  = runde.VorgegebeneAuslosungsart,
+            VorgegebeneAuslosungsregeln = [.. runde.VorgegebeneAuslosungsregeln],
+            VorgegebeneGruppenposition = runde.VorgegebeneGruppenposition,
+            GastgeberGruppen = [.. runde.GastgeberGruppen],
+            TitelverteidigerGruppe = runde.TitelverteidigerGruppe,
+            KombinationstabelleJson   = runde.KombinationstabelleJson,
+            StandardRanglisteId = runde.StandardRanglisteId,
+            TitelverteidigerInTopf1   = runde.TitelverteidigerInTopf1,
+            GegnerJeTopf              = runde.GegnerJeTopf,
+            TabellenBereiche          = [.. runde.TabellenBereiche.Select(b => new TabellenBereich
+            {
+                PlatzVon = b.PlatzVon, PlatzBis = b.PlatzBis, Art = b.Art, Bezeichnung = b.Bezeichnung
+            })]
+        };
+
+    private static void QuotenKopieren(TurnierInstanz quelle, TurnierInstanz neu)
+    {
+        foreach (var quote in quelle.VerbandsQuoten)
+            neu.VerbandsQuoten.Add(new VerbandsQuote { VerbandId = quote.VerbandId, Anzahl = quote.Anzahl });
+
+        foreach (var quote in quelle.LandesQuoten)
+            neu.LandesQuoten.Add(new LandesQuote
+            {
+                LandId = quote.LandId, Anzahl = quote.Anzahl, Spielklasse = quote.Spielklasse, AbPlatz = quote.AbPlatz
+            });
+    }
+
     // ── Feste Vorbelegung ──────────────────────────────────────────────────────
 
     // Issue #372: die fest vorgegebenen Paarungen einer Runde (PaarungFestVorgegeben + abgeschlossene
@@ -121,6 +129,7 @@ public class TurnierKlonService(
     // einem konkreten Turnierverlauf — ohne sie kam ein aus einer Vorlage erzeugtes Turnier mit gesetztem
     // Flag, aber ohne Paarungen an. Nur reine Platzhalter-Vorbelegungen: echte Mannschaften sind
     // saisonspezifisch und werden wie Spiele nie mitgeklont.
+
     private static bool IstFesteVorbelegung(Auslosung auslosung) =>
         auslosung.Auslosungsart == Auslosungsart.Manuell
         && auslosung.Status == AuslosungsStatus.Abgeschlossen
