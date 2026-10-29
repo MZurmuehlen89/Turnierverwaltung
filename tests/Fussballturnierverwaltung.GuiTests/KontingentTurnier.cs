@@ -18,6 +18,7 @@ internal static class KontingentTurnier
         return (turniere, name);
     }
 
-    public static void Abwarten(Func<bool> bedingung, string beschreibung) =>
-        Wait.Until(bedingung, Wait.DefaultTimeout, beschreibung);
+    /// <summary>Wartet, bis <paramref name="erfuellt"/> gilt, höchstens die übliche Zeit, ohne zu werfen — die
+    /// folgende Prüfung meldet dann die tatsächlichen Werte.</summary>
+    public static void Abwarten(Func<bool> erfuellt) => Wait.Within(erfuellt, Wait.DefaultTimeout);
 }

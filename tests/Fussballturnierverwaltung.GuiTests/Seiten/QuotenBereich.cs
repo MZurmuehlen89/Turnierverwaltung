@@ -4,6 +4,9 @@ using GuiTest.Framework;
 
 namespace Fussballturnierverwaltung.GuiTests.Seiten;
 
+/// <summary>Eine Landes-Quoten-Zeile, wie der Turnierkopf sie zeigt.</summary>
+public sealed record QuotenZeile(string Land, string Spielklasse, bool SpielklasseWaehlbar, int AbPlatz, string Ergibt);
+
 /// <summary>Aufklappbarer Bereich „Quoten“ im Turnierkopf (#572): die Landes-Quoten-Zeilen „Land | Spielklasse |
 /// ab Platz | Anzahl | ergibt“ und der Hinweis auf die freien Plätze. Zeilen werden über ihre Position (ab 0)
 /// angesprochen.</summary>
@@ -38,15 +41,20 @@ public sealed class QuotenBereich(Window fenster)
     public void AnzahlSetzen(int zeile, int anzahl) =>
         Feld("Turnierkopf.LandesQuoteAnzahl", zeile).Patterns.RangeValue.Pattern.SetValue(anzahl);
 
-    /// <summary>Text der zugeklappten Spielklassen-Auswahl.</summary>
-    public string Spielklasse(int zeile) => Feld(SPIELKLASSE, zeile).DisplayedTexts().FirstOrDefault() ?? string.Empty;
+    /// <summary>Die Zeile, wie sie gerade dasteht; Auswahllisten über ihren gewählten Eintrag gelesen.</summary>
+    public QuotenZeile Zeile(int zeile)
+    {
+        var spielklasse = Feld(SPIELKLASSE, zeile);
+        return new QuotenZeile(
+            Gewaehlt(Feld(LAND, zeile)),
+            Gewaehlt(spielklasse),
+            spielklasse.IsEnabled,
+            (int)Feld("Turnierkopf.LandesQuoteAbPlatz", zeile).Patterns.RangeValue.Pattern.Value.Value,
+            Feld("Turnierkopf.LandesQuoteErgibt", zeile).NameOrEmpty());
+    }
 
-    public bool SpielklasseWaehlbar(int zeile) => Feld(SPIELKLASSE, zeile).IsEnabled;
-
-    public int AbPlatz(int zeile) =>
-        (int)Feld("Turnierkopf.LandesQuoteAbPlatz", zeile).Patterns.RangeValue.Pattern.Value.Value;
-
-    public string Ergibt(int zeile) => Feld("Turnierkopf.LandesQuoteErgibt", zeile).NameOrEmpty();
+    private static string Gewaehlt(AutomationElement auswahl) =>
+        auswahl.AsComboBox().SelectedItem?.DisplayedTexts().FirstOrDefault() ?? string.Empty;
 
     public string FreiePlaetze => fenster.TextOf("Turnierkopf.LandesFreiePlaetze");
 

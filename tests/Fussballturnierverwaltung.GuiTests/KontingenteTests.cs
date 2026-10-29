@@ -24,16 +24,25 @@ public sealed class KontingenteTests(TurnierverwaltungApp app) : IClassFixture<T
 
         quoten.LandHinzufuegen();
         quoten.LandWaehlen(0, "Deutschland");
-        Abwarten(() => quoten.Spielklasse(0) == GANZES_LAND && quoten.Ergibt(0) == "—", "ganzes Land vorgeschlagen");
+        var ganzesLand = new QuotenZeile("Deutschland", GANZES_LAND, true, 1, "—");
+        Abwarten(() => quoten.Zeile(0) == ganzesLand);
+        quoten.Zeile(0).Should().Be(ganzesLand, "eine einzige Zeile beginnt mit dem ganzen Land");
+
         quoten.SpielklasseWaehlen(0, BUNDESLIGA);
         quoten.AnzahlSetzen(0, 4);
-        Abwarten(() => quoten.Ergibt(0) == "Bundesliga, Plätze 1–4", "erstes Kontingent");
+        var erstes = new QuotenZeile("Deutschland", BUNDESLIGA, true, 1, "Bundesliga, Plätze 1–4");
+        Abwarten(() => quoten.Zeile(0) == erstes);
+        quoten.Zeile(0).Should().Be(erstes);
 
         quoten.LandHinzufuegen();
         quoten.LandWaehlen(1, "Deutschland");
-        Abwarten(() => quoten.Spielklasse(1) == BUNDESLIGA && quoten.AbPlatz(1) == 5, "Bundesliga ab Platz 5 vorgeschlagen");
+        var vorschlag = new QuotenZeile("Deutschland", BUNDESLIGA, true, 5, "Bundesliga, Platz 5");
+        Abwarten(() => quoten.Zeile(1) == vorschlag);
+        quoten.Zeile(1).Should().Be(vorschlag, "die zweite Zeile schließt hinter dem ersten Kontingent an");
+
         quoten.AnzahlSetzen(1, 2);
-        Abwarten(() => quoten.Ergibt(1) == "Bundesliga, Plätze 5–6", "zweites Kontingent");
+        Abwarten(() => quoten.Zeile(1).Ergibt == "Bundesliga, Plätze 5–6");
+        quoten.Zeile(1).Ergibt.Should().Be("Bundesliga, Plätze 5–6");
 
         quoten.SpielklassenAngebot(1).Should().NotContain(GANZES_LAND, "Deutschland hat schon ein Kontingent");
         quoten.SpielklassenAngebot(0).Should().NotContain(GANZES_LAND);
@@ -47,15 +56,15 @@ public sealed class KontingenteTests(TurnierverwaltungApp app) : IClassFixture<T
         quoten = turniere.Quoten();
         quoten.Aufklappen();
 
-        Abwarten(() => quoten.Zeilen == 2, "beide Kontingente geladen");
-        (quoten.Ergibt(0), quoten.Ergibt(1)).Should().Be(("Bundesliga, Plätze 1–4", "Bundesliga, Plätze 5–6"));
+        Abwarten(() => quoten.Zeilen == 2);
+        new[] { quoten.Zeile(0), quoten.Zeile(1) }.Should().Equal(erstes, vorschlag with { Ergibt = "Bundesliga, Plätze 5–6" });
     }
 
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
 
     private (TurnierlisteSeite Turniere, string Name) TurnierAnlegen() => KontingentTurnier.Anlegen(app);
 
-    private static void Abwarten(Func<bool> bedingung, string beschreibung) => KontingentTurnier.Abwarten(bedingung, beschreibung);
+    private static void Abwarten(Func<bool> erfuellt) => KontingentTurnier.Abwarten(erfuellt);
 }
 
 /// <summary>Land ohne Ligapyramide (#572). Eigene Klasse und damit eigene App-Sitzung: bricht ein Szenario mit
@@ -75,7 +84,9 @@ public sealed class KontingentOhnePyramideTests(TurnierverwaltungApp app) : ICla
 
         quoten.LandHinzufuegen();
         quoten.LandWaehlen(0, "England");
-        Abwarten(() => !quoten.SpielklasseWaehlbar(0) && quoten.Spielklasse(0) == GANZES_LAND, "Spielklasse gesperrt");
+        var england = new QuotenZeile("England", GANZES_LAND, false, 1, "—");
+        Abwarten(() => quoten.Zeile(0) == england);
+        quoten.Zeile(0).Should().Be(england, "ohne Pyramide gibt es keine Spielklasse");
 
         quoten.LandHinzufuegen();
         quoten.LandAngeboten(1, "England").Should().BeFalse("England hat schon eine Quote für das ganze Land");
@@ -86,5 +97,5 @@ public sealed class KontingentOhnePyramideTests(TurnierverwaltungApp app) : ICla
 
     private (TurnierlisteSeite Turniere, string Name) TurnierAnlegen() => KontingentTurnier.Anlegen(app);
 
-    private static void Abwarten(Func<bool> bedingung, string beschreibung) => KontingentTurnier.Abwarten(bedingung, beschreibung);
+    private static void Abwarten(Func<bool> erfuellt) => KontingentTurnier.Abwarten(erfuellt);
 }
