@@ -10,14 +10,31 @@
     <UserControl.Resources>
         <conv:AuslosungsartZuTextConverter x:Key="AuslosungsartZuText" />
 
+        <SolidColorBrush x:Key="MatrixZelleHervorhebungBrush" Color="{ThemeResource SystemAccentColor}" Opacity="0.25" />
+
+        <!-- Quotenzeile (#573): anklickbar filtert sie „Verfügbar“ auf ihr Land bzw. ihren Verband, die aktive ist mit
+             derselben Akzent-Tönung wie die Gegner-Matrix hinterlegt. Die freien Plätze sind reiner Text. -->
         <DataTemplate x:Key="QuoteZeileTemplate">
-            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
-                <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" />
-                <TextBlock Grid.Column="1" Text="{Binding AnzeigeText}" FontSize="12" />
+            <Grid Margin="0,0,0,2">
+                <Border Background="{StaticResource MatrixZelleHervorhebungBrush}" CornerRadius="4"
+                        Visibility="{Binding IstAktiv, Converter={StaticResource BoolToVisibility}}" />
+                <Button Command="{Binding Umschalten}" AutomationProperties.AutomationId="Auslosung.Quote"
+                        AutomationProperties.Name="{Binding Name}"
+                        Visibility="{Binding IstKlickbar, Converter={StaticResource BoolToVisibility}}"
+                        Background="Transparent" BorderThickness="0" Padding="4,2"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" />
+                        <TextBlock Grid.Column="1" Text="{Binding AnzeigeText}" FontSize="12" />
+                    </Grid>
+                </Button>
+                <Grid ColumnDefinitions="*,Auto" Padding="4,2"
+                      Visibility="{Binding IstKlickbar, Converter={StaticResource InverseBoolToVisibility}}">
+                    <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" />
+                    <TextBlock Grid.Column="1" Text="{Binding AnzeigeText}" FontSize="12" />
+                </Grid>
             </Grid>
         </DataTemplate>
-
-        <SolidColorBrush x:Key="MatrixZelleHervorhebungBrush" Color="{ThemeResource SystemAccentColor}" Opacity="0.25" />
 
         <!-- Gegner-Matrix (#362): Zelle mit Wappen + Kurzname, anklickbar für den Team-Fokus. Hervorhebung als
              Primary-Tint mit Akzentrahmen (keine Signalfarben), gebunden an die eigene IstHervorgehoben-Property.

@@ -43,7 +43,7 @@ public class QuotenBelegungTests
 
         var staende = QuotenBelegung.JeVerband([Quote(_uefa, 3), Quote(_caf, 1)], toepfe);
 
-        staende.Should().Equal(new QuotenStand("UEFA", 2, 3), new QuotenStand("CAF", 1, 1));
+        staende.Should().Equal(new QuotenStand("UEFA", 2, 3, 1), new QuotenStand("CAF", 1, 1, 2));
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public class QuotenBelegungTests
     {
         var staende = QuotenBelegung.JeVerband([Quote(_caf, 5)], [Topf(Eintrag(Team(_deutschland)))]);
 
-        staende.Should().Equal(new QuotenStand("CAF", 0, 5));
+        staende.Should().Equal(new QuotenStand("CAF", 0, 5, 2));
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public class QuotenBelegungTests
         var staende = QuotenBelegung.JeVerband(
             [Quote(_uefa, 2)], [Topf(Platzhalter("Sieger Gruppe A"), Eintrag(ohneLand), Eintrag(Team(_spanien)))]);
 
-        staende.Should().Equal(new QuotenStand("UEFA", 1, 2));
+        staende.Should().Equal(new QuotenStand("UEFA", 1, 2, 1));
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class QuotenBelegungTests
     {
         var quote = new VerbandsQuote { VerbandId = 7, Verband = null!, Anzahl = 4 };
 
-        QuotenBelegung.JeVerband([quote], []).Should().Equal(new QuotenStand("Verband 7", 0, 4));
+        QuotenBelegung.JeVerband([quote], []).Should().Equal(new QuotenStand("Verband 7", 0, 4, 7));
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public class QuotenBelegungTests
         var staende = QuotenBelegung.JeLand([Quote(_deutschland, 4), Quote(_spanien, 1), Quote(_ghana, 2)], toepfe);
 
         staende.Should().Equal(
-            new QuotenStand("Deutschland", 2, 4), new QuotenStand("Spanien", 1, 1), new QuotenStand("Ghana", 0, 2));
+            new QuotenStand("Deutschland", 2, 4, 10), new QuotenStand("Spanien", 1, 1, 11), new QuotenStand("Ghana", 0, 2, 20));
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public class QuotenBelegungTests
     {
         var toepfe = new[] { Topf(Eintrag(Team(_ghana)), Eintrag(Team(_ghana))) };
 
-        QuotenBelegung.JeLand([Quote(_ghana, 1)], toepfe).Should().Equal(new QuotenStand("Ghana", 2, 1));
+        QuotenBelegung.JeLand([Quote(_ghana, 1)], toepfe).Should().Equal(new QuotenStand("Ghana", 2, 1, 20));
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public class QuotenBelegungTests
     {
         var quote = new LandesQuote { LandId = 33, Land = null!, Anzahl = 2 };
 
-        QuotenBelegung.JeLand([quote], []).Should().Equal(new QuotenStand("Land 33", 0, 2));
+        QuotenBelegung.JeLand([quote], []).Should().Equal(new QuotenStand("Land 33", 0, 2, 33));
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class QuotenBelegungTests
         ];
 
         QuotenBelegung.JeLand(kontingente, [Topf(Eintrag(Team(_deutschland)))])
-            .Should().Equal(new QuotenStand("Deutschland", 1, 6));
+            .Should().Equal(new QuotenStand("Deutschland", 1, 6, 10));
     }
 
     // ── Freie Plätze (#572) ───────────────────────────────────────────────────

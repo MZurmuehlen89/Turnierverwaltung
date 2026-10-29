@@ -349,6 +349,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         _regeln = new AuslosungsRegelnViewModel(auslosungService, () => DbContextSchutz, meldung => Fehlermeldung = meldung);
         _regeln.Geaendert += () => OnPropertyChanged(nameof(RibbonZusatzGruppen));
         Quoten = new QuotenAnzeigeViewModel(verbandsQuoteService, landesQuoteService);
+        // Klick auf eine Quote filtert die Verfügbar-Liste, die Hervorhebung folgt dem Filter (#573).
+        Quoten.LandGewaehlt += Arbeitsbereich.Filter.LandUmschalten;
+        Quoten.VerbandGewaehlt += Arbeitsbereich.Filter.VerbandUmschalten;
+        Arbeitsbereich.Filter.Geaendert += () => Quoten.Hervorheben(Arbeitsbereich.Filter.AktiverVerband, Arbeitsbereich.Filter.AktivesLand);
         Ziehung.PropertyChanged += BeiZiehungAenderung;
         HandZiehung.PropertyChanged += BeiHandZiehungAenderung;
         NeuFormular.PropertyChanged += BeiNeuFormularAenderung;

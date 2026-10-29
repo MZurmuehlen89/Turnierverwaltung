@@ -5,8 +5,9 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 namespace Fussballturnierverwaltung.Application.Auslosungen;
 
 /// <summary>Stand einer Quote während der Topf-Befüllung: <paramref name="Aktuell"/> Mannschaften liegen in den
-/// Lostöpfen, <paramref name="Anzahl"/> sieht die Quote mindestens vor (#572).</summary>
-public sealed record QuotenStand(string Name, int Aktuell, int Anzahl);
+/// Lostöpfen, <paramref name="Anzahl"/> sieht die Quote mindestens vor (#572). <paramref name="Schluessel"/> ist die
+/// Id des Verbands bzw. Landes (#573), bei den freien Plätzen <c>null</c>.</summary>
+public sealed record QuotenStand(string Name, int Aktuell, int Anzahl, int? Schluessel = null);
 
 /// <summary>Zählt, wie weit die Lostöpfe einer Auslosung die Verbands- und Landesquoten des Turniers schon
 /// ausschöpfen (#423). Zustandslos; Platzhalter in den Töpfen zählen nicht mit. Mehrere Quoten desselben Landes
@@ -49,7 +50,7 @@ public static class QuotenBelegung
         var aktuell = belegteSchluessel.GroupBy(s => s).ToDictionary(g => g.Key, g => g.Count());
         return quoten
             .GroupBy(schluessel)
-            .Select(g => new QuotenStand(name(g.First()), aktuell.GetValueOrDefault(g.Key), g.Sum(anzahl)))
+            .Select(g => new QuotenStand(name(g.First()), aktuell.GetValueOrDefault(g.Key), g.Sum(anzahl), g.Key))
             .ToList();
     }
 }

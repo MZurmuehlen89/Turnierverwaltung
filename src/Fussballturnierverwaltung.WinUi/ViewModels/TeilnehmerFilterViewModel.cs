@@ -90,6 +90,31 @@ public partial class TeilnehmerFilterViewModel : ObservableObject
         OnPropertyChanged(nameof(LandFilter));
     }
 
+    /// <summary>Das Land des Länderfilters, <c>null</c> = alle (#573).</summary>
+    public int? AktivesLand => _landFilter.LandId;
+
+    /// <summary>Der Verband des Verbandsfilters, <c>null</c> = alle (#573).</summary>
+    public int? AktiverVerband => _verbandFilter.VerbandId;
+
+    /// <summary>Klick auf eine Landesquote (#573): filtert auf das Land, ein zweiter Klick hebt den Filter auf. Bietet
+    /// der Filter das Land nicht an (alle seine Teams liegen in Töpfen), passiert nichts.</summary>
+    public void LandUmschalten(int landId)
+    {
+        if (_landFilter.LandId == landId)
+            LandFilter = _alleLaender;
+        else if (LandFilterOptionen.FirstOrDefault(o => o.LandId == landId) is { } option)
+            LandFilter = option;
+    }
+
+    /// <summary>Klick auf eine Verbandsquote (#573), wie <see cref="LandUmschalten"/>.</summary>
+    public void VerbandUmschalten(int verbandId)
+    {
+        if (_verbandFilter.VerbandId == verbandId)
+            VerbandFilter = _alleVerbaende;
+        else if (VerbandFilterOptionen.FirstOrDefault(o => o.VerbandId == verbandId) is { } option)
+            VerbandFilter = option;
+    }
+
     /// <summary>Turnierwechsel: Filter zurücksetzen.</summary>
     public void Zuruecksetzen()
     {
