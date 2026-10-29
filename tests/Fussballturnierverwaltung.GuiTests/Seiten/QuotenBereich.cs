@@ -43,7 +43,7 @@ public sealed class QuotenBereich(Window fenster)
         {
             var realisiert = auswahl.Items;
             protokoll.Add($"realisiert={realisiert.Length}: " + string.Join(", ", realisiert.Select(i => i.DisplayedTexts().FirstOrDefault())));
-            var treffer = realisiert.FirstOrDefault(i => i.DisplayedTexts().Contains(land));
+            AutomationElement? treffer = realisiert.FirstOrDefault(i => i.DisplayedTexts().Contains(land));
             protokoll.Add($"Treffer realisiert: {treffer is not null}");
             treffer ??= auswahl.ReadAllItems(i => i.DisplayedTexts().Contains(land) ? i : null).FirstOrDefault();
             protokoll.Add($"Treffer gesamt: {treffer is not null}, Offscreen={treffer?.IsOffscreen}");
