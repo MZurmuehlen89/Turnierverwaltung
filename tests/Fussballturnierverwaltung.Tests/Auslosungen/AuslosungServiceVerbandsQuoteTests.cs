@@ -22,7 +22,7 @@ public class AuslosungServiceVerbandsQuoteTests
         const int turnierInstanzId = 5;
         const int verbandId = 1;
 
-        // Zwei Teams aus demselben Verband, Quote erlaubt aber nur 1 — Verletzung, sofern geprüft.
+        // Zwei Teams aus demselben Verband, die Quote verlangt mindestens 3 — Verletzung, sofern geprüft.
         var teamA = TeamAusVerband(1, verbandId);
         var teamB = TeamAusVerband(2, verbandId);
         var lostopf = new Lostopf
@@ -46,7 +46,7 @@ public class AuslosungServiceVerbandsQuoteTests
         auslosungRepo.Speichern(auslosung);
 
         var verbandsQuoteRepo = new FakeVerbandsQuoteRepository();
-        verbandsQuoteRepo.Speichern(new VerbandsQuote { TurnierInstanzId = turnierInstanzId, VerbandId = verbandId, Anzahl = 1 });
+        verbandsQuoteRepo.Speichern(new VerbandsQuote { TurnierInstanzId = turnierInstanzId, VerbandId = verbandId, Anzahl = 3 });
 
         var rundeRepo = new FakeTurnierRundeRepository();
         rundeRepo.Speichern(alleRundenDerInstanz);

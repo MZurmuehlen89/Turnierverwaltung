@@ -5,11 +5,12 @@ using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 namespace Fussballturnierverwaltung.Application.Auslosungen;
 
 /// <summary>Stand einer Quote während der Topf-Befüllung: <paramref name="Aktuell"/> Mannschaften liegen in den
-/// Lostöpfen, <paramref name="Anzahl"/> sieht die Quote vor.</summary>
+/// Lostöpfen, <paramref name="Anzahl"/> sieht die Quote mindestens vor (#572).</summary>
 public sealed record QuotenStand(string Name, int Aktuell, int Anzahl);
 
 /// <summary>Zählt, wie weit die Lostöpfe einer Auslosung die Verbands- und Landesquoten des Turniers schon
-/// ausschöpfen (#423). Zustandslos; Platzhalter in den Töpfen zählen nicht mit.</summary>
+/// ausschöpfen (#423). Zustandslos; Platzhalter in den Töpfen zählen nicht mit. Mehrere Quoten desselben Landes
+/// (Kontingente, #572) bilden einen gemeinsamen Stand.</summary>
 public static class QuotenBelegung
 {
     /// <summary>Mannschaften, deren Land nicht mitgeladen ist, lassen sich keinem Verband zuordnen und zählen nicht.</summary>
@@ -26,6 +27,13 @@ public static class QuotenBelegung
             Mannschaften(lostoepfe).Select(m => m.LandId),
             q => q.LandId, q => q.Land?.Name ?? $"Land {q.LandId}", q => q.Anzahl);
 
+    /// <summary>Die freien Plätze (#572): der Eingang der Runde ohne die Summe der Quoten. Belegt sind sie von allen
+    /// Mannschaften, die über ihre Quote hinausgehen oder aus einem Verband bzw. Land ohne Quote kommen.</summary>
+    public static QuotenStand FreiePlaetze(IReadOnlyList<QuotenStand> staende, IEnumerable<Lostopf> lostoepfe, int eingang) =>
+        new("Freie Plätze",
+            Mannschaften(lostoepfe).Count() - staende.Sum(s => Math.Min(s.Aktuell, s.Anzahl)),
+            eingang - staende.Sum(s => s.Anzahl));
+
     private static IEnumerable<Mannschaft> Mannschaften(IEnumerable<Lostopf> lostoepfe) =>
         lostoepfe.SelectMany(l => l.Eintraege).Select(e => e.Mannschaft).OfType<Mannschaft>();
 
@@ -35,7 +43,8 @@ public static class QuotenBelegung
     {
         var aktuell = belegteSchluessel.GroupBy(s => s).ToDictionary(g => g.Key, g => g.Count());
         return quoten
-            .Select(q => new QuotenStand(name(q), aktuell.GetValueOrDefault(schluessel(q)), anzahl(q)))
+            .GroupBy(schluessel)
+            .Select(g => new QuotenStand(name(g.First()), aktuell.GetValueOrDefault(g.Key), g.Sum(anzahl)))
             .ToList();
     }
 }

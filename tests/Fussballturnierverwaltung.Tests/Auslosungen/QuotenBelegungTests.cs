@@ -112,4 +112,34 @@ public class QuotenBelegungTests
 
         QuotenBelegung.JeLand([quote], []).Should().Equal(new QuotenStand("Land 33", 0, 2));
     }
+
+    [Fact]
+    public void JeLand_KontingenteEinesLandes_BildenEinenStand()
+    {
+        LandesQuote[] kontingente =
+        [
+            new() { LandId = _deutschland.Id, Land = _deutschland, Spielklasse = 1, AbPlatz = 1, Anzahl = 4 },
+            new() { LandId = _deutschland.Id, Land = _deutschland, Spielklasse = 1, AbPlatz = 5, Anzahl = 2 },
+        ];
+
+        QuotenBelegung.JeLand(kontingente, [Topf(Eintrag(Team(_deutschland)))])
+            .Should().Equal(new QuotenStand("Deutschland", 1, 6));
+    }
+
+    // ── Freie Plätze (#572) ───────────────────────────────────────────────────
+
+    [Fact]
+    public void FreiePlaetze_EingangOhneQuotenUndTeamsUeberDerQuote()
+    {
+        // Eingang 8, Quoten 2 + 3 → 3 freie Plätze. Belegt: das dritte Ghana-Team über seiner Quote von 2 und das
+        // Spanien-Team ohne Quote; das Deutschland-Team zählt auf seine Quote.
+        var toepfe = new[]
+        {
+            Topf(Eintrag(Team(_ghana)), Eintrag(Team(_ghana)), Eintrag(Team(_ghana))),
+            Topf(Eintrag(Team(_spanien)), Eintrag(Team(_deutschland)), Platzhalter("Sieger Spiel 1")),
+        };
+        var staende = QuotenBelegung.JeLand([Quote(_ghana, 2), Quote(_deutschland, 3)], toepfe);
+
+        QuotenBelegung.FreiePlaetze(staende, toepfe, eingang: 8).Should().Be(new QuotenStand("Freie Plätze", 2, 3));
+    }
 }

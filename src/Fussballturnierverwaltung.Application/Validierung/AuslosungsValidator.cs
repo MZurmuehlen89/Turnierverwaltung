@@ -69,7 +69,9 @@ public class AuslosungsValidator
             q => q.Anzahl,
             q => $"Landes-Quote '{q.Land?.Name ?? $"Land {q.LandId}"}'");
 
-    /// <summary>Jede Quote verlangt genau ihre Anzahl Teams mit dem Schlüssel (Verband bzw. Land).</summary>
+    /// <summary>Jede Quote ist eine Mindestzahl (#572): mindestens so viele Teams mit dem Schlüssel (Verband bzw. Land),
+    /// mehrere Quoten desselben Schlüssels (Kontingente eines Landes) zählen zusammen. Weitere Teams belegen freie
+    /// Plätze; dass die Gesamtzahl stimmt, prüft <see cref="RundenerwartungPruefen"/>.</summary>
     private static IEnumerable<string> QuotenPruefen<TQuote>(
         IReadOnlyList<TQuote>? quoten,
         IEnumerable<int> zugewieseneSchluessel,
@@ -82,11 +84,12 @@ public class AuslosungsValidator
 
         var anzahlProSchluessel = zugewieseneSchluessel.GroupBy(s => s).ToDictionary(g => g.Key, g => g.Count());
 
-        foreach (var quote in quoten)
+        foreach (var gruppe in quoten.GroupBy(schluessel))
         {
-            var anzahl = anzahlProSchluessel.GetValueOrDefault(schluessel(quote));
-            if (anzahl != sollAnzahl(quote))
-                yield return $"{bezeichnung(quote)}: genau {sollAnzahl(quote)} Team(s) erforderlich, " +
+            var anzahl = anzahlProSchluessel.GetValueOrDefault(gruppe.Key);
+            var mindestens = gruppe.Sum(sollAnzahl);
+            if (anzahl < mindestens)
+                yield return $"{bezeichnung(gruppe.First())}: mindestens {mindestens} Team(s) erforderlich, " +
                              $"aber {anzahl} zugewiesen.";
         }
     }

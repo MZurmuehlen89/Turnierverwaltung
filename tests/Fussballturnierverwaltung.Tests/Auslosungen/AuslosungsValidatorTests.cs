@@ -711,15 +711,13 @@ public class AuslosungsValidatorTests
     }
 
     [Fact]
-    public void VerbandQuote_Ueberschritten_WirdAbgelehnt()
+    public void VerbandQuote_Ueberschritten_IstGueltig()
     {
+        // Die Quote ist eine Mindestzahl (#572), das dritte Team belegt einen freien Platz.
         var topf = Topf(1, 1, [EintragMitVerband(1, verbandId: 10), EintragMitVerband(2, verbandId: 10), EintragMitVerband(3, verbandId: 10)]);
         var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
 
-        var ergebnis = _validator.Validieren(a, AlleEintraege(a), [Quote(10, anzahl: 2)]);
-
-        ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().ContainMatch("*genau 2*");
+        _validator.Validieren(a, AlleEintraege(a), [Quote(10, anzahl: 2)]).IstGueltig.Should().BeTrue();
     }
 
     [Fact]
@@ -731,7 +729,7 @@ public class AuslosungsValidatorTests
         var ergebnis = _validator.Validieren(a, AlleEintraege(a), [Quote(10, anzahl: 2)]);
 
         ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().ContainMatch("*genau 2*");
+        ergebnis.Fehler.Should().ContainMatch("*mindestens 2*");
     }
 
     [Fact]
@@ -765,15 +763,13 @@ public class AuslosungsValidatorTests
     }
 
     [Fact]
-    public void LandesQuote_Ueberschritten_WirdAbgelehnt()
+    public void LandesQuote_Ueberschritten_IstGueltig()
     {
+        // Die Quote ist eine Mindestzahl (#572), das dritte Team belegt einen freien Platz.
         var topf = Topf(1, 1, [EintragMitLand(1, landId: 10), EintragMitLand(2, landId: 10), EintragMitLand(3, landId: 10)]);
         var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
 
-        var ergebnis = _validator.Validieren(a, AlleEintraege(a), landesQuoten: [LandQuote(10, anzahl: 2)]);
-
-        ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().ContainMatch("*genau 2*");
+        _validator.Validieren(a, AlleEintraege(a), landesQuoten: [LandQuote(10, anzahl: 2)]).IstGueltig.Should().BeTrue();
     }
 
     [Fact]
@@ -785,7 +781,7 @@ public class AuslosungsValidatorTests
         var ergebnis = _validator.Validieren(a, AlleEintraege(a), landesQuoten: [LandQuote(10, anzahl: 2)]);
 
         ergebnis.IstUngueltig.Should().BeTrue();
-        ergebnis.Fehler.Should().ContainMatch("*genau 2*");
+        ergebnis.Fehler.Should().ContainMatch("*mindestens 2*");
     }
 
     [Fact]
@@ -795,5 +791,20 @@ public class AuslosungsValidatorTests
         var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
 
         _validator.Validieren(a, AlleEintraege(a)).IstGueltig.Should().BeTrue();
+    }
+
+    [Fact]
+    public void LandesQuote_KontingenteEinesLandes_ZaehlenZusammen()
+    {
+        var topf = Topf(1, 1, [EintragMitLand(1, landId: 10), EintragMitLand(2, landId: 10), EintragMitLand(3, landId: 20)]);
+        var a    = Auslosung(Rundenart.KoRunde, Auslosungsart.Zufall, lostoepfe: [topf]);
+        LandesQuote[] kontingente =
+        [
+            new() { LandId = 10, Spielklasse = 1, AbPlatz = 1, Anzahl = 2 },
+            new() { LandId = 10, Spielklasse = 2, AbPlatz = 1, Anzahl = 1 },
+        ];
+
+        _validator.Validieren(a, AlleEintraege(a), landesQuoten: kontingente)
+            .Fehler.Should().ContainSingle().Which.Should().Be("Landes-Quote 'Land 10': mindestens 3 Team(s) erforderlich, aber 2 zugewiesen.");
     }
 }

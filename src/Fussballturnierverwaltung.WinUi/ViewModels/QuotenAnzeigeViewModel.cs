@@ -44,17 +44,24 @@ public partial class QuotenAnzeigeViewModel : ObservableObject
             return;
         }
 
+        int? eingang = instanzRunden[0].EingangsMannschaftsanzahl;
         Verbandsquoten = Anzeige(QuotenBelegung.JeVerband(
-            await _verbandsQuoteService.AlleNachTurnierInstanzIdAsync(instanz.Id), detail.Lostoepfe));
+            await _verbandsQuoteService.AlleNachTurnierInstanzIdAsync(instanz.Id), detail.Lostoepfe), detail, eingang);
 
         // Nur für Vereinswettbewerbe — Landesquoten sind bei Nationalmannschaften trivial (siehe
         // TurnierkopfViewModel.LandesQuotenSichtbar, #189).
         Landesquoten = instanz.MannschaftsartFilter == MannschaftsartFilter.Verein
             ? Anzeige(QuotenBelegung.JeLand(
-                await _landesQuoteService.AlleNachTurnierInstanzIdAsync(instanz.Id), detail.Lostoepfe))
+                await _landesQuoteService.AlleNachTurnierInstanzIdAsync(instanz.Id), detail.Lostoepfe), detail, eingang)
             : [];
     }
 
-    private static IReadOnlyList<QuoteAnzeige> Anzeige(IReadOnlyList<QuotenStand> staende) =>
-        staende.Select(s => new QuoteAnzeige(s.Name, $"{s.Aktuell} / {s.Anzahl}")).ToList();
+    /// <summary>Die Quoten und dahinter die freien Plätze (#572), sofern es Quoten gibt und die Runde ihren Eingang kennt.</summary>
+    private static IReadOnlyList<QuoteAnzeige> Anzeige(IReadOnlyList<QuotenStand> staende, Auslosung detail, int? eingang)
+    {
+        var zeilen = staende.ToList();
+        if (zeilen.Count > 0 && eingang is { } anzahl)
+            zeilen.Add(QuotenBelegung.FreiePlaetze(staende, detail.Lostoepfe, anzahl));
+        return zeilen.Select(s => new QuoteAnzeige(s.Name, $"{s.Aktuell} / {s.Anzahl}")).ToList();
+    }
 }
