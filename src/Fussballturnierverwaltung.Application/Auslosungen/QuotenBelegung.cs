@@ -13,6 +13,11 @@ public sealed record QuotenStand(string Name, int Aktuell, int Anzahl);
 /// (Kontingente, #572) bilden einen gemeinsamen Stand.</summary>
 public static class QuotenBelegung
 {
+    /// <summary>Quoten gelten nur für die erste Runde einer Instanz (Zulassung), nicht kumulativ für Folgerunden mit
+    /// eigenem Losvorgang (bestätigte Domänen-Annahme).</summary>
+    public static bool GeltenFuer(int turnierRundeId, IEnumerable<TurnierRunde> instanzRunden) =>
+        instanzRunden.OrderBy(r => r.Reihenfolge).FirstOrDefault()?.Id == turnierRundeId;
+
     /// <summary>Mannschaften, deren Land nicht mitgeladen ist, lassen sich keinem Verband zuordnen und zählen nicht.</summary>
     public static IReadOnlyList<QuotenStand> JeVerband(IEnumerable<VerbandsQuote> quoten, IEnumerable<Lostopf> lostoepfe) =>
         Staende(

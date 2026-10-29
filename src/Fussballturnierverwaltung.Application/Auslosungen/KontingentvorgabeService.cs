@@ -13,9 +13,14 @@ public class KontingentvorgabeService(
     IVerbandsQuoteRepository verbandsQuoteRepository,
     IRanglisteRepository ranglisteRepository)
 {
-    /// <summary>Landesquoten zählen nur bei Vereinswettbewerben, wie in der Quotenanzeige der Auslosung (#189).</summary>
-    public async Task<Kontingentvorgabe> LadenAsync(TurnierInstanz instanz, CancellationToken ct = default)
+    /// <summary>Die Quoten für die Runde <paramref name="turnierRundeId"/> — leer außer in der ersten Runde
+    /// (<see cref="QuotenBelegung.GeltenFuer"/>, Runden von <paramref name="instanz"/> mitgeladen). Landesquoten
+    /// zählen nur bei Vereinswettbewerben, wie in der Quotenanzeige der Auslosung (#189).</summary>
+    public async Task<Kontingentvorgabe> LadenAsync(TurnierInstanz instanz, int turnierRundeId, CancellationToken ct = default)
     {
+        if (!QuotenBelegung.GeltenFuer(turnierRundeId, instanz.Runden))
+            return new Kontingentvorgabe([], []);
+
         var landesquoten = instanz.MannschaftsartFilter == MannschaftsartFilter.Verein
             ? await landesQuoteRepository.AlleNachTurnierInstanzIdAsync(instanz.Id, ct)
             : [];

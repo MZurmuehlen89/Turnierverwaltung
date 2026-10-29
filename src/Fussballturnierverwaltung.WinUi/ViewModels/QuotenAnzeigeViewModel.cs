@@ -34,10 +34,7 @@ public partial class QuotenAnzeigeViewModel : ObservableObject
 
     public async Task ZeigenAsync(Auslosung detail, TurnierInstanz? instanz, IReadOnlyList<TurnierRunde> instanzRunden)
     {
-        // Quoten gelten laut Domänen-Annahme nur für die initiale Turnierrunde (Zulassung), nicht kumulativ für
-        // Folgerunden mit eigenem Losvorgang — siehe [[project_verbandsquote_scope]].
-        bool istErsteRunde = instanzRunden.Count > 0 && instanzRunden[0].Id == detail.TurnierRundeId;
-        if (instanz is null || !istErsteRunde)
+        if (instanz is null || !QuotenBelegung.GeltenFuer(detail.TurnierRundeId, instanzRunden))
         {
             Verbandsquoten = [];
             Landesquoten = [];

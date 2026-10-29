@@ -722,6 +722,13 @@
 
                     <TextBlock Text="{Binding Arbeitsbereich.TeamsStatusText}" AutomationProperties.AutomationId="Auslosung.Zuweisung" FontSize="12" Margin="0,0,0,12" />
 
+                    <!-- Quotenplätze, die das Befüllen nicht besetzen konnte (#573): nur ein Hinweis, die Töpfe bleiben offen -->
+                    <StackPanel Visibility="{Binding ZeigeVorbereitung, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{Binding Arbeitsbereich.Fehlbestand}" AutomationProperties.AutomationId="Auslosung.Fehlbestand"
+                                   Foreground="{ThemeResource SystemFillColorCautionBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"
+                                   Visibility="{Binding Arbeitsbereich.ZeigeFehlbestand, Converter={StaticResource BoolToVisibility}}" />
+                    </StackPanel>
+
                     <!-- Quoten nur zur Topfzuordnung (#441): ab dem Auslosen – Live-Ziehung wie Ergebnis – verborgen,
                          gleiche Bedingung wie der Töpfe/Teilnehmer-Workspace darunter. Gleiche Spalten wie dort, damit
                          die Quoten so breit sind wie die Verfügbar-Liste – über die volle Seitenbreite standen Name

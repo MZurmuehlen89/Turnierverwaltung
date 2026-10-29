@@ -14,6 +14,14 @@ namespace Fussballturnierverwaltung.Tests.Auslosungen;
 public class KontingentvorgabeServiceTests
 {
     private const int TURNIER = 1;
+    private const int ERSTE_RUNDE = 5;
+
+    // Runden bewusst ungeordnet: die erste ist die mit der kleinsten Reihenfolge.
+    private static TurnierInstanz Turnier(int id, MannschaftsartFilter art) => new()
+    {
+        Id = id, MannschaftsartFilter = art,
+        Runden = [new TurnierRunde { Id = 6, Reihenfolge = 2 }, new TurnierRunde { Id = ERSTE_RUNDE, Reihenfolge = 1 }],
+    };
 
     private static async Task<(TurnierverwaltungDbContext Context, KontingentvorgabeService Service)> AufbauenAsync()
     {
@@ -55,7 +63,7 @@ public class KontingentvorgabeServiceTests
         var (context, service) = await AufbauenAsync();
         await using var _ = context;
 
-        var vorgabe = await service.LadenAsync(new TurnierInstanz { Id = TURNIER, MannschaftsartFilter = MannschaftsartFilter.Verein });
+        var vorgabe = await service.LadenAsync(Turnier(TURNIER, MannschaftsartFilter.Verein), ERSTE_RUNDE);
 
         var deutschland = vorgabe.Landesquoten.Single(q => q.LandId == 10);
         (deutschland.LandName, deutschland.Anzahl, deutschland.Spielklasse, deutschland.AbPlatz).Should().Be(("Deutschland", 2, 1, 1));
@@ -73,7 +81,7 @@ public class KontingentvorgabeServiceTests
         var (context, service) = await AufbauenAsync();
         await using var _ = context;
 
-        var vorgabe = await service.LadenAsync(new TurnierInstanz { Id = TURNIER, MannschaftsartFilter = MannschaftsartFilter.Nationalmannschaft });
+        var vorgabe = await service.LadenAsync(Turnier(TURNIER, MannschaftsartFilter.Nationalmannschaft), ERSTE_RUNDE);
 
         vorgabe.Landesquoten.Should().BeEmpty();
         vorgabe.Verbandsquoten.Should().HaveCount(2);
@@ -85,7 +93,18 @@ public class KontingentvorgabeServiceTests
         var (context, service) = await AufbauenAsync();
         await using var _ = context;
 
-        var vorgabe = await service.LadenAsync(new TurnierInstanz { Id = 99, MannschaftsartFilter = MannschaftsartFilter.Verein });
+        var vorgabe = await service.LadenAsync(Turnier(99, MannschaftsartFilter.Verein), ERSTE_RUNDE);
+
+        vorgabe.Leer.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Laden_Folgerunde_Leer()
+    {
+        var (context, service) = await AufbauenAsync();
+        await using var _ = context;
+
+        var vorgabe = await service.LadenAsync(Turnier(TURNIER, MannschaftsartFilter.Verein), turnierRundeId: 6);
 
         vorgabe.Leer.Should().BeTrue();
     }

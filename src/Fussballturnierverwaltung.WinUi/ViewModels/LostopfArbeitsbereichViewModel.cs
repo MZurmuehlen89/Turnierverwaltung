@@ -134,6 +134,15 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
 
     public bool TeamsVollstaendig => TeamsBenoetigt > 0 && TeamsZugewiesen == TeamsBenoetigt;
 
+    // ── Fehlbestand nach Quoten (#573) ────────────────────────────────────────
+    /// <summary>Quotenplätze, die das letzte Befüllen nicht besetzen konnte, je Zeile einer; leer = kein Hinweis.
+    /// Gilt bis zum nächsten Befüllen, Zurücksetzen oder Wechsel der Auslosung.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ZeigeFehlbestand))]
+    private string _fehlbestand = "";
+
+    public bool ZeigeFehlbestand => Fehlbestand.Length > 0;
+
     public string TeamsStatusText => TeamsBenoetigt == 0
         ? $"{TeamsZugewiesen} Teams zugewiesen"
         : TeamsZugewiesen == TeamsBenoetigt
@@ -163,6 +172,7 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     public void Leeren()
     {
         VerfuegbareTeilnehmer.Clear();
+        Fehlbestand = "";
         Filter.Zuruecksetzen();
         GefilterteTeilnehmerAbgleichen();
     }
@@ -182,6 +192,7 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
         if (_ranglisteVorausgewaehltFuerAuslosungId != detail.Id)
         {
             _ranglisteVorausgewaehltFuerAuslosungId = detail.Id;
+            Fehlbestand = "";
             StandardRanglisteVorauswaehlen(detail.TurnierRunde);
         }
     }
@@ -308,6 +319,7 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
             "Töpfe zurücksetzen", "Alle Töpfe leeren und alle Teams zurück in die Verfügbar-Liste?");
         if (!bestaetigt) return;
 
+        Fehlbestand = "";
         await ToepfeAendernAsync(detail => _auslosungService.AlleToepfeZuruecksetzenAsync(detail.Id));
     }
 
@@ -354,11 +366,14 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     private async Task LostoepfeNachRanglisteBefuellenAsync(int ranglisteId)
     {
         if (_kontext.AktuellesDetail is not { } detail) return;
-        if (await _befuellung.NachRanglisteBefuellenAsync(detail, ranglisteId, [.. VerfuegbareTeilnehmer]) is { } fehler)
+        Fehlbestand = "";
+        var ergebnis = await _befuellung.NachRanglisteBefuellenAsync(detail, ranglisteId, [.. VerfuegbareTeilnehmer]);
+        if (ergebnis.Fehler is { } fehler)
         {
             _kontext.FehlerMelden(fehler);
             return;
         }
+        Fehlbestand = string.Join(Environment.NewLine, ergebnis.Fehlbestaende);
         await _kontext.DetailNeuLadenAsync(detail.Id);
     }
 
