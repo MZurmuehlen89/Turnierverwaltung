@@ -70,6 +70,8 @@ internal sealed class TurnierVorlagenNachruestung
             .Include(i => i.Runden)
                 .ThenInclude(r => r.TabellenBereiche)
             .Include(i => i.Auslosungen)
+            .Include(i => i.VerbandsQuoten)
+            .Include(i => i.LandesQuoten)
             .Where(i => i.Status == TurnierStatus.Vorlage)
             .ToListAsync(ct);
 
@@ -112,6 +114,7 @@ internal sealed class TurnierVorlagenNachruestung
             UnterklassigenHeimrechtUebernehmen(), "Vorlagen-Runden auf „Heimrecht für Unterklassige“ umgestellt.", ct);
         await SpeichernUndProtokollieren(
             GegnerJeTopfUebernehmen(), "Ligaphasen von Vorlagen auf einen Gegner je Topf umgestellt.", ct);
+        await SpeichernUndProtokollieren(QuotenErgaenzen(), "Turniervorlagen um Quoten und Kontingente ergänzt.", ct);
     }
 
     // Je Quellenname die neueste daraus importierte Rangliste (nach Datum, bei Gleichstand die zuletzt angelegte) —
@@ -417,6 +420,23 @@ internal sealed class TurnierVorlagenNachruestung
     /// <summary>Issue #469: die Conference League lost seit 2024/25 einen Gegner je Topf aus.</summary>
     private int GegnerJeTopfUebernehmen() =>
         MitSeedStand().Sum(paar => SeedVorlagenAbgleich.GegnerJeTopfUebernehmen(paar.Vorlage, paar.Soll));
+
+    /// <summary>Issue #574: Verbandsquoten und Landes-Kontingente je Kontingent. Liefert die Zahl der ergänzten
+    /// Vorlagen.</summary>
+    private int QuotenErgaenzen()
+    {
+        int ergaenzt = 0;
+        foreach (var (vorlage, soll) in MitSeedStand())
+        {
+            var (verbaende, laender) = SeedVorlagenAbgleich.FehlendeQuoten(vorlage, soll);
+            if (verbaende.Count == 0 && laender.Count == 0) continue;
+
+            _context.VerbandsQuoten.AddRange(verbaende);
+            _context.LandesQuoten.AddRange(laender);
+            ergaenzt++;
+        }
+        return ergaenzt;
+    }
 
     /// <summary>Issue #420: Tabellenbereiche der Liga-Vorlagen und der Nations League — nur in Runden, die noch
     /// keine Bereiche haben und dem Seed entsprechen.</summary>

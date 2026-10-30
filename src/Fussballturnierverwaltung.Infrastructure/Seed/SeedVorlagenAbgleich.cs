@@ -14,6 +14,29 @@ public static class SeedVorlagenAbgleich
     public static TurnierRunde? Gegenstueck(TurnierInstanz vorlage, TurnierRunde runde) =>
         vorlage.Runden.FirstOrDefault(r => r.Reihenfolge == runde.Reihenfolge && r.Name == runde.Name);
 
+    // ── Quoten und Kontingente (Issue #574) ───────────────────────────────────
+
+    /// <summary>Die Quoten des Seeds, die der Vorlage fehlen — je Kontingent, damit spätere Ergänzungen des Seeds
+    /// nachkommen: eine Verbandsquote je Verband, ein Landes-Kontingent je Land, Spielklasse und Startplatz. Vorhandene
+    /// Quoten bleiben, auch mit anderer Anzahl. Die neuen Zeilen verweisen auf die Vorlage, anlegen muss sie der
+    /// Aufrufer.</summary>
+    public static (List<VerbandsQuote> Verbaende, List<LandesQuote> Laender) FehlendeQuoten(
+        TurnierInstanz vorlage, TurnierInstanz soll)
+    {
+        var verbaende = soll.VerbandsQuoten
+            .Where(q => vorlage.VerbandsQuoten.All(v => v.VerbandId != q.VerbandId))
+            .Select(q => new VerbandsQuote { TurnierInstanzId = vorlage.Id, VerbandId = q.VerbandId, Anzahl = q.Anzahl })
+            .ToList();
+        var laender = soll.LandesQuoten
+            .Where(q => vorlage.LandesQuoten.All(v => (v.LandId, v.Spielklasse, v.AbPlatz) != (q.LandId, q.Spielklasse, q.AbPlatz)))
+            .Select(q => new LandesQuote
+            {
+                TurnierInstanzId = vorlage.Id, LandId = q.LandId, Anzahl = q.Anzahl, Spielklasse = q.Spielklasse, AbPlatz = q.AbPlatz,
+            })
+            .ToList();
+        return (verbaende, laender);
+    }
+
     // ── Standard-Rangliste und Heimrecht für Unterklassige (Issue #393) ────────
 
     /// <summary>Trägt die Standard-Rangliste des Seeds nach, wo die Runde noch keine hat. Liefert die Zahl der

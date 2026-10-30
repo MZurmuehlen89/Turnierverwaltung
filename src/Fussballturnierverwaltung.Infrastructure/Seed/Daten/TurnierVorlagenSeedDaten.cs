@@ -63,6 +63,7 @@ public static class TurnierVorlagenSeedDaten
             GruppenpositionSetzen(vorlage);
             GruppenkoepfeSetzen(vorlage);
             AuslosungsartSetzen(vorlage);
+            QuotenSeedDaten.Setzen(vorlage, verbandLookup, landLookup);
         }
         return vorlagen;
     }
