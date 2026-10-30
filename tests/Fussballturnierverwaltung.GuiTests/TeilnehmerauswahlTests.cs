@@ -37,8 +37,8 @@ internal static class QuotenTurnier
 
 /// <summary>„Töpfe automatisch befüllen“ nach Kontingent (#573): Die 2. Bundesliga hat Vereine aus ganz Deutschland
 /// im Pool; ohne Kontingent nähme die Automatik nach der Ligapyramide die Bundesligisten. Mit dem Kontingent
-/// „Deutschland · 2. Bundesliga · 18“ kommen genau die Plätze der zweiten Spielklasse in die Töpfe – die Soll-Liste
-/// liest der Test aus der Pyramide, auf die Deutschland verweist.</summary>
+/// „Deutschland · 2. Bundesliga · 18“, das die Vorlage seit #574 aus dem Seed mitbringt, kommen genau die Plätze der
+/// zweiten Spielklasse in die Töpfe – die Soll-Liste liest der Test aus der Pyramide, auf die Deutschland verweist.</summary>
 public sealed class KontingentBefuellenTests(TurnierverwaltungApp app, TestDatenbank datenbank)
     : IClassFixture<TurnierverwaltungApp>, IDisposable
 {
@@ -47,15 +47,15 @@ public sealed class KontingentBefuellenTests(TurnierverwaltungApp app, TestDaten
     [Fact]
     public async Task Kontingent_BefuelltGenauDieVereineDerSpielklasse()
     {
-        var (turnier, name) = QuotenTurnier.Anlegen(app, "2. Bundesliga", "18 Teams", quoten =>
-        {
-            quoten.LandHinzufuegen();
-            quoten.LandWaehlen(0, "Deutschland");
-            quoten.SpielklasseWaehlen(0, "2 · 2. Bundesliga");
-            quoten.AnzahlSetzen(0, 18);
-            KontingentTurnier.Abwarten(() => quoten.Zeile(0).Ergibt == "2. Bundesliga, Plätze 1–18");
-            quoten.Zeile(0).Ergibt.Should().Be("2. Bundesliga, Plätze 1–18");
-        });
+        string name = app.Hauptfenster.TurnierAusVorlageErstellen("2. Bundesliga", "18 Teams");
+        var turniere = app.Hauptfenster.TurniereOeffnen();
+        turniere.Kopf().Auswaehlen(name);
+        var quoten = turniere.Quoten();
+        quoten.Aufklappen();
+        KontingentTurnier.Abwarten(() => quoten.Zeilen == 1 && quoten.Zeile(0).Ergibt == "2. Bundesliga, Plätze 1–18");
+        quoten.Zeile(0).Should().Be(new QuotenZeile("Deutschland", "2 · 2. Bundesliga", true, 1, "2. Bundesliga, Plätze 1–18"),
+            "die Vorlage bringt das Kontingent aus dem Seed mit");
+        var turnier = app.Hauptfenster.TurnierdurchfuehrungOeffnen(name);
 
         var auslosung = turnier.Auslosung();
         auslosung.Anlegen(SAISON);
@@ -109,7 +109,7 @@ public sealed class QuoteFilterTests(TurnierverwaltungApp app, TestDatenbank dat
     [Fact]
     public async Task QuoteAnklicken_FiltertVerfuegbarAufDasLand_ZweiterKlickHebtAuf()
     {
-        var (turnier, _) = QuotenTurnier.Anlegen(app, "UEFA Champions League", "36 Teams · ab 2024/25", quoten =>
+        var (turnier, _) = QuotenTurnier.Anlegen(app, KontingentTurnier.VORLAGE, KontingentTurnier.VARIANTE, quoten =>
         {
             quoten.LandHinzufuegen();
             quoten.LandWaehlen(0, LAND);

@@ -3,11 +3,12 @@ using GuiTest.Framework;
 
 namespace Fussballturnierverwaltung.GuiTests;
 
-/// <summary>Turnier aus der Champions-League-Vorlage (Ligaphase mit 36 Teams, Vereine) unter eindeutigem Namen.</summary>
+/// <summary>Turnier aus der Conference-League-Vorlage (Ligaphase mit 36 Teams, Vereine) unter eindeutigem Namen — die
+/// einzige Europapokal-Vorlage ohne Kontingente im Seed (#574), die Szenarien beginnen so ohne Quoten.</summary>
 internal static class KontingentTurnier
 {
-    private const string VORLAGE = "UEFA Champions League";
-    private const string VARIANTE = "36 Teams · ab 2024/25";
+    public const string VORLAGE = "UEFA Conference League";
+    public const string VARIANTE = "36 Teams · ab 2024/25";
 
     public static (TurnierlisteSeite Turniere, string Name) Anlegen(TurnierverwaltungApp app)
     {

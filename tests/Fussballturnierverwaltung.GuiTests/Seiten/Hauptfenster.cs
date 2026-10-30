@@ -63,11 +63,22 @@ public sealed class Hauptfenster(Window fenster)
 
     /// <summary>Legt aus <paramref name="vorlage"/> ein Turnier unter eindeutigem Namen an und öffnet es in der
     /// Turnierdurchführung.</summary>
-    public TurnierdurchfuehrungSeite TurnierAusVorlageAnlegen(string vorlage, string variante)
+    public TurnierdurchfuehrungSeite TurnierAusVorlageAnlegen(string vorlage, string variante) =>
+        TurnierdurchfuehrungOeffnen(TurnierAusVorlageErstellen(vorlage, variante));
+
+    /// <summary>Legt aus <paramref name="vorlage"/> ein Turnier unter eindeutigem Namen an und liefert den Namen —
+    /// für Szenarien, die das Turnier vor dem Öffnen in der Datenbank anpassen.</summary>
+    public string TurnierAusVorlageErstellen(string vorlage, string variante)
     {
         string name = $"GuiTest {Guid.NewGuid().ToString("N")[..8]}";
         TurniereOeffnen().AusVorlageErstellen(vorlage, variante, "2027", name);
+        return name;
+    }
 
+    /// <summary>Öffnet die Turnierdurchführung und prüft, dass sie das Turnier <paramref name="name"/> zeigt (das
+    /// zuletzt bearbeitete).</summary>
+    public TurnierdurchfuehrungSeite TurnierdurchfuehrungOeffnen(string name)
+    {
         var turnier = TurnierdurchfuehrungOeffnen();
         if (turnier.GewaehltesTurnier != name)
             throw new InvalidOperationException(
