@@ -287,6 +287,13 @@
                             <ComboBox AutomationProperties.AutomationId="Verbaende.Rangliste"
                                       ItemsSource="{Binding RanglistenOptionen}"
                                       SelectedItem="{Binding VerbandRangliste, Mode=TwoWay}"
+                                      DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,12" />
+
+                            <!-- #574: ordnet die Verbandsquote bei Vereinswettbewerben, etwa der UEFA-Klub-Koeffizient. -->
+                            <TextBlock Text="Vereinsrangliste" FontSize="12" Margin="0,0,0,3" />
+                            <ComboBox AutomationProperties.AutomationId="Verbaende.VereinsRangliste"
+                                      ItemsSource="{Binding RanglistenOptionen}"
+                                      SelectedItem="{Binding VerbandVereinsRangliste, Mode=TwoWay}"
                                       DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,24" />
 
                             <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"

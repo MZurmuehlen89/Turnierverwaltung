@@ -13,5 +13,10 @@ public class Verband : BasisEntitaet
     public int? RanglisteId { get; set; }
     public Rangliste? Rangliste { get; set; }
 
+    // Vereinsrangliste des Verbands (#574), etwa der UEFA-Klub-Koeffizient: ordnet die Verbandsquote bei
+    // Vereinswettbewerben (Klub-WM), denn die Rangliste oben enthält dort nur Nationalmannschaften.
+    public int? VereinsRanglisteId { get; set; }
+    public Rangliste? VereinsRangliste { get; set; }
+
     public ICollection<Land> Laender { get; set; } = new List<Land>();
 }

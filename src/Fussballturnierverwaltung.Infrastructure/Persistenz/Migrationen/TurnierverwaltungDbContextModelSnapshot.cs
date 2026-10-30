@@ -821,12 +821,17 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int?>("RanglisteId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("VereinsRanglisteId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Kurzname")
                         .IsUnique();
 
                     b.HasIndex("RanglisteId");
+
+                    b.HasIndex("VereinsRanglisteId");
 
                     b.ToTable("Verbaende", (string)null);
                 });
@@ -1552,7 +1557,13 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasForeignKey("RanglisteId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.Rangliste", "VereinsRangliste")
+                        .WithMany()
+                        .HasForeignKey("VereinsRanglisteId");
+
                     b.Navigation("Rangliste");
+
+                    b.Navigation("VereinsRangliste");
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum.TurnierBaum", b =>

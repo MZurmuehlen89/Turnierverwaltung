@@ -1,4 +1,6 @@
 namespace Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
 
-public record VerbandErstellenEingabe(string Name, string Kurzname, byte[]? Logo = null, int? RanglisteId = null);
-public record VerbandAktualisierenEingabe(string Name, string Kurzname, byte[]? Logo = null, int? RanglisteId = null);
+public record VerbandErstellenEingabe(
+    string Name, string Kurzname, byte[]? Logo = null, int? RanglisteId = null, int? VereinsRanglisteId = null);
+public record VerbandAktualisierenEingabe(
+    string Name, string Kurzname, byte[]? Logo = null, int? RanglisteId = null, int? VereinsRanglisteId = null);

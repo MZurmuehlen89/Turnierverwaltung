@@ -28,7 +28,7 @@ public class GenericRepository<T>(TurnierverwaltungDbContext context) : IReposit
         await Context.SaveChangesAsync(ct);
     }
 
-    public async Task LoeschenAsync(T entitaet, CancellationToken ct = default)
+    public virtual async Task LoeschenAsync(T entitaet, CancellationToken ct = default)
     {
         Context.Set<T>().Remove(entitaet);
         await Context.SaveChangesAsync(ct);

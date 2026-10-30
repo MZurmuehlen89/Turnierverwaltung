@@ -57,6 +57,16 @@ public class RanglisteRepository(TurnierverwaltungDbContext context)
             .AsSplitQuery()
             .ToListAsync(ct);
 
+    /// <summary>Löst vorher die Verweise der Verbände auf ihre Vereinsrangliste — dieser Fremdschlüssel hat kein
+    /// ON DELETE SET NULL (siehe VerbandKonfiguration, #574).</summary>
+    public override async Task LoeschenAsync(Rangliste entitaet, CancellationToken ct = default)
+    {
+        var verbaende = await Context.Verbaende.Where(v => v.VereinsRanglisteId == entitaet.Id).ToListAsync(ct);
+        foreach (var verband in verbaende)
+            verband.VereinsRanglisteId = null;
+        await base.LoeschenAsync(entitaet, ct);
+    }
+
     public Task SpeichernAenderungenAsync(CancellationToken ct = default)
         => Context.SaveChangesAsync(ct);
 }

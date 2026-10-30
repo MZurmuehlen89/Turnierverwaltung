@@ -35,9 +35,10 @@ public class KontingentvorgabeServiceTests
             Eintraege = [new RanglistenEintrag { MannschaftId = 11, Rang = 1 }],
         };
         var koeffizient = new Rangliste { Id = 2, Name = "Koeffizient", Eintraege = [new RanglistenEintrag { MannschaftId = 11, Rang = 3 }] };
-        context.Ranglisten.AddRange(pyramide, koeffizient);
+        var klubKoeffizient = new Rangliste { Id = 3, Name = "Klub-Koeffizient", Eintraege = [new RanglistenEintrag { MannschaftId = 11, Rang = 7 }] };
+        context.Ranglisten.AddRange(pyramide, koeffizient, klubKoeffizient);
         context.Verbaende.AddRange(
-            new Verband { Id = 1, Name = "UEFA", Kurzname = "UEFA", RanglisteId = 2 },
+            new Verband { Id = 1, Name = "UEFA", Kurzname = "UEFA", RanglisteId = 2, VereinsRanglisteId = 3 },
             new Verband { Id = 2, Name = "CAF", Kurzname = "CAF", RanglisteId = 2 });
         context.Laender.AddRange(
             new Land { Id = 10, Name = "Deutschland", VerbandId = 1, RanglisteId = 1 },
@@ -70,6 +71,19 @@ public class KontingentvorgabeServiceTests
         deutschland.Rangliste!.Abschnitte.Should().ContainSingle();
         deutschland.Rangliste.Eintraege.Should().ContainSingle();
         vorgabe.Landesquoten.Single(q => q.LandId == 11).Rangliste.Should().BeNull();
+
+        // Vereinswettbewerb: die Vereinsrangliste des Verbands, ohne Rückgriff auf seine Rangliste (#574).
+        vorgabe.Verbandsquoten.Select(q => $"{q.Name} {q.Anzahl} {q.Rangliste?.Id}").Should().BeEquivalentTo("UEFA 3 3", "CAF 1 ");
+        vorgabe.Verbandsquoten.Single(q => q.Name == "UEFA").Rangliste!.Eintraege.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Laden_Nationalmannschaften_RanglisteDesVerbands()
+    {
+        var (context, service) = await AufbauenAsync();
+        await using var _ = context;
+
+        var vorgabe = await service.LadenAsync(Turnier(TURNIER, MannschaftsartFilter.Nationalmannschaft), ERSTE_RUNDE);
 
         // Beide Verbände verweisen auf dieselbe Rangliste.
         vorgabe.Verbandsquoten.Select(q => $"{q.Name} {q.Anzahl} {q.Rangliste?.Id}").Should().BeEquivalentTo("UEFA 3 2", "CAF 1 2");

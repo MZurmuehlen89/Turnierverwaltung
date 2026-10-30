@@ -18,7 +18,8 @@ public class VerbandService(IVerbandRepository repository, VerbandValidator vali
             Name = eingabe.Name.Trim(),
             Kurzname = eingabe.Kurzname.Trim(),
             Logo = eingabe.Logo,
-            RanglisteId = eingabe.RanglisteId
+            RanglisteId = eingabe.RanglisteId,
+            VereinsRanglisteId = eingabe.VereinsRanglisteId
         };
         await repository.HinzufuegenAsync(verband, ct);
         logger.LogInformation("Verband '{Name}' angelegt (ID {Id}).", verband.Name, verband.Id);
@@ -34,6 +35,7 @@ public class VerbandService(IVerbandRepository repository, VerbandValidator vali
         verband.Kurzname = eingabe.Kurzname.Trim();
         verband.Logo = eingabe.Logo;
         verband.RanglisteId = eingabe.RanglisteId;
+        verband.VereinsRanglisteId = eingabe.VereinsRanglisteId;
         await repository.AktualisierenAsync(verband, ct);
     }
 

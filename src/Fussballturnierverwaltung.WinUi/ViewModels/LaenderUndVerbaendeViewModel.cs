@@ -80,6 +80,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     [ObservableProperty] private string _verbandKurzname = "";
     [ObservableProperty] private byte[]? _verbandLogoDaten;
     [ObservableProperty] private RanglistenOption? _verbandRangliste = KeineRangliste;
+    [ObservableProperty] private RanglistenOption? _verbandVereinsRangliste = KeineRangliste;
 
     // ── Länder ───────────────────────────────────────────────────────────────
     [ObservableProperty]
@@ -184,7 +185,8 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
 
     private static readonly HashSet<string> _verbandFormFelder =
     [
-        nameof(VerbandName), nameof(VerbandKurzname), nameof(VerbandLogoDaten), nameof(VerbandRangliste)
+        nameof(VerbandName), nameof(VerbandKurzname), nameof(VerbandLogoDaten), nameof(VerbandRangliste),
+        nameof(VerbandVereinsRangliste)
     ];
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
@@ -292,6 +294,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
                 VerbandName = VerbandKurzname = "";
                 VerbandLogoDaten = null;
                 VerbandRangliste = KeineRangliste;
+                VerbandVereinsRangliste = KeineRangliste;
             }
             else
             {
@@ -301,6 +304,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
                 VerbandKurzname = verband.Kurzname;
                 VerbandLogoDaten = verband.Logo;
                 VerbandRangliste = RanglisteOptionFuer(verband.RanglisteId);
+                VerbandVereinsRangliste = RanglisteOptionFuer(verband.VereinsRanglisteId);
             }
             VerbandIsDirty = false;
             Fehlermeldung = null;
@@ -363,6 +367,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
             VerbandName = VerbandKurzname = "";
             VerbandLogoDaten = null;
             VerbandRangliste = KeineRangliste;
+            VerbandVereinsRangliste = KeineRangliste;
             Fehlermeldung = null;
         }
         finally
@@ -429,7 +434,8 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         {
             if (VerbandIstNeuModus)
             {
-                var eingabe = new VerbandErstellenEingabe(VerbandName, VerbandKurzname, VerbandLogoDaten, VerbandRangliste?.Id);
+                var eingabe = new VerbandErstellenEingabe(VerbandName, VerbandKurzname, VerbandLogoDaten,
+                    VerbandRangliste?.Id, VerbandVereinsRangliste?.Id);
                 var neu = await _verbandService.ErstellenAsync(eingabe);
                 await LadenAsync();
                 AusgewaehlterVerband = Verbaende.FirstOrDefault(v => v.Id == neu.Id);
@@ -437,7 +443,8 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
             else if (AusgewaehlterVerband is not null)
             {
                 var id = AusgewaehlterVerband.Id;
-                var eingabe = new VerbandAktualisierenEingabe(VerbandName, VerbandKurzname, VerbandLogoDaten, VerbandRangliste?.Id);
+                var eingabe = new VerbandAktualisierenEingabe(VerbandName, VerbandKurzname, VerbandLogoDaten,
+                    VerbandRangliste?.Id, VerbandVereinsRangliste?.Id);
                 await _verbandService.AktualisierenAsync(id, eingabe);
                 await LadenAsync();
                 AusgewaehlterVerband = Verbaende.FirstOrDefault(v => v.Id == id);
