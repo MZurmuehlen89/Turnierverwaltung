@@ -67,6 +67,9 @@ public static class NationalmannschaftenSeedDaten
         new("SKN", 48, 47, 46, 51, 40), new("LCA", 48, 47, 46, 51, 40),
         new("VIN", 50, 49, 48, 53, 42), new("TCA", 41, 40, 40, 45, 35),
         new("VGB", 40, 39, 39, 44, 34), new("VIR", 40, 39, 38, 44, 34),
+        // #579: in der FIFA-Weltrangliste, im Seed bis dahin gefehlt; Ratings nach den Rangnachbarn geschätzt.
+        new("CUW", 63, 62, 62, 66, 57), new("ARU", 44, 43, 43, 48, 37),
+        new("AIA", 39, 38, 38, 43, 33),
 
         // ── CAF ─────────────────────────────────────────────────────────
         new("SEN", 78, 77, 76, 79, 70), new("MAR", 77, 79, 80, 82, 69),

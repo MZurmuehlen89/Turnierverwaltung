@@ -118,6 +118,9 @@ public static class LaenderSeedDaten
             new() { Name = "Turks- und Caicosinseln",  Kurzname = "TCA", FifaCode = "TCA", Kontinent = Kontinent.NordUndMittelamerika, VerbandId = concacaf },
             new() { Name = "Brit. Jungferninseln",     Kurzname = "VGB", FifaCode = "VGB", Kontinent = Kontinent.NordUndMittelamerika, VerbandId = concacaf },
             new() { Name = "US Jungferninseln",        Kurzname = "VIR", FifaCode = "VIR", Kontinent = Kontinent.NordUndMittelamerika, VerbandId = concacaf },
+            new() { Name = "Curaçao",                  Kurzname = "CUW", FifaCode = "CUW", Kontinent = Kontinent.NordUndMittelamerika, VerbandId = concacaf },
+            new() { Name = "Aruba",                    Kurzname = "ARU", FifaCode = "ARU", Kontinent = Kontinent.NordUndMittelamerika, VerbandId = concacaf },
+            new() { Name = "Anguilla",                 Kurzname = "AIA", FifaCode = "AIA", Kontinent = Kontinent.NordUndMittelamerika, VerbandId = concacaf },
 
             // ── CAF – Afrika ─────────────────────────────────────────────
             new() { Name = "Senegal",                  Kurzname = "SEN", FifaCode = "SEN", Kontinent = Kontinent.Afrika, VerbandId = caf },
