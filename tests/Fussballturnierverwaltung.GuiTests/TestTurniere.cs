@@ -13,4 +13,14 @@ internal static class TestTurniere
             DELETE q FROM VerbandsQuoten q JOIN TurnierInstanzen t ON t.Id = q.TurnierInstanzId WHERE t.Name = @turnier;
             """,
             ("@turnier", turnier));
+
+    /// <summary>Entfernt die Standard-Rangliste aller Runden des Turniers: Mit ihr befüllt die App die Töpfe schon beim
+    /// Anlegen der Auslosung (#349), eine danach gewählte eigene Rangliste käme nicht mehr zum Zug.</summary>
+    public static Task<int> StandardRanglisteEntfernenAsync(TestDatenbank datenbank, string turnier) =>
+        datenbank.AusfuehrenAsync(
+            """
+            UPDATE r SET StandardRanglisteId = NULL
+            FROM TurnierRunden r JOIN TurnierInstanzen t ON t.Id = r.TurnierInstanzId WHERE t.Name = @turnier;
+            """,
+            ("@turnier", turnier));
 }

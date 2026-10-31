@@ -28,8 +28,9 @@ public sealed class GruppensiegerGegenZweiteTests(TurnierverwaltungApp app, Test
     {
         string rangliste = await TestRanglisten.NationenAnlegenAsync(datenbank, _nationen);
         string name = app.Hauptfenster.TurnierAusVorlageErstellen(VORLAGE, VARIANTE);
-        // Die UEFA-Quote der Vorlage (#574) füllt alle 16 Plätze aus der FIFA-Weltrangliste des Verbands (#579) – die
-        // eigene Rangliste käme nicht zum Zug.
+        // Die Gruppenphase lost sonst nach der FIFA-Weltrangliste (#579): als Standard-Rangliste der Runde und über die
+        // UEFA-Quote (#574), die ihre Plätze aus der Rangliste des Verbands füllt.
+        await TestTurniere.StandardRanglisteEntfernenAsync(datenbank, name);
         await TestTurniere.QuotenEntfernenAsync(datenbank, name);
         var turnier = app.Hauptfenster.TurnierdurchfuehrungOeffnen(name);
 
