@@ -63,6 +63,7 @@ public static class TurnierVorlagenSeedDaten
             GruppenpositionSetzen(vorlage);
             GruppenkoepfeSetzen(vorlage);
             AuslosungsartSetzen(vorlage);
+            FifaWeltranglisteSetzen(vorlage, ranglisteLookup);
             QuotenSeedDaten.Setzen(vorlage, verbandLookup, landLookup);
         }
         return vorlagen;
@@ -210,6 +211,19 @@ public static class TurnierVorlagenSeedDaten
         if (vorlage.Name == MINI_TURNIER) return;
         foreach (var runde in vorlage.Runden.Where(r => r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge == 1))
             runde.VorgegebeneAuslosungsart ??= Auslosungsart.NachToepfen;
+    }
+
+    // ── Standard-Rangliste der Nationalmannschaften (Issue #579) ───────────────
+
+    // Gruppenphasen von Nationalmannschafts-Wettbewerben bilden ihre Lostöpfe nach der FIFA-Weltrangliste. Als Regel
+    // statt Liste wie die Auslosungsart. Bestehende Datenbanken: SeedVorlagenAbgleich.StandardRanglisteErgaenzen
+    // (nur Runden ohne Standard-Rangliste).
+    private static void FifaWeltranglisteSetzen(TurnierInstanz vorlage, IReadOnlyDictionary<string, int>? ranglisteLookup)
+    {
+        if (vorlage.MannschaftsartFilter != MannschaftsartFilter.Nationalmannschaft) return;
+        int? fifa = RlId(ranglisteLookup, FifaWeltranglisteSeedDaten.RANGLISTE);
+        foreach (var runde in vorlage.Runden.Where(r => r.Rundenart == Rundenart.Gruppenphase && r.Reihenfolge == 1))
+            runde.StandardRanglisteId ??= fifa;
     }
 
     // ── Neutraler Spielort (Issue #352) ────────────────────────────────────────

@@ -38,6 +38,8 @@ public class SeedDatenService
         await RanglistenQuellenNachruesten(cancellationToken);
         // Nach den Mannschaften (Issue #393).
         await LigapyramideNachruestung.AusfuehrenAsync(_context, Protokollieren, cancellationToken);
+        // Nach den Mannschaften, vor den Vorlagen: deren Gruppenphasen verweisen auf sie (Issue #579).
+        await FifaWeltranglisteNachruestung.AusfuehrenAsync(_context, Protokollieren, cancellationToken);
         var vorlagen = await TurnierVorlagenNachruestung.LadenAsync(_context, Protokollieren, cancellationToken);
         await vorlagen.AusfuehrenAsync(cancellationToken);
         // Nach den Vorlagen: auch gerade erst angelegte Vorlagen bekommen hier ihr Logo (Issue #481).
