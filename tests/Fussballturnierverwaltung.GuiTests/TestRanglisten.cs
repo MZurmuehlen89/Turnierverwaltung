@@ -2,8 +2,8 @@ using FluentAssertions;
 
 namespace Fussballturnierverwaltung.GuiTests;
 
-/// <summary>Ranglisten, die ein Test an der Oberfläche vorbei anlegt: Die frische Test-Datenbank bringt als Rangliste
-/// nur die Ligapyramide Deutschland mit (FIFA- und UEFA-Ranglisten sind im Seed nur Import-Quellen).</summary>
+/// <summary>Ranglisten, die ein Test an der Oberfläche vorbei anlegt: Die frische Test-Datenbank bringt aus dem Seed nur
+/// die Ligapyramide Deutschland und die FIFA-Weltrangliste mit (#579); der UEFA-Klub-Koeffizient ist nur Import-Quelle.</summary>
 internal static class TestRanglisten
 {
     // Werte von Domain.Enums.Mannschaftsart; das Testprojekt referenziert die Domain nicht

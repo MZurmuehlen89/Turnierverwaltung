@@ -27,7 +27,11 @@ public sealed class GruppensiegerGegenZweiteTests(TurnierverwaltungApp app, Test
     public async Task Viertelfinale_PaartGruppensiegerMitZweitenUndDieSiegerKommenWeiter()
     {
         string rangliste = await TestRanglisten.NationenAnlegenAsync(datenbank, _nationen);
-        var turnier = app.Hauptfenster.TurnierAusVorlageAnlegen(VORLAGE, VARIANTE);
+        string name = app.Hauptfenster.TurnierAusVorlageErstellen(VORLAGE, VARIANTE);
+        // Die UEFA-Quote der Vorlage (#574) füllt alle 16 Plätze aus der FIFA-Weltrangliste des Verbands (#579) – die
+        // eigene Rangliste käme nicht zum Zug.
+        await TestTurniere.QuotenEntfernenAsync(datenbank, name);
+        var turnier = app.Hauptfenster.TurnierdurchfuehrungOeffnen(name);
 
         AuslosungDurchfuehren(turnier, GRUPPENPHASE, rangliste: rangliste);
         turnier.RundeSimulieren(GRUPPENPHASE, 48);

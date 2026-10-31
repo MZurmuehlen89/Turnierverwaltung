@@ -34,7 +34,9 @@ public sealed class TopfLigaTests(TurnierverwaltungApp app, TestDatenbank datenb
     {
         var (rangliste, vereine) = await TestRanglisten.VereineAnlegenAsync(datenbank, _laender);
         string name = app.Hauptfenster.TurnierAusVorlageErstellen(vorlage, VARIANTE);
-        await QuotenEntfernenAsync(name);
+        // Die Kontingente der Champions-League-Vorlage (#574) verlangen Vereine aus den Ranglisten ihrer Länder, die
+        // Testvereine stehen nur in der eigenen Rangliste.
+        await TestTurniere.QuotenEntfernenAsync(datenbank, name);
         var turnier = app.Hauptfenster.TurnierdurchfuehrungOeffnen(name);
         var auslosung = turnier.Auslosung();
         auslosung.Anlegen(LIGAPHASE);
@@ -55,16 +57,6 @@ public sealed class TopfLigaTests(TurnierverwaltungApp app, TestDatenbank datenb
     }
 
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
-
-    /// <summary>Die Ligaphase steht hier für sich: Die Kontingente der Champions-League-Vorlage (#574) verlangen Vereine
-    /// aus den Ranglisten ihrer Länder, die Testvereine stehen nur in der eigenen Rangliste.</summary>
-    private Task<int> QuotenEntfernenAsync(string turnier) =>
-        datenbank.AusfuehrenAsync(
-            """
-            DELETE q FROM LandesQuoten q JOIN TurnierInstanzen t ON t.Id = q.TurnierInstanzId WHERE t.Name = @turnier;
-            DELETE q FROM VerbandsQuoten q JOIN TurnierInstanzen t ON t.Id = q.TurnierInstanzId WHERE t.Name = @turnier;
-            """,
-            ("@turnier", turnier));
 
     private static void KeinPaarDoppelt(IReadOnlyList<SpielZeile> spiele) =>
         spiele.Select(s => string.CompareOrdinal(s.Heim, s.Auswaerts) < 0 ? (s.Heim, s.Auswaerts) : (s.Auswaerts, s.Heim))
