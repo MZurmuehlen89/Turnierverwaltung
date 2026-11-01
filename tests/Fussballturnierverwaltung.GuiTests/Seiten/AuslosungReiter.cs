@@ -142,6 +142,18 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
         eintrag.DoubleClick();
     }
 
+    /// <summary>Wechselt bei geändertem Pool zum Reiter <paramref name="reiter"/> der Turnierdurchführung und lehnt die
+    /// Rückfrage „Teilnehmerpool verwerfen“ ab — der Wechsel unterbleibt.</summary>
+    public void ReiterwechselAbbrechen(string reiter)
+    {
+        const string RUECKFRAGE = "Teilnehmerpool verwerfen";
+        fenster.SelectTab(reiter);
+        Dialog.WaitFor(fenster, RUECKFRAGE).Close();
+        Wait.Until(() => Dialog.FindOpen(fenster).All(d => d.Title != RUECKFRAGE), Wait.DefaultTimeout,
+            $"Dialog '{RUECKFRAGE}' geschlossen");
+        hauptfenster.WarteBisRuhig();
+    }
+
     /// <summary>Ob „Automatisch befüllen“ im Menü „Töpfe“ gerade möglich ist — öffnet das Menü und schließt es wieder.</summary>
     public bool AutomatischBefuellenMoeglich()
     {

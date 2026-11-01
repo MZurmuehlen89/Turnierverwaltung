@@ -43,7 +43,7 @@ public sealed class TeilnehmerpoolGruppe(int schluessel) : ObservableCollection<
 /// <summary>Reiter „Teilnehmerpool“ der Auslosung (#576): wer in der ersten Runde eines Turniers mit Quoten dabei ist.
 /// Vorbelegt aus den Ranglisten (<see cref="Teilnehmerpool.Vorschlagen"/>), frei tauschbar zwischen „Weitere verfügbar“
 /// und dem Pool, darüber die Kacheln der Quoten. Der Pool lebt nur im Speicher: beim erneuten Öffnen wird er aus der
-/// Topfbelegung und dem Vorschlag aufgebaut — was davon abweicht, gilt als ungespeichert. Kind-ViewModel von
+/// Topfbelegung und dem Vorschlag aufgebaut — weicht er davon ab, fragt die Auslosung vor dem Verlassen nach. Kind-ViewModel von
 /// <see cref="AuslosungViewModel"/>.</summary>
 public partial class TeilnehmerpoolViewModel : ObservableObject
 {

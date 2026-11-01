@@ -86,9 +86,10 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
 
         TabKoordinator.AktivesTabZustandGeaendert += (_, _) => RibbonEigenschaftenGeaendertMelden();
 
-        // Reiterwechsel weg von einer laufenden TV-Ziehung erst nach Rückfrage (#406).
+        // Reiterwechsel weg von einer laufenden TV-Ziehung (#406) oder einem geänderten Teilnehmerpool (#576) erst nach
+        // Rückfrage — der Wechsel setzt alle Reiter neu und verwirft den Pool.
         TabKoordinator.TabVerlassenBestaetigen = tab =>
-            tab == AuslosungTab ? AuslosungTab.ZiehungBeendenNachRueckfrageAsync() : Task.FromResult(true);
+            tab == AuslosungTab ? AuslosungTab.VerlassenBestaetigtAsync() : Task.FromResult(true);
 
         // Nachbesserung zu #163 (WPF-Original TurnierDurchfuehrungViewModel): "Ausführlich simulieren"/
         // "Spielverlauf ansehen" im Spielplan-Tab wechselt nur auf den Simulation-Tab derselben, bereits
@@ -127,7 +128,7 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
     {
         // Vor dem Öffnen fragen, nicht erst bei der Auswahl: der Auswahl-Dialog ist selbst ein ContentDialog,
         // und davon kann nur einer gleichzeitig offen sein (#406).
-        if (!await AuslosungTab.ZiehungBeendenNachRueckfrageAsync()) return;
+        if (!await AuslosungTab.VerlassenBestaetigtAsync()) return;
 
         var dialog = new TurnierAuswahlDialog(TabKoordinator);
         await _dialogService.AnzeigenAsync(dialog);
@@ -202,5 +203,5 @@ public partial class TurnierdurchfuehrungViewModel : ViewModelBase, IRibbonAware
     public bool HatUngespeicherteAenderungen
         => (TabKoordinator.AktivesTab as IHatUngespeicherteAenderungen)?.HatUngespeicherteAenderungen ?? false;
 
-    public Task<bool> VerlassenBestaetigenAsync() => AuslosungTab.ZiehungBeendenNachRueckfrageAsync();
+    public Task<bool> VerlassenBestaetigenAsync() => AuslosungTab.VerlassenBestaetigtAsync();
 }

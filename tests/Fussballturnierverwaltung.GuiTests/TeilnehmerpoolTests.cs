@@ -5,7 +5,8 @@ namespace Fussballturnierverwaltung.GuiTests;
 
 /// <summary>Teilnehmerpool (#576): Conference League mit der Landesquote „Deutschland · 4“ — der Pool ist vorbelegt und
 /// erfüllt die Quote. Ein deutscher Verein per Doppelklick heraus verletzt sie, „Automatisch befüllen“ ist dann gesperrt
-/// und der Reiter Lostöpfe weist darauf hin; ein anderer deutscher Verein hinein, und alles ist wieder möglich. Eigene
+/// und der Reiter Lostöpfe weist darauf hin; ein Reiterwechsel fragt, ob der geänderte Pool verworfen werden soll. Ein
+/// deutscher Verein hinein, und alles ist wieder möglich. Eigene
 /// Klasse und damit eigene App-Sitzung, weil das Anlegen mit ungespeicherten Quoten abbrechen kann (wie
 /// <see cref="QuoteFilterTests"/>).</summary>
 public sealed class TeilnehmerpoolTests(TurnierverwaltungApp app)
@@ -38,6 +39,8 @@ public sealed class TeilnehmerpoolTests(TurnierverwaltungApp app)
         KontingentTurnier.Abwarten(() => auslosung.Kachel(GESAMT) == "35 / 36");
         auslosung.Kachel(GESAMT).Should().Be("35 / 36", "'{0}' hat den Pool verlassen", heraus);
         auslosung.PoolMaengel.Should().NotBeEmpty("dem Pool fehlt eine Mannschaft");
+        auslosung.ReiterwechselAbbrechen("Statistik");
+        auslosung.Kachel(GESAMT).Should().Be("35 / 36", "nach abgelehnter Rückfrage bleibt der geänderte Pool stehen");
         auslosung.AutomatischBefuellenMoeglich().Should().BeFalse("die Automatik wartet, bis der Pool seine Quoten erfüllt");
         auslosung.LostoepfeOeffnen();
         auslosung.PoolHinweis.Should().NotBeEmpty("der Reiter Lostöpfe weist auf den Pool hin");

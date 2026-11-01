@@ -452,7 +452,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     [RelayCommand(CanExecute = nameof(KannNeu))]
     private async Task Neu()
     {
-        if (!await ZiehungBeendenNachRueckfrageAsync()) return;
+        if (!await VerlassenBestaetigtAsync()) return;
         Fehlermeldung = null;
         (IReadOnlyList<TurnierRunde> Runden, string? Hinweis) auslosbar;
         using (await DbContextSchutz.BetretenAsync())
@@ -792,9 +792,27 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         SpielplanErsetzenRueckfrage.ErgebnisVerlustBestaetigtAsync(
             _spielplanService, _dialogService, rundeId, "Auslosung durchführen", "Die Auslosung", "auslosen");
 
+    /// <summary>Alle Rückfragen, bevor die gezeigte Auslosung verlassen wird (Menüpunkt, Reiter, Turnierwahl, andere
+    /// Auslosung, "Neu"): eine laufende Ziehung, dann ein geänderter Teilnehmerpool.</summary>
+    public async Task<bool> VerlassenBestaetigtAsync() =>
+        await ZiehungBeendenNachRueckfrageAsync() && await PoolVerwerfenBestaetigtAsync();
+
+    /// <summary>Rückfrage, bevor ein geänderter Teilnehmerpool verloren geht (#576) — er lebt nicht in der Datenbank,
+    /// gespeichert ist nur, was in den Töpfen liegt. Darum keine Speichern-Abfrage, nur fortfahren oder bleiben (wie die
+    /// Vorbelegung). Ohne Änderung synchron <c>true</c>.</summary>
+    private async Task<bool> PoolVerwerfenBestaetigtAsync()
+    {
+        if (!ZeigeVorbereitung || !Teilnehmerpool.HatUngespeicherteAenderungen) return true;
+
+        return await _dialogService.BestaetigenAsync(
+            "Teilnehmerpool verwerfen",
+            "Der Teilnehmerpool ist geändert, aber noch nicht alle seine Teams liegen in den Töpfen. Gespeichert ist nur, " +
+            "was in den Töpfen liegt – die übrigen Änderungen gehen verloren. Wirklich fortfahren?");
+    }
+
     /// <summary>Rückfrage, bevor eine laufende TV-Ziehung verlassen wird (Menüpunkt, Reiter, Turnierwahl, andere
     /// Auslosung, "Neu") — bei "Ja" endet die Ziehung sofort. Ohne laufende Ziehung synchron <c>true</c>.</summary>
-    public async Task<bool> ZiehungBeendenNachRueckfrageAsync()
+    private async Task<bool> ZiehungBeendenNachRueckfrageAsync()
     {
         if (HandZiehung.Laeuft) return await HandZiehungVerwerfenBestaetigtAsync();
         if (!Ziehung.AnimationLaeuft) return true;
@@ -871,12 +889,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         await AusgewaehltesDetailLadenAsync(AusgewaehlteAuslosung.Id);
     }
 
-    /// <summary>Andere Auslosung während der TV-Ziehung angeklickt (#406): erst nach Rückfrage wechseln.</summary>
-    private async Task<bool> AuswahlwechselErlaubtAsync()
-    {
-        if (!Ziehung.AnimationLaeuft && !HandZiehung.Laeuft || AusgewaehlteAuslosung?.Id == _auslosungDetail?.Id) return true;
-        return await ZiehungBeendenNachRueckfrageAsync();
-    }
+    /// <summary>Andere Auslosung während der TV-Ziehung (#406) oder mit geändertem Teilnehmerpool (#576) angeklickt:
+    /// erst nach Rückfrage wechseln.</summary>
+    private async Task<bool> AuswahlwechselErlaubtAsync() =>
+        AusgewaehlteAuslosung?.Id == _auslosungDetail?.Id || await VerlassenBestaetigtAsync();
 
     /// <summary>Stellt die Auswahl auf die gezeigte Auslosung zurück — unter dem Guard der Seitenliste, damit
     /// diese Zuweisung nicht erneut als Auswahlwechsel ankommt.</summary>
@@ -998,8 +1014,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                                  || (IstDetailDirty && IstBearbeitbar);
     private bool KannAbbrechen() => NeuFormAktiv || IstDetailDirty;
 
-    public bool HatUngespeicherteAenderungen =>
-        NeuFormAktiv || IstDetailDirty || ZeigeVorbereitung && Teilnehmerpool.HatUngespeicherteAenderungen;
+    public bool HatUngespeicherteAenderungen => NeuFormAktiv || IstDetailDirty;
     private bool KannLoeschen()  => AusgewaehlteAuslosung is not null && !NeuFormAktiv;
 
     private bool KannAuslosungAusfuehren()             => DetailAktiv && IstBearbeitbar && !HandZiehung.Laeuft;
