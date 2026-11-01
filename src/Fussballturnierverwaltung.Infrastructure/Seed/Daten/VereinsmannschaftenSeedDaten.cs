@@ -277,6 +277,209 @@ public static class VereinsmannschaftenSeedDaten
         new("PAOK Thessaloniki",       "PAK", "GRE", 70, 69, 69, 73, 64),
         new("Aris Thessaloniki",       "ARI", "GRE", 66, 65, 65, 69, 60),
 
+        // ── Weitere UEFA-Vereine: Top 200 des Klub-Koeffizienten (Issue #381) ─────────
+        // Alle Vereine der Kassies-Rangliste trank2026 bis Platz 200 (samt Gleichstand), die vorher fehlten, dazu
+        // Dundee United und Polissja Schytomyr. Rating G = 55,2 + 5,8·ln(Koeffizient), geeicht an den vorhandenen
+        // Vereinen; Abschlag 4·ln(8,4/Landesanteil) für Ligen mit kleinem Landesanteil (sonst stünde Gibraltars
+        // Meister über Aberdeen). Vereine, deren Koeffizient nur der Landesanteil ist, rechnen mit dem geometrischen
+        // Mittel aus eigenen Punkten und Landesanteil. O = G+1, M = G, D = G−1, Heim = G+3, Auswärts = G−5.
+        // Armenien
+        new("FC Noah",                 "NOA", "ARM", 66, 65, 64, 68, 60),
+        new("Pjunik Jerewan",          "PYU", "ARM", 65, 64, 63, 67, 59),
+
+        // Österreich
+        new("Red Bull Salzburg",       "RBS", "AUT", 77, 76, 75, 79, 71),
+        new("SK Rapid Wien",           "RAP", "AUT", 75, 74, 73, 77, 69),
+        new("SK Sturm Graz",           "STU", "AUT", 75, 74, 73, 77, 69),
+        new("LASK",                    "LASK","AUT", 73, 72, 71, 75, 67),
+        new("FK Austria Wien",         "AWI", "AUT", 68, 67, 66, 70, 62),
+
+        // Aserbaidschan
+        new("Qarabağ Ağdam",           "QAR", "AZE", 76, 75, 74, 78, 70),
+
+        // Belgien
+        new("Union Saint-Gilloise",    "USG", "BEL", 79, 78, 77, 81, 73),
+        new("Cercle Brügge",           "CER", "BEL", 71, 70, 69, 73, 65),
+        new("Sporting Charleroi",      "CHL", "BEL", 65, 64, 63, 67, 59),
+
+        // Bosnien-Herzegowina
+        new("Zrinjski Mostar",         "ZRI", "BIH", 67, 66, 65, 69, 61),
+        new("Borac Banja Luka",        "BOR", "BIH", 67, 66, 65, 69, 61),
+
+        // Bulgarien
+        new("Ludogorez Rasgrad",       "LUD", "BUL", 73, 72, 71, 75, 67),
+
+        // Kroatien
+        new("Dinamo Zagreb",           "DZG", "CRO", 77, 76, 75, 79, 71),
+        new("HNK Rijeka",              "RIJ", "CRO", 72, 71, 70, 74, 66),
+        new("Hajduk Split",            "HAJ", "CRO", 68, 67, 66, 70, 62),
+
+        // Zypern
+        new("Pafos FC",                "PAF", "CYP", 74, 73, 72, 76, 68),
+        new("Omonia Nikosia",          "OMO", "CYP", 73, 72, 71, 75, 67),
+        new("AEK Larnaka",             "AEL", "CYP", 73, 72, 71, 75, 67),
+        new("APOEL Nikosia",           "APO", "CYP", 71, 70, 69, 73, 65),
+
+        // Tschechien
+        new("Viktoria Pilsen",         "VPL", "CZE", 79, 78, 77, 81, 73),
+        new("Slavia Prag",             "SLP", "CZE", 78, 77, 76, 80, 72),
+        new("Sparta Prag",             "SPP", "CZE", 77, 76, 75, 79, 71),
+        new("Sigma Olmütz",            "SIG", "CZE", 68, 67, 66, 70, 62),
+        new("Baník Ostrava",           "BAN", "CZE", 67, 66, 65, 69, 61),
+        new("FK Mladá Boleslav",       "MBO", "CZE", 67, 66, 65, 69, 61),
+        new("Bohemians Prag 1905",     "BOH", "CZE", 64, 63, 62, 66, 58),
+        new("1. FC Slovácko",          "SLC", "CZE", 68, 67, 66, 70, 62),
+        new("FK Jablonec",             "JAB", "CZE", 67, 66, 65, 69, 61),
+
+        // Dänemark
+        new("FC Kopenhagen",           "FCK", "DEN", 79, 78, 77, 81, 73),
+        new("FC Midtjylland",          "MJY", "DEN", 79, 78, 77, 81, 73),
+        new("Brøndby IF",              "BRO", "DEN", 69, 68, 67, 71, 63),
+        new("Silkeborg IF",            "SIL", "DEN", 68, 67, 66, 70, 62),
+        new("FC Nordsjælland",         "NSJ", "DEN", 68, 67, 66, 70, 62),
+        new("AGF Aarhus",              "AGF", "DEN", 66, 65, 64, 68, 60),
+        new("Viborg FF",               "VIB", "DEN", 65, 64, 63, 67, 59),
+        new("Randers FC",              "RFC", "DEN", 68, 67, 66, 70, 62),
+
+        // Estland
+        new("FC Flora Tallinn",        "FLO", "EST", 63, 62, 61, 65, 57),
+
+        // Finnland
+        new("KuPS Kuopio",             "KUP", "FIN", 67, 66, 65, 69, 61),
+        new("HJK Helsinki",            "HJK", "FIN", 67, 66, 65, 69, 61),
+
+        // Färöer
+        new("KÍ Klaksvík",             "KIK", "FRO", 64, 63, 62, 66, 58),
+
+        // Gibraltar
+        new("Lincoln Red Imps",        "LRI", "GIB", 64, 63, 62, 66, 58),
+
+        // Ungarn
+        new("Ferencváros Budapest",    "FTC", "HUN", 77, 76, 75, 79, 71),
+
+        // Irland
+        new("Shamrock Rovers",         "SHR", "IRL", 70, 69, 68, 72, 64),
+
+        // Island
+        new("Breiðablik",              "BRK", "ISL", 67, 66, 65, 69, 61),
+        new("Víkingur Reykjavík",      "VKR", "ISL", 67, 66, 65, 69, 61),
+
+        // Israel
+        new("Maccabi Tel Aviv",        "MTA", "ISR", 75, 74, 73, 77, 69),
+        new("Maccabi Haifa",           "MHA", "ISR", 71, 70, 69, 73, 65),
+        new("Hapoel Be’er Scheva",     "HBS", "ISR", 70, 69, 68, 72, 64),
+
+        // Kasachstan
+        new("FK Astana",               "AST", "KAZ", 66, 65, 64, 68, 60),
+        new("Kairat Almaty",           "KRT", "KAZ", 66, 65, 64, 68, 60),
+
+        // Kosovo
+        new("FC Drita",                "DRI", "KVX", 67, 66, 65, 69, 61),
+        new("FC Ballkani",             "BLK", "KVX", 65, 64, 63, 67, 59),
+
+        // Liechtenstein
+        new("FC Vaduz",                "VAD", "LIE", 62, 61, 60, 64, 56),
+
+        // Litauen
+        new("Žalgiris Vilnius",        "ZAL", "LTU", 64, 63, 62, 66, 58),
+
+        // Lettland
+        new("RFS Riga",                "RFS", "LVA", 66, 65, 64, 68, 60),
+        new("Riga FC",                 "RIG", "LVA", 65, 64, 63, 67, 59),
+
+        // Moldau
+        new("Sheriff Tiraspol",        "SHE", "MDA", 69, 68, 67, 71, 63),
+        new("Petrocub Hîncești",       "PTC", "MDA", 65, 64, 63, 67, 59),
+
+        // Nordmazedonien
+        new("Shkëndija Tetovo",        "SHK", "MKD", 63, 62, 61, 65, 57),
+
+        // Malta
+        new("Ħamrun Spartans",         "HSP", "MLT", 62, 61, 60, 64, 56),
+
+        // Niederlande
+        new("Go Ahead Eagles",         "GAE", "NED", 69, 68, 67, 71, 63),
+        new("FC Twente Enschede",      "TWE", "NED", 71, 70, 69, 73, 65),
+        new("Vitesse Arnheim",         "VTS", "NED", 70, 69, 68, 72, 64),
+
+        // Nordirland
+        new("Linfield FC",             "LNF", "NIR", 62, 61, 60, 64, 56),
+        new("Larne FC",                "LAR", "NIR", 62, 61, 60, 64, 56),
+
+        // Norwegen
+        new("FK Bodø/Glimt",           "BOD", "NOR", 80, 79, 78, 82, 74),
+        new("Molde FK",                "MOL", "NOR", 74, 73, 72, 76, 68),
+        new("SK Brann",                "BRN", "NOR", 71, 70, 69, 73, 65),
+        new("Rosenborg BK",            "ROS", "NOR", 68, 67, 66, 70, 62),
+        new("Fredrikstad FK",          "FRE", "NOR", 65, 64, 63, 67, 59),
+        new("Viking FK",               "VKG", "NOR", 67, 66, 65, 69, 61),
+        new("Tromsø IL",               "TRO", "NOR", 64, 63, 62, 66, 58),
+        new("Lillestrøm SK",           "LIL", "NOR", 64, 63, 62, 66, 58),
+        new("Vålerenga IF",            "VAL", "NOR", 63, 62, 61, 65, 57),
+
+        // Polen
+        new("Legia Warschau",          "LGW", "POL", 76, 75, 74, 78, 70),
+        new("Lech Posen",              "LPO", "POL", 75, 74, 73, 77, 69),
+        new("Raków Częstochowa",       "RAK", "POL", 74, 73, 72, 76, 68),
+        new("Jagiellonia Białystok",   "JAG", "POL", 74, 73, 72, 76, 68),
+        new("Wisła Krakau",            "WIS", "POL", 65, 64, 63, 67, 59),
+        new("Śląsk Breslau",           "SLA", "POL", 67, 66, 65, 69, 61),
+        new("Pogoń Stettin",           "POG", "POL", 67, 66, 65, 69, 61),
+        new("Lechia Danzig",           "LGD", "POL", 64, 63, 62, 66, 58),
+
+        // Portugal
+        new("CD Santa Clara",          "SCL", "POR", 69, 68, 67, 71, 63),
+        new("FC Arouca",               "ARO", "POR", 66, 65, 64, 68, 60),
+        new("Gil Vicente FC",          "GIL", "POR", 67, 66, 65, 69, 61),
+        new("FC Paços de Ferreira",    "PFE", "POR", 67, 66, 65, 69, 61),
+
+        // Rumänien
+        new("FCSB",                    "FCSB","ROU", 73, 72, 71, 75, 67),
+        new("CFR Cluj",                "CFR", "ROU", 71, 70, 69, 73, 65),
+        new("Universitatea Craiova",   "UCR", "ROU", 68, 67, 66, 70, 62),
+
+        // Schottland
+        new("Dundee United",           "DUN", "SCO", 65, 64, 63, 67, 59),
+
+        // Serbien
+        new("Roter Stern Belgrad",     "CZV", "SRB", 77, 76, 75, 79, 71),
+        new("Partizan Belgrad",        "PAR", "SRB", 72, 71, 70, 74, 66),
+
+        // Schweiz
+        new("FC Basel",                "BAS", "SUI", 76, 75, 74, 78, 70),
+        new("BSC Young Boys",          "YBO", "SUI", 75, 74, 73, 77, 69),
+        new("FC Lugano",               "LUG", "SUI", 73, 72, 71, 75, 67),
+        new("Servette FC",             "SER", "SUI", 70, 69, 68, 72, 64),
+        new("FC Lausanne-Sport",       "LAU", "SUI", 69, 68, 67, 71, 63),
+
+        // Slowakei
+        new("Slovan Bratislava",       "SVB", "SVK", 74, 73, 72, 76, 68),
+        new("Spartak Trnava",          "TRN", "SVK", 67, 66, 65, 69, 61),
+
+        // Slowenien
+        new("NK Celje",                "CLJ", "SVN", 72, 71, 70, 74, 66),
+        new("Olimpija Ljubljana",      "OLI", "SVN", 71, 70, 69, 73, 65),
+        new("NK Maribor",              "MAR", "SVN", 67, 66, 65, 69, 61),
+
+        // Schweden
+        new("Djurgårdens IF",          "DIF", "SWE", 75, 74, 73, 77, 69),
+        new("Malmö FF",                "MFF", "SWE", 71, 70, 69, 73, 65),
+        new("IF Elfsborg",             "ELF", "SWE", 69, 68, 67, 71, 63),
+        new("BK Häcken",               "HAC", "SWE", 68, 67, 66, 70, 62),
+
+        // Türkei
+        new("Sivasspor",               "SIV", "TUR", 71, 70, 69, 73, 65),
+        new("Samsunspor",              "SAM", "TUR", 70, 69, 68, 72, 64),
+        new("Adana Demirspor",         "ADS", "TUR", 66, 65, 64, 68, 60),
+        new("Konyaspor",               "KON", "TUR", 65, 64, 63, 67, 59),
+
+        // Ukraine
+        new("Sorja Luhansk",           "ZOR", "UKR", 69, 68, 67, 71, 63),
+        new("Polissja Schytomyr",      "PZH", "UKR", 63, 62, 61, 65, 57),
+
+        // Wales
+        new("The New Saints",          "TNS", "WAL", 61, 60, 59, 63, 55),
+
         // ── Brasilien (Série A Top 5) ─────────────────────────────────────
         new("Flamengo",                "FLA", "BRA", 83, 80, 78, 88, 73),
         new("SE Palmeiras",            "PAL", "BRA", 83, 81, 80, 88, 74),
