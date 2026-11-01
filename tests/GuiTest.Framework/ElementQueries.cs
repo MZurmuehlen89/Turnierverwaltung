@@ -37,6 +37,18 @@ public static class ElementQueries
         PrimaryAction(element);
     }
 
+    /// <summary>Scrolls the element into view so mouse actions find a clickable point — also when the list it lives in is
+    /// itself scrolled out of a page: the ScrollItem pattern only scrolls the list, focusing the element lets the UI
+    /// framework bring it into view through all scrollable ancestors.</summary>
+    public static void ScrollIntoView(this AutomationElement element)
+    {
+        if (element.Patterns.ScrollItem.TryGetPattern(out var scrollItem))
+            scrollItem.ScrollIntoView();
+        if (element.TryGetClickablePoint(out _)) return;
+        element.Focus();
+        Wait.Until(() => element.TryGetClickablePoint(out _), Wait.DefaultTimeout, $"'{element.NameOrEmpty()}' scrolled into view");
+    }
+
     /// <summary>Like <see cref="Activate"/>, but looks the element up afresh on every attempt. Applications replace
     /// elements at any time — a toolbar may rebuild all its buttons shortly after its actions changed (#522) — so an
     /// element found a moment ago can be gone when it is invoked. That surfaces as an unsupported property, a COM

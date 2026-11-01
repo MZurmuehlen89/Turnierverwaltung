@@ -13,7 +13,7 @@
         <!-- Kachel einer Quote: rot, solange sie verletzt ist; anklickbar filtert sie beide Listen auf ihr Land bzw.
              ihren Verband, die aktive trägt einen Akzentrahmen. Freie Plätze und Gesamt sind nicht anklickbar. -->
         <DataTemplate x:Key="KachelTemplate">
-            <Grid MinHeight="56">
+            <Grid MinHeight="72">
                 <Border CornerRadius="6" BorderThickness="1"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
@@ -62,7 +62,7 @@
     <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
         <ItemsRepeater Grid.Row="0" ItemsSource="{Binding Quoten.Kacheln}" ItemTemplate="{StaticResource KachelTemplate}">
             <ItemsRepeater.Layout>
-                <UniformGridLayout MinItemWidth="128" MinItemHeight="56" MinRowSpacing="6" MinColumnSpacing="6"
+                <UniformGridLayout MinItemWidth="140" MinItemHeight="72" MinRowSpacing="6" MinColumnSpacing="6"
                                    ItemsStretch="Fill" />
             </ItemsRepeater.Layout>
         </ItemsRepeater>

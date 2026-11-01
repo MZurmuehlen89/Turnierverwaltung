@@ -82,6 +82,8 @@ of column/grid sizing around it. Prefer setting the label/description as the con
 cell next to an empty-`Content` `CheckBox` — the latter reserves the ~120px gap no matter how the grid column
 is computed (#310).
 
+**A grouped `ListView` needs its `CollectionViewSource` wired in code-behind** — resources do not inherit the DataContext, so `Source="{Binding …}"` on a `CollectionViewSource` in `UserControl.Resources` stays empty. Set `Source` and the list's `ItemsSource = cvs.View` on `DataContextChanged`; the groups are `ObservableCollection`s with a header property that raises `PropertyChanged` (see `TeilnehmerpoolAnsicht`, `TeilnehmerpoolGruppe`, #576).
+
 ## AutomationIds für GUI-Tests (#494, #521)
 
 Elements a GUI test needs get an **explicit** `AutomationProperties.AutomationId` in the schema `View.Element`

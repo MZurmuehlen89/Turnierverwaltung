@@ -133,9 +133,11 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
     private IReadOnlyList<AutomationElement> PoolEintraege() =>
         fenster.FindById("Teilnehmerpool.Pool").FindAllDescendants(cf => cf.ByControlType(ControlType.ListItem));
 
-    // Der Doppelklick liest das gewählte Element der Liste, darum zuerst wählen (wie in der Vorbelegung, #531)
+    // Der Doppelklick liest das gewählte Element der Liste, darum zuerst wählen (wie in der Vorbelegung, #531). Die
+    // Listen des Pools stehen unten auf der Seite und liegen oft außerhalb des sichtbaren Bereichs.
     private static void Doppelklicken(AutomationElement eintrag)
     {
+        eintrag.ScrollIntoView();
         eintrag.Patterns.SelectionItem.Pattern.Select();
         eintrag.DoubleClick();
     }
