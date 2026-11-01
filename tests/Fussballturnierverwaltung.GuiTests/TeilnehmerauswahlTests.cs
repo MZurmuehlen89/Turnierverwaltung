@@ -66,7 +66,7 @@ public sealed class KontingentBefuellenTests(TurnierverwaltungApp app, TestDaten
         var ist = await InDenToepfenAsync(name);
         soll.Should().HaveCount(18, "die Pyramide hat 18 Plätze in der 2. Bundesliga");
         ist.Should().BeEquivalentTo(soll);
-        auslosung.Fehlbestand.Should().BeEmpty();
+        auslosung.PoolMaengel.Should().BeEmpty("der Pool erfüllt das Kontingent");
     }
 
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
@@ -97,8 +97,8 @@ public sealed class KontingentBefuellenTests(TurnierverwaltungApp app, TestDaten
             ("@turnier", turnier));
 }
 
-/// <summary>Quote anklicken (#573): Ein Klick auf die Landesquote filtert „Verfügbar“ auf das Land, ein zweiter hebt
-/// den Filter wieder auf. Eigene Klasse und damit eigene App-Sitzung, weil das Anlegen mit ungespeicherten Quoten
+/// <summary>Quote anklicken (#573, seit #576 die Kachel im Teilnehmerpool): Ein Klick auf die Landesquote filtert die
+/// Listen des Pools auf das Land, ein zweiter hebt den Filter wieder auf. Eigene Klasse und damit eigene App-Sitzung, weil das Anlegen mit ungespeicherten Quoten
 /// abbrechen kann (wie <see cref="KontingentOhnePyramideTests"/>).</summary>
 public sealed class QuoteFilterTests(TurnierverwaltungApp app, TestDatenbank datenbank)
     : IClassFixture<TurnierverwaltungApp>, IDisposable
@@ -107,7 +107,7 @@ public sealed class QuoteFilterTests(TurnierverwaltungApp app, TestDatenbank dat
     private const int GELESEN = 15;
 
     [Fact]
-    public async Task QuoteAnklicken_FiltertVerfuegbarAufDasLand_ZweiterKlickHebtAuf()
+    public async Task QuoteAnklicken_FiltertDenPoolAufDasLand_ZweiterKlickHebtAuf()
     {
         var (turnier, _) = QuotenTurnier.Anlegen(app, KontingentTurnier.VORLAGE, KontingentTurnier.VARIANTE, quoten =>
         {
@@ -118,17 +118,18 @@ public sealed class QuoteFilterTests(TurnierverwaltungApp app, TestDatenbank dat
         var deutsche = await QuotenTurnier.VereineAsync(datenbank, LAND);
         var auslosung = turnier.Auslosung();
         auslosung.Anlegen("Ligaphase");
+        auslosung.TeilnehmerpoolOeffnen();
 
         auslosung.QuoteAnklicken(LAND);
         KontingentTurnier.Abwarten(() => auslosung.LandFilter == LAND);
         auslosung.LandFilter.Should().Be(LAND);
-        var gefiltert = auslosung.VerfuegbarAnfang(GELESEN);
+        var gefiltert = auslosung.WeitereAnfang(GELESEN);
         gefiltert.Should().NotBeEmpty().And.OnlyContain(v => deutsche.Contains(v), "der Filter lässt nur Vereine aus {0} durch", LAND);
 
         auslosung.QuoteAnklicken(LAND);
         KontingentTurnier.Abwarten(() => auslosung.LandFilter == "Alle Länder");
         auslosung.LandFilter.Should().Be("Alle Länder", "der zweite Klick hebt den Filter auf");
-        auslosung.VerfuegbarAnfang(GELESEN).Should().Contain(v => !deutsche.Contains(v), "ohne Filter stehen Vereine aller Länder da");
+        auslosung.WeitereAnfang(GELESEN).Should().Contain(v => !deutsche.Contains(v), "ohne Filter stehen Vereine aller Länder da");
     }
 
     public void Dispose() => app.BeiFehlschlagBelegeSichern();

@@ -1,4 +1,5 @@
 ﻿using FlaUI.Core.AutomationElements;
+using FlaUI.Core.Definitions;
 using GuiTest.Framework;
 
 namespace Fussballturnierverwaltung.GuiTests.Seiten;
@@ -54,29 +55,112 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
             "alle Teams den Töpfen zugewiesen");
     }
 
-    // ── Quoten und Verfügbar-Liste (#573) ─────────────────────────────────────
+    // ── Teilnehmerpool (#576) ─────────────────────────────────────────────────
 
-    /// <summary>Der Hinweis auf Quotenplätze, die das Befüllen nicht besetzen konnte; leer, wenn keiner dasteht.</summary>
-    public string Fehlbestand => fenster.TryFindById("Auslosung.Fehlbestand")?.NameOrEmpty() ?? string.Empty;
-
-    /// <summary>Klickt die Quote <paramref name="name"/> (Land oder Verband) über „Verfügbar“ an.</summary>
-    public void QuoteAnklicken(string name)
+    /// <summary>Öffnet den Reiter „Teilnehmerpool“; den gibt es nur in der ersten Runde eines Turniers mit Quoten.</summary>
+    public void TeilnehmerpoolOeffnen()
     {
-        Wait.UntilFound(
-                () => fenster.FindAllById("Auslosung.Quote").FirstOrDefault(q => q.NameOrEmpty() == name),
-                Wait.DefaultTimeout, $"Quote '{name}'")
-            .Activate();
+        fenster.ActivateById("Auslosung.ReiterTeilnehmerpool");
+        Wait.UntilFound(() => fenster.TryFindById("Teilnehmerpool.Weitere"), Wait.DefaultTimeout, "Reiter Teilnehmerpool");
         hauptfenster.WarteBisRuhig();
     }
 
-    /// <summary>Das im Länderfilter über „Verfügbar“ gewählte Land.</summary>
-    public string LandFilter =>
-        fenster.FindById("Auslosung.LandFilter").AsComboBox().SelectedItem?.DisplayedTexts().FirstOrDefault() ?? string.Empty;
+    public void LostoepfeOeffnen()
+    {
+        fenster.ActivateById("Auslosung.ReiterLostoepfe");
+        Wait.UntilFound(() => fenster.TryFindById("Auslosung.Verfuegbar"), Wait.DefaultTimeout, "Reiter Lostöpfe");
+        hauptfenster.WarteBisRuhig();
+    }
 
-    /// <summary>Die ersten <paramref name="anzahl"/> Teams der Verfügbar-Liste — alle zu lesen ist bei mehreren hundert
+    /// <summary>Was dem Pool zu seinen Quoten fehlt, je Zeile ein Punkt; leer, wenn er sie erfüllt.</summary>
+    public string PoolMaengel => fenster.TryFindById("Teilnehmerpool.Maengel")?.NameOrEmpty() ?? string.Empty;
+
+    /// <summary>Hinweis im Reiter Lostöpfe, dass der Pool seine Quoten nicht erfüllt; leer, wenn keiner dasteht.</summary>
+    public string PoolHinweis => fenster.TryFindById("Auslosung.PoolHinweis")?.NameOrEmpty() ?? string.Empty;
+
+    /// <summary>Der Wert der Kachel <paramref name="name"/> („Deutschland“, „Freie Plätze“, „Gesamt“), etwa „4 / 4“.</summary>
+    public string Kachel(string name) => QuoteFinden(name).TextOf("Teilnehmerpool.KachelWert");
+
+    /// <summary>Klickt die Kachel der Quote <paramref name="name"/> (Land oder Verband) an.</summary>
+    public void QuoteAnklicken(string name)
+    {
+        QuoteFinden(name).Activate();
+        hauptfenster.WarteBisRuhig();
+    }
+
+    private AutomationElement QuoteFinden(string name) =>
+        Wait.UntilFound(
+            () => fenster.FindAllById("Auslosung.Quote").FirstOrDefault(q => q.NameOrEmpty() == name),
+            Wait.DefaultTimeout, $"Kachel '{name}'");
+
+    /// <summary>Das im Länderfilter des Pools gewählte Land.</summary>
+    public string LandFilter =>
+        fenster.FindById("Teilnehmerpool.LandFilter").AsComboBox().SelectedItem?.DisplayedTexts().FirstOrDefault() ?? string.Empty;
+
+    /// <summary>Die ersten <paramref name="anzahl"/> Teams von „Weitere verfügbar“ — alle zu lesen ist bei mehreren hundert
     /// Einträgen nicht verlässlich (#569).</summary>
-    public IReadOnlyList<string> VerfuegbarAnfang(int anzahl) =>
-        fenster.FindById("Auslosung.Verfuegbar").ReadFirstItems(anzahl, e => e.TextOf("Auslosung.TeilnehmerName"));
+    public IReadOnlyList<string> WeitereAnfang(int anzahl) =>
+        fenster.FindById("Teilnehmerpool.Weitere").ReadFirstItems(anzahl, e => e.TextOf("Teilnehmerpool.TeilnehmerName"));
+
+    /// <summary>Die sichtbaren Teams des Pools. Die Liste ist nach Land gruppiert und virtualisiert — verlässlich nur, wenn
+    /// ein Filter sie kurz hält.</summary>
+    public IReadOnlyList<string> PoolTeams() =>
+        [.. PoolEintraege().Select(e => e.TextOf("Teilnehmerpool.TeilnehmerName"))];
+
+    /// <summary>Nimmt das erste sichtbare Team per Doppelklick aus dem Pool und liefert seinen Namen.</summary>
+    public string ErstesAusPoolNehmen()
+    {
+        var eintrag = PoolEintraege().First();
+        string team = eintrag.TextOf("Teilnehmerpool.TeilnehmerName");
+        Doppelklicken(eintrag);
+        Wait.Until(() => !PoolTeams().Contains(team), Wait.DefaultTimeout, $"'{team}' aus dem Pool genommen");
+        hauptfenster.WarteBisRuhig();
+        return team;
+    }
+
+    /// <summary>Nimmt das erste sichtbare Team von „Weitere verfügbar“ per Doppelklick in den Pool und liefert seinen Namen.</summary>
+    public string ErstesInPoolAufnehmen()
+    {
+        var eintrag = fenster.FindById("Teilnehmerpool.Weitere").FindItem(_ => true)
+            ?? throw new InvalidOperationException("„Weitere verfügbar“ ist leer.");
+        string team = eintrag.TextOf("Teilnehmerpool.TeilnehmerName");
+        Doppelklicken(eintrag);
+        Wait.Until(() => PoolTeams().Contains(team), Wait.DefaultTimeout, $"'{team}' in den Pool aufgenommen");
+        hauptfenster.WarteBisRuhig();
+        return team;
+    }
+
+    private IReadOnlyList<AutomationElement> PoolEintraege() =>
+        fenster.FindById("Teilnehmerpool.Pool").FindAllDescendants(cf => cf.ByControlType(ControlType.ListItem));
+
+    // Der Doppelklick liest das gewählte Element der Liste, darum zuerst wählen (wie in der Vorbelegung, #531)
+    private static void Doppelklicken(AutomationElement eintrag)
+    {
+        eintrag.Patterns.SelectionItem.Pattern.Select();
+        eintrag.DoubleClick();
+    }
+
+    /// <summary>Ob „Automatisch befüllen“ im Menü „Töpfe“ gerade möglich ist — öffnet das Menü und schließt es wieder.</summary>
+    public bool AutomatischBefuellenMoeglich()
+    {
+        const string EINTRAG = "Befehlsleiste.ToepfeAutomatischBefuellen";
+        hauptfenster.WarteBisRuhig();
+        var eintrag = Wait.UntilFound(
+            () =>
+            {
+                var gefunden = fenster.TryFindById(EINTRAG);
+                if (gefunden is null && !MenueOffen())
+                    fenster.ActivateById("Befehlsleiste.Toepfe");
+                return gefunden;
+            },
+            Wait.DefaultTimeout, "Menüpunkt „Automatisch befüllen“");
+        bool moeglich = eintrag.IsEnabled;
+        FlaUI.Core.Input.Keyboard.Type(FlaUI.Core.WindowsAPI.VirtualKeyShort.ESCAPE);
+        Wait.Until(() => !MenueOffen(), Wait.DefaultTimeout, "Menü „Töpfe“ geschlossen");
+        return moeglich;
+    }
+
+    private bool MenueOffen() => fenster.FindFirstDescendant(cf => cf.ByClassName("MenuFlyout")) is not null;
 
     public void Durchfuehren()
     {

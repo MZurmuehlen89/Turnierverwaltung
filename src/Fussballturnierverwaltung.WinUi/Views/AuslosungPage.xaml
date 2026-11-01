@@ -746,6 +746,7 @@
                             CornerRadius="4" Padding="10,6" Margin="0,0,0,12">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <TextBlock Text="Der Teilnehmerpool erfüllt die Quoten nicht – „Automatisch befüllen“ ist gesperrt."
+                                       AutomationProperties.AutomationId="Auslosung.PoolHinweis"
                                        FontSize="12" VerticalAlignment="Center" />
                             <HyperlinkButton Content="Im Teilnehmerpool korrigieren" FontSize="12" Padding="4,0"
                                              Click="ZumTeilnehmerpool_Click" />
