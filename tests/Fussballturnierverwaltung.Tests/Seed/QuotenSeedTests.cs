@@ -77,6 +77,11 @@ public class QuotenSeedTests
         var pokal = vorlagen.Single(v => v.Name == "DFB-Pokal");
         pokal.LandesQuoten.Select(q => (q.LandId, q.Anzahl, q.Spielklasse, q.AbPlatz)).Should().BeEquivalentTo(
             [(_landIds["GER"], 18, (int?)1, (int?)1), (_landIds["GER"], 18, 2, 1), (_landIds["GER"], 4, 3, 1)]);
+
+        // #575: Premier League und Championship steigen in der 3. Hauptrunde ein, 20 Plätze bleiben frei.
+        var faCup = vorlagen.Single(v => v.Name == "FA Cup");
+        faCup.LandesQuoten.Select(q => (q.LandId, q.Anzahl, q.Spielklasse, q.AbPlatz)).Should().BeEquivalentTo(
+            [(_landIds["ENG"], 20, (int?)1, (int?)1), (_landIds["ENG"], 24, 2, 1)]);
     }
 
     [Fact]

@@ -43,7 +43,7 @@ public static class TurnierVorlagenSeedDaten
             UefaEuropaLeague36Teams(regelwerkLookup, verbandLookup, ranglisteLookup),
             UefaConferenceLeague36Teams(regelwerkLookup, verbandLookup, ranglisteLookup),
             DfbPokal64Teams(regelwerkLookup, verbandLookup, landLookup, ranglisteLookup),
-            FaCup64Teams(regelwerkLookup, verbandLookup, landLookup),
+            FaCup64Teams(regelwerkLookup, verbandLookup, landLookup, ranglisteLookup),
             NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Bundesliga",     "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ,       BUNDESLIGA_BEREICHE),
             NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "2. Bundesliga",  "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ,       ZWEITE_BUNDESLIGA_BEREICHE),
             NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Premier League", "20 Teams",  "ENG", 20, LIGA_TORDIFFERENZ,       ZWANZIGER_LIGA_BEREICHE),
@@ -1097,7 +1097,8 @@ public static class TurnierVorlagenSeedDaten
     // Ab der 3. Hauptrunde (Einstieg der Premier-League- und Championship-Klubs), seit 2024/25 ohne
     // Wiederholungsspiele — Verlängerung + Elfmeterschießen direkt im ersten Spiel.
     private static TurnierInstanz FaCup64Teams(
-        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? land)
+        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? land,
+        IReadOnlyDictionary<string, int>? rangliste)
     {
         var v = new TurnierInstanz
         {
@@ -1120,6 +1121,11 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(4, "Viertelfinale",     Rundenart.KoRunde,           8,  4, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Halbfinale",        Rundenart.KoRunde,           4,  2, regelwerkId: rId));
         v.Runden.Add(Runde(6, "Finale",            Rundenart.Finale,            2,  1, regelwerkId: rId));
+
+        // Die Plätze außerhalb der Kontingente füllen sich nach der Ligapyramide (#575), wie im DFB-Pokal.
+        int? pyramide = RlId(rangliste, LigapyramidenSeedDaten.RANGLISTE_ENGLAND);
+        foreach (var runde in v.Runden.Where(r => r.Rundenart == Rundenart.KoRunde))
+            runde.StandardRanglisteId = pyramide;
         return v;
     }
 

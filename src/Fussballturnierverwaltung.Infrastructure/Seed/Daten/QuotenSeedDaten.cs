@@ -96,6 +96,15 @@ public static class QuotenSeedDaten
             [("2. Bundesliga", "18 Teams")] = Laender(new LandesKontingent("GER", 18, 2)),
             // Die 24 Amateurplätze (Landespokalsieger) bleiben frei und füllen sich nach der Ligapyramide.
             [("DFB-Pokal", "64 Teams")] = Laender(new LandesKontingent("GER", 18, 1), new LandesKontingent("GER", 18, 2), new LandesKontingent("GER", 4, 3)),
+
+            // ── England, Spanien, Italien, Frankreich (#575) ────────────────────
+            [("Premier League", "20 Teams")] = Laender(new LandesKontingent("ENG", 20, 1)),
+            [("La Liga", "20 Teams")] = Laender(new LandesKontingent("ESP", 20, 1)),
+            [("Serie A", "20 Teams")] = Laender(new LandesKontingent("ITA", 20, 1)),
+            [("Ligue 1", "18 Teams")] = Laender(new LandesKontingent("FRA", 18, 1)),
+            // 3. Hauptrunde: Premier League und Championship steigen ein; die übrigen 20 Plätze (Sieger der 2. Runde aus
+            // League One, League Two und Non-League) bleiben frei und füllen sich nach der Ligapyramide.
+            [("FA Cup", "64 Teams · ab 3. Hauptrunde")] = Laender(new LandesKontingent("ENG", 20, 1), new LandesKontingent("ENG", 24, 2)),
         };
 
     /// <summary>Hängt die Quoten des Seeds an die Vorlage. Verbände oder Länder, die der Lookup nicht kennt (oder ein

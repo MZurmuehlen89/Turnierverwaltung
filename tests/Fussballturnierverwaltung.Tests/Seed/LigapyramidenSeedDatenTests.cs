@@ -3,12 +3,9 @@ using Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 
 namespace Fussballturnierverwaltung.Tests.Seed;
 
-/// <summary>Seed-Daten der Ligapyramiden (#393, #580): passen zu den Vereinen und tragen die Landes-Kontingente.</summary>
+/// <summary>Seed-Daten der Ligapyramiden (#393, #575, #580): passen zu den Vereinen und tragen die Landes-Kontingente.</summary>
 public class LigapyramidenSeedDatenTests
 {
-    // Ihre Pyramiden kommen mit #575; bis dahin melden ihre Kontingente Fehlbestand.
-    private static readonly HashSet<string> _ohnePyramideBisIssue575 = ["ENG", "ESP", "ITA", "FRA"];
-
     private static readonly IReadOnlyDictionary<string, int> _landIds =
         LaenderSeedDaten.Erstellen(VerbaendeSeedDaten.Erstellen().Select((v, i) => (v.Kurzname, Id: i + 1))
                 .ToDictionary(v => v.Kurzname, v => v.Id))
@@ -44,7 +41,6 @@ public class LigapyramidenSeedDatenTests
 
         var unerfuellt = QuotenSeedDaten.JeVorlage
             .SelectMany(v => v.Value.Laender.Select(k => (Vorlage: $"{v.Key.Name} {v.Key.Variante}", Kontingent: k)))
-            .Where(x => !_ohnePyramideBisIssue575.Contains(x.Kontingent.FifaCode))
             .Where(x => !PlaetzeBesetzt(pyramideJeLand.GetValueOrDefault(x.Kontingent.FifaCode), x.Kontingent))
             .Select(x => $"{x.Vorlage}: {x.Kontingent}")
             .ToList();

@@ -6,6 +6,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 public static class LigapyramidenSeedDaten
 {
     public const string RANGLISTE_DEUTSCHLAND = "Ligapyramide Deutschland 2025/26";
+    public const string RANGLISTE_ENGLAND = "Ligapyramide England 2024/25";
 
     /// <summary>Ein Abschnitt einer Pyramide; <c>null</c> in <paramref name="Vereine"/> ist ein Platz, dessen Verein
     /// nicht im Seed steht — er bleibt eine Lücke, damit die übrigen ihren echten Platz behalten.</summary>
@@ -14,7 +15,7 @@ public static class LigapyramidenSeedDaten
     public sealed record Pyramide(
         string Land, string Name, DateOnly Datum, string QuelleText, int? Profigrenze, Abschnitt[] Abschnitte);
 
-    public static IReadOnlyList<Pyramide> Alle { get; } = [Deutschland(), .. ErsteLigen2024_25()];
+    public static IReadOnlyList<Pyramide> Alle { get; } = [Deutschland(), England(), Spanien(), Italien(), Frankreich(), .. ErsteLigen2024_25()];
 
     // ── Deutschland ─────────────────────────────────────────────────────────
 
@@ -105,4 +106,80 @@ public static class LigapyramidenSeedDaten
             tabelle[platz - 1] = verein;
         return tabelle;
     }
+
+    // ── England, Spanien, Italien, Frankreich (#575) ─────────────────────────
+
+    // Abschlusstabellen 2024/25 der Profiligen, je Liga in Tabellenreihenfolge. Die zweiten Ligen von Spanien, Italien
+    // und Frankreich kamen mit #575 in den Seed; in England fehlen vier Absteiger der League One und die League Two
+    // außer ihren Aufsteigern — sie bleiben Lücken. Der FA Cup hat „Heimrecht nach Los“, die Profigrenze wirkt dort nicht.
+    private static Pyramide England() => Pyramide2024_25("ENG", RANGLISTE_ENGLAND, profigrenze: 4,
+        new("Premier League", 1,
+        [
+            "FC Liverpool", "Arsenal FC", "Manchester City", "Chelsea FC", "Newcastle United", "Aston Villa",
+            "Nottingham Forest", "Brighton & Hove Albion", "AFC Bournemouth", "Brentford FC", "Fulham FC",
+            "Crystal Palace", "Everton FC", "West Ham United", "Manchester United", "Wolverhampton Wanderers",
+            "Tottenham Hotspur", "Leicester City", "Ipswich Town", "Southampton FC"
+        ]),
+        new("Championship", 2,
+        [
+            "Leeds United", "Burnley FC", "Sheffield United", "Sunderland AFC", "Coventry City", "Bristol City",
+            "Blackburn Rovers", "Millwall FC", "West Bromwich Albion", "Middlesbrough FC", "Swansea City",
+            "Sheffield Wednesday", "Norwich City", "Watford FC", "Queens Park Rangers", "Portsmouth FC",
+            "Oxford United", "Stoke City", "Derby County", "Preston North End", "Hull City", "Luton Town",
+            "Plymouth Argyle", "Cardiff City"
+        ]),
+        new("League One", 3,
+        [
+            "Birmingham City", "Wrexham AFC", "Stockport County", "Charlton Athletic", "Wycombe Wanderers",
+            "Leyton Orient", "Reading FC", "Bolton Wanderers", "Blackpool FC", "Huddersfield Town", "Lincoln City",
+            "Barnsley FC", "Rotherham United", "Stevenage FC", "Wigan Athletic", "Exeter City", "Mansfield Town",
+            "Peterborough United", "Northampton Town", "Burton Albion", null, null, null, null
+        ]),
+        new("League Two", 4,
+            Tabelle(24, (1, "Doncaster Rovers"), (2, "Port Vale"), (3, "Bradford City"), (5, "AFC Wimbledon"))));
+
+    private static Pyramide Spanien() => Pyramide2024_25("ESP", "Ligapyramide Spanien 2024/25", profigrenze: 2,
+        new("La Liga", 1,
+        [
+            "FC Barcelona", "Real Madrid", "Atlético Madrid", "Athletic Club Bilbao", "Villarreal CF", "Real Betis",
+            "Celta Vigo", "Rayo Vallecano", "CA Osasuna", "RCD Mallorca", "Real Sociedad", "Valencia CF",
+            "Getafe CF", "RCD Espanyol", "Deportivo Alavés", "Girona FC", "Sevilla FC", "CD Leganés",
+            "UD Las Palmas", "Real Valladolid"
+        ]),
+        new("Segunda División", 2,
+        [
+            "Levante UD", "Elche CF", "Real Oviedo", "CD Mirandés", "Racing Santander", "UD Almería", "Granada CF",
+            "SD Huesca", "SD Eibar", "Albacete Balompié", "Sporting Gijón", "Burgos CF", "Cádiz CF", "Córdoba CF",
+            "Deportivo La Coruña", "Málaga CF", "CD Castellón", "Real Zaragoza", "CD Eldense", "CD Tenerife",
+            "Racing Ferrol", "FC Cartagena"
+        ]));
+
+    private static Pyramide Italien() => Pyramide2024_25("ITA", "Ligapyramide Italien 2024/25", profigrenze: 2,
+        new("Serie A", 1,
+        [
+            "SSC Napoli", "Inter Mailand", "Atalanta BC", "Juventus Turin", "AS Roma", "ACF Fiorentina", "SS Lazio",
+            "AC Mailand", "Bologna FC", "Como 1907", "Torino FC", "Udinese Calcio", "Genoa CFC", "Hellas Verona",
+            "Cagliari Calcio", "Parma Calcio 1913", "US Lecce", "Empoli FC", "Venezia FC", "AC Monza"
+        ]),
+        new("Serie B", 2,
+        [
+            "US Sassuolo", "Pisa SC", "Spezia Calcio", "US Cremonese", "SS Juve Stabia", "US Catanzaro", "Cesena FC",
+            "Palermo FC", "SSC Bari", "FC Südtirol", "Modena FC", "Carrarese Calcio", "Mantova 1911", "AC Reggiana",
+            "Frosinone Calcio", "US Salernitana", "UC Sampdoria", "Brescia Calcio", "AS Cittadella", "Cosenza Calcio"
+        ]));
+
+    private static Pyramide Frankreich() => Pyramide2024_25("FRA", "Ligapyramide Frankreich 2024/25", profigrenze: 2,
+        new("Ligue 1", 1,
+        [
+            "Paris Saint-Germain", "Olympique de Marseille", "AS Monaco", "OGC Nice", "LOSC Lille",
+            "Olympique Lyonnais", "RC Strasbourg", "RC Lens", "Stade Brestois 29", "Toulouse FC", "AJ Auxerre",
+            "Stade Rennais", "FC Nantes", "Angers SCO", "Le Havre AC", "Stade de Reims", "AS Saint-Étienne",
+            "Montpellier HSC"
+        ]),
+        new("Ligue 2", 2,
+        [
+            "FC Lorient", "Paris FC", "FC Metz", "USL Dunkerque", "EA Guingamp", "FC Annecy", "Stade Lavallois",
+            "SC Bastia", "Grenoble Foot 38", "ES Troyes AC", "Amiens SC", "AC Ajaccio", "Pau FC", "Rodez AF",
+            "Red Star FC", "Clermont Foot", "FC Martigues", "SM Caen"
+        ]));
 }

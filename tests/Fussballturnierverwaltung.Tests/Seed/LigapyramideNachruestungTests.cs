@@ -2,6 +2,7 @@ using FluentAssertions;
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
+using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Seed;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +10,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fussballturnierverwaltung.Tests.Seed;
 
-/// <summary>Seed der Ligapyramiden: Deutschland 2025/26 (Issue #393), erste Ligen weiterer Länder (#580).</summary>
+/// <summary>Seed der Ligapyramiden: Deutschland 2025/26 (Issue #393), England, Spanien, Italien, Frankreich (#575),
+/// erste Ligen weiterer Länder (#580).</summary>
 public class LigapyramideNachruestungTests
 {
     private const string RANGLISTE = "Ligapyramide Deutschland 2025/26";
@@ -59,6 +61,34 @@ public class LigapyramideNachruestungTests
 
         var niederlande = await ctx.Laender.SingleAsync(l => l.FifaCode == "NED");
         niederlande.RanglisteId.Should().Be(rangliste.Id);
+    }
+
+    // #575: vier Profiligen; was der Seed nicht kennt, bleibt Lücke. Die Pyramide ist Standard-Rangliste des FA Cups —
+    // die 20 freien Plätze neben Premier League und Championship gehen an League One 1–20.
+    [Fact]
+    public async Task LeereDatenbank_EnglandMitVierProfiligenAmLandUndImFaCup()
+    {
+        var optionen = NeueDatenbank();
+        await SeedLaufAsync(optionen);
+
+        await using var ctx = new TurnierverwaltungDbContext(optionen);
+        var rangliste = await ctx.Ranglisten.Include(r => r.Eintraege).ThenInclude(e => e.Mannschaft)
+            .Include(r => r.Abschnitte)
+            .SingleAsync(r => r.Name == "Ligapyramide England 2024/25");
+        rangliste.ProfigrenzeSpielklasse.Should().Be(4);
+        rangliste.Abschnitte.OrderBy(a => a.BisPlatz).Select(a => (a.Name, a.Spielklasse, a.BisPlatz)).Should().Equal(
+            ("Premier League", 1, 20), ("Championship", 2, 44), ("League One", 3, 68), ("League Two", 4, 92));
+        rangliste.Eintraege.Should().HaveCount(20 + 24 + 20 + 4);
+        var verein = rangliste.Eintraege.ToDictionary(e => e.Rang, e => e.Mannschaft.Name);
+        (verein[1], verein[21], verein[45], verein[64], verein[73]).Should().Be(
+            ("FC Liverpool", "Leeds United", "Birmingham City", "Burton Albion", "AFC Wimbledon"));
+        verein.Keys.Should().NotContain([65, 66, 67, 68, 72]);
+        Kontingente.Bereich(rangliste, spielklasse: 2, abPlatz: 1, anzahl: 24).Should().NotBeNull();
+
+        (await ctx.Laender.SingleAsync(l => l.FifaCode == "ENG")).RanglisteId.Should().Be(rangliste.Id);
+        var faCup = await ctx.TurnierInstanzen.Include(i => i.Runden)
+            .SingleAsync(i => i.Status == TurnierStatus.Vorlage && i.Name == "FA Cup");
+        faCup.Runden.Where(r => r.Rundenart == Rundenart.KoRunde).Should().OnlyContain(r => r.StandardRanglisteId == rangliste.Id);
     }
 
     [Fact]

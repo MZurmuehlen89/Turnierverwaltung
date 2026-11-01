@@ -105,6 +105,32 @@ public static class VereinsmannschaftenSeedDaten
         new("Real Valladolid",         "VLD", "ESP", 64, 64, 64, 67, 58),
         new("CD Leganés",              "LEG", "ESP", 64, 63, 64, 67, 57),
 
+        // ── Segunda División (Abschluss 2024/25, Issue #575) ───────────────
+        // Rating G linear nach Tabellenplatz 2024/25, vom Ersten mit 67 bis zum Letzten mit 59;
+        // O = G+1, M = G, D = G−1, Heim = G+3, Auswärts = G−5.
+        new("Levante UD",              "LEV", "ESP", 68, 67, 66, 70, 62),
+        new("Elche CF",                "ELC", "ESP", 68, 67, 66, 70, 62),
+        new("Real Oviedo",             "OVI", "ESP", 67, 66, 65, 69, 61),
+        new("CD Mirandés",             "MIR", "ESP", 67, 66, 65, 69, 61),
+        new("Racing Santander",        "RSN", "ESP", 66, 65, 64, 68, 60),
+        new("UD Almería",              "ALM", "ESP", 66, 65, 64, 68, 60),
+        new("Granada CF",              "GRA", "ESP", 66, 65, 64, 68, 60),
+        new("SD Huesca",               "HUE", "ESP", 65, 64, 63, 67, 59),
+        new("SD Eibar",                "EIB", "ESP", 65, 64, 63, 67, 59),
+        new("Albacete Balompié",       "ALB", "ESP", 65, 64, 63, 67, 59),
+        new("Sporting Gijón",          "SPG", "ESP", 64, 63, 62, 66, 58),
+        new("Burgos CF",               "BRG", "ESP", 64, 63, 62, 66, 58),
+        new("Cádiz CF",                "CAD", "ESP", 63, 62, 61, 65, 57),
+        new("Córdoba CF",              "CCF", "ESP", 63, 62, 61, 65, 57),
+        new("Deportivo La Coruña",     "DEP", "ESP", 63, 62, 61, 65, 57),
+        new("Málaga CF",               "MAL", "ESP", 62, 61, 60, 64, 56),
+        new("CD Castellón",            "CAS", "ESP", 62, 61, 60, 64, 56),
+        new("Real Zaragoza",           "ZAR", "ESP", 62, 61, 60, 64, 56),
+        new("CD Eldense",              "ELD", "ESP", 61, 60, 59, 63, 55),
+        new("CD Tenerife",             "TEN", "ESP", 61, 60, 59, 63, 55),
+        new("Racing Ferrol",           "RFE", "ESP", 60, 59, 58, 62, 54),
+        new("FC Cartagena",            "CRT", "ESP", 60, 59, 58, 62, 54),
+
         // ── Premier League (Saison 2025/26) ────────────────────────────────
         new("Manchester City",         "MCI", "ENG", 91, 90, 87, 90, 85),
         new("FC Liverpool",            "LIV", "ENG", 88, 86, 84, 91, 82),
@@ -199,6 +225,28 @@ public static class VereinsmannschaftenSeedDaten
         new("Angers SCO",              "ANG", "FRA", 65, 65, 64, 68, 59),
         new("AS Saint-Étienne",        "ASS", "FRA", 64, 63, 63, 69, 57),
 
+        // ── Ligue 2 (Abschluss 2024/25, Issue #575) ────────────────────────
+        // Rating G linear nach Tabellenplatz 2024/25, vom Ersten mit 67 bis zum Letzten mit 59;
+        // O = G+1, M = G, D = G−1, Heim = G+3, Auswärts = G−5.
+        new("FC Lorient",              "LOR", "FRA", 68, 67, 66, 70, 62),
+        new("Paris FC",                "PFC", "FRA", 68, 67, 66, 70, 62),
+        new("FC Metz",                 "MTZ", "FRA", 67, 66, 65, 69, 61),
+        new("USL Dunkerque",           "USD", "FRA", 67, 66, 65, 69, 61),
+        new("EA Guingamp",             "EAG", "FRA", 66, 65, 64, 68, 60),
+        new("FC Annecy",               "ANN", "FRA", 66, 65, 64, 68, 60),
+        new("Stade Lavallois",         "LAV", "FRA", 65, 64, 63, 67, 59),
+        new("SC Bastia",               "BST", "FRA", 65, 64, 63, 67, 59),
+        new("Grenoble Foot 38",        "GRE", "FRA", 64, 63, 62, 66, 58),
+        new("ES Troyes AC",            "TRY", "FRA", 64, 63, 62, 66, 58),
+        new("Amiens SC",               "AMI", "FRA", 63, 62, 61, 65, 57),
+        new("AC Ajaccio",              "ACA", "FRA", 63, 62, 61, 65, 57),
+        new("Pau FC",                  "PAU", "FRA", 62, 61, 60, 64, 56),
+        new("Rodez AF",                "ROD", "FRA", 62, 61, 60, 64, 56),
+        new("Red Star FC",             "RSF", "FRA", 61, 60, 59, 63, 55),
+        new("Clermont Foot",           "CLE", "FRA", 61, 60, 59, 63, 55),
+        new("FC Martigues",            "MTG", "FRA", 60, 59, 58, 62, 54),
+        new("SM Caen",                 "CAE", "FRA", 60, 59, 58, 62, 54),
+
         // ── Serie A ───────────────────────────────────────────────────────
         new("Inter Mailand",           "INT", "ITA", 84, 83, 84, 86, 77),
         new("Juventus Turin",          "JUV", "ITA", 83, 81, 83, 87, 76),
@@ -220,6 +268,30 @@ public static class VereinsmannschaftenSeedDaten
         new("Empoli FC",               "EMP", "ITA", 65, 65, 64, 68, 59),
         new("Parma Calcio 1913",       "PCA", "ITA", 66, 65, 64, 69, 60),
         new("US Lecce",                "LEC", "ITA", 65, 64, 64, 68, 59),
+
+        // ── Serie B (Abschluss 2024/25, Issue #575) ────────────────────────
+        // Rating G linear nach Tabellenplatz 2024/25, vom Ersten mit 67 bis zum Letzten mit 59;
+        // O = G+1, M = G, D = G−1, Heim = G+3, Auswärts = G−5.
+        new("US Sassuolo",             "SAS", "ITA", 68, 67, 66, 70, 62),
+        new("Pisa SC",                 "PIS", "ITA", 68, 67, 66, 70, 62),
+        new("Spezia Calcio",           "SPE", "ITA", 67, 66, 65, 69, 61),
+        new("US Cremonese",            "CRE", "ITA", 67, 66, 65, 69, 61),
+        new("SS Juve Stabia",          "JST", "ITA", 66, 65, 64, 68, 60),
+        new("US Catanzaro",            "CTZ", "ITA", 66, 65, 64, 68, 60),
+        new("Cesena FC",               "CES", "ITA", 65, 64, 63, 67, 59),
+        new("Palermo FC",              "PLM", "ITA", 65, 64, 63, 67, 59),
+        new("SSC Bari",                "BAI", "ITA", 65, 64, 63, 67, 59),
+        new("FC Südtirol",             "SUD", "ITA", 64, 63, 62, 66, 58),
+        new("Modena FC",               "MOD", "ITA", 64, 63, 62, 66, 58),
+        new("Carrarese Calcio",        "CRR", "ITA", 63, 62, 61, 65, 57),
+        new("Mantova 1911",            "MAN", "ITA", 63, 62, 61, 65, 57),
+        new("AC Reggiana",             "RGA", "ITA", 63, 62, 61, 65, 57),
+        new("Frosinone Calcio",        "FRO", "ITA", 62, 61, 60, 64, 56),
+        new("US Salernitana",          "SAL", "ITA", 62, 61, 60, 64, 56),
+        new("UC Sampdoria",            "SMP", "ITA", 61, 60, 59, 63, 55),
+        new("Brescia Calcio",          "BRS", "ITA", 61, 60, 59, 63, 55),
+        new("AS Cittadella",           "CIT", "ITA", 60, 59, 58, 62, 54),
+        new("Cosenza Calcio",          "COS", "ITA", 60, 59, 58, 62, 54),
 
         // ── Niederlande (Eredivisie Top 5) ────────────────────────────────
         new("Ajax Amsterdam",          "AJX", "NED", 83, 82, 79, 86, 76),
