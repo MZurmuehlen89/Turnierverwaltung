@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using System.ComponentModel;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace Fussballturnierverwaltung.WinUi.Views;
@@ -21,9 +22,45 @@ public sealed partial class AuslosungPage : UserControl
     public AuslosungPage()
     {
         InitializeComponent();
+        DataContextChanged += (_, _) => ReiterAnbinden();
     }
 
     private AuslosungViewModel? ViewModel => DataContext as AuslosungViewModel;
+
+    // ── Reiter Teilnehmerpool | Lostöpfe (#576) ──────────────────────────────
+    // Im Code-Behind statt als Bindung: der SelectorBar wählt per SelectedItem, das ViewModel kennt nur „Pool offen“.
+
+    private TeilnehmerpoolViewModel? _gebundenerPool;
+
+    private void ReiterAnbinden()
+    {
+        if (_gebundenerPool is not null) _gebundenerPool.PropertyChanged -= BeiPoolAenderung;
+        _gebundenerPool = ViewModel?.Teilnehmerpool;
+        if (_gebundenerPool is not null) _gebundenerPool.PropertyChanged += BeiPoolAenderung;
+        ReiterAnzeigen();
+    }
+
+    private void BeiPoolAenderung(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(TeilnehmerpoolViewModel.PoolReiterAktiv)) ReiterAnzeigen();
+    }
+
+    private void ReiterAnzeigen()
+    {
+        var soll = _gebundenerPool?.PoolReiterAktiv == true ? ReiterTeilnehmerpool : ReiterLostoepfe;
+        if (!ReferenceEquals(ReiterLeiste.SelectedItem, soll)) ReiterLeiste.SelectedItem = soll;
+    }
+
+    private void ReiterLeiste_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        if (_gebundenerPool is null || sender.SelectedItem is null) return;
+        _gebundenerPool.PoolReiterAktiv = ReferenceEquals(sender.SelectedItem, ReiterTeilnehmerpool);
+    }
+
+    private void ZumTeilnehmerpool_Click(object sender, RoutedEventArgs e)
+    {
+        if (_gebundenerPool is not null) _gebundenerPool.PoolReiterAktiv = true;
+    }
 
     // ── Gegner-Matrix: Team-Fokus per Klick ──────────────────────────────────
     // Im Code-Behind statt als Befehlsbindung je Zelle (#428): die Zellen sind KlickFlaechen ohne Command, und
@@ -86,7 +123,7 @@ public sealed partial class AuslosungPage : UserControl
         if (viewModel is null || sender is not ListView lv) return;
         if (e.OriginalSource is not FrameworkElement { DataContext: TeilnehmerAnzeige team }) return;
 
-        var ausgewaehlt = ZielAuswahlErmitteln(lv, team);
+        var ausgewaehlt = ListViewAuswahl.Ziel(lv, team);
         var toepfe = viewModel.Arbeitsbereich.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
         if (toepfe.Count == 0) return;
 
@@ -154,7 +191,7 @@ public sealed partial class AuslosungPage : UserControl
         if (viewModel is null || sender is not ListView { DataContext: LostopfViewModel topf } lv) return;
         if (e.OriginalSource is not FrameworkElement { DataContext: TeilnehmerAnzeige team }) return;
 
-        var ausgewaehlt = ZielAuswahlErmitteln(lv, team);
+        var ausgewaehlt = ListViewAuswahl.Ziel(lv, team);
         var beschreibung = ausgewaehlt.Count == 1 ? $"'{ausgewaehlt[0].Name}'" : $"{ausgewaehlt.Count} Teams";
 
         var flyout = new MenuFlyout();
@@ -163,11 +200,4 @@ public sealed partial class AuslosungPage : UserControl
         flyout.Items.Add(item);
         flyout.ShowAt((FrameworkElement)e.OriginalSource);
     }
-
-    /// <summary>Windows-Explorer-Konvention: ist das rechtsgeklickte Element Teil der aktuellen
-    /// Mehrfachauswahl, wirkt die Aktion auf die gesamte Auswahl — sonst nur auf dieses eine Element.</summary>
-    private static List<TeilnehmerAnzeige> ZielAuswahlErmitteln(ListView lv, TeilnehmerAnzeige rechtsgeklickt) =>
-        lv.SelectedItems.Contains(rechtsgeklickt)
-            ? lv.SelectedItems.OfType<TeilnehmerAnzeige>().ToList()
-            : [rechtsgeklickt];
 }

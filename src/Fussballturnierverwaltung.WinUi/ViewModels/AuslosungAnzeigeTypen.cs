@@ -52,12 +52,15 @@ public class RegelViewModel : ObservableObject
     }
 }
 
-/// <summary>Zeile der Quoten-Spalte im Auslosungseditor — für Verbands- wie Landesquoten (#189, #423). Eine Zeile mit
-/// <see cref="Umschalten"/> filtert per Klick die Verfügbar-Liste auf ihr Land bzw. ihren Verband,
-/// <see cref="IstAktiv"/> hebt sie hervor, solange der Filter steht (#573); die freien Plätze sind nicht anklickbar.</summary>
-public record QuoteAnzeige(string Name, string AnzeigeText, IRelayCommand? Umschalten = null, bool IstAktiv = false)
+/// <summary>Kachel im Teilnehmerpool — für Verbands- wie Landesquoten, freie Plätze und die Gesamtzahl (#189, #423, #576).
+/// Eine Kachel mit <see cref="Umschalten"/> filtert per Klick beide Listen des Pools auf ihr Land bzw. ihren Verband,
+/// <see cref="IstAktiv"/> hebt sie hervor, solange der Filter steht (#573); freie Plätze und Gesamtzahl sind nicht
+/// anklickbar. <see cref="Verletzt"/> färbt sie rot, <see cref="Zusatz"/> nennt Teams über der Quote.</summary>
+public record QuoteAnzeige(string Name, string AnzeigeText, IRelayCommand? Umschalten = null, bool IstAktiv = false,
+                           string Zusatz = "", bool Verletzt = false)
 {
     public bool IstKlickbar => Umschalten is not null;
+    public bool HatZusatz => Zusatz.Length > 0;
 }
 
 public record AuslosungsartOption(string Anzeige, Auslosungsart Wert);

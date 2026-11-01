@@ -35,7 +35,7 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 /// <see cref="KannNeu"/>) — anders als Vorbelegung zieht die echte Auslosung primär gegen reale Mannschaften.
 /// </summary>
 public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen,
-    ILostopfArbeitsbereichKontext
+    ILostopfArbeitsbereichKontext, ITeilnehmerpoolKontext
 {
     private readonly AuslosungService _auslosungService;
     private readonly TurnierInstanzService _instanzService;
@@ -53,6 +53,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// <summary>Die Mannschaften hinter den Platzhaltern der gezeigten Auslosung (#483) — für Anzeige, Ziehung und die
     /// Land-/Verbandsregeln beim Auslosen.</summary>
     private Qualifikanten _qualifikanten = Qualifikanten.Keine;
+
+    /// <summary>Alle für die Runde der gezeigten Auslosung zugelassenen Teams — der Pool wählt daraus, was die Lostöpfe
+    /// anbieten (#576).</summary>
+    private AuslosungsTeilnehmer? _teilnehmer;
     private bool _ladenAktiv;
     private bool _seitenlisteAktualisierungAktiv;
 
@@ -172,8 +176,36 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     /// <summary>Regel-Schalter des Ribbon-Flyouts "Auslosungs-Regeln" (Kind-ViewModel, nicht an XAML gebunden).</summary>
     private readonly AuslosungsRegelnViewModel _regeln;
 
-    /// <summary>Verbands- und Landesquoten neben den Lostöpfen (Kind-ViewModel).</summary>
-    public QuotenAnzeigeViewModel Quoten { get; }
+    /// <summary>Teilnehmerpool der ersten Runde eines Turniers mit Quoten, eigener Reiter vor den Lostöpfen (Kind-ViewModel, #576).</summary>
+    public TeilnehmerpoolViewModel Teilnehmerpool { get; }
+
+    // ── Reiter Teilnehmerpool | Lostöpfe (#576) ───────────────────────────────
+    public bool ZeigeReiterleiste => ZeigeVorbereitung && Teilnehmerpool.Aktiv;
+    public bool ZeigeTeilnehmerpool => ZeigeReiterleiste && Teilnehmerpool.PoolReiterAktiv;
+    public bool ZeigeLostopfArbeitsbereich => ZeigeVorbereitung && !ZeigeTeilnehmerpool;
+
+    /// <summary>Im Reiter Lostöpfe: der Pool erfüllt seine Quoten nicht, die Automatik ist gesperrt.</summary>
+    public bool ZeigePoolHinweis => ZeigeLostopfArbeitsbereich && Teilnehmerpool.Aktiv && Teilnehmerpool.HatMaengel;
+
+    public string VerfuegbarUeberschrift => Teilnehmerpool.Aktiv ? "TEILNEHMERPOOL – OHNE TOPF" : "VERFÜGBAR";
+
+    private void ReiterAnzeigeMelden()
+    {
+        OnPropertyChanged(nameof(ZeigeReiterleiste));
+        OnPropertyChanged(nameof(ZeigeTeilnehmerpool));
+        OnPropertyChanged(nameof(ZeigeLostopfArbeitsbereich));
+        OnPropertyChanged(nameof(ZeigePoolHinweis));
+        OnPropertyChanged(nameof(VerfuegbarUeberschrift));
+    }
+
+    private void BeiTeilnehmerpoolAenderung(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(TeilnehmerpoolViewModel.Aktiv) or nameof(TeilnehmerpoolViewModel.PoolReiterAktiv)
+            or nameof(TeilnehmerpoolViewModel.HatMaengel))
+            ReiterAnzeigeMelden();
+        if (e.PropertyName == nameof(TeilnehmerpoolViewModel.Aktiv))
+            OnPropertyChanged(nameof(RibbonZusatzGruppen));
+    }
 
     // ── TV-Modus: Schrittweise Ziehungsanimation (#303, Issue #5) ────────────────
     /// <summary>Wie das Ergebnis nach dem Auslosen erscheint: sofort oder als TV-Ziehung.</summary>
@@ -271,6 +303,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 ],
                 IconGlyph = "",
             },
+            .. (Teilnehmerpool.Aktiv ? [PoolNeuVorbelegenAktion()] : Array.Empty<RibbonAktion>()),
             new RibbonAktion
             {
                 Header = "Auslosungs-Regeln",
@@ -279,6 +312,14 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                 IconGlyph = "",
             },
         ],
+    };
+
+    private RibbonAktion PoolNeuVorbelegenAktion() => new()
+    {
+        Header = "Pool neu vorbelegen",
+        AutomationId = "Befehlsleiste.PoolNeuVorbelegen",
+        Befehl = Teilnehmerpool.NeuVorbelegenCommand,
+        IconGlyph = "",
     };
 
     private RibbonAktion TvModusAktion() => new()
@@ -328,10 +369,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         SpielplanVerlustVorschau verlustVorschau,
         TurnierBaumService baumService,
         RanglisteService ranglisteService,
-        VerbandsQuoteService verbandsQuoteService,
-        LandesQuoteService landesQuoteService,
         AuslosungsTeilnehmerpool teilnehmerpool,
         LostopfBefuellung befuellung,
+        TeilnehmerpoolVorbelegung poolVorbelegung,
         IDialogService dialogService,
         Zufallsquelle zufallsquelle,
         ILogger<AuslosungViewModel> logger)
@@ -348,11 +388,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         Arbeitsbereich = new LostopfArbeitsbereichViewModel(this, auslosungService, ranglisteService, befuellung, dialogService);
         _regeln = new AuslosungsRegelnViewModel(auslosungService, () => DbContextSchutz, meldung => Fehlermeldung = meldung);
         _regeln.Geaendert += () => OnPropertyChanged(nameof(RibbonZusatzGruppen));
-        Quoten = new QuotenAnzeigeViewModel(verbandsQuoteService, landesQuoteService);
-        // Klick auf eine Quote filtert die Verfügbar-Liste, die Hervorhebung folgt dem Filter (#573).
-        Quoten.LandGewaehlt += Arbeitsbereich.Filter.LandUmschalten;
-        Quoten.VerbandGewaehlt += Arbeitsbereich.Filter.VerbandUmschalten;
-        Arbeitsbereich.Filter.Geaendert += () => Quoten.Hervorheben(Arbeitsbereich.Filter.AktiverVerband, Arbeitsbereich.Filter.AktivesLand);
+        Teilnehmerpool = new TeilnehmerpoolViewModel(this, poolVorbelegung);
+        Teilnehmerpool.PropertyChanged += BeiTeilnehmerpoolAenderung;
+        Arbeitsbereich.RanglisteGewaehlt += id => _ = PoolRanglisteSetzenAsync(id);
+        PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ZeigeVorbereitung)) ReiterAnzeigeMelden(); };
         Ziehung.PropertyChanged += BeiZiehungAenderung;
         HandZiehung.PropertyChanged += BeiHandZiehungAenderung;
         NeuFormular.PropertyChanged += BeiNeuFormularAenderung;
@@ -388,6 +427,8 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         HandZiehung.Beenden();
         _instanz = instanz;
         _teilnehmerpool.Zuruecksetzen();
+        Teilnehmerpool.Leeren();
+        _teilnehmer = null;
         _qualifikanten = Qualifikanten.Keine;
         // Eine hinter diesem Wechsel wartende Aktion darf nicht mehr auf dem bisherigen Detail arbeiten (#413).
         _auslosungDetail = null;
@@ -882,9 +923,9 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
             using (_logger.Vorgang($"Auslosung: Teilnehmer ermitteln, Platzhalter auflösen (Auslosung {auslosungId})"))
                 teilnehmer = await _teilnehmerpool.ErmittelnAsync(detail, _instanz, InstanzRunden);
             _qualifikanten = teilnehmer.Qualifikanten;
-            Arbeitsbereich.Zeigen(detail, teilnehmer, _instanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle);
-
-            await Quoten.ZeigenAsync(detail, _instanz, InstanzRunden);
+            _teilnehmer = teilnehmer;
+            await Teilnehmerpool.ZeigenAsync(detail, teilnehmer.Teilnehmer, Arbeitsbereich.RanglisteIdFuer(detail), Mannschaftsart);
+            ToepfeAnPoolAnpassen(detail);
             _regeln.Zeigen(detail, InstanzRunden);
             Ergebnis.Zeigen(detail, _qualifikanten);
             KopfdatenZeigen(detail);
@@ -957,14 +998,56 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
                                  || (IstDetailDirty && IstBearbeitbar);
     private bool KannAbbrechen() => NeuFormAktiv || IstDetailDirty;
 
-    public bool HatUngespeicherteAenderungen => NeuFormAktiv || IstDetailDirty;
+    public bool HatUngespeicherteAenderungen =>
+        NeuFormAktiv || IstDetailDirty || ZeigeVorbereitung && Teilnehmerpool.HatUngespeicherteAenderungen;
     private bool KannLoeschen()  => AusgewaehlteAuslosung is not null && !NeuFormAktiv;
 
     private bool KannAuslosungAusfuehren()             => DetailAktiv && IstBearbeitbar && !HandZiehung.Laeuft;
     private bool KannAuslosungZuruecksetzen()           => DetailAktiv && IstAbgeschlossen && !Ziehung.AnimationLaeuft;
 
-    partial void OnDetailAktivChanged(bool value)    => Arbeitsbereich.BearbeitbarSetzen(DetailAktiv && IstBearbeitbar);
-    partial void OnIstBearbeitbarChanged(bool value) => Arbeitsbereich.BearbeitbarSetzen(DetailAktiv && IstBearbeitbar);
+    partial void OnDetailAktivChanged(bool value)    => BearbeitbarWeitergeben();
+    partial void OnIstBearbeitbarChanged(bool value) => BearbeitbarWeitergeben();
+
+    private void BearbeitbarWeitergeben()
+    {
+        Arbeitsbereich.BearbeitbarSetzen(DetailAktiv && IstBearbeitbar);
+        Teilnehmerpool.BearbeitbarSetzen(DetailAktiv && IstBearbeitbar);
+    }
+
+    // ── Teilnehmerpool (#576) ─────────────────────────────────────────────────
+
+    private MannschaftsartFilter Mannschaftsart => _instanz?.MannschaftsartFilter ?? MannschaftsartFilter.Alle;
+
+    /// <summary>Die Lostöpfe bieten bei aktivem Pool nur seine Teams an, und die Automatik wartet, bis er seine Quoten
+    /// erfüllt.</summary>
+    private void ToepfeAnPoolAnpassen(Auslosung detail)
+    {
+        if (_teilnehmer is null) return;
+        Arbeitsbereich.BefuellenSperren(!Teilnehmerpool.Erfuellt);
+        Arbeitsbereich.Zeigen(detail, _teilnehmer with { Teilnehmer = Teilnehmerpool.FuerToepfe(_teilnehmer.Teilnehmer) }, Mannschaftsart);
+    }
+
+    /// <summary>Wer den Pool verlassen hat und noch in einem Topf liegt, verlässt auch den Topf — das lädt die Auslosung
+    /// neu. Sonst genügt es, die Verfügbar-Liste der Lostöpfe nachzuziehen.</summary>
+    async Task ITeilnehmerpoolKontext.PoolGeaendertAsync(IReadOnlyCollection<int> herausgenommen)
+    {
+        if (herausgenommen.Count > 0)
+            await Arbeitsbereich.MannschaftenAusToepfenNehmenAsync(herausgenommen);
+        else if (_auslosungDetail is { } detail)
+            ToepfeAnPoolAnpassen(detail);
+    }
+
+    /// <summary>Fire-and-Forget aus dem Wechsel der Rangliste: reiht sich hinter laufende Aktionen ein (#413).</summary>
+    private async Task PoolRanglisteSetzenAsync(int? ranglisteId)
+    {
+        using var schutz = await DbContextSchutz.BetretenAsync();
+        try { await Teilnehmerpool.RanglisteSetzenAsync(ranglisteId); }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Rangliste {RanglisteId} für den Teilnehmerpool konnte nicht geladen werden.", ranglisteId);
+            Fehlermeldung = ex.Message;
+        }
+    }
 
     partial void OnDetailNameChanged(string value)           { if (!_ladenAktiv) IstDetailDirty = true; }
     partial void OnDetailAuslosungsartChanged(Auslosungsart value)

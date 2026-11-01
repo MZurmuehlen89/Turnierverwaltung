@@ -1,97 +1,61 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Auslosungen;
-using Fussballturnierverwaltung.Application.Turniere;
-using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
-using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
-using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-/// <summary>Quoten-Spalte der geöffneten Auslosung (#423): wie viele Mannschaften je Verband bzw. Land schon in
-/// den Lostöpfen liegen, gemessen an der Quote des Turniers. Gezählt wird in <see cref="QuotenBelegung"/>.
-/// Ein Klick auf eine Quote meldet <see cref="LandGewaehlt"/> bzw. <see cref="VerbandGewaehlt"/>; welche Quote
-/// hervorgehoben ist, sagt der Filter der Verfügbar-Liste über <see cref="Hervorheben"/> (#573).</summary>
+/// <summary>Kacheln über dem Teilnehmerpool (#423, seit #576 der Pool statt der Lostöpfe): je Verband bzw. Land, wie viele
+/// Mannschaften des Pools die Quote des Turniers füllen, dahinter die freien Plätze und die Gesamtzahl. Gezählt wird in
+/// <see cref="Teilnehmerpool.Stand"/>. Ein Klick auf eine Quote meldet <see cref="LandGewaehlt"/> bzw.
+/// <see cref="VerbandGewaehlt"/>; welche Quote hervorgehoben ist, sagt der Filter des Pools über
+/// <see cref="Hervorheben"/> (#573).</summary>
 public partial class QuotenAnzeigeViewModel : ObservableObject
 {
-    private readonly VerbandsQuoteService _verbandsQuoteService;
-    private readonly LandesQuoteService _landesQuoteService;
-
-    private IReadOnlyList<QuotenStand> _verbandsStaende = [];
-    private IReadOnlyList<QuotenStand> _landesStaende = [];
+    private TeilnehmerpoolStand? _stand;
     private int? _aktiverVerband;
     private int? _aktivesLand;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ZeigeVerbandsquoten))]
-    private IReadOnlyList<QuoteAnzeige> _verbandsquoten = [];
-
-    public bool ZeigeVerbandsquoten => Verbandsquoten.Count > 0;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ZeigeLandesquoten))]
-    private IReadOnlyList<QuoteAnzeige> _landesquoten = [];
-
-    public bool ZeigeLandesquoten => Landesquoten.Count > 0;
-
-    public QuotenAnzeigeViewModel(VerbandsQuoteService verbandsQuoteService, LandesQuoteService landesQuoteService)
-    {
-        _verbandsQuoteService = verbandsQuoteService;
-        _landesQuoteService = landesQuoteService;
-    }
+    [ObservableProperty] private IReadOnlyList<QuoteAnzeige> _kacheln = [];
 
     public event Action<int>? LandGewaehlt;
 
     public event Action<int>? VerbandGewaehlt;
 
-    public async Task ZeigenAsync(Auslosung detail, TurnierInstanz? instanz, IReadOnlyList<TurnierRunde> instanzRunden)
+    /// <summary><c>null</c> = kein Pool, keine Kacheln.</summary>
+    public void Zeigen(TeilnehmerpoolStand? stand)
     {
-        if (instanz is null || !QuotenBelegung.GeltenFuer(detail.TurnierRundeId, instanzRunden))
-        {
-            _verbandsStaende = [];
-            _landesStaende = [];
-            ZeilenAktualisieren();
-            return;
-        }
-
-        int? eingang = instanzRunden[0].EingangsMannschaftsanzahl;
-        _verbandsStaende = MitFreienPlaetzen(QuotenBelegung.JeVerband(
-            await _verbandsQuoteService.AlleNachTurnierInstanzIdAsync(instanz.Id), detail.Lostoepfe), detail, eingang);
-
-        // Nur für Vereinswettbewerbe — Landesquoten sind bei Nationalmannschaften trivial (siehe
-        // TurnierkopfViewModel.LandesQuotenSichtbar, #189).
-        _landesStaende = instanz.MannschaftsartFilter == MannschaftsartFilter.Verein
-            ? MitFreienPlaetzen(QuotenBelegung.JeLand(
-                await _landesQuoteService.AlleNachTurnierInstanzIdAsync(instanz.Id), detail.Lostoepfe), detail, eingang)
-            : [];
-        ZeilenAktualisieren();
+        _stand = stand;
+        KachelnAktualisieren();
     }
 
-    /// <summary>Der Filterstand der Verfügbar-Liste: die Quote seines Verbands bzw. Landes wird hervorgehoben.</summary>
+    /// <summary>Der Filterstand des Pools: die Quote seines Verbands bzw. Landes wird hervorgehoben.</summary>
     public void Hervorheben(int? verbandId, int? landId)
     {
         if (_aktiverVerband == verbandId && _aktivesLand == landId) return;
         _aktiverVerband = verbandId;
         _aktivesLand = landId;
-        ZeilenAktualisieren();
+        KachelnAktualisieren();
     }
 
-    private void ZeilenAktualisieren()
-    {
-        Verbandsquoten = Zeilen(_verbandsStaende, _aktiverVerband, id => VerbandGewaehlt?.Invoke(id));
-        Landesquoten = Zeilen(_landesStaende, _aktivesLand, id => LandGewaehlt?.Invoke(id));
-    }
+    private void KachelnAktualisieren() =>
+        Kacheln = _stand is null
+            ? []
+            : [
+                .. Zeilen(_stand.Verbandsquoten, _aktiverVerband, id => VerbandGewaehlt?.Invoke(id)),
+                .. Zeilen(_stand.Landesquoten, _aktivesLand, id => LandGewaehlt?.Invoke(id)),
+                GesamtKachel(_stand.Gesamt),
+            ];
 
-    /// <summary>Die Quoten und dahinter die freien Plätze (#572), sofern es Quoten gibt und die Runde ihren Eingang kennt.</summary>
-    private static IReadOnlyList<QuotenStand> MitFreienPlaetzen(IReadOnlyList<QuotenStand> staende, Auslosung detail, int? eingang) =>
-        staende.Count > 0 && eingang is { } anzahl
-            ? [.. staende, QuotenBelegung.FreiePlaetze(staende, detail.Lostoepfe, anzahl)]
-            : staende;
-
-    private static IReadOnlyList<QuoteAnzeige> Zeilen(IReadOnlyList<QuotenStand> staende, int? aktiv, Action<int> gewaehlt) =>
-        [.. staende.Select(s => new QuoteAnzeige(
+    private static IEnumerable<QuoteAnzeige> Zeilen(IReadOnlyList<QuotenStand> staende, int? aktiv, Action<int> gewaehlt) =>
+        staende.Select(s => new QuoteAnzeige(
             s.Name,
-            $"{s.Aktuell} / {s.Anzahl}",
+            $"{s.Besetzt} / {s.Anzahl}",
             s.Schluessel is int id ? new RelayCommand(() => gewaehlt(id)) : null,
-            s.Schluessel is not null && s.Schluessel == aktiv))];
+            s.Schluessel is not null && s.Schluessel == aktiv,
+            s.Ueberzaehlig > 0 ? $"+ {s.Ueberzaehlig} auf freiem Platz" : "",
+            s.Verletzt));
+
+    private static QuoteAnzeige GesamtKachel(QuotenStand gesamt) =>
+        new(gesamt.Name, $"{gesamt.Aktuell} / {gesamt.Anzahl}",
+            Verletzt: gesamt.Anzahl > 0 && gesamt.Aktuell != gesamt.Anzahl);
 }

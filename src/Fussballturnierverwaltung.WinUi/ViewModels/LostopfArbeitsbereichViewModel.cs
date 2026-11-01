@@ -38,6 +38,7 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     private readonly LostopfBefuellung _befuellung;
     private readonly IDialogService _dialogService;
     private bool _bearbeitbar;
+    private bool _befuellenGesperrt;
 
     public LostopfArbeitsbereichViewModel(
         ILostopfArbeitsbereichKontext kontext,
@@ -105,11 +106,27 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     partial void OnAlleRanglistenChanged(ObservableCollection<Rangliste> value) =>
         _ranglisteOptionen = [_keineRangliste, .. value.Select(r => new RanglisteOption(r.Name, r))];
 
+    /// <summary>Eine andere Rangliste für die Automatik gewählt — von Hand oder vorausgewählt; der Teilnehmerpool zeigt
+    /// ihre Plätze (#576).</summary>
+    public event Action<int?>? RanglisteGewaehlt;
+
     // Die TwoWay-Bindung nullt die Auswahl transient, wenn die ItemsSource ausgetauscht wird.
     partial void OnAusgewaehlteRanglisteOptionChanged(RanglisteOption value)
     {
-        if (value is null) AusgewaehlteRanglisteOption = _keineRangliste;
+        if (value is null)
+        {
+            AusgewaehlteRanglisteOption = _keineRangliste;
+            return;
+        }
+        RanglisteGewaehlt?.Invoke(value.Wert?.Id);
     }
+
+    /// <summary>Die Rangliste, die beim Zeigen von <paramref name="detail"/> gilt: bei einer neu gezeigten Auslosung ihre
+    /// Standard-Rangliste (siehe <see cref="Zeigen"/>), sonst die gewählte.</summary>
+    public int? RanglisteIdFuer(Auslosung detail) =>
+        _ranglisteVorausgewaehltFuerAuslosungId != detail.Id && detail.TurnierRunde?.StandardRanglisteId is int standard
+            ? standard
+            : AusgewaehlteRanglisteOption.Wert?.Id;
 
     /// <summary>Wählt die Standard-Rangliste von <paramref name="runde"/> vor (#349, seit #393 ein direkter Verweis).
     /// Ohne Vorgabe bleibt die bisherige Auswahl stehen. Liefert die gewählte Rangliste oder <c>null</c>.</summary>
@@ -133,15 +150,6 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     private int _teamsBenoetigt;
 
     public bool TeamsVollstaendig => TeamsBenoetigt > 0 && TeamsZugewiesen == TeamsBenoetigt;
-
-    // ── Fehlbestand nach Quoten (#573) ────────────────────────────────────────
-    /// <summary>Quotenplätze, die das letzte Befüllen nicht besetzen konnte, je Zeile einer; leer = kein Hinweis.
-    /// Gilt bis zum nächsten Befüllen, Zurücksetzen oder Wechsel der Auslosung.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ZeigeFehlbestand))]
-    private string _fehlbestand = "";
-
-    public bool ZeigeFehlbestand => Fehlbestand.Length > 0;
 
     public string TeamsStatusText => TeamsBenoetigt == 0
         ? $"{TeamsZugewiesen} Teams zugewiesen"
@@ -168,11 +176,19 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
         AlleToepfeZuruecksetzenCommand.NotifyCanExecuteChanged();
     }
 
+    /// <summary>Solange der Teilnehmerpool seine Quoten nicht erfüllt, befüllt die Automatik nicht (#576). Von Hand
+    /// zuordnen bleibt erlaubt.</summary>
+    public void BefuellenSperren(bool gesperrt)
+    {
+        if (_befuellenGesperrt == gesperrt) return;
+        _befuellenGesperrt = gesperrt;
+        LostoepfeAutomatischBefuellenCommand.NotifyCanExecuteChanged();
+    }
+
     /// <summary>Turnierwechsel: Verfügbar-Liste und Filter zurücksetzen.</summary>
     public void Leeren()
     {
         VerfuegbareTeilnehmer.Clear();
-        Fehlbestand = "";
         Filter.Zuruecksetzen();
         GefilterteTeilnehmerAbgleichen();
     }
@@ -192,7 +208,6 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
         if (_ranglisteVorausgewaehltFuerAuslosungId != detail.Id)
         {
             _ranglisteVorausgewaehltFuerAuslosungId = detail.Id;
-            Fehlbestand = "";
             StandardRanglisteVorauswaehlen(detail.TurnierRunde);
         }
     }
@@ -248,13 +263,26 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     }
 
     /// <summary>Befüllt die Töpfe nach der Standard-Rangliste der Runde (#349). Läuft unter dem Schutz des
-    /// Aufrufers. Liefert <c>false</c>, wenn die Runde keine Standard-Rangliste hat oder sie nicht mehr existiert.</summary>
+    /// Aufrufers. Liefert <c>false</c>, wenn die Runde keine Standard-Rangliste hat oder sie nicht mehr existiert. Ein
+    /// Teilnehmerpool mit offenen Quoten lässt die Töpfe leer — was fehlt, zeigt der Pool (#576).</summary>
     public async Task<bool> NachStandardRanglisteBefuellenAsync()
     {
         if (StandardRanglisteVorauswaehlen(_kontext.AktuellesDetail?.TurnierRunde) is not { } rangliste) return false;
-        await LostoepfeNachRanglisteBefuellenAsync(rangliste.Id);
+        if (!_befuellenGesperrt)
+            await LostoepfeNachRanglisteBefuellenAsync(rangliste.Id);
         return true;
     }
+
+    /// <summary>Nimmt Mannschaften aus ihren Töpfen — wer den Teilnehmerpool verlässt, verlässt auch seinen Topf (#576).</summary>
+    public Task MannschaftenAusToepfenNehmenAsync(IReadOnlyCollection<int> mannschaftIds) =>
+        mannschaftIds.Count == 0
+            ? Task.CompletedTask
+            : ToepfeAendernAsync(async detail =>
+            {
+                foreach (var topf in detail.Lostoepfe)
+                    foreach (var eintrag in topf.Eintraege.Where(e => e.MannschaftId is int id && mannschaftIds.Contains(id)).ToList())
+                        await _auslosungService.EintragAusLostopfEntfernenAsync(detail.Id, topf.Id, eintrag.Id);
+            });
 
     // ── Töpfe von Hand befüllen und leeren ────────────────────────────────────
 
@@ -319,7 +347,6 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
             "Töpfe zurücksetzen", "Alle Töpfe leeren und alle Teams zurück in die Verfügbar-Liste?");
         if (!bestaetigt) return;
 
-        Fehlbestand = "";
         await ToepfeAendernAsync(detail => _auslosungService.AlleToepfeZuruecksetzenAsync(detail.Id));
     }
 
@@ -366,17 +393,14 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     private async Task LostoepfeNachRanglisteBefuellenAsync(int ranglisteId)
     {
         if (_kontext.AktuellesDetail is not { } detail) return;
-        Fehlbestand = "";
-        var ergebnis = await _befuellung.NachRanglisteBefuellenAsync(detail, ranglisteId, [.. VerfuegbareTeilnehmer]);
-        if (ergebnis.Fehler is { } fehler)
+        if (await _befuellung.NachRanglisteBefuellenAsync(detail, ranglisteId, [.. VerfuegbareTeilnehmer]) is { } fehler)
         {
             _kontext.FehlerMelden(fehler);
             return;
         }
-        Fehlbestand = string.Join(Environment.NewLine, ergebnis.Fehlbestaende);
         await _kontext.DetailNeuLadenAsync(detail.Id);
     }
 
-    private bool KannLostoepfeAutomatischBefuellen() => _bearbeitbar;
+    private bool KannLostoepfeAutomatischBefuellen() => _bearbeitbar && !_befuellenGesperrt;
     private bool KannAlleToepfeZuruecksetzen()       => _bearbeitbar && Lostoepfe.Any(l => l.Teilnehmer.Count > 0);
 }

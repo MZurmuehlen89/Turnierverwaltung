@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Reiter „Teilnehmerpool“ der Auslosung (#576): Kacheln der Quoten, was fehlt, Filter und die beiden Listen.
+     DataContext ist das TeilnehmerpoolViewModel. -->
+<UserControl
+    x:Class="Fussballturnierverwaltung.WinUi.Views.TeilnehmerpoolAnsicht"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <!-- Gruppen der Pool-Liste; die Quelle setzt das Code-Behind, weil Ressourcen keinen DataContext erben -->
+        <CollectionViewSource x:Key="PoolGruppenQuelle" IsSourceGrouped="True" />
+
+        <!-- Kachel einer Quote: rot, solange sie verletzt ist; anklickbar filtert sie beide Listen auf ihr Land bzw.
+             ihren Verband, die aktive trägt einen Akzentrahmen. Freie Plätze und Gesamt sind nicht anklickbar. -->
+        <DataTemplate x:Key="KachelTemplate">
+            <Grid MinHeight="56">
+                <Border CornerRadius="6" BorderThickness="1"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                <Border CornerRadius="6" BorderThickness="1"
+                        BorderBrush="{ThemeResource SystemFillColorCriticalBrush}"
+                        Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                        Visibility="{Binding Verletzt, Converter={StaticResource BoolToVisibility}}" />
+                <Border CornerRadius="6" BorderThickness="2"
+                        BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                        Visibility="{Binding IstAktiv, Converter={StaticResource BoolToVisibility}}" />
+                <Button Command="{Binding Umschalten}" AutomationProperties.AutomationId="Auslosung.Quote"
+                        AutomationProperties.Name="{Binding Name}"
+                        IsHitTestVisible="{Binding IstKlickbar}"
+                        Background="Transparent" BorderThickness="0" Padding="10,6"
+                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Left" VerticalContentAlignment="Top">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Name}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding AnzeigeText}" FontSize="15" FontWeight="SemiBold"
+                                   AutomationProperties.AutomationId="Teilnehmerpool.KachelWert" />
+                        <TextBlock Text="{Binding Zusatz}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding HatZusatz, Converter={StaticResource BoolToVisibility}}" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Zeile beider Listen: Ranglistenplatz, Wappen, Name, rechts das Land bzw. der Topf -->
+        <DataTemplate x:Key="PoolZeileTemplate">
+            <Grid ColumnDefinitions="30,8,20,8,*,Auto" Height="26" Padding="0,3">
+                <TextBlock Grid.Column="0" Text="{Binding Rang}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Image Grid.Column="2" Source="{Binding Teilnehmer.Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
+                       Visibility="{Binding Teilnehmer.Wappen, Converter={StaticResource NullToCollapsed}}"
+                       Stretch="Uniform" Width="20" Height="20" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="4" Text="{Binding Teilnehmer.AnzeigeName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                           AutomationProperties.AutomationId="Teilnehmerpool.TeilnehmerName" />
+                <TextBlock Grid.Column="5" Text="{Binding Zusatz}" FontSize="11" Margin="8,0,4,0" VerticalAlignment="Center"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
+        <ItemsRepeater Grid.Row="0" ItemsSource="{Binding Quoten.Kacheln}" ItemTemplate="{StaticResource KachelTemplate}">
+            <ItemsRepeater.Layout>
+                <UniformGridLayout MinItemWidth="128" MinItemHeight="56" MinRowSpacing="6" MinColumnSpacing="6"
+                                   ItemsStretch="Fill" />
+            </ItemsRepeater.Layout>
+        </ItemsRepeater>
+
+        <Border Grid.Row="1" Visibility="{Binding HatMaengel, Converter={StaticResource BoolToVisibility}}"
+                Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}" CornerRadius="4" Padding="10,8">
+            <StackPanel>
+                <TextBlock Text="Der Pool erfüllt die Quoten nicht – „Automatisch befüllen“ ist gesperrt:" FontSize="12" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding MaengelText}" AutomationProperties.AutomationId="Teilnehmerpool.Maengel"
+                           FontSize="12" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnDefinitions="2*,*,*" ColumnSpacing="8">
+            <TextBox Grid.Column="0" PlaceholderText="🔍  Filtern …"
+                     Text="{Binding Filter.TeilnehmerFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                      ItemsSource="{Binding Filter.VerbandFilterOptionen}"
+                      SelectedItem="{Binding Filter.VerbandFilter, Mode=TwoWay}"
+                      DisplayMemberPath="Anzeige"
+                      Visibility="{Binding Filter.ZeigeVerbandFilter, Converter={StaticResource BoolToVisibility}}" />
+            <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="Teilnehmerpool.LandFilter"
+                      ItemsSource="{Binding Filter.LandFilterOptionen}"
+                      SelectedItem="{Binding Filter.LandFilter, Mode=TwoWay}"
+                      DisplayMemberPath="Anzeige"
+                      Visibility="{Binding Filter.ZeigeLandFilter, Converter={StaticResource BoolToVisibility}}" />
+        </Grid>
+
+        <!-- Tausch per Doppelklick, Ziehen oder Rechtsklick — wie bei den Lostöpfen -->
+        <Grid Grid.Row="3" ColumnDefinitions="*,16,*" Margin="0,0,0,16">
+            <Grid Grid.Column="0" RowDefinitions="Auto,*">
+                <TextBlock Grid.Row="0" Text="WEITERE VERFÜGBAR" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,6" />
+                <ListView Grid.Row="1" x:Name="WeitereListView" AutomationProperties.AutomationId="Teilnehmerpool.Weitere"
+                          ItemsSource="{Binding WeitereVerfuegbar}" ItemTemplate="{StaticResource PoolZeileTemplate}"
+                          SelectionMode="Extended" CanDragItems="True" CanReorderItems="False" AllowDrop="True"
+                          DragItemsStarting="Liste_DragItemsStarting" DragOver="Liste_DragOver" Drop="WeitereListView_Drop"
+                          DoubleTapped="Liste_DoubleTapped" RightTapped="Liste_RightTapped"
+                          Height="450"
+                          BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4" />
+            </Grid>
+            <Grid Grid.Column="2" RowDefinitions="Auto,*">
+                <TextBlock Grid.Row="0" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,6">
+                    <Run Text="TEILNEHMERPOOL" /><Run Text="  ·  " /><Run Text="{Binding PoolAnzahl}" />
+                </TextBlock>
+                <ListView Grid.Row="1" x:Name="PoolListView" AutomationProperties.AutomationId="Teilnehmerpool.Pool"
+                          ItemTemplate="{StaticResource PoolZeileTemplate}"
+                          SelectionMode="Extended" CanDragItems="True" CanReorderItems="False" AllowDrop="True"
+                          DragItemsStarting="Liste_DragItemsStarting" DragOver="Liste_DragOver" Drop="PoolListView_Drop"
+                          DoubleTapped="Liste_DoubleTapped" RightTapped="Liste_RightTapped"
+                          Height="450"
+                          BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="4">
+                    <ListView.GroupStyle>
+                        <GroupStyle>
+                            <GroupStyle.HeaderTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Kopf}" FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </DataTemplate>
+                            </GroupStyle.HeaderTemplate>
+                        </GroupStyle>
+                    </ListView.GroupStyle>
+                </ListView>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

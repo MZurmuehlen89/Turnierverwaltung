@@ -1,17 +1,28 @@
-using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
-using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 
 namespace Fussballturnierverwaltung.Application.Auslosungen;
 
-/// <summary>Stand einer Quote während der Topf-Befüllung: <paramref name="Aktuell"/> Mannschaften liegen in den
-/// Lostöpfen, <paramref name="Anzahl"/> sieht die Quote mindestens vor (#572). <paramref name="Schluessel"/> ist die
-/// Id des Verbands bzw. Landes (#573), bei den freien Plätzen <c>null</c>.</summary>
-public sealed record QuotenStand(string Name, int Aktuell, int Anzahl, int? Schluessel = null);
+/// <summary>Stand einer Quote im Teilnehmerpool: <paramref name="Aktuell"/> Mannschaften sind im Pool,
+/// <paramref name="Anzahl"/> sieht die Quote mindestens vor (#572). <paramref name="Schluessel"/> ist die Id des Verbands
+/// bzw. Landes (#573), bei den freien Plätzen <c>null</c>.</summary>
+public sealed record QuotenStand(string Name, int Aktuell, int Anzahl, int? Schluessel = null)
+{
+    public bool IstFreiePlaetze => Schluessel is null;
 
-/// <summary>Zählt, wie weit die Lostöpfe einer Auslosung die Verbands- und Landesquoten des Turniers schon
-/// ausschöpfen (#423). Zustandslos; Platzhalter in den Töpfen zählen nicht mit. Mehrere Quoten desselben Landes
-/// (Kontingente, #572) bilden einen gemeinsamen Stand.</summary>
+    /// <summary>Eine Quote ist verletzt, solange sie nicht voll ist; die freien Plätze, wenn mehr Mannschaften sie belegen,
+    /// als es gibt.</summary>
+    public bool Verletzt => IstFreiePlaetze ? Aktuell > Anzahl : Aktuell < Anzahl;
+
+    /// <summary>Mannschaften über der Quote — sie belegen freie Plätze (#576).</summary>
+    public int Ueberzaehlig => IstFreiePlaetze ? 0 : Math.Max(0, Aktuell - Anzahl);
+
+    /// <summary>Was die Quote erfüllt: bei einer Quote höchstens ihre Anzahl.</summary>
+    public int Besetzt => IstFreiePlaetze ? Aktuell : Math.Min(Aktuell, Anzahl);
+}
+
+/// <summary>Zählt, wie weit ein Teilnehmerpool die Verbands- und Landesquoten des Turniers ausschöpft (#423, seit #576 der
+/// Pool statt der Lostöpfe). Zustandslos. Mehrere Quoten desselben Landes (Kontingente, #572) bilden einen gemeinsamen
+/// Stand.</summary>
 public static class QuotenBelegung
 {
     /// <summary>Quoten gelten nur für die erste Runde einer Instanz (Zulassung), nicht kumulativ für Folgerunden mit
@@ -19,29 +30,17 @@ public static class QuotenBelegung
     public static bool GeltenFuer(int turnierRundeId, IEnumerable<TurnierRunde> instanzRunden) =>
         instanzRunden.OrderBy(r => r.Reihenfolge).FirstOrDefault()?.Id == turnierRundeId;
 
-    /// <summary>Mannschaften, deren Land nicht mitgeladen ist, lassen sich keinem Verband zuordnen und zählen nicht.</summary>
-    public static IReadOnlyList<QuotenStand> JeVerband(IEnumerable<VerbandsQuote> quoten, IEnumerable<Lostopf> lostoepfe) =>
-        Staende(
-            quoten,
-            Mannschaften(lostoepfe).Where(m => m.Land is not null).Select(m => m.Land.VerbandId),
-            q => q.VerbandId, q => q.Verband?.Name ?? $"Verband {q.VerbandId}", q => q.Anzahl);
+    /// <summary>Mannschaften ohne bekannten Verband zählen nicht.</summary>
+    public static IReadOnlyList<QuotenStand> JeVerband(IEnumerable<VerbandsKontingent> quoten, IEnumerable<AuswahlKandidat> pool) =>
+        Staende(quoten, pool.Select(k => k.VerbandId).OfType<int>(), q => q.VerbandId, q => q.Name, q => q.Anzahl);
 
-    /// <summary>Gruppiert über <see cref="Mannschaft.LandId"/> direkt statt der Verband-Indirektion (#189).</summary>
-    public static IReadOnlyList<QuotenStand> JeLand(IEnumerable<LandesQuote> quoten, IEnumerable<Lostopf> lostoepfe) =>
-        Staende(
-            quoten,
-            Mannschaften(lostoepfe).Select(m => m.LandId),
-            q => q.LandId, q => q.Land?.Name ?? $"Land {q.LandId}", q => q.Anzahl);
+    public static IReadOnlyList<QuotenStand> JeLand(IEnumerable<LandesKontingent> quoten, IEnumerable<AuswahlKandidat> pool) =>
+        Staende(quoten, pool.Select(k => k.LandId), q => q.LandId, q => q.LandName, q => q.Anzahl);
 
     /// <summary>Die freien Plätze (#572): der Eingang der Runde ohne die Summe der Quoten. Belegt sind sie von allen
     /// Mannschaften, die über ihre Quote hinausgehen oder aus einem Verband bzw. Land ohne Quote kommen.</summary>
-    public static QuotenStand FreiePlaetze(IReadOnlyList<QuotenStand> staende, IEnumerable<Lostopf> lostoepfe, int eingang) =>
-        new("Freie Plätze",
-            Mannschaften(lostoepfe).Count() - staende.Sum(s => Math.Min(s.Aktuell, s.Anzahl)),
-            eingang - staende.Sum(s => s.Anzahl));
-
-    private static IEnumerable<Mannschaft> Mannschaften(IEnumerable<Lostopf> lostoepfe) =>
-        lostoepfe.SelectMany(l => l.Eintraege).Select(e => e.Mannschaft).OfType<Mannschaft>();
+    public static QuotenStand FreiePlaetze(IReadOnlyList<QuotenStand> staende, int poolGroesse, int eingang) =>
+        new("Freie Plätze", poolGroesse - staende.Sum(s => s.Besetzt), eingang - staende.Sum(s => s.Anzahl));
 
     private static IReadOnlyList<QuotenStand> Staende<TQuote>(
         IEnumerable<TQuote> quoten, IEnumerable<int> belegteSchluessel,

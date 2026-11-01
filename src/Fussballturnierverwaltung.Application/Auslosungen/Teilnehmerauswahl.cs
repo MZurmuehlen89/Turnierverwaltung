@@ -23,7 +23,7 @@ public sealed record Kontingentvorgabe(IReadOnlyList<LandesKontingent> Landesquo
 /// (#573): erst die Landesquoten, dann die Verbandsquoten, dann die freien Plätze nach der Rangliste der Automatik.
 /// <see cref="Mannschaften"/> enthält nur neu gewählte, nicht die schon eingelegten; <see cref="Fehlbestaende"/>
 /// nennt jeden Quotenplatz, der sich nicht besetzen lässt. Ein offener Quotenplatz wird nicht über die freien Plätze
-/// aufgefüllt (Nachrücken ist #576).</summary>
+/// aufgefüllt — nachgerückt wird von Hand im Teilnehmerpool (#576).</summary>
 public sealed record Teilnehmerauswahl(IReadOnlyList<int> Mannschaften, IReadOnlyList<string> Fehlbestaende)
 {
     /// <param name="pool">Alle zugelassenen Mannschaften, auch die schon eingelegten.</param>

@@ -1,129 +1,107 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Auslosungen;
-using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
-using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
-using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 
 namespace Fussballturnierverwaltung.Tests.Auslosungen;
 
+/// <summary>Quotenstand eines Teilnehmerpools (#423, seit #576 der Pool statt der Lostöpfe).</summary>
 public class QuotenBelegungTests
 {
     // ── Testdaten ─────────────────────────────────────────────────────────────
 
-    private static readonly Verband _uefa = new() { Id = 1, Name = "UEFA" };
-    private static readonly Verband _caf = new() { Id = 2, Name = "CAF" };
-    private static readonly Land _deutschland = new() { Id = 10, Name = "Deutschland", VerbandId = 1 };
-    private static readonly Land _spanien = new() { Id = 11, Name = "Spanien", VerbandId = 1 };
-    private static readonly Land _ghana = new() { Id = 20, Name = "Ghana", VerbandId = 2 };
+    private const int UEFA = 1;
+    private const int CAF = 2;
+    private const int DEUTSCHLAND = 10;
+    private const int SPANIEN = 11;
+    private const int GHANA = 20;
 
-    private static Mannschaft Team(Land land) => new() { Name = $"Team {land.Name}", LandId = land.Id, Land = land };
+    private static int _naechsteId = 1;
 
-    private static Lostopf Topf(params LostopfEintrag[] eintraege) => new() { Eintraege = eintraege.ToList() };
+    private static AuswahlKandidat Team(int land, int? verband = null) =>
+        new(_naechsteId++, $"Team {land}", land, verband ?? (land == GHANA ? CAF : UEFA));
 
-    private static LostopfEintrag Eintrag(Mannschaft mannschaft) => new() { Mannschaft = mannschaft };
+    private static VerbandsKontingent Verband(int verbandId, string name, int anzahl) => new(verbandId, name, anzahl, null);
 
-    private static LostopfEintrag Platzhalter(string name) => new() { PlatzhalterName = name };
-
-    private static VerbandsQuote Quote(Verband verband, int anzahl) =>
-        new() { VerbandId = verband.Id, Verband = verband, Anzahl = anzahl };
-
-    private static LandesQuote Quote(Land land, int anzahl) =>
-        new() { LandId = land.Id, Land = land, Anzahl = anzahl };
+    private static LandesKontingent Land(int landId, string name, int anzahl, int? spielklasse = null, int? abPlatz = null) =>
+        new(landId, name, anzahl, spielklasse, abPlatz, null);
 
     // ── Verbandsquoten ────────────────────────────────────────────────────────
 
     [Fact]
-    public void JeVerband_ZaehltMannschaftenAllerToepfeUeberDenVerbandIhresLandes()
+    public void JeVerband_ZaehltDieMannschaftenDesPoolsUeberIhrenVerband()
     {
-        var toepfe = new[]
-        {
-            Topf(Eintrag(Team(_deutschland)), Eintrag(Team(_ghana))),
-            Topf(Eintrag(Team(_spanien))),
-        };
-
-        var staende = QuotenBelegung.JeVerband([Quote(_uefa, 3), Quote(_caf, 1)], toepfe);
-
-        staende.Should().Equal(new QuotenStand("UEFA", 2, 3, 1), new QuotenStand("CAF", 1, 1, 2));
-    }
-
-    [Fact]
-    public void JeVerband_VerbandOhneMannschaftImTopf_StehtBeiNull()
-    {
-        var staende = QuotenBelegung.JeVerband([Quote(_caf, 5)], [Topf(Eintrag(Team(_deutschland)))]);
-
-        staende.Should().Equal(new QuotenStand("CAF", 0, 5, 2));
-    }
-
-    [Fact]
-    public void JeVerband_PlatzhalterUndMannschaftenOhneGeladenesLand_ZaehlenNicht()
-    {
-        var ohneLand = new Mannschaft { Name = "Ohne Land", LandId = _deutschland.Id, Land = null! };
-
         var staende = QuotenBelegung.JeVerband(
-            [Quote(_uefa, 2)], [Topf(Platzhalter("Sieger Gruppe A"), Eintrag(ohneLand), Eintrag(Team(_spanien)))]);
+            [Verband(UEFA, "UEFA", 3), Verband(CAF, "CAF", 1)], [Team(DEUTSCHLAND), Team(GHANA), Team(SPANIEN)]);
 
-        staende.Should().Equal(new QuotenStand("UEFA", 1, 2, 1));
+        staende.Should().Equal(new QuotenStand("UEFA", 2, 3, UEFA), new QuotenStand("CAF", 1, 1, CAF));
     }
 
     [Fact]
-    public void JeVerband_VerbandNichtMitgeladen_ErsatznameMitId()
+    public void JeVerband_VerbandOhneMannschaftImPool_StehtBeiNull()
     {
-        var quote = new VerbandsQuote { VerbandId = 7, Verband = null!, Anzahl = 4 };
+        QuotenBelegung.JeVerband([Verband(CAF, "CAF", 5)], [Team(DEUTSCHLAND)])
+            .Should().Equal(new QuotenStand("CAF", 0, 5, CAF));
+    }
 
-        QuotenBelegung.JeVerband([quote], []).Should().Equal(new QuotenStand("Verband 7", 0, 4, 7));
+    [Fact]
+    public void JeVerband_MannschaftOhneBekanntenVerband_ZaehltNicht()
+    {
+        var ohneVerband = new AuswahlKandidat(999, "Ohne Verband", DEUTSCHLAND, null);
+
+        QuotenBelegung.JeVerband([Verband(UEFA, "UEFA", 2)], [ohneVerband, Team(SPANIEN)])
+            .Should().Equal(new QuotenStand("UEFA", 1, 2, UEFA));
     }
 
     [Fact]
     public void JeVerband_OhneQuoten_LeereListe()
     {
-        QuotenBelegung.JeVerband([], [Topf(Eintrag(Team(_deutschland)))]).Should().BeEmpty();
+        QuotenBelegung.JeVerband([], [Team(DEUTSCHLAND)]).Should().BeEmpty();
     }
 
     // ── Landesquoten ──────────────────────────────────────────────────────────
 
     [Fact]
-    public void JeLand_ZaehltUeberDieLandIdDerMannschaft_AuchOhneGeladenesLand()
+    public void JeLand_ZaehltUeberDasLandDerMannschaft()
     {
-        var ohneLand = new Mannschaft { Name = "Ohne Land", LandId = _deutschland.Id, Land = null! };
-        var toepfe = new[]
-        {
-            Topf(Eintrag(Team(_deutschland)), Eintrag(ohneLand), Platzhalter("Sieger Spiel 1")),
-            Topf(Eintrag(Team(_spanien))),
-        };
-
-        var staende = QuotenBelegung.JeLand([Quote(_deutschland, 4), Quote(_spanien, 1), Quote(_ghana, 2)], toepfe);
+        var staende = QuotenBelegung.JeLand(
+            [Land(DEUTSCHLAND, "Deutschland", 4), Land(SPANIEN, "Spanien", 1), Land(GHANA, "Ghana", 2)],
+            [Team(DEUTSCHLAND), Team(DEUTSCHLAND), Team(SPANIEN)]);
 
         staende.Should().Equal(
-            new QuotenStand("Deutschland", 2, 4, 10), new QuotenStand("Spanien", 1, 1, 11), new QuotenStand("Ghana", 0, 2, 20));
-    }
-
-    [Fact]
-    public void JeLand_UeberschritteneQuote_AktuellLiegtUeberDerAnzahl()
-    {
-        var toepfe = new[] { Topf(Eintrag(Team(_ghana)), Eintrag(Team(_ghana))) };
-
-        QuotenBelegung.JeLand([Quote(_ghana, 1)], toepfe).Should().Equal(new QuotenStand("Ghana", 2, 1, 20));
-    }
-
-    [Fact]
-    public void JeLand_LandNichtMitgeladen_ErsatznameMitId()
-    {
-        var quote = new LandesQuote { LandId = 33, Land = null!, Anzahl = 2 };
-
-        QuotenBelegung.JeLand([quote], []).Should().Equal(new QuotenStand("Land 33", 0, 2, 33));
+            new QuotenStand("Deutschland", 2, 4, DEUTSCHLAND), new QuotenStand("Spanien", 1, 1, SPANIEN),
+            new QuotenStand("Ghana", 0, 2, GHANA));
     }
 
     [Fact]
     public void JeLand_KontingenteEinesLandes_BildenEinenStand()
     {
-        LandesQuote[] kontingente =
-        [
-            new() { LandId = _deutschland.Id, Land = _deutschland, Spielklasse = 1, AbPlatz = 1, Anzahl = 4 },
-            new() { LandId = _deutschland.Id, Land = _deutschland, Spielklasse = 1, AbPlatz = 5, Anzahl = 2 },
-        ];
+        QuotenBelegung.JeLand(
+                [Land(DEUTSCHLAND, "Deutschland", 4, 1, 1), Land(DEUTSCHLAND, "Deutschland", 2, 1, 5)], [Team(DEUTSCHLAND)])
+            .Should().Equal(new QuotenStand("Deutschland", 1, 6, DEUTSCHLAND));
+    }
 
-        QuotenBelegung.JeLand(kontingente, [Topf(Eintrag(Team(_deutschland)))])
-            .Should().Equal(new QuotenStand("Deutschland", 1, 6, 10));
+    // ── Stand einer Quote ─────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(2, 3, true, 0, 2)]
+    [InlineData(3, 3, false, 0, 3)]
+    [InlineData(5, 3, false, 2, 3)]
+    public void Quote_VerletztSolangeNichtVoll_UeberzaehligeBelegenFreiePlaetze(
+        int aktuell, int anzahl, bool verletzt, int ueberzaehlig, int besetzt)
+    {
+        var stand = new QuotenStand("Deutschland", aktuell, anzahl, DEUTSCHLAND);
+
+        stand.Verletzt.Should().Be(verletzt);
+        stand.Ueberzaehlig.Should().Be(ueberzaehlig);
+        stand.Besetzt.Should().Be(besetzt);
+    }
+
+    [Theory]
+    [InlineData(3, 3, false)]
+    [InlineData(2, 3, false)]
+    [InlineData(4, 3, true)]
+    public void FreiePlaetze_VerletztNurBeiUeberbelegung(int aktuell, int anzahl, bool verletzt)
+    {
+        new QuotenStand("Freie Plätze", aktuell, anzahl).Verletzt.Should().Be(verletzt);
     }
 
     // ── Freie Plätze (#572) ───────────────────────────────────────────────────
@@ -133,13 +111,9 @@ public class QuotenBelegungTests
     {
         // Eingang 8, Quoten 2 + 3 → 3 freie Plätze. Belegt: das dritte Ghana-Team über seiner Quote von 2 und das
         // Spanien-Team ohne Quote; das Deutschland-Team zählt auf seine Quote.
-        var toepfe = new[]
-        {
-            Topf(Eintrag(Team(_ghana)), Eintrag(Team(_ghana)), Eintrag(Team(_ghana))),
-            Topf(Eintrag(Team(_spanien)), Eintrag(Team(_deutschland)), Platzhalter("Sieger Spiel 1")),
-        };
-        var staende = QuotenBelegung.JeLand([Quote(_ghana, 2), Quote(_deutschland, 3)], toepfe);
+        AuswahlKandidat[] pool = [Team(GHANA), Team(GHANA), Team(GHANA), Team(SPANIEN), Team(DEUTSCHLAND)];
+        var staende = QuotenBelegung.JeLand([Land(GHANA, "Ghana", 2), Land(DEUTSCHLAND, "Deutschland", 3)], pool);
 
-        QuotenBelegung.FreiePlaetze(staende, toepfe, eingang: 8).Should().Be(new QuotenStand("Freie Plätze", 2, 3));
+        QuotenBelegung.FreiePlaetze(staende, pool.Length, eingang: 8).Should().Be(new QuotenStand("Freie Plätze", 2, 3));
     }
 }
