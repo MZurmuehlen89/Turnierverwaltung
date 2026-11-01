@@ -14,6 +14,7 @@ Resource eingebunden wird.
 | Nationalmannschafts-Wappen | ✅ 197/209 abgeschlossen (12 dauerhaft ohne Wikipedia-Badge) | ed0cc09, (dieser Commit) |
 | Vereinswappen | ✅ 224/224 abgeschlossen | (dieser Commit) |
 | Vereinswappen Nachtrag #351 (GER 3. Liga/Regionalliga, ENG Championship/League One) | ✅ 76/76 (`python fetch_clubs.py 224 300`) | (#351-Commit) |
+| Vereinswappen Nachtrag #381 (Top 200 UEFA-Klub-Koeffizient, `python fetch_clubs.py 300 415`) | ✅ 114/115 (HNK Rijeka: Infobox ohne Logo) | (#381-Commit) |
 | Turnierlogos #481 (ein Logo je Wettbewerb der Seed-Vorlagen) | ✅ siehe `turnierlogos_log.csv` | (#481-Commit) |
 
 Damit ist Issue #233 inhaltlich vollständig — die verbleibenden 12 Nationalmannschaften haben laut

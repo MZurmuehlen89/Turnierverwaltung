@@ -20,9 +20,10 @@ def search_title(query):
     return hits[0]["title"] if hits else None
 
 def extract_club_image(content):
-    if "Infobox football club" not in content and "Football club infobox" not in content:
+    # "Infobox sports club": Mehrspartenvereine wie Breiðablik UBK (#381)
+    if not any(s in content for s in ("Infobox football club", "Football club infobox", "Infobox sports club")):
         return None
-    m = re.search(r"\|\s*(?:image|current)\s*=\s*\[?\[?(?:File:)?([^\|\]\n]+\.(?:svg|png|SVG|PNG))", content)
+    m = re.search(r"\|\s*(?:image|current|logo)\s*=\s*\[?\[?(?:File:)?([^\|\]\n]+\.(?:svg|png|SVG|PNG))", content)
     return m.group(1).strip() if m else None
 
 # Deutsche Namen aus vereine.tsv, die auf en.wikipedia unter einem anderen
@@ -35,6 +36,13 @@ TITLE_OVERRIDES = {
     "MET": "FC Metalist Kharkiv",
     "AEK": "AEK Athens F.C.",
     "RIV": "Club Atlético River Plate",
+    # Issue #381: Kassies-Namen, unter denen en.wikipedia keinen (oder den falschen) Vereinsartikel liefert
+    "AST": "FC Astana",
+    "MBO": "FK Mladá Boleslav",
+    "BRK": "Breiðablik UBK",
+    "VAL": "Vålerenga Fotball",
+    "PFE": "F.C. Paços de Ferreira",
+    "PAR": "FK Partizan",
 }
 
 with open("vereine.tsv", encoding="utf-8") as f:
@@ -55,17 +63,19 @@ writer = csv.writer(log_f)
 ok_count = 0
 total = 0
 
-for i, (name, kurz, land) in enumerate(rows[start_idx:end_idx], start=start_idx):
+# Optionale 4. Spalte: englischer Suchname, wenn der Seed-Name eingedeutscht ist (Issue #381).
+for i, (name, kurz, land, *suchname) in enumerate(rows[start_idx:end_idx], start=start_idx):
     if kurz in already_done:
         continue
     total += 1
     try:
-        title_used = TITLE_OVERRIDES.get(kurz, name)
+        such = suchname[0] if suchname else name
+        title_used = TITLE_OVERRIDES.get(kurz, such)
         content = get_content(title_used)
         time.sleep(SLEEP_SECONDS)
         badge = extract_club_image(content) if content else None
         if not badge:
-            found_title = search_title(f"{name} football club")
+            found_title = search_title(f"{such} football club")
             time.sleep(SLEEP_SECONDS)
             if found_title:
                 content = get_content(found_title)
