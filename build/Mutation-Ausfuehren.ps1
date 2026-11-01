@@ -47,6 +47,8 @@ if ($Nebenlaeufigkeit -gt 0) { $argumente += @('--concurrency', $Nebenlaeufigkei
 if ($Oeffnen) { $argumente += '--open-report' }
 
 dotnet tool restore | Out-Null
+# Lässt Tests aussetzen, die unter Strykers Instrumentierung zu langsam sind (Mutationslauf.cs im Testprojekt)
+$env:TURNIERVERWALTUNG_MUTATIONSLAUF = '1'
 Push-Location $testprojekt
 try {
     # Stryker liest stryker-config.json aus dem aktuellen Verzeichnis

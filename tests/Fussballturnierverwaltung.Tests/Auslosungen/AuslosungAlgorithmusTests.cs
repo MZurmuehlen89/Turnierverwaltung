@@ -778,7 +778,9 @@ public class AuslosungAlgorithmusTests
         }
     }
 
-    [Fact]
+    // Unter Stryker über 120 s statt 5 s: sprengt die Abdeckungsmessung, hängt dann als „Dubious“ an fast jedem
+    // Mutanten und lässt überlebende als Timeout zählen (#541, Stryker-Issue #3871)
+    [Fact(Skip = "Im Mutationslauf zu langsam (#541)", SkipWhen = nameof(Mutationslauf.Aktiv), SkipType = typeof(Mutationslauf))]
     public async Task TopfLiga_TopfZuordnung_KeinGleichesLand_HoechstensZweiGegnerJeLand()
     {
         // 16 der 36 Teams aus 4 Ländern (je 4, über alle Töpfe verteilt), der Rest mit eigenem Land —

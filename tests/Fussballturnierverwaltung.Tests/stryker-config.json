@@ -9,7 +9,8 @@
       "**/Simulation/**/*.cs",
       "!**/*Service.cs"
     ],
-    "reporters": [ "html", "json", "progress" ],
+    "additional-timeout": 120000,
+    "reporters":[ "html", "json", "progress" ],
     "thresholds": { "high": 80, "low": 60, "break": 0 }
   }
 }

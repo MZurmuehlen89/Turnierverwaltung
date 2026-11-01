@@ -34,6 +34,16 @@ Spielplan, Tabelle, Simulation in Application, without `*Service` classes. Repor
   variable); Stryker then drops *all* mutants of that method ("Safe Mode", status CompileError). Those methods stay
   unchecked — code is not rewritten for this.
 - `Timeout` counts as detected (typically an endless loop after a statement mutation).
+- **Verify results — the MTP runner is still "preview"** (Stryker logs a warning). Stryker issue #3871: a test that
+  exceeds the timeout during per-test coverage capture is marked `Dubious` and attached to almost every mutant; a
+  surviving mutant then runs into the timeout and counts as detected. The first full run (01.11.2026) reported
+  0 Survived / 665 Timeout / 100 % this way — a mutant reported as Timeout survived when built by hand.
+  Warning signs: 0 Survived, many Timeouts, `Dubious` in the console output. Counter-check one Timeout mutant by hand.
+- Countermeasures: `additional-timeout` 120 s in `stryker-config.json`, and tests that become too slow under
+  Stryker's instrumentation skip themselves via `Mutationslauf.Aktiv` (the script sets
+  `TURNIERVERWALTUNG_MUTATIONSLAUF=1`; `[Fact(Skip = …, SkipWhen = nameof(Mutationslauf.Aktiv), SkipType =
+  typeof(Mutationslauf))]`). Currently: `TopfLiga_TopfZuordnung_KeinGleichesLand_HoechstensZweiGegnerJeLand`
+  (5 s normally, > 120 s under Stryker). Stryker's own `test-case-filter` is not passed on to MTP in 5.0.0.
 
 ## GUI tests (#494, #521)
 
