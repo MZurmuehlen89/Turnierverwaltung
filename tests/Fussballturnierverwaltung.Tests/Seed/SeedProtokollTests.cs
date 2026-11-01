@@ -29,7 +29,7 @@ public class SeedProtokollTests
             "RankingRegelSets nachgerüstet.",
             "Regelwerke nachgerüstet.",
             "Ranglisten-Quellen nachgerüstet.",
-            "Rangliste „Ligapyramide Deutschland 2025/26“ nachgerüstet.",
+            "Ligapyramiden nachgerüstet.",
             "Rangliste „FIFA-Weltrangliste (Herren)“ nachgerüstet.",
             "Rangliste „UEFA-Klub-Koeffizient (Kassies)“ nachgerüstet.",
             "neue Turniervorlagen nachgerüstet.",

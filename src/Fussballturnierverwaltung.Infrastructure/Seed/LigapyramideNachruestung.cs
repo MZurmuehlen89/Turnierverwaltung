@@ -14,15 +14,18 @@ internal static class LigapyramideNachruestung
     public static async Task AusfuehrenAsync(
         TurnierverwaltungDbContext context, Action<int, string> protokollieren, CancellationToken ct)
     {
+        int angelegt = 0;
         foreach (var pyramide in LigapyramidenSeedDaten.Alle)
-            await NachruestenAsync(context, pyramide, protokollieren, ct);
+            if (await NachruestenAsync(context, pyramide, ct))
+                angelegt++;
+        if (angelegt > 0)
+            protokollieren(angelegt, "Ligapyramiden nachgerüstet.");
     }
 
-    private static async Task NachruestenAsync(
-        TurnierverwaltungDbContext context, LigapyramidenSeedDaten.Pyramide pyramide,
-        Action<int, string> protokollieren, CancellationToken ct)
+    private static async Task<bool> NachruestenAsync(
+        TurnierverwaltungDbContext context, LigapyramidenSeedDaten.Pyramide pyramide, CancellationToken ct)
     {
-        if (await context.Ranglisten.AnyAsync(r => r.Name == pyramide.Name, ct)) return;
+        if (await context.Ranglisten.AnyAsync(r => r.Name == pyramide.Name, ct)) return false;
 
         var vereine = await context.Mannschaften
             .Where(m => m.Land.FifaCode == pyramide.Land)
@@ -36,7 +39,7 @@ internal static class LigapyramideNachruestung
         if (await context.Laender.FirstOrDefaultAsync(l => l.FifaCode == pyramide.Land && l.RanglisteId == null, ct) is { } land)
             land.Rangliste = rangliste;
         await context.SaveChangesAsync(ct);
-        protokollieren(1, $"Rangliste „{pyramide.Name}“ nachgerüstet.");
+        return true;
     }
 
     // Der Platz kommt aus der Position in den Seed-Daten, nicht aus der Zahl gefundener Vereine — fehlt ein Verein
