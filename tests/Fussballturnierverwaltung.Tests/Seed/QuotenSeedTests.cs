@@ -45,6 +45,26 @@ public class QuotenSeedTests
         }
     }
 
+    // Die Auslosung verlangt jede Landesquote als Mindestzahl (#574). Ohne genug Vereine des Landes im Seed lässt sich
+    // die Vorlage nicht auslosen — so waren CL 36 (Tschechien) und CL 2021–24 (Österreich, Serbien) bis #381 gesperrt.
+    [Fact]
+    public void JedeLandesquote_HatGenugVereineDesLandesImSeed()
+    {
+        var landJeId = _landIds.ToDictionary(l => l.Value, l => l.Key);
+        var vereineJeLand = VereinsmannschaftenSeedDaten.Erstellen(_landIds)
+            .GroupBy(m => landJeId[m.LandId])
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var unerfuellbar = Vorlagen()
+            .SelectMany(v => v.LandesQuoten
+                .GroupBy(q => landJeId[q.LandId])
+                .Select(g => (Vorlage: $"{v.Name} {v.Variante}", Land: g.Key, Anzahl: g.Sum(q => q.Anzahl))))
+            .Where(q => vereineJeLand.GetValueOrDefault(q.Land) < q.Anzahl)
+            .ToList();
+
+        unerfuellbar.Should().BeEmpty();
+    }
+
     [Fact]
     public void Erstellen_HaengtQuotenAnDieVorlage()
     {
