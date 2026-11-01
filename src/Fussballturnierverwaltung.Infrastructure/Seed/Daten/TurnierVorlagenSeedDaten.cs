@@ -1088,7 +1088,7 @@ public static class TurnierVorlagenSeedDaten
         v.Runden.Add(Runde(6, "Finale",            Rundenart.Finale,            2,  1, regelwerkId: rId));
 
         // Spielklassen für „Heimrecht für Unterklassige“ (#393) bis einschließlich Halbfinale; das Finale ist neutral.
-        int? pyramide = RlId(rangliste, LigapyramidenSeedDaten.RANGLISTE);
+        int? pyramide = RlId(rangliste, LigapyramidenSeedDaten.RANGLISTE_DEUTSCHLAND);
         foreach (var runde in v.Runden.Where(r => r.Rundenart == Rundenart.KoRunde))
             runde.StandardRanglisteId = pyramide;
         return v;
