@@ -31,6 +31,7 @@ public class SeedProtokollTests
             "Ranglisten-Quellen nachgerüstet.",
             "Rangliste „Ligapyramide Deutschland 2025/26“ nachgerüstet.",
             "Rangliste „FIFA-Weltrangliste (Herren)“ nachgerüstet.",
+            "Rangliste „UEFA-Klub-Koeffizient (Kassies)“ nachgerüstet.",
             "neue Turniervorlagen nachgerüstet.",
             "Turniervorlagen um ihr Turnierlogo ergänzt.");
         protokoll.Should().OnlyContain(e => e.Anzahl > 0);

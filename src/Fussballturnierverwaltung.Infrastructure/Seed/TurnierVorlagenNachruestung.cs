@@ -59,10 +59,9 @@ internal sealed class TurnierVorlagenNachruestung
         var regelwerkIds = await context.Regelwerke.ToDictionaryAsync(r => r.Name, r => r.Id, ct);
         var verbandIds = await context.Verbaende.ToDictionaryAsync(v => v.Kurzname, v => v.Id, ct);
         var landIds = await context.Laender.ToDictionaryAsync(l => l.FifaCode, l => l.Id, ct);
-        var ranglisteJeQuelle = await NeuesteRanglisteJeQuelleAsync(context, ct);
         var ranglisteJeName = await NeuesteRanglisteJeNameAsync(context, ct);
         List<TurnierInstanz> SeedVorlagen() =>
-            TurnierVorlagenSeedDaten.Erstellen(regelwerkIds, verbandIds, landIds, ranglisteJeQuelle, ranglisteJeName);
+            TurnierVorlagenSeedDaten.Erstellen(regelwerkIds, verbandIds, landIds, ranglisteJeName);
 
         // Issue #294: Vorlagen sind TurnierInstanz-Zeilen mit Status Vorlage — der Status gehört zur Identität,
         // damit ein echtes Turnier mit zufällig gleichem Namen nicht als "bereits vorhanden" zählt.
@@ -116,18 +115,6 @@ internal sealed class TurnierVorlagenNachruestung
             GegnerJeTopfUebernehmen(), "Ligaphasen von Vorlagen auf einen Gegner je Topf umgestellt.", ct);
         await SpeichernUndProtokollieren(QuotenErgaenzen(), "Turniervorlagen um Quoten und Kontingente ergänzt.", ct);
     }
-
-    // Je Quellenname die neueste daraus importierte Rangliste (nach Datum, bei Gleichstand die zuletzt angelegte) —
-    // Vorlagen verweisen seit #393 auf eine Rangliste. Quellennamen sind nicht eindeutig erzwungen, Dubletten
-    // zählen zusammen.
-    private static async Task<Dictionary<string, int>> NeuesteRanglisteJeQuelleAsync(
-        TurnierverwaltungDbContext context, CancellationToken ct) =>
-        (await context.Ranglisten
-            .Where(r => r.RanglistenQuelle != null)
-            .Select(r => new { Quelle = r.RanglistenQuelle!.Name, r.Id, r.Datum })
-            .ToListAsync(ct))
-            .GroupBy(r => r.Quelle)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Datum).ThenByDescending(r => r.Id).First().Id);
 
     // Je Ranglistenname die neueste Rangliste — Ranglistennamen sind nicht eindeutig erzwungen (Issue #393).
     private static async Task<Dictionary<string, int>> NeuesteRanglisteJeNameAsync(

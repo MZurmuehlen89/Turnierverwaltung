@@ -14,7 +14,6 @@ public static class TurnierVorlagenSeedDaten
         IReadOnlyDictionary<string, int>? regelwerkLookup = null,
         IReadOnlyDictionary<string, int>? verbandLookup = null,
         IReadOnlyDictionary<string, int>? landLookup = null,
-        IReadOnlyDictionary<string, int>? ranglisteJeQuelleLookup = null,
         IReadOnlyDictionary<string, int>? ranglisteLookup = null)
     {
         List<TurnierInstanz> vorlagen =
@@ -38,11 +37,11 @@ public static class TurnierVorlagenSeedDaten
             AfrikaCup24Teams(regelwerkLookup, verbandLookup),
             AfcAsianCup24Teams(regelwerkLookup, verbandLookup),
             ConcacafGoldCup16Teams(regelwerkLookup, verbandLookup),
-            UefaChampionsLeague32TeamsKlassisch(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
-            UefaChampionsLeague32TeamsModern(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
-            UefaChampionsLeague36TeamsModern(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
-            UefaEuropaLeague36Teams(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
-            UefaConferenceLeague36Teams(regelwerkLookup, verbandLookup, ranglisteJeQuelleLookup),
+            UefaChampionsLeague32TeamsKlassisch(regelwerkLookup, verbandLookup, ranglisteLookup),
+            UefaChampionsLeague32TeamsModern(regelwerkLookup, verbandLookup, ranglisteLookup),
+            UefaChampionsLeague36TeamsModern(regelwerkLookup, verbandLookup, ranglisteLookup),
+            UefaEuropaLeague36Teams(regelwerkLookup, verbandLookup, ranglisteLookup),
+            UefaConferenceLeague36Teams(regelwerkLookup, verbandLookup, ranglisteLookup),
             DfbPokal64Teams(regelwerkLookup, verbandLookup, landLookup, ranglisteLookup),
             FaCup64Teams(regelwerkLookup, verbandLookup, landLookup),
             NationaleLiga(regelwerkLookup, verbandLookup, landLookup, "Bundesliga",     "18 Teams",  "GER", 18, LIGA_TORDIFFERENZ,       BUNDESLIGA_BEREICHE),
@@ -893,7 +892,7 @@ public static class TurnierVorlagenSeedDaten
     // ── UEFA Clubwettbewerbe ───────────────────────────────────────────────────
 
     private static TurnierInstanz UefaChampionsLeague32TeamsKlassisch(
-        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle)
+        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? rangliste)
     {
         var v = new TurnierInstanz
         {
@@ -911,7 +910,7 @@ public static class TurnierVorlagenSeedDaten
         int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
         var gruppenphase = Runde(1, "Gruppenphase", Rundenart.Gruppenphase, 32, 16, gruppen: 8, regelwerkId: rId);
         // Töpfe nach Klub-Koeffizient (Issue #471), wie die Ligaphase der 36er-Vorlagen.
-        gruppenphase.StandardRanglisteId = RqId(quelle, RanglistenQuellenSeedDaten.UEFA_KLUB_KOEFFIZIENT);
+        gruppenphase.StandardRanglisteId = RlId(rangliste, KlubKoeffizientSeedDaten.RANGLISTE);
         v.Runden.Add(gruppenphase);
         v.Runden.Add(Runde(2, "Achtelfinale",  Rundenart.KoRunde,      16,  8, auswaerts: true,  mitRueckspiel: true, regelwerkId: rId,
                            auslosungsart: Auslosungsart.GruppensiegerGegenGruppenzweite));
@@ -923,7 +922,7 @@ public static class TurnierVorlagenSeedDaten
     }
 
     private static TurnierInstanz UefaChampionsLeague32TeamsModern(
-        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle)
+        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? rangliste)
     {
         var v = new TurnierInstanz
         {
@@ -941,7 +940,7 @@ public static class TurnierVorlagenSeedDaten
         int? rId = RwId(rw, "UEFA Clubwettbewerb Standard");
         var gruppenphase = Runde(1, "Gruppenphase", Rundenart.Gruppenphase, 32, 16, gruppen: 8, regelwerkId: rId);
         // Töpfe nach Klub-Koeffizient (Issue #471), wie die Ligaphase der 36er-Vorlagen.
-        gruppenphase.StandardRanglisteId = RqId(quelle, RanglistenQuellenSeedDaten.UEFA_KLUB_KOEFFIZIENT);
+        gruppenphase.StandardRanglisteId = RlId(rangliste, KlubKoeffizientSeedDaten.RANGLISTE);
         v.Runden.Add(gruppenphase);
         v.Runden.Add(Runde(2, "Achtelfinale",  Rundenart.KoRunde,      16,  8, mitRueckspiel: true, regelwerkId: rId,
                            auslosungsart: Auslosungsart.GruppensiegerGegenGruppenzweite));
@@ -957,20 +956,20 @@ public static class TurnierVorlagenSeedDaten
     // Titelverteidiger in Topf 1 nur in der Champions League (UCL-Reglement ab 2024/25); in EL/ECL besteht Topf 1
     // allein aus den neun koeffizientenstärksten Klubs (Issue #349).
     private static TurnierInstanz UefaChampionsLeague36TeamsModern(
-        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle) =>
-        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Champions League", "36 Teams · ab 2024/25",
+        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? rangliste) =>
+        UefaClubwettbewerbModern(rw, verband, rangliste, "UEFA Champions League", "36 Teams · ab 2024/25",
             titelverteidigerInTopf1: true, gegnerJeTopf: 2);
 
     private static TurnierInstanz UefaEuropaLeague36Teams(
-        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle) =>
-        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Europa League", "36 Teams · ab 2024/25",
+        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? rangliste) =>
+        UefaClubwettbewerbModern(rw, verband, rangliste, "UEFA Europa League", "36 Teams · ab 2024/25",
             titelverteidigerInTopf1: false, gegnerJeTopf: 2);
 
     // Conference League: 6 Gegner aus 6 Töpfen à 6, die Töpfe 1/2, 3/4, 5/6 bilden Paare mit je einem Heim- und
     // einem Auswärtsgegner (Issue #469). Bestehende Datenbanken: TurnierVorlagenNachruestung.GegnerJeTopfUebernehmen.
     private static TurnierInstanz UefaConferenceLeague36Teams(
-        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle) =>
-        UefaClubwettbewerbModern(rw, verband, quelle, "UEFA Conference League", "36 Teams · ab 2024/25",
+        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? rangliste) =>
+        UefaClubwettbewerbModern(rw, verband, rangliste, "UEFA Conference League", "36 Teams · ab 2024/25",
             titelverteidigerInTopf1: false, gegnerJeTopf: 1);
 
     // Gemeinsame Struktur für CL/EL/ECL seit 2024/25 (Issue #25-Nachlieferung, freigegeben durch #29):
@@ -979,7 +978,7 @@ public static class TurnierVorlagenSeedDaten
     // füllen. Das Achtelfinale hat damit zwei Quellrunden — genau der Fall, für den strukturierte
     // Übergangsregeln (statt linearer Eingangs-/Ausgangszahl) eingeführt wurden.
     private static TurnierInstanz UefaClubwettbewerbModern(
-        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? quelle,
+        IReadOnlyDictionary<string, int>? rw, IReadOnlyDictionary<string, int>? verband, IReadOnlyDictionary<string, int>? rangliste,
         string name, string variante, bool titelverteidigerInTopf1, int gegnerJeTopf)
     {
         var v = new TurnierInstanz
@@ -1002,9 +1001,9 @@ public static class TurnierVorlagenSeedDaten
         // Playoff und Achtelfinale nach Töpfen (besser Platzierte gegen schlechter Platzierte bzw. Platz 1–8
         // gegen Playoff-Sieger), danach Zufall. Bestehende Datenbanken: Migration AuslosungsartVorgabeJeRunde.
         var liga          = Runde(1, "Ligaphase",       Rundenart.TopfLiga,        36, 24, regelwerkId: rId, auslosungsart: Auslosungsart.TopfZuordnung);
-        // Töpfe der Ligaphase nach Klub-Koeffizient (Issue #349): die neueste aus dieser Quelle importierte Rangliste;
-        // ohne Import bleibt die Ligaphase ohne Standard-Rangliste (seit #393 verweist die Runde auf eine Rangliste).
-        liga.StandardRanglisteId = RqId(quelle, RanglistenQuellenSeedDaten.UEFA_KLUB_KOEFFIZIENT);
+        // Töpfe der Ligaphase nach Klub-Koeffizient (Issue #349): seit #381 die Rangliste des Seed-Stands, gefunden über
+        // ihren Namen (der Seed-Stand hängt an keiner Import-Quelle).
+        liga.StandardRanglisteId = RlId(rangliste, KlubKoeffizientSeedDaten.RANGLISTE);
         liga.TitelverteidigerInTopf1    = titelverteidigerInTopf1;
         liga.GegnerJeTopf               = gegnerJeTopf;
         var playoff       = Runde(2, "Playoff-Runde",   Rundenart.KoRunde,         16,  8, mitRueckspiel: true, regelwerkId: rId, auslosungsart: Auslosungsart.NachToepfen);
@@ -1255,10 +1254,6 @@ public static class TurnierVorlagenSeedDaten
 
     private static int? LId(IReadOnlyDictionary<string, int>? lookup, string fifaCode)
         => lookup is not null && lookup.TryGetValue(fifaCode, out var id) ? id : null;
-
-    // Neueste Rangliste je Ranglisten-Quellenname (Issue #349, seit #393 Rangliste statt Quelle).
-    private static int? RqId(IReadOnlyDictionary<string, int>? lookup, string name)
-        => lookup is not null && lookup.TryGetValue(name, out var id) ? id : null;
 
     // Rangliste nach Name, etwa die geseedete Ligapyramide (Issue #393).
     private static int? RlId(IReadOnlyDictionary<string, int>? lookup, string name)

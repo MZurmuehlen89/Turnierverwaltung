@@ -11,7 +11,7 @@ public class TurnierVorlagenAuslosungsartTests
     private const int KOEFFIZIENT_ID = 42;
 
     private static readonly List<TurnierInstanz> _vorlagen = TurnierVorlagenSeedDaten.Erstellen(
-        ranglisteJeQuelleLookup: new Dictionary<string, int> { [RanglistenQuellenSeedDaten.UEFA_KLUB_KOEFFIZIENT] = KOEFFIZIENT_ID });
+        ranglisteLookup: new Dictionary<string, int> { [RanglistenQuellenSeedDaten.UEFA_KLUB_KOEFFIZIENT] = KOEFFIZIENT_ID });
 
     private static TurnierRunde Runde(string name, string variante, int reihenfolge) =>
         _vorlagen.Single(v => v.Name == name && v.Variante == variante).Runden.Single(r => r.Reihenfolge == reihenfolge);
