@@ -91,12 +91,18 @@ public static class LigapyramidenSeedDaten
     }
 
     private static Pyramide ErsteLiga(
-        string land, string landName, string liga, int plaetze, params (int Platz, string Verein)[] vereine)
+        string land, string landName, string liga, int plaetze, params (int Platz, string Verein)[] vereine) =>
+        Pyramide2024_25(land, $"Ligapyramide {landName} 2024/25", profigrenze: null,
+            new Abschnitt(liga, 1, Tabelle(plaetze, vereine)));
+
+    private static Pyramide Pyramide2024_25(string land, string name, int? profigrenze, params Abschnitt[] abschnitte) =>
+        new(land, name, _saisonende2024_25, QUELLE_2024_25, profigrenze, abschnitte);
+
+    private static string?[] Tabelle(int plaetze, params (int Platz, string Verein)[] vereine)
     {
         var tabelle = new string?[plaetze];
         foreach (var (platz, verein) in vereine)
             tabelle[platz - 1] = verein;
-        return new Pyramide(land, $"Ligapyramide {landName} 2024/25", _saisonende2024_25, QUELLE_2024_25, Profigrenze: null,
-            [new Abschnitt(liga, 1, tabelle)]);
+        return tabelle;
     }
 }
