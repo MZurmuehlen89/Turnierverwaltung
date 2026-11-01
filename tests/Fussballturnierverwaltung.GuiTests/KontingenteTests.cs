@@ -83,13 +83,14 @@ public sealed class KontingentOhnePyramideTests(TurnierverwaltungApp app) : ICla
         quoten.Aufklappen();
 
         quoten.LandHinzufuegen();
-        quoten.LandWaehlen(0, "England");
-        var england = new QuotenZeile("England", GANZES_LAND, false, 1, "—");
-        Abwarten(() => quoten.Zeile(0) == england);
-        quoten.Zeile(0).Should().Be(england, "ohne Pyramide gibt es keine Spielklasse");
+        quoten.LandWaehlen(0, "Griechenland");
+        // Griechenland hat keine Pyramide im Seed (England bekam seine mit #575).
+        var griechenland = new QuotenZeile("Griechenland", GANZES_LAND, false, 1, "—");
+        Abwarten(() => quoten.Zeile(0) == griechenland);
+        quoten.Zeile(0).Should().Be(griechenland, "ohne Pyramide gibt es keine Spielklasse");
 
         quoten.LandHinzufuegen();
-        quoten.LandAngeboten(1, "England").Should().BeFalse("England hat schon eine Quote für das ganze Land");
+        quoten.LandAngeboten(1, "Griechenland").Should().BeFalse("Griechenland hat schon eine Quote für das ganze Land");
         quoten.LandAngeboten(1, "Deutschland").Should().BeTrue();
     }
 
