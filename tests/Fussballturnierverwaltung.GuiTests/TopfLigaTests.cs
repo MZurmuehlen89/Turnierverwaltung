@@ -35,8 +35,10 @@ public sealed class TopfLigaTests(TurnierverwaltungApp app, TestDatenbank datenb
         var (rangliste, vereine) = await TestRanglisten.VereineAnlegenAsync(datenbank, _laender);
         string name = app.Hauptfenster.TurnierAusVorlageErstellen(vorlage, VARIANTE);
         // Die Kontingente der Champions-League-Vorlage (#574) verlangen Vereine aus den Ranglisten ihrer Länder, die
-        // Testvereine stehen nur in der eigenen Rangliste.
+        // Testvereine stehen nur in der eigenen Rangliste. Mit dem Klub-Koeffizienten als Standard-Rangliste (#381)
+        // befüllt die App die Töpfe schon beim Anlegen – die eigene Rangliste käme nicht mehr zum Zug.
         await TestTurniere.QuotenEntfernenAsync(datenbank, name);
+        await TestTurniere.StandardRanglisteEntfernenAsync(datenbank, name);
         var turnier = app.Hauptfenster.TurnierdurchfuehrungOeffnen(name);
         var auslosung = turnier.Auslosung();
         auslosung.Anlegen(LIGAPHASE);
