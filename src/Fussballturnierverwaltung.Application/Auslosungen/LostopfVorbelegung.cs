@@ -1,4 +1,5 @@
-using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
+using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
+using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Auslosungen;
 
@@ -51,5 +52,30 @@ public static class LostopfVorbelegung
             position += groesse;
         }
         return toepfe;
+    }
+
+    // ── Nach Profigrenze (#470) ─────────────────────────────────────────────
+
+    /// <summary>Ob die Automatik Profi- und Amateurtopf nach Spielklasse trennt statt gleich große Töpfe zu bilden: K.-o.-
+    /// Runde „Nach Töpfen“ mit genau zwei Töpfen, wirksamer Regel „Heimrecht für Unterklassige“ und einer Rangliste mit
+    /// Profigrenze — der DFB-Pokal ab der 2. Runde. Die 1. Runde hat „Heimrecht für den unteren Topf“ und bleibt bei
+    /// gleich großen Töpfen.</summary>
+    public static bool NachProfigrenzeTeilen(Auslosung auslosung, int? profigrenze) =>
+        profigrenze.HasValue &&
+        auslosung.Lostoepfe.Count == 2 &&
+        auslosung.Auslosungsart == Auslosungsart.NachToepfen &&
+        auslosung.TurnierRunde?.Rundenart == Rundenart.KoRunde &&
+        AuslosungsRegelKompatibilitaet.Wirkt(AuslosungsRegelArt.HeimrechtFuerUnterklassige, auslosung, Rundenart.KoRunde);
+
+    /// <summary>Topf 1 = Teams bis zur Profigrenze, Topf 2 = Teams darunter und ohne Spielklasse; die Töpfe dürfen
+    /// ungleich groß sein, den Überhang lost „Nach Töpfen“ untereinander (#495). Innerhalb eines Topfs nach Rang.</summary>
+    public static IReadOnlyList<IReadOnlyList<int>> NachProfigrenzeVerteilen(
+        IReadOnlyList<int> mannschaftIds, IReadOnlyDictionary<int, int> rangProMannschaft, Spielklassen spielklassen)
+    {
+        var sortiert = mannschaftIds
+            .OrderBy(id => rangProMannschaft.TryGetValue(id, out var rang) ? rang : int.MaxValue)
+            .ToList();
+        bool IstProfi(int id) => spielklassen.Klasse(id) <= spielklassen.Profigrenze;
+        return [sortiert.Where(IstProfi).ToList(), sortiert.Where(id => !IstProfi(id)).ToList()];
     }
 }

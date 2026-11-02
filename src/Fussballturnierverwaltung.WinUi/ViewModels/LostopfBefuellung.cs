@@ -2,6 +2,7 @@ using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
+using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
@@ -32,6 +33,9 @@ public class LostopfBefuellung(
         if (rangliste is null) return null;
 
         var rangProMannschaft = rangliste.Eintraege.ToDictionary(e => e.MannschaftId, e => e.Rang);
+        if (LostopfVorbelegung.NachProfigrenzeTeilen(detail, rangliste.ProfigrenzeSpielklasse))
+            return await NachProfigrenzeBefuellenAsync(detail, rangliste, rangProMannschaft, verfuegbar);
+
         var instanz = await instanzService.FindenNachIdMitRundenAsync(detail.TurnierInstanzId);
         var vorabInTopf1 = VorabInTopf1(detail, instanz);
         var teamsZuVerteilen = TeamsZuVerteilen(detail, verfuegbar, rangProMannschaft, vorabInTopf1);
@@ -39,6 +43,26 @@ public class LostopfBefuellung(
             return "Keine verfügbaren Mannschaften zum Zuordnen.";
 
         await VerteilenAsync(detail, teamsZuVerteilen, rangProMannschaft, vorabInTopf1);
+        return null;
+    }
+
+    // DFB-Pokal ab der 2. Runde (#470): Profis in Topf 1, Amateure in Topf 2. Die Spielklasse eines Siegers steht erst
+    // fest, wenn sein Spiel entschieden ist — solange ein Platzhalter offen ist, teilt die Automatik nicht.
+    private async Task<string?> NachProfigrenzeBefuellenAsync(
+        Auslosung detail, Rangliste rangliste, Dictionary<int, int> rangProMannschaft, IReadOnlyList<TeilnehmerAnzeige> verfuegbar)
+    {
+        if (verfuegbar.Any(t => t.SpielendeMannschaftId is null))
+            return "Die Lostöpfe teilen sich nach Spielklasse (Profis gegen Amateure). Das geht erst, wenn alle " +
+                   "Teilnehmer feststehen – bitte zuerst die Vorrunde abschließen.";
+
+        var teamsZuVerteilen = TeamsZuVerteilen(detail, verfuegbar, rangProMannschaft, []);
+        if (teamsZuVerteilen.Count == 0)
+            return "Keine verfügbaren Mannschaften zum Zuordnen.";
+
+        var teilnehmerJeMannschaft = teamsZuVerteilen.ToDictionary(t => t.SpielendeMannschaftId!.Value);
+        var verteilung = LostopfVorbelegung.NachProfigrenzeVerteilen(
+            [.. teilnehmerJeMannschaft.Keys], rangProMannschaft, Spielklassen.Aus(rangliste));
+        await EinlegenAsync(detail, verteilung, teilnehmerJeMannschaft);
         return null;
     }
 
@@ -58,6 +82,13 @@ public class LostopfBefuellung(
         var verteilung = LostopfVorbelegung.Verteilen(
             [.. schonInTopf1, .. teilnehmerJeMannschaft.Keys], rangProMannschaft, toepfe.Count, vorabInTopf1,
             gruppenplatzProMannschaft);
+        await EinlegenAsync(detail, verteilung, teilnehmerJeMannschaft);
+    }
+
+    private async Task EinlegenAsync(
+        Auslosung detail, IReadOnlyList<IReadOnlyList<int>> verteilung, Dictionary<int, TeilnehmerAnzeige> teilnehmerJeMannschaft)
+    {
+        var toepfe = detail.Lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
         for (int topfIndex = 0; topfIndex < toepfe.Count; topfIndex++)
         {
             foreach (var mannschaftId in verteilung[topfIndex])

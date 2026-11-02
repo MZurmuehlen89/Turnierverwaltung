@@ -29,6 +29,7 @@ public sealed record Spielklassen(IReadOnlyDictionary<int, int> JeMannschaft, in
         return Profigrenze is not int grenze || (gegner <= grenze && eigene > grenze);
     }
 
-    private int? Klasse(int? mannschaftId) =>
+    /// <summary>Spielklasse der Mannschaft, <c>null</c> ohne Eintrag in einem Abschnitt.</summary>
+    public int? Klasse(int? mannschaftId) =>
         mannschaftId is int id && JeMannschaft.TryGetValue(id, out var klasse) ? klasse : null;
 }

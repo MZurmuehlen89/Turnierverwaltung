@@ -1,6 +1,9 @@
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
+using Fussballturnierverwaltung.Domain.Enums;
+using static Fussballturnierverwaltung.Tests.Auslosungen.AuslosungTestdaten;
 
 namespace Fussballturnierverwaltung.Tests.Auslosungen;
 
@@ -98,5 +101,51 @@ public class LostopfVorbelegungTests
         var toepfe = LostopfVorbelegung.Verteilen(ids, RangGleichId(ids), 4);
 
         toepfe.Select(t => t.Count).Should().Equal(3, 2, 2, 2);
+    }
+
+    // ── Nach Profigrenze (#470) ─────────────────────────────────────────────
+
+    // Ids 1–3 Bundesliga, 4–5 2. Bundesliga, 6–9 3. Liga und tiefer, 10 ohne Klasse; Profigrenze 2 wie im DFB-Pokal.
+    private static readonly Spielklassen _dfbKlassen = new(
+        new Dictionary<int, int> { [1] = 1, [2] = 1, [3] = 1, [4] = 2, [5] = 2, [6] = 3, [7] = 3, [8] = 4, [9] = 4 },
+        Profigrenze: 2);
+
+    [Fact]
+    public void NachProfigrenzeVerteilen_ProfisInTopf1_AmateureUndTeamsOhneKlasseInTopf2_UngleichGross()
+    {
+        var ids = new List<int> { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
+
+        var toepfe = LostopfVorbelegung.NachProfigrenzeVerteilen(ids, RangGleichId(ids), _dfbKlassen);
+
+        toepfe[0].Should().Equal(1, 2, 3, 4, 5);
+        toepfe[1].Should().Equal(6, 7, 8, 9, 10);
+    }
+
+    [Fact]
+    public void NachProfigrenzeVerteilen_KeineAmateureMehr_AlleInTopf1()
+    {
+        var ids = new List<int> { 1, 2, 3, 4 };
+
+        var toepfe = LostopfVorbelegung.NachProfigrenzeVerteilen(ids, RangGleichId(ids), _dfbKlassen);
+
+        toepfe[0].Should().HaveCount(4);
+        toepfe[1].Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(Auslosungsart.NachToepfen, Rundenart.KoRunde, AuslosungsRegelArt.HeimrechtFuerUnterklassige, 2, 2, true)]
+    [InlineData(Auslosungsart.NachToepfen, Rundenart.KoRunde, AuslosungsRegelArt.HeimrechtFuerUnterenTopf, 2, 2, false)]
+    [InlineData(Auslosungsart.NachToepfen, Rundenart.KoRunde, AuslosungsRegelArt.HeimrechtFuerUnterklassige, null, 2, false)]
+    [InlineData(Auslosungsart.NachToepfen, Rundenart.KoRunde, AuslosungsRegelArt.HeimrechtFuerUnterklassige, 2, 4, false)]
+    [InlineData(Auslosungsart.Zufall, Rundenart.KoRunde, AuslosungsRegelArt.HeimrechtFuerUnterklassige, 2, 2, false)]
+    [InlineData(Auslosungsart.NachToepfen, Rundenart.Gruppenphase, AuslosungsRegelArt.HeimrechtFuerUnterklassige, 2, 2, false)]
+    public void NachProfigrenzeTeilen_NurKoRundeNachToepfenMitZweiToepfenUnterklassigenRegelUndProfigrenze(
+        Auslosungsart art, Rundenart rundenart, AuslosungsRegelArt regel, int? profigrenze, int topfAnzahl, bool erwartet)
+    {
+        var auslosung = NeueAuslosung(rundenart, art,
+            [.. Enumerable.Range(1, topfAnzahl).Select(i => TopfMitTeams(i, ersteId: 10 * i, anzahl: 2))]);
+        auslosung.Regeln.Add(new AuslosungsRegel { Regelart = regel, Beschreibung = regel.ToString(), IstAktiv = true });
+
+        LostopfVorbelegung.NachProfigrenzeTeilen(auslosung, profigrenze).Should().Be(erwartet);
     }
 }
