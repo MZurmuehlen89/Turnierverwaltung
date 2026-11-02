@@ -223,6 +223,9 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
             $"Umschalter '{id}'").AsCheckBox();
         if (umschalter.IsChecked != aktiv)
         {
+            // Das Flyout ist höher als ein kleines Fenster (CI-Runner, seit #470 acht Regeln) — die unteren Regeln liegen
+            // dann außerhalb des sichtbaren Bereichs
+            umschalter.ScrollIntoView();
             umschalter.Click();
             Wait.Until(() => fenster.TryFindById(id) is not { } offen || offen.AsCheckBox().IsChecked == aktiv,
                 Wait.DefaultTimeout, $"Regel '{regelart}' {(aktiv ? "an" : "aus")}");
