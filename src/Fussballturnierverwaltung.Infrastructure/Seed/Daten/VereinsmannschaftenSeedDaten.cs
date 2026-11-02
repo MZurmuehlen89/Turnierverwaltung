@@ -649,6 +649,273 @@ public static class VereinsmannschaftenSeedDaten
         new("Kano Pillars",            "KNP", "NGA", 60, 59, 58, 63, 54),
         new("Lobi Stars",              "LOB", "NGA", 59, 58, 57, 62, 53),
         new("Plateau United",          "PLT", "NGA", 58, 57, 57, 61, 52),
+
+        // ── Weitere Vereine außerhalb Europas: FIFA-Klub-WM-Ranking 2021–2024 (Issue #581) ──────────
+        // Alle Vereine der fünf Verbandsranglisten (KlubWmRankingSeedDaten), die vorher fehlten. Die Punkte sind
+        // zwischen den Verbänden nicht vergleichbar, und die Ligastärke des Landes wiegt mehr als die Punkte
+        // (saudische Vereine stehen über koreanischen mit mehr Punkten). Deshalb G = Landeswert + 3·ln(Punkte):
+        // Landeswert = Mittel aus G − 3·ln(Punkte) der vorhandenen Vereine des Landes; Länder ohne vorhandenen
+        // Verein stufenweise unter einem Vergleichsland (CONMEBOL: Kolumbien −0/−3; CAF: Marokko −1/−3/−5;
+        // AFC: Japan −2/−4/−7; CONCACAF: USA −1/−5/−8; OFC: Neuseeland mit Auckland City = 62 als Anker, −3/−6).
+        // O = G+1, M = G, D = G−1, Heim = G+3, Auswärts = G−5.
+        // Südamerika (CONMEBOL)
+        // · Argentinien
+        new("Vélez Sarsfield",          "VEL", "ARG", 78, 77, 76, 80, 72),
+        new("Talleres Córdoba",         "TAL", "ARG", 77, 76, 75, 79, 71),
+        new("Argentinos Juniors",       "ARJ", "ARG", 77, 76, 75, 79, 71),
+        new("Estudiantes de La Plata",  "EDL", "ARG", 77, 76, 75, 79, 71),
+        new("CA Colón",                 "CLN", "ARG", 74, 73, 72, 76, 68),
+        new("Defensa y Justicia",       "DYJ", "ARG", 74, 73, 72, 76, 68),
+        new("Rosario Central",          "ROC", "ARG", 73, 72, 71, 75, 67),
+        new("CA Patronato",             "PAT", "ARG", 72, 71, 70, 74, 66),
+        // · Bolivien
+        new("Club Bolívar",             "BOV", "BOL", 71, 70, 69, 73, 65),
+        new("The Strongest",            "TSR", "BOL", 71, 70, 69, 73, 65),
+        new("Always Ready",             "ARE", "BOL", 68, 67, 66, 70, 62),
+        new("Independiente Petrolero",  "IPE", "BOL", 63, 62, 61, 65, 57),
+        // · Brasilien
+        new("Atlético Mineiro",         "CAM", "BRA", 80, 79, 78, 82, 74),
+        new("Athletico Paranaense",     "CAP", "BRA", 78, 77, 76, 80, 72),
+        new("SC Internacional",         "SCI", "BRA", 77, 76, 75, 79, 71),
+        new("Botafogo",                 "BFR", "BRA", 76, 75, 74, 78, 70),
+        new("Grêmio Porto Alegre",      "GPA", "BRA", 74, 73, 72, 76, 68),
+        new("Fortaleza EC",             "FOR", "BRA", 74, 73, 72, 76, 68),
+        new("FC Santos",                "SFC", "BRA", 72, 71, 70, 74, 66),
+        new("RB Bragantino",            "RBB", "BRA", 72, 71, 70, 74, 66),
+        new("América Mineiro",          "AMG", "BRA", 70, 69, 68, 72, 64),
+        // · Chile
+        new("CD Palestino",             "PAE", "CHI", 66, 65, 64, 68, 60),
+        new("Ñublense",                 "NUB", "CHI", 65, 64, 63, 67, 59),
+        new("Unión La Calera",          "ULC", "CHI", 64, 63, 62, 66, 58),
+        new("CD Cobresal",              "CSL", "CHI", 63, 62, 61, 65, 57),
+        // · Ecuador
+        new("Independiente del Valle",  "IDV", "ECU", 74, 73, 72, 76, 68),
+        new("Barcelona SC",             "BSG", "ECU", 74, 73, 72, 76, 68),
+        new("LDU Quito",                "LDU", "ECU", 71, 70, 69, 73, 65),
+        new("CS Emelec",                "EME", "ECU", 70, 69, 68, 72, 64),
+        new("SD Aucas",                 "AUC", "ECU", 68, 67, 66, 70, 62),
+        // · Kolumbien
+        new("Deportivo Pereira",        "DPE", "COL", 71, 70, 69, 73, 65),
+        new("Deportes Tolima",          "TOL", "COL", 71, 70, 69, 73, 65),
+        new("Independiente Medellín",   "DIM", "COL", 70, 69, 68, 72, 64),
+        new("América de Cali",          "ADC", "COL", 68, 67, 66, 70, 62),
+        new("Independiente Santa Fe",   "ISF", "COL", 68, 67, 66, 70, 62),
+        // · Paraguay
+        new("Olimpia Asunción",         "OLP", "PAR", 74, 73, 72, 76, 68),
+        new("Cerro Porteño",            "CCP", "PAR", 74, 73, 72, 76, 68),
+        new("Club Libertad",            "LIB", "PAR", 73, 72, 71, 75, 67),
+        // · Peru
+        new("Sporting Cristal",         "CRI", "PER", 69, 68, 67, 71, 63),
+        new("Alianza Lima",             "ALI", "PER", 68, 67, 66, 70, 62),
+        new("Universitario de Deportes","UNI", "PER", 67, 66, 65, 69, 61),
+        new("FBC Melgar",               "MEL", "PER", 65, 64, 63, 67, 59),
+        // · Uruguay
+        new("Nacional Montevideo",      "NAC", "URU", 74, 73, 72, 76, 68),
+        new("CA Peñarol",               "PEN", "URU", 74, 73, 72, 76, 68),
+        new("Liverpool Montevideo",     "LVM", "URU", 70, 69, 68, 72, 64),
+        new("CA Rentistas",             "RTS", "URU", 68, 67, 66, 70, 62),
+        // · Venezuela
+        new("Deportivo Táchira",        "TAC", "VEN", 69, 68, 67, 71, 63),
+        new("Caracas FC",               "CRS", "VEN", 67, 66, 65, 69, 61),
+        new("Monagas SC",               "MNG", "VEN", 65, 64, 63, 67, 59),
+        new("Deportivo La Guaira",      "DLG", "VEN", 65, 64, 63, 67, 59),
+        new("Metropolitanos FC",        "MTP", "VEN", 62, 61, 60, 64, 56),
+
+        // Nord- und Mittelamerika (CONCACAF)
+        // · Costa Rica
+        new("LD Alajuelense",           "ALJ", "CRC", 66, 65, 64, 68, 60),
+        new("CS Herediano",             "HER", "CRC", 65, 64, 63, 67, 59),
+        new("Deportivo Saprissa",       "SAP", "CRC", 64, 63, 62, 66, 58),
+        new("Santos de Guápiles",       "SDG", "CRC", 62, 61, 60, 64, 56),
+        // · Dominikanische Republik
+        new("Atlético Pantoja",         "ATP", "DOM", 59, 58, 57, 61, 53),
+        // · El Salvador
+        new("Alianza FC",               "ALZ", "SLV", 60, 59, 58, 62, 54),
+        // · Guatemala
+        new("CSD Comunicaciones",       "COM", "GUA", 66, 65, 64, 68, 60),
+        new("CSD Guastatoya",           "GTY", "GUA", 62, 61, 60, 64, 56),
+        // · Haiti
+        new("Violette AC",              "VIO", "HAI", 63, 62, 61, 65, 57),
+        new("AS Arcahaie",              "ARC", "HAI", 60, 59, 58, 62, 54),
+        new("AS Cavaly",                "CAV", "HAI", 59, 58, 57, 61, 53),
+        // · Honduras
+        new("CD Motagua",               "MOT", "HON", 66, 65, 64, 68, 60),
+        new("CD Olimpia",               "OLH", "HON", 66, 65, 64, 68, 60),
+        new("Real España",              "RES", "HON", 64, 63, 62, 66, 58),
+        new("CD Marathón",              "MRT", "HON", 63, 62, 61, 65, 57),
+        // · Kanada
+        new("CF Montréal",              "MTL", "CAN", 69, 68, 67, 71, 63),
+        new("Toronto FC",               "TOF", "CAN", 69, 68, 67, 71, 63),
+        new("Vancouver Whitecaps",      "VWC", "CAN", 69, 68, 67, 71, 63),
+        new("Forge FC",                 "FOG", "CAN", 66, 65, 64, 68, 60),
+        // · Mexiko
+        new("CF Pachuca",               "PAC", "MEX", 76, 75, 74, 78, 70),
+        new("Pumas UNAM",               "PUM", "MEX", 75, 74, 73, 77, 69),
+        new("Atlas FC",                 "ATS", "MEX", 72, 71, 70, 74, 66),
+        new("Santos Laguna",            "SLG", "MEX", 71, 70, 69, 73, 65),
+        // · Nicaragua
+        new("Real Estelí",              "RET", "NCA", 59, 58, 57, 61, 53),
+        // · Panama
+        new("Tauro FC",                 "TAU", "PAN", 62, 61, 60, 64, 56),
+        // · Suriname
+        new("SV Robinhood",             "ROB", "SUR", 60, 59, 58, 62, 54),
+        // · USA
+        new("Philadelphia Union",       "PHU", "USA", 74, 73, 72, 76, 68),
+        new("Columbus Crew",            "CMB", "USA", 74, 73, 72, 76, 68),
+        new("Los Angeles FC",           "LAF", "USA", 73, 72, 71, 75, 67),
+        new("Atlanta United",           "ATL", "USA", 71, 70, 69, 73, 65),
+        new("Portland Timbers",         "PTI", "USA", 71, 70, 69, 73, 65),
+        new("Orlando City",             "ORL", "USA", 70, 69, 68, 72, 64),
+        new("Austin FC",                "ATX", "USA", 69, 68, 67, 71, 63),
+        new("Colorado Rapids",          "CRA", "USA", 69, 68, 67, 71, 63),
+        new("Houston Dynamo",           "HOU", "USA", 68, 67, 66, 70, 62),
+        new("Nashville SC",             "NSH", "USA", 68, 67, 66, 70, 62),
+        new("FC Cincinnati",            "CIN", "USA", 67, 66, 65, 69, 61),
+
+        // Asien (AFC)
+        // · China
+        new("Zhejiang FC",              "ZHE", "CHN", 67, 66, 65, 69, 61),
+        // · Hongkong
+        new("Kitchee SC",               "KIT", "HKG", 65, 64, 63, 67, 59),
+        // · Indien
+        new("Mumbai City FC",           "MUC", "IND", 62, 61, 60, 64, 56),
+        new("FC Goa",                   "GOA", "IND", 59, 58, 57, 61, 53),
+        // · Irak
+        new("Al-Quwa Al-Jawiya",        "QWJ", "IRQ", 67, 66, 65, 69, 61),
+        new("Al-Shorta",                "SHO", "IRQ", 62, 61, 60, 64, 56),
+        // · Iran
+        new("Persepolis Teheran",       "PRS", "IRN", 70, 69, 68, 72, 64),
+        new("Foolad Khuzestan",         "FOO", "IRN", 69, 68, 67, 71, 63),
+        new("Sepahan Isfahan",          "SEP", "IRN", 69, 68, 67, 71, 63),
+        new("Esteghlal Teheran",        "ESG", "IRN", 68, 67, 66, 70, 62),
+        new("Tractor Täbris",           "TRC", "IRN", 67, 66, 65, 69, 61),
+        new("Nassaji Mazandaran",       "NSM", "IRN", 66, 65, 64, 68, 60),
+        // · Japan
+        new("Yokohama F. Marinos",      "YFM", "JPN", 73, 72, 71, 75, 67),
+        new("Nagoya Grampus",           "NGG", "JPN", 71, 70, 69, 73, 65),
+        new("Cerezo Osaka",             "CEO", "JPN", 70, 69, 68, 72, 64),
+        new("Ventforet Kofu",           "VFK", "JPN", 70, 69, 68, 72, 64),
+        // · Jordanien
+        new("Al-Wehdat",                "WEH", "JOR", 63, 62, 61, 65, 57),
+        new("Al-Faisaly Amman",         "FAA", "JOR", 61, 60, 59, 63, 55),
+        // · Katar
+        new("Al-Duhail",                "DUH", "QAT", 71, 70, 69, 73, 65),
+        new("Al-Sadd",                  "SAD", "QAT", 70, 69, 68, 72, 64),
+        new("Al-Rayyan",                "RYN", "QAT", 69, 68, 67, 71, 63),
+        new("Al-Gharafa",               "GHR", "QAT", 65, 64, 63, 67, 59),
+        // · Malaysia
+        new("Johor Darul Ta'zim",       "JDT", "MAS", 68, 67, 66, 70, 62),
+        // · Philippinen
+        new("United City FC",           "UCF", "PHI", 61, 60, 59, 63, 55),
+        new("Kaya FC",                  "KAY", "PHI", 59, 58, 57, 61, 53),
+        // · Saudi-Arabien
+        new("Al-Fayha",                 "FAY", "KSA", 74, 73, 72, 76, 68),
+        new("Al-Faisaly",               "FAI", "KSA", 74, 73, 72, 76, 68),
+        new("Al-Taawoun",               "TAA", "KSA", 73, 72, 71, 75, 67),
+        // · Singapur
+        new("Lion City Sailors",        "LCS", "SIN", 63, 62, 61, 65, 57),
+        new("Tampines Rovers",          "TAM", "SIN", 57, 56, 55, 59, 51),
+        // · Südkorea
+        new("Pohang Steelers",          "POH", "KOR", 69, 68, 67, 71, 63),
+        new("Daegu FC",                 "DAE", "KOR", 68, 67, 66, 70, 62),
+        new("Incheon United",           "ICU", "KOR", 65, 64, 63, 67, 59),
+        new("Jeonnam Dragons",          "JND", "KOR", 65, 64, 63, 67, 59),
+        // · Tadschikistan
+        new("Istiklol Duschanbe",       "IST", "TJK", 64, 63, 62, 66, 58),
+        // · Thailand
+        new("BG Pathum United",         "BGP", "THA", 69, 68, 67, 71, 63),
+        new("Bangkok United",           "BKU", "THA", 66, 65, 64, 68, 60),
+        new("Chiangrai United",         "CRU", "THA", 65, 64, 63, 67, 59),
+        new("Port FC",                  "PRT", "THA", 64, 63, 62, 66, 58),
+        new("Buriram United",           "BRU", "THA", 64, 63, 62, 66, 58),
+        new("Ratchaburi FC",            "RAT", "THA", 62, 61, 60, 64, 56),
+        // · Turkmenistan
+        new("Ahal FK",                  "AHA", "TKM", 62, 61, 60, 64, 56),
+        // · Usbekistan
+        new("Nasaf Qarshi",             "NAS", "UZB", 68, 67, 66, 70, 62),
+        new("Pakhtakor Taschkent",      "PKT", "UZB", 67, 66, 65, 69, 61),
+        new("Navbahor Namangan",        "NAV", "UZB", 66, 65, 64, 68, 60),
+        new("AGMK Olmaliq",             "AGM", "UZB", 65, 64, 63, 67, 59),
+        // · Vereinigte Arabische Emirate
+        new("Al-Ain",                   "AIN", "UAE", 70, 69, 68, 72, 64),
+        new("Sharjah FC",               "SHA", "UAE", 70, 69, 68, 72, 64),
+        new("Shabab Al-Ahli",           "SBA", "UAE", 69, 68, 67, 71, 63),
+        new("Al-Wahda",                 "WAH", "UAE", 68, 67, 66, 70, 62),
+        new("Al-Jazira",                "JAZ", "UAE", 65, 64, 63, 67, 59),
+        // · Vietnam
+        new("Hanoi FC",                 "HAN", "VIE", 61, 60, 59, 63, 55),
+        new("Viettel FC",               "VTL", "VIE", 61, 60, 59, 63, 55),
+        new("Hoàng Anh Gia Lai",        "HAG", "VIE", 60, 59, 58, 62, 54),
+
+        // Afrika (CAF)
+        // · Algerien
+        new("CR Belouizdad",            "CRB", "ALG", 70, 69, 68, 72, 64),
+        new("ES Sétif",                 "ESS", "ALG", 67, 66, 65, 69, 61),
+        new("JS Kabylie",               "JSK", "ALG", 66, 65, 64, 68, 60),
+        new("MC Algier",                "MCA", "ALG", 66, 65, 64, 68, 60),
+        // · Angola
+        new("Petro de Luanda",          "PDL", "ANG", 67, 66, 65, 69, 61),
+        new("Sagrada Esperança",        "SAG", "ANG", 60, 59, 58, 62, 54),
+        // · Botswana
+        new("Jwaneng Galaxy",           "JWG", "BOT", 60, 59, 58, 62, 54),
+        // · DR Kongo
+        new("TP Mazembe",               "TPM", "COD", 66, 65, 64, 68, 60),
+        new("AS Vita Club",             "VCL", "COD", 64, 63, 62, 66, 58),
+        // · Elfenbeinküste
+        new("ASEC Mimosas",             "ASE", "CIV", 62, 61, 60, 64, 56),
+        // · Ghana
+        new("Medeama SC",               "MED", "GHA", 59, 58, 57, 61, 53),
+        // · Guinea
+        new("Horoya AC",                "HOR", "GUI", 63, 62, 61, 65, 57),
+        // · Kamerun
+        new("Coton Sport",              "COT", "CMR", 57, 56, 55, 59, 51),
+        // · Mauretanien
+        new("FC Nouadhibou",            "NOU", "MTN", 60, 59, 58, 62, 54),
+        // · Senegal
+        new("Teungueth FC",             "TEU", "SEN", 59, 58, 57, 61, 53),
+        // · Sudan
+        new("Al-Hilal Omdurman",        "HOM", "SDN", 66, 65, 64, 68, 60),
+        new("Al-Merrikh",               "MER", "SDN", 64, 63, 62, 66, 58),
+        // · Südafrika
+        new("Mamelodi Sundowns",        "MSU", "RSA", 71, 70, 69, 73, 65),
+        new("Kaizer Chiefs",            "KCH", "RSA", 67, 66, 65, 69, 61),
+        new("AmaZulu FC",               "AMZ", "RSA", 64, 63, 62, 66, 58),
+        // · Tansania
+        new("Simba SC",                 "SIM", "TAN", 67, 66, 65, 69, 61),
+        new("Young Africans",           "YAN", "TAN", 64, 63, 62, 66, 58),
+        // · Tunesien
+        new("Espérance Tunis",          "EST", "TUN", 71, 70, 69, 73, 65),
+        new("Étoile du Sahel",          "ESH", "TUN", 66, 65, 64, 68, 60),
+        // · Uganda
+        new("Vipers SC",                "VIP", "UGA", 58, 57, 56, 60, 52),
+
+        // Ozeanien (OFC)
+        // · Cookinseln
+        new("Nikao Sokattak",           "NIK", "COK", 48, 47, 46, 50, 42),
+        // · Fidschi
+        new("Rewa FC",                  "REW", "FIJ", 56, 55, 54, 58, 50),
+        new("Suva FC",                  "SUV", "FIJ", 56, 55, 54, 58, 50),
+        // · Neukaledonien
+        new("AS Magenta",               "MAG", "NCL", 55, 54, 53, 57, 49),
+        new("Hienghène Sport",          "HIE", "NCL", 55, 54, 53, 57, 49),
+        new("Tiga Sport",               "TGS", "NCL", 53, 52, 51, 55, 47),
+        // · Neuseeland
+        new("Auckland City",            "ACK", "NZL", 63, 62, 61, 65, 57),
+        // · Papua-Neuguinea
+        new("Hekari United",            "HEK", "PNG", 55, 54, 53, 57, 49),
+        new("Lae City FC",              "LAE", "PNG", 52, 51, 50, 54, 46),
+        // · Salomonen
+        new("Central Coast FC",         "CCT", "SOL", 55, 54, 53, 57, 49),
+        new("Solomon Warriors",         "SLW", "SOL", 54, 53, 52, 56, 48),
+        // · Samoa
+        new("Vaivase-Tai",              "VAI", "SAM", 48, 47, 46, 50, 42),
+        new("Lupe ole Soaga",           "LUP", "SAM", 48, 47, 46, 50, 42),
+        // · Tahiti
+        new("AS Pirae",                 "PIR", "TAH", 58, 57, 56, 60, 52),
+        new("AS Vénus",                 "VNS", "TAH", 56, 55, 54, 58, 50),
+        // · Vanuatu
+        new("Ifira Black Bird",         "IBB", "VAN", 56, 55, 54, 58, 50),
+        new("Galaxy FC",                "GLX", "VAN", 53, 52, 51, 55, 47),
     ];
 
     public static List<Mannschaft> Erstellen(IReadOnlyDictionary<string, int> laenderLookup) =>
