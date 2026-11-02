@@ -211,10 +211,17 @@ public static class Losverfahren
     // gespiegelt aus dem Hinspiel, der Bessere steht hier also auswärts.
     // Heimrecht für Unterklassige (#393): das Team der tieferen Spielklasse hat Heimrecht, bei Hin- und Rückspiel
     // ebenso im Rückspiel; sonst entscheidet das Los.
+    // Heimrecht für den unteren Topf (#470): das Team des hinteren Topfs hat Heimrecht (DFB-Pokal 1. Runde); zwei
+    // Teams desselben Topfs (Überhang) — das Los.
     // Ohne zufall (Ziehung von Hand, #482) ersetzt die Ziehung das Los: a, das zuerst gezogene Team, spielt zu Hause.
     internal static (TeilnehmerSlot Heim, TeilnehmerSlot Auswaerts) HeimrechtFestlegen(
         TeilnehmerSlot a, TeilnehmerSlot b, RegelKontext regeln, Random? zufall)
     {
+        if (regeln.HeimrechtFuerUnterenTopf && a.TopfRang != b.TopfRang)
+            return a.TopfRang > b.TopfRang ? MitHeimrecht(a, b, regeln.MitRueckspiel) : MitHeimrecht(b, a, regeln.MitRueckspiel);
+        if (regeln.HeimrechtFuerUnterenTopf)
+            return zufall?.Next(2) == 0 ? (b, a) : (a, b);
+
         if (regeln.HeimrechtFuerUnterklassige is { } spielklassen)
         {
             if (spielklassen.HatHeimrechtGegen(a.SpielendeMannschaftId, b.SpielendeMannschaftId))

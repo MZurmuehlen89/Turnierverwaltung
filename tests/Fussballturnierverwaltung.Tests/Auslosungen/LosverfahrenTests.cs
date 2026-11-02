@@ -21,9 +21,9 @@ public class LosverfahrenTests
     private static RegelKontext Regeln(
         bool keinGleichesLand = false, bool keineGleicheGruppe = false, bool heimrechtNachLos = false,
         bool heimrechtNachSetzliste = false, bool freilosMoeglich = false, bool mitRueckspiel = false,
-        Spielklassen? heimrechtFuerUnterklassige = null) =>
+        Spielklassen? heimrechtFuerUnterklassige = null, bool heimrechtFuerUnterenTopf = false) =>
         new(keinGleichesLand, keineGleicheGruppe, heimrechtNachLos, heimrechtNachSetzliste, freilosMoeglich,
-            Konfoederationsverteilung: false, mitRueckspiel, heimrechtFuerUnterklassige);
+            Konfoederationsverteilung: false, mitRueckspiel, heimrechtFuerUnterklassige, heimrechtFuerUnterenTopf);
 
     private static List<AuslosungsErgebnis> Ausloesen(
         Auslosung auslosung, RegelKontext regeln, int startwert, IReadOnlyDictionary<int, string>? gruppeJeMannschaft = null) =>
@@ -330,6 +330,36 @@ public class LosverfahrenTests
 
         AlleZiehungen(ZweiToepfeJeDrei(), regeln).Should().AllSatisfy(ziehung =>
             AuswaertsIds(ziehung).Should().BeEquivalentTo([1, 2, 3]));
+    }
+
+    // ── Heimrecht für den unteren Topf (#470) ────────────────────────────────
+
+    [Fact]
+    public void HeimrechtFuerUnterenTopf_Topf2SpieltZuHause()
+    {
+        AlleZiehungen(ZweiToepfeJeDrei(), Regeln(heimrechtFuerUnterenTopf: true)).Should().AllSatisfy(ziehung =>
+            HeimIds(ziehung).Should().BeEquivalentTo([4, 5, 6]));
+    }
+
+    [Fact]
+    public void HeimrechtFuerUnterenTopf_MitRueckspiel_Topf2ImHinspielAuswaerts()
+    {
+        AlleZiehungen(ZweiToepfeJeDrei(), Regeln(heimrechtFuerUnterenTopf: true, mitRueckspiel: true))
+            .Should().AllSatisfy(ziehung => AuswaertsIds(ziehung).Should().BeEquivalentTo([4, 5, 6]));
+    }
+
+    [Fact]
+    public void HeimrechtFuerUnterenTopf_UeberhangUntereinander_EntscheidetDasLos()
+    {
+        // Topf 1 mit 6 Teams, Topf 2 mit 2: vier Teams aus Topf 1 spielen untereinander.
+        var auslosung = NeueAuslosung(Rundenart.KoRunde, Auslosungsart.NachToepfen,
+            [TopfMitTeams(1, ersteId: 1, anzahl: 6), TopfMitTeams(2, ersteId: 7, anzahl: 2)]);
+
+        var ziehungen = AlleZiehungen(auslosung, Regeln(heimrechtFuerUnterenTopf: true));
+
+        ziehungen.Should().AllSatisfy(ziehung => HeimIds(ziehung).Should().Contain([7, 8]));
+        ziehungen.SelectMany(z => z.Where(e => e.HeimMannschaftId <= 6 && e.AuswaertsMannschaftId <= 6))
+            .Select(e => e.HeimMannschaftId).Distinct().Should().HaveCountGreaterThan(1, "im Überhang lost das Heimrecht");
     }
 
     // ── Heimrecht für Unterklassige (#393) ───────────────────────────────────

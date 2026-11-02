@@ -54,6 +54,10 @@ public static class AuslosungAnzeigeTexte
             "kommt aus den Abschnitten der Standard-Rangliste der Runde (Ligapyramide); hat sie eine Profigrenze, " +
             "gilt das nur gegen Teams bis zu dieser Klasse (DFB-Pokal), sonst strikt Klasse gegen Klasse " +
             "(Copa del Rey). Gleiche Klasse oder Team ohne Klasse: Das Los entscheidet.",
+        AuslosungsRegelArt.HeimrechtFuerUnterenTopf =>
+            "Das Team aus dem hinteren Topf eines Topfpaars hat Heimrecht — bei Hin- und Rückspiel im Rückspiel. " +
+            "Typisch für die 1. Runde im DFB-Pokal: Der Amateurtopf spielt immer zu Hause, auch seine " +
+            "Zweitligisten. Zwei Teams aus demselben Topf (Überhang): Das Los entscheidet.",
         AuslosungsRegelArt.FreilosMoeglich =>
             "Bei ungerader Teamanzahl erhält ein zufällig gezogenes Team ein Freilos und zieht " +
             "kampflos in die nächste Runde ein. Ohne diese Regel schlägt die Auslosung fehl, " +

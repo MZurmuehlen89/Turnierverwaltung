@@ -18,5 +18,8 @@ public enum AuslosungsRegelArt
     Konfoederationsverteilung,
     // Issue #393: das Team der tieferen Spielklasse hat Heimrecht (DFB-Pokal, Copa del Rey). Die Spielklasse kommt
     // aus den Abschnitten der Standard-Rangliste der Runde.
-    HeimrechtFuerUnterklassige
+    HeimrechtFuerUnterklassige,
+    // Issue #470: bei Topfpaaren hat das Team des hinteren Topfs Heimrecht (DFB-Pokal 1. Runde: der Amateurtopf
+    // spielt immer zu Hause, auch die Zweitligisten darin).
+    HeimrechtFuerUnterenTopf
 }

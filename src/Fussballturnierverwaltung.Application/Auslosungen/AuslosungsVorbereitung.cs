@@ -54,7 +54,8 @@ public class AuslosungsVorbereitung(
             auslosung.TurnierRunde?.MitRueckspiel ?? false,
             Wirkt(AuslosungsRegelArt.HeimrechtFuerUnterklassige)
                 ? await SpielklassenLadenAsync(auslosung.TurnierRunde?.StandardRanglisteId, ct)
-                : null);
+                : null,
+            Wirkt(AuslosungsRegelArt.HeimrechtFuerUnterenTopf));
 
         var gruppeJeMannschaft = regeln.KeineGleicheGruppe
             ? await GruppeJeMannschaftLadenAsync(auslosung, alleRunden, ct)

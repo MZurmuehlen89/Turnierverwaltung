@@ -101,6 +101,26 @@ public class AuslosungsRegelKompatibilitaetTests
         AuslosungsRegelKompatibilitaet.SperrGrund(AuslosungsRegelArt.HeimrechtFuerUnterklassige, art, rundenart, false)
             .Should().NotBeNull();
 
+    [Theory]
+    [InlineData(Auslosungsart.Zufall)]
+    [InlineData(Auslosungsart.Benutzerdefiniert)]
+    public void HeimrechtFuerUnterenTopf_OhneMehrereToepfe_Gesperrt(Auslosungsart art) =>
+        AuslosungsRegelKompatibilitaet.SperrGrund(AuslosungsRegelArt.HeimrechtFuerUnterenTopf, art, Rundenart.KoRunde, false)
+            .Should().Contain("nur einen Lostopf");
+
+    [Theory]
+    [InlineData(Auslosungsart.NachToepfen)]
+    [InlineData(Auslosungsart.NachSetzliste)]
+    [InlineData(Auslosungsart.Manuell)]
+    public void HeimrechtFuerUnterenTopf_WirktMitTopfpaaren(Auslosungsart art) =>
+        AuslosungsRegelKompatibilitaet.SperrGrund(AuslosungsRegelArt.HeimrechtFuerUnterenTopf, art, Rundenart.KoRunde, false)
+            .Should().BeNull();
+
+    [Fact]
+    public void HeimrechtFuerUnterenTopf_SchliesstAndereHeimrechtRegelnAus() =>
+        AuslosungsRegelKompatibilitaet.SchliessenSichAus(
+            AuslosungsRegelArt.HeimrechtFuerUnterenTopf, AuslosungsRegelArt.HeimrechtFuerUnterklassige).Should().BeTrue();
+
     [Fact]
     public void HeimrechtFuerUnterklassige_WirktImEinzelspielPokal() =>
         AuslosungsRegelKompatibilitaet.SperrGrund(
@@ -109,7 +129,7 @@ public class AuslosungsRegelKompatibilitaetTests
 
     [Fact]
     public void AngeboteneRegeln_EnthaltenKeineEntfallenenRegeln() =>
-        AuslosungsRegelKompatibilitaet.AngeboteneRegeln.Should().HaveCount(7)
+        AuslosungsRegelKompatibilitaet.AngeboteneRegeln.Should().HaveCount(8)
             .And.OnlyContain(r => AuslosungsRegelKompatibilitaet.SperrGrund(r, Auslosungsart.Zufall, Rundenart.KoRunde, true)
                                   != "Diese Regel wird nicht mehr unterstützt.");
 

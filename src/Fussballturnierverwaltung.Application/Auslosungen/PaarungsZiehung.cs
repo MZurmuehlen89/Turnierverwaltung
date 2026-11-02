@@ -4,8 +4,8 @@ namespace Fussballturnierverwaltung.Application.Auslosungen;
 /// Ziehung von Hand für K.-o.-Runden (#482): erst ein Team, dann sein Gegner — Topfpaar für Topfpaar, danach der
 /// Überhang untereinander (<see cref="TopfPaarStruktur"/>). Bei ungerader Teamzahl bekommt das zuletzt übrige Team das
 /// Freilos.
-/// <para>Heimrecht: das zuerst gezogene Team spielt zu Hause, außer „Heimrecht für Unterklassige“ oder „nach
-/// Setzliste“ sagen anderes (<see cref="Losverfahren.HeimrechtFestlegen"/>).</para>
+/// <para>Heimrecht: das zuerst gezogene Team spielt zu Hause, außer „Heimrecht für Unterklassige“, „für den unteren
+/// Topf“ oder „nach Setzliste“ sagen anderes (<see cref="Losverfahren.HeimrechtFestlegen"/>).</para>
 /// <para>Wählbar sind nur Gegner, mit denen sich die übrigen Teams noch regelkonform paaren lassen
 /// (<see cref="PaarungsSuche"/>).</para>
 /// </summary>

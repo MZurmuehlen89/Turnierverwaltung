@@ -4,7 +4,7 @@ namespace Fussballturnierverwaltung.Application.Auslosungen;
 public sealed record RegelKontext(
     bool KeinGleichesLand, bool KeineGleicheGruppe, bool HeimrechtNachLos, bool HeimrechtNachSetzliste,
     bool FreilosMoeglich, bool Konfoederationsverteilung, bool MitRueckspiel,
-    Spielklassen? HeimrechtFuerUnterklassige = null)
+    Spielklassen? HeimrechtFuerUnterklassige = null, bool HeimrechtFuerUnterenTopf = false)
 {
     // Paarweise Regeln. Die Konföderationsverteilung zählt je Gruppe und passt nicht in dieses Schema — sie
     // wirkt nur in der Gruppenauslosung (GruppenAuslosung).

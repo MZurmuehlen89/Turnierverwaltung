@@ -16,8 +16,8 @@ public class ManuelleZiehungTests
 
     private static RegelKontext Regeln(
         bool keinGleichesLand = false, bool freilos = false, bool konfoederation = false,
-        Spielklassen? unterklassige = null) =>
-        new(keinGleichesLand, false, false, false, freilos, konfoederation, false, unterklassige);
+        Spielklassen? unterklassige = null, bool untererTopf = false) =>
+        new(keinGleichesLand, false, false, false, freilos, konfoederation, false, unterklassige, untererTopf);
 
     private static ManuelleZiehung Starten(
         Rundenart rundenart, RegelKontext regeln, IEnumerable<Lostopf> toepfe, int? gruppenAnzahl = null,
@@ -180,6 +180,17 @@ public class ManuelleZiehungTests
         Ziehe(z, 1);
 
         z.Ergebnis().Single().HeimMannschaftId.Should().Be(1);
+    }
+
+    [Fact]
+    public void KoRunde_HeimrechtFuerUnterenTopf_GehtDerZiehungVor()
+    {
+        var z = Starten(Rundenart.KoRunde, Regeln(untererTopf: true), [TopfMitTeams(1, 1, 1), TopfMitTeams(2, 11, 1)]);
+
+        Ziehe(z, 1);
+        Ziehe(z, 11);
+
+        z.Ergebnis().Single().HeimMannschaftId.Should().Be(11);
     }
 
     // ── Gruppenphase ──────────────────────────────────────────────────────────

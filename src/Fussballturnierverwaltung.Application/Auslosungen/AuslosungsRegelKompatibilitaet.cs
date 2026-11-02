@@ -21,6 +21,7 @@ public static class AuslosungsRegelKompatibilitaet
         AuslosungsRegelArt.HeimrechtNachLos,
         AuslosungsRegelArt.HeimrechtNachSetzliste,
         AuslosungsRegelArt.HeimrechtFuerUnterklassige,
+        AuslosungsRegelArt.HeimrechtFuerUnterenTopf,
         AuslosungsRegelArt.FreilosMoeglich,
         AuslosungsRegelArt.Konfoederationsverteilung,
     ];
@@ -32,6 +33,7 @@ public static class AuslosungsRegelKompatibilitaet
         AuslosungsRegelArt.HeimrechtNachLos          => "Heimrecht nach Los",
         AuslosungsRegelArt.HeimrechtNachSetzliste    => "Heimrecht nach Setzliste",
         AuslosungsRegelArt.HeimrechtFuerUnterklassige => "Heimrecht für Unterklassige",
+        AuslosungsRegelArt.HeimrechtFuerUnterenTopf  => "Heimrecht für den unteren Topf",
         AuslosungsRegelArt.FreilosMoeglich           => "Freilos möglich",
         AuslosungsRegelArt.Konfoederationsverteilung => "Konföderationsverteilung",
         _                                            => regel.ToString()
@@ -64,7 +66,7 @@ public static class AuslosungsRegelKompatibilitaet
     /// <summary>Ob die Regel das Heimrecht festlegt — von diesen Regeln wirkt höchstens eine.</summary>
     public static bool IstHeimrechtRegel(AuslosungsRegelArt art) =>
         art is AuslosungsRegelArt.HeimrechtNachLos or AuslosungsRegelArt.HeimrechtNachSetzliste
-            or AuslosungsRegelArt.HeimrechtFuerUnterklassige;
+            or AuslosungsRegelArt.HeimrechtFuerUnterklassige or AuslosungsRegelArt.HeimrechtFuerUnterenTopf;
 
     /// <summary>Liefert den Grund, warum die Regel bei der Auslosungsart <paramref name="art"/> in einer Runde der
     /// Rundenart <paramref name="rundenart"/> keine Wirkung hätte, oder <c>null</c>, wenn sie wirkt.
@@ -78,7 +80,8 @@ public static class AuslosungsRegelKompatibilitaet
             AuslosungsRegelArt.KeineGleicheGruppe        => GleicheGruppeSperrGrund(folgtAufGruppenphase),
             AuslosungsRegelArt.HeimrechtNachLos or
             AuslosungsRegelArt.HeimrechtNachSetzliste or
-            AuslosungsRegelArt.HeimrechtFuerUnterklassige => HeimrechtSperrGrund(regel, art, rundenart),
+            AuslosungsRegelArt.HeimrechtFuerUnterklassige or
+            AuslosungsRegelArt.HeimrechtFuerUnterenTopf  => HeimrechtSperrGrund(regel, art, rundenart),
             AuslosungsRegelArt.FreilosMoeglich           => FreilosSperrGrund(art, rundenart),
             AuslosungsRegelArt.Konfoederationsverteilung => KonfoederationSperrGrund(rundenart),
             _                                            => "Diese Regel wird nicht mehr unterstützt."
@@ -113,6 +116,9 @@ public static class AuslosungsRegelKompatibilitaet
         // Heimrecht-Regeln gehen dem vor.
         if (art == Auslosungsart.Manuell && regel == AuslosungsRegelArt.HeimrechtNachLos)
             return "Bei der Ziehung von Hand ist die Ziehung selbst das Los — das zuerst gezogene Team spielt zu Hause.";
+        if (regel == AuslosungsRegelArt.HeimrechtFuerUnterenTopf && !AuslosungsartVorgabe.ErlaubtMehrereToepfe(art))
+            return "Diese Auslosungsart kennt nur einen Lostopf — es gibt keinen unteren Topf, dem das Heimrecht " +
+                   "zufallen könnte.";
         return null;
     }
 
