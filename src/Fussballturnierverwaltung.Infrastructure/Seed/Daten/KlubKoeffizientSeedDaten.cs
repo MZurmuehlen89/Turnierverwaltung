@@ -14,9 +14,10 @@ internal static class KlubKoeffizientSeedDaten
     public static readonly DateOnly DATUM = new(2026, 11, 1);
     public const string QUELLE_TEXT = "UEFA 5-year Club Ranking 2026 (Bert Kassies, kassiesa.net), abgerufen am 01.11.2026";
 
-    public sealed record Eintrag(string Kurzname, string Land, int Punkte);
+    public static readonly VereinsranglisteSeed Seed = new(
+        new RanglisteSeedStand(RANGLISTE, DATUM, QUELLE_TEXT), "UEFA", Eintraege());
 
-    public static readonly Eintrag[] Eintraege =
+    private static VereinsranglisteSeed.Eintrag[] Eintraege() =>
     [
         /*   1 */ new("FCB", "GER", 148), new("RMA", "ESP", 144), new("PSG", "FRA", 132), new("LIV", "ENG", 130), new("INT", "ITA", 127), new("MCI", "ENG", 126),
         /*   7 */ new("ARS", "ENG", 119), new("BAR", "ESP", 113), new("B04", "GER", 105), new("ATM", "ESP", 105), new("BVB", "GER", 101), new("CHE", "ENG", 99),
