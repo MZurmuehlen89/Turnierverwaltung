@@ -32,6 +32,11 @@ public class SeedProtokollTests
             "Ligapyramiden nachgerüstet.",
             "Rangliste „FIFA-Weltrangliste (Herren)“ nachgerüstet.",
             "Rangliste „UEFA-Klub-Koeffizient (Kassies)“ nachgerüstet.",
+            "Rangliste „FIFA-Klub-WM-Ranking CONMEBOL 2021–2024“ nachgerüstet.",
+            "Rangliste „FIFA-Klub-WM-Ranking CONCACAF 2021–2024“ nachgerüstet.",
+            "Rangliste „FIFA-Klub-WM-Ranking AFC 2021–2024“ nachgerüstet.",
+            "Rangliste „FIFA-Klub-WM-Ranking CAF 2021–2024“ nachgerüstet.",
+            "Rangliste „FIFA-Klub-WM-Ranking OFC 2021–2024“ nachgerüstet.",
             "neue Turniervorlagen nachgerüstet.",
             "Turniervorlagen um ihr Turnierlogo ergänzt.");
         protokoll.Should().OnlyContain(e => e.Anzahl > 0);

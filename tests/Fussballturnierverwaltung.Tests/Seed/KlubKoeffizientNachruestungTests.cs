@@ -31,7 +31,7 @@ public class KlubKoeffizientNachruestungTests
         (await RangUndPunkteAsync(ctx, rangliste, "SLP", "CZE")).Should().Be((59, 44), "Slavia Prag, neu mit #381");
         var verweise = await ctx.Verbaende.ToDictionaryAsync(v => v.Kurzname, v => v.VereinsRanglisteId);
         verweise["UEFA"].Should().Be(rangliste.Id);
-        verweise.Where(v => v.Key != "UEFA").Should().OnlyContain(v => v.Value == null);
+        verweise["FIFA"].Should().BeNull("die übrigen Kontinentalverbände haben seit #581 eigene Listen");
     }
 
     [Fact]

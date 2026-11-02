@@ -42,6 +42,8 @@ public class SeedDatenService
         await FifaWeltranglisteNachruestung.AusfuehrenAsync(_context, Protokollieren, cancellationToken);
         // Ebenso: die Europapokal-Vorlagen losen ihre Töpfe nach dem Klub-Koeffizienten (Issue #381).
         await VereinsranglisteNachruestung.AusfuehrenAsync(_context, KlubKoeffizientSeedDaten.Seed, Protokollieren, cancellationToken);
+        foreach (var seed in KlubWmRankingSeedDaten.Alle)
+            await VereinsranglisteNachruestung.AusfuehrenAsync(_context, seed, Protokollieren, cancellationToken);
         var vorlagen = await TurnierVorlagenNachruestung.LadenAsync(_context, Protokollieren, cancellationToken);
         await vorlagen.AusfuehrenAsync(cancellationToken);
         // Nach den Vorlagen: auch gerade erst angelegte Vorlagen bekommen hier ihr Logo (Issue #481).
