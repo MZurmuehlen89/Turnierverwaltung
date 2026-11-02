@@ -69,8 +69,10 @@ public class TurnierVorlagenAuslosungsregelnTests
     [Fact]
     public void NationalePokale_HeimrechtJeReglement_AusserAnNeutralemOrt()
     {
-        // DFB-Pokal (#393): Unterklassige haben bis einschließlich Halbfinale Heimrecht gegen Profiklubs.
-        Runde("DFB-Pokal", "64 Teams", "1. Runde").VorgegebeneAuslosungsregeln.Should().Equal(AuslosungsRegelArt.HeimrechtFuerUnterklassige);
+        // DFB-Pokal (#393): Unterklassige haben bis einschließlich Halbfinale Heimrecht gegen Profiklubs, in der 1. Runde
+        // der ganze Amateurtopf (#470).
+        Runde("DFB-Pokal", "64 Teams", "1. Runde").VorgegebeneAuslosungsregeln.Should().Equal(AuslosungsRegelArt.HeimrechtFuerUnterenTopf);
+        Runde("DFB-Pokal", "64 Teams", "2. Runde").VorgegebeneAuslosungsregeln.Should().Equal(AuslosungsRegelArt.HeimrechtFuerUnterklassige);
         Runde("DFB-Pokal", "64 Teams", "Halbfinale").VorgegebeneAuslosungsregeln.Should().Equal(AuslosungsRegelArt.HeimrechtFuerUnterklassige);
         Runde("DFB-Pokal", "64 Teams", "Finale").VorgegebeneAuslosungsregeln.Should().BeEmpty();
 

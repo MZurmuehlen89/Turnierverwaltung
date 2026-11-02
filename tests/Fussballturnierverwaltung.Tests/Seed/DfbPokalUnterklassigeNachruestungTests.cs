@@ -9,7 +9,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Fussballturnierverwaltung.Tests.Seed;
 
 /// <summary>DFB-Pokal-Vorlage mit Ligapyramide und „Heimrecht für Unterklassige“ (Issue #393) — im Seed und als
-/// Nachrüstung bestehender Vorlagen; Turniere bleiben unangetastet.</summary>
+/// Nachrüstung bestehender Vorlagen; Turniere bleiben unangetastet. Seit #470 die 1. und 2. Runde „Nach Töpfen“, die
+/// 1. Runde mit „Heimrecht für den unteren Topf“.</summary>
 public class DfbPokalUnterklassigeNachruestungTests
 {
     private const string PYRAMIDE = "Ligapyramide Deutschland 2025/26";
@@ -28,7 +29,10 @@ public class DfbPokalUnterklassigeNachruestungTests
         runden.Where(r => _rundenMitHeimrecht.Contains(r.Name)).Should().HaveCount(5).And.AllSatisfy(r =>
         {
             r.StandardRanglisteId.Should().Be(pyramideId);
-            r.VorgegebeneAuslosungsregeln.Should().Equal(AuslosungsRegelArt.HeimrechtFuerUnterklassige);
+            r.VorgegebeneAuslosungsregeln.Should().Equal(r.Name == "1. Runde"
+                ? AuslosungsRegelArt.HeimrechtFuerUnterenTopf
+                : AuslosungsRegelArt.HeimrechtFuerUnterklassige);
+            r.VorgegebeneAuslosungsart.Should().Be(r.Reihenfolge <= 2 ? Auslosungsart.NachToepfen : null);
         });
         var finale = runden.Single(r => r.Name == "Finale");
         finale.StandardRanglisteId.Should().BeNull();
@@ -55,11 +59,39 @@ public class DfbPokalUnterklassigeNachruestungTests
 
         protokoll.Select(e => (e.Anzahl, e.Text)).Should().Equal(
             (5, "Vorlagen-Runden um ihre Standard-Rangliste ergänzt."),
-            (5, "Vorlagen-Runden auf „Heimrecht für Unterklassige“ umgestellt."));
+            (4, "Vorlagen-Runden auf „Heimrecht für Unterklassige“ umgestellt."),
+            (2, "Pokalrunden von Vorlagen auf Profi- und Amateurtopf umgestellt."));
         await using var pruef = new TurnierverwaltungDbContext(optionen);
         var turnierRunde = (await DfbRundenAsync(pruef, TurnierStatus.Geplant)).Single();
         turnierRunde.StandardRanglisteId.Should().BeNull("Bewegungsdaten werden nicht angefasst");
         turnierRunde.VorgegebeneAuslosungsregeln.Should().Equal(AuslosungsRegelArt.HeimrechtNachLos);
+    }
+
+    [Fact]
+    public async Task VorlageImStandNach393_ErsteUndZweiteRundeBekommenToepfe()
+    {
+        var optionen = NeueDatenbank();
+        await SeedLaufAsync(optionen);
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            foreach (var runde in (await DfbRundenAsync(ctx, TurnierStatus.Vorlage)).Where(r => r.Rundenart == Rundenart.KoRunde))
+            {
+                runde.VorgegebeneAuslosungsart = null;
+                runde.VorgegebeneAuslosungsregeln = [AuslosungsRegelArt.HeimrechtFuerUnterklassige];
+            }
+            await ctx.SaveChangesAsync();
+        }
+
+        (await SeedLaufAsync(optionen)).Select(e => (e.Anzahl, e.Text)).Should().Equal(
+            (2, "Pokalrunden von Vorlagen auf Profi- und Amateurtopf umgestellt."));
+
+        await using var pruef = new TurnierverwaltungDbContext(optionen);
+        var runden = await DfbRundenAsync(pruef, TurnierStatus.Vorlage);
+        runden[0].VorgegebeneAuslosungsart.Should().Be(Auslosungsart.NachToepfen);
+        runden[0].VorgegebeneAuslosungsregeln.Should().Equal(AuslosungsRegelArt.HeimrechtFuerUnterenTopf);
+        runden[1].VorgegebeneAuslosungsart.Should().Be(Auslosungsart.NachToepfen);
+        runden[1].VorgegebeneAuslosungsregeln.Should().Equal(AuslosungsRegelArt.HeimrechtFuerUnterklassige);
+        runden[2].VorgegebeneAuslosungsart.Should().BeNull();
     }
 
     [Fact]
@@ -71,6 +103,7 @@ public class DfbPokalUnterklassigeNachruestungTests
         {
             var ersteRunde = (await DfbRundenAsync(ctx, TurnierStatus.Vorlage)).Single(r => r.Name == "1. Runde");
             ersteRunde.VorgegebeneAuslosungsregeln = [AuslosungsRegelArt.HeimrechtNachSetzliste];
+            ersteRunde.VorgegebeneAuslosungsart = null;
             await ctx.SaveChangesAsync();
         }
 
@@ -84,6 +117,7 @@ public class DfbPokalUnterklassigeNachruestungTests
     private static TurnierRunde AltenStandSetzen(TurnierRunde runde)
     {
         runde.StandardRanglisteId = null;
+        runde.VorgegebeneAuslosungsart = null;
         if (runde.Rundenart == Rundenart.KoRunde)
             runde.VorgegebeneAuslosungsregeln = [AuslosungsRegelArt.HeimrechtNachLos];
         return runde;

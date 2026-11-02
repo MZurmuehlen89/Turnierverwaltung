@@ -73,6 +73,38 @@ public static class SeedVorlagenAbgleich
         return umgestellt;
     }
 
+    /// <summary>Issue #470: übernimmt „Nach Töpfen“ und die Heimrecht-Regel der Pokalrunden mit Profi- und Amateurtopf
+    /// (DFB-Pokal 1. und 2. Runde) — nur, solange die Runde keine Auslosungsart vorgibt und ihre Regeln dem Seed oder
+    /// einem früheren Seed-Stand entsprechen („Heimrecht nach Los“ vor #393, „Heimrecht für Unterklassige“ danach). Eine
+    /// vom Nutzer geänderte Runde bleibt, wie sie ist. Liefert die Zahl der geänderten Runden.</summary>
+    public static int PokalToepfeUebernehmen(TurnierInstanz vorlage, TurnierInstanz soll)
+    {
+        int geaendert = 0;
+        foreach (var sollRunde in soll.Runden.Where(IstPokalrundeMitToepfen))
+        {
+            var runde = Gegenstueck(vorlage, sollRunde);
+            if (runde is null || runde.Rundenart != sollRunde.Rundenart || runde.VorgegebeneAuslosungsart is not null ||
+                !IstSeedStand(runde.VorgegebeneAuslosungsregeln, sollRunde.VorgegebeneAuslosungsregeln))
+                continue;
+
+            runde.VorgegebeneAuslosungsart = sollRunde.VorgegebeneAuslosungsart;
+            runde.VorgegebeneAuslosungsregeln = [.. sollRunde.VorgegebeneAuslosungsregeln];
+            geaendert++;
+        }
+        return geaendert;
+    }
+
+    private static bool IstSeedStand(IReadOnlyCollection<AuslosungsRegelArt> regeln, IReadOnlyCollection<AuslosungsRegelArt> soll) =>
+        regeln.SequenceEqual(soll) ||
+        regeln.SequenceEqual([AuslosungsRegelArt.HeimrechtNachLos]) ||
+        regeln.SequenceEqual([AuslosungsRegelArt.HeimrechtFuerUnterklassige]);
+
+    private static bool IstPokalrundeMitToepfen(TurnierRunde runde) =>
+        runde.Rundenart == Rundenart.KoRunde &&
+        runde.VorgegebeneAuslosungsart == Auslosungsart.NachToepfen &&
+        runde.VorgegebeneAuslosungsregeln.Any(r =>
+            r is AuslosungsRegelArt.HeimrechtFuerUnterklassige or AuslosungsRegelArt.HeimrechtFuerUnterenTopf);
+
     /// <summary>Issue #469: übernimmt „ein Gegner je Topf“ aus dem Seed, wo die Runde noch auf dem Standard (2)
     /// steht. Liefert die Zahl der umgestellten Runden.</summary>
     public static int GegnerJeTopfUebernehmen(TurnierInstanz vorlage, TurnierInstanz soll)

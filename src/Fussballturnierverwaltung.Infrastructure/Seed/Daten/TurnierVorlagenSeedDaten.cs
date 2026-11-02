@@ -116,7 +116,10 @@ public static class TurnierVorlagenSeedDaten
 
             // DFB-Pokal (#393): Vereine unterhalb der 2. Bundesliga haben gegen Erst- und Zweitligisten Heimrecht, bis
             // einschließlich Halbfinale; sonst der zuerst Gezogene (= Los). Die Spielklasse kommt aus der
-            // Ligapyramide als Standard-Rangliste der Runde. Finale an neutralem Ort.
+            // Ligapyramide als Standard-Rangliste der Runde. Finale an neutralem Ort. In der 1. Runde spielt dagegen
+            // der ganze Amateurtopf zu Hause, auch seine Zweitligisten (#470).
+            case "DFB-Pokal" when runde.Reihenfolge == 1:
+                return [AuslosungsRegelArt.HeimrechtFuerUnterenTopf];
             case "DFB-Pokal" when !runde.NeutralerSpielort:
                 return [AuslosungsRegelArt.HeimrechtFuerUnterklassige];
 
@@ -1080,8 +1083,10 @@ public static class TurnierVorlagenSeedDaten
             VerbandId = VId(verband, "UEFA"),
         };
         int? rId = RwId(rw, "FIFA Standard Modern (3-Punkte)");
-        v.Runden.Add(Runde(1, "1. Runde",          Rundenart.KoRunde,          64, 32, regelwerkId: rId));
-        v.Runden.Add(Runde(2, "2. Runde",          Rundenart.KoRunde,          32, 16, regelwerkId: rId));
+        // 1. und 2. Runde mit Profi- und Amateurtopf (#470): in der 1. Runde gleich groß nach Ligapyramide (die besten 32
+        // gegen den Rest), in der 2. Runde nach Spielklasse, solange Amateure übrig sind. Ab dem Achtelfinale ein Topf.
+        v.Runden.Add(Runde(1, "1. Runde",          Rundenart.KoRunde,          64, 32, regelwerkId: rId, auslosungsart: Auslosungsart.NachToepfen));
+        v.Runden.Add(Runde(2, "2. Runde",          Rundenart.KoRunde,          32, 16, regelwerkId: rId, auslosungsart: Auslosungsart.NachToepfen));
         v.Runden.Add(Runde(3, "Achtelfinale",      Rundenart.KoRunde,          16,  8, regelwerkId: rId));
         v.Runden.Add(Runde(4, "Viertelfinale",     Rundenart.KoRunde,           8,  4, regelwerkId: rId));
         v.Runden.Add(Runde(5, "Halbfinale",        Rundenart.KoRunde,           4,  2, regelwerkId: rId));

@@ -113,6 +113,8 @@ internal sealed class TurnierVorlagenNachruestung
             UnterklassigenHeimrechtUebernehmen(), "Vorlagen-Runden auf „Heimrecht für Unterklassige“ umgestellt.", ct);
         await SpeichernUndProtokollieren(
             GegnerJeTopfUebernehmen(), "Ligaphasen von Vorlagen auf einen Gegner je Topf umgestellt.", ct);
+        await SpeichernUndProtokollieren(
+            PokalToepfeUebernehmen(), "Pokalrunden von Vorlagen auf Profi- und Amateurtopf umgestellt.", ct);
         await SpeichernUndProtokollieren(QuotenErgaenzen(), "Turniervorlagen um Quoten und Kontingente ergänzt.", ct);
     }
 
@@ -403,6 +405,10 @@ internal sealed class TurnierVorlagenNachruestung
     /// die Vorgabe noch dem alten Seed-Stand entspricht.</summary>
     private int UnterklassigenHeimrechtUebernehmen() =>
         MitSeedStand().Sum(paar => SeedVorlagenAbgleich.UnterklassigenHeimrechtUebernehmen(paar.Vorlage, paar.Soll));
+
+    /// <summary>Issue #470: DFB-Pokal 1. und 2. Runde „Nach Töpfen“ mit Profi- und Amateurtopf.</summary>
+    private int PokalToepfeUebernehmen() =>
+        MitSeedStand().Sum(paar => SeedVorlagenAbgleich.PokalToepfeUebernehmen(paar.Vorlage, paar.Soll));
 
     /// <summary>Issue #469: die Conference League lost seit 2024/25 einen Gegner je Topf aus.</summary>
     private int GegnerJeTopfUebernehmen() =>
