@@ -51,9 +51,14 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
     public void ToepfeAutomatischBefuellen()
     {
         fenster.InvokeMenuItem("Befehlsleiste.Toepfe", "Befehlsleiste.ToepfeAutomatischBefuellen");
+        WarteBisAlleZugewiesen();
+    }
+
+    /// <summary>Wartet, bis alle Teams in den Töpfen liegen — etwa nach dem Anlegen einer Runde mit Standard-Rangliste,
+    /// die die App selbst befüllt (#349).</summary>
+    public void WarteBisAlleZugewiesen() =>
         Wait.Until(() => fenster.TextOf("Auslosung.Zuweisung").StartsWith('✓'), Wait.DefaultTimeout,
             "alle Teams den Töpfen zugewiesen");
-    }
 
     // ── Teilnehmerpool (#576) ─────────────────────────────────────────────────
 
