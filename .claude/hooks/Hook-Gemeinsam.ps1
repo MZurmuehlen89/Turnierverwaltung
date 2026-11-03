@@ -62,7 +62,20 @@ function Repo-Fuer($eingabe, [string]$befehl, [string]$unterbefehl) {
     if ($mitC.Success) { $ziel = Pfad-Unter $ziel $mitC.Groups[1].Value }
     $wurzel = git -C $ziel rev-parse --show-toplevel 2>$null
     if ($LASTEXITCODE -ne 0) { return '' }
+    if (-not (Ist-Projektrepo $wurzel)) { return '' }
     return $wurzel
+}
+
+# Nur das Projekt selbst und seine Git-Worktrees: Der Hook läuft vor der Freigabe des Befehls und baut im Ziel –
+# ein „cd <fremder Ordner> && git commit“ darf dort kein dotnet build (MSBuild-Code) auslösen (Sicherheitsprüfung).
+function Ist-Projektrepo([string]$wurzel) {
+    $projekt = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (Resolve-Path "$PSScriptRoot/../..").Path }
+    $erlaubt = @(git -C $projekt worktree list --porcelain 2>$null |
+        Where-Object { $_ -like 'worktree *' } | ForEach-Object { $_.Substring(9) })
+    $erlaubt += $projekt
+    $normal = { param($p) [System.IO.Path]::GetFullPath((Windows-Pfad $p)).TrimEnd('\', '/').ToLowerInvariant() }
+    $kandidat = & $normal $wurzel
+    return @($erlaubt | Where-Object { (& $normal $_) -eq $kandidat }).Count -gt 0
 }
 
 # Pfade aus „git status --porcelain=v1“: Umbenennung „alt -> neu“ zählt mit dem neuen Pfad, Anführungszeichen weg
