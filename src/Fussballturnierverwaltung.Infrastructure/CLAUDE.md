@@ -18,6 +18,8 @@ dotnet ef migrations add <Name> \
   --startup-project src/Fussballturnierverwaltung.WinUi
 ```
 
+**Pitfall `--no-build` (#586):** the solution build writes WinUi to `bin\x64\Debug`, while `dotnet ef … --startup-project src/Fussballturnierverwaltung.WinUi --no-build` reads `bin\Debug` and silently works against a stale model. With `--no-build`, use `--startup-project src/Fussballturnierverwaltung.Infrastructure` (design-time factory `TurnierverwaltungDbContextFactory`); without `--no-build` the commands above are fine.
+
 On every startup the WinUi app calls `DatenbankWartungService.PruefenUndErgaenzenAsync()` (`Wartung/`): `MigrateAsync()` (creates the DB / applies pending migrations), then `SeedDatenService.InitialisierenAsync()` (non-destructive Nachrüsten of missing Stammdaten and Vorlagen — on an empty DB that is the whole seed; only the Verbände are created up front). The same flow is available manually on the "Datenbankwartung" page (#370). EF Core 10 makes `MigrateAsync` throw on model changes without a migration — always add the migration before starting the app.
 
 ## Zirkuläre Referenzen im Turnierbaum

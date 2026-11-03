@@ -115,6 +115,22 @@ includes `suggestion` findings, `-Regel S3776,S138` lists the locations.
   `ErrorLog`; `Directory.Build.props` blanks the `ErrorLog` around that target, otherwise an incremental build
   overwrites the WinUi SARIF file with an empty analysis.
 
+## Claude Code Hooks (#586)
+
+Workflow rules that used to live only in memory are enforced by hooks in `.claude/settings.json` (scripts in
+`.claude/hooks/`, PowerShell 7, shared helpers in `Hook-Gemeinsam.ps1`). They apply to the `Bash` and `PowerShell` tools.
+
+| Hook | When | What |
+|---|---|---|
+| `Commit-Pruefung.ps1` | before `git commit` | Only if code under `src/`/`tests/` (or build config) changed: build the solution; if Domain or the EF configuration changed, `dotnet ef migrations has-pending-model-changes`; if code outside WinUi/GUI tests changed, run the unit tests. Red → commit blocked. The known flaky test from #549 is retried once on its own. |
+| `Push-Pruefung.ps1` | before `git push` | blocks while the working tree has uncommitted changes |
+| `Migration-Anwenden-Hinweis.ps1` | after `dotnet ef migrations add` | reminds to run `dotnet ef database update` right away |
+
+- The commit check looks at the working tree, not only the index (`git add -A && git commit` stages after the hook ran).
+- It takes about 35–40 s for a WinUi-only change and 1.5–2 min with unit tests — **don't build and test by hand before
+  committing**, the hook does it. GUI tests are not part of it (CI, see memory).
+- A blocked call returns the findings to Claude (exit code 2); fix them, don't work around the hook.
+
 ## Dependency Updates (Dependabot, #542)
 
 `.github/dependabot.yml` checks NuGet (directories `/`, `/src/*`, `/tests/*` — via the `.slnx` alone Dependabot found

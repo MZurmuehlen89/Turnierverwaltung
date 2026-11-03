@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # SARIF-Befunde der statischen Codeanalyse (#498)
 analyse/
+
+# Sperrdatei der geplanten Claude-Code-Aufgaben (lokal)
+.claude/scheduled_tasks.lock
