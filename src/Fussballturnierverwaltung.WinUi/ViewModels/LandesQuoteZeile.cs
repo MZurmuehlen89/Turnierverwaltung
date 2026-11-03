@@ -81,13 +81,10 @@ public partial class LandesQuoteZeile : ObservableObject
         }
     }
 
-    private string PokalsiegerErgibt(Domain.Entitaeten.Ranglisten.Rangliste rangliste)
-    {
-        var sieger = rangliste.Pokalsieger?.Name ?? "kein Pokalsieger hinterlegt";
-        return Kontingente.Spielklassen(rangliste) is [var oberste, ..] && Kontingente.Bereich(rangliste, oberste.Nummer, AbPlatz, 1) is not null
-            ? $"{sieger}, sonst {oberste.Name} ab Platz {AbPlatz}"
+    private string PokalsiegerErgibt(Domain.Entitaeten.Ranglisten.Rangliste rangliste) =>
+        Kontingente.Nachrueckbereich(rangliste, AbPlatz) is { } bereich
+            ? $"{rangliste.Pokalsieger?.Name ?? "kein Pokalsieger hinterlegt"}, sonst {bereich.Spielklasse.Name} ab Platz {AbPlatz}"
             : "passt nicht";
-    }
 
     /// <summary>Die Zeile als Eingabe; <c>null</c> ohne gewähltes Land (zählt nicht und wird nicht gespeichert).</summary>
     public LandesQuoteZeileEingabe? AlsEingabe() =>

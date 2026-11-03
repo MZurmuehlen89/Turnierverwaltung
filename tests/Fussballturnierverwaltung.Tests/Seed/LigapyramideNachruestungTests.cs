@@ -148,8 +148,10 @@ public class LigapyramideNachruestungTests
         pokalsieger["Ligapyramide Mexiko 2024/25"].Should().BeNull("Mexiko hat keinen Pokal");
     }
 
+    // Bestehende Datenbanken bekommen ihn einmalig über die Migration (PokalsiegerNachruestung) — ein im Editor
+    // entfernter Pokalsieger kommt nicht zurück.
     [Fact]
-    public async Task BestehendePyramideOhnePokalsieger_WirdErgaenzt()
+    public async Task EntfernterPokalsieger_BleibtEntfernt()
     {
         var optionen = NeueDatenbank();
         await SeedLaufAsync(optionen);
@@ -161,10 +163,21 @@ public class LigapyramideNachruestungTests
 
         var protokoll = await SeedLaufAsync(optionen);
 
-        protokoll.Select(p => (p.Anzahl, p.Text)).Should().Equal((1, "Pokalsieger an Ligapyramiden nachgerüstet."));
+        protokoll.Should().BeEmpty();
         await using var pruef = new TurnierverwaltungDbContext(optionen);
-        (await pruef.Ranglisten.Include(r => r.Pokalsieger).SingleAsync(r => r.Name == RANGLISTE))
-            .Pokalsieger!.Name.Should().Be("VfB Stuttgart");
+        (await pruef.Ranglisten.SingleAsync(r => r.Name == RANGLISTE)).PokalsiegerId.Should().BeNull();
+    }
+
+    [Fact]
+    public void PokalsiegerSql_EinUpdateJePyramideMitPokalsieger_EigenesLandZuerst()
+    {
+        var sql = PokalsiegerNachruestung.Sql();
+
+        sql.Split("UPDATE Ranglisten").Should().HaveCount(26 + 1);
+        sql.Should().Contain("WHERE m.Name = N'VfB Stuttgart' AND l.FifaCode IN (N'GER')")
+            .And.Contain("WHERE Name = N'Ligapyramide Deutschland 2025/26' AND PokalsiegerId IS NULL;")
+            .And.Contain("l.FifaCode IN (N'USA', N'CAN')")
+            .And.Contain("ORDER BY CASE l.FifaCode WHEN N'USA' THEN 0 WHEN N'CAN' THEN 1 END, m.Id");
     }
 
     [Fact]

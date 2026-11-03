@@ -78,7 +78,7 @@ public partial class LigapyramideViewModel : ObservableObject
     [
         HatAbschnitte ? $"{Abschnitte.Count} Abschnitte" : null,
         double.IsNaN(Profigrenze) ? null : $"Profigrenze Spielklasse {(int)Math.Round(Profigrenze)}",
-        PokalsiegerId is null ? null : $"Pokalsieger {Pokalsieger.Gewaehlt?.Name}"
+        PokalsiegerId is null ? null : $"Pokalsieger {Pokalsieger.Gewaehlt?.Name ?? $"Id {PokalsiegerId}"}"
     ], "keine Abschnitte");
 
     /// <summary>Fehler, die das Speichern verhindern (Meldungsspalte).</summary>
@@ -98,7 +98,9 @@ public partial class LigapyramideViewModel : ObservableObject
         try
         {
             Profigrenze = rangliste?.ProfigrenzeSpielklasse ?? double.NaN;
-            PokalsiegerSetzen(rangliste?.PokalsiegerId is int id ? Pokalsieger.OptionFuer(id) : null);
+            // Die Id gilt auch, wenn die Suchbox die Mannschaft nicht führt — sonst ginge sie beim Speichern verloren.
+            Pokalsieger.Anzeigen(rangliste?.PokalsiegerId is int id ? Pokalsieger.OptionFuer(id) : null);
+            PokalsiegerId = rangliste?.PokalsiegerId;
             foreach (var alt in Abschnitte) alt.PropertyChanged -= ZeileGeaendert;
             Abschnitte.Clear();
             foreach (var abschnitt in rangliste?.Abschnitte.OrderBy(a => a.BisPlatz) ?? Enumerable.Empty<RanglistenAbschnitt>())

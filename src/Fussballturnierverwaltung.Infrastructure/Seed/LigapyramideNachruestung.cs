@@ -9,7 +9,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Seed;
 /// fehlt — bei neuen wie bei bestehenden Datenbanken. Sie hat keine Ranglisten-Quelle (von Hand gepflegt). Eine neue
 /// Pyramide wird die Rangliste ihres Landes, solange das Land noch keine hat (#572). Eine vorhandene Rangliste gleichen
 /// Namens bleibt unangetastet. Vereine werden im Land der Pyramide und in ihren Gastländern gesucht (#582). Den
-/// Pokalsieger (#583) trägt sie an jeder Pyramide des Seeds nach, die noch keinen hat.</summary>
+/// Pokalsieger (#583) setzt sie beim Anlegen; bestehende Pyramiden bekamen ihn einmalig über
+/// <see cref="PokalsiegerNachruestung"/>.</summary>
 internal static class LigapyramideNachruestung
 {
     public static async Task AusfuehrenAsync(
@@ -21,27 +22,6 @@ internal static class LigapyramideNachruestung
                 angelegt++;
         if (angelegt > 0)
             protokollieren(angelegt, "Ligapyramiden nachgerüstet.");
-
-        int pokalsieger = 0;
-        foreach (var pyramide in LigapyramidenSeedDaten.Alle.Where(p => p.Pokalsieger is not null))
-            if (await PokalsiegerErgaenzenAsync(context, pyramide, ct))
-                pokalsieger++;
-        if (pokalsieger > 0)
-            protokollieren(pokalsieger, "Pokalsieger an Ligapyramiden nachgerüstet.");
-    }
-
-    // Bestehende Pyramiden (neue bekommen ihn beim Anlegen). Wie die Wappen: ergänzt, solange keiner gesetzt ist — auch
-    // einen vom Nutzer entfernten.
-    private static async Task<bool> PokalsiegerErgaenzenAsync(
-        TurnierverwaltungDbContext context, LigapyramidenSeedDaten.Pyramide pyramide, CancellationToken ct)
-    {
-        var rangliste = await context.Ranglisten.FirstOrDefaultAsync(r => r.Name == pyramide.Name && r.PokalsiegerId == null, ct);
-        if (rangliste is null) return false;
-        if (!(await VereinsIdsAsync(context, pyramide, ct)).TryGetValue(pyramide.Pokalsieger!, out var id)) return false;
-
-        rangliste.PokalsiegerId = id;
-        await context.SaveChangesAsync(ct);
-        return true;
     }
 
     private static async Task<bool> NachruestenAsync(

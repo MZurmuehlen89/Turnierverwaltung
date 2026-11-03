@@ -22,7 +22,7 @@ public static class LigapyramidenSeedDaten
         public IEnumerable<string> VereinsLaender => [Land, .. Gastlaender ?? []];
 
         /// <summary>Der nationale Pokalsieger zum Stand der Pyramide (#583), <c>null</c> ohne Eintrag.</summary>
-        public string? Pokalsieger => PokalsiegerJeRangliste.GetValueOrDefault(Name);
+        public string? Pokalsieger => _pokalsiegerJeRangliste.GetValueOrDefault(Name);
     }
 
     // ── Pokalsieger (#583) ───────────────────────────────────────────────────
@@ -30,7 +30,7 @@ public static class LigapyramidenSeedDaten
     // Der Pokalsieger der Saison, auf die sich die Pyramide bezieht (2024 bzw. 2024/25; Deutschland: der Titelverteidiger
     // in die Saison 2025/26). Er muss im Vereins-Seed stehen und darf aus jeder Spielklasse kommen. Ohne Eintrag:
     // Österreich (Wolfsberger AC fehlt im Seed), Mexiko (kein Pokal), Marokko (Quellen zum Throne Cup 2024/25 uneins).
-    private static readonly Dictionary<string, string> PokalsiegerJeRangliste = new()
+    private static readonly Dictionary<string, string> _pokalsiegerJeRangliste = new()
     {
         [RANGLISTE_DEUTSCHLAND] = "VfB Stuttgart",
         [RANGLISTE_ENGLAND] = "Crystal Palace",

@@ -43,7 +43,7 @@ public sealed record Teilnehmerauswahl(IReadOnlyList<int> Mannschaften, IReadOnl
         var lauf = new Lauf(pool, eingelegt);
         // Kontingente mit Spielklasse zuerst: sie verlangen feste Vereine. Der Pokalsieger danach, denn ob er nachrückt,
         // hängt daran, ob er schon über die Liga im Turnier ist; die übrigen nehmen, was danach übrig ist.
-        foreach (var kontingent in quoten.Landesquoten.OrderBy(Reihenfolge))
+        foreach (var kontingent in quoten.Landesquoten.OrderBy(Bearbeitungsfolge))
             lauf.LandesKontingentBesetzen(kontingent);
         foreach (var kontingent in quoten.Verbandsquoten)
             lauf.VerbandsKontingentBesetzen(kontingent);
@@ -51,7 +51,7 @@ public sealed record Teilnehmerauswahl(IReadOnlyList<int> Mannschaften, IReadOnl
         return new Teilnehmerauswahl(lauf.Neu, lauf.Fehlbestaende);
     }
 
-    private static int Reihenfolge(LandesKontingent k) => k switch
+    private static int Bearbeitungsfolge(LandesKontingent k) => k switch
     {
         { Spielklasse: not null } => 0,
         { Pokalsieger: true } => 1,
@@ -114,22 +114,22 @@ public sealed record Teilnehmerauswahl(IReadOnlyList<int> Mannschaften, IReadOnl
                 Fehlt(bezeichnung, k.Anzahl, "keine Rangliste");
             else if (k.Rangliste.PokalsiegerId is not int sieger)
                 Fehlt(bezeichnung, k.Anzahl, "kein Pokalsieger an der Rangliste");
-            else if (Kontingente.Spielklassen(k.Rangliste) is not [var oberste, ..])
-                Fehlt(bezeichnung, k.Anzahl, "keine Ligapyramide");
+            else if (Kontingente.Nachrueckbereich(k.Rangliste, k.AbPlatz ?? 1) is not { } nachrueckbereich)
+                Fehlt(bezeichnung, k.Anzahl, "Nachrücken ab nicht in der Rangliste");
             else
             {
-                var kandidaten = PokalKandidaten(k.Rangliste, sieger, oberste, oberste.ErsterRang + (k.AbPlatz ?? 1) - 1)
+                var kandidaten = PokalKandidaten(k.Rangliste, sieger, nachrueckbereich)
                     .Where(id => AusLand(id, k.LandId) && !_aufLandesquote.Contains(id));
                 NichtBesetzbar(bezeichnung, k.Anzahl - Besetzen(kandidaten, k.Anzahl, AufLandesquote));
             }
         }
 
-        private IEnumerable<int> PokalKandidaten(Rangliste rangliste, int sieger, SpielklassenInfo oberste, int nachrueckenAb)
+        private IEnumerable<int> PokalKandidaten(Rangliste rangliste, int sieger, KontingentBereich nachrueckbereich)
         {
             int? rang = rangliste.Eintraege.FirstOrDefault(e => e.MannschaftId == sieger)?.Rang;
-            bool qualifiziert = _aufLandesquote.Contains(sieger) || rang < nachrueckenAb;
+            bool qualifiziert = _aufLandesquote.Contains(sieger) || rang < nachrueckbereich.ErsterRang;
             return qualifiziert
-                ? Reihenfolge(rangliste, e => e.Rang >= nachrueckenAb && e.Rang <= oberste.LetzterRang)
+                ? Reihenfolge(rangliste, e => e.Rang >= nachrueckbereich.ErsterRang && e.Rang <= nachrueckbereich.LetzterRang)
                 : [sieger];
         }
 

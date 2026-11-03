@@ -63,9 +63,8 @@ public class LandesQuoteValidator
         int abPlatz = zeile.GespeicherterAbPlatz!.Value;
         if (land?.Rangliste is not { Abschnitte.Count: > 0 } pyramide)
             yield return $"{name} hat keine Ligapyramide, ein Pokalsieger-Kontingent ist nicht möglich.";
-        else if (Kontingente.Spielklassen(pyramide)[0] is var oberste
-                 && Kontingente.Bereich(pyramide, oberste.Nummer, abPlatz, 1) is null)
-            yield return $"{name}: Nachrücken ab Platz {abPlatz} liegt nicht in der {oberste.Name}.";
+        else if (Kontingente.Nachrueckbereich(pyramide, abPlatz) is null)
+            yield return $"{name}: Nachrücken ab Platz {abPlatz} liegt nicht in der {Kontingente.Spielklassen(pyramide)[0].Name}.";
     }
 
     /// <summary>Mehrere Zeilen eines Landes: keine für das ganze Land, höchstens ein Pokalsieger, Bereiche je

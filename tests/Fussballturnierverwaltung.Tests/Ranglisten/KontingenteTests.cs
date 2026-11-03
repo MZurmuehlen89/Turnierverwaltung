@@ -21,6 +21,19 @@ public class KontingenteTests
     };
 
     [Fact]
+    public void Nachrueckbereich_ObersteSpielklasseAbPlatzBisZuIhremEnde()
+    {
+        var bereich = Kontingente.Nachrueckbereich(Pyramide(), nachrueckenAb: 3);
+
+        bereich.Should().NotBeNull();
+        (bereich!.Spielklasse.Nummer, bereich.ErsterRang, bereich.LetzterRang).Should().Be((1, 3, 4));
+    }
+
+    [Fact]
+    public void Nachrueckbereich_HinterDerObersten_Spielklasse_Null() =>
+        Kontingente.Nachrueckbereich(Pyramide(), nachrueckenAb: 5).Should().BeNull();
+
+    [Fact]
     public void Spielklassen_FasstStaffelnZusammenUndOrdnetNachKlasse() =>
         Kontingente.Spielklassen(Pyramide()).Should().Equal(
             new SpielklassenInfo(1, "Bundesliga", 1, 4),

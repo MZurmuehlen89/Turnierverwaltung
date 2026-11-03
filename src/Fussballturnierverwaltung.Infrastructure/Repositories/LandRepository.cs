@@ -13,8 +13,6 @@ public class LandRepository(TurnierverwaltungDbContext context)
         => await Context.Laender
             .Include(l => l.Verband)
             .Include(l => l.Rangliste!).ThenInclude(r => r.Abschnitte)
-            // Pokalsieger für die Spalte „ergibt“ der Landes-Quoten (#583).
-            .Include(l => l.Rangliste!).ThenInclude(r => r.Pokalsieger)
             .OrderBy(l => l.Kontinent)
             .ThenBy(l => l.Name)
             .ToListAsync(ct);
@@ -23,6 +21,7 @@ public class LandRepository(TurnierverwaltungDbContext context)
         => await Context.Laender
             .Include(l => l.Verband)
             .Include(l => l.Rangliste!).ThenInclude(r => r.Abschnitte)
+            // Pokalsieger für die Spalte „ergibt“ der Landes-Quoten im Turnierkopf (#583).
             .Include(l => l.Rangliste!).ThenInclude(r => r.Pokalsieger)
             .OrderBy(l => l.Name)
             .ToListAsync(ct);

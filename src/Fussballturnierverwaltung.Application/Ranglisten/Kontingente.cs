@@ -43,6 +43,14 @@ public static class Kontingente
             : null;
     }
 
+    /// <summary>Wohin beim Pokalsieger-Kontingent (#583) nachgerückt wird: die oberste Spielklasse ab
+    /// <paramref name="nachrueckenAb"/> bis zu ihrem Ende; <c>null</c> ohne Pyramide oder wenn der Platz nicht in die
+    /// oberste Spielklasse passt.</summary>
+    public static KontingentBereich? Nachrueckbereich(Rangliste rangliste, int nachrueckenAb) =>
+        Spielklassen(rangliste) is [var oberste, ..] && nachrueckenAb >= 1 && nachrueckenAb <= oberste.Plaetze
+            ? new KontingentBereich(oberste, nachrueckenAb, oberste.Plaetze)
+            : null;
+
     /// <summary>Eine Staffel trägt ihren eigenen Namen; parallele Staffeln den gemeinsamen Wortanfang
     /// („Regionalliga Nordost“, „Regionalliga West“ → „Regionalliga“), ohne einen solchen „Spielklasse n“.</summary>
     private static string SpielklassenName(int nummer, IReadOnlyList<string> staffeln)
