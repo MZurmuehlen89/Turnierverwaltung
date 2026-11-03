@@ -13,8 +13,9 @@ public sealed class Ligazugehoerigkeit
     public static Ligazugehoerigkeit Keine { get; } = new(new Dictionary<int, string>());
 
     /// <summary>Liga je Mannschaft aus den Ligapyramiden der Länder. Welche Pyramide für einen Verein gilt, entscheidet
-    /// der Verweis seines Landes (#572) – die Pyramiden enthalten nur die Einträge der eigenen Vereine. Innerhalb einer
-    /// Pyramide gilt der beste Platz, Plätze hinter dem letzten Abschnitt bleiben ohne Liga.</summary>
+    /// der Verweis seines Landes (#572); dazu kommen Vereine aus Gastländern einer Liga (Kanadier in der MLS, #582) –
+    /// sie stehen in der Pyramide des Gastgebers. Innerhalb einer Pyramide gilt der beste Platz, Plätze hinter dem
+    /// letzten Abschnitt bleiben ohne Liga.</summary>
     public static Ligazugehoerigkeit Aus(IEnumerable<Rangliste> pyramidenDerLaender)
     {
         var jeMannschaft = new Dictionary<int, string>();

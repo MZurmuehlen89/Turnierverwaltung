@@ -12,6 +12,12 @@ public class LigapyramidenSeedDatenTests
             .Select((l, i) => (l.FifaCode, Id: i + 100))
             .ToDictionary(l => l.FifaCode, l => l.Id);
 
+    // Land und Name jedes Seed-Vereins.
+    private static readonly HashSet<(string Land, string Name)> _vereine =
+        VereinsmannschaftenSeedDaten.Erstellen(_landIds)
+            .Select(m => (Land: _landIds.Single(l => l.Value == m.LandId).Key, m.Name))
+            .ToHashSet();
+
     [Fact]
     public void JedesLandHatHoechstensEinePyramide() =>
         LigapyramidenSeedDaten.Alle.Select(p => p.Land).Should().OnlyHaveUniqueItems();
@@ -20,21 +26,17 @@ public class LigapyramidenSeedDatenTests
     [Fact]
     public void JederVereinDerPyramidenStehtImSeedSeinesLandesOderEinesGastlands()
     {
-        var landJeId = _landIds.ToDictionary(l => l.Value, l => l.Key);
-        var vereine = VereinsmannschaftenSeedDaten.Erstellen(_landIds)
-            .Select(m => (Land: landJeId[m.LandId], m.Name))
-            .ToHashSet();
-
         var unbekannt = LigapyramidenSeedDaten.Alle
             .SelectMany(p => p.Abschnitte.SelectMany(a => a.Vereine).OfType<string>().Select(name => (Pyramide: p, Name: name)))
-            .Where(v => !v.Pyramide.VereinsLaender.Any(land => vereine.Contains((land, v.Name))))
+            .Where(v => !v.Pyramide.VereinsLaender.Any(land => _vereine.Contains((land, v.Name))))
             .Select(v => (v.Pyramide.Land, v.Name))
             .ToList();
 
         unbekannt.Should().BeEmpty();
     }
 
-    // „Platz 1 = Meister“ (#574): jedes Kontingent braucht in seiner Spielklasse einen Verein auf jedem seiner Plätze.
+    // „Platz 1 = Meister“ (#574): jedes Kontingent braucht in seiner Spielklasse einen Verein auf jedem seiner Plätze —
+    // und zwar einen des eigenen Landes: Gastvereine (#582) überspringt die Teilnehmerauswahl.
     [Fact]
     public void JedesLandesKontingent_FindetAufJedemSeinerPlaetzeEinenVerein()
     {
@@ -55,6 +57,7 @@ public class LigapyramidenSeedDatenTests
         if (pyramide is null) return false;
         var klasse = pyramide.Abschnitte.Where(a => a.Spielklasse == kontingent.Spielklasse).SelectMany(a => a.Vereine).ToList();
         int bis = kontingent.AbPlatz + kontingent.Anzahl - 1;
-        return bis <= klasse.Count && klasse.Skip(kontingent.AbPlatz - 1).Take(kontingent.Anzahl).All(v => v is not null);
+        return bis <= klasse.Count && klasse.Skip(kontingent.AbPlatz - 1).Take(kontingent.Anzahl)
+            .All(v => v is not null && _vereine.Contains((kontingent.FifaCode, v)));
     }
 }
