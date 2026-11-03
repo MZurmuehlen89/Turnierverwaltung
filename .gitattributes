@@ -1,0 +1,2 @@
+# Shell-Skripte immer mit LF: bash scheitert an CRLF (Hook-Vorfilter, #586)
+*.sh text eol=lf
