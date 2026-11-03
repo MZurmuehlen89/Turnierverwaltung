@@ -17,7 +17,8 @@ public static class SeedVorlagenAbgleich
     // ── Quoten und Kontingente (Issue #574) ───────────────────────────────────
 
     /// <summary>Die Quoten des Seeds, die der Vorlage fehlen — je Kontingent, damit spätere Ergänzungen des Seeds
-    /// nachkommen: eine Verbandsquote je Verband, ein Landes-Kontingent je Land, Spielklasse und Startplatz. Vorhandene
+    /// nachkommen: eine Verbandsquote je Verband, ein Landes-Kontingent je Land, Spielklasse, Startplatz und Art (Pokalsieger,
+    /// #583). Vorhandene
     /// Quoten bleiben, auch mit anderer Anzahl. Die neuen Zeilen verweisen auf die Vorlage, anlegen muss sie der
     /// Aufrufer.</summary>
     public static (List<VerbandsQuote> Verbaende, List<LandesQuote> Laender) FehlendeQuoten(
@@ -28,10 +29,12 @@ public static class SeedVorlagenAbgleich
             .Select(q => new VerbandsQuote { TurnierInstanzId = vorlage.Id, VerbandId = q.VerbandId, Anzahl = q.Anzahl })
             .ToList();
         var laender = soll.LandesQuoten
-            .Where(q => vorlage.LandesQuoten.All(v => (v.LandId, v.Spielklasse, v.AbPlatz) != (q.LandId, q.Spielklasse, q.AbPlatz)))
+            .Where(q => vorlage.LandesQuoten.All(v =>
+                (v.LandId, v.Spielklasse, v.AbPlatz, v.Pokalsieger) != (q.LandId, q.Spielklasse, q.AbPlatz, q.Pokalsieger)))
             .Select(q => new LandesQuote
             {
                 TurnierInstanzId = vorlage.Id, LandId = q.LandId, Anzahl = q.Anzahl, Spielklasse = q.Spielklasse, AbPlatz = q.AbPlatz,
+                Pokalsieger = q.Pokalsieger,
             })
             .ToList();
         return (verbaende, laender);

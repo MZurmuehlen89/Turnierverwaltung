@@ -51,10 +51,26 @@ public class LigapyramidenSeedDatenTests
         unerfuellt.Should().BeEmpty();
     }
 
-    // Parallele Staffeln einer Klasse zählen ihre Plätze durch, wie in Kontingente.Spielklassen.
+    // Pokalsieger (#583): ein Tippfehler im Namen der Pyramide ließe den Eintrag still verfallen, einer im Vereinsnamen
+    // ließe die Nachrüstung ihn nicht finden. 26 Pyramiden haben einen (ohne Österreich, Mexiko, Marokko).
+    [Fact]
+    public void JederPokalsieger_StehtImSeedSeinesLandes()
+    {
+        var mitPokalsieger = LigapyramidenSeedDaten.Alle.Where(p => p.Pokalsieger is not null).ToList();
+
+        mitPokalsieger.Should().HaveCount(26);
+        mitPokalsieger.Where(p => !p.VereinsLaender.Any(land => _vereine.Contains((land, p.Pokalsieger!))))
+            .Select(p => (p.Land, p.Pokalsieger)).Should().BeEmpty();
+    }
+
+    // Parallele Staffeln einer Klasse zählen ihre Plätze durch, wie in Kontingente.Spielklassen. Ein Pokalsieger-Kontingent
+    // braucht den Pokalsieger und „Nachrücken ab“ in der obersten Spielklasse.
     private static bool PlaetzeBesetzt(LigapyramidenSeedDaten.Pyramide? pyramide, QuotenSeedDaten.LandesKontingent kontingent)
     {
         if (pyramide is null) return false;
+        if (kontingent.Pokalsieger)
+            return pyramide.Pokalsieger is not null
+                && kontingent.AbPlatz <= pyramide.Abschnitte.Where(a => a.Spielklasse == 1).Sum(a => a.Vereine.Length);
         var klasse = pyramide.Abschnitte.Where(a => a.Spielklasse == kontingent.Spielklasse).SelectMany(a => a.Vereine).ToList();
         int bis = kontingent.AbPlatz + kontingent.Anzahl - 1;
         return bis <= klasse.Count && klasse.Skip(kontingent.AbPlatz - 1).Take(kontingent.Anzahl)

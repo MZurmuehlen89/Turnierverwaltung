@@ -5,21 +5,25 @@ namespace Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 /// <summary>Verbandsquoten und Landes-Kontingente der Turniervorlagen (#574), je nach der letzten Ausgabe bzw. Saison
 /// der Epoche. Eine Quote zählt nur garantierte Direktplätze: der Gastgeber bei seinem Verband, Play-off-Plätze und
 /// Plätze gemeinsamer Zonen mehrerer Verbände (Asien/Ozeanien bis 1982) bleiben frei. Europapokale nach der
-/// Zulassungsliste der Saison ohne die Umverteilung für Titelträger; Titelträger- und Qualifikationsplätze bleiben frei,
-/// Pokalsieger-Plätze kommen mit #583. Welche Vereine ein Kontingent trifft, ergibt die Rangliste des Landes in der App
+/// Zulassungsliste der Saison ohne die Umverteilung für Titelträger; Titelträger- und Qualifikationsplätze bleiben frei.
+/// Pokalsieger-Plätze (#583) rücken nach, wenn der Pokalsieger schon qualifiziert ist. Welche Vereine ein Kontingent trifft, ergibt die Rangliste des Landes in der App
 /// („letzte Saison“ = ihr Stand, Platz 1 = Meister). Bestehende Datenbanken:
 /// <see cref="SeedVorlagenAbgleich.FehlendeQuoten"/> je Kontingent.</summary>
 public static class QuotenSeedDaten
 {
     /// <summary>Kontingent eines Landes: <paramref name="Anzahl"/> Vereine der <paramref name="Spielklasse"/> ab
-    /// <paramref name="AbPlatz"/> — wie die App gespeichert, also immer mit Startplatz.</summary>
-    public sealed record LandesKontingent(string FifaCode, int Anzahl, int Spielklasse, int AbPlatz = 1);
+    /// <paramref name="AbPlatz"/> — wie die App gespeichert, also immer mit Startplatz. Mit
+    /// <paramref name="Pokalsieger"/> ohne Spielklasse, <paramref name="AbPlatz"/> = „Nachrücken ab“ (#583).</summary>
+    public sealed record LandesKontingent(string FifaCode, int Anzahl, int? Spielklasse, int AbPlatz = 1, bool Pokalsieger = false);
 
     public sealed record Quoten(IReadOnlyList<(string Verband, int Anzahl)> Verbaende, IReadOnlyList<LandesKontingent> Laender);
 
     private static Quoten Verbaende(params (string Verband, int Anzahl)[] verbaende) => new(verbaende, []);
 
     private static Quoten Laender(params LandesKontingent[] laender) => new([], laender);
+
+    // Platz des Pokalsiegers (#583); vor „Nachrücken ab“ liegen die Ligaplätze der höheren Wettbewerbe.
+    private static LandesKontingent Pokal(string fifaCode, int nachrueckenAb) => new(fifaCode, 1, null, nachrueckenAb, Pokalsieger: true);
 
     // Erste Liga ab Platz 1 — die Direktplätze der Champions League.
     private static LandesKontingent Spitze(string fifaCode, int anzahl) => new(fifaCode, anzahl, 1);
@@ -86,10 +90,13 @@ public static class QuotenSeedDaten
 
             // ── UEFA Europa League ──────────────────────────────────────────────
             // 2025/26: der Fünfte der Verbände 1–5; in England und Spanien rückte der Sechste nach, weil der Fünfte
-            // über die EPS in der Champions League spielte. Die Pokalsieger der Verbände 1–7 kommen mit #583.
+            // über die EPS in der Champions League spielte. Dazu die Pokalsieger der Verbände 1–7 (#583): nachgerückt
+            // wird hinter den Plätzen für Champions League (samt Qualifikation) und Europa League — Frankreich ab 6
+            // (Platz 4 in der CL-Qualifikation), Niederlande ab 4 (Platz 3), Portugal ab 3 (Platz 2).
             // Die Conference League hat keine Direktplätze in der Ligaphase.
             [("UEFA Europa League", "36 Teams · ab 2024/25")] = Laender(
-                new LandesKontingent("ENG", 1, 1, 6), new LandesKontingent("ITA", 1, 1, 5), new LandesKontingent("ESP", 1, 1, 6), new LandesKontingent("GER", 1, 1, 5), new LandesKontingent("FRA", 1, 1, 5)),
+                new LandesKontingent("ENG", 1, 1, 6), new LandesKontingent("ITA", 1, 1, 5), new LandesKontingent("ESP", 1, 1, 6), new LandesKontingent("GER", 1, 1, 5), new LandesKontingent("FRA", 1, 1, 5),
+                Pokal("ENG", 7), Pokal("ITA", 6), Pokal("ESP", 7), Pokal("GER", 6), Pokal("FRA", 6), Pokal("NED", 4), Pokal("POR", 3)),
 
             // ── Deutschland ─────────────────────────────────────────────────────
             [("Bundesliga", "18 Teams")] = Laender(new LandesKontingent("GER", 18, 1)),
@@ -123,6 +130,7 @@ public static class QuotenSeedDaten
                 vorlage.LandesQuoten.Add(new LandesQuote
                 {
                     LandId = landId, Anzahl = kontingent.Anzahl, Spielklasse = kontingent.Spielklasse, AbPlatz = kontingent.AbPlatz,
+                    Pokalsieger = kontingent.Pokalsieger,
                 });
     }
 }

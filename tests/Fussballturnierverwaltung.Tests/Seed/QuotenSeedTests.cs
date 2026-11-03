@@ -119,6 +119,24 @@ public class QuotenSeedTests
         laender.Select(q => q.Spielklasse).Should().BeEquivalentTo([2, 3]);
     }
 
+    // #583: eine Europa-League-Vorlage mit den Ligakontingenten aus #574 bekommt die sieben Pokalsieger-Plätze dazu — auch
+    // dort, wo „Nachrücken ab“ einem Ligakontingent gleicht (Spielklasse und Art unterscheiden sie).
+    [Fact]
+    public void FehlendeQuoten_EuropaLeagueMitLigakontingenten_ErgaenztDiePokalsieger()
+    {
+        var soll = Vorlagen().Single(v => v.Name == "UEFA Europa League" && v.Variante == "36 Teams · ab 2024/25");
+        var bestand = new TurnierInstanz { Id = 7, Name = soll.Name, Variante = soll.Variante };
+        foreach (var liga in soll.LandesQuoten.Where(q => !q.Pokalsieger))
+            bestand.LandesQuoten.Add(new LandesQuote { LandId = liga.LandId, Anzahl = 1, Spielklasse = 1, AbPlatz = liga.AbPlatz });
+
+        var (_, laender) = SeedVorlagenAbgleich.FehlendeQuoten(bestand, soll);
+
+        var landJeId = _landIds.ToDictionary(l => l.Value, l => l.Key);
+        laender.Should().OnlyContain(q => q.Pokalsieger && q.Spielklasse == null && q.Anzahl == 1);
+        laender.Select(q => (landJeId[q.LandId], q.AbPlatz)).Should().BeEquivalentTo(
+            [("ENG", (int?)7), ("ITA", 6), ("ESP", 7), ("GER", 6), ("FRA", 6), ("NED", 4), ("POR", 3)]);
+    }
+
     [Fact]
     public void FehlendeQuoten_VerbandMitEigenerAnzahl_Bleibt()
     {

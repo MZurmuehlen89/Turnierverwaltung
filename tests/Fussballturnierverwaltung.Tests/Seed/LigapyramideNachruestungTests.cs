@@ -133,6 +133,40 @@ public class LigapyramideNachruestungTests
         (await pruef.Laender.SingleAsync(l => l.FifaCode == "NED")).RanglisteId.Should().Be(eigene);
     }
 
+    // #583: Pokalsieger beim Anlegen, auch aus einer Liga ohne Kontingent; Pyramiden ohne Eintrag bleiben ohne.
+    [Fact]
+    public async Task LeereDatenbank_PyramidenMitPokalsieger()
+    {
+        var optionen = NeueDatenbank();
+        await SeedLaufAsync(optionen);
+
+        await using var ctx = new TurnierverwaltungDbContext(optionen);
+        var pokalsieger = (await ctx.Ranglisten.Include(r => r.Pokalsieger).Where(r => r.Name.StartsWith("Ligapyramide "))
+            .ToListAsync()).ToDictionary(r => r.Name, r => r.Pokalsieger?.Name);
+        (pokalsieger[RANGLISTE], pokalsieger["Ligapyramide Portugal 2024/25"], pokalsieger["Ligapyramide Neuseeland 2024"])
+            .Should().Be(("VfB Stuttgart", "Sporting CP", "Wellington Olympic"));
+        pokalsieger["Ligapyramide Mexiko 2024/25"].Should().BeNull("Mexiko hat keinen Pokal");
+    }
+
+    [Fact]
+    public async Task BestehendePyramideOhnePokalsieger_WirdErgaenzt()
+    {
+        var optionen = NeueDatenbank();
+        await SeedLaufAsync(optionen);
+        await using (var ctx = new TurnierverwaltungDbContext(optionen))
+        {
+            (await ctx.Ranglisten.SingleAsync(r => r.Name == RANGLISTE)).PokalsiegerId = null;
+            await ctx.SaveChangesAsync();
+        }
+
+        var protokoll = await SeedLaufAsync(optionen);
+
+        protokoll.Select(p => (p.Anzahl, p.Text)).Should().Equal((1, "Pokalsieger an Ligapyramiden nachgerüstet."));
+        await using var pruef = new TurnierverwaltungDbContext(optionen);
+        (await pruef.Ranglisten.Include(r => r.Pokalsieger).SingleAsync(r => r.Name == RANGLISTE))
+            .Pokalsieger!.Name.Should().Be("VfB Stuttgart");
+    }
+
     [Fact]
     public async Task ZweiterLauf_ErgaenztNichts()
     {

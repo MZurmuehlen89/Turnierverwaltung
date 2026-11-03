@@ -20,7 +20,45 @@ public static class LigapyramidenSeedDaten
     {
         /// <summary>Länder, in denen die Vereine der Pyramide gesucht werden: das eigene zuerst, dann die Gastländer.</summary>
         public IEnumerable<string> VereinsLaender => [Land, .. Gastlaender ?? []];
+
+        /// <summary>Der nationale Pokalsieger zum Stand der Pyramide (#583), <c>null</c> ohne Eintrag.</summary>
+        public string? Pokalsieger => PokalsiegerJeRangliste.GetValueOrDefault(Name);
     }
+
+    // ── Pokalsieger (#583) ───────────────────────────────────────────────────
+
+    // Der Pokalsieger der Saison, auf die sich die Pyramide bezieht (2024 bzw. 2024/25; Deutschland: der Titelverteidiger
+    // in die Saison 2025/26). Er muss im Vereins-Seed stehen und darf aus jeder Spielklasse kommen. Ohne Eintrag:
+    // Österreich (Wolfsberger AC fehlt im Seed), Mexiko (kein Pokal), Marokko (Quellen zum Throne Cup 2024/25 uneins).
+    private static readonly Dictionary<string, string> PokalsiegerJeRangliste = new()
+    {
+        [RANGLISTE_DEUTSCHLAND] = "VfB Stuttgart",
+        [RANGLISTE_ENGLAND] = "Crystal Palace",
+        ["Ligapyramide Spanien 2024/25"] = "FC Barcelona",
+        ["Ligapyramide Italien 2024/25"] = "Bologna FC",
+        ["Ligapyramide Frankreich 2024/25"] = "Paris Saint-Germain",
+        ["Ligapyramide Niederlande 2024/25"] = "Go Ahead Eagles",
+        ["Ligapyramide Portugal 2024/25"] = "Sporting CP",
+        ["Ligapyramide Belgien 2024/25"] = "Club Brugge KV",
+        ["Ligapyramide Türkei 2024/25"] = "Galatasaray SK",
+        ["Ligapyramide Tschechien 2024/25"] = "Sigma Olmütz",
+        ["Ligapyramide Schottland 2024/25"] = "Aberdeen FC",
+        ["Ligapyramide Serbien 2024/25"] = "Roter Stern Belgrad",
+        ["Ligapyramide Ukraine 2024/25"] = "Schachtar Donezk",
+        ["Ligapyramide Russland 2024/25"] = "CSKA Moskau",
+        ["Ligapyramide Brasilien 2024"] = "Flamengo",
+        ["Ligapyramide Argentinien 2024"] = "Central Córdoba Santiago del Estero",
+        ["Ligapyramide USA 2024"] = "Los Angeles FC",
+        ["Ligapyramide Saudi-Arabien 2024/25"] = "Al-Ittihad",
+        ["Ligapyramide Japan 2024"] = "Vissel Kobe",
+        ["Ligapyramide Südkorea 2024"] = "Pohang Steelers",
+        ["Ligapyramide Vereinigte Arabische Emirate 2024/25"] = "Shabab Al-Ahli",
+        ["Ligapyramide Ägypten 2024/25"] = "Zamalek SC",
+        ["Ligapyramide Tunesien 2024/25"] = "Espérance Tunis",
+        ["Ligapyramide Südafrika 2024/25"] = "Kaizer Chiefs",
+        ["Ligapyramide Neuseeland 2024"] = "Wellington Olympic",
+        ["Ligapyramide Australien 2024/25"] = "Macarthur FC",
+    };
 
     public static IReadOnlyList<Pyramide> Alle { get; } = [Deutschland(), England(), Spanien(), Italien(), Frankreich(), .. ErsteLigen2024_25(),
         .. LigenAusserhalbEuropas()];
