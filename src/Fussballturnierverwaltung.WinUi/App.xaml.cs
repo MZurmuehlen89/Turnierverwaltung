@@ -2,7 +2,6 @@ using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Einstellungen;
 using Fussballturnierverwaltung.Application.ImportExport;
 using Fussballturnierverwaltung.Application.Ranglisten;
-using Fussballturnierverwaltung.Application.Ranglisten.Import;
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spielplan;
@@ -97,7 +96,6 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<LandesQuoteValidator>();
         builder.Services.AddScoped<AuslosungsValidator>();
         builder.Services.AddScoped<RanglisteValidator>();
-        builder.Services.AddScoped<RanglistenQuelleValidator>();
         builder.Services.AddScoped<SpielErgebnisValidator>();
         builder.Services.AddScoped<ImportValidator>();
         builder.Services.AddScoped<MannschaftService>();
@@ -134,7 +132,6 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<TurnierBaumService>();
         builder.Services.AddScoped<SimulationsService>();
         builder.Services.AddScoped<RanglisteService>();
-        builder.Services.AddScoped<RanglistenQuelleService>();
         builder.Services.AddScoped<ImportExportService>();
 
         // RundenViewModel ist Datenhalter für Runden und Übergangsregeln (Issue #297/#348) — Scoped, damit

@@ -43,8 +43,7 @@ public interface IDialogService
     Task<string?> DateiSpeichernUnterAsync(string vorschlagsname, string erweiterungOhnePunkt, string dateiTypAnzeige);
 
     /// <summary>Setzt den aktuellen XamlRoot auf den übergebenen, selbst erstellten ContentDialog
-    /// (z.B. für Ranglisten-Import/-Quellen, #285) und zeigt ihn an — ViewModels bauen ihre eigenen,
-    /// fachspezifischen ContentDialogs analog zu den WPF-Window-Originalen, kennen aber keinen
+    /// (#285) und zeigt ihn an — ViewModels bauen ihre eigenen, fachspezifischen ContentDialogs, kennen aber keinen
     /// XamlRoot; das übernimmt zentral dieser Service (siehe Klassenkommentar oben).</summary>
     Task<ContentDialogResult> AnzeigenAsync(ContentDialog dialog);
 }

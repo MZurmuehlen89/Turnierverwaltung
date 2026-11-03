@@ -1,13 +1,11 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Ranglisten;
-using Fussballturnierverwaltung.Application.Ranglisten.Import;
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
-using Fussballturnierverwaltung.Infrastructure.Ranglisten;
 using Fussballturnierverwaltung.Infrastructure.Repositories;
 using Fussballturnierverwaltung.Infrastructure.Seed;
 using Fussballturnierverwaltung.Infrastructure.Wartung;
@@ -64,16 +62,6 @@ public static class InfrastrukturErweiterungen
 
         // Ranglisten-Repository
         services.AddScoped<IRanglisteRepository, RanglisteRepository>();
-        services.AddScoped<IRanglistenQuelleRepository, RanglistenQuelleRepository>();
-
-        // Ranglisten-Import (Issue #120)
-        services.AddScoped<IRanglistenHtmlAuswerter, RanglistenHtmlAuswerter>();
-        services.AddHttpClient<IHtmlHerunterlader, HttpHtmlHerunterlader>(client =>
-        {
-            client.Timeout = TimeSpan.FromSeconds(20);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd(
-                "Turnierverwaltung/1.0 (+https://github.com/MZurmuehlen89/Turnierverwaltung)");
-        });
 
         return services;
     }
