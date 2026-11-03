@@ -21,9 +21,12 @@ def search_title(query):
 
 def extract_club_image(content):
     # "Infobox sports club": Mehrspartenvereine wie Breiðablik UBK (#381)
-    if not any(s in content for s in ("Infobox football club", "Football club infobox", "Infobox sports club")):
+    # Gross-/Kleinschreibung der Infobox variiert ("Infobox Football club", #581)
+    kopf = content.lower()
+    if not any(s in kopf for s in ("infobox football club", "football club infobox", "infobox sports club")):
         return None
-    m = re.search(r"\|\s*(?:image|current|logo)\s*=\s*\[?\[?(?:File:)?([^\|\]\n]+\.(?:svg|png|SVG|PNG))", content)
+    # #581: Logos ausserhalb Europas oft als JPG/GIF und mit altem Praefix "Image:"
+    m = re.search(r"\|\s*(?:image|current|logo)\s*=\s*\[?\[?(?:File:|Image:)?([^\|\]\n]+\.(?:svg|png|jpe?g|gif))", content, re.I)
     return m.group(1).strip() if m else None
 
 # Deutsche Namen aus vereine.tsv, die auf en.wikipedia unter einem anderen

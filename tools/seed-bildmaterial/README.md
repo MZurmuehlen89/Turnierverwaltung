@@ -16,6 +16,7 @@ Resource eingebunden wird.
 | Vereinswappen Nachtrag #351 (GER 3. Liga/Regionalliga, ENG Championship/League One) | ✅ 76/76 (`python fetch_clubs.py 224 300`) | (#351-Commit) |
 | Vereinswappen Nachtrag #381 (Top 200 UEFA-Klub-Koeffizient, `python fetch_clubs.py 300 415`) | ✅ 114/115 (HNK Rijeka: Infobox ohne Logo) | (#381-Commit) |
 | Vereinswappen Nachtrag #575 (Segunda División, Serie B, Ligue 2 2024/25, `python fetch_clubs.py 415 475`) | ✅ 60/60 | (#575-Commit) |
+| Vereinswappen Nachtrag #581 (FIFA-Klub-WM-Ranking 2021–2024, Vereine außerhalb Europas, `python fetch_clubs.py 475 659`) | ✅ 181/184 (Central Coast FC, Galaxy FC, Vaivase-Tai: Infobox ohne Logo) | (#581-Commit) |
 | Turnierlogos #481 (ein Logo je Wettbewerb der Seed-Vorlagen) | ✅ siehe `turnierlogos_log.csv` | (#481-Commit) |
 
 Damit ist Issue #233 inhaltlich vollständig — die verbleibenden 12 Nationalmannschaften haben laut
@@ -71,6 +72,9 @@ Log-Einträgen geführt, siehe Commit-Historie).
   **frischen** DB dagegen aus. Dabei zusätzlich ein unreferenziertes Duplikat (zwei identische
   "Celtic FC"-Zeilen) in der lokalen Dev-DB gefunden und gelöscht — Ursache unklar, vermutlich Rest
   eines früheren doppelten Seed-Laufs, kein Code-Bug mehr in der aktuellen Seed-Quelle gefunden.
+- **Vereine außerhalb Europas (#581)**: Infoboxen in anderer Schreibweise (`Infobox Football club`,
+  `infobox football club`), Logos als GIF/JPG/JPEG und mit altem Präfix `Image:` — `extract_club_image`
+  prüft deshalb ohne Groß-/Kleinschreibung und nimmt diese Formate an (svgtool skaliert Rasterbilder).
 
 ## Nach jedem Lauf: konvertieren + einbetten
 
