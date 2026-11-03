@@ -104,4 +104,45 @@ public class LandesQuoteValidatorTests
     [Fact]
     public void OhneKapazitaetsangabe_SummeWirdNichtGeprueft() =>
         _validator.Validieren([new(10, 1000)], _laender).IstGueltig.Should().BeTrue();
+
+    // ── Pokalsieger (#583) ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Pokalsieger_NebenKontingent_IstGueltig() =>
+        Fehler(new(LandId: 10, Anzahl: 1, Spielklasse: 1, AbPlatz: 5), new(LandId: 10, Anzahl: 1, AbPlatz: 6, Pokalsieger: true))
+            .Should().BeEmpty();
+
+    [Fact]
+    public void Pokalsieger_NachrueckenAbAufKontingentplatz_UeberschneidetSichNicht() =>
+        Fehler(new(LandId: 10, Anzahl: 1, Spielklasse: 1, AbPlatz: 5), new(LandId: 10, Anzahl: 1, AbPlatz: 5, Pokalsieger: true))
+            .Should().BeEmpty();
+
+    [Fact]
+    public void Pokalsieger_MehrAlsEinPlatz_WirdAbgelehnt() =>
+        Fehler(new LandesQuoteZeileEingabe(LandId: 10, Anzahl: 2, Pokalsieger: true))
+            .Should().Equal("Deutschland: Das Pokalsieger-Kontingent hat genau einen Platz.");
+
+    [Fact]
+    public void Pokalsieger_Zweimal_WirdAbgelehnt() =>
+        Fehler(new(LandId: 10, Anzahl: 1, Pokalsieger: true), new(LandId: 10, Anzahl: 1, AbPlatz: 3, Pokalsieger: true))
+            .Should().Equal("Deutschland: Ein Land hat höchstens ein Pokalsieger-Kontingent.");
+
+    [Fact]
+    public void Pokalsieger_NebenGanzemLand_WirdAbgelehnt() =>
+        Fehler(new(LandId: 10, Anzahl: 4), new(LandId: 10, Anzahl: 1, Pokalsieger: true))
+            .Should().ContainMatch("*ohne Spielklasse*");
+
+    [Fact]
+    public void Pokalsieger_NachrueckenAbHinterDerObersten_Spielklasse_WirdAbgelehnt() =>
+        Fehler(new LandesQuoteZeileEingabe(LandId: 10, Anzahl: 1, AbPlatz: 19, Pokalsieger: true))
+            .Should().Equal("Deutschland: Nachrücken ab Platz 19 liegt nicht in der Bundesliga.");
+
+    [Fact]
+    public void Pokalsieger_OhneLigapyramide_WirdAbgelehnt() =>
+        Fehler(new LandesQuoteZeileEingabe(LandId: 20, Anzahl: 1, Pokalsieger: true))
+            .Should().ContainMatch("Malta hat keine Ligapyramide*");
+
+    [Fact]
+    public void Pokalsieger_OhneNachrueckenAb_ZaehltAbPlatz1() =>
+        new LandesQuoteZeileEingabe(LandId: 10, Anzahl: 1, Pokalsieger: true).GespeicherterAbPlatz.Should().Be(1);
 }

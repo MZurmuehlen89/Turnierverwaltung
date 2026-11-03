@@ -34,7 +34,8 @@ public class RanglisteService(
             Datum  = eingabe.Datum,
             Quelle = eingabe.Quelle.Trim(),
             RanglistenQuelleId = eingabe.RanglistenQuelleId,
-            ProfigrenzeSpielklasse = eingabe.ProfigrenzeSpielklasse
+            ProfigrenzeSpielklasse = eingabe.ProfigrenzeSpielklasse,
+            PokalsiegerId = eingabe.PokalsiegerId
         };
 
         foreach (var e in eingabe.Eintraege)
@@ -63,8 +64,9 @@ public class RanglisteService(
         rangliste.Name   = eingabe.Name.Trim();
         rangliste.Datum  = eingabe.Datum;
         rangliste.Quelle = eingabe.Quelle.Trim();
-        // Editor und Import geben die Profigrenze immer mit (der Import die bisherige, #393).
+        // Editor und Import geben Profigrenze und Pokalsieger immer mit (der Import die bisherigen, #393, #583).
         rangliste.ProfigrenzeSpielklasse = eingabe.ProfigrenzeSpielklasse;
+        rangliste.PokalsiegerId = eingabe.PokalsiegerId;
         // Nur ein Import (mit Quelle) setzt die Verknüpfung neu; manuelles Bearbeiten lässt sie stehen (#349).
         if (eingabe.RanglistenQuelleId is int quelleId)
             rangliste.RanglistenQuelleId = quelleId;

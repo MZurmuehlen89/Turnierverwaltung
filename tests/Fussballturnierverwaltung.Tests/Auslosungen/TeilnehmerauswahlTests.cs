@@ -52,6 +52,14 @@ public class TeilnehmerauswahlTests
     private static LandesKontingent Spanien(int anzahl) =>
         new(SPANIEN, "Spanien", anzahl, null, null, Liste(201, 202, 203, 204));
 
+    // Pokalsieger-Kontingent (#583): Nachrücken ab Platz der Bundesliga (1–4).
+    private static LandesKontingent Pokal(int? sieger, int nachrueckenAb, Rangliste? rangliste = null)
+    {
+        var liste = rangliste ?? Pyramide();
+        liste.PokalsiegerId = sieger;
+        return new(DEUTSCHLAND, "Deutschland", 1, null, nachrueckenAb, liste, Pokalsieger: true);
+    }
+
     private static Kontingentvorgabe Quoten(params LandesKontingent[] landes) => new(landes, []);
 
     private static Kontingentvorgabe Quoten(VerbandsKontingent verband, params LandesKontingent[] landes) => new(landes, [verband]);
@@ -130,6 +138,68 @@ public class TeilnehmerauswahlTests
     [Fact]
     public void ZweiKontingenteEinesLandes_UeberschneidenSichNicht() =>
         Waehlen(Quoten(Deutschland(2), Deutschland(4, spielklasse: 1)), eingang: 6).Mannschaften.Should().Equal(101, 102, 103, 104, 105, 106);
+
+    // ── Pokalsieger (#583) ────────────────────────────────────────────────────
+
+    [Fact]
+    public void Pokalsieger_NochNichtQualifiziert_BekommtDenPlatz() =>
+        Waehlen(Quoten(Pokal(sieger: 107, nachrueckenAb: 3), Deutschland(1, spielklasse: 1, abPlatz: 2)), eingang: 2)
+            .Mannschaften.Should().Equal(102, 107);
+
+    [Fact]
+    public void Pokalsieger_SchonUeberLigaplatzImTurnier_DerNaechsteRuecktNach()
+    {
+        var auswahl = Waehlen(Quoten(Pokal(sieger: 102, nachrueckenAb: 2), Deutschland(1, spielklasse: 1, abPlatz: 2)), eingang: 2);
+
+        auswahl.Mannschaften.Should().Equal(102, 103);
+        auswahl.Fehlbestaende.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Pokalsieger_VorNachrueckenAb_GiltAlsQualifiziert_DerErsteAbDortRuecktNach() =>
+        Waehlen(Quoten(Pokal(sieger: 101, nachrueckenAb: 3)), eingang: 1).Mannschaften.Should().Equal(103);
+
+    [Fact]
+    public void Pokalsieger_Nachruecker_UeberspringtVereineAufAndererLandesquote() =>
+        Waehlen(Quoten(Pokal(sieger: 101, nachrueckenAb: 2), Deutschland(1, spielklasse: 1, abPlatz: 2)), eingang: 2)
+            .Mannschaften.Should().Equal(102, 103);
+
+    [Fact]
+    public void Pokalsieger_AusserhalbDerRangliste_BekommtDenPlatz() =>
+        Waehlen(Quoten(Pokal(sieger: 109, nachrueckenAb: 1, rangliste: Pyramide(ohneRang: 9))), eingang: 1)
+            .Mannschaften.Should().Equal(109);
+
+    [Fact]
+    public void Pokalsieger_KeinerHinterlegt_Fehlbestand()
+    {
+        var auswahl = Waehlen(Quoten(Pokal(sieger: null, nachrueckenAb: 1)), eingang: 1);
+
+        auswahl.Mannschaften.Should().BeEmpty();
+        auswahl.Fehlbestaende.Should().Equal("Deutschland (Pokalsieger): 1 verlangt, kein Pokalsieger an der Rangliste");
+    }
+
+    [Fact]
+    public void Pokalsieger_KeinNachrueckerInDerObersten_Spielklasse_BleibtOffen()
+    {
+        var auswahl = Waehlen(Quoten(Pokal(sieger: 101, nachrueckenAb: 3), Deutschland(2, spielklasse: 1, abPlatz: 3)), eingang: 3);
+
+        auswahl.Mannschaften.Should().Equal(103, 104);
+        auswahl.Fehlbestaende.Should().Equal("Deutschland (Pokalsieger): 1 Platz nicht besetzbar");
+    }
+
+    [Fact]
+    public void Pokalsieger_NichtZugelassen_BleibtOffen() =>
+        Waehlen(Quoten(Pokal(sieger: 107, nachrueckenAb: 1)), eingang: 1, pool: [.. _pool.Where(k => k.MannschaftId != 107)])
+            .Fehlbestaende.Should().Equal("Deutschland (Pokalsieger): 1 Platz nicht besetzbar");
+
+    [Fact]
+    public void Pokalsieger_SchonEingelegt_ZaehltAufSeinenPlatz()
+    {
+        var auswahl = Waehlen(Quoten(Pokal(sieger: 107, nachrueckenAb: 1)), eingang: 1, eingelegt: new HashSet<int> { 107 });
+
+        auswahl.Mannschaften.Should().BeEmpty();
+        auswahl.Fehlbestaende.Should().BeEmpty();
+    }
 
     // ── Verbandsquoten ────────────────────────────────────────────────────────
 

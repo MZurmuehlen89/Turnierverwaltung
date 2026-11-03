@@ -16,14 +16,15 @@ public class LandesQuoteRepository(TurnierverwaltungDbContext context)
             .ToListAsync(ct);
 
     /// <summary>Synchronisiert per Schlüssel-Diff statt Löschen+Neuanlegen, siehe VerbandsQuoteRepository.QuotenErsetzenAsync.
-    /// Schlüssel ist das Kontingent (Land, Spielklasse, ab Platz), da ein Land mehrere Quoten haben kann (#572).</summary>
+    /// Schlüssel ist das Kontingent (Land, Spielklasse, ab Platz, Pokalsieger), da ein Land mehrere Quoten haben kann
+    /// (#572, #583).</summary>
     public async Task<IReadOnlyList<LandesQuote>> QuotenErsetzenAsync(int turnierInstanzId, IReadOnlyList<LandesQuote> neueQuoten, CancellationToken ct = default)
     {
         var alte = await Context.LandesQuoten.Where(q => q.TurnierInstanzId == turnierInstanzId).ToListAsync(ct);
         var alteNachSchluessel = alte.ToDictionary(Schluessel);
 
         var ergebnis = new List<LandesQuote>(neueQuoten.Count);
-        var neueSchluessel = new HashSet<(int, int?, int?)>();
+        var neueSchluessel = new HashSet<(int, int?, int?, bool)>();
 
         foreach (var neu in neueQuoten)
         {
@@ -46,5 +47,6 @@ public class LandesQuoteRepository(TurnierverwaltungDbContext context)
         return ergebnis;
     }
 
-    private static (int, int?, int?) Schluessel(LandesQuote quote) => (quote.LandId, quote.Spielklasse, quote.AbPlatz);
+    private static (int, int?, int?, bool) Schluessel(LandesQuote quote) =>
+        (quote.LandId, quote.Spielklasse, quote.AbPlatz, quote.Pokalsieger);
 }

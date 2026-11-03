@@ -118,7 +118,8 @@ public class TurnierKlonService(
         foreach (var quote in quelle.LandesQuoten)
             neu.LandesQuoten.Add(new LandesQuote
             {
-                LandId = quote.LandId, Anzahl = quote.Anzahl, Spielklasse = quote.Spielklasse, AbPlatz = quote.AbPlatz
+                LandId = quote.LandId, Anzahl = quote.Anzahl, Spielklasse = quote.Spielklasse, AbPlatz = quote.AbPlatz,
+                Pokalsieger = quote.Pokalsieger
             });
     }
 

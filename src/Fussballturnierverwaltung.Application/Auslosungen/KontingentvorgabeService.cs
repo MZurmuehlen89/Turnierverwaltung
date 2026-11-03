@@ -36,7 +36,7 @@ public class KontingentvorgabeService(
         return new Kontingentvorgabe(
             [.. landesquoten.Select(q => new LandesKontingent(
                 q.LandId, q.Land?.Name ?? $"Land {q.LandId}", q.Anzahl, q.Spielklasse, q.AbPlatz,
-                ranglisten.GetValueOrDefault(q.Land?.RanglisteId ?? 0)))],
+                ranglisten.GetValueOrDefault(q.Land?.RanglisteId ?? 0), q.Pokalsieger))],
             [.. verbandsquoten.Select(q => new VerbandsKontingent(
                 q.VerbandId, q.Verband?.Name ?? $"Verband {q.VerbandId}", q.Anzahl,
                 ranglisten.GetValueOrDefault(VerbandsRanglisteId(q) ?? 0)))]);

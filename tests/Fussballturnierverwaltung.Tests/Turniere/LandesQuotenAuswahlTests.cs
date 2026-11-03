@@ -35,6 +35,24 @@ public class LandesQuotenAuswahlTests
         LandesQuotenAuswahl.LandWaehlbar(_malta, [new LandesQuoteZeileEingabe(2, 1)]).Should().BeFalse();
 
     [Fact]
+    public void LandWaehlbar_NebenPokalsieger() =>
+        LandesQuotenAuswahl.LandWaehlbar(_deutschland, [new LandesQuoteZeileEingabe(1, 1, Pokalsieger: true)])
+            .Should().BeTrue();
+
+    [Fact]
+    public void PokalsiegerWaehlbar_NurEinmalJeLand()
+    {
+        LandesQuotenAuswahl.PokalsiegerWaehlbar(1, [new LandesQuoteZeileEingabe(1, 4, Spielklasse: 1)]).Should().BeTrue();
+        LandesQuotenAuswahl.PokalsiegerWaehlbar(1, [new LandesQuoteZeileEingabe(2, 1, Pokalsieger: true)]).Should().BeTrue();
+        LandesQuotenAuswahl.PokalsiegerWaehlbar(1, [new LandesQuoteZeileEingabe(1, 1, Pokalsieger: true)]).Should().BeFalse();
+    }
+
+    [Fact]
+    public void NaechsterFreierPlatz_PokalsiegerBelegtKeinenPlatz() =>
+        LandesQuotenAuswahl.NaechsterFreierPlatz(1, 1, [new LandesQuoteZeileEingabe(1, 1, AbPlatz: 6, Pokalsieger: true)])
+            .Should().Be(1);
+
+    [Fact]
     public void GanzesLandWaehlbar_NurOhneWeitereZeileDesLandes()
     {
         LandesQuotenAuswahl.GanzesLandWaehlbar(1, [new LandesQuoteZeileEingabe(2, 1)]).Should().BeTrue();

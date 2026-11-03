@@ -7,8 +7,10 @@ namespace Fussballturnierverwaltung.Application.Auslosungen;
 public sealed record AuswahlKandidat(int MannschaftId, string Name, int LandId, int? VerbandId);
 
 /// <summary>Eine Landesquote samt der Rangliste ihres Landes (Einträge und Abschnitte). Mit Spielklasse ist sie ein
-/// Kontingent über feste Ranglistenplätze (#572), ohne Spielklasse zählen die ersten Vereine des Landes.</summary>
-public sealed record LandesKontingent(int LandId, string LandName, int Anzahl, int? Spielklasse, int? AbPlatz, Rangliste? Rangliste);
+/// Kontingent über feste Ranglistenplätze (#572), mit <paramref name="Pokalsieger"/> der Platz des Pokalsiegers der
+/// Rangliste (#583, <paramref name="AbPlatz"/> = „Nachrücken ab“), sonst zählen die ersten Vereine des Landes.</summary>
+public sealed record LandesKontingent(
+    int LandId, string LandName, int Anzahl, int? Spielklasse, int? AbPlatz, Rangliste? Rangliste, bool Pokalsieger = false);
 
 /// <summary>Eine Verbandsquote samt der Rangliste des Verbands (#572).</summary>
 public sealed record VerbandsKontingent(int VerbandId, string Name, int Anzahl, Rangliste? Rangliste);
@@ -20,7 +22,8 @@ public sealed record Kontingentvorgabe(IReadOnlyList<LandesKontingent> Landesquo
 }
 
 /// <summary>Welche Mannschaften „Töpfe automatisch befüllen“ in der ersten Runde nimmt, wenn das Turnier Quoten hat
-/// (#573): erst die Landesquoten, dann die Verbandsquoten, dann die freien Plätze nach der Rangliste der Automatik.
+/// (#573): erst die Landesquoten (Spielklassen, dann Pokalsieger, dann ganze Länder), dann die Verbandsquoten, dann die
+/// freien Plätze nach der Rangliste der Automatik.
 /// <see cref="Mannschaften"/> enthält nur neu gewählte, nicht die schon eingelegten; <see cref="Fehlbestaende"/>
 /// nennt jeden Quotenplatz, der sich nicht besetzen lässt. Ein offener Quotenplatz wird nicht über die freien Plätze
 /// aufgefüllt — nachgerückt wird von Hand im Teilnehmerpool (#576).</summary>
@@ -38,14 +41,22 @@ public sealed record Teilnehmerauswahl(IReadOnlyList<int> Mannschaften, IReadOnl
         IReadOnlyDictionary<int, int> rangAutomatik)
     {
         var lauf = new Lauf(pool, eingelegt);
-        // Kontingente mit Spielklasse zuerst: sie verlangen feste Vereine, die übrigen nehmen, was danach übrig ist.
-        foreach (var kontingent in quoten.Landesquoten.OrderBy(k => k.Spielklasse is null))
+        // Kontingente mit Spielklasse zuerst: sie verlangen feste Vereine. Der Pokalsieger danach, denn ob er nachrückt,
+        // hängt daran, ob er schon über die Liga im Turnier ist; die übrigen nehmen, was danach übrig ist.
+        foreach (var kontingent in quoten.Landesquoten.OrderBy(Reihenfolge))
             lauf.LandesKontingentBesetzen(kontingent);
         foreach (var kontingent in quoten.Verbandsquoten)
             lauf.VerbandsKontingentBesetzen(kontingent);
         lauf.FreiePlaetzeBesetzen(eingang, rangAutomatik);
         return new Teilnehmerauswahl(lauf.Neu, lauf.Fehlbestaende);
     }
+
+    private static int Reihenfolge(LandesKontingent k) => k switch
+    {
+        { Spielklasse: not null } => 0,
+        { Pokalsieger: true } => 1,
+        _ => 2,
+    };
 
     private sealed class Lauf(IReadOnlyList<AuswahlKandidat> pool, IReadOnlySet<int> eingelegt)
     {
@@ -61,7 +72,9 @@ public sealed record Teilnehmerauswahl(IReadOnlyList<int> Mannschaften, IReadOnl
 
         public void LandesKontingentBesetzen(LandesKontingent k)
         {
-            if (k.Spielklasse is int klasse)
+            if (k.Pokalsieger)
+                PokalsiegerBesetzen(k);
+            else if (k.Spielklasse is int klasse)
                 SpielklassenKontingentBesetzen(k, klasse);
             else
                 LandesquoteBesetzen(k);
@@ -87,6 +100,37 @@ public sealed record Teilnehmerauswahl(IReadOnlyList<int> Mannschaften, IReadOnl
                 .Where(id => AusLand(id, k.LandId) && !_aufLandesquote.Contains(id));
             int besetzt = Besetzen(vereine, k.Anzahl, AufLandesquote);
             NichtBesetzbar($"{k.LandName} ({bereich.Anzeige})", k.Anzahl - besetzt);
+        }
+
+        /// <summary>Der Pokalsieger der Rangliste — es sei denn, er ist schon qualifiziert: über eine andere Landesquote
+        /// oder als Verein der obersten Spielklasse vor „Nachrücken ab“ (diese Plätze gehören höheren Wettbewerben).
+        /// Dann rückt der erste Verein der obersten Spielklasse ab diesem Platz nach, der noch auf keiner Landesquote
+        /// steht; kein Verein zählt doppelt (Reglement der UEFA). Ein Pokalsieger außerhalb der Rangliste ist nie über die
+        /// Liga qualifiziert.</summary>
+        private void PokalsiegerBesetzen(LandesKontingent k)
+        {
+            var bezeichnung = $"{k.LandName} (Pokalsieger)";
+            if (k.Rangliste is null)
+                Fehlt(bezeichnung, k.Anzahl, "keine Rangliste");
+            else if (k.Rangliste.PokalsiegerId is not int sieger)
+                Fehlt(bezeichnung, k.Anzahl, "kein Pokalsieger an der Rangliste");
+            else if (Kontingente.Spielklassen(k.Rangliste) is not [var oberste, ..])
+                Fehlt(bezeichnung, k.Anzahl, "keine Ligapyramide");
+            else
+            {
+                var kandidaten = PokalKandidaten(k.Rangliste, sieger, oberste, oberste.ErsterRang + (k.AbPlatz ?? 1) - 1)
+                    .Where(id => AusLand(id, k.LandId) && !_aufLandesquote.Contains(id));
+                NichtBesetzbar(bezeichnung, k.Anzahl - Besetzen(kandidaten, k.Anzahl, AufLandesquote));
+            }
+        }
+
+        private IEnumerable<int> PokalKandidaten(Rangliste rangliste, int sieger, SpielklassenInfo oberste, int nachrueckenAb)
+        {
+            int? rang = rangliste.Eintraege.FirstOrDefault(e => e.MannschaftId == sieger)?.Rang;
+            bool qualifiziert = _aufLandesquote.Contains(sieger) || rang < nachrueckenAb;
+            return qualifiziert
+                ? Reihenfolge(rangliste, e => e.Rang >= nachrueckenAb && e.Rang <= oberste.LetzterRang)
+                : [sieger];
         }
 
         /// <summary>Die ersten Vereine des Landes; schon eingelegte zählen zuerst.</summary>

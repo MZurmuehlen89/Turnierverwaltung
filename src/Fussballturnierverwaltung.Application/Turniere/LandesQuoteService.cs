@@ -23,7 +23,7 @@ public class LandesQuoteService(
         var neueQuoten = zeilen.Select(z => new LandesQuote
         {
             TurnierInstanzId = turnierInstanzId, LandId = z.LandId, Anzahl = z.Anzahl,
-            Spielklasse = z.Spielklasse, AbPlatz = z.GespeicherterAbPlatz
+            Spielklasse = z.Spielklasse, AbPlatz = z.GespeicherterAbPlatz, Pokalsieger = z.Pokalsieger
         }).ToList();
         var gespeichert = await repository.QuotenErsetzenAsync(turnierInstanzId, neueQuoten, ct);
         logger.LogInformation("Landes-Quoten für TurnierInstanz {Id} ersetzt ({Anzahl} Einträge).", turnierInstanzId, zeilen.Count);
