@@ -12,10 +12,18 @@ public static class LigapyramidenSeedDaten
     /// nicht im Seed steht — er bleibt eine Lücke, damit die übrigen ihren echten Platz behalten.</summary>
     public sealed record Abschnitt(string Name, int Spielklasse, string?[] Vereine);
 
+    /// <summary><paramref name="Gastlaender"/>: Länder, deren Vereine in dieser Liga mitspielen (Kanadier in der MLS,
+    /// Neuseeländer in der A-League, #582) — ihre Vereine stehen im Seed unter ihrem eigenen Land.</summary>
     public sealed record Pyramide(
-        string Land, string Name, DateOnly Datum, string QuelleText, int? Profigrenze, Abschnitt[] Abschnitte);
+        string Land, string Name, DateOnly Datum, string QuelleText, int? Profigrenze, Abschnitt[] Abschnitte,
+        string[]? Gastlaender = null)
+    {
+        /// <summary>Länder, in denen die Vereine der Pyramide gesucht werden: das eigene zuerst, dann die Gastländer.</summary>
+        public IEnumerable<string> VereinsLaender => [Land, .. Gastlaender ?? []];
+    }
 
-    public static IReadOnlyList<Pyramide> Alle { get; } = [Deutschland(), England(), Spanien(), Italien(), Frankreich(), .. ErsteLigen2024_25()];
+    public static IReadOnlyList<Pyramide> Alle { get; } = [Deutschland(), England(), Spanien(), Italien(), Frankreich(), .. ErsteLigen2024_25(),
+        .. LigenAusserhalbEuropas()];
 
     // ── Deutschland ─────────────────────────────────────────────────────────
 
@@ -182,4 +190,90 @@ public static class LigapyramidenSeedDaten
             "SC Bastia", "Grenoble Foot 38", "ES Troyes AC", "Amiens SC", "AC Ajaccio", "Pau FC", "Rodez AF",
             "Red Star FC", "Clermont Foot", "FC Martigues", "SM Caen"
         ]));
+
+    // ── Oberste Ligen außerhalb Europas (#582) ───────────────────────────────
+
+    // Die Länder der Klub-WM-Teilnehmer 2025 außerhalb Europas und Australien. Stand ist die Saison, über die die
+    // Kontinentalplätze 2025/26 vergeben wurden: Kalenderjahr 2024 bzw. 2024/25. Mexiko: Gesamttabelle aus Apertura 2024
+    // und Clausura 2025; MLS: Gesamttabelle (Supporters' Shield); Ägypten: Meisterrunde vor Abstiegsrunde; Neuseeland:
+    // Meisterschaftsrunde ohne Play-offs. Reserveteams (Wellington Phoenix Reserves) bleiben Lücken wie in Deutschland.
+    private const string QUELLE_AUSSEREUROPA =
+        "Abschlusstabellen 2024 bzw. 2024/25 (englische Wikipedia), abgerufen am 03.11.2026";
+    private static readonly DateOnly _saisonende2024 = new(2025, 1, 1);
+
+    private static IEnumerable<Pyramide> LigenAusserhalbEuropas()
+    {
+        yield return Kalenderjahr2024("BRA", "Brasilien", "Série A",
+            ["Botafogo", "SE Palmeiras", "Flamengo", "Fortaleza EC", "SC Internacional", "São Paulo FC",
+             "SC Corinthians", "EC Bahia", "Cruzeiro EC", "Vasco da Gama", "EC Vitória", "Atlético Mineiro",
+             "Fluminense FC", "Grêmio Porto Alegre", "EC Juventude", "RB Bragantino", "Athletico Paranaense",
+             "Criciúma EC", "Atlético Goianiense", "Cuiabá EC"]);
+        yield return Kalenderjahr2024("ARG", "Argentinien", "Liga Profesional",
+            ["Vélez Sarsfield", "Talleres Córdoba", "Racing Club", "CA Huracán", "River Plate", "Boca Juniors",
+             "CA Independiente", "Atlético Tucumán", "Unión de Santa Fe", "CA Platense", "Independiente Rivadavia",
+             "Estudiantes de La Plata", "Instituto Córdoba", "CA Lanús", "Godoy Cruz", "CA Belgrano",
+             "Deportivo Riestra", "CA Tigre", "Gimnasia y Esgrima La Plata", "Rosario Central", "Defensa y Justicia",
+             "Central Córdoba Santiago del Estero", "Argentinos Juniors", "San Lorenzo", "Newell's Old Boys",
+             "Sarmiento Junín", "CA Banfield", "Barracas Central"]);
+        yield return Saison2024_25("MEX", "Mexiko", "Liga MX",
+            ["Cruz Azul", "Deportivo Toluca", "Tigres UANL", "Club América", "CF Monterrey", "Pumas UNAM",
+             "Club León", "Atlético San Luis", "Club Tijuana", "Chivas Guadalajara", "Club Necaxa", "CF Pachuca",
+             "FC Juárez", "Atlas FC", "Querétaro FC", "Mazatlán FC", "Club Puebla", "Santos Laguna"]);
+        yield return Kalenderjahr2024("USA", "USA", "Major League Soccer",
+            ["Inter Miami CF", "Columbus Crew", "Los Angeles FC", "LA Galaxy", "FC Cincinnati", "Real Salt Lake",
+             "Seattle Sounders FC", "Houston Dynamo", "Orlando City", "Minnesota United", "Charlotte FC",
+             "Colorado Rapids", "New York City FC", "Vancouver Whitecaps", "Portland Timbers", "New York Red Bulls",
+             "CF Montréal", "Austin FC", "FC Dallas", "Atlanta United", "D.C. United", "Toronto FC",
+             "Philadelphia Union", "St. Louis City SC", "Nashville SC", "New England Revolution",
+             "Sporting Kansas City", "Chicago Fire", "San Jose Earthquakes"], gastlaender: ["CAN"]);
+        yield return Saison2024_25("KSA", "Saudi-Arabien", "Saudi Pro League",
+            ["Al-Ittihad", "Al-Hilal", "Al-Nassr", "Al-Qadsiah", "Al-Ahli", "Al-Shabab", "Al-Ettifaq", "Al-Taawoun",
+             "Al-Kholood", "Al-Fateh", "Al-Riyadh", "Al-Khaleej", "Al-Fayha", "Damac FC", "Al-Okhdood", "Al-Wehda",
+             "Al-Orobah", "Al-Raed"]);
+        yield return Kalenderjahr2024("JPN", "Japan", "J1 League",
+            ["Vissel Kobe", "Sanfrecce Hiroshima", "FC Machida Zelvia", "Gamba Osaka", "Kashima Antlers",
+             "Tokyo Verdy", "FC Tokyo", "Kawasaki Frontale", "Yokohama F. Marinos", "Cerezo Osaka", "Nagoya Grampus",
+             "Avispa Fukuoka", "Urawa Red Diamonds", "Kyoto Sanga", "Shonan Bellmare", "Albirex Niigata",
+             "Kashiwa Reysol", "Júbilo Iwata", "Consadole Sapporo", "Sagan Tosu"]);
+        yield return Kalenderjahr2024("KOR", "Südkorea", "K League 1",
+            ["Ulsan HD FC", "Gangwon FC", "Gimcheon Sangmu", "FC Seoul", "Suwon FC", "Pohang Steelers",
+             "Jeju United", "Daejeon Hana Citizen", "Gwangju FC", "Jeonbuk Hyundai Motors", "Daegu FC",
+             "Incheon United"]);
+        yield return Saison2024_25("UAE", "Vereinigte Arabische Emirate", "UAE Pro League",
+            ["Shabab Al-Ahli", "Sharjah FC", "Al-Wahda", "Al-Wasl", "Al-Ain", "Al-Nasr Dubai", "Al-Jazira",
+             "Khor Fakkan", "Ittihad Kalba", "Ajman Club", "Al-Bataeh", "Baniyas SC", "Dibba Al-Hisn", "Al-Urooba"]);
+        yield return Saison2024_25("EGY", "Ägypten", "Egyptian Premier League",
+            ["Al Ahly SC", "Pyramids FC", "Zamalek SC", "Al Masry", "National Bank of Egypt", "Ceramica Cleopatra",
+             "Pharco FC", "Petrojet", "Haras El Hodoud", "ZED FC", "El Gouna FC", "Tala'ea El Gaish", "ENPPI",
+             "Modern Sport", "Al Ittihad Alexandria", "Smouha SC", "Ismaily SC", "Ghazl El Mahalla"]);
+        yield return Saison2024_25("MAR", "Marokko", "Botola Pro",
+            ["RS Berkane", "FAR Rabat", "Wydad AC", "FUS Rabat", "Raja CA Casablanca", "RCA Zemamra", "MAS Fès",
+             "Olympic Safi", "Difaâ El Jadidi", "IR Tanger", "COD Meknès", "Union de Touarga", "Hassania Agadir",
+             "JS Soualem", "MA Tétouan", "SCC Mohammédia"]);
+        yield return Saison2024_25("TUN", "Tunesien", "Ligue Professionnelle 1",
+            ["Espérance Tunis", "US Monastir", "Étoile du Sahel", "Club Africain", "ES Zarzis", "Stade Tunisien",
+             "CS Sfaxien", "ES Métlaoui", "CA Bizertin", "AS Soliman", "US Ben Guerdane", "Olympique Béja",
+             "AS Gabès", "JS El Omrane", "EGS Gafsa", "US Tataouine"]);
+        yield return Saison2024_25("RSA", "Südafrika", "Premiership",
+            ["Mamelodi Sundowns", "Orlando Pirates", "Stellenbosch FC", "Sekhukhune United", "TS Galaxy",
+             "AmaZulu FC", "Polokwane City", "Richards Bay FC", "Kaizer Chiefs", "Marumo Gallants", "Chippa United",
+             "Golden Arrows", "Magesi FC", "SuperSport United", "Cape Town City", "Royal AM"]);
+        yield return Kalenderjahr2024("NZL", "Neuseeland", "National League",
+            ["Birkenhead United", "Auckland City", "Western Springs", "Napier City Rovers", null,
+             "Wellington Olympic", "Coastal Spirit", "Cashmere Technical", "Eastern Suburbs", "Western Suburbs"]);
+        yield return Saison2024_25("AUS", "Australien", "A-League Men",
+            ["Auckland FC", "Melbourne City FC", "Western United", "Western Sydney Wanderers", "Melbourne Victory",
+             "Adelaide United", "Sydney FC", "Macarthur FC", "Newcastle Jets", "Central Coast Mariners",
+             "Wellington Phoenix", "Brisbane Roar", "Perth Glory"], gastlaender: ["NZL"]);
+    }
+
+    private static Pyramide Kalenderjahr2024(
+        string land, string landName, string liga, string?[] tabelle, string[]? gastlaender = null) =>
+        new(land, $"Ligapyramide {landName} 2024", _saisonende2024, QUELLE_AUSSEREUROPA, null,
+            [new(liga, 1, tabelle)], gastlaender);
+
+    private static Pyramide Saison2024_25(
+        string land, string landName, string liga, string?[] tabelle, string[]? gastlaender = null) =>
+        new(land, $"Ligapyramide {landName} 2024/25", _saisonende2024_25, QUELLE_AUSSEREUROPA, null,
+            [new(liga, 1, tabelle)], gastlaender);
 }

@@ -8,7 +8,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Seed;
 /// <summary>Issue #393, #580: legt jede Ligapyramide der Seed-Daten samt Abschnitten und Profigrenze an, sofern sie
 /// fehlt — bei neuen wie bei bestehenden Datenbanken. Sie hat keine Ranglisten-Quelle (von Hand gepflegt). Eine neue
 /// Pyramide wird die Rangliste ihres Landes, solange das Land noch keine hat (#572). Eine vorhandene Rangliste gleichen
-/// Namens bleibt unangetastet.</summary>
+/// Namens bleibt unangetastet. Vereine werden im Land der Pyramide und in ihren Gastländern gesucht (#582).</summary>
 internal static class LigapyramideNachruestung
 {
     public static async Task AusfuehrenAsync(
@@ -27,11 +27,15 @@ internal static class LigapyramideNachruestung
     {
         if (await context.Ranglisten.AnyAsync(r => r.Name == pyramide.Name, ct)) return false;
 
+        var laender = pyramide.VereinsLaender.ToList();
         var vereine = await context.Mannschaften
-            .Where(m => m.Land.FifaCode == pyramide.Land)
-            .Select(m => new { m.Id, m.Name })
+            .Where(m => laender.Contains(m.Land.FifaCode))
+            .Select(m => new { m.Id, m.Name, m.Land.FifaCode })
             .ToListAsync(ct);
-        var idJeName = vereine.GroupBy(v => v.Name).ToDictionary(g => g.Key, g => g.Min(v => v.Id));
+        // Gleicher Name in mehreren Ländern: der Verein des eigenen Landes gewinnt (#582).
+        var idJeName = vereine
+            .GroupBy(v => v.Name)
+            .ToDictionary(g => g.Key, g => g.OrderBy(v => laender.IndexOf(v.FifaCode)).ThenBy(v => v.Id).First().Id);
 
         var rangliste = RanglisteErstellen(pyramide, idJeName);
         context.Ranglisten.Add(rangliste);

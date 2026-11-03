@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Fussballturnierverwaltung.Tests.Seed;
 
 /// <summary>Seed der Ligapyramiden: Deutschland 2025/26 (Issue #393), England, Spanien, Italien, Frankreich (#575),
-/// erste Ligen weiterer Länder (#580).</summary>
+/// erste Ligen weiterer Länder (#580), oberste Ligen außerhalb Europas (#582).</summary>
 public class LigapyramideNachruestungTests
 {
     private const string RANGLISTE = "Ligapyramide Deutschland 2025/26";
@@ -89,6 +89,25 @@ public class LigapyramideNachruestungTests
         var faCup = await ctx.TurnierInstanzen.Include(i => i.Runden)
             .SingleAsync(i => i.Status == TurnierStatus.Vorlage && i.Name == "FA Cup");
         faCup.Runden.Where(r => r.Rundenart == Rundenart.KoRunde).Should().OnlyContain(r => r.StandardRanglisteId == rangliste.Id);
+    }
+
+    // #582: Gastländer — die MLS führt die kanadischen Vereine, die Pyramide gehört trotzdem nur den USA.
+    [Fact]
+    public async Task LeereDatenbank_MlsMitKanadischenVereinenAmLandUsa()
+    {
+        var optionen = NeueDatenbank();
+        await SeedLaufAsync(optionen);
+
+        await using var ctx = new TurnierverwaltungDbContext(optionen);
+        var rangliste = await ctx.Ranglisten.Include(r => r.Eintraege).ThenInclude(e => e.Mannschaft).ThenInclude(m => m.Land)
+            .SingleAsync(r => r.Name == "Ligapyramide USA 2024");
+        rangliste.Eintraege.Should().HaveCount(29, "jeder Verein der MLS steht im Seed");
+        var verein = rangliste.Eintraege.ToDictionary(e => e.Rang, e => (e.Mannschaft.Name, e.Mannschaft.Land.FifaCode));
+        (verein[1], verein[14], verein[17], verein[22]).Should().Be(
+            (("Inter Miami CF", "USA"), ("Vancouver Whitecaps", "CAN"), ("CF Montréal", "CAN"), ("Toronto FC", "CAN")));
+
+        (await ctx.Laender.SingleAsync(l => l.FifaCode == "USA")).RanglisteId.Should().Be(rangliste.Id);
+        (await ctx.Laender.SingleAsync(l => l.FifaCode == "CAN")).RanglisteId.Should().BeNull();
     }
 
     [Fact]

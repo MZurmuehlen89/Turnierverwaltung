@@ -3,7 +3,7 @@ using Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 
 namespace Fussballturnierverwaltung.Tests.Seed;
 
-/// <summary>Seed-Daten der Ligapyramiden (#393, #575, #580): passen zu den Vereinen und tragen die Landes-Kontingente.</summary>
+/// <summary>Seed-Daten der Ligapyramiden (#393, #575, #580, #582): passen zu den Vereinen und tragen die Landes-Kontingente.</summary>
 public class LigapyramidenSeedDatenTests
 {
     private static readonly IReadOnlyDictionary<string, int> _landIds =
@@ -18,7 +18,7 @@ public class LigapyramidenSeedDatenTests
 
     // Ein Name, den der Seed nicht kennt, würde still zur Lücke — Tippfehler fallen nur hier auf.
     [Fact]
-    public void JederVereinDerPyramidenStehtImSeedSeinesLandes()
+    public void JederVereinDerPyramidenStehtImSeedSeinesLandesOderEinesGastlands()
     {
         var landJeId = _landIds.ToDictionary(l => l.Value, l => l.Key);
         var vereine = VereinsmannschaftenSeedDaten.Erstellen(_landIds)
@@ -26,8 +26,9 @@ public class LigapyramidenSeedDatenTests
             .ToHashSet();
 
         var unbekannt = LigapyramidenSeedDaten.Alle
-            .SelectMany(p => p.Abschnitte.SelectMany(a => a.Vereine).OfType<string>().Select(name => (p.Land, Name: name)))
-            .Where(v => !vereine.Contains(v))
+            .SelectMany(p => p.Abschnitte.SelectMany(a => a.Vereine).OfType<string>().Select(name => (Pyramide: p, Name: name)))
+            .Where(v => !v.Pyramide.VereinsLaender.Any(land => vereine.Contains((land, v.Name))))
+            .Select(v => (v.Pyramide.Land, v.Name))
             .ToList();
 
         unbekannt.Should().BeEmpty();
