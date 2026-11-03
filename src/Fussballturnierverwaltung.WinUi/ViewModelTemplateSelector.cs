@@ -30,7 +30,7 @@ public class ViewModelTemplateSelector : DataTemplateSelector
             RegelwerkeViewModel => RegelwerkeTemplate,
             TurnierlisteViewModel => TurnierlisteTemplate,
             TurnierdurchfuehrungViewModel => TurnierdurchfuehrungTemplate,
-            RanglistenBereichViewModel => RanglistenTemplate,
+            RanglistenViewModel => RanglistenTemplate,
             EinzelspielSimulationsViewModel => EinzelspielSimulationsTemplate,
             ImportExportViewModel => ImportExportTemplate,
             DatenbankwartungViewModel => DatenbankwartungTemplate,

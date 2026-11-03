@@ -34,8 +34,8 @@
             <DataTemplate x:Key="TurnierdurchfuehrungTemplate" x:DataType="vm:TurnierdurchfuehrungViewModel">
                 <views:TurnierdurchfuehrungPage />
             </DataTemplate>
-            <DataTemplate x:Key="RanglistenTemplate" x:DataType="vm:RanglistenBereichViewModel">
-                <views:RanglistenBereichPage />
+            <DataTemplate x:Key="RanglistenTemplate" x:DataType="vm:RanglistenViewModel">
+                <views:RanglistenPage />
             </DataTemplate>
             <DataTemplate x:Key="EinzelspielSimulationsTemplate" x:DataType="vm:EinzelspielSimulationsViewModel">
                 <views:EinzelspielSimulationsPage />

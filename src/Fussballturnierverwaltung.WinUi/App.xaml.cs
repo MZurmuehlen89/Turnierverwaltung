@@ -135,7 +135,6 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<SimulationsService>();
         builder.Services.AddScoped<RanglisteService>();
         builder.Services.AddScoped<RanglistenQuelleService>();
-        builder.Services.AddScoped<RanglistenImportService>();
         builder.Services.AddScoped<ImportExportService>();
 
         // RundenViewModel ist Datenhalter für Runden und Übergangsregeln (Issue #297/#348) — Scoped, damit
@@ -171,9 +170,6 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<StatistikViewModel>();
         builder.Services.AddTransient<TurnierdurchfuehrungViewModel>();
         builder.Services.AddTransient<RanglistenViewModel>();
-        builder.Services.AddTransient<RanglistenImportViewModel>();
-        builder.Services.AddTransient<RanglistenQuellenViewModel>();
-        builder.Services.AddTransient<RanglistenBereichViewModel>();
         builder.Services.AddTransient<EinzelspielSimulationsViewModel>();
         builder.Services.AddTransient<ImportExportViewModel>();
         builder.Services.AddTransient<DatenbankwartungViewModel>();

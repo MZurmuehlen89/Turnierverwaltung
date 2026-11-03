@@ -34,7 +34,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
-    [NotifyCanExecuteChangedFor(nameof(AusQuelleAktualisierenCommand))]
     private Rangliste? _ausgewaehltes;
 
     // ── Formular-Zustand ──────────────────────────────────────────────────────
@@ -51,7 +50,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
-    [NotifyCanExecuteChangedFor(nameof(AusQuelleAktualisierenCommand))]
     private bool _istNeuModus;
 
     [ObservableProperty] private bool _istLadend;
@@ -88,17 +86,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     public ICommand AbbrechenBefehl => AbbrechenCommand;
     public ICommand LoeschenBefehl => LoeschenCommand;
 
-    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen =>
-    [
-        new RibbonGruppe
-        {
-            Header = "Import",
-            Aktionen =
-            [
-                new RibbonAktion { Header = "Aus Quelle aktualisieren", Befehl = AusQuelleAktualisierenCommand, IconGlyph = "" }
-            ]
-        }
-    ];
+    public IReadOnlyList<RibbonGruppe> RibbonZusatzGruppen => [];
 
     public RanglistenViewModel(
         RanglisteService service,
@@ -274,38 +262,6 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             await _service.LoeschenAsync(id);
             await LadenAsync();
             Ausgewaehltes = null;
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-        }
-    }
-
-    // ── Import (#477) ─────────────────────────────────────────────────────────
-
-    /// <summary>Der Reiter „Import“ soll diese Rangliste aus ihrer Quelle neu abrufen.</summary>
-    public event EventHandler<Rangliste>? AusQuelleAktualisierenAngefordert;
-
-    [RelayCommand(CanExecute = nameof(KannAusQuelleAktualisieren))]
-    private void AusQuelleAktualisieren()
-    {
-        if (Ausgewaehltes is not null)
-            AusQuelleAktualisierenAngefordert?.Invoke(this, Ausgewaehltes);
-    }
-
-    private bool KannAusQuelleAktualisieren() => Ausgewaehltes?.RanglistenQuelleId is not null && !IstNeuModus;
-
-    /// <summary>Lädt die Liste neu und zeigt die Rangliste mit dieser Id (nach einem Import).</summary>
-    public async Task AnzeigenAsync(int ranglisteId)
-    {
-        Fehlermeldung = null;
-        try
-        {
-            await LadenAsync();
-            var rangliste = Ranglisten.FirstOrDefault(r => r.Id == ranglisteId);
-            // Explizit nachfüllen: Identity Resolution liefert dieselbe Instanz, die Zuweisung allein liefe dann ins Leere.
-            Ausgewaehltes = rangliste;
-            FormularAusFuellenMit(rangliste);
         }
         catch (Exception ex)
         {
