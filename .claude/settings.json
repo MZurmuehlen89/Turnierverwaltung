@@ -6,13 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -NonInteractive -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/Commit-Pruefung.ps1\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/Vorfilter.sh\" 'git.*(commit|push)' Commit-Pruefung.ps1 Push-Pruefung.ps1",
             "timeout": 600
-          },
-          {
-            "type": "command",
-            "command": "pwsh -NoProfile -NonInteractive -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/Push-Pruefung.ps1\"",
-            "timeout": 30
           }
         ]
       }
@@ -23,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -NonInteractive -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/Migration-Anwenden-Hinweis.ps1\"",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/Vorfilter.sh\" 'migrations[[:space:]]+add' Migration-Anwenden-Hinweis.ps1",
             "timeout": 30
           }
         ]

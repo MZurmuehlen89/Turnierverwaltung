@@ -119,6 +119,9 @@ includes `suggestion` findings, `-Regel S3776,S138` lists the locations.
 
 Workflow rules that used to live only in memory are enforced by hooks in `.claude/settings.json` (scripts in
 `.claude/hooks/`, PowerShell 7, shared helpers in `Hook-Gemeinsam.ps1`). They apply to the `Bash` and `PowerShell` tools.
+`Vorfilter.sh` starts the PowerShell scripts only when the command text matches (a pwsh start costs ~0.7 s and the hooks
+run on every shell call; with the filter an ordinary call costs ~0.25 s). It uses bash built-ins only, so it cannot
+silently pass everything when Git Bash's tools are missing from `PATH`.
 
 | Hook | When | What |
 |---|---|---|
@@ -126,7 +129,11 @@ Workflow rules that used to live only in memory are enforced by hooks in `.claud
 | `Push-Pruefung.ps1` | before `git push` | blocks while the working tree has uncommitted changes |
 | `Migration-Anwenden-Hinweis.ps1` | after `dotnet ef migrations add` | reminds to run `dotnet ef database update` right away |
 
-- The commit check looks at the working tree, not only the index (`git add -A && git commit` stages after the hook ran).
+- The commit check looks at the working tree, not only the index (`git add -A && git commit` stages after the hook ran),
+  of the repository the command targets (`git -C <path>`, a preceding `cd`, otherwise the session directory) — so a
+  commit in another worktree is checked there. Build restores only when project/build files changed (64 s vs. 26 s).
+- Commands are recognised from the text (`git` at the start of a command, also with options like `-c`/`--no-pager`);
+  a test command that merely *contains* `; git push` as a string is blocked too — put such tests in a script file.
 - It takes about 35–40 s for a WinUi-only change and 1.5–2 min with unit tests — **don't build and test by hand before
   committing**, the hook does it. GUI tests are not part of it (CI, see memory).
 - A blocked call returns the findings to Claude (exit code 2); fix them, don't work around the hook.
