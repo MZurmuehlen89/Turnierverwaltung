@@ -11,6 +11,7 @@ public sealed class KontingenteTests(TurnierverwaltungApp app) : IClassFixture<T
 {
     private const string GANZES_LAND = "— ganzes Land —";
     private const string BUNDESLIGA = "1 · Bundesliga";
+    private const string POKALSIEGER = "Pokalsieger";
 
     /// <summary>Zwei Kontingente Deutschlands wie bei CL und EL: Plätze 1–4, dann schlägt die zweite Zeile die
     /// Bundesliga ab Platz 5 vor und bietet „ganzes Land“ nicht mehr an. Nach dem Speichern und erneuten Öffnen
@@ -58,6 +59,50 @@ public sealed class KontingenteTests(TurnierverwaltungApp app) : IClassFixture<T
 
         Abwarten(() => quoten.Zeilen == 2);
         new[] { quoten.Zeile(0), quoten.Zeile(1) }.Should().Equal(erstes, vorschlag with { Ergibt = "Bundesliga, Plätze 5–6" });
+    }
+
+    /// <summary>Pokalsieger (#583): Neben dem Bundesliga-Kontingent 1–4 bietet die zweite Zeile „Pokalsieger“ an. Gewählt
+    /// schlägt sie „Nachrücken ab“ Platz 5 vor, sperrt die Anzahl und nennt in „ergibt“ den Pokalsieger der Pyramide (der
+    /// Seed setzt den VfB Stuttgart). Eine dritte Zeile bietet „Pokalsieger“ nicht mehr an. Nach dem Speichern und erneuten
+    /// Öffnen steht die Zeile unverändert da.</summary>
+    [Fact]
+    public void Pokalsieger_NebenKontingent_SchlaegtNachrueckenVor_UndBleibtGespeichert()
+    {
+        var (turniere, name) = TurnierAnlegen();
+        var quoten = turniere.Quoten();
+        quoten.Aufklappen();
+
+        quoten.LandHinzufuegen();
+        quoten.LandWaehlen(0, "Deutschland");
+        quoten.SpielklasseWaehlen(0, BUNDESLIGA);
+        quoten.AnzahlSetzen(0, 4);
+        Abwarten(() => quoten.Zeile(0).Ergibt == "Bundesliga, Plätze 1–4");
+
+        quoten.LandHinzufuegen();
+        quoten.LandWaehlen(1, "Deutschland");
+        Abwarten(() => quoten.Zeile(1).Spielklasse == BUNDESLIGA);
+        quoten.SpielklassenAngebot(1).Should().Contain(POKALSIEGER);
+        quoten.SpielklasseWaehlen(1, POKALSIEGER);
+        var pokal = new QuotenZeile("Deutschland", POKALSIEGER, true, 5, "VfB Stuttgart, sonst Bundesliga ab Platz 5");
+        Abwarten(() => quoten.Zeile(1) == pokal);
+        quoten.Zeile(1).Should().Be(pokal, "nachgerückt wird hinter dem Bundesliga-Kontingent");
+        quoten.AnzahlWaehlbar(1).Should().BeFalse("der Pokalsieger hat genau einen Platz");
+
+        quoten.LandHinzufuegen();
+        quoten.LandWaehlen(2, "Deutschland");
+        Abwarten(() => quoten.Zeile(2).Spielklasse == BUNDESLIGA);
+        quoten.SpielklassenAngebot(2).Should().NotContain(POKALSIEGER, "Deutschland hat schon ein Pokalsieger-Kontingent");
+
+        var kopf = turniere.Kopf();
+        kopf.Speichern();
+        app.Hauptfenster.MannschaftenOeffnen();
+        turniere = app.Hauptfenster.TurniereOeffnen();
+        turniere.Kopf().Auswaehlen(name);
+        quoten = turniere.Quoten();
+        quoten.Aufklappen();
+
+        Abwarten(() => quoten.Zeilen == 3);
+        Enumerable.Range(0, 3).Select(quoten.Zeile).Should().Contain(pokal);
     }
 
     public void Dispose() => app.BeiFehlschlagBelegeSichern();

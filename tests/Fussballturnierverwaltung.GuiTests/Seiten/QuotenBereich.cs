@@ -41,6 +41,9 @@ public sealed class QuotenBereich(Window fenster)
     public void AnzahlSetzen(int zeile, int anzahl) =>
         Feld("Turnierkopf.LandesQuoteAnzahl", zeile).Patterns.RangeValue.Pattern.SetValue(anzahl);
 
+    /// <summary>Ob sich die Anzahl der Zeile ändern lässt — beim Pokalsieger nicht (#583).</summary>
+    public bool AnzahlWaehlbar(int zeile) => Feld("Turnierkopf.LandesQuoteAnzahl", zeile).IsEnabled;
+
     /// <summary>Die Zeile, wie sie gerade dasteht; Auswahllisten über ihren gewählten Eintrag gelesen.</summary>
     public QuotenZeile Zeile(int zeile)
     {
