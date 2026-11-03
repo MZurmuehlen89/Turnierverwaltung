@@ -17,6 +17,7 @@ Resource eingebunden wird.
 | Vereinswappen Nachtrag #381 (Top 200 UEFA-Klub-Koeffizient, `python fetch_clubs.py 300 415`) | ✅ 114/115 (HNK Rijeka: Infobox ohne Logo) | (#381-Commit) |
 | Vereinswappen Nachtrag #575 (Segunda División, Serie B, Ligue 2 2024/25, `python fetch_clubs.py 415 475`) | ✅ 60/60 | (#575-Commit) |
 | Vereinswappen Nachtrag #581 (FIFA-Klub-WM-Ranking 2021–2024, Vereine außerhalb Europas, `python fetch_clubs.py 475 659`) | ✅ 181/184 (Central Coast FC, Galaxy FC, Vaivase-Tai: Infobox ohne Logo) | (#581-Commit) |
+| Vereinswappen Nachtrag #582 (oberste Ligen außerhalb Europas, `python fetch_clubs.py 659 808`) | ✅ 145/149 (Dibba Al-Hisn, MA Tétouan, US Tataouine, Royal AM: Infobox ohne Logo) | (#582-Commit) |
 | Turnierlogos #481 (ein Logo je Wettbewerb der Seed-Vorlagen) | ✅ siehe `turnierlogos_log.csv` | (#481-Commit) |
 
 Damit ist Issue #233 inhaltlich vollständig — die verbleibenden 12 Nationalmannschaften haben laut
