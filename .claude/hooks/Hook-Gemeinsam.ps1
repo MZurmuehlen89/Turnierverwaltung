@@ -23,9 +23,10 @@ function Befehl-Aus($eingabe) {
     return [string]$befehl
 }
 
-# Erkennt „git commit“, „git -C <pfad> commit“ usw., aber nicht „git commit-tree“ (Gegenprobe-Skripte, #530).
+# Erkennt „git commit“, „git -C <pfad> commit“ usw. als eigenen Befehl (Zeilenanfang oder nach ; & | ( ), nicht aber
+# „git commit-tree“ (Gegenprobe-Skripte, #530) oder „git push“ im Fließtext eines Issue-Kommentars.
 function Ist-GitBefehl([string]$befehl, [string]$unterbefehl) {
-    $muster = '(^|[\s;&|(])git(\s+-C\s+("[^"]*"|''[^'']*''|\S+))?\s+' + [regex]::Escape($unterbefehl) + '(?![-\w])'
+    $muster = '(?m)(^|[;&|(])\s*git(\s+-C\s+("[^"]*"|''[^'']*''|\S+))?\s+' + [regex]::Escape($unterbefehl) + '(?![-\w])'
     return $befehl -match $muster
 }
 
