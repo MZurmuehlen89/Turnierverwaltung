@@ -221,6 +221,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int?>("PokalsiegerId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("ProfigrenzeSpielklasse")
                         .HasColumnType("int");
 
@@ -233,6 +236,8 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PokalsiegerId");
 
                     b.HasIndex("RanglistenQuelleId");
 
@@ -917,6 +922,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<int>("LandId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("Pokalsieger")
+                        .HasColumnType("bit");
+
                     b.Property<int?>("Spielklasse")
                         .HasColumnType("int");
 
@@ -1331,10 +1339,17 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.Rangliste", b =>
                 {
+                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten.Mannschaft", "Pokalsieger")
+                        .WithMany()
+                        .HasForeignKey("PokalsiegerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenQuelle", "RanglistenQuelle")
                         .WithMany()
                         .HasForeignKey("RanglistenQuelleId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Pokalsieger");
 
                     b.Navigation("RanglistenQuelle");
                 });

@@ -19,5 +19,12 @@ public class RanglisteKonfiguration : IEntityTypeConfiguration<Rangliste>
             .HasForeignKey(r => r.RanglistenQuelleId)
             .OnDelete(DeleteBehavior.SetNull)
             .IsRequired(false);
+
+        // Pokalsieger (#583): eine gelöschte Mannschaft hinterlässt keinen Pokalsieger.
+        builder.HasOne(r => r.Pokalsieger)
+            .WithMany()
+            .HasForeignKey(r => r.PokalsiegerId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
     }
 }

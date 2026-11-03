@@ -1,3 +1,5 @@
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
+
 namespace Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 
 public class Rangliste : BasisEntitaet
@@ -21,6 +23,12 @@ public class Rangliste : BasisEntitaet
     // nur, wenn ein Team darunter auf ein Team bis zu dieser Klasse trifft. null = strikt Klasse gegen Klasse
     // (Copa del Rey). Eigenschaft der Pyramide eines Landes, nicht des Turniers.
     public int? ProfigrenzeSpielklasse { get; set; }
+
+    // Nationaler Pokalsieger zum Stand der Rangliste (#583) — Grundlage des Kontingents „Pokalsieger“. Ein Verweis auf
+    // die Mannschaft, nicht auf einen Eintrag: der Pokalsieger kann aus einer Spielklasse kommen, die die Rangliste
+    // nicht enthält. Der Meister braucht kein Feld, er ist Platz 1.
+    public int? PokalsiegerId { get; set; }
+    public Mannschaft? Pokalsieger { get; set; }
 
     /// <summary>Der Abschnitt, in den der Platz <paramref name="rang"/> fällt — der mit dem kleinsten „bis Platz“, der
     /// den Platz noch einschließt; <c>null</c>, wenn der Platz hinter dem letzten Abschnitt liegt.</summary>
