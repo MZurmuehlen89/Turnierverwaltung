@@ -132,6 +132,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             var verbaende    = await _verbandService.AlleAbrufenAsync();
             Ranglisten = new ObservableCollection<Rangliste>(ranglisten);
             Eintragsliste.StammdatenSetzen(mannschaften, verbaende);
+            Ligapyramide.StammdatenSetzen(mannschaften);
         }
         finally
         {
@@ -220,7 +221,8 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             if (IstNeuModus)
             {
                 var eingabe = new RanglisteErstellenEingabe(Name, datum, Quelle, eintraege,
-                    ProfigrenzeSpielklasse: Ligapyramide.ProfigrenzeOderNull(), Abschnitte: Ligapyramide.Eingaben());
+                    ProfigrenzeSpielklasse: Ligapyramide.ProfigrenzeOderNull(), Abschnitte: Ligapyramide.Eingaben(),
+                    PokalsiegerId: Ligapyramide.PokalsiegerId);
                 var neu = await _service.ErstellenAsync(eingabe);
                 await LadenAsync();
                 gespeichert = Ranglisten.FirstOrDefault(r => r.Id == neu.Id);
@@ -230,7 +232,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
                 var id = Ausgewaehltes.Id;
                 var eingabe = new RanglisteAktualisierenEingabe(
                     Name, datum, Quelle, eintraege, ProfigrenzeSpielklasse: Ligapyramide.ProfigrenzeOderNull(),
-                    Abschnitte: Ligapyramide.Eingaben());
+                    Abschnitte: Ligapyramide.Eingaben(), PokalsiegerId: Ligapyramide.PokalsiegerId);
                 await _service.AktualisierenAsync(id, eingabe);
                 await LadenAsync();
                 gespeichert = Ranglisten.FirstOrDefault(r => r.Id == id);

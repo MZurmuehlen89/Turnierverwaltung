@@ -99,6 +99,20 @@
                         <TextBlock Text="Für „Heimrecht für Unterklassige“: Ein Team unterhalb dieser Spielklasse hat gegen ein Team bis zu ihr Heimrecht (DFB-Pokal: 2). Leer = strikt die tiefere Klasse (Copa del Rey). Wirkt nur mit Liga-Abschnitten."
                                    FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,4,0,12" />
 
+                        <!-- Pokalsieger (#583): Verweis auf die Mannschaft, nicht auf einen Eintrag -->
+                        <TextBlock Text="Pokalsieger" FontSize="12" Margin="0,0,0,3" />
+                        <Grid ColumnDefinitions="*,8,Auto" MaxWidth="420" HorizontalAlignment="Left">
+                            <views:MannschaftsAuswahlBox DataContext="{Binding Pokalsieger}"
+                                                         PlaceholderText="Verein suchen …" />
+                            <Button Grid.Column="2" Command="{Binding PokalsiegerEntfernenCommand}" Padding="6"
+                                    AutomationProperties.AutomationId="Ranglisten.PokalsiegerEntfernen"
+                                    ToolTipService.ToolTip="Pokalsieger entfernen">
+                                <FontIcon Glyph="&#xE711;" FontSize="12" />
+                            </Button>
+                        </Grid>
+                        <TextBlock Text="Für das Kontingent „Pokalsieger“ der Landes-Quoten. Darf aus einer Spielklasse kommen, die die Rangliste nicht enthält. Den Meister braucht es nicht, er ist Platz 1."
+                                   FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,4,0,12" />
+
                         <!-- Abschnitte in Platzreihenfolge; „von Platz“ ergibt sich aus dem Abschnitt davor -->
                         <TextBlock Text="Abschnitte" FontSize="12" Margin="0,0,0,3" />
                         <Grid ColumnDefinitions="*,8,110,8,110,8,70,8,32" Margin="0,0,0,4"

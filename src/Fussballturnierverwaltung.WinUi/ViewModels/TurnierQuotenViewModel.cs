@@ -148,7 +148,8 @@ public partial class TurnierQuotenViewModel : ObservableObject
         Befuellen(LandesQuotenZeilen, landesQuoten.Select(q =>
         {
             var zeile = new LandesQuoteZeile();
-            zeile.Uebernehmen(AlleLaender.FirstOrDefault(l => l.Id == q.LandId) ?? q.Land, q.Spielklasse, q.AbPlatz, q.Anzahl);
+            zeile.Uebernehmen(
+                AlleLaender.FirstOrDefault(l => l.Id == q.LandId) ?? q.Land, q.Spielklasse, q.AbPlatz, q.Anzahl, q.Pokalsieger);
             return zeile;
         }));
         LandesAuswahlAbgleichen(null);

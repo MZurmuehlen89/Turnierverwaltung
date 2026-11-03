@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Ranglisten.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
+using Fussballturnierverwaltung.Domain.Enums;
 using System.Collections.ObjectModel;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
@@ -28,8 +30,8 @@ public partial class AbschnittBearbeitungZeile : ObservableObject
     private static int GanzzahlOderNull(double wert) => double.IsNaN(wert) ? 0 : (int)Math.Round(wert);
 }
 
-/// <summary>Aufklappbarer Bereich „Ligapyramide“ des Ranglisten-Editors (#393, #477): Profigrenze und bearbeitbare
-/// Abschnitte mit Live-Prüfung. Meldet Änderungen über <see cref="Geaendert"/> (der Editor entscheidet über den
+/// <summary>Aufklappbarer Bereich „Ligapyramide“ des Ranglisten-Editors (#393, #477): Profigrenze, Pokalsieger (#583)
+/// und bearbeitbare Abschnitte mit Live-Prüfung. Meldet Änderungen über <see cref="Geaendert"/> (der Editor entscheidet über den
 /// Dirty-Zustand) und geänderte Platzbereiche über <see cref="AbschnitteGeaendert"/> (für die Trennbänder der
 /// Eintragsliste).</summary>
 public partial class LigapyramideViewModel : ObservableObject
@@ -48,6 +50,24 @@ public partial class LigapyramideViewModel : ObservableObject
 
     public ObservableCollection<AbschnittBearbeitungZeile> Abschnitte { get; } = [];
 
+    /// <summary>Suchbox „Pokalsieger“ über alle Vereine (#583) — ein Verweis auf die Mannschaft, auch aus einer
+    /// Spielklasse, die die Rangliste nicht enthält.</summary>
+    public MannschaftsfilterViewModel Pokalsieger { get; } = new(mitAlleOption: false);
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Kopf))]
+    [NotifyCanExecuteChangedFor(nameof(PokalsiegerEntfernenCommand))]
+    private int? _pokalsiegerId;
+
+    public LigapyramideViewModel()
+    {
+        Pokalsieger.WahlAngefordert = option =>
+        {
+            PokalsiegerSetzen(option);
+            return Task.CompletedTask;
+        };
+    }
+
     public bool HatAbschnitte => Abschnitte.Count > 0;
 
     // Zugeklappt bei jedem Ranglistenwechsel, die Eintragsliste ist die Hauptfläche; die Kopfzeile fasst zusammen,
@@ -57,7 +77,8 @@ public partial class LigapyramideViewModel : ObservableObject
     public AbschnittKopf Kopf => AbschnittKopf.Aus("LIGAPYRAMIDE",
     [
         HatAbschnitte ? $"{Abschnitte.Count} Abschnitte" : null,
-        double.IsNaN(Profigrenze) ? null : $"Profigrenze Spielklasse {(int)Math.Round(Profigrenze)}"
+        double.IsNaN(Profigrenze) ? null : $"Profigrenze Spielklasse {(int)Math.Round(Profigrenze)}",
+        PokalsiegerId is null ? null : $"Pokalsieger {Pokalsieger.Gewaehlt?.Name}"
     ], "keine Abschnitte");
 
     /// <summary>Fehler, die das Speichern verhindern (Meldungsspalte).</summary>
@@ -66,6 +87,10 @@ public partial class LigapyramideViewModel : ObservableObject
     /// <summary>Hinweis, wenn der letzte Abschnitt über die Einträge hinausreicht; Speichern bleibt möglich.</summary>
     public string? Hinweis { get; private set; }
 
+    /// <summary>Die Vereine für die Suchbox „Pokalsieger“.</summary>
+    public void StammdatenSetzen(IEnumerable<Mannschaft> mannschaften) =>
+        Pokalsieger.TeilnehmerSetzen([.. mannschaften.Where(m => m.Mannschaftsart == Mannschaftsart.Verein)]);
+
     /// <summary>Stand einer Rangliste übernehmen (leer bei neuer bzw. keiner Rangliste), zugeklappt.</summary>
     public void Laden(Rangliste? rangliste)
     {
@@ -73,6 +98,7 @@ public partial class LigapyramideViewModel : ObservableObject
         try
         {
             Profigrenze = rangliste?.ProfigrenzeSpielklasse ?? double.NaN;
+            PokalsiegerSetzen(rangliste?.PokalsiegerId is int id ? Pokalsieger.OptionFuer(id) : null);
             foreach (var alt in Abschnitte) alt.PropertyChanged -= ZeileGeaendert;
             Abschnitte.Clear();
             foreach (var abschnitt in rangliste?.Abschnitte.OrderBy(a => a.BisPlatz) ?? Enumerable.Empty<RanglistenAbschnitt>())
@@ -100,6 +126,21 @@ public partial class LigapyramideViewModel : ObservableObject
     public int? ProfigrenzeOderNull() => double.IsNaN(Profigrenze) ? null : (int)Math.Round(Profigrenze);
 
     partial void OnProfigrenzeChanged(double value) => AenderungMelden();
+
+    // ── Pokalsieger (#583) ────────────────────────────────────────────────────
+
+    [RelayCommand(CanExecute = nameof(HatPokalsieger))]
+    private void PokalsiegerEntfernen() => PokalsiegerSetzen(null);
+
+    private bool HatPokalsieger() => PokalsiegerId is not null;
+
+    private void PokalsiegerSetzen(MannschaftsOption? option)
+    {
+        Pokalsieger.Anzeigen(option);
+        PokalsiegerId = option?.Id;
+    }
+
+    partial void OnPokalsiegerIdChanged(int? value) => AenderungMelden();
 
     // ── Abschnitte bearbeiten ─────────────────────────────────────────────────
 

@@ -304,9 +304,10 @@ public partial class RanglistenImportViewModel(
             else
             {
                 id = ZielRangliste!.Id;
-                // Profigrenze und Abschnitte gehören zur Rangliste, nicht zum Import — sie bleiben (#393).
+                // Profigrenze, Pokalsieger und Abschnitte gehören zur Rangliste, nicht zum Import — sie bleiben (#393, #583).
                 await ranglisteService.AktualisierenAsync(id, new RanglisteAktualisierenEingabe(
-                    Name, datum, QuelleText, eintraege, _vorschauQuelleId, ZielRangliste.ProfigrenzeSpielklasse));
+                    Name, datum, QuelleText, eintraege, _vorschauQuelleId, ZielRangliste.ProfigrenzeSpielklasse,
+                    PokalsiegerId: ZielRangliste.PokalsiegerId));
             }
 
             VorschauVerwerfen();

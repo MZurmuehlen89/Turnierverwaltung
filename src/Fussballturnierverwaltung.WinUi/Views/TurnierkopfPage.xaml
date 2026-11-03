@@ -254,12 +254,14 @@
                                                       DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="8,0,0,0" />
                                             <NumberBox Grid.Column="2" AutomationProperties.AutomationId="Turnierkopf.LandesQuoteAbPlatz"
                                                        Value="{Binding AbPlatz, Mode=TwoWay}" IsEnabled="{Binding AbPlatzWaehlbar}"
+                                                       ToolTipService.ToolTip="{Binding AbPlatzHinweis}"
                                                        Minimum="1" SpinButtonPlacementMode="Inline" Margin="8,0,0,0" />
                                             <NumberBox Grid.Column="3" AutomationProperties.AutomationId="Turnierkopf.LandesQuoteAnzahl"
-                                                       Value="{Binding Anzahl, Mode=TwoWay}"
+                                                       Value="{Binding Anzahl, Mode=TwoWay}" IsEnabled="{Binding AnzahlWaehlbar}"
                                                        Minimum="1" SpinButtonPlacementMode="Inline" Margin="8,0,0,0" />
                                             <TextBlock Grid.Column="4" AutomationProperties.AutomationId="Turnierkopf.LandesQuoteErgibt"
                                                        Text="{Binding Ergibt}" VerticalAlignment="Center"
+                                                       ToolTipService.ToolTip="{Binding Ergibt}"
                                                        TextTrimming="CharacterEllipsis" Margin="8,0,8,0" />
                                             <Button Grid.Column="5" AutomationProperties.AutomationId="Turnierkopf.LandesQuoteEntfernen"
                                                     Content="✕"

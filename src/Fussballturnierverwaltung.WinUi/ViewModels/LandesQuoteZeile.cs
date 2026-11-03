@@ -9,8 +9,9 @@ using System.Collections.ObjectModel;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-/// <summary>Auswahl der Spielklasse einer Landes-Quote (#572); <see cref="Nummer"/> null = ganzes Land.</summary>
-public sealed record SpielklassenOption(string Anzeige, int? Nummer);
+/// <summary>Auswahl der Spielklasse einer Landes-Quote (#572); <see cref="Nummer"/> null = ganzes Land, mit
+/// <see cref="Pokalsieger"/> das Pokalsieger-Kontingent (#583).</summary>
+public sealed record SpielklassenOption(string Anzeige, int? Nummer, bool Pokalsieger = false);
 
 /// <summary>Eine Landes-Quoten-Zeile im Turnierkopf (Issue #189, Kontingent seit #572) — lokaler UI-Zustand
 /// zwischen Laden und Speichern. Welche Länder und ob „ganzes Land“ angeboten werden, hängt an den übrigen Zeilen;
@@ -18,6 +19,7 @@ public sealed record SpielklassenOption(string Anzeige, int? Nummer);
 public partial class LandesQuoteZeile : ObservableObject
 {
     public static readonly SpielklassenOption GanzesLand = new("— ganzes Land —", null);
+    public static readonly SpielklassenOption PokalsiegerOption = new("Pokalsieger", null, Pokalsieger: true);
 
     // Kanonische Optionen des gewählten Landes: die ComboBox gleicht SelectedItem per Referenz ab (#347).
     private IReadOnlyList<SpielklassenOption> _klassenDesLandes = [];
@@ -27,7 +29,8 @@ public partial class LandesQuoteZeile : ObservableObject
     private Land? _land;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SpielklasseAuswahl), nameof(AbPlatzWaehlbar), nameof(Ergibt))]
+    [NotifyPropertyChangedFor(nameof(SpielklasseAuswahl), nameof(AbPlatzWaehlbar), nameof(AbPlatzHinweis),
+                              nameof(AnzahlWaehlbar), nameof(Ergibt))]
     private SpielklassenOption _spielklasse = GanzesLand;
 
     [ObservableProperty]
@@ -56,25 +59,46 @@ public partial class LandesQuoteZeile : ObservableObject
     }
 
     public bool SpielklasseWaehlbar => Land is not null && LandesQuotenAuswahl.HatPyramide(Land);
-    public bool AbPlatzWaehlbar => Spielklasse.Nummer is not null;
+    public bool AbPlatzWaehlbar => Spielklasse.Nummer is not null || Spielklasse.Pokalsieger;
 
-    /// <summary>Spalte „ergibt“: der Platzbereich des Kontingents.</summary>
-    public string Ergibt => (Land?.Rangliste, Spielklasse.Nummer) switch
+    // Der Pokalsieger hat genau einen Platz (#583).
+    public bool AnzahlWaehlbar => !Spielklasse.Pokalsieger;
+
+    public string AbPlatzHinweis => Spielklasse.Pokalsieger
+        ? "Nachrücken ab Platz der obersten Spielklasse: Plätze davor gelten als schon für einen höheren Wettbewerb vergeben"
+        : "ab Platz der Spielklasse";
+
+    /// <summary>Spalte „ergibt“: der Platzbereich des Kontingents, beim Pokalsieger er selbst und der Nachrückbereich.</summary>
+    public string Ergibt
     {
-        (null, _) or (_, null) => "—",
-        var (rangliste, nummer) => Kontingente.Bereich(rangliste, nummer.Value, AbPlatz, Anzahl)?.Anzeige ?? "passt nicht",
-    };
+        get
+        {
+            if (Land?.Rangliste is not { } rangliste) return "—";
+            if (Spielklasse.Pokalsieger) return PokalsiegerErgibt(rangliste);
+            return Spielklasse.Nummer is int nummer
+                ? Kontingente.Bereich(rangliste, nummer, AbPlatz, Anzahl)?.Anzeige ?? "passt nicht"
+                : "—";
+        }
+    }
+
+    private string PokalsiegerErgibt(Domain.Entitaeten.Ranglisten.Rangliste rangliste)
+    {
+        var sieger = rangliste.Pokalsieger?.Name ?? "kein Pokalsieger hinterlegt";
+        return Kontingente.Spielklassen(rangliste) is [var oberste, ..] && Kontingente.Bereich(rangliste, oberste.Nummer, AbPlatz, 1) is not null
+            ? $"{sieger}, sonst {oberste.Name} ab Platz {AbPlatz}"
+            : "passt nicht";
+    }
 
     /// <summary>Die Zeile als Eingabe; <c>null</c> ohne gewähltes Land (zählt nicht und wird nicht gespeichert).</summary>
     public LandesQuoteZeileEingabe? AlsEingabe() =>
-        Land is null ? null : new LandesQuoteZeileEingabe(Land.Id, Anzahl, Spielklasse.Nummer, AbPlatz);
+        Land is null ? null : new LandesQuoteZeileEingabe(Land.Id, Anzahl, Spielklasse.Nummer, AbPlatz, Spielklasse.Pokalsieger);
 
     /// <summary>Gespeicherte Quote übernehmen (Laden): Land, Spielklasse und Startplatz ohne Vorschläge.</summary>
-    public void Uebernehmen(Land land, int? spielklasse, int? abPlatz, int anzahl)
+    public void Uebernehmen(Land land, int? spielklasse, int? abPlatz, int anzahl, bool pokalsieger = false)
     {
         Land = land;
         _klassenDesLandes = KlassenDes(land);
-        Spielklasse = _klassenDesLandes.FirstOrDefault(k => k.Nummer == spielklasse) ?? GanzesLand;
+        Spielklasse = _klassenDesLandes.FirstOrDefault(k => k.Nummer == spielklasse && k.Pokalsieger == pokalsieger) ?? GanzesLand;
         AbPlatz = abPlatz ?? 1;
         Anzahl = anzahl;
     }
@@ -92,8 +116,11 @@ public partial class LandesQuoteZeile : ObservableObject
         if (landGewechselt)
             _klassenDesLandes = Land is null ? [] : KlassenDes(Land);
         bool ganzesLand = Land is null || LandesQuotenAuswahl.GanzesLandWaehlbar(Land.Id, andereZeilen);
+        bool pokalsieger = Land is not null && LandesQuotenAuswahl.PokalsiegerWaehlbar(Land.Id, andereZeilen);
         List<SpielklassenOption> alle = [GanzesLand, .. _klassenDesLandes];
-        var soll = ganzesLand ? alle : alle.Skip(1).ToList();
+        var soll = alle
+            .Where(o => (o != GanzesLand || ganzesLand) && (o != PokalsiegerOption || pokalsieger))
+            .ToList();
 
         SammlungsAbgleich.TeilfolgeErgaenzen(SpielklassenOptionen, alle, soll);
         if (landGewechselt || !soll.Contains(Spielklasse))
@@ -101,10 +128,18 @@ public partial class LandesQuoteZeile : ObservableObject
         SammlungsAbgleich.TeilfolgeAbgleichen(SpielklassenOptionen, soll);
     }
 
-    /// <summary>Neue Spielklasse von Hand: Startplatz hinter den Kontingenten der übrigen Zeilen.</summary>
+    /// <summary>Neue Spielklasse von Hand: Startplatz hinter den Kontingenten der übrigen Zeilen; beim Pokalsieger
+    /// „Nachrücken ab“ hinter denen der obersten Spielklasse (#583).</summary>
     public void StartplatzVorschlagen(IReadOnlyList<LandesQuoteZeileEingabe> andereZeilen)
     {
-        if (Land is not null && Spielklasse.Nummer is { } nummer)
+        if (Land is null) return;
+        if (Spielklasse.Pokalsieger)
+        {
+            Anzahl = 1;
+            if (_klassenDesLandes.FirstOrDefault(k => k.Nummer is not null) is { Nummer: int oberste })
+                AbPlatz = LandesQuotenAuswahl.NaechsterFreierPlatz(Land.Id, oberste, andereZeilen);
+        }
+        else if (Spielklasse.Nummer is { } nummer)
             AbPlatz = LandesQuotenAuswahl.NaechsterFreierPlatz(Land.Id, nummer, andereZeilen);
     }
 
@@ -115,8 +150,15 @@ public partial class LandesQuoteZeile : ObservableObject
         StartplatzVorschlagen(andereZeilen);
     }
 
-    private static IReadOnlyList<SpielklassenOption> KlassenDes(Land land) =>
-        land.Rangliste is { } rangliste
-            ? Kontingente.Spielklassen(rangliste).Select(k => new SpielklassenOption($"{k.Nummer} · {k.Name}", k.Nummer)).ToList()
-            : [];
+    // Mit Pyramide zuletzt das Pokalsieger-Kontingent (#583).
+    private static IReadOnlyList<SpielklassenOption> KlassenDes(Land land)
+    {
+        if (land.Rangliste is not { } rangliste || !LandesQuotenAuswahl.HatPyramide(land))
+            return [];
+        return
+        [
+            .. Kontingente.Spielklassen(rangliste).Select(k => new SpielklassenOption($"{k.Nummer} · {k.Name}", k.Nummer)),
+            PokalsiegerOption,
+        ];
+    }
 }
