@@ -23,7 +23,6 @@ public class FifaWeltranglisteNachruestungTests
         await using var ctx = new TurnierverwaltungDbContext(optionen);
         var rangliste = await RanglisteLadenAsync(ctx);
         rangliste.Datum.Should().Be(SEED_STAND);
-        rangliste.RanglistenQuelleId.Should().BeNull("fester Seed-Stand, kein Import");
         rangliste.Eintraege.Should().HaveCount(211, "jedes FIFA-Mitglied ist als Nationalmannschaft im Seed");
         rangliste.Eintraege.Select(e => e.Rang).Should().BeEquivalentTo(Enumerable.Range(1, 211));
         (await RangUndPunkteAsync(ctx, rangliste, "ESP")).Should().Be((1, 2012));
@@ -79,7 +78,7 @@ public class FifaWeltranglisteNachruestungTests
     }
 
     [Fact]
-    public async Task AeltereImportierteRangliste_WirdVonDerQuelleGeloestUndAufDenSeedStandGebracht()
+    public async Task AeltereRangliste_WirdAufDenSeedStandGebracht()
     {
         var optionen = NeueDatenbank();
         await SeedLaufAsync(optionen);
@@ -87,7 +86,6 @@ public class FifaWeltranglisteNachruestungTests
         {
             r.Datum = SEED_STAND.AddMonths(-3);
             r.Quelle = "Wikipedia";
-            r.RanglistenQuelle = new RanglistenQuelle { Name = "Wikipedia", Url = "https://example.org" };
             foreach (var e in r.Eintraege.Where(e => e.Rang > 25).ToList()) r.Eintraege.Remove(e);
             foreach (var e in r.Eintraege) { e.Rang = 26 - e.Rang; e.Punkte = 1; }
         });
@@ -98,7 +96,6 @@ public class FifaWeltranglisteNachruestungTests
         var rangliste = await RanglisteLadenAsync(ctx);
         rangliste.Id.Should().Be(id);
         rangliste.Datum.Should().Be(SEED_STAND);
-        rangliste.RanglistenQuelleId.Should().BeNull();
         rangliste.Eintraege.Should().HaveCount(211);
         (await RangUndPunkteAsync(ctx, rangliste, "ESP")).Should().Be((1, 2012));
     }

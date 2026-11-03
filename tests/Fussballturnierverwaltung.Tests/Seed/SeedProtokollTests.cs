@@ -28,7 +28,6 @@ public class SeedProtokollTests
             "RankingRegeln nachgerüstet.",
             "RankingRegelSets nachgerüstet.",
             "Regelwerke nachgerüstet.",
-            "Ranglisten-Quellen nachgerüstet.",
             "Ligapyramiden nachgerüstet.",
             "Rangliste „FIFA-Weltrangliste (Herren)“ nachgerüstet.",
             "Rangliste „UEFA-Klub-Koeffizient (Kassies)“ nachgerüstet.",

@@ -8,15 +8,10 @@ public class Rangliste : BasisEntitaet
     public DateOnly Datum { get; set; }
     public string Quelle { get; set; } = string.Empty;
 
-    // Ranglisten-Quelle, aus der die Rangliste importiert wurde (Issue #349) — dient nur dem Aktualisieren per
-    // Import; Runden verweisen direkt auf die Rangliste (#393). null = manuell gepflegt oder Quelle gelöscht.
-    public int? RanglistenQuelleId { get; set; }
-    public RanglistenQuelle? RanglistenQuelle { get; set; }
-
     public ICollection<RanglistenEintrag> Eintraege { get; set; } = new List<RanglistenEintrag>();
 
     // Ligapyramide (Issue #393): Abschnitte über Ranglistenplätze liefern Spielklasse und Liganamen. Leer bei
-    // Ranglisten ohne Ligen, etwa importierten Koeffizienten.
+    // Ranglisten ohne Ligen, etwa Koeffizienten.
     public ICollection<RanglistenAbschnitt> Abschnitte { get; set; } = new List<RanglistenAbschnitt>();
 
     // Höchste Spielklasse, die noch als Profiliga zählt (DFB-Pokal: 2). „Heimrecht für Unterklassige“ greift dann

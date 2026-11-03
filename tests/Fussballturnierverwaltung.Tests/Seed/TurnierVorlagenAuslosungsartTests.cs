@@ -9,9 +9,10 @@ namespace Fussballturnierverwaltung.Tests.Seed;
 public class TurnierVorlagenAuslosungsartTests
 {
     private const int KOEFFIZIENT_ID = 42;
+    private const string KLUB_KOEFFIZIENT = "UEFA-Klub-Koeffizient (Kassies)";
 
     private static readonly List<TurnierInstanz> _vorlagen = TurnierVorlagenSeedDaten.Erstellen(
-        ranglisteLookup: new Dictionary<string, int> { [RanglistenQuellenSeedDaten.UEFA_KLUB_KOEFFIZIENT] = KOEFFIZIENT_ID });
+        ranglisteLookup: new Dictionary<string, int> { [KLUB_KOEFFIZIENT] = KOEFFIZIENT_ID });
 
     private static TurnierRunde Runde(string name, string variante, int reihenfolge) =>
         _vorlagen.Single(v => v.Name == name && v.Variante == variante).Runden.Single(r => r.Reihenfolge == reihenfolge);

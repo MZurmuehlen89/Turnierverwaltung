@@ -10,19 +10,17 @@ public record RanglisteErstellenEingabe(
     DateOnly Datum,
     string Quelle,
     IReadOnlyList<RanglistenEintragEingabe> Eintraege,
-    int? RanglistenQuelleId = null,
     int? ProfigrenzeSpielklasse = null,
     IReadOnlyList<RanglistenAbschnittEingabe>? Abschnitte = null,
     int? PokalsiegerId = null);
 
-/// <param name="Abschnitte">null = Abschnitte unverändert lassen (Import, #477).</param>
-/// <param name="PokalsiegerId">Wie die Profigrenze immer mitzugeben, der Import gibt den bisherigen (#583).</param>
+/// <param name="Abschnitte">null = Abschnitte unverändert lassen (#477).</param>
+/// <param name="PokalsiegerId">Wie die Profigrenze immer mitzugeben (#583).</param>
 public record RanglisteAktualisierenEingabe(
     string Name,
     DateOnly Datum,
     string Quelle,
     IReadOnlyList<RanglistenEintragEingabe> Eintraege,
-    int? RanglistenQuelleId = null,
     int? ProfigrenzeSpielklasse = null,
     IReadOnlyList<RanglistenAbschnittEingabe>? Abschnitte = null,
     int? PokalsiegerId = null);

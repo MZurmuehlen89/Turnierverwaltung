@@ -25,7 +25,6 @@ public class LigapyramideNachruestungTests
         await using var ctx = new TurnierverwaltungDbContext(optionen);
         var rangliste = await ctx.Ranglisten.Include(r => r.Eintraege).Include(r => r.Abschnitte)
             .SingleAsync(r => r.Name == RANGLISTE);
-        rangliste.RanglistenQuelleId.Should().BeNull("von Hand gepflegt, keine Import-Quelle");
         rangliste.ProfigrenzeSpielklasse.Should().Be(2);
         rangliste.Eintraege.Should().HaveCount(64, "jeder Verein der Seed-Daten wird gefunden");
         rangliste.Eintraege.Select(e => e.Rang).Should().BeEquivalentTo(Enumerable.Range(1, 64));

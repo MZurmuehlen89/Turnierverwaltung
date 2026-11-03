@@ -31,7 +31,6 @@ public class KlubWmRankingNachruestungTests
         await using var ctx = new TurnierverwaltungDbContext(optionen);
         var rangliste = await RanglisteLadenAsync(ctx, verband);
         rangliste.Datum.Should().Be(SEED_STAND);
-        rangliste.RanglistenQuelleId.Should().BeNull("fester Seed-Stand, kein Import");
         rangliste.Eintraege.Select(e => e.Rang).Should().BeEquivalentTo(Enumerable.Range(1, eintraege));
         (await ctx.Verbaende.SingleAsync(v => v.Kurzname == verband)).VereinsRanglisteId.Should().Be(rangliste.Id);
     }

@@ -14,12 +14,6 @@ public class RanglisteKonfiguration : IEntityTypeConfiguration<Rangliste>
         builder.Property(r => r.Quelle).HasMaxLength(500);
         builder.Property(r => r.Datum).HasColumnType("date");
 
-        builder.HasOne(r => r.RanglistenQuelle)
-            .WithMany()
-            .HasForeignKey(r => r.RanglistenQuelleId)
-            .OnDelete(DeleteBehavior.SetNull)
-            .IsRequired(false);
-
         // Pokalsieger (#583): eine gelöschte Mannschaft hinterlässt keinen Pokalsieger.
         builder.HasOne(r => r.Pokalsieger)
             .WithMany()

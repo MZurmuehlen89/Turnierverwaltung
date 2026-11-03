@@ -25,7 +25,6 @@ public class KlubKoeffizientNachruestungTests
         await using var ctx = new TurnierverwaltungDbContext(optionen);
         var rangliste = await RanglisteLadenAsync(ctx);
         rangliste.Datum.Should().Be(SEED_STAND);
-        rangliste.RanglistenQuelleId.Should().BeNull("fester Seed-Stand, kein Import");
         rangliste.Eintraege.Select(e => e.Rang).Should().BeEquivalentTo(Enumerable.Range(1, EINTRAEGE));
         (await RangUndPunkteAsync(ctx, rangliste, "FCB", "GER")).Should().Be((1, 148));
         (await RangUndPunkteAsync(ctx, rangliste, "SLP", "CZE")).Should().Be((59, 44), "Slavia Prag, neu mit #381");
@@ -64,16 +63,15 @@ public class KlubKoeffizientNachruestungTests
         protokoll.Should().BeEmpty();
     }
 
-    // Stand einer bestehenden Datenbank: Rangliste aus dem Kassies-Import, aber lückenhaft (fehlende Vereine).
+    // Stand einer bestehenden Datenbank: Rangliste älter als der Seed und lückenhaft (fehlende Vereine).
     [Fact]
-    public async Task AeltereImportierteRangliste_WirdVonDerQuelleGeloestUndAufDenSeedStandGebracht()
+    public async Task AeltereRangliste_WirdAufDenSeedStandGebracht()
     {
         var optionen = NeueDatenbank();
         await SeedLaufAsync(optionen);
         int id = await AendernAsync(optionen, r =>
         {
             r.Datum = new DateOnly(2026, 9, 28);
-            r.RanglistenQuelle = new RanglistenQuelle { Name = RANGLISTE, Url = "https://example.org" };
             foreach (var e in r.Eintraege.Where(e => e.Rang > 44).ToList()) r.Eintraege.Remove(e);
         });
 
@@ -83,7 +81,6 @@ public class KlubKoeffizientNachruestungTests
         var rangliste = await RanglisteLadenAsync(ctx);
         rangliste.Id.Should().Be(id);
         rangliste.Datum.Should().Be(SEED_STAND);
-        rangliste.RanglistenQuelleId.Should().BeNull();
         rangliste.Eintraege.Should().HaveCount(EINTRAEGE);
     }
 

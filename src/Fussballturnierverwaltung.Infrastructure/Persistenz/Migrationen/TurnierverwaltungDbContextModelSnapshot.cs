@@ -232,14 +232,9 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<int?>("RanglistenQuelleId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("PokalsiegerId");
-
-                    b.HasIndex("RanglistenQuelleId");
 
                     b.ToTable("Ranglisten", (string)null);
                 });
@@ -302,45 +297,6 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .IsUnique();
 
                     b.ToTable("RanglistenEintraege", (string)null);
-                });
-
-            modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenQuelle", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("KopfzeileUeberspringen")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("MannschaftSpalte")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int?>("PunkteSpalte")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TabellenIndex")
-                        .HasColumnType("int");
-
-                    b.Property<string>("TabellenSelektor")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Url")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("RanglistenQuellen", (string)null);
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke.EntscheidungsVerfahren", b =>
@@ -1344,14 +1300,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                         .HasForeignKey("PokalsiegerId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenQuelle", "RanglistenQuelle")
-                        .WithMany()
-                        .HasForeignKey("RanglistenQuelleId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("Pokalsieger");
-
-                    b.Navigation("RanglistenQuelle");
                 });
 
             modelBuilder.Entity("Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten.RanglistenAbschnitt", b =>

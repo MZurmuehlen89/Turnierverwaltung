@@ -34,8 +34,6 @@ public class SeedDatenService
         await RankingRegelnNachruesten(cancellationToken);
         await LigaphaseKoeffizientNachruesten(cancellationToken);
         await RegelwerkeNachruesten(cancellationToken);
-        // Vor den Vorlagen: nachgerüstete Vorlagen verweisen auf Ranglisten-Quellen (Issue #349).
-        await RanglistenQuellenNachruesten(cancellationToken);
         // Nach den Mannschaften (Issue #393).
         await LigapyramideNachruestung.AusfuehrenAsync(_context, Protokollieren, cancellationToken);
         // Nach den Mannschaften, vor den Vorlagen: deren Gruppenphasen verweisen auf sie (Issue #579).
@@ -268,24 +266,6 @@ public class SeedDatenService
             _context.Regelwerke.AddRange(neue);
             await _context.SaveChangesAsync(ct);
             Protokollieren(neue.Count, "Regelwerke nachgerüstet.");
-        }
-    }
-
-    private async Task RanglistenQuellenNachruesten(CancellationToken ct)
-    {
-        var vorhandeneNamen = await _context.RanglistenQuellen
-            .Select(q => q.Name)
-            .ToHashSetAsync(ct);
-
-        var neue = RanglistenQuellenSeedDaten.Erstellen()
-            .Where(q => !vorhandeneNamen.Contains(q.Name))
-            .ToList();
-
-        if (neue.Count > 0)
-        {
-            _context.RanglistenQuellen.AddRange(neue);
-            await _context.SaveChangesAsync(ct);
-            Protokollieren(neue.Count, "Ranglisten-Quellen nachgerüstet.");
         }
     }
 

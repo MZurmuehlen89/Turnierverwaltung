@@ -1083,7 +1083,6 @@ public class TabellenServiceTests
         ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Ligaphase", RankingRegelSetId = 1 });
         ctx.PunkteRegeln.Add(new PunkteRegel
             { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
-        ctx.RanglistenQuellen.Add(new RanglistenQuelle { Id = 1, Name = "Klub-Koeffizient", Url = "https://example.org" });
         ctx.TurnierRunden.Add(new TurnierRunde
         {
             Id = 1, TurnierInstanzId = 1, Name = "Ligaphase", Rundenart = Rundenart.TopfLiga, RegelwerkId = 1, Reihenfolge = 1,
@@ -1091,7 +1090,7 @@ public class TabellenServiceTests
         });
         ctx.Mannschaften.AddRange(Enumerable.Range(1, 4).Select(id =>
             new Mannschaft { Id = id, Name = $"Team {id}", Kurzname = $"T{id}", LandId = 1 }));
-        // Nur die Standard-Rangliste der Runde zählt, nicht die andere derselben Quelle; in ihr fehlen Team 2 und 4.
+        // Nur die Standard-Rangliste der Runde zählt, nicht die andere; in ihr fehlen Team 2 und 4.
         ctx.Ranglisten.AddRange(
             RanglisteMit(1, new DateOnly(2025, 6, 1), (1, 1), (2, 2), (3, 3), (4, 4)),
             RanglisteMit(2, new DateOnly(2026, 6, 1), (3, 1), (1, 2)));
@@ -1107,7 +1106,7 @@ public class TabellenServiceTests
 
         static Rangliste RanglisteMit(int id, DateOnly datum, params (int MannschaftId, int Rang)[] plaetze) => new()
         {
-            Id = id, Name = $"Koeffizient {datum.Year}", Datum = datum, Quelle = "Test", RanglistenQuelleId = 1,
+            Id = id, Name = $"Koeffizient {datum.Year}", Datum = datum, Quelle = "Test",
             Eintraege = [.. plaetze.Select(p => new RanglistenEintrag { MannschaftId = p.MannschaftId, Rang = p.Rang })]
         };
     }

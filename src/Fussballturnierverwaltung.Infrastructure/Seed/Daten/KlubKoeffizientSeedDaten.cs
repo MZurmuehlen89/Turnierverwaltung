@@ -1,8 +1,7 @@
 namespace Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 
 /// <summary>UEFA-Klub-Koeffizient nach Bert Kassies, „UEFA 5-year Club Ranking 2026“ (Fünfjahreswertung bis
-/// einschließlich 2025/26, gilt für die Auslosungen 2026/27), abgerufen am 01.11.2026 — fester Stand im Seed (Issue #381),
-/// unabhängig von der Import-Quelle <see cref="RanglistenQuellenSeedDaten.UEFA_KLUB_KOEFFIZIENT"/>.
+/// einschließlich 2025/26, gilt für die Auslosungen 2026/27), abgerufen am 01.11.2026 — fester Stand im Seed (Issue #381).
 ///
 /// Enthalten sind alle Vereine der Kassies-Liste, die der Seed kennt (<see cref="VereinsmannschaftenSeedDaten"/>), in der
 /// Reihenfolge der Liste. Punkte sind der maßgebliche Koeffizient, also der höhere Wert aus eigenen Punkten und
@@ -10,7 +9,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 /// Gleichstand, wie im Ranglisten-Editor (#578). Schlüssel ist Kurzname + Land wie bei der Vereins-Nachrüstung.</summary>
 internal static class KlubKoeffizientSeedDaten
 {
-    public const string RANGLISTE = RanglistenQuellenSeedDaten.UEFA_KLUB_KOEFFIZIENT;
+    public const string RANGLISTE = "UEFA-Klub-Koeffizient (Kassies)";
     public static readonly DateOnly DATUM = new(2026, 11, 1);
     public const string QUELLE_TEXT = "UEFA 5-year Club Ranking 2026 (Bert Kassies, kassiesa.net), abgerufen am 01.11.2026";
 
