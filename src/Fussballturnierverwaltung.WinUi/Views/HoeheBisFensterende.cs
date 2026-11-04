@@ -8,11 +8,11 @@ namespace Fussballturnierverwaltung.WinUi.Views;
 /// Seite, die als Ganzes scrollt, gibt das Layout dafür kein Maß her — gerechnet wird darum über
 /// <see cref="FrameworkElement.EffectiveViewportChanged"/>, das auch feuert, wenn sich das Element durch eine
 /// eingeblendete Meldung verschiebt. Der Scrollversatz des umgebenden <see cref="ScrollViewer"/> wird herausgerechnet,
-/// sonst wüchse das Element beim Scrollen mit. Gesetzt wird die Mindesthöhe; unter ihr scrollt die Seite.</summary>
+/// sonst wüchse das Element beim Scrollen mit, und die unteren Ränder seiner Vorfahren bis zum ScrollViewer bleiben frei,
+/// sonst wäre die Seite um sie zu hoch und scrollte. Annahme: unter dem Element steht nichts Sichtbares mehr. Gesetzt
+/// wird die Mindesthöhe; unter ihr scrollt die Seite.</summary>
 public static class HoeheBisFensterende
 {
-    private const double ABSTAND_UNTEN = 16;
-
     public static readonly DependencyProperty MindestHoeheProperty = DependencyProperty.RegisterAttached(
         "MindestHoehe", typeof(double), typeof(HoeheBisFensterende), new PropertyMetadata(double.NaN, BeiGeaendert));
 
@@ -32,16 +32,35 @@ public static class HoeheBisFensterende
     private static void Anpassen(FrameworkElement element, EffectiveViewportChangedEventArgs args)
     {
         if (args.EffectiveViewport.IsEmpty) return;
-        double versatz = UmgebenderScrollViewer(element)?.VerticalOffset ?? 0;
-        double hoehe = Math.Max(GetMindestHoehe(element), args.EffectiveViewport.Bottom - versatz - ABSTAND_UNTEN);
+        var (scrollViewer, raenderUnten) = UmgebenderScrollViewer(element);
+        double versatz = scrollViewer?.VerticalOffset ?? 0;
+        // Ein Pixel Luft gegen Rundung — sonst bliebe eine Scrollleiste für den Bruchteil stehen.
+        double hoehe = Math.Max(GetMindestHoehe(element), Math.Floor(args.EffectiveViewport.Bottom - versatz - raenderUnten) - 1);
         if (double.IsNaN(element.Height) || Math.Abs(element.Height - hoehe) > 0.5)
             element.Height = hoehe;
     }
 
-    private static ScrollViewer? UmgebenderScrollViewer(DependencyObject element)
+    /// <summary>Der nächste ScrollViewer über dem Element und die Summe der unteren Ränder (Margin, Padding) des Elements
+    /// und seiner Vorfahren bis dorthin.</summary>
+    private static (ScrollViewer? ScrollViewer, double RaenderUnten) UmgebenderScrollViewer(FrameworkElement element)
     {
+        double raender = element.Margin.Bottom;
         for (var eltern = VisualTreeHelper.GetParent(element); eltern is not null; eltern = VisualTreeHelper.GetParent(eltern))
-            if (eltern is ScrollViewer scrollViewer) return scrollViewer;
-        return null;
+        {
+            if (eltern is ScrollViewer scrollViewer) return (scrollViewer, raender);
+            raender += RandUnten(eltern);
+        }
+        return (null, raender);
     }
+
+    private static double RandUnten(DependencyObject eltern) =>
+        ((eltern as FrameworkElement)?.Margin.Bottom ?? 0)
+        + eltern switch
+        {
+            Grid grid => grid.Padding.Bottom,
+            StackPanel stackPanel => stackPanel.Padding.Bottom,
+            Border border => border.Padding.Bottom + border.BorderThickness.Bottom,
+            Control control => control.Padding.Bottom + control.BorderThickness.Bottom,
+            _ => 0,
+        };
 }

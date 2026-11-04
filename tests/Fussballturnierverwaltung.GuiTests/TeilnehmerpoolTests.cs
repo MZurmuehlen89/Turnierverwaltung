@@ -39,11 +39,13 @@ public sealed class TeilnehmerpoolTests(TurnierverwaltungApp app)
         KontingentTurnier.Abwarten(() => auslosung.Quote(GESAMT) == "35 / 36");
         auslosung.Quote(GESAMT).Should().Be("35 / 36", "'{0}' hat den Pool verlassen", heraus);
         auslosung.PoolMaengel.Should().NotBeEmpty("dem Pool fehlt eine Mannschaft");
+        auslosung.PoolMeldungen.Should().Be(1, "was dem Pool fehlt, steht nur einmal da (#593)");
         auslosung.ReiterwechselAbbrechen("Statistik");
         auslosung.Quote(GESAMT).Should().Be("35 / 36", "nach abgelehnter Rückfrage bleibt der geänderte Pool stehen");
         auslosung.AutomatischBefuellenMoeglich().Should().BeFalse("die Automatik wartet, bis der Pool seine Quoten erfüllt");
         auslosung.LostoepfeOeffnen();
         auslosung.PoolHinweis.Should().NotBeEmpty("der Reiter Lostöpfe weist auf den Pool hin");
+        auslosung.PoolMeldungen.Should().Be(1, "auch im Reiter Lostöpfe nur eine Meldung");
 
         auslosung.TeilnehmerpoolOeffnen();
         string hinein = auslosung.ErstesInPoolAufnehmen();

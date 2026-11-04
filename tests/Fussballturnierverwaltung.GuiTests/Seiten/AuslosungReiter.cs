@@ -80,6 +80,9 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
     /// <summary>Was dem Pool zu seinen Quoten fehlt, durch „ · “ getrennt; leer, wenn er sie erfüllt.</summary>
     public string PoolMaengel => fenster.TryFindById("Teilnehmerpool.Maengel")?.NameOrEmpty() ?? string.Empty;
 
+    /// <summary>Wie oft die Seite gerade aufzählt, was dem Pool fehlt — seit #593 höchstens einmal, in beiden Reitern.</summary>
+    public int PoolMeldungen => fenster.FindAllById("Teilnehmerpool.Maengel").Count;
+
     /// <summary>Hinweis, dass der Pool seine Quoten nicht erfüllt (seit #593 in beiden Reitern); leer, wenn keiner dasteht.</summary>
     public string PoolHinweis => fenster.TryFindById("Auslosung.PoolHinweis")?.NameOrEmpty() ?? string.Empty;
 
