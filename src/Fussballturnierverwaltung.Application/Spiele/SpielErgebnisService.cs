@@ -39,59 +39,12 @@ public class SpielErgebnisService(
         var spiel = await spielRepository.FindenNachIdMitRundeUndHinspielAsync(spielId, ct)
             ?? throw new InvalidOperationException($"Spiel {spielId} nicht gefunden.");
 
-        if (spiel.HeimMannschaftId is null || spiel.AuswaertsMannschaftId is null)
-            throw new InvalidOperationException(
-                "Das Spiel enthält Platzhalter, die noch nicht aufgelöst wurden.");
-
-        // Issue #346: in K.-o.-Runden mit Hin-/Rückspiel entscheidet das Rückspiel über das Gesamtergebnis
-        // beider Spiele (Auswärtstorregel nur bei aktivem Flag, AD-001) — nicht mehr nur bei aktiver
-        // Auswärtstorregel wie zuvor, wodurch ohne Regel schlicht der Rückspielsieger weiterkam.
-        bool istKoRueckspiel = HinRueckspielWertung.IstKoRueckspiel(spiel, spiel.TurnierRunde);
-        bool istKoHinspiel   = HinRueckspielWertung.IstKoHinspiel(spiel, spiel.TurnierRunde);
-
-        SpielErgebnis? hinspielErgebnis = null;
-        if (istKoRueckspiel)
-        {
-            hinspielErgebnis = spiel.Hinspiel?.Ergebnis
-                ?? throw new InvalidOperationException(
-                    "Das Hinspiel dieser Paarung hat noch kein Ergebnis. Bitte zuerst das Hinspiel erfassen.");
-        }
-
-        var (sieger, entscheidungArt) = SiegerErmittlung.Bestimmen(
-            spiel.HeimMannschaftId.Value, spiel.AuswaertsMannschaftId.Value, eingabe,
-            hinspielErgebnis, spiel.TurnierRunde.AuswaertstorRegelAktiv);
-
-        var vollEingabe = new SpielErgebnisEingabe(
-            spiel.HeimMannschaftId.Value, spiel.AuswaertsMannschaftId.Value,
-            eingabe.HeimToreRegulaer, eingabe.AuswaertsToreRegulaer,
-            eingabe.HeimToreVerlaengerung, eingabe.AuswaertsToreVerlaengerung,
-            eingabe.HeimElfmetertore, eingabe.AuswaertsElfmetertore,
-            entscheidungArt, sieger,
-            eingabe.HalbzeitHeimTore, eingabe.HalbzeitAuswaertsTore,
-            IstGesamtwertung: istKoRueckspiel,
-            IstKoHinspiel: istKoHinspiel);
-
-        ValidationException.WerfenWennUngueltig(validator.Validieren(vollEingabe));
-
-        var ergebnis = new SpielErgebnis
-        {
-            HeimToreRegulaer           = eingabe.HeimToreRegulaer,
-            AuswaertsToreRegulaer      = eingabe.AuswaertsToreRegulaer,
-            HeimToreVerlaengerung      = eingabe.HeimToreVerlaengerung,
-            AuswaertsToreVerlaengerung = eingabe.AuswaertsToreVerlaengerung,
-            HeimElfmetertore           = eingabe.HeimElfmetertore,
-            AuswaertsElfmetertore      = eingabe.AuswaertsElfmetertore,
-            HalbzeitHeimTore           = eingabe.HalbzeitHeimTore,
-            HalbzeitAuswaertsTore      = eingabe.HalbzeitAuswaertsTore,
-            SiegerMannschaftId         = sieger,
-            EntscheidungArt            = entscheidungArt
-        };
-
+        var ergebnis = GeprueftesErgebnis(spiel, eingabe);
         bool ueberschreibt = spiel.Ergebnis is not null;
 
         // Ein neues Hinspiel-Ergebnis entzieht einem bereits gespielten Rückspiel die Grundlage seiner
         // Gesamtwertung (Sieger, ggf. Verlängerung) — dessen Ergebnis wird daher zurückgesetzt.
-        var rueckspielIds = istKoHinspiel
+        var rueckspielIds = HinRueckspielWertung.IstKoHinspiel(spiel, spiel.TurnierRunde)
             ? await RueckspieleMitErgebnisAsync([spiel], ct)
             : [];
         await spielRepository.ErgebnisseLoeschenAsync(rueckspielIds, ct);
@@ -102,7 +55,7 @@ public class SpielErgebnisService(
         // Ablaufprotokoll (#413) bei einer Massensimulation fluten.
         logger.Log(platzhalterAufloesen ? LogLevel.Information : LogLevel.Debug,
             "Ergebnis für Spiel {Id} erfasst: {Heim}:{Auswaerts} ({Art}).",
-            spielId, eingabe.HeimToreRegulaer, eingabe.AuswaertsToreRegulaer, entscheidungArt);
+            spielId, eingabe.HeimToreRegulaer, eingabe.AuswaertsToreRegulaer, ergebnis.EntscheidungArt);
 
         // Ein überschriebenes Ergebnis kann den Sieger ändern — bereits damit aufgelöste Folgepaarungen
         // korrigiert erst die Rückwärts-Kaskade (Issue #88); die Vorwärts-Auflösung unten füllt nur noch
@@ -114,6 +67,56 @@ public class SpielErgebnisService(
         if (platzhalterAufloesen)
             await PlatzhalterAutomatischAufloesenAsync(spielId, ct);
     }
+
+    /// <summary>Wertet die Eingabe zum geprüften Ergebnis samt Sieger und Entscheidungsart. Wirft, solange das
+    /// Spiel Platzhalter enthält oder einem K.-o.-Rückspiel das Hinspiel-Ergebnis fehlt.</summary>
+    private SpielErgebnis GeprueftesErgebnis(Spiel spiel, ErgebnisErfassenEingabe eingabe)
+    {
+        if (spiel.HeimMannschaftId is not { } heimId || spiel.AuswaertsMannschaftId is not { } auswaertsId)
+            throw new InvalidOperationException(
+                "Das Spiel enthält Platzhalter, die noch nicht aufgelöst wurden.");
+
+        // Issue #346: in K.-o.-Runden mit Hin-/Rückspiel entscheidet das Rückspiel über das Gesamtergebnis
+        // beider Spiele (Auswärtstorregel nur bei aktivem Flag, AD-001) — nicht mehr nur bei aktiver
+        // Auswärtstorregel wie zuvor, wodurch ohne Regel schlicht der Rückspielsieger weiterkam.
+        bool istKoRueckspiel = HinRueckspielWertung.IstKoRueckspiel(spiel, spiel.TurnierRunde);
+        bool istKoHinspiel   = HinRueckspielWertung.IstKoHinspiel(spiel, spiel.TurnierRunde);
+
+        SpielErgebnis? hinspielErgebnis = istKoRueckspiel
+            ? spiel.Hinspiel?.Ergebnis ?? throw new InvalidOperationException(
+                "Das Hinspiel dieser Paarung hat noch kein Ergebnis. Bitte zuerst das Hinspiel erfassen.")
+            : null;
+
+        var (sieger, entscheidungArt) = SiegerErmittlung.Bestimmen(
+            heimId, auswaertsId, eingabe, hinspielErgebnis, spiel.TurnierRunde.AuswaertstorRegelAktiv);
+
+        ValidationException.WerfenWennUngueltig(validator.Validieren(new SpielErgebnisEingabe(
+            heimId, auswaertsId,
+            eingabe.HeimToreRegulaer, eingabe.AuswaertsToreRegulaer,
+            eingabe.HeimToreVerlaengerung, eingabe.AuswaertsToreVerlaengerung,
+            eingabe.HeimElfmetertore, eingabe.AuswaertsElfmetertore,
+            entscheidungArt, sieger,
+            eingabe.HalbzeitHeimTore, eingabe.HalbzeitAuswaertsTore,
+            IstGesamtwertung: istKoRueckspiel,
+            IstKoHinspiel: istKoHinspiel)));
+
+        return NeuesErgebnis(eingabe, sieger, entscheidungArt);
+    }
+
+    private static SpielErgebnis NeuesErgebnis(
+        ErgebnisErfassenEingabe eingabe, int? sieger, EntscheidungArt entscheidungArt) => new()
+    {
+        HeimToreRegulaer           = eingabe.HeimToreRegulaer,
+        AuswaertsToreRegulaer      = eingabe.AuswaertsToreRegulaer,
+        HeimToreVerlaengerung      = eingabe.HeimToreVerlaengerung,
+        AuswaertsToreVerlaengerung = eingabe.AuswaertsToreVerlaengerung,
+        HeimElfmetertore           = eingabe.HeimElfmetertore,
+        AuswaertsElfmetertore      = eingabe.AuswaertsElfmetertore,
+        HalbzeitHeimTore           = eingabe.HalbzeitHeimTore,
+        HalbzeitAuswaertsTore      = eingabe.HalbzeitAuswaertsTore,
+        SiegerMannschaftId         = sieger,
+        EntscheidungArt            = entscheidungArt
+    };
 
     /// <summary>Issue #346: Rückspiele (mit Ergebnis) der übergebenen K.-o.-Hinspiele — deren Gesamtwertung
     /// hängt am Hinspiel-Ergebnis und muss mit ihm zusammen zurückgesetzt werden.</summary>
