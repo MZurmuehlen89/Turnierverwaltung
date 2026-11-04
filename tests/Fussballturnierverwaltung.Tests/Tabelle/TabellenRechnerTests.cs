@@ -151,6 +151,102 @@ public class TabellenRechnerTests
         tabelle.Should().OnlyContain(e => e.Unentschieden == 0);
     }
 
+    // ── Statistik je Team und Kriterien (#505: vor dem Umbau exakt festgehalten) ──
+
+    [Fact]
+    public void TabelleBerechnen_ZaehltJeTeamSpieleAusgaengeToreUndPunkte_BuchholzAusDenGegnerpunkten()
+    {
+        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 2, 3, 1), Spiel(3, 1, 2, 2), Spiel(1, 4, 0, 1)], _dreiPunkte, []);
+
+        var team1 = tabelle.Single(e => e.Mannschaft.Id == 1);
+        team1.Spiele.Should().Be(3);
+        team1.Siege.Should().Be(1);
+        team1.Unentschieden.Should().Be(1);
+        team1.Niederlagen.Should().Be(1);
+        team1.Tore.Should().Be(5);
+        team1.Gegentore.Should().Be(4);
+        team1.Punkte.Should().Be(4);
+        // Gegner 2 (0 Punkte) + 3 (1 Punkt) + 4 (3 Punkte)
+        team1.Buchholz.Should().Be(4);
+    }
+
+    [Fact]
+    public void TabelleBerechnen_PunkteRegel_BewertetSiegUnentschiedenUndNiederlage()
+    {
+        var punkteRegel = new PunkteRegel { PunkteFuerSieg = 2, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = -1 };
+
+        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 2, 1, 0), Spiel(2, 3, 0, 0)], punkteRegel, []);
+
+        tabelle.Single(e => e.Mannschaft.Id == 1).Punkte.Should().Be(2);
+        tabelle.Single(e => e.Mannschaft.Id == 2).Punkte.Should().Be(0);
+        tabelle.Single(e => e.Mannschaft.Id == 3).Punkte.Should().Be(1);
+    }
+
+    [Theory]
+    // Auswärtstore: 2 trifft zweimal auswärts, 4 einmal; 3 trifft fünfmal, aber nur daheim.
+    [InlineData(RankingRegelArt.AuswaertsToreGesamt, new[] { 2, 4, 1, 3 })]
+    [InlineData(RankingRegelArt.ErzielteTore, new[] { 3, 2, 4, 1 })]
+    public void TabelleBerechnen_AuswaertsToreGesamt_ZaehltNurToreAufDerAuswaertsseite(RankingRegelArt art, int[] erwartet)
+    {
+        var tabelle = TabellenRechner.TabelleBerechnen(
+            [Spiel(1, 2, 0, 2), Spiel(3, 4, 5, 1)], _dreiPunkte, Regeln(art, RankingRegelArt.Losentscheid));
+
+        Reihenfolge(tabelle).Should().Equal(erwartet);
+    }
+
+    [Theory]
+    // 2 gewinnt auswärts, 3 daheim.
+    [InlineData(RankingRegelArt.AuswaertsSiege, new[] { 2, 1, 3, 4 })]
+    [InlineData(RankingRegelArt.Siege, new[] { 2, 3, 1, 4 })]
+    public void TabelleBerechnen_AuswaertsSiege_ZaehltNurSiegeAufDerAuswaertsseite(RankingRegelArt art, int[] erwartet)
+    {
+        var tabelle = TabellenRechner.TabelleBerechnen(
+            [Spiel(1, 2, 0, 1), Spiel(3, 4, 2, 0)], _dreiPunkte, Regeln(art, RankingRegelArt.Losentscheid));
+
+        Reihenfolge(tabelle).Should().Equal(erwartet);
+    }
+
+    [Fact]
+    public void TabelleBerechnen_WenigerGegentore_Aufsteigend_StelltDieBesteAbwehrNachVorn()
+    {
+        RankingRegel[] regeln =
+        [
+            new() { Regelart = RankingRegelArt.WenigerGegentore, Sortierrichtung = Sortierrichtung.Aufsteigend },
+            .. Regeln(RankingRegelArt.Losentscheid)
+        ];
+
+        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 2, 3, 0), Spiel(3, 4, 1, 1)], _dreiPunkte, regeln);
+
+        Reihenfolge(tabelle).Should().Equal(1, 3, 4, 2);
+    }
+
+    [Fact]
+    public void TabelleBerechnen_FairplayWertung_GelbZaehltEinenRotDreiStrafpunkte()
+    {
+        var spiel = Spiel(1, 2, 0, 0);
+        spiel.Ereignisse.Add(new SpielEreignis { EreignisArt = EreignisArt.GelbeKarte, MannschaftId = 1 });
+        spiel.Ereignisse.Add(new SpielEreignis { EreignisArt = EreignisArt.RoteKarte, MannschaftId = 2 });
+        spiel.Ereignisse.Add(new SpielEreignis { EreignisArt = EreignisArt.Tor, MannschaftId = 2 });
+
+        var tabelle = TabellenRechner.TabelleBerechnen(
+            [spiel, Spiel(3, 4, 0, 0)], _dreiPunkte, Regeln(RankingRegelArt.FairplayWertung, RankingRegelArt.Losentscheid));
+
+        Reihenfolge(tabelle).Should().Equal(3, 4, 1, 2);
+    }
+
+    [Theory]
+    // 1 schlägt 2, 3 schlägt 4 deutlich, 2 schlägt 4. Gegner von 4 sind 3 und 2, von 3 nur die 4.
+    [InlineData(RankingRegelArt.GegnerPunkte)]
+    [InlineData(RankingRegelArt.GegnerTordifferenz)]
+    [InlineData(RankingRegelArt.GegnerErzielteTore)]
+    public void TabelleBerechnen_GegnerKriterien_SummierenUeberAlleBisherigenGegner(RankingRegelArt art)
+    {
+        var tabelle = TabellenRechner.TabelleBerechnen(
+            [Spiel(1, 2, 1, 0), Spiel(3, 4, 3, 0), Spiel(2, 4, 2, 0)], _dreiPunkte, Regeln(art, RankingRegelArt.Losentscheid));
+
+        Reihenfolge(tabelle).Should().Equal(4, 1, 2, 3);
+    }
+
     [Theory]
     [InlineData(true, 1, 0)]
     [InlineData(false, 0, 1)]
