@@ -29,8 +29,7 @@ public static class TabellenRechner
         GegnerSummenErgaenzen(stats, abgeschlossene);
 
         var eintraege = teams.Select(kv => EintragAus(kv.Value, stats[kv.Key])).ToList();
-        SortierenUndRangZuweisen(
-            eintraege, regeln.RankingRegeln, new Wertung(stats, abgeschlossene, regeln.PunkteRegel, regeln.RanglistenPlaetze));
+        SortierenUndRangZuweisen(eintraege, new Wertung(stats, abgeschlossene, regeln));
         return eintraege;
     }
 
@@ -226,19 +225,17 @@ public static class TabellenRechner
     // ── Sortierung ────────────────────────────────────────────────────────
 
     /// <summary>Woran zwei Teams gemessen werden: ihre Statistik, für den direkten Vergleich die Spiele mit
-    /// Ergebnis und die Punkteregel, nach der diese Duelle gewertet werden, für den Koeffizienten die Plätze in der
-    /// Standard-Rangliste der Runde.</summary>
+    /// Ergebnis, dazu die Regeln – die Kriterien, die Punkteregel, nach der die Duelle gewertet werden, und für den
+    /// Koeffizienten die Plätze in der Standard-Rangliste der Runde.</summary>
     private sealed record Wertung(
-        IReadOnlyDictionary<int, RohStats> Stats, IReadOnlyList<Spiel> Abgeschlossene, PunkteRegel PunkteRegel,
-        IReadOnlyDictionary<int, int>? RanglistenPlaetze);
+        IReadOnlyDictionary<int, RohStats> Stats, IReadOnlyList<Spiel> Abgeschlossene, TabellenRegeln Regeln);
 
-    private static void SortierenUndRangZuweisen(
-        List<TabellenEintrag> eintraege, IReadOnlyList<RankingRegel> regeln, Wertung wertung)
+    private static void SortierenUndRangZuweisen(List<TabellenEintrag> eintraege, Wertung wertung)
     {
-        if (regeln.Count == 0)
+        if (wertung.Regeln.RankingRegeln.Count == 0)
             eintraege.Sort(OhneRegelnVergleichen);
         else
-            eintraege.Sort((x, y) => Vergleichen(x.Mannschaft.Id, y.Mannschaft.Id, regeln, wertung));
+            eintraege.Sort((x, y) => Vergleichen(x.Mannschaft.Id, y.Mannschaft.Id, wertung));
 
         for (int i = 0; i < eintraege.Count; i++)
             eintraege[i].Rang = i + 1;
@@ -254,9 +251,9 @@ public static class TabellenRechner
         return y.Tore.CompareTo(x.Tore);
     }
 
-    private static int Vergleichen(int xId, int yId, IReadOnlyList<RankingRegel> regeln, Wertung wertung)
+    private static int Vergleichen(int xId, int yId, Wertung wertung)
     {
-        foreach (var regel in regeln)
+        foreach (var regel in wertung.Regeln.RankingRegeln)
         {
             int cmp = NachRegelVergleichen(regel.Regelart, xId, yId, wertung);
 
@@ -276,7 +273,7 @@ public static class TabellenRechner
         // Stabiler Tiebreaker: nach Team-ID (reproduzierbar)
         if (regelart == RankingRegelArt.Losentscheid) return xId.CompareTo(yId);
 
-        if (regelart == RankingRegelArt.Koeffizient) return NachRanglistenplatzVergleichen(xId, yId, wertung.RanglistenPlaetze);
+        if (regelart == RankingRegelArt.Koeffizient) return NachRanglistenplatzVergleichen(xId, yId, wertung.Regeln.RanglistenPlaetze);
 
         return VergleichenNachRegelart(regelart, wertung.Stats[xId], wertung.Stats[yId]);
     }
@@ -305,8 +302,8 @@ public static class TabellenRechner
 
         return VergleichenNachRegelart(
             regelart,
-            TeamStatistik(xId, duelle, wertung.PunkteRegel),
-            TeamStatistik(yId, duelle, wertung.PunkteRegel));
+            TeamStatistik(xId, duelle, wertung.Regeln.PunkteRegel),
+            TeamStatistik(yId, duelle, wertung.Regeln.PunkteRegel));
     }
 
     private static int VergleichenNachRegelart(RankingRegelArt regelart, RohStats x, RohStats y) =>

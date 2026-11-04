@@ -109,9 +109,7 @@ public static class RangPrognose
             TabellenRechner.MitErgebnis(gruppenSpiele),
             [.. gruppenSpiele.Where(s => s.Status != SpielStatus.Abgeschlossen
                                       && s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)],
-            regeln.PunkteRegel,
-            regeln.RankingRegeln,
-            regeln.RanglistenPlaetze);
+            regeln);
 
         foreach (var eintrag in gruppe.Tabelle)
         {
@@ -143,9 +141,7 @@ public static class RangPrognose
     private sealed record GruppenStand(
         IReadOnlyList<Spiel> Abgeschlossen,
         IReadOnlyList<Spiel> Offen,
-        PunkteRegel PunkteRegel,
-        IReadOnlyList<RankingRegel> RankingRegeln,
-        IReadOnlyDictionary<int, int>? RanglistenPlaetze);
+        TabellenRegeln Regeln);
 
     /// <summary>Ermittelt den best- bzw. schlechtestmöglichen Rang von <paramref name="teamId"/>: die eigenen offenen
     /// Spiele sind fixiert - bestenfalls gewinnt das Team alle, schlechtestenfalls verliert es alle - und werden mit
@@ -182,7 +178,7 @@ public static class RangPrognose
         {
             var tabelle = TabellenRechner.TabelleBerechnen(
                 [..stand.Abgeschlossen, ..eigeneErgebnisse, ..FremdeErgebnisse(fremde, kombi)],
-                new TabellenRegeln(stand.PunkteRegel, stand.RankingRegeln, stand.RanglistenPlaetze));
+                stand.Regeln);
             int rang = tabelle.FirstOrDefault(e => e.Mannschaft.Id == teamId)?.Rang ?? int.MaxValue;
 
             extremRang = bestenfalls ? Math.Min(extremRang, rang) : Math.Max(extremRang, rang);

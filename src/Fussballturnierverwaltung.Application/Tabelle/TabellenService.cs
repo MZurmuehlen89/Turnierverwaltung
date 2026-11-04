@@ -36,7 +36,7 @@ public class TabellenService(
         // Issue #358: mögliche Ränge nur für den aktuellen Gesamtstand — Teilansichten und historische
         // Spieltage sind keine Wertung, aus der sich ein Weiterkommen ableiten ließe.
         if (ansicht == TabellenAnsicht.Gesamt && bisSpieltag is null)
-            RangPrognose.LigaRaengeSetzen(tabelle, daten.Runde, daten.Spiele, daten.PunkteRegel);
+            RangPrognose.LigaRaengeSetzen(tabelle, daten.Runde, daten.Spiele, daten.Regeln.PunkteRegel);
         return tabelle;
     }
 
@@ -48,7 +48,7 @@ public class TabellenService(
     {
         var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
         var tabelle = TabellenRechner.TabelleBerechnen(daten.Spiele, daten.Regeln);
-        RangPrognose.LigaRaengeSetzen(tabelle, daten.Runde, daten.Spiele, daten.PunkteRegel);
+        RangPrognose.LigaRaengeSetzen(tabelle, daten.Runde, daten.Spiele, daten.Regeln.PunkteRegel);
         RangPrognose.SicherPositionierteMarkieren(tabelle);
         return tabelle;
     }
@@ -97,12 +97,7 @@ public class TabellenService(
     // ── Laden ─────────────────────────────────────────────────────────────
 
     /// <summary>Alles, woraus die Tabellen einer Runde gerechnet werden - je Aufruf einmal geladen (#439).</summary>
-    private sealed record TabellenDaten(
-        TurnierRunde Runde, PunkteRegel PunkteRegel, IReadOnlyList<RankingRegel> RankingRegeln, IReadOnlyList<Spiel> Spiele,
-        IReadOnlyDictionary<int, int>? RanglistenPlaetze)
-    {
-        public TabellenRegeln Regeln => new(PunkteRegel, RankingRegeln, RanglistenPlaetze);
-    }
+    private sealed record TabellenDaten(TurnierRunde Runde, TabellenRegeln Regeln, IReadOnlyList<Spiel> Spiele);
 
     private async Task<TabellenDaten> TabellenDatenLadenAsync(int turnierRundeId, CancellationToken ct)
     {
@@ -128,7 +123,7 @@ public class TabellenService(
             .ToList() ?? [];
 
         var ranglistenPlaetze = await RanglistenPlaetzeLadenAsync(runde, rankingRegeln, ct);
-        return new TabellenDaten(runde, punkteRegel, rankingRegeln, alleSpiele, ranglistenPlaetze);
+        return new TabellenDaten(runde, new TabellenRegeln(punkteRegel, rankingRegeln, ranglistenPlaetze), alleSpiele);
     }
 
     /// <summary>Plätze der Standard-Rangliste der Runde für das Kriterium <see cref="RankingRegelArt.Koeffizient"/>
