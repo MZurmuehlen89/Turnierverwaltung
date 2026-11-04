@@ -13,24 +13,26 @@
 
             <Border Grid.Row="0" Padding="8,6"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
-                <TextBox Text="{Binding Suchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                <TextBox AutomationProperties.AutomationId="Ranglisten.Suche"
+                         Text="{Binding Suchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          PlaceholderText="🔍  Suchen …" HorizontalAlignment="Stretch" />
             </Border>
 
             <ProgressBar Grid.Row="1" IsIndeterminate="True" Height="2"
                          Visibility="{Binding IstLadend, Converter={StaticResource BoolToVisibility}}" />
 
-            <ListView Grid.Row="2"
+            <ListView Grid.Row="2" AutomationProperties.AutomationId="Ranglisten.Liste"
                       ItemsSource="{Binding RanglistenGefiltert}"
                       SelectedItem="{Binding Ausgewaehltes, Mode=TwoWay}"
                       SelectionMode="Single">
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Padding="0,4">
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                            <TextBlock AutomationProperties.AutomationId="Ranglisten.ListeName"
+                                       Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="{Binding Datum, Converter={StaticResource DatumZuText}}" FontSize="10" Opacity="0.6" />
-                                <TextBlock FontSize="10" Opacity="0.6">
+                                <TextBlock AutomationProperties.AutomationId="Ranglisten.ListeAnzahl" FontSize="10" Opacity="0.6">
                                     <Run Text="{Binding Eintraege.Count}" /><Run Text=" Einträge" />
                                 </TextBlock>
                             </StackPanel>
@@ -69,7 +71,8 @@
                 <Grid Grid.Row="1" ColumnDefinitions="*,16,Auto" RowDefinitions="Auto,12,Auto" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
-                        <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox AutomationProperties.AutomationId="Ranglisten.Name"
+                                 Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                     </StackPanel>
                     <!-- Deutsches Format und deutscher Kalender (Monatsnamen, Woche ab Montag) unabhängig von der
                          Systemsprache. -->
@@ -87,7 +90,7 @@
                 </Grid>
 
                 <!-- ── Ligapyramide (aufklappbar, #393) ── -->
-                <Expander Grid.Row="2" DataContext="{Binding Ligapyramide}"
+                <Expander Grid.Row="2" AutomationProperties.AutomationId="Ranglisten.Ligapyramide" DataContext="{Binding Ligapyramide}"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,16"
                           IsExpanded="{Binding Offen, Mode=TwoWay}"
                           Header="{Binding Kopf}" HeaderTemplate="{StaticResource AbschnittKopfVorlage}">
@@ -103,6 +106,7 @@
                         <TextBlock Text="Pokalsieger" FontSize="12" Margin="0,0,0,3" />
                         <Grid ColumnDefinitions="*,8,Auto" MaxWidth="420" HorizontalAlignment="Left">
                             <views:MannschaftsAuswahlBox DataContext="{Binding Pokalsieger}"
+                                                         SuchfeldAutomationId="Ranglisten.Pokalsieger"
                                                          PlaceholderText="Verein suchen …" />
                             <Button Grid.Column="2" Command="{Binding PokalsiegerEntfernenCommand}" Padding="6"
                                     AutomationProperties.AutomationId="Ranglisten.PokalsiegerEntfernen"
@@ -126,13 +130,17 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Grid ColumnDefinitions="*,8,110,8,110,8,70,8,32" Margin="0,0,0,4">
-                                        <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        <TextBox AutomationProperties.AutomationId="Ranglisten.AbschnittName"
+                                                 Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                  PlaceholderText="z. B. 2. Bundesliga" />
-                                        <NumberBox Grid.Column="2" Value="{Binding Spielklasse, Mode=TwoWay}"
+                                        <NumberBox Grid.Column="2" AutomationProperties.AutomationId="Ranglisten.AbschnittSpielklasse"
+                                                   Value="{Binding Spielklasse, Mode=TwoWay}"
                                                    Minimum="1" SmallChange="1" SpinButtonPlacementMode="Compact" />
-                                        <NumberBox Grid.Column="4" Value="{Binding BisPlatz, Mode=TwoWay}"
+                                        <NumberBox Grid.Column="4" AutomationProperties.AutomationId="Ranglisten.AbschnittBisPlatz"
+                                                   Value="{Binding BisPlatz, Mode=TwoWay}"
                                                    Minimum="1" SmallChange="1" SpinButtonPlacementMode="Compact" />
-                                        <TextBlock Grid.Column="6" Text="{Binding VonPlatz}" VerticalAlignment="Center"
+                                        <TextBlock Grid.Column="6" AutomationProperties.AutomationId="Ranglisten.AbschnittVonPlatz"
+                                                   Text="{Binding VonPlatz}" VerticalAlignment="Center"
                                                    Opacity="0.7" />
                                         <Button Grid.Column="8" Command="{Binding EntfernenCommand}" Padding="6"
                                                 ToolTipService.ToolTip="Abschnitt entfernen">
@@ -142,7 +150,8 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <Button Content="Abschnitt hinzufügen" Command="{Binding AbschnittHinzufuegenCommand}" Margin="0,4,0,0" />
+                        <Button AutomationProperties.AutomationId="Ranglisten.AbschnittHinzufuegen"
+                                Content="Abschnitt hinzufügen" Command="{Binding AbschnittHinzufuegenCommand}" Margin="0,4,0,0" />
                     </StackPanel>
                 </Expander>
 
@@ -158,6 +167,7 @@
                     <!-- Hinzufügen: hinter dem letzten markierten Eintrag, sonst am Ende -->
                     <Grid Grid.Row="1" ColumnDefinitions="*,8,200" Margin="0,0,0,8">
                         <views:MannschaftsAuswahlBox DataContext="{Binding Hinzufuegen}"
+                                                     SuchfeldAutomationId="Ranglisten.Hinzufuegen"
                                                      PlaceholderText="Mannschaft hinzufügen …" />
                         <ComboBox Grid.Column="2" ItemsSource="{Binding VerbandFilterOptionen}"
                                   SelectedItem="{Binding MannschaftVerbandFilterAuswahl, Mode=TwoWay}"
@@ -168,22 +178,25 @@
                     <!-- Aktionen für die markierten Einträge (Strg/Umschalt + Klick markiert mehrere) und Suche -->
                     <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
                         <StackPanel Orientation="Horizontal" Spacing="4">
-                            <Button Command="{Binding EintraegeHochCommand}" ToolTipService.ToolTip="Markierte einen Platz nach oben">
+                            <Button AutomationProperties.AutomationId="Ranglisten.Hoch" Command="{Binding EintraegeHochCommand}" ToolTipService.ToolTip="Markierte einen Platz nach oben">
                                 <FontIcon Glyph="&#xE70E;" FontSize="14" />
                             </Button>
-                            <Button Command="{Binding EintraegeRunterCommand}" ToolTipService.ToolTip="Markierte einen Platz nach unten">
+                            <Button AutomationProperties.AutomationId="Ranglisten.Runter" Command="{Binding EintraegeRunterCommand}" ToolTipService.ToolTip="Markierte einen Platz nach unten">
                                 <FontIcon Glyph="&#xE70D;" FontSize="14" />
                             </Button>
-                            <NumberBox Value="{Binding ZielRang, Mode=TwoWay}" Minimum="1" PlaceholderText="Rang"
+                            <NumberBox AutomationProperties.AutomationId="Ranglisten.ZielRang" Value="{Binding ZielRang, Mode=TwoWay}" Minimum="1" PlaceholderText="Rang"
                                        Width="90" Margin="12,0,0,0"
                                        ToolTipService.ToolTip="Zielrang für die markierten Einträge" />
-                            <Button Content="Auf Rang verschieben" Command="{Binding AufRangVerschiebenCommand}" />
-                            <Button Content="Entfernen" Command="{Binding EintraegeEntfernenCommand}" Margin="12,0,0,0" />
+                            <Button AutomationProperties.AutomationId="Ranglisten.AufRang"
+                                    Content="Auf Rang verschieben" Command="{Binding AufRangVerschiebenCommand}" />
+                            <Button AutomationProperties.AutomationId="Ranglisten.Entfernen"
+                                    Content="Entfernen" Command="{Binding EintraegeEntfernenCommand}" Margin="12,0,0,0" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="kein Treffer" FontSize="11" Opacity="0.6" VerticalAlignment="Center"
+                            <TextBlock AutomationProperties.AutomationId="Ranglisten.KeinTreffer" Text="kein Treffer" FontSize="11" Opacity="0.6" VerticalAlignment="Center"
                                        Visibility="{Binding SucheOhneTreffer, Converter={StaticResource BoolToVisibility}}" />
-                            <TextBox Text="{Binding SuchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox AutomationProperties.AutomationId="Ranglisten.InListeSuchen"
+                                     Text="{Binding SuchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      PlaceholderText="🔍  In Liste suchen …" Width="220"
                                      KeyDown="Suche_KeyDown"
                                      ToolTipService.ToolTip="Springt zum Treffer; Enter = nächster Treffer" />
@@ -201,7 +214,7 @@
                                            HorizontalAlignment="Right" />
                             </Grid>
 
-                            <ListView x:Name="EintraegeListe" Grid.Row="1"
+                            <ListView x:Name="EintraegeListe" Grid.Row="1" AutomationProperties.AutomationId="Ranglisten.Eintraege"
                                       ItemsSource="{Binding Eintraege}"
                                       SelectionMode="Extended"
                                       CanReorderItems="True" AllowDrop="True"
@@ -210,11 +223,13 @@
                                     <DataTemplate>
                                         <StackPanel>
                                             <!-- Abschnittsgrenze der Ligapyramide -->
-                                            <TextBlock Text="{Binding AbschnittBeginn}" FontSize="11" FontWeight="SemiBold"
+                                            <TextBlock AutomationProperties.AutomationId="Ranglisten.AbschnittBeginn"
+                                                       Text="{Binding AbschnittBeginn}" FontSize="11" FontWeight="SemiBold"
                                                        Opacity="0.6" Margin="0,6,0,2"
                                                        Visibility="{Binding AbschnittBeginn, Converter={StaticResource NullToCollapsed}}" />
                                             <Grid Padding="0,2" ColumnDefinitions="44,28,*,80">
-                                                <TextBlock Grid.Column="0" Text="{Binding Rang}" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="0" AutomationProperties.AutomationId="Ranglisten.EintragRang"
+                                                           Text="{Binding Rang}" VerticalAlignment="Center" />
                                                 <Grid Grid.Column="1" Width="20" Height="20">
                                                     <Image Source="{Binding Wappen, Converter={StaticResource BildDatenZuBildquelle}}"
                                                            Visibility="{Binding Wappen, Converter={StaticResource NullToCollapsed}}"
@@ -223,7 +238,8 @@
                                                                Opacity="0.35"
                                                                Visibility="{Binding Wappen, Converter={StaticResource NullToVisible}}" />
                                                 </Grid>
-                                                <TextBlock Grid.Column="2" Text="{Binding Mannschaft.Name}" VerticalAlignment="Center"
+                                                <TextBlock Grid.Column="2" AutomationProperties.AutomationId="Ranglisten.EintragName"
+                                                           Text="{Binding Mannschaft.Name}" VerticalAlignment="Center"
                                                            TextTrimming="CharacterEllipsis" />
                                                 <TextBox Grid.Column="3" Text="{Binding Punkte, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
                                                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Right"
@@ -247,7 +263,8 @@
                 <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
                         Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
                         CornerRadius="4" Padding="8,6">
-                    <TextBlock Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                    <TextBlock AutomationProperties.AutomationId="Ranglisten.Fehlermeldung"
+                               Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                FontSize="11" TextWrapping="Wrap" />
                 </Border>
                 <ItemsControl ItemsSource="{Binding Ligapyramide.Fehler}">
@@ -255,7 +272,8 @@
                         <DataTemplate>
                             <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
                                     CornerRadius="4" Padding="8,6" Margin="0,0,0,6">
-                                <TextBlock Text="{Binding}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                <TextBlock AutomationProperties.AutomationId="Ranglisten.AbschnittFehler"
+                                           Text="{Binding}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                            FontSize="11" TextWrapping="Wrap" />
                             </Border>
                         </DataTemplate>
@@ -264,7 +282,8 @@
                 <Border Visibility="{Binding Ligapyramide.Hinweis, Converter={StaticResource NullToCollapsed}}"
                         Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}"
                         CornerRadius="4" Padding="8,6">
-                    <TextBlock Text="{Binding Ligapyramide.Hinweis}" FontSize="11" TextWrapping="Wrap" />
+                    <TextBlock AutomationProperties.AutomationId="Ranglisten.Hinweis"
+                               Text="{Binding Ligapyramide.Hinweis}" FontSize="11" TextWrapping="Wrap" />
                 </Border>
                 <TextBlock Visibility="{Binding FormularAktiv, Converter={StaticResource BoolToVisibility}}"
                            Text="Der Rang ergibt sich aus der Reihenfolge. Punkte sind optional und rein informativ (z. B. FIFA-Punkte) – für Sortierung und Lostöpfe zählt nur der Rang."

@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.WinUi.ViewModels;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -20,6 +21,17 @@ public sealed partial class MannschaftsAuswahlBox : UserControl
     {
         get => (string)GetValue(PlaceholderTextProperty);
         set => SetValue(PlaceholderTextProperty, value);
+    }
+
+    // Ein UserControl erscheint nicht verlässlich im UIA-Baum – die AutomationId gehört an die Box selbst (#535).
+    public static readonly DependencyProperty SuchfeldAutomationIdProperty = DependencyProperty.Register(
+        nameof(SuchfeldAutomationId), typeof(string), typeof(MannschaftsAuswahlBox),
+        new PropertyMetadata("", (d, e) => AutomationProperties.SetAutomationId(((MannschaftsAuswahlBox)d).Box, (string)e.NewValue)));
+
+    public string SuchfeldAutomationId
+    {
+        get => (string)GetValue(SuchfeldAutomationIdProperty);
+        set => SetValue(SuchfeldAutomationIdProperty, value);
     }
 
     public event EventHandler? Bestaetigt;
