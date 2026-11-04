@@ -6,7 +6,7 @@ namespace Fussballturnierverwaltung.Application.Spiele;
 
 /// <summary>
 /// Gesamtwertung einer K.-o.-Paarung mit Hin- und Rückspiel (Issue #346). Gemeinsam genutzt von
-/// <see cref="SpielErgebnisService"/> (Sieger-Ermittlung), <see cref="Simulation.SimulationsService"/>
+/// <see cref="SiegerErmittlung"/>, <see cref="Simulation.SimulationsService"/>
 /// (Entscheidungsverfahren nur bei ausgeglichenem Gesamtergebnis) und der WinUi-Ergebniseingabe
 /// (Vorschlag der Entscheidungsart). Im Rückspiel sind die Rollen vertauscht: dessen Heimteam war im
 /// Hinspiel das Auswärtsteam.

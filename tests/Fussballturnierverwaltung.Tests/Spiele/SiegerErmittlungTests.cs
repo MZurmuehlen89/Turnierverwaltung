@@ -89,6 +89,19 @@ public class SiegerErmittlungTests
         Rueckspiel(2, 3, new(2, 3, EntscheidungArt.Verlaengerung, HeimToreVerlaengerung: 1, AuswaertsToreVerlaengerung: 0))
             .Should().Be(Erwartet(HEIM, EntscheidungArt.Verlaengerung));
 
+    [Theory]
+    [InlineData(EntscheidungArt.Losentscheid, true, HEIM)]
+    [InlineData(EntscheidungArt.Muenzwurf, false, AUSWAERTS)]
+    public void Rueckspiel_GesamtGleich_LosGewinnerWirdSieger(EntscheidungArt art, bool losGewinnerHeim, int? erwartet) =>
+        Rueckspiel(1, 0, new(1, 0, art, LosGewinnerHeim: losGewinnerHeim)).Should().Be(Erwartet(erwartet, art));
+
+    [Theory]
+    [InlineData(EntscheidungArt.GoldenGoal)]
+    [InlineData(EntscheidungArt.SilverGoal)]
+    public void Rueckspiel_GoldenOderSilverGoal_EntscheidenNurDieVerlaengerungstore(EntscheidungArt art) =>
+        Rueckspiel(1, 0, new(1, 0, art, HeimToreVerlaengerung: 0, AuswaertsToreVerlaengerung: 1))
+            .Should().Be(Erwartet(AUSWAERTS, art));
+
     [Fact]
     public void Rueckspiel_VerlaengerungUnentschieden_KeinSieger() =>
         Rueckspiel(1, 0, new(1, 0, EntscheidungArt.Verlaengerung, HeimToreVerlaengerung: 1, AuswaertsToreVerlaengerung: 1))

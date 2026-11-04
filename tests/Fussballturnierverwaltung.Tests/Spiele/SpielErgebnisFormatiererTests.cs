@@ -43,7 +43,15 @@ public class SpielErgebnisFormatiererTests
     }
 
     [Fact]
-    public void DetailText_VerlaengerungOhneTore_OhneRegulaerzeitKlammer()
+    public void DetailText_VerlaengerungOhneTore_NurKuerzel()
+    {
+        var text = SpielErgebnisFormatierer.DetailText(
+            Ergebnis(1, 1, EntscheidungArt.Verlaengerung, heimVerl: 0, auswVerl: 0));
+        text.Should().Be("n.V.");
+    }
+
+    [Fact]
+    public void DetailText_ElfmeterschiessenNachTorloserVerlaengerung_OhneRegulaerzeitKlammer()
     {
         // Elfmeterschießen nach torloser Verlängerung: Endstand = Regulärzeit-Stand, die Klammer wäre redundant.
         var text = SpielErgebnisFormatierer.DetailText(
