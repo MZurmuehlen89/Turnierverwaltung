@@ -78,9 +78,8 @@ public class RanglisteService(
             });
         }
 
-        // Ohne Abschnitte in der Eingabe bleiben die bisherigen stehen (#477).
-        if (eingabe.Abschnitte is { } abschnitte)
-            AbschnitteAbgleichen(rangliste, abschnitte);
+        // Wie beim Erstellen: ohne Abschnitte hat die Rangliste keine (#596, vorher blieben sie für den Import stehen).
+        AbschnitteAbgleichen(rangliste, eingabe.Abschnitte ?? []);
 
         await repository.SpeichernAenderungenAsync(ct);
         logger.LogInformation("Rangliste '{Name}' (ID {Id}) aktualisiert.", rangliste.Name, rangliste.Id);

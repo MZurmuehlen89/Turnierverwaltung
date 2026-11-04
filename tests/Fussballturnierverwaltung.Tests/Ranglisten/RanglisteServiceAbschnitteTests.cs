@@ -54,13 +54,13 @@ public class RanglisteServiceAbschnitteTests
     }
 
     [Fact]
-    public async Task Aktualisieren_OhneAbschnitte_LaesstSieStehen()
+    public async Task Aktualisieren_OhneAbschnitte_EntferntSie()
     {
         var id = await RanglisteMitAbschnittenAsync();
 
-        await Service().AktualisierenAsync(id, new RanglisteAktualisierenEingabe("Pyramide", _datum, "Import", []));
+        await Service().AktualisierenAsync(id, new RanglisteAktualisierenEingabe("Pyramide", _datum, "", []));
 
-        _context.RanglistenAbschnitte.Count(a => a.RanglisteId == id).Should().Be(2);
+        _context.RanglistenAbschnitte.Count(a => a.RanglisteId == id).Should().Be(0);
     }
 
     [Fact]

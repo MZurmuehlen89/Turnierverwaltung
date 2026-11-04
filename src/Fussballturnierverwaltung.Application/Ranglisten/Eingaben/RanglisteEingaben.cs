@@ -14,7 +14,7 @@ public record RanglisteErstellenEingabe(
     IReadOnlyList<RanglistenAbschnittEingabe>? Abschnitte = null,
     int? PokalsiegerId = null);
 
-/// <param name="Abschnitte">null = Abschnitte unverändert lassen (#477).</param>
+/// <param name="Abschnitte">null = keine Abschnitte, wie beim Erstellen (#477, #596).</param>
 /// <param name="PokalsiegerId">Wie die Profigrenze immer mitzugeben (#583).</param>
 public record RanglisteAktualisierenEingabe(
     string Name,
