@@ -38,6 +38,19 @@ public sealed class QuotenBereich(Window fenster)
     public void SpielklasseWaehlen(int zeile, string spielklasse) =>
         Feld(SPIELKLASSE, zeile).AsComboBox().SelectItem(spielklasse);
 
+    /// <summary>Das Feld „ab Platz“ der Zeile, etwa für <see cref="Feldmarkierung"/>.</summary>
+    public AutomationElement AbPlatzFeld(int zeile) => Feld("Turnierkopf.LandesQuoteAbPlatz", zeile);
+
+    /// <summary>Klappt den Bereich zu (Gegenstück zu <see cref="Aufklappen"/>).</summary>
+    public void Zuklappen()
+    {
+        var expander = fenster.FindById("Turnierkopf.Quoten").Patterns.ExpandCollapse.Pattern;
+        if (expander.ExpandCollapseState.Value != ExpandCollapseState.Collapsed)
+            expander.Collapse();
+        Wait.Until(() => expander.ExpandCollapseState.Value == ExpandCollapseState.Collapsed, Wait.DefaultTimeout,
+            "Quoten zugeklappt");
+    }
+
     public void AnzahlSetzen(int zeile, int anzahl) =>
         Feld("Turnierkopf.LandesQuoteAnzahl", zeile).Patterns.RangeValue.Pattern.SetValue(anzahl);
 

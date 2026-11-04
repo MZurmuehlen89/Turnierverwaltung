@@ -61,6 +61,36 @@ public sealed class KontingenteTests(TurnierverwaltungApp app) : IClassFixture<T
         new[] { quoten.Zeile(0), quoten.Zeile(1) }.Should().Equal(erstes, vorschlag with { Ergibt = "Bundesliga, Plätze 5–6" });
     }
 
+    /// <summary>Live-Prüfung der Quoten (#595): Ein Kontingent, das nicht in die Spielklasse passt, markiert „ab Platz“
+    /// und sperrt Speichern. Bei zugeklapptem Bereich klappt der Klick auf den Fehler in der Meldungsleiste ihn auf und
+    /// setzt den Fokus ins Feld. Danach wird die Zeile gültig gespeichert – die Klasse fährt ohne offene Änderung fort.</summary>
+    [Fact]
+    public void KontingentPasstNicht_MarkiertAbPlatz_UndDieLeisteSpringtInDenZugeklapptenBereich()
+    {
+        const string PASST_NICHT = "Deutschland: 20 Team(s) ab Platz 1 passen nicht in Spielklasse 1.";
+        var (turniere, _) = TurnierAnlegen();
+        var quoten = turniere.Quoten();
+        quoten.Aufklappen();
+        quoten.LandHinzufuegen();
+        quoten.LandWaehlen(0, "Deutschland");
+        quoten.SpielklasseWaehlen(0, BUNDESLIGA);
+        Abwarten(() => quoten.Zeile(0).Spielklasse == BUNDESLIGA);
+
+        quoten.AnzahlSetzen(0, 20);
+        turniere.KopfFehlerAbwarten(PASST_NICHT).Should().Equal(PASST_NICHT);
+        Feldmarkierung.FehlerAbwarten(quoten.AbPlatzFeld(0), PASST_NICHT).Should().Be(PASST_NICHT);
+        var kopf = turniere.Kopf();
+        kopf.SpeichernFreigegeben.Should().BeFalse("ein Kontingent passt nicht");
+
+        quoten.Zuklappen();
+        kopf.Meldungen.Anspringen(PASST_NICHT);
+        Feldmarkierung.FokusAbwarten(quoten.AbPlatzFeld(0)).Should().BeTrue("der Klick klappt die Quoten auf und springt ins Feld");
+
+        quoten.AnzahlSetzen(0, 4);
+        Feldmarkierung.FehlerAbwarten(quoten.AbPlatzFeld(0), "").Should().BeEmpty();
+        kopf.Speichern();
+    }
+
     /// <summary>Pokalsieger (#583): Neben dem Bundesliga-Kontingent 1–4 bietet die zweite Zeile „Pokalsieger“ an. Gewählt
     /// schlägt sie „Nachrücken ab“ Platz 5 vor, sperrt die Anzahl und nennt in „ergibt“ den Pokalsieger der Pyramide (der
     /// Seed setzt den VfB Stuttgart). Eine dritte Zeile bietet „Pokalsieger“ nicht mehr an. Nach dem Speichern und erneuten

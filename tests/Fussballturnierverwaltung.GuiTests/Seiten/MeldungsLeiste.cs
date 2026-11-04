@@ -20,6 +20,15 @@ public sealed class MeldungsLeiste(Window fenster, string praefix)
     /// <summary>Der Hinweis, der das Speichern nicht verhindert; leer, solange keiner angezeigt wird.</summary>
     public string Hinweis => Aufgeklappt(() => fenster.TryFindById($"{praefix}.Hinweis")?.NameOrEmpty() ?? string.Empty);
 
+    /// <summary>Klickt den Fehler <paramref name="fehler"/> an (#595): mit Feldbezug ein Knopf, der ins Feld springt;
+    /// die Leiste klappt danach zu.</summary>
+    public void Anspringen(string fehler) => Aufgeklappt(() =>
+    {
+        Wait.UntilFound(() => fenster.FindAllById($"{praefix}.Fehler").FirstOrDefault(f => f.NameOrEmpty() == fehler),
+            Wait.DefaultTimeout, $"Fehler '{fehler}' in der Meldungsleiste").AsButton().Invoke();
+        return true;
+    });
+
     private T Aufgeklappt<T>(Func<T> lesen)
     {
         var umschalter = fenster.TryFindById($"{praefix}.Meldungen")?.Patterns.Toggle.PatternOrDefault;

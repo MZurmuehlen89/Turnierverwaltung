@@ -107,5 +107,10 @@ with the test scenarios; there is no big-bang pass over all views.
 - Form messages live in the shared `Views/MeldungsLeiste` (#594: edge with counter on the right, list folds out over
   the form). Folded, the messages are collapsed — the GUI tests read them through the page object `MeldungsLeiste`,
   which unfolds the edge `<Präfix>.Meldungen` first. A save error unfolds the list by itself, live-check errors don't.
+- Faulty fields (#595): `views:Feldmarkierung.Meldungen` (the form's or row's `IReadOnlyList<Feldfehler>`) plus
+  `views:Feldmarkierung.Feld` (the validator's field key, `nameof` of the input property) give a field a red frame, a
+  red tooltip and the error as `AutomationProperties.HelpText` — tests read the HelpText (page object
+  `Feldmarkierung`). Errors with a field key are buttons in the `MeldungsLeiste` that jump into the field; the jump
+  finds the field by reference to the `Feldfehler`, so form and Leiste must get the same instances.
 - `ListView` items report their data object's `ToString()` as UIA name, `ItemsControl` rows are flat text — both
   need explicit names/containers once a test addresses them (findings in #520).

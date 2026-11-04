@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -69,7 +70,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
     /// solange sie Fehler enthält.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
-    private IReadOnlyList<string> _formularFehler = [];
+    private IReadOnlyList<Feldfehler> _formularFehler = [];
 
     // ── Formular-Felder ──────────────────────────────────────────────────────
     [ObservableProperty] private string _name = "";
@@ -401,7 +402,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
         var ergebnis = IstNeuModus
             ? _validator.Validieren(ErstellenEingabe())
             : _validator.Validieren(AktualisierenEingabe());
-        FormularFehler = ergebnis.Fehler;
+        FormularFehler = ergebnis.Meldungen;
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)

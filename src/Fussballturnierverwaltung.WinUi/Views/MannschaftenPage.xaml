@@ -159,7 +159,8 @@
                              oben/unten springen (Fund aus #281-Test). "Entfernen" stattdessen deaktiviert,
                              wenn kein Wappen hinterlegt ist. -->
                         <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="6">
-                            <Button Content="Bild wählen…" Command="{Binding WappenWaehlenCommand}" HorizontalAlignment="Left" />
+                            <Button Content="Bild wählen…" Command="{Binding WappenWaehlenCommand}" HorizontalAlignment="Left"
+                                    views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="Wappen" />
                             <Button Content="Entfernen" Command="{Binding WappenEntfernenCommand}"
                                     IsEnabled="{Binding WappenDaten, Converter={StaticResource IstNichtNull}}"
                                     HorizontalAlignment="Left" />
@@ -168,6 +169,7 @@
 
                     <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
                     <TextBox AutomationProperties.AutomationId="Mannschaften.Name"
+                             views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="Name"
                              Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
@@ -175,6 +177,7 @@
                         <StackPanel HorizontalAlignment="Stretch">
                             <TextBlock Text="Kurzname" FontSize="12" Margin="0,0,0,3" />
                             <TextBox AutomationProperties.AutomationId="Mannschaften.Kurzname"
+                                     views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="Kurzname"
                                      Text="{Binding Kurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      HorizontalAlignment="Stretch" />
                         </StackPanel>
@@ -188,8 +191,9 @@
                     </Grid>
 
                     <TextBlock Text="Land" FontSize="12" Margin="0,0,0,3" />
-                    <ComboBox ItemsSource="{Binding Laender}"
+                    <ComboBox ItemsSource="{Binding Laender}" AutomationProperties.AutomationId="Mannschaften.Land"
                               SelectedItem="{Binding AusgewaehltesLand, Mode=TwoWay}"
+                              views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="LandId"
                               DisplayMemberPath="Name" HorizontalAlignment="Stretch" Margin="0,0,0,24" />
 
                     <Grid Margin="0,0,0,12" ColumnDefinitions="*,Auto">

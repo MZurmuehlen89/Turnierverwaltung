@@ -40,7 +40,13 @@ public sealed class MannschaftenSeite(Window fenster, Hauptfenster hauptfenster)
         return Wait.Within(() => Eintraege().All(e => e.Name != name), Wait.DefaultTimeout);
     }
 
-    private IReadOnlyList<string> Fehler => new MeldungsLeiste(fenster, "Mannschaften").Fehler;
+    private IReadOnlyList<string> Fehler => Meldungen.Fehler;
+
+    /// <summary>Die Meldungsleiste des Formulars.</summary>
+    public MeldungsLeiste Meldungen => new(fenster, "Mannschaften");
+
+    /// <summary>Das Formularfeld <c>Mannschaften.&lt;feld&gt;</c>, etwa für <see cref="Feldmarkierung"/>.</summary>
+    public AutomationElement Feld(string feld) => fenster.FindById($"Mannschaften.{feld}");
 
     private bool SpeichernFreigegeben => fenster.FindById("Befehlsleiste.Speichern").IsEnabled;
 

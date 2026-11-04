@@ -13,6 +13,7 @@ public sealed class TurnierkopfVonHandTests(TurnierverwaltungApp app) : IClassFi
     private const string NAME_LEER = "Turniername darf nicht leer sein.";
     private const string SAISON_LEER = "Saison/Jahr darf nicht leer sein.";
     private const string ANZAHL_KEINE_ZAHL = "Mannschaftsanzahl muss eine Zahl ≥ 2 sein.";
+    private const string ENDE_VOR_START = "Endjahr darf nicht vor dem Startjahr liegen.";
 
     /// <summary>Ein neues, leeres Formular meldet sofort beide Pflichtfelder; eine ungültige Mannschaftsanzahl kommt
     /// dazu. Speichern ist genau dann gesperrt, wenn Meldungen dastehen. Gespeicherte Änderungen stehen nach dem
@@ -45,6 +46,32 @@ public sealed class TurnierkopfVonHandTests(TurnierverwaltungApp app) : IClassFi
         kopf.Auswaehlen(name);
         (kopf.Wert("Saison"), kopf.Wert("Mannschaftsanzahl"), kopf.Wert("Variante"))
             .Should().Be(("2027", "8", "von Hand"));
+    }
+
+    /// <summary>Feldmarkierung (#595): Die Pflichtfelder tragen ihren Fehler (HelpText); „Endjahr vor Startjahr“
+    /// markiert nur das Endjahr, und ein Klick auf den Fehler in der Meldungsleiste setzt den Fokus dorthin.</summary>
+    [Fact]
+    public void Feldmarkierung_ZeigtDenFehlerAmFeld_UndDieLeisteSpringtHin()
+    {
+        var turniere = app.Hauptfenster.TurniereOeffnen();
+        var kopf = turniere.Kopf();
+        kopf.Neu();
+        Feldmarkierung.FehlerAbwarten(kopf.Feld("Name"), NAME_LEER).Should().Be(NAME_LEER);
+        Feldmarkierung.FehlerAbwarten(kopf.Feld("Saison"), SAISON_LEER).Should().Be(SAISON_LEER);
+
+        kopf.WertSetzen("Name", EindeutigerName());
+        kopf.WertSetzen("Saison", "2027");
+        kopf.WertSetzen("Startjahr", "2027");
+        kopf.WertSetzen("Endjahr", "2026");
+        turniere.KopfFehlerAbwarten(ENDE_VOR_START).Should().Equal(ENDE_VOR_START);
+        Feldmarkierung.FehlerAbwarten(kopf.Feld("Endjahr"), ENDE_VOR_START).Should().Be(ENDE_VOR_START);
+        Feldmarkierung.FehlerAbwarten(kopf.Feld("Startjahr"), "").Should().BeEmpty("markiert wird nur das Endjahr");
+        Feldmarkierung.FehlerAbwarten(kopf.Feld("Name"), "").Should().BeEmpty();
+
+        kopf.Meldungen.Anspringen(ENDE_VOR_START);
+        Feldmarkierung.FokusAbwarten(kopf.Feld("Endjahr")).Should().BeTrue("der Klick springt ins Feld des Fehlers");
+
+        kopf.Abbrechen();
     }
 
     [Fact]

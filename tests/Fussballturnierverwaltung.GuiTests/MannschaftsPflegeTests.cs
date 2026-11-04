@@ -61,6 +61,25 @@ public sealed class MannschaftsPflegeTests(TurnierverwaltungApp app) : IClassFix
         _seite.Abbrechen();
     }
 
+    /// <summary>Feldmarkierung (#595): Der Fehler steht am Feld (HelpText), ein Klick auf ihn in der Meldungsleiste
+    /// setzt den Fokus ins Feld, und sobald das Feld gültig ist, ist die Markierung weg.</summary>
+    [Fact]
+    public void Feldmarkierung_ZeigtDenFehlerAmFeld_UndDieLeisteSpringtHin()
+    {
+        _seite.Neu();
+        Feldmarkierung.FehlerAbwarten(_seite.Feld("Name"), NAME_LEER).Should().Be(NAME_LEER);
+        Feldmarkierung.FehlerAbwarten(_seite.Feld("Kurzname"), KUERZEL_LEER).Should().Be(KUERZEL_LEER);
+
+        _seite.Meldungen.Anspringen(KUERZEL_LEER);
+        Feldmarkierung.FokusAbwarten(_seite.Feld("Kurzname")).Should().BeTrue("der Klick springt ins Feld des Fehlers");
+
+        _seite.NameEingeben(EindeutigerName());
+        Feldmarkierung.FehlerAbwarten(_seite.Feld("Name"), "").Should().BeEmpty("der Name ist jetzt gültig");
+        Feldmarkierung.FehlerAbwarten(_seite.Feld("Kurzname"), KUERZEL_LEER).Should().Be(KUERZEL_LEER);
+
+        _seite.Abbrechen();
+    }
+
     [Fact]
     public void Loeschen_FragtNachUndEntferntErstNachBestaetigung()
     {

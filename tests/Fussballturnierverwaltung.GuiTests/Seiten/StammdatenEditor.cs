@@ -21,6 +21,12 @@ public sealed class StammdatenEditor(
 
     public void Neu() => fenster.ActivateById("Befehlsleiste.Neu");
 
+    /// <summary>Das Formularfeld <c>&lt;Präfix&gt;.&lt;feld&gt;</c>, etwa für <see cref="Feldmarkierung"/>.</summary>
+    public AutomationElement Feld(string feld) => fenster.FindById($"{praefix}.{feld}");
+
+    /// <summary>Die Meldungsleiste des Formulars.</summary>
+    public MeldungsLeiste Meldungen => new(fenster, praefix);
+
     public void Abbrechen() => fenster.ActivateById("Befehlsleiste.Abbrechen");
 
     /// <summary>Speichert und wartet, bis die Seite neu geladen hat – erkennbar daran, dass Speichern wieder gesperrt
