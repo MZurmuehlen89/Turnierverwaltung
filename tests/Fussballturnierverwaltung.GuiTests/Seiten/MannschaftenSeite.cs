@@ -40,7 +40,7 @@ public sealed class MannschaftenSeite(Window fenster, Hauptfenster hauptfenster)
         return Wait.Within(() => Eintraege().All(e => e.Name != name), Wait.DefaultTimeout);
     }
 
-    private IReadOnlyList<string> Fehler => [.. fenster.FindAllById("Mannschaften.Fehler").Select(f => f.NameOrEmpty())];
+    private IReadOnlyList<string> Fehler => new MeldungsLeiste(fenster, "Mannschaften").Fehler;
 
     private bool SpeichernFreigegeben => fenster.FindById("Befehlsleiste.Speichern").IsEnabled;
 

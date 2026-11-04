@@ -32,7 +32,7 @@ public sealed class TurnierlisteSeite(Window fenster, Hauptfenster hauptfenster)
         return KopfFehler;
     }
 
-    private IReadOnlyList<string> KopfFehler => [.. fenster.FindAllById("Turnierkopf.Fehler").Select(f => f.NameOrEmpty())];
+    private IReadOnlyList<string> KopfFehler => new MeldungsLeiste(fenster, "Turnierkopf").Fehler;
 
     /// <summary>Legt im Turnierkopf ein Turnier ohne Vorlage an. Danach ist es in der Liste gewählt. Das
     /// Standard-Regelwerk gilt für alle Runden ohne eigenes; ohne Regelwerk lässt sich keine Runde spielen.</summary>

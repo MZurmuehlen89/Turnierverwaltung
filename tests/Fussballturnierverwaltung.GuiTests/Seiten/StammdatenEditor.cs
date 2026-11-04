@@ -5,7 +5,7 @@ namespace Fussballturnierverwaltung.GuiTests.Seiten;
 
 /// <summary>Was alle Stammdaten-Editoren gemeinsam haben (#530): links eine Liste mit Suchfeld, rechts das Formular,
 /// darüber die Befehlsleiste mit Neu, Speichern, Abbrechen und Löschen. Die AutomationIds folgen dem Schema
-/// <c>&lt;Präfix&gt;.Suche</c>, <c>.Liste</c>, <c>.ListeName</c>, <c>.Name</c> und <c>.Fehlermeldung</c>. Die Listen
+/// <c>&lt;Präfix&gt;.Suche</c>, <c>.Liste</c>, <c>.ListeName</c>, <c>.Name</c> und die <see cref="MeldungsLeiste"/>. Die Listen
 /// zeigen auch alle Einträge des Seeds, darum filtert jeder Zugriff erst per Suchfeld auf den eindeutigen Testnamen.
 /// <paramref name="listenPraefix"/> gilt für Suchfeld und Liste, wenn sie zu einer anderen View gehören als das
 /// Formular (Turniere: Liste in der Turnierliste, Formular im Turnierkopf).</summary>
@@ -16,8 +16,8 @@ public sealed class StammdatenEditor(
 
     public bool SpeichernFreigegeben => fenster.FindById("Befehlsleiste.Speichern").IsEnabled;
 
-    /// <summary>Die Meldung unter dem Formular; leer, solange keine angezeigt wird.</summary>
-    public string Fehlermeldung => fenster.TryFindById($"{praefix}.Fehlermeldung")?.NameOrEmpty() ?? string.Empty;
+    /// <summary>Die Speichermeldung in der Meldungsleiste; leer, solange keine angezeigt wird.</summary>
+    public string Fehlermeldung => new MeldungsLeiste(fenster, praefix).Fehlermeldung;
 
     public void Neu() => fenster.ActivateById("Befehlsleiste.Neu");
 

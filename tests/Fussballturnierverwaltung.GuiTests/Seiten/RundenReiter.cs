@@ -16,7 +16,7 @@ public sealed class RundenReiter(Window fenster, Hauptfenster hauptfenster)
 
     public string Name => fenster.FindById("Runden.Name").Patterns.Value.Pattern.Value.ValueOrDefault ?? string.Empty;
 
-    private IReadOnlyList<string> Fehler => [.. fenster.FindAllById("Runden.Fehler").Select(f => f.NameOrEmpty())];
+    private IReadOnlyList<string> Fehler => new MeldungsLeiste(fenster, "Runden").Fehler;
 
     /// <summary>Hängt eine neue Runde an und füllt sie aus. Die Rundenart kommt zuerst, weil sie bestimmt, welche
     /// Felder das Formular zeigt (Gruppenanzahl nur bei Gruppenphase).</summary>
@@ -136,7 +136,7 @@ public sealed class RundenReiter(Window fenster, Hauptfenster hauptfenster)
         hauptfenster.WarteBisRuhig();
     }
 
-    private string Fehlermeldung => fenster.TryFindById("Runden.Fehlermeldung")?.NameOrEmpty() ?? string.Empty;
+    private string Fehlermeldung => new MeldungsLeiste(fenster, "Runden").Fehlermeldung;
 
     private void WertSetzen(string feld, string wert) =>
         fenster.FindById($"Runden.{feld}").Patterns.Value.Pattern.SetValue(wert);

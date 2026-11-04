@@ -135,14 +135,14 @@ public sealed class RanglistenSeite(Window fenster, Hauptfenster hauptfenster)
     public IReadOnlyList<LigaAbschnitt> AbschnitteAbwarten(params LigaAbschnitt[] erwartet) =>
         Abwarten(Abschnitte, ist => ist.SequenceEqual(erwartet));
 
-    /// <summary>Die Fehler der Live-Prüfung in der Meldungsspalte, sobald sie <paramref name="erwartet"/> entsprechen.</summary>
+    /// <summary>Die Fehler der Live-Prüfung in der Meldungsleiste, sobald sie <paramref name="erwartet"/> entsprechen.</summary>
     public IReadOnlyList<string> AbschnittsFehlerAbwarten(params string[] erwartet) =>
-        Abwarten<IReadOnlyList<string>>(() => [.. fenster.FindAllById("Ranglisten.AbschnittFehler").Select(f => f.NameOrEmpty())],
+        Abwarten<IReadOnlyList<string>>(() => new MeldungsLeiste(fenster, "Ranglisten").Fehler,
             ist => ist.SequenceEqual(erwartet));
 
     /// <summary>Der Überhang-Hinweis (Speichern bleibt möglich), sobald er <paramref name="erwartet"/> lautet.</summary>
     public string HinweisAbwarten(string erwartet) =>
-        Abwarten(() => fenster.TextOf("Ranglisten.Hinweis"), ist => ist == erwartet);
+        Abwarten(() => new MeldungsLeiste(fenster, "Ranglisten").Hinweis, ist => ist == erwartet);
 
     public bool SpeichernFreigabeAbwarten(bool erwartet)
     {
