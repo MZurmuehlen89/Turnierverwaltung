@@ -60,13 +60,13 @@ public class TabellenRechnerTests
     [Fact]
     public void TabelleBerechnen_OhneSpiele_IstLeer()
     {
-        TabellenRechner.TabelleBerechnen([], _dreiPunkte, []).Should().BeEmpty();
+        TabellenRechner.TabelleBerechnen([], new(_dreiPunkte, [])).Should().BeEmpty();
     }
 
     [Fact]
     public void TabelleBerechnen_ZaehltNurSpieleMitErgebnis()
     {
-        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 2, 2, 0), Spiel(2, 1)], _dreiPunkte, []);
+        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 2, 2, 0), Spiel(2, 1)], new(_dreiPunkte, []));
 
         var sieger = tabelle.Single(e => e.Mannschaft.Id == 1);
         sieger.Spiele.Should().Be(1);
@@ -82,7 +82,7 @@ public class TabellenRechnerTests
         // Tordifferenz (0) über die erzielten Tore (5 gegen 2).
         Spiel[] spiele = [Spiel(1, 3, 1, 0), Spiel(2, 4, 3, 0), Spiel(3, 5, 2, 1), Spiel(4, 6, 5, 2)];
 
-        var tabelle = TabellenRechner.TabelleBerechnen(spiele, _dreiPunkte, []);
+        var tabelle = TabellenRechner.TabelleBerechnen(spiele, new(_dreiPunkte, []));
 
         Reihenfolge(tabelle).Take(4).Should().Equal(2, 1, 4, 3);
     }
@@ -94,9 +94,9 @@ public class TabellenRechnerTests
         Spiel[] spiele = [Spiel(1, 2, 1, 0), Spiel(2, 3, 5, 0), Spiel(3, 1, 0, 1), Spiel(2, 1, 0, 0), Spiel(3, 2, 0, 1), Spiel(1, 3, 0, 1)];
 
         var mitDirektemVergleich = TabellenRechner.TabelleBerechnen(
-            spiele, _dreiPunkte, Regeln(RankingRegelArt.Punkte, RankingRegelArt.DirekterVergleichPunkte, RankingRegelArt.Tordifferenz));
+            spiele, new(_dreiPunkte, Regeln(RankingRegelArt.Punkte, RankingRegelArt.DirekterVergleichPunkte, RankingRegelArt.Tordifferenz)));
         var nurTordifferenz = TabellenRechner.TabelleBerechnen(
-            spiele, _dreiPunkte, Regeln(RankingRegelArt.Punkte, RankingRegelArt.Tordifferenz));
+            spiele, new(_dreiPunkte, Regeln(RankingRegelArt.Punkte, RankingRegelArt.Tordifferenz)));
 
         mitDirektemVergleich.Single(e => e.Mannschaft.Id == 1).Punkte.Should().Be(7);
         mitDirektemVergleich.Single(e => e.Mannschaft.Id == 2).Punkte.Should().Be(7);
@@ -108,7 +108,7 @@ public class TabellenRechnerTests
     public void TabelleBerechnen_Losentscheid_OrdnetGleichstaendeNachTeamId()
     {
         var tabelle = TabellenRechner.TabelleBerechnen(
-            [Spiel(3, 1, 1, 1), Spiel(2, 4, 1, 1)], _dreiPunkte, Regeln(RankingRegelArt.Punkte, RankingRegelArt.Losentscheid));
+            [Spiel(3, 1, 1, 1), Spiel(2, 4, 1, 1)], new(_dreiPunkte, Regeln(RankingRegelArt.Punkte, RankingRegelArt.Losentscheid)));
 
         Reihenfolge(tabelle).Should().Equal(1, 2, 3, 4);
     }
@@ -120,9 +120,8 @@ public class TabellenRechnerTests
         var plaetze = new Dictionary<int, int> { [4] = 1, [2] = 5, [3] = 9 };
 
         var tabelle = TabellenRechner.TabelleBerechnen(
-            [Spiel(1, 2, 1, 1), Spiel(3, 4, 1, 1)], _dreiPunkte,
-            Regeln(RankingRegelArt.Punkte, RankingRegelArt.Koeffizient, RankingRegelArt.Losentscheid),
-            ranglistenPlaetze: plaetze);
+            [Spiel(1, 2, 1, 1), Spiel(3, 4, 1, 1)],
+            new(_dreiPunkte, Regeln(RankingRegelArt.Punkte, RankingRegelArt.Koeffizient, RankingRegelArt.Losentscheid), plaetze));
 
         Reihenfolge(tabelle).Should().Equal(4, 2, 3, 1);
     }
@@ -131,8 +130,8 @@ public class TabellenRechnerTests
     public void TabelleBerechnen_KoeffizientOhneRangliste_UeberlaesstDieEntscheidungDemNaechstenKriterium()
     {
         var tabelle = TabellenRechner.TabelleBerechnen(
-            [Spiel(4, 3, 1, 1), Spiel(2, 1, 1, 1)], _dreiPunkte,
-            Regeln(RankingRegelArt.Punkte, RankingRegelArt.Koeffizient, RankingRegelArt.Losentscheid));
+            [Spiel(4, 3, 1, 1), Spiel(2, 1, 1, 1)],
+            new(_dreiPunkte, Regeln(RankingRegelArt.Punkte, RankingRegelArt.Koeffizient, RankingRegelArt.Losentscheid)));
 
         Reihenfolge(tabelle).Should().Equal(1, 2, 3, 4);
     }
@@ -144,7 +143,7 @@ public class TabellenRechnerTests
         spiel.Ergebnis!.EntscheidungArt = EntscheidungArt.Elfmeterschiessen;
         spiel.Ergebnis.SiegerMannschaftId = 2;
 
-        var tabelle = TabellenRechner.TabelleBerechnen([spiel], _dreiPunkte, []);
+        var tabelle = TabellenRechner.TabelleBerechnen([spiel], new(_dreiPunkte, []));
 
         tabelle.Single(e => e.Mannschaft.Id == 2).Siege.Should().Be(1);
         tabelle.Single(e => e.Mannschaft.Id == 1).Niederlagen.Should().Be(1);
@@ -156,7 +155,7 @@ public class TabellenRechnerTests
     [Fact]
     public void TabelleBerechnen_ZaehltJeTeamSpieleAusgaengeToreUndPunkte_BuchholzAusDenGegnerpunkten()
     {
-        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 2, 3, 1), Spiel(3, 1, 2, 2), Spiel(1, 4, 0, 1)], _dreiPunkte, []);
+        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 2, 3, 1), Spiel(3, 1, 2, 2), Spiel(1, 4, 0, 1)], new(_dreiPunkte, []));
 
         var team1 = tabelle.Single(e => e.Mannschaft.Id == 1);
         team1.Spiele.Should().Be(3);
@@ -175,7 +174,7 @@ public class TabellenRechnerTests
     {
         var punkteRegel = new PunkteRegel { PunkteFuerSieg = 2, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = -1 };
 
-        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 2, 1, 0), Spiel(2, 3, 0, 0)], punkteRegel, []);
+        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 2, 1, 0), Spiel(2, 3, 0, 0)], new(punkteRegel, []));
 
         tabelle.Single(e => e.Mannschaft.Id == 1).Punkte.Should().Be(2);
         tabelle.Single(e => e.Mannschaft.Id == 2).Punkte.Should().Be(0);
@@ -189,7 +188,7 @@ public class TabellenRechnerTests
     public void TabelleBerechnen_AuswaertsToreGesamt_ZaehltNurToreAufDerAuswaertsseite(RankingRegelArt art, int[] erwartet)
     {
         var tabelle = TabellenRechner.TabelleBerechnen(
-            [Spiel(1, 2, 0, 2), Spiel(3, 4, 5, 1)], _dreiPunkte, Regeln(art, RankingRegelArt.Losentscheid));
+            [Spiel(1, 2, 0, 2), Spiel(3, 4, 5, 1)], new(_dreiPunkte, Regeln(art, RankingRegelArt.Losentscheid)));
 
         Reihenfolge(tabelle).Should().Equal(erwartet);
     }
@@ -201,7 +200,7 @@ public class TabellenRechnerTests
     public void TabelleBerechnen_AuswaertsSiege_ZaehltNurSiegeAufDerAuswaertsseite(RankingRegelArt art, int[] erwartet)
     {
         var tabelle = TabellenRechner.TabelleBerechnen(
-            [Spiel(1, 2, 0, 1), Spiel(3, 4, 2, 0)], _dreiPunkte, Regeln(art, RankingRegelArt.Losentscheid));
+            [Spiel(1, 2, 0, 1), Spiel(3, 4, 2, 0)], new(_dreiPunkte, Regeln(art, RankingRegelArt.Losentscheid)));
 
         Reihenfolge(tabelle).Should().Equal(erwartet);
     }
@@ -215,7 +214,7 @@ public class TabellenRechnerTests
             .. Regeln(RankingRegelArt.Losentscheid)
         ];
 
-        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 2, 3, 0), Spiel(3, 4, 1, 1)], _dreiPunkte, regeln);
+        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 2, 3, 0), Spiel(3, 4, 1, 1)], new(_dreiPunkte, regeln));
 
         Reihenfolge(tabelle).Should().Equal(1, 3, 4, 2);
     }
@@ -229,7 +228,7 @@ public class TabellenRechnerTests
         spiel.Ereignisse.Add(new SpielEreignis { EreignisArt = EreignisArt.Tor, MannschaftId = 2 });
 
         var tabelle = TabellenRechner.TabelleBerechnen(
-            [spiel, Spiel(3, 4, 0, 0)], _dreiPunkte, Regeln(RankingRegelArt.FairplayWertung, RankingRegelArt.Losentscheid));
+            [spiel, Spiel(3, 4, 0, 0)], new(_dreiPunkte, Regeln(RankingRegelArt.FairplayWertung, RankingRegelArt.Losentscheid)));
 
         Reihenfolge(tabelle).Should().Equal(3, 4, 1, 2);
     }
@@ -242,7 +241,7 @@ public class TabellenRechnerTests
     public void TabelleBerechnen_GegnerKriterien_SummierenUeberAlleBisherigenGegner(RankingRegelArt art)
     {
         var tabelle = TabellenRechner.TabelleBerechnen(
-            [Spiel(1, 2, 1, 0), Spiel(3, 4, 3, 0), Spiel(2, 4, 2, 0)], _dreiPunkte, Regeln(art, RankingRegelArt.Losentscheid));
+            [Spiel(1, 2, 1, 0), Spiel(3, 4, 3, 0), Spiel(2, 4, 2, 0)], new(_dreiPunkte, Regeln(art, RankingRegelArt.Losentscheid)));
 
         Reihenfolge(tabelle).Should().Equal(4, 1, 2, 3);
     }
@@ -252,7 +251,7 @@ public class TabellenRechnerTests
     [InlineData(false, 0, 1)]
     public void TabelleBerechnen_NurHeimspiele_ZaehltJeTeamNurDieEineSeite(bool nurHeimspiele, int spieleHeimteam, int spieleGast)
     {
-        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 2, 2, 0)], _dreiPunkte, [], nurHeimspiele);
+        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 2, 2, 0)], new(_dreiPunkte, []), nurHeimspiele);
 
         tabelle.Single(e => e.Mannschaft.Id == 1).Spiele.Should().Be(spieleHeimteam);
         tabelle.Single(e => e.Mannschaft.Id == 2).Spiele.Should().Be(spieleGast);
@@ -265,7 +264,7 @@ public class TabellenRechnerTests
         Spiel[] spiele = [Spiel(1, 2, 1, 0), Angesetzt(_teams[3], null)];
 
         var tabelle = TabellenRechner.TabelleBerechnen(
-            spiele, _dreiPunkte, [], teilnehmer: GruppenRechner.AufgeloesteTeilnehmer(spiele));
+            spiele, new(_dreiPunkte, []), teilnehmer: GruppenRechner.AufgeloesteTeilnehmer(spiele));
 
         tabelle.Should().HaveCount(3);
         var ohneSpiel = tabelle.Single(e => e.Mannschaft.Id == 3);
@@ -341,7 +340,7 @@ public class TabellenRechnerTests
         var frueher = Spiel(1, 2, 1, 0, gruppe: 1);
         frueher.Spieltag = 1;
 
-        var gruppe = GruppenRechner.GruppenTabelleBerechnen(1, [frueher, spaeter], bisSpieltag: 1, _dreiPunkte, []);
+        var gruppe = GruppenRechner.GruppenTabelleBerechnen(1, [frueher, spaeter], bisSpieltag: 1, new(_dreiPunkte, []));
 
         gruppe.Tabelle.Should().HaveCount(3, "Team 3 steht als Teilnehmer der Gruppe auch ohne gewertetes Spiel in der Tabelle");
         Reihenfolge(gruppe.Tabelle)[0].Should().Be(1);

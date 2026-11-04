@@ -31,12 +31,10 @@ public static class GruppenRechner
     /// <summary>Tabelle einer Gruppe samt ihrer noch offenen Plätze. <paramref name="bisSpieltag"/> begrenzt nur
     /// die gewerteten Spiele - Teilnehmer und offene Plätze ergeben sich immer aus allen Spielen der Gruppe.</summary>
     public static GruppenTabelle GruppenTabelleBerechnen(
-        int nummer, IReadOnlyList<Spiel> gruppenSpiele, int? bisSpieltag,
-        PunkteRegel punkteRegel, IReadOnlyList<RankingRegel> rankingRegeln, IReadOnlyDictionary<int, int>? ranglistenPlaetze = null)
+        int nummer, IReadOnlyList<Spiel> gruppenSpiele, int? bisSpieltag, TabellenRegeln regeln)
     {
         var tabelle = TabellenRechner.TabelleBerechnen(
-            TabellenRechner.BisSpieltag(gruppenSpiele, bisSpieltag), punkteRegel, rankingRegeln,
-            teilnehmer: AufgeloesteTeilnehmer(gruppenSpiele), ranglistenPlaetze: ranglistenPlaetze);
+            TabellenRechner.BisSpieltag(gruppenSpiele, bisSpieltag), regeln, teilnehmer: AufgeloesteTeilnehmer(gruppenSpiele));
         return new GruppenTabelle(nummer, tabelle) { OffenePlaetze = OffenePlaetze(gruppenSpiele) };
     }
 
@@ -47,17 +45,15 @@ public static class GruppenRechner
     /// Die Kandidaten kommen aus denselben Gruppentabellen wie in <see cref="GruppenTabelleBerechnen"/> - gleiche
     /// Teilnehmer, gleicher Stand <paramref name="bisSpieltag"/> (#480, vorher #449).</summary>
     public static IReadOnlyList<TabellenEintrag> UebergreifendeRangfolgeBerechnen(
-        IReadOnlyList<Spiel> alleSpiele, int platzierung, int? bisSpieltag, PunkteRegel punkteRegel,
-        IReadOnlyList<RankingRegel> rankingRegeln, IReadOnlyDictionary<int, int>? ranglistenPlaetze = null)
+        IReadOnlyList<Spiel> alleSpiele, int platzierung, int? bisSpieltag, TabellenRegeln regeln)
     {
         // Gesamttabelle über ALLE Teams der Runde - liefert korrekte Team-Stats (die Statistik filtert
         // ohnehin je Team auf dessen eigene Spiele) und die richtige Sortierreihenfolge in einem Aufwasch.
         var gesamtTabelle = TabellenRechner.TabelleBerechnen(
-            TabellenRechner.BisSpieltag(alleSpiele, bisSpieltag), punkteRegel, rankingRegeln,
-            teilnehmer: AufgeloesteTeilnehmer(alleSpiele), ranglistenPlaetze: ranglistenPlaetze);
+            TabellenRechner.BisSpieltag(alleSpiele, bisSpieltag), regeln, teilnehmer: AufgeloesteTeilnehmer(alleSpiele));
 
         var kandidatenIds = GruppenErmitteln(alleSpiele)
-            .Select(g => GruppenTabelleBerechnen(g.Nummer, g.Spiele, bisSpieltag, punkteRegel, rankingRegeln, ranglistenPlaetze)
+            .Select(g => GruppenTabelleBerechnen(g.Nummer, g.Spiele, bisSpieltag, regeln)
                 .Tabelle.FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id)
             .Where(id => id.HasValue).Select(id => id!.Value).ToHashSet();
 

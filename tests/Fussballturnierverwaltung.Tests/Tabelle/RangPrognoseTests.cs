@@ -48,15 +48,15 @@ public class RangPrognoseTests
 
     private static IReadOnlyList<TabellenEintrag> LigaMitRaengen(TurnierRunde runde, params Spiel[] spiele)
     {
-        var tabelle = TabellenRechner.TabelleBerechnen(spiele, _dreiPunkte, []);
+        var tabelle = TabellenRechner.TabelleBerechnen(spiele, new(_dreiPunkte, []));
         RangPrognose.LigaRaengeSetzen(tabelle, runde, spiele, _dreiPunkte);
         return tabelle;
     }
 
     private static GruppenTabelle GruppeMitRaengen(int qualifiziertePlaetze, params Spiel[] spiele)
     {
-        var gruppe = new GruppenTabelle(1, TabellenRechner.TabelleBerechnen(spiele, _dreiPunkte, []));
-        RangPrognose.GruppenRaengeSetzen(gruppe, spiele, qualifiziertePlaetze, _dreiPunkte, []);
+        var gruppe = new GruppenTabelle(1, TabellenRechner.TabelleBerechnen(spiele, new(_dreiPunkte, [])));
+        RangPrognose.GruppenRaengeSetzen(gruppe, spiele, qualifiziertePlaetze, new(_dreiPunkte, []));
         return gruppe;
     }
 
@@ -99,7 +99,7 @@ public class RangPrognoseTests
     {
         var platzhalter = new Spiel { Spielnummer = 99, HeimMannschaftId = 3, HeimMannschaft = _teams[3], Status = SpielStatus.Geplant };
         Spiel[] spiele = [Spiel(1, 2, 1, 0), platzhalter];
-        var tabelle = TabellenRechner.TabelleBerechnen(spiele, _dreiPunkte, []);
+        var tabelle = TabellenRechner.TabelleBerechnen(spiele, new(_dreiPunkte, []));
 
         RangPrognose.LigaRaengeSetzen(tabelle, _liga, spiele, _dreiPunkte);
 
@@ -215,12 +215,12 @@ public class RangPrognoseTests
     {
         // Issue #397: die Spiele des noch unbekannten Teilnehmers fehlen in der Rechnung.
         Spiel[] spiele = [Spiel(1, 2, 2, 0), Spiel(2, 3, 1, 0), Spiel(3, 1, 0, 1)];
-        var gruppe = new GruppenTabelle(1, TabellenRechner.TabelleBerechnen(spiele, _dreiPunkte, []))
+        var gruppe = new GruppenTabelle(1, TabellenRechner.TabelleBerechnen(spiele, new(_dreiPunkte, [])))
         {
             OffenePlaetze = ["Sieger Playoff A"]
         };
 
-        RangPrognose.GruppenRaengeSetzen(gruppe, spiele, 2, _dreiPunkte, []);
+        RangPrognose.GruppenRaengeSetzen(gruppe, spiele, 2, new(_dreiPunkte, []));
 
         gruppe.Tabelle.Should().OnlyContain(e =>
             e.Qualifikationsstatus == Qualifikationsstatus.Offen && !e.SicherPositioniert && e.BesterRang == null);

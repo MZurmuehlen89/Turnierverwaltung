@@ -51,15 +51,13 @@ public static class TabellenVerlaufRechner
     /// <summary>Alle bekannten Teilnehmer stehen in jedem Stand — auch wer am ersten Spieltag spielfrei war oder bisher
     /// nur gegen offene Platzhalter angesetzt ist (#397).</summary>
     public static TabellenVerlauf Berechnen(
-        int? gruppenNummer, IReadOnlyList<Spiel> spiele, PunkteRegel punkteRegel, IReadOnlyList<RankingRegel> rankingRegeln,
-        IReadOnlyDictionary<int, int>? ranglistenPlaetze = null)
+        int? gruppenNummer, IReadOnlyList<Spiel> spiele, TabellenRegeln regeln)
     {
         var teilnehmer = GruppenRechner.AufgeloesteTeilnehmer(spiele);
         var spieltage = TabellenRechner.SpieltageMitErgebnis(spiele);
         var staende = spieltage
             .Select(spieltag => (Spieltag: spieltag, Tabelle: TabellenRechner.TabelleBerechnen(
-                TabellenRechner.BisSpieltag(spiele, spieltag), punkteRegel, rankingRegeln,
-                teilnehmer: teilnehmer, ranglistenPlaetze: ranglistenPlaetze)))
+                TabellenRechner.BisSpieltag(spiele, spieltag), regeln, teilnehmer: teilnehmer)))
             .ToList();
 
         var mannschaften = staende.LastOrDefault().Tabelle ?? [];

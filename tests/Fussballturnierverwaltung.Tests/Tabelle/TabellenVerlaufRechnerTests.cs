@@ -41,7 +41,7 @@ public class TabellenVerlaufRechnerTests
     }
 
     private static TabellenVerlauf Verlauf(params Spiel[] spiele) =>
-        TabellenVerlaufRechner.Berechnen(gruppenNummer: null, spiele, _dreiPunkte, []);
+        TabellenVerlaufRechner.Berechnen(gruppenNummer: null, spiele, new(_dreiPunkte, []));
 
     private static IReadOnlyList<VerlaufPunkt> PunkteVon(TabellenVerlauf verlauf, int mannschaftId) =>
         verlauf.Mannschaften.Single(m => m.Mannschaft.Id == mannschaftId).Punkte;

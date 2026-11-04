@@ -14,13 +14,10 @@ public static class TabellenRechner
 
     /// <summary>Tabelle aus den Spielen mit Ergebnis. Mit <paramref name="nurHeimspiele"/> zählt je Team nur die
     /// Heim- (<c>true</c>) bzw. nur die Auswärtsseite (<c>false</c>). <paramref name="teilnehmer"/> nennt Teams,
-    /// die auch ohne Spiel gegen einen bereits bekannten Gegner in der Tabelle stehen sollen.
-    /// <paramref name="ranglistenPlaetze"/> (Mannschaft → Platz) braucht nur das Kriterium
-    /// <see cref="RankingRegelArt.Koeffizient"/>; ohne Angabe entscheidet es nichts.</summary>
+    /// die auch ohne Spiel gegen einen bereits bekannten Gegner in der Tabelle stehen sollen.</summary>
     public static IReadOnlyList<TabellenEintrag> TabelleBerechnen(
-        IReadOnlyList<Spiel> spiele, PunkteRegel punkteRegel, IReadOnlyList<RankingRegel> rankingRegeln,
-        bool? nurHeimspiele = null, IReadOnlyList<Mannschaft>? teilnehmer = null,
-        IReadOnlyDictionary<int, int>? ranglistenPlaetze = null)
+        IReadOnlyList<Spiel> spiele, TabellenRegeln regeln,
+        bool? nurHeimspiele = null, IReadOnlyList<Mannschaft>? teilnehmer = null)
     {
         var teams = TeamsSammeln(spiele, teilnehmer);
         if (teams.Count == 0) return [];
@@ -28,19 +25,19 @@ public static class TabellenRechner
         var abgeschlossene = MitErgebnis(spiele);
         var stats = teams.Keys.ToDictionary(
             id => id,
-            id => TeamStatistik(id, abgeschlossene, punkteRegel, nurHeimspiele));
+            id => TeamStatistik(id, abgeschlossene, regeln.PunkteRegel, nurHeimspiele));
         GegnerSummenErgaenzen(stats, abgeschlossene);
 
         var eintraege = teams.Select(kv => EintragAus(kv.Value, stats[kv.Key])).ToList();
-        SortierenUndRangZuweisen(eintraege, rankingRegeln, new Wertung(stats, abgeschlossene, punkteRegel, ranglistenPlaetze));
+        SortierenUndRangZuweisen(
+            eintraege, regeln.RankingRegeln, new Wertung(stats, abgeschlossene, regeln.PunkteRegel, regeln.RanglistenPlaetze));
         return eintraege;
     }
 
     /// <summary>Tabelle einer <see cref="TabellenAnsicht"/>: Hin- und Rückrunde werten nur die Spiele ihrer
     /// Hälfte, Heim- und Auswärtstabelle je Team nur die eine Seite.</summary>
     public static IReadOnlyList<TabellenEintrag> TabelleDerAnsichtBerechnen(
-        IReadOnlyList<Spiel> spiele, TabellenAnsicht ansicht, PunkteRegel punkteRegel, IReadOnlyList<RankingRegel> rankingRegeln,
-        IReadOnlyDictionary<int, int>? ranglistenPlaetze = null)
+        IReadOnlyList<Spiel> spiele, TabellenAnsicht ansicht, TabellenRegeln regeln)
     {
         spiele = ansicht switch
         {
@@ -56,7 +53,7 @@ public static class TabellenRechner
             _                                => null
         };
 
-        return TabelleBerechnen(spiele, punkteRegel, rankingRegeln, nurHeimspiele, ranglistenPlaetze: ranglistenPlaetze);
+        return TabelleBerechnen(spiele, regeln, nurHeimspiele);
     }
 
     /// <summary>Die Spiele bis einschließlich <paramref name="bisSpieltag"/> - der Stand nach diesem Spieltag;

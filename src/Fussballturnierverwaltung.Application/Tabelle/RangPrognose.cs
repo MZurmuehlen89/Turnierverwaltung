@@ -99,12 +99,7 @@ public static class RangPrognose
     /// verbleibenden Spiele mehr verändert werden kann). Ohne offene Spiele ist jeder Rang final. Bleibt aus,
     /// solange ein Platz der Gruppe noch nicht aufgelöst ist.</summary>
     public static void GruppenRaengeSetzen(
-        GruppenTabelle gruppe,
-        IReadOnlyList<Spiel> gruppenSpiele,
-        int qualifiziertePlaetze,
-        PunkteRegel punkteRegel,
-        IReadOnlyList<RankingRegel> rankingRegeln,
-        IReadOnlyDictionary<int, int>? ranglistenPlaetze = null)
+        GruppenTabelle gruppe, IReadOnlyList<Spiel> gruppenSpiele, int qualifiziertePlaetze, TabellenRegeln regeln)
     {
         // Issue #397: Solange ein Platz der Gruppe noch nicht aufgelöst ist, fehlen dessen Spiele in der
         // Status-Berechnung (Gegner unbekannt) — kein Rang darf dann als sicher gelten.
@@ -114,9 +109,9 @@ public static class RangPrognose
             TabellenRechner.MitErgebnis(gruppenSpiele),
             [.. gruppenSpiele.Where(s => s.Status != SpielStatus.Abgeschlossen
                                       && s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)],
-            punkteRegel,
-            rankingRegeln,
-            ranglistenPlaetze);
+            regeln.PunkteRegel,
+            regeln.RankingRegeln,
+            regeln.RanglistenPlaetze);
 
         foreach (var eintrag in gruppe.Tabelle)
         {
@@ -187,7 +182,7 @@ public static class RangPrognose
         {
             var tabelle = TabellenRechner.TabelleBerechnen(
                 [..stand.Abgeschlossen, ..eigeneErgebnisse, ..FremdeErgebnisse(fremde, kombi)],
-                stand.PunkteRegel, stand.RankingRegeln, ranglistenPlaetze: stand.RanglistenPlaetze);
+                new TabellenRegeln(stand.PunkteRegel, stand.RankingRegeln, stand.RanglistenPlaetze));
             int rang = tabelle.FirstOrDefault(e => e.Mannschaft.Id == teamId)?.Rang ?? int.MaxValue;
 
             extremRang = bestenfalls ? Math.Min(extremRang, rang) : Math.Max(extremRang, rang);

@@ -31,8 +31,7 @@ public class TabellenService(
     {
         var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
         var tabelle = TabellenRechner.TabelleDerAnsichtBerechnen(
-            TabellenRechner.BisSpieltag(daten.Spiele, bisSpieltag), ansicht, daten.PunkteRegel, daten.RankingRegeln,
-            daten.RanglistenPlaetze);
+            TabellenRechner.BisSpieltag(daten.Spiele, bisSpieltag), ansicht, daten.Regeln);
 
         // Issue #358: mögliche Ränge nur für den aktuellen Gesamtstand — Teilansichten und historische
         // Spieltage sind keine Wertung, aus der sich ein Weiterkommen ableiten ließe.
@@ -48,8 +47,7 @@ public class TabellenService(
         int turnierRundeId, CancellationToken ct = default)
     {
         var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
-        var tabelle = TabellenRechner.TabelleBerechnen(
-            daten.Spiele, daten.PunkteRegel, daten.RankingRegeln, ranglistenPlaetze: daten.RanglistenPlaetze);
+        var tabelle = TabellenRechner.TabelleBerechnen(daten.Spiele, daten.Regeln);
         RangPrognose.LigaRaengeSetzen(tabelle, daten.Runde, daten.Spiele, daten.PunkteRegel);
         RangPrognose.SicherPositionierteMarkieren(tabelle);
         return tabelle;
@@ -67,11 +65,9 @@ public class TabellenService(
 
         return [.. GruppenRechner.GruppenErmitteln(daten.Spiele).Select(g =>
         {
-            var gruppe = GruppenRechner.GruppenTabelleBerechnen(
-                g.Nummer, g.Spiele, bisSpieltag, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze);
+            var gruppe = GruppenRechner.GruppenTabelleBerechnen(g.Nummer, g.Spiele, bisSpieltag, daten.Regeln);
             if (bisSpieltag is null)
-                RangPrognose.GruppenRaengeSetzen(
-                    gruppe, g.Spiele, qualifiziertePlaetze, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze);
+                RangPrognose.GruppenRaengeSetzen(gruppe, g.Spiele, qualifiziertePlaetze, daten.Regeln);
             return gruppe;
         })];
     }
@@ -83,8 +79,7 @@ public class TabellenService(
         int turnierRundeId, int platzierung, int? bisSpieltag = null, CancellationToken ct = default)
     {
         var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
-        return GruppenRechner.UebergreifendeRangfolgeBerechnen(
-            daten.Spiele, platzierung, bisSpieltag, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze);
+        return GruppenRechner.UebergreifendeRangfolgeBerechnen(daten.Spiele, platzierung, bisSpieltag, daten.Regeln);
     }
 
     /// <summary>Tabellenplatz-Verlauf über die Spieltage (#480): bei einer Gruppenphase je Gruppe einer, sonst einer
@@ -93,11 +88,10 @@ public class TabellenService(
     {
         var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
         if (daten.Runde.Rundenart != Rundenart.Gruppenphase)
-            return [TabellenVerlaufRechner.Berechnen(
-                gruppenNummer: null, daten.Spiele, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze)];
+            return [TabellenVerlaufRechner.Berechnen(gruppenNummer: null, daten.Spiele, daten.Regeln)];
 
-        return [.. GruppenRechner.GruppenErmitteln(daten.Spiele).Select(g => TabellenVerlaufRechner.Berechnen(
-            g.Nummer, g.Spiele, daten.PunkteRegel, daten.RankingRegeln, daten.RanglistenPlaetze))];
+        return [.. GruppenRechner.GruppenErmitteln(daten.Spiele)
+            .Select(g => TabellenVerlaufRechner.Berechnen(g.Nummer, g.Spiele, daten.Regeln))];
     }
 
     // ── Laden ─────────────────────────────────────────────────────────────
@@ -105,7 +99,10 @@ public class TabellenService(
     /// <summary>Alles, woraus die Tabellen einer Runde gerechnet werden - je Aufruf einmal geladen (#439).</summary>
     private sealed record TabellenDaten(
         TurnierRunde Runde, PunkteRegel PunkteRegel, IReadOnlyList<RankingRegel> RankingRegeln, IReadOnlyList<Spiel> Spiele,
-        IReadOnlyDictionary<int, int>? RanglistenPlaetze);
+        IReadOnlyDictionary<int, int>? RanglistenPlaetze)
+    {
+        public TabellenRegeln Regeln => new(PunkteRegel, RankingRegeln, RanglistenPlaetze);
+    }
 
     private async Task<TabellenDaten> TabellenDatenLadenAsync(int turnierRundeId, CancellationToken ct)
     {
