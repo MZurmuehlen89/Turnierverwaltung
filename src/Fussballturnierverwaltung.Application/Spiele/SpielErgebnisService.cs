@@ -57,7 +57,7 @@ public class SpielErgebnisService(
                     "Das Hinspiel dieser Paarung hat noch kein Ergebnis. Bitte zuerst das Hinspiel erfassen.");
         }
 
-        var (sieger, entscheidungArt) = SiegerErmittlung.BestimmeSieger(
+        var (sieger, entscheidungArt) = SiegerErmittlung.Bestimmen(
             spiel.HeimMannschaftId.Value, spiel.AuswaertsMannschaftId.Value, eingabe,
             hinspielErgebnis, spiel.TurnierRunde.AuswaertstorRegelAktiv);
 
