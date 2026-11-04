@@ -129,17 +129,14 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     private bool _isDirty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ZeigeMeldungsSpalte))]
     private string? _fehlermeldung;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatRundenFehler))]
-    [NotifyPropertyChangedFor(nameof(ZeigeMeldungsSpalte))]
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
     private IReadOnlyList<string> _rundenFehler = [];
 
     public bool HatRundenFehler => RundenFehler.Count > 0;
-    public bool ZeigeMeldungsSpalte => Fehlermeldung is not null || HatRundenFehler;
 
     // ── IRibbonAware ──────────────────────────────────────────────────────────
     public string RibbonTabTitel => "Runden";

@@ -81,7 +81,7 @@ public partial class LigapyramideViewModel : ObservableObject
         PokalsiegerId is null ? null : $"Pokalsieger {Pokalsieger.Gewaehlt?.Name ?? $"Id {PokalsiegerId}"}"
     ], "keine Abschnitte");
 
-    /// <summary>Fehler, die das Speichern verhindern (Meldungsspalte).</summary>
+    /// <summary>Fehler, die das Speichern verhindern (Meldungsleiste).</summary>
     public IReadOnlyList<string> Fehler { get; private set; } = [];
 
     /// <summary>Hinweis, wenn der letzte Abschnitt über die Einträge hinausreicht; Speichern bleibt möglich.</summary>

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Meldungen eines Formulars als Andock-Leiste am rechten Rand (#594, Vorbild: „Automatisch ausblenden“ in Visual
+     Studio). Ohne Meldung unsichtbar; sonst eine schmale Kante mit Zähler, die die Liste aufklappt. Die Liste legt
+     sich über das Formular, statt es zu verdrängen – sonst spränge die Formularbreite beim Tippen. -->
+<UserControl
+    x:Class="Fussballturnierverwaltung.WinUi.Views.MeldungsLeiste"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Fussballturnierverwaltung.WinUi.Views"
+    HorizontalAlignment="Right"
+    VerticalAlignment="Stretch"
+    Visibility="Collapsed">
+
+    <Grid ColumnDefinitions="Auto,Auto">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="Schwere">
+                <VisualState x:Name="MitFehlern" />
+                <!-- Nur Hinweise (Speichern bleibt möglich): gelbe statt roter Kante -->
+                <VisualState x:Name="NurHinweise">
+                    <VisualState.Setters>
+                        <Setter Target="Kante.Background" Value="{ThemeResource SystemFillColorCautionBackgroundBrush}" />
+                        <Setter Target="Kante.BorderBrush" Value="{ThemeResource SystemFillColorCautionBrush}" />
+                        <Setter Target="KantenSymbol.Foreground" Value="{ThemeResource SystemFillColorCautionBrush}" />
+                        <Setter Target="KantenSymbol.Glyph" Value="&#xE7BA;" />
+                        <Setter Target="KantenText.Foreground" Value="{ThemeResource SystemFillColorCautionBrush}" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+
+        <!-- ── Aufgeklappte Liste ──────────────────────────────────────────── -->
+        <Border x:Name="Liste" Width="320" Visibility="Collapsed"
+                Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1,0,0,0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="12,20,12,12" Spacing="6">
+                    <Border x:Name="FehlermeldungRahmen" Visibility="Collapsed"
+                            Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                            CornerRadius="4" Padding="8,6">
+                        <TextBlock x:Name="FehlermeldungText"
+                                   Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                   FontSize="11" TextWrapping="Wrap" />
+                    </Border>
+                    <ItemsControl x:Name="FehlerListe">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="local:MeldungsEintrag">
+                                <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                                        CornerRadius="4" Padding="8,6" Margin="0,0,0,6">
+                                    <TextBlock AutomationProperties.AutomationId="{x:Bind AutomationId}"
+                                               Text="{x:Bind Text}"
+                                               Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                               FontSize="11" TextWrapping="Wrap" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Border x:Name="HinweisRahmen" Visibility="Collapsed"
+                            Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                            CornerRadius="4" Padding="8,6">
+                        <TextBlock x:Name="HinweisText" FontSize="11" TextWrapping="Wrap" />
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ── Kante mit Zähler ────────────────────────────────────────────── -->
+        <Border x:Name="Kante" Grid.Column="1" Width="28"
+                Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                BorderBrush="{ThemeResource SystemFillColorCriticalBrush}" BorderThickness="2,0,0,0">
+            <!-- Die Farbe trägt der Rahmen; der Knopf bleibt durchsichtig, auch aufgeklappt (sonst Akzentfarbe) -->
+            <ToggleButton x:Name="Umschalter"
+                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                          HorizontalContentAlignment="Center" VerticalContentAlignment="Top"
+                          MinWidth="0" Padding="0,12" CornerRadius="0" BorderThickness="0" Background="Transparent"
+                          ToolTipService.ToolTip="Meldungen ein-/ausblenden"
+                          Checked="Umschalter_Geaendert" Unchecked="Umschalter_Geaendert">
+                <ToggleButton.Resources>
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent" />
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedPressed" Color="Transparent" />
+                    <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="Transparent" />
+                    <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPressed" Color="Transparent" />
+                </ToggleButton.Resources>
+                <StackPanel Spacing="8">
+                    <FontIcon x:Name="KantenSymbol" Glyph="&#xEA39;" FontSize="14"
+                              Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                    <!-- Senkrechter Text: WinUI kennt keine LayoutTransform, darum dreht der Code den Text und gibt der
+                         Fläche die gemessene Größe (TextSetzen). -->
+                    <Canvas x:Name="KantenFlaeche" HorizontalAlignment="Center">
+                        <TextBlock x:Name="KantenText" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{ThemeResource SystemFillColorCriticalBrush}">
+                            <TextBlock.RenderTransform>
+                                <CompositeTransform x:Name="KantenDrehung" Rotation="90" />
+                            </TextBlock.RenderTransform>
+                        </TextBlock>
+                    </Canvas>
+                </StackPanel>
+            </ToggleButton>
+        </Border>
+    </Grid>
+</UserControl>

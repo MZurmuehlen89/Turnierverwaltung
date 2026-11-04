@@ -3,6 +3,7 @@
     x:Class="Fussballturnierverwaltung.WinUi.Views.RegelwerkePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:views="using:Fussballturnierverwaltung.WinUi.Views"
     xmlns:conv="using:Fussballturnierverwaltung.WinUi.Converters">
 
     <UserControl.Resources>
@@ -188,18 +189,11 @@
                                    Visibility="{Binding HatKeinRankingSet, Converter={StaticResource BoolToVisibility}}"
                                    FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
                     </StackPanel>
-
-                    <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
-                            Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
-                            CornerRadius="4" Padding="10,8">
-                        <TextBlock AutomationProperties.AutomationId="Regelwerke.Fehlermeldung"
-                                   Text="{Binding Fehlermeldung}"
-                                   Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                   FontSize="12" TextWrapping="Wrap" />
-                    </Border>
-
                 </StackPanel>
             </ScrollViewer>
+            <!-- Meldungen als Andock-Leiste (#594) – überdeckt den freien Bereich rechts, nicht das Formular -->
+            <views:MeldungsLeiste Grid.ColumnSpan="2" AutomationPraefix="Regelwerke"
+                                  Fehlermeldung="{Binding Fehlermeldung}" />
         </Grid>
     </Grid>
 </UserControl>

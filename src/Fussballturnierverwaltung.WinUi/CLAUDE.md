@@ -104,5 +104,8 @@ with the test scenarios; there is no big-bang pass over all views.
   („Seite öffnen: …“); without it, tests on the slower CI runner acted on half-loaded pages (#525). Data loaded
   later (after a click, a selection) needs its own vorgang for the same reason.
 - Collapsed elements (`Visibility="Collapsed"`) are not in the UIA tree at all — never hang a test signal on them.
+- Form messages live in the shared `Views/MeldungsLeiste` (#594: edge with counter on the right, list folds out over
+  the form). Folded, the messages are collapsed — the GUI tests read them through the page object `MeldungsLeiste`,
+  which unfolds the edge `<Präfix>.Meldungen` first. A save error unfolds the list by itself, live-check errors don't.
 - `ListView` items report their data object's `ToString()` as UIA name, `ItemsControl` rows are flat text — both
   need explicit names/containers once a test addresses them (findings in #520).

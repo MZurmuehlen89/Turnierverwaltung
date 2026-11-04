@@ -5,7 +5,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:views="using:Fussballturnierverwaltung.WinUi.Views">
 
-    <!-- Spaltenaufteilung: Liste | Formular | Meldungsspalte -->
+    <UserControl.Resources>
+        <x:String x:Key="RangHilfetext">Der Rang ergibt sich aus der Reihenfolge. Punkte sind optional und rein informativ (z. B. FIFA-Punkte) – für Sortierung und Lostöpfe zählt nur der Rang.</x:String>
+    </UserControl.Resources>
+
+    <!-- Spaltenaufteilung: Liste | Formular | frei (dort klappt die Meldungsleiste auf) -->
     <Grid ColumnDefinitions="2.4*,1,5.7*,1,1.9*">
 
         <!-- ── Linke Spalte: Suche + Liste ── -->
@@ -161,6 +165,10 @@
                     <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,8">
                         <TextBlock Text="{Binding EintraegeUeberschrift}" FontWeight="SemiBold" FontSize="11" Opacity="0.6"
                                    VerticalAlignment="Center" />
+                        <!-- #594: früher fester Text in der Meldungsspalte -->
+                        <FontIcon Glyph="&#xE946;" FontSize="12" Opacity="0.6" Margin="-6,0,0,0" VerticalAlignment="Center"
+                                  ToolTipService.ToolTip="{StaticResource RangHilfetext}"
+                                  AutomationProperties.Name="{StaticResource RangHilfetext}" />
                         <TextBlock Text="{Binding MarkierungText}" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
                     </StackPanel>
 
@@ -255,40 +263,10 @@
             </Grid>
         </Grid>
 
-        <Rectangle Grid.Column="3" Fill="{ThemeResource CardStrokeColorDefaultBrush}" Width="1" />
-
-        <!-- ── Meldungsspalte ── -->
-        <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="12,20,12,12" Spacing="6">
-                <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
-                        Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
-                        CornerRadius="4" Padding="8,6">
-                    <TextBlock AutomationProperties.AutomationId="Ranglisten.Fehlermeldung"
-                               Text="{Binding Fehlermeldung}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                               FontSize="11" TextWrapping="Wrap" />
-                </Border>
-                <ItemsControl ItemsSource="{Binding Ligapyramide.Fehler}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
-                                    CornerRadius="4" Padding="8,6" Margin="0,0,0,6">
-                                <TextBlock AutomationProperties.AutomationId="Ranglisten.AbschnittFehler"
-                                           Text="{Binding}" Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                           FontSize="11" TextWrapping="Wrap" />
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <Border Visibility="{Binding Ligapyramide.Hinweis, Converter={StaticResource NullToCollapsed}}"
-                        Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}"
-                        CornerRadius="4" Padding="8,6">
-                    <TextBlock AutomationProperties.AutomationId="Ranglisten.Hinweis"
-                               Text="{Binding Ligapyramide.Hinweis}" FontSize="11" TextWrapping="Wrap" />
-                </Border>
-                <TextBlock Visibility="{Binding FormularAktiv, Converter={StaticResource BoolToVisibility}}"
-                           Text="Der Rang ergibt sich aus der Reihenfolge. Punkte sind optional und rein informativ (z. B. FIFA-Punkte) – für Sortierung und Lostöpfe zählt nur der Rang."
-                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
-            </StackPanel>
-        </ScrollViewer>
+        <!-- Meldungen als Andock-Leiste (#594) – überdeckt den freien Bereich rechts, nicht das Formular -->
+        <views:MeldungsLeiste Grid.ColumnSpan="5" AutomationPraefix="Ranglisten"
+                              Fehlermeldung="{Binding Fehlermeldung}"
+                              Fehler="{Binding Ligapyramide.Fehler}"
+                              Hinweis="{Binding Ligapyramide.Hinweis}" />
     </Grid>
 </UserControl>
