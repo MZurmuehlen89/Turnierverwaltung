@@ -24,8 +24,12 @@ public static class Feldmarkierung
 
     private static string Fehler(AutomationElement feld) => feld.Properties.HelpText.ValueOrDefault ?? string.Empty;
 
-    // Bei zusammengesetzten Feldern (NumberBox) hält das innere Textfeld den Fokus, nicht das Feld selbst.
-    private static bool HatFokus(AutomationElement feld) =>
-        feld.Properties.HasKeyboardFocus.ValueOrDefault
-        || feld.FindAllDescendants().Any(d => d.Properties.HasKeyboardFocus.ValueOrDefault);
+    // Bei zusammengesetzten Feldern (NumberBox) hält ein inneres Element den Fokus, nicht das Feld selbst – darum vom
+    // fokussierten Element aus nach oben suchen.
+    private static bool HatFokus(AutomationElement feld)
+    {
+        for (var element = feld.Automation.FocusedElement(); element is not null; element = element.Parent)
+            if (element.Equals(feld)) return true;
+        return false;
+    }
 }

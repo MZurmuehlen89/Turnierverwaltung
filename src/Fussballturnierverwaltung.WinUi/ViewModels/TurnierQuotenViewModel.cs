@@ -171,19 +171,27 @@ public partial class TurnierQuotenViewModel : ObservableObject
     {
         var verbandsMeldungen = _verbandsQuoteValidator.Validieren(VerbandsQuotenEingaben(), ErsteRundeEingang).Meldungen;
         var landesMeldungen = _landesQuoteValidator.Validieren(LandesQuotenEingaben(), AlleLaender, ErsteRundeEingang).Meldungen;
-        ZeilenZuordnen(VerbandsQuotenZeilen.Where(z => z.Verband is not null).ToList(), verbandsMeldungen,
-            (zeile, meldungen) => zeile.MeldungenSetzen(meldungen));
-        ZeilenZuordnen(LandesQuotenZeilen.Where(z => z.AlsEingabe() is not null).ToList(), landesMeldungen,
-            (zeile, meldungen) => zeile.MeldungenSetzen(meldungen));
-        return [.. verbandsMeldungen, .. landesMeldungen];
+        return
+        [
+            .. ZeilenZuordnen(VerbandsQuotenZeilen.Where(z => z.Verband is not null).ToList(), verbandsMeldungen,
+                z => z.Meldungen, (z, m) => z.MeldungenSetzen(m)),
+            .. ZeilenZuordnen(LandesQuotenZeilen.Where(z => z.AlsEingabe() is not null).ToList(), landesMeldungen,
+                z => z.Meldungen, (z, m) => z.MeldungenSetzen(m)),
+        ];
     }
 
-    // Feldfehler.Zeile zählt in der Liste der Eingaben – dieselbe Reihenfolge wie die gezählten Zeilen.
-    private static void ZeilenZuordnen<TZeile>(
-        IReadOnlyList<TZeile> zeilen, IReadOnlyList<Feldfehler> meldungen, Action<TZeile, IReadOnlyList<Feldfehler>> setzen)
+    /// <summary>Feldfehler.Zeile zählt in der Liste der Eingaben – dieselbe Reihenfolge wie die gezählten Zeilen. Liefert
+    /// die Meldungen mit den Instanzen, die die Zeilen danach halten: Eine Zeile behält unveränderte Meldungen, und der
+    /// Sprung aus der Meldungsleiste findet das Feld über die Referenz (Feldmarkierung.Anspringen).</summary>
+    private static IEnumerable<Feldfehler> ZeilenZuordnen<TZeile>(
+        IReadOnlyList<TZeile> zeilen, IReadOnlyList<Feldfehler> meldungen,
+        Func<TZeile, IReadOnlyList<Feldfehler>> lesen, Action<TZeile, IReadOnlyList<Feldfehler>> setzen)
     {
         for (int i = 0; i < zeilen.Count; i++)
             setzen(zeilen[i], [.. meldungen.Where(m => m.Zeile == i)]);
+        return meldungen.Select(m => m.Zeile is int zeile && zeile < zeilen.Count
+            ? lesen(zeilen[zeile]).First(gehalten => gehalten == m)
+            : m);
     }
 
     /// <summary>Wandelt die Zeilen in Eingaben um und prüft sie; wirft <see cref="ValidationException"/>, bevor
