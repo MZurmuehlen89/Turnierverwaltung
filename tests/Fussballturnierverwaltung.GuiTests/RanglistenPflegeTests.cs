@@ -110,12 +110,12 @@ public sealed class RanglistenPflegeTests(TurnierverwaltungApp app, TestDatenban
         seite.AbschnittBenennen(1, "Unten");
         seite.AbschnitteAbwarten(new("Oben", 1, 2, 1), new("Unten", 2, 5, 3))
             .Should().Equal(new LigaAbschnitt("Oben", 1, 2, 1), new("Unten", 2, 5, 3));
-        seite.EintraegeAbwarten(
-                new(1, "Spanien", "Oben · Spielklasse 1"), new(2, "Frankreich"),
-                new(3, "England", "Unten · Spielklasse 2"), new(4, "Portugal"), new(5, "Belgien"))
-            .Where(e => e.Abschnitt is not null)
-            .Should().Equal(new RanglistenEintrag(1, "Spanien", "Oben · Spielklasse 1"),
-                new(3, "England", "Unten · Spielklasse 2"));
+        RanglistenEintrag[] geteilt =
+        [
+            new(1, "Spanien", "Oben · Spielklasse 1"), new(2, "Frankreich"),
+            new(3, "England", "Unten · Spielklasse 2"), new(4, "Portugal"), new(5, "Belgien")
+        ];
+        seite.EintraegeAbwarten(geteilt).Should().Equal(geteilt);
 
         const string NICHT_AUFSTEIGEND = "Abschnitt „Unten“: „bis Platz“ muss größer sein als beim Abschnitt davor (2).";
         seite.AbschnittBisPlatzSetzen(1, 2);

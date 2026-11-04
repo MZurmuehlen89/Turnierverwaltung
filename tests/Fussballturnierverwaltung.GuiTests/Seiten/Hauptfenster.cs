@@ -32,8 +32,10 @@ public sealed class Hauptfenster(Window fenster)
     {
         foreach (var dialog in OffeneDialoge)
             dialog.Close();
+        Wait.Until(() => OffeneDialoge.Count == 0, Wait.DefaultTimeout, "Rückfragen geschlossen");
         if (fenster.TryFindById("Befehlsleiste.Abbrechen") is { IsEnabled: true } abbrechen)
             abbrechen.Activate();
+        WarteBisRuhig();
     }
 
     public void Oeffnen(Bereich bereich)

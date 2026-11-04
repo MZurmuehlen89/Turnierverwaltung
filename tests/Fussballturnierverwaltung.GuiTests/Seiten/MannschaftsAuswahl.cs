@@ -33,9 +33,9 @@ public sealed class MannschaftsAuswahl(Window fenster, string automationId)
         vorschlag.Click();
     }
 
-    // Getippt wird ins fokussierte Feld: Kommt der Klick nicht an (das Formular baut sich gerade erst auf), landete der
-    // Name im vorher fokussierten Feld – im CI-Lauf im Namen der Rangliste (#535). Darum erst tippen, wenn die Box den
-    // Fokus hat, und notfalls erneut klicken.
+    // Getippt wird ins fokussierte Feld: Im CI-Lauf (#535) übernahm die Box nach dem Klick den Fokus nicht, und der
+    // Name landete im zuvor fokussierten Namensfeld der Rangliste (warum der Klick nicht ankam, ist offen). Darum erst
+    // tippen, wenn die Box den Fokus hat, und notfalls erneut klicken.
     private void FokusHolen()
     {
         const int VERSUCHE = 3;
