@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Abstraktionen;
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -145,4 +146,33 @@ public class LandesQuoteValidatorTests
     [Fact]
     public void Pokalsieger_OhneNachrueckenAb_ZaehltAbPlatz1() =>
         new LandesQuoteZeileEingabe(LandId: 10, Anzahl: 1, Pokalsieger: true).GespeicherterAbPlatz.Should().Be(1);
+
+    // ── Feldbezug (#595) ──────────────────────────────────────────────────────
+
+    private IReadOnlyList<Feldfehler> Meldungen(params LandesQuoteZeileEingabe[] zeilen) =>
+        _validator.Validieren(zeilen, _laender, eingangsKapazitaet: 10).Meldungen;
+
+    [Fact]
+    public void FehlerEinerZeile_TragenFeldUndZeile() =>
+        Meldungen(
+            new(LandId: 20, Anzahl: 2),
+            new(LandId: 10, Anzahl: 0),
+            new(LandId: 10, Anzahl: 2, Spielklasse: 1, AbPlatz: 18))
+        .Where(m => m.Feld is not null)
+        .Should().BeEquivalentTo(
+        [
+            new Feldfehler("Die Anzahl muss mindestens 1 sein.", nameof(LandesQuoteZeileEingabe.Anzahl), 1),
+            new Feldfehler("Deutschland: 2 Team(s) ab Platz 18 passen nicht in Spielklasse 1.", nameof(LandesQuoteZeileEingabe.AbPlatz), 2),
+        ]);
+
+    [Fact]
+    public void SpielklasseOhneLigapyramide_MarkiertDieSpielklasse() =>
+        Meldungen(new LandesQuoteZeileEingabe(LandId: 20, Anzahl: 1, Spielklasse: 1))
+            .Should().ContainSingle().Which.Should().Be(new Feldfehler(
+                "Malta hat keine Ligapyramide, eine Spielklasse lässt sich nicht wählen.", nameof(LandesQuoteZeileEingabe.Spielklasse), 0));
+
+    [Fact]
+    public void PruefungenUeberMehrereZeilen_HabenKeinenFeldbezug() =>
+        Meldungen(new(LandId: 10, Anzahl: 8), new(LandId: 10, Anzahl: 4), new(LandId: 20, Anzahl: 4))
+            .Should().HaveCount(2).And.OnlyContain(m => m.Feld == null && m.Zeile == null);
 }

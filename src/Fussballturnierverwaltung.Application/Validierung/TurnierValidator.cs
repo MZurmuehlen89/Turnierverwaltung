@@ -179,30 +179,33 @@ public class TurnierValidator
     /// <summary>Validiert Basisdaten einer TurnierInstanz (Issue #294 — vereinheitlicht die frühere
     /// entitätsbasierte <c>TurnierInstanzValidieren</c> mit dem primitiv-basierten
     /// <c>TurnierVorlageValidator.BasisdatenValidieren</c>, da eine Vorlage jetzt dieselbe Entität ist).
-    /// Primitiv-basiert, damit sie auch als Live-Vorschau vor dem Speichern (ViewModel) nutzbar ist.</summary>
+    /// Primitiv-basiert, damit sie auch als Live-Vorschau vor dem Speichern (ViewModel) nutzbar ist. Feldbezug der
+    /// Meldungen (#595) = Name der Eigenschaft an <see cref="TurnierInstanz"/>.</summary>
 #pragma warning disable S107 // einfache Formularwerte statt Parameterobjekt, damit die Live-Vorschau sie ohne Umweg prüfen kann (#499)
     public ValidationErgebnis BasisdatenValidieren(
         string name, string saisonOderJahr, int? zielMannschaftsanzahl,
         DateOnly? startdatum, DateOnly? enddatum, byte[]? logo = null)
 #pragma warning restore S107
     {
-        var fehler = new List<string>();
+        var fehler = new List<Feldfehler>();
 
         if (string.IsNullOrWhiteSpace(name))
-            fehler.Add("Turniername darf nicht leer sein.");
+            fehler.Add(new("Turniername darf nicht leer sein.", nameof(TurnierInstanz.Name)));
 
         if (string.IsNullOrWhiteSpace(saisonOderJahr))
-            fehler.Add("Saison/Jahr darf nicht leer sein.");
+            fehler.Add(new("Saison/Jahr darf nicht leer sein.", nameof(TurnierInstanz.SaisonOderJahr)));
 
         if (zielMannschaftsanzahl is not null && zielMannschaftsanzahl < 2)
-            fehler.Add($"Mannschaftsanzahl muss mindestens 2 betragen (war: {zielMannschaftsanzahl}).");
+            fehler.Add(new($"Mannschaftsanzahl muss mindestens 2 betragen (war: {zielMannschaftsanzahl}).",
+                nameof(TurnierInstanz.ZielMannschaftsanzahl)));
 
+        // Markiert wird nur das Endjahr – das Feld, das man in der Regel korrigiert (#595).
         if (startdatum.HasValue && enddatum.HasValue && enddatum < startdatum)
-            fehler.Add("Endjahr darf nicht vor dem Startjahr liegen.");
+            fehler.Add(new("Endjahr darf nicht vor dem Startjahr liegen.", nameof(TurnierInstanz.Enddatum)));
 
-        BildValidierung.GroessePruefen(logo, fehler);
+        BildValidierung.GroessePruefen(logo, nameof(TurnierInstanz.Logo), fehler);
 
-        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+        return ValidationErgebnis.Aus(fehler);
     }
 
     /// <summary>Issue #367: Vorlagen tragen den Formatzusatz nicht mehr im Namen ("FIFA WM"), sondern in

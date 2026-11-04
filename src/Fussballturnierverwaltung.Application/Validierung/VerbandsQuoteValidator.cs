@@ -28,24 +28,26 @@ public class VerbandsQuoteValidator
     /// <summary>Validiert eine komplette Liste von Verband-Quoten-Zeilen auf einmal (WPF-Turnierkopf-Grid) —
     /// prüft den vollständigen beabsichtigten Endzustand vor jedem Schreibzugriff, statt zeilenweise.
     /// <paramref name="eingangsKapazitaet"/> begrenzt optional die Summe aller Zeilen (Issue #154, Eingangskapazität
-    /// der ersten Turnierrunde) — bei null (z.B. Turnier ohne Runden) entfällt dieser Check.</summary>
+    /// der ersten Turnierrunde) — bei null (z.B. Turnier ohne Runden) entfällt dieser Check. Fehler einer Zeile tragen
+    /// Feld und Zeilenindex (#595).</summary>
     public ValidationErgebnis Validieren(IReadOnlyList<VerbandsQuoteZeileEingabe> zeilen, int? eingangsKapazitaet = null)
     {
-        var fehler = new List<string>();
-        foreach (var z in zeilen)
+        var fehler = new List<Feldfehler>();
+        for (int i = 0; i < zeilen.Count; i++)
         {
-            if (z.Anzahl < 1) fehler.Add("Die Anzahl muss mindestens 1 sein.");
+            if (zeilen[i].Anzahl < 1)
+                fehler.Add(new("Die Anzahl muss mindestens 1 sein.", nameof(VerbandsQuoteZeileEingabe.Anzahl), i));
         }
         foreach (var dup in zeilen.GroupBy(z => z.VerbandId).Where(g => g.Count() > 1).Select(g => g.Key))
-            fehler.Add($"Mehrere Quoten für denselben Verband in diesem Turnier (Verband-Id {dup}).");
+            fehler.Add(new($"Mehrere Quoten für denselben Verband in diesem Turnier (Verband-Id {dup})."));
 
         if (eingangsKapazitaet is { } kapazitaet)
         {
             var summe = zeilen.Sum(z => z.Anzahl);
             if (summe > kapazitaet)
-                fehler.Add($"Die Summe der Verband-Quoten ({summe}) übersteigt die Eingangskapazität der ersten Runde ({kapazitaet}).");
+                fehler.Add(new($"Die Summe der Verband-Quoten ({summe}) übersteigt die Eingangskapazität der ersten Runde ({kapazitaet})."));
         }
 
-        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+        return ValidationErgebnis.Aus(fehler);
     }
 }

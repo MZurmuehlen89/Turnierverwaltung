@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using FluentAssertions;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -437,5 +438,17 @@ public class TurnierValidatorTests
             "Runde 2 ('HF') erwartet 6 Mannschaften, Runde 1 ('VF') liefert aber 4.",
             "Runde 3 ('Finale') erwartet 2 Mannschaften, Runde 2 ('HF') liefert aber 3.",
             "Das Finale ('Finale') muss genau 1 Sieger liefern (AusgangsMannschaftsanzahl war: 2).");
+    }
+
+    // ── Feldbezug der Basisdaten (#595) ───────────────────────────────────────
+
+    [Fact]
+    public void Basisdaten_FehlerTragenDenNamenDerEigenschaft()
+    {
+        var meldungen = _validator.BasisdatenValidieren("", " ", 1, new DateOnly(2026, 1, 1), new DateOnly(2025, 1, 1)).Meldungen;
+
+        meldungen.Select(m => m.Feld).Should().Equal(
+            nameof(TurnierInstanz.Name), nameof(TurnierInstanz.SaisonOderJahr),
+            nameof(TurnierInstanz.ZielMannschaftsanzahl), nameof(TurnierInstanz.Enddatum));
     }
 }

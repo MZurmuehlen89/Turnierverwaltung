@@ -134,4 +134,12 @@ public class VerbandsQuoteValidatorTests
 
         _validator.Validieren(zeilen, eingangsKapazitaet: null).IstGueltig.Should().BeTrue();
     }
+
+    // ── Feldbezug (#595) ──────────────────────────────────────────────────────
+
+    [Fact]
+    public void Zeilen_AnzahlUnter1_TraegtFeldUndZeile_SummeOhneFeld() =>
+        _validator.Validieren([new VerbandsQuoteZeileEingabe(1, 5), new VerbandsQuoteZeileEingabe(2, 0), new VerbandsQuoteZeileEingabe(3, 6)], 10)
+            .Meldungen.Select(m => (m.Feld, m.Zeile)).Should().Equal(
+                (nameof(VerbandsQuoteZeileEingabe.Anzahl), 1), ((string?)null, (int?)null));
 }

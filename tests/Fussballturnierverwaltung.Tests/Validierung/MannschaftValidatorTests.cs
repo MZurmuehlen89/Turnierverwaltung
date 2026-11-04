@@ -57,4 +57,18 @@ public class MannschaftValidatorTests
         ergebnis.IstUngueltig.Should().BeTrue();
         ergebnis.Fehler.Count.Should().BeGreaterThan(1);
     }
+
+    // ── Feldbezug (#595) ──────────────────────────────────────────────────────
+
+    [Fact]
+    public void Fehler_TragenDenNamenDesEingabefelds()
+    {
+        var eingabe = GueltigeEingabe(def: 0) with { Name = "", Kurzname = " ", LandId = 0 };
+
+        _validator.Validieren(eingabe).Meldungen.Select(m => m.Feld).Should().BeEquivalentTo(
+        [
+            nameof(MannschaftErstellenEingabe.Name), nameof(MannschaftErstellenEingabe.Kurzname),
+            nameof(MannschaftErstellenEingabe.DefensivRating), nameof(MannschaftErstellenEingabe.LandId),
+        ]);
+    }
 }
