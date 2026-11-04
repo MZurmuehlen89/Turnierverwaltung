@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -16,6 +17,11 @@ public partial class VerbandsQuoteZeile : ObservableObject
 {
     [ObservableProperty] private Verband? _verband;
     [ObservableProperty] private int _anzahl = 1;
+
+    /// <summary>Prüffehler dieser Zeile für die Feldmarkierung (#595); setzt <see cref="TurnierQuotenViewModel"/>.</summary>
+    public IReadOnlyList<Feldfehler> Meldungen { get; private set => SetProperty(ref field, value); } = [];
+
+    public void MeldungenSetzen(IReadOnlyList<Feldfehler> meldungen) => Meldungen = meldungen;
 }
 
 /// <summary>Die geprüften Quoten-Eingaben eines Speichervorgangs: zwischen Prüfen und Ersetzen liegt das
@@ -155,6 +161,27 @@ public partial class TurnierQuotenViewModel : ObservableObject
         LandesAuswahlAbgleichen(null);
     }
 
+    /// <summary>Prüft die Zeilen (Live-Prüfung, #595), gibt jeder Zeile ihre Meldungen und liefert alle für die
+    /// Meldungsleiste. Zeilen ohne Verband bzw. Land zählen nicht und bekommen keine.</summary>
+    public IReadOnlyList<Feldfehler> MeldungenAktualisieren()
+    {
+        var verbandsMeldungen = _verbandsQuoteValidator.Validieren(VerbandsQuotenEingaben(), ErsteRundeEingang).Meldungen;
+        var landesMeldungen = _landesQuoteValidator.Validieren(LandesQuotenEingaben(), AlleLaender, ErsteRundeEingang).Meldungen;
+        ZeilenZuordnen(VerbandsQuotenZeilen.Where(z => z.Verband is not null).ToList(), verbandsMeldungen,
+            (zeile, meldungen) => zeile.MeldungenSetzen(meldungen));
+        ZeilenZuordnen(LandesQuotenZeilen.Where(z => z.AlsEingabe() is not null).ToList(), landesMeldungen,
+            (zeile, meldungen) => zeile.MeldungenSetzen(meldungen));
+        return [.. verbandsMeldungen, .. landesMeldungen];
+    }
+
+    // Feldfehler.Zeile zählt in der Liste der Eingaben – dieselbe Reihenfolge wie die gezählten Zeilen.
+    private static void ZeilenZuordnen<TZeile>(
+        IReadOnlyList<TZeile> zeilen, IReadOnlyList<Feldfehler> meldungen, Action<TZeile, IReadOnlyList<Feldfehler>> setzen)
+    {
+        for (int i = 0; i < zeilen.Count; i++)
+            setzen(zeilen[i], [.. meldungen.Where(m => m.Zeile == i)]);
+    }
+
     /// <summary>Wandelt die Zeilen in Eingaben um und prüft sie; wirft <see cref="ValidationException"/>, bevor
     /// irgendetwas gespeichert ist.</summary>
     public TurnierQuotenEingaben GepruefteEingaben()
@@ -254,7 +281,11 @@ public partial class TurnierQuotenViewModel : ObservableObject
         }
     }
 
-    private void OnZeileGeaendert(object? sender, PropertyChangedEventArgs e) => ZeilenAenderungMelden();
+    // Die Meldungen einer Zeile sind keine Nutzeränderung – sie entstehen erst aus ihr.
+    private void OnZeileGeaendert(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(VerbandsQuoteZeile.Meldungen)) ZeilenAenderungMelden();
+    }
 
     private void ZeilenAenderungMelden()
     {

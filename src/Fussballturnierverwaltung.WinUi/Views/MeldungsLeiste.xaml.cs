@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Abstraktionen;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -7,14 +8,21 @@ using Windows.Foundation;
 
 namespace Fussballturnierverwaltung.WinUi.Views;
 
-/// <summary>Ein Fehler in der aufgeklappten <see cref="MeldungsLeiste"/>, mit der Kennung für GUI-Tests.</summary>
-public sealed record MeldungsEintrag(string Text, string AutomationId);
+/// <summary>Ein Fehler in der aufgeklappten <see cref="MeldungsLeiste"/>, mit der Kennung für GUI-Tests. Mit Feldbezug
+/// (<see cref="Ziel"/>) ist er ein Knopf, der ins Feld springt (#595); Kreuzprüfungen bleiben reiner Text.</summary>
+public sealed record MeldungsEintrag(string Text, string AutomationId, Feldfehler? Ziel = null)
+{
+    public Visibility AlsKnopf => Ziel?.Feld is null ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility AlsText => Ziel?.Feld is null ? Visibility.Visible : Visibility.Collapsed;
+}
 
 /// <summary>Meldungen eines Formulars als Andock-Leiste am rechten Rand (#594): Speicher-/Statusfehler
 /// (<see cref="Fehlermeldung"/>), Fehler der Live-Prüfung (<see cref="Fehler"/>) und ein Hinweis, der das Speichern
 /// nicht verhindert (<see cref="Hinweis"/>). Ohne Meldung ist die Leiste unsichtbar, sonst zeigt sie eine Kante mit
 /// Zähler – rot, sobald ein Fehler dabei ist, sonst gelb. Ein Speicherfehler klappt die Liste selbst auf, Fehler der
 /// Live-Prüfung nicht (sie entstehen beim Tippen). Ein Klick außerhalb der Leiste klappt sie wieder zu.
+/// Liefert <see cref="Fehler"/> <see cref="Feldfehler"/>, springt ein Klick auf einen Fehler mit Feldbezug ins Feld
+/// (<see cref="Feldmarkierung.Anspringen"/>, gesucht im Elternelement der Leiste – dem Formular).
 /// Die Kennungen für GUI-Tests folgen <see cref="AutomationPraefix"/>: <c>.Meldungen</c> (Kante, Name = Zähler),
 /// <c>.Fehlermeldung</c>, <c>.Fehler</c>, <c>.Hinweis</c>. Eingeklappt sind die Meldungen nicht im UIA-Baum.</summary>
 public sealed partial class MeldungsLeiste : UserControl
@@ -29,7 +37,7 @@ public sealed partial class MeldungsLeiste : UserControl
         set => SetValue(FehlermeldungProperty, value);
     }
 
-    // object statt IEnumerable<string>: die ViewModels liefern verschiedene Listentypen.
+    // object statt einer Liste: die ViewModels liefern Texte (IEnumerable<string>) oder Feldfehler.
     public static readonly DependencyProperty FehlerProperty = DependencyProperty.Register(
         nameof(Fehler), typeof(object), typeof(MeldungsLeiste),
         new PropertyMetadata(null, (d, _) => ((MeldungsLeiste)d).Aktualisieren()));
@@ -87,13 +95,32 @@ public sealed partial class MeldungsLeiste : UserControl
 
     private void Aktualisieren()
     {
-        var fehler = (Fehler as IEnumerable<string>)?.ToList() ?? [];
+        var fehler = Eintraege();
         TextZeigen(FehlermeldungRahmen, FehlermeldungText, Fehlermeldung);
         TextZeigen(HinweisRahmen, HinweisText, Hinweis);
-        FehlerListe.ItemsSource = fehler.ConvertAll(f => new MeldungsEintrag(f, $"{AutomationPraefix}.Fehler"));
+        FehlerListe.ItemsSource = fehler;
 
         var anzahlFehler = fehler.Count + (Fehlermeldung is null ? 0 : 1);
         KanteSetzen(anzahlFehler, Hinweis is not null);
+    }
+
+    private List<MeldungsEintrag> Eintraege()
+    {
+        var kennung = $"{AutomationPraefix}.Fehler";
+        return Fehler switch
+        {
+            IEnumerable<Feldfehler> meldungen => [.. meldungen.Select(m => new MeldungsEintrag(m.Text, kennung, m))],
+            IEnumerable<string> texte => [.. texte.Select(t => new MeldungsEintrag(t, kennung))],
+            _ => [],
+        };
+    }
+
+    private void Eintrag_Klick(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not MeldungsEintrag { Ziel: { } ziel }
+            || VisualTreeHelper.GetParent(this) is not { } formular) return;
+        Umschalter.IsChecked = false;
+        Feldmarkierung.Anspringen(formular, ziel);
     }
 
     private static void TextZeigen(Border rahmen, TextBlock text, string? inhalt)

@@ -40,7 +40,9 @@
                                    Visibility="{Binding LogoDaten, Converter={StaticResource NullToVisible}}" />
                     </Grid>
                     <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="6">
-                        <Button Content="Logo wählen…" Command="{Binding LogoWaehlenCommand}" HorizontalAlignment="Stretch" />
+                        <!-- Zu großes Logo (#595): Tooltip und Sprung aus der Meldungsleiste, ein Knopf bekommt keinen roten Rahmen -->
+                        <Button Content="Logo wählen…" Command="{Binding LogoWaehlenCommand}" HorizontalAlignment="Stretch"
+                                views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="Logo" />
                         <Button Content="Entfernen" Command="{Binding LogoEntfernenCommand}"
                                 IsEnabled="{Binding LogoDaten, Converter={StaticResource IstNichtNull}}"
                                 HorizontalAlignment="Stretch" />
@@ -49,6 +51,7 @@
                         <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
                         <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  AutomationProperties.AutomationId="Turnierkopf.Name"
+                                 views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="Name"
                                  HorizontalAlignment="Stretch" />
                     </StackPanel>
                     <!-- Issue #367: kurze Formatangabe, unterscheidet gleichnamige Vorlagen in der Turnierliste -->
@@ -86,6 +89,7 @@
                         <TextBlock Text="Mannschaftsanzahl" FontSize="12" Margin="0,0,0,3" />
                         <TextBox Text="{Binding ZielMannschaftsanzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  AutomationProperties.AutomationId="Turnierkopf.Mannschaftsanzahl"
+                                 views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="ZielMannschaftsanzahl"
                                  HorizontalAlignment="Stretch" />
                     </StackPanel>
                     <StackPanel Grid.Column="4" HorizontalAlignment="Stretch">
@@ -101,16 +105,21 @@
                         <TextBlock Text="Saison/Jahr" FontSize="12" Margin="0,0,0,3" />
                         <TextBox Text="{Binding SaisonOderJahr, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  AutomationProperties.AutomationId="Turnierkopf.Saison"
+                                 views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="SaisonOderJahr"
                                  HorizontalAlignment="Stretch" />
                     </StackPanel>
                     <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
                         <TextBlock Text="Startjahr" FontSize="12" Margin="0,0,0,3" />
                         <TextBox Text="{Binding Startdatum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.AutomationId="Turnierkopf.Startjahr"
+                                 views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="Startdatum"
                                  HorizontalAlignment="Stretch" />
                     </StackPanel>
                     <StackPanel Grid.Column="4" HorizontalAlignment="Stretch">
                         <TextBlock Text="Endjahr" FontSize="12" Margin="0,0,0,3" />
                         <TextBox Text="{Binding Enddatum, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.AutomationId="Turnierkopf.Endjahr"
+                                 views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="Enddatum"
                                  HorizontalAlignment="Stretch" />
                     </StackPanel>
                 </Grid>
@@ -213,6 +222,7 @@
                                                       SelectedItem="{Binding Verband, Mode=TwoWay}"
                                                       DisplayMemberPath="Name" HorizontalAlignment="Stretch" />
                                             <NumberBox Grid.Column="1" Value="{Binding Anzahl, Mode=TwoWay}"
+                                                       views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="Anzahl"
                                                        Minimum="1" SpinButtonPlacementMode="Inline" Margin="8,0,8,0" />
                                             <Button Grid.Column="2" Content="✕"
                                                     Command="{Binding ElementName=Root, Path=DataContext.Quoten.VerbandsQuoteEntfernenCommand}"
@@ -252,13 +262,16 @@
                                                       ItemsSource="{Binding SpielklassenOptionen}"
                                                       SelectedItem="{Binding SpielklasseAuswahl, Mode=TwoWay}"
                                                       IsEnabled="{Binding SpielklasseWaehlbar}"
+                                                      views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="Spielklasse"
                                                       DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="8,0,0,0" />
                                             <NumberBox Grid.Column="2" AutomationProperties.AutomationId="Turnierkopf.LandesQuoteAbPlatz"
                                                        Value="{Binding AbPlatz, Mode=TwoWay}" IsEnabled="{Binding AbPlatzWaehlbar}"
                                                        ToolTipService.ToolTip="{Binding AbPlatzHinweis}"
+                                                       views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="AbPlatz"
                                                        Minimum="1" SpinButtonPlacementMode="Inline" Margin="8,0,0,0" />
                                             <NumberBox Grid.Column="3" AutomationProperties.AutomationId="Turnierkopf.LandesQuoteAnzahl"
                                                        Value="{Binding Anzahl, Mode=TwoWay}" IsEnabled="{Binding AnzahlWaehlbar}"
+                                                       views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="Anzahl"
                                                        Minimum="1" SpinButtonPlacementMode="Inline" Margin="8,0,0,0" />
                                             <TextBlock Grid.Column="4" AutomationProperties.AutomationId="Turnierkopf.LandesQuoteErgibt"
                                                        Text="{Binding Ergibt}" VerticalAlignment="Center"

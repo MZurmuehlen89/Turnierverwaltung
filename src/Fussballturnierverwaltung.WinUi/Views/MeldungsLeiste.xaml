@@ -43,14 +43,29 @@
                     </Border>
                     <ItemsControl x:Name="FehlerListe">
                         <ItemsControl.ItemTemplate>
+                            <!-- Mit Feldbezug ein Knopf (Name = Text, damit die GUI-Tests ihn lesen wie den Text),
+                                 sonst reiner Text; das ausgeblendete Element steht nicht im UIA-Baum (#595). -->
                             <DataTemplate x:DataType="local:MeldungsEintrag">
-                                <Border Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
-                                        CornerRadius="4" Padding="8,6" Margin="0,0,0,6">
-                                    <TextBlock AutomationProperties.AutomationId="{x:Bind AutomationId}"
-                                               Text="{x:Bind Text}"
-                                               Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                               FontSize="11" TextWrapping="Wrap" />
-                                </Border>
+                                <Grid Margin="0,0,0,6">
+                                    <Button Visibility="{x:Bind AlsKnopf}" Click="Eintrag_Klick"
+                                            AutomationProperties.AutomationId="{x:Bind AutomationId}"
+                                            AutomationProperties.Name="{x:Bind Text}"
+                                            ToolTipService.ToolTip="Zum Feld springen"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                            Padding="8,6" CornerRadius="4" BorderThickness="0"
+                                            Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}">
+                                        <TextBlock Text="{x:Bind Text}" FontSize="11" TextWrapping="Wrap"
+                                                   Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                                    </Button>
+                                    <Border Visibility="{x:Bind AlsText}"
+                                            Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                                            CornerRadius="4" Padding="8,6">
+                                        <TextBlock AutomationProperties.AutomationId="{x:Bind AutomationId}"
+                                                   Text="{x:Bind Text}"
+                                                   Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                   FontSize="11" TextWrapping="Wrap" />
+                                    </Border>
+                                </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

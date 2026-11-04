@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
@@ -57,6 +58,11 @@ public partial class LandesQuoteZeile : ObservableObject
                 DispatcherQueuePriority.Low, () => OnPropertyChanged(nameof(SpielklasseAuswahl)));
         }
     }
+
+    /// <summary>Prüffehler dieser Zeile für die Feldmarkierung (#595); setzt <see cref="TurnierQuotenViewModel"/>.</summary>
+    public IReadOnlyList<Feldfehler> Meldungen { get; private set => SetProperty(ref field, value); } = [];
+
+    public void MeldungenSetzen(IReadOnlyList<Feldfehler> meldungen) => Meldungen = meldungen;
 
     public bool SpielklasseWaehlbar => Land is not null && LandesQuotenAuswahl.HatPyramide(Land);
     public bool AbPlatzWaehlbar => Spielklasse.Nummer is not null || Spielklasse.Pokalsieger;

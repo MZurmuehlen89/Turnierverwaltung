@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
@@ -63,7 +64,7 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatFormularFehler))]
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
-    private IReadOnlyList<string> _formularFehler = [];
+    private IReadOnlyList<Feldfehler> _formularFehler = [];
 
     public bool HatFormularFehler => FormularFehler.Count > 0;
 
@@ -347,6 +348,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         finally
         {
             if (aufklappzustandSetzen) AufklappzustandSetzen();
+            // Die Quoten kommen erst jetzt dazu – ihre Prüfung gehört zum geladenen Stand (#595).
+            AktualisiereFormularFehler();
         }
     }
 
@@ -491,18 +494,24 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
     {
         if (!FormularAktiv) { FormularFehler = []; return; }
 
-        var fehler = new List<string>();
+        FormularFehler =
+        [
+            .. EingabeFehler(),
+            .. _validator.BasisdatenValidieren(
+                Name, SaisonOderJahr, ParseZielAnzahl(ZielMannschaftsanzahl), ParseJahr(Startdatum), ParseJahr(Enddatum), LogoDaten).Meldungen,
+            .. Quoten.MeldungenAktualisieren(),
+        ];
+    }
+
+    /// <summary>Texte, die sich nicht in Zahlen wandeln lassen; Feldschlüssel wie im <see cref="TurnierValidator"/>.</summary>
+    private IEnumerable<Feldfehler> EingabeFehler()
+    {
         if (!string.IsNullOrWhiteSpace(ZielMannschaftsanzahl) && ParseZielAnzahl(ZielMannschaftsanzahl) is null)
-            fehler.Add("Mannschaftsanzahl muss eine Zahl ≥ 2 sein.");
+            yield return new("Mannschaftsanzahl muss eine Zahl ≥ 2 sein.", nameof(TurnierInstanz.ZielMannschaftsanzahl));
         if (!string.IsNullOrWhiteSpace(Startdatum) && ParseJahr(Startdatum) is null)
-            fehler.Add("Startjahr muss eine Jahreszahl zwischen 1800 und 2100 sein.");
+            yield return new("Startjahr muss eine Jahreszahl zwischen 1800 und 2100 sein.", nameof(TurnierInstanz.Startdatum));
         if (!string.IsNullOrWhiteSpace(Enddatum) && ParseJahr(Enddatum) is null)
-            fehler.Add("Endjahr muss eine Jahreszahl zwischen 1800 und 2100 sein.");
-
-        fehler.AddRange(_validator.BasisdatenValidieren(
-            Name, SaisonOderJahr, ParseZielAnzahl(ZielMannschaftsanzahl), ParseJahr(Startdatum), ParseJahr(Enddatum), LogoDaten).Fehler);
-
-        FormularFehler = fehler;
+            yield return new("Endjahr muss eine Jahreszahl zwischen 1800 und 2100 sein.", nameof(TurnierInstanz.Enddatum));
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Markierung eines fehlerhaften Felds (#595), eingehängt von Views/Feldmarkierung in die Resources des Felds.
+     Überschreibt die Lightweight-Styling-Schlüssel von TextBox (auch in NumberBox) und ComboBox für alle Zustände,
+     damit Rahmen und Tönung auch bei Hover und Fokus stehen bleiben; die Systemfarben folgen Hell/Dunkel. -->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <StaticResource x:Key="TextControlBackground" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="TextControlBorderBrush" ResourceKey="SystemFillColorCriticalBrush" />
+            <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="SystemFillColorCriticalBrush" />
+            <StaticResource x:Key="TextControlBorderBrushFocused" ResourceKey="SystemFillColorCriticalBrush" />
+            <StaticResource x:Key="ComboBoxBackground" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundPointerOver" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundPressed" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundFocused" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundUnfocused" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrush" ResourceKey="SystemFillColorCriticalBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrushPointerOver" ResourceKey="SystemFillColorCriticalBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrushPressed" ResourceKey="SystemFillColorCriticalBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundBorderBrushFocused" ResourceKey="SystemFillColorCriticalBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundBorderBrushUnfocused" ResourceKey="SystemFillColorCriticalBrush" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <StaticResource x:Key="TextControlBackground" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="TextControlBorderBrush" ResourceKey="SystemFillColorCriticalBrush" />
+            <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="SystemFillColorCriticalBrush" />
+            <StaticResource x:Key="TextControlBorderBrushFocused" ResourceKey="SystemFillColorCriticalBrush" />
+            <StaticResource x:Key="ComboBoxBackground" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundPointerOver" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundPressed" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundFocused" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundUnfocused" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrush" ResourceKey="SystemFillColorCriticalBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrushPointerOver" ResourceKey="SystemFillColorCriticalBrush" />
+            <StaticResource x:Key="ComboBoxBorderBrushPressed" ResourceKey="SystemFillColorCriticalBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundBorderBrushFocused" ResourceKey="SystemFillColorCriticalBrush" />
+            <StaticResource x:Key="ComboBoxBackgroundBorderBrushUnfocused" ResourceKey="SystemFillColorCriticalBrush" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!-- Rahmen 2 px statt 1 px: unterscheidet das Feld nicht nur über die Farbe -->
+    <Thickness x:Key="TextControlBorderThemeThickness">2</Thickness>
+    <Thickness x:Key="TextControlBorderThemeThicknessFocused">2</Thickness>
+    <Thickness x:Key="ComboBoxBorderThemeThickness">2</Thickness>
+
+    <Style x:Key="FeldfehlerToolTipStil" TargetType="ToolTip">
+        <Setter Property="Background" Value="{ThemeResource SystemFillColorCriticalBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+    </Style>
+</ResourceDictionary>
