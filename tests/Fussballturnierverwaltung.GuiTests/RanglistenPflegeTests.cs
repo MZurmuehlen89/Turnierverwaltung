@@ -170,7 +170,11 @@ public sealed class RanglistenPflegeTests(TurnierverwaltungApp app, TestDatenban
             .Should().Be(0);
     }
 
-    public void Dispose() => app.BeiFehlschlagBelegeSichern();
+    public void Dispose()
+    {
+        app.BeiFehlschlagBelegeSichern();
+        app.Hauptfenster.Aufraeumen();
+    }
 
     private static string EindeutigerName() => $"GuiTest {Guid.NewGuid().ToString("N")[..8]}";
 

@@ -25,6 +25,17 @@ public sealed class Hauptfenster(Window fenster)
 
     private AutomationElement Befehlsleiste => fenster.FindById(BEFEHLSLEISTE);
 
+    /// <summary>Schließt offene Rückfragen und verwirft ungespeicherte Änderungen der Seite. Für das Aufräumen nach
+    /// einem fehlgeschlagenen Test: Sonst hält die Rückfrage „Ungespeicherte Änderungen“ beim nächsten Seitenwechsel
+    /// jeden folgenden Test der Klasse auf (#535).</summary>
+    public void Aufraeumen()
+    {
+        foreach (var dialog in OffeneDialoge)
+            dialog.Close();
+        if (fenster.TryFindById("Befehlsleiste.Abbrechen") is { IsEnabled: true } abbrechen)
+            abbrechen.Activate();
+    }
+
     public void Oeffnen(Bereich bereich)
     {
         fenster.ActivateById(bereich.AutomationId);

@@ -20,7 +20,7 @@ public sealed class MannschaftsAuswahl(Window fenster, string automationId)
 
     public void Waehlen(string mannschaft)
     {
-        Eingabefeld().Click();
+        FokusHolen();
         Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_A);
         Keyboard.Type(mannschaft);
 
@@ -31,6 +31,21 @@ public sealed class MannschaftsAuswahl(Window fenster, string automationId)
             $"Vorschlag '{mannschaft}' in '{automationId}'");
         vorschlag.ScrollIntoView();
         vorschlag.Click();
+    }
+
+    // Getippt wird ins fokussierte Feld: Kommt der Klick nicht an (das Formular baut sich gerade erst auf), landete der
+    // Name im vorher fokussierten Feld – im CI-Lauf im Namen der Rangliste (#535). Darum erst tippen, wenn die Box den
+    // Fokus hat, und notfalls erneut klicken.
+    private void FokusHolen()
+    {
+        const int VERSUCHE = 3;
+        for (int versuch = 1; versuch <= VERSUCHE; versuch++)
+        {
+            Eingabefeld().Click();
+            if (Wait.Within(() => Eingabefeld().Properties.HasKeyboardFocus.ValueOrDefault, TimeSpan.FromSeconds(2)))
+                return;
+        }
+        throw new InvalidOperationException($"'{automationId}' bekommt nach {VERSUCHE} Klicks keinen Fokus.");
     }
 
     private AutomationElement Eingabefeld() =>
