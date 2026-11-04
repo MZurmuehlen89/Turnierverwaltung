@@ -93,8 +93,7 @@ public sealed partial class MeldungsLeiste : UserControl
         FehlerListe.ItemsSource = fehler.ConvertAll(f => new MeldungsEintrag(f, $"{AutomationPraefix}.Fehler"));
 
         var anzahlFehler = fehler.Count + (Fehlermeldung is null ? 0 : 1);
-        var anzahlHinweise = Hinweis is null ? 0 : 1;
-        KanteSetzen(anzahlFehler, anzahlHinweise);
+        KanteSetzen(anzahlFehler, Hinweis is not null);
     }
 
     private static void TextZeigen(Border rahmen, TextBlock text, string? inhalt)
@@ -103,25 +102,28 @@ public sealed partial class MeldungsLeiste : UserControl
         rahmen.Visibility = inhalt is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private void KanteSetzen(int anzahlFehler, int anzahlHinweise)
+    private void KanteSetzen(int anzahlFehler, bool hatHinweis)
     {
-        var hatMeldungen = anzahlFehler + anzahlHinweise > 0;
+        var hatMeldungen = anzahlFehler > 0 || hatHinweis;
         Visibility = hatMeldungen ? Visibility.Visible : Visibility.Collapsed;
-        if (!hatMeldungen) Umschalter.IsChecked = false;
+        if (!hatMeldungen)
+        {
+            Umschalter.IsChecked = false;
+            return;
+        }
 
-        var zaehler = ZaehlerText(anzahlFehler, anzahlHinweise);
+        var zaehler = ZaehlerText(anzahlFehler, hatHinweis);
         AutomationProperties.SetName(Umschalter, zaehler);
         KantenTextSetzen(zaehler);
         VisualStateManager.GoToState(this, anzahlFehler > 0 ? "MitFehlern" : "NurHinweise", false);
     }
 
-    private static string ZaehlerText(int anzahlFehler, int anzahlHinweise)
+    private static string ZaehlerText(int anzahlFehler, bool hatHinweis) => (anzahlFehler > 0, hatHinweis) switch
     {
-        var teile = new List<string>();
-        if (anzahlFehler > 0) teile.Add($"{anzahlFehler} Fehler");
-        if (anzahlHinweise > 0) teile.Add(anzahlHinweise == 1 ? "1 Hinweis" : $"{anzahlHinweise} Hinweise");
-        return string.Join(" · ", teile);
-    }
+        (true, true) => $"{anzahlFehler} Fehler · 1 Hinweis",
+        (true, false) => $"{anzahlFehler} Fehler",
+        _ => "1 Hinweis",
+    };
 
     // Der Text steht um 90° gedreht im Canvas: Die Drehung um die linke obere Ecke legt ihn links neben die Fläche,
     // die Verschiebung um seine Höhe holt ihn zurück; die Fläche bekommt die vertauschten Maße.
