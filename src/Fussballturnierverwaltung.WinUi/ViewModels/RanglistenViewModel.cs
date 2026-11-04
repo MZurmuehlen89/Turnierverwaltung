@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Ranglisten.Eingaben;
 using Fussballturnierverwaltung.Application.Stammdaten;
@@ -9,6 +10,7 @@ using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -21,6 +23,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     private readonly MannschaftService _mannschaftService;
     private readonly VerbandService _verbandService;
     private readonly IDialogService _dialogService;
+    private readonly ILogger<RanglistenViewModel> _logger;
     private int _populiertGerade;
 
     // ── Liste ─────────────────────────────────────────────────────────────────
@@ -92,12 +95,14 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
         RanglisteService service,
         MannschaftService mannschaftService,
         VerbandService verbandService,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        ILogger<RanglistenViewModel> logger)
     {
         _service = service;
         _mannschaftService = mannschaftService;
         _verbandService = verbandService;
         _dialogService = dialogService;
+        _logger = logger;
         Eintragsliste.Geaendert += (_, _) => { if (_populiertGerade == 0) IsDirty = true; };
         Ligapyramide.Geaendert += (_, _) =>
         {
@@ -197,6 +202,9 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
     private async Task Speichern()
     {
+        // Als Vorgang, weil die Seite danach neu lädt: Ladeanzeige und „Bereit“ für GUI-Tests folgen nur offenen
+        // Vorgängen – ohne ihn arbeitete ein Test schon im Formular, das das Neuladen gleich wieder überschrieb (#535)
+        using var vorgang = _logger.Vorgang($"Ranglisten: speichern ({Name})", "Rangliste wird gespeichert …");
         Fehlermeldung = null;
         try
         {
@@ -255,6 +263,7 @@ public partial class RanglistenViewModel : ViewModelBase, IRibbonAware, IHatUnge
             "Rangliste löschen", $"Soll '{Ausgewaehltes.Name}' wirklich gelöscht werden?");
         if (!bestaetigt) return;
 
+        using var vorgang = _logger.Vorgang($"Ranglisten: löschen ({Ausgewaehltes.Name})", "Rangliste wird gelöscht …");
         Fehlermeldung = null;
         try
         {
