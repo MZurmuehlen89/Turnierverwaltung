@@ -22,7 +22,8 @@ public static class Feldmarkierung
     public static readonly DependencyProperty FeldProperty = DependencyProperty.RegisterAttached(
         "Feld", typeof(string), typeof(Feldmarkierung), new PropertyMetadata(null, Geaendert));
 
-    // Je Feld ein eigenes Wörterbuch: solange es in Resources.MergedDictionaries hängt, ist das Feld markiert.
+    // Je Feld ein eigenes Wörterbuch, einmal geladen: solange es in Resources.MergedDictionaries hängt, ist das Feld
+    // markiert.
     private static readonly DependencyProperty RessourcenProperty = DependencyProperty.RegisterAttached(
         "Ressourcen", typeof(ResourceDictionary), typeof(Feldmarkierung), new PropertyMetadata(null));
 
@@ -65,19 +66,16 @@ public static class Feldmarkierung
     private static void RahmenSetzen(Control feld, bool markiert)
     {
         var ressourcen = (ResourceDictionary?)feld.GetValue(RessourcenProperty);
-        if (markiert == ressourcen is not null) return;
+        bool eingehaengt = ressourcen is not null && feld.Resources.MergedDictionaries.Contains(ressourcen);
+        if (markiert == eingehaengt) return;
 
-        if (markiert)
+        if (ressourcen is null)
         {
             ressourcen = new ResourceDictionary { Source = new Uri(RESSOURCEN_PFAD) };
-            feld.Resources.MergedDictionaries.Add(ressourcen);
+            feld.SetValue(RessourcenProperty, ressourcen);
         }
-        else
-        {
-            feld.Resources.MergedDictionaries.Remove(ressourcen);
-            ressourcen = null;
-        }
-        feld.SetValue(RessourcenProperty, ressourcen);
+        if (markiert) feld.Resources.MergedDictionaries.Add(ressourcen);
+        else feld.Resources.MergedDictionaries.Remove(ressourcen);
         ThemeNeuAufloesen(feld);
     }
 

@@ -329,6 +329,8 @@ public partial class TurnierkopfViewModel : ViewModelBase, IRibbonAware, IHatUng
         TitelGastgeber.TitelverteidigerSetzen(Filter.Wert, instanz.TitelverteidigerId);
         Status.GespeichertenSetzen(instanz.Status);
         LogoDaten = instanz.Logo;
+        // Die Quoten lädt erst DetailLadenAsync; bis dahin keine Zeilen des vorigen Turniers prüfen (#595).
+        Quoten.Leeren();
     }
 
     // Gastgeber, Quoten und die Eingangskapazität der ersten Runde stehen nicht in der Turnierliste.

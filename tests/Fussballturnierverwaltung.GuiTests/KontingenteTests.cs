@@ -80,6 +80,7 @@ public sealed class KontingenteTests(TurnierverwaltungApp app) : IClassFixture<T
         turniere.KopfFehlerAbwarten(PASST_NICHT).Should().Equal(PASST_NICHT);
         Feldmarkierung.FehlerAbwarten(quoten.AbPlatzFeld(0), PASST_NICHT).Should().Be(PASST_NICHT);
         var kopf = turniere.Kopf();
+        Abwarten(() => !kopf.SpeichernFreigegeben);
         kopf.SpeichernFreigegeben.Should().BeFalse("ein Kontingent passt nicht");
 
         quoten.Zuklappen();

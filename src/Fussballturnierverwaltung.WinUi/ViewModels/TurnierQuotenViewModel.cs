@@ -21,7 +21,11 @@ public partial class VerbandsQuoteZeile : ObservableObject
     /// <summary>Prüffehler dieser Zeile für die Feldmarkierung (#595); setzt <see cref="TurnierQuotenViewModel"/>.</summary>
     public IReadOnlyList<Feldfehler> Meldungen { get; private set => SetProperty(ref field, value); } = [];
 
-    public void MeldungenSetzen(IReadOnlyList<Feldfehler> meldungen) => Meldungen = meldungen;
+    // Unverändert nicht neu setzen: die Prüfung läuft bei jedem Tastendruck im Formular.
+    public void MeldungenSetzen(IReadOnlyList<Feldfehler> meldungen)
+    {
+        if (!meldungen.SequenceEqual(Meldungen)) Meldungen = meldungen;
+    }
 }
 
 /// <summary>Die geprüften Quoten-Eingaben eines Speichervorgangs: zwischen Prüfen und Ersetzen liegt das
