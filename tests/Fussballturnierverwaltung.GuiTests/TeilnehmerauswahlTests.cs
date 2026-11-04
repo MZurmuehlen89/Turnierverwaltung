@@ -97,7 +97,7 @@ public sealed class KontingentBefuellenTests(TurnierverwaltungApp app, TestDaten
             ("@turnier", turnier));
 }
 
-/// <summary>Quote anklicken (#573, seit #576 die Kachel im Teilnehmerpool): Ein Klick auf die Landesquote filtert die
+/// <summary>Quote anklicken (#573, seit #576 im Teilnehmerpool, seit #593 als Zeile der Quotenliste): Ein Klick auf die Landesquote filtert die
 /// Listen des Pools auf das Land, ein zweiter hebt den Filter wieder auf. Eigene Klasse und damit eigene App-Sitzung, weil das Anlegen mit ungespeicherten Quoten
 /// abbrechen kann (wie <see cref="KontingentOhnePyramideTests"/>).</summary>
 public sealed class QuoteFilterTests(TurnierverwaltungApp app, TestDatenbank datenbank)

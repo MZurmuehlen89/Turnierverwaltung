@@ -29,27 +29,27 @@ public sealed class TeilnehmerpoolTests(TurnierverwaltungApp app)
         auslosung.Anlegen("Ligaphase");
         auslosung.TeilnehmerpoolOeffnen();
 
-        auslosung.Kachel(GESAMT).Should().Be(VOLL, "der Pool ist aus den Ranglisten vorbelegt");
-        auslosung.Kachel(LAND).Should().Be("4 / 4");
+        auslosung.Quote(GESAMT).Should().Be(VOLL, "der Pool ist aus den Ranglisten vorbelegt");
+        auslosung.Quote(LAND).Should().Be("4 / 4");
         auslosung.PoolMaengel.Should().BeEmpty();
 
         auslosung.QuoteAnklicken(LAND);
         KontingentTurnier.Abwarten(() => auslosung.LandFilter == LAND);
         string heraus = auslosung.ErstesAusPoolNehmen();
-        KontingentTurnier.Abwarten(() => auslosung.Kachel(GESAMT) == "35 / 36");
-        auslosung.Kachel(GESAMT).Should().Be("35 / 36", "'{0}' hat den Pool verlassen", heraus);
+        KontingentTurnier.Abwarten(() => auslosung.Quote(GESAMT) == "35 / 36");
+        auslosung.Quote(GESAMT).Should().Be("35 / 36", "'{0}' hat den Pool verlassen", heraus);
         auslosung.PoolMaengel.Should().NotBeEmpty("dem Pool fehlt eine Mannschaft");
         auslosung.ReiterwechselAbbrechen("Statistik");
-        auslosung.Kachel(GESAMT).Should().Be("35 / 36", "nach abgelehnter Rückfrage bleibt der geänderte Pool stehen");
+        auslosung.Quote(GESAMT).Should().Be("35 / 36", "nach abgelehnter Rückfrage bleibt der geänderte Pool stehen");
         auslosung.AutomatischBefuellenMoeglich().Should().BeFalse("die Automatik wartet, bis der Pool seine Quoten erfüllt");
         auslosung.LostoepfeOeffnen();
         auslosung.PoolHinweis.Should().NotBeEmpty("der Reiter Lostöpfe weist auf den Pool hin");
 
         auslosung.TeilnehmerpoolOeffnen();
         string hinein = auslosung.ErstesInPoolAufnehmen();
-        KontingentTurnier.Abwarten(() => auslosung.Kachel(GESAMT) == VOLL);
-        auslosung.Kachel(GESAMT).Should().Be(VOLL, "'{0}' ist in den Pool gekommen", hinein);
-        auslosung.Kachel(LAND).Should().Be("4 / 4");
+        KontingentTurnier.Abwarten(() => auslosung.Quote(GESAMT) == VOLL);
+        auslosung.Quote(GESAMT).Should().Be(VOLL, "'{0}' ist in den Pool gekommen", hinein);
+        auslosung.Quote(LAND).Should().Be("4 / 4");
         auslosung.PoolMaengel.Should().BeEmpty();
         auslosung.AutomatischBefuellenMoeglich().Should().BeTrue("der Pool erfüllt seine Quoten wieder");
     }

@@ -28,7 +28,7 @@ public sealed class KlubWmTests(TurnierverwaltungApp app, TestDatenbank datenban
         var auslosung = turnier.Auslosung();
         auslosung.Anlegen(RUNDE);
         auslosung.TeilnehmerpoolOeffnen();
-        auslosung.Kachel("Gesamt").Should().Be("32 / 32", "der Pool ist aus den Vereinsranglisten der Verbände vorbelegt");
+        auslosung.Quote("Gesamt").Should().Be("32 / 32", "der Pool ist aus den Vereinsranglisten der Verbände vorbelegt");
         auslosung.PoolMaengel.Should().BeEmpty("jeder Verband hat genug Vereine in seiner Vereinsrangliste");
 
         auslosung.LostoepfeOeffnen();

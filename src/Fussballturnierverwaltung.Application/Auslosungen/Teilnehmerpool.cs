@@ -55,17 +55,28 @@ public sealed record Teilnehmerpool(
     /// noch einmal.</summary>
     private static IReadOnlyList<string> Maengel(IReadOnlyList<QuotenStand> staende, QuotenStand gesamt)
     {
-        var maengel = staende.Where(s => s.Verletzt).Select(Mangel).ToList();
-        if (maengel.Count == 0 && gesamt.Anzahl > 0 && gesamt.Aktuell != gesamt.Anzahl)
-            maengel.Add(gesamt.Aktuell < gesamt.Anzahl
-                ? Fehlen(gesamt.Name, gesamt.Anzahl - gesamt.Aktuell)
-                : ZuViel(gesamt.Name, gesamt.Aktuell - gesamt.Anzahl));
+        var maengel = staende.Select(Mangel).OfType<string>().ToList();
+        if (maengel.Count == 0 && GesamtMangel(gesamt) is { } gesamtMangel)
+            maengel.Add(gesamtMangel);
         return maengel;
     }
 
-    private static string Mangel(QuotenStand s) => s.IstFreiePlaetze
-        ? ZuViel(s.Name, s.Aktuell - s.Anzahl)
-        : Fehlen(s.Name, s.Anzahl - s.Aktuell);
+    /// <summary>Was der Quote fehlt bzw. was die freien Plätze überzieht; <c>null</c>, solange sie nicht verletzt ist.
+    /// Auch für den Tooltip der Quotenliste (#593).</summary>
+    public static string? Mangel(QuotenStand s) => !s.Verletzt
+        ? null
+        : s.IstFreiePlaetze
+            ? ZuViel(s.Name, s.Aktuell - s.Anzahl)
+            : Fehlen(s.Name, s.Anzahl - s.Aktuell);
+
+    /// <summary>Wie weit die Gesamtzahl des Pools von der Mannschaftszahl der Runde abweicht; <c>null</c>, wenn sie
+    /// stimmt oder die Runde keine vorgibt.</summary>
+    public static string? GesamtMangel(QuotenStand gesamt) =>
+        gesamt.Anzahl == 0 || gesamt.Aktuell == gesamt.Anzahl
+            ? null
+            : gesamt.Aktuell < gesamt.Anzahl
+                ? Fehlen(gesamt.Name, gesamt.Anzahl - gesamt.Aktuell)
+                : ZuViel(gesamt.Name, gesamt.Aktuell - gesamt.Anzahl);
 
     private static string Fehlen(string name, int anzahl) =>
         anzahl == 1 ? $"{name}: 1 Mannschaft fehlt" : $"{name}: {anzahl} Mannschaften fehlen";

@@ -77,16 +77,16 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
         hauptfenster.WarteBisRuhig();
     }
 
-    /// <summary>Was dem Pool zu seinen Quoten fehlt, je Zeile ein Punkt; leer, wenn er sie erfüllt.</summary>
+    /// <summary>Was dem Pool zu seinen Quoten fehlt, durch „ · “ getrennt; leer, wenn er sie erfüllt.</summary>
     public string PoolMaengel => fenster.TryFindById("Teilnehmerpool.Maengel")?.NameOrEmpty() ?? string.Empty;
 
-    /// <summary>Hinweis im Reiter Lostöpfe, dass der Pool seine Quoten nicht erfüllt; leer, wenn keiner dasteht.</summary>
+    /// <summary>Hinweis, dass der Pool seine Quoten nicht erfüllt (seit #593 in beiden Reitern); leer, wenn keiner dasteht.</summary>
     public string PoolHinweis => fenster.TryFindById("Auslosung.PoolHinweis")?.NameOrEmpty() ?? string.Empty;
 
-    /// <summary>Der Wert der Kachel <paramref name="name"/> („Deutschland“, „Freie Plätze“, „Gesamt“), etwa „4 / 4“.</summary>
-    public string Kachel(string name) => QuoteFinden(name).TextOf("Teilnehmerpool.KachelWert");
+    /// <summary>Der Wert der Quote <paramref name="name"/> in der Quotenliste („Deutschland“, „Freie Plätze“, „Gesamt“), etwa „4 / 4“.</summary>
+    public string Quote(string name) => QuoteFinden(name).TextOf("Teilnehmerpool.KachelWert");
 
-    /// <summary>Klickt die Kachel der Quote <paramref name="name"/> (Land oder Verband) an.</summary>
+    /// <summary>Klickt die Quote <paramref name="name"/> (Land oder Verband) an.</summary>
     public void QuoteAnklicken(string name)
     {
         QuoteFinden(name).Activate();
@@ -96,7 +96,7 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
     private AutomationElement QuoteFinden(string name) =>
         Wait.UntilFound(
             () => fenster.FindAllById("Auslosung.Quote").FirstOrDefault(q => q.NameOrEmpty() == name),
-            Wait.DefaultTimeout, $"Kachel '{name}'");
+            Wait.DefaultTimeout, $"Quote '{name}'");
 
     /// <summary>Das im Länderfilter des Pools gewählte Land.</summary>
     public string LandFilter =>

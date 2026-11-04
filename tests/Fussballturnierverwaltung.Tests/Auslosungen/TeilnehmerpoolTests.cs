@@ -134,4 +134,29 @@ public class TeilnehmerpoolTests
         Pool().RangVon(301).Should().Be(1);
         Pool().RangVon(105).Should().BeNull();
     }
+
+    // ── Mangeltexte je Quote (Tooltip der Quotenliste, #593) ──────────────
+
+    [Theory]
+    [InlineData(2, 3, "Spanien: 1 Mannschaft fehlt")]
+    [InlineData(0, 3, "Spanien: 3 Mannschaften fehlen")]
+    [InlineData(3, 3, null)]
+    [InlineData(4, 3, null)]
+    public void Mangel_Quote_NenntWasFehlt(int aktuell, int anzahl, string? erwartet) =>
+        Teilnehmerpool.Mangel(new QuotenStand("Spanien", aktuell, anzahl, 1)).Should().Be(erwartet);
+
+    [Fact]
+    public void Mangel_FreiePlaetze_NenntDenUeberhang()
+    {
+        Teilnehmerpool.Mangel(new QuotenStand("Freie Plätze", 3, 1)).Should().Be("Freie Plätze: 2 Mannschaften zu viel");
+        Teilnehmerpool.Mangel(new QuotenStand("Freie Plätze", 0, 1)).Should().BeNull("freie Plätze dürfen leer bleiben");
+    }
+
+    [Theory]
+    [InlineData(34, 36, "Gesamt: 2 Mannschaften fehlen")]
+    [InlineData(37, 36, "Gesamt: 1 Mannschaft zu viel")]
+    [InlineData(36, 36, null)]
+    [InlineData(5, 0, null)]
+    public void GesamtMangel_NenntDieAbweichungVonDerMannschaftszahl(int aktuell, int anzahl, string? erwartet) =>
+        Teilnehmerpool.GesamtMangel(new QuotenStand("Gesamt", aktuell, anzahl)).Should().Be(erwartet);
 }
