@@ -8,50 +8,90 @@ namespace Fussballturnierverwaltung.Application.Tabelle;
 /// Fairplay und die Summen über die Gegner. Sortiert werden die Teams in <see cref="TabellenRechner"/> (#505).</summary>
 internal static class TeamStatistik
 {
+    /// <summary>Statistik von <paramref name="teamId"/> aus seinen Spielen mit Ergebnis. Mit
+    /// <paramref name="nurHeimspiele"/> zählt nur die Heim- (<c>true</c>) bzw. nur die Auswärtsseite (<c>false</c>).
+    /// Die Gegner-Summen fehlen noch, sie ergänzt <see cref="GegnerSummenErgaenzen"/>.</summary>
     internal static RohStats Berechnen(
         int teamId, IReadOnlyList<Spiel> spiele, PunkteRegel punkteRegel, bool? nurHeimspiele = null)
     {
-        int gespielt = 0, siege = 0, unentschieden = 0, niederlagen = 0;
-        int tore = 0, gegentore = 0, auswaertsTore = 0, auswaertsSiege = 0, fairplay = 0;
+        var zaehler = new Zaehler(teamId);
+        foreach (var spiel in spiele.Where(s => ZaehltFuerTeam(s, teamId, nurHeimspiele)))
+            zaehler.Hinzufuegen(spiel);
+        return zaehler.Ergebnis(punkteRegel);
+    }
 
-        foreach (var s in spiele)
+    /// <summary>Ein Spiel zählt, wenn es ein Ergebnis hat, das Team beteiligt ist und – mit
+    /// <paramref name="nurHeimspiele"/> – auf der gewünschten Seite steht.</summary>
+    private static bool ZaehltFuerTeam(Spiel spiel, int teamId, bool? nurHeimspiele)
+    {
+        if (spiel.Ergebnis is null) return false;
+        bool istHeim = spiel.HeimMannschaftId == teamId;
+
+        if (!istHeim && spiel.AuswaertsMannschaftId != teamId) return false;
+        return nurHeimspiele is not { } nur || istHeim == nur;
+    }
+
+    private enum Ausgang { Sieg, Unentschieden, Niederlage }
+
+    /// <summary>Ausgang aus Sicht des Teams: unentschieden nur nach regulärer Spielzeit bei Torgleichheit; sonst
+    /// gewinnt, wer mehr Tore hat oder als Sieger eingetragen ist (Verlängerung, Elfmeterschießen).</summary>
+    private static Ausgang AusgangErmitteln(SpielErgebnis ergebnis, int teamId, int eigeneTore, int gegentore)
+    {
+        if (ergebnis.EntscheidungArt == EntscheidungArt.RegulaereSpielzeit && eigeneTore == gegentore)
+            return Ausgang.Unentschieden;
+        return eigeneTore > gegentore || ergebnis.SiegerMannschaftId == teamId ? Ausgang.Sieg : Ausgang.Niederlage;
+    }
+
+    /// <summary>Summiert die Spiele eines Teams auf – nur solche, die nach <see cref="ZaehltFuerTeam"/> zählen.</summary>
+    private sealed class Zaehler(int teamId)
+    {
+        private int _spiele, _siege, _unentschieden, _niederlagen;
+        private int _tore, _gegentore, _auswaertsTore, _auswaertsSiege, _fairplay;
+
+        public void Hinzufuegen(Spiel spiel)
         {
-            if (s.Ergebnis is null) continue;
-            bool istHeim = s.HeimMannschaftId == teamId;
+            var ergebnis = spiel.Ergebnis!;
+            bool istHeim = spiel.HeimMannschaftId == teamId;
+            int eigeneTore = istHeim ? ergebnis.HeimToreGesamt      : ergebnis.AuswaertsToreGesamt;
+            int gegentore  = istHeim ? ergebnis.AuswaertsToreGesamt : ergebnis.HeimToreGesamt;
 
-            if (!istHeim && s.AuswaertsMannschaftId != teamId) continue;
-            if (nurHeimspiele is { } nur && istHeim != nur) continue;
+            _spiele++;
+            _tore      += eigeneTore;
+            _gegentore += gegentore;
+            if (!istHeim) _auswaertsTore += eigeneTore;
 
-            gespielt++;
-            int eigTore = istHeim ? s.Ergebnis.HeimToreGesamt     : s.Ergebnis.AuswaertsToreGesamt;
-            int gegTore = istHeim ? s.Ergebnis.AuswaertsToreGesamt : s.Ergebnis.HeimToreGesamt;
-
-            tore      += eigTore;
-            gegentore += gegTore;
-
-            if (!istHeim) auswaertsTore += eigTore;
-
-            if (s.Ergebnis.EntscheidungArt == EntscheidungArt.RegulaereSpielzeit && eigTore == gegTore)
-                unentschieden++;
-            else if (eigTore > gegTore || s.Ergebnis.SiegerMannschaftId == teamId)
-            {
-                siege++;
-                if (!istHeim) auswaertsSiege++;
-            }
-            else
-                niederlagen++;
-
-            fairplay += FairplayPunkteImSpiel(s, teamId);
+            AusgangZaehlen(AusgangErmitteln(ergebnis, teamId, eigeneTore, gegentore), istHeim);
+            _fairplay += FairplayPunkteImSpiel(spiel, teamId);
         }
 
-        int punkte = siege * punkteRegel.PunkteFuerSieg
-                   + unentschieden * punkteRegel.PunkteFuerUnentschieden
-                   + niederlagen * punkteRegel.PunkteFuerNiederlage;
-
-        return new RohStats(gespielt, siege, unentschieden, niederlagen, tore, gegentore, auswaertsTore, punkte, fairplay)
+        private void AusgangZaehlen(Ausgang ausgang, bool istHeim)
         {
-            AuswaertsSiege = auswaertsSiege
-        };
+            switch (ausgang)
+            {
+                case Ausgang.Sieg:
+                    _siege++;
+                    if (!istHeim) _auswaertsSiege++;
+                    break;
+                case Ausgang.Unentschieden:
+                    _unentschieden++;
+                    break;
+                default:
+                    _niederlagen++;
+                    break;
+            }
+        }
+
+        public RohStats Ergebnis(PunkteRegel punkteRegel)
+        {
+            int punkte = _siege * punkteRegel.PunkteFuerSieg
+                       + _unentschieden * punkteRegel.PunkteFuerUnentschieden
+                       + _niederlagen * punkteRegel.PunkteFuerNiederlage;
+
+            return new RohStats(_spiele, _siege, _unentschieden, _niederlagen, _tore, _gegentore, _auswaertsTore, punkte, _fairplay)
+            {
+                AuswaertsSiege = _auswaertsSiege
+            };
+        }
     }
 
     /// <summary>Fairplay-Wertung eines Teams in einem Spiel: -(GelbeKarte * 1 + RoteKarte * 3) - der höhere Wert
