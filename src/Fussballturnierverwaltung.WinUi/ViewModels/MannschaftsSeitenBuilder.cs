@@ -190,14 +190,7 @@ public static class MannschaftsSeitenBuilder
     {
         var e = spiel.Spiel.Ergebnis!;
         bool heim = spiel.IstHeim;
-        string detail = SpielErgebnisFormatierer.DetailText(
-            e.EntscheidungArt,
-            heim ? e.HeimToreRegulaer : e.AuswaertsToreRegulaer,
-            heim ? e.AuswaertsToreRegulaer : e.HeimToreRegulaer,
-            heim ? e.HeimToreVerlaengerung : e.AuswaertsToreVerlaengerung,
-            heim ? e.AuswaertsToreVerlaengerung : e.HeimToreVerlaengerung,
-            heim ? e.HeimElfmetertore : e.AuswaertsElfmetertore,
-            heim ? e.AuswaertsElfmetertore : e.HeimElfmetertore);
+        string detail = SpielErgebnisFormatierer.DetailText(e, ausHeimSicht: heim);
 
         return new MannschaftsSpielZeile(
             RundenText(spiel),

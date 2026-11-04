@@ -131,11 +131,7 @@ internal static class SpielZeilenMapper
     {
         if (ergebnis is not { } e) return "";
 
-        string detail = SpielErgebnisFormatierer.DetailText(
-            e.EntscheidungArt,
-            e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
-            e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
-            e.HeimElfmetertore, e.AuswaertsElfmetertore);
+        string detail = SpielErgebnisFormatierer.DetailText(e);
 
         return detail.Length > 0
             ? detail

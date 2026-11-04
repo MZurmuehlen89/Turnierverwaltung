@@ -7,22 +7,66 @@ namespace Fussballturnierverwaltung.Tests.Spiele;
 
 public class SpielErgebnisFormatiererTests
 {
+    private static SpielErgebnis Ergebnis(int heim, int auswaerts, EntscheidungArt art = EntscheidungArt.RegulaereSpielzeit,
+        int? heimVerl = null, int? auswVerl = null, int? heimElf = null, int? auswElf = null) => new()
+    {
+        HeimToreRegulaer = heim, AuswaertsToreRegulaer = auswaerts,
+        HeimToreVerlaengerung = heimVerl, AuswaertsToreVerlaengerung = auswVerl,
+        HeimElfmetertore = heimElf, AuswaertsElfmetertore = auswElf,
+        EntscheidungArt = art
+    };
+
     // ── DetailText ────────────────────────────────────────────────────────
 
     [Fact]
     public void DetailText_RegulaereSpielzeit_IstLeer()
     {
-        var text = SpielErgebnisFormatierer.DetailText(
-            EntscheidungArt.RegulaereSpielzeit, 2, 1, null, null, null, null);
+        var text = SpielErgebnisFormatierer.DetailText(Ergebnis(2, 1));
         text.Should().BeEmpty();
     }
 
     [Fact]
     public void DetailText_Auswaertstorregel_ZeigtKuerzel()
     {
-        var text = SpielErgebnisFormatierer.DetailText(
-            EntscheidungArt.Auswaertstorregel, 1, 2, null, null, null, null);
+        var text = SpielErgebnisFormatierer.DetailText(Ergebnis(1, 2, EntscheidungArt.Auswaertstorregel));
         text.Should().Be("A.T.");
+    }
+
+    [Theory]
+    [InlineData(EntscheidungArt.Verlaengerung, "(1:1) n.V.")]
+    [InlineData(EntscheidungArt.GoldenGoal, "(1:1) G.G.")]
+    [InlineData(EntscheidungArt.SilverGoal, "(1:1) S.G.")]
+    public void DetailText_VerlaengerungMitToren_ZeigtRegulaerzeitKlammerUndKuerzel(EntscheidungArt art, string erwartet)
+    {
+        var text = SpielErgebnisFormatierer.DetailText(Ergebnis(1, 1, art, heimVerl: 1, auswVerl: 0));
+        text.Should().Be(erwartet);
+    }
+
+    [Fact]
+    public void DetailText_VerlaengerungOhneTore_OhneRegulaerzeitKlammer()
+    {
+        // Elfmeterschießen nach torloser Verlängerung: Endstand = Regulärzeit-Stand, die Klammer wäre redundant.
+        var text = SpielErgebnisFormatierer.DetailText(
+            Ergebnis(2, 2, EntscheidungArt.Elfmeterschiessen, heimVerl: 0, auswVerl: 0, heimElf: 5, auswElf: 4));
+        text.Should().Be("i.E. 5:4");
+    }
+
+    [Fact]
+    public void DetailText_ElfmeterschiessenNachVerlaengerungstoren_ZeigtKlammerUndElfmeterstand()
+    {
+        var text = SpielErgebnisFormatierer.DetailText(
+            Ergebnis(1, 1, EntscheidungArt.Elfmeterschiessen, heimVerl: 1, auswVerl: 1, heimElf: 3, auswElf: 4));
+        text.Should().Be("(1:1) i.E. 3:4");
+    }
+
+    [Fact]
+    public void DetailText_AusAuswaertsSicht_SpiegeltBeideStaende()
+    {
+        // Mannschaftsseite des Auswärtsteams: Regulärzeit 2:1 und Elfmeter 3:4 aus dessen Sicht.
+        var text = SpielErgebnisFormatierer.DetailText(
+            Ergebnis(1, 2, EntscheidungArt.Elfmeterschiessen, heimVerl: 1, auswVerl: 0, heimElf: 3, auswElf: 4),
+            ausHeimSicht: false);
+        text.Should().Be("(2:1) i.E. 4:3");
     }
 
     // ── EntscheidungKuerzel (#438) ───────────────────────────────────────────
@@ -80,15 +124,6 @@ public class SpielErgebnisFormatiererTests
     }
 
     // ── Hin-/Rückspiel-Paarung (Issue #340) ───────────────────────────────────
-
-    private static SpielErgebnis Ergebnis(int heim, int auswaerts, EntscheidungArt art = EntscheidungArt.RegulaereSpielzeit,
-        int? heimVerl = null, int? auswVerl = null, int? heimElf = null, int? auswElf = null) => new()
-    {
-        HeimToreRegulaer = heim, AuswaertsToreRegulaer = auswaerts,
-        HeimToreVerlaengerung = heimVerl, AuswaertsToreVerlaengerung = auswVerl,
-        HeimElfmetertore = heimElf, AuswaertsElfmetertore = auswElf,
-        EntscheidungArt = art
-    };
 
     [Fact]
     public void RueckspielGesamtText_ZeigtGesamtstandAusSichtDesRueckspielHeimteams()

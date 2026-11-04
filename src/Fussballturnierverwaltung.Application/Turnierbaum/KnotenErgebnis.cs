@@ -26,11 +26,7 @@ public sealed record KnotenErgebnis(
 
     private static KnotenErgebnis Einzelspiel(SpielErgebnis e) => new(
         true, e.HeimToreGesamt.ToString(), e.AuswaertsToreGesamt.ToString(),
-        SpielErgebnisFormatierer.DetailText(
-            e.EntscheidungArt,
-            e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
-            e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung,
-            e.HeimElfmetertore, e.AuswaertsElfmetertore),
+        SpielErgebnisFormatierer.DetailText(e),
         PaarungsText: "",
         SpielErgebnisFormatierer.EntscheidungKuerzel(e.EntscheidungArt),
         e.SiegerMannschaftId);

@@ -10,36 +10,32 @@ namespace Fussballturnierverwaltung.Application.Spiele;
 /// </summary>
 public static class SpielErgebnisFormatierer
 {
-    public static string DetailText(
-        EntscheidungArt entscheidungArt,
-        int heimToreRegulaer, int auswaertsToreRegulaer,
-        int? heimToreVerlaengerung, int? auswaertsToreVerlaengerung,
-        int? heimElfmetertore, int? auswaertsElfmetertore)
+    /// <param name="ausHeimSicht"><c>false</c> stellt die Stände aus Sicht des Auswärtsteams dar (Mannschaftsseite).</param>
+    public static string DetailText(SpielErgebnis ergebnis, bool ausHeimSicht = true)
     {
-        if (entscheidungArt == EntscheidungArt.Auswaertstorregel) return "A.T.";
+        var art = ergebnis.EntscheidungArt;
+        if (art == EntscheidungArt.Auswaertstorregel) return EntscheidungKuerzel(art);
 
-        bool istVerlaengerungsFall = entscheidungArt is
+        bool istVerlaengerungsFall = art is
             EntscheidungArt.Verlaengerung or EntscheidungArt.GoldenGoal or
             EntscheidungArt.SilverGoal or EntscheidungArt.Elfmeterschiessen;
         if (!istVerlaengerungsFall) return "";
 
-        int endHeim      = heimToreRegulaer      + (heimToreVerlaengerung ?? 0);
-        int endAuswaerts = auswaertsToreRegulaer + (auswaertsToreVerlaengerung ?? 0);
-        string regulaerKlammer = (endHeim != heimToreRegulaer || endAuswaerts != auswaertsToreRegulaer)
-            ? $"({heimToreRegulaer}:{auswaertsToreRegulaer}) "
+        // Die Regulärzeit-Klammer nur, wenn der Endstand durch Verlängerungstore von ihr abweicht.
+        bool verlaengerungstoreGefallen =
+            (ergebnis.HeimToreVerlaengerung ?? 0) != 0 || (ergebnis.AuswaertsToreVerlaengerung ?? 0) != 0;
+        string regulaerKlammer = verlaengerungstoreGefallen
+            ? $"({Stand(ergebnis.HeimToreRegulaer, ergebnis.AuswaertsToreRegulaer, ausHeimSicht)}) "
+            : "";
+        string elfmeterStand = art == EntscheidungArt.Elfmeterschiessen
+            ? " " + Stand(ergebnis.HeimElfmetertore, ergebnis.AuswaertsElfmetertore, ausHeimSicht)
             : "";
 
-        if (entscheidungArt == EntscheidungArt.Elfmeterschiessen)
-            return $"{regulaerKlammer}i.E. {heimElfmetertore}:{auswaertsElfmetertore}";
-
-        string marker = entscheidungArt switch
-        {
-            EntscheidungArt.GoldenGoal => "G.G.",
-            EntscheidungArt.SilverGoal => "S.G.",
-            _                          => "n.V."
-        };
-        return $"{regulaerKlammer}{marker}";
+        return $"{regulaerKlammer}{EntscheidungKuerzel(art)}{elfmeterStand}";
     }
+
+    private static string Stand(int? heim, int? auswaerts, bool ausHeimSicht) =>
+        ausHeimSicht ? $"{heim}:{auswaerts}" : $"{auswaerts}:{heim}";
 
     /// <summary>Reines Kürzel der Entscheidung ohne Spielstand, für die kompakte Karte der Turnierbaum-Gesamtübersicht
     /// (Issue #238). Leer bei Entscheidung nach Toren.</summary>

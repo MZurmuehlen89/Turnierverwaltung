@@ -147,9 +147,7 @@ public static class TurnierSeitenBuilder
             spiel.HeimMannschaft!,
             spiel.AuswaertsMannschaft!,
             $"{e.HeimToreGesamt}:{e.AuswaertsToreGesamt}",
-            SpielErgebnisFormatierer.DetailText(
-                e.EntscheidungArt, e.HeimToreRegulaer, e.AuswaertsToreRegulaer,
-                e.HeimToreVerlaengerung, e.AuswaertsToreVerlaengerung, e.HeimElfmetertore, e.AuswaertsElfmetertore),
+            SpielErgebnisFormatierer.DetailText(e),
             wert);
     }
 
