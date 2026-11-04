@@ -72,8 +72,8 @@ public sealed class AuslosungsNebenwegeTests(TurnierverwaltungApp app, TestDaten
     }
 
     /// <summary>Mit der Konföderationsverteilung landen die beiden CONMEBOL-Teams in verschiedenen Gruppen – sie
-    /// spielen in der Gruppenphase also nie gegeneinander. Eine Rangliste mit Nationalmannschaften bringt der Seed
-    /// nicht mit (die FIFA-Weltrangliste ist dort nur als Import-Quelle hinterlegt), darum legt der Test eine an.</summary>
+    /// spielen in der Gruppenphase also nie gegeneinander. Der Test legt eine eigene Rangliste mit genau seinen acht
+    /// Nationen an, damit die Töpfe nicht vom Seed-Stand der FIFA-Weltrangliste abhängen.</summary>
     [Fact]
     public async Task Konfoederationsverteilung_TrenntDieSuedamerikaner()
     {

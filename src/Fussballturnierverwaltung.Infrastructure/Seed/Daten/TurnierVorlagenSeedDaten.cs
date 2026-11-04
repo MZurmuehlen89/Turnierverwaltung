@@ -1005,7 +1005,7 @@ public static class TurnierVorlagenSeedDaten
         // gegen Playoff-Sieger), danach Zufall. Bestehende Datenbanken: Migration AuslosungsartVorgabeJeRunde.
         var liga          = Runde(1, "Ligaphase",       Rundenart.TopfLiga,        36, 24, regelwerkId: rId, auslosungsart: Auslosungsart.TopfZuordnung);
         // Töpfe der Ligaphase nach Klub-Koeffizient (Issue #349): seit #381 die Rangliste des Seed-Stands, gefunden über
-        // ihren Namen (der Seed-Stand hängt an keiner Import-Quelle).
+        // ihren Namen.
         liga.StandardRanglisteId = RlId(rangliste, KlubKoeffizientSeedDaten.RANGLISTE);
         liga.TitelverteidigerInTopf1    = titelverteidigerInTopf1;
         liga.GegnerJeTopf               = gegnerJeTopf;

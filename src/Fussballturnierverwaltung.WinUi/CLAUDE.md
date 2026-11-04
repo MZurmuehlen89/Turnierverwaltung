@@ -47,12 +47,10 @@ Dark-Mode toggle shows the wrong state until the user clicks it once (found in #
 
 **Only one `ContentDialog` can be shown at a time per `XamlRoot`** — a second `ShowAsync()` while one is
 already open throws. This blocks any WPF-Window-dialog pattern that nests a child dialog inside a parent
-dialog (found while porting Ranglisten-Import in #285, which in WPF opens a "Quellen verwalten" child window
-from inside the import window, and a "Mannschaft schnell anlegen" child window from inside an unresolved
-import row). Two independent workarounds used there: (1) merge a parent-dialog + child-dialog pair into one
-ContentDialog with an app-wide list+form layout instead of two windows (formerly `RanglistenQuellenVerwaltenDialog`, since #477 the „Quellen“ tab `RanglistenQuellenPage` — a page tab avoids the problem entirely);
-(2) replace a child dialog with an inline expanding form directly in the triggering row/element instead of a
-popup (`RanglistenImportZeileZuordnung.NeuAnlegenAktiv`, kept when the import dialog became the „Import“ tab `RanglistenImportPage` in #477). A `ViewModel`-owned
+dialog (found while porting the Ranglisten-Import in #285; the import was removed in #596). Two independent
+workarounds: (1) merge a parent-dialog + child-dialog pair into one ContentDialog with a list+form layout, or
+better make it a page tab, which avoids the problem entirely; (2) replace a child dialog with an inline expanding
+form directly in the triggering row/element instead of a popup. A `ViewModel`-owned
 `ContentDialog` also has no `XamlRoot` of its own — `IDialogService.AnzeigenAsync(ContentDialog)` sets it
 centrally (mirrors the WPF original, where the ViewModel directly opens the `Window`; see
 `TurnierkopfViewModel.AusVorlageErstellenAsync`).

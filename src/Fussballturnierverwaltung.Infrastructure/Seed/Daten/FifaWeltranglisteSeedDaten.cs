@@ -1,7 +1,7 @@
 namespace Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 
 /// <summary>FIFA-Weltrangliste der Männer, Ausgabe vom 07.10.2026, vollständig mit allen 211 Mitgliedsverbänden
-/// (Issue #579) — fester Stand im Seed, unabhängig von einer Import-Quelle. Abgerufen über die Schnittstelle, die
+/// (Issue #579) — fester Stand im Seed. Abgerufen über die Schnittstelle, die
 /// inside.fifa.com selbst nutzt (<c>api.fifa.com/api/v3/fifarankings/rankings/rankingsbyschedule</c>, Ausgabe
 /// <c>FRS_Male_Football_20260720</c>). Der Rang ergibt sich aus der Position in der Liste (die Ausgabe hat keine
 /// geteilten Plätze); Punkte auf ganze Zahlen gerundet.
