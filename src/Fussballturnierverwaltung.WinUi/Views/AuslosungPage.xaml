@@ -10,6 +10,11 @@
     <UserControl.Resources>
         <conv:AuslosungsartZuTextConverter x:Key="AuslosungsartZuText" />
 
+        <Style x:Key="KopfLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,0,0,3" />
+        </Style>
+
         <SolidColorBrush x:Key="MatrixZelleHervorhebungBrush" Color="{ThemeResource SystemAccentColor}" Opacity="0.25" />
 
         <!-- Gegner-Matrix (#362): Zelle mit Wappen + Kurzname, anklickbar für den Team-Fokus. Hervorhebung als
@@ -663,57 +668,69 @@
                         <local:HandZiehungAnzeige DataContext="{Binding HandZiehung}" />
                     </Border>
 
-                    <!-- Editierbare Basisdaten (nur solange nicht abgeschlossen und nicht von Hand gezogen wird) -->
-                    <StackPanel Visibility="{Binding ZeigeBasisdaten, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,16">
-                        <Grid ColumnDefinitions="*,16,*,16,Auto">
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
-                                <TextBox Text="{Binding DetailName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                         HorizontalAlignment="Stretch" />
+                    <!-- Kopfdaten in einer Zeile (#593): Name, Auslosungsart, Töpfe und Position nur solange nicht abgeschlossen
+                         und nicht von Hand gezogen wird, die Rangliste der Automatik während der Vorbereitung. Hinweis und
+                         Sperrgrund stehen als ⓘ-Tooltip am Feldlabel, die Warnung zur Auslosungsart als gelbes Symbol. -->
+                    <Grid ColumnDefinitions="2*,1.6*,Auto,1.6*,1.6*" ColumnSpacing="12">
+                        <StackPanel Grid.Column="0" Margin="0,0,0,12"
+                                    Visibility="{Binding ZeigeBasisdaten, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Name" Style="{StaticResource KopfLabel}" />
+                            <TextBox Text="{Binding DetailName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     HorizontalAlignment="Stretch" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="0,0,0,12"
+                                    Visibility="{Binding ZeigeBasisdaten, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,3">
+                                <TextBlock Text="Auslosungsart" FontSize="12" />
+                                <FontIcon Glyph="&#xE946;" FontSize="12" Opacity="0.6"
+                                          ToolTipService.ToolTip="{Binding DetailAuslosungsartHinweis}"
+                                          AutomationProperties.Name="{Binding DetailAuslosungsartHinweis}" />
+                                <FontIcon Glyph="&#xE7BA;" FontSize="12" Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                          ToolTipService.ToolTip="{Binding DetailAuslosungsartWarnung}"
+                                          AutomationProperties.Name="{Binding DetailAuslosungsartWarnung}"
+                                          Visibility="{Binding DetailAuslosungsartWarnung, Converter={StaticResource NullToCollapsed}}" />
                             </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Auslosungsart" FontSize="12" Margin="0,0,0,3" />
-                                <ComboBox ItemsSource="{Binding DetailAuslosungsartOptionen}"
-                                          SelectedItem="{Binding DetailAuslosungsartAusgewaehlt, Mode=TwoWay}"
-                                          DisplayMemberPath="Anzeige"
-                                          HorizontalAlignment="Stretch" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="4">
-                                <TextBlock Text="Lostöpfe" FontSize="12" Margin="0,0,0,3" />
-                                <NumberBox Value="{Binding DetailAnzahlLostoepfe, Mode=TwoWay}"
-                                           IsEnabled="{Binding DetailAnzahlLostoepfeBearbeitbar}"
-                                           Minimum="1" SpinButtonPlacementMode="Inline" Width="120" />
-                            </StackPanel>
-                        </Grid>
-                        <TextBlock Text="{Binding DetailAuslosungsartHinweis}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,6,0,0" />
-                        <TextBlock Text="{Binding DetailAuslosungsartWarnung}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                   Visibility="{Binding DetailAuslosungsartWarnung, Converter={StaticResource NullToCollapsed}}" />
-                        <!-- Position in der Gruppe (#475) -->
-                        <Grid ColumnDefinitions="*,16,*,16,Auto" Margin="0,12,0,0">
-                            <StackPanel Grid.Column="2" DataContext="{Binding DetailGruppenposition}">
-                                <TextBlock Text="Position in der Gruppe" FontSize="12" Margin="0,0,0,3" />
+                            <ComboBox ItemsSource="{Binding DetailAuslosungsartOptionen}"
+                                      SelectedItem="{Binding DetailAuslosungsartAusgewaehlt, Mode=TwoWay}"
+                                      DisplayMemberPath="Anzeige"
+                                      AutomationProperties.HelpText="{Binding DetailAuslosungsartHinweis}"
+                                      HorizontalAlignment="Stretch" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Margin="0,0,0,12"
+                                    Visibility="{Binding ZeigeBasisdaten, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Töpfe" Style="{StaticResource KopfLabel}" />
+                            <NumberBox Value="{Binding DetailAnzahlLostoepfe, Mode=TwoWay}"
+                                       IsEnabled="{Binding DetailAnzahlLostoepfeBearbeitbar}"
+                                       Minimum="1" SpinButtonPlacementMode="Inline" Width="110" />
+                        </StackPanel>
+                        <!-- Position in der Gruppe (#475); der Wrapper trägt die Sichtbarkeit wegen des eigenen DataContext -->
+                        <Border Grid.Column="3" Margin="0,0,0,12"
+                                Visibility="{Binding ZeigeBasisdaten, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel DataContext="{Binding DetailGruppenposition}">
+                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,3">
+                                    <TextBlock Text="Position in der Gruppe" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                    <FontIcon Glyph="&#xE946;" FontSize="12" Opacity="0.6"
+                                              ToolTipService.ToolTip="{Binding SperrGrund}"
+                                              AutomationProperties.Name="{Binding SperrGrund}"
+                                              Visibility="{Binding SperrGrund, Converter={StaticResource NullToCollapsed}}" />
+                                </StackPanel>
                                 <ComboBox ItemsSource="{Binding Optionen}"
                                           SelectedItem="{Binding Ausgewaehlt, Mode=TwoWay}"
                                           DisplayMemberPath="Anzeige"
                                           IsEnabled="{Binding IstWaehlbar}"
+                                          AutomationProperties.HelpText="{Binding SperrGrund}"
                                           HorizontalAlignment="Stretch" />
-                                <TextBlock Text="{Binding SperrGrund}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,6,0,0"
-                                           Visibility="{Binding SperrGrund, Converter={StaticResource NullToCollapsed}}" />
                             </StackPanel>
-                        </Grid>
-                    </StackPanel>
-
-                    <!-- Ranglisten-Automatik (Befüllen-Button lebt im Menü, "Auslosung"-Gruppe) -->
-                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,12"
-                                Visibility="{Binding ZeigeVorbereitung, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="Rangliste für Automatik:" VerticalAlignment="Center" FontSize="12" />
-                        <ComboBox ItemsSource="{Binding Arbeitsbereich.RanglisteOptionen}" AutomationProperties.AutomationId="Auslosung.Rangliste"
-                                  SelectedItem="{Binding Arbeitsbereich.AusgewaehlteRanglisteOption, Mode=TwoWay}"
-                                  DisplayMemberPath="Anzeige" Width="220" />
-                    </StackPanel>
-
-                    <TextBlock Text="{Binding Arbeitsbereich.TeamsStatusText}" AutomationProperties.AutomationId="Auslosung.Zuweisung" FontSize="12" Margin="0,0,0,12" />
+                        </Border>
+                        <!-- Ranglisten-Automatik (Befüllen-Button lebt im Menü, "Auslosung"-Gruppe) -->
+                        <StackPanel Grid.Column="4" Margin="0,0,0,12"
+                                    Visibility="{Binding ZeigeVorbereitung, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Rangliste (Automatik)" Style="{StaticResource KopfLabel}" />
+                            <ComboBox ItemsSource="{Binding Arbeitsbereich.RanglisteOptionen}" AutomationProperties.AutomationId="Auslosung.Rangliste"
+                                      SelectedItem="{Binding Arbeitsbereich.AusgewaehlteRanglisteOption, Mode=TwoWay}"
+                                      DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
+                        </StackPanel>
+                    </Grid>
 
                     <Border Visibility="{Binding Fehlermeldung, Converter={StaticResource NullToCollapsed}}"
                             Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
@@ -723,35 +740,43 @@
                                    FontSize="12" TextWrapping="Wrap" />
                     </Border>
 
-                    <!-- ── Reiter Teilnehmerpool | Lostöpfe (#576), nur in der ersten Runde eines Turniers mit Quoten ── -->
-                    <StackPanel Visibility="{Binding ZeigeReiterleiste, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,12">
-                        <SelectorBar x:Name="ReiterLeiste" SelectionChanged="ReiterLeiste_SelectionChanged">
+                    <!-- ── Reiter Teilnehmerpool | Lostöpfe (#576), nur in der ersten Runde eines Turniers mit Quoten; rechts
+                         daneben der Zuweisungsstatus (#593), der auch ohne Reiter dort steht ── -->
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                        <SelectorBar Grid.Column="0" x:Name="ReiterLeiste" SelectionChanged="ReiterLeiste_SelectionChanged"
+                                     Visibility="{Binding ZeigeReiterleiste, Converter={StaticResource BoolToVisibility}}">
                             <SelectorBarItem x:Name="ReiterTeilnehmerpool" Text="{Binding Teilnehmerpool.ReiterText}"
                                              AutomationProperties.AutomationId="Auslosung.ReiterTeilnehmerpool" />
                             <SelectorBarItem x:Name="ReiterLostoepfe" Text="Lostöpfe"
                                              AutomationProperties.AutomationId="Auslosung.ReiterLostoepfe" />
                         </SelectorBar>
-                        <TextBlock Text="●  Änderungen am Teilnehmerpool sind erst gespeichert, wenn seine Teams in den Töpfen liegen."
-                                   FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,6,0,0"
-                                   Visibility="{Binding Teilnehmerpool.HatUngespeicherteAenderungen, Converter={StaticResource BoolToVisibility}}" />
-                    </StackPanel>
+                        <TextBlock Grid.Column="1" Text="{Binding Arbeitsbereich.TeamsStatusText}" AutomationProperties.AutomationId="Auslosung.Zuweisung"
+                                   FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                    </Grid>
+                    <TextBlock Text="●  Änderungen am Teilnehmerpool sind erst gespeichert, wenn seine Teams in den Töpfen liegen."
+                               FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,12"
+                               Visibility="{Binding ZeigeUngespeichertenPool, Converter={StaticResource BoolToVisibility}}" />
+
+                    <!-- Eine Meldung für beide Reiter (#593): was dem Pool fehlt; im Reiter Lostöpfe mit dem Weg zurück -->
+                    <Border Visibility="{Binding ZeigePoolHinweis, Converter={StaticResource BoolToVisibility}}"
+                            Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                            CornerRadius="4" Padding="10,4" Margin="0,0,0,12">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                            <TextBlock Grid.Column="0" Text="Pool erfüllt die Quoten nicht – „Automatisch befüllen“ gesperrt:"
+                                       AutomationProperties.AutomationId="Auslosung.PoolHinweis"
+                                       FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding Teilnehmerpool.MaengelText}" AutomationProperties.AutomationId="Teilnehmerpool.Maengel"
+                                       FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            <HyperlinkButton Grid.Column="2" Content="Im Teilnehmerpool korrigieren" FontSize="12" Padding="4,0"
+                                             Click="ZumTeilnehmerpool_Click"
+                                             Visibility="{Binding ZeigeLostopfArbeitsbereich, Converter={StaticResource BoolToVisibility}}" />
+                        </Grid>
+                    </Border>
 
                     <!-- Wrapper trägt die Sichtbarkeit, weil die Ansicht einen eigenen DataContext hat -->
                     <Grid Visibility="{Binding ZeigeTeilnehmerpool, Converter={StaticResource BoolToVisibility}}">
                         <local:TeilnehmerpoolAnsicht DataContext="{Binding Teilnehmerpool}" />
                     </Grid>
-
-                    <Border Visibility="{Binding ZeigePoolHinweis, Converter={StaticResource BoolToVisibility}}"
-                            Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
-                            CornerRadius="4" Padding="10,6" Margin="0,0,0,12">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="Der Teilnehmerpool erfüllt die Quoten nicht – „Automatisch befüllen“ ist gesperrt."
-                                       AutomationProperties.AutomationId="Auslosung.PoolHinweis"
-                                       FontSize="12" VerticalAlignment="Center" />
-                            <HyperlinkButton Content="Im Teilnehmerpool korrigieren" FontSize="12" Padding="4,0"
-                                             Click="ZumTeilnehmerpool_Click" />
-                        </StackPanel>
-                    </Border>
 
                     <!-- ── Töpfe/Teilnehmer-Workspace (vor Abschluss) ── -->
                     <!-- Verfügbar-Spalte auf 80% der ursprünglichen Breite gestutzt (Nutzerwunsch: mehr

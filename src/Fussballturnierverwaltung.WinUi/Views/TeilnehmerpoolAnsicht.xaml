@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!-- Reiter „Teilnehmerpool“ der Auslosung (#576): Kacheln der Quoten, was fehlt, Filter und die beiden Listen.
+<!-- Reiter „Teilnehmerpool“ der Auslosung (#576): Kacheln der Quoten, Filter und die beiden Listen; was dem Pool fehlt,
+     meldet die Seite für beide Reiter (#593).
      DataContext ist das TeilnehmerpoolViewModel. -->
 <UserControl
     x:Class="Fussballturnierverwaltung.WinUi.Views.TeilnehmerpoolAnsicht"
@@ -59,7 +60,7 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
+    <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
         <ItemsRepeater Grid.Row="0" ItemsSource="{Binding Quoten.Kacheln}" ItemTemplate="{StaticResource KachelTemplate}">
             <ItemsRepeater.Layout>
                 <UniformGridLayout MinItemWidth="140" MinItemHeight="72" MinRowSpacing="6" MinColumnSpacing="6"
@@ -67,16 +68,7 @@
             </ItemsRepeater.Layout>
         </ItemsRepeater>
 
-        <Border Grid.Row="1" Visibility="{Binding HatMaengel, Converter={StaticResource BoolToVisibility}}"
-                Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}" CornerRadius="4" Padding="10,8">
-            <StackPanel>
-                <TextBlock Text="Der Pool erfüllt die Quoten nicht – „Automatisch befüllen“ ist gesperrt:" FontSize="12" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding MaengelText}" AutomationProperties.AutomationId="Teilnehmerpool.Maengel"
-                           FontSize="12" TextWrapping="Wrap" />
-            </StackPanel>
-        </Border>
-
-        <Grid Grid.Row="2" ColumnDefinitions="2*,*,*" ColumnSpacing="8">
+        <Grid Grid.Row="1" ColumnDefinitions="2*,*,*" ColumnSpacing="8">
             <TextBox Grid.Column="0" PlaceholderText="🔍  Filtern …"
                      Text="{Binding Filter.TeilnehmerFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
@@ -92,7 +84,7 @@
         </Grid>
 
         <!-- Tausch per Doppelklick, Ziehen oder Rechtsklick — wie bei den Lostöpfen -->
-        <Grid Grid.Row="3" ColumnDefinitions="*,16,*" Margin="0,0,0,16">
+        <Grid Grid.Row="2" ColumnDefinitions="*,16,*" Margin="0,0,0,16">
             <Grid Grid.Column="0" RowDefinitions="Auto,*">
                 <TextBlock Grid.Row="0" Text="WEITERE VERFÜGBAR" FontWeight="SemiBold" FontSize="11" Opacity="0.6" Margin="0,0,0,6" />
                 <ListView Grid.Row="1" x:Name="WeitereListView" AutomationProperties.AutomationId="Teilnehmerpool.Weitere"

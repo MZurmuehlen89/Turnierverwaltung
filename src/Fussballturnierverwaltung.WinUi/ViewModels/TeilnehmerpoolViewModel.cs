@@ -105,7 +105,7 @@ public partial class TeilnehmerpoolViewModel : ObservableObject
     /// <summary>Ohne Pool gibt es nichts zu erfüllen.</summary>
     public bool Erfuellt => !Aktiv || Stand is { Erfuellt: true };
 
-    public string MaengelText => string.Join(Environment.NewLine, Stand?.Maengel ?? []);
+    public string MaengelText => string.Join(" · ", Stand?.Maengel ?? []);
 
     public string ReiterText => HatMaengel ? "Teilnehmerpool – Quoten offen" : "Teilnehmerpool";
 

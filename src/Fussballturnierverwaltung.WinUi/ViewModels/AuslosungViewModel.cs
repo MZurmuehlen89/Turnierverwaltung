@@ -184,8 +184,11 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     public bool ZeigeTeilnehmerpool => ZeigeReiterleiste && Teilnehmerpool.PoolReiterAktiv;
     public bool ZeigeLostopfArbeitsbereich => ZeigeVorbereitung && !ZeigeTeilnehmerpool;
 
-    /// <summary>Im Reiter Lostöpfe: der Pool erfüllt seine Quoten nicht, die Automatik ist gesperrt.</summary>
-    public bool ZeigePoolHinweis => ZeigeLostopfArbeitsbereich && Teilnehmerpool.Aktiv && Teilnehmerpool.HatMaengel;
+    /// <summary>In beiden Reitern: der Pool erfüllt seine Quoten nicht, die Automatik ist gesperrt (#593, vorher je Reiter
+    /// eine eigene Meldung).</summary>
+    public bool ZeigePoolHinweis => ZeigeReiterleiste && Teilnehmerpool.HatMaengel;
+
+    public bool ZeigeUngespeichertenPool => ZeigeReiterleiste && Teilnehmerpool.HatUngespeicherteAenderungen;
 
     public string VerfuegbarUeberschrift => Teilnehmerpool.Aktiv ? "TEILNEHMERPOOL – OHNE TOPF" : "VERFÜGBAR";
 
@@ -195,13 +198,14 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         OnPropertyChanged(nameof(ZeigeTeilnehmerpool));
         OnPropertyChanged(nameof(ZeigeLostopfArbeitsbereich));
         OnPropertyChanged(nameof(ZeigePoolHinweis));
+        OnPropertyChanged(nameof(ZeigeUngespeichertenPool));
         OnPropertyChanged(nameof(VerfuegbarUeberschrift));
     }
 
     private void BeiTeilnehmerpoolAenderung(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(TeilnehmerpoolViewModel.Aktiv) or nameof(TeilnehmerpoolViewModel.PoolReiterAktiv)
-            or nameof(TeilnehmerpoolViewModel.HatMaengel))
+            or nameof(TeilnehmerpoolViewModel.HatMaengel) or nameof(TeilnehmerpoolViewModel.HatUngespeicherteAenderungen))
             ReiterAnzeigeMelden();
         if (e.PropertyName == nameof(TeilnehmerpoolViewModel.Aktiv))
             OnPropertyChanged(nameof(RibbonZusatzGruppen));
