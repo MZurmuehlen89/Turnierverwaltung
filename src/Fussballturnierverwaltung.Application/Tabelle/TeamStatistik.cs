@@ -14,21 +14,28 @@ internal static class TeamStatistik
     internal static RohStats Berechnen(
         int teamId, IReadOnlyList<Spiel> spiele, PunkteRegel punkteRegel, bool? nurHeimspiele = null)
     {
+        // Schleife statt LINQ: läuft im Sortiervergleich (direkter Vergleich) und je Ergebniskombination der
+        // Rangprognose, dort zählt jede Allokation.
         var zaehler = new Zaehler(teamId);
-        foreach (var spiel in spiele.Where(s => ZaehltFuerTeam(s, teamId, nurHeimspiele)))
-            zaehler.Hinzufuegen(spiel);
+        foreach (var spiel in spiele)
+        {
+            if (ZaehlendeSeite(spiel, teamId, nurHeimspiele) is { } istHeim)
+                zaehler.Hinzufuegen(spiel, istHeim);
+        }
         return zaehler.Ergebnis(punkteRegel);
     }
 
-    /// <summary>Ein Spiel zählt, wenn es ein Ergebnis hat, das Team beteiligt ist und – mit
-    /// <paramref name="nurHeimspiele"/> – auf der gewünschten Seite steht.</summary>
-    private static bool ZaehltFuerTeam(Spiel spiel, int teamId, bool? nurHeimspiele)
+    /// <summary>Auf welcher Seite das Spiel für das Team zählt: <c>true</c> daheim, <c>false</c> auswärts,
+    /// <c>null</c> gar nicht – ohne Ergebnis, ohne Beteiligung des Teams oder (mit <paramref name="nurHeimspiele"/>)
+    /// auf der anderen Seite.</summary>
+    private static bool? ZaehlendeSeite(Spiel spiel, int teamId, bool? nurHeimspiele)
     {
-        if (spiel.Ergebnis is null) return false;
+        if (spiel.Ergebnis is null) return null;
         bool istHeim = spiel.HeimMannschaftId == teamId;
 
-        if (!istHeim && spiel.AuswaertsMannschaftId != teamId) return false;
-        return nurHeimspiele is not { } nur || istHeim == nur;
+        if (!istHeim && spiel.AuswaertsMannschaftId != teamId) return null;
+        if (nurHeimspiele is { } nur && istHeim != nur) return null;
+        return istHeim;
     }
 
     private enum Ausgang { Sieg, Unentschieden, Niederlage }
@@ -42,16 +49,16 @@ internal static class TeamStatistik
         return eigeneTore > gegentore || ergebnis.SiegerMannschaftId == teamId ? Ausgang.Sieg : Ausgang.Niederlage;
     }
 
-    /// <summary>Summiert die Spiele eines Teams auf – nur solche, die nach <see cref="ZaehltFuerTeam"/> zählen.</summary>
+    /// <summary>Summiert die Spiele eines Teams auf – nur solche, für die <see cref="ZaehlendeSeite"/> eine Seite
+    /// nennt (damit steht auch das Ergebnis fest).</summary>
     private sealed class Zaehler(int teamId)
     {
         private int _spiele, _siege, _unentschieden, _niederlagen;
         private int _tore, _gegentore, _auswaertsTore, _auswaertsSiege, _fairplay;
 
-        public void Hinzufuegen(Spiel spiel)
+        public void Hinzufuegen(Spiel spiel, bool istHeim)
         {
             var ergebnis = spiel.Ergebnis!;
-            bool istHeim = spiel.HeimMannschaftId == teamId;
             int eigeneTore = istHeim ? ergebnis.HeimToreGesamt      : ergebnis.AuswaertsToreGesamt;
             int gegentore  = istHeim ? ergebnis.AuswaertsToreGesamt : ergebnis.HeimToreGesamt;
 

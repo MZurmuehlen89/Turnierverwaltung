@@ -234,16 +234,17 @@ public class TabellenRechnerTests
     }
 
     [Theory]
-    // 1 schlägt 2, 3 schlägt 4 deutlich, 2 schlägt 4. Gegner von 4 sind 3 und 2, von 3 nur die 4.
-    [InlineData(RankingRegelArt.GegnerPunkte)]
-    [InlineData(RankingRegelArt.GegnerTordifferenz)]
-    [InlineData(RankingRegelArt.GegnerErzielteTore)]
-    public void TabelleBerechnen_GegnerKriterien_SummierenUeberAlleBisherigenGegner(RankingRegelArt art)
+    // 1 schlägt 2 mit 5:0, 3 und 4 spielen 0:0, 2 schlägt 4 mit 1:0. Gegner von 2 sind 1 und 4, von 4 sind 3 und 2.
+    // Summen je Team 1/2/3/4 – Punkte 3/4/1/4, Tordifferenz -4/4/-1/-4, Tore 1/5/0/1: je Kriterium eine andere Reihenfolge.
+    [InlineData(RankingRegelArt.GegnerPunkte, new[] { 2, 4, 1, 3 })]
+    [InlineData(RankingRegelArt.GegnerTordifferenz, new[] { 2, 3, 1, 4 })]
+    [InlineData(RankingRegelArt.GegnerErzielteTore, new[] { 2, 1, 4, 3 })]
+    public void TabelleBerechnen_GegnerKriterien_SummierenUeberAlleBisherigenGegner(RankingRegelArt art, int[] erwartet)
     {
         var tabelle = TabellenRechner.TabelleBerechnen(
-            [Spiel(1, 2, 1, 0), Spiel(3, 4, 3, 0), Spiel(2, 4, 2, 0)], new(_dreiPunkte, Regeln(art, RankingRegelArt.Losentscheid)));
+            [Spiel(1, 2, 5, 0), Spiel(3, 4, 0, 0), Spiel(2, 4, 1, 0)], new(_dreiPunkte, Regeln(art, RankingRegelArt.Losentscheid)));
 
-        Reihenfolge(tabelle).Should().Equal(4, 1, 2, 3);
+        Reihenfolge(tabelle).Should().Equal(erwartet);
     }
 
     [Theory]

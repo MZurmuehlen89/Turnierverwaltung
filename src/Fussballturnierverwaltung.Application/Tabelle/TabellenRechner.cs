@@ -4,8 +4,8 @@ using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Tabelle;
 
-/// <summary>Rechnet Tabellen aus Spielen, ohne Datenbankzugriff: Statistik je Team, Sortierung nach den
-/// Ranking-Regeln. Die Gruppen einer Gruppenphase bildet <see cref="GruppenRechner"/>, das Laden von Runde,
+/// <summary>Rechnet Tabellen aus Spielen, ohne Datenbankzugriff: sammelt die Teams, holt ihre Statistik aus
+/// <see cref="TeamStatistik"/> und sortiert nach den Ranking-Regeln. Die Gruppen einer Gruppenphase bildet <see cref="GruppenRechner"/>, das Laden von Runde,
 /// Regelwerk und Spielen übernimmt <see cref="TabellenService"/> (#439).</summary>
 public static class TabellenRechner
 {
