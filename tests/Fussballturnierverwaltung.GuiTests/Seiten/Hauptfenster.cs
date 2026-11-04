@@ -49,6 +49,12 @@ public sealed class Hauptfenster(Window fenster)
         return new RegelwerkeSeite(fenster, this);
     }
 
+    public RanglistenSeite RanglistenOeffnen()
+    {
+        Oeffnen(Bereich.Ranglisten);
+        return new RanglistenSeite(fenster, this);
+    }
+
     public TurnierlisteSeite TurniereOeffnen()
     {
         Oeffnen(Bereich.Turniere);
