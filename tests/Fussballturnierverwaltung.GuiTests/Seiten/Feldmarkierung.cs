@@ -24,5 +24,8 @@ public static class Feldmarkierung
 
     private static string Fehler(AutomationElement feld) => feld.Properties.HelpText.ValueOrDefault ?? string.Empty;
 
-    private static bool HatFokus(AutomationElement feld) => feld.Properties.HasKeyboardFocus.ValueOrDefault;
+    // Bei zusammengesetzten Feldern (NumberBox) hält das innere Textfeld den Fokus, nicht das Feld selbst.
+    private static bool HatFokus(AutomationElement feld) =>
+        feld.Properties.HasKeyboardFocus.ValueOrDefault
+        || feld.FindAllDescendants().Any(d => d.Properties.HasKeyboardFocus.ValueOrDefault);
 }
