@@ -1,7 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
+using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
@@ -22,6 +24,7 @@ public record RangfolgeKriterium(string Nummer, string Name, string Beschreibung
 public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly RegelwerkService _service;
+    private readonly RegelwerkValidator _validator;
     private readonly IDialogService _dialogService;
     private int _populiertGerade;
 
@@ -58,6 +61,12 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
 
     [ObservableProperty] private bool _istLadend;
     [ObservableProperty] private string? _fehlermeldung;
+
+    /// <summary>Live-Prüfung mit demselben Validator wie beim Speichern (#602); sperrt Speichern, solange sie Fehler
+    /// enthält.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    private IReadOnlyList<Feldfehler> _formularFehler = [];
 
     // ── Basisdaten ────────────────────────────────────────────────────────────
     [ObservableProperty] private string _name = "";
@@ -135,9 +144,10 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
     public ICommand? AbbrechenBefehl => AbbrechenCommand;
     public ICommand? LoeschenBefehl => LoeschenCommand;
 
-    public RegelwerkeViewModel(RegelwerkService service, IDialogService dialogService)
+    public RegelwerkeViewModel(RegelwerkService service, RegelwerkValidator validator, IDialogService dialogService)
     {
         _service = service;
+        _validator = validator;
         _dialogService = dialogService;
     }
 
@@ -204,6 +214,7 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
         {
             _populiertGerade--;
         }
+        AktualisiereFormularFehler();
     }
 
     // ── Ribbon-Befehle ────────────────────────────────────────────────────────
@@ -231,6 +242,7 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
             _populiertGerade--;
         }
         IsDirty = true;
+        AktualisiereFormularFehler();
     }
 
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
@@ -239,17 +251,9 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
         Fehlermeldung = null;
         try
         {
-            var gueltigVon = ParseJahr(GueltigVon);
-            var gueltigBis = ParseJahr(GueltigBis);
-            var verfahren = AusgewaehlteVerfahren.ToList();
-
+            var eingabe = Eingabe();
             if (IstNeuModus)
             {
-                var eingabe = new RegelwerkErstellenEingabe(
-                    Name, Beschreibung, gueltigVon, gueltigBis,
-                    AusgewaehltesRankingSet.Wert?.Id,
-                    PunkteSieg, PunkteUnentschieden, PunkteNiederlage,
-                    verfahren);
                 var neu = await _service.ErstellenAsync(eingabe);
                 await LadenAsync();
                 Ausgewaehltes = Regelwerke.FirstOrDefault(r => r.Id == neu.Id);
@@ -257,12 +261,10 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
             else if (Ausgewaehltes is not null)
             {
                 var id = Ausgewaehltes.Id;
-                var eingabe = new RegelwerkAktualisierenEingabe(
-                    Name, Beschreibung, gueltigVon, gueltigBis,
-                    AusgewaehltesRankingSet.Wert?.Id,
-                    PunkteSieg, PunkteUnentschieden, PunkteNiederlage,
-                    verfahren);
-                await _service.AktualisierenAsync(id, eingabe);
+                await _service.AktualisierenAsync(id, new RegelwerkAktualisierenEingabe(
+                    eingabe.Name, eingabe.Beschreibung, eingabe.GueltigVon, eingabe.GueltigBis,
+                    eingabe.RankingRegelSetId, eingabe.PunkteFuerSieg, eingabe.PunkteFuerUnentschieden,
+                    eingabe.PunkteFuerNiederlage, eingabe.EntscheidungsVerfahrenReihenfolge));
                 await LadenAsync();
                 Ausgewaehltes = Regelwerke.FirstOrDefault(r => r.Id == id);
             }
@@ -348,10 +350,40 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
         base.OnPropertyChanged(e);
         if (e.PropertyName == nameof(RegelwerkeGefiltert)) OnPropertyChanged(nameof(AnzahlText));
         if (_populiertGerade == 0 && _formFelder.Contains(e.PropertyName!))
+        {
             IsDirty = true;
+            AktualisiereFormularFehler();
+        }
     }
 
-    private bool KannSpeichern() => FormularAktiv && IsDirty;
+    // ── Live-Prüfung (#602) ───────────────────────────────────────────────────
+
+    private RegelwerkErstellenEingabe Eingabe() => new(
+        Name, Beschreibung, ParseJahr(GueltigVon), ParseJahr(GueltigBis),
+        AusgewaehltesRankingSet.Wert?.Id,
+        PunkteSieg, PunkteUnentschieden, PunkteNiederlage,
+        [.. AusgewaehlteVerfahren]);
+
+    private void AktualisiereFormularFehler()
+    {
+        if (!FormularAktiv) { FormularFehler = []; return; }
+        FormularFehler =
+        [
+            .. JahrPruefen(GueltigVon, "Gültig von", nameof(RegelwerkErstellenEingabe.GueltigVon)),
+            .. JahrPruefen(GueltigBis, "Gültig bis", nameof(RegelwerkErstellenEingabe.GueltigBis)),
+            .. _validator.Validieren(Eingabe()).Meldungen,
+        ];
+    }
+
+    /// <summary>Ein Jahr, das <see cref="ParseJahr"/> nicht versteht, ginge beim Speichern still verloren (leer statt
+    /// des Eingegebenen) – darum ist es ein Fehler.</summary>
+    private static IEnumerable<Feldfehler> JahrPruefen(string text, string bezeichnung, string feld)
+    {
+        if (!string.IsNullOrWhiteSpace(text) && ParseJahr(text) is null)
+            yield return new($"{bezeichnung}: ein Jahr zwischen 1800 und 2100 eingeben (oder leer lassen).", feld);
+    }
+
+    private bool KannSpeichern() => FormularAktiv && IsDirty && FormularFehler.Count == 0;
     private bool KannAbbrechen() => FormularAktiv && IsDirty;
 
     public bool HatUngespeicherteAenderungen => FormularAktiv && IsDirty;

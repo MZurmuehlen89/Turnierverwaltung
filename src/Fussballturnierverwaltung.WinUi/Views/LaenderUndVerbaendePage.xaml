@@ -117,7 +117,8 @@
                                      sonst springen beim Durchblättern der Länder andere Steuerelemente vertikal,
                                      da sich die Höhe dieser StackPanel je nach Datensatz ändert (Fund aus #281). -->
                                 <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="6">
-                                    <Button Content="Bild wählen…" Command="{Binding LandFlaggeWaehlenCommand}" HorizontalAlignment="Left" />
+                                    <Button Content="Bild wählen…" Command="{Binding LandFlaggeWaehlenCommand}" HorizontalAlignment="Left"
+                                            views:Feldmarkierung.Meldungen="{Binding LandFehler}" views:Feldmarkierung.Feld="Flagge" />
                                     <Button Content="Entfernen" Command="{Binding LandFlaggeEntfernenCommand}"
                                             IsEnabled="{Binding LandFlaggeDaten, Converter={StaticResource IstNichtNull}}"
                                             HorizontalAlignment="Left" />
@@ -127,6 +128,7 @@
                             <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
                             <TextBox AutomationProperties.AutomationId="Laender.Name"
                                      Text="{Binding LandName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     views:Feldmarkierung.Meldungen="{Binding LandFehler}" views:Feldmarkierung.Feld="Name"
                                      HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                             <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,90">
@@ -134,12 +136,14 @@
                                     <TextBlock Text="Kurzname" FontSize="12" Margin="0,0,0,3" />
                                     <TextBox AutomationProperties.AutomationId="Laender.Kurzname"
                                              Text="{Binding LandKurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             views:Feldmarkierung.Meldungen="{Binding LandFehler}" views:Feldmarkierung.Feld="Kurzname"
                                              HorizontalAlignment="Stretch" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Text="FIFA-Code" FontSize="12" Margin="0,0,0,3" />
                                     <TextBox AutomationProperties.AutomationId="Laender.FifaCode"
                                              Text="{Binding LandFifaCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             views:Feldmarkierung.Meldungen="{Binding LandFehler}" views:Feldmarkierung.Feld="FifaCode"
                                              MaxLength="3" CharacterCasing="Upper" HorizontalAlignment="Stretch" />
                                 </StackPanel>
                             </Grid>
@@ -155,6 +159,7 @@
                                     <TextBlock Text="Verband" FontSize="12" Margin="0,0,0,3" />
                                     <ComboBox AutomationProperties.AutomationId="Laender.Verband"
                                               ItemsSource="{Binding Verbaende}"
+                                              views:Feldmarkierung.Meldungen="{Binding LandFehler}" views:Feldmarkierung.Feld="VerbandId"
                                               SelectedItem="{Binding LandVerband, Mode=TwoWay}"
                                               DisplayMemberPath="Name" HorizontalAlignment="Stretch" />
                                 </StackPanel>
@@ -170,7 +175,8 @@
                     </ScrollViewer>
                     <!-- Meldungen als Andock-Leiste (#594) – überdeckt den freien Bereich rechts, nicht das Formular -->
                     <views:MeldungsLeiste Grid.ColumnSpan="2" AutomationPraefix="Laender"
-                                          Fehlermeldung="{Binding Fehlermeldung}" />
+                                          Fehlermeldung="{Binding Fehlermeldung}"
+                                          Fehler="{Binding LandFehler}" />
                 </Grid>
             </Grid>
         </PivotItem>
@@ -260,7 +266,8 @@
                                                Visibility="{Binding VerbandLogoDaten, Converter={StaticResource NullToVisible}}" />
                                 </Grid>
                                 <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="6">
-                                    <Button Content="Bild wählen…" Command="{Binding VerbandLogoWaehlenCommand}" HorizontalAlignment="Left" />
+                                    <Button Content="Bild wählen…" Command="{Binding VerbandLogoWaehlenCommand}" HorizontalAlignment="Left"
+                                            views:Feldmarkierung.Meldungen="{Binding VerbandFehler}" views:Feldmarkierung.Feld="Logo" />
                                     <Button Content="Entfernen" Command="{Binding VerbandLogoEntfernenCommand}"
                                             IsEnabled="{Binding VerbandLogoDaten, Converter={StaticResource IstNichtNull}}"
                                             HorizontalAlignment="Left" />
@@ -270,11 +277,13 @@
                             <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
                             <TextBox AutomationProperties.AutomationId="Verbaende.Name"
                                      Text="{Binding VerbandName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     views:Feldmarkierung.Meldungen="{Binding VerbandFehler}" views:Feldmarkierung.Feld="Name"
                                      HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                             <TextBlock Text="Kurzname" FontSize="12" Margin="0,0,0,3" />
                             <TextBox AutomationProperties.AutomationId="Verbaende.Kurzname"
                                      Text="{Binding VerbandKurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     views:Feldmarkierung.Meldungen="{Binding VerbandFehler}" views:Feldmarkierung.Feld="Kurzname"
                                      HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                             <!-- #572: etwa die FIFA-Weltrangliste, gefiltert nach Verband. -->
@@ -294,7 +303,8 @@
                     </ScrollViewer>
                     <!-- Meldungen als Andock-Leiste (#594) – überdeckt den freien Bereich rechts, nicht das Formular -->
                     <views:MeldungsLeiste Grid.ColumnSpan="2" AutomationPraefix="Verbaende"
-                                          Fehlermeldung="{Binding Fehlermeldung}" />
+                                          Fehlermeldung="{Binding Fehlermeldung}"
+                                          Fehler="{Binding VerbandFehler}" />
                 </Grid>
             </Grid>
         </PivotItem>

@@ -38,6 +38,14 @@ public sealed class StammdatenEditor(
         hauptfenster.WarteBisRuhig();
     }
 
+    /// <summary>Ob Speichern freigegeben ist, sobald es <paramref name="erwartet"/> ist – die Live-Prüfung sperrt es
+    /// bei Fehlern (#602).</summary>
+    public bool SpeichernFreigabeAbwarten(bool erwartet)
+    {
+        Wait.Within(() => SpeichernFreigegeben == erwartet, Wait.DefaultTimeout);
+        return SpeichernFreigegeben;
+    }
+
     /// <summary>Speichert in der Erwartung, dass die Prüfung ablehnt, und liefert die Meldung, sobald sie
     /// <paramref name="enthaelt"/> enthält – sonst die tatsächliche (leer, wenn keine kam).</summary>
     public string SpeichernAbgelehnt(string enthaelt)

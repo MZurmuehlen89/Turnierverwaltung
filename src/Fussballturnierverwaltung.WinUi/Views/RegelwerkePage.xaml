@@ -76,6 +76,7 @@
                     <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
                     <TextBox AutomationProperties.AutomationId="Regelwerke.Name"
                              Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="Name"
                              HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                     <TextBlock Text="Beschreibung" FontSize="12" Margin="0,0,0,3" />
@@ -88,12 +89,14 @@
                             <TextBlock Text="Gültig von (Jahr)" FontSize="12" Margin="0,0,0,3" />
                             <TextBox AutomationProperties.AutomationId="Regelwerke.GueltigVon"
                                      Text="{Binding GueltigVon, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="GueltigVon"
                                      HorizontalAlignment="Stretch" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
                             <TextBlock Text="Gültig bis (Jahr)" FontSize="12" Margin="0,0,0,3" />
                             <TextBox AutomationProperties.AutomationId="Regelwerke.GueltigBis"
                                      Text="{Binding GueltigBis, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="GueltigBis"
                                      HorizontalAlignment="Stretch" />
                         </StackPanel>
                     </Grid>
@@ -105,6 +108,7 @@
                         <TextBlock Text="Sieg" VerticalAlignment="Center" FontSize="13" />
                         <Slider Grid.Column="1" AutomationProperties.AutomationId="Regelwerke.PunkteSieg"
                                 Value="{Binding PunkteSieg, Mode=TwoWay}"
+                                views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="PunkteFuerSieg"
                                 Minimum="0" Maximum="10" StepFrequency="1" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="2" Text="{Binding PunkteSieg}"
                                    FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
@@ -113,6 +117,7 @@
                         <TextBlock Text="Unentschieden" VerticalAlignment="Center" FontSize="13" />
                         <Slider Grid.Column="1" AutomationProperties.AutomationId="Regelwerke.PunkteUnentschieden"
                                 Value="{Binding PunkteUnentschieden, Mode=TwoWay}"
+                                views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="PunkteFuerUnentschieden"
                                 Minimum="0" Maximum="10" StepFrequency="1" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="2" Text="{Binding PunkteUnentschieden}"
                                    FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
@@ -121,6 +126,7 @@
                         <TextBlock Text="Niederlage" VerticalAlignment="Center" FontSize="13" />
                         <Slider Grid.Column="1" AutomationProperties.AutomationId="Regelwerke.PunkteNiederlage"
                                 Value="{Binding PunkteNiederlage, Mode=TwoWay}"
+                                views:Feldmarkierung.Meldungen="{Binding FormularFehler}" views:Feldmarkierung.Feld="PunkteFuerNiederlage"
                                 Minimum="0" Maximum="10" StepFrequency="1" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="2" Text="{Binding PunkteNiederlage}"
                                    FontSize="13" FontWeight="SemiBold" TextAlignment="Right" VerticalAlignment="Center" />
@@ -193,7 +199,8 @@
             </ScrollViewer>
             <!-- Meldungen als Andock-Leiste (#594) – überdeckt den freien Bereich rechts, nicht das Formular -->
             <views:MeldungsLeiste Grid.ColumnSpan="2" AutomationPraefix="Regelwerke"
-                                  Fehlermeldung="{Binding Fehlermeldung}" />
+                                  Fehlermeldung="{Binding Fehlermeldung}"
+                                  Fehler="{Binding FormularFehler}" />
         </Grid>
     </Grid>
 </UserControl>

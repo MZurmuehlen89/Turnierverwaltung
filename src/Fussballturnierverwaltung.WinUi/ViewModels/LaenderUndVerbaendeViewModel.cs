@@ -1,8 +1,10 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
+using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Dialoge;
@@ -24,6 +26,8 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
 {
     private readonly LandService _landService;
     private readonly VerbandService _verbandService;
+    private readonly LandValidator _landValidator;
+    private readonly VerbandValidator _verbandValidator;
     private readonly RanglisteService _ranglisteService;
     private readonly IDialogService _dialogService;
     private int _populiertGerade;
@@ -82,6 +86,11 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     [ObservableProperty] private RanglistenOption? _verbandRangliste = KeineRangliste;
     [ObservableProperty] private RanglistenOption? _verbandVereinsRangliste = KeineRangliste;
 
+    /// <summary>Live-Prüfung des Verbandsformulars (#602); sperrt Speichern, solange sie Fehler enthält.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    private IReadOnlyList<Feldfehler> _verbandFehler = [];
+
     // ── Länder ───────────────────────────────────────────────────────────────
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(LaenderGefiltert))]
@@ -129,6 +138,11 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     [ObservableProperty] private Verband? _landVerband;
     [ObservableProperty] private byte[]? _landFlaggeDaten;
     [ObservableProperty] private RanglistenOption? _landRangliste = KeineRangliste;
+
+    /// <summary>Live-Prüfung des Länderformulars (#602); sperrt Speichern, solange sie Fehler enthält.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
+    private IReadOnlyList<Feldfehler> _landFehler = [];
 
     // Ranglisten zur Auswahl an Land und Verband (#572), „keine“ zuerst.
     [ObservableProperty] private IReadOnlyList<RanglistenOption> _ranglistenOptionen = [KeineRangliste];
@@ -196,12 +210,17 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     public ICommand? AbbrechenBefehl => AbbrechenCommand;
     public ICommand? LoeschenBefehl => LoeschenCommand;
 
+    // Sechs Abhängigkeiten, weil die Klasse zwei Editoren (Länder, Verbände) trägt – je Editor Dienst und Validator.
+#pragma warning disable S107 // Aufteilen in zwei Editor-Klassen wäre ein eigener Umbau, nicht Teil von #602
     public LaenderUndVerbaendeViewModel(
         LandService landService, VerbandService verbandService, RanglisteService ranglisteService,
-        IDialogService dialogService)
+        LandValidator landValidator, VerbandValidator verbandValidator, IDialogService dialogService)
+#pragma warning restore S107
     {
         _landService = landService;
         _verbandService = verbandService;
+        _landValidator = landValidator;
+        _verbandValidator = verbandValidator;
         _ranglisteService = ranglisteService;
         _dialogService = dialogService;
     }
@@ -277,6 +296,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         {
             _populiertGerade--;
         }
+        AktualisiereLandFehler();
     }
 
     private RanglistenOption RanglisteOptionFuer(int? ranglisteId) =>
@@ -313,6 +333,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         {
             _populiertGerade--;
         }
+        AktualisiereVerbandFehler();
     }
 
     // ── Ribbon-Befehle ────────────────────────────────────────────────────────
@@ -344,6 +365,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
             _populiertGerade--;
         }
         LandIsDirty = true;
+        AktualisiereLandFehler();
     }
 
     [RelayCommand]
@@ -375,6 +397,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
             _populiertGerade--;
         }
         VerbandIsDirty = true;
+        AktualisiereVerbandFehler();
     }
 
     [RelayCommand]
@@ -401,22 +424,14 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         {
             if (LandIstNeuModus)
             {
-                var eingabe = new LandErstellenEingabe(
-                    LandName, LandKurzname, LandFifaCode,
-                    LandKontinentOption.Wert ?? Kontinent.Europa,
-                    LandVerband?.Id ?? 0, LandFlaggeDaten, LandRangliste?.Id);
-                var neu = await _landService.ErstellenAsync(eingabe);
+                var neu = await _landService.ErstellenAsync(LandErstellenEingabe());
                 await LadenAsync();
                 AusgewaehltesLand = Laender.FirstOrDefault(l => l.Id == neu.Id);
             }
             else if (AusgewaehltesLand is not null)
             {
                 var id = AusgewaehltesLand.Id;
-                var eingabe = new LandAktualisierenEingabe(
-                    LandName, LandKurzname, LandFifaCode,
-                    LandKontinentOption.Wert ?? Kontinent.Europa,
-                    LandVerband?.Id ?? 0, LandFlaggeDaten, LandRangliste?.Id);
-                await _landService.AktualisierenAsync(id, eingabe);
+                await _landService.AktualisierenAsync(id, LandAktualisierenEingabe());
                 await LadenAsync();
                 AusgewaehltesLand = Laender.FirstOrDefault(l => l.Id == id);
             }
@@ -434,18 +449,14 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         {
             if (VerbandIstNeuModus)
             {
-                var eingabe = new VerbandErstellenEingabe(VerbandName, VerbandKurzname, VerbandLogoDaten,
-                    VerbandRangliste?.Id, VerbandVereinsRangliste?.Id);
-                var neu = await _verbandService.ErstellenAsync(eingabe);
+                var neu = await _verbandService.ErstellenAsync(VerbandErstellenEingabe());
                 await LadenAsync();
                 AusgewaehlterVerband = Verbaende.FirstOrDefault(v => v.Id == neu.Id);
             }
             else if (AusgewaehlterVerband is not null)
             {
                 var id = AusgewaehlterVerband.Id;
-                var eingabe = new VerbandAktualisierenEingabe(VerbandName, VerbandKurzname, VerbandLogoDaten,
-                    VerbandRangliste?.Id, VerbandVereinsRangliste?.Id);
-                await _verbandService.AktualisierenAsync(id, eingabe);
+                await _verbandService.AktualisierenAsync(id, VerbandAktualisierenEingabe());
                 await LadenAsync();
                 AusgewaehlterVerband = Verbaende.FirstOrDefault(v => v.Id == id);
             }
@@ -531,13 +542,45 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         if (e.PropertyName == nameof(LaenderGefiltert)) OnPropertyChanged(nameof(LaenderAnzahlText));
         if (e.PropertyName == nameof(VerbaendeGefiltert)) OnPropertyChanged(nameof(VerbaendeAnzahlText));
         if (_populiertGerade != 0) return;
-        if (_landFormFelder.Contains(e.PropertyName!)) LandIsDirty = true;
-        if (_verbandFormFelder.Contains(e.PropertyName!)) VerbandIsDirty = true;
+        if (_landFormFelder.Contains(e.PropertyName!))
+        {
+            LandIsDirty = true;
+            AktualisiereLandFehler();
+        }
+        if (_verbandFormFelder.Contains(e.PropertyName!))
+        {
+            VerbandIsDirty = true;
+            AktualisiereVerbandFehler();
+        }
     }
 
+    // ── Live-Prüfung (#602) ───────────────────────────────────────────────────
+
+    private LandErstellenEingabe LandErstellenEingabe() => new(
+        LandName, LandKurzname, LandFifaCode, LandKontinentOption.Wert ?? Kontinent.Europa,
+        LandVerband?.Id ?? 0, LandFlaggeDaten, LandRangliste?.Id);
+
+    private LandAktualisierenEingabe LandAktualisierenEingabe() => new(
+        LandName, LandKurzname, LandFifaCode, LandKontinentOption.Wert ?? Kontinent.Europa,
+        LandVerband?.Id ?? 0, LandFlaggeDaten, LandRangliste?.Id);
+
+    private VerbandErstellenEingabe VerbandErstellenEingabe() => new(
+        VerbandName, VerbandKurzname, VerbandLogoDaten, VerbandRangliste?.Id, VerbandVereinsRangliste?.Id);
+
+    private VerbandAktualisierenEingabe VerbandAktualisierenEingabe() => new(
+        VerbandName, VerbandKurzname, VerbandLogoDaten, VerbandRangliste?.Id, VerbandVereinsRangliste?.Id);
+
+    private void AktualisiereLandFehler() => LandFehler = !LandFormularAktiv ? []
+        : LandIstNeuModus ? _landValidator.Validieren(LandErstellenEingabe()).Meldungen
+        : _landValidator.Validieren(LandAktualisierenEingabe()).Meldungen;
+
+    private void AktualisiereVerbandFehler() => VerbandFehler = !VerbandFormularAktiv ? []
+        : VerbandIstNeuModus ? _verbandValidator.Validieren(VerbandErstellenEingabe()).Meldungen
+        : _verbandValidator.Validieren(VerbandAktualisierenEingabe()).Meldungen;
+
     private bool KannSpeichern() => AktiverTabIndex == 0
-        ? (LandFormularAktiv && LandIsDirty)
-        : (VerbandFormularAktiv && VerbandIsDirty);
+        ? (LandFormularAktiv && LandIsDirty && LandFehler.Count == 0)
+        : (VerbandFormularAktiv && VerbandIsDirty && VerbandFehler.Count == 0);
 
     private bool KannAbbrechen() => AktiverTabIndex == 0
         ? (LandFormularAktiv && LandIsDirty)

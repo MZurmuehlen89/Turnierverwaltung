@@ -38,16 +38,20 @@ public sealed class LaenderUndVerbaendeTests(TurnierverwaltungApp app) : IClassF
         _seite.Verband(name).Should().Be(new VerbandEintrag(name, neuesKuerzel));
     }
 
+    /// <summary>Live-Prüfung (#602): der leere Name ist markiert und sperrt Speichern, die Leiste springt hinein.</summary>
     [Fact]
-    public void Verband_OhneNamen_WirdNichtGespeichert()
+    public void Verband_OhneNamen_SperrtSpeichernUndMarkiertDenNamen()
     {
+        const string MELDUNG = "Verbandsname darf nicht leer sein.";
         var verbaende = _seite.VerbaendeReiter();
         verbaende.Neu();
         verbaende.WertSetzen("Kurzname", Kuerzel());
 
-        verbaende.SpeichernAbgelehnt("Verbandsname darf nicht leer sein.")
-            .Should().Contain("Verbandsname darf nicht leer sein.");
-        verbaende.SpeichernFreigegeben.Should().BeTrue("die Eingabe ist noch nicht gespeichert");
+        Feldmarkierung.FehlerAbwarten(verbaende.Feld("Name"), MELDUNG).Should().Be(MELDUNG);
+        Feldmarkierung.FehlerAbwarten(verbaende.Feld("Kurzname"), "").Should().BeEmpty();
+        verbaende.SpeichernFreigabeAbwarten(false).Should().BeFalse("der Name fehlt");
+        verbaende.Meldungen.Anspringen(MELDUNG);
+        Feldmarkierung.FokusAbwarten(verbaende.Feld("Name")).Should().BeTrue("der Klick springt ins Feld");
 
         verbaende.Abbrechen();
     }
@@ -93,17 +97,24 @@ public sealed class LaenderUndVerbaendeTests(TurnierverwaltungApp app) : IClassF
         _seite.Land(name).FifaCode.Should().Be(neuerCode);
     }
 
+    /// <summary>Live-Prüfung (#602): der fehlende FIFA-Code ist markiert und sperrt Speichern, bis er eingetragen ist.</summary>
     [Fact]
-    public void Land_OhneFifaCode_WirdNichtGespeichert()
+    public void Land_OhneFifaCode_SperrtSpeichernBisErEingetragenIst()
     {
+        const string MELDUNG = "FIFA-Code darf nicht leer sein.";
         var laender = _seite.LaenderReiter();
         laender.Neu();
         laender.WertSetzen("Name", EindeutigerName());
         laender.WertSetzen("Kurzname", "GT");
 
-        laender.SpeichernAbgelehnt("FIFA-Code darf nicht leer sein.")
-            .Should().Contain("FIFA-Code darf nicht leer sein.");
-        laender.SpeichernFreigegeben.Should().BeTrue("die Eingabe ist noch nicht gespeichert");
+        Feldmarkierung.FehlerAbwarten(laender.Feld("FifaCode"), MELDUNG).Should().Be(MELDUNG);
+        laender.SpeichernFreigabeAbwarten(false).Should().BeFalse("der FIFA-Code fehlt");
+        laender.Meldungen.Anspringen(MELDUNG);
+        Feldmarkierung.FokusAbwarten(laender.Feld("FifaCode")).Should().BeTrue("der Klick springt ins Feld");
+
+        laender.WertSetzen("FifaCode", FifaCode());
+        Feldmarkierung.FehlerAbwarten(laender.Feld("FifaCode"), "").Should().BeEmpty();
+        laender.SpeichernFreigabeAbwarten(true).Should().BeTrue("die Eingabe ist jetzt gültig");
 
         laender.Abbrechen();
     }

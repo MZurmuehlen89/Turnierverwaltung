@@ -3,7 +3,7 @@ using Fussballturnierverwaltung.GuiTests.Seiten;
 
 namespace Fussballturnierverwaltung.GuiTests;
 
-/// <summary>Stammdatenpflege Regelwerke (#530): anlegen, bearbeiten, Prüfung des Punktesystems beim Speichern und
+/// <summary>Stammdatenpflege Regelwerke (#530): anlegen, bearbeiten, Live-Prüfung des Punktesystems (#602) und
 /// Löschen mit Rückfrage. Jeder Test legt sein Regelwerk unter eindeutigem Namen selbst an; der Seed bleibt
 /// unverändert.</summary>
 public sealed class RegelwerkePflegeTests(TurnierverwaltungApp app) : IClassFixture<TurnierverwaltungApp>, IDisposable
@@ -39,17 +39,25 @@ public sealed class RegelwerkePflegeTests(TurnierverwaltungApp app) : IClassFixt
         _seite.Punkte.Should().Be(new Punkte(3, 1, 0));
     }
 
-    /// <summary>Ein Sieg muss mehr Punkte bringen als ein Unentschieden.</summary>
+    /// <summary>Ein Sieg muss mehr Punkte bringen als ein Unentschieden: die Live-Prüfung markiert den Sieg-Regler und
+    /// sperrt Speichern; die Leiste springt in den Regler, ein gültiger Wert gibt Speichern wieder frei (#602).</summary>
     [Fact]
-    public void SiegNichtMehrWertAlsUnentschieden_WirdNichtGespeichert()
+    public void SiegNichtMehrWertAlsUnentschieden_SperrtSpeichernUndMarkiertDenSieg()
     {
-        const string MELDUNG = "müssen größer als für Unentschieden";
+        const string MELDUNG = "Punkte für Sieg (1) müssen größer als für Unentschieden (1) sein – sonst gibt es keinen Anreiz zu gewinnen.";
         _seite.Editor.Neu();
         _seite.Editor.WertSetzen("Name", EindeutigerName());
         _seite.PunkteSetzen(new Punkte(1, 1, 0));
 
-        _seite.Editor.SpeichernAbgelehnt(MELDUNG).Should().Contain(MELDUNG);
-        _seite.Editor.SpeichernFreigegeben.Should().BeTrue("die Eingabe ist noch nicht gespeichert");
+        Feldmarkierung.FehlerAbwarten(_seite.Editor.Feld("PunkteSieg"), MELDUNG).Should().Be(MELDUNG);
+        Feldmarkierung.FehlerAbwarten(_seite.Editor.Feld("PunkteUnentschieden"), "").Should().BeEmpty();
+        _seite.Editor.SpeichernFreigabeAbwarten(false).Should().BeFalse("die Prüfung meldet einen Fehler");
+        _seite.Editor.Meldungen.Anspringen(MELDUNG);
+        Feldmarkierung.FokusAbwarten(_seite.Editor.Feld("PunkteSieg")).Should().BeTrue("der Klick springt in den Regler");
+
+        _seite.PunkteSetzen(new Punkte(3, 1, 0));
+        Feldmarkierung.FehlerAbwarten(_seite.Editor.Feld("PunkteSieg"), "").Should().BeEmpty();
+        _seite.Editor.SpeichernFreigabeAbwarten(true).Should().BeTrue();
 
         _seite.Editor.Abbrechen();
     }
