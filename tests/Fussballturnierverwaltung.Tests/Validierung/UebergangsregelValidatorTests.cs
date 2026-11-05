@@ -735,6 +735,22 @@ public class UebergangsregelValidatorTests
             "Ausgehende Übergangsregeln von 'Liga' verteilen zusammen 6 Mannschaften, erwartet werden aber 4.");
     }
 
+    [Fact]
+    public void Ganzgraph_FeldbezugNenntQuellrundeUndRegel_SummenNurDieRunde()
+    {
+        var runden = new[] { GanzgraphLiga(eingangsMannschaftsanzahl: 4), GanzgraphZiel(eingangsMannschaftsanzahl: 4) };
+        var regeln = new[]
+        {
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 1, PlatzierungBis: 2),
+            new UebergangsregelPositionsEingabe(1, 2, GruppeIndex: null, PlatzierungVon: 3, PlatzierungBis: 9)
+        };
+
+        _validator.Validieren(runden, regeln).Meldungen.Select(m => (m.Feld, m.Zeile, m.Unterzeile)).Should().Equal(
+            (nameof(UebergangsregelPositionsEingabe.PlatzierungBis), 0, 1),
+            ((string?)null, 1, (int?)null),
+            ((string?)null, 0, (int?)null));
+    }
+
     // ── Feldprüfungen: Lücken vor der Zerlegung (#499) — exakte Meldungen ──
 
     private IReadOnlyList<string> FeldFehler(TurnierRunde quelle, int? gruppeIndex, int von, int bis, int? anzahlBeste = null) =>

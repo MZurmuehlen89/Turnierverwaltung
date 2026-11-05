@@ -366,7 +366,7 @@ public class TurnierValidatorTests
     [Fact]
     public void TabellenBereiche_UeberschneidungIstUngueltig() =>
         TurnierValidator.TabellenBereicheValidieren(LigaMitBereichen(Bereich(1, 4, "CL"), Bereich(4, 5, "EL")))
-            .Should().ContainSingle().Which.Should().Contain("überschneiden sich");
+            .Should().ContainSingle().Which.Text.Should().Contain("überschneiden sich");
 
     [Theory]
     [InlineData(0, 2)]
@@ -385,7 +385,7 @@ public class TurnierValidatorTests
         var gruppenphase = Runde("Gruppenphase", Rundenart.Gruppenphase, eingang: 16, ausgang: 8, gruppenAnzahl: 4)
             with { TabellenBereiche = [Bereich(4, 4), Bereich(5, 5, "zu weit")] };
 
-        TurnierValidator.TabellenBereicheValidieren(gruppenphase).Should().ContainSingle().Which.Should().Contain("zu weit");
+        TurnierValidator.TabellenBereicheValidieren(gruppenphase).Should().ContainSingle().Which.Text.Should().Contain("zu weit");
     }
 
     [Fact]
@@ -439,6 +439,46 @@ public class TurnierValidatorTests
             "Runde 3 ('Finale') erwartet 2 Mannschaften, Runde 2 ('HF') liefert aber 3.",
             "Das Finale ('Finale') muss genau 1 Sieger liefern (AusgangsMannschaftsanzahl war: 2).");
     }
+
+    // ── Feldbezug der Runden (#601) ───────────────────────────────────────────
+
+    [Fact]
+    public void Runden_FehlerTragenRundeUndFeld_DieRundenketteNurDieRunde()
+    {
+        var runden = new[]
+        {
+            Runde("VF", Rundenart.KoRunde, eingang: 7, ausgang: 4, auswaerts: true),
+            Runde("HF", Rundenart.KoRunde, eingang: 6, ausgang: 3),
+            Runde("Finale", Rundenart.Finale, eingang: 2, ausgang: 2),
+        };
+
+        _validator.RundenValidieren(runden).Meldungen.Select(m => (m.Feld, m.Zeile)).Should().Equal(
+            (nameof(TurnierRundeEingabe.EingangsMannschaftsanzahl), 0),
+            (nameof(TurnierRundeEingabe.AuswaertstorRegelAktiv), 0),
+            (null, 1),
+            (null, 2),
+            (nameof(TurnierRundeEingabe.AusgangsMannschaftsanzahl), 2));
+    }
+
+    [Fact]
+    public void TabellenBereiche_UnterzeileIstDiePositionInDerEingabe_NichtInDerSortierung()
+    {
+        // Eingabe unsortiert: der Bereich ohne Bezeichnung steht an Position 0, überschneidet sich aber als hinterer
+        var runde = LigaMitBereichen(Bereich(3, 5, " "), Bereich(1, 3, "CL"));
+
+        TurnierValidator.TabellenBereicheValidieren(runde, rundenIndex: 2)
+            .Select(f => (f.Feld, f.Zeile, f.Unterzeile)).Should().Equal(
+                (nameof(TabellenBereichEingabe.Bezeichnung), 2, 0),
+                (nameof(TabellenBereichEingabe.PlatzVon), 2, 0));
+    }
+
+    [Theory]
+    [InlineData(0, 2, nameof(TabellenBereichEingabe.PlatzVon))]
+    [InlineData(5, 4, nameof(TabellenBereichEingabe.PlatzBis))]
+    [InlineData(17, 19, nameof(TabellenBereichEingabe.PlatzBis))]
+    public void TabellenBereiche_PlatzfehlerMarkierenVonNurUnterEins(int von, int bis, string feld) =>
+        TurnierValidator.TabellenBereicheValidieren(LigaMitBereichen(Bereich(von, bis)))
+            .Should().ContainSingle().Which.Feld.Should().Be(feld);
 
     // ── Feldbezug der Basisdaten (#595) ───────────────────────────────────────
 
