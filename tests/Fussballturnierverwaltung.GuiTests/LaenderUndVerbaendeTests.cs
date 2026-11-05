@@ -130,7 +130,13 @@ public sealed class LaenderUndVerbaendeTests(TurnierverwaltungApp app) : IClassF
         LoeschenMitRueckfrage(_seite.LaenderReiter(), name);
     }
 
-    public void Dispose() => app.BeiFehlschlagBelegeSichern();
+    // Ein abgebrochener Test lässt sonst ein ungespeichertes Formular offen, und die Rückfrage beim nächsten
+    // Seitenwechsel hält jeden folgenden Test der Klasse auf (Gegenprobe #602).
+    public void Dispose()
+    {
+        app.BeiFehlschlagBelegeSichern();
+        app.Hauptfenster.Aufraeumen();
+    }
 
     private static void LoeschenMitRueckfrage(StammdatenEditor editor, string name)
     {

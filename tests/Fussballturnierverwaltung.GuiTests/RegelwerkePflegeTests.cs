@@ -77,7 +77,13 @@ public sealed class RegelwerkePflegeTests(TurnierverwaltungApp app) : IClassFixt
         _seite.Editor.NichtMehrGelistetAbwarten(name).Should().BeTrue("das Regelwerk ist gelöscht");
     }
 
-    public void Dispose() => app.BeiFehlschlagBelegeSichern();
+    // Ein abgebrochener Test lässt sonst ein ungespeichertes Formular offen, und die Rückfrage beim nächsten
+    // Seitenwechsel hält jeden folgenden Test der Klasse auf (Gegenprobe #602).
+    public void Dispose()
+    {
+        app.BeiFehlschlagBelegeSichern();
+        app.Hauptfenster.Aufraeumen();
+    }
 
     private static string EindeutigerName() => $"GuiTest {Guid.NewGuid().ToString("N")[..8]}";
 }
