@@ -20,7 +20,11 @@ public class AbschnittsRegelnTests
         var fehler = AbschnittsRegeln.Fehler([Abschnitt(" ", 0, 0)]);
 
         fehler.Should().HaveCount(3);
-        fehler.Should().AllSatisfy(f => f.Should().StartWith("Abschnitt 1:"));
+        fehler.Should().AllSatisfy(f => f.Text.Should().StartWith("Abschnitt 1:"));
+        fehler.Select(f => (f.Feld, f.Zeile)).Should().Equal(
+            (nameof(RanglistenAbschnittEingabe.Name), 0),
+            (nameof(RanglistenAbschnittEingabe.Spielklasse), 0),
+            (nameof(RanglistenAbschnittEingabe.BisPlatz), 0));
     }
 
     [Fact]
@@ -28,7 +32,9 @@ public class AbschnittsRegelnTests
     {
         var fehler = AbschnittsRegeln.Fehler([Abschnitt("Bundesliga", 1, 18), Abschnitt("2. Bundesliga", 2, 18)]);
 
-        fehler.Should().ContainSingle().Which.Should().Contain("„2. Bundesliga“").And.Contain("(18)");
+        var meldung = fehler.Should().ContainSingle().Which;
+        meldung.Text.Should().Contain("„2. Bundesliga“").And.Contain("(18)");
+        (meldung.Feld, meldung.Zeile).Should().Be((nameof(RanglistenAbschnittEingabe.BisPlatz), 1));
     }
 
     [Fact]

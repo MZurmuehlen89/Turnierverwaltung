@@ -32,7 +32,7 @@ public class RanglisteValidator
         if (eingabe.ProfigrenzeSpielklasse is < 1)
             fehler.Add("Die Profigrenze muss mindestens Spielklasse 1 sein.");
 
-        fehler.AddRange(AbschnittsRegeln.Fehler(eingabe.Abschnitte ?? []));
+        fehler.AddRange(AbschnittsRegeln.Fehler(eingabe.Abschnitte ?? []).Select(f => f.Text));
 
         return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
     }

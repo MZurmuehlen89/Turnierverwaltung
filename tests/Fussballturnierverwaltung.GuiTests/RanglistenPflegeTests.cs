@@ -121,6 +121,11 @@ public sealed class RanglistenPflegeTests(TurnierverwaltungApp app, TestDatenban
         seite.AbschnittBisPlatzSetzen(1, 2);
         seite.AbschnittsFehlerAbwarten(NICHT_AUFSTEIGEND).Should().Equal(NICHT_AUFSTEIGEND);
         seite.SpeichernFreigabeAbwarten(false).Should().BeFalse("„bis Platz“ steigt nicht");
+        // #601: nur „bis Platz“ des zweiten Abschnitts ist markiert, die Leiste springt hinein
+        Feldmarkierung.FehlerAbwarten(seite.AbschnittsFeld("BisPlatz", 1), NICHT_AUFSTEIGEND).Should().Be(NICHT_AUFSTEIGEND);
+        Feldmarkierung.FehlerAbwarten(seite.AbschnittsFeld("BisPlatz", 0), "").Should().BeEmpty();
+        seite.Meldungen.Anspringen(NICHT_AUFSTEIGEND);
+        Feldmarkierung.FokusAbwarten(seite.AbschnittsFeld("BisPlatz", 1)).Should().BeTrue("der Klick springt ins Feld");
 
         const string UEBERHANG = "Der letzte Abschnitt reicht bis Platz 7, die Rangliste hat 5 Einträge.";
         seite.AbschnittBisPlatzSetzen(1, 7);

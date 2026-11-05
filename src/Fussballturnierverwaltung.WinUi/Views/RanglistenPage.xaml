@@ -136,12 +136,15 @@
                                     <Grid ColumnDefinitions="*,8,110,8,110,8,70,8,32" Margin="0,0,0,4">
                                         <TextBox AutomationProperties.AutomationId="Ranglisten.AbschnittName"
                                                  Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="Name"
                                                  PlaceholderText="z. B. 2. Bundesliga" />
                                         <NumberBox Grid.Column="2" AutomationProperties.AutomationId="Ranglisten.AbschnittSpielklasse"
                                                    Value="{Binding Spielklasse, Mode=TwoWay}"
+                                                   views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="Spielklasse"
                                                    Minimum="1" SmallChange="1" SpinButtonPlacementMode="Compact" />
                                         <NumberBox Grid.Column="4" AutomationProperties.AutomationId="Ranglisten.AbschnittBisPlatz"
                                                    Value="{Binding BisPlatz, Mode=TwoWay}"
+                                                   views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="BisPlatz"
                                                    Minimum="1" SmallChange="1" SpinButtonPlacementMode="Compact" />
                                         <TextBlock Grid.Column="6" AutomationProperties.AutomationId="Ranglisten.AbschnittVonPlatz"
                                                    Text="{Binding VonPlatz}" VerticalAlignment="Center"

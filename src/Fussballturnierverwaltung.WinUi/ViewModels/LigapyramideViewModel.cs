@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Ranglisten.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
@@ -20,6 +21,9 @@ public partial class AbschnittBearbeitungZeile : ObservableObject
 
     // Berechnet aus dem vorigen Abschnitt.
     [ObservableProperty] private int _vonPlatz = 1;
+
+    /// <summary>Prüffehler dieses Abschnitts (#601) – reine Anzeige.</summary>
+    [ObservableProperty] private IReadOnlyList<Feldfehler> _meldungen = [];
 
     public required IRelayCommand EntfernenCommand { get; init; }
 
@@ -82,7 +86,7 @@ public partial class LigapyramideViewModel : ObservableObject
     ], "keine Abschnitte");
 
     /// <summary>Fehler, die das Speichern verhindern (Meldungsleiste).</summary>
-    public IReadOnlyList<string> Fehler { get; private set; } = [];
+    public IReadOnlyList<Feldfehler> Fehler { get; private set; } = [];
 
     /// <summary>Hinweis, wenn der letzte Abschnitt über die Einträge hinausreicht; Speichern bleibt möglich.</summary>
     public string? Hinweis { get; private set; }
@@ -184,7 +188,7 @@ public partial class LigapyramideViewModel : ObservableObject
 
     private void ZeileGeaendert(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(AbschnittBearbeitungZeile.VonPlatz)) return;
+        if (e.PropertyName is nameof(AbschnittBearbeitungZeile.VonPlatz) or nameof(AbschnittBearbeitungZeile.Meldungen)) return;
         Neuberechnen();
         AenderungMelden();
         AbschnitteGeaendert?.Invoke(this, EventArgs.Empty);
@@ -199,6 +203,8 @@ public partial class LigapyramideViewModel : ObservableObject
             Abschnitte[i].VonPlatz = uebersicht[i].VonPlatz;
 
         Fehler = AbschnittsRegeln.Fehler(Eingaben());
+        for (int i = 0; i < Abschnitte.Count; i++)
+            Abschnitte[i].Meldungen = [.. Fehler.Where(f => f.Zeile == i)];
         OnPropertyChanged(nameof(Fehler));
         OnPropertyChanged(nameof(HatAbschnitte));
         OnPropertyChanged(nameof(Kopf));

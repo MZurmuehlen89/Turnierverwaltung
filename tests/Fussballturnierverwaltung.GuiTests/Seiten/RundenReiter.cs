@@ -16,7 +16,37 @@ public sealed class RundenReiter(Window fenster, Hauptfenster hauptfenster)
 
     public string Name => fenster.FindById("Runden.Name").Patterns.Value.Pattern.Value.ValueOrDefault ?? string.Empty;
 
-    private IReadOnlyList<string> Fehler => new MeldungsLeiste(fenster, "Runden").Fehler;
+    private IReadOnlyList<string> Fehler => Meldungen.Fehler;
+
+    /// <summary>Die Meldungsleiste des Reiters.</summary>
+    public MeldungsLeiste Meldungen => new(fenster, "Runden");
+
+    /// <summary>Ein Feld der gewählten Runde, z. B. „Eingang“ (Kennung ohne <c>Runden.</c>) – für die Feldmarkierung.</summary>
+    public AutomationElement Feld(string feld) => fenster.FindById($"Runden.{feld}");
+
+    /// <summary>„Platz von“ bzw. „bis“ (<paramref name="feld"/> = <c>PlatzVon</c>/<c>PlatzBis</c>) in Zeile
+    /// <paramref name="zeile"/> der offenen Übergangsregel.</summary>
+    public AutomationElement RegelFeld(string feld, int zeile) => fenster.FindAllById($"Runden.Regel{feld}")[zeile];
+
+    /// <summary>Die Fehleranzahl am Symbol der Runde in der Liste (#601), sobald sie <paramref name="erwartet"/> ist; leer =
+    /// kein Symbol.</summary>
+    public string FehlerAnzahlAbwarten(string runde, string erwartet)
+    {
+        Wait.Within(() => FehlerAnzahl(runde) == erwartet, Wait.DefaultTimeout);
+        return FehlerAnzahl(runde);
+    }
+
+    private string FehlerAnzahl(string runde) =>
+        fenster.FindById("Runden.Liste")
+            .ReadAllItems(e => e.TextOf("Runden.ListeName") == runde ? e.TextOf("Runden.ListeFehler") : null)
+            .Single();
+
+    /// <summary>Wartet, bis das Formular die Runde <paramref name="runde"/> zeigt, und liefert den gezeigten Namen.</summary>
+    public string GezeigteRundeAbwarten(string runde)
+    {
+        Wait.Within(() => Name == runde, Wait.DefaultTimeout);
+        return Name;
+    }
 
     /// <summary>Hängt eine neue Runde an und füllt sie aus. Die Rundenart kommt zuerst, weil sie bestimmt, welche
     /// Felder das Formular zeigt (Gruppenanzahl nur bei Gruppenphase).</summary>
@@ -73,11 +103,36 @@ public sealed class RundenReiter(Window fenster, Hauptfenster hauptfenster)
     /// Gruppen, bei einer K.-o.-Runde je Spiel der Sieger.</summary>
     public void AusgehendeRegelAnlegen(string ziel)
     {
+        AusgehendeRegelOeffnen(ziel);
+        RegelSchliessen();
+    }
+
+    /// <summary>Wie <see cref="AusgehendeRegelAnlegen"/>, lässt das Regelformular aber offen.</summary>
+    public void AusgehendeRegelOeffnen(string ziel)
+    {
         Aufklappen("Runden.UebergaengeBereich");
         fenster.ActivateById("Runden.NeueAusgehendeRegel");
         fenster.FindById("Runden.RegelZiel").AsComboBox().SelectItem(ziel);
+    }
+
+    public void RegelSchliessen()
+    {
         fenster.ActivateById("Runden.RegelSchliessen");
         Wait.Until(() => fenster.TryFindById("Runden.RegelZiel") is null, Wait.DefaultTimeout, "Regelformular geschlossen");
+    }
+
+    /// <summary>Ob das Regelformular offen ist, sobald es aufgeht.</summary>
+    public bool RegelformularOffenAbwarten() =>
+        Wait.Within(() => fenster.TryFindById("Runden.RegelZiel") is not null, Wait.DefaultTimeout);
+
+    /// <summary>Setzt „Platz bis“ in Zeile <paramref name="zeile"/> der offenen Regel. Die Regelfelder übernehmen ihren
+    /// Wert erst beim Verlassen – darum hinein und danach wieder hinaus (ins Namensfeld der Runde).</summary>
+    public void RegelPlatzBisSetzen(int zeile, int platz)
+    {
+        var feld = RegelFeld("PlatzBis", zeile);
+        feld.Focus();
+        feld.Patterns.Value.Pattern.SetValue(platz.ToString());
+        Feld("Name").Focus();
     }
 
     /// <summary>Hakt bei der gewählten Runde „Paarung fest vorgegeben“ an; das geht erst, wenn eine Übergangsregel in

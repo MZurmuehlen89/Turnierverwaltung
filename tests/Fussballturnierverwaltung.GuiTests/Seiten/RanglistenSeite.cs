@@ -165,6 +165,13 @@ public sealed class RanglistenSeite(Window fenster, Hauptfenster hauptfenster)
             int.Parse(von[i].NameOrEmpty())))];
     }
 
+    /// <summary>Feld <paramref name="feld"/> (<c>Name</c>, <c>Spielklasse</c>, <c>BisPlatz</c>) des Abschnitts
+    /// <paramref name="index"/> – für die Feldmarkierung (#601).</summary>
+    public AutomationElement AbschnittsFeld(string feld, int index) => AbschnittsFelder(feld)[index];
+
+    /// <summary>Die Meldungsleiste des Editors.</summary>
+    public MeldungsLeiste Meldungen => new(fenster, "Ranglisten");
+
     private IReadOnlyList<AutomationElement> AbschnittsFelder(string feld) => fenster.FindAllById($"Ranglisten.Abschnitt{feld}");
 
     private static T Abwarten<T>(Func<T> lesen, Func<T, bool> erfuellt)
