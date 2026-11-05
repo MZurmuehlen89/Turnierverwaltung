@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
@@ -56,4 +57,18 @@ public partial class RundeZeile : ObservableObject
     [NotifyPropertyChangedFor(nameof(HatUnstimmigkeit))]
     private string? _unstimmigkeitText;
     public bool HatUnstimmigkeit => UnstimmigkeitText is not null;
+
+    // ── Prüffehler (#601), gesetzt von RundenMeldungen, nie gespeichert ──────
+
+    /// <summary>Fehler an den Feldern der Runde selbst (Feldmarkierung im Rundenformular).</summary>
+    [ObservableProperty] private IReadOnlyList<Feldfehler> _meldungen = [];
+
+    /// <summary>Fehler an den Tabellenbereichen, Unterzeile = Position in <see cref="TabellenBereiche"/>.</summary>
+    [ObservableProperty] private IReadOnlyList<Feldfehler> _bereichsMeldungen = [];
+
+    /// <summary>Alle Fehler dieser Runde, auch die ihrer ausgehenden Übergangsregeln – für das Symbol in der Rundenliste.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HatFehler))]
+    private int _fehlerAnzahl;
+    public bool HatFehler => FehlerAnzahl > 0;
 }

@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Domain.Enums;
 using System.Collections.ObjectModel;
@@ -20,12 +21,29 @@ public partial class TabellenBereicheViewModel : ObservableObject
     /// <summary>Zeigt die Bereiche der Runde (<c>null</c> leert die Liste).</summary>
     public void Zeigen(RundeZeile? zeile)
     {
+        if (_zeile is not null) _zeile.PropertyChanged -= RundeGeaendert;
         _zeile = zeile;
+        if (zeile is not null) zeile.PropertyChanged += RundeGeaendert;
         Zeilen.Clear();
         foreach (var bereich in zeile?.TabellenBereiche ?? [])
             Zeilen.Add(NeueZeile(bereich));
+        MeldungenVerteilen();
         Offen = Zeilen.Count > 0;
         OnPropertyChanged(nameof(Kopf));
+    }
+
+    private void RundeGeaendert(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(RundeZeile.BereichsMeldungen)) MeldungenVerteilen();
+    }
+
+    /// <summary>Die Zeilen stehen in der Reihenfolge von <see cref="RundeZeile.TabellenBereiche"/> – die Unterzeile der
+    /// Prüffehler ist ihre Position (#601).</summary>
+    private void MeldungenVerteilen()
+    {
+        var meldungen = _zeile?.BereichsMeldungen ?? [];
+        for (int i = 0; i < Zeilen.Count; i++)
+            Zeilen[i].Meldungen = [.. meldungen.Where(m => m.Unterzeile == i)];
     }
 
     // ── Aufklappbarer Bereich (Issue #476) ────────────────────────────────────
@@ -56,9 +74,9 @@ public partial class TabellenBereicheViewModel : ObservableObject
         var zeile = new TabellenBereichZeile(bereich);
         // Nur Zeilen der gezeigten Runde schreiben zurück: Eingabefelder einer eben verworfenen Liste können beim
         // Rundenwechsel noch einen letzten Wert melden (#284).
-        zeile.PropertyChanged += (_, _) =>
+        zeile.PropertyChanged += (_, e) =>
         {
-            if (Zeilen.Contains(zeile)) InZeileSchreiben();
+            if (e.PropertyName != nameof(TabellenBereichZeile.Meldungen) && Zeilen.Contains(zeile)) InZeileSchreiben();
         };
         return zeile;
     }
@@ -95,6 +113,9 @@ public partial class TabellenBereichZeile : ObservableObject
         _art = _artOptionen.Single(o => o.Wert == bereich.Art);
         _bezeichnung = bereich.Bezeichnung;
     }
+
+    /// <summary>Prüffehler dieses Bereichs (#601) – reine Anzeige.</summary>
+    [ObservableProperty] private IReadOnlyList<Feldfehler> _meldungen = [];
 
     [ObservableProperty] private int _platzVon;
     [ObservableProperty] private int _platzBis;

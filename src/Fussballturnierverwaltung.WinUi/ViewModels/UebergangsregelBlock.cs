@@ -61,7 +61,7 @@ public partial class UebergangsregelBlock : ObservableObject
             block._wirdInitialisiert = false;
         }
         foreach (var z in block.Zeilen)
-            z.PropertyChanged += (_, __) => block.Geaendert?.Invoke();
+            block.ZeileBeobachten(z);
         return block;
     }
 
@@ -85,7 +85,7 @@ public partial class UebergangsregelBlock : ObservableObject
         void ZeileHinzufuegen(int? gruppeIndex, int von, int bis)
         {
             var zeile = new UebergangsregelZeile { GruppeIndex = gruppeIndex, PlatzierungVon = von, PlatzierungBis = bis };
-            zeile.PropertyChanged += (_, __) => Geaendert?.Invoke();
+            ZeileBeobachten(zeile);
             Zeilen.Add(zeile);
         }
 
@@ -117,10 +117,18 @@ public partial class UebergangsregelBlock : ObservableObject
     public void GruppenuebergreifendeZeileHinzufuegen()
     {
         var zeile = new UebergangsregelZeile { GruppeIndex = null, AnzahlBeste = 1, PlatzierungVon = 3, PlatzierungBis = 3 };
-        zeile.PropertyChanged += (_, __) => Geaendert?.Invoke();
+        ZeileBeobachten(zeile);
         Zeilen.Add(zeile);
         Geaendert?.Invoke();
     }
+
+    /// <summary>Eingaben einer Zeile sind Änderungen; ihre Prüffehler (#601) setzt erst die Prüfung, die daraus folgt –
+    /// sie zählten sonst als neue Änderung und lösten die Prüfung endlos wieder aus.</summary>
+    private void ZeileBeobachten(UebergangsregelZeile zeile) =>
+        zeile.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(UebergangsregelZeile.Meldungen)) Geaendert?.Invoke();
+        };
 
     /// <summary>Entfernt eine einzelne Zeile (aktuell nur für gruppenübergreifende Regeln genutzt — die
     /// per-Gruppe-Zeilen werden weiterhin automatisch aus der Quellrundenstruktur abgeleitet, nicht einzeln

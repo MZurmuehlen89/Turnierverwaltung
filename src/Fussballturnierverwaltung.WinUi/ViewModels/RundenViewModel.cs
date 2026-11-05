@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Spielplan.Eingaben;
@@ -134,7 +135,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HatRundenFehler))]
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
-    private IReadOnlyList<string> _rundenFehler = [];
+    private IReadOnlyList<Feldfehler> _rundenFehler = [];
 
     public bool HatRundenFehler => RundenFehler.Count > 0;
 
@@ -395,35 +396,55 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
         GastgeberGruppen: z.GastgeberGruppen,
         TitelverteidigerGruppe: z.TitelverteidigerGruppe).OhneUnwirksameAngaben()).ToList();
 
-    public List<UebergangsregelPositionsEingabe> UebergangsregelnZuEingaben() => _alleUebergaenge
-        .Where(b => b.QuellRunde is not null && b.ZielRunde is not null && b.QuellRunde != b.ZielRunde)
-        .SelectMany(b => b.Zeilen.Select(z => new UebergangsregelPositionsEingabe(
-            Runden.IndexOf(b.QuellRunde!) + 1, Runden.IndexOf(b.ZielRunde!) + 1,
-            z.GruppeIndex, z.PlatzierungVon, z.PlatzierungBis, z.AnzahlBeste)))
-        .ToList();
+    public List<UebergangsregelPositionsEingabe> UebergangsregelnZuEingaben() => RegelEingaben(VollstaendigeRegelZeilen());
+
+    private List<UebergangsregelPositionsEingabe> RegelEingaben(
+        IEnumerable<(UebergangsregelBlock Block, UebergangsregelZeile Zeile)> regelZeilen) =>
+        [.. regelZeilen.Select(x => new UebergangsregelPositionsEingabe(
+            Runden.IndexOf(x.Block.QuellRunde!) + 1, Runden.IndexOf(x.Block.ZielRunde!) + 1,
+            x.Zeile.GruppeIndex, x.Zeile.PlatzierungVon, x.Zeile.PlatzierungBis, x.Zeile.AnzahlBeste))];
+
+    /// <summary>Zeilen der Regeln mit Quelle und Ziel – nur sie werden gespeichert und geprüft; ihre Reihenfolge ist die
+    /// Unterzeile der Prüffehler (#601).</summary>
+    private List<(UebergangsregelBlock Block, UebergangsregelZeile Zeile)> VollstaendigeRegelZeilen() =>
+        [.. _alleUebergaenge
+            .Where(b => b.QuellRunde is not null && b.ZielRunde is not null && b.QuellRunde != b.ZielRunde)
+            .SelectMany(b => b.Zeilen.Select(z => (b, z)))];
+
+    private RundenMeldungen _meldungen = RundenMeldungen.Keine;
 
     private void AktualisiereRundenFehler()
     {
-        if (Runden.Count == 0) { RundenFehler = []; return; }
+        var regelZeilen = VollstaendigeRegelZeilen();
+        _meldungen = Runden.Count == 0
+            ? RundenMeldungen.Keine
+            : RundenMeldungen.Verteilen(Runden,
+                _turnierValidator.RundenValidieren(RundenZuEingaben()).Meldungen,
+                _alleUebergaenge, regelZeilen,
+                _uebergangsregelValidator.Validieren(RundenFuerValidierung(), RegelEingaben(regelZeilen)).Meldungen);
+        RundenFehler = _meldungen.Alle;
+    }
 
-        var rundenEingaben = RundenZuEingaben();
-        var uebergangsregelEingaben = UebergangsregelnZuEingaben();
-        var fehler = new List<string>(_turnierValidator.RundenValidieren(rundenEingaben).Fehler);
+    /// <summary>Nur für die Ganzgraph-Übergangsregel-Validierung nötig — bewusst rein transiente TurnierRunde-
+    /// Objekte (nie persistiert), da neue, noch ungespeicherte Runden hier ebenfalls mitgeprüft werden
+    /// müssen und der Validator echte TurnierRunde-Objekte (statt Eingaben) erwartet.</summary>
+    private List<TurnierRunde> RundenFuerValidierung() => [.. Runden.Select(z => new TurnierRunde
+    {
+        Name = z.Name,
+        Rundenart = z.Rundenart,
+        EingangsMannschaftsanzahl = z.EingangsMannschaftsanzahl,
+        AusgangsMannschaftsanzahl = z.AusgangsMannschaftsanzahl,
+        GruppenAnzahl = z.GruppenAnzahl
+    })];
 
-        // Nur für die Ganzgraph-Übergangsregel-Validierung nötig — bewusst rein transiente TurnierRunde-
-        // Objekte (nie persistiert), da neue, noch ungespeicherte Runden hier ebenfalls mitgeprüft werden
-        // müssen und der Validator echte TurnierRunde-Objekte (statt Eingaben) erwartet.
-        var rundenFuerValidierung = Runden.Select(z => new TurnierRunde
-        {
-            Name = z.Name,
-            Rundenart = z.Rundenart,
-            EingangsMannschaftsanzahl = z.EingangsMannschaftsanzahl,
-            AusgangsMannschaftsanzahl = z.AusgangsMannschaftsanzahl,
-            GruppenAnzahl = z.GruppenAnzahl
-        }).ToList();
-        fehler.AddRange(_uebergangsregelValidator.Validieren(rundenFuerValidierung, uebergangsregelEingaben).Fehler);
-
-        RundenFehler = fehler;
+    /// <summary>Klick auf einen Fehler in der Meldungsleiste (#601): wählt die betroffene Runde und öffnet bei einem
+    /// Regelfehler die Regel; das Feld sucht danach die Leiste.</summary>
+    [RelayCommand]
+    private void SprungVorbereiten(Feldfehler meldung)
+    {
+        if (_meldungen.Ziel(meldung) is not { } ziel) return;
+        AusgewaehlteRunde = ziel.Runde;
+        if (ziel.Regel is { } regel) UebergangsregelEditor.RegelZeigen(regel);
     }
 
     /// <summary>Feuert nach erfolgreichem Speichern — <see cref="VorbelegungViewModel"/> liest Runden

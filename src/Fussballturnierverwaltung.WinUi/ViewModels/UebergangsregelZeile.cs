@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Fussballturnierverwaltung.Application.Abstraktionen;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
@@ -25,6 +26,9 @@ public partial class UebergangsregelZeile : ObservableObject
     private int _platzierungBis = 1;
 
     [ObservableProperty] private int? _anzahlBeste;
+
+    /// <summary>Prüffehler dieser Zeile (#601), gesetzt von <see cref="RundenMeldungen"/> – reine Anzeige.</summary>
+    [ObservableProperty] private IReadOnlyList<Feldfehler> _meldungen = [];
 
     public string GruppenLabel => AnzahlBeste is { } n
         ? $"Beste {n}"

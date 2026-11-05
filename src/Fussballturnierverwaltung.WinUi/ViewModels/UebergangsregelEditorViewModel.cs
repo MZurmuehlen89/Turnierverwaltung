@@ -186,6 +186,13 @@ public partial class UebergangsregelEditorViewModel : ObservableObject
     [RelayCommand]
     private void RegelAuswaehlen(UebergangsregelBlock regel) => AusgewaehlteRegel = regel;
 
+    /// <summary>Klappt die Übergänge auf und öffnet die Regel im Formular – Sprung aus der Meldungsleiste (#601).</summary>
+    public void RegelZeigen(UebergangsregelBlock regel)
+    {
+        Offen = true;
+        AusgewaehlteRegel = regel;
+    }
+
     [RelayCommand]
     private void RegelFormularSchliessen() => AusgewaehlteRegel = null;
 

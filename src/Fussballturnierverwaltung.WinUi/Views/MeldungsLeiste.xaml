@@ -50,7 +50,7 @@
                                     <Button Visibility="{x:Bind AlsKnopf}" Click="Eintrag_Klick"
                                             AutomationProperties.AutomationId="{x:Bind AutomationId}"
                                             AutomationProperties.Name="{x:Bind Text}"
-                                            ToolTipService.ToolTip="Zum Feld springen"
+                                            ToolTipService.ToolTip="{x:Bind SprungHinweis}"
                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                             Padding="8,6" CornerRadius="4" BorderThickness="0"
                                             Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}">

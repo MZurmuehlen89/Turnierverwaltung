@@ -11,6 +11,8 @@ namespace Fussballturnierverwaltung.WinUi.Views;
 /// Hover und Fokus, ein rötlicher Tooltip mit dem Fehlertext und <c>AutomationProperties.HelpText</c> (Screenreader,
 /// GUI-Tests). <see cref="MeldungenProperty"/> bekommt alle Meldungen des Formulars bzw. der Zeile,
 /// <see cref="FeldProperty"/> den Feldschlüssel aus dem Validator; das Feld zeigt nur die Meldungen mit diesem Schlüssel.
+/// Bedient ein Feld zwei Eingaben (z. B. eine Platzierung für „von“ und „bis“, #601), stehen beide Schlüssel durch Komma
+/// getrennt.
 /// <see cref="Anspringen"/> sucht das Feld zu einer Meldung (Sprung aus der <see cref="MeldungsLeiste"/>).</summary>
 public static class Feldmarkierung
 {
@@ -51,10 +53,10 @@ public static class Feldmarkierung
 
     private static IEnumerable<Feldfehler> EigeneMeldungen(DependencyObject feld)
     {
-        var schluessel = GetFeld(feld);
+        var schluessel = GetFeld(feld)?.Split(',', StringSplitOptions.TrimEntries);
         return schluessel is null || GetMeldungen(feld) is not IEnumerable<Feldfehler> meldungen
             ? []
-            : meldungen.Where(m => m.Feld == schluessel);
+            : meldungen.Where(m => m.Feld is not null && schluessel.Contains(m.Feld));
     }
 
     private static string? FehlerText(DependencyObject feld)

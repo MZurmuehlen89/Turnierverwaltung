@@ -18,9 +18,13 @@
             <Grid ColumnDefinitions="70,Auto,44,Auto,44" Margin="0,2">
                 <TextBlock Text="{Binding GruppenLabel}" VerticalAlignment="Center" FontSize="12" />
                 <TextBlock Grid.Column="1" Text="Platz" VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="0,0,4,0" />
-                <TextBox Grid.Column="2" Text="{Binding PlatzierungVon, Mode=TwoWay}" />
+                <TextBox Grid.Column="2" Text="{Binding PlatzierungVon, Mode=TwoWay}"
+                         views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="PlatzierungVon"
+                         AutomationProperties.AutomationId="Runden.RegelPlatzVon" />
                 <TextBlock Grid.Column="3" Text="bis" VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="4,0" />
-                <TextBox Grid.Column="4" Text="{Binding PlatzierungBis, Mode=TwoWay}" />
+                <TextBox Grid.Column="4" Text="{Binding PlatzierungBis, Mode=TwoWay}"
+                         views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="PlatzierungBis"
+                         AutomationProperties.AutomationId="Runden.RegelPlatzBis" />
             </Grid>
         </DataTemplate>
 
@@ -40,9 +44,13 @@
         <DataTemplate x:Key="ZeileLigaTemplate">
             <Grid ColumnDefinitions="Auto,44,Auto,44" Margin="0,2">
                 <TextBlock Text="Platz" VerticalAlignment="Center" FontSize="11" Opacity="0.6" />
-                <TextBox Grid.Column="1" Text="{Binding PlatzierungVon, Mode=TwoWay}" />
+                <TextBox Grid.Column="1" Text="{Binding PlatzierungVon, Mode=TwoWay}"
+                         views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="PlatzierungVon"
+                         AutomationProperties.AutomationId="Runden.RegelPlatzVon" />
                 <TextBlock Grid.Column="2" Text="bis" VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="4,0" />
-                <TextBox Grid.Column="3" Text="{Binding PlatzierungBis, Mode=TwoWay}" />
+                <TextBox Grid.Column="3" Text="{Binding PlatzierungBis, Mode=TwoWay}"
+                         views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="PlatzierungBis"
+                         AutomationProperties.AutomationId="Runden.RegelPlatzBis" />
             </Grid>
         </DataTemplate>
 
@@ -51,9 +59,12 @@
         <DataTemplate x:Key="ZeileGruppenuebergreifendTemplate">
             <Grid ColumnDefinitions="Auto,44,Auto,44,Auto" Margin="0,2">
                 <TextBlock Text="Beste" VerticalAlignment="Center" FontSize="11" Opacity="0.6" />
-                <TextBox Grid.Column="1" Text="{Binding AnzahlBeste, Mode=TwoWay, Converter={StaticResource NullableIntZuText}}" />
+                <TextBox Grid.Column="1" Text="{Binding AnzahlBeste, Mode=TwoWay, Converter={StaticResource NullableIntZuText}}"
+                         views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="AnzahlBeste" />
                 <TextBlock Grid.Column="2" Text="von Platz" VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="4,0" />
-                <TextBox Grid.Column="3" Text="{Binding Platzierung, Mode=TwoWay}" />
+                <!-- Eine Platzierung setzt „von“ und „bis“ zugleich – Fehler an beiden gehören hierher (#601) -->
+                <TextBox Grid.Column="3" Text="{Binding Platzierung, Mode=TwoWay}"
+                         views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="PlatzierungVon,PlatzierungBis" />
                 <Button Grid.Column="4" Content="✕" FontSize="11" Padding="6,3" Margin="8,0,0,0"
                         Command="{Binding DataContext.UebergangsregelEditor.GruppenuebergreifendeZeileEntfernenCommand, ElementName=Root}"
                         CommandParameter="{Binding}" />
@@ -107,7 +118,18 @@
                     <ListView.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Padding="0,4">
-                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" AutomationProperties.AutomationId="Runden.ListeName" />
+                                <!-- Fehlersymbol mit Anzahl (#601): Fehler der Runde, ihrer Tabellenbereiche und ausgehenden Regeln -->
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" AutomationProperties.AutomationId="Runden.ListeName" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3" VerticalAlignment="Center"
+                                                Visibility="{Binding HatFehler, Converter={StaticResource BoolToVisibility}}"
+                                                ToolTipService.ToolTip="Fehler in dieser Runde – Einzelheiten in der Meldungsleiste">
+                                        <FontIcon Glyph="&#xE7BA;" FontSize="12" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                                        <TextBlock Text="{Binding FehlerAnzahl}" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                   AutomationProperties.AutomationId="Runden.ListeFehler" />
+                                    </StackPanel>
+                                </Grid>
                                 <TextBlock FontSize="11" Opacity="0.6">
                                     <Run Text="{Binding Rundenart, Converter={StaticResource RundenartZuText}}" />
                                     <Run Text=" · " />
@@ -147,6 +169,7 @@
                             <StackPanel HorizontalAlignment="Stretch">
                                 <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
                                 <TextBox Text="{Binding Formular.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         views:Feldmarkierung.Meldungen="{Binding AusgewaehlteRunde.Meldungen}" views:Feldmarkierung.Feld="Name"
                                          AutomationProperties.AutomationId="Runden.Name"
                                          HorizontalAlignment="Stretch" />
                             </StackPanel>
@@ -168,12 +191,14 @@
                             <StackPanel HorizontalAlignment="Stretch">
                                 <TextBlock Text="Eingang (Mannschaften)" FontSize="12" Margin="0,0,0,3" />
                                 <TextBox Text="{Binding Formular.EingangsMannschaftsanzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         views:Feldmarkierung.Meldungen="{Binding AusgewaehlteRunde.Meldungen}" views:Feldmarkierung.Feld="EingangsMannschaftsanzahl"
                                          AutomationProperties.AutomationId="Runden.Eingang"
                                          HorizontalAlignment="Stretch" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
                                 <TextBlock Text="Ausgang (Mannschaften)" FontSize="12" Margin="0,0,0,3" />
                                 <TextBox Text="{Binding Formular.AusgangsMannschaftsanzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         views:Feldmarkierung.Meldungen="{Binding AusgewaehlteRunde.Meldungen}" views:Feldmarkierung.Feld="AusgangsMannschaftsanzahl"
                                          AutomationProperties.AutomationId="Runden.Ausgang"
                                          HorizontalAlignment="Stretch" />
                             </StackPanel>
@@ -184,6 +209,7 @@
                                      bei jeder Rundenart gleich hoch, nichts springt beim Wechsel -->
                                 <Grid ColumnDefinitions="*,8,Auto">
                                     <TextBox Text="{Binding Formular.GruppenAnzahl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullableIntZuText}}"
+                                             views:Feldmarkierung.Meldungen="{Binding AusgewaehlteRunde.Meldungen}" views:Feldmarkierung.Feld="GruppenAnzahl"
                                              AutomationProperties.AutomationId="Runden.Gruppen"
                                              HorizontalAlignment="Stretch" />
                                     <DropDownButton Grid.Column="2" Content="Vorschläge"
@@ -229,6 +255,7 @@
                                 <CheckBox Content="Mit Rückspiel" AutomationProperties.AutomationId="Runden.MitRueckspiel" IsChecked="{Binding Formular.MitRueckspiel, Mode=TwoWay}" Margin="0,0,0,4" />
                                 <!-- Nur bei K.o.-Rundenarten (AD-001); ohne Rückspiel ausgegraut, weil direkt davon abhängig -->
                                 <CheckBox Content="Auswärtstorregel aktiv" AutomationProperties.AutomationId="Runden.AuswaertstorRegel" IsChecked="{Binding Formular.AuswaertstorRegelAktiv, Mode=TwoWay}"
+                                          views:Feldmarkierung.Meldungen="{Binding AusgewaehlteRunde.Meldungen}" views:Feldmarkierung.Feld="AuswaertstorRegelAktiv"
                                           IsEnabled="{Binding Formular.AuswaertstorAktivierbar}" Margin="16,0,0,4"
                                           Visibility="{Binding Formular.IstKoRundenart, Converter={StaticResource BoolToVisibility}}" />
                                 <!-- Issue #352 -->
@@ -359,14 +386,20 @@
                                         <DataTemplate>
                                             <Grid Margin="0,0,0,4" ColumnSpacing="6" ColumnDefinitions="56,Auto,56,140,*,Auto">
                                                 <TextBox Text="{Binding PlatzVon, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="PlatzVon"
+                                                         AutomationProperties.AutomationId="Runden.BereichVon"
                                                          ToolTipService.ToolTip="Platz von" />
                                                 <TextBlock Grid.Column="1" Text="–" VerticalAlignment="Center" />
                                                 <TextBox Grid.Column="2" Text="{Binding PlatzBis, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="PlatzBis"
+                                                         AutomationProperties.AutomationId="Runden.BereichBis"
                                                          ToolTipService.ToolTip="Platz bis" />
                                                 <ComboBox Grid.Column="3" ItemsSource="{Binding ArtOptionen}"
                                                           SelectedItem="{Binding Art, Mode=TwoWay}"
                                                           DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
                                                 <TextBox Grid.Column="4" Text="{Binding Bezeichnung, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         views:Feldmarkierung.Meldungen="{Binding Meldungen}" views:Feldmarkierung.Feld="Bezeichnung"
+                                                         AutomationProperties.AutomationId="Runden.BereichBezeichnung"
                                                          PlaceholderText="Bezeichnung, z. B. Champions League" />
                                                 <Button Grid.Column="5" Content="✕" FontSize="11" ToolTipService.ToolTip="Bereich entfernen"
                                                         Command="{Binding ElementName=Root, Path=DataContext.Formular.TabellenBereiche.EntfernenCommand}"
@@ -454,7 +487,8 @@
         <!-- Meldungen als Andock-Leiste (#594) – überdeckt den freien Bereich rechts, nicht das Formular -->
         <views:MeldungsLeiste Grid.Row="1" AutomationPraefix="Runden"
                               Fehlermeldung="{Binding Fehlermeldung}"
-                              Fehler="{Binding RundenFehler}" />
+                              Fehler="{Binding RundenFehler}"
+                              SprungVorbereiten="{Binding SprungVorbereitenCommand}" />
         </Grid>
     </Grid>
 </UserControl>

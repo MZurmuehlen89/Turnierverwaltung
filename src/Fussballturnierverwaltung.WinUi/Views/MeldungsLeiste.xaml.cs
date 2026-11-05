@@ -1,19 +1,23 @@
 using Fussballturnierverwaltung.Application.Abstraktionen;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using System.Windows.Input;
 using Windows.Foundation;
 
 namespace Fussballturnierverwaltung.WinUi.Views;
 
 /// <summary>Ein Fehler in der aufgeklappten <see cref="MeldungsLeiste"/>, mit der Kennung für GUI-Tests. Mit Feldbezug
-/// (<see cref="Ziel"/>) ist er ein Knopf, der ins Feld springt (#595); Kreuzprüfungen bleiben reiner Text.</summary>
-public sealed record MeldungsEintrag(string Text, string AutomationId, Feldfehler? Ziel = null)
+/// (<see cref="Ziel"/>) ist er ein Knopf, der ins Feld springt (#595); Kreuzprüfungen bleiben reiner Text – außer sie
+/// nennen eine Zeile und das Formular kann sie zeigen (<see cref="MeldungsLeiste.SprungVorbereiten"/>, #601).</summary>
+public sealed record MeldungsEintrag(string Text, string AutomationId, Feldfehler? Ziel = null, bool Anspringbar = false)
 {
-    public Visibility AlsKnopf => Ziel?.Feld is null ? Visibility.Collapsed : Visibility.Visible;
-    public Visibility AlsText => Ziel?.Feld is null ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility AlsKnopf => Anspringbar ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility AlsText => Anspringbar ? Visibility.Collapsed : Visibility.Visible;
+    public string SprungHinweis => Ziel?.Feld is null ? "Zur Stelle springen" : "Zum Feld springen";
 }
 
 /// <summary>Meldungen eines Formulars als Andock-Leiste am rechten Rand (#594): Speicher-/Statusfehler
@@ -22,7 +26,9 @@ public sealed record MeldungsEintrag(string Text, string AutomationId, Feldfehle
 /// Zähler – rot, sobald ein Fehler dabei ist, sonst gelb. Ein Speicherfehler klappt die Liste selbst auf, Fehler der
 /// Live-Prüfung nicht (sie entstehen beim Tippen). Ein Klick außerhalb der Leiste klappt sie wieder zu.
 /// Liefert <see cref="Fehler"/> <see cref="Feldfehler"/>, springt ein Klick auf einen Fehler mit Feldbezug ins Feld
-/// (<see cref="Feldmarkierung.Anspringen"/>, gesucht im Elternelement der Leiste – dem Formular).
+/// (<see cref="Feldmarkierung.Anspringen"/>, gesucht im Elternelement der Leiste – dem Formular). Zeigt das Formular
+/// nicht alle Felder zugleich (Runden: nur die gewählte Runde), bereitet <see cref="SprungVorbereiten"/> den Sprung vor;
+/// gesucht wird dann erst, wenn das Formular die Stelle aufgebaut hat (#601).
 /// Die Kennungen für GUI-Tests folgen <see cref="AutomationPraefix"/>: <c>.Meldungen</c> (Kante, Name = Zähler),
 /// <c>.Fehlermeldung</c>, <c>.Fehler</c>, <c>.Hinweis</c>. Eingeklappt sind die Meldungen nicht im UIA-Baum.</summary>
 public sealed partial class MeldungsLeiste : UserControl
@@ -46,6 +52,18 @@ public sealed partial class MeldungsLeiste : UserControl
     {
         get => GetValue(FehlerProperty);
         set => SetValue(FehlerProperty, value);
+    }
+
+    /// <summary>Wird vor dem Sprung mit dem <see cref="Feldfehler"/> ausgeführt, z. B. um die betroffene Runde zu wählen
+    /// (#601). Gesetzt, sind auch Kreuzprüfungen mit einer Zeile anklickbar.</summary>
+    public static readonly DependencyProperty SprungVorbereitenProperty = DependencyProperty.Register(
+        nameof(SprungVorbereiten), typeof(ICommand), typeof(MeldungsLeiste),
+        new PropertyMetadata(null, (d, _) => ((MeldungsLeiste)d).Aktualisieren()));
+
+    public ICommand? SprungVorbereiten
+    {
+        get => (ICommand?)GetValue(SprungVorbereitenProperty);
+        set => SetValue(SprungVorbereitenProperty, value);
     }
 
     public static readonly DependencyProperty HinweisProperty = DependencyProperty.Register(
@@ -109,18 +127,29 @@ public sealed partial class MeldungsLeiste : UserControl
         var kennung = $"{AutomationPraefix}.Fehler";
         return Fehler switch
         {
-            IEnumerable<Feldfehler> meldungen => [.. meldungen.Select(m => new MeldungsEintrag(m.Text, kennung, m))],
+            IEnumerable<Feldfehler> meldungen => [.. meldungen.Select(m => new MeldungsEintrag(m.Text, kennung, m, Anspringbar(m)))],
             IEnumerable<string> texte => [.. texte.Select(t => new MeldungsEintrag(t, kennung))],
             _ => [],
         };
     }
+
+    private bool Anspringbar(Feldfehler meldung) =>
+        meldung.Feld is not null || (meldung.Zeile is not null && SprungVorbereiten is not null);
 
     private void Eintrag_Klick(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not MeldungsEintrag { Ziel: { } ziel }
             || VisualTreeHelper.GetParent(this) is not { } formular) return;
         Umschalter.IsChecked = false;
-        Feldmarkierung.Anspringen(formular, ziel);
+        if (SprungVorbereiten is not { } vorbereiten)
+        {
+            Feldmarkierung.Anspringen(formular, ziel);
+            return;
+        }
+        // Erst nach dem Aufbau suchen: die gewählte Runde füllt Formular und Zeilen über Bindungen und Layout.
+        vorbereiten.Execute(ziel);
+        if (ziel.Feld is not null)
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => Feldmarkierung.Anspringen(formular, ziel));
     }
 
     private static void TextZeigen(Border rahmen, TextBlock text, string? inhalt)
