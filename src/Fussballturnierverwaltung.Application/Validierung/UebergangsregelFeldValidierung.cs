@@ -100,7 +100,8 @@ internal static class UebergangsregelFeldValidierung
             yield return new($"Spielnummer {gruppeIndex} ist außerhalb des gültigen Bereichs " +
                              $"(1–{spiele}) der Quellrunde '{quelle.Name}'.");
         if (platzierungBis > 2)
-            yield return new("Eine K.-o.-Runde als Quellrunde liefert je Spiel nur Sieger (Platzierung 1) und Verlierer (Platzierung 2).", BIS);
+            // Ohne Feld: die K.-o.-Zeile wählt Sieger oder Verlierer per Haken, ein Platzfeld gibt es dort nicht.
+            yield return new("Eine K.-o.-Runde als Quellrunde liefert je Spiel nur Sieger (Platzierung 1) und Verlierer (Platzierung 2).");
     }
 
     /// <summary>Teams je Gruppe, <c>null</c> ohne gültige Gruppenanzahl.</summary>

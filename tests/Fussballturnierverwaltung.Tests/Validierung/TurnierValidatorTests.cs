@@ -454,7 +454,7 @@ public class TurnierValidatorTests
 
         _validator.RundenValidieren(runden).Meldungen.Select(m => (m.Feld, m.Zeile)).Should().Equal(
             (nameof(TurnierRundeEingabe.EingangsMannschaftsanzahl), 0),
-            (nameof(TurnierRundeEingabe.AuswaertstorRegelAktiv), 0),
+            (nameof(TurnierRundeEingabe.MitRueckspiel), 0),
             (null, 1),
             (null, 2),
             (nameof(TurnierRundeEingabe.AusgangsMannschaftsanzahl), 2));

@@ -88,9 +88,10 @@ public class TurnierValidator
     /// Gruppenköpfe betrifft zwei Felder und die Gruppenanzahl – das Formular zeigt ihn selbst unter den Feldern.</summary>
     private static IEnumerable<Feldfehler> ZusatzfelderPruefen(TurnierRundeEingabe r, int index)
     {
+        // Markiert „Mit Rückspiel“: der Haken der Auswärtstorregel ist ohne Rückspiel gesperrt.
         if (r.AuswaertstorRegelAktiv && !r.MitRueckspiel)
             yield return new($"Runde '{r.Name}': Auswärtstorregel ist aktiv, obwohl keine Hin- und Rückspiele gespielt werden.",
-                nameof(r.AuswaertstorRegelAktiv), index);
+                nameof(r.MitRueckspiel), index);
 
         if (r.Ueberraschungsfaktor is < 0 or > 100)
             yield return new($"Runde '{r.Name}': Überraschungsfaktor muss zwischen 0 und 100 % liegen (war: {r.Ueberraschungsfaktor}).",
@@ -133,10 +134,15 @@ public class TurnierValidator
 
     private static IEnumerable<Feldfehler> FinalePruefen(IReadOnlyList<TurnierRundeEingabe> runden)
     {
-        int index = runden.ToList().FindIndex(r => r.Rundenart == Rundenart.Finale);
-        if (index >= 0 && runden[index] is { AusgangsMannschaftsanzahl: not 1 } finale)
-            yield return new($"Das Finale ('{finale.Name}') muss genau 1 Sieger liefern (AusgangsMannschaftsanzahl war: {finale.AusgangsMannschaftsanzahl}).",
-                nameof(finale.AusgangsMannschaftsanzahl), index);
+        for (int index = 0; index < runden.Count; index++)
+        {
+            var finale = runden[index];
+            if (finale.Rundenart != Rundenart.Finale) continue;
+            if (finale.AusgangsMannschaftsanzahl != 1)
+                yield return new($"Das Finale ('{finale.Name}') muss genau 1 Sieger liefern (AusgangsMannschaftsanzahl war: {finale.AusgangsMannschaftsanzahl}).",
+                    nameof(finale.AusgangsMannschaftsanzahl), index);
+            yield break;
+        }
     }
 
     /// <summary>Prüft die Tabellenbereiche einer Runde (Issue #420): Bezeichnung, Platz von–bis innerhalb der

@@ -149,8 +149,13 @@ public sealed partial class MeldungsLeiste : UserControl
         // Erst nach dem Aufbau suchen: die gewählte Runde füllt Formular und Zeilen über Bindungen und Layout.
         vorbereiten.Execute(ziel);
         if (ziel.Feld is not null)
-            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => Feldmarkierung.Anspringen(formular, ziel));
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => Feldmarkierung.Anspringen(formular, AktuelleMeldung(ziel)));
     }
+
+    /// <summary>Hat der Aufbau eine neue Prüfung ausgelöst (z. B. eine ComboBox, die beim Laden zurückschreibt), tragen
+    /// die Felder neue Instanzen – der Sprung sucht per Referenz, darum die gleichlautende aktuelle Meldung nehmen.</summary>
+    private Feldfehler AktuelleMeldung(Feldfehler meldung) =>
+        (Fehler as IEnumerable<Feldfehler>)?.FirstOrDefault(m => m == meldung) ?? meldung;
 
     private static void TextZeigen(Border rahmen, TextBlock text, string? inhalt)
     {
