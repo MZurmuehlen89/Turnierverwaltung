@@ -3,54 +3,36 @@ using Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
 
 namespace Fussballturnierverwaltung.Application.Validierung;
 
+/// <summary>Feldbezug der Meldungen (#602) = Name der Eigenschaft in der Eingabe.</summary>
 public class LandValidator
 {
-    public ValidationErgebnis Validieren(LandErstellenEingabe eingabe)
-    {
-        var fehler = new List<string>();
-        NamePruefen(eingabe.Name, fehler);
-        KurznamePruefen(eingabe.Kurzname, fehler);
-        FifaCodePruefen(eingabe.FifaCode, fehler);
-        if (eingabe.VerbandId <= 0)
-            fehler.Add("Es muss ein Verband ausgewählt werden.");
-        BildValidierung.GroessePruefen(eingabe.Flagge, fehler);
-        return Ergebnis(fehler);
-    }
+    public ValidationErgebnis Validieren(LandErstellenEingabe eingabe) =>
+        Pruefen(eingabe.Name, eingabe.Kurzname, eingabe.FifaCode, eingabe.VerbandId, eingabe.Flagge);
 
-    public ValidationErgebnis Validieren(LandAktualisierenEingabe eingabe)
-    {
-        var fehler = new List<string>();
-        NamePruefen(eingabe.Name, fehler);
-        KurznamePruefen(eingabe.Kurzname, fehler);
-        FifaCodePruefen(eingabe.FifaCode, fehler);
-        if (eingabe.VerbandId <= 0)
-            fehler.Add("Es muss ein Verband ausgewählt werden.");
-        BildValidierung.GroessePruefen(eingabe.Flagge, fehler);
-        return Ergebnis(fehler);
-    }
+    public ValidationErgebnis Validieren(LandAktualisierenEingabe eingabe) =>
+        Pruefen(eingabe.Name, eingabe.Kurzname, eingabe.FifaCode, eingabe.VerbandId, eingabe.Flagge);
 
-    private static void NamePruefen(string name, List<string> fehler)
+    private static ValidationErgebnis Pruefen(string name, string kurzname, string fifaCode, int verbandId, byte[]? flagge)
     {
+        var fehler = new List<Feldfehler>();
+
         if (string.IsNullOrWhiteSpace(name))
-            fehler.Add("Ländername darf nicht leer sein.");
+            fehler.Add(new("Ländername darf nicht leer sein.", nameof(LandErstellenEingabe.Name)));
         else if (name.Trim().Length > 200)
-            fehler.Add("Ländername darf maximal 200 Zeichen haben.");
-    }
+            fehler.Add(new("Ländername darf maximal 200 Zeichen haben.", nameof(LandErstellenEingabe.Name)));
 
-    private static void KurznamePruefen(string kurzname, List<string> fehler)
-    {
         if (string.IsNullOrWhiteSpace(kurzname))
-            fehler.Add("Kurzname darf nicht leer sein.");
-    }
+            fehler.Add(new("Kurzname darf nicht leer sein.", nameof(LandErstellenEingabe.Kurzname)));
 
-    private static void FifaCodePruefen(string fifaCode, List<string> fehler)
-    {
         if (string.IsNullOrWhiteSpace(fifaCode))
-            fehler.Add("FIFA-Code darf nicht leer sein.");
+            fehler.Add(new("FIFA-Code darf nicht leer sein.", nameof(LandErstellenEingabe.FifaCode)));
         else if (fifaCode.Trim().Length > 3)
-            fehler.Add("FIFA-Code darf maximal 3 Zeichen haben.");
-    }
+            fehler.Add(new("FIFA-Code darf maximal 3 Zeichen haben.", nameof(LandErstellenEingabe.FifaCode)));
 
-    private static ValidationErgebnis Ergebnis(List<string> fehler) =>
-        fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+        if (verbandId <= 0)
+            fehler.Add(new("Es muss ein Verband ausgewählt werden.", nameof(LandErstellenEingabe.VerbandId)));
+
+        BildValidierung.GroessePruefen(flagge, nameof(LandErstellenEingabe.Flagge), fehler);
+        return ValidationErgebnis.Aus(fehler);
+    }
 }

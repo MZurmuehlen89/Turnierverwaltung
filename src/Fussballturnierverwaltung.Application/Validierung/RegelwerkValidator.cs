@@ -6,36 +6,47 @@ namespace Fussballturnierverwaltung.Application.Validierung;
 
 public class RegelwerkValidator
 {
+    /// <summary>Feldbezug der Meldungen (#602) = Name der Eigenschaft in der Eingabe; ein Punktevergleich markiert den
+    /// Wert, der aus der Reihe fällt (Sieg bzw. Niederlage), nicht das Unentschieden.</summary>
     public ValidationErgebnis Validieren(RegelwerkErstellenEingabe eingabe)
     {
-        var fehler = new List<string>();
+        var fehler = new List<Feldfehler>();
 
         if (string.IsNullOrWhiteSpace(eingabe.Name))
-            fehler.Add("Regelwerk-Name darf nicht leer sein.");
+            fehler.Add(new("Regelwerk-Name darf nicht leer sein.", nameof(eingabe.Name)));
 
-        if (eingabe.PunkteFuerSieg < 0 || eingabe.PunkteFuerUnentschieden < 0 || eingabe.PunkteFuerNiederlage < 0)
-            fehler.Add("Punktwerte dürfen nicht negativ sein.");
+        if (ErsterNegativerPunktwert(eingabe) is { } negativ)
+            fehler.Add(new("Punktwerte dürfen nicht negativ sein.", negativ));
 
         if (eingabe.PunkteFuerSieg <= eingabe.PunkteFuerUnentschieden)
-            fehler.Add($"Punkte für Sieg ({eingabe.PunkteFuerSieg}) müssen größer als für Unentschieden " +
-                       $"({eingabe.PunkteFuerUnentschieden}) sein – sonst gibt es keinen Anreiz zu gewinnen.");
+            fehler.Add(new($"Punkte für Sieg ({eingabe.PunkteFuerSieg}) müssen größer als für Unentschieden " +
+                           $"({eingabe.PunkteFuerUnentschieden}) sein – sonst gibt es keinen Anreiz zu gewinnen.",
+                nameof(eingabe.PunkteFuerSieg)));
 
         if (eingabe.PunkteFuerNiederlage > eingabe.PunkteFuerUnentschieden)
-            fehler.Add($"Punkte für Niederlage ({eingabe.PunkteFuerNiederlage}) dürfen nicht größer als " +
-                       $"für Unentschieden ({eingabe.PunkteFuerUnentschieden}) sein.");
+            fehler.Add(new($"Punkte für Niederlage ({eingabe.PunkteFuerNiederlage}) dürfen nicht größer als " +
+                           $"für Unentschieden ({eingabe.PunkteFuerUnentschieden}) sein.",
+                nameof(eingabe.PunkteFuerNiederlage)));
 
         if (eingabe.GueltigVon.HasValue && eingabe.GueltigBis.HasValue &&
             eingabe.GueltigBis < eingabe.GueltigVon)
-            fehler.Add("GueltigBis darf nicht vor GueltigVon liegen.");
+            fehler.Add(new("GueltigBis darf nicht vor GueltigVon liegen.", nameof(eingabe.GueltigBis)));
 
         // Doppelte Entscheidungsverfahren prüfen
         var doppelt = eingabe.EntscheidungsVerfahrenReihenfolge
             .GroupBy(v => v).Where(g => g.Count() > 1).Select(g => g.Key.ToString()).ToList();
         if (doppelt.Any())
-            fehler.Add($"Entscheidungsverfahren enthält Duplikate: {string.Join(", ", doppelt)}.");
+            fehler.Add(new($"Entscheidungsverfahren enthält Duplikate: {string.Join(", ", doppelt)}.",
+                nameof(eingabe.EntscheidungsVerfahrenReihenfolge)));
 
-        return fehler.Count == 0 ? ValidationErgebnis.Ok() : ValidationErgebnis.MitFehlern([.. fehler]);
+        return ValidationErgebnis.Aus(fehler);
     }
+
+    private static string? ErsterNegativerPunktwert(RegelwerkErstellenEingabe eingabe) =>
+        eingabe.PunkteFuerSieg < 0 ? nameof(eingabe.PunkteFuerSieg)
+        : eingabe.PunkteFuerUnentschieden < 0 ? nameof(eingabe.PunkteFuerUnentschieden)
+        : eingabe.PunkteFuerNiederlage < 0 ? nameof(eingabe.PunkteFuerNiederlage)
+        : null;
 
     public ValidationErgebnis Validieren(RegelwerkAktualisierenEingabe eingabe)
     {
