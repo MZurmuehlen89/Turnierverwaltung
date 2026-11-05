@@ -570,13 +570,12 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     private VerbandAktualisierenEingabe VerbandAktualisierenEingabe() => new(
         VerbandName, VerbandKurzname, VerbandLogoDaten, VerbandRangliste?.Id, VerbandVereinsRangliste?.Id);
 
-    private void AktualisiereLandFehler() => LandFehler = !LandFormularAktiv ? []
-        : LandIstNeuModus ? _landValidator.Validieren(LandErstellenEingabe()).Meldungen
-        : _landValidator.Validieren(LandAktualisierenEingabe()).Meldungen;
+    // Erstellen und Bearbeiten prüfen dieselben Regeln – die Live-Prüfung nimmt darum immer die Erstellen-Eingabe.
+    private void AktualisiereLandFehler() =>
+        LandFehler = LandFormularAktiv ? _landValidator.Validieren(LandErstellenEingabe()).Meldungen : [];
 
-    private void AktualisiereVerbandFehler() => VerbandFehler = !VerbandFormularAktiv ? []
-        : VerbandIstNeuModus ? _verbandValidator.Validieren(VerbandErstellenEingabe()).Meldungen
-        : _verbandValidator.Validieren(VerbandAktualisierenEingabe()).Meldungen;
+    private void AktualisiereVerbandFehler() =>
+        VerbandFehler = VerbandFormularAktiv ? _verbandValidator.Validieren(VerbandErstellenEingabe()).Meldungen : [];
 
     private bool KannSpeichern() => AktiverTabIndex == 0
         ? (LandFormularAktiv && LandIsDirty && LandFehler.Count == 0)

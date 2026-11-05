@@ -309,7 +309,7 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
         MarkiertesVerfahren = NeuesVerfahren;
         NeuesVerfahren = null;
         OnPropertyChanged(nameof(VerfuegbareVerfahren));
-        if (_populiertGerade == 0) IsDirty = true;
+        VerfahrenGeaendert();
     }
 
     [RelayCommand(CanExecute = nameof(KannVerfahrenEntfernen))]
@@ -322,7 +322,7 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
             ? AusgewaehlteVerfahren[Math.Max(0, idx - 1)]
             : null;
         OnPropertyChanged(nameof(VerfuegbareVerfahren));
-        if (_populiertGerade == 0) IsDirty = true;
+        VerfahrenGeaendert();
     }
 
     [RelayCommand(CanExecute = nameof(KannVerfahrenHoch))]
@@ -332,7 +332,7 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
         var idx = AusgewaehlteVerfahren.IndexOf(MarkiertesVerfahren.Value);
         if (idx <= 0) return;
         AusgewaehlteVerfahren.Move(idx, idx - 1);
-        if (_populiertGerade == 0) IsDirty = true;
+        VerfahrenGeaendert();
     }
 
     [RelayCommand(CanExecute = nameof(KannVerfahrenRunter))]
@@ -342,7 +342,7 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
         var idx = AusgewaehlteVerfahren.IndexOf(MarkiertesVerfahren.Value);
         if (idx < 0 || idx >= AusgewaehlteVerfahren.Count - 1) return;
         AusgewaehlteVerfahren.Move(idx, idx + 1);
-        if (_populiertGerade == 0) IsDirty = true;
+        VerfahrenGeaendert();
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
@@ -357,6 +357,13 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
     }
 
     // ── Live-Prüfung (#602) ───────────────────────────────────────────────────
+
+    private void VerfahrenGeaendert()
+    {
+        if (_populiertGerade != 0) return;
+        IsDirty = true;
+        AktualisiereFormularFehler();
+    }
 
     private RegelwerkErstellenEingabe Eingabe() => new(
         Name, Beschreibung, ParseJahr(GueltigVon), ParseJahr(GueltigBis),

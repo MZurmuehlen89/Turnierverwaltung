@@ -44,6 +44,11 @@ public class LandUndVerbandValidatorTests
     }
 
     [Fact]
+    public void Verband_AktualisierenPrueftAuchDieLaenge() =>
+        new VerbandValidator().Validieren(new VerbandAktualisierenEingabe(new string('x', 201), "X"))
+            .Meldungen.Should().ContainSingle().Which.Feld.Should().Be(nameof(VerbandAktualisierenEingabe.Name));
+
+    [Fact]
     public void Verband_GueltigeEingabe_IstGueltig() =>
         new VerbandValidator().Validieren(new VerbandAktualisierenEingabe("UEFA", "UEFA"))
             .IstGueltig.Should().BeTrue();
