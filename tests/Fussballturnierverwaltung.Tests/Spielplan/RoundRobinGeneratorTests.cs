@@ -191,11 +191,11 @@ public class RoundRobinGeneratorTests
 
     [Theory]
     [InlineData(2, false, "1:1-2")]
-    [InlineData(4, false, "1:1-4 1:2-3 2:3-1 2:4-2 3:1-2 3:3-4")]
-    [InlineData(5, false, "1:2-5 1:3-4 2:5-1 2:2-3 3:1-4 3:5-3 4:3-1 4:4-2 5:1-2 5:4-5")]
-    [InlineData(6, false, "1:1-6 1:2-5 1:3-4 2:5-1 2:6-4 2:2-3 3:1-4 3:5-3 3:6-2 4:3-1 4:4-2 4:5-6 5:1-2 5:3-6 5:4-5")]
-    [InlineData(3, true, "1:2-3 2:3-1 3:1-2 4:3-2 5:1-3 6:2-1")]
-    [InlineData(4, true, "1:1-4 1:2-3 2:3-1 2:4-2 3:1-2 3:3-4 4:4-1 4:3-2 5:1-3 5:2-4 6:2-1 6:4-3")]
+    [InlineData(4, false, "1:1-4 1:3-2 2:3-1 2:2-4 3:1-2 3:4-3")]
+    [InlineData(5, false, "1:5-2 1:3-4 2:5-1 2:2-3 3:1-4 3:3-5 4:3-1 4:2-4 5:1-2 5:4-5")]
+    [InlineData(6, false, "1:1-6 1:5-2 1:3-4 2:5-1 2:4-6 2:2-3 3:1-4 3:3-5 3:6-2 4:3-1 4:2-4 4:5-6 5:1-2 5:6-3 5:4-5")]
+    [InlineData(3, true, "1:3-2 2:3-1 3:1-2 4:2-3 5:1-3 6:2-1")]
+    [InlineData(4, true, "1:1-4 1:3-2 2:3-1 2:2-4 3:1-2 3:4-3 4:4-1 4:2-3 5:1-3 5:4-2 6:2-1 6:3-4")]
     public void Spielfolge_IstExaktFestgehalten(int teamAnzahl, bool mitRueckspiel, string erwartet)
     {
         var runde    = mitRueckspiel ? TestRundeMitRueckspiel() : TestRunde();
@@ -204,4 +204,46 @@ public class RoundRobinGeneratorTests
         Kurzform(ergebnis.Spiele.OrderBy(s => s.Spielnummer).Select(s => (s.Spieltag, s.HeimMannschaftId, s.AuswaertsMannschaftId)))
             .Should().Be(erwartet);
     }
+
+    // ── Heim/Auswärts im Wechsel (#568) ─────────────────────────────────────
+
+    /// <summary>Heim/Auswärts-Folge je Team über alle Spieltage: H, A oder „-“ (Freilos).</summary>
+    private static Dictionary<int, string> HeimAuswaertsFolge(SpielplanErgebnis ergebnis, int teamAnzahl)
+    {
+        int spieltage = ergebnis.Spiele.Max(s => s.Spieltag!.Value);
+        return Enumerable.Range(1, teamAnzahl).ToDictionary(team => team, team => string.Concat(
+            Enumerable.Range(1, spieltage).Select(tag =>
+                ergebnis.Spiele.FirstOrDefault(s => s.Spieltag == tag && (s.HeimMannschaftId == team || s.AuswaertsMannschaftId == team)) switch
+                {
+                    null => '-',
+                    var s => s.HeimMannschaftId == team ? 'H' : 'A',
+                })));
+    }
+
+    private static int LaengsteSerie(string folge) =>
+        System.Text.RegularExpressions.Regex.Matches(folge, "H+|A+").Select(m => m.Length).DefaultIfEmpty(0).Max();
+
+    [Theory]
+    [MemberData(nameof(TeamAnzahlen))]
+    public void Hinrunde_KeinTeamSpieltMehrAlsZweimalInFolgeHeimOderAuswaerts(int teamAnzahl)
+    {
+        var ergebnis = _generator.Generieren(new SpielplanKontext(TestRunde(), Teams(teamAnzahl), 1));
+
+        HeimAuswaertsFolge(ergebnis, teamAnzahl).Should().AllSatisfy(x =>
+            LaengsteSerie(x.Value).Should().BeLessThanOrEqualTo(2, $"Team {x.Key} spielt {x.Value}"));
+    }
+
+    /// <summary>Die Rückrunde spiegelt die Hinrunde in gleicher Reihenfolge (wie die Bundesliga) — eine dritte Partie
+    /// in Folge auf derselben Seite gibt es nur am Übergang.</summary>
+    [Theory]
+    [MemberData(nameof(TeamAnzahlen))]
+    public void HinUndRueckrunde_KeinTeamSpieltMehrAlsDreimalInFolgeHeimOderAuswaerts(int teamAnzahl)
+    {
+        var ergebnis = _generator.Generieren(new SpielplanKontext(TestRundeMitRueckspiel(), Teams(teamAnzahl), 1));
+
+        HeimAuswaertsFolge(ergebnis, teamAnzahl).Should().AllSatisfy(x =>
+            LaengsteSerie(x.Value).Should().BeLessThanOrEqualTo(3, $"Team {x.Key} spielt {x.Value}"));
+    }
+
+    public static TheoryData<int> TeamAnzahlen() => [.. Enumerable.Range(3, 18)];
 }

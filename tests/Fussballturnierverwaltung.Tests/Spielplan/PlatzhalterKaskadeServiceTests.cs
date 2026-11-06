@@ -281,14 +281,29 @@ public class PlatzhalterKaskadeServiceTests
 
     // ── Tests: Platzhalter-Gruppenphase in der Kaskade (Issue #395) ─────────
 
-    [Fact]
-    public async Task Kaskade_PlatzhalterGruppenphase_OhneAenderung_KeineAuswirkung()
+    /// <summary>Stellt die Gruppenspiele auf das Heimrecht vor #568 um: dort hatte in einer Vierergruppe in jeder
+    /// Partie ohne den festen Platz das andere Team Heimrecht. Der feste Platz hat am ersten Spieltag Heimrecht.</summary>
+    private static async Task HeimrechtVor568Herstellen(TurnierverwaltungDbContext ctx, int gruppeId)
+    {
+        var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == gruppeId).OrderBy(s => s.Spielnummer).ToList();
+        int festerPlatz = spiele[0].HeimMannschaftId!.Value;
+        foreach (var s in spiele.Where(s => s.HeimMannschaftId != festerPlatz && s.AuswaertsMannschaftId != festerPlatz))
+            (s.HeimMannschaftId, s.AuswaertsMannschaftId) = (s.AuswaertsMannschaftId, s.HeimMannschaftId);
+        await ctx.SaveChangesAsync();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Kaskade_PlatzhalterGruppenphase_OhneAenderung_KeineAuswirkung(bool planVor568)
     {
         // Regressionstest #395: vorher setzte die Kaskade hier ohne jede Änderung 4 von 6 Auswärts-Seiten
         // auf leer, weil sie Team-Einträge der Gruppen-Auslosung positional mit Spielen abglich.
+        // #568: ein vor der Heimrecht-Korrektur generierter Plan darf ebenso nichts auslösen.
         await using var ctx = NeuerContext();
         int gruppeId = await QualiUndPlatzhalterGruppeAnlegen(ctx, mitRueckspiel: false,
             (null, "Sieger Quali 1"), (null, "Sieger Quali 2"), (null, "Sieger Quali 3"), (null, "Sieger Quali 4"));
+        if (planVor568) await HeimrechtVor568Herstellen(ctx, gruppeId);
         var dienste = new SpielplanDienste(ctx);
 
         var spiele = ctx.Spiele.Where(s => s.TurnierRundeId == gruppeId).ToList();
@@ -301,12 +316,15 @@ public class PlatzhalterKaskadeServiceTests
         plan.HatAuswirkungen.Should().BeFalse("an der Quali hat sich nichts geändert");
     }
 
-    [Fact]
-    public async Task Kaskade_PlatzhalterGruppenphase_KorrigiertNurSpieleDesBetroffenenTeams()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Kaskade_PlatzhalterGruppenphase_KorrigiertNurSpieleDesBetroffenenTeams(bool planVor568)
     {
         await using var ctx = NeuerContext();
         int gruppeId = await QualiUndPlatzhalterGruppeAnlegen(ctx, mitRueckspiel: false,
             (null, "Sieger Quali 1"), (null, "Sieger Quali 2"), (null, "Sieger Quali 3"), (null, "Sieger Quali 4"));
+        if (planVor568) await HeimrechtVor568Herstellen(ctx, gruppeId);
         var dienste = new SpielplanDienste(ctx);
 
         // Alle Gruppenspiele ausgetragen

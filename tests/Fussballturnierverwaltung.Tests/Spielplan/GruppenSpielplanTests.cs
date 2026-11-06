@@ -199,6 +199,74 @@ public class GruppenSpielplanTests
         GruppenSpielplan.PasstZu(plan, spiele).Should().BeFalse();
     }
 
+    [Fact]
+    public void PasstZu_AufgeloesterPlatzMitWechselnderMannschaft_PasstNicht()
+    {
+        var plan   = GruppenSpielplan.Planen([_gemischteGruppe], mitRueckspiel: false);
+        var spiele = SpieleAus(plan);
+        int naechsteId = 70;
+        foreach (var spiel in spiele.Where(s => s.HeimPlatzhalterName is not null))
+            (spiel.HeimMannschaftId, spiel.HeimPlatzhalterName) = (naechsteId++, null);
+        foreach (var spiel in spiele.Where(s => s.AuswaertsPlatzhalterName is not null))
+            (spiel.AuswaertsMannschaftId, spiel.AuswaertsPlatzhalterName) = (naechsteId++, null);
+
+        GruppenSpielplan.PasstZu(plan, spiele).Should().BeFalse("ein Platz steht für genau eine Mannschaft");
+    }
+
+    // ── Gespeicherte Pläne vor #568 ─────────────────────────────────────────
+
+    private static readonly IReadOnlyList<GruppenSlot> _platzhalterGruppe =
+        [new(null, "Sieger 1"), new(null, "Sieger 2"), new(null, "Sieger 3"), new(null, "Sieger 4")];
+
+    /// <summary>Spiele einer Vierergruppe, wie sie vor #568 generiert wurden: dort hatte in jeder Partie ohne den
+    /// festen Platz 0 das andere Team Heimrecht. Alle Platzhalter sind aufgelöst (Platz i → Mannschaft 10 + i).</summary>
+    private static List<Spiel> AufgeloesteSpieleVor568(IReadOnlyList<GeplantesGruppenSpiel> plan)
+    {
+        int Mannschaft(GruppenSlot platz) => 11 + _platzhalterGruppe.ToList().IndexOf(platz);
+        var festerPlatz = _platzhalterGruppe[0];
+
+        return [.. plan.Select(g =>
+        {
+            var (heim, gast) = g.Heim == festerPlatz || g.Auswaerts == festerPlatz ? (g.Heim, g.Auswaerts) : (g.Auswaerts, g.Heim);
+            return new Spiel { HeimMannschaftId = Mannschaft(heim), AuswaertsMannschaftId = Mannschaft(gast), IstRueckspiel = g.IstRueckspiel };
+        })];
+    }
+
+    [Fact]
+    public void GespeichertenPlanFinden_AktuellerPlan_WirdGefunden()
+    {
+        var plan = GruppenSpielplan.Planen([_gemischteGruppe], mitRueckspiel: true);
+
+        GruppenSpielplan.GespeichertenPlanFinden([_gemischteGruppe], mitRueckspiel: true, SpieleAus(plan))
+            .Should().BeEquivalentTo(plan, o => o.WithStrictOrdering());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GespeichertenPlanFinden_PlanVor568MitAufgeloestenPlaetzen_WirdMitSeinemHeimrechtGefunden(bool mitRueckspiel)
+    {
+        var aktuell = GruppenSpielplan.Planen([_platzhalterGruppe], mitRueckspiel);
+        var spiele  = AufgeloesteSpieleVor568(aktuell);
+
+        var gefunden = GruppenSpielplan.GespeichertenPlanFinden([_platzhalterGruppe], mitRueckspiel, spiele);
+
+        GruppenSpielplan.PasstZu(aktuell, spiele).Should().BeFalse("das Heimrecht hat sich mit #568 geändert");
+        gefunden.Should().NotBeNull();
+        gefunden!.Select(g => 11 + _platzhalterGruppe.ToList().IndexOf(g.Heim))
+            .Should().Equal(spiele.Select(s => s.HeimMannschaftId!.Value));
+    }
+
+    [Fact]
+    public void GespeichertenPlanFinden_FremderPlan_WirdNichtGefunden()
+    {
+        var plan   = GruppenSpielplan.Planen([_gemischteGruppe], mitRueckspiel: false);
+        var spiele = SpieleAus(plan);
+        spiele[0].HeimMannschaftId = 99;
+
+        GruppenSpielplan.GespeichertenPlanFinden([_gemischteGruppe], mitRueckspiel: false, spiele).Should().BeNull();
+    }
+
     // ── Gleicher Berger-Plan wie der RoundRobinGenerator (#504) ─────────────
 
     /// <summary>Gruppen mit festen Teams generiert der <see cref="RoundRobinGenerator"/>, Gruppen mit Platzhaltern

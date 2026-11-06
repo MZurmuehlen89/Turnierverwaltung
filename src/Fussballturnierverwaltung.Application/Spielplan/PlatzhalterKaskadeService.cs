@@ -100,9 +100,10 @@ public class PlatzhalterKaskadeService(
     private async Task GruppenphasePruefenAsync(
         TurnierRunde runde, Auslosung auslosung, IReadOnlyList<Spiel> spiele, Planung planung, CancellationToken ct)
     {
-        var geplant = GruppenSpielplan.Planen(GruppenSpielplan.AusAuslosung(auslosung.Ergebnisse), runde.MitRueckspiel);
         var spieleNachNummer = spiele.OrderBy(s => s.Spielnummer).ToList();
-        if (!GruppenSpielplan.PasstZu(geplant, spieleNachNummer))
+        var geplant = GruppenSpielplan.GespeichertenPlanFinden(
+            GruppenSpielplan.AusAuslosung(auslosung.Ergebnisse), runde.MitRueckspiel, spieleNachNummer);
+        if (geplant is null)
         {
             // Unbekannte Struktur (z.B. vor #395 ohne Platzhalter generierte gemischte Gruppe) — lieber
             // nicht anfassen als falsche Spiele zurücksetzen.

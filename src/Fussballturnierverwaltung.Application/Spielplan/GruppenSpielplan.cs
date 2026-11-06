@@ -30,11 +30,24 @@ public static class GruppenSpielplan
     /// Reihenfolge, in der die Generierung die Spielnummern vergibt. Die Kaskade baut damit den Soll-Spielplan
     /// nach und vergleicht Spiel mit Spiel (#395).</summary>
     public static List<GeplantesGruppenSpiel> Planen(
-        IReadOnlyList<IReadOnlyList<GruppenSlot>> gruppen, bool mitRueckspiel)
+        IReadOnlyList<IReadOnlyList<GruppenSlot>> gruppen, bool mitRueckspiel) =>
+        Planen(gruppen, mitRueckspiel, BergerHeimrecht.Wechselnd);
+
+    /// <summary>Der Plan, nach dem <paramref name="spiele"/> (in Spielnummer-Reihenfolge) generiert wurden, oder
+    /// <c>null</c>, wenn keiner passt. Vor #568 generierte Pläne vergeben das Heimrecht noch nach der Kreisposition
+    /// — die Kaskade soll auch sie weiter prüfen.</summary>
+    public static List<GeplantesGruppenSpiel>? GespeichertenPlanFinden(
+        IReadOnlyList<IReadOnlyList<GruppenSlot>> gruppen, bool mitRueckspiel, IReadOnlyList<Spiel> spiele) =>
+        new[] { BergerHeimrecht.Wechselnd, BergerHeimrecht.NachKreisposition }
+            .Select(heimrecht => Planen(gruppen, mitRueckspiel, heimrecht))
+            .FirstOrDefault(plan => PasstZu(plan, spiele));
+
+    private static List<GeplantesGruppenSpiel> Planen(
+        IReadOnlyList<IReadOnlyList<GruppenSlot>> gruppen, bool mitRueckspiel, BergerHeimrecht heimrecht)
     {
         var paarungen = new List<Paarung>();
         for (int gi = 0; gi < gruppen.Count; gi++)
-            paarungen.AddRange(GruppePlanen(gruppen[gi], gi, mitRueckspiel, ersteNr: paarungen.Count));
+            paarungen.AddRange(GruppePlanen(gruppen[gi], gi, mitRueckspiel, heimrecht, ersteNr: paarungen.Count));
 
         return InSpielnummerReihenfolge(paarungen);
     }
@@ -45,11 +58,11 @@ public static class GruppenSpielplan
         int GruppenIndex, int Spieltag, int Nr, GruppenSlot Heim, GruppenSlot Auswaerts, int? HinspielNr);
 
     private static List<Paarung> GruppePlanen(
-        IReadOnlyList<GruppenSlot> gruppe, int gruppenIndex, bool mitRueckspiel, int ersteNr)
+        IReadOnlyList<GruppenSlot> gruppe, int gruppenIndex, bool mitRueckspiel, BergerHeimrecht heimrecht, int ersteNr)
     {
         if (gruppe.Count < 2) return [];
 
-        var hinspiele = BergerTabelle.Paarungen(gruppe.Count)
+        var hinspiele = BergerTabelle.Paarungen(gruppe.Count, heimrecht)
             .Select((p, i) => new Paarung(gruppenIndex, p.Spieltag, ersteNr + i, gruppe[p.Heim], gruppe[p.Gast], null))
             .ToList();
         if (!mitRueckspiel) return hinspiele;
@@ -78,7 +91,8 @@ public static class GruppenSpielplan
 
     /// <summary>Plausibilitätsprüfung vor dem Spiel-zu-Spiel-Vergleich der Kaskade: gleiche Anzahl, gleiche
     /// Hin-/Rückspiel-Lage, feste Teams an derselben Stelle und noch offene Platzhalter mit demselben Namen.
-    /// Bereits aufgelöste Platzhalter-Seiten sind nicht prüfbar (der Name wird beim Auflösen entfernt).</summary>
+    /// Bereits aufgelöste Platzhalter-Seiten sind nur darauf prüfbar, dass ein Platz in allen seinen Spielen dieselbe
+    /// Mannschaft trägt (der Name wird beim Auflösen entfernt) — daran scheitert auch ein Plan mit anderem Heimrecht.</summary>
     public static bool PasstZu(IReadOnlyList<GeplantesGruppenSpiel> geplant, IReadOnlyList<Spiel> spiele)
     {
         if (geplant.Count != spiele.Count) return false;
@@ -89,8 +103,23 @@ public static class GruppenSpielplan
                 : mannschaftId.HasValue || string.Equals(platzhalterName, soll.PlatzhalterName ?? "?", StringComparison.OrdinalIgnoreCase);
 
         return geplant.Zip(spiele).All(x =>
-            x.First.IstRueckspiel == x.Second.IstRueckspiel &&
-            SeitePasst(x.First.Heim, x.Second.HeimMannschaftId, x.Second.HeimPlatzhalterName) &&
-            SeitePasst(x.First.Auswaerts, x.Second.AuswaertsMannschaftId, x.Second.AuswaertsPlatzhalterName));
+                   x.First.IstRueckspiel == x.Second.IstRueckspiel &&
+                   SeitePasst(x.First.Heim, x.Second.HeimMannschaftId, x.Second.HeimPlatzhalterName) &&
+                   SeitePasst(x.First.Auswaerts, x.Second.AuswaertsMannschaftId, x.Second.AuswaertsPlatzhalterName))
+               && JederPlatzEineMannschaft(geplant, spiele);
+    }
+
+    private static bool JederPlatzEineMannschaft(IReadOnlyList<GeplantesGruppenSpiel> geplant, IReadOnlyList<Spiel> spiele)
+    {
+        var mannschaftJePlatz = new Dictionary<(int Gruppe, GruppenSlot Platz), int>();
+
+        bool Eintragen(int gruppe, GruppenSlot platz, int? mannschaftId) =>
+            mannschaftId is not int id
+            || mannschaftJePlatz.TryAdd((gruppe, platz), id)
+            || mannschaftJePlatz[(gruppe, platz)] == id;
+
+        return geplant.Zip(spiele).All(x =>
+            Eintragen(x.First.GruppenNummer, x.First.Heim, x.Second.HeimMannschaftId) &&
+            Eintragen(x.First.GruppenNummer, x.First.Auswaerts, x.Second.AuswaertsMannschaftId));
     }
 }
