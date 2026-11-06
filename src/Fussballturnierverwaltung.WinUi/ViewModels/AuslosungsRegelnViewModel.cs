@@ -87,7 +87,7 @@ public class AuslosungsRegelnViewModel
     {
         foreach (var regel in _regeln)
         {
-            regel.ImmerAktivHinweis = AuslosungsRegelKompatibilitaet.ImmerAktivGrund(regel.Regelart, art);
+            regel.ImmerAktivHinweis = AuslosungsRegelKompatibilitaet.ImmerAktivGrund(regel.Regelart, art, _regelRundenart);
             regel.SperrHinweis = AuslosungsRegelKompatibilitaet.SperrGrund(
                 regel.Regelart, art, _regelRundenart, _regelFolgtAufGruppenphase);
         }

@@ -55,7 +55,7 @@ public static class AuslosungsRegelKompatibilitaet
             ? [vorgabe]
             : Enum.GetValues<Auslosungsart>()
                 .Where(a => a != Auslosungsart.Manuell && AuslosungsKompatibilitaet.IstKompatibel(rundenart, a));
-        return arten.Any(art => ImmerAktivGrund(regel, art) is null &&
+        return arten.Any(art => ImmerAktivGrund(regel, art, rundenart) is null &&
                                 SperrGrund(regel, art, rundenart, folgtAufGruppenphase) is null);
     }
 
@@ -74,7 +74,7 @@ public static class AuslosungsRegelKompatibilitaet
     /// frühere Gruppen, die „Keine gleiche Gruppe“ auswerten könnte.</summary>
     public static string? SperrGrund(
         AuslosungsRegelArt regel, Auslosungsart art, Rundenart? rundenart, bool folgtAufGruppenphase) =>
-        RundenartSperrGrund(rundenart) ?? (ImmerAktivGrund(regel, art) is not null ? null : regel switch
+        ImmerAktivGrund(regel, art, rundenart) is not null ? null : RundenartSperrGrund(rundenart) ?? regel switch
         {
             AuslosungsRegelArt.KeinGleichesLand          => null,
             AuslosungsRegelArt.KeineGleicheGruppe        => GleicheGruppeSperrGrund(folgtAufGruppenphase),
@@ -85,9 +85,10 @@ public static class AuslosungsRegelKompatibilitaet
             AuslosungsRegelArt.FreilosMoeglich           => FreilosSperrGrund(art, rundenart),
             AuslosungsRegelArt.Konfoederationsverteilung => KonfoederationSperrGrund(rundenart),
             _                                            => "Diese Regel wird nicht mehr unterstützt."
-        });
+        };
 
-    // Liga und Schweizer System sperren jede Regel — auch eine, die bei der Auslosungsart sonst immer gilt.
+    // Liga und Schweizer System sperren jede Regel — auch eine, die bei der Auslosungsart sonst immer gilt; einzige
+    // Ausnahme ist das Freilos im Schweizer System (siehe ImmerAktivGrund).
     private static string? RundenartSperrGrund(Rundenart? rundenart) => rundenart switch
     {
         Rundenart.Liga =>
@@ -138,24 +139,33 @@ public static class AuslosungsRegelKompatibilitaet
         : "Die Konföderationsverteilung regelt die Verteilung auf Gruppen — in dieser Runde werden keine Gruppen " +
           "ausgelost.";
 
-    /// <summary>Liefert den Grund, warum die Regel bei dieser Auslosungsart unabhängig vom Häkchen immer gilt,
+    /// <summary>Liefert den Grund, warum die Regel bei dieser Auslosungs- und Rundenart unabhängig vom Häkchen immer gilt,
     /// oder <c>null</c>. Beispiel: bei „Gruppensieger vs. Zweite“ trifft ein Gruppensieger real nie auf den
     /// Zweiten der eigenen Gruppe (u. a. Nations-League-Viertelfinale).</summary>
-    public static string? ImmerAktivGrund(AuslosungsRegelArt regel, Auslosungsart art) => (regel, art) switch
-    {
-        (AuslosungsRegelArt.KeineGleicheGruppe, Auslosungsart.GruppensiegerGegenGruppenzweite) =>
-            "Bei 'Gruppensieger vs. Zweite' immer aktiv — ein Gruppensieger trifft nie auf den Zweiten " +
-            "der eigenen Gruppe.",
-        _ => null
-    };
+    // Schweizer System (#548): Bei ungerader Teamzahl bliebe ohne Freilos ein Team ohne Paarung und fiele aus der
+    // Auslosung — und damit aus allen Spieltagen, die ihre Teilnehmer aus der Auslosung lesen. Eine sinnvolle
+    // Alternative gibt es nicht, also gilt die Regel immer, statt wählbar zu sein. Das Freilos-Team steht zuletzt in
+    // der Auslosung, der Generator lässt an Spieltag 1 genau dieses Team aussetzen. Die Topf-Zuordnung kennt kein
+    // Freilos (FreilosSperrGrund).
+    public static string? ImmerAktivGrund(AuslosungsRegelArt regel, Auslosungsart art, Rundenart? rundenart) =>
+        (regel, art, rundenart) switch
+        {
+            (AuslosungsRegelArt.FreilosMoeglich, not Auslosungsart.TopfZuordnung, Rundenart.SchweizerSystem) =>
+                "Beim Schweizer System immer aktiv — bei ungerader Teamzahl setzt je Spieltag ein Team aus.",
+            (_, _, Rundenart.Liga or Rundenart.SchweizerSystem) => null,
+            (AuslosungsRegelArt.KeineGleicheGruppe, Auslosungsart.GruppensiegerGegenGruppenzweite, _) =>
+                "Bei 'Gruppensieger vs. Zweite' immer aktiv — ein Gruppensieger trifft nie auf den Zweiten " +
+                "der eigenen Gruppe.",
+            _ => null
+        };
 
     /// <summary>Ob die Regel bei der Auslosung tatsächlich angewendet wird: aktiv gesetzt und nicht gesperrt,
     /// oder durch die Auslosungsart ohnehin vorgegeben.</summary>
     public static bool Wirkt(
         AuslosungsRegelArt regel, bool istAktiv, Auslosungsart art, Rundenart? rundenart, bool folgtAufGruppenphase)
     {
+        if (ImmerAktivGrund(regel, art, rundenart) is not null) return true;
         if (rundenart is Rundenart.Liga or Rundenart.SchweizerSystem) return false;
-        if (ImmerAktivGrund(regel, art) is not null) return true;
         return istAktiv && SperrGrund(regel, art, rundenart, folgtAufGruppenphase) is null;
     }
 

@@ -577,6 +577,28 @@ public class AuslosungAlgorithmusTests
         ergebnisse.Should().HaveCount(4);
     }
 
+    // #548: bei ungerader Teamzahl bekommt das übrige Team einen Freilos-Eintrag, ohne dass die Regel gewählt ist —
+    // zuletzt, damit der Generator an Spieltag 1 genau dieses Team aussetzen lässt.
+    [Theory]
+    [InlineData(Auslosungsart.Zufall)]
+    [InlineData(Auslosungsart.NachToepfen)]
+    [InlineData(Auslosungsart.NachSetzliste)]
+    public async Task SchweizerSystem_UngeradeAnzahl_KeinTeamFaelltWeg(Auslosungsart art)
+    {
+        // Zufall kennt nur einen Topf; bei Töpfen und Setzliste (Topf 1 = Gesetzte) bleibt ein Team im Überhang
+        Lostopf[] toepfe = art == Auslosungsart.Zufall
+            ? [Topf(1, 1, Enumerable.Range(1, 9).Select(i => Eintrag(Team(i))).ToArray())]
+            : [Topf(1, 1, Enumerable.Range(1, 5).Select(i => Eintrag(Team(i))).ToArray()),
+               Topf(2, 2, Enumerable.Range(6, 4).Select(i => Eintrag(Team(i))).ToArray())];
+        AuslosungMit(Rundenart.SchweizerSystem, art, lostoepfe: toepfe);
+
+        var ergebnisse = await Ausfuehren();
+
+        AlleTeamIds(ergebnisse).Should().BeEquivalentTo(Enumerable.Range(1, 9));
+        ergebnisse.Should().ContainSingle(e => e.IstFreilos)
+            .Which.PaarungsNummer.Should().Be(ergebnisse.Max(e => e.PaarungsNummer));
+    }
+
     // ══════════════════════════════════════════════════════════════════════════
     // SPEZIALFÄLLE
     // ══════════════════════════════════════════════════════════════════════════

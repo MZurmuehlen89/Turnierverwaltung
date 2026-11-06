@@ -177,9 +177,11 @@ public class AuslosungsValidator
         if (auslosung.TurnierRunde?.EingangsMannschaftsanzahl is not (> 0 and var benoetigte))
             yield break;
 
-        // Nur ein tatsächlich wirksames Freilos erlaubt ein Team weniger (#331: bei Töpfen/Setzliste gesperrt).
-        bool freilosMoeglich = AuslosungsRegelKompatibilitaet.Wirkt(
-            AuslosungsRegelArt.FreilosMoeglich, auslosung, rundenart);
+        // Nur ein tatsächlich wirksames Freilos erlaubt ein Team weniger (#331: bei Töpfen/Setzliste gesperrt). Im
+        // Schweizer System gilt das Freilos immer (#548), ersetzt dort aber kein fehlendes Team — es kommt nur bei
+        // ungerader Teamzahl je Spieltag zum Zug.
+        bool freilosMoeglich = rundenart != Rundenart.SchweizerSystem &&
+                               AuslosungsRegelKompatibilitaet.Wirkt(AuslosungsRegelArt.FreilosMoeglich, auslosung, rundenart);
         int min = freilosMoeglich ? benoetigte - 1 : benoetigte;
 
         if (alleEintraege.Count < min)

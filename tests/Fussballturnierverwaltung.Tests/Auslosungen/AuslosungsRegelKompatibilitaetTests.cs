@@ -50,12 +50,43 @@ public class AuslosungsRegelKompatibilitaetTests
     public void KeineGleicheGruppe_BeiGruppensiegerGegenZweite_WirktImmer()
     {
         AuslosungsRegelKompatibilitaet.ImmerAktivGrund(
-            AuslosungsRegelArt.KeineGleicheGruppe, Auslosungsart.GruppensiegerGegenGruppenzweite).Should().NotBeNull();
+            AuslosungsRegelArt.KeineGleicheGruppe, Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.KoRunde)
+            .Should().NotBeNull();
         AuslosungsRegelKompatibilitaet.Wirkt(
                 AuslosungsRegelArt.KeineGleicheGruppe, istAktiv: false, Auslosungsart.GruppensiegerGegenGruppenzweite,
                 Rundenart.KoRunde, folgtAufGruppenphase: true)
             .Should().BeTrue();
     }
+
+    // #548: ohne Freilos fiele bei ungerader Teamzahl ein Team still aus der Auslosung
+    [Theory]
+    [InlineData(Auslosungsart.Zufall)]
+    [InlineData(Auslosungsart.NachToepfen)]
+    [InlineData(Auslosungsart.NachSetzliste)]
+    [InlineData(Auslosungsart.Benutzerdefiniert)]
+    [InlineData(Auslosungsart.Manuell)]
+    public void Freilos_ImSchweizerSystem_WirktImmer(Auslosungsart art)
+    {
+        AuslosungsRegelKompatibilitaet.ImmerAktivGrund(AuslosungsRegelArt.FreilosMoeglich, art, Rundenart.SchweizerSystem)
+            .Should().NotBeNull();
+        AuslosungsRegelKompatibilitaet.SperrGrund(
+                AuslosungsRegelArt.FreilosMoeglich, art, Rundenart.SchweizerSystem, folgtAufGruppenphase: false)
+            .Should().BeNull();
+        AuslosungsRegelKompatibilitaet.Wirkt(
+                AuslosungsRegelArt.FreilosMoeglich, istAktiv: false, art, Rundenart.SchweizerSystem, folgtAufGruppenphase: false)
+            .Should().BeTrue();
+        AuslosungsRegelKompatibilitaet.AlsVorgabeMoeglich(
+                AuslosungsRegelArt.FreilosMoeglich, Rundenart.SchweizerSystem, art, folgtAufGruppenphase: false,
+                paarungFestVorgegeben: false)
+            .Should().BeFalse("eine Regel, die immer gilt, braucht keine Vorgabe");
+    }
+
+    [Fact]
+    public void Freilos_InDerLiga_BleibtGesperrt() =>
+        AuslosungsRegelKompatibilitaet.Wirkt(
+                AuslosungsRegelArt.FreilosMoeglich, istAktiv: true, Auslosungsart.Zufall, Rundenart.Liga,
+                folgtAufGruppenphase: false)
+            .Should().BeFalse();
 
     [Fact]
     public void GesperrteRegel_WirktNicht_AuchWennAktiv() =>

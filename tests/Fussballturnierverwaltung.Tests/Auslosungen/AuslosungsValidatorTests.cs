@@ -622,6 +622,17 @@ public class AuslosungsValidatorTests
             "Die Runde erwartet 8 Teams (oder mindestens 7 mit Freilos), aber es sind erst 6 zugewiesen.");
     }
 
+    // #548: Das Freilos gilt im Schweizer System immer, ersetzt dort aber kein fehlendes Team.
+    [Fact]
+    public void Rundenerwartung_SchweizerSystem_EinTeamWenigerWirdAbgelehnt()
+    {
+        var topf = Topf(1, 1, Enumerable.Range(1, 9).Select(Eintrag).ToArray());
+        var a    = Auslosung(Rundenart.SchweizerSystem, Auslosungsart.Zufall, lostoepfe: [topf], eingangsAnzahl: 10);
+
+        _validator.Validieren(a, AlleEintraege(a)).Fehler.Should().Equal(
+            "Die Runde erwartet 10 Teams, aber es sind erst 9 zugewiesen.");
+    }
+
     [Fact]
     public void Rundenerwartung_ZuVieleTeams_WirdAbgelehnt()
     {
