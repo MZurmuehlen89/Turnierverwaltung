@@ -27,7 +27,7 @@ public sealed class MannschaftsAuswahl(Window fenster, string automationId)
         var vorschlag = Wait.UntilFound(
             () => GefilterteVorschlagsliste(mannschaft)?.FindItem(e => e.NameOrEmpty() == mannschaft),
             Wait.DefaultTimeout,
-            $"Vorschlag '{mannschaft}' in '{automationId}'");
+            $"Vorschlag '{mannschaft}' in '{automationId}' (erst wenn jeder sichtbare Vorschlag den Text enthält)");
         vorschlag.ScrollIntoView();
         vorschlag.Click();
     }
