@@ -214,7 +214,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     public ICommand? LoeschenBefehl => LoeschenCommand;
 
     // Sieben Abhängigkeiten, weil die Klasse zwei Editoren (Länder, Verbände) trägt – je Editor Dienst und Validator.
-#pragma warning disable S107 // Aufteilen in zwei Editor-Klassen wäre ein eigener Umbau, nicht Teil von #602/#597
+#pragma warning disable S107 // Aufteilen in zwei Editor-Klassen ist ein eigener Umbau (#606)
     public LaenderUndVerbaendeViewModel(
         LandService landService, VerbandService verbandService, RanglisteService ranglisteService,
         LandValidator landValidator, VerbandValidator verbandValidator, IDialogService dialogService,
