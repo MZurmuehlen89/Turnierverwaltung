@@ -25,12 +25,25 @@ public sealed class MannschaftsAuswahl(Window fenster, string automationId)
         Keyboard.Type(mannschaft);
 
         var vorschlag = Wait.UntilFound(
-            () => fenster.FindFirstDescendant(cf => cf.ByAutomationId(VORSCHLAGSLISTE))
-                ?.FindItem(e => e.NameOrEmpty() == mannschaft),
+            () => GefilterteVorschlagsliste(mannschaft)?.FindItem(e => e.NameOrEmpty() == mannschaft),
             Wait.DefaultTimeout,
             $"Vorschlag '{mannschaft}' in '{automationId}'");
         vorschlag.ScrollIntoView();
         vorschlag.Click();
+    }
+
+    // Die Box zeigt den getippten Text sofort, gefiltert wird aber erst beim TextChanged, das WinUI verzögert meldet
+    // (im CI bis ~0,25 s nach dem letzten Tastendruck, #603). Wer davor sucht, findet den Verein in der ungefilterten
+    // Liste; der Filter ersetzt die Einträge dann unter dem gefundenen Element weg, und ein Klick darauf nimmt der Box
+    // den Fokus und verwirft die Eingabe. Darum erst suchen, wenn jeder sichtbare Vorschlag den Text enthält – das
+    // gilt bei vollem Namen nur für die gefilterte Liste (ein Treffer allein über den Kurznamen hielte hier an).
+    private AutomationElement? GefilterteVorschlagsliste(string eingabe)
+    {
+        var liste = fenster.FindFirstDescendant(cf => cf.ByAutomationId(VORSCHLAGSLISTE));
+        var sichtbar = liste?.FindAllChildren(cf => cf.ByControlType(ControlType.ListItem));
+        bool gefiltert = sichtbar is { Length: > 0 }
+            && sichtbar.All(e => e.NameOrEmpty().Contains(eingabe, StringComparison.CurrentCultureIgnoreCase));
+        return gefiltert ? liste : null;
     }
 
     // Getippt wird ins fokussierte Feld: Im CI-Lauf (#535) übernahm die Box nach dem Klick den Fokus nicht, und der
