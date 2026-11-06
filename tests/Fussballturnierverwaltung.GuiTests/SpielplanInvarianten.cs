@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using FluentAssertions;
 using Fussballturnierverwaltung.GuiTests.Seiten;
 
@@ -17,5 +19,21 @@ internal static class SpielplanInvarianten
         foreach (var spieltag in jeSpieltag)
             spieltag.SelectMany(s => new[] { s.Heim, s.Auswaerts }).Should().BeEquivalentTo(teams,
                 "an {0} spielt jedes Team genau einmal", spieltag.Key);
+    }
+
+    /// <summary>Kein Team spielt mehr als <paramref name="hoechstensInFolge"/>-mal hintereinander zu Hause bzw.
+    /// auswärts (#568); die Spieltage stehen als „ST n“ in der ersten Spalte.</summary>
+    public static void HeimAuswaertsImWechsel(
+        IReadOnlyList<SpielZeile> spiele, IReadOnlySet<string> teams, int hoechstensInFolge)
+    {
+        var nachSpieltag = spiele.OrderBy(s => int.Parse(s.Kennung["ST ".Length..], CultureInfo.InvariantCulture)).ToList();
+        foreach (var team in teams)
+        {
+            string folge = string.Concat(nachSpieltag
+                .Where(s => s.Heim == team || s.Auswaerts == team)
+                .Select(s => s.Heim == team ? 'H' : 'A'));
+            int laengsteSerie = Regex.Matches(folge, "H+|A+").Max(m => m.Length);
+            laengsteSerie.Should().BeLessThanOrEqualTo(hoechstensInFolge, "{0} spielt {1}", team, folge);
+        }
     }
 }

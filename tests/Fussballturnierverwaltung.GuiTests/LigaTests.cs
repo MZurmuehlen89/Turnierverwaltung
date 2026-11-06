@@ -38,6 +38,7 @@ public sealed class LigaTests(TurnierverwaltungApp app) : IClassFixture<Turnierv
         teams.Should().HaveCount(TEAMS);
         JedesPaarHinUndZurueck(spiele);
         SpielplanInvarianten.JedesTeamEinmalJeSpieltag(spiele, teams, SPIELTAGE);
+        SpielplanInvarianten.HeimAuswaertsImWechsel(spiele, teams, hoechstensInFolge: 3);
         TabellenPruefung.Stimmig(tabelle, teams.ToDictionary(t => t, _ => SPIELTAGE));
     }
 
