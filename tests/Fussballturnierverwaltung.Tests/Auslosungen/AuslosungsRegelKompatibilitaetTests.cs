@@ -189,6 +189,7 @@ public class AuslosungsRegelKompatibilitaetTests
     public static TheoryData<AuslosungsRegelArt, Auslosungsart, Rundenart?, bool, string?> SperrGruende() => new()
     {
         // Liga und Schweizer System sperren jede Regel, vor allem anderen — auch eine, die sonst immer gilt
+        // (Ausnahme: das Freilos im Schweizer System, #548, siehe Freilos_ImSchweizerSystem_WirktImmer)
         { AuslosungsRegelArt.KeineGleicheGruppe, Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Liga, true, LIGA },
         { AuslosungsRegelArt.FreilosMoeglich, Auslosungsart.TopfZuordnung, Rundenart.SchweizerSystem, true, SCHWEIZER },
         // Immer aktiv geht jeder anderen Sperre vor

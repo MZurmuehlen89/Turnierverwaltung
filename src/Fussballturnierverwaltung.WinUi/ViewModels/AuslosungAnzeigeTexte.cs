@@ -61,7 +61,8 @@ public static class AuslosungAnzeigeTexte
         AuslosungsRegelArt.FreilosMoeglich =>
             "Bei ungerader Teamanzahl erhält ein zufällig gezogenes Team ein Freilos und zieht " +
             "kampflos in die nächste Runde ein. Ohne diese Regel schlägt die Auslosung fehl, " +
-            "wenn die Anzahl ungerade ist.",
+            "wenn die Anzahl ungerade ist. Im Schweizer System gilt sie immer: Das Team setzt dort einen " +
+            "Spieltag aus.",
         AuslosungsRegelArt.Konfoederationsverteilung =>
             "Die Teams eines Kontinentalverbands werden gleichmäßig auf die Gruppen verteilt: je Gruppe höchstens " +
             "aufgerundet und mindestens abgerundet (Teams des Verbands ÷ Gruppenanzahl). Bei der FIFA-WM ergibt " +
