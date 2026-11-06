@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Abstraktionen;
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
@@ -11,6 +12,7 @@ using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -30,6 +32,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     private readonly VerbandValidator _verbandValidator;
     private readonly RanglisteService _ranglisteService;
     private readonly IDialogService _dialogService;
+    private readonly ILogger<LaenderUndVerbaendeViewModel> _logger;
     private int _populiertGerade;
 
     private static readonly VerbandFilterOption AllesVerband = new("— Alle —", null);
@@ -210,11 +213,12 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     public ICommand? AbbrechenBefehl => AbbrechenCommand;
     public ICommand? LoeschenBefehl => LoeschenCommand;
 
-    // Sechs Abhängigkeiten, weil die Klasse zwei Editoren (Länder, Verbände) trägt – je Editor Dienst und Validator.
-#pragma warning disable S107 // Aufteilen in zwei Editor-Klassen wäre ein eigener Umbau, nicht Teil von #602
+    // Sieben Abhängigkeiten, weil die Klasse zwei Editoren (Länder, Verbände) trägt – je Editor Dienst und Validator.
+#pragma warning disable S107 // Aufteilen in zwei Editor-Klassen wäre ein eigener Umbau, nicht Teil von #602/#597
     public LaenderUndVerbaendeViewModel(
         LandService landService, VerbandService verbandService, RanglisteService ranglisteService,
-        LandValidator landValidator, VerbandValidator verbandValidator, IDialogService dialogService)
+        LandValidator landValidator, VerbandValidator verbandValidator, IDialogService dialogService,
+        ILogger<LaenderUndVerbaendeViewModel> logger)
 #pragma warning restore S107
     {
         _landService = landService;
@@ -223,6 +227,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         _verbandValidator = verbandValidator;
         _ranglisteService = ranglisteService;
         _dialogService = dialogService;
+        _logger = logger;
     }
 
     public override async Task AktivierenAsync() => await LadenAsync();
@@ -413,8 +418,18 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
     private async Task Speichern()
     {
-        if (AktiverTabIndex == 0) await LandSpeichern();
-        else await VerbandSpeichern();
+        // Als Vorgang, weil die Seite danach neu lädt: Ladeanzeige und „Bereit“ für GUI-Tests folgen nur offenen
+        // Vorgängen (#597, Muster aus #535)
+        if (AktiverTabIndex == 0)
+        {
+            using var vorgang = _logger.Vorgang($"Länder: speichern ({LandName})", "Land wird gespeichert …");
+            await LandSpeichern();
+        }
+        else
+        {
+            using var vorgang = _logger.Vorgang($"Verbände: speichern ({VerbandName})", "Verband wird gespeichert …");
+            await VerbandSpeichern();
+        }
     }
 
     private async Task LandSpeichern()
@@ -489,6 +504,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         var bestaetigt = await _dialogService.BestaetigenAsync(
             "Land löschen", $"Soll '{AusgewaehltesLand.Name}' wirklich gelöscht werden?");
         if (!bestaetigt) return;
+        using var vorgang = _logger.Vorgang($"Länder: löschen ({AusgewaehltesLand.Name})", "Land wird gelöscht …");
         Fehlermeldung = null;
         try
         {
@@ -508,6 +524,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         var bestaetigt = await _dialogService.BestaetigenAsync(
             "Verband löschen", $"Soll '{AusgewaehlterVerband.Name}' wirklich gelöscht werden?");
         if (!bestaetigt) return;
+        using var vorgang = _logger.Vorgang($"Verbände: löschen ({AusgewaehlterVerband.Name})", "Verband wird gelöscht …");
         Fehlermeldung = null;
         try
         {

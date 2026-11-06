@@ -58,12 +58,13 @@ public sealed class MannschaftenSeite(Window fenster, Hauptfenster hauptfenster)
     public void OffensivSetzen(int wert) =>
         fenster.FindById("Mannschaften.Offensiv").Patterns.RangeValue.Pattern.SetValue(wert);
 
-    /// <summary>Speichert und wartet, bis die Seite neu geladen hat – erkennbar daran, dass Speichern wieder gesperrt
-    /// ist (keine ungespeicherten Änderungen mehr).</summary>
+    /// <summary>Speichert und wartet, bis die Seite neu geladen hat. Der gesperrte Speichern-Knopf zeigt nur, dass der
+    /// Klick angekommen ist – der Befehl ist auch während der Ausführung gesperrt; das Ende meldet der Ladezustand,
+    /// weil der Editor als Vorgang speichert (#597).</summary>
     public void Speichern()
     {
         fenster.ActivateById("Befehlsleiste.Speichern");
-        Wait.Until(() => !SpeichernFreigegeben, Wait.DefaultTimeout, "gespeichert (Speichern wieder gesperrt)");
+        Wait.Until(() => !SpeichernFreigegeben, Wait.DefaultTimeout, "Speichern gestartet (Knopf gesperrt)");
         hauptfenster.WarteBisRuhig();
     }
 

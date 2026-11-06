@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Abstraktionen;
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -10,6 +11,7 @@ using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -26,6 +28,7 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
     private readonly RegelwerkService _service;
     private readonly RegelwerkValidator _validator;
     private readonly IDialogService _dialogService;
+    private readonly ILogger<RegelwerkeViewModel> _logger;
     private int _populiertGerade;
 
     private static readonly RankingSetOption _keinRankingSet = new("— Keines —", null);
@@ -144,11 +147,14 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
     public ICommand? AbbrechenBefehl => AbbrechenCommand;
     public ICommand? LoeschenBefehl => LoeschenCommand;
 
-    public RegelwerkeViewModel(RegelwerkService service, RegelwerkValidator validator, IDialogService dialogService)
+    public RegelwerkeViewModel(
+        RegelwerkService service, RegelwerkValidator validator, IDialogService dialogService,
+        ILogger<RegelwerkeViewModel> logger)
     {
         _service = service;
         _validator = validator;
         _dialogService = dialogService;
+        _logger = logger;
     }
 
     public override async Task AktivierenAsync() => await LadenAsync();
@@ -248,6 +254,9 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
     private async Task Speichern()
     {
+        // Als Vorgang, weil die Seite danach neu lädt: Ladeanzeige und „Bereit“ für GUI-Tests folgen nur offenen
+        // Vorgängen (#597, Muster aus #535)
+        using var vorgang = _logger.Vorgang($"Regelwerke: speichern ({Name})", "Regelwerk wird gespeichert …");
         Fehlermeldung = null;
         try
         {
@@ -285,6 +294,7 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
         var bestaetigt = await _dialogService.BestaetigenAsync(
             "Regelwerk löschen", $"Soll '{Ausgewaehltes.Name}' wirklich gelöscht werden?");
         if (!bestaetigt) return;
+        using var vorgang = _logger.Vorgang($"Regelwerke: löschen ({Ausgewaehltes.Name})", "Regelwerk wird gelöscht …");
         Fehlermeldung = null;
         try
         {

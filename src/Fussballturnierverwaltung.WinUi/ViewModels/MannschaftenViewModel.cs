@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Abstraktionen;
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Stammdaten.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -10,6 +11,7 @@ using Fussballturnierverwaltung.WinUi.Dialoge;
 using Fussballturnierverwaltung.WinUi.Helpers;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -28,6 +30,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
     private readonly LandService _landService;
     private readonly MannschaftValidator _validator;
     private readonly IDialogService _dialogService;
+    private readonly ILogger<MannschaftenViewModel> _logger;
     private int _populiertGerade;
 
     private static readonly LandFilterOption AllesLand = new("— Alle —", null);
@@ -187,12 +190,13 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
 
     public MannschaftenViewModel(
         MannschaftService mannschaftService, LandService landService, MannschaftValidator validator,
-        IDialogService dialogService)
+        IDialogService dialogService, ILogger<MannschaftenViewModel> logger)
     {
         _mannschaftService = mannschaftService;
         _landService = landService;
         _validator = validator;
         _dialogService = dialogService;
+        _logger = logger;
     }
 
     public override async Task AktivierenAsync() => await LadenAsync();
@@ -320,6 +324,9 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
     private async Task Speichern()
     {
+        // Als Vorgang, weil die Seite danach neu lädt: Ladeanzeige und „Bereit“ für GUI-Tests folgen nur offenen
+        // Vorgängen (#597, Muster aus #535)
+        using var vorgang = _logger.Vorgang($"Mannschaften: speichern ({Name})", "Mannschaft wird gespeichert …");
         Fehlermeldung = null;
         try
         {
@@ -357,6 +364,7 @@ public partial class MannschaftenViewModel : ViewModelBase, IRibbonAware, IHatUn
             $"Soll '{Ausgewaehlte.Name}' wirklich gelöscht werden?");
         if (!bestaetigt) return;
 
+        using var vorgang = _logger.Vorgang($"Mannschaften: löschen ({Ausgewaehlte.Name})", "Mannschaft wird gelöscht …");
         Fehlermeldung = null;
         try
         {
