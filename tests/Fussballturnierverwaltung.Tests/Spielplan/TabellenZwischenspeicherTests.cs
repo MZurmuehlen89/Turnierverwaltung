@@ -49,7 +49,7 @@ public class TabellenZwischenspeicherTests
 
         var rundeRepo = new TurnierRundeRepository(ctx);
         var spielRepo = new SpielRepository(ctx);
-        return new TabellenZwischenspeicher(new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx), new RanglisteRepository(ctx)), spielRepo);
+        return new TabellenZwischenspeicher(new TabellenService(rundeRepo, spielRepo, new RegelwerkRepository(ctx), new RanglisteRepository(ctx), new AuslosungRepository(ctx)), spielRepo);
     }
 
     [Fact]

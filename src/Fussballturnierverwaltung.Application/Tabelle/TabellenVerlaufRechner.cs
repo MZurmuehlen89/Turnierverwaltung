@@ -48,11 +48,14 @@ public sealed record TabellenVerlauf(
 public static class TabellenVerlaufRechner
 {
     /// <summary>Alle bekannten Teilnehmer stehen in jedem Stand — auch wer am ersten Spieltag spielfrei war oder bisher
-    /// nur gegen offene Platzhalter angesetzt ist (#397).</summary>
+    /// nur gegen offene Platzhalter angesetzt ist (#397). <paramref name="weitereTeilnehmer"/> nennt Teams, die noch
+    /// in keinem Spiel stehen (Freilos im Schweizer System, #608).</summary>
     public static TabellenVerlauf Berechnen(
-        int? gruppenNummer, IReadOnlyList<Spiel> spiele, TabellenRegeln regeln)
+        int? gruppenNummer, IReadOnlyList<Spiel> spiele, TabellenRegeln regeln,
+        IReadOnlyList<Mannschaft>? weitereTeilnehmer = null)
     {
-        var teilnehmer = GruppenRechner.AufgeloesteTeilnehmer(spiele);
+        IReadOnlyList<Mannschaft> teilnehmer =
+            [.. GruppenRechner.AufgeloesteTeilnehmer(spiele).Concat(weitereTeilnehmer ?? []).DistinctBy(m => m.Id)];
         var spieltage = TabellenRechner.SpieltageMitErgebnis(spiele);
         var staende = spieltage
             .Select(spieltag => (Spieltag: spieltag, Tabelle: TabellenRechner.TabelleBerechnen(

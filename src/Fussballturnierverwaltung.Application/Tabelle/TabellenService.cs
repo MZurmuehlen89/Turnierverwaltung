@@ -1,6 +1,8 @@
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turniere;
+using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
@@ -13,7 +15,8 @@ public class TabellenService(
     ITurnierRundeRepository rundeRepository,
     ISpielRepository spielRepository,
     IRegelwerkRepository regelwerkRepository,
-    IRanglisteRepository ranglisteRepository)
+    IRanglisteRepository ranglisteRepository,
+    IAuslosungRepository auslosungRepository)
 {
     /// <summary>Zonen der Runde aus ihren ausgehenden Übergangsregeln (<c>ZielRunde</c> geladen) und ihren
     /// Tabellenbereichen (Issue #420).</summary>
@@ -31,7 +34,7 @@ public class TabellenService(
     {
         var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
         var tabelle = TabellenRechner.TabelleDerAnsichtBerechnen(
-            TabellenRechner.BisSpieltag(daten.Spiele, bisSpieltag), ansicht, daten.Regeln);
+            TabellenRechner.BisSpieltag(daten.Spiele, bisSpieltag), ansicht, daten.Regeln, daten.Teilnehmer);
 
         // Issue #358: mögliche Ränge nur für den aktuellen Gesamtstand — Teilansichten und historische
         // Spieltage sind keine Wertung, aus der sich ein Weiterkommen ableiten ließe.
@@ -47,7 +50,7 @@ public class TabellenService(
         int turnierRundeId, CancellationToken ct = default)
     {
         var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
-        var tabelle = TabellenRechner.TabelleBerechnen(daten.Spiele, daten.Regeln);
+        var tabelle = TabellenRechner.TabelleBerechnen(daten.Spiele, daten.Regeln, teilnehmer: daten.Teilnehmer);
         RangPrognose.LigaRaengeSetzen(tabelle, daten.Runde, daten.Spiele, daten.Regeln.PunkteRegel);
         RangPrognose.SicherPositionierteMarkieren(tabelle);
         return tabelle;
@@ -88,7 +91,7 @@ public class TabellenService(
     {
         var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
         if (daten.Runde.Rundenart != Rundenart.Gruppenphase)
-            return [TabellenVerlaufRechner.Berechnen(gruppenNummer: null, daten.Spiele, daten.Regeln)];
+            return [TabellenVerlaufRechner.Berechnen(gruppenNummer: null, daten.Spiele, daten.Regeln, daten.Teilnehmer)];
 
         return [.. GruppenRechner.GruppenErmitteln(daten.Spiele)
             .Select(g => TabellenVerlaufRechner.Berechnen(g.Nummer, g.Spiele, daten.Regeln))];
@@ -96,8 +99,10 @@ public class TabellenService(
 
     // ── Laden ─────────────────────────────────────────────────────────────
 
-    /// <summary>Alles, woraus die Tabellen einer Runde gerechnet werden - je Aufruf einmal geladen (#439).</summary>
-    private sealed record TabellenDaten(TurnierRunde Runde, TabellenRegeln Regeln, IReadOnlyList<Spiel> Spiele);
+    /// <summary>Alles, woraus die Tabellen einer Runde gerechnet werden - je Aufruf einmal geladen (#439).
+    /// <see cref="Teilnehmer"/> sind Teams, die auch ohne Spiel in der Tabelle stehen (#608).</summary>
+    private sealed record TabellenDaten(
+        TurnierRunde Runde, TabellenRegeln Regeln, IReadOnlyList<Spiel> Spiele, IReadOnlyList<Mannschaft> Teilnehmer);
 
     private async Task<TabellenDaten> TabellenDatenLadenAsync(int turnierRundeId, CancellationToken ct)
     {
@@ -123,8 +128,26 @@ public class TabellenService(
             .ToList() ?? [];
 
         var ranglistenPlaetze = await RanglistenPlaetzeLadenAsync(runde, rankingRegeln, ct);
-        return new TabellenDaten(runde, new TabellenRegeln(punkteRegel, rankingRegeln, ranglistenPlaetze), alleSpiele);
+        var teilnehmer = await TeilnehmerOhneSpielLadenAsync(runde, ct);
+        return new TabellenDaten(
+            runde, new TabellenRegeln(punkteRegel, rankingRegeln, ranglistenPlaetze), alleSpiele, teilnehmer);
     }
+
+    /// <summary>Schweizer System (#608): Ein Team mit Freilos hat an diesem Spieltag keinen Spiel-Datensatz. Bis es
+    /// zum ersten Mal angesetzt ist, kennt nur die abgeschlossene Auslosung es. Andere Rundenarten legen alle
+    /// Spiele auf einmal an, dort genügen die Spiele.</summary>
+    private async Task<IReadOnlyList<Mannschaft>> TeilnehmerOhneSpielLadenAsync(TurnierRunde runde, CancellationToken ct)
+    {
+        if (runde.Rundenart != Rundenart.SchweizerSystem) return [];
+        var auslosung = await auslosungRepository.FindenAbgeschlosseneNachRundeAsync(runde.TurnierInstanzId, runde.Id, ct);
+        return auslosung is null ? [] : AusgeloesteMannschaften(auslosung);
+    }
+
+    private static List<Mannschaft> AusgeloesteMannschaften(Auslosung auslosung) =>
+        [.. auslosung.Ergebnisse
+            .SelectMany(e => new[] { e.HeimMannschaft, e.AuswaertsMannschaft })
+            .OfType<Mannschaft>()
+            .DistinctBy(m => m.Id)];
 
     /// <summary>Plätze der Standard-Rangliste der Runde für das Kriterium <see cref="RankingRegelArt.Koeffizient"/>
     /// (Issue #354) — dieselbe Rangliste, nach der die Lostöpfe gebildet werden. Nur geladen, wenn das Regelset das

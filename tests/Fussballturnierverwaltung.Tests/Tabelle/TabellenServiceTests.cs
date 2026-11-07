@@ -26,7 +26,8 @@ public class TabellenServiceTests
         new(new TurnierRundeRepository(ctx),
             new SpielRepository(ctx),
             new RegelwerkRepository(ctx),
-            new RanglisteRepository(ctx));
+            new RanglisteRepository(ctx),
+            new AuslosungRepository(ctx));
 
     // Legt Regelwerk + PunkteRegel + TurnierRunde an (ohne RankingRegelSet).
     private static void GrundSetupAnlegen(
@@ -1178,5 +1179,84 @@ public class TabellenServiceTests
 
         verlauf.GruppenNummer.Should().BeNull();
         verlauf.Mannschaften.Single(m => m.Mannschaft.Id == 2).Punkte.Select(p => p.Platz).Should().Equal(2, 2);
+    }
+
+    // ── Schweizer System: Team mit Freilos ohne Spiel (Issue #608) ──────────
+
+    /// <summary>Schweizer System mit drei Teams: Team 1 schlägt Team 2 an Spieltag 1 mit 1:0, Team 3 hat laut
+    /// Auslosung ein Freilos und steht noch in keinem Spiel.</summary>
+    private static async Task<TabellenService> SchweizerMitFreilosAsync(TurnierverwaltungDbContext ctx)
+    {
+        GrundSetupAnlegen(ctx, out int rundeId);
+        ctx.TurnierRunden.Single().Rundenart = Rundenart.SchweizerSystem;
+        ctx.Mannschaften.Add(new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 });
+        await ctx.SaveChangesAsync();
+        await Spielplan.SpielplanTestdaten.SchweizerAuslosungAnlegen(ctx, rundeId, (1, 2), (3, null));
+        SpielHinzufuegen(ctx, 1, rundeId, 1, 2, 1, 0, siegerMannschaftId: 1, spieltag: 1);
+        return ServiceFuer(ctx);
+    }
+
+    [Fact]
+    public async Task TabelleBerechnenAsync_SchweizerSystem_FreilosTeamStehtOhneSpielInDerTabelle()
+    {
+        await using var ctx = NeuerContext();
+        var service = await SchweizerMitFreilosAsync(ctx);
+
+        var tabelle = await service.TabelleBerechnenAsync(1);
+
+        tabelle.Select(e => e.Mannschaft.Id).Should().Equal(1, 3, 2);
+        var freilos = tabelle.Single(e => e.Mannschaft.Id == 3);
+        freilos.Spiele.Should().Be(0);
+        freilos.Punkte.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task TabelleBerechnenAsync_SchweizerSystemBisSpieltag_FreilosTeamStehtInDerTabelle()
+    {
+        await using var ctx = NeuerContext();
+        var service = await SchweizerMitFreilosAsync(ctx);
+
+        var tabelle = await service.TabelleBerechnenAsync(1, bisSpieltag: 1);
+
+        tabelle.Select(e => e.Mannschaft.Id).Should().BeEquivalentTo([1, 2, 3]);
+    }
+
+    [Fact]
+    public async Task LigaTabelleMitSicherheitBerechnenAsync_SchweizerSystem_FreilosTeamStehtInDerTabelle()
+    {
+        await using var ctx = NeuerContext();
+        var service = await SchweizerMitFreilosAsync(ctx);
+
+        var tabelle = await service.LigaTabelleMitSicherheitBerechnenAsync(1);
+
+        tabelle.Select(e => e.Mannschaft.Id).Should().BeEquivalentTo([1, 2, 3]);
+    }
+
+    [Fact]
+    public async Task VerlaeufeBerechnenAsync_SchweizerSystem_FreilosTeamIstAmErstenSpieltagSpielfrei()
+    {
+        await using var ctx = NeuerContext();
+        var service = await SchweizerMitFreilosAsync(ctx);
+
+        var verlauf = (await service.VerlaeufeBerechnenAsync(1)).Should().ContainSingle().Subject;
+
+        var punkt = verlauf.Mannschaften.Single(m => m.Mannschaft.Id == 3).Punkte.Should().ContainSingle().Subject;
+        punkt.Platz.Should().Be(2);
+        punkt.SpieleAmSpieltag.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task TabelleBerechnenAsync_Liga_ZiehtKeineTeamsAusDerAuslosungHinzu()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int rundeId);
+        ctx.Mannschaften.Add(new Mannschaft { Id = 3, Name = "Team C", Kurzname = "TC", LandId = 1 });
+        await ctx.SaveChangesAsync();
+        await Spielplan.SpielplanTestdaten.SchweizerAuslosungAnlegen(ctx, rundeId, (1, 2), (3, null));
+        SpielHinzufuegen(ctx, 1, rundeId, 1, 2, 1, 0, siegerMannschaftId: 1, spieltag: 1);
+
+        var tabelle = await ServiceFuer(ctx).TabelleBerechnenAsync(rundeId);
+
+        tabelle.Select(e => e.Mannschaft.Id).Should().BeEquivalentTo([1, 2]);
     }
 }

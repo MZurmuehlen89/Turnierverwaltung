@@ -33,9 +33,11 @@ public static class TabellenRechner
     }
 
     /// <summary>Tabelle einer <see cref="TabellenAnsicht"/>: Hin- und Rückrunde werten nur die Spiele ihrer
-    /// Hälfte, Heim- und Auswärtstabelle je Team nur die eine Seite.</summary>
+    /// Hälfte, Heim- und Auswärtstabelle je Team nur die eine Seite. <paramref name="teilnehmer"/> wie bei
+    /// <see cref="TabelleBerechnen"/>.</summary>
     public static IReadOnlyList<TabellenEintrag> TabelleDerAnsichtBerechnen(
-        IReadOnlyList<Spiel> spiele, TabellenAnsicht ansicht, TabellenRegeln regeln)
+        IReadOnlyList<Spiel> spiele, TabellenAnsicht ansicht, TabellenRegeln regeln,
+        IReadOnlyList<Mannschaft>? teilnehmer = null)
     {
         spiele = ansicht switch
         {
@@ -51,7 +53,7 @@ public static class TabellenRechner
             _                                => null
         };
 
-        return TabelleBerechnen(spiele, regeln, nurHeimspiele);
+        return TabelleBerechnen(spiele, regeln, nurHeimspiele, teilnehmer);
     }
 
     /// <summary>Die Spiele bis einschließlich <paramref name="bisSpieltag"/> - der Stand nach diesem Spieltag;
