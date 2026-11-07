@@ -18,11 +18,11 @@ public class SchweizerRundenfolge(
 
         // Die Auslosung ist Voraussetzung: aus ihr kennt die Tabelle auch ein Team, das an Spieltag 1 ein Freilos
         // hatte und deshalb noch in keinem Spiel steht (#608) — ohne es würde es nie wieder eingeplant.
-        _ = await auslosungRepository.FindenAbgeschlosseneNachRundeAsync(runde.TurnierInstanzId, turnierRundeId, ct)
+        _ = await auslosungRepository.AusgeloesteMannschaftenAsync(runde.TurnierInstanzId, turnierRundeId, ct)
             ?? throw new InvalidOperationException($"Für Runde '{runde.Name}' wurde noch keine Auslosung abgeschlossen.");
         var tabelle = await tabellenService.TabelleBerechnenAsync(turnierRundeId, ct: ct);
 
-        List<int> sortierteIds = [.. tabelle.OrderBy(e => e.Rang).Select(e => e.Mannschaft.Id)];
+        List<int> sortierteIds = [.. tabelle.Select(e => e.Mannschaft.Id)]; // nach Rang sortiert
         return await spielplanService.SchweizerRundeGenerierenAsync(turnierRundeId, sortierteIds, ct);
     }
 }

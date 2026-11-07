@@ -2,7 +2,6 @@ using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Turniere;
-using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
@@ -139,15 +138,8 @@ public class TabellenService(
     private async Task<IReadOnlyList<Mannschaft>> TeilnehmerOhneSpielLadenAsync(TurnierRunde runde, CancellationToken ct)
     {
         if (runde.Rundenart != Rundenart.SchweizerSystem) return [];
-        var auslosung = await auslosungRepository.FindenAbgeschlosseneNachRundeAsync(runde.TurnierInstanzId, runde.Id, ct);
-        return auslosung is null ? [] : AusgeloesteMannschaften(auslosung);
+        return await auslosungRepository.AusgeloesteMannschaftenAsync(runde.TurnierInstanzId, runde.Id, ct) ?? [];
     }
-
-    private static List<Mannschaft> AusgeloesteMannschaften(Auslosung auslosung) =>
-        [.. auslosung.Ergebnisse
-            .SelectMany(e => new[] { e.HeimMannschaft, e.AuswaertsMannschaft })
-            .OfType<Mannschaft>()
-            .DistinctBy(m => m.Id)];
 
     /// <summary>Plätze der Standard-Rangliste der Runde für das Kriterium <see cref="RankingRegelArt.Koeffizient"/>
     /// (Issue #354) — dieselbe Rangliste, nach der die Lostöpfe gebildet werden. Nur geladen, wenn das Regelset das

@@ -193,6 +193,46 @@ public class SpielplanServiceTests
             .Should().Contain(5, "Team 5 muss nach seinem Freilos in Spieltag 2 wieder eingeplant werden");
     }
 
+    [Fact]
+    public async Task SchweizerRundenfolge_NaechsteRunde_FreilosTeamWirdNachSeinemTabellenplatzGepaart()
+    {
+        // #608: Team 7 (Freilos, 0 Punkte, 0:0) steht vor den Verlierern von Spieltag 1 (0 Punkte, 0:1) und wird
+        // deshalb mit dem dritten Sieger gepaart. Vorher kam es ohne Tabellenplatz ans Ende und traf einen Verlierer.
+        await using var ctx = NeuerContext();
+        SchweizerSystemGrundSetupAnlegen(ctx, out int rundeId);
+        ctx.TurnierRunden.Single().EingangsMannschaftsanzahl = 7;
+        ctx.TurnierRunden.Single().AusgangsMannschaftsanzahl = 7;
+        ctx.Mannschaften.AddRange(
+            new Mannschaft { Id = 5, Name = "Team E", Kurzname = "TE", LandId = 1 },
+            new Mannschaft { Id = 6, Name = "Team F", Kurzname = "TF", LandId = 1 },
+            new Mannschaft { Id = 7, Name = "Team G", Kurzname = "TG", LandId = 1 });
+        await ctx.SaveChangesAsync();
+
+        var auslosung = await SchweizerAuslosungAnlegen(ctx, rundeId, (1, 2), (3, 4), (5, 6), (7, null));
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(rundeId, [.. auslosung.Ergebnisse]);
+
+        var spieltag1 = ctx.Spiele.Where(s => s.TurnierRundeId == rundeId).ToList();
+        foreach (var s in spieltag1)
+        {
+            ctx.SpielErgebnisse.Add(new SpielErgebnis
+            {
+                SpielId = s.Id, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0,
+                EntscheidungArt = EntscheidungArt.RegulaereSpielzeit
+            });
+            s.Status = SpielStatus.Abgeschlossen;
+        }
+        await ctx.SaveChangesAsync();
+        var sieger = spieltag1.Select(s => s.HeimMannschaftId!.Value).ToList();
+
+        await dienste.Schweizer.NaechsteRundeGenerierenAsync(rundeId);
+
+        var spielVon7 = ctx.Spiele.Single(s => s.TurnierRundeId == rundeId && s.Spieltag == 2
+            && (s.HeimMannschaftId == 7 || s.AuswaertsMannschaftId == 7));
+        int gegner = spielVon7.HeimMannschaftId == 7 ? spielVon7.AuswaertsMannschaftId!.Value : spielVon7.HeimMannschaftId!.Value;
+        sieger.Should().Contain(gegner, "das Freilos-Team steht mit 0:0 vor den Verlierern von Spieltag 1");
+    }
+
     // ── Tests: Platzhalter-Gruppenphase in der Kaskade (Issue #395) ─────────
 
     [Fact]

@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
@@ -56,16 +57,38 @@ public class AuslosungRepository(TurnierverwaltungDbContext context)
     public async Task<Auslosung?> FindenAbgeschlosseneNachRundeAsync(
         int turnierInstanzId, int turnierRundeId, CancellationToken ct = default)
     {
-        var trefferId = await Context.Auslosungen
+        var trefferId = await AbgeschlosseneIdAsync(turnierInstanzId, turnierRundeId, ct);
+        return trefferId is null ? null : await FindenNachIdMitDetailsAsync(trefferId.Value, ct);
+    }
+
+    public async Task<IReadOnlyList<Mannschaft>?> AusgeloesteMannschaftenAsync(
+        int turnierInstanzId, int turnierRundeId, CancellationToken ct = default)
+    {
+        var trefferId = await AbgeschlosseneIdAsync(turnierInstanzId, turnierRundeId, ct);
+        if (trefferId is null) return null;
+
+        var ergebnisse = await Context.AuslosungsErgebnisse
+            .Where(e => e.AuslosungId == trefferId.Value)
+            .Include(e => e.HeimMannschaft)
+                .ThenInclude(m => m!.Land)
+            .Include(e => e.AuswaertsMannschaft)
+                .ThenInclude(m => m!.Land)
+            .ToListAsync(ct);
+
+        return [.. ergebnisse
+            .SelectMany(e => new[] { e.HeimMannschaft, e.AuswaertsMannschaft })
+            .OfType<Mannschaft>()
+            .DistinctBy(m => m.Id)];
+    }
+
+    private Task<int?> AbgeschlosseneIdAsync(int turnierInstanzId, int turnierRundeId, CancellationToken ct) =>
+        Context.Auslosungen
             .Where(a => a.TurnierInstanzId == turnierInstanzId
                      && a.TurnierRundeId == turnierRundeId
                      && a.Status == AuslosungsStatus.Abgeschlossen)
             .OrderByDescending(a => a.Id)
             .Select(a => (int?)a.Id)
             .FirstOrDefaultAsync(ct);
-
-        return trefferId is null ? null : await FindenNachIdMitDetailsAsync(trefferId.Value, ct);
-    }
 
     public async Task ErgebnisseSetzenUndAbschliessenAsync(
         int auslosungId,

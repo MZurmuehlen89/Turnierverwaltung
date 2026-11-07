@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Auslosungen;
@@ -26,6 +27,10 @@ public interface IAuslosungRepository : IRepository<Auslosung>
     /// <see cref="Spielplan.SpielplanService"/> sie ohne Abhängigkeit auf den Service selbst nutzen kann
     /// (vermeidet eine zirkuläre DI-Abhängigkeit, siehe Issue #306).</summary>
     Task<Auslosung?> FindenAbgeschlosseneNachRundeAsync(int turnierInstanzId, int turnierRundeId, CancellationToken ct = default);
+
+    /// <summary>Die Mannschaften (mit Land) der zuletzt abgeschlossenen Auslosung einer Runde, ohne deren übrige
+    /// Details; <c>null</c>, wenn die Runde keine abgeschlossene Auslosung hat (#608).</summary>
+    Task<IReadOnlyList<Mannschaft>?> AusgeloesteMannschaftenAsync(int turnierInstanzId, int turnierRundeId, CancellationToken ct = default);
 
     Task ErgebnisseSetzenUndAbschliessenAsync(int auslosungId, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct = default);
     Task ErgebnisseLoeschenUndZuruecksetzenAsync(int auslosungId, CancellationToken ct = default);

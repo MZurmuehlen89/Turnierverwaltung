@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
+using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Tests.Auslosungen;
@@ -54,6 +55,15 @@ public class FakeAuslosungRepository : IAuslosungRepository
                      && a.TurnierRundeId == turnierRundeId
                      && a.Status == AuslosungsStatus.Abgeschlossen)
             .MaxBy(a => a.Id));
+
+    public async Task<IReadOnlyList<Mannschaft>?> AusgeloesteMannschaftenAsync(
+        int turnierInstanzId, int turnierRundeId, CancellationToken ct = default) =>
+        await FindenAbgeschlosseneNachRundeAsync(turnierInstanzId, turnierRundeId, ct) is { } auslosung
+            ? [.. auslosung.Ergebnisse
+                .SelectMany(e => new[] { e.HeimMannschaft, e.AuswaertsMannschaft })
+                .OfType<Mannschaft>()
+                .DistinctBy(m => m.Id)]
+            : null;
 
     public Task ErgebnisseSetzenUndAbschliessenAsync(
         int auslosungId, IReadOnlyList<AuslosungsErgebnis> ergebnisse, CancellationToken ct = default)
