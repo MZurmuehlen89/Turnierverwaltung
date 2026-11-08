@@ -43,7 +43,7 @@ public static class RegelwerkeSeedDaten
         var sets = new List<RankingRegelSet>
         {
             new() { Name = "FIFA Standard",  Beschreibung = "Standard FIFA-Gruppenranking (seit 1994)" },
-            new() { Name = "UEFA Standard",  Beschreibung = "Standard UEFA-Gruppenranking" },
+            new() { Name = "UEFA Standard",  Beschreibung = "Standard UEFA-Gruppenranking", DirektenVergleichWiederholen = true },
             new() { Name = UEFA_LIGAPHASE_SET, Beschreibung = "Ligaphase der UEFA-Klubwettbewerbe: kein direkter Vergleich, stattdessen die Werte der Gegner" },
         };
 

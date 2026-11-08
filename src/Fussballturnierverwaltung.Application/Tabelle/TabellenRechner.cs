@@ -5,7 +5,7 @@ using Fussballturnierverwaltung.Domain.Enums;
 namespace Fussballturnierverwaltung.Application.Tabelle;
 
 /// <summary>Rechnet Tabellen aus Spielen, ohne Datenbankzugriff: sammelt die Teams, holt ihre Statistik aus
-/// <see cref="TeamStatistik"/> und sortiert nach den Ranking-Regeln. Die Gruppen einer Gruppenphase bildet <see cref="GruppenRechner"/>, das Laden von Runde,
+/// <see cref="TeamStatistik"/> und lässt sie von <see cref="TabellenSortierung"/> nach den Ranking-Regeln ordnen. Die Gruppen einer Gruppenphase bildet <see cref="GruppenRechner"/>, das Laden von Runde,
 /// Regelwerk und Spielen übernimmt <see cref="TabellenService"/> (#439).</summary>
 public static class TabellenRechner
 {
@@ -16,18 +16,36 @@ public static class TabellenRechner
     /// die auch ohne Spiel gegen einen bereits bekannten Gegner in der Tabelle stehen sollen.</summary>
     public static IReadOnlyList<TabellenEintrag> TabelleBerechnen(
         IReadOnlyList<Spiel> spiele, TabellenRegeln regeln,
-        bool? nurHeimspiele = null, IReadOnlyList<Mannschaft>? teilnehmer = null)
+        bool? nurHeimspiele = null, IReadOnlyList<Mannschaft>? teilnehmer = null) =>
+        Berechnen(spiele, regeln, nurHeimspiele, teilnehmer, nurMannschaften: null);
+
+    /// <summary>Rangfolge nur der <paramref name="mannschaftIds"/>, ihre Statistik aber aus allen
+    /// <paramref name="spiele"/> – etwa die Gruppendritten einer Gruppenphase (#184). Sie werden nur untereinander
+    /// verglichen: die Mini-Tabelle des direkten Vergleichs kennt keine Spiele gegen Teams außerhalb (#628), zwischen
+    /// Teams verschiedener Gruppen entscheidet sie also nichts.</summary>
+    public static IReadOnlyList<TabellenEintrag> RangfolgeBerechnen(
+        IReadOnlyList<Spiel> spiele, IReadOnlySet<int> mannschaftIds, TabellenRegeln regeln,
+        IReadOnlyList<Mannschaft>? teilnehmer = null) =>
+        Berechnen(spiele, regeln, nurHeimspiele: null, teilnehmer, mannschaftIds);
+
+    private static IReadOnlyList<TabellenEintrag> Berechnen(
+        IReadOnlyList<Spiel> spiele, TabellenRegeln regeln, bool? nurHeimspiele,
+        IReadOnlyList<Mannschaft>? teilnehmer, IReadOnlySet<int>? nurMannschaften)
     {
         var teams = TeamsSammeln(spiele, teilnehmer);
         if (teams.Count == 0) return [];
 
+        // Statistik für alle Teams: die Gegner-Summen brauchen auch die Teams, die nicht in der Rangfolge stehen.
         var abgeschlossene = MitErgebnis(spiele);
         var stats = teams.Keys.ToDictionary(
             id => id,
             id => TeamStatistik.Berechnen(id, abgeschlossene, regeln.PunkteRegel, nurHeimspiele));
         TeamStatistik.GegnerSummenErgaenzen(stats, abgeschlossene);
 
-        var eintraege = teams.Select(kv => EintragAus(kv.Value, stats[kv.Key])).ToList();
+        var eintraege = teams
+            .Where(kv => nurMannschaften?.Contains(kv.Key) ?? true)
+            .Select(kv => EintragAus(kv.Value, stats[kv.Key]))
+            .ToList();
         TabellenSortierung.SortierenUndRangZuweisen(eintraege, new TabellenSortierung.Wertung(stats, abgeschlossene, regeln));
         return eintraege;
     }

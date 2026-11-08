@@ -280,6 +280,48 @@ public class TabellenServiceTests
         tabelle[1].Mannschaft.Id.Should().Be(2);
     }
 
+    [Theory]
+    // #628: Die Mini-Tabelle von A, B und C trennt nur C ab. Neu gerechnet entscheidet das Duell (A gewann), sonst
+    // die Tordifferenz aus allen Spielen (B schlug D höher).
+    [InlineData(true, new[] { 3, 1, 2, 4 })]
+    [InlineData(false, new[] { 3, 2, 1, 4 })]
+    public async Task TabelleBerechnenAsync_DirektenVergleichWiederholen_KommtAusDemRegelset(bool wiederholen, int[] erwartet)
+    {
+        await using var ctx = NeuerContext();
+        var arten = new[]
+        {
+            RankingRegelArt.Punkte, RankingRegelArt.DirekterVergleichPunkte, RankingRegelArt.DirekterVergleichTordifferenz,
+            RankingRegelArt.DirekterVergleichErzielteTore, RankingRegelArt.Tordifferenz, RankingRegelArt.Losentscheid
+        };
+        ctx.RankingRegelSets.Add(new RankingRegelSet { Id = 1, Name = "UEFA", DirektenVergleichWiederholen = wiederholen });
+        ctx.RankingRegeln.AddRange(arten.Select((art, i) => new RankingRegel
+        {
+            Id = i + 1, Regelart = art,
+            Sortierrichtung = art == RankingRegelArt.Losentscheid ? Sortierrichtung.Aufsteigend : Sortierrichtung.Absteigend
+        }));
+        ctx.RankingRegelSetEintraege.AddRange(arten.Select((_, i) => new RankingRegelSetEintrag
+            { Id = i + 1, RankingRegelSetId = 1, RankingRegelId = i + 1, Reihenfolge = i + 1 }));
+        ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard", RankingRegelSetId = 1 });
+        ctx.PunkteRegeln.Add(new PunkteRegel
+            { Id = 1, RegelwerkId = 1, PunkteFuerSieg = 3, PunkteFuerUnentschieden = 1, PunkteFuerNiederlage = 0 });
+        ctx.TurnierRunden.Add(new TurnierRunde
+            { Id = 1, TurnierInstanzId = 1, Name = "Liga", Rundenart = Rundenart.Liga, RegelwerkId = 1, Reihenfolge = 1 });
+        ctx.Mannschaften.AddRange(Enumerable.Range(1, 4).Select(id =>
+            new Mannschaft { Id = id, Name = $"Team {id}", Kurzname = $"T{id}", LandId = 1 }));
+        ctx.SaveChanges();
+
+        SpielHinzufuegen(ctx, 1, rundeId: 1, heimId: 1, auswaertsId: 2, heimTore: 1, auswaertsTore: 0);
+        SpielHinzufuegen(ctx, 2, rundeId: 1, heimId: 2, auswaertsId: 3, heimTore: 2, auswaertsTore: 1);
+        SpielHinzufuegen(ctx, 3, rundeId: 1, heimId: 3, auswaertsId: 1, heimTore: 2, auswaertsTore: 1);
+        SpielHinzufuegen(ctx, 4, rundeId: 1, heimId: 1, auswaertsId: 4, heimTore: 1, auswaertsTore: 0);
+        SpielHinzufuegen(ctx, 5, rundeId: 1, heimId: 2, auswaertsId: 4, heimTore: 3, auswaertsTore: 0);
+        SpielHinzufuegen(ctx, 6, rundeId: 1, heimId: 3, auswaertsId: 4, heimTore: 1, auswaertsTore: 0);
+
+        var tabelle = await ServiceFuer(ctx).TabelleBerechnenAsync(1);
+
+        tabelle.Select(e => e.Mannschaft.Id).Should().Equal(erwartet);
+    }
+
     // ── Gegner-Kriterien der UEFA-Ligaphase (Issue #353) ───────────────────
 
     // Die beiden punktgleichen Teams haben je einen Gegner, deren Werte sich je Kriterium widersprechen:

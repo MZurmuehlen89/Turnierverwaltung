@@ -125,8 +125,9 @@ public class TabellenService(
 
         var ranglistenPlaetze = await RanglistenPlaetzeLadenAsync(runde, rankingRegeln, ct);
         var teilnehmer = await TeilnehmerOhneSpielLadenAsync(runde, ct);
-        return new TabellenDaten(
-            runde, new TabellenRegeln(punkteRegel, rankingRegeln, ranglistenPlaetze), alleSpiele, teilnehmer);
+        var regeln = new TabellenRegeln(
+            punkteRegel, rankingRegeln, ranglistenPlaetze, regelwerk.RankingRegelSet?.DirektenVergleichWiederholen ?? false);
+        return new TabellenDaten(runde, regeln, alleSpiele, teilnehmer);
     }
 
     /// <summary>Schweizer System (#608): Ein Team mit Freilos hat an diesem Spieltag keinen Spiel-Datensatz. Bis es

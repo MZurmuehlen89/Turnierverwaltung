@@ -39,26 +39,20 @@ public static class GruppenRechner
 
     /// <summary>Rangfolge der Kandidaten an einer festen Platzierung (z.B. "Platz 3") über alle Gruppen hinweg,
     /// sortiert nach denselben Ranking-Regeln wie innerhalb einer Gruppe (Issue #184).
-    /// "Direkter Vergleich"-Kriterien liefern zwischen Teams aus verschiedenen Gruppen naturgemäß keinen Treffer
-    /// (kein gemeinsames Spiel) und fallen automatisch auf das nächste Kriterium durch - kein Sonderfall nötig.
+    /// Die Kandidaten werden nur untereinander verglichen (<see cref="TabellenRechner.RangfolgeBerechnen"/>): der
+    /// direkte Vergleich findet zwischen Teams verschiedener Gruppen kein Spiel und entscheidet nichts (#628).
     /// Die Kandidaten kommen aus denselben Gruppentabellen wie in <see cref="GruppenTabelleBerechnen"/> - gleiche
     /// Teilnehmer, gleicher Stand <paramref name="bisSpieltag"/> (#480, vorher #449).</summary>
     public static IReadOnlyList<TabellenEintrag> UebergreifendeRangfolgeBerechnen(
         IReadOnlyList<Spiel> alleSpiele, int platzierung, int? bisSpieltag, TabellenRegeln regeln)
     {
-        // Gesamttabelle über ALLE Teams der Runde - liefert korrekte Team-Stats (die Statistik filtert
-        // ohnehin je Team auf dessen eigene Spiele) und die richtige Sortierreihenfolge in einem Aufwasch.
-        var gesamtTabelle = TabellenRechner.TabelleBerechnen(
-            TabellenRechner.BisSpieltag(alleSpiele, bisSpieltag), regeln, teilnehmer: AufgeloesteTeilnehmer(alleSpiele));
-
         var kandidatenIds = GruppenErmitteln(alleSpiele)
             .Select(g => GruppenTabelleBerechnen(g.Nummer, g.Spiele, bisSpieltag, regeln)
                 .Tabelle.FirstOrDefault(e => e.Rang == platzierung)?.Mannschaft.Id)
             .Where(id => id.HasValue).Select(id => id!.Value).ToHashSet();
 
-        var ergebnis = gesamtTabelle.Where(e => kandidatenIds.Contains(e.Mannschaft.Id)).ToList();
-        for (int i = 0; i < ergebnis.Count; i++) ergebnis[i].Rang = i + 1;
-        return ergebnis;
+        return TabellenRechner.RangfolgeBerechnen(
+            TabellenRechner.BisSpieltag(alleSpiele, bisSpieltag), kandidatenIds, regeln, AufgeloesteTeilnehmer(alleSpiele));
     }
 
     /// <summary>Alle bereits feststehenden Teams einer Gruppe — auch solche, die bisher nur gegen noch offene

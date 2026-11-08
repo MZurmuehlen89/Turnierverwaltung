@@ -104,6 +104,77 @@ public class TabellenRechnerTests
         Reihenfolge(nurTordifferenz).Should().Equal(2, 1, 3);
     }
 
+    // ── Direkter Vergleich als Mini-Tabelle (#628) ────────────────────────
+
+    private static RankingRegel[] UefaRegeln() => Regeln(
+        RankingRegelArt.Punkte, RankingRegelArt.DirekterVergleichPunkte, RankingRegelArt.DirekterVergleichTordifferenz,
+        RankingRegelArt.DirekterVergleichErzielteTore, RankingRegelArt.Tordifferenz, RankingRegelArt.ErzielteTore,
+        RankingRegelArt.Losentscheid);
+
+    private static IEnumerable<T[]> Permutationen<T>(T[] elemente) =>
+        elemente.Length <= 1
+            ? [elemente]
+            : elemente.SelectMany((e, i) => Permutationen([.. elemente.Where((_, j) => j != i)]).Select(rest => (T[])[e, .. rest]));
+
+    [Fact]
+    public void TabelleBerechnen_DreierZyklus_EntscheidetDieMiniTabelle_InJederSpielreihenfolge()
+    {
+        // 1 schlägt 2 1:0, 2 schlägt 3 1:0, 3 schlägt 1 3:0 – alle drei mit 3 Punkten. Paarweise ist das ein Kreis
+        // (bisher je nach Spielreihenfolge eine andere Rangfolge), die Mini-Tabelle ordnet nach Tordifferenz:
+        // 3 (+2), 2 (0), 1 (−2).
+        var paare = new[] { (1, 2, 1, 0), (2, 3, 1, 0), (3, 1, 3, 0) };
+
+        foreach (var reihenfolge in Permutationen(paare))
+        {
+            var tabelle = TabellenRechner.TabelleBerechnen(
+                [.. reihenfolge.Select(p => Spiel(p.Item1, p.Item2, p.Item3, p.Item4))], new(_dreiPunkte, UefaRegeln()));
+
+            Reihenfolge(tabelle).Should().Equal([3, 2, 1], $"Spielreihenfolge {string.Join(", ", reihenfolge)}");
+        }
+    }
+
+    [Theory]
+    // Die Mini-Tabelle von 1, 2 und 3 trennt nur 3 ab (mehr Tore untereinander). 1 und 2 bleiben gleich: neu
+    // gerechnet entscheidet ihr Duell (1 gewann), sonst die Tordifferenz aus allen Spielen (2 schlug 4 höher).
+    [InlineData(true, new[] { 3, 1, 2, 4 })]
+    [InlineData(false, new[] { 3, 2, 1, 4 })]
+    public void TabelleBerechnen_MiniTabelleTrenntNurEinenTeil_RechnetSieJeNachRegelsetFuerDieUebrigenNeu(
+        bool wiederholen, int[] erwartet)
+    {
+        Spiel[] spiele =
+        [
+            Spiel(1, 2, 1, 0), Spiel(2, 3, 2, 1), Spiel(3, 1, 2, 1),
+            Spiel(1, 4, 1, 0), Spiel(2, 4, 3, 0), Spiel(3, 4, 1, 0)
+        ];
+
+        var tabelle = TabellenRechner.TabelleBerechnen(
+            spiele, new(_dreiPunkte, UefaRegeln(), DirektenVergleichWiederholen: wiederholen));
+
+        tabelle.Where(e => e.Mannschaft.Id != 4).Should().OnlyContain(e => e.Punkte == 6);
+        Reihenfolge(tabelle).Should().Equal(erwartet);
+    }
+
+    [Fact]
+    public void TabelleBerechnen_FifaReihenfolge_WertetDieMiniTabelleNurUnterDenNachToreGleichen()
+    {
+        // FIFA: erst Punkte, Tordifferenz und Tore aus allen Spielen. 1, 2 und 3 haben gleich viele Punkte, aber nur
+        // 1 und 2 auch gleiche Tordifferenz und Tore – deren Duell entscheidet (2 gewann), 3 spielt in der Mini-Tabelle
+        // nicht mit. Mit 3 wäre sie ein Kreis aus drei 1:0-Siegen, und der Losentscheid setzte 1 vor 2.
+        Spiel[] spiele =
+        [
+            Spiel(2, 1, 1, 0), Spiel(1, 3, 1, 0), Spiel(3, 2, 1, 0),
+            Spiel(1, 4, 1, 0), Spiel(2, 4, 1, 0), Spiel(3, 4, 3, 0)
+        ];
+        var fifa = Regeln(
+            RankingRegelArt.Punkte, RankingRegelArt.Tordifferenz, RankingRegelArt.ErzielteTore,
+            RankingRegelArt.DirekterVergleichPunkte, RankingRegelArt.DirekterVergleichTordifferenz,
+            RankingRegelArt.DirekterVergleichErzielteTore, RankingRegelArt.Losentscheid);
+
+        var tabelle = TabellenRechner.TabelleBerechnen(spiele, new(_dreiPunkte, fifa));
+
+        Reihenfolge(tabelle).Should().Equal(3, 2, 1, 4);
+    }
+
     [Fact]
     public void TabelleBerechnen_Losentscheid_OrdnetGleichstaendeNachTeamId()
     {
@@ -383,6 +454,27 @@ public class TabellenRechnerTests
     public void OffenePlaetze_OhnePlatzhalter_IstLeer()
     {
         GruppenRechner.OffenePlaetze([Spiel(1, 2), Spiel(2, 1, 1, 0)]).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void UebergreifendeRangfolge_VergleichtDieKandidatenNurUntereinander()
+    {
+        // #628: Die Dritten 3 (Gruppe 1) und 7 (Gruppe 2) haben je 3 Punkte, 7 die bessere Tordifferenz (−1 gegen −2).
+        // In Gruppe 1 stehen auch 2 und 4 bei 3 Punkten; eine Mini-Tabelle über alle punktgleichen Teams der Runde
+        // gäbe 3 seine 3 Punkte aus dem Kreis 2–3–4 und 7 keinen, und 3 stünde vorn.
+        Spiel[] spiele =
+        [
+            Spiel(1, 2, 1, 0, gruppe: 1), Spiel(1, 3, 2, 0, gruppe: 1), Spiel(1, 4, 3, 0, gruppe: 1),
+            Spiel(2, 3, 1, 0, gruppe: 1), Spiel(3, 4, 1, 0, gruppe: 1), Spiel(4, 2, 1, 0, gruppe: 1),
+            Spiel(5, 6, 1, 0, gruppe: 2), Spiel(5, 7, 1, 0, gruppe: 2), Spiel(5, 8, 1, 0, gruppe: 2),
+            Spiel(6, 7, 1, 0, gruppe: 2), Spiel(6, 8, 1, 0, gruppe: 2), Spiel(7, 8, 1, 0, gruppe: 2)
+        ];
+
+        var rangfolge = GruppenRechner.UebergreifendeRangfolgeBerechnen(
+            spiele, platzierung: 3, bisSpieltag: null, new(_dreiPunkte, UefaRegeln(), DirektenVergleichWiederholen: true));
+
+        Reihenfolge(rangfolge).Should().Equal(7, 3);
+        rangfolge.Select(e => e.Rang).Should().Equal(1, 2);
     }
 
     [Fact]

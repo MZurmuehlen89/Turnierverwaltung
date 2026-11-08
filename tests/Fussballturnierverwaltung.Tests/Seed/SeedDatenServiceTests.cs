@@ -307,6 +307,20 @@ public class SeedDatenServiceTests
         }
     }
 
+    [Fact]
+    public async Task InitialisierenAsync_NurUefaStandardRechnetDenDirektenVergleichNeu()
+    {
+        // #628: UEFA wiederholt die Mini-Tabelle für die übrigen gleichen Teams (EM-Reglement Art. 20.01d), FIFA nicht.
+        await using var ctx = new TurnierverwaltungDbContext(new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options);
+
+        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+        (await ctx.RankingRegelSets.Where(s => s.DirektenVergleichWiederholen).Select(s => s.Name).ToListAsync())
+            .Should().Equal("UEFA Standard");
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
