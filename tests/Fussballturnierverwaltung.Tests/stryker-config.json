@@ -10,6 +10,10 @@
       "!**/*Service.cs"
     ],
     "additional-timeout": 120000,
+    "ignore-methods": [
+      "LogInformation", "LogWarning", "LogError", "LogDebug", "LogTrace", "Vorgang",
+      "*Exception.ctor"
+    ],
     "reporters":[ "html", "json", "progress" ],
     "thresholds": { "high": 80, "low": 60, "break": 0 }
   }

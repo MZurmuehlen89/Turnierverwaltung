@@ -34,6 +34,11 @@ Spielplan, Tabelle, Simulation in Application, without `*Service` classes. Repor
   variable); Stryker then drops *all* mutants of that method ("Safe Mode", status CompileError). Those methods stay
   unchecked — code is not rewritten for this.
 - `Timeout` counts as detected (typically an endless loop after a statement mutation).
+- `ignore-methods` in `stryker-config.json` skips mutants inside log calls (`LogInformation` …, `Vorgang`) and
+  exception constructors (message texts) — noise, not test gaps. Other user-visible texts (event texts, rule names)
+  stay in and are judged case by case.
+- Second full run (08.11.2026, 2 h 10 min): score 81.2 %, 413 Survived / 109 NoCoverage, 0 Dubious. Follow-up
+  issues per area: #615 Simulation, #616 Spielplan, #617 Tabelle, #618 Auslosungen.
 - **Verify results — the MTP runner is still "preview"** (Stryker logs a warning). Stryker issue #3871: a test that
   exceeds the timeout during per-test coverage capture is marked `Dubious` and attached to almost every mutant; a
   surviving mutant then runs into the timeout and counts as detected. The first full run (01.11.2026) reported
