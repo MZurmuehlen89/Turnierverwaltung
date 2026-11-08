@@ -48,7 +48,7 @@ public partial class TurnierTabKoordinator : ObservableObject
         {
             var begriff = Suchbegriff;
             return Instanzen
-                .Where(i => NurVorlagenAnzeigen ? i.Status == TurnierStatus.Vorlage : i.Status != TurnierStatus.Vorlage)
+                .Where(PasstZumVorlagenFilter)
                 .Where(i => string.IsNullOrWhiteSpace(begriff)
                     || i.Name.Contains(begriff, StringComparison.OrdinalIgnoreCase)
                     || i.Variante.Contains(begriff, StringComparison.OrdinalIgnoreCase));
@@ -72,11 +72,21 @@ public partial class TurnierTabKoordinator : ObservableObject
     /// da hier (anders als beim WPF-Vorbild) kein geteilter Kontext-Service existiert.</summary>
     public event Action<TurnierInstanz?>? AusgewaehlteInstanzGesetzt;
 
-    public TurnierTabKoordinator(TurnierInstanzService service, ViewModelBase[] tabs, AusgewaehlteTurnierInstanzService? turnierAuswahlService = null)
+    private bool PasstZumVorlagenFilter(TurnierInstanz instanz) =>
+        NurVorlagenAnzeigen == (instanz.Status == TurnierStatus.Vorlage);
+
+    /// <summary>Ob die Seite einen Turniere/Vorlagen-Umschalter hat (Turnierkopf ja, Turnierdurchführung nein) —
+    /// siehe <see cref="InstanzenNeuLadenAsync"/>.</summary>
+    private readonly bool _vorlagenUmschaltbar;
+
+    public TurnierTabKoordinator(
+        TurnierInstanzService service, ViewModelBase[] tabs, AusgewaehlteTurnierInstanzService? turnierAuswahlService = null,
+        bool vorlagenUmschaltbar = false)
     {
         _service = service;
         Tabs = tabs;
         _turnierAuswahlService = turnierAuswahlService;
+        _vorlagenUmschaltbar = vorlagenUmschaltbar;
     }
 
     private bool _initialisierungAktiv;
@@ -101,7 +111,11 @@ public partial class TurnierTabKoordinator : ObservableObject
 
     /// <summary>Lädt die Instanzliste neu und wählt, sofern noch vorhanden, die Instanz mit
     /// <paramref name="behalteId"/> erneut aus — genutzt beim initialen Laden sowie nach Speichern/Löschen
-    /// im Turnierkopf-Tab.</summary>
+    /// im Turnierkopf-Tab. Gewählt wird nur, was der Turniere/Vorlagen-Filter zeigt (#550): Mit Umschalter
+    /// (Turnierkopf) springt er auf die Art der Instanz, z. B. auf „Vorlagen“ für eine dort gemerkte Vorlage;
+    /// ohne Umschalter (Turnierdurchführung, nur Turniere) bleibt eine Vorlage ungewählt. Die gemerkte Id im
+    /// geteilten Auswahl-Service bleibt dabei stehen: Die Auswahl war beim frisch erzeugten ViewModel schon
+    /// <c>null</c>, es gibt also keinen Wechsel, der sie überschreibt.</summary>
     public async Task InstanzenNeuLadenAsync(int? behalteId)
     {
         var liste = await _service.AlleAbrufenAsync();
@@ -112,7 +126,13 @@ public partial class TurnierTabKoordinator : ObservableObject
             foreach (var i in liste.OrderBy(i => i.Name)) Instanzen.Add(i);
             OnPropertyChanged(nameof(InstanzenGefiltert));
 
-            AusgewaehlteInstanz = behalteId is { } id ? Instanzen.FirstOrDefault(i => i.Id == id) : null;
+            var instanz = behalteId is { } id ? Instanzen.FirstOrDefault(i => i.Id == id) : null;
+            if (instanz is not null && !PasstZumVorlagenFilter(instanz))
+            {
+                if (_vorlagenUmschaltbar) NurVorlagenAnzeigen = instanz.Status == TurnierStatus.Vorlage;
+                else instanz = null;
+            }
+            AusgewaehlteInstanz = instanz;
         }
         finally { _instanzenWerdenNeuGeladen = false; }
     }

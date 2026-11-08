@@ -48,7 +48,7 @@ public class TurnierlisteViewModel : ViewModelBase, IRibbonAware, IHatUngespeich
 
         // Geteilter Kontext-Service (#299) — hält die Auswahl über den Wechsel zu "Turnierdurchführung"
         // hinweg, da beide ViewModels per Transient-Scope bei jeder Navigation neu erzeugt werden.
-        TabKoordinator = new TurnierTabKoordinator(service, [TurnierkopfVm, RundenVm, VorbelegungVm], turnierAuswahlService);
+        TabKoordinator = new TurnierTabKoordinator(service, [TurnierkopfVm, RundenVm, VorbelegungVm], turnierAuswahlService, vorlagenUmschaltbar: true);
 
         // Aktionen aller Reiter reihen sich hinter einen Turnierwechsel ein und umgekehrt (#416, analog #413/#415).
         TurnierkopfVm.DbContextSchutz = TabKoordinator.DbContextSchutz;
