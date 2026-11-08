@@ -23,6 +23,6 @@ public class SchweizerRundenfolge(
         var tabelle = await tabellenService.TabelleBerechnenAsync(turnierRundeId, ct: ct);
 
         List<int> sortierteIds = [.. tabelle.Select(e => e.Mannschaft.Id)]; // nach Rang sortiert
-        return await spielplanService.SchweizerRundeGenerierenAsync(turnierRundeId, sortierteIds, ct);
+        return await spielplanService.SchweizerRundeGenerierenAsync(runde, sortierteIds, ct);
     }
 }
