@@ -74,24 +74,18 @@ public class SpielplanService(
     {
         var gruppen = GruppenSpielplan.AusAuslosung(ergebnisse);
 
-        if (gruppen.Count > 0 && gruppen.All(g => g.All(s => s.MannschaftId.HasValue)))
-        {
-            await GenerierenAusGruppenAsync(
-                runde,
-                [.. gruppen.Select(g => (IReadOnlyList<int>)[.. g.Select(s => s.MannschaftId!.Value)])],
-                ct);
-        }
-        else
-        {
-            // Platzhalter-Gruppenphase, auch gemischt mit festen Teams (#395 — vorher fielen die
-            // Platzhalter einer gemischten Gruppe hier stillschweigend weg): Berger-Round-Robin über Slots
-            if (gruppen.Count == 0 || gruppen.All(g => g.Count < 2))
-                throw new InvalidOperationException(ergebnisse.Any()
-                    ? "Keine gültigen Gruppen-Zuordnungen in der Auslosung gefunden."
-                    : "Die Auslosung hat keine Ergebnisse. Bitte die Auslosung zuerst durchführen.");
+        // Feste Teams und Platzhalter (auch gemischt, #395) über einen Berger-Plan je Gruppe — denselben, gegen den
+        // die Kaskade den gespeicherten Plan prüft (#620; vorher baute ein zweiter Weg Gruppen mit festen Teams)
+        if (gruppen.All(g => g.Count < 2))
+            throw new InvalidOperationException(ergebnisse.Any()
+                ? "Keine gültigen Gruppen-Zuordnungen in der Auslosung gefunden."
+                : "Die Auslosung hat keine Ergebnisse. Bitte die Auslosung zuerst durchführen.");
 
-            await GenerierenAusGruppenMitPlatzhalternAsync(runde, gruppen, ct);
-        }
+        // Modus wie vor der Vereinheitlichung (#620): feste Teams SchnellSimulation, sonst ManuellesErgebnis
+        var modus = gruppen.All(g => g.All(s => s.MannschaftId.HasValue))
+            ? SimulationsModus.SchnellSimulation
+            : SimulationsModus.ManuellesErgebnis;
+        await GenerierenAusGruppenMitPlatzhalternAsync(runde, gruppen, modus, ct);
     }
 
     // Liga, K.-o.-Runde, Finale, Spiel um Platz 3: Platzhalter-Paarungen werden übernommen, feste
@@ -192,68 +186,12 @@ public class SpielplanService(
         return runde;
     }
 
-    /// <summary>
-    /// Generiert den Spielplan für eine Gruppenphase gruppenweise.
-    /// Jede Gruppe bekommt einen eigenen Round-Robin-Spielplan.
-    /// </summary>
-    private async Task GenerierenAusGruppenAsync(
-        TurnierRunde runde,
-        IReadOnlyList<IReadOnlyList<int>> gruppen,
-        CancellationToken ct)
-    {
-        var alleIds      = gruppen.SelectMany(g => g).Distinct().ToList();
-        var mannschaften = await mannschaftRepository.FindenNachIdsAsync(alleIds, ct);
-        int startNr      = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, runde.Id, runde.Reihenfolge, ct);
-        var generator    = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
-
-        var gruppenMitSpielen = new List<(int GruppenIndex, Spiel Spiel)>();
-        var hinRueckspielPaare = new List<(Spiel Hinspiel, Spiel Rueckspiel)>();
-        int tempNr = 1;
-
-        for (int gi = 0; gi < gruppen.Count; gi++)
-        {
-            var gruppenTeams = gruppen[gi]
-                .Select(id => mannschaften.FirstOrDefault(m => m.Id == id))
-                .Where(m => m is not null)
-                .Select(m => m!)
-                .ToList();
-
-            if (gruppenTeams.Count < 2) continue;
-
-            var kontext  = new SpielplanKontext(runde, gruppenTeams, tempNr);
-            var ergebnis = generator.Generieren(kontext);
-            foreach (var spiel in ergebnis.Spiele)
-            {
-                spiel.GruppenNummer = gi + 1;
-                gruppenMitSpielen.Add((gi, spiel));
-            }
-            foreach (var (hinIdx, rueckIdx) in ergebnis.HinRueckspielPaare)
-                hinRueckspielPaare.Add((ergebnis.Spiele[hinIdx], ergebnis.Spiele[rueckIdx]));
-            tempNr += ergebnis.Spiele.Count;
-        }
-
-        var alleSpiele = gruppenMitSpielen
-            .OrderBy(x => x.Spiel.Spieltag ?? 0)
-            .ThenBy(x => x.GruppenIndex)
-            .Select((x, i) => { x.Spiel.Spielnummer = startNr + i; return x.Spiel; })
-            .ToList();
-
-        if (alleSpiele.Count > 0)
-            await SpielplanSpeicherung.HinUndRueckspieleSpeichernAsync(
-                spielRepository,
-                hinRueckspielPaare.Count == 0 ? alleSpiele : [.. hinRueckspielPaare.Select(p => p.Hinspiel)],
-                hinRueckspielPaare, ct);
-
-        logger.LogInformation(
-            "Gruppenphase-Spielplan für Runde '{Runde}' generiert: {Gruppen} Gruppen, {Spiele} Spiele.",
-            runde.Name, gruppen.Count, alleSpiele.Count);
-    }
-
     // ── Platzhalter-Gruppenphase (Berger-Plan über Slots, Issue #395) ─────
 
     private async Task GenerierenAusGruppenMitPlatzhalternAsync(
         TurnierRunde runde,
         IReadOnlyList<IReadOnlyList<GruppenSlot>> gruppen,
+        SimulationsModus modus,
         CancellationToken ct)
     {
         int startNr = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, runde.Id, runde.Reihenfolge, ct);
@@ -271,7 +209,7 @@ public class SpielplanService(
             AuswaertsMannschaftId    = g.Auswaerts.MannschaftId,
             AuswaertsPlatzhalterName = g.Auswaerts.MannschaftId is null ? g.Auswaerts.PlatzhalterName ?? "?" : null,
             Status                   = SpielStatus.Geplant,
-            SimulationsModus         = SimulationsModus.ManuellesErgebnis,
+            SimulationsModus         = modus,
             IstRueckspiel            = g.IstRueckspiel,
         }).ToList();
 
