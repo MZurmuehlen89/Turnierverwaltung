@@ -28,6 +28,7 @@ internal static class PaarungsSuche
         IReadOnlyList<int> reihenfolge, Func<int, int, bool> duerfenSichTreffen, Func<int, bool> darfFreilos)
     {
         private readonly HashSet<int> _offen = [.. reihenfolge];
+        private readonly bool[,] _duerfen = TreffenTabelleAufbauen(reihenfolge, duerfenSichTreffen);
         private readonly List<(int Team, int Gegner)> _paare = [];
         private readonly List<int> _ohneGegner = [];
         private int _schritte;
@@ -54,8 +55,21 @@ internal static class PaarungsSuche
         private (int Team, List<int> Gegner) EngstesTeam()
         {
             var offeneTeams = reihenfolge.Where(_offen.Contains).ToList();
-            int team = offeneTeams.MinBy(t => offeneTeams.Count(g => g != t && duerfenSichTreffen(t, g)));
-            return (team, [.. offeneTeams.Where(g => g != team && duerfenSichTreffen(team, g))]);
+            int team = offeneTeams.MinBy(t => offeneTeams.Count(g => _duerfen[t, g]));
+            return (team, [.. offeneTeams.Where(g => _duerfen[team, g])]);
+        }
+
+        // Je Schritt wird jedes offene Paar gefragt, ob es sich treffen darf — die Regelprüfung dahinter lief so bei
+        // der Ziehung von Hand (64 Teams, rund 900 Suchen) millionenfach. Einmal je Suche vorab berechnet (#549).
+        // Die Team-Werte sind Indizes ab 0.
+        private static bool[,] TreffenTabelleAufbauen(IReadOnlyList<int> teams, Func<int, int, bool> duerfenSichTreffen)
+        {
+            int groesse = teams.Count == 0 ? 0 : teams.Max() + 1;
+            var duerfen = new bool[groesse, groesse];
+            foreach (int x in teams)
+                foreach (int y in teams)
+                    duerfen[x, y] = x != y && duerfenSichTreffen(x, y);
+            return duerfen;
         }
 
         // true beim ersten Gegner, mit dem der Rest aufgeht; null, wenn keiner aufging, aber eine Teilsuche an der
