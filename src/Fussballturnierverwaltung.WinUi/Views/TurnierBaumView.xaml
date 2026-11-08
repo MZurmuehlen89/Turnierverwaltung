@@ -213,6 +213,11 @@
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
 
+                        <!-- #527: unter der Finalkarte; Spalte, Abstand und Inhalt setzt der Code-Behind
+                             (RundenSiegerfeldPositionieren), weil die Karten erst dort ihre Position bekommen. -->
+                        <views:Siegerfeld x:Name="RundenSiegerfeld" Width="240" VerticalAlignment="Top"
+                                          HorizontalAlignment="Center" Visibility="Collapsed" />
+
                         <Canvas x:Name="VerbindungsCanvas" Grid.Column="0" Grid.ColumnSpan="3"
                                 Background="Transparent" IsHitTestVisible="False" />
                         <!-- Issue #340: Farbquelle der Verbindungslinien. ThemeResource wird hier nach dem Theme des

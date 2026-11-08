@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turnierbaum;
+using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turnierbaum;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
@@ -70,6 +71,19 @@ public class BracketKnotenAnzeige
 /// wandert beim vertikalen Strecken mit der Karte, Spaltenköpfe bleiben oben.</summary>
 public record GesamtbaumBeschriftungAnzeige(double X, double Y, double Breite, string Name, bool GehoertZuKarte);
 
+/// <summary>Inhalt des Siegerfelds (#527, <c>Views/Siegerfeld</c>): der Turniersieger, solange er offen ist ohne Namen.</summary>
+public record SiegerfeldAnzeige(string? SiegerName, byte[]? Wappen)
+{
+    public bool IstEntschieden => SiegerName is not null;
+    public string Untertitel => IstEntschieden ? "Turniersieger" : "Turniersieger noch offen";
+    public double PokalDeckkraft => IstEntschieden ? 1.0 : 0.35;
+
+    /// <summary>Ein Siegerfeld gibt es nur, wenn ein Finale das Turnier entscheidet.</summary>
+    public static SiegerfeldAnzeige? Aus(Turnierausgang ausgang) => ausgang.Art == TurnierausgangArt.Finale
+        ? new SiegerfeldAnzeige(ausgang.Sieger?.Name, MannschaftsIcon.Fuer(ausgang.Sieger))
+        : null;
+}
+
 /// <summary>
 /// "Turnierbaum"-Bereich des #301-Composite (<see cref="SpielplanUndBaumViewModel"/>) — 1:1 aus
 /// Wpf/ViewModels/TurnierBaumViewModel.cs portiert. Verbindungslinien-Zeichnung selbst lebt im
@@ -82,6 +96,7 @@ public record GesamtbaumBeschriftungAnzeige(double X, double Y, double Breite, s
 public partial class TurnierBaumViewModel : ViewModelBase
 {
     private readonly TurnierBaumService _baumService;
+    private readonly TurnierausgangService _ausgangService;
 
     private const double NODE_H = 148.0;
     private const double GAP_V = 24.0;
@@ -130,6 +145,19 @@ public partial class TurnierBaumViewModel : ViewModelBase
 
     public ICommand GesamtansichtZeigenBefehl { get; }
     public ICommand RundenweiseZeigenBefehl { get; }
+
+    // ── Siegerfeld (#527) ──────────────────────────────────────────────────────
+
+    /// <summary>Höhe des Siegerfelds in der Gesamtübersicht und sein Abstand von dessen Oberkante bis zur Oberkante
+    /// der Finalkarte (Siegerfeld, Lücke, Beschriftung „Finale“).</summary>
+    public const double SIEGERFELD_H = 88.0;
+    public const double SIEGERFELD_UEBER_FINALE = SIEGERFELD_H + 8.0 + GESAMT_BESCHRIFTUNG_ABSTAND;
+
+    /// <summary><c>null</c>, wenn kein Finale das Turnier entscheidet.</summary>
+    public SiegerfeldAnzeige? Siegerfeld { get; private set; }
+
+    /// <summary>Karte des Finales — das Siegerfeld richtet sich in beiden Ansichten nach ihr.</summary>
+    public BracketKnotenAnzeige? FinaleKnoten { get; private set; }
 
     // ── Rundenweise Navigation (Issue #108/#244) ───────────────────────────────
 
@@ -244,9 +272,11 @@ public partial class TurnierBaumViewModel : ViewModelBase
 
     private readonly RelayCommand<BracketKnotenAnzeige> _knotenAngeklicktBefehl;
 
-    public TurnierBaumViewModel(TurnierBaumService baumService, RundenTabellenViewModel tabellen)
+    public TurnierBaumViewModel(
+        TurnierBaumService baumService, TurnierausgangService ausgangService, RundenTabellenViewModel tabellen)
     {
         _baumService = baumService;
+        _ausgangService = ausgangService;
         Tabellen = tabellen;
         Tabellen.FehlerGemeldet += meldung => Fehlermeldung = meldung;
         Tabellen.GruppeAngeklickt += gruppenNummer => GruppeAngeklickt?.Invoke(this, gruppenNummer);
@@ -287,6 +317,8 @@ public partial class TurnierBaumViewModel : ViewModelBase
     {
         Fehlermeldung = null;
         HatBaum = false;
+        Siegerfeld = null;
+        FinaleKnoten = null;
         Knoten.Clear();
         _rundenNamen.Clear();
         RundenNavigationZuruecksetzen();
@@ -295,7 +327,7 @@ public partial class TurnierBaumViewModel : ViewModelBase
 
         try
         {
-            var runden = await _baumService.BracketLadenAsync(AusgewaehlteInstanz.Id);
+            var runden = await BaumLadenAsync(AusgewaehlteInstanz.Id);
             if (runden.Count == 0) return;
 
             HatBaum = true;
@@ -312,7 +344,7 @@ public partial class TurnierBaumViewModel : ViewModelBase
         if (AusgewaehlteInstanz is null) return;
         try
         {
-            var runden = await _baumService.BracketLadenAsync(AusgewaehlteInstanz.Id);
+            var runden = await BaumLadenAsync(AusgewaehlteInstanz.Id);
             if (runden.Count == 0) return;
             BerechneBracket(runden, rundenNavigationZuruecksetzen: false);
         }
@@ -322,11 +354,20 @@ public partial class TurnierBaumViewModel : ViewModelBase
         }
     }
 
+    // Der Sieger wird mit jedem Ergebnis neu ermittelt, deshalb zusammen mit dem Baum.
+    private async Task<IReadOnlyList<BracketRunde>> BaumLadenAsync(int instanzId)
+    {
+        var runden = await _baumService.BracketLadenAsync(instanzId);
+        Siegerfeld = runden.Count > 0 ? SiegerfeldAnzeige.Aus(await _ausgangService.ErmittelnAsync(instanzId)) : null;
+        return runden;
+    }
+
     private void BerechneBracket(IReadOnlyList<BracketRunde> runden, bool rundenNavigationZuruecksetzen)
     {
         _rundenNamen.Clear();
         _rundenNamen.AddRange(runden.Select(RundenBezeichnung.Name));
         KnotenAufbauen(runden);
+        FinaleKnotenSetzen(runden);
 
         if (rundenNavigationZuruecksetzen)
             RundenNavigationZuruecksetzen();
@@ -334,6 +375,16 @@ public partial class TurnierBaumViewModel : ViewModelBase
             RundenNavigationAktualisieren();
 
         BerechneGesamtbaum(runden);
+    }
+
+    // Das Finale ist die einzige Karte der letzten Runde vor dem Spiel um Platz 3.
+    private void FinaleKnotenSetzen(IReadOnlyList<BracketRunde> runden)
+    {
+        int finaleIndex = -1;
+        for (int ri = 0; ri < runden.Count; ri++)
+            if (!runden[ri].IstSpielUmPlatzDrei) finaleIndex = ri;
+        var karten = Knoten.Where(k => k.RundenIndex == finaleIndex).ToList();
+        FinaleKnoten = karten.Count == 1 ? karten[0] : null;
     }
 
     private void KnotenAufbauen(IReadOnlyList<BracketRunde> runden)
@@ -399,7 +450,23 @@ public partial class TurnierBaumViewModel : ViewModelBase
             .ToList();
         GesamtBreite = 2 * GESAMT_RAND + Math.Max(0, layout.SpaltenAnzahl * (KOMPAKT_W + GESAMT_GAP_H) - GESAMT_GAP_H);
         GesamtHoehe = GESAMT_KOPF_H + layout.ZeilenAnzahl * GESAMT_UNIT + GESAMT_RAND;
+        PlatzFuerSiegerfeldSchaffen();
         GesamtbaumNeuBerechnet?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Das Siegerfeld steht über dem Finale (#527). Reicht der Platz bis zum oberen Rand nicht (kleine
+    /// Bäume), rücken alle Karten samt ihren Beschriftungen nach unten; die Spaltenköpfe bleiben oben.</summary>
+    private void PlatzFuerSiegerfeldSchaffen()
+    {
+        if (Siegerfeld is null || FinaleKnoten is not { IstInGesamtbaum: true } finale) return;
+
+        double versatz = GESAMT_RAND + SIEGERFELD_UEBER_FINALE - finale.GesamtY;
+        if (versatz <= 0) return;
+
+        foreach (var k in Knoten.Where(k => k.IstInGesamtbaum))
+            k.GesamtY += versatz;
+        GesamtBeschriftungen = [.. GesamtBeschriftungen.Select(b => b.GehoertZuKarte ? b with { Y = b.Y + versatz } : b)];
+        GesamtHoehe += versatz;
     }
 
     private static BracketKnotenAnzeige BaueKnotenAnzeige(

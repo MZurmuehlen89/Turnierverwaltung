@@ -16,7 +16,10 @@
                  von Views/ZonenMarke nach dem Theme des Elements.
                  Tabellenverlauf (#480): drei Linienfarben der hervorgehobenen Mannschaften, Schlüssel "VerlaufFarbe" +
                  Nummer + "Brush" — Hell/Dunkel getrennt gewählt und gegen den Seitenhintergrund geprüft (dataviz-Validator:
-                 alle Paare unterscheidbar, auch bei Farbfehlsichtigkeit). -->
+                 alle Paare unterscheidbar, auch bei Farbfehlsichtigkeit).
+                 Turniersieger (#527): Gold für Pokal, Platz 1 und den Rahmen des Siegerfelds, dazu ein heller bzw.
+                 dunkler Goldton als Hintergrund des Siegerfelds. -->
+
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="ZonenFarbeGruenBrush" Color="#1E9E57" />
@@ -28,6 +31,8 @@
                     <SolidColorBrush x:Key="VerlaufFarbe1Brush" Color="#2A78D6" />
                     <SolidColorBrush x:Key="VerlaufFarbe2Brush" Color="#EB6834" />
                     <SolidColorBrush x:Key="VerlaufFarbe3Brush" Color="#1BAF7A" />
+                    <SolidColorBrush x:Key="SiegerFarbeBrush" Color="#A8790C" />
+                    <SolidColorBrush x:Key="SiegerHintergrundBrush" Color="#FBF3DF" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="ZonenFarbeGruenBrush" Color="#4CC38A" />
@@ -39,6 +44,8 @@
                     <SolidColorBrush x:Key="VerlaufFarbe1Brush" Color="#3987E5" />
                     <SolidColorBrush x:Key="VerlaufFarbe2Brush" Color="#D95926" />
                     <SolidColorBrush x:Key="VerlaufFarbe3Brush" Color="#199E70" />
+                    <SolidColorBrush x:Key="SiegerFarbeBrush" Color="#E8B84A" />
+                    <SolidColorBrush x:Key="SiegerHintergrundBrush" Color="#3A3121" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 

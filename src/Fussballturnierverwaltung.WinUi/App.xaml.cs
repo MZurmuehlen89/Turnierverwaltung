@@ -113,6 +113,7 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddScoped<AuslosungService>();
         builder.Services.AddScoped<TabellenService>();
         builder.Services.AddScoped<StatistikService>();
+        builder.Services.AddScoped<TurnierausgangService>();
         builder.Services.AddScoped<ISpielplanGenerator, RoundRobinGenerator>();
         builder.Services.AddScoped<ISpielplanGenerator, KoRundeGenerator>();
         builder.Services.AddScoped<ISpielplanGenerator, TopfLigaGenerator>();

@@ -1,5 +1,6 @@
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Statistiken;
+using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Enums;
 
@@ -21,9 +22,10 @@ public record SpielListe(string Titel, string WertTitel, IReadOnlyList<TurnierSp
     public bool HatHinweis => Hinweis is not null;
 }
 
-/// <summary>Alles, was der Statistik-Bereich „Turnier“ (#432) zeigt: Kacheln oben, darunter Verteilungen, Bestenlisten
-/// von Spielen und zuletzt Ergebnisse und Torabschnitte.</summary>
+/// <summary>Alles, was der Statistik-Bereich „Turnier“ (#432) zeigt: ganz oben die Platzierungen (#527, <c>null</c> ohne
+/// Turniersieger), dann Kacheln, darunter Verteilungen, Bestenlisten von Spielen und zuletzt Ergebnisse und Torabschnitte.</summary>
 public record TurnierSeite(
+    PlatzierungsBlock? Platzierungen,
     IReadOnlyList<Kachel> Kacheln,
     IReadOnlyList<KennzahlBlock> Verteilungen,
     IReadOnlyList<SpielListe> Spiellisten,
@@ -34,11 +36,12 @@ public static class TurnierSeitenBuilder
 {
     private const int LISTEN_LAENGE = 5;
 
-    public static TurnierSeite Erstellen(IReadOnlyList<MannschaftsSpiel> spiele)
+    public static TurnierSeite Erstellen(IReadOnlyList<MannschaftsSpiel> spiele, Turnierausgang ausgang)
     {
         var runden = TurnierStatistikBerechnung.ToreJeRunde(spiele);
 
         return new TurnierSeite(
+            PlatzierungsBlockBuilder.Erstellen(ausgang),
             Kacheln(runden),
             [.. new[] { Ausgaenge(spiele), Entscheidungen(spiele), ToreJeRunde(runden) }.OfType<KennzahlBlock>()],
             [HoechsteSiege(spiele), TorreichsteSpiele(spiele), Ueberraschungen(spiele)],

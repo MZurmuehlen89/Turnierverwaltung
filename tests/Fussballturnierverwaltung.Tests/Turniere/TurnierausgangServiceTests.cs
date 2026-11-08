@@ -49,12 +49,14 @@ public class TurnierausgangServiceTests
         }
     }
 
-    private static void SpielAnlegen(TurnierverwaltungDbContext ctx, int id, int rundeId, int heim, int auswaerts,
+    // Jedes Turnier dieser Tests hat genau eine Runde mit der Id 1.
+    private static void SpielAnlegen(TurnierverwaltungDbContext ctx, int heim, int auswaerts,
         int? spieltag = null, (int Heim, int Auswaerts)? tore = null)
     {
+        int id = ctx.Spiele.Local.Count + 1;
         ctx.Spiele.Add(new Spiel
         {
-            Id = id, TurnierInstanzId = INSTANZ, TurnierRundeId = rundeId, Spielnummer = id, Spieltag = spieltag,
+            Id = id, TurnierInstanzId = INSTANZ, TurnierRundeId = 1, Spielnummer = id, Spieltag = spieltag,
             HeimMannschaftId = heim, AuswaertsMannschaftId = auswaerts,
             Status = tore is null ? SpielStatus.Geplant : SpielStatus.Abgeschlossen
         });
@@ -72,9 +74,9 @@ public class TurnierausgangServiceTests
     {
         using var ctx = NeuerContext();
         TurnierAnlegen(ctx, new TurnierRunde { Id = 1, Name = "Liga", Reihenfolge = 1, Rundenart = Rundenart.Liga, EingangsMannschaftsanzahl = 3 });
-        SpielAnlegen(ctx, 1, 1, 1, 2, spieltag: 1, tore: (1, 0));
-        SpielAnlegen(ctx, 2, 1, 1, 3, spieltag: 2, tore: zweitesSpielGespielt ? (2, 0) : null);
-        SpielAnlegen(ctx, 3, 1, 2, 3, spieltag: 3);
+        SpielAnlegen(ctx, 1, 2, spieltag: 1, tore: (1, 0));
+        SpielAnlegen(ctx, 1, 3, spieltag: 2, tore: zweitesSpielGespielt ? (2, 0) : null);
+        SpielAnlegen(ctx, 2, 3, spieltag: 3);
         await ctx.SaveChangesAsync();
 
         return await ServiceFuer(ctx).ErmittelnAsync(INSTANZ);
@@ -108,7 +110,7 @@ public class TurnierausgangServiceTests
     {
         using var ctx = NeuerContext();
         TurnierAnlegen(ctx, new TurnierRunde { Id = 1, Name = "Finale", Reihenfolge = 1, Rundenart = Rundenart.Finale, EingangsMannschaftsanzahl = 2 });
-        SpielAnlegen(ctx, 1, 1, 1, 2, tore: (0, 1));
+        SpielAnlegen(ctx, 1, 2, tore: (0, 1));
         await ctx.SaveChangesAsync();
 
         var ausgang = await ServiceFuer(ctx).ErmittelnAsync(INSTANZ);

@@ -164,6 +164,24 @@ public sealed partial class TurnierBaumView : UserControl
             Canvas.SetTop(karte, Strecken(k.GesamtY + h / 2) - h / 2);
             GesamtCanvas.Children.Add(karte);
         }
+
+        GesamtSiegerfeldAufbauen(Strecken);
+    }
+
+    // #527: über dem Finale, auf Höhe der gestreckten Finalkarte.
+    private void GesamtSiegerfeldAufbauen(Func<double, double> strecken)
+    {
+        if (_vm?.Siegerfeld is not { } siegerfeld || _vm.FinaleKnoten is not { IstInGesamtbaum: true } finale) return;
+
+        const double h = TurnierBaumViewModel.KOMPAKT_H;
+        var feld = new Siegerfeld
+        {
+            DataContext = siegerfeld, Width = TurnierBaumViewModel.KOMPAKT_W, Height = TurnierBaumViewModel.SIEGERFELD_H,
+            IsHitTestVisible = false
+        };
+        Canvas.SetLeft(feld, finale.GesamtX);
+        Canvas.SetTop(feld, strecken(finale.GesamtY + h / 2) - h / 2 - TurnierBaumViewModel.SIEGERFELD_UEBER_FINALE);
+        GesamtCanvas.Children.Add(feld);
     }
 
     // ── Zoom und Verschieben (Issue #50) ──────────────────────────────────────
@@ -260,6 +278,7 @@ public sealed partial class TurnierBaumView : UserControl
         PositioniereKarten(LinkeSpalteItems, vm.LinkeSpalteKnoten);
         if (vm.ZeigtZweiteSpalte)
             PositioniereKarten(RechteSpalteItems, vm.RechteSpalteKnoten);
+        RundenSiegerfeldPositionieren(vm);
 
         if (!vm.ZeigtZweiteSpalte)
         {
@@ -330,6 +349,30 @@ public sealed partial class TurnierBaumView : UserControl
             if (liste.ContainerFromItem(k) is ContentPresenter praesentator)
                 Canvas.SetTop(praesentator, Math.Max(0, k.FensterY - praesentator.ActualHeight / 2));
         }
+    }
+
+    /// <summary>Siegerfeld (#527) unter die Finalkarte, sofern das Finale im Fenster steht. Läuft bei jedem
+    /// Layout-Durchlauf — geschrieben wird nur, was sich ändert, sonst stieße jede Zuweisung den nächsten an.</summary>
+    private void RundenSiegerfeldPositionieren(TurnierBaumViewModel vm)
+    {
+        var finale = vm.FinaleKnoten;
+        var liste = finale is null ? null
+            : vm.LinkeSpalteKnoten.Contains(finale) ? LinkeSpalteItems
+            : vm.RechteSpalteKnoten.Contains(finale) ? RechteSpalteItems
+            : null;
+
+        if (vm.Siegerfeld is null || liste?.ContainerFromItem(finale) is not ContentPresenter karte || karte.ActualHeight <= 0)
+        {
+            if (RundenSiegerfeld.Visibility != Visibility.Collapsed) RundenSiegerfeld.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        if (!ReferenceEquals(RundenSiegerfeld.DataContext, vm.Siegerfeld)) RundenSiegerfeld.DataContext = vm.Siegerfeld;
+        int spalte = Grid.GetColumn(liste);
+        if (Grid.GetColumn(RundenSiegerfeld) != spalte) Grid.SetColumn(RundenSiegerfeld, spalte);
+        var abstand = new Thickness(0, Canvas.GetTop(karte) + karte.ActualHeight + 24, 0, 0);
+        if (RundenSiegerfeld.Margin != abstand) RundenSiegerfeld.Margin = abstand;
+        if (RundenSiegerfeld.Visibility != Visibility.Visible) RundenSiegerfeld.Visibility = Visibility.Visible;
     }
 
     private void LeereCanvas()

@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Statistiken;
+using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
 using Microsoft.Extensions.Logging;
 
@@ -21,6 +22,7 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
     private const string HINWEIS_KEINE_SPIELE = "Noch keine abgeschlossenen Spiele. Die Statistik erscheint, sobald Ergebnisse vorliegen.";
 
     private readonly StatistikService _service;
+    private readonly TurnierausgangService _ausgangService;
     private readonly ILogger<StatistikViewModel> _logger;
 
     private IReadOnlyList<MannschaftsSpiel> _spiele = [];
@@ -87,10 +89,11 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
     public event EventHandler<int>? MannschaftsSpieleAngefordert;
 
     public StatistikViewModel(
-        StatistikService service, TabellenVerlaufViewModel tabellenVerlauf, MannschaftsVerlaufViewModel mannschaftsVerlauf,
-        ILogger<StatistikViewModel> logger)
+        StatistikService service, TurnierausgangService ausgangService, TabellenVerlaufViewModel tabellenVerlauf,
+        MannschaftsVerlaufViewModel mannschaftsVerlauf, ILogger<StatistikViewModel> logger)
     {
         _service = service;
+        _ausgangService = ausgangService;
         _logger = logger;
         TabellenVerlauf = tabellenVerlauf;
         TabellenVerlauf.FehlerGemeldet += meldung => Fehlermeldung = meldung;
@@ -115,14 +118,15 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
         if (instanz is null || (!istAktiv && instanz.Id != _geladeneInstanzId))
         {
             TabellenRundenUebernehmen(null);
-            SpieleUebernehmen([], instanzId: null);
+            SpieleUebernehmen([], Turnierausgang.Keiner, instanzId: null);
             return;
         }
         if (!istAktiv) return;
 
         using var vorgang = _logger.Vorgang($"Statistik: Turnier setzen (Instanz {instanz.Id})");
         TabellenRundenUebernehmen(instanz);
-        SpieleUebernehmen(await _service.MannschaftsSpieleLadenAsync(instanz.Id), instanz.Id);
+        var spiele = await _service.MannschaftsSpieleLadenAsync(instanz.Id);
+        SpieleUebernehmen(spiele, await _ausgangService.ErmittelnAsync(instanz.Id), instanz.Id);
         if (IstTabellenverlaufsbereich) await TabellenVerlauf.AnzeigenAsync();
     }
 
@@ -173,7 +177,7 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
 
     // ── Laden ─────────────────────────────────────────────────────────────
 
-    private void SpieleUebernehmen(IReadOnlyList<MannschaftsSpiel> spiele, int? instanzId)
+    private void SpieleUebernehmen(IReadOnlyList<MannschaftsSpiel> spiele, Turnierausgang ausgang, int? instanzId)
     {
         bool turnierGewechselt = instanzId != _geladeneInstanzId;
         _spiele = spiele;
@@ -184,7 +188,7 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
             auswertung.IstVerfuegbar = hatHeimUndAuswaerts;
 
         MannschaftUebernehmen(spiele, turnierGewechselt);
-        TurnierSeite = spiele.Count > 0 ? TurnierSeitenBuilder.Erstellen(spiele) : null;
+        TurnierSeite = spiele.Count > 0 ? TurnierSeitenBuilder.Erstellen(spiele, ausgang) : null;
         TabelleAktualisieren();
     }
 

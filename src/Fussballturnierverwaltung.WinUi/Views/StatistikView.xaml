@@ -185,6 +185,28 @@
             </Border>
         </DataTemplate>
 
+        <!-- Platzierungen (#527): Platz 1 in Gold und größer, die Erläuterung rechts nennt das entscheidende Spiel. -->
+        <DataTemplate x:Key="PlatzierungsZeileTemplate" x:DataType="vm:PlatzierungsZeile">
+            <Grid ColumnDefinitions="36,Auto,*,Auto" ColumnSpacing="10" Padding="12,7"
+                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+                <TextBlock Grid.Column="0" Text="{Binding PlatzText}" FontSize="13" FontWeight="Bold"
+                           Foreground="{ThemeResource SiegerFarbeBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Visibility="{Binding IstSieger, Converter={StaticResource BoolToVisibility}}" />
+                <TextBlock Grid.Column="0" Text="{Binding PlatzText}" FontSize="13" FontWeight="Bold" Opacity="0.6"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Visibility="{Binding IstSieger, Converter={StaticResource InverseBoolToVisibility}}" />
+                <Image Grid.Column="1" Source="{Binding Mannschaft, Converter={StaticResource MannschaftZuWappen}}"
+                       Visibility="{Binding Mannschaft, Converter={StaticResource MannschaftHatWappen}}"
+                       Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding Mannschaft.Name}" FontSize="{Binding NamensGroesse}"
+                           FontWeight="SemiBold" TextWrapping="WrapWholeWords" VerticalAlignment="Center"
+                           views:MannschaftsKontextmenue.MannschaftId="{Binding Mannschaft.Id}"
+                           AutomationProperties.AutomationId="{Binding AutomationId}" />
+                <TextBlock Grid.Column="3" Text="{Binding Erlaeuterung}" FontSize="11" Opacity="0.7"
+                           TextAlignment="Right" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
         <!-- Mannschaftsnamen mit Mannschaftsmenü wie auf der Mannschaftsseite; Heim rechtsbündig zum Ergebnis hin. -->
         <DataTemplate x:Key="TurnierSpielZeileTemplate" x:DataType="vm:TurnierSpielZeile">
             <Grid ColumnDefinitions="140,*,Auto,*,90" ColumnSpacing="8" Padding="12,5"
@@ -289,6 +311,18 @@
                     <!-- Turnier (#432) -->
                     <StackPanel DataContext="{Binding TurnierSeite}" VerticalAlignment="Top"
                                 Visibility="{Binding DataContext.IstTurnierbereich, ElementName=AuswertungsListe, Converter={StaticResource BoolToVisibility}}">
+                        <!-- Sichtbarkeit am äußeren Rahmen, der eigene DataContext erst innen (sonst liefe sie gegen den Block). -->
+                        <Border Style="{StaticResource KartenRahmen}" Margin="0,0,0,12"
+                                Visibility="{Binding Platzierungen, Converter={StaticResource NullToCollapsed}}">
+                            <StackPanel MinWidth="520" DataContext="{Binding Platzierungen}">
+                                <TextBlock Text="{Binding Titel}" Style="{StaticResource KartenTitel}" />
+                                <TextBlock Text="{Binding Hinweis}" FontSize="13" Opacity="0.8" TextWrapping="Wrap"
+                                           Padding="12,8,12,10"
+                                           AutomationProperties.AutomationId="Statistik.TurnierausgangOffen"
+                                           Visibility="{Binding HatHinweis, Converter={StaticResource BoolToVisibility}}" />
+                                <ItemsControl ItemsSource="{Binding Zeilen}" ItemTemplate="{StaticResource PlatzierungsZeileTemplate}" />
+                            </StackPanel>
+                        </Border>
                         <ItemsControl ItemsSource="{Binding Kacheln}" ItemTemplate="{StaticResource KachelTemplate}" Margin="0,0,0,12">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
