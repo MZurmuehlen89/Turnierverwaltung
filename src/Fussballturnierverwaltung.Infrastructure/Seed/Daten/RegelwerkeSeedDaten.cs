@@ -36,6 +36,7 @@ public static class RegelwerkeSeedDaten
     // --- RankingRegelSets ---
 
     public const string UEFA_LIGAPHASE_SET = "UEFA Ligaphase (ab 2024/25)";
+    public const string NATIONALE_LIGA_SET = "Nationale Liga (direkter Vergleich)";
 
     public static (List<RankingRegelSet> Sets, List<(string SetName, int Reihenfolge, RankingRegelArt Regelart)> Eintraege)
         RankingRegelSetsErstellen()
@@ -45,6 +46,7 @@ public static class RegelwerkeSeedDaten
             new() { Name = "FIFA Standard",  Beschreibung = "Standard FIFA-Gruppenranking (seit 1994)" },
             new() { Name = "UEFA Standard",  Beschreibung = "Standard UEFA-Gruppenranking", DirektenVergleichWiederholen = true },
             new() { Name = UEFA_LIGAPHASE_SET, Beschreibung = "Ligaphase der UEFA-Klubwettbewerbe: kein direkter Vergleich, stattdessen die Werte der Gegner" },
+            new() { Name = NATIONALE_LIGA_SET, Beschreibung = "Nationale Liga mit direktem Vergleich vor der Tordifferenz (La Liga, Serie A)" },
         };
 
         // Eintraege als (SetName, Reihenfolge, RegelArt) – IDs werden nach SaveChanges aufgelöst
@@ -87,6 +89,18 @@ public static class RegelwerkeSeedDaten
             (UEFA_LIGAPHASE_SET, 10, RankingRegelArt.FairplayWertung),
             (UEFA_LIGAPHASE_SET, 11, RankingRegelArt.Koeffizient),
             (UEFA_LIGAPHASE_SET, 12, RankingRegelArt.Losentscheid),
+
+            // Nationale Liga mit direktem Vergleich (#628, La Liga, Serie A): nur Punkte und Tordifferenz der Spiele
+            // untereinander, keine Neuberechnung, danach die Werte aller Spiele. Das Entscheidungsspiel der Serie A um
+            // Meisterschaft und Abstieg ist nicht abgebildet. Bestehende Datenbanken: Migration
+            // NationaleLigaRegelsetAnlegen.
+            (NATIONALE_LIGA_SET, 1, RankingRegelArt.Punkte),
+            (NATIONALE_LIGA_SET, 2, RankingRegelArt.DirekterVergleichPunkte),
+            (NATIONALE_LIGA_SET, 3, RankingRegelArt.DirekterVergleichTordifferenz),
+            (NATIONALE_LIGA_SET, 4, RankingRegelArt.Tordifferenz),
+            (NATIONALE_LIGA_SET, 5, RankingRegelArt.ErzielteTore),
+            (NATIONALE_LIGA_SET, 6, RankingRegelArt.FairplayWertung),
+            (NATIONALE_LIGA_SET, 7, RankingRegelArt.Losentscheid),
         };
 
         return (sets, eintraege);
@@ -219,7 +233,7 @@ public static class RegelwerkeSeedDaten
             {
                 Name = TurnierVorlagenSeedDaten.LIGA_DIREKTER_VERGLEICH,
                 Beschreibung = "Nationale Liga: 3 Punkte für Sieg, direkter Vergleich vor Tordifferenz (z. B. La Liga, Serie A).",
-                RankingRegelSetId = rankingRegelSetLookup.GetValueOrDefault("UEFA Standard")
+                RankingRegelSetId = rankingRegelSetLookup.GetValueOrDefault(NATIONALE_LIGA_SET)
             },
             Sieg: 3, Unentschieden: 1, Niederlage: 0,
             Verfahren: []

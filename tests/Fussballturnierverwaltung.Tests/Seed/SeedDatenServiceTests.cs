@@ -321,6 +321,27 @@ public class SeedDatenServiceTests
             .Should().Equal("UEFA Standard");
     }
 
+    [Fact]
+    public async Task InitialisierenAsync_LaLigaUndSerieA_WertenNachDemRegelsetDerNationalenLiga()
+    {
+        // #628: direkter Vergleich nur über Punkte und Tordifferenz, ohne Neuberechnung (nicht „UEFA Standard“).
+        await using var ctx = new TurnierverwaltungDbContext(new DbContextOptionsBuilder<TurnierverwaltungDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options);
+
+        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+
+        var regelwerk = await ctx.Regelwerke.Include(r => r.RankingRegelSet!).ThenInclude(s => s.Eintraege)
+            .ThenInclude(e => e.RankingRegel)
+            .SingleAsync(r => r.Name == TurnierVorlagenSeedDaten.LIGA_DIREKTER_VERGLEICH);
+        regelwerk.RankingRegelSet!.Name.Should().Be(RegelwerkeSeedDaten.NATIONALE_LIGA_SET);
+        regelwerk.RankingRegelSet.DirektenVergleichWiederholen.Should().BeFalse();
+        regelwerk.RankingRegelSet.Eintraege.OrderBy(e => e.Reihenfolge).Select(e => e.RankingRegel.Regelart).Should().Equal(
+            RankingRegelArt.Punkte, RankingRegelArt.DirekterVergleichPunkte, RankingRegelArt.DirekterVergleichTordifferenz,
+            RankingRegelArt.Tordifferenz, RankingRegelArt.ErzielteTore, RankingRegelArt.FairplayWertung,
+            RankingRegelArt.Losentscheid);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
