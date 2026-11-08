@@ -71,12 +71,16 @@ public class ZiehungsReihenfolgeTests
     public void Gruppenphase_PositionIstDieGespeicherteReihenfolgeInDerGruppe()
     {
         var toepfe = new List<Lostopf> { Topf(1, 1, 2), Topf(2, 3, 4), Topf(3, 5, 6) };
-        // Gruppe 1: 5, 1, 3 — Gruppe 2: 4, 6, 2 (bewusst nicht in Topf-Reihenfolge gespeichert)
+        // Gruppe 1: 5, 1, 3 — Gruppe 2: 4, 6, 2 (bewusst nicht in Topf-Reihenfolge gespeichert). Die Liste kommt
+        // umgekehrt an: maßgeblich ist die gespeicherte Reihenfolge (Id) wie im Spielplan, nicht die Lesereihenfolge
+        // (#621).
         var ergebnisse = new List<AuslosungsErgebnis>
         {
             GruppenPlatz(1, 5), GruppenPlatz(2, 4), GruppenPlatz(1, 1),
             GruppenPlatz(2, 6), GruppenPlatz(1, 3), GruppenPlatz(2, 2),
         };
+        for (int i = 0; i < ergebnisse.Count; i++) ergebnisse[i].Id = i + 1;
+        ergebnisse.Reverse();
 
         var schritte = ZiehungsReihenfolge.Aufbauen(toepfe, ergebnisse, new Random(3));
 

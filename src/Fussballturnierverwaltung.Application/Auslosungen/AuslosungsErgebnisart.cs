@@ -19,15 +19,15 @@ public static class AuslosungsErgebnisartErmittlung
     public static AuslosungsErgebnisart Von(Auslosung auslosung)
     {
         if (!auslosung.Ergebnisse.Any()) return AuslosungsErgebnisart.Paarungen;
-        if (IstGruppenergebnis(auslosung)) return AuslosungsErgebnisart.Gruppen;
+        if (IstGruppenergebnis(auslosung.Ergebnisse)) return AuslosungsErgebnisart.Gruppen;
         if (auslosung.Auslosungsart == Auslosungsart.TopfZuordnung && auslosung.Lostoepfe.Count >= 2)
             return AuslosungsErgebnisart.GegnerMatrix;
         return AuslosungsErgebnisart.Paarungen;
     }
 
-    /// <summary>Eine Gruppenauslosung speichert je Mannschaft eine Zeile ohne Gegner.</summary>
-    private static bool IstGruppenergebnis(Auslosung auslosung) =>
-        auslosung.Ergebnisse.All(e => !e.IstFreilos &&
-            e.AuswaertsMannschaftId == null &&
-            e.AuswaertsPlatzhalterName == null);
+    /// <summary>Eine Gruppenauslosung speichert je Mannschaft eine Zeile ohne Gegner — die eine Erkennung für
+    /// Ergebnisanzeige und TV-Modus (<see cref="ZiehungsReihenfolge"/>). Ohne Ergebnisse: nein.</summary>
+    internal static bool IstGruppenergebnis(ICollection<AuslosungsErgebnis> ergebnisse) =>
+        ergebnisse.Count > 0 &&
+        ergebnisse.All(e => !e.IstFreilos && e.AuswaertsMannschaftId == null && e.AuswaertsPlatzhalterName == null);
 }

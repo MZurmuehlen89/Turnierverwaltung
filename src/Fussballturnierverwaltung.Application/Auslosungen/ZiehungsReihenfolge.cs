@@ -32,16 +32,10 @@ public static class ZiehungsReihenfolge
         var toepfe        = lostoepfe.OrderBy(l => l.Reihenfolge).ToList();
         var ergebnisListe = ergebnisse.ToList();
 
-        return IstGruppenmodus(ergebnisListe)
+        return AuslosungsErgebnisartErmittlung.IstGruppenergebnis(ergebnisListe)
             ? GruppenSchritte(toepfe, ergebnisListe, zufall)
             : PaarungsSchritte(toepfe, ergebnisListe, zufall);
     }
-
-    /// <summary>Eine Gruppenauslosung speichert je Mannschaft ein Ergebnis ohne Gegner, die Paarungsnummer ist
-    /// die Gruppe.</summary>
-    private static bool IstGruppenmodus(List<AuslosungsErgebnis> ergebnisse) =>
-        ergebnisse.Count > 0 &&
-        ergebnisse.All(e => !e.IstFreilos && e.AuswaertsMannschaftId == null && e.AuswaertsPlatzhalterName == null);
 
     // ── Gruppenphase ──────────────────────────────────────────────────────────
 
@@ -61,14 +55,15 @@ public static class ZiehungsReihenfolge
     }
 
     /// <summary>Position = tatsächlicher Index des Teams innerhalb seiner Gruppe in den Ergebnissen, NICHT
-    /// zufällig gewürfelt: SpielplanService.GenerierenAusAuslosungAsync baut den Spielplan (bei
-    /// Round-Robin/Berger-Rotationsschema reihenfolgeabhängig) exakt aus dieser Reihenfolge — die im TV-Modus
-    /// gezeigte Position muss mit der tatsächlich gespeicherten übereinstimmen, sonst zeigt die Ziehung eine
-    /// Position, die mit dem späteren Spielplan nichts zu tun hat.</summary>
+    /// zufällig gewürfelt: GruppenSpielplan.AusAuslosung baut den Spielplan (bei Round-Robin/Berger-Rotationsschema
+    /// reihenfolgeabhängig) aus dieser Reihenfolge — die im TV-Modus gezeigte Position muss mit der tatsächlich
+    /// gespeicherten übereinstimmen, sonst zeigt die Ziehung eine Position, die mit dem späteren Spielplan nichts zu
+    /// tun hat. Deshalb wie dort nach Id: die Datenbank liefert die Zeilen einer Gruppe nur nach Gruppe sortiert,
+    /// in welcher Reihenfolge innerhalb der Gruppe, legt sie nicht fest (#621).</summary>
     private static Dictionary<AuslosungsErgebnis, int> PositionJeErgebnis(List<AuslosungsErgebnis> ergebnisse) =>
         ergebnisse
             .GroupBy(e => e.PaarungsNummer)
-            .SelectMany(g => g.Select((e, index) => (Ergebnis: e, Position: index + 1)))
+            .SelectMany(g => g.OrderBy(e => e.Id).Select((e, index) => (Ergebnis: e, Position: index + 1)))
             .ToDictionary(x => x.Ergebnis, x => x.Position);
 
     /// <summary>Verteilt die Ziehungsschritte EINES Topfes gleichmäßig auf alle Zielgruppen: reihum wird aus

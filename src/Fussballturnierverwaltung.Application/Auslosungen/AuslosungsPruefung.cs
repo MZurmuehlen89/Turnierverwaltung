@@ -24,8 +24,7 @@ public class AuslosungsPruefung(
         // separate K.o.-Auslosung nach der Gruppenphase) — siehe [[project_verbandsquote_scope]].
         IReadOnlyList<VerbandsQuote>? verbandsQuoten = null;
         IReadOnlyList<LandesQuote>? landesQuoten = null;
-        var ersteRunde = alleRunden.OrderBy(r => r.Reihenfolge).FirstOrDefault();
-        if (ersteRunde is not null && ersteRunde.Id == auslosung.TurnierRundeId)
+        if (QuotenBelegung.GeltenFuer(auslosung.TurnierRundeId, alleRunden))
         {
             verbandsQuoten = await verbandsQuoteRepository.AlleNachTurnierInstanzIdAsync(auslosung.TurnierInstanzId, ct);
             landesQuoten = await landesQuoteRepository.AlleNachTurnierInstanzIdAsync(auslosung.TurnierInstanzId, ct);
