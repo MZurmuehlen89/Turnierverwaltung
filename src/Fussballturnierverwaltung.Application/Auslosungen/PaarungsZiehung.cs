@@ -14,6 +14,7 @@ internal sealed class PaarungsZiehung : IZiehungsAblauf
     private readonly ZiehungsKontext _kontext;
     private readonly TopfPaarStruktur _struktur;
     private readonly bool[] _gezogen;
+    private readonly bool[,] _duerfen; // [x, y]: x und y dürfen sich treffen (Topfpaar und Regeln)
     private readonly List<(int Erster, int? Zweiter, bool IstFreilos)> _paare = [];
     private int? _offen;
 
@@ -23,6 +24,7 @@ internal sealed class PaarungsZiehung : IZiehungsAblauf
         _struktur = new TopfPaarStruktur(
             [.. kontext.Toepfe.Select(t => t.Teilnehmer.Count)], [.. kontext.Teilnehmer.Select(t => t.TopfIndex)]);
         _gezogen  = new bool[kontext.Teilnehmer.Count];
+        _duerfen  = TreffenTabelleAufbauen();
 
         TopfPaarStruktur.UngeradeAnzahlPruefen(kontext.Teilnehmer.Count, kontext.Regeln);
         FreilosVergeben();
@@ -143,8 +145,19 @@ internal sealed class PaarungsZiehung : IZiehungsAblauf
         return PaarungsSuche.Finden(rest, DuerfenSichTreffen, freilose, _struktur.ImUeberhang).Loesbar;
     }
 
-    private bool DuerfenSichTreffen(int x, int y) =>
-        _struktur.DuerfenSichTreffen(x, y) && _kontext.RegelVerstoss(x, y) is null;
+    private bool DuerfenSichTreffen(int x, int y) => _duerfen[x, y];
+
+    // Wer auf wen treffen darf, ändert sich während der Ziehung nicht. Die Vorausschau fragt es aber je Ansage
+    // millionenfach ab (bei 64 Teams rund 900 Suchen) — einmal vorab berechnet, läuft die Ziehung 2,6-mal so schnell (#549).
+    private bool[,] TreffenTabelleAufbauen()
+    {
+        int anzahl  = _gezogen.Length;
+        var duerfen = new bool[anzahl, anzahl];
+        for (int x = 0; x < anzahl; x++)
+            for (int y = 0; y < anzahl; y++)
+                duerfen[x, y] = x != y && _struktur.DuerfenSichTreffen(x, y) && _kontext.RegelVerstoss(x, y) is null;
+        return duerfen;
+    }
 
     // ── Hilfen ────────────────────────────────────────────────────────────────
 

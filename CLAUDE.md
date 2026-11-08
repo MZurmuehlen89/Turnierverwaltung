@@ -125,7 +125,7 @@ silently pass everything when Git Bash's tools are missing from `PATH`.
 
 | Hook | When | What |
 |---|---|---|
-| `Commit-Pruefung.ps1` | before `git commit` | Only if code under `src/`/`tests/` (or build config) changed: build the solution; if Domain or the EF configuration changed, `dotnet ef migrations has-pending-model-changes`; if code outside WinUi/GUI tests changed, run the unit tests. Red → commit blocked. The known flaky test from #549 is retried once on its own. |
+| `Commit-Pruefung.ps1` | before `git commit` | Only if code under `src/`/`tests/` (or build config) changed: build the solution; if Domain or the EF configuration changed, `dotnet ef migrations has-pending-model-changes`; if code outside WinUi/GUI tests changed, run the unit tests. Red → commit blocked. |
 | `Push-Pruefung.ps1` | before `git push` | blocks while the working tree has uncommitted changes |
 | `Migration-Anwenden-Hinweis.ps1` | after `dotnet ef migrations add` | reminds to run `dotnet ef database update` right away |
 

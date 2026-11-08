@@ -57,24 +57,14 @@ if ($befunde.Count -eq 0 -and $modell.Count -gt 0) {
 }
 
 # ── Unit-Tests ────────────────────────
-# Schwankt unter Last (#549) und ist direkt nach dem Build oft rot: wird einmal einzeln wiederholt, bevor er zählt.
-$wackelig = @('Fussballturnierverwaltung.Tests.Auslosungen.ManuelleZiehungTests.Pokal_64TeamsMitLand_GehtImmerAuf')
 $ROT = '^(fehlerhaft|failed)\s+(\S+)\s+\('
 
 if ($befunde.Count -eq 0 -and $ohneWinUi.Count -gt 0) {
     $tests = dotnet test --project tests/Fussballturnierverwaltung.Tests --no-build 2>&1
     if ($LASTEXITCODE -ne 0) {
-        $rot = @($tests | ForEach-Object { if ($_ -match $ROT) { $Matches[2] } })
-        $nurWackelig = $rot.Count -gt 0 -and @($rot | Where-Object { $_ -notin $wackelig }).Count -eq 0
-        if ($nurWackelig) {
-            $methode = ($rot | ForEach-Object { $_.Split('.')[-1] }) -join ' '
-            $tests = dotnet test --project tests/Fussballturnierverwaltung.Tests --no-build -- --filter-method "*$methode" 2>&1
-        }
-        if ($LASTEXITCODE -ne 0) {
-            $details = @($tests | Select-String -Pattern $ROT -Context 0, 4 | Select-Object -First 10 |
-                ForEach-Object { $_.Line; $_.Context.PostContext })
-            $befunde.Add("Unit-Tests rot:`n" + ($details -join "`n") + "`n" + (($tests | Select-Object -Last 6) -join "`n"))
-        }
+        $details = @($tests | Select-String -Pattern $ROT -Context 0, 4 | Select-Object -First 10 |
+            ForEach-Object { $_.Line; $_.Context.PostContext })
+        $befunde.Add("Unit-Tests rot:`n" + ($details -join "`n") + "`n" + (($tests | Select-Object -Last 6) -join "`n"))
     }
 }
 

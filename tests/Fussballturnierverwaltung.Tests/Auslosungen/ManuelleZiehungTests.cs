@@ -344,6 +344,8 @@ public class ManuelleZiehungTests
         while (!z.IstFertig) z.Waehlen(z.Ansage.Optionen.First(o => o.IstFrei).Wert);
 
         z.Ergebnis().Should().HaveCount(32);
-        uhr.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
+        // Einzeln rund 0,7 s, unter Last bis zum Zehnfachen (#549). Die Grenze fängt eine Vorausschau ab, die ins
+        // Zurücksetzen gerät (dann Minuten) — keine langsame Maschine.
+        uhr.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(30));
     }
 }
