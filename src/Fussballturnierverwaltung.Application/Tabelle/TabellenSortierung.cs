@@ -41,7 +41,7 @@ internal static class TabellenSortierung
     {
         var regeln = wertung.Regeln.RankingRegeln;
         if (teams.Count < 2 || ab >= regeln.Count)
-            return [.. teams.Order()];
+            return [.. teams.Order(Comparer<int>.Create(GleichstandAufloesen))];
 
         if (!DirekterVergleich.IstKriterium(regeln[ab].Regelart))
             return [.. Abstufen(teams, NachRegel(regeln[ab], wertung)).SelectMany(stufe => Ordnen(stufe, ab + 1, wertung))];

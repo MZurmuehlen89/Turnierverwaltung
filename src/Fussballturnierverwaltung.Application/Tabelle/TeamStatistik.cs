@@ -14,7 +14,7 @@ internal static class TeamStatistik
     internal static RohStats Berechnen(
         int teamId, IReadOnlyList<Spiel> spiele, PunkteRegel punkteRegel, bool? nurHeimspiele = null)
     {
-        // Schleife statt LINQ: läuft im Sortiervergleich (direkter Vergleich) und je Ergebniskombination der
+        // Schleife statt LINQ: läuft je Mini-Tabelle des direkten Vergleichs und je Ergebniskombination der
         // Rangprognose, dort zählt jede Allokation.
         var zaehler = new Zaehler(teamId);
         foreach (var spiel in spiele)
