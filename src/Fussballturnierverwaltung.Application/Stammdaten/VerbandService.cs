@@ -39,10 +39,22 @@ public class VerbandService(IVerbandRepository repository, VerbandValidator vali
         await repository.AktualisierenAsync(verband, ct);
     }
 
+    /// <summary>Grund, warum der Verband nicht gelöscht werden kann (#559); null = löschbar.</summary>
+    public async Task<string?> LoeschSperreAsync(int id, CancellationToken ct = default)
+        => await SperreAsync(await VerbandFindenAsync(id, ct), ct);
+
     public async Task LoeschenAsync(int id, CancellationToken ct = default)
     {
-        var verband = await repository.FindenNachIdAsync(id, ct)
-            ?? throw new InvalidOperationException($"Verband mit ID {id} nicht gefunden.");
+        var verband = await VerbandFindenAsync(id, ct);
+        var sperre = await SperreAsync(verband, ct);
+        if (sperre is not null) throw new InvalidOperationException(sperre);
         await repository.LoeschenAsync(verband, ct);
     }
+
+    private async Task<string?> SperreAsync(Verband verband, CancellationToken ct) =>
+        LoeschSperre.FuerVerband(verband.Name, await repository.BezuegeZaehlenAsync(verband.Id, ct));
+
+    private async Task<Verband> VerbandFindenAsync(int id, CancellationToken ct) =>
+        await repository.FindenNachIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"Verband mit ID {id} nicht gefunden.");
 }

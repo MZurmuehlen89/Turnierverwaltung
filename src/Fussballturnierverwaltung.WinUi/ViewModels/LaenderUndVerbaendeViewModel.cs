@@ -501,6 +501,8 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     private async Task LandLoeschen()
     {
         if (AusgewaehltesLand is null) return;
+        // Hängt noch etwas am Land, gleich den Grund zeigen statt erst nachzufragen (#559)
+        if (await LoeschSperreMeldenAsync(() => _landService.LoeschSperreAsync(AusgewaehltesLand.Id))) return;
         var bestaetigt = await _dialogService.BestaetigenAsync(
             "Land löschen", $"Soll '{AusgewaehltesLand.Name}' wirklich gelöscht werden?");
         if (!bestaetigt) return;
@@ -521,6 +523,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     private async Task VerbandLoeschen()
     {
         if (AusgewaehlterVerband is null) return;
+        if (await LoeschSperreMeldenAsync(() => _verbandService.LoeschSperreAsync(AusgewaehlterVerband.Id))) return;
         var bestaetigt = await _dialogService.BestaetigenAsync(
             "Verband löschen", $"Soll '{AusgewaehlterVerband.Name}' wirklich gelöscht werden?");
         if (!bestaetigt) return;
@@ -536,6 +539,15 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         {
             Fehlermeldung = ex.Message;
         }
+    }
+
+    /// <summary>Zeigt den Grund, warum sich der Datensatz nicht löschen lässt; true = gesperrt.</summary>
+    private async Task<bool> LoeschSperreMeldenAsync(Func<Task<string?>> sperreErmitteln)
+    {
+        // Als Vorgang, damit GUI-Tests erst nach der Abfrage weitermachen (Muster #597)
+        using var vorgang = _logger.Vorgang("Länder & Verbände: Löschen prüfen", "Löschen wird geprüft …");
+        Fehlermeldung = await sperreErmitteln();
+        return Fehlermeldung is not null;
     }
 
     [RelayCommand]

@@ -95,6 +95,18 @@ public sealed class StammdatenEditor(
         hauptfenster.WarteBisRuhig();
     }
 
+    /// <summary>Löscht in der Erwartung, dass der Eintrag gesperrt ist: liefert die Meldung, sobald sie
+    /// <paramref name="enthaelt"/> enthält – sonst die tatsächliche. Eine Rückfrage darf dabei nicht erscheinen (#559).</summary>
+    public string LoeschenAbgelehnt(string enthaelt)
+    {
+        fenster.ActivateById("Befehlsleiste.Loeschen");
+        Wait.Within(() => Fehlermeldung.Contains(enthaelt, StringComparison.Ordinal), Wait.DefaultTimeout);
+        hauptfenster.WarteBisRuhig();
+        if (Dialog.FindOpen(fenster).Any(d => d.Title == loeschdialog))
+            throw new InvalidOperationException($"Dialog '{loeschdialog}' erschien trotz Sperre.");
+        return Fehlermeldung;
+    }
+
     /// <summary>Text des Formularfelds <c>&lt;Präfix&gt;.<paramref name="feld"/></c>.</summary>
     public string Wert(string feld) =>
         fenster.FindById($"{praefix}.{feld}").Patterns.Value.Pattern.Value.ValueOrDefault ?? string.Empty;

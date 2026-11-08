@@ -30,7 +30,34 @@ public class GenericRepository<T>(TurnierverwaltungDbContext context) : IReposit
 
     public virtual async Task LoeschenAsync(T entitaet, CancellationToken ct = default)
     {
-        Context.Set<T>().Remove(entitaet);
-        await Context.SaveChangesAsync(ct);
+        // Remove gehört mit in den try: Sind abhängige Datensätze geladen, lehnt EF ein Restrict schon hier ab.
+        try
+        {
+            Context.Set<T>().Remove(entitaet);
+            await Context.SaveChangesAsync(ct);
+        }
+        catch
+        {
+            // Ohne Rücknahme bliebe der Datensatz im (je Seite gemeinsamen) Kontext als gelöscht markiert, und jedes
+            // folgende Speichern der Seite scheiterte erneut an diesem Löschen (#559).
+            AenderungenVerwerfen();
+            throw;
+        }
+    }
+
+    private void AenderungenVerwerfen()
+    {
+        foreach (var eintrag in Context.ChangeTracker.Entries().ToList())
+        {
+            if (eintrag.State == EntityState.Added)
+            {
+                eintrag.State = EntityState.Detached;
+            }
+            else if (eintrag.State is EntityState.Modified or EntityState.Deleted)
+            {
+                eintrag.CurrentValues.SetValues(eintrag.OriginalValues);
+                eintrag.State = EntityState.Unchanged;
+            }
+        }
     }
 }

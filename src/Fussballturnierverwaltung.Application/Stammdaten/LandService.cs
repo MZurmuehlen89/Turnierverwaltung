@@ -49,10 +49,22 @@ public class LandService(ILandRepository repository, LandValidator validator, IL
         await repository.AktualisierenAsync(land, ct);
     }
 
+    /// <summary>Grund, warum das Land nicht gelöscht werden kann (#559); null = löschbar.</summary>
+    public async Task<string?> LoeschSperreAsync(int id, CancellationToken ct = default)
+        => await SperreAsync(await LandFindenAsync(id, ct), ct);
+
     public async Task LoeschenAsync(int id, CancellationToken ct = default)
     {
-        var land = await repository.FindenNachIdAsync(id, ct)
-            ?? throw new InvalidOperationException($"Land mit ID {id} nicht gefunden.");
+        var land = await LandFindenAsync(id, ct);
+        var sperre = await SperreAsync(land, ct);
+        if (sperre is not null) throw new InvalidOperationException(sperre);
         await repository.LoeschenAsync(land, ct);
     }
+
+    private async Task<string?> SperreAsync(Land land, CancellationToken ct) =>
+        LoeschSperre.FuerLand(land.Name, await repository.BezuegeZaehlenAsync(land.Id, ct));
+
+    private async Task<Land> LandFindenAsync(int id, CancellationToken ct) =>
+        await repository.FindenNachIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"Land mit ID {id} nicht gefunden.");
 }

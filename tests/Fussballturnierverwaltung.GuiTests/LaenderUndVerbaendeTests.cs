@@ -64,6 +64,37 @@ public sealed class LaenderUndVerbaendeTests(TurnierverwaltungApp app) : IClassF
         LoeschenMitRueckfrage(_seite.Verbaende, name);
     }
 
+    /// <summary>#559: Ein Verband mit Ländern lässt sich nicht löschen – die Meldung nennt den Grund ohne Rückfrage, und
+    /// die Seite speichert danach weiter. Ohne das Land geht das Löschen.</summary>
+    [Fact]
+    public void Verband_MitLand_LoeschenNenntDenGrundUndSeiteSpeichertWeiter()
+    {
+        string verband = EindeutigerName();
+        _seite.VerbandAnlegen(verband, Kuerzel());
+        string land = EindeutigerName();
+        _seite.LandAnlegen(land, FifaCode(), verband);
+        string erwartet = $"Der Verband „{verband}“ kann nicht gelöscht werden. Noch zugeordnet: 1 Land.";
+
+        var verbaende = _seite.VerbaendeReiter();
+        verbaende.Auswaehlen(verband);
+        verbaende.LoeschenAbgelehnt(erwartet).Should().Be(erwartet);
+
+        string neuesKuerzel = Kuerzel();
+        verbaende.WertSetzen("Kurzname", neuesKuerzel);
+        verbaende.Speichern();
+        _seite.Verband(verband).Should().Be(new VerbandEintrag(verband, neuesKuerzel), "die Seite speichert weiter");
+
+        var laender = _seite.LaenderReiter();
+        laender.Auswaehlen(land);
+        laender.Loeschen(bestaetigen: true);
+        laender.NichtMehrGelistetAbwarten(land).Should().BeTrue();
+
+        verbaende = _seite.VerbaendeReiter();
+        verbaende.Auswaehlen(verband);
+        verbaende.Loeschen(bestaetigen: true);
+        verbaende.NichtMehrGelistetAbwarten(verband).Should().BeTrue("ohne Land ist der Verband löschbar");
+    }
+
     // ── Länder ──────────────────────────────────────────────────────────────
 
     [Fact]

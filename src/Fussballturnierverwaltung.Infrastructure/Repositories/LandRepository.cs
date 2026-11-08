@@ -25,4 +25,10 @@ public class LandRepository(TurnierverwaltungDbContext context)
             .Include(l => l.Rangliste!).ThenInclude(r => r.Pokalsieger)
             .OrderBy(l => l.Name)
             .ToListAsync(ct);
+
+    // Mehrere Kontingente eines Landes in einem Turnier zählen als ein Turnier.
+    public async Task<LandBezuege> BezuegeZaehlenAsync(int landId, CancellationToken ct = default) => new(
+        await Context.Mannschaften.CountAsync(m => m.LandId == landId, ct),
+        await Context.LandesQuoten.Where(q => q.LandId == landId)
+            .Select(q => q.TurnierInstanzId).Distinct().CountAsync(ct));
 }
