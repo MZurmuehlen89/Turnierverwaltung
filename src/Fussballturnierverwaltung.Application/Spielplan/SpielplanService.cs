@@ -42,31 +42,8 @@ public class SpielplanService(
                 $"Runde '{runde.Name}' erwartet {runde.EingangsMannschaftsanzahl} Mannschaften, " +
                 $"übergeben wurden {mannschaftIds.Count}.");
 
-        // K.-o.-Runden brauchen Entscheidungsverfahren im Regelwerk
-        if (runde.Regelwerk is not null)
-        {
-            var rundeEingabe = new TurnierRundeEingabe(
-                runde.Name, runde.Rundenart,
-                runde.EingangsMannschaftsanzahl, runde.AusgangsMannschaftsanzahl,
-                runde.RegelwerkId, runde.AuswaertstorRegelAktiv);
-            ValidationException.WerfenWennUngueltig(
-                turnierValidator.RundeUndRegelwerkKompatibel(rundeEingabe, runde.Regelwerk));
-        }
-
         var geordnet = await MannschaftenInReihenfolgeAsync(mannschaftIds, ct);
-
-        int startNr   = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, runde.Id, runde.Reihenfolge, ct);
-        var generator = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
-        var kontext   = new SpielplanKontext(runde, geordnet, startNr);
-        var ergebnis  = generator.Generieren(kontext);
-
-        await SpielplanSpeicherung.ErgebnisSpeichernAsync(spielRepository, ergebnis, ct);
-
-        logger.LogInformation(
-            "Spielplan für Runde '{Runde}' generiert: {Anzahl} Spiele.",
-            runde.Name, ergebnis.Spiele.Count);
-
-        return ergebnis;
+        return await MitGeneratorErzeugenAsync(runde, startNr => new SpielplanKontext(runde, geordnet, startNr), ct);
     }
 
     /// <summary>
@@ -127,26 +104,14 @@ public class SpielplanService(
     /// <summary>
     /// Generiert den Spielplan für eine TopfLiga-Runde direkt aus den Auslosungspaarungen.
     /// </summary>
-    private async Task<SpielplanErgebnis> GenerierenAusPaarungenAsync(
+    private async Task GenerierenAusPaarungenAsync(
         TurnierRunde runde,
         IReadOnlyList<(int HeimId, int AuswaertsId)> paarungen,
-        CancellationToken ct = default)
+        CancellationToken ct)
     {
         var alleIds      = paarungen.SelectMany(p => new[] { p.HeimId, p.AuswaertsId }).Distinct().ToList();
         var mannschaften = await mannschaftRepository.FindenNachIdsAsync(alleIds, ct);
-        int startNr      = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, runde.Id, runde.Reihenfolge, ct);
-
-        var generator = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
-        var kontext   = new SpielplanKontext(runde, mannschaften, startNr, paarungen);
-        var ergebnis  = generator.Generieren(kontext);
-
-        await SpielplanSpeicherung.ErgebnisSpeichernAsync(spielRepository, ergebnis, ct);
-
-        logger.LogInformation(
-            "TopfLiga-Spielplan für Runde '{Runde}' generiert: {Anzahl} Spiele.",
-            runde.Name, ergebnis.Spiele.Count);
-
-        return ergebnis;
+        await MitGeneratorErzeugenAsync(runde, startNr => new SpielplanKontext(runde, mannschaften, startNr, paarungen), ct);
     }
 
     /// <summary>
@@ -157,7 +122,7 @@ public class SpielplanService(
     internal async Task<SpielplanErgebnis> SchweizerRundeGenerierenAsync(
         TurnierRunde runde,
         IReadOnlyList<int> sortierteMannschaftIds,
-        CancellationToken ct = default)
+        CancellationToken ct)
     {
         if (sortierteMannschaftIds.Count < 2)
             throw new InvalidOperationException(
@@ -166,24 +131,48 @@ public class SpielplanService(
         var verlauf  = SchweizerVerlauf.AusSpielen(await spielRepository.AlleNachRundeAsync(runde.Id, ct), sortierteMannschaftIds);
         var geordnet = await MannschaftenInReihenfolgeAsync(sortierteMannschaftIds, ct);
 
-        int startNr   = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, runde.Id, runde.Reihenfolge, ct);
-        var generator = generatorFactory.ErstellenFuerRundenart(runde.Rundenart);
-        var kontext   = new SpielplanKontext(
+        return await MitGeneratorErzeugenAsync(runde, startNr => new SpielplanKontext(
             runde, geordnet, startNr,
             Paarungen:       null,
             BereitsGespielt: verlauf.BereitsGespielt,
             Spieltag:        verlauf.NaechsterSpieltag,
             FreilosHistorie: verlauf.FreilosHistorie,
-            HeimBilanz:      verlauf.HeimBilanz);
+            HeimBilanz:      verlauf.HeimBilanz), ct);
+    }
 
-        var ergebnis = generator.Generieren(kontext);
+    // ── Generator-Wege: Startnummer → Generator → Speichern ─────────────────
+
+    /// <summary>Gemeinsamer Ablauf der Wege über einen <see cref="ISpielplanGenerator"/> (Mannschaftsliste, TopfLiga,
+    /// Schweizer System): Regelwerk prüfen, an die Spielnummern der vorigen Runden anschließen, generieren, speichern.
+    /// <paramref name="kontextAb"/> bekommt die erste freie Spielnummer.</summary>
+    private async Task<SpielplanErgebnis> MitGeneratorErzeugenAsync(
+        TurnierRunde runde, Func<int, SpielplanKontext> kontextAb, CancellationToken ct)
+    {
+        RegelwerkPruefen(runde);
+
+        int startNr  = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, runde.Id, runde.Reihenfolge, ct);
+        var ergebnis = generatorFactory.ErstellenFuerRundenart(runde.Rundenart).Generieren(kontextAb(startNr));
         await SpielplanSpeicherung.ErgebnisSpeichernAsync(spielRepository, ergebnis, ct);
 
         logger.LogInformation(
-            "Schweizer Runde {Spieltag} für '{Runde}' generiert: {Anzahl} Spiele.",
-            verlauf.NaechsterSpieltag, runde.Name, ergebnis.Spiele.Count);
-
+            "Spielplan ({Rundenart}) für Runde '{Runde}' generiert: {Anzahl} Spiele.",
+            runde.Rundenart, runde.Name, ergebnis.Spiele.Count);
         return ergebnis;
+    }
+
+    /// <summary>K.-o.-Runden brauchen ein Entscheidungsverfahren im Regelwerk; andere Rundenarten lässt
+    /// <see cref="TurnierValidator.RundeUndRegelwerkKompatibel"/> durch. Platzhalter-Spielpläne laufen bewusst nicht
+    /// hier durch: Sie sind nur eine Vorstufe, das Regelwerk zählt erst mit festen Mannschaften (Nutzer, #620).</summary>
+    private void RegelwerkPruefen(TurnierRunde runde)
+    {
+        if (runde.Regelwerk is null) return;
+
+        var rundeEingabe = new TurnierRundeEingabe(
+            runde.Name, runde.Rundenart,
+            runde.EingangsMannschaftsanzahl, runde.AusgangsMannschaftsanzahl,
+            runde.RegelwerkId, runde.AuswaertstorRegelAktiv);
+        ValidationException.WerfenWennUngueltig(
+            turnierValidator.RundeUndRegelwerkKompatibel(rundeEingabe, runde.Regelwerk));
     }
 
     public Task<IReadOnlyList<Spiel>> SpielplanAbrufenAsync(int turnierRundeId, CancellationToken ct = default)
@@ -210,7 +199,7 @@ public class SpielplanService(
     private async Task GenerierenAusGruppenAsync(
         TurnierRunde runde,
         IReadOnlyList<IReadOnlyList<int>> gruppen,
-        CancellationToken ct = default)
+        CancellationToken ct)
     {
         var alleIds      = gruppen.SelectMany(g => g).Distinct().ToList();
         var mannschaften = await mannschaftRepository.FindenNachIdsAsync(alleIds, ct);
@@ -265,7 +254,7 @@ public class SpielplanService(
     private async Task GenerierenAusGruppenMitPlatzhalternAsync(
         TurnierRunde runde,
         IReadOnlyList<IReadOnlyList<GruppenSlot>> gruppen,
-        CancellationToken ct = default)
+        CancellationToken ct)
     {
         int startNr = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, runde.Id, runde.Reihenfolge, ct);
         var plan    = GruppenSpielplan.Planen(gruppen, runde.MitRueckspiel);
@@ -307,7 +296,7 @@ public class SpielplanService(
     private async Task<int> GenerierenAusPlatzhalterPaarungenAsync(
         TurnierRunde runde,
         IReadOnlyList<(string Heim, string Auswaerts)> paarungen,
-        CancellationToken ct = default)
+        CancellationToken ct)
     {
         int spielNr = await spielRepository.NaechsteSpielNummerAsync(runde.TurnierInstanzId, runde.Id, runde.Reihenfolge, ct);
 
