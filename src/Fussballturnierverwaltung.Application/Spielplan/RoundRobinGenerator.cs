@@ -4,13 +4,14 @@ using Fussballturnierverwaltung.Domain.Enums;
 namespace Fussballturnierverwaltung.Application.Spielplan;
 
 /// <summary>
-/// Berger-Tabellen-Algorithmus (Kreismethode, <see cref="BergerTabelle"/>) für Liga und Gruppenphase.
+/// Berger-Tabellen-Algorithmus (Kreismethode, <see cref="BergerTabelle"/>) für die Liga.
 /// Mit MitRueckspiel=true wird ein doppelter Durchgang (Hin- und Rückrunde) generiert.
+/// Gruppenphasen plant <see cref="GruppenSpielplan"/> je Gruppe — der Plan, gegen den die Kaskade prüft (#620).
 /// </summary>
 public class RoundRobinGenerator : ISpielplanGenerator
 {
     public IReadOnlyList<Rundenart> UnterstützteRundenarten =>
-        [Rundenart.Liga, Rundenart.Gruppenphase];
+        [Rundenart.Liga];
 
     public SpielplanErgebnis Generieren(SpielplanKontext kontext)
     {

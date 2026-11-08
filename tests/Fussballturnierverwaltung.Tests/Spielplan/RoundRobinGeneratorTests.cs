@@ -186,7 +186,7 @@ public class RoundRobinGeneratorTests
 
     /// <summary>Spielfolge in Spielnummer-Reihenfolge als "Spieltag:Heim-Gast" — hält die Berger-Tabelle samt Heimrecht
     /// und Rückrunde exakt fest, damit ein Umbau keine Paarung, kein Heimrecht und keinen Spieltag verschiebt.</summary>
-    internal static string Kurzform(IEnumerable<(int? Spieltag, int? Heim, int? Gast)> spiele) =>
+    private static string Kurzform(IEnumerable<(int? Spieltag, int? Heim, int? Gast)> spiele) =>
         string.Join(" ", spiele.Select(s => $"{s.Spieltag}:{s.Heim}-{s.Gast}"));
 
     [Theory]

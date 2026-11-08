@@ -14,9 +14,8 @@ internal enum BergerHeimrecht
 
 /// <summary>Berger-Tabelle (Kreismethode) für Round-Robin-Spielpläne: Platz 0 steht fest, die übrigen rücken je
 /// Spieltag einen Platz weiter; der feste Platz wechselt je Spieltag das Heimrecht, die übrigen Partien nach
-/// <see cref="BergerHeimrecht"/>. Bei ungerader Teilnehmerzahl setzt je Spieltag einer aus (Freilos). Gemeinsame
-/// Grundlage von <see cref="RoundRobinGenerator"/> (feste Teams) und <see cref="GruppenSpielplan"/>
-/// (Teilnehmerplätze mit Platzhaltern), damit beide dieselben Paarungen bilden.</summary>
+/// <see cref="BergerHeimrecht"/>. Bei ungerader Teilnehmerzahl setzt je Spieltag einer aus (Freilos). Grundlage
+/// von <see cref="RoundRobinGenerator"/> (Liga) und <see cref="GruppenSpielplan"/> (Gruppenphase).</summary>
 internal static class BergerTabelle
 {
     /// <summary>Die Hinrunde für <paramref name="teilnehmer"/> Teilnehmer (mindestens 2) als Indizes, Spieltag für
