@@ -1080,4 +1080,25 @@ public class PlatzhalterAufloesungTests
         finale.HeimMannschaftId.Should().Be(1, "Team A gewinnt Paarung 1 über beide Spiele");
         finale.AuswaertsMannschaftId.Should().Be(4, "Team D gewinnt Paarung 2");
     }
+
+    // Kaskade (#88): steht nur das Hinspiel-Ergebnis zur Löschung an, ist auch der Gesamtsieger der Paarung
+    // offen — das Rückspiel-Ergebnis allein entscheidet nichts mehr.
+    [Fact]
+    public async Task NameAufloesen_HinspielIgnoriert_GesamtsiegerDerPaarungBleibtOffen()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId, hfMitRueckspiel: true);
+        HalbfinaleMitRueckspielenAnlegen(ctx, hfRundeId);
+        var alleRunden = ctx.TurnierRunden.ToList();
+        var finale = alleRunden.Single(r => r.Id == finaleRundeId);
+        var dienste = new SpielplanDienste(ctx);
+
+        var sieger1 = await dienste.Aufloesung.NameAufloesenAsync(
+            "Sieger Halbfinale 1", finale, alleRunden, new HashSet<int> { 1 }, CancellationToken.None);
+        var sieger2 = await dienste.Aufloesung.NameAufloesenAsync(
+            "Sieger Halbfinale 2", finale, alleRunden, new HashSet<int> { 1 }, CancellationToken.None);
+
+        sieger1.Should().BeNull("das Hinspiel der Paarung 1 gilt als gelöscht");
+        sieger2.Should().Be(4, "Paarung 2 ist nicht betroffen");
+    }
 }
