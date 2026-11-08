@@ -3,6 +3,7 @@ using Fussballturnierverwaltung.Application.Stammdaten;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -24,7 +25,7 @@ public class LandUndVerbandLoeschenTests
     private static LandService LandServiceFuer(TurnierverwaltungDbContext ctx) =>
         new(new LandRepository(ctx), new LandValidator(), NullLogger<LandService>.Instance);
 
-    // Verband 1 (UEFA) mit Deutschland und Quoten in zwei Turnieren; Verband 2 (OFC) ohne alles.
+    // Verband 1 (UEFA) mit zwei Ländern und Quoten in einem Turnier und einer Vorlage; Verband 2 (OFC) ohne alles.
     // Deutschland hat zwei Mannschaften und zwei Kontingente im selben Turnier; Malta hat nichts.
     private static void Anlegen(TurnierverwaltungDbContext ctx)
     {
@@ -39,7 +40,7 @@ public class LandUndVerbandLoeschenTests
             new Mannschaft { Id = 2, Name = "Borussia Dortmund", Kurzname = "BVB", LandId = 1 });
         ctx.TurnierInstanzen.AddRange(
             new TurnierInstanz { Id = 1, Name = "Champions League", SaisonOderJahr = "2026" },
-            new TurnierInstanz { Id = 2, Name = "Klub-WM", SaisonOderJahr = "2029" });
+            new TurnierInstanz { Id = 2, Name = "Klub-WM", SaisonOderJahr = "2029", Status = TurnierStatus.Vorlage });
         ctx.VerbandsQuoten.AddRange(
             new VerbandsQuote { TurnierInstanzId = 1, VerbandId = 1, Anzahl = 36 },
             new VerbandsQuote { TurnierInstanzId = 2, VerbandId = 1, Anzahl = 12 });
@@ -59,7 +60,7 @@ public class LandUndVerbandLoeschenTests
         var sperre = await VerbandServiceFuer(ctx).LoeschSperreAsync(1);
 
         sperre.Should().Be(
-            "Der Verband „UEFA“ kann nicht gelöscht werden. Noch zugeordnet: 2 Länder, Verbandsquote in 2 Turnieren.");
+            "Der Verband „UEFA“ kann nicht gelöscht werden. Noch zugeordnet: 2 Länder, Verbandsquote in 1 Turnier und 1 Vorlage.");
     }
 
     [Fact]

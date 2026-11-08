@@ -102,8 +102,13 @@ public sealed class StammdatenEditor(
         fenster.ActivateById("Befehlsleiste.Loeschen");
         Wait.Within(() => Fehlermeldung.Contains(enthaelt, StringComparison.Ordinal), Wait.DefaultTimeout);
         hauptfenster.WarteBisRuhig();
-        if (Dialog.FindOpen(fenster).Any(d => d.Title == loeschdialog))
+        // Offen gelassen, hielte der Dialog jeden weiteren Test der Klasse auf – erst schließen, dann melden
+        var dialog = Dialog.FindOpen(fenster).FirstOrDefault(d => d.Title == loeschdialog);
+        if (dialog is not null)
+        {
+            dialog.Close();
             throw new InvalidOperationException($"Dialog '{loeschdialog}' erschien trotz Sperre.");
+        }
         return Fehlermeldung;
     }
 

@@ -263,6 +263,9 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         if (value is null) LandFilterKontinentOption = AllesKontinent;
     }
 
+    // Beide Reiter zeigen dieselbe Fehlermeldung – sie gehört zum Reiter, in dem sie entstand (#559)
+    partial void OnAktiverTabIndexChanged(int value) => Fehlermeldung = null;
+
     partial void OnAusgewaehltesLandChanged(Land? value) => LandFormularAusFuellenMit(value);
     partial void OnAusgewaehlterVerbandChanged(Verband? value) => VerbandFormularAusFuellenMit(value);
 
@@ -546,7 +549,14 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
     {
         // Als Vorgang, damit GUI-Tests erst nach der Abfrage weitermachen (Muster #597)
         using var vorgang = _logger.Vorgang("Länder & Verbände: Löschen prüfen", "Löschen wird geprüft …");
-        Fehlermeldung = await sperreErmitteln();
+        try
+        {
+            Fehlermeldung = await sperreErmitteln();
+        }
+        catch (Exception ex)
+        {
+            Fehlermeldung = ex.Message;
+        }
         return Fehlermeldung is not null;
     }
 

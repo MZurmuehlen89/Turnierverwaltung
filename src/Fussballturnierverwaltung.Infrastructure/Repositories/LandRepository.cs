@@ -29,6 +29,6 @@ public class LandRepository(TurnierverwaltungDbContext context)
     // Mehrere Kontingente eines Landes in einem Turnier zählen als ein Turnier.
     public async Task<LandBezuege> BezuegeZaehlenAsync(int landId, CancellationToken ct = default) => new(
         await Context.Mannschaften.CountAsync(m => m.LandId == landId, ct),
-        await Context.LandesQuoten.Where(q => q.LandId == landId)
-            .Select(q => q.TurnierInstanzId).Distinct().CountAsync(ct));
+        await QuotenVerwendungZaehlung.ZaehlenAsync(
+            Context.TurnierInstanzen.Where(t => t.LandesQuoten.Any(q => q.LandId == landId)), ct));
 }

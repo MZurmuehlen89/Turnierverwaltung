@@ -15,6 +15,6 @@ public class VerbandRepository(TurnierverwaltungDbContext context)
 
     public async Task<VerbandBezuege> BezuegeZaehlenAsync(int verbandId, CancellationToken ct = default) => new(
         await Context.Laender.CountAsync(l => l.VerbandId == verbandId, ct),
-        await Context.VerbandsQuoten.Where(q => q.VerbandId == verbandId)
-            .Select(q => q.TurnierInstanzId).Distinct().CountAsync(ct));
+        await QuotenVerwendungZaehlung.ZaehlenAsync(
+            Context.TurnierInstanzen.Where(t => t.VerbandsQuoten.Any(q => q.VerbandId == verbandId)), ct));
 }
