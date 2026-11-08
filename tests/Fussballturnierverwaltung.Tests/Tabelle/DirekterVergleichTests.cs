@@ -25,8 +25,8 @@ public class DirekterVergleichTests
     }
 
     [Theory]
-    [InlineData(true, "neu gerechnet (UEFA)")]
-    [InlineData(false, "folgenden Kriterien (FIFA)")]
+    [InlineData(true, "für die übrigen neu gerechnet")]
+    [InlineData(false, "für die übrigen die folgenden Kriterien")]
     public void Hinweis_NenntDasVerhaltenBeiTeilGleichstand(bool wiederholen, string erwartet)
     {
         var set = Set(wiederholen, RankingRegelArt.Punkte, RankingRegelArt.DirekterVergleichTordifferenz);

@@ -19,9 +19,10 @@ public static class DirekterVergleich
     {
         if (set is null || !set.Eintraege.Any(e => IstKriterium(e.RankingRegel.Regelart))) return null;
 
-        const string MINI_TABELLE = "Direkter Vergleich: Mini-Tabelle aus den Spielen der gleichstehenden Teams untereinander.";
+        const string MINI_TABELLE = "Direkter Vergleich: Mini-Tabelle aus den Spielen der gleichstehenden Teams " +
+                                    "untereinander, erst wenn alle diese Spiele gespielt sind.";
         return set.DirektenVergleichWiederholen
-            ? $"{MINI_TABELLE} Trennt sie nur einen Teil, wird sie für die übrigen neu gerechnet (UEFA)."
-            : $"{MINI_TABELLE} Trennt sie nur einen Teil, entscheiden für die übrigen die folgenden Kriterien (FIFA).";
+            ? $"{MINI_TABELLE} Trennt sie nur einen Teil, wird sie für die übrigen neu gerechnet."
+            : $"{MINI_TABELLE} Trennt sie nur einen Teil, entscheiden für die übrigen die folgenden Kriterien.";
     }
 }

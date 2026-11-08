@@ -117,7 +117,10 @@ public static class RangPrognose
                 ? (eintrag.Rang, eintrag.Rang)
                 : (ExtremRangErmitteln(stand, teamId, bestenfalls: true), ExtremRangErmitteln(stand, teamId, bestenfalls: false));
 
-            eintrag.SicherPositioniert = bestRang == worstRang;
+            // Sicher nur, wenn der feststehende Rang auch der aktuelle ist: die Platzhalter-Auflösung nimmt das Team
+            // auf dem aktuellen Rang. Beide können auseinanderliegen, solange der direkte Vergleich auf ein Duell der
+            // Gleichstehenden wartet, jede Ergebniskombination ihn aber schon wertet (#628).
+            eintrag.SicherPositioniert = bestRang == worstRang && bestRang == eintrag.Rang;
             eintrag.BesterRang = bestRang;
             eintrag.SchlechtesterRang = worstRang;
         }

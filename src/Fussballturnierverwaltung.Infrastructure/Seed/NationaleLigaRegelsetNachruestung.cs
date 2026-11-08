@@ -25,8 +25,9 @@ public static class NationaleLigaRegelsetNachruestung
                 DECLARE @setId int = SCOPE_IDENTITY();
 
                 INSERT INTO RankingRegelSetEintraege (RankingRegelSetId, RankingRegelId, Reihenfolge)
-                SELECT @setId, (SELECT MIN(r.Id) FROM RankingRegeln r WHERE r.Regelart = k.Regelart), k.Reihenfolge
-                FROM (VALUES {kriterien}) AS k(Reihenfolge, Regelart);
+                SELECT @setId, r.Id, k.Reihenfolge
+                FROM (VALUES {kriterien}) AS k(Reihenfolge, Regelart)
+                JOIN (SELECT Regelart, MIN(Id) AS Id FROM RankingRegeln GROUP BY Regelart) AS r ON r.Regelart = k.Regelart;
 
                 UPDATE Regelwerke SET RankingRegelSetId = @setId
                 WHERE Name = {Text(TurnierVorlagenSeedDaten.LIGA_DIREKTER_VERGLEICH)}

@@ -196,6 +196,28 @@ public class RangPrognoseTests
     }
 
     [Fact]
+    public void GruppenRaengeSetzen_SicherNurWennDerFeststehendeRangDerAktuelleIst()
+    {
+        // #628: Team 1 wird in jeder Kombination Erster. Steht es im aktuellen Stand woanders (hier künstlich über eine
+        // umgekehrte Losreihenfolge, in der App bei ruhendem direktem Vergleich), darf es nicht als sicher gelten –
+        // die Platzhalter-Auflösung setzte sonst „1. Gruppe“ mit dem Team auf Rang 1 des aktuellen Stands.
+        Spiel[] spiele =
+        [
+            Spiel(1, 2, 1, 0), Spiel(1, 3, 1, 0), Spiel(1, 4, 1, 0), Spiel(2, 3, 1, 0),
+            Spiel(2, 4), Spiel(3, 4)
+        ];
+        RankingRegel[] umgekehrtesLos = [new() { Regelart = RankingRegelArt.Losentscheid, Sortierrichtung = Sortierrichtung.Absteigend }];
+        var gruppe = new GruppenTabelle(1, TabellenRechner.TabelleBerechnen(spiele, new(_dreiPunkte, umgekehrtesLos)));
+
+        RangPrognose.GruppenRaengeSetzen(gruppe, spiele, new(_dreiPunkte, []));
+
+        var team1 = Team(gruppe.Tabelle, 1);
+        team1.Rang.Should().Be(4);
+        (team1.BesterRang, team1.SchlechtesterRang).Should().Be((1, 1));
+        team1.SicherPositioniert.Should().BeFalse();
+    }
+
+    [Fact]
     public void GruppenRaengeSetzen_RechnetMitDenRankingRegelnDesRegelwerks()
     {
         // #622: 1 schlägt 3, offen sind 1–2 und 2–3. Team 3 kommt bestenfalls auf 3 Punkte. Ohne Regelset
