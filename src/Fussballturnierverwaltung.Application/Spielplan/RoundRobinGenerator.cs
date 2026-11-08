@@ -62,6 +62,5 @@ public class RoundRobinGenerator : ISpielplanGenerator
             HeimMannschaftId      = heimId,
             AuswaertsMannschaftId = auswId,
             Status                = SpielStatus.Geplant,
-            SimulationsModus      = SimulationsModus.SchnellSimulation
         };
 }

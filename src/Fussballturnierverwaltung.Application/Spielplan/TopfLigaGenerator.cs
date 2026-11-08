@@ -45,7 +45,6 @@ public class TopfLigaGenerator(Zufallsquelle zufallsquelle) : ISpielplanGenerato
                 HeimMannschaftId      = heimId,
                 AuswaertsMannschaftId = auswaertsId,
                 Status                = SpielStatus.Geplant,
-                SimulationsModus      = SimulationsModus.SchnellSimulation
             });
         }
 

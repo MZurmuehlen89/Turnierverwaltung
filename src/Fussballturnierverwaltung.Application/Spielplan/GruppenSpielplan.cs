@@ -37,15 +37,11 @@ public static class GruppenSpielplan
 
     /// <summary>Die Spiele zu <paramref name="plan"/>, nummeriert ab <paramref name="startNr"/>: die Hinspiele (ohne
     /// Rückspiel: alle Spiele) und je Rückspiel sein Hinspiel. Ein offener Platz ohne Namen heißt „?“ wie in
-    /// <see cref="PasstZu"/>. Modus wie vor #620: nur feste Teams <c>SchnellSimulation</c>, sonst
-    /// <c>ManuellesErgebnis</c>.</summary>
+    /// <see cref="PasstZu"/>.</summary>
     public static (List<Spiel> Hinspiele, List<(Spiel Hinspiel, Spiel Rueckspiel)> Rueckspiele) SpieleErzeugen(
         TurnierRunde runde, IReadOnlyList<GeplantesGruppenSpiel> plan, int startNr)
     {
-        var modus = plan.All(g => g.Heim.MannschaftId.HasValue && g.Auswaerts.MannschaftId.HasValue)
-            ? SimulationsModus.SchnellSimulation
-            : SimulationsModus.ManuellesErgebnis;
-        var spiele = plan.Select((g, i) => SpielErstellen(runde, g, startNr + i, modus)).ToList();
+        var spiele = plan.Select((g, i) => SpielErstellen(runde, g, startNr + i)).ToList();
 
         var rueckspiele = plan
             .Select((geplant, i) => (geplant.HinspielIndex, Index: i))
@@ -55,7 +51,7 @@ public static class GruppenSpielplan
         return ([.. spiele.Where(s => !s.IstRueckspiel)], rueckspiele);
     }
 
-    private static Spiel SpielErstellen(TurnierRunde runde, GeplantesGruppenSpiel g, int spielNr, SimulationsModus modus) =>
+    private static Spiel SpielErstellen(TurnierRunde runde, GeplantesGruppenSpiel g, int spielNr) =>
         new()
         {
             TurnierInstanzId         = runde.TurnierInstanzId,
@@ -68,7 +64,6 @@ public static class GruppenSpielplan
             AuswaertsMannschaftId    = g.Auswaerts.MannschaftId,
             AuswaertsPlatzhalterName = g.Auswaerts.MannschaftId is null ? g.Auswaerts.PlatzhalterName ?? "?" : null,
             Status                   = SpielStatus.Geplant,
-            SimulationsModus         = modus,
             IstRueckspiel            = g.IstRueckspiel,
         };
 

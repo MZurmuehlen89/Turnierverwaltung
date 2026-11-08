@@ -11,7 +11,7 @@ namespace Fussballturnierverwaltung.Application.Spielplan;
 internal static class KoSpielfolge
 {
     /// <summary>Die Hinspiele (ohne Rückspiel: alle Spiele) und je Hinspiel sein Rückspiel. <paramref name="spielErstellen"/>
-    /// besetzt Heim und Auswärts (und den Simulationsmodus); Runde, Nummer, Spieltag und Status setzt die Spielfolge.</summary>
+    /// besetzt Heim und Auswärts; Runde, Nummer, Spieltag und Status setzt die Spielfolge.</summary>
     public static (List<Spiel> Hinspiele, List<(Spiel Hinspiel, Spiel Rueckspiel)> Rueckspiele) Erzeugen<T>(
         TurnierRunde runde, IReadOnlyList<(T Heim, T Auswaerts)> paarungen, int startNr, Func<T, T, Spiel> spielErstellen)
     {

@@ -25,7 +25,6 @@ public class Spiel : BasisEntitaet
     public Mannschaft? AuswaertsMannschaft { get; set; }
     public string? AuswaertsPlatzhalterName { get; set; }
     public SpielStatus Status { get; set; }
-    public SimulationsModus SimulationsModus { get; set; }
     public bool IstRueckspiel { get; set; }
     public int? HinspielId { get; set; }
     public Spiel? Hinspiel { get; set; }

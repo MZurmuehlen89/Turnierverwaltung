@@ -12,7 +12,6 @@ public class SpielKonfiguration : IEntityTypeConfiguration<Spiel>
         builder.HasKey(s => s.Id);
         builder.Property(s => s.Spielnummer).IsRequired();
         builder.Property(s => s.Status).IsRequired();
-        builder.Property(s => s.SimulationsModus).IsRequired();
         builder.Property(s => s.IstRueckspiel).IsRequired();
         builder.Property(s => s.Datum).HasColumnType("date");
 

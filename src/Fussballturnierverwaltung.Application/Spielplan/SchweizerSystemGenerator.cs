@@ -69,7 +69,6 @@ public class SchweizerSystemGenerator : ISpielplanGenerator
                 HeimMannschaftId      = heim.Id,
                 AuswaertsMannschaftId = auswaerts.Id,
                 Status                = SpielStatus.Geplant,
-                SimulationsModus      = SimulationsModus.SchnellSimulation
             });
         }
 

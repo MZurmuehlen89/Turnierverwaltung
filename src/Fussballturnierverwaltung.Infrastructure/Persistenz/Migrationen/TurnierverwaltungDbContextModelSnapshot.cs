@@ -540,9 +540,6 @@ namespace Fussballturnierverwaltung.Infrastructure.Persistenz.Migrationen
                     b.Property<bool>("IstRueckspiel")
                         .HasColumnType("bit");
 
-                    b.Property<int>("SimulationsModus")
-                        .HasColumnType("int");
-
                     b.Property<int>("Spielnummer")
                         .HasColumnType("int");
 

@@ -29,7 +29,6 @@ public class KoRundeGenerator : ISpielplanGenerator
             {
                 HeimMannschaftId      = heim.Id,
                 AuswaertsMannschaftId = auswaerts.Id,
-                SimulationsModus      = SimulationsModus.SchnellSimulation,
             });
 
         return new SpielplanErgebnis

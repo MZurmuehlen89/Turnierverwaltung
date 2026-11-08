@@ -1,6 +1,5 @@
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
-using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Spielplan;
 
@@ -15,6 +14,5 @@ public static class PlatzhalterKoSpiele
         {
             HeimPlatzhalterName      = heim,
             AuswaertsPlatzhalterName = auswaerts,
-            SimulationsModus         = SimulationsModus.ManuellesErgebnis,
         });
 }

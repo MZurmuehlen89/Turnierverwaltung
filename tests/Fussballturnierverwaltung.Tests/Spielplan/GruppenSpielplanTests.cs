@@ -140,18 +140,6 @@ public class GruppenSpielplanTests
     }
 
     [Fact]
-    public void SpieleErzeugen_ModusNurBeiFestenTeamsSchnellSimulation()
-    {
-        var fest      = GruppenSpielplan.Planen([FesteGruppe(1, 2, 3)], mitRueckspiel: false);
-        var gemischt  = GruppenSpielplan.Planen([FesteGruppe(1, 2, 3), [new GruppenSlot(4, null), new GruppenSlot(null, "Sieger A")]], mitRueckspiel: false);
-
-        GruppenSpielplan.SpieleErzeugen(_runde, fest, startNr: 1).Hinspiele
-            .Should().OnlyContain(s => s.SimulationsModus == SimulationsModus.SchnellSimulation);
-        GruppenSpielplan.SpieleErzeugen(_runde, gemischt, startNr: 1).Hinspiele
-            .Should().OnlyContain(s => s.SimulationsModus == SimulationsModus.ManuellesErgebnis);
-    }
-
-    [Fact]
     public void SpieleErzeugen_MitRueckspiel_JedesRueckspielMitSeinemGespiegeltenHinspiel()
     {
         var plan = GruppenSpielplan.Planen([FesteGruppe(1, 2, 3, 4), FesteGruppe(5, 6, 7, 8)], mitRueckspiel: true);
