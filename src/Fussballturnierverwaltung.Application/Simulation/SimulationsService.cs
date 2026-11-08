@@ -1,7 +1,6 @@
 using Fussballturnierverwaltung.Application.Spiele;
 using Fussballturnierverwaltung.Application.Spiele.Eingaben;
 using Fussballturnierverwaltung.Application.Spielplan;
-using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Domain.Entitaeten.Regelwerke;
@@ -17,7 +16,6 @@ public class SimulationsService(
     ISpielRepository spielRepository,
     ITurnierInstanzRepository instanzRepository,
     SpielErgebnisService ergebnisService,
-    TurnierBaumService turnierBaumService,
     ISimulationsLaufRepository laufRepository,
     Zufallsquelle zufallsquelle,
     ILogger<SimulationsService> logger)
@@ -401,20 +399,15 @@ public class SimulationsService(
         foreach (var runde in runden)
         {
             var spiele = await spielRepository.AlleNachRundeAsync(runde.Id, ct);
-            var offene = spiele.Where(s => s.Status != SpielStatus.Abgeschlossen).ToList();
+            // Issue #346: Hinspiele vor Rückspielen — ein K.-o.-Rückspiel braucht das Hinspiel-Ergebnis. Sonst die
+            // Reihenfolge des Repositorys (Spieltag, Spielnummer).
+            var offene = spiele.Where(s => s.Status != SpielStatus.Abgeschlossen).OrderBy(s => s.IstRueckspiel);
 
-            // Je Runde ein Block: die Folgerunde braucht die aufgelösten Platzhalter erst beim nächsten Durchlauf.
+            // Je Runde ein Block: MehrereSimulierenAsync löst danach die Platzhalter aller Runden auf, die
+            // Folgerunde ist beim nächsten Durchlauf besetzt. Bis #629 schrieb hier zusätzlich
+            // TurnierBaumService.SiegerFortsteiernAsync die Sieger fort — dieselbe Auflösung ein zweites Mal, und
+            // ohne Turnierbaum mit einer Ausnahme, die ein leeres catch samt jedem anderen Fehler verschluckte.
             gesamtSimuliert += await MehrereSimulierenAsync(offene.Select(s => s.Id), rng, ct);
-
-            // Nach K.-o.-Runden: Sieger in den Bracket fortschreiben
-            bool istKo = runde.Rundenart is Rundenart.KoRunde
-                                         or Rundenart.Finale
-                                         or Rundenart.SpielUmPlatzDrei;
-            if (istKo && offene.Any())
-            {
-                try { await turnierBaumService.SiegerFortsteiernAsync(turnierInstanzId, ct); }
-                catch { /* Kein Turnierbaum vorhanden — kein Fehler */ }
-            }
         }
 
         lauf.EndZeitpunkt = DateTime.UtcNow;

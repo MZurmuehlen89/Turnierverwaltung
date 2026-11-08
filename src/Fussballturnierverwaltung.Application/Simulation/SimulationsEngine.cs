@@ -205,8 +205,11 @@ public static class SimulationsEngine
                     bool g = rng.NextDouble() < gProbPerMin;
                     if (h || g)
                     {
-                        if (h) hv++; else gv++;
-                        if (ausfuehrlich) extras.Add(new(min, EreignisArt.GoldenGoal, h, "Golden Goal"));
+                        // Treffen beide in derselben Minute, entscheidet das Los, wer zuerst traf — bis #629 zählte
+                        // stets das Heimtor.
+                        bool heimTrifft = h && (!g || rng.Next(2) == 0);
+                        if (heimTrifft) hv++; else gv++;
+                        if (ausfuehrlich) extras.Add(new(min, EreignisArt.GoldenGoal, heimTrifft, "Golden Goal"));
                         break;
                     }
                 }

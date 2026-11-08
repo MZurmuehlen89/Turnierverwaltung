@@ -1,6 +1,5 @@
 using Fussballturnierverwaltung.Application.Simulation;
 using Fussballturnierverwaltung.Application.Spiele;
-using Fussballturnierverwaltung.Application.Turnierbaum;
 using Fussballturnierverwaltung.Application.Validierung;
 using Fussballturnierverwaltung.Application.Zufall;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
@@ -27,11 +26,8 @@ internal static class SimulationsDienste
         var dienste = new SpielplanDienste(ctx);
         var ergebnisService = new SpielErgebnisService(
             spielRepo, new SpielErgebnisValidator(), dienste.Aufloesung, dienste.Kaskade, NullLogger<SpielErgebnisService>.Instance);
-        var baumService = new TurnierBaumService(
-            new TurnierBaumRepository(ctx), instanzRepo, spielRepo, dienste.Aufloesung, dienste.Quellverknuepfung,
-            NullLogger<TurnierBaumService>.Instance);
         return new SimulationsService(
-            spielRepo, instanzRepo, ergebnisService, baumService,
+            spielRepo, instanzRepo, ergebnisService,
             new SimulationsLaufRepository(ctx), zufallsquelle, NullLogger<SimulationsService>.Instance);
     }
 }
