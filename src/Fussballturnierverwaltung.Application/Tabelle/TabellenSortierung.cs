@@ -43,7 +43,7 @@ internal static class TabellenSortierung
         if (teams.Count < 2 || ab >= regeln.Count)
             return [.. teams.Order()];
 
-        if (!IstDirekterVergleich(regeln[ab].Regelart))
+        if (!DirekterVergleich.IstKriterium(regeln[ab].Regelart))
             return [.. Abstufen(teams, NachRegel(regeln[ab], wertung)).SelectMany(stufe => Ordnen(stufe, ab + 1, wertung))];
 
         int danach = EndeDesDirektenVergleichs(regeln, ab);
@@ -62,7 +62,7 @@ internal static class TabellenSortierung
     private static int EndeDesDirektenVergleichs(IReadOnlyList<RankingRegel> regeln, int ab)
     {
         int ende = ab;
-        while (ende < regeln.Count && IstDirekterVergleich(regeln[ende].Regelart)) ende++;
+        while (ende < regeln.Count && DirekterVergleich.IstKriterium(regeln[ende].Regelart)) ende++;
         return ende;
     }
 
@@ -170,10 +170,4 @@ internal static class TabellenSortierung
             RankingRegelArt.GegnerErzielteTore                 => x.GegnerTore.CompareTo(y.GegnerTore),
             _                                                => 0
         };
-
-    private static bool IstDirekterVergleich(RankingRegelArt regelart) =>
-        regelart is RankingRegelArt.DirekterVergleichPunkte
-                 or RankingRegelArt.DirekterVergleichTordifferenz
-                 or RankingRegelArt.DirekterVergleichErzielteTore
-                 or RankingRegelArt.DirekterVergleichAuswaertstore;
 }

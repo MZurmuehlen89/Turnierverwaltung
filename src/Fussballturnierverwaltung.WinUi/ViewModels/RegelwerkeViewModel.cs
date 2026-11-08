@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Abstraktionen;
 using Fussballturnierverwaltung.Application.Diagnose;
+using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Application.Turniere.Eingaben;
 using Fussballturnierverwaltung.Application.Validierung;
@@ -105,6 +106,8 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RangfolgeKriterien))]
     [NotifyPropertyChangedFor(nameof(HatKeinRankingSet))]
+    [NotifyPropertyChangedFor(nameof(DirektVergleichHinweis))]
+    [NotifyPropertyChangedFor(nameof(HatDirektVergleichHinweis))]
     private RankingSetOption _ausgewaehltesRankingSet = _keinRankingSet;
 
     // ── Berechnete Listen ─────────────────────────────────────────────────────
@@ -132,6 +135,16 @@ public partial class RegelwerkeViewModel : ViewModelBase, IRibbonAware, IHatUnge
             .Select((e, i) => new RangfolgeKriterium($"{i + 1}.", e.RankingRegel.Name, e.RankingRegel.Beschreibung))];
 
     public bool HatKeinRankingSet => AusgewaehltesRankingSet?.Wert is null;
+
+    /// <summary>Wie der direkte Vergleich gleichstehender Teams rechnet (#628) – nur bei Sets, die ihn enthalten.</summary>
+    public string? DirektVergleichHinweis =>
+        AusgewaehltesRankingSet?.Wert is not { } set || !set.Eintraege.Any(e => DirekterVergleich.IstKriterium(e.RankingRegel.Regelart))
+            ? null
+            : set.DirektenVergleichWiederholen
+                ? "Direkter Vergleich: Mini-Tabelle aus den Spielen der gleichstehenden Teams untereinander. Trennt sie nur einen Teil, wird sie für die übrigen neu gerechnet (UEFA)."
+                : "Direkter Vergleich: Mini-Tabelle aus den Spielen der gleichstehenden Teams untereinander. Trennt sie nur einen Teil, entscheiden für die übrigen die folgenden Kriterien (FIFA).";
+
+    public bool HatDirektVergleichHinweis => DirektVergleichHinweis is not null;
 
     private static readonly HashSet<string> _formFelder =
     [

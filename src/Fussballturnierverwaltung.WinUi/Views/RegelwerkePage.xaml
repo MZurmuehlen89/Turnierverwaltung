@@ -191,6 +191,10 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <TextBlock Text="{Binding DirektVergleichHinweis}"
+                                   Visibility="{Binding HatDirektVergleichHinweis, Converter={StaticResource BoolToVisibility}}"
+                                   AutomationProperties.AutomationId="Regelwerke.DirektVergleichHinweis"
+                                   FontSize="11" Opacity="0.6" TextWrapping="Wrap" Margin="0,8,0,0" />
                         <TextBlock Text="Ohne Regelset entscheiden Punkte, Tordifferenz und erzielte Tore."
                                    Visibility="{Binding HatKeinRankingSet, Converter={StaticResource BoolToVisibility}}"
                                    FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
