@@ -1,5 +1,7 @@
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Spiele;
+using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Spielplan;
 
@@ -32,6 +34,43 @@ public static class GruppenSpielplan
     public static List<GeplantesGruppenSpiel> Planen(
         IReadOnlyList<IReadOnlyList<GruppenSlot>> gruppen, bool mitRueckspiel) =>
         Planen(gruppen, mitRueckspiel, BergerHeimrecht.Wechselnd);
+
+    /// <summary>Die Spiele zu <paramref name="plan"/>, nummeriert ab <paramref name="startNr"/>: die Hinspiele (ohne
+    /// Rückspiel: alle Spiele) und je Rückspiel sein Hinspiel. Ein offener Platz ohne Namen heißt „?“ wie in
+    /// <see cref="PasstZu"/>. Modus wie vor #620: nur feste Teams <c>SchnellSimulation</c>, sonst
+    /// <c>ManuellesErgebnis</c>.</summary>
+    public static (List<Spiel> Hinspiele, List<(Spiel Hinspiel, Spiel Rueckspiel)> Rueckspiele) SpieleErzeugen(
+        TurnierRunde runde, IReadOnlyList<GeplantesGruppenSpiel> plan, int startNr)
+    {
+        var modus = plan.All(g => g.Heim.MannschaftId.HasValue && g.Auswaerts.MannschaftId.HasValue)
+            ? SimulationsModus.SchnellSimulation
+            : SimulationsModus.ManuellesErgebnis;
+        var spiele = plan.Select((g, i) => SpielErstellen(runde, g, startNr + i, modus)).ToList();
+
+        var rueckspiele = plan
+            .Select((geplant, i) => (geplant.HinspielIndex, Index: i))
+            .Where(x => x.HinspielIndex.HasValue)
+            .Select(x => (Hinspiel: spiele[x.HinspielIndex!.Value], Rueckspiel: spiele[x.Index]))
+            .ToList();
+        return ([.. spiele.Where(s => !s.IstRueckspiel)], rueckspiele);
+    }
+
+    private static Spiel SpielErstellen(TurnierRunde runde, GeplantesGruppenSpiel g, int spielNr, SimulationsModus modus) =>
+        new()
+        {
+            TurnierInstanzId         = runde.TurnierInstanzId,
+            TurnierRundeId           = runde.Id,
+            Spielnummer              = spielNr,
+            Spieltag                 = g.Spieltag,
+            GruppenNummer            = g.GruppenNummer,
+            HeimMannschaftId         = g.Heim.MannschaftId,
+            HeimPlatzhalterName      = g.Heim.MannschaftId is null ? g.Heim.PlatzhalterName ?? "?" : null,
+            AuswaertsMannschaftId    = g.Auswaerts.MannschaftId,
+            AuswaertsPlatzhalterName = g.Auswaerts.MannschaftId is null ? g.Auswaerts.PlatzhalterName ?? "?" : null,
+            Status                   = SpielStatus.Geplant,
+            SimulationsModus         = modus,
+            IstRueckspiel            = g.IstRueckspiel,
+        };
 
     /// <summary>Der Plan, nach dem <paramref name="spiele"/> (in Spielnummer-Reihenfolge) generiert wurden, oder
     /// <c>null</c>, wenn keiner passt. Vor #568 generierte Pläne vergeben das Heimrecht noch nach der Kreisposition

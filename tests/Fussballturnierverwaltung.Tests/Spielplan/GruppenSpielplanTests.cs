@@ -120,6 +120,58 @@ public class GruppenSpielplanTests
         new[] { plan[0].Heim, plan[0].Auswaerts }.Should().BeEquivalentTo(gruppe);
     }
 
+    // ── SpieleErzeugen ──────────────────────────────────────────────────────
+
+    private static readonly TurnierRunde _runde = new() { Id = 7, TurnierInstanzId = 3, Name = "Gruppenphase" };
+
+    [Fact]
+    public void SpieleErzeugen_NummeriertAbStartNr_UndUebernimmtPlanUndPlaetze()
+    {
+        var plan = GruppenSpielplan.Planen([[new GruppenSlot(1, null), new GruppenSlot(null, null), new GruppenSlot(null, "Sieger A")]], mitRueckspiel: false);
+
+        var (hinspiele, rueckspiele) = GruppenSpielplan.SpieleErzeugen(_runde, plan, startNr: 21);
+
+        rueckspiele.Should().BeEmpty();
+        hinspiele.Select(s => s.Spielnummer).Should().Equal(21, 22, 23);
+        hinspiele.Select(s => (s.Spieltag, s.GruppenNummer)).Should().Equal(plan.Select(g => ((int?)g.Spieltag, (int?)g.GruppenNummer)));
+        hinspiele.Should().OnlyContain(s => s.TurnierRundeId == 7 && s.TurnierInstanzId == 3 && s.Status == SpielStatus.Geplant);
+        hinspiele.SelectMany(s => new[] { s.HeimPlatzhalterName, s.AuswaertsPlatzhalterName }).OfType<string>()
+            .Should().BeEquivalentTo("?", "?", "Sieger A", "Sieger A");
+        GruppenSpielplan.PasstZu(plan, hinspiele).Should().BeTrue();
+    }
+
+    [Fact]
+    public void SpieleErzeugen_ModusNurBeiFestenTeamsSchnellSimulation()
+    {
+        var fest      = GruppenSpielplan.Planen([FesteGruppe(1, 2, 3)], mitRueckspiel: false);
+        var gemischt  = GruppenSpielplan.Planen([FesteGruppe(1, 2, 3), [new GruppenSlot(4, null), new GruppenSlot(null, "Sieger A")]], mitRueckspiel: false);
+
+        GruppenSpielplan.SpieleErzeugen(_runde, fest, startNr: 1).Hinspiele
+            .Should().OnlyContain(s => s.SimulationsModus == SimulationsModus.SchnellSimulation);
+        GruppenSpielplan.SpieleErzeugen(_runde, gemischt, startNr: 1).Hinspiele
+            .Should().OnlyContain(s => s.SimulationsModus == SimulationsModus.ManuellesErgebnis);
+    }
+
+    [Fact]
+    public void SpieleErzeugen_MitRueckspiel_JedesRueckspielMitSeinemGespiegeltenHinspiel()
+    {
+        var plan = GruppenSpielplan.Planen([FesteGruppe(1, 2, 3, 4), FesteGruppe(5, 6, 7, 8)], mitRueckspiel: true);
+
+        var (hinspiele, rueckspiele) = GruppenSpielplan.SpieleErzeugen(_runde, plan, startNr: 1);
+
+        hinspiele.Should().HaveCount(12).And.OnlyContain(s => !s.IstRueckspiel);
+        rueckspiele.Should().HaveCount(12);
+        hinspiele.Concat(rueckspiele.Select(r => r.Rueckspiel)).Select(s => s.Spielnummer)
+            .Should().BeEquivalentTo(Enumerable.Range(1, 24));
+        foreach (var (hin, rueck) in rueckspiele)
+        {
+            rueck.IstRueckspiel.Should().BeTrue();
+            hinspiele.Should().Contain(hin);
+            (rueck.HeimMannschaftId, rueck.AuswaertsMannschaftId).Should().Be((hin.AuswaertsMannschaftId, hin.HeimMannschaftId));
+            rueck.GruppenNummer.Should().Be(hin.GruppenNummer);
+        }
+    }
+
     // ── PasstZu ─────────────────────────────────────────────────────────────
 
     private static readonly IReadOnlyList<GruppenSlot> _gemischteGruppe =
