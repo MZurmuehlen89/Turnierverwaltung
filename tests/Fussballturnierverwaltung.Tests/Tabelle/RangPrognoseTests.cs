@@ -211,6 +211,29 @@ public class RangPrognoseTests
     }
 
     [Fact]
+    public void GruppenRaengeSetzen_RechnetMitDenRankingRegelnDesRegelwerks()
+    {
+        // #622: 1 schlägt 3, offen sind 1–2 und 2–3. Team 3 kommt bestenfalls auf 3 Punkte. Ohne
+        // Regelset entscheidet bei drei Punktgleichen die Tordifferenz – ein Kantersieg gegen 2 macht 3 zum Ersten.
+        // Mit „Punkte, Losentscheid“ zählen Tore nicht, bei Punktgleichheit steht 3 (höchste Id) hinten: bestenfalls Zweiter.
+        Spiel[] spiele = [Spiel(1, 3, 1, 0), Spiel(1, 2), Spiel(2, 3)];
+        RankingRegel[] punkteUndLos =
+        [
+            new() { Regelart = RankingRegelArt.Punkte, Sortierrichtung = Sortierrichtung.Absteigend },
+            new() { Regelart = RankingRegelArt.Losentscheid, Sortierrichtung = Sortierrichtung.Aufsteigend }
+        ];
+
+        var ohneRegeln = GruppeMitRaengen(1, spiele);
+        var mitRegeln = new GruppenTabelle(1, TabellenRechner.TabelleBerechnen(spiele, new(_dreiPunkte, punkteUndLos)));
+        RangPrognose.GruppenRaengeSetzen(mitRegeln, spiele, 1, new(_dreiPunkte, punkteUndLos));
+
+        Team(ohneRegeln.Tabelle, 3).BesterRang.Should().Be(1);
+        Team(ohneRegeln.Tabelle, 3).Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen);
+        Team(mitRegeln.Tabelle, 3).BesterRang.Should().Be(2);
+        Team(mitRegeln.Tabelle, 3).Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherAusgeschieden);
+    }
+
+    [Fact]
     public void GruppenRaengeSetzen_MitOffenemPlatz_LaesstStatusUndRaengeOffen()
     {
         // Issue #397: die Spiele des noch unbekannten Teilnehmers fehlen in der Rechnung.

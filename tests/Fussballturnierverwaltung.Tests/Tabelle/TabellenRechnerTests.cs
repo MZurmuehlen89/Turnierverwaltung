@@ -113,6 +113,27 @@ public class TabellenRechnerTests
         Reihenfolge(tabelle).Should().Equal(1, 2, 3, 4);
     }
 
+    public static TheoryData<RankingRegelArt[]> RegelsetsOhneLosentscheid => new()
+    {
+        Array.Empty<RankingRegelArt>(),
+        new[] { RankingRegelArt.Punkte, RankingRegelArt.Tordifferenz }
+    };
+
+    [Theory]
+    [MemberData(nameof(RegelsetsOhneLosentscheid))]
+    public void TabelleBerechnen_GleichstandNachAllenKriterien_OrdnetNachTeamId_UnabhaengigVonDerSpielreihenfolge(
+        RankingRegelArt[] arten)
+    {
+        // #622: Alle acht Teams spielen 1:1 – kein Kriterium trennt sie, auch ohne Losentscheid im Regelset.
+        Spiel[] spiele = [Spiel(8, 3, 1, 1), Spiel(5, 2, 1, 1), Spiel(7, 1, 1, 1), Spiel(4, 6, 1, 1)];
+
+        var vorwaerts = TabellenRechner.TabelleBerechnen(spiele, new(_dreiPunkte, Regeln(arten)));
+        var rueckwaerts = TabellenRechner.TabelleBerechnen([.. Enumerable.Reverse(spiele)], new(_dreiPunkte, Regeln(arten)));
+
+        Reihenfolge(vorwaerts).Should().Equal(1, 2, 3, 4, 5, 6, 7, 8);
+        Reihenfolge(rueckwaerts).Should().Equal(1, 2, 3, 4, 5, 6, 7, 8);
+    }
+
     [Fact]
     public void TabelleBerechnen_Koeffizient_OrdnetGleichstaendeNachRanglistenplatz_TeamsOhneEintragHinten()
     {
@@ -148,6 +169,23 @@ public class TabellenRechnerTests
         tabelle.Single(e => e.Mannschaft.Id == 2).Siege.Should().Be(1);
         tabelle.Single(e => e.Mannschaft.Id == 1).Niederlagen.Should().Be(1);
         tabelle.Should().OnlyContain(e => e.Unentschieden == 0);
+    }
+
+    [Fact]
+    public void TabelleBerechnen_SiegInDerVerlaengerung_ZaehltDieToreMit_AuchOhneEingetragenenSieger()
+    {
+        // 1:1 nach 90 Minuten, 1:0 in der Verlängerung; der Sieger ergibt sich aus den Toren.
+        var spiel = Spiel(1, 2, 1, 1);
+        spiel.Ergebnis!.EntscheidungArt = EntscheidungArt.Verlaengerung;
+        spiel.Ergebnis.HeimToreVerlaengerung = 1;
+        spiel.Ergebnis.AuswaertsToreVerlaengerung = 0;
+
+        var tabelle = TabellenRechner.TabelleBerechnen([spiel], new(_dreiPunkte, []));
+
+        var sieger = tabelle.Single(e => e.Mannschaft.Id == 1);
+        (sieger.Siege, sieger.Tore, sieger.Gegentore, sieger.Punkte).Should().Be((1, 2, 1, 3));
+        var verlierer = tabelle.Single(e => e.Mannschaft.Id == 2);
+        (verlierer.Niederlagen, verlierer.Tore, verlierer.Gegentore, verlierer.Punkte).Should().Be((1, 1, 2, 0));
     }
 
     // ── Statistik je Team und Kriterien (#505: vor dem Umbau exakt festgehalten) ──
@@ -247,15 +285,29 @@ public class TabellenRechnerTests
         Reihenfolge(tabelle).Should().Equal(erwartet);
     }
 
-    [Theory]
-    [InlineData(true, 1, 0)]
-    [InlineData(false, 0, 1)]
-    public void TabelleBerechnen_NurHeimspiele_ZaehltJeTeamNurDieEineSeite(bool nurHeimspiele, int spieleHeimteam, int spieleGast)
+    [Fact]
+    public void TabelleBerechnen_NurHeimspiele_ZaehltJeTeamNurSeineHeimspiele()
     {
-        var tabelle = TabellenRechner.TabelleBerechnen([Spiel(1, 2, 2, 0)], new(_dreiPunkte, []), nurHeimspiele);
+        // Team 1 gewinnt daheim 2:0 und verliert auswärts 1:3.
+        var tabelle = TabellenRechner.TabelleBerechnen(
+            [Spiel(1, 2, 2, 0), Spiel(2, 1, 3, 1)], new(_dreiPunkte, []), nurHeimspiele: true);
 
-        tabelle.Single(e => e.Mannschaft.Id == 1).Spiele.Should().Be(spieleHeimteam);
-        tabelle.Single(e => e.Mannschaft.Id == 2).Spiele.Should().Be(spieleGast);
+        var team1 = tabelle.Single(e => e.Mannschaft.Id == 1);
+        (team1.Spiele, team1.Siege, team1.Niederlagen, team1.Tore, team1.Gegentore, team1.Punkte).Should().Be((1, 1, 0, 2, 0, 3));
+        var team2 = tabelle.Single(e => e.Mannschaft.Id == 2);
+        (team2.Spiele, team2.Siege, team2.Niederlagen, team2.Tore, team2.Gegentore, team2.Punkte).Should().Be((1, 1, 0, 3, 1, 3));
+    }
+
+    [Fact]
+    public void TabelleBerechnen_NurAuswaertsspiele_ZaehltJeTeamNurSeineAuswaertsspiele()
+    {
+        var tabelle = TabellenRechner.TabelleBerechnen(
+            [Spiel(1, 2, 2, 0), Spiel(2, 1, 3, 1)], new(_dreiPunkte, []), nurHeimspiele: false);
+
+        var team1 = tabelle.Single(e => e.Mannschaft.Id == 1);
+        (team1.Spiele, team1.Siege, team1.Niederlagen, team1.Tore, team1.Gegentore, team1.Punkte).Should().Be((1, 0, 1, 1, 3, 0));
+        var team2 = tabelle.Single(e => e.Mannschaft.Id == 2);
+        (team2.Spiele, team2.Siege, team2.Niederlagen, team2.Tore, team2.Gegentore, team2.Punkte).Should().Be((1, 0, 1, 0, 2, 0));
     }
 
     [Fact]
@@ -376,5 +428,18 @@ public class TabellenRechnerTests
 
         TabellenRechner.SpieltageMitErgebnis([erster, dritter, vierterOffen]).Should().Equal(1, 2, 3);
         TabellenRechner.SpieltageMitErgebnis([vierterOffen]).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void SpieltageMitErgebnis_AbgeschlossenOhneErgebnis_ZaehltNicht()
+    {
+        // #622: dieselbe Bedingung wie die Tabelle selbst (TabellenRechner.HatErgebnis).
+        var erster = Spiel(1, 2, 1, 0);
+        erster.Spieltag = 1;
+        var zweiterOhneErgebnis = Spiel(2, 1);
+        zweiterOhneErgebnis.Spieltag = 2;
+        zweiterOhneErgebnis.Status = SpielStatus.Abgeschlossen;
+
+        TabellenRechner.SpieltageMitErgebnis([erster, zweiterOhneErgebnis]).Should().Equal(1);
     }
 }

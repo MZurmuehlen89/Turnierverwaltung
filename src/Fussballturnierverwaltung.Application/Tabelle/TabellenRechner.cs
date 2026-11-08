@@ -68,7 +68,7 @@ public static class TabellenRechner
     public static IReadOnlyList<int> SpieltageMitErgebnis(IEnumerable<Spiel> spiele)
     {
         int letzterMitErgebnis = spiele
-            .Where(s => s.Status == SpielStatus.Abgeschlossen && s.Spieltag.HasValue)
+            .Where(s => HatErgebnis(s) && s.Spieltag.HasValue)
             .Select(s => s.Spieltag!.Value)
             .DefaultIfEmpty()
             .Max();
@@ -141,8 +141,14 @@ public static class TabellenRechner
         if (cmp != 0) return cmp;
         cmp = y.Tordifferenz.CompareTo(x.Tordifferenz);
         if (cmp != 0) return cmp;
-        return y.Tore.CompareTo(x.Tore);
+        cmp = y.Tore.CompareTo(x.Tore);
+        return cmp != 0 ? cmp : GleichstandAufloesen(x.Mannschaft.Id, y.Mannschaft.Id);
     }
+
+    /// <summary>Letzter Vergleich, wenn kein Kriterium entscheidet (#622): nach Team-Id wie der Losentscheid.
+    /// <see cref="List{T}.Sort(Comparison{T})"/> ist nicht stabil – ohne ihn hinge die Reihenfolge punkt- und
+    /// torgleicher Teams an der Reihenfolge der Spiele und könnte zwischen zwei Berechnungen wechseln.</summary>
+    private static int GleichstandAufloesen(int xId, int yId) => xId.CompareTo(yId);
 
     private static int Vergleichen(int xId, int yId, Wertung wertung)
     {
@@ -156,7 +162,7 @@ public static class TabellenRechner
             if (cmp != 0) return cmp;
         }
 
-        return 0;
+        return GleichstandAufloesen(xId, yId);
     }
 
     private static int NachRegelVergleichen(RankingRegelArt regelart, int xId, int yId, Wertung wertung)
@@ -164,7 +170,7 @@ public static class TabellenRechner
         if (IstDirekterVergleich(regelart)) return DirektVergleichen(regelart, xId, yId, wertung);
 
         // Stabiler Tiebreaker: nach Team-ID (reproduzierbar)
-        if (regelart == RankingRegelArt.Losentscheid) return xId.CompareTo(yId);
+        if (regelart == RankingRegelArt.Losentscheid) return GleichstandAufloesen(xId, yId);
 
         if (regelart == RankingRegelArt.Koeffizient) return NachRanglistenplatzVergleichen(xId, yId, wertung.Regeln.RanglistenPlaetze);
 

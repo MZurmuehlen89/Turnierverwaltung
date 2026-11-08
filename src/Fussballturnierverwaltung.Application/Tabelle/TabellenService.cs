@@ -48,9 +48,7 @@ public class TabellenService(
     public async Task<IReadOnlyList<TabellenEintrag>> LigaTabelleMitSicherheitBerechnenAsync(
         int turnierRundeId, CancellationToken ct = default)
     {
-        var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
-        var tabelle = TabellenRechner.TabelleBerechnen(daten.Spiele, daten.Regeln, teilnehmer: daten.Teilnehmer);
-        RangPrognose.LigaRaengeSetzen(tabelle, daten.Runde, daten.Spiele, daten.Regeln.PunkteRegel);
+        var tabelle = await TabelleBerechnenAsync(turnierRundeId, ct: ct);
         RangPrognose.SicherPositionierteMarkieren(tabelle);
         return tabelle;
     }
