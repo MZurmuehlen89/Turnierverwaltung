@@ -198,8 +198,8 @@ public class PlatzhalterAufloesung(
             : await NameEinmalAufloesenAsync(platzhalterName, offene, ct);
 
     /// <summary>Löst eine K.o.-Quellverknüpfung (<see cref="Spiel.HeimQuellSpielId"/>/-<c>Ergebnis</c>) direkt
-    /// zur Mannschafts-ID auf — Gegenstück zu <see cref="KoSpielRangAsync"/>, aber ohne dessen Filter auf
-    /// bereits besetzte Spiele, da die Quell-ID schon eindeutig auf ein konkretes Spiel zeigt.</summary>
+    /// zur Mannschafts-ID auf — Gegenstück zu <see cref="KoSpielRangAsync"/>, ohne die Paarung erst über ihre
+    /// Nummer suchen zu müssen.</summary>
     private async Task<int?> QuellSpielAufloesenAsync(
         int quellSpielId, SpielQuellErgebnisTyp typ, OffeneRunde offene, CancellationToken ct)
     {
@@ -281,10 +281,7 @@ public class PlatzhalterAufloesung(
         var gruppenphase = VorhergehendeGruppenphase(ziel);
         if (gruppenphase is null) return null;
 
-        if (await zwischenspeicher.EnthaeltIgnoriertesSpielAsync(gruppenphase.Id, sicht.IgnorierteSpielIds, ct)) return null;
-        var spiele = await zwischenspeicher.RundenSpieleAsync(gruppenphase.Id, ct);
-        if (spiele.Count == 0 || spiele.Any(s => s.Status != SpielStatus.Abgeschlossen))
-            return null;
+        if (!await VollstaendigGespieltAsync(gruppenphase.Id, sicht, ct)) return null;
 
         var rangfolge = await tabellenService.UebergreifendeRangfolgeBerechnenAsync(gruppenphase.Id, bezug.Platzierung, ct: ct);
         if (rangfolge.Count < tabelle.AnzahlBeste) return null;
@@ -318,16 +315,22 @@ public class PlatzhalterAufloesung(
         var gruppenphase = VorhergehendeGruppenphase(ziel);
         if (gruppenphase is null) return null;
 
-        if (await zwischenspeicher.EnthaeltIgnoriertesSpielAsync(gruppenphase.Id, sicht.IgnorierteSpielIds, ct)) return null;
-        if (await HatOffeneBesetzteSpieleAsync(gruppenphase.Id, ct)) return null;
+        if (!await VollstaendigGespieltAsync(gruppenphase.Id, sicht, ct)) return null;
 
         var rangfolge = await tabellenService.UebergreifendeRangfolgeBerechnenAsync(gruppenphase.Id, bezug.Platzierung, ct: ct);
         return bezug.Rang <= rangfolge.Count ? rangfolge[bezug.Rang - 1].Mannschaft.Id : null;
     }
 
-    private async Task<bool> HatOffeneBesetzteSpieleAsync(int rundeId, CancellationToken ct) =>
-        (await zwischenspeicher.RundenSpieleAsync(rundeId, ct))
-            .Any(s => s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue && s.Status != SpielStatus.Abgeschlossen);
+    /// <summary>Gate der gruppenübergreifenden Auflösungen (Kombinationsplatz, "N. bester X. Platz",
+    /// Bestenregel): erst wenn jedes Spiel der Runde abgeschlossen ist. Issue #619: auch Spiele, deren
+    /// Teilnehmer noch Platzhalter sind (#395), zählen als offen — vorher galten nur besetzte, und ein bester
+    /// Gruppensieger stand fest, bevor eine Gruppe mit offenen Plätzen überhaupt gespielt hatte.</summary>
+    private async Task<bool> VollstaendigGespieltAsync(int rundeId, Sicht sicht, CancellationToken ct)
+    {
+        if (await zwischenspeicher.EnthaeltIgnoriertesSpielAsync(rundeId, sicht.IgnorierteSpielIds, ct)) return false;
+        var spiele = await zwischenspeicher.RundenSpieleAsync(rundeId, ct);
+        return spiele.Count > 0 && spiele.All(s => s.Status == SpielStatus.Abgeschlossen);
+    }
 
     private async Task<int?> KoSpielAufloesenAsync(
         PlatzhalterBezug.KoSpiel bezug, Zielrunde ziel, Sicht sicht, CancellationToken ct)
@@ -393,7 +396,7 @@ public class PlatzhalterAufloesung(
     private async Task<IReadOnlyList<int?>> BesteNAufloesenAsync(Uebergangsregel regel, CancellationToken ct)
     {
         int n = regel.AnzahlBeste!.Value;
-        if (await HatOffeneBesetzteSpieleAsync(regel.QuellRundeId, ct)) return [.. Enumerable.Repeat((int?)null, n)];
+        if (!await VollstaendigGespieltAsync(regel.QuellRundeId, Sicht.Sicher, ct)) return [.. Enumerable.Repeat((int?)null, n)];
 
         var rangfolge = await tabellenService.UebergreifendeRangfolgeBerechnenAsync(regel.QuellRundeId, regel.PlatzierungVon, ct: ct);
         return Enumerable.Range(0, n)
@@ -459,25 +462,21 @@ public class PlatzhalterAufloesung(
 
     /// <summary>Sieger (Platzierung 1) oder Verlierer (2) der Paarung <paramref name="spielNummer"/> einer
     /// K.o.-Runde — über das eingetragene Ergebnis exakt abgesichert. Issue #346: gezählt wird je Paarung
-    /// (Hinspiel) unter den bereits mit beiden Mannschaften besetzten; entschieden wird bei Hin-/Rückspiel im
-    /// Rückspiel, das den Gesamtsieger trägt.</summary>
+    /// (Hinspiel); entschieden wird bei Hin-/Rückspiel im Rückspiel, das den Gesamtsieger trägt. Issue #619: wie
+    /// in <see cref="KoQuellverknuepfung"/> zählen auch noch unbesetzte Paarungen mit — die Position im Tableau
+    /// steht ab Erzeugung der Runde fest (ein Freilos erzeugt kein Spiel).</summary>
     private async Task<int?> KoSpielRangAsync(
         TurnierRunde quellRunde, int? spielNummer, int platzierung, Sicht sicht, CancellationToken ct)
     {
         if (spielNummer is not { } nummer) return null;
 
-        var alleSpiele = await zwischenspeicher.RundenSpieleAsync(quellRunde.Id, ct);
-        var rueckspielJeHinspiel = KoPaarungen.RueckspielJeHinspiel(alleSpiele);
-        var paarungen = alleSpiele
-            .Where(s => !s.IstRueckspiel && s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)
-            .OrderBy(s => s.Spielnummer)
-            .ToList();
-        if (paarungen.Count < nummer) return null;
+        var entscheidungsspiele = KoPaarungen.EntscheidungsspieleJePaarung(
+            await zwischenspeicher.RundenSpieleAsync(quellRunde.Id, ct));
+        if (nummer < 1 || nummer > entscheidungsspiele.Count) return null;
 
-        var hinspiel = paarungen[nummer - 1];
-        var spiel    = rueckspielJeHinspiel.GetValueOrDefault(hinspiel.Id) ?? hinspiel;
+        var spiel = entscheidungsspiele[nummer - 1];
         if (sicht.IgnorierteSpielIds is { } ignoriert &&
-            (ignoriert.Contains(hinspiel.Id) || ignoriert.Contains(spiel.Id)))
+            (ignoriert.Contains(spiel.Id) || spiel.HinspielId is int hinspielId && ignoriert.Contains(hinspielId)))
             return null;
 
         return KoPaarungen.SiegerOderVerliererId(spiel, platzierung);

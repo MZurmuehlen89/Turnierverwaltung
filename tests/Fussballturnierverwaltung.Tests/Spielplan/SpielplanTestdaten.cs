@@ -87,6 +87,18 @@ internal static class SpielplanTestdaten
         ctx.SaveChanges();
     }
 
+    /// <summary>Ein Halbfinalspiel, dessen Teilnehmer noch nicht feststehen (beide Seiten Platzhalter).</summary>
+    internal static void OffenesHalbfinalSpielAnlegen(TurnierverwaltungDbContext ctx, int id, int rundeId)
+    {
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = id, TurnierInstanzId = 1, TurnierRundeId = rundeId, Spielnummer = id,
+            HeimPlatzhalterName = "Sieger Gruppe A", AuswaertsPlatzhalterName = "2. Gruppe B",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+    }
+
     internal static void LigaGrundSetupAnlegen(TurnierverwaltungDbContext ctx, out int rundeId)
     {
         ctx.Verbaende.Add(new Verband { Id = 1, Name = "Verband", Kurzname = "V" });

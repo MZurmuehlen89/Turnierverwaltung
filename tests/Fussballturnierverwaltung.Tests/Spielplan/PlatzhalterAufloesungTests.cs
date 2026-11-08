@@ -423,6 +423,31 @@ public class PlatzhalterAufloesungTests
         spiel.AuswaertsMannschaftId.Should().Be(4); // Verlierer HF 2 = Team D
     }
 
+    // Issue #619: "Sieger Halbfinale 1" meint die erste Paarung im Tableau, auch solange sie noch Platzhalter
+    // ist — nicht die erste bereits besetzte.
+    [Fact]
+    public async Task RundeAufloesen_KoQuellrundeTeilweiseBesetzt_ZaehltPaarungenNachTableauPosition()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
+        OffenesHalbfinalSpielAnlegen(ctx, 1, hfRundeId);
+        HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 20, TurnierInstanzId = 1, TurnierRundeId = finaleRundeId, Spielnummer = 20,
+            HeimPlatzhalterName = "Sieger Halbfinale 1", AuswaertsPlatzhalterName = "Sieger Halbfinale 2",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+        var dienste = new SpielplanDienste(ctx);
+
+        await dienste.Aufloesung.RundeAufloesenAsync(finaleRundeId);
+
+        var spiel = ctx.Spiele.First(s => s.Id == 20);
+        spiel.HeimMannschaftId.Should().BeNull("Halbfinale 1 ist noch nicht besetzt");
+        spiel.AuswaertsMannschaftId.Should().Be(3, "Sieger Halbfinale 2 = Team C");
+    }
+
     // Issue #466 (WM 1982): Gruppenphase → fest besetzte Zwischenrunde → K.-o. „1. Gruppe A“ meint je Runde die
     // nächstliegende Gruppenphase davor — in der Zwischenrunde die Vorrunde, in der K.-o.-Runde die Zwischenrunde.
     [Fact]
@@ -750,6 +775,70 @@ public class PlatzhalterAufloesungTests
         var spiel = ctx.Spiele.First(s => s.Id == 10);
         spiel.HeimMannschaftId.Should().BeNull();
         spiel.AuswaertsMannschaftId.Should().BeNull();
+    }
+
+    // Issue #619: Gruppe 2 ist fertig gespielt, Gruppe 1 wartet noch auf zwei Quali-Sieger (#395) — ihre
+    // Spiele sind unbesetzt, nicht abgeschlossen. Der beste Gruppensieger steht damit noch nicht fest.
+    [Fact]
+    public async Task RundeAufloesen_BestePlatzierungBleibtOffenSolangeGruppeNochPlatzhalterHat()
+    {
+        await using var ctx = NeuerContext();
+        await GruppeZweiFertigGruppeEinsMitPlatzhalternAnlegen(ctx);
+        ctx.Spiele.Add(new Spiel
+        {
+            Id = 100, TurnierInstanzId = 1, TurnierRundeId = 3, Spielnummer = 100,
+            HeimPlatzhalterName = "1. bester 1. Platz", AuswaertsPlatzhalterName = "2. bester 1. Platz",
+            Status = SpielStatus.Geplant
+        });
+        ctx.SaveChanges();
+
+        await new SpielplanDienste(ctx).Aufloesung.RundeAufloesenAsync(3);
+
+        var spiel = ctx.Spiele.First(s => s.Id == 100);
+        spiel.HeimMannschaftId.Should().BeNull();
+        spiel.AuswaertsMannschaftId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UebergangsregelQualifikanten_AnzahlBeste_BleibtOffenSolangeGruppeNochPlatzhalterHat()
+    {
+        await using var ctx = NeuerContext();
+        int gruppenphaseId = await GruppeZweiFertigGruppeEinsMitPlatzhalternAnlegen(ctx);
+        var regel = new Uebergangsregel
+        {
+            QuellRundeId = gruppenphaseId, QuellRunde = ctx.TurnierRunden.First(r => r.Id == gruppenphaseId),
+            ZielRundeId = 3, PlatzierungVon = 1, PlatzierungBis = 1, AnzahlBeste = 1
+        };
+
+        var qualifikanten = await new SpielplanDienste(ctx).Aufloesung.UebergangsregelQualifikantenAsync(regel);
+
+        qualifikanten.Should().Equal(new Dictionary<int, int?> { [1] = null });
+    }
+
+    /// <summary><see cref="TeilaufgeloesteGruppenAnlegen"/> mit fertig gespielter Gruppe 2 (Heimteam gewinnt
+    /// 1:0) und einer Zielrunde 3 dahinter.</summary>
+    private static async Task<int> GruppeZweiFertigGruppeEinsMitPlatzhalternAnlegen(TurnierverwaltungDbContext ctx)
+    {
+        int gruppenphaseId = await TeilaufgeloesteGruppenAnlegen(ctx);
+        ctx.TurnierRunden.Add(new TurnierRunde
+        {
+            Id = 3, TurnierInstanzId = 1, Name = "Finale", Reihenfolge = 3, Rundenart = Rundenart.Finale,
+            EingangsMannschaftsanzahl = 2, AusgangsMannschaftsanzahl = 1, RegelwerkId = 1
+        });
+        var besetzte = ctx.Spiele.Where(s => s.TurnierRundeId == gruppenphaseId
+            && s.HeimMannschaftId != null && s.AuswaertsMannschaftId != null).ToList();
+        besetzte.Should().HaveCount(3, "Gruppe 1 hat kein besetztes Spiel, Gruppe 2 drei");
+        foreach (var spiel in besetzte)
+        {
+            spiel.Status = SpielStatus.Abgeschlossen;
+            ctx.SpielErgebnisse.Add(new SpielErgebnis
+            {
+                SpielId = spiel.Id, HeimToreRegulaer = 1, AuswaertsToreRegulaer = 0,
+                EntscheidungArt = EntscheidungArt.RegulaereSpielzeit, SiegerMannschaftId = spiel.HeimMannschaftId
+            });
+        }
+        await ctx.SaveChangesAsync();
+        return gruppenphaseId;
     }
 
     [Fact]

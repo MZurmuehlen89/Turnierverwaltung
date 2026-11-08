@@ -140,6 +140,28 @@ public class PlatzhalterKaskadeServiceTests
         finaleSpiele[0].HeimMannschaftId.Should().Be(2, "Sieger HF 1 ist jetzt Team B");
     }
 
+    // Issue #619: die Kaskade ermittelt den Soll-Stand über den Platzhalternamen — mit noch offenem Halbfinale 1
+    // zeigte "Sieger Halbfinale 1" auf Halbfinale 2 und verschob Team C auf die falsche Seite.
+    [Fact]
+    public async Task Planen_KoQuellrundeTeilweiseBesetzt_OhneAenderung_KeineAuswirkung()
+    {
+        await using var ctx = NeuerContext();
+        GrundSetupAnlegen(ctx, out int hfRundeId, out int finaleRundeId);
+        OffenesHalbfinalSpielAnlegen(ctx, 1, hfRundeId);
+        HalbfinalSpielAnlegen(ctx, 2, hfRundeId, heimId: 3, auswaertsId: 4, siegerMannschaftId: 3);
+        var auslosung = await AuslosungMitPlatzhalternAnlegen(
+            ctx, finaleRundeId, ("Sieger Halbfinale 1", "Sieger Halbfinale 2"));
+        var dienste = new SpielplanDienste(ctx);
+        await dienste.Spielplan.GenerierenAusAuslosungAsync(finaleRundeId, [.. auslosung.Ergebnisse]);
+        var finale = ctx.Spiele.Single(s => s.TurnierRundeId == finaleRundeId);
+        finale.HeimMannschaftId.Should().BeNull();
+        finale.AuswaertsMannschaftId.Should().Be(3, "Sieger Halbfinale 2 = Team C");
+
+        var plan = await dienste.Kaskade.PlanenAsync(1, new HashSet<int>());
+
+        plan.HatAuswirkungen.Should().BeFalse("am Turnierstand hat sich nichts geändert");
+    }
+
     [Fact]
     public async Task Kaskade_RuehrtUnbetroffenesSpielDerselbenRundeNichtAn()
     {

@@ -78,8 +78,8 @@ public class KoQuellverknuepfung(
         return geaendert;
     }
 
-    // Die Position im Tableau ist ab Erzeugung der Runde stabil — bewusst NICHT wie bei der Auflösung über
-    // Platzierungen (PlatzhalterAufloesung) auf bereits mit Mannschaften besetzte Spiele gefiltert.
+    // Die Position im Tableau ist ab Erzeugung der Runde stabil — bewusst NICHT auf bereits mit Mannschaften
+    // besetzte Spiele gefiltert (gleiche Zählung wie PlatzhalterAufloesung.KoSpielRangAsync, #619).
     private async Task<(int SpielId, SpielQuellErgebnisTyp Typ)?> QuelleAsync(
         string? platzhalterName, Zielrunde ziel, CancellationToken ct)
     {
