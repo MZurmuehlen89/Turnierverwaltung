@@ -27,7 +27,7 @@ public static class AuslosungsErgebnisartErmittlung
 
     /// <summary>Eine Gruppenauslosung speichert je Mannschaft eine Zeile ohne Gegner — die eine Erkennung für
     /// Ergebnisanzeige und TV-Modus (<see cref="ZiehungsReihenfolge"/>). Ohne Ergebnisse: nein.</summary>
-    internal static bool IstGruppenergebnis(ICollection<AuslosungsErgebnis> ergebnisse) =>
-        ergebnisse.Count > 0 &&
+    internal static bool IstGruppenergebnis(IEnumerable<AuslosungsErgebnis> ergebnisse) =>
+        ergebnisse.Any() &&
         ergebnisse.All(e => !e.IstFreilos && e.AuswaertsMannschaftId == null && e.AuswaertsPlatzhalterName == null);
 }
