@@ -9,7 +9,7 @@ using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Tests.Tabelle;
 
-/// <summary>Issue #439: Rang-Schranken der Liga und Qualifikationsstatus der Gruppe direkt gegen die Prognose,
+/// <summary>Issue #439: Rang-Schranken der Liga und mögliche Ränge der Gruppe direkt gegen die Prognose,
 /// ohne Datenbank. Die Sonderfälle der Ergebniskombinationen (#201/#202/#205/#206/#427) bleiben in
 /// <see cref="TabellenServiceTests"/>.</summary>
 public class RangPrognoseTests
@@ -53,10 +53,10 @@ public class RangPrognoseTests
         return tabelle;
     }
 
-    private static GruppenTabelle GruppeMitRaengen(int qualifiziertePlaetze, params Spiel[] spiele)
+    private static GruppenTabelle GruppeMitRaengen(params Spiel[] spiele)
     {
         var gruppe = new GruppenTabelle(1, TabellenRechner.TabelleBerechnen(spiele, new(_dreiPunkte, [])));
-        RangPrognose.GruppenRaengeSetzen(gruppe, spiele, qualifiziertePlaetze, new(_dreiPunkte, []));
+        RangPrognose.GruppenRaengeSetzen(gruppe, spiele, new(_dreiPunkte, []));
         return gruppe;
     }
 
@@ -160,62 +160,47 @@ public class RangPrognoseTests
     // ── Gruppe ────────────────────────────────────────────────────────────
 
     [Fact]
-    public void GruppenRaengeSetzen_OhneOffeneSpiele_EntscheidetNachDemRang()
+    public void GruppenRaengeSetzen_OhneOffeneSpiele_JederRangIstFinal()
     {
-        var gruppe = GruppeMitRaengen(1, Spiel(1, 2, 2, 0), Spiel(2, 3, 1, 0), Spiel(3, 1, 0, 1));
+        var gruppe = GruppeMitRaengen(Spiel(1, 2, 2, 0), Spiel(2, 3, 1, 0), Spiel(3, 1, 0, 1));
 
         gruppe.Tabelle.Should().OnlyContain(e => e.SicherPositioniert && e.BesterRang == e.Rang && e.SchlechtesterRang == e.Rang);
-        Team(gruppe.Tabelle, 1).Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherQualifiziert);
-        Team(gruppe.Tabelle, 2).Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherAusgeschieden);
-        Team(gruppe.Tabelle, 3).Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherAusgeschieden);
     }
 
     [Fact]
     public void GruppenRaengeSetzen_VorDemErstenErgebnis_IstFuerJedesTeamNochAllesOffen()
     {
-        var gruppe = GruppeMitRaengen(2, Spiel(1, 2), Spiel(3, 4), Spiel(1, 3), Spiel(2, 4), Spiel(1, 4), Spiel(2, 3));
+        var gruppe = GruppeMitRaengen(Spiel(1, 2), Spiel(3, 4), Spiel(1, 3), Spiel(2, 4), Spiel(1, 4), Spiel(2, 3));
 
-        gruppe.Tabelle.Should().OnlyContain(e =>
-            e.BesterRang == 1 && e.SchlechtesterRang == 4 && !e.SicherPositioniert
-            && e.Qualifikationsstatus == Qualifikationsstatus.Offen);
+        gruppe.Tabelle.Should().OnlyContain(e => e.BesterRang == 1 && e.SchlechtesterRang == 4 && !e.SicherPositioniert);
     }
 
     [Fact]
     public void GruppenRaengeSetzen_MitOffenenSpielen_GrenztDieRaengeJeTeamEin()
     {
         // Team 1 hat alle drei Spiele gewonnen. Dahinter: 2 mit 3 Punkten, 3 und 4 ohne; offen sind 2–4 und 3–4.
-        Spiel[] spiele =
-        [
+        var tabelle = GruppeMitRaengen(
             Spiel(1, 2, 1, 0), Spiel(1, 3, 1, 0), Spiel(1, 4, 1, 0), Spiel(2, 3, 1, 0),
-            Spiel(2, 4), Spiel(3, 4)
-        ];
+            Spiel(2, 4), Spiel(3, 4)).Tabelle;
 
-        var zweiPlaetze = GruppeMitRaengen(2, spiele).Tabelle;
-        var einPlatz = GruppeMitRaengen(1, spiele).Tabelle;
+        (Team(tabelle, 1).BesterRang, Team(tabelle, 1).SchlechtesterRang).Should().Be((1, 1));
+        Team(tabelle, 1).SicherPositioniert.Should().BeTrue();
 
-        (Team(zweiPlaetze, 1).BesterRang, Team(zweiPlaetze, 1).SchlechtesterRang).Should().Be((1, 1));
-        Team(zweiPlaetze, 1).SicherPositioniert.Should().BeTrue();
-        Team(zweiPlaetze, 1).Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherQualifiziert);
-
-        // 2 kann mit einem Sieg Zweiter bleiben, fällt nach einer hohen Niederlage gegen 4 aber bis auf Platz 4.
-        (Team(zweiPlaetze, 2).BesterRang, Team(zweiPlaetze, 2).SchlechtesterRang).Should().Be((2, 4));
-        Team(zweiPlaetze, 2).Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen);
-        (Team(zweiPlaetze, 4).BesterRang, Team(zweiPlaetze, 4).SchlechtesterRang).Should().Be((2, 4));
-
-        // Bei nur einem Platz sind 2, 3 und 4 ausgeschieden, auch wenn ihr Schlussrang noch offen ist.
+        // 2 kann mit einem Sieg Zweiter bleiben, fällt nach einer hohen Niederlage gegen 4 aber bis auf Platz 4;
+        // 3 und 4 kommen mit hohen Siegen bis auf Platz 2.
         foreach (int id in new[] { 2, 3, 4 })
         {
-            Team(einPlatz, id).Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherAusgeschieden);
-            Team(einPlatz, id).SicherPositioniert.Should().BeFalse();
+            (Team(tabelle, id).BesterRang, Team(tabelle, id).SchlechtesterRang).Should().Be((2, 4));
+            Team(tabelle, id).SicherPositioniert.Should().BeFalse();
         }
     }
 
     [Fact]
     public void GruppenRaengeSetzen_RechnetMitDenRankingRegelnDesRegelwerks()
     {
-        // #622: 1 schlägt 3, offen sind 1–2 und 2–3. Team 3 kommt bestenfalls auf 3 Punkte. Ohne
-        // Regelset entscheidet bei drei Punktgleichen die Tordifferenz – ein Kantersieg gegen 2 macht 3 zum Ersten.
-        // Mit „Punkte, Losentscheid“ zählen Tore nicht, bei Punktgleichheit steht 3 (höchste Id) hinten: bestenfalls Zweiter.
+        // #622: 1 schlägt 3, offen sind 1–2 und 2–3. Team 3 kommt bestenfalls auf 3 Punkte. Ohne Regelset
+        // entscheidet bei drei Punktgleichen die Tordifferenz – ein Kantersieg gegen 2 macht 3 zum Ersten. Mit
+        // „Punkte, Losentscheid“ zählen Tore nicht, bei Punktgleichheit steht 3 (höchste Id) hinten: bestenfalls Zweiter.
         Spiel[] spiele = [Spiel(1, 3, 1, 0), Spiel(1, 2), Spiel(2, 3)];
         RankingRegel[] punkteUndLos =
         [
@@ -223,18 +208,16 @@ public class RangPrognoseTests
             new() { Regelart = RankingRegelArt.Losentscheid, Sortierrichtung = Sortierrichtung.Aufsteigend }
         ];
 
-        var ohneRegeln = GruppeMitRaengen(1, spiele);
+        var ohneRegeln = GruppeMitRaengen(spiele);
         var mitRegeln = new GruppenTabelle(1, TabellenRechner.TabelleBerechnen(spiele, new(_dreiPunkte, punkteUndLos)));
-        RangPrognose.GruppenRaengeSetzen(mitRegeln, spiele, 1, new(_dreiPunkte, punkteUndLos));
+        RangPrognose.GruppenRaengeSetzen(mitRegeln, spiele, new(_dreiPunkte, punkteUndLos));
 
         Team(ohneRegeln.Tabelle, 3).BesterRang.Should().Be(1);
-        Team(ohneRegeln.Tabelle, 3).Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen);
         Team(mitRegeln.Tabelle, 3).BesterRang.Should().Be(2);
-        Team(mitRegeln.Tabelle, 3).Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherAusgeschieden);
     }
 
     [Fact]
-    public void GruppenRaengeSetzen_MitOffenemPlatz_LaesstStatusUndRaengeOffen()
+    public void GruppenRaengeSetzen_MitOffenemPlatz_LaesstDieRaengeOffen()
     {
         // Issue #397: die Spiele des noch unbekannten Teilnehmers fehlen in der Rechnung.
         Spiel[] spiele = [Spiel(1, 2, 2, 0), Spiel(2, 3, 1, 0), Spiel(3, 1, 0, 1)];
@@ -243,23 +226,8 @@ public class RangPrognoseTests
             OffenePlaetze = ["Sieger Playoff A"]
         };
 
-        RangPrognose.GruppenRaengeSetzen(gruppe, spiele, 2, new(_dreiPunkte, []));
+        RangPrognose.GruppenRaengeSetzen(gruppe, spiele, new(_dreiPunkte, []));
 
-        gruppe.Tabelle.Should().OnlyContain(e =>
-            e.Qualifikationsstatus == Qualifikationsstatus.Offen && !e.SicherPositioniert && e.BesterRang == null);
-    }
-
-    [Theory]
-    [InlineData(8, 16, 2)]    // acht Gruppen, 16 Direktqualifikanten
-    [InlineData(6, 12, 2)]    // EM: die besten Dritten zählen nicht zu den Direktqualifikanten
-    [InlineData(4, 4, 1)]
-    [InlineData(4, 2, 1)]     // mindestens ein Platz
-    [InlineData(null, 16, 2)] // ohne Gruppenanzahl
-    public void QualifiziertePlaetzeJeGruppe_VerteiltDieDirektqualifikantenAufDieGruppen(
-        int? gruppenAnzahl, int direktqualifikanten, int erwartet)
-    {
-        var runde = new TurnierRunde { GruppenAnzahl = gruppenAnzahl, AusgangsMannschaftsanzahl = direktqualifikanten };
-
-        RangPrognose.QualifiziertePlaetzeJeGruppe(runde).Should().Be(erwartet);
+        gruppe.Tabelle.Should().OnlyContain(e => !e.SicherPositioniert && e.BesterRang == null);
     }
 }

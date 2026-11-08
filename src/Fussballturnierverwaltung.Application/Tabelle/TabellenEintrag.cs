@@ -1,5 +1,4 @@
 using Fussballturnierverwaltung.Domain.Entitaeten.Stammdaten;
-using Fussballturnierverwaltung.Domain.Enums;
 
 namespace Fussballturnierverwaltung.Application.Tabelle;
 
@@ -19,11 +18,9 @@ public sealed class TabellenEintrag
     /// <summary>Buchholz-Zahl (Schweizer System): Summe der aktuellen Punkte aller bisherigen Gegner —
     /// Standard-Tiebreaker bei Punktgleichheit, höherer Wert deutet auf eine stärkere Gegnerschaft hin.</summary>
     public int Buchholz { get; set; }
-    public Qualifikationsstatus Qualifikationsstatus { get; set; } = Qualifikationsstatus.Offen;
 
     /// <summary>Der Rang kann sich durch kein Ergebnis der verbleibenden offenen Spiele mehr ändern
-    /// (Issue #202) — stärker als <see cref="Qualifikationsstatus"/>, das nur die Zonen-Zugehörigkeit
-    /// (qualifiziert/ausgeschieden) absichert, nicht den exakten Platz innerhalb der Zone.</summary>
+    /// (Issue #202). Ob nur die Zone feststeht, zeigt <see cref="PunktFarbe"/>.</summary>
     public bool SicherPositioniert { get; set; }
 
     /// <summary>Bester und schlechtester Rang, der mit den verbleibenden offenen Spielen noch möglich ist

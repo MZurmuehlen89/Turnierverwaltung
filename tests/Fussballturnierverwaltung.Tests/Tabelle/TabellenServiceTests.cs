@@ -529,8 +529,7 @@ public class TabellenServiceTests
         var teamA = gruppen[0].Tabelle.First(e => e.Mannschaft.Id == 1);
         teamA.Spiele.Should().Be(1, "nur Spieltag 1 fliesst in den Snapshot ein");
         teamA.Punkte.Should().Be(3);
-        teamA.Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen, "historischer Stand ohne Status (#480)");
-        teamA.BesterRang.Should().BeNull();
+        teamA.BesterRang.Should().BeNull("historischer Stand ohne mögliche Ränge (#480)");
     }
 
     [Fact]
@@ -582,7 +581,7 @@ public class TabellenServiceTests
         teamA.Tore.Should().Be(5);
         teamB.Tore.Should().Be(2, "B hat trotz gleicher Punkte deutlich weniger Tore als A");
 
-        teamB.Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherAusgeschieden,
+        teamB.BesterRang.Should().Be(2,
             "das Regelwerk sortiert nur nach ErzielteTore - A liegt dort (5/6 Tore) in jeder Simulation vor B (2 Tore), " +
             "obwohl B bei den Punkten gleichauf mit A liegt");
     }
@@ -651,9 +650,9 @@ public class TabellenServiceTests
         var tabelle = gruppen[0].Tabelle;
         var teamA = tabelle.First(e => e.Mannschaft.Id == 1);
         var teamB = tabelle.First(e => e.Mannschaft.Id == 2);
-        teamA.Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherQualifiziert,
+        (teamA.BesterRang, teamA.SchlechtesterRang).Should().Be((1, 2),
             "Team C kann A selbst bei einer Niederlage im direkten Duell nicht mehr einholen");
-        teamB.Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherQualifiziert,
+        (teamB.BesterRang, teamB.SchlechtesterRang).Should().Be((1, 2),
             "Team C kann B selbst bei einer Niederlage im direkten Duell nicht mehr einholen");
         teamA.SicherPositioniert.Should().BeFalse("ob A Rang 1 oder Rang 2 wird, entscheidet erst das offene Duell gegen B");
         teamB.SicherPositioniert.Should().BeFalse("ob B Rang 1 oder Rang 2 wird, entscheidet erst das offene Duell gegen A");
@@ -707,7 +706,7 @@ public class TabellenServiceTests
         tabelle.First(e => e.Mannschaft.Id == 4).Punkte.Should().Be(1);
 
         var teamX = tabelle.First(e => e.Mannschaft.Id == 2);
-        teamX.Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen,
+        teamX.SchlechtesterRang.Should().Be(3,
             "Team Z kann bei einem ausreichend deutlichen Sieg im direkten Duell mit Team X gleichziehen " +
             "und es per Tordifferenz noch verdrängen - nicht nur bei einem knappen 1:0");
     }
@@ -762,7 +761,7 @@ public class TabellenServiceTests
         tabelle.First(e => e.Mannschaft.Id == 2).Punkte.Should().Be(5, "B: 1 Unentschieden + 1 Sieg + 1 Unentschieden");
 
         var teamB = tabelle.First(e => e.Mannschaft.Id == 2);
-        teamB.Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen,
+        (teamB.BesterRang, teamB.SchlechtesterRang).Should().Be((1, 2),
             "gewinnt Team A deutlich gegen Team D, überholt Team A Team B per Tordifferenz - " +
             "obwohl das fremde Spiel A-D Team B selbst gar nicht betrifft");
     }
@@ -807,13 +806,13 @@ public class TabellenServiceTests
         var tabelle = gruppen[0].Tabelle;
         var teamC = tabelle.First(e => e.Mannschaft.Id == 3);
         var teamD = tabelle.First(e => e.Mannschaft.Id == 4);
-        teamC.Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherAusgeschieden);
-        teamD.Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherAusgeschieden);
+        (teamC.BesterRang, teamC.SchlechtesterRang).Should().Be((3, 4), "A und B sind für C und D nicht mehr erreichbar");
+        (teamD.BesterRang, teamD.SchlechtesterRang).Should().Be((3, 4), "A und B sind für C und D nicht mehr erreichbar");
         teamC.SicherPositioniert.Should().BeFalse("ob C Rang 3 oder Rang 4 wird, entscheidet erst das offene Duell gegen D");
         teamD.SicherPositioniert.Should().BeFalse("ob D Rang 3 oder Rang 4 wird, entscheidet erst das offene Duell gegen C");
     }
 
-    // ── Qualifikationsstatus: Worst-Case muss alle Ausgänge fremder Spiele prüfen (Issue #201) ─────
+    // ── Worst-Case muss alle Ausgänge fremder Spiele prüfen (Issue #201) ─────
 
     [Fact]
     public async Task GruppenTabellenBerechnenAsync_WorstCasePrueftAlleAusgaengeFremderSpiele()
@@ -862,7 +861,7 @@ public class TabellenServiceTests
         vorTabelle.First(e => e.Mannschaft.Id == 3).Punkte.Should().Be(3, "Team C: 1 Sieg (bisher)");
 
         var teamB = vorTabelle.First(e => e.Mannschaft.Id == 2);
-        teamB.Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen,
+        (teamB.BesterRang, teamB.SchlechtesterRang).Should().Be((2, 3),
             "Team C kann durch einen Auswaertssieg gegen Team A (fremdes Spiel) auf 6 Punkte kommen und Team B auf Rang 3 verdraengen");
     }
 
@@ -915,7 +914,7 @@ public class TabellenServiceTests
         teamA.Punkte.Should().Be(3, "drei Unentschieden");
         teamA.SicherPositioniert.Should().BeFalse(
             "ein Unentschieden im fremden Spiel D-B haelt Team A auf Rang 2, ein Sieg von D oder B verdraengt es auf Rang 3");
-        teamA.Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen,
+        (teamA.BesterRang, teamA.SchlechtesterRang).Should().Be((2, 3),
             "Team A kann sowohl noch auf Rang 2 qualifizieren (bei Unentschieden) als auch auf Rang 3 ausscheiden (bei Sieg)");
     }
 
@@ -1058,7 +1057,6 @@ public class TabellenServiceTests
             e.BesterRang.Should().Be(1);
             e.SchlechtesterRang.Should().Be(5);
             e.SicherPositioniert.Should().BeFalse();
-            e.Qualifikationsstatus.Should().Be(Qualifikationsstatus.Offen);
         });
     }
 

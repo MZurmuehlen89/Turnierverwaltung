@@ -389,7 +389,6 @@ public class PlatzhalterAufloesungTests
         var polenEintrag = gruppen[0].Tabelle.First(e => e.Mannschaft.Id == polen);
         polenEintrag.Punkte.Should().Be(9);
         polenEintrag.Rang.Should().Be(1);
-        polenEintrag.Qualifikationsstatus.Should().Be(Qualifikationsstatus.SicherQualifiziert);
         polenEintrag.SicherPositioniert.Should().BeTrue(
             "PSG kann mit maximal 6 Punkten Polens 9 Punkte nicht mehr einholen - unabhängig von der Tordifferenz");
 

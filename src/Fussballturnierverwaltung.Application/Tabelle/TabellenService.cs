@@ -53,21 +53,20 @@ public class TabellenService(
         return tabelle;
     }
 
-    /// <summary>Berechnet je eine Tabelle pro Gruppe inkl. Qualifikationsstatus und <see cref="TabellenEintrag.SicherPositioniert"/>
+    /// <summary>Berechnet je eine Tabelle pro Gruppe inkl. möglicher Ränge und <see cref="TabellenEintrag.SicherPositioniert"/>
     /// (siehe <see cref="RangPrognose.GruppenRaengeSetzen"/>). Mit <paramref name="bisSpieltag"/> wird der historische
-    /// Tabellenstand nach diesem Spieltag berechnet — ohne Qualifikationsstatus und mögliche Ränge, die nur zum
-    /// aktuellen Stand passen (#480, wie bei <see cref="TabelleBerechnenAsync"/>).</summary>
+    /// Tabellenstand nach diesem Spieltag berechnet — ohne die möglichen Ränge, die nur zum aktuellen Stand passen
+    /// (#480, wie bei <see cref="TabelleBerechnenAsync"/>).</summary>
     public async Task<IReadOnlyList<GruppenTabelle>> GruppenTabellenBerechnenAsync(
         int turnierRundeId, int? bisSpieltag = null, CancellationToken ct = default)
     {
         var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
-        int qualifiziertePlaetze = RangPrognose.QualifiziertePlaetzeJeGruppe(daten.Runde);
 
         return [.. GruppenRechner.GruppenErmitteln(daten.Spiele).Select(g =>
         {
             var gruppe = GruppenRechner.GruppenTabelleBerechnen(g.Nummer, g.Spiele, bisSpieltag, daten.Regeln);
             if (bisSpieltag is null)
-                RangPrognose.GruppenRaengeSetzen(gruppe, g.Spiele, qualifiziertePlaetze, daten.Regeln);
+                RangPrognose.GruppenRaengeSetzen(gruppe, g.Spiele, daten.Regeln);
             return gruppe;
         })];
     }

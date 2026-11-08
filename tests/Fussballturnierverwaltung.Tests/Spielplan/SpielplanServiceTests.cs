@@ -328,7 +328,7 @@ public class SpielplanServiceTests
 
         var tabellen = await TabellenServiceFuer(ctx).GruppenTabellenBerechnenAsync(gruppeId);
 
-        tabellen[0].Tabelle.Should().OnlyContain(e => !e.SicherPositioniert && e.Qualifikationsstatus == Qualifikationsstatus.Offen,
+        tabellen[0].Tabelle.Should().OnlyContain(e => !e.SicherPositioniert && e.BesterRang == null,
             "in Gruppe 1 sind noch zwei Teilnehmer unbekannt");
         tabellen[1].Tabelle.Should().OnlyContain(e => e.SicherPositioniert, "Gruppe 2 ist vollständig gespielt");
     }

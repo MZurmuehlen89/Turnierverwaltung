@@ -135,40 +135,35 @@ public class TabellenZonenTests
     }
 
     [Fact]
-    public void BesteZuweisen_SolangeEinQualifikantOffenIstKeinStatusUndKeinPunkt()
+    public void BesteZuweisen_SolangeEinQualifikantOffenIstKeinerSicherUndKeinPunkt()
     {
         var rangfolge = DritteRangfolge();
 
         TabellenZonen.BesteZuweisen(rangfolge, GruppenZonenMitBestenDritten(), _achtelfinale.Id, anzahlBeste: 2, [1, null]);
 
-        rangfolge.Should().OnlyContain(e =>
-            e.Qualifikationsstatus == Qualifikationsstatus.Offen && !e.SicherPositioniert && e.PunktFarbe == null);
+        rangfolge.Should().OnlyContain(e => !e.SicherPositioniert && e.PunktFarbe == null);
     }
 
     [Fact]
-    public void BesteZuweisen_StehenAlleQualifikantenFestBekommtJederStatusUndPunkt()
+    public void BesteZuweisen_StehenAlleQualifikantenFestIstJederSicherUndBekommtSeinenPunkt()
     {
         var rangfolge = DritteRangfolge();
 
         TabellenZonen.BesteZuweisen(rangfolge, GruppenZonenMitBestenDritten(), _achtelfinale.Id, anzahlBeste: 1, [1]);
 
-        rangfolge.Select(e => (e.Qualifikationsstatus, e.PunktFarbe)).Should().Equal(
-            (Qualifikationsstatus.SicherQualifiziert, ZonenFarbe.Gruen),
-            (Qualifikationsstatus.SicherAusgeschieden, ZonenFarbe.Rot),
-            (Qualifikationsstatus.SicherAusgeschieden, ZonenFarbe.Rot));
+        rangfolge.Select(e => e.PunktFarbe).Should().Equal(ZonenFarbe.Gruen, ZonenFarbe.Rot, ZonenFarbe.Rot);
         rangfolge.Should().OnlyContain(e => e.SicherPositioniert);
     }
 
     [Fact]
-    public void BesteZuweisen_StatusFolgtDenQualifikantenNichtDemRang()
+    public void BesteZuweisen_PunktFolgtDenQualifikantenNichtDemRang()
     {
         // Der Qualifikant steht fest, die Rangfolge zeigt ihn aber (noch) nicht auf einem Platz der Besten.
         var rangfolge = DritteRangfolge();
 
         TabellenZonen.BesteZuweisen(rangfolge, GruppenZonenMitBestenDritten(), _achtelfinale.Id, anzahlBeste: 1, [2]);
 
-        rangfolge.Select(e => e.Qualifikationsstatus).Should().Equal(
-            Qualifikationsstatus.SicherAusgeschieden, Qualifikationsstatus.SicherQualifiziert, Qualifikationsstatus.SicherAusgeschieden);
+        rangfolge.Select(e => e.PunktFarbe).Should().Equal(ZonenFarbe.Rot, ZonenFarbe.Gruen, ZonenFarbe.Rot);
         rangfolge.Select(e => e.ZonenFarbe).Should().Equal(ZonenFarbe.Gruen, null, null);
     }
 
@@ -290,7 +285,7 @@ public class TabellenZonenTests
     }
 
     [Fact]
-    public void BesteFaerben_FaerbtNurOhneStatusUndPunkt()
+    public void BesteFaerben_FaerbtNurOhneSicherheitUndPunkt()
     {
         // #480: historischer Stand — noch niemand ist qualifiziert, es zählt nur die Farbe der Plätze der Besten.
         var rangfolge = DritteRangfolge();
@@ -298,7 +293,6 @@ public class TabellenZonenTests
         TabellenZonen.BesteFaerben(rangfolge, GruppenZonenMitBestenDritten(), _achtelfinale.Id, anzahlBeste: 1);
 
         rangfolge.Select(e => e.ZonenFarbe).Should().Equal(ZonenFarbe.Gruen, null, null);
-        rangfolge.Should().OnlyContain(e =>
-            e.Qualifikationsstatus == Qualifikationsstatus.Offen && !e.SicherPositioniert && e.PunktFarbe == null);
+        rangfolge.Should().OnlyContain(e => !e.SicherPositioniert && e.PunktFarbe == null);
     }
 }

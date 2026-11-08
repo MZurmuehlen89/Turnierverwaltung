@@ -428,7 +428,7 @@ public class PlatzhalterAufloesung(
 
     /// <summary>Tabellenrang in einer Gruppe. Issue #202: der aktuelle Rang allein reicht nicht — er darf durch
     /// kein Ergebnis der noch offenen Spiele mehr verdrängbar sein (<see cref="TabellenEintrag.SicherPositioniert"/>,
-    /// siehe Qualifikationsstatus-Ampel in der Gruppentabelle, Issue #70/#201), sonst würde die Auflösung
+    /// Issue #70/#201), sonst würde die Auflösung
     /// optimistisch vorgreifen — außer der Aufrufer will genau das als Vorschau (Issue #208).</summary>
     private async Task<int?> GruppenRangAsync(
         TurnierRunde quellRunde, int? gruppenNummer, int platzierung, Sicht sicht, CancellationToken ct)

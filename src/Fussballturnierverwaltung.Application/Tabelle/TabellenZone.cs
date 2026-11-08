@@ -136,7 +136,7 @@ public static class TabellenZonen
 
     /// <summary>Markiert die gruppenübergreifende Rangfolge einer Regel „die n Besten“: Die Plätze der Besten
     /// tragen die Farbe der Zielrunde. Stehen alle Qualifikanten fest (<paramref name="qualifikanten"/> ohne
-    /// <c>null</c>), bekommt jeder Eintrag Status und Punkt — Zielfarbe für Qualifizierte,
+    /// <c>null</c>), gilt jeder Eintrag als sicher und bekommt seinen Punkt — Zielfarbe für Qualifizierte,
     /// <see cref="ZonenFarbe.Rot"/> für Ausgeschiedene.</summary>
     public static void BesteZuweisen(
         IReadOnlyList<TabellenEintrag> rangfolge, IReadOnlyList<TabellenZone> zonen, int zielRundeId, int anzahlBeste,
@@ -151,7 +151,7 @@ public static class TabellenZonen
             EntscheidungMarkieren(rangfolge, [.. feststehende.Select(id => id!.Value)], ZielFarbe(zonen, zielRundeId));
     }
 
-    /// <summary>Nur die Farbe der Plätze der Besten, ohne Status und Punkt — für einen historischen Stand, an dem
+    /// <summary>Nur die Farbe der Plätze der Besten, ohne Sicherheit und Punkt — für einen historischen Stand, an dem
     /// noch niemand qualifiziert ist (#480).</summary>
     public static void BesteFaerben(
         IEnumerable<TabellenEintrag> rangfolge, IReadOnlyList<TabellenZone> zonen, int zielRundeId, int anzahlBeste)
@@ -167,9 +167,6 @@ public static class TabellenZonen
         foreach (var eintrag in rangfolge)
         {
             bool qualifiziert = qualifizierteMannschaftIds.Contains(eintrag.Mannschaft.Id);
-            eintrag.Qualifikationsstatus = qualifiziert
-                ? Qualifikationsstatus.SicherQualifiziert
-                : Qualifikationsstatus.SicherAusgeschieden;
             eintrag.SicherPositioniert = true;
             eintrag.PunktFarbe = qualifiziert ? zielFarbe : ZonenFarbe.Rot;
         }

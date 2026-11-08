@@ -93,13 +93,12 @@ public static class RangPrognose
 
     // ── Gruppe: alle Ergebniskombinationen der offenen Spiele ─────────────
 
-    /// <summary>Setzt je Team der Gruppe besten und schlechtesten Rang, daraus den
-    /// <see cref="TabellenEintrag.Qualifikationsstatus"/> für <paramref name="qualifiziertePlaetze"/> Plätze und
+    /// <summary>Setzt je Team der Gruppe besten und schlechtesten Rang und daraus
     /// <see cref="TabellenEintrag.SicherPositioniert"/> (Issue #202 - ob der exakte Rang durch kein Ergebnis der
-    /// verbleibenden Spiele mehr verändert werden kann). Ohne offene Spiele ist jeder Rang final. Bleibt aus,
-    /// solange ein Platz der Gruppe noch nicht aufgelöst ist.</summary>
-    public static void GruppenRaengeSetzen(
-        GruppenTabelle gruppe, IReadOnlyList<Spiel> gruppenSpiele, int qualifiziertePlaetze, TabellenRegeln regeln)
+    /// verbleibenden Spiele mehr verändert werden kann). Ob ein Team weiterkommt, leiten die Zonen der
+    /// Übergangsregeln aus diesen Rängen ab (<see cref="TabellenZonen"/>). Ohne offene Spiele ist jeder Rang final.
+    /// Bleibt aus, solange ein Platz der Gruppe noch nicht aufgelöst ist.</summary>
+    public static void GruppenRaengeSetzen(GruppenTabelle gruppe, IReadOnlyList<Spiel> gruppenSpiele, TabellenRegeln regeln)
     {
         // Issue #397: Solange ein Platz der Gruppe noch nicht aufgelöst ist, fehlen dessen Spiele in der
         // Status-Berechnung (Gegner unbekannt) — kein Rang darf dann als sicher gelten.
@@ -118,23 +117,11 @@ public static class RangPrognose
                 ? (eintrag.Rang, eintrag.Rang)
                 : (ExtremRangErmitteln(stand, teamId, bestenfalls: true), ExtremRangErmitteln(stand, teamId, bestenfalls: false));
 
-            eintrag.Qualifikationsstatus = bestRang > qualifiziertePlaetze
-                ? Qualifikationsstatus.SicherAusgeschieden
-                : worstRang <= qualifiziertePlaetze
-                    ? Qualifikationsstatus.SicherQualifiziert
-                    : Qualifikationsstatus.Offen;
             eintrag.SicherPositioniert = bestRang == worstRang;
             eintrag.BesterRang = bestRang;
             eintrag.SchlechtesterRang = worstRang;
         }
     }
-
-    /// <summary>Plätze je Gruppe, die weiterkommen: die Direktqualifikanten der Runde gleichmäßig auf ihre
-    /// Gruppen verteilt, mindestens einer; ohne Gruppenanzahl zwei.</summary>
-    public static int QualifiziertePlaetzeJeGruppe(TurnierRunde runde) =>
-        runde.GruppenAnzahl is > 0
-            ? Math.Max(1, runde.AusgangsMannschaftsanzahl / runde.GruppenAnzahl.Value)
-            : 2;
 
     /// <summary>Was über eine Gruppe feststeht (Spiele mit Ergebnis) und was noch aussteht (offene Spiele mit
     /// zwei bekannten Teams), samt den Regeln, nach denen daraus eine Tabelle wird.</summary>
