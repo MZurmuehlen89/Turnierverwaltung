@@ -26,7 +26,7 @@ public class UebergangsregelService(
     /// Gruppenphase-Quellrunde immer in eine Zeile je Gruppe, siehe UebergangsregelBlock.OnQuellRundeChanged;
     /// GruppeIndex=null ist für Gruppenphase-Quellrunden ohnehin ungültig, siehe UebergangsregelValidator).</summary>
     public static int AusgangAbleiten(IReadOnlyList<Uebergangsregel> ausgehendeRegeln)
-        => ausgehendeRegeln.Sum(r => r.AnzahlBeste ?? (r.PlatzierungBis - r.PlatzierungVon + 1));
+        => ausgehendeRegeln.Sum(r => UebergangsAbdeckung.Plaetze(r.PlatzierungVon, r.PlatzierungBis, r.AnzahlBeste));
 
     /// <summary>Spiegel von <see cref="AusgangAbleiten"/> für die Eingangsseite (Issue #186-Folgefund):
     /// identische Rechenformel, hier aus Sicht der Zielrunde über alle ihre eingehenden Übergangsregeln
@@ -44,7 +44,7 @@ public class UebergangsregelService(
         await repository.HinzufuegenAsync(regel, ct);
         logger.LogInformation(
             "Übergangsregel angelegt: Runde '{QuellRunde}' → Runde '{ZielRunde}' (Platz {Von}-{Bis}).",
-            quellRunde.Name, eingabe.ZielRundeId, eingabe.PlatzierungVon, eingabe.PlatzierungBis);
+            quellRunde.Name, zielRunde.Name, eingabe.PlatzierungVon, eingabe.PlatzierungBis);
         return regel;
     }
 
