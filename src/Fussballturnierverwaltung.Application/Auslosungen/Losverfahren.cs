@@ -41,7 +41,8 @@ public static class Losverfahren
     // Alle Teams in einem Topf: ohne Topfpaar sind alle im Überhang und werden untereinander gelost — dieselbe Suche
     // wie „Nach Töpfen“ (#625). Bis dahin hatte „Zufällig“ eine eigene Suche, loste das Freilos vorab (ging der Rest
     // mit den Regeln nicht auf, scheiterte die Auslosung, obwohl ein anderes Freilos-Team aufging) und ließ bei
-    // ungerader Anzahl ohne Freilos still ein Team fallen. Die TopfRang-Werte der Slots bleiben erhalten.
+    // ungerader Anzahl ohne Freilos still ein Team fallen. Mehr als einen Lostopf lässt der AuslosungsValidator hier
+    // nicht zu.
     private static List<AuslosungsErgebnis> ZufaelligAusloesen(
         List<List<TeilnehmerSlot>> toepfe, RegelKontext regeln, Random zufall) =>
         TopfPaareAusloesen([[.. toepfe.SelectMany(t => t)]], regeln, zufall);

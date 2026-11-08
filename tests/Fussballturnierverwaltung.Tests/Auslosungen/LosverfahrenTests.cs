@@ -113,6 +113,22 @@ public class LosverfahrenTests
         });
     }
 
+    // Die Suche nimmt das Team mit den wenigsten möglichen Gegnern zuerst — hier eines aus Land 1. Bis #625 stand es
+    // deshalb in jeder Ziehung in Paarung 1 (Platz im K.-o.-Baum) und hatte ohne Heimrecht-Regel Heimrecht.
+    [Fact]
+    public void Zufall_KeinGleichesLand_EingeschraenkteTeamsStehenNichtImmerVorn()
+    {
+        var landJeTeam = new Dictionary<int, int> { [1] = 1, [2] = 1, [3] = 2, [4] = 3, [5] = 4, [6] = 5 };
+        var auslosung  = NeueAuslosung(Rundenart.KoRunde, Auslosungsart.Zufall,
+            [Topf(1, [.. landJeTeam.Select(t => Eintrag(Team(t.Key, landId: t.Value)))])]);
+
+        var landDerErstenHeimmannschaft = AlleZiehungen(auslosung, Regeln(keinGleichesLand: true))
+            .Select(ziehung => landJeTeam[ziehung[0].HeimMannschaftId!.Value]).ToList();
+
+        landDerErstenHeimmannschaft.Should().Contain(1).And.Contain(land => land != 1,
+            "Reihenfolge und Heimrecht folgen dem Los, nicht der Suchreihenfolge");
+    }
+
     [Fact]
     public void Zufall_KeinGleichesLand_NichtErfuellbar_FehlerNenntDieEinschraenkung()
     {

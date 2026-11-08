@@ -34,17 +34,17 @@ public class PaarungsSucheTests
     ];
 
     [Theory]
-    [InlineData(false, 1, "1-9 2-11 5-8 7-10 6-3 4-frei")]
-    [InlineData(false, 2, "2-11 3-9 5-10 6-8 1-7 4-frei")]
-    [InlineData(true,  1, "1-9 2-10 3-8 7-11 6-5 4-frei")]
+    [InlineData(false, 1, "1-9 2-11 5-8 7-10 3-6 4-frei")]
+    [InlineData(false, 2, "2-11 3-9 5-10 6-8 7-1 4-frei")]
+    [InlineData(true,  1, "1-9 2-10 3-8 7-11 5-6 4-frei")]
     [InlineData(true,  2, "2-9 5-10 6-8 7-11 1-3 4-frei")]
     public void NachToepfen_UeberhangUndFreilos_ZiehungJeStartwertFest(bool keinGleichesLand, int startwert, string erwartet) =>
         Ausloesen(Auslosungsart.NachToepfen, Pokaltoepfe(), Regeln(keinGleichesLand, freilosMoeglich: true), startwert)
             .Should().Be(erwartet);
 
     [Theory]
-    [InlineData(1, "1-6 2-7 3-4 5-8")]
-    [InlineData(2, "1-8 2-5 3-6 7-4")]
+    [InlineData(1, "1-6 2-7 3-4 8-5")]
+    [InlineData(2, "1-8 2-5 3-6 4-7")]
     public void NachSetzliste_ZiehungJeStartwertFest(int startwert, string erwartet)
     {
         var toepfe = new[]

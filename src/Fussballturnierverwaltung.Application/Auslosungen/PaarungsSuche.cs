@@ -20,8 +20,15 @@ internal static class PaarungsSuche
     {
         var suche   = new Suche(zufall is null ? teams : [.. teams.OrderBy(_ => zufall.Next())], duerfenSichTreffen, darfFreilos);
         var loesbar = suche.Suchen(freilose);
-        return loesbar == true ? new(true, suche.Paare, suche.Freilose) : new(loesbar, [], []);
+        if (loesbar != true) return new(loesbar, [], []);
+        return new(true, zufall is null ? suche.Paare : Mischen(suche.Paare, zufall), suche.Freilose);
     }
+
+    // Die Suche nimmt das Team mit den wenigsten Gegnern zuerst — ohne Mischen stünden Teams mit Einschränkungen
+    // (z. B. Kein gleiches Land) systematisch vorn: in den ersten Paarungsnummern (K.-o.-Baum) und, ohne
+    // Heimrecht-Regel, mit Heimrecht (#625). Reihenfolge und Ausrichtung der Paare werden daher gelost.
+    private static List<(int Team, int Gegner)> Mischen(IEnumerable<(int Team, int Gegner)> paare, Random zufall) =>
+        [.. paare.OrderBy(_ => zufall.Next()).Select(p => zufall.Next(2) == 0 ? p : (p.Gegner, p.Team))];
 
     // Stand einer Suche: offene Teams, die bisher gebildeten Paare und Freilose. Jeder Versuch nimmt seine Belegung
     // zurück, wenn der Rest nicht aufgeht — nur eine gefundene Lösung bleibt stehen.
