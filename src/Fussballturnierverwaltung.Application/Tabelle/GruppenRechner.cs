@@ -33,7 +33,8 @@ public static class GruppenRechner
         int nummer, IReadOnlyList<Spiel> gruppenSpiele, int? bisSpieltag, TabellenRegeln regeln)
     {
         var tabelle = TabellenRechner.TabelleBerechnen(
-            TabellenRechner.BisSpieltag(gruppenSpiele, bisSpieltag), regeln, teilnehmer: AufgeloesteTeilnehmer(gruppenSpiele));
+            TabellenRechner.BisSpieltag(gruppenSpiele, bisSpieltag), regeln,
+            teilnehmer: AufgeloesteTeilnehmer(gruppenSpiele), spielplan: gruppenSpiele);
         return new GruppenTabelle(nummer, tabelle) { OffenePlaetze = OffenePlaetze(gruppenSpiele) };
     }
 

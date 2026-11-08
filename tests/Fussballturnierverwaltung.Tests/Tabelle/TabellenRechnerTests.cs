@@ -155,6 +155,45 @@ public class TabellenRechnerTests
     }
 
     [Fact]
+    public void TabelleBerechnen_DuelleDerGleichenStehenNochAus_DirekterVergleichEntscheidetNichts()
+    {
+        // 1, 2 und 3 haben je 3 Punkte; gespielt ist nur 1–2 (1:0), 1–3 und 2–3 stehen noch aus. Die Mini-Tabelle
+        // setzte 1 allein deshalb vorn, weil es schon gegen einen Rivalen gespielt hat – stattdessen entscheiden
+        // Tordifferenz (2 und 3 je +2, 1 nur +1) und Tore (2 vor 3).
+        Spiel[] spiele =
+        [
+            Spiel(1, 2, 1, 0), Spiel(2, 4, 3, 0), Spiel(3, 4, 2, 0),
+            Spiel(1, 3), Spiel(2, 3), Spiel(1, 4)
+        ];
+
+        var tabelle = TabellenRechner.TabelleBerechnen(spiele, new(_dreiPunkte, UefaRegeln(), DirektenVergleichWiederholen: true));
+
+        Reihenfolge(tabelle).Should().Equal(2, 3, 1, 4);
+    }
+
+    [Fact]
+    public void TabelleBerechnen_StandNachSpieltag_RueckspielDanachSteht_ZuDiesemStandNochAus()
+    {
+        // Nach Spieltag 1 haben 1 (schlug 2 1:0) und 2 (schlug 3 3:0) je 3 Punkte. Das Rückspiel 2–1 an Spieltag 2 ist
+        // längst gespielt, zum Stand nach Spieltag 1 aber noch offen: der direkte Vergleich entscheidet dort nichts,
+        // 2 steht mit der besseren Tordifferenz vorn. Ohne den Spielplan sähe der Rechner nur das Hinspiel.
+        var hinspiel = Spiel(1, 2, 1, 0);
+        hinspiel.Spieltag = 1;
+        var zweiGegenDrei = Spiel(2, 3, 3, 0);
+        zweiGegenDrei.Spieltag = 1;
+        var rueckspiel = Spiel(2, 1, 0, 0);
+        rueckspiel.Spieltag = 2;
+        Spiel[] spielplan = [hinspiel, zweiGegenDrei, rueckspiel];
+        var stand = TabellenRechner.BisSpieltag(spielplan, 1);
+
+        var mitSpielplan = TabellenRechner.TabelleBerechnen(stand, new(_dreiPunkte, UefaRegeln()), spielplan: spielplan);
+        var ohneSpielplan = TabellenRechner.TabelleBerechnen(stand, new(_dreiPunkte, UefaRegeln()));
+
+        Reihenfolge(mitSpielplan).Should().Equal(2, 1, 3);
+        Reihenfolge(ohneSpielplan).Should().Equal(1, 2, 3);
+    }
+
+    [Fact]
     public void TabelleBerechnen_FifaReihenfolge_WertetDieMiniTabelleNurUnterDenNachToreGleichen()
     {
         // FIFA: erst Punkte, Tordifferenz und Tore aus allen Spielen. 1, 2 und 3 haben gleich viele Punkte, aber nur

@@ -59,7 +59,7 @@ public static class TabellenVerlaufRechner
         var spieltage = TabellenRechner.SpieltageMitErgebnis(spiele);
         var staende = spieltage
             .Select(spieltag => (Spieltag: spieltag, Tabelle: TabellenRechner.TabelleBerechnen(
-                TabellenRechner.BisSpieltag(spiele, spieltag), regeln, teilnehmer: teilnehmer)))
+                TabellenRechner.BisSpieltag(spiele, spieltag), regeln, teilnehmer: teilnehmer, spielplan: spiele)))
             .ToList();
 
         var mannschaften = staende.LastOrDefault().Tabelle ?? [];

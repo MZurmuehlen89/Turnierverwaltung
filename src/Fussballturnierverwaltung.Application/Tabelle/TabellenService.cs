@@ -33,7 +33,7 @@ public class TabellenService(
     {
         var daten = await TabellenDatenLadenAsync(turnierRundeId, ct);
         var tabelle = TabellenRechner.TabelleDerAnsichtBerechnen(
-            TabellenRechner.BisSpieltag(daten.Spiele, bisSpieltag), ansicht, daten.Regeln, daten.Teilnehmer);
+            TabellenRechner.BisSpieltag(daten.Spiele, bisSpieltag), ansicht, daten.Regeln, daten.Teilnehmer, spielplan: daten.Spiele);
 
         // Issue #358: mögliche Ränge nur für den aktuellen Gesamtstand — Teilansichten und historische
         // Spieltage sind keine Wertung, aus der sich ein Weiterkommen ableiten ließe.

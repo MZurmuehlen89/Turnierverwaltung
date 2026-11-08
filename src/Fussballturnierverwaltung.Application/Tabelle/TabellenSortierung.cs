@@ -9,10 +9,12 @@ namespace Fussballturnierverwaltung.Application.Tabelle;
 internal static class TabellenSortierung
 {
     /// <summary>Woran die Teams gemessen werden: ihre Statistik, für die Mini-Tabelle des direkten Vergleichs die Spiele
-    /// mit Ergebnis, dazu die Regeln – die Kriterien, die Punkteregel, nach der die Mini-Tabelle gewertet wird, für den
-    /// Koeffizienten die Plätze in der Standard-Rangliste der Runde und ob die Mini-Tabelle wiederholt wird.</summary>
+    /// mit Ergebnis und der Spielplan (alle angesetzten Spiele – sind alle Duelle der gleichstehenden Teams gespielt?),
+    /// dazu die Regeln – die Kriterien, die Punkteregel, nach der die Mini-Tabelle gewertet wird, für den Koeffizienten
+    /// die Plätze in der Standard-Rangliste der Runde und ob die Mini-Tabelle wiederholt wird.</summary>
     internal sealed record Wertung(
-        IReadOnlyDictionary<int, RohStats> Stats, IReadOnlyList<Spiel> Abgeschlossene, TabellenRegeln Regeln);
+        IReadOnlyDictionary<int, RohStats> Stats, IReadOnlyList<Spiel> Abgeschlossene, IReadOnlyList<Spiel> Spielplan,
+        TabellenRegeln Regeln);
 
     internal static void SortierenUndRangZuweisen(List<TabellenEintrag> eintraege, Wertung wertung)
     {
@@ -84,18 +86,27 @@ internal static class TabellenSortierung
         (x, y) => Gerichtet(regel.Sortierrichtung, NachRegelVergleichen(regel.Regelart, x, y, wertung));
 
     /// <summary>Vergleich über die Mini-Tabelle: nur die Spiele der <paramref name="teams"/> untereinander, gewertet
-    /// nach den Kriterien des direkten Vergleichs von <paramref name="ab"/> bis vor <paramref name="danach"/>. Ohne
-    /// Spiel untereinander (Teams verschiedener Gruppen) entscheidet sie nichts. Bei Heim-/Auswärtstabelle zählen
-    /// bewusst beide Seiten – der direkte Vergleich bleibt für diese Zusatzansichten unverändert.</summary>
+    /// nach den Kriterien des direkten Vergleichs von <paramref name="ab"/> bis vor <paramref name="danach"/>. Sie
+    /// entscheidet nichts, solange ein Duell dieser Teams noch aussteht – sonst stünde vorn, wer schon gegen einen
+    /// Rivalen gespielt hat (La Liga wertet den direkten Vergleich ausdrücklich erst danach; die übrigen Reglements
+    /// wenden ihn ohnehin erst nach dem letzten Spiel an, #628) – oder es gar kein Spiel untereinander gibt (Teams
+    /// verschiedener Gruppen). Bei Heim-/Auswärtstabelle zählen bewusst beide Seiten – der direkte Vergleich bleibt
+    /// für diese Zusatzansichten unverändert.</summary>
     private static Comparison<int> NachMiniTabelle(
         IReadOnlyList<int> teams, IReadOnlyList<RankingRegel> regeln, int ab, int danach,
         Wertung wertung)
     {
         var ids = teams.ToHashSet();
-        List<Spiel> untereinander = [.. wertung.Abgeschlossene.Where(s =>
+        bool Untereinander(Spiel s) =>
             s.HeimMannschaftId is { } heim && ids.Contains(heim) &&
-            s.AuswaertsMannschaftId is { } auswaerts && ids.Contains(auswaerts))];
-        var mini = teams.ToDictionary(id => id, id => TeamStatistik.Berechnen(id, untereinander, wertung.Regeln.PunkteRegel));
+            s.AuswaertsMannschaftId is { } auswaerts && ids.Contains(auswaerts);
+
+        var untereinander = new HashSet<Spiel>(wertung.Abgeschlossene.Where(Untereinander), ReferenceEqualityComparer.Instance);
+        if (wertung.Spielplan.Any(s => Untereinander(s) && !untereinander.Contains(s)))
+            return (_, _) => 0;
+
+        List<Spiel> duelle = [.. untereinander];
+        var mini = teams.ToDictionary(id => id, id => TeamStatistik.Berechnen(id, duelle, wertung.Regeln.PunkteRegel));
 
         return (x, y) =>
         {
