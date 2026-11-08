@@ -51,9 +51,7 @@ public static class TurnierausgangBerechnung
             return PlaetzeAusSpiel(Entscheidungsspiele(platzDrei, spiele).FirstOrDefault(), 3,
                 PlatzierungsGrund.SpielUmPlatzDreiGewonnen, PlatzierungsGrund.SpielUmPlatzDreiVerloren);
 
-        var halbfinale = runden
-            .Where(r => r.Rundenart != Rundenart.SpielUmPlatzDrei && r.Reihenfolge < finale.Reihenfolge)
-            .MaxBy(r => r.Reihenfolge);
+        var halbfinale = Halbfinale(runden, finale, spiele);
         if (halbfinale is null || !HinRueckspielWertung.IstKoRunde(halbfinale)) return [];
 
         var paarungen = Entscheidungsspiele(halbfinale, spiele);
@@ -63,6 +61,22 @@ public static class TurnierausgangBerechnung
         return verlierer.TrueForAll(v => v is not null)
             ? [.. paarungen.Select((s, i) => new Platzierung(3, verlierer[i]!, PlatzierungsGrund.HalbfinaleVerloren, s.Ergebnis!.EntscheidungArt))]
             : [];
+    }
+
+    /// <summary>Die Runde, aus der das Finale seine Teams bekommt (Quellspiel des Finales); ohne Verknüpfung
+    /// die Runde direkt davor. Eine weitere Runde zwischen Halbfinale und Finale (Relegation, Platzierungsspiele)
+    /// würde sonst für das Halbfinale gehalten.</summary>
+    private static TurnierRunde? Halbfinale(IReadOnlyList<TurnierRunde> runden, TurnierRunde finale, IReadOnlyList<Spiel> spiele)
+    {
+        var quellSpielId = spiele.Where(s => s.TurnierRundeId == finale.Id)
+            .Select(s => s.HeimQuellSpielId ?? s.AuswaertsQuellSpielId)
+            .FirstOrDefault(id => id is not null);
+        if (quellSpielId is not null && spiele.FirstOrDefault(s => s.Id == quellSpielId) is { } quellSpiel)
+            return runden.FirstOrDefault(r => r.Id == quellSpiel.TurnierRundeId);
+
+        return runden
+            .Where(r => r.Rundenart != Rundenart.SpielUmPlatzDrei && r.Reihenfolge < finale.Reihenfolge)
+            .MaxBy(r => r.Reihenfolge);
     }
 
     private static IReadOnlyList<Platzierung> PlaetzeAusSpiel(
@@ -111,10 +125,12 @@ public static class TurnierausgangBerechnung
     }
 
     /// <summary>Offene und alle Spieltage der Runde. Beim Schweizer System sind künftige Spieltage noch nicht
-    /// angesetzt, sie zählen nach <see cref="RundenKonfiguration.AnzahlSpieltage"/> mit.</summary>
+    /// angesetzt, sie zählen nach <see cref="RundenKonfiguration.AnzahlSpieltage"/> mit. Spiele ohne Spieltag zählen
+    /// nicht (beides 0, wenn keines einen hat).</summary>
     private static (int Offen, int Gesamt) Spieltage(TurnierRunde runde, IReadOnlyList<Spiel> rundenSpiele)
     {
-        int angesetzt = rundenSpiele.Max(s => s.Spieltag ?? 0);
+        rundenSpiele = [.. rundenSpiele.Where(s => s.Spieltag is not null)];
+        int angesetzt = rundenSpiele.Select(s => s.Spieltag!.Value).DefaultIfEmpty().Max();
         int gesamt = runde.Rundenart == Rundenart.SchweizerSystem
             ? Math.Max(angesetzt, RundenKonfiguration.AusJson(runde.KonfigurationJson).AnzahlSpieltage ?? angesetzt)
             : angesetzt;

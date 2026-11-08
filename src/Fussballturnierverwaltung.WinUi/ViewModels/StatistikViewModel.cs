@@ -126,7 +126,7 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
         using var vorgang = _logger.Vorgang($"Statistik: Turnier setzen (Instanz {instanz.Id})");
         TabellenRundenUebernehmen(instanz);
         var spiele = await _service.MannschaftsSpieleLadenAsync(instanz.Id);
-        SpieleUebernehmen(spiele, await _ausgangService.ErmittelnAsync(instanz.Id), instanz.Id);
+        SpieleUebernehmen(spiele, await AusgangErmittelnAsync(instanz.Id), instanz.Id);
         if (IstTabellenverlaufsbereich) await TabellenVerlauf.AnzeigenAsync();
     }
 
@@ -136,6 +136,22 @@ public partial class StatistikViewModel : ViewModelBase, IMannschaftsAnzeige
     {
         TabellenVerlauf.Vorauswaehlen(rundeId, mannschaftIds, spieltag);
         AusgewaehlteAuswertung = Auswertung(StatistikAuswertungsart.Tabellenverlauf);
+    }
+
+    /// <summary>Die Statistik kommt ohne Regelwerk aus, die Meister-Ermittlung einer Liga nicht (Tabelle). Scheitert
+    /// sie, fehlt nur der Block „Platzierungen“ — die Meldung nennt den Grund, die übrigen Auswertungen bleiben (#527).</summary>
+    private async Task<Turnierausgang> AusgangErmittelnAsync(int instanzId)
+    {
+        try
+        {
+            return await _ausgangService.ErmittelnAsync(instanzId);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Turnierausgang nicht ermittelbar (Instanz {InstanzId}).", instanzId);
+            Fehlermeldung = $"Turniersieger nicht ermittelbar: {ex.Message}";
+            return Turnierausgang.Keiner;
+        }
     }
 
     // Lädt nur, solange die Mannschaftsseite zu sehen ist; der Wechsel dorthin lädt nach.

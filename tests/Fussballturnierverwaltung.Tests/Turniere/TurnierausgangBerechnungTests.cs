@@ -111,6 +111,29 @@ public class TurnierausgangBerechnungTests
     }
 
     [Fact]
+    public void AusKoRunden_RundeZwischenHalbfinaleUndFinale_PlatzDreiAusDerQuellrundeDesFinales()
+    {
+        var halbfinale = Runde(1, Rundenart.KoRunde, 4);
+        var platzierungsspiele = Runde(2, Rundenart.KoRunde, 4);
+        var finale = Runde(3, Rundenart.Finale);
+        var hf1 = Gespielt(Spiel(halbfinale, _arg, _cro), 3, 0, _arg);
+        var hf2 = Gespielt(Spiel(halbfinale, _fra, _mar), 2, 0, _fra);
+        var endspiel = Gespielt(Spiel(finale, _arg, _fra), 2, 1, _arg);
+        endspiel.HeimQuellSpielId = hf1.Id;
+        endspiel.AuswaertsQuellSpielId = hf2.Id;
+        Spiel[] spiele =
+        [
+            hf1, hf2, endspiel,
+            Gespielt(Spiel(platzierungsspiele, Team(5, "Spanien"), Team(6, "England")), 1, 0, null),
+            Gespielt(Spiel(platzierungsspiele, Team(7, "Brasilien"), Team(8, "Portugal")), 1, 0, null)
+        ];
+
+        var ausgang = TurnierausgangBerechnung.AusKoRunden([halbfinale, platzierungsspiele, finale], spiele);
+
+        ausgang.Plaetze.Where(p => p.Platz == 3).Select(p => p.Mannschaft).Should().Equal(_cro, _mar);
+    }
+
+    [Fact]
     public void AusKoRunden_FinaleAngesetztAberNichtGespielt_NenntDieFinalistenUndPlatzDrei()
     {
         var halbfinale = Runde(1, Rundenart.KoRunde, 4);
@@ -228,6 +251,17 @@ public class TurnierausgangBerechnungTests
 
         ausgang.Plaetze.Should().BeEmpty();
         ausgang.Tabellenfuehrer.Should().BeNull();
+    }
+
+    [Fact]
+    public void AusTabelle_SpieleOhneSpieltag_ZaehlenKeineSpieltage()
+    {
+        var liga = Runde(1, Rundenart.Liga, 3);
+        Spiel[] spiele = [Gespielt(Spiel(liga, _arg, _fra), 1, 0, _arg), Spiel(liga, _arg, _cro)];
+
+        var ausgang = TurnierausgangBerechnung.AusTabelle(liga, [Eintrag(_arg, 1, sicher: false)], spiele);
+
+        (ausgang.OffeneSpieltage, ausgang.SpieltageGesamt).Should().Be((0, 0));
     }
 
     [Fact]
