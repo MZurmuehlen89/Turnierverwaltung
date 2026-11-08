@@ -24,7 +24,7 @@
         <DataTemplate x:Key="TabellenEintragZeileTemplate" x:DataType="tabelle:TabellenEintrag">
             <Grid ColumnDefinitions="Auto,*">
                 <views:ZonenMarke Grid.Column="0" Farbe="{Binding ZonenFarbe}" Width="4" CornerRadius="2" Margin="3,2,0,2" />
-                <Grid Grid.Column="1" ColumnDefinitions="36,*,26,50,34,30,34" Padding="0,4,4,4">
+                <Grid Grid.Column="1" views:TabellenSpalten.Anwenden="True" Padding="0,4,4,4">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <views:ZonenMarke Farbe="{Binding PunktFarbe}" Width="6" Height="6" CornerRadius="3" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding Rang}" FontSize="12" FontWeight="SemiBold" Opacity="0.7" VerticalAlignment="Center" />
@@ -66,12 +66,13 @@
                         <Run Text="Gruppe " /><Run Text="{Binding GruppenNummer}" />
                     </TextBlock>
                 </Border>
+                <views:TabellenKopfZeile ZeigtBuchholz="{Binding DataContext.ZeigtBuchholzSpalte, ElementName=Wurzel}" />
                 <ItemsControl ItemsSource="{Binding Tabelle}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
                 <!-- #397: noch nicht aufgelöste Plätze als eigene Zeile, damit die Gruppe vollständig wirkt -->
                 <ItemsControl ItemsSource="{Binding OffenePlaetze}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Grid ColumnDefinitions="36,*,26,50,34,30,34" Padding="7,4,4,4" Opacity="0.6">
+                            <Grid views:TabellenSpalten.Anwenden="True" Padding="7,4,4,4" Opacity="0.6">
                                 <TextBlock Grid.Column="0" Text="–" FontSize="12"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="1" Text="{Binding}" FontSize="12" FontStyle="Italic"
@@ -81,6 +82,8 @@
                                 <TextBlock Grid.Column="4" Text="0" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="5" Text="0" FontSize="12" FontWeight="Bold"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="6" Text="0" FontSize="12" Opacity="0.7" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="{Binding DataContext.ZeigtBuchholzSpalte, ElementName=Wurzel, Converter={StaticResource BoolToVisibility}}" />
                             </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -157,6 +160,7 @@
                                                 </TextBlock>
                                             </StackPanel>
                                         </Border>
+                                        <views:TabellenKopfZeile ZeigtBuchholz="{Binding DataContext.ZeigtBuchholzSpalte, ElementName=Wurzel}" />
                                         <ItemsControl ItemsSource="{Binding Rangfolge}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
                                     </StackPanel>
                                 </Border>
@@ -199,7 +203,10 @@
                     <StackPanel VerticalAlignment="Top" Spacing="8"
                                 Visibility="{Binding HatLigaTabelleAnzeige, Converter={StaticResource BoolToVisibility}}">
                         <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
-                            <ItemsControl ItemsSource="{Binding LigaTabelleAnzeige}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
+                            <StackPanel>
+                                <views:TabellenKopfZeile ZeigtBuchholz="{Binding ZeigtBuchholzSpalte}" />
+                                <ItemsControl ItemsSource="{Binding LigaTabelleAnzeige}" ItemTemplate="{StaticResource TabellenEintragZeileTemplate}" />
+                            </StackPanel>
                         </Border>
                         <ItemsControl ItemsSource="{Binding ZonenLegende}" ItemTemplate="{StaticResource ZonenLegendeTemplate}"
                                       Visibility="{Binding HatZonenLegende, Converter={StaticResource BoolToVisibility}}">
