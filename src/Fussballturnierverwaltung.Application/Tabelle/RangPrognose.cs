@@ -101,12 +101,12 @@ public static class RangPrognose
     public static void GruppenRaengeSetzen(GruppenTabelle gruppe, IReadOnlyList<Spiel> gruppenSpiele, TabellenRegeln regeln)
     {
         // Issue #397: Solange ein Platz der Gruppe noch nicht aufgelöst ist, fehlen dessen Spiele in der
-        // Status-Berechnung (Gegner unbekannt) — kein Rang darf dann als sicher gelten.
+        // Rang-Prognose (Gegner unbekannt) — kein Rang darf dann als sicher gelten.
         if (gruppe.OffenePlaetze.Count > 0) return;
 
         var stand = new GruppenStand(
             TabellenRechner.MitErgebnis(gruppenSpiele),
-            [.. gruppenSpiele.Where(s => s.Status != SpielStatus.Abgeschlossen
+            [.. gruppenSpiele.Where(s => !TabellenRechner.HatErgebnis(s)
                                       && s.HeimMannschaftId.HasValue && s.AuswaertsMannschaftId.HasValue)],
             regeln);
 

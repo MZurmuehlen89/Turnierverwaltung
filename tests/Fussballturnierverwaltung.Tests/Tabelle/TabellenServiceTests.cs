@@ -537,7 +537,7 @@ public class TabellenServiceTests
     {
         // Regelwerk sortiert ausschliesslich nach ErzielteTore (keine Punkte-Regel enthalten). Team B hat mit
         // Abstand die meisten PUNKTE (3, gleichauf mit A) aber deutlich weniger TORE als Team A (2 vs. 5/6) -
-        // B darf trotz der Punktgleichheit nie als "SicherQualifiziert" durchgehen, weil das Regelwerk einzig
+        // B darf trotz der Punktgleichheit nie auf Rang 1 kommen koennen, weil das Regelwerk einzig
         // Tore zaehlt. Ein offenes, fuer B fremdes Spiel (A vs C) erzwingt den simulierten Pfad
         // (ExtremRangErmitteln) - der Test prueft damit, dass dort exakt das definierte RankingRegelSet
         // angewendet wird und nicht etwa eine Punkte-basierte Rueckfalllogik.
@@ -616,12 +616,12 @@ public class TabellenServiceTests
     }
 
     [Fact]
-    public async Task GruppenTabellenBerechnenAsync_SicherQualifiziertAberRangInnerhalbDerZoneNochOffen()
+    public async Task GruppenTabellenBerechnenAsync_TopZweiSicherAberRangInnerhalbNochOffen()
     {
         // 3 Teams, Top 2 qualifizieren. A und B haben Team C bereits so deutlich abgehaengt, dass beide in
-        // jedem Fall unter den Top 2 landen (SicherQualifiziert) - aber das direkte Duell A vs. B ist noch
+        // jedem Fall unter den Top 2 landen (Rang 1 bis 2) - aber das direkte Duell A vs. B ist noch
         // offen und entscheidet, wer am Ende Rang 1 bzw. Rang 2 wird. Beide duerfen daher trotz gesicherter
-        // Qualifikationszone noch NICHT SicherPositioniert sein.
+        // Top 2 noch NICHT SicherPositioniert sein.
         await using var ctx = NeuerContext();
         ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
         ctx.PunkteRegeln.Add(new PunkteRegel
@@ -665,7 +665,7 @@ public class TabellenServiceTests
         // direkten Duell gegen Rang 4 (Z). Aktuell: W=7, X=4, C=1, Z=1 Punkte. Gewinnt Z gegen X, ziehen beide
         // auf 4 Punkte gleich - die Tordifferenz entscheidet. Vor dem Fix simulierte ExtremRangErmitteln jedes
         // offene Spiel nur mit einem knappen 1:0, das reicht nicht, um Z' schlechtere Ausgangs-Tordifferenz
-        // (-1 vs. X' +3) noch zu drehen - X galt faelschlich als SicherQualifiziert. Ein deutlicher Sieg (die
+        // (-1 vs. X' +3) noch zu drehen - X galt faelschlich als sicher unter den Top 2. Ein deutlicher Sieg (die
         // in der Praxis jederzeit moeglich ist) wuerde das aber sehr wohl tun.
         await using var ctx = NeuerContext();
         ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
@@ -716,7 +716,7 @@ public class TabellenServiceTests
     {
         // Spiegelbildlicher Fall zum vorigen Test: hier ist ein EXTREMES (nicht ein knappes) Ergebnis in einem
         // FREMDEN Spiel das für Team B gefährliche Szenario - ein reiner "fremde Spiele bleiben knapp"-Ansatz
-        // würde das übersehen (mit genau dieser Konstellation nachweislich zu einem falschen "SicherQualifiziert"
+        // würde das übersehen (mit genau dieser Konstellation nachweislich zu einem falschen "B bleibt sicher Erster"
         // gefuehrt, bevor ExtremRangErmitteln auch fuer fremde Spiele beide Tordifferenz-Varianten durchprobiert).
         //
         // 4 Teams, nur Rang 1 qualifiziert. Team B hat kein offenes Spiel mehr (5 Punkte, GD+3, fertig).
@@ -767,11 +767,11 @@ public class TabellenServiceTests
     }
 
     [Fact]
-    public async Task GruppenTabellenBerechnenAsync_SicherAusgeschiedenAberSchlussrangNochOffen()
+    public async Task GruppenTabellenBerechnenAsync_TopZweiUnerreichbarAberSchlussrangNochOffen()
     {
         // 4 Teams, Top 2 qualifizieren. C und D sind beide schon rechnerisch aus dem Rennen um die Top 2
-        // (SicherAusgeschieden) - aber ihr direktes Duell entscheidet noch, wer Rang 3 bzw. Rang 4 wird.
-        // Symmetrischer Fall zu SicherQualifiziert: auch auf der Ausscheider-Seite darf SicherPositioniert
+        // (bestenfalls Rang 3) - aber ihr direktes Duell entscheidet noch, wer Rang 3 bzw. Rang 4 wird.
+        // Symmetrischer Fall zum vorigen: auch auf der Ausscheider-Seite darf SicherPositioniert
         // erst gelten, wenn der exakte Schlussrang feststeht (Issue #202, Nutzer-Entscheidung: symmetrisch).
         await using var ctx = NeuerContext();
         ctx.Regelwerke.Add(new Regelwerk { Id = 1, Name = "Standard" });
@@ -820,7 +820,7 @@ public class TabellenServiceTests
         // 4er-Gruppe, Top 2 qualifizieren. Team B hat alle 3 Spiele absolviert (4 Punkte, GD -1), Team D ebenso
         // (2 Punkte). Team A (4 Punkte, GD +2) und Team C (3 Punkte) haben noch gegeneinander zu spielen (fuer
         // Team B ein "fremdes" Spiel, A ist Heimmannschaft). Gewinnt Team C dieses Spiel (Auswaertssieg), kommt
-        // es auf 6 Punkte und schiebt Team B auf Rang 3 - Team B darf daher nicht "SicherQualifiziert" sein.
+        // es auf 6 Punkte und schiebt Team B auf Rang 3 - Team B darf daher nicht sicher unter den Top 2 stehen.
         // Die alte Implementierung simulierte fremde offene Spiele immer pauschal als Heimsieg und haette diesen
         // Auswaertssieg-Fall nie geprueft.
         await using var ctx = NeuerContext();

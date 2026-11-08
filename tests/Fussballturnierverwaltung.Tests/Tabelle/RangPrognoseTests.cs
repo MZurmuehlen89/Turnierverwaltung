@@ -217,6 +217,18 @@ public class RangPrognoseTests
     }
 
     [Fact]
+    public void GruppenRaengeSetzen_AbgeschlossenOhneErgebnis_ZaehltAlsOffen()
+    {
+        // #622: wie die Liga-Prognose – was die Tabelle nicht wertet (TabellenRechner.HatErgebnis), steht noch aus.
+        var rueckspiel = Spiel(2, 1);
+        rueckspiel.Status = SpielStatus.Abgeschlossen;
+
+        var gruppe = GruppeMitRaengen(Spiel(1, 2, 1, 0), rueckspiel);
+
+        gruppe.Tabelle.Should().OnlyContain(e => e.BesterRang == 1 && e.SchlechtesterRang == 2 && !e.SicherPositioniert);
+    }
+
+    [Fact]
     public void GruppenRaengeSetzen_MitOffenemPlatz_LaesstDieRaengeOffen()
     {
         // Issue #397: die Spiele des noch unbekannten Teilnehmers fehlen in der Rechnung.
