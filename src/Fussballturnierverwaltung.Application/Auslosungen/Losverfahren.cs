@@ -38,24 +38,13 @@ public static class Losverfahren
             _                                             => ZufaelligAusloesen(toepfe, regeln, zufall)
         };
 
+    // Alle Teams in einem Topf: ohne Topfpaar sind alle im Überhang und werden untereinander gelost — dieselbe Suche
+    // wie „Nach Töpfen“ (#625). Bis dahin hatte „Zufällig“ eine eigene Suche, loste das Freilos vorab (ging der Rest
+    // mit den Regeln nicht auf, scheiterte die Auslosung, obwohl ein anderes Freilos-Team aufging) und ließ bei
+    // ungerader Anzahl ohne Freilos still ein Team fallen. Die TopfRang-Werte der Slots bleiben erhalten.
     private static List<AuslosungsErgebnis> ZufaelligAusloesen(
-        List<List<TeilnehmerSlot>> toepfe, RegelKontext regeln, Random zufall)
-    {
-        var slots = toepfe.SelectMany(t => t).ToList();
-        TeilnehmerSlot? freilosSlot = null;
-
-        if (regeln.FreilosMoeglich && slots.Count % 2 == 1)
-        {
-            int freilosIdx = zufall.Next(slots.Count);
-            freilosSlot = slots[freilosIdx];
-            slots.RemoveAt(freilosIdx);
-        }
-
-        var ergebnisse = PaareZuErgebnissen(PaarenMitEinschraenkungen(slots, regeln, zufall), regeln, zufall);
-        if (freilosSlot is not null)
-            ergebnisse.Add(Freilos(ergebnisse.Count + 1, freilosSlot));
-        return ergebnisse;
-    }
+        List<List<TeilnehmerSlot>> toepfe, RegelKontext regeln, Random zufall) =>
+        TopfPaareAusloesen([[.. toepfe.SelectMany(t => t)]], regeln, zufall);
 
     // Topf 1 gegen Topf 2, Topf 3 gegen Topf 4 …, bis der kleinere Topf leer ist; die übrigen Teams werden
     // untereinander gelost — wie im DFB-Pokal (#495, siehe TopfPaarStruktur). Bis dahin fiel der Überhang
@@ -145,49 +134,7 @@ public static class Losverfahren
         }
     }
 
-    // ── Paarungssuche mit Einschränkungen ─────────────────────────────────────
-
-    // Obergrenze für die Backtracking-Schritte — eine unerfüllbare Kombination bricht so zuverlässig ab, statt
-    // bei großen Töpfen exponentiell lange zu suchen.
-    private const int MAX_SUCHSCHRITTE = 200_000;
-
-    // Backtracking statt blindem Neu-Mischen (#331): findet eine Paarung garantiert, sofern eine existiert — mit
-    // „Kein gleiches Land“ und „Keine gleiche Gruppe“ gleichzeitig wurde die Trefferquote zufälliger Versuche sonst
-    // zu klein. Die Kandidaten werden vorab gemischt, die Auslosung bleibt zufällig.
-    private static List<(TeilnehmerSlot, TeilnehmerSlot)> PaarenMitEinschraenkungen(
-        List<TeilnehmerSlot> slots, RegelKontext regeln, Random zufall)
-    {
-        var gemischt = slots.OrderBy(_ => zufall.Next()).ToList();
-        var vergeben = new bool[gemischt.Count];
-        var paare    = new List<(TeilnehmerSlot, TeilnehmerSlot)>();
-        int schritte = 0;
-
-        bool Suchen()
-        {
-            // Bei ungerader Anzahl ohne Freilos bleibt ein Team übrig — wie bisher ohne Paarung.
-            if (vergeben.Count(v => !v) < 2) return true;
-            int erster = Array.IndexOf(vergeben, false);
-            if (++schritte > MAX_SUCHSCHRITTE) return false;
-
-            vergeben[erster] = true;
-            for (int j = erster + 1; j < gemischt.Count; j++)
-            {
-                if (vergeben[j] || regeln.Verbietet(gemischt[erster], gemischt[j])) continue;
-                vergeben[j] = true;
-                paare.Add((gemischt[erster], gemischt[j]));
-                if (Suchen()) return true;
-                paare.RemoveAt(paare.Count - 1);
-                vergeben[j] = false;
-            }
-#pragma warning disable S4143 // Backtracking: die Belegung wird nach erfolgloser Suche bewusst zurückgenommen
-            vergeben[erster] = false;
-#pragma warning restore S4143
-            return false;
-        }
-
-        if (Suchen()) return paare;
-        throw KeineGueltigeAuslosung(regeln);
-    }
+    // ── Fehlermeldung ─────────────────────────────────────────────────────────
 
     private static InvalidOperationException KeineGueltigeAuslosung(RegelKontext regeln) =>
         new($"Keine gültige Auslosung gefunden. Die Einschränkungen ({regeln.EinschraenkungenText}) " +

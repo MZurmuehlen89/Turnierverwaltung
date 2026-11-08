@@ -5,8 +5,9 @@ namespace Fussballturnierverwaltung.Application.Auslosungen;
 /// <c>zufall</c> werden Teams und Gegner vorab gemischt, die gefundene Paarung ist dann eine Auslosung (#495).</summary>
 internal static class PaarungsSuche
 {
-    // Obergrenze wie im Losverfahren: eine unerfüllbare Kombination bricht so zuverlässig ab. Endet die Suche an der
-    // Grenze, ist nichts bewiesen (Loesbar = null) — die Ziehung von Hand wertet das als lösbar.
+    // Obergrenze der Suchschritte: eine unerfüllbare Kombination bricht so zuverlässig ab, statt bei großen Töpfen
+    // exponentiell lange zu suchen. Endet die Suche an der Grenze, ist nichts bewiesen (Loesbar = null) — die
+    // Ziehung von Hand wertet das als lösbar, die automatische Auslosung als gescheitert.
     private const int MAX_SUCHSCHRITTE = 200_000;
 
     /// <param name="Loesbar"><c>true</c> mit Paaren und Freilos-Teams, <c>false</c> bewiesen unlösbar, <c>null</c>

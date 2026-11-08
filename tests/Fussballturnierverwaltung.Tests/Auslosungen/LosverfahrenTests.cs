@@ -141,16 +141,35 @@ public class LosverfahrenTests
         ziehungen.Select(z => z[2].HeimMannschaftId).Distinct().Should().HaveCountGreaterThan(1);
     }
 
+    // Bis #625 blieb ein Team ohne Paarung und fiel still aus Auslosung und Spielplan — „Nach Töpfen“ und die
+    // Ziehung von Hand werfen im selben Fall.
     [Fact]
-    public void Zufall_UngeradeAnzahlOhneFreilos_EineMannschaftBleibtOhnePaarung()
+    public void Zufall_UngeradeAnzahlOhneFreilos_WirftMitHinweisAufFreilos()
     {
         var auslosung = NeueAuslosung(Rundenart.KoRunde, Auslosungsart.Zufall, [TopfMitTeams(1, ersteId: 1, anzahl: 5)]);
 
-        AlleZiehungen(auslosung, Regeln()).Should().AllSatisfy(ziehung =>
+        var ausloesen = () => Ausloesen(auslosung, Regeln(), startwert: 1);
+
+        ausloesen.Should().Throw<InvalidOperationException>().WithMessage("*5 Teams*„Freilos möglich“*");
+    }
+
+    // Das Freilos entsteht in der Suche (#625): C (Land 20) muss gegen A oder B (Land 10) spielen, das Freilos geht an
+    // den anderen. Bis dahin wurde es vorab gelost — bekam C es, scheiterte die Auslosung.
+    [Fact]
+    public void Zufall_FreilosUndKeinGleichesLand_FreilosNurAnTeamOhnePassendenRest_ImmerLoesbar()
+    {
+        var auslosung = NeueAuslosung(Rundenart.KoRunde, Auslosungsart.Zufall,
+            [Topf(1, [Eintrag(Team(1, landId: 10)), Eintrag(Team(2, landId: 10)), Eintrag(Team(3, landId: 20))])]);
+
+        var ziehungen = AlleZiehungen(auslosung, Regeln(keinGleichesLand: true, freilosMoeglich: true));
+
+        ziehungen.Should().AllSatisfy(ziehung =>
         {
-            ziehung.Should().HaveCount(2);
-            ziehung.Should().NotContain(e => e.IstFreilos);
+            ziehung.Select(e => e.IstFreilos).Should().Equal(false, true);
+            new[] { ziehung[0].HeimMannschaftId, ziehung[0].AuswaertsMannschaftId }.Should().Contain(3);
+            ziehung[1].HeimMannschaftId.Should().NotBe(3);
         });
+        ziehungen.Select(z => z[1].HeimMannschaftId).Distinct().Should().HaveCount(2, "das Freilos wird zwischen A und B gelost");
     }
 
     // ── Nach Töpfen ───────────────────────────────────────────────────────────
