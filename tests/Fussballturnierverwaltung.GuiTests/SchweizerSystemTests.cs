@@ -61,7 +61,7 @@ public sealed class SchweizerSystemTests(TurnierverwaltungApp app) : IClassFixtu
         var spielplan = turnier.Spielplan();
         spielplan.RundeWaehlen(RUNDE);
         spielplan.SchweizerFortschritt.Should().Be($"Spieltag 1 von {SPIELTAGE}");
-        var spiele = spielplan.SpieleJeSpieltag(1);
+        var spiele = spielplan.Spiele(); // nur Spieltag 1 generiert, ohne Spieltag-Auswahl
         spiele.Should().HaveCount(SPIELE_JE_SPIELTAG);
         var teams = spiele.SelectMany(s => new[] { s.Heim, s.Auswaerts }).ToHashSet();
         teams.Should().HaveCount(TEAMS);
