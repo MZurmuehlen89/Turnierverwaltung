@@ -1,5 +1,7 @@
 # GUI-Tests auf Knopfdruck (#525): Windows-Runner mit Desktop-Sitzung für UI Automation, SQL Server LocalDB statt
-# des lokalen SQL Servers. Nicht je Push, weil ein Lauf auf Windows doppelt zählende Minuten kostet (Budget im Issue).
+# des lokalen SQL Servers. Standard ist der eigene Runner in der Hyper-V-VM (#609, build/GuiRunner-VM-Aufbauen.ps1),
+# der keine Actions-Minuten verbraucht; ist der Rechner aus, wartet der Job bis zu 24 h. windows-2025 bleibt als
+# Ausweichmöglichkeit und kostet doppelt zählende Windows-Minuten.
 name: GUI-Tests
 
 on:
@@ -9,6 +11,13 @@ on:
         description: 'Filter für den xunit-Runner, z. B. "-class Fussballturnierverwaltung.GuiTests.MannschaftsPflegeTests" (leer = alle)'
         required: false
         default: ''
+      runner:
+        description: 'Wo die Tests laufen: eigener Runner (Hyper-V-VM) oder GitHub-Runner windows-2025 (kostet Minuten)'
+        type: choice
+        options:
+          - eigener
+          - windows-2025
+        default: eigener
 
 concurrency:
   group: gui-tests-${{ github.ref }}
@@ -19,7 +28,7 @@ permissions:
 
 jobs:
   gui-tests:
-    runs-on: windows-2025
+    runs-on: ${{ inputs.runner == 'windows-2025' && 'windows-2025' || fromJSON('["self-hosted", "windows", "gui"]') }}
     timeout-minutes: 60
     env:
       DOTNET_NOLOGO: true
@@ -36,7 +45,8 @@ jobs:
           dotnet-version: 10.0.x
 
       # Virtualisierte Listen und das Layout hängen von der Fenstergröße ab: Auflösung festhalten und hochsetzen,
-      # soweit der Runner es zulässt (Standard sind 1024×768)
+      # soweit der Runner es zulässt (windows-2025: Standard 1024×768; eigener Runner: per Set-VMVideo fest
+      # 1920×1080, der Versuch ändert dort nichts)
       - name: Bildschirmauflösung
         run: |
           Add-Type -AssemblyName System.Windows.Forms

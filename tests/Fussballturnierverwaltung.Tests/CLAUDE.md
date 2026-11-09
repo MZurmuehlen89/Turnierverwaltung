@@ -100,7 +100,7 @@ A single red run is investigated, not simply re-run.
 | Workflow | Runner | Trigger | Runs |
 |---|---|---|---|
 | `.github/workflows/unit-tests.yml` | `ubuntu-latest` | push to `main`/`ci/**`, pull request, manual; not for `*.md`-only changes | `Fussballturnierverwaltung.Tests` (incl. architecture tests) |
-| `.github/workflows/gui-tests.yml` | `windows-2025` | manual only (`gh workflow run gui-tests.yml --ref <branch>`) | `GuiTest.Framework.Tests` + GUI tests via `build/GuiTests-Ausfuehren.ps1` against LocalDB |
+| `.github/workflows/gui-tests.yml` | own runner in a Hyper-V VM (default), `windows-2025` as fallback | manual only (`gh workflow run gui-tests.yml --ref <branch>`) | `GuiTest.Framework.Tests` + GUI tests via `build/GuiTests-Ausfuehren.ps1` against LocalDB |
 
 - The repo is private and Windows minutes count double, hence Linux for every push and Windows only on demand
   (budget in #525).
@@ -118,3 +118,33 @@ A single red run is investigated, not simply re-run.
 - GUI job: `TURNIERVERWALTUNG_GUITEST_SERVER=(localdb)\MSSQLLocalDB`; on failure `artifacts/guitest/laeufe/` is
   uploaded as artifact `gui-tests-belege` (screenshots, log tails, app log). The job logs the screen resolution and
   tries to raise it to 1920×1080.
+
+### Own GUI runner (Hyper-V VM, #609)
+
+The Actions budget (2,000 min/month, Windows counts double) did not cover the GUI runs, so they run on a
+**self-hosted runner in a Hyper-V VM** on the development machine (no Actions minutes). Not on the desktop itself
+(FlaUI takes over mouse and keyboard), not in a container (Windows containers have no interactive desktop).
+
+- **Choosing the runner:** input `runner` of `gui-tests.yml` — `eigener` (default; job labels
+  `self-hosted, windows, gui`) or `windows-2025` (GitHub runner, costs minutes):
+  `gh workflow run gui-tests.yml --ref <branch> -f runner=windows-2025`. If the development machine is off, a job for
+  the own runner waits in the queue (GitHub cancels it after 24 h).
+- **Building the VM:** `pwsh build/GuiRunner-VM-Aufbauen.ps1` in an **elevated** PowerShell 7 (Claude cannot start
+  it — the user does; Claude reads the log afterwards). Needs Hyper-V enabled, `gh` logged in with admin rights on the
+  repo, the ISO "Windows Server 2025 Evaluation" (default: `*SERVER_EVAL*.iso` in Downloads, otherwise `-IsoPfad`).
+  Runs unattended in about 30–45 min: applies the Datacenter Desktop Experience image straight onto a VHDX (no ISO
+  boot — a Gen2 VM would wait for "Press any key"), answer file `build/GuiRunner-VM/unattend.xml`, then installs
+  everything via PowerShell Direct with `build/GuiRunner-VM/Gast-Einrichten.ps1` (.NET 10 SDK, LocalDB, Git,
+  PowerShell 7, runner, autologon, no lock screen/sleep/automatic updates), shuts down, creates the checkpoint
+  `Grundzustand`, starts again and waits until the runner is online.
+- **Location:** `C:\Hyper-V\Turnierverwaltung-GuiRunner` — VHDX, VM files, `protokolle\aufbau-*.log` (one per build),
+  `zugang.xml` (random Administrator password, DPAPI, readable only by the user's account:
+  `(Import-Clixml …\zugang.xml).GetNetworkCredential().Password`). VM: Gen2, 4 cores, 8 GB, fixed 1920×1080
+  (`Set-VMVideo`), starts and shuts down with the host.
+- **Runner runs interactively**, not as a service (services have no desktop): a scheduled task starts `run.cmd` at
+  the Administrator's autologon in the console session.
+- **Pitfall – looking into the VM:** connect with the **basic session** only. An enhanced session (RDP) takes over the
+  console session; after disconnecting it stays locked and UI Automation fails. If that happened: restart the VM.
+- **Rebuild** (evaluation expires after 180 days, or the VM is broken): `pwsh build/GuiRunner-VM-Aufbauen.ps1 -Neuaufbau`
+  — removes the VM with its disk and checkpoints, deregisters the runner at GitHub, builds anew.
+- Stage 2 (reset to the checkpoint before every job, `--ephemeral` runner) is a separate follow-up issue.
