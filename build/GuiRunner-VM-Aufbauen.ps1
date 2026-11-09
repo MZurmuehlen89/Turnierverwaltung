@@ -59,8 +59,10 @@ function Schritt([string]$text) {
     Write-Host "[$(Get-Date -Format HH:mm:ss)] $text" -ForegroundColor Cyan
 }
 
-function Gh([string[]]$argumente) {
-    $ausgabe = & gh @argumente
+function GhAufruf([string[]]$argumente) {
+    # Ausdrücklich gh.exe: Eine Funktion namens „Gh“ hätte sich mit „& gh“ selbst aufgerufen (Namen ohne
+    # Groß-/Kleinschreibung) – erster Aufbau brach mit Überlauf der Aufruftiefe ab
+    $ausgabe = & gh.exe @argumente
     if ($LASTEXITCODE -ne 0) { throw "gh $($argumente -join ' ') fehlgeschlagen (Exitcode $LASTEXITCODE)." }
     $ausgabe
 }
@@ -76,14 +78,15 @@ function FreieLaufwerksbuchstaben([int]$anzahl) {
 
 function VoraussetzungenPruefen {
     Schritt 'Prüfe Voraussetzungen ...'
-    if ((Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All).State -ne 'Enabled') {
+    # Dienst statt Get-WindowsOptionalFeature: das DISM-Modul ist unter PowerShell 7 unzuverlässig
+    if ((Get-Service vmms -ErrorAction SilentlyContinue).Status -ne 'Running') {
         throw 'Hyper-V ist nicht aktiv (Windows-Features → Hyper-V, danach Neustart).'
     }
     if (-not (Get-VMSwitch -Name $Switch -ErrorAction SilentlyContinue)) {
         throw "Virtueller Switch '$Switch' fehlt."
     }
     if (-not (Test-Path $IsoPfad)) { throw "ISO nicht gefunden: $IsoPfad" }
-    Gh @('auth', 'status') | Out-Null
+    GhAufruf @('auth', 'status') | Out-Null
     if ((Get-VM -Name $VmName -ErrorAction SilentlyContinue) -and -not $Neuaufbau) {
         throw "VM '$VmName' gibt es schon. Zum Neuaufbau -Neuaufbau angeben."
     }
@@ -97,10 +100,10 @@ function StandardIsoFinden {
 }
 
 function RunnerAbmelden([string]$repo) {
-    $id = Gh @('api', "repos/$repo/actions/runners", '--jq', ".runners[] | select(.name == `"$VmName`") | .id")
+    $id = GhAufruf @('api', "repos/$repo/actions/runners", '--jq', ".runners[] | select(.name == `"$VmName`") | .id")
     if ($id) {
         Schritt "Melde alten Runner $VmName (Id $id) bei GitHub ab ..."
-        Gh @('api', '-X', 'DELETE', "repos/$repo/actions/runners/$id") | Out-Null
+        GhAufruf @('api', '-X', 'DELETE', "repos/$repo/actions/runners/$id") | Out-Null
     }
 }
 
@@ -225,7 +228,7 @@ function AufPowerShellDirectWarten([pscredential]$zugang) {
 
 function GastEinrichten([pscredential]$zugang, [string]$repo) {
     Schritt 'Hole Registrierungstoken für den Runner ...'
-    $token = Gh @('api', '-X', 'POST', "repos/$repo/actions/runners/registration-token", '--jq', '.token')
+    $token = GhAufruf @('api', '-X', 'POST', "repos/$repo/actions/runners/registration-token", '--jq', '.token')
     Schritt 'Richte die VM ein (Werkzeuge, Runner, Anmeldung; ~10–20 min) ...'
     Invoke-Command -VMName $VmName -Credential $zugang -FilePath (Join-Path $skriptOrdner 'Gast-Einrichten.ps1') `
         -ArgumentList $zugang.GetNetworkCredential().Password, "https://github.com/$repo", $token, $VmName
@@ -242,7 +245,7 @@ function AufRunnerWarten([string]$repo) {
     Schritt 'Warte, bis der Runner bei GitHub online ist ...'
     $bis = (Get-Date).AddMinutes(10)
     while ($true) {
-        $status = Gh @('api', "repos/$repo/actions/runners", '--jq', ".runners[] | select(.name == `"$VmName`") | .status")
+        $status = GhAufruf @('api', "repos/$repo/actions/runners", '--jq', ".runners[] | select(.name == `"$VmName`") | .status")
         if ($status -eq 'online') { return }
         if ((Get-Date) -gt $bis) { throw "Runner $VmName nach 10 min nicht online (Status: '$status')." }
         Start-Sleep -Seconds 15
@@ -257,7 +260,7 @@ Start-Transcript -Path (Join-Path $Ablage "protokolle\aufbau-$(Get-Date -Format 
 Push-Location (Split-Path $PSScriptRoot -Parent)   # gh erkennt das Repo am Arbeitsordner; eine Admin-Konsole startet in System32
 try {
     $start = Get-Date
-    $repo = Gh @('repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner')
+    $repo = GhAufruf @('repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner')
     VoraussetzungenPruefen
     if ($Neuaufbau) { AlteVmEntfernen $repo }
     $zugang = ZugangErzeugen
