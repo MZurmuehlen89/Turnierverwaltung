@@ -18,20 +18,20 @@
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
                             <TextBox AutomationProperties.AutomationId="Laender.Suche"
-                                     Text="{Binding LandEditor.LandSuchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Text="{Binding LandEditor.Suchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      PlaceholderText="🔍  Suchen …" Width="180" />
 
                             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                 <TextBlock Text="Verband" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
                                 <ComboBox ItemsSource="{Binding LandEditor.VerbandFilterOptionen}"
-                                          SelectedItem="{Binding LandEditor.LandFilterVerbandOption, Mode=TwoWay}"
+                                          SelectedItem="{Binding LandEditor.FilterVerbandOption, Mode=TwoWay}"
                                           DisplayMemberPath="Anzeige" Width="140" />
                             </StackPanel>
 
                             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                 <TextBlock Text="Kontinent" FontSize="11" Opacity="0.6" VerticalAlignment="Center" />
                                 <ComboBox ItemsSource="{Binding LandEditor.KontinentFilterOptionen}"
-                                          SelectedItem="{Binding LandEditor.LandFilterKontinentOption, Mode=TwoWay}"
+                                          SelectedItem="{Binding LandEditor.FilterKontinentOption, Mode=TwoWay}"
                                           DisplayMemberPath="Anzeige" Width="160" />
                             </StackPanel>
 
@@ -79,7 +79,7 @@
                     <!-- Datensatzanzahl (#366): einheitliche Fußzeile in allen Stammdaten-Editoren -->
                     <Border Grid.Row="3" Padding="8,4"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
-                        <TextBlock Text="{Binding LandEditor.LaenderAnzahlText}" FontSize="11" Opacity="0.6" />
+                        <TextBlock Text="{Binding LandEditor.AnzahlText}" FontSize="11" Opacity="0.6" />
                     </Border>
                 </Grid>
 
@@ -89,7 +89,7 @@
                 <Grid Grid.Column="2" ColumnDefinitions="3*,1*">
 
                     <StackPanel Grid.ColumnSpan="2"
-                                Visibility="{Binding LandEditor.LandFormularAktiv, Converter={StaticResource InverseBoolToVisibility}}"
+                                Visibility="{Binding LandEditor.FormularAktiv, Converter={StaticResource InverseBoolToVisibility}}"
                                 VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.4">
                         <TextBlock Text="🌍" FontSize="48" HorizontalAlignment="Center" />
                         <TextBlock Text="Land auswählen oder" FontSize="14" HorizontalAlignment="Center" Margin="0,12,0,4" />
@@ -97,7 +97,7 @@
                     </StackPanel>
 
                     <ScrollViewer Grid.Column="0"
-                                  Visibility="{Binding LandEditor.LandFormularAktiv, Converter={StaticResource BoolToVisibility}}"
+                                  Visibility="{Binding LandEditor.FormularAktiv, Converter={StaticResource BoolToVisibility}}"
                                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="28,20,28,28" HorizontalAlignment="Stretch">
 
@@ -106,44 +106,44 @@
                             <Grid Margin="0,0,0,16" ColumnDefinitions="64,16,*">
                                 <Grid Width="64" Height="64">
                                     <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" />
-                                    <Image Source="{Binding LandEditor.LandFlaggeDaten, Converter={StaticResource BildDatenZuBildquelle}}"
-                                           Visibility="{Binding LandEditor.LandFlaggeDaten, Converter={StaticResource NullToCollapsed}}"
+                                    <Image Source="{Binding LandEditor.FlaggeDaten, Converter={StaticResource BildDatenZuBildquelle}}"
+                                           Visibility="{Binding LandEditor.FlaggeDaten, Converter={StaticResource NullToCollapsed}}"
                                            Stretch="Uniform" Margin="4" />
                                     <TextBlock Text="🌍" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                Opacity="0.35"
-                                               Visibility="{Binding LandEditor.LandFlaggeDaten, Converter={StaticResource NullToVisible}}" />
+                                               Visibility="{Binding LandEditor.FlaggeDaten, Converter={StaticResource NullToVisible}}" />
                                 </Grid>
                                 <!-- Beide Buttons immer sichtbar (statt "Entfernen" nur bei vorhandener Flagge):
                                      sonst springen beim Durchblättern der Länder andere Steuerelemente vertikal,
                                      da sich die Höhe dieser StackPanel je nach Datensatz ändert (Fund aus #281). -->
                                 <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="6">
-                                    <Button Content="Bild wählen…" Command="{Binding LandEditor.LandFlaggeWaehlenCommand}" HorizontalAlignment="Left"
-                                            views:Feldmarkierung.Meldungen="{Binding LandEditor.LandFehler}" views:Feldmarkierung.Feld="Flagge" />
-                                    <Button Content="Entfernen" Command="{Binding LandEditor.LandFlaggeEntfernenCommand}"
-                                            IsEnabled="{Binding LandEditor.LandFlaggeDaten, Converter={StaticResource IstNichtNull}}"
+                                    <Button Content="Bild wählen…" Command="{Binding LandEditor.FlaggeWaehlenCommand}" HorizontalAlignment="Left"
+                                            views:Feldmarkierung.Meldungen="{Binding LandEditor.Fehler}" views:Feldmarkierung.Feld="Flagge" />
+                                    <Button Content="Entfernen" Command="{Binding LandEditor.FlaggeEntfernenCommand}"
+                                            IsEnabled="{Binding LandEditor.FlaggeDaten, Converter={StaticResource IstNichtNull}}"
                                             HorizontalAlignment="Left" />
                                 </StackPanel>
                             </Grid>
 
                             <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
                             <TextBox AutomationProperties.AutomationId="Laender.Name"
-                                     Text="{Binding LandEditor.LandName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     views:Feldmarkierung.Meldungen="{Binding LandEditor.LandFehler}" views:Feldmarkierung.Feld="Name"
+                                     Text="{Binding LandEditor.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     views:Feldmarkierung.Meldungen="{Binding LandEditor.Fehler}" views:Feldmarkierung.Feld="Name"
                                      HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                             <Grid Margin="0,0,0,12" ColumnDefinitions="*,16,90">
                                 <StackPanel HorizontalAlignment="Stretch">
                                     <TextBlock Text="Kurzname" FontSize="12" Margin="0,0,0,3" />
                                     <TextBox AutomationProperties.AutomationId="Laender.Kurzname"
-                                             Text="{Binding LandEditor.LandKurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                             views:Feldmarkierung.Meldungen="{Binding LandEditor.LandFehler}" views:Feldmarkierung.Feld="Kurzname"
+                                             Text="{Binding LandEditor.Kurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             views:Feldmarkierung.Meldungen="{Binding LandEditor.Fehler}" views:Feldmarkierung.Feld="Kurzname"
                                              HorizontalAlignment="Stretch" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Text="FIFA-Code" FontSize="12" Margin="0,0,0,3" />
                                     <TextBox AutomationProperties.AutomationId="Laender.FifaCode"
-                                             Text="{Binding LandEditor.LandFifaCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                             views:Feldmarkierung.Meldungen="{Binding LandEditor.LandFehler}" views:Feldmarkierung.Feld="FifaCode"
+                                             Text="{Binding LandEditor.FifaCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             views:Feldmarkierung.Meldungen="{Binding LandEditor.Fehler}" views:Feldmarkierung.Feld="FifaCode"
                                              MaxLength="3" CharacterCasing="Upper" HorizontalAlignment="Stretch" />
                                 </StackPanel>
                             </Grid>
@@ -152,15 +152,15 @@
                                 <StackPanel HorizontalAlignment="Stretch">
                                     <TextBlock Text="Kontinent" FontSize="12" Margin="0,0,0,3" />
                                     <ComboBox ItemsSource="{Binding LandEditor.KontinentFormularOptionen}"
-                                              SelectedItem="{Binding LandEditor.LandKontinentOption, Mode=TwoWay}"
+                                              SelectedItem="{Binding LandEditor.KontinentAuswahl, Mode=TwoWay}"
                                               DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
                                     <TextBlock Text="Verband" FontSize="12" Margin="0,0,0,3" />
                                     <ComboBox AutomationProperties.AutomationId="Laender.Verband"
                                               ItemsSource="{Binding LandEditor.Verbaende}"
-                                              views:Feldmarkierung.Meldungen="{Binding LandEditor.LandFehler}" views:Feldmarkierung.Feld="VerbandId"
-                                              SelectedItem="{Binding LandEditor.LandVerband, Mode=TwoWay}"
+                                              views:Feldmarkierung.Meldungen="{Binding LandEditor.Fehler}" views:Feldmarkierung.Feld="VerbandId"
+                                              SelectedItem="{Binding LandEditor.Verband, Mode=TwoWay}"
                                               DisplayMemberPath="Name" HorizontalAlignment="Stretch" />
                                 </StackPanel>
                             </Grid>
@@ -169,14 +169,14 @@
                             <TextBlock Text="Rangliste" FontSize="12" Margin="0,0,0,3" />
                             <ComboBox AutomationProperties.AutomationId="Laender.Rangliste"
                                       ItemsSource="{Binding LandEditor.RanglistenOptionen}"
-                                      SelectedItem="{Binding LandEditor.LandRangliste, Mode=TwoWay}"
+                                      SelectedItem="{Binding LandEditor.Rangliste, Mode=TwoWay}"
                                       DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,24" />
                         </StackPanel>
                     </ScrollViewer>
                     <!-- Meldungen als Andock-Leiste (#594) – überdeckt den freien Bereich rechts, nicht das Formular -->
                     <views:MeldungsLeiste Grid.ColumnSpan="2" AutomationPraefix="Laender"
                                           Fehlermeldung="{Binding LandEditor.Fehlermeldung}"
-                                          Fehler="{Binding LandEditor.LandFehler}" />
+                                          Fehler="{Binding LandEditor.Fehler}" />
                 </Grid>
             </Grid>
         </PivotItem>
@@ -192,7 +192,7 @@
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
                             <TextBox AutomationProperties.AutomationId="Verbaende.Suche"
-                                     Text="{Binding VerbandEditor.VerbandSuchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Text="{Binding VerbandEditor.Suchbegriff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      PlaceholderText="🔍  Suchen …" Width="180" />
                             <Button Content="↺ Zurücksetzen" Command="{Binding VerbandEditor.FilterZuruecksetzenCommand}" FontSize="11" />
                         </StackPanel>
@@ -231,7 +231,7 @@
                     <!-- Datensatzanzahl (#366): einheitliche Fußzeile in allen Stammdaten-Editoren -->
                     <Border Grid.Row="3" Padding="8,4"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
-                        <TextBlock Text="{Binding VerbandEditor.VerbaendeAnzahlText}" FontSize="11" Opacity="0.6" />
+                        <TextBlock Text="{Binding VerbandEditor.AnzahlText}" FontSize="11" Opacity="0.6" />
                     </Border>
                 </Grid>
 
@@ -241,7 +241,7 @@
                 <Grid Grid.Column="2" ColumnDefinitions="3*,1*">
 
                     <StackPanel Grid.ColumnSpan="2"
-                                Visibility="{Binding VerbandEditor.VerbandFormularAktiv, Converter={StaticResource InverseBoolToVisibility}}"
+                                Visibility="{Binding VerbandEditor.FormularAktiv, Converter={StaticResource InverseBoolToVisibility}}"
                                 VerticalAlignment="Center" HorizontalAlignment="Center" Opacity="0.4">
                         <TextBlock Text="🏛" FontSize="48" HorizontalAlignment="Center" />
                         <TextBlock Text="Verband auswählen oder" FontSize="14" HorizontalAlignment="Center" Margin="0,12,0,4" />
@@ -249,7 +249,7 @@
                     </StackPanel>
 
                     <ScrollViewer Grid.Column="0"
-                                  Visibility="{Binding VerbandEditor.VerbandFormularAktiv, Converter={StaticResource BoolToVisibility}}"
+                                  Visibility="{Binding VerbandEditor.FormularAktiv, Converter={StaticResource BoolToVisibility}}"
                                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="28,20,28,28" HorizontalAlignment="Stretch">
 
@@ -258,53 +258,53 @@
                             <Grid Margin="0,0,0,16" ColumnDefinitions="64,16,*">
                                 <Grid Width="64" Height="64">
                                     <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" />
-                                    <Image Source="{Binding VerbandEditor.VerbandLogoDaten, Converter={StaticResource BildDatenZuBildquelle}}"
-                                           Visibility="{Binding VerbandEditor.VerbandLogoDaten, Converter={StaticResource NullToCollapsed}}"
+                                    <Image Source="{Binding VerbandEditor.LogoDaten, Converter={StaticResource BildDatenZuBildquelle}}"
+                                           Visibility="{Binding VerbandEditor.LogoDaten, Converter={StaticResource NullToCollapsed}}"
                                            Stretch="Uniform" Margin="4" />
                                     <TextBlock Text="🏛" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                Opacity="0.35"
-                                               Visibility="{Binding VerbandEditor.VerbandLogoDaten, Converter={StaticResource NullToVisible}}" />
+                                               Visibility="{Binding VerbandEditor.LogoDaten, Converter={StaticResource NullToVisible}}" />
                                 </Grid>
                                 <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="6">
-                                    <Button Content="Bild wählen…" Command="{Binding VerbandEditor.VerbandLogoWaehlenCommand}" HorizontalAlignment="Left"
-                                            views:Feldmarkierung.Meldungen="{Binding VerbandEditor.VerbandFehler}" views:Feldmarkierung.Feld="Logo" />
-                                    <Button Content="Entfernen" Command="{Binding VerbandEditor.VerbandLogoEntfernenCommand}"
-                                            IsEnabled="{Binding VerbandEditor.VerbandLogoDaten, Converter={StaticResource IstNichtNull}}"
+                                    <Button Content="Bild wählen…" Command="{Binding VerbandEditor.LogoWaehlenCommand}" HorizontalAlignment="Left"
+                                            views:Feldmarkierung.Meldungen="{Binding VerbandEditor.Fehler}" views:Feldmarkierung.Feld="Logo" />
+                                    <Button Content="Entfernen" Command="{Binding VerbandEditor.LogoEntfernenCommand}"
+                                            IsEnabled="{Binding VerbandEditor.LogoDaten, Converter={StaticResource IstNichtNull}}"
                                             HorizontalAlignment="Left" />
                                 </StackPanel>
                             </Grid>
 
                             <TextBlock Text="Name" FontSize="12" Margin="0,0,0,3" />
                             <TextBox AutomationProperties.AutomationId="Verbaende.Name"
-                                     Text="{Binding VerbandEditor.VerbandName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     views:Feldmarkierung.Meldungen="{Binding VerbandEditor.VerbandFehler}" views:Feldmarkierung.Feld="Name"
+                                     Text="{Binding VerbandEditor.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     views:Feldmarkierung.Meldungen="{Binding VerbandEditor.Fehler}" views:Feldmarkierung.Feld="Name"
                                      HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                             <TextBlock Text="Kurzname" FontSize="12" Margin="0,0,0,3" />
                             <TextBox AutomationProperties.AutomationId="Verbaende.Kurzname"
-                                     Text="{Binding VerbandEditor.VerbandKurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     views:Feldmarkierung.Meldungen="{Binding VerbandEditor.VerbandFehler}" views:Feldmarkierung.Feld="Kurzname"
+                                     Text="{Binding VerbandEditor.Kurzname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     views:Feldmarkierung.Meldungen="{Binding VerbandEditor.Fehler}" views:Feldmarkierung.Feld="Kurzname"
                                      HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                             <!-- #572: etwa die FIFA-Weltrangliste, gefiltert nach Verband. -->
                             <TextBlock Text="Rangliste" FontSize="12" Margin="0,0,0,3" />
                             <ComboBox AutomationProperties.AutomationId="Verbaende.Rangliste"
                                       ItemsSource="{Binding VerbandEditor.RanglistenOptionen}"
-                                      SelectedItem="{Binding VerbandEditor.VerbandRangliste, Mode=TwoWay}"
+                                      SelectedItem="{Binding VerbandEditor.Rangliste, Mode=TwoWay}"
                                       DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,12" />
 
                             <!-- #574: ordnet die Verbandsquote bei Vereinswettbewerben, etwa der UEFA-Klub-Koeffizient. -->
                             <TextBlock Text="Vereinsrangliste" FontSize="12" Margin="0,0,0,3" />
                             <ComboBox AutomationProperties.AutomationId="Verbaende.VereinsRangliste"
                                       ItemsSource="{Binding VerbandEditor.RanglistenOptionen}"
-                                      SelectedItem="{Binding VerbandEditor.VerbandVereinsRangliste, Mode=TwoWay}"
+                                      SelectedItem="{Binding VerbandEditor.VereinsRangliste, Mode=TwoWay}"
                                       DisplayMemberPath="Anzeige" HorizontalAlignment="Stretch" Margin="0,0,0,24" />
                         </StackPanel>
                     </ScrollViewer>
                     <!-- Meldungen als Andock-Leiste (#594) – überdeckt den freien Bereich rechts, nicht das Formular -->
                     <views:MeldungsLeiste Grid.ColumnSpan="2" AutomationPraefix="Verbaende"
                                           Fehlermeldung="{Binding VerbandEditor.Fehlermeldung}"
-                                          Fehler="{Binding VerbandEditor.VerbandFehler}" />
+                                          Fehler="{Binding VerbandEditor.Fehler}" />
                 </Grid>
             </Grid>
         </PivotItem>

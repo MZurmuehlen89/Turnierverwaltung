@@ -24,8 +24,6 @@ public partial class VerbandEditorViewModel : ObservableObject
     private Func<Task> _neuLaden = () => Task.CompletedTask;
     private int _populiertGerade;
 
-    private static readonly RanglistenOption KeineRangliste = LaenderUndVerbaendeViewModel.KeineRangliste;
-
     [ObservableProperty] private string? _fehlermeldung;
 
     [ObservableProperty]
@@ -34,7 +32,7 @@ public partial class VerbandEditorViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(VerbaendeGefiltert))]
-    private string _verbandSuchbegriff = "";
+    private string _suchbegriff = "";
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
@@ -44,46 +42,46 @@ public partial class VerbandEditorViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
     [NotifyCanExecuteChangedFor(nameof(AbbrechenCommand))]
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
-    private bool _verbandFormularAktiv;
+    private bool _formularAktiv;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
     [NotifyCanExecuteChangedFor(nameof(AbbrechenCommand))]
-    private bool _verbandIsDirty;
+    private bool _isDirty;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(LoeschenCommand))]
-    private bool _verbandIstNeuModus;
+    private bool _istNeuModus;
 
-    [ObservableProperty] private string _verbandName = "";
-    [ObservableProperty] private string _verbandKurzname = "";
-    [ObservableProperty] private byte[]? _verbandLogoDaten;
-    [ObservableProperty] private RanglistenOption? _verbandRangliste = KeineRangliste;
-    [ObservableProperty] private RanglistenOption? _verbandVereinsRangliste = KeineRangliste;
+    [ObservableProperty] private string _name = "";
+    [ObservableProperty] private string _kurzname = "";
+    [ObservableProperty] private byte[]? _logoDaten;
+    [ObservableProperty] private RanglistenOption? _rangliste = RanglistenOption.Keine;
+    [ObservableProperty] private RanglistenOption? _vereinsRangliste = RanglistenOption.Keine;
 
     /// <summary>Live-Prüfung des Verbandsformulars (#602); sperrt Speichern, solange sie Fehler enthält.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SpeichernCommand))]
-    private IReadOnlyList<Feldfehler> _verbandFehler = [];
+    private IReadOnlyList<Feldfehler> _fehler = [];
 
     // Ranglisten zur Auswahl (#572), „keine“ zuerst.
-    [ObservableProperty] private IReadOnlyList<RanglistenOption> _ranglistenOptionen = [KeineRangliste];
+    [ObservableProperty] private IReadOnlyList<RanglistenOption> _ranglistenOptionen = [RanglistenOption.Keine];
 
     // ── Berechnete Listen ─────────────────────────────────────────────────────
     public IEnumerable<Verband> VerbaendeGefiltert => Verbaende
-        .Where(v => string.IsNullOrWhiteSpace(VerbandSuchbegriff)
-            || v.Name.Contains(VerbandSuchbegriff, StringComparison.OrdinalIgnoreCase)
-            || v.Kurzname.Contains(VerbandSuchbegriff, StringComparison.OrdinalIgnoreCase));
+        .Where(v => string.IsNullOrWhiteSpace(Suchbegriff)
+            || v.Name.Contains(Suchbegriff, StringComparison.OrdinalIgnoreCase)
+            || v.Kurzname.Contains(Suchbegriff, StringComparison.OrdinalIgnoreCase));
 
     // Wird in OnPropertyChanged mit VerbaendeGefiltert nachgezogen (alle Quellen automatisch).
-    public string VerbaendeAnzahlText => DatensatzAnzahl.Text(
-        VerbaendeGefiltert.Count(), Verbaende.Count, !string.IsNullOrWhiteSpace(VerbandSuchbegriff),
+    public string AnzahlText => DatensatzAnzahl.Text(
+        VerbaendeGefiltert.Count(), Verbaende.Count, !string.IsNullOrWhiteSpace(Suchbegriff),
         "Verband", "Verbände");
 
-    private static readonly HashSet<string> _verbandFormFelder =
+    private static readonly HashSet<string> _formFelder =
     [
-        nameof(VerbandName), nameof(VerbandKurzname), nameof(VerbandLogoDaten), nameof(VerbandRangliste),
-        nameof(VerbandVereinsRangliste)
+        nameof(Name), nameof(Kurzname), nameof(LogoDaten), nameof(Rangliste),
+        nameof(VereinsRangliste)
     ];
 
     public VerbandEditorViewModel(
@@ -108,45 +106,45 @@ public partial class VerbandEditorViewModel : ObservableObject
 
     public void MeldungVerwerfen() => Fehlermeldung = null;
 
-    public bool HatUngespeicherteAenderungen => VerbandFormularAktiv && VerbandIsDirty;
+    public bool HatUngespeicherteAenderungen => FormularAktiv && IsDirty;
 
-    partial void OnAusgewaehlterVerbandChanged(Verband? value) => VerbandFormularAusFuellenMit(value);
+    partial void OnAusgewaehlterVerbandChanged(Verband? value) => FormularAusFuellenMit(value);
 
     private RanglistenOption RanglisteOptionFuer(int? ranglisteId) =>
-        RanglistenOptionen.FirstOrDefault(o => o.Id == ranglisteId) ?? KeineRangliste;
+        RanglistenOptionen.FirstOrDefault(o => o.Id == ranglisteId) ?? RanglistenOption.Keine;
 
-    private void VerbandFormularAusFuellenMit(Verband? verband)
+    private void FormularAusFuellenMit(Verband? verband)
     {
         _populiertGerade++;
         try
         {
             if (verband is null)
             {
-                VerbandFormularAktiv = false;
-                VerbandIstNeuModus = false;
-                VerbandName = VerbandKurzname = "";
-                VerbandLogoDaten = null;
-                VerbandRangliste = KeineRangliste;
-                VerbandVereinsRangliste = KeineRangliste;
+                FormularAktiv = false;
+                IstNeuModus = false;
+                Name = Kurzname = "";
+                LogoDaten = null;
+                Rangliste = RanglistenOption.Keine;
+                VereinsRangliste = RanglistenOption.Keine;
             }
             else
             {
-                VerbandFormularAktiv = true;
-                VerbandIstNeuModus = false;
-                VerbandName = verband.Name;
-                VerbandKurzname = verband.Kurzname;
-                VerbandLogoDaten = verband.Logo;
-                VerbandRangliste = RanglisteOptionFuer(verband.RanglisteId);
-                VerbandVereinsRangliste = RanglisteOptionFuer(verband.VereinsRanglisteId);
+                FormularAktiv = true;
+                IstNeuModus = false;
+                Name = verband.Name;
+                Kurzname = verband.Kurzname;
+                LogoDaten = verband.Logo;
+                Rangliste = RanglisteOptionFuer(verband.RanglisteId);
+                VereinsRangliste = RanglisteOptionFuer(verband.VereinsRanglisteId);
             }
-            VerbandIsDirty = false;
+            IsDirty = false;
             Fehlermeldung = null;
         }
         finally
         {
             _populiertGerade--;
         }
-        AktualisiereVerbandFehler();
+        AktualisiereFehler();
     }
 
     // ── Ribbon-Befehle ────────────────────────────────────────────────────────
@@ -158,56 +156,51 @@ public partial class VerbandEditorViewModel : ObservableObject
         try
         {
             AusgewaehlterVerband = null;
-            VerbandFormularAktiv = true;
-            VerbandIstNeuModus = true;
-            VerbandName = VerbandKurzname = "";
-            VerbandLogoDaten = null;
-            VerbandRangliste = KeineRangliste;
-            VerbandVereinsRangliste = KeineRangliste;
+            FormularAktiv = true;
+            IstNeuModus = true;
+            Name = Kurzname = "";
+            LogoDaten = null;
+            Rangliste = RanglistenOption.Keine;
+            VereinsRangliste = RanglistenOption.Keine;
             Fehlermeldung = null;
         }
         finally
         {
             _populiertGerade--;
         }
-        VerbandIsDirty = true;
-        AktualisiereVerbandFehler();
+        IsDirty = true;
+        AktualisiereFehler();
     }
 
     [RelayCommand]
-    private async Task VerbandLogoWaehlenAsync()
+    private async Task LogoWaehlenAsync()
     {
         var daten = await _dialogService.BilddateiWaehlenAsync();
-        if (daten is not null) VerbandLogoDaten = daten;
+        if (daten is not null) LogoDaten = daten;
     }
 
     [RelayCommand]
-    private void VerbandLogoEntfernen() => VerbandLogoDaten = null;
+    private void LogoEntfernen() => LogoDaten = null;
 
     [RelayCommand(CanExecute = nameof(KannSpeichern))]
     private async Task Speichern()
     {
         // Als Vorgang, weil die Seite danach neu lädt: Ladeanzeige und „Bereit“ für GUI-Tests folgen nur offenen
         // Vorgängen (#597, Muster aus #535)
-        using var vorgang = _logger.Vorgang($"Verbände: speichern ({VerbandName})", "Verband wird gespeichert …");
-        await VerbandSpeichern();
-    }
-
-    private async Task VerbandSpeichern()
-    {
+        using var vorgang = _logger.Vorgang($"Verbände: speichern ({Name})", "Verband wird gespeichert …");
         Fehlermeldung = null;
         try
         {
-            if (VerbandIstNeuModus)
+            if (IstNeuModus)
             {
-                var neu = await _verbandService.ErstellenAsync(VerbandErstellenEingabe());
+                var neu = await _verbandService.ErstellenAsync(ErstellenEingabe());
                 await _neuLaden();
                 AusgewaehlterVerband = Verbaende.FirstOrDefault(v => v.Id == neu.Id);
             }
             else if (AusgewaehlterVerband is not null)
             {
                 var id = AusgewaehlterVerband.Id;
-                await _verbandService.AktualisierenAsync(id, VerbandAktualisierenEingabe());
+                await _verbandService.AktualisierenAsync(id, AktualisierenEingabe());
                 await _neuLaden();
                 AusgewaehlterVerband = Verbaende.FirstOrDefault(v => v.Id == id);
             }
@@ -219,13 +212,14 @@ public partial class VerbandEditorViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(KannAbbrechen))]
-    private void Abbrechen() => VerbandFormularAusFuellenMit(VerbandIstNeuModus ? null : AusgewaehlterVerband);
+    private void Abbrechen() => FormularAusFuellenMit(IstNeuModus ? null : AusgewaehlterVerband);
 
     [RelayCommand(CanExecute = nameof(KannLoeschen))]
     private async Task Loeschen()
     {
         if (AusgewaehlterVerband is null) return;
-        if (await LoeschSperreMeldenAsync(() => _verbandService.LoeschSperreAsync(AusgewaehlterVerband.Id))) return;
+        Fehlermeldung = await LoeschPruefung.SperreErmittelnAsync(_logger, () => _verbandService.LoeschSperreAsync(AusgewaehlterVerband.Id));
+        if (Fehlermeldung is not null) return;
         var bestaetigt = await _dialogService.BestaetigenAsync(
             "Verband löschen", $"Soll '{AusgewaehlterVerband.Name}' wirklich gelöscht werden?");
         if (!bestaetigt) return;
@@ -243,52 +237,36 @@ public partial class VerbandEditorViewModel : ObservableObject
         }
     }
 
-    /// <summary>Zeigt den Grund, warum sich der Datensatz nicht löschen lässt; true = gesperrt.</summary>
-    private async Task<bool> LoeschSperreMeldenAsync(Func<Task<string?>> sperreErmitteln)
-    {
-        // Als Vorgang, damit GUI-Tests erst nach der Abfrage weitermachen (Muster #597)
-        using var vorgang = _logger.Vorgang("Länder & Verbände: Löschen prüfen", "Löschen wird geprüft …");
-        try
-        {
-            Fehlermeldung = await sperreErmitteln();
-        }
-        catch (Exception ex)
-        {
-            Fehlermeldung = ex.Message;
-        }
-        return Fehlermeldung is not null;
-    }
-
     [RelayCommand]
-    private void FilterZuruecksetzen() => VerbandSuchbegriff = "";
+    private void FilterZuruecksetzen() => Suchbegriff = "";
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.PropertyName == nameof(VerbaendeGefiltert)) OnPropertyChanged(nameof(VerbaendeAnzahlText));
+        if (e.PropertyName == nameof(VerbaendeGefiltert)) OnPropertyChanged(nameof(AnzahlText));
         if (_populiertGerade != 0) return;
-        if (_verbandFormFelder.Contains(e.PropertyName!))
+        if (_formFelder.Contains(e.PropertyName!))
         {
-            VerbandIsDirty = true;
-            AktualisiereVerbandFehler();
+            IsDirty = true;
+            AktualisiereFehler();
         }
     }
 
     // ── Live-Prüfung (#602) ───────────────────────────────────────────────────
 
-    private VerbandErstellenEingabe VerbandErstellenEingabe() => new(
-        VerbandName, VerbandKurzname, VerbandLogoDaten, VerbandRangliste?.Id, VerbandVereinsRangliste?.Id);
+    private VerbandErstellenEingabe ErstellenEingabe() => new(
+        Name, Kurzname, LogoDaten, Rangliste?.Id, VereinsRangliste?.Id);
 
-    private VerbandAktualisierenEingabe VerbandAktualisierenEingabe() => new(
-        VerbandName, VerbandKurzname, VerbandLogoDaten, VerbandRangliste?.Id, VerbandVereinsRangliste?.Id);
+    private VerbandAktualisierenEingabe AktualisierenEingabe() => new(
+        Name, Kurzname, LogoDaten, Rangliste?.Id, VereinsRangliste?.Id);
 
     // Erstellen und Bearbeiten prüfen dieselben Regeln – die Live-Prüfung nimmt darum immer die Erstellen-Eingabe.
-    private void AktualisiereVerbandFehler() =>
-        VerbandFehler = VerbandFormularAktiv ? _verbandValidator.Validieren(VerbandErstellenEingabe()).Meldungen : [];
+    private void AktualisiereFehler() =>
+        Fehler = FormularAktiv ? _verbandValidator.Validieren(ErstellenEingabe()).Meldungen : [];
 
-    private bool KannSpeichern() => VerbandFormularAktiv && VerbandIsDirty && VerbandFehler.Count == 0;
+    private bool KannSpeichern() => FormularAktiv && IsDirty && Fehler.Count == 0;
 
-    private bool KannAbbrechen() => VerbandFormularAktiv && VerbandIsDirty;
+    private bool KannAbbrechen() => FormularAktiv && IsDirty;
 
-    private bool KannLoeschen() => AusgewaehlterVerband is not null && !VerbandIstNeuModus;
+    private bool KannLoeschen() => AusgewaehlterVerband is not null && !IstNeuModus;
 }

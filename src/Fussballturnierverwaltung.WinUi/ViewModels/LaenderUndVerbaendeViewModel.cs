@@ -1,23 +1,15 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Fussballturnierverwaltung.Application.Ranglisten;
-using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.WinUi.Navigation;
 using Fussballturnierverwaltung.WinUi.Ribbon;
 using System.Windows.Input;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
-public record KontinentOption(string Anzeige, Kontinent? Wert);
-
-/// <summary>Auswahl der Rangliste eines Landes oder Verbands (#572); <see cref="Id"/> null = keine.</summary>
-public record RanglistenOption(string Anzeige, int? Id);
-
 /// <summary>Seite mit den Reitern Länder und Verbände; jeder Reiter ist ein eigener Editor (#606).</summary>
 public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware, IHatUngespeicherteAenderungen
 {
     private readonly RanglisteService _ranglisteService;
-
-    internal static readonly RanglistenOption KeineRangliste = new("— keine —", null);
 
     public LandEditorViewModel LandEditor { get; }
     public VerbandEditorViewModel VerbandEditor { get; }
@@ -58,7 +50,7 @@ public partial class LaenderUndVerbaendeViewModel : ViewModelBase, IRibbonAware,
         {
             var ranglisten = await _ranglisteService.AlleOhneEintraegeAbrufenAsync();
             IReadOnlyList<RanglistenOption> ranglistenOptionen =
-                [KeineRangliste, .. ranglisten.OrderBy(r => r.Name).Select(r => new RanglistenOption(r.Name, r.Id))];
+                [RanglistenOption.Keine, .. ranglisten.OrderBy(r => r.Name).Select(r => new RanglistenOption(r.Name, r.Id))];
 
             await VerbandEditor.LadenAsync(ranglistenOptionen);
             await LandEditor.LadenAsync(VerbandEditor.Verbaende, ranglistenOptionen);
