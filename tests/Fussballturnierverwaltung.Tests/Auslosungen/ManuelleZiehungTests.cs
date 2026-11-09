@@ -314,6 +314,36 @@ public class ManuelleZiehungTests
         z.Ergebnis().Select(p => (p.PaarungsNummer, p.HeimMannschaftId)).Should().Equal((1, 3), (1, 1), (1, 2));
     }
 
+    // ── Schweizer System ──────────────────────────────────────────────────────
+
+    // #627: die Ziehung von Hand paart wie die automatische Auslosung — Topf 1 gegen Topf 2, Überhang zuletzt
+    // mit Freilos (im Schweizer System immer möglich, #548).
+    [Fact]
+    public void SchweizerSystem_ZweiToepfeUngerade_PaartWieDieAutomatischeAuslosung()
+    {
+        static Lostopf[] Toepfe() => [TopfMitTeams(1, 1, 3), TopfMitTeams(2, 4, 2)];
+        var z = Starten(Rundenart.SchweizerSystem, Regeln(freilos: true), Toepfe());
+
+        z.IstGruppenmodus.Should().BeFalse();
+        z.Ansage.Text.Should().Be("Ziehe ein Team aus Topf 1");
+        Ziehe(z, 2);
+        Ziehe(z, 5);
+        Ziehe(z, 1);
+        Ziehe(z, 4);
+
+        z.IstFertig.Should().BeTrue();
+        z.Ergebnis().Select(p => (p.PaarungsNummer, p.HeimMannschaftId, p.AuswaertsMannschaftId))
+            .Should().Equal((1, 2, 5), (2, 1, 4), (3, 3, null));
+        z.Paarungen[^1].IstFreilos.Should().BeTrue();
+
+        var automatisch = Losverfahren.Ausloesen(
+            NeueAuslosung(Rundenart.SchweizerSystem, Auslosungsart.NachToepfen, Toepfe()),
+            new LosVorbereitung(Regeln(freilos: true), _keineGruppen, _keineKoepfe), new Random(1));
+        automatisch.Select(e => (e.PaarungsNummer, HeimAusTopf1: e.HeimMannschaftId <= 3,
+                                 MitGegner: e.AuswaertsMannschaftId.HasValue, e.IstFreilos))
+            .Should().Equal((1, true, true, false), (2, true, true, false), (3, true, false, true));
+    }
+
     // ── Belastung ─────────────────────────────────────────────────────────────
 
     // Wer immer die erste freie Option wählt, muss jede Ziehung zu Ende bringen — und das zügig.

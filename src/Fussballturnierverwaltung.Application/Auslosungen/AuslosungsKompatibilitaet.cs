@@ -30,6 +30,12 @@ public static class AuslosungsKompatibilitaet
             "und ist für K.O.-Runden nicht geeignet. " +
             "Verwenden Sie stattdessen 'Zufällig' oder 'Nach Töpfen'.",
 
+        // Die Topf-Zuordnung lost alle Gegner der Runde im Voraus — im Schweizer System folgen sie je Spieltag aus der
+        // Tabelle, nur der erste Spieltag wird ausgelost (#627).
+        (Auslosungsart.TopfZuordnung, Rundenart.SchweizerSystem) =>
+            "Auslosungsart 'Topf-Zuordnung' lost alle Gegner im Voraus — im Schweizer System ergeben sie sich je " +
+            "Spieltag aus der Tabelle. Verwenden Sie 'Zufällig', 'Nach Töpfen' oder 'Nach Setzliste'.",
+
         (Auslosungsart.TopfZuordnung, Rundenart.Gruppenphase) =>
             "Auslosungsart 'Topf-Zuordnung' ist für die Ligaphase der UEFA-Klubwettbewerbe gedacht, " +
             "nicht für eine klassische Gruppenphase. " +

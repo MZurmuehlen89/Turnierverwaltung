@@ -20,6 +20,8 @@ public class AuslosungsKompatibilitaetTests
     [InlineData(Auslosungsart.TopfZuordnung, Rundenart.KoRunde)]
     [InlineData(Auslosungsart.TopfZuordnung, Rundenart.Finale)]
     [InlineData(Auslosungsart.TopfZuordnung, Rundenart.SpielUmPlatzDrei)]
+    // #627: lost alle Gegner im Voraus, im Schweizer System folgen sie je Spieltag aus der Tabelle
+    [InlineData(Auslosungsart.TopfZuordnung, Rundenart.SchweizerSystem)]
     // Issue #347: TopfLiga nur per Topf-Zuordnung (bzw. Manuell über die Vorbelegung, siehe unten)
     [InlineData(Auslosungsart.Manuell, Rundenart.TopfLiga)]
     [InlineData(Auslosungsart.Zufall, Rundenart.TopfLiga)]

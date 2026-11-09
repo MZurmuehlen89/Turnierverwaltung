@@ -11,4 +11,11 @@ public static class VorbelegungsZustaendigkeit
 {
     public static bool GehoertZurVorbelegung(Auslosung auslosung) =>
         auslosung.Auslosungsart == Auslosungsart.Manuell && auslosung.TurnierRunde is { PaarungFestVorgegeben: true };
+
+    /// <summary>Warum eine Runde dieser Rundenart keine fest vorgegebenen Paarungen haben kann — oder <c>null</c>.
+    /// Im Schweizer System folgen die Gegner je Spieltag aus der Tabelle; fest vorgeben ließe sich nur der erste
+    /// Spieltag, und den legt die Auslosung fest (Nutzerentscheid #627).</summary>
+    public static string? FesteVorgabeSperrGrund(Rundenart rundenart) => rundenart == Rundenart.SchweizerSystem
+        ? "Beim Schweizer System ergeben sich die Paarungen je Spieltag aus der Tabelle – feste Paarungen gibt es nicht."
+        : null;
 }

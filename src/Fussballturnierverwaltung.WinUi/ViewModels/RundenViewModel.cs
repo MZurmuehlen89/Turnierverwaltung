@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Fussballturnierverwaltung.Application.Abstraktionen;
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Spielplan;
 using Fussballturnierverwaltung.Application.Spielplan.Eingaben;
@@ -51,7 +52,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
 
     private void UebergaengeGeaendertMelden()
     {
-        OnPropertyChanged(nameof(PaarungFestVorgegebenVerfuegbar));
+        PaarungFestVorgabeMelden();
         foreach (var runde in Runden)
             runde.UnstimmigkeitText = UnstimmigkeitErmitteln(runde);
         UebergaengeGeaendert?.Invoke();
@@ -89,7 +90,7 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
     partial void OnAusgewaehlteRundeChanged(RundeZeile? value)
     {
         Formular.Zeigen(value, FolgtAufGruppenphase(value));
-        OnPropertyChanged(nameof(PaarungFestVorgegebenVerfuegbar));
+        PaarungFestVorgabeMelden();
     }
 
     public bool FormularSichtbar => AusgewaehlteRunde is not null;
@@ -118,9 +119,22 @@ public partial class RundenViewModel : ViewModelBase, IRibbonAware, IHatUngespei
 
     /// <summary>Feste Paarungen (Vorbelegung, Issue #277/#297) ergeben nur für eine Runde mit mindestens
     /// einer eingehenden Übergangsregel Sinn — die erste Runde eines Turniers hat noch keine Platzhalter-
-    /// Basis und durchläuft in jedem realen Turnier zwingend eine echte Auslosung.</summary>
-    public bool PaarungFestVorgegebenVerfuegbar =>
-        AusgewaehlteRunde is not null && AlleUebergaenge.Any(b => b.ZielRunde == AusgewaehlteRunde);
+    /// Basis und durchläuft in jedem realen Turnier zwingend eine echte Auslosung. Das Schweizer System kennt
+    /// keine festen Paarungen (#627).</summary>
+    public bool PaarungFestVorgegebenVerfuegbar => AusgewaehlteRunde is not null && PaarungFestVorgegebenHinweis is null;
+
+    /// <summary>Warum „Paarung fest vorgegeben“ für die gewählte Runde nicht verfügbar ist — oder <c>null</c>.</summary>
+    public string? PaarungFestVorgegebenHinweis =>
+        VorbelegungsZustaendigkeit.FesteVorgabeSperrGrund(Formular.Rundenart)
+        ?? (AlleUebergaenge.Any(b => b.ZielRunde == AusgewaehlteRunde)
+            ? null
+            : "Erst verfügbar, sobald die Runde eine eingehende Übergangsregel hat (siehe Übergänge).");
+
+    private void PaarungFestVorgabeMelden()
+    {
+        OnPropertyChanged(nameof(PaarungFestVorgegebenVerfuegbar));
+        OnPropertyChanged(nameof(PaarungFestVorgegebenHinweis));
+    }
 
     [ObservableProperty] private ObservableCollection<RundeZeile> _runden = [];
 

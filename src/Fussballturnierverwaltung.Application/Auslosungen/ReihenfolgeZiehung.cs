@@ -1,6 +1,6 @@
 namespace Fussballturnierverwaltung.Application.Auslosungen;
 
-/// <summary>Ziehung von Hand für Liga und Schweizer System (#482): gezogen wird die Reihenfolge der Teams, ihre
+/// <summary>Ziehung von Hand für die Liga (#482): gezogen wird die Reihenfolge der Teams, ihre
 /// Position ist die Schlüsselzahl des Spielplans. Töpfe und Regeln wirken hier nicht (wie beim Losen, #474).</summary>
 internal sealed class ReihenfolgeZiehung(ZiehungsKontext kontext) : IZiehungsAblauf
 {

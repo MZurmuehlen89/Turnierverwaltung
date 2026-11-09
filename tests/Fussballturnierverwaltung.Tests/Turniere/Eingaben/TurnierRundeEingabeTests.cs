@@ -54,6 +54,18 @@ public class TurnierRundeEingabeTests
     public void OhneUnwirksameAngaben_AndereRundenart_SetztGegnerJeTopfZurueck(Rundenart rundenart) =>
         Eingabe(rundenart).OhneUnwirksameAngaben().GegnerJeTopf.Should().Be(2);
 
+    [Fact]
+    public void OhneUnwirksameAngaben_SchweizerSystem_VerwirftPaarungFestVorgegeben() =>
+        (Eingabe(Rundenart.SchweizerSystem) with { PaarungFestVorgegeben = true }).OhneUnwirksameAngaben()
+            .PaarungFestVorgegeben.Should().BeFalse();
+
+    [Theory]
+    [InlineData(Rundenart.KoRunde)]
+    [InlineData(Rundenart.Gruppenphase)]
+    public void OhneUnwirksameAngaben_AndereRundenart_BehaeltPaarungFestVorgegeben(Rundenart rundenart) =>
+        (Eingabe(rundenart) with { PaarungFestVorgegeben = true }).OhneUnwirksameAngaben()
+            .PaarungFestVorgegeben.Should().BeTrue();
+
     private static readonly TabellenBereichEingabe[] _bereiche = [new(17, 18, TabellenBereichArt.Abstieg, "Abstieg")];
 
     [Theory]

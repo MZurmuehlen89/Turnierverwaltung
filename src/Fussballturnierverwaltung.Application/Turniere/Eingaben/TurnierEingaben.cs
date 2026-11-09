@@ -1,3 +1,4 @@
+using Fussballturnierverwaltung.Application.Auslosungen;
 using Fussballturnierverwaltung.Application.Tabelle;
 using Fussballturnierverwaltung.Domain.Enums;
 
@@ -75,7 +76,8 @@ public record TurnierRundeEingabe(
 {
     /// <summary>Lässt weg, was bei dieser Runde nichts bewirkt, im Formular aber stehen geblieben sein kann:
     /// die Spieltag-Konfiguration außerhalb des Schweizer Systems, die Gruppenanzahl außerhalb der Gruppenphase,
-    /// Tabellenbereiche bei Runden ohne Tabelle, „Titelverteidiger in Topf 1“ ohne Standard-Rangliste und „Gegner je Topf“ außerhalb der TopfLiga.</summary>
+    /// Tabellenbereiche bei Runden ohne Tabelle, „Titelverteidiger in Topf 1“ ohne Standard-Rangliste, „Gegner je Topf“ außerhalb der TopfLiga
+    /// und „Paarung fest vorgegeben“ beim Schweizer System (#627).</summary>
     public TurnierRundeEingabe OhneUnwirksameAngaben() => this with
     {
         KonfigurationJson = Rundenart == Rundenart.SchweizerSystem ? KonfigurationJson : null,
@@ -85,7 +87,8 @@ public record TurnierRundeEingabe(
         TitelverteidigerGruppe = Rundenart == Rundenart.Gruppenphase ? TitelverteidigerGruppe : null,
         TabellenBereiche = TabellenZonen.HatTabelle(Rundenart) ? TabellenBereiche : null,
         TitelverteidigerInTopf1 = StandardRanglisteId is not null && TitelverteidigerInTopf1,
-        GegnerJeTopf = Rundenart == Rundenart.TopfLiga ? GegnerJeTopf : 2
+        GegnerJeTopf = Rundenart == Rundenart.TopfLiga ? GegnerJeTopf : 2,
+        PaarungFestVorgegeben = PaarungFestVorgegeben && VorbelegungsZustaendigkeit.FesteVorgabeSperrGrund(Rundenart) is null
     };
 }
 

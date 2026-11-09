@@ -24,4 +24,14 @@ public class VorbelegungsZustaendigkeitTests
 
         VorbelegungsZustaendigkeit.GehoertZurVorbelegung(auslosung).Should().Be(erwartet);
     }
+
+    // #627: im Schweizer System gibt es keine festen Paarungen — die Gegner folgen je Spieltag aus der Tabelle.
+    [Theory]
+    [InlineData(Rundenart.SchweizerSystem, false)]
+    [InlineData(Rundenart.KoRunde, true)]
+    [InlineData(Rundenart.Gruppenphase, true)]
+    [InlineData(Rundenart.Liga, true)]
+    [InlineData(Rundenart.TopfLiga, true)]
+    public void FesteVorgabe_NurImSchweizerSystemGesperrt(Rundenart rundenart, bool moeglich) =>
+        (VorbelegungsZustaendigkeit.FesteVorgabeSperrGrund(rundenart) is null).Should().Be(moeglich);
 }

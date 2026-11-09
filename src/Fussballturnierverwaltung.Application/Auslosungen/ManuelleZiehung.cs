@@ -28,7 +28,7 @@ public sealed record ZiehungsAnsage(
         new(ZiehungsSchrittArt.Fertig, "Alle Teams sind gezogen – die Auslosung kann abgeschlossen werden.", []);
 }
 
-/// <summary>Eine Gruppe (bei Liga und Schweizer System die eine Teilnehmerliste) mit dem Teilnehmer je Position;
+/// <summary>Eine Gruppe (bei der Liga die eine Teilnehmerliste) mit dem Teilnehmer je Position;
 /// <c>null</c> = Position noch frei.</summary>
 public sealed record ZiehungsGruppe(int Nr, string Name, IReadOnlyList<int?> Plaetze);
 
@@ -80,9 +80,10 @@ internal sealed record ZiehungsKontext(
 /// <list type="bullet">
 /// <item>Gruppenphase: Topf für Topf je Gruppe ein Team, Gastgeber und Titelverteidiger stehen vorab fest (#487);
 /// die Position folgt aus dem Topf oder wird nach der Gruppe gezogen (<see cref="Gruppenposition"/>).</item>
-/// <item>K.-o.: Team, dann Gegner — Topf 1 gegen Topf 2, 3 gegen 4 …, ein Überhang danach untereinander
-/// (DFB-Pokal); das zuerst gezogene Team spielt zu Hause, sofern keine Heimrecht-Regel anderes sagt.</item>
-/// <item>Liga und Schweizer System: gezogen wird die Reihenfolge (Schlüsselzahl).</item>
+/// <item>K.-o. und Schweizer System: Team, dann Gegner — Topf 1 gegen Topf 2, 3 gegen 4 …, ein Überhang danach
+/// untereinander (DFB-Pokal); das zuerst gezogene Team spielt zu Hause, sofern keine Heimrecht-Regel anderes sagt.
+/// Beim Schweizer System sind das die Paarungen des ersten Spieltags, wie bei der automatischen Auslosung (#627).</item>
+/// <item>Liga: gezogen wird die Reihenfolge (Schlüsselzahl).</item>
 /// </list>
 /// </summary>
 public sealed class ManuelleZiehung
@@ -109,7 +110,7 @@ public sealed class ManuelleZiehung
     public IReadOnlyList<ZiehungsTeilnehmer> Teilnehmer { get; }
     public IReadOnlyList<ZiehungsTopf> Toepfe { get; }
 
-    /// <summary>Gruppen (Gruppenphase, Liga, Schweizer System) statt Paarungen (K.-o.).</summary>
+    /// <summary>Gruppen (Gruppenphase, Liga) statt Paarungen (K.-o., Schweizer System).</summary>
     public bool IstGruppenmodus { get; }
 
     public IReadOnlyList<ZiehungsGruppe> Gruppen => _ablauf.Gruppen;
@@ -166,7 +167,7 @@ public sealed class ManuelleZiehung
                     "Gruppenphase-Auslosung: Die Runde hat keine Gruppenanzahl definiert."),
                 GruppenpositionKompatibilitaet.Wirksam(auslosung.Auslosungsart, auslosung.Gruppenposition),
                 vorbereitung.Gruppenkoepfe),
-            Rundenart.Liga or Rundenart.SchweizerSystem => () => new ReihenfolgeZiehung(kontext),
+            Rundenart.Liga => () => new ReihenfolgeZiehung(kontext),
             Rundenart.TopfLiga => throw new InvalidOperationException(
                 AuslosungsKompatibilitaet.InkompatibilitaetsGrund(runde.Rundenart, Auslosungsart.Manuell)),
             _ => () => new PaarungsZiehung(kontext)

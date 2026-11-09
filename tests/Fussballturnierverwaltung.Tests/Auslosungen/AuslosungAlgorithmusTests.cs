@@ -891,21 +891,7 @@ public class AuslosungAlgorithmusTests
         });
     }
 
-    [Fact]
-    public async Task SchweizerSystem_TopfZuordnung_ErzeugtPaarungen()
-    {
-        // Topf-Zuordnung braucht mindestens 3 Teams je Topf (Issue #347): 2 Töpfe à 3 → jedes Team 4 Spiele
-        var topf1 = Topf(1, 1, Eintrag(Team(1)), Eintrag(Team(2)), Eintrag(Team(3)));
-        var topf2 = Topf(2, 2, Eintrag(Team(4)), Eintrag(Team(5)), Eintrag(Team(6)));
-        AuslosungMit(Rundenart.SchweizerSystem, Auslosungsart.TopfZuordnung, lostoepfe: [topf1, topf2]);
-
-        var ergebnisse = await Ausfuehren();
-
-        ergebnisse.Should().HaveCount(12);
-        ergebnisse.Select(e => (Math.Min(e.HeimMannschaftId!.Value, e.AuswaertsMannschaftId!.Value),
-                                Math.Max(e.HeimMannschaftId.Value, e.AuswaertsMannschaftId.Value)))
-            .Should().OnlyHaveUniqueItems("kein Gegner zweimal");
-    }
+    // Die Topf-Zuordnung ist für das Schweizer System gesperrt (#627, AuslosungsKompatibilitaetTests).
 
     [Fact]
     public async Task SchweizerSystem_Benutzerdefiniert_ErzeugtPaarungen()
@@ -1073,14 +1059,12 @@ public class AuslosungAlgorithmusTests
         _repo.GespeicherteErgebnisse.Should().ContainSingle(e => e.IstFreilos);
     }
 
-    [Theory]
-    [InlineData(Rundenart.Liga)]
-    [InlineData(Rundenart.SchweizerSystem)]
-    public async Task ManuelleAuslosung_LigaUndSchweizerSystem_ErzeugtTeilnehmerliste_KeinFreilos(Rundenart rundenart)
+    [Fact]
+    public async Task ManuelleAuslosung_Liga_ErzeugtTeilnehmerliste_KeinFreilos()
     {
-        // Liga/SchweizerSystem teilen sich mit Gruppenphase die "flache Teilnehmerliste ohne echte
-        // Paarung"-Semantik (Issue #251-Folgefund) — ein Team pro Zeile ist auch hier kein Freilos.
-        AuslosungMit(rundenart, Auslosungsart.Manuell);
+        // Die Liga teilt mit der Gruppenphase die "flache Teilnehmerliste ohne echte Paarung"-Semantik
+        // (Issue #251-Folgefund) — ein Team pro Zeile ist auch hier kein Freilos.
+        AuslosungMit(Rundenart.Liga, Auslosungsart.Manuell);
 
         var paarungen = new List<ManuellePaarungEingabe>
         {
@@ -1096,6 +1080,25 @@ public class AuslosungAlgorithmusTests
             e.IstFreilos.Should().BeFalse();
             e.AuswaertsMannschaftId.Should().BeNull();
         });
+    }
+
+    [Fact]
+    public async Task ManuelleAuslosung_SchweizerSystem_PaarungOhneGegner_IstFreilos()
+    {
+        // Das Schweizer System paart wie eine K.-o.-Runde (#627): wie bei der automatischen Auslosung steht das
+        // Team ohne Gegner als Freilos zuletzt.
+        AuslosungMit(Rundenart.SchweizerSystem, Auslosungsart.Manuell);
+
+        var paarungen = new List<ManuellePaarungEingabe>
+        {
+            new(Team(1).Id, null, Team(2).Id, null, PaarungsNummer: 1),
+            new(Team(3).Id, null, null, null, PaarungsNummer: 2),
+        };
+
+        await _service.ManuelleErgebnisseAbschliessenAsync(_repo.Aktuelle!.Id, paarungen);
+
+        _repo.GespeicherteErgebnisse.Select(e => (e.PaarungsNummer, e.IstFreilos))
+            .Should().Equal((1, false), (2, true));
     }
 
     // ══════════════════════════════════════════════════════════════════════════

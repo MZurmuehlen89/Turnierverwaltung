@@ -10,13 +10,14 @@ public record RasterGruppe(int GruppenNr, string Name, int PlatzAnzahl);
 public static class VorbelegungsRaster
 {
     /// <summary>Ob die Teilnehmer der Runde Gruppen zugeordnet werden (ein Team je Platz) statt paarweise
-    /// gegeneinander gesetzt — Liga und Schweizer System teilen die flache Teilnehmerliste der Gruppenphase.</summary>
+    /// gegeneinander gesetzt — die Liga teilt die flache Teilnehmerliste der Gruppenphase. Das Schweizer System
+    /// paart wie eine K.-o.-Runde: die Auslosung bildet die Paarungen des ersten Spieltags (#627).</summary>
     public static bool HatGruppen(Rundenart rundenart) =>
-        rundenart is Rundenart.Gruppenphase or Rundenart.Liga or Rundenart.SchweizerSystem;
+        rundenart is Rundenart.Gruppenphase or Rundenart.Liga;
 
     /// <summary>Die Gruppen einer Runde, deren Teilnehmer Gruppen zugeordnet werden. Eine Gruppenphase verteilt
-    /// die Teilnehmer gleichmäßig auf ihre Gruppen (ohne bekannte Teilnehmerzahl vier Plätze je Gruppe); Liga und
-    /// Schweizer System haben eine einzige Gruppe mit einem Platz je Teilnehmer.</summary>
+    /// die Teilnehmer gleichmäßig auf ihre Gruppen (ohne bekannte Teilnehmerzahl vier Plätze je Gruppe); die Liga hat
+    /// eine einzige Gruppe mit einem Platz je Teilnehmer.</summary>
     public static IReadOnlyList<RasterGruppe> Gruppen(Rundenart rundenart, int? gruppenAnzahl, int teamAnzahl)
     {
         if (rundenart != Rundenart.Gruppenphase)

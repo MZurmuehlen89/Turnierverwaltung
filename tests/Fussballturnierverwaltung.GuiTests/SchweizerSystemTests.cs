@@ -44,9 +44,40 @@ public sealed class SchweizerSystemTests(TurnierverwaltungApp app) : IClassFixtu
             TabellenfuehrerTrifftBestplatziertenNeuenGegner(spiele, spieltag, tabelle, teams);
     }
 
+    // #627: die Ziehung von Hand paart wie die automatische Auslosung (Team, dann Gegner) – die Paarungen sind die
+    // Spiele des ersten Spieltags.
+    [Fact]
+    public void HandZiehung_PaartTeamUndGegner_ErgibtSpieltagEins()
+    {
+        var (turnier, auslosung) = TurnierAufbauen("Manuell");
+
+        auslosung.HandZiehungStarten();
+        auslosung.HandEinenSchrittZiehen();
+        auslosung.HandAnsage.Should().EndWith("ziehe den Gegner", "das Schweizer System zieht Paarungen");
+        auslosung.HandZiehungDurchspielen();
+        auslosung.HandFortschritt.Should().Be($"{TEAMS} von {TEAMS} Teams gezogen");
+        auslosung.HandZiehungAbschliessen();
+
+        var spielplan = turnier.Spielplan();
+        spielplan.RundeWaehlen(RUNDE);
+        spielplan.SchweizerFortschritt.Should().Be($"Spieltag 1 von {SPIELTAGE}");
+        var spiele = spielplan.SpieleJeSpieltag(1);
+        spiele.Should().HaveCount(SPIELE_JE_SPIELTAG);
+        var teams = spiele.SelectMany(s => new[] { s.Heim, s.Auswaerts }).ToHashSet();
+        teams.Should().HaveCount(TEAMS);
+        SpielplanInvarianten.JedesTeamEinmalJeSpieltag(spiele, teams, 1);
+    }
+
     public void Dispose() => app.BeiFehlschlagBelegeSichern();
 
     private TurnierdurchfuehrungSeite TurnierAufbauenUndAuslosen()
+    {
+        var (turnier, auslosung) = TurnierAufbauen();
+        auslosung.Durchfuehren();
+        return turnier;
+    }
+
+    private (TurnierdurchfuehrungSeite Turnier, AuslosungReiter Auslosung) TurnierAufbauen(string? auslosungsart = null)
     {
         string name = HandTurnier.EindeutigerName();
         var turniere = app.Hauptfenster.TurniereOeffnen();
@@ -59,11 +90,10 @@ public sealed class SchweizerSystemTests(TurnierverwaltungApp app) : IClassFixtu
         var turnier = app.Hauptfenster.TurnierdurchfuehrungOeffnen();
         turnier.GewaehltesTurnier.Should().Be(name);
         var auslosung = turnier.Auslosung();
-        auslosung.Anlegen(RUNDE);
+        auslosung.Anlegen(RUNDE, auslosungsart);
         auslosung.RanglisteWaehlen(MiniTurnier.RANGLISTE);
         auslosung.ToepfeAutomatischBefuellen();
-        auslosung.Durchfuehren();
-        return turnier;
+        return (turnier, auslosung);
     }
 
     // ── Invarianten ───────────────────────────────────────────────────────────

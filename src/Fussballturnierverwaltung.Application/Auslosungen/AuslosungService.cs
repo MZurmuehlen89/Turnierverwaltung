@@ -339,12 +339,9 @@ public class AuslosungService(
         if (!paarungen.Any())
             throw new InvalidOperationException("Keine Paarungen angegeben.");
 
-        // Gruppenphase-Einträge haben nie ein Auswärtsteam (1 Team pro Zeile ist hier die Norm,
-        // siehe Losverfahren.GruppenZuErgebnisse) — das ist kein Freilos. Freilos gilt nur im echten Paarungsmodus
-        // (K.-o.-Runde, Finale, Spiel um Platz 3), wenn bei ungerader Teamanzahl bewusst ein Slot ohne Gegner bleibt.
-        // Liga und SchweizerSystem teilen sich dieselbe "flache Teilnehmerliste ohne Paarung"-Semantik
-        // wie Gruppenphase (siehe Losverfahren.Ausloesen sowie RundenEditorViewModel.IstLiga,
-        // Issue #251-Folgefund) — ein einzelnes Team pro Zeile ist dort ebenfalls die Norm.
+        // Gruppenphase und Liga ordnen Teams Gruppen zu (Liga = eine Gruppe, #251-Folgefund): ein Team je Zeile ist
+        // dort die Norm, kein Freilos. Freilos gibt es nur im Paarungsmodus (K.-o.-Runden und Schweizer System, #627),
+        // wenn bei ungerader Teamzahl ein Team ohne Gegner bleibt — dieselbe Einteilung wie Losverfahren.Ausloesen.
         bool istGruppenmodus = auslosung.TurnierRunde is { } runde && VorbelegungsRaster.HatGruppen(runde.Rundenart);
 
         var ergebnisse = paarungen.Select((p, i) => new AuslosungsErgebnis

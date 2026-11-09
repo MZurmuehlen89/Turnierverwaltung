@@ -322,7 +322,7 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
         return schritte;
     }
 
-    /// <summary>Zieht genau einen Schritt (Team, Gruppe oder Platz).</summary>
+    /// <summary>Zieht genau einen Schritt (Team, Gegner, Gruppe oder Platz).</summary>
     public void HandEinenSchrittZiehen() => HandSchrittAusfuehren();
 
     /// <summary>Nimmt den letzten Zug zurück und wartet, bis die Ansage <paramref name="erwarteteAnsage"/> lautet.</summary>
@@ -356,9 +356,10 @@ public sealed class AuslosungReiter(Window fenster, Hauptfenster hauptfenster)
     {
         string ansage = HandAnsage;
         string fortschritt = HandFortschritt;
-        string flaeche = ansage.StartsWith("Ziehe ein Team", StringComparison.Ordinal) ? "HandZiehung.Team"
-            : ansage.Contains("Gruppe", StringComparison.Ordinal) ? "HandZiehung.Gruppe"
-            : "HandZiehung.Platz";
+        // Team, Gegner (K.-o., Schweizer System, #627) und Schlüsselzahl (Liga) zieht man aus den Lostöpfen.
+        string flaeche = ansage.EndsWith("ziehe die Gruppe", StringComparison.Ordinal) ? "HandZiehung.Gruppe"
+            : ansage.EndsWith("ziehe die Position", StringComparison.Ordinal) ? "HandZiehung.Platz"
+            : "HandZiehung.Team";
 
         foreach (var kandidat in fenster.FindAllById(flaeche))
         {

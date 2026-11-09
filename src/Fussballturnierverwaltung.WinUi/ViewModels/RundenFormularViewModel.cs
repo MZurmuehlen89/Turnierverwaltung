@@ -256,6 +256,7 @@ public partial class RundenFormularViewModel : ObservableObject
         if (_populiertGerade > 0) return;
         RegelVorgabenAnRundePassen();
         AuswaertstorRegelBereinigen();
+        PaarungFestVorgabeBereinigen(value);
         AusgangVorschlagen();
         AnzahlSpieltageVorschlagen();
     }
@@ -325,6 +326,12 @@ public partial class RundenFormularViewModel : ObservableObject
             VorgegebeneAuslosungsart = RundeZeile.KeineAuslosungsartVorgabe;
         VorgegebeneAuslosungsartOptionen = AuslosungsartVorgabeOptionenFuer(rundenart);
         OnPropertyChanged(nameof(VorgegebeneAuslosungsart));
+    }
+
+    // Wechselt die Runde zum Schweizer System, entfällt die feste Vorgabe, statt gesperrt angehakt zu bleiben (#627).
+    private void PaarungFestVorgabeBereinigen(Rundenart rundenart)
+    {
+        if (VorbelegungsZustaendigkeit.FesteVorgabeSperrGrund(rundenart) is not null) PaarungFestVorgegeben = false;
     }
 
     partial void OnPaarungFestVorgegebenChanged(bool value)

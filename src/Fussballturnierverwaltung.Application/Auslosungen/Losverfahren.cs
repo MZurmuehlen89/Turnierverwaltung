@@ -18,8 +18,8 @@ public static class Losverfahren
             .ToList();
 
         // Gruppenphase und Liga ordnen die Teilnehmer Gruppen zu (Liga = eine Gruppe), alle anderen Rundenarten
-        // bilden Paarungen.
-        return auslosung.TurnierRunde?.Rundenart is Rundenart.Gruppenphase or Rundenart.Liga
+        // bilden Paarungen — dieselbe Einteilung wie die Ziehung von Hand (#627).
+        return auslosung.TurnierRunde is { } runde && VorbelegungsRaster.HatGruppen(runde.Rundenart)
             ? GruppenLosverfahren.GruppenVerteilen(auslosung, toepfe, vorbereitung.Regeln, vorbereitung.Gruppenkoepfe, zufall)
             : PaarungenBilden(auslosung, toepfe, vorbereitung.Regeln, zufall);
     }

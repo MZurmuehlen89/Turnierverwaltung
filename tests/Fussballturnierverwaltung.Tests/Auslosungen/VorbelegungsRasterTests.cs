@@ -11,10 +11,10 @@ public class VorbelegungsRasterTests
     [Theory]
     [InlineData(Rundenart.Gruppenphase, true)]
     [InlineData(Rundenart.Liga, true)]
-    [InlineData(Rundenart.SchweizerSystem, true)]
+    [InlineData(Rundenart.SchweizerSystem, false)] // paart wie eine K.-o.-Runde (#627)
     [InlineData(Rundenart.KoRunde, false)]
     [InlineData(Rundenart.TopfLiga, false)]
-    public void HatGruppen_GiltFuerGruppenphaseLigaUndSchweizerSystem(Rundenart rundenart, bool erwartet) =>
+    public void HatGruppen_GiltFuerGruppenphaseUndLiga(Rundenart rundenart, bool erwartet) =>
         VorbelegungsRaster.HatGruppen(rundenart).Should().Be(erwartet);
 
     // ── Gruppen ───────────────────────────────────────────────────────────────
@@ -46,11 +46,9 @@ public class VorbelegungsRasterTests
         VorbelegungsRaster.Gruppen(Rundenart.Gruppenphase, gruppenAnzahl: null, teamAnzahl: 6)
             .Should().Equal(new RasterGruppe(1, "Gruppe A", 6));
 
-    [Theory]
-    [InlineData(Rundenart.Liga)]
-    [InlineData(Rundenart.SchweizerSystem)]
-    public void Gruppen_LigaUndSchweizerSystem_HabenEineGruppeMitEinemPlatzJeTeilnehmer(Rundenart rundenart) =>
-        VorbelegungsRaster.Gruppen(rundenart, gruppenAnzahl: 4, teamAnzahl: 36)
+    [Fact]
+    public void Gruppen_Liga_HatEineGruppeMitEinemPlatzJeTeilnehmer() =>
+        VorbelegungsRaster.Gruppen(Rundenart.Liga, gruppenAnzahl: 4, teamAnzahl: 36)
             .Should().Equal(new RasterGruppe(1, "Teilnehmer", 36));
 
     [Fact]
