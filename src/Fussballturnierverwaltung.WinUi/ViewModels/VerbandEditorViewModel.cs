@@ -21,7 +21,7 @@ public partial class VerbandEditorViewModel : ObservableObject
     private readonly VerbandValidator _verbandValidator;
     private readonly IDialogService _dialogService;
     private readonly ILogger<VerbandEditorViewModel> _logger;
-    private Func<Task> _neuLaden = () => Task.CompletedTask;
+    private Func<Task>? _neuLaden;
     private int _populiertGerade;
 
     [ObservableProperty] private string? _fehlermeldung;
@@ -97,6 +97,10 @@ public partial class VerbandEditorViewModel : ObservableObject
     /// <summary>Lädt nach dem Speichern oder Löschen die ganze Seite neu – Länder zeigen den Verband.</summary>
     public void NeuLadenUeber(Func<Task> neuLaden) => _neuLaden = neuLaden;
 
+    // Ohne Rahmen bliebe die Liste nach dem Speichern still veraltet – darum laut scheitern statt nichts tun.
+    private Task NeuLadenAsync() =>
+        (_neuLaden ?? throw new InvalidOperationException("Neuladen nicht festgelegt (NeuLadenUeber).")).Invoke();
+
     public async Task LadenAsync(IReadOnlyList<RanglistenOption> ranglistenOptionen)
     {
         var verbaende = await _verbandService.AlleAbrufenAsync();
@@ -109,9 +113,6 @@ public partial class VerbandEditorViewModel : ObservableObject
     public bool HatUngespeicherteAenderungen => FormularAktiv && IsDirty;
 
     partial void OnAusgewaehlterVerbandChanged(Verband? value) => FormularAusFuellenMit(value);
-
-    private RanglistenOption RanglisteOptionFuer(int? ranglisteId) =>
-        RanglistenOptionen.FirstOrDefault(o => o.Id == ranglisteId) ?? RanglistenOption.Keine;
 
     private void FormularAusFuellenMit(Verband? verband)
     {
@@ -134,8 +135,8 @@ public partial class VerbandEditorViewModel : ObservableObject
                 Name = verband.Name;
                 Kurzname = verband.Kurzname;
                 LogoDaten = verband.Logo;
-                Rangliste = RanglisteOptionFuer(verband.RanglisteId);
-                VereinsRangliste = RanglisteOptionFuer(verband.VereinsRanglisteId);
+                Rangliste = RanglistenOption.Fuer(RanglistenOptionen, verband.RanglisteId);
+                VereinsRangliste = RanglistenOption.Fuer(RanglistenOptionen, verband.VereinsRanglisteId);
             }
             IsDirty = false;
             Fehlermeldung = null;
@@ -194,14 +195,14 @@ public partial class VerbandEditorViewModel : ObservableObject
             if (IstNeuModus)
             {
                 var neu = await _verbandService.ErstellenAsync(ErstellenEingabe());
-                await _neuLaden();
+                await NeuLadenAsync();
                 AusgewaehlterVerband = Verbaende.FirstOrDefault(v => v.Id == neu.Id);
             }
             else if (AusgewaehlterVerband is not null)
             {
                 var id = AusgewaehlterVerband.Id;
                 await _verbandService.AktualisierenAsync(id, AktualisierenEingabe());
-                await _neuLaden();
+                await NeuLadenAsync();
                 AusgewaehlterVerband = Verbaende.FirstOrDefault(v => v.Id == id);
             }
         }
@@ -218,7 +219,7 @@ public partial class VerbandEditorViewModel : ObservableObject
     private async Task Loeschen()
     {
         if (AusgewaehlterVerband is null) return;
-        Fehlermeldung = await LoeschPruefung.SperreErmittelnAsync(_logger, () => _verbandService.LoeschSperreAsync(AusgewaehlterVerband.Id));
+        Fehlermeldung = await LoeschPruefung.SperreErmittelnAsync(_logger, "Verbände", () => _verbandService.LoeschSperreAsync(AusgewaehlterVerband.Id));
         if (Fehlermeldung is not null) return;
         var bestaetigt = await _dialogService.BestaetigenAsync(
             "Verband löschen", $"Soll '{AusgewaehlterVerband.Name}' wirklich gelöscht werden?");
@@ -228,7 +229,7 @@ public partial class VerbandEditorViewModel : ObservableObject
         try
         {
             await _verbandService.LoeschenAsync(AusgewaehlterVerband.Id);
-            await _neuLaden();
+            await NeuLadenAsync();
             AusgewaehlterVerband = null;
         }
         catch (Exception ex)

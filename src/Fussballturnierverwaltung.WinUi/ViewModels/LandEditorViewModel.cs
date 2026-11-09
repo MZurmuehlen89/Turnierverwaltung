@@ -24,7 +24,7 @@ public partial class LandEditorViewModel : ObservableObject
     private readonly LandValidator _landValidator;
     private readonly IDialogService _dialogService;
     private readonly ILogger<LandEditorViewModel> _logger;
-    private Func<Task> _neuLaden = () => Task.CompletedTask;
+    private Func<Task>? _neuLaden;
     private int _populiertGerade;
 
     private static readonly VerbandFilterOption AllesVerband = new("— Alle —", null);
@@ -149,6 +149,10 @@ public partial class LandEditorViewModel : ObservableObject
     /// <summary>Lädt nach dem Speichern oder Löschen die ganze Seite neu – Länder zeigen den Verband.</summary>
     public void NeuLadenUeber(Func<Task> neuLaden) => _neuLaden = neuLaden;
 
+    // Ohne Rahmen bliebe die Liste nach dem Speichern still veraltet – darum laut scheitern statt nichts tun.
+    private Task NeuLadenAsync() =>
+        (_neuLaden ?? throw new InvalidOperationException("Neuladen nicht festgelegt (NeuLadenUeber).")).Invoke();
+
     public async Task LadenAsync(IReadOnlyList<Verband> verbaende, IReadOnlyList<RanglistenOption> ranglistenOptionen)
     {
         var laender = await _landService.AlleAbrufenMitVerbandAsync();
@@ -200,7 +204,7 @@ public partial class LandEditorViewModel : ObservableObject
                     .FirstOrDefault(k => k.Wert == land.Kontinent) ?? _kontinentFormularOptionen[0];
                 Verband = Verbaende.FirstOrDefault(v => v.Id == land.VerbandId);
                 FlaggeDaten = land.Flagge;
-                Rangliste = RanglisteOptionFuer(land.RanglisteId);
+                Rangliste = RanglistenOption.Fuer(RanglistenOptionen, land.RanglisteId);
             }
             IsDirty = false;
             Fehlermeldung = null;
@@ -211,9 +215,6 @@ public partial class LandEditorViewModel : ObservableObject
         }
         AktualisiereFehler();
     }
-
-    private RanglistenOption RanglisteOptionFuer(int? ranglisteId) =>
-        RanglistenOptionen.FirstOrDefault(o => o.Id == ranglisteId) ?? RanglistenOption.Keine;
 
     // ── Ribbon-Befehle ────────────────────────────────────────────────────────
 
@@ -263,14 +264,14 @@ public partial class LandEditorViewModel : ObservableObject
             if (IstNeuModus)
             {
                 var neu = await _landService.ErstellenAsync(ErstellenEingabe());
-                await _neuLaden();
+                await NeuLadenAsync();
                 AusgewaehltesLand = Laender.FirstOrDefault(l => l.Id == neu.Id);
             }
             else if (AusgewaehltesLand is not null)
             {
                 var id = AusgewaehltesLand.Id;
                 await _landService.AktualisierenAsync(id, AktualisierenEingabe());
-                await _neuLaden();
+                await NeuLadenAsync();
                 AusgewaehltesLand = Laender.FirstOrDefault(l => l.Id == id);
             }
         }
@@ -288,7 +289,7 @@ public partial class LandEditorViewModel : ObservableObject
     {
         if (AusgewaehltesLand is null) return;
         // Hängt noch etwas am Land, gleich den Grund zeigen statt erst nachzufragen (#559)
-        Fehlermeldung = await LoeschPruefung.SperreErmittelnAsync(_logger, () => _landService.LoeschSperreAsync(AusgewaehltesLand.Id));
+        Fehlermeldung = await LoeschPruefung.SperreErmittelnAsync(_logger, "Länder", () => _landService.LoeschSperreAsync(AusgewaehltesLand.Id));
         if (Fehlermeldung is not null) return;
         var bestaetigt = await _dialogService.BestaetigenAsync(
             "Land löschen", $"Soll '{AusgewaehltesLand.Name}' wirklich gelöscht werden?");
@@ -298,7 +299,7 @@ public partial class LandEditorViewModel : ObservableObject
         try
         {
             await _landService.LoeschenAsync(AusgewaehltesLand.Id);
-            await _neuLaden();
+            await NeuLadenAsync();
             AusgewaehltesLand = null;
         }
         catch (Exception ex)
