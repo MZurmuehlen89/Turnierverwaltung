@@ -52,6 +52,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $computerName = 'GUIRUNNER'   # höchstens 15 Zeichen (NetBIOS)
 $skriptOrdner = Join-Path $PSScriptRoot 'GuiRunner-VM'
+$vhdx = Join-Path $Ablage "$VmName.vhdx"
 
 # ── Hilfsfunktionen ────────────────────────
 
@@ -87,8 +88,8 @@ function VoraussetzungenPruefen {
     }
     if (-not (Test-Path $IsoPfad)) { throw "ISO nicht gefunden: $IsoPfad" }
     GhAufruf @('auth', 'status') | Out-Null
-    if ((Get-VM -Name $VmName -ErrorAction SilentlyContinue) -and -not $Neuaufbau) {
-        throw "VM '$VmName' gibt es schon. Zum Neuaufbau -Neuaufbau angeben."
+    if (((Get-VM -Name $VmName -ErrorAction SilentlyContinue) -or (Test-Path $vhdx)) -and -not $Neuaufbau) {
+        throw "VM '$VmName' oder ihre Platte gibt es schon. Zum Neuaufbau -Neuaufbau angeben."
     }
 }
 
@@ -107,7 +108,7 @@ function RunnerAbmelden([string]$repo) {
     }
 }
 
-function AlteVmEntfernen([string]$repo) {
+function AlteVmEntfernen([string]$repo, [string]$vhdx) {
     $vm = Get-VM -Name $VmName -ErrorAction SilentlyContinue
     if ($vm) {
         Schritt "Entferne vorhandene VM $VmName ..."
@@ -116,6 +117,8 @@ function AlteVmEntfernen([string]$repo) {
         Remove-VM -VM $vm -Force   # löscht auch die Snapshots
         $platten | Where-Object { Test-Path $_ } | Remove-Item -Force
     }
+    # Auch die Platte eines abgebrochenen Aufbaus, zu dem es noch keine VM gibt
+    if (Test-Path $vhdx) { Remove-Item $vhdx -Force }
     RunnerAbmelden $repo
 }
 
@@ -262,9 +265,8 @@ try {
     $start = Get-Date
     $repo = GhAufruf @('repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner')
     VoraussetzungenPruefen
-    if ($Neuaufbau) { AlteVmEntfernen $repo }
+    if ($Neuaufbau) { AlteVmEntfernen $repo $vhdx }
     $zugang = ZugangErzeugen
-    $vhdx = Join-Path $Ablage "$VmName.vhdx"
     PlatteAufbauen $vhdx $zugang
     VmAnlegen $vhdx | Start-VM
     AufPowerShellDirectWarten $zugang
