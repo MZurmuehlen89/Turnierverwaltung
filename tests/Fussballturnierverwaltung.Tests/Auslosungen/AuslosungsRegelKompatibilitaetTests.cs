@@ -168,8 +168,8 @@ public class AuslosungsRegelKompatibilitaetTests
 
     private const string LIGA = "In einer Liga spielt jeder gegen jeden — es gibt weder Gruppen noch ausgeloste " +
                                 "Paarungen, auf die diese Regel wirken könnte.";
-    private const string SCHWEIZER = "Beim Schweizer System bildet der Spielplan-Generator die Paarungen selbst — die " +
-                                     "Auslosung legt nur die Startreihenfolge fest.";
+    private const string SCHWEIZER = "Beim Schweizer System lost die Auslosung nur die Paarungen des ersten " +
+                                     "Spieltags, ohne Einschränkungen — danach bildet der Spielplan-Generator sie aus der Tabelle.";
     private const string OHNE_GRUPPENPHASE = "Diese Runde folgt auf keine Gruppenphase — es gibt keine früheren " +
                                              "Gruppen, deren Teams sich erneut begegnen könnten.";
     private const string HEIMRECHT_GRUPPENPHASE = "In der Gruppenphase werden Teams nur Gruppen zugeordnet — das " +
@@ -191,7 +191,7 @@ public class AuslosungsRegelKompatibilitaetTests
         // Liga und Schweizer System sperren jede Regel, vor allem anderen — auch eine, die sonst immer gilt
         // (Ausnahme: das Freilos im Schweizer System, #548, siehe Freilos_ImSchweizerSystem_WirktImmer)
         { AuslosungsRegelArt.KeineGleicheGruppe, Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.Liga, true, LIGA },
-        { AuslosungsRegelArt.FreilosMoeglich, Auslosungsart.TopfZuordnung, Rundenart.SchweizerSystem, true, SCHWEIZER },
+        { AuslosungsRegelArt.KeinGleichesLand, Auslosungsart.NachToepfen, Rundenart.SchweizerSystem, true, SCHWEIZER },
         // Immer aktiv geht jeder anderen Sperre vor
         { AuslosungsRegelArt.KeineGleicheGruppe, Auslosungsart.GruppensiegerGegenGruppenzweite, Rundenart.KoRunde, false, null },
         // Je Regel die eigene Sperre — „Kein gleiches Land“ hat keine

@@ -254,9 +254,9 @@ public partial class RundenFormularViewModel : ObservableObject
         GruppenpositionSperreAktualisieren();
 
         if (_populiertGerade > 0) return;
+        PaarungFestVorgabeBereinigen(value);
         RegelVorgabenAnRundePassen();
         AuswaertstorRegelBereinigen();
-        PaarungFestVorgabeBereinigen(value);
         AusgangVorschlagen();
         AnzahlSpieltageVorschlagen();
     }

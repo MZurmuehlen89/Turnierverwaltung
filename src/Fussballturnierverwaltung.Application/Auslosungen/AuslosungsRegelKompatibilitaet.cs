@@ -95,8 +95,8 @@ public static class AuslosungsRegelKompatibilitaet
             "In einer Liga spielt jeder gegen jeden — es gibt weder Gruppen noch ausgeloste Paarungen, " +
             "auf die diese Regel wirken könnte.",
         Rundenart.SchweizerSystem =>
-            "Beim Schweizer System bildet der Spielplan-Generator die Paarungen selbst — die Auslosung legt " +
-            "nur die Startreihenfolge fest.",
+            "Beim Schweizer System lost die Auslosung nur die Paarungen des ersten Spieltags, ohne " +
+            "Einschränkungen — danach bildet der Spielplan-Generator sie aus der Tabelle.",
         _ => null
     };
 
@@ -145,12 +145,11 @@ public static class AuslosungsRegelKompatibilitaet
     // Schweizer System (#548): Bei ungerader Teamzahl bliebe ohne Freilos ein Team ohne Paarung und fiele aus der
     // Auslosung — und damit aus allen Spieltagen, die ihre Teilnehmer aus der Auslosung lesen. Eine sinnvolle
     // Alternative gibt es nicht, also gilt die Regel immer, statt wählbar zu sein. Das Freilos-Team steht zuletzt in
-    // der Auslosung, der Generator lässt an Spieltag 1 genau dieses Team aussetzen. Die Topf-Zuordnung kennt kein
-    // Freilos (FreilosSperrGrund).
+    // der Auslosung, der Generator lässt an Spieltag 1 genau dieses Team aussetzen.
     public static string? ImmerAktivGrund(AuslosungsRegelArt regel, Auslosungsart art, Rundenart? rundenart) =>
         (regel, art, rundenart) switch
         {
-            (AuslosungsRegelArt.FreilosMoeglich, not Auslosungsart.TopfZuordnung, Rundenart.SchweizerSystem) =>
+            (AuslosungsRegelArt.FreilosMoeglich, _, Rundenart.SchweizerSystem) =>
                 "Beim Schweizer System immer aktiv — bei ungerader Teamzahl setzt je Spieltag ein Team aus.",
             (_, _, Rundenart.Liga or Rundenart.SchweizerSystem) => null,
             (AuslosungsRegelArt.KeineGleicheGruppe, Auslosungsart.GruppensiegerGegenGruppenzweite, _) =>

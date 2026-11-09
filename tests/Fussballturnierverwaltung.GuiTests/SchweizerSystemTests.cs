@@ -53,7 +53,7 @@ public sealed class SchweizerSystemTests(TurnierverwaltungApp app) : IClassFixtu
 
         auslosung.HandZiehungStarten();
         auslosung.HandEinenSchrittZiehen();
-        auslosung.HandAnsage.Should().EndWith("ziehe den Gegner", "das Schweizer System zieht Paarungen");
+        auslosung.HandAnsage.Should().Contain("ziehe den Gegner", "das Schweizer System zieht Paarungen");
         auslosung.HandZiehungDurchspielen();
         auslosung.HandFortschritt.Should().Be($"{TEAMS} von {TEAMS} Teams gezogen");
         auslosung.HandZiehungAbschliessen();
