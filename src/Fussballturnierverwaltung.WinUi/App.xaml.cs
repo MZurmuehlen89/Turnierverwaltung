@@ -144,6 +144,8 @@ public partial class App : global::Microsoft.UI.Xaml.Application
         builder.Services.AddTransient<PlatzhalterViewModel>();
         builder.Services.AddTransient<MannschaftenViewModel>();
         builder.Services.AddTransient<LaenderUndVerbaendeViewModel>();
+        builder.Services.AddTransient<LandEditorViewModel>();
+        builder.Services.AddTransient<VerbandEditorViewModel>();
         builder.Services.AddTransient<RegelwerkeViewModel>();
         builder.Services.AddTransient<AuslosungsfilterViewModel>();
         builder.Services.AddTransient<TitelGastgeberViewModel>();
