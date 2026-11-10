@@ -6,7 +6,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Seed-Bildmaterial (Issue #233): Flaggen aus flag-icons (MIT), Verbandslogos einzeln beschafft -->
+    <!-- Seed-Bildmaterial (Issue #233): Flaggen aus flag-icons (MIT, THIRD-PARTY-NOTICES.md). Wappen und Logos mit
+         fremden Rechten liegen im git-ignorierten Unterordner Privat (Klon des privaten Repos, #633) und werden
+         eingebettet, wenn er vorhanden ist. -->
     <EmbeddedResource Include="Seed\Bildmaterial\**\*.png" />
   </ItemGroup>
 

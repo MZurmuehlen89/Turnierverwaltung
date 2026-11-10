@@ -12,7 +12,7 @@ namespace Fussballturnierverwaltung.Infrastructure.Seed;
 internal static class TurnierLogoNachruestung
 {
     // Ein Logo je Wettbewerb (Vorlagenname), gleich für alle Varianten — Logos einzelner Ausgaben (WM 2006, EM 2000)
-    // passen nicht zu Varianten über mehrere Turniere. Wert = Dateiname unter Seed/Bildmaterial/Turnierlogos/, Quelle
+    // passen nicht zu Varianten über mehrere Turniere. Wert = Dateiname unter Seed/Bildmaterial/Privat/Turnierlogos/, Quelle
     // siehe tools/seed-bildmaterial/fetch_turnierlogos.py. Mini-Turnier und Freies Turnier bleiben ohne Logo.
     private static readonly IReadOnlyDictionary<string, string> _logoDateien = new Dictionary<string, string>
     {

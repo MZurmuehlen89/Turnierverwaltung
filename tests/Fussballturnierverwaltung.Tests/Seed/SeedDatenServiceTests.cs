@@ -223,7 +223,7 @@ public class SeedDatenServiceTests
         await using var ctx = new TurnierverwaltungDbContext(optionen);
         await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
-        // Kurzname ist Dateiname des Wappens (Seed/Bildmaterial/Vereinswappen/<Kurzname>.png) — muss
+        // Kurzname ist Dateiname des Wappens (Seed/Bildmaterial/Privat/Vereinswappen/<Kurzname>.png) — muss
         // über alle Länder eindeutig sein und darf kein reservierter Windows-Gerätename sein (#233).
         var kurznamen = await ctx.Mannschaften
             .Where(m => m.Mannschaftsart == Mannschaftsart.Verein)
