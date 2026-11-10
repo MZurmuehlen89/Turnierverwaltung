@@ -27,3 +27,13 @@ On every startup the WinUi app calls `DatenbankWartungService.PruefenUndErgaenze
 **`TurnierBaumKnoten`** has circular self-references (Eltern/LinkerKind/RechterKind) and a circular reference back to `TurnierBaum.WurzelKnotenId`. EF Core is configured with `OnDelete(DeleteBehavior.NoAction)` throughout. When deleting a `TurnierBaum`, the repository must null out all references first, then delete nodes, then delete the tree (three SaveChanges calls — see `TurnierBaumRepository.LoeschenMitKnotenAsync`).
 
 **`AuslosungRepository`** similarly manages a two-phase save: insert all `TurnierBaumKnoten` without links first, then update with parent/child IDs.
+
+## Seed-Bildmaterial (#633)
+
+Only the flag-icons flags (MIT, `THIRD-PARTY-NOTICES.md`) are in the repo (`Seed/Bildmaterial/Flaggen/`). Crests,
+national-team images, tournament and confederation logos and the Chinese Taipei Olympic flag are trademarks or
+copyrighted: they live in the private repo `Turnierverwaltung-Bildmaterial`, cloned locally into the git-ignored
+`Seed/Bildmaterial/Privat/`. The build embeds both; `SeedBildQuelle.Eingebettet` looks in the public folder first,
+then in `Privat`. Never commit such images to this repo — new ones go into the private repo. CI and fresh clones have
+no `Privat` folder, so tests must not depend on it: build the seed via `SeedTestDienst` (tests), whose image source
+returns an image for every request (`KeineBilder` for the case without images).

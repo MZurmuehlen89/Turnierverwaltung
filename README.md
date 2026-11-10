@@ -70,6 +70,14 @@ dotnet test --project tests/Fussballturnierverwaltung.Tests --coverage --coverag
 pwsh build/GuiTests-Ausfuehren.ps1
 ```
 
+## Bildmaterial
+
+Die Länderflaggen stammen aus flag-icons (MIT, siehe `THIRD-PARTY-NOTICES.md`). Wappen und Logos sind Marken oder
+urheberrechtlich geschützt und nicht im Repo – die Anwendung zeigt dann einen Platzhalter. Wer das Bildmaterial
+besitzt, legt es als `<Kategorie>/<Code>.png` in den git-ignorierten Ordner
+`src/Fussballturnierverwaltung.Infrastructure/Seed/Bildmaterial/Privat/`; der Build bettet es ein, der Seed übernimmt
+es beim nächsten Start.
+
 ## Version 1 – Umfang
 
 Implementiert in Version 1:

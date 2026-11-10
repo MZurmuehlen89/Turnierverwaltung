@@ -5,12 +5,21 @@ ausgelieferten App — reine Build-/Datenaufbereitungs-Werkzeuge, deren Ergebnis
 `src/Fussballturnierverwaltung.Infrastructure/Seed/Bildmaterial/` kopiert und dort als Embedded
 Resource eingebunden wird.
 
+## Ablage (#633)
+
+Nur die Flaggen aus flag-icons (MIT) liegen im Repo (`Bildmaterial/Flaggen/`). Wappen, Bilder der
+Nationalmannschaften, Turnier- und Verbandslogos (Marken, urheberrechtlich geschützt) und die olympische
+Flagge von Chinesisch Taipei gehören in den git-ignorierten Ordner `Bildmaterial/Privat/<Kategorie>/` – lokal
+ein Klon des privaten Repos `Turnierverwaltung-Bildmaterial`, neue Bilder dort committen. Der Build bettet
+beide Ordner ein; `SeedBildQuelle` sucht erst in `Flaggen/` usw., dann in `Privat/`. Fehlt ein Bild, bleibt
+das Feld leer und die App zeigt den Platzhalter.
+
 ## Stand (2026-08-27)
 
 | Kategorie | Status | Commit |
 |---|---|---|
 | 209 Nationalflaggen | ✅ fertig | abf5c3b |
-| 7 Verbandslogos | ✅ fertig (Lizenz vor Veröffentlichung prüfen) | abf5c3b |
+| 7 Verbandslogos | ✅ fertig (Marken, nur im privaten Repo, #633) | abf5c3b |
 | Nationalmannschafts-Wappen | ✅ 197/209 abgeschlossen (12 dauerhaft ohne Wikipedia-Badge) | ed0cc09, (dieser Commit) |
 | Vereinswappen | ✅ 224/224 abgeschlossen | (dieser Commit) |
 | Vereinswappen Nachtrag #351 (GER 3. Liga/Regionalliga, ENG Championship/League One) | ✅ 76/76 (`python fetch_clubs.py 224 300`) | (#351-Commit) |
@@ -30,7 +39,7 @@ Kandidat mehr.
 `python fetch_turnierlogos.py` holt je Wettbewerb das Logo aus der Infobox des englischen Wikipedia-Artikels
 nach `raw_turnierlogos/` (Code = Dateiname, muss zu `TurnierLogoNachruestung` in `Infrastructure/Seed`
 passen). Danach `cd svgtool && dotnet run -- ../raw_turnierlogos ../png_turnierlogos 128` und die PNGs nach
-`src/Fussballturnierverwaltung.Infrastructure/Seed/Bildmaterial/Turnierlogos/` kopieren. Zeigt die Infobox
+`src/Fussballturnierverwaltung.Infrastructure/Seed/Bildmaterial/Privat/Turnierlogos/` kopieren. Zeigt die Infobox
 kein Logo (z. B. nur den Pokal), steht in `LOGO_OVERRIDES` der Dateiname des Logos.
 
 Die Wikipedia-Zugriffe aller Skripte liegen in `wikipedia_api.py`.
@@ -84,12 +93,11 @@ cd svgtool
 dotnet run -- ../svg_national ../png_national 64      # bzw. ../svg_clubs ../png_clubs 64
 ```
 
-Dann PNGs nach `src/Fussballturnierverwaltung.Infrastructure/Seed/Bildmaterial/Nationalmannschaften/`
+Dann PNGs nach `src/Fussballturnierverwaltung.Infrastructure/Seed/Bildmaterial/Privat/Nationalmannschaften/`
 bzw. `.../Vereinswappen/` kopieren (Dateiname = `Mannschaft.Kurzname` + `.png`; bei Vereinen kann
 `Kurzname` über Länder hinweg kollidieren — im Zweifel prüfen, ob im Zielordner schon eine Datei mit
-demselben Namen für ein anderes Land liegt). `dotnet build` + `dotnet test` (462 Tests) laufen lassen,
-dann WPF/Console-Projekt neu bauen und `SeedDatenService.InitialisierenAsync()` einmal ausführen
-(z. B. Console-DLL direkt starten, bricht beim interaktiven Menü ab — reicht für den Seed-Lauf).
+demselben Namen für ein anderes Land liegt), im privaten Repo committen und die WinUi-App neu bauen und
+starten — der Start führt `SeedDatenService.InitialisierenAsync()` aus und trägt die neuen Bilder nach.
 Ergebnis per `sqlcmd` gegen `Mannschaften.Wappen` verifizieren (siehe Memory `feedback_db_first_debugging`).
 
 `MannschaftsBildmaterialNachruesten` in `SeedDatenService.cs` übernimmt das Befüllen automatisch
