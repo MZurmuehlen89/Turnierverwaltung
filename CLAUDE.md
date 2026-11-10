@@ -52,8 +52,6 @@ Enforced machine-readably by the repo-root `.editorconfig` (naming rules + inden
 
 Binding for new code only — no big-bang reformat of the existing codebase. When a file is opened for an issue anyway, bring the touched parts in line with these conventions as part of that change (opportunistic cleanup, not a separate pass).
 
-
-
 ## Clean Code
 
 New code and every refactoring follow this fixed selection from Clean Code Development
