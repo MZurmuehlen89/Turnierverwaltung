@@ -6,7 +6,6 @@ using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Seed;
 using Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fussballturnierverwaltung.Tests.Seed;
 
@@ -116,7 +115,7 @@ public class FesteKoBaeumeSeedTests
             .Options;
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
             // Stand vor #372: EM 24 ohne festen Baum; WM 32 mit nur einer (manuell angelegten) Vorbelegung.
             foreach (var (name, variante) in new[] { (EM24, EM24_VARIANTE), (WM32, WM32_VARIANTE) })
             {
@@ -137,7 +136,7 @@ public class FesteKoBaeumeSeedTests
 
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             var em = await ctx.TurnierInstanzen.Include(i => i.Runden).Include(i => i.Auslosungen).ThenInclude(a => a.Ergebnisse)
                 .SingleAsync(i => i.Name == EM24 && i.Variante == EM24_VARIANTE);
@@ -191,7 +190,7 @@ public class FesteKoBaeumeSeedTests
             .Options;
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
             // Stand vor #466: keine Vorbelegung, kein Haken.
             var vorlage = await ctx.TurnierInstanzen.Include(i => i.Runden).Include(i => i.Auslosungen)
                 .SingleAsync(i => i.Name == WM82 && i.Variante == WM82_VARIANTE && i.Status == TurnierStatus.Vorlage);
@@ -202,7 +201,7 @@ public class FesteKoBaeumeSeedTests
 
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             var wm = await ctx.TurnierInstanzen.Include(i => i.Runden).Include(i => i.Auslosungen).ThenInclude(a => a.Ergebnisse)
                 .SingleAsync(i => i.Name == WM82 && i.Variante == WM82_VARIANTE);

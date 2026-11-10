@@ -30,6 +30,7 @@ public static class InfrastrukturErweiterungen
                     sql => sql.MigrationsAssembly(typeof(TurnierverwaltungDbContext).Assembly.FullName))
                 .AddInterceptors(sp.GetRequiredService<DbZugriffsDiagnose>()));
 
+        services.AddSingleton(SeedBildQuelle.Eingebettet);
         services.AddScoped<SeedDatenService>();
         services.AddScoped<DatenbankWartungService>();
 

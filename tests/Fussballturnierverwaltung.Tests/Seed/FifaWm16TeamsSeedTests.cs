@@ -6,7 +6,6 @@ using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Seed;
 using Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fussballturnierverwaltung.Tests.Seed;
 
@@ -86,7 +85,7 @@ public class FifaWm16TeamsSeedTests
     {
         var optionen = NeueDatenbank();
         await using var ctx = new TurnierverwaltungDbContext(optionen);
-        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
         VerfahrenArt[] mitWiederholung =
             [VerfahrenArt.VerlaengerungKlassisch, VerfahrenArt.Wiederholungsspiel, VerfahrenArt.Losentscheid];
@@ -112,13 +111,13 @@ public class FifaWm16TeamsSeedTests
         var optionen = NeueDatenbank();
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
             await AlteSammelvorlageHerstellenAsync(ctx);
         }
 
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             var wm16 = await ctx.TurnierInstanzen.Include(i => i.Auslosungen)
                 .Where(i => i.Name == WM && i.Status == TurnierStatus.Vorlage && i.Variante.StartsWith("16 Teams"))
@@ -143,7 +142,7 @@ public class FifaWm16TeamsSeedTests
         var eigenesEnddatum = new DateOnly(1950, 12, 31);
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
             var alt = await AlteSammelvorlageHerstellenAsync(ctx);
             alt.Enddatum = eigenesEnddatum;
             alt.Beschreibung = "eigene Beschreibung";
@@ -152,7 +151,7 @@ public class FifaWm16TeamsSeedTests
 
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             var bestand = await ctx.TurnierInstanzen.SingleAsync(i =>
                 i.Name == WM && i.Variante == TurnierVorlagenSeedDaten.WM_16_TEAMS_1934_BIS_1938);

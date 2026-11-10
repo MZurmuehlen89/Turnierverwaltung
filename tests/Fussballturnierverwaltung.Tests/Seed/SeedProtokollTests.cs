@@ -3,7 +3,6 @@ using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Seed;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fussballturnierverwaltung.Tests.Seed;
 
@@ -17,7 +16,7 @@ public class SeedProtokollTests
         var optionen = NeueDatenbank();
         await using var ctx = new TurnierverwaltungDbContext(optionen);
 
-        var protokoll = await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        var protokoll = await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
         protokoll.Select(e => e.Text).Should().Equal(
             "Verbände angelegt.",
@@ -42,13 +41,30 @@ public class SeedProtokollTests
     }
 
     [Fact]
+    public async Task InitialisierenAsync_OhneBildmaterial_LegtAllesAnUndLaesstNurDieBildschritteAus()
+    {
+        // Wie in der CI und bei einem fremden Klon: das private Bildmaterial fehlt (#633).
+        await using var ctx = new TurnierverwaltungDbContext(NeueDatenbank());
+
+        var protokoll = await SeedTestDienst.Erzeugen(ctx, SeedTestDienst.KeineBilder).InitialisierenAsync();
+
+        protokoll.Select(e => e.Text).Should()
+            .Contain(["Mannschaften nachgerüstet.", "neue Turniervorlagen nachgerüstet."])
+            .And.NotContain([
+                "Verbands-/Länder-Bilder nachgerüstet.",
+                "Mannschafts-Wappen nachgerüstet.",
+                "Turniervorlagen um ihr Turnierlogo ergänzt."]);
+        (await ctx.Mannschaften.CountAsync(m => m.Wappen != null)).Should().Be(0);
+    }
+
+    [Fact]
     public async Task InitialisierenAsync_VollstaendigeDatenbank_LegtNichtsMehrAn()
     {
         var optionen = NeueDatenbank();
         await ErsterLaufAsync(optionen);
 
         await using var zweiterLauf = new TurnierverwaltungDbContext(optionen);
-        var protokoll = await new SeedDatenService(zweiterLauf, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        var protokoll = await SeedTestDienst.Erzeugen(zweiterLauf).InitialisierenAsync();
 
         protokoll.Should().BeEmpty();
     }
@@ -73,7 +89,7 @@ public class SeedProtokollTests
         }
 
         await using var zweiterLauf = new TurnierverwaltungDbContext(optionen);
-        var protokoll = await new SeedDatenService(zweiterLauf, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        var protokoll = await SeedTestDienst.Erzeugen(zweiterLauf).InitialisierenAsync();
 
         protokoll.Select(e => (e.Anzahl, e.Text)).Should().Equal((1, FILTER_ERGAENZT));
         var nachgetragen = await zweiterLauf.TurnierInstanzen.SingleAsync(i => i.Id == vorlageId);
@@ -83,7 +99,7 @@ public class SeedProtokollTests
     private static async Task ErsterLaufAsync(DbContextOptions<TurnierverwaltungDbContext> optionen)
     {
         await using var ctx = new TurnierverwaltungDbContext(optionen);
-        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
     }
 
     private static DbContextOptions<TurnierverwaltungDbContext> NeueDatenbank() =>

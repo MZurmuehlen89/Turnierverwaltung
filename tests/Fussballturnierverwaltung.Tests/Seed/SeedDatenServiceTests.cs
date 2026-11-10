@@ -8,7 +8,6 @@ using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Seed;
 using Fussballturnierverwaltung.Infrastructure.Seed.Daten;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fussballturnierverwaltung.Tests.Seed;
 
@@ -25,7 +24,7 @@ public class SeedDatenServiceTests
             .Options;
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
             // Stand vor #328 simulieren: Ligaphase fälschlich als Schweizer System gespeichert,
             // plus eine bewusst manuell auf Liga umgestellte Runde, die unangetastet bleiben muss.
             var cl = await ctx.TurnierInstanzen.Include(i => i.Runden)
@@ -40,7 +39,7 @@ public class SeedDatenServiceTests
 
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             var runden = await ctx.TurnierRunden
                 .Where(r => r.Name == "Ligaphase" && r.TurnierInstanz.Status == TurnierStatus.Vorlage)
@@ -60,7 +59,7 @@ public class SeedDatenServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         await using var ctx = new TurnierverwaltungDbContext(optionen);
-        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
         var mannschaften = await ctx.Mannschaften.Include(m => m.Land).ToListAsync();
         var vorlagen = await ctx.TurnierInstanzen.Where(i => i.Status == TurnierStatus.Vorlage).ToListAsync();
@@ -127,7 +126,7 @@ public class SeedDatenServiceTests
             .Options;
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
             // Seed-Stand vor #350 simulieren: EM 24 ohne GruppenAnzahl/Übergangsregeln, CL-Achtelfinale ohne
             // EingangUeberUebergangsregeln, WM 24 unter altem Namen; neue WM-24-Vorlage (1982) noch nicht vorhanden.
             var em = await ctx.TurnierInstanzen.Include(i => i.Runden).SingleAsync(i => i.Name == "UEFA EM" && i.Variante == EM24);
@@ -146,7 +145,7 @@ public class SeedDatenServiceTests
 
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             var em = await ctx.TurnierInstanzen.Include(i => i.Runden).ThenInclude(r => r.Uebergangsregeln)
                 .SingleAsync(i => i.Name == "UEFA EM" && i.Variante == EM24);
@@ -176,7 +175,7 @@ public class SeedDatenServiceTests
         int anzahlVorlagen;
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
             var vorlagen = await ctx.TurnierInstanzen.Where(i => i.Status == TurnierStatus.Vorlage).ToListAsync();
             anzahlVorlagen = vorlagen.Count;
             var altNachNeu = TurnierVorlagenSeedDaten.UmbenennungenNachAltemNamen
@@ -194,7 +193,7 @@ public class SeedDatenServiceTests
 
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             var vorlagen = await ctx.TurnierInstanzen.Where(i => i.Status == TurnierStatus.Vorlage).ToListAsync();
             vorlagen.Should().HaveCount(anzahlVorlagen);
@@ -222,7 +221,7 @@ public class SeedDatenServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         await using var ctx = new TurnierverwaltungDbContext(optionen);
-        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
         // Kurzname ist Dateiname des Wappens (Seed/Bildmaterial/Vereinswappen/<Kurzname>.png) — muss
         // über alle Länder eindeutig sein und darf kein reservierter Windows-Gerätename sein (#233).
@@ -244,7 +243,7 @@ public class SeedDatenServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         await using var ctx = new TurnierverwaltungDbContext(optionen);
-        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
         var regelarten = await RegelartenDerRundeAsync(ctx, CL_VORLAGE, VARIANTE_36, "Ligaphase");
         regelarten.Should().ContainInOrder(
@@ -267,7 +266,7 @@ public class SeedDatenServiceTests
         int fifaId;
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             // Stand vor #353 simulieren: alle Vorlagen-Runden auf dem Standard-Regelwerk, die Ligaphase der
             // Europa League bewusst manuell auf ein anderes Regelwerk gestellt (muss unangetastet bleiben).
@@ -294,7 +293,7 @@ public class SeedDatenServiceTests
 
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             (await RegelartenDerRundeAsync(ctx, CL_VORLAGE, VARIANTE_36, "Ligaphase"))
                 .Should().Contain(RankingRegelArt.GegnerPunkte);
@@ -315,7 +314,7 @@ public class SeedDatenServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 
-        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
         (await ctx.RankingRegelSets.Where(s => s.DirektenVergleichWiederholen).Select(s => s.Name).ToListAsync())
             .Should().Equal("UEFA Standard");
@@ -329,7 +328,7 @@ public class SeedDatenServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 
-        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
         var regelwerk = await ctx.Regelwerke.Include(r => r.RankingRegelSet!).ThenInclude(s => s.Eintraege)
             .ThenInclude(e => e.RankingRegel)
@@ -352,7 +351,7 @@ public class SeedDatenServiceTests
             .Options;
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             // Stand vor #354: Losentscheid an Stelle 11, keine Koeffizient-Regel.
             var set = await ctx.RankingRegelSets.Include(s => s.Eintraege).ThenInclude(e => e.RankingRegel)
@@ -370,7 +369,7 @@ public class SeedDatenServiceTests
 
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             var regelarten = await RegelartenDerRundeAsync(ctx, CL_VORLAGE, VARIANTE_36, "Ligaphase");
             if (vomNutzerGeaendert)
@@ -396,7 +395,7 @@ public class SeedDatenServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         await using var ctx = new TurnierverwaltungDbContext(optionen);
-        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
         foreach (string runde in new[] { "Viertelfinale", "Halbfinale", "Spiel um Platz 3" })
             (await VerfahrenDerRundeAsync(ctx, COPA_VORLAGE, variante, runde))
@@ -414,7 +413,7 @@ public class SeedDatenServiceTests
         int golden;
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             // Stand vor #374 simulieren: alle Copa-Runden auf dem FIFA-Regelwerk, alte Beschreibungen. Manuell
             // angepasst (muss unangetastet bleiben): das Halbfinale der 16er-Vorlage und die Beschreibung der 12er.
@@ -437,7 +436,7 @@ public class SeedDatenServiceTests
 
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             (await VerfahrenDerRundeAsync(ctx, COPA_VORLAGE, COPA_16, "Viertelfinale")).Should().Equal(VerfahrenArt.Elfmeterschiessen);
             (await VerfahrenDerRundeAsync(ctx, COPA_VORLAGE, COPA_12, "Spiel um Platz 3")).Should().Equal(VerfahrenArt.Elfmeterschiessen);
@@ -491,7 +490,7 @@ public class SeedDatenServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         await using var ctx = new TurnierverwaltungDbContext(optionen);
-        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
         (await RundenNamenAsync(ctx, EM_4)).Should().Equal("Halbfinale", "Spiel um Platz 3", "Finale");
         (await RundenNamenAsync(ctx, EM_8_1980)).Should().Equal("Gruppenphase", "Spiel um Platz 3", "Finale");
@@ -514,13 +513,13 @@ public class SeedDatenServiceTests
             .Options;
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
             await AlteEmSammelvorlageHerstellenAsync(ctx);
         }
 
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             var varianten = await ctx.TurnierInstanzen
                 .Where(i => i.Name == EM_VORLAGE && i.Status == TurnierStatus.Vorlage && (i.Variante.StartsWith("8 Teams") || i.Variante.StartsWith("4 Teams")))
@@ -550,7 +549,7 @@ public class SeedDatenServiceTests
             .Options;
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
             await AlteEmSammelvorlageHerstellenAsync(ctx);
             var platzDrei = await ctx.TurnierRunden.SingleAsync(r =>
                 r.TurnierInstanz.Name == EM_VORLAGE && r.TurnierInstanz.Variante == EM_8_ALT && r.Rundenart == Rundenart.SpielUmPlatzDrei);
@@ -560,7 +559,7 @@ public class SeedDatenServiceTests
 
         await using (var ctx = new TurnierverwaltungDbContext(optionen))
         {
-            await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+            await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
             (await RundenNamenAsync(ctx, TurnierVorlagenSeedDaten.EM_8_TEAMS_1984_BIS_1992))
                 .Should().Equal("Gruppenphase", "Halbfinale", "Kleines Finale", "Finale");
@@ -633,7 +632,7 @@ public class SeedDatenServiceTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         await using var ctx = new TurnierverwaltungDbContext(optionen);
-        await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
 
         // Der Fairplay-Wert im TabellenService ist negativ (Karten zählen als Abzug) - nur absteigend
         // sortiert steht das Team mit weniger Karten vorn.

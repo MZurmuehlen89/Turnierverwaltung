@@ -38,10 +38,10 @@ internal static class TurnierLogoNachruestung
     };
 
     public static async Task AusfuehrenAsync(
-        TurnierverwaltungDbContext context, Action<int, string> protokollieren, CancellationToken ct)
+        TurnierverwaltungDbContext context, SeedBildQuelle bildQuelle, Action<int, string> protokollieren, CancellationToken ct)
     {
         var vorlagen = await OhneLogoAsync(context, vorlagen: true, ct);
-        var wettbewerbe = VorlagenErgaenzen(vorlagen);
+        var wettbewerbe = VorlagenErgaenzen(vorlagen, bildQuelle);
         if (wettbewerbe.Count == 0) return;
 
         var turniere = await OhneLogoAsync(context, vorlagen: false, ct);
@@ -60,7 +60,8 @@ internal static class TurnierLogoNachruestung
 
     /// <summary>Liefert je Wettbewerb, der in diesem Lauf mindestens eine Vorlage ergänzt hat, das Logo und die Anzahl
     /// ergänzter Vorlagen.</summary>
-    private static Dictionary<string, (byte[] Logo, int Anzahl)> VorlagenErgaenzen(List<TurnierInstanz> vorlagen)
+    private static Dictionary<string, (byte[] Logo, int Anzahl)> VorlagenErgaenzen(
+        List<TurnierInstanz> vorlagen, SeedBildQuelle bildQuelle)
     {
         var wettbewerbe = new Dictionary<string, (byte[] Logo, int Anzahl)>();
         foreach (var vorlage in vorlagen)
@@ -68,7 +69,7 @@ internal static class TurnierLogoNachruestung
             if (!_logoDateien.TryGetValue(vorlage.Name, out var datei)) continue;
             if (!wettbewerbe.TryGetValue(vorlage.Name, out var eintrag))
             {
-                var logo = SeedBildLader.Laden("Turnierlogos", datei);
+                var logo = bildQuelle.Laden("Turnierlogos", datei);
                 if (logo is null) continue;
                 eintrag = (logo, 0);
             }

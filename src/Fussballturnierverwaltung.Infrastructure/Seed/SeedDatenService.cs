@@ -10,12 +10,14 @@ public class SeedDatenService
 {
     private readonly TurnierverwaltungDbContext _context;
     private readonly ILogger<SeedDatenService> _logger;
+    private readonly SeedBildQuelle _bildQuelle;
     private readonly List<SeedProtokollEintrag> _protokoll = [];
 
-    public SeedDatenService(TurnierverwaltungDbContext context, ILogger<SeedDatenService> logger)
+    public SeedDatenService(TurnierverwaltungDbContext context, ILogger<SeedDatenService> logger, SeedBildQuelle bildQuelle)
     {
         _context = context;
         _logger = logger;
+        _bildQuelle = bildQuelle;
     }
 
     /// <summary>Ergänzt fehlende Stammdaten und Vorlagen, ohne Vorhandenes zu überschreiben — bei leerer Datenbank
@@ -45,7 +47,7 @@ public class SeedDatenService
         var vorlagen = await TurnierVorlagenNachruestung.LadenAsync(_context, Protokollieren, cancellationToken);
         await vorlagen.AusfuehrenAsync(cancellationToken);
         // Nach den Vorlagen: auch gerade erst angelegte Vorlagen bekommen hier ihr Logo (Issue #481).
-        await TurnierLogoNachruestung.AusfuehrenAsync(_context, Protokollieren, cancellationToken);
+        await TurnierLogoNachruestung.AusfuehrenAsync(_context, _bildQuelle, Protokollieren, cancellationToken);
 
         return [.. _protokoll];
     }
@@ -85,7 +87,7 @@ public class SeedDatenService
         int aktualisiert = 0;
         foreach (var verband in verbaendeOhneLogo)
         {
-            var logo = SeedBildLader.Laden("Verbandslogos", verband.Kurzname);
+            var logo = _bildQuelle.Laden("Verbandslogos", verband.Kurzname);
             if (logo is null) continue;
             verband.Logo = logo;
             aktualisiert++;
@@ -94,7 +96,7 @@ public class SeedDatenService
         var laenderOhneFlagge = await _context.Laender.Where(l => l.Flagge == null).ToListAsync(ct);
         foreach (var land in laenderOhneFlagge)
         {
-            var flagge = SeedBildLader.Laden("Flaggen", land.FifaCode);
+            var flagge = _bildQuelle.Laden("Flaggen", land.FifaCode);
             if (flagge is null) continue;
             land.Flagge = flagge;
             aktualisiert++;
@@ -119,7 +121,7 @@ public class SeedDatenService
             var kategorie = mannschaft.Mannschaftsart == Domain.Enums.Mannschaftsart.Nationalmannschaft
                 ? "Nationalmannschaften"
                 : "Vereinswappen";
-            var wappen = SeedBildLader.Laden(kategorie, mannschaft.Kurzname);
+            var wappen = _bildQuelle.Laden(kategorie, mannschaft.Kurzname);
             if (wappen is null) continue;
             mannschaft.Wappen = wappen;
             aktualisiert++;

@@ -4,7 +4,6 @@ using Fussballturnierverwaltung.Domain.Enums;
 using Fussballturnierverwaltung.Infrastructure.Persistenz;
 using Fussballturnierverwaltung.Infrastructure.Seed;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fussballturnierverwaltung.Tests.Seed;
 
@@ -80,7 +79,7 @@ public class TurnierLogoNachruestungTests
         DbContextOptions<TurnierverwaltungDbContext> optionen)
     {
         await using var ctx = new TurnierverwaltungDbContext(optionen);
-        return await new SeedDatenService(ctx, NullLogger<SeedDatenService>.Instance).InitialisierenAsync();
+        return await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
     }
 
     private static DbContextOptions<TurnierverwaltungDbContext> NeueDatenbank() =>
