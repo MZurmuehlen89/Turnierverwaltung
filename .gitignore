@@ -486,3 +486,6 @@ analyse/
 
 # Sperrdatei der geplanten Claude-Code-Aufgaben (lokal)
 .claude/scheduled_tasks.lock
+
+# Privates Seed-Bildmaterial mit fremden Rechten – eigenes privates Repo Turnierverwaltung-Bildmaterial (#633)
+src/Fussballturnierverwaltung.Infrastructure/Seed/Bildmaterial/Privat/
