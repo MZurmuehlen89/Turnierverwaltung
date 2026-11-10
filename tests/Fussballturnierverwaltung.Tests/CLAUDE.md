@@ -144,7 +144,8 @@ The Actions budget (2,000 min/month, Windows counts double) did not cover the GU
      ANSI, "–" then turns into a typographic quote that ends a string) and `C:\Einrichtung\parameter.json`
      (password, runner token — valid 1 h, so fetched only after DISM) into the image;
   2. creates the VM with `VBoxManage` and starts it headless; Windows sets itself up, logs on automatically and runs
-     the guest script via `FirstLogonCommands`: runner registration first, then .NET 10 SDK, LocalDB, Git,
+     the guest script via `FirstLogonCommands`: runner registration first, then .NET 10 SDK, Visual C++ runtime,
+     LocalDB, Git,
      PowerShell 7, permanent autologon, no lock screen/sleep/automatic updates; deletes `C:\Einrichtung` and the
      answer file (plain-text password), restarts;
   3. waits until the runner is online, shuts the VM down, takes the snapshot `Grundzustand`, registers the autostart
@@ -153,6 +154,12 @@ The Actions budget (2,000 min/month, Windows counts double) did not cover the GU
   writes every step to **COM1**, VirtualBox writes the serial port to `protokolle\gast-*.log` on the host, and the
   build script echoes it. A line `Gast: FEHLER: …` aborts the build. Full transcript inside the VM:
   `C:\GuiRunner-Einrichtung.log`. The serial port is switched off before the snapshot.
+- **Diagnosing inside the VM** (Claude can do this itself, no elevation needed): `VBoxManage controlvm
+  Turnierverwaltung-GuiRunner screenshotpng <file>` shows the screen; `build/GuiRunner-VM/VM-Tippen.ps1` types
+  commands (German layout — `keyboardputstring` assumes US). Send results back over COM1 into `gast-*.log` (example in
+  the script). A process's error dialog often lacks focus — keys then land buffered in the console;
+  `-AltTab` brings it forward. First use (#609): LocalDB 2025 aborted with MSI 1603 because its VSS Writer service
+  (`sqlwriter.exe`) needs the Visual C++ runtime, which a fresh Windows Server lacks (the GitHub image has it).
 - **Location:** `%USERPROFILE%\VirtualBox VMs\Turnierverwaltung-GuiRunner` — VHD, VM files,
   `protokolle\aufbau-*.log`/`gast-*.log` (one pair per build), `zugang.xml` (random Administrator password, DPAPI,
   readable only by the user's account: `(Import-Clixml …\zugang.xml).GetNetworkCredential().Password`).

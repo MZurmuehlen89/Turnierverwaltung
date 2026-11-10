@@ -6,8 +6,8 @@
 
 .DESCRIPTION
     Windows PowerShell 5.1 (frisches System) – keine Sprachmittel aus PowerShell 7.
-    Registriert zuerst den GitHub-Actions-Runner (das Token gilt nur 1 h), installiert dann .NET 10 SDK, SQL Server
-    LocalDB, Git und PowerShell 7, schaltet Bildschirmsperre, Energiesparen und automatische Updates ab und lässt den
+    Registriert zuerst den GitHub-Actions-Runner (das Token gilt nur 1 h), installiert dann .NET 10 SDK, Visual C++
+    Runtime, SQL Server LocalDB, Git und PowerShell 7, schaltet Bildschirmsperre, Energiesparen und automatische Updates ab und lässt den
     Runner bei der automatischen Anmeldung interaktiv starten: FlaUI braucht den Desktop der Konsolensitzung, ein
     Dienst hätte keinen. Am Ende Neustart – danach läuft der Runner.
 
@@ -107,10 +107,20 @@ function DotnetInstallieren {
     [Environment]::SetEnvironmentVariable('DOTNET_ROOT', $dotnetOrdner, 'Machine')
 }
 
+function VcRuntimeInstallieren {
+    Schritt 'Visual C++ Runtime ...'
+    # LocalDB 2025 bringt den Dienst „SQL Server VSS Writer“ mit; dessen sqlwriter.exe braucht VCRUNTIME140/MSVCP140,
+    # die ein frisches Windows Server nicht hat (Start mit 0xC0000135, MSI bricht mit 1920/1603 ab). Das Abbild des
+    # GitHub-Runners hat sie vorinstalliert
+    $setup = Herunterladen 'https://aka.ms/vs/17/release/vc_redist.x64.exe' 'vc_redist.x64.exe'
+    Ausfuehren $setup '/install /quiet /norestart'
+}
+
 function LocalDbInstallieren {
     Schritt 'SQL Server LocalDB ...'
-    # Der Express-Installer lädt das LocalDB-MSI nur herunter (/ACTION=Download), installiert wird es danach direkt
-    $ssei = Herunterladen 'https://go.microsoft.com/fwlink/p/?linkid=2216019' 'SQL2022-SSEI-Expr.exe'
+    # Der Express-Installer lädt das LocalDB-MSI nur herunter (/ACTION=Download), installiert wird es danach direkt.
+    # Der Link liefert die jeweils aktuelle Version (Stand 11/2026: 2025 = LocalDB 17.0, wie auf windows-2025)
+    $ssei = Herunterladen 'https://go.microsoft.com/fwlink/p/?linkid=2216019' 'SQL-SSEI-Expr.exe'
     $medien = Join-Path $einrichtung 'localdb'
     Ausfuehren $ssei "/ACTION=Download /MEDIAPATH=`"$medien`" /MEDIATYPE=LocalDB /QUIET /LANGUAGE=en-US"
     $msi = Get-ChildItem $medien -Filter 'SqlLocalDB.msi' -Recurse | Select-Object -First 1
@@ -202,6 +212,7 @@ try {
     PowerShell7Installieren
     GitInstallieren
     DotnetInstallieren
+    VcRuntimeInstallieren
     LocalDbInstallieren
     RunnerAutostartEinrichten
     AutomatischeAnmeldungEinrichten
