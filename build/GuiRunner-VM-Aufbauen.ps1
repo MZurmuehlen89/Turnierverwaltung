@@ -97,13 +97,6 @@ function VmZustand {
     $zeile.Matches.Groups[1].Value
 }
 
-function FreieLaufwerksbuchstaben([int]$anzahl) {
-    $belegt = (Get-PSDrive -PSProvider FileSystem).Name
-    $frei = [char[]]('G'..'Z') | Where-Object { "$_" -notin $belegt } | Select-Object -First $anzahl
-    if ($frei.Count -lt $anzahl) { throw 'Nicht genug freie Laufwerksbuchstaben zum Einhängen der VHD.' }
-    $frei
-}
-
 # ── Vorbereitung ────────────────────────
 
 function VoraussetzungenPruefen {
@@ -183,19 +176,33 @@ function VhdAnlegen {
     Diskpart "create vdisk file=`"$vhd`" maximum=$($PlatteGB * 1024) type=expandable"
 }
 
-function PlattePartitionieren([int]$datentraeger, [char]$systemBuchstabe, [char]$windowsBuchstabe) {
+function PlattePartitionieren([int]$datentraeger) {
     Diskpart @"
 select disk $datentraeger
 clean
 convert gpt
 create partition efi size=260
 format quick fs=fat32 label=System
-assign letter=$systemBuchstabe
 create partition msr size=16
 create partition primary
 format quick fs=ntfs label=Windows
-assign letter=$windowsBuchstabe
 "@
+}
+
+function LaufwerksbuchstabeZuweisen([int]$datentraeger, [string]$partitionsTyp) {
+    # Buchstaben durchprobieren statt vorab „freie“ ermitteln: Get-PSDrive sieht weder Reservierungen der
+    # Mount-Verwaltung (HKLM\SYSTEM\MountedDevices) noch Laufwerke, die nur in der Admin-Sitzung verbunden sind –
+    # der zweite Aufbau scheiterte an G:, das dort belegt war („Laufwerkbuchstabe nicht zur Zuweisung frei“)
+    $partition = Get-Partition -DiskNumber $datentraeger | Where-Object GptType -eq $partitionsTyp
+    $belegt = (Get-PSDrive -PSProvider FileSystem).Name
+    foreach ($buchstabe in [char[]]('G'..'Z') | Where-Object { "$_" -notin $belegt }) {
+        try {
+            Add-PartitionAccessPath -InputObject $partition -AccessPath "${buchstabe}:\" -ErrorAction Stop
+            return $buchstabe
+        }
+        catch { Write-Host "    ${buchstabe}: nicht zuweisbar ($($_.Exception.Message.Trim()))" }
+    }
+    throw "Kein Laufwerksbuchstabe für die Partition $partitionsTyp zuweisbar."
 }
 
 function AntwortdateiSchreiben([string]$windowsLaufwerk, [pscredential]$zugang) {
@@ -237,8 +244,9 @@ function PlatteAufbauen([pscredential]$zugang, [string]$repo) {
             if ($disk.BusType -ne 'File Backed Virtual' -or $disk.Location -ne $vhd) {
                 throw "Datenträger $($disk.Number) ($($disk.BusType), $($disk.Location)) ist nicht $vhd."
             }
-            $system, $windows = FreieLaufwerksbuchstaben 2
-            PlattePartitionieren $disk.Number $system $windows
+            PlattePartitionieren $disk.Number
+            $system = LaufwerksbuchstabeZuweisen $disk.Number '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'    # EFI
+            $windows = LaufwerksbuchstabeZuweisen $disk.Number '{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}'   # Basisdaten
 
             $isoLaufwerk = "$(($iso | Get-Volume).DriveLetter):"
             $wim = @("$isoLaufwerk\sources\install.wim", "$isoLaufwerk\sources\install.esd") | Where-Object { Test-Path $_ } | Select-Object -First 1
