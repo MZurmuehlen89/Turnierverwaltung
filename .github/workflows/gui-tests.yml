@@ -45,8 +45,8 @@ jobs:
           dotnet-version: 10.0.x
 
       # Virtualisierte Listen und das Layout hängen von der Fenstergröße ab: Auflösung festhalten und hochsetzen,
-      # soweit der Runner es zulässt (windows-2025: Standard 1024×768; eigener Runner: per Set-VMVideo fest
-      # 1920×1080, der Versuch ändert dort nichts)
+      # soweit der Runner es zulässt (windows-2025: Standard 1024×768; eigener Runner: fest 1920×1080 über die
+      # VirtualBox-Einstellung VBoxInternal2/EfiGraphicsResolution, der Versuch ändert dort nichts)
       - name: Bildschirmauflösung
         run: |
           Add-Type -AssemblyName System.Windows.Forms

@@ -14,6 +14,9 @@ ein Klon des privaten Repos `Turnierverwaltung-Bildmaterial`, neue Bilder dort c
 beide Ordner ein; `SeedBildQuelle` sucht erst in `Flaggen/` usw., dann in `Privat/`. Fehlt ein Bild, bleibt
 das Feld leer und die App zeigt den Platzhalter.
 
+`flaggen_mapping.tsv` ordnet nur die flag-icons-Flaggen zu (211). Chinesisch Taipei (TPE) fehlt dort bewusst: statt der
+Flagge der Republik China (flag-icons `tw`) zeigt der Seed die olympische Flagge, und die liegt als Marke im privaten Repo.
+
 ## Stand (2026-08-27)
 
 | Kategorie | Status | Commit |
