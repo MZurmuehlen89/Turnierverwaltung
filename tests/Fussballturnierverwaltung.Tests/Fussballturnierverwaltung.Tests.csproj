@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <PackageReference Include="FluentAssertions" Version="8.11.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.14" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.15" />
     <!-- Code Coverage unter MTP (coverlet läuft dort nicht), Aufruf siehe tests/…/CLAUDE.md (#497) -->
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <!-- Microsoft.NET.Test.Sdk und xunit.runner.visualstudio laut xunit-Doku vorerst behalten: sie halten den
