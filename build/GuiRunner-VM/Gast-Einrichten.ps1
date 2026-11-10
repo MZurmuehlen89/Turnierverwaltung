@@ -97,6 +97,7 @@ function GitInstallieren {
     Ausfuehren $setup '/VERYSILENT /NORESTART /NOCANCEL /SP- /SUPPRESSMSGBOXES'
     # Belegnamen der GUI-Tests werden lang (MAX_PATH, siehe #569/#560)
     & 'C:\Program Files\Git\cmd\git.exe' config --system core.longpaths true
+    if ($LASTEXITCODE -ne 0) { throw "git config core.longpaths fehlgeschlagen (Exitcode $LASTEXITCODE)." }
 }
 
 function DotnetInstallieren {

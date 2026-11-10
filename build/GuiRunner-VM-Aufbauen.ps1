@@ -315,10 +315,13 @@ function VmHerunterfahren {
     Schritt 'Fahre die VM herunter ...'
     VBox @('controlvm', $VmName, 'acpipowerbutton') | Out-Null
     $bis = (Get-Date).AddMinutes(5)
+    $hartAusgeschaltet = $false
     while ((VmZustand) -ne 'poweroff') {
-        if ((Get-Date) -gt $bis) {
+        # Nur einmal: ein zweites poweroff auf eine VM, die gerade ausgeht, scheitert und bräche den Aufbau ab
+        if ((Get-Date) -gt $bis -and -not $hartAusgeschaltet) {
             Schritt 'VM reagiert nicht auf den Ausschaltknopf – schalte hart aus ...'
             VBox @('controlvm', $VmName, 'poweroff') | Out-Null
+            $hartAusgeschaltet = $true
         }
         Start-Sleep -Seconds 5
     }
@@ -336,7 +339,8 @@ function AutostartEinrichten {
     Schritt "Richte Autostart ein (geplante Aufgabe „$autostartAufgabe“) ..."
     # Unter dem eigenen Konto ohne erhöhte Rechte – so wie der VirtualBox-Manager, sonst laufen zwei VBoxSVC
     $benutzer = "$env:USERDOMAIN\$env:USERNAME"
-    $befehl = "`"$vboxManage`" snapshot $VmName restore $snapshot & `"$vboxManage`" startvm $VmName --type headless"
+    # && statt &: scheitert das Wiederherstellen, startet die VM nicht mit dem Zustand des letzten Laufs
+    $befehl = "`"$vboxManage`" snapshot $VmName restore $snapshot && `"$vboxManage`" startvm $VmName --type headless"
     $aktion = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/s /c `"$befehl`""
     $ausloeser = New-ScheduledTaskTrigger -AtLogOn -User $benutzer
     $principal = New-ScheduledTaskPrincipal -UserId $benutzer -LogonType Interactive -RunLevel Limited
