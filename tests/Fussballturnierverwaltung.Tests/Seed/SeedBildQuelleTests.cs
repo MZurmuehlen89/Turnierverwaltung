@@ -12,7 +12,7 @@ public class SeedBildQuelleTests
         var flagge = SeedBildQuelle.Eingebettet.Laden("Flaggen", "GER");
 
         flagge.Should().NotBeNull();
-        flagge!.Take(4).Should().Equal([0x89, 0x50, 0x4E, 0x47], "das ist der Anfang der PNG-Signatur");
+        flagge.Take(4).Should().Equal([0x89, 0x50, 0x4E, 0x47], "das ist der Anfang der PNG-Signatur");
     }
 
     [Fact]

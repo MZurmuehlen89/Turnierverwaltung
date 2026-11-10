@@ -25,6 +25,24 @@ public class TurnierLogoNachruestungTests
         vorlagen.Where(v => v.Name is "Mini-Turnier" or "Freies Turnier").Should().OnlyContain(v => v.Logo == null);
     }
 
+    // Prüft die Dateinamen der Zuordnung gegen das echte Bildmaterial – nur lokal, die CI hat es nicht (#633)
+    [Fact(Skip = "Privates Bildmaterial nicht eingebettet (#633)",
+          SkipUnless = nameof(SeedTestDienst.PrivatesBildmaterialEingebettet), SkipType = typeof(SeedTestDienst))]
+    public async Task InitialisierenAsync_EchtesBildmaterial_JedeWettbewerbsvorlageHatIhrLogo()
+    {
+        var optionen = NeueDatenbank();
+        await SeedLaufAsync(optionen, SeedBildQuelle.Eingebettet);
+
+        await using var ctx = new TurnierverwaltungDbContext(optionen);
+        var ohneLogo = await ctx.TurnierInstanzen
+            .Where(i => i.Status == TurnierStatus.Vorlage && i.Logo == null)
+            .Select(i => i.Name)
+            .Distinct()
+            .ToListAsync();
+
+        ohneLogo.Should().BeEquivalentTo(["Mini-Turnier", "Freies Turnier"]);
+    }
+
     [Fact]
     public async Task InitialisierenAsync_VorlageOhneLogo_GibtLogoEinmaligAnTurniereDesWettbewerbsWeiter()
     {
@@ -76,10 +94,10 @@ public class TurnierLogoNachruestungTests
     }
 
     private static async Task<IReadOnlyList<SeedProtokollEintrag>> SeedLaufAsync(
-        DbContextOptions<TurnierverwaltungDbContext> optionen)
+        DbContextOptions<TurnierverwaltungDbContext> optionen, SeedBildQuelle? bildQuelle = null)
     {
         await using var ctx = new TurnierverwaltungDbContext(optionen);
-        return await SeedTestDienst.Erzeugen(ctx).InitialisierenAsync();
+        return await SeedTestDienst.Erzeugen(ctx, bildQuelle).InitialisierenAsync();
     }
 
     private static DbContextOptions<TurnierverwaltungDbContext> NeueDatenbank() =>
