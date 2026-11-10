@@ -1,20 +1,20 @@
 <#
 .SYNOPSIS
-    Richtet die GUI-Runner-VM ein (#609). Läuft IN der VM, aufgerufen von GuiRunner-VM-Aufbauen.ps1 per
-    PowerShell Direct als eingebauter Administrator.
+    Richtet die GUI-Runner-VM ein (#609). Läuft IN der VM: GuiRunner-VM-Aufbauen.ps1 legt das Skript mit
+    parameter.json nach C:\Einrichtung, die Antwortdatei startet es bei der ersten automatischen Anmeldung als
+    eingebauter Administrator.
 
 .DESCRIPTION
-    Windows PowerShell 5.1 (Standard-Endpunkt von PowerShell Direct) – keine Sprachmittel aus PowerShell 7.
-    Installiert .NET 10 SDK, SQL Server LocalDB, Git, PowerShell 7 und den GitHub-Actions-Runner, schaltet
-    Bildschirmsperre, Energiesparen und automatische Updates ab und lässt den Runner bei der automatischen
-    Anmeldung interaktiv starten: FlaUI braucht den Desktop der Konsolensitzung, ein Dienst hätte keinen.
+    Windows PowerShell 5.1 (frisches System) – keine Sprachmittel aus PowerShell 7.
+    Registriert zuerst den GitHub-Actions-Runner (das Token gilt nur 1 h), installiert dann .NET 10 SDK, SQL Server
+    LocalDB, Git und PowerShell 7, schaltet Bildschirmsperre, Energiesparen und automatische Updates ab und lässt den
+    Runner bei der automatischen Anmeldung interaktiv starten: FlaUI braucht den Desktop der Konsolensitzung, ein
+    Dienst hätte keinen. Am Ende Neustart – danach läuft der Runner.
+
+    Jeder Schritt geht zusätzlich auf COM1: VirtualBox schreibt die serielle Schnittstelle in eine Datei auf dem
+    Host, das Aufbauskript verfolgt sie (ohne Gasterweiterungen der einzige Rückkanal). Eine Zeile mit
+    „Gast: FEHLER“ bricht den Aufbau auf dem Host ab. Vollständiges Protokoll in der VM: C:\GuiRunner-Einrichtung.log
 #>
-param(
-    [Parameter(Mandatory)] [string]$Passwort,
-    [Parameter(Mandatory)] [string]$RepoUrl,
-    [Parameter(Mandatory)] [string]$RunnerToken,
-    [Parameter(Mandatory)] [string]$RunnerName
-)
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'   # Invoke-WebRequest ist in 5.1 mit Fortschrittsanzeige um ein Vielfaches langsamer
@@ -27,7 +27,13 @@ $dotnetOrdner = 'C:\Program Files\dotnet'   # Standardziel von actions/setup-dot
 # ── Hilfsfunktionen ────────────────────────
 
 function Schritt([string]$text) {
-    Write-Host "[$(Get-Date -Format HH:mm:ss)] Gast: $text"
+    $zeile = "[$(Get-Date -Format HH:mm:ss)] Gast: $text"
+    Write-Host $zeile
+    try {
+        $port = New-Object System.IO.Ports.SerialPort 'COM1', 115200
+        $port.Open()
+        try { $port.WriteLine($zeile) } finally { $port.Close() }
+    } catch { Write-Host "COM1 nicht beschreibbar: $($_.Exception.Message)" }
 }
 
 function Herunterladen([string]$url, [string]$dateiname) {
@@ -121,8 +127,8 @@ function RunnerEinrichten {
     if (Test-Path $runnerOrdner) { Remove-Item $runnerOrdner -Recurse -Force }
     Expand-Archive -Path $zip -DestinationPath $runnerOrdner
     # Standard-Labels self-hosted, Windows, X64 kommen von selbst dazu; gui-tests.yml verlangt zusätzlich „gui“
-    & (Join-Path $runnerOrdner 'config.cmd') --unattended --url $RepoUrl --token $RunnerToken `
-        --name $RunnerName --labels gui --work _work --replace
+    & (Join-Path $runnerOrdner 'config.cmd') --unattended --url $parameter.RepoUrl --token $parameter.RunnerToken `
+        --name $parameter.RunnerName --labels gui --work _work --replace
     if ($LASTEXITCODE -ne 0) { throw "Runner-Registrierung fehlgeschlagen (Exitcode $LASTEXITCODE)." }
 }
 
@@ -147,7 +153,7 @@ function AutomatischeAnmeldungEinrichten {
     Registry $winlogon 'AutoAdminLogon' '1' 'String'
     Registry $winlogon 'DefaultUserName' 'Administrator' 'String'
     Registry $winlogon 'DefaultDomainName' $env:COMPUTERNAME 'String'
-    Registry $winlogon 'DefaultPassword' $Passwort 'String'
+    Registry $winlogon 'DefaultPassword' $parameter.Passwort 'String'
     Remove-ItemProperty -Path $winlogon -Name 'AutoLogonCount' -ErrorAction SilentlyContinue
     # Kein Strg+Alt+Entf und keine Rechtshinweis-Seite vor der Anmeldung
     Registry 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' 'DisableCAD' 1
@@ -180,23 +186,33 @@ function SystemFuerTestsEinstellen {
 
 function Aufraeumen {
     Schritt 'Aufräumen ...'
-    # Die Antwortdatei enthält das Passwort im Klartext
+    # Antwortdatei und parameter.json enthalten das Passwort im Klartext
     Remove-Item 'C:\Windows\Panther\unattend.xml' -Force -ErrorAction SilentlyContinue
     Remove-Item $einrichtung -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 # ── Ablauf ────────────────────────
 
-New-Item -ItemType Directory -Path $einrichtung -Force | Out-Null
-AufNetzWarten
-PowerShell7Installieren
-GitInstallieren
-DotnetInstallieren
-LocalDbInstallieren
-RunnerEinrichten
-RunnerAutostartEinrichten
-AutomatischeAnmeldungEinrichten
-SperreUndEnergiesparenAbschalten
-SystemFuerTestsEinstellen
-Aufraeumen
-Schritt 'Einrichtung fertig.'
+Start-Transcript -Path 'C:\GuiRunner-Einrichtung.log' -Append | Out-Null
+try {
+    Schritt 'Einrichtung beginnt.'
+    $parameter = Get-Content (Join-Path $einrichtung 'parameter.json') -Raw | ConvertFrom-Json
+    AufNetzWarten
+    RunnerEinrichten
+    PowerShell7Installieren
+    GitInstallieren
+    DotnetInstallieren
+    LocalDbInstallieren
+    RunnerAutostartEinrichten
+    AutomatischeAnmeldungEinrichten
+    SperreUndEnergiesparenAbschalten
+    SystemFuerTestsEinstellen
+    Aufraeumen
+    Schritt 'Einrichtung fertig, Neustart.'
+    Stop-Transcript | Out-Null
+    Restart-Computer -Force
+}
+catch {
+    Schritt "FEHLER: $($_.Exception.Message) ($($_.InvocationInfo.PositionMessage -replace '\s+', ' '))"
+    Stop-Transcript | Out-Null
+}

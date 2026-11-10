@@ -2,29 +2,37 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Baut die Hyper-V-VM mit dem self-hosted GitHub-Runner für die GUI-Tests komplett unbeaufsichtigt (#609).
+    Baut die VirtualBox-VM mit dem self-hosted GitHub-Runner für die GUI-Tests komplett unbeaufsichtigt (#609).
 
 .DESCRIPTION
     Die GUI-Tests übernehmen Maus und Tastatur, deshalb laufen sie nicht auf dem Desktop des Entwicklungsrechners,
     sondern in einer eigenen VM (Windows Server 2025 Evaluation, Desktop Experience – dasselbe System wie der
-    GitHub-Runner windows-2025, 180 Tage ohne Schlüssel lauffähig). Ablauf:
+    GitHub-Runner windows-2025, 180 Tage ohne Schlüssel lauffähig).
 
-    1. Das Windows-Abbild aus der ISO direkt auf eine neue VHDX aufspielen (DISM + bcdboot) und die Antwortdatei
-       dazulegen. Kein Start von der ISO: Eine Gen2-VM wartet dort auf „Press any key to boot from CD“, das ginge
-       nur mit einer umgebauten ISO (ADK/oscdimg) unbeaufsichtigt.
-    2. VM anlegen (Gen2, feste Auflösung 1920×1080) und starten; Windows richtet sich mit der Antwortdatei ein.
-    3. Per PowerShell Direct (kein Netzwerkzugriff vom Host nötig) GuiRunner-VM\Gast-Einrichten.ps1 ausführen:
-       Werkzeuge, Runner mit frischem Registrierungstoken (gilt nur 1 h, deshalb erst hier geholt), automatische
-       Anmeldung, Runner-Autostart in der Konsolensitzung.
-    4. VM herunterfahren, Snapshot „Grundzustand“ anlegen, wieder starten und warten, bis der Runner bei GitHub
-       online ist.
+    VirtualBox statt Hyper-V: Hyper-V startet jede VM unter einem virtuellen Konto, das das Recht „Anmelden als
+    Dienst“ braucht – eine Gruppenrichtlinie vergibt es ohne diese Gruppe (New-VM → 0x80070569). VirtualBox
+    läuft unter dem eigenen Konto. Weil die Speicherintegrität den Windows-Hypervisor laufen lässt, nutzt VirtualBox
+    die „Windows Hypervisor Platform“ (Windows-Feature, muss aktiv sein).
+
+    Ablauf:
+    1. Das Windows-Abbild aus der ISO direkt auf eine neue VHD aufspielen (DISM + bcdboot), Antwortdatei,
+       GuiRunner-VM\Gast-Einrichten.ps1 und eine Parameterdatei (Passwort, Runner-Token) dazulegen. Kein Start von
+       der ISO: Eine EFI-VM wartet dort auf „Press any key to boot from CD“.
+    2. VM anlegen (EFI, feste Auflösung 1920×1080, serielle Schnittstelle in eine Protokolldatei) und starten.
+       Windows richtet sich mit der Antwortdatei ein, meldet sich automatisch an und startet das Gast-Skript.
+       Das meldet jeden Schritt über die serielle Schnittstelle – der einzige Rückkanal ohne Gasterweiterungen.
+    3. Warten, bis der Runner bei GitHub online ist (das Gast-Skript startet die VM am Ende neu).
+    4. VM herunterfahren, Snapshot „Grundzustand“ anlegen, geplante Aufgabe für den Autostart einrichten und
+       darüber starten. Die Aufgabe stellt bei jeder Anmeldung am Rechner den Grundzustand wieder her und startet
+       die VM ohne Fenster – jeder Start beginnt sauber, ein hartes Beenden beim Abmelden schadet nicht.
 
     Das Administrator-Passwort der VM wird zufällig erzeugt und DPAPI-verschlüsselt als zugang.xml in der Ablage
     gespeichert (nur dieses Windows-Konto kann es lesen):
-        (Import-Clixml C:\Hyper-V\Turnierverwaltung-GuiRunner\zugang.xml).GetNetworkCredential().Password
+        (Import-Clixml "$env:USERPROFILE\VirtualBox VMs\Turnierverwaltung-GuiRunner\zugang.xml").GetNetworkCredential().Password
 
-    Voraussetzungen: Hyper-V aktiv, PowerShell 7 als Administrator, gh angemeldet mit Admin-Recht auf das Repo.
-    Das Protokoll jedes Laufs liegt unter <Ablage>\protokolle\.
+    Voraussetzungen: VirtualBox 7.1+, Windows-Feature „Windows Hypervisor Platform“, PowerShell 7 als
+    Administrator, gh angemeldet mit Admin-Recht auf das Repo. Das Protokoll jedes Laufs liegt unter
+    <Ablage>\protokolle\ (aufbau-*.log vom Host, gast-*.log aus der VM).
 
 .PARAMETER IsoPfad
     ISO von Windows Server 2025 Evaluation. Standard: die erste *SERVER_EVAL*.iso im Download-Ordner.
@@ -41,8 +49,7 @@
 param(
     [string]$IsoPfad,
     [string]$VmName = 'Turnierverwaltung-GuiRunner',
-    [string]$Ablage = 'C:\Hyper-V\Turnierverwaltung-GuiRunner',
-    [string]$Switch = 'Default Switch',
+    [string]$VmOrdner = (Join-Path $env:USERPROFILE 'VirtualBox VMs'),
     [int]$Kerne = 4,
     [int]$ArbeitsspeicherGB = 8,
     [int]$PlatteGB = 100,
@@ -52,7 +59,13 @@ param(
 $ErrorActionPreference = 'Stop'
 $computerName = 'GUIRUNNER'   # höchstens 15 Zeichen (NetBIOS)
 $skriptOrdner = Join-Path $PSScriptRoot 'GuiRunner-VM'
-$vhdx = Join-Path $Ablage "$VmName.vhdx"
+$vboxManage = Join-Path $env:ProgramFiles 'Oracle\VirtualBox\VBoxManage.exe'
+$ablage = Join-Path $VmOrdner $VmName           # VirtualBox legt die VM unter <VmOrdner>\<VmName> an
+$vhd = Join-Path $ablage "$VmName.vhd"
+$zeitstempel = Get-Date -Format yyyyMMdd-HHmmss
+$gastProtokoll = Join-Path $ablage "protokolle\gast-$zeitstempel.log"
+$snapshot = 'Grundzustand'
+$autostartAufgabe = 'Turnierverwaltung GUI-Runner starten'
 
 # ── Hilfsfunktionen ────────────────────────
 
@@ -68,10 +81,26 @@ function GhAufruf([string[]]$argumente) {
     $ausgabe
 }
 
+function VBox([string[]]$argumente) {
+    $ausgabe = & $vboxManage @argumente 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "VBoxManage $($argumente -join ' ') fehlgeschlagen (Exitcode $LASTEXITCODE): $ausgabe" }
+    $ausgabe
+}
+
+function VmVorhanden {
+    & $vboxManage showvminfo $VmName --machinereadable *> $null
+    $LASTEXITCODE -eq 0
+}
+
+function VmZustand {
+    $zeile = VBox @('showvminfo', $VmName, '--machinereadable') | Select-String '^VMState="(.+)"$'
+    $zeile.Matches.Groups[1].Value
+}
+
 function FreieLaufwerksbuchstaben([int]$anzahl) {
     $belegt = (Get-PSDrive -PSProvider FileSystem).Name
     $frei = [char[]]('G'..'Z') | Where-Object { "$_" -notin $belegt } | Select-Object -First $anzahl
-    if ($frei.Count -lt $anzahl) { throw 'Nicht genug freie Laufwerksbuchstaben zum Einhängen der VHDX.' }
+    if ($frei.Count -lt $anzahl) { throw 'Nicht genug freie Laufwerksbuchstaben zum Einhängen der VHD.' }
     $frei
 }
 
@@ -79,16 +108,10 @@ function FreieLaufwerksbuchstaben([int]$anzahl) {
 
 function VoraussetzungenPruefen {
     Schritt 'Prüfe Voraussetzungen ...'
-    # Dienst statt Get-WindowsOptionalFeature: das DISM-Modul ist unter PowerShell 7 unzuverlässig
-    if ((Get-Service vmms -ErrorAction SilentlyContinue).Status -ne 'Running') {
-        throw 'Hyper-V ist nicht aktiv (Windows-Features → Hyper-V, danach Neustart).'
-    }
-    if (-not (Get-VMSwitch -Name $Switch -ErrorAction SilentlyContinue)) {
-        throw "Virtueller Switch '$Switch' fehlt."
-    }
+    if (-not (Test-Path $vboxManage)) { throw "VirtualBox nicht gefunden ($vboxManage)." }
     if (-not (Test-Path $IsoPfad)) { throw "ISO nicht gefunden: $IsoPfad" }
     GhAufruf @('auth', 'status') | Out-Null
-    if (((Get-VM -Name $VmName -ErrorAction SilentlyContinue) -or (Test-Path $vhdx)) -and -not $Neuaufbau) {
+    if (((VmVorhanden) -or (Test-Path $vhd)) -and -not $Neuaufbau) {
         throw "VM '$VmName' oder ihre Platte gibt es schon. Zum Neuaufbau -Neuaufbau angeben."
     }
 }
@@ -108,27 +131,30 @@ function RunnerAbmelden([string]$repo) {
     }
 }
 
-function AlteVmEntfernen([string]$repo, [string]$vhdx) {
-    $vm = Get-VM -Name $VmName -ErrorAction SilentlyContinue
-    if ($vm) {
+function AlteVmEntfernen([string]$repo) {
+    if (VmVorhanden) {
         Schritt "Entferne vorhandene VM $VmName ..."
-        if ($vm.State -ne 'Off') { Stop-VM -VM $vm -TurnOff -Force }
-        $platten = (Get-VMHardDiskDrive -VM $vm).Path
-        Remove-VM -VM $vm -Force   # löscht auch die Snapshots
-        $platten | Where-Object { Test-Path $_ } | Remove-Item -Force
+        if ((VmZustand) -notin 'poweroff', 'aborted', 'saved') {
+            VBox @('controlvm', $VmName, 'poweroff') | Out-Null
+            Start-Sleep -Seconds 5   # die Sitzung gibt die Platte erst kurz nach dem Ausschalten frei
+        }
+        VBox @('unregistervm', $VmName, '--delete') | Out-Null   # löscht auch Platte und Snapshots
     }
     # Auch die Platte eines abgebrochenen Aufbaus, zu dem es noch keine VM gibt
-    if (Test-Path $vhdx) { Remove-Item $vhdx -Force }
+    if (Test-Path $vhd) {
+        Dismount-DiskImage -ImagePath $vhd -ErrorAction SilentlyContinue | Out-Null
+        Remove-Item $vhd -Force
+    }
     RunnerAbmelden $repo
 }
 
 function ZugangErzeugen {
-    # Nur Zeichen, die in XML und auf der Kommandozeile unkritisch sind; Präfix erfüllt die Komplexitätsregel
+    # Nur Zeichen, die in XML, JSON und auf der Kommandozeile unkritisch sind; Präfix erfüllt die Komplexitätsregel
     $zeichen = [char[]]'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
     $zufall = -join (1..24 | ForEach-Object { $zeichen[[Security.Cryptography.RandomNumberGenerator]::GetInt32($zeichen.Length)] })
     $passwort = "Gr1-$zufall"
     $zugang = [pscredential]::new('Administrator', (ConvertTo-SecureString $passwort -AsPlainText -Force))
-    $zugang | Export-Clixml (Join-Path $Ablage 'zugang.xml')
+    $zugang | Export-Clixml (Join-Path $ablage 'zugang.xml')
     $zugang
 }
 
@@ -146,8 +172,19 @@ function AbbildIndexFinden([string]$wim) {
     throw "Kein Abbild 'Datacenter, Desktop Experience' in $wim gefunden."
 }
 
+function Diskpart([string]$befehle) {
+    $befehle | diskpart.exe | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "diskpart fehlgeschlagen (Exitcode $LASTEXITCODE)." }
+}
+
+function VhdAnlegen {
+    # diskpart statt New-VHD: das Hyper-V-Modul fehlt ohne Hyper-V. Endung .vhd → Format VHD, das VirtualBox
+    # lesen und schreiben kann
+    Diskpart "create vdisk file=`"$vhd`" maximum=$($PlatteGB * 1024) type=expandable"
+}
+
 function PlattePartitionieren([int]$datentraeger, [char]$systemBuchstabe, [char]$windowsBuchstabe) {
-    $befehle = @"
+    Diskpart @"
 select disk $datentraeger
 clean
 convert gpt
@@ -159,8 +196,6 @@ create partition primary
 format quick fs=ntfs label=Windows
 assign letter=$windowsBuchstabe
 "@
-    $befehle | diskpart.exe | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw "diskpart fehlgeschlagen (Exitcode $LASTEXITCODE)." }
 }
 
 function AntwortdateiSchreiben([string]$windowsLaufwerk, [pscredential]$zugang) {
@@ -172,15 +207,36 @@ function AntwortdateiSchreiben([string]$windowsLaufwerk, [pscredential]$zugang) 
     Set-Content -Path (Join-Path $panther 'unattend.xml') -Value $inhalt -Encoding utf8
 }
 
-function PlatteAufbauen([string]$vhdx, [pscredential]$zugang) {
-    Schritt "Lege VHDX an ($PlatteGB GB dynamisch) ..."
-    New-VHD -Path $vhdx -SizeBytes ($PlatteGB * 1GB) -Dynamic | Out-Null
+function EinrichtungAblegen([string]$windowsLaufwerk, [pscredential]$zugang, [string]$repo) {
+    $einrichtung = Join-Path $windowsLaufwerk 'Einrichtung'
+    New-Item -ItemType Directory -Path $einrichtung -Force | Out-Null
+    # Mit BOM: Windows PowerShell 5.1 liest eine Datei ohne BOM als ANSI, aus „–“ würde dabei ein typografisches
+    # Anführungszeichen, das der Parser als Stringende nimmt
+    Get-Content (Join-Path $skriptOrdner 'Gast-Einrichten.ps1') -Raw -Encoding utf8 |
+        Set-Content (Join-Path $einrichtung 'Gast-Einrichten.ps1') -Encoding utf8BOM -NoNewline
+    # Das Registrierungstoken gilt nur 1 h – deshalb erst nach dem Aufspielen geholt; das Gast-Skript registriert
+    # den Runner als Erstes. Es löscht die Datei am Ende wieder (Passwort im Klartext)
+    Schritt 'Hole Registrierungstoken für den Runner ...'
+    $token = GhAufruf @('api', '-X', 'POST', "repos/$repo/actions/runners/registration-token", '--jq', '.token')
+    [ordered]@{
+        Passwort    = $zugang.GetNetworkCredential().Password
+        RepoUrl     = "https://github.com/$repo"
+        RunnerToken = $token
+        RunnerName  = $VmName
+    } | ConvertTo-Json | Set-Content -Path (Join-Path $einrichtung 'parameter.json') -Encoding utf8
+}
+
+function PlatteAufbauen([pscredential]$zugang, [string]$repo) {
+    Schritt "Lege VHD an ($PlatteGB GB dynamisch) ..."
+    VhdAnlegen
     $iso = Mount-DiskImage -ImagePath $IsoPfad -PassThru
     try {
-        $disk = Mount-VHD -Path $vhdx -NoDriveLetter -Passthru | Get-Disk
+        $disk = Mount-DiskImage -ImagePath $vhd -NoDriveLetter -Access ReadWrite -PassThru | Get-Disk
         try {
-            # Schutz vor „clean“ auf der falschen Platte: nur die eben eingehängte Datei-VHDX
-            if ((Get-VHD -Path $vhdx).DiskNumber -ne $disk.Number) { throw "Datenträger $($disk.Number) ist nicht $vhdx." }
+            # Schutz vor „clean“ auf der falschen Platte: nur die eben eingehängte Datei-VHD
+            if ($disk.BusType -ne 'File Backed Virtual' -or $disk.Location -ne $vhd) {
+                throw "Datenträger $($disk.Number) ($($disk.BusType), $($disk.Location)) ist nicht $vhd."
+            }
             $system, $windows = FreieLaufwerksbuchstaben 2
             PlattePartitionieren $disk.Number $system $windows
 
@@ -193,64 +249,106 @@ function PlatteAufbauen([string]$vhdx, [pscredential]$zugang) {
             & bcdboot.exe "${windows}:\Windows" /s "${system}:" /f UEFI | Out-Host
             if ($LASTEXITCODE -ne 0) { throw "bcdboot fehlgeschlagen (Exitcode $LASTEXITCODE)." }
             AntwortdateiSchreiben "${windows}:\" $zugang
+            EinrichtungAblegen "${windows}:\" $zugang $repo
         }
-        finally { Dismount-VHD -Path $vhdx }
+        finally { Dismount-DiskImage -ImagePath $vhd | Out-Null }
     }
     finally { Dismount-DiskImage -ImagePath $IsoPfad | Out-Null }
 }
 
 # ── VM ────────────────────────
 
-function VmAnlegen([string]$vhdx) {
+function VmAnlegen {
     Schritt "Lege VM $VmName an ($Kerne Kerne, $ArbeitsspeicherGB GB) ..."
-    $vm = New-VM -Name $VmName -Generation 2 -Path $Ablage -VHDPath $vhdx -SwitchName $Switch `
-        -MemoryStartupBytes ($ArbeitsspeicherGB * 1GB)
-    Set-VMProcessor -VM $vm -Count $Kerne
-    Set-VMMemory -VM $vm -DynamicMemoryEnabled $false
-    # Feste Auflösung: virtualisierte Listen und Layout hängen von der Fenstergröße ab
-    Set-VMVideo -VM $vm -HorizontalResolution 1920 -VerticalResolution 1080 -ResolutionType Single
-    # Mit dem Rechner starten und sauber herunterfahren; automatische Snapshots würden den Grundzustand verwässern
-    Set-VM -VM $vm -AutomaticStartAction Start -AutomaticStopAction ShutDown -AutomaticCheckpointsEnabled $false
-    $vm
+    VBox @('createvm', '--name', $VmName, '--ostype', 'Windows2025_64', '--basefolder', $VmOrdner, '--register') | Out-Null
+    VBox @('modifyvm', $VmName, '--firmware', 'efi', '--cpus', $Kerne, '--memory', ($ArbeitsspeicherGB * 1024),
+        '--ioapic', 'on', '--graphicscontroller', 'vboxsvga', '--vram', '128', '--nic1', 'nat',
+        '--audio-enabled', 'off', '--boot1', 'disk', '--boot2', 'none', '--boot3', 'none', '--boot4', 'none',
+        '--uart1', '0x3F8', '4', '--uart-mode1', 'file', $gastProtokoll) | Out-Null
+    # Feste Auflösung: virtualisierte Listen und Layout hängen von der Fenstergröße ab. Ohne Gasterweiterungen
+    # übernimmt Windows die Auflösung der EFI-Grafik
+    VBox @('setextradata', $VmName, 'VBoxInternal2/EfiGraphicsResolution', '1920x1080') | Out-Null
+    VBox @('storagectl', $VmName, '--name', 'SATA', '--add', 'sata', '--controller', 'IntelAhci', '--portcount', '1') | Out-Null
+    VBox @('storageattach', $VmName, '--storagectl', 'SATA', '--port', '0', '--device', '0', '--type', 'hdd', '--medium', $vhd) | Out-Null
 }
 
-function AufPowerShellDirectWarten([pscredential]$zugang) {
-    Schritt 'Warte, bis Windows eingerichtet ist (PowerShell Direct erreichbar, ~5–15 min) ...'
-    $bis = (Get-Date).AddMinutes(30)
+function VmStarten {
+    VBox @('startvm', $VmName, '--type', 'headless') | Out-Null
+}
+
+function NeueGastZeilen([ref]$gelesen) {
+    if (-not (Test-Path $gastProtokoll)) { return @() }
+    $zeilen = @(Get-Content $gastProtokoll -ErrorAction SilentlyContinue | Where-Object { $_.Trim() })
+    $neu = $zeilen | Select-Object -Skip $gelesen.Value
+    $gelesen.Value = $zeilen.Count
+    $neu
+}
+
+function AufEinrichtungWarten([string]$repo) {
+    Schritt 'Warte auf die Einrichtung in der VM (Windows-Setup, Werkzeuge, Runner; ~30–60 min) ...'
+    $bis = (Get-Date).AddMinutes(90)
+    $gelesen = 0
     while ($true) {
-        try {
-            Invoke-Command -VMName $VmName -Credential $zugang -ScriptBlock { $env:COMPUTERNAME } -ErrorAction Stop | Out-Null
-            return
+        foreach ($zeile in NeueGastZeilen ([ref]$gelesen)) {
+            Write-Host "    $zeile"
+            if ($zeile -cmatch 'Gast: FEHLER') { throw "Einrichtung in der VM gescheitert – siehe $gastProtokoll" }
         }
-        catch {
-            if ((Get-Date) -gt $bis) { throw "VM nach 30 min nicht per PowerShell Direct erreichbar: $($_.Exception.Message)" }
-            Start-Sleep -Seconds 20
-        }
+        if ((RunnerStatus $repo) -eq 'online') { return }
+        if ((Get-Date) -gt $bis) { throw "Runner $VmName nach 90 min nicht online – siehe $gastProtokoll" }
+        Start-Sleep -Seconds 20
     }
 }
 
-function GastEinrichten([pscredential]$zugang, [string]$repo) {
-    Schritt 'Hole Registrierungstoken für den Runner ...'
-    $token = GhAufruf @('api', '-X', 'POST', "repos/$repo/actions/runners/registration-token", '--jq', '.token')
-    Schritt 'Richte die VM ein (Werkzeuge, Runner, Anmeldung; ~10–20 min) ...'
-    Invoke-Command -VMName $VmName -Credential $zugang -FilePath (Join-Path $skriptOrdner 'Gast-Einrichten.ps1') `
-        -ArgumentList $zugang.GetNetworkCredential().Password, "https://github.com/$repo", $token, $VmName
+function RunnerStatus([string]$repo) {
+    GhAufruf @('api', "repos/$repo/actions/runners", '--jq', ".runners[] | select(.name == `"$VmName`") | .status")
+}
+
+function VmHerunterfahren {
+    Schritt 'Fahre die VM herunter ...'
+    VBox @('controlvm', $VmName, 'acpipowerbutton') | Out-Null
+    $bis = (Get-Date).AddMinutes(5)
+    while ((VmZustand) -ne 'poweroff') {
+        if ((Get-Date) -gt $bis) {
+            Schritt 'VM reagiert nicht auf den Ausschaltknopf – schalte hart aus ...'
+            VBox @('controlvm', $VmName, 'poweroff') | Out-Null
+        }
+        Start-Sleep -Seconds 5
+    }
+    Start-Sleep -Seconds 5   # die Sitzung gibt die VM erst kurz nach dem Ausschalten frei
 }
 
 function GrundzustandSichern {
-    Schritt 'Fahre die VM herunter und lege Snapshot „Grundzustand“ an ...'
-    Stop-VM -Name $VmName -Force
-    Checkpoint-VM -Name $VmName -SnapshotName 'Grundzustand'
-    Start-VM -Name $VmName
+    Schritt "Lege Snapshot „$snapshot“ an ..."
+    # Ohne serielle Schnittstelle: jeder Start würde sonst das Gast-Protokoll des Aufbaus überschreiben
+    VBox @('modifyvm', $VmName, '--uart1', 'off') | Out-Null
+    VBox @('snapshot', $VmName, 'take', $snapshot) | Out-Null
+}
+
+function AutostartEinrichten {
+    Schritt "Richte Autostart ein (geplante Aufgabe „$autostartAufgabe“) ..."
+    # Unter dem eigenen Konto ohne erhöhte Rechte – so wie der VirtualBox-Manager, sonst laufen zwei VBoxSVC
+    $benutzer = "$env:USERDOMAIN\$env:USERNAME"
+    $befehl = "`"$vboxManage`" snapshot $VmName restore $snapshot & `"$vboxManage`" startvm $VmName --type headless"
+    $aktion = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/s /c `"$befehl`""
+    $ausloeser = New-ScheduledTaskTrigger -AtLogOn -User $benutzer
+    $principal = New-ScheduledTaskPrincipal -UserId $benutzer -LogonType Interactive -RunLevel Limited
+    $einstellungen = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+        -ExecutionTimeLimit (New-TimeSpan -Minutes 5)
+    Register-ScheduledTask -TaskName $autostartAufgabe -Action $aktion -Trigger $ausloeser -Principal $principal `
+        -Settings $einstellungen -Force | Out-Null
 }
 
 function AufRunnerWarten([string]$repo) {
-    Schritt 'Warte, bis der Runner bei GitHub online ist ...'
+    Schritt 'Starte die VM über die Aufgabe und warte, bis der Runner wieder online ist ...'
+    Start-ScheduledTask -TaskName $autostartAufgabe
     $bis = (Get-Date).AddMinutes(10)
+    # Erst offline abwarten: GitHub meldet den Runner nach dem Herunterfahren noch eine Weile als online
+    $warOffline = $false
     while ($true) {
-        $status = GhAufruf @('api', "repos/$repo/actions/runners", '--jq', ".runners[] | select(.name == `"$VmName`") | .status")
-        if ($status -eq 'online') { return }
-        if ((Get-Date) -gt $bis) { throw "Runner $VmName nach 10 min nicht online (Status: '$status')." }
+        $status = RunnerStatus $repo
+        if ($status -ne 'online') { $warOffline = $true }
+        elseif ($warOffline) { return }
+        if ((Get-Date) -gt $bis) { throw "Runner $VmName nach 10 min nicht wieder online (Status: '$status')." }
         Start-Sleep -Seconds 15
     }
 }
@@ -258,20 +356,22 @@ function AufRunnerWarten([string]$repo) {
 # ── Ablauf ────────────────────────
 
 if (-not $IsoPfad) { $IsoPfad = StandardIsoFinden }
-New-Item -ItemType Directory -Path (Join-Path $Ablage 'protokolle') -Force | Out-Null
-Start-Transcript -Path (Join-Path $Ablage "protokolle\aufbau-$(Get-Date -Format yyyyMMdd-HHmmss).log") | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $ablage 'protokolle') -Force | Out-Null
+Start-Transcript -Path (Join-Path $ablage "protokolle\aufbau-$zeitstempel.log") | Out-Null
 Push-Location (Split-Path $PSScriptRoot -Parent)   # gh erkennt das Repo am Arbeitsordner; eine Admin-Konsole startet in System32
 try {
     $start = Get-Date
     $repo = GhAufruf @('repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner')
     VoraussetzungenPruefen
-    if ($Neuaufbau) { AlteVmEntfernen $repo $vhdx }
+    if ($Neuaufbau) { AlteVmEntfernen $repo }
     $zugang = ZugangErzeugen
-    PlatteAufbauen $vhdx $zugang
-    VmAnlegen $vhdx | Start-VM
-    AufPowerShellDirectWarten $zugang
-    GastEinrichten $zugang $repo
+    PlatteAufbauen $zugang $repo
+    VmAnlegen
+    VmStarten
+    AufEinrichtungWarten $repo
+    VmHerunterfahren
     GrundzustandSichern
+    AutostartEinrichten
     AufRunnerWarten $repo
     Schritt "Fertig nach $([int]((Get-Date) - $start).TotalMinutes) min: Runner $VmName ist online."
 }

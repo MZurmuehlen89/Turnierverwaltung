@@ -1,5 +1,5 @@
 # GUI-Tests auf Knopfdruck (#525): Windows-Runner mit Desktop-Sitzung für UI Automation, SQL Server LocalDB statt
-# des lokalen SQL Servers. Standard ist der eigene Runner in der Hyper-V-VM (#609, build/GuiRunner-VM-Aufbauen.ps1),
+# des lokalen SQL Servers. Standard ist der eigene Runner in der VirtualBox-VM (#609, build/GuiRunner-VM-Aufbauen.ps1),
 # der keine Actions-Minuten verbraucht; ist der Rechner aus, wartet der Job bis zu 24 h. windows-2025 bleibt als
 # Ausweichmöglichkeit und kostet doppelt zählende Windows-Minuten.
 name: GUI-Tests
@@ -12,7 +12,7 @@ on:
         required: false
         default: ''
       runner:
-        description: 'Wo die Tests laufen: eigener Runner (Hyper-V-VM) oder GitHub-Runner windows-2025 (kostet Minuten)'
+        description: 'Wo die Tests laufen: eigener Runner (VirtualBox-VM) oder GitHub-Runner windows-2025 (kostet Minuten)'
         type: choice
         options:
           - eigener

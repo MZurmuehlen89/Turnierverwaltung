@@ -100,7 +100,7 @@ A single red run is investigated, not simply re-run.
 | Workflow | Runner | Trigger | Runs |
 |---|---|---|---|
 | `.github/workflows/unit-tests.yml` | `ubuntu-latest` | push to `main`/`ci/**`, pull request, manual; not for `*.md`-only changes | `Fussballturnierverwaltung.Tests` (incl. architecture tests) |
-| `.github/workflows/gui-tests.yml` | own runner in a Hyper-V VM (default), `windows-2025` as fallback | manual only (`gh workflow run gui-tests.yml --ref <branch>`) | `GuiTest.Framework.Tests` + GUI tests via `build/GuiTests-Ausfuehren.ps1` against LocalDB |
+| `.github/workflows/gui-tests.yml` | own runner in a VirtualBox VM (default), `windows-2025` as fallback | manual only (`gh workflow run gui-tests.yml --ref <branch>`) | `GuiTest.Framework.Tests` + GUI tests via `build/GuiTests-Ausfuehren.ps1` against LocalDB |
 
 - The repo is private and Windows minutes count double, hence Linux for every push and Windows only on demand
   (budget in #525).
@@ -119,32 +119,54 @@ A single red run is investigated, not simply re-run.
   uploaded as artifact `gui-tests-belege` (screenshots, log tails, app log). The job logs the screen resolution and
   tries to raise it to 1920×1080.
 
-### Own GUI runner (Hyper-V VM, #609)
+### Own GUI runner (VirtualBox VM, #609)
 
 The Actions budget (2,000 min/month, Windows counts double) did not cover the GUI runs, so they run on a
-**self-hosted runner in a Hyper-V VM** on the development machine (no Actions minutes). Not on the desktop itself
+**self-hosted runner in a VirtualBox VM** on the development machine (no Actions minutes). Not on the desktop itself
 (FlaUI takes over mouse and keyboard), not in a container (Windows containers have no interactive desktop).
 
+- **Why VirtualBox, not Hyper-V:** Hyper-V starts every VM under a virtual account of `NT VIRTUAL MACHINE\Virtual
+  Machines`, which needs the right "Log on as a service"; a group policy sets that right without the group
+  (`New-VM` → `0x80070569`), not changeable locally. VirtualBox runs the VM under the user's own account. Memory
+  integrity (HVCI) keeps the Windows hypervisor running, so VirtualBox needs the Windows feature **Windows Hypervisor
+  Platform** (slower than native VT-x, enough for the GUI tests).
 - **Choosing the runner:** input `runner` of `gui-tests.yml` — `eigener` (default; job labels
   `self-hosted, windows, gui`) or `windows-2025` (GitHub runner, costs minutes):
   `gh workflow run gui-tests.yml --ref <branch> -f runner=windows-2025`. If the development machine is off, a job for
   the own runner waits in the queue (GitHub cancels it after 24 h).
 - **Building the VM:** `pwsh build/GuiRunner-VM-Aufbauen.ps1` in an **elevated** PowerShell 7 (Claude cannot start
-  it — the user does; Claude reads the log afterwards). Needs Hyper-V enabled, `gh` logged in with admin rights on the
-  repo, the ISO "Windows Server 2025 Evaluation" (default: `*SERVER_EVAL*.iso` in Downloads, otherwise `-IsoPfad`).
-  Runs unattended in about 30–45 min: applies the Datacenter Desktop Experience image straight onto a VHDX (no ISO
-  boot — a Gen2 VM would wait for "Press any key"), answer file `build/GuiRunner-VM/unattend.xml`, then installs
-  everything via PowerShell Direct with `build/GuiRunner-VM/Gast-Einrichten.ps1` (.NET 10 SDK, LocalDB, Git,
-  PowerShell 7, runner, autologon, no lock screen/sleep/automatic updates), shuts down, creates the checkpoint
-  `Grundzustand`, starts again and waits until the runner is online.
-- **Location:** `C:\Hyper-V\Turnierverwaltung-GuiRunner` — VHDX, VM files, `protokolle\aufbau-*.log` (one per build),
-  `zugang.xml` (random Administrator password, DPAPI, readable only by the user's account:
-  `(Import-Clixml …\zugang.xml).GetNetworkCredential().Password`). VM: Gen2, 4 cores, 8 GB, fixed 1920×1080
-  (`Set-VMVideo`), starts and shuts down with the host.
-- **Runner runs interactively**, not as a service (services have no desktop): a scheduled task starts `run.cmd` at
-  the Administrator's autologon in the console session.
-- **Pitfall – looking into the VM:** connect with the **basic session** only. An enhanced session (RDP) takes over the
-  console session; after disconnecting it stays locked and UI Automation fails. If that happened: restart the VM.
+  it — the user does; Claude reads the logs afterwards). Needs VirtualBox 7.1+, Windows Hypervisor Platform, `gh`
+  logged in with admin rights on the repo, the ISO "Windows Server 2025 Evaluation" (default: `*SERVER_EVAL*.iso` in
+  Downloads, otherwise `-IsoPfad`). Runs unattended in about 45–75 min:
+  1. creates a VHD with diskpart and applies the Datacenter Desktop Experience image straight onto it with DISM (no
+     ISO boot — an EFI VM would wait for "Press any key"); puts the answer file `build/GuiRunner-VM/unattend.xml`,
+     `build/GuiRunner-VM/Gast-Einrichten.ps1` (copied **with BOM** — Windows PowerShell 5.1 reads BOM-less files as
+     ANSI, "–" then turns into a typographic quote that ends a string) and `C:\Einrichtung\parameter.json`
+     (password, runner token — valid 1 h, so fetched only after DISM) into the image;
+  2. creates the VM with `VBoxManage` and starts it headless; Windows sets itself up, logs on automatically and runs
+     the guest script via `FirstLogonCommands`: runner registration first, then .NET 10 SDK, LocalDB, Git,
+     PowerShell 7, permanent autologon, no lock screen/sleep/automatic updates; deletes `C:\Einrichtung` and the
+     answer file (plain-text password), restarts;
+  3. waits until the runner is online, shuts the VM down, takes the snapshot `Grundzustand`, registers the autostart
+     task and starts the VM through it.
+- **Seeing what happens inside the VM:** there is no PowerShell Direct and no guest additions; the guest script
+  writes every step to **COM1**, VirtualBox writes the serial port to `protokolle\gast-*.log` on the host, and the
+  build script echoes it. A line `Gast: FEHLER: …` aborts the build. Full transcript inside the VM:
+  `C:\GuiRunner-Einrichtung.log`. The serial port is switched off before the snapshot.
+- **Location:** `%USERPROFILE%\VirtualBox VMs\Turnierverwaltung-GuiRunner` — VHD, VM files,
+  `protokolle\aufbau-*.log`/`gast-*.log` (one pair per build), `zugang.xml` (random Administrator password, DPAPI,
+  readable only by the user's account: `(Import-Clixml …\zugang.xml).GetNetworkCredential().Password`).
+  VM: EFI, 4 cores, 8 GB, NAT, fixed 1920×1080 (extra data `VBoxInternal2/EfiGraphicsResolution`; without guest
+  additions Windows keeps the EFI resolution).
+- **Autostart:** scheduled task "Turnierverwaltung GUI-Runner starten" (at the user's logon, not elevated — like the
+  VirtualBox Manager, otherwise two `VBoxSVC` would run) restores `Grundzustand` and starts the VM headless. Every
+  start therefore begins from a clean state, and VirtualBox killing the VM at logoff does no harm. The runner updates
+  itself after each restore if GitHub has released a newer version.
+- **Runner runs interactively**, not as a service (services have no desktop): a scheduled task inside the VM starts
+  `run.cmd` at the Administrator's autologon in the console session.
+- **Pitfall – looking into the VM:** VirtualBox Manager → "Show" opens the display of the headless VM; close it with
+  "continue running in the background". Do not connect via RDP: it takes over the console session, which stays
+  locked afterwards and UI Automation fails. If that happened: restart the VM (or log off and on at the host).
 - **Rebuild** (evaluation expires after 180 days, or the VM is broken): `pwsh build/GuiRunner-VM-Aufbauen.ps1 -Neuaufbau`
-  — removes the VM with its disk and checkpoints, deregisters the runner at GitHub, builds anew.
-- Stage 2 (reset to the checkpoint before every job, `--ephemeral` runner) is a separate follow-up issue.
+  — removes the VM with its disk and snapshots, deregisters the runner at GitHub, builds anew.
+- Stage 2 (reset to the snapshot before every job, `--ephemeral` runner) is a separate follow-up issue.

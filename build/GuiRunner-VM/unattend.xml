@@ -24,6 +24,23 @@
       <UserLocale>de-DE</UserLocale>
     </component>
     <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <!-- Automatische Anmeldung, bis Gast-Einrichten.ps1 sie dauerhaft einrichtet (es löscht AutoLogonCount) -->
+      <AutoLogon>
+        <Enabled>true</Enabled>
+        <LogonCount>5</LogonCount>
+        <Username>Administrator</Username>
+        <Password>
+          <Value>{{PASSWORT}}</Value>
+          <PlainText>true</PlainText>
+        </Password>
+      </AutoLogon>
+      <FirstLogonCommands>
+        <SynchronousCommand wcm:action="add">
+          <Order>1</Order>
+          <CommandLine>powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Einrichtung\Gast-Einrichten.ps1</CommandLine>
+          <Description>GUI-Runner einrichten (#609)</Description>
+        </SynchronousCommand>
+      </FirstLogonCommands>
       <OOBE>
         <HideEULAPage>true</HideEULAPage>
         <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
