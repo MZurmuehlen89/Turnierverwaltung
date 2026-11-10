@@ -111,28 +111,32 @@ public class SeedDatenService
 
     /// <summary>Issue #233: befüllt Wappen bei bereits vorhandenen Mannschaften ohne Bild nachträglich —
     /// getrennt von <see cref="BildmaterialNachruesten"/>, da Mannschaften selbst erst durch
-    /// <see cref="MannschaftenNachruesten"/> angelegt werden (Reihenfolge in <see cref="InitialisierenAsync"/>).</summary>
+    /// <see cref="MannschaftenNachruesten"/> angelegt werden (Reihenfolge in <see cref="InitialisierenAsync"/>).
+    /// Fragt erst nur Schlüssel und Kurzname ab: Ohne das private Bildmaterial (#633) bleiben alle Mannschaften ohne
+    /// Wappen, vollständig geladen würden sie bei jedem Start für nichts getrackt.</summary>
     private async Task MannschaftsBildmaterialNachruesten(CancellationToken ct)
     {
-        var mannschaftenOhneWappen = await _context.Mannschaften.Where(m => m.Wappen == null).ToListAsync(ct);
-        int aktualisiert = 0;
-        foreach (var mannschaft in mannschaftenOhneWappen)
+        var ohneWappen = await _context.Mannschaften.AsNoTracking()
+            .Where(m => m.Wappen == null)
+            .Select(m => new { m.Id, m.Kurzname, m.Mannschaftsart })
+            .ToListAsync(ct);
+        var wappenJeId = new Dictionary<int, byte[]>();
+        foreach (var mannschaft in ohneWappen)
         {
-            var kategorie = mannschaft.Mannschaftsart == Domain.Enums.Mannschaftsart.Nationalmannschaft
-                ? "Nationalmannschaften"
-                : "Vereinswappen";
-            var wappen = _bildQuelle.Laden(kategorie, mannschaft.Kurzname);
-            if (wappen is null) continue;
-            mannschaft.Wappen = wappen;
-            aktualisiert++;
+            var wappen = _bildQuelle.Laden(WappenKategorie(mannschaft.Mannschaftsart), mannschaft.Kurzname);
+            if (wappen is not null) wappenJeId[mannschaft.Id] = wappen;
         }
+        if (wappenJeId.Count == 0) return;
 
-        if (aktualisiert > 0)
-        {
-            await _context.SaveChangesAsync(ct);
-            Protokollieren(aktualisiert, "Mannschafts-Wappen nachgerüstet.");
-        }
+        var ids = wappenJeId.Keys.ToList();
+        var mannschaften = await _context.Mannschaften.Where(m => ids.Contains(m.Id)).ToListAsync(ct);
+        foreach (var mannschaft in mannschaften) mannschaft.Wappen = wappenJeId[mannschaft.Id];
+        await _context.SaveChangesAsync(ct);
+        Protokollieren(mannschaften.Count, "Mannschafts-Wappen nachgerüstet.");
     }
+
+    private static string WappenKategorie(Domain.Enums.Mannschaftsart art) =>
+        art == Domain.Enums.Mannschaftsart.Nationalmannschaft ? "Nationalmannschaften" : "Vereinswappen";
 
     private async Task MannschaftenNachruesten(CancellationToken ct)
     {
