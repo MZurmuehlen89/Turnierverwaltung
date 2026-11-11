@@ -14,7 +14,7 @@ GUI-Tests.
 > testing with Stryker.NET, FlaUI-based GUI tests in CI). The domain language and code are German. Developed together
 > with Claude Code as AI pair programmer – see “Entstehung mit Claude Code” below.
 
-![Auslosung mit Lostöpfen](docs/bilder/auslosung.png)
+![Live-Auslosung aus Lostöpfen](docs/bilder/auslosung.png)
 
 ## Funktionsumfang
 
