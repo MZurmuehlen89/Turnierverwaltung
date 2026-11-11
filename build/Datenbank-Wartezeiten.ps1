@@ -53,7 +53,9 @@ else {
     foreach ($titel in $abfragen.Keys) {
         $ausgabe.Add("### $titel")
         $ausgabe.Add('```')
-        $ergebnis = sqlcmd -S $Server -E -C -W -s ' | ' -Q $abfragen[$titel] 2>&1
+        # Actions startet pwsh mit ErrorActionPreference Stop: Meldungen von sqlcmd auf stderr sollen hier nur in
+        # der Ausgabe landen, nicht den Schritt abbrechen
+        $ergebnis = & { $ErrorActionPreference = 'Continue'; sqlcmd -S $Server -E -C -W -s '|' -Q $abfragen[$titel] 2>&1 }
         $ergebnis | ForEach-Object { $ausgabe.Add("$_") }
         $ausgabe.Add('```')
     }
@@ -61,3 +63,7 @@ else {
 
 $ausgabe
 if ($env:GITHUB_STEP_SUMMARY) { $ausgabe | Add-Content $env:GITHUB_STEP_SUMMARY }
+
+# Reine Diagnose: Ein fehlgeschlagener sqlcmd-Aufruf darf den Lauf nicht rot färben (Actions übernimmt sonst den
+# letzten Exitcode)
+exit 0
