@@ -63,6 +63,12 @@ updates:
           - "Microsoft.NET.Test.Sdk"
           - "NetArchTest*"
         update-types: [minor, patch]
+    # Pkcs ist nur ein Sicherheits-Pin über dem transitiven Pkcs aus SqlClient (#493) und folgt der EF-Core-Linie:
+    # 11.0 brächte nichts außer System.Formats.Asn1 11.0 in die App (Nutzerentscheid 11.11.2026, #646–#648).
+    # Patches 10.0.x kommen weiter über die Gruppe dotnet. Mit dem Wechsel auf EF Core 11 diese Ausnahme entfernen.
+    ignore:
+      - dependency-name: "System.Security.Cryptography.Pkcs"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
