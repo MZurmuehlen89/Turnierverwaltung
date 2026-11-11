@@ -86,6 +86,11 @@ jobs:
               if (Test-Path $pfad) { Get-Content $pfad | Add-Content $env:GITHUB_STEP_SUMMARY }
           }
 
+      # Worauf der SQL Server gewartet hat – erklärt Stillstände einzelner Zugriffe von mehreren Sekunden (#631)
+      - name: Datenbank-Wartezeiten
+        if: always()
+        run: ./build/Datenbank-Wartezeiten.ps1
+
       - name: Ergebnisse hochladen
         if: always()
         uses: actions/upload-artifact@v7
