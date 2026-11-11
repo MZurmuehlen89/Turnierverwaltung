@@ -7,11 +7,13 @@ src/
   Domain/          Entitäten, Value Objects, Enums, Domain-Interfaces
   Application/     Services, Use Cases, Validierung, Auslosung, Simulation, Ranking, Spielplangeneratoren
   Infrastructure/  EF Core DbContext, Repositories, Migrationen, Seed, Import/Export
-  Console/         Spectre.Console Menüs, Dialoge, Liveticker, Startup (Konsole)
-  Wpf/             WPF-Views, MVVM-ViewModels, Navigation, Fluent.Ribbon, Startup (Desktop)
+  WinUi/           WinUI-3-Views, MVVM-ViewModels, Navigation, Ribbon, Startup (Desktop)
 
 tests/
-  Tests/           Unit- und Integrationstests (xUnit + FluentAssertions)
+  Tests/                Unit-, Integrations- und Architekturtests (xUnit + FluentAssertions, NetArchTest)
+  GuiTests/             GUI-Tests gegen die laufende App (FlaUI/UI Automation, eigene Test-DB)
+  GuiTest.Framework/    Seitenobjekte, Warte- und Szenario-Bausteine für die GUI-Tests
+  GuiTest.Framework.Tests/  Tests des GUI-Test-Frameworks
 ```
 
 ## Abhängigkeitsregeln
@@ -20,10 +22,15 @@ tests/
 Domain           keine externen Abhängigkeiten, kein EF Core, kein UI
 Application      kennt Domain; definiert Repository-Interfaces (IRepository<T> etc.)
 Infrastructure   implementiert Application-Interfaces; kennt EF Core, SQL Server
-Console          Kompositionswurzel (Konsole); registriert alle Abhängigkeiten (DI), startet die App
-Wpf              Kompositionswurzel (Desktop); registriert dieselben Services wie Console plus ViewModels
-Tests            referenziert alle src-Projekte; verwendet EF Core InMemory für Integrationstests
+WinUi            einzige Kompositionswurzel; registriert alle Abhängigkeiten (DI), startet die App
+Tests            referenziert Domain, Application, Infrastructure; EF Core InMemory für Integrationstests
 ```
+
+Die Architekturtests (`tests/Fussballturnierverwaltung.Tests/Architektur`) prüfen diese Richtung bei jedem Testlauf.
+
+Bis Herbst 2026 gab es neben WinUI eine Konsolen- und eine WPF-Oberfläche sowie einen Avalonia-Versuch. WPF wurde
+aufgegeben, weil sich ein sauberer Dunkelmodus mit den nativen WPF-Steuerelementen nicht umsetzen ließ; die Konsole
+war die erste Oberfläche überhaupt.
 
 ## Domänenmodell
 
@@ -154,25 +161,24 @@ Auslosung ──< Lostopf ──< LostopfEintrag ──> Mannschaft
 
 **Begründung:** Sackgassen bei manueller Auslosung sollen verhindert werden. Der `AuslosungsAnalyseService` in Application berechnet dies per Constraint-Propagation und gibt bei Sackgassengefahr eine Warnung aus.
 
-### AD-005: Namespace-Konflikt Console
+### AD-005: Namespace-Konflikt Console (entfallen)
 
-**Entscheidung:** Das Projekt heißt `Fussballturnierverwaltung.Console` (per Spec), aber der Root-Namespace ist `Fussballturnierverwaltung.Konsole`.
-
-**Begründung:** Der Name `Console` kollidiert in C# mit `System.Console`. Durch den abweichenden Namespace wird der Konflikt vermieden, ohne die Ordner- und Projektdatei-Namenskonvention zu verletzen.
+Galt für das frühere Konsolenprojekt (Root-Namespace `Fussballturnierverwaltung.Konsole` statt `Console`, um
+`System.Console` nicht zu verdecken). Das Projekt ist entfernt; die Nummer bleibt belegt.
 
 ### AD-006: Microsoft.Extensions.Hosting als Kompositionswurzel
 
-**Entscheidung:** Beide Startup-Projekte (Console und Wpf) verwenden `Microsoft.Extensions.Hosting` für DI, Logging und Konfiguration.
+**Entscheidung:** Das Startup-Projekt (WinUi) verwendet `Microsoft.Extensions.Hosting` für DI, Logging (Serilog) und Konfiguration.
 
-**Begründung:** Standardisierter Aufbau, der einen gemeinsamen Service-Registrierungscode für beide UI-Schichten ermöglicht. Alle Services werden zentral in `Program.cs` (Console) bzw. `App.xaml.cs` (Wpf) registriert. `InfrastrukturErweiterungen.AddInfrastruktur()` kapselt die Infrastructure-Registrierung und wird von beiden aufgerufen.
+**Begründung:** Standardisierter Aufbau; als es noch mehrere Oberflächen gab, teilten sie sich so denselben Registrierungscode. Alle Services werden in `App.xaml.cs` registriert, `InfrastrukturErweiterungen.AddInfrastruktur()` kapselt die Infrastructure-Registrierung.
 
-### AD-007: NavigationService erstellt einen neuen DI-Scope pro Navigation (WPF)
+### AD-007: NavigationService erstellt einen neuen DI-Scope pro Navigation
 
-**Entscheidung:** `NavigationService.NavigiereZu<TViewModel>()` disposed den vorherigen Scope und erstellt einen neuen `IServiceScope`. ViewModels werden als `Transient` registriert.
+**Entscheidung:** Der `NavigationService` disposed bei jeder Navigation den vorherigen Scope und erstellt einen neuen `IServiceScope`, aus dem das Ziel-ViewModel aufgelöst wird.
 
 **Begründung:** Ein `DbContext` ist nicht threadsafe und darf nicht über mehrere Views geteilt werden. Durch den Scope-Wechsel bei jeder Navigation erhält jedes ViewModel seinen eigenen `DbContext`. Ohne dieses Muster würden parallele oder aufeinanderfolgende Datenbankoperationen verschiedener Views denselben Kontext teilen und zu Tracking-Konflikten führen.
 
-**Konsequenz:** `NavigationService` und `MainViewModel` sind `Singleton`; alle ViewModels und Application-Services sind `Transient` (WPF) bzw. `Scoped` (Console). Der aktive Scope lebt genau so lange wie das aktive ViewModel.
+**Konsequenz:** Application-Services sind `Scoped` (Ausnahme: `EinstellungenService` als `Singleton`, er hält keinen `DbContext`), ViewModels überwiegend `Transient`. Der aktive Scope lebt genau so lange wie die aktive Seite.
 
 ### AD-008: Regelwerk auf Turnierinstanz- und Rundenebene (Hierarchisches Default)
 
