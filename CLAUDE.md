@@ -143,7 +143,9 @@ silently pass everything when Git Bash's tools are missing from `PATH`.
 
 `.github/dependabot.yml` checks NuGet (directories `/`, `/src/*`, `/tests/*` — via the `.slnx` alone Dependabot found
 only one project; `tools/` is not covered) and GitHub Actions every Monday 06:00. Minor/patch updates come grouped (`dotnet` = EF Core + `Microsoft.Extensions` + Pkcs,
-which depend on each other and must move together; `windows-sdk`, `analyzer`, `testpakete`, `uebrige`), major updates one PR each. Dependabot alerts and security
+which depend on each other and move together within a major version — `Microsoft.Extensions` may run one major
+ahead of EF Core, since 11.0 targets net10.0 too (#640/#641); when EF Core's next major arrives, take its packages
+(Design, SqlServer, InMemory) in one step; `windows-sdk`, `analyzer`, `testpakete`, `uebrige`), major updates one PR each. Dependabot alerts and security
 updates are switched on in the repo settings — security fix PRs arrive any time. Every PR runs the unit tests (#525).
 
 **WinUi project:** in the old repository Dependabot skipped it (27.10.2026); since the move to the new repository
