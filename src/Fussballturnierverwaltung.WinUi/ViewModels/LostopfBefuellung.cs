@@ -1,9 +1,11 @@
 using Fussballturnierverwaltung.Application.Auslosungen;
+using Fussballturnierverwaltung.Application.Diagnose;
 using Fussballturnierverwaltung.Application.Ranglisten;
 using Fussballturnierverwaltung.Application.Turniere;
 using Fussballturnierverwaltung.Domain.Entitaeten.Auslosungen;
 using Fussballturnierverwaltung.Domain.Entitaeten.Ranglisten;
 using Fussballturnierverwaltung.Domain.Entitaeten.Turniere;
+using Microsoft.Extensions.Logging;
 
 namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
@@ -14,7 +16,8 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 public class LostopfBefuellung(
     AuslosungService auslosungService,
     RanglisteService ranglisteService,
-    TurnierInstanzService instanzService)
+    TurnierInstanzService instanzService,
+    ILogger<LostopfBefuellung> logger)
 {
     /// <summary>
     /// Verteilt die aktuell noch unzugeordneten Mannschaften (<paramref name="verfuegbar"/>, noch offene Platzhalter
@@ -26,6 +29,8 @@ public class LostopfBefuellung(
     /// </summary>
     public async Task<string?> NachRanglisteBefuellenAsync(Auslosung detail, int ranglisteId, IReadOnlyList<TeilnehmerAnzeige> verfuegbar)
     {
+        // Legt Team für Team in die Töpfe (je ein Speichern): ohne Vorgang meldete die Seite währenddessen „Bereit“ (#631)
+        using var vorgang = logger.Vorgang($"Töpfe nach Rangliste befüllen (Auslosung {detail.Id})", "Töpfe werden befüllt …");
         if (detail.Lostoepfe.Count == 0)
             return "Diese Auslosung hat keine Lostöpfe.";
 

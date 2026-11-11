@@ -503,6 +503,10 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
         if (NeuFormAktiv)
         {
             if (_instanz is null || NeuFormular.Runde is not { } runde) return;
+            // Klammert Anlegen, Befüllen nach Standard-Rangliste (bei 36 Teams ~5 s) und das Neuladen danach: Ohne ihn
+            // meldete die Seite schon nach dem ersten Laden „Bereit“, und eine Pool-Änderung in dieser Zeit verwarf das
+            // abschließende Neuladen (#631, Wackler TeilnehmerpoolTests)
+            using var vorgang = _logger.Vorgang($"Auslosung anlegen (Runde {runde.Id})", "Auslosung wird angelegt …");
             try
             {
                 var neu = await _auslosungService.ErstellenAsync(NeuFormular.Eingabe(_instanz.Id, runde));
