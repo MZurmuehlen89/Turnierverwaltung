@@ -94,7 +94,7 @@ simply re-run.
 
 | Workflow | Runner | Trigger | Runs |
 |---|---|---|---|
-| `.github/workflows/unit-tests.yml` | `ubuntu-latest` | push to `main`/`ci/**`, pull request, manual; not for `*.md`-only changes | `Fussballturnierverwaltung.Tests` (incl. architecture tests) |
+| `.github/workflows/unit-tests.yml` | `ubuntu-latest` | push to `main`/`ci/**`, pull request, manual; not for changes only to `*.md`/`docs/` | `Fussballturnierverwaltung.Tests` (incl. architecture tests) |
 | `.github/workflows/gui-tests.yml` | `windows-2025` | same as the unit tests; manual with a filter (`gh workflow run gui-tests.yml --ref <branch>`) | `GuiTest.Framework.Tests` + GUI tests via `build/GuiTests-Ausfuehren.ps1` against LocalDB |
 
 - Since the repo went public (11.11.2026, #636) Actions minutes are free, Windows included — both workflows run on

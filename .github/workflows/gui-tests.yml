@@ -8,9 +8,9 @@ name: GUI-Tests
 on:
   push:
     branches: [main, 'ci/**']
-    paths-ignore: ['**/*.md']
+    paths-ignore: ['**/*.md', 'docs/**']
   pull_request:
-    paths-ignore: ['**/*.md']
+    paths-ignore: ['**/*.md', 'docs/**']
   workflow_dispatch:
     inputs:
       xunit_argumente:
