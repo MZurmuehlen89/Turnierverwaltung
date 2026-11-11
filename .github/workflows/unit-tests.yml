@@ -1,5 +1,6 @@
-# Unit-Tests bei jedem Push und Pull Request (#525). Läuft auf Linux, weil Windows-Minuten doppelt zählen und das
-# Repo privat ist (Budgetrechnung im Issue). Domain, Application, Infrastructure und die Unit-Tests zielen auf net10.0;
+# Unit-Tests bei jedem Push und Pull Request (#525). Läuft auf Linux: schneller als Windows und deckt im Testcode
+# Windows-Annahmen auf (feste Pfade, Groß-/Kleinschreibung). Bis zur Veröffentlichung (#636) sprach zudem das
+# Minutenbudget dafür. Domain, Application, Infrastructure und die Unit-Tests zielen auf net10.0;
 # die Projekte für Windows (WinUi, GUI-Tests) baut dieser Job nicht.
 name: Unit-Tests
 

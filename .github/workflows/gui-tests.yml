@@ -1,27 +1,27 @@
-# GUI-Tests auf Knopfdruck (#525): Windows-Runner mit Desktop-Sitzung für UI Automation, SQL Server LocalDB statt
-# des lokalen SQL Servers. Standard ist der GitHub-Runner windows-2025 (kostet doppelt zählende Windows-Minuten).
-# Der eigene Runner in der VirtualBox-VM (#609, build/GuiRunner-VM-Aufbauen.ps1) verbraucht keine Minuten, ist aber
-# noch nicht eingerichtet: Ohne registrierten Runner wartet der Job bis zu 24 h in der Warteschlange. Sobald die VM
-# läuft, den Standard wieder auf „eigener“ stellen.
+# GUI-Tests (#525) auf dem GitHub-Runner windows-2025: Desktop-Sitzung für UI Automation, SQL Server LocalDB statt
+# des lokalen SQL Servers. Seit das Repo öffentlich ist, kosten Actions-Minuten nichts (#636): Der Komplettlauf
+# startet bei jedem Push und Pull Request wie die Unit-Tests, manuell lässt er sich mit Filter starten.
+# Kein self-hosted Runner (#609 verworfen): Ein Fremd-PR kann den Workflow ändern und so eigenen Code auf dem
+# Runner-Rechner ausführen.
 name: GUI-Tests
 
 on:
+  push:
+    branches: [main, 'ci/**']
+    paths-ignore: ['**/*.md']
+  pull_request:
+    paths-ignore: ['**/*.md']
   workflow_dispatch:
     inputs:
       xunit_argumente:
         description: 'Filter für den xunit-Runner, z. B. "-class Fussballturnierverwaltung.GuiTests.MannschaftsPflegeTests" (leer = alle)'
         required: false
         default: ''
-      runner:
-        description: 'Wo die Tests laufen: eigener Runner (VirtualBox-VM) oder GitHub-Runner windows-2025 (kostet Minuten)'
-        type: choice
-        options:
-          - windows-2025
-          - eigener
-        default: windows-2025
 
+# Je Ereignisart eine Gruppe: Ein gezielter manueller Lauf bricht den automatischen Komplettlauf desselben Branches
+# nicht ab; ein neuer Push dagegen den vorigen schon
 concurrency:
-  group: gui-tests-${{ github.ref }}
+  group: gui-tests-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 permissions:
@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   gui-tests:
-    runs-on: ${{ inputs.runner == 'windows-2025' && 'windows-2025' || fromJSON('["self-hosted", "windows", "gui"]') }}
+    runs-on: windows-2025
     timeout-minutes: 60
     env:
       DOTNET_NOLOGO: true
@@ -46,8 +46,7 @@ jobs:
           dotnet-version: 10.0.x
 
       # Virtualisierte Listen und das Layout hängen von der Fenstergröße ab: Auflösung festhalten und hochsetzen,
-      # soweit der Runner es zulässt (windows-2025: Standard 1024×768; eigener Runner: fest 1920×1080 über die
-      # VirtualBox-Einstellung VBoxInternal2/EfiGraphicsResolution, der Versuch ändert dort nichts)
+      # soweit der Runner es zulässt (windows-2025: Standard 1024×768)
       - name: Bildschirmauflösung
         run: |
           Add-Type -AssemblyName System.Windows.Forms

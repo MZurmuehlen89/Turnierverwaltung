@@ -1,5 +1,5 @@
 # Dependabot (#542): hält NuGet-Pakete und GitHub-Actions-Versionen aktuell. Wöchentlich und gruppiert, damit es
-# wenige PRs gibt und das Actions-Budget geschont wird (jeder PR startet die Unit-Tests, #525). Minor- und
+# wenige PRs gibt (jeder PR startet Unit- und GUI-Tests, #525, #636). Minor- und
 # Patch-Updates landen in Gruppen, Major-Updates kommen einzeln, weil sie eigens geprüft werden (CLAUDE.md).
 version: 2
 

@@ -29,7 +29,7 @@ Spielplan, Tabelle, Simulation in Application, without `*Service` classes. Repor
 `artifacts/stryker/<timestamp>/reports/mutation-report.html` (+ `.json`).
 - Duration: ~2 min coverage capture of all tests per run, then ~3 s per mutant at default concurrency (half the
   logical cores; on the 6-core dev laptop more parallelism gains only ~15–25 %). The full scope (~2800 mutants)
-  takes hours and loads the CPU — use `-Seit` for everyday work. Not run in CI (budget, #525).
+  takes hours and loads the CPU — use `-Seit` for everyday work. Not run in CI (a full run takes hours).
 - Limit: conditions with pattern variables (`x is { } wert && …`) cannot be mutated without CS0165 (unassigned
   variable); Stryker then drops *all* mutants of that method ("Safe Mode", status CompileError). Those methods stay
   unchecked — code is not rewritten for this.
@@ -85,95 +85,41 @@ xunit runner, e.g. `-class …`). The script builds an **unpackaged, self-contai
 do not block the user's machine and need no prior announcement. Local runs (`build/GuiTests-Ausfuehren.ps1`) only
 when the user asks for one; those take over mouse and keyboard and must be announced first.
 
-**How often to run** (user decision 25.10.2026, applies to CI runs as well):
-
-| Change | New/changed scenario | Full run |
-|---|---|---|
-| Normal case: own view, own AutomationIds, test only reads or uses unique test data | **2×** + counter-check | no |
-| Shared parts touched: framework/page objects, controls used in several places, main window/navigation/command bar, seed, startup path, DB schema | 1× | **1×** (counts as the scenario's second run) |
-| New test creates data other scenarios could see (one database per run) | 1× | **1×** |
-
-A single red run is investigated, not simply re-run.
+**How often to run** (user decision 25.10.2026, adapted 11.11.2026 in #636): every push to `ci/**` or `main` runs
+the full GUI suite automatically. A new or changed scenario gets **one targeted run** (`-class`) on top, so it runs
+**2×** in total, plus a counter-check (the test fails without the change). A single red run is investigated, not
+simply re-run.
 
 ## CI (GitHub Actions, #525)
 
 | Workflow | Runner | Trigger | Runs |
 |---|---|---|---|
 | `.github/workflows/unit-tests.yml` | `ubuntu-latest` | push to `main`/`ci/**`, pull request, manual; not for `*.md`-only changes | `Fussballturnierverwaltung.Tests` (incl. architecture tests) |
-| `.github/workflows/gui-tests.yml` | own runner in a VirtualBox VM (default), `windows-2025` as fallback | manual only (`gh workflow run gui-tests.yml --ref <branch>`) | `GuiTest.Framework.Tests` + GUI tests via `build/GuiTests-Ausfuehren.ps1` against LocalDB |
+| `.github/workflows/gui-tests.yml` | `windows-2025` | same as the unit tests; manual with a filter (`gh workflow run gui-tests.yml --ref <branch>`) | `GuiTest.Framework.Tests` + GUI tests via `build/GuiTests-Ausfuehren.ps1` against LocalDB |
 
-- The repo is private and Windows minutes count double, hence Linux for every push and Windows only on demand
-  (budget in #525).
+- Since the repo went public (11.11.2026, #636) Actions minutes are free, Windows included — both workflows run on
+  every push and PR. The unit tests stay on Linux: faster feedback, and it catches Windows assumptions (next point).
+- Pull requests from forks run with a read-only token and no secrets (the repo has none); every run of an outside
+  contributor needs the owner's approval (repo setting, #636).
 - Because unit tests run on **Linux**, test code must not assume Windows: no fixed paths like `C:\…` (build them from
   `Path.GetTempPath()`/`Path.Combine`), mind case-sensitive file names, use `/` in MSBuild paths. The job runs with
   `LANG=de_DE.UTF-8` and `TZ=Europe/Berlin` like the development machine.
 - Both jobs write TRX (artifact) and a Markdown summary (job summary) via xunit's own reporters
   (`--report-xunit-trx/-markdown` under MTP, `-result-trx/-result-markdown` for the GUI tests' in-process runner).
-- Running a GUI scenario in CI: push the work to a branch `ci/<issue>` (the unit tests run there automatically,
-  `main` stays untouched until everything is green), then
-  `gh workflow run gui-tests.yml --ref ci/<issue> -f xunit_argumente="-class Fussballturnierverwaltung.GuiTests.<Klasse>"`
-  (empty = full run), follow it with `gh run watch <id> --exit-status`, download evidence with
-  `gh run download <id> -n gui-tests-belege`. Runs on the same ref cancel each other (`concurrency`) — start the
-  second of two runs only after the first has finished.
+- Running a GUI scenario in CI: push the work to a branch `ci/<issue>` (unit tests and the full GUI run start there
+  automatically, `main` stays untouched until everything is green); a targeted run on top:
+  `gh workflow run gui-tests.yml --ref ci/<issue> -f xunit_argumente="-class Fussballturnierverwaltung.GuiTests.<Klasse>"`.
+  Follow a run with `gh run watch <id> --exit-status`, download evidence with `gh run download <id> -n gui-tests-belege`.
+  `concurrency` groups by ref and event: a new push cancels the previous push run, a manual run cancels only an
+  earlier manual run on the same ref — start the second of two manual runs only after the first has finished.
 - GUI job: `TURNIERVERWALTUNG_GUITEST_SERVER=(localdb)\MSSQLLocalDB`; on failure `artifacts/guitest/laeufe/` is
   uploaded as artifact `gui-tests-belege` (screenshots, log tails, app log). The job logs the screen resolution and
   tries to raise it to 1920×1080.
 
-### Own GUI runner (VirtualBox VM, #609)
+### No self-hosted runner (#609 dropped in #636)
 
-The Actions budget (2,000 min/month, Windows counts double) did not cover the GUI runs, so they run on a
-**self-hosted runner in a VirtualBox VM** on the development machine (no Actions minutes). Not on the desktop itself
-(FlaUI takes over mouse and keyboard), not in a container (Windows containers have no interactive desktop).
-
-- **Why VirtualBox, not Hyper-V:** Hyper-V starts every VM under a virtual account of `NT VIRTUAL MACHINE\Virtual
-  Machines`, which needs the right "Log on as a service"; a group policy sets that right without the group
-  (`New-VM` → `0x80070569`), not changeable locally. VirtualBox runs the VM under the user's own account. Memory
-  integrity (HVCI) keeps the Windows hypervisor running, so VirtualBox needs the Windows feature **Windows Hypervisor
-  Platform** (slower than native VT-x, enough for the GUI tests).
-- **Choosing the runner:** input `runner` of `gui-tests.yml` — `eigener` (default; job labels
-  `self-hosted, windows, gui`) or `windows-2025` (GitHub runner, costs minutes):
-  `gh workflow run gui-tests.yml --ref <branch> -f runner=windows-2025`. If the development machine is off, a job for
-  the own runner waits in the queue (GitHub cancels it after 24 h).
-- **Building the VM:** `pwsh build/GuiRunner-VM-Aufbauen.ps1` in an **elevated** PowerShell 7 (Claude cannot start
-  it — the user does; Claude reads the logs afterwards). Needs VirtualBox 7.1+, Windows Hypervisor Platform, `gh`
-  logged in with admin rights on the repo, the ISO "Windows Server 2025 Evaluation" (default: `*SERVER_EVAL*.iso` in
-  Downloads, otherwise `-IsoPfad`). Runs unattended in about 45–75 min:
-  1. creates a VHD with diskpart and applies the Datacenter Desktop Experience image straight onto it with DISM (no
-     ISO boot — an EFI VM would wait for "Press any key"); puts the answer file `build/GuiRunner-VM/unattend.xml`,
-     `build/GuiRunner-VM/Gast-Einrichten.ps1` (copied **with BOM** — Windows PowerShell 5.1 reads BOM-less files as
-     ANSI, "–" then turns into a typographic quote that ends a string) and `C:\Einrichtung\parameter.json`
-     (password, runner token — valid 1 h, so fetched only after DISM) into the image;
-  2. creates the VM with `VBoxManage` and starts it headless; Windows sets itself up, logs on automatically and runs
-     the guest script via `FirstLogonCommands`: runner registration first, then .NET 10 SDK, Visual C++ runtime,
-     LocalDB, Git,
-     PowerShell 7, permanent autologon, no lock screen/sleep/automatic updates; deletes `C:\Einrichtung` and the
-     answer file (plain-text password), restarts;
-  3. waits until the runner is online, shuts the VM down, takes the snapshot `Grundzustand`, registers the autostart
-     task and starts the VM through it.
-- **Seeing what happens inside the VM:** there is no PowerShell Direct and no guest additions; the guest script
-  writes every step to **COM1**, VirtualBox writes the serial port to `protokolle\gast-*.log` on the host, and the
-  build script echoes it. A line `Gast: FEHLER: …` aborts the build. Full transcript inside the VM:
-  `C:\GuiRunner-Einrichtung.log`. The serial port is switched off before the snapshot.
-- **Diagnosing inside the VM** (Claude can do this itself, no elevation needed): `VBoxManage controlvm
-  Turnierverwaltung-GuiRunner screenshotpng <file>` shows the screen; `build/GuiRunner-VM/VM-Tippen.ps1` types
-  commands (German layout — `keyboardputstring` assumes US). Send results back over COM1 into `gast-*.log` (example in
-  the script). A process's error dialog often lacks focus — keys then land buffered in the console;
-  `-AltTab` brings it forward. First use (#609): LocalDB 2025 aborted with MSI 1603 because its VSS Writer service
-  (`sqlwriter.exe`) needs the Visual C++ runtime, which a fresh Windows Server lacks (the GitHub image has it).
-- **Location:** `%USERPROFILE%\VirtualBox VMs\Turnierverwaltung-GuiRunner` — VHD, VM files,
-  `protokolle\aufbau-*.log`/`gast-*.log` (one pair per build), `zugang.xml` (random Administrator password, DPAPI,
-  readable only by the user's account: `(Import-Clixml …\zugang.xml).GetNetworkCredential().Password`).
-  VM: EFI, 4 cores, 8 GB, NAT, fixed 1920×1080 (extra data `VBoxInternal2/EfiGraphicsResolution`; without guest
-  additions Windows keeps the EFI resolution).
-- **Autostart:** scheduled task "Turnierverwaltung GUI-Runner starten" (at the user's logon, not elevated — like the
-  VirtualBox Manager, otherwise two `VBoxSVC` would run) restores `Grundzustand` and starts the VM headless. Every
-  start therefore begins from a clean state, and VirtualBox killing the VM at logoff does no harm. The runner updates
-  itself after each restore if GitHub has released a newer version.
-- **Runner runs interactively**, not as a service (services have no desktop): a scheduled task inside the VM starts
-  `run.cmd` at the Administrator's autologon in the console session.
-- **Pitfall – looking into the VM:** VirtualBox Manager → "Show" opens the display of the headless VM; close it with
-  "continue running in the background". Do not connect via RDP: it takes over the console session, which stays
-  locked afterwards and UI Automation fails. If that happened: restart the VM (or log off and on at the host).
-- **Rebuild** (evaluation expires after 180 days, or the VM is broken): `pwsh build/GuiRunner-VM-Aufbauen.ps1 -Neuaufbau`
-  — removes the VM with its disk and snapshots, deregisters the runner at GitHub, builds anew.
-- Stage 2 (reset to the snapshot before every job, `--ephemeral` runner) is a separate follow-up issue.
+A self-hosted GUI runner in a VirtualBox VM (#609) was meant to save Actions minutes while the repo was private. It
+never ran (VirtualBox over the Windows Hypervisor Platform froze in Windows setup) and became pointless once the repo
+went public (free minutes). **Do not register a self-hosted runner for this public repo:** a pull request from a fork
+can change a workflow to `runs-on: self-hosted` and run its own code on that machine. The build scripts stay in
+`build/GuiRunner-VM*` for reference; the full documentation is in the closing comment of #609.

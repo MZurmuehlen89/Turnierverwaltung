@@ -4,6 +4,10 @@
 .SYNOPSIS
     Baut die VirtualBox-VM mit dem self-hosted GitHub-Runner für die GUI-Tests komplett unbeaufsichtigt (#609).
 
+    NICHT IN GEBRAUCH (#636): Seit das Repo öffentlich ist, laufen die GUI-Tests kostenlos auf windows-2025. Für ein
+    öffentliches Repo keinen self-hosted Runner registrieren – ein Fremd-PR kann den Workflow ändern und eigenen
+    Code auf der VM ausführen. Das Skript bleibt als Nachschlagewerk.
+
 .DESCRIPTION
     Die GUI-Tests übernehmen Maus und Tastatur, deshalb laufen sie nicht auf dem Desktop des Entwicklungsrechners,
     sondern in einer eigenen VM (Windows Server 2025 Evaluation, Desktop Experience – dasselbe System wie der
