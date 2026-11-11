@@ -24,6 +24,10 @@ public interface ILostopfArbeitsbereichKontext
     Task DetailNeuLadenAsync(int auslosungId);
 
     void FehlerMelden(string? meldung);
+
+    /// <summary>Die Töpfe werden gerade nach Rangliste befüllt. Das Neuladen danach nimmt alle Teams aus den Töpfen
+    /// wieder in den Teilnehmerpool — eine Pool-Änderung von zwischendurch ginge still verloren (#631).</summary>
+    void BefuellungLaeuft(bool laeuft);
 }
 
 /// <summary>Arbeitsbereich einer offenen Auslosung: Liste der verfügbaren Teams mit ihren Filtern (#344, #421),
@@ -393,12 +397,17 @@ public partial class LostopfArbeitsbereichViewModel : ObservableObject
     private async Task LostoepfeNachRanglisteBefuellenAsync(int ranglisteId)
     {
         if (_kontext.AktuellesDetail is not { } detail) return;
-        if (await _befuellung.NachRanglisteBefuellenAsync(detail, ranglisteId, [.. VerfuegbareTeilnehmer]) is { } fehler)
+        _kontext.BefuellungLaeuft(true);
+        try
         {
-            _kontext.FehlerMelden(fehler);
-            return;
+            if (await _befuellung.NachRanglisteBefuellenAsync(detail, ranglisteId, [.. VerfuegbareTeilnehmer]) is { } fehler)
+            {
+                _kontext.FehlerMelden(fehler);
+                return;
+            }
+            await _kontext.DetailNeuLadenAsync(detail.Id);
         }
-        await _kontext.DetailNeuLadenAsync(detail.Id);
+        finally { _kontext.BefuellungLaeuft(false); }
     }
 
     private bool KannLostoepfeAutomatischBefuellen() => _bearbeitbar && !_befuellenGesperrt;

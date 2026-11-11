@@ -59,6 +59,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private AuslosungsTeilnehmer? _teilnehmer;
     private bool _ladenAktiv;
     private bool _seitenlisteAktualisierungAktiv;
+    private bool _befuellungLaeuft;
 
     /// <summary>Schutz des geteilten DbContext — <see cref="TurnierdurchfuehrungViewModel"/> setzt hier den des
     /// <see cref="TurnierTabKoordinator"/> ein, damit sich die Aktionen dieses Reiters und das Laden nach einem
@@ -71,6 +72,12 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     Auslosung? ILostopfArbeitsbereichKontext.AktuellesDetail => _auslosungDetail;
     Task ILostopfArbeitsbereichKontext.DetailNeuLadenAsync(int auslosungId) => LadeDetailAsync(auslosungId);
     void ILostopfArbeitsbereichKontext.FehlerMelden(string? meldung) => Fehlermeldung = meldung;
+
+    void ILostopfArbeitsbereichKontext.BefuellungLaeuft(bool laeuft)
+    {
+        _befuellungLaeuft = laeuft;
+        BearbeitbarWeitergeben();
+    }
 
     // ── Geteilter Instanz-Kontext (siehe Klassendoku) ────────────────────────────
     [ObservableProperty]
@@ -1034,7 +1041,7 @@ public partial class AuslosungViewModel : ViewModelBase, IRibbonAware, IHatUnges
     private void BearbeitbarWeitergeben()
     {
         Arbeitsbereich.BearbeitbarSetzen(DetailAktiv && IstBearbeitbar);
-        Teilnehmerpool.BearbeitbarSetzen(DetailAktiv && IstBearbeitbar);
+        Teilnehmerpool.BearbeitbarSetzen(DetailAktiv && IstBearbeitbar && !_befuellungLaeuft);
     }
 
     // ── Teilnehmerpool (#576) ─────────────────────────────────────────────────
