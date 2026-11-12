@@ -10,7 +10,8 @@ public sealed class Hauptfenster(Window fenster)
     private const string BEFEHLSLEISTE = "Hauptfenster.Befehlsleiste";
     private const string BEREIT = "Bereit";
 
-    private static readonly TimeSpan _ladezeit = TimeSpan.FromSeconds(30);
+    /// <summary>Wie lange ein Vorgang der App höchstens dauern darf (auch für Seiten, die auf ein Ergebnis warten).</summary>
+    public static readonly TimeSpan Ladezeit = TimeSpan.FromSeconds(30);
 
     // Zwischen zwei Ladeschritten kann der Zustand kurz auf „Bereit“ springen
     private static readonly TimeSpan _ruhezeit = TimeSpan.FromMilliseconds(300);
@@ -129,10 +130,10 @@ public sealed class Hauptfenster(Window fenster)
         Wait.UntilStable(
             () => Seitentitel == seitentitel && Ladezustand == BEREIT,
             _ruhezeit,
-            _ladezeit,
+            Ladezeit,
             $"Seite '{seitentitel}' geladen (Seitentitel und Ladezustand '{BEREIT}')");
 
     /// <summary>Wartet, bis nach einer Aktion innerhalb einer Seite kein Vorgang mehr läuft.</summary>
     public void WarteBisRuhig() =>
-        Wait.UntilStable(() => Ladezustand == BEREIT, _ruhezeit, _ladezeit, $"Ladezustand '{BEREIT}'");
+        Wait.UntilStable(() => Ladezustand == BEREIT, _ruhezeit, Ladezeit, $"Ladezustand '{BEREIT}'");
 }
