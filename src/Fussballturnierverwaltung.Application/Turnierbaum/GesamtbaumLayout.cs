@@ -43,104 +43,149 @@ public static class GesamtbaumLayout
         if (baumRunden.Count == 0)
             return new GesamtbaumLayoutErgebnis([], [], 0, 0);
 
-        int letzte = baumRunden.Count - 1;
-        int mitte = letzte;
-        int spaltenAnzahl = 2 * letzte + 1;
+        return new Aufbau(baumRunden, platzDreiRunden).Berechnen();
+    }
 
-        var alle = baumRunden.SelectMany(r => r.Knoten).ToDictionary(k => k.Id);
-        var rundeJeKnoten = new Dictionary<int, int>();
-        for (int ri = 0; ri < baumRunden.Count; ri++)
-            foreach (var k in baumRunden[ri].Knoten)
-                rundeJeKnoten[k.Id] = ri;
+    /// <summary>Ein Rechenlauf: hält die Zwischenstände (Seite und Zeile je Knoten), die die Phasen
+    /// nacheinander füllen.</summary>
+    private sealed class Aufbau
+    {
+        private readonly List<BracketRunde> _baumRunden;
+        private readonly List<BracketRunde> _platzDreiRunden;
+        private readonly int _letzte;
+        private readonly int _spaltenAnzahl;
+        private readonly Dictionary<int, TurnierBaumKnoten> _alle;
+        private readonly Dictionary<int, int> _rundeJeKnoten = [];
+        private readonly Dictionary<int, GesamtbaumSeite> _seite = [];
+        private readonly List<TurnierBaumKnoten> _wurzeln = [];
+        private readonly Dictionary<int, double> _zeile = [];
+        private readonly List<GesamtbaumPosition> _positionen = [];
+        private readonly List<GesamtbaumBeschriftung> _beschriftungen = [];
+
+        public Aufbau(List<BracketRunde> baumRunden, List<BracketRunde> platzDreiRunden)
+        {
+            _baumRunden = baumRunden;
+            _platzDreiRunden = platzDreiRunden;
+            _letzte = baumRunden.Count - 1;
+            _spaltenAnzahl = 2 * _letzte + 1;
+
+            _alle = baumRunden.SelectMany(r => r.Knoten).ToDictionary(k => k.Id);
+            for (int ri = 0; ri < baumRunden.Count; ri++)
+                foreach (var k in baumRunden[ri].Knoten)
+                    _rundeJeKnoten[k.Id] = ri;
+        }
+
+        private int Mitte => _letzte;
+
+        public GesamtbaumLayoutErgebnis Berechnen()
+        {
+            SeitenZuordnen();
+
+            double linkeZeilen = ZeilenVergeben(GesamtbaumSeite.Links);
+            double rechteZeilen = ZeilenVergeben(GesamtbaumSeite.Rechts);
+            double hoehe = Math.Max(Math.Max(linkeZeilen, rechteZeilen), 1);
+
+            SeitenPositionieren(hoehe, linkeZeilen, rechteZeilen);
+            double untersteZeile = FinaleSetzen(hoehe);
+            untersteZeile = PlatzDreiSetzen(untersteZeile);
+            SeitenBeschriften();
+
+            return new GesamtbaumLayoutErgebnis(_positionen, _beschriftungen, _spaltenAnzahl,
+                Math.Max(hoehe, untersteZeile + 0.5));
+        }
 
         // ── Seiten zuordnen: von oben nach unten, Kinder erben die Seite ihres Elternknotens ──────────
-        var seite = new Dictionary<int, GesamtbaumSeite>();
-        var wurzeln = new List<TurnierBaumKnoten>();
-        foreach (var k in baumRunden[letzte].Knoten)
+        private void SeitenZuordnen()
         {
-            seite[k.Id] = GesamtbaumSeite.Mitte;
-            if (KindVon(k.LinkerKindKnotenId, alle) is { } l) SeiteVererben(l, GesamtbaumSeite.Links, alle, seite);
-            if (KindVon(k.RechterKindKnotenId, alle) is { } r) SeiteVererben(r, GesamtbaumSeite.Rechts, alle, seite);
-        }
-        for (int ri = letzte - 1; ri >= 0; ri--)
-        {
-            var offen = baumRunden[ri].Knoten.Where(k => !seite.ContainsKey(k.Id)).ToList();
-            var rundenKnoten = baumRunden[ri].Knoten;
-            foreach (var k in offen)
+            foreach (var k in _baumRunden[_letzte].Knoten)
             {
-                int index = IndexVon(rundenKnoten, k);
-                var s = index < (rundenKnoten.Count + 1) / 2 ? GesamtbaumSeite.Links : GesamtbaumSeite.Rechts;
-                SeiteVererben(k, s, alle, seite);
-                wurzeln.Add(k);
+                _seite[k.Id] = GesamtbaumSeite.Mitte;
+                if (KindVon(k.LinkerKindKnotenId, _alle) is { } l) SeiteVererben(l, GesamtbaumSeite.Links, _alle, _seite);
+                if (KindVon(k.RechterKindKnotenId, _alle) is { } r) SeiteVererben(r, GesamtbaumSeite.Rechts, _alle, _seite);
+            }
+            for (int ri = _letzte - 1; ri >= 0; ri--)
+            {
+                var offen = _baumRunden[ri].Knoten.Where(k => !_seite.ContainsKey(k.Id)).ToList();
+                var rundenKnoten = _baumRunden[ri].Knoten;
+                foreach (var k in offen)
+                {
+                    int index = IndexVon(rundenKnoten, k);
+                    var s = index < (rundenKnoten.Count + 1) / 2 ? GesamtbaumSeite.Links : GesamtbaumSeite.Rechts;
+                    SeiteVererben(k, s, _alle, _seite);
+                    _wurzeln.Add(k);
+                }
             }
         }
 
         // ── Zeilen je Seite: Blätter fortlaufend, Eltern mittig zwischen ihren Kindern ─────────────────
-        var zeile = new Dictionary<int, double>();
-        double linkeZeilen = ZeilenVergeben(GesamtbaumSeite.Links);
-        double rechteZeilen = ZeilenVergeben(GesamtbaumSeite.Rechts);
-
-        double ZeilenVergeben(GesamtbaumSeite s)
+        private double ZeilenVergeben(GesamtbaumSeite s)
         {
             double blaetter = 0;
-            var startKnoten = baumRunden[letzte].Knoten
+            var startKnoten = _baumRunden[_letzte].Knoten
                 .SelectMany(f => new[]
                 {
-                    s == GesamtbaumSeite.Links ? KindVon(f.LinkerKindKnotenId, alle) : KindVon(f.RechterKindKnotenId, alle)
+                    s == GesamtbaumSeite.Links ? KindVon(f.LinkerKindKnotenId, _alle) : KindVon(f.RechterKindKnotenId, _alle)
                 })
                 .OfType<TurnierBaumKnoten>()
-                .Concat(wurzeln.Where(w => seite[w.Id] == s));
+                .Concat(_wurzeln.Where(w => _seite[w.Id] == s));
             foreach (var k in startKnoten)
-                ZeileZuweisen(k, alle, zeile, ref blaetter);
+                ZeileZuweisen(k, _alle, _zeile, ref blaetter);
             return blaetter;
         }
 
-        double hoehe = Math.Max(Math.Max(linkeZeilen, rechteZeilen), 1);
-
         // Beide Seiten vertikal zentrieren.
-        var positionen = new List<GesamtbaumPosition>();
-        foreach (var (id, z) in zeile)
+        private void SeitenPositionieren(double hoehe, double linkeZeilen, double rechteZeilen)
         {
-            var s = seite[id];
-            double versatz = (hoehe - (s == GesamtbaumSeite.Links ? linkeZeilen : rechteZeilen)) / 2;
-            int ri = rundeJeKnoten[id];
-            int spalte = s == GesamtbaumSeite.Links ? ri : spaltenAnzahl - 1 - ri;
-            positionen.Add(new GesamtbaumPosition(id, spalte, z + versatz, s));
-        }
-
-        // ── Mitte: Finale auf halber Höhe, darunter das Spiel um Platz 3 ───────────────────────────────
-        var beschriftungen = new List<GesamtbaumBeschriftung>();
-        double mitteZeile = hoehe / 2 - (baumRunden[letzte].Knoten.Count - 1) / 2.0;
-        foreach (var k in baumRunden[letzte].Knoten)
-        {
-            positionen.Add(new GesamtbaumPosition(k.Id, mitte, mitteZeile, GesamtbaumSeite.Mitte));
-            mitteZeile += 1;
-        }
-        beschriftungen.Add(new GesamtbaumBeschriftung(mitte, RundenBezeichnung.Name(baumRunden[letzte]),
-            hoehe / 2 - (baumRunden[letzte].Knoten.Count - 1) / 2.0));
-
-        double untersteZeile = mitteZeile - 1;
-        foreach (var p3 in platzDreiRunden)
-        {
-            double p3Zeile = untersteZeile + PLATZ_DREI_ABSTAND;
-            beschriftungen.Add(new GesamtbaumBeschriftung(mitte, RundenBezeichnung.Name(p3), p3Zeile));
-            foreach (var k in p3.Knoten)
+            foreach (var (id, z) in _zeile)
             {
-                positionen.Add(new GesamtbaumPosition(k.Id, mitte, p3Zeile, GesamtbaumSeite.Mitte));
-                untersteZeile = p3Zeile;
-                p3Zeile += 1;
+                var s = _seite[id];
+                double versatz = (hoehe - (s == GesamtbaumSeite.Links ? linkeZeilen : rechteZeilen)) / 2;
+                int ri = _rundeJeKnoten[id];
+                int spalte = s == GesamtbaumSeite.Links ? ri : _spaltenAnzahl - 1 - ri;
+                _positionen.Add(new GesamtbaumPosition(id, spalte, z + versatz, s));
             }
         }
 
-        for (int ri = 0; ri < letzte; ri++)
+        // ── Mitte: Finale auf halber Höhe, darunter das Spiel um Platz 3 ───────────────────────────────
+        private double FinaleSetzen(double hoehe)
         {
-            string name = RundenBezeichnung.Name(baumRunden[ri]);
-            beschriftungen.Add(new GesamtbaumBeschriftung(ri, name));
-            beschriftungen.Add(new GesamtbaumBeschriftung(spaltenAnzahl - 1 - ri, name));
+            double mitteZeile = hoehe / 2 - (_baumRunden[_letzte].Knoten.Count - 1) / 2.0;
+            foreach (var k in _baumRunden[_letzte].Knoten)
+            {
+                _positionen.Add(new GesamtbaumPosition(k.Id, Mitte, mitteZeile, GesamtbaumSeite.Mitte));
+                mitteZeile += 1;
+            }
+            _beschriftungen.Add(new GesamtbaumBeschriftung(Mitte, RundenBezeichnung.Name(_baumRunden[_letzte]),
+                hoehe / 2 - (_baumRunden[_letzte].Knoten.Count - 1) / 2.0));
+
+            return mitteZeile - 1;
         }
 
-        return new GesamtbaumLayoutErgebnis(positionen, beschriftungen, spaltenAnzahl,
-            Math.Max(hoehe, untersteZeile + 0.5));
+        private double PlatzDreiSetzen(double untersteZeile)
+        {
+            foreach (var p3 in _platzDreiRunden)
+            {
+                double p3Zeile = untersteZeile + PLATZ_DREI_ABSTAND;
+                _beschriftungen.Add(new GesamtbaumBeschriftung(Mitte, RundenBezeichnung.Name(p3), p3Zeile));
+                foreach (var k in p3.Knoten)
+                {
+                    _positionen.Add(new GesamtbaumPosition(k.Id, Mitte, p3Zeile, GesamtbaumSeite.Mitte));
+                    untersteZeile = p3Zeile;
+                    p3Zeile += 1;
+                }
+            }
+            return untersteZeile;
+        }
+
+        private void SeitenBeschriften()
+        {
+            for (int ri = 0; ri < _letzte; ri++)
+            {
+                string name = RundenBezeichnung.Name(_baumRunden[ri]);
+                _beschriftungen.Add(new GesamtbaumBeschriftung(ri, name));
+                _beschriftungen.Add(new GesamtbaumBeschriftung(_spaltenAnzahl - 1 - ri, name));
+            }
+        }
     }
 
     private static TurnierBaumKnoten? KindVon(int? id, Dictionary<int, TurnierBaumKnoten> alle) =>
