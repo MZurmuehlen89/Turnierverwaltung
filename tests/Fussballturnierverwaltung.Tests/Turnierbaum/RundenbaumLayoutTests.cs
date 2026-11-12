@@ -98,6 +98,40 @@ public class RundenbaumLayoutTests
     }
 
     [Fact]
+    public void ElternknotenMitNurRechtemKindStehtAufDessenZeile()
+    {
+        // #450: Nur das Auswärtsteam kommt aus einem Vorrundenspiel — vorher landete der Knoten auf der halben
+        // Zeile des Kindes (fehlendes linkes Kind als Zeile 0).
+        var a = Knoten();
+        var b = Knoten();
+        var kind = Knoten(a, b);
+        var finale = Knoten(rechts: kind);
+
+        var e = RundenbaumLayout.Berechnen([Runde(1, [a, b]), Runde(2, [kind]), Runde(3, [finale])]);
+
+        e.ZeileJeKnoten[finale.Id].Should().Be(e.ZeileJeKnoten[kind.Id]);
+    }
+
+    [Fact]
+    public void KnotenMitNurRechtemKindRutschtNichtUeberEinenKnotenDarueber()
+    {
+        // Beispiel aus #450: In derselben Runde steht oben eine Karte mit zwei Kindern (Zeilen 2,5 und 3,5 → 3,0),
+        // darunter eine mit nur rechtem Kind in Zeile 4,5. Mit der halbierten Zeile (2,25) rutschte sie darüber.
+        var vorrunde = Enumerable.Range(0, 5).Select(_ => Knoten()).ToArray();
+        var erste = Knoten(vorrunde[0], vorrunde[1]);
+        var oben = Knoten(vorrunde[2], vorrunde[3]);
+        var unten = Knoten(rechts: vorrunde[4]);
+        var halbfinale = new[] { Knoten(erste, oben), Knoten(links: unten) };
+        var finale = Knoten(halbfinale[0], halbfinale[1]);
+
+        var e = RundenbaumLayout.Berechnen(
+            [Runde(1, vorrunde), Runde(2, [erste, oben, unten]), Runde(3, halbfinale), Runde(4, [finale])]);
+
+        e.ZeileJeKnoten[oben.Id].Should().Be(3.0);
+        e.ZeileJeKnoten[unten.Id].Should().Be(4.5);
+    }
+
+    [Fact]
     public void OhneRundenLeer()
     {
         var e = RundenbaumLayout.Berechnen([]);
