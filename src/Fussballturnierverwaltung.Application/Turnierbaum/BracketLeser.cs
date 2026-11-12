@@ -64,11 +64,19 @@ public class BracketLeser(
                     && platzDreiRundenIds.Contains(k.Spiel.TurnierRundeId));
                 return new BracketRunde(g.Key, geordnet, rueckspiele, rundenName, istSpielUmPlatzDrei);
             })
-            // Issue #385: Spiel um Platz 3 hinter das Finale, damit Halbfinale und Finale benachbart sind.
-            .OrderBy(r => r.IstSpielUmPlatzDrei)
             .ToList();
 
-        return rundenGruppen;
+        return PlatzDreiVorDasFinale(rundenGruppen);
+    }
+
+    /// <summary>#567 (Vorbild kicker.de): Halbfinale → Spiel um Platz 3 → Finale, auch wenn das Spiel um Platz 3 per
+    /// Reihenfolge erst nach dem Finale kommt. Die Linien verbinden die drei trotzdem durchgehend — anders als mit
+    /// #385, wo Platz 3 ohne Linien hinter dem Finale stand.</summary>
+    private static List<BracketRunde> PlatzDreiVorDasFinale(List<BracketRunde> runden)
+    {
+        var kette = runden.Where(r => !r.IstSpielUmPlatzDrei).ToList();
+        if (kette.Count == 0) return runden;
+        return [.. kette.Take(kette.Count - 1), .. runden.Where(r => r.IstSpielUmPlatzDrei), kette[^1]];
     }
 }
 
@@ -76,7 +84,7 @@ public class BracketLeser(
 /// Hin-/Rückspiel-Runden das Rückspiel je Hinspiel-Knoten (Issue #340), sonst ist es leer.
 /// <paramref name="RundenName"/> ist der Name der zugehörigen <see cref="Domain.Entitaeten.Turniere.TurnierRunde"/>
 /// (Issue #365), <c>null</c> wenn keiner ermittelbar ist. <paramref name="IstSpielUmPlatzDrei"/> markiert die Runde,
-/// die nicht zur Baumkette gehört (Issue #385) — sie steht immer am Ende der Liste.</summary>
+/// die nicht zur Baumkette gehört (Issue #385) — sie steht direkt vor der letzten Runde der Kette (#567).</summary>
 public record BracketRunde(
     int RundeNummer,
     IReadOnlyList<TurnierBaumKnoten> Knoten,

@@ -349,11 +349,21 @@ public class TurnierBaumServiceTests
         ctx.Spiele.Select(s => s.Id).Should().BeEquivalentTo([3, 4]);
     }
 
-    [Fact]
-    public async Task BracketLadenAsync_StelltSpielUmPlatzDreiHinterDasFinale()
+    /// <summary>AK1 (#567): Halbfinale → Spiel um Platz 3 → Finale, auch wenn das Spiel um Platz 3 per Reihenfolge
+    /// erst nach dem Finale kommt.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BracketLadenAsync_StelltSpielUmPlatzDreiZwischenHalbfinaleUndFinale(bool platzDreiNachDemFinale)
     {
         await using var ctx = NeuerContext();
         HalbfinalePlatzDreiFinaleAnlegen(ctx);
+        if (platzDreiNachDemFinale)
+        {
+            ctx.TurnierRunden.Single(r => r.Id == 2).Reihenfolge = 3;
+            ctx.TurnierRunden.Single(r => r.Id == 3).Reihenfolge = 2;
+            ctx.SaveChanges();
+        }
         var (baumService, _) = ServiceFuer(ctx);
 
         await baumService.GenerierenAsync(1);
@@ -361,8 +371,8 @@ public class TurnierBaumServiceTests
             new TurnierBaumRepository(ctx), new TurnierInstanzRepository(ctx), new SpielRepository(ctx))
             .BracketLadenAsync(1);
 
-        runden.Select(r => r.RundenName).Should().Equal("Halbfinale", "Finale", "Spiel um Platz 3");
-        runden.Select(r => r.IstSpielUmPlatzDrei).Should().Equal(false, false, true);
+        runden.Select(r => r.RundenName).Should().Equal("Halbfinale", "Spiel um Platz 3", "Finale");
+        runden.Select(r => r.IstSpielUmPlatzDrei).Should().Equal(false, true, false);
     }
 
     // ── Issue #390: unveränderter Baum bleibt stehen ──────────────────────

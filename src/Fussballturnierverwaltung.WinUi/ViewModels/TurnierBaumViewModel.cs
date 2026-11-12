@@ -110,25 +110,14 @@ public partial class TurnierBaumViewModel : ViewModelBase
 
     private void AktualisiereFensterPositionen()
     {
-        var linke = Knoten.Where(k => k.RundenIndex == AktuellerRundenIndex).OrderBy(k => k.Zeile).ToList();
-        for (int i = 0; i < linke.Count; i++)
-            linke[i].FensterY = i * UNIT + UNIT / 2;
+        var linke = LinkeSpalteKnoten;
+        var rechte = RechteSpalteKnoten;
+        var zeilen = RundenFenster.Zeilen([.. linke.Select(k => k.Id)], [.. rechte.Select(k => k.Id)],
+            rechte.ToDictionary(k => k.Id, k => k.Vorgaenger));
+        foreach (var k in linke.Concat(rechte))
+            k.FensterY = zeilen[k.Id] * UNIT;
 
         FensterCanvasHoehe = Math.Max(1, linke.Count) * UNIT + GAP_V;
-
-        if (!ZeigtZweiteSpalte) return;
-
-        var rechte = Knoten.Where(k => k.RundenIndex == FensterEndeIndex).OrderBy(k => k.Zeile).ToList();
-        for (int i = 0; i < rechte.Count; i++)
-        {
-            var eltern = rechte[i];
-            var kindPositionen = new List<double>();
-            if (eltern.LinkerKindKnotenId is { } lid && linke.FirstOrDefault(k => k.Id == lid) is { } l)
-                kindPositionen.Add(l.FensterY);
-            if (eltern.RechterKindKnotenId is { } rid && linke.FirstOrDefault(k => k.Id == rid) is { } r)
-                kindPositionen.Add(r.FensterY);
-            eltern.FensterY = kindPositionen.Count > 0 ? kindPositionen.Average() : i * UNIT + UNIT / 2;
-        }
     }
 
     private int FensterEndeIndex => Math.Min(AktuellerRundenIndex + 1, Math.Max(0, _rundenNamen.Count - 1));
@@ -291,7 +280,7 @@ public partial class TurnierBaumViewModel : ViewModelBase
         BerechneGesamtbaum(runden);
     }
 
-    // Das Finale ist die einzige Karte der letzten Runde vor dem Spiel um Platz 3; das Siegerfeld (#527) folgt ihr.
+    // Das Finale ist die einzige Karte der letzten Runde, die kein Spiel um Platz 3 ist; das Siegerfeld (#527) folgt ihr.
     private void FinaleKnotenSetzen(IReadOnlyList<BracketRunde> runden)
     {
         int finaleIndex = -1;
@@ -333,7 +322,8 @@ public partial class TurnierBaumViewModel : ViewModelBase
 
             string label = mitLabels ? RundenBezeichnung.KnotenLabel(runde, pos) : "";
             var rueckspiel = k.SpielId is int spielId ? runde.RueckspielJeHinspielId.GetValueOrDefault(spielId) : null;
-            yield return BracketKnotenAnzeige.Aus(k, rueckspiel, new KnotenPlatz(zeile, rundenIndex, label, turnierRundeId));
+            yield return BracketKnotenAnzeige.Aus(k, rueckspiel,
+                new KnotenPlatz(zeile, rundenIndex, label, turnierRundeId, layout.VorgaengerJeKnoten[k.Id]));
         }
     }
 

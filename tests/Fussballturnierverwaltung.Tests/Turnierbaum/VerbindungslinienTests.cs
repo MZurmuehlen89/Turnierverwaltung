@@ -55,6 +55,17 @@ public class VerbindungslinienTests
     }
 
     [Fact]
+    public void ZwischenSpalten_EinVorgaengerAufGleicherHoehe_DurchgehendWaagerecht()
+    {
+        // AK4 (#567): Spiel um Platz 3 → Finale.
+        var segmente = Verbindungslinien.ZwischenSpalten(new Punkt(100, 80), null, new Punkt(200, 80));
+
+        segmente.Should().OnlyContain(s => s.Von.Y == 80 && s.Nach.Y == 80);
+        segmente.Min(s => s.Von.X).Should().Be(100);
+        segmente.Max(s => s.Nach.X).Should().Be(200);
+    }
+
+    [Fact]
     public void ZwischenSpalten_NurRechtesKind_MitteAusDessenKante()
     {
         var segmente = Verbindungslinien.ZwischenSpalten(null, new Punkt(120, 80), new Punkt(200, 80));

@@ -10,10 +10,11 @@ namespace Fussballturnierverwaltung.WinUi.ViewModels;
 
 // ── Hilfsklassen für die Karten des Turnierbaums ──────────────────────────
 
-/// <summary>Wo eine Karte im rundenweisen Baum steht: <paramref name="Zeile"/> aus dem
-/// <see cref="RundenbaumLayout"/>, die Runde, die Beschriftung bei festen Paarungen und die Turnierrunde für den
+/// <summary>Wo eine Karte im rundenweisen Baum steht: <paramref name="Zeile"/> und <paramref name="Vorgaenger"/> aus
+/// dem <see cref="RundenbaumLayout"/>, die Runde, die Beschriftung bei festen Paarungen und die Turnierrunde für den
 /// Klick (bei einem Freilos die der übrigen Karten seiner Runde).</summary>
-public readonly record struct KnotenPlatz(double Zeile, int RundenIndex, string Label, int? TurnierRundeId);
+public readonly record struct KnotenPlatz(
+    double Zeile, int RundenIndex, string Label, int? TurnierRundeId, KartenVorgaenger Vorgaenger);
 
 public class BracketKnotenAnzeige
 {
@@ -24,8 +25,12 @@ public class BracketKnotenAnzeige
     public double FensterY { get; set; }
     public int RundenIndex { get; init; }
     public int? TurnierRundeId { get; init; }
+    /// <summary>Kindknoten im Baum — für die Linien der Gesamtübersicht.</summary>
     public int? LinkerKindKnotenId { get; init; }
     public int? RechterKindKnotenId { get; init; }
+    /// <summary>Linien der rundenweisen Ansicht; weichen beim Spiel um Platz 3 und beim Finale von den Kindknoten ab
+    /// (#567).</summary>
+    public KartenVorgaenger Vorgaenger { get; init; }
     public bool IstFreilos { get; init; }
     public string Label { get; init; } = "";
     public bool HatLabel => !string.IsNullOrEmpty(Label);
@@ -75,6 +80,7 @@ public class BracketKnotenAnzeige
         TurnierRundeId = platz.TurnierRundeId,
         LinkerKindKnotenId = k.LinkerKindKnotenId,
         RechterKindKnotenId = k.RechterKindKnotenId,
+        Vorgaenger = platz.Vorgaenger,
         IstFreilos = true,
         Label = platz.Label,
         HeimName = "–",
@@ -92,6 +98,7 @@ public class BracketKnotenAnzeige
             TurnierRundeId = platz.TurnierRundeId ?? s.TurnierRundeId,
             LinkerKindKnotenId = k.LinkerKindKnotenId,
             RechterKindKnotenId = k.RechterKindKnotenId,
+            Vorgaenger = platz.Vorgaenger,
             IstFreilos = false,
             Label = platz.Label,
             HeimName = s.HeimMannschaft?.Name ?? s.HeimPlatzhalterName ?? "—",

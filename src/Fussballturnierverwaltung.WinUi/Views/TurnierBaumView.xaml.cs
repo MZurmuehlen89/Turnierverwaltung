@@ -302,8 +302,9 @@ public sealed partial class TurnierBaumView : UserControl
         var segmente = new List<Segment>();
         foreach (var eltern in rechteKnoten)
         {
-            var links = KindKante(linkeKnoten, eltern.LinkerKindKnotenId);
-            var rechts = KindKante(linkeKnoten, eltern.RechterKindKnotenId);
+            // #567: Vorgänger statt Kindknoten — die Halbfinals münden in das Spiel um Platz 3, dieses ins Finale.
+            var links = KindKante(linkeKnoten, eltern.Vorgaenger.Links);
+            var rechts = KindKante(linkeKnoten, eltern.Vorgaenger.Rechts);
             if (links is null && rechts is null) continue;
             if (!TryKartenMitte(RechteSpalteItems, eltern, rechteKante: false, out var nach)) continue;
 

@@ -37,18 +37,82 @@ public class RundenbaumLayoutTests
         e.ZeilenAnzahl.Should().Be(4);
     }
 
-    [Fact]
-    public void SpielUmPlatzDreiGehoertNichtZurBaumketteUndWirdUntenAngehaengt()
-    {
-        var (blaetter, mitte, finale) = DreiRunden();
-        var platzDrei = Knoten();
+    // ── #567: Spiel um Platz 3 zwischen Halbfinale und Finale (Vorbild kicker.de) ──
 
+    // Wie BracketLeser sie liefert: … → Halbfinale → Spiel um Platz 3 → Finale.
+    private static (RundenbaumLayoutErgebnis Ergebnis, TurnierBaumKnoten[] Halbfinale, TurnierBaumKnoten PlatzDrei,
+        TurnierBaumKnoten Finale) MitSpielUmPlatzDrei()
+    {
+        var (blaetter, halbfinale, finale) = DreiRunden();
+        var platzDrei = Knoten();
         var e = RundenbaumLayout.Berechnen(
-            [Runde(1, blaetter), Runde(2, mitte), Runde(3, [finale]), Runde(4, [platzDrei], platzDrei: true)]);
+            [Runde(1, blaetter), Runde(2, halbfinale), Runde(3, [platzDrei], platzDrei: true), Runde(4, [finale])]);
+        return (e, halbfinale, platzDrei, finale);
+    }
+
+    [Fact]
+    public void SpielUmPlatzDrei_StehtAufDerZeileDesFinales()
+    {
+        var (e, _, platzDrei, finale) = MitSpielUmPlatzDrei();
 
         e.ZeileJeKnoten[finale.Id].Should().Be(2.0, "die Wurzel ist das Finale, nicht das Spiel um Platz 3");
-        e.ZeileJeKnoten[platzDrei.Id].Should().Be(4.5);
-        e.ZeilenAnzahl.Should().Be(5);
+        e.ZeileJeKnoten[platzDrei.Id].Should().Be(2.0);
+        e.ZeilenAnzahl.Should().Be(4, "das Spiel um Platz 3 belegt keine eigene Zeile");
+    }
+
+    [Fact]
+    public void SpielUmPlatzDrei_VorgaengerSindDieHalbfinals()
+    {
+        // AK3: Die Halbfinal-Klammer mündet in die Platz-3-Karte.
+        var (e, halbfinale, platzDrei, _) = MitSpielUmPlatzDrei();
+
+        e.VorgaengerJeKnoten[platzDrei.Id].Should().Be(new KartenVorgaenger(halbfinale[0].Id, halbfinale[1].Id));
+    }
+
+    [Fact]
+    public void Finale_VorgaengerIstDasSpielUmPlatzDrei()
+    {
+        // AK4: Von der Platz-3-Karte führt eine Linie zum Finale.
+        var (e, _, platzDrei, finale) = MitSpielUmPlatzDrei();
+
+        e.VorgaengerJeKnoten[finale.Id].Should().Be(new KartenVorgaenger(platzDrei.Id, null));
+    }
+
+    [Fact]
+    public void SpielUmPlatzDrei_AendertDieVorgaengerDerUebrigenKartenNicht()
+    {
+        var (e, halbfinale, _, _) = MitSpielUmPlatzDrei();
+
+        foreach (var k in halbfinale)
+            e.VorgaengerJeKnoten[k.Id].Should().Be(new KartenVorgaenger(k.LinkerKindKnotenId, k.RechterKindKnotenId));
+    }
+
+    [Fact]
+    public void OhneSpielUmPlatzDrei_SindDieVorgaengerDieKinder()
+    {
+        // AK5: Die Halbfinal-Klammer mündet direkt ins Finale.
+        var (blaetter, mitte, finale) = DreiRunden();
+
+        var e = RundenbaumLayout.Berechnen([Runde(1, blaetter), Runde(2, mitte), Runde(3, [finale])]);
+
+        foreach (var k in blaetter.Concat(mitte).Append(finale))
+            e.VorgaengerJeKnoten[k.Id].Should().Be(new KartenVorgaenger(k.LinkerKindKnotenId, k.RechterKindKnotenId));
+        e.VorgaengerJeKnoten[finale.Id].Should().Be(new KartenVorgaenger(mitte[0].Id, mitte[1].Id));
+    }
+
+    [Fact]
+    public void AltBaumOhneVerknuepfung_SpielUmPlatzDreiOhneVorgaenger_FinaleHaengtTrotzdemDaran()
+    {
+        // AK7: Das Finale hat keine Kinder — es gibt keine Klammer, aber Platz 3 und Finale bleiben verbunden.
+        var halbfinale = new[] { Knoten(), Knoten() };
+        var platzDrei = Knoten();
+        var finale = Knoten();
+
+        var e = RundenbaumLayout.Berechnen(
+            [Runde(1, halbfinale), Runde(2, [platzDrei], platzDrei: true), Runde(3, [finale])]);
+
+        e.VorgaengerJeKnoten[platzDrei.Id].Should().Be(new KartenVorgaenger(null, null));
+        e.VorgaengerJeKnoten[finale.Id].Should().Be(new KartenVorgaenger(platzDrei.Id, null));
     }
 
     [Fact]
@@ -137,6 +201,7 @@ public class RundenbaumLayoutTests
         var e = RundenbaumLayout.Berechnen([]);
 
         e.ZeileJeKnoten.Should().BeEmpty();
+        e.VorgaengerJeKnoten.Should().BeEmpty();
         e.ZeilenAnzahl.Should().Be(0);
     }
 }
